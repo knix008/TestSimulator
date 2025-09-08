@@ -10,93 +10,79 @@ namespace VixAirTest01.APIs
     {
         private readonly HttpClient _httpClient;
         private readonly TextBox _logTextBox;
-        private const string DEVICE_BASE_URL = "https://localhost:8443";
+        private readonly Func<string> _getIPAddress;
 
-        public MacAddressApi(HttpClient httpClient, TextBox logTextBox)
+        public MacAddressApi(HttpClient httpClient, TextBox logTextBox, Func<string> getIPAddress)
         {
             _httpClient = httpClient;
             _logTextBox = logTextBox;
-            
-            // TLS 인증서 검증 우회 (개발 환경용)
-            ConfigureTlsSettings();
-        }
-
-        private void ConfigureTlsSettings()
-        {
-            ServicePointManager.ServerCertificateValidationCallback = 
-                (sender, certificate, chain, sslPolicyErrors) => true;
+            _getIPAddress = getIPAddress;
         }
 
         public async Task GetMacAddressInfoAsync()
         {
             try
             {
-                string endpoint = $"{DEVICE_BASE_URL}/api/v1/system/getmacaddress";
+                string endpoint = $"https://{_getIPAddress()}:8443/api/v1/test/getmacaddress";
                 LogMessage($"MAC 주소 정보 요청: {endpoint}");
 
-                LogMessage("서버 연결 상태 확인 중...");
+                HttpResponseMessage response = await _httpClient.GetAsync(endpoint);
                 
-                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+                if (response.IsSuccessStatusCode)
                 {
-                    HttpResponseMessage response = await _httpClient.GetAsync(endpoint, cts.Token);
-
-                    LogMessage($"응답 상태 코드: {response.StatusCode}");
-                    LogMessage($"응답 헤더: {response.Headers}");
+                    string jsonResponse = await response.Content.ReadAsStringAsync();
+                    LogMessage("MAC 주소 정보 수신 완료");
                     
-                    if (response.IsSuccessStatusCode)
+                    LogMessage("=== 서버 응답 (MAC 주소) ===");
+                    LogMessage(jsonResponse);
+                    
+                    ParseAndDisplayMacInfo(jsonResponse);
+                }
+                else
+                {
+                    LogMessage($"MAC 주소 요청 실패: {response.ReasonPhrase}");
+                    string errorContent = await response.Content.ReadAsStringAsync();
+                    if (!string.IsNullOrEmpty(errorContent))
                     {
-                        string jsonResponse = await response.Content.ReadAsStringAsync();
-                        LogMessage("MAC 주소 정보 수신 완료");
-                        LogMessage("=== 서버 응답 (MAC 주소) ===");
-                        LogMessage(jsonResponse);
-                        
-                        if (!string.IsNullOrWhiteSpace(jsonResponse))
-                        {
-                            ParseAndDisplayMacInfo(jsonResponse);
-                        }
-                        else
-                        {
-                            LogMessage("경고: 서버에서 빈 응답을 받았습니다");
-                        }
-                    }
-                    else
-                    {
-                        string errorContent = await response.Content.ReadAsStringAsync();
-                        LogMessage($"MAC 주소 요청 실패: {(int)response.StatusCode} {response.ReasonPhrase}");
                         LogMessage($"오류 상세: {errorContent}");
                     }
+                    
+                    // HTTP 응답 실패 시 예외 발생
+                    throw new HttpRequestException($"MAC 주소 HTTP 오류: {response.StatusCode} - {response.ReasonPhrase}");
                 }
             }
             catch (HttpRequestException httpEx)
             {
                 LogMessage($"HTTP 통신 오류: {httpEx.Message}");
-                LogMessage("가능한 원인:");
-                LogMessage("- 서버가 실행되지 않음");
-                LogMessage("- 네트워크 연결 문제");
-                LogMessage("- 방화벽 차단");
-                LogMessage("- TLS/SSL 인증서 문제");
-                LogMessage($"- URL 확인: {DEVICE_BASE_URL}");
-            }
-            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
-            {
-                LogMessage("요청 시간 초과 (30초)");
-                LogMessage("서버 응답이 느리거나 연결에 문제가 있습니다");
+                LogMessage("장치 연결을 확인해주세요.");
+                throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
             catch (TaskCanceledException)
             {
                 LogMessage("요청 시간 초과");
+                throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
             catch (Exception ex)
             {
                 LogMessage($"MAC 주소 요청 오류: {ex.Message}");
+                throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
         }
 
-        private void ParseAndDisplayMacInfo(string jsonResponse)
+        private string ParseAndDisplayMacInfo(string jsonResponse)
         {
             LogMessage("파싱된 MAC 주소 정보:");
             LogMessage(jsonResponse);
             LogMessage("==========================================");
+            
+            try
+            {
+                return jsonResponse; // 임시로 전체 응답 반환
+            }
+            catch
+            {
+                return "";
+            }
         }
 
         private void LogMessage(string message)

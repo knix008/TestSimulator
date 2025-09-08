@@ -1,36 +1,284 @@
-using System.Net.Http;
+ï»¿using System.Net.Http;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Text;
 using System.Security.Cryptography.X509Certificates;
 using System.Net;
-using VixAirTest01.APIs; // ¿Ã¹Ù¸¥ ³×ÀÓ½ºÆäÀÌ½º·Î ¼öÁ¤
+using VixAirTest01.APIs;
+using VixReaderTest01.Data;  // ì¶”ê°€
+using Microsoft.VisualBasic;
 
 namespace VixReaderTest01
 {
     public partial class Main : Form
     {
         private readonly HttpClient _httpClient;
-        private readonly CpuInfoApi _cpuInfoApi;
+        private readonly TestResultService _testResultService;  // ì¶”ê°€
+        private int _currentSessionId;  // ì¶”ê°€
+
+        private readonly CpuInfoApi _cpuinfoAPI;
         private readonly MacAddressApi _macAddressApi;
         private readonly SerialNumberApi _serialNumberApi;
+        private readonly ClearSettingApi _clearSettingApi;
+        private readonly RebootApi _rebootApi;
+        private readonly NfcTestApi _nfcTestApi;
+        private readonly AuxinTestApi _auxinTestApi;
+        private readonly DoorLockTestApi _doorLockTestApi;
+        private readonly SelfTestApi _selfTestApi;
+        private readonly BleTestApi _bleTestApi;
+        private readonly LfidTestApi _lfidTestApi;
+        private readonly SensorTestApi _sensorTestApi;
+        private readonly DoorButtonTestApi _doorButtonTestApi;
+        private readonly LedTestApi _ledTestApi;
+        private readonly BuzzerTestApi _buzzerTestApi;
+        private readonly TamperTestApi _tamperTestApi;
+        private readonly NetworkLinkApi _networkLinkApi;
+        private readonly DefaultStateApi _defaultStateApi;
+        private readonly FirmwareApi _firmwareApi;
+
+        // ì‹œë¦¬ì–¼ ë²ˆí˜¸ ë¹„êµë¥¼ ìœ„í•œ í•„ë“œ ì¶”ê°€
+        private string _lastSetSerialNumber = "";
+
+        // IP ì£¼ì†Œ ê´€ë¦¬
+        private string _currentIPAddress = "localhost";
+        public string CurrentIPAddress
+        {
+            get => _currentIPAddress;
+            private set => _currentIPAddress = value;
+        }
+
+        // í†µì‹  ì¸í„°íŽ˜ì´ìŠ¤ ìƒíƒœ ì¶”ê°€
+        public bool IsEthernetMode => EthernetCheckBox?.Checked ?? true;
+        public bool IsSerialMode => SerialCheckBox?.Checked ?? false;
+
+        private bool _isConnected = false;
 
         public Main()
         {
+            // InitializeComponent()ë¥¼ ë¨¼ì € í˜¸ì¶œí•´ì•¼ í•©ë‹ˆë‹¤
             InitializeComponent();
-            _httpClient = CreateSecureHttpClient();
             
-            // API Å¬·¡½º ÀÎ½ºÅÏ½º »ý¼º
-            _cpuInfoApi = new CpuInfoApi(_httpClient, LogTextBox);
-            _macAddressApi = new MacAddressApi(_httpClient, LogTextBox);
-            _serialNumberApi = new SerialNumberApi(_httpClient, LogTextBox);
+            _httpClient = CreateSecureHttpClient();
+            _testResultService = new TestResultService();  // ì¶”ê°€
+
+            // API ì¸ìŠ¤í„´ìŠ¤ë“¤ ìƒì„±
+            _cpuinfoAPI = new CpuInfoApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _macAddressApi = new MacAddressApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _serialNumberApi = new SerialNumberApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _rebootApi = new RebootApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _nfcTestApi = new NfcTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _auxinTestApi = new AuxinTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _doorLockTestApi = new DoorLockTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _selfTestApi = new SelfTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _bleTestApi = new BleTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _lfidTestApi = new LfidTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _sensorTestApi = new SensorTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _doorButtonTestApi = new DoorButtonTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _ledTestApi = new LedTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _buzzerTestApi = new BuzzerTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _tamperTestApi = new TamperTestApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _networkLinkApi = new NetworkLinkApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _defaultStateApi = new DefaultStateApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _clearSettingApi = new ClearSettingApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+            _firmwareApi = new FirmwareApi(_httpClient, LogTextBox, () => CurrentIPAddress);
+
+            // ê¸°ë³¸ê°’ìœ¼ë¡œ Ethernet ëª¨ë“œ ì„¤ì •
+            SetDefaultInterfaceMode();
+
+            // ìƒˆë¡œìš´ í…ŒìŠ¤íŠ¸ ì„¸ì…˜ ì‹œìž‘  // ì¶”ê°€
+            InitializeNewTestSession();
+        }
+
+        // ìƒˆë¡œìš´ í…ŒìŠ¤íŠ¸ ì„¸ì…˜ ì´ˆê¸°í™”  // ì¶”ê°€
+        private async void InitializeNewTestSession()
+        {
+            try
+            {
+                _currentSessionId = await _testResultService.CreateNewTestSessionAsync(CurrentIPAddress);
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ìƒˆë¡œìš´ í…ŒìŠ¤íŠ¸ ì„¸ì…˜ ì‹œìž‘ë¨ (ID: {_currentSessionId})\r\n");
+            }
+            catch (Exception ex)
+            {
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] í…ŒìŠ¤íŠ¸ ì„¸ì…˜ ì´ˆê¸°í™” ì˜¤ë¥˜: {ex.Message}\r\n");
+            }
+        }
+
+        // SaveTestResult ë©”ì„œë“œ ì¶”ê°€/ìˆ˜ì •
+        private async Task SaveTestResult(string testName, string category, string result, string message, string errorMessage = "", string serialNumber = "")
+        {
+            try
+            {
+                // ë°ì´í„°ë² ì´ìŠ¤ì— ì €ìž¥
+                await _testResultService.UpdateTestResultAsync(_currentSessionId, testName, result, errorMessage);
+
+                // ë¡œê·¸ì— ì¶œë ¥
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{testName}] {result} - {message}\r\n");
+
+                if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ì˜¤ë¥˜ ë‚´ìš©: {errorMessage}\r\n");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] í…ŒìŠ¤íŠ¸ ê²°ê³¼ ì €ìž¥ ì‹¤íŒ¨: {ex.Message}\r\n");
+            }
+        }
+
+        // HandleHttpConnectionError ë©”ì„œë“œ ì¶”ê°€
+        private async Task HandleHttpConnectionError(string testName, string category, string errorMessage)
+        {
+            await SaveTestResult(testName, category, "FAIL", "HTTP ì—°ê²° ì˜¤ë¥˜", errorMessage: errorMessage);
+        }
+
+        // IsHttpError ë©”ì„œë“œ ì¶”ê°€
+        private bool IsHttpError(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return false;
+
+            string lowerMessage = message.ToLower();
+            return lowerMessage.Contains("http") ||
+                   lowerMessage.Contains("connection") ||
+                   lowerMessage.Contains("network") ||
+                   lowerMessage.Contains("timeout") ||
+                   lowerMessage.Contains("refused") ||
+                   lowerMessage.Contains("unreachable");
+        }
+
+        // IP ì£¼ì†Œ ë³€ê²½ ì‹œ ìƒˆë¡œìš´ ì„¸ì…˜ ì‹œìž‘  // ìˆ˜ì •
+        private async void IPAddressTextBox_TextChanged(object sender, EventArgs e)
+        {
+            string newIP = IPAddressTextBox.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(newIP))
+            {
+                newIP = "localhost";
+                IPAddressTextBox.Text = newIP;
+            }
+
+            if (CurrentIPAddress != newIP)
+            {
+                CurrentIPAddress = newIP;
+
+                if (!LogTextBox.IsDisposed && !this.IsDisposed)
+                {
+                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ëŒ€ìƒ IP ì£¼ì†Œ ë³€ê²½ë¨: {CurrentIPAddress}\r\n");
+                }
+
+                // IP ì£¼ì†Œê°€ ë³€ê²½ë˜ë©´ ìƒˆë¡œìš´ í…ŒìŠ¤íŠ¸ ì„¸ì…˜ ì‹œìž‘
+                try
+                {
+                    _currentSessionId = await _testResultService.CreateNewTestSessionAsync(CurrentIPAddress);
+                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ìƒˆë¡œìš´ í…ŒìŠ¤íŠ¸ ì„¸ì…˜ ì‹œìž‘ë¨ (ID: {_currentSessionId})\r\n");
+                }
+                catch (Exception ex)
+                {
+                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] í…ŒìŠ¤íŠ¸ ì„¸ì…˜ ì´ˆê¸°í™” ì˜¤ë¥˜: {ex.Message}\r\n");
+                }
+            }
+        }
+
+        // ê¸°ë³¸ ì¸í„°íŽ˜ì´ìŠ¤ ëª¨ë“œ ì„¤ì •
+        private void SetDefaultInterfaceMode()
+        {
+            if (EthernetCheckBox != null)
+                EthernetCheckBox.Checked = true;
+            if (SerialCheckBox != null)
+                SerialCheckBox.Checked = false;
+            if (IPAddressTextBox != null)
+            {
+                IPAddressTextBox.Text = "localhost";
+                CurrentIPAddress = "localhost";
+            }
+        }
+
+        // í†µì‹  ì¸í„°íŽ˜ì´ìŠ¤ í™•ì¸ ë©”ì„œë“œ
+        private bool ValidateInterfaceSelection()
+        {
+            if (!IsEthernetMode && !IsSerialMode)
+            {
+                MessageBox.Show("í†µì‹  ì¸í„°íŽ˜ì´ìŠ¤ë¥¼ ì„ íƒí•´ì£¼ì„¸ìš” (Ethernet ë˜ëŠ” Serial).",
+                              "ì¸í„°íŽ˜ì´ìŠ¤ ì„ íƒ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            if (IsSerialMode)
+            {
+                MessageBox.Show("Serial í†µì‹  ëª¨ë“œëŠ” í˜„ìž¬ ë²„ì „ì—ì„œ ì§€ì›ë˜ì§€ ì•ŠìŠµë‹ˆë‹¤.\nEthernet ëª¨ë“œë¥¼ ì‚¬ìš©í•´ì£¼ì„¸ìš”.",
+                              "ê¸°ëŠ¥ ì œí•œ", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return false;
+            }
+
+            // Ethernet ëª¨ë“œì¼ ë•Œ IP ì£¼ì†Œ ìœ íš¨ì„± ê²€ì‚¬
+            if (IsEthernetMode && string.IsNullOrWhiteSpace(CurrentIPAddress))
+            {
+                MessageBox.Show("Ethernet ëª¨ë“œì—ì„œëŠ” ìœ íš¨í•œ IP ì£¼ì†Œë¥¼ ìž…ë ¥í•´ì£¼ì„¸ìš”.\n(ì˜ˆ: localhost, 192.168.1.100)",
+                              "IP ì£¼ì†Œ ìž…ë ¥", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                IPAddressTextBox?.Focus();
+                return false;
+            }
+
+            return true;
+        }
+
+        // ì²´í¬ë°•ìŠ¤ ì´ë²¤íŠ¸ í•¸ë“¤ëŸ¬ ìˆ˜ì •
+        private void SerialCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            if (SerialCheckBox.Checked)
+            {
+                EthernetCheckBox.Checked = false;
+                IPAddressTextBox.Enabled = false;
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Serial ì¸í„°íŽ˜ì´ìŠ¤ ì„ íƒë¨ (í˜„ìž¬ ì§€ì›ë˜ì§€ ì•ŠìŒ)\r\n");
+
+                // ëª¨ë“  í…ŒìŠ¤íŠ¸ ë²„íŠ¼ ë¹„í™œì„±í™” (Serial ëª¨ë“œëŠ” ì§€ì›ë˜ì§€ ì•ŠìŒ)
+                SetTestButtonsEnabled(false);
+            }
+        }
+
+        private void EthernetCheckBox_CheckedChanged(object sender, EventArgs e)
+        {
+            if (EthernetCheckBox.Checked)
+            {
+                SerialCheckBox.Checked = false;
+                IPAddressTextBox.Enabled = true;
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Ethernet ì¸í„°íŽ˜ì´ìŠ¤ ì„ íƒë¨\r\n");
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ëŒ€ìƒ IP ì£¼ì†Œ: {CurrentIPAddress}\r\n");
+
+                // ëª¨ë“  í…ŒìŠ¤íŠ¸ ë²„íŠ¼ í™œì„±í™”
+                SetTestButtonsEnabled(true);
+            }
+        }
+
+        // í…ŒìŠ¤íŠ¸ ë²„íŠ¼ë“¤ì˜ í™œì„±í™”/ë¹„í™œì„±í™” ìƒíƒœ ì„¤ì •
+        private void SetTestButtonsEnabled(bool enabled)
+        {
+            // ê°œë³„ í…ŒìŠ¤íŠ¸ ë²„íŠ¼ë“¤ì˜ ìƒíƒœë¥¼ ì„¤ì •í•˜ëŠ” ë¡œì§
+            // ì‹¤ì œ ë²„íŠ¼ ì´ë¦„ì— ë”°ë¼ ìˆ˜ì • í•„ìš”
+            try
+            {
+                // ì˜ˆì‹œ: ì‹¤ì œ ë²„íŠ¼ ì´ë¦„ì— ë§žê²Œ ìˆ˜ì •í•˜ì„¸ìš”
+                // BleTestButton.Enabled = enabled;
+                // NfcTestButton.Enabled = enabled;
+                // etc...
+
+                if (!LogTextBox.IsDisposed && !this.IsDisposed)
+                {
+                    string status = enabled ? "í™œì„±í™”" : "ë¹„í™œì„±í™”";
+                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] í…ŒìŠ¤íŠ¸ ë²„íŠ¼ë“¤ì´ {status}ë˜ì—ˆìŠµë‹ˆë‹¤.\r\n");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ë²„íŠ¼ ìƒíƒœ ë³€ê²½ ì˜¤ë¥˜: {ex.Message}\r\n");
+            }
         }
 
         private HttpClient CreateSecureHttpClient()
         {
             var handler = new HttpClientHandler()
             {
-                SslProtocols = SslProtocols.Tls13, // TLS 1.3 °­Á¦ »ç¿ë
+                SslProtocols = SslProtocols.Tls13,
                 ServerCertificateCustomValidationCallback = ValidateServerCertificate
             };
 
@@ -39,37 +287,30 @@ namespace VixReaderTest01
                 Timeout = TimeSpan.FromSeconds(30)
             };
 
-            // ±âº» Çì´õ ¼³Á¤
-            client.DefaultRequestHeaders.Add("User-Agent", "VixAir-TestClient/1.0");
+            client.DefaultRequestHeaders.Add("User-Agent", "VixReader-TestClient/1.0");
             client.DefaultRequestHeaders.Add("Accept", "application/json");
 
             return client;
         }
 
-        // Null Çã¿ë ¸Å°³º¯¼ö·Î ¼öÁ¤
         private bool ValidateServerCertificate(HttpRequestMessage requestMessage, X509Certificate2? certificate, X509Chain? chain, SslPolicyErrors sslErrors)
         {
-            // °³¹ß/Å×½ºÆ® È¯°æ¿¡¼­´Â ÀÚÃ¼ ¼­¸íµÈ ÀÎÁõ¼­ Çã¿ë
-            // ÇÁ·Î´ö¼Ç È¯°æ¿¡¼­´Â ÀûÀýÇÑ ÀÎÁõ¼­ °ËÁõ ·ÎÁ÷ ±¸Çö ÇÊ¿ä
-            
-            // LogTextBox°¡ disposeµÇ¾ú´ÂÁö È®ÀÎ
             if (!LogTextBox.IsDisposed && !this.IsDisposed)
             {
-                LogTextBox.Invoke(() => LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ¼­¹ö ÀÎÁõ¼­ °ËÁõ: {certificate?.Subject}\r\n"));
+                LogTextBox.Invoke(() => LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ì„œë²„ ì¸ì¦ì„œ ê²€ì¦: {certificate?.Subject}\r\n"));
             }
-            
+
             if (sslErrors == SslPolicyErrors.None)
             {
                 return true;
             }
 
-            // ÀÚÃ¼ ¼­¸íµÈ ÀÎÁõ¼­³ª ½Å·ÚÇÒ ¼ö ¾ø´Â CA Çã¿ë (°³¹ß¿ë)
-            if (sslErrors.HasFlag(SslPolicyErrors.RemoteCertificateChainErrors) || 
+            if (sslErrors.HasFlag(SslPolicyErrors.RemoteCertificateChainErrors) ||
                 sslErrors.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch))
             {
                 if (!LogTextBox.IsDisposed && !this.IsDisposed)
                 {
-                    LogTextBox.Invoke(() => LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] °æ°í: ÀÎÁõ¼­ ¿À·ù ¹«½ÃµÊ (°³¹ß ¸ðµå)\r\n"));
+                    LogTextBox.Invoke(() => LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ê²½ê³ : ì¸ì¦ì„œ ì˜¤ë¥˜ ë¬´ì‹œë¨ (ê°œë°œ ëª¨ë“œ)\r\n"));
                 }
                 return true;
             }
@@ -79,148 +320,12 @@ namespace VixReaderTest01
 
         private void Main_Load(object sender, EventArgs e)
         {
-            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] VixAir Test Program ½ÃÀÛ\r\n");
-            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] TLS 1.3 º¸¾È Åë½Å ÁØºñ ¿Ï·á\r\n");
+            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] VixReader Test Program ì‹œìž‘\r\n");
+            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] TLS 1.3 ë³´ì•ˆ í†µì‹  ì¤€ë¹„ ì™„ë£Œ\r\n");
+            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ê¸°ë³¸ í†µì‹  ì¸í„°íŽ˜ì´ìŠ¤: Ethernet\r\n");
+            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ê¸°ë³¸ ëŒ€ìƒ IP ì£¼ì†Œ: {CurrentIPAddress}\r\n");
         }
-
-        // IntellivixLogo Å¬¸¯ ÀÌº¥Æ® ÇÚµé·¯ Ãß°¡
-        private void IntellivixLogo_Click(object sender, EventArgs e)
-        {
-            // ÇÁ·Î±×·¥ Á¤º¸¸¦ ÆË¾÷ Ã¢À¸·Î Ç¥½Ã
-            string programInfo = $"ÇÁ·Î±×·¥¸í: VixAir Test Program\n" +
-                               $"¹öÀü: 1.0.0\n" +
-                               $"°³¹ßÀÚ: Intellivix AI Device Team\n" +
-                               $"ºôµå ³¯Â¥: {DateTime.Now:yyyy-MM-dd}\n" +
-                               $"º¸¾È: TLS 1.3 ¾ÏÈ£È­ Åë½Å";
-
-            MessageBox.Show(programInfo, "ÇÁ·Î±×·¥ Á¤º¸", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
-        // Serial CheckBox Ã¼Å© »óÅÂ º¯°æ ÀÌº¥Æ® ÇÚµé·¯
-        private void SerialCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            if (SerialCheckBox.Checked)
-            {
-                EthernetCheckBox.Checked = false;
-            }
-        }
-
-        // Ethernet CheckBox Ã¼Å© »óÅÂ º¯°æ ÀÌº¥Æ® ÇÚµé·¯
-        private void EthernetCheckBox_CheckedChanged(object sender, EventArgs e)
-        {
-            if (EthernetCheckBox.Checked)
-            {
-                SerialCheckBox.Checked = false;
-            }
-        }
-
-        // CPU Info ¹öÆ° Å¬¸¯ ÀÌº¥Æ® ÇÚµé·¯
-        private async void GetCPUInfo_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (!LogTextBox.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] CPU Á¤º¸ ¿äÃ» ½ÃÀÛ...\r\n");
-                }
-                await _cpuInfoApi.GetCpuInfoAsync();
-            }
-            catch (Exception ex)
-            {
-                if (!LogTextBox.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] CPU Á¤º¸ ¿äÃ» ¿À·ù: {ex.Message}\r\n");
-                }
-            }
-        }
-
-        // MAC Address ¹öÆ° Å¬¸¯ ÀÌº¥Æ® ÇÚµé·¯
-        private async void GetMacAddress_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (!LogTextBox.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAC ÁÖ¼Ò Á¤º¸ ¿äÃ» ½ÃÀÛ...\r\n");
-                }
-                await _macAddressApi.GetMacAddressInfoAsync();
-            }
-            catch (Exception ex)
-            {
-                if (!LogTextBox.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAC ÁÖ¼Ò Á¤º¸ ¿äÃ» ¿À·ù: {ex.Message}\r\n");
-                }
-            }
-        }
-
-        // Get Serial Number ¹öÆ° Å¬¸¯ ÀÌº¥Æ® ÇÚµé·¯
-        private async void GetSerialNumber_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (!LogTextBox.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ½Ã¸®¾ó ¹øÈ£ Á¶È¸ ½ÃÀÛ...\r\n");
-                }
-                await _serialNumberApi.GetSerialNumberAsync();
-            }
-            catch (Exception ex)
-            {
-                if (!LogTextBox.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ½Ã¸®¾ó ¹øÈ£ Á¶È¸ ¿À·ù: {ex.Message}\r\n");
-                }
-            }
-        }
-
-        // Set Serial Number ¹öÆ° Å¬¸¯ ÀÌº¥Æ® ÇÚµé·¯
-        private async void SetSerialNumber_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                // °£´ÜÇÑ ÀÔ·Â ´ÙÀÌ¾ó·Î±× ´ë¾È
-                using (var form = new Form())
-                {
-                    form.Text = "½Ã¸®¾ó ¹øÈ£ ¼³Á¤";
-                    form.Size = new Size(300, 150);
-                    form.StartPosition = FormStartPosition.CenterParent;
-                    
-                    var label = new Label() { Text = "½Ã¸®¾ó ¹øÈ£:", Location = new Point(10, 10) };
-                    var textBox = new TextBox() { Location = new Point(10, 35), Width = 250 };
-                    var okButton = new Button() { Text = "È®ÀÎ", Location = new Point(10, 70), DialogResult = DialogResult.OK };
-                    var cancelButton = new Button() { Text = "Ãë¼Ò", Location = new Point(100, 70), DialogResult = DialogResult.Cancel };
-                    
-                    form.Controls.AddRange(new Control[] { label, textBox, okButton, cancelButton });
-                    form.AcceptButton = okButton;
-                    form.CancelButton = cancelButton;
-                    
-                    if (form.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(textBox.Text))
-                    {
-                        if (!LogTextBox.IsDisposed)
-                        {
-                            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ½Ã¸®¾ó ¹øÈ£ ¼³Á¤ ½ÃÀÛ...\r\n");
-                        }
-                        await _serialNumberApi.SetSerialNumberAsync(textBox.Text);
-                    }
-                    else
-                    {
-                        if (!LogTextBox.IsDisposed)
-                        {
-                            LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ½Ã¸®¾ó ¹øÈ£ ¼³Á¤ÀÌ Ãë¼ÒµÇ¾ú½À´Ï´Ù.\r\n");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                if (!LogTextBox.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ½Ã¸®¾ó ¹øÈ£ ¼³Á¤ ¿À·ù: {ex.Message}\r\n");
-                }
-            }
-        }
-
+        
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -228,6 +333,35 @@ namespace VixReaderTest01
                 _httpClient?.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        // TestResult ë²„íŠ¼ì˜ ìƒ‰ìƒê³¼ í…ìŠ¤íŠ¸ë¥¼ ì—…ë°ì´íŠ¸í•˜ëŠ” ë©”ì„œë“œ
+        private void UpdateTestResultButton(bool isPass, bool isNoConnection = false)
+        {
+            if (TestResult.InvokeRequired)
+            {
+                TestResult.Invoke(() => UpdateTestResultButton(isPass, isNoConnection));
+                return;
+            }
+
+            if (isNoConnection)
+            {
+                TestResult.BackColor = Color.DarkOrange;
+                TestResult.ForeColor = Color.White;
+                TestResult.Text = "NOT READY";
+            }
+            else if (isPass)
+            {
+                TestResult.BackColor = Color.Lime;
+                TestResult.ForeColor = Color.Blue;
+                TestResult.Text = "PASS";
+            }
+            else
+            {
+                TestResult.BackColor = Color.Red;
+                TestResult.ForeColor = Color.White;
+                TestResult.Text = "FAIL";
+            }
         }
     }
 }
