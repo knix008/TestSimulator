@@ -1,46 +1,44 @@
 using System.Net.Http;
-using System.Net.Security;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 namespace VixAirTest01.APIs
 {
-    public class CpuInfoApi
+    public class NetworkLinkApi
     {
         private readonly HttpClient _httpClient;
         private readonly TextBox _logTextBox;
         private readonly Func<string> _getIPAddress;
 
-        public CpuInfoApi(HttpClient httpClient, TextBox logTextBox, Func<string> getIPAddress) 
+        public NetworkLinkApi(HttpClient httpClient, TextBox logTextBox, Func<string> getIPAddress)
         {
             _httpClient = httpClient;
             _logTextBox = logTextBox;
             _getIPAddress = getIPAddress;
         }
 
-        public async Task GetCpuInfoAsync()
+        public async Task CheckNetworkLinkAsync()
         {
             try
             {
-                string endpoint = $"https://{_getIPAddress()}:8443/api/v1/test/cpuinfo";
-                LogMessage($"CPU 정보 요청: {endpoint}");
+                string endpoint = $"https://{_getIPAddress()}:8443/api/v1/test/networklink";
+                LogMessage($"네트워크 링크 확인 요청: {endpoint}");
+                LogMessage("네트워크 연결 상태를 확인합니다...");
 
                 HttpResponseMessage response = await _httpClient.GetAsync(endpoint);
                 
                 if (response.IsSuccessStatusCode)
                 {
                     string jsonResponse = await response.Content.ReadAsStringAsync();
-                    LogMessage("CPU 정보 수신 완료");
+                    LogMessage("네트워크 링크 확인 완료");
                     
-                    // 실제 JSON 데이터 표시
-                    LogMessage("=== 서버 응답 (CPU 정보) ===");
+                    LogMessage("=== 서버 응답 (네트워크 링크) ===");
                     LogMessage(jsonResponse);
                     
-                    ParseAndDisplayCpuInfo(jsonResponse);
+                    ParseAndDisplayNetworkLinkResult(jsonResponse);
                 }
                 else
                 {
-                    LogMessage($"CPU 정보 요청 실패: {response.ReasonPhrase}");
+                    LogMessage($"네트워크 링크 확인 실패: {response.ReasonPhrase}");
                     string errorContent = await response.Content.ReadAsStringAsync();
                     if (!string.IsNullOrEmpty(errorContent))
                     {
@@ -48,30 +46,31 @@ namespace VixAirTest01.APIs
                     }
                     
                     // HTTP 응답 실패 시 예외 발생
-                    throw new HttpRequestException($"CPU 정보 HTTP 오류: {response.StatusCode} - {response.ReasonPhrase}");
+                    throw new HttpRequestException($"네트워크 링크 확인 HTTP 오류: {response.StatusCode} - {response.ReasonPhrase}");
                 }
             }
             catch (HttpRequestException httpEx)
             {
                 LogMessage($"HTTP 통신 오류: {httpEx.Message}");
-                LogMessage("장치 연결을 확인해주세요.");
+                LogMessage("네트워크 연결을 확인해주세요.");
                 throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
             catch (TaskCanceledException)
             {
-                LogMessage("요청 시간 초과");
+                LogMessage("네트워크 링크 확인 요청 시간 초과");
+                LogMessage("네트워크 상태 확인이 지연되고 있습니다.");
                 throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
             catch (Exception ex)
             {
-                LogMessage($"CPU 정보 요청 오류: {ex.Message}");
+                LogMessage($"네트워크 링크 확인 오류: {ex.Message}");
                 throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
         }
 
-        private void ParseAndDisplayCpuInfo(string jsonResponse)
+        private void ParseAndDisplayNetworkLinkResult(string jsonResponse)
         {
-            LogMessage("파싱된 CPU 정보:");
+            LogMessage("네트워크 링크 결과:");
             LogMessage(jsonResponse);
             LogMessage("==========================================");
         }

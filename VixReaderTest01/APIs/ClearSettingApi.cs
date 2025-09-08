@@ -1,46 +1,44 @@
 using System.Net.Http;
-using System.Net.Security;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 namespace VixAirTest01.APIs
 {
-    public class CpuInfoApi
+    public class ClearSettingApi
     {
         private readonly HttpClient _httpClient;
         private readonly TextBox _logTextBox;
         private readonly Func<string> _getIPAddress;
 
-        public CpuInfoApi(HttpClient httpClient, TextBox logTextBox, Func<string> getIPAddress) 
+        public ClearSettingApi(HttpClient httpClient, TextBox logTextBox, Func<string> getIPAddress)
         {
             _httpClient = httpClient;
             _logTextBox = logTextBox;
             _getIPAddress = getIPAddress;
         }
 
-        public async Task GetCpuInfoAsync()
+        public async Task ClearSettingAsync()
         {
             try
             {
-                string endpoint = $"https://{_getIPAddress()}:8443/api/v1/test/cpuinfo";
-                LogMessage($"CPU 정보 요청: {endpoint}");
+                string endpoint = $"https://{_getIPAddress()}:8443/api/v1/test/clearsetting";
+                LogMessage($"설정 초기화 요청: {endpoint}");
 
-                HttpResponseMessage response = await _httpClient.GetAsync(endpoint);
+                HttpResponseMessage response = await _httpClient.PostAsync(endpoint, null);
                 
                 if (response.IsSuccessStatusCode)
                 {
                     string jsonResponse = await response.Content.ReadAsStringAsync();
-                    LogMessage("CPU 정보 수신 완료");
+                    LogMessage("설정 초기화 완료");
                     
-                    // 실제 JSON 데이터 표시
-                    LogMessage("=== 서버 응답 (CPU 정보) ===");
+                    // 원본 JSON 데이터 표시
+                    LogMessage("=== 서버 응답 (설정 초기화) ===");
                     LogMessage(jsonResponse);
                     
-                    ParseAndDisplayCpuInfo(jsonResponse);
+                    ParseAndDisplayClearResult(jsonResponse);
                 }
                 else
                 {
-                    LogMessage($"CPU 정보 요청 실패: {response.ReasonPhrase}");
+                    LogMessage($"설정 초기화 실패: {response.ReasonPhrase}");
                     string errorContent = await response.Content.ReadAsStringAsync();
                     if (!string.IsNullOrEmpty(errorContent))
                     {
@@ -48,7 +46,7 @@ namespace VixAirTest01.APIs
                     }
                     
                     // HTTP 응답 실패 시 예외 발생
-                    throw new HttpRequestException($"CPU 정보 HTTP 오류: {response.StatusCode} - {response.ReasonPhrase}");
+                    throw new HttpRequestException($"설정 초기화 HTTP 오류: {response.StatusCode} - {response.ReasonPhrase}");
                 }
             }
             catch (HttpRequestException httpEx)
@@ -64,14 +62,14 @@ namespace VixAirTest01.APIs
             }
             catch (Exception ex)
             {
-                LogMessage($"CPU 정보 요청 오류: {ex.Message}");
+                LogMessage($"설정 초기화 오류: {ex.Message}");
                 throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
         }
 
-        private void ParseAndDisplayCpuInfo(string jsonResponse)
+        private void ParseAndDisplayClearResult(string jsonResponse)
         {
-            LogMessage("파싱된 CPU 정보:");
+            LogMessage("설정 초기화 결과:");
             LogMessage(jsonResponse);
             LogMessage("==========================================");
         }

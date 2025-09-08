@@ -1,46 +1,44 @@
 using System.Net.Http;
-using System.Net.Security;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 namespace VixAirTest01.APIs
 {
-    public class CpuInfoApi
+    public class BuzzerTestApi
     {
         private readonly HttpClient _httpClient;
         private readonly TextBox _logTextBox;
         private readonly Func<string> _getIPAddress;
 
-        public CpuInfoApi(HttpClient httpClient, TextBox logTextBox, Func<string> getIPAddress) 
+        public BuzzerTestApi(HttpClient httpClient, TextBox logTextBox, Func<string> getIPAddress)
         {
             _httpClient = httpClient;
             _logTextBox = logTextBox;
             _getIPAddress = getIPAddress;
         }
 
-        public async Task GetCpuInfoAsync()
+        public async Task RunBuzzerTestAsync()
         {
             try
             {
-                string endpoint = $"https://{_getIPAddress()}:8443/api/v1/test/cpuinfo";
-                LogMessage($"CPU 정보 요청: {endpoint}");
+                string endpoint = $"https://{_getIPAddress()}:8443/api/v1/test/buzzertest";
+                LogMessage($"부저 테스트 실행 요청: {endpoint}");
+                LogMessage("부저 하드웨어 테스트를 시작합니다...");
 
-                HttpResponseMessage response = await _httpClient.GetAsync(endpoint);
+                HttpResponseMessage response = await _httpClient.PostAsync(endpoint, null);
                 
                 if (response.IsSuccessStatusCode)
                 {
                     string jsonResponse = await response.Content.ReadAsStringAsync();
-                    LogMessage("CPU 정보 수신 완료");
+                    LogMessage("부저 테스트 실행 완료");
                     
-                    // 실제 JSON 데이터 표시
-                    LogMessage("=== 서버 응답 (CPU 정보) ===");
+                    LogMessage("=== 서버 응답 (부저 테스트) ===");
                     LogMessage(jsonResponse);
                     
-                    ParseAndDisplayCpuInfo(jsonResponse);
+                    ParseAndDisplayBuzzerTestResult(jsonResponse);
                 }
                 else
                 {
-                    LogMessage($"CPU 정보 요청 실패: {response.ReasonPhrase}");
+                    LogMessage($"부저 테스트 실행 실패: {response.ReasonPhrase}");
                     string errorContent = await response.Content.ReadAsStringAsync();
                     if (!string.IsNullOrEmpty(errorContent))
                     {
@@ -48,7 +46,7 @@ namespace VixAirTest01.APIs
                     }
                     
                     // HTTP 응답 실패 시 예외 발생
-                    throw new HttpRequestException($"CPU 정보 HTTP 오류: {response.StatusCode} - {response.ReasonPhrase}");
+                    throw new HttpRequestException($"부저 테스트 HTTP 오류: {response.StatusCode} - {response.ReasonPhrase}");
                 }
             }
             catch (HttpRequestException httpEx)
@@ -59,19 +57,20 @@ namespace VixAirTest01.APIs
             }
             catch (TaskCanceledException)
             {
-                LogMessage("요청 시간 초과");
+                LogMessage("부저 테스트 요청 시간 초과");
+                LogMessage("부저 테스트가 완료되는데 시간이 걸릴 수 있습니다.");
                 throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
             catch (Exception ex)
             {
-                LogMessage($"CPU 정보 요청 오류: {ex.Message}");
+                LogMessage($"부저 테스트 실행 오류: {ex.Message}");
                 throw; // 예외를 다시 발생시켜 호출자에게 전달
             }
         }
 
-        private void ParseAndDisplayCpuInfo(string jsonResponse)
+        private void ParseAndDisplayBuzzerTestResult(string jsonResponse)
         {
-            LogMessage("파싱된 CPU 정보:");
+            LogMessage("부저 테스트 결과:");
             LogMessage(jsonResponse);
             LogMessage("==========================================");
         }
