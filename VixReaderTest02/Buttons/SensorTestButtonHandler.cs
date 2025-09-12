@@ -21,7 +21,7 @@ namespace VixReaderTest01
                 }
                 else
                 {
-                    await SaveTestResult("Sensor Test", "Hardware Test", "FAIL", "센서 테스트 실패", "서버가 FAIL을 응답했습니다.");
+                    await SaveTestResult("Sensor Test", "Hardware Test", "FAIL", "센서 테스트 실패");
                     // 테스트 실패 시 TestResult 버튼을 빨간색상태로 설정
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "센서 테스트 실패");
@@ -33,11 +33,12 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("Sensor Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("Sensor Test", "Hardware Test", "FAIL", "센서 테스트 실패", ex.Message);
+                    // ex.Message를 포함하려면 메시지에 추가하여 4개 인수로 전달
+                    await SaveTestResult("Sensor Test", "Hardware Test", "FAIL", $"센서 테스트 실패: {ex.Message}");
                 }
 
                 // 테스트 실패 시 TestResult 버튼을 빨간색상태로 설정

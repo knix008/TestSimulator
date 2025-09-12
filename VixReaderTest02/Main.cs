@@ -7,9 +7,9 @@ using System.Net;
 using System.Net.Sockets;
 using VixAirTest01.APIs;
 using VixReaderTest01.Data;
-using VixReaderTest01.Utils; // OpenSslClient 사용을 위해 추가
+using VixReaderTest01.Utils;
 using Microsoft.VisualBasic;
-using System.Diagnostics; // Process 사용을 위해 추가
+using System.Diagnostics;
 
 namespace VixReaderTest01
 {
@@ -110,15 +110,26 @@ namespace VixReaderTest01
         }
 
         // SaveTestResult 메서드 추가/수정
-        private async Task SaveTestResult(string testName, string category, string result, string message, string errorMessage = "", string? serialNumber = "")
+        private async Task SaveTestResult(string testName, string result, string serverResponse = "", string errorMessage = "")
         {
             try
             {
+                // 테스트 이름을 데이터베이스 컬럼에 매핑
+                string columnName = MapTestNameToColumn(testName);
+                
+                // 서버 응답을 우선적으로 저장, 없으면 결과 저장
+                string valueToSave = !string.IsNullOrEmpty(serverResponse) ? serverResponse : result;
+                
                 // 데이터베이스에 저장
-                await _testResultService.UpdateTestResultAsync(_currentSessionId, testName, result, errorMessage);
+                await _testResultService.UpdateTestResultAsync(_currentSessionId, columnName, valueToSave, errorMessage);
 
                 // 로그에 출력
-                Logger.LogMessage(LogTextBox, $"[{testName}] {result} - {message}");
+                Logger.LogMessage(LogTextBox, $"[{testName}] {result}");
+
+                if (!string.IsNullOrEmpty(serverResponse))
+                {
+                    Logger.LogMessage(LogTextBox, $"서버 응답: {serverResponse}");
+                }
 
                 if (!string.IsNullOrEmpty(errorMessage))
                 {
@@ -131,16 +142,37 @@ namespace VixReaderTest01
             }
         }
 
-        // HandleTlsConnectionError 메서드로 변경
-        private async Task HandleTlsConnectionError(string testName, string category, string errorMessage)
+        // 테스트 이름을 데이터베이스 컬럼에 매핑하는 메서드
+        private string MapTestNameToColumn(string testName)
         {
-            await SaveTestResult(testName, category, "FAIL", "TLS 연결 오류", errorMessage);
+            return testName switch
+            {
+                "GetSerialNumber" or "SetSerialNumber" or "Get Serial Number" or "Set Serial Number" => "SERIAL",
+                "GetFirmwareVersion" or "SetFirmwareVersion" or "Get Firmware Version" or "Set Firmware Version" => "VERSION", 
+                "RebootDevice" or "Reboot Device" or "Device Reboot" => "REBOOT",
+                "BIST" or "SelfTest" or "Self Test" => "BIST",
+                "BLE" or "BleTest" or "BLE Test" => "BLE",
+                "NFC" or "NfcTest" or "NFC Test" => "NFC",
+                "LFID" or "LfidTest" or "LFID Test" => "LFID",
+                "AUXIN" or "AuxinTest" or "AUXIN Test" => "AUXIN",
+                "Sensor" or "SensorTest" or "Sensor Test" => "SENSOR",
+                "DoorLock" or "DoorLockTest" or "DoorLock Test" or "Door Lock Test" => "LOCK",
+                "DoorButton" or "DoorButtonTest" or "DoorButton Test" or "Door Button Test" => "BUTTON",
+                "LED" or "LedTest" or "LED Test" => "LED",
+                "Buzzer" or "BuzzerTest" or "Buzzer Test" => "BUZZER",
+                "Tamper" or "TamperTest" or "Tamper Test" => "TAMPER",
+                "DefaultState" or "SetDefaultState" or "DefaultState Test" or "Default State" => "DEFAULT_STATE",
+                "NetworkLink" or "NetworkLinkTest" or "NetworkLink Test" or "Network Link Test" => "NETWORK",
+                "Clear Setting" or "ClearSetting" => "CLEAR_SETTING",
+                _ => testName // 기본값으로 원래 이름 사용
+            };
         }
 
-        // HandleOpenSslConnectionError 메서드 추가
-        private async Task HandleOpenSslConnectionError(string testName, string category, string errorMessage)
+        // HandleTlsConnectionError 메서드 - 데이터베이스에 저장하지 않도록 수정
+        private void HandleTlsConnectionError(string testName, string errorMessage)
         {
-            await SaveTestResult(testName, category, "FAIL", "OpenSSL 연결 오류", errorMessage);
+            // TLS 연결 오류는 데이터베이스에 저장하지 않고 로그만 출력
+            Logger.LogMessage(LogTextBox, $"[{testName}] TLS 연결 오류 - {errorMessage}");
         }
 
         // IsTlsError 메서드로 변경 (기존 IsOpensslError에서 변경)
@@ -283,7 +315,7 @@ namespace VixReaderTest01
             if (EthernetCheckBox != null)
                 EthernetCheckBox.Checked = true;
             if (SerialCheckBox != null)
-                SerialCheckBox.Checked = false;  // Serial은 항상 false
+                SerialCheckBox.Checked = false;  // Serial은 always false
         }
 
         // Serial과 Ethernet 체크박스의 상호 배타적 선택을 위한 이벤트 핸들러

@@ -20,7 +20,7 @@ namespace VixReaderTest01
                 }
                 else
                 {
-                    await SaveTestResult("Door Lock Test", "Hardware Test", "FAIL", "도어락 테스트 실패", "서버가 FAIL을 응답했습니다.");
+                    await SaveTestResult("Door Lock Test", "Hardware Test", "FAIL", "도어락 테스트 실패");
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "도어락 테스트 실패");
                 }
@@ -31,11 +31,12 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("Door Lock Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("Door Lock Test", "Hardware Test", "FAIL", "도어락 테스트 실패", ex.Message);
+                    // 인수 4개만 전달하도록 수정
+                    await SaveTestResult("Door Lock Test", "Hardware Test", "FAIL", $"도어락 테스트 실패: {ex.Message}");
                 }
 
                 UpdateTestResultButton(false);

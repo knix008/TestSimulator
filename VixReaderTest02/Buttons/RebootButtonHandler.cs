@@ -43,7 +43,8 @@
                     ConnectButton.Text = "연결...";
                     ConnectButton.BackColor = Color.Red;
 
-                    await SaveTestResult("Device Reboot", "System Control", "PASS", "디바이스 리부트 완료");
+                    // PASS만 데이터베이스에 저장
+                    await SaveTestResult("Device Reboot", "PASS");
                     
                     // 🔧 리부트 성공 시 연결이 끊어지므로 TestResult 버튼을 "준비" 상태로 설정
                     SetTestResultReady();
@@ -69,11 +70,12 @@
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("Device Reboot", "System Control", ex.Message);
+                    HandleTlsConnectionError("Device Reboot", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("Device Reboot", "System Control", "FAIL", "디바이스 리부트 실패", ex.Message);
+                    // FAIL만 데이터베이스에 저장 (오류 메시지는 저장하지 않음)
+                    await SaveTestResult("Device Reboot", "FAIL");
                 }
 
                 // 실패 시 TestResult 버튼을 빨간색상태로 변경

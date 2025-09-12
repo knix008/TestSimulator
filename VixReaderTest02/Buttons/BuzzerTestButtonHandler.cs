@@ -14,13 +14,14 @@ namespace VixReaderTest01
 
                 if (testResult)
                 {
-                    await SaveTestResult("Buzzer Test", "Hardware Test", "PASS", "부저 테스트 완료");
+                    await SaveTestResult("Buzzer", "Hardware Test", "PASS", "부저 테스트 완료");
                     UpdateTestResultButton(true);
                     Logger.LogMessage(LogTextBox, "부저 테스트 성공적으로 완료됨");
                 }
                 else
                 {
-                    await SaveTestResult("Buzzer Test", "Hardware Test", "FAIL", "부저 테스트 실패", "서버가 FAIL을 응답했습니다.");
+                    await SaveTestResult("Buzzer", "Hardware Test", "FAIL", "부저 테스트 실패");
+                    Logger.LogMessage(LogTextBox, "서버가 FAIL을 응답했습니다.");
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "부저 테스트 실패");
                 }
@@ -31,11 +32,11 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("Buzzer Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("Buzzer Test", "Hardware Test", "FAIL", "부저 테스트 실패", ex.Message);
+                    await SaveTestResult("Buzzer", "Hardware Test", "FAIL", $"부저 테스트 실패: {ex.Message}");
                 }
 
                 UpdateTestResultButton(false);

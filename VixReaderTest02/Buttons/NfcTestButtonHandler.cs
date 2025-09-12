@@ -20,7 +20,7 @@ namespace VixReaderTest01
                 }
                 else
                 {
-                    await SaveTestResult("NFC Test", "Hardware Test", "FAIL", "NFC 테스트 실패", "서버가 FAIL을 응답했습니다.");
+                    await SaveTestResult("NFC Test", "Hardware Test", "FAIL", "NFC 테스트 실패");
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "NFC 테스트 실패");
                 }
@@ -31,11 +31,11 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("NFC Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("NFC Test", "Hardware Test", "FAIL", "NFC 테스트 실패", ex.Message);
+                    await SaveTestResult("NFC Test", "Hardware Test", "FAIL", $"NFC 테스트 실패: {ex.Message}");
                 }
 
                 UpdateTestResultButton(false);

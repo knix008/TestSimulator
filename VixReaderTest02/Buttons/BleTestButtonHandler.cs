@@ -10,17 +10,19 @@ namespace VixReaderTest01
             {
                 Logger.LogMessage(LogTextBox, "BLE 테스트 시작...");
 
+                // API에서 서버 응답을 포함하여 결과 받기
                 bool testResult = await _bleTestApi.RunBleTestAsync();
+                string serverResponse = "";
 
                 if (testResult)
                 {
-                    await SaveTestResult("BLE Test", "Hardware Test", "PASS", "BLE 테스트 완료");
+                    await SaveTestResult("BLE", "PASS", serverResponse, "");
                     UpdateTestResultButton(true);
                     Logger.LogMessage(LogTextBox, "BLE 테스트 성공적으로 완료됨");
                 }
                 else
                 {
-                    await SaveTestResult("BLE Test", "Hardware Test", "FAIL", "BLE 테스트 실패", "서버가 FAIL을 응답했습니다.");
+                    await SaveTestResult("BLE", "FAIL", serverResponse, "서버에서 실패 응답을 받았습니다.");
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "BLE 테스트 실패");
                 }
@@ -31,11 +33,11 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("BLE Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("BLE", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("BLE Test", "Hardware Test", "FAIL", "BLE 테스트 실패", ex.Message);
+                    await SaveTestResult("BLE", "FAIL", "", ex.Message);
                 }
 
                 UpdateTestResultButton(false);

@@ -13,14 +13,12 @@ namespace VixReaderTest01
                 // AT+SERIAL? 명령으로 시리얼 번호 조회
                 string serialNumber = await _serialNumberApi.GetSerialNumberAsync();
 
-                await SaveTestResult("Get Serial Number", "System Info", "PASS", "시리얼 번호 조회 완료", serialNumber: serialNumber);
+                // 성공 시 조회한 시리얼 번호만 DB에 저장
+                await SaveTestResult("Get Serial Number", serialNumber);
 
-                // 성공 시 TestResult 버튼을 초록색상태로 설정
                 UpdateTestResultButton(true);
-
                 Logger.LogMessage(LogTextBox, $"시리얼 번호 조회 성공: {serialNumber}");
 
-                // 시리얼 번호를 팝업으로 표시
                 MessageBox.Show($"현재 시리얼 번호: {serialNumber}", 
                                "시리얼 번호 조회 성공", 
                                MessageBoxButtons.OK, 
@@ -28,25 +26,19 @@ namespace VixReaderTest01
             }
             catch (Exception ex)
             {
-                Logger.LogMessage(LogTextBox, $"시리얼 번호 조회 실패: {ex.Message}");
+                Logger.LogMessage(LogTextBox, $"시리얼 번호 조회 오류: {ex.Message}");
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("Get Serial Number", "System Info", ex.Message);
+                    HandleTlsConnectionError("Get Serial Number", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("Get Serial Number", "System Info", "FAIL", "시리얼 번호 조회 실패", ex.Message);
+                    // 실패 시 "FAIL"만 DB에 저장
+                    await SaveTestResult("Get Serial Number", "FAIL");
                 }
 
-                // 실패 시 TestResult 버튼을 빨간색상태로 설정
                 UpdateTestResultButton(false);
-
-                // 실패 시 사용자에게 오류 메시지 표시
-                MessageBox.Show($"시리얼 번호 조회에 실패했습니다.\n\n오류: {ex.Message}", 
-                               "시리얼 번호 조회 실패", 
-                               MessageBoxButtons.OK, 
-                               MessageBoxIcon.Error);
             }
         }
     }

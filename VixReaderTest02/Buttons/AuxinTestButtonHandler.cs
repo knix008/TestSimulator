@@ -14,13 +14,15 @@ namespace VixReaderTest01
 
                 if (testResult)
                 {
-                    await SaveTestResult("AUXIN Test", "Hardware Test", "PASS", "AUXIN 테스트 완료");
+                    // PASS만 데이터베이스에 저장
+                    await SaveTestResult("AUXIN", "PASS");
                     UpdateTestResultButton(true);
                     Logger.LogMessage(LogTextBox, "AUXIN 테스트 성공적으로 완료됨");
                 }
                 else
                 {
-                    await SaveTestResult("AUXIN Test", "Hardware Test", "FAIL", "AUXIN 테스트 실패", "서버가 FAIL을 응답했습니다.");
+                    // FAIL만 데이터베이스에 저장
+                    await SaveTestResult("AUXIN", "FAIL");
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "AUXIN 테스트 실패");
                 }
@@ -31,11 +33,12 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("AUXIN Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("AUXIN", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("AUXIN Test", "Hardware Test", "FAIL", "AUXIN 테스트 실패", ex.Message);
+                    // FAIL만 데이터베이스에 저장 (오류 메시지는 저장하지 않음)
+                    await SaveTestResult("AUXIN", "FAIL");
                 }
 
                 UpdateTestResultButton(false);
