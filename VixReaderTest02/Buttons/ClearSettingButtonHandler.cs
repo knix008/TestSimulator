@@ -13,7 +13,8 @@ namespace VixReaderTest01
 
                 await _clearSettingApi.ClearAllSettingsAsync();
 
-                await SaveTestResult("Clear Setting", "System Control", "PASS", "설정 지우기 완료");
+                // PASS만 데이터베이스에 저장
+                await SaveTestResult("Clear Setting", "PASS");
 
                 // 성공 시 TestResult 버튼을 초록색으로 설정
                 UpdateTestResultButton(true);
@@ -32,11 +33,12 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("Clear Setting", "System Control", ex.Message);
+                    HandleTlsConnectionError("Clear Setting", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("Clear Setting", "System Control", "FAIL", "설정 지우기 실패", ex.Message);
+                    // FAIL만 데이터베이스에 저장 (오류 메시지는 저장하지 않음)
+                    await SaveTestResult("Clear Setting", "FAIL");
                 }
 
                 // 실패 시 TestResult 버튼을 빨간색으로 설정

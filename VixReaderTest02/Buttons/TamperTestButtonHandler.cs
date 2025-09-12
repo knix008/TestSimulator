@@ -20,8 +20,7 @@ namespace VixReaderTest01
                 }
                 else
                 {
-                    await SaveTestResult("Tamper Test", "Hardware Test", "FAIL", "템퍼 테스트 실패", "서버가 FAIL을 응답했습니다.");
-                    UpdateTestResultButton(false);
+                    await SaveTestResult("Tamper Test", "Hardware Test", "FAIL", "템퍼 테스트 실패");
                     Logger.LogMessage(LogTextBox, "템퍼 테스트 실패");
                 }
             }
@@ -31,11 +30,11 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("Tamper Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("Tamper Test", "Hardware Test", "FAIL", "템퍼 테스트 실패", ex.Message);
+                    await SaveTestResult("Tamper Test", "Hardware Test", "FAIL", "템퍼 테스트 실패" /*, ex.Message*/);
                 }
 
                 UpdateTestResultButton(false);

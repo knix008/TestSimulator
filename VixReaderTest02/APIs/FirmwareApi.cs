@@ -17,7 +17,7 @@ namespace VixAirTest01.APIs
             _getIPAddress = getIPAddress;
         }
 
-        public async Task GetFirmwareVersionAsync()
+        public async Task<string> GetFirmwareVersionAsync()
         {
             try
             {
@@ -53,6 +53,9 @@ namespace VixAirTest01.APIs
                     // 원본 응답 표시
                     LogMessage("=== 펌웨어 버전 정보 ===");
                     ParseAndDisplayFirmwareVersion(response);
+                    
+                    // 실제 펌웨어 버전 반환
+                    return response.Trim();
                 }
             }
             catch (InvalidOperationException tlsEx)

@@ -127,9 +127,108 @@ namespace VixReaderTest01.Utils
             catch (Exception ex)
             {
                 Logger.LogMessage(_logTextBox, $"TLS 연결 실패: {ex.Message}");
+                
+                // 🔧 서버 연결 실패 팝업 표시
+                ShowConnectionFailurePopup(ex);
+                
                 await DisconnectAsync();
                 throw;
             }
+        }
+
+        // 🔧 서버 연결 실패 팝업 표시 메서드
+        private void ShowConnectionFailurePopup(Exception ex)
+        {
+            try
+            {
+                // UI 스레드에서 실행되도록 보장
+                if (_logTextBox.InvokeRequired)
+                {
+                    _logTextBox.Invoke(() => ShowConnectionFailurePopup(ex));
+                    return;
+                }
+
+                string errorType = GetConnectionErrorType(ex);
+                string troubleshooting = GetTroubleshootingSteps(ex);
+
+                MessageBox.Show(
+                    $"서버 연결에 실패했습니다.\n\n" +
+                    $"🔌 서버 주소: {_serverAddress}:{_port}\n" +
+                    $"❌ 오류 유형: {errorType}\n\n" +
+                    $"상세 오류:\n{ex.Message}\n\n" +
+                    $"해결 방법:\n{troubleshooting}",
+                    "서버 연결 실패",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
+            catch (Exception popupEx)
+            {
+                // 팝업 표시 중 오류가 발생해도 로그만 남기고 계속 진행
+                Logger.LogMessage(_logTextBox, $"연결 실패 팝업 표시 중 오류: {popupEx.Message}");
+            }
+        }
+
+        // 🔧 연결 오류 유형 분석
+        private string GetConnectionErrorType(Exception ex)
+        {
+            return ex switch
+            {
+                SocketException socketEx => socketEx.SocketErrorCode switch
+                {
+                    SocketError.ConnectionRefused => "연결 거부",
+                    SocketError.TimedOut => "연결 타임아웃",
+                    SocketError.HostNotFound => "호스트를 찾을 수 없음",
+                    SocketError.NetworkUnreachable => "네트워크에 연결할 수 없음",
+                    SocketError.ConnectionReset => "연결이 재설정됨",
+                    _ => $"소켓 오류 ({socketEx.SocketErrorCode})"
+                },
+                AuthenticationException => "TLS 인증 실패",
+                TimeoutException => "응답 타임아웃",
+                InvalidOperationException => "프로토콜 오류",
+                _ => "알 수 없는 오류"
+            };
+        }
+
+        // 🔧 문제 해결 단계 제공
+        private string GetTroubleshootingSteps(Exception ex)
+        {
+            return ex switch
+            {
+                SocketException socketEx => socketEx.SocketErrorCode switch
+                {
+                    SocketError.ConnectionRefused => 
+                        "• 서버가 실행 중인지 확인\n" +
+                        "• 포트 번호가 올바른지 확인\n" +
+                        "• 방화벽 설정 확인",
+                    SocketError.TimedOut => 
+                        "• 네트워크 연결 상태 확인\n" +
+                        "• 서버 응답 시간 확인\n" +
+                        "• 잠시 후 다시 시도",
+                    SocketError.HostNotFound => 
+                        "• IP 주소가 올바른지 확인\n" +
+                        "• DNS 설정 확인\n" +
+                        "• 네트워크 연결 확인",
+                    SocketError.NetworkUnreachable => 
+                        "• 네트워크 케이블 연결 확인\n" +
+                        "• 라우터/스위치 상태 확인\n" +
+                        "• IP 설정 확인",
+                    _ => "• 네트워크 설정 확인\n• 서버 상태 확인\n• 잠시 후 재시도"
+                },
+                AuthenticationException => 
+                    "• TLS 인증서 설정 확인\n" +
+                    "• 서버 보안 설정 확인\n" +
+                    "• 지원되는 TLS 버전 확인",
+                TimeoutException => 
+                    "• 서버 응답 확인\n" +
+                    "• 네트워크 속도 확인\n" +
+                    "• 잠시 후 다시 시도",
+                InvalidOperationException => 
+                    "• 서버 프로토콜 확인\n" +
+                    "• AT 명령 지원 여부 확인\n" +
+                    "• 서버 로그 확인",
+                _ => "• 네트워크 연결 확인\n• 서버 상태 확인\n• 관리자에게 문의"
+            };
         }
 
         // 🔧 일반 AT 명령 전송 - 연결된 상태에서만 사용 (다른 버튼들용)

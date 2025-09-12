@@ -12,17 +12,11 @@ namespace VixReaderTest01
                 }
 
                 await _macAddressApi.GetMacAddressInfoAsync();
-                string macAddress = ""; // 필요하다면, GetMacAddressInfoAsync의 반환값을 활용하도록 MacAddressApi를 수정해야 합니다.
 
-                await SaveTestResult("MAC Address", "System Info", "PASS", "MAC 주소 조회 완료", serialNumber: macAddress);
+                await SaveTestResult("MAC Address", "System Info", "PASS", "MAC 주소 조회 완료");
 
                 // 성공 시 TestResult 버튼을 초록색으로 설정
                 UpdateTestResultButton(true);
-
-                if (!LogTextBox.IsDisposed && !this.IsDisposed)
-                {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAC 주소 조회 완료: {macAddress}\r\n");
-                }
             }
             catch (Exception ex)
             {
@@ -33,11 +27,12 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("MAC Address", "System Info", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("MAC Address", "System Info", "FAIL", "MAC 주소 조회 실패", ex.Message);
+                    // 인수 4개로 변경
+                    await SaveTestResult("MAC Address", "System Info", "FAIL", $"MAC 주소 조회 실패: {ex.Message}");
                 }
 
                 // 실패 시 TestResult 버튼을 빨간색으로 설정

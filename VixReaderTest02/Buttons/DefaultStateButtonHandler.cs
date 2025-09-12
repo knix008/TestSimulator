@@ -14,13 +14,15 @@ namespace VixReaderTest01
 
                 if (testResult)
                 {
-                    await SaveTestResult("Default State", "System Control", "PASS", "상태 초기화 완료");
+                    // PASS만 데이터베이스에 저장
+                    await SaveTestResult("DefaultState", "PASS");
                     UpdateTestResultButton(true);
                     Logger.LogMessage(LogTextBox, "상태 초기화가 성공적으로 완료됨");
                 }
                 else
                 {
-                    await SaveTestResult("Default State", "System Control", "FAIL", "상태 초기화 실패", "서버가 FAIL을 응답했습니다.");
+                    // FAIL만 데이터베이스에 저장
+                    await SaveTestResult("DefaultState", "FAIL");
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "상태 초기화 실패");
                 }
@@ -43,13 +45,14 @@ namespace VixReaderTest01
                     
                     Logger.LogMessage(LogTextBox, "🔌 연결 오류로 인해 TestResult 버튼이 '준비' 상태로 변경되었습니다.");
                     
-                    await HandleOpenSslConnectionError("Default State", "System Control", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
                     // 실패 시 TestResult 버튼을 빨간색으로 설정
                     UpdateTestResultButton(false);
-                    await SaveTestResult("Default State", "System Control", "FAIL", "상태 초기화 실패", ex.Message);
+                    // FAIL만 데이터베이스에 저장 (오류 메시지는 저장하지 않음)
+                    await SaveTestResult("DefaultState", "FAIL");
                 }
             }
         }

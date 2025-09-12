@@ -10,17 +10,20 @@ namespace VixReaderTest01
             {
                 Logger.LogMessage(LogTextBox, "LED 테스트 시작...");
 
+                // 기존: var (testResult, serverResponse) = await _ledTestApi.RunLedTestWithResponseAsync();
+                // LedTestApi에 RunLedTestWithResponseAsync가 없으므로, RunLedTestAsync만 사용
                 bool testResult = await _ledTestApi.RunLedTestAsync();
+                string serverResponse = ""; // 서버 응답이 필요하다면 LedTestApi에 해당 기능 추가 필요
 
                 if (testResult)
                 {
-                    await SaveTestResult("LED Test", "Hardware Test", "PASS", "LED 테스트 완료");
+                    await SaveTestResult("LED Test", "PASS", serverResponse);
                     UpdateTestResultButton(true);
                     Logger.LogMessage(LogTextBox, "LED 테스트 성공적으로 완료됨");
                 }
                 else
                 {
-                    await SaveTestResult("LED Test", "Hardware Test", "FAIL", "LED 테스트 실패", "서버가 FAIL을 응답했습니다.");
+                    await SaveTestResult("LED Test", "FAIL", serverResponse);
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "LED 테스트 실패");
                 }
@@ -31,11 +34,11 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleOpenSslConnectionError("LED Test", "Hardware Test", ex.Message);
+                    HandleTlsConnectionError("LED Test", ex.Message);
                 }
                 else
                 {
-                    await SaveTestResult("LED Test", "Hardware Test", "FAIL", "LED 테스트 실패", ex.Message);
+                    await SaveTestResult("LED Test", "FAIL", "", ex.Message);
                 }
 
                 UpdateTestResultButton(false);

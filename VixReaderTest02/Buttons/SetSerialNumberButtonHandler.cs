@@ -53,7 +53,8 @@ namespace VixReaderTest01
                 _lastSetSerialNumber = fullSerialNumber;
                 Logger.LogMessage(LogTextBox, $"📝 다음 자동 증가를 위해 저장된 시리얼 번호: {_lastSetSerialNumber}");
 
-                await SaveTestResult("Set Serial Number", "System Control", "PASS", "시리얼 번호 설정 완료", serialNumber: fullSerialNumber);
+                // 성공 시 설정한 시리얼 번호만 DB에 저장
+                await SaveTestResult("Set Serial Number", fullSerialNumber);
 
                 // 성공 시 TestResult 버튼을 초록색으로 설정
                 UpdateTestResultButton(true);
@@ -67,12 +68,12 @@ namespace VixReaderTest01
                 // TLS 연결오류 확인하고 적절히 처리
                 if (IsTlsError(ex.Message))
                 {
-                    await HandleTlsConnectionError("Set Serial Number", "System Control", ex.Message);
+                    HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    // 일반적인 오류는 단순히 로그만 남기고 데이터베이스에 저장
-                    await SaveTestResult("Set Serial Number", "System Control", "FAIL", "시리얼 번호 설정 실패", ex.Message);
+                    // 실패 시 "FAIL"만 DB에 저장
+                    await SaveTestResult("Set Serial Number", "FAIL");
                 }
 
                 // 실패 시 TestResult 버튼을 빨간색으로 설정
