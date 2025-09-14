@@ -12,27 +12,74 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -O2")
 endif()
 
+# 헤더 파일 디렉토리 추가
+include_directories(include)
+
 # 헤더 파일
 set(HEADERS
-    scheduler.h
+    include/scheduler.h
+    include/semaphore.h
+    include/event.h
+    include/signal.h
+    include/message_queue.h
 )
 
 # 소스 파일
 set(SOURCES
-    scheduler.cpp
+    source/scheduler.cpp
+    source/semaphore.cpp
+    source/event.cpp
+    source/signal.cpp
+    source/message_queue.cpp
 )
 
 # 라이브러리 생성
 add_library(scheduler ${SOURCES} ${HEADERS})
 
-# 테스트 실행 파일
-add_executable(test_scheduler test_scheduler.cpp)
+# 분리된 테스트 파일들
+set(TEST_SOURCES
+    test/test_runner.cpp
+    test/test_basic.cpp
+    test/test_semaphore.cpp
+    test/test_event.cpp
+    test/test_signal.cpp
+    test/test_message_queue.cpp
+    test/test_sync_management.cpp
+)
+
+# 통합 테스트 실행 파일
+add_executable(test_scheduler ${TEST_SOURCES})
 target_link_libraries(test_scheduler scheduler)
 
-# 예제 실행 파일
-add_executable(example_scheduler example_scheduler.cpp)
-target_link_libraries(example_scheduler scheduler)
+# 개별 테스트 실행 파일들
+add_executable(test_basic test/main_basic.cpp test/test_basic.cpp)
+target_link_libraries(test_basic scheduler)
+
+add_executable(test_semaphore test/main_semaphore.cpp test/test_semaphore.cpp)
+target_link_libraries(test_semaphore scheduler)
+
+add_executable(test_event test/main_event.cpp test/test_event.cpp)
+target_link_libraries(test_event scheduler)
+
+add_executable(test_signal test/main_signal.cpp test/test_signal.cpp)
+target_link_libraries(test_signal scheduler)
+
+add_executable(test_message_queue test/main_message_queue.cpp test/test_message_queue.cpp)
+target_link_libraries(test_message_queue scheduler)
+
+add_executable(test_sync_management test/main_sync_management.cpp test/test_sync_management.cpp)
+target_link_libraries(test_sync_management scheduler)
+
+# 예제 실행 파일 (main.cpp를 example_scheduler로 사용)
+add_executable(main main.cpp)
+target_link_libraries(main scheduler)
 
 # 테스트 실행
 enable_testing()
-add_test(NAME scheduler_tests COMMAND test_scheduler)
+add_test(NAME run_test COMMAND test_scheduler)
+add_test(NAME test_basic COMMAND test_basic)
+add_test(NAME test_semaphore COMMAND test_semaphore)
+add_test(NAME test_event COMMAND test_event)
+add_test(NAME test_signal COMMAND test_signal)
+add_test(NAME test_message_queue COMMAND test_message_queue)
+add_test(NAME test_sync_management COMMAND test_sync_management)
