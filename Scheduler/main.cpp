@@ -1,4 +1,8 @@
 #include "scheduler.h"
+#include "semaphore.h"
+#include "event.h"
+#include "signal.h"
+#include "message_queue.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -130,37 +134,41 @@ int main() {
     std::cout << "==========================================" << std::endl;
     
     PriorityScheduler sync_scheduler;
+    SemaphoreManager sem_manager;
+    EventManager event_manager;
+    SignalManager signal_manager;
+    MessageQueueManager mq_manager;
     
     // 1. Semaphore example - resource sharing
     std::cout << "\n1. Semaphore Example - Resource Sharing" << std::endl;
     std::cout << "----------------------------------------" << std::endl;
     
-    uint32_t resource_sem = SemaphoreManager::create_semaphore(&sync_scheduler, 2); // 2 resources available
-    std::cout << "Created resource semaphore with count: " << SemaphoreManager::semaphore_get_count(&sync_scheduler, resource_sem) << std::endl;
+    uint32_t resource_sem = sem_manager.create_semaphore(2); // 2 resources available
+    std::cout << "Created resource semaphore with count: " << sem_manager.semaphore_get_count(resource_sem) << std::endl;
     
     // Resource acquisition simulation
     sync_scheduler.create_task(3);
     auto task1 = sync_scheduler.get_next_task();
     sync_scheduler.set_current_task(task1);
     
-    std::cout << "Task " << task1->id << " requesting resource..." << std::endl;
-    if (SemaphoreManager::semaphore_wait(&sync_scheduler, resource_sem, 1000)) {
-        std::cout << "Task " << task1->id << " acquired resource. Remaining: " 
-                  << SemaphoreManager::semaphore_get_count(&sync_scheduler, resource_sem) << std::endl;
+    std::cout << "Task " << task1->get_id() << " requesting resource..." << std::endl;
+    if (sem_manager.semaphore_wait(resource_sem, 1000)) {
+        std::cout << "Task " << task1->get_id() << " acquired resource. Remaining: " 
+                  << sem_manager.semaphore_get_count(resource_sem) << std::endl;
         
         // Resource usage simulation
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
         
-        SemaphoreManager::semaphore_post(&sync_scheduler, resource_sem);
-        std::cout << "Task " << task1->id << " released resource. Available: " 
-                  << SemaphoreManager::semaphore_get_count(&sync_scheduler, resource_sem) << std::endl;
+        sem_manager.semaphore_post(resource_sem);
+        std::cout << "Task " << task1->get_id() << " released resource. Available: " 
+                  << sem_manager.semaphore_get_count(resource_sem) << std::endl;
     }
     
     // 2. Event example - task communication
     std::cout << "\n2. Event Example - Task Communication" << std::endl;
     std::cout << "--------------------------------------" << std::endl;
     
-    uint32_t comm_event = EventManager::create_event(&sync_scheduler);
+    uint32_t comm_event = event_manager.create_event();
     std::cout << "Created communication event" << std::endl;
     
     // Event bit definitions
@@ -168,48 +176,48 @@ int main() {
     const uint32_t PROCESSING_DONE = 0x02;
     
     // Set data ready event
-    EventManager::event_set(&sync_scheduler, comm_event, DATA_READY);
+    event_manager.event_set(comm_event, DATA_READY);
     std::cout << "Data ready event set. Event bits: 0x" << std::hex 
-              << EventManager::event_get_bits(&sync_scheduler, comm_event) << std::dec << std::endl;
+              << event_manager.event_get_bits(comm_event) << std::dec << std::endl;
     
     sync_scheduler.create_task(4);
     auto task2 = sync_scheduler.get_next_task();
     sync_scheduler.set_current_task(task2);
     
-    std::cout << "Task " << task2->id << " waiting for data ready event..." << std::endl;
-    if (EventManager::event_wait(&sync_scheduler, comm_event, DATA_READY, true, 1000)) {
-        std::cout << "Task " << task2->id << " received data ready event" << std::endl;
+    std::cout << "Task " << task2->get_id() << " waiting for data ready event..." << std::endl;
+    if (event_manager.event_wait(comm_event, DATA_READY, true, 1000)) {
+        std::cout << "Task " << task2->get_id() << " received data ready event" << std::endl;
         std::cout << "Processing data..." << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         
         // Set processing done event
-        EventManager::event_set(&sync_scheduler, comm_event, PROCESSING_DONE);
+        event_manager.event_set(comm_event, PROCESSING_DONE);
         std::cout << "Processing done event set. Event bits: 0x" << std::hex 
-                  << EventManager::event_get_bits(&sync_scheduler, comm_event) << std::dec << std::endl;
+                  << event_manager.event_get_bits(comm_event) << std::dec << std::endl;
     }
     
     // 3. Signal example - simple notification
     std::cout << "\n3. Signal Example - Simple Notification" << std::endl;
     std::cout << "----------------------------------------" << std::endl;
     
-    uint32_t notification_signal = SignalManager::create_signal(&sync_scheduler);
+    uint32_t notification_signal = signal_manager.create_signal();
     std::cout << "Created notification signal" << std::endl;
     
     sync_scheduler.create_task(6);
     auto task3 = sync_scheduler.get_next_task();
     sync_scheduler.set_current_task(task3);
     
-    std::cout << "Task " << task3->id << " waiting for notification..." << std::endl;
+    std::cout << "Task " << task3->get_id() << " waiting for notification..." << std::endl;
     
     // Send signal from separate thread
     std::thread signal_sender([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
         std::cout << "Sending notification signal..." << std::endl;
-        SignalManager::signal_send(&sync_scheduler, notification_signal);
+        signal_manager.signal_send(notification_signal);
     });
     
-    if (SignalManager::signal_wait(&sync_scheduler, notification_signal, 2000)) {
-        std::cout << "Task " << task3->id << " received notification signal!" << std::endl;
+    if (signal_manager.signal_wait(notification_signal, 2000)) {
+        std::cout << "Task " << task3->get_id() << " received notification signal!" << std::endl;
     }
     
     signal_sender.join();
@@ -218,8 +226,8 @@ int main() {
     std::cout << "\n4. Message Queue Example - Task Communication" << std::endl;
     std::cout << "-----------------------------------------------" << std::endl;
     
-    uint32_t msg_queue = MessageQueueManager::create_message_queue(&sync_scheduler, 10); // max 10 messages
-    std::cout << "Created message queue with max size: " << MessageQueueManager::message_queue_get_max_size(&sync_scheduler, msg_queue) << std::endl;
+    uint32_t msg_queue = mq_manager.create_message_queue(10); // max 10 messages
+    std::cout << "Created message queue with max size: " << mq_manager.message_queue_get_max_size(msg_queue) << std::endl;
     
     sync_scheduler.create_task(7);
     auto task4 = sync_scheduler.get_next_task();
@@ -227,33 +235,33 @@ int main() {
     
     // Send messages
     std::cout << "Sending messages..." << std::endl;
-    assert(MessageQueueManager::message_queue_send(&sync_scheduler, msg_queue, 1, "Hello from Task", 1000));
-    assert(MessageQueueManager::message_queue_send(&sync_scheduler, msg_queue, 2, "Message Queue Test", 1000));
-    assert(MessageQueueManager::message_queue_send(&sync_scheduler, msg_queue, 3, "RTOS Communication", 1000));
+    assert(mq_manager.message_queue_send(msg_queue, 1, "Hello from Task", 1000));
+    assert(mq_manager.message_queue_send(msg_queue, 2, "Message Queue Test", 1000));
+    assert(mq_manager.message_queue_send(msg_queue, 3, "RTOS Communication", 1000));
     
-    std::cout << "Sent 3 messages. Queue count: " << MessageQueueManager::message_queue_get_count(&sync_scheduler, msg_queue) << std::endl;
+    std::cout << "Sent 3 messages. Queue count: " << mq_manager.message_queue_get_count(msg_queue) << std::endl;
     
     // Receive messages
     std::cout << "Receiving messages..." << std::endl;
     uint32_t msg_type;
     std::string msg_data;
     
-    if (MessageQueueManager::message_queue_receive(&sync_scheduler, msg_queue, msg_type, msg_data, 1000)) {
+    if (mq_manager.message_queue_receive(msg_queue, msg_type, msg_data, 1000)) {
         std::cout << "Received message type " << msg_type << ": " << msg_data << std::endl;
     }
     
-    if (MessageQueueManager::message_queue_receive(&sync_scheduler, msg_queue, msg_type, msg_data, 1000)) {
+    if (mq_manager.message_queue_receive(msg_queue, msg_type, msg_data, 1000)) {
         std::cout << "Received message type " << msg_type << ": " << msg_data << std::endl;
     }
     
-    std::cout << "Remaining messages: " << MessageQueueManager::message_queue_get_count(&sync_scheduler, msg_queue) << std::endl;
+    std::cout << "Remaining messages: " << mq_manager.message_queue_get_count(msg_queue) << std::endl;
     
     // Message object send/receive
     Message custom_msg(0, 100, "Custom Message Object", 54321);
-    assert(MessageQueueManager::message_queue_send(&sync_scheduler, msg_queue, custom_msg, 1000));
+    assert(mq_manager.message_queue_send(msg_queue, custom_msg, 1000));
     
     Message received_custom_msg;
-    if (MessageQueueManager::message_queue_receive(&sync_scheduler, msg_queue, received_custom_msg, 1000)) {
+    if (mq_manager.message_queue_receive(msg_queue, received_custom_msg, 1000)) {
         std::cout << "Received custom message - Type: " << received_custom_msg.type 
                   << ", Data: " << received_custom_msg.data 
                   << ", ID: " << received_custom_msg.id << std::endl;
@@ -261,13 +269,16 @@ int main() {
     
     // Synchronization objects status
     std::cout << "\nSynchronization Objects Status:" << std::endl;
-    sync_scheduler.print_sync_objects();
+    std::cout << "Semaphores: " << sem_manager.get_semaphore_count() << std::endl;
+    std::cout << "Events: " << event_manager.get_event_count() << std::endl;
+    std::cout << "Signals: " << signal_manager.get_signal_count() << std::endl;
+    std::cout << "Message Queues: " << mq_manager.get_message_queue_count() << std::endl;
     
     // Cleanup
-    SemaphoreManager::delete_semaphore(&sync_scheduler, resource_sem);
-    EventManager::delete_event(&sync_scheduler, comm_event);
-    SignalManager::delete_signal(&sync_scheduler, notification_signal);
-    MessageQueueManager::delete_message_queue(&sync_scheduler, msg_queue);
+    sem_manager.delete_semaphore(resource_sem);
+    event_manager.delete_event(comm_event);
+    signal_manager.delete_signal(notification_signal);
+    mq_manager.delete_message_queue(msg_queue);
     
     std::cout << "\nSynchronization mechanisms example completed!" << std::endl;
     

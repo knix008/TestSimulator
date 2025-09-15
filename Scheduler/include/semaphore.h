@@ -9,10 +9,6 @@
 
 namespace RTOS {
 
-// Forward declarations
-class PriorityScheduler;
-struct Task;
-
 // Semaphore class
 class Semaphore {
 private:
@@ -29,15 +25,26 @@ public:
     int get_count() const;
 };
 
-// Semaphore management functions for PriorityScheduler
+// Independent Semaphore Manager
 class SemaphoreManager {
+private:
+    std::map<uint32_t, std::shared_ptr<Semaphore>> semaphores_;
+    uint32_t next_semaphore_id_;
+    
 public:
+    SemaphoreManager();
+    ~SemaphoreManager() = default;
+    
     // Semaphore management functions
-    static uint32_t create_semaphore(PriorityScheduler* scheduler, int initial_count = 0);
-    static bool delete_semaphore(PriorityScheduler* scheduler, uint32_t sem_id);
-    static bool semaphore_wait(PriorityScheduler* scheduler, uint32_t sem_id, uint32_t timeout_ms = 0);
-    static bool semaphore_post(PriorityScheduler* scheduler, uint32_t sem_id);
-    static int semaphore_get_count(PriorityScheduler* scheduler, uint32_t sem_id);
+    uint32_t create_semaphore(int initial_count = 0);
+    bool delete_semaphore(uint32_t sem_id);
+    bool semaphore_wait(uint32_t sem_id, uint32_t timeout_ms = 0);
+    bool semaphore_post(uint32_t sem_id);
+    int semaphore_get_count(uint32_t sem_id);
+    
+    // Status and debugging
+    size_t get_semaphore_count() const;
+    void print_semaphores() const;
 };
 
 } // namespace RTOS

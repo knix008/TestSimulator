@@ -9,10 +9,6 @@
 
 namespace RTOS {
 
-// Forward declarations
-class PriorityScheduler;
-struct Task;
-
 // Signal class
 class Signal {
 private:
@@ -30,16 +26,27 @@ public:
     bool is_set() const;
 };
 
-// Signal management functions for PriorityScheduler
+// Independent Signal Manager
 class SignalManager {
+private:
+    std::map<uint32_t, std::shared_ptr<Signal>> signals_;
+    uint32_t next_signal_id_;
+    
 public:
+    SignalManager();
+    ~SignalManager() = default;
+    
     // Signal management functions
-    static uint32_t create_signal(PriorityScheduler* scheduler);
-    static bool delete_signal(PriorityScheduler* scheduler, uint32_t signal_id);
-    static bool signal_wait(PriorityScheduler* scheduler, uint32_t signal_id, uint32_t timeout_ms = 0);
-    static bool signal_send(PriorityScheduler* scheduler, uint32_t signal_id);
-    static bool signal_reset(PriorityScheduler* scheduler, uint32_t signal_id);
-    static bool signal_is_set(PriorityScheduler* scheduler, uint32_t signal_id);
+    uint32_t create_signal();
+    bool delete_signal(uint32_t signal_id);
+    bool signal_wait(uint32_t signal_id, uint32_t timeout_ms = 0);
+    bool signal_send(uint32_t signal_id);
+    bool signal_reset(uint32_t signal_id);
+    bool signal_is_set(uint32_t signal_id);
+    
+    // Status and debugging
+    size_t get_signal_count() const;
+    void print_signals() const;
 };
 
 } // namespace RTOS

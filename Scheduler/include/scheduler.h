@@ -6,10 +6,6 @@
 #include <memory>
 #include <map>
 #include "task.h"
-#include "semaphore.h"
-#include "event.h"
-#include "signal.h"
-#include "message_queue.h"
 
 namespace RTOS {
 
@@ -30,13 +26,6 @@ private:
     
     // Task ID counter
     uint32_t next_task_id_;
-    
-    // Synchronization objects management
-    std::map<uint32_t, std::shared_ptr<Semaphore>> semaphores_;
-    std::map<uint32_t, std::shared_ptr<Event>> events_;
-    std::map<uint32_t, std::shared_ptr<Signal>> signals_;
-    std::map<uint32_t, std::shared_ptr<MessageQueue>> message_queues_;
-    uint32_t next_sync_id_;
     
     // Blocked tasks
     std::vector<std::shared_ptr<Task>> blocked_tasks_;
@@ -76,13 +65,7 @@ public:
     // Debugging functions
     void print_priority_bitmap() const;
     void print_task_queues() const;
-    void print_sync_objects() const;
-    
-    // Friend classes for synchronization management
-    friend class SemaphoreManager;
-    friend class EventManager;
-    friend class SignalManager;
-    friend class MessageQueueManager;
+    void print_blocked_tasks() const;
 };
 
 } // namespace RTOS

@@ -1,7 +1,7 @@
 #include "message_queue.h"
-#include "scheduler.h"
 #include <chrono>
 #include <ctime>
+#include <iostream>
 
 namespace RTOS {
 
@@ -104,128 +104,123 @@ bool MessageQueue::peek(Message& message) const {
 }
 
 // MessageQueueManager implementation
-uint32_t MessageQueueManager::create_message_queue(PriorityScheduler* scheduler, size_t max_size) {
+MessageQueueManager::MessageQueueManager() : next_mq_id_(1) {}
+
+uint32_t MessageQueueManager::create_message_queue(size_t max_size) {
     auto mq = std::make_shared<MessageQueue>(max_size);
-    uint32_t mq_id = scheduler->next_sync_id_++;
-    scheduler->message_queues_[mq_id] = mq;
+    uint32_t mq_id = next_mq_id_++;
+    message_queues_[mq_id] = mq;
     return mq_id;
 }
 
-bool MessageQueueManager::delete_message_queue(PriorityScheduler* scheduler, uint32_t mq_id) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it != scheduler->message_queues_.end()) {
-        scheduler->message_queues_.erase(it);
+bool MessageQueueManager::delete_message_queue(uint32_t mq_id) {
+    auto it = message_queues_.find(mq_id);
+    if (it != message_queues_.end()) {
+        message_queues_.erase(it);
         return true;
     }
     return false;
 }
 
-bool MessageQueueManager::message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t type, const std::string& data, uint32_t timeout_ms) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
-        return false;
-    }
-    
-    auto current_task = scheduler->get_current_task();
-    if (!current_task) {
+bool MessageQueueManager::message_queue_send(uint32_t mq_id, uint32_t type, const std::string& data, uint32_t timeout_ms) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return false;
     }
     
     return it->second->send(type, data, timeout_ms);
 }
 
-bool MessageQueueManager::message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, const Message& message, uint32_t timeout_ms) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
-        return false;
-    }
-    
-    auto current_task = scheduler->get_current_task();
-    if (!current_task) {
+bool MessageQueueManager::message_queue_send(uint32_t mq_id, const Message& message, uint32_t timeout_ms) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return false;
     }
     
     return it->second->send(message, timeout_ms);
 }
 
-bool MessageQueueManager::message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t& type, std::string& data, uint32_t timeout_ms) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
-        return false;
-    }
-    
-    auto current_task = scheduler->get_current_task();
-    if (!current_task) {
+bool MessageQueueManager::message_queue_receive(uint32_t mq_id, uint32_t& type, std::string& data, uint32_t timeout_ms) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return false;
     }
     
     return it->second->receive(type, data, timeout_ms);
 }
 
-bool MessageQueueManager::message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, Message& message, uint32_t timeout_ms) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
-        return false;
-    }
-    
-    auto current_task = scheduler->get_current_task();
-    if (!current_task) {
+bool MessageQueueManager::message_queue_receive(uint32_t mq_id, Message& message, uint32_t timeout_ms) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return false;
     }
     
     return it->second->receive(message, timeout_ms);
 }
 
-size_t MessageQueueManager::message_queue_get_count(PriorityScheduler* scheduler, uint32_t mq_id) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
+size_t MessageQueueManager::message_queue_get_count(uint32_t mq_id) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return 0;
     }
     
     return it->second->get_message_count();
 }
 
-size_t MessageQueueManager::message_queue_get_max_size(PriorityScheduler* scheduler, uint32_t mq_id) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
+size_t MessageQueueManager::message_queue_get_max_size(uint32_t mq_id) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return 0;
     }
     
     return it->second->get_max_size();
 }
 
-bool MessageQueueManager::message_queue_is_empty(PriorityScheduler* scheduler, uint32_t mq_id) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
+bool MessageQueueManager::message_queue_is_empty(uint32_t mq_id) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return true;
     }
     
     return it->second->is_empty();
 }
 
-bool MessageQueueManager::message_queue_is_full(PriorityScheduler* scheduler, uint32_t mq_id) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
+bool MessageQueueManager::message_queue_is_full(uint32_t mq_id) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return false;
     }
     
     return it->second->is_full();
 }
 
-void MessageQueueManager::message_queue_clear(PriorityScheduler* scheduler, uint32_t mq_id) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it != scheduler->message_queues_.end()) {
+void MessageQueueManager::message_queue_clear(uint32_t mq_id) {
+    auto it = message_queues_.find(mq_id);
+    if (it != message_queues_.end()) {
         it->second->clear();
     }
 }
 
-bool MessageQueueManager::message_queue_peek(PriorityScheduler* scheduler, uint32_t mq_id, Message& message) {
-    auto it = scheduler->message_queues_.find(mq_id);
-    if (it == scheduler->message_queues_.end()) {
+bool MessageQueueManager::message_queue_peek(uint32_t mq_id, Message& message) {
+    auto it = message_queues_.find(mq_id);
+    if (it == message_queues_.end()) {
         return false;
     }
     
     return it->second->peek(message);
+}
+
+size_t MessageQueueManager::get_message_queue_count() const {
+    return message_queues_.size();
+}
+
+void MessageQueueManager::print_message_queues() const {
+    std::cout << "Message Queues (" << message_queues_.size() << "):\n";
+    for (const auto& pair : message_queues_) {
+        std::cout << "  ID: " << pair.first 
+                  << ", Messages: " << pair.second->get_message_count() 
+                  << "/" << pair.second->get_max_size() << "\n";
+    }
 }
 
 } // namespace RTOS

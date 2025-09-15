@@ -1,6 +1,6 @@
-# RTOS Priority Scheduler with Synchronization Mechanisms
+# RTOS Priority Scheduler with Separated Synchronization Components
 
-This project implements an RTOS priority scheduler with 128 priority levels and various synchronization mechanisms. Using bitmap optimization, it can find the highest priority task in O(1) time, and includes Semaphore, Event, Signal, and Message Queue for task synchronization and communication.
+This project implements an RTOS priority scheduler with 128 priority levels and **completely separated** synchronization mechanisms. Using bitmap optimization, it can find the highest priority task in O(1) time. Each synchronization component (Semaphore, Event, Signal, Message Queue) is now **completely independent** and can be used separately without requiring the scheduler.
 
 ## Key Features
 
@@ -11,29 +11,31 @@ This project implements an RTOS priority scheduler with 128 priority levels and 
 - **Efficient Memory Usage**: 16-byte bitmap manages 128 priority levels
 - **FIFO Scheduling**: Tasks at same priority are scheduled in FIFO order
 
-### Synchronization Mechanisms
-- **Semaphore**: Resource sharing and counting semaphore support
-- **Event**: 32-bit event flag for task communication
-- **Signal**: Simple notification mechanism
-- **Message Queue**: FIFO queue for task message communication
+### Separated Synchronization Components
+- **Independent Semaphore Manager**: Resource sharing and counting semaphore support
+- **Independent Event Manager**: 32-bit event flag for task communication
+- **Independent Signal Manager**: Simple notification mechanism
+- **Independent Message Queue Manager**: FIFO queue for task message communication
 - **Timeout Support**: All wait functions support timeout
 - **Thread Safety**: Uses `std::mutex` and `std::condition_variable`
+- **Complete Separation**: Each component can be used independently without scheduler dependency
 
 ## Project Structure
 
 ```
 include/
-戍式式 scheduler.h         # Main scheduler class
-戍式式 semaphore.h         # Semaphore class
-戍式式 event.h             # Event class
-戍式式 signal.h            # Signal class
-戌式式 message_queue.h     # Message queue class
+戍式式 scheduler.h         # Main scheduler class (task management only)
+戍式式 semaphore.h         # Independent Semaphore + SemaphoreManager
+戍式式 event.h             # Independent Event + EventManager
+戍式式 signal.h            # Independent Signal + SignalManager
+戍式式 message_queue.h     # Independent MessageQueue + MessageQueueManager
+戌式式 task.h              # Task structure
 source/
-戍式式 scheduler.cpp       # Main scheduler implementation
-戍式式 semaphore.cpp       # Semaphore implementation
-戍式式 event.cpp           # Event implementation
-戍式式 signal.cpp          # Signal implementation
-戌式式 message_queue.cpp   # Message queue implementation
+戍式式 scheduler.cpp       # Main scheduler implementation (no sync objects)
+戍式式 semaphore.cpp       # Independent semaphore implementation
+戍式式 event.cpp           # Independent event implementation
+戍式式 signal.cpp          # Independent signal implementation
+戌式式 message_queue.cpp   # Independent message queue implementation
 test/
 戍式式 test_runner.cpp     # Test runner
 戍式式 test_basic.cpp      # Basic functionality tests
@@ -48,6 +50,8 @@ test/
 戍式式 main_signal.cpp     # Signal test main
 戍式式 main_message_queue.cpp # Message queue test main
 戌式式 main_sync_management.cpp # Synchronization management test main
+examples/
+戌式式 component_separation_example.cpp # Example showing separated component usage
 ```
 
 ## Build Instructions
@@ -64,7 +68,7 @@ cmake ..
 make
 ```
 
-### Run Tests
+### Run Tests and Examples
 ```bash
 # Run all tests
 ./test_runner
@@ -76,18 +80,21 @@ make
 ./main_signal
 ./main_message_queue
 ./main_sync_management
+
+# Run separation example
+./component_separation_example
 ```
 
 ## Usage Examples
 
-### Basic Scheduler Usage
+### 1. Independent Scheduler Usage (Task Management Only)
 
 ```cpp
 #include "scheduler.h"
 
 using namespace RTOS;
 
-// Create scheduler
+// Create scheduler (no synchronization objects)
 PriorityScheduler scheduler;
 
 // Create tasks (priority 0 is highest)
@@ -99,8 +106,8 @@ uint32_t task3 = scheduler.create_task(10);  // Low priority
 auto next_task = scheduler.get_next_task();
 if (next_task) {
     // Execute task
-    std::cout << "Executing task " << next_task->id 
-              << " with priority " << (int)next_task->priority << std::endl;
+    std::cout << "Executing task " << next_task->get_id() 
+              << " with priority " << (int)next_task->get_priority() << std::endl;
 }
 
 // Check scheduler status
@@ -108,95 +115,168 @@ std::cout << "Total tasks: " << scheduler.get_total_task_count() << std::endl;
 std::cout << "Highest priority: " << (int)scheduler.get_highest_ready_priority() << std::endl;
 ```
 
-### Semaphore Usage
+### 2. Independent Semaphore Manager Usage
 
 ```cpp
+#include "semaphore.h"
+
+using namespace RTOS;
+
+// Create independent semaphore manager
+SemaphoreManager sem_manager;
+
 // Create semaphore with initial count
-uint32_t sem_id = scheduler.create_semaphore(2);
+uint32_t sem_id = sem_manager.create_semaphore(2);
 
 // Wait for semaphore (with timeout)
-if (scheduler.semaphore_wait(sem_id, 1000)) {
+if (sem_manager.semaphore_wait(sem_id, 1000)) {
     // Critical section
     std::cout << "Entered critical section" << std::endl;
     
     // Do work...
     
     // Release semaphore
-    scheduler.semaphore_post(sem_id);
+    sem_manager.semaphore_post(sem_id);
     std::cout << "Left critical section" << std::endl;
 }
 
 // Check semaphore count
-int count = scheduler.semaphore_get_count(sem_id);
+int count = sem_manager.semaphore_get_count(sem_id);
 std::cout << "Semaphore count: " << count << std::endl;
+
+// Print all semaphores
+sem_manager.print_semaphores();
 ```
 
-### Event Usage
+### 3. Independent Event Manager Usage
 
 ```cpp
+#include "event.h"
+
+using namespace RTOS;
+
+// Create independent event manager
+EventManager event_manager;
+
 // Create event
-uint32_t event_id = scheduler.create_event();
+uint32_t event_id = event_manager.create_event();
 
 // Set event bits
-scheduler.event_set(event_id, 0x01 | 0x02); // Set bits 0 and 1
+event_manager.event_set(event_id, 0x01 | 0x02); // Set bits 0 and 1
 
 // Wait for specific event bits
-if (scheduler.event_wait(event_id, 0x01, true, 1000)) {
+if (event_manager.event_wait(event_id, 0x01, true, 1000)) {
     std::cout << "Event received" << std::endl;
 }
 
 // Clear event bits
-scheduler.event_clear(event_id, 0x02);
+event_manager.event_clear(event_id, 0x02);
 
 // Get current event bits
-uint32_t bits = scheduler.event_get_bits(event_id);
+uint32_t bits = event_manager.event_get_bits(event_id);
+
+// Print all events
+event_manager.print_events();
 ```
 
-### Signal Usage
+### 4. Independent Signal Manager Usage
 
 ```cpp
+#include "signal.h"
+
+using namespace RTOS;
+
+// Create independent signal manager
+SignalManager signal_manager;
+
 // Create signal
-uint32_t signal_id = scheduler.create_signal();
+uint32_t signal_id = signal_manager.create_signal();
 
 // Wait for signal
-if (scheduler.signal_wait(signal_id, 1000)) {
+if (signal_manager.signal_wait(signal_id, 1000)) {
     std::cout << "Signal received" << std::endl;
 }
 
 // Send signal
-scheduler.signal_send(signal_id);
+signal_manager.signal_send(signal_id);
 
 // Check signal state
-bool is_set = scheduler.signal_is_set(signal_id);
+bool is_set = signal_manager.signal_is_set(signal_id);
 
 // Reset signal
-scheduler.signal_reset(signal_id);
+signal_manager.signal_reset(signal_id);
+
+// Print all signals
+signal_manager.print_signals();
 ```
 
-### Message Queue Usage
+### 5. Independent Message Queue Manager Usage
 
 ```cpp
+#include "message_queue.h"
+
+using namespace RTOS;
+
+// Create independent message queue manager
+MessageQueueManager mq_manager;
+
 // Create message queue
-uint32_t mq_id = scheduler.create_message_queue(10); // Max 10 messages
+uint32_t mq_id = mq_manager.create_message_queue(10); // Max 10 messages
 
 // Send message
-scheduler.message_queue_send(mq_id, 1, "Hello World", 1000);
+mq_manager.message_queue_send(mq_id, 1, "Hello World", 1000);
 
 // Receive message
 uint32_t type;
 std::string data;
-if (scheduler.message_queue_receive(mq_id, type, data, 1000)) {
+if (mq_manager.message_queue_receive(mq_id, type, data, 1000)) {
     std::cout << "Received message type " << type << ": " << data << std::endl;
 }
 
 // Send custom message object
 Message msg(0, 100, "Custom Message", 12345);
-scheduler.message_queue_send(mq_id, msg, 1000);
+mq_manager.message_queue_send(mq_id, msg, 1000);
 
 // Receive custom message object
 Message received_msg;
-if (scheduler.message_queue_receive(mq_id, received_msg, 1000)) {
+if (mq_manager.message_queue_receive(mq_id, received_msg, 1000)) {
     std::cout << "Received custom message: " << received_msg.data << std::endl;
+}
+
+// Print all message queues
+mq_manager.print_message_queues();
+```
+
+### 6. Complete Separation Example
+
+```cpp
+#include "scheduler.h"
+#include "semaphore.h"
+#include "event.h"
+#include "signal.h"
+#include "message_queue.h"
+
+using namespace RTOS;
+
+int main() {
+    // Each component is completely independent
+    PriorityScheduler scheduler;
+    SemaphoreManager sem_manager;
+    EventManager event_manager;
+    SignalManager signal_manager;
+    MessageQueueManager mq_manager;
+    
+    // Use each component independently
+    uint32_t task1 = scheduler.create_task(0);
+    uint32_t sem1 = sem_manager.create_semaphore(1);
+    uint32_t event1 = event_manager.create_event();
+    uint32_t signal1 = signal_manager.create_signal();
+    uint32_t mq1 = mq_manager.create_message_queue(5);
+    
+    // All components work independently without any dependencies
+    std::cout << "All components are completely separated!" << std::endl;
+    
+    return 0;
 }
 ```
 
@@ -230,11 +310,12 @@ Each byte manages 8 priority levels (16 bytes ▼ 8 = 128 priority levels)
 
 ## Design Decisions
 
-1. **Basic Design**: Task creation, priority search, queue management
-2. **Priority Handling**: Multiple tasks at same priority level
-3. **Bitmap Optimization**: Efficient priority search
-4. **Synchronization**: Semaphore, Event, Signal, Message Queue support
-5. **Error Handling**: Invalid priority checks, timeout handling
+1. **Complete Separation**: Each synchronization component is completely independent
+2. **Independent Managers**: Each component has its own manager class
+3. **No Scheduler Dependency**: Synchronization objects don't require scheduler
+4. **Modular Design**: Components can be used separately or together
+5. **Bitmap Optimization**: Efficient priority search in scheduler
+6. **Error Handling**: Invalid priority checks, timeout handling
 
 ## Thread Safety
 
@@ -245,18 +326,28 @@ All synchronization mechanisms are thread-safe using:
 
 ## Use Cases
 
-- **IoT Devices**: Real-time sensor data processing
-- **Embedded Systems**: Microcontroller task scheduling
-- **Game Engines**: Game object update priority management
-- **Real-time Systems**: Critical task priority management
-- **Robotics**: Sensor fusion and control loop priority
-- **Audio/Video Processing**: Stream processing priority
+### Independent Component Usage
+- **Semaphore Manager**: Resource sharing in any application
+- **Event Manager**: Event-driven programming patterns
+- **Signal Manager**: Simple notification systems
+- **Message Queue Manager**: Inter-process communication
+- **Scheduler**: Task management without synchronization
+
+### Combined Usage
+- **IoT Devices**: Real-time sensor data processing with independent sync objects
+- **Embedded Systems**: Microcontroller task scheduling with modular sync
+- **Game Engines**: Game object update priority with independent communication
+- **Real-time Systems**: Critical task priority with separated sync mechanisms
+- **Robotics**: Sensor fusion and control loop priority with modular design
+- **Audio/Video Processing**: Stream processing priority with independent queues
 
 ## Future Enhancements
 
 - **Round Robin Scheduling**: Time slice scheduling for same priority tasks
 - **Preemptive Scheduling**: Higher priority task can preempt lower priority task
 - **Priority Inheritance**: Prevent priority inversion in synchronization
+- **Component Integration**: Optional integration between scheduler and sync components
+- **Cross-Component Communication**: Enhanced communication between separated components
 
 ## Limitations
 
@@ -264,6 +355,7 @@ All synchronization mechanisms are thread-safe using:
 - **No Preemption**: Tasks run to completion
 - **Single Core**: No multi-core support
 - **Memory**: No memory protection between tasks
+- **Component Isolation**: No automatic integration between separated components
 
 ## Contributing
 

@@ -10,10 +10,6 @@
 
 namespace RTOS {
 
-// Forward declarations
-class PriorityScheduler;
-struct Task;
-
 // Message structure
 struct Message {
     uint32_t id;
@@ -57,22 +53,33 @@ public:
     bool peek(Message& message) const;
 };
 
-// Message Queue management functions for PriorityScheduler
+// Independent Message Queue Manager
 class MessageQueueManager {
+private:
+    std::map<uint32_t, std::shared_ptr<MessageQueue>> message_queues_;
+    uint32_t next_mq_id_;
+    
 public:
+    MessageQueueManager();
+    ~MessageQueueManager() = default;
+    
     // Message Queue management functions
-    static uint32_t create_message_queue(PriorityScheduler* scheduler, size_t max_size = 100);
-    static bool delete_message_queue(PriorityScheduler* scheduler, uint32_t mq_id);
-    static bool message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t type, const std::string& data, uint32_t timeout_ms = 0);
-    static bool message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, const Message& message, uint32_t timeout_ms = 0);
-    static bool message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t& type, std::string& data, uint32_t timeout_ms = 0);
-    static bool message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, Message& message, uint32_t timeout_ms = 0);
-    static size_t message_queue_get_count(PriorityScheduler* scheduler, uint32_t mq_id);
-    static size_t message_queue_get_max_size(PriorityScheduler* scheduler, uint32_t mq_id);
-    static bool message_queue_is_empty(PriorityScheduler* scheduler, uint32_t mq_id);
-    static bool message_queue_is_full(PriorityScheduler* scheduler, uint32_t mq_id);
-    static void message_queue_clear(PriorityScheduler* scheduler, uint32_t mq_id);
-    static bool message_queue_peek(PriorityScheduler* scheduler, uint32_t mq_id, Message& message);
+    uint32_t create_message_queue(size_t max_size = 100);
+    bool delete_message_queue(uint32_t mq_id);
+    bool message_queue_send(uint32_t mq_id, uint32_t type, const std::string& data, uint32_t timeout_ms = 0);
+    bool message_queue_send(uint32_t mq_id, const Message& message, uint32_t timeout_ms = 0);
+    bool message_queue_receive(uint32_t mq_id, uint32_t& type, std::string& data, uint32_t timeout_ms = 0);
+    bool message_queue_receive(uint32_t mq_id, Message& message, uint32_t timeout_ms = 0);
+    size_t message_queue_get_count(uint32_t mq_id);
+    size_t message_queue_get_max_size(uint32_t mq_id);
+    bool message_queue_is_empty(uint32_t mq_id);
+    bool message_queue_is_full(uint32_t mq_id);
+    void message_queue_clear(uint32_t mq_id);
+    bool message_queue_peek(uint32_t mq_id, Message& message);
+    
+    // Status and debugging
+    size_t get_message_queue_count() const;
+    void print_message_queues() const;
 };
 
 } // namespace RTOS

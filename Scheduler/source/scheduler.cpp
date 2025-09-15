@@ -6,7 +6,7 @@
 namespace RTOS {
 
 PriorityScheduler::PriorityScheduler() 
-    : current_task_(nullptr), next_task_id_(1), next_sync_id_(1) {
+    : current_task_(nullptr), next_task_id_(1) {
     std::memset(priority_bitmap_, 0, sizeof(priority_bitmap_));
 }
 
@@ -188,13 +188,12 @@ void PriorityScheduler::print_task_queues() const {
     }
 }
 
-void PriorityScheduler::print_sync_objects() const {
-    std::cout << "Synchronization Objects:\n";
-    std::cout << "  Semaphores: " << semaphores_.size() << "\n";
-    std::cout << "  Events: " << events_.size() << "\n";
-    std::cout << "  Signals: " << signals_.size() << "\n";
-    std::cout << "  Message Queues: " << message_queues_.size() << "\n";
-    std::cout << "  Blocked Tasks: " << blocked_tasks_.size() << "\n";
+void PriorityScheduler::print_blocked_tasks() const {
+    std::cout << "Blocked Tasks: " << blocked_tasks_.size() << "\n";
+    for (const auto& task : blocked_tasks_) {
+        std::cout << "  Task ID: " << task->get_id() 
+                  << ", Priority: " << static_cast<int>(task->get_priority()) << "\n";
+    }
 }
 
 } // namespace RTOS

@@ -1,6 +1,6 @@
 #include "semaphore.h"
-#include "scheduler.h"
 #include <chrono>
+#include <iostream>
 
 namespace RTOS {
 
@@ -37,57 +37,60 @@ int Semaphore::get_count() const {
 }
 
 // SemaphoreManager implementation
-uint32_t SemaphoreManager::create_semaphore(PriorityScheduler* scheduler, int initial_count) {
+SemaphoreManager::SemaphoreManager() : next_semaphore_id_(1) {}
+
+uint32_t SemaphoreManager::create_semaphore(int initial_count) {
     auto semaphore = std::make_shared<Semaphore>(initial_count);
-    uint32_t sem_id = scheduler->next_sync_id_++;
-    scheduler->semaphores_[sem_id] = semaphore;
+    uint32_t sem_id = next_semaphore_id_++;
+    semaphores_[sem_id] = semaphore;
     return sem_id;
 }
 
-bool SemaphoreManager::delete_semaphore(PriorityScheduler* scheduler, uint32_t sem_id) {
-    auto it = scheduler->semaphores_.find(sem_id);
-    if (it != scheduler->semaphores_.end()) {
-        scheduler->semaphores_.erase(it);
+bool SemaphoreManager::delete_semaphore(uint32_t sem_id) {
+    auto it = semaphores_.find(sem_id);
+    if (it != semaphores_.end()) {
+        semaphores_.erase(it);
         return true;
     }
     return false;
 }
 
-bool SemaphoreManager::semaphore_wait(PriorityScheduler* scheduler, uint32_t sem_id, uint32_t timeout_ms) {
-    auto it = scheduler->semaphores_.find(sem_id);
-    if (it == scheduler->semaphores_.end()) {
+bool SemaphoreManager::semaphore_wait(uint32_t sem_id, uint32_t timeout_ms) {
+    auto it = semaphores_.find(sem_id);
+    if (it == semaphores_.end()) {
         return false;
     }
     
-    auto current_task = scheduler->get_current_task();
-    if (!current_task) {
-        return false;
-    }
-    
-    // Semaphore wait
-    if (!it->second->wait(timeout_ms)) {
-        return false; // Timeout or failure
-    }
-    
-    return true;
+    return it->second->wait(timeout_ms);
 }
 
-bool SemaphoreManager::semaphore_post(PriorityScheduler* scheduler, uint32_t sem_id) {
-    auto it = scheduler->semaphores_.find(sem_id);
-    if (it == scheduler->semaphores_.end()) {
+bool SemaphoreManager::semaphore_post(uint32_t sem_id) {
+    auto it = semaphores_.find(sem_id);
+    if (it == semaphores_.end()) {
         return false;
     }
     
     return it->second->post();
 }
 
-int SemaphoreManager::semaphore_get_count(PriorityScheduler* scheduler, uint32_t sem_id) {
-    auto it = scheduler->semaphores_.find(sem_id);
-    if (it == scheduler->semaphores_.end()) {
+int SemaphoreManager::semaphore_get_count(uint32_t sem_id) {
+    auto it = semaphores_.find(sem_id);
+    if (it == semaphores_.end()) {
         return -1;
     }
     
     return it->second->get_count();
+}
+
+size_t SemaphoreManager::get_semaphore_count() const {
+    return semaphores_.size();
+}
+
+void SemaphoreManager::print_semaphores() const {
+    std::cout << "Semaphores (" << semaphores_.size() << "):\n";
+    for (const auto& pair : semaphores_) {
+        std::cout << "  ID: " << pair.first << ", Count: " << pair.second->get_count() << "\n";
+    }
 }
 
 } // namespace RTOS
