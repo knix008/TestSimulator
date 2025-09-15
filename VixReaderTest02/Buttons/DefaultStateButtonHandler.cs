@@ -34,26 +34,15 @@ namespace VixReaderTest01
                 // 🔧 연결 오류 확인 및 처리
                 if (IsTlsError(ex.Message))
                 {
-                    // 연결 오류 시 TestResult 버튼을 "준비" 상태로 변경
-                    SetTestResultReady();
-                    
-                    // 연결 상태도 업데이트
-                    _isConnected = false;
-                    ConnectButton.Text = "연결...";
-                    ConnectButton.BackColor = Color.Red;
-                    ConnectButton.ForeColor = SystemColors.ControlText;
-                    
-                    Logger.LogMessage(LogTextBox, "🔌 연결 오류로 인해 TestResult 버튼이 '준비' 상태로 변경되었습니다.");
-                    
                     HandleTlsConnectionError("DefaultState", ex.Message);
                 }
                 else
                 {
-                    // 실패 시 TestResult 버튼을 빨간색으로 설정
-                    UpdateTestResultButton(false);
                     // FAIL만 데이터베이스에 저장 (오류 메시지는 저장하지 않음)
                     await SaveTestResult("DefaultState", "FAIL");
                 }
+                // 실패 시 TestResult 버튼을 빨간색으로 설정
+                UpdateTestResultButton(false);
             }
         }
     }

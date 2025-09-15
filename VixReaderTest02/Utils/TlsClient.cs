@@ -8,50 +8,46 @@ namespace VixReaderTest01.Utils
 {
     public class TlsClient : IDisposable
     {
-        private string _serverAddress;  // 🔧 readonly 제거
+        private string _serverAddress;
         private readonly int _port;
         private readonly TextBox _logTextBox;
         private TcpClient? _tcpClient;
         private SslStream? _sslStream;
         private bool _disposed = false;
         
-        // 🔧 연결 상태 확인을 위한 콜백 함수 추가
+        // 연결 상태를 추적하는 단일 변수
+        private bool _isConnected = false;
+        
+        // 연결 상태 확인을 위한 콜백 함수
         private readonly Func<bool>? _isConnectedCallback;
         
-        // 🔧 타임아웃 설정 추가
+        // 타임아웃 설정
         private readonly int _defaultConnectionTimeoutSeconds = 30;
         private readonly int _defaultCommandTimeoutSeconds = 15;
         
-        // 연결 상태를 추적하는 속성 (실제 TCP/TLS 연결 상태 + Main의 연결 상태)
-        public bool IsConnected => (_isConnectedCallback?.Invoke() ?? false) && 
-                                  _tcpClient?.Connected == true && 
-                                  _sslStream != null && 
-                                  _sslStream.CanWrite;
+        // 연결 상태를 추적하는 공개 속성 - 내부 상태 변수만 사용
+        public bool IsConnected => _isConnected;
 
-        // 🔧 물리적 연결 상태만 확인하는 속성 (Main 상태와 무관)
-        public bool IsPhysicallyConnected => _tcpClient?.Connected == true && 
-                                           _sslStream != null && 
-                                           _sslStream.CanWrite;
-
-        // 🔧 현재 서버 주소 속성 추가
+        // 현재 서버 주소 속성
         public string ServerAddress => _serverAddress;
 
+        // 생성자
         public TlsClient(string serverAddress, int port, TextBox logTextBox, Func<bool>? isConnectedCallback = null)
         {
             _serverAddress = serverAddress;
             _port = port;
             _logTextBox = logTextBox;
             _isConnectedCallback = isConnectedCallback;
+            _isConnected = false;
         }
 
-        // 🔧 서버 주소 업데이트 메서드 추가 (연결 없이 주소만 변경)
+        // 서버 주소 업데이트 메서드 (연결 없이 주소만 변경)
         public void UpdateServerAddress(string newServerAddress)
         {
             _serverAddress = newServerAddress;
-            // 🔧 로그 출력하지 않음 - Connect 버튼이 눌렸을 때만 연결 시도
         }
 
-        // 🔧 Connect 버튼 전용 연결 메서드 - 타임아웃 지원 추가
+        // Connect 버튼 전용 연결 메서드 - 타임아웃 지원
         public async Task ConnectAsync(int timeoutSeconds = 0)
         {
             // 기본 타임아웃 설정
@@ -61,16 +57,12 @@ namespace VixReaderTest01.Utils
             
             try
             {
+                // 연결 상태 초기화
+                _isConnected = false;
+                
                 Logger.LogMessage(_logTextBox, $"TLS 연결 시도 중... ({_serverAddress}:{_port}, 타임아웃: {actualTimeout}초)");
-
-                // 🔧 이미 연결되어 있으면 기존 연결 정리
-                if (IsPhysicallyConnected)
-                {
-                    Logger.LogMessage(_logTextBox, "기존 연결이 감지되어 먼저 해제합니다.");
-                    await DisconnectAsync();
-                }
-
-                // 🔧 TCP 연결 생성 - 타임아웃 적용
+                
+                // TCP 연결 생성 - 타임아웃 적용
                 _tcpClient = new TcpClient();
                 _tcpClient.ReceiveTimeout = actualTimeout * 1000; // 밀리초 단위
                 _tcpClient.SendTimeout = actualTimeout * 1000;
@@ -89,7 +81,7 @@ namespace VixReaderTest01.Utils
                 await connectTask; // 연결 작업 완료 확인
                 Logger.LogMessage(_logTextBox, "TCP 연결 성공");
 
-                // 🔧 SSL/TLS 스트림 생성 - 타임아웃 적용
+                // SSL/TLS 스트림 생성 - 타임아웃 적용
                 _sslStream = new SslStream(
                     _tcpClient.GetStream(),
                     false,
@@ -97,7 +89,7 @@ namespace VixReaderTest01.Utils
                     null
                 );
 
-                // 🔧 TLS 핸드셰이크 수행 - 타임아웃 적용
+                // TLS 핸드셰이크 수행 - 타임아웃 적용
                 Logger.LogMessage(_logTextBox, "TLS 핸드셰이크 시작...");
                 
                 var authTask = _sslStream.AuthenticateAsClientAsync(
@@ -130,7 +122,7 @@ namespace VixReaderTest01.Utils
                     Logger.LogMessage(_logTextBox, $"서버 인증서 발급자: {cert.Issuer}");
                 }
 
-                // 🔧 1단계: "AT" 명령으로 연결 확인 - 타임아웃 적용
+                // 1단계: "AT" 명령으로 연결 확인 - 타임아웃 적용
                 Logger.LogMessage(_logTextBox, "AT 명령 전송...");
                 string atResponse = await SendRawCommandAsync("AT", cts.Token);
 
@@ -146,7 +138,7 @@ namespace VixReaderTest01.Utils
                 
                 Logger.LogMessage(_logTextBox, "✅ AT 명령 성공");
                 
-                // 🔧 2단계: "AT+TEST=BEGIN" 명령으로 테스트 모드 진입 - 타임아웃 적용
+                // 2단계: "AT+TEST=BEGIN" 명령으로 테스트 모드 진입 - 타임아웃 적용
                 Logger.LogMessage(_logTextBox, "테스트 모드 진입...");
                 
                 await Task.Delay(1000, cts.Token);
@@ -167,31 +159,36 @@ namespace VixReaderTest01.Utils
                     Logger.LogMessage(_logTextBox, $"❓ 테스트 모드 결과 불확실: '{testBeginResponse}'");
                 }
                 
-                Logger.LogMessage(_logTextBox, "TLS 연결 및 테스트 설정 완료");
+                // 모든 과정이 성공적으로 완료되었으므로 연결 상태 설정
+                _isConnected = true;
+                
+                Logger.LogMessage(_logTextBox, $"TLS 연결 및 테스트 설정 완료 (연결 상태: {_isConnected})");
             }
             catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
             {
                 Logger.LogMessage(_logTextBox, $"❌ 연결 작업 타임아웃 ({actualTimeout}초)");
+                _isConnected = false;
                 await DisconnectAsync();
                 throw new TimeoutException($"연결 작업이 {actualTimeout}초 내에 완료되지 않았습니다.");
             }
             catch (TimeoutException)
             {
                 Logger.LogMessage(_logTextBox, $"❌ 연결 타임아웃");
+                _isConnected = false;
                 await DisconnectAsync();
                 throw;
             }
             catch (Exception ex)
             {
                 Logger.LogMessage(_logTextBox, $"TLS 연결 실패: {ex.Message}");
-                
-                // 🔧 팝업 표시 제거 - 로그만 출력
+                _isConnected = false;
                 await DisconnectAsync();
                 throw;
             }
         }
 
-        // 🔧 일반 AT 명령 전송 - 타임아웃 지원 추가
+        // 일반 AT 명령 전송 - 타임아웃 지원
+        // SendAtCommandAsync 메서드 수정
         public async Task<string> SendAtCommandAsync(string atCommand, int timeoutSeconds = 0)
         {
             // 기본 타임아웃 설정
@@ -203,25 +200,22 @@ namespace VixReaderTest01.Utils
             {
                 Logger.LogMessage(_logTextBox, $"AT 명령 전송 요청: {atCommand} (타임아웃: {actualTimeout}초)");
 
-                // 🔧 연결 상태 확인 - Main의 _isConnected 상태를 포함하여 검증
-                if (!IsConnected)
+                // 연결 상태 확인 - 단일 상태 변수로 체크
+                if (!_isConnected)
                 {
-                    string errorMessage = "장치에 연결되지 않았습니다. Connect 버튼을 클릭하여 먼저 연결해주세요.";
-                    Logger.LogMessage(_logTextBox, $"❌ {errorMessage}");
-                    Logger.LogMessage(_logTextBox, $"연결 상태 디버그: Main._isConnected={_isConnectedCallback?.Invoke()}, TCP.Connected={_tcpClient?.Connected}, SSL.CanWrite={_sslStream?.CanWrite}");
-                    
-                    // 🔧 팝업 표시 제거 - 로그만 출력
-                    throw new InvalidOperationException(errorMessage);
+                    // 연결이 되어있지 않은 경우 사용자에게 Connect 버튼 사용 안내
+                    Logger.LogMessage(_logTextBox, "❌ 연결이 설정되지 않았습니다. Connect 버튼을 클릭하여 먼저 연결해주세요.");
+                    throw new InvalidOperationException("명령을 전송하려면 먼저 Connect 버튼을 클릭하여 연결을 설정해주세요.");
                 }
-
-                // 🔧 물리적 연결 상태 확인
-                if (!IsPhysicallyConnected)
+                
+                // 개선된 물리적 연결 확인
+                bool isPhysicallyConnected = IsPhysicallyConnected();
+                if (!isPhysicallyConnected)
                 {
-                    string errorMessage = "물리적 연결이 끊어졌습니다. Connect 버튼을 클릭하여 다시 연결해주세요.";
-                    Logger.LogMessage(_logTextBox, $"❌ {errorMessage}");
-                    
-                    // 🔧 팝업 표시 제거 - 로그만 출력
-                    throw new InvalidOperationException(errorMessage);
+                    // 연결이 끊어진 경우 사용자에게 Connect 버튼 사용 안내
+                    Logger.LogMessage(_logTextBox, "❌ 네트워크 연결이 끊어졌습니다. Connect 버튼을 클릭하여 다시 연결해주세요.");
+                    _isConnected = false; // 실제 연결이 끊어진 경우에만 상태 변수 업데이트
+                    throw new InvalidOperationException("네트워크 연결이 끊어졌습니다. Connect 버튼을 클릭하여 다시 연결해주세요.");
                 }
 
                 return await SendRawCommandAsync(atCommand, cts.Token);
@@ -231,7 +225,10 @@ namespace VixReaderTest01.Utils
                 Logger.LogMessage(_logTextBox, $"❌ AT 명령 타임아웃 ({actualTimeout}초): {atCommand}");
                 throw new TimeoutException($"AT 명령 '{atCommand}'이 {actualTimeout}초 내에 완료되지 않았습니다.");
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("연결되지 않았습니다") || ex.Message.Contains("물리적 연결이 끊어졌습니다"))
+            catch (InvalidOperationException ex) when (ex.Message.Contains("연결되지 않았습니다") || 
+                                                     ex.Message.Contains("설정되지 않았습니다") ||
+                                                     ex.Message.Contains("끊어졌습니다") ||
+                                                     ex.Message.Contains("닫혔습니다"))
             {
                 // 연결 관련 예외는 그대로 재던져서 상위에서 처리하도록 함
                 Logger.LogMessage(_logTextBox, $"❌ 연결 상태 오류: {ex.Message}");
@@ -244,7 +241,60 @@ namespace VixReaderTest01.Utils
             }
         }
 
-        // 🔧 실제 AT 명령 전송 로직 (내부 메서드) - 타임아웃 지원 추가
+        // 물리적 연결 상태를 더 정확하게 확인하는 개선된 메서드
+        private bool IsPhysicallyConnected()
+        {
+            try
+            {
+                // 기본 조건 확인
+                if (_tcpClient == null || _sslStream == null || !_sslStream.CanWrite)
+                {
+                    Logger.LogMessage(_logTextBox, "물리적 연결 상태 확인: 기본 조건 불충족");
+                    return false;
+                }
+
+                // 소켓 연결 확인 (더 강화된 검증)
+                if (_tcpClient.Client == null)
+                {
+                    Logger.LogMessage(_logTextBox, "물리적 연결 상태 확인: 소켓이 null");
+                    return false;
+                }
+
+                // 소켓이 연결되어 있는지 확인 (Connected 속성 먼저 확인)
+                if (!_tcpClient.Client.Connected)
+                {
+                    Logger.LogMessage(_logTextBox, "물리적 연결 상태 확인: 소켓이 연결되지 않음 (Connected = false)");
+                    return false;
+                }
+
+                // 추가 검증: 소켓이 실제로 사용 가능한지 확인
+                // Poll 메서드는 상태가 변경되었거나 타임아웃에 도달한 경우 true를 반환
+                // SelectMode.SelectRead와 함께 사용하면 소켓이 닫혔거나 데이터를 받을 수 있는지 확인
+                // Available이 0이면서 Poll이 true를 반환하면 소켓이 닫힌 것
+                if (_tcpClient.Client.Poll(1, SelectMode.SelectRead) && _tcpClient.Client.Available == 0)
+                {
+                    Logger.LogMessage(_logTextBox, "물리적 연결 상태 확인: 소켓이 닫힘 (Poll 검사)");
+                    return false;
+                }
+
+                // TLS 스트림이 읽기/쓰기 가능한지 확인
+                if (!_sslStream.CanRead || !_sslStream.CanWrite)
+                {
+                    Logger.LogMessage(_logTextBox, $"물리적 연결 상태 확인: TLS 스트림 불가능 (읽기: {_sslStream.CanRead}, 쓰기: {_sslStream.CanWrite})");
+                    return false;
+                }
+
+                // 모든 검사를 통과하면 연결된 것으로 간주
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogMessage(_logTextBox, $"물리적 연결 상태 확인 중 오류: {ex.Message}");
+                return false;
+            }
+        }
+
+        // 실제 AT 명령 전송 로직 (내부 메서드) - 타임아웃 지원
         private async Task<string> SendRawCommandAsync(string atCommand, CancellationToken cancellationToken = default)
         {
             try
@@ -277,7 +327,7 @@ namespace VixReaderTest01.Utils
             }
         }
 
-        // 🔧 응답 읽기 메서드 - 타임아웃 지원 개선
+        // 응답 읽기 메서드 - 타임아웃 지원
         private async Task<string> ReadResponseAsync(CancellationToken cancellationToken = default)
         {
             try
@@ -444,7 +494,6 @@ namespace VixReaderTest01.Utils
             }
 
             // 모든 인증서 오류 허용 (자체 서명 인증서 포함)
-            // -verify_return_error 옵션을 비활성화한 것과 같은 효과
             return true;
         }
 
@@ -452,17 +501,43 @@ namespace VixReaderTest01.Utils
         {
             try
             {
+                // 연결 상태 변수 업데이트
+                _isConnected = false;
+                
+                // 이전에 SSL 스트림이 열려있으면 닫기
                 if (_sslStream != null)
                 {
-                    await _sslStream.DisposeAsync();
-                    _sslStream = null;
+                    try
+                    {
+                        // 정상적으로 닫을 수 있도록 시도
+                        await _sslStream.DisposeAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogMessage(_logTextBox, $"SSL 스트림 해제 중 오류 (무시됨): {ex.Message}");
+                    }
+                    finally
+                    {
+                        _sslStream = null;
+                    }
                 }
 
+                // 이전에 TCP 클라이언트가 열려있으면 닫기
                 if (_tcpClient != null)
                 {
-                    _tcpClient.Close();
-                    _tcpClient.Dispose();
-                    _tcpClient = null;
+                    try
+                    {
+                        _tcpClient.Close();
+                        _tcpClient.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogMessage(_logTextBox, $"TCP 클라이언트 해제 중 오류 (무시됨): {ex.Message}");
+                    }
+                    finally
+                    {
+                        _tcpClient = null;
+                    }
                 }
 
                 Logger.LogMessage(_logTextBox, "TLS 연결 해제 완료");
@@ -470,6 +545,8 @@ namespace VixReaderTest01.Utils
             catch (Exception ex)
             {
                 Logger.LogMessage(_logTextBox, $"TLS 연결 해제 중 오류: {ex.Message}");
+                // 연결 해제 중 오류가 발생해도 연결 상태는 끊어진 것으로 간주
+                _isConnected = false;
             }
         }
 
@@ -485,7 +562,10 @@ namespace VixReaderTest01.Utils
             {
                 if (disposing)
                 {
-                    // 🔧 조용한 해제 - 로그 출력 안함
+                    // 연결 상태 변수 업데이트
+                    _isConnected = false;
+                    
+                    // 조용한 해제 - 로그 출력 안함
                     try
                     {
                         if (_sslStream != null)

@@ -38,16 +38,33 @@
 
                 if (rebootSuccess)
                 {
-                    // OK 응답 시 - 연결이 이미 해제되었으므로 상태만 업데이트
-                    _isConnected = false;
-                    ConnectButton.Text = "연결...";
-                    ConnectButton.BackColor = Color.Red;
-
                     // PASS만 데이터베이스에 저장
                     await SaveTestResult("Device Reboot", "PASS");
                     
                     // 🔧 리부트 성공 시 연결이 끊어지므로 TestResult 버튼을 "준비" 상태로 설정
                     SetTestResultReady();
+                    
+                    // 🔧 리부트 성공 시 TLS 클라이언트 강제로 연결 해제 및 초기화
+                    if (_tlsClient != null)
+                    {
+                        try
+                        {
+                            // 연결 해제
+                            await _tlsClient.DisconnectAsync();
+                            
+                            // UI 업데이트
+                            ConnectButton.Text = "연결...";
+                            ConnectButton.BackColor = Color.Red;
+                            ConnectButton.ForeColor = SystemColors.ControlText;
+                        }
+                        catch (Exception connEx)
+                        {
+                            if (!LogTextBox.IsDisposed && !this.IsDisposed)
+                            {
+                                LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 리부트 후 연결 해제 중 오류 (무시됨): {connEx.Message}\r\n");
+                            }
+                        }
+                    }
 
                     if (!LogTextBox.IsDisposed && !this.IsDisposed)
                     {
@@ -55,6 +72,15 @@
                         LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 🔌 연결이 해제되었습니다. 리부트 완료 후 Connect 버튼을 사용하여 다시 연결하세요.\r\n");
                         LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 📋 TestResult 버튼이 '준비' 상태로 변경되었습니다.\r\n");
                     }
+                    
+                    // 🔧 리부트 성공 메시지 표시
+                    MessageBox.Show(
+                        "디바이스가 성공적으로 리부트 명령을 받았습니다.\n\n" +
+                        "디바이스가 재시작 중입니다. 약 30-60초 후에\n" +
+                        "Connect 버튼을 클릭하여 다시 연결해주세요.",
+                        "리부트 명령 성공",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
@@ -65,7 +91,6 @@
                 }
 
                 // FAIL이나 오류 시 - 연결 상태는 그대로 유지
-                // _isConnected 상태는 변경하지 않음
                 // ConnectButton 상태도 변경하지 않음
 
                 if (IsTlsError(ex.Message))
@@ -85,6 +110,13 @@
                 {
                     LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 🔌 리부트 실패로 인해 연결을 유지합니다.\r\n");
                 }
+                
+                // 🔧 리부트 실패 메시지 표시
+                MessageBox.Show(
+                    $"디바이스 리부트 명령이 실패했습니다.\n\n오류: {ex.Message}",
+                    "리부트 실패",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
         }
     }

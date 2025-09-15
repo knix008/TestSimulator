@@ -32,7 +32,7 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    HandleTlsConnectionError("DefaultState", ex.Message);
+                    HandleTlsConnectionError("DoorButton", ex.Message);
                 }
                 else
                 {
