@@ -4,18 +4,15 @@
 
 namespace RTOS {
 
-// Signal ����
 bool Signal::wait(uint32_t timeout_ms) {
     std::unique_lock<std::mutex> lock(mutex_);
     
     if (timeout_ms == 0) {
-        // ���� ���
         cv_.wait(lock, [this] { return signal_state_.load(); });
     } else {
-        // Ÿ�Ӿƿ� ���
         auto timeout = std::chrono::milliseconds(timeout_ms);
         if (!cv_.wait_for(lock, timeout, [this] { return signal_state_.load(); })) {
-            return false; // Ÿ�Ӿƿ�
+            return false; 
         }
     }
     
@@ -39,30 +36,30 @@ bool Signal::is_set() const {
     return signal_state_.load();
 }
 
-// Signal management functions
-uint32_t PriorityScheduler::create_signal() {
+// SignalManager implementation
+uint32_t SignalManager::create_signal(PriorityScheduler* scheduler) {
     auto signal = std::make_shared<Signal>();
-    uint32_t signal_id = next_sync_id_++;
-    signals_[signal_id] = signal;
+    uint32_t signal_id = scheduler->next_sync_id_++;
+    scheduler->signals_[signal_id] = signal;
     return signal_id;
 }
 
-bool PriorityScheduler::delete_signal(uint32_t signal_id) {
-    auto it = signals_.find(signal_id);
-    if (it != signals_.end()) {
-        signals_.erase(it);
+bool SignalManager::delete_signal(PriorityScheduler* scheduler, uint32_t signal_id) {
+    auto it = scheduler->signals_.find(signal_id);
+    if (it != scheduler->signals_.end()) {
+        scheduler->signals_.erase(it);
         return true;
     }
     return false;
 }
 
-bool PriorityScheduler::signal_wait(uint32_t signal_id, uint32_t timeout_ms) {
-    auto it = signals_.find(signal_id);
-    if (it == signals_.end()) {
+bool SignalManager::signal_wait(PriorityScheduler* scheduler, uint32_t signal_id, uint32_t timeout_ms) {
+    auto it = scheduler->signals_.find(signal_id);
+    if (it == scheduler->signals_.end()) {
         return false;
     }
     
-    auto current_task = get_current_task();
+    auto current_task = scheduler->get_current_task();
     if (!current_task) {
         return false;
     }
@@ -75,27 +72,27 @@ bool PriorityScheduler::signal_wait(uint32_t signal_id, uint32_t timeout_ms) {
     return true;
 }
 
-bool PriorityScheduler::signal_send(uint32_t signal_id) {
-    auto it = signals_.find(signal_id);
-    if (it == signals_.end()) {
+bool SignalManager::signal_send(PriorityScheduler* scheduler, uint32_t signal_id) {
+    auto it = scheduler->signals_.find(signal_id);
+    if (it == scheduler->signals_.end()) {
         return false;
     }
     
     return it->second->send();
 }
 
-bool PriorityScheduler::signal_reset(uint32_t signal_id) {
-    auto it = signals_.find(signal_id);
-    if (it == signals_.end()) {
+bool SignalManager::signal_reset(PriorityScheduler* scheduler, uint32_t signal_id) {
+    auto it = scheduler->signals_.find(signal_id);
+    if (it == scheduler->signals_.end()) {
         return false;
     }
     
     return it->second->reset();
 }
 
-bool PriorityScheduler::signal_is_set(uint32_t signal_id) {
-    auto it = signals_.find(signal_id);
-    if (it == signals_.end()) {
+bool SignalManager::signal_is_set(PriorityScheduler* scheduler, uint32_t signal_id) {
+    auto it = scheduler->signals_.find(signal_id);
+    if (it == scheduler->signals_.end()) {
         return false;
     }
     

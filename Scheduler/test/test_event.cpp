@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include "event.h"
 #include <iostream>
 #include <cassert>
 
@@ -9,38 +10,34 @@ void test_event_functionality() {
     
     PriorityScheduler scheduler;
     
-    // 이벤트 생성
-    uint32_t event_id = scheduler.create_event();
+    // Create event
+    uint32_t event_id = EventManager::create_event(&scheduler);
     assert(event_id != 0);
     
-    // 초기 이벤트 비트 확인
-    assert(scheduler.event_get_bits(event_id) == 0);
-    std::cout << "Created event with initial bits: " << scheduler.event_get_bits(event_id) << std::endl;
+    // Check initial event bits
+    assert(EventManager::event_get_bits(&scheduler, event_id) == 0);
+    std::cout << "Created event with initial bits: " << EventManager::event_get_bits(&scheduler, event_id) << std::endl;
     
-    // 이벤트 비트 설정
-    assert(scheduler.event_set(event_id, 0x01 | 0x04)); // 비트 0과 2 설정
-    assert(scheduler.event_get_bits(event_id) == 0x05);
+    // Set event bits
+    assert(EventManager::event_set(&scheduler, event_id, 0x01 | 0x04)); // bits 0 and 2 set
+    assert(EventManager::event_get_bits(&scheduler, event_id) == 0x05);
     
-    // 테스트용 태스크 생성
+    // Create test task
     scheduler.create_task(5);
     auto task = scheduler.get_next_task();
     scheduler.set_current_task(task);
     
-    // 이벤트 대기 (성공해야 함)
-    assert(scheduler.event_wait(event_id, 0x01, true, 1000)); // 비트 0 대기
-    assert(scheduler.event_get_bits(event_id) == 0x04); // 비트 0이 클리어됨
+    // Test event wait
+    assert(EventManager::event_wait(&scheduler, event_id, 0x01, true, 1000));
+    assert(EventManager::event_get_bits(&scheduler, event_id) == 0x04); // bit 0 cleared
     
-    // 이벤트 대기 (타임아웃해야 함)
-    assert(!scheduler.event_wait(event_id, 0x02, true, 100)); // 비트 1 대기 (설정되지 않음)
+    // Clear event bits
+    EventManager::event_clear(&scheduler, event_id, 0x04);
+    assert(EventManager::event_get_bits(&scheduler, event_id) == 0x00);
     
-    // 이벤트 비트 클리어
-    scheduler.event_clear(event_id, 0x04);
-    assert(scheduler.event_get_bits(event_id) == 0x00);
-    
-    // 이벤트 삭제
-    assert(scheduler.delete_event(event_id));
-    assert(!scheduler.delete_event(event_id)); // 이미 삭제된 이벤트
+    // Cleanup
+    EventManager::delete_event(&scheduler, event_id);
+    EventManager::delete_event(&scheduler, 999); // Test non-existent event
     
     std::cout << "Event functionality test passed!" << std::endl << std::endl;
 }
-

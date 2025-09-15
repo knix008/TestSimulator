@@ -5,22 +5,17 @@
 
 namespace RTOS {
 
-// PriorityScheduler 생성자
 PriorityScheduler::PriorityScheduler() 
     : current_task_(nullptr), next_task_id_(1), next_sync_id_(1) {
-    // 비트맵 초기화
     std::memset(priority_bitmap_, 0, sizeof(priority_bitmap_));
 }
 
 uint8_t PriorityScheduler::find_highest_priority() const {
-    // 비트맵에서 가장 높은 우선순위 (낮은 인덱스) 찾기
     for (int i = 0; i < 16; ++i) {
         if (priority_bitmap_[i] != 0) {
-            // 첫 번째 비트 찾기
             uint8_t byte_value = priority_bitmap_[i];
             int bit_position = 0;
             
-            // 비트 위치에서 첫 번째 비트 위치 찾기
             while ((byte_value & 0x01) == 0) {
                 byte_value >>= 1;
                 bit_position++;
@@ -30,7 +25,7 @@ uint8_t PriorityScheduler::find_highest_priority() const {
         }
     }
     
-    return MAX_PRIORITY_LEVELS; // 유효하지 않은 우선순위 반환
+    return MAX_PRIORITY_LEVELS; 
 }
 
 void PriorityScheduler::update_priority_bitmap(uint8_t priority, bool add) {
@@ -43,10 +38,8 @@ void PriorityScheduler::update_priority_bitmap(uint8_t priority, bool add) {
     uint8_t bit_mask = 1 << bit_index;
     
     if (add) {
-        // 해당 우선순위에 Task가 있음을 표시
         priority_bitmap_[byte_index] |= bit_mask;
     } else {
-        // 해당 우선순위에 Task가 없음을 표시
         priority_bitmap_[byte_index] &= ~bit_mask;
     }
 }
@@ -57,13 +50,12 @@ bool PriorityScheduler::is_valid_priority(uint8_t priority) const {
 
 uint32_t PriorityScheduler::create_task(uint8_t priority, void* data) {
     if (!is_valid_priority(priority)) {
-        return 0; // 유효하지 않은 우선순위
+        return 0; 
     }
     
     auto task = std::make_shared<Task>(next_task_id_++, priority, data);
     task_queues_[priority].push(task);
     
-    // 비트맵 업데이트
     update_priority_bitmap(priority, true);
     
     return task->id;
@@ -77,14 +69,12 @@ bool PriorityScheduler::add_task(uint32_t task_id, uint8_t priority, void* data)
     auto task = std::make_shared<Task>(task_id, priority, data);
     task_queues_[priority].push(task);
     
-    // 비트맵 업데이트
     update_priority_bitmap(priority, true);
     
     return true;
 }
 
 bool PriorityScheduler::remove_task(uint32_t task_id) {
-    // 모든 우선순위 큐에서 해당 Task 찾아서 제거
     for (uint8_t priority = 0; priority < MAX_PRIORITY_LEVELS; ++priority) {
         std::queue<std::shared_ptr<Task>> temp_queue;
         bool found = false;
@@ -101,14 +91,12 @@ bool PriorityScheduler::remove_task(uint32_t task_id) {
             }
         }
         
-        // 원래 큐에 다시 추가
         while (!temp_queue.empty()) {
             task_queues_[priority].push(temp_queue.front());
             temp_queue.pop();
         }
         
         if (found) {
-            // 해당 우선순위에 Task가 없으면 비트맵에서 제거
             if (task_queues_[priority].empty()) {
                 update_priority_bitmap(priority, false);
             }
@@ -123,7 +111,7 @@ std::shared_ptr<Task> PriorityScheduler::get_next_task() {
     uint8_t highest_priority = find_highest_priority();
     
     if (highest_priority >= MAX_PRIORITY_LEVELS) {
-        return nullptr; // 실행할 준비된 Task가 없음
+        return nullptr; 
     }
     
     if (task_queues_[highest_priority].empty()) {
@@ -133,7 +121,6 @@ std::shared_ptr<Task> PriorityScheduler::get_next_task() {
     auto next_task = task_queues_[highest_priority].front();
     task_queues_[highest_priority].pop();
     
-    // 해당 우선순위에 Task가 없으면 비트맵에서 제거
     if (task_queues_[highest_priority].empty()) {
         update_priority_bitmap(highest_priority, false);
     }
@@ -176,7 +163,6 @@ void PriorityScheduler::unblock_task(std::shared_ptr<Task> task) {
         task_queues_[task->priority].push(task);
         update_priority_bitmap(task->priority, true);
         
-        // 블록 리스트에서 제거
         auto it = std::find(blocked_tasks_.begin(), blocked_tasks_.end(), task);
         if (it != blocked_tasks_.end()) {
             blocked_tasks_.erase(it);

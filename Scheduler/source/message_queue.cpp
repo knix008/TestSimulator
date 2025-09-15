@@ -5,7 +5,6 @@
 
 namespace RTOS {
 
-// MessageQueue ����
 MessageQueue::MessageQueue(size_t max_size) 
     : max_size_(max_size), next_message_id_(1) {}
 
@@ -13,29 +12,25 @@ bool MessageQueue::send(const Message& message, uint32_t timeout_ms) {
     std::unique_lock<std::mutex> lock(mutex_);
     
     if (timeout_ms == 0) {
-        // ���� ���
         cv_.wait(lock, [this] { return messages_.size() < max_size_; });
     } else {
-        // Ÿ�Ӿƿ� ���
         auto timeout = std::chrono::milliseconds(timeout_ms);
         if (!cv_.wait_for(lock, timeout, [this] { return messages_.size() < max_size_; })) {
-            return false; // Ÿ�Ӿƿ�
+            return false; 
         }
     }
     
-    // �޽��� ID ���� (0�� ��� �ڵ� ����)
     Message msg = message;
     if (msg.id == 0) {
         msg.id = next_message_id_++;
     }
     
-    // Ÿ�ӽ����� ���� (0�� ��� ���� �ð�)
     if (msg.timestamp == 0) {
         msg.timestamp = static_cast<uint32_t>(std::time(nullptr));
     }
     
     messages_.push(msg);
-    cv_.notify_one(); // ��� ���� �����ڿ��� �˸�
+    cv_.notify_one();
     
     return true;
 }
@@ -49,20 +44,17 @@ bool MessageQueue::receive(Message& message, uint32_t timeout_ms) {
     std::unique_lock<std::mutex> lock(mutex_);
     
     if (timeout_ms == 0) {
-        // ���� ���
         cv_.wait(lock, [this] { return !messages_.empty(); });
     } else {
-        // Ÿ�Ӿƿ� ���
         auto timeout = std::chrono::milliseconds(timeout_ms);
         if (!cv_.wait_for(lock, timeout, [this] { return !messages_.empty(); })) {
-            return false; // Ÿ�Ӿƿ�
+            return false; 
         }
     }
     
     message = messages_.front();
     messages_.pop();
-    cv_.notify_one(); // ��� ���� �۽��ڿ��� �˸�
-    
+    cv_.notify_one(); 
     return true;
 }
 
@@ -99,7 +91,7 @@ void MessageQueue::clear() {
     std::lock_guard<std::mutex> lock(mutex_);
     std::queue<Message> empty;
     messages_.swap(empty);
-    cv_.notify_all(); // ��� ��� ���� �۽��ڿ��� �˸�
+    cv_.notify_all(); 
 }
 
 bool MessageQueue::peek(Message& message) const {
@@ -111,30 +103,30 @@ bool MessageQueue::peek(Message& message) const {
     return false;
 }
 
-// Message Queue management functions
-uint32_t PriorityScheduler::create_message_queue(size_t max_size) {
+// MessageQueueManager implementation
+uint32_t MessageQueueManager::create_message_queue(PriorityScheduler* scheduler, size_t max_size) {
     auto mq = std::make_shared<MessageQueue>(max_size);
-    uint32_t mq_id = next_sync_id_++;
-    message_queues_[mq_id] = mq;
+    uint32_t mq_id = scheduler->next_sync_id_++;
+    scheduler->message_queues_[mq_id] = mq;
     return mq_id;
 }
 
-bool PriorityScheduler::delete_message_queue(uint32_t mq_id) {
-    auto it = message_queues_.find(mq_id);
-    if (it != message_queues_.end()) {
-        message_queues_.erase(it);
+bool MessageQueueManager::delete_message_queue(PriorityScheduler* scheduler, uint32_t mq_id) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it != scheduler->message_queues_.end()) {
+        scheduler->message_queues_.erase(it);
         return true;
     }
     return false;
 }
 
-bool PriorityScheduler::message_queue_send(uint32_t mq_id, uint32_t type, const std::string& data, uint32_t timeout_ms) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+bool MessageQueueManager::message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t type, const std::string& data, uint32_t timeout_ms) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return false;
     }
     
-    auto current_task = get_current_task();
+    auto current_task = scheduler->get_current_task();
     if (!current_task) {
         return false;
     }
@@ -142,13 +134,13 @@ bool PriorityScheduler::message_queue_send(uint32_t mq_id, uint32_t type, const 
     return it->second->send(type, data, timeout_ms);
 }
 
-bool PriorityScheduler::message_queue_send(uint32_t mq_id, const Message& message, uint32_t timeout_ms) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+bool MessageQueueManager::message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, const Message& message, uint32_t timeout_ms) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return false;
     }
     
-    auto current_task = get_current_task();
+    auto current_task = scheduler->get_current_task();
     if (!current_task) {
         return false;
     }
@@ -156,13 +148,13 @@ bool PriorityScheduler::message_queue_send(uint32_t mq_id, const Message& messag
     return it->second->send(message, timeout_ms);
 }
 
-bool PriorityScheduler::message_queue_receive(uint32_t mq_id, uint32_t& type, std::string& data, uint32_t timeout_ms) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+bool MessageQueueManager::message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t& type, std::string& data, uint32_t timeout_ms) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return false;
     }
     
-    auto current_task = get_current_task();
+    auto current_task = scheduler->get_current_task();
     if (!current_task) {
         return false;
     }
@@ -170,13 +162,13 @@ bool PriorityScheduler::message_queue_receive(uint32_t mq_id, uint32_t& type, st
     return it->second->receive(type, data, timeout_ms);
 }
 
-bool PriorityScheduler::message_queue_receive(uint32_t mq_id, Message& message, uint32_t timeout_ms) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+bool MessageQueueManager::message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, Message& message, uint32_t timeout_ms) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return false;
     }
     
-    auto current_task = get_current_task();
+    auto current_task = scheduler->get_current_task();
     if (!current_task) {
         return false;
     }
@@ -184,52 +176,52 @@ bool PriorityScheduler::message_queue_receive(uint32_t mq_id, Message& message, 
     return it->second->receive(message, timeout_ms);
 }
 
-size_t PriorityScheduler::message_queue_get_count(uint32_t mq_id) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+size_t MessageQueueManager::message_queue_get_count(PriorityScheduler* scheduler, uint32_t mq_id) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return 0;
     }
     
     return it->second->get_message_count();
 }
 
-size_t PriorityScheduler::message_queue_get_max_size(uint32_t mq_id) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+size_t MessageQueueManager::message_queue_get_max_size(PriorityScheduler* scheduler, uint32_t mq_id) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return 0;
     }
     
     return it->second->get_max_size();
 }
 
-bool PriorityScheduler::message_queue_is_empty(uint32_t mq_id) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+bool MessageQueueManager::message_queue_is_empty(PriorityScheduler* scheduler, uint32_t mq_id) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return true;
     }
     
     return it->second->is_empty();
 }
 
-bool PriorityScheduler::message_queue_is_full(uint32_t mq_id) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+bool MessageQueueManager::message_queue_is_full(PriorityScheduler* scheduler, uint32_t mq_id) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return false;
     }
     
     return it->second->is_full();
 }
 
-void PriorityScheduler::message_queue_clear(uint32_t mq_id) {
-    auto it = message_queues_.find(mq_id);
-    if (it != message_queues_.end()) {
+void MessageQueueManager::message_queue_clear(PriorityScheduler* scheduler, uint32_t mq_id) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it != scheduler->message_queues_.end()) {
         it->second->clear();
     }
 }
 
-bool PriorityScheduler::message_queue_peek(uint32_t mq_id, Message& message) {
-    auto it = message_queues_.find(mq_id);
-    if (it == message_queues_.end()) {
+bool MessageQueueManager::message_queue_peek(PriorityScheduler* scheduler, uint32_t mq_id, Message& message) {
+    auto it = scheduler->message_queues_.find(mq_id);
+    if (it == scheduler->message_queues_.end()) {
         return false;
     }
     
