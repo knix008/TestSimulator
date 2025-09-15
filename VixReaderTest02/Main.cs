@@ -20,6 +20,9 @@ namespace VixReaderTest01
         private readonly TestResultService _testResultService;
         private int _currentSessionId;
 
+        // 🔧 시리얼 번호 추적을 위한 필드 추가
+        private string _lastRetrievedSerialNumber = string.Empty;
+
         private readonly MacAddressApi _macAddressApi;
         private readonly SerialNumberApi _serialNumberApi;
         private readonly ClearSettingApi _clearSettingApi;
@@ -109,6 +112,35 @@ namespace VixReaderTest01
             }
         }
 
+        // 🔧 시리얼 번호 변경 감지 및 새로운 세션 생성 메서드 추가
+        private async Task CheckSerialNumberChangeAndCreateNewSession(string newSerialNumber)
+        {
+            try
+            {
+                // 이전에 조회한 시리얼 번호와 다른 경우에만 새로운 세션 생성
+                if (!string.IsNullOrEmpty(_lastRetrievedSerialNumber) && 
+                    !string.IsNullOrEmpty(newSerialNumber) && 
+                    _lastRetrievedSerialNumber != newSerialNumber)
+                {
+                    Logger.LogMessage(LogTextBox, $"🔄 시리얼 번호 변경 감지:");
+                    Logger.LogMessage(LogTextBox, $"   이전: {_lastRetrievedSerialNumber}");
+                    Logger.LogMessage(LogTextBox, $"   현재: {newSerialNumber}");
+                    
+                    // 새로운 테스트 세션 생성
+                    _currentSessionId = await _testResultService.CreateNewTestSessionAsync(CurrentIPAddress);
+                    Logger.LogMessage(LogTextBox, $"✅ 새로운 테스트 세션 생성됨 (ID: {_currentSessionId})");
+                    Logger.LogMessage(LogTextBox, "💡 시리얼 번호가 변경되어 새로운 항목으로 DB에 저장됩니다.");
+                }
+                
+                // 현재 시리얼 번호를 마지막 조회된 시리얼 번호로 업데이트
+                _lastRetrievedSerialNumber = newSerialNumber;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogMessage(LogTextBox, $"❌ 시리얼 번호 변경 확인 중 오류: {ex.Message}");
+            }
+        }
+
         // SaveTestResult 메서드 추가/수정
         private async Task SaveTestResult(string testName, string result, string serverResponse = "", string errorMessage = "")
         {
@@ -192,7 +224,7 @@ namespace VixReaderTest01
                    lowerMessage.Contains("unreachable");
         }
 
-        // IP 주소 변경 시 TLS 클라이언트도 업데이트
+        // IP 주소 변경 시 TLS 클라이언트 주소만 업데이트 (연결하지 않음)
         private async void IPAddressTextBox_TextChanged(object sender, EventArgs e)
         {
             string newIP = IPAddressTextBox.Text.Trim();
@@ -207,20 +239,20 @@ namespace VixReaderTest01
             {
                 CurrentIPAddress = newIP;
 
-                // 🔧 TLS 클라이언트 인스턴스 업데이트 시 연결 상태 콜백 포함
-                _tlsClient?.Dispose();
-                _tlsClient = new TlsClient(CurrentIPAddress, 8443, LogTextBox, () => _isConnected);
-
-                Logger.LogMessage(LogTextBox, $"대상 IP 주소 변경됨: {CurrentIPAddress}");
+                // 🔧 TlsClient의 서버 주소만 업데이트 (연결이나 해제 안함)
+                _tlsClient?.UpdateServerAddress(CurrentIPAddress);
 
                 // IP 주소가 변경되면 새로운 테스트 세션 시작
                 try
                 {
                     _currentSessionId = await _testResultService.CreateNewTestSessionAsync(CurrentIPAddress);
-                    Logger.LogMessage(LogTextBox, $"새로운 테스트 세션 시작됨 (ID: {_currentSessionId})");
+                    
+                    // 🔧 IP 주소가 변경되면 마지막 조회된 시리얼 번호 초기화
+                    _lastRetrievedSerialNumber = string.Empty;
                 }
                 catch (Exception ex)
                 {
+                    // 🔧 오류 발생 시에만 로그 출력 (중요한 정보이므로 유지)
                     Logger.LogMessage(LogTextBox, $"테스트 세션 초기화 오류: {ex.Message}");
                 }
             }

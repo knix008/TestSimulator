@@ -17,16 +17,16 @@ struct TaskData {
 };
 
 void simulate_task_execution(std::shared_ptr<Task> task) {
-    if (task && task->data) {
-        TaskData* data = static_cast<TaskData*>(task->data);
-        std::cout << "Executing task " << task->id 
+    if (task && task->get_data()) {
+        TaskData* data = static_cast<TaskData*>(task->get_data());
+        std::cout << "Executing task " << task->get_id() 
                   << " (" << data->name << ") with priority " 
-                  << static_cast<int>(task->priority) << std::endl;
+                  << static_cast<int>(task->get_priority()) << std::endl;
         
         // Simulation: sleep for execution time
         std::this_thread::sleep_for(std::chrono::milliseconds(data->execution_time_ms));
         
-        std::cout << "Task " << task->id << " (" << data->name << ") completed" << std::endl;
+        std::cout << "Task " << task->get_id() << " (" << data->name << ") completed" << std::endl;
     }
 }
 
@@ -101,8 +101,8 @@ int main() {
             simulate_task_execution(next_task);
             
             // Clean up task data
-            if (next_task->data) {
-                delete static_cast<TaskData*>(next_task->data);
+            if (next_task->get_data()) {
+                delete static_cast<TaskData*>(next_task->get_data());
             }
             
             // Clear current task
