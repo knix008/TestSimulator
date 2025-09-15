@@ -9,10 +9,6 @@
 
 namespace RTOS {
 
-// Forward declarations
-class PriorityScheduler;
-struct Task;
-
 // Event class
 class Event {
 private:
@@ -30,16 +26,27 @@ public:
     uint32_t get_bits() const;
 };
 
-// Event management functions for PriorityScheduler
+// Independent Event Manager
 class EventManager {
+private:
+    std::map<uint32_t, std::shared_ptr<Event>> events_;
+    uint32_t next_event_id_;
+    
 public:
+    EventManager();
+    ~EventManager() = default;
+    
     // Event management functions
-    static uint32_t create_event(PriorityScheduler* scheduler);
-    static bool delete_event(PriorityScheduler* scheduler, uint32_t event_id);
-    static bool event_wait(PriorityScheduler* scheduler, uint32_t event_id, uint32_t event_mask, bool clear_on_exit = true, uint32_t timeout_ms = 0);
-    static bool event_set(PriorityScheduler* scheduler, uint32_t event_id, uint32_t event_bits);
-    static bool event_clear(PriorityScheduler* scheduler, uint32_t event_id, uint32_t event_bits);
-    static uint32_t event_get_bits(PriorityScheduler* scheduler, uint32_t event_id);
+    uint32_t create_event();
+    bool delete_event(uint32_t event_id);
+    bool event_wait(uint32_t event_id, uint32_t event_mask, bool clear_on_exit = true, uint32_t timeout_ms = 0);
+    bool event_set(uint32_t event_id, uint32_t event_bits);
+    bool event_clear(uint32_t event_id, uint32_t event_bits);
+    uint32_t event_get_bits(uint32_t event_id);
+    
+    // Status and debugging
+    size_t get_event_count() const;
+    void print_events() const;
 };
 
 } // namespace RTOS

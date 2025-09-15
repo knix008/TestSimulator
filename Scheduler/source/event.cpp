@@ -1,6 +1,6 @@
 #include "event.h"
-#include "scheduler.h"
 #include <chrono>
+#include <iostream>
 
 namespace RTOS {
 
@@ -42,66 +42,69 @@ uint32_t Event::get_bits() const {
 }
 
 // EventManager implementation
-uint32_t EventManager::create_event(PriorityScheduler* scheduler) {
+EventManager::EventManager() : next_event_id_(1) {}
+
+uint32_t EventManager::create_event() {
     auto event = std::make_shared<Event>();
-    uint32_t event_id = scheduler->next_sync_id_++;
-    scheduler->events_[event_id] = event;
+    uint32_t event_id = next_event_id_++;
+    events_[event_id] = event;
     return event_id;
 }
 
-bool EventManager::delete_event(PriorityScheduler* scheduler, uint32_t event_id) {
-    auto it = scheduler->events_.find(event_id);
-    if (it != scheduler->events_.end()) {
-        scheduler->events_.erase(it);
+bool EventManager::delete_event(uint32_t event_id) {
+    auto it = events_.find(event_id);
+    if (it != events_.end()) {
+        events_.erase(it);
         return true;
     }
     return false;
 }
 
-bool EventManager::event_wait(PriorityScheduler* scheduler, uint32_t event_id, uint32_t event_mask, bool clear_on_exit, uint32_t timeout_ms) {
-    auto it = scheduler->events_.find(event_id);
-    if (it == scheduler->events_.end()) {
+bool EventManager::event_wait(uint32_t event_id, uint32_t event_mask, bool clear_on_exit, uint32_t timeout_ms) {
+    auto it = events_.find(event_id);
+    if (it == events_.end()) {
         return false;
     }
     
-    auto current_task = scheduler->get_current_task();
-    if (!current_task) {
-        return false;
-    }
-    
-    // Event wait
-    if (!it->second->wait(event_mask, clear_on_exit, timeout_ms)) {
-        return false; // Timeout or failure
-    }
-    
-    return true;
+    return it->second->wait(event_mask, clear_on_exit, timeout_ms);
 }
 
-bool EventManager::event_set(PriorityScheduler* scheduler, uint32_t event_id, uint32_t event_bits) {
-    auto it = scheduler->events_.find(event_id);
-    if (it == scheduler->events_.end()) {
+bool EventManager::event_set(uint32_t event_id, uint32_t event_bits) {
+    auto it = events_.find(event_id);
+    if (it == events_.end()) {
         return false;
     }
     
     return it->second->set(event_bits);
 }
 
-bool EventManager::event_clear(PriorityScheduler* scheduler, uint32_t event_id, uint32_t event_bits) {
-    auto it = scheduler->events_.find(event_id);
-    if (it == scheduler->events_.end()) {
+bool EventManager::event_clear(uint32_t event_id, uint32_t event_bits) {
+    auto it = events_.find(event_id);
+    if (it == events_.end()) {
         return false;
     }
     
     return it->second->clear(event_bits);
 }
 
-uint32_t EventManager::event_get_bits(PriorityScheduler* scheduler, uint32_t event_id) {
-    auto it = scheduler->events_.find(event_id);
-    if (it == scheduler->events_.end()) {
+uint32_t EventManager::event_get_bits(uint32_t event_id) {
+    auto it = events_.find(event_id);
+    if (it == events_.end()) {
         return 0;
     }
     
     return it->second->get_bits();
+}
+
+size_t EventManager::get_event_count() const {
+    return events_.size();
+}
+
+void EventManager::print_events() const {
+    std::cout << "Events (" << events_.size() << "):\n";
+    for (const auto& pair : events_) {
+        std::cout << "  ID: " << pair.first << ", Bits: 0x" << std::hex << pair.second->get_bits() << std::dec << "\n";
+    }
 }
 
 } // namespace RTOS
