@@ -43,7 +43,7 @@ namespace VixReaderTest01
         private readonly FirmwareApi _firmwareApi;
 
         // IP 주소 관리
-        private string _currentIPAddress = "localhost";
+        private string _currentIPAddress = "192.169.0.2";
         public string CurrentIPAddress
         {
             get => _currentIPAddress;
@@ -54,7 +54,9 @@ namespace VixReaderTest01
         public bool IsEthernetMode => EthernetCheckBox?.Checked ?? true;
         public bool IsSerialMode => SerialCheckBox?.Checked ?? false;
 
-        private bool _isConnected = false;
+        // _isConnected 변수 제거 - 대신 TlsClient의 IsConnected 속성 사용
+        // 연결 상태를 확인하는 속성 추가
+        public bool IsConnected => _tlsClient?.IsConnected ?? false;
 
         public Main()
         {
@@ -64,8 +66,8 @@ namespace VixReaderTest01
             // DeviceTypeComboBox 기본값 설정
             DeviceTypeComboBox.SelectedIndex = 0; // "M : 멀리언(Mullion) 타입" 선택
             
-            // 🔧 TLS 클라이언트 초기화 시 연결 상태 콜백 전달
-            _tlsClient = new TlsClient(CurrentIPAddress, 8443, LogTextBox, () => _isConnected);
+            // 🔧 TlsClient 초기화 - 더 이상 연결 상태 콜백을 전달하지 않음
+            _tlsClient = new TlsClient(CurrentIPAddress, 8443, LogTextBox);
             _testResultService = new TestResultService();  // 추가
 
             // API 인스턴스들 생성 - SetTestResultReady 콜백 전달
