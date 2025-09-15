@@ -2,6 +2,7 @@
 #include "semaphore.h"
 #include <iostream>
 #include <cassert>
+#include <exception>
 
 using namespace RTOS;
 
@@ -43,4 +44,22 @@ void test_semaphore_functionality() {
     sem_manager.delete_semaphore(999); // Test non-existent semaphore
     
     std::cout << "Semaphore functionality test passed!" << std::endl << std::endl;
+}
+
+int main() {
+    std::cout << "Semaphore Test" << std::endl;
+    std::cout << "==============" << std::endl << std::endl;
+    
+    try {
+        test_semaphore_functionality();
+        std::cout << "Semaphore test completed successfully!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Test failed with exception: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "Test failed with unknown exception" << std::endl;
+        return 1;
+    }
+    
+    return 0;
 }

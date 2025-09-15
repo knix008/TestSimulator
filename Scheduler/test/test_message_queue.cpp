@@ -2,6 +2,7 @@
 #include "message_queue.h"
 #include <iostream>
 #include <cassert>
+#include <exception>
 
 using namespace RTOS;
 
@@ -80,4 +81,22 @@ void test_message_queue_functionality() {
     mq_manager.delete_message_queue(999); // Test non-existent queue
     
     std::cout << "Message queue functionality test passed!" << std::endl << std::endl;
+}
+
+int main() {
+    std::cout << "Message Queue Test" << std::endl;
+    std::cout << "==================" << std::endl << std::endl;
+    
+    try {
+        test_message_queue_functionality();
+        std::cout << "Message queue test completed successfully!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Test failed with exception: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "Test failed with unknown exception" << std::endl;
+        return 1;
+    }
+    
+    return 0;
 }

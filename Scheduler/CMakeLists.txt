@@ -42,43 +42,27 @@ add_library(scheduler ${SOURCES} ${HEADERS})
 add_executable(main main.cpp)
 target_link_libraries(main scheduler)
 
-# Test executables
-set(TEST_SOURCES
-    test/test_runner.cpp
-    test/test_basic.cpp
-    test/test_semaphore.cpp
-    test/test_event.cpp
-    test/test_signal.cpp
-    test/test_message_queue.cpp
-    test/test_sync_management.cpp
-)
-
-# All test executable
-add_executable(test_scheduler ${TEST_SOURCES})
-target_link_libraries(test_scheduler scheduler)
-
 # Individual test executables
-add_executable(test_basic test/main_basic.cpp test/test_basic.cpp)
+add_executable(test_basic test/test_basic.cpp)
 target_link_libraries(test_basic scheduler)
 
-add_executable(test_semaphore test/main_semaphore.cpp test/test_semaphore.cpp)
+add_executable(test_semaphore test/test_semaphore.cpp)
 target_link_libraries(test_semaphore scheduler)
 
-add_executable(test_event test/main_event.cpp test/test_event.cpp)
+add_executable(test_event test/test_event.cpp)
 target_link_libraries(test_event scheduler)
 
-add_executable(test_signal test/main_signal.cpp test/test_signal.cpp)
+add_executable(test_signal test/test_signal.cpp)
 target_link_libraries(test_signal scheduler)
 
-add_executable(test_message_queue test/main_message_queue.cpp test/test_message_queue.cpp)
+add_executable(test_message_queue test/test_message_queue.cpp)
 target_link_libraries(test_message_queue scheduler)
 
-add_executable(test_sync_management test/main_sync_management.cpp test/test_sync_management.cpp)
+add_executable(test_sync_management test/test_sync_management.cpp)
 target_link_libraries(test_sync_management scheduler)
 
 # Enable testing
 enable_testing()
-add_test(NAME run_test COMMAND test_scheduler)
 add_test(NAME test_basic COMMAND test_basic)
 add_test(NAME test_semaphore COMMAND test_semaphore)
 add_test(NAME test_event COMMAND test_event)
