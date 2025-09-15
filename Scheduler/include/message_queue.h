@@ -6,10 +6,15 @@
 #include <condition_variable>
 #include <memory>
 #include <string>
+#include <map>
 
 namespace RTOS {
 
-// 메시지 구조체
+// Forward declarations
+class PriorityScheduler;
+struct Task;
+
+// Message structure
 struct Message {
     uint32_t id;
     uint32_t type;
@@ -20,7 +25,7 @@ struct Message {
         : id(msg_id), type(msg_type), data(msg_data), timestamp(msg_timestamp) {}
 };
 
-// Message Queue 클래스
+// Message Queue class
 class MessageQueue {
 private:
     std::queue<Message> messages_;
@@ -33,23 +38,41 @@ public:
     explicit MessageQueue(size_t max_size = 100);
     ~MessageQueue() = default;
     
-    // 메시지 전송
+    // Message sending
     bool send(const Message& message, uint32_t timeout_ms = 0);
     bool send(uint32_t type, const std::string& data, uint32_t timeout_ms = 0);
     
-    // 메시지 수신
+    // Message receiving
     bool receive(Message& message, uint32_t timeout_ms = 0);
     bool receive(uint32_t& type, std::string& data, uint32_t timeout_ms = 0);
     
-    // 상태 조회
+    // Status query
     size_t get_message_count() const;
     size_t get_max_size() const;
     bool is_empty() const;
     bool is_full() const;
     
-    // 큐 관리
+    // Queue management
     void clear();
     bool peek(Message& message) const;
+};
+
+// Message Queue management functions for PriorityScheduler
+class MessageQueueManager {
+public:
+    // Message Queue management functions
+    static uint32_t create_message_queue(PriorityScheduler* scheduler, size_t max_size = 100);
+    static bool delete_message_queue(PriorityScheduler* scheduler, uint32_t mq_id);
+    static bool message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t type, const std::string& data, uint32_t timeout_ms = 0);
+    static bool message_queue_send(PriorityScheduler* scheduler, uint32_t mq_id, const Message& message, uint32_t timeout_ms = 0);
+    static bool message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, uint32_t& type, std::string& data, uint32_t timeout_ms = 0);
+    static bool message_queue_receive(PriorityScheduler* scheduler, uint32_t mq_id, Message& message, uint32_t timeout_ms = 0);
+    static size_t message_queue_get_count(PriorityScheduler* scheduler, uint32_t mq_id);
+    static size_t message_queue_get_max_size(PriorityScheduler* scheduler, uint32_t mq_id);
+    static bool message_queue_is_empty(PriorityScheduler* scheduler, uint32_t mq_id);
+    static bool message_queue_is_full(PriorityScheduler* scheduler, uint32_t mq_id);
+    static void message_queue_clear(PriorityScheduler* scheduler, uint32_t mq_id);
+    static bool message_queue_peek(PriorityScheduler* scheduler, uint32_t mq_id, Message& message);
 };
 
 } // namespace RTOS

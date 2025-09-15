@@ -9,7 +9,7 @@ void test_basic_functionality() {
     
     PriorityScheduler scheduler;
     
-    // 태스크 생성
+    // Create tasks
     uint32_t task1 = scheduler.create_task(0);
     uint32_t task2 = scheduler.create_task(0);
     uint32_t task3 = scheduler.create_task(5);
@@ -17,12 +17,12 @@ void test_basic_functionality() {
     
     std::cout << "Created tasks: " << task1 << ", " << task2 << ", " << task3 << ", " << task4 << std::endl;
     
-    // 가장 높은 우선순위 확인
+    // Check highest priority
     uint8_t highest_priority = scheduler.get_highest_ready_priority();
     std::cout << "Highest priority: " << (int)highest_priority << std::endl;
     assert(highest_priority == 0);
     
-    // 우선순위별 태스크 수 확인
+    // Check task count by priority
     size_t priority_0_count = scheduler.get_task_count(0);
     size_t priority_5_count = scheduler.get_task_count(5);
     size_t priority_10_count = scheduler.get_task_count(10);
@@ -46,7 +46,7 @@ void test_priority_ordering() {
     
     PriorityScheduler scheduler;
     
-    // 다양한 우선순위로 태스크 생성
+    // Create tasks with different priorities
     uint32_t task1 = scheduler.create_task(15);
     uint32_t task2 = scheduler.create_task(3);
     uint32_t task3 = scheduler.create_task(7);
@@ -65,7 +65,7 @@ void test_priority_ordering() {
     std::cout << "Created task " << task7 << " with priority 8" << std::endl;
     std::cout << "Created task " << task8 << " with priority 2" << std::endl;
     
-    // 우선순위 순서대로 태스크 가져오기
+    // Execute tasks in priority order
     uint8_t expected_priorities[] = {0, 1, 2, 3, 7, 8, 12, 15};
     for (int i = 0; i < 8; i++) {
         auto task = scheduler.get_next_task();
@@ -82,10 +82,10 @@ void test_bitmap_optimization() {
     
     PriorityScheduler scheduler;
     
-    // 비트맵 초기 상태 확인
+    // Check initial bitmap state
     scheduler.print_priority_bitmap();
     
-    // 특정 우선순위에 태스크 생성
+    // Create tasks at specific priorities
     scheduler.create_task(0);
     scheduler.create_task(7);
     scheduler.create_task(15);
@@ -96,12 +96,12 @@ void test_bitmap_optimization() {
     std::cout << "After creating tasks at priorities 0, 7, 15, 31, 63, 127:" << std::endl;
     scheduler.print_priority_bitmap();
     
-    // 가장 높은 우선순위 확인
+    // Check highest priority
     uint8_t highest = scheduler.get_highest_ready_priority();
     std::cout << "Highest priority found: " << (int)highest << std::endl;
     assert(highest == 0);
     
-    // 가장 높은 우선순위 태스크 제거
+    // Remove highest priority task
     auto task = scheduler.get_next_task();
     assert(task != nullptr);
     assert(task->priority == 0);
@@ -110,7 +110,7 @@ void test_bitmap_optimization() {
     std::cout << "After removing highest priority task:" << std::endl;
     scheduler.print_priority_bitmap();
     
-    // 새로운 가장 높은 우선순위 확인
+    // Check new highest priority
     uint8_t new_highest = scheduler.get_highest_ready_priority();
     std::cout << "New highest priority: " << (int)new_highest << std::endl;
     assert(new_highest == 7);
@@ -123,7 +123,7 @@ void test_task_removal() {
     
     PriorityScheduler scheduler;
     
-    // 태스크 생성
+    // Create tasks
     scheduler.create_task(5);
     uint32_t task2 = scheduler.create_task(5);
     scheduler.create_task(5);
@@ -131,12 +131,12 @@ void test_task_removal() {
     
     std::cout << "Created 4 tasks" << std::endl;
     
-    // 태스크 2 제거
+    // Remove task 2
     bool removed = scheduler.remove_task(task2);
     assert(removed);
     std::cout << "Removed task " << task2 << std::endl;
     
-    // 남은 태스크들 실행
+    // Execute remaining tasks
     std::cout << "Executing remaining tasks:" << std::endl;
     while (auto task = scheduler.get_next_task()) {
         std::cout << "Executing task " << task->id << " with priority " << (int)task->priority << std::endl;
@@ -150,17 +150,17 @@ void test_edge_cases() {
     
     PriorityScheduler scheduler;
     
-    // 잘못된 우선순위로 태스크 생성 시도
-    uint32_t invalid_task = scheduler.create_task(255); // 잘못된 우선순위
+    // Test invalid priority task creation
+    uint32_t invalid_task = scheduler.create_task(255); // Invalid priority
     assert(invalid_task == 0);
     std::cout << "Invalid priority tests passed" << std::endl;
     
-    // 빈 스케줄러에서 태스크 가져오기
+    // Test empty scheduler
     auto no_task = scheduler.get_next_task();
     assert(no_task == nullptr);
     std::cout << "Empty scheduler tests passed" << std::endl;
     
-    // 최대 우선순위 테스트
+    // Test maximum priority
     uint32_t max_priority_task = scheduler.create_task(127);
     assert(max_priority_task != 0);
     auto task = scheduler.get_next_task();
@@ -175,7 +175,7 @@ void performance_test() {
     
     PriorityScheduler scheduler;
     
-    // 1000개 태스크 생성
+    // Create 1000 tasks
     for (int i = 0; i < 1000; i++) {
         uint8_t priority = i % 128;
         scheduler.create_task(priority);
@@ -183,7 +183,7 @@ void performance_test() {
     
     std::cout << "Created 1000 tasks" << std::endl;
     
-    // 모든 태스크를 우선순위 순서대로 실행
+    // Execute all tasks in priority order
     int executed_count = 0;
     while (auto task = scheduler.get_next_task()) {
         executed_count++;
@@ -194,4 +194,3 @@ void performance_test() {
     
     std::cout << "Performance test passed!" << std::endl << std::endl;
 }
-
