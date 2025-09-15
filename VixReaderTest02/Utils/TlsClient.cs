@@ -8,7 +8,7 @@ namespace VixReaderTest01.Utils
 {
     public class TlsClient : IDisposable
     {
-        private readonly string _serverAddress;
+        private string _serverAddress;  // 🔧 readonly 제거
         private readonly int _port;
         private readonly TextBox _logTextBox;
         private TcpClient? _tcpClient;
@@ -17,6 +17,10 @@ namespace VixReaderTest01.Utils
         
         // 🔧 연결 상태 확인을 위한 콜백 함수 추가
         private readonly Func<bool>? _isConnectedCallback;
+        
+        // 🔧 타임아웃 설정 추가
+        private readonly int _defaultConnectionTimeoutSeconds = 30;
+        private readonly int _defaultCommandTimeoutSeconds = 15;
         
         // 연결 상태를 추적하는 속성 (실제 TCP/TLS 연결 상태 + Main의 연결 상태)
         public bool IsConnected => (_isConnectedCallback?.Invoke() ?? false) && 
@@ -29,6 +33,9 @@ namespace VixReaderTest01.Utils
                                            _sslStream != null && 
                                            _sslStream.CanWrite;
 
+        // 🔧 현재 서버 주소 속성 추가
+        public string ServerAddress => _serverAddress;
+
         public TlsClient(string serverAddress, int port, TextBox logTextBox, Func<bool>? isConnectedCallback = null)
         {
             _serverAddress = serverAddress;
@@ -37,12 +44,24 @@ namespace VixReaderTest01.Utils
             _isConnectedCallback = isConnectedCallback;
         }
 
-        // 🔧 Connect 버튼 전용 연결 메서드 - "AT" 및 "AT+TEST=BEGIN" 명령 포함
-        public async Task ConnectAsync()
+        // 🔧 서버 주소 업데이트 메서드 추가 (연결 없이 주소만 변경)
+        public void UpdateServerAddress(string newServerAddress)
         {
+            _serverAddress = newServerAddress;
+            // 🔧 로그 출력하지 않음 - Connect 버튼이 눌렸을 때만 연결 시도
+        }
+
+        // 🔧 Connect 버튼 전용 연결 메서드 - 타임아웃 지원 추가
+        public async Task ConnectAsync(int timeoutSeconds = 0)
+        {
+            // 기본 타임아웃 설정
+            int actualTimeout = timeoutSeconds > 0 ? timeoutSeconds : _defaultConnectionTimeoutSeconds;
+            
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(actualTimeout));
+            
             try
             {
-                Logger.LogMessage(_logTextBox, $"TLS 연결 시도 중... ({_serverAddress}:{_port})");
+                Logger.LogMessage(_logTextBox, $"TLS 연결 시도 중... ({_serverAddress}:{_port}, 타임아웃: {actualTimeout}초)");
 
                 // 🔧 이미 연결되어 있으면 기존 연결 정리
                 if (IsPhysicallyConnected)
@@ -51,27 +70,53 @@ namespace VixReaderTest01.Utils
                     await DisconnectAsync();
                 }
 
-                // TCP 연결 생성
+                // 🔧 TCP 연결 생성 - 타임아웃 적용
                 _tcpClient = new TcpClient();
-                await _tcpClient.ConnectAsync(_serverAddress, _port);
+                _tcpClient.ReceiveTimeout = actualTimeout * 1000; // 밀리초 단위
+                _tcpClient.SendTimeout = actualTimeout * 1000;
+                
+                var connectTask = _tcpClient.ConnectAsync(_serverAddress, _port);
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(actualTimeout), cts.Token);
+                
+                var completedTask = await Task.WhenAny(connectTask, timeoutTask);
+                
+                if (completedTask == timeoutTask)
+                {
+                    Logger.LogMessage(_logTextBox, $"❌ TCP 연결 타임아웃 ({actualTimeout}초)");
+                    throw new TimeoutException($"TCP 연결이 {actualTimeout}초 내에 완료되지 않았습니다.");
+                }
+                
+                await connectTask; // 연결 작업 완료 확인
                 Logger.LogMessage(_logTextBox, "TCP 연결 성공");
 
-                // SSL/TLS 스트림 생성
+                // 🔧 SSL/TLS 스트림 생성 - 타임아웃 적용
                 _sslStream = new SslStream(
                     _tcpClient.GetStream(),
                     false,
-                    ValidateServerCertificate, // 인증서 검증 콜백
+                    ValidateServerCertificate,
                     null
                 );
 
-                // TLS 핸드셰이크 수행
+                // 🔧 TLS 핸드셰이크 수행 - 타임아웃 적용
                 Logger.LogMessage(_logTextBox, "TLS 핸드셰이크 시작...");
-                await _sslStream.AuthenticateAsClientAsync(
+                
+                var authTask = _sslStream.AuthenticateAsClientAsync(
                     _serverAddress,
-                    null, // 클라이언트 인증서 없음
-                    SslProtocols.Tls12 | SslProtocols.Tls13, // TLS 1.2/1.3 지원
-                    false // 인증서 해지 확인 비활성화
+                    null,
+                    SslProtocols.Tls12 | SslProtocols.Tls13,
+                    false
                 );
+                
+                var authTimeoutTask = Task.Delay(TimeSpan.FromSeconds(actualTimeout), cts.Token);
+                var authCompletedTask = await Task.WhenAny(authTask, authTimeoutTask);
+                
+                if (authCompletedTask == authTimeoutTask)
+                {
+                    Logger.LogMessage(_logTextBox, $"❌ TLS 핸드셰이크 타임아웃 ({actualTimeout}초)");
+                    throw new TimeoutException($"TLS 핸드셰이크가 {actualTimeout}초 내에 완료되지 않았습니다.");
+                }
+                
+                await authTask; // 핸드셰이크 작업 완료 확인
 
                 Logger.LogMessage(_logTextBox, $"TLS 연결 성공!");
                 Logger.LogMessage(_logTextBox, $"TLS 프로토콜: {_sslStream.SslProtocol}");
@@ -85,11 +130,11 @@ namespace VixReaderTest01.Utils
                     Logger.LogMessage(_logTextBox, $"서버 인증서 발급자: {cert.Issuer}");
                 }
 
-                // 🔧 1단계: "AT" 명령으로 연결 확인
+                // 🔧 1단계: "AT" 명령으로 연결 확인 - 타임아웃 적용
                 Logger.LogMessage(_logTextBox, "AT 명령 전송...");
-                string atResponse = await SendRawCommandAsync("AT");
+                string atResponse = await SendRawCommandAsync("AT", cts.Token);
 
-                // AT 응답 확인 - "OK" 응답이 있어야 성공으로 판단
+                // AT 응답 확인
                 bool isAtSuccess = !string.IsNullOrEmpty(atResponse) && 
                                   (atResponse.Contains("OK") || atResponse.Contains("200") || atResponse.Contains("ok"));
                 
@@ -101,12 +146,12 @@ namespace VixReaderTest01.Utils
                 
                 Logger.LogMessage(_logTextBox, "✅ AT 명령 성공");
                 
-                // 🔧 2단계: "AT+TEST=BEGIN" 명령으로 테스트 모드 진입
+                // 🔧 2단계: "AT+TEST=BEGIN" 명령으로 테스트 모드 진입 - 타임아웃 적용
                 Logger.LogMessage(_logTextBox, "테스트 모드 진입...");
                 
-                await Task.Delay(1000);
+                await Task.Delay(1000, cts.Token);
                 
-                string testBeginResponse = await SendRawCommandAsync("AT+TEST=BEGIN");
+                string testBeginResponse = await SendRawCommandAsync("AT+TEST=BEGIN", cts.Token);
                 
                 // 테스트 모드 진입 확인
                 if (string.IsNullOrEmpty(testBeginResponse))
@@ -124,119 +169,39 @@ namespace VixReaderTest01.Utils
                 
                 Logger.LogMessage(_logTextBox, "TLS 연결 및 테스트 설정 완료");
             }
+            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+            {
+                Logger.LogMessage(_logTextBox, $"❌ 연결 작업 타임아웃 ({actualTimeout}초)");
+                await DisconnectAsync();
+                throw new TimeoutException($"연결 작업이 {actualTimeout}초 내에 완료되지 않았습니다.");
+            }
+            catch (TimeoutException)
+            {
+                Logger.LogMessage(_logTextBox, $"❌ 연결 타임아웃");
+                await DisconnectAsync();
+                throw;
+            }
             catch (Exception ex)
             {
                 Logger.LogMessage(_logTextBox, $"TLS 연결 실패: {ex.Message}");
                 
-                // 🔧 서버 연결 실패 팝업 표시
-                ShowConnectionFailurePopup(ex);
-                
+                // 🔧 팝업 표시 제거 - 로그만 출력
                 await DisconnectAsync();
                 throw;
             }
         }
 
-        // 🔧 서버 연결 실패 팝업 표시 메서드
-        private void ShowConnectionFailurePopup(Exception ex)
+        // 🔧 일반 AT 명령 전송 - 타임아웃 지원 추가
+        public async Task<string> SendAtCommandAsync(string atCommand, int timeoutSeconds = 0)
         {
+            // 기본 타임아웃 설정
+            int actualTimeout = timeoutSeconds > 0 ? timeoutSeconds : _defaultCommandTimeoutSeconds;
+            
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(actualTimeout));
+            
             try
             {
-                // UI 스레드에서 실행되도록 보장
-                if (_logTextBox.InvokeRequired)
-                {
-                    _logTextBox.Invoke(() => ShowConnectionFailurePopup(ex));
-                    return;
-                }
-
-                string errorType = GetConnectionErrorType(ex);
-                string troubleshooting = GetTroubleshootingSteps(ex);
-
-                MessageBox.Show(
-                    $"서버 연결에 실패했습니다.\n\n" +
-                    $"🔌 서버 주소: {_serverAddress}:{_port}\n" +
-                    $"❌ 오류 유형: {errorType}\n\n" +
-                    $"상세 오류:\n{ex.Message}\n\n" +
-                    $"해결 방법:\n{troubleshooting}",
-                    "서버 연결 실패",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
-            }
-            catch (Exception popupEx)
-            {
-                // 팝업 표시 중 오류가 발생해도 로그만 남기고 계속 진행
-                Logger.LogMessage(_logTextBox, $"연결 실패 팝업 표시 중 오류: {popupEx.Message}");
-            }
-        }
-
-        // 🔧 연결 오류 유형 분석
-        private string GetConnectionErrorType(Exception ex)
-        {
-            return ex switch
-            {
-                SocketException socketEx => socketEx.SocketErrorCode switch
-                {
-                    SocketError.ConnectionRefused => "연결 거부",
-                    SocketError.TimedOut => "연결 타임아웃",
-                    SocketError.HostNotFound => "호스트를 찾을 수 없음",
-                    SocketError.NetworkUnreachable => "네트워크에 연결할 수 없음",
-                    SocketError.ConnectionReset => "연결이 재설정됨",
-                    _ => $"소켓 오류 ({socketEx.SocketErrorCode})"
-                },
-                AuthenticationException => "TLS 인증 실패",
-                TimeoutException => "응답 타임아웃",
-                InvalidOperationException => "프로토콜 오류",
-                _ => "알 수 없는 오류"
-            };
-        }
-
-        // 🔧 문제 해결 단계 제공
-        private string GetTroubleshootingSteps(Exception ex)
-        {
-            return ex switch
-            {
-                SocketException socketEx => socketEx.SocketErrorCode switch
-                {
-                    SocketError.ConnectionRefused => 
-                        "• 서버가 실행 중인지 확인\n" +
-                        "• 포트 번호가 올바른지 확인\n" +
-                        "• 방화벽 설정 확인",
-                    SocketError.TimedOut => 
-                        "• 네트워크 연결 상태 확인\n" +
-                        "• 서버 응답 시간 확인\n" +
-                        "• 잠시 후 다시 시도",
-                    SocketError.HostNotFound => 
-                        "• IP 주소가 올바른지 확인\n" +
-                        "• DNS 설정 확인\n" +
-                        "• 네트워크 연결 확인",
-                    SocketError.NetworkUnreachable => 
-                        "• 네트워크 케이블 연결 확인\n" +
-                        "• 라우터/스위치 상태 확인\n" +
-                        "• IP 설정 확인",
-                    _ => "• 네트워크 설정 확인\n• 서버 상태 확인\n• 잠시 후 재시도"
-                },
-                AuthenticationException => 
-                    "• TLS 인증서 설정 확인\n" +
-                    "• 서버 보안 설정 확인\n" +
-                    "• 지원되는 TLS 버전 확인",
-                TimeoutException => 
-                    "• 서버 응답 확인\n" +
-                    "• 네트워크 속도 확인\n" +
-                    "• 잠시 후 다시 시도",
-                InvalidOperationException => 
-                    "• 서버 프로토콜 확인\n" +
-                    "• AT 명령 지원 여부 확인\n" +
-                    "• 서버 로그 확인",
-                _ => "• 네트워크 연결 확인\n• 서버 상태 확인\n• 관리자에게 문의"
-            };
-        }
-
-        // 🔧 일반 AT 명령 전송 - 연결된 상태에서만 사용 (다른 버튼들용)
-        public async Task<string> SendAtCommandAsync(string atCommand)
-        {
-            try
-            {
-                Logger.LogMessage(_logTextBox, $"AT 명령 전송 요청: {atCommand}");
+                Logger.LogMessage(_logTextBox, $"AT 명령 전송 요청: {atCommand} (타임아웃: {actualTimeout}초)");
 
                 // 🔧 연결 상태 확인 - Main의 _isConnected 상태를 포함하여 검증
                 if (!IsConnected)
@@ -245,9 +210,7 @@ namespace VixReaderTest01.Utils
                     Logger.LogMessage(_logTextBox, $"❌ {errorMessage}");
                     Logger.LogMessage(_logTextBox, $"연결 상태 디버그: Main._isConnected={_isConnectedCallback?.Invoke()}, TCP.Connected={_tcpClient?.Connected}, SSL.CanWrite={_sslStream?.CanWrite}");
                     
-                    // 🔧 사용자에게 연결 필요 알림 팝업 표시
-                    ShowConnectionRequiredPopup();
-                    
+                    // 🔧 팝업 표시 제거 - 로그만 출력
                     throw new InvalidOperationException(errorMessage);
                 }
 
@@ -257,13 +220,16 @@ namespace VixReaderTest01.Utils
                     string errorMessage = "물리적 연결이 끊어졌습니다. Connect 버튼을 클릭하여 다시 연결해주세요.";
                     Logger.LogMessage(_logTextBox, $"❌ {errorMessage}");
                     
-                    // 🔧 사용자에게 재연결 필요 알림 팝업 표시
-                    ShowReconnectionRequiredPopup();
-                    
+                    // 🔧 팝업 표시 제거 - 로그만 출력
                     throw new InvalidOperationException(errorMessage);
                 }
 
-                return await SendRawCommandAsync(atCommand);
+                return await SendRawCommandAsync(atCommand, cts.Token);
+            }
+            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+            {
+                Logger.LogMessage(_logTextBox, $"❌ AT 명령 타임아웃 ({actualTimeout}초): {atCommand}");
+                throw new TimeoutException($"AT 명령 '{atCommand}'이 {actualTimeout}초 내에 완료되지 않았습니다.");
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("연결되지 않았습니다") || ex.Message.Contains("물리적 연결이 끊어졌습니다"))
             {
@@ -278,72 +244,8 @@ namespace VixReaderTest01.Utils
             }
         }
 
-        // 🔧 연결 필요 알림 팝업 표시 메서드
-        private void ShowConnectionRequiredPopup()
-        {
-            try
-            {
-                // UI 스레드에서 실행되도록 보장
-                if (_logTextBox.InvokeRequired)
-                {
-                    _logTextBox.Invoke(() => ShowConnectionRequiredPopup());
-                    return;
-                }
-
-                MessageBox.Show(
-                    "장치에 연결되지 않았습니다.\n\n" +
-                    "🔌 Connect 버튼을 클릭하여 먼저 장치에 연결해주세요.\n\n" +
-                    "연결 절차:\n" +
-                    "1. 상단의 'Connect' 버튼 클릭\n" +
-                    "2. 연결 성공 후 원하는 기능 사용\n\n" +
-                    "💡 연결이 완료되면 TestResult 버튼이 '연결됨' 상태로 변경됩니다.",
-                    "연결 필요",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning
-                );
-            }
-            catch (Exception ex)
-            {
-                // 팝업 표시 중 오류가 발생해도 로그만 남기고 계속 진행
-                Logger.LogMessage(_logTextBox, $"연결 필요 팝업 표시 중 오류: {ex.Message}");
-            }
-        }
-
-        // 🔧 재연결 필요 알림 팝업 표시 메서드
-        private void ShowReconnectionRequiredPopup()
-        {
-            try
-            {
-                // UI 스레드에서 실행되도록 보장
-                if (_logTextBox.InvokeRequired)
-                {
-                    _logTextBox.Invoke(() => ShowReconnectionRequiredPopup());
-                    return;
-                }
-
-                MessageBox.Show(
-                    "물리적 연결이 끊어졌습니다.\n\n" +
-                    "🔄 Connect 버튼을 클릭하여 다시 연결해주세요.\n\n" +
-                    "가능한 원인:\n" +
-                    "• 네트워크 연결 불안정\n" +
-                    "• 서버가 연결을 종료함\n" +
-                    "• 장치가 재부팅됨\n" +
-                    "• 타임아웃 발생\n\n" +
-                    "💡 Connect 버튼을 다시 클릭하여 연결을 복구하세요.",
-                    "재연결 필요",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Exclamation
-                );
-            }
-            catch (Exception ex)
-            {
-                // 팝업 표시 중 오류가 발생해도 로그만 남기고 계속 진행
-                Logger.LogMessage(_logTextBox, $"재연결 필요 팝업 표시 중 오류: {ex.Message}");
-            }
-        }
-
-        // 🔧 실제 AT 명령 전송 로직 (내부 메서드)
-        private async Task<string> SendRawCommandAsync(string atCommand)
+        // 🔧 실제 AT 명령 전송 로직 (내부 메서드) - 타임아웃 지원 추가
+        private async Task<string> SendRawCommandAsync(string atCommand, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -356,12 +258,17 @@ namespace VixReaderTest01.Utils
                 // AT 명령 전송
                 Logger.LogMessage(_logTextBox, $"AT 명령 '{atCommand}' 전송 중...");
                 byte[] commandBytes = Encoding.UTF8.GetBytes(atCommand + "\r\n");
-                await _sslStream.WriteAsync(commandBytes, 0, commandBytes.Length);
-                await _sslStream.FlushAsync();
+                await _sslStream.WriteAsync(commandBytes, 0, commandBytes.Length, cancellationToken);
+                await _sslStream.FlushAsync(cancellationToken);
                 Logger.LogMessage(_logTextBox, $"AT 명령 전송 완료");
 
                 // 서버 응답 수신 - "OK\r\n", "FAIL\r\n" 또는 시리얼 번호 문자열 형태의 응답을 기대
-                return await ReadResponseAsync();
+                return await ReadResponseAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Logger.LogMessage(_logTextBox, $"AT 명령 전송 타임아웃: {atCommand}");
+                throw;
             }
             catch (Exception ex)
             {
@@ -370,7 +277,8 @@ namespace VixReaderTest01.Utils
             }
         }
 
-        private async Task<string> ReadResponseAsync()
+        // 🔧 응답 읽기 메서드 - 타임아웃 지원 개선
+        private async Task<string> ReadResponseAsync(CancellationToken cancellationToken = default)
         {
             try
             {
@@ -382,18 +290,16 @@ namespace VixReaderTest01.Utils
                     throw new InvalidOperationException("TLS 스트림이 초기화되지 않았습니다.");
                 }
 
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                 StringBuilder responseBuilder = new StringBuilder();
                 byte[] buffer = new byte[1024];
-
                 var stream = _sslStream;
                 int consecutiveEmptyReads = 0;
 
-                while (!cts.Token.IsCancellationRequested)
+                while (!cancellationToken.IsCancellationRequested)
                 {
                     if (stream.CanRead)
                     {
-                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                         if (bytesRead > 0)
                         {
                             consecutiveEmptyReads = 0; // 데이터를 받으면 카운터 리셋
@@ -425,12 +331,12 @@ namespace VixReaderTest01.Utils
                                 Logger.LogMessage(_logTextBox, $"연속 빈 읽기 감지, 응답 완료로 판단: {consecutiveEmptyReads}회");
                                 break;
                             }
-                            await Task.Delay(100, cts.Token);
+                            await Task.Delay(100, cancellationToken);
                         }
                     }
                     else
                     {
-                        await Task.Delay(50, cts.Token);
+                        await Task.Delay(50, cancellationToken);
                     }
                 }
 
@@ -446,7 +352,7 @@ namespace VixReaderTest01.Utils
 
                 return finalResponse.Trim();
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 Logger.LogMessage(_logTextBox, "응답 읽기 타임아웃");
                 throw new TimeoutException("서버 응답 타임아웃: 응답을 받지 못했습니다");
@@ -519,24 +425,27 @@ namespace VixReaderTest01.Utils
             X509Chain? chain,
             SslPolicyErrors sslPolicyErrors)
         {
-            // 테스트 환경에서는 모든 인증서를 허용 (프로덕션에서는 적절한 검증 필요)
-            if (sslPolicyErrors == SslPolicyErrors.None)
+            // 인증서 정보 로깅
+            if (certificate != null)
+            {
+                Logger.LogMessage(_logTextBox, $"인증서 주체: {certificate.Subject}");
+                Logger.LogMessage(_logTextBox, $"인증서 발급자: {certificate.Issuer}");
+            }
+
+            // 검증 오류가 있는 경우 경고 로깅
+            if (sslPolicyErrors != SslPolicyErrors.None)
+            {
+                Logger.LogMessage(_logTextBox, $"서버 인증서 검증 경고: {sslPolicyErrors}");
+                Logger.LogMessage(_logTextBox, "자체 서명 인증서를 허용하도록 설정되어 있습니다.");
+            }
+            else
             {
                 Logger.LogMessage(_logTextBox, "서버 인증서 검증 성공");
-                return true;
             }
 
-            Logger.LogMessage(_logTextBox, $"서버 인증서 검증 경고: {sslPolicyErrors}");
-            
-            // 자체 서명 인증서나 이름 불일치 등을 허용
-            if (sslPolicyErrors.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch) ||
-                sslPolicyErrors.HasFlag(SslPolicyErrors.RemoteCertificateChainErrors))
-            {
-                Logger.LogMessage(_logTextBox, "테스트 환경이므로 인증서 오류를 무시합니다");
-                return true;
-            }
-
-            return false;
+            // 모든 인증서 오류 허용 (자체 서명 인증서 포함)
+            // -verify_return_error 옵션을 비활성화한 것과 같은 효과
+            return true;
         }
 
         public async Task DisconnectAsync()
@@ -576,7 +485,26 @@ namespace VixReaderTest01.Utils
             {
                 if (disposing)
                 {
-                    DisconnectAsync().Wait();
+                    // 🔧 조용한 해제 - 로그 출력 안함
+                    try
+                    {
+                        if (_sslStream != null)
+                        {
+                            _sslStream.Dispose();
+                            _sslStream = null;
+                        }
+
+                        if (_tcpClient != null)
+                        {
+                            _tcpClient.Close();
+                            _tcpClient.Dispose();
+                            _tcpClient = null;
+                        }
+                    }
+                    catch
+                    {
+                        // 조용한 해제 - 예외도 무시
+                    }
                 }
                 _disposed = true;
             }

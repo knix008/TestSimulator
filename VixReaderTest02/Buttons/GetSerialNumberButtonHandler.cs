@@ -1,4 +1,4 @@
-using VixReaderTest01.Utils;
+ï»¿using VixReaderTest01.Utils;
 
 namespace VixReaderTest01
 {
@@ -8,25 +8,28 @@ namespace VixReaderTest01
         {
             try
             {
-                Logger.LogMessage(LogTextBox, "½Ã¸®¾ó ¹øÈ£ Á¶È¸ ½ÃÀÛ...");
+                Logger.LogMessage(LogTextBox, "ì‹œë¦¬ì–¼ ë²ˆí˜¸ ì¡°íšŒ ì‹œì‘...");
 
-                // AT+SERIAL? ¸í·ÉÀ¸·Î ½Ã¸®¾ó ¹øÈ£ Á¶È¸
+                // AT+SERIAL? ëª…ë ¹ìœ¼ë¡œ ì‹œë¦¬ì–¼ ë²ˆí˜¸ ì¡°íšŒ
                 string serialNumber = await _serialNumberApi.GetSerialNumberAsync();
 
-                // ¼º°ø ½Ã Á¶È¸ÇÑ ½Ã¸®¾ó ¹øÈ£¸¸ DB¿¡ ÀúÀå
+                // ğŸ”§ ì‹œë¦¬ì–¼ ë²ˆí˜¸ ë³€ê²½ ê°ì§€ ë° ìƒˆë¡œìš´ ì„¸ì…˜ ìƒì„± í™•ì¸
+                await CheckSerialNumberChangeAndCreateNewSession(serialNumber);
+
+                // ì„±ê³µ ì‹œ ì¡°íšŒí•œ ì‹œë¦¬ì–¼ ë²ˆí˜¸ë¥¼ DBì— ì €ì¥
                 await SaveTestResult("Get Serial Number", serialNumber);
 
                 UpdateTestResultButton(true);
-                Logger.LogMessage(LogTextBox, $"½Ã¸®¾ó ¹øÈ£ Á¶È¸ ¼º°ø: {serialNumber}");
+                Logger.LogMessage(LogTextBox, $"ì‹œë¦¬ì–¼ ë²ˆí˜¸ ì¡°íšŒ ì„±ê³µ: {serialNumber}");
 
-                MessageBox.Show($"ÇöÀç ½Ã¸®¾ó ¹øÈ£: {serialNumber}", 
-                               "½Ã¸®¾ó ¹øÈ£ Á¶È¸ ¼º°ø", 
+                MessageBox.Show($"í˜„ì¬ ì‹œë¦¬ì–¼ ë²ˆí˜¸: {serialNumber}", 
+                               "ì‹œë¦¬ì–¼ ë²ˆí˜¸ ì¡°íšŒ ì„±ê³µ", 
                                MessageBoxButtons.OK, 
                                MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                Logger.LogMessage(LogTextBox, $"½Ã¸®¾ó ¹øÈ£ Á¶È¸ ¿À·ù: {ex.Message}");
+                Logger.LogMessage(LogTextBox, $"ì‹œë¦¬ì–¼ ë²ˆí˜¸ ì¡°íšŒ ì‹¤íŒ¨: {ex.Message}");
 
                 if (IsTlsError(ex.Message))
                 {
@@ -34,7 +37,7 @@ namespace VixReaderTest01
                 }
                 else
                 {
-                    // ½ÇÆĞ ½Ã "FAIL"¸¸ DB¿¡ ÀúÀå
+                    // ì‹¤íŒ¨ ì‹œ "FAIL"ì„ DBì— ì €ì¥
                     await SaveTestResult("Get Serial Number", "FAIL");
                 }
 

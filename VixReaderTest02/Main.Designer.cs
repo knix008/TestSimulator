@@ -14,12 +14,12 @@
             InterfaceGroupBox = new GroupBox();
             ConnectButton = new Button();
             ControlCommand = new GroupBox();
-            GetFirmwareVersion = new Button();
-            SetDefault = new Button();
             Reboot = new Button();
-            ClearSetting = new Button();
             GetSerialNumber = new Button();
             SetSerialNumber = new Button();
+            GetFirmwareVersion = new Button();
+            SetDefault = new Button();
+            ClearSetting = new Button();
             TestResult = new Button();
             NetworkLink = new Button();
             TamperTest = new Button();
@@ -99,7 +99,7 @@
             IPAddressTextBox.Name = "IPAddressTextBox";
             IPAddressTextBox.Size = new Size(166, 29);
             IPAddressTextBox.TabIndex = 3;
-            IPAddressTextBox.Text = "localhost";
+            IPAddressTextBox.Text = "192.168.0.2\r\n";
             IPAddressTextBox.TextChanged += IPAddressTextBox_TextChanged;
             // 
             // IPAddressLabel
@@ -143,42 +143,17 @@
             // 
             // ControlCommand
             // 
-            ControlCommand.Controls.Add(GetFirmwareVersion);
-            ControlCommand.Controls.Add(SetDefault);
             ControlCommand.Controls.Add(Reboot);
-            ControlCommand.Controls.Add(ClearSetting);
             ControlCommand.Controls.Add(GetSerialNumber);
             ControlCommand.Controls.Add(SetSerialNumber);
             ControlCommand.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
             ControlCommand.ForeColor = Color.DarkBlue;
             ControlCommand.Location = new Point(12, 107);
             ControlCommand.Name = "ControlCommand";
-            ControlCommand.Size = new Size(571, 132);
+            ControlCommand.Size = new Size(571, 86);
             ControlCommand.TabIndex = 4;
             ControlCommand.TabStop = false;
             ControlCommand.Text = "장치 제어 명령 선택 : ";
-            // 
-            // GetFirmwareVersion
-            // 
-            GetFirmwareVersion.Font = new Font("맑은 고딕", 9.75F);
-            GetFirmwareVersion.Location = new Point(10, 80);
-            GetFirmwareVersion.Name = "GetFirmwareVersion";
-            GetFirmwareVersion.Size = new Size(179, 34);
-            GetFirmwareVersion.TabIndex = 3;
-            GetFirmwareVersion.Text = "펌웨어 버전 읽기";
-            GetFirmwareVersion.UseVisualStyleBackColor = true;
-            GetFirmwareVersion.Click += GetFirmwareVersion_Click;
-            // 
-            // SetDefault
-            // 
-            SetDefault.Font = new Font("맑은 고딕", 9.75F);
-            SetDefault.Location = new Point(382, 80);
-            SetDefault.Name = "SetDefault";
-            SetDefault.Size = new Size(178, 34);
-            SetDefault.TabIndex = 6;
-            SetDefault.Text = "장치 상태 초기화";
-            SetDefault.UseVisualStyleBackColor = true;
-            SetDefault.Click += DefaultState_Click;
             // 
             // Reboot
             // 
@@ -190,17 +165,6 @@
             Reboot.Text = "장치 재부팅";
             Reboot.UseVisualStyleBackColor = true;
             Reboot.Click += Reboot_Click;
-            // 
-            // ClearSetting
-            // 
-            ClearSetting.Font = new Font("맑은 고딕", 9.75F);
-            ClearSetting.Location = new Point(196, 80);
-            ClearSetting.Name = "ClearSetting";
-            ClearSetting.Size = new Size(179, 34);
-            ClearSetting.TabIndex = 4;
-            ClearSetting.Text = "장치 설정 지우기";
-            ClearSetting.UseVisualStyleBackColor = true;
-            ClearSetting.Click += ClearSetting_Click;
             // 
             // GetSerialNumber
             // 
@@ -224,6 +188,39 @@
             SetSerialNumber.UseVisualStyleBackColor = true;
             SetSerialNumber.Click += SetSerialNumber_Click;
             // 
+            // GetFirmwareVersion
+            // 
+            GetFirmwareVersion.Font = new Font("맑은 고딕", 9.75F);
+            GetFirmwareVersion.Location = new Point(10, 29);
+            GetFirmwareVersion.Name = "GetFirmwareVersion";
+            GetFirmwareVersion.Size = new Size(179, 34);
+            GetFirmwareVersion.TabIndex = 3;
+            GetFirmwareVersion.Text = "펌웨어 버전 읽기";
+            GetFirmwareVersion.UseVisualStyleBackColor = true;
+            GetFirmwareVersion.Click += GetFirmwareVersion_Click;
+            // 
+            // SetDefault
+            // 
+            SetDefault.Font = new Font("맑은 고딕", 9.75F);
+            SetDefault.Location = new Point(377, 30);
+            SetDefault.Name = "SetDefault";
+            SetDefault.Size = new Size(178, 34);
+            SetDefault.TabIndex = 6;
+            SetDefault.Text = "장치 상태 초기화";
+            SetDefault.UseVisualStyleBackColor = true;
+            SetDefault.Click += DefaultState_Click;
+            // 
+            // ClearSetting
+            // 
+            ClearSetting.Font = new Font("맑은 고딕", 9.75F);
+            ClearSetting.Location = new Point(195, 30);
+            ClearSetting.Name = "ClearSetting";
+            ClearSetting.Size = new Size(175, 34);
+            ClearSetting.TabIndex = 4;
+            ClearSetting.Text = "장치 설정 지우기";
+            ClearSetting.UseVisualStyleBackColor = true;
+            ClearSetting.Click += ClearSetting_Click;
+            // 
             // TestResult
             // 
             TestResult.BackColor = Color.LightGray;
@@ -240,7 +237,7 @@
             // 
             NetworkLink.Font = new Font("맑은 고딕", 9.75F);
             NetworkLink.ForeColor = Color.DarkBlue;
-            NetworkLink.Location = new Point(377, 157);
+            NetworkLink.Location = new Point(377, 196);
             NetworkLink.Name = "NetworkLink";
             NetworkLink.Size = new Size(179, 36);
             NetworkLink.TabIndex = 12;
@@ -252,7 +249,7 @@
             // 
             TamperTest.Font = new Font("맑은 고딕", 9.75F);
             TamperTest.ForeColor = Color.DarkBlue;
-            TamperTest.Location = new Point(377, 72);
+            TamperTest.Location = new Point(377, 111);
             TamperTest.Name = "TamperTest";
             TamperTest.Size = new Size(179, 38);
             TamperTest.TabIndex = 9;
@@ -264,7 +261,7 @@
             // 
             BuzzerTest.Font = new Font("맑은 고딕", 9.75F);
             BuzzerTest.ForeColor = Color.DarkBlue;
-            BuzzerTest.Location = new Point(377, 31);
+            BuzzerTest.Location = new Point(377, 70);
             BuzzerTest.Name = "BuzzerTest";
             BuzzerTest.Size = new Size(179, 35);
             BuzzerTest.TabIndex = 6;
@@ -276,9 +273,9 @@
             // 
             DoorButtonTest.Font = new Font("맑은 고딕", 9.75F);
             DoorButtonTest.ForeColor = Color.DarkBlue;
-            DoorButtonTest.Location = new Point(191, 72);
+            DoorButtonTest.Location = new Point(195, 111);
             DoorButtonTest.Name = "DoorButtonTest";
-            DoorButtonTest.Size = new Size(180, 38);
+            DoorButtonTest.Size = new Size(176, 38);
             DoorButtonTest.TabIndex = 5;
             DoorButtonTest.Text = "도어 버튼 테스트 실행";
             DoorButtonTest.UseVisualStyleBackColor = true;
@@ -287,7 +284,7 @@
             // DoorLockTest
             // 
             DoorLockTest.Font = new Font("맑은 고딕", 9.75F);
-            DoorLockTest.Location = new Point(9, 116);
+            DoorLockTest.Location = new Point(9, 155);
             DoorLockTest.Name = "DoorLockTest";
             DoorLockTest.Size = new Size(179, 35);
             DoorLockTest.TabIndex = 7;
@@ -299,9 +296,9 @@
             // 
             SensorTest.Font = new Font("맑은 고딕", 9.75F);
             SensorTest.ForeColor = Color.DarkBlue;
-            SensorTest.Location = new Point(191, 31);
+            SensorTest.Location = new Point(195, 70);
             SensorTest.Name = "SensorTest";
-            SensorTest.Size = new Size(180, 35);
+            SensorTest.Size = new Size(176, 35);
             SensorTest.TabIndex = 3;
             SensorTest.Text = "센서 테스트 실행";
             SensorTest.UseVisualStyleBackColor = true;
@@ -311,9 +308,9 @@
             // 
             AUXInTest.Font = new Font("맑은 고딕", 9.75F);
             AUXInTest.ForeColor = Color.DarkBlue;
-            AUXInTest.Location = new Point(191, 157);
+            AUXInTest.Location = new Point(195, 196);
             AUXInTest.Name = "AUXInTest";
-            AUXInTest.Size = new Size(180, 36);
+            AUXInTest.Size = new Size(176, 36);
             AUXInTest.TabIndex = 11;
             AUXInTest.Text = "AUX IN 테스트 실행";
             AUXInTest.UseVisualStyleBackColor = true;
@@ -323,7 +320,7 @@
             // 
             LFIDTest.Font = new Font("맑은 고딕", 9.75F);
             LFIDTest.ForeColor = Color.DarkBlue;
-            LFIDTest.Location = new Point(9, 157);
+            LFIDTest.Location = new Point(9, 196);
             LFIDTest.Name = "LFIDTest";
             LFIDTest.Size = new Size(178, 35);
             LFIDTest.TabIndex = 10;
@@ -335,7 +332,7 @@
             // 
             NFCTest.Font = new Font("맑은 고딕", 9.75F);
             NFCTest.ForeColor = Color.DarkBlue;
-            NFCTest.Location = new Point(377, 116);
+            NFCTest.Location = new Point(377, 155);
             NFCTest.Name = "NFCTest";
             NFCTest.Size = new Size(179, 35);
             NFCTest.TabIndex = 9;
@@ -347,9 +344,9 @@
             // 
             BLETest.Font = new Font("맑은 고딕", 9.75F);
             BLETest.ForeColor = Color.DarkBlue;
-            BLETest.Location = new Point(191, 116);
+            BLETest.Location = new Point(195, 155);
             BLETest.Name = "BLETest";
-            BLETest.Size = new Size(180, 35);
+            BLETest.Size = new Size(176, 35);
             BLETest.TabIndex = 8;
             BLETest.Text = "Bluetooth 테스트 실행";
             BLETest.UseVisualStyleBackColor = true;
@@ -359,7 +356,7 @@
             // 
             SelfTest.Font = new Font("맑은 고딕", 9.75F);
             SelfTest.ForeColor = Color.DarkBlue;
-            SelfTest.Location = new Point(9, 30);
+            SelfTest.Location = new Point(9, 69);
             SelfTest.Name = "SelfTest";
             SelfTest.Size = new Size(179, 36);
             SelfTest.TabIndex = 1;
@@ -393,7 +390,10 @@
             // 
             // TestCommandGroup
             // 
+            TestCommandGroup.Controls.Add(SetDefault);
+            TestCommandGroup.Controls.Add(GetFirmwareVersion);
             TestCommandGroup.Controls.Add(LEDTest);
+            TestCommandGroup.Controls.Add(ClearSetting);
             TestCommandGroup.Controls.Add(SelfTest);
             TestCommandGroup.Controls.Add(TamperTest);
             TestCommandGroup.Controls.Add(NetworkLink);
@@ -407,9 +407,9 @@
             TestCommandGroup.Controls.Add(DoorButtonTest);
             TestCommandGroup.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
             TestCommandGroup.ForeColor = Color.DarkBlue;
-            TestCommandGroup.Location = new Point(13, 245);
+            TestCommandGroup.Location = new Point(13, 199);
             TestCommandGroup.Name = "TestCommandGroup";
-            TestCommandGroup.Size = new Size(570, 211);
+            TestCommandGroup.Size = new Size(570, 257);
             TestCommandGroup.TabIndex = 6;
             TestCommandGroup.TabStop = false;
             TestCommandGroup.Text = "장치 테스트 명령 선택 : ";
@@ -418,7 +418,7 @@
             // 
             LEDTest.Font = new Font("맑은 고딕", 9.75F);
             LEDTest.ForeColor = Color.DarkBlue;
-            LEDTest.Location = new Point(9, 72);
+            LEDTest.Location = new Point(9, 111);
             LEDTest.Name = "LEDTest";
             LEDTest.Size = new Size(179, 35);
             LEDTest.TabIndex = 4;

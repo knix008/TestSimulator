@@ -58,7 +58,7 @@ uint32_t PriorityScheduler::create_task(uint8_t priority, void* data) {
     
     update_priority_bitmap(priority, true);
     
-    return task->id;
+    return task->get_id();
 }
 
 bool PriorityScheduler::add_task(uint32_t task_id, uint8_t priority, void* data) {
@@ -83,7 +83,7 @@ bool PriorityScheduler::remove_task(uint32_t task_id) {
             auto task = task_queues_[priority].front();
             task_queues_[priority].pop();
             
-            if (task->id == task_id) {
+            if (task->get_id() == task_id) {
                 found = true;
                 break;
             } else {
@@ -158,10 +158,10 @@ size_t PriorityScheduler::get_total_task_count() const {
 }
 
 void PriorityScheduler::unblock_task(std::shared_ptr<Task> task) {
-    if (task && task->state == TaskState::BLOCKED) {
-        task->state = TaskState::READY;
-        task_queues_[task->priority].push(task);
-        update_priority_bitmap(task->priority, true);
+    if (task && task->is_blocked()) {
+        task->transition_to_ready();
+        task_queues_[task->get_priority()].push(task);
+        update_priority_bitmap(task->get_priority(), true);
         
         auto it = std::find(blocked_tasks_.begin(), blocked_tasks_.end(), task);
         if (it != blocked_tasks_.end()) {

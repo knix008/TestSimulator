@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include "task.h"
 #include "semaphore.h"
 #include "event.h"
 #include "signal.h"
@@ -14,35 +15,6 @@ namespace RTOS {
 
 // Priority levels 0-127 (128 levels), 0 is the highest priority
 constexpr uint8_t MAX_PRIORITY_LEVELS = 128;
-
-// Task state definition
-enum class TaskState {
-    READY,
-    RUNNING,
-    BLOCKED,
-    SUSPENDED
-};
-
-// Task structure
-struct Task {
-    uint32_t id;
-    uint8_t priority;
-    TaskState state;
-    void* data;
-    
-    // Synchronization related fields
-    std::shared_ptr<Semaphore> waiting_semaphore;
-    std::shared_ptr<Event> waiting_event;
-    std::shared_ptr<Signal> waiting_signal;
-    std::shared_ptr<MessageQueue> waiting_message_queue;
-    uint32_t event_mask;
-    bool clear_on_exit;
-    
-    Task(uint32_t task_id, uint8_t task_priority, void* task_data = nullptr)
-        : id(task_id), priority(task_priority), state(TaskState::READY), data(task_data),
-          waiting_semaphore(nullptr), waiting_event(nullptr), waiting_signal(nullptr),
-          waiting_message_queue(nullptr), event_mask(0), clear_on_exit(true) {}
-};
 
 // Priority-based scheduler class
 class PriorityScheduler {

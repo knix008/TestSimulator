@@ -70,8 +70,8 @@ void test_priority_ordering() {
     for (int i = 0; i < 8; i++) {
         auto task = scheduler.get_next_task();
         assert(task != nullptr);
-        std::cout << "Got task " << task->id << " with priority " << (int)task->priority << std::endl;
-        assert(task->priority == expected_priorities[i]);
+        std::cout << "Got task " << task->get_id() << " with priority " << (int)task->get_priority() << std::endl;
+        assert(task->get_priority() == expected_priorities[i]);
     }
     
     std::cout << "Priority ordering test passed!" << std::endl << std::endl;
@@ -104,8 +104,8 @@ void test_bitmap_optimization() {
     // Remove highest priority task
     auto task = scheduler.get_next_task();
     assert(task != nullptr);
-    assert(task->priority == 0);
-    scheduler.remove_task(task->id);
+    assert(task->get_priority() == 0);
+    scheduler.remove_task(task->get_id());
     
     std::cout << "After removing highest priority task:" << std::endl;
     scheduler.print_priority_bitmap();
@@ -139,7 +139,7 @@ void test_task_removal() {
     // Execute remaining tasks
     std::cout << "Executing remaining tasks:" << std::endl;
     while (auto task = scheduler.get_next_task()) {
-        std::cout << "Executing task " << task->id << " with priority " << (int)task->priority << std::endl;
+        std::cout << "Executing task " << task->get_id() << " with priority " << (int)task->get_priority() << std::endl;
     }
     
     std::cout << "Task removal test passed!" << std::endl << std::endl;
@@ -164,7 +164,7 @@ void test_edge_cases() {
     uint32_t max_priority_task = scheduler.create_task(127);
     assert(max_priority_task != 0);
     auto task = scheduler.get_next_task();
-    assert(task->priority == 127);
+    assert(task->get_priority() == 127);
     std::cout << "Maximum priority test passed" << std::endl;
     
     std::cout << "Edge cases test passed!" << std::endl << std::endl;

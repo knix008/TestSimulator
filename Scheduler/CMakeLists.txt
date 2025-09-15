@@ -17,6 +17,7 @@ include_directories(include)
 
 # Header files
 set(HEADERS
+    include/task.h
     include/scheduler.h
     include/semaphore.h
     include/event.h
@@ -26,6 +27,7 @@ set(HEADERS
 
 # Source files
 set(SOURCES
+    source/task.cpp
     source/scheduler.cpp
     source/semaphore.cpp
     source/event.cpp
