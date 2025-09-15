@@ -2,6 +2,7 @@
 #include "signal.h"
 #include <iostream>
 #include <cassert>
+#include <exception>
 
 using namespace RTOS;
 
@@ -40,4 +41,22 @@ void test_signal_functionality() {
     signal_manager.delete_signal(999); // Test non-existent signal
     
     std::cout << "Signal functionality test passed!" << std::endl << std::endl;
+}
+
+int main() {
+    std::cout << "Signal Test" << std::endl;
+    std::cout << "===========" << std::endl << std::endl;
+    
+    try {
+        test_signal_functionality();
+        std::cout << "Signal test completed successfully!" << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Test failed with exception: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "Test failed with unknown exception" << std::endl;
+        return 1;
+    }
+    
+    return 0;
 }

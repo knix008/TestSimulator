@@ -37,21 +37,13 @@ source/
 戍式式 signal.cpp          # Independent signal implementation
 戌式式 message_queue.cpp   # Independent message queue implementation
 test/
-戍式式 test_runner.cpp     # Test runner
-戍式式 test_basic.cpp      # Basic functionality tests
-戍式式 test_semaphore.cpp  # Semaphore tests
-戍式式 test_event.cpp      # Event tests
-戍式式 test_signal.cpp     # Signal tests
-戍式式 test_message_queue.cpp # Message queue tests
-戍式式 test_sync_management.cpp # Synchronization management tests
-戍式式 main_basic.cpp      # Basic functionality test main
-戍式式 main_semaphore.cpp  # Semaphore test main
-戍式式 main_event.cpp      # Event test main
-戍式式 main_signal.cpp     # Signal test main
-戍式式 main_message_queue.cpp # Message queue test main
-戌式式 main_sync_management.cpp # Synchronization management test main
-examples/
-戌式式 component_separation_example.cpp # Example showing separated component usage
+戍式式 test_basic.cpp      # Basic functionality tests (standalone executable)
+戍式式 test_semaphore.cpp  # Semaphore tests (standalone executable)
+戍式式 test_event.cpp      # Event tests (standalone executable)
+戍式式 test_signal.cpp     # Signal tests (standalone executable)
+戍式式 test_message_queue.cpp # Message queue tests (standalone executable)
+戌式式 test_sync_management.cpp # Synchronization management tests (standalone executable)
+main.cpp                # Main example demonstrating all components
 ```
 
 ## Build Instructions
@@ -65,24 +57,21 @@ examples/
 mkdir build
 cd build
 cmake ..
-make
+cmake --build .
 ```
 
 ### Run Tests and Examples
 ```bash
-# Run all tests
-./test_runner
+# Run main example (demonstrates all components)
+./Debug/main.exe
 
 # Run individual tests
-./main_basic
-./main_semaphore
-./main_event
-./main_signal
-./main_message_queue
-./main_sync_management
-
-# Run separation example
-./component_separation_example
+./Debug/test_basic.exe
+./Debug/test_semaphore.exe
+./Debug/test_event.exe
+./Debug/test_signal.exe
+./Debug/test_message_queue.exe
+./Debug/test_sync_management.exe
 ```
 
 ## Usage Examples
@@ -317,6 +306,39 @@ Each byte manages 8 priority levels (16 bytes ▼ 8 = 128 priority levels)
 5. **Bitmap Optimization**: Efficient priority search in scheduler
 6. **Error Handling**: Invalid priority checks, timeout handling
 
+## Testing
+
+The project includes comprehensive test coverage with standalone test executables:
+
+### Test Structure
+- **test_basic.cpp**: Tests scheduler core functionality (priority ordering, bitmap optimization, task management)
+- **test_semaphore.cpp**: Tests semaphore creation, wait/post operations, and cleanup
+- **test_event.cpp**: Tests event creation, bit operations, and waiting mechanisms
+- **test_signal.cpp**: Tests signal creation, notification, and waiting
+- **test_message_queue.cpp**: Tests message queue operations (send/receive, overflow handling)
+- **test_sync_management.cpp**: Tests synchronization object lifecycle management
+
+### Running Tests
+```bash
+# Build all tests
+cmake --build .
+
+# Run individual tests
+./Debug/test_basic.exe
+./Debug/test_semaphore.exe
+./Debug/test_event.exe
+./Debug/test_signal.exe
+./Debug/test_message_queue.exe
+./Debug/test_sync_management.exe
+```
+
+### Test Features
+- **Standalone Executables**: Each test is a complete, independent executable
+- **Comprehensive Coverage**: Tests all major functionality and edge cases
+- **Error Handling**: Tests invalid operations and cleanup scenarios
+- **Performance Testing**: Includes performance benchmarks for scheduler operations
+- **Memory Management**: Tests proper cleanup and resource management
+
 ## Thread Safety
 
 All synchronization mechanisms are thread-safe using:
@@ -348,6 +370,8 @@ All synchronization mechanisms are thread-safe using:
 - **Priority Inheritance**: Prevent priority inversion in synchronization
 - **Component Integration**: Optional integration between scheduler and sync components
 - **Cross-Component Communication**: Enhanced communication between separated components
+- **Test Framework**: Integration with testing frameworks like Google Test or Catch2
+- **Continuous Integration**: Automated testing and build verification
 
 ## Limitations
 
@@ -360,9 +384,10 @@ All synchronization mechanisms are thread-safe using:
 ## Contributing
 
 - **Compatibility**: Ensure compatibility with other RTOS implementations
-- **Testing**: Add comprehensive test coverage
+- **Testing**: Add comprehensive test coverage with standalone test executables
 - **Documentation**: Update documentation for new features
 - **Performance**: Optimize for specific use cases
+- **Test Structure**: Maintain the current standalone test executable structure
 
 ## License
 
