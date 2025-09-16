@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <chrono>
+#include <string>
 #include <thread>
 #include <atomic>
 #include <mutex>
