@@ -10,7 +10,7 @@
 #include <condition_variable>
 #include "task.h"
 #include "timer.h"
-#include "timing_interface.h"
+#include "clock.h"
 #include "scheduler.h"
 
 namespace RTOS {
@@ -22,8 +22,8 @@ private:
     std::map<uint32_t, std::shared_ptr<Timer>> timers_;
     uint32_t next_timer_id_;
     
-    // Timing provider
-    std::unique_ptr<ITimingProvider> timing_provider_;
+    // Clock
+    std::unique_ptr<IClock> clock_;
     
     // Task state
     std::atomic<bool> should_stop_;
@@ -68,9 +68,9 @@ public:
     bool stop_task();
     bool is_task_running() const { return is_running_.load(); }
     
-    // Timing provider management
-    void set_timing_provider(std::unique_ptr<ITimingProvider> provider);
-    ITimingProvider* get_timing_provider() const { return timing_provider_.get(); }
+    // Clock management
+    void set_clock(std::unique_ptr<IClock> clock);
+    IClock* get_clock() const { return clock_.get(); }
     bool is_tick_based() const;
     uint64_t get_tick_count() const;
     std::chrono::milliseconds get_tick_interval() const;
@@ -124,9 +124,9 @@ public:
     bool stop_manager();
     bool is_running() const;
     
-    // Timing provider management
-    void set_timing_provider(std::unique_ptr<ITimingProvider> provider);
-    ITimingProvider* get_timing_provider() const;
+    // Clock management
+    void set_clock(std::unique_ptr<IClock> clock);
+    IClock* get_clock() const;
     bool is_tick_based() const;
     uint64_t get_tick_count() const;
     std::chrono::milliseconds get_tick_interval() const;

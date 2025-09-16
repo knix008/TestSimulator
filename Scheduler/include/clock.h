@@ -8,10 +8,10 @@
 
 namespace RTOS {
 
-// Timing interface for different timing strategies
-class ITimingProvider {
+// Clock interface for different timing strategies
+class IClock {
 public:
-    virtual ~ITimingProvider() = default;
+    virtual ~IClock() = default;
     
     // Get current time in milliseconds
     virtual std::chrono::milliseconds get_current_time() const = 0;
@@ -44,14 +44,14 @@ public:
     virtual bool is_running() const = 0;
 };
 
-// Real-time timing provider using system clock
-class RealtimeTimingProvider : public ITimingProvider {
+// Real-time clock using system clock
+class RealtimeClock : public IClock {
 private:
     std::atomic<bool> running_{false};
     
 public:
-    RealtimeTimingProvider() = default;
-    ~RealtimeTimingProvider() override { stop(); }
+    RealtimeClock() = default;
+    ~RealtimeClock() override { stop(); }
     
     std::chrono::milliseconds get_current_time() const override;
     std::chrono::steady_clock::time_point get_current_time_point() const override;
@@ -67,8 +67,8 @@ public:
     bool is_running() const override { return running_.load(); }
 };
 
-// Tick-based timing provider simulating RTOS tick system
-class TickBasedTimingProvider : public ITimingProvider {
+// Tick-based clock simulating RTOS tick system
+class TickBasedClock : public IClock {
 private:
     std::atomic<uint64_t> tick_count_{0};
     std::chrono::milliseconds tick_interval_;
@@ -78,8 +78,8 @@ private:
     std::chrono::steady_clock::time_point start_time_;
     
 public:
-    explicit TickBasedTimingProvider(std::chrono::milliseconds tick_interval = std::chrono::milliseconds(1));
-    ~TickBasedTimingProvider() override;
+    explicit TickBasedClock(std::chrono::milliseconds tick_interval = std::chrono::milliseconds(1));
+    ~TickBasedClock() override;
     
     std::chrono::milliseconds get_current_time() const override;
     std::chrono::steady_clock::time_point get_current_time_point() const override;
@@ -98,11 +98,11 @@ private:
     void tick_thread_function();
 };
 
-// Factory for creating timing providers
-class TimingProviderFactory {
+// Factory for creating clocks
+class ClockFactory {
 public:
-    static std::unique_ptr<ITimingProvider> create_realtime_provider();
-    static std::unique_ptr<ITimingProvider> create_tick_based_provider(
+    static std::unique_ptr<IClock> create_realtime_clock();
+    static std::unique_ptr<IClock> create_tick_based_clock(
         std::chrono::milliseconds tick_interval = std::chrono::milliseconds(1));
 };
 

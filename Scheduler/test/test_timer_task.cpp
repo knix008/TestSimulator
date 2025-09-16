@@ -183,9 +183,9 @@ void test_timer_task_with_tick_timing() {
     auto scheduler = std::make_shared<PriorityScheduler>();
     TaskBasedTimerManager timer_manager(scheduler, 0);
     
-    // Set tick-based timing provider
-    auto tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(10));
-    timer_manager.set_timing_provider(std::move(tick_provider));
+    // Set tick-based clock
+    auto tick_clock = std::make_unique<TickBasedClock>(std::chrono::milliseconds(10));
+    timer_manager.set_clock(std::move(tick_clock));
     
     TimerTaskTestData test_data("Tick-based");
     
