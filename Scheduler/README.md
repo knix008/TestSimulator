@@ -1,6 +1,6 @@
-# RTOS Priority Scheduler with Separated Synchronization Components
+# RTOS Priority Scheduler with Separated Synchronization Components and Independent Timer System
 
-This project implements an RTOS priority scheduler with 128 priority levels and **completely separated** synchronization mechanisms. Using bitmap optimization, it can find the highest priority task in O(1) time. Each synchronization component (Semaphore, Event, Signal, Message Queue) is now **completely independent** and can be used separately without requiring the scheduler.
+This project implements an RTOS priority scheduler with 128 priority levels, **completely separated** synchronization mechanisms, and an **independent** timer system. Using bitmap optimization, it can find the highest priority task in O(1) time. Each component (Scheduler, Semaphore, Event, Signal, Message Queue, Timer) is now **completely independent** and can be used separately without any dependencies.
 
 ## Key Features
 
@@ -16,34 +16,56 @@ This project implements an RTOS priority scheduler with 128 priority levels and 
 - **Independent Event Manager**: 32-bit event flag for task communication
 - **Independent Signal Manager**: Simple notification mechanism
 - **Independent Message Queue Manager**: FIFO queue for task message communication
+- **Independent Timer Manager**: One-shot and periodic timer support with callback functions
 - **Timeout Support**: All wait functions support timeout
 - **Thread Safety**: Uses `std::mutex` and `std::condition_variable`
-- **Complete Separation**: Each component can be used independently without scheduler dependency
+- **Complete Separation**: Each component can be used independently without any dependencies
+
+### Independent Timer System
+- **One-shot Timers**: Execute once and automatically stop
+- **Periodic Timers**: Execute repeatedly at specified intervals
+- **Callback Support**: User-defined callback functions for timer expiry
+- **Timer Control**: Start, stop, restart, reset operations
+- **Multiple Timers**: Support for multiple concurrent timers
+- **Dual Timing Modes**: Both realtime and tick-based timing support
+- **Timing Provider Interface**: Pluggable timing system architecture
+- **Dual Execution Modes**: Both thread-based and task-based execution
+- **Thread Safety**: All timer operations are thread-safe
+- **Complete Independence**: Timer system works without scheduler or other components
 
 ## Project Structure
 
 ```
 include/
-戍式式 scheduler.h         # Main scheduler class (task management only)
+戍式式 scheduler.h         # Independent scheduler class (task management only)
 戍式式 semaphore.h         # Independent Semaphore + SemaphoreManager
 戍式式 event.h             # Independent Event + EventManager
 戍式式 signal.h            # Independent Signal + SignalManager
 戍式式 message_queue.h     # Independent MessageQueue + MessageQueueManager
+戍式式 timer.h             # Independent Timer + TimerManager
+戍式式 timing_interface.h  # Timing provider interface and implementations
+戍式式 timer_task.h        # Task-based Timer + TaskBasedTimerManager
 戌式式 task.h              # Task structure
 source/
-戍式式 scheduler.cpp       # Main scheduler implementation (no sync objects)
+戍式式 scheduler.cpp       # Independent scheduler implementation (task management only)
 戍式式 semaphore.cpp       # Independent semaphore implementation
 戍式式 event.cpp           # Independent event implementation
 戍式式 signal.cpp          # Independent signal implementation
-戌式式 message_queue.cpp   # Independent message queue implementation
+戍式式 message_queue.cpp   # Independent message queue implementation
+戍式式 timer.cpp           # Independent timer implementation
+戍式式 timing_interface.cpp # Timing provider implementations
+戌式式 timer_task.cpp      # Task-based timer implementation
 test/
 戍式式 test_basic.cpp      # Basic functionality tests (standalone executable)
 戍式式 test_semaphore.cpp  # Semaphore tests (standalone executable)
 戍式式 test_event.cpp      # Event tests (standalone executable)
 戍式式 test_signal.cpp     # Signal tests (standalone executable)
 戍式式 test_message_queue.cpp # Message queue tests (standalone executable)
+戍式式 test_timer.cpp      # Timer tests (standalone executable)
+戍式式 test_timing.cpp     # Timing system tests (standalone executable)
+戍式式 test_timer_task.cpp # Task-based timer tests (standalone executable)
 戌式式 test_sync_management.cpp # Synchronization management tests (standalone executable)
-main.cpp                # Main example demonstrating all components
+main.cpp                # Main example demonstrating all components including timers
 ```
 
 ## Build Instructions
@@ -62,7 +84,7 @@ cmake --build .
 
 ### Run Tests and Examples
 ```bash
-# Run main example (demonstrates all components)
+# Run main example (demonstrates all components including timers)
 ./Debug/main.exe
 
 # Run individual tests
@@ -71,6 +93,9 @@ cmake --build .
 ./Debug/test_event.exe
 ./Debug/test_signal.exe
 ./Debug/test_message_queue.exe
+./Debug/test_timer.exe
+./Debug/test_timing.exe
+./Debug/test_timer_task.exe
 ./Debug/test_sync_management.exe
 ```
 
@@ -236,7 +261,225 @@ if (mq_manager.message_queue_receive(mq_id, received_msg, 1000)) {
 mq_manager.print_message_queues();
 ```
 
-### 6. Complete Separation Example
+### 6. Independent Timer Manager Usage
+
+```cpp
+#include "timer.h"
+
+using namespace RTOS;
+
+// Timer callback function
+void my_timer_callback(uint32_t timer_id, void* user_data) {
+    std::cout << "Timer " << timer_id << " expired!" << std::endl;
+    if (user_data) {
+        int* count = static_cast<int*>(user_data);
+        (*count)++;
+        std::cout << "Callback count: " << *count << std::endl;
+    }
+}
+
+int main() {
+    // Create independent timer manager
+    TimerManager timer_manager;
+    timer_manager.start_manager();
+    
+    int callback_count = 0;
+    
+    // Create one-shot timer (500ms delay)
+    uint32_t one_shot_timer = timer_manager.create_timer(
+        "One-shot Timer", 
+        TimerType::ONE_SHOT, 
+        std::chrono::milliseconds(500), 
+        my_timer_callback, 
+        &callback_count
+    );
+    
+    // Create periodic timer (200ms interval)
+    uint32_t periodic_timer = timer_manager.create_timer(
+        "Periodic Timer", 
+        TimerType::PERIODIC, 
+        std::chrono::milliseconds(200), 
+        my_timer_callback, 
+        &callback_count
+    );
+    
+    // Start timers
+    timer_manager.start_timer(one_shot_timer);
+    timer_manager.start_timer(periodic_timer);
+    
+    // Wait for timers to execute
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    
+    // Stop periodic timer
+    timer_manager.stop_timer(periodic_timer);
+    
+    // Print timer status
+    timer_manager.print_timer_status();
+    
+    // Cleanup
+    timer_manager.delete_timer(one_shot_timer);
+    timer_manager.delete_timer(periodic_timer);
+    timer_manager.stop_manager();
+    
+    return 0;
+}
+```
+
+### 6a. Timer with Tick-based Timing
+
+```cpp
+#include "timer.h"
+#include "timing_interface.h"
+
+using namespace RTOS;
+
+void tick_timer_callback(uint32_t timer_id, void* user_data) {
+    std::cout << "Tick-based timer " << timer_id << " expired!" << std::endl;
+}
+
+int main() {
+    // Create timer manager with tick-based timing
+    TimerManager timer_manager;
+    
+    // Set tick-based timing provider (10ms per tick)
+    auto tick_provider = std::make_unique<TickBasedTimingProvider>(
+        std::chrono::milliseconds(10)
+    );
+    timer_manager.set_timing_provider(std::move(tick_provider));
+    
+    std::cout << "Timing type: " << (timer_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
+    std::cout << "Tick interval: " << timer_manager.get_tick_interval().count() << "ms" << std::endl;
+    
+    timer_manager.start_manager();
+    
+    // Create timer with tick-based timing (50ms = 5 ticks)
+    uint32_t tick_timer = timer_manager.create_timer(
+        "Tick Timer", 
+        TimerType::ONE_SHOT, 
+        std::chrono::milliseconds(50), 
+        tick_timer_callback
+    );
+    
+    timer_manager.start_timer(tick_timer);
+    
+    // Wait for timer to expire
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    // Print tick count
+    std::cout << "Total ticks: " << timer_manager.get_tick_count() << std::endl;
+    
+    timer_manager.delete_timer(tick_timer);
+    timer_manager.stop_manager();
+    
+    return 0;
+}
+```
+
+### 6b. Task-based Timer with Scheduler Integration
+
+```cpp
+#include "timer_task.h"
+#include "scheduler.h"
+
+using namespace RTOS;
+
+void task_timer_callback(uint32_t timer_id, void* user_data) {
+    std::cout << "Task-based timer " << timer_id << " expired!" << std::endl;
+}
+
+int main() {
+    // Create scheduler and task-based timer manager
+    auto scheduler = std::make_shared<PriorityScheduler>();
+    TaskBasedTimerManager task_timer_manager(scheduler, 0); // High priority timer task
+    
+    // Create timer
+    uint32_t timer_id = task_timer_manager.create_timer(
+        "Task Timer", 
+        TimerType::ONE_SHOT, 
+        std::chrono::milliseconds(500), 
+        task_timer_callback
+    );
+    
+    // Start timer manager (adds timer task to scheduler)
+    task_timer_manager.start_manager();
+    task_timer_manager.start_timer(timer_id);
+    
+    // Run scheduler to execute timer task
+    std::cout << "Running scheduler with timer task..." << std::endl;
+    auto start_time = std::chrono::steady_clock::now();
+    
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start_time).count() < 1000) {
+        
+        auto task = scheduler->get_next_task();
+        if (task) {
+            std::cout << "Executing task " << task->get_id() << " with priority " 
+                      << (int)task->get_priority() << std::endl;
+            task->execute();
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
+    
+    // Cleanup
+    task_timer_manager.delete_timer(timer_id);
+    task_timer_manager.stop_manager();
+    
+    return 0;
+}
+```
+
+### 7. Independent Components Working Together
+
+```cpp
+#include "scheduler.h"
+#include "timer.h"
+
+using namespace RTOS;
+
+// Timer callback for independent timer
+void independent_timer_callback(uint32_t timer_id, void* user_data) {
+    std::cout << "Independent timer " << timer_id << " expired!" << std::endl;
+}
+
+int main() {
+    // Create independent scheduler and timer manager
+    PriorityScheduler scheduler;
+    TimerManager timer_manager;
+    
+    // Start timer manager
+    timer_manager.start_manager();
+    
+    // Create tasks
+    uint32_t task1 = scheduler.create_task(0);   // High priority
+    uint32_t task2 = scheduler.create_task(5);   // Medium priority
+    
+    // Create timer through independent timer manager
+    uint32_t timer_id = timer_manager.create_timer(
+        "Independent Timer", 
+        TimerType::PERIODIC, 
+        std::chrono::milliseconds(1000), 
+        independent_timer_callback
+    );
+    
+    // Start timer
+    timer_manager.start_timer(timer_id);
+    
+    // Timer runs in background while scheduler manages tasks independently
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    
+    // Print timer status
+    timer_manager.print_timer_status();
+    
+    // Cleanup
+    timer_manager.delete_timer(timer_id);
+    timer_manager.stop_manager();
+    
+    return 0;
+}
+```
+
+### 8. Complete Separation Example
 
 ```cpp
 #include "scheduler.h"
@@ -244,6 +487,7 @@ mq_manager.print_message_queues();
 #include "event.h"
 #include "signal.h"
 #include "message_queue.h"
+#include "timer.h"
 
 using namespace RTOS;
 
@@ -254,6 +498,7 @@ int main() {
     EventManager event_manager;
     SignalManager signal_manager;
     MessageQueueManager mq_manager;
+    TimerManager timer_manager;
     
     // Use each component independently
     uint32_t task1 = scheduler.create_task(0);
@@ -261,6 +506,11 @@ int main() {
     uint32_t event1 = event_manager.create_event();
     uint32_t signal1 = signal_manager.create_signal();
     uint32_t mq1 = mq_manager.create_message_queue(5);
+    uint32_t timer1 = timer_manager.create_timer("Test Timer", TimerType::ONE_SHOT, 
+                                                std::chrono::milliseconds(1000), 
+                                                [](uint32_t id, void* data) {
+                                                    std::cout << "Timer " << id << " expired!" << std::endl;
+                                                });
     
     // All components work independently without any dependencies
     std::cout << "All components are completely separated!" << std::endl;
@@ -316,6 +566,9 @@ The project includes comprehensive test coverage with standalone test executable
 - **test_event.cpp**: Tests event creation, bit operations, and waiting mechanisms
 - **test_signal.cpp**: Tests signal creation, notification, and waiting
 - **test_message_queue.cpp**: Tests message queue operations (send/receive, overflow handling)
+- **test_timer.cpp**: Tests timer creation, one-shot/periodic functionality, callback execution, and timer control
+- **test_timing.cpp**: Tests timing provider interface, realtime vs tick-based timing, and timing provider switching
+- **test_timer_task.cpp**: Tests task-based timer functionality, scheduler integration, and mixed task execution
 - **test_sync_management.cpp**: Tests synchronization object lifecycle management
 
 ### Running Tests
@@ -329,6 +582,9 @@ cmake --build .
 ./Debug/test_event.exe
 ./Debug/test_signal.exe
 ./Debug/test_message_queue.exe
+./Debug/test_timer.exe
+./Debug/test_timing.exe
+./Debug/test_timer_task.exe
 ./Debug/test_sync_management.exe
 ```
 
@@ -353,23 +609,32 @@ All synchronization mechanisms are thread-safe using:
 - **Event Manager**: Event-driven programming patterns
 - **Signal Manager**: Simple notification systems
 - **Message Queue Manager**: Inter-process communication
-- **Scheduler**: Task management without synchronization
+- **Timer Manager**: Precise timing and periodic task execution with dual timing modes
+- **Task-based Timer Manager**: Timer execution integrated with scheduler task system
+- **Scheduler**: Pure task management without dependencies
 
 ### Combined Usage
-- **IoT Devices**: Real-time sensor data processing with independent sync objects
-- **Embedded Systems**: Microcontroller task scheduling with modular sync
-- **Game Engines**: Game object update priority with independent communication
-- **Real-time Systems**: Critical task priority with separated sync mechanisms
-- **Robotics**: Sensor fusion and control loop priority with modular design
-- **Audio/Video Processing**: Stream processing priority with independent queues
+- **IoT Devices**: Real-time sensor data processing with independent sync objects and periodic timers
+- **Embedded Systems**: Microcontroller task scheduling with modular sync and precise timing
+- **Game Engines**: Game object update priority with independent communication and frame timing
+- **Real-time Systems**: Critical task priority with separated sync mechanisms and deadline timers
+- **Robotics**: Sensor fusion and control loop priority with modular design and timing control
+- **Audio/Video Processing**: Stream processing priority with independent queues and frame synchronization
+- **Network Applications**: Connection management with timeout timers and message queuing
+- **Industrial Control**: Process control with periodic monitoring timers and event handling
 
 ## Future Enhancements
 
 - **Round Robin Scheduling**: Time slice scheduling for same priority tasks
 - **Preemptive Scheduling**: Higher priority task can preempt lower priority task
 - **Priority Inheritance**: Prevent priority inversion in synchronization
-- **Component Integration**: Optional integration between scheduler and sync components
+- **Advanced Timer Features**: Timer chaining, relative timers, and timer groups
+- **Timer Precision**: Sub-millisecond timer precision and hardware timer integration
+- **Custom Timing Providers**: User-defined timing providers for specialized timing requirements
+- **Task-based Timer Optimization**: Enhanced task-based timer performance and scheduling integration
+- **Optional Component Integration**: Optional integration between independent components
 - **Cross-Component Communication**: Enhanced communication between separated components
+- **Timer Callback Optimization**: Asynchronous callback execution and callback prioritization
 - **Test Framework**: Integration with testing frameworks like Google Test or Catch2
 - **Continuous Integration**: Automated testing and build verification
 
@@ -379,7 +644,9 @@ All synchronization mechanisms are thread-safe using:
 - **No Preemption**: Tasks run to completion
 - **Single Core**: No multi-core support
 - **Memory**: No memory protection between tasks
-- **Component Isolation**: No automatic integration between separated components
+- **Component Independence**: No automatic integration between independent components
+- **Timer Precision**: Limited to millisecond precision (platform dependent)
+- **Timer Thread**: Single timer thread for all timers (potential bottleneck for many timers)
 
 ## Contributing
 

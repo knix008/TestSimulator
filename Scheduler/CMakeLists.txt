@@ -23,6 +23,9 @@ set(HEADERS
     include/event.h
     include/signal.h
     include/message_queue.h
+    include/timer.h
+    include/timing_interface.h
+    include/timer_task.h
 )
 
 # Source files
@@ -33,6 +36,9 @@ set(SOURCES
     source/event.cpp
     source/signal.cpp
     source/message_queue.cpp
+    source/timer.cpp
+    source/timing_interface.cpp
+    source/timer_task.cpp
 )
 
 # Create library
@@ -61,6 +67,15 @@ target_link_libraries(test_message_queue scheduler)
 add_executable(test_sync_management test/test_sync_management.cpp)
 target_link_libraries(test_sync_management scheduler)
 
+add_executable(test_timer test/test_timer.cpp)
+target_link_libraries(test_timer scheduler)
+
+add_executable(test_timing test/test_timing.cpp)
+target_link_libraries(test_timing scheduler)
+
+add_executable(test_timer_task test/test_timer_task.cpp)
+target_link_libraries(test_timer_task scheduler)
+
 # Enable testing
 enable_testing()
 add_test(NAME test_basic COMMAND test_basic)
@@ -69,3 +84,6 @@ add_test(NAME test_event COMMAND test_event)
 add_test(NAME test_signal COMMAND test_signal)
 add_test(NAME test_message_queue COMMAND test_message_queue)
 add_test(NAME test_sync_management COMMAND test_sync_management)
+add_test(NAME test_timer COMMAND test_timer)
+add_test(NAME test_timing COMMAND test_timing)
+add_test(NAME test_timer_task COMMAND test_timer_task)

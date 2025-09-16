@@ -5,6 +5,7 @@
 #include "message_queue.h"
 #include <sstream>
 #include <algorithm>
+#include <iostream>
 
 namespace RTOS {
 
@@ -129,6 +130,12 @@ bool Task::operator==(const Task& other) const {
 
 bool Task::operator!=(const Task& other) const {
     return id_ != other.id_;
+}
+
+void Task::execute() {
+    // Default implementation - derived classes should override this
+    // This is a placeholder for task execution logic
+    std::cout << "Executing task " << id_ << " with priority " << (int)priority_ << std::endl;
 }
 
 } // namespace RTOS

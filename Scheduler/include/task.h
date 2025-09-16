@@ -96,6 +96,9 @@ public:
     // Clear all synchronization wait states
     void clear_wait_states();
     
+    // Task execution
+    virtual void execute();
+    
     // String representation
     std::string to_string() const;
     std::string state_to_string() const;
