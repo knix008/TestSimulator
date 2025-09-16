@@ -526,9 +526,9 @@ int main() {
     
     TimerManager tick_manager;
     
-    // Set tick-based timing provider (10ms per tick)
-    auto tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(10));
-    tick_manager.set_timing_provider(std::move(tick_provider));
+    // Set tick-based clock (10ms per tick)
+    auto tick_clock = std::make_unique<TickBasedClock>(std::chrono::milliseconds(10));
+    tick_manager.set_clock(std::move(tick_clock));
     
     auto tick_callback = [](uint32_t /*timer_id*/, void* user_data) {
         if (user_data) {
@@ -559,8 +559,8 @@ int main() {
     std::cout << "Initial timing type: " << (switch_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
     
     // Switch to tick-based
-    auto switch_tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(5));
-    switch_manager.set_timing_provider(std::move(switch_tick_provider));
+    auto switch_tick_clock = std::make_unique<TickBasedClock>(std::chrono::milliseconds(5));
+    switch_manager.set_clock(std::move(switch_tick_clock));
     
     std::cout << "After switch timing type: " << (switch_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
     std::cout << "Tick interval: " << switch_manager.get_tick_interval().count() << "ms" << std::endl;
@@ -663,9 +663,9 @@ int main() {
     auto tick_scheduler = std::make_shared<PriorityScheduler>();
     TaskBasedTimerManager tick_task_timer_manager(tick_scheduler, 0);
     
-    // Set tick-based timing
-    auto tick_task_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(20));
-    tick_task_timer_manager.set_timing_provider(std::move(tick_task_provider));
+    // Set tick-based clock
+    auto tick_task_clock = std::make_unique<TickBasedClock>(std::chrono::milliseconds(20));
+    tick_task_timer_manager.set_clock(std::move(tick_task_clock));
     
     struct TickTaskTimerData {
         std::atomic<int> tick_timer_count{0};

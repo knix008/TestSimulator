@@ -3,7 +3,7 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
-#include "timing_interface.h"
+#include "clock.h"
 #include "timer.h"
 
 using namespace RTOS;
@@ -26,66 +26,66 @@ void timing_test_callback(uint32_t timer_id, void* user_data) {
     }
 }
 
-void test_realtime_timing_provider() {
-    std::cout << "\n=== Test 1: Realtime Timing Provider ===" << std::endl;
+void test_realtime_clock() {
+    std::cout << "\n=== Test 1: Realtime Clock ===" << std::endl;
     
-    RealtimeTimingProvider provider;
+    RealtimeClock clock;
     
     // Test basic functionality
-    assert(!provider.is_tick_based());
-    assert(provider.get_tick_count() == 0);
-    assert(provider.get_tick_interval().count() == 0);
+    assert(!clock.is_tick_based());
+    assert(clock.get_tick_count() == 0);
+    assert(clock.get_tick_interval().count() == 0);
     
-    provider.start();
-    assert(provider.is_running());
+    clock.start();
+    assert(clock.is_running());
     
     // Test timing accuracy
-    auto start_time = provider.get_current_time();
+    auto start_time = clock.get_current_time();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    auto end_time = provider.get_current_time();
+    auto end_time = clock.get_current_time();
     
     auto elapsed = end_time - start_time;
     std::cout << "Realtime elapsed: " << elapsed.count() << "ms" << std::endl;
     assert(elapsed.count() >= 90 && elapsed.count() <= 150); // Allow some tolerance
     
-    provider.stop();
-    assert(!provider.is_running());
+    clock.stop();
+    assert(!clock.is_running());
     
-    std::cout << "Realtime timing provider test passed!" << std::endl;
+    std::cout << "Realtime clock test passed!" << std::endl;
 }
 
-void test_tick_based_timing_provider() {
-    std::cout << "\n=== Test 2: Tick-based Timing Provider ===" << std::endl;
+void test_tick_based_clock() {
+    std::cout << "\n=== Test 2: Tick-based Clock ===" << std::endl;
     
-    TickBasedTimingProvider provider(std::chrono::milliseconds(10)); // 10ms per tick
+    TickBasedClock clock(std::chrono::milliseconds(10)); // 10ms per tick
     
     // Test basic functionality
-    assert(provider.is_tick_based());
-    assert(provider.get_tick_interval().count() == 10);
+    assert(clock.is_tick_based());
+    assert(clock.get_tick_interval().count() == 10);
     
-    provider.start();
-    assert(provider.is_running());
+    clock.start();
+    assert(clock.is_running());
     
     // Wait for some ticks
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     
-    uint64_t tick_count = provider.get_tick_count();
+    uint64_t tick_count = clock.get_tick_count();
     std::cout << "Tick count after 50ms: " << tick_count << std::endl;
     assert(tick_count >= 4 && tick_count <= 6); // Allow some tolerance
     
     // Test timing accuracy
-    auto start_time = provider.get_current_time();
+    auto start_time = clock.get_current_time();
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
-    auto end_time = provider.get_current_time();
+    auto end_time = clock.get_current_time();
     
     auto elapsed = end_time - start_time;
     std::cout << "Tick-based elapsed: " << elapsed.count() << "ms" << std::endl;
     assert(elapsed.count() >= 20 && elapsed.count() <= 40); // Allow some tolerance
     
-    provider.stop();
-    assert(!provider.is_running());
+    clock.stop();
+    assert(!clock.is_running());
     
-    std::cout << "Tick-based timing provider test passed!" << std::endl;
+    std::cout << "Tick-based clock test passed!" << std::endl;
 }
 
 void test_timer_with_realtime_timing() {
@@ -93,7 +93,7 @@ void test_timer_with_realtime_timing() {
     
     TimerManager timer_manager;
     
-    // Use realtime timing provider (default)
+    // Use realtime clock (default)
     TimingTestData test_data("Realtime");
     
     uint32_t timer_id = timer_manager.create_timer("Realtime Test", TimerType::ONE_SHOT, 
@@ -123,9 +123,9 @@ void test_timer_with_tick_based_timing() {
     
     TimerManager timer_manager;
     
-    // Set tick-based timing provider
-    auto tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(5)); // 5ms per tick
-    timer_manager.set_timing_provider(std::move(tick_provider));
+    // Set tick-based clock
+    auto tick_clock = std::make_unique<TickBasedClock>(std::chrono::milliseconds(5)); // 5ms per tick
+    timer_manager.set_clock(std::move(tick_clock));
     
     TimingTestData test_data("Tick-based");
     
@@ -169,9 +169,9 @@ void test_timing_provider_switching() {
     // Wait a bit
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     
-    // Switch to tick-based timing
-    auto tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(10));
-    timer_manager.set_timing_provider(std::move(tick_provider));
+    // Switch to tick-based clock
+    auto tick_clock = std::make_unique<TickBasedClock>(std::chrono::milliseconds(10));
+    timer_manager.set_clock(std::move(tick_clock));
     
     assert(timer_manager.is_tick_based());
     
@@ -203,9 +203,9 @@ void test_periodic_timer_with_tick_timing() {
     
     TimerManager timer_manager;
     
-    // Use tick-based timing with 20ms per tick
-    auto tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(20));
-    timer_manager.set_timing_provider(std::move(tick_provider));
+    // Use tick-based clock with 20ms per tick
+    auto tick_clock = std::make_unique<TickBasedClock>(std::chrono::milliseconds(20));
+    timer_manager.set_clock(std::move(tick_clock));
     
     TimingTestData test_data("Periodic Tick");
     
@@ -235,8 +235,8 @@ int main() {
     std::cout << "==============================" << std::endl;
     
     try {
-        test_realtime_timing_provider();
-        test_tick_based_timing_provider();
+        test_realtime_clock();
+        test_tick_based_clock();
         test_timer_with_realtime_timing();
         test_timer_with_tick_based_timing();
         test_timing_provider_switching();

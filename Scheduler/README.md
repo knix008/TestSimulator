@@ -1,6 +1,6 @@
-# RTOS Priority Scheduler with Separated Synchronization Components and Independent Timer System
+# RTOS Priority Scheduler with Separated Synchronization Components and Independent Clock System
 
-This project implements an RTOS priority scheduler with 128 priority levels, **completely separated** synchronization mechanisms, and an **independent** timer system. Using bitmap optimization, it can find the highest priority task in O(1) time. Each component (Scheduler, Semaphore, Event, Signal, Message Queue, Timer) is now **completely independent** and can be used separately without any dependencies.
+This project implements an RTOS priority scheduler with 128 priority levels, **completely separated** synchronization mechanisms, and an **independent** clock and timer system. Using bitmap optimization, it can find the highest priority task in O(1) time. Each component (Scheduler, Semaphore, Event, Signal, Message Queue, Timer, Clock) is now **completely independent** and can be used separately without any dependencies.
 
 ## Key Features
 
@@ -21,14 +21,14 @@ This project implements an RTOS priority scheduler with 128 priority levels, **c
 - **Thread Safety**: Uses `std::mutex` and `std::condition_variable`
 - **Complete Separation**: Each component can be used independently without any dependencies
 
-### Independent Timer System
+### Independent Clock and Timer System
 - **One-shot Timers**: Execute once and automatically stop
 - **Periodic Timers**: Execute repeatedly at specified intervals
 - **Callback Support**: User-defined callback functions for timer expiry
 - **Timer Control**: Start, stop, restart, reset operations
 - **Multiple Timers**: Support for multiple concurrent timers
 - **Dual Timing Modes**: Both realtime and tick-based timing support
-- **Timing Provider Interface**: Pluggable timing system architecture
+- **Clock Interface**: Pluggable clock system architecture
 - **Dual Execution Modes**: Both thread-based and task-based execution
 - **Thread Safety**: All timer operations are thread-safe
 - **Complete Independence**: Timer system works without scheduler or other components
@@ -43,7 +43,7 @@ include/
 戍式式 signal.h            # Independent Signal + SignalManager
 戍式式 message_queue.h     # Independent MessageQueue + MessageQueueManager
 戍式式 timer.h             # Independent Timer + TimerManager
-戍式式 timing_interface.h  # Timing provider interface and implementations
+戍式式 clock.h             # Clock interface and implementations
 戍式式 timer_task.h        # Task-based Timer + TaskBasedTimerManager
 戌式式 task.h              # Task structure
 source/
@@ -53,7 +53,7 @@ source/
 戍式式 signal.cpp          # Independent signal implementation
 戍式式 message_queue.cpp   # Independent message queue implementation
 戍式式 timer.cpp           # Independent timer implementation
-戍式式 timing_interface.cpp # Timing provider implementations
+戍式式 clock.cpp            # Clock implementations
 戌式式 timer_task.cpp      # Task-based timer implementation
 test/
 戍式式 test_basic.cpp      # Basic functionality tests (standalone executable)
@@ -62,7 +62,7 @@ test/
 戍式式 test_signal.cpp     # Signal tests (standalone executable)
 戍式式 test_message_queue.cpp # Message queue tests (standalone executable)
 戍式式 test_timer.cpp      # Timer tests (standalone executable)
-戍式式 test_timing.cpp     # Timing system tests (standalone executable)
+戍式式 test_clock.cpp      # Clock system tests (standalone executable)
 戍式式 test_timer_task.cpp # Task-based timer tests (standalone executable)
 戌式式 test_sync_management.cpp # Synchronization management tests (standalone executable)
 main.cpp                # Main example demonstrating all components including timers
@@ -94,7 +94,7 @@ cmake --build .
 ./Debug/test_signal.exe
 ./Debug/test_message_queue.exe
 ./Debug/test_timer.exe
-./Debug/test_timing.exe
+./Debug/test_clock.exe
 ./Debug/test_timer_task.exe
 ./Debug/test_sync_management.exe
 ```
@@ -325,11 +325,11 @@ int main() {
 }
 ```
 
-### 6a. Timer with Tick-based Timing
+### 6a. Timer with Tick-based Clock
 
 ```cpp
 #include "timer.h"
-#include "timing_interface.h"
+#include "clock.h"
 
 using namespace RTOS;
 
@@ -341,18 +341,18 @@ int main() {
     // Create timer manager with tick-based timing
     TimerManager timer_manager;
     
-    // Set tick-based timing provider (10ms per tick)
-    auto tick_provider = std::make_unique<TickBasedTimingProvider>(
+    // Set tick-based clock (10ms per tick)
+    auto tick_clock = std::make_unique<TickBasedClock>(
         std::chrono::milliseconds(10)
     );
-    timer_manager.set_timing_provider(std::move(tick_provider));
+    timer_manager.set_clock(std::move(tick_clock));
     
     std::cout << "Timing type: " << (timer_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
     std::cout << "Tick interval: " << timer_manager.get_tick_interval().count() << "ms" << std::endl;
     
     timer_manager.start_manager();
     
-    // Create timer with tick-based timing (50ms = 5 ticks)
+    // Create timer with tick-based clock (50ms = 5 ticks)
     uint32_t tick_timer = timer_manager.create_timer(
         "Tick Timer", 
         TimerType::ONE_SHOT, 
@@ -375,7 +375,7 @@ int main() {
 }
 ```
 
-### 6b. Task-based Timer with Scheduler Integration
+### 6b. Task-based Timer with Clock Integration
 
 ```cpp
 #include "timer_task.h"
@@ -567,7 +567,7 @@ The project includes comprehensive test coverage with standalone test executable
 - **test_signal.cpp**: Tests signal creation, notification, and waiting
 - **test_message_queue.cpp**: Tests message queue operations (send/receive, overflow handling)
 - **test_timer.cpp**: Tests timer creation, one-shot/periodic functionality, callback execution, and timer control
-- **test_timing.cpp**: Tests timing provider interface, realtime vs tick-based timing, and timing provider switching
+- **test_clock.cpp**: Tests clock interface, realtime vs tick-based timing, and clock switching
 - **test_timer_task.cpp**: Tests task-based timer functionality, scheduler integration, and mixed task execution
 - **test_sync_management.cpp**: Tests synchronization object lifecycle management
 
@@ -583,7 +583,7 @@ cmake --build .
 ./Debug/test_signal.exe
 ./Debug/test_message_queue.exe
 ./Debug/test_timer.exe
-./Debug/test_timing.exe
+./Debug/test_clock.exe
 ./Debug/test_timer_task.exe
 ./Debug/test_sync_management.exe
 ```
@@ -630,7 +630,7 @@ All synchronization mechanisms are thread-safe using:
 - **Priority Inheritance**: Prevent priority inversion in synchronization
 - **Advanced Timer Features**: Timer chaining, relative timers, and timer groups
 - **Timer Precision**: Sub-millisecond timer precision and hardware timer integration
-- **Custom Timing Providers**: User-defined timing providers for specialized timing requirements
+- **Custom Clock Providers**: User-defined clock providers for specialized timing requirements
 - **Task-based Timer Optimization**: Enhanced task-based timer performance and scheduling integration
 - **Optional Component Integration**: Optional integration between independent components
 - **Cross-Component Communication**: Enhanced communication between separated components

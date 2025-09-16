@@ -10,7 +10,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
-#include "timing_interface.h"
+#include "clock.h"
 
 namespace RTOS {
 
@@ -50,16 +50,16 @@ private:
     std::condition_variable cv_;
     std::atomic<bool> should_stop_;
     
-    // Timing provider reference
-    ITimingProvider* timing_provider_;
+    // Clock reference
+    IClock* clock_;
 
 public:
     // Constructor
     Timer(uint32_t timer_id, const std::string& name, TimerType type, 
           std::chrono::milliseconds interval, TimerCallback callback, void* user_data = nullptr);
     
-    // Set timing provider
-    void set_timing_provider(ITimingProvider* provider) { timing_provider_ = provider; }
+    // Set clock
+    void set_clock(IClock* clock) { clock_ = clock; }
     
     // Destructor
     ~Timer();
@@ -118,8 +118,8 @@ private:
     // Timer ID counter
     uint32_t next_timer_id_;
     
-    // Timing provider
-    std::unique_ptr<ITimingProvider> timing_provider_;
+    // Clock
+    std::unique_ptr<IClock> clock_;
     
     // Timer thread
     std::thread timer_thread_;
@@ -169,9 +169,9 @@ public:
     bool stop_manager();
     bool is_running() const { return running_.load(); }
     
-    // Timing provider management
-    void set_timing_provider(std::unique_ptr<ITimingProvider> provider);
-    ITimingProvider* get_timing_provider() const { return timing_provider_.get(); }
+    // Clock management
+    void set_clock(std::unique_ptr<IClock> clock);
+    IClock* get_clock() const { return clock_.get(); }
     bool is_tick_based() const;
     uint64_t get_tick_count() const;
     std::chrono::milliseconds get_tick_interval() const;

@@ -1,38 +1,38 @@
-#include "timing_interface.h"
+#include "clock.h"
 #include <iostream>
 #include <thread>
 
 namespace RTOS {
 
-// RealtimeTimingProvider implementation
-std::chrono::milliseconds RealtimeTimingProvider::get_current_time() const {
+// RealtimeClock implementation
+std::chrono::milliseconds RealtimeClock::get_current_time() const {
     auto now = std::chrono::steady_clock::now();
     auto duration = now.time_since_epoch();
     return std::chrono::duration_cast<std::chrono::milliseconds>(duration);
 }
 
-std::chrono::steady_clock::time_point RealtimeTimingProvider::get_current_time_point() const {
+std::chrono::steady_clock::time_point RealtimeClock::get_current_time_point() const {
     return std::chrono::steady_clock::now();
 }
 
-void RealtimeTimingProvider::sleep_for(std::chrono::milliseconds duration) {
+void RealtimeClock::sleep_for(std::chrono::milliseconds duration) {
     std::this_thread::sleep_for(duration);
 }
 
-void RealtimeTimingProvider::sleep_until(std::chrono::steady_clock::time_point target_time) {
+void RealtimeClock::sleep_until(std::chrono::steady_clock::time_point target_time) {
     std::this_thread::sleep_until(target_time);
 }
 
-// TickBasedTimingProvider implementation
-TickBasedTimingProvider::TickBasedTimingProvider(std::chrono::milliseconds tick_interval)
+// TickBasedClock implementation
+TickBasedClock::TickBasedClock(std::chrono::milliseconds tick_interval)
     : tick_interval_(tick_interval) {
 }
 
-TickBasedTimingProvider::~TickBasedTimingProvider() {
+TickBasedClock::~TickBasedClock() {
     stop();
 }
 
-void TickBasedTimingProvider::start() {
+void TickBasedClock::start() {
     if (running_.load()) {
         return; // Already running
     }
@@ -42,10 +42,10 @@ void TickBasedTimingProvider::start() {
     start_time_ = std::chrono::steady_clock::now();
     tick_count_ = 0;
     
-    tick_thread_ = std::thread(&TickBasedTimingProvider::tick_thread_function, this);
+    tick_thread_ = std::thread(&TickBasedClock::tick_thread_function, this);
 }
 
-void TickBasedTimingProvider::stop() {
+void TickBasedClock::stop() {
     if (!running_.load()) {
         return; // Already stopped
     }
@@ -58,7 +58,7 @@ void TickBasedTimingProvider::stop() {
     }
 }
 
-std::chrono::milliseconds TickBasedTimingProvider::get_current_time() const {
+std::chrono::milliseconds TickBasedClock::get_current_time() const {
     if (!running_.load()) {
         return std::chrono::milliseconds(0);
     }
@@ -67,7 +67,7 @@ std::chrono::milliseconds TickBasedTimingProvider::get_current_time() const {
     return std::chrono::milliseconds(current_tick * tick_interval_.count());
 }
 
-std::chrono::steady_clock::time_point TickBasedTimingProvider::get_current_time_point() const {
+std::chrono::steady_clock::time_point TickBasedClock::get_current_time_point() const {
     if (!running_.load()) {
         return std::chrono::steady_clock::now();
     }
@@ -77,7 +77,7 @@ std::chrono::steady_clock::time_point TickBasedTimingProvider::get_current_time_
     return start_time_ + elapsed_ms;
 }
 
-void TickBasedTimingProvider::sleep_for(std::chrono::milliseconds duration) {
+void TickBasedClock::sleep_for(std::chrono::milliseconds duration) {
     if (!running_.load()) {
         std::this_thread::sleep_for(duration);
         return;
@@ -98,7 +98,7 @@ void TickBasedTimingProvider::sleep_for(std::chrono::milliseconds duration) {
     }
 }
 
-void TickBasedTimingProvider::sleep_until(std::chrono::steady_clock::time_point target_time) {
+void TickBasedClock::sleep_until(std::chrono::steady_clock::time_point target_time) {
     if (!running_.load()) {
         std::this_thread::sleep_until(target_time);
         return;
@@ -113,7 +113,7 @@ void TickBasedTimingProvider::sleep_until(std::chrono::steady_clock::time_point 
     sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(duration));
 }
 
-void TickBasedTimingProvider::tick_thread_function() {
+void TickBasedClock::tick_thread_function() {
     while (!should_stop_.load()) {
         std::this_thread::sleep_for(tick_interval_);
         if (!should_stop_.load()) {
@@ -122,14 +122,14 @@ void TickBasedTimingProvider::tick_thread_function() {
     }
 }
 
-// TimingProviderFactory implementation
-std::unique_ptr<ITimingProvider> TimingProviderFactory::create_realtime_provider() {
-    return std::make_unique<RealtimeTimingProvider>();
+// ClockFactory implementation
+std::unique_ptr<IClock> ClockFactory::create_realtime_clock() {
+    return std::make_unique<RealtimeClock>();
 }
 
-std::unique_ptr<ITimingProvider> TimingProviderFactory::create_tick_based_provider(
+std::unique_ptr<IClock> ClockFactory::create_tick_based_clock(
     std::chrono::milliseconds tick_interval) {
-    return std::make_unique<TickBasedTimingProvider>(tick_interval);
+    return std::make_unique<TickBasedClock>(tick_interval);
 }
 
 } // namespace RTOS

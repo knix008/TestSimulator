@@ -8,8 +8,8 @@ namespace RTOS {
 // TimerTask implementation
 TimerTask::TimerTask(uint32_t task_id, uint8_t priority, void* data)
     : Task(task_id, priority, data), next_timer_id_(1), should_stop_(false), is_running_(false) {
-    // Default to realtime timing provider
-    timing_provider_ = std::make_unique<RealtimeTimingProvider>();
+    // Default to realtime clock
+    clock_ = std::make_unique<RealtimeClock>();
 }
 
 TimerTask::~TimerTask() {
@@ -43,9 +43,9 @@ uint32_t TimerTask::create_timer(const std::string& name, TimerType type,
     uint32_t timer_id = next_timer_id_++;
     auto timer = std::make_shared<Timer>(timer_id, name, type, interval, callback, user_data);
     
-    // Set timing provider reference
-    if (timing_provider_) {
-        timer->set_timing_provider(timing_provider_.get());
+    // Set clock reference
+    if (clock_) {
+        timer->set_clock(clock_.get());
     }
     
     timers_[timer_id] = timer;
@@ -171,9 +171,9 @@ bool TimerTask::start_task() {
     should_stop_ = false;
     is_running_ = true;
     
-    // Start timing provider
-    if (timing_provider_) {
-        timing_provider_->start();
+    // Start clock
+    if (clock_) {
+        clock_->start();
     }
     
     return true;
@@ -187,9 +187,9 @@ bool TimerTask::stop_task() {
     should_stop_ = true;
     cv_.notify_all();
     
-    // Stop timing provider
-    if (timing_provider_) {
-        timing_provider_->stop();
+    // Stop clock
+    if (clock_) {
+        clock_->stop();
     }
     
     is_running_ = false;
@@ -197,31 +197,31 @@ bool TimerTask::stop_task() {
     return true;
 }
 
-void TimerTask::set_timing_provider(std::unique_ptr<ITimingProvider> provider) {
+void TimerTask::set_clock(std::unique_ptr<IClock> clock) {
     if (is_running_.load()) {
-        // Stop current timing provider
-        if (timing_provider_) {
-            timing_provider_->stop();
+        // Stop current clock
+        if (clock_) {
+            clock_->stop();
         }
     }
     
-    timing_provider_ = std::move(provider);
+    clock_ = std::move(clock);
     
-    if (is_running_.load() && timing_provider_) {
-        timing_provider_->start();
+    if (is_running_.load() && clock_) {
+        clock_->start();
     }
 }
 
 bool TimerTask::is_tick_based() const {
-    return timing_provider_ ? timing_provider_->is_tick_based() : false;
+    return clock_ ? clock_->is_tick_based() : false;
 }
 
 uint64_t TimerTask::get_tick_count() const {
-    return timing_provider_ ? timing_provider_->get_tick_count() : 0;
+    return clock_ ? clock_->get_tick_count() : 0;
 }
 
 std::chrono::milliseconds TimerTask::get_tick_interval() const {
-    return timing_provider_ ? timing_provider_->get_tick_interval() : std::chrono::milliseconds(0);
+    return clock_ ? clock_->get_tick_interval() : std::chrono::milliseconds(0);
 }
 
 void TimerTask::print_timer_status() const {
@@ -249,8 +249,8 @@ void TimerTask::print_running_timers() const {
 }
 
 std::chrono::milliseconds TimerTask::get_system_time() const {
-    if (timing_provider_) {
-        return timing_provider_->get_current_time();
+    if (clock_) {
+        return clock_->get_current_time();
     }
     auto now = std::chrono::steady_clock::now();
     auto duration = now.time_since_epoch();
@@ -258,8 +258,8 @@ std::chrono::milliseconds TimerTask::get_system_time() const {
 }
 
 void TimerTask::sleep_until(std::chrono::steady_clock::time_point target_time) {
-    if (timing_provider_) {
-        timing_provider_->sleep_until(target_time);
+    if (clock_) {
+        clock_->sleep_until(target_time);
     } else {
         std::this_thread::sleep_until(target_time);
     }
@@ -278,7 +278,7 @@ std::shared_ptr<Timer> TimerTask::find_next_expiring_timer() {
         
         if (timer->is_running()) {
             auto remaining = timer->get_remaining_time();
-            auto expiry_time = (timing_provider_ ? timing_provider_->get_current_time_point() : std::chrono::steady_clock::now()) + remaining;
+            auto expiry_time = (clock_ ? clock_->get_current_time_point() : std::chrono::steady_clock::now()) + remaining;
             
             if (expiry_time < next_expiry) {
                 next_expiry = expiry_time;
@@ -412,12 +412,12 @@ bool TaskBasedTimerManager::is_running() const {
     return timer_task_->is_task_running();
 }
 
-void TaskBasedTimerManager::set_timing_provider(std::unique_ptr<ITimingProvider> provider) {
-    timer_task_->set_timing_provider(std::move(provider));
+void TaskBasedTimerManager::set_clock(std::unique_ptr<IClock> clock) {
+    timer_task_->set_clock(std::move(clock));
 }
 
-ITimingProvider* TaskBasedTimerManager::get_timing_provider() const {
-    return timer_task_->get_timing_provider();
+IClock* TaskBasedTimerManager::get_clock() const {
+    return timer_task_->get_clock();
 }
 
 bool TaskBasedTimerManager::is_tick_based() const {

@@ -24,7 +24,7 @@ set(HEADERS
     include/signal.h
     include/message_queue.h
     include/timer.h
-    include/timing_interface.h
+    include/clock.h
     include/timer_task.h
 )
 
@@ -37,7 +37,7 @@ set(SOURCES
     source/signal.cpp
     source/message_queue.cpp
     source/timer.cpp
-    source/timing_interface.cpp
+    source/clock.cpp
     source/timer_task.cpp
 )
 
@@ -70,8 +70,8 @@ target_link_libraries(test_sync_management scheduler)
 add_executable(test_timer test/test_timer.cpp)
 target_link_libraries(test_timer scheduler)
 
-add_executable(test_timing test/test_timing.cpp)
-target_link_libraries(test_timing scheduler)
+add_executable(test_clock test/test_clock.cpp)
+target_link_libraries(test_clock scheduler)
 
 add_executable(test_timer_task test/test_timer_task.cpp)
 target_link_libraries(test_timer_task scheduler)
@@ -85,5 +85,5 @@ add_test(NAME test_signal COMMAND test_signal)
 add_test(NAME test_message_queue COMMAND test_message_queue)
 add_test(NAME test_sync_management COMMAND test_sync_management)
 add_test(NAME test_timer COMMAND test_timer)
-add_test(NAME test_timing COMMAND test_timing)
+add_test(NAME test_clock COMMAND test_clock)
 add_test(NAME test_timer_task COMMAND test_timer_task)
