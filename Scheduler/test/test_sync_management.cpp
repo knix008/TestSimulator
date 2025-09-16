@@ -32,6 +32,9 @@ void test_sync_object_management() {
     assert(signal1 != 0 && signal2 != 0);
     assert(mq1 != 0);
     
+    // Suppress unused variable warnings
+    (void)sem1; (void)event1; (void)signal1; (void)mq1;
+    
     std::cout << "Created synchronization objects:" << std::endl;
     std::cout << "Semaphores: " << sem_manager.get_semaphore_count() << std::endl;
     std::cout << "Events: " << event_manager.get_event_count() << std::endl;

@@ -3,10 +3,13 @@
 #include "event.h"
 #include "signal.h"
 #include "message_queue.h"
+#include "timer.h"
+#include "timer_task.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <cassert>
+#include <atomic>
 
 using namespace RTOS;
 
@@ -281,6 +284,445 @@ int main() {
     mq_manager.delete_message_queue(msg_queue);
     
     std::cout << "\nSynchronization mechanisms example completed!" << std::endl;
+    
+    // Timer example
+    std::cout << "\n\n==========================================" << std::endl;
+    std::cout << "Timer Example" << std::endl;
+    std::cout << "==========================================" << std::endl;
+    
+    // Create independent timer manager
+    TimerManager timer_manager;
+    timer_manager.start_manager();
+    
+    // Check if timer manager is running
+    std::cout << "Timer manager running: " << (timer_manager.is_running() ? "Yes" : "No") << std::endl;
+    
+    // Timer callback data
+    struct TimerCallbackData {
+        std::atomic<int> one_shot_count{0};
+        std::atomic<int> periodic_count{0};
+        std::string task_name;
+        
+        TimerCallbackData(const std::string& name) : task_name(name) {}
+    };
+    
+    TimerCallbackData timer_data("Timer Demo Task");
+    
+    // Timer callback functions
+    auto one_shot_callback = [](uint32_t timer_id, void* user_data) {
+        if (user_data) {
+            TimerCallbackData* data = static_cast<TimerCallbackData*>(user_data);
+            data->one_shot_count++;
+            std::cout << "One-shot timer " << timer_id << " expired! Count: " 
+                      << data->one_shot_count.load() << std::endl;
+        }
+    };
+    
+    auto periodic_callback = [](uint32_t timer_id, void* user_data) {
+        if (user_data) {
+            TimerCallbackData* data = static_cast<TimerCallbackData*>(user_data);
+            data->periodic_count++;
+            std::cout << "Periodic timer " << timer_id << " expired! Count: " 
+                      << data->periodic_count.load() << std::endl;
+            
+            // Stop after 5 executions
+            if (data->periodic_count.load() >= 5) {
+                std::cout << "Stopping periodic timer after 5 executions" << std::endl;
+            }
+        }
+    };
+    
+    // 1. One-shot timer example
+    std::cout << "\n1. One-shot Timer Example" << std::endl;
+    std::cout << "-------------------------" << std::endl;
+    
+    uint32_t one_shot_timer = timer_manager.create_timer("One-shot Demo", TimerType::ONE_SHOT, 
+                                                          std::chrono::milliseconds(800), 
+                                                          one_shot_callback, &timer_data);
+    
+    std::cout << "Created one-shot timer with ID: " << one_shot_timer << std::endl;
+    std::cout << "Starting one-shot timer (800ms delay)..." << std::endl;
+    
+    if (!timer_manager.start_timer(one_shot_timer)) {
+        std::cout << "Failed to start one-shot timer!" << std::endl;
+    }
+    
+    // 2. Periodic timer example
+    std::cout << "\n2. Periodic Timer Example" << std::endl;
+    std::cout << "-------------------------" << std::endl;
+    
+    uint32_t periodic_timer = timer_manager.create_timer("Periodic Demo", TimerType::PERIODIC, 
+                                                          std::chrono::milliseconds(400), 
+                                                          periodic_callback, &timer_data);
+    
+    std::cout << "Created periodic timer with ID: " << periodic_timer << std::endl;
+    std::cout << "Starting periodic timer (400ms interval)..." << std::endl;
+    
+    if (!timer_manager.start_timer(periodic_timer)) {
+        std::cout << "Failed to start periodic timer!" << std::endl;
+    }
+    
+    // 3. Timer control demonstration
+    std::cout << "\n3. Timer Control Demonstration" << std::endl;
+    std::cout << "-------------------------------" << std::endl;
+    
+    uint32_t control_timer = timer_manager.create_timer("Control Demo", TimerType::ONE_SHOT, 
+                                                         std::chrono::milliseconds(1000), 
+                                                         one_shot_callback, &timer_data);
+    
+    std::cout << "Created control timer with ID: " << control_timer << std::endl;
+    std::cout << "Starting control timer..." << std::endl;
+    
+    if (!timer_manager.start_timer(control_timer)) {
+        std::cout << "Failed to start control timer!" << std::endl;
+    }
+    
+    // Wait a bit, then stop and restart
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    std::cout << "Stopping control timer after 300ms..." << std::endl;
+    if (!timer_manager.stop_timer(control_timer)) {
+        std::cout << "Failed to stop control timer!" << std::endl;
+    }
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::cout << "Restarting control timer..." << std::endl;
+    if (!timer_manager.restart_timer(control_timer)) {
+        std::cout << "Failed to restart control timer!" << std::endl;
+    }
+    
+    // 4. Multiple timers with different intervals
+    std::cout << "\n4. Multiple Timers Example" << std::endl;
+    std::cout << "--------------------------" << std::endl;
+    
+    struct MultiTimerData {
+        std::atomic<int> fast_count{0};
+        std::atomic<int> medium_count{0};
+        std::atomic<int> slow_count{0};
+    };
+    
+    MultiTimerData multi_data;
+    
+    auto fast_callback = [](uint32_t /*timer_id*/, void* user_data) {
+        if (user_data) {
+            MultiTimerData* data = static_cast<MultiTimerData*>(user_data);
+            data->fast_count++;
+            std::cout << "Fast timer expired! Count: " << data->fast_count.load() << std::endl;
+        }
+    };
+    
+    auto medium_callback = [](uint32_t /*timer_id*/, void* user_data) {
+        if (user_data) {
+            MultiTimerData* data = static_cast<MultiTimerData*>(user_data);
+            data->medium_count++;
+            std::cout << "Medium timer expired! Count: " << data->medium_count.load() << std::endl;
+        }
+    };
+    
+    auto slow_callback = [](uint32_t /*timer_id*/, void* user_data) {
+        if (user_data) {
+            MultiTimerData* data = static_cast<MultiTimerData*>(user_data);
+            data->slow_count++;
+            std::cout << "Slow timer expired! Count: " << data->slow_count.load() << std::endl;
+        }
+    };
+    
+    uint32_t fast_timer = timer_manager.create_timer("Fast Timer", TimerType::ONE_SHOT, 
+                                                      std::chrono::milliseconds(200), 
+                                                      fast_callback, &multi_data);
+    uint32_t medium_timer = timer_manager.create_timer("Medium Timer", TimerType::ONE_SHOT, 
+                                                        std::chrono::milliseconds(500), 
+                                                        medium_callback, &multi_data);
+    uint32_t slow_timer = timer_manager.create_timer("Slow Timer", TimerType::ONE_SHOT, 
+                                                      std::chrono::milliseconds(800), 
+                                                      slow_callback, &multi_data);
+    
+    std::cout << "Created multiple timers with different intervals:" << std::endl;
+    std::cout << "  Fast timer (200ms): " << fast_timer << std::endl;
+    std::cout << "  Medium timer (500ms): " << medium_timer << std::endl;
+    std::cout << "  Slow timer (800ms): " << slow_timer << std::endl;
+    
+    if (!timer_manager.start_timer(fast_timer)) {
+        std::cout << "Failed to start fast timer!" << std::endl;
+    }
+    if (!timer_manager.start_timer(medium_timer)) {
+        std::cout << "Failed to start medium timer!" << std::endl;
+    }
+    if (!timer_manager.start_timer(slow_timer)) {
+        std::cout << "Failed to start slow timer!" << std::endl;
+    }
+    
+    std::cout << "Started all multiple timers" << std::endl;
+    
+    // Wait for all timers to execute
+    std::cout << "\nWaiting for timers to execute..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    
+    // Print timer status
+    std::cout << "\nTimer Status:" << std::endl;
+    timer_manager.print_timer_status();
+    
+    // Print final results
+    std::cout << "\nFinal Results:" << std::endl;
+    std::cout << "One-shot timer executions: " << timer_data.one_shot_count.load() << std::endl;
+    std::cout << "Periodic timer executions: " << timer_data.periodic_count.load() << std::endl;
+    std::cout << "Fast timer executions: " << multi_data.fast_count.load() << std::endl;
+    std::cout << "Medium timer executions: " << multi_data.medium_count.load() << std::endl;
+    std::cout << "Slow timer executions: " << multi_data.slow_count.load() << std::endl;
+    
+    // Cleanup timers
+    std::cout << "\nCleaning up timers..." << std::endl;
+    timer_manager.delete_timer(one_shot_timer);
+    timer_manager.delete_timer(periodic_timer);
+    timer_manager.delete_timer(control_timer);
+    timer_manager.delete_timer(fast_timer);
+    timer_manager.delete_timer(medium_timer);
+    timer_manager.delete_timer(slow_timer);
+    
+    // Stop timer manager
+    timer_manager.stop_manager();
+    
+    std::cout << "\nTimer example completed!" << std::endl;
+    
+    // Timing System Example
+    std::cout << "\n\n==========================================" << std::endl;
+    std::cout << "Timing System Example" << std::endl;
+    std::cout << "==========================================" << std::endl;
+    
+    // 1. Realtime Timing Example
+    std::cout << "\n1. Realtime Timing Example" << std::endl;
+    std::cout << "--------------------------" << std::endl;
+    
+    TimerManager realtime_manager;
+    // Uses RealtimeTimingProvider by default
+    
+    struct TimingCallbackData {
+        std::atomic<int> realtime_count{0};
+        std::atomic<int> tick_count{0};
+    };
+    
+    TimingCallbackData timing_data;
+    
+    auto realtime_callback = [](uint32_t /*timer_id*/, void* user_data) {
+        if (user_data) {
+            TimingCallbackData* data = static_cast<TimingCallbackData*>(user_data);
+            data->realtime_count++;
+            std::cout << "Realtime timer expired! Count: " << data->realtime_count.load() << std::endl;
+        }
+    };
+    
+    uint32_t realtime_timer = realtime_manager.create_timer("Realtime Demo", TimerType::ONE_SHOT, 
+                                                           std::chrono::milliseconds(300), 
+                                                           realtime_callback, &timing_data);
+    
+    std::cout << "Created realtime timer with ID: " << realtime_timer << std::endl;
+    std::cout << "Timing type: " << (realtime_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
+    
+    realtime_manager.start_manager();
+    realtime_manager.start_timer(realtime_timer);
+    
+    // 2. Tick-based Timing Example
+    std::cout << "\n2. Tick-based Timing Example" << std::endl;
+    std::cout << "-----------------------------" << std::endl;
+    
+    TimerManager tick_manager;
+    
+    // Set tick-based timing provider (10ms per tick)
+    auto tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(10));
+    tick_manager.set_timing_provider(std::move(tick_provider));
+    
+    auto tick_callback = [](uint32_t /*timer_id*/, void* user_data) {
+        if (user_data) {
+            TimingCallbackData* data = static_cast<TimingCallbackData*>(user_data);
+            data->tick_count++;
+            std::cout << "Tick-based timer expired! Count: " << data->tick_count.load() << std::endl;
+        }
+    };
+    
+    uint32_t tick_timer = tick_manager.create_timer("Tick Demo", TimerType::ONE_SHOT, 
+                                                   std::chrono::milliseconds(50), // 5 ticks
+                                                   tick_callback, &timing_data);
+    
+    std::cout << "Created tick-based timer with ID: " << tick_timer << std::endl;
+    std::cout << "Timing type: " << (tick_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
+    std::cout << "Tick interval: " << tick_manager.get_tick_interval().count() << "ms" << std::endl;
+    
+    tick_manager.start_manager();
+    tick_manager.start_timer(tick_timer);
+    
+    // 3. Timing Provider Switching Example
+    std::cout << "\n3. Timing Provider Switching Example" << std::endl;
+    std::cout << "-------------------------------------" << std::endl;
+    
+    TimerManager switch_manager;
+    
+    // Start with realtime
+    std::cout << "Initial timing type: " << (switch_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
+    
+    // Switch to tick-based
+    auto switch_tick_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(5));
+    switch_manager.set_timing_provider(std::move(switch_tick_provider));
+    
+    std::cout << "After switch timing type: " << (switch_manager.is_tick_based() ? "Tick-based" : "Realtime") << std::endl;
+    std::cout << "Tick interval: " << switch_manager.get_tick_interval().count() << "ms" << std::endl;
+    
+    // Wait for timers to execute
+    std::cout << "\nWaiting for timers to execute..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+    // Print results
+    std::cout << "\nFinal Results:" << std::endl;
+    std::cout << "Realtime timer executions: " << timing_data.realtime_count.load() << std::endl;
+    std::cout << "Tick-based timer executions: " << timing_data.tick_count.load() << std::endl;
+    
+    // Cleanup
+    std::cout << "\nCleaning up timing systems..." << std::endl;
+    realtime_manager.delete_timer(realtime_timer);
+    realtime_manager.stop_manager();
+    
+    tick_manager.delete_timer(tick_timer);
+    tick_manager.stop_manager();
+    
+    std::cout << "\nTiming system example completed!" << std::endl;
+    
+    // Task-based Timer Example
+    std::cout << "\n\n==========================================" << std::endl;
+    std::cout << "Task-based Timer Example" << std::endl;
+    std::cout << "==========================================" << std::endl;
+    
+    // 1. Task-based Timer with Scheduler
+    std::cout << "\n1. Task-based Timer with Scheduler" << std::endl;
+    std::cout << "-----------------------------------" << std::endl;
+    
+    auto task_scheduler = std::make_shared<PriorityScheduler>();
+    TaskBasedTimerManager task_timer_manager(task_scheduler, 0); // High priority timer task
+    
+    struct TaskTimerCallbackData {
+        std::atomic<int> task_timer_count{0};
+        std::atomic<int> other_task_count{0};
+    };
+    
+    TaskTimerCallbackData task_timer_data;
+    
+    auto task_timer_callback = [](uint32_t /*timer_id*/, void* user_data) {
+        if (user_data) {
+            TaskTimerCallbackData* data = static_cast<TaskTimerCallbackData*>(user_data);
+            data->task_timer_count++;
+            std::cout << "Task-based timer expired! Count: " << data->task_timer_count.load() << std::endl;
+        }
+    };
+    
+    // Create timer
+    uint32_t task_timer = task_timer_manager.create_timer("Task Timer", TimerType::ONE_SHOT, 
+                                                         std::chrono::milliseconds(400), 
+                                                         task_timer_callback, &task_timer_data);
+    
+    std::cout << "Created task-based timer with ID: " << task_timer << std::endl;
+    
+    // Create other tasks to demonstrate scheduling
+    uint32_t other_task1 = task_scheduler->create_task(1); // Medium priority
+    uint32_t other_task2 = task_scheduler->create_task(2); // Low priority
+    
+    std::cout << "Created other tasks with IDs: " << other_task1 << ", " << other_task2 << std::endl;
+    
+    // Start timer manager (adds timer task to scheduler)
+    task_timer_manager.start_manager();
+    assert(task_timer_manager.start_timer(task_timer));
+    
+    // 2. Run Scheduler with Timer Task
+    std::cout << "\n2. Running Scheduler with Timer Task" << std::endl;
+    std::cout << "------------------------------------" << std::endl;
+    
+    std::cout << "Starting scheduler simulation..." << std::endl;
+    auto start_time = std::chrono::steady_clock::now();
+    
+    while (task_timer_data.task_timer_count.load() == 0 && 
+           std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start_time).count() < 1000) {
+        
+        auto task = task_scheduler->get_next_task();
+        if (task) {
+            std::cout << "Executing task " << task->get_id() << " with priority " 
+                      << (int)task->get_priority() << std::endl;
+            
+            // Execute the task
+            task->execute();
+            
+            // Count other tasks
+            if (task->get_id() != task_timer_manager.get_timer_task()->get_id()) {
+                task_timer_data.other_task_count++;
+            }
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
+    
+    // 3. Task-based Timer with Tick Timing
+    std::cout << "\n3. Task-based Timer with Tick Timing" << std::endl;
+    std::cout << "-------------------------------------" << std::endl;
+    
+    auto tick_scheduler = std::make_shared<PriorityScheduler>();
+    TaskBasedTimerManager tick_task_timer_manager(tick_scheduler, 0);
+    
+    // Set tick-based timing
+    auto tick_task_provider = std::make_unique<TickBasedTimingProvider>(std::chrono::milliseconds(20));
+    tick_task_timer_manager.set_timing_provider(std::move(tick_task_provider));
+    
+    struct TickTaskTimerData {
+        std::atomic<int> tick_timer_count{0};
+    };
+    
+    TickTaskTimerData tick_timer_data;
+    
+    auto tick_task_callback = [](uint32_t /*timer_id*/, void* user_data) {
+        if (user_data) {
+            TickTaskTimerData* data = static_cast<TickTaskTimerData*>(user_data);
+            data->tick_timer_count++;
+            std::cout << "Tick-based task timer expired! Count: " << data->tick_timer_count.load() << std::endl;
+        }
+    };
+    
+    uint32_t tick_task_timer = tick_task_timer_manager.create_timer("Tick Task Timer", TimerType::ONE_SHOT, 
+                                                                   std::chrono::milliseconds(100), // 5 ticks
+                                                                   tick_task_callback, &tick_timer_data);
+    
+    std::cout << "Created tick-based task timer with ID: " << tick_task_timer << std::endl;
+    std::cout << "Tick interval: " << tick_task_timer_manager.get_tick_interval().count() << "ms" << std::endl;
+    
+    tick_task_timer_manager.start_manager();
+    assert(tick_task_timer_manager.start_timer(tick_task_timer));
+    
+    // Run tick-based scheduler
+    std::cout << "Running tick-based scheduler..." << std::endl;
+    start_time = std::chrono::steady_clock::now();
+    
+    while (tick_timer_data.tick_timer_count.load() == 0 && 
+           std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start_time).count() < 500) {
+        
+        auto task = tick_scheduler->get_next_task();
+        if (task) {
+            task->execute();
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
+    
+    // Print results
+    std::cout << "\nFinal Results:" << std::endl;
+    std::cout << "Task-based timer executions: " << task_timer_data.task_timer_count.load() << std::endl;
+    std::cout << "Other task executions: " << task_timer_data.other_task_count.load() << std::endl;
+    std::cout << "Tick-based task timer executions: " << tick_timer_data.tick_timer_count.load() << std::endl;
+    std::cout << "Total ticks: " << tick_task_timer_manager.get_tick_count() << std::endl;
+    
+    // Cleanup
+    std::cout << "\nCleaning up task-based timers..." << std::endl;
+    task_timer_manager.delete_timer(task_timer);
+    task_timer_manager.stop_manager();
+    
+    tick_task_timer_manager.delete_timer(tick_task_timer);
+    tick_task_timer_manager.stop_manager();
+    
+    std::cout << "\nTask-based timer example completed!" << std::endl;
     
     return 0;
 }

@@ -135,6 +135,7 @@ void test_task_removal() {
     // Remove task 2
     bool removed = scheduler.remove_task(task2);
     assert(removed);
+    (void)removed; // Suppress unused variable warning
     std::cout << "Removed task " << task2 << std::endl;
     
     // Execute remaining tasks
@@ -154,6 +155,7 @@ void test_edge_cases() {
     // Test invalid priority task creation
     uint32_t invalid_task = scheduler.create_task(255); // Invalid priority
     assert(invalid_task == 0);
+    (void)invalid_task; // Suppress unused variable warning
     std::cout << "Invalid priority tests passed" << std::endl;
     
     // Test empty scheduler
@@ -164,6 +166,7 @@ void test_edge_cases() {
     // Test maximum priority
     uint32_t max_priority_task = scheduler.create_task(127);
     assert(max_priority_task != 0);
+    (void)max_priority_task; // Suppress unused variable warning
     auto task = scheduler.get_next_task();
     assert(task->get_priority() == 127);
     std::cout << "Maximum priority test passed" << std::endl;

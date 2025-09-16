@@ -45,6 +45,7 @@ void test_message_queue_functionality() {
     assert(mq_manager.message_queue_receive(mq_id, type, data, 1000));
     assert(type == 1);
     assert(data == "Hello");
+    (void)type; // Suppress unused variable warning
     
     assert(mq_manager.message_queue_receive(mq_id, type, data, 1000));
     assert(type == 2);
