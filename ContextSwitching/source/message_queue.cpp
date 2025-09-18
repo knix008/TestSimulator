@@ -1,3 +1,7 @@
+#include "config.h"
+#if ENABLE_MESSAGE_QUEUE
+// ...existing code...
+#endif
 #include "message_queue.h"
 #include <chrono>
 #include <ctime>

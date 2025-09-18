@@ -2,8 +2,22 @@
 #include <iostream>
 #include <algorithm>
 #include <cstring>
+#if defined(__aarch64__) || defined(_M_ARM64)
+#include "arm64_context.h"
+#endif
 
 namespace RTOS {
+// ARM64 컨텍스트 스위칭 함수 구현
+#if defined(__aarch64__) || defined(_M_ARM64)
+void PriorityScheduler::context_switch(std::shared_ptr<Task> prev, std::shared_ptr<Task> next) {
+    if (prev && prev->get_context()) {
+        arm64_save_context(prev->get_context());
+    }
+    if (next && next->get_context()) {
+        arm64_restore_context(next->get_context());
+    }
+}
+#endif
 
 PriorityScheduler::PriorityScheduler() 
     : current_task_(nullptr), next_task_id_(1) {

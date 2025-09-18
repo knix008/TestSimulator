@@ -6,6 +6,11 @@
 #include <sstream>
 #include <algorithm>
 #include <iostream>
+#ifdef USE_ARM64_CONTEXT
+#include "arm64_context.h"
+#include <cstdlib>
+#define TASK_STACK_SIZE 4096
+#endif
 
 namespace RTOS {
 
@@ -13,7 +18,23 @@ namespace RTOS {
 Task::Task(uint32_t task_id, uint8_t task_priority, void* task_data)
     : id_(task_id), priority_(task_priority), state_(TaskState::READY), data_(task_data),
       waiting_semaphore_(nullptr), waiting_event_(nullptr), waiting_signal_(nullptr),
-      waiting_message_queue_(nullptr), event_mask_(0), clear_on_exit_(true) {
+      waiting_message_queue_(nullptr), event_mask_(0), clear_on_exit_(true)
+#ifdef USE_ARM64_CONTEXT
+    , context_(nullptr)
+    , stack_(nullptr)
+#endif
+{
+#ifdef USE_ARM64_CONTEXT
+    // 스택 메모리 할당
+    stack_ = static_cast<uint8_t*>(std::malloc(TASK_STACK_SIZE));
+    if (stack_) {
+        context_ = static_cast<arm64_context_t*>(std::malloc(sizeof(arm64_context_t)));
+        if (context_) {
+            // 스택 최상위(ARM64는 descending stack)로 SP 설정
+            context_->sp = reinterpret_cast<uint64_t>(stack_ + TASK_STACK_SIZE);
+        }
+    }
+#endif
 }
 
 // Move constructor
@@ -23,8 +44,16 @@ Task::Task(Task&& other) noexcept
       waiting_event_(std::move(other.waiting_event_)),
       waiting_signal_(std::move(other.waiting_signal_)),
       waiting_message_queue_(std::move(other.waiting_message_queue_)),
-      event_mask_(other.event_mask_), clear_on_exit_(other.clear_on_exit_) {
-    
+      event_mask_(other.event_mask_), clear_on_exit_(other.clear_on_exit_)
+#ifdef USE_ARM64_CONTEXT
+    , context_(other.context_)
+    , stack_(other.stack_)
+#endif
+{
+#ifdef USE_ARM64_CONTEXT
+    other.context_ = nullptr;
+    other.stack_ = nullptr;
+#endif
     // Reset the moved-from object
     other.id_ = 0;
     other.priority_ = 0;
@@ -37,6 +66,10 @@ Task::Task(Task&& other) noexcept
 // Move assignment operator
 Task& Task::operator=(Task&& other) noexcept {
     if (this != &other) {
+#ifdef USE_ARM64_CONTEXT
+    if (context_) std::free(context_);
+    if (stack_) std::free(stack_);
+#endif
         id_ = other.id_;
         priority_ = other.priority_;
         state_ = other.state_;
@@ -47,7 +80,12 @@ Task& Task::operator=(Task&& other) noexcept {
         waiting_message_queue_ = std::move(other.waiting_message_queue_);
         event_mask_ = other.event_mask_;
         clear_on_exit_ = other.clear_on_exit_;
-        
+#ifdef USE_ARM64_CONTEXT
+    context_ = other.context_;
+    stack_ = other.stack_;
+    other.context_ = nullptr;
+    other.stack_ = nullptr;
+#endif
         // Reset the moved-from object
         other.id_ = 0;
         other.priority_ = 0;
@@ -58,6 +96,14 @@ Task& Task::operator=(Task&& other) noexcept {
     }
     return *this;
 }
+
+#ifdef USE_ARM64_CONTEXT
+// 소멸자에서 메모리 해제
+Task::~Task() {
+    if (context_) std::free(context_);
+    if (stack_) std::free(stack_);
+}
+#endif
 
 // State transition methods
 void Task::transition_to_ready() {

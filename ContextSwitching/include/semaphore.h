@@ -1,3 +1,7 @@
+#include "config.h"
+#if ENABLE_SEMAPHORE
+// ...existing code...
+#endif
 #pragma once
 
 #include <cstdint>

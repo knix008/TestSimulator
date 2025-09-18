@@ -54,6 +54,10 @@ public:
     // Scheduling functions
     std::shared_ptr<Task> get_next_task();
     std::shared_ptr<Task> get_current_task() const { return current_task_; }
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        // 현재 태스크와 다음 태스크의 ARM64 컨텍스트를 스위칭
+        void context_switch(std::shared_ptr<Task> prev, std::shared_ptr<Task> next);
+    #endif
     void set_current_task(std::shared_ptr<Task> task) { current_task_ = task; }
     
     // Status query functions
