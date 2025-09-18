@@ -1,3 +1,7 @@
+#include "config.h"
+#if ENABLE_SIGNAL
+// ...existing code...
+#endif
 #include "signal.h"
 #include <chrono>
 #include <iostream>

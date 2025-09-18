@@ -37,6 +37,9 @@ private:
     bool clear_on_exit_;
 
 public:
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        struct arm64_context* context_ = nullptr;
+    #endif
     // Constructor
     Task(uint32_t task_id, uint8_t task_priority, void* task_data = nullptr);
     
@@ -53,6 +56,10 @@ public:
     Task(Task&& other) noexcept;
     
     // Move assignment operator
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        uint8_t* stack_ = nullptr;
+        struct arm64_context* context_ = nullptr;
+    #endif
     Task& operator=(Task&& other) noexcept;
     
     // Getters
@@ -95,6 +102,10 @@ public:
     
     // Clear all synchronization wait states
     void clear_wait_states();
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        struct arm64_context* get_context() const { return context_; }
+        void set_context(struct arm64_context* ctx) { context_ = ctx; }
+    #endif
     
     // Task execution
     virtual void execute();
@@ -111,3 +122,9 @@ public:
 };
 
 } // namespace RTOS
+    #if defined(__aarch64__) || defined(_M_ARM64)
+        ~Task();
+        struct arm64_context* get_context() const { return context_; }
+        void set_context(struct arm64_context* ctx) { context_ = ctx; }
+        uint8_t* get_stack() const { return stack_; }
+    #endif

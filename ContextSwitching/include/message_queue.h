@@ -1,3 +1,7 @@
+#include "config.h"
+#if ENABLE_MESSAGE_QUEUE
+// ...existing code...
+#endif
 #pragma once
 
 #include <cstdint>

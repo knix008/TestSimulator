@@ -1,3 +1,7 @@
+#include "config.h"
+#if ENABLE_SEMAPHORE
+// ...existing code...
+#endif
 #include "semaphore.h"
 #include <chrono>
 #include <iostream>

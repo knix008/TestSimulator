@@ -1,3 +1,7 @@
+#include "config.h"
+#if ENABLE_EVENT
+// ...existing code...
+#endif
 #include "event.h"
 #include <chrono>
 #include <iostream>

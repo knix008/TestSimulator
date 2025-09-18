@@ -1,3 +1,7 @@
+# ARM64 컨텍스트 스위칭 코드 조건부 컴파일 옵션 추가
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    add_definitions(-DUSE_ARM64_CONTEXT)
+endif()
 cmake_minimum_required(VERSION 3.10)
 project(RTOSScheduler)
 
@@ -39,7 +43,13 @@ set(SOURCES
     source/timer.cpp
     source/clock.cpp
     source/timer_task.cpp
+    source/arm64_context.cpp
 )
+
+# ARM64(aarch64) 환경에서만 어셈블리 파일 추가
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    set(SOURCES ${SOURCES} source/arm64_context.S)
+endif()
 
 # Create library
 add_library(scheduler ${SOURCES} ${HEADERS})
