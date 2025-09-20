@@ -5,13 +5,13 @@
 #include "platform.h"
 
 // Timer functions
-Timer* timer_create(uint32_t timer_id, const char* name, TimerType type, 
-                   uint32_t interval_ms, TimerCallback callback, void* user_data) {
+Timer* rtos_timer_create(uint32_t timer_id, const char* name, TimerType type, 
+                        uint32_t interval_ms, TimerCallback callback, void* user_data) {
     Timer* timer = (Timer*)malloc(sizeof(Timer));
     if (!timer) return NULL;
     
     timer->id = timer_id;
-    timer->name = name ? _strdup(name) : NULL;
+    timer->name = name ? strdup(name) : NULL;
     timer->type = type;
     timer->state = TIMER_STOPPED;
     timer->interval_ms = interval_ms;
@@ -308,7 +308,7 @@ uint32_t timer_manager_create_timer(TimerManager* manager, const char* name, Tim
     platform_mutex_lock(&manager->timers_mutex);
     
     uint32_t timer_id = manager->next_timer_id++;
-    Timer* timer = timer_create(timer_id, name, type, interval_ms, callback, user_data);
+    Timer* timer = rtos_timer_create(timer_id, name, type, interval_ms, callback, user_data);
     if (!timer) {
         platform_mutex_unlock(&manager->timers_mutex);
         return 0;

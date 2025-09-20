@@ -81,8 +81,8 @@ typedef struct TimerManager {
 } TimerManager;
 
 // Timer functions
-Timer* timer_create(uint32_t timer_id, const char* name, TimerType type, 
-                   uint32_t interval_ms, TimerCallback callback, void* user_data);
+Timer* rtos_timer_create(uint32_t timer_id, const char* name, TimerType type, 
+                        uint32_t interval_ms, TimerCallback callback, void* user_data);
 void timer_destroy(Timer* timer);
 void timer_set_clock(Timer* timer, IClock* clock);
 

@@ -237,8 +237,7 @@ char* task_state_to_string(TaskState state) {
     size_t len = strlen(state_str);
     char* result = (char*)malloc(len + 1);
     if (result) {
-        strncpy(result, state_str, len);
-        result[len] = '\0';
+        strcpy(result, state_str);
     }
     return result;
 }

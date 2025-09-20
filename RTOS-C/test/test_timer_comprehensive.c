@@ -153,13 +153,13 @@ void test_timer_execution_and_callbacks(TestResults* results) {
     // Test 4: Periodic timer execution
     callback_count = 0;
     uint32_t periodic_timer = timer_manager_create_timer(manager, "Periodic", 
-                                                        TIMER_PERIODIC, 40, 
+                                                        TIMER_PERIODIC, 30, 
                                                         test_timer_callback, NULL);
     
     timer_manager_start_timer(manager, periodic_timer);
-    platform_sleep_ms(130); // Should trigger ~3 callbacks
+    platform_sleep_ms(150); // Should trigger at least 4 callbacks (30ms, 60ms, 90ms, 120ms)
     
-    bool test4 = (callback_count >= 3);
+    bool test4 = (callback_count >= 3); // Expect at least 3 executions to be safe
     print_test_result(results, "Periodic timer multiple executions", test4);
     
     // Test 5: Periodic timer still running

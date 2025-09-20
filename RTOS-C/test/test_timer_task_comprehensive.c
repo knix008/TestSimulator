@@ -57,8 +57,9 @@ void test_task_based_timer_manager_basic(TestResults* results) {
     print_test_result(results, "Initial timer count is 0", test2);
     
     // Test 3: Scheduler has timer task (may be 0 initially until manager starts)
-    size_t task_count = priority_scheduler_get_total_task_count(scheduler);
-    bool test3 = (task_count >= 0); // Just check it doesn't crash
+    // Just verify the function call doesn't crash
+    priority_scheduler_get_total_task_count(scheduler);
+    bool test3 = true; // Function call succeeded without crash
     print_test_result(results, "Scheduler task count accessible", test3);
     
     // Test 4: Start timer manager
@@ -251,7 +252,6 @@ void test_task_based_timer_scheduler_integration(TestResults* results) {
     printf("  Executing tasks in priority order:\n");
     int executed_count = 0;
     uint8_t last_priority = 0;
-    bool priority_order_correct = true;
     
     while (priority_scheduler_has_ready_tasks(scheduler) && executed_count < 5) {
         Task* task = priority_scheduler_get_next_task(scheduler);
@@ -264,7 +264,7 @@ void test_task_based_timer_scheduler_integration(TestResults* results) {
             // Allow some flexibility in priority order for timer tasks
             if (executed_count > 0 && current_priority < last_priority && 
                 current_priority != 5) { // Timer task priority might be 5
-                priority_order_correct = false;
+                printf("    Note: Priority order variation detected\n");
             }
             
             task_execute(task);
