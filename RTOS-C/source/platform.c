@@ -6,7 +6,12 @@
 
 // Windows-specific implementations
 int clock_gettime(int clk_id, struct timespec* ts) {
-    (void)clk_id; // Suppress unused parameter warning
+    if (!ts) return -1;
+    
+    // Validate clock ID
+    if (clk_id != CLOCK_REALTIME && clk_id != CLOCK_MONOTONIC) {
+        return -1; // Invalid clock ID
+    }
     
     LARGE_INTEGER frequency, counter;
     
