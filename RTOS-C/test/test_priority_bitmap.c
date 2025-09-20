@@ -123,7 +123,7 @@ void test_bitmap_sparse_priorities(TestResults* results) {
         priority_scheduler_create_task(scheduler, (uint8_t)sparse_priorities[i], NULL);
     }
     
-    bool test1 = (priority_scheduler_get_total_task_count(scheduler) == num_priorities);
+    bool test1 = (priority_scheduler_get_total_task_count(scheduler) == (size_t)num_priorities);
     print_test_result(results, "Sparse priorities tasks added", test1);
     
     // Test 2: Verify tasks come out in priority order
@@ -159,7 +159,7 @@ void test_bitmap_boundary_conditions(TestResults* results) {
         priority_scheduler_create_task(scheduler, (uint8_t)boundary_priorities[i], NULL);
     }
     
-    bool test1 = (priority_scheduler_get_total_task_count(scheduler) == num_boundaries);
+    bool test1 = (priority_scheduler_get_total_task_count(scheduler) == (size_t)num_boundaries);
     print_test_result(results, "Boundary priority tasks added", test1);
     
     // Test 2: Verify correct priority order
