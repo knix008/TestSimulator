@@ -24,10 +24,10 @@ typedef struct {
 static int timer_callback_count = 0;
 void demo_timer_callback(uint32_t timer_id, void* user_data) {
     timer_callback_count++;
-    printf("    🕒 Timer %u callback executed (count: %d)\n", timer_id, timer_callback_count);
+    printf("    *** Timer %u callback executed (count: %d)\n", timer_id, timer_callback_count);
     if (user_data) {
         const char* name = (const char*)user_data;
-        printf("    📝 Timer data: %s\n", name);
+        printf("    *** Timer data: %s\n", name);
     }
 }
 
@@ -123,7 +123,7 @@ void demonstrate_semaphore_resource_sharing() {
         printf("Task %d requesting resource...\n", i);
         
         if (semaphore_manager_wait(sem_mgr, resource_sem, 50)) {
-            printf("  Task %d: ✓ Acquired resource (remaining: %d)\n", 
+            printf("  Task %d: *** Acquired resource (remaining: %d)\n", 
                    i, semaphore_manager_get_count(sem_mgr, resource_sem));
             
             // Simulate resource usage
@@ -135,7 +135,7 @@ void demonstrate_semaphore_resource_sharing() {
             printf("  Task %d: Released resource (available: %d)\n", 
                    i, semaphore_manager_get_count(sem_mgr, resource_sem));
         } else {
-            printf("  Task %d: ✗ Timeout waiting for resource\n", i);
+            printf("  Task %d: *** Timeout waiting for resource\n", i);
         }
     }
     
@@ -170,7 +170,7 @@ void demonstrate_event_communication() {
     // Consumer waits for data ready
     printf("Consumer: Waiting for data...\n");
     if (event_manager_wait(event_mgr, comm_event, DATA_READY, true, 100)) {
-        printf("Consumer: ✓ Received data ready signal\n");
+        printf("Consumer: *** Received data ready signal\n");
         printf("Consumer: Processing data...\n");
         platform_sleep_ms(150);
         
@@ -183,7 +183,7 @@ void demonstrate_event_communication() {
     // Producer waits for completion
     printf("Producer: Waiting for completion...\n");
     if (event_manager_wait(event_mgr, comm_event, PROCESSING_DONE, false, 100)) {
-        printf("Producer: ✓ Received completion signal\n");
+        printf("Producer: *** Received completion signal\n");
     }
     
     // Demonstrate multiple event bits
@@ -192,7 +192,7 @@ void demonstrate_event_communication() {
     printf("Set multiple bits: 0x%08X\n", event_manager_get_bits(event_mgr, comm_event));
     
     if (event_manager_wait(event_mgr, comm_event, ERROR_OCCURRED, true, 100)) {
-        printf("✓ Successfully waited for error flag\n");
+        printf("*** Successfully waited for error flag\n");
     }
     
     printf("Final event bits: 0x%08X\n", event_manager_get_bits(event_mgr, comm_event));
@@ -226,9 +226,9 @@ void demonstrate_signal_notifications() {
     // Main task waits for completion
     printf("Main task: Waiting for completion signal...\n");
     if (signal_manager_wait(signal_mgr, completion_signal, 500)) {
-        printf("Main task: ✓ Received completion signal\n");
+        printf("Main task: *** Received completion signal\n");
     } else {
-        printf("Main task: ✗ Timeout waiting for completion\n");
+        printf("Main task: *** Timeout waiting for completion\n");
     }
     
     // Test error signaling
@@ -237,11 +237,11 @@ void demonstrate_signal_notifications() {
     signal_manager_send(signal_mgr, error_signal);
     
     if (signal_manager_is_signaled(signal_mgr, error_signal)) {
-        printf("✓ Error signal detected\n");
+        printf("*** Error signal detected\n");
         
         // Handle error
         if (signal_manager_wait(signal_mgr, error_signal, 100)) {
-            printf("✓ Error signal consumed\n");
+            printf("*** Error signal consumed\n");
         }
     }
     
@@ -335,7 +335,7 @@ void demonstrate_integrated_workflow() {
     printf("\nChecking for worker completion signals:\n");
     for (int i = 0; i < worker_count; i++) {
         if (signal_manager_wait(signal_mgr, done_signal, 50)) {
-            printf("✓ Received completion signal from worker\n");
+            printf("*** Received completion signal from worker\n");
         }
     }
     
@@ -355,81 +355,81 @@ void demonstrate_integrated_workflow() {
 }
 
 void demonstrate_message_queue_communication() {
-    printf("\n🔄 === Message Queue Communication Demo ===\n");
+    printf("\n*** === Message Queue Communication Demo ===\n");
     printf("Demonstrating FIFO message passing between tasks...\n");
     
     // Create message queue manager
     MessageQueueManager* mq_mgr = message_queue_manager_create();
     if (!mq_mgr) {
-        printf("❌ Failed to create message queue manager\n");
+        printf("*** Failed to create message queue manager\n");
         return;
     }
     
     // Create message queue
     uint32_t queue_id = message_queue_manager_create_queue(mq_mgr, 5);
-    printf("✅ Message queue created (ID: %u, capacity: 5)\n", queue_id);
+    printf("*** Message queue created (ID: %u, capacity: 5)\n", queue_id);
     
     // Simulate producer sending messages
-    printf("\n📤 Producer sending messages...\n");
+    printf("\n*** Producer sending messages...\n");
     for (int i = 1; i <= 3; i++) {
         char data[32];
         snprintf(data, sizeof(data), "Message %d", i);
         Message msg = message_create(i, 100 + i, data, 12345);
         
         if (message_queue_manager_send_message(mq_mgr, queue_id, &msg, 1000)) {
-            printf("  ✅ Sent: %s (ID: %u, Type: %u)\n", msg.data, msg.id, msg.type);
+            printf("  *** Sent: %s (ID: %u, Type: %u)\n", msg.data, msg.id, msg.type);
         } else {
-            printf("  ❌ Failed to send message %d\n", i);
+            printf("  *** Failed to send message %d\n", i);
         }
     }
     
     // Check queue status
     size_t count = message_queue_manager_get_count(mq_mgr, queue_id);
-    printf("📊 Queue status: %zu messages pending\n", count);
+    printf("*** Queue status: %zu messages pending\n", count);
     
     // Simulate consumer receiving messages
-    printf("\n📥 Consumer receiving messages...\n");
+    printf("\n*** Consumer receiving messages...\n");
     for (int i = 0; i < 3; i++) {
         Message received_msg;
         if (message_queue_manager_receive_message(mq_mgr, queue_id, &received_msg, 1000)) {
-            printf("  ✅ Received: %s (ID: %u, Type: %u, Sender: %u)\n", 
+            printf("  *** Received: %s (ID: %u, Type: %u, Sender: %u)\n", 
                    received_msg.data, received_msg.id, received_msg.type, received_msg.sender_id);
             message_destroy(&received_msg);
         } else {
-            printf("  ❌ Failed to receive message\n");
+            printf("  *** Failed to receive message\n");
             break;
         }
     }
     
     // Final queue status
     count = message_queue_manager_get_count(mq_mgr, queue_id);
-    printf("📊 Final queue status: %zu messages remaining\n", count);
+    printf("*** Final queue status: %zu messages remaining\n", count);
     
     // Cleanup
     message_queue_manager_destroy(mq_mgr);
-    printf("✅ Message queue system cleaned up\n");
+    printf("*** Message queue system cleaned up\n");
     
     printf("\nMessage queue communication demonstration completed!\n");
 }
 
 void demonstrate_timer_system() {
-    printf("\n⏰ === Timer System Demo ===\n");
+    printf("\n*** === Timer System Demo ===\n");
     printf("Demonstrating one-shot and periodic timers...\n");
     
     // Create timer manager
     TimerManager* timer_mgr = timer_manager_create();
     if (!timer_mgr) {
-        printf("❌ Failed to create timer manager\n");
+        printf("*** Failed to create timer manager\n");
         return;
     }
     
     // Start timer manager
     if (!timer_manager_start(timer_mgr)) {
-        printf("❌ Failed to start timer manager\n");
+        printf("*** Failed to start timer manager\n");
         timer_manager_destroy(timer_mgr);
         return;
     }
-    printf("✅ Timer manager started\n");
+    printf("*** Timer manager started\n");
     
     // Create one-shot timer
     timer_callback_count = 0;
@@ -437,32 +437,32 @@ void demonstrate_timer_system() {
     uint32_t oneshot_timer = timer_manager_create_timer(timer_mgr, "Demo One-shot", 
                                                        TIMER_ONE_SHOT, 100, 
                                                        demo_timer_callback, timer_data);
-    printf("✅ One-shot timer created (ID: %u)\n", oneshot_timer);
+    printf("*** One-shot timer created (ID: %u)\n", oneshot_timer);
     
     // Create periodic timer
     char periodic_data[] = "Periodic Timer";
     uint32_t periodic_timer = timer_manager_create_timer(timer_mgr, "Demo Periodic", 
                                                         TIMER_PERIODIC, 75, 
                                                         demo_timer_callback, periodic_data);
-    printf("✅ Periodic timer created (ID: %u)\n", periodic_timer);
+    printf("*** Periodic timer created (ID: %u)\n", periodic_timer);
     
     // Start both timers
     timer_manager_start_timer(timer_mgr, oneshot_timer);
     timer_manager_start_timer(timer_mgr, periodic_timer);
-    printf("🚀 Both timers started\n");
+    printf("*** Both timers started\n");
     
     // Let timers run for a while
-    printf("\n⏳ Letting timers run for 300ms...\n");
+    printf("\n*** Letting timers run for 300ms...\n");
     platform_sleep_ms(300);
     
-    printf("📊 Timer callbacks executed: %d times\n", timer_callback_count);
+    printf("*** Timer callbacks executed: %d times\n", timer_callback_count);
     
     // Stop periodic timer
     timer_manager_stop_timer(timer_mgr, periodic_timer);
-    printf("⏹️ Periodic timer stopped\n");
+    printf("*** Periodic timer stopped\n");
     
     // Print timer status
-    printf("\n📈 Timer Manager Status:\n");
+    printf("\n*** Timer Manager Status:\n");
     printf("  Total timers: %zu\n", timer_manager_get_timer_count(timer_mgr));
     printf("  Manager running: %s\n", timer_manager_is_running(timer_mgr) ? "Yes" : "No");
     
@@ -471,66 +471,66 @@ void demonstrate_timer_system() {
     timer_manager_delete_timer(timer_mgr, periodic_timer);
     timer_manager_stop(timer_mgr);
     timer_manager_destroy(timer_mgr);
-    printf("✅ Timer system cleaned up\n");
+    printf("*** Timer system cleaned up\n");
     
     printf("\nTimer system demonstration completed!\n");
 }
 
 void demonstrate_mutex_system() {
-    printf("\n🔒 === Mutex System Demo ===\n");
+    printf("\n*** === Mutex System Demo ===\n");
     printf("Demonstrating normal and recursive mutexes...\n");
     
     // Create mutex manager
     MutexManager* mutex_mgr = mutex_manager_create();
     if (!mutex_mgr) {
-        printf("❌ Failed to create mutex manager\n");
+        printf("*** Failed to create mutex manager\n");
         return;
     }
     
     // Create normal mutex
     uint32_t normal_mutex = mutex_manager_create_mutex(mutex_mgr, "Normal Mutex", MUTEX_NORMAL);
-    printf("✅ Normal mutex created (ID: %u)\n", normal_mutex);
+    printf("*** Normal mutex created (ID: %u)\n", normal_mutex);
     
     // Create recursive mutex  
     uint32_t recursive_mutex = mutex_manager_create_mutex(mutex_mgr, "Recursive Mutex", MUTEX_RECURSIVE);
-    printf("✅ Recursive mutex created (ID: %u)\n", recursive_mutex);
+    printf("*** Recursive mutex created (ID: %u)\n", recursive_mutex);
     
     // Demonstrate normal mutex
-    printf("\n🔐 Normal Mutex Operations:\n");
+    printf("\n*** Normal Mutex Operations:\n");
     if (mutex_manager_lock(mutex_mgr, normal_mutex, 1000)) {
-        printf("  ✅ Task acquired normal mutex\n");
-        printf("  🔒 Mutex is locked, owner: %u\n", 
+        printf("  *** Task acquired normal mutex\n");
+        printf("  *** Mutex is locked, owner: %u\n", 
                mutex_manager_get_owner(mutex_mgr, normal_mutex));
         
         // Try to lock again (should fail for normal mutex)
         if (!mutex_manager_try_lock(mutex_mgr, normal_mutex)) {
-            printf("  ✅ Second lock attempt failed (expected for normal mutex)\n");
+            printf("  *** Second lock attempt failed (expected for normal mutex)\n");
         }
         
         mutex_manager_unlock(mutex_mgr, normal_mutex);
-        printf("  ✅ Task released normal mutex\n");
+        printf("  *** Task released normal mutex\n");
     }
     
     // Demonstrate recursive mutex
-    printf("\n🔄 Recursive Mutex Operations:\n");
+    printf("\n*** Recursive Mutex Operations:\n");
     if (mutex_manager_lock(mutex_mgr, recursive_mutex, 1000)) {
-        printf("  ✅ Task acquired recursive mutex (count: %u)\n",
+        printf("  *** Task acquired recursive mutex (count: %u)\n",
                mutex_manager_get_lock_count(mutex_mgr, recursive_mutex));
         
         // Lock again (should succeed for recursive mutex)
         if (mutex_manager_lock(mutex_mgr, recursive_mutex, 1000)) {
-            printf("  ✅ Task acquired recursive mutex again (count: %u)\n",
+            printf("  *** Task acquired recursive mutex again (count: %u)\n",
                    mutex_manager_get_lock_count(mutex_mgr, recursive_mutex));
             
             // Lock third time
             if (mutex_manager_lock(mutex_mgr, recursive_mutex, 1000)) {
-                printf("  ✅ Task acquired recursive mutex third time (count: %u)\n",
+                printf("  *** Task acquired recursive mutex third time (count: %u)\n",
                        mutex_manager_get_lock_count(mutex_mgr, recursive_mutex));
             }
         }
         
         // Unlock sequence
-        printf("  🔓 Unlocking recursive mutex...\n");
+        printf("  *** Unlocking recursive mutex...\n");
         mutex_manager_unlock(mutex_mgr, recursive_mutex);
         printf("    Lock count after first unlock: %u\n",
                mutex_manager_get_lock_count(mutex_mgr, recursive_mutex));
@@ -543,36 +543,36 @@ void demonstrate_mutex_system() {
         printf("    Lock count after third unlock: %u\n",
                mutex_manager_get_lock_count(mutex_mgr, recursive_mutex));
         
-        printf("  ✅ Recursive mutex fully released\n");
+        printf("  *** Recursive mutex fully released\n");
     }
     
     // Print mutex manager status
-    printf("\n📊 Mutex Manager Status:\n");
+    printf("\n*** Mutex Manager Status:\n");
     printf("  Total mutexes: %zu\n", mutex_manager_get_count(mutex_mgr));
     mutex_manager_print_statistics(mutex_mgr);
     
     // Cleanup
     mutex_manager_destroy(mutex_mgr);
-    printf("✅ Mutex system cleaned up\n");
+    printf("*** Mutex system cleaned up\n");
     
     printf("\nMutex system demonstration completed!\n");
 }
 
 int main() {
-    printf("╔══════════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║                    RTOS C Implementation - Full Demo                        ║\n");
-    printf("║                 Demonstrating All Components Working Together               ║\n");
-    printf("╚══════════════════════════════════════════════════════════════════════════════╝\n\n");
+    printf("================================================================================\n");
+    printf("|                    RTOS C Implementation - Full Demo                        |\n");
+    printf("|                 Demonstrating All Components Working Together               |\n");
+    printf("================================================================================\n\n");
     
     printf("This demo showcases the complete RTOS C implementation with:\n");
-    printf("• Priority Scheduler (128 levels, O(1) optimization)\n");
-    printf("• Semaphore Manager (Resource sharing & mutual exclusion)\n");
-    printf("• Event Manager (32-bit flags for task communication)\n");
-    printf("• Signal Manager (Simple notification mechanism)\n");
-    printf("• Message Queue Manager (FIFO message passing)\n");
-    printf("• Timer Manager (One-shot & periodic timers)\n");
-    printf("• Mutex Manager (Normal & recursive mutual exclusion)\n");
-    printf("• Cross-platform threading abstraction\n\n");
+    printf("- Priority Scheduler (128 levels, O(1) optimization)\n");
+    printf("- Semaphore Manager (Resource sharing & mutual exclusion)\n");
+    printf("- Event Manager (32-bit flags for task communication)\n");
+    printf("- Signal Manager (Simple notification mechanism)\n");
+    printf("- Message Queue Manager (FIFO message passing)\n");
+    printf("- Timer Manager (One-shot & periodic timers)\n");
+    printf("- Mutex Manager (Normal & recursive mutual exclusion)\n");
+    printf("- Cross-platform threading abstraction\n\n");
     
     demonstrate_scheduler_with_priorities();
     demonstrate_semaphore_resource_sharing();
@@ -583,18 +583,18 @@ int main() {
     demonstrate_mutex_system();
     demonstrate_integrated_workflow();
     
-    printf("\n╔══════════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║                           DEMO COMPLETED SUCCESSFULLY!                      ║\n");
-    printf("║                                                                              ║\n");
-    printf("║  Your RTOS C implementation is working with all core components!            ║\n");
-    printf("║                                                                              ║\n");
-    printf("║  Available Components:                                                       ║\n");
-    printf("║  ✓ Priority Scheduler    ✓ Semaphore Manager    ✓ Message Queue            ║\n");
-    printf("║  ✓ Event Manager         ✓ Signal Manager       ✓ Timer Manager            ║\n");
-    printf("║  ✓ Mutex Manager         ✓ Platform Abstraction ✓ Comprehensive Testing   ║\n");
-    printf("║                                                                              ║\n");
-    printf("║  Run test suites: test_semaphore_c.exe, test_event_c.exe, etc.             ║\n");
-    printf("╚══════════════════════════════════════════════════════════════════════════════╝\n");
+    printf("\n================================================================================\n");
+    printf("|                           DEMO COMPLETED SUCCESSFULLY!                      |\n");
+    printf("|                                                                              |\n");
+    printf("|  Your RTOS C implementation is working with all core components!            |\n");
+    printf("|                                                                              |\n");
+    printf("|  Available Components:                                                       |\n");
+    printf("|  *** Priority Scheduler    *** Semaphore Manager    *** Message Queue      |\n");
+    printf("|  *** Event Manager         *** Signal Manager       *** Timer Manager      |\n");
+    printf("|  *** Mutex Manager         *** Platform Abstraction *** Comprehensive Test |\n");
+    printf("|                                                                              |\n");
+    printf("|  Run test suites: test_semaphore_c.exe, test_event_c.exe, etc.             |\n");
+    printf("================================================================================\n");
     
     return 0;
 }

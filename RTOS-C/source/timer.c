@@ -11,7 +11,15 @@ Timer* rtos_timer_create(uint32_t timer_id, const char* name, TimerType type,
     if (!timer) return NULL;
     
     timer->id = timer_id;
-    timer->name = name ? strdup(name) : NULL;
+    if (name) {
+        size_t name_len = strlen(name) + 1;
+        timer->name = (char*)malloc(name_len);
+        if (timer->name) {
+            strcpy(timer->name, name);
+        }
+    } else {
+        timer->name = NULL;
+    }
     timer->type = type;
     timer->state = TIMER_STOPPED;
     timer->interval_ms = interval_ms;

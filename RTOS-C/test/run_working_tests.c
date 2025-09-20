@@ -83,7 +83,7 @@ void discover_test_executables() {
         char filepath[256];
         
 #ifdef _WIN32
-        snprintf(filepath, sizeof(filepath), ".\\Release\\%s.exe", test_executables[i]);
+        snprintf(filepath, sizeof(filepath), ".\\build\\Debug\\%s.exe", test_executables[i]);
 #else
         snprintf(filepath, sizeof(filepath), "./%s", test_executables[i]);
 #endif
@@ -112,7 +112,7 @@ void discover_test_executables() {
             suite->description[sizeof(suite->description) - 1] = '\0';
             
             // Set status (we'll assume working for discovered tests)
-            strncpy(suite->status, "✅ Available", sizeof(suite->status) - 1);
+            strncpy(suite->status, "*** Available", sizeof(suite->status) - 1);
             suite->status[sizeof(suite->status) - 1] = '\0';
             
             num_discovered_suites++;
@@ -121,17 +121,17 @@ void discover_test_executables() {
 }
 
 void print_header() {
-    printf("╔══════════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║                 RTOS C Implementation - Working Components                  ║\n");
-    printf("║                        All Tests Build Without Warnings!                   ║\n");
-    printf("╚══════════════════════════════════════════════════════════════════════════════╝\n\n");
+    printf("================================================================================\n");
+    printf("|                 RTOS C Implementation - Working Components                  |\n");
+    printf("|                        All Tests Build Without Warnings!                   |\n");
+    printf("================================================================================\n\n");
 }
 
 void print_working_components_summary() {
     discover_test_executables();
     
-    printf("🎉 Available RTOS C Test Components:\n");
-    printf("═══════════════════════════════════════════\n\n");
+    printf("*** Available RTOS C Test Components:\n");
+    printf("===============================================================================\n\n");
     
     for (int i = 0; i < num_discovered_suites; i++) {
         printf("%d. %s\n", i + 1, discovered_test_suites[i].name);
@@ -147,15 +147,15 @@ void print_working_components_summary() {
 }
 
 int run_test_suite(const TestSuite* suite) {
-    printf("┌─────────────────────────────────────────────────────────────────────────────┐\n");
-    printf("│ Running: %-67s │\n", suite->name);
-    printf("│ Status:  %-67s │\n", suite->status);
-    printf("└─────────────────────────────────────────────────────────────────────────────┘\n");
+    printf("================================================================================\n");
+    printf("| Running: %-67s |\n", suite->name);
+    printf("| Status:  %-67s |\n", suite->status);
+    printf("================================================================================\n");
     
     // Construct command to run the test
     char command[256];
 #ifdef _WIN32
-    snprintf(command, sizeof(command), ".\\Release\\%s.exe", suite->executable);
+    snprintf(command, sizeof(command), ".\\build\\Debug\\%s.exe", suite->executable);
 #else
     snprintf(command, sizeof(command), "./%s", suite->executable);
 #endif
@@ -163,64 +163,64 @@ int run_test_suite(const TestSuite* suite) {
     int result = system(command);
     
     if (result == 0) {
-        printf("\n✅ %s: PASSED\n", suite->name);
+        printf("\n*** %s: PASSED\n", suite->name);
     } else {
-        printf("\n❌ %s: FAILED (exit code: %d)\n", suite->name, result);
+        printf("\n*** %s: FAILED (exit code: %d)\n", suite->name, result);
     }
     
-    printf("\n═══════════════════════════════════════════════════════════════════════════════\n\n");
+    printf("\n================================================================================\n\n");
     
     return result;
 }
 
 void print_final_summary(int total_suites, int passed_suites, int failed_suites) {
-    printf("╔══════════════════════════════════════════════════════════════════════════════╗\n");
-    printf("║                            FINAL TEST SUMMARY                               ║\n");
-    printf("╠══════════════════════════════════════════════════════════════════════════════╣\n");
-    printf("║ Total Working Suites: %3d                                                    ║\n", total_suites);
-    printf("║ Passed:               %3d                                                    ║\n", passed_suites);
-    printf("║ Failed:               %3d                                                    ║\n", failed_suites);
-    printf("║ Success Rate:         %3.1f%%                                                  ║\n", 
+    printf("================================================================================\n");
+    printf("|                            FINAL TEST SUMMARY                               |\n");
+    printf("+------------------------------------------------------------------------------+\n");
+    printf("| Total Working Suites: %3d                                                    |\n", total_suites);
+    printf("| Passed:               %3d                                                    |\n", passed_suites);
+    printf("| Failed:               %3d                                                    |\n", failed_suites);
+    printf("| Success Rate:         %3.1f%%                                                  |\n", 
            total_suites > 0 ? (100.0 * passed_suites / total_suites) : 0.0);
-    printf("╠══════════════════════════════════════════════════════════════════════════════╣\n");
-    printf("║                          🎉 ACHIEVEMENTS 🎉                                  ║\n");
-    printf("║                                                                              ║\n");
-    printf("║ ✅ Zero compilation warnings                                                 ║\n");
-    printf("║ ✅ Complete C++ to C conversion                                             ║\n");
-    printf("║ ✅ Cross-platform compatibility (Windows/Unix)                             ║\n");
-    printf("║ ✅ O(1) priority scheduling with 128 levels                                ║\n");
-    printf("║ ✅ Full semaphore resource management                                       ║\n");
-    printf("║ ✅ Event-based task communication                                           ║\n");
-    printf("║ ✅ Signal notification system                                               ║\n");
-    printf("║ ✅ Comprehensive test coverage (140+ tests)                                 ║\n");
-    printf("║ ✅ Memory safety and error handling                                         ║\n");
-    printf("║ ✅ Production-ready code quality                                            ║\n");
-    printf("╚══════════════════════════════════════════════════════════════════════════════╝\n");
+    printf("+------------------------------------------------------------------------------+\n");
+    printf("|                          *** ACHIEVEMENTS ***                                  |\n");
+    printf("|                                                                              |\n");
+    printf("| *** Zero compilation warnings                                                 |\n");
+    printf("| *** Complete C++ to C conversion                                             |\n");
+    printf("| *** Cross-platform compatibility (Windows/Unix)                             |\n");
+    printf("| *** O(1) priority scheduling with 128 levels                                |\n");
+    printf("| *** Full semaphore resource management                                       |\n");
+    printf("| *** Event-based task communication                                           |\n");
+    printf("| *** Signal notification system                                               |\n");
+    printf("| *** Comprehensive test coverage (140+ tests)                                 |\n");
+    printf("| *** Memory safety and error handling                                         |\n");
+    printf("| *** Production-ready code quality                                            |\n");
+    printf("================================================================================\n");
     
     if (failed_suites == 0) {
-        printf("\n🚀 ALL WORKING COMPONENTS VERIFIED! 🚀\n");
+        printf("\n*** ALL WORKING COMPONENTS VERIFIED! ***\n");
         printf("Your RTOS C implementation is ready for production use!\n\n");
         
-        printf("📋 Quick Start Guide:\n");
-        printf("═══════════════════\n");
+        printf("*** Quick Start Guide:\n");
+        printf("=======================\n");
         printf("1. Build: cmake .. && cmake --build .\n");
 #ifdef _WIN32
-        printf("2. Demo:  .\\Release\\main_full_demo.exe\n");
-        printf("3. Tests: .\\Release\\test_[component]_c.exe\n\n");
+        printf("2. Demo:  .\\build\\Debug\\main_full_demo.exe\n");
+        printf("3. Tests: .\\build\\Debug\\test_[component]_c.exe\n\n");
 #else
         printf("2. Demo:  ./main_full_demo\n");
         printf("3. Tests: ./test_[component]_c\n\n");
 #endif
         
-        printf("📚 Available Components:\n");
-        printf("═══════════════════════\n");
-        printf("• Priority Scheduler - O(1) task scheduling\n");
-        printf("• Semaphore Manager  - Resource sharing\n");
-        printf("• Event Manager      - 32-bit communication flags\n");
-        printf("• Signal Manager     - Simple notifications\n");
-        printf("• Platform Layer     - Cross-platform threading\n");
+        printf("*** Available Components:\n");
+        printf("==========================\n");
+        printf("- Priority Scheduler - O(1) task scheduling\n");
+        printf("- Semaphore Manager  - Resource sharing\n");
+        printf("- Event Manager      - 32-bit communication flags\n");
+        printf("- Signal Manager     - Simple notifications\n");
+        printf("- Platform Layer     - Cross-platform threading\n");
     } else {
-        printf("\n⚠️  Some components need attention.\n");
+        printf("\n*** Some components need attention.\n");
         printf("The core RTOS functionality is solid and ready to use!\n");
     }
 }
