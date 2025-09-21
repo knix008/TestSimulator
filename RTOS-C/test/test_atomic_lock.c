@@ -115,6 +115,7 @@ void test_atomic_lock_multiple_owners(void) {
     // This should fail because owner1 already has the lock
     bool acquired = atomic_lock_try_acquire(&lock, owner2);
     assert(!acquired); // Should fail
+    (void)acquired; // Suppress unused variable warning
     assert(atomic_lock_get_owner(&lock) == owner1); // Still owned by owner1
     printf("✓ Owner 2 correctly failed to acquire (try_acquire)\n");
     
@@ -145,6 +146,7 @@ void test_atomic_lock_try_acquire(void) {
     
     uint32_t owner1 = 4001;
     uint32_t owner2 = 4002;
+    (void)owner2; // Suppress unused variable warning
     
     // Test try acquire on unlocked lock
     assert(atomic_lock_try_acquire(&lock, owner1));

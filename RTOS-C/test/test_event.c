@@ -174,6 +174,8 @@ void test_event_manager_operations(void) {
     assert(event2 != NULL);
     assert(event_get_bits(event1) == 0);
     assert(event_get_bits(event2) == 0);
+    (void)event1; // Suppress unused variable warning
+    (void)event2; // Suppress unused variable warning
     printf("✓ Events retrieved correctly\n");
     
     // Test manager operations

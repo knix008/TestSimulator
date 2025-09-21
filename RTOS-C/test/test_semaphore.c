@@ -149,6 +149,8 @@ void test_semaphore_manager_operations(void) {
     assert(sem2 != NULL);
     assert(semaphore_get_count(sem1) == 1);
     assert(semaphore_get_count(sem2) == 5);
+    (void)sem1; // Suppress unused variable warning
+    (void)sem2; // Suppress unused variable warning
     printf("✓ Semaphores retrieved correctly\n");
     
     // Test manager operations

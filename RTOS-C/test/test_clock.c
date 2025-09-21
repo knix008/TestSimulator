@@ -35,11 +35,12 @@ void test_clock_basic_operations(void) {
     
     IClock* clock = (IClock*)&realtime_clock;
     assert(clock != NULL);
+    (void)clock; // Suppress unused variable warning
     printf("✓ Real-time clock created successfully\n");
     
     // Test clock interface
-    assert(!clock->is_running(clock));
-    assert(!clock->is_tick_based(clock));
+    assert(!realtime_clock.base.is_running(&realtime_clock.base));
+    assert(!realtime_clock.base.is_tick_based(&realtime_clock.base));
     printf("✓ Clock interface methods work\n");
     
     // Test tick-based clock
@@ -47,6 +48,7 @@ void test_clock_basic_operations(void) {
     tick_based_clock_init(&tick_clock, 100); // 100ms tick interval
     
     IClock* tick_iclock = (IClock*)&tick_clock;
+    (void)tick_iclock; // Suppress unused variable warning
     assert(tick_iclock != NULL);
     assert(tick_iclock->is_tick_based(tick_iclock));
     assert(tick_clock.tick_interval_ms == 100);
@@ -140,6 +142,7 @@ void test_clock_time_operations(void) {
     target_time.tv_sec += 1; // 1 second from now
     
     uint32_t time3 = clock->get_current_time_ms(clock);
+    (void)time3; // Suppress unused variable warning
     clock->sleep_until(clock, target_time);
     uint32_t time4 = clock->get_current_time_ms(clock);
     
