@@ -135,6 +135,8 @@ void test_signal_manager_operations(void) {
     assert(signal2 != NULL);
     assert(!signal_is_signaled(signal1));
     assert(!signal_is_signaled(signal2));
+    (void)signal1; // Suppress unused variable warning
+    (void)signal2; // Suppress unused variable warning
     printf("✓ Signals retrieved correctly\n");
     
     // Test manager operations
@@ -236,6 +238,7 @@ void test_signal_edge_cases(void) {
     // Test creating signal when manager is full
     uint32_t overflow_signal = signal_manager_create_signal(&manager);
     assert(overflow_signal == 0); // Should fail
+    (void)overflow_signal; // Suppress unused variable warning
     assert(signal_manager_get_signal_count(&manager) == MAX_SIGNALS);
     printf("✓ Signal creation when manager full correctly failed\n");
     

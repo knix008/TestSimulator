@@ -167,6 +167,8 @@ void test_timer_manager_operations(void) {
     assert(timer2 != NULL);
     assert(timer_get_type(timer1) == TIMER_ONE_SHOT);
     assert(timer_get_type(timer2) == TIMER_PERIODIC);
+    (void)timer1; // Suppress unused variable warning
+    (void)timer2; // Suppress unused variable warning
     printf("✓ Timers retrieved correctly\n");
     
     // Test manager operations
@@ -279,6 +281,7 @@ void test_timer_edge_cases(void) {
     // Test creating timer when manager is full
     uint32_t overflow_timer = timer_manager_create_timer(&manager, "Overflow", TIMER_ONE_SHOT, 100, NULL, NULL);
     assert(overflow_timer == 0); // Should fail
+    (void)overflow_timer; // Suppress unused variable warning
     assert(timer_manager_get_timer_count(&manager) == MAX_TIMERS);
     printf("✓ Timer creation when manager full correctly failed\n");
     

@@ -54,6 +54,8 @@ void test_message_queue_basic_operations(void) {
     assert(message_queue_send_message(&queue, &msg2, 0));
     assert(message_queue_get_count(&queue) == 2);
     printf("✓ Message 2 sent successfully (count: 2)\n");
+    (void)msg1; // Suppress unused variable warning
+    (void)msg2; // Suppress unused variable warning
     
     // Test receiving messages
     Message received_msg;
@@ -73,6 +75,7 @@ void test_message_queue_basic_operations(void) {
     assert(message_queue_get_count(&queue) == 0);
     assert(message_queue_is_empty(&queue));
     printf("✓ Message 2 received successfully\n");
+    (void)received_msg; // Suppress unused variable warning
     
     printf("Basic operations test PASSED\n");
 }
@@ -108,6 +111,7 @@ void test_message_queue_fifo_behavior(void) {
         assert(strcmp(received_msg.data, expected_data) == 0);
         printf("✓ Message %d received in correct order\n", i + 1);
     }
+    (void)received_msg; // Suppress unused variable warning
     
     assert(message_queue_is_empty(&queue));
     printf("✓ All messages received in FIFO order\n");
@@ -156,6 +160,10 @@ void test_message_queue_manager_operations(void) {
     assert(message_queue_get_count(queue1) == 0);
     assert(received_msg.type == 101);
     printf("✓ Manager receive operation works\n");
+    (void)queue1; // Suppress unused variable warning
+    (void)queue2; // Suppress unused variable warning
+    (void)msg; // Suppress unused variable warning
+    (void)received_msg; // Suppress unused variable warning
     
     // Test operations on non-existent queue
     assert(!message_queue_manager_send_message(&manager, 999, &msg, 0));
@@ -197,6 +205,8 @@ void test_message_queue_edge_cases(void) {
     Message msg1 = message_create(1, 101, "Msg1", 5001);
     Message msg2 = message_create(2, 102, "Msg2", 5002);
     Message msg3 = message_create(3, 103, "Msg3", 5003);
+    (void)msg; // Suppress unused variable warning
+    (void)received_msg; // Suppress unused variable warning
     
     assert(message_queue_send_message(&queue, &msg1, 0));
     assert(message_queue_send_message(&queue, &msg2, 0));
@@ -204,12 +214,16 @@ void test_message_queue_edge_cases(void) {
     assert(message_queue_get_count(&queue) == 2);
     assert(message_queue_is_full(&queue));
     printf("✓ Send to full queue correctly failed\n");
+    (void)msg1; // Suppress unused variable warning
+    (void)msg2; // Suppress unused variable warning
+    (void)msg3; // Suppress unused variable warning
     
     // Test receiving from empty queue
     Message temp_msg;
     assert(message_queue_receive_message(&queue, &temp_msg, 0));
     assert(message_queue_receive_message(&queue, &temp_msg, 0));
     assert(!message_queue_receive_message(&queue, &temp_msg, 0)); // Should fail - queue empty
+    (void)temp_msg; // Suppress unused variable warning
     assert(message_queue_get_count(&queue) == 0);
     assert(message_queue_is_empty(&queue));
     printf("✓ Receive from empty queue correctly failed\n");
@@ -224,12 +238,14 @@ void test_message_queue_edge_cases(void) {
     assert(message_queue_receive_message(&queue, &received_msg, 0));
     assert(strcmp(received_msg.data, large_data) == 0);
     printf("✓ Large message data handling correct\n");
+    (void)large_msg; // Suppress unused variable warning
     
     // Test message with empty data
     Message empty_msg = message_create(5, 105, "", 5005);
     assert(message_queue_send_message(&queue, &empty_msg, 0));
     assert(message_queue_receive_message(&queue, &received_msg, 0));
     assert(strcmp(received_msg.data, "") == 0);
+    (void)empty_msg; // Suppress unused variable warning
     printf("✓ Empty message data handling correct\n");
     
     // Test manager edge cases
@@ -254,6 +270,7 @@ void test_message_queue_edge_cases(void) {
     // Test creating queue when manager is full
     uint32_t overflow_queue = message_queue_manager_create_queue(&manager, 5);
     assert(overflow_queue == 0); // Should fail
+    (void)overflow_queue; // Suppress unused variable warning
     assert(message_queue_manager_get_queue_count(&manager) == MAX_MESSAGE_QUEUES);
     printf("✓ Queue creation when manager full correctly failed\n");
     

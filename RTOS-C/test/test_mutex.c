@@ -141,6 +141,8 @@ void test_mutex_manager_operations(void) {
     assert(mutex2 != NULL);
     assert(mutex_get_type(mutex1) == MUTEX_NORMAL);
     assert(mutex_get_type(mutex2) == MUTEX_RECURSIVE);
+    (void)mutex1; // Suppress unused variable warning
+    (void)mutex2; // Suppress unused variable warning
     printf("✓ Mutexes retrieved correctly\n");
     
     // Test manager operations
