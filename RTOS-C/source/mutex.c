@@ -1,509 +1,414 @@
 #include "mutex.h"
+#include "atomic_lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
+// Real mutex lock with proper semantics
+static bool real_mutex_lock(Mutex* mutex, uint32_t timeout_ms) {
+    if (!mutex) return false;
+    
+    uint32_t start_time = 0;
+    if (timeout_ms > 0) {
+        // Simple time tracking - in real hardware this would use a system timer
+        start_time = (uint32_t)time(NULL) * 1000;
+    }
+    
+    while (atomic_test_and_set(&mutex->is_locked)) {
+        // Check for timeout
+        if (timeout_ms > 0) {
+            uint32_t current_time = (uint32_t)time(NULL) * 1000;
+            if ((current_time - start_time) >= timeout_ms) {
+                return false; // Timeout
+            }
+        }
+        
+        // Busy wait - in real hardware this would yield to scheduler
+        volatile int dummy = 0;
+        dummy++;
+    }
+    
+    return true; // Successfully acquired lock
+}
+
+// Real mutex unlock
+static void real_mutex_unlock(Mutex* mutex) {
+    if (mutex) {
+        atomic_clear(&mutex->is_locked);
+    }
+}
+
 // Mutex functions
-Mutex* mutex_create(const char* name, MutexType type) {
-    Mutex* mutex = (Mutex*)malloc(sizeof(Mutex));
-    if (!mutex) return NULL;
+void mutex_init(Mutex* mutex, const char* name, MutexType type) {
+    if (!mutex) return;
     
     mutex->id = 0; // Will be set by manager
+    mutex->type = type;
     mutex->owner_task_id = 0;
     mutex->is_locked = false;
     mutex->lock_count = 0;
     mutex->recursive = (type == MUTEX_RECURSIVE);
     
-    // Set name
+    // Set name (copy to fixed-size buffer)
     if (name) {
-        mutex->name = (char*)malloc(strlen(name) + 1);
-        if (mutex->name) {
-            strcpy(mutex->name, name);
-        }
+        strncpy(mutex->name, name, sizeof(mutex->name) - 1);
+        mutex->name[sizeof(mutex->name) - 1] = '\0';
     } else {
-        mutex->name = NULL;
+        mutex->name[0] = '\0';
     }
     
     // Initialize statistics
     mutex->total_locks = 0;
     mutex->total_unlocks = 0;
     mutex->max_wait_time_ms = 0;
-    
-    // Initialize platform synchronization
-    if (platform_mutex_init(&mutex->platform_mutex) != 0) {
-        if (mutex->name) free(mutex->name);
-        free(mutex);
-        return NULL;
-    }
-    
-    if (platform_cond_init(&mutex->cv) != 0) {
-        platform_mutex_destroy(&mutex->platform_mutex);
-        if (mutex->name) free(mutex->name);
-        free(mutex);
-        return NULL;
-    }
-    
-    return mutex;
 }
 
 void mutex_destroy(Mutex* mutex) {
     if (!mutex) return;
     
-    platform_mutex_lock(&mutex->platform_mutex);
-    
-    // Clean up name
-    if (mutex->name) {
-        free(mutex->name);
-        mutex->name = NULL;
-    }
-    
-    platform_mutex_unlock(&mutex->platform_mutex);
-    
-    platform_mutex_destroy(&mutex->platform_mutex);
-    platform_cond_destroy(&mutex->cv);
-    free(mutex);
+    // Clear mutex state (no malloc, so no free needed)
+    mutex->is_locked = false;
+    mutex->owner_task_id = 0;
+    mutex->lock_count = 0;
+    mutex->id = 0;
+    mutex->name[0] = '\0';
+    mutex->total_locks = 0;
+    mutex->total_unlocks = 0;
+    mutex->max_wait_time_ms = 0;
 }
 
 bool mutex_lock(Mutex* mutex, uint32_t timeout_ms) {
     if (!mutex) return false;
     
-    platform_mutex_lock(&mutex->platform_mutex);
+    uint32_t current_task_id = 1; // In real implementation, this would be current task ID
     
-    // Record start time for statistics
-    struct timespec start_time;
-    clock_gettime(CLOCK_REALTIME, &start_time);
-    
-    // Check if already owned by current task (for recursive mutex)
-    // Note: In a real RTOS, we would get the current task ID from the scheduler
-    // For this implementation, we'll use a simplified approach
-    uint32_t current_task_id = 1; // Simplified - in real RTOS this would come from scheduler
-    
-    if (mutex->is_locked && mutex->owner_task_id == current_task_id && mutex->recursive) {
-        // Recursive lock by same task
-        mutex->lock_count++;
-        mutex->total_locks++;
-        platform_mutex_unlock(&mutex->platform_mutex);
-        return true;
-    }
-    
-    // Wait for mutex to become available
-    if (timeout_ms == 0) {
-        // Infinite wait
-        while (mutex->is_locked) {
-            platform_cond_wait(&mutex->cv, &mutex->platform_mutex);
-        }
-    } else {
-        // Timed wait
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += timeout_ms / 1000;
-        ts.tv_nsec += (timeout_ms % 1000) * 1000000;
-        if (ts.tv_nsec >= 1000000000) {
-            ts.tv_sec++;
-            ts.tv_nsec -= 1000000000;
-        }
-        
-        while (mutex->is_locked) {
-            int result = platform_cond_timedwait(&mutex->cv, &mutex->platform_mutex, &ts);
-            if (result != 0) { // Timeout or error
-                platform_mutex_unlock(&mutex->platform_mutex);
-                return false;
-            }
+    // Check for recursive lock first
+    if (mutex->is_locked && mutex->owner_task_id == current_task_id) {
+        // Recursive lock
+        if (mutex->recursive) {
+            mutex->lock_count++;
+            mutex->total_locks++;
+            return true;
+        } else {
+            return false; // Non-recursive mutex already locked by same task
         }
     }
     
-    // Acquire the mutex
+    // Try to acquire the lock using real mutex implementation
+    if (!real_mutex_lock(mutex, timeout_ms)) {
+        return false; // Failed to acquire lock (timeout or error)
+    }
+    
+    // Acquire lock
     mutex->is_locked = true;
     mutex->owner_task_id = current_task_id;
     mutex->lock_count = 1;
     mutex->total_locks++;
     
-    // Update statistics
-    struct timespec end_time;
-    clock_gettime(CLOCK_REALTIME, &end_time);
-    uint32_t wait_time_ms = (uint32_t)((end_time.tv_sec - start_time.tv_sec) * 1000 + 
-                                      (end_time.tv_nsec - start_time.tv_nsec) / 1000000);
-    if (wait_time_ms > mutex->max_wait_time_ms) {
-        mutex->max_wait_time_ms = wait_time_ms;
-    }
-    
-    platform_mutex_unlock(&mutex->platform_mutex);
     return true;
 }
 
 bool mutex_try_lock(Mutex* mutex) {
     if (!mutex) return false;
     
-    platform_mutex_lock(&mutex->platform_mutex);
+    uint32_t current_task_id = 1; // In real implementation, this would be current task ID
     
-    uint32_t current_task_id = 1; // Simplified
-    
-    // Check if already owned by current task (for recursive mutex)
-    if (mutex->is_locked && mutex->owner_task_id == current_task_id && mutex->recursive) {
-        mutex->lock_count++;
-        mutex->total_locks++;
-        platform_mutex_unlock(&mutex->platform_mutex);
-        return true;
+    if (mutex->is_locked) {
+        if (mutex->owner_task_id == current_task_id && mutex->recursive) {
+            // Recursive lock
+            mutex->lock_count++;
+            mutex->total_locks++;
+            return true;
+        }
+        return false; // Already locked by another task or non-recursive
     }
     
-    // Try to acquire if not locked
-    if (!mutex->is_locked) {
-        mutex->is_locked = true;
-        mutex->owner_task_id = current_task_id;
-        mutex->lock_count = 1;
-        mutex->total_locks++;
-        platform_mutex_unlock(&mutex->platform_mutex);
-        return true;
-    }
+    // Acquire lock
+    mutex->is_locked = true;
+    mutex->owner_task_id = current_task_id;
+    mutex->lock_count = 1;
+    mutex->total_locks++;
     
-    platform_mutex_unlock(&mutex->platform_mutex);
-    return false; // Already locked by another task
+    return true;
 }
 
 bool mutex_unlock(Mutex* mutex) {
-    if (!mutex) return false;
+    if (!mutex || !mutex->is_locked) return false;
     
-    platform_mutex_lock(&mutex->platform_mutex);
+    uint32_t current_task_id = 1; // In real implementation, this would be current task ID
     
-    uint32_t current_task_id = 1; // Simplified
-    
-    // Check if mutex is locked and owned by current task
-    if (!mutex->is_locked || mutex->owner_task_id != current_task_id) {
-        platform_mutex_unlock(&mutex->platform_mutex);
-        return false; // Not locked or not owned by current task
+    if (mutex->owner_task_id != current_task_id) {
+        return false; // Not owned by current task
     }
     
-    // Decrement lock count (for recursive mutex)
     mutex->lock_count--;
     mutex->total_unlocks++;
     
-    // Release mutex if lock count reaches zero
     if (mutex->lock_count == 0) {
-        mutex->is_locked = false;
+        // Use real mutex unlock
+        real_mutex_unlock(mutex);
         mutex->owner_task_id = 0;
-        platform_cond_signal(&mutex->cv); // Wake up waiting tasks
     }
     
-    platform_mutex_unlock(&mutex->platform_mutex);
     return true;
 }
 
 // Mutex state queries
 bool mutex_is_locked(const Mutex* mutex) {
-    if (!mutex) return false;
-    return mutex->is_locked;
+    return mutex ? mutex->is_locked : false;
 }
 
 uint32_t mutex_get_owner(const Mutex* mutex) {
-    if (!mutex) return 0;
-    return mutex->owner_task_id;
+    return mutex ? mutex->owner_task_id : 0;
 }
 
 uint32_t mutex_get_lock_count(const Mutex* mutex) {
-    if (!mutex) return 0;
-    return mutex->lock_count;
+    return mutex ? mutex->lock_count : 0;
 }
 
 bool mutex_is_recursive(const Mutex* mutex) {
-    if (!mutex) return false;
-    return mutex->recursive;
+    return mutex ? mutex->recursive : false;
 }
 
 // Mutex properties
 uint32_t mutex_get_id(const Mutex* mutex) {
-    if (!mutex) return 0;
-    return mutex->id;
+    return mutex ? mutex->id : 0;
 }
 
 const char* mutex_get_name(const Mutex* mutex) {
-    if (!mutex) return NULL;
-    return mutex->name;
+    return mutex ? mutex->name : NULL;
 }
 
 void mutex_set_name(Mutex* mutex, const char* name) {
     if (!mutex) return;
     
-    platform_mutex_lock(&mutex->platform_mutex);
-    
-    // Free old name
-    if (mutex->name) {
-        free(mutex->name);
-        mutex->name = NULL;
-    }
-    
-    // Set new name
     if (name) {
-        mutex->name = (char*)malloc(strlen(name) + 1);
-        if (mutex->name) {
-            strcpy(mutex->name, name);
-        }
+        strncpy(mutex->name, name, sizeof(mutex->name) - 1);
+        mutex->name[sizeof(mutex->name) - 1] = '\0';
+    } else {
+        mutex->name[0] = '\0';
     }
-    
-    platform_mutex_unlock(&mutex->platform_mutex);
 }
 
 // Statistics
 uint32_t mutex_get_total_locks(const Mutex* mutex) {
-    if (!mutex) return 0;
-    return mutex->total_locks;
+    return mutex ? mutex->total_locks : 0;
 }
 
 uint32_t mutex_get_total_unlocks(const Mutex* mutex) {
-    if (!mutex) return 0;
-    return mutex->total_unlocks;
+    return mutex ? mutex->total_unlocks : 0;
 }
 
 uint32_t mutex_get_max_wait_time(const Mutex* mutex) {
-    if (!mutex) return 0;
-    return mutex->max_wait_time_ms;
+    return mutex ? mutex->max_wait_time_ms : 0;
 }
 
 void mutex_reset_statistics(Mutex* mutex) {
     if (!mutex) return;
     
-    platform_mutex_lock(&mutex->platform_mutex);
     mutex->total_locks = 0;
     mutex->total_unlocks = 0;
     mutex->max_wait_time_ms = 0;
-    platform_mutex_unlock(&mutex->platform_mutex);
 }
 
 // String representation
-char* mutex_to_string(const Mutex* mutex) {
-    if (!mutex) return NULL;
-    
-    char* str = (char*)malloc(256);
-    if (str) {
-        snprintf(str, 256, "Mutex{id=%u, name='%s', locked=%s, owner=%u, count=%u, recursive=%s}",
-                 mutex->id,
-                 mutex->name ? mutex->name : "unnamed",
-                 mutex->is_locked ? "true" : "false",
-                 mutex->owner_task_id,
-                 mutex->lock_count,
-                 mutex->recursive ? "true" : "false");
+void mutex_to_string(const Mutex* mutex, char* buffer, size_t buffer_size) {
+    if (!mutex || !buffer || buffer_size == 0) {
+        if (buffer && buffer_size > 0) {
+            buffer[0] = '\0';
+        }
+        return;
     }
-    return str;
+    
+    snprintf(buffer, buffer_size, 
+             "Mutex{id=%u, name=%s, locked=%s, owner=%u, count=%u, recursive=%s, locks=%u, unlocks=%u}",
+             mutex->id,
+             mutex->name,
+             mutex->is_locked ? "true" : "false",
+             mutex->owner_task_id,
+             mutex->lock_count,
+             mutex->recursive ? "true" : "false",
+             mutex->total_locks,
+             mutex->total_unlocks);
 }
 
 // Mutex Manager functions
-MutexManager* mutex_manager_create(void) {
-    MutexManager* manager = (MutexManager*)malloc(sizeof(MutexManager));
-    if (!manager) return NULL;
+void mutex_manager_init(MutexManager* manager) {
+    if (!manager) return;
     
-    manager->mutexes_head = NULL;
-    manager->next_mutex_id = 1;
-    manager->mutex_count = 0;
-    
-    if (platform_mutex_init(&manager->manager_mutex) != 0) {
-        free(manager);
-        return NULL;
+    // Initialize all mutex slots as unused
+    for (int i = 0; i < MAX_MUTEXES; i++) {
+        manager->mutex_used[i] = false;
+        mutex_init(&manager->mutexes[i], NULL, MUTEX_NORMAL);
     }
     
-    return manager;
+    manager->next_mutex_id = 1;
+    manager->mutex_count = 0;
+    atomic_lock_init(&manager->manager_lock);
 }
 
 void mutex_manager_destroy(MutexManager* manager) {
     if (!manager) return;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    // Destroy all mutexes
-    MutexNode* current = manager->mutexes_head;
-    while (current) {
-        MutexNode* next = current->next;
-        mutex_destroy(current->mutex);
-        free(current);
-        current = next;
+    // Clear all mutexes (no malloc, so no free needed)
+    for (int i = 0; i < MAX_MUTEXES; i++) {
+        manager->mutex_used[i] = false;
+        mutex_destroy(&manager->mutexes[i]);
     }
     
-    platform_mutex_unlock(&manager->manager_mutex);
-    platform_mutex_destroy(&manager->manager_mutex);
-    free(manager);
+    manager->next_mutex_id = 1;
+    manager->mutex_count = 0;
+    atomic_lock_init(&manager->manager_lock);
 }
 
 uint32_t mutex_manager_create_mutex(MutexManager* manager, const char* name, MutexType type) {
     if (!manager) return 0;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    // Create mutex
-    Mutex* mutex = mutex_create(name, type);
-    if (!mutex) {
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
+    // Find an unused slot
+    int slot = -1;
+    for (int i = 0; i < MAX_MUTEXES; i++) {
+        if (!manager->mutex_used[i]) {
+            slot = i;
+            break;
+        }
     }
     
-    // Assign ID
+    if (slot == -1) {
+        return 0; // No free slots
+    }
+    
+    // Initialize the mutex in the slot
+    Mutex* mutex = &manager->mutexes[slot];
+    mutex_init(mutex, name, type);
     mutex->id = manager->next_mutex_id++;
     
-    // Add to list
-    MutexNode* node = (MutexNode*)malloc(sizeof(MutexNode));
-    if (!node) {
-        mutex_destroy(mutex);
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
-    }
-    
-    node->id = mutex->id;
-    node->mutex = mutex;
-    node->next = manager->mutexes_head;
-    manager->mutexes_head = node;
+    manager->mutex_used[slot] = true;
     manager->mutex_count++;
     
-    uint32_t mutex_id = mutex->id;
-    platform_mutex_unlock(&manager->manager_mutex);
-    return mutex_id;
+    return mutex->id;
 }
 
 bool mutex_manager_delete_mutex(MutexManager* manager, uint32_t mutex_id) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    MutexNode* current = manager->mutexes_head;
-    MutexNode* prev = NULL;
-    
-    while (current) {
-        if (current->id == mutex_id) {
-            // Remove from list
-            if (prev) {
-                prev->next = current->next;
-            } else {
-                manager->mutexes_head = current->next;
-            }
-            
-            // Destroy mutex
-            mutex_destroy(current->mutex);
-            free(current);
+    // Find the mutex slot
+    for (int i = 0; i < MAX_MUTEXES; i++) {
+        if (manager->mutex_used[i] && manager->mutexes[i].id == mutex_id) {
+            mutex_destroy(&manager->mutexes[i]);
+            manager->mutex_used[i] = false;
             manager->mutex_count--;
-            
-            platform_mutex_unlock(&manager->manager_mutex);
             return true;
         }
-        prev = current;
-        current = current->next;
     }
     
-    platform_mutex_unlock(&manager->manager_mutex);
     return false;
 }
 
 // Mutex operations through manager
 bool mutex_manager_lock(MutexManager* manager, uint32_t mutex_id, uint32_t timeout_ms) {
-    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
-    if (!mutex) return false;
+    if (!manager) return false;
     
-    return mutex_lock(mutex, timeout_ms);
+    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
+    return mutex ? mutex_lock(mutex, timeout_ms) : false;
 }
 
 bool mutex_manager_try_lock(MutexManager* manager, uint32_t mutex_id) {
-    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
-    if (!mutex) return false;
+    if (!manager) return false;
     
-    return mutex_try_lock(mutex);
+    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
+    return mutex ? mutex_try_lock(mutex) : false;
 }
 
 bool mutex_manager_unlock(MutexManager* manager, uint32_t mutex_id) {
-    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
-    if (!mutex) return false;
+    if (!manager) return false;
     
-    return mutex_unlock(mutex);
+    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
+    return mutex ? mutex_unlock(mutex) : false;
 }
 
 // Mutex queries through manager
 bool mutex_manager_is_locked(MutexManager* manager, uint32_t mutex_id) {
-    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
-    if (!mutex) return false;
+    if (!manager) return false;
     
-    return mutex_is_locked(mutex);
+    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
+    return mutex ? mutex_is_locked(mutex) : false;
 }
 
 uint32_t mutex_manager_get_owner(MutexManager* manager, uint32_t mutex_id) {
-    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
-    if (!mutex) return 0;
+    if (!manager) return 0;
     
-    return mutex_get_owner(mutex);
+    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
+    return mutex ? mutex_get_owner(mutex) : 0;
 }
 
 uint32_t mutex_manager_get_lock_count(MutexManager* manager, uint32_t mutex_id) {
-    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
-    if (!mutex) return 0;
+    if (!manager) return 0;
     
-    return mutex_get_lock_count(mutex);
+    Mutex* mutex = mutex_manager_find_mutex(manager, mutex_id);
+    return mutex ? mutex_get_lock_count(mutex) : 0;
 }
 
 // Manager status and debugging
 size_t mutex_manager_get_count(const MutexManager* manager) {
-    if (!manager) return 0;
-    return manager->mutex_count;
+    return manager ? manager->mutex_count : 0;
 }
 
 void mutex_manager_print_mutexes(const MutexManager* manager) {
     if (!manager) return;
     
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    
     printf("=== Mutex Manager Status ===\n");
     printf("Total mutexes: %zu\n", manager->mutex_count);
     
-    MutexNode* current = manager->mutexes_head;
-    int index = 1;
-    while (current) {
-        char* mutex_str = mutex_to_string(current->mutex);
-        printf("%d. %s\n", index++, mutex_str ? mutex_str : "Invalid mutex");
-        if (mutex_str) free(mutex_str);
-        current = current->next;
+    for (int i = 0; i < MAX_MUTEXES; i++) {
+        if (manager->mutex_used[i]) {
+            char buffer[256];
+            mutex_to_string(&manager->mutexes[i], buffer, sizeof(buffer));
+            printf("  %s\n", buffer);
+        }
     }
-    
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
+    printf("===========================\n");
 }
 
 void mutex_manager_print_statistics(const MutexManager* manager) {
     if (!manager) return;
     
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    
     printf("=== Mutex Statistics ===\n");
-    printf("Total mutexes: %zu\n", manager->mutex_count);
     
-    uint32_t total_locks = 0;
-    uint32_t total_unlocks = 0;
-    uint32_t max_wait = 0;
-    
-    MutexNode* current = manager->mutexes_head;
-    while (current) {
-        total_locks += current->mutex->total_locks;
-        total_unlocks += current->mutex->total_unlocks;
-        if (current->mutex->max_wait_time_ms > max_wait) {
-            max_wait = current->mutex->max_wait_time_ms;
+    for (int i = 0; i < MAX_MUTEXES; i++) {
+        if (manager->mutex_used[i]) {
+            const Mutex* mutex = &manager->mutexes[i];
+            printf("Mutex %u (%s): locks=%u, unlocks=%u, max_wait=%ums\n",
+                   mutex->id,
+                   mutex->name,
+                   mutex->total_locks,
+                   mutex->total_unlocks,
+                   mutex->max_wait_time_ms);
         }
-        current = current->next;
     }
-    
-    printf("Total locks: %u\n", total_locks);
-    printf("Total unlocks: %u\n", total_unlocks);
-    printf("Max wait time: %u ms\n", max_wait);
-    
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
+    printf("========================\n");
 }
 
 // Internal helper functions
 Mutex* mutex_manager_find_mutex(MutexManager* manager, uint32_t mutex_id) {
     if (!manager) return NULL;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    MutexNode* current = manager->mutexes_head;
-    while (current) {
-        if (current->id == mutex_id) {
-            Mutex* mutex = current->mutex;
-            platform_mutex_unlock(&manager->manager_mutex);
-            return mutex;
+    for (int i = 0; i < MAX_MUTEXES; i++) {
+        if (manager->mutex_used[i] && manager->mutexes[i].id == mutex_id) {
+            return &manager->mutexes[i];
         }
-        current = current->next;
     }
-    
-    platform_mutex_unlock(&manager->manager_mutex);
     return NULL;
+}
+
+Mutex* mutex_manager_get_mutex(MutexManager* manager, uint32_t mutex_id) {
+    return mutex_manager_find_mutex(manager, mutex_id);
+}
+
+size_t mutex_manager_get_mutex_count(const MutexManager* manager) {
+    return mutex_manager_get_count(manager);
+}
+
+MutexType mutex_get_type(const Mutex* mutex) {
+    return mutex ? mutex->type : MUTEX_NORMAL;
 }

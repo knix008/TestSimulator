@@ -1,270 +1,240 @@
 #include "semaphore.h"
+#include "clock.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <string.h>
 #include <time.h>
+#include <limits.h>
 
 // Semaphore functions
-Semaphore* semaphore_create(int initial_count) {
-    Semaphore* sem = (Semaphore*)malloc(sizeof(Semaphore));
-    if (!sem) return NULL;
+void semaphore_init(Semaphore* sem, int initial_count, uint32_t id) {
+    if (!sem) return;
     
+    sem->id = id;
     sem->count = initial_count;
-    
-    if (platform_mutex_init(&sem->mutex) != 0) {
-        free(sem);
-        return NULL;
-    }
-    
-    if (platform_cond_init(&sem->cv) != 0) {
-        platform_mutex_destroy(&sem->mutex);
-        free(sem);
-        return NULL;
-    }
-    
-    return sem;
+    // Set maximum count to initial count, but allow posting if initial count is 0
+    sem->max_count = (initial_count > 0) ? initial_count : INT_MAX;
+    atomic_lock_init(&sem->lock);
 }
 
 void semaphore_destroy(Semaphore* sem) {
     if (!sem) return;
     
-    platform_mutex_destroy(&sem->mutex);
-    platform_cond_destroy(&sem->cv);
-    free(sem);
+    sem->count = 0;
+    sem->max_count = 0;
+    atomic_lock_init(&sem->lock);
+    // No free() needed - caller manages memory
 }
 
 bool semaphore_wait(Semaphore* sem, uint32_t timeout_ms) {
     if (!sem) return false;
     
-    platform_mutex_lock(&sem->mutex);
-    
-    if (timeout_ms == 0) {
-        // Infinite wait
-        while (sem->count <= 0) {
-            platform_cond_wait(&sem->cv, &sem->mutex);
-        }
-        sem->count--;
-        platform_mutex_unlock(&sem->mutex);
-        return true;
-    } else {
-        // Timed wait
+    // Simple semaphore wait without platform dependencies
+    uint32_t start_time = 0;
+    if (timeout_ms > 0) {
         struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += timeout_ms / 1000;
-        ts.tv_nsec += (timeout_ms % 1000) * 1000000;
-        if (ts.tv_nsec >= 1000000000) {
-            ts.tv_sec++;
-            ts.tv_nsec -= 1000000000;
-        }
-        
+        clock_gettime(0, &ts);
+        start_time = (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+    }
+    
+    // Check if semaphore is available
+    if (sem->count > 0) {
+        // Semaphore is available, proceed
+    } else if (timeout_ms == 0) {
+        // No timeout, don't wait
+        return false;
+    } else {
+        // Wait for semaphore to be available
         while (sem->count <= 0) {
-            int result = platform_cond_timedwait(&sem->cv, &sem->mutex, &ts);
-            if (result != 0) {  // Changed from ETIMEDOUT check to generic error check
-                platform_mutex_unlock(&sem->mutex);
-                return false;
+            // Busy wait - in real hardware this would yield to scheduler
+            volatile int dummy = 0;
+            dummy++;
+            
+            // Check timeout
+            struct timespec ts;
+            clock_gettime(0, &ts);
+            uint32_t current_time = (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+            if (current_time - start_time >= timeout_ms) {
+                return false; // Timeout
             }
         }
-        
+    }
+    
+    // Decrement count atomically
+    ATOMIC_LOCK(&sem->lock, LOCK_ID_SEMAPHORE);
+    if (sem->count > 0) {
         sem->count--;
-        platform_mutex_unlock(&sem->mutex);
+        ATOMIC_UNLOCK(&sem->lock, LOCK_ID_SEMAPHORE);
         return true;
     }
+    ATOMIC_UNLOCK(&sem->lock, LOCK_ID_SEMAPHORE);
+    
+    return false;
 }
 
 bool semaphore_post(Semaphore* sem) {
     if (!sem) return false;
     
-    platform_mutex_lock(&sem->mutex);
+    ATOMIC_LOCK(&sem->lock, LOCK_ID_SEMAPHORE);
+    
+    // Check if we can increment without exceeding maximum
+    if (sem->count >= sem->max_count) {
+        ATOMIC_UNLOCK(&sem->lock, LOCK_ID_SEMAPHORE);
+        return false; // Cannot post beyond maximum count
+    }
+    
     sem->count++;
-    platform_cond_signal(&sem->cv);
-    platform_mutex_unlock(&sem->mutex);
+    ATOMIC_UNLOCK(&sem->lock, LOCK_ID_SEMAPHORE);
     
     return true;
 }
 
 int semaphore_get_count(const Semaphore* sem) {
-    if (!sem) return -1;
-    
-    platform_mutex_lock((mutex_t*)&sem->mutex);
-    int count = sem->count;
-    platform_mutex_unlock((mutex_t*)&sem->mutex);
-    
-    return count;
+    return sem ? sem->count : 0;
 }
 
 // Semaphore Manager functions
-SemaphoreManager* semaphore_manager_create(void) {
-    SemaphoreManager* manager = (SemaphoreManager*)malloc(sizeof(SemaphoreManager));
-    if (!manager) return NULL;
+void semaphore_manager_init(SemaphoreManager* manager) {
+    if (!manager) return;
     
-    manager->semaphores_head = NULL;
+    // Initialize semaphore array
+    for (int i = 0; i < MAX_SEMAPHORES; i++) {
+        manager->semaphore_used[i] = false;
+    }
     manager->next_semaphore_id = 1;
     manager->semaphore_count = 0;
-    
-    if (platform_mutex_init(&manager->manager_mutex) != 0) {
-        free(manager);
-        return NULL;
-    }
-    
-    return manager;
+    atomic_lock_init(&manager->manager_lock);
 }
 
 void semaphore_manager_destroy(SemaphoreManager* manager) {
     if (!manager) return;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    SemaphoreNode* current = manager->semaphores_head;
-    while (current) {
-        SemaphoreNode* next = current->next;
-        semaphore_destroy(current->semaphore);
-        free(current);
-        current = next;
-    }
-    
-    platform_mutex_unlock(&manager->manager_mutex);
-    platform_mutex_destroy(&manager->manager_mutex);
-    free(manager);
-}
-
-Semaphore* semaphore_manager_find_semaphore(SemaphoreManager* manager, uint32_t sem_id) {
-    if (!manager) return NULL;
-    
-    SemaphoreNode* current = manager->semaphores_head;
-    while (current) {
-        if (current->id == sem_id) {
-            return current->semaphore;
+    // Destroy all semaphores
+    for (int i = 0; i < MAX_SEMAPHORES; i++) {
+        if (manager->semaphore_used[i]) {
+            semaphore_destroy(&manager->semaphores[i]);
+            manager->semaphore_used[i] = false;
         }
-        current = current->next;
     }
     
-    return NULL;
+    manager->semaphore_count = 0;
+    atomic_lock_init(&manager->manager_lock);
+    // No free() needed - caller manages memory
 }
 
 uint32_t semaphore_manager_create_semaphore(SemaphoreManager* manager, int initial_count) {
     if (!manager) return 0;
     
-    platform_mutex_lock(&manager->manager_mutex);
+    ATOMIC_LOCK(&manager->manager_lock, LOCK_ID_SEMAPHORE);
     
-    Semaphore* sem = semaphore_create(initial_count);
-    if (!sem) {
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
+    // Find an available slot
+    int slot = -1;
+    for (int i = 0; i < MAX_SEMAPHORES; i++) {
+        if (!manager->semaphore_used[i]) {
+            slot = i;
+            break;
+        }
     }
     
-    SemaphoreNode* node = (SemaphoreNode*)malloc(sizeof(SemaphoreNode));
-    if (!node) {
-        semaphore_destroy(sem);
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
+    if (slot == -1) {
+        ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_SEMAPHORE);
+        return 0;  // No available slots
     }
     
-    uint32_t sem_id = manager->next_semaphore_id++;
-    node->id = sem_id;
-    node->semaphore = sem;
-    node->next = manager->semaphores_head;
-    manager->semaphores_head = node;
+    uint32_t semaphore_id = manager->next_semaphore_id++;
+    Semaphore* sem = &manager->semaphores[slot];
+    
+    semaphore_init(sem, initial_count, semaphore_id);
+    
+    manager->semaphore_used[slot] = true;
     manager->semaphore_count++;
     
-    platform_mutex_unlock(&manager->manager_mutex);
-    return sem_id;
+    ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_SEMAPHORE);
+    return semaphore_id;
 }
 
-bool semaphore_manager_delete_semaphore(SemaphoreManager* manager, uint32_t sem_id) {
+bool semaphore_manager_delete_semaphore(SemaphoreManager* manager, uint32_t semaphore_id) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
+    ATOMIC_LOCK(&manager->manager_lock, LOCK_ID_SEMAPHORE);
     
-    SemaphoreNode* current = manager->semaphores_head;
-    SemaphoreNode* prev = NULL;
-    
-    while (current) {
-        if (current->id == sem_id) {
-            if (prev) {
-                prev->next = current->next;
-            } else {
-                manager->semaphores_head = current->next;
-            }
-            
-            semaphore_destroy(current->semaphore);
-            free(current);
+    // Find the semaphore in the fixed-size array
+    for (int i = 0; i < MAX_SEMAPHORES; i++) {
+        if (manager->semaphore_used[i] && manager->semaphores[i].id == semaphore_id) {
+            semaphore_destroy(&manager->semaphores[i]);
+            manager->semaphore_used[i] = false;
             manager->semaphore_count--;
             
-            platform_mutex_unlock(&manager->manager_mutex);
+            ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_SEMAPHORE);
             return true;
         }
-        
-        prev = current;
-        current = current->next;
     }
     
-    platform_mutex_unlock(&manager->manager_mutex);
+    ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_SEMAPHORE);
     return false;
 }
 
-bool semaphore_manager_wait(SemaphoreManager* manager, uint32_t sem_id, uint32_t timeout_ms) {
+Semaphore* semaphore_manager_find_semaphore(SemaphoreManager* manager, uint32_t semaphore_id) {
+    if (!manager) return NULL;
+    
+    for (int i = 0; i < MAX_SEMAPHORES; i++) {
+        if (manager->semaphore_used[i] && manager->semaphores[i].id == semaphore_id) {
+            return &manager->semaphores[i];
+        }
+    }
+    return NULL;
+}
+
+bool semaphore_manager_wait(SemaphoreManager* manager, uint32_t semaphore_id, uint32_t timeout_ms) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    Semaphore* sem = semaphore_manager_find_semaphore(manager, sem_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
+    Semaphore* sem = semaphore_manager_find_semaphore(manager, semaphore_id);
     if (!sem) return false;
     
     return semaphore_wait(sem, timeout_ms);
 }
 
-bool semaphore_manager_post(SemaphoreManager* manager, uint32_t sem_id) {
+bool semaphore_manager_post(SemaphoreManager* manager, uint32_t semaphore_id) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    Semaphore* sem = semaphore_manager_find_semaphore(manager, sem_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
+    Semaphore* sem = semaphore_manager_find_semaphore(manager, semaphore_id);
     if (!sem) return false;
     
     return semaphore_post(sem);
 }
 
-int semaphore_manager_get_count(SemaphoreManager* manager, uint32_t sem_id) {
+int semaphore_manager_get_count(SemaphoreManager* manager, uint32_t semaphore_id) {
     if (!manager) return -1;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    Semaphore* sem = semaphore_manager_find_semaphore(manager, sem_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
+    Semaphore* sem = semaphore_manager_find_semaphore(manager, semaphore_id);
     if (!sem) return -1;
     
     return semaphore_get_count(sem);
 }
 
+size_t semaphore_manager_get_count_total(const SemaphoreManager* manager) {
+    return manager ? manager->semaphore_count : 0;
+}
+
 size_t semaphore_manager_get_semaphore_count(const SemaphoreManager* manager) {
-    if (!manager) return 0;
-    
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    size_t count = manager->semaphore_count;
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
-    
-    return count;
+    return semaphore_manager_get_count_total(manager);
+}
+
+Semaphore* semaphore_manager_get_semaphore(SemaphoreManager* manager, uint32_t sem_id) {
+    return semaphore_manager_find_semaphore(manager, sem_id);
 }
 
 void semaphore_manager_print_semaphores(const SemaphoreManager* manager) {
-    if (!manager) {
-        printf("SemaphoreManager is NULL\n");
-        return;
-    }
+    if (!manager) return;
     
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    
-    printf("Semaphore Manager Status:\n");
+    printf("=== Semaphore Manager Status ===\n");
     printf("Total semaphores: %zu\n", manager->semaphore_count);
     
-    SemaphoreNode* current = manager->semaphores_head;
-    while (current) {
-        printf("  Semaphore ID %u: count = %d\n", 
-               current->id, semaphore_get_count(current->semaphore));
-        current = current->next;
+    for (int i = 0; i < MAX_SEMAPHORES; i++) {
+        if (manager->semaphore_used[i]) {
+            Semaphore* sem = (Semaphore*)&manager->semaphores[i];
+            printf("  Semaphore %u: count=%d\n", 
+                   sem->id, sem->count);
+        }
     }
-    
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
+    printf("================================\n");
 }

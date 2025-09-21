@@ -6,92 +6,62 @@
 // Task queue operations
 void task_queue_init(TaskQueue* queue) {
     if (queue) {
-        queue->front = NULL;
-        queue->rear = NULL;
+        for (int i = 0; i < MAX_TASKS_PER_PRIORITY; i++) {
+            queue->tasks[i] = NULL;
+        }
         queue->count = 0;
+        queue->head = 0;
+        queue->tail = 0;
     }
 }
 
 void task_queue_destroy(TaskQueue* queue) {
     if (!queue) return;
     
-    TaskQueueNode* current = queue->front;
-    while (current) {
-        TaskQueueNode* next = current->next;
-        free(current);
-        current = next;
+    for (int i = 0; i < MAX_TASKS_PER_PRIORITY; i++) {
+        queue->tasks[i] = NULL;
     }
-    
-    queue->front = NULL;
-    queue->rear = NULL;
     queue->count = 0;
+    queue->head = 0;
+    queue->tail = 0;
 }
 
 void task_queue_enqueue(TaskQueue* queue, Task* task) {
     if (!queue || !task) return;
     
-    TaskQueueNode* node = (TaskQueueNode*)malloc(sizeof(TaskQueueNode));
-    if (!node) return;
+    // Check if queue is full
+    if (queue->count >= MAX_TASKS_PER_PRIORITY) return;
     
-    node->task = task;
-    node->next = NULL;
-    
-    if (queue->rear) {
-        queue->rear->next = node;
-    } else {
-        queue->front = node;
-    }
-    
-    queue->rear = node;
+    queue->tasks[queue->tail] = task;
+    queue->tail = (queue->tail + 1) % MAX_TASKS_PER_PRIORITY;
     queue->count++;
 }
 
 Task* task_queue_dequeue(TaskQueue* queue) {
-    if (!queue || !queue->front) return NULL;
+    if (!queue || queue->count == 0) return NULL;
     
-    TaskQueueNode* node = queue->front;
-    Task* task = node->task;
-    
-    queue->front = node->next;
-    if (!queue->front) {
-        queue->rear = NULL;
-    }
-    
-    free(node);
+    Task* task = queue->tasks[queue->head];
+    queue->tasks[queue->head] = NULL;
+    queue->head = (queue->head + 1) % MAX_TASKS_PER_PRIORITY;
     queue->count--;
     
     return task;
 }
 
 bool task_queue_remove(TaskQueue* queue, uint32_t task_id) {
-    if (!queue || !queue->front) return false;
-    
-    // Special case: remove first element
-    if (queue->front->task->id == task_id) {
-        TaskQueueNode* node = queue->front;
-        queue->front = node->next;
-        if (!queue->front) {
-            queue->rear = NULL;
-        }
-        free(node);
-        queue->count--;
-        return true;
-    }
+    if (!queue || queue->count == 0) return false;
     
     // Search for the task to remove
-    TaskQueueNode* current = queue->front;
-    while (current->next) {
-        if (current->next->task->id == task_id) {
-            TaskQueueNode* node_to_remove = current->next;
-            current->next = node_to_remove->next;
-            if (node_to_remove == queue->rear) {
-                queue->rear = current;
+    for (size_t i = 0; i < MAX_TASKS_PER_PRIORITY; i++) {
+        if (queue->tasks[i] && queue->tasks[i]->id == task_id) {
+            // Shift remaining tasks left
+            for (size_t j = i; j < MAX_TASKS_PER_PRIORITY - 1; j++) {
+                queue->tasks[j] = queue->tasks[j + 1];
             }
-            free(node_to_remove);
+            queue->tasks[MAX_TASKS_PER_PRIORITY - 1] = NULL;
             queue->count--;
             return true;
         }
-        current = current->next;
     }
     
     return false;
@@ -106,9 +76,8 @@ size_t task_queue_size(const TaskQueue* queue) {
 }
 
 // Priority scheduler functions
-PriorityScheduler* priority_scheduler_create(void) {
-    PriorityScheduler* scheduler = (PriorityScheduler*)malloc(sizeof(PriorityScheduler));
-    if (!scheduler) return NULL;
+void priority_scheduler_init(PriorityScheduler* scheduler) {
+    if (!scheduler) return;
     
     // Initialize bitmap
     memset(scheduler->priority_bitmap, 0, sizeof(scheduler->priority_bitmap));
@@ -121,17 +90,10 @@ PriorityScheduler* priority_scheduler_create(void) {
     scheduler->current_task = NULL;
     scheduler->next_task_id = 1;
     
-    // Initialize blocked tasks array
+    // Initialize blocked tasks array (fixed size)
     scheduler->blocked_tasks_capacity = 16;
-    scheduler->blocked_tasks = (Task**)malloc(sizeof(Task*) * scheduler->blocked_tasks_capacity);
     scheduler->blocked_tasks_count = 0;
-    
-    if (!scheduler->blocked_tasks) {
-        free(scheduler);
-        return NULL;
-    }
-    
-    return scheduler;
+    // Note: blocked_tasks will be a fixed-size array in the struct
 }
 
 void priority_scheduler_destroy(PriorityScheduler* scheduler) {
@@ -139,23 +101,14 @@ void priority_scheduler_destroy(PriorityScheduler* scheduler) {
     
     // Destroy all task queues
     for (int i = 0; i < MAX_PRIORITY_LEVELS; i++) {
-        TaskQueue* queue = &scheduler->task_queues[i];
-        TaskQueueNode* current = queue->front;
-        while (current) {
-            TaskQueueNode* next = current->next;
-            task_destroy(current->task);  // Destroy the task
-            free(current);
-            current = next;
-        }
+        task_queue_destroy(&scheduler->task_queues[i]);
     }
     
-    // Destroy blocked tasks
+    // Clear blocked tasks (no need to free since they're stack-allocated)
     for (size_t i = 0; i < scheduler->blocked_tasks_count; i++) {
-        task_destroy(scheduler->blocked_tasks[i]);
+        scheduler->blocked_tasks[i] = NULL;
     }
-    free(scheduler->blocked_tasks);
-    
-    free(scheduler);
+    scheduler->blocked_tasks_count = 0;
 }
 
 uint8_t priority_scheduler_find_highest_priority(const PriorityScheduler* scheduler) {
@@ -198,16 +151,13 @@ bool priority_scheduler_is_valid_priority(uint8_t priority) {
     return priority < MAX_PRIORITY_LEVELS;
 }
 
-uint32_t priority_scheduler_create_task(PriorityScheduler* scheduler, uint8_t priority, void* data) {
-    if (!scheduler || !priority_scheduler_is_valid_priority(priority)) {
+uint32_t priority_scheduler_create_task(PriorityScheduler* scheduler, Task* task, uint8_t priority, void* data) {
+    if (!scheduler || !task || !priority_scheduler_is_valid_priority(priority)) {
         return 0;
     }
     
     uint32_t task_id = scheduler->next_task_id++;
-    Task* task = task_create(task_id, priority, data);
-    if (!task) {
-        return 0;
-    }
+    task_init(task, task_id, priority, NULL, data);
     
     // Add to appropriate priority queue
     task_queue_enqueue(&scheduler->task_queues[priority], task);
@@ -218,15 +168,23 @@ uint32_t priority_scheduler_create_task(PriorityScheduler* scheduler, uint8_t pr
     return task_id;
 }
 
-bool priority_scheduler_add_task(PriorityScheduler* scheduler, uint32_t task_id, uint8_t priority, void* data) {
-    if (!scheduler || !priority_scheduler_is_valid_priority(priority)) {
+bool priority_scheduler_add_task(PriorityScheduler* scheduler, Task* task, uint32_t task_id, uint8_t priority, void* data) {
+    if (!scheduler || !task || !priority_scheduler_is_valid_priority(priority)) {
         return false;
     }
     
-    Task* task = task_create(task_id, priority, data);
-    if (!task) {
-        return false;
+    // Check for duplicate task ID
+    for (int i = 0; i < MAX_PRIORITY_LEVELS; i++) {
+        TaskQueue* queue = &scheduler->task_queues[i];
+        for (int j = 0; j < queue->count; j++) {
+            int index = (queue->head + j) % MAX_TASKS_PER_PRIORITY;
+            if (queue->tasks[index]->id == task_id) {
+                return false; // Duplicate ID found
+            }
+        }
     }
+    
+    task_init(task, task_id, priority, task->function, data);
     
     // Add to appropriate priority queue
     task_queue_enqueue(&scheduler->task_queues[priority], task);
@@ -298,6 +256,10 @@ bool priority_scheduler_has_ready_tasks(const PriorityScheduler* scheduler) {
 
 uint8_t priority_scheduler_get_highest_ready_priority(const PriorityScheduler* scheduler) {
     return scheduler ? priority_scheduler_find_highest_priority(scheduler) : MAX_PRIORITY_LEVELS;
+}
+
+uint8_t priority_scheduler_get_highest_priority(const PriorityScheduler* scheduler) {
+    return priority_scheduler_get_highest_ready_priority(scheduler);
 }
 
 size_t priority_scheduler_get_task_count(const PriorityScheduler* scheduler, uint8_t priority) {

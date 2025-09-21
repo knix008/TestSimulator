@@ -1,90 +1,74 @@
 #include "event.h"
+#include "clock.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <string.h>
 #include <time.h>
 
 // Event functions
-Event* event_create(void) {
-    Event* event = (Event*)malloc(sizeof(Event));
-    if (!event) return NULL;
+void event_init(Event* event, uint32_t id) {
+    if (!event) return;
     
+    event->id = id;
     event->bits = 0;
-    
-    if (platform_mutex_init(&event->mutex) != 0) {
-        free(event);
-        return NULL;
-    }
-    
-    if (platform_cond_init(&event->cv) != 0) {
-        platform_mutex_destroy(&event->mutex);
-        free(event);
-        return NULL;
-    }
-    
-    return event;
+    atomic_lock_init(&event->lock);
 }
 
 void event_destroy(Event* event) {
     if (!event) return;
     
-    platform_mutex_destroy(&event->mutex);
-    platform_cond_destroy(&event->cv);
-    free(event);
+    event->bits = 0;
+    atomic_lock_init(&event->lock);
+    // No free() needed - caller manages memory
 }
 
 bool event_wait(Event* event, uint32_t wait_bits, bool clear_on_exit, uint32_t timeout_ms) {
     if (!event) return false;
     
-    platform_mutex_lock(&event->mutex);
-    
-    if (timeout_ms == 0) {
-        // Infinite wait
-        while ((event->bits & wait_bits) != wait_bits) {
-            platform_cond_wait(&event->cv, &event->mutex);
-        }
-        
-        if (clear_on_exit) {
-            event->bits &= ~wait_bits;
-        }
-        
-        platform_mutex_unlock(&event->mutex);
-        return true;
-    } else {
-        // Timed wait
+    // Simple event wait without platform dependencies
+    uint32_t start_time = 0;
+    if (timeout_ms > 0) {
         struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += timeout_ms / 1000;
-        ts.tv_nsec += (timeout_ms % 1000) * 1000000;
-        if (ts.tv_nsec >= 1000000000) {
-            ts.tv_sec++;
-            ts.tv_nsec -= 1000000000;
-        }
-        
+        clock_gettime(0, &ts);
+        start_time = (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+    }
+    
+    // Check if bits are already set
+    if ((event->bits & wait_bits) == wait_bits) {
+        // Bits are set, proceed to clear if requested
+    } else if (timeout_ms == 0) {
+        // No timeout, don't wait
+        return false;
+    } else {
+        // Wait for all specified bits to be set
         while ((event->bits & wait_bits) != wait_bits) {
-            int result = platform_cond_timedwait(&event->cv, &event->mutex, &ts);
-            if (result != 0) {
-                platform_mutex_unlock(&event->mutex);
-                return false;
+            // Busy wait - in real hardware this would yield to scheduler
+            volatile int dummy = 0;
+            dummy++;
+            
+            // Check timeout
+            struct timespec ts;
+            clock_gettime(0, &ts);
+            uint32_t current_time = (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+            if (current_time - start_time >= timeout_ms) {
+                return false; // Timeout
             }
         }
-        
-        if (clear_on_exit) {
-            event->bits &= ~wait_bits;
-        }
-        
-        platform_mutex_unlock(&event->mutex);
-        return true;
     }
+    
+    // Clear bits if requested
+    if (clear_on_exit) {
+        event->bits &= ~wait_bits;
+    }
+    
+    return true;
 }
 
 bool event_set(Event* event, uint32_t set_bits) {
     if (!event) return false;
     
-    platform_mutex_lock(&event->mutex);
+    ATOMIC_LOCK(&event->lock, LOCK_ID_EVENT);
     event->bits |= set_bits;
-    platform_cond_broadcast(&event->cv);
-    platform_mutex_unlock(&event->mutex);
+    ATOMIC_UNLOCK(&event->lock, LOCK_ID_EVENT);
     
     return true;
 }
@@ -92,140 +76,113 @@ bool event_set(Event* event, uint32_t set_bits) {
 bool event_clear(Event* event, uint32_t clear_bits) {
     if (!event) return false;
     
-    platform_mutex_lock(&event->mutex);
+    ATOMIC_LOCK(&event->lock, LOCK_ID_EVENT);
     event->bits &= ~clear_bits;
-    platform_mutex_unlock(&event->mutex);
+    ATOMIC_UNLOCK(&event->lock, LOCK_ID_EVENT);
     
     return true;
 }
 
 uint32_t event_get_bits(const Event* event) {
-    if (!event) return 0;
-    
-    platform_mutex_lock((mutex_t*)&event->mutex);
-    uint32_t bits = event->bits;
-    platform_mutex_unlock((mutex_t*)&event->mutex);
-    
-    return bits;
+    return event ? event->bits : 0;
 }
 
 // Event Manager functions
-EventManager* event_manager_create(void) {
-    EventManager* manager = (EventManager*)malloc(sizeof(EventManager));
-    if (!manager) return NULL;
+void event_manager_init(EventManager* manager) {
+    if (!manager) return;
     
-    manager->events_head = NULL;
+    // Initialize event array
+    for (int i = 0; i < MAX_EVENTS; i++) {
+        manager->event_used[i] = false;
+    }
     manager->next_event_id = 1;
     manager->event_count = 0;
-    
-    if (platform_mutex_init(&manager->manager_mutex) != 0) {
-        free(manager);
-        return NULL;
-    }
-    
-    return manager;
+    atomic_lock_init(&manager->manager_lock);
 }
 
 void event_manager_destroy(EventManager* manager) {
     if (!manager) return;
     
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    EventNode* current = manager->events_head;
-    while (current) {
-        EventNode* next = current->next;
-        event_destroy(current->event);
-        free(current);
-        current = next;
-    }
-    
-    platform_mutex_unlock(&manager->manager_mutex);
-    platform_mutex_destroy(&manager->manager_mutex);
-    free(manager);
-}
-
-Event* event_manager_find_event(EventManager* manager, uint32_t event_id) {
-    if (!manager) return NULL;
-    
-    EventNode* current = manager->events_head;
-    while (current) {
-        if (current->id == event_id) {
-            return current->event;
+    // Destroy all events
+    for (int i = 0; i < MAX_EVENTS; i++) {
+        if (manager->event_used[i]) {
+            event_destroy(&manager->events[i]);
+            manager->event_used[i] = false;
         }
-        current = current->next;
     }
     
-    return NULL;
+    manager->event_count = 0;
+    atomic_lock_init(&manager->manager_lock);
+    // No free() needed - caller manages memory
 }
 
 uint32_t event_manager_create_event(EventManager* manager) {
     if (!manager) return 0;
     
-    platform_mutex_lock(&manager->manager_mutex);
+    ATOMIC_LOCK(&manager->manager_lock, LOCK_ID_EVENT);
     
-    Event* event = event_create();
-    if (!event) {
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
+    // Find an available slot
+    int slot = -1;
+    for (int i = 0; i < MAX_EVENTS; i++) {
+        if (!manager->event_used[i]) {
+            slot = i;
+            break;
+        }
     }
     
-    EventNode* node = (EventNode*)malloc(sizeof(EventNode));
-    if (!node) {
-        event_destroy(event);
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
+    if (slot == -1) {
+        ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_EVENT);
+        return 0;  // No available slots
     }
     
     uint32_t event_id = manager->next_event_id++;
-    node->id = event_id;
-    node->event = event;
-    node->next = manager->events_head;
-    manager->events_head = node;
+    Event* event = &manager->events[slot];
+    
+    event_init(event, event_id);
+    
+    manager->event_used[slot] = true;
     manager->event_count++;
     
-    platform_mutex_unlock(&manager->manager_mutex);
+    ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_EVENT);
     return event_id;
 }
 
 bool event_manager_delete_event(EventManager* manager, uint32_t event_id) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
+    ATOMIC_LOCK(&manager->manager_lock, LOCK_ID_EVENT);
     
-    EventNode* current = manager->events_head;
-    EventNode* prev = NULL;
-    
-    while (current) {
-        if (current->id == event_id) {
-            if (prev) {
-                prev->next = current->next;
-            } else {
-                manager->events_head = current->next;
-            }
-            
-            event_destroy(current->event);
-            free(current);
+    // Find the event in the fixed-size array
+    for (int i = 0; i < MAX_EVENTS; i++) {
+        if (manager->event_used[i] && manager->events[i].id == event_id) {
+            event_destroy(&manager->events[i]);
+            manager->event_used[i] = false;
             manager->event_count--;
             
-            platform_mutex_unlock(&manager->manager_mutex);
+            ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_EVENT);
             return true;
         }
-        
-        prev = current;
-        current = current->next;
     }
     
-    platform_mutex_unlock(&manager->manager_mutex);
+    ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_EVENT);
     return false;
+}
+
+Event* event_manager_find_event(EventManager* manager, uint32_t event_id) {
+    if (!manager) return NULL;
+    
+    for (int i = 0; i < MAX_EVENTS; i++) {
+        if (manager->event_used[i] && manager->events[i].id == event_id) {
+            return &manager->events[i];
+        }
+    }
+    return NULL;
 }
 
 bool event_manager_wait(EventManager* manager, uint32_t event_id, uint32_t wait_bits, bool clear_on_exit, uint32_t timeout_ms) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
     Event* event = event_manager_find_event(manager, event_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
     if (!event) return false;
     
     return event_wait(event, wait_bits, clear_on_exit, timeout_ms);
@@ -234,10 +191,7 @@ bool event_manager_wait(EventManager* manager, uint32_t event_id, uint32_t wait_
 bool event_manager_set(EventManager* manager, uint32_t event_id, uint32_t set_bits) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
     Event* event = event_manager_find_event(manager, event_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
     if (!event) return false;
     
     return event_set(event, set_bits);
@@ -246,10 +200,7 @@ bool event_manager_set(EventManager* manager, uint32_t event_id, uint32_t set_bi
 bool event_manager_clear(EventManager* manager, uint32_t event_id, uint32_t clear_bits) {
     if (!manager) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
     Event* event = event_manager_find_event(manager, event_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
     if (!event) return false;
     
     return event_clear(event, clear_bits);
@@ -258,42 +209,36 @@ bool event_manager_clear(EventManager* manager, uint32_t event_id, uint32_t clea
 uint32_t event_manager_get_bits(EventManager* manager, uint32_t event_id) {
     if (!manager) return 0;
     
-    platform_mutex_lock(&manager->manager_mutex);
     Event* event = event_manager_find_event(manager, event_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
     if (!event) return 0;
     
     return event_get_bits(event);
 }
 
+size_t event_manager_get_count(const EventManager* manager) {
+    return manager ? manager->event_count : 0;
+}
+
+Event* event_manager_get_event(EventManager* manager, uint32_t event_id) {
+    return event_manager_find_event(manager, event_id);
+}
+
 size_t event_manager_get_event_count(const EventManager* manager) {
-    if (!manager) return 0;
-    
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    size_t count = manager->event_count;
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
-    
-    return count;
+    return event_manager_get_count(manager);
 }
 
 void event_manager_print_events(const EventManager* manager) {
-    if (!manager) {
-        printf("EventManager is NULL\n");
-        return;
-    }
+    if (!manager) return;
     
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    
-    printf("Event Manager Status:\n");
+    printf("=== Event Manager Status ===\n");
     printf("Total events: %zu\n", manager->event_count);
     
-    EventNode* current = manager->events_head;
-    while (current) {
-        printf("  Event ID %u: bits = 0x%08X\n", 
-               current->id, event_get_bits(current->event));
-        current = current->next;
+    for (int i = 0; i < MAX_EVENTS; i++) {
+        if (manager->event_used[i]) {
+            Event* event = (Event*)&manager->events[i];
+            printf("  Event %u: bits=0x%08X\n", 
+                   event->id, event->bits);
+        }
     }
-    
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
+    printf("============================\n");
 }

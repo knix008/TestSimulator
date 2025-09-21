@@ -21,11 +21,15 @@ typedef enum {
     TASK_SUSPENDED
 } TaskState;
 
+// Task function pointer type
+typedef void (*TaskFunction)(void* data);
+
 // Task structure for RTOS scheduler
 typedef struct Task {
     uint32_t id;
     uint8_t priority;
     TaskState state;
+    TaskFunction function;
     void* data;
     
     // Synchronization related fields
@@ -38,7 +42,7 @@ typedef struct Task {
 } Task;
 
 // Constructor-like function
-Task* task_create(uint32_t task_id, uint8_t task_priority, void* task_data);
+void task_init(Task* task, uint32_t task_id, uint8_t task_priority, TaskFunction function, void* task_data);
 
 // Destructor-like function
 void task_destroy(Task* task);
@@ -48,6 +52,10 @@ uint32_t task_get_id(const Task* task);
 uint8_t task_get_priority(const Task* task);
 TaskState task_get_state(const Task* task);
 void* task_get_data(const Task* task);
+void* task_get_function(Task* task);
+
+// Setters
+void task_set_priority(Task* task, uint8_t priority);
 
 // Synchronization getters
 Semaphore* task_get_waiting_semaphore(const Task* task);
@@ -88,8 +96,8 @@ void task_clear_wait_states(Task* task);
 void task_execute(Task* task);
 
 // String representation
-char* task_to_string(const Task* task);
-char* task_state_to_string(TaskState state);
+void task_to_string(const Task* task, char* buffer, size_t buffer_size);
+void task_state_to_string(TaskState state, char* buffer, size_t buffer_size);
 
 // Comparison functions for priority-based sorting
 bool task_less_than(const Task* task1, const Task* task2);

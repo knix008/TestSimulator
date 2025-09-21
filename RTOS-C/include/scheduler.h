@@ -12,17 +12,13 @@ extern "C" {
 // Priority levels 0-127 (128 levels), 0 is the highest priority
 #define MAX_PRIORITY_LEVELS 128
 
-// Task queue node for linked list implementation
-typedef struct TaskQueueNode {
-    Task* task;
-    struct TaskQueueNode* next;
-} TaskQueueNode;
-
-// Task queue structure
+// Task queue structure using fixed-size array
+#define MAX_TASKS_PER_PRIORITY 16
 typedef struct TaskQueue {
-    TaskQueueNode* front;
-    TaskQueueNode* rear;
+    Task* tasks[MAX_TASKS_PER_PRIORITY];
     size_t count;
+    size_t head;
+    size_t tail;
 } TaskQueue;
 
 // Priority-based scheduler structure
@@ -39,21 +35,21 @@ typedef struct PriorityScheduler {
     // Task ID counter
     uint32_t next_task_id;
     
-    // Blocked tasks array
-    Task** blocked_tasks;
+    // Blocked tasks array (fixed-size array)
+    Task* blocked_tasks[16];
     size_t blocked_tasks_count;
     size_t blocked_tasks_capacity;
 } PriorityScheduler;
 
 // Constructor-like function
-PriorityScheduler* priority_scheduler_create(void);
+void priority_scheduler_init(PriorityScheduler* scheduler);
 
 // Destructor-like function
 void priority_scheduler_destroy(PriorityScheduler* scheduler);
 
 // Task management functions
-uint32_t priority_scheduler_create_task(PriorityScheduler* scheduler, uint8_t priority, void* data);
-bool priority_scheduler_add_task(PriorityScheduler* scheduler, uint32_t task_id, uint8_t priority, void* data);
+uint32_t priority_scheduler_create_task(PriorityScheduler* scheduler, Task* task, uint8_t priority, void* data);
+bool priority_scheduler_add_task(PriorityScheduler* scheduler, Task* task, uint32_t task_id, uint8_t priority, void* data);
 bool priority_scheduler_remove_task(PriorityScheduler* scheduler, uint32_t task_id);
 
 // Scheduling functions
@@ -64,6 +60,7 @@ void priority_scheduler_set_current_task(PriorityScheduler* scheduler, Task* tas
 // Status query functions
 bool priority_scheduler_has_ready_tasks(const PriorityScheduler* scheduler);
 uint8_t priority_scheduler_get_highest_ready_priority(const PriorityScheduler* scheduler);
+uint8_t priority_scheduler_get_highest_priority(const PriorityScheduler* scheduler);
 size_t priority_scheduler_get_task_count(const PriorityScheduler* scheduler, uint8_t priority);
 size_t priority_scheduler_get_total_task_count(const PriorityScheduler* scheduler);
 
