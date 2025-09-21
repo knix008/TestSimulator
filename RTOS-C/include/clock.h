@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
-#include "platform.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,18 +37,34 @@ typedef struct TickBasedClock {
     IClock base;  // Must be first member
     uint64_t tick_count;
     uint32_t tick_interval_ms;
-    thread_t tick_thread;
+    uint32_t tick_thread_id;    // Simple thread ID
     bool should_stop;
     struct timespec start_time;
-    mutex_t mutex;
+    bool locked;    // Simple lock for atomic operations
 } TickBasedClock;
 
 // Clock factory functions
-IClock* clock_create_realtime(void);
-IClock* clock_create_tick_based(uint32_t tick_interval_ms);
+IClock* clock_create_realtime(RealtimeClock* clock_buffer);
+IClock* clock_create_tick_based(TickBasedClock* clock_buffer, uint32_t tick_interval_ms);
+
+// Global clock tick simulation functions
+void clock_tick_simulation_start(uint32_t rate_hz);
+void clock_tick_simulation_stop(void);
+bool clock_tick_simulation_is_running(void);
+uint64_t clock_tick_simulation_get_count(void);
+uint32_t clock_tick_simulation_get_rate_hz(void);
+void clock_tick_simulation_set_rate_hz(uint32_t rate_hz);
+
+// Clock utility functions
+int clock_gettime(int clk_id, struct timespec* ts);
+int nanosleep(const struct timespec* req, struct timespec* rem);
+
+// Internal clock access functions
+uint64_t clock_get_tick_counter(void);
+uint32_t clock_get_tick_rate(void);
 
 // Real-time clock functions
-RealtimeClock* realtime_clock_create(void);
+void realtime_clock_init(RealtimeClock* clock);
 void realtime_clock_destroy(RealtimeClock* clock);
 uint32_t realtime_clock_get_current_time_ms(const IClock* self);
 struct timespec realtime_clock_get_current_time_point(const IClock* self);
@@ -64,7 +79,7 @@ bool realtime_clock_is_running(const IClock* self);
 void realtime_clock_destroy_impl(IClock* self);
 
 // Tick-based clock functions
-TickBasedClock* tick_based_clock_create(uint32_t tick_interval_ms);
+void tick_based_clock_init(TickBasedClock* clock, uint32_t tick_interval_ms);
 void tick_based_clock_destroy(TickBasedClock* clock);
 uint32_t tick_based_clock_get_current_time_ms(const IClock* self);
 struct timespec tick_based_clock_get_current_time_point(const IClock* self);
@@ -84,6 +99,18 @@ uint32_t timespec_to_ms(struct timespec ts);
 struct timespec ms_to_timespec(uint32_t ms);
 struct timespec timespec_add_ms(struct timespec ts, uint32_t ms);
 int timespec_compare(struct timespec ts1, struct timespec ts2);
+
+// Test functions for bare-metal simulation
+void clock_advance_ticks(uint64_t ticks);
+void clock_set_tick_rate(uint32_t hz);
+uint64_t clock_get_tick_counter(void);
+uint32_t clock_get_tick_rate(void);
+
+// Enhanced tick simulation functions
+void clock_start_tick_simulation(void);
+void clock_stop_tick_simulation(void);
+bool clock_is_tick_simulation_active(void);
+void clock_simulate_tick_interrupt(void);
 
 #ifdef __cplusplus
 }

@@ -3,9 +3,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "platform.h"
 #include <time.h>
 #include "clock.h"
+#include "atomic_lock.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,7 +31,7 @@ typedef void (*TimerCallback)(uint32_t timer_id, void* user_data);
 // Timer structure for RTOS
 typedef struct Timer {
     uint32_t id;
-    char* name;
+    char name[64];  // Fixed-size buffer instead of char*
     TimerType type;
     TimerState state;
     uint32_t interval_ms;
@@ -41,9 +41,8 @@ typedef struct Timer {
     struct timespec start_time;
     struct timespec next_expiry;
     
-    // Thread safety
-    mutex_t mutex;
-    cond_t cv;
+    // Thread safety using atomic locks
+    atomic_lock_t lock;    // Atomic lock for thread safety
     bool should_stop;
     
     // Clock reference
@@ -52,14 +51,18 @@ typedef struct Timer {
 
 // Timer node for linked list
 typedef struct TimerNode {
+    uint32_t id;
     Timer* timer;
     struct TimerNode* next;
 } TimerNode;
 
+#define MAX_TIMERS 32
+
 // Timer Manager structure
 typedef struct TimerManager {
-    // Timer storage
-    TimerNode* timers_head;
+    // Timer storage (fixed-size array instead of linked list)
+    Timer timers[MAX_TIMERS];
+    bool timer_used[MAX_TIMERS];
     
     // Timer ID counter
     uint32_t next_timer_id;
@@ -68,21 +71,20 @@ typedef struct TimerManager {
     IClock* clock;
     bool owns_clock;
     
-    // Timer thread
-    thread_t timer_thread;
+    // Timer thread (simplified without platform dependencies)
+    uint32_t timer_thread_id;    // Simple thread ID
     bool running;
     bool should_stop;
     
-    // Thread synchronization
-    mutex_t timers_mutex;
-    cond_t cv;
+    // Thread synchronization using atomic locks
+    atomic_lock_t manager_lock;    // Atomic lock for manager operations
     
     size_t timer_count;
 } TimerManager;
 
 // Timer functions
-Timer* timer_create(uint32_t timer_id, const char* name, TimerType type, 
-                   uint32_t interval_ms, TimerCallback callback, void* user_data);
+void timer_init(Timer* timer, uint32_t timer_id, const char* name, TimerType type, 
+               uint32_t interval_ms, TimerCallback callback, void* user_data, IClock* clock);
 void timer_destroy(Timer* timer);
 void timer_set_clock(Timer* timer, IClock* clock);
 
@@ -119,8 +121,11 @@ const char* timer_state_to_string(TimerState state);
 const char* timer_type_to_string(TimerType type);
 
 // Timer Manager functions
-TimerManager* timer_manager_create(void);
+void timer_manager_init(TimerManager* manager);
 void timer_manager_destroy(TimerManager* manager);
+
+// Additional functions for testing
+void timer_execute(Timer* timer);
 
 // Timer management
 uint32_t timer_manager_create_timer(TimerManager* manager, const char* name, TimerType type, 

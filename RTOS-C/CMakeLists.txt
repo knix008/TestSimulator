@@ -9,7 +9,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 if(MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4 /D_CRT_SECURE_NO_WARNINGS /wd4819 /wd4005")
 else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O2 -pthread")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -O2")
 endif()
 
 # Include directories
@@ -17,6 +17,7 @@ include_directories(include)
 
 # Header files
 set(HEADERS
+    include/atomic_lock.h
     include/task.h
     include/scheduler.h
     include/semaphore.h
@@ -29,9 +30,9 @@ set(HEADERS
     include/mutex.h
 )
 
-# Source files (all components enabled)
+# Source files (all synchronization components - no malloc)
 set(SOURCES
-    source/platform.c
+    source/atomic_lock.c
     source/task.c
     source/scheduler.c
     source/semaphore.c
@@ -51,72 +52,46 @@ add_library(scheduler ${SOURCES} ${HEADERS})
 add_executable(main main.c)
 target_link_libraries(main scheduler)
 
-# Full demo executable
-add_executable(main_full_demo main_full_demo.c)
-target_link_libraries(main_full_demo scheduler)
+# Component-specific test executables
+add_executable(test_atomic_lock test/test_atomic_lock.c)
+target_link_libraries(test_atomic_lock scheduler)
 
-# Test executables
-add_executable(minimal_test test/minimal_test.c)
-target_link_libraries(minimal_test scheduler)
+add_executable(test_scheduler test/test_scheduler.c)
+target_link_libraries(test_scheduler scheduler)
 
-add_executable(test_scheduler_c test/test_scheduler_c.c)
-target_link_libraries(test_scheduler_c scheduler)
+add_executable(test_task test/test_task.c)
+target_link_libraries(test_task scheduler)
 
-add_executable(test_task_management test/test_task_management.c)
-target_link_libraries(test_task_management scheduler)
+add_executable(test_mutex test/test_mutex.c)
+target_link_libraries(test_mutex scheduler)
 
-add_executable(test_platform_abstraction test/test_platform_abstraction.c)
-target_link_libraries(test_platform_abstraction scheduler)
+add_executable(test_semaphore test/test_semaphore.c)
+target_link_libraries(test_semaphore scheduler)
 
-add_executable(test_priority_bitmap test/test_priority_bitmap.c)
-target_link_libraries(test_priority_bitmap scheduler)
+add_executable(test_event test/test_event.c)
+target_link_libraries(test_event scheduler)
 
-add_executable(test_integration test/test_integration.c)
-target_link_libraries(test_integration scheduler)
+add_executable(test_signal test/test_signal.c)
+target_link_libraries(test_signal scheduler)
 
-add_executable(run_working_tests test/run_working_tests.c)
-target_link_libraries(run_working_tests scheduler)
+add_executable(test_message_queue test/test_message_queue.c)
+target_link_libraries(test_message_queue scheduler)
 
-# Component-specific tests
-add_executable(test_semaphore_c test/test_semaphore_c.c)
-target_link_libraries(test_semaphore_c scheduler)
+add_executable(test_clock test/test_clock.c)
+target_link_libraries(test_clock scheduler)
 
-add_executable(test_event_c test/test_event_c.c)
-target_link_libraries(test_event_c scheduler)
-
-add_executable(test_signal_c test/test_signal_c.c)
-target_link_libraries(test_signal_c scheduler)
-
-# Additional component tests
-add_executable(test_message_queue_c test/test_message_queue_c.c)
-target_link_libraries(test_message_queue_c scheduler)
-
-# Comprehensive timer and clock component tests
-add_executable(test_timer_comprehensive test/test_timer_comprehensive.c)
-target_link_libraries(test_timer_comprehensive scheduler)
-
-add_executable(test_clock_comprehensive test/test_clock_comprehensive.c)
-target_link_libraries(test_clock_comprehensive scheduler)
-
-add_executable(test_timer_task_comprehensive test/test_timer_task_comprehensive.c)
-target_link_libraries(test_timer_task_comprehensive scheduler)
-
-# Mutex component test
-add_executable(test_mutex_comprehensive test/test_mutex_comprehensive.c)
-target_link_libraries(test_mutex_comprehensive scheduler)
+add_executable(test_timer test/test_timer.c)
+target_link_libraries(test_timer scheduler)
 
 enable_testing()
-add_test(NAME minimal_test COMMAND minimal_test)
-add_test(NAME test_task_management COMMAND test_task_management)
-add_test(NAME test_scheduler_c COMMAND test_scheduler_c)
-add_test(NAME test_priority_bitmap COMMAND test_priority_bitmap)
-add_test(NAME test_platform_abstraction COMMAND test_platform_abstraction)
-add_test(NAME test_integration COMMAND test_integration)
-add_test(NAME test_semaphore_c COMMAND test_semaphore_c)
-add_test(NAME test_event_c COMMAND test_event_c)
-add_test(NAME test_signal_c COMMAND test_signal_c)
-add_test(NAME test_message_queue_c COMMAND test_message_queue_c)
-add_test(NAME test_timer_comprehensive COMMAND test_timer_comprehensive)
-add_test(NAME test_clock_comprehensive COMMAND test_clock_comprehensive)
-add_test(NAME test_timer_task_comprehensive COMMAND test_timer_task_comprehensive)
-add_test(NAME test_mutex_comprehensive COMMAND test_mutex_comprehensive)
+# Component tests
+add_test(NAME test_atomic_lock COMMAND test_atomic_lock)
+add_test(NAME test_scheduler COMMAND test_scheduler)
+add_test(NAME test_task COMMAND test_task)
+add_test(NAME test_mutex COMMAND test_mutex)
+add_test(NAME test_semaphore COMMAND test_semaphore)
+add_test(NAME test_event COMMAND test_event)
+add_test(NAME test_signal COMMAND test_signal)
+add_test(NAME test_message_queue COMMAND test_message_queue)
+add_test(NAME test_clock COMMAND test_clock)
+add_test(NAME test_timer COMMAND test_timer)

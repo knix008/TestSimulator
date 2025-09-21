@@ -1,9 +1,307 @@
 #include "message_queue.h"
+#include "atomic_lock.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <time.h>
+
+// Using atomic operations from atomic_lock.h
+
+// Message Queue functions
+void message_queue_init(MessageQueue* queue, size_t capacity, uint32_t id) {
+    if (!queue) return;
+    
+    // Limit capacity to maximum allowed
+    if (capacity > MAX_MESSAGE_QUEUE_SIZE) {
+        capacity = MAX_MESSAGE_QUEUE_SIZE;
+    }
+    
+    queue->id = id;
+    queue->capacity = capacity;
+    queue->count = 0;
+    queue->head = 0;
+    queue->tail = 0;
+    atomic_lock_init(&queue->lock);
+}
+
+void message_queue_destroy(MessageQueue* queue) {
+    if (!queue) return;
+    
+    queue->capacity = 0;
+    queue->count = 0;
+    queue->head = 0;
+    queue->tail = 0;
+    atomic_lock_init(&queue->lock);
+    // No free() needed - caller manages memory
+}
+
+bool message_queue_send(MessageQueue* queue, uint32_t type, const char* data, uint32_t timeout_ms) {
+    if (!queue || !data) return false;
+    
+    // Simple send without platform dependencies
+    while (queue->count >= queue->capacity) {
+        // Busy wait - in real hardware this would yield to scheduler
+        volatile int dummy = 0;
+        dummy++;
+        
+        // Simple timeout handling
+        if (timeout_ms > 0) {
+            // In real implementation, this would use hardware timer
+            timeout_ms--;
+            if (timeout_ms == 0) return false;
+        }
+    }
+    
+    ATOMIC_LOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
+    
+    // Create a simple message structure
+    Message msg;
+    msg.id = 0;  // Simple ID
+    msg.type = type;
+    msg.sender_id = 0;  // Default sender
+    
+    // Copy data to fixed-size buffer
+    strncpy(msg.data, data, sizeof(msg.data) - 1);
+    msg.data[sizeof(msg.data) - 1] = '\0';
+    
+    // Copy message to buffer
+    queue->buffer[queue->tail] = msg;
+    
+    queue->tail = (queue->tail + 1) % queue->capacity;
+    queue->count++;
+    
+    ATOMIC_UNLOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
+    
+    return true;
+}
+
+bool message_queue_receive(MessageQueue* queue, uint32_t* type, char** data, uint32_t timeout_ms) {
+    if (!queue || !type || !data) return false;
+    
+    // Simple receive without platform dependencies
+    while (queue->count == 0) {
+        // Busy wait - in real hardware this would yield to scheduler
+        volatile int dummy = 0;
+        dummy++;
+        
+        // Simple timeout handling
+        if (timeout_ms > 0) {
+            // In real implementation, this would use hardware timer
+            timeout_ms--;
+            if (timeout_ms == 0) return false;
+        }
+    }
+    
+    ATOMIC_LOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
+    
+    if (queue->count > 0) {
+        // Get message from buffer
+        Message* msg = &queue->buffer[queue->head];
+        
+        *type = msg->type;
+        *data = msg->data;  // This returns a pointer to the fixed-size buffer
+        
+        queue->head = (queue->head + 1) % queue->capacity;
+        queue->count--;
+        
+        ATOMIC_UNLOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
+        return true;
+    }
+    
+    ATOMIC_UNLOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
+    return false;
+}
+
+bool message_queue_is_full(const MessageQueue* queue) {
+    return queue ? queue->count >= queue->capacity : false;
+}
+
+bool message_queue_is_empty(const MessageQueue* queue) {
+    return queue ? queue->count == 0 : true;
+}
+
+size_t message_queue_get_count(const MessageQueue* queue) {
+    return queue ? queue->count : 0;
+}
+
+size_t message_queue_get_capacity(const MessageQueue* queue) {
+    return queue ? queue->capacity : 0;
+}
+
+size_t message_queue_get_message_size(const MessageQueue* queue) {
+    return queue ? sizeof(Message) : 0;  // Fixed message size
+}
+
+// Message Queue Manager functions
+void message_queue_manager_init(MessageQueueManager* manager) {
+    if (!manager) return;
+    
+    // Initialize queue array
+    for (int i = 0; i < MAX_MESSAGE_QUEUES; i++) {
+        manager->queue_used[i] = false;
+    }
+    manager->next_queue_id = 1;
+    manager->queue_count = 0;
+    atomic_lock_init(&manager->manager_lock);
+}
+
+void message_queue_manager_destroy(MessageQueueManager* manager) {
+    if (!manager) return;
+    
+    // Simple unlock without platform dependencies
+    atomic_lock_init(&manager->manager_lock);
+    
+    // Destroy all queues
+    for (int i = 0; i < MAX_MESSAGE_QUEUES; i++) {
+        if (manager->queue_used[i]) {
+            message_queue_destroy(&manager->queues[i]);
+            manager->queue_used[i] = false;
+        }
+    }
+    
+    manager->queue_count = 0;
+    // No free() needed - caller manages memory
+}
+
+uint32_t message_queue_manager_create_queue(MessageQueueManager* manager, size_t capacity) {
+    if (!manager) return 0;
+    
+    ATOMIC_LOCK(&manager->manager_lock, LOCK_ID_MESSAGE_QUEUE);
+    
+    // Find an available slot
+    int slot = -1;
+    for (int i = 0; i < MAX_MESSAGE_QUEUES; i++) {
+        if (!manager->queue_used[i]) {
+            slot = i;
+            break;
+        }
+    }
+    
+    if (slot == -1) {
+        ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_MESSAGE_QUEUE);
+        return 0;  // No available slots
+    }
+    
+    uint32_t queue_id = manager->next_queue_id++;
+    MessageQueue* queue = &manager->queues[slot];
+    
+    message_queue_init(queue, capacity, queue_id);
+    
+    manager->queue_used[slot] = true;
+    manager->queue_count++;
+    
+    ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_MESSAGE_QUEUE);
+    return queue_id;
+}
+
+bool message_queue_manager_delete_queue(MessageQueueManager* manager, uint32_t queue_id) {
+    if (!manager) return false;
+    
+    ATOMIC_LOCK(&manager->manager_lock, LOCK_ID_MESSAGE_QUEUE);
+    
+    // Find the queue in the fixed-size array
+    for (int i = 0; i < MAX_MESSAGE_QUEUES; i++) {
+        if (manager->queue_used[i] && manager->queues[i].id == queue_id) {
+            message_queue_destroy(&manager->queues[i]);
+            manager->queue_used[i] = false;
+            manager->queue_count--;
+            
+            ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_MESSAGE_QUEUE);
+            return true;
+        }
+    }
+    
+    ATOMIC_UNLOCK(&manager->manager_lock, LOCK_ID_MESSAGE_QUEUE);
+    return false;
+}
+
+bool message_queue_manager_send(MessageQueueManager* manager, uint32_t queue_id, uint32_t type, const char* data, uint32_t timeout_ms) {
+    if (!manager) return false;
+    
+    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
+    return queue ? message_queue_send(queue, type, data, timeout_ms) : false;
+}
+
+bool message_queue_manager_receive(MessageQueueManager* manager, uint32_t queue_id, uint32_t* type, char** data, uint32_t timeout_ms) {
+    if (!manager) return false;
+    
+    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
+    return queue ? message_queue_receive(queue, type, data, timeout_ms) : false;
+}
+
+bool message_queue_manager_is_full(MessageQueueManager* manager, uint32_t queue_id) {
+    if (!manager) return false;
+    
+    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
+    return queue ? message_queue_is_full(queue) : false;
+}
+
+bool message_queue_manager_is_empty(MessageQueueManager* manager, uint32_t queue_id) {
+    if (!manager) return true;
+    
+    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
+    return queue ? message_queue_is_empty(queue) : true;
+}
+
+size_t message_queue_manager_get_count(MessageQueueManager* manager, uint32_t queue_id) {
+    if (!manager) return 0;
+    
+    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
+    return queue ? message_queue_get_count(queue) : 0;
+}
+
+size_t message_queue_manager_get_capacity(MessageQueueManager* manager, uint32_t queue_id) {
+    if (!manager) return 0;
+    
+    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
+    return queue ? message_queue_get_capacity(queue) : 0;
+}
+
+size_t message_queue_manager_get_message_size(MessageQueueManager* manager, uint32_t queue_id) {
+    if (!manager) return 0;
+    
+    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
+    return queue ? message_queue_get_message_size(queue) : 0;
+}
+
+// Status and debugging
+size_t message_queue_manager_get_queue_count(const MessageQueueManager* manager) {
+    return manager ? manager->queue_count : 0;
+}
+
+MessageQueue* message_queue_manager_get_queue(MessageQueueManager* manager, uint32_t queue_id) {
+    return message_queue_manager_find_queue(manager, queue_id);
+}
+
+void message_queue_manager_print_queues(const MessageQueueManager* manager) {
+    if (!manager) return;
+    
+    printf("=== Message Queue Manager Status ===\n");
+    printf("Total queues: %zu\n", manager->queue_count);
+    
+    for (int i = 0; i < MAX_MESSAGE_QUEUES; i++) {
+        if (manager->queue_used[i]) {
+            MessageQueue* queue = (MessageQueue*)&manager->queues[i];
+            printf("  Queue %u: count=%zu/%zu, msg_size=%zu\n", 
+                   queue->id, 
+                   queue->count, 
+                   queue->capacity, 
+                   sizeof(Message));
+        }
+    }
+    printf("=====================================\n");
+}
+
+// Internal helper functions
+MessageQueue* message_queue_manager_find_queue(MessageQueueManager* manager, uint32_t queue_id) {
+    if (!manager) return NULL;
+    
+    for (int i = 0; i < MAX_MESSAGE_QUEUES; i++) {
+        if (manager->queue_used[i] && manager->queues[i].id == queue_id) {
+            return &manager->queues[i];
+        }
+    }
+    return NULL;
+}
 
 // Message functions
 Message message_create(uint32_t id, uint32_t type, const char* data, uint32_t sender_id) {
@@ -13,448 +311,97 @@ Message message_create(uint32_t id, uint32_t type, const char* data, uint32_t se
     msg.sender_id = sender_id;
     
     if (data) {
-        msg.data = (char*)malloc(strlen(data) + 1);
-        if (msg.data) {
-            strcpy(msg.data, data);
-        }
+        strncpy(msg.data, data, MAX_MESSAGE_DATA_SIZE - 1);
+        msg.data[MAX_MESSAGE_DATA_SIZE - 1] = '\0'; // Ensure null termination
     } else {
-        msg.data = NULL;
+        msg.data[0] = '\0';
     }
     
     return msg;
 }
 
 void message_destroy(Message* msg) {
-    if (msg && msg->data) {
-        free(msg->data);
-        msg->data = NULL;
+    if (msg) {
+        // Clear the message data
+        memset(msg->data, 0, MAX_MESSAGE_DATA_SIZE);
+        msg->id = 0;
+        msg->type = 0;
+        msg->sender_id = 0;
     }
 }
 
 Message message_copy(const Message* src) {
-    Message copy = {0};
+    Message dst;
     if (src) {
-        copy.id = src->id;
-        copy.type = src->type;
-        copy.sender_id = src->sender_id;
-        
-        if (src->data) {
-            copy.data = (char*)malloc(strlen(src->data) + 1);
-            if (copy.data) {
-                strcpy(copy.data, src->data);
-            }
-        }
+        dst.id = src->id;
+        dst.type = src->type;
+        dst.sender_id = src->sender_id;
+        strncpy(dst.data, src->data, MAX_MESSAGE_DATA_SIZE - 1);
+        dst.data[MAX_MESSAGE_DATA_SIZE - 1] = '\0';
+    } else {
+        memset(&dst, 0, sizeof(Message));
     }
-    return copy;
+    return dst;
 }
 
-// Message Queue functions
-MessageQueue* message_queue_create(size_t max_size) {
-    MessageQueue* queue = (MessageQueue*)malloc(sizeof(MessageQueue));
-    if (!queue) return NULL;
-    
-    queue->front = NULL;
-    queue->rear = NULL;
-    queue->count = 0;
-    queue->max_size = max_size;
-    
-    if (platform_mutex_init(&queue->mutex) != 0) {
-        free(queue);
-        return NULL;
-    }
-    
-    if (platform_cond_init(&queue->cv_not_full) != 0) {
-        platform_mutex_destroy(&queue->mutex);
-        free(queue);
-        return NULL;
-    }
-    
-    if (platform_cond_init(&queue->cv_not_empty) != 0) {
-        platform_mutex_destroy(&queue->mutex);
-        platform_cond_destroy(&queue->cv_not_full);
-        free(queue);
-        return NULL;
-    }
-    
-    return queue;
-}
-
-void message_queue_destroy(MessageQueue* queue) {
-    if (!queue) return;
-    
-    platform_mutex_lock(&queue->mutex);
-    
-    // Free all messages in queue
-    MessageQueueNode* current = queue->front;
-    while (current) {
-        MessageQueueNode* next = current->next;
-        message_destroy(&current->message);
-        free(current);
-        current = next;
-    }
-    
-    platform_mutex_unlock(&queue->mutex);
-    
-    platform_mutex_destroy(&queue->mutex);
-    platform_cond_destroy(&queue->cv_not_full);
-    platform_cond_destroy(&queue->cv_not_empty);
-    free(queue);
-}
-
+// Message Queue functions that work with Message structs
 bool message_queue_send_message(MessageQueue* queue, const Message* msg, uint32_t timeout_ms) {
+    (void)timeout_ms; // Suppress unused parameter warning
     if (!queue || !msg) return false;
     
-    platform_mutex_lock(&queue->mutex);
+    ATOMIC_LOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
     
-    // Wait for space if queue is full
-    if (timeout_ms == 0) {
-        // Infinite wait
-        while (queue->count >= queue->max_size) {
-            platform_cond_wait(&queue->cv_not_full, &queue->mutex);
-        }
-    } else {
-        // Timed wait
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += timeout_ms / 1000;
-        ts.tv_nsec += (timeout_ms % 1000) * 1000000;
-        if (ts.tv_nsec >= 1000000000) {
-            ts.tv_sec++;
-            ts.tv_nsec -= 1000000000;
-        }
-        
-        while (queue->count >= queue->max_size) {
-            int result = platform_cond_timedwait(&queue->cv_not_full, &queue->mutex, &ts);
-            if (result != 0) { // Platform returns non-zero on timeout/error
-                platform_mutex_unlock(&queue->mutex);
-                return false;
-            }
-        }
-    }
-    
-    // Create new node
-    MessageQueueNode* node = (MessageQueueNode*)malloc(sizeof(MessageQueueNode));
-    if (!node) {
-        platform_mutex_unlock(&queue->mutex);
+    // Check if queue is full
+    if (queue->count >= queue->capacity) {
+        ATOMIC_UNLOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
         return false;
     }
     
-    node->message = message_copy(msg);
-    node->next = NULL;
-    
-    // Add to queue
-    if (queue->rear) {
-        queue->rear->next = node;
-    } else {
-        queue->front = node;
-    }
-    queue->rear = node;
+    // Add message to queue
+    queue->buffer[queue->tail] = *msg;
+    queue->tail = (queue->tail + 1) % queue->capacity;
     queue->count++;
     
-    platform_cond_signal(&queue->cv_not_empty);
-    platform_mutex_unlock(&queue->mutex);
-    
+    ATOMIC_UNLOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
     return true;
-}
-
-bool message_queue_send(MessageQueue* queue, uint32_t type, const char* data, uint32_t timeout_ms) {
-    Message msg = message_create(0, type, data, 0);
-    bool result = message_queue_send_message(queue, &msg, timeout_ms);
-    message_destroy(&msg);
-    return result;
 }
 
 bool message_queue_receive_message(MessageQueue* queue, Message* msg, uint32_t timeout_ms) {
+    (void)timeout_ms; // Suppress unused parameter warning
     if (!queue || !msg) return false;
     
-    platform_mutex_lock(&queue->mutex);
+    ATOMIC_LOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
     
-    // Wait for message if queue is empty
-    if (timeout_ms == 0) {
-        // Infinite wait
-        while (queue->count == 0) {
-            platform_cond_wait(&queue->cv_not_empty, &queue->mutex);
-        }
-    } else {
-        // Timed wait
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += timeout_ms / 1000;
-        ts.tv_nsec += (timeout_ms % 1000) * 1000000;
-        if (ts.tv_nsec >= 1000000000) {
-            ts.tv_sec++;
-            ts.tv_nsec -= 1000000000;
-        }
-        
-        while (queue->count == 0) {
-            int result = platform_cond_timedwait(&queue->cv_not_empty, &queue->mutex, &ts);
-            if (result != 0) { // Platform returns non-zero on timeout/error
-                platform_mutex_unlock(&queue->mutex);
-                return false;
-            }
-        }
+    // Check if queue is empty
+    if (queue->count == 0) {
+        ATOMIC_UNLOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
+        return false;
     }
     
-    // Remove from queue
-    MessageQueueNode* node = queue->front;
-    *msg = node->message;
-    queue->front = node->next;
-    if (!queue->front) {
-        queue->rear = NULL;
-    }
+    // Get message from queue
+    *msg = queue->buffer[queue->head];
+    queue->head = (queue->head + 1) % queue->capacity;
     queue->count--;
     
-    free(node);
-    
-    platform_cond_signal(&queue->cv_not_full);
-    platform_mutex_unlock(&queue->mutex);
-    
+    ATOMIC_UNLOCK(&queue->lock, LOCK_ID_MESSAGE_QUEUE);
     return true;
 }
 
-bool message_queue_receive(MessageQueue* queue, uint32_t* type, char** data, uint32_t timeout_ms) {
-    Message msg;
-    if (message_queue_receive_message(queue, &msg, timeout_ms)) {
-        *type = msg.type;
-        *data = msg.data; // Transfer ownership
-        return true;
-    }
-    return false;
-}
-
-size_t message_queue_get_count(const MessageQueue* queue) {
-    if (!queue) return 0;
-    
-    platform_mutex_lock((mutex_t*)&queue->mutex);
-    size_t count = queue->count;
-    platform_mutex_unlock((mutex_t*)&queue->mutex);
-    
-    return count;
-}
-
-size_t message_queue_get_max_size(const MessageQueue* queue) {
-    return queue ? queue->max_size : 0;
-}
-
-bool message_queue_is_full(const MessageQueue* queue) {
-    return queue && message_queue_get_count(queue) >= queue->max_size;
-}
-
-bool message_queue_is_empty(const MessageQueue* queue) {
-    return queue && message_queue_get_count(queue) == 0;
-}
-
-// Message Queue Manager functions
-MessageQueueManager* message_queue_manager_create(void) {
-    MessageQueueManager* manager = (MessageQueueManager*)malloc(sizeof(MessageQueueManager));
-    if (!manager) return NULL;
-    
-    manager->queues_head = NULL;
-    manager->next_queue_id = 1;
-    manager->queue_count = 0;
-    
-    if (platform_mutex_init(&manager->manager_mutex) != 0) {
-        free(manager);
-        return NULL;
-    }
-    
-    return manager;
-}
-
-void message_queue_manager_destroy(MessageQueueManager* manager) {
-    if (!manager) return;
-    
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    MessageQueueManagerNode* current = manager->queues_head;
-    while (current) {
-        MessageQueueManagerNode* next = current->next;
-        message_queue_destroy(current->queue);
-        free(current);
-        current = next;
-    }
-    
-    platform_mutex_unlock(&manager->manager_mutex);
-    platform_mutex_destroy(&manager->manager_mutex);
-    free(manager);
-}
-
-MessageQueue* message_queue_manager_find_queue(MessageQueueManager* manager, uint32_t queue_id) {
-    if (!manager) return NULL;
-    
-    MessageQueueManagerNode* current = manager->queues_head;
-    while (current) {
-        if (current->id == queue_id) {
-            return current->queue;
-        }
-        current = current->next;
-    }
-    
-    return NULL;
-}
-
-uint32_t message_queue_manager_create_queue(MessageQueueManager* manager, size_t max_size) {
-    if (!manager) return 0;
-    
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    MessageQueue* queue = message_queue_create(max_size);
-    if (!queue) {
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
-    }
-    
-    MessageQueueManagerNode* node = (MessageQueueManagerNode*)malloc(sizeof(MessageQueueManagerNode));
-    if (!node) {
-        message_queue_destroy(queue);
-        platform_mutex_unlock(&manager->manager_mutex);
-        return 0;
-    }
-    
-    uint32_t queue_id = manager->next_queue_id++;
-    node->id = queue_id;
-    node->queue = queue;
-    node->next = manager->queues_head;
-    manager->queues_head = node;
-    manager->queue_count++;
-    
-    platform_mutex_unlock(&manager->manager_mutex);
-    return queue_id;
-}
-
-bool message_queue_manager_delete_queue(MessageQueueManager* manager, uint32_t queue_id) {
-    if (!manager) return false;
-    
-    platform_mutex_lock(&manager->manager_mutex);
-    
-    MessageQueueManagerNode* current = manager->queues_head;
-    MessageQueueManagerNode* prev = NULL;
-    
-    while (current) {
-        if (current->id == queue_id) {
-            if (prev) {
-                prev->next = current->next;
-            } else {
-                manager->queues_head = current->next;
-            }
-            
-            message_queue_destroy(current->queue);
-            free(current);
-            manager->queue_count--;
-            
-            platform_mutex_unlock(&manager->manager_mutex);
-            return true;
-        }
-        
-        prev = current;
-        current = current->next;
-    }
-    
-    platform_mutex_unlock(&manager->manager_mutex);
-    return false;
-}
-
+// Manager functions that work with Message structs
 bool message_queue_manager_send_message(MessageQueueManager* manager, uint32_t queue_id, const Message* msg, uint32_t timeout_ms) {
-    if (!manager) return false;
+    if (!manager || !msg) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
     MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
     if (!queue) return false;
     
     return message_queue_send_message(queue, msg, timeout_ms);
 }
 
-bool message_queue_manager_send(MessageQueueManager* manager, uint32_t queue_id, uint32_t type, const char* data, uint32_t timeout_ms) {
-    if (!manager) return false;
-    
-    platform_mutex_lock(&manager->manager_mutex);
-    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
-    if (!queue) return false;
-    
-    return message_queue_send(queue, type, data, timeout_ms);
-}
-
 bool message_queue_manager_receive_message(MessageQueueManager* manager, uint32_t queue_id, Message* msg, uint32_t timeout_ms) {
-    if (!manager) return false;
+    if (!manager || !msg) return false;
     
-    platform_mutex_lock(&manager->manager_mutex);
     MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
     if (!queue) return false;
     
     return message_queue_receive_message(queue, msg, timeout_ms);
-}
-
-bool message_queue_manager_receive(MessageQueueManager* manager, uint32_t queue_id, uint32_t* type, char** data, uint32_t timeout_ms) {
-    if (!manager) return false;
-    
-    platform_mutex_lock(&manager->manager_mutex);
-    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
-    if (!queue) return false;
-    
-    return message_queue_receive(queue, type, data, timeout_ms);
-}
-
-size_t message_queue_manager_get_count(MessageQueueManager* manager, uint32_t queue_id) {
-    if (!manager) return 0;
-    
-    platform_mutex_lock(&manager->manager_mutex);
-    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
-    if (!queue) return 0;
-    
-    return message_queue_get_count(queue);
-}
-
-size_t message_queue_manager_get_max_size(MessageQueueManager* manager, uint32_t queue_id) {
-    if (!manager) return 0;
-    
-    platform_mutex_lock(&manager->manager_mutex);
-    MessageQueue* queue = message_queue_manager_find_queue(manager, queue_id);
-    platform_mutex_unlock(&manager->manager_mutex);
-    
-    if (!queue) return 0;
-    
-    return message_queue_get_max_size(queue);
-}
-
-size_t message_queue_manager_get_queue_count(const MessageQueueManager* manager) {
-    if (!manager) return 0;
-    
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    size_t count = manager->queue_count;
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
-    
-    return count;
-}
-
-void message_queue_manager_print_queues(const MessageQueueManager* manager) {
-    if (!manager) {
-        printf("MessageQueueManager is NULL\n");
-        return;
-    }
-    
-    platform_mutex_lock((mutex_t*)&manager->manager_mutex);
-    
-    printf("Message Queue Manager Status:\n");
-    printf("Total queues: %zu\n", manager->queue_count);
-    
-    MessageQueueManagerNode* current = manager->queues_head;
-    while (current) {
-        printf("  Queue ID %u: %zu/%zu messages\n", 
-               current->id, 
-               message_queue_get_count(current->queue),
-               message_queue_get_max_size(current->queue));
-        current = current->next;
-    }
-    
-    platform_mutex_unlock((mutex_t*)&manager->manager_mutex);
 }

@@ -13,15 +13,17 @@ extern "C" {
 
 // Task-based Timer Manager structure
 typedef struct TaskBasedTimerManager {
-    TimerManager* timer_manager;
-    PriorityScheduler* scheduler;
-    Task* timer_task;
+    TimerManager timer_manager;        // Local timer manager instance
+    TimerManager* timer_manager_ptr;   // Pointer to timer manager (local or external)
+    PriorityScheduler local_scheduler; // Local scheduler instance
+    PriorityScheduler* scheduler;      // Pointer to scheduler (local or external)
+    Task timer_task;                   // Local timer task instance
     uint8_t timer_task_priority;
     bool owns_scheduler;
 } TaskBasedTimerManager;
 
 // Task-based Timer Manager functions
-TaskBasedTimerManager* task_based_timer_manager_create(PriorityScheduler* scheduler, uint8_t timer_task_priority);
+void task_based_timer_manager_init(TaskBasedTimerManager* manager, PriorityScheduler* scheduler, uint8_t timer_task_priority);
 void task_based_timer_manager_destroy(TaskBasedTimerManager* manager);
 
 // Timer management (delegates to underlying TimerManager)

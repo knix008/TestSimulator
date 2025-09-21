@@ -1,23 +1,18 @@
 // _CRT_SECURE_NO_WARNINGS defined in CMakeLists.txt
 #include "task.h"
-#include "semaphore.h"
-#include "event.h"
-#include "signal.h"
 #include "message_queue.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 // Constructor-like function
-Task* task_create(uint32_t task_id, uint8_t task_priority, void* task_data) {
-    Task* task = (Task*)malloc(sizeof(Task));
-    if (!task) {
-        return NULL;
-    }
+void task_init(Task* task, uint32_t task_id, uint8_t task_priority, TaskFunction function, void* task_data) {
+    if (!task) return;
     
     task->id = task_id;
     task->priority = task_priority;
     task->state = TASK_READY;
+    task->function = function;
     task->data = task_data;
     
     // Initialize synchronization fields
@@ -27,14 +22,22 @@ Task* task_create(uint32_t task_id, uint8_t task_priority, void* task_data) {
     task->waiting_message_queue = NULL;
     task->event_mask = 0;
     task->clear_on_exit = true;
-    
-    return task;
 }
 
 // Destructor-like function
 void task_destroy(Task* task) {
     if (task) {
-        free(task);
+        // Clear the task data - no need to free since it's stack-allocated
+        task->id = 0;
+        task->priority = 0;
+        task->state = TASK_READY;
+        task->data = NULL;
+        task->waiting_semaphore = NULL;
+        task->waiting_event = NULL;
+        task->waiting_signal = NULL;
+        task->waiting_message_queue = NULL;
+        task->event_mask = 0;
+        task->clear_on_exit = false;
     }
 }
 
@@ -53,6 +56,16 @@ TaskState task_get_state(const Task* task) {
 
 void* task_get_data(const Task* task) {
     return task ? task->data : NULL;
+}
+
+void* task_get_function(Task* task) {
+    return task ? (void*)task->function : NULL;
+}
+
+void task_set_priority(Task* task, uint8_t priority) {
+    if (task) {
+        task->priority = priority;
+    }
 }
 
 // Synchronization getters
@@ -190,31 +203,32 @@ void task_clear_wait_states(Task* task) {
 void task_execute(Task* task) {
     if (task) {
         printf("Executing task %u with priority %u\n", task->id, task->priority);
+        if (task->function) {
+            task->function(task->data);
+        }
     }
 }
 
 // String representation
-char* task_to_string(const Task* task) {
-    if (!task) {
-        char* result = (char*)malloc(32);
-    if (result) {
-        strncpy(result, "Task{null}", 31);
-        result[31] = '\0';
-    }
-        return result;
+void task_to_string(const Task* task, char* buffer, size_t buffer_size) {
+    if (!task || !buffer || buffer_size == 0) {
+        if (buffer && buffer_size > 0) {
+            buffer[0] = '\0';
+        }
+        return;
     }
     
-    char* state_str = task_state_to_string(task->state);
-    char* result = (char*)malloc(256);
-    if (result) {
-        snprintf(result, 256, "Task{id=%u, priority=%u, state=%s, data=%s}",
-                task->id, task->priority, state_str, task->data ? "present" : "null");
-    }
-    free(state_str);
-    return result;
+    char state_buffer[32];
+    task_state_to_string(task->state, state_buffer, sizeof(state_buffer));
+    
+    snprintf(buffer, buffer_size, "Task{id=%u, priority=%u, state=%s, data=%s}",
+            task->id, task->priority, state_buffer, 
+            task->data ? "present" : "null");
 }
 
-char* task_state_to_string(TaskState state) {
+void task_state_to_string(TaskState state, char* buffer, size_t buffer_size) {
+    if (!buffer || buffer_size == 0) return;
+    
     const char* state_str;
     switch (state) {
         case TASK_READY:
@@ -234,13 +248,8 @@ char* task_state_to_string(TaskState state) {
             break;
     }
     
-    size_t len = strlen(state_str);
-    char* result = (char*)malloc(len + 1);
-    if (result) {
-        strncpy(result, state_str, len);
-        result[len] = '\0';
-    }
-    return result;
+    strncpy(buffer, state_str, buffer_size - 1);
+    buffer[buffer_size - 1] = '\0';
 }
 
 // Comparison functions for priority-based sorting
