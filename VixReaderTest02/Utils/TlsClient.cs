@@ -47,13 +47,15 @@ namespace VixReaderTest01.Utils
             _serverAddress = newServerAddress;
         }
 
-        // Connect 버튼 전용 연결 메서드 - 타임아웃 지원
-        public async Task ConnectAsync(int timeoutSeconds = 0)
+        // Connect 버튼 전용 연결 메서드 - 타임아웃 지원 (CancellationToken 파라미터 추가)
+        public async Task ConnectAsync(int timeoutSeconds = 0, CancellationToken cancellationToken = default)
         {
             // 기본 타임아웃 설정
             int actualTimeout = timeoutSeconds > 0 ? timeoutSeconds : _defaultConnectionTimeoutSeconds;
             
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(actualTimeout));
+            // 타임아웃과 외부 취소 요청을 모두 처리하기 위한 연결된 취소 토큰 생성
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(actualTimeout));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
             
             try
             {
@@ -67,19 +69,20 @@ namespace VixReaderTest01.Utils
                 _tcpClient.ReceiveTimeout = actualTimeout * 1000; // 밀리초 단위
                 _tcpClient.SendTimeout = actualTimeout * 1000;
                 
+                // 취소 가능한 TCP 연결
                 var connectTask = _tcpClient.ConnectAsync(_serverAddress, _port);
-                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(actualTimeout), cts.Token);
                 
-                var completedTask = await Task.WhenAny(connectTask, timeoutTask);
-                
-                if (completedTask == timeoutTask)
+                try
+                {
+                    // 취소 토큰으로 태스크 완료 대기
+                    await connectTask.WaitAsync(linkedCts.Token);
+                    Logger.LogMessage(_logTextBox, "TCP 연결 성공");
+                }
+                catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 {
                     Logger.LogMessage(_logTextBox, $"❌ TCP 연결 타임아웃 ({actualTimeout}초)");
                     throw new TimeoutException($"TCP 연결이 {actualTimeout}초 내에 완료되지 않았습니다.");
                 }
-                
-                await connectTask; // 연결 작업 완료 확인
-                Logger.LogMessage(_logTextBox, "TCP 연결 성공");
 
                 // SSL/TLS 스트림 생성 - 타임아웃 적용
                 _sslStream = new SslStream(
@@ -89,7 +92,7 @@ namespace VixReaderTest01.Utils
                     null
                 );
 
-                // TLS 핸드셰이크 수행 - 타임아웃 적용
+                // TLS 핸드셰이크 수행
                 Logger.LogMessage(_logTextBox, "TLS 핸드셰이크 시작...");
                 
                 var authTask = _sslStream.AuthenticateAsClientAsync(
@@ -99,16 +102,16 @@ namespace VixReaderTest01.Utils
                     false
                 );
                 
-                var authTimeoutTask = Task.Delay(TimeSpan.FromSeconds(actualTimeout), cts.Token);
-                var authCompletedTask = await Task.WhenAny(authTask, authTimeoutTask);
-                
-                if (authCompletedTask == authTimeoutTask)
+                try
+                {
+                    // 취소 토큰으로 TLS 핸드셰이크 대기
+                    await authTask.WaitAsync(linkedCts.Token);
+                }
+                catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                 {
                     Logger.LogMessage(_logTextBox, $"❌ TLS 핸드셰이크 타임아웃 ({actualTimeout}초)");
                     throw new TimeoutException($"TLS 핸드셰이크가 {actualTimeout}초 내에 완료되지 않았습니다.");
                 }
-                
-                await authTask; // 핸드셰이크 작업 완료 확인
 
                 Logger.LogMessage(_logTextBox, $"TLS 연결 성공!");
                 Logger.LogMessage(_logTextBox, $"TLS 프로토콜: {_sslStream.SslProtocol}");
@@ -122,9 +125,12 @@ namespace VixReaderTest01.Utils
                     Logger.LogMessage(_logTextBox, $"서버 인증서 발급자: {cert.Issuer}");
                 }
 
-                // 1단계: "AT" 명령으로 연결 확인 - 타임아웃 적용
+                // 취소 요청 확인
+                linkedCts.Token.ThrowIfCancellationRequested();
+
+                // 1단계: "AT" 명령으로 연결 확인
                 Logger.LogMessage(_logTextBox, "AT 명령 전송...");
-                string atResponse = await SendRawCommandAsync("AT", cts.Token);
+                string atResponse = await SendRawCommandAsync("AT", linkedCts.Token);
 
                 // AT 응답 확인
                 bool isAtSuccess = !string.IsNullOrEmpty(atResponse) && 
@@ -138,12 +144,15 @@ namespace VixReaderTest01.Utils
                 
                 Logger.LogMessage(_logTextBox, "✅ AT 명령 성공");
                 
-                // 2단계: "AT+TEST=BEGIN" 명령으로 테스트 모드 진입 - 타임아웃 적용
+                // 취소 요청 확인
+                linkedCts.Token.ThrowIfCancellationRequested();
+
+                // 2단계: "AT+TEST=BEGIN" 명령으로 테스트 모드 진입
                 Logger.LogMessage(_logTextBox, "테스트 모드 진입...");
                 
-                await Task.Delay(1000, cts.Token);
+                await Task.Delay(1000, linkedCts.Token);
                 
-                string testBeginResponse = await SendRawCommandAsync("AT+TEST=BEGIN", cts.Token);
+                string testBeginResponse = await SendRawCommandAsync("AT+TEST=BEGIN", linkedCts.Token);
                 
                 // 테스트 모드 진입 확인
                 if (string.IsNullOrEmpty(testBeginResponse))
@@ -164,12 +173,19 @@ namespace VixReaderTest01.Utils
                 
                 Logger.LogMessage(_logTextBox, $"TLS 연결 및 테스트 설정 완료 (연결 상태: {_isConnected})");
             }
-            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                Logger.LogMessage(_logTextBox, $"❌ 연결 작업 타임아웃 ({actualTimeout}초)");
+                Logger.LogMessage(_logTextBox, "❌ 연결 작업이 사용자에 의해 취소되었습니다.");
                 _isConnected = false;
                 await DisconnectAsync();
-                throw new TimeoutException($"연결 작업이 {actualTimeout}초 내에 완료되지 않았습니다.");
+                throw; // 취소 예외 전파
+            }
+            catch (OperationCanceledException) // 타임아웃이나 다른 취소 처리
+            {
+                Logger.LogMessage(_logTextBox, $"❌ 연결 작업 타임아웃 또는 취소됨");
+                _isConnected = false;
+                await DisconnectAsync();
+                throw new TimeoutException($"연결 작업이 {actualTimeout}초 내에 완료되지 않았거나 취소되었습니다.");
             }
             catch (TimeoutException)
             {
@@ -187,14 +203,15 @@ namespace VixReaderTest01.Utils
             }
         }
 
-        // 일반 AT 명령 전송 - 타임아웃 지원
-        // SendAtCommandAsync 메서드 수정
-        public async Task<string> SendAtCommandAsync(string atCommand, int timeoutSeconds = 0)
+        // 일반 AT 명령 전송 - 타임아웃 지원 (CancellationToken 파라미터 추가)
+        public async Task<string> SendAtCommandAsync(string atCommand, int timeoutSeconds = 0, CancellationToken cancellationToken = default)
         {
             // 기본 타임아웃 설정
             int actualTimeout = timeoutSeconds > 0 ? timeoutSeconds : _defaultCommandTimeoutSeconds;
             
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(actualTimeout));
+            // 타임아웃과 외부 취소 요청을 모두 처리하기 위한 연결된 취소 토큰 생성
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(actualTimeout));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
             
             try
             {
@@ -218,9 +235,15 @@ namespace VixReaderTest01.Utils
                     throw new InvalidOperationException("네트워크 연결이 끊어졌습니다. Connect 버튼을 클릭하여 다시 연결해주세요.");
                 }
 
-                return await SendRawCommandAsync(atCommand, cts.Token);
+                // 취소 토큰 전달
+                return await SendRawCommandAsync(atCommand, linkedCts.Token);
             }
-            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Logger.LogMessage(_logTextBox, $"❌ AT 명령이 사용자에 의해 취소되었습니다: {atCommand}");
+                throw; // 취소 예외 전파
+            }
+            catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested)
             {
                 Logger.LogMessage(_logTextBox, $"❌ AT 명령 타임아웃 ({actualTimeout}초): {atCommand}");
                 throw new TimeoutException($"AT 명령 '{atCommand}'이 {actualTimeout}초 내에 완료되지 않았습니다.");
@@ -305,6 +328,9 @@ namespace VixReaderTest01.Utils
                     throw new InvalidOperationException("TLS 스트림이 초기화되지 않았습니다.");
                 }
 
+                // 취소 요청 확인
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // AT 명령 전송
                 Logger.LogMessage(_logTextBox, $"AT 명령 '{atCommand}' 전송 중...");
                 byte[] commandBytes = Encoding.UTF8.GetBytes(atCommand + "\r\n");
@@ -315,10 +341,10 @@ namespace VixReaderTest01.Utils
                 // 서버 응답 수신 - "OK\r\n", "FAIL\r\n" 또는 시리얼 번호 문자열 형태의 응답을 기대
                 return await ReadResponseAsync(cancellationToken);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
-                Logger.LogMessage(_logTextBox, $"AT 명령 전송 타임아웃: {atCommand}");
-                throw;
+                Logger.LogMessage(_logTextBox, $"AT 명령 전송 취소됨: {atCommand}");
+                throw; // 취소 예외 전파
             }
             catch (Exception ex)
             {
@@ -349,6 +375,8 @@ namespace VixReaderTest01.Utils
                 {
                     if (stream.CanRead)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        
                         int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                         if (bytesRead > 0)
                         {
@@ -381,14 +409,20 @@ namespace VixReaderTest01.Utils
                                 Logger.LogMessage(_logTextBox, $"연속 빈 읽기 감지, 응답 완료로 판단: {consecutiveEmptyReads}회");
                                 break;
                             }
+                            
+                            // 취소 토큰으로 지연
                             await Task.Delay(100, cancellationToken);
                         }
                     }
                     else
                     {
+                        // 취소 토큰으로 지연
                         await Task.Delay(50, cancellationToken);
                     }
                 }
+
+                // 취소 요청 확인
+                cancellationToken.ThrowIfCancellationRequested();
 
                 string finalResponse = responseBuilder.ToString();
                 // 최종 응답 로그에서도 \r\n 제거
@@ -402,10 +436,10 @@ namespace VixReaderTest01.Utils
 
                 return finalResponse.Trim();
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
-                Logger.LogMessage(_logTextBox, "응답 읽기 타임아웃");
-                throw new TimeoutException("서버 응답 타임아웃: 응답을 받지 못했습니다");
+                Logger.LogMessage(_logTextBox, "응답 읽기가 취소되었습니다.");
+                throw; // 취소 예외 전파
             }
             catch (Exception ex)
             {

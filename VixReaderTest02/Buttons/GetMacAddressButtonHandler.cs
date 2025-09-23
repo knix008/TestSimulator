@@ -8,15 +8,36 @@ namespace VixReaderTest01
             {
                 if (!LogTextBox.IsDisposed && !this.IsDisposed)
                 {
-                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAC 주소 요청 중...\r\n");
+                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAC 주소 조회 중...\r\n");
                 }
 
-                await _macAddressApi.GetMacAddressInfoAsync();
+                // AT+MAC? 명령 전송 및 응답 수신
+                string macResult = await _macAddressApi.GetMacAddressInfoAsync();
 
-                await SaveTestResult("MAC Address", "System Info", "PASS", "MAC 주소 조회 완료");
+                if (!string.IsNullOrWhiteSpace(macResult) && !macResult.Equals("FAIL", StringComparison.OrdinalIgnoreCase))
+                {
+                    // 성공 시 MAC 주소를 DB에 저장
+                    await SaveTestResult("MAC", "SUCCESS", macResult);
 
-                // 성공 시 TestResult 버튼을 초록색으로 설정
-                UpdateTestResultButton(true);
+                    UpdateTestResultButton(true);
+
+                    if (!LogTextBox.IsDisposed && !this.IsDisposed)
+                    {
+                        LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAC 주소 조회 완료\r\n");
+                    }
+                }
+                else
+                {
+                    // 실패 시 "FAIL"을 DB에 저장
+                    await SaveTestResult("MAC", "FAIL");
+
+                    UpdateTestResultButton(false);
+
+                    if (!LogTextBox.IsDisposed && !this.IsDisposed)
+                    {
+                        LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] MAC 주소 조회 실패\r\n");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -27,15 +48,13 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
-                    HandleTlsConnectionError("DefaultState", ex.Message);
+                    HandleTlsConnectionError("MAC", ex.Message);
                 }
                 else
                 {
-                    // 인수 4개로 변경
-                    await SaveTestResult("MAC Address", "System Info", "FAIL", $"MAC 주소 조회 실패: {ex.Message}");
+                    await SaveTestResult("MAC", "FAIL");
                 }
 
-                // 실패 시 TestResult 버튼을 빨간색으로 설정
                 UpdateTestResultButton(false);
             }
         }

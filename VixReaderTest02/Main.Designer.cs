@@ -6,7 +6,6 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Main));
             LogTextBox = new TextBox();
-            IntellivixLogo = new PictureBox();
             SerialCheckBox = new CheckBox();
             EthernetCheckBox = new CheckBox();
             IPAddressTextBox = new TextBox();
@@ -14,14 +13,13 @@
             InterfaceGroupBox = new GroupBox();
             ConnectButton = new Button();
             ControlCommand = new GroupBox();
-            Reboot = new Button();
             GetSerialNumber = new Button();
             SetSerialNumber = new Button();
+            ClearSetting = new Button();
+            Reboot = new Button();
             GetFirmwareVersion = new Button();
             SetDefault = new Button();
-            ClearSetting = new Button();
             TestResult = new Button();
-            NetworkLink = new Button();
             TamperTest = new Button();
             BuzzerTest = new Button();
             DoorButtonTest = new Button();
@@ -35,13 +33,15 @@
             IntellivixInfo = new Label();
             Report = new Button();
             TestCommandGroup = new GroupBox();
+            MACAddressButton = new Button();
             LEDTest = new Button();
             DeviceTypeComboBox = new ComboBox();
             DeviceTypeLabel = new Label();
-            ((System.ComponentModel.ISupportInitialize)IntellivixLogo).BeginInit();
+            IntellivixLogo = new PictureBox();
             InterfaceGroupBox.SuspendLayout();
             ControlCommand.SuspendLayout();
             TestCommandGroup.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)IntellivixLogo).BeginInit();
             SuspendLayout();
             // 
             // LogTextBox
@@ -53,30 +53,17 @@
             LogTextBox.Name = "LogTextBox";
             LogTextBox.ScrollBars = ScrollBars.Vertical;
             LogTextBox.Size = new Size(959, 187);
-            LogTextBox.TabIndex = 50;
-            // 
-            // IntellivixLogo
-            // 
-            IntellivixLogo.BackColor = SystemColors.ControlDark;
-            IntellivixLogo.BackgroundImageLayout = ImageLayout.Stretch;
-            IntellivixLogo.Image = (Image)resources.GetObject("IntellivixLogo.Image");
-            IntellivixLogo.Location = new Point(12, 12);
-            IntellivixLogo.Name = "IntellivixLogo";
-            IntellivixLogo.Size = new Size(73, 72);
-            IntellivixLogo.SizeMode = PictureBoxSizeMode.StretchImage;
-            IntellivixLogo.TabIndex = 0;
-            IntellivixLogo.TabStop = false;
-            IntellivixLogo.Click += IntellivixLogo_Click;
+            LogTextBox.TabIndex = 8;
             // 
             // SerialCheckBox
             // 
             SerialCheckBox.AutoSize = true;
             SerialCheckBox.Enabled = false;
-            SerialCheckBox.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
-            SerialCheckBox.Location = new Point(8, 25);
+            SerialCheckBox.Font = new Font("굴림", 9.75F, FontStyle.Bold);
+            SerialCheckBox.Location = new Point(8, 31);
             SerialCheckBox.Name = "SerialCheckBox";
-            SerialCheckBox.Size = new Size(70, 25);
-            SerialCheckBox.TabIndex = 1;
+            SerialCheckBox.Size = new Size(68, 17);
+            SerialCheckBox.TabIndex = 0;
             SerialCheckBox.Text = "Serial";
             SerialCheckBox.UseVisualStyleBackColor = true;
             // 
@@ -85,19 +72,20 @@
             EthernetCheckBox.AutoSize = true;
             EthernetCheckBox.Checked = true;
             EthernetCheckBox.CheckState = CheckState.Checked;
-            EthernetCheckBox.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
-            EthernetCheckBox.Location = new Point(84, 25);
+            EthernetCheckBox.Font = new Font("굴림", 9.75F, FontStyle.Bold);
+            EthernetCheckBox.Location = new Point(84, 31);
             EthernetCheckBox.Name = "EthernetCheckBox";
-            EthernetCheckBox.Size = new Size(94, 25);
-            EthernetCheckBox.TabIndex = 2;
+            EthernetCheckBox.Size = new Size(85, 17);
+            EthernetCheckBox.TabIndex = 1;
             EthernetCheckBox.Text = "Ethernet";
             EthernetCheckBox.UseVisualStyleBackColor = true;
             // 
             // IPAddressTextBox
             // 
-            IPAddressTextBox.Location = new Point(269, 25);
+            IPAddressTextBox.Font = new Font("굴림", 9.75F, FontStyle.Bold);
+            IPAddressTextBox.Location = new Point(269, 27);
             IPAddressTextBox.Name = "IPAddressTextBox";
-            IPAddressTextBox.Size = new Size(166, 29);
+            IPAddressTextBox.Size = new Size(166, 22);
             IPAddressTextBox.TabIndex = 3;
             IPAddressTextBox.Text = "192.168.0.2\r\n";
             IPAddressTextBox.TextChanged += IPAddressTextBox_TextChanged;
@@ -105,11 +93,11 @@
             // IPAddressLabel
             // 
             IPAddressLabel.AutoSize = true;
-            IPAddressLabel.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
-            IPAddressLabel.Location = new Point(200, 26);
+            IPAddressLabel.Font = new Font("굴림", 9.75F, FontStyle.Bold);
+            IPAddressLabel.Location = new Point(200, 31);
             IPAddressLabel.Name = "IPAddressLabel";
-            IPAddressLabel.Size = new Size(73, 21);
-            IPAddressLabel.TabIndex = 0;
+            IPAddressLabel.Size = new Size(64, 13);
+            IPAddressLabel.TabIndex = 2;
             IPAddressLabel.Text = "IP 주소 :";
             // 
             // InterfaceGroupBox
@@ -124,7 +112,7 @@
             InterfaceGroupBox.Location = new Point(356, 12);
             InterfaceGroupBox.Name = "InterfaceGroupBox";
             InterfaceGroupBox.Size = new Size(616, 61);
-            InterfaceGroupBox.TabIndex = 2;
+            InterfaceGroupBox.TabIndex = 1;
             InterfaceGroupBox.TabStop = false;
             InterfaceGroupBox.Text = "장치 연결  선택 :";
             // 
@@ -133,7 +121,7 @@
             ConnectButton.BackColor = Color.Red;
             ConnectButton.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
             ConnectButton.ForeColor = Color.Transparent;
-            ConnectButton.Location = new Point(447, 21);
+            ConnectButton.Location = new Point(447, 18);
             ConnectButton.Name = "ConnectButton";
             ConnectButton.Size = new Size(163, 35);
             ConnectButton.TabIndex = 4;
@@ -143,36 +131,25 @@
             // 
             // ControlCommand
             // 
-            ControlCommand.Controls.Add(Reboot);
             ControlCommand.Controls.Add(GetSerialNumber);
             ControlCommand.Controls.Add(SetSerialNumber);
+            ControlCommand.Controls.Add(ClearSetting);
             ControlCommand.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
             ControlCommand.ForeColor = Color.DarkBlue;
             ControlCommand.Location = new Point(12, 107);
             ControlCommand.Name = "ControlCommand";
             ControlCommand.Size = new Size(571, 86);
-            ControlCommand.TabIndex = 4;
+            ControlCommand.TabIndex = 6;
             ControlCommand.TabStop = false;
             ControlCommand.Text = "장치 제어 명령 선택 : ";
-            // 
-            // Reboot
-            // 
-            Reboot.Font = new Font("맑은 고딕", 9.75F);
-            Reboot.Location = new Point(381, 40);
-            Reboot.Name = "Reboot";
-            Reboot.Size = new Size(179, 35);
-            Reboot.TabIndex = 5;
-            Reboot.Text = "장치 재부팅";
-            Reboot.UseVisualStyleBackColor = true;
-            Reboot.Click += Reboot_Click;
             // 
             // GetSerialNumber
             // 
             GetSerialNumber.Font = new Font("맑은 고딕", 9.75F);
-            GetSerialNumber.Location = new Point(10, 41);
+            GetSerialNumber.Location = new Point(10, 40);
             GetSerialNumber.Name = "GetSerialNumber";
-            GetSerialNumber.Size = new Size(180, 34);
-            GetSerialNumber.TabIndex = 1;
+            GetSerialNumber.Size = new Size(180, 35);
+            GetSerialNumber.TabIndex = 0;
             GetSerialNumber.Text = "시리얼 번호 읽기";
             GetSerialNumber.UseVisualStyleBackColor = true;
             GetSerialNumber.Click += GetSerialNumber_Click;
@@ -180,46 +157,57 @@
             // SetSerialNumber
             // 
             SetSerialNumber.Font = new Font("맑은 고딕", 9.75F);
-            SetSerialNumber.Location = new Point(196, 40);
+            SetSerialNumber.Location = new Point(201, 40);
             SetSerialNumber.Name = "SetSerialNumber";
-            SetSerialNumber.Size = new Size(179, 35);
-            SetSerialNumber.TabIndex = 2;
+            SetSerialNumber.Size = new Size(175, 36);
+            SetSerialNumber.TabIndex = 1;
             SetSerialNumber.Text = "시리얼 번호 쓰기";
             SetSerialNumber.UseVisualStyleBackColor = true;
             SetSerialNumber.Click += SetSerialNumber_Click;
             // 
+            // ClearSetting
+            // 
+            ClearSetting.Font = new Font("맑은 고딕", 9.75F);
+            ClearSetting.Location = new Point(386, 41);
+            ClearSetting.Name = "ClearSetting";
+            ClearSetting.Size = new Size(174, 35);
+            ClearSetting.TabIndex = 2;
+            ClearSetting.Text = "장치 설정 지우기";
+            ClearSetting.UseVisualStyleBackColor = true;
+            ClearSetting.Click += ClearSetting_Click;
+            // 
+            // Reboot
+            // 
+            Reboot.Font = new Font("굴림", 9.75F);
+            Reboot.Location = new Point(385, 201);
+            Reboot.Name = "Reboot";
+            Reboot.Size = new Size(174, 38);
+            Reboot.TabIndex = 14;
+            Reboot.Text = "장치 재부팅";
+            Reboot.UseVisualStyleBackColor = true;
+            Reboot.Click += Reboot_Click;
+            // 
             // GetFirmwareVersion
             // 
-            GetFirmwareVersion.Font = new Font("맑은 고딕", 9.75F);
-            GetFirmwareVersion.Location = new Point(10, 29);
+            GetFirmwareVersion.Font = new Font("굴림", 9.75F);
+            GetFirmwareVersion.Location = new Point(9, 30);
             GetFirmwareVersion.Name = "GetFirmwareVersion";
             GetFirmwareVersion.Size = new Size(179, 34);
-            GetFirmwareVersion.TabIndex = 3;
+            GetFirmwareVersion.TabIndex = 0;
             GetFirmwareVersion.Text = "펌웨어 버전 읽기";
             GetFirmwareVersion.UseVisualStyleBackColor = true;
             GetFirmwareVersion.Click += GetFirmwareVersion_Click;
             // 
             // SetDefault
             // 
-            SetDefault.Font = new Font("맑은 고딕", 9.75F);
-            SetDefault.Location = new Point(377, 30);
+            SetDefault.Font = new Font("굴림", 9.75F);
+            SetDefault.Location = new Point(200, 199);
             SetDefault.Name = "SetDefault";
-            SetDefault.Size = new Size(178, 34);
-            SetDefault.TabIndex = 6;
-            SetDefault.Text = "장치 상태 초기화";
+            SetDefault.Size = new Size(174, 38);
+            SetDefault.TabIndex = 13;
+            SetDefault.Text = "리셋 버튼 실행";
             SetDefault.UseVisualStyleBackColor = true;
             SetDefault.Click += DefaultState_Click;
-            // 
-            // ClearSetting
-            // 
-            ClearSetting.Font = new Font("맑은 고딕", 9.75F);
-            ClearSetting.Location = new Point(195, 30);
-            ClearSetting.Name = "ClearSetting";
-            ClearSetting.Size = new Size(175, 34);
-            ClearSetting.TabIndex = 4;
-            ClearSetting.Text = "장치 설정 지우기";
-            ClearSetting.UseVisualStyleBackColor = true;
-            ClearSetting.Click += ClearSetting_Click;
             // 
             // TestResult
             // 
@@ -229,137 +217,125 @@
             TestResult.Location = new Point(598, 116);
             TestResult.Name = "TestResult";
             TestResult.Size = new Size(374, 340);
-            TestResult.TabIndex = 49;
+            TestResult.TabIndex = 1;
             TestResult.Text = " 준비";
             TestResult.UseVisualStyleBackColor = false;
             // 
-            // NetworkLink
-            // 
-            NetworkLink.Font = new Font("맑은 고딕", 9.75F);
-            NetworkLink.ForeColor = Color.DarkBlue;
-            NetworkLink.Location = new Point(377, 196);
-            NetworkLink.Name = "NetworkLink";
-            NetworkLink.Size = new Size(179, 36);
-            NetworkLink.TabIndex = 12;
-            NetworkLink.Text = "네트워크 링크 테스트 실행";
-            NetworkLink.UseVisualStyleBackColor = true;
-            NetworkLink.Click += NetworkLink_Click;
-            // 
             // TamperTest
             // 
-            TamperTest.Font = new Font("맑은 고딕", 9.75F);
+            TamperTest.Font = new Font("굴림", 9.75F);
             TamperTest.ForeColor = Color.DarkBlue;
-            TamperTest.Location = new Point(377, 111);
+            TamperTest.Location = new Point(10, 201);
             TamperTest.Name = "TamperTest";
-            TamperTest.Size = new Size(179, 38);
-            TamperTest.TabIndex = 9;
-            TamperTest.Text = "템퍼 테스트 실행";
+            TamperTest.Size = new Size(176, 38);
+            TamperTest.TabIndex = 12;
+            TamperTest.Text = "템퍼 버튼 실행";
             TamperTest.UseVisualStyleBackColor = true;
             TamperTest.Click += TamperTest_Click;
             // 
             // BuzzerTest
             // 
-            BuzzerTest.Font = new Font("맑은 고딕", 9.75F);
+            BuzzerTest.Font = new Font("굴림", 9.75F);
             BuzzerTest.ForeColor = Color.DarkBlue;
-            BuzzerTest.Location = new Point(377, 70);
+            BuzzerTest.Location = new Point(200, 70);
             BuzzerTest.Name = "BuzzerTest";
-            BuzzerTest.Size = new Size(179, 35);
-            BuzzerTest.TabIndex = 6;
+            BuzzerTest.Size = new Size(175, 35);
+            BuzzerTest.TabIndex = 4;
             BuzzerTest.Text = "부저 테스트 실행";
             BuzzerTest.UseVisualStyleBackColor = true;
             BuzzerTest.Click += BuzzerTest_Click;
             // 
             // DoorButtonTest
             // 
-            DoorButtonTest.Font = new Font("맑은 고딕", 9.75F);
+            DoorButtonTest.Font = new Font("굴림", 9.75F);
             DoorButtonTest.ForeColor = Color.DarkBlue;
-            DoorButtonTest.Location = new Point(195, 111);
+            DoorButtonTest.Location = new Point(385, 113);
             DoorButtonTest.Name = "DoorButtonTest";
-            DoorButtonTest.Size = new Size(176, 38);
-            DoorButtonTest.TabIndex = 5;
+            DoorButtonTest.Size = new Size(174, 38);
+            DoorButtonTest.TabIndex = 8;
             DoorButtonTest.Text = "도어 버튼 테스트 실행";
             DoorButtonTest.UseVisualStyleBackColor = true;
             DoorButtonTest.Click += DoorButtonTest_Click;
             // 
             // DoorLockTest
             // 
-            DoorLockTest.Font = new Font("맑은 고딕", 9.75F);
-            DoorLockTest.Location = new Point(9, 155);
+            DoorLockTest.Font = new Font("굴림", 9.75F);
+            DoorLockTest.Location = new Point(385, 72);
             DoorLockTest.Name = "DoorLockTest";
-            DoorLockTest.Size = new Size(179, 35);
-            DoorLockTest.TabIndex = 7;
-            DoorLockTest.Text = "도어락 테스트 실행";
+            DoorLockTest.Size = new Size(174, 35);
+            DoorLockTest.TabIndex = 5;
+            DoorLockTest.Text = "릴레이제어 실행";
             DoorLockTest.UseVisualStyleBackColor = true;
             DoorLockTest.Click += DoorLockTest_Click;
             // 
             // SensorTest
             // 
-            SensorTest.Font = new Font("맑은 고딕", 9.75F);
+            SensorTest.Font = new Font("굴림", 9.75F);
             SensorTest.ForeColor = Color.DarkBlue;
-            SensorTest.Location = new Point(195, 70);
+            SensorTest.Location = new Point(200, 114);
             SensorTest.Name = "SensorTest";
-            SensorTest.Size = new Size(176, 35);
-            SensorTest.TabIndex = 3;
+            SensorTest.Size = new Size(174, 35);
+            SensorTest.TabIndex = 7;
             SensorTest.Text = "센서 테스트 실행";
             SensorTest.UseVisualStyleBackColor = true;
             SensorTest.Click += SensorTest_Click;
             // 
             // AUXInTest
             // 
-            AUXInTest.Font = new Font("맑은 고딕", 9.75F);
+            AUXInTest.Font = new Font("굴림", 9.75F);
             AUXInTest.ForeColor = Color.DarkBlue;
-            AUXInTest.Location = new Point(195, 196);
+            AUXInTest.Location = new Point(10, 114);
             AUXInTest.Name = "AUXInTest";
             AUXInTest.Size = new Size(176, 36);
-            AUXInTest.TabIndex = 11;
+            AUXInTest.TabIndex = 6;
             AUXInTest.Text = "AUX IN 테스트 실행";
             AUXInTest.UseVisualStyleBackColor = true;
             AUXInTest.Click += AuxinTest_Click;
             // 
             // LFIDTest
             // 
-            LFIDTest.Font = new Font("맑은 고딕", 9.75F);
+            LFIDTest.Font = new Font("굴림", 9.75F);
             LFIDTest.ForeColor = Color.DarkBlue;
-            LFIDTest.Location = new Point(9, 196);
+            LFIDTest.Location = new Point(10, 158);
             LFIDTest.Name = "LFIDTest";
-            LFIDTest.Size = new Size(178, 35);
-            LFIDTest.TabIndex = 10;
+            LFIDTest.Size = new Size(176, 35);
+            LFIDTest.TabIndex = 9;
             LFIDTest.Text = "LFID 테스트 실행";
             LFIDTest.UseVisualStyleBackColor = true;
             LFIDTest.Click += LfidTest_Click;
             // 
             // NFCTest
             // 
-            NFCTest.Font = new Font("맑은 고딕", 9.75F);
+            NFCTest.Font = new Font("굴림", 9.75F);
             NFCTest.ForeColor = Color.DarkBlue;
-            NFCTest.Location = new Point(377, 155);
+            NFCTest.Location = new Point(200, 158);
             NFCTest.Name = "NFCTest";
-            NFCTest.Size = new Size(179, 35);
-            NFCTest.TabIndex = 9;
+            NFCTest.Size = new Size(175, 35);
+            NFCTest.TabIndex = 10;
             NFCTest.Text = "NFC 테스트 실행";
             NFCTest.UseVisualStyleBackColor = true;
             NFCTest.Click += NfcTest_Click;
             // 
             // BLETest
             // 
-            BLETest.Font = new Font("맑은 고딕", 9.75F);
+            BLETest.Font = new Font("굴림", 9.75F);
             BLETest.ForeColor = Color.DarkBlue;
-            BLETest.Location = new Point(195, 155);
+            BLETest.Location = new Point(385, 157);
             BLETest.Name = "BLETest";
-            BLETest.Size = new Size(176, 35);
-            BLETest.TabIndex = 8;
+            BLETest.Size = new Size(174, 36);
+            BLETest.TabIndex = 11;
             BLETest.Text = "Bluetooth 테스트 실행";
             BLETest.UseVisualStyleBackColor = true;
             BLETest.Click += BleTest_Click;
             // 
             // SelfTest
             // 
-            SelfTest.Font = new Font("맑은 고딕", 9.75F);
+            SelfTest.Font = new Font("굴림", 9.75F);
             SelfTest.ForeColor = Color.DarkBlue;
-            SelfTest.Location = new Point(9, 69);
+            SelfTest.Location = new Point(385, 30);
             SelfTest.Name = "SelfTest";
-            SelfTest.Size = new Size(179, 36);
-            SelfTest.TabIndex = 1;
+            SelfTest.Size = new Size(174, 36);
+            SelfTest.TabIndex = 2;
             SelfTest.Text = "자가 진단 실행";
             SelfTest.UseVisualStyleBackColor = true;
             SelfTest.Click += SelfTest_Click;
@@ -373,8 +349,8 @@
             IntellivixInfo.Location = new Point(91, 12);
             IntellivixInfo.Name = "IntellivixInfo";
             IntellivixInfo.Size = new Size(241, 60);
-            IntellivixInfo.TabIndex = 1;
-            IntellivixInfo.Text = "Intellivix Reader Firmware Test Program\r\nVersion 1.0.0\r\nAll rights are reserved.\r\n(시리얼 연결은 현재 지원하지 않습니다.)\r\n";
+            IntellivixInfo.TabIndex = 0;
+            IntellivixInfo.Text = "Intellivix Reader Firmware Test Program\r\nVersion 1.0.0\r\nAll rights are reserved.\r\n(시리얼 연결은 지원하지 않습니다.)\r\n";
             // 
             // Report
             // 
@@ -383,20 +359,20 @@
             Report.Location = new Point(803, 74);
             Report.Name = "Report";
             Report.Size = new Size(163, 32);
-            Report.TabIndex = 7;
+            Report.TabIndex = 5;
             Report.Text = "보고서 생성";
             Report.UseVisualStyleBackColor = true;
             Report.Click += Report_Click;
             // 
             // TestCommandGroup
             // 
+            TestCommandGroup.Controls.Add(MACAddressButton);
+            TestCommandGroup.Controls.Add(Reboot);
             TestCommandGroup.Controls.Add(SetDefault);
             TestCommandGroup.Controls.Add(GetFirmwareVersion);
             TestCommandGroup.Controls.Add(LEDTest);
-            TestCommandGroup.Controls.Add(ClearSetting);
             TestCommandGroup.Controls.Add(SelfTest);
             TestCommandGroup.Controls.Add(TamperTest);
-            TestCommandGroup.Controls.Add(NetworkLink);
             TestCommandGroup.Controls.Add(LFIDTest);
             TestCommandGroup.Controls.Add(BLETest);
             TestCommandGroup.Controls.Add(NFCTest);
@@ -410,18 +386,29 @@
             TestCommandGroup.Location = new Point(13, 199);
             TestCommandGroup.Name = "TestCommandGroup";
             TestCommandGroup.Size = new Size(570, 257);
-            TestCommandGroup.TabIndex = 6;
+            TestCommandGroup.TabIndex = 7;
             TestCommandGroup.TabStop = false;
             TestCommandGroup.Text = "장치 테스트 명령 선택 : ";
             // 
+            // MACAddressButton
+            // 
+            MACAddressButton.Font = new Font("굴림", 9.75F);
+            MACAddressButton.Location = new Point(200, 30);
+            MACAddressButton.Name = "MACAddressButton";
+            MACAddressButton.Size = new Size(175, 35);
+            MACAddressButton.TabIndex = 1;
+            MACAddressButton.Text = "MAC 주소 읽기 실행";
+            MACAddressButton.UseVisualStyleBackColor = true;
+            MACAddressButton.Click += GetMacAddress_Click;
+            // 
             // LEDTest
             // 
-            LEDTest.Font = new Font("맑은 고딕", 9.75F);
+            LEDTest.Font = new Font("굴림", 9.75F);
             LEDTest.ForeColor = Color.DarkBlue;
-            LEDTest.Location = new Point(9, 111);
+            LEDTest.Location = new Point(9, 70);
             LEDTest.Name = "LEDTest";
             LEDTest.Size = new Size(179, 35);
-            LEDTest.TabIndex = 4;
+            LEDTest.TabIndex = 3;
             LEDTest.Text = "LED 테스트 실행";
             LEDTest.UseVisualStyleBackColor = true;
             LEDTest.Click += LedTest_Click;
@@ -435,17 +422,30 @@
             DeviceTypeComboBox.Location = new Point(625, 79);
             DeviceTypeComboBox.Name = "DeviceTypeComboBox";
             DeviceTypeComboBox.Size = new Size(166, 23);
-            DeviceTypeComboBox.TabIndex = 3;
+            DeviceTypeComboBox.TabIndex = 4;
             // 
             // DeviceTypeLabel
             // 
             DeviceTypeLabel.AutoSize = true;
-            DeviceTypeLabel.Font = new Font("맑은 고딕", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
-            DeviceTypeLabel.Location = new Point(501, 79);
+            DeviceTypeLabel.Font = new Font("굴림", 9.75F, FontStyle.Bold);
+            DeviceTypeLabel.Location = new Point(516, 84);
             DeviceTypeLabel.Name = "DeviceTypeLabel";
-            DeviceTypeLabel.Size = new Size(118, 21);
-            DeviceTypeLabel.TabIndex = 5;
-            DeviceTypeLabel.Text = "장치 타입 선택";
+            DeviceTypeLabel.Size = new Size(111, 13);
+            DeviceTypeLabel.TabIndex = 3;
+            DeviceTypeLabel.Text = "장치 타입 선택 :\r\n";
+            // 
+            // IntellivixLogo
+            // 
+            IntellivixLogo.BackColor = SystemColors.ControlDark;
+            IntellivixLogo.BackgroundImageLayout = ImageLayout.Stretch;
+            IntellivixLogo.Image = (Image)resources.GetObject("IntellivixLogo.Image");
+            IntellivixLogo.Location = new Point(12, 12);
+            IntellivixLogo.Name = "IntellivixLogo";
+            IntellivixLogo.Size = new Size(73, 72);
+            IntellivixLogo.SizeMode = PictureBoxSizeMode.StretchImage;
+            IntellivixLogo.TabIndex = 0;
+            IntellivixLogo.TabStop = false;
+            IntellivixLogo.Click += IntellivixLogo_Click;
             // 
             // Main
             // 
@@ -472,17 +472,16 @@
             Name = "Main";
             Text = "VixReader 테스트";
             Load += Main_Load;
-            ((System.ComponentModel.ISupportInitialize)IntellivixLogo).EndInit();
             InterfaceGroupBox.ResumeLayout(false);
             InterfaceGroupBox.PerformLayout();
             ControlCommand.ResumeLayout(false);
             TestCommandGroup.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)IntellivixLogo).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
 
         private TextBox LogTextBox;
-        private PictureBox IntellivixLogo;
         private CheckBox SerialCheckBox;
         private CheckBox EthernetCheckBox;
         private TextBox IPAddressTextBox;
@@ -505,7 +504,6 @@
         private Button LEDTest;
         private Button TamperTest;
         private Button BuzzerTest;
-        private Button NetworkLink;
         private Button SetDefault;
         private Button Report;
         private Button TestResult;
@@ -514,5 +512,7 @@
         private Button ConnectButton;
         private ComboBox DeviceTypeComboBox;
         private Label DeviceTypeLabel;
+        private Button MACAddressButton;
+        private PictureBox IntellivixLogo;
     }
 }

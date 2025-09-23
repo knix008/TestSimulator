@@ -4,6 +4,22 @@ namespace VixReaderTest01
     {
         private async void ClearSetting_Click(object sender, EventArgs e)
         {
+            // 경고 메시지 추가
+            var result = MessageBox.Show(
+                "이 작업을 진행하면 장치의 모든 설정이 지워질 수 있습니다.\n계속하시겠습니까?",
+                "설정 초기화 경고",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result != DialogResult.Yes)
+            {
+                if (!LogTextBox.IsDisposed && !this.IsDisposed)
+                {
+                    LogTextBox.AppendText($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 설정 지우기가 사용자에 의해 취소됨\r\n");
+                }
+                return;
+            }
+
             try
             {
                 if (!LogTextBox.IsDisposed && !this.IsDisposed)
