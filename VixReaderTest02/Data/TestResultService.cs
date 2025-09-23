@@ -38,8 +38,8 @@ namespace VixReaderTest01.Data
                     BUZZER TEXT,
                     TAMPER TEXT,
                     DEFAULT_STATE TEXT,
-                    NETWORK TEXT,
                     CLEAR_SETTING TEXT,
+                    MAC TEXT,
                     ERROR_MESSAGE TEXT
                 );";
 
@@ -54,7 +54,7 @@ namespace VixReaderTest01.Data
         {
             try
             {
-                // ID와 날짜 컬럼을 포함한 필수 컬럼 목록
+                // 필수 컬럼 목록 (NETWORK 제거, MAC 추가)
                 var requiredColumns = new Dictionary<string, string>
                 {
                     { "ID", "INTEGER PRIMARY KEY AUTOINCREMENT" },
@@ -75,8 +75,8 @@ namespace VixReaderTest01.Data
                     { "BUZZER", "TEXT" },
                     { "TAMPER", "TEXT" },
                     { "DEFAULT_STATE", "TEXT" },
-                    { "NETWORK", "TEXT" },
                     { "CLEAR_SETTING", "TEXT" },
+                    { "MAC", "TEXT" },
                     { "ERROR_MESSAGE", "TEXT" }
                 };
 
@@ -116,14 +116,18 @@ namespace VixReaderTest01.Data
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync();
 
-            // 새로운 테스트 세션 레코드 생성 (ID는 자동 증가, CREATE_DATE는 자동 설정)
+            // 현재 시간을 명시적으로 지정
+            string currentTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            // 새로운 테스트 세션 레코드 생성 (현재 시간을 명시적으로 설정)
             string insertQuery = @"
-                INSERT INTO TestResults (IP_ADDRESS) 
-                VALUES (@ipAddress);
+                INSERT INTO TestResults (IP_ADDRESS, CREATE_DATE) 
+                VALUES (@ipAddress, @createDate);
                 SELECT last_insert_rowid();";
 
             using var command = new SqliteCommand(insertQuery, connection);
             command.Parameters.AddWithValue("@ipAddress", ipAddress);
+            command.Parameters.AddWithValue("@createDate", currentTime);
 
             var result = await command.ExecuteScalarAsync();
             return Convert.ToInt32(result);
@@ -173,7 +177,7 @@ namespace VixReaderTest01.Data
                 using var writer = new StreamWriter(filePath, false, System.Text.Encoding.UTF8);
 
                 // CSV 헤더 작성 (ID와 CREATE_DATE 포함)
-                await writer.WriteLineAsync("ID,생성일시,IP주소,시리얼번호,펌웨어버전,Reboot,BIST,BLE,NFC,LFID,AUXIN,Sensor,Lock,Button,LED,Buzzer,Tamper,Default,Network,Clear Setting");
+                await writer.WriteLineAsync("ID,생성일시,IP주소,시리얼번호,펌웨어버전,Reboot,BIST,BLE,NFC,LFID,AUXIN,Sensor,Lock,Button,LED,Buzzer,Tamper,Default,Clear Setting,MAC");
 
                 // 데이터 작성
                 while (await reader.ReadAsync())

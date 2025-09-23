@@ -5,18 +5,25 @@ namespace VixReaderTest01
 {
     public partial class Main
     {
+        private CancellationTokenSource? _connectionCts;
+
         private async void ConnectButton_Click(object sender, EventArgs e)
         {
             try
             {
-                if (IsConnected) // _isConnected 대신 IsConnected 속성 사용
+                if (IsConnected) // 이미 연결된 경우
                 {
                     // 연결 해제
                     await DisconnectAsync();
                 }
+                else if (_connectionCts != null) // 연결 시도 중인 경우
+                {
+                    // 연결 시도 취소
+                    CancelConnection();
+                }
                 else
                 {
-                    // 연결 시도
+                    // 새로운 연결 시도
                     await ConnectAsync();
                 }
             }
@@ -35,17 +42,25 @@ namespace VixReaderTest01
             
             try
             {
-                ConnectButton.Text = "연결 중...";
-                ConnectButton.Enabled = false;
+                // 연결 작업을 취소할 수 있도록 CancellationTokenSource 생성
+                _connectionCts = new CancellationTokenSource();
+                
+                ConnectButton.Text = "연결 취소";
+                ConnectButton.BackColor = Color.Orange;
+                ConnectButton.Enabled = true;
                 
                 Logger.LogMessage(LogTextBox, $"장치 연결 시도... (대상: {targetIP}:8443)");
 
-                // 실제 연결 시도 코드 호출 (주석 해제)
-                await TestAtConnectionAsync(targetIP);
+                // 실제 연결 시도 코드 호출
+                await TestAtConnectionAsync(targetIP, _connectionCts.Token);
                 
                 // 연결 성공 - _tlsClient.IsConnected 확인 후 UI 업데이트
                 if (_tlsClient != null && _tlsClient.IsConnected)
                 {
+                    // 성공적으로 연결된 후에만 새로운 DB 레코드 생성
+                    _currentSessionId = await _testResultService.CreateNewTestSessionAsync(targetIP);
+                    Logger.LogMessage(LogTextBox, $"연결 성공: 새 테스트 세션 생성됨 (ID: {_currentSessionId})");
+                    
                     ConnectButton.Text = "연결 해제";
                     ConnectButton.BackColor = Color.LightGreen;
                     ConnectButton.ForeColor = Color.Black;
@@ -63,8 +78,19 @@ namespace VixReaderTest01
                 {
                     throw new InvalidOperationException("연결은 완료되었으나 IsConnected 상태가 false입니다.");
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.LogMessage(LogTextBox, "사용자에 의해 연결이 취소되었습니다.");
                 
+                // 연결 취소 시 상태 초기화
+                ConnectButton.Text = "연결...";
+                ConnectButton.BackColor = Color.Red;
+                ConnectButton.ForeColor = SystemColors.ControlText;
                 ConnectButton.Enabled = true;
+                
+                // 연결 취소 시 TestResult 버튼을 "준비" 상태로 설정
+                SetTestResultReady();
             }
             catch (Exception ex)
             {
@@ -90,6 +116,29 @@ namespace VixReaderTest01
                                "연결 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 
                 throw; // 예외를 다시 던져 상위에서 처리할 수 있도록 함
+            }
+            finally
+            {
+                // 작업이 완료되거나 취소되면 CancellationTokenSource 정리
+                if (_connectionCts != null)
+                {
+                    _connectionCts.Dispose();
+                    _connectionCts = null;
+                }
+            }
+        }
+
+        // 연결 취소 메서드 추가
+        private void CancelConnection()
+        {
+            if (_connectionCts != null && !_connectionCts.IsCancellationRequested)
+            {
+                Logger.LogMessage(LogTextBox, "연결 시도를 취소합니다...");
+                _connectionCts.Cancel();
+                
+                ConnectButton.Text = "연결...";
+                ConnectButton.BackColor = Color.Red;
+                ConnectButton.ForeColor = SystemColors.ControlText;
             }
         }
 
@@ -119,7 +168,7 @@ namespace VixReaderTest01
         }
 
         // 🔧 AT 명령을 사용한 연결 테스트 메서드 - 지정된 IP 주소로 연결
-        private async Task TestAtConnectionAsync(string targetIPAddress)
+        private async Task TestAtConnectionAsync(string targetIPAddress, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -158,20 +207,26 @@ namespace VixReaderTest01
                 
                 for (int attempt = 1; attempt <= maxRetries; attempt++)
                 {
+                    // 작업 취소 요청 확인
+                    cancellationToken.ThrowIfCancellationRequested();
+                    
                     try
                     {
                         Logger.LogMessage(LogTextBox, $"연결 시도 {attempt}/{maxRetries}...");
                         
-                        // ConnectAsync 메서드가 내부적으로 "AT" 및 "AT+TEST=BEGIN" 명령을 처리함
-                        await _tlsClient.ConnectAsync();
+                        // ConnectAsync 메서드에 취소 토큰 전달
+                        await _tlsClient.ConnectAsync(timeoutSeconds: 0, cancellationToken);
                         
                         // 연결 후 상태 확인 추가
                         if (_tlsClient.IsConnected)
                         {
                             Logger.LogMessage(LogTextBox, $"✅ {attempt}번째 시도에 성공 (IsConnected = {_tlsClient.IsConnected})");
                             
-                            // 추가 검증: AT 명령으로 한번 더 확인
-                            string pingResponse = await _tlsClient.SendAtCommandAsync("AT");
+                            // 취소 요청 확인
+                            cancellationToken.ThrowIfCancellationRequested();
+                            
+                            // 추가 검증: AT 명령으로 한번 더 확인 - 취소 토큰 전달
+                            string pingResponse = await _tlsClient.SendAtCommandAsync("AT", timeoutSeconds: 0, cancellationToken);
                             if (!string.IsNullOrEmpty(pingResponse) && 
                                 (pingResponse.Contains("OK") || pingResponse.Contains("ok")))
                             {
@@ -189,6 +244,12 @@ namespace VixReaderTest01
                             throw new InvalidOperationException("연결 시도 후 _tlsClient.IsConnected가 false입니다.");
                         }
                     }
+                    catch (OperationCanceledException)
+                    {
+                        // 취소 요청 발생 시 상위로 전파
+                        Logger.LogMessage(LogTextBox, "연결 시도가 취소되었습니다.");
+                        throw;
+                    }
                     catch (Exception ex)
                     {
                         lastException = ex;
@@ -196,10 +257,13 @@ namespace VixReaderTest01
                         
                         if (attempt < maxRetries)
                         {
+                            // 취소 요청 확인
+                            cancellationToken.ThrowIfCancellationRequested();
+                            
                             // 재시도 전 잠시 대기
                             int delayMs = 1000 * attempt;  // 점진적으로 대기 시간 증가
                             Logger.LogMessage(LogTextBox, $"재시도 전 {delayMs}ms 대기 중...");
-                            await Task.Delay(delayMs);
+                            await Task.Delay(delayMs, cancellationToken);
                         }
                     }
                 }
@@ -218,6 +282,12 @@ namespace VixReaderTest01
                 {
                     throw new InvalidOperationException("알 수 없는 이유로 연결에 실패했습니다.");
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // 취소 요청 발생 시 상위로 전파
+                Logger.LogMessage(LogTextBox, "TLS 연결 시도가 취소되었습니다.");
+                throw;
             }
             catch (InvalidOperationException opEx)
             {

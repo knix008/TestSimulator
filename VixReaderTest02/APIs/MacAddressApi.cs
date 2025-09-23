@@ -16,41 +16,31 @@ namespace VixAirTest01.APIs
             _getIPAddress = getIPAddress;
         }
 
-        public async Task GetMacAddressInfoAsync()
+        public async Task<string> GetMacAddressInfoAsync()
         {
             try
             {
-                string path = "/api/v1/test/getmacaddress";
-                LogMessage($"MAC 주소 정보 요청: {path}");
+                LogMessage("AT+MAC? 명령 전송");
+                string response = await _tlsClient.SendAtCommandAsync("AT+MAC?");
 
-                string jsonResponse = await _tlsClient.SendAtCommandAsync($"POST {path}");
-                
-                LogMessage("MAC 주소 정보 수신 완료");
-                LogMessage("=== 응답 데이터 (MAC 주소) ===");
-                LogMessage(jsonResponse);
-                
-                ParseAndDisplayMacInfo(jsonResponse);
+                if (!string.IsNullOrWhiteSpace(response) && !response.Trim().Equals("FAIL", StringComparison.OrdinalIgnoreCase))
+                {
+                    LogMessage("MAC 주소 수신 완료");
+                    LogMessage("=== 응답 데이터 (MAC 주소) ===");
+                    LogMessage(response.Trim());
+                    LogMessage("==========================================");
+                    return response.Trim();
+                }
+                else
+                {
+                    LogMessage("MAC 주소 조회 실패(Fail 응답)");
+                    return "FAIL";
+                }
             }
             catch (Exception ex)
             {
                 LogMessage($"MAC 주소 요청 실패: {ex.Message}");
-                throw;
-            }
-        }
-
-        private string ParseAndDisplayMacInfo(string jsonResponse)
-        {
-            LogMessage("파싱된 MAC 주소 정보:");
-            LogMessage(jsonResponse);
-            LogMessage("==========================================");
-            
-            try
-            {
-                return jsonResponse; // 임시로 전체 응답 반환
-            }
-            catch
-            {
-                return "";
+                return "FAIL";
             }
         }
 

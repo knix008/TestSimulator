@@ -28,12 +28,11 @@ namespace VixReaderTest01
                 }
                 else
                 {
-                    // 서버 응답이 "OK"가 아닌 경우 서버에서 전달받은 메시지를 데이터베이스에 저장
+                    // 성공하지 않은 경우 서버에서 받은 메시지를 그대로 DB에 저장
                     await SaveTestResult("BIST", responseMessage);
                     UpdateTestResultButton(false);
                     Logger.LogMessage(LogTextBox, "자가 진단 테스트 실패");
-                    
-                    // 상세한 오류 내용은 이미 responseMessage에 포함되어 있으므로 추가 로그는 불필요
+                    Logger.LogMessage(LogTextBox, $"응답 내용: {responseMessage}");
                 }
             }
             catch (Exception ex)
@@ -42,12 +41,13 @@ namespace VixReaderTest01
 
                 if (IsTlsError(ex.Message))
                 {
+                    // TLS 연결 오류는 DB에 저장하지 않고 로그만 출력
                     HandleTlsConnectionError("BIST", ex.Message);
                 }
                 else
                 {
-                    // 예외 발생 시 예외 메시지를 데이터베이스에 저장
-                    await SaveTestResult("BIST", $"테스트 중 예외 발생: {ex.Message}");
+                    // 서버에서 받은 오류 메시지가 아닌 경우, 서버 응답이 없는 것으로 간주하고 로그만 출력
+                    Logger.LogMessage(LogTextBox, $"오류 메시지: {ex.Message}");
                 }
 
                 UpdateTestResultButton(false);

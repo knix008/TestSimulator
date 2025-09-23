@@ -87,7 +87,7 @@ namespace VixReaderTest01
             _tamperTestApi = new TamperTestApi(_tlsClient, LogTextBox, () => CurrentIPAddress);
             _networkLinkApi = new NetworkLinkApi(_tlsClient, LogTextBox, () => CurrentIPAddress);
             
-            // 🔧 DefaultStateApi에 SetTestResultReady 콜백 전달
+            // 🔧 DefaultStateApi에 SetTestResultReady 콜backs 전달
             _defaultStateApi = new DefaultStateApi(_tlsClient, LogTextBox, () => CurrentIPAddress);
             
             _clearSettingApi = new ClearSettingApi(_tlsClient, LogTextBox, () => CurrentIPAddress);
@@ -95,18 +95,14 @@ namespace VixReaderTest01
 
             // 기본값으로 Ethernet 모드 설정
             SetDefaultInterfaceMode();
-
-            // 새로운 테스트 세션 시작  // 추가
-            InitializeNewTestSession();
         }
 
         // 새로운 테스트 세션 초기화  // 추가
-        private async void InitializeNewTestSession()
+        private void InitializeNewTestSession()
         {
             try
             {
-                _currentSessionId = await _testResultService.CreateNewTestSessionAsync(CurrentIPAddress);
-                Logger.LogMessage(LogTextBox, $"새로운 테스트 세션 시작됨 (ID: {_currentSessionId})");
+                Logger.LogMessage(LogTextBox, "테스트 프로그램이 시작되었습니다. 연결 후 새 테스트 세션이 생성됩니다.");
             }
             catch (Exception ex)
             {
@@ -198,6 +194,7 @@ namespace VixReaderTest01
                 "DefaultState" or "SetDefaultState" or "DefaultState Test" or "Default State" => "DEFAULT_STATE",
                 "NetworkLink" or "NetworkLinkTest" or "NetworkLink Test" or "Network Link Test" => "NETWORK",
                 "Clear Setting" or "ClearSetting" => "CLEAR_SETTING",
+                "MAC" or "Mac" or "MacAddress" or "MAC Address" or "GetMacAddress" or "Get Mac Address" => "MAC",
                 _ => testName // 기본값으로 원래 이름 사용
             };
         }
@@ -227,7 +224,7 @@ namespace VixReaderTest01
         }
 
         // IP 주소 변경 시 TLS 클라이언트 주소만 업데이트 (연결하지 않음)
-        private async void IPAddressTextBox_TextChanged(object sender, EventArgs e)
+        private void IPAddressTextBox_TextChanged(object sender, EventArgs e)
         {
             string newIP = IPAddressTextBox.Text.Trim();
 
@@ -244,19 +241,8 @@ namespace VixReaderTest01
                 // 🔧 TlsClient의 서버 주소만 업데이트 (연결이나 해제 안함)
                 _tlsClient?.UpdateServerAddress(CurrentIPAddress);
 
-                // IP 주소가 변경되면 새로운 테스트 세션 시작
-                try
-                {
-                    _currentSessionId = await _testResultService.CreateNewTestSessionAsync(CurrentIPAddress);
-                    
-                    // 🔧 IP 주소가 변경되면 마지막 조회된 시리얼 번호 초기화
-                    _lastRetrievedSerialNumber = string.Empty;
-                }
-                catch (Exception ex)
-                {
-                    // 🔧 오류 발생 시에만 로그 출력 (중요한 정보이므로 유지)
-                    Logger.LogMessage(LogTextBox, $"테스트 세션 초기화 오류: {ex.Message}");
-                }
+                // IP 주소가 변경되면 마지막 조회된 시리얼 번호 초기화
+                _lastRetrievedSerialNumber = string.Empty;
             }
         }
 
@@ -266,6 +252,7 @@ namespace VixReaderTest01
             Logger.LogMessage(LogTextBox, "TLS 보안 통신 준비 완료");
             Logger.LogMessage(LogTextBox, "기본 통신 인터페이스: Ethernet");
             Logger.LogMessage(LogTextBox, $"기본 대상 IP 주소: {CurrentIPAddress}");
+            Logger.LogMessage(LogTextBox, "테스트 프로그램이 시작되었습니다. 연결 후 새 테스트 세션이 생성됩니다.");
             
             // TestResult 버튼 초기 상태 설정
             SetTestResultReady();
@@ -373,7 +360,7 @@ namespace VixReaderTest01
             }
         }
 
-        // DeviceTypeComboBox에서 현재 선택된 디바이스 타입을 가져오는 속성 추가
+        // DeviceTypeComboBox에서 현재 선택된 디바イス 타입을 가져오는 속성 추가
         public string CurrentDeviceType
         {
             get
