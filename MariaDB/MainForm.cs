@@ -8,7 +8,7 @@ namespace PersonInfoApp
         private List<Person> _persons;
         private Person? _selectedPerson;
 
-        // ÄÁÆ®·Ñµé
+        // ï¿½ï¿½Æ®ï¿½Ñµï¿½
         private TextBox txtName = null!;
         private NumericUpDown numAge = null!;
         private TextBox txtEmail = null!;
@@ -34,25 +34,25 @@ namespace PersonInfoApp
         {
             this.SuspendLayout();
 
-            // Æû ±âº» ¼³Á¤
-            this.Text = "»ç¶÷ Á¤º¸ °ü¸® ½Ã½ºÅÛ";
+            // ï¿½ï¿½ ï¿½âº» ï¿½ï¿½ï¿½ï¿½
+            this.Text = "ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ã½ï¿½ï¿½ï¿½";
             this.Size = new Size(800, 600);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
 
-            // ±×·ì¹Ú½º - ÀÔ·Â Æû
+            // ï¿½×·ï¿½Ú½ï¿½ - ï¿½Ô·ï¿½ ï¿½ï¿½
             var grpInput = new GroupBox
             {
-                Text = "»ç¶÷ Á¤º¸ ÀÔ·Â",
+                Text = "ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½",
                 Location = new Point(10, 10),
                 Size = new Size(380, 250)
             };
 
-            // ÀÌ¸§ ÀÔ·Â
+            // ï¿½Ì¸ï¿½ ï¿½Ô·ï¿½
             var lblName = new Label
             {
-                Text = "ÀÌ¸§:",
+                Text = "ï¿½Ì¸ï¿½:",
                 Location = new Point(10, 25),
                 Size = new Size(50, 20)
             };
@@ -62,10 +62,10 @@ namespace PersonInfoApp
                 Size = new Size(200, 23)
             };
 
-            // ³ªÀÌ ÀÔ·Â
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½
             var lblAge = new Label
             {
-                Text = "³ªÀÌ:",
+                Text = "ï¿½ï¿½ï¿½ï¿½:",
                 Location = new Point(10, 55),
                 Size = new Size(50, 20)
             };
@@ -78,10 +78,10 @@ namespace PersonInfoApp
                 Value = 25
             };
 
-            // ÀÌ¸ÞÀÏ ÀÔ·Â
+            // ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½
             var lblEmail = new Label
             {
-                Text = "ÀÌ¸ÞÀÏ:",
+                Text = "ï¿½Ì¸ï¿½ï¿½ï¿½:",
                 Location = new Point(10, 85),
                 Size = new Size(50, 20)
             };
@@ -91,10 +91,10 @@ namespace PersonInfoApp
                 Size = new Size(200, 23)
             };
 
-            // ÀüÈ­¹øÈ£ ÀÔ·Â
+            // ï¿½ï¿½È­ï¿½ï¿½È£ ï¿½Ô·ï¿½
             var lblPhone = new Label
             {
-                Text = "ÀüÈ­¹øÈ£:",
+                Text = "ï¿½ï¿½È­ï¿½ï¿½È£:",
                 Location = new Point(10, 115),
                 Size = new Size(60, 20)
             };
@@ -104,10 +104,10 @@ namespace PersonInfoApp
                 Size = new Size(190, 23)
             };
 
-            // ÁÖ¼Ò ÀÔ·Â
+            // ï¿½Ö¼ï¿½ ï¿½Ô·ï¿½
             var lblAddress = new Label
             {
-                Text = "ÁÖ¼Ò:",
+                Text = "ï¿½Ö¼ï¿½:",
                 Location = new Point(10, 145),
                 Size = new Size(50, 20)
             };
@@ -119,10 +119,10 @@ namespace PersonInfoApp
                 ScrollBars = ScrollBars.Vertical
             };
 
-            // ¹öÆ°µé
+            // ï¿½ï¿½Æ°ï¿½ï¿½
             btnSave = new Button
             {
-                Text = "ÀúÀå",
+                Text = "ï¿½ï¿½ï¿½ï¿½",
                 Location = new Point(10, 205),
                 Size = new Size(70, 30),
                 BackColor = Color.LightGreen
@@ -131,7 +131,7 @@ namespace PersonInfoApp
 
             btnUpdate = new Button
             {
-                Text = "¼öÁ¤",
+                Text = "ï¿½ï¿½ï¿½ï¿½",
                 Location = new Point(90, 205),
                 Size = new Size(70, 30),
                 BackColor = Color.LightBlue,
@@ -141,7 +141,7 @@ namespace PersonInfoApp
 
             btnDelete = new Button
             {
-                Text = "»èÁ¦",
+                Text = "ï¿½ï¿½ï¿½ï¿½",
                 Location = new Point(170, 205),
                 Size = new Size(70, 30),
                 BackColor = Color.LightCoral,
@@ -151,30 +151,30 @@ namespace PersonInfoApp
 
             btnClear = new Button
             {
-                Text = "Áö¿ì±â",
+                Text = "ï¿½ï¿½ï¿½ï¿½ï¿½",
                 Location = new Point(250, 205),
                 Size = new Size(70, 30)
             };
             btnClear.Click += BtnClear_Click;
 
-            // ±×·ì¹Ú½º¿¡ ÄÁÆ®·Ñ Ãß°¡
+            // ï¿½×·ï¿½Ú½ï¿½ï¿½ï¿½ ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ß°ï¿½
             grpInput.Controls.AddRange(new Control[] {
                 lblName, txtName, lblAge, numAge, lblEmail, txtEmail,
                 lblPhone, txtPhone, lblAddress, txtAddress,
                 btnSave, btnUpdate, btnDelete, btnClear
             });
 
-            // »õ·Î°íÄ§ ¹öÆ°
+            // ï¿½ï¿½ï¿½Î°ï¿½Ä§ ï¿½ï¿½Æ°
             btnRefresh = new Button
             {
-                Text = "»õ·Î°íÄ§",
+                Text = "ï¿½ï¿½ï¿½Î°ï¿½Ä§",
                 Location = new Point(400, 10),
                 Size = new Size(80, 30),
                 BackColor = Color.LightYellow
             };
             btnRefresh.Click += BtnRefresh_Click;
 
-            // µ¥ÀÌÅÍ ±×¸®µåºä
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½×¸ï¿½ï¿½ï¿½ï¿½
             dgvPersons = new DataGridView
             {
                 Location = new Point(400, 50),
@@ -187,16 +187,16 @@ namespace PersonInfoApp
             };
             dgvPersons.SelectionChanged += DgvPersons_SelectionChanged;
 
-            // »óÅÂ ¶óº§
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
             lblStatus = new Label
             {
-                Text = "ÁØºñµÊ",
+                Text = "ï¿½Øºï¿½ï¿½",
                 Location = new Point(10, 270),
                 Size = new Size(380, 20),
                 ForeColor = Color.Blue
             };
 
-            // Æû¿¡ ÄÁÆ®·Ñ Ãß°¡
+            // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ß°ï¿½
             this.Controls.AddRange(new Control[] {
                 grpInput, btnRefresh, dgvPersons, lblStatus
             });
@@ -206,32 +206,32 @@ namespace PersonInfoApp
 
         private async void InitializeDatabase()
         {
-            lblStatus.Text = "µ¥ÀÌÅÍº£ÀÌ½º ¿¬°á Áß...";
+            lblStatus.Text = "ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½...";
             lblStatus.ForeColor = Color.Orange;
 
             try
             {
-                // Å×ÀÌºí »ý¼º
+                // ï¿½ï¿½ï¿½Ìºï¿½ ï¿½ï¿½ï¿½ï¿½
                 bool tableCreated = await _databaseService.CreateTableIfNotExistsAsync();
                 if (!tableCreated)
                 {
-                    lblStatus.Text = "µ¥ÀÌÅÍº£ÀÌ½º ¿¬°á ½ÇÆÐ!";
+                    lblStatus.Text = "ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½!";
                     lblStatus.ForeColor = Color.Red;
-                    MessageBox.Show("µ¥ÀÌÅÍº£ÀÌ½º ¿¬°á¿¡ ½ÇÆÐÇß½À´Ï´Ù. ¿¬°á ¼³Á¤À» È®ÀÎÇØÁÖ¼¼¿ä.", "¿À·ù", 
+                    MessageBox.Show("ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½á¿¡ ï¿½ï¿½ï¿½ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½. ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½ï¿½ï¿½ï¿½Ö¼ï¿½ï¿½ï¿½.", "ï¿½ï¿½ï¿½ï¿½", 
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                // µ¥ÀÌÅÍ ·Îµå
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½
                 await LoadPersonsAsync();
-                lblStatus.Text = "µ¥ÀÌÅÍº£ÀÌ½º ¿¬°á ¼º°ø!";
+                lblStatus.Text = "ï¿½ï¿½ï¿½ï¿½ï¿½Íºï¿½ï¿½Ì½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½!";
                 lblStatus.ForeColor = Color.Green;
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "¿À·ù ¹ß»ý: " + ex.Message;
+                lblStatus.Text = "ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½: " + ex.Message;
                 lblStatus.ForeColor = Color.Red;
-                MessageBox.Show($"¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù: {ex.Message}", "¿À·ù", 
+                MessageBox.Show($"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½: {ex.Message}", "ï¿½ï¿½ï¿½ï¿½", 
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -245,7 +245,7 @@ namespace PersonInfoApp
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"µ¥ÀÌÅÍ ·Îµå Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù: {ex.Message}", "¿À·ù", 
+                MessageBox.Show($"ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½: {ex.Message}", "ï¿½ï¿½ï¿½ï¿½", 
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -256,19 +256,19 @@ namespace PersonInfoApp
             dgvPersons.DataSource = _persons.Select(p => new
             {
                 ID = p.Id,
-                ÀÌ¸§ = p.Name,
-                ³ªÀÌ = p.Age,
-                ÀÌ¸ÞÀÏ = p.Email,
-                ÀüÈ­¹øÈ£ = p.Phone,
-                ÁÖ¼Ò = p.Address,
-                µî·ÏÀÏ = p.CreatedDate.ToString("yyyy-MM-dd HH:mm")
+                ï¿½Ì¸ï¿½ = p.Name,
+                ï¿½ï¿½ï¿½ï¿½ = p.Age,
+                ï¿½Ì¸ï¿½ï¿½ï¿½ = p.Email,
+                ï¿½ï¿½È­ï¿½ï¿½È£ = p.Phone,
+                ï¿½Ö¼ï¿½ = p.Address,
+                ï¿½ï¿½ï¿½ï¿½ï¿½ = p.CreatedDate.ToString("yyyy-MM-dd HH:mm")
             }).ToList();
 
             if (dgvPersons.Columns.Count > 0)
             {
-                dgvPersons.Columns[0].Width = 50; // ID ÄÃ·³ ³Êºñ Á¶Á¤
-                dgvPersons.Columns[1].Width = 80; // ÀÌ¸§ ÄÃ·³ ³Êºñ Á¶Á¤
-                dgvPersons.Columns[2].Width = 50; // ³ªÀÌ ÄÃ·³ ³Êºñ Á¶Á¤
+                dgvPersons.Columns[0].Width = 50; // ID ï¿½Ã·ï¿½ ï¿½Êºï¿½ ï¿½ï¿½ï¿½ï¿½
+                dgvPersons.Columns[1].Width = 80; // ï¿½Ì¸ï¿½ ï¿½Ã·ï¿½ ï¿½Êºï¿½ ï¿½ï¿½ï¿½ï¿½
+                dgvPersons.Columns[2].Width = 50; // ï¿½ï¿½ï¿½ï¿½ ï¿½Ã·ï¿½ ï¿½Êºï¿½ ï¿½ï¿½ï¿½ï¿½
             }
         }
 
@@ -288,14 +288,14 @@ namespace PersonInfoApp
         {
             if (string.IsNullOrWhiteSpace(txtName.Text))
             {
-                MessageBox.Show("ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä.", "ÀÔ·Â ¿À·ù", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("ï¿½Ì¸ï¿½ï¿½ï¿½ ï¿½Ô·ï¿½ï¿½ï¿½ï¿½Ö¼ï¿½ï¿½ï¿½.", "ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½ï¿½", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 txtName.Focus();
                 return false;
             }
 
             if (numAge.Value <= 0)
             {
-                MessageBox.Show("¿Ã¹Ù¸¥ ³ªÀÌ¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä.", "ÀÔ·Â ¿À·ù", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("ï¿½Ã¹Ù¸ï¿½ ï¿½ï¿½ï¿½Ì¸ï¿½ ï¿½Ô·ï¿½ï¿½ï¿½ï¿½Ö¼ï¿½ï¿½ï¿½.", "ï¿½Ô·ï¿½ ï¿½ï¿½ï¿½ï¿½", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 numAge.Focus();
                 return false;
             }
@@ -327,22 +327,22 @@ namespace PersonInfoApp
 
                 if (success)
                 {
-                    MessageBox.Show("»ç¶÷ Á¤º¸°¡ ¼º°øÀûÀ¸·Î ÀúÀåµÇ¾ú½À´Ï´Ù.", "ÀúÀå ¿Ï·á", 
+                    MessageBox.Show("ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.", "ï¿½ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½", 
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                     ClearInputFields();
                     await LoadPersonsAsync();
-                    lblStatus.Text = "»õ·Î¿î Á¤º¸°¡ ÀúÀåµÇ¾ú½À´Ï´Ù.";
+                    lblStatus.Text = "ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.";
                     lblStatus.ForeColor = Color.Green;
                 }
                 else
                 {
-                    MessageBox.Show("ÀúÀå Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù.", "ÀúÀå ½ÇÆÐ", 
+                    MessageBox.Show("ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½.", "ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½", 
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"ÀúÀå Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù: {ex.Message}", "¿À·ù", 
+                MessageBox.Show($"ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½: {ex.Message}", "ï¿½ï¿½ï¿½ï¿½", 
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -358,22 +358,22 @@ namespace PersonInfoApp
 
                 if (success)
                 {
-                    MessageBox.Show("»ç¶÷ Á¤º¸°¡ ¼º°øÀûÀ¸·Î ¼öÁ¤µÇ¾ú½À´Ï´Ù.", "¼öÁ¤ ¿Ï·á", 
+                    MessageBox.Show("ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.", "ï¿½ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½", 
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
                     ClearInputFields();
                     await LoadPersonsAsync();
-                    lblStatus.Text = "Á¤º¸°¡ ¼öÁ¤µÇ¾ú½À´Ï´Ù.";
+                    lblStatus.Text = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.";
                     lblStatus.ForeColor = Color.Green;
                 }
                 else
                 {
-                    MessageBox.Show("¼öÁ¤ Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù.", "¼öÁ¤ ½ÇÆÐ", 
+                    MessageBox.Show("ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½.", "ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½", 
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"¼öÁ¤ Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù: {ex.Message}", "¿À·ù", 
+                MessageBox.Show($"ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½: {ex.Message}", "ï¿½ï¿½ï¿½ï¿½", 
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -382,7 +382,7 @@ namespace PersonInfoApp
         {
             if (_selectedPerson == null) return;
 
-            var result = MessageBox.Show($"'{_selectedPerson.Name}'´ÔÀÇ Á¤º¸¸¦ »èÁ¦ÇÏ½Ã°Ú½À´Ï±î?", "»èÁ¦ È®ÀÎ", 
+            var result = MessageBox.Show($"'{_selectedPerson.Name}'ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï½Ã°Ú½ï¿½ï¿½Ï±ï¿½?", "ï¿½ï¿½ï¿½ï¿½ È®ï¿½ï¿½", 
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
             if (result == DialogResult.Yes)
@@ -393,22 +393,22 @@ namespace PersonInfoApp
 
                     if (success)
                     {
-                        MessageBox.Show("»ç¶÷ Á¤º¸°¡ ¼º°øÀûÀ¸·Î »èÁ¦µÇ¾ú½À´Ï´Ù.", "»èÁ¦ ¿Ï·á", 
+                        MessageBox.Show("ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.", "ï¿½ï¿½ï¿½ï¿½ ï¿½Ï·ï¿½", 
                             MessageBoxButtons.OK, MessageBoxIcon.Information);
                         ClearInputFields();
                         await LoadPersonsAsync();
-                        lblStatus.Text = "Á¤º¸°¡ »èÁ¦µÇ¾ú½À´Ï´Ù.";
+                        lblStatus.Text = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.";
                         lblStatus.ForeColor = Color.Green;
                     }
                     else
                     {
-                        MessageBox.Show("»èÁ¦ Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù.", "»èÁ¦ ½ÇÆÐ", 
+                        MessageBox.Show("ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½.", "ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½", 
                             MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"»èÁ¦ Áß ¿À·ù°¡ ¹ß»ýÇß½À´Ï´Ù: {ex.Message}", "¿À·ù", 
+                    MessageBox.Show($"ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½: {ex.Message}", "ï¿½ï¿½ï¿½ï¿½", 
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
@@ -417,14 +417,14 @@ namespace PersonInfoApp
         private void BtnClear_Click(object? sender, EventArgs e)
         {
             ClearInputFields();
-            lblStatus.Text = "ÀÔ·Â ÇÊµå°¡ Áö¿öÁ³½À´Ï´Ù.";
+            lblStatus.Text = "ï¿½Ô·ï¿½ ï¿½Êµå°¡ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.";
             lblStatus.ForeColor = Color.Blue;
         }
 
         private async void BtnRefresh_Click(object? sender, EventArgs e)
         {
             await LoadPersonsAsync();
-            lblStatus.Text = "µ¥ÀÌÅÍ°¡ »õ·Î°íÄ§µÇ¾ú½À´Ï´Ù.";
+            lblStatus.Text = "ï¿½ï¿½ï¿½ï¿½ï¿½Í°ï¿½ ï¿½ï¿½ï¿½Î°ï¿½Ä§ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ï´ï¿½.";
             lblStatus.ForeColor = Color.Blue;
         }
 
