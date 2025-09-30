@@ -503,8 +503,3 @@ Thumbs.db
 *.swp
 *.swo
 *~
-
-# Project specific
-force_certificates.py
-test_*.py
-run_all.bat

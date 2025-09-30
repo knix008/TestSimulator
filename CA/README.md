@@ -1,147 +1,227 @@
-# TLS 상호 인증 시스템
+# TLS Mutual Authentication System - Quick Start Guide
 
-이 프로젝트는 CA(Certificate Authority) 서버를 구축하고, 클라이언트와 서버가 상호 인증하는 방식으로 TLS를 이용해 통신하는 프로그램입니다.
+This guide explains how to run the complete CA-based TLS mutual authentication system.
 
-## 시스템 구성
+## System Overview
 
-- **CA 서버**: Python으로 구현된 인증서 발급 및 검증 서버
-- **TLS 서버**: C# WinForms GUI를 포함한 TLS 서버
-- **TLS 클라이언트**: C# WinForms GUI를 포함한 TLS 클라이언트
+The system consists of:
+1. **CA Server** (Python) - Issues and manages certificates
+2. **TLS Server** (C# WinForms) - Listens for TLS connections
+3. **TLS Client** (C# WinForms) - Connects to TLS server
 
-## 기능
+## Prerequisites
 
-- ✅ CA 루트 인증서 자동 생성
-- ✅ 서버/클라이언트 인증서 발급
-- ✅ TLS 상호 인증 (Mutual TLS)
-- ✅ 실시간 메시지 통신
-- ✅ GUI 기반 사용자 인터페이스
+- Python 3.8+ with cryptography package installed
+- .NET 6.0 or later
+- Windows 10/11
 
-## 설치 및 실행
+## Step-by-Step Instructions
 
-### 1. Python 환경 설정
+### Step 1: Start the CA Server
 
-```bash
-# Python 패키지 설치
-pip install -r requirements.txt
-```
-
-### 2. CA 서버 실행
+Open a terminal in the CA directory and run:
 
 ```bash
-# CA 서버 시작
 python ca_server.py
 ```
 
-CA 서버가 시작되면 `certificates/` 폴더에 CA 루트 인증서가 생성됩니다.
+The CA server will:
+- Generate a root CA certificate automatically
+- Listen on port 8888 for certificate requests
+- Save all certificates to the `certificates/` folder
 
-### 3. 인증서 발급
+You should see:
+```
+Creating CA root certificate...
+CA root certificate created successfully
+CA server started: localhost:8888
+CA root certificate saved to certificates/ca.crt
+```
+
+### Step 2: Generate Certificates
+
+In a **new terminal**, run:
 
 ```bash
-# 서버 및 클라이언트 인증서 발급
 python test_certificates.py
 ```
 
-### 4. C# 애플리케이션 빌드 및 실행
+This will automatically request certificates from the CA server for both the TLS server and client.
 
-#### TLS 서버 실행
+You should see:
+```
+[1] Verify CA root certificate
+[OK] CA root certificate verified
+  - CA certificate: certificates/ca.crt
+
+[2] Issue server certificate
+[OK] server Certificate issued successfully (server)
+  - Certificate: certificates/server.crt
+  - Private key: certificates/server.key
+
+[3] Issue client certificate
+[OK] client Certificate issued successfully (client)
+  - Certificate: certificates/client.crt
+  - Private key: certificates/client.key
+```
+
+### Step 3: Run TLS Server
+
+In a **new terminal**, navigate to the TLSServer directory and run:
 
 ```bash
 cd TLSServer
-dotnet build
 dotnet run
 ```
 
-#### TLS 클라이언트 실행
+Or simply double-click the executable:
+```
+TLSServer\bin\Debug\net6.0-windows\TLSServer.exe
+```
+
+The TLS Server GUI will open. Click the **"서버 시작"** (Start Server) button.
+
+**Important Notes:**
+- Default port: 8443
+- The server loads certificates from: `certificates/server.crt` and `certificates/server.key`
+- The server loads CA certificate from: `certificates/ca.crt`
+
+### Step 4: Run TLS Client
+
+In a **new terminal**, navigate to the TLSClient directory and run:
 
 ```bash
 cd TLSClient
-dotnet build
 dotnet run
 ```
 
-## 사용 방법
-
-### 1. CA 서버 실행
-
-- `python ca_server.py` 명령으로 CA 서버를 시작합니다.
-- CA 루트 인증서가 자동으로 생성됩니다.
-
-### 2. 인증서 발급
-
-- `python test_certificates.py` 명령으로 서버와 클라이언트 인증서를 발급받습니다.
-- 또는 클라이언트 GUI에서 "인증서 요청" 버튼을 사용할 수 있습니다.
-
-### 3. TLS 서버 실행
-
-- TLS 서버 애플리케이션을 실행합니다.
-- 포트를 설정하고 "서버 시작" 버튼을 클릭합니다.
-- 기본 포트: 8443
-
-### 4. TLS 클라이언트 실행
-
-- TLS 클라이언트 애플리케이션을 실행합니다.
-- 서버 IP와 포트를 입력하고 "연결" 버튼을 클릭합니다.
-- 상호 인증이 성공하면 TLS 연결이 설정됩니다.
-
-### 5. 메시지 통신
-
-- 양쪽 애플리케이션에서 메시지를 입력하고 전송할 수 있습니다.
-- 모든 통신은 TLS로 암호화됩니다.
-
-## 보안 특징
-
-- **상호 인증**: 서버와 클라이언트 모두 인증서를 검증합니다.
-- **CA 서명**: 모든 인증서는 CA에 의해 서명됩니다.
-- **TLS 1.2**: 최신 TLS 프로토콜을 사용합니다.
-- **인증서 검증**: 연결 시 인증서 유효성을 검증합니다.
-
-## 파일 구조
-
+Or simply double-click the executable:
 ```
-├── ca_server.py              # CA 서버 (Python)
-├── test_certificates.py      # 인증서 발급 테스트 스크립트
-├── requirements.txt          # Python 의존성
-├── certificates/             # 인증서 저장 폴더
-│   ├── ca.crt               # CA 루트 인증서
-│   ├── ca.key               # CA 개인키
-│   ├── server.crt           # 서버 인증서
-│   ├── server.key           # 서버 개인키
-│   ├── client.crt           # 클라이언트 인증서
-│   └── client.key           # 클라이언트 개인키
-├── TLSServer/               # C# TLS 서버
-│   ├── TLSServer.csproj
-│   ├── Program.cs
-│   └── ServerForm.cs
-└── TLSClient/               # C# TLS 클라이언트
-    ├── TLSClient.csproj
-    ├── Program.cs
-    └── ClientForm.cs
+TLSClient\bin\Debug\net6.0-windows\TLSClient.exe
 ```
 
-## 문제 해결
+The TLS Client GUI will open. Enter connection details and click the **"연결"** (Connect) button.
 
-### 인증서 오류
+**Connection Settings:**
+- Server IP: 127.0.0.1
+- Port: 8443
 
-- CA 서버가 실행 중인지 확인하세요.
-- 인증서 파일이 올바른 위치에 있는지 확인하세요.
+**Important Notes:**
+- The client loads certificates from: `certificates/client.crt` and `certificates/client.key`
+- The client loads CA certificate from: `certificates/ca.crt`
 
-### 연결 오류
+### Step 5: Test Communication
 
-- 방화벽 설정을 확인하세요.
-- 포트가 다른 애플리케이션에서 사용 중이지 않은지 확인하세요.
+Once connected, you can:
 
-### TLS 핸드셰이크 오류
+1. **Send messages from server to client:**
+   - Type a message in the server's message box
+   - Click **"전송"** (Send)
 
-- 인증서가 올바르게 발급되었는지 확인하세요.
-- CA 인증서가 양쪽 모두에 있는지 확인하세요.
+2. **Send messages from client to server:**
+   - Type a message in the client's message box
+   - Click **"전송"** (Send)
 
-## 개발 환경
+3. **Verify TLS connection:**
+   - Both sides will show "TLS 연결 성공 (상호 인증 완료)" when mutual authentication succeeds
+   - All messages are encrypted with TLS
 
-- Python 3.8+
-- .NET 6.0
-- Windows 10/11
-- Visual Studio 2022 또는 VS Code
+## Certificate Management
 
-## 라이선스
+### Requesting New Certificates
 
-이 프로젝트는 교육 및 테스트 목적으로 제작되었습니다.
+You can request additional client certificates using the client GUI:
+
+1. Enter a certificate name in the **"인증서명"** field
+2. Click **"인증서 요청"** (Request Certificate)
+3. The certificate will be saved to `certificates/<name>.crt` and `certificates/<name>.key`
+
+### Certificate Locations
+
+All certificates are stored in the `certificates/` directory:
+
+```
+certificates/
+├── ca.crt              # CA root certificate (public)
+├── ca.key              # CA private key
+├── server.crt          # Server certificate
+├── server.key          # Server private key
+├── client.crt          # Client certificate
+└── client.key          # Client private key
+```
+
+## Troubleshooting
+
+### Certificate Not Found Error
+
+If you see "Certificate not found" errors in the server or client:
+
+1. Make sure the CA server is running
+2. Run `python test_certificates.py` to generate certificates
+3. Check that files exist in the `certificates/` directory
+4. Verify the certificate paths in ServerForm.cs and ClientForm.cs match your actual paths
+
+### Connection Refused Error
+
+If the client cannot connect to the server:
+
+1. Make sure the TLS server is running and started
+2. Check firewall settings
+3. Verify the port is not being used by another application
+4. Try connecting to 127.0.0.1 or localhost
+
+### TLS Handshake Failed
+
+If the TLS handshake fails:
+
+1. Verify both server and client have valid certificates
+2. Ensure the CA certificate is loaded correctly on both sides
+3. Check that certificates are issued by the same CA
+4. Restart both server and client applications
+
+### CA Server Connection Error
+
+If certificate requests fail:
+
+1. Make sure the CA server is running on port 8888
+2. Check if the port is blocked by firewall
+3. Verify Python and cryptography package are installed correctly
+
+## Security Features
+
+This system implements:
+
+- ✅ **Mutual TLS Authentication** - Both server and client verify each other
+- ✅ **CA-Signed Certificates** - All certificates are signed by a trusted CA
+- ✅ **TLS 1.2** - Modern encryption protocol
+- ✅ **Certificate Validation** - Certificates are verified against the CA root certificate
+- ✅ **Encrypted Communication** - All messages are transmitted over TLS
+
+## Architecture
+
+```
+┌─────────────┐         ┌─────────────┐
+│  CA Server  │         │ TLS Server  │
+│  (Python)   │         │  (C#/GUI)   │
+│  Port 8888  │         │  Port 8443  │
+└──────┬──────┘         └──────┬──────┘
+       │                       │
+       │ Issue Certs           │ TLS 1.2
+       │                       │ Mutual Auth
+       │                       │
+       │                ┌──────┴──────┐
+       └────────────────┤ TLS Client  │
+         Request Cert   │  (C#/GUI)   │
+                        └─────────────┘
+```
+
+## Development Notes
+
+- The CA server uses Python's `cryptography` library for certificate management
+- The TLS server and client use .NET's `SslStream` for TLS connections
+- Certificates use RSA 2048-bit keys with SHA-256 signatures
+- All certificates include Subject Alternative Names (SANs) for localhost and 127.0.0.1
+
+## License
+
+This project is for educational and testing purposes only.
