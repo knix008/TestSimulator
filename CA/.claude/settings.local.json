@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python test_certificates.py:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(dotnet build)",
+      "Bash(dotnet run:*)",
+      "Bash(start bin/Debug/net9.0-windows/TLSServer.exe)",
+      "Bash(start bin/Debug/net9.0-windows/TLSClient.exe)",
+      "Bash(dotnet clean:*)",
+      "Bash(taskkill:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
