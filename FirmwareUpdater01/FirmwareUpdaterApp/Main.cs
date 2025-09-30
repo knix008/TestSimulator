@@ -80,7 +80,7 @@ public partial class Main : Form
     private async Task UploadFirmware(string filePath)
     {
         var deviceUrl = txtDeviceUrl.Text.TrimEnd('/');
-        var apiUrl = $"{deviceUrl}/api/intellivix/vixface/v2.0/updatefirmware";
+        var apiUrl = $"{deviceUrl}/api/v1.0/updatefirmware";
 
         LogMessage($"Uploading to: {apiUrl}");
         LogMessage($"File size: {new FileInfo(filePath).Length:N0} bytes");
