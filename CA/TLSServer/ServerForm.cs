@@ -454,14 +454,74 @@ namespace TLSServer
 
         private bool ValidateRemoteCertificate(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
         {
-            // For testing: accept all certificates issued by our CA
-            if (certificate == null) return false;
+            if (certificate == null || caCertificate == null)
+            {
+                return false;
+            }
 
             try
             {
-                var cert = new X509Certificate2(certificate);
-                // Accept if issued by our Test CA
-                return cert.Issuer.Contains("Test CA");
+                var clientCert = new X509Certificate2(certificate);
+
+                // 1. 인증서 유효기간 검증
+                DateTime now = DateTime.Now;
+                if (now < clientCert.NotBefore || now > clientCert.NotAfter)
+                {
+                    return false;
+                }
+
+                // 2. 인증서 체인 검증 - CA 인증서로 서명 확인
+                using (var chain2 = new X509Chain())
+                {
+                    // 체인 정책 설정
+                    chain2.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck; // 테스트 환경이므로 CRL 체크 비활성화
+                    chain2.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                    chain2.ChainPolicy.ExtraStore.Add(caCertificate);
+
+                    // 체인 빌드
+                    if (!chain2.Build(clientCert))
+                    {
+                        return false;
+                    }
+
+                    // 체인의 루트가 우리 CA인지 확인
+                    bool isIssuedByCA = false;
+                    foreach (var element in chain2.ChainElements)
+                    {
+                        if (element.Certificate.Thumbprint == caCertificate.Thumbprint)
+                        {
+                            isIssuedByCA = true;
+                            break;
+                        }
+                    }
+
+                    if (!isIssuedByCA)
+                    {
+                        return false;
+                    }
+                }
+
+                // 3. Subject와 Issuer 검증
+                if (!clientCert.Issuer.Contains("Test CA"))
+                {
+                    return false;
+                }
+
+                // 4. 키 사용 확장 검증 (있는 경우)
+                foreach (X509Extension extension in clientCert.Extensions)
+                {
+                    if (extension is X509KeyUsageExtension keyUsage)
+                    {
+                        // 디지털 서명 또는 키 합의가 있어야 함
+                        if (!keyUsage.KeyUsages.HasFlag(X509KeyUsageFlags.DigitalSignature) &&
+                            !keyUsage.KeyUsages.HasFlag(X509KeyUsageFlags.KeyAgreement))
+                        {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
             }
             catch
             {

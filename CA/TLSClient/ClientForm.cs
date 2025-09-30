@@ -329,14 +329,107 @@ namespace TLSClient
         private bool ValidateServerCertificate(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
         {
             if (certificate == null || caCertificate == null)
+            {
                 return false;
+            }
 
             try
             {
                 var serverCert = new X509Certificate2(certificate);
 
-                // Simple verification: Check if issuer is our CA
-                return serverCert.Issuer.Contains("Test CA");
+                // 1. 인증서 유효기간 검증
+                DateTime now = DateTime.Now;
+                if (now < serverCert.NotBefore || now > serverCert.NotAfter)
+                {
+                    return false;
+                }
+
+                // 2. 인증서 체인 검증 - CA 인증서로 서명 확인
+                using (var chain2 = new X509Chain())
+                {
+                    // 체인 정책 설정
+                    chain2.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck; // 테스트 환경이므로 CRL 체크 비활성화
+                    chain2.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                    chain2.ChainPolicy.ExtraStore.Add(caCertificate);
+
+                    // 체인 빌드
+                    if (!chain2.Build(serverCert))
+                    {
+                        return false;
+                    }
+
+                    // 체인의 루트가 우리 CA인지 확인
+                    bool isIssuedByCA = false;
+                    foreach (var element in chain2.ChainElements)
+                    {
+                        if (element.Certificate.Thumbprint == caCertificate.Thumbprint)
+                        {
+                            isIssuedByCA = true;
+                            break;
+                        }
+                    }
+
+                    if (!isIssuedByCA)
+                    {
+                        return false;
+                    }
+                }
+
+                // 3. Subject와 Issuer 검증
+                if (!serverCert.Issuer.Contains("Test CA"))
+                {
+                    return false;
+                }
+
+                // 4. 키 사용 확장 검증 (있는 경우)
+                foreach (X509Extension extension in serverCert.Extensions)
+                {
+                    if (extension is X509KeyUsageExtension keyUsage)
+                    {
+                        // 디지털 서명 또는 키 암호화가 있어야 함
+                        if (!keyUsage.KeyUsages.HasFlag(X509KeyUsageFlags.DigitalSignature) &&
+                            !keyUsage.KeyUsages.HasFlag(X509KeyUsageFlags.KeyEncipherment))
+                        {
+                            return false;
+                        }
+                    }
+                }
+
+                // 5. 호스트 이름 검증 (SAN 또는 CN)
+                string hostname = txtServerIP.Text;
+                bool hostnameValid = false;
+
+                // SAN (Subject Alternative Name) 확인
+                foreach (X509Extension extension in serverCert.Extensions)
+                {
+                    if (extension.Oid?.Value == "2.5.29.17") // SAN OID
+                    {
+                        var san = extension as X509Extension;
+                        string sanString = san?.Format(false) ?? "";
+                        if (sanString.Contains(hostname) || sanString.Contains("DNS Name=" + hostname))
+                        {
+                            hostnameValid = true;
+                            break;
+                        }
+                    }
+                }
+
+                // CN (Common Name) 확인
+                if (!hostnameValid)
+                {
+                    string subject = serverCert.Subject;
+                    if (subject.Contains($"CN={hostname}") || hostname == "127.0.0.1" || hostname == "localhost")
+                    {
+                        hostnameValid = true;
+                    }
+                }
+
+                if (!hostnameValid)
+                {
+                    return false;
+                }
+
+                return true;
             }
             catch
             {
