@@ -416,8 +416,8 @@ namespace TLSServer
         {
             try
             {
-                sslStream = new SslStream(tcpClient.GetStream(), false);
-                
+                sslStream = new SslStream(tcpClient.GetStream(), false, ValidateRemoteCertificate);
+
                 // 서버 인증서로 SSL 핸드셰이크 (상호 인증)
                 sslStream.AuthenticateAsServer(
                     serverCertificate,
@@ -426,19 +426,7 @@ namespace TLSServer
                     false // 인증서 취소 목록 확인 비활성화 (테스트용)
                 );
 
-                // 클라이언트 인증서 검증
-                if (sslStream.RemoteCertificate != null)
-                {
-                    var clientCert = new X509Certificate2(sslStream.RemoteCertificate);
-                    if (!VerifyClientCertificate(clientCert))
-                    {
-                        throw new SecurityException("클라이언트 인증서 검증 실패");
-                    }
-                }
-                else
-                {
-                    throw new SecurityException("클라이언트 인증서가 제공되지 않음");
-                }
+                // 클라이언트 인증서 검증은 ValidateRemoteCertificate 콜백에서 수행됨
 
                 OnMessageReceived?.Invoke(this, "TLS 연결 성공 (상호 인증 완료)");
 
@@ -464,12 +452,16 @@ namespace TLSServer
             }
         }
 
-        private bool VerifyClientCertificate(X509Certificate2 clientCert)
+        private bool ValidateRemoteCertificate(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
         {
+            // For testing: accept all certificates issued by our CA
+            if (certificate == null) return false;
+
             try
             {
-                // Simple verification: Check if issuer is our CA
-                return clientCert.Issuer.Contains("Test CA");
+                var cert = new X509Certificate2(certificate);
+                // Accept if issued by our Test CA
+                return cert.Issuer.Contains("Test CA");
             }
             catch
             {

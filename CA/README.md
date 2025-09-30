@@ -12,7 +12,7 @@ The system consists of:
 ## Prerequisites
 
 - Python 3.8+ with cryptography package installed
-- .NET 6.0 or later
+- .NET 9.0 or later
 - Windows 10/11
 
 ## Step-by-Step Instructions
@@ -76,15 +76,15 @@ dotnet run
 
 Or simply double-click the executable:
 ```
-TLSServer\bin\Debug\net6.0-windows\TLSServer.exe
+TLSServer\bin\Debug\net9.0-windows\TLSServer.exe
 ```
 
 The TLS Server GUI will open. Click the **"서버 시작"** (Start Server) button.
 
 **Important Notes:**
 - Default port: 8443
-- The server loads certificates from: `certificates/server.crt` and `certificates/server.key`
-- The server loads CA certificate from: `certificates/ca.crt`
+- The server loads certificates from relative path: `../certificates/`
+- Required files: `server.crt`, `server.key`, and `ca.crt`
 
 ### Step 4: Run TLS Client
 
@@ -97,7 +97,7 @@ dotnet run
 
 Or simply double-click the executable:
 ```
-TLSClient\bin\Debug\net6.0-windows\TLSClient.exe
+TLSClient\bin\Debug\net9.0-windows\TLSClient.exe
 ```
 
 The TLS Client GUI will open. Enter connection details and click the **"연결"** (Connect) button.
@@ -107,8 +107,8 @@ The TLS Client GUI will open. Enter connection details and click the **"연결"*
 - Port: 8443
 
 **Important Notes:**
-- The client loads certificates from: `certificates/client.crt` and `certificates/client.key`
-- The client loads CA certificate from: `certificates/ca.crt`
+- The client loads certificates from relative path: `../certificates/`
+- Required files: `client.crt`, `client.key`, and `ca.crt`
 
 ### Step 5: Test Communication
 
@@ -159,7 +159,8 @@ If you see "Certificate not found" errors in the server or client:
 1. Make sure the CA server is running
 2. Run `python test_certificates.py` to generate certificates
 3. Check that files exist in the `certificates/` directory
-4. Verify the certificate paths in ServerForm.cs and ClientForm.cs match your actual paths
+4. Verify the applications are running from their respective directories (TLSServer or TLSClient)
+5. The applications use relative path `../certificates/` to access certificate files
 
 ### Connection Refused Error
 
@@ -194,8 +195,9 @@ This system implements:
 - ✅ **Mutual TLS Authentication** - Both server and client verify each other
 - ✅ **CA-Signed Certificates** - All certificates are signed by a trusted CA
 - ✅ **TLS 1.2** - Modern encryption protocol
-- ✅ **Certificate Validation** - Certificates are verified against the CA root certificate
+- ✅ **Certificate Validation** - Certificates are verified by checking the issuer (Test CA)
 - ✅ **Encrypted Communication** - All messages are transmitted over TLS
+- ✅ **Custom Certificate Validation** - Uses RemoteCertificateValidationCallback for flexible validation
 
 ## Architecture
 
