@@ -9,7 +9,9 @@
       "Bash(start bin/Debug/net9.0-windows/TLSServer.exe)",
       "Bash(start bin/Debug/net9.0-windows/TLSClient.exe)",
       "Bash(dotnet clean:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(cat:*)",
+      "Bash(dotnet build:*)"
     ],
     "deny": [],
     "ask": []
