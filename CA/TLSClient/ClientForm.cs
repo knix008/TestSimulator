@@ -163,19 +163,19 @@ namespace TLSClient
             this.PerformLayout();
         }
 
-        private Button btnConnectDisconnect;
-        private TextBox txtLog;
-        private Label lblStatus;
-        private TextBox txtServerIP;
-        private Label lblServerIP;
-        private TextBox txtPort;
-        private Label lblPort;
-        private Button btnSendMessage;
-        private TextBox txtMessage;
-        private Label lblMessage;
-        private Button btnRequestCert;
-        private TextBox txtCertName;
-        private Label lblCertName;
+        private Button btnConnectDisconnect = null!;
+        private TextBox txtLog = null!;
+        private Label lblStatus = null!;
+        private TextBox txtServerIP = null!;
+        private Label lblServerIP = null!;
+        private TextBox txtPort = null!;
+        private Label lblPort = null!;
+        private Button btnSendMessage = null!;
+        private TextBox txtMessage = null!;
+        private Label lblMessage = null!;
+        private Button btnRequestCert = null!;
+        private TextBox txtCertName = null!;
+        private Label lblCertName = null!;
 
         private void InitializeCertificates()
         {
@@ -225,7 +225,9 @@ namespace TLSClient
             {
                 // Create certificate from PEM data
                 byte[] certBytes = Encoding.UTF8.GetBytes(certPem);
+#pragma warning disable SYSLIB0057
                 var cert = new X509Certificate2(certBytes);
+#pragma warning restore SYSLIB0057
 
                 // Import private key
                 using (var rsa = System.Security.Cryptography.RSA.Create())
@@ -236,18 +238,23 @@ namespace TLSClient
                     var certWithKey = cert.CopyWithPrivateKey(rsa);
 
                     // Export and re-import with UserKeySet flag to avoid permission issues
+#pragma warning disable SYSLIB0057
                     return new X509Certificate2(certWithKey.Export(X509ContentType.Pfx), (string?)null,
                         X509KeyStorageFlags.Exportable | X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet);
+#pragma warning restore SYSLIB0057
                 }
             }
             else
             {
+                // Create certificate from PEM data
                 byte[] certBytes = Encoding.UTF8.GetBytes(certPem);
+#pragma warning disable SYSLIB0057
                 return new X509Certificate2(certBytes);
+#pragma warning restore SYSLIB0057
             }
         }
 
-        private void btnConnectDisconnect_Click(object sender, EventArgs e)
+        private void btnConnectDisconnect_Click(object? sender, EventArgs e)
         {
             if (!isConnected)
             {
@@ -461,7 +468,7 @@ namespace TLSClient
             }
         }
 
-        private void btnSendMessage_Click(object sender, EventArgs e)
+        private void btnSendMessage_Click(object? sender, EventArgs e)
         {
             if (!isConnected || string.IsNullOrEmpty(txtMessage.Text))
                 return;
@@ -481,7 +488,7 @@ namespace TLSClient
             }
         }
 
-        private void btnRequestCert_Click(object sender, EventArgs e)
+        private void btnRequestCert_Click(object? sender, EventArgs e)
         {
             string certName = txtCertName.Text;
             if (string.IsNullOrEmpty(certName))
