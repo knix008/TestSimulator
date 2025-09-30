@@ -10,11 +10,21 @@ builder.WebHost.ConfigureKestrel(options =>
     {
         listenOptions.UseHttps(GenerateSelfSignedCertificate());
     });
+    // Set max request body size to 200MB for firmware uploads
+    options.Limits.MaxRequestBodySize = 200 * 1024 * 1024;
+});
+
+// Configure form options for large file uploads
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 200 * 1024 * 1024; // 200MB
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
 });
 
 var app = builder.Build();
 
-app.MapPost("/api/intellivix/vixface/v2.0/updatefirmware", async (HttpContext context) =>
+app.MapPost("/api/v1.0/updatefirmware", async (HttpContext context) =>
 {
     try
     {
@@ -81,7 +91,7 @@ app.MapGet("/", () =>
         status = "running",
         endpoints = new[]
         {
-            "POST /api/intellivix/vixface/v2.0/updatefirmware"
+            "POST /api/v1.0/updatefirmware"
         }
     });
 });
@@ -90,7 +100,7 @@ Console.WriteLine("=========================================");
 Console.WriteLine("Device Simulator Starting...");
 Console.WriteLine("=========================================");
 Console.WriteLine("Listening on: https://localhost:5001");
-Console.WriteLine("API Endpoint: POST /api/intellivix/vixface/v2.0/updatefirmware");
+Console.WriteLine("API Endpoint: POST /api/v1.0/updatefirmware");
 Console.WriteLine("Press Ctrl+C to stop");
 Console.WriteLine("=========================================");
 

@@ -19,25 +19,27 @@ Network를 통해 펌웨어를 업데이트하는 C# 애플리케이션입니다
   - HTTPS 서버 (포트 5001)
   - 자체 서명 인증서 자동 생성
   - RESTful API 엔드포인트 제공
-  - 펌웨어 파일 수신 및 저장
+  - 펌웨어 파일 수신 및 저장 (최대 200MB)
   - 콘솔 로그 출력
+  - 대용량 파일 업로드 지원
 
 ## API 명세
 
 ### 펌웨어 업데이트
-- **Endpoint**: `POST /api/intellivix/vixface/v2.0/updatefirmware`
+- **Endpoint**: `POST /api/v1.0/updatefirmware`
 - **Content-Type**: `multipart/form-data`
 - **Parameters**:
   - `firmware`: 펌웨어 바이너리 파일
+- **Max File Size**: 200MB
 - **Response**:
   ```json
   {
     "success": true,
     "message": "Firmware updated successfully",
     "filename": "firmware.bin",
-    "size": 1024000,
-    "savedPath": "c:\\uploads\\20250930_120000_firmware.bin",
-    "timestamp": "2025-09-30T12:00:00"
+    "size": 138194900,
+    "savedPath": "D:\\DeviceSimulator\\uploads\\20250930_234136_firmware.bin",
+    "timestamp": "2025-09-30T23:41:36"
   }
   ```
 
@@ -84,10 +86,29 @@ dotnet run --project FirmwareUpdaterApp
 ## 보안
 
 - **TLS 1.3**: 모든 통신은 HTTPS를 통해 암호화됩니다
-- **자체 서명 인증서**: 개발 환경용 인증서가 자동 생성됩니다
+- **자체 서명 인증서**: 개발 환경용 인증서가 자동 생성됩니다 (RSA 2048-bit)
 - **인증서 검증 우회**: 개발/테스트 목적으로 클라이언트에서 인증서 검증을 우회합니다
+- **대용량 파일 처리**: 최대 200MB 펌웨어 파일 업로드 지원
 
 ⚠️ **프로덕션 환경에서는 신뢰할 수 있는 CA에서 발급한 인증서를 사용하세요.**
+
+## 기술 사양
+
+### 서버 (DeviceSimulator)
+- **프레임워크**: ASP.NET Core 8.0
+- **프로토콜**: HTTPS (TLS 1.3)
+- **포트**: 5001
+- **최대 요청 크기**: 200MB
+  - `MaxRequestBodySize`: 200MB
+  - `MultipartBodyLengthLimit`: 200MB
+- **인증서**: 자체 서명 X.509 (개발용)
+- **업로드 폴더**: `DeviceSimulator/uploads/`
+
+### 클라이언트 (FirmwareUpdaterApp)
+- **프레임워크**: .NET 8.0 WinForms
+- **HTTP 클라이언트**: HttpClient
+- **인증서 검증**: 비활성화 (개발용)
+- **지원 파일 형식**: .bin (바이너리 펌웨어 파일)
 
 ## 프로젝트 구조
 ```
