@@ -11,7 +11,9 @@
       "Bash(dotnet clean:*)",
       "Bash(taskkill:*)",
       "Bash(cat:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Read(//d/Home/Projects/TestSimulator/CA/**)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []
