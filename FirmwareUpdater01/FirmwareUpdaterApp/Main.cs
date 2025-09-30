@@ -4,12 +4,12 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace FirmwareUpdaterApp;
 
-public partial class Form1 : Form
+public partial class Main : Form
 {
     private string? firmwareFilePath;
     private static readonly HttpClient httpClient;
 
-    static Form1()
+    static Main()
     {
         var handler = new HttpClientHandler
         {
@@ -18,7 +18,7 @@ public partial class Form1 : Form
         httpClient = new HttpClient(handler);
     }
 
-    public Form1()
+    public Main()
     {
         InitializeComponent();
     }
