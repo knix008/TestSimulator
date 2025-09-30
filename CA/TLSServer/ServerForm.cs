@@ -138,16 +138,16 @@ namespace TLSServer
             this.PerformLayout();
         }
 
-        private Button btnStartStop;
-        private TextBox txtLog;
-        private Label lblStatus;
-        private TextBox txtPort;
-        private Label lblPort;
-        private ListBox lstClients;
-        private Label lblClients;
-        private Button btnSendMessage;
-        private TextBox txtMessage;
-        private Label lblMessage;
+        private Button btnStartStop = null!;
+        private TextBox txtLog = null!;
+        private Label lblStatus = null!;
+        private TextBox txtPort = null!;
+        private Label lblPort = null!;
+        private ListBox lstClients = null!;
+        private Label lblClients = null!;
+        private Button btnSendMessage = null!;
+        private TextBox txtMessage = null!;
+        private Label lblMessage = null!;
 
         private void InitializeCertificates()
         {
@@ -198,7 +198,9 @@ namespace TLSServer
             {
                 // Create certificate from PEM data
                 byte[] certBytes = Encoding.UTF8.GetBytes(certPem);
+#pragma warning disable SYSLIB0057
                 var cert = new X509Certificate2(certBytes);
+#pragma warning restore SYSLIB0057
 
                 // Import private key
                 using (var rsa = System.Security.Cryptography.RSA.Create())
@@ -209,18 +211,22 @@ namespace TLSServer
                     var certWithKey = cert.CopyWithPrivateKey(rsa);
 
                     // Export and re-import with UserKeySet flag to avoid permission issues
+#pragma warning disable SYSLIB0057
                     return new X509Certificate2(certWithKey.Export(X509ContentType.Pfx), (string?)null,
                         X509KeyStorageFlags.Exportable | X509KeyStorageFlags.UserKeySet | X509KeyStorageFlags.PersistKeySet);
+#pragma warning restore SYSLIB0057
                 }
             }
             else
             {
                 byte[] certBytes = Encoding.UTF8.GetBytes(certPem);
+#pragma warning disable SYSLIB0057
                 return new X509Certificate2(certBytes);
+#pragma warning restore SYSLIB0057
             }
         }
 
-        private void btnStartStop_Click(object sender, EventArgs e)
+        private void btnStartStop_Click(object? sender, EventArgs e)
         {
             if (!isListening)
             {
@@ -353,7 +359,7 @@ namespace TLSServer
             }
         }
 
-        private void btnSendMessage_Click(object sender, EventArgs e)
+        private void btnSendMessage_Click(object? sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(txtMessage.Text))
                 return;
