@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
@@ -86,7 +86,7 @@ app.MapGet("/", () =>
 {
     return Results.Ok(new
     {
-        device = "VixFace Device Simulator",
+        device = "Device Simulator",
         version = "2.0",
         status = "running",
         endpoints = new[]
