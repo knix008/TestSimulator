@@ -6,7 +6,16 @@
       "Bash(dotnet sln:*)",
       "Bash(dotnet build:*)",
       "Bash(dotnet run:*)",
-      "Bash(dotnet clean:*)"
+      "Bash(dotnet clean:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(./generate_cert.sh:*)",
+      "Bash(openssl req:*)",
+      "Bash(g++:*)",
+      "Bash(cmake:*)",
+      "Bash(pacman:*)",
+      "Bash(curl -L https://github.com/yhirose/cpp-httplib/releases/download/v0.15.3/httplib.h -o include/httplib.h)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
