@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Face Recognition GUI Launcher
-# This script launches the GUI application with proper environment setup
+# Face Recognition Engine Launcher
+# This script launches the console application with proper environment setup
 
 # Set the script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,34 +30,33 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if GUI executable exists
-if [ ! -f "$BUILD_DIR/face_recognition_gui" ]; then
-    print_info "GUI executable not found. Building first..."
+# Check if executable exists
+if [ ! -f "$BUILD_DIR/face_recognition_engine" ]; then
+    print_info "Executable not found. Building first..."
     cd "$SCRIPT_DIR"
-    
-    # Try to build with CMake directly
-    print_info "Building with CMake..."
-    rm -rf build
-    mkdir build
-    cd build
-    cmake .. && make -j$(nproc)
-    
+
+    # Try to build with build.sh if available
+    if [ -f "build.sh" ]; then
+        ./build.sh
+    else
+        # Fallback to direct CMake build
+        print_info "Building with CMake..."
+        rm -rf build
+        mkdir build
+        cd build
+        cmake .. && make -j$(nproc)
+    fi
+
     if [ $? -ne 0 ]; then
         print_error "Build failed. Please check the build output."
         exit 1
     fi
-    
-    # Check if GUI was built
-    if [ ! -f "face_recognition_gui" ]; then
-        print_warning "GUI executable was not built. This usually means GTK3 is not installed."
-        print_info "Available options:"
-        print_info "1. Install GTK3 to enable GUI support:"
-        print_info "   sudo apt install libgtk-3-dev libgdk-pixbuf2.0-dev"
-        print_info "2. Use the console application instead:"
-        print_info "   ./build/face_recognition_engine"
+
+    if [ ! -f "$BUILD_DIR/face_recognition_engine" ]; then
+        print_error "Build completed but executable not found."
         exit 1
     fi
-    
+
     print_success "Build completed successfully."
 fi
 
@@ -77,7 +76,7 @@ done
 
 export LD_LIBRARY_PATH="$TEMP_LIB_DIR:$LD_LIBRARY_PATH"
 
-# Launch the GUI application
-print_info "Starting Face Recognition GUI..."
+# Launch the console application
+print_info "Starting Face Recognition Engine..."
 cd "$BUILD_DIR"
-./face_recognition_gui "$@"
+./face_recognition_engine "$@"
