@@ -1,2 +1,71 @@
+# Build directories
 build/
+build_debug/
+cmake-build-*/
+
+# Compiled Object files
 *.o
+*.obj
+*.ko
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+*.la
+*.lo
+
+# Executables
+*.exe
+*.out
+*.app
+face_recognition_engine
+face_recognition_gui
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Core dumps
+core
+core.*
+
+# Log files
+*.log
+
+# Test data (optional - uncomment if you don't want to track test images)
+# test_images/
+# test_data/

@@ -57,21 +57,19 @@ if(BUILD_GUI)
 endif()
 
 # Link libraries for console app
-target_link_libraries(face_recognition_engine 
+target_link_libraries(face_recognition_engine
     ${OpenCV_LIBS}
     ${CMAKE_CURRENT_SOURCE_DIR}/vaengine/install/lib/librknnrt.so
     ${CMAKE_CURRENT_SOURCE_DIR}/vaengine/install/lib/libvaengine.so
-    ${CMAKE_CURRENT_SOURCE_DIR}/vaengine/install/lib/libopenblas.so
 )
 
 # Link libraries for GUI app (if available)
 if(BUILD_GUI)
-    target_link_libraries(face_recognition_gui 
+    target_link_libraries(face_recognition_gui
         ${GTK3_LIBRARIES}
         ${OpenCV_LIBS}
         ${CMAKE_CURRENT_SOURCE_DIR}/vaengine/install/lib/librknnrt.so
         ${CMAKE_CURRENT_SOURCE_DIR}/vaengine/install/lib/libvaengine.so
-        ${CMAKE_CURRENT_SOURCE_DIR}/vaengine/install/lib/libopenblas.so
     )
     target_include_directories(face_recognition_gui PRIVATE ${GTK3_INCLUDE_DIRS})
     target_compile_options(face_recognition_gui PRIVATE ${GTK3_CFLAGS_OTHER})

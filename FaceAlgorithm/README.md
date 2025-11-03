@@ -121,21 +121,26 @@ The build script can automatically install required dependencies:
 
 ### Console Application
 ```bash
-# Basic usage
-./build/face_recognition_engine <query_image1> <query_image2> ...
+# Using the launcher script (recommended)
+./run.sh <query_image1> <query_image2> ...
 
 # Example
-./build/face_recognition_engine /path/to/query.jpg
+./run.sh /path/to/query.jpg
+
+# Or run directly from build directory
+./build/face_recognition_engine <query_image1> <query_image2> ...
 ```
 
 ### GUI Application
 ```bash
-# Launch GUI
+# Using the launcher script (recommended)
 ./run_gui.sh
 
-# Or run directly
+# Or run directly from build directory
 ./build/face_recognition_gui
 ```
+
+**Note:** The launcher scripts (`run.sh` and `run_gui.sh`) automatically set up the correct library paths to avoid conflicts with system libraries.
 
 ### GUI Features
 - **Image Selection**: Browse and select query images
@@ -163,15 +168,21 @@ FaceAlgorithm/
 ├── CMakeLists.txt            # CMake configuration
 ├── Makefile                  # Build wrapper
 ├── build.sh                  # Build script
+├── run.sh                    # Console launcher
 ├── run_gui.sh               # GUI launcher
+├── .gitignore               # Git ignore rules
 └── README.md                # This file
 ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
+
+The launcher scripts (`run.sh` and `run_gui.sh`) automatically configure the necessary environment variables. They filter out OpenBLAS libraries from the vaengine directory to prevent conflicts with system LAPACK.
+
+If you need to set the library path manually (not recommended):
 ```bash
-# Set library path for runtime
+# Set library path for runtime (may cause OpenBLAS conflicts)
 export LD_LIBRARY_PATH="./vaengine/install/lib:$LD_LIBRARY_PATH"
 ```
 
@@ -206,17 +217,41 @@ The system uses configurable thresholds:
 
 ### Common Issues
 
-1. **Build fails with "GTK3 not found"**
+1. **Build fails with "undefined reference to 'gotoblas'"**
+
+   This error occurs when there's a conflict between the local OpenBLAS library and system LAPACK. The fix has been applied in the CMakeLists.txt to use only system OpenBLAS.
+
+   ```bash
+   # Clean rebuild to apply the fix
+   ./build.sh --clean
+   ```
+
+2. **Runtime error: "undefined symbol: gotoblas"**
+
+   Use the provided launcher scripts instead of running executables directly:
+   ```bash
+   # Use these instead of running from build/ directly
+   ./run.sh <images>
+   ./run_gui.sh
+   ```
+
+   The launcher scripts properly configure library paths to avoid conflicts.
+
+3. **Build fails with "GTK3 not found"**
    ```bash
    sudo apt install libgtk-3-dev libgdk-pixbuf2.0-dev
    ```
 
-2. **Library not found at runtime**
+4. **Library not found at runtime**
+
+   If you must run the executables directly without the launcher scripts:
    ```bash
    export LD_LIBRARY_PATH="./vaengine/install/lib:$LD_LIBRARY_PATH"
    ```
 
-3. **GUI application won't start**
+   However, this may cause OpenBLAS conflicts. Use the launcher scripts instead.
+
+5. **GUI application won't start**
    ```bash
    # Check if GTK3 is properly installed
    pkg-config --modversion gtk+-3.0
@@ -306,6 +341,9 @@ For issues and questions:
   - Face detection and recognition
   - Gallery management
   - Anti-spoofing protection
+  - Fixed OpenBLAS/LAPACK conflicts on ARM64
+  - Added launcher scripts with proper library path management
+  - Comprehensive .gitignore configuration
 
 ---
 
