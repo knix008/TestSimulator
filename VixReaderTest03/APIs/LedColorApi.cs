@@ -16,41 +16,41 @@ namespace VixAirTest01.APIs
             _getIPAddress = getIPAddress;
         }
 
-        public async Task<string> SendLedColorOnAsync(string? colorList = null)
+        public static string GetLedColorCommand(bool isRed, bool isGreen, bool isBlue)
         {
-            try
-            {
-                LogMessage("LED 색상 ON 명령 전송 시작...");
-                string command = "AT+TEST=LEDCOLORON";
-                if (!string.IsNullOrWhiteSpace(colorList))
-                    command = $"{command}:{colorList}";
-
-                LogMessage($"전송 명령: {command}");
-                string response = await _tlsClient.SendAtCommandAsync(command);
-                LogMessage($"서버 응답: {response}");
-                return response ?? string.Empty;
-            }
-            catch (Exception ex)
-            {
-                LogMessage($"LED 색상 ON 전송 실패: {ex.Message}");
-                throw;
-            }
+            if (!isRed && !isGreen && !isBlue)
+                return "AT+TEST=LED_BLACK";
+            if (isRed && !isGreen && !isBlue)
+                return "AT+TEST=LED_RED";
+            if (isRed && isGreen && !isBlue)
+                return "AT+TEST=LED_YELLOW";
+            if (!isRed && isGreen && !isBlue)
+                return "AT+TEST=LED_GREEN";
+            if (!isRed && isGreen && isBlue)
+                return "AT+TEST=LED_CYAN";
+            if (!isRed && !isGreen && isBlue)
+                return "AT+TEST=LED_BLUE";
+            if (isRed && !isGreen && isBlue)
+                return "AT+TEST=LED_MAGENTA";
+            if (isRed && isGreen && isBlue)
+                return "AT+TEST=LED_WHITE";
+            return "AT+TEST=LED_BLACK";
         }
 
-        public async Task<string> SendLedColorOffAsync()
+        // 새로운 LED 색상 명령 전송 메서드
+        public async Task<string> SendLedColorAsync(bool isRed, bool isGreen, bool isBlue)
         {
             try
             {
-                LogMessage("LED 색상 OFF 명령 전송 시작...");
-                string command = "AT+TEST=LEDCOLOROFF";
-                LogMessage($"전송 명령: {command}");
+                string command = GetLedColorCommand(isRed, isGreen, isBlue);
+                LogMessage($"LED 색상 명령 전송: {command}");
                 string response = await _tlsClient.SendAtCommandAsync(command);
                 LogMessage($"서버 응답: {response}");
                 return response ?? string.Empty;
             }
             catch (Exception ex)
             {
-                LogMessage($"LED 색상 OFF 전송 실패: {ex.Message}");
+                LogMessage($"LED 색상 명령 전송 실패: {ex.Message}");
                 throw;
             }
         }
