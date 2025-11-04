@@ -39,7 +39,6 @@
             DeviceTypeLabel = new Label();
             IntellivixLogo = new PictureBox();
             LedColorTestGroup = new GroupBox();
-            LedColorTestOffButton = new Button();
             LedColorTestOnButton = new Button();
             LedColorBlueCheckBox = new CheckBox();
             LedColorGreenCheckBox = new CheckBox();
@@ -456,7 +455,6 @@
             // 
             // LedColorTestGroup
             // 
-            LedColorTestGroup.Controls.Add(LedColorTestOffButton);
             LedColorTestGroup.Controls.Add(LedColorTestOnButton);
             LedColorTestGroup.Controls.Add(LedColorBlueCheckBox);
             LedColorTestGroup.Controls.Add(LedColorGreenCheckBox);
@@ -470,29 +468,16 @@
             LedColorTestGroup.TabStop = false;
             LedColorTestGroup.Text = "LED 색상 테스트 : ";
             // 
-            // LedColorTestOffButton
-            // 
-            LedColorTestOffButton.BackColor = Color.Gray;
-            LedColorTestOffButton.Font = new Font("굴림", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 129);
-            LedColorTestOffButton.ForeColor = Color.DarkBlue;
-            LedColorTestOffButton.Location = new Point(10, 172);
-            LedColorTestOffButton.Name = "LedColorTestOffButton";
-            LedColorTestOffButton.Size = new Size(187, 38);
-            LedColorTestOffButton.TabIndex = 16;
-            LedColorTestOffButton.Text = "OFF";
-            LedColorTestOffButton.UseVisualStyleBackColor = false;
-            LedColorTestOffButton.Click += LedColorTestOffButton_Click;
-            // 
             // LedColorTestOnButton
             // 
             LedColorTestOnButton.BackColor = Color.Lime;
-            LedColorTestOnButton.Font = new Font("굴림", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 129);
+            LedColorTestOnButton.Font = new Font("굴림", 12F, FontStyle.Bold, GraphicsUnit.Point, 129);
             LedColorTestOnButton.ForeColor = Color.DarkBlue;
-            LedColorTestOnButton.Location = new Point(10, 128);
+            LedColorTestOnButton.Location = new Point(6, 128);
             LedColorTestOnButton.Name = "LedColorTestOnButton";
-            LedColorTestOnButton.Size = new Size(187, 38);
+            LedColorTestOnButton.Size = new Size(191, 46);
             LedColorTestOnButton.TabIndex = 15;
-            LedColorTestOnButton.Text = "ON";
+            LedColorTestOnButton.Text = "설정";
             LedColorTestOnButton.UseVisualStyleBackColor = false;
             LedColorTestOnButton.Click += LedColorTestOnButton_Click;
             // 
@@ -602,7 +587,6 @@
         private GroupBox LedColorTestGroup;
         private CheckBox LedColorRedCheckBox;
         private CheckBox LedColorGreenCheckBox;
-        private Button LedColorTestOffButton;
         private Button LedColorTestOnButton;
         private CheckBox LedColorBlueCheckBox;
     }
