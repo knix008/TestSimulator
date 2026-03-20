@@ -26,10 +26,16 @@ all: check-deps $(TARGET)
 # GTK 설치 여부 확인 → 없으면 OS별 설치 명령 실행
 check-deps:
 ifeq ($(GTK_CFLAGS),)
-	@echo ">>> GTK+3 가 감지되지 않았습니다. 설치를 시작합니다..."
+	@echo ""
+	@echo "============================================================"
+	@echo "  GTK+3 가 감지되지 않았습니다. 설치를 시작합니다..."
+	@echo "  OS: $(OS)"
+	@echo "============================================================"
 ifeq ($(OS),Darwin)
-	@echo ">>> [macOS] brew install gtk+3"
-	brew install gtk+3
+	@echo "  [macOS] Homebrew로 gtk+3 설치 중..."
+	@echo "  명령: brew install gtk+3"
+	@echo "------------------------------------------------------------"
+	@brew install gtk+3
 	$(eval GTK_CFLAGS := $(shell HOMEBREW_PREFIX=$$(brew --prefix); \
 	    PKG_CONFIG_PATH=$$HOMEBREW_PREFIX/lib/pkgconfig \
 	    pkg-config --cflags gtk+-3.0 2>/dev/null))
@@ -39,21 +45,30 @@ ifeq ($(OS),Darwin)
 	$(eval CFLAGS  = $(GTK_CFLAGS) -Wall -Wextra -O2 -std=c11)
 	$(eval LDFLAGS = $(GTK_LIBS) -lm)
 else ifeq ($(OS),Linux)
-	@# 배포판 패키지 관리자 자동 감지
 	@if command -v apt-get >/dev/null 2>&1; then \
-	    echo ">>> [Debian/Ubuntu] apt-get install libgtk-3-dev"; \
+	    echo "  [Debian/Ubuntu] apt-get으로 libgtk-3-dev 설치 중..."; \
+	    echo "  명령: sudo apt-get install libgtk-3-dev"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo apt-get update && sudo apt-get install -y libgtk-3-dev; \
 	elif command -v dnf >/dev/null 2>&1; then \
-	    echo ">>> [Fedora/RHEL] dnf install gtk3-devel"; \
+	    echo "  [Fedora/RHEL] dnf으로 gtk3-devel 설치 중..."; \
+	    echo "  명령: sudo dnf install gtk3-devel"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo dnf install -y gtk3-devel; \
 	elif command -v pacman >/dev/null 2>&1; then \
-	    echo ">>> [Arch Linux] pacman -S gtk3"; \
+	    echo "  [Arch Linux] pacman으로 gtk3 설치 중..."; \
+	    echo "  명령: sudo pacman -S gtk3"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo pacman -S --noconfirm gtk3; \
 	elif command -v zypper >/dev/null 2>&1; then \
-	    echo ">>> [openSUSE] zypper install gtk3-devel"; \
+	    echo "  [openSUSE] zypper로 gtk3-devel 설치 중..."; \
+	    echo "  명령: sudo zypper install gtk3-devel"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo zypper install -y gtk3-devel; \
 	else \
-	    echo "ERROR: 지원하지 않는 배포판입니다. GTK+3 개발 패키지를 수동으로 설치해주세요."; \
+	    echo "  ERROR: 지원하지 않는 배포판입니다."; \
+	    echo "  GTK+3 개발 패키지를 수동으로 설치해주세요."; \
+	    echo "============================================================"; \
 	    exit 1; \
 	fi
 	$(eval GTK_CFLAGS := $(shell pkg-config --cflags gtk+-3.0 2>/dev/null))
@@ -61,37 +76,83 @@ else ifeq ($(OS),Linux)
 	$(eval CFLAGS  = $(GTK_CFLAGS) -Wall -Wextra -O2 -std=c11)
 	$(eval LDFLAGS = $(GTK_LIBS) -lm)
 else
-	@echo "ERROR: 지원하지 않는 OS($(OS))입니다. GTK+3를 수동으로 설치해주세요."
+	@echo "  ERROR: 지원하지 않는 OS ($(OS)) 입니다."
+	@echo "  GTK+3를 수동으로 설치한 후 다시 시도해주세요."
+	@echo "============================================================"
 	@exit 1
 endif
-	@echo ">>> GTK+3 설치 완료."
+	@echo "============================================================"
+	@echo "  GTK+3 설치 완료."
+	@echo "============================================================"
+	@echo ""
+else
+	@echo "[check-deps] GTK+3 감지됨 — 설치 불필요"
 endif
 
 $(TARGET): $(SRCS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo ""
+	@echo "============================================================"
+	@echo "  빌드 시작: $(TARGET)"
+	@echo "  소스 파일: $(SRCS)"
+	@echo "  컴파일러:  $(CC)"
+	@echo "  최적화:    -O2  표준: c11"
+	@echo "============================================================"
+	@echo "  컴파일 중..."
+	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	@echo "------------------------------------------------------------"
+	@echo "  빌드 성공: ./$(TARGET)"
+	@echo "  실행 방법: make run  또는  ./$(TARGET) [이미지파일]"
+	@echo "============================================================"
+	@echo ""
 
 # 명시적 의존성 설치 타깃 (make install-deps)
 install-deps:
+	@echo ""
+	@echo "============================================================"
+	@echo "  GTK+3 설치 (OS: $(OS))"
+	@echo "============================================================"
 ifeq ($(OS),Darwin)
-	brew install gtk+3
+	@echo "  명령: brew install gtk+3"
+	@echo "------------------------------------------------------------"
+	@brew install gtk+3
 else ifeq ($(OS),Linux)
 	@if command -v apt-get >/dev/null 2>&1; then \
+	    echo "  명령: sudo apt-get install libgtk-3-dev"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo apt-get update && sudo apt-get install -y libgtk-3-dev; \
 	elif command -v dnf >/dev/null 2>&1; then \
+	    echo "  명령: sudo dnf install gtk3-devel"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo dnf install -y gtk3-devel; \
 	elif command -v pacman >/dev/null 2>&1; then \
+	    echo "  명령: sudo pacman -S gtk3"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo pacman -S --noconfirm gtk3; \
 	elif command -v zypper >/dev/null 2>&1; then \
+	    echo "  명령: sudo zypper install gtk3-devel"; \
+	    echo "------------------------------------------------------------"; \
 	    sudo zypper install -y gtk3-devel; \
 	else \
-	    echo "ERROR: 패키지 관리자를 찾을 수 없습니다."; exit 1; \
+	    echo "  ERROR: 패키지 관리자를 찾을 수 없습니다."; \
+	    echo "============================================================"; \
+	    exit 1; \
 	fi
 else
-	@echo "ERROR: 지원하지 않는 OS($(OS))입니다."; exit 1
+	@echo "  ERROR: 지원하지 않는 OS ($(OS)) 입니다."
+	@echo "============================================================"
+	@exit 1
 endif
+	@echo "============================================================"
+	@echo "  설치 완료."
+	@echo "============================================================"
+	@echo ""
 
 run: $(TARGET)
-	./$(TARGET)
+	@echo "  실행: ./$(TARGET)"
+	@echo "------------------------------------------------------------"
+	@./$(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	@echo "  정리 중: $(TARGET) 삭제"
+	@rm -f $(TARGET)
+	@echo "  완료."
