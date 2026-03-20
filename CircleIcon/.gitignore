@@ -1,0 +1,11 @@
+# 빌드 결과물
+circle_icon
+
+# macOS
+.DS_Store
+
+# 에디터
+*.swp
+*.swo
+*~
+.vscode/
