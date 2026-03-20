@@ -1,13 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Drawing.Drawing2D;
 
 namespace CircleIconWin
 {
@@ -21,6 +15,7 @@ namespace CircleIconWin
         private const float ZoomStep = 0.1f;
         private const float ZoomMin = 0.1f;
         private const float ZoomMax = 5.0f;
+        private float zoomScale = 1.0f; // Default zoom scale
 
         public Form1()
         {
@@ -41,6 +36,8 @@ namespace CircleIconWin
             pictureBox1.MouseWheel += PictureBox1_MouseWheel;
             pictureBox1.MouseLeave += PictureBox1_MouseLeave;
             pictureBox1.Focus();
+            // Form 키보드 이벤트
+            this.KeyDown += Form1_KeyDown;
         }
 
         private void BtnOpen_Click(object sender, EventArgs e)
@@ -96,10 +93,17 @@ namespace CircleIconWin
 
         private void PictureBox1_MouseWheel(object sender, MouseEventArgs e)
         {
+            // Implement zoom functionality centered on the mouse pointer
             if (e.Delta > 0)
-                zoom = Math.Min(zoom + ZoomStep, ZoomMax);
-            else
-                zoom = Math.Max(zoom - ZoomStep, ZoomMin);
+            {
+                zoomScale = Math.Min(zoomScale + 0.1f, 5.0f); // Limit maximum zoom
+            }
+            else if (e.Delta < 0)
+            {
+                zoomScale = Math.Max(zoomScale - 0.1f, 0.5f); // Limit minimum zoom
+            }
+
+            lblMouseInfo.Text = $"마우스: {e.Location}, 배율: {zoomScale:F1}";
             pictureBox1.Invalidate();
         }
 
@@ -197,38 +201,126 @@ namespace CircleIconWin
         {
             if (loadedImage != null)
             {
-                float imgW = loadedImage.Width * zoom;
-                float imgH = loadedImage.Height * zoom;
-                float offsetX = (pictureBox1.Width - imgW) / 2f;
-                float offsetY = (pictureBox1.Height - imgH) / 2f;
-                e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                e.Graphics.DrawImage(loadedImage, offsetX, offsetY, imgW, imgH);
+                // Calculate the zoomed image dimensions
+                int zoomedWidth = (int)(loadedImage.Width * zoomScale);
+                int zoomedHeight = (int)(loadedImage.Height * zoomScale);
+
+                // Draw the zoomed image centered in the PictureBox
+                int offsetX = (pictureBox1.Width - zoomedWidth) / 2;
+                int offsetY = (pictureBox1.Height - zoomedHeight) / 2;
+                e.Graphics.DrawImage(loadedImage, new Rectangle(offsetX, offsetY, zoomedWidth, zoomedHeight));
+
+                // Draw the zoom scale on the top-right corner of the PictureBox
+                string zoomText = $"배율: {zoomScale:F1}";
+                using (Font font = new Font("Arial", 16, FontStyle.Bold))
+                using (Brush brush = new SolidBrush(Color.Yellow))
+                {
+                    SizeF textSize = e.Graphics.MeasureString(zoomText, font);
+                    PointF textPosition = new PointF(pictureBox1.Width - textSize.Width - 10, 10); // Top-right corner
+                    e.Graphics.DrawString(zoomText, font, brush, textPosition);
+                }
             }
+
             if (!selectionRectImg.IsEmpty)
             {
-                Rectangle selRect = ToPictureBoxRect(selectionRectImg);
+                // Dim the entire image
+                using (Brush dimBrush = new SolidBrush(Color.FromArgb(128, Color.Gray)))
+                {
+                    e.Graphics.FillRectangle(dimBrush, new Rectangle(0, 0, pictureBox1.Width, pictureBox1.Height));
+                }
+
+                // Highlight the circular selection area
+                using (GraphicsPath path = new GraphicsPath())
+                {
+                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
+                    path.AddEllipse(circleRect);
+                    using (Region highlightRegion = new Region(path))
+                    {
+                        e.Graphics.SetClip(highlightRegion, System.Drawing.Drawing2D.CombineMode.Replace);
+
+                        // Draw the zoomed image within the circular selection area without distortion
+                        int zoomedWidth = (int)(loadedImage.Width * zoomScale);
+                        int zoomedHeight = (int)(loadedImage.Height * zoomScale);
+                        int offsetX = (pictureBox1.Width - zoomedWidth) / 2;
+                        int offsetY = (pictureBox1.Height - zoomedHeight) / 2;
+                        e.Graphics.DrawImage(loadedImage, new Rectangle(offsetX, offsetY, zoomedWidth, zoomedHeight));
+
+                        e.Graphics.ResetClip();
+                    }
+                }
+
+                // Draw the dashed circle outline
                 using (Pen pen = new Pen(Color.Red, 2))
                 {
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                    e.Graphics.DrawEllipse(pen, selRect);
+                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
+                    e.Graphics.DrawEllipse(pen, circleRect);
                 }
-                // 중심 좌표 및 크기 정보 표시
-                int cx = selRect.X + selRect.Width / 2;
-                int cy = selRect.Y + selRect.Height / 2;
-                int diameter = selRect.Width;
-                string info = $"중심: ({cx}, {cy})  크기: {diameter}px";
-                var textSize = e.Graphics.MeasureString(info, pictureBox1.Font);
-                Point textPos = new Point(selRect.X, selRect.Y - (int)textSize.Height - 4);
-                if (textPos.Y < 0) textPos.Y = selRect.Y + selRect.Height + 4;
-                using (SolidBrush bg = new SolidBrush(Color.FromArgb(180, Color.White)))
+
+                // Draw a red '+' at the center of the circle
+                using (Pen crossPen = new Pen(Color.Red, 2))
                 {
-                    e.Graphics.FillRectangle(bg, new Rectangle(textPos, textSize.ToSize()));
+                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
+                    Point center = new Point(circleRect.X + circleRect.Width / 2, circleRect.Y + circleRect.Height / 2);
+                    e.Graphics.DrawLine(crossPen, center.X - 5, center.Y, center.X + 5, center.Y); // Horizontal line
+                    e.Graphics.DrawLine(crossPen, center.X, center.Y - 5, center.X, center.Y + 5); // Vertical line
                 }
-                using (SolidBrush brush = new SolidBrush(Color.Black))
+
+                // Display selection information above the selection area, centered horizontally
+                string selectionInfo = $"반경: {selectionRectImg.Width / 2:F1}, 넓이: {selectionRectImg.Width:F1}, 높이: {selectionRectImg.Height:F1}";
+                using (Font font = new Font("Arial", 12, FontStyle.Bold))
+                using (Brush brush = new SolidBrush(Color.Red))
                 {
-                    e.Graphics.DrawString(info, pictureBox1.Font, brush, textPos);
+                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
+                    SizeF textSize = e.Graphics.MeasureString(selectionInfo, font);
+                    PointF infoPosition = new PointF(circleRect.X + (circleRect.Width - textSize.Width) / 2, circleRect.Y - textSize.Height - 5);
+                    e.Graphics.DrawString(selectionInfo, font, brush, infoPosition);
                 }
             }
+        }
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Escape)
+            {
+                // Cancel the selection
+                selectionRectImg = RectangleF.Empty;
+                lblSelectionInfo.Text = "선택 영역: -";
+                pictureBox1.Invalidate();
+            }
+            else if (!selectionRectImg.IsEmpty)
+            {
+                // Move the selection rectangle with arrow keys
+                float moveStep = 5f / zoomScale; // Adjust movement based on zoom scale
+                switch (e.KeyCode)
+                {
+                    case Keys.Up:
+                        selectionRectImg.Y = Math.Max(0, selectionRectImg.Y - moveStep);
+                        break;
+                    case Keys.Down:
+                        selectionRectImg.Y = Math.Min(loadedImage.Height - selectionRectImg.Height, selectionRectImg.Y + moveStep);
+                        break;
+                    case Keys.Left:
+                        selectionRectImg.X = Math.Max(0, selectionRectImg.X - moveStep);
+                        break;
+                    case Keys.Right:
+                        selectionRectImg.X = Math.Min(loadedImage.Width - selectionRectImg.Width, selectionRectImg.X + moveStep);
+                        break;
+                }
+                UpdateStatus();
+                pictureBox1.Invalidate();
+            }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            // Intercept arrow keys to prevent default behavior
+            if (keyData == Keys.Up || keyData == Keys.Down || keyData == Keys.Left || keyData == Keys.Right)
+            {
+                Form1_KeyDown(this, new KeyEventArgs(keyData));
+                return true; // Indicate that the key press has been handled
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
     }
 }
