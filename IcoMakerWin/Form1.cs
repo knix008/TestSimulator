@@ -1,19 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Drawing.Imaging;
 using System.IO;
+using System.Windows.Forms;
 
 namespace IcoMakerWin
 {
     public partial class Form1 : Form
     {
+        private Bitmap loadedBitmap;
+
         public Form1()
         {
             InitializeComponent();
@@ -26,15 +21,16 @@ namespace IcoMakerWin
                 openFileDialog.Filter = "Image Files|*.bmp;*.jpg;*.jpeg;*.png;*.gif";
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    string filePath = openFileDialog.FileName;
-                    pictureBox.Image = Image.FromFile(filePath);
+                    Bitmap originalBitmap = new Bitmap(openFileDialog.FileName);
+                    loadedBitmap = originalBitmap.Clone(new Rectangle(0, 0, originalBitmap.Width, originalBitmap.Height), System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                    pictureBox.Image = loadedBitmap;
                 }
             }
         }
 
         private void btnSaveAsIco_Click(object sender, EventArgs e)
         {
-            if (pictureBox.Image == null)
+            if (loadedBitmap == null)
             {
                 MessageBox.Show("Please load an image first.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
@@ -42,37 +38,31 @@ namespace IcoMakerWin
 
             using (SaveFileDialog saveFileDialog = new SaveFileDialog())
             {
-                saveFileDialog.Filter = "ICO Files|*.ico";
+                saveFileDialog.Filter = "Icon Files|*.ico";
                 if (saveFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    string savePath = saveFileDialog.FileName;
-                    SaveImageAsIco(pictureBox.Image, savePath);
-                    MessageBox.Show("ICO file saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    try
+                    {
+                        SaveAsIco(loadedBitmap, saveFileDialog.FileName);
+                        MessageBox.Show("Icon saved successfully.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to save icon: {ex.Message}\n{ex.StackTrace}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
             }
         }
 
-        private void SaveImageAsIco(Image image, string filePath)
+        private void SaveAsIco(Bitmap bitmap, string filePath)
         {
-            using (var memoryStream = new MemoryStream())
+            // 아이콘 크기를 32x32로 강제 조정
+            using (Bitmap resizedBitmap = new Bitmap(bitmap, new Size(32, 32)))
             {
-                Bitmap bitmap = new Bitmap(image);
-                bitmap.Save(memoryStream, ImageFormat.Png);
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                using (var stream = new FileStream(filePath, FileMode.Create))
                 {
-                    Icon icon = CreateIconFromPng(memoryStream.ToArray());
-                    icon.Save(fileStream);
+                    Icon.FromHandle(resizedBitmap.GetHicon()).Save(stream);
                 }
-            }
-        }
-
-        private Icon CreateIconFromPng(byte[] pngData)
-        {
-            using (var memoryStream = new MemoryStream(pngData))
-            using (var bitmap = new Bitmap(memoryStream))
-            {
-                IntPtr hIcon = bitmap.GetHicon();
-                return Icon.FromHandle(hIcon);
             }
         }
     }
