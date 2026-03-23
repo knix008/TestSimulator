@@ -1,13 +1,13 @@
-# TLS Mutual Authentication System - Quick Start Guide
+# TLS 1.3 Mutual Authentication System - Quick Start Guide
 
-This guide explains how to run the complete CA-based TLS mutual authentication system.
+This guide explains how to run the complete CA-based TLS 1.3 mutual authentication system.
 
 ## System Overview
 
 The system consists of:
 1. **CA Server** (Python) - Issues and manages certificates
-2. **TLS Server** (C# WinForms) - Listens for TLS connections
-3. **TLS Client** (C# WinForms) - Connects to TLS server
+2. **TLS Server** (C# WinForms) - Listens for TLS 1.3 connections with mutual authentication
+3. **TLS Client** (C# WinForms) - Connects to TLS server with client certificate
 
 ## Prerequisites
 
@@ -15,11 +15,35 @@ The system consists of:
 - .NET 9.0 or later
 - Windows 10/11
 
-## Step-by-Step Instructions
+## Quick Start (Recommended)
+
+All commands should be run from the **CA1.3 directory**.
+
+```bash
+# Terminal 1: Start CA Server (keep running)
+python ca_server.py
+
+# Terminal 2: Generate certificates
+python request_certificates.py
+
+# Terminal 3: Build projects if needed
+cd TLSServer && dotnet build && cd ..
+cd TLSClient && dotnet build && cd ..
+
+# Terminal 4: Run TLS Server
+cd TLSServer
+dotnet run
+
+# Terminal 5: Run TLS Client
+cd TLSClient
+dotnet run
+```
+
+## Detailed Step-by-Step Instructions
 
 ### Step 1: Start the CA Server
 
-Open a terminal in the CA directory and run:
+From the **CA1.3 directory**, run:
 
 ```bash
 python ca_server.py
@@ -28,9 +52,9 @@ python ca_server.py
 The CA server will:
 - Generate a root CA certificate automatically
 - Listen on port 8888 for certificate requests
-- Save all certificates to the `certificates/` folder
+- Save all certificates to the `certificates/` folder in the current directory
 
-You should see:
+Expected output (deprecation warnings can be ignored):
 ```
 Creating CA root certificate...
 CA root certificate created successfully
@@ -38,79 +62,110 @@ CA server started: localhost:8888
 CA root certificate saved to certificates/ca.crt
 ```
 
+**Important: Keep this terminal open** - the CA server must run in the background.
+
 ### Step 2: Generate Certificates
 
-In a **new terminal**, run:
+In the **CA1.3 directory**, open a **new terminal** and run:
 
 ```bash
-python test_certificates.py
+python request_certificates.py
 ```
 
-This will automatically request certificates from the CA server for both the TLS server and client.
+This script will:
+- Connect to the CA server on port 8888
+- Request and download CA root certificate
+- Request and download server certificate and private key
+- Request and download client certificate and private key
+- Save all files locally to the `certificates/` folder
 
-You should see:
+Expected output:
 ```
-[1] Verify CA root certificate
-[OK] CA root certificate verified
-  - CA certificate: certificates/ca.crt
+============================================================
+TLS Certificate Request and Save
+============================================================
 
-[2] Issue server certificate
+[1] Get CA root certificate
+[OK] CA root certificate received
+  - CA certificate saved: certificates/ca.crt
+
+[2] Request server certificate
 [OK] server Certificate issued successfully (server)
-  - Certificate: certificates/server.crt
-  - Private key: certificates/server.key
+  - Certificate saved: certificates/server.crt
+  - Private key saved: certificates/server.key
 
-[3] Issue client certificate
+[3] Request client certificate
 [OK] client Certificate issued successfully (client)
-  - Certificate: certificates/client.crt
-  - Private key: certificates/client.key
+  - Certificate saved: certificates/client.crt
+  - Private key saved: certificates/client.key
+
+============================================================
+Certificate generation completed!
+============================================================
+
+Generated files in certificates/:
+  - ca.crt
+  - client.crt
+  - client.key
+  - server.crt
+  - server.key
 ```
 
-### Step 3: Run TLS Server
+### Step 3: Build Projects (If Needed)
 
-In a **new terminal**, navigate to the TLSServer directory and run:
+If you haven't built the projects yet, from the **CA1.3 directory**:
+
+```bash
+cd TLSServer
+dotnet build
+cd ..
+
+cd TLSClient
+dotnet build
+cd ..
+```
+
+### Step 4: Run TLS Server
+
+From the **CA1.3 directory**, open a **new terminal** and run:
 
 ```bash
 cd TLSServer
 dotnet run
 ```
 
-Or simply double-click the executable:
-```
-TLSServer\bin\Debug\net9.0-windows\TLSServer.exe
-```
-
 The TLS Server GUI will open. Click the **"서버 시작"** (Start Server) button.
 
 **Important Notes:**
 - Default port: 8443
-- The server loads certificates from relative path: `../certificates/`
+- The server loads certificates from: `../certificates/` (relative to TLSServer directory)
 - Required files: `server.crt`, `server.key`, and `ca.crt`
+- Uses TLS 1.3 protocol
+- Requires client certificate for mutual authentication
 
-### Step 4: Run TLS Client
+### Step 5: Run TLS Client
 
-In a **new terminal**, navigate to the TLSClient directory and run:
+From the **CA1.3 directory**, open a **new terminal** and run:
 
 ```bash
 cd TLSClient
 dotnet run
 ```
 
-Or simply double-click the executable:
-```
-TLSClient\bin\Debug\net9.0-windows\TLSClient.exe
-```
+The TLS Client GUI will open.
 
-The TLS Client GUI will open. Enter connection details and click the **"연결"** (Connect) button.
-
-**Connection Settings:**
-- Server IP: 127.0.0.1
-- Port: 8443
+**Connection Steps:**
+1. Server IP is already filled: 127.0.0.1
+2. Port is already filled: 8443
+3. Click the **"연결"** (Connect) button
 
 **Important Notes:**
-- The client loads certificates from relative path: `../certificates/`
+- The client loads certificates from: `../certificates/` (relative to TLSClient directory)
 - Required files: `client.crt`, `client.key`, and `ca.crt`
+- Client certificate is automatically sent during TLS handshake
+- Both server and client certificates are validated against the CA certificate
 
-### Step 5: Test Communication
+### Step 6: Test Communication
 
 Once connected, you can:
 
@@ -124,17 +179,17 @@ Once connected, you can:
 
 3. **Verify TLS connection:**
    - Both sides will show "TLS 연결 성공 (상호 인증 완료)" when mutual authentication succeeds
-   - All messages are encrypted with TLS
+   - All messages are encrypted with TLS 1.3
 
 ## Certificate Management
 
 ### Requesting New Certificates
 
-You can request additional client certificates using the client GUI:
+Or use the Python script directly:
 
-1. Enter a certificate name in the **"인증서명"** field
-2. Click **"인증서 요청"** (Request Certificate)
-3. The certificate will be saved to `certificates/<name>.crt` and `certificates/<name>.key`
+```bash
+python request_certificates.py
+```
 
 ### Certificate Locations
 
@@ -143,7 +198,6 @@ All certificates are stored in the `certificates/` directory:
 ```
 certificates/
 ├── ca.crt              # CA root certificate (public)
-├── ca.key              # CA private key
 ├── server.crt          # Server certificate
 ├── server.key          # Server private key
 ├── client.crt          # Client certificate
@@ -156,20 +210,18 @@ certificates/
 
 If you see "Certificate not found" errors in the server or client:
 
-1. Make sure the CA server is running
-2. Run `python test_certificates.py` to generate certificates
+1. Make sure the CA server is running (`python ca_server.py`)
+2. Run `python request_certificates.py` to generate certificates
 3. Check that files exist in the `certificates/` directory
 4. Verify the applications are running from their respective directories (TLSServer or TLSClient)
-5. The applications use relative path `../certificates/` to access certificate files
 
 ### Connection Refused Error
 
 If the client cannot connect to the server:
 
-1. Make sure the TLS server is running and started
+1. Make sure the TLS server is running and the **"서버 시작"** button was clicked
 2. Check firewall settings
-3. Verify the port is not being used by another application
-4. Try connecting to 127.0.0.1 or localhost
+3. Verify port 8443 is not being used by another application
 
 ### TLS Handshake Failed
 
@@ -177,7 +229,7 @@ If the TLS handshake fails:
 
 1. Verify both server and client have valid certificates
 2. Ensure the CA certificate is loaded correctly on both sides
-3. Check that certificates are issued by the same CA
+3. Regenerate certificates: `python request_certificates.py`
 4. Restart both server and client applications
 
 ### CA Server Connection Error
@@ -186,7 +238,7 @@ If certificate requests fail:
 
 1. Make sure the CA server is running on port 8888
 2. Check if the port is blocked by firewall
-3. Verify Python and cryptography package are installed correctly
+3. Verify Python and cryptography package are installed: `pip install cryptography`
 
 ## Security Features
 
@@ -197,7 +249,6 @@ This system implements:
 - ✅ **TLS 1.3** - Latest encryption protocol with enhanced security
 - ✅ **Certificate Validation** - Certificates are verified by checking the issuer (Test CA)
 - ✅ **Encrypted Communication** - All messages are transmitted over TLS
-- ✅ **Custom Certificate Validation** - Uses RemoteCertificateValidationCallback for flexible validation
 - ✅ **Modern Certificate Loading** - Uses X509CertificateLoader for secure certificate handling
 
 ## Architecture
@@ -225,7 +276,6 @@ This system implements:
 - Certificate loading uses `X509CertificateLoader` (modern .NET API)
 - Certificates use RSA 2048-bit keys with SHA-256 signatures
 - All certificates include Subject Alternative Names (SANs) for localhost and 127.0.0.1
-- Builds with zero warnings using modern certificate handling APIs
 
 ## License
 
