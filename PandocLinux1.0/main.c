@@ -320,20 +320,61 @@ static void on_open_file(GtkButton *btn, gpointer user_data)
         "_취소", GTK_RESPONSE_CANCEL,
         "_열기", GTK_RESPONSE_OK, NULL);
 
-    GtkFileFilter *f1 = gtk_file_filter_new();
-    gtk_file_filter_set_name(f1, "문서 파일");
-    const char *patterns[] = {
-        "*.docx","*.odt","*.md","*.rst","*.html","*.htm",
-        "*.tex","*.epub","*.txt","*.rtf","*.org","*.csv", NULL
+    /* ── Pandoc 지원 전체 필터 (기본값) ── */
+    GtkFileFilter *f_all = gtk_file_filter_new();
+    gtk_file_filter_set_name(f_all, "Pandoc 지원 문서 (전체)");
+    const char *all_patterns[] = {
+        "*.docx", "*.odt",
+        "*.md", "*.markdown",
+        "*.rst",
+        "*.html", "*.htm",
+        "*.tex",
+        "*.textile",
+        "*.epub",
+        "*.csv",
+        "*.json",
+        "*.org",
+        "*.rtf",
+        "*.txt",
+        NULL
     };
-    for (int i = 0; patterns[i]; i++)
-        gtk_file_filter_add_pattern(f1, patterns[i]);
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), f1);
+    for (int i = 0; all_patterns[i]; i++)
+        gtk_file_filter_add_pattern(f_all, all_patterns[i]);
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), f_all);
 
-    GtkFileFilter *f2 = gtk_file_filter_new();
-    gtk_file_filter_set_name(f2, "모든 파일");
-    gtk_file_filter_add_pattern(f2, "*");
-    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), f2);
+    /* ── 포맷별 개별 필터 ── */
+    typedef struct { const char *name; const char *pats[4]; } FmtFilter;
+    static const FmtFilter fmt_filters[] = {
+        { "Microsoft Word (*.docx)",          { "*.docx",    NULL } },
+        { "OpenDocument Text (*.odt)",         { "*.odt",     NULL } },
+        { "Markdown (*.md, *.markdown)",       { "*.md", "*.markdown", NULL } },
+        { "reStructuredText (*.rst)",          { "*.rst",     NULL } },
+        { "HTML (*.html, *.htm)",              { "*.html", "*.htm", NULL } },
+        { "LaTeX (*.tex)",                     { "*.tex",     NULL } },
+        { "Textile (*.textile)",               { "*.textile", NULL } },
+        { "EPUB (*.epub)",                     { "*.epub",    NULL } },
+        { "CSV (*.csv)",                       { "*.csv",     NULL } },
+        { "JSON (*.json)",                     { "*.json",    NULL } },
+        { "Emacs Org-mode (*.org)",            { "*.org",     NULL } },
+        { "Rich Text Format (*.rtf)",          { "*.rtf",     NULL } },
+        { "Plain Text (*.txt)",                { "*.txt",     NULL } },
+    };
+    for (int i = 0; i < (int)(sizeof(fmt_filters)/sizeof(fmt_filters[0])); i++) {
+        GtkFileFilter *f = gtk_file_filter_new();
+        gtk_file_filter_set_name(f, fmt_filters[i].name);
+        for (int j = 0; fmt_filters[i].pats[j]; j++)
+            gtk_file_filter_add_pattern(f, fmt_filters[i].pats[j]);
+        gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), f);
+    }
+
+    /* ── 모든 파일 필터 ── */
+    GtkFileFilter *f_any = gtk_file_filter_new();
+    gtk_file_filter_set_name(f_any, "모든 파일 (*)");
+    gtk_file_filter_add_pattern(f_any, "*");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), f_any);
+
+    /* 기본 필터: Pandoc 지원 전체 */
+    gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(dialog), f_all);
 
     if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
         char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
