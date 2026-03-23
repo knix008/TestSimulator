@@ -35,7 +35,7 @@ namespace PandocWin
         {
             using (OpenFileDialog openFileDialog = new OpenFileDialog())
             {
-                openFileDialog.Filter = "Pandoc Supported Input Files|*.md;*.markdown;*.txt;*.rst;*.docx;*.html;*.odt;*.tex;*.epub;*.csv;*.json;*.xml;*.latex;*.pptx;*.rtf;*.org;*.asciidoc;*.jats;*.doc;*.mobi;*.fb2|All Files (*.*)|*.*";
+                openFileDialog.Filter = "Pandoc Supported Input Files|*.md;*.markdown;*.txt;*.rst;*.docx;*.html;*.odt;*.tex;*.epub;*.csv;*.json;*.xml;*.latex;*.pptx;*.rtf;*.org;*.asciidoc;*.jats;*.doc;*.mobi;*.fb2;*.pdf|All Files (*.*)|*.*";
                 openFileDialog.FilterIndex = 1;
                 openFileDialog.Title = "Select Input File";
 
@@ -54,6 +54,7 @@ namespace PandocWin
             if (radioOdt.Checked) return "odt";
             if (radioTex.Checked) return "tex";
             if (radioEpub.Checked) return "epub";
+            if (radioPdf.Checked) return "pdf"; // 추가된 PDF 출력 옵션
             return "docx"; // fallback
         }
 
@@ -61,7 +62,7 @@ namespace PandocWin
         {
             if (string.IsNullOrEmpty(selectedFilePath))
             {
-                MessageBox.Show("먼저 변환할 Markdown 파일을 선택하세요.", "파일 선택 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("먼저 변환할 파일을 선택하세요.", "파일 선택 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -86,10 +87,14 @@ namespace PandocWin
                 Log.AppendText($"Converting: {selectedFilePath}\r\n");
                 Log.AppendText($"Output: {outputFilePath}\r\n");
 
+                string arguments = ext == "pdf"
+                    ? $"\"{selectedFilePath}\" -o \"{outputFilePath}\" --pdf-engine=xelatex"
+                    : $"\"{selectedFilePath}\" -o \"{outputFilePath}\"";
+
                 ProcessStartInfo startInfo = new ProcessStartInfo
                 {
                     FileName = pandocPath,
-                    Arguments = $"\"{selectedFilePath}\" -o \"{outputFilePath}\"",
+                    Arguments = arguments,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,

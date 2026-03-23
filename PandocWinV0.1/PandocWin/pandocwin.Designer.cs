@@ -39,6 +39,7 @@
             this.radioOdt = new System.Windows.Forms.RadioButton();
             this.radioTex = new System.Windows.Forms.RadioButton();
             this.radioEpub = new System.Windows.Forms.RadioButton();
+            this.radioPdf = new System.Windows.Forms.RadioButton();
             this.inputFormatsLabel = new System.Windows.Forms.Label();
             this.outputFormatGroupBox.SuspendLayout();
             this.SuspendLayout();
@@ -67,10 +68,10 @@
             // 
             // Log
             // 
-            this.Log.Location = new System.Drawing.Point(12, 144);
+            this.Log.Location = new System.Drawing.Point(12, 164);
             this.Log.Multiline = true;
             this.Log.Name = "Log";
-            this.Log.Size = new System.Drawing.Size(761, 252);
+            this.Log.Size = new System.Drawing.Size(761, 232);
             this.Log.TabIndex = 2;
             // 
             // FileButton
@@ -92,10 +93,11 @@
             this.outputFormatGroupBox.Controls.Add(this.radioOdt);
             this.outputFormatGroupBox.Controls.Add(this.radioTex);
             this.outputFormatGroupBox.Controls.Add(this.radioEpub);
+            this.outputFormatGroupBox.Controls.Add(this.radioPdf);
             this.outputFormatGroupBox.Font = new System.Drawing.Font("굴림", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.outputFormatGroupBox.Location = new System.Drawing.Point(565, 13);
             this.outputFormatGroupBox.Name = "outputFormatGroupBox";
-            this.outputFormatGroupBox.Size = new System.Drawing.Size(207, 125);
+            this.outputFormatGroupBox.Size = new System.Drawing.Size(207, 145);
             this.outputFormatGroupBox.TabIndex = 4;
             this.outputFormatGroupBox.TabStop = false;
             this.outputFormatGroupBox.Text = "출력 형식 지정";
@@ -151,13 +153,24 @@
             this.radioEpub.Text = "EPUB (.epub)";
             this.radioEpub.UseVisualStyleBackColor = true;
             // 
+            // radioPdf
+            // 
+            this.radioPdf.AutoSize = true;
+            this.radioPdf.Location = new System.Drawing.Point(10, 120);
+            this.radioPdf.Name = "radioPdf";
+            this.radioPdf.Size = new System.Drawing.Size(91, 16);
+            this.radioPdf.TabIndex = 6;
+            this.radioPdf.TabStop = true;
+            this.radioPdf.Text = "PDF (.pdf)";
+            this.radioPdf.UseVisualStyleBackColor = true;
+            // 
             // inputFormatsLabel
             // 
             this.inputFormatsLabel.AutoSize = true;
             this.inputFormatsLabel.Font = new System.Drawing.Font("굴림", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.inputFormatsLabel.Location = new System.Drawing.Point(15, 73);
             this.inputFormatsLabel.Name = "inputFormatsLabel";
-            this.inputFormatsLabel.Size = new System.Drawing.Size(395, 52);
+            this.inputFormatsLabel.Size = new System.Drawing.Size(390, 52);
             this.inputFormatsLabel.TabIndex = 5;
             this.inputFormatsLabel.Text = resources.GetString("inputFormatsLabel.Text");
             this.inputFormatsLabel.Click += new System.EventHandler(this.inputFormatsLabel_Click);
@@ -198,6 +211,7 @@
         private System.Windows.Forms.RadioButton radioOdt;
         private System.Windows.Forms.RadioButton radioTex;
         private System.Windows.Forms.RadioButton radioEpub;
+        private System.Windows.Forms.RadioButton radioPdf;
         private System.Windows.Forms.Label inputFormatsLabel;
     }
 }
