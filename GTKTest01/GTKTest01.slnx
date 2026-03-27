@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="GTKTest01/GTKTest01.vcxproj" Id="beda7ce9-d27c-4aef-97b1-3da991d6339f" />
+</Solution>

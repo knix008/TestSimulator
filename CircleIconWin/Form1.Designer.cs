@@ -142,7 +142,7 @@
             // 
             // btnSaveRight
             // 
-            this.btnSaveRight.Location = new System.Drawing.Point(812, 148);
+            this.btnSaveRight.Location = new System.Drawing.Point(812, 114);
             this.btnSaveRight.Name = "btnSaveRight";
             this.btnSaveRight.Size = new System.Drawing.Size(200, 60);
             this.btnSaveRight.TabIndex = 6;
@@ -152,17 +152,18 @@
             // lblSelectionInfo
             // 
             this.lblSelectionInfo.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblSelectionInfo.Location = new System.Drawing.Point(812, 228);
+            this.lblSelectionInfo.Location = new System.Drawing.Point(812, 188);
             this.lblSelectionInfo.Name = "lblSelectionInfo";
             this.lblSelectionInfo.Size = new System.Drawing.Size(200, 28);
             this.lblSelectionInfo.TabIndex = 1;
             this.lblSelectionInfo.Text = "선택 영역: -";
             this.lblSelectionInfo.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblSelectionInfo.Click += new System.EventHandler(this.lblSelectionInfo_Click);
             // 
             // lblMouseInfo
             // 
             this.lblMouseInfo.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblMouseInfo.Location = new System.Drawing.Point(812, 263);
+            this.lblMouseInfo.Location = new System.Drawing.Point(812, 225);
             this.lblMouseInfo.Name = "lblMouseInfo";
             this.lblMouseInfo.Size = new System.Drawing.Size(200, 28);
             this.lblMouseInfo.TabIndex = 0;
@@ -173,6 +174,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScroll = true;
             this.ClientSize = new System.Drawing.Size(1022, 781);
             this.Controls.Add(this.lblMouseInfo);
             this.Controls.Add(this.lblSelectionInfo);
@@ -189,7 +191,6 @@
             this.MinimizeBox = false;
             this.Name = "Form1";
             this.Text = "원형 아이콘 생성기";
-            this.AutoScroll = true;
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
