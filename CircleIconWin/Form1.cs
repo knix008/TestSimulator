@@ -129,7 +129,7 @@ namespace CircleIconWin
                     if (sfd.ShowDialog() == DialogResult.OK)
                     {
                         bmp.Save(sfd.FileName, System.Drawing.Imaging.ImageFormat.Png);
-                        MessageBox.Show("저장 완료", "정보", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        MessageBox.Show($"저장 완료: {sfd.FileName}", "정보", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                 }
             }
@@ -356,6 +356,11 @@ namespace CircleIconWin
                 return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private void lblSelectionInfo_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
