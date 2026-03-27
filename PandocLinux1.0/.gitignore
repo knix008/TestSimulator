@@ -1,29 +1,14 @@
-# 빌드 출력
-build/
-out/
+# 빌드 산출물
+pandoc_linux
+pandoc_macos
 
-# CMake 캐시
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
-install_manifest.txt
-CTestTestfile.cmake
-_deps/
-
-# 컴파일된 바이너리
-pandoc-linux
-*.o
-*.a
-*.so
-
-# 편집기 / IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# 백업/임시 파일
 *~
-
-# OS
+*.swp
 .DS_Store
-Thumbs.db
+
+# 로그/캐시
+*.log
+
+# 기타
+# (필요시 추가)

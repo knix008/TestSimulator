@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /* ── 포맷 테이블 ─────────────────────────────────────────────────── */
 
@@ -698,6 +699,32 @@ static void check_pandoc(App *app)
 
 int main(int argc, char *argv[])
 {
+#ifdef __APPLE__
+    /* macOS: MacTeX(xelatex) PATH 자동 추가 — run-pandoc.sh와 동일한 처리 */
+    {
+        const char *tex_bin = "/Library/TeX/texbin";
+        const char *cur = getenv("PATH");
+        char *new_path = cur
+            ? g_strdup_printf("%s:%s", tex_bin, cur)
+            : g_strdup(tex_bin);
+        setenv("PATH", new_path, 1);
+        g_free(new_path);
+    }
+    /* macOS: gdk-pixbuf SVG 로더 캐시 경로 자동 설정 */
+    if (!getenv("GDK_PIXBUF_MODULE_FILE")) {
+        const char *candidates[] = {
+            "/opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache",
+            "/usr/local/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache",
+            NULL
+        };
+        for (int i = 0; candidates[i]; i++) {
+            if (access(candidates[i], R_OK) == 0) {
+                setenv("GDK_PIXBUF_MODULE_FILE", candidates[i], 1);
+                break;
+            }
+        }
+    }
+#endif
     gtk_init(&argc, &argv);
 
     App *app = g_new0(App, 1);
