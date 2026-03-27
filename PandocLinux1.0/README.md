@@ -4,8 +4,9 @@ GTK3 기반의 Pandoc 문서 변환 GUI 도구 (C 구현)
 
 ## 개요
 
-PandocLinux는 [Pandoc](https://pandoc.org/)을 백엔드로 사용하는 리눅스용 문서 변환 데스크톱 앱입니다.
+PandocLinux는 [Pandoc](https://pandoc.org/)을 백엔드로 사용하는 문서 변환 데스크톱 앱입니다.
 Word, Markdown, HTML, LaTeX 등 다양한 문서 포맷을 GUI 환경에서 손쉽게 변환할 수 있습니다.
+**Linux(Ubuntu/Debian) 및 macOS(Homebrew)** 를 모두 지원합니다.
 
 ## 주요 기능
 
@@ -17,6 +18,7 @@ Word, Markdown, HTML, LaTeX 등 다양한 문서 포맷을 GUI 환경에서 손�
 - 변환 작업을 백그라운드 스레드에서 실행 (UI 응답 유지)
 - 변환 로그 실시간 출력
 - Pandoc 미설치 시 경고 및 변환 버튼 비활성화
+- macOS에서 단독 실행 가능 (TeX PATH, GTK 픽스버프 로더 자동 설정)
 
 ## 지원 포맷
 
@@ -60,13 +62,24 @@ Word, Markdown, HTML, LaTeX 등 다양한 문서 포맷을 GUI 환경에서 손�
 
 ## 요구 사항
 
+### Linux (Ubuntu/Debian)
 | 패키지 | 용도 |
 |--------|------|
-| `gcc` / `build-essential` | C 컴파일러 |
-| `pkg-config` | 라이브러리 경로 탐색 |
+| `build-essential`, `pkg-config` | C 컴파일러 및 빌드 도구 |
 | `libgtk-3-dev` | GTK3 GUI 라이브러리 |
 | `pandoc` | 문서 변환 엔진 |
-| `texlive-xetex` *(PDF 출력 시 필수)* | xelatex PDF 엔진 (한글 포함) |
+| `texlive-xetex`, `texlive-lang-cjk` | xelatex PDF 엔진 (한글 포함) *(PDF 출력 시 필수)* |
+| `fonts-noto-cjk` | Noto CJK 한글 폰트 |
+
+### macOS
+| 패키지 | 용도 |
+|--------|------|
+| [Homebrew](https://brew.sh/) | 패키지 관리자 |
+| `gtk+3`, `pkg-config`, `gcc` | GTK3 GUI 라이브러리 및 빌드 도구 |
+| `pandoc` | 문서 변환 엔진 |
+| `mactex-no-gui` (cask) | xelatex PDF 엔진 *(PDF 출력 시 필수)* |
+| `font-noto-sans-cjk-kr`, `font-noto-sans-mono-cjk-kr` (cask) | 한글 폰트 |
+| `adwaita-icon-theme`, `librsvg` | GTK3 아이콘 및 SVG 렌더링 |
 
 ## 설치 및 빌드
 
@@ -77,39 +90,28 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-`setup.sh`는 의존성 설치와 빌드를 자동으로 수행합니다.
-PDF 변환이 필요하면 실행 중 LaTeX 설치 여부를 묻는 프롬프트에서 `y`를 입력하세요.
+`setup.sh`는 OS를 자동으로 감지하여 의존성 설치와 빌드를 수행합니다.
+이미 설치된 패키지는 건너뜁니다.
 
-### Makefile 빌드
+### 수동 빌드
 
 ```bash
-# 의존성 설치 (Ubuntu/Debian)
-sudo apt-get install build-essential pkg-config libgtk-3-dev pandoc
-
-# 릴리즈 빌드
+# 의존성 설치 후
 make
-
-# 디버그 빌드
-make debug
-```
-
-### CMake 빌드
-
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
 ```
 
 ## 실행
 
 ```bash
-# Makefile 빌드 결과
-./pandoc-linux
+# Linux
+./pandoc_linux
 
-# CMake 빌드 결과
-./build/pandoc-linux
+# macOS
+./pandoc_macos
 ```
+
+macOS에서는 별도의 래퍼 스크립트 없이 바이너리를 직접 실행할 수 있습니다.
+(TeX PATH 및 GTK 픽스버프 로더 경로가 앱 내부에서 자동으로 설정됩니다.)
 
 ## 사용 방법
 
@@ -121,29 +123,23 @@ make -j$(nproc)
    예: `--toc --standalone --highlight-style=tango`
 5. **변환 시작** — `변환 시작` 버튼을 클릭합니다. 하단 로그 창에서 진행 상황을 확인할 수 있습니다.
 
-> **PDF 변환 참고:** 출력 포맷으로 `pdf`를 선택하면 `xelatex` 엔진과 한글 폰트(`Noto Sans CJK KR`)가 자동으로 적용됩니다. `texlive-xetex`가 설치되어 있어야 합니다.
+> **PDF 변환 참고:** 출력 포맷으로 `pdf`를 선택하면 `xelatex` 엔진과 한글 폰트(`Noto Sans CJK KR`)가 자동으로 적용됩니다. xelatex(Linux: `texlive-xetex`, macOS: `mactex-no-gui`)가 설치되어 있어야 합니다.
 
 ## Makefile 타깃
 
 | 타깃 | 설명 |
 |------|------|
-| `make` | 릴리즈 빌드 (`pandoc-linux`) |
-| `make debug` | 디버그 빌드 (`pandoc-linux-debug`) |
-| `make clean` | 빌드 산출물 삭제 (바이너리, `build/`, `*.o`) |
-| `make distclean` | `clean` + 변환 결과 파일 (`*_converted.*`) 삭제 |
-| `make install` | `/usr/local/bin`에 설치 |
-| `make uninstall` | 설치 제거 |
+| `make` | 릴리즈 빌드 (`pandoc_linux` 또는 `pandoc_macos`) |
+| `make clean` | 빌드 산출물 삭제 |
 
 ## 파일 구조
 
 ```
 PandocLinux1.0/
-├── main.c          # GTK3 애플리케이션 소스
-├── CMakeLists.txt  # CMake 빌드 설정
-├── Makefile        # Makefile 빌드 설정
-├── setup.sh        # 의존성 설치 + 빌드 스크립트
-├── .gitignore      # Git 제외 파일 목록
-└── README.md       # 이 문서
+├── main.c      # GTK3 애플리케이션 소스
+├── Makefile    # 빌드 설정 (Linux/macOS 자동 감지)
+├── setup.sh    # 의존성 설치 + 빌드 스크립트
+└── README.md   # 이 문서
 ```
 
 ## 라이선스
