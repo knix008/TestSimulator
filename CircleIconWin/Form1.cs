@@ -8,19 +8,14 @@ namespace CircleIconWin
     public partial class Form1 : Form
     {
         private Image loadedImage = null;
-        private Rectangle selectionRect = Rectangle.Empty;
+        private RectangleF selectionRectImg = RectangleF.Empty;
         private bool isDragging = false;
         private Point dragStart;
-        private float zoom = 1.0f;
-        private const float ZoomStep = 0.1f;
-        private const float ZoomMin = 0.1f;
-        private const float ZoomMax = 5.0f;
-        private float zoomScale = 1.0f; // Default zoom scale
+        private float zoomScale = 1.0f;
 
         public Form1()
         {
             InitializeComponent();
-            // 메뉴/툴바 이벤트 연결
             메뉴Open.Click += BtnOpen_Click;
             메뉴Save.Click += BtnSave_Click;
             메뉴Exit.Click += (s, e) => this.Close();
@@ -28,15 +23,12 @@ namespace CircleIconWin
             toolSave.Click += BtnSave_Click;
             btnOpenRight.Click += BtnOpen_Click;
             btnSaveRight.Click += BtnSave_Click;
-            // PictureBox 이벤트
             pictureBox1.MouseDown += PictureBox1_MouseDown;
             pictureBox1.MouseMove += PictureBox1_MouseMove;
             pictureBox1.MouseUp += PictureBox1_MouseUp;
             pictureBox1.Paint += PictureBox1_Paint;
             pictureBox1.MouseWheel += PictureBox1_MouseWheel;
             pictureBox1.MouseLeave += PictureBox1_MouseLeave;
-            pictureBox1.Focus();
-            // Form 키보드 이벤트
             this.KeyDown += Form1_KeyDown;
         }
 
@@ -50,6 +42,10 @@ namespace CircleIconWin
                     loadedImage = Image.FromFile(ofd.FileName);
                     selectionRectImg = RectangleF.Empty;
                     isDragging = false;
+                    // 이미지가 PictureBox에 맞게 초기 줌 배율 자동 계산
+                    float scaleX = (float)pictureBox1.Width / loadedImage.Width;
+                    float scaleY = (float)pictureBox1.Height / loadedImage.Height;
+                    zoomScale = Math.Min(scaleX, scaleY);
                     UpdateStatus(null);
                     pictureBox1.Invalidate();
                 }
@@ -69,8 +65,8 @@ namespace CircleIconWin
             using (Bitmap bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
             using (Graphics g = Graphics.FromImage(bmp))
             {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using (GraphicsPath path = new System.Drawing.Drawing2D.GraphicsPath())
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = new GraphicsPath())
                 {
                     path.AddEllipse(0, 0, size, size);
                     g.SetClip(path);
@@ -93,44 +89,64 @@ namespace CircleIconWin
 
         private void PictureBox1_MouseWheel(object sender, MouseEventArgs e)
         {
-            // Implement zoom functionality centered on the mouse pointer
+            if (loadedImage == null) return;
+
+            // Calculate the image point corresponding to the mouse location
+            PointF imgPointBeforeZoom = ToImagePoint(e.Location);
+
+            // Adjust zoom scale
             if (e.Delta > 0)
             {
-                zoomScale = Math.Min(zoomScale + 0.1f, 5.0f); // Limit maximum zoom
+                zoomScale = Math.Min(zoomScale + 0.1f, 5.0f);
             }
             else if (e.Delta < 0)
             {
-                zoomScale = Math.Max(zoomScale - 0.1f, 0.5f); // Limit minimum zoom
+                zoomScale = Math.Max(zoomScale - 0.1f, 0.5f);
             }
 
-            lblMouseInfo.Text = $"마우스: {e.Location}, 배율: {zoomScale:F1}";
+            // Calculate the new offset to keep the mouse point fixed
+            PointF imgPointAfterZoom = ToImagePoint(e.Location);
+            float dx = (imgPointAfterZoom.X - imgPointBeforeZoom.X) * zoomScale;
+            float dy = (imgPointAfterZoom.Y - imgPointBeforeZoom.Y) * zoomScale;
+
+            // Adjust the selection rectangle to account for the zoom
+            selectionRectImg.X -= dx;
+            selectionRectImg.Y -= dy;
+
             pictureBox1.Invalidate();
         }
 
         private PointF ToImagePoint(Point p)
         {
             if (loadedImage == null) return PointF.Empty;
-            float imgW = loadedImage.Width * zoom;
-            float imgH = loadedImage.Height * zoom;
+            float imgW = loadedImage.Width * zoomScale;
+            float imgH = loadedImage.Height * zoomScale;
             float offsetX = (pictureBox1.Width - imgW) / 2f;
             float offsetY = (pictureBox1.Height - imgH) / 2f;
-            return new PointF((p.X - offsetX) / zoom, (p.Y - offsetY) / zoom);
+            return new PointF((p.X - offsetX) / zoomScale, (p.Y - offsetY) / zoomScale);
         }
 
         private Rectangle ToPictureBoxRect(RectangleF imgRect)
         {
-            float imgW = loadedImage.Width * zoom;
-            float imgH = loadedImage.Height * zoom;
+            float imgW = loadedImage.Width * zoomScale;
+            float imgH = loadedImage.Height * zoomScale;
             float offsetX = (pictureBox1.Width - imgW) / 2f;
             float offsetY = (pictureBox1.Height - imgH) / 2f;
             return new Rectangle(
-                (int)(imgRect.X * zoom + offsetX),
-                (int)(imgRect.Y * zoom + offsetY),
-                (int)(imgRect.Width * zoom),
-                (int)(imgRect.Height * zoom));
+                (int)(imgRect.X * zoomScale + offsetX),
+                (int)(imgRect.Y * zoomScale + offsetY),
+                (int)(imgRect.Width * zoomScale),
+                (int)(imgRect.Height * zoomScale));
         }
 
-        private RectangleF selectionRectImg = RectangleF.Empty;
+        private void UpdateMouseInfo(Point mouseLocation)
+        {
+            PointF imgPoint = ToImagePoint(mouseLocation);
+            float zoomedX = imgPoint.X * zoomScale;
+            float zoomedY = imgPoint.Y * zoomScale;
+            lblMouseInfo.Text = string.Format("마우스: X={0:F1}, Y={1:F1} (이미지 X={2:F1}, Y={3:F1})",
+                zoomedX, zoomedY, imgPoint.X, imgPoint.Y);
+        }
 
         private void UpdateStatus(Point? mouseLocation = null)
         {
@@ -145,9 +161,7 @@ namespace CircleIconWin
             }
             if (mouseLocation.HasValue)
             {
-                PointF imgPt = ToImagePoint(mouseLocation.Value);
-                lblMouseInfo.Text = string.Format("마우스: X={0}, Y={1} (이미지 X={2:F0}, Y={3:F0})",
-                    mouseLocation.Value.X, mouseLocation.Value.Y, imgPt.X, imgPt.Y);
+                UpdateMouseInfo(mouseLocation.Value);
             }
             else
             {
@@ -158,12 +172,12 @@ namespace CircleIconWin
         private void PictureBox1_MouseDown(object sender, MouseEventArgs e)
         {
             if (loadedImage == null) return;
-            isDragging = true;
+            // 드래그 시작점 기록 (이미지 좌표계)
             dragStart = e.Location;
-            PointF imgStart = ToImagePoint(e.Location);
-            // 새로운 선택 시작 시 기존 선택 영역 초기화
+            isDragging = true;
+            // 선택 영역 초기화 (드래그 시작점에서 0 크기)
+            PointF imgStart = ToImagePoint(dragStart);
             selectionRectImg = new RectangleF(imgStart.X, imgStart.Y, 0, 0);
-            UpdateStatus(e.Location);
             pictureBox1.Invalidate();
         }
 
@@ -171,19 +185,22 @@ namespace CircleIconWin
         {
             if (!isDragging || loadedImage == null)
             {
-                UpdateStatus(e.Location);
+                UpdateMouseInfo(e.Location);
                 return;
             }
-            PointF imgStart = new PointF(selectionRectImg.X, selectionRectImg.Y);
+            // 드래그 시작점과 현재 마우스 위치로 정사각형 영역 계산
+            PointF imgStart = ToImagePoint(dragStart);
             PointF imgEnd = ToImagePoint(e.Location);
-            float size = Math.Max(Math.Abs(imgEnd.X - imgStart.X), Math.Abs(imgEnd.Y - imgStart.Y));
+            float width = imgEnd.X - imgStart.X;
+            float height = imgEnd.Y - imgStart.Y;
+            float size = Math.Max(Math.Abs(width), Math.Abs(height));
             float x = imgStart.X;
             float y = imgStart.Y;
-            if (imgEnd.X < imgStart.X) x -= size;
-            if (imgEnd.Y < imgStart.Y) y -= size;
+            if (width < 0) x -= size;
+            if (height < 0) y -= size;
             selectionRectImg = new RectangleF(x, y, size, size);
             pictureBox1.Invalidate();
-            UpdateStatus(e.Location);
+            UpdateMouseInfo(e.Location);
         }
 
         private void PictureBox1_MouseUp(object sender, MouseEventArgs e)
@@ -201,11 +218,8 @@ namespace CircleIconWin
         {
             if (loadedImage != null)
             {
-                // Calculate the zoomed image dimensions
                 int zoomedWidth = (int)(loadedImage.Width * zoomScale);
                 int zoomedHeight = (int)(loadedImage.Height * zoomScale);
-
-                // Draw the zoomed image centered in the PictureBox
                 int offsetX = (pictureBox1.Width - zoomedWidth) / 2;
                 int offsetY = (pictureBox1.Height - zoomedHeight) / 2;
                 e.Graphics.DrawImage(loadedImage, new Rectangle(offsetX, offsetY, zoomedWidth, zoomedHeight));
@@ -223,6 +237,8 @@ namespace CircleIconWin
 
             if (!selectionRectImg.IsEmpty)
             {
+                Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
+
                 // Dim the entire image
                 using (Brush dimBrush = new SolidBrush(Color.FromArgb(128, Color.Gray)))
                 {
@@ -232,13 +248,11 @@ namespace CircleIconWin
                 // Highlight the circular selection area
                 using (GraphicsPath path = new GraphicsPath())
                 {
-                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
                     path.AddEllipse(circleRect);
                     using (Region highlightRegion = new Region(path))
                     {
                         e.Graphics.SetClip(highlightRegion, System.Drawing.Drawing2D.CombineMode.Replace);
 
-                        // Draw the zoomed image within the circular selection area without distortion
                         int zoomedWidth = (int)(loadedImage.Width * zoomScale);
                         int zoomedHeight = (int)(loadedImage.Height * zoomScale);
                         int offsetX = (pictureBox1.Width - zoomedWidth) / 2;
@@ -253,17 +267,15 @@ namespace CircleIconWin
                 using (Pen pen = new Pen(Color.Red, 2))
                 {
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
                     e.Graphics.DrawEllipse(pen, circleRect);
                 }
 
                 // Draw a red '+' at the center of the circle
                 using (Pen crossPen = new Pen(Color.Red, 2))
                 {
-                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
                     Point center = new Point(circleRect.X + circleRect.Width / 2, circleRect.Y + circleRect.Height / 2);
-                    e.Graphics.DrawLine(crossPen, center.X - 5, center.Y, center.X + 5, center.Y); // Horizontal line
-                    e.Graphics.DrawLine(crossPen, center.X, center.Y - 5, center.X, center.Y + 5); // Vertical line
+                    e.Graphics.DrawLine(crossPen, center.X - 5, center.Y, center.X + 5, center.Y);
+                    e.Graphics.DrawLine(crossPen, center.X, center.Y - 5, center.X, center.Y + 5);
                 }
 
                 // Display selection information above the selection area, centered horizontally
@@ -271,7 +283,6 @@ namespace CircleIconWin
                 using (Font font = new Font("Arial", 12, FontStyle.Bold))
                 using (Brush brush = new SolidBrush(Color.Red))
                 {
-                    Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
                     SizeF textSize = e.Graphics.MeasureString(selectionInfo, font);
                     PointF infoPosition = new PointF(circleRect.X + (circleRect.Width - textSize.Width) / 2, circleRect.Y - textSize.Height - 5);
                     e.Graphics.DrawString(selectionInfo, font, brush, infoPosition);
@@ -322,5 +333,6 @@ namespace CircleIconWin
             }
             return base.ProcessCmdKey(ref msg, keyData);
         }
+
     }
 }
