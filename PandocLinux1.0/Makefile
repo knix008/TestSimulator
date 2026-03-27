@@ -38,5 +38,6 @@ $(target): $(src)
 
 clean:
 	rm -f $(target)
+	rm -f *.pdf *.docx *.html *.epub *.odt *.txt *.tex
 
 .PHONY: all clean
