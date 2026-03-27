@@ -118,7 +118,12 @@ if [[ "$OS" == "macos" ]]; then
     done
     if $PIXBUF_NEEDS_UPDATE && command -v gdk-pixbuf-query-loaders >/dev/null 2>&1; then
         PIXBUF_CACHE="$(brew --prefix)/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
-        gdk-pixbuf-query-loaders > "$PIXBUF_CACHE"
+        gdk-pixbuf-query-loaders > /tmp/loaders.cache
+        if [[ -w "$PIXBUF_CACHE" ]]; then
+            mv /tmp/loaders.cache "$PIXBUF_CACHE"
+        else
+            sudo mv /tmp/loaders.cache "$PIXBUF_CACHE"
+        fi
         echo "  → pixbuf 로더 캐시 갱신 완료"
     fi
     echo "  → Adwaita 아이콘, librsvg, pixbuf 로더 캐시 갱신 완료"
