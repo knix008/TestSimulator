@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 /* ── 포맷 테이블 ─────────────────────────────────────────────────── */
 
@@ -710,18 +711,32 @@ int main(int argc, char *argv[])
         setenv("PATH", new_path, 1);
         g_free(new_path);
     }
-    /* macOS: gdk-pixbuf SVG 로더 캐시 경로 자동 설정 */
+    /* macOS: SVG 로더가 포함된 gdk-pixbuf 로더 캐시를 사용자 로컬에 생성
+     * librsvg SVG 로더는 Cellar가 아닌 opt/homebrew/lib 에만 설치되므로
+     * GDK_PIXBUF_MODULEDIR 을 명시하여 캐시를 생성한다. */
     if (!getenv("GDK_PIXBUF_MODULE_FILE")) {
-        const char *candidates[] = {
-            "/opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache",
-            "/usr/local/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache",
-            NULL
-        };
-        for (int i = 0; candidates[i]; i++) {
-            if (access(candidates[i], R_OK) == 0) {
-                setenv("GDK_PIXBUF_MODULE_FILE", candidates[i], 1);
-                break;
-            }
+        const char *home = getenv("HOME");
+        const char *loader_tool = NULL;
+        const char *loaders_dir = NULL;
+        if (access("/opt/homebrew/bin/gdk-pixbuf-query-loaders", X_OK) == 0)
+            loader_tool = "/opt/homebrew/bin/gdk-pixbuf-query-loaders";
+        else if (access("/usr/local/bin/gdk-pixbuf-query-loaders", X_OK) == 0)
+            loader_tool = "/usr/local/bin/gdk-pixbuf-query-loaders";
+        if (access("/opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders", R_OK) == 0)
+            loaders_dir = "/opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders";
+        else if (access("/usr/local/lib/gdk-pixbuf-2.0/2.10.0/loaders", R_OK) == 0)
+            loaders_dir = "/usr/local/lib/gdk-pixbuf-2.0/2.10.0/loaders";
+        if (home && loader_tool && loaders_dir) {
+            char cache_dir[512], cache_path[512], cmd[800];
+            snprintf(cache_dir,  sizeof(cache_dir),  "%s/.cache", home);
+            snprintf(cache_path, sizeof(cache_path), "%s/gdk-pixbuf-loaders.cache", cache_dir);
+            mkdir(cache_dir, 0755);
+            snprintf(cmd, sizeof(cmd),
+                     "GDK_PIXBUF_MODULEDIR=\"%s\" \"%s\" > \"%s\" 2>/dev/null",
+                     loaders_dir, loader_tool, cache_path);
+            system(cmd);
+            if (access(cache_path, R_OK) == 0)
+                setenv("GDK_PIXBUF_MODULE_FILE", cache_path, 1);
         }
     }
 #endif
