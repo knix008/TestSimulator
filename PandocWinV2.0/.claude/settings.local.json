@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build)",
+      "Bash(wkhtmltopdf --version)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(dotnet publish -p:PublishProfile=SingleFile)"
+    ]
+  }
+}

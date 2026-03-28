@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docobj
+
+# Publish output (배포 파일은 별도 관리)
+bin/Release/publish/
+
+# OS
+Thumbs.db
+Desktop.ini
