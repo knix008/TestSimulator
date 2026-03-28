@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build)",
+      "Bash(cmd /c \"taskkill /PID 25556 /F\")",
+      "Bash(cmd /c \"tasklist | findstr BGRemove\")",
+      "Bash(cmd /c \"handle64 bin\\\\Debug\\\\net10.0-windows\\\\BGRemoveWin1.0.exe 2>&1 | head -5\")",
+      "Bash(cmd /c \"tasklist | findstr -i \"\"BGRemove dotnet\"\"\")",
+      "Bash(cmd /c \"taskkill /F /PID 25556 2>&1 && echo done\")",
+      "Bash(cmd /c \"wmic process where ProcessId=25556 get Name,ProcessId 2>&1\")"
+    ]
+  }
+}
