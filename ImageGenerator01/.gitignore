@@ -1,0 +1,25 @@
+# Build output
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+.vs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Generated images
+*.png
+*.jpg
+*.jpeg
+
+# OS
+Thumbs.db
+desktop.ini
