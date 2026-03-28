@@ -1,0 +1,92 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Pandoc 파일 변환기"
+           Manufacturer="PandocWin"
+           Version="2.0.0"
+           UpgradeCode="CCF1499C-F921-47AA-A623-9AF1E738B538"
+           Codepage="utf-8"
+           Language="1042"
+           Scope="perMachine">
+
+    <!-- 구버전 자동 제거 -->
+    <MajorUpgrade DowngradeErrorMessage="더 최신 버전이 이미 설치되어 있습니다." />
+
+    <!-- 단일 cab 파일로 내장 -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 설치 UI: 설치 디렉토리 선택 포함 -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+    <!-- 프로그램 추가/제거 아이콘 -->
+    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="https://pandoc.org" />
+
+    <Feature Id="ProductFeature" Title="Pandoc 파일 변환기" Level="1">
+      <ComponentGroupRef Id="MainComponents" />
+      <ComponentRef Id="Shortcuts" />
+    </Feature>
+  </Package>
+
+  <!-- 디렉토리 구조 (WiX 6: StandardDirectory 사용) -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Pandoc 파일 변환기" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="Pandoc 파일 변환기" />
+    </StandardDirectory>
+  </Fragment>
+
+  <!-- 실행 파일 컴포넌트 -->
+  <Fragment>
+    <ComponentGroup Id="MainComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExeComponent">
+        <File Id="MainExe"
+              Source="..\bin\Release\publish\PandocWinV2.0.exe"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- 바로가기 컴포넌트 -->
+  <Fragment>
+    <Component Id="Shortcuts"
+               Directory="INSTALLFOLDER"
+               Guid="0F2F23E8-9438-4A4A-86F3-C1C43D870006">
+
+      <!-- 시작 메뉴 바로가기 -->
+      <Shortcut Id="StartMenuShortcut"
+                Directory="AppMenuFolder"
+                Name="Pandoc 파일 변환기"
+                Description="Pandoc을 이용한 문서 형식 변환기"
+                Target="[INSTALLFOLDER]PandocWinV2.0.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+
+      <!-- 바탕화면 바로가기 -->
+      <Shortcut Id="DesktopShortcut"
+                Directory="DesktopFolder"
+                Name="Pandoc 파일 변환기"
+                Description="Pandoc을 이용한 문서 형식 변환기"
+                Target="[INSTALLFOLDER]PandocWinV2.0.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+
+      <!-- 제거 시 시작메뉴 폴더 삭제 -->
+      <RemoveFolder Id="RemoveAppMenuFolder"
+                    Directory="AppMenuFolder"
+                    On="uninstall" />
+
+      <!-- 바로가기의 KeyPath (레지스트리) -->
+      <RegistryValue Root="HKCU"
+                     Key="Software\PandocWin\PandocWinV2"
+                     Name="Installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

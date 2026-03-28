@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build -c Release)",
+      "Bash(wix --version)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(dotnet tool install --global wix)",
+      "Bash(wix extension add WixToolset.UI.wixext WixToolset.Util.wixext)",
+      "Bash(wix extension add WixToolset.UI.wixext/6.0.2 WixToolset.Util.wixext/6.0.2)",
+      "Bash(wix extension list)",
+      "Bash(wix new msi --help)",
+      "Bash(wix --help)",
+      "Bash(powershell -Command \"[guid]::NewGuid\\(\\).ToString\\(\\).ToUpper\\(\\); [guid]::NewGuid\\(\\).ToString\\(\\).ToUpper\\(\\)\")",
+      "Bash(wix build Setup/Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -out bin/Release/publish/PandocWinV2.0.msi)",
+      "Bash(wix build Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -out \"../bin/Release/publish/PandocWinV2.0.msi\")",
+      "Bash(wix extension list --global)",
+      "Bash(wix build Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext --global-build-cache -out \"../bin/Release/publish/PandocWinV2.0.msi\")",
+      "Read(//c/Users/shkwon/.wix/**)",
+      "Read(//d/Home/Projects/TestSimulator/PandocWinV2.0/**)",
+      "Read(//d/Home/Projects/TestSimulator/PandocWinV2.0/$USERPROFILE/**)",
+      "Bash(cmd /c \"dir %USERPROFILE%\\\\.wix /s /b 2>&1\")",
+      "Bash(cmd /c \"wix extension list & echo --- & dir %APPDATA%\\\\wix /s /b 2>&1 & dir %LOCALAPPDATA%\\\\wix /s /b 2>&1\")",
+      "Bash(cmd /c \"cd /d D:\\\\Home\\\\Projects\\\\TestSimulator\\\\PandocWinV2.0\\\\Setup && wix extension list && wix build Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -out ..\\\\bin\\\\Release\\\\publish\\\\PandocWinV2.0.msi 2>&1\")",
+      "Bash(cmd /c \"cd /d D:\\\\Home\\\\Projects\\\\TestSimulator\\\\PandocWinV2.0\\\\Setup && wix extension list && wix build Package.wxs -ext WixToolset.UI.wixext -out ..\\\\bin\\\\Release\\\\publish\\\\PandocWinV2.0.msi\")",
+      "Bash(powershell -Command \":*)",
+      "Bash(powershell -NoProfile:*)",
+      "Bash(wix build Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -culture ko-KR -out \"../bin/Release/publish/PandocWinV2.0.msi\")"
+    ]
+  }
+}

@@ -9,8 +9,12 @@ obj/
 *.userosscache
 *.sln.docobj
 
-# Publish output (배포 파일은 별도 관리)
+# Publish / installer output (배포 파일은 별도 관리)
 bin/Release/publish/
+
+# WiX build artifacts
+*.wixpdb
+Setup/.wix/
 
 # OS
 Thumbs.db
