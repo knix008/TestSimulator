@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//cygdrive/**)",
+      "Bash(cmd /c \"dir D:\\\\Home\\\\Projects\\\\TestSimulator\\\\ /b\")",
+      "Bash(cmd /c \"dir D:\\\\Home\\\\Projects\\\\ /b\")",
+      "Bash(cmd /c \"dir D:\\\\ /b /s *Flux.1-Dev-Text-to-Image-Example28.py\")",
+      "Bash(powershell -Command \"Get-ChildItem -Path ''D:\\\\'' -Recurse -Filter ''Flux.1-Dev-Text-to-Image-Example28.py'' -ErrorAction SilentlyContinue | Select-Object FullName\")",
+      "Bash(powershell -Command \"Get-Content ''D:\\\\Home\\\\Projects\\\\MachineLearning\\\\Flux1\\\\Flux.1-Dev-Text-to-Image-Example28.py''\")"
+    ]
+  }
+}
