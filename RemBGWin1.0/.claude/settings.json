@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Home/Projects/TestSimulator/BGRemoveWin1.0/**)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet tool:*)",
+      "Bash(wix --version)",
+      "Bash(wix extension:*)",
+      "Bash(wix --help)",
+      "Bash(dotnet publish:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{redirect_url}\" -L --max-redirs 0 \"https://huggingface.co/danielgatis/rembg/resolve/main/u2net.onnx\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -L -A \"Mozilla/5.0\" \"https://huggingface.co/danielgatis/rembg/resolve/main/u2net.onnx?download=true\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -L \"https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx\")"
+    ]
+  }
+}

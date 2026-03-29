@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+Installer/bin/
+Installer/obj/
+*.wixpdb
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userprefs
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+
+# OS
+Thumbs.db
+.DS_Store

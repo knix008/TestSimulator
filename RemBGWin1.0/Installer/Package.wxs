@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="RemBG"
+           Manufacturer="RemBGWin"
+           Version="1.0.0.0"
+           UpgradeCode="7A3F9C2E-8B4D-4F6A-9C1E-5D2A8B3F4E7C"
+           Language="1042"
+           Codepage="949"
+           Scope="perMachine">
+
+    <SummaryInformation />
+
+    <!-- 이전 버전 자동 제거 (다운그레이드 차단) -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+
+    <!-- 단일 CAB 파일로 묶어 MSI에 내장 -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 프로그램 추가/제거 아이콘 -->
+    <Icon Id="RemBGIcon.ico" SourceFile="$(sys.SOURCEFILEDIR)..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="RemBGIcon.ico" />
+
+    <!-- 기능 정의 -->
+    <Feature Id="ProductFeature" Title="RemBG" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="AppShortcuts" />
+    </Feature>
+
+    <!-- 설치 경로 선택 UI -->
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(sys.SOURCEFILEDIR)License.rtf" Overridable="yes" />
+
+  </Package>
+
+  <!-- ── 디렉토리 구조 ──────────────────────────────────────────────── -->
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="RemBGWin" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppStartMenuFolder" Name="RemBGWin" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <!-- ── 설치 파일 ────────────────────────────────────────────────────── -->
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExe" Guid="*">
+        <File Id="RemBGExe"
+              Source="$(var.PublishDir)RemBGWin1.0.exe"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- ── 바로 가기 ────────────────────────────────────────────────────── -->
+
+  <Fragment>
+    <ComponentGroup Id="AppShortcuts" Directory="INSTALLFOLDER">
+
+      <!-- 시작 메뉴 바로 가기 -->
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut Id="StartMenuShortcutLink"
+                  Directory="AppStartMenuFolder"
+                  Name="RemBG"
+                  Target="[INSTALLFOLDER]RemBGWin1.0.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="RemBGIcon.ico" />
+        <RemoveFolder Id="CleanUpStartMenu"
+                      Directory="AppStartMenuFolder"
+                      On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\RemBGWin\RemBG"
+                       Name="StartMenu"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <!-- 바탕 화면 바로 가기 -->
+      <Component Id="DesktopShortcut" Guid="*">
+        <Shortcut Id="DesktopShortcutLink"
+                  Directory="DesktopFolder"
+                  Name="RemBG"
+                  Target="[INSTALLFOLDER]RemBGWin1.0.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="RemBGIcon.ico" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\RemBGWin\RemBG"
+                       Name="Desktop"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
