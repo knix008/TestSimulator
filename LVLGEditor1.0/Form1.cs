@@ -9,14 +9,17 @@ namespace LVLGEditor1._0
 {
     public partial class Form1 : Form
     {
-        private const int RowCount  = 10;
-        private const int RowHeight = 80;
-        private const int RowGap    = 5;
-        private const int IconSize  = 60;
+        private const int RowCount     = 10;
+        private const int RowHeight    = 80;
+        private const int RowGap       = 5;
+        private const int IconSize     = 60;
+        private const int IconZoneWidth = 80;   // 아이콘 전용 영역 너비
 
         // Row controls (RichTextBox for full alignment support)
         private Panel[]        _rowPanels;
         private RichTextBox[]  _rowTextBoxes;
+        private Color[]        _rowBorderColors;
+        private int[]          _rowBorderWidths;
         private Panel          _rowContainer;
 
         // Scroll state
@@ -35,11 +38,15 @@ namespace LVLGEditor1._0
             SetupDropTargets();
             TrackFocusOn(titleTextBox);
             LoadIconsFromFolder(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icons"));
+            InitializeButtonPalette();
         }
 
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            // Select font size 24 as default (index 7 in the combo list)
+            int idx24 = fontSizeCombo.Items.IndexOf(24);
+            if (idx24 >= 0) fontSizeCombo.SelectedIndex = idx24;
             InitializeRows();
             // Title starts with Center alignment by default
             titleTextBox.TextAlign = HorizontalAlignment.Center;
@@ -56,8 +63,10 @@ namespace LVLGEditor1._0
 
         private void InitializeRows()
         {
-            _rowPanels    = new Panel[RowCount];
-            _rowTextBoxes = new RichTextBox[RowCount];
+            _rowPanels       = new Panel[RowCount];
+            _rowTextBoxes    = new RichTextBox[RowCount];
+            _rowBorderColors = new Color[RowCount];
+            _rowBorderWidths = new int[RowCount];
 
             _rowContainer = new Panel();
             _rowContainer.Width    = contentArea.ClientSize.Width;
@@ -68,13 +77,18 @@ namespace LVLGEditor1._0
             contentArea.Controls.Add(_rowContainer);
             contentArea.MouseWheel += WheelScroll;
 
-            Color rowBg = LightenColor(contentArea.BackColor, 20);
+            Color rowBg        = LightenColor(contentArea.BackColor, 20);
+            Color defaultBorder = Color.FromArgb(80, 0, 0, 0);
 
             for (int i = 0; i < RowCount; i++)
             {
+                int idx  = i;   // capture for closures
                 int rowX = 4;
                 int rowY = RowGap + i * (RowHeight + RowGap);
                 int rowW = _rowContainer.Width - 8;
+
+                _rowBorderColors[i] = defaultBorder;
+                _rowBorderWidths[i] = 1;
 
                 var row = new Panel();
                 row.SetBounds(rowX, rowY, rowW, RowHeight);
@@ -86,22 +100,59 @@ namespace LVLGEditor1._0
                 row.Paint += (s, pe) =>
                 {
                     var rc = ((Panel)s).ClientRectangle;
-                    using (var pen = new Pen(Color.FromArgb(70, 255, 255, 255)))
-                        pe.Graphics.DrawRectangle(pen, 0, 0, rc.Width - 1, rc.Height - 1);
+                    int w  = _rowBorderWidths[idx];
+                    using (var pen = new Pen(_rowBorderColors[idx], w))
+                    {
+                        int half = w / 2;
+                        pe.Graphics.DrawRectangle(pen, half, half, rc.Width - w, rc.Height - w);
+                    }
                 };
 
+                var font = CurrentFont();
+                int rtbH = font.Height + 8;
+                int rtbY = (RowHeight - rtbH) / 2;
                 var rtb = new RichTextBox();
-                rtb.SetBounds(8, 8, rowW - 16, RowHeight - 16);
+                rtb.SetBounds(IconZoneWidth + 4, rtbY, rowW - IconZoneWidth - 8, rtbH);
                 rtb.BorderStyle  = BorderStyle.None;
                 rtb.BackColor    = rowBg;
-                rtb.ForeColor    = Color.White;
-                rtb.Font         = CurrentFont();
+                rtb.ForeColor    = Color.Black;
+                rtb.Font         = font;
                 rtb.ScrollBars   = RichTextBoxScrollBars.None;
                 rtb.Multiline    = true;
                 rtb.DetectUrls   = false;
                 rtb.SelectionAlignment = HorizontalAlignment.Left;
                 rtb.MouseWheel  += WheelScroll;
                 TrackFocusOn(rtb);
+
+                // Per-row context menu
+                var menu       = new ContextMenuStrip();
+                var bgItem     = new ToolStripMenuItem("배경색 변경");
+                var borderItem = new ToolStripMenuItem("테두리색 변경");
+                var widthItem  = new ToolStripMenuItem("테두리 굵기");
+                foreach (int w in new[] { 1, 2, 3, 4, 5 })
+                {
+                    int wv = w;
+                    var sub = new ToolStripMenuItem($"{wv}px");
+                    sub.Click += (s, e) => { _rowBorderWidths[idx] = wv; row.Invalidate(); };
+                    widthItem.DropDownItems.Add(sub);
+                }
+                bgItem.Click += (s, e) =>
+                {
+                    if (!PickColor(row.BackColor, out Color c)) return;
+                    row.BackColor = c;
+                    rtb.BackColor = c;
+                };
+                borderItem.Click += (s, e) =>
+                {
+                    if (!PickColor(_rowBorderColors[idx], out Color c)) return;
+                    _rowBorderColors[idx] = c;
+                    row.Invalidate();
+                };
+                menu.Items.Add(bgItem);
+                menu.Items.Add(borderItem);
+                menu.Items.Add(widthItem);
+                row.ContextMenuStrip = menu;
+                rtb.ContextMenuStrip = menu;
 
                 row.Controls.Add(rtb);
                 _rowContainer.Controls.Add(row);
@@ -157,13 +208,13 @@ namespace LVLGEditor1._0
 
         private Font CurrentFont()
         {
-            int size = fontSizeCombo.SelectedItem != null ? (int)fontSizeCombo.SelectedItem : 14;
+            int size = fontSizeCombo.SelectedItem != null ? (int)fontSizeCombo.SelectedItem : 24;
             return new Font("Segoe UI", size);
         }
 
         private void FontSizeCombo_Changed(object sender, EventArgs e)
         {
-            int size = fontSizeCombo.SelectedItem != null ? (int)fontSizeCombo.SelectedItem : 14;
+            int size = fontSizeCombo.SelectedItem != null ? (int)fontSizeCombo.SelectedItem : 24;
             if (_activeTextControl is RichTextBox rtb)
             {
                 // Preserve bold/italic when changing size
@@ -173,10 +224,19 @@ namespace LVLGEditor1._0
                 rtb.SelectionFont = font;
                 rtb.Select(0, 0);
                 rtb.Font = font;
+                // Re-center vertically in the row
+                int newH = font.Height + 8;
+                int newY = (RowHeight - newH) / 2;
+                rtb.SetBounds(rtb.Left, newY, rtb.Width, newH);
             }
             else if (_activeTextControl is TextBox tb)
             {
-                tb.Font = new Font("Segoe UI", size, tb.Font.Style);
+                var font = new Font("Segoe UI", size, tb.Font.Style);
+                tb.Font = font;
+                // Re-center vertically in titleBar
+                int newH = font.Height + 8;
+                int newY = (titleBar.Height - newH) / 2;
+                tb.SetBounds(tb.Left, newY, tb.Width, newH);
             }
         }
 
@@ -275,6 +335,122 @@ namespace LVLGEditor1._0
             };
         }
 
+        // ── Button palette ────────────────────────────────────────────────
+
+        private void InitializeButtonPalette()
+        {
+            var groups = new (string header, string[] items)[]
+            {
+                ("숫자", new[] { "0","1","2","3","4","5","6","7","8","9" }),
+                ("천지인", new[] { "ㅣ","·","ㅡ","ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ" }),
+                ("영문 대문자", Enumerable.Range('A', 26).Select(c => ((char)c).ToString()).ToArray()),
+                ("영문 소문자", Enumerable.Range('a', 26).Select(c => ((char)c).ToString()).ToArray()),
+            };
+
+            foreach (var (header, items) in groups)
+            {
+                var groupLabel = new Label
+                {
+                    Text      = header,
+                    Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(200, 200, 200),
+                    AutoSize  = false,
+                    Size      = new Size(272, 22),
+                    Margin    = new Padding(0, 6, 0, 2),
+                    TextAlign = ContentAlignment.MiddleLeft,
+                };
+                buttonPalette.Controls.Add(groupLabel);
+
+                foreach (var text in items)
+                    buttonPalette.Controls.Add(CreatePaletteButton(text));
+            }
+        }
+
+        private Button CreatePaletteButton(string text)
+        {
+            var btn = new Button
+            {
+                Text      = text,
+                Size      = new Size(80, 60),
+                Font      = new Font("Segoe UI", 16, FontStyle.Bold),
+                BackColor = Color.FromArgb(65, 65, 80),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Cursor    = Cursors.Hand,
+                Margin    = new Padding(4),
+            };
+            btn.FlatAppearance.BorderColor = Color.FromArgb(100, 100, 120);
+            btn.MouseEnter += (s, e) => ((Button)s).BackColor = Color.FromArgb(90, 90, 115);
+            btn.MouseLeave += (s, e) => ((Button)s).BackColor = Color.FromArgb(65, 65, 80);
+            btn.MouseDown  += PaletteButton_MouseDown;
+            return btn;
+        }
+
+        private void PaletteButton_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                var data = new DataObject();
+                data.SetData("ButtonText", btn.Text);
+                DoDragDrop(data, DragDropEffects.Copy);
+            }
+        }
+
+        private Button CreateDroppedButton(string text, Panel row,
+            Color? bgColor = null, Color? fgColor = null,
+            Color? borderColor = null, int borderWidth = 1)
+        {
+            var btn = new Button
+            {
+                Text      = text,
+                Size      = new Size(80, 60),
+                Font      = new Font("Segoe UI", 16, FontStyle.Bold),
+                BackColor = bgColor     ?? Color.FromArgb(220, 220, 230),
+                ForeColor = fgColor     ?? Color.Black,
+                FlatStyle = FlatStyle.Flat,
+                Cursor    = Cursors.SizeAll,
+            };
+            btn.FlatAppearance.BorderColor = borderColor ?? Color.FromArgb(160, 160, 180);
+            btn.FlatAppearance.BorderSize  = borderWidth;
+
+            var removeMenu = BuildRemoveMenu(btn, row);
+
+            // Color / border context menu items added to remove menu
+            removeMenu.Items.Add(new ToolStripSeparator());
+            var bgItem     = new ToolStripMenuItem("배경색 변경");
+            var fgItem     = new ToolStripMenuItem("글자색 변경");
+            var borderClr  = new ToolStripMenuItem("테두리색 변경");
+            var borderWide = new ToolStripMenuItem("테두리 굵기");
+            foreach (int w in new[] { 0, 1, 2, 3, 4, 5 })
+            {
+                int wv = w;
+                var sub = new ToolStripMenuItem($"{wv}px");
+                sub.Click += (s, e) => btn.FlatAppearance.BorderSize = wv;
+                borderWide.DropDownItems.Add(sub);
+            }
+            bgItem.Click    += (s, e) => { if (PickColor(btn.BackColor, out Color c)) btn.BackColor = c; };
+            fgItem.Click    += (s, e) => { if (PickColor(btn.ForeColor, out Color c)) btn.ForeColor = c; };
+            borderClr.Click += (s, e) => { if (PickColor(btn.FlatAppearance.BorderColor, out Color c)) btn.FlatAppearance.BorderColor = c; };
+            removeMenu.Items.Add(bgItem);
+            removeMenu.Items.Add(fgItem);
+            removeMenu.Items.Add(borderClr);
+            removeMenu.Items.Add(borderWide);
+            btn.ContextMenuStrip = removeMenu;
+
+            Point drag = Point.Empty;
+            btn.MouseDown += (s, ev) => { if (ev.Button == MouseButtons.Left) drag = ev.Location; };
+            btn.MouseMove += (s, ev) =>
+            {
+                if (ev.Button != MouseButtons.Left) return;
+                var loc = btn.Location;
+                loc.Offset(ev.X - drag.X, ev.Y - drag.Y);
+                loc.X = Math.Max(0, Math.Min(loc.X, row.Width  - btn.Width));
+                loc.Y = Math.Max(0, Math.Min(loc.Y, row.Height - btn.Height));
+                btn.Location = loc;
+            };
+            return btn;
+        }
+
         // ── Drop targets setup ────────────────────────────────────────────
 
         private void SetupDropTargets()
@@ -282,6 +458,46 @@ namespace LVLGEditor1._0
             shortcutBar.AllowDrop = true;
             shortcutBar.DragEnter += DropTarget_DragEnter;
             shortcutBar.DragDrop  += ShortcutBar_DragDrop;
+            shortcutBar.Paint += (s, pe) =>
+            {
+                using (var pen = new Pen(Color.FromArgb(160, 160, 160)))
+                    pe.Graphics.DrawLine(pen, 0, 0, ((Panel)s).Width - 1, 0);
+            };
+
+            SetupTitleIconZone(titleLeftIconZone);
+            SetupTitleIconZone(titleRightIconZone);
+        }
+
+        private void SetupTitleIconZone(Panel zone)
+        {
+            zone.AllowDrop = true;
+            zone.DragEnter += DropTarget_DragEnter;
+            zone.DragDrop  += TitleIconZone_DragDrop;
+        }
+
+        private void TitleIconZone_DragDrop(object sender, DragEventArgs e)
+        {
+            var zone = (Panel)sender;
+            if (!e.Data.GetDataPresent("IconFilePath")) return;
+            string filePath = (string)e.Data.GetData("IconFilePath");
+            if (!File.Exists(filePath)) { ShowMissingFileWarning(filePath); return; }
+
+            // Remove existing icon
+            foreach (Control c in zone.Controls.OfType<PictureBox>().ToList())
+            { zone.Controls.Remove(c); c.Dispose(); }
+
+            var pb = new PictureBox();
+            pb.Image    = Image.FromFile(filePath);
+            pb.SizeMode = PictureBoxSizeMode.Zoom;
+            pb.Width    = pb.Height = IconSize;
+            pb.Tag      = filePath;
+            pb.Cursor   = Cursors.Default;
+            pb.BackColor = Color.Transparent;
+            pb.Location = new Point(
+                (zone.Width  - IconSize) / 2,
+                (zone.Height - IconSize) / 2);
+            pb.ContextMenuStrip = BuildRemoveMenu(pb, zone);
+            zone.Controls.Add(pb);
         }
 
         // ── Icon palette ──────────────────────────────────────────────────
@@ -339,23 +555,38 @@ namespace LVLGEditor1._0
 
         private void DropTarget_DragEnter(object sender, DragEventArgs e)
         {
-            e.Effect = e.Data.GetDataPresent("IconFilePath")
+            e.Effect = (e.Data.GetDataPresent("IconFilePath") || e.Data.GetDataPresent("ButtonText"))
                 ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
         private void RowPanel_DragDrop(object sender, DragEventArgs e)
         {
-            if (!e.Data.GetDataPresent("IconFilePath")) return;
-            string filePath = (string)e.Data.GetData("IconFilePath");
             var row = (Panel)sender;
             var pt  = row.PointToClient(new Point(e.X, e.Y));
 
-            var pb = CreateDroppedIcon(filePath, row);
-            pb.Location = new Point(
-                Math.Max(0, Math.Min(pt.X - IconSize / 2, row.Width - IconSize)),
-                (row.Height - IconSize) / 2);
-            row.Controls.Add(pb);
-            pb.BringToFront();
+            if (e.Data.GetDataPresent("IconFilePath"))
+            {
+                string filePath = (string)e.Data.GetData("IconFilePath");
+                var pb = CreateDroppedIcon(filePath, row);
+                // 아이콘 영역(80×80) 중앙에 배치
+                pb.Location = new Point(
+                    (IconZoneWidth - IconSize) / 2,
+                    (row.Height   - IconSize) / 2);
+                row.Controls.Add(pb);
+                pb.BringToFront();
+            }
+            else if (e.Data.GetDataPresent("ButtonText"))
+            {
+                string text = (string)e.Data.GetData("ButtonText");
+                var btn = CreateDroppedButton(text, row);
+                // 텍스트 영역(아이콘 영역 오른쪽)에 배치, 수직 중앙
+                int minX = IconZoneWidth + 4;
+                btn.Location = new Point(
+                    Math.Max(minX, Math.Min(pt.X - btn.Width / 2, row.Width - btn.Width)),
+                    (row.Height - btn.Height) / 2);
+                row.Controls.Add(btn);
+                btn.BringToFront();
+            }
         }
 
         private void ShortcutBar_DragDrop(object sender, DragEventArgs e)
@@ -401,21 +632,9 @@ namespace LVLGEditor1._0
             pb.SizeMode  = PictureBoxSizeMode.Zoom;
             pb.Width     = pb.Height = IconSize;
             pb.Tag       = filePath;
-            pb.Cursor    = Cursors.SizeAll;
+            pb.Cursor    = Cursors.Default;
             pb.BackColor = Color.Transparent;
             pb.ContextMenuStrip = BuildRemoveMenu(pb, row);
-
-            Point drag = Point.Empty;
-            pb.MouseDown += (s, ev) => { if (ev.Button == MouseButtons.Left) drag = ev.Location; };
-            pb.MouseMove += (s, ev) =>
-            {
-                if (ev.Button != MouseButtons.Left) return;
-                var loc = pb.Location;
-                loc.Offset(ev.X - drag.X, ev.Y - drag.Y);
-                loc.X = Math.Max(0, Math.Min(loc.X, row.Width  - pb.Width));
-                loc.Y = Math.Max(0, Math.Min(loc.Y, row.Height - pb.Height));
-                pb.Location = loc;
-            };
             return pb;
         }
 
@@ -496,6 +715,31 @@ namespace LVLGEditor1._0
             return false;
         }
 
+        // ── Save as Image ─────────────────────────────────────────────────
+
+        private void SaveImageButton_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new SaveFileDialog())
+            {
+                dlg.Title      = "이미지로 저장";
+                dlg.Filter     = "PNG 이미지 (*.png)|*.png|JPEG 이미지 (*.jpg)|*.jpg";
+                dlg.DefaultExt = "png";
+                if (dlg.ShowDialog() != DialogResult.OK) return;
+
+                using (var bmp = new Bitmap(lvglPreview.Width, lvglPreview.Height))
+                {
+                    lvglPreview.DrawToBitmap(bmp, new Rectangle(0, 0, lvglPreview.Width, lvglPreview.Height));
+                    var fmt = dlg.FilterIndex == 2
+                        ? System.Drawing.Imaging.ImageFormat.Jpeg
+                        : System.Drawing.Imaging.ImageFormat.Png;
+                    bmp.Save(dlg.FileName, fmt);
+                }
+
+                MessageBox.Show($"이미지 저장 완료:\n{dlg.FileName}", "저장",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
         // ── Save / Load ───────────────────────────────────────────────────
 
         private void MenuFileSave_Click(object sender, EventArgs e)
@@ -550,6 +794,8 @@ namespace LVLGEditor1._0
                 TitleText        = titleTextBox.Text,
                 TitleFontSize    = (int)Math.Round(titleTextBox.Font.SizeInPoints),
                 TitleAlignment   = AlignToString(titleTextBox.TextAlign),
+                TitleLeftIconPath  = GetZoneIconPath(titleLeftIconZone),
+                TitleRightIconPath = GetZoneIconPath(titleRightIconZone),
                 TitleBarBgColor  = ColorToHex(titleBar.BackColor),
                 TitleBarFgColor  = ColorToHex(titleTextBox.ForeColor),
                 ContentBgColor   = ColorToHex(contentArea.BackColor),
@@ -576,16 +822,32 @@ namespace LVLGEditor1._0
                 var rtb = _rowTextBoxes[i];
                 rows[i] = new RowData
                 {
-                    Text      = rtb.Text,
-                    FontSize  = (int)Math.Round((rtb.SelectionFont ?? rtb.Font).SizeInPoints),
-                    Alignment = AlignToString(rtb.SelectionAlignment),
-                    Icons     = _rowPanels[i].Controls
+                    Text        = rtb.Text,
+                    FontSize    = (int)Math.Round((rtb.SelectionFont ?? rtb.Font).SizeInPoints),
+                    Alignment   = AlignToString(rtb.SelectionAlignment),
+                    BgColor     = ColorToHex(_rowPanels[i].BackColor),
+                    BorderColor = ColorToHex(_rowBorderColors[i]),
+                    BorderWidth = _rowBorderWidths[i],
+                    Icons       = _rowPanels[i].Controls
                         .OfType<PictureBox>()
                         .Select(pb => new IconData
                         {
                             FilePath = pb.Tag as string,
                             X        = pb.Left,
                             Y        = pb.Top
+                        })
+                        .ToArray(),
+                    Buttons     = _rowPanels[i].Controls
+                        .OfType<Button>()
+                        .Select(b => new ButtonData
+                        {
+                            Text        = b.Text,
+                            X           = b.Left,
+                            Y           = b.Top,
+                            BgColor     = ColorToHex(b.BackColor),
+                            FgColor     = ColorToHex(b.ForeColor),
+                            BorderColor = ColorToHex(b.FlatAppearance.BorderColor),
+                            BorderWidth = b.FlatAppearance.BorderSize
                         })
                         .ToArray()
                 };
@@ -601,6 +863,30 @@ namespace LVLGEditor1._0
                 .ToArray();
         }
 
+        private static string GetZoneIconPath(Panel zone) =>
+            zone.Controls.OfType<PictureBox>().FirstOrDefault()?.Tag as string;
+
+        private void RestoreZoneIcon(Panel zone, string filePath)
+        {
+            foreach (Control c in zone.Controls.OfType<PictureBox>().ToList())
+            { zone.Controls.Remove(c); c.Dispose(); }
+
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+
+            var pb = new PictureBox();
+            pb.Image    = Image.FromFile(filePath);
+            pb.SizeMode = PictureBoxSizeMode.Zoom;
+            pb.Width    = pb.Height = IconSize;
+            pb.Tag      = filePath;
+            pb.Cursor   = Cursors.Default;
+            pb.BackColor = Color.Transparent;
+            pb.Location = new Point(
+                (zone.Width  - IconSize) / 2,
+                (zone.Height - IconSize) / 2);
+            pb.ContextMenuStrip = BuildRemoveMenu(pb, zone);
+            zone.Controls.Add(pb);
+        }
+
         private void LoadLayout(string filePath)
         {
             ScreenData data;
@@ -611,11 +897,11 @@ namespace LVLGEditor1._0
             if (_rowContainer != null) _rowContainer.Top = 0;
 
             // Colors
-            Color titleBg = HexToColor(data.TitleBarBgColor,   Color.FromArgb(25, 25, 112));
+            Color titleBg = HexToColor(data.TitleBarBgColor,   Color.FromArgb(64, 64, 64));
             Color titleFg = HexToColor(data.TitleBarFgColor,   Color.White);
-            Color contBg  = HexToColor(data.ContentBgColor,    Color.FromArgb(18, 18, 60));
-            Color contFg  = HexToColor(data.ContentFgColor,    Color.White);
-            Color shortBg = HexToColor(data.ShortcutBarBgColor, Color.FromArgb(30, 30, 30));
+            Color contBg  = HexToColor(data.ContentBgColor,    Color.White);
+            Color contFg  = HexToColor(data.ContentFgColor,    Color.Black);
+            Color shortBg = HexToColor(data.ShortcutBarBgColor, Color.White);
 
             titleBar.BackColor         = titleBg;
             titleTextBox.BackColor     = titleBg;
@@ -635,10 +921,20 @@ namespace LVLGEditor1._0
             shortcutBar.BackColor        = shortBg;
             shortcutBgColorBtn.BackColor = shortBg;
 
+            // Title icon zones
+            RestoreZoneIcon(titleLeftIconZone,  data.TitleLeftIconPath);
+            RestoreZoneIcon(titleRightIconZone, data.TitleRightIconPath);
+
             // Title text
             titleTextBox.Text = data.TitleText ?? string.Empty;
             if (data.TitleFontSize > 0)
-                titleTextBox.Font = new Font("Segoe UI", data.TitleFontSize, FontStyle.Bold);
+            {
+                var font = new Font("Segoe UI", data.TitleFontSize, FontStyle.Bold);
+                titleTextBox.Font = font;
+                int newH = font.Height + 8;
+                int newY = (titleBar.Height - newH) / 2;
+                titleTextBox.SetBounds(titleTextBox.Left, newY, titleTextBox.Width, newH);
+            }
             var titleAlign = StringToAlign(data.TitleAlignment);
             titleTextBox.TextAlign = titleAlign;
             if (_activeTextControl == titleTextBox)
@@ -647,12 +943,25 @@ namespace LVLGEditor1._0
             // Rows
             for (int i = 0; i < RowCount; i++)
             {
+                // Clear icons and buttons
                 var icons = _rowPanels[i].Controls.OfType<PictureBox>().ToList();
                 icons.ForEach(pb => { _rowPanels[i].Controls.Remove(pb); pb.Dispose(); });
+                var btns = _rowPanels[i].Controls.OfType<Button>().ToList();
+                btns.ForEach(b => { _rowPanels[i].Controls.Remove(b); b.Dispose(); });
 
                 if (data.Rows == null || i >= data.Rows.Length) continue;
                 var rowData = data.Rows[i];
                 var rtb     = _rowTextBoxes[i];
+
+                // Per-row colors and border
+                Color rBg = HexToColor(rowData.BgColor, _rowPanels[i].BackColor);
+                _rowPanels[i].BackColor = rBg;
+                _rowTextBoxes[i].BackColor = rBg;
+                if (!string.IsNullOrEmpty(rowData.BorderColor))
+                    _rowBorderColors[i] = HexToColor(rowData.BorderColor, _rowBorderColors[i]);
+                if (rowData.BorderWidth > 0)
+                    _rowBorderWidths[i] = rowData.BorderWidth;
+                _rowPanels[i].Invalidate();
 
                 rtb.Text = rowData.Text ?? string.Empty;
                 if (rowData.FontSize > 0)
@@ -662,6 +971,9 @@ namespace LVLGEditor1._0
                     rtb.SelectAll();
                     rtb.SelectionFont = font;
                     rtb.Select(0, 0);
+                    int newH = font.Height + 8;
+                    int newY = (RowHeight - newH) / 2;
+                    rtb.SetBounds(rtb.Left, newY, rtb.Width, newH);
                 }
 
                 var align = StringToAlign(rowData.Alignment);
@@ -669,14 +981,33 @@ namespace LVLGEditor1._0
                 rtb.SelectionAlignment = align;
                 rtb.Select(0, 0);
 
-                if (rowData.Icons == null) continue;
-                foreach (var iconData in rowData.Icons)
+                if (rowData.Icons != null)
                 {
-                    if (!File.Exists(iconData.FilePath)) { ShowMissingFileWarning(iconData.FilePath); continue; }
-                    var pb = CreateDroppedIcon(iconData.FilePath, _rowPanels[i]);
-                    pb.Location = new Point(iconData.X, iconData.Y);
-                    _rowPanels[i].Controls.Add(pb);
-                    pb.BringToFront();
+                    foreach (var iconData in rowData.Icons)
+                    {
+                        if (!File.Exists(iconData.FilePath)) { ShowMissingFileWarning(iconData.FilePath); continue; }
+                        var pb = CreateDroppedIcon(iconData.FilePath, _rowPanels[i]);
+                        pb.Location = new Point(
+                            (IconZoneWidth - IconSize) / 2,
+                            (_rowPanels[i].Height - IconSize) / 2);
+                        _rowPanels[i].Controls.Add(pb);
+                        pb.BringToFront();
+                    }
+                }
+
+                if (rowData.Buttons != null)
+                {
+                    foreach (var bd in rowData.Buttons)
+                    {
+                        var btn = CreateDroppedButton(bd.Text, _rowPanels[i],
+                            HexToColor(bd.BgColor,     Color.FromArgb(220, 220, 230)),
+                            HexToColor(bd.FgColor,     Color.Black),
+                            HexToColor(bd.BorderColor, Color.FromArgb(160, 160, 180)),
+                            bd.BorderWidth > 0 ? bd.BorderWidth : 1);
+                        btn.Location = new Point(bd.X, bd.Y);
+                        _rowPanels[i].Controls.Add(btn);
+                        btn.BringToFront();
+                    }
                 }
             }
 
