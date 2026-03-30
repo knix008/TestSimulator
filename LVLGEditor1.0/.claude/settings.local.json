@@ -5,7 +5,15 @@
       "Bash(msbuild LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build)",
       "Bash(\"/c/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe\" LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build)",
       "Bash(\"/c/Program Files/Microsoft Visual Studio/18/Community/MSBuild/Current/Bin/MSBuild.exe\" LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build)",
-      "Bash(cmd /c '\"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\"\" LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build')"
+      "Bash(cmd /c '\"\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\18\\\\Community\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\"\" LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build')",
+      "Read(//cygdrive/c/Home/Projects/TestSimulator/**)",
+      "Bash(\"/cygdrive/c/Windows/Microsoft.NET/Framework/v4.0.30319/MSBuild.exe\" LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build)",
+      "Bash(\"C:/Windows/Microsoft.NET/Framework/v4.0.30319/MSBuild.exe\" LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build)",
+      "Bash(\"C:/Windows/Microsoft.NET/Framework/v4.0.30319/MSBuild.exe\" \"LVLGEditor1.0.csproj\" \"/p:Configuration=Debug\" \"/t:Build\")",
+      "Bash(cmd /c \"cd /d c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0 && C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build\")",
+      "Bash(cmd /c \"cd /d c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0 && C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build 2>&1\")",
+      "Bash(cmd /c \"C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0\\\\LVLGEditor1.0.csproj /p:Configuration=Debug\")",
+      "Bash(powershell -Command \"& ''C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe'' ''c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0\\\\LVLGEditor1.0.csproj'' ''/p:Configuration=Debug'' 2>&1\")"
     ]
   }
 }
