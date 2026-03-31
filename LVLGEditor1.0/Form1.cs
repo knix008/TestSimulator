@@ -10,6 +10,7 @@ namespace LVLGEditor1._0
     public partial class Form1 : Form
     {
         private const int RowCount     = 10;
+        private const int FixedRowCount = 1;
         private const int RowHeight    = 80;
         private const int RowGap       = 5;
         private const int IconSize     = 60;
@@ -20,6 +21,7 @@ namespace LVLGEditor1._0
         private RichTextBox[]  _rowTextBoxes;
         private Color[]        _rowBorderColors;
         private int[]          _rowBorderWidths;
+        private Panel          _scrollRowsViewport;
         private Panel          _rowContainer;
 
         // Scroll state
@@ -30,6 +32,20 @@ namespace LVLGEditor1._0
         // Active text control (TextBox = title, RichTextBox = row)
         private Control _activeTextControl;
 
+        // Popup state
+        private int   _popupColumns        = 4;
+        private int   _popupRows           = 4;
+        private int   _popupOverlayOpacity = 55;   // 0-100 percent
+        private int   _popupTextFontSize   = 24;
+        private int   _popupTextRows       = 1;
+        private Color _popupBgColor        = Color.FromArgb(240, 240, 240);
+        private Color _popupBorderColor    = Color.FromArgb(51, 51, 51);
+        private int   _popupBorderWidth    = 2;
+        private Panel   _popupWindow;
+        private Panel   _popupButtonGrid;
+        private TextBox _popupTitleDisplay;
+        private TextBox _popupTextDisplay;
+
         // ── Constructor ───────────────────────────────────────────────────
 
         public Form1()
@@ -39,6 +55,8 @@ namespace LVLGEditor1._0
             TrackFocusOn(titleTextBox);
             LoadIconsFromFolder(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icons"));
             InitializeButtonPalette();
+            InitializePopupTab();
+            UpdateSettingsMenuBySelectedTab();
         }
 
         protected override void OnLoad(EventArgs e)
@@ -68,13 +86,22 @@ namespace LVLGEditor1._0
             _rowBorderColors = new Color[RowCount];
             _rowBorderWidths = new int[RowCount];
 
+            int fixedAreaHeight = RowGap + FixedRowCount * (RowHeight + RowGap);
+            _scrollRowsViewport = new Panel();
+            _scrollRowsViewport.SetBounds(0, fixedAreaHeight, contentArea.ClientSize.Width,
+                Math.Max(0, contentArea.ClientSize.Height - fixedAreaHeight));
+            _scrollRowsViewport.BackColor = contentArea.BackColor;
+            _scrollRowsViewport.BorderStyle = BorderStyle.None;
+            AttachScrollHandlers(_scrollRowsViewport);
+            contentArea.Controls.Add(_scrollRowsViewport);
+
             _rowContainer = new Panel();
-            _rowContainer.Width    = contentArea.ClientSize.Width;
-            _rowContainer.Height   = RowGap + RowCount * (RowHeight + RowGap);
+            _rowContainer.Width    = _scrollRowsViewport.ClientSize.Width;
+            _rowContainer.Height   = RowGap + (RowCount - FixedRowCount) * (RowHeight + RowGap);
             _rowContainer.Location = Point.Empty;
             _rowContainer.BackColor = contentArea.BackColor;
             AttachScrollHandlers(_rowContainer);
-            contentArea.Controls.Add(_rowContainer);
+            _scrollRowsViewport.Controls.Add(_rowContainer);
             contentArea.MouseWheel += WheelScroll;
 
             Color rowBg        = LightenColor(contentArea.BackColor, 20);
@@ -84,8 +111,11 @@ namespace LVLGEditor1._0
             {
                 int idx  = i;   // capture for closures
                 int rowX = 4;
-                int rowY = RowGap + i * (RowHeight + RowGap);
-                int rowW = _rowContainer.Width - 8;
+                bool fixedRow = i < FixedRowCount;
+                int rowY = fixedRow
+                    ? RowGap + i * (RowHeight + RowGap)
+                    : RowGap + (i - FixedRowCount) * (RowHeight + RowGap);
+                int rowW = (fixedRow ? contentArea.ClientSize.Width : _rowContainer.Width) - 8;
 
                 _rowBorderColors[i] = defaultBorder;
                 _rowBorderWidths[i] = 1;
@@ -112,7 +142,10 @@ namespace LVLGEditor1._0
                 int rtbH = font.Height + 8;
                 int rtbY = (RowHeight - rtbH) / 2;
                 var rtb = new RichTextBox();
-                rtb.SetBounds(IconZoneWidth + 4, rtbY, rowW - IconZoneWidth - 8, rtbH);
+                int textWidth = idx == 0
+                    ? rowW - (IconZoneWidth * 2) - 8
+                    : rowW - IconZoneWidth - 8;
+                rtb.SetBounds(IconZoneWidth + 4, rtbY, textWidth, rtbH);
                 rtb.BorderStyle  = BorderStyle.None;
                 rtb.BackColor    = rowBg;
                 rtb.ForeColor    = Color.Black;
@@ -122,6 +155,9 @@ namespace LVLGEditor1._0
                 rtb.DetectUrls   = false;
                 rtb.SelectionAlignment = HorizontalAlignment.Left;
                 rtb.MouseWheel  += WheelScroll;
+                rtb.AllowDrop    = true;
+                rtb.DragEnter   += DropTarget_DragEnter;
+                rtb.DragDrop    += RowPanel_DragDrop;
                 TrackFocusOn(rtb);
 
                 // Per-row context menu
@@ -155,7 +191,10 @@ namespace LVLGEditor1._0
                 rtb.ContextMenuStrip = menu;
 
                 row.Controls.Add(rtb);
-                _rowContainer.Controls.Add(row);
+                if (fixedRow)
+                    contentArea.Controls.Add(row);
+                else
+                    _rowContainer.Controls.Add(row);
 
                 _rowPanels[i]    = row;
                 _rowTextBoxes[i] = rtb;
@@ -186,7 +225,8 @@ namespace LVLGEditor1._0
             int delta = Cursor.Position.Y - _scrollStartScreenY;
             if (!_scrollDragging && Math.Abs(delta) > 4) _scrollDragging = true;
             if (!_scrollDragging) return;
-            int minTop = Math.Min(0, contentArea.ClientSize.Height - _rowContainer.Height);
+            int viewportH = _scrollRowsViewport != null ? _scrollRowsViewport.ClientSize.Height : contentArea.ClientSize.Height;
+            int minTop = Math.Min(0, viewportH - _rowContainer.Height);
             _rowContainer.Top = Math.Max(minTop, Math.Min(0, _scrollStartContainerTop + delta));
         }
 
@@ -200,7 +240,8 @@ namespace LVLGEditor1._0
         {
             if (_rowContainer == null) return;
             int step   = (e.Delta / 120) * RowHeight;
-            int minTop = Math.Min(0, contentArea.ClientSize.Height - _rowContainer.Height);
+            int viewportH = _scrollRowsViewport != null ? _scrollRowsViewport.ClientSize.Height : contentArea.ClientSize.Height;
+            int minTop = Math.Min(0, viewportH - _rowContainer.Height);
             _rowContainer.Top = Math.Max(minTop, Math.Min(0, _rowContainer.Top + step));
         }
 
@@ -215,7 +256,14 @@ namespace LVLGEditor1._0
         private void FontSizeCombo_Changed(object sender, EventArgs e)
         {
             int size = fontSizeCombo.SelectedItem != null ? (int)fontSizeCombo.SelectedItem : 24;
-            if (_activeTextControl is RichTextBox rtb)
+            if (mainTabControl.SelectedTab == popupTabPage)
+            {
+                _popupTextFontSize = size;
+                if (_popupTextDisplay != null)
+                    _popupTextDisplay.Font = new Font("Segoe UI", size, _popupTextDisplay.Font.Style);
+                UpdatePopupWindow();
+            }
+            else if (_activeTextControl is RichTextBox rtb)
             {
                 // Preserve bold/italic when changing size
                 var style = (rtb.SelectionFont ?? rtb.Font).Style;
@@ -252,7 +300,11 @@ namespace LVLGEditor1._0
         {
             UpdateAlignmentButtons(align);
 
-            if (_activeTextControl is RichTextBox rtb)
+            if (mainTabControl.SelectedTab == popupTabPage && _popupTextDisplay != null)
+            {
+                _popupTextDisplay.TextAlign = align;
+            }
+            else if (_activeTextControl is RichTextBox rtb)
             {
                 rtb.SelectAll();
                 rtb.SelectionAlignment = align;
@@ -268,7 +320,13 @@ namespace LVLGEditor1._0
 
         private void BoldBtn_Click(object sender, EventArgs e)
         {
-            if (_activeTextControl is RichTextBox rtb)
+            if (mainTabControl.SelectedTab == popupTabPage && _popupTextDisplay != null)
+            {
+                var style = _popupTextDisplay.Font.Bold ? FontStyle.Regular : FontStyle.Bold;
+                _popupTextDisplay.Font = new Font(_popupTextDisplay.Font.FontFamily, _popupTextDisplay.Font.SizeInPoints, style);
+                UpdateBoldButton(style == FontStyle.Bold);
+            }
+            else if (_activeTextControl is RichTextBox rtb)
             {
                 var cur   = rtb.SelectionFont ?? rtb.Font;
                 var style = cur.Bold ? FontStyle.Regular : FontStyle.Bold;
@@ -371,8 +429,8 @@ namespace LVLGEditor1._0
             var btn = new Button
             {
                 Text      = text,
-                Size      = new Size(80, 60),
-                Font      = new Font("Segoe UI", 16, FontStyle.Bold),
+                Size      = new Size(56, 44),
+                Font      = new Font("Segoe UI", 13, FontStyle.Bold),
                 BackColor = Color.FromArgb(65, 65, 80),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -561,17 +619,48 @@ namespace LVLGEditor1._0
 
         private void RowPanel_DragDrop(object sender, DragEventArgs e)
         {
-            var row = (Panel)sender;
+            var dropCtrl = (Control)sender;
+            Panel row = dropCtrl as Panel;
+            if (row == null || (_rowPanels != null && !_rowPanels.Contains(row)))
+                row = dropCtrl.Parent as Panel;
+            if (row == null) return;
             var pt  = row.PointToClient(new Point(e.X, e.Y));
 
             if (e.Data.GetDataPresent("IconFilePath"))
             {
                 string filePath = (string)e.Data.GetData("IconFilePath");
                 var pb = CreateDroppedIcon(filePath, row);
-                // 아이콘 영역(80×80) 중앙에 배치
-                pb.Location = new Point(
-                    (IconZoneWidth - IconSize) / 2,
-                    (row.Height   - IconSize) / 2);
+
+                if (_rowPanels != null && _rowPanels.Length > 0 && row == _rowPanels[0])
+                {
+                    // Row 1 supports both left and right icon zones.
+                    bool rightZone = pt.X >= (row.Width - IconZoneWidth);
+                    int targetCenterX = rightZone
+                        ? row.Width - (IconZoneWidth / 2)
+                        : (IconZoneWidth / 2);
+
+                    // Keep one icon per side.
+                    var existing = row.Controls.OfType<PictureBox>()
+                        .FirstOrDefault(x => rightZone
+                            ? x.Left + (x.Width / 2) >= row.Width / 2
+                            : x.Left + (x.Width / 2) < row.Width / 2);
+                    if (existing != null)
+                    {
+                        row.Controls.Remove(existing);
+                        existing.Dispose();
+                    }
+
+                    pb.Location = new Point(
+                        targetCenterX - (IconSize / 2),
+                        (row.Height - IconSize) / 2);
+                }
+                else
+                {
+                    // Default rows: left icon zone.
+                    pb.Location = new Point(
+                        (IconZoneWidth - IconSize) / 2,
+                        (row.Height - IconSize) / 2);
+                }
                 row.Controls.Add(pb);
                 pb.BringToFront();
             }
@@ -656,19 +745,39 @@ namespace LVLGEditor1._0
 
         private void TitleBgColorBtn_Click(object sender, EventArgs e)
         {
-            if (!PickColor(titleBgColorBtn.BackColor, out Color c)) return;
-            titleBgColorBtn.BackColor  = c;
-            titleBar.BackColor         = c;
-            titleTextBox.BackColor     = c;
+            if (mainTabControl.SelectedTab == popupTabPage)
+            {
+                if (!PickColor(_popupBgColor, out Color popupColor)) return;
+                _popupBgColor = popupColor;
+                titleBgColorBtn.BackColor = popupColor;
+                if (_popupWindow != null)
+                {
+                    _popupWindow.BackColor = popupColor;
+                    _popupWindow.Invalidate();
+                }
+                return;
+            }
+            if (!PickColor(titleBgColorBtn.BackColor, out Color screenColor)) return;
+            titleBgColorBtn.BackColor  = screenColor;
+            titleBar.BackColor         = screenColor;
+            titleTextBox.BackColor     = screenColor;
         }
 
         private void ContentBgColorBtn_Click(object sender, EventArgs e)
         {
-            if (!PickColor(contentBgColorBtn.BackColor, out Color c)) return;
-            contentBgColorBtn.BackColor = c;
-            contentArea.BackColor       = c;
-            Color rowBg = LightenColor(c, 20);
-            if (_rowContainer != null) _rowContainer.BackColor = c;
+            if (mainTabControl.SelectedTab == popupTabPage)
+            {
+                Color baseColor = _popupTextDisplay != null ? _popupTextDisplay.BackColor : Color.FromArgb(245, 245, 245);
+                if (!PickColor(baseColor, out Color popupColor)) return;
+                contentBgColorBtn.BackColor = popupColor;
+                if (_popupTextDisplay != null) _popupTextDisplay.BackColor = popupColor;
+                return;
+            }
+            if (!PickColor(contentBgColorBtn.BackColor, out Color screenColor)) return;
+            contentBgColorBtn.BackColor = screenColor;
+            contentArea.BackColor       = screenColor;
+            Color rowBg = LightenColor(screenColor, 20);
+            if (_rowContainer != null) _rowContainer.BackColor = screenColor;
             if (_rowPanels != null)
                 foreach (var row in _rowPanels) row.BackColor = rowBg;
             if (_rowTextBoxes != null)
@@ -677,24 +786,62 @@ namespace LVLGEditor1._0
 
         private void ShortcutBgColorBtn_Click(object sender, EventArgs e)
         {
-            if (!PickColor(shortcutBgColorBtn.BackColor, out Color c)) return;
-            shortcutBgColorBtn.BackColor = c;
-            shortcutBar.BackColor        = c;
+            if (mainTabControl.SelectedTab == popupTabPage)
+            {
+                Color baseColor = Color.FromArgb(200, 200, 215);
+                var firstSlot = _popupButtonGrid?.Controls.OfType<Panel>().FirstOrDefault();
+                if (firstSlot != null) baseColor = firstSlot.BackColor;
+                if (!PickColor(baseColor, out Color popupColor)) return;
+                shortcutBgColorBtn.BackColor = popupColor;
+                if (_popupButtonGrid != null)
+                {
+                    foreach (var slot in _popupButtonGrid.Controls.OfType<Panel>())
+                        if (slot.Controls.Count == 0) slot.BackColor = popupColor;
+                }
+                return;
+            }
+            if (!PickColor(shortcutBgColorBtn.BackColor, out Color screenColor)) return;
+            shortcutBgColorBtn.BackColor = screenColor;
+            shortcutBar.BackColor        = screenColor;
         }
 
         private void TitleFgColorBtn_Click(object sender, EventArgs e)
         {
-            if (!PickColor(titleFgColorBtn.BackColor, out Color c)) return;
-            titleFgColorBtn.BackColor = c;
-            titleTextBox.ForeColor    = c;
+            if (mainTabControl.SelectedTab == popupTabPage)
+            {
+                Color baseColor = _popupTextDisplay != null ? _popupTextDisplay.ForeColor : Color.Black;
+                if (!PickColor(baseColor, out Color popupColor)) return;
+                titleFgColorBtn.BackColor = popupColor;
+                if (_popupTextDisplay != null) _popupTextDisplay.ForeColor = popupColor;
+                return;
+            }
+            if (!PickColor(titleFgColorBtn.BackColor, out Color screenColor)) return;
+            titleFgColorBtn.BackColor = screenColor;
+            titleTextBox.ForeColor    = screenColor;
         }
 
         private void ContentFgColorBtn_Click(object sender, EventArgs e)
         {
-            if (!PickColor(contentFgColorBtn.BackColor, out Color c)) return;
-            contentFgColorBtn.BackColor = c;
+            if (mainTabControl.SelectedTab == popupTabPage)
+            {
+                Color baseColor = Color.Black;
+                var firstButton = _popupButtonGrid?.Controls.OfType<Panel>()
+                    .SelectMany(p => p.Controls.OfType<Button>())
+                    .FirstOrDefault();
+                if (firstButton != null) baseColor = firstButton.ForeColor;
+                if (!PickColor(baseColor, out Color popupColor)) return;
+                contentFgColorBtn.BackColor = popupColor;
+                if (_popupButtonGrid != null)
+                {
+                    foreach (var btn in _popupButtonGrid.Controls.OfType<Panel>().SelectMany(p => p.Controls.OfType<Button>()))
+                        btn.ForeColor = popupColor;
+                }
+                return;
+            }
+            if (!PickColor(contentFgColorBtn.BackColor, out Color screenColor)) return;
+            contentFgColorBtn.BackColor = screenColor;
             if (_rowTextBoxes != null)
-                foreach (var rtb in _rowTextBoxes) rtb.ForeColor = c;
+                foreach (var rtb in _rowTextBoxes) rtb.ForeColor = screenColor;
         }
 
         /// <summary>Opens ColorDialog and returns the chosen color.</summary>
@@ -726,9 +873,13 @@ namespace LVLGEditor1._0
                 dlg.DefaultExt = "png";
                 if (dlg.ShowDialog() != DialogResult.OK) return;
 
-                using (var bmp = new Bitmap(lvglPreview.Width, lvglPreview.Height))
+                Control target = mainTabControl.SelectedTab == popupTabPage
+                    ? (Control)popupPreviewOuter
+                    : lvglPreview;
+
+                using (var bmp = new Bitmap(target.Width, target.Height))
                 {
-                    lvglPreview.DrawToBitmap(bmp, new Rectangle(0, 0, lvglPreview.Width, lvglPreview.Height));
+                    target.DrawToBitmap(bmp, new Rectangle(0, 0, target.Width, target.Height));
                     var fmt = dlg.FilterIndex == 2
                         ? System.Drawing.Imaging.ImageFormat.Jpeg
                         : System.Drawing.Imaging.ImageFormat.Png;
@@ -803,7 +954,8 @@ namespace LVLGEditor1._0
                                        ? _rowTextBoxes[0].ForeColor : Color.White),
                 ShortcutBarBgColor = ColorToHex(shortcutBar.BackColor),
                 Rows             = BuildRowData(),
-                ShortcutIcons    = BuildShortcutData()
+                ShortcutIcons    = BuildShortcutData(),
+                Popup            = BuildPopupData()
             };
 
             var xs = new XmlSerializer(typeof(ScreenData));
@@ -860,6 +1012,49 @@ namespace LVLGEditor1._0
             return shortcutBar.Controls
                 .OfType<PictureBox>()
                 .Select(pb => new IconData { FilePath = pb.Tag as string })
+                .ToArray();
+        }
+
+        private PopupData BuildPopupData()
+        {
+            return new PopupData
+            {
+                PopupTitleText = _popupTitleDisplay?.Text ?? string.Empty,
+                Columns        = _popupColumns,
+                Rows           = _popupRows,
+                OverlayOpacity = _popupOverlayOpacity,
+                PopupBgColor   = ColorToHex(_popupBgColor),
+                BorderColor    = ColorToHex(_popupBorderColor),
+                BorderWidth    = _popupBorderWidth,
+                TextFontSize   = _popupTextFontSize,
+                TextRows       = _popupTextRows,
+                TextBgColor    = ColorToHex(_popupTextDisplay?.BackColor ?? Color.FromArgb(245, 245, 245)),
+                TextFgColor    = ColorToHex(_popupTextDisplay?.ForeColor ?? Color.Black),
+                GridBgColor    = ColorToHex(_popupButtonGrid?.Controls.OfType<Panel>().FirstOrDefault()?.BackColor ?? Color.FromArgb(200, 200, 215)),
+                Buttons        = BuildPopupButtonData()
+            };
+        }
+
+        private ButtonData[] BuildPopupButtonData()
+        {
+            if (_popupButtonGrid == null) return new ButtonData[0];
+            return _popupButtonGrid.Controls.OfType<Panel>()
+                .Select((slot, idx) => new { slot, idx })
+                .Where(x => x.slot.Controls.Count > 0 && x.slot.Controls[0] is Button)
+                .Select(x =>
+                {
+                    var btn = (Button)x.slot.Controls[0];
+                    return new ButtonData
+                    {
+                        Text        = btn.Text,
+                        X           = x.idx % _popupColumns,
+                        Y           = x.idx / _popupColumns,
+                        BgColor     = ColorToHex(btn.BackColor),
+                        FgColor     = ColorToHex(btn.ForeColor),
+                        BorderColor = ColorToHex(btn.FlatAppearance.BorderColor),
+                        BorderWidth = btn.FlatAppearance.BorderSize
+                    };
+                })
                 .ToArray();
         }
 
@@ -987,9 +1182,16 @@ namespace LVLGEditor1._0
                     {
                         if (!File.Exists(iconData.FilePath)) { ShowMissingFileWarning(iconData.FilePath); continue; }
                         var pb = CreateDroppedIcon(iconData.FilePath, _rowPanels[i]);
-                        pb.Location = new Point(
-                            (IconZoneWidth - IconSize) / 2,
-                            (_rowPanels[i].Height - IconSize) / 2);
+                        int x = iconData.X;
+                        int y = iconData.Y;
+                        if (x == 0 && y == 0)
+                        {
+                            x = (IconZoneWidth - IconSize) / 2;
+                            y = (_rowPanels[i].Height - IconSize) / 2;
+                        }
+                        x = Math.Max(0, Math.Min(x, _rowPanels[i].Width - IconSize));
+                        y = Math.Max(0, Math.Min(y, _rowPanels[i].Height - IconSize));
+                        pb.Location = new Point(x, y);
                         _rowPanels[i].Controls.Add(pb);
                         pb.BringToFront();
                     }
@@ -1021,6 +1223,452 @@ namespace LVLGEditor1._0
                     if (!File.Exists(iconData.FilePath)) { ShowMissingFileWarning(iconData.FilePath); continue; }
                     AddShortcutIcon(iconData.FilePath);
                 }
+            }
+
+            ApplyPopupData(data.Popup);
+        }
+
+        private void ApplyPopupData(PopupData popup)
+        {
+            if (popup == null) return;
+
+            _popupColumns        = Math.Max(1, popup.Columns);
+            _popupRows           = Math.Max(1, popup.Rows);
+            _popupOverlayOpacity = Math.Max(0, Math.Min(100, popup.OverlayOpacity));
+            _popupBgColor        = HexToColor(popup.PopupBgColor, _popupBgColor);
+            _popupBorderColor    = HexToColor(popup.BorderColor, _popupBorderColor);
+            _popupBorderWidth    = Math.Max(0, popup.BorderWidth);
+            _popupTextFontSize   = popup.TextFontSize > 0 ? popup.TextFontSize : _popupTextFontSize;
+            _popupTextRows       = popup.TextRows > 0 ? popup.TextRows : _popupTextRows;
+
+            UpdatePopupOverlay();
+            UpdatePopupWindow();
+
+            if (_popupTextDisplay != null)
+            {
+                _popupTextDisplay.Font = new Font("Segoe UI", _popupTextFontSize, _popupTextDisplay.Font.Style);
+                _popupTextDisplay.Multiline = _popupTextRows > 1;
+                _popupTextDisplay.BackColor = HexToColor(popup.TextBgColor, _popupTextDisplay.BackColor);
+                _popupTextDisplay.ForeColor = HexToColor(popup.TextFgColor, _popupTextDisplay.ForeColor);
+            }
+            if (_popupTitleDisplay != null)
+                _popupTitleDisplay.Text = popup.PopupTitleText ?? string.Empty;
+
+            Color gridBg = HexToColor(popup.GridBgColor, Color.FromArgb(200, 200, 215));
+            if (_popupButtonGrid != null)
+            {
+                foreach (var slot in _popupButtonGrid.Controls.OfType<Panel>())
+                    if (slot.Controls.Count == 0) slot.BackColor = gridBg;
+            }
+
+            if (popup.Buttons != null)
+            {
+                foreach (var bd in popup.Buttons)
+                {
+                    int idx = bd.Y * _popupColumns + bd.X;
+                    if (_popupButtonGrid == null || idx < 0 || idx >= _popupButtonGrid.Controls.Count) continue;
+                    var slot = _popupButtonGrid.Controls[idx] as Panel;
+                    if (slot == null) continue;
+                    SetSlotContent(slot, bd.Text,
+                        HexToColor(bd.BgColor, Color.FromArgb(220, 220, 230)),
+                        HexToColor(bd.FgColor, Color.Black),
+                        HexToColor(bd.BorderColor, Color.FromArgb(160, 160, 180)),
+                        bd.BorderWidth > 0 ? bd.BorderWidth : 1);
+                }
+            }
+        }
+
+        // ── Popup tab ─────────────────────────────────────────────────────
+
+        private void InitializePopupTab()
+        {
+            const int LY1 = 11, CY1 = 8, LY2 = 39, CY2 = 36;
+
+            // Row 1: Columns / Rows / Opacity
+            var colsLabel = PopupLabel("열 수:", 10, LY1);
+            var colsCombo = PopupCombo(new object[] { 1, 2, 3, 4 }, _popupColumns - 1, 65, CY1, 50);
+            colsCombo.SelectedIndexChanged += (s, e) => { _popupColumns = (int)colsCombo.SelectedItem; UpdatePopupWindow(); };
+
+            var rowsLabel = PopupLabel("행 수:", 132, LY1);
+            var rowsCombo = PopupCombo(new object[] { 1, 2, 3, 4, 5, 6, 7, 8 }, _popupRows - 1, 185, CY1, 50);
+            rowsCombo.SelectedIndexChanged += (s, e) => { _popupRows = (int)rowsCombo.SelectedItem; UpdatePopupWindow(); };
+
+            var opacLabel = PopupLabel("불투명도:", 250, LY1);
+            var opacItems = Enumerable.Range(1, 10).Select(i => (object)$"{i * 10}%").ToArray();
+            var opacCombo = PopupCombo(opacItems, _popupOverlayOpacity / 10 - 1, 340, CY1, 70);
+            opacCombo.SelectedIndexChanged += (s, e) =>
+            {
+                _popupOverlayOpacity = (opacCombo.SelectedIndex + 1) * 10;
+                UpdatePopupOverlay();
+            };
+
+            // Row 2: BG Color / Border Color / Border Width
+            var bgLbl = PopupLabel("팝업 배경:", 10, LY2);
+            var bgBtn = PopupColorBtn(_popupBgColor, 95, CY2);
+            bgBtn.Click += (s, e) =>
+            {
+                if (!PickColor(_popupBgColor, out Color c)) return;
+                _popupBgColor = c;
+                bgBtn.BackColor = c;
+                if (_popupWindow != null) { _popupWindow.BackColor = c; _popupWindow.Invalidate(); }
+            };
+
+            var brdLbl = PopupLabel("테두리색:", 145, LY2);
+            var brdBtn = PopupColorBtn(_popupBorderColor, 225, CY2);
+            brdBtn.Click += (s, e) =>
+            {
+                if (!PickColor(_popupBorderColor, out Color c)) return;
+                _popupBorderColor = c;
+                brdBtn.BackColor  = c;
+                _popupWindow?.Invalidate();
+            };
+
+            var wLbl   = PopupLabel("테두리 굵기:", 272, LY2);
+            var wItems = new object[] { "0px", "1px", "2px", "3px", "4px", "5px" };
+            var wCombo = PopupCombo(wItems, _popupBorderWidth, 375, CY2, 65);
+            wCombo.SelectedIndexChanged += (s, e) => { _popupBorderWidth = wCombo.SelectedIndex; UpdatePopupWindow(); };
+
+            var fsLbl = PopupLabel("폰트 크기:", 455, LY2);
+            var fsNum = new NumericUpDown
+            {
+                Minimum   = 8, Maximum = 72, Value = _popupTextFontSize,
+                Width     = 55, Height = 22,
+                Location  = new Point(535, CY2),
+                BackColor = Color.FromArgb(60, 60, 60),
+                ForeColor = Color.FromArgb(220, 220, 220),
+            };
+            fsNum.ValueChanged += (s, e) =>
+            {
+                _popupTextFontSize = (int)fsNum.Value;
+                if (_popupTextDisplay != null)
+                    _popupTextDisplay.Font = new Font("Segoe UI", _popupTextFontSize);
+                UpdatePopupWindow();
+            };
+
+            var trLbl = PopupLabel("입력창 행:", 600, LY2);
+            var trNum = new NumericUpDown
+            {
+                Minimum   = 1, Maximum = 5, Value = _popupTextRows,
+                Width     = 45, Height = 22,
+                Location  = new Point(662, CY2),
+                BackColor = Color.FromArgb(60, 60, 60),
+                ForeColor = Color.FromArgb(220, 220, 220),
+            };
+            trNum.ValueChanged += (s, e) =>
+            {
+                _popupTextRows = (int)trNum.Value;
+                if (_popupTextDisplay != null)
+                    _popupTextDisplay.Multiline = _popupTextRows > 1;
+                UpdatePopupWindow();
+            };
+
+            popupSettingsBar.Controls.AddRange(new Control[]
+            {
+                colsLabel, colsCombo, rowsLabel, rowsCombo, opacLabel, opacCombo,
+                bgLbl, bgBtn, brdLbl, brdBtn, wLbl, wCombo, fsLbl, fsNum, trLbl, trNum
+            });
+
+            // Popup window and button grid
+            _popupButtonGrid = new Panel();
+
+            // Text display (shows simulated input as buttons are clicked)
+            _popupTitleDisplay = new TextBox
+            {
+                BackColor   = Color.FromArgb(245, 245, 245),
+                ForeColor   = Color.Black,
+                Font        = new Font("Segoe UI", 18, FontStyle.Bold),
+                BorderStyle = BorderStyle.None,
+                TextAlign   = HorizontalAlignment.Center,
+                Multiline   = false,
+                Text        = "",
+            };
+            TrackFocusOn(_popupTitleDisplay);
+
+            _popupTextDisplay = new TextBox
+            {
+                BackColor   = Color.FromArgb(245, 245, 245),
+                ForeColor   = Color.Black,
+                Font        = new Font("Segoe UI", _popupTextFontSize),
+                BorderStyle = BorderStyle.FixedSingle,
+                TextAlign   = HorizontalAlignment.Left,
+                Multiline   = _popupTextRows > 1,
+                ScrollBars  = ScrollBars.None,
+                Text        = "",
+            };
+            TrackFocusOn(_popupTextDisplay);
+            var titleMenu = new ContextMenuStrip();
+            var titleClearItem = new ToolStripMenuItem("제목 지우기");
+            titleClearItem.Click += (s, e) => { if (_popupTitleDisplay != null) _popupTitleDisplay.Text = ""; };
+            titleMenu.Items.Add(titleClearItem);
+            _popupTitleDisplay.ContextMenuStrip = titleMenu;
+
+            var clearMenu = new ContextMenuStrip();
+            var clearItem = new ToolStripMenuItem("지우기 (Clear)");
+            clearItem.Click += (s, e) => { if (_popupTextDisplay != null) _popupTextDisplay.Text = ""; };
+            clearMenu.Items.Add(clearItem);
+            _popupTextDisplay.ContextMenuStrip = clearMenu;
+
+            _popupWindow = new Panel();
+            _popupWindow.Paint += (s, pe) =>
+            {
+                if (_popupBorderWidth <= 0) return;
+                var rc = _popupWindow.ClientRectangle;
+                using (var pen = new Pen(_popupBorderColor, _popupBorderWidth))
+                {
+                    int half = _popupBorderWidth / 2;
+                    pe.Graphics.DrawRectangle(pen, half, half,
+                        rc.Width - _popupBorderWidth, rc.Height - _popupBorderWidth);
+                }
+            };
+            _popupWindow.Controls.Add(_popupTitleDisplay);
+            _popupWindow.Controls.Add(_popupTextDisplay);
+            _popupWindow.Controls.Add(_popupButtonGrid);
+            popupPreviewOuter.Controls.Add(_popupWindow);
+
+            UpdatePopupWindow();
+            UpdatePopupOverlay();
+        }
+
+        private void UpdatePopupOverlay()
+        {
+            // Higher opacity → darker background (255=white … 40=near-black)
+            int level = (int)(240 - _popupOverlayOpacity * 2.0);
+            level = Math.Max(20, Math.Min(240, level));
+            popupPreviewOuter.BackColor = Color.FromArgb(level, level, level);
+        }
+
+        private void UpdatePopupWindow()
+        {
+            if (_popupWindow == null || _popupButtonGrid == null) return;
+
+            // 제목행 + 입력창 + 버튼영역 레이아웃
+            const int BtnW = 80, BtnH = 60, BtnGap = 4, Pad = 8, TitleGap = 8, TextGap = 14;
+            int lineH     = (int)(_popupTextFontSize * 1.4f) + 4;
+            int titleAreaH = 34;
+            int textAreaH = _popupTextRows * lineH + 4;
+            int innerW = _popupColumns * BtnW + (_popupColumns - 1) * BtnGap;
+            int innerH = _popupRows    * BtnH + (_popupRows    - 1) * BtnGap;
+            int bw     = _popupBorderWidth;
+            int totalW = innerW + 2 * Pad + 2 * bw;
+            int totalH = titleAreaH + TitleGap + textAreaH + TextGap + innerH + 2 * Pad + 2 * bw;
+
+            int cx = (popupPreviewOuter.Width  - totalW) / 2;
+            int cy = (popupPreviewOuter.Height - totalH) / 2;
+            _popupWindow.SetBounds(Math.Max(0, cx), Math.Max(0, cy), totalW, totalH);
+            _popupWindow.BackColor = _popupBgColor;
+
+            _popupTitleDisplay?.SetBounds(bw + Pad, bw + Pad, innerW, titleAreaH);
+            _popupTextDisplay?.SetBounds(bw + Pad, bw + Pad + titleAreaH + TitleGap, innerW, textAreaH);
+            _popupButtonGrid.SetBounds(bw + Pad, bw + Pad + titleAreaH + TitleGap + textAreaH + TextGap, innerW, innerH);
+
+            BuildPopupGrid();
+            _popupWindow.Invalidate();
+        }
+
+        private void BuildPopupGrid()
+        {
+            if (_popupButtonGrid == null) return;
+            const int BtnW = 80, BtnH = 60, BtnGap = 4;
+
+            // Save existing slot texts so they survive a settings change
+            var saved = new string[_popupColumns * _popupRows];
+            int prev  = _popupButtonGrid.Controls.Count;
+            for (int i = 0; i < prev && i < saved.Length; i++)
+            {
+                if (_popupButtonGrid.Controls[i] is Panel slot && slot.Controls.Count > 0)
+                    saved[i] = (slot.Controls[0] as Button)?.Text ?? "";
+            }
+
+            _popupButtonGrid.Controls.Clear();
+
+            for (int r = 0; r < _popupRows; r++)
+            {
+                for (int c = 0; c < _popupColumns; c++)
+                {
+                    int idx  = r * _popupColumns + c;
+                    int x    = c * (BtnW + BtnGap);
+                    int y    = r * (BtnH + BtnGap);
+                    var slot = CreateGridSlot(x, y, BtnW, BtnH);
+                    _popupButtonGrid.Controls.Add(slot);
+                    if (idx < saved.Length && !string.IsNullOrEmpty(saved[idx]))
+                        SetSlotContent(slot, saved[idx]);
+                }
+            }
+        }
+
+        private Panel CreateGridSlot(int x, int y, int w, int h)
+        {
+            var slot = new Panel
+            {
+                Location    = new Point(x, y),
+                Size        = new Size(w, h),
+                BackColor   = Color.FromArgb(200, 200, 215),
+                BorderStyle = BorderStyle.FixedSingle,
+                AllowDrop   = true,
+            };
+            slot.DragEnter += DropTarget_DragEnter;
+            slot.DragDrop  += (s, e) =>
+            {
+                if (e.Data.GetDataPresent("ButtonText"))
+                    SetSlotContent(slot, (string)e.Data.GetData("ButtonText"));
+            };
+            return slot;
+        }
+
+        private void SetSlotContent(Panel slot, string text, Color? bgColor = null, Color? fgColor = null, Color? borderColor = null, int borderWidth = 1)
+        {
+            slot.Controls.Clear();
+            if (string.IsNullOrEmpty(text))
+            {
+                slot.BackColor = Color.FromArgb(200, 200, 215);
+                return;
+            }
+            var btn = new Button
+            {
+                Text      = text,
+                Dock      = DockStyle.Fill,
+                Font      = new Font("Segoe UI", 16, FontStyle.Bold),
+                BackColor = bgColor ?? Color.FromArgb(220, 220, 230),
+                ForeColor = fgColor ?? Color.Black,
+                FlatStyle = FlatStyle.Flat,
+                Margin    = new Padding(0),
+                Cursor    = Cursors.Hand,
+                UseVisualStyleBackColor = false,
+            };
+            btn.FlatAppearance.BorderColor = borderColor ?? Color.FromArgb(160, 160, 180);
+            btn.FlatAppearance.BorderSize = borderWidth;
+            btn.Click += (s, ev) => { if (_popupTextDisplay != null) _popupTextDisplay.Text += text; };
+
+            var menu      = new ContextMenuStrip();
+            var clearItem = new ToolStripMenuItem("지우기");
+            clearItem.Click += (s, ev) => SetSlotContent(slot, "");
+            var bgItem = new ToolStripMenuItem("배경색 변경");
+            bgItem.Click += (s, ev) => { if (PickColor(btn.BackColor, out Color c)) btn.BackColor = c; };
+            var fgItem = new ToolStripMenuItem("글자색 변경");
+            fgItem.Click += (s, ev) => { if (PickColor(btn.ForeColor, out Color c)) btn.ForeColor = c; };
+            menu.Items.Add(clearItem);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(bgItem);
+            menu.Items.Add(fgItem);
+            btn.ContextMenuStrip  = menu;
+            slot.ContextMenuStrip = menu;
+            slot.Controls.Add(btn);
+            slot.BackColor = _popupBgColor;
+        }
+
+        // ── Popup tab helper factories ─────────────────────────────────────
+
+        private static Label PopupLabel(string text, int x, int y) => new Label
+        {
+            Text      = text,
+            ForeColor = Color.FromArgb(200, 200, 200),
+            Font      = new Font("Segoe UI", 8.5f),
+            AutoSize  = true,
+            Location  = new Point(x, y),
+        };
+
+        private static ComboBox PopupCombo(object[] items, int selectedIndex, int x, int y, int width)
+        {
+            var cb = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location      = new Point(x, y),
+                Size          = new Size(width, 20),
+                BackColor     = Color.FromArgb(60, 60, 60),
+                ForeColor     = Color.White,
+                FlatStyle     = FlatStyle.Flat,
+            };
+            cb.Items.AddRange(items);
+            if (selectedIndex >= 0 && selectedIndex < items.Length)
+                cb.SelectedIndex = selectedIndex;
+            return cb;
+        }
+
+        private static Button PopupColorBtn(Color color, int x, int y)
+        {
+            var btn = new Button
+            {
+                BackColor = color,
+                Cursor    = Cursors.Hand,
+                FlatStyle = FlatStyle.Flat,
+                Location  = new Point(x, y),
+                Size      = new Size(32, 22),
+                UseVisualStyleBackColor = false,
+            };
+            btn.FlatAppearance.BorderColor = Color.FromArgb(150, 150, 150);
+            return btn;
+        }
+
+        // ── Tab control drawing ───────────────────────────────────────────
+
+        private void MainTabControl_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            var tab  = (TabControl)sender;
+            var page = tab.TabPages[e.Index];
+            bool selected = (e.Index == tab.SelectedIndex);
+
+            Color bgColor = selected
+                ? Color.FromArgb(45, 45, 48)
+                : Color.FromArgb(30, 30, 32);
+
+            using (var bgBrush = new SolidBrush(bgColor))
+                e.Graphics.FillRectangle(bgBrush, e.Bounds);
+
+            if (selected)
+            {
+                using (var pen = new Pen(Color.FromArgb(0, 122, 204), 2))
+                    e.Graphics.DrawLine(pen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right - 1, e.Bounds.Bottom - 1);
+            }
+
+            Color textColor = selected ? Color.White : Color.FromArgb(160, 160, 160);
+            using (var textBrush = new SolidBrush(textColor))
+            {
+                var font = new Font("Segoe UI", 10f, selected ? FontStyle.Bold : FontStyle.Regular);
+                var sf   = new StringFormat
+                {
+                    Alignment     = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center
+                };
+                e.Graphics.DrawString(page.Text, font, textBrush, e.Bounds, sf);
+            }
+        }
+
+        private void MainTabControl_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateSettingsMenuBySelectedTab();
+        }
+
+        private void UpdateSettingsMenuBySelectedTab()
+        {
+            // Shared top toolbar stays visible for both tabs.
+            editorToolbar.Visible = true;
+            int tabTop = editorToolbar.Bottom;
+            mainTabControl.Top = tabTop;
+            mainTabControl.Height = ClientSize.Height - mainTabControl.Top;
+            mainTabControl.BringToFront();
+
+            if (mainTabControl.SelectedTab == popupTabPage)
+            {
+                int idx = fontSizeCombo.Items.IndexOf(_popupTextFontSize);
+                if (idx >= 0) fontSizeCombo.SelectedIndex = idx;
+                titleBgColorBtn.BackColor = _popupBgColor;
+                contentBgColorBtn.BackColor = _popupTextDisplay?.BackColor ?? Color.FromArgb(245, 245, 245);
+                shortcutBgColorBtn.BackColor = _popupButtonGrid?.Controls.OfType<Panel>().FirstOrDefault()?.BackColor ?? Color.FromArgb(200, 200, 215);
+                titleFgColorBtn.BackColor = _popupTextDisplay?.ForeColor ?? Color.Black;
+                contentFgColorBtn.BackColor = _popupButtonGrid?.Controls.OfType<Panel>().SelectMany(p => p.Controls.OfType<Button>()).FirstOrDefault()?.ForeColor ?? Color.Black;
+                if (_popupTextDisplay != null)
+                {
+                    UpdateAlignmentButtons(_popupTextDisplay.TextAlign);
+                    UpdateBoldButton(_popupTextDisplay.Font.Bold);
+                }
+            }
+            else
+            {
+                titleBgColorBtn.BackColor = titleBar.BackColor;
+                contentBgColorBtn.BackColor = contentArea.BackColor;
+                shortcutBgColorBtn.BackColor = shortcutBar.BackColor;
+                titleFgColorBtn.BackColor = titleTextBox.ForeColor;
+                contentFgColorBtn.BackColor = _rowTextBoxes != null && _rowTextBoxes.Length > 0 ? _rowTextBoxes[0].ForeColor : Color.Black;
             }
         }
 
