@@ -63,6 +63,15 @@ namespace LVLGEditor1._0
         private System.Windows.Forms.Label           buttonPaletteTitle;
         private System.Windows.Forms.FlowLayoutPanel buttonPalette;
 
+        // Tab Control
+        private System.Windows.Forms.TabControl      mainTabControl;
+        private System.Windows.Forms.TabPage         screenTabPage;
+        private System.Windows.Forms.TabPage         popupTabPage;
+
+        // Popup Tab – Settings bar & preview (children added dynamically in Form1.cs)
+        private System.Windows.Forms.Panel           popupSettingsBar;
+        private System.Windows.Forms.Panel           popupPreviewOuter;
+
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -108,8 +117,8 @@ namespace LVLGEditor1._0
             this.contentArea = new System.Windows.Forms.Panel();
             this.shortcutBar = new System.Windows.Forms.Panel();
             this.titleBar = new System.Windows.Forms.Panel();
-            this.titleLeftIconZone  = new System.Windows.Forms.Panel();
             this.titleRightIconZone = new System.Windows.Forms.Panel();
+            this.titleLeftIconZone = new System.Windows.Forms.Panel();
             this.titleTextBox = new System.Windows.Forms.TextBox();
             this.iconPaletteContainer = new System.Windows.Forms.Panel();
             this.iconPalette = new System.Windows.Forms.FlowLayoutPanel();
@@ -118,16 +127,24 @@ namespace LVLGEditor1._0
             this.buttonPaletteContainer = new System.Windows.Forms.Panel();
             this.buttonPalette = new System.Windows.Forms.FlowLayoutPanel();
             this.buttonPaletteTitle = new System.Windows.Forms.Label();
+            this.mainTabControl = new System.Windows.Forms.TabControl();
+            this.screenTabPage = new System.Windows.Forms.TabPage();
+            this.popupTabPage = new System.Windows.Forms.TabPage();
+            this.popupPreviewOuter = new System.Windows.Forms.Panel();
+            this.popupSettingsBar = new System.Windows.Forms.Panel();
             this.menuStrip.SuspendLayout();
             this.editorToolbar.SuspendLayout();
             this.lvglPreview.SuspendLayout();
             this.titleBar.SuspendLayout();
             this.iconPaletteContainer.SuspendLayout();
             this.buttonPaletteContainer.SuspendLayout();
+            this.mainTabControl.SuspendLayout();
+            this.screenTabPage.SuspendLayout();
+            this.popupTabPage.SuspendLayout();
             this.SuspendLayout();
-            //
+            // 
             // boldBtn
-            //
+            // 
             this.boldBtn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.boldBtn.FlatAppearance.BorderSize = 0;
             this.boldBtn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -141,9 +158,9 @@ namespace LVLGEditor1._0
             this.toolTip1.SetToolTip(this.boldBtn, "굵게 (Ctrl+B)");
             this.boldBtn.UseVisualStyleBackColor = false;
             this.boldBtn.Click += new System.EventHandler(this.BoldBtn_Click);
-            //
+            // 
             // titleBgColorBtn
-            //
+            // 
             this.titleBgColorBtn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.titleBgColorBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.titleBgColorBtn.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(150)))));
@@ -155,9 +172,9 @@ namespace LVLGEditor1._0
             this.toolTip1.SetToolTip(this.titleBgColorBtn, "제목 표시줄 배경색");
             this.titleBgColorBtn.UseVisualStyleBackColor = false;
             this.titleBgColorBtn.Click += new System.EventHandler(this.TitleBgColorBtn_Click);
-            //
+            // 
             // contentBgColorBtn
-            //
+            // 
             this.contentBgColorBtn.BackColor = System.Drawing.Color.White;
             this.contentBgColorBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.contentBgColorBtn.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(150)))));
@@ -169,9 +186,9 @@ namespace LVLGEditor1._0
             this.toolTip1.SetToolTip(this.contentBgColorBtn, "본문 배경색");
             this.contentBgColorBtn.UseVisualStyleBackColor = false;
             this.contentBgColorBtn.Click += new System.EventHandler(this.ContentBgColorBtn_Click);
-            //
+            // 
             // shortcutBgColorBtn
-            //
+            // 
             this.shortcutBgColorBtn.BackColor = System.Drawing.Color.White;
             this.shortcutBgColorBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.shortcutBgColorBtn.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(150)))));
@@ -183,9 +200,9 @@ namespace LVLGEditor1._0
             this.toolTip1.SetToolTip(this.shortcutBgColorBtn, "상태 표시줄 배경색");
             this.shortcutBgColorBtn.UseVisualStyleBackColor = false;
             this.shortcutBgColorBtn.Click += new System.EventHandler(this.ShortcutBgColorBtn_Click);
-            //
+            // 
             // titleFgColorBtn
-            //
+            // 
             this.titleFgColorBtn.BackColor = System.Drawing.Color.White;
             this.titleFgColorBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.titleFgColorBtn.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(150)))));
@@ -197,9 +214,9 @@ namespace LVLGEditor1._0
             this.toolTip1.SetToolTip(this.titleFgColorBtn, "제목 표시줄 글자색");
             this.titleFgColorBtn.UseVisualStyleBackColor = false;
             this.titleFgColorBtn.Click += new System.EventHandler(this.TitleFgColorBtn_Click);
-            //
+            // 
             // contentFgColorBtn
-            //
+            // 
             this.contentFgColorBtn.BackColor = System.Drawing.Color.Black;
             this.contentFgColorBtn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.contentFgColorBtn.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(150)))), ((int)(((byte)(150)))), ((int)(((byte)(150)))));
@@ -211,9 +228,9 @@ namespace LVLGEditor1._0
             this.toolTip1.SetToolTip(this.contentFgColorBtn, "본문 글자색");
             this.contentFgColorBtn.UseVisualStyleBackColor = false;
             this.contentFgColorBtn.Click += new System.EventHandler(this.ContentFgColorBtn_Click);
-            //
+            // 
             // menuStrip
-            //
+            // 
             this.menuStrip.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(37)))), ((int)(((byte)(38)))));
             this.menuStrip.ForeColor = System.Drawing.Color.White;
             this.menuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -222,9 +239,9 @@ namespace LVLGEditor1._0
             this.menuStrip.Name = "menuStrip";
             this.menuStrip.Size = new System.Drawing.Size(1010, 24);
             this.menuStrip.TabIndex = 0;
-            //
+            // 
             // menuFile
-            //
+            // 
             this.menuFile.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.menuFileSave,
             this.menuFileLoad,
@@ -234,37 +251,37 @@ namespace LVLGEditor1._0
             this.menuFile.Name = "menuFile";
             this.menuFile.Size = new System.Drawing.Size(57, 20);
             this.menuFile.Text = "파일(&F)";
-            //
+            // 
             // menuFileSave
-            //
+            // 
             this.menuFileSave.Name = "menuFileSave";
             this.menuFileSave.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
             this.menuFileSave.Size = new System.Drawing.Size(182, 22);
             this.menuFileSave.Text = "저장(&S)";
             this.menuFileSave.Click += new System.EventHandler(this.MenuFileSave_Click);
-            //
+            // 
             // menuFileLoad
-            //
+            // 
             this.menuFileLoad.Name = "menuFileLoad";
             this.menuFileLoad.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
             this.menuFileLoad.Size = new System.Drawing.Size(182, 22);
             this.menuFileLoad.Text = "불러오기(&O)";
             this.menuFileLoad.Click += new System.EventHandler(this.MenuFileLoad_Click);
-            //
+            // 
             // menuFileSep
-            //
+            // 
             this.menuFileSep.Name = "menuFileSep";
             this.menuFileSep.Size = new System.Drawing.Size(179, 6);
-            //
+            // 
             // menuFileExit
-            //
+            // 
             this.menuFileExit.Name = "menuFileExit";
             this.menuFileExit.Size = new System.Drawing.Size(182, 22);
             this.menuFileExit.Text = "종료(&X)";
             this.menuFileExit.Click += new System.EventHandler(this.MenuFileExit_Click);
-            //
+            // 
             // editorToolbar
-            //
+            // 
             this.editorToolbar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(37)))), ((int)(((byte)(38)))));
             this.editorToolbar.Controls.Add(this.saveButton);
             this.editorToolbar.Controls.Add(this.loadButton);
@@ -291,9 +308,9 @@ namespace LVLGEditor1._0
             this.editorToolbar.Name = "editorToolbar";
             this.editorToolbar.Size = new System.Drawing.Size(1010, 72);
             this.editorToolbar.TabIndex = 1;
-            //
+            // 
             // saveButton
-            //
+            // 
             this.saveButton.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(122)))), ((int)(((byte)(204)))));
             this.saveButton.FlatAppearance.BorderSize = 0;
             this.saveButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -305,9 +322,9 @@ namespace LVLGEditor1._0
             this.saveButton.Text = "💾 저장";
             this.saveButton.UseVisualStyleBackColor = false;
             this.saveButton.Click += new System.EventHandler(this.MenuFileSave_Click);
-            //
+            // 
             // loadButton
-            //
+            // 
             this.loadButton.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.loadButton.FlatAppearance.BorderSize = 0;
             this.loadButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -319,9 +336,9 @@ namespace LVLGEditor1._0
             this.loadButton.Text = "📂 열기";
             this.loadButton.UseVisualStyleBackColor = false;
             this.loadButton.Click += new System.EventHandler(this.MenuFileLoad_Click);
-            //
+            // 
             // saveImageButton
-            //
+            // 
             this.saveImageButton.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(100)))), ((int)(((byte)(60)))));
             this.saveImageButton.FlatAppearance.BorderSize = 0;
             this.saveImageButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -333,9 +350,9 @@ namespace LVLGEditor1._0
             this.saveImageButton.Text = "🖼 이미지 저장";
             this.saveImageButton.UseVisualStyleBackColor = false;
             this.saveImageButton.Click += new System.EventHandler(this.SaveImageButton_Click);
-            //
+            // 
             // fontSizeLabel
-            //
+            // 
             this.fontSizeLabel.AutoSize = true;
             this.fontSizeLabel.ForeColor = System.Drawing.Color.White;
             this.fontSizeLabel.Location = new System.Drawing.Point(334, 11);
@@ -343,9 +360,9 @@ namespace LVLGEditor1._0
             this.fontSizeLabel.Size = new System.Drawing.Size(61, 12);
             this.fontSizeLabel.TabIndex = 2;
             this.fontSizeLabel.Text = "글꼴 크기:";
-            //
+            // 
             // fontSizeCombo
-            //
+            // 
             this.fontSizeCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.fontSizeCombo.Items.AddRange(new object[] {
             8,
@@ -366,9 +383,9 @@ namespace LVLGEditor1._0
             this.fontSizeCombo.Size = new System.Drawing.Size(66, 20);
             this.fontSizeCombo.TabIndex = 3;
             this.fontSizeCombo.SelectedIndexChanged += new System.EventHandler(this.FontSizeCombo_Changed);
-            //
+            // 
             // alignLeftBtn
-            //
+            // 
             this.alignLeftBtn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.alignLeftBtn.FlatAppearance.BorderSize = 0;
             this.alignLeftBtn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -381,9 +398,9 @@ namespace LVLGEditor1._0
             this.alignLeftBtn.Text = "≡ 좌";
             this.alignLeftBtn.UseVisualStyleBackColor = false;
             this.alignLeftBtn.Click += new System.EventHandler(this.AlignBtn_Click);
-            //
+            // 
             // alignCenterBtn
-            //
+            // 
             this.alignCenterBtn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.alignCenterBtn.FlatAppearance.BorderSize = 0;
             this.alignCenterBtn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -396,9 +413,9 @@ namespace LVLGEditor1._0
             this.alignCenterBtn.Text = "≡ 중";
             this.alignCenterBtn.UseVisualStyleBackColor = false;
             this.alignCenterBtn.Click += new System.EventHandler(this.AlignBtn_Click);
-            //
+            // 
             // alignRightBtn
-            //
+            // 
             this.alignRightBtn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.alignRightBtn.FlatAppearance.BorderSize = 0;
             this.alignRightBtn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -411,9 +428,9 @@ namespace LVLGEditor1._0
             this.alignRightBtn.Text = "≡ 우";
             this.alignRightBtn.UseVisualStyleBackColor = false;
             this.alignRightBtn.Click += new System.EventHandler(this.AlignBtn_Click);
-            //
+            // 
             // colorBgSectionLabel
-            //
+            // 
             this.colorBgSectionLabel.AutoSize = true;
             this.colorBgSectionLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Bold);
             this.colorBgSectionLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
@@ -422,9 +439,9 @@ namespace LVLGEditor1._0
             this.colorBgSectionLabel.Size = new System.Drawing.Size(43, 15);
             this.colorBgSectionLabel.TabIndex = 8;
             this.colorBgSectionLabel.Text = "배경색";
-            //
+            // 
             // colorTitleBgLabel
-            //
+            // 
             this.colorTitleBgLabel.AutoSize = true;
             this.colorTitleBgLabel.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.colorTitleBgLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(180)))));
@@ -433,9 +450,9 @@ namespace LVLGEditor1._0
             this.colorTitleBgLabel.Size = new System.Drawing.Size(29, 13);
             this.colorTitleBgLabel.TabIndex = 9;
             this.colorTitleBgLabel.Text = "제목";
-            //
+            // 
             // colorContentBgLabel
-            //
+            // 
             this.colorContentBgLabel.AutoSize = true;
             this.colorContentBgLabel.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.colorContentBgLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(180)))));
@@ -444,9 +461,9 @@ namespace LVLGEditor1._0
             this.colorContentBgLabel.Size = new System.Drawing.Size(29, 13);
             this.colorContentBgLabel.TabIndex = 11;
             this.colorContentBgLabel.Text = "본문";
-            //
+            // 
             // colorShortcutBgLabel
-            //
+            // 
             this.colorShortcutBgLabel.AutoSize = true;
             this.colorShortcutBgLabel.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.colorShortcutBgLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(180)))));
@@ -455,9 +472,9 @@ namespace LVLGEditor1._0
             this.colorShortcutBgLabel.Size = new System.Drawing.Size(29, 13);
             this.colorShortcutBgLabel.TabIndex = 13;
             this.colorShortcutBgLabel.Text = "상태";
-            //
+            // 
             // colorFgSectionLabel
-            //
+            // 
             this.colorFgSectionLabel.AutoSize = true;
             this.colorFgSectionLabel.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Bold);
             this.colorFgSectionLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
@@ -466,9 +483,9 @@ namespace LVLGEditor1._0
             this.colorFgSectionLabel.Size = new System.Drawing.Size(43, 15);
             this.colorFgSectionLabel.TabIndex = 15;
             this.colorFgSectionLabel.Text = "글자색";
-            //
+            // 
             // colorTitleFgLabel
-            //
+            // 
             this.colorTitleFgLabel.AutoSize = true;
             this.colorTitleFgLabel.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.colorTitleFgLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(180)))));
@@ -477,9 +494,9 @@ namespace LVLGEditor1._0
             this.colorTitleFgLabel.Size = new System.Drawing.Size(29, 13);
             this.colorTitleFgLabel.TabIndex = 16;
             this.colorTitleFgLabel.Text = "제목";
-            //
+            // 
             // colorContentFgLabel
-            //
+            // 
             this.colorContentFgLabel.AutoSize = true;
             this.colorContentFgLabel.Font = new System.Drawing.Font("Segoe UI", 8F);
             this.colorContentFgLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(180)))), ((int)(((byte)(180)))));
@@ -488,39 +505,39 @@ namespace LVLGEditor1._0
             this.colorContentFgLabel.Size = new System.Drawing.Size(29, 13);
             this.colorContentFgLabel.TabIndex = 18;
             this.colorContentFgLabel.Text = "본문";
-            //
+            // 
             // lvglPreview
-            //
+            // 
             this.lvglPreview.BackColor = System.Drawing.Color.White;
             this.lvglPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lvglPreview.Controls.Add(this.contentArea);
             this.lvglPreview.Controls.Add(this.shortcutBar);
             this.lvglPreview.Controls.Add(this.titleBar);
-            this.lvglPreview.Location = new System.Drawing.Point(20, 104);
+            this.lvglPreview.Location = new System.Drawing.Point(20, 12);
             this.lvglPreview.Name = "lvglPreview";
             this.lvglPreview.Size = new System.Drawing.Size(360, 640);
             this.lvglPreview.TabIndex = 2;
-            //
+            // 
             // contentArea
-            //
+            // 
             this.contentArea.BackColor = System.Drawing.Color.White;
             this.contentArea.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentArea.Location = new System.Drawing.Point(0, 80);
             this.contentArea.Name = "contentArea";
             this.contentArea.Size = new System.Drawing.Size(358, 478);
             this.contentArea.TabIndex = 0;
-            //
+            // 
             // shortcutBar
-            //
+            // 
             this.shortcutBar.BackColor = System.Drawing.Color.White;
             this.shortcutBar.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.shortcutBar.Location = new System.Drawing.Point(0, 558);
             this.shortcutBar.Name = "shortcutBar";
             this.shortcutBar.Size = new System.Drawing.Size(358, 80);
             this.shortcutBar.TabIndex = 1;
-            //
+            // 
             // titleBar
-            //
+            // 
             this.titleBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.titleBar.Controls.Add(this.titleRightIconZone);
             this.titleBar.Controls.Add(this.titleLeftIconZone);
@@ -530,25 +547,25 @@ namespace LVLGEditor1._0
             this.titleBar.Name = "titleBar";
             this.titleBar.Size = new System.Drawing.Size(358, 80);
             this.titleBar.TabIndex = 2;
-            //
-            // titleLeftIconZone
-            //
-            this.titleLeftIconZone.BackColor = System.Drawing.Color.Transparent;
-            this.titleLeftIconZone.Location = new System.Drawing.Point(0, 0);
-            this.titleLeftIconZone.Name = "titleLeftIconZone";
-            this.titleLeftIconZone.Size = new System.Drawing.Size(80, 80);
-            this.titleLeftIconZone.TabIndex = 1;
-            //
+            // 
             // titleRightIconZone
-            //
+            // 
             this.titleRightIconZone.BackColor = System.Drawing.Color.Transparent;
             this.titleRightIconZone.Location = new System.Drawing.Point(278, 0);
             this.titleRightIconZone.Name = "titleRightIconZone";
             this.titleRightIconZone.Size = new System.Drawing.Size(80, 80);
             this.titleRightIconZone.TabIndex = 2;
-            //
+            // 
+            // titleLeftIconZone
+            // 
+            this.titleLeftIconZone.BackColor = System.Drawing.Color.Transparent;
+            this.titleLeftIconZone.Location = new System.Drawing.Point(0, 0);
+            this.titleLeftIconZone.Name = "titleLeftIconZone";
+            this.titleLeftIconZone.Size = new System.Drawing.Size(80, 80);
+            this.titleLeftIconZone.TabIndex = 1;
+            // 
             // titleTextBox
-            //
+            // 
             this.titleTextBox.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.titleTextBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.titleTextBox.Font = new System.Drawing.Font("Segoe UI", 28F, System.Drawing.FontStyle.Bold);
@@ -560,20 +577,20 @@ namespace LVLGEditor1._0
             this.titleTextBox.TabIndex = 0;
             this.titleTextBox.Text = "Screen Title";
             this.titleTextBox.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
-            //
+            // 
             // iconPaletteContainer
-            //
+            // 
             this.iconPaletteContainer.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
             this.iconPaletteContainer.Controls.Add(this.iconPalette);
             this.iconPaletteContainer.Controls.Add(this.loadIconsButton);
             this.iconPaletteContainer.Controls.Add(this.iconPaletteTitle);
-            this.iconPaletteContainer.Location = new System.Drawing.Point(400, 104);
+            this.iconPaletteContainer.Location = new System.Drawing.Point(400, 12);
             this.iconPaletteContainer.Name = "iconPaletteContainer";
             this.iconPaletteContainer.Size = new System.Drawing.Size(280, 640);
             this.iconPaletteContainer.TabIndex = 3;
-            //
+            // 
             // iconPalette
-            //
+            // 
             this.iconPalette.AutoScroll = true;
             this.iconPalette.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(55)))), ((int)(((byte)(55)))), ((int)(((byte)(55)))));
             this.iconPalette.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -582,9 +599,9 @@ namespace LVLGEditor1._0
             this.iconPalette.Padding = new System.Windows.Forms.Padding(10);
             this.iconPalette.Size = new System.Drawing.Size(280, 586);
             this.iconPalette.TabIndex = 0;
-            //
+            // 
             // loadIconsButton
-            //
+            // 
             this.loadIconsButton.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.loadIconsButton.Dock = System.Windows.Forms.DockStyle.Top;
             this.loadIconsButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -596,9 +613,9 @@ namespace LVLGEditor1._0
             this.loadIconsButton.Text = "아이콘 폴더 선택";
             this.loadIconsButton.UseVisualStyleBackColor = false;
             this.loadIconsButton.Click += new System.EventHandler(this.LoadIconsButton_Click);
-            //
+            // 
             // iconPaletteTitle
-            //
+            // 
             this.iconPaletteTitle.Dock = System.Windows.Forms.DockStyle.Top;
             this.iconPaletteTitle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.iconPaletteTitle.ForeColor = System.Drawing.Color.White;
@@ -608,30 +625,30 @@ namespace LVLGEditor1._0
             this.iconPaletteTitle.TabIndex = 2;
             this.iconPaletteTitle.Text = "Icons";
             this.iconPaletteTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
             // buttonPaletteContainer
-            //
+            // 
             this.buttonPaletteContainer.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(50)))), ((int)(((byte)(50)))), ((int)(((byte)(60)))));
             this.buttonPaletteContainer.Controls.Add(this.buttonPalette);
             this.buttonPaletteContainer.Controls.Add(this.buttonPaletteTitle);
-            this.buttonPaletteContainer.Location = new System.Drawing.Point(690, 104);
+            this.buttonPaletteContainer.Location = new System.Drawing.Point(680, 74);
             this.buttonPaletteContainer.Name = "buttonPaletteContainer";
-            this.buttonPaletteContainer.Size = new System.Drawing.Size(300, 640);
+            this.buttonPaletteContainer.Size = new System.Drawing.Size(300, 620);
             this.buttonPaletteContainer.TabIndex = 4;
-            //
+            // 
             // buttonPalette
-            //
+            // 
             this.buttonPalette.AutoScroll = true;
             this.buttonPalette.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(55)))));
             this.buttonPalette.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonPalette.Location = new System.Drawing.Point(0, 24);
             this.buttonPalette.Name = "buttonPalette";
             this.buttonPalette.Padding = new System.Windows.Forms.Padding(8);
-            this.buttonPalette.Size = new System.Drawing.Size(300, 616);
+            this.buttonPalette.Size = new System.Drawing.Size(300, 596);
             this.buttonPalette.TabIndex = 0;
-            //
+            // 
             // buttonPaletteTitle
-            //
+            // 
             this.buttonPaletteTitle.Dock = System.Windows.Forms.DockStyle.Top;
             this.buttonPaletteTitle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.buttonPaletteTitle.ForeColor = System.Drawing.Color.White;
@@ -641,18 +658,71 @@ namespace LVLGEditor1._0
             this.buttonPaletteTitle.TabIndex = 1;
             this.buttonPaletteTitle.Text = "Buttons";
             this.buttonPaletteTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
+            // mainTabControl
+            // 
+            this.mainTabControl.Controls.Add(this.screenTabPage);
+            this.mainTabControl.Controls.Add(this.popupTabPage);
+            this.mainTabControl.DrawMode = System.Windows.Forms.TabDrawMode.OwnerDrawFixed;
+            this.mainTabControl.ItemSize = new System.Drawing.Size(120, 28);
+            this.mainTabControl.Location = new System.Drawing.Point(0, 96);
+            this.mainTabControl.Name = "mainTabControl";
+            this.mainTabControl.Padding = new System.Drawing.Point(10, 4);
+            this.mainTabControl.SelectedIndex = 0;
+            this.mainTabControl.Size = new System.Drawing.Size(1010, 730);
+            this.mainTabControl.TabIndex = 5;
+            this.mainTabControl.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.MainTabControl_DrawItem);
+            this.mainTabControl.SelectedIndexChanged += new System.EventHandler(this.MainTabControl_SelectedIndexChanged);
+            // 
+            // screenTabPage
+            // 
+            this.screenTabPage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
+            this.screenTabPage.Controls.Add(this.lvglPreview);
+            this.screenTabPage.Controls.Add(this.iconPaletteContainer);
+            this.screenTabPage.Location = new System.Drawing.Point(4, 32);
+            this.screenTabPage.Name = "screenTabPage";
+            this.screenTabPage.Size = new System.Drawing.Size(1002, 694);
+            this.screenTabPage.TabIndex = 0;
+            this.screenTabPage.Text = "스크린";
+            // 
+            // popupTabPage
+            // 
+            this.popupTabPage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
+            this.popupTabPage.Controls.Add(this.popupPreviewOuter);
+            this.popupTabPage.Controls.Add(this.popupSettingsBar);
+            this.popupTabPage.Controls.Add(this.buttonPaletteContainer);
+            this.popupTabPage.Location = new System.Drawing.Point(4, 32);
+            this.popupTabPage.Name = "popupTabPage";
+            this.popupTabPage.Size = new System.Drawing.Size(1002, 694);
+            this.popupTabPage.TabIndex = 1;
+            this.popupTabPage.Text = "팝업";
+            // 
+            // popupPreviewOuter
+            // 
+            this.popupPreviewOuter.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(140)))), ((int)(((byte)(140)))), ((int)(((byte)(140)))));
+            this.popupPreviewOuter.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.popupPreviewOuter.Location = new System.Drawing.Point(10, 74);
+            this.popupPreviewOuter.Name = "popupPreviewOuter";
+            this.popupPreviewOuter.Size = new System.Drawing.Size(430, 620);
+            this.popupPreviewOuter.TabIndex = 11;
+            // 
+            // popupSettingsBar
+            // 
+            this.popupSettingsBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(37)))), ((int)(((byte)(38)))));
+            this.popupSettingsBar.Location = new System.Drawing.Point(0, 0);
+            this.popupSettingsBar.Name = "popupSettingsBar";
+            this.popupSettingsBar.Size = new System.Drawing.Size(1006, 66);
+            this.popupSettingsBar.TabIndex = 10;
+            // 
             // Form1
-            //
+            // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
-            this.ClientSize = new System.Drawing.Size(1010, 760);
+            this.ClientSize = new System.Drawing.Size(1010, 826);
             this.Controls.Add(this.menuStrip);
             this.Controls.Add(this.editorToolbar);
-            this.Controls.Add(this.lvglPreview);
-            this.Controls.Add(this.iconPaletteContainer);
-            this.Controls.Add(this.buttonPaletteContainer);
+            this.Controls.Add(this.mainTabControl);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MainMenuStrip = this.menuStrip;
             this.MaximizeBox = false;
@@ -667,6 +737,9 @@ namespace LVLGEditor1._0
             this.titleBar.PerformLayout();
             this.iconPaletteContainer.ResumeLayout(false);
             this.buttonPaletteContainer.ResumeLayout(false);
+            this.mainTabControl.ResumeLayout(false);
+            this.screenTabPage.ResumeLayout(false);
+            this.popupTabPage.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
