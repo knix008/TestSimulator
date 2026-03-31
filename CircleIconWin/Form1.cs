@@ -26,6 +26,16 @@ namespace CircleIconWin
         private float zoomScale = 1.0f;
         private ZoomPanel panelView;
 
+        private enum SelectionMode
+        {
+            Circle,
+            Ellipse,
+            Square,
+            Rectangle
+        }
+
+        private SelectionMode currentSelectionMode = SelectionMode.Circle;
+
         public Form1()
         {
             InitializeComponent();
@@ -57,6 +67,12 @@ namespace CircleIconWin
             pictureBox1.MouseWheel += PictureBox1_MouseWheel;
             pictureBox1.MouseLeave += PictureBox1_MouseLeave;
             this.KeyDown += Form1_KeyDown;
+
+            // Attach event handlers for selection mode buttons
+            btnCircleSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Circle;
+            btnEllipseSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Ellipse;
+            btnSquareSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Square;
+            btnRectangleSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Rectangle;
         }
 
         // PictureBox 내에서 이미지가 중앙에 그려지는 오프셋 반환
@@ -104,28 +120,40 @@ namespace CircleIconWin
         {
             if (loadedImage == null || selectionRectImg.IsEmpty)
             {
-                MessageBox.Show("저장할 원형 영역이 없습니다.");
+                MessageBox.Show("저장할 선택 영역이 없습니다.");
                 return;
             }
             Rectangle srcRect = Rectangle.Round(selectionRectImg);
-            int size = Math.Min(srcRect.Width, srcRect.Height);
-            if (size <= 0) return;
-            using (Bitmap bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+            int outW = srcRect.Width;
+            int outH = srcRect.Height;
+            if (outW <= 0 || outH <= 0) return;
+
+            using (Bitmap bmp = new Bitmap(outW, outH, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
             using (Graphics g = Graphics.FromImage(bmp))
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
-                using (GraphicsPath path = new GraphicsPath())
+                g.Clear(Color.Transparent);
+
+                if (currentSelectionMode == SelectionMode.Circle || currentSelectionMode == SelectionMode.Ellipse)
                 {
-                    path.AddEllipse(0, 0, size, size);
-                    g.SetClip(path);
-                    g.Clear(Color.Transparent);
-                    g.DrawImage(loadedImage, new Rectangle(0, 0, size, size),
-                        new Rectangle(srcRect.X, srcRect.Y, size, size), GraphicsUnit.Pixel);
+                    using (GraphicsPath path = new GraphicsPath())
+                    {
+                        path.AddEllipse(0, 0, outW, outH);
+                        g.SetClip(path);
+                        g.DrawImage(loadedImage, new Rectangle(0, 0, outW, outH), srcRect, GraphicsUnit.Pixel);
+                    }
                 }
+                else
+                {
+                    g.DrawImage(loadedImage, new Rectangle(0, 0, outW, outH), srcRect, GraphicsUnit.Pixel);
+                }
+
                 using (SaveFileDialog sfd = new SaveFileDialog())
                 {
                     sfd.Filter = "PNG 파일|*.png";
-                    sfd.FileName = "circle.png";
+                    sfd.FileName = currentSelectionMode == SelectionMode.Circle ? "circle.png" :
+                                   currentSelectionMode == SelectionMode.Ellipse ? "ellipse.png" :
+                                   currentSelectionMode == SelectionMode.Square ? "square.png" : "rectangle.png";
                     if (sfd.ShowDialog() == DialogResult.OK)
                     {
                         bmp.Save(sfd.FileName, System.Drawing.Imaging.ImageFormat.Png);
@@ -215,28 +243,40 @@ namespace CircleIconWin
         private void PictureBox1_MouseDown(object sender, MouseEventArgs e)
         {
             if (loadedImage == null) return;
-            dragStart = e.Location;
             isDragging = true;
-            PointF imgStart = ToImagePoint(dragStart);
+            dragStart = e.Location;
+            PointF imgStart = ToImagePoint(e.Location);
             selectionRectImg = new RectangleF(imgStart.X, imgStart.Y, 0, 0);
             pictureBox1.Invalidate();
         }
 
         private void PictureBox1_MouseMove(object sender, MouseEventArgs e)
         {
-            if (!isDragging || loadedImage == null)
-            {
-                UpdateMouseInfo(e.Location);
-                return;
-            }
-            PointF imgStart = ToImagePoint(dragStart);
+            if (!isDragging || loadedImage == null) return;
+
+            PointF imgDragStart = ToImagePoint(dragStart);
             PointF imgEnd = ToImagePoint(e.Location);
-            float dx = imgEnd.X - imgStart.X;
-            float dy = imgEnd.Y - imgStart.Y;
-            float r = (float)Math.Sqrt(dx * dx + dy * dy);
-            selectionRectImg = new RectangleF(imgStart.X - r, imgStart.Y - r, 2 * r, 2 * r);
+
+            switch (currentSelectionMode)
+            {
+                case SelectionMode.Circle:
+                case SelectionMode.Square:
+                    float size = Math.Max(Math.Abs(imgEnd.X - imgDragStart.X), Math.Abs(imgEnd.Y - imgDragStart.Y));
+                    float x = imgEnd.X >= imgDragStart.X ? imgDragStart.X : imgDragStart.X - size;
+                    float y = imgEnd.Y >= imgDragStart.Y ? imgDragStart.Y : imgDragStart.Y - size;
+                    selectionRectImg = new RectangleF(x, y, size, size);
+                    break;
+                case SelectionMode.Ellipse:
+                case SelectionMode.Rectangle:
+                    selectionRectImg = new RectangleF(
+                        Math.Min(imgDragStart.X, imgEnd.X),
+                        Math.Min(imgDragStart.Y, imgEnd.Y),
+                        Math.Abs(imgEnd.X - imgDragStart.X),
+                        Math.Abs(imgEnd.Y - imgDragStart.Y));
+                    break;
+            }
+
             pictureBox1.Invalidate();
-            UpdateMouseInfo(e.Location);
         }
 
         private void PictureBox1_MouseUp(object sender, MouseEventArgs e)
@@ -272,23 +312,37 @@ namespace CircleIconWin
 
             if (!selectionRectImg.IsEmpty)
             {
-                Rectangle circleRect = ToPictureBoxRect(selectionRectImg);
+                Rectangle selRect = ToPictureBoxRect(selectionRectImg);
+                bool isEllipseMode = currentSelectionMode == SelectionMode.Circle || currentSelectionMode == SelectionMode.Ellipse;
 
                 using (Brush dimBrush = new SolidBrush(Color.FromArgb(128, Color.Gray)))
                 {
                     e.Graphics.FillRectangle(dimBrush, new Rectangle(0, 0, pictureBox1.Width, pictureBox1.Height));
                 }
 
-                using (GraphicsPath path = new GraphicsPath())
+                int zoomedW = (int)(loadedImage.Width * zoomScale);
+                int zoomedH = (int)(loadedImage.Height * zoomScale);
+                Point imgOffset = GetImageOffset();
+
+                if (isEllipseMode)
                 {
-                    path.AddEllipse(circleRect);
-                    using (Region highlightRegion = new Region(path))
+                    using (GraphicsPath path = new GraphicsPath())
+                    {
+                        path.AddEllipse(selRect);
+                        using (Region highlightRegion = new Region(path))
+                        {
+                            e.Graphics.SetClip(highlightRegion, CombineMode.Replace);
+                            e.Graphics.DrawImage(loadedImage, new Rectangle(imgOffset.X, imgOffset.Y, zoomedW, zoomedH));
+                            e.Graphics.ResetClip();
+                        }
+                    }
+                }
+                else
+                {
+                    using (Region highlightRegion = new Region(selRect))
                     {
                         e.Graphics.SetClip(highlightRegion, CombineMode.Replace);
-                        int zoomedWidth = (int)(loadedImage.Width * zoomScale);
-                        int zoomedHeight = (int)(loadedImage.Height * zoomScale);
-                        Point offset = GetImageOffset();
-                        e.Graphics.DrawImage(loadedImage, new Rectangle(offset.X, offset.Y, zoomedWidth, zoomedHeight));
+                        e.Graphics.DrawImage(loadedImage, new Rectangle(imgOffset.X, imgOffset.Y, zoomedW, zoomedH));
                         e.Graphics.ResetClip();
                     }
                 }
@@ -296,22 +350,41 @@ namespace CircleIconWin
                 using (Pen pen = new Pen(Color.Red, 2))
                 {
                     pen.DashStyle = DashStyle.Dash;
-                    e.Graphics.DrawEllipse(pen, circleRect);
+                    if (isEllipseMode)
+                        e.Graphics.DrawEllipse(pen, selRect);
+                    else
+                        e.Graphics.DrawRectangle(pen, selRect);
                 }
 
                 using (Pen crossPen = new Pen(Color.Red, 2))
                 {
-                    Point center = new Point(circleRect.X + circleRect.Width / 2, circleRect.Y + circleRect.Height / 2);
+                    Point center = new Point(selRect.X + selRect.Width / 2, selRect.Y + selRect.Height / 2);
                     e.Graphics.DrawLine(crossPen, center.X - 5, center.Y, center.X + 5, center.Y);
                     e.Graphics.DrawLine(crossPen, center.X, center.Y - 5, center.X, center.Y + 5);
                 }
 
-                string selectionInfo = $"반경: {selectionRectImg.Width / 2:F1}, 넓이: {selectionRectImg.Width:F1}, 높이: {selectionRectImg.Height:F1}";
+                string selectionInfo;
+                switch (currentSelectionMode)
+                {
+                    case SelectionMode.Circle:
+                        selectionInfo = $"원형 반경: {selectionRectImg.Width / 2:F1}  크기: {selectionRectImg.Width:F1}x{selectionRectImg.Height:F1}";
+                        break;
+                    case SelectionMode.Ellipse:
+                        selectionInfo = $"타원: {selectionRectImg.Width:F1}x{selectionRectImg.Height:F1}";
+                        break;
+                    case SelectionMode.Square:
+                        selectionInfo = $"사각형: {selectionRectImg.Width:F1}x{selectionRectImg.Height:F1}";
+                        break;
+                    default:
+                        selectionInfo = $"직사각형: {selectionRectImg.Width:F1}x{selectionRectImg.Height:F1}";
+                        break;
+                }
+
                 using (Font font = new Font("Arial", 12, FontStyle.Bold))
                 using (Brush brush = new SolidBrush(Color.Red))
                 {
                     SizeF textSize = e.Graphics.MeasureString(selectionInfo, font);
-                    PointF infoPosition = new PointF(circleRect.X + (circleRect.Width - textSize.Width) / 2, circleRect.Y - textSize.Height - 5);
+                    PointF infoPosition = new PointF(selRect.X + (selRect.Width - textSize.Width) / 2, selRect.Y - textSize.Height - 5);
                     e.Graphics.DrawString(selectionInfo, font, brush, infoPosition);
                 }
             }
@@ -358,9 +431,14 @@ namespace CircleIconWin
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
+        private void btnCircleSelection_Click(object sender, EventArgs e)
+        {
+            currentSelectionMode = SelectionMode.Circle;
+        }
+
         private void lblSelectionInfo_Click(object sender, EventArgs e)
         {
-
+            // Placeholder for lblSelectionInfo click event logic
         }
     }
 }

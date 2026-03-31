@@ -43,6 +43,10 @@
             this.btnSaveRight = new System.Windows.Forms.Button();
             this.lblSelectionInfo = new System.Windows.Forms.Label();
             this.lblMouseInfo = new System.Windows.Forms.Label();
+            this.btnCircleSelection = new System.Windows.Forms.Button();
+            this.btnEllipseSelection = new System.Windows.Forms.Button();
+            this.btnSquareSelection = new System.Windows.Forms.Button();
+            this.btnRectangleSelection = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.menuStrip1.SuspendLayout();
             this.toolStrip1.SuspendLayout();
@@ -170,12 +174,52 @@
             this.lblMouseInfo.Text = "마우스: -";
             this.lblMouseInfo.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // btnCircleSelection
+            // 
+            this.btnCircleSelection.Location = new System.Drawing.Point(812, 267);
+            this.btnCircleSelection.Name = "btnCircleSelection";
+            this.btnCircleSelection.Size = new System.Drawing.Size(200, 50);
+            this.btnCircleSelection.TabIndex = 8;
+            this.btnCircleSelection.Text = "원형 선택";
+            this.btnCircleSelection.UseVisualStyleBackColor = true;
+            // 
+            // btnEllipseSelection
+            // 
+            this.btnEllipseSelection.Location = new System.Drawing.Point(812, 321);
+            this.btnEllipseSelection.Name = "btnEllipseSelection";
+            this.btnEllipseSelection.Size = new System.Drawing.Size(200, 50);
+            this.btnEllipseSelection.TabIndex = 9;
+            this.btnEllipseSelection.Text = "타원 선택";
+            this.btnEllipseSelection.UseVisualStyleBackColor = true;
+            // 
+            // btnSquareSelection
+            // 
+            this.btnSquareSelection.Location = new System.Drawing.Point(812, 375);
+            this.btnSquareSelection.Name = "btnSquareSelection";
+            this.btnSquareSelection.Size = new System.Drawing.Size(200, 50);
+            this.btnSquareSelection.TabIndex = 10;
+            this.btnSquareSelection.Text = "사각형 선택";
+            this.btnSquareSelection.UseVisualStyleBackColor = true;
+            // 
+            // btnRectangleSelection
+            // 
+            this.btnRectangleSelection.Location = new System.Drawing.Point(812, 429);
+            this.btnRectangleSelection.Name = "btnRectangleSelection";
+            this.btnRectangleSelection.Size = new System.Drawing.Size(200, 50);
+            this.btnRectangleSelection.TabIndex = 11;
+            this.btnRectangleSelection.Text = "직사각형 선택";
+            this.btnRectangleSelection.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoScroll = true;
             this.ClientSize = new System.Drawing.Size(1022, 781);
+            this.Controls.Add(this.btnRectangleSelection);
+            this.Controls.Add(this.btnSquareSelection);
+            this.Controls.Add(this.btnEllipseSelection);
+            this.Controls.Add(this.btnCircleSelection);
             this.Controls.Add(this.lblMouseInfo);
             this.Controls.Add(this.lblSelectionInfo);
             this.Controls.Add(this.btnSaveRight);
@@ -217,6 +261,10 @@
         private System.Windows.Forms.Button btnSaveRight;
         private System.Windows.Forms.Label lblSelectionInfo;
         private System.Windows.Forms.Label lblMouseInfo;
+        private System.Windows.Forms.Button btnCircleSelection;
+        private System.Windows.Forms.Button btnEllipseSelection;
+        private System.Windows.Forms.Button btnSquareSelection;
+        private System.Windows.Forms.Button btnRectangleSelection;
     }
 }
 
