@@ -10,6 +10,18 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace ImageScaler4x1._0
 {
+    // 마우스 휠의 기본 스크롤 동작을 막아 줌 핸들러가 단독으로 처리하도록 함
+    public class ZoomPanel : Panel
+    {
+        private const int WM_MOUSEWHEEL = 0x020A;
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_MOUSEWHEEL)
+                return; // 기본 스크롤 억제
+            base.WndProc(ref m);
+        }
+    }
+
     public partial class ImageScalerForm : Form
     {
         private InferenceSession? inferenceSession;
@@ -77,9 +89,9 @@ namespace ImageScaler4x1._0
             float oldZoom = GetZoomFactor(panel);
             float currentZoom = oldZoom;
             if (e.Delta > 0)
-                currentZoom = Math.Min(8.0f, currentZoom + 0.1f);
+                currentZoom = Math.Min(8.0f, currentZoom + 0.05f);
             else if (e.Delta < 0)
-                currentZoom = Math.Max(0.1f, currentZoom - 0.1f);
+                currentZoom = Math.Max(0.1f, currentZoom - 0.05f);
 
             SetZoomFactor(panel, currentZoom);
             var panelPoint = panel.PointToClient(control.PointToScreen(e.Location));
@@ -703,14 +715,18 @@ namespace ImageScaler4x1._0
 
         private void btnZoomOut_Click(object sender, EventArgs e)
         {
+            float old = zoomFactorOriginal;
             zoomFactorOriginal = Math.Max(0.1f, zoomFactorOriginal - 0.1f);
-            ApplyZoom(pnlOriginal);
+            var center = new System.Drawing.Point(pnlOriginal.ClientSize.Width / 2, pnlOriginal.ClientSize.Height / 2);
+            ApplyZoom(pnlOriginal, center, old);
         }
 
         private void btnZoomIn_Click(object sender, EventArgs e)
         {
+            float old = zoomFactorOriginal;
             zoomFactorOriginal = Math.Min(8.0f, zoomFactorOriginal + 0.1f);
-            ApplyZoom(pnlOriginal);
+            var center = new System.Drawing.Point(pnlOriginal.ClientSize.Width / 2, pnlOriginal.ClientSize.Height / 2);
+            ApplyZoom(pnlOriginal, center, old);
         }
 
         private void btnZoomFit_Click(object sender, EventArgs e)
@@ -726,14 +742,18 @@ namespace ImageScaler4x1._0
 
         private void btnZoomOutOutput_Click(object sender, EventArgs e)
         {
+            float old = zoomFactorUpscaled;
             zoomFactorUpscaled = Math.Max(0.1f, zoomFactorUpscaled - 0.1f);
-            ApplyZoom(pnlUpscaled);
+            var center = new System.Drawing.Point(pnlUpscaled.ClientSize.Width / 2, pnlUpscaled.ClientSize.Height / 2);
+            ApplyZoom(pnlUpscaled, center, old);
         }
 
         private void btnZoomInOutput_Click(object sender, EventArgs e)
         {
+            float old = zoomFactorUpscaled;
             zoomFactorUpscaled = Math.Min(8.0f, zoomFactorUpscaled + 0.1f);
-            ApplyZoom(pnlUpscaled);
+            var center = new System.Drawing.Point(pnlUpscaled.ClientSize.Width / 2, pnlUpscaled.ClientSize.Height / 2);
+            ApplyZoom(pnlUpscaled, center, old);
         }
 
         private void btnZoomFitOutput_Click(object sender, EventArgs e)
@@ -775,18 +795,12 @@ namespace ImageScaler4x1._0
         private void ApplyZoom(Panel panel, System.Drawing.Point? anchorPanelPoint = null, float? previousZoom = null)
         {
             float oldZoom = previousZoom ?? GetZoomFactor(panel);
-            int oldScrollX = -panel.AutoScrollPosition.X;
-            int oldScrollY = -panel.AutoScrollPosition.Y;
-            PictureBox targetPictureBox = panel == pnlOriginal ? pbOriginal : pbUpscaled;
-            var oldLocation = targetPictureBox.Location;
+            PictureBox pb = panel == pnlOriginal ? pbOriginal : pbUpscaled;
 
-            double? imageX = null;
-            double? imageY = null;
-            if (anchorPanelPoint.HasValue && oldZoom > 0f)
-            {
-                imageX = (oldScrollX + anchorPanelPoint.Value.X - oldLocation.X) / oldZoom;
-                imageY = (oldScrollY + anchorPanelPoint.Value.Y - oldLocation.Y) / oldZoom;
-            }
+            // pb.Location은 패널 클라이언트 영역 기준 화면 좌표(스크롤 반영됨).
+            // 리사이즈 전에 먼저 읽어야 ResizePictureBox의 Location 변경 영향을 받지 않음.
+            int picXBefore = pb.Location.X;
+            int picYBefore = pb.Location.Y;
 
             if (panel == pnlOriginal)
             {
@@ -799,14 +813,27 @@ namespace ImageScaler4x1._0
                 lblZoomLevelOutput.Text = $"{(int)(zoomFactorUpscaled * 100)}%";
             }
 
-            if (anchorPanelPoint.HasValue && imageX.HasValue && imageY.HasValue)
+            if (anchorPanelPoint.HasValue && oldZoom > 0f && pb.Image != null)
             {
                 float newZoom = GetZoomFactor(panel);
-                var newLocation = targetPictureBox.Location;
-                int nextScrollX = (int)Math.Round(imageX.Value * newZoom + newLocation.X - anchorPanelPoint.Value.X);
-                int nextScrollY = (int)Math.Round(imageY.Value * newZoom + newLocation.Y - anchorPanelPoint.Value.Y);
 
-                SetPanelScrollPosition(panel, nextScrollX, nextScrollY);
+                // 마우스 아래의 이미지 픽셀 좌표 (줌 전 화면 위치 기준)
+                double imgX = (anchorPanelPoint.Value.X - picXBefore) / (double)oldZoom;
+                double imgY = (anchorPanelPoint.Value.Y - picYBefore) / (double)oldZoom;
+
+                // ResizePictureBox 후 실제 상태를 읽음
+                // (AutoScrollMinSize 변경 시 스크롤 클램핑 등 중간 변화 반영)
+                int scrollXAfter = -panel.AutoScrollPosition.X;
+                int scrollYAfter = -panel.AutoScrollPosition.Y;
+                int newPicX = pb.Location.X;
+                int newPicY = pb.Location.Y;
+
+                // 앵커 포인트가 화면상 같은 위치에 오도록 스크롤 설정
+                // display_of_imgX = newPicX + (scrollXAfter - nextScrollX) + imgX * newZoom = mouseX
+                int nextScrollX = (int)Math.Round(scrollXAfter + newPicX + imgX * newZoom - anchorPanelPoint.Value.X);
+                int nextScrollY = (int)Math.Round(scrollYAfter + newPicY + imgY * newZoom - anchorPanelPoint.Value.Y);
+
+                panel.AutoScrollPosition = new System.Drawing.Point(Math.Max(0, nextScrollX), Math.Max(0, nextScrollY));
             }
         }
 
