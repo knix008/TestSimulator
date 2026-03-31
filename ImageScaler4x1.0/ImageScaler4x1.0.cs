@@ -98,9 +98,9 @@ namespace ImageScaler4x1._0
             if (e.Button == MouseButtons.Right)
             {
                 if (panel == pnlOriginal && pbOriginal.Image != null)
-                    SaveImageWithDialog(pbOriginal.Image, "original.png");
+                    SaveImageWithDialog(pbOriginal.Image, "original.jpg");
                 else if (panel == pnlUpscaled && pbUpscaled.Image != null)
-                    SaveImageWithDialog(pbUpscaled.Image, "upscaled.png");
+                    SaveImageWithDialog(pbUpscaled.Image, "upscaled.jpg");
                 else
                     MessageBox.Show("저장할 이미지가 없습니다.", "안내",
                         MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -245,13 +245,14 @@ namespace ImageScaler4x1._0
                 return;
             }
 
-            SaveImageWithDialog(imageToSave, "upscaled.png");
+            SaveImageWithDialog(imageToSave, "upscaled.jpg");
         }
 
         private void SaveImageWithDialog(System.Drawing.Image imageToSave, string defaultFileName)
         {
             using var dlg = new SaveFileDialog();
-            dlg.Filter = "PNG 파일|*.png|JPEG 파일|*.jpg|BMP 파일|*.bmp";
+            dlg.Filter = "JPEG 파일|*.jpg;*.jpeg|PNG 파일|*.png|BMP 파일|*.bmp";
+            dlg.DefaultExt = "jpg";
             dlg.FileName = defaultFileName;
             if (dlg.ShowDialog() != DialogResult.OK)
                 return;
@@ -805,11 +806,30 @@ namespace ImageScaler4x1._0
                 int nextScrollX = (int)Math.Round(imageX.Value * newZoom + newLocation.X - anchorPanelPoint.Value.X);
                 int nextScrollY = (int)Math.Round(imageY.Value * newZoom + newLocation.Y - anchorPanelPoint.Value.Y);
 
-                // DisplayRectangle 기반 강제 클램핑은 반복 줌 시 오차 누적을 유발할 수 있어 최소값만 제한
-                panel.AutoScrollPosition = new System.Drawing.Point(
-                    Math.Max(0, nextScrollX),
-                    Math.Max(0, nextScrollY));
+                SetPanelScrollPosition(panel, nextScrollX, nextScrollY);
             }
+        }
+
+        private static void SetPanelScrollPosition(Panel panel, int desiredX, int desiredY)
+        {
+            int targetX = Math.Max(0, desiredX);
+            int targetY = Math.Max(0, desiredY);
+
+            if (panel.HorizontalScroll.Visible)
+            {
+                int maxX = Math.Max(panel.HorizontalScroll.Minimum,
+                    panel.HorizontalScroll.Maximum - panel.HorizontalScroll.LargeChange + 1);
+                panel.HorizontalScroll.Value = Math.Min(targetX, maxX);
+            }
+
+            if (panel.VerticalScroll.Visible)
+            {
+                int maxY = Math.Max(panel.VerticalScroll.Minimum,
+                    panel.VerticalScroll.Maximum - panel.VerticalScroll.LargeChange + 1);
+                panel.VerticalScroll.Value = Math.Min(targetY, maxY);
+            }
+
+            panel.PerformLayout();
         }
 
         private void ResizePictureBox(PictureBox pictureBox, Panel parentPanel, float zoomFactor)
