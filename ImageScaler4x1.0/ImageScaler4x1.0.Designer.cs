@@ -6,12 +6,12 @@ namespace ImageScaler4x1._0
 
         // 이미지 패널 (원본)
         private System.Windows.Forms.Label      lblOriginal;
-        private System.Windows.Forms.Panel      pnlOriginal;
+        private ZoomPanel      pnlOriginal;
         private System.Windows.Forms.PictureBox pbOriginal;
 
         // 이미지 패널 (확대 결과)
         private System.Windows.Forms.Label      lblUpscaled;
-        private System.Windows.Forms.Panel      pnlUpscaled;
+        private ZoomPanel      pnlUpscaled;
         private System.Windows.Forms.PictureBox pbUpscaled;
 
         // 줌 컨트롤
@@ -63,10 +63,10 @@ namespace ImageScaler4x1._0
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ImageScalerForm));
             lblOriginal = new Label();
-            pnlOriginal = new Panel();
+            pnlOriginal = new ZoomPanel();
             pbOriginal = new PictureBox();
             lblUpscaled = new Label();
-            pnlUpscaled = new Panel();
+            pnlUpscaled = new ZoomPanel();
             pbUpscaled = new PictureBox();
             btnZoomOut = new Button();
             lblZoomLevel = new Label();
