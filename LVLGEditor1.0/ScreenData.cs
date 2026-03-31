@@ -72,8 +72,10 @@ namespace LVLGEditor1._0
     public class PopupData
     {
         public string PopupTitleText { get; set; } = "";
+        public string PopupTitleLeftIconPath  { get; set; }
+        public string PopupTitleRightIconPath { get; set; }
         public int    Columns        { get; set; } = 3;
-        public int    Rows           { get; set; } = 4;
+        public int    Rows           { get; set; } = 5;
         public int    OverlayOpacity { get; set; } = 55;   // 0-100 percent
         public string PopupBgColor   { get; set; } = "#F0F0F0";
         public string BorderColor    { get; set; } = "#333333";

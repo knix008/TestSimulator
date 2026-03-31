@@ -33,8 +33,8 @@ namespace LVLGEditor1._0
         private Control _activeTextControl;
 
         // Popup state
-        private int   _popupColumns        = 4;
-        private int   _popupRows           = 4;
+        private int   _popupColumns        = 3;
+        private int   _popupRows           = 5;
         private int   _popupOverlayOpacity = 55;   // 0-100 percent
         private int   _popupTextFontSize   = 24;
         private int   _popupTextRows       = 1;
@@ -43,6 +43,8 @@ namespace LVLGEditor1._0
         private int   _popupBorderWidth    = 2;
         private Panel   _popupWindow;
         private Panel   _popupButtonGrid;
+        private Panel   _popupTitleLeftIconZone;
+        private Panel   _popupTitleRightIconZone;
         private TextBox _popupTitleDisplay;
         private TextBox _popupTextDisplay;
 
@@ -53,7 +55,7 @@ namespace LVLGEditor1._0
             InitializeComponent();
             SetupDropTargets();
             TrackFocusOn(titleTextBox);
-            LoadIconsFromFolder(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icons"));
+            LoadIconsFromFolder(GetPreferredIconsFolder());
             InitializeButtonPalette();
             InitializePopupTab();
             UpdateSettingsMenuBySelectedTab();
@@ -400,9 +402,7 @@ namespace LVLGEditor1._0
             var groups = new (string header, string[] items)[]
             {
                 ("숫자", new[] { "0","1","2","3","4","5","6","7","8","9" }),
-                ("천지인", new[] { "ㅣ","·","ㅡ","ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ" }),
-                ("영문 대문자", Enumerable.Range('A', 26).Select(c => ((char)c).ToString()).ToArray()),
-                ("영문 소문자", Enumerable.Range('a', 26).Select(c => ((char)c).ToString()).ToArray()),
+                ("천지인", new[] { "l", ".", "ㅡ", "ㄱㅋ", "ㄴㄹ", "ㄷㅌ", "ㅂㅍ", "ㅅㅎ", "ㅇㅁ", "ㅈㅊ", "␣", "←", "⇄", "↵", "Aa", "ABC", "DEF", "GHI", "JKL", "MNO", "PQR", "STU", "VWX", "YZ.", "abc", "def", "ghi", "jkl", "mno", "pqr", "stu", "vwx", "yz." }),
             };
 
             foreach (var (header, items) in groups)
@@ -420,7 +420,21 @@ namespace LVLGEditor1._0
                 buttonPalette.Controls.Add(groupLabel);
 
                 foreach (var text in items)
-                    buttonPalette.Controls.Add(CreatePaletteButton(text));
+                    buttonPalette.Controls.Add(CreatePaletteButton(NormalizeCheonjiinLabel(text)));
+            }
+        }
+
+        private static string NormalizeCheonjiinLabel(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            switch (text.Trim().ToLowerInvariant())
+            {
+                case "ab": return "ABC";
+                case "space": return "␣";
+                case "backspace": return "←";
+                case "mode": return "⇄";
+                case "enter": return "↵";
+                default: return text;
             }
         }
 
@@ -429,8 +443,8 @@ namespace LVLGEditor1._0
             var btn = new Button
             {
                 Text      = text,
-                Size      = new Size(56, 44),
-                Font      = new Font("Segoe UI", 13, FontStyle.Bold),
+                Size      = new Size(80, 60),
+                Font      = new Font("Segoe UI", 12f, FontStyle.Bold),
                 BackColor = Color.FromArgb(65, 65, 80),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -565,9 +579,24 @@ namespace LVLGEditor1._0
             using (var dlg = new FolderBrowserDialog())
             {
                 dlg.Description = "아이콘 PNG 파일이 있는 폴더를 선택하세요";
+                string preferred = GetPreferredIconsFolder();
+                if (Directory.Exists(preferred))
+                    dlg.SelectedPath = preferred;
                 if (dlg.ShowDialog() == DialogResult.OK)
+                {
                     LoadIconsFromFolder(dlg.SelectedPath);
+                    Properties.Settings.Default.LastIconFolder = dlg.SelectedPath;
+                    Properties.Settings.Default.Save();
+                }
             }
+        }
+
+        private string GetPreferredIconsFolder()
+        {
+            string saved = Properties.Settings.Default.LastIconFolder;
+            if (!string.IsNullOrWhiteSpace(saved) && Directory.Exists(saved))
+                return saved;
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icons");
         }
 
         private void LoadIconsFromFolder(string folderPath)
@@ -1020,6 +1049,8 @@ namespace LVLGEditor1._0
             return new PopupData
             {
                 PopupTitleText = _popupTitleDisplay?.Text ?? string.Empty,
+                PopupTitleLeftIconPath  = GetZoneIconPath(_popupTitleLeftIconZone),
+                PopupTitleRightIconPath = GetZoneIconPath(_popupTitleRightIconZone),
                 Columns        = _popupColumns,
                 Rows           = _popupRows,
                 OverlayOpacity = _popupOverlayOpacity,
@@ -1059,10 +1090,11 @@ namespace LVLGEditor1._0
         }
 
         private static string GetZoneIconPath(Panel zone) =>
-            zone.Controls.OfType<PictureBox>().FirstOrDefault()?.Tag as string;
+            zone?.Controls.OfType<PictureBox>().FirstOrDefault()?.Tag as string;
 
         private void RestoreZoneIcon(Panel zone, string filePath)
         {
+            if (zone == null) return;
             foreach (Control c in zone.Controls.OfType<PictureBox>().ToList())
             { zone.Controls.Remove(c); c.Dispose(); }
 
@@ -1253,6 +1285,8 @@ namespace LVLGEditor1._0
             }
             if (_popupTitleDisplay != null)
                 _popupTitleDisplay.Text = popup.PopupTitleText ?? string.Empty;
+            RestoreZoneIcon(_popupTitleLeftIconZone,  popup.PopupTitleLeftIconPath);
+            RestoreZoneIcon(_popupTitleRightIconZone, popup.PopupTitleRightIconPath);
 
             Color gridBg = HexToColor(popup.GridBgColor, Color.FromArgb(200, 200, 215));
             if (_popupButtonGrid != null)
@@ -1384,6 +1418,17 @@ namespace LVLGEditor1._0
             };
             TrackFocusOn(_popupTitleDisplay);
 
+            _popupTitleLeftIconZone = new Panel
+            {
+                BackColor = Color.Transparent
+            };
+            _popupTitleRightIconZone = new Panel
+            {
+                BackColor = Color.Transparent
+            };
+            SetupTitleIconZone(_popupTitleLeftIconZone);
+            SetupTitleIconZone(_popupTitleRightIconZone);
+
             _popupTextDisplay = new TextBox
             {
                 BackColor   = Color.FromArgb(245, 245, 245),
@@ -1420,6 +1465,8 @@ namespace LVLGEditor1._0
                         rc.Width - _popupBorderWidth, rc.Height - _popupBorderWidth);
                 }
             };
+            _popupWindow.Controls.Add(_popupTitleLeftIconZone);
+            _popupWindow.Controls.Add(_popupTitleRightIconZone);
             _popupWindow.Controls.Add(_popupTitleDisplay);
             _popupWindow.Controls.Add(_popupTextDisplay);
             _popupWindow.Controls.Add(_popupButtonGrid);
@@ -1457,9 +1504,13 @@ namespace LVLGEditor1._0
             _popupWindow.SetBounds(Math.Max(0, cx), Math.Max(0, cy), totalW, totalH);
             _popupWindow.BackColor = _popupBgColor;
 
+            _popupTitleLeftIconZone?.SetBounds(bw + Pad, bw + Pad, IconZoneWidth, titleAreaH);
+            _popupTitleRightIconZone?.SetBounds(bw + Pad + innerW - IconZoneWidth, bw + Pad, IconZoneWidth, titleAreaH);
             _popupTitleDisplay?.SetBounds(bw + Pad, bw + Pad, innerW, titleAreaH);
             _popupTextDisplay?.SetBounds(bw + Pad, bw + Pad + titleAreaH + TitleGap, innerW, textAreaH);
             _popupButtonGrid.SetBounds(bw + Pad, bw + Pad + titleAreaH + TitleGap + textAreaH + TextGap, innerW, innerH);
+            _popupTitleLeftIconZone?.BringToFront();
+            _popupTitleRightIconZone?.BringToFront();
 
             BuildPopupGrid();
             _popupWindow.Invalidate();
@@ -1517,6 +1568,7 @@ namespace LVLGEditor1._0
 
         private void SetSlotContent(Panel slot, string text, Color? bgColor = null, Color? fgColor = null, Color? borderColor = null, int borderWidth = 1)
         {
+            text = NormalizeCheonjiinLabel(text);
             slot.Controls.Clear();
             if (string.IsNullOrEmpty(text))
             {
