@@ -1,6 +1,6 @@
 namespace LVLGEditor1._0
 {
-    partial class Form1
+    partial class LVGLEditor
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -68,7 +68,7 @@ namespace LVLGEditor1._0
         private System.Windows.Forms.TabPage         screenTabPage;
         private System.Windows.Forms.TabPage         popupTabPage;
 
-        // Popup Tab – Settings bar & preview (children added dynamically in Form1.cs)
+        // Popup Tab – Settings bar & preview (children added dynamically in LVGLEditor.cs)
         private System.Windows.Forms.Panel           popupSettingsBar;
         private System.Windows.Forms.Panel           popupPreviewOuter;
 
@@ -714,7 +714,7 @@ namespace LVLGEditor1._0
             this.popupSettingsBar.Size = new System.Drawing.Size(1006, 66);
             this.popupSettingsBar.TabIndex = 10;
             // 
-            // Form1
+            // LVGLEditor
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -726,7 +726,7 @@ namespace LVLGEditor1._0
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MainMenuStrip = this.menuStrip;
             this.MaximizeBox = false;
-            this.Name = "Form1";
+            this.Name = "LVGLEditor";
             this.Text = "LVGL GUI Editor";
             this.menuStrip.ResumeLayout(false);
             this.menuStrip.PerformLayout();
