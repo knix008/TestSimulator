@@ -13,7 +13,8 @@
       "Bash(cmd /c \"cd /d c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0 && C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build\")",
       "Bash(cmd /c \"cd /d c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0 && C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe LVLGEditor1.0.csproj /p:Configuration=Debug /t:Build 2>&1\")",
       "Bash(cmd /c \"C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0\\\\LVLGEditor1.0.csproj /p:Configuration=Debug\")",
-      "Bash(powershell -Command \"& ''C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe'' ''c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0\\\\LVLGEditor1.0.csproj'' ''/p:Configuration=Debug'' 2>&1\")"
+      "Bash(powershell -Command \"& ''C:\\\\Windows\\\\Microsoft.NET\\\\Framework\\\\v4.0.30319\\\\MSBuild.exe'' ''c:\\\\Home\\\\Projects\\\\TestSimulator\\\\LVLGEditor1.0\\\\LVLGEditor1.0.csproj'' ''/p:Configuration=Debug'' 2>&1\")",
+      "Bash(ls /c/Home/Projects/TestSimulator/LVLGEditor1.0/*.csproj /c/Home/Projects/TestSimulator/LVLGEditor1.0/*.slnx)"
     ]
   }
 }

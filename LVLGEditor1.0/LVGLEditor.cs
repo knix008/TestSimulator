@@ -7,7 +7,7 @@ using System.Xml.Serialization;
 
 namespace LVLGEditor1._0
 {
-    public partial class Form1 : Form
+    public partial class LVGLEditor : Form
     {
         private const int RowCount     = 10;
         private const int FixedRowCount = 1;
@@ -50,7 +50,7 @@ namespace LVLGEditor1._0
 
         // ── Constructor ───────────────────────────────────────────────────
 
-        public Form1()
+        public LVGLEditor()
         {
             InitializeComponent();
             SetupDropTargets();
