@@ -15,7 +15,6 @@ namespace Yolo26Detection1._0
 
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.txtOnnxPath = new System.Windows.Forms.TextBox();
             this.btnBrowseOnnx = new System.Windows.Forms.Button();
             this.btnLoadModel = new System.Windows.Forms.Button();
@@ -111,7 +110,7 @@ namespace Yolo26Detection1._0
             this.numConf.Size = new System.Drawing.Size(80, 21);
             this.numConf.TabIndex = 4;
             this.numConf.Value = new decimal(new int[] {
-            25,
+            50,
             0,
             0,
             131072});
@@ -203,7 +202,6 @@ namespace Yolo26Detection1._0
             this.lblMediaInfo.Size = new System.Drawing.Size(148, 418);
             this.lblMediaInfo.TabIndex = 15;
             this.lblMediaInfo.Text = "미디어 없음";
-            this.lblMediaInfo.TextAlign = System.Drawing.ContentAlignment.TopLeft;
             // 
             // progressBarMain
             // 
@@ -246,14 +244,6 @@ namespace Yolo26Detection1._0
             this.Controls.Add(this.txtOnnxPath);
             this.Controls.Add(this.btnLoadModel);
             this.Controls.Add(this.lblOnnx);
-            try
-            {
-                this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            }
-            catch
-            {
-                this.Icon = System.Drawing.SystemIcons.Application; // 기본 아이콘 설정
-            }
             this.MinimumSize = new System.Drawing.Size(700, 520);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
