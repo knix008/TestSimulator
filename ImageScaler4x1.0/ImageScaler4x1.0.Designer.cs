@@ -6,12 +6,12 @@ namespace ImageScaler4x1._0
 
         // 이미지 패널 (원본)
         private System.Windows.Forms.Label      lblOriginal;
-        private ZoomPanel      pnlOriginal;
+        private System.Windows.Forms.Panel      pnlOriginal;
         private System.Windows.Forms.PictureBox pbOriginal;
 
         // 이미지 패널 (확대 결과)
         private System.Windows.Forms.Label      lblUpscaled;
-        private ZoomPanel      pnlUpscaled;
+        private System.Windows.Forms.Panel      pnlUpscaled;
         private System.Windows.Forms.PictureBox pbUpscaled;
 
         // 줌 컨트롤
@@ -63,10 +63,10 @@ namespace ImageScaler4x1._0
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ImageScalerForm));
             lblOriginal = new Label();
-            pnlOriginal = new ZoomPanel();
+            pnlOriginal = new Panel();
             pbOriginal = new PictureBox();
             lblUpscaled = new Label();
-            pnlUpscaled = new ZoomPanel();
+            pnlUpscaled = new Panel();
             pbUpscaled = new PictureBox();
             btnZoomOut = new Button();
             lblZoomLevel = new Label();
@@ -286,13 +286,14 @@ namespace ImageScaler4x1._0
             // 
             // btnImageZoom
             // 
+            btnImageZoom.BackColor = SystemColors.ControlDark;
             btnImageZoom.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             btnImageZoom.Location = new Point(8, 332);
             btnImageZoom.Name = "btnImageZoom";
             btnImageZoom.Size = new Size(252, 48);
             btnImageZoom.TabIndex = 12;
             btnImageZoom.Text = "이미지 확대";
-            btnImageZoom.UseVisualStyleBackColor = true;
+            btnImageZoom.UseVisualStyleBackColor = false;
             btnImageZoom.Click += btnImageZoom_Click;
             // 
             // menuMain
@@ -410,7 +411,6 @@ namespace ImageScaler4x1._0
             nudTileSize.Name = "nudTileSize";
             nudTileSize.Size = new Size(100, 23);
             nudTileSize.TabIndex = 6;
-            nudTileSize.Value = new decimal(new int[] { 0, 0, 0, 0 });
             // 
             // lblTileSizeHint
             // 
