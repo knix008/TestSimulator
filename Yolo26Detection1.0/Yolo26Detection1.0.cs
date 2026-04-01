@@ -16,18 +16,161 @@ namespace Yolo26Detection1._0
         private bool _modelLoadConfirmed;
         private bool _videoApplyInitialFitZoom;
         private bool _inApplyImageZoomLayout;
+        private bool _isImageOutput;
+        private bool _isPanningImage;
+        private System.Drawing.Point _panStartScreen;
+        private System.Drawing.Point _panStartScroll;
+        private VideoCapture _playbackCapture;
+        private Timer _playbackTimer;
+        private bool _playbackFitOnFirstFrame;
+        private bool _startupInitDone;
 
         public MainForm()
         {
             InitializeComponent();
+            ApplyWindowIcon();
             var def = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "models", "yolo26n.onnx");
             if (File.Exists(def))
                 txtOnnxPath.Text = def;
-            numConf.Value = 0.25M;
+            numConf.Value = 0.50M;
             btnImage.Enabled = false;
             btnVideo.Enabled = false;
             lblZoomPct.Text = $"{trackBarZoom.Value}%";
+            RefreshLoadButtonState();
             panelImageHost.Resize += PanelImageHost_Resize;
+            pictureBox.MouseDown += PictureBox_MouseDown;
+            pictureBox.MouseMove += PictureBox_MouseMove;
+            pictureBox.MouseUp += PictureBox_MouseUp;
+            pictureBox.MouseLeave += PictureBox_MouseLeave;
+            Shown += MainForm_Shown;
+        }
+
+        private async void MainForm_Shown(object sender, EventArgs e)
+        {
+            if (_startupInitDone)
+                return;
+            _startupInitDone = true;
+            await InitializeDefaultModelOnStartupAsync();
+        }
+
+        private async Task InitializeDefaultModelOnStartupAsync()
+        {
+            string projectRoot = FindProjectRoot();
+            string defaultOnnx = Path.Combine(projectRoot, "models", "yolo26n.onnx");
+            txtOnnxPath.Text = defaultOnnx;
+
+            if (!File.Exists(defaultOnnx))
+            {
+                using (var dlg = new ModelPrepareDialog(projectRoot, defaultOnnx))
+                {
+                    dlg.ShowDialog(this);
+                    if (!dlg.IsSuccess || !File.Exists(defaultOnnx))
+                    {
+                        lblStatus.Text = "기본 ONNX가 없어 모델 로드가 보류되었습니다. ONNX 경로를 지정하거나 변환을 다시 시도하세요.";
+                        return;
+                    }
+                }
+            }
+
+            await Task.Yield();
+            TryLoadModel(showErrorDialog: true);
+        }
+
+        private static string FindProjectRoot()
+        {
+            string dir = AppDomain.CurrentDomain.BaseDirectory;
+            for (int i = 0; i < 6; i++)
+            {
+                if (File.Exists(Path.Combine(dir, "Yolo26Detection1.0.csproj")))
+                    return dir;
+                var parent = Directory.GetParent(dir);
+                if (parent == null)
+                    break;
+                dir = parent.FullName;
+            }
+            return AppDomain.CurrentDomain.BaseDirectory;
+        }
+
+        private void RefreshLoadButtonState()
+        {
+            string path = txtOnnxPath.Text.Trim();
+            bool sameAsLoaded = _modelLoadConfirmed &&
+                                _detector != null &&
+                                !string.IsNullOrEmpty(_loadedOnnxPath) &&
+                                string.Equals(path, _loadedOnnxPath, StringComparison.OrdinalIgnoreCase);
+            btnLoadModel.Enabled = !sameAsLoaded;
+        }
+
+        private void ApplyWindowIcon()
+        {
+            try
+            {
+                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "daemon_hammer.ico");
+                if (File.Exists(iconPath))
+                {
+                    using (var icon = new Icon(iconPath))
+                        this.Icon = (Icon)icon.Clone();
+                    return;
+                }
+            }
+            catch
+            {
+                // 파일 아이콘 로드 실패 시 아래 fallback 사용
+            }
+
+            try
+            {
+                var exeIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                this.Icon = exeIcon ?? SystemIcons.Application;
+            }
+            catch
+            {
+                this.Icon = SystemIcons.Application;
+            }
+        }
+
+        private void PictureBox_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left || !_isImageOutput || pictureBox.Image == null)
+                return;
+
+            _isPanningImage = true;
+            _panStartScreen = Cursor.Position;
+            _panStartScroll = new System.Drawing.Point(
+                -panelImageHost.AutoScrollPosition.X,
+                -panelImageHost.AutoScrollPosition.Y);
+            pictureBox.Cursor = Cursors.SizeAll;
+        }
+
+        private void PictureBox_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_isPanningImage)
+                return;
+
+            var now = Cursor.Position;
+            int dx = now.X - _panStartScreen.X;
+            int dy = now.Y - _panStartScreen.Y;
+            int targetX = Math.Max(0, _panStartScroll.X - dx);
+            int targetY = Math.Max(0, _panStartScroll.Y - dy);
+            panelImageHost.AutoScrollPosition = new System.Drawing.Point(targetX, targetY);
+        }
+
+        private void PictureBox_MouseUp(object sender, MouseEventArgs e)
+        {
+            EndImagePan();
+        }
+
+        private void PictureBox_MouseLeave(object sender, EventArgs e)
+        {
+            EndImagePan();
+        }
+
+        private void EndImagePan()
+        {
+            if (!_isPanningImage)
+                return;
+            _isPanningImage = false;
+            pictureBox.Cursor = _isImageOutput ? Cursors.Hand : Cursors.Default;
         }
 
         private void PanelImageHost_Resize(object sender, EventArgs e)
@@ -39,6 +182,7 @@ namespace Yolo26Detection1._0
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            StopOutputVideoPlayback();
             _detector?.Dispose();
             pictureBox.Image?.Dispose();
             base.OnFormClosed(e);
@@ -119,6 +263,80 @@ namespace Yolo26Detection1._0
                    $"{w} × {h} px\r\n" +
                    fpsLine + "\r\n" +
                    frameLine;
+        }
+
+        private void StopOutputVideoPlayback()
+        {
+            if (_playbackTimer != null)
+            {
+                _playbackTimer.Stop();
+                _playbackTimer.Tick -= PlaybackTimer_Tick;
+                _playbackTimer.Dispose();
+                _playbackTimer = null;
+            }
+            if (_playbackCapture != null)
+            {
+                _playbackCapture.Dispose();
+                _playbackCapture = null;
+            }
+        }
+
+        private void StartOutputVideoPlayback(string outputPath)
+        {
+            StopOutputVideoPlayback();
+            if (!File.Exists(outputPath))
+                return;
+
+            _playbackCapture = new VideoCapture(outputPath);
+            if (!_playbackCapture.IsOpened())
+            {
+                _playbackCapture.Dispose();
+                _playbackCapture = null;
+                return;
+            }
+
+            double fps = _playbackCapture.Fps;
+            if (fps <= 1 || fps > 240)
+                fps = 30;
+            int interval = Math.Max(10, (int)Math.Round(1000.0 / fps));
+
+            _playbackFitOnFirstFrame = true;
+            _playbackTimer = new Timer { Interval = interval };
+            _playbackTimer.Tick += PlaybackTimer_Tick;
+            _playbackTimer.Start();
+        }
+
+        private void PlaybackTimer_Tick(object sender, EventArgs e)
+        {
+            if (_playbackCapture == null)
+                return;
+
+            using (var frame = new Mat())
+            {
+                if (!_playbackCapture.Read(frame) || frame.Empty())
+                {
+                    _playbackCapture.Set(VideoCaptureProperties.PosFrames, 0);
+                    if (!_playbackCapture.Read(frame) || frame.Empty())
+                    {
+                        StopOutputVideoPlayback();
+                        return;
+                    }
+                }
+
+                using (var bmp = BitmapConverter.ToBitmap(frame))
+                {
+                    _isImageOutput = false;
+                    pictureBox.Image?.Dispose();
+                    pictureBox.Image = new Bitmap(bmp);
+                    pictureBox.Cursor = Cursors.Default;
+                    if (_playbackFitOnFirstFrame)
+                    {
+                        trackBarZoom.Value = ComputeZoomPercentToFitPanel(bmp.Width, bmp.Height);
+                        _playbackFitOnFirstFrame = false;
+                    }
+                    ApplyImageZoomLayout();
+                }
+            }
         }
 
         private void ProgressBegin(bool continuous, int maximum = 100)
@@ -226,19 +444,31 @@ namespace Yolo26Detection1._0
             btnImage.Enabled = false;
             btnVideo.Enabled = false;
             lblStatus.Text = statusMessage;
+            RefreshLoadButtonState();
         }
 
         private void TxtOnnxPath_TextChanged(object sender, EventArgs e)
         {
             if (!_modelLoadConfirmed)
+            {
+                RefreshLoadButtonState();
                 return;
+            }
             var t = txtOnnxPath.Text.Trim();
             if (string.Equals(t, _loadedOnnxPath ?? "", StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshLoadButtonState();
                 return;
+            }
             InvalidateLoadedModel("경로가 바뀌었습니다. 「모델 로드」를 다시 누르세요.");
         }
 
         private void BtnLoadModel_Click(object sender, EventArgs e)
+        {
+            TryLoadModel(showErrorDialog: true);
+        }
+
+        private bool TryLoadModel(bool showErrorDialog)
         {
             btnLoadModel.Enabled = false;
             btnBrowseOnnx.Enabled = false;
@@ -252,6 +482,8 @@ namespace Yolo26Detection1._0
                 btnImage.Enabled = true;
                 btnVideo.Enabled = true;
                 lblStatus.Text = "모델 로드 완료 — 이미지/동영상 검출을 사용할 수 있습니다.";
+                RefreshLoadButtonState();
+                return true;
             }
             catch (Exception ex)
             {
@@ -264,14 +496,16 @@ namespace Yolo26Detection1._0
                 }
                 btnImage.Enabled = false;
                 btnVideo.Enabled = false;
-                MessageBox.Show(this, ex.Message, "모델 로드 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (showErrorDialog)
+                    MessageBox.Show(this, ex.Message, "모델 로드 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 lblStatus.Text = "모델 로드 실패: " + ex.Message;
+                RefreshLoadButtonState();
+                return false;
             }
             finally
             {
                 UseWaitCursor = false;
                 Cursor.Current = Cursors.Default;
-                btnLoadModel.Enabled = true;
                 btnBrowseOnnx.Enabled = true;
             }
         }
@@ -298,6 +532,7 @@ namespace Yolo26Detection1._0
                 lblStatus.Text = "이미지 검출 중...";
                 btnImage.Enabled = false;
                 btnVideo.Enabled = false;
+                StopOutputVideoPlayback();
                 ProgressBegin(true, 100);
                 try
                 {
@@ -339,8 +574,10 @@ namespace Yolo26Detection1._0
                         ProgressSet(90);
                         void apply()
                         {
+                            _isImageOutput = true;
                             pictureBox.Image?.Dispose();
                             pictureBox.Image = new Bitmap(bmp);
+                            pictureBox.Cursor = Cursors.Hand;
                             lblMediaInfo.Text = FormatMediaInfoImage(bmp.Width, bmp.Height, path);
                             trackBarZoom.Value = ComputeZoomPercentToFitPanel(bmp.Width, bmp.Height);
                             ApplyImageZoomLayout();
@@ -378,6 +615,9 @@ namespace Yolo26Detection1._0
                     lblStatus.Text = "동영상 처리 중...";
                     btnImage.Enabled = false;
                     btnVideo.Enabled = false;
+                    StopOutputVideoPlayback();
+                    _isImageOutput = false;
+                    EndImagePan();
                     _videoApplyInitialFitZoom = true;
                     try
                     {
@@ -461,6 +701,13 @@ namespace Yolo26Detection1._0
             void done()
             {
                 lblStatus.Text = "동영상 저장 완료: " + outputPath;
+                StartOutputVideoPlayback(outputPath);
+                MessageBox.Show(
+                    this,
+                    "동영상 검출이 완료되었습니다.\r\n저장된 파일을 자동으로 재생합니다.\r\n\r\n저장 위치:\r\n" + outputPath,
+                    "검출 완료",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
             if (InvokeRequired)
                 Invoke((Action)done);
@@ -477,8 +724,10 @@ namespace Yolo26Detection1._0
             {
                 void apply()
                 {
+                    _isImageOutput = false;
                     pictureBox.Image?.Dispose();
                     pictureBox.Image = new Bitmap(bmp);
+                    pictureBox.Cursor = Cursors.Default;
                     if (_videoApplyInitialFitZoom)
                     {
                         trackBarZoom.Value = ComputeZoomPercentToFitPanel(bmp.Width, bmp.Height);
