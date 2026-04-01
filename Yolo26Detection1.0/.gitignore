@@ -1,0 +1,51 @@
+## Build (.NET / SDK 스타일)
+[Bb]in/
+[Oo]bj/
+out/
+
+## Visual Studio / MSBuild
+.vs/
+*.user
+*.userosscache
+*.suo
+*.cache
+project.lock.json
+
+## Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+## YOLO26 가중치·ONNX·실행 결과 (용량 큼)
+models/*.pt
+models/*.onnx
+runs/
+
+## 동영상·검출 결과 영상 (용량 커서 git push 부담 — 로컬 전용)
+models/**/*.mp4
+models/**/*.avi
+models/**/*.mov
+models/**/*.mkv
+models/**/*.webm
+models/**/*_detected.*
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## JetBrains Rider
+.idea/
+
+## 로그·임시
+*.log
+*.tmp
+*.temp
