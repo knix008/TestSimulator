@@ -1,0 +1,17 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <ProductVersion>1.0.0</ProductVersion>
+    <OutputName>ImageScaler4x1.0.Setup</OutputName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImageScaler4x1.0.csproj" Publish="true">
+      <AdditionalProperties>SelfContained=true;RuntimeIdentifier=win-x64</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>
