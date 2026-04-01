@@ -10,18 +10,6 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 
 namespace ImageScaler4x1._0
 {
-    // 마우스 휠의 기본 스크롤 동작을 막아 줌 핸들러가 단독으로 처리하도록 함
-    public class ZoomPanel : Panel
-    {
-        private const int WM_MOUSEWHEEL = 0x020A;
-        protected override void WndProc(ref Message m)
-        {
-            if (m.Msg == WM_MOUSEWHEEL)
-                return; // 기본 스크롤 억제
-            base.WndProc(ref m);
-        }
-    }
-
     public partial class ImageScalerForm : Form
     {
         private InferenceSession? inferenceSession;
@@ -30,7 +18,9 @@ namespace ImageScaler4x1._0
         private string? loadedImagePath;
         private Panel? dragPanel;
         private Panel? activePanel;
-        private System.Drawing.Point dragStartPoint;
+        private System.Drawing.Point dragStartPanelClient;
+        private int dragStartScrollX;
+        private int dragStartScrollY;
 
         public ImageScalerForm()
         {
@@ -86,12 +76,13 @@ namespace ImageScaler4x1._0
                 return;
             activePanel = panel;
 
+            if ((Control.ModifierKeys & Keys.Control) == 0)
+                return; // Ctrl 없으면 기본 스크롤에 맡김
+
+            // Ctrl+휠: 줌 (곱셈 방식으로 배율에 관계없이 일정한 비율로 변화)
             float oldZoom = GetZoomFactor(panel);
-            float currentZoom = oldZoom;
-            if (e.Delta > 0)
-                currentZoom = Math.Min(8.0f, currentZoom + 0.05f);
-            else if (e.Delta < 0)
-                currentZoom = Math.Max(0.1f, currentZoom - 0.05f);
+            float factor = e.Delta > 0 ? 1.1f : 1f / 1.1f;
+            float currentZoom = Math.Clamp(oldZoom * factor, 0.1f, 8.0f);
 
             SetZoomFactor(panel, currentZoom);
             var panelPoint = panel.PointToClient(control.PointToScreen(e.Location));
@@ -124,7 +115,9 @@ namespace ImageScaler4x1._0
 
             dragPanel = panel;
             activePanel = panel;
-            dragStartPoint = e.Location;
+            dragStartPanelClient = panel.PointToClient(Control.MousePosition);
+            dragStartScrollX = -panel.AutoScrollPosition.X;
+            dragStartScrollY = -panel.AutoScrollPosition.Y;
             panel.Cursor = Cursors.Hand;
         }
 
@@ -133,19 +126,20 @@ namespace ImageScaler4x1._0
             if (dragPanel == null || e.Button != MouseButtons.Left)
                 return;
 
-            int dx = e.Location.X - dragStartPoint.X;
-            int dy = e.Location.Y - dragStartPoint.Y;
+            var panel = dragPanel;
+            var nowPanel = panel.PointToClient(Control.MousePosition);
 
-            int currentX = -dragPanel.AutoScrollPosition.X;
-            int currentY = -dragPanel.AutoScrollPosition.Y;
+            // 문서 좌표 = 뷰포트 + 스크롤 이 일정하려면: scroll = S0 - (M - M0)
+            int nextX = dragStartScrollX - (nowPanel.X - dragStartPanelClient.X);
+            int nextY = dragStartScrollY - (nowPanel.Y - dragStartPanelClient.Y);
 
-            int maxX = Math.Max(0, dragPanel.DisplayRectangle.Width - dragPanel.ClientSize.Width);
-            int maxY = Math.Max(0, dragPanel.DisplayRectangle.Height - dragPanel.ClientSize.Height);
+            int maxX = Math.Max(0, panel.DisplayRectangle.Width - panel.ClientSize.Width);
+            int maxY = Math.Max(0, panel.DisplayRectangle.Height - panel.ClientSize.Height);
 
-            int nextX = Math.Max(0, Math.Min(maxX, currentX - dx));
-            int nextY = Math.Max(0, Math.Min(maxY, currentY - dy));
+            nextX = Math.Max(0, Math.Min(maxX, nextX));
+            nextY = Math.Max(0, Math.Min(maxY, nextY));
 
-            dragPanel.AutoScrollPosition = new System.Drawing.Point(nextX, nextY);
+            panel.AutoScrollPosition = new System.Drawing.Point(nextX, nextY);
         }
 
         private void OnImageAreaMouseUp(object? sender, MouseEventArgs e)
@@ -797,10 +791,12 @@ namespace ImageScaler4x1._0
             float oldZoom = previousZoom ?? GetZoomFactor(panel);
             PictureBox pb = panel == pnlOriginal ? pbOriginal : pbUpscaled;
 
-            // pb.Location은 패널 클라이언트 영역 기준 화면 좌표(스크롤 반영됨).
-            // 리사이즈 전에 먼저 읽어야 ResizePictureBox의 Location 변경 영향을 받지 않음.
+            // PictureBox 위치는 스크롤 가능 문서 좌표. 앵커는 뷰포트(패널 클라이언트) 좌표이므로
+            // 문서상 좌표 = 앵커 + 스크롤오프셋.
             int picXBefore = pb.Location.X;
             int picYBefore = pb.Location.Y;
+            int scrollBeforeX = -panel.AutoScrollPosition.X;
+            int scrollBeforeY = -panel.AutoScrollPosition.Y;
 
             if (panel == pnlOriginal)
             {
@@ -813,50 +809,48 @@ namespace ImageScaler4x1._0
                 lblZoomLevelOutput.Text = $"{(int)(zoomFactorUpscaled * 100)}%";
             }
 
-            if (anchorPanelPoint.HasValue && oldZoom > 0f && pb.Image != null)
+            // 표시 영역보다 작음: ResizePictureBox가 Location으로 가운데 맞춤, 마우스 앵커 불필요
+            if (ImageFitsInPanelClient(pb, panel))
+            {
+                panel.AutoScrollPosition = new System.Drawing.Point(0, 0);
+                return;
+            }
+
+            // 표시 영역을 넘김 + 앵커 없음(맞춤·1:1 등): 좌상단 기준
+            if (!anchorPanelPoint.HasValue)
+            {
+                panel.AutoScrollPosition = new System.Drawing.Point(0, 0);
+                return;
+            }
+
+            if (oldZoom > 0f && pb.Image != null)
             {
                 float newZoom = GetZoomFactor(panel);
 
-                // 마우스 아래의 이미지 픽셀 좌표 (줌 전 화면 위치 기준)
-                double imgX = (anchorPanelPoint.Value.X - picXBefore) / (double)oldZoom;
-                double imgY = (anchorPanelPoint.Value.Y - picYBefore) / (double)oldZoom;
+                // 문서 좌표 기준으로 PictureBox 안의 이미지 픽셀 (Size가 (W*z,H*z)이고 비율 일치 → Zoom이 꽉 참)
+                double imgX = (anchorPanelPoint.Value.X + scrollBeforeX - picXBefore) / (double)oldZoom;
+                double imgY = (anchorPanelPoint.Value.Y + scrollBeforeY - picYBefore) / (double)oldZoom;
 
-                // ResizePictureBox 후 실제 상태를 읽음
-                // (AutoScrollMinSize 변경 시 스크롤 클램핑 등 중간 변화 반영)
-                int scrollXAfter = -panel.AutoScrollPosition.X;
-                int scrollYAfter = -panel.AutoScrollPosition.Y;
                 int newPicX = pb.Location.X;
                 int newPicY = pb.Location.Y;
 
-                // 앵커 포인트가 화면상 같은 위치에 오도록 스크롤 설정
-                // display_of_imgX = newPicX + (scrollXAfter - nextScrollX) + imgX * newZoom = mouseX
-                int nextScrollX = (int)Math.Round(scrollXAfter + newPicX + imgX * newZoom - anchorPanelPoint.Value.X);
-                int nextScrollY = (int)Math.Round(scrollYAfter + newPicY + imgY * newZoom - anchorPanelPoint.Value.Y);
+                // 같은 이미지 점이 뷰포트 앵커에 오도록 스크롤 (문서좌표 = newPic + img * newZoom, 뷰 = 문서 - scroll)
+                int desiredScrollX = (int)Math.Round(newPicX + imgX * newZoom - anchorPanelPoint.Value.X);
+                int desiredScrollY = (int)Math.Round(newPicY + imgY * newZoom - anchorPanelPoint.Value.Y);
 
-                panel.AutoScrollPosition = new System.Drawing.Point(Math.Max(0, nextScrollX), Math.Max(0, nextScrollY));
+                int maxX = Math.Max(0, panel.DisplayRectangle.Width - panel.ClientSize.Width);
+                int maxY = Math.Max(0, panel.DisplayRectangle.Height - panel.ClientSize.Height);
+                desiredScrollX = Math.Max(0, Math.Min(maxX, desiredScrollX));
+                desiredScrollY = Math.Max(0, Math.Min(maxY, desiredScrollY));
+
+                panel.AutoScrollPosition = new System.Drawing.Point(desiredScrollX, desiredScrollY);
             }
         }
 
-        private static void SetPanelScrollPosition(Panel panel, int desiredX, int desiredY)
+        private static bool ImageFitsInPanelClient(PictureBox pictureBox, Panel panel)
         {
-            int targetX = Math.Max(0, desiredX);
-            int targetY = Math.Max(0, desiredY);
-
-            if (panel.HorizontalScroll.Visible)
-            {
-                int maxX = Math.Max(panel.HorizontalScroll.Minimum,
-                    panel.HorizontalScroll.Maximum - panel.HorizontalScroll.LargeChange + 1);
-                panel.HorizontalScroll.Value = Math.Min(targetX, maxX);
-            }
-
-            if (panel.VerticalScroll.Visible)
-            {
-                int maxY = Math.Max(panel.VerticalScroll.Minimum,
-                    panel.VerticalScroll.Maximum - panel.VerticalScroll.LargeChange + 1);
-                panel.VerticalScroll.Value = Math.Min(targetY, maxY);
-            }
-
-            panel.PerformLayout();
+            return pictureBox.Width <= panel.ClientSize.Width
+                && pictureBox.Height <= panel.ClientSize.Height;
         }
 
         private void ResizePictureBox(PictureBox pictureBox, Panel parentPanel, float zoomFactor)
