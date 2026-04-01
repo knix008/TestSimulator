@@ -15,6 +15,7 @@ namespace Yolo26Detection1._0
 
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             this.txtOnnxPath = new System.Windows.Forms.TextBox();
             this.btnBrowseOnnx = new System.Windows.Forms.Button();
             this.btnLoadModel = new System.Windows.Forms.Button();
@@ -23,18 +24,25 @@ namespace Yolo26Detection1._0
             this.numConf = new System.Windows.Forms.NumericUpDown();
             this.btnImage = new System.Windows.Forms.Button();
             this.btnVideo = new System.Windows.Forms.Button();
+            this.btnPlayOutput = new System.Windows.Forms.Button();
             this.lblZoom = new System.Windows.Forms.Label();
             this.trackBarZoom = new System.Windows.Forms.TrackBar();
             this.lblZoomPct = new System.Windows.Forms.Label();
             this.panelImageHost = new System.Windows.Forms.Panel();
             this.pictureBox = new System.Windows.Forms.PictureBox();
             this.lblMediaInfo = new System.Windows.Forms.Label();
+            this.trackPlayback = new System.Windows.Forms.TrackBar();
+            this.lblPlaybackPos = new System.Windows.Forms.Label();
+            this.btnPlaybackPause = new System.Windows.Forms.Button();
+            this.btnPlaybackResume = new System.Windows.Forms.Button();
+            this.btnPlaybackStop = new System.Windows.Forms.Button();
             this.progressBarMain = new System.Windows.Forms.ProgressBar();
             this.lblStatus = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.numConf)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarZoom)).BeginInit();
             this.panelImageHost.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackPlayback)).BeginInit();
             this.SuspendLayout();
             // 
             // txtOnnxPath
@@ -43,14 +51,14 @@ namespace Yolo26Detection1._0
             | System.Windows.Forms.AnchorStyles.Right)));
             this.txtOnnxPath.Location = new System.Drawing.Point(90, 12);
             this.txtOnnxPath.Name = "txtOnnxPath";
-            this.txtOnnxPath.Size = new System.Drawing.Size(598, 21);
+            this.txtOnnxPath.Size = new System.Drawing.Size(743, 21);
             this.txtOnnxPath.TabIndex = 1;
             this.txtOnnxPath.TextChanged += new System.EventHandler(this.TxtOnnxPath_TextChanged);
             // 
             // btnBrowseOnnx
             // 
             this.btnBrowseOnnx.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnBrowseOnnx.Location = new System.Drawing.Point(694, 10);
+            this.btnBrowseOnnx.Location = new System.Drawing.Point(839, 10);
             this.btnBrowseOnnx.Name = "btnBrowseOnnx";
             this.btnBrowseOnnx.Size = new System.Drawing.Size(75, 23);
             this.btnBrowseOnnx.TabIndex = 2;
@@ -61,7 +69,7 @@ namespace Yolo26Detection1._0
             // btnLoadModel
             // 
             this.btnLoadModel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnLoadModel.Location = new System.Drawing.Point(775, 10);
+            this.btnLoadModel.Location = new System.Drawing.Point(920, 10);
             this.btnLoadModel.Name = "btnLoadModel";
             this.btnLoadModel.Size = new System.Drawing.Size(95, 23);
             this.btnLoadModel.TabIndex = 9;
@@ -135,6 +143,16 @@ namespace Yolo26Detection1._0
             this.btnVideo.UseVisualStyleBackColor = true;
             this.btnVideo.Click += new System.EventHandler(this.BtnVideo_Click);
             // 
+            // btnPlayOutput
+            // 
+            this.btnPlayOutput.Location = new System.Drawing.Point(452, 42);
+            this.btnPlayOutput.Name = "btnPlayOutput";
+            this.btnPlayOutput.Size = new System.Drawing.Size(120, 25);
+            this.btnPlayOutput.TabIndex = 7;
+            this.btnPlayOutput.Text = "결과 동영상 열기";
+            this.btnPlayOutput.UseVisualStyleBackColor = true;
+            this.btnPlayOutput.Click += new System.EventHandler(this.BtnPlayOutput_Click);
+            // 
             // lblZoom
             // 
             this.lblZoom.AutoSize = true;
@@ -152,7 +170,7 @@ namespace Yolo26Detection1._0
             this.trackBarZoom.Maximum = 400;
             this.trackBarZoom.Minimum = 25;
             this.trackBarZoom.Name = "trackBarZoom";
-            this.trackBarZoom.Size = new System.Drawing.Size(680, 45);
+            this.trackBarZoom.Size = new System.Drawing.Size(825, 45);
             this.trackBarZoom.TabIndex = 11;
             this.trackBarZoom.TickFrequency = 25;
             this.trackBarZoom.Value = 100;
@@ -162,7 +180,7 @@ namespace Yolo26Detection1._0
             // 
             this.lblZoomPct.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblZoomPct.AutoSize = true;
-            this.lblZoomPct.Location = new System.Drawing.Point(785, 78);
+            this.lblZoomPct.Location = new System.Drawing.Point(930, 78);
             this.lblZoomPct.Name = "lblZoomPct";
             this.lblZoomPct.Size = new System.Drawing.Size(33, 12);
             this.lblZoomPct.TabIndex = 12;
@@ -179,7 +197,7 @@ namespace Yolo26Detection1._0
             this.panelImageHost.Controls.Add(this.pictureBox);
             this.panelImageHost.Location = new System.Drawing.Point(12, 118);
             this.panelImageHost.Name = "panelImageHost";
-            this.panelImageHost.Size = new System.Drawing.Size(700, 418);
+            this.panelImageHost.Size = new System.Drawing.Size(765, 448);
             this.panelImageHost.TabIndex = 13;
             // 
             // pictureBox
@@ -197,19 +215,77 @@ namespace Yolo26Detection1._0
             // 
             this.lblMediaInfo.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.lblMediaInfo.Location = new System.Drawing.Point(724, 118);
+            this.lblMediaInfo.Location = new System.Drawing.Point(783, 118);
             this.lblMediaInfo.Name = "lblMediaInfo";
-            this.lblMediaInfo.Size = new System.Drawing.Size(148, 418);
+            this.lblMediaInfo.Size = new System.Drawing.Size(234, 448);
             this.lblMediaInfo.TabIndex = 15;
             this.lblMediaInfo.Text = "미디어 없음";
+            // 
+            // trackPlayback
+            // 
+            this.trackPlayback.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.trackPlayback.Enabled = false;
+            this.trackPlayback.Location = new System.Drawing.Point(12, 572);
+            this.trackPlayback.Maximum = 1000;
+            this.trackPlayback.Name = "trackPlayback";
+            this.trackPlayback.Size = new System.Drawing.Size(765, 45);
+            this.trackPlayback.TabIndex = 16;
+            this.trackPlayback.TickStyle = System.Windows.Forms.TickStyle.None;
+            // 
+            // lblPlaybackPos
+            // 
+            this.lblPlaybackPos.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblPlaybackPos.Location = new System.Drawing.Point(783, 580);
+            this.lblPlaybackPos.Name = "lblPlaybackPos";
+            this.lblPlaybackPos.Size = new System.Drawing.Size(118, 23);
+            this.lblPlaybackPos.TabIndex = 17;
+            this.lblPlaybackPos.Text = "00:00 / 00:00";
+            this.lblPlaybackPos.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // btnPlaybackPause
+            // 
+            this.btnPlaybackPause.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPlaybackPause.Enabled = false;
+            this.btnPlaybackPause.Location = new System.Drawing.Point(907, 576);
+            this.btnPlaybackPause.Name = "btnPlaybackPause";
+            this.btnPlaybackPause.Size = new System.Drawing.Size(34, 23);
+            this.btnPlaybackPause.TabIndex = 18;
+            this.btnPlaybackPause.Text = "⏸";
+            this.btnPlaybackPause.UseVisualStyleBackColor = true;
+            this.btnPlaybackPause.Click += new System.EventHandler(this.BtnPlaybackPause_Click);
+            // 
+            // btnPlaybackResume
+            // 
+            this.btnPlaybackResume.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPlaybackResume.Enabled = false;
+            this.btnPlaybackResume.Location = new System.Drawing.Point(947, 576);
+            this.btnPlaybackResume.Name = "btnPlaybackResume";
+            this.btnPlaybackResume.Size = new System.Drawing.Size(34, 23);
+            this.btnPlaybackResume.TabIndex = 19;
+            this.btnPlaybackResume.Text = "▶";
+            this.btnPlaybackResume.UseVisualStyleBackColor = true;
+            this.btnPlaybackResume.Click += new System.EventHandler(this.BtnPlaybackResume_Click);
+            // 
+            // btnPlaybackStop
+            // 
+            this.btnPlaybackStop.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPlaybackStop.Enabled = false;
+            this.btnPlaybackStop.Location = new System.Drawing.Point(987, 576);
+            this.btnPlaybackStop.Name = "btnPlaybackStop";
+            this.btnPlaybackStop.Size = new System.Drawing.Size(30, 23);
+            this.btnPlaybackStop.TabIndex = 20;
+            this.btnPlaybackStop.Text = "■";
+            this.btnPlaybackStop.UseVisualStyleBackColor = true;
+            this.btnPlaybackStop.Click += new System.EventHandler(this.BtnPlaybackStop_Click);
             // 
             // progressBarMain
             // 
             this.progressBarMain.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.progressBarMain.Location = new System.Drawing.Point(12, 542);
+            this.progressBarMain.Location = new System.Drawing.Point(12, 623);
             this.progressBarMain.Name = "progressBarMain";
-            this.progressBarMain.Size = new System.Drawing.Size(860, 20);
+            this.progressBarMain.Size = new System.Drawing.Size(1005, 20);
             this.progressBarMain.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
             this.progressBarMain.TabIndex = 14;
             this.progressBarMain.Visible = false;
@@ -218,9 +294,9 @@ namespace Yolo26Detection1._0
             // 
             this.lblStatus.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.lblStatus.Location = new System.Drawing.Point(12, 568);
+            this.lblStatus.Location = new System.Drawing.Point(12, 649);
             this.lblStatus.Name = "lblStatus";
-            this.lblStatus.Size = new System.Drawing.Size(860, 22);
+            this.lblStatus.Size = new System.Drawing.Size(1005, 22);
             this.lblStatus.TabIndex = 8;
             this.lblStatus.Text = "ONNX 경로를 지정한 뒤 「모델 로드」를 누르세요.";
             // 
@@ -228,9 +304,14 @@ namespace Yolo26Detection1._0
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(884, 601);
+            this.ClientSize = new System.Drawing.Size(1029, 682);
             this.Controls.Add(this.panelImageHost);
             this.Controls.Add(this.lblMediaInfo);
+            this.Controls.Add(this.trackPlayback);
+            this.Controls.Add(this.lblPlaybackPos);
+            this.Controls.Add(this.btnPlaybackPause);
+            this.Controls.Add(this.btnPlaybackResume);
+            this.Controls.Add(this.btnPlaybackStop);
             this.Controls.Add(this.lblZoomPct);
             this.Controls.Add(this.trackBarZoom);
             this.Controls.Add(this.lblZoom);
@@ -238,12 +319,14 @@ namespace Yolo26Detection1._0
             this.Controls.Add(this.progressBarMain);
             this.Controls.Add(this.btnVideo);
             this.Controls.Add(this.btnImage);
+            this.Controls.Add(this.btnPlayOutput);
             this.Controls.Add(this.numConf);
             this.Controls.Add(this.lblConf);
             this.Controls.Add(this.btnBrowseOnnx);
             this.Controls.Add(this.txtOnnxPath);
             this.Controls.Add(this.btnLoadModel);
             this.Controls.Add(this.lblOnnx);
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MinimumSize = new System.Drawing.Size(700, 520);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
@@ -252,6 +335,7 @@ namespace Yolo26Detection1._0
             ((System.ComponentModel.ISupportInitialize)(this.trackBarZoom)).EndInit();
             this.panelImageHost.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackPlayback)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -265,12 +349,18 @@ namespace Yolo26Detection1._0
         private System.Windows.Forms.NumericUpDown numConf;
         private System.Windows.Forms.Button btnImage;
         private System.Windows.Forms.Button btnVideo;
+        private System.Windows.Forms.Button btnPlayOutput;
         private System.Windows.Forms.Label lblZoom;
         private System.Windows.Forms.TrackBar trackBarZoom;
         private System.Windows.Forms.Label lblZoomPct;
         private System.Windows.Forms.Panel panelImageHost;
         private System.Windows.Forms.PictureBox pictureBox;
         private System.Windows.Forms.Label lblMediaInfo;
+        private System.Windows.Forms.TrackBar trackPlayback;
+        private System.Windows.Forms.Label lblPlaybackPos;
+        private System.Windows.Forms.Button btnPlaybackPause;
+        private System.Windows.Forms.Button btnPlaybackResume;
+        private System.Windows.Forms.Button btnPlaybackStop;
         private System.Windows.Forms.ProgressBar progressBarMain;
         private System.Windows.Forms.Label lblStatus;
     }
