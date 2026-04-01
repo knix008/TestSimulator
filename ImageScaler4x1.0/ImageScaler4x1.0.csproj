@@ -1,4 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!-- 단독 실행: dotnet publish -c Release -r win-x64 (self-contained) -o publish/win-x64-standalone -->
+  <!-- MSI: dotnet build installer/ImageScaler4x1.0.Installer.wixproj -c Release → installer/bin/Release/ImageScaler4x1.0.Setup.msi -->
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -8,6 +10,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <PlatformTarget>x64</PlatformTarget>
+    <!-- WiX publish(자체 포함)·MSI 빌드 시 RID 자산 필요 -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>

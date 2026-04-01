@@ -1,0 +1,22 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package
+      Name="Image Scaler 4x"
+      Manufacturer="ImageScaler"
+      Version="1.0.0.0"
+      UpgradeCode="B7E8F3A2-4C1D-4E9F-8A0B-2D4E6F8A1C3E"
+      Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="이미 더 새 버전이 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="ImageScaler4x1.0" />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="Image Scaler 4x" Description="RealESRGAN 기반 이미지 확대 앱(자체 포함 런타임)" Level="1">
+      <Files Include="!(bindpath.ImageScaler4x1.0)\**" Directory="INSTALLFOLDER" />
+    </Feature>
+  </Package>
+
+</Wix>
