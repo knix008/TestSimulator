@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -29,6 +30,7 @@ namespace Yolo26Detection1._0
         private double _playbackFps;
         private bool _playbackPaused;
         private string _lastPlaybackPath;
+        private string _lastImageDetectionSourcePath;
         private bool _startupInitDone;
 
         public MainForm()
@@ -45,6 +47,8 @@ namespace Yolo26Detection1._0
             RefreshLoadButtonState();
             panelImageHost.Resize += PanelImageHost_Resize;
             pictureBox.MouseDown += PictureBox_MouseDown;
+            pictureBox.MouseClick += PictureBox_MouseClick;
+            pictureBox.DoubleClick += PictureBox_DoubleClick;
             pictureBox.MouseMove += PictureBox_MouseMove;
             pictureBox.MouseUp += PictureBox_MouseUp;
             pictureBox.MouseLeave += PictureBox_MouseLeave;
@@ -52,6 +56,76 @@ namespace Yolo26Detection1._0
             trackPlayback.MouseUp += TrackPlayback_MouseUp;
             trackPlayback.ValueChanged += TrackPlayback_ValueChanged;
             Shown += MainForm_Shown;
+            UpdateSaveImageResultButtonState();
+        }
+
+        private bool CanSaveImageDetectionResult()
+        {
+            return _isImageOutput && pictureBox.Image != null;
+        }
+
+        private void UpdateSaveImageResultButtonState()
+        {
+            if (btnSaveImageResult == null)
+                return;
+            btnSaveImageResult.Enabled = CanSaveImageDetectionResult();
+        }
+
+        private void BtnSaveImageResult_Click(object sender, EventArgs e)
+        {
+            SaveImageDetectionResult();
+        }
+
+        private void PictureBox_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right && CanSaveImageDetectionResult())
+                SaveImageDetectionResult();
+        }
+
+        private void PictureBox_DoubleClick(object sender, EventArgs e)
+        {
+            if (CanSaveImageDetectionResult())
+                SaveImageDetectionResult();
+        }
+
+        private void SaveImageDetectionResult()
+        {
+            if (!CanSaveImageDetectionResult())
+                return;
+
+            using (var dlg = new SaveFileDialog())
+            {
+                dlg.Filter = "PNG|*.png|JPEG|*.jpg;*.jpeg|Bitmap|*.bmp";
+                dlg.DefaultExt = "png";
+                dlg.Title = "검출 결과 이미지 저장";
+                if (!string.IsNullOrEmpty(_lastImageDetectionSourcePath))
+                    dlg.FileName = Path.GetFileNameWithoutExtension(_lastImageDetectionSourcePath) + "_detected.png";
+                else
+                    dlg.FileName = "detected.png";
+
+                if (dlg.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                try
+                {
+                    using (var bmp = new Bitmap(pictureBox.Image))
+                    {
+                        string ext = Path.GetExtension(dlg.FileName).ToLowerInvariant();
+                        if (ext == ".jpg" || ext == ".jpeg")
+                            bmp.Save(dlg.FileName, ImageFormat.Jpeg);
+                        else if (ext == ".bmp")
+                            bmp.Save(dlg.FileName, ImageFormat.Bmp);
+                        else
+                            bmp.Save(dlg.FileName, ImageFormat.Png);
+                    }
+                    lblStatus.Text = "검출 결과 저장: " + dlg.FileName;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, ex.Message, "저장 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    lblStatus.Text = "저장 실패: " + ex.Message;
+                }
+            }
         }
 
         private async void MainForm_Shown(object sender, EventArgs e)
@@ -313,6 +387,7 @@ namespace Yolo26Detection1._0
                 btnPlaybackResume.Enabled = !string.IsNullOrEmpty(_lastPlaybackPath) && File.Exists(_lastPlaybackPath);
                 btnPlaybackStop.Enabled = false;
             }
+            UpdateSaveImageResultButtonState();
         }
 
         private void StartOutputVideoPlayback(string outputPath)
@@ -354,6 +429,7 @@ namespace Yolo26Detection1._0
             _playbackTimer = new Timer { Interval = interval };
             _playbackTimer.Tick += PlaybackTimer_Tick;
             _playbackTimer.Start();
+            UpdateSaveImageResultButtonState();
         }
 
         private void PlaybackTimer_Tick(object sender, EventArgs e)
@@ -392,6 +468,7 @@ namespace Yolo26Detection1._0
                 }
             }
             UpdatePlaybackUiFromCapture();
+            UpdateSaveImageResultButtonState();
         }
 
         private void TrackPlayback_MouseDown(object sender, MouseEventArgs e)
@@ -695,6 +772,7 @@ namespace Yolo26Detection1._0
                 lblStatus.Text = "이미지 검출 중...";
                 btnImage.Enabled = false;
                 btnVideo.Enabled = false;
+                btnSaveImageResult.Enabled = false;
                 StopOutputVideoPlayback();
                 ProgressBegin(true, 100);
                 try
@@ -711,6 +789,7 @@ namespace Yolo26Detection1._0
                     ProgressEnd();
                     btnImage.Enabled = true;
                     btnVideo.Enabled = true;
+                    UpdateSaveImageResultButtonState();
                 }
             }
         }
@@ -738,13 +817,15 @@ namespace Yolo26Detection1._0
                         void apply()
                         {
                             _isImageOutput = true;
+                            _lastImageDetectionSourcePath = path;
                             pictureBox.Image?.Dispose();
                             pictureBox.Image = new Bitmap(bmp);
                             pictureBox.Cursor = Cursors.Hand;
                             lblMediaInfo.Text = FormatMediaInfoImage(bmp.Width, bmp.Height, path);
                             trackBarZoom.Value = ComputeZoomPercentToFitPanel(bmp.Width, bmp.Height);
                             ApplyImageZoomLayout();
-                            lblStatus.Text = $"완료 — 검출 {dets.Count}개 (스크롤·배율 슬라이더로 확대/축소)";
+                            lblStatus.Text = $"완료 — 검출 {dets.Count}개 (우클릭·더블클릭 또는 「검출 결과 저장」으로 저장)";
+                            UpdateSaveImageResultButtonState();
                         }
                         if (this.IsDisposed || this.Disposing)
                             return;
@@ -778,6 +859,7 @@ namespace Yolo26Detection1._0
                     lblStatus.Text = "동영상 처리 중...";
                     btnImage.Enabled = false;
                     btnVideo.Enabled = false;
+                    btnSaveImageResult.Enabled = false;
                     StopOutputVideoPlayback();
                     _isImageOutput = false;
                     EndImagePan();
@@ -915,6 +997,7 @@ namespace Yolo26Detection1._0
                         lblStatus.Text = $"동영상 검출 중... 프레임 {frameIndex + 1} / {totalFrames} (검출 {detCount}개)";
                     else
                         lblStatus.Text = $"동영상 검출 중... 프레임 {frameIndex + 1} (검출 {detCount}개)";
+                    UpdateSaveImageResultButtonState();
                 }
                 if (InvokeRequired)
                     Invoke((Action)apply);
