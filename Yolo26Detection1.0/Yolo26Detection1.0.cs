@@ -23,6 +23,12 @@ namespace Yolo26Detection1._0
         private VideoCapture _playbackCapture;
         private Timer _playbackTimer;
         private bool _playbackFitOnFirstFrame;
+        private bool _playbackUiUpdating;
+        private bool _playbackSeekingByUser;
+        private int _playbackTotalFrames;
+        private double _playbackFps;
+        private bool _playbackPaused;
+        private string _lastPlaybackPath;
         private bool _startupInitDone;
 
         public MainForm()
@@ -42,6 +48,9 @@ namespace Yolo26Detection1._0
             pictureBox.MouseMove += PictureBox_MouseMove;
             pictureBox.MouseUp += PictureBox_MouseUp;
             pictureBox.MouseLeave += PictureBox_MouseLeave;
+            trackPlayback.MouseDown += TrackPlayback_MouseDown;
+            trackPlayback.MouseUp += TrackPlayback_MouseUp;
+            trackPlayback.ValueChanged += TrackPlayback_ValueChanged;
             Shown += MainForm_Shown;
         }
 
@@ -265,7 +274,7 @@ namespace Yolo26Detection1._0
                    frameLine;
         }
 
-        private void StopOutputVideoPlayback()
+        private void StopOutputVideoPlayback(bool preserveForReplay = false)
         {
             if (_playbackTimer != null)
             {
@@ -279,6 +288,31 @@ namespace Yolo26Detection1._0
                 _playbackCapture.Dispose();
                 _playbackCapture = null;
             }
+            _playbackTotalFrames = 0;
+            _playbackFps = 0;
+            _playbackUiUpdating = false;
+            _playbackSeekingByUser = false;
+            _playbackPaused = false;
+            if (!preserveForReplay)
+            {
+                _lastPlaybackPath = null;
+                trackPlayback.Enabled = false;
+                trackPlayback.Value = 0;
+                lblPlaybackPos.Text = "00:00 / 00:00";
+                btnPlaybackPause.Enabled = false;
+                btnPlaybackResume.Enabled = false;
+                btnPlaybackStop.Enabled = false;
+            }
+            else
+            {
+                _playbackUiUpdating = true;
+                trackPlayback.Value = trackPlayback.Minimum;
+                _playbackUiUpdating = false;
+                lblPlaybackPos.Text = BuildPlaybackPositionText(0);
+                btnPlaybackPause.Enabled = false;
+                btnPlaybackResume.Enabled = !string.IsNullOrEmpty(_lastPlaybackPath) && File.Exists(_lastPlaybackPath);
+                btnPlaybackStop.Enabled = false;
+            }
         }
 
         private void StartOutputVideoPlayback(string outputPath)
@@ -286,6 +320,7 @@ namespace Yolo26Detection1._0
             StopOutputVideoPlayback();
             if (!File.Exists(outputPath))
                 return;
+            _lastPlaybackPath = outputPath;
 
             _playbackCapture = new VideoCapture(outputPath);
             if (!_playbackCapture.IsOpened())
@@ -298,6 +333,21 @@ namespace Yolo26Detection1._0
             double fps = _playbackCapture.Fps;
             if (fps <= 1 || fps > 240)
                 fps = 30;
+            _playbackFps = fps;
+            _playbackTotalFrames = Math.Max(0, (int)_playbackCapture.FrameCount);
+            int w = Math.Max(0, (int)_playbackCapture.FrameWidth);
+            int h = Math.Max(0, (int)_playbackCapture.FrameHeight);
+            lblMediaInfo.Text = FormatMediaInfoVideo(w, h, _playbackFps, _playbackTotalFrames);
+            _playbackUiUpdating = true;
+            trackPlayback.Maximum = Math.Max(1, _playbackTotalFrames > 0 ? _playbackTotalFrames : 1000);
+            trackPlayback.Value = 0;
+            trackPlayback.Enabled = _playbackTotalFrames > 1;
+            _playbackUiUpdating = false;
+            lblPlaybackPos.Text = BuildPlaybackPositionText(0);
+            _playbackPaused = false;
+            btnPlaybackPause.Enabled = true;
+            btnPlaybackResume.Enabled = false;
+            btnPlaybackStop.Enabled = true;
             int interval = Math.Max(10, (int)Math.Round(1000.0 / fps));
 
             _playbackFitOnFirstFrame = true;
@@ -309,6 +359,10 @@ namespace Yolo26Detection1._0
         private void PlaybackTimer_Tick(object sender, EventArgs e)
         {
             if (_playbackCapture == null)
+                return;
+            if (_playbackSeekingByUser)
+                return;
+            if (_playbackPaused)
                 return;
 
             using (var frame = new Mat())
@@ -337,6 +391,115 @@ namespace Yolo26Detection1._0
                     ApplyImageZoomLayout();
                 }
             }
+            UpdatePlaybackUiFromCapture();
+        }
+
+        private void TrackPlayback_MouseDown(object sender, MouseEventArgs e)
+        {
+            _playbackSeekingByUser = true;
+        }
+
+        private void TrackPlayback_MouseUp(object sender, MouseEventArgs e)
+        {
+            ApplyPlaybackSeek(trackPlayback.Value);
+            _playbackSeekingByUser = false;
+        }
+
+        private void TrackPlayback_ValueChanged(object sender, EventArgs e)
+        {
+            if (_playbackUiUpdating || _playbackCapture == null)
+                return;
+            lblPlaybackPos.Text = BuildPlaybackPositionText(trackPlayback.Value);
+            if (_playbackSeekingByUser)
+                return;
+            ApplyPlaybackSeek(trackPlayback.Value);
+        }
+
+        private void ApplyPlaybackSeek(int targetFrame)
+        {
+            if (_playbackCapture == null)
+                return;
+
+            int frame = Math.Max(0, targetFrame);
+            if (_playbackTotalFrames > 0)
+                frame = Math.Min(frame, _playbackTotalFrames - 1);
+            _playbackCapture.Set(VideoCaptureProperties.PosFrames, frame);
+            UpdatePlaybackUiFromCapture();
+        }
+
+        private void UpdatePlaybackUiFromCapture()
+        {
+            if (_playbackCapture == null)
+                return;
+
+            int currentFrame = Math.Max(0, (int)_playbackCapture.Get(VideoCaptureProperties.PosFrames));
+            if (_playbackTotalFrames > 0)
+                currentFrame = Math.Min(currentFrame, _playbackTotalFrames);
+
+            _playbackUiUpdating = true;
+            if (currentFrame <= trackPlayback.Maximum)
+                trackPlayback.Value = Math.Max(trackPlayback.Minimum, currentFrame);
+            _playbackUiUpdating = false;
+            lblPlaybackPos.Text = BuildPlaybackPositionText(currentFrame);
+        }
+
+        private string BuildPlaybackPositionText(int currentFrame)
+        {
+            if (_playbackFps <= 0)
+                return "00:00 / 00:00";
+
+            double curSec;
+            if (_playbackCapture != null)
+            {
+                double posMs = _playbackCapture.Get(VideoCaptureProperties.PosMsec);
+                curSec = posMs > 0 ? posMs / 1000.0 : currentFrame / _playbackFps;
+            }
+            else
+                curSec = currentFrame / _playbackFps;
+
+            int totalFrame = _playbackTotalFrames > 0 ? _playbackTotalFrames : 0;
+            double totalSec = totalFrame > 0 ? (totalFrame / _playbackFps) : 0;
+            return $"{FormatSeconds(curSec)} / {FormatSeconds(totalSec)}";
+        }
+
+        private static string FormatSeconds(double sec)
+        {
+            if (sec < 0) sec = 0;
+            var ts = TimeSpan.FromSeconds(sec);
+            if (ts.TotalHours >= 1)
+                return ts.ToString(@"hh\:mm\:ss");
+            return ts.ToString(@"mm\:ss");
+        }
+
+        private void BtnPlaybackPause_Click(object sender, EventArgs e)
+        {
+            if (_playbackCapture == null)
+                return;
+            _playbackPaused = true;
+            btnPlaybackPause.Enabled = false;
+            btnPlaybackResume.Enabled = true;
+        }
+
+        private void BtnPlaybackResume_Click(object sender, EventArgs e)
+        {
+            if (_playbackCapture == null)
+            {
+                if (!string.IsNullOrEmpty(_lastPlaybackPath) && File.Exists(_lastPlaybackPath))
+                {
+                    StartOutputVideoPlayback(_lastPlaybackPath);
+                    lblStatus.Text = "동영상 재생 중: " + _lastPlaybackPath;
+                }
+                return;
+            }
+            _playbackPaused = false;
+            btnPlaybackPause.Enabled = true;
+            btnPlaybackResume.Enabled = false;
+        }
+
+        private void BtnPlaybackStop_Click(object sender, EventArgs e)
+        {
+            StopOutputVideoPlayback(preserveForReplay: true);
+            lblStatus.Text = "동영상 재생이 중지되었습니다. ▶ 버튼으로 다시 재생할 수 있습니다.";
         }
 
         private void ProgressBegin(bool continuous, int maximum = 100)
@@ -635,6 +798,20 @@ namespace Yolo26Detection1._0
                         btnVideo.Enabled = true;
                     }
                 }
+            }
+        }
+
+        private void BtnPlayOutput_Click(object sender, EventArgs e)
+        {
+            using (var open = new OpenFileDialog())
+            {
+                open.Filter = "동영상|*.mp4;*.avi;*.mov;*.mkv;*.webm|모든 파일|*.*";
+                open.Title = "재생할 검출 결과 동영상 선택";
+                if (open.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                StartOutputVideoPlayback(open.FileName);
+                lblStatus.Text = "결과 동영상 재생 중: " + open.FileName;
             }
         }
 
