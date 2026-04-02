@@ -19,6 +19,7 @@ namespace Yolo26Detection1._0
             this.txtOnnxPath = new System.Windows.Forms.TextBox();
             this.btnBrowseOnnx = new System.Windows.Forms.Button();
             this.btnLoadModel = new System.Windows.Forms.Button();
+            this.btnDownloadModel = new System.Windows.Forms.Button();
             this.lblOnnx = new System.Windows.Forms.Label();
             this.lblConf = new System.Windows.Forms.Label();
             this.numConf = new System.Windows.Forms.NumericUpDown();
@@ -76,6 +77,17 @@ namespace Yolo26Detection1._0
             this.btnLoadModel.Text = "모델 로드";
             this.btnLoadModel.UseVisualStyleBackColor = true;
             this.btnLoadModel.Click += new System.EventHandler(this.BtnLoadModel_Click);
+            // 
+            // btnDownloadModel
+            // 
+            this.btnDownloadModel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnDownloadModel.Location = new System.Drawing.Point(920, 42);
+            this.btnDownloadModel.Name = "btnDownloadModel";
+            this.btnDownloadModel.Size = new System.Drawing.Size(95, 25);
+            this.btnDownloadModel.TabIndex = 21;
+            this.btnDownloadModel.Text = "모델 다운로드";
+            this.btnDownloadModel.UseVisualStyleBackColor = true;
+            this.btnDownloadModel.Click += new System.EventHandler(this.BtnDownloadModel_Click);
             // 
             // lblOnnx
             // 
@@ -137,7 +149,7 @@ namespace Yolo26Detection1._0
             // 
             this.btnVideo.Location = new System.Drawing.Point(326, 42);
             this.btnVideo.Name = "btnVideo";
-            this.btnVideo.Size = new System.Drawing.Size(120, 25);
+            this.btnVideo.Size = new System.Drawing.Size(110, 25);
             this.btnVideo.TabIndex = 6;
             this.btnVideo.Text = "동영상 검출...";
             this.btnVideo.UseVisualStyleBackColor = true;
@@ -145,9 +157,9 @@ namespace Yolo26Detection1._0
             // 
             // btnPlayOutput
             // 
-            this.btnPlayOutput.Location = new System.Drawing.Point(452, 42);
+            this.btnPlayOutput.Location = new System.Drawing.Point(442, 42);
             this.btnPlayOutput.Name = "btnPlayOutput";
-            this.btnPlayOutput.Size = new System.Drawing.Size(120, 25);
+            this.btnPlayOutput.Size = new System.Drawing.Size(115, 25);
             this.btnPlayOutput.TabIndex = 7;
             this.btnPlayOutput.Text = "결과 동영상 열기";
             this.btnPlayOutput.UseVisualStyleBackColor = true;
@@ -325,6 +337,7 @@ namespace Yolo26Detection1._0
             this.Controls.Add(this.btnBrowseOnnx);
             this.Controls.Add(this.txtOnnxPath);
             this.Controls.Add(this.btnLoadModel);
+            this.Controls.Add(this.btnDownloadModel);
             this.Controls.Add(this.lblOnnx);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MinimumSize = new System.Drawing.Size(700, 520);
@@ -344,6 +357,7 @@ namespace Yolo26Detection1._0
         private System.Windows.Forms.TextBox txtOnnxPath;
         private System.Windows.Forms.Button btnBrowseOnnx;
         private System.Windows.Forms.Button btnLoadModel;
+        private System.Windows.Forms.Button btnDownloadModel;
         private System.Windows.Forms.Label lblOnnx;
         private System.Windows.Forms.Label lblConf;
         private System.Windows.Forms.NumericUpDown numConf;
