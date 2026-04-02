@@ -26,6 +26,7 @@ namespace Yolo26Detection1._0
             this.btnImage = new System.Windows.Forms.Button();
             this.btnVideo = new System.Windows.Forms.Button();
             this.btnPlayOutput = new System.Windows.Forms.Button();
+            this.btnSaveImageResult = new System.Windows.Forms.Button();
             this.lblZoom = new System.Windows.Forms.Label();
             this.trackBarZoom = new System.Windows.Forms.TrackBar();
             this.lblZoomPct = new System.Windows.Forms.Label();
@@ -164,6 +165,17 @@ namespace Yolo26Detection1._0
             this.btnPlayOutput.Text = "결과 동영상 열기";
             this.btnPlayOutput.UseVisualStyleBackColor = true;
             this.btnPlayOutput.Click += new System.EventHandler(this.BtnPlayOutput_Click);
+            // 
+            // btnSaveImageResult
+            // 
+            this.btnSaveImageResult.Enabled = false;
+            this.btnSaveImageResult.Location = new System.Drawing.Point(578, 42);
+            this.btnSaveImageResult.Name = "btnSaveImageResult";
+            this.btnSaveImageResult.Size = new System.Drawing.Size(120, 25);
+            this.btnSaveImageResult.TabIndex = 8;
+            this.btnSaveImageResult.Text = "검출 결과 저장";
+            this.btnSaveImageResult.UseVisualStyleBackColor = true;
+            this.btnSaveImageResult.Click += new System.EventHandler(this.BtnSaveImageResult_Click);
             // 
             // lblZoom
             // 
@@ -332,6 +344,7 @@ namespace Yolo26Detection1._0
             this.Controls.Add(this.btnVideo);
             this.Controls.Add(this.btnImage);
             this.Controls.Add(this.btnPlayOutput);
+            this.Controls.Add(this.btnSaveImageResult);
             this.Controls.Add(this.numConf);
             this.Controls.Add(this.lblConf);
             this.Controls.Add(this.btnBrowseOnnx);
@@ -364,6 +377,7 @@ namespace Yolo26Detection1._0
         private System.Windows.Forms.Button btnImage;
         private System.Windows.Forms.Button btnVideo;
         private System.Windows.Forms.Button btnPlayOutput;
+        private System.Windows.Forms.Button btnSaveImageResult;
         private System.Windows.Forms.Label lblZoom;
         private System.Windows.Forms.TrackBar trackBarZoom;
         private System.Windows.Forms.Label lblZoomPct;
