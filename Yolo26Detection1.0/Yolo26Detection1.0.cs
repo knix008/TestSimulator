@@ -70,19 +70,54 @@ namespace Yolo26Detection1._0
 
             if (!File.Exists(defaultOnnx))
             {
-                using (var dlg = new ModelPrepareDialog(projectRoot, defaultOnnx))
+                var confirm = MessageBox.Show(
+                    this,
+                    "기본 모델 파일이 없습니다.\r\n지금 모델을 다운로드하고 ONNX로 변환하시겠습니까?",
+                    "모델 다운로드 필요",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (confirm != DialogResult.Yes)
                 {
-                    dlg.ShowDialog(this);
-                    if (!dlg.IsSuccess || !File.Exists(defaultOnnx))
-                    {
-                        lblStatus.Text = "기본 ONNX가 없어 모델 로드가 보류되었습니다. ONNX 경로를 지정하거나 변환을 다시 시도하세요.";
-                        return;
-                    }
+                    lblStatus.Text = "기본 ONNX가 없어 모델 로드가 보류되었습니다. 「모델 다운로드」 버튼으로 다시 시도하세요.";
+                    return;
+                }
+
+                if (!RunModelPrepareWithFailurePopup(projectRoot, defaultOnnx))
+                {
+                    lblStatus.Text = "기본 ONNX 다운로드/변환 실패. 「모델 다운로드」 버튼으로 다시 시도하세요.";
+                    return;
                 }
             }
 
             await Task.Yield();
             TryLoadModel(showErrorDialog: true);
+        }
+
+        private bool RunModelPrepareWithFailurePopup(string projectRoot, string targetOnnxPath)
+        {
+            while (true)
+            {
+                bool success;
+                using (var dlg = new ModelPrepareDialog(projectRoot, targetOnnxPath))
+                {
+                    dlg.ShowDialog(this);
+                    success = dlg.IsSuccess && File.Exists(targetOnnxPath);
+                }
+
+                if (success)
+                    return true;
+
+                var retry = MessageBox.Show(
+                    this,
+                    "모델 다운로드 또는 변환에 실패했습니다.\r\n네트워크/Python 환경을 확인한 뒤 다시 시도하시겠습니까?",
+                    "모델 다운로드 실패",
+                    MessageBoxButtons.RetryCancel,
+                    MessageBoxIcon.Warning);
+
+                if (retry != DialogResult.Retry)
+                    return false;
+            }
         }
 
         private static string FindProjectRoot()
@@ -628,6 +663,23 @@ namespace Yolo26Detection1._0
 
         private void BtnLoadModel_Click(object sender, EventArgs e)
         {
+            TryLoadModel(showErrorDialog: true);
+        }
+
+        private async void BtnDownloadModel_Click(object sender, EventArgs e)
+        {
+            string projectRoot = FindProjectRoot();
+            string defaultOnnx = Path.Combine(projectRoot, "models", "yolo26n.onnx");
+            txtOnnxPath.Text = defaultOnnx;
+
+            if (!RunModelPrepareWithFailurePopup(projectRoot, defaultOnnx))
+            {
+                lblStatus.Text = "모델 다운로드/변환 실패. 다시 시도해주세요.";
+                return;
+            }
+
+            lblStatus.Text = "모델 다운로드/변환 완료. 모델을 로드합니다...";
+            await Task.Yield();
             TryLoadModel(showErrorDialog: true);
         }
 
