@@ -8,8 +8,42 @@ public partial class ImageSelectorV10 : Form
     public ImageSelectorV10()
     {
         InitializeComponent();
+        KeyPreview = true;
+        KeyDown += ImageSelectorV10_KeyDown;
         imageEditorPanel.ZoomFactorChanged += (_, z) => UpdateZoomLabel(z);
         imageEditorPanel.SelectionChanged += imageEditorPanel_SelectionChanged;
+    }
+
+    private void ImageSelectorV10_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Control || e.Alt) return;
+        if (e.KeyCode is not (Keys.Left or Keys.Right or Keys.Up or Keys.Down))
+            return;
+        if (ActiveControl is TextBoxBase)
+            return;
+        if (!imageEditorPanel.HasSelection) return;
+
+        int step = e.Shift ? 10 : 1;
+        switch (e.KeyCode)
+        {
+            case Keys.Left:
+                imageEditorPanel.MoveSelectionByPixels(-step, 0);
+                break;
+            case Keys.Right:
+                imageEditorPanel.MoveSelectionByPixels(step, 0);
+                break;
+            case Keys.Up:
+                imageEditorPanel.MoveSelectionByPixels(0, -step);
+                break;
+            case Keys.Down:
+                imageEditorPanel.MoveSelectionByPixels(0, step);
+                break;
+            default:
+                return;
+        }
+
+        e.Handled = true;
+        e.SuppressKeyPress = true;
     }
 
     private bool _syncingSelectionSizeUi;

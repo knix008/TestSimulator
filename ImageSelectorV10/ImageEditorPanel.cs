@@ -84,7 +84,11 @@ internal sealed class ImageEditorPanel : Panel
         _hasSelection = true;
         _canvas.Invalidate();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
+        FocusCanvas();
     }
+
+    /// <summary>이미지 캔버스에 포커스를 둡니다. 키보드(화살표 등) 입력을 받기 위해 사용합니다.</summary>
+    public void FocusCanvas() => _canvas.Focus();
 
     /// <summary>선택 영역을 원본 이미지 좌표 기준으로 이동합니다. 이미지 경계 안으로 잘립니다.</summary>
     public void MoveSelectionByPixels(int deltaX, int deltaY)
@@ -103,35 +107,6 @@ internal sealed class ImageEditorPanel : Panel
         _canvas.Invalidate();
         ScrollSelectionIntoView();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    private bool TryHandleArrowKey(KeyEventArgs e)
-    {
-        if (_sourceImage == null || !_hasSelection) return false;
-        int step = e.Shift ? 10 : 1;
-        int dx = 0, dy = 0;
-        switch (e.KeyCode)
-        {
-            case Keys.Left:
-                dx = -step;
-                break;
-            case Keys.Right:
-                dx = step;
-                break;
-            case Keys.Up:
-                dy = -step;
-                break;
-            case Keys.Down:
-                dy = step;
-                break;
-            default:
-                return false;
-        }
-
-        e.Handled = true;
-        e.SuppressKeyPress = true;
-        MoveSelectionByPixels(dx, dy);
-        return true;
     }
 
     private void ScrollSelectionIntoView()
@@ -448,22 +423,6 @@ internal sealed class ImageEditorPanel : Panel
         protected override void OnMouseWheel(MouseEventArgs e)
         {
             _host.CanvasMouseWheel(e);
-        }
-
-        protected override bool IsInputKey(Keys keyData)
-        {
-            return keyData switch
-            {
-                Keys.Left or Keys.Right or Keys.Up or Keys.Down => true,
-                _ => base.IsInputKey(keyData)
-            };
-        }
-
-        protected override void OnKeyDown(KeyEventArgs e)
-        {
-            if (_host.TryHandleArrowKey(e))
-                return;
-            base.OnKeyDown(e);
         }
     }
 }
