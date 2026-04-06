@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace CircleIconWin
 {
-    public partial class Form1 : Form
+    public partial class CircleIconWin : Form
     {
         // ZoomPanel: AutoScroll 패널이 마우스 휠로 자동 스크롤하지 않도록 억제
         private class ZoomPanel : Panel
@@ -39,7 +39,7 @@ namespace CircleIconWin
 
         private SelectionMode currentSelectionMode = SelectionMode.Circle;
 
-        public Form1()
+        public CircleIconWin()
         {
             InitializeComponent();
 
@@ -73,7 +73,7 @@ namespace CircleIconWin
             pictureBox1.Paint += PictureBox1_Paint;
             pictureBox1.MouseWheel += PictureBox1_MouseWheel;
             pictureBox1.MouseLeave += PictureBox1_MouseLeave;
-            this.KeyDown += Form1_KeyDown;
+            this.KeyDown += CircleIconWin_KeyDown;
 
             btnCircleSelection.Click += (s, e) => SetSelectionMode(SelectionMode.Circle);
             btnEllipseSelection.Click += (s, e) => SetSelectionMode(SelectionMode.Ellipse);
@@ -559,7 +559,7 @@ namespace CircleIconWin
             }
         }
 
-        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        private void CircleIconWin_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Escape)
             {
@@ -594,7 +594,7 @@ namespace CircleIconWin
         {
             if (keyData == Keys.Up || keyData == Keys.Down || keyData == Keys.Left || keyData == Keys.Right)
             {
-                Form1_KeyDown(this, new KeyEventArgs(keyData));
+                CircleIconWin_KeyDown(this, new KeyEventArgs(keyData));
                 return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);
