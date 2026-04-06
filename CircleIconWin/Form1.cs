@@ -1,7 +1,9 @@
 using System;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 using System.Drawing.Drawing2D;
+using SkiaSharp;
 
 namespace CircleIconWin
 {
@@ -68,11 +70,138 @@ namespace CircleIconWin
             pictureBox1.MouseLeave += PictureBox1_MouseLeave;
             this.KeyDown += Form1_KeyDown;
 
-            // Attach event handlers for selection mode buttons
-            btnCircleSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Circle;
-            btnEllipseSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Ellipse;
-            btnSquareSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Square;
-            btnRectangleSelection.Click += (s, e) => currentSelectionMode = SelectionMode.Rectangle;
+            btnCircleSelection.Click += (s, e) => SetSelectionMode(SelectionMode.Circle);
+            btnEllipseSelection.Click += (s, e) => SetSelectionMode(SelectionMode.Ellipse);
+            btnSquareSelection.Click += (s, e) => SetSelectionMode(SelectionMode.Square);
+            btnRectangleSelection.Click += (s, e) => SetSelectionMode(SelectionMode.Rectangle);
+            UpdateSizeInputPanelsVisibility();
+            KeyEventHandler sizeNudEnter = (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                    ApplySizeFromInputs();
+                }
+            };
+            nudCircleRadius.KeyDown += sizeNudEnter;
+            nudEllipseRadiusVertical.KeyDown += sizeNudEnter;
+            nudEllipseRadiusHorizontal.KeyDown += sizeNudEnter;
+            nudSquareSide.KeyDown += sizeNudEnter;
+            nudRectHeight.KeyDown += sizeNudEnter;
+            nudRectWidth.KeyDown += sizeNudEnter;
+        }
+
+        private void SetSelectionMode(SelectionMode mode)
+        {
+            currentSelectionMode = mode;
+            UpdateSizeInputPanelsVisibility();
+            if (!selectionRectImg.IsEmpty)
+                SyncNumericUpDownsFromSelection();
+        }
+
+        private void UpdateSizeInputPanelsVisibility()
+        {
+            panelSizeCircle.Visible = currentSelectionMode == SelectionMode.Circle;
+            panelSizeEllipse.Visible = currentSelectionMode == SelectionMode.Ellipse;
+            panelSizeSquare.Visible = currentSelectionMode == SelectionMode.Square;
+            panelSizeRectangle.Visible = currentSelectionMode == SelectionMode.Rectangle;
+        }
+
+        private void ConfigureSizeNumericMaximums()
+        {
+            if (loadedImage == null) return;
+            int m = Math.Max(loadedImage.Width, loadedImage.Height);
+            decimal max = Math.Max(1, m);
+            foreach (NumericUpDown nud in new[] {
+                nudCircleRadius, nudEllipseRadiusVertical, nudEllipseRadiusHorizontal,
+                nudSquareSide, nudRectHeight, nudRectWidth })
+            {
+                nud.Maximum = max;
+                if (nud.Value > max)
+                    nud.Value = max;
+            }
+        }
+
+        private static void SetNudValue(NumericUpDown nud, float value)
+        {
+            decimal v = (decimal)Math.Round(value, 1);
+            if (v < nud.Minimum) v = nud.Minimum;
+            if (v > nud.Maximum) v = nud.Maximum;
+            nud.Value = v;
+        }
+
+        private void SyncNumericUpDownsFromSelection()
+        {
+            if (selectionRectImg.IsEmpty || selectionRectImg.Width < 0.01f || selectionRectImg.Height < 0.01f)
+                return;
+            SetNudValue(nudCircleRadius, selectionRectImg.Width / 2f);
+            SetNudValue(nudEllipseRadiusVertical, selectionRectImg.Height / 2f);
+            SetNudValue(nudEllipseRadiusHorizontal, selectionRectImg.Width / 2f);
+            SetNudValue(nudSquareSide, selectionRectImg.Width);
+            SetNudValue(nudRectHeight, selectionRectImg.Height);
+            SetNudValue(nudRectWidth, selectionRectImg.Width);
+        }
+
+        private void ApplySizeFromInputs()
+        {
+            if (loadedImage == null)
+            {
+                MessageBox.Show("이미지를 먼저 여세요.");
+                return;
+            }
+
+            float cx, cy;
+            if (!selectionRectImg.IsEmpty)
+            {
+                cx = selectionRectImg.X + selectionRectImg.Width / 2f;
+                cy = selectionRectImg.Y + selectionRectImg.Height / 2f;
+            }
+            else
+            {
+                cx = loadedImage.Width / 2f;
+                cy = loadedImage.Height / 2f;
+            }
+
+            float w, h;
+            switch (currentSelectionMode)
+            {
+                case SelectionMode.Circle:
+                    float r = (float)nudCircleRadius.Value;
+                    w = h = 2f * r;
+                    break;
+                case SelectionMode.Ellipse:
+                    float rv = (float)nudEllipseRadiusVertical.Value;
+                    float rh = (float)nudEllipseRadiusHorizontal.Value;
+                    w = 2f * rh;
+                    h = 2f * rv;
+                    break;
+                case SelectionMode.Square:
+                    float s = (float)nudSquareSide.Value;
+                    w = h = s;
+                    break;
+                default:
+                    h = (float)nudRectHeight.Value;
+                    w = (float)nudRectWidth.Value;
+                    break;
+            }
+
+            w = Math.Max(1f, Math.Min(w, loadedImage.Width));
+            h = Math.Max(1f, Math.Min(h, loadedImage.Height));
+
+            float x = cx - w / 2f;
+            float y = cy - h / 2f;
+            x = Math.Max(0f, Math.Min(x, loadedImage.Width - w));
+            y = Math.Max(0f, Math.Min(y, loadedImage.Height - h));
+
+            selectionRectImg = new RectangleF(x, y, w, h);
+            pictureBox1.Invalidate();
+            UpdateStatus(null);
+        }
+
+        private void btnApplySize_Click(object sender, EventArgs e)
+        {
+            ApplySizeFromInputs();
         }
 
         // PictureBox 내에서 이미지가 중앙에 그려지는 오프셋 반환
@@ -95,14 +224,46 @@ namespace CircleIconWin
                 Math.Max(panelView.Height, (int)(loadedImage.Height * zoomScale)));
         }
 
+        private static Image LoadImageFromPath(string path)
+        {
+            string ext = Path.GetExtension(path);
+            if (string.Equals(ext, ".webp", StringComparison.OrdinalIgnoreCase))
+            {
+                using (FileStream stream = File.OpenRead(path))
+                using (SKBitmap skBitmap = SKBitmap.Decode(stream))
+                {
+                    if (skBitmap == null)
+                        throw new InvalidOperationException("WebP 이미지를 디코딩할 수 없습니다.");
+                    using (SKImage skImage = SKImage.FromBitmap(skBitmap))
+                    using (SKData data = skImage.Encode(SKEncodedImageFormat.Png, 100))
+                    using (var ms = new MemoryStream(data.ToArray()))
+                    using (Image temp = Image.FromStream(ms))
+                        return new Bitmap(temp);
+                }
+            }
+            return Image.FromFile(path);
+        }
+
         private void BtnOpen_Click(object sender, EventArgs e)
         {
             using (OpenFileDialog ofd = new OpenFileDialog())
             {
-                ofd.Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp;*.gif";
+                ofd.Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
-                    loadedImage = Image.FromFile(ofd.FileName);
+                    Image next;
+                    try
+                    {
+                        next = LoadImageFromPath(ofd.FileName);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("이미지를 열 수 없습니다.\n" + ex.Message, "오류",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                    loadedImage?.Dispose();
+                    loadedImage = next;
                     selectionRectImg = RectangleF.Empty;
                     isDragging = false;
                     float scaleX = (float)panelView.Width / loadedImage.Width;
@@ -110,6 +271,8 @@ namespace CircleIconWin
                     zoomScale = Math.Min(scaleX, scaleY);
                     panelView.AutoScrollPosition = new Point(0, 0);
                     ResizePictureBox();
+                    ConfigureSizeNumericMaximums();
+                    SyncNumericUpDownsFromSelection();
                     UpdateStatus(null);
                     pictureBox1.Invalidate();
                 }
@@ -282,6 +445,7 @@ namespace CircleIconWin
         private void PictureBox1_MouseUp(object sender, MouseEventArgs e)
         {
             isDragging = false;
+            SyncNumericUpDownsFromSelection();
             UpdateStatus(e.Location);
         }
 
@@ -429,11 +593,6 @@ namespace CircleIconWin
                 return true;
             }
             return base.ProcessCmdKey(ref msg, keyData);
-        }
-
-        private void btnCircleSelection_Click(object sender, EventArgs e)
-        {
-            currentSelectionMode = SelectionMode.Circle;
         }
 
         private void lblSelectionInfo_Click(object sender, EventArgs e)
