@@ -1,6 +1,19 @@
 # Build output
-bin/
-obj/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+out/
+
+# MSBuild / dotnet
+*.log
+*.binlog
+*.tlog
+*.cache
+project.lock.json
+project.fragment.lock.json
+*.nuget.props
+*.nuget.targets
 
 # Visual Studio
 .vs/
@@ -8,17 +21,35 @@ obj/
 *.suo
 *.userosscache
 *.sln.docstates
+*.rsuser
 
-# NuGet
+# NuGet (legacy packages folder; PackageReference uses %UserProfile%\.nuget)
 packages/
 *.nupkg
+*.snupkg
+
+# Test
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# Publish / ClickOnce
+publish/
+*.publishproj
+*.pubxml
+*.azurePubxml
 
 # Rider / JetBrains
 .idea/
+*.sln.iml
 
-# VS Code
+# VS Code (로컬 전용; 공유할 설정이 있으면 ! 규칙으로 예외 추가)
 .vscode/
+.history/
 
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini

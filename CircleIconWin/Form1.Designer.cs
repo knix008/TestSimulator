@@ -48,37 +48,37 @@ namespace CircleIconWin
             this.btnSquareSelection = new System.Windows.Forms.Button();
             this.btnRectangleSelection = new System.Windows.Forms.Button();
             this.groupBoxSize = new System.Windows.Forms.GroupBox();
-            this.panelSizeCircle = new System.Windows.Forms.Panel();
-            this.lblCircleRadius = new System.Windows.Forms.Label();
-            this.nudCircleRadius = new System.Windows.Forms.NumericUpDown();
-            this.panelSizeEllipse = new System.Windows.Forms.Panel();
-            this.lblEllipseRadiusVertical = new System.Windows.Forms.Label();
-            this.nudEllipseRadiusVertical = new System.Windows.Forms.NumericUpDown();
-            this.lblEllipseRadiusHorizontal = new System.Windows.Forms.Label();
-            this.nudEllipseRadiusHorizontal = new System.Windows.Forms.NumericUpDown();
-            this.panelSizeSquare = new System.Windows.Forms.Panel();
-            this.lblSquareSide = new System.Windows.Forms.Label();
-            this.nudSquareSide = new System.Windows.Forms.NumericUpDown();
+            this.btnApplySize = new System.Windows.Forms.Button();
             this.panelSizeRectangle = new System.Windows.Forms.Panel();
             this.lblRectHeight = new System.Windows.Forms.Label();
             this.nudRectHeight = new System.Windows.Forms.NumericUpDown();
             this.lblRectWidth = new System.Windows.Forms.Label();
             this.nudRectWidth = new System.Windows.Forms.NumericUpDown();
-            this.btnApplySize = new System.Windows.Forms.Button();
+            this.panelSizeSquare = new System.Windows.Forms.Panel();
+            this.lblSquareSide = new System.Windows.Forms.Label();
+            this.nudSquareSide = new System.Windows.Forms.NumericUpDown();
+            this.panelSizeEllipse = new System.Windows.Forms.Panel();
+            this.lblEllipseRadiusVertical = new System.Windows.Forms.Label();
+            this.nudEllipseRadiusVertical = new System.Windows.Forms.NumericUpDown();
+            this.lblEllipseRadiusHorizontal = new System.Windows.Forms.Label();
+            this.nudEllipseRadiusHorizontal = new System.Windows.Forms.NumericUpDown();
+            this.panelSizeCircle = new System.Windows.Forms.Panel();
+            this.lblCircleRadius = new System.Windows.Forms.Label();
+            this.nudCircleRadius = new System.Windows.Forms.NumericUpDown();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
+            this.menuStrip1.SuspendLayout();
+            this.toolStrip1.SuspendLayout();
             this.groupBoxSize.SuspendLayout();
-            this.panelSizeCircle.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudCircleRadius)).BeginInit();
-            this.panelSizeEllipse.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusVertical)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusHorizontal)).BeginInit();
-            this.panelSizeSquare.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudSquareSide)).BeginInit();
             this.panelSizeRectangle.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.nudRectHeight)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudRectWidth)).BeginInit();
-            this.menuStrip1.SuspendLayout();
-            this.toolStrip1.SuspendLayout();
+            this.panelSizeSquare.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudSquareSide)).BeginInit();
+            this.panelSizeEllipse.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusVertical)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusHorizontal)).BeginInit();
+            this.panelSizeCircle.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudCircleRadius)).BeginInit();
             this.SuspendLayout();
             // 
             // pictureBox1
@@ -253,184 +253,15 @@ namespace CircleIconWin
             this.groupBoxSize.TabStop = false;
             this.groupBoxSize.Text = "크기 입력 (픽셀)";
             // 
-            // panelSizeCircle
+            // btnApplySize
             // 
-            this.panelSizeCircle.Controls.Add(this.lblCircleRadius);
-            this.panelSizeCircle.Controls.Add(this.nudCircleRadius);
-            this.panelSizeCircle.Location = new System.Drawing.Point(6, 18);
-            this.panelSizeCircle.Name = "panelSizeCircle";
-            this.panelSizeCircle.Size = new System.Drawing.Size(188, 140);
-            this.panelSizeCircle.TabIndex = 0;
-            // 
-            // lblCircleRadius
-            // 
-            this.lblCircleRadius.AutoSize = true;
-            this.lblCircleRadius.Location = new System.Drawing.Point(3, 6);
-            this.lblCircleRadius.Name = "lblCircleRadius";
-            this.lblCircleRadius.Size = new System.Drawing.Size(41, 12);
-            this.lblCircleRadius.TabIndex = 0;
-            this.lblCircleRadius.Text = "반지름";
-            // 
-            // nudCircleRadius
-            // 
-            this.nudCircleRadius.DecimalPlaces = 1;
-            this.nudCircleRadius.Increment = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudCircleRadius.Location = new System.Drawing.Point(5, 24);
-            this.nudCircleRadius.Maximum = new decimal(new int[] {
-            10000,
-            0,
-            0,
-            0});
-            this.nudCircleRadius.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudCircleRadius.Name = "nudCircleRadius";
-            this.nudCircleRadius.Size = new System.Drawing.Size(100, 21);
-            this.nudCircleRadius.TabIndex = 1;
-            this.nudCircleRadius.Value = new decimal(new int[] {
-            50,
-            0,
-            0,
-            0});
-            // 
-            // panelSizeEllipse
-            // 
-            this.panelSizeEllipse.Controls.Add(this.lblEllipseRadiusVertical);
-            this.panelSizeEllipse.Controls.Add(this.nudEllipseRadiusVertical);
-            this.panelSizeEllipse.Controls.Add(this.lblEllipseRadiusHorizontal);
-            this.panelSizeEllipse.Controls.Add(this.nudEllipseRadiusHorizontal);
-            this.panelSizeEllipse.Location = new System.Drawing.Point(6, 18);
-            this.panelSizeEllipse.Name = "panelSizeEllipse";
-            this.panelSizeEllipse.Size = new System.Drawing.Size(188, 140);
-            this.panelSizeEllipse.TabIndex = 1;
-            this.panelSizeEllipse.Visible = false;
-            // 
-            // lblEllipseRadiusVertical
-            // 
-            this.lblEllipseRadiusVertical.AutoSize = true;
-            this.lblEllipseRadiusVertical.Location = new System.Drawing.Point(3, 6);
-            this.lblEllipseRadiusVertical.Name = "lblEllipseRadiusVertical";
-            this.lblEllipseRadiusVertical.Size = new System.Drawing.Size(81, 12);
-            this.lblEllipseRadiusVertical.TabIndex = 0;
-            this.lblEllipseRadiusVertical.Text = "상하 반지름";
-            // 
-            // nudEllipseRadiusVertical
-            // 
-            this.nudEllipseRadiusVertical.DecimalPlaces = 1;
-            this.nudEllipseRadiusVertical.Increment = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudEllipseRadiusVertical.Location = new System.Drawing.Point(5, 24);
-            this.nudEllipseRadiusVertical.Maximum = new decimal(new int[] {
-            10000,
-            0,
-            0,
-            0});
-            this.nudEllipseRadiusVertical.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudEllipseRadiusVertical.Name = "nudEllipseRadiusVertical";
-            this.nudEllipseRadiusVertical.Size = new System.Drawing.Size(100, 21);
-            this.nudEllipseRadiusVertical.TabIndex = 1;
-            this.nudEllipseRadiusVertical.Value = new decimal(new int[] {
-            40,
-            0,
-            0,
-            0});
-            // 
-            // lblEllipseRadiusHorizontal
-            // 
-            this.lblEllipseRadiusHorizontal.AutoSize = true;
-            this.lblEllipseRadiusHorizontal.Location = new System.Drawing.Point(3, 54);
-            this.lblEllipseRadiusHorizontal.Name = "lblEllipseRadiusHorizontal";
-            this.lblEllipseRadiusHorizontal.Size = new System.Drawing.Size(81, 12);
-            this.lblEllipseRadiusHorizontal.TabIndex = 2;
-            this.lblEllipseRadiusHorizontal.Text = "좌우 반지름";
-            // 
-            // nudEllipseRadiusHorizontal
-            // 
-            this.nudEllipseRadiusHorizontal.DecimalPlaces = 1;
-            this.nudEllipseRadiusHorizontal.Increment = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudEllipseRadiusHorizontal.Location = new System.Drawing.Point(5, 72);
-            this.nudEllipseRadiusHorizontal.Maximum = new decimal(new int[] {
-            10000,
-            0,
-            0,
-            0});
-            this.nudEllipseRadiusHorizontal.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudEllipseRadiusHorizontal.Name = "nudEllipseRadiusHorizontal";
-            this.nudEllipseRadiusHorizontal.Size = new System.Drawing.Size(100, 21);
-            this.nudEllipseRadiusHorizontal.TabIndex = 3;
-            this.nudEllipseRadiusHorizontal.Value = new decimal(new int[] {
-            60,
-            0,
-            0,
-            0});
-            // 
-            // panelSizeSquare
-            // 
-            this.panelSizeSquare.Controls.Add(this.lblSquareSide);
-            this.panelSizeSquare.Controls.Add(this.nudSquareSide);
-            this.panelSizeSquare.Location = new System.Drawing.Point(6, 18);
-            this.panelSizeSquare.Name = "panelSizeSquare";
-            this.panelSizeSquare.Size = new System.Drawing.Size(188, 140);
-            this.panelSizeSquare.TabIndex = 2;
-            this.panelSizeSquare.Visible = false;
-            // 
-            // lblSquareSide
-            // 
-            this.lblSquareSide.AutoSize = true;
-            this.lblSquareSide.Location = new System.Drawing.Point(3, 6);
-            this.lblSquareSide.Name = "lblSquareSide";
-            this.lblSquareSide.Size = new System.Drawing.Size(53, 12);
-            this.lblSquareSide.TabIndex = 0;
-            this.lblSquareSide.Text = "한 변 길이";
-            // 
-            // nudSquareSide
-            // 
-            this.nudSquareSide.DecimalPlaces = 1;
-            this.nudSquareSide.Increment = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudSquareSide.Location = new System.Drawing.Point(5, 24);
-            this.nudSquareSide.Maximum = new decimal(new int[] {
-            10000,
-            0,
-            0,
-            0});
-            this.nudSquareSide.Minimum = new decimal(new int[] {
-            1,
-            0,
-            0,
-            65536});
-            this.nudSquareSide.Name = "nudSquareSide";
-            this.nudSquareSide.Size = new System.Drawing.Size(100, 21);
-            this.nudSquareSide.TabIndex = 1;
-            this.nudSquareSide.Value = new decimal(new int[] {
-            100,
-            0,
-            0,
-            0});
+            this.btnApplySize.Location = new System.Drawing.Point(10, 168);
+            this.btnApplySize.Name = "btnApplySize";
+            this.btnApplySize.Size = new System.Drawing.Size(180, 32);
+            this.btnApplySize.TabIndex = 4;
+            this.btnApplySize.Text = "크기 적용";
+            this.btnApplySize.UseVisualStyleBackColor = true;
+            this.btnApplySize.Click += new System.EventHandler(this.btnApplySize_Click);
             // 
             // panelSizeRectangle
             // 
@@ -486,7 +317,7 @@ namespace CircleIconWin
             this.lblRectWidth.AutoSize = true;
             this.lblRectWidth.Location = new System.Drawing.Point(3, 54);
             this.lblRectWidth.Name = "lblRectWidth";
-            this.lblRectWidth.Size = new System.Drawing.Size(29, 12);
+            this.lblRectWidth.Size = new System.Drawing.Size(17, 12);
             this.lblRectWidth.TabIndex = 2;
             this.lblRectWidth.Text = "폭";
             // 
@@ -518,15 +349,184 @@ namespace CircleIconWin
             0,
             0});
             // 
-            // btnApplySize
+            // panelSizeSquare
             // 
-            this.btnApplySize.Location = new System.Drawing.Point(10, 168);
-            this.btnApplySize.Name = "btnApplySize";
-            this.btnApplySize.Size = new System.Drawing.Size(180, 32);
-            this.btnApplySize.TabIndex = 4;
-            this.btnApplySize.Text = "크기 적용";
-            this.btnApplySize.UseVisualStyleBackColor = true;
-            this.btnApplySize.Click += new System.EventHandler(this.btnApplySize_Click);
+            this.panelSizeSquare.Controls.Add(this.lblSquareSide);
+            this.panelSizeSquare.Controls.Add(this.nudSquareSide);
+            this.panelSizeSquare.Location = new System.Drawing.Point(6, 18);
+            this.panelSizeSquare.Name = "panelSizeSquare";
+            this.panelSizeSquare.Size = new System.Drawing.Size(188, 140);
+            this.panelSizeSquare.TabIndex = 2;
+            this.panelSizeSquare.Visible = false;
+            // 
+            // lblSquareSide
+            // 
+            this.lblSquareSide.AutoSize = true;
+            this.lblSquareSide.Location = new System.Drawing.Point(3, 6);
+            this.lblSquareSide.Name = "lblSquareSide";
+            this.lblSquareSide.Size = new System.Drawing.Size(61, 12);
+            this.lblSquareSide.TabIndex = 0;
+            this.lblSquareSide.Text = "한 변 길이";
+            // 
+            // nudSquareSide
+            // 
+            this.nudSquareSide.DecimalPlaces = 1;
+            this.nudSquareSide.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudSquareSide.Location = new System.Drawing.Point(5, 24);
+            this.nudSquareSide.Maximum = new decimal(new int[] {
+            10000,
+            0,
+            0,
+            0});
+            this.nudSquareSide.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudSquareSide.Name = "nudSquareSide";
+            this.nudSquareSide.Size = new System.Drawing.Size(100, 21);
+            this.nudSquareSide.TabIndex = 1;
+            this.nudSquareSide.Value = new decimal(new int[] {
+            100,
+            0,
+            0,
+            0});
+            // 
+            // panelSizeEllipse
+            // 
+            this.panelSizeEllipse.Controls.Add(this.lblEllipseRadiusVertical);
+            this.panelSizeEllipse.Controls.Add(this.nudEllipseRadiusVertical);
+            this.panelSizeEllipse.Controls.Add(this.lblEllipseRadiusHorizontal);
+            this.panelSizeEllipse.Controls.Add(this.nudEllipseRadiusHorizontal);
+            this.panelSizeEllipse.Location = new System.Drawing.Point(6, 18);
+            this.panelSizeEllipse.Name = "panelSizeEllipse";
+            this.panelSizeEllipse.Size = new System.Drawing.Size(188, 140);
+            this.panelSizeEllipse.TabIndex = 1;
+            this.panelSizeEllipse.Visible = false;
+            // 
+            // lblEllipseRadiusVertical
+            // 
+            this.lblEllipseRadiusVertical.AutoSize = true;
+            this.lblEllipseRadiusVertical.Location = new System.Drawing.Point(3, 6);
+            this.lblEllipseRadiusVertical.Name = "lblEllipseRadiusVertical";
+            this.lblEllipseRadiusVertical.Size = new System.Drawing.Size(69, 12);
+            this.lblEllipseRadiusVertical.TabIndex = 0;
+            this.lblEllipseRadiusVertical.Text = "상하 반지름";
+            // 
+            // nudEllipseRadiusVertical
+            // 
+            this.nudEllipseRadiusVertical.DecimalPlaces = 1;
+            this.nudEllipseRadiusVertical.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudEllipseRadiusVertical.Location = new System.Drawing.Point(5, 24);
+            this.nudEllipseRadiusVertical.Maximum = new decimal(new int[] {
+            10000,
+            0,
+            0,
+            0});
+            this.nudEllipseRadiusVertical.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudEllipseRadiusVertical.Name = "nudEllipseRadiusVertical";
+            this.nudEllipseRadiusVertical.Size = new System.Drawing.Size(100, 21);
+            this.nudEllipseRadiusVertical.TabIndex = 1;
+            this.nudEllipseRadiusVertical.Value = new decimal(new int[] {
+            40,
+            0,
+            0,
+            0});
+            // 
+            // lblEllipseRadiusHorizontal
+            // 
+            this.lblEllipseRadiusHorizontal.AutoSize = true;
+            this.lblEllipseRadiusHorizontal.Location = new System.Drawing.Point(3, 54);
+            this.lblEllipseRadiusHorizontal.Name = "lblEllipseRadiusHorizontal";
+            this.lblEllipseRadiusHorizontal.Size = new System.Drawing.Size(69, 12);
+            this.lblEllipseRadiusHorizontal.TabIndex = 2;
+            this.lblEllipseRadiusHorizontal.Text = "좌우 반지름";
+            // 
+            // nudEllipseRadiusHorizontal
+            // 
+            this.nudEllipseRadiusHorizontal.DecimalPlaces = 1;
+            this.nudEllipseRadiusHorizontal.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudEllipseRadiusHorizontal.Location = new System.Drawing.Point(5, 72);
+            this.nudEllipseRadiusHorizontal.Maximum = new decimal(new int[] {
+            10000,
+            0,
+            0,
+            0});
+            this.nudEllipseRadiusHorizontal.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudEllipseRadiusHorizontal.Name = "nudEllipseRadiusHorizontal";
+            this.nudEllipseRadiusHorizontal.Size = new System.Drawing.Size(100, 21);
+            this.nudEllipseRadiusHorizontal.TabIndex = 3;
+            this.nudEllipseRadiusHorizontal.Value = new decimal(new int[] {
+            60,
+            0,
+            0,
+            0});
+            // 
+            // panelSizeCircle
+            // 
+            this.panelSizeCircle.Controls.Add(this.lblCircleRadius);
+            this.panelSizeCircle.Controls.Add(this.nudCircleRadius);
+            this.panelSizeCircle.Location = new System.Drawing.Point(6, 18);
+            this.panelSizeCircle.Name = "panelSizeCircle";
+            this.panelSizeCircle.Size = new System.Drawing.Size(188, 140);
+            this.panelSizeCircle.TabIndex = 0;
+            // 
+            // lblCircleRadius
+            // 
+            this.lblCircleRadius.AutoSize = true;
+            this.lblCircleRadius.Location = new System.Drawing.Point(3, 6);
+            this.lblCircleRadius.Name = "lblCircleRadius";
+            this.lblCircleRadius.Size = new System.Drawing.Size(41, 12);
+            this.lblCircleRadius.TabIndex = 0;
+            this.lblCircleRadius.Text = "반지름";
+            // 
+            // nudCircleRadius
+            // 
+            this.nudCircleRadius.DecimalPlaces = 1;
+            this.nudCircleRadius.Increment = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudCircleRadius.Location = new System.Drawing.Point(5, 24);
+            this.nudCircleRadius.Maximum = new decimal(new int[] {
+            10000,
+            0,
+            0,
+            0});
+            this.nudCircleRadius.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            65536});
+            this.nudCircleRadius.Name = "nudCircleRadius";
+            this.nudCircleRadius.Size = new System.Drawing.Size(100, 21);
+            this.nudCircleRadius.TabIndex = 1;
+            this.nudCircleRadius.Value = new decimal(new int[] {
+            50,
+            0,
+            0,
+            0});
             // 
             // Form1
             // 
@@ -555,25 +555,25 @@ namespace CircleIconWin
             this.Name = "Form1";
             this.Text = "원형 아이콘 생성기";
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
-            this.groupBoxSize.ResumeLayout(false);
-            this.panelSizeCircle.ResumeLayout(false);
-            this.panelSizeCircle.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudCircleRadius)).EndInit();
-            this.panelSizeEllipse.ResumeLayout(false);
-            this.panelSizeEllipse.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusVertical)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusHorizontal)).EndInit();
-            this.panelSizeSquare.ResumeLayout(false);
-            this.panelSizeSquare.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudSquareSide)).EndInit();
-            this.panelSizeRectangle.ResumeLayout(false);
-            this.panelSizeRectangle.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.nudRectHeight)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.nudRectWidth)).EndInit();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.toolStrip1.ResumeLayout(false);
             this.toolStrip1.PerformLayout();
+            this.groupBoxSize.ResumeLayout(false);
+            this.panelSizeRectangle.ResumeLayout(false);
+            this.panelSizeRectangle.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudRectHeight)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudRectWidth)).EndInit();
+            this.panelSizeSquare.ResumeLayout(false);
+            this.panelSizeSquare.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudSquareSide)).EndInit();
+            this.panelSizeEllipse.ResumeLayout(false);
+            this.panelSizeEllipse.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusVertical)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudEllipseRadiusHorizontal)).EndInit();
+            this.panelSizeCircle.ResumeLayout(false);
+            this.panelSizeCircle.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudCircleRadius)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -41,6 +42,10 @@ namespace CircleIconWin
         public Form1()
         {
             InitializeComponent();
+
+            // 디자이너는 동일한 생성자로 폼을 띄우므로, 컨트롤 트리를 바꾸는 코드는 런타임에만 실행
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+                return;
 
             panelView = new ZoomPanel();
             panelView.AutoScroll = true;
