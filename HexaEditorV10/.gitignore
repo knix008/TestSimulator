@@ -51,6 +51,13 @@ project.assets.json
 *.msm
 *.msp
 *.wixpdb
+*.wixobj
+*.wixout
+*.cab
+installer/msi/
+installer/bin/
+installer/obj/
+installer/assets/*.bmp
 **/publish/
 
 ## Others
