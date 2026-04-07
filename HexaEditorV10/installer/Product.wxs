@@ -11,12 +11,18 @@
       DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <ui:WixUI Id="WixUI_FeatureTree" />
-    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
-    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <WixVariable Id="WixUIBannerBmp" Value="assets\WixUIBannerBmp.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="assets\WixUIDialogBmp.bmp" />
+    <WixVariable Id="WixUIExclamationIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUIInfoIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUINewIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUIUpIco" Value="..\daemon_hammer.ico" />
+    <Icon Id="AppIcon.ico" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="HexaEditorV10">
-        <Component Id="MainExecutable" Guid="*">
+        <Component Id="MainExecutable" Guid="*" Bitness="always64">
           <File
             Id="MainExeFile"
             Source="..\bin\Release\net10.0-windows\win-x64\publish\HexaEditorV10.exe"
@@ -33,7 +39,7 @@
             Name="HexaEditorV10"
             Target="[INSTALLFOLDER]HexaEditorV10.exe"
             WorkingDirectory="INSTALLFOLDER"
-            Icon="AppIcon"
+            Icon="AppIcon.ico"
             Advertise="no" />
           <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
           <RegistryValue
@@ -54,7 +60,7 @@
           Name="HexaEditorV10"
           Target="[INSTALLFOLDER]HexaEditorV10.exe"
           WorkingDirectory="INSTALLFOLDER"
-          Icon="AppIcon"
+          Icon="AppIcon.ico"
           Advertise="no" />
         <RegistryValue
           Root="HKCU"
