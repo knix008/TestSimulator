@@ -46,6 +46,13 @@ project.assets.json
 *.nuget.props
 *.nuget.targets
 
+## WiX / Installer artifacts
+*.msi
+*.msm
+*.msp
+*.wixpdb
+**/publish/
+
 ## Others
 *.tmp
 *.temp
