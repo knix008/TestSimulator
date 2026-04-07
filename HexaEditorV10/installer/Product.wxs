@@ -1,0 +1,79 @@
+<Wix
+  xmlns="http://wixtoolset.org/schemas/v4/wxs"
+  xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+    Name="HexaEditorV10"
+    Manufacturer="TestSimulator"
+    Version="1.0.0"
+    UpgradeCode="48A0416E-D802-4F1E-B6D3-7FA52EE91158">
+
+    <MajorUpgrade
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="HexaEditorV10">
+        <Component Id="MainExecutable" Guid="*">
+          <File
+            Id="MainExeFile"
+            Source="..\bin\Release\net10.0-windows\win-x64\publish\HexaEditorV10.exe"
+            KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="HexaEditorV10">
+        <Component Id="StartMenuShortcutComponent" Guid="*">
+          <Shortcut
+            Id="StartMenuShortcut"
+            Name="HexaEditorV10"
+            Target="[INSTALLFOLDER]HexaEditorV10.exe"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="AppIcon"
+            Advertise="no" />
+          <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
+          <RegistryValue
+            Root="HKCU"
+            Key="Software\TestSimulator\HexaEditorV10"
+            Name="StartMenuShortcutInstalled"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut
+          Id="DesktopShortcut"
+          Name="HexaEditorV10"
+          Target="[INSTALLFOLDER]HexaEditorV10.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon"
+          Advertise="no" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\TestSimulator\HexaEditorV10"
+          Name="DesktopShortcutInstalled"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="HexaEditorV10 Application" Level="1" AllowAdvertise="no" Display="expand">
+      <ComponentRef Id="MainExecutable" />
+      <Feature Id="DesktopShortcutFeature" Title="Desktop Shortcut" Level="1" AllowAdvertise="no" InstallDefault="local">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+      <Feature Id="StartMenuShortcutFeature" Title="Start Menu Shortcut" Level="1" AllowAdvertise="no" InstallDefault="local">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+    </Feature>
+  </Package>
+</Wix>
