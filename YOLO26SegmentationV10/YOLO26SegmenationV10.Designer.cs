@@ -30,6 +30,9 @@
             this.btnVideoPause = new System.Windows.Forms.Button();
             this.btnVideoResume = new System.Windows.Forms.Button();
             this.btnStopVideo = new System.Windows.Forms.Button();
+            this.btnPlayResult = new System.Windows.Forms.Button();
+            this.lblVideoProgressTime = new System.Windows.Forms.Label();
+            this.progressVideo = new System.Windows.Forms.ProgressBar();
             this.splitMain = new System.Windows.Forms.SplitContainer();
             this.picInput = new System.Windows.Forms.PictureBox();
             this.picOutput = new System.Windows.Forms.PictureBox();
@@ -191,12 +194,42 @@
             this.btnStopVideo.UseVisualStyleBackColor = true;
             this.btnStopVideo.Click += new System.EventHandler(this.btnStopVideo_Click);
             // 
+            // btnPlayResult
+            // 
+            this.btnPlayResult.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnPlayResult.Location = new System.Drawing.Point(1064, 64);
+            this.btnPlayResult.Name = "btnPlayResult";
+            this.btnPlayResult.Size = new System.Drawing.Size(90, 24);
+            this.btnPlayResult.TabIndex = 15;
+            this.btnPlayResult.Text = "결과 재생";
+            this.btnPlayResult.UseVisualStyleBackColor = true;
+            this.btnPlayResult.Click += new System.EventHandler(this.btnPlayResult_Click);
+            // 
+            // lblVideoProgressTime
+            // 
+            this.lblVideoProgressTime.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblVideoProgressTime.Location = new System.Drawing.Point(12, 178);
+            this.lblVideoProgressTime.Name = "lblVideoProgressTime";
+            this.lblVideoProgressTime.Size = new System.Drawing.Size(1112, 14);
+            this.lblVideoProgressTime.TabIndex = 16;
+            this.lblVideoProgressTime.Text = "";
+            // 
+            // progressVideo
+            // 
+            this.progressVideo.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.progressVideo.Location = new System.Drawing.Point(12, 194);
+            this.progressVideo.Name = "progressVideo";
+            this.progressVideo.Size = new System.Drawing.Size(1112, 14);
+            this.progressVideo.TabIndex = 17;
+            // 
             // splitMain
             // 
             this.splitMain.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.splitMain.Location = new System.Drawing.Point(12, 198);
+            this.splitMain.Location = new System.Drawing.Point(12, 214);
             this.splitMain.Name = "splitMain";
             // 
             // splitMain.Panel1
@@ -206,7 +239,7 @@
             // splitMain.Panel2
             // 
             this.splitMain.Panel2.Controls.Add(this.picOutput);
-            this.splitMain.Size = new System.Drawing.Size(1112, 391);
+            this.splitMain.Size = new System.Drawing.Size(1112, 375);
             this.splitMain.SplitterDistance = 554;
             this.splitMain.TabIndex = 13;
             // 
@@ -249,10 +282,13 @@
             this.ClientSize = new System.Drawing.Size(1136, 697);
             this.Controls.Add(this.txtLog);
             this.Controls.Add(this.splitMain);
+            this.Controls.Add(this.progressVideo);
+            this.Controls.Add(this.lblVideoProgressTime);
             this.Controls.Add(this.btnStopVideo);
             this.Controls.Add(this.btnVideoResume);
             this.Controls.Add(this.btnVideoPause);
             this.Controls.Add(this.lblVideoControls);
+            this.Controls.Add(this.btnPlayResult);
             this.Controls.Add(this.btnVideo);
             this.Controls.Add(this.btnImage);
             this.Controls.Add(this.numConf);
@@ -293,6 +329,9 @@
         private System.Windows.Forms.Button btnVideoPause;
         private System.Windows.Forms.Button btnVideoResume;
         private System.Windows.Forms.Button btnStopVideo;
+        private System.Windows.Forms.Button btnPlayResult;
+        private System.Windows.Forms.Label lblVideoProgressTime;
+        private System.Windows.Forms.ProgressBar progressVideo;
         private System.Windows.Forms.SplitContainer splitMain;
         private System.Windows.Forms.PictureBox picInput;
         private System.Windows.Forms.PictureBox picOutput;
