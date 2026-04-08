@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Threading;
@@ -33,6 +34,18 @@ namespace YOLO26SegmentationV10
             comboModel.SelectedIndex = 0;
             Load += YOLO26SegmenationV10_Load;
             Resize += (_, __) => LayoutTopBar();
+            progressVideo.Minimum = 0;
+            progressVideo.Maximum = 100;
+            progressVideo.Value = 0;
+            progressVideo.Style = ProgressBarStyle.Continuous;
+            btnVideo.Enabled = false;
+            btnImage.Enabled = false;
+            SetPicture(
+                picInput,
+                PreviewPlaceholders.Create("원본", "이미지 또는 동영상을 불러오면 이 영역에 표시됩니다."));
+            SetPicture(
+                picOutput,
+                PreviewPlaceholders.Create("결과", "세그멘테이션 결과가 이 영역에 표시됩니다."));
         }
 
         private void YOLO26SegmenationV10_Load(object sender, EventArgs e)
@@ -48,6 +61,9 @@ namespace YOLO26SegmentationV10
             var gap = 8;
             btnPrepareModel.Left = ClientSize.Width - pad - btnPrepareModel.Width;
             comboModel.Width = Math.Max(280, btnPrepareModel.Left - comboModel.Left - gap);
+            btnPlayResult.Left = btnPrepareModel.Left - gap - btnPlayResult.Width;
+            btnImage.Left = btnPlayResult.Left - gap - btnImage.Width;
+            btnVideo.Left = btnImage.Left - gap - btnVideo.Width;
         }
 
         private string SelectedModelVariant =>
@@ -120,6 +136,11 @@ namespace YOLO26SegmentationV10
             _onnxPath = path;
             SetStatus($"ONNX 로드됨 [{_session.ExecutionProviderSummary}]: {_onnxPath}");
             Log($"실행 공급자: {_session.ExecutionProviderSummary}");
+            if (IsHandleCreated)
+            {
+                btnVideo.Enabled = true;
+                btnImage.Enabled = true;
+            }
         }
 
         private async Task PrepareModelAsync(string variant, CancellationToken cancellationToken)
@@ -280,6 +301,7 @@ namespace YOLO26SegmentationV10
                     var sess = _session;
 
                     SetVideoProcessingUi(true);
+                    ResetVideoProgressUi();
                     try
                     {
                         await Task.Run(
@@ -306,6 +328,105 @@ namespace YOLO26SegmentationV10
             }
         }
 
+        private async void btnPlayResult_Click(object sender, EventArgs e)
+        {
+            using (var openDlg = new OpenFileDialog())
+            {
+                openDlg.Filter = "동영상|*.mp4;*.avi;*.mkv;*.mov;*.wmv|모든 파일|*.*";
+                openDlg.Title = "재생할 결과 동영상";
+                if (openDlg.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                var path = openDlg.FileName;
+                _videoCts?.Cancel();
+                _videoCts?.Dispose();
+                ReleaseVideoPlaybackGate();
+                _videoCts = new CancellationTokenSource();
+                lock (_videoGateLock)
+                    _videoPlaybackGate = new ManualResetEventSlim(true);
+                var token = _videoCts.Token;
+                ManualResetEventSlim gate;
+                lock (_videoGateLock)
+                    gate = _videoPlaybackGate;
+
+                SetVideoProcessingUi(true);
+                ResetVideoProgressUi();
+                try
+                {
+                    await Task.Run(() => RunPlaybackVideoLoop(path, token, gate), token).ConfigureAwait(true);
+                    if (!token.IsCancellationRequested)
+                        Log($"결과 재생 완료: {path}");
+                }
+                catch (OperationCanceledException)
+                {
+                    Log("결과 재생이 중지되었습니다.");
+                }
+                catch (Exception ex)
+                {
+                    Log("결과 재생 오류: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "결과 재생", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                finally
+                {
+                    EndVideoProcessingUi();
+                }
+            }
+        }
+
+        private void ResetVideoProgressUi()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(ResetVideoProgressUi));
+                return;
+            }
+
+            progressVideo.Style = ProgressBarStyle.Continuous;
+            progressVideo.Maximum = 100;
+            progressVideo.Value = 0;
+            lblVideoProgressTime.Text = "";
+        }
+
+        private void UpdateVideoProgress(int framesDone, int totalFrames, double fps, string statusExtra = null)
+        {
+            if (progressVideo.InvokeRequired)
+            {
+                BeginInvoke(new Action(() => UpdateVideoProgress(framesDone, totalFrames, fps, statusExtra)));
+                return;
+            }
+
+            if (totalFrames > 0 && fps > 1e-6)
+            {
+                progressVideo.Style = ProgressBarStyle.Continuous;
+                var max = Math.Max(totalFrames, 1);
+                progressVideo.Maximum = max;
+                progressVideo.Value = Math.Min(Math.Max(framesDone, 0), max);
+                var curSec = framesDone / fps;
+                var totalSec = totalFrames / fps;
+                lblVideoProgressTime.Text =
+                    $"{FormatVideoTime(curSec)} / {FormatVideoTime(totalSec)}  ·  프레임 {framesDone:N0} / {totalFrames:N0}";
+            }
+            else
+            {
+                progressVideo.Style = ProgressBarStyle.Marquee;
+                progressVideo.MarqueeAnimationSpeed = 40;
+                lblVideoProgressTime.Text =
+                    string.IsNullOrEmpty(statusExtra)
+                        ? $"프레임 {framesDone:N0} (총 길이·프레임 수를 컨테이너에서 읽지 못함)"
+                        : $"프레임 {framesDone:N0} · {statusExtra}";
+            }
+        }
+
+        private static string FormatVideoTime(double seconds)
+        {
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds < 0)
+                seconds = 0;
+            var t = TimeSpan.FromSeconds(seconds);
+            if (t.TotalHours >= 1)
+                return $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}";
+            return $"{(int)t.TotalMinutes}:{t.Seconds:D2}";
+        }
+
         private void SetVideoProcessingUi(bool running)
         {
             if (InvokeRequired)
@@ -314,8 +435,9 @@ namespace YOLO26SegmentationV10
                 return;
             }
 
-            btnVideo.Enabled = !running;
-            btnImage.Enabled = !running;
+            btnVideo.Enabled = !running && _session != null;
+            btnPlayResult.Enabled = !running;
+            btnImage.Enabled = !running && _session != null;
             btnPrepareModel.Enabled = !running;
             comboModel.Enabled = !running;
             numConf.Enabled = !running;
@@ -343,6 +465,7 @@ namespace YOLO26SegmentationV10
             }
 
             ReleaseVideoPlaybackGate();
+            ResetVideoProgressUi();
             SetVideoProcessingUi(false);
         }
 
@@ -409,9 +532,14 @@ namespace YOLO26SegmentationV10
                 var fps = cap.Fps;
                 if (fps <= 1e-3 || fps > 240 || double.IsNaN(fps) || double.IsInfinity(fps))
                     fps = 25;
+                var totalFrames = GetApproxFrameCount(cap);
                 var size = new OpenCvSharp.Size(cap.FrameWidth, cap.FrameHeight);
                 if (size.Width <= 0 || size.Height <= 0)
                     throw new InvalidOperationException("동영상 해상도를 읽을 수 없습니다.");
+
+                UpdateVideoProgress(0, totalFrames, fps, Path.GetFileName(outputPath));
+                BeginInvoke(new Action(() =>
+                    SetStatus($"동영상 처리 중 (저장: {Path.GetFileName(outputPath)})")));
 
                 using (var writer = TryCreateVideoWriter(outputPath, fps, size))
                 {
@@ -454,13 +582,12 @@ namespace YOLO26SegmentationV10
                             }
 
                             frameIndex++;
-                            if (frameIndex % 15 == 0)
-                            {
-                                var fi = frameIndex;
-                                BeginInvoke(new Action(() =>
-                                    SetStatus($"동영상 처리 중… 프레임 {fi} (저장: {Path.GetFileName(outputPath)})")));
-                            }
+                            if (frameIndex % 2 == 0 || frameIndex == 1)
+                                UpdateVideoProgress(frameIndex, totalFrames, fps, Path.GetFileName(outputPath));
                         }
+
+                        if (!token.IsCancellationRequested && totalFrames > 0)
+                            UpdateVideoProgress(totalFrames, totalFrames, fps, Path.GetFileName(outputPath));
                     }
                     finally
                     {
@@ -470,16 +597,85 @@ namespace YOLO26SegmentationV10
             }
         }
 
+        private void RunPlaybackVideoLoop(string path, CancellationToken token, ManualResetEventSlim playbackGate)
+        {
+            using (var cap = new VideoCapture(path))
+            {
+                if (!cap.IsOpened())
+                    throw new InvalidOperationException("동영상을 열 수 없습니다.");
+
+                var fps = cap.Fps;
+                if (fps <= 1e-3 || fps > 240 || double.IsNaN(fps) || double.IsInfinity(fps))
+                    fps = 25;
+                var totalFrames = GetApproxFrameCount(cap);
+
+                UpdateVideoProgress(0, totalFrames, fps, Path.GetFileName(path));
+                BeginInvoke(new Action(() =>
+                {
+                    SetPicture(picInput, null);
+                    SetStatus($"결과 재생: {Path.GetFileName(path)}");
+                }));
+
+                Mat frame = null;
+                var frameIndex = 0;
+                var sw = Stopwatch.StartNew();
+                try
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        playbackGate.Wait(token);
+                        frame?.Dispose();
+                        frame = new Mat();
+                        if (!cap.Read(frame) || frame.Empty())
+                            break;
+
+                        using (var bm = MatBitmapUtil.ToBitmapBgr(frame))
+                        {
+                            var outClone = new Bitmap(bm);
+                            BeginInvoke(new Action(() => SetPicture(picOutput, outClone)));
+                        }
+
+                        frameIndex++;
+                        if (frameIndex % 2 == 0 || frameIndex == 1)
+                            UpdateVideoProgress(frameIndex, totalFrames, fps, Path.GetFileName(path));
+
+                        if (fps > 1e-6)
+                        {
+                            var targetMs = frameIndex * (1000.0 / fps);
+                            var delay = (int)(targetMs - sw.Elapsed.TotalMilliseconds);
+                            if (delay > 0 && delay < 500)
+                                Thread.Sleep(delay);
+                        }
+                    }
+
+                    if (!token.IsCancellationRequested && totalFrames > 0)
+                        UpdateVideoProgress(totalFrames, totalFrames, fps, Path.GetFileName(path));
+                }
+                finally
+                {
+                    frame?.Dispose();
+                }
+            }
+        }
+
         private void btnStopVideo_Click(object sender, EventArgs e)
         {
             _videoCts?.Cancel();
         }
 
-        private static void SetPicture(PictureBox box, Bitmap bmp)
+        private static void SetPicture(PictureBox box, Image bmp)
         {
             var old = box.Image;
             box.Image = bmp;
             old?.Dispose();
+        }
+
+        private static int GetApproxFrameCount(VideoCapture cap)
+        {
+            var fc = cap.FrameCount;
+            if (fc <= 0 || double.IsNaN(fc) || double.IsInfinity(fc))
+                return 0;
+            return (int)Math.Min(fc, int.MaxValue);
         }
     }
 }
