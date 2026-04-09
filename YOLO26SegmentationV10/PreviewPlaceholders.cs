@@ -16,14 +16,14 @@ namespace YOLO26SegmentationV10
             {
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
-                g.Clear(Color.FromArgb(236, 236, 240));
-                using (var border = new Pen(Color.FromArgb(200, 200, 210), 1))
+                g.Clear(UiTheme.Canvas);
+                using (var border = new Pen(UiTheme.BorderSubtle, 1))
                     g.DrawRectangle(border, 0, 0, w - 1, h - 1);
 
                 using (var titleFont = new Font(SystemFonts.MessageBoxFont.FontFamily, 20f, FontStyle.Bold))
                 using (var subFont = new Font(SystemFonts.MessageBoxFont.FontFamily, 11f))
-                using (var titleBrush = new SolidBrush(Color.FromArgb(55, 55, 62)))
-                using (var subBrush = new SolidBrush(Color.FromArgb(110, 110, 120)))
+                using (var titleBrush = new SolidBrush(UiTheme.TextPrimary))
+                using (var subBrush = new SolidBrush(UiTheme.TextSecondary))
                 {
                     var titleSize = g.MeasureString(title, titleFont);
                     var subSize = g.MeasureString(subtitle, subFont);
