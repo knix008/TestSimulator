@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -29,6 +30,27 @@ namespace YOLO26SegmentationV10
 
             if (comboVariant.SelectedIndex < 0)
                 comboVariant.SelectedIndex = 0;
+
+            Font = UiTheme.UiFont(9f);
+            BackColor = UiTheme.Surface;
+            ForeColor = UiTheme.TextPrimary;
+            lblInfo.ForeColor = UiTheme.TextPrimary;
+            lblVariant.ForeColor = UiTheme.TextSecondary;
+            lblProgress.ForeColor = UiTheme.TextSecondary;
+            UiTheme.StylePrimaryButton(btnDownload);
+            UiTheme.StyleSecondaryButton(btnCancel);
+            comboVariant.FlatStyle = FlatStyle.Flat;
+            txtLog.BorderStyle = BorderStyle.FixedSingle;
+            txtLog.BackColor = UiTheme.LogBack;
+            txtLog.ForeColor = UiTheme.TextPrimary;
+            try
+            {
+                txtLog.Font = new Font("Consolas", 9f, FontStyle.Regular, GraphicsUnit.Point);
+            }
+            catch
+            {
+                txtLog.Font = UiTheme.UiFont(8.5f);
+            }
         }
 
         public string SelectedVariant { get; private set; }

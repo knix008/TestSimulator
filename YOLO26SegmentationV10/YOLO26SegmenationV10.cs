@@ -18,6 +18,8 @@ namespace YOLO26SegmentationV10
         private CancellationTokenSource _videoCts;
         private ManualResetEventSlim _videoPlaybackGate;
         private readonly object _videoGateLock = new object();
+        private static readonly object OutputIsPlaceholder = new object();
+        private string _lastImageSourcePath;
 
         public YOLO26SegmenationV10()
         {
@@ -43,9 +45,58 @@ namespace YOLO26SegmentationV10
             SetPicture(
                 picInput,
                 PreviewPlaceholders.Create("원본", "이미지 또는 동영상을 불러오면 이 영역에 표시됩니다."));
-            SetPicture(
-                picOutput,
-                PreviewPlaceholders.Create("결과", "세그멘테이션 결과가 이 영역에 표시됩니다."));
+            SetOutputPicture(PreviewPlaceholders.Create("결과", "세그멘테이션 결과가 이 영역에 표시됩니다."), true);
+            ApplyUiTheme();
+        }
+
+        private void ApplyUiTheme()
+        {
+            Font = UiTheme.UiFont(9f);
+            BackColor = UiTheme.Surface;
+            ForeColor = UiTheme.TextPrimary;
+
+            UiTheme.StylePrimaryButton(btnPrepareModel);
+            UiTheme.StyleSecondaryButton(btnImage);
+            UiTheme.StyleSecondaryButton(btnVideo);
+            UiTheme.StyleSecondaryButton(btnPlayResult);
+            UiTheme.StyleSecondaryButton(btnSaveResultImage);
+            UiTheme.StyleTransportButton(btnVideoPause);
+            UiTheme.StyleTransportButton(btnVideoResume);
+            UiTheme.StyleTransportButton(btnStopVideo);
+
+            lblStatus.BackColor = UiTheme.PanelHeader;
+            lblStatus.ForeColor = UiTheme.TextPrimary;
+            lblStatus.AutoEllipsis = true;
+            lblFilter.ForeColor = UiTheme.TextSecondary;
+            lblConf.ForeColor = UiTheme.TextSecondary;
+            lblVideoControls.ForeColor = UiTheme.TextSecondary;
+            lblVideoProgressTime.ForeColor = UiTheme.TextSecondary;
+            lblVideoProgressTime.Font = UiTheme.UiFont(8.25f);
+
+            lblInputCaption.BackColor = UiTheme.PanelHeader;
+            lblInputCaption.ForeColor = UiTheme.TextSecondary;
+            lblInputCaption.Font = UiTheme.UiFontBold(8.5f);
+            lblOutputCaption.BackColor = UiTheme.PanelHeader;
+            lblOutputCaption.ForeColor = UiTheme.TextSecondary;
+            lblOutputCaption.Font = UiTheme.UiFontBold(8.5f);
+
+            splitMain.BackColor = UiTheme.BorderSubtle;
+            splitMain.Panel1.BackColor = UiTheme.Canvas;
+            splitMain.Panel2.BackColor = UiTheme.Canvas;
+
+            txtLog.BackColor = UiTheme.LogBack;
+            txtLog.ForeColor = UiTheme.TextPrimary;
+            try
+            {
+                txtLog.Font = new Font("Consolas", 9f, FontStyle.Regular, GraphicsUnit.Point);
+            }
+            catch
+            {
+                txtLog.Font = UiTheme.UiFont(8.5f);
+            }
+
+            comboModel.FlatStyle = FlatStyle.Flat;
+            txtClassFilter.BorderStyle = BorderStyle.FixedSingle;
         }
 
         private void YOLO26SegmenationV10_Load(object sender, EventArgs e)
@@ -62,7 +113,8 @@ namespace YOLO26SegmentationV10
             btnPrepareModel.Left = ClientSize.Width - pad - btnPrepareModel.Width;
             comboModel.Width = Math.Max(280, btnPrepareModel.Left - comboModel.Left - gap);
             btnPlayResult.Left = btnPrepareModel.Left - gap - btnPlayResult.Width;
-            btnImage.Left = btnPlayResult.Left - gap - btnImage.Width;
+            btnSaveResultImage.Left = btnPlayResult.Left - gap - btnSaveResultImage.Width;
+            btnImage.Left = btnSaveResultImage.Left - gap - btnImage.Width;
             btnVideo.Left = btnImage.Left - gap - btnVideo.Width;
         }
 
@@ -238,6 +290,7 @@ namespace YOLO26SegmentationV10
                 if (dlg.ShowDialog(this) != DialogResult.OK)
                     return;
 
+                _lastImageSourcePath = dlg.FileName;
                 try
                 {
                     using (var src = new Bitmap(dlg.FileName))
@@ -245,7 +298,7 @@ namespace YOLO26SegmentationV10
                         SetPicture(picInput, new Bitmap(src));
                         var conf = (float)numConf.Value;
                         var (rendered, list) = _session.RunSegmentation(src, conf, allowed);
-                        SetPicture(picOutput, rendered);
+                        SetOutputPicture(rendered, false);
                         Log($"이미지 처리: {Path.GetFileName(dlg.FileName)} — 인스턴스 {list.Count}개");
                     }
                 }
@@ -553,7 +606,8 @@ namespace YOLO26SegmentationV10
                     {
                         while (!token.IsCancellationRequested)
                         {
-                            playbackGate.Wait(token);
+                            if (!TryWaitPlaybackGate(playbackGate, token))
+                                break;
                             frame?.Dispose();
                             frame = new Mat();
                             if (!cap.Read(frame) || frame.Empty())
@@ -572,7 +626,7 @@ namespace YOLO26SegmentationV10
                                     BeginInvoke(new Action(() =>
                                     {
                                         SetPicture(picInput, inClone);
-                                        SetPicture(picOutput, outClone);
+                                        SetOutputPicture(outClone, false);
                                     }));
                                 }
                                 finally
@@ -623,7 +677,8 @@ namespace YOLO26SegmentationV10
                 {
                     while (!token.IsCancellationRequested)
                     {
-                        playbackGate.Wait(token);
+                        if (!TryWaitPlaybackGate(playbackGate, token))
+                            break;
                         frame?.Dispose();
                         frame = new Mat();
                         if (!cap.Read(frame) || frame.Empty())
@@ -632,7 +687,7 @@ namespace YOLO26SegmentationV10
                         using (var bm = MatBitmapUtil.ToBitmapBgr(frame))
                         {
                             var outClone = new Bitmap(bm);
-                            BeginInvoke(new Action(() => SetPicture(picOutput, outClone)));
+                            BeginInvoke(new Action(() => SetOutputPicture(outClone, false)));
                         }
 
                         frameIndex++;
@@ -644,7 +699,19 @@ namespace YOLO26SegmentationV10
                             var targetMs = frameIndex * (1000.0 / fps);
                             var delay = (int)(targetMs - sw.Elapsed.TotalMilliseconds);
                             if (delay > 0 && delay < 500)
-                                Thread.Sleep(delay);
+                            {
+                                try
+                                {
+                                    token.WaitHandle.WaitOne(delay);
+                                }
+                                catch (ObjectDisposedException)
+                                {
+                                    break;
+                                }
+
+                                if (token.IsCancellationRequested)
+                                    break;
+                            }
                         }
                     }
 
@@ -663,11 +730,87 @@ namespace YOLO26SegmentationV10
             _videoCts?.Cancel();
         }
 
+        /// <summary>
+        /// <see cref="ManualResetEventSlim.Wait(CancellationToken)"/>은 취소 시 <see cref="OperationCanceledException"/>을 던져
+        /// 디버거/로그에 노이즈가 생기므로, 취소면 false를 반환합니다.
+        /// </summary>
+        private static bool TryWaitPlaybackGate(ManualResetEventSlim gate, CancellationToken token)
+        {
+            try
+            {
+                gate?.Wait(token);
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+        }
+
+        private void SetOutputPicture(Image image, bool placeholder)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => SetOutputPicture(image, placeholder)));
+                return;
+            }
+
+            SetPicture(picOutput, image);
+            picOutput.Tag = placeholder ? OutputIsPlaceholder : null;
+            btnSaveResultImage.Enabled = !placeholder && image != null;
+        }
+
         private static void SetPicture(PictureBox box, Image bmp)
         {
             var old = box.Image;
             box.Image = bmp;
             old?.Dispose();
+        }
+
+        private void btnSaveResultImage_Click(object sender, EventArgs e)
+        {
+            if (ReferenceEquals(picOutput.Tag, OutputIsPlaceholder) || picOutput.Image == null)
+            {
+                MessageBox.Show(
+                    this,
+                    "저장할 결과 이미지가 없습니다. 이미지를 처리하거나 동영상·결과 재생으로 출력을 만든 뒤 다시 시도하세요.",
+                    "결과 저장",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            if (!(picOutput.Image is Bitmap bmp))
+            {
+                MessageBox.Show(this, "현재 출력 형식을 저장할 수 없습니다.", "결과 저장", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var dlg = new SaveFileDialog())
+            {
+                dlg.Title = "결과 이미지 저장";
+                dlg.Filter =
+                    "JPEG (*.jpg)|*.jpg|PNG (*.png)|*.png|Bitmap (*.bmp)|*.bmp|GIF (*.gif)|*.gif|TIFF (*.tif)|*.tif;*.tiff|모든 파일|*.*";
+                dlg.DefaultExt = "jpg";
+                dlg.AddExtension = true;
+                dlg.FileName = string.IsNullOrEmpty(_lastImageSourcePath)
+                    ? "segmentation_result.jpg"
+                    : Path.GetFileNameWithoutExtension(_lastImageSourcePath) + "_seg.jpg";
+                if (dlg.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                try
+                {
+                    using (var copy = new Bitmap(bmp))
+                        ImageResultSaver.Save(copy, dlg.FileName);
+                    Log("결과 이미지 저장: " + dlg.FileName);
+                }
+                catch (Exception ex)
+                {
+                    Log("결과 저장 오류: " + ex.Message);
+                    MessageBox.Show(this, ex.Message, "결과 저장", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
         }
 
         private static int GetApproxFrameCount(VideoCapture cap)
