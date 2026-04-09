@@ -1,13 +1,56 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+
+
   <PropertyGroup>
+
     <OutputType>WinExe</OutputType>
+
     <TargetFramework>net10.0-windows</TargetFramework>
+
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+
     <RootNamespace>PandocWinV2._0</RootNamespace>
+
     <Nullable>enable</Nullable>
+
     <UseWindowsForms>true</UseWindowsForms>
+
     <ImplicitUsings>enable</ImplicitUsings>
+
     <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+
   </PropertyGroup>
 
+
+
+  <ItemGroup>
+
+    <Compile Update="PandocWin20Form.cs">
+
+      <SubType>Form</SubType>
+
+    </Compile>
+
+    <Compile Update="PandocWin20Form.Designer.cs">
+
+      <DependentUpon>PandocWin20Form.cs</DependentUpon>
+
+    </Compile>
+
+    <EmbeddedResource Update="PandocWin20Form.resx">
+
+      <DependentUpon>PandocWin20Form.cs</DependentUpon>
+
+    </EmbeddedResource>
+
+  </ItemGroup>
+
+
+
+  <!-- MSI: PandocWinV2.0.sln 빌드(Release) 또는 Setup\PandocWinV2.0.Setup.csproj / build_msi.bat -->
+
+
+
 </Project>
+
