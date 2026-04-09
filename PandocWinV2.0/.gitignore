@@ -1,21 +1,133 @@
-# Build output
-bin/
-obj/
+# =============================================================================
+# PandocWinV2.0 — 빌드·IDE·도구 산출물
+# =============================================================================
+
+# .NET / MSBuild
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+TestResults/
+[Bb]uild/
+*.log
+*.tlog
+*.FileListAbsolute.txt
+# MSBuild 구조화/바이너리 로그 (진단용 /diag 등)
+*.binlog
+
+# NuGet
+*.nupkg
+*.snupkg
+*.symbols.nupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+
+# 게시 / MSI (빌드·WiX 산출물은 저장소에 두지 않음)
+[Bb]in/[Rr]elease/publish/
+[Bb]in/[Dd]ebug/publish/
+*.msi
+*.msm
+*.msp
+
+# WiX Toolset (CLI + Setup\*.csproj / NoTargets·확장 NuGet)
+*.wixobj
+*.wixpdb
+*.wixlog
+wix*.log
+*_wix.log
+Setup/.wix/
+# HeatWave 등 VS 확장이 만드는 캐시(있을 경우)
+*.wixproj.cache
+# 로컬에서 생성한 임시 WiX/설치 산출물
+*.cab
+*.wixlib
 
 # Visual Studio
 .vs/
+UpgradeLog*.htm
+UpgradeLog*.XML
+Backup*/
 *.user
 *.suo
 *.userosscache
-*.sln.docobj
+*.sln.docstates
+*.rsuser
+*.VC.db
+*.VC.VC.opendb
+ipch/
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db-journal
 
-# Publish / installer output (배포 파일은 별도 관리)
-bin/Release/publish/
+# JetBrains Rider / ReSharper
+.idea/
+*.sln.iml
+*.DotSettings.user
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotCover
 
-# WiX build artifacts
-*.wixpdb
-Setup/.wix/
+# VS Code / Cursor (팀 공유용 JSON만 예외)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 
-# OS
+# Claude Code 로컬 설정
+.claude/settings.local.json
+
+# Cursor 로컬 설정(저장소 공유 시 제외)
+.cursor/settings.local.json
+
+# MSBuild 디렉터리 사용자 오버라이드
+Directory.Build.props.user
+Directory.Build.targets.user
+
+# 테스트·분석·벤치마크
+*.coverage
+*.coveragexml
+coverage*.json
+*.trx
+BenchmarkDotNet.Artifacts/
+*.sarif
+htmlcov/
+
+# Windows
 Thumbs.db
+ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# macOS / Linux (혼용 시)
+.DS_Store
+
+# 백업·임시
+*.tmp
+*.temp
+*.cache
+*.pidb
+*.svclog
+*.scc
+*.bak
+*~
+*.orig
+
+# ClickOnce / 레거시 게시 메타데이터(사용 시)
+.publish.xml
+app.publish/
+
+# 로컬 비밀·환경(저장소에 올리지 않음)
+.env
+.env.local
+.env.*.local
+*.pfx
+*.snk

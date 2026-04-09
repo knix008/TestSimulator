@@ -3,14 +3,16 @@
 
   <Package Name="Pandoc 파일 변환기"
            Manufacturer="PandocWin"
-           Version="2.0.0"
+           Version="2.0.1"
            UpgradeCode="CCF1499C-F921-47AA-A623-9AF1E738B538"
-           Codepage="utf-8"
+           Codepage="949"
            Language="1042"
            Scope="perMachine">
 
-    <!-- 구버전 자동 제거 -->
-    <MajorUpgrade DowngradeErrorMessage="더 최신 버전이 이미 설치되어 있습니다." />
+    <!-- 동일 UpgradeCode 의 이전 설치: 먼저 제거 후 재설치(같은 버전 MSI 재빌드 포함) -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="더 최신 버전이 이미 설치되어 있습니다." />
 
     <!-- 단일 cab 파일로 내장 -->
     <MediaTemplate EmbedCab="yes" />
@@ -19,6 +21,12 @@
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
 
+    <!-- WixUI: 취소/오류/경로 오류/대기 등 대화상자 아이콘, 찾아보기(상위·새 폴더) 버튼 -->
+    <WixVariable Id="WixUIInfoIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUIExclamationIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUINewIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUIUpIco" Value="..\daemon_hammer.ico" />
+
     <!-- 프로그램 추가/제거 아이콘 -->
     <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
@@ -26,7 +34,9 @@
 
     <Feature Id="ProductFeature" Title="Pandoc 파일 변환기" Level="1">
       <ComponentGroupRef Id="MainComponents" />
-      <ComponentRef Id="Shortcuts" />
+      <ComponentRef Id="MachineRegistryComponent" />
+      <ComponentRef Id="StartMenuShortcutsComponent" />
+      <ComponentRef Id="DesktopShortcutComponent" />
     </Feature>
   </Package>
 
@@ -52,37 +62,60 @@
     </ComponentGroup>
   </Fragment>
 
-  <!-- 바로가기 컴포넌트 -->
+  <!-- perMachine 설치 표시 (ICE: 바로가기와 분리) -->
   <Fragment>
-    <Component Id="Shortcuts"
+    <Component Id="MachineRegistryComponent"
                Directory="INSTALLFOLDER"
                Guid="0F2F23E8-9438-4A4A-86F3-C1C43D870006">
+      <RegistryValue Root="HKLM"
+                     Key="SOFTWARE\PandocWin\PandocWinV2"
+                     Name="Installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
 
-      <!-- 시작 메뉴 바로가기 -->
+  <!-- 시작 메뉴: 비광고 바로가기는 HKCU KeyPath (ICE43/ICE57) -->
+  <Fragment>
+    <Component Id="StartMenuShortcutsComponent"
+               Directory="INSTALLFOLDER"
+               Guid="7C2E8B91-4F30-4A1D-9C8E-2B5F7043A6D1">
       <Shortcut Id="StartMenuShortcut"
                 Directory="AppMenuFolder"
                 Name="Pandoc 파일 변환기"
                 Description="Pandoc을 이용한 문서 형식 변환기"
                 Target="[INSTALLFOLDER]PandocWinV2.0.exe"
-                WorkingDirectory="INSTALLFOLDER" />
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"
+                IconIndex="0" />
+      <RemoveFolder Id="RemoveAppMenuFolder"
+                    Directory="AppMenuFolder"
+                    On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\PandocWin\PandocWinV2"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
 
-      <!-- 바탕화면 바로가기 -->
+  <Fragment>
+    <Component Id="DesktopShortcutComponent"
+               Directory="INSTALLFOLDER"
+               Guid="8D3F9C02-5A41-4B2E-AD9F-3C6E8154B7E2">
       <Shortcut Id="DesktopShortcut"
                 Directory="DesktopFolder"
                 Name="Pandoc 파일 변환기"
                 Description="Pandoc을 이용한 문서 형식 변환기"
                 Target="[INSTALLFOLDER]PandocWinV2.0.exe"
-                WorkingDirectory="INSTALLFOLDER" />
-
-      <!-- 제거 시 시작메뉴 폴더 삭제 -->
-      <RemoveFolder Id="RemoveAppMenuFolder"
-                    Directory="AppMenuFolder"
-                    On="uninstall" />
-
-      <!-- 바로가기의 KeyPath (레지스트리) -->
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"
+                IconIndex="0" />
       <RegistryValue Root="HKCU"
                      Key="Software\PandocWin\PandocWinV2"
-                     Name="Installed"
+                     Name="DesktopShortcut"
                      Type="integer"
                      Value="1"
                      KeyPath="yes" />

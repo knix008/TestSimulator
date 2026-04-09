@@ -1,0 +1,45 @@
+<Project>
+  <PropertyGroup>
+    <_MsiDir>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\publish\</_MsiDir>
+    <_MsiPath>$(_MsiDir)PandocWinV2.0.msi</_MsiPath>
+    <_WixExeInPf64>$(ProgramW6432)\WiX Toolset v6.0\bin\wix.exe</_WixExeInPf64>
+    <_WixExeInPf32>$(MSBuildProgramFiles32)\WiX Toolset v6.0\bin\wix.exe</_WixExeInPf32>
+  </PropertyGroup>
+  <Choose>
+    <When Condition="Exists('$(_WixExeInPf64)')">
+      <PropertyGroup>
+        <WixExe>$(_WixExeInPf64)</WixExe>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(_WixExeInPf32)')">
+      <PropertyGroup>
+        <WixExe>$(_WixExeInPf32)</WixExe>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <WixExe>wix</WixExe>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <!-- Release: 단일 exe 퍼블리시 후 MSI (Package.wxs 는 bin\Release\publish 기준) -->
+  <Target Name="PublishHostAppForMsi"
+          BeforeTargets="Build"
+          Condition="'$(Configuration)' == 'Release'">
+    <MakeDir Directories="$(_MsiDir)" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\PandocWinV2.0.csproj"
+             Targets="Publish"
+             Properties="Configuration=Release;PublishProfile=SingleFile" />
+  </Target>
+
+  <Target Name="BuildInstallerMsi"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'">
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)..\bin\Release\publish\PandocWinV2.0.exe')"
+           Text="퍼블리시된 exe가 없습니다: bin\Release\publish\PandocWinV2.0.exe — 먼저 앱 프로젝트를 Release로 퍼블리시하세요." />
+    <Exec Command="&quot;$(WixExe)&quot; build Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -culture ko-kr -out &quot;$(_MsiPath)&quot;"
+          WorkingDirectory="$(MSBuildThisFileDirectory)" />
+    <Message Importance="high" Text="MSI 생성: $(_MsiPath)" />
+  </Target>
+</Project>

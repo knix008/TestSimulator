@@ -44,11 +44,12 @@ namespace PandocWinV2._0
         // ----------------------------------------------------------------
         // 컨트롤
         // ----------------------------------------------------------------
-        private readonly ListView   listView;
-        private readonly Label      lblSummary;
-        private readonly Label      lblHint;
-        private readonly Button     btnRefresh;
-        private readonly Button     btnClose;
+        private readonly ListView    listView;
+        private readonly Label       lblSummary;
+        private readonly Label       lblHint;
+        private readonly Button      btnRefresh;
+        private readonly Button      btnInstallSelected;
+        private readonly Button      btnClose;
         private readonly ProgressBar progressBar;
 
         // ----------------------------------------------------------------
@@ -56,84 +57,198 @@ namespace PandocWinV2._0
         // ----------------------------------------------------------------
         public DependencyForm()
         {
+            Color shellBack   = Color.FromArgb(241, 245, 249);
+            Color headerBack  = Color.FromArgb(30, 58, 95);
+            Color sectionText = Color.FromArgb(51, 65, 85);
+            Color borderSubtle = Color.FromArgb(226, 232, 240);
+
             Text            = "의존성 확인";
-            Size            = new Size(730, 430);
-            MinimumSize     = new Size(730, 430);
-            MaximumSize     = new Size(730, 430);
+            Size            = new Size(752, 467);
+            MinimumSize     = Size;
+            MaximumSize     = Size;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             StartPosition   = FormStartPosition.CenterParent;
             MaximizeBox     = false;
             MinimizeBox     = false;
+            BackColor       = shellBack;
+            Font            = new Font("Segoe UI", 9F);
+            DoubleBuffered  = true;
+
+            var panelHeader = new Panel
+            {
+                Dock      = DockStyle.Top,
+                Height    = 54,
+                BackColor = headerBack,
+            };
+            var lblHdrTitle = new Label
+            {
+                Text      = "의존성 확인",
+                Font      = new Font("Segoe UI", 11F, FontStyle.Bold),
+                ForeColor = Color.White,
+                AutoSize  = true,
+                Location  = new Point(18, 8),
+            };
+            var lblHdrSub = new Label
+            {
+                Text      = "Pandoc과 PDF 변환에 쓰이는 도구 설치 여부를 확인합니다. 미설치 항목은「자동 설치」로 내려받을 수 있습니다.",
+                Font      = new Font("Segoe UI", 8.5F),
+                ForeColor = Color.FromArgb(184, 197, 214),
+                AutoSize  = true,
+                Location  = new Point(20, 28),
+            };
+            panelHeader.Controls.Add(lblHdrTitle);
+            panelHeader.Controls.Add(lblHdrSub);
+
+            var panelClient = new Panel
+            {
+                Dock    = DockStyle.Fill,
+                Padding = new Padding(16, 12, 16, 12),
+                BackColor = shellBack,
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock               = DockStyle.Fill,
+                ColumnCount        = 1,
+                RowCount           = 5,
+                BackColor          = shellBack,
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 258F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+
+            var listHost = new Panel
+            {
+                Dock           = DockStyle.Fill,
+                BackColor      = Color.White,
+                BorderStyle    = BorderStyle.FixedSingle,
+                Padding        = new Padding(0),
+            };
 
             listView = new ListView
             {
-                Location      = new Point(12, 12),
-                Size          = new Size(694, 265),
-                View          = View.Details,
-                FullRowSelect = true,
-                GridLines     = true,
-                HideSelection = false,
+                Dock              = DockStyle.Fill,
+                View              = View.Details,
+                FullRowSelect     = true,
+                GridLines         = false,
+                HideSelection     = false,
+                BorderStyle       = BorderStyle.None,
+                BackColor         = Color.White,
+                Font              = new Font("Segoe UI", 9F),
+                HeaderStyle       = ColumnHeaderStyle.Nonclickable,
             };
-            listView.Columns.Add("패키지",    110);
-            listView.Columns.Add("필수 여부",  80);
-            listView.Columns.Add("상태",       75);
-            listView.Columns.Add("버전",       135);
-            listView.Columns.Add("용도",       280);
+            listView.Columns.Add("패키지", 118);
+            listView.Columns.Add("필수 여부", 88);
+            listView.Columns.Add("상태", 88);
+            listView.Columns.Add("버전", 168);
+            listView.Columns.Add("용도", 280);
             listView.DoubleClick += ListView_DoubleClick;
+            listView.SelectedIndexChanged += (_, _) => UpdateInstallButtonState();
+            listHost.Controls.Add(listView);
+            layout.Controls.Add(listHost, 0, 0);
 
             progressBar = new ProgressBar
             {
-                Location  = new Point(12, 286),
-                Size      = new Size(694, 16),
-                Style     = ProgressBarStyle.Marquee,
-                Visible   = false,
+                Dock  = DockStyle.Fill,
+                Style = ProgressBarStyle.Marquee,
+                Visible = false,
             };
+            layout.Controls.Add(progressBar, 0, 1);
 
             lblSummary = new Label
             {
-                Location  = new Point(12, 310),
-                Size      = new Size(694, 23),
+                Dock      = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Text      = "확인 중...",
-                ForeColor = Color.Gray,
+                ForeColor = Color.FromArgb(100, 116, 139),
                 AutoSize  = false,
             };
+            layout.Controls.Add(lblSummary, 0, 2);
 
             lblHint = new Label
             {
-                Location  = new Point(12, 334),
-                Size      = new Size(694, 18),
+                Dock      = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Text      = "행을 더블클릭하면 해당 패키지 다운로드 페이지가 열립니다.",
-                ForeColor = Color.DimGray,
-                Font      = new Font("Segoe UI", 8f),
+                Text      = "행을 더블클릭하면 브라우저로 안내 페이지가 열립니다. 미설치 행을 선택한 뒤「자동 설치」를 누르면 공식 설치 파일을 내려받습니다.",
+                ForeColor = Color.FromArgb(100, 116, 139),
+                Font      = new Font("Segoe UI", 8.25F),
                 AutoSize  = false,
             };
+            layout.Controls.Add(lblHint, 0, 3);
 
-            btnRefresh = new Button
+            var pnlButtons = new FlowLayoutPanel
             {
-                Text     = "새로고침",
-                Location = new Point(514, 360),
-                Size     = new Size(90, 28),
-                TabIndex = 0,
+                Dock             = DockStyle.Fill,
+                FlowDirection    = FlowDirection.RightToLeft,
+                WrapContents     = false,
+                BackColor        = shellBack,
+                Padding          = new Padding(0, 6, 0, 0),
+                AutoSize         = false,
             };
-            btnRefresh.Click += async (_, _) => await RunChecksAsync();
 
             btnClose = new Button
             {
                 Text         = "닫기",
-                Location     = new Point(616, 360),
-                Size         = new Size(90, 28),
+                Size         = new Size(96, 30),
                 DialogResult = DialogResult.OK,
                 TabIndex     = 1,
+                FlatStyle    = FlatStyle.Flat,
+                BackColor    = Color.White,
+                ForeColor    = sectionText,
+                Cursor       = Cursors.Hand,
+                Font         = new Font("Segoe UI", 9F),
+                UseVisualStyleBackColor = false,
             };
+            btnClose.FlatAppearance.BorderColor = borderSubtle;
 
-            Controls.Add(listView);
-            Controls.Add(progressBar);
-            Controls.Add(lblSummary);
-            Controls.Add(lblHint);
-            Controls.Add(btnRefresh);
-            Controls.Add(btnClose);
+            btnRefresh = new Button
+            {
+                Text     = "새로고침",
+                Size     = new Size(96, 30),
+                Margin   = new Padding(0, 0, 10, 0),
+                TabIndex = 0,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(37, 99, 235),
+                ForeColor = Color.White,
+                Cursor    = Cursors.Hand,
+                Font      = new Font("Segoe UI", 9F),
+                UseVisualStyleBackColor = false,
+            };
+            btnRefresh.FlatAppearance.BorderSize = 0;
+            btnRefresh.FlatAppearance.MouseOverBackColor = Color.FromArgb(29, 78, 216);
+            btnRefresh.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 64, 175);
+            btnRefresh.Click += async (_, _) => await RunChecksAsync();
+
+            btnInstallSelected = new Button
+            {
+                Text     = "자동 설치",
+                Size     = new Size(108, 30),
+                Margin   = new Padding(0, 0, 10, 0),
+                TabIndex = 2,
+                Enabled  = false,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(5, 122, 85),
+                ForeColor = Color.White,
+                Cursor    = Cursors.Hand,
+                Font      = new Font("Segoe UI", 9F),
+                UseVisualStyleBackColor = false,
+            };
+            btnInstallSelected.FlatAppearance.BorderSize = 0;
+            btnInstallSelected.FlatAppearance.MouseOverBackColor = Color.FromArgb(4, 108, 76);
+            btnInstallSelected.FlatAppearance.MouseDownBackColor = Color.FromArgb(3, 94, 66);
+            btnInstallSelected.Click += BtnInstallSelected_Click;
+
+            pnlButtons.Controls.Add(btnClose);
+            pnlButtons.Controls.Add(btnInstallSelected);
+            pnlButtons.Controls.Add(btnRefresh);
+            layout.Controls.Add(pnlButtons, 0, 4);
+
+            panelClient.Controls.Add(layout);
+            Controls.Add(panelClient);
+            Controls.Add(panelHeader);
             AcceptButton = btnClose;
 
             Load += async (_, _) => await RunChecksAsync();
@@ -155,10 +270,13 @@ namespace PandocWinV2._0
         // ----------------------------------------------------------------
         private async Task RunChecksAsync()
         {
-            btnRefresh.Enabled  = false;
-            progressBar.Visible = true;
+            btnRefresh.Enabled         = false;
+            btnInstallSelected.Enabled = false;
+            progressBar.Style            = ProgressBarStyle.Marquee;
+            progressBar.MarqueeAnimationSpeed = 30;
+            progressBar.Visible          = true;
             lblSummary.Text     = "확인 중...";
-            lblSummary.ForeColor = Color.Gray;
+            lblSummary.ForeColor = Color.FromArgb(100, 116, 139);
             listView.Items.Clear();
 
             int missingRequired = 0;
@@ -181,15 +299,15 @@ namespace PandocWinV2._0
 
                         version  = firstLine.Length > 40 ? firstLine[..40] + "…" : firstLine;
                         status   = "✓ 설치됨";
-                        rowColor = Color.FromArgb(235, 255, 235);
+                        rowColor = Color.FromArgb(236, 253, 245);
                     }
                     else
                     {
                         status   = "✗ 미설치";
                         version  = "-";
                         rowColor = required
-                            ? Color.FromArgb(255, 230, 230)
-                            : Color.FromArgb(255, 250, 215);
+                            ? Color.FromArgb(254, 242, 242)
+                            : Color.FromArgb(255, 251, 235);
 
                         if (required) missingRequired++;
                         else          missingOptional++;
@@ -200,8 +318,8 @@ namespace PandocWinV2._0
                     status   = "✗ 미설치";
                     version  = "-";
                     rowColor = required
-                        ? Color.FromArgb(255, 230, 230)
-                        : Color.FromArgb(255, 250, 215);
+                        ? Color.FromArgb(254, 242, 242)
+                        : Color.FromArgb(255, 251, 235);
 
                     if (required) missingRequired++;
                     else          missingOptional++;
@@ -213,11 +331,14 @@ namespace PandocWinV2._0
                 item.SubItems.Add(version);
                 item.SubItems.Add(purpose);
                 item.BackColor = rowColor;
+                item.Tag       = name;
                 listView.Items.Add(item);
             }
 
             progressBar.Visible = false;
             btnRefresh.Enabled  = true;
+
+            UpdateInstallButtonState();
 
             if (missingRequired > 0)
             {
@@ -227,12 +348,12 @@ namespace PandocWinV2._0
             else if (missingOptional > 0)
             {
                 lblSummary.Text      = $"선택 패키지 {missingOptional}개 미설치 — PDF 변환이 제한될 수 있습니다.";
-                lblSummary.ForeColor = Color.DarkOrange;
+                lblSummary.ForeColor = Color.FromArgb(234, 88, 12);
             }
             else
             {
                 lblSummary.Text      = "모든 패키지가 설치되어 있습니다.";
-                lblSummary.ForeColor = Color.DarkGreen;
+                lblSummary.ForeColor = Color.FromArgb(22, 163, 74);
             }
         }
 
@@ -334,6 +455,127 @@ namespace PandocWinV2._0
             }
 
             return (-1, "");
+        }
+
+        // ----------------------------------------------------------------
+        // 자동 설치 UI
+        // ----------------------------------------------------------------
+
+        private void UpdateInstallButtonState()
+        {
+            if (listView.SelectedItems.Count == 0)
+            {
+                btnInstallSelected.Enabled = false;
+                return;
+            }
+
+            ListViewItem item = listView.SelectedItems[0];
+            string probeName = item.Tag as string ?? "";
+            if (!DependencyInstaller.CanAutoInstall(probeName))
+            {
+                btnInstallSelected.Enabled = false;
+                return;
+            }
+
+            bool missing = item.SubItems.Count > 2 && item.SubItems[2].Text.Contains("미설치");
+            btnInstallSelected.Enabled = missing;
+        }
+
+        private async void BtnInstallSelected_Click(object? sender, EventArgs e)
+        {
+            if (listView.SelectedItems.Count == 0) return;
+
+            ListViewItem item = listView.SelectedItems[0];
+            string probeName = item.Tag as string ?? "";
+            DependencyInstallTarget? target = DependencyInstaller.GetInstallTarget(probeName);
+            if (target is null)
+            {
+                MessageBox.Show(this, "이 항목은 자동 설치를 지원하지 않습니다.", "자동 설치",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (item.SubItems.Count <= 2 || !item.SubItems[2].Text.Contains("미설치"))
+            {
+                MessageBox.Show(this, "이미 설치된 항목입니다.", "자동 설치",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string title = DependencyInstaller.DisplayName(target.Value);
+            if (MessageBox.Show(this,
+                    $"{title} 설치 파일을 공식 배포처에서 내려받은 뒤, 자동으로 설치를 시도합니다.\n\n" +
+                    "• 네트워크 사용량이 클 수 있습니다(MiKTeX Basic 등).\n" +
+                    "• UAC(관리자 승인) 창이 열릴 수 있습니다.\n" +
+                    "• wkhtmltopdf는 패키징 저장소의 Windows 64비트 빌드(0.12.6-1)를 사용합니다.\n\n" +
+                    "계속할까요?",
+                    "자동 설치 확인",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+                return;
+
+            btnRefresh.Enabled         = false;
+            btnInstallSelected.Enabled = false;
+            btnClose.Enabled           = false;
+            listView.Enabled           = false;
+
+            progressBar.Style   = ProgressBarStyle.Continuous;
+            progressBar.Minimum = 0;
+            progressBar.Maximum = 100;
+            progressBar.Value   = 0;
+            progressBar.Visible = true;
+            lblSummary.Text     = "다운로드 준비 중…";
+
+            try
+            {
+                var status = new Progress<string>(s => lblSummary.Text = s);
+                var pct = new Progress<int>(p =>
+                {
+                    int v = Math.Clamp(p, 0, 100);
+                    progressBar.Value = v;
+                });
+                var phase = new Progress<DependencyInstallPhase>(p =>
+                {
+                    if (p == DependencyInstallPhase.Downloading)
+                    {
+                        progressBar.Style = ProgressBarStyle.Continuous;
+                        progressBar.Value = 0;
+                    }
+                    else
+                    {
+                        progressBar.Style = ProgressBarStyle.Marquee;
+                        progressBar.MarqueeAnimationSpeed = 30;
+                    }
+                });
+
+                string? err = await DependencyInstaller.InstallAsync(target.Value, status, pct, phase);
+                DependencyInstaller.RefreshProcessPathFromRegistry();
+
+                if (err is null)
+                {
+                    MessageBox.Show(this,
+                        "설치가 완료된 것으로 보입니다.\n" +
+                        "상태가 갱신되지 않으면「새로고침」하거나 앱을 다시 시작해 주세요.",
+                        "설치 완료",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+                else
+                {
+                    MessageBox.Show(this, err, "설치 실패",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            finally
+            {
+                progressBar.Visible = false;
+                progressBar.Style   = ProgressBarStyle.Marquee;
+                listView.Enabled    = true;
+                btnClose.Enabled    = true;
+                btnRefresh.Enabled  = true;
+                await RunChecksAsync();
+            }
         }
     }
 }

@@ -1,8 +1,9 @@
 using System.Diagnostics;
+using System.IO;
 
 namespace PandocWinV2._0
 {
-    public partial class Form1 : Form
+    public partial class PandocWin20Form : Form
     {
         // ----------------------------------------------------------------
         // 데이터: 확장자 → pandoc 형식명
@@ -66,9 +67,11 @@ namespace PandocWinV2._0
         // ----------------------------------------------------------------
         // 생성자
         // ----------------------------------------------------------------
-        public Form1()
+        public PandocWin20Form()
         {
             InitializeComponent();
+            DoubleBuffered = true;
+            EnsureUserWritableCurrentDirectory();
 
             foreach (var (display, _) in InputFormats)
                 cmbInputFormat.Items.Add(display);
@@ -85,21 +88,142 @@ namespace PandocWinV2._0
         // ----------------------------------------------------------------
         // 폼 로드: pandoc 설치 확인
         // ----------------------------------------------------------------
-        private async void Form1_Load(object sender, EventArgs e)
+        private async void PandocWin20Form_Load(object sender, EventArgs e)
         {
-            SetStatus("Pandoc 설치 확인 중...", Color.Gray);
+            SetStatus("Pandoc 설치 확인 중...", Color.FromArgb(100, 116, 139));
             btnConvert.Enabled = false;
 
-            bool available = await CheckPandocAvailableAsync();
+            bool available;
+            try
+            {
+                ShowStatusProgressMarquee();
+                available = await CheckPandocAvailableAsync();
+            }
+            finally
+            {
+                HideStatusProgress();
+            }
+
+            if (!available)
+            {
+                SetStatus("Pandoc 미설치 - 변환 불가", Color.Red);
+                await TryOfferAutomaticPandocInstallAsync();
+                DependencyInstaller.RefreshProcessPathFromRegistry();
+                try
+                {
+                    ShowStatusProgressMarquee();
+                    SetStatus("Pandoc 재확인 중…", Color.FromArgb(100, 116, 139));
+                    available = await CheckPandocAvailableAsync();
+                }
+                finally
+                {
+                    HideStatusProgress();
+                }
+            }
+
             if (available)
             {
-                SetStatus("준비", Color.Green);
+                SetStatus("준비", Color.FromArgb(22, 163, 74));
                 btnConvert.Enabled = true;
             }
             else
             {
                 SetStatus("Pandoc 미설치 - 변환 불가", Color.Red);
                 ShowPandocInstallGuide();
+            }
+        }
+
+        /// <summary>
+        /// Pandoc 공식 MSI를 내려받아 무인 설치를 시도한다.
+        /// </summary>
+        private async Task TryOfferAutomaticPandocInstallAsync()
+        {
+            var answer = MessageBox.Show(
+                this,
+                "Pandoc이 설치되어 있지 않습니다.\n\n" +
+                "GitHub에 공개된 공식 Windows 설치 패키지(MSI)를 내려받아 자동으로 설치할까요?\n\n" +
+                "• 인터넷 연결이 필요합니다.\n" +
+                "• UAC(관리자 승인) 창이 열릴 수 있습니다.\n" +
+                "• 설치가 끝나면 PATH를 이 세션에 반영해 다시 확인합니다.",
+                "Pandoc 자동 설치",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question,
+                MessageBoxDefaultButton.Button2);
+
+            if (answer != DialogResult.Yes)
+                return;
+
+            SetStatus("Pandoc 설치 준비 중…", Color.FromArgb(100, 116, 139));
+            UseWaitCursor = true;
+            Cursor        = Cursors.WaitCursor;
+
+            ResetStatusProgressDeterminate();
+            ShowStatusProgressDeterminate(0);
+
+            var status = new Progress<string>(ReportInstallStatusLine);
+            var phase = new Progress<DependencyInstallPhase>(ApplyDependencyInstallPhase);
+            var pct = new Progress<int>(v => ShowStatusProgressDeterminate(v));
+
+            string? err;
+            try
+            {
+                err = await DependencyInstaller.InstallAsync(
+                    DependencyInstallTarget.Pandoc, status, pct, phase);
+            }
+            finally
+            {
+                HideStatusProgress();
+                UseWaitCursor = false;
+                Cursor        = Cursors.Default;
+            }
+
+            if (err is null)
+            {
+                MessageBox.Show(
+                    this,
+                    "Pandoc 설치가 완료된 것으로 보입니다.\n" +
+                    "명령을 찾지 못하면 이 프로그램을 한 번 종료했다가 다시 실행해 주세요.",
+                    "설치 완료",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            else
+            {
+                MessageBox.Show(
+                    this,
+                    "자동 설치를 마치지 못했습니다.\n\n" + err,
+                    "설치 실패",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
+            void ReportInstallStatusLine(string message)
+            {
+                void apply() => SetStatus(message, Color.FromArgb(100, 116, 139));
+                if (InvokeRequired) BeginInvoke(apply);
+                else apply();
+            }
+
+            void ApplyDependencyInstallPhase(DependencyInstallPhase p)
+            {
+                void apply()
+                {
+                    if (p == DependencyInstallPhase.Downloading)
+                    {
+                        statusProgress.Style = ProgressBarStyle.Continuous;
+                        statusProgress.Value = 0;
+                        statusProgress.Visible = true;
+                    }
+                    else
+                    {
+                        statusProgress.Style = ProgressBarStyle.Marquee;
+                        statusProgress.MarqueeAnimationSpeed = 35;
+                        statusProgress.Visible = true;
+                    }
+                }
+
+                if (InvokeRequired) BeginInvoke(apply);
+                else apply();
             }
         }
 
@@ -123,7 +247,8 @@ namespace PandocWinV2._0
                 "  • MiKTeX (xelatex/lualatex/pdflatex) — https://miktex.org\n" +
                 "  • TeX Live — https://tug.org/texlive\n" +
                 "  • wkhtmltopdf — https://wkhtmltopdf.org\n\n" +
-                "의존성 상태는 '도움말 > 의존성 확인'에서 확인할 수 있습니다.",
+                "의존성 상태는 '도움말 > 의존성 확인'에서 확인할 수 있으며,\n" +
+                "해당 창에서 Pandoc·MiKTeX·wkhtmltopdf 등을 공식 파일로 자동 설치할 수 있습니다.",
                 "정보", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -183,8 +308,8 @@ namespace PandocWinV2._0
         private void CmbInputFormat_SelectedIndexChanged(object? sender, EventArgs e)
         {
             lblAutoFormat.ForeColor = cmbInputFormat.SelectedIndex == 0
-                ? Color.Gray
-                : Color.DarkBlue;
+                ? Color.FromArgb(100, 116, 139)
+                : Color.FromArgb(37, 99, 235);
         }
 
         // ----------------------------------------------------------------
@@ -224,7 +349,7 @@ namespace PandocWinV2._0
             string? pdfEngine = null;
             if (outputFormat == "pdf")
             {
-                SetStatus("PDF 엔진 확인 중...", Color.Gray);
+                SetStatus("PDF 엔진 확인 중...", Color.FromArgb(100, 116, 139));
                 pdfEngine = await DetectPdfEngineAsync();
                 if (pdfEngine is null)
                 {
@@ -237,16 +362,18 @@ namespace PandocWinV2._0
 
             string args = BuildPandocArguments(inputFormat, outputFormat, inputPath, outputPath, pdfEngine);
 
-            SetStatus($"변환 중: {Path.GetFileName(inputPath)} → {Path.GetFileName(outputPath)}", Color.DarkOrange);
+            SetStatus($"변환 중: {Path.GetFileName(inputPath)} → {Path.GetFileName(outputPath)}", Color.FromArgb(234, 88, 12));
 
             // 변환 타임아웃: 5분
-            var (exitCode, _, stderr) = await RunProcessAsync("pandoc", args, timeoutMs: 300_000);
+            string workDir = ResolveWritableWorkingDirectory(outputPath);
+            var (exitCode, _, stderr) = await RunProcessAsync(
+                "pandoc", args, timeoutMs: 300_000, workingDirectory: workDir);
 
             SetConvertingState(false);
 
             if (exitCode == 0)
             {
-                SetStatus($"변환 완료: {Path.GetFileName(outputPath)}", Color.Green);
+                SetStatus($"변환 완료: {Path.GetFileName(outputPath)}", Color.FromArgb(22, 163, 74));
                 MessageBox.Show($"변환이 완료되었습니다.\n\n{outputPath}",
                     "완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -268,12 +395,12 @@ namespace PandocWinV2._0
             if (ExtToFormat.TryGetValue(ext, out string? fmt))
             {
                 lblAutoFormat.Text      = $"자동 감지: {fmt}";
-                lblAutoFormat.ForeColor = Color.DarkGreen;
+                lblAutoFormat.ForeColor = Color.FromArgb(22, 163, 74);
             }
             else
             {
                 lblAutoFormat.Text      = "알 수 없는 형식 (수동 선택 권장)";
-                lblAutoFormat.ForeColor = Color.OrangeRed;
+                lblAutoFormat.ForeColor = Color.FromArgb(234, 88, 12);
             }
             cmbInputFormat.SelectedIndex = 0;
         }
@@ -315,15 +442,87 @@ namespace PandocWinV2._0
                 // 경로에 공백이 포함된 경우(설치 디렉토리 직접 지정) 따옴표로 감싼다
                 string engineArg = pdfEngine.Contains(' ') ? $"\"{pdfEngine}\"" : pdfEngine;
                 args += $" --pdf-engine={engineArg}";
+                AppendKoreanPdfFontVariables(ref args, pdfEngine);
             }
             return args;
+        }
+
+        /// <summary>
+        /// PDF 엔진별로 한글 글리프가 있는 글꼴을 지정한다.
+        /// XeLaTeX/LuaLaTeX 기본(라틴 전용) 글꼴이면 한글이 네모·깨짐으로 나온다.
+        /// </summary>
+        private static void AppendKoreanPdfFontVariables(ref string args, string pdfEngine)
+        {
+            string baseName = Path.GetFileNameWithoutExtension(pdfEngine.Trim().Trim('"'))
+                .ToLowerInvariant();
+
+            // Windows 한국어판에 기본 포함되는 글꼴(영문 이름). 없으면 나눔·맑은 고딕 등을 설치하면 됨.
+            const string koreanUiFont = "Malgun Gothic";
+
+            switch (baseName)
+            {
+                case "xelatex":
+                case "lualatex":
+                    args += $" -V mainfont=\"{koreanUiFont}\" -V sansfont=\"{koreanUiFont}\"";
+                    args += $" -V CJKmainfont=\"{koreanUiFont}\" -V CJKsansfont=\"{koreanUiFont}\"";
+                    break;
+                case "wkhtmltopdf":
+                    // HTML 중간 산출물: 시스템 한글 글꼴로 본문 렌더
+                    args += " -V header-includes=<style>body{font-family:'Malgun Gothic',sans-serif;}</style>";
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// MSI 설치 후 바로가기 작업 폴더가 Program Files이면, 자식 프로세스(pandoc/LaTeX 등)가
+        /// 현재 디렉터리에 임시 파일을 쓰다 접근 거부될 수 있어 문서 폴더로 바꿉니다.
+        /// </summary>
+        private static void EnsureUserWritableCurrentDirectory()
+        {
+            try
+            {
+                string startup = Application.StartupPath;
+                if (!startup.Contains("Program Files", StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                if (!string.IsNullOrEmpty(docs) && Directory.Exists(docs))
+                    Environment.CurrentDirectory = docs;
+            }
+            catch
+            {
+                /* ignore */
+            }
+        }
+
+        /// <summary>
+        /// pandoc/PDF 엔진이 쓰기 가능한 작업 디렉터리(보통 출력 파일이 있는 폴더).
+        /// </summary>
+        private static string ResolveWritableWorkingDirectory(string outputPath)
+        {
+            try
+            {
+                string full = Path.GetFullPath(outputPath);
+                string? dir = Path.GetDirectoryName(full);
+                if (!string.IsNullOrEmpty(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                    return dir;
+                }
+            }
+            catch
+            {
+                /* fall through */
+            }
+
+            return Path.GetTempPath();
         }
 
         // ----------------------------------------------------------------
         // 헬퍼: 비동기 프로세스 실행 (타임아웃 지원)
         // ----------------------------------------------------------------
         private static async Task<(int ExitCode, string Stdout, string Stderr)>
-            RunProcessAsync(string fileName, string arguments, int timeoutMs = -1)
+            RunProcessAsync(string fileName, string arguments, int timeoutMs = -1, string? workingDirectory = null)
         {
             var psi = new ProcessStartInfo
             {
@@ -333,6 +532,7 @@ namespace PandocWinV2._0
                 RedirectStandardOutput = true,
                 RedirectStandardError  = true,
                 CreateNoWindow         = true,
+                WorkingDirectory       = workingDirectory ?? Path.GetTempPath(),
             };
 
             using var process = new Process { StartInfo = psi };
@@ -508,6 +708,59 @@ namespace PandocWinV2._0
             cmbInputFormat.Enabled  = !isConverting;
             cmbOutputFormat.Enabled = !isConverting;
             Cursor = isConverting ? Cursors.WaitCursor : Cursors.Default;
+
+            if (isConverting)
+                ShowStatusProgressMarquee();
+            else
+                HideStatusProgress();
+        }
+
+        private void ShowStatusProgressMarquee()
+        {
+            void apply()
+            {
+                statusProgress.Style = ProgressBarStyle.Marquee;
+                statusProgress.MarqueeAnimationSpeed = 35;
+                statusProgress.Visible = true;
+            }
+
+            if (InvokeRequired) BeginInvoke(apply);
+            else apply();
+        }
+
+        private void ShowStatusProgressDeterminate(int value)
+        {
+            void apply()
+            {
+                statusProgress.Style = ProgressBarStyle.Continuous;
+                statusProgress.Value = Math.Clamp(value, statusProgress.Minimum, statusProgress.Maximum);
+                statusProgress.Visible = true;
+            }
+
+            if (InvokeRequired) BeginInvoke(apply);
+            else apply();
+        }
+
+        private void ResetStatusProgressDeterminate()
+        {
+            void apply()
+            {
+                statusProgress.Minimum = 0;
+                statusProgress.Maximum = 100;
+                statusProgress.Value   = 0;
+                statusProgress.Style   = ProgressBarStyle.Continuous;
+            }
+
+            if (InvokeRequired) BeginInvoke(apply);
+            else apply();
+        }
+
+        private void HideStatusProgress()
+        {
+            void apply() => statusProgress.Visible = false;
+
+            if (InvokeRequired) BeginInvoke(apply);
+            else apply();
         }
     }
 }

@@ -1,27 +1,23 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0.."
 
-echo [1/2] 앱 퍼블리시 중...
-dotnet publish -p:PublishProfile=SingleFile
+set "ROOT=%CD%"
+set "OUT=%ROOT%\bin\Release\publish"
+set "MSI=%OUT%\PandocWinV2.0.msi"
+
+echo WiX SDK 프로젝트 빌드 중 ^(앱 퍼블리시 + MSI^)...
+dotnet build "%ROOT%\Setup\PandocWinV2.0.Setup.csproj" -c Release -v minimal
 if errorlevel 1 (
-    echo 퍼블리시 실패
+    echo MSI 빌드 실패 ^(WiX MSBuild SDK 6.x, .NET 10 SDK 필요^)
     exit /b 1
 )
 
-echo [2/2] MSI 빌드 중...
-cd Setup
-wix build Package.wxs ^
-    -ext WixToolset.UI.wixext ^
-    -ext WixToolset.Util.wixext ^
-    -culture ko-KR ^
-    -out ..\bin\Release\publish\PandocWinV2.0.msi
-cd ..
-if errorlevel 1 (
-    echo MSI 빌드 실패
+if not exist "%MSI%" (
+    echo [오류] "%MSI%" 가 생성되지 않았습니다.
     exit /b 1
 )
 
 echo.
-echo 완료: bin\Release\publish\PandocWinV2.0.msi
+echo 완료: %MSI%
 endlocal
