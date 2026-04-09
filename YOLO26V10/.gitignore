@@ -1,0 +1,72 @@
+## Build (.NET / SDK 스타일)
+[Bb]in/
+[Oo]bj/
+out/
+
+## Visual Studio / MSBuild
+.vs/
+.vscode/
+*.user
+*.rsuser
+*.userosscache
+*.suo
+*.cache
+*.VC.db
+*.VC.opendb
+project.lock.json
+
+## Python (export 스크립트용)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.python-version
+*.egg-info/
+dist/
+build/
+
+## 로컬에 둔 가중치·ONNX·실행 결과 (용량 큼)
+model/*.pt
+model/*.onnx
+models/*.pt
+models/*.onnx
+runs/
+
+## 동영상·세그멘테이션 결과 (로컬 전용)
+model/**/*.mp4
+model/**/*.avi
+model/**/*.mov
+model/**/*.mkv
+model/**/*.webm
+models/**/*.mp4
+models/**/*.avi
+models/**/*.mov
+models/**/*.mkv
+models/**/*.webm
+**/*_segmented.*
+**/*_seg.*
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## JetBrains Rider
+.idea/
+
+## 로그·임시
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+
+## 테스트/커버리지
+TestResults/
+*.coverage
+*.coveragexml
