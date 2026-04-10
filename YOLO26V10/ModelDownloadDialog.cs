@@ -89,9 +89,23 @@ namespace YOLO26V10
 
         private void AppendLog(string line)
         {
+            if (IsDisposed || Disposing || txtLog == null || txtLog.IsDisposed || !txtLog.IsHandleCreated)
+                return;
+
             if (txtLog.InvokeRequired)
             {
-                BeginInvoke(new Action(() => AppendLog(line)));
+                try
+                {
+                    BeginInvoke(new Action(() => AppendLog(line)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Dialog closed while background progress callback was still in-flight.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Handle not available anymore during shutdown race.
+                }
                 return;
             }
 
@@ -100,9 +114,23 @@ namespace YOLO26V10
 
         private void ApplyPrepareProgress(ModelPrepareProgress p)
         {
+            if (IsDisposed || Disposing || progressBar == null || progressBar.IsDisposed || !progressBar.IsHandleCreated)
+                return;
+
             if (progressBar.InvokeRequired)
             {
-                BeginInvoke(new Action(() => ApplyPrepareProgress(p)));
+                try
+                {
+                    BeginInvoke(new Action(() => ApplyPrepareProgress(p)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Dialog closed while background progress callback was still in-flight.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Handle not available anymore during shutdown race.
+                }
                 return;
             }
 
@@ -151,9 +179,23 @@ namespace YOLO26V10
 
         private void ResetProgressUi()
         {
+            if (IsDisposed || Disposing || progressBar == null || progressBar.IsDisposed || !progressBar.IsHandleCreated)
+                return;
+
             if (progressBar.InvokeRequired)
             {
-                BeginInvoke(new Action(ResetProgressUi));
+                try
+                {
+                    BeginInvoke(new Action(ResetProgressUi));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Dialog closed while UI reset was being marshaled.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Handle not available anymore during shutdown race.
+                }
                 return;
             }
 
