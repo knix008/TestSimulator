@@ -6,6 +6,7 @@ const HOST = "127.0.0.1";
 const PORT = process.env.PORT || 3000;
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434/api/chat";
 const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "gemma4:26b";
+const OLLAMA_BASE_URL = new URL(OLLAMA_URL).origin;
 
 function sendJson(res, statusCode, data) {
   const payload = JSON.stringify(data);
@@ -96,6 +97,44 @@ async function handleChat(req, res) {
   }
 }
 
+async function handleModels(_req, res) {
+  try {
+    const tagsUrl = new URL("/api/tags", OLLAMA_BASE_URL).toString();
+    const ollamaResp = await fetch(tagsUrl, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!ollamaResp.ok) {
+      const text = await ollamaResp.text();
+      sendJson(res, ollamaResp.status, {
+        error: "Failed to fetch Ollama models.",
+        detail: text,
+      });
+      return;
+    }
+
+    const data = await ollamaResp.json();
+    const models = Array.isArray(data?.models)
+      ? data.models
+          .map((model) => model?.name)
+          .filter((name) => typeof name === "string" && name.trim())
+      : [];
+
+    const selectedModel = models.includes(DEFAULT_MODEL) ? DEFAULT_MODEL : models[0] || DEFAULT_MODEL;
+
+    sendJson(res, 200, {
+      models,
+      defaultModel: selectedModel,
+    });
+  } catch (error) {
+    sendJson(res, 500, {
+      error: "Server error while loading models.",
+      detail: error.message,
+    });
+  }
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -116,6 +155,11 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "POST" && url.pathname === "/api/chat") {
     handleChat(req, res);
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/models") {
+    handleModels(req, res);
     return;
   }
 

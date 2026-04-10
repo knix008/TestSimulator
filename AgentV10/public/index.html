@@ -52,26 +52,38 @@
         </section>
 
         <aside class="chat-widget">
-          <header class="chat-header">
-            <div>AI Assistant</div>
-            <label>
-              Model
-              <input id="modelInput" value="gemma4:26b" />
-            </label>
-          </header>
+          <button id="chatLauncher" class="chat-launcher" type="button" aria-expanded="false" aria-controls="chatPanel">
+            <span class="chat-launcher-icon" aria-hidden="true">💬</span>
+            <span class="chat-launcher-text">AI 도우미</span>
+          </button>
 
-          <div id="chatLog" class="chat-log"></div>
+          <section id="chatPanel" class="chat-panel is-hidden">
+            <header class="chat-header">
+              <div>AI Assistant</div>
+              <label>
+                Model
+                <div class="model-controls">
+                  <select id="modelInput">
+                    <option value="">불러오는 중...</option>
+                  </select>
+                  <button id="refreshModelsBtn" type="button" class="refresh-models-btn" title="모델 목록 새로고침">↻</button>
+                </div>
+              </label>
+            </header>
 
-          <form id="chatForm" class="chat-form">
-            <input
-              id="userInput"
-              type="text"
-              placeholder="질문을 입력하세요..."
-              autocomplete="off"
-              required
-            />
-            <button id="sendBtn" type="submit">전송</button>
-          </form>
+            <div id="chatLog" class="chat-log"></div>
+
+            <form id="chatForm" class="chat-form">
+              <input
+                id="userInput"
+                type="text"
+                placeholder="질문을 입력하세요..."
+                autocomplete="off"
+                required
+              />
+              <button id="sendBtn" type="submit">전송</button>
+            </form>
+          </section>
         </aside>
       </section>
     </main>

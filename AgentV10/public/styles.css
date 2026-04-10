@@ -61,7 +61,7 @@ body {
 .content-grid {
   display: grid;
   gap: 18px;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1fr;
   align-items: start;
 }
 
@@ -107,12 +107,48 @@ body {
 }
 
 .chat-widget {
-  width: 100%;
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1000;
+}
+
+.chat-launcher {
+  min-width: 56px;
+  height: 56px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 28px;
+  background: #2f6fed;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 20px rgba(47, 111, 237, 0.35);
+}
+
+.chat-launcher-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.chat-panel {
+  position: absolute;
+  right: 0;
+  bottom: 70px;
+  width: min(420px, calc(100vw - 24px));
   border: 1px solid #d9deeb;
   border-radius: 14px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(27, 29, 34, 0.08);
+  box-shadow: 0 18px 40px rgba(27, 29, 34, 0.18);
   overflow: hidden;
+}
+
+.chat-panel.is-hidden {
+  display: none;
 }
 
 .chat-header {
@@ -132,11 +168,31 @@ body {
   gap: 8px;
 }
 
-.chat-header input {
+.model-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-header select {
   width: 110px;
   border: none;
   border-radius: 6px;
   padding: 5px 8px;
+}
+
+.refresh-models-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: #1f56c9;
+  color: #fff;
+  cursor: pointer;
+}
+
+.refresh-models-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .chat-log {
@@ -165,6 +221,34 @@ body {
   margin-right: auto;
   background: #e8edff;
   color: #1c2542;
+}
+
+.msg.typing {
+  background: #eef2ff;
+  color: #3d4a6b;
+  font-style: normal;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.typing-label {
+  font-size: 14px;
+}
+
+.typing-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #a8b4d4;
+  border-top-color: #2f6fed;
+  animation: typing-spin 0.9s linear infinite;
+}
+
+@keyframes typing-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .msg.system {
@@ -209,5 +293,19 @@ body {
 
   .cards {
     grid-template-columns: 1fr;
+  }
+
+  .chat-widget {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .chat-panel {
+    width: min(420px, calc(100vw - 24px));
+    max-height: calc(100vh - 92px);
+  }
+
+  .chat-log {
+    height: min(460px, calc(100vh - 260px));
   }
 }
