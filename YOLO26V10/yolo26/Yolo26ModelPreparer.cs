@@ -35,6 +35,7 @@ namespace YOLO26V10.yolo26
                 YoloModelKind.Detection => $"yolo26{variant}.pt",
                 YoloModelKind.Pose => $"yolo26{variant}-pose.pt",
                 YoloModelKind.Classify => $"yolo26{variant}-cls.pt",
+                YoloModelKind.Obb => $"yolo26{variant}-obb.pt",
                 _ => $"yolo26{variant}.pt",
             };
             return Path.Combine(ModelDirectory, name);
@@ -48,6 +49,7 @@ namespace YOLO26V10.yolo26
                 YoloModelKind.Detection => $"yolo26{variant}.onnx",
                 YoloModelKind.Pose => $"yolo26{variant}-pose.onnx",
                 YoloModelKind.Classify => $"yolo26{variant}-cls.onnx",
+                YoloModelKind.Obb => $"yolo26{variant}-obb.onnx",
                 _ => $"yolo26{variant}.onnx",
             };
             return Path.Combine(ModelDirectory, name);
@@ -60,6 +62,7 @@ namespace YOLO26V10.yolo26
                 YoloModelKind.Detection => $"yolo26{variant}.pt",
                 YoloModelKind.Pose => $"yolo26{variant}-pose.pt",
                 YoloModelKind.Classify => $"yolo26{variant}-cls.pt",
+                YoloModelKind.Obb => $"yolo26{variant}-obb.pt",
                 _ => $"yolo26{variant}.pt",
             };
 
@@ -73,6 +76,31 @@ namespace YOLO26V10.yolo26
         {
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             return Path.GetFullPath(Path.Combine(baseDir, "tools", "export_yolo26_onnx.py"));
+        }
+
+        /// <summary>재시도·정리용. 존재하면 삭제합니다(실패 시 무시).</summary>
+        public static void TryDeleteFileIfExists(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // best effort
+            }
+        }
+
+        /// <summary>
+        /// 해당 변형·작업의 로컬 .pt(및 미완료 .part), ONNX를 모두 삭제합니다. 재시도 시 불완전·손상 파일을 제거할 때 사용합니다.
+        /// </summary>
+        public static void DeletePreparedAssets(string variant, YoloModelKind kind)
+        {
+            var pt = GetPtPath(variant, kind);
+            TryDeleteFileIfExists(pt + ".part");
+            TryDeleteFileIfExists(pt);
+            TryDeleteFileIfExists(GetOnnxPath(variant, kind));
         }
 
         public static async Task EnsureOnnxModelAsync(
@@ -106,52 +134,66 @@ namespace YOLO26V10.yolo26
             if (!File.Exists(pt))
             {
                 log?.Report($".pt 다운로드: {url}");
-                using (var client = new HttpClient())
+                var tempPt = pt + ".part";
+                TryDeleteFileIfExists(tempPt);
+                try
                 {
-                    client.Timeout = TimeSpan.FromMinutes(60);
-                    using (var resp = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                        .ConfigureAwait(false))
+                    using (var client = new HttpClient())
                     {
-                        resp.EnsureSuccessStatusCode();
-                        var total = resp.Content.Headers.ContentLength;
-                        using (var fs = new FileStream(pt, FileMode.Create, FileAccess.Write, FileShare.None))
-                        using (var stream = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                        client.Timeout = TimeSpan.FromMinutes(60);
+                        using (var resp = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                                   .ConfigureAwait(false))
                         {
-                            var buffer = new byte[81920];
-                            long readTotal = 0;
-                            int read;
-                            while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)
-                                       .ConfigureAwait(false)) > 0)
+                            resp.EnsureSuccessStatusCode();
+                            var total = resp.Content.Headers.ContentLength;
+                            using (var fs = new FileStream(tempPt, FileMode.Create, FileAccess.Write, FileShare.None))
+                            using (var stream = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false))
                             {
-                                await fs.WriteAsync(buffer, 0, read, cancellationToken).ConfigureAwait(false);
-                                readTotal += read;
-                                if (total.HasValue && total.Value > 0)
+                                var buffer = new byte[81920];
+                                long readTotal = 0;
+                                int read;
+                                while ((read = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)
+                                           .ConfigureAwait(false)) > 0)
                                 {
-                                    var pct = (int)(readTotal * 100L / total.Value);
-                                    if (pct > 100)
-                                        pct = 100;
-                                    prepareProgress?.Report(new ModelPrepareProgress(
-                                        ModelPreparePhase.Downloading,
-                                        pct,
-                                        FormatBytesProgress(readTotal, total.Value)));
-                                }
-                                else
-                                {
-                                    prepareProgress?.Report(new ModelPrepareProgress(
-                                        ModelPreparePhase.Downloading,
-                                        null,
-                                        $"{FormatSize(readTotal)} 받는 중...(전체 용량 정보 없음)"));
+                                    await fs.WriteAsync(buffer, 0, read, cancellationToken).ConfigureAwait(false);
+                                    readTotal += read;
+                                    if (total.HasValue && total.Value > 0)
+                                    {
+                                        var pct = (int)(readTotal * 100L / total.Value);
+                                        if (pct > 100)
+                                            pct = 100;
+                                        prepareProgress?.Report(new ModelPrepareProgress(
+                                            ModelPreparePhase.Downloading,
+                                            pct,
+                                            FormatBytesProgress(readTotal, total.Value)));
+                                    }
+                                    else
+                                    {
+                                        prepareProgress?.Report(new ModelPrepareProgress(
+                                            ModelPreparePhase.Downloading,
+                                            null,
+                                            $"{FormatSize(readTotal)} 받는 중...(전체 용량 정보 없음)"));
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                log?.Report($"저장: {pt}");
-                prepareProgress?.Report(new ModelPrepareProgress(
-                    ModelPreparePhase.Downloading,
-                    100,
-                    "가중치 다운로드 완료"));
+                    if (File.Exists(pt))
+                        TryDeleteFileIfExists(pt);
+                    File.Move(tempPt, pt);
+
+                    log?.Report($"저장: {pt}");
+                    prepareProgress?.Report(new ModelPrepareProgress(
+                        ModelPreparePhase.Downloading,
+                        100,
+                        "가중치 다운로드 완료"));
+                }
+                catch
+                {
+                    TryDeleteFileIfExists(tempPt);
+                    throw;
+                }
             }
             else
             {
@@ -277,6 +319,7 @@ namespace YOLO26V10.yolo26
                         // Ignore termination race/permission errors on cancellation path.
                     }
 
+                    TryDeleteFileIfExists(onnx);
                     throw;
                 }
 
@@ -286,8 +329,11 @@ namespace YOLO26V10.yolo26
                 var err = errBuilder.ToString().Trim();
                 var std = stdBuilder.ToString().Trim();
                 if (proc.ExitCode != 0)
+                {
+                    TryDeleteFileIfExists(onnx);
                     throw new InvalidOperationException(
                         $"ONNX 변환 실패 (코드 {proc.ExitCode}).\n{std}\n{err}");
+                }
 
                 if (!string.IsNullOrWhiteSpace(std))
                     log?.Report(std);

@@ -17,6 +17,7 @@ namespace YOLO26V10
         private Yolo26DetectionSession _detSession;
         private Yolo26PoseSession _poseSession;
         private Yolo26ClassifySession _clsSession;
+        private Yolo26ObbSession _obbSession;
         private YoloModelKind _loadedKind;
         private string _loadedModelVariant;
         private long _inferenceGeneration;
@@ -37,7 +38,7 @@ namespace YOLO26V10
             _suppressModelSelectionChanged = true;
             _suppressTaskSelectionChanged = true;
             comboTask.Items.Clear();
-            comboTask.Items.AddRange(new object[] { "세그멘테이션", "객체 검출", "포즈", "분류" });
+            comboTask.Items.AddRange(new object[] { "세그멘테이션", "객체 검출", "포즈", "분류", "OBB" });
             comboTask.SelectedIndex = 0;
             _suppressTaskSelectionChanged = false;
             btnVideoPause.Image = VideoTransportIcons.Pause;
@@ -173,6 +174,7 @@ namespace YOLO26V10
                 1 => YoloModelKind.Detection,
                 2 => YoloModelKind.Pose,
                 3 => YoloModelKind.Classify,
+                4 => YoloModelKind.Obb,
                 _ => YoloModelKind.Segmentation,
             };
 
@@ -183,6 +185,7 @@ namespace YOLO26V10
                 YoloModelKind.Detection => "객체 검출",
                 YoloModelKind.Pose => "포즈",
                 YoloModelKind.Classify => "분류",
+                YoloModelKind.Obb => "OBB",
                 _ => "추론",
             };
 
@@ -193,6 +196,7 @@ namespace YOLO26V10
                 YoloModelKind.Detection => "_det",
                 YoloModelKind.Pose => "_pose",
                 YoloModelKind.Classify => "_cls",
+                YoloModelKind.Obb => "_obb",
                 _ => "_out",
             };
 
@@ -204,6 +208,7 @@ namespace YOLO26V10
                 YoloModelKind.Detection => "출력 (객체 검출)",
                 YoloModelKind.Pose => "출력 (포즈)",
                 YoloModelKind.Classify => "출력 (분류)",
+                YoloModelKind.Obb => "출력 (OBB)",
                 _ => "출력",
             };
             var cls = SelectedModelKind == YoloModelKind.Classify;
@@ -213,7 +218,8 @@ namespace YOLO26V10
         }
 
         private bool HasActiveSession() =>
-            _segSession != null || _detSession != null || _poseSession != null || _clsSession != null;
+            _segSession != null || _detSession != null || _poseSession != null || _clsSession != null ||
+            _obbSession != null;
 
         private bool TryGetClassFilterForInference(out HashSet<int> allowed, out string error)
         {
@@ -222,6 +228,12 @@ namespace YOLO26V10
                 allowed = null;
                 error = null;
                 return true;
+            }
+
+            if (SelectedModelKind == YoloModelKind.Obb)
+            {
+                var nc = _obbSession?.NumClasses ?? ObbLabels.DefaultClassCount;
+                return ObbLabels.TryParseClassFilter(txtClassFilter.Text, nc, out allowed, out error);
             }
 
             return Coco80.TryParseClassFilter(txtClassFilter.Text, out allowed, out error);
@@ -297,6 +309,7 @@ namespace YOLO26V10
                 YoloModelKind.Detection => 1,
                 YoloModelKind.Pose => 2,
                 YoloModelKind.Classify => 3,
+                YoloModelKind.Obb => 4,
                 _ => 0,
             };
             _suppressTaskSelectionChanged = false;
@@ -317,6 +330,8 @@ namespace YOLO26V10
                 _poseSession = null;
                 _clsSession?.Dispose();
                 _clsSession = null;
+                _obbSession?.Dispose();
+                _obbSession = null;
                 switch (kind)
                 {
                     case YoloModelKind.Segmentation:
@@ -331,6 +346,9 @@ namespace YOLO26V10
                     case YoloModelKind.Classify:
                         _clsSession = new Yolo26ClassifySession(path);
                         break;
+                    case YoloModelKind.Obb:
+                        _obbSession = new Yolo26ObbSession(path);
+                        break;
                 }
             }
 
@@ -344,6 +362,7 @@ namespace YOLO26V10
                 YoloModelKind.Detection => _detSession.ExecutionProviderSummary,
                 YoloModelKind.Pose => _poseSession.ExecutionProviderSummary,
                 YoloModelKind.Classify => _clsSession.ExecutionProviderSummary,
+                YoloModelKind.Obb => _obbSession.ExecutionProviderSummary,
                 _ => "",
             };
             SetStatus($"ONNX 로드됨 [{ep}]: {_onnxPath}");
@@ -356,14 +375,18 @@ namespace YOLO26V10
             }
         }
 
-        private async Task PrepareModelAsync(string variant, YoloModelKind kind, CancellationToken cancellationToken)
+        private async Task PrepareModelAsync(
+            string variant,
+            YoloModelKind kind,
+            CancellationToken cancellationToken,
+            bool forceReexport = false)
         {
             var progress = new Progress<string>(Log);
             await Yolo26ModelPreparer.EnsureOnnxModelAsync(
                     variant,
                     progress,
                     cancellationToken,
-                    forceReexport: false,
+                    forceReexport: forceReexport,
                     kind: kind)
                 .ConfigureAwait(true);
             LoadSessionFromOnnx(variant, kind);
@@ -385,6 +408,8 @@ namespace YOLO26V10
                 _poseSession = null;
                 _clsSession?.Dispose();
                 _clsSession = null;
+                _obbSession?.Dispose();
+                _obbSession = null;
             }
             base.OnFormClosed(e);
         }
@@ -439,6 +464,10 @@ namespace YOLO26V10
                         if (_clsSession == null)
                             throw new InvalidOperationException("세션이 초기화되지 않았습니다.");
                         return _clsSession.RunClassify(source, conf, allowed);
+                    case YoloModelKind.Obb:
+                        if (_obbSession == null)
+                            throw new InvalidOperationException("세션이 초기화되지 않았습니다.");
+                        return _obbSession.RunObb(source, conf, allowed);
                     default:
                         throw new InvalidOperationException("알 수 없는 작업입니다.");
                 }
@@ -491,16 +520,43 @@ namespace YOLO26V10
             btnPrepareModel.Enabled = false;
             comboModel.Enabled = false;
             comboTask.Enabled = false;
+            var attempt = 0;
             try
             {
-                await PrepareModelAsync(variant, kind, CancellationToken.None).ConfigureAwait(true);
-                Log("추론 세션 준비 완료.");
-            }
-            catch (Exception ex)
-            {
-                Log("오류: " + ex.Message);
-                SetStatus("모델 준비 실패.");
-                MessageBox.Show(this, ex.Message, "모델 준비", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                while (true)
+                {
+                    attempt++;
+                    if (attempt > 1)
+                    {
+                        Log("기존 가중치·ONNX를 삭제한 뒤 모델을 다시 준비합니다.");
+                        Yolo26ModelPreparer.DeletePreparedAssets(variant, kind);
+                    }
+
+                    try
+                    {
+                        await PrepareModelAsync(variant, kind, CancellationToken.None, attempt > 1)
+                            .ConfigureAwait(true);
+                        Log("추론 세션 준비 완료.");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("오류: " + ex.Message);
+                        SetStatus("모델 준비 실패.");
+                        var msg = ex.Message + Environment.NewLine + Environment.NewLine +
+                                  "[다시 시도] 시 이 변형의 로컬 .pt / ONNX를 삭제한 뒤 다시 받고 변환합니다.\r\n" +
+                                  "다시 시도하시겠습니까?";
+                        var dr = MessageBox.Show(
+                            this,
+                            msg,
+                            "모델 준비",
+                            MessageBoxButtons.RetryCancel,
+                            MessageBoxIcon.Warning);
+                        if (dr != DialogResult.Retry)
+                            break;
+                        Log("--- 재시도 ---");
+                    }
+                }
             }
             finally
             {
@@ -1161,6 +1217,7 @@ namespace YOLO26V10
                     ? (sk == YoloModelKind.Classify ? "classification_result.jpg"
                         : sk == YoloModelKind.Detection ? "detection_result.jpg"
                         : sk == YoloModelKind.Pose ? "pose_result.jpg"
+                        : sk == YoloModelKind.Obb ? "obb_result.jpg"
                         : "segmentation_result.jpg")
                     : Path.GetFileNameWithoutExtension(_lastImageSourcePath) + suf + ".jpg";
                 if (dlg.ShowDialog(this) != DialogResult.OK)
