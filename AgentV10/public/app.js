@@ -3,6 +3,9 @@ const chatForm = document.getElementById("chatForm");
 const userInput = document.getElementById("userInput");
 const sendBtn = document.getElementById("sendBtn");
 const modelInput = document.getElementById("modelInput");
+const refreshModelsBtn = document.getElementById("refreshModelsBtn");
+const chatLauncher = document.getElementById("chatLauncher");
+const chatPanel = document.getElementById("chatPanel");
 
 const messages = [
   {
@@ -10,6 +13,50 @@ const messages = [
     content: "You are a helpful assistant for a local demo page.",
   },
 ];
+
+function setModelOptions(models, defaultModel) {
+  modelInput.innerHTML = "";
+  if (!Array.isArray(models) || models.length === 0) {
+    const option = document.createElement("option");
+    option.value = defaultModel || "";
+    option.textContent = defaultModel || "모델 없음";
+    modelInput.appendChild(option);
+    modelInput.value = option.value;
+    return;
+  }
+
+  models.forEach((name) => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    modelInput.appendChild(option);
+  });
+
+  modelInput.value = models.includes(defaultModel) ? defaultModel : models[0];
+}
+
+async function loadModels() {
+  const previousValue = modelInput.value;
+  modelInput.disabled = true;
+  refreshModelsBtn.disabled = true;
+  try {
+    const res = await fetch("/api/models");
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.detail || data?.error || "모델 목록 조회 실패");
+    }
+    setModelOptions(data.models, data.defaultModel);
+    if (previousValue && data.models.includes(previousValue)) {
+      modelInput.value = previousValue;
+    }
+  } catch (error) {
+    setModelOptions([], "gemma4:26b");
+    appendMessage("system", `모델 목록을 가져오지 못했습니다. 기본 모델로 진행합니다. (${error.message})`);
+  } finally {
+    modelInput.disabled = false;
+    refreshModelsBtn.disabled = false;
+  }
+}
 
 function appendMessage(role, text) {
   const el = document.createElement("div");
@@ -19,9 +66,30 @@ function appendMessage(role, text) {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+function appendTypingIndicator() {
+  const el = document.createElement("div");
+  el.className = "msg assistant typing";
+  el.innerHTML = `
+    <span class="typing-spinner" aria-hidden="true"></span>
+    <span class="typing-label">답변 생성 중</span>
+  `;
+  chatLog.appendChild(el);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return el;
+}
+
+function toggleChatPanel() {
+  const isHidden = chatPanel.classList.toggle("is-hidden");
+  chatLauncher.setAttribute("aria-expanded", String(!isHidden));
+  if (!isHidden) {
+    userInput.focus();
+  }
+}
+
 async function sendMessage(content) {
   messages.push({ role: "user", content });
   appendMessage("user", content);
+  const typingIndicator = appendTypingIndicator();
 
   sendBtn.disabled = true;
   userInput.disabled = true;
@@ -50,6 +118,7 @@ async function sendMessage(content) {
   } catch (error) {
     appendMessage("system", `네트워크 오류: ${error.message}`);
   } finally {
+    typingIndicator.remove();
     sendBtn.disabled = false;
     userInput.disabled = false;
     userInput.focus();
@@ -66,4 +135,8 @@ chatForm.addEventListener("submit", (event) => {
   sendMessage(content);
 });
 
+chatLauncher.addEventListener("click", toggleChatPanel);
+refreshModelsBtn.addEventListener("click", loadModels);
+
+loadModels();
 appendMessage("assistant", "안녕하세요. 로컬 Ollama 데모 챗봇입니다. 질문을 입력해 보세요.");
