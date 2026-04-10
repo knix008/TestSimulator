@@ -16,12 +16,13 @@ namespace YOLO26V10
         public static readonly Color AccentHover = Color.FromArgb(29, 78, 216);
         public static readonly Color ButtonSecondary = Color.FromArgb(255, 255, 255);
         public static readonly Color LogBack = Color.FromArgb(255, 255, 255);
+        public static readonly Color GroupPanel = Color.FromArgb(252, 252, 254);
 
         public static Font UiFont(float size = 9f) =>
-            new Font("留묒? 怨좊뵓", size, FontStyle.Regular, GraphicsUnit.Point);
+            new Font("Malgun Gothic", size, FontStyle.Regular, GraphicsUnit.Point);
 
         public static Font UiFontBold(float size = 9f) =>
-            new Font("留묒? 怨좊뵓", size, FontStyle.Bold, GraphicsUnit.Point);
+            new Font("Malgun Gothic", size, FontStyle.Bold, GraphicsUnit.Point);
 
         public static void StylePrimaryButton(Button b)
         {
@@ -55,6 +56,26 @@ namespace YOLO26V10
             b.FlatAppearance.MouseOverBackColor = Color.FromArgb(241, 245, 255);
             b.Cursor = Cursors.Hand;
         }
+
+        /// <summary>Inner field groups (모델, 추론, 동영상).</summary>
+        public static void StyleGroupBox(GroupBox g)
+        {
+            g.FlatStyle = FlatStyle.Flat;
+            g.BackColor = GroupPanel;
+            g.ForeColor = TextSecondary;
+            g.Font = UiFontBold(8.25f);
+        }
+
+        public static void StyleCombo(ComboBox c)
+        {
+            c.FlatStyle = FlatStyle.Flat;
+            c.BackColor = Color.White;
+        }
+
+        public static void StyleNumeric(NumericUpDown n)
+        {
+            n.BorderStyle = BorderStyle.FixedSingle;
+            n.BackColor = Color.White;
+        }
     }
 }
-

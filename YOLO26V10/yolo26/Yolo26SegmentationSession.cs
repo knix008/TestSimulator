@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -9,7 +9,7 @@ using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenCvSharp;
 
-namespace YOLO26V10.Segmentation
+namespace YOLO26V10.yolo26
 {
     internal sealed class SegInstance
     {
@@ -29,7 +29,7 @@ namespace YOLO26V10.Segmentation
 
         public Yolo26SegmentationSession(string onnxPath, int cudaDeviceId = 0)
         {
-            _session = CreateSession(onnxPath, cudaDeviceId, out var summary);
+            _session = YoloOnnxSessionFactory.CreateSession(onnxPath, cudaDeviceId, out var summary);
             ExecutionProviderSummary = summary;
             _inputName = _session.InputMetadata.Keys.First();
             var shape = _session.InputMetadata[_inputName].Dimensions;
@@ -42,42 +42,6 @@ namespace YOLO26V10.Segmentation
         public int NetSize => _netSize;
 
         public void Dispose() => _session.Dispose();
-
-        private static InferenceSession CreateSession(string onnxPath, int cudaDeviceId, out string summary)
-        {
-            var threads = Math.Max(1, Environment.ProcessorCount);
-            void ApplyCommon(SessionOptions o)
-            {
-                o.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
-                o.InterOpNumThreads = threads;
-                o.IntraOpNumThreads = threads;
-            }
-
-            try
-            {
-                CudaRuntimeBootstrap.EnsureCudaBinOnPath();
-                using (var so = new SessionOptions())
-                {
-                    ApplyCommon(so);
-                    so.AppendExecutionProvider_CUDA(cudaDeviceId);
-                    var session = new InferenceSession(onnxPath, so);
-                    summary = $"CUDA GPU (device {cudaDeviceId})";
-                    return session;
-                }
-            }
-            catch (Exception ex)
-            {
-                using (var soCpu = new SessionOptions())
-                {
-                    ApplyCommon(soCpu);
-                    var session = new InferenceSession(onnxPath, soCpu);
-                    summary = $"CPU (CUDA 사용 불가 - {ex.GetType().Name}: {ex.Message})";
-                    if (ex.Message.IndexOf("126", StringComparison.Ordinal) >= 0)
-                        summary += " [cuDNN 9(CUDA 12) DLL 경로를 확인하세요. cudnn64_9.dll 이 포함된 bin 폴더가 PATH에 있어야 합니다.]";
-                    return session;
-                }
-            }
-        }
 
         /// <summary>?먮낯 醫뚰몴怨꾩쓽 ?몄뒪?댁뒪 紐⑸줉怨??쒓컖?붾맂 鍮꾪듃留듭쓣 諛섑솚?⑸땲??</summary>
         public (Bitmap Rendered, List<SegInstance> Instances) RunSegmentation(

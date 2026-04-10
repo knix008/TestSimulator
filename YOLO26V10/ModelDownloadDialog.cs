@@ -3,18 +3,41 @@ using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using YOLO26V10.Segmentation;
+using YOLO26V10.yolo26;
 
 namespace YOLO26V10
 {
     internal partial class ModelDownloadDialog : Form
     {
         private CancellationTokenSource _cts;
+        private readonly YoloModelKind _kind;
 
-        public ModelDownloadDialog(string initialVariant)
+        public ModelDownloadDialog(string initialVariant, YoloModelKind kind)
         {
             InitializeComponent();
+            _kind = kind;
             SelectedVariant = initialVariant ?? "n";
+            var common =
+                "아래에서 변형을 고른 뒤 [Download + ONNX Convert]를 누르면 .pt를 내려받고 Python(Ultralytics)으로 ONNX를 생성합니다.\r\n(Python 3 및 pip install ultralytics 필요)";
+            switch (kind)
+            {
+                case YoloModelKind.Segmentation:
+                    lblInfo.Text = "YOLO26 세그멘테이션용 ONNX 모델이 없습니다.\r\n" + common;
+                    Text = "세그멘테이션 모델 다운로드";
+                    break;
+                case YoloModelKind.Detection:
+                    lblInfo.Text = "YOLO26 객체 검출용 ONNX 모델이 없습니다.\r\n" + common;
+                    Text = "객체 검출 모델 다운로드";
+                    break;
+                case YoloModelKind.Pose:
+                    lblInfo.Text = "YOLO26 포즈 추정용 ONNX 모델이 없습니다.\r\n" + common;
+                    Text = "포즈 모델 다운로드";
+                    break;
+                default:
+                    lblInfo.Text = "YOLO26 이미지 분류용 ONNX 모델이 없습니다.\r\n" + common;
+                    Text = "분류 모델 다운로드";
+                    break;
+            }
             comboVariant.Items.Clear();
             foreach (var c in Yolo26SegModelChoice.All)
                 comboVariant.Items.Add(c);
@@ -159,7 +182,8 @@ namespace YOLO26V10
                         progress,
                         _cts.Token,
                         forceReexport: false,
-                        prepareProgress: barProgress)
+                        prepareProgress: barProgress,
+                        kind: _kind)
                     .ConfigureAwait(true);
 
                 SelectedVariant = variant;

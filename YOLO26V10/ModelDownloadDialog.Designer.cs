@@ -30,7 +30,7 @@
             this.lblInfo.Name = "lblInfo";
             this.lblInfo.Size = new System.Drawing.Size(610, 56);
             this.lblInfo.TabIndex = 0;
-            this.lblInfo.Text = "YOLO26 세그멘테이션용 ONNX 모델이 없습니다.\r\n아래에서 변형을 고른 뒤 [Download + ONNX Convert]를 누르면 .pt를 내려받고 Python(Ultralytics)으로 ONNX를 생성합니다.\r\n(Python 3 및 pip install ultralytics 필요)";
+            this.lblInfo.Text = "(작업 종류에 따라 안내 문구가 바뀝니다.)";
             // 
             // lblVariant
             // 

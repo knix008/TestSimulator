@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace YOLO26V10.Segmentation
+namespace YOLO26V10.yolo26
 {
     /// <summary>
     /// ONNX CUDA EP媛 <c>onnxruntime_providers_cuda.dll</c> 濡쒕뱶 ???섏〈 DLL(cudart, cudnn ????李얜룄濡?

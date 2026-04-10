@@ -1,4 +1,4 @@
-﻿namespace YOLO26V10.Segmentation
+namespace YOLO26V10.yolo26
 {
     internal enum ModelPreparePhase
     {

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
-using YOLO26V10.Segmentation;
+using YOLO26V10.yolo26;
 
 namespace YOLO26V10
 {
