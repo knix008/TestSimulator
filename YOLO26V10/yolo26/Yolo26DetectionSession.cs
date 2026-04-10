@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -78,13 +78,13 @@ namespace YOLO26V10.yolo26
                 var t = r.AsTensor<float>();
                 if (t != null && t.Dimensions.Length == 4)
                     throw new InvalidOperationException(
-                        "이 ONNX는 세그멘테이션 출력(4차원 프로토)을 포함합니다. 상단에서 작업을 '세그멘테이션'으로 선택하세요.");
+                        "??ONNX???멸렇硫섑뀒?댁뀡 異쒕젰(4李⑥썝 ?꾨줈?????ы븿?⑸땲?? ?곷떒?먯꽌 ?묒뾽??'?멸렇硫섑뀒?댁뀡'?쇰줈 ?좏깮?섏꽭??");
             }
 
             Tensor<float> pred = PickDetectionTensor(results);
             if (pred == null)
                 throw new InvalidOperationException(
-                    "ONNX 출력에서 객체 검출용 텐서(차원 3)를 찾지 못했습니다. 검출용 .onnx인지 확인하세요.");
+                    "ONNX 異쒕젰?먯꽌 媛앹껜 寃異쒖슜 ?먯꽌(李⑥썝 3)瑜?李얠? 紐삵뻽?듬땲?? 寃異쒖슜 .onnx?몄? ?뺤씤?섏꽭??");
 
             var d1 = (int)pred.Dimensions[1];
             var d2 = (int)pred.Dimensions[2];
@@ -103,7 +103,7 @@ namespace YOLO26V10.yolo26
             }
 
             if (width < 6)
-                throw new InvalidOperationException("검출 출력 채널 수가 너무 작습니다.");
+                throw new InvalidOperationException("寃異?異쒕젰 梨꾨꼸 ?섍? ?덈Т ?묒뒿?덈떎.");
 
             float P(int det, int ch) => channelsLast ? pred[0, det, ch] : pred[0, ch, det];
 
@@ -142,21 +142,21 @@ namespace YOLO26V10.yolo26
                         Confidence = c.Confidence,
                     });
 
-                    var hue = (c.ClassId * 37 + i * 11) % 360;
+                    var hue = (c.ClassId * 37) % 360;
                     var stroke = ColorFromHsv(hue, 0.65f, 0.95f);
-                    using (var pen = new Pen(Color.FromArgb(220, stroke), 2f))
+                    using (var pen = new Pen(Color.FromArgb(220, stroke), 8f))
                         g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
 
                     var label = $"{Coco80.Names[c.ClassId]} {c.Confidence:0.00}";
-                    using (var font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold))
+                    using (var font = new Font(FontFamily.GenericSansSerif, Math.Max(24f, Math.Min(36f, original.Width / 48f)), FontStyle.Bold))
                     using (var brush = new SolidBrush(Color.FromArgb(240, Color.White)))
                     using (var bbg = new SolidBrush(Color.FromArgb(180, Color.Black)))
                     {
                         var sz = g.MeasureString(label, font);
                         var lx = rect.X;
                         var ly = Math.Max(0, rect.Y - sz.Height - 2);
-                        g.FillRectangle(bbg, lx, ly, sz.Width + 4, sz.Height + 2);
-                        g.DrawString(label, font, brush, lx + 2, ly + 1);
+                        g.FillRectangle(bbg, lx, ly, sz.Width + 10, sz.Height + 6);
+                        g.DrawString(label, font, brush, lx + 5, ly + 3);
                     }
                 }
             }
@@ -387,3 +387,6 @@ namespace YOLO26V10.yolo26
         }
     }
 }
+
+
+

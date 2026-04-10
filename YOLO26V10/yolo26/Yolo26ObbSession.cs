@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -28,7 +28,7 @@ namespace YOLO26V10.yolo26
 
         public string ExecutionProviderSummary { get; }
 
-        /// <summary>클래스 수 (첫 추론 후 출력 채널에서 갱신).</summary>
+        /// <summary>?대옒????(泥?異붾줎 ??異쒕젰 梨꾨꼸?먯꽌 媛깆떊).</summary>
         public int NumClasses { get; private set; } = ObbLabels.DefaultClassCount;
 
         public Yolo26ObbSession(string onnxPath, int cudaDeviceId = 0)
@@ -79,13 +79,13 @@ namespace YOLO26V10.yolo26
                 var t = r.AsTensor<float>();
                 if (t != null && t.Dimensions.Length == 4)
                     throw new InvalidOperationException(
-                        "이 ONNX는 세그멘테이션 출력(4차원)을 포함합니다. 작업을 OBB가 아닌 항목으로 선택하세요.");
+                        "??ONNX???멸렇硫섑뀒?댁뀡 異쒕젰(4李⑥썝)???ы븿?⑸땲?? ?묒뾽??OBB媛 ?꾨땶 ??ぉ?쇰줈 ?좏깮?섏꽭??");
             }
 
             var pred = PickObbTensor(results);
             if (pred == null)
                 throw new InvalidOperationException(
-                    "ONNX 출력에서 OBB용 텐서(3차원)를 찾지 못했습니다. yolo26*-obb ONNX인지 확인하세요.");
+                    "ONNX 異쒕젰?먯꽌 OBB???먯꽌(3李⑥썝)瑜?李얠? 紐삵뻽?듬땲?? yolo26*-obb ONNX?몄? ?뺤씤?섏꽭??");
 
             var d1 = (int)pred.Dimensions[1];
             var d2 = (int)pred.Dimensions[2];
@@ -104,11 +104,11 @@ namespace YOLO26V10.yolo26
             }
 
             if (width < 6)
-                throw new InvalidOperationException("OBB 출력 채널 수가 너무 작습니다(최소 6: xywhr+점수).");
+                throw new InvalidOperationException("OBB 異쒕젰 梨꾨꼸 ?섍? ?덈Т ?묒뒿?덈떎(理쒖냼 6: xywhr+?먯닔).");
 
             NumClasses = width - 5;
             if (NumClasses < 1)
-                throw new InvalidOperationException("OBB 클래스 채널이 없습니다.");
+                throw new InvalidOperationException("OBB ?대옒??梨꾨꼸???놁뒿?덈떎.");
 
             float P(int det, int ch) => channelsLast ? pred[0, det, ch] : pred[0, ch, det];
 
@@ -146,22 +146,22 @@ namespace YOLO26V10.yolo26
                         Confidence = c.Confidence,
                     });
 
-                    var hue = (c.ClassId * 37 + i * 11) % 360;
+                    var hue = (c.ClassId * 37) % 360;
                     var stroke = ColorFromHsv(hue, 0.65f, 0.95f);
-                    using (var pen = new Pen(Color.FromArgb(220, stroke), 2f))
+                    using (var pen = new Pen(Color.FromArgb(220, stroke), 8f))
                         g.DrawPolygon(pen, polyOrig);
 
                     var name = ObbLabels.GetLabel(c.ClassId, NumClasses);
                     var label = $"{name} {c.Confidence:0.00}";
-                    using (var font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold))
+                    using (var font = new Font(FontFamily.GenericSansSerif, Math.Max(24f, Math.Min(36f, original.Width / 48f)), FontStyle.Bold))
                     using (var brush = new SolidBrush(Color.FromArgb(240, Color.White)))
                     using (var bbg = new SolidBrush(Color.FromArgb(180, Color.Black)))
                     {
                         var sz = g.MeasureString(label, font);
                         var lx = rect.X;
                         var ly = Math.Max(0, rect.Y - sz.Height - 2);
-                        g.FillRectangle(bbg, lx, ly, sz.Width + 4, sz.Height + 2);
-                        g.DrawString(label, font, brush, lx + 2, ly + 1);
+                        g.FillRectangle(bbg, lx, ly, sz.Width + 10, sz.Height + 6);
+                        g.DrawString(label, font, brush, lx + 5, ly + 3);
                     }
                 }
             }
@@ -183,7 +183,7 @@ namespace YOLO26V10.yolo26
             return mapped;
         }
 
-        /// <summary>Ultralytics xywhr: 중심, 폭·높이, 라디안 회전(폭 축 기준).</summary>
+        /// <summary>Ultralytics xywhr: 以묒떖, ??룸넂?? ?쇰뵒???뚯쟾(??異?湲곗?).</summary>
         private static PointF[] CornersLetterbox(float cx, float cy, float w, float h, float theta)
         {
             var hw = w * 0.5f;
@@ -443,3 +443,6 @@ namespace YOLO26V10.yolo26
         }
     }
 }
+
+
+

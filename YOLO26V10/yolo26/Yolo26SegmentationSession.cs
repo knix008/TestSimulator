@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -24,7 +24,7 @@ namespace YOLO26V10.yolo26
         private readonly string _inputName;
         private readonly int _netSize;
 
-        /// <summary>?ㅼ젣 ?ъ슜 以묒씤 ?ㅽ뻾 怨듦툒???붿빟(?? CUDA ?먮뒗 CPU ?대갚 ?ъ쑀).</summary>
+        /// <summary>??쇱젫 ????餓λ쵐????쎈뻬 ?⑤벀????遺용튋(?? CUDA ?癒?뮉 CPU ??媛????).</summary>
         public string ExecutionProviderSummary { get; }
 
         public Yolo26SegmentationSession(string onnxPath, int cudaDeviceId = 0)
@@ -43,7 +43,7 @@ namespace YOLO26V10.yolo26
 
         public void Dispose() => _session.Dispose();
 
-        /// <summary>?먮낯 醫뚰몴怨꾩쓽 ?몄뒪?댁뒪 紐⑸줉怨??쒓컖?붾맂 鍮꾪듃留듭쓣 諛섑솚?⑸땲??</summary>
+        /// <summary>?癒?궚 ?ル슦紐닸④쑴???紐꾨뮞??곷뮞 筌뤴뫖以됪???볦퍟?遺얜쭆 ??쑵?껓쭕??뱽 獄쏆꼹???몃빍??</summary>
         public (Bitmap Rendered, List<SegInstance> Instances) RunSegmentation(
             Bitmap source,
             float confThreshold,
@@ -88,9 +88,9 @@ namespace YOLO26V10.yolo26
             }
 
             if (pred == null)
-                throw new InvalidOperationException("ONNX 異쒕젰?먯꽌 ?덉륫 ?먯꽌(??겕 3)瑜?李얠? 紐삵뻽?듬땲??");
+                throw new InvalidOperationException("ONNX ?곗뮆??癒?퐣 ??됰? ?癒?퐣(??寃?3)??筌≪뼚? 筌륁궢六??щ빍??");
             if (proto == null)
-                throw new InvalidOperationException("ONNX 異쒕젰?먯꽌 ?꾨줈??留덉뒪???먯꽌(??겕 4)瑜?李얠? 紐삵뻽?듬땲??");
+                throw new InvalidOperationException("ONNX ?곗뮆??癒?퐣 ?袁⑥쨮??筌띾뜆????癒?퐣(??寃?4)??筌≪뼚? 筌륁궢六??щ빍??");
 
             var d1 = (int)pred.Dimensions[1];
             var d2 = (int)pred.Dimensions[2];
@@ -109,14 +109,14 @@ namespace YOLO26V10.yolo26
             }
 
             if (width < 6)
-                throw new InvalidOperationException("?멸렇硫섑뀒?댁뀡 紐⑤뜽???꾨땶 寃?媛숈뒿?덈떎(梨꾨꼸 ??遺議?.");
+                throw new InvalidOperationException("?硫몃젃筌롮꼹???곷?筌뤴뫀????袁⑤빒 野?揶쏆늿???덈뼄(筌?쑬瑗????봔鈺?.");
 
             float P(int det, int ch) => channelsLast ? pred[0, det, ch] : pred[0, ch, det];
 
             var nm = width - 6;
             var nmProto = (int)proto.Dimensions[1];
             if (nm != nmProto)
-                throw new InvalidOperationException($"留덉뒪??怨꾩닔 ??{nm})? ?꾨줈??梨꾨꼸({nmProto})???쇱튂?섏? ?딆뒿?덈떎.");
+                throw new InvalidOperationException($"筌띾뜆????④쑴????{nm})?? ?袁⑥쨮??筌?쑬瑗?{nmProto})????깊뒄??? ??녿뮸??덈뼄.");
 
             var mh = (int)proto.Dimensions[2];
             var mw = (int)proto.Dimensions[3];
@@ -149,7 +149,7 @@ namespace YOLO26V10.yolo26
                 for (var k = 0; k < nm; k++)
                     coeffs[k] = P(i, 6 + k);
 
-                var hue = (cid * 37 + i * 11) % 360;
+                var hue = (cid * 37) % 360;
                 var fillColor = ColorFromHsv(hue, 0.65f, 0.95f);
 
                 using (var maskSmall = new Mat(mh, mw, MatType.CV_32FC1))
@@ -211,21 +211,21 @@ namespace YOLO26V10.yolo26
                     Confidence = conf,
                 });
 
-                using (var pen = new Pen(Color.FromArgb(220, fillColor), 2f))
+                using (var pen = new Pen(Color.FromArgb(220, fillColor), 8f))
                 {
                     g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
                 }
 
                 var label = $"{Coco80.Names[cid]} {conf:0.00}";
-                using (var font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold))
+                using (var font = new Font(FontFamily.GenericSansSerif, Math.Max(24f, Math.Min(36f, original.Width / 48f)), FontStyle.Bold))
                 using (var brush = new SolidBrush(Color.FromArgb(240, Color.White)))
                 using (var bbg = new SolidBrush(Color.FromArgb(180, Color.Black)))
                 {
                     var sz = g.MeasureString(label, font);
                     var lx = rect.X;
                     var ly = Math.Max(0, rect.Y - sz.Height - 2);
-                    g.FillRectangle(bbg, lx, ly, sz.Width + 4, sz.Height + 2);
-                    g.DrawString(label, font, brush, lx + 2, ly + 1);
+                    g.FillRectangle(bbg, lx, ly, sz.Width + 10, sz.Height + 6);
+                    g.DrawString(label, font, brush, lx + 5, ly + 3);
                 }
             }
 
@@ -330,4 +330,7 @@ namespace YOLO26V10.yolo26
         }
     }
 }
+
+
+
 
