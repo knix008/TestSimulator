@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
-namespace YOLO26V10.Segmentation
+namespace YOLO26V10.yolo26
 {
     internal static class Coco80
     {

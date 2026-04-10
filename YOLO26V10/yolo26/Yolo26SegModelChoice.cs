@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
-namespace YOLO26V10.Segmentation
+namespace YOLO26V10.yolo26
 {
-    /// <summary>YOLO26-seg 蹂?뺣퀎 ?쒖떆???뺣낫 (Ultralytics YOLO26 臾몄꽌 湲곗?, imgsz=640, COCO).</summary>
+    /// <summary>Ultralytics YOLO26 변형(n/s/m/l/x). 다운로드 가중치는 작업별로 yolo26* .pt 만 사용합니다.</summary>
     public sealed class Yolo26SegModelChoice
     {
         private Yolo26SegModelChoice(
@@ -21,13 +21,13 @@ namespace YOLO26V10.Segmentation
 
         public string Variant { get; }
         public string ShortLabel { get; }
+        /// <summary>세그멘테이션 가중치 예시 파일명 (YOLO26만 사용).</summary>
         public string ModelFileName { get; }
         public double MapMask { get; }
         public string ParamsMega { get; }
 
-        /// <summary>肄ㅻ낫諛뺤뒪 吏㏃? ??以?</summary>
         public string ComboDisplay =>
-            $"{ModelFileName} | {ShortLabel} | {ParamsMega} | mAP {MapMask:0.0}";
+            $"yolo26{Variant} | {ShortLabel} | {ParamsMega} | mAP(mask) {MapMask:0.0}";
 
         public override string ToString() => ComboDisplay;
 
@@ -54,4 +54,3 @@ namespace YOLO26V10.Segmentation
         }
     }
 }
-

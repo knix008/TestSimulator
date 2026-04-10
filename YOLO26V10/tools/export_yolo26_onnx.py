@@ -1,5 +1,5 @@
 """
-Export Ultralytics YOLO26-seg weights to ONNX (called from C# app).
+Export Ultralytics YOLO26 weights (detect or segment .pt) to ONNX (called from C# app).
 Requires: pip install ultralytics
 """
 import argparse

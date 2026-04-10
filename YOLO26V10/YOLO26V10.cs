@@ -7,14 +7,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using OpenCvSharp;
-using YOLO26V10.Segmentation;
+using YOLO26V10.yolo26;
 
 namespace YOLO26V10
 {
     public partial class YOLO26V10 : Form
     {
-        private Yolo26SegmentationSession _session;
+        private Yolo26SegmentationSession _segSession;
+        private Yolo26DetectionSession _detSession;
+        private Yolo26PoseSession _poseSession;
+        private Yolo26ClassifySession _clsSession;
+        private YoloModelKind _loadedKind;
         private string _loadedModelVariant;
+        private long _inferenceGeneration;
         private string _onnxPath;
         private CancellationTokenSource _videoCts;
         private ManualResetEventSlim _videoPlaybackGate;
@@ -23,12 +28,18 @@ namespace YOLO26V10
         private static readonly object OutputIsPlaceholder = new object();
         private string _lastImageSourcePath;
         private bool _suppressModelSelectionChanged;
+        private bool _suppressTaskSelectionChanged;
         private volatile bool _isClosing;
 
         public YOLO26V10()
         {
             InitializeComponent();
             _suppressModelSelectionChanged = true;
+            _suppressTaskSelectionChanged = true;
+            comboTask.Items.Clear();
+            comboTask.Items.AddRange(new object[] { "세그멘테이션", "객체 검출", "포즈", "분류" });
+            comboTask.SelectedIndex = 0;
+            _suppressTaskSelectionChanged = false;
             btnVideoPause.Image = VideoTransportIcons.Pause;
             btnVideoResume.Image = VideoTransportIcons.Play;
             btnStopVideo.Image = VideoTransportIcons.Stop;
@@ -51,7 +62,8 @@ namespace YOLO26V10
             SetPicture(
                 picInput,
                 PreviewPlaceholders.Create("원본", "이미지 또는 동영상을 불러오면 이 영역에 표시됩니다."));
-            SetOutputPicture(PreviewPlaceholders.Create("결과", "세그멘테이션 결과가 이 영역에 표시됩니다."), true);
+            SetOutputPicture(PreviewPlaceholders.Create("결과", "선택한 작업의 결과가 이 영역에 표시됩니다."), true);
+            UpdateTaskChrome();
             ApplyUiTheme();
         }
 
@@ -60,6 +72,32 @@ namespace YOLO26V10
             Font = UiTheme.UiFont(9f);
             BackColor = UiTheme.Surface;
             ForeColor = UiTheme.TextPrimary;
+
+            panelClient.BackColor = UiTheme.Surface;
+            tableRoot.BackColor = UiTheme.Surface;
+            panelPreviewHost.BackColor = UiTheme.Surface;
+
+            UiTheme.StyleGroupBox(grpLog);
+            UiTheme.StyleGroupBox(grpStatus);
+            grpStatus.BackColor = UiTheme.GroupPanel;
+            grpLog.BackColor = UiTheme.GroupPanel;
+
+            UiTheme.StyleGroupBox(grpViewInput);
+            UiTheme.StyleGroupBox(grpViewOutput);
+            grpViewInput.BackColor = UiTheme.Canvas;
+            grpViewOutput.BackColor = UiTheme.Canvas;
+            tablePreview.BackColor = UiTheme.Surface;
+
+            UiTheme.StyleGroupBox(grpModel);
+            UiTheme.StyleGroupBox(grpInfer);
+            UiTheme.StyleGroupBox(grpVideo);
+
+            UiTheme.StyleCombo(comboTask);
+            UiTheme.StyleCombo(comboModel);
+            UiTheme.StyleNumeric(numConf);
+
+            lblTask.ForeColor = UiTheme.TextSecondary;
+            lblVariant.ForeColor = UiTheme.TextSecondary;
 
             UiTheme.StylePrimaryButton(btnPrepareModel);
             UiTheme.StyleSecondaryButton(btnImage);
@@ -72,6 +110,7 @@ namespace YOLO26V10
 
             lblStatus.BackColor = UiTheme.PanelHeader;
             lblStatus.ForeColor = UiTheme.TextPrimary;
+            lblStatus.BorderStyle = BorderStyle.None;
             lblStatus.AutoEllipsis = true;
             lblFilter.ForeColor = UiTheme.TextSecondary;
             lblConf.ForeColor = UiTheme.TextSecondary;
@@ -86,10 +125,6 @@ namespace YOLO26V10
             lblOutputCaption.ForeColor = UiTheme.TextSecondary;
             lblOutputCaption.Font = UiTheme.UiFontBold(8.5f);
 
-            splitMain.BackColor = UiTheme.BorderSubtle;
-            splitMain.Panel1.BackColor = UiTheme.Canvas;
-            splitMain.Panel2.BackColor = UiTheme.Canvas;
-
             txtLog.BackColor = UiTheme.LogBack;
             txtLog.ForeColor = UiTheme.TextPrimary;
             try
@@ -101,8 +136,8 @@ namespace YOLO26V10
                 txtLog.Font = UiTheme.UiFont(8.5f);
             }
 
-            comboModel.FlatStyle = FlatStyle.Flat;
             txtClassFilter.BorderStyle = BorderStyle.FixedSingle;
+            txtClassFilter.BackColor = Color.White;
         }
 
         private void YOLO26V10_Load(object sender, EventArgs e)
@@ -114,11 +149,16 @@ namespace YOLO26V10
         {
             if (!IsHandleCreated)
                 return;
-            var pad = 12;
-            var gap = 8;
-            btnPrepareModel.Left = ClientSize.Width - pad - btnPrepareModel.Width;
-            comboModel.Width = Math.Max(280, btnPrepareModel.Left - comboModel.Left - gap);
-            btnPlayResult.Left = btnPrepareModel.Left - gap - btnPlayResult.Width;
+            const int pad = 12;
+            const int gap = 8;
+
+            var gmW = grpModel.ClientSize.Width;
+            btnPrepareModel.Left = gmW - pad - btnPrepareModel.Width;
+            comboModel.Left = comboTask.Right + gap;
+            comboModel.Width = Math.Max(200, btnPrepareModel.Left - comboModel.Left - gap);
+
+            var giW = grpInfer.ClientSize.Width;
+            btnPlayResult.Left = giW - pad - btnPlayResult.Width;
             btnSaveResultImage.Left = btnPlayResult.Left - gap - btnSaveResultImage.Width;
             btnImage.Left = btnSaveResultImage.Left - gap - btnImage.Width;
             btnVideo.Left = btnImage.Left - gap - btnVideo.Width;
@@ -127,17 +167,78 @@ namespace YOLO26V10
         private string SelectedModelVariant =>
             comboModel.SelectedItem is Yolo26SegModelChoice m ? m.Variant : "n";
 
+        private YoloModelKind SelectedModelKind =>
+            comboTask.SelectedIndex switch
+            {
+                1 => YoloModelKind.Detection,
+                2 => YoloModelKind.Pose,
+                3 => YoloModelKind.Classify,
+                _ => YoloModelKind.Segmentation,
+            };
+
+        private static string TaskShortLabel(YoloModelKind kind) =>
+            kind switch
+            {
+                YoloModelKind.Segmentation => "세그멘테이션",
+                YoloModelKind.Detection => "객체 검출",
+                YoloModelKind.Pose => "포즈",
+                YoloModelKind.Classify => "분류",
+                _ => "추론",
+            };
+
+        private static string ResultFileSuffix(YoloModelKind kind) =>
+            kind switch
+            {
+                YoloModelKind.Segmentation => "_seg",
+                YoloModelKind.Detection => "_det",
+                YoloModelKind.Pose => "_pose",
+                YoloModelKind.Classify => "_cls",
+                _ => "_out",
+            };
+
+        private void UpdateTaskChrome()
+        {
+            lblOutputCaption.Text = SelectedModelKind switch
+            {
+                YoloModelKind.Segmentation => "출력 (세그멘테이션)",
+                YoloModelKind.Detection => "출력 (객체 검출)",
+                YoloModelKind.Pose => "출력 (포즈)",
+                YoloModelKind.Classify => "출력 (분류)",
+                _ => "출력",
+            };
+            var cls = SelectedModelKind == YoloModelKind.Classify;
+            lblFilter.Visible = !cls;
+            txtClassFilter.Visible = !cls;
+            lblConf.Text = cls ? "Top-1 최소 확률" : "신뢰도 임계";
+        }
+
+        private bool HasActiveSession() =>
+            _segSession != null || _detSession != null || _poseSession != null || _clsSession != null;
+
+        private bool TryGetClassFilterForInference(out HashSet<int> allowed, out string error)
+        {
+            if (SelectedModelKind == YoloModelKind.Classify)
+            {
+                allowed = null;
+                error = null;
+                return true;
+            }
+
+            return Coco80.TryParseClassFilter(txtClassFilter.Text, out allowed, out error);
+        }
+
         private void YOLO26V10_Shown(object sender, EventArgs e)
         {
             Yolo26ModelPreparer.EnsureModelDirectoryExists();
             Log("모델 저장 폴더: " + Yolo26ModelPreparer.ModelDirectory);
             var variant = SelectedModelVariant;
-            var onnxPath = Yolo26ModelPreparer.GetOnnxPath(variant);
+            var kind = SelectedModelKind;
+            var onnxPath = Yolo26ModelPreparer.GetOnnxPath(variant, kind);
             if (File.Exists(onnxPath))
             {
                 try
                 {
-                    LoadSessionFromOnnx(variant);
+                    LoadSessionFromOnnx(variant, kind);
                     Log("시작 시 모델을 불러왔습니다.");
                 }
                 catch (Exception ex)
@@ -149,7 +250,7 @@ namespace YOLO26V10
                 return;
             }
 
-            using (var dlg = new ModelDownloadDialog(variant))
+            using (var dlg = new ModelDownloadDialog(variant, kind))
             {
                 if (dlg.ShowDialog(this) != DialogResult.OK)
                 {
@@ -161,7 +262,7 @@ namespace YOLO26V10
                 SelectComboVariant(variant);
                 try
                 {
-                    LoadSessionFromOnnx(variant);
+                    LoadSessionFromOnnx(variant, kind);
                     Log("모델 준비가 완료되어 세션을 불러왔습니다.");
                 }
                 catch (Exception ex)
@@ -188,20 +289,66 @@ namespace YOLO26V10
             _suppressModelSelectionChanged = false;
         }
 
-        private void LoadSessionFromOnnx(string variant)
+        private void SelectComboTask(YoloModelKind kind)
         {
-            var path = Yolo26ModelPreparer.GetOnnxPath(variant);
+            _suppressTaskSelectionChanged = true;
+            comboTask.SelectedIndex = kind switch
+            {
+                YoloModelKind.Detection => 1,
+                YoloModelKind.Pose => 2,
+                YoloModelKind.Classify => 3,
+                _ => 0,
+            };
+            _suppressTaskSelectionChanged = false;
+        }
+
+        private void LoadSessionFromOnnx(string variant, YoloModelKind kind)
+        {
+            var path = Yolo26ModelPreparer.GetOnnxPath(variant, kind);
             if (!File.Exists(path))
                 throw new FileNotFoundException("ONNX 파일을 찾을 수 없습니다.", path);
             lock (_sessionLock)
             {
-                _session?.Dispose();
-                _session = new Yolo26SegmentationSession(path);
+                _segSession?.Dispose();
+                _segSession = null;
+                _detSession?.Dispose();
+                _detSession = null;
+                _poseSession?.Dispose();
+                _poseSession = null;
+                _clsSession?.Dispose();
+                _clsSession = null;
+                switch (kind)
+                {
+                    case YoloModelKind.Segmentation:
+                        _segSession = new Yolo26SegmentationSession(path);
+                        break;
+                    case YoloModelKind.Detection:
+                        _detSession = new Yolo26DetectionSession(path);
+                        break;
+                    case YoloModelKind.Pose:
+                        _poseSession = new Yolo26PoseSession(path);
+                        break;
+                    case YoloModelKind.Classify:
+                        _clsSession = new Yolo26ClassifySession(path);
+                        break;
+                }
             }
+
+            _loadedKind = kind;
             _loadedModelVariant = variant;
             _onnxPath = path;
-            SetStatus($"ONNX 로드됨 [{_session.ExecutionProviderSummary}]: {_onnxPath}");
-            Log($"실행 공급자: {_session.ExecutionProviderSummary}");
+            Interlocked.Increment(ref _inferenceGeneration);
+            var ep = kind switch
+            {
+                YoloModelKind.Segmentation => _segSession.ExecutionProviderSummary,
+                YoloModelKind.Detection => _detSession.ExecutionProviderSummary,
+                YoloModelKind.Pose => _poseSession.ExecutionProviderSummary,
+                YoloModelKind.Classify => _clsSession.ExecutionProviderSummary,
+                _ => "",
+            };
+            SetStatus($"ONNX 로드됨 [{ep}]: {_onnxPath}");
+            Log($"실행 공급자: {ep}");
+            UpdateTaskChrome();
             if (IsHandleCreated)
             {
                 btnVideo.Enabled = true;
@@ -209,16 +356,17 @@ namespace YOLO26V10
             }
         }
 
-        private async Task PrepareModelAsync(string variant, CancellationToken cancellationToken)
+        private async Task PrepareModelAsync(string variant, YoloModelKind kind, CancellationToken cancellationToken)
         {
             var progress = new Progress<string>(Log);
             await Yolo26ModelPreparer.EnsureOnnxModelAsync(
                     variant,
                     progress,
                     cancellationToken,
-                    forceReexport: false)
+                    forceReexport: false,
+                    kind: kind)
                 .ConfigureAwait(true);
-            LoadSessionFromOnnx(variant);
+            LoadSessionFromOnnx(variant, kind);
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -229,8 +377,14 @@ namespace YOLO26V10
             ReleaseVideoPlaybackGate();
             lock (_sessionLock)
             {
-                _session?.Dispose();
-                _session = null;
+                _segSession?.Dispose();
+                _segSession = null;
+                _detSession?.Dispose();
+                _detSession = null;
+                _poseSession?.Dispose();
+                _poseSession = null;
+                _clsSession?.Dispose();
+                _clsSession = null;
             }
             base.OnFormClosed(e);
         }
@@ -255,9 +409,9 @@ namespace YOLO26V10
             txtLog.AppendText(line + Environment.NewLine);
         }
 
-        private (Bitmap Rendered, List<SegInstance> Instances) RunSegmentationThreadSafe(
-            Yolo26SegmentationSession session,
+        private (Bitmap Rendered, List<SegInstance> Instances) RunInferenceThreadSafe(
             Bitmap source,
+            long inferenceGeneration,
             float conf,
             HashSet<int> allowed)
         {
@@ -265,11 +419,29 @@ namespace YOLO26V10
             {
                 if (_isClosing)
                     throw new OperationCanceledException("애플리케이션 종료 중입니다.");
-                if (session == null)
-                    throw new InvalidOperationException("세션이 초기화되지 않았습니다.");
-                if (!ReferenceEquals(session, _session))
-                    throw new OperationCanceledException("세션이 변경되었거나 해제되었습니다.");
-                return session.RunSegmentation(source, conf, allowed);
+                if (inferenceGeneration != Volatile.Read(ref _inferenceGeneration))
+                    throw new OperationCanceledException("모델이 변경되었습니다.");
+                switch (_loadedKind)
+                {
+                    case YoloModelKind.Segmentation:
+                        if (_segSession == null)
+                            throw new InvalidOperationException("세션이 초기화되지 않았습니다.");
+                        return _segSession.RunSegmentation(source, conf, allowed);
+                    case YoloModelKind.Detection:
+                        if (_detSession == null)
+                            throw new InvalidOperationException("세션이 초기화되지 않았습니다.");
+                        return _detSession.RunDetection(source, conf, allowed);
+                    case YoloModelKind.Pose:
+                        if (_poseSession == null)
+                            throw new InvalidOperationException("세션이 초기화되지 않았습니다.");
+                        return _poseSession.RunPose(source, conf, allowed);
+                    case YoloModelKind.Classify:
+                        if (_clsSession == null)
+                            throw new InvalidOperationException("세션이 초기화되지 않았습니다.");
+                        return _clsSession.RunClassify(source, conf, allowed);
+                    default:
+                        throw new InvalidOperationException("알 수 없는 작업입니다.");
+                }
             }
         }
 
@@ -287,10 +459,11 @@ namespace YOLO26V10
         private async void btnPrepareModel_Click(object sender, EventArgs e)
         {
             var variant = SelectedModelVariant;
-            var onnxPath = Yolo26ModelPreparer.GetOnnxPath(variant);
+            var kind = SelectedModelKind;
+            var onnxPath = Yolo26ModelPreparer.GetOnnxPath(variant, kind);
             if (!File.Exists(onnxPath))
             {
-                using (var dlg = new ModelDownloadDialog(variant))
+                using (var dlg = new ModelDownloadDialog(variant, kind))
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK)
                     {
@@ -302,7 +475,7 @@ namespace YOLO26V10
                     SelectComboVariant(variant);
                     try
                     {
-                        LoadSessionFromOnnx(variant);
+                        LoadSessionFromOnnx(variant, kind);
                         Log("모델 준비가 완료되어 세션을 불러왔습니다.");
                     }
                     catch (Exception ex)
@@ -317,9 +490,10 @@ namespace YOLO26V10
 
             btnPrepareModel.Enabled = false;
             comboModel.Enabled = false;
+            comboTask.Enabled = false;
             try
             {
-                await PrepareModelAsync(variant, CancellationToken.None).ConfigureAwait(true);
+                await PrepareModelAsync(variant, kind, CancellationToken.None).ConfigureAwait(true);
                 Log("추론 세션 준비 완료.");
             }
             catch (Exception ex)
@@ -332,6 +506,61 @@ namespace YOLO26V10
             {
                 btnPrepareModel.Enabled = true;
                 comboModel.Enabled = true;
+                comboTask.Enabled = true;
+                UpdateTaskChrome();
+            }
+        }
+
+        private void comboTask_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_suppressTaskSelectionChanged || !IsHandleCreated)
+                return;
+
+            var kind = SelectedModelKind;
+            var variant = SelectedModelVariant;
+            if (string.Equals(_loadedModelVariant, variant, StringComparison.OrdinalIgnoreCase) &&
+                kind == _loadedKind)
+                return;
+
+            var onnx = Yolo26ModelPreparer.GetOnnxPath(variant, kind);
+            if (!File.Exists(onnx))
+            {
+                using (var dlg = new ModelDownloadDialog(variant, kind))
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                    {
+                        if (!string.IsNullOrEmpty(_loadedModelVariant))
+                        {
+                            SelectComboVariant(_loadedModelVariant);
+                            SelectComboTask(_loadedKind);
+                        }
+
+                        UpdateTaskChrome();
+                        return;
+                    }
+
+                    variant = dlg.SelectedVariant;
+                    SelectComboVariant(variant);
+                }
+            }
+
+            try
+            {
+                LoadSessionFromOnnx(variant, kind);
+                Log($"작업: {TaskShortLabel(kind)} · " +
+                      Path.GetFileNameWithoutExtension(Yolo26ModelPreparer.GetOnnxPath(variant, kind)));
+            }
+            catch (Exception ex)
+            {
+                Log("작업/모델 전환 실패: " + ex.Message);
+                MessageBox.Show(this, ex.Message, "모델 로드", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (!string.IsNullOrEmpty(_loadedModelVariant))
+                {
+                    SelectComboVariant(_loadedModelVariant);
+                    SelectComboTask(_loadedKind);
+                }
+
+                UpdateTaskChrome();
             }
         }
 
@@ -341,18 +570,25 @@ namespace YOLO26V10
                 return;
 
             var selectedVariant = SelectedModelVariant;
-            if (string.Equals(_loadedModelVariant, selectedVariant, StringComparison.OrdinalIgnoreCase))
+            var kind = SelectedModelKind;
+            if (string.Equals(_loadedModelVariant, selectedVariant, StringComparison.OrdinalIgnoreCase) &&
+                kind == _loadedKind)
                 return;
 
-            var selectedOnnx = Yolo26ModelPreparer.GetOnnxPath(selectedVariant);
+            var selectedOnnx = Yolo26ModelPreparer.GetOnnxPath(selectedVariant, kind);
             if (!File.Exists(selectedOnnx))
             {
-                using (var dlg = new ModelDownloadDialog(selectedVariant))
+                using (var dlg = new ModelDownloadDialog(selectedVariant, kind))
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK)
                     {
                         if (!string.IsNullOrEmpty(_loadedModelVariant))
+                        {
                             SelectComboVariant(_loadedModelVariant);
+                            SelectComboTask(_loadedKind);
+                        }
+
+                        UpdateTaskChrome();
                         return;
                     }
 
@@ -363,27 +599,33 @@ namespace YOLO26V10
 
             try
             {
-                LoadSessionFromOnnx(selectedVariant);
-                Log($"모델 변경: yolo26{selectedVariant}-seg");
+                LoadSessionFromOnnx(selectedVariant, kind);
+                Log($"모델 변경: {TaskShortLabel(kind)} · " +
+                      Path.GetFileNameWithoutExtension(Yolo26ModelPreparer.GetOnnxPath(selectedVariant, kind)));
             }
             catch (Exception ex)
             {
                 Log("모델 변경 실패: " + ex.Message);
                 MessageBox.Show(this, ex.Message, "모델 변경", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 if (!string.IsNullOrEmpty(_loadedModelVariant))
+                {
                     SelectComboVariant(_loadedModelVariant);
+                    SelectComboTask(_loadedKind);
+                }
+
+                UpdateTaskChrome();
             }
         }
 
         private void btnImage_Click(object sender, EventArgs e)
         {
-            if (_session == null)
+            if (!HasActiveSession())
             {
                 MessageBox.Show(this, "먼저 '모델 준비'를 실행하세요.", "이미지", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            if (!Coco80.TryParseClassFilter(txtClassFilter.Text, out var allowed, out var ferr))
+            if (!TryGetClassFilterForInference(out var allowed, out var ferr))
             {
                 MessageBox.Show(this, ferr, "클래스 필터", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -398,13 +640,23 @@ namespace YOLO26V10
                 _lastImageSourcePath = dlg.FileName;
                 try
                 {
+                    var gen = Volatile.Read(ref _inferenceGeneration);
+                    var kind = SelectedModelKind;
                     using (var src = new Bitmap(dlg.FileName))
                     {
                         SetPicture(picInput, new Bitmap(src));
                         var conf = (float)numConf.Value;
-                        var (rendered, list) = RunSegmentationThreadSafe(_session, src, conf, allowed);
+                        var (rendered, list) = RunInferenceThreadSafe(src, gen, conf, allowed);
                         SetOutputPicture(rendered, false);
-                        Log($"이미지 처리: {Path.GetFileName(dlg.FileName)} — 인스턴스 {list.Count}개");
+                        if (kind == YoloModelKind.Classify && list.Count > 0)
+                        {
+                            Log($"이미지 처리: {Path.GetFileName(dlg.FileName)} — 분류 Top-1: " +
+                                $"{Imagenet1kLabels.GetName(list[0].ClassId)} ({list[0].Confidence:0.000})");
+                        }
+                        else
+                        {
+                            Log($"이미지 처리: {Path.GetFileName(dlg.FileName)} — {TaskShortLabel(kind)} 인스턴스 {list.Count}개");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -417,13 +669,13 @@ namespace YOLO26V10
 
         private async void btnVideo_Click(object sender, EventArgs e)
         {
-            if (_session == null)
+            if (!HasActiveSession())
             {
                 MessageBox.Show(this, "먼저 '모델 준비'를 실행하세요.", "동영상", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            if (!Coco80.TryParseClassFilter(txtClassFilter.Text, out var allowed, out var ferr))
+            if (!TryGetClassFilterForInference(out var allowed, out var ferr))
             {
                 MessageBox.Show(this, ferr, "클래스 필터", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -439,8 +691,9 @@ namespace YOLO26V10
                 using (var saveDlg = new SaveFileDialog())
                 {
                     saveDlg.Filter = "MP4|*.mp4|AVI|*.avi|모든 파일|*.*";
-                    saveDlg.FileName = Path.GetFileNameWithoutExtension(inputPath) + "_seg.mp4";
-                    saveDlg.Title = "세그멘테이션 결과 저장";
+                    var suffix = ResultFileSuffix(SelectedModelKind);
+                    saveDlg.FileName = Path.GetFileNameWithoutExtension(inputPath) + suffix + ".mp4";
+                    saveDlg.Title = "추론 결과 동영상 저장";
                     if (saveDlg.ShowDialog(this) != DialogResult.OK)
                         return;
 
@@ -456,14 +709,14 @@ namespace YOLO26V10
                     lock (_videoGateLock)
                         gate = _videoPlaybackGate;
                     var conf = (float)numConf.Value;
-                    var sess = _session;
+                    var gen = Volatile.Read(ref _inferenceGeneration);
 
                     SetVideoProcessingUi(true);
                     ResetVideoProgressUi();
                     try
                     {
                         await Task.Run(
-                                () => RunVideoLoop(inputPath, outputPath, sess, conf, allowed, token, gate),
+                                () => RunVideoLoop(inputPath, outputPath, gen, conf, allowed, token, gate),
                                 token)
                             .ConfigureAwait(true);
                         if (!token.IsCancellationRequested)
@@ -593,13 +846,16 @@ namespace YOLO26V10
                 return;
             }
 
-            btnVideo.Enabled = !running && _session != null;
+            btnVideo.Enabled = !running && HasActiveSession();
             btnPlayResult.Enabled = !running;
-            btnImage.Enabled = !running && _session != null;
+            btnImage.Enabled = !running && HasActiveSession();
             btnPrepareModel.Enabled = !running;
             comboModel.Enabled = !running;
+            comboTask.Enabled = !running;
             numConf.Enabled = !running;
-            txtClassFilter.Enabled = !running;
+            var cls = SelectedModelKind == YoloModelKind.Classify;
+            lblFilter.Enabled = !running && !cls;
+            txtClassFilter.Enabled = !running && !cls;
             if (running)
             {
                 btnVideoPause.Enabled = true;
@@ -625,6 +881,7 @@ namespace YOLO26V10
             ReleaseVideoPlaybackGate();
             ResetVideoProgressUi();
             SetVideoProcessingUi(false);
+            UpdateTaskChrome();
         }
 
         private void btnVideoPause_Click(object sender, EventArgs e)
@@ -676,7 +933,7 @@ namespace YOLO26V10
         private void RunVideoLoop(
             string inputPath,
             string outputPath,
-            Yolo26SegmentationSession session,
+            long inferenceGeneration,
             float conf,
             HashSet<int> allowed,
             CancellationToken token,
@@ -720,7 +977,7 @@ namespace YOLO26V10
 
                             using (var bm = MatBitmapUtil.ToBitmapBgr(frame))
                             {
-                                var seg = RunSegmentationThreadSafe(session, bm, conf, allowed);
+                                var seg = RunInferenceThreadSafe(bm, inferenceGeneration, conf, allowed);
                                 Bitmap renderedBmp = seg.Rendered;
                                 try
                                 {
@@ -898,9 +1155,14 @@ namespace YOLO26V10
                     "JPEG (*.jpg)|*.jpg|PNG (*.png)|*.png|Bitmap (*.bmp)|*.bmp|GIF (*.gif)|*.gif|TIFF (*.tif)|*.tif;*.tiff|모든 파일|*.*";
                 dlg.DefaultExt = "jpg";
                 dlg.AddExtension = true;
+                var sk = SelectedModelKind;
+                var suf = ResultFileSuffix(sk);
                 dlg.FileName = string.IsNullOrEmpty(_lastImageSourcePath)
-                    ? "segmentation_result.jpg"
-                    : Path.GetFileNameWithoutExtension(_lastImageSourcePath) + "_seg.jpg";
+                    ? (sk == YoloModelKind.Classify ? "classification_result.jpg"
+                        : sk == YoloModelKind.Detection ? "detection_result.jpg"
+                        : sk == YoloModelKind.Pose ? "pose_result.jpg"
+                        : "segmentation_result.jpg")
+                    : Path.GetFileNameWithoutExtension(_lastImageSourcePath) + suf + ".jpg";
                 if (dlg.ShowDialog(this) != DialogResult.OK)
                     return;
 

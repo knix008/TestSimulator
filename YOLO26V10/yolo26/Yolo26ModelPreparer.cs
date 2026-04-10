@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -7,13 +7,14 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace YOLO26V10.Segmentation
+namespace YOLO26V10.yolo26
 {
     /// <summary>
     /// GitHub?먯꽌 YOLO26-seg .pt瑜?諛쏄퀬, Python Ultralytics濡?ONNX濡?蹂?섑빀?덈떎.
     /// </summary>
     internal static class Yolo26ModelPreparer
     {
+        /// <summary>ultralytics/assets 릴리스. v8.4.0에 YOLO26 사전학습 가중치(yolo26*.pt)가 포함됩니다.</summary>
         public const string DefaultReleaseTag = "v8.4.0";
 
         /// <summary>?ㅼ슫濡쒕뱶쨌蹂?섎맂 媛以묒튂(.pt) 諛?ONNX ????대뜑 (%LocalAppData%\YOLO26V10\model).</summary>
@@ -26,16 +27,52 @@ namespace YOLO26V10.Segmentation
         /// <summary>紐⑤뜽 ????대뜑媛 ?놁쑝硫?留뚮벊?덈떎. ???쒖옉 ????踰??몄텧???먮㈃ ?먯깋湲곗뿉??寃쎈줈瑜??????덉뒿?덈떎.</summary>
         public static void EnsureModelDirectoryExists() => Directory.CreateDirectory(ModelDirectory);
 
-        public static string GetPtPath(string variant) =>
-            Path.Combine(ModelDirectory, $"yolo26{variant}-seg.pt");
+        public static string GetPtPath(string variant, YoloModelKind kind)
+        {
+            var name = kind switch
+            {
+                YoloModelKind.Segmentation => $"yolo26{variant}-seg.pt",
+                YoloModelKind.Detection => $"yolo26{variant}.pt",
+                YoloModelKind.Pose => $"yolo26{variant}-pose.pt",
+                YoloModelKind.Classify => $"yolo26{variant}-cls.pt",
+                _ => $"yolo26{variant}.pt",
+            };
+            return Path.Combine(ModelDirectory, name);
+        }
 
-        public static string GetOnnxPath(string variant) =>
-            Path.Combine(ModelDirectory, $"yolo26{variant}-seg.onnx");
+        public static string GetOnnxPath(string variant, YoloModelKind kind)
+        {
+            var name = kind switch
+            {
+                YoloModelKind.Segmentation => $"yolo26{variant}-seg.onnx",
+                YoloModelKind.Detection => $"yolo26{variant}.onnx",
+                YoloModelKind.Pose => $"yolo26{variant}-pose.onnx",
+                YoloModelKind.Classify => $"yolo26{variant}-cls.onnx",
+                _ => $"yolo26{variant}.onnx",
+            };
+            return Path.Combine(ModelDirectory, name);
+        }
+
+        public static string ReleaseDownloadFileName(string variant, YoloModelKind kind) =>
+            kind switch
+            {
+                YoloModelKind.Segmentation => $"yolo26{variant}-seg.pt",
+                YoloModelKind.Detection => $"yolo26{variant}.pt",
+                YoloModelKind.Pose => $"yolo26{variant}-pose.pt",
+                YoloModelKind.Classify => $"yolo26{variant}-cls.pt",
+                _ => $"yolo26{variant}.pt",
+            };
+
+        /// <summary>하위 호환: 세그멘테이션 가중치 경로.</summary>
+        public static string GetPtPath(string variant) => GetPtPath(variant, YoloModelKind.Segmentation);
+
+        /// <summary>하위 호환: 세그멘테이션 ONNX 경로.</summary>
+        public static string GetOnnxPath(string variant) => GetOnnxPath(variant, YoloModelKind.Segmentation);
 
         public static string GetExportScriptPath()
         {
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            return Path.GetFullPath(Path.Combine(baseDir, "tools", "export_yolo26_seg_onnx.py"));
+            return Path.GetFullPath(Path.Combine(baseDir, "tools", "export_yolo26_onnx.py"));
         }
 
         public static async Task EnsureOnnxModelAsync(
@@ -43,13 +80,19 @@ namespace YOLO26V10.Segmentation
             IProgress<string> log,
             CancellationToken cancellationToken,
             bool forceReexport = false,
-            IProgress<ModelPrepareProgress> prepareProgress = null)
+            IProgress<ModelPrepareProgress> prepareProgress = null,
+            YoloModelKind kind = YoloModelKind.Segmentation)
         {
             EnsureModelDirectoryExists();
-            var pt = GetPtPath(variant);
-            var onnx = GetOnnxPath(variant);
+            var pt = GetPtPath(variant, kind);
+            var onnx = GetOnnxPath(variant, kind);
+            var file = ReleaseDownloadFileName(variant, kind);
+            if (!file.StartsWith("yolo26", StringComparison.OrdinalIgnoreCase) ||
+                !file.EndsWith(".pt", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "내부 오류: 다운로드 대상은 yolo26*.pt 여야 합니다. 실제 파일명: " + file);
             var url =
-                $"https://github.com/ultralytics/assets/releases/download/{DefaultReleaseTag}/yolo26{variant}-seg.pt";
+                $"https://github.com/ultralytics/assets/releases/download/{DefaultReleaseTag}/{file}";
 
             prepareProgress?.Report(new ModelPrepareProgress(ModelPreparePhase.Checking, 0, "Checking status..."));
 

@@ -31,10 +31,13 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Update="tools\export_yolo26_seg_onnx.py">
+    <None Update="tools\export_yolo26_onnx.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="tools\requirements-export.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\imagenet_classes.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
