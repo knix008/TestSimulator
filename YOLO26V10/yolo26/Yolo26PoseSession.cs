@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -87,12 +87,12 @@ namespace YOLO26V10.yolo26
                 var t = r.AsTensor<float>();
                 if (t != null && t.Dimensions.Length == 4)
                     throw new InvalidOperationException(
-                        "이 ONNX는 세그멘테이션 출력(4차원 프로토)을 포함합니다. 세그멘테이션 작업을 선택하세요.");
+                        "??ONNX???멸렇硫섑뀒?댁뀡 異쒕젰(4李⑥썝 ?꾨줈?????ы븿?⑸땲?? ?멸렇硫섑뀒?댁뀡 ?묒뾽???좏깮?섏꽭??");
             }
 
             if (!TryPickPoseTensor(results, out var pred, out var layout))
                 throw new InvalidOperationException(
-                    "포즈 출력 텐서를 해석할 수 없습니다. yolo26*-pose ONNX인지 확인하세요.");
+                    "?ъ쫰 異쒕젰 ?먯꽌瑜??댁꽍?????놁뒿?덈떎. yolo26*-pose ONNX?몄? ?뺤씤?섏꽭??");
 
             var d1 = (int)pred.Dimensions[1];
             var d2 = (int)pred.Dimensions[2];
@@ -149,9 +149,9 @@ namespace YOLO26V10.yolo26
                 for (var p = 0; p < kept.Count; p++)
                 {
                     var c = kept[p];
-                    var hue = (c.ClassId * 37 + p * 11) % 360;
+                    var hue = (c.ClassId * 37) % 360;
                     var stroke = ColorFromHsv(hue, 0.65f, 0.95f);
-                    using (var pen = new Pen(Color.FromArgb(220, stroke), 2f))
+                    using (var pen = new Pen(Color.FromArgb(220, stroke), 8f))
                     {
                         var ox1 = (c.X1Lb - lb.PadLeft) / lb.Gain;
                         var oy1 = (c.Y1Lb - lb.PadTop) / lb.Gain;
@@ -166,7 +166,7 @@ namespace YOLO26V10.yolo26
                     var label = c.ClassId >= 0 && c.ClassId < Coco80.Names.Length
                         ? $"{Coco80.Names[c.ClassId]} {c.Confidence:0.00}"
                         : $"cls{c.ClassId} {c.Confidence:0.00}";
-                    using (var font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold))
+                    using (var font = new Font(FontFamily.GenericSansSerif, Math.Max(24f, Math.Min(36f, original.Width / 48f)), FontStyle.Bold))
                     using (var brush = new SolidBrush(Color.FromArgb(240, Color.White)))
                     using (var bbg = new SolidBrush(Color.FromArgb(180, Color.Black)))
                     {
@@ -175,8 +175,8 @@ namespace YOLO26V10.yolo26
                         var sz = g.MeasureString(label, font);
                         var lx = ox1;
                         var ly = Math.Max(0, oy1 - sz.Height - 2);
-                        g.FillRectangle(bbg, lx, ly, sz.Width + 4, sz.Height + 2);
-                        g.DrawString(label, font, brush, lx + 2, ly + 1);
+                        g.FillRectangle(bbg, lx, ly, sz.Width + 10, sz.Height + 6);
+                        g.DrawString(label, font, brush, lx + 5, ly + 3);
                     }
                 }
             }
@@ -244,7 +244,7 @@ namespace YOLO26V10.yolo26
             if (width < 21)
                 return false;
 
-            // 84 = 4 + 80 클래스 검출 채널 — 포즈로 오인하지 않음
+            // 84 = 4 + 80 ?대옒??寃異?梨꾨꼸 ???ъ쫰濡??ㅼ씤?섏? ?딆쓬
             if (width == 84)
                 return false;
 
@@ -468,7 +468,7 @@ namespace YOLO26V10.yolo26
                 return kpts[idx * kptDim + 2] > visTh;
             }
 
-            using (var linePen = new Pen(Color.FromArgb(200, stroke), 2f))
+            using (var linePen = new Pen(Color.FromArgb(200, stroke), 8f))
             {
                 foreach (var (a, b) in CocoSkeleton)
                 {
@@ -486,7 +486,7 @@ namespace YOLO26V10.yolo26
                 {
                     if (!Vis(i))
                         continue;
-                    var r = 3f;
+                    var r = 8f;
                     g.FillEllipse(fill, pts[i].X - r, pts[i].Y - r, r * 2, r * 2);
                 }
             }
@@ -541,3 +541,7 @@ namespace YOLO26V10.yolo26
         }
     }
 }
+
+
+
+

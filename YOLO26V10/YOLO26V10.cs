@@ -156,6 +156,14 @@ namespace YOLO26V10
             btnSaveResultImage.Left = btnPlayResult.Left - gap - btnSaveResultImage.Width;
             btnImage.Left = btnSaveResultImage.Left - gap - btnImage.Width;
             btnVideo.Left = btnImage.Left - gap - btnVideo.Width;
+
+            var gvW = grpVideo.ClientSize.Width;
+            var infoLeft = btnStopVideo.Right + gap;
+            lblVideoProgressTime.Left = infoLeft;
+            lblVideoProgressTime.Top = lblVideoControls.Top + 1;
+            lblVideoProgressTime.Width = Math.Max(120, gvW - pad - infoLeft);
+            lblVideoProgressTime.Height = btnVideoPause.Height;
+            lblVideoProgressTime.AutoEllipsis = true;
         }
 
         private string SelectedModelVariant =>
