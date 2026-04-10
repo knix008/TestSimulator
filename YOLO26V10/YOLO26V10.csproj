@@ -41,5 +41,13 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!-- Release + 단일 csproj 빌드 시 MSI. 솔루션 빌드는 installer 프로젝트가 담당(SolutionDir 설정 시 생략). 비활성: -p:SkipInstaller=true -->
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(SolutionDir)' == ''">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)installer\YOLO26V10.Installer.wixproj"
+      Targets="Build"
+      Properties="Configuration=Release;Platform=x64" />
+  </Target>
 </Project>
 

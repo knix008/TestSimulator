@@ -514,7 +514,7 @@ namespace YOLO26V10
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MinimumSize = new System.Drawing.Size(1000, 780);
             this.Name = "YOLO26V10";
-            this.Text = "YOLO26 — 세그·검출·포즈·분류";
+            this.Text = "YOLO26 — 세그·검출·포즈·분류·OBB";
             this.Shown += new System.EventHandler(this.YOLO26V10_Shown);
             this.grpViewOutput.ResumeLayout(false);
             this.grpViewInput.ResumeLayout(false);

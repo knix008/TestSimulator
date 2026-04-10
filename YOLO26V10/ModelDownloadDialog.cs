@@ -76,14 +76,7 @@ namespace YOLO26V10
             txtLog.BorderStyle = BorderStyle.FixedSingle;
             txtLog.BackColor = UiTheme.LogBack;
             txtLog.ForeColor = UiTheme.TextPrimary;
-            try
-            {
-                txtLog.Font = new Font("Consolas", 9f, FontStyle.Regular, GraphicsUnit.Point);
-            }
-            catch
-            {
-                txtLog.Font = UiTheme.UiFont(8.5f);
-            }
+            txtLog.Font = UiTheme.UiFont(9f);
         }
 
         public string SelectedVariant { get; private set; }
