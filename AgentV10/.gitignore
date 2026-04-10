@@ -26,3 +26,17 @@ build/
 coverage/
 .cache/
 *.tsbuildinfo
+
+# Local runtime/temp files
+tmp/
+temp/
+*.pid
+*.pid.lock
+
+# Node package manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
