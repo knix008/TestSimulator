@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ollama Chat Widget Demo</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <div class="brand">AgentV10 Demo</div>
+        <nav class="nav">
+          <a href="#">Home</a>
+          <a href="#">Features</a>
+          <a href="#">Docs</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="hero">
+        <h1>Ollama 기반 웹 챗봇 데모</h1>
+        <p>
+          일반적인 데모 웹페이지 레이아웃에 채팅 위젯을 포함한 샘플입니다.
+          응답은 로컬 Ollama 서버의 <strong>gemma4:26b</strong> 모델에서 생성됩니다.
+        </p>
+      </section>
+
+      <section class="content-grid">
+        <section class="panel">
+          <h2>서비스 소개</h2>
+          <p>
+            이 영역은 실제 서비스 페이지의 설명, 배너, 카드형 콘텐츠를 배치하는
+            자리입니다. 현재는 데모 목적의 안내 텍스트만 포함합니다.
+          </p>
+
+          <div class="cards">
+            <article class="card">
+              <h3>빠른 응답</h3>
+              <p>로컬 환경에서 동작하여 네트워크 의존성이 낮습니다.</p>
+            </article>
+            <article class="card">
+              <h3>데이터 제어</h3>
+              <p>민감한 대화 데이터를 외부 API에 전송하지 않습니다.</p>
+            </article>
+            <article class="card">
+              <h3>확장 가능</h3>
+              <p>기존 웹페이지에 위젯 형태로 쉽게 통합할 수 있습니다.</p>
+            </article>
+          </div>
+        </section>
+
+        <aside class="chat-widget">
+          <header class="chat-header">
+            <div>AI Assistant</div>
+            <label>
+              Model
+              <input id="modelInput" value="gemma4:26b" />
+            </label>
+          </header>
+
+          <div id="chatLog" class="chat-log"></div>
+
+          <form id="chatForm" class="chat-form">
+            <input
+              id="userInput"
+              type="text"
+              placeholder="질문을 입력하세요..."
+              autocomplete="off"
+              required
+            />
+            <button id="sendBtn" type="submit">전송</button>
+          </form>
+        </aside>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
