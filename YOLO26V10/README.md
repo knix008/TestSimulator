@@ -17,6 +17,13 @@ py -3 -m pip install -r tools\requirements-export.txt
 
 ## 빌드
 
+### Visual Studio에서 열기
+
+- 일반: **`YOLO26V10.sln`** — 앱 + `YOLO26V10.Installer`(WiX). Solution Explorer에 **installer** 폴더 아래 Installer 프로젝트가 보입니다.
+- **“호환되지 않음” / 로드 안 됨:** WiX SDK 스타일 `.wixproj`는 Visual Studio가 기본으로 인식하지 않습니다. **FireGiant HeatWave**(Visual Studio Marketplace, WiX용 확장)를 설치한 뒤 VS를 다시 시작하면 Installer 프로젝트가 정상 로드됩니다. `tools\install-heatwave.ps1`(관리자 PowerShell)로 VSIX 설치를 시도할 수 있습니다.
+- WiX 확장 없이 앱만: **`YOLO26V10.AppOnly.sln`**
+- **Release 솔루션 빌드 속도:** `YOLO26V10.csproj`의 MSI 후속 빌드는 **솔루션을 열었을 때(`SolutionDir` 있음)** 비활성화되어, WiX가 MSI를 **한 번만** 만듭니다. (`dotnet build YOLO26V10.csproj`처럼 **솔루션 없이** 빌드할 때만 후속 MSI가 돌아갑니다.) 병렬 빌드로 cab 잠금이 나면 `dotnet build ... -m:1`로 시도해 보세요.
+
 ### 앱만 빌드
 
 ```powershell
