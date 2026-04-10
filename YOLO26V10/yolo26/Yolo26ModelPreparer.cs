@@ -230,6 +230,8 @@ namespace YOLO26V10.yolo26
                 CreateNoWindow = true,
                 WorkingDirectory = Path.GetDirectoryName(script) ?? Environment.CurrentDirectory,
             };
+            psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+            psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
 
             using (var proc = new Process())
             {
@@ -366,21 +368,21 @@ namespace YOLO26V10.yolo26
         {
             exe = null;
             prefixArgs = null;
-            if (TryPythonVersion("py", "-3"))
+            if (TryPythonUsableForExport("py", "-3"))
             {
                 exe = "py";
                 prefixArgs = "-3 ";
                 return true;
             }
 
-            if (TryPythonVersion("python", ""))
+            if (TryPythonUsableForExport("python", ""))
             {
                 exe = "python";
                 prefixArgs = "";
                 return true;
             }
 
-            if (File.Exists(@"C:\Windows\py.exe") && TryPythonVersion(@"C:\Windows\py.exe", "-3"))
+            if (File.Exists(@"C:\Windows\py.exe") && TryPythonUsableForExport(@"C:\Windows\py.exe", "-3"))
             {
                 exe = @"C:\Windows\py.exe";
                 prefixArgs = "-3 ";
@@ -409,6 +411,42 @@ namespace YOLO26V10.yolo26
                     if (p == null)
                         return false;
                     p.WaitForExit(10000);
+                    return p.ExitCode == 0;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryPythonUsableForExport(string fileName, string prefixArgs)
+        {
+            if (!TryPythonVersion(fileName, prefixArgs))
+                return false;
+
+            try
+            {
+                var args = string.IsNullOrEmpty(prefixArgs)
+                    ? "-c \"import ultralytics, onnx\""
+                    : $"{prefixArgs} -c \"import ultralytics, onnx\"";
+                var psi = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                };
+                psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+                psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+
+                using (var p = Process.Start(psi))
+                {
+                    if (p == null)
+                        return false;
+                    p.WaitForExit(15000);
                     return p.ExitCode == 0;
                 }
             }

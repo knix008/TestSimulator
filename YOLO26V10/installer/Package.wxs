@@ -21,6 +21,9 @@
       </Directory>
     </StandardDirectory>
 
+    <Launch Condition="Privileged"
+            Message="관리자 권한이 필요합니다. 설치 파일을 관리자 권한으로 실행해 주세요." />
+
     <!-- Desktop + Start Menu (Programs): components nested under StandardDirectory (WiX 6) -->
     <StandardDirectory Id="DesktopFolder">
       <Component Id="CmpDesktopShortcut" Guid="*" Bitness="always64">
