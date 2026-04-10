@@ -6,5 +6,6 @@ namespace YOLO26V10.yolo26
         Detection = 1,
         Pose = 2,
         Classify = 3,
+        Obb = 4,
     }
 }
