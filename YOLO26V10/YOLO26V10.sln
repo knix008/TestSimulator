@@ -1,0 +1,53 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YOLO26V10", "YOLO26V10.csproj", "{00968ADF-5241-4851-89EE-3DAB0026D0A3}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "installer", "installer", "{1860D2E4-5C43-71D5-59A5-599A4DE1DF67}"
+EndProject
+Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "YOLO26V10.Installer", "installer\YOLO26V10.Installer.wixproj", "{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Debug|x64.Build.0 = Debug|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Debug|x86.Build.0 = Debug|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Release|x64.ActiveCfg = Release|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Release|x64.Build.0 = Release|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Release|x86.ActiveCfg = Release|Any CPU
+		{00968ADF-5241-4851-89EE-3DAB0026D0A3}.Release|x86.Build.0 = Release|Any CPU
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Debug|Any CPU.Build.0 = Debug|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Debug|x64.ActiveCfg = Debug|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Debug|x64.Build.0 = Debug|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Debug|x86.ActiveCfg = Debug|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Debug|x86.Build.0 = Debug|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Release|Any CPU.ActiveCfg = Release|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Release|Any CPU.Build.0 = Release|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Release|x64.ActiveCfg = Release|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Release|x64.Build.0 = Release|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Release|x86.ActiveCfg = Release|x64
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC}.Release|x86.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D5B9060A-27D0-47EB-B1D5-7C7C019B41FC} = {1860D2E4-5C43-71D5-59A5-599A4DE1DF67}
+	EndGlobalSection
+EndGlobal

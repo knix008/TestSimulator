@@ -1,0 +1,79 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="YOLO26V10"
+           Manufacturer="YOLO26V10"
+           Version="1.0.0.0"
+           UpgradeCode="e4a9b8c7-6d5e-4f3a-b2c1-0d9e8f7a6b5c"
+           Scope="perMachine"
+           InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of this product is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="AppIcon" SourceFile="assets\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <WixVariable Id="WixUIExclamationIco" Value="assets\daemon_hammer.ico" />
+    <WixVariable Id="WixUIInfoIco" Value="assets\daemon_hammer.ico" />
+    <WixVariable Id="WixUINewIco" Value="assets\daemon_hammer.ico" />
+    <WixVariable Id="WixUIUpIco" Value="assets\daemon_hammer.ico" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALL_ROOT" Name="YOLO26V10">
+        <Directory Id="INSTALLFOLDER" Name="app" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Desktop + Start Menu (Programs): components nested under StandardDirectory (WiX 6) -->
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="CmpDesktopShortcut" Guid="*" Bitness="always64">
+        <Shortcut Id="ShcDesktop"
+                  Name="YOLO26V10"
+                  Description="YOLO26V10 (seg, det, pose, cls, OBB)"
+                  Target="[INSTALLFOLDER]YOLO26V10.exe"
+                  Icon="AppIcon"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\YOLO26V10\Setup"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="YOLO26V10">
+        <Component Id="CmpStartMenuShortcut" Guid="*" Bitness="always64">
+          <Shortcut Id="ShcStartMenu"
+                    Name="YOLO26V10"
+                    Description="YOLO26V10 (seg, det, pose, cls, OBB)"
+                    Target="[INSTALLFOLDER]YOLO26V10.exe"
+                    Icon="AppIcon"
+                    WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+          <RegistryValue Root="HKCU"
+                         Key="Software\YOLO26V10\Setup"
+                         Name="StartMenuShortcut"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="YOLO26V10" Level="1">
+      <ComponentGroupRef Id="HarvestedApp" />
+      <ComponentRef Id="CmpDesktopShortcut" />
+      <ComponentRef Id="CmpStartMenuShortcut" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="HarvestedApp" Directory="INSTALLFOLDER">
+      <Files Include="$(var.YOLO26V10.TargetDir)**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
