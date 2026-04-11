@@ -1,0 +1,4 @@
+torch>=2.0.0
+ultralytics>=8.4.0
+onnx>=1.16.0
+onnxsim>=0.4.0

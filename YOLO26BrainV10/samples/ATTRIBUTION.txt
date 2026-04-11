@@ -1,0 +1,13 @@
+Sample assets (optional; can also use the app menu or tools/Download-SampleAssets.ps1)
+
+1) brain_tumor_sample.jpg (when downloaded)
+   Source: https://github.com/ultralytics/assets/releases/download/v0.0.0/brain-tumor-sample.jpg
+   Ultralytics brain-tumor dataset / documentation sample (AGPL-3.0 applies to the dataset).
+   Slice used in Ultralytics tutorials; modality may be MRI or CT.
+
+2) coco80_labels_comma.txt
+   Reference only — for legacy COCO detection ONNX tests.
+   Brain CT / brain-tumor workflow: use classes negative,positive (see Ultralytics brain-tumor.yaml).
+
+3) Train YOLO11n-seg on your own brain CT segmentation dataset (YOLO-seg polygon labels), then export ONNX
+   via tools/export_yolo26_brain_onnx.py.
