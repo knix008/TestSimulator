@@ -26,7 +26,8 @@ def main() -> int:
         from ultralytics import YOLO
     except ImportError:
         print(
-            "ERROR: ultralytics not installed. Run: pip install ultralytics",
+            "ERROR: ultralytics not installed. Run: py -3 -m pip install -r requirements-export.txt "
+            "or tools/setup-python.ps1",
             file=sys.stderr,
         )
         return 3

@@ -46,6 +46,7 @@ namespace YOLO26V10
             this.lblStatus = new System.Windows.Forms.Label();
             this.grpStatus = new System.Windows.Forms.GroupBox();
             this.grpModel = new System.Windows.Forms.GroupBox();
+            this.btnPythonDeps = new System.Windows.Forms.Button();
             this.btnPrepareModel = new System.Windows.Forms.Button();
             this.comboModel = new System.Windows.Forms.ComboBox();
             this.lblVariant = new System.Windows.Forms.Label();
@@ -373,6 +374,7 @@ namespace YOLO26V10
             // 
             // grpModel
             // 
+            this.grpModel.Controls.Add(this.btnPythonDeps);
             this.grpModel.Controls.Add(this.btnPrepareModel);
             this.grpModel.Controls.Add(this.comboModel);
             this.grpModel.Controls.Add(this.lblVariant);
@@ -386,13 +388,24 @@ namespace YOLO26V10
             this.grpModel.TabStop = false;
             this.grpModel.Text = "모델";
             // 
+            // btnPythonDeps
+            // 
+            this.btnPythonDeps.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPythonDeps.Location = new System.Drawing.Point(868, 28);
+            this.btnPythonDeps.Name = "btnPythonDeps";
+            this.btnPythonDeps.Size = new System.Drawing.Size(132, 28);
+            this.btnPythonDeps.TabIndex = 5;
+            this.btnPythonDeps.Text = "의존성 검사";
+            this.btnPythonDeps.UseVisualStyleBackColor = false;
+            this.btnPythonDeps.Click += new System.EventHandler(this.btnPythonDeps_Click);
+            // 
             // btnPrepareModel
             // 
             this.btnPrepareModel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnPrepareModel.Location = new System.Drawing.Point(1013, 28);
             this.btnPrepareModel.Name = "btnPrepareModel";
             this.btnPrepareModel.Size = new System.Drawing.Size(208, 28);
-            this.btnPrepareModel.TabIndex = 4;
+            this.btnPrepareModel.TabIndex = 6;
             this.btnPrepareModel.Text = "모델 준비";
             this.btnPrepareModel.UseVisualStyleBackColor = false;
             this.btnPrepareModel.Click += new System.EventHandler(this.btnPrepareModel_Click);
@@ -551,6 +564,7 @@ namespace YOLO26V10
         private System.Windows.Forms.Label lblTask;
         private System.Windows.Forms.ComboBox comboTask;
         private System.Windows.Forms.ComboBox comboModel;
+        private System.Windows.Forms.Button btnPythonDeps;
         private System.Windows.Forms.Button btnPrepareModel;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Label lblFilter;
