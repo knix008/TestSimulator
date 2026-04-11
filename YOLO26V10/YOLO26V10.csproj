@@ -37,6 +37,9 @@
     <None Update="tools\requirements-export.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="tools\setup-python.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="tools\imagenet_classes.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -48,6 +51,14 @@
     솔루션의 YOLO26V10.Installer 한 번만 빌드해 MSI 중복·지연을 막습니다.
     비활성: -p:SkipInstaller=true
   -->
+  <!-- 선택: 빌드 시 Python·export용 pip 패키지 설치 — dotnet build -p:InstallPythonExportDeps=true -->
+  <PropertyGroup>
+    <InstallPythonExportDeps Condition="'$(InstallPythonExportDeps)' == ''">false</InstallPythonExportDeps>
+  </PropertyGroup>
+  <Target Name="InstallPythonExportDependencies" AfterTargets="Build" Condition="'$(InstallPythonExportDeps)' == 'true'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)tools\setup-python.ps1&quot;" />
+  </Target>
+
   <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(SolutionDir)' == ''">
     <MSBuild
       Projects="$(MSBuildThisFileDirectory)installer\YOLO26V10.Installer.wixproj"

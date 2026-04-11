@@ -9,6 +9,23 @@ using System.Threading.Tasks;
 
 namespace YOLO26V10.yolo26
 {
+    internal enum PythonExportIssue
+    {
+        None,
+        ExportSupportFilesMissing,
+        PythonInterpreterNotFound,
+        PipPackagesMissing,
+    }
+
+    internal sealed class PythonExportDependencyResult
+    {
+        public PythonExportIssue Issue { get; set; }
+        public string PythonExecutable { get; set; }
+        public string PythonPrefixArguments { get; set; }
+        public string RequirementsFilePath { get; set; }
+        public string DetailMessage { get; set; }
+    }
+
     /// <summary>
     /// GitHub?먯꽌 YOLO26-seg .pt瑜?諛쏄퀬, Python Ultralytics濡?ONNX濡?蹂?섑빀?덈떎.
     /// </summary>
@@ -77,6 +94,67 @@ namespace YOLO26V10.yolo26
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             return Path.GetFullPath(Path.Combine(baseDir, "tools", "export_yolo26_onnx.py"));
         }
+
+        /// <summary>ONNX 변환용 Python·스크립트·pip 패키지 준비 상태를 동기 점검합니다(UI 스레드에서 직접 호출하지 마세요).</summary>
+        public static PythonExportDependencyResult EvaluatePythonExportDependencies()
+        {
+            var script = GetExportScriptPath();
+            if (!File.Exists(script))
+            {
+                return new PythonExportDependencyResult
+                {
+                    Issue = PythonExportIssue.ExportSupportFilesMissing,
+                    DetailMessage = "export_yolo26_onnx.py 가 앱 출력 폴더의 tools 에 없습니다.",
+                };
+            }
+
+            var req = Path.Combine(Path.GetDirectoryName(script) ?? "", "requirements-export.txt");
+            if (!File.Exists(req))
+            {
+                return new PythonExportDependencyResult
+                {
+                    Issue = PythonExportIssue.ExportSupportFilesMissing,
+                    DetailMessage = "requirements-export.txt 가 tools 폴더에 없습니다.",
+                };
+            }
+
+            if (!TryFindPythonInterpreter(out var exe, out var prefix))
+            {
+                return new PythonExportDependencyResult
+                {
+                    Issue = PythonExportIssue.PythonInterpreterNotFound,
+                    RequirementsFilePath = req,
+                };
+            }
+
+            if (!PythonExportImportsOk(exe, prefix))
+            {
+                return new PythonExportDependencyResult
+                {
+                    Issue = PythonExportIssue.PipPackagesMissing,
+                    PythonExecutable = exe,
+                    PythonPrefixArguments = prefix,
+                    RequirementsFilePath = req,
+                };
+            }
+
+            return new PythonExportDependencyResult
+            {
+                Issue = PythonExportIssue.None,
+                PythonExecutable = exe,
+                PythonPrefixArguments = prefix,
+                RequirementsFilePath = req,
+            };
+        }
+
+        /// <summary>requirements-export.txt 기준 pip 설치. UI에서 사용자 동의 후 호출하세요.</summary>
+        public static bool InstallPythonExportRequirements(
+            string exe,
+            string prefixArgs,
+            string requirementsPath,
+            IProgress<string> log,
+            CancellationToken cancellationToken) =>
+            TryPipInstallRequirements(exe, prefixArgs, requirementsPath, log, cancellationToken);
 
         /// <summary>재시도·정리용. 존재하면 삭제합니다(실패 시 무시).</summary>
         public static void TryDeleteFileIfExists(string path)
@@ -208,10 +286,15 @@ namespace YOLO26V10.yolo26
             if (!File.Exists(script))
                 throw new FileNotFoundException("export 스크립트가 없습니다. tools 폴더를 출력 디렉터리로 복사했는지 확인하세요.", script);
 
-            if (!TryResolvePython(out var pyExe, out var pyPrefixArgs))
+            if (!TryFindPythonInterpreter(out var pyExe, out var pyPrefixArgs))
                 throw new InvalidOperationException(
-                    "Python을 찾을 수 없습니다. Python 3 및 pip install ultralytics가 필요합니다.\n" +
-                    "예: py -3 -m pip install -r tools\\requirements-export.txt");
+                    "Python을 찾을 수 없습니다. Python 3가 필요합니다.\n" +
+                    "저장소의 tools\\setup-python.ps1 을 실행하거나, Python을 설치한 뒤 다시 시도하세요.");
+
+            if (!PythonExportImportsOk(pyExe, pyPrefixArgs))
+                throw new InvalidOperationException(
+                    "ONNX 변환용 Python 패키지(ultralytics, onnx 등)가 설치되어 있지 않습니다.\n" +
+                    "앱에서 안내하는 대로 패키지를 설치한 뒤 다시 시도하세요.");
 
             log?.Report("ONNX 변환 중(Ultralytics)... 잠시 걸릴 수 있습니다.");
             prepareProgress?.Report(new ModelPrepareProgress(
@@ -364,25 +447,25 @@ namespace YOLO26V10.yolo26
         private static string FormatBytesProgress(long read, long total) =>
             $"{FormatSize(read)} / {FormatSize(total)} ({read * 100L / total}%)";
 
-        private static bool TryResolvePython(out string exe, out string prefixArgs)
+        private static bool TryFindPythonInterpreter(out string exe, out string prefixArgs)
         {
             exe = null;
             prefixArgs = null;
-            if (TryPythonUsableForExport("py", "-3"))
+            if (TryPythonVersion("py", "-3"))
             {
                 exe = "py";
                 prefixArgs = "-3 ";
                 return true;
             }
 
-            if (TryPythonUsableForExport("python", ""))
+            if (TryPythonVersion("python", ""))
             {
                 exe = "python";
                 prefixArgs = "";
                 return true;
             }
 
-            if (File.Exists(@"C:\Windows\py.exe") && TryPythonUsableForExport(@"C:\Windows\py.exe", "-3"))
+            if (File.Exists(@"C:\Windows\py.exe") && TryPythonVersion(@"C:\Windows\py.exe", "-3"))
             {
                 exe = @"C:\Windows\py.exe";
                 prefixArgs = "-3 ";
@@ -390,6 +473,75 @@ namespace YOLO26V10.yolo26
             }
 
             return false;
+        }
+
+        private static bool PythonExportImportsOk(string fileName, string prefixArgs)
+        {
+            return TryPythonUsableForExport(fileName, prefixArgs);
+        }
+
+        private static bool TryPipInstallRequirements(
+            string exe,
+            string prefixArgs,
+            string requirementsPath,
+            IProgress<string> log,
+            CancellationToken cancellationToken)
+        {
+            var args = string.IsNullOrEmpty(prefixArgs)
+                ? $"-m pip install -r \"{requirementsPath}\""
+                : $"{prefixArgs}-m pip install -r \"{requirementsPath}\"";
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = args,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                    WorkingDirectory = Path.GetDirectoryName(requirementsPath) ?? Environment.CurrentDirectory,
+                };
+                psi.EnvironmentVariables["PYTHONUTF8"] = "1";
+                psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+
+                using (var proc = new Process())
+                {
+                    proc.StartInfo = psi;
+                    proc.OutputDataReceived += (_, e) =>
+                    {
+                        if (!string.IsNullOrEmpty(e.Data))
+                            log?.Report(e.Data);
+                    };
+                    proc.ErrorDataReceived += (_, e) =>
+                    {
+                        if (!string.IsNullOrEmpty(e.Data))
+                            log?.Report(e.Data);
+                    };
+
+                    if (!proc.Start())
+                        return false;
+
+                    proc.BeginOutputReadLine();
+                    proc.BeginErrorReadLine();
+
+                    while (!proc.WaitForExit(500))
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                    proc.WaitForExit();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return proc.ExitCode == 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static bool TryPythonVersion(string fileName, string versionArgs)

@@ -100,6 +100,7 @@ namespace YOLO26V10
             lblTask.ForeColor = UiTheme.TextSecondary;
             lblVariant.ForeColor = UiTheme.TextSecondary;
 
+            UiTheme.StyleSecondaryButton(btnPythonDeps);
             UiTheme.StylePrimaryButton(btnPrepareModel);
             UiTheme.StyleSecondaryButton(btnImage);
             UiTheme.StyleSecondaryButton(btnVideo);
@@ -148,8 +149,9 @@ namespace YOLO26V10
 
             var gmW = grpModel.ClientSize.Width;
             btnPrepareModel.Left = gmW - pad - btnPrepareModel.Width;
+            btnPythonDeps.Left = btnPrepareModel.Left - gap - btnPythonDeps.Width;
             comboModel.Left = comboTask.Right + gap;
-            comboModel.Width = Math.Max(200, btnPrepareModel.Left - comboModel.Left - gap);
+            comboModel.Width = Math.Max(200, btnPythonDeps.Left - comboModel.Left - gap);
 
             var giW = grpInfer.ClientSize.Width;
             btnPlayResult.Left = giW - pad - btnPlayResult.Width;
@@ -376,13 +378,17 @@ namespace YOLO26V10
             }
         }
 
-        private async Task PrepareModelAsync(
+        private async Task<bool> PrepareModelAsync(
             string variant,
             YoloModelKind kind,
             CancellationToken cancellationToken,
             bool forceReexport = false)
         {
             var progress = new Progress<string>(Log);
+            if (!await PythonExportDependencyUi.EnsureReadyAsync(this, progress, cancellationToken)
+                    .ConfigureAwait(true))
+                return false;
+
             await Yolo26ModelPreparer.EnsureOnnxModelAsync(
                     variant,
                     progress,
@@ -391,6 +397,7 @@ namespace YOLO26V10
                     kind: kind)
                 .ConfigureAwait(true);
             LoadSessionFromOnnx(variant, kind);
+            return true;
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -486,6 +493,12 @@ namespace YOLO26V10
             lblStatus.Text = text;
         }
 
+        private void btnPythonDeps_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new PythonExportDependencyDialog())
+                dlg.ShowDialog(this);
+        }
+
         private async void btnPrepareModel_Click(object sender, EventArgs e)
         {
             var variant = SelectedModelVariant;
@@ -535,8 +548,14 @@ namespace YOLO26V10
 
                     try
                     {
-                        await PrepareModelAsync(variant, kind, CancellationToken.None, attempt > 1)
+                        var prepared = await PrepareModelAsync(variant, kind, CancellationToken.None, attempt > 1)
                             .ConfigureAwait(true);
+                        if (!prepared)
+                        {
+                            Log("Python 환경 준비가 완료되지 않아 모델 준비를 중단했습니다.");
+                            break;
+                        }
+
                         Log("추론 세션 준비 완료.");
                         break;
                     }
