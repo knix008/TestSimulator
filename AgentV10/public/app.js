@@ -14,6 +14,9 @@ const messages = [
   },
 ];
 
+const ERROR_VISIBLE_MS = 5000;
+const ERROR_FADE_MS = 400;
+
 function setModelOptions(models, defaultModel) {
   modelInput.innerHTML = "";
   if (!Array.isArray(models) || models.length === 0) {
@@ -49,9 +52,10 @@ async function loadModels() {
     if (previousValue && data.models.includes(previousValue)) {
       modelInput.value = previousValue;
     }
+    clearChatErrors();
   } catch (error) {
     setModelOptions([], "gemma4:26b");
-    appendMessage("system", `모델 목록을 가져오지 못했습니다. 기본 모델로 진행합니다. (${error.message})`);
+    appendErrorMessage(`모델 목록을 가져오지 못했습니다. 기본 모델로 진행합니다. (${error.message})`);
   } finally {
     modelInput.disabled = false;
     refreshModelsBtn.disabled = false;
@@ -64,6 +68,32 @@ function appendMessage(role, text) {
   el.textContent = text;
   chatLog.appendChild(el);
   chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function appendErrorMessage(text) {
+  const el = document.createElement("div");
+  el.className = "msg system chat-error";
+  el.setAttribute("role", "alert");
+  el.textContent = text;
+  chatLog.appendChild(el);
+  chatLog.scrollTop = chatLog.scrollHeight;
+
+  const startFade = setTimeout(() => {
+    el.classList.add("chat-error--hiding");
+  }, ERROR_VISIBLE_MS);
+  const removeEl = setTimeout(() => {
+    el.remove();
+  }, ERROR_VISIBLE_MS + ERROR_FADE_MS);
+  el._errorTimers = [startFade, removeEl];
+}
+
+function clearChatErrors() {
+  chatLog.querySelectorAll(".chat-error").forEach((el) => {
+    if (Array.isArray(el._errorTimers)) {
+      el._errorTimers.forEach(clearTimeout);
+    }
+    el.remove();
+  });
 }
 
 function appendTypingIndicator() {
@@ -108,15 +138,16 @@ async function sendMessage(content) {
 
     if (!res.ok) {
       const errorText = data?.detail || data?.error || "Unknown error";
-      appendMessage("system", `오류: ${errorText}`);
+      appendErrorMessage(`오류: ${errorText}`);
       return;
     }
 
     const answer = data.answer || "(응답이 비어 있습니다.)";
     messages.push({ role: "assistant", content: answer });
+    clearChatErrors();
     appendMessage("assistant", answer);
   } catch (error) {
-    appendMessage("system", `네트워크 오류: ${error.message}`);
+    appendErrorMessage(`네트워크 오류: ${error.message}`);
   } finally {
     typingIndicator.remove();
     sendBtn.disabled = false;
