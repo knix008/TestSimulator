@@ -64,11 +64,11 @@ namespace YOLO11BrainV10
             menuTools = new ToolStripMenuItem();
             menuDownloadSample = new ToolStripMenuItem();
             menuConvertPt = new ToolStripMenuItem();
+            menuRecommendedDefaults = new ToolStripMenuItem();
             menuToolsSep = new ToolStripSeparator();
             menuOpenSampleFolder = new ToolStripMenuItem();
             menuSetSampleFolder = new ToolStripMenuItem();
             menuOpenModelsFolder = new ToolStripMenuItem();
-            menuRecommendedDefaults = new ToolStripMenuItem();
             lblOnnxTitle = new Label();
             btnModel = new Button();
             lblOnnxPath = new Label();
@@ -90,6 +90,7 @@ namespace YOLO11BrainV10
             viewerOutput = new ZoomableImageViewer();
             listDetections = new ListView();
             menuStripMain.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)trackConf).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numConf).BeginInit();
             SuspendLayout();
             // 
@@ -113,37 +114,37 @@ namespace YOLO11BrainV10
             // 
             menuSaveImage.Enabled = false;
             menuSaveImage.Name = "menuSaveImage";
-            menuSaveImage.Size = new Size(206, 22);
+            menuSaveImage.Size = new Size(265, 22);
             menuSaveImage.Text = "세그 결과 이미지 저장(&I)…";
             // 
             // menuSaveCsv
             // 
             menuSaveCsv.Enabled = false;
             menuSaveCsv.Name = "menuSaveCsv";
-            menuSaveCsv.Size = new Size(206, 22);
+            menuSaveCsv.Size = new Size(265, 22);
             menuSaveCsv.Text = "인스턴스 목록 CSV 저장(&C)…";
             // 
             // menuSaveInputSlice
             // 
             menuSaveInputSlice.Name = "menuSaveInputSlice";
-            menuSaveInputSlice.Size = new Size(280, 22);
+            menuSaveInputSlice.Size = new Size(265, 22);
             menuSaveInputSlice.Text = "입력 CT/영상 다른 위치에 저장(&P)…";
             // 
             // menuSaveModelCopy
             // 
             menuSaveModelCopy.Name = "menuSaveModelCopy";
-            menuSaveModelCopy.Size = new Size(280, 22);
+            menuSaveModelCopy.Size = new Size(265, 22);
             menuSaveModelCopy.Text = "ONNX 모델 다른 위치에 복사(&M)…";
             // 
             // menuFileSep
             // 
             menuFileSep.Name = "menuFileSep";
-            menuFileSep.Size = new Size(203, 6);
+            menuFileSep.Size = new Size(262, 6);
             // 
             // menuExit
             // 
             menuExit.Name = "menuExit";
-            menuExit.Size = new Size(206, 22);
+            menuExit.Size = new Size(265, 22);
             menuExit.Text = "종료(&X)";
             // 
             // menuTools
@@ -156,42 +157,42 @@ namespace YOLO11BrainV10
             // menuDownloadSample
             // 
             menuDownloadSample.Name = "menuDownloadSample";
-            menuDownloadSample.Size = new Size(266, 22);
+            menuDownloadSample.Size = new Size(233, 22);
             menuDownloadSample.Text = "뇌 CT 샘플 이미지 다운로드…";
             // 
             // menuConvertPt
             // 
             menuConvertPt.Name = "menuConvertPt";
-            menuConvertPt.Size = new Size(266, 22);
+            menuConvertPt.Size = new Size(233, 22);
             menuConvertPt.Text = "PyTorch(.pt)→ONNX 변환…";
             // 
             // menuRecommendedDefaults
             // 
             menuRecommendedDefaults.Name = "menuRecommendedDefaults";
-            menuRecommendedDefaults.Size = new Size(280, 22);
+            menuRecommendedDefaults.Size = new Size(233, 22);
             menuRecommendedDefaults.Text = "추천 기본값 적용(&R)";
             // 
             // menuToolsSep
             // 
             menuToolsSep.Name = "menuToolsSep";
-            menuToolsSep.Size = new Size(263, 6);
+            menuToolsSep.Size = new Size(230, 6);
             // 
             // menuOpenSampleFolder
             // 
             menuOpenSampleFolder.Name = "menuOpenSampleFolder";
-            menuOpenSampleFolder.Size = new Size(266, 22);
+            menuOpenSampleFolder.Size = new Size(233, 22);
             menuOpenSampleFolder.Text = "CT data 폴더 열기";
             // 
             // menuSetSampleFolder
             // 
             menuSetSampleFolder.Name = "menuSetSampleFolder";
-            menuSetSampleFolder.Size = new Size(280, 22);
+            menuSetSampleFolder.Size = new Size(233, 22);
             menuSetSampleFolder.Text = "CT data 기본 폴더…";
             // 
             // menuOpenModelsFolder
             // 
             menuOpenModelsFolder.Name = "menuOpenModelsFolder";
-            menuOpenModelsFolder.Size = new Size(280, 22);
+            menuOpenModelsFolder.Size = new Size(233, 22);
             menuOpenModelsFolder.Text = "models 폴더 열기 (ONNX·PT)";
             // 
             // lblOnnxTitle
@@ -276,13 +277,11 @@ namespace YOLO11BrainV10
             // 
             // trackConf
             // 
-            trackConf.LargeChange = 5;
-            trackConf.Location = new Point(86, 130);
+            trackConf.Location = new Point(86, 136);
             trackConf.Maximum = 100;
             trackConf.Minimum = 1;
             trackConf.Name = "trackConf";
             trackConf.Size = new Size(220, 45);
-            trackConf.SmallChange = 1;
             trackConf.TabIndex = 10;
             trackConf.TickFrequency = 10;
             trackConf.Value = 25;
@@ -333,7 +332,7 @@ namespace YOLO11BrainV10
             lblStatus.AutoEllipsis = true;
             lblStatus.Location = new Point(12, 184);
             lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(1000, 71);
+            lblStatus.Size = new Size(1000, 53);
             lblStatus.TabIndex = 15;
             lblStatus.Text = "준비됨 — CT 샘플 기본 경로: %LocalAppData%\\YOLO11BrainV10\\data\\ct (도구 → CT data 폴더). ONNX·PT: …\\YOLO11BrainV10\\models. (DICOM 지원)";
             // 
@@ -413,6 +412,7 @@ namespace YOLO11BrainV10
             Text = "YOLO11 뇌 CT 세그먼테이션";
             menuStripMain.ResumeLayout(false);
             menuStripMain.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)trackConf).EndInit();
             ((System.ComponentModel.ISupportInitialize)numConf).EndInit();
             ResumeLayout(false);
             PerformLayout();
