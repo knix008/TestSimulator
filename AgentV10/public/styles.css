@@ -257,6 +257,18 @@ body {
   color: #6a4b00;
 }
 
+.msg.chat-error {
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
+}
+
+.msg.chat-error.chat-error--hiding {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
 .chat-form {
   display: flex;
   gap: 8px;
