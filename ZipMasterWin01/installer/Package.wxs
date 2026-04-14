@@ -1,0 +1,72 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="ZipMasterWin01"
+           Manufacturer="TestSimulator"
+           Version="1.0.0.0"
+           UpgradeCode="0C5F2F72-8531-4CBE-B6B8-7A70D84A30C6"
+           Scope="perMachine"
+           InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of ZipMasterWin01 is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="ZipMasterWin01" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="DesktopShortcut"
+                  Name="ZipMasterWin01"
+                  Description="ZipMasterWin01"
+                  Target="[INSTALLFOLDER]ZipMasterWin01.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TestSimulator\ZipMasterWin01\Setup"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="ZipMasterWin01">
+        <Component Id="StartMenuShortcutComponent" Guid="*">
+          <Shortcut Id="StartMenuShortcut"
+                    Name="ZipMasterWin01"
+                    Description="ZipMasterWin01"
+                    Target="[INSTALLFOLDER]ZipMasterWin01.exe"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="AppIcon" />
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+          <RegistryValue Root="HKCU"
+                         Key="Software\TestSimulator\ZipMasterWin01\Setup"
+                         Name="StartMenuShortcut"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="ZipMasterWin01" Level="1">
+      <ComponentGroupRef Id="HarvestedApp" />
+      <ComponentRef Id="DesktopShortcutComponent" />
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="HarvestedApp" Directory="INSTALLFOLDER">
+      <Files Include="$(var.ZipMasterWin01.TargetDir)**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
