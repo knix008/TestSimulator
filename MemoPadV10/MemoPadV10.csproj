@@ -12,7 +12,7 @@
   <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
     <MSBuild
       Projects="$(MSBuildThisFileDirectory)installer\MemoPadV10.Installer.wixproj"
-      Targets="Build"
+      Targets="Restore;Build"
       Properties="Configuration=Release;Platform=x64" />
   </Target>
 

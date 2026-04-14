@@ -5,7 +5,8 @@
            Version="1.0.0.0"
            UpgradeCode="e4a9b8c7-6d5e-4f3a-b2c1-0d9e8f7a6b5c"
            Scope="perMachine"
-           InstallerVersion="500">
+           InstallerVersion="500"
+           Codepage="65001">
     <MajorUpgrade DowngradeErrorMessage="A newer version of this product is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="AppIcon" SourceFile="assets\daemon_hammer.ico" />
@@ -20,6 +21,9 @@
         <Directory Id="INSTALLFOLDER" Name="app" />
       </Directory>
     </StandardDirectory>
+
+    <Launch Condition="Privileged"
+            Message="관리자 권한이 필요합니다. 설치 파일을 관리자 권한으로 실행해 주세요." />
 
     <!-- Desktop + Start Menu (Programs): components nested under StandardDirectory (WiX 6) -->
     <StandardDirectory Id="DesktopFolder">

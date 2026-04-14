@@ -1,0 +1,58 @@
+# Repo CT downloads (Download-SampleAssets.ps1 → data/ct; app default %LocalAppData%\YOLO11BrainV10\data\ct)
+data/ct/*
+!data/ct/.gitkeep
+
+models/*.onnx
+models/*.pt
+models/*.pth
+models/*.engine
+models/*.mlmodel
+models/*.weights
+
+# .NET build
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+[Aa]rm/
+[Aa]rm64/
+[Ll]og/
+[Ll]ogs/
+out/
+publish/
+
+# MSBuild / NuGet
+*.user
+*.userosscache
+*.suo
+*.cache
+project.lock.json
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+# Visual Studio / VS Code / JetBrains
+.vs/
+.vscode/
+.idea/
+*.sln.iml
+
+# Python (export / train scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local scratch build dirs
+_verify_build*/
+_mbuild/

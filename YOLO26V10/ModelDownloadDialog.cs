@@ -20,7 +20,7 @@ namespace YOLO26V10
             var common =
                 "아래에서 변형을 고른 뒤 [Download + ONNX Convert]를 누르면 .pt를 내려받고 Python(Ultralytics)으로 ONNX를 생성합니다.\r\n" +
                 "[다시 시도] 시 해당 모델의 로컬 파일을 지우고 처음부터 다시 받습니다. 오류가 나면 안내 창에서 [다시 시도]를 누르거나, 닫은 뒤 같은 버튼으로 다시 실행할 수 있습니다.\r\n" +
-                "(Python 3 및 pip install ultralytics 필요)";
+                "(Python 3 필요 — [다운로드] 시 패키지가 없으면 설치 여부를 묻습니다)";
             switch (kind)
             {
                 case YoloModelKind.Segmentation:
@@ -89,9 +89,23 @@ namespace YOLO26V10
 
         private void AppendLog(string line)
         {
+            if (IsDisposed || Disposing || txtLog == null || txtLog.IsDisposed || !txtLog.IsHandleCreated)
+                return;
+
             if (txtLog.InvokeRequired)
             {
-                BeginInvoke(new Action(() => AppendLog(line)));
+                try
+                {
+                    BeginInvoke(new Action(() => AppendLog(line)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Dialog closed while background progress callback was still in-flight.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Handle not available anymore during shutdown race.
+                }
                 return;
             }
 
@@ -100,9 +114,23 @@ namespace YOLO26V10
 
         private void ApplyPrepareProgress(ModelPrepareProgress p)
         {
+            if (IsDisposed || Disposing || progressBar == null || progressBar.IsDisposed || !progressBar.IsHandleCreated)
+                return;
+
             if (progressBar.InvokeRequired)
             {
-                BeginInvoke(new Action(() => ApplyPrepareProgress(p)));
+                try
+                {
+                    BeginInvoke(new Action(() => ApplyPrepareProgress(p)));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Dialog closed while background progress callback was still in-flight.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Handle not available anymore during shutdown race.
+                }
                 return;
             }
 
@@ -151,9 +179,23 @@ namespace YOLO26V10
 
         private void ResetProgressUi()
         {
+            if (IsDisposed || Disposing || progressBar == null || progressBar.IsDisposed || !progressBar.IsHandleCreated)
+                return;
+
             if (progressBar.InvokeRequired)
             {
-                BeginInvoke(new Action(ResetProgressUi));
+                try
+                {
+                    BeginInvoke(new Action(ResetProgressUi));
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Dialog closed while UI reset was being marshaled.
+                }
+                catch (InvalidOperationException)
+                {
+                    // Handle not available anymore during shutdown race.
+                }
                 return;
             }
 
@@ -198,6 +240,16 @@ namespace YOLO26V10
                 {
                     var progress = new Progress<string>(AppendLog);
                     var barProgress = new Progress<ModelPrepareProgress>(ApplyPrepareProgress);
+                    if (attempt == 1)
+                    {
+                        if (!await PythonExportDependencyUi.EnsureReadyAsync(this, progress, token)
+                                .ConfigureAwait(true))
+                        {
+                            AppendLog("Python 환경이 준비되지 않아 작업을 중단했습니다.");
+                            break;
+                        }
+                    }
+
                     await Yolo26ModelPreparer.EnsureOnnxModelAsync(
                             variant,
                             progress,
