@@ -1,0 +1,79 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="MemoPadV10"
+           Manufacturer="TestSimulator"
+           Version="1.0.0.0"
+           UpgradeCode="3B8F1E62-9D4A-4C2B-BE7F-1A2C3D4E5F60"
+           Scope="perMachine"
+           InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of MemoPadV10 is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="assets\License.rtf" />
+    <WixVariable Id="WixUIExclamationIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUIInfoIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUINewIco" Value="..\daemon_hammer.ico" />
+    <WixVariable Id="WixUIUpIco" Value="..\daemon_hammer.ico" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="MemoPadV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="CmpDesktopShortcut" Guid="*" Bitness="always64">
+        <Shortcut Id="ShcDesktop"
+                  Name="MemoPadV10"
+                  Description="MemoPadV10"
+                  Target="[INSTALLFOLDER]MemoPadV10.exe"
+                  Icon="AppIcon"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TestSimulator\MemoPadV10\Setup"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="MemoPadV10">
+        <Component Id="CmpStartMenuShortcut" Guid="*" Bitness="always64">
+          <Shortcut Id="ShcStartMenu"
+                    Name="MemoPadV10"
+                    Description="MemoPadV10"
+                    Target="[INSTALLFOLDER]MemoPadV10.exe"
+                    Icon="AppIcon"
+                    WorkingDirectory="INSTALLFOLDER" />
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+          <RegistryValue Root="HKCU"
+                         Key="Software\TestSimulator\MemoPadV10\Setup"
+                         Name="StartMenuShortcut"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="MemoPadV10" Level="1">
+      <ComponentGroupRef Id="HarvestedApp" />
+      <ComponentRef Id="CmpDesktopShortcut" />
+      <ComponentRef Id="CmpStartMenuShortcut" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="HarvestedApp" Directory="INSTALLFOLDER">
+      <Files Include="$(var.MemoPadV10.TargetDir)**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

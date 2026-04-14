@@ -1,2 +1,4 @@
 <Solution>
+  <Project Path="MemoPadV10.csproj" />
+  <Project Path="installer/MemoPadV10.Installer.wixproj" />
 </Solution>
