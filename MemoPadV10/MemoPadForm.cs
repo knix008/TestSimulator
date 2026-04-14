@@ -1,4 +1,3 @@
-using System.Drawing;
 using System.Text.Json;
 
 namespace MemoPadV10;
@@ -7,16 +6,71 @@ public partial class MemoPadForm : Form
 {
     private readonly List<string> _memoItems = [];
     private readonly string _memoFilePath;
+    private bool _dragging;
+    private Point _dragStartPoint;
 
     public MemoPadForm()
     {
         InitializeComponent();
-        Icon = SystemIcons.Information;
         _memoFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "MemoPadV10",
             "memos.json");
+        ApplySavedEditorSettings();
         LoadMemos();
+        WireMemoEditorContextMenu();
+    }
+
+    private void WireMemoEditorContextMenu()
+    {
+        ContextMenuStrip ctx = new();
+        ctx.Items.Add("굵게", null, (_, _) => RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Bold, false));
+        ctx.Items.Add("기울임", null, (_, _) => RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Italic, false));
+        ctx.Items.Add("밑줄", null, (_, _) => RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Underline, false));
+        ctx.Items.Add("취소선", null, (_, _) => RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Strikeout, false));
+        ctx.Items.Add(new ToolStripSeparator());
+        ctx.Items.Add("글꼴 및 글자 색…", null, (_, _) => ShowMemoQuickFontDialog());
+        memoEditor.ContextMenuStrip = ctx;
+    }
+
+    private void ShowMemoQuickFontDialog()
+    {
+        using FontDialog dlg = new();
+        dlg.Font = memoEditor.SelectionFont ?? memoEditor.Font;
+        dlg.Color = memoEditor.SelectionColor;
+        dlg.ShowColor = true;
+        dlg.ShowEffects = true;
+        if (dlg.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        using (Font chosen = dlg.Font)
+        {
+            Font copy = new(chosen.FontFamily, chosen.SizeInPoints, chosen.Style, GraphicsUnit.Point);
+            int savedStart = memoEditor.SelectionStart;
+            int savedLen = memoEditor.SelectionLength;
+
+            if (savedLen == 0)
+            {
+                memoEditor.SelectionFont = copy;
+                memoEditor.SelectionColor = dlg.Color;
+                memoEditor.Font = new Font(copy.FontFamily, copy.SizeInPoints, copy.Style, GraphicsUnit.Point);
+                copy.Dispose();
+                return;
+            }
+
+            memoEditor.Select(savedStart, savedLen);
+            memoEditor.SelectionFont = copy;
+            memoEditor.SelectionColor = dlg.Color;
+            copy.Dispose();
+        }
+    }
+
+    private void ApplySavedEditorSettings()
+    {
+        EditorSettings.Data? data = EditorSettings.TryLoad() ?? EditorSettings.LoadDefaults();
+        EditorSettings.ApplyToUi(memoEditor, this, data);
     }
 
     private void AddMemo()
@@ -28,7 +82,7 @@ public partial class MemoPadForm : Form
             return;
         }
 
-        _memoItems.Add(text);
+        _memoItems.Add(memoEditor.Rtf ?? string.Empty);
         SaveMemos();
         memoEditor.Clear();
         MessageBox.Show("메모가 추가되었습니다.", "완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -78,32 +132,97 @@ public partial class MemoPadForm : Form
         }
     }
 
-    private void addMemoToolStripMenuItem_Click(object sender, EventArgs e)
+    private void addMemoIconButton_Click(object sender, EventArgs e)
     {
         AddMemo();
     }
 
-    private void addMemoButton_Click(object sender, EventArgs e)
+    private void settingsIconButton_Click(object sender, EventArgs e)
     {
-        AddMemo();
+        using EditorSettingsForm dlg = new(memoEditor, this);
+        dlg.ShowDialog(this);
     }
 
-    private void fontSizeMenuItem_Click(object sender, EventArgs e)
+    private void memoEditor_KeyDown(object? sender, KeyEventArgs e)
     {
-        if (sender is not ToolStripMenuItem menuItem)
+        if (!e.Control)
         {
             return;
         }
 
-        if (!float.TryParse(menuItem.Text, out float newSize))
+        if (e.KeyCode == Keys.B)
         {
+            RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Bold, false);
+            e.SuppressKeyPress = true;
             return;
         }
 
-        memoEditor.Font = new Font(memoEditor.Font.FontFamily, newSize, FontStyle.Regular);
+        if (e.KeyCode == Keys.I)
+        {
+            RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Italic, false);
+            e.SuppressKeyPress = true;
+            return;
+        }
+
+        if (e.KeyCode == Keys.U)
+        {
+            RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Underline, false);
+            e.SuppressKeyPress = true;
+            return;
+        }
+
+        if (e.Shift && e.KeyCode == Keys.S)
+        {
+            RichTextFormatting.ToggleFontStyle(memoEditor, FontStyle.Strikeout, false);
+            e.SuppressKeyPress = true;
+        }
     }
 
-    private void showMemoListToolStripMenuItem_Click(object sender, EventArgs e)
+    private static string MemoPlainTextForDisplay(string stored)
+    {
+        if (string.IsNullOrEmpty(stored))
+        {
+            return stored;
+        }
+
+        ReadOnlySpan<char> span = stored.AsSpan().TrimStart();
+        if (!span.StartsWith("{\\rtf", StringComparison.OrdinalIgnoreCase))
+        {
+            return stored;
+        }
+
+        using RichTextBox rtb = new();
+        try
+        {
+            rtb.Rtf = stored;
+            return rtb.Text;
+        }
+        catch (ArgumentException)
+        {
+            return stored;
+        }
+    }
+
+    private static void ApplyMemoContentToEditor(RichTextBox editor, string stored)
+    {
+        ReadOnlySpan<char> span = stored.AsSpan().TrimStart();
+        if (span.StartsWith("{\\rtf", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                editor.Rtf = stored;
+                return;
+            }
+            catch (ArgumentException)
+            {
+                // Fall through to plain text.
+            }
+        }
+
+        editor.Text = stored;
+    }
+
+    private void listIconButton_Click(object sender, EventArgs e)
     {
         LoadMemos();
 
@@ -133,33 +252,65 @@ public partial class MemoPadForm : Form
             HorizontalScrollbar = true
         };
 
+        Button deleteButton = new()
+        {
+            Dock = DockStyle.Fill,
+            Text = "삭제"
+        };
+
         Button loadButton = new()
         {
-            Dock = DockStyle.Right,
-            Width = 110,
+            Dock = DockStyle.Fill,
             Text = "불러오기"
         };
+
+        TableLayoutPanel buttonRow = new()
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(0)
+        };
+        buttonRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        buttonRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+        buttonRow.Controls.Add(deleteButton, 0, 0);
+        buttonRow.Controls.Add(loadButton, 1, 0);
 
         Panel buttonPanel = new()
         {
             Dock = DockStyle.Fill,
             Padding = new Padding(8, 6, 8, 6)
         };
-        buttonPanel.Controls.Add(loadButton);
+        buttonPanel.Controls.Add(buttonRow);
 
-        if (_memoItems.Count == 0)
+        void RefreshMemoListDisplay()
         {
-            listBox.Items.Add("저장된 메모가 없습니다.");
-            listBox.Enabled = false;
-            loadButton.Enabled = false;
-        }
-        else
-        {
+            listBox.Items.Clear();
+            if (_memoItems.Count == 0)
+            {
+                listBox.Items.Add("저장된 메모가 없습니다.");
+                listBox.Enabled = false;
+                deleteButton.Enabled = false;
+                loadButton.Enabled = false;
+                return;
+            }
+
+            listBox.Enabled = true;
+            deleteButton.Enabled = true;
+            loadButton.Enabled = true;
             for (int i = 0; i < _memoItems.Count; i++)
             {
-                listBox.Items.Add($"{i + 1}. {_memoItems[i]}");
+                string preview = MemoPlainTextForDisplay(_memoItems[i]).ReplaceLineEndings(" ");
+                if (preview.Length > 200)
+                {
+                    preview = preview[..200] + "…";
+                }
+
+                listBox.Items.Add($"{i + 1}. {preview}");
             }
         }
+
+        RefreshMemoListDisplay();
 
         void LoadSelectedMemo()
         {
@@ -168,19 +319,89 @@ public partial class MemoPadForm : Form
                 return;
             }
 
-            memoEditor.Text = _memoItems[listBox.SelectedIndex];
+            ApplyMemoContentToEditor(memoEditor, _memoItems[listBox.SelectedIndex]);
             memoEditor.Focus();
             memoEditor.SelectionStart = memoEditor.TextLength;
             listForm.DialogResult = DialogResult.OK;
             listForm.Close();
         }
 
+        void DeleteSelectedMemo()
+        {
+            if (_memoItems.Count == 0)
+            {
+                return;
+            }
+
+            if (listBox.SelectedIndex < 0 || listBox.SelectedIndex >= _memoItems.Count)
+            {
+                MessageBox.Show("삭제할 메모를 목록에서 선택해 주세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            if (MessageBox.Show(
+                    "선택한 메모를 삭제하시겠습니까?",
+                    "메모 삭제",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            {
+                return;
+            }
+
+            _memoItems.RemoveAt(listBox.SelectedIndex);
+            SaveMemos();
+            RefreshMemoListDisplay();
+        }
+
         loadButton.Click += (_, _) => LoadSelectedMemo();
+        deleteButton.Click += (_, _) => DeleteSelectedMemo();
         listBox.DoubleClick += (_, _) => LoadSelectedMemo();
+        listBox.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Delete)
+            {
+                DeleteSelectedMemo();
+                e.Handled = true;
+            }
+        };
 
         layout.Controls.Add(listBox, 0, 0);
         layout.Controls.Add(buttonPanel, 0, 1);
         listForm.Controls.Add(layout);
         listForm.ShowDialog(this);
     }
+
+    private void closeIconButton_Click(object sender, EventArgs e)
+    {
+        Close();
+    }
+
+    private void topBarPanel_MouseDown(object sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        _dragging = true;
+        _dragStartPoint = e.Location;
+    }
+
+    private void topBarPanel_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_dragging)
+        {
+            return;
+        }
+
+        Point currentScreenPos = PointToScreen(e.Location);
+        Location = new Point(currentScreenPos.X - _dragStartPoint.X, currentScreenPos.Y - _dragStartPoint.Y);
+    }
+
+    private void topBarPanel_MouseUp(object sender, MouseEventArgs e)
+    {
+        _dragging = false;
+    }
+
 }

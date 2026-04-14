@@ -1,0 +1,19 @@
+# Build outputs
+bin/
+obj/
+
+# IDE caches
+.vs/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Local environment files
+.env
+

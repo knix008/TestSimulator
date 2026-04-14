@@ -5,5 +5,26 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>installer\assets\daemon_hammer.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- Release 빌드 시 MSI 생성 (Visual Studio 솔루션 빌드 포함). 설치 프로젝트가 메인을 참조할 때는 SkipInstaller로 이 타겟 생략. 비활성: -p:SkipInstaller=true -->
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)installer\MemoPadV10.Installer.wixproj"
+      Targets="Build"
+      Properties="Configuration=Release;Platform=x64" />
+  </Target>
+
+  <ItemGroup>
+    <Compile Update="EditorSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="EditorSettingsForm.Designer.cs">
+      <DependentUpon>EditorSettingsForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="EditorSettingsForm.resx">
+      <DependentUpon>EditorSettingsForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>
