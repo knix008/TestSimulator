@@ -1,6 +1,6 @@
 ﻿namespace ZipMasterWin01
 {
-    partial class Form1
+    partial class ZipMasterForm
     {
         /// <summary>
         /// 필수 디자이너 변수입니다.
@@ -28,17 +28,17 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ZipMasterForm));
             this.SuspendLayout();
             // 
-            // Form1
+            // ZipMasterForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.Name = "Form1";
-            this.Text = "Form1";
+            this.Name = "ZipMasterForm";
+            this.Text = "ZipMasterForm";
             this.ResumeLayout(false);
 
         }
