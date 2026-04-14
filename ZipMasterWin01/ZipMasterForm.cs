@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -15,38 +14,254 @@ namespace ZipMasterWin01
 {
     public partial class ZipMasterForm : Form
     {
+        private readonly Progress<ProgressSnapshot> _progressReporter;
+
         public ZipMasterForm()
         {
             InitializeComponent();
-            InitializeCustomComponents();
+            TryLoadWindowIcon();
+            _progressReporter = new Progress<ProgressSnapshot>(ApplyProgressSnapshot);
+            WireEvents();
+            UpdateSplitPanelEnabled();
+            toolStripStatusLabelMain.Text = "준비";
         }
 
-        private void InitializeCustomComponents()
+        protected override void OnHandleCreated(EventArgs e)
         {
-            // Add a button for compression
-            Button compressButton = new Button
-            {
-                Text = "Compress",
-                Location = new Point(10, 10),
-                Size = new Size(100, 30)
-            };
-            compressButton.Click += CompressButton_Click;
-            Controls.Add(compressButton);
-
-            // Add a button for extraction
-            Button extractButton = new Button
-            {
-                Text = "Extract",
-                Location = new Point(120, 10),
-                Size = new Size(100, 30)
-            };
-            extractButton.Click += ExtractButton_Click;
-            Controls.Add(extractButton);
+            base.OnHandleCreated(e);
+            ApplyTitleBarColors();
         }
 
-        private void CompressButton_Click(object sender, EventArgs e)
+        private const int DwmwaUseImmersiveDarkMode = 20;
+        private const int DwmwaCaptionColor = 35;
+        private const int DwmwaCaptionTextColor = 36;
+
+        [DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+        private static int ColorToColorRef(Color color)
         {
-            List<string> sources = SelectCompressionSources();
+            return (color.B << 16) | (color.G << 8) | color.R;
+        }
+
+        /// <summary>
+        /// Windows 11+: 사용자 지정 캡션 색. 그 이전 OS는 어두운 타이틀만 시도합니다.
+        /// WinForms는 기본적으로 시스템 타이틀만 그리므로 DWM 속성이 필요합니다.
+        /// </summary>
+        private void ApplyTitleBarColors()
+        {
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime || !IsHandleCreated)
+            {
+                return;
+            }
+
+            try
+            {
+                int useDark = 1;
+                DwmSetWindowAttribute(Handle, DwmwaUseImmersiveDarkMode, ref useDark, Marshal.SizeOf(typeof(int)));
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                Color caption = Color.FromArgb(33, 33, 33);
+                Color captionText = Color.White;
+                int captionRef = ColorToColorRef(caption);
+                int textRef = ColorToColorRef(captionText);
+                DwmSetWindowAttribute(Handle, DwmwaCaptionColor, ref captionRef, Marshal.SizeOf(typeof(int)));
+                DwmSetWindowAttribute(Handle, DwmwaCaptionTextColor, ref textRef, Marshal.SizeOf(typeof(int)));
+            }
+            catch
+            {
+            }
+        }
+
+        private void WireEvents()
+        {
+            radioCompressSingle.CheckedChanged += OnCompressModeChanged;
+            radioCompressSplit.CheckedChanged += OnCompressModeChanged;
+            buttonCompressFiles.Click += ButtonCompressFiles_Click;
+            buttonCompressFolder.Click += ButtonCompressFolder_Click;
+            buttonExtract.Click += ButtonExtract_Click;
+        }
+
+        private void OnCompressModeChanged(object sender, EventArgs e)
+        {
+            UpdateSplitPanelEnabled();
+        }
+
+        private void UpdateSplitPanelEnabled()
+        {
+            panelSplitSize.Enabled = radioCompressSplit.Checked;
+        }
+
+        private void ApplyProgressSnapshot(ProgressSnapshot snapshot)
+        {
+            if (snapshot.UseMarquee)
+            {
+                toolStripStatusLabelMain.Text = snapshot.StatusText;
+                SetProgressMarquee();
+                return;
+            }
+
+            if (snapshot.UseByteRatio)
+            {
+                ReportBytesProgress(snapshot.StatusText, snapshot.BytesCurrent, snapshot.BytesTotal);
+                return;
+            }
+
+            ReportCountProgress(snapshot.StatusText, snapshot.Current, snapshot.Total);
+        }
+
+        private void SetStatus(string message)
+        {
+            toolStripStatusLabelMain.Text = message;
+        }
+
+        private void BeginDeterminateProgress(int maximum)
+        {
+            toolStripProgressBarMain.Visible = true;
+            toolStripProgressBarMain.Style = ProgressBarStyle.Continuous;
+            toolStripProgressBarMain.Minimum = 0;
+            toolStripProgressBarMain.Maximum = Math.Max(1, maximum);
+            toolStripProgressBarMain.Value = 0;
+        }
+
+        private void SetProgressValue(int value)
+        {
+            int max = toolStripProgressBarMain.Maximum;
+            if (value < 0)
+            {
+                value = 0;
+            }
+
+            if (value > max)
+            {
+                value = max;
+            }
+
+            toolStripProgressBarMain.Value = value;
+        }
+
+        private void SetProgressMarquee()
+        {
+            toolStripProgressBarMain.Visible = true;
+            toolStripProgressBarMain.Style = ProgressBarStyle.Marquee;
+            toolStripProgressBarMain.MarqueeAnimationSpeed = 30;
+        }
+
+        private void EndProgress()
+        {
+            toolStripProgressBarMain.Visible = false;
+            toolStripProgressBarMain.Style = ProgressBarStyle.Continuous;
+            toolStripProgressBarMain.Value = 0;
+        }
+
+        private void ReportCountProgress(string message, int current, int total)
+        {
+            toolStripStatusLabelMain.Text = message;
+            if (total <= 0)
+            {
+                EndProgress();
+                return;
+            }
+
+            if (!toolStripProgressBarMain.Visible || toolStripProgressBarMain.Style == ProgressBarStyle.Marquee)
+            {
+                BeginDeterminateProgress(total);
+            }
+            else if (toolStripProgressBarMain.Maximum != total)
+            {
+                toolStripProgressBarMain.Maximum = Math.Max(1, total);
+            }
+
+            SetProgressValue(Math.Min(current, toolStripProgressBarMain.Maximum));
+        }
+
+        private void ReportBytesProgress(string message, long current, long total)
+        {
+            if (total <= 0)
+            {
+                toolStripStatusLabelMain.Text = message;
+                return;
+            }
+
+            int percent = (int)Math.Min(100, Math.Floor((double)current / total * 100.0));
+            toolStripStatusLabelMain.Text = string.Format("{0} {1}%", message, percent);
+
+            if (!toolStripProgressBarMain.Visible || toolStripProgressBarMain.Style == ProgressBarStyle.Marquee)
+            {
+                BeginDeterminateProgress(100);
+            }
+
+            SetProgressValue(percent);
+        }
+
+        private void TryLoadWindowIcon()
+        {
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+            {
+                return;
+            }
+
+            try
+            {
+                string path = Path.Combine(Application.StartupPath, "daemon_hammer.ico");
+                if (!File.Exists(path))
+                {
+                    path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "daemon_hammer.ico");
+                }
+
+                if (File.Exists(path))
+                {
+                    Icon = new Icon(path);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void SetOperationUiLocked(bool locked)
+        {
+            panelMain.Enabled = !locked;
+            Cursor = locked ? Cursors.WaitCursor : Cursors.Default;
+        }
+
+        private async void ButtonCompressFiles_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog fileDialog = new OpenFileDialog())
+            {
+                fileDialog.Multiselect = true;
+                fileDialog.Filter = "모든 파일 (*.*)|*.*";
+                fileDialog.Title = "압축할 파일 선택";
+                if (fileDialog.ShowDialog() != DialogResult.OK || fileDialog.FileNames.Length == 0)
+                {
+                    return;
+                }
+
+                await RunCompressionAsync(fileDialog.FileNames.ToList()).ConfigureAwait(true);
+            }
+        }
+
+        private async void ButtonCompressFolder_Click(object sender, EventArgs e)
+        {
+            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+            {
+                folderDialog.Description = "압축할 폴더를 선택하세요.";
+                if (folderDialog.ShowDialog() != DialogResult.OK)
+                {
+                    return;
+                }
+
+                await RunCompressionAsync(new List<string> { folderDialog.SelectedPath }).ConfigureAwait(true);
+            }
+        }
+
+        private async Task RunCompressionAsync(List<string> sources)
+        {
             if (sources == null || sources.Count == 0)
             {
                 return;
@@ -54,47 +269,48 @@ namespace ZipMasterWin01
 
             using (SaveFileDialog saveFileDialog = new SaveFileDialog())
             {
-                saveFileDialog.Filter = "ZIP files (*.zip)|*.zip";
+                saveFileDialog.Filter = "ZIP 파일 (*.zip)|*.zip";
+                saveFileDialog.Title = "저장할 ZIP 파일 이름";
                 if (saveFileDialog.ShowDialog() != DialogResult.OK)
                 {
                     return;
                 }
 
                 string zipPath = saveFileDialog.FileName;
-                DialogResult splitChoice = MessageBox.Show(
-                    "용량 기준으로 분할 압축하시겠습니까?",
-                    "압축 방식 선택",
-                    MessageBoxButtons.YesNoCancel,
-                    MessageBoxIcon.Question);
+                bool split = radioCompressSplit.Checked;
 
-                if (splitChoice == DialogResult.Cancel)
-                {
-                    return;
-                }
-
+                SetOperationUiLocked(true);
+                EndProgress();
                 try
                 {
-                    if (splitChoice == DialogResult.No)
+                    if (!split)
                     {
-                        CreateZipFromSources(sources, zipPath);
-                        MessageBox.Show("압축이 완료되었습니다.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        await Task.Run(() =>
+                        {
+                            CreateZipFromSources(sources, zipPath, _progressReporter);
+                        }).ConfigureAwait(true);
+
+                        SetStatus("압축 완료 (단일 ZIP)");
+                        MessageBox.Show(this, "압축이 완료되었습니다.", "완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         return;
                     }
 
-                    long partSizeBytes = PromptSplitSizeBytes();
-                    if (partSizeBytes <= 0)
-                    {
-                        return;
-                    }
-
+                    long partSizeBytes = (long)numericSplitMb.Value * 1024L * 1024L;
                     string tempZipPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
                     try
                     {
-                        CreateZipFromSources(sources, tempZipPath);
-                        int partCount = SplitFile(tempZipPath, zipPath, partSizeBytes);
+                        int partCount = 0;
+                        await Task.Run(() =>
+                        {
+                            CreateZipFromSources(sources, tempZipPath, _progressReporter);
+                            partCount = SplitFile(tempZipPath, zipPath, partSizeBytes, _progressReporter);
+                        }).ConfigureAwait(true);
+
+                        SetStatus(string.Format("분할 압축 완료 ({0}개 파일)", partCount));
                         MessageBox.Show(
-                            $"분할 압축이 완료되었습니다. 생성된 파일 수: {partCount}",
-                            "Success",
+                            this,
+                            string.Format("분할 압축이 완료되었습니다.\n생성된 조각 수: {0}", partCount),
+                            "완료",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Information);
                     }
@@ -108,64 +324,55 @@ namespace ZipMasterWin01
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"압축 중 오류가 발생했습니다.\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    SetStatus("오류");
+                    MessageBox.Show(this, string.Format("압축 중 오류가 발생했습니다.\n{0}", ex.Message), "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    EndProgress();
+                    SetOperationUiLocked(false);
                 }
             }
         }
 
-        private void ExtractButton_Click(object sender, EventArgs e)
+        private async void ButtonExtract_Click(object sender, EventArgs e)
         {
             using (OpenFileDialog openFileDialog = new OpenFileDialog())
             {
-                openFileDialog.Filter = "ZIP files (*.zip;*.001)|*.zip;*.001";
-                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                openFileDialog.Filter = "ZIP (*.zip;*.001)|*.zip;*.001";
+                openFileDialog.Title = "풀 ZIP 파일 선택";
+                if (openFileDialog.ShowDialog() != DialogResult.OK)
                 {
-                    string zipPath = openFileDialog.FileName;
+                    return;
+                }
 
-                    using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+                string zipPath = openFileDialog.FileName;
+
+                using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
+                {
+                    folderDialog.Description = "압축을 풀 폴더를 선택하세요.";
+                    if (folderDialog.ShowDialog() != DialogResult.OK)
                     {
-                        if (folderDialog.ShowDialog() == DialogResult.OK)
+                        return;
+                    }
+
+                    string extractPath = folderDialog.SelectedPath;
+                    SetOperationUiLocked(true);
+                    EndProgress();
+                    try
+                    {
+                        List<string> accessWarnings = await Task.Run(() =>
                         {
-                            string extractPath = folderDialog.SelectedPath;
                             string extractSourcePath = zipPath;
                             string tempCombinedPath = null;
-
                             try
                             {
-                                if (TryCombineSplitArchive(zipPath, out tempCombinedPath))
+                                if (TryCombineSplitArchive(zipPath, out tempCombinedPath, _progressReporter))
                                 {
                                     extractSourcePath = tempCombinedPath;
                                 }
 
-                                using (ZipArchive archive = ZipFile.OpenRead(extractSourcePath))
-                                {
-                                    foreach (ZipArchiveEntry entry in archive.Entries)
-                                    {
-                                        string destinationPath = Path.Combine(extractPath, entry.FullName);
-
-                                        // Ensure the directory exists
-                                        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
-
-                                        // Skip system files like desktop.ini
-                                        if (!string.IsNullOrEmpty(entry.Name) && !entry.Name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            try
-                                            {
-                                                entry.ExtractToFile(destinationPath, overwrite: true);
-                                            }
-                                            catch (UnauthorizedAccessException)
-                                            {
-                                                MessageBox.Show($"Access denied for file: {entry.Name}", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                                            }
-                                        }
-                                    }
-                                }
-
-                                MessageBox.Show("ZIP file extracted successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show($"압축 해제 중 오류가 발생했습니다.\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                return ExtractZipToFolder(extractSourcePath, extractPath, _progressReporter);
                             }
                             finally
                             {
@@ -174,134 +381,128 @@ namespace ZipMasterWin01
                                     File.Delete(tempCombinedPath);
                                 }
                             }
+                        }).ConfigureAwait(true);
+
+                        foreach (string line in accessWarnings)
+                        {
+                            MessageBox.Show(this, line, "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+
+                        SetStatus("압축 해제 완료");
+                        MessageBox.Show(this, "압축 해제가 완료되었습니다.", "완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        SetStatus("오류");
+                        MessageBox.Show(this, string.Format("압축 해제 중 오류가 발생했습니다.\n{0}", ex.Message), "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    finally
+                    {
+                        EndProgress();
+                        SetOperationUiLocked(false);
+                    }
+                }
+            }
+        }
+
+        private static List<string> ExtractZipToFolder(string zipPath, string extractPath, IProgress<ProgressSnapshot> progress)
+        {
+            List<string> warnings = new List<string>();
+            using (ZipArchive archive = ZipFile.OpenRead(zipPath))
+            {
+                List<ZipArchiveEntry> entries = archive.Entries.ToList();
+                int total = entries.Count;
+                for (int i = 0; i < total; i++)
+                {
+                    ZipArchiveEntry entry = entries[i];
+                    progress.Report(ProgressSnapshot.Count(string.Format("압축 해제 중… ({0}/{1})", i + 1, total), i + 1, total));
+
+                    string destinationPath = Path.Combine(extractPath, entry.FullName);
+                    Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
+
+                    if (!string.IsNullOrEmpty(entry.Name) && !entry.Name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            entry.ExtractToFile(destinationPath, overwrite: true);
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            warnings.Add(string.Format("파일에 접근할 수 없습니다: {0}", entry.Name));
                         }
                     }
                 }
             }
+
+            return warnings;
         }
 
-        private List<string> SelectCompressionSources()
+        private static List<KeyValuePair<string, string>> CollectZipEntries(IEnumerable<string> sources, Func<string, string, string> getRelativePath)
         {
-            DialogResult sourceType = MessageBox.Show(
-                "압축할 대상을 선택하세요.\nYes: 파일(여러 개 선택 가능)\nNo: 폴더(1개)",
-                "압축 대상 선택",
-                MessageBoxButtons.YesNoCancel,
-                MessageBoxIcon.Question);
-
-            if (sourceType == DialogResult.Cancel)
+            List<KeyValuePair<string, string>> list = new List<KeyValuePair<string, string>>();
+            foreach (string source in sources)
             {
-                return null;
-            }
-
-            if (sourceType == DialogResult.Yes)
-            {
-                using (OpenFileDialog fileDialog = new OpenFileDialog())
+                if (Directory.Exists(source))
                 {
-                    fileDialog.Multiselect = true;
-                    fileDialog.Filter = "All files (*.*)|*.*";
-                    if (fileDialog.ShowDialog() == DialogResult.OK && fileDialog.FileNames.Length > 0)
+                    string folderName = new DirectoryInfo(source).Name;
+                    foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
                     {
-                        return fileDialog.FileNames.ToList();
+                        string relativePath = getRelativePath(source, file);
+                        string entryName = Path.Combine(folderName, relativePath).Replace('\\', '/');
+                        list.Add(new KeyValuePair<string, string>(file, entryName));
                     }
                 }
-
-                return null;
-            }
-
-            using (FolderBrowserDialog folderDialog = new FolderBrowserDialog())
-            {
-                if (folderDialog.ShowDialog() == DialogResult.OK)
+                else if (File.Exists(source))
                 {
-                    return new List<string> { folderDialog.SelectedPath };
+                    list.Add(new KeyValuePair<string, string>(source, Path.GetFileName(source)));
                 }
             }
 
-            return null;
+            return list;
         }
 
-        private long PromptSplitSizeBytes()
+        private void CreateZipFromSources(IEnumerable<string> sources, string zipPath, IProgress<ProgressSnapshot> progress)
         {
-            using (Form prompt = new Form())
+            List<KeyValuePair<string, string>> entries = CollectZipEntries(sources, GetRelativePath);
+            int total = entries.Count;
+            if (total == 0)
             {
-                prompt.Text = "분할 크기 설정";
-                prompt.Width = 280;
-                prompt.Height = 150;
-                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
-                prompt.StartPosition = FormStartPosition.CenterParent;
-                prompt.MinimizeBox = false;
-                prompt.MaximizeBox = false;
-
-                Label textLabel = new Label { Left = 15, Top = 15, Width = 230, Text = "분할 크기(MB)를 입력하세요:" };
-                NumericUpDown sizeInput = new NumericUpDown
+                using (FileStream zipToOpen = new FileStream(zipPath, FileMode.Create))
                 {
-                    Left = 15,
-                    Top = 45,
-                    Width = 230,
-                    Minimum = 1,
-                    Maximum = 1024 * 10,
-                    Value = 100
-                };
-                Button confirmation = new Button
-                {
-                    Text = "OK",
-                    Left = 170,
-                    Width = 75,
-                    Top = 75,
-                    DialogResult = DialogResult.OK
-                };
-
-                prompt.Controls.Add(textLabel);
-                prompt.Controls.Add(sizeInput);
-                prompt.Controls.Add(confirmation);
-                prompt.AcceptButton = confirmation;
-
-                if (prompt.ShowDialog() == DialogResult.OK)
-                {
-                    return (long)sizeInput.Value * 1024L * 1024L;
                 }
+
+                progress.Report(ProgressSnapshot.Count("압축할 파일이 없습니다.", 0, 0));
+                return;
             }
 
-            return 0;
-        }
+            progress.Report(ProgressSnapshot.Count("압축 중… (0/" + total + ")", 0, total));
 
-        private void CreateZipFromSources(IEnumerable<string> sources, string zipPath)
-        {
             using (FileStream zipToOpen = new FileStream(zipPath, FileMode.Create))
             using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
             {
-                foreach (string source in sources)
+                for (int i = 0; i < total; i++)
                 {
-                    if (Directory.Exists(source))
-                    {
-                        string folderName = new DirectoryInfo(source).Name;
-                        foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
-                        {
-                            string relativePath = GetRelativePath(source, file);
-                            string entryName = Path.Combine(folderName, relativePath).Replace('\\', '/');
-                            archive.CreateEntryFromFile(file, entryName);
-                        }
-                    }
-                    else if (File.Exists(source))
-                    {
-                        archive.CreateEntryFromFile(source, Path.GetFileName(source));
-                    }
+                    KeyValuePair<string, string> pair = entries[i];
+                    archive.CreateEntryFromFile(pair.Key, pair.Value);
+                    progress.Report(ProgressSnapshot.Count(string.Format("압축 중… ({0}/{1})", i + 1, total), i + 1, total));
                 }
             }
         }
 
-        private int SplitFile(string sourceFilePath, string outputBaseZipPath, long partSizeBytes)
+        private static int SplitFile(string sourceFilePath, string outputBaseZipPath, long partSizeBytes, IProgress<ProgressSnapshot> progress)
         {
             int partIndex = 1;
             byte[] buffer = new byte[81920];
+            long len = new FileInfo(sourceFilePath).Length;
 
             using (FileStream sourceStream = new FileStream(sourceFilePath, FileMode.Open, FileAccess.Read))
             {
-                while (sourceStream.Position < sourceStream.Length)
+                while (sourceStream.Position < len)
                 {
                     string outputPartPath = string.Format("{0}.{1:D3}", outputBaseZipPath, partIndex);
                     using (FileStream partStream = new FileStream(outputPartPath, FileMode.Create, FileAccess.Write))
                     {
-                        long bytesToWrite = Math.Min(partSizeBytes, sourceStream.Length - sourceStream.Position);
+                        long bytesToWrite = Math.Min(partSizeBytes, len - sourceStream.Position);
                         while (bytesToWrite > 0)
                         {
                             int chunkSize = (int)Math.Min(buffer.Length, bytesToWrite);
@@ -313,6 +514,7 @@ namespace ZipMasterWin01
 
                             partStream.Write(buffer, 0, bytesRead);
                             bytesToWrite -= bytesRead;
+                            progress.Report(ProgressSnapshot.Bytes("분할 압축 중…", sourceStream.Position, len));
                         }
                     }
 
@@ -320,10 +522,11 @@ namespace ZipMasterWin01
                 }
             }
 
+            progress.Report(ProgressSnapshot.Bytes("분할 압축 중…", len, len));
             return partIndex - 1;
         }
 
-        private bool TryCombineSplitArchive(string selectedPath, out string combinedZipPath)
+        private static bool TryCombineSplitArchive(string selectedPath, out string combinedZipPath, IProgress<ProgressSnapshot> progress)
         {
             combinedZipPath = null;
 
@@ -332,6 +535,8 @@ namespace ZipMasterWin01
             {
                 return false;
             }
+
+            progress.Report(ProgressSnapshot.Marquee("분할 ZIP 병합 중…"));
 
             string baseZipPath = match.Groups[1].Value;
             string directory = Path.GetDirectoryName(selectedPath);
@@ -348,8 +553,10 @@ namespace ZipMasterWin01
                 return false;
             }
 
+            long totalBytes = parts.Sum(p => new FileInfo(p).Length);
             combinedZipPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".zip");
             byte[] buffer = new byte[81920];
+            long written = 0;
 
             using (FileStream destination = new FileStream(combinedZipPath, FileMode.Create, FileAccess.Write))
             {
@@ -361,6 +568,11 @@ namespace ZipMasterWin01
                         while ((bytesRead = source.Read(buffer, 0, buffer.Length)) > 0)
                         {
                             destination.Write(buffer, 0, bytesRead);
+                            written += bytesRead;
+                            if (totalBytes > 0)
+                            {
+                                progress.Report(ProgressSnapshot.Bytes("분할 ZIP 병합 중…", written, totalBytes));
+                            }
                         }
                     }
                 }
@@ -374,6 +586,50 @@ namespace ZipMasterWin01
             Uri baseUri = new Uri(basePath.EndsWith("\\") ? basePath : basePath + "\\");
             Uri targetUri = new Uri(targetPath);
             return Uri.UnescapeDataString(baseUri.MakeRelativeUri(targetUri).ToString().Replace('/', Path.DirectorySeparatorChar));
+        }
+    }
+
+    internal struct ProgressSnapshot
+    {
+        public string StatusText;
+        public int Current;
+        public int Total;
+        public long BytesCurrent;
+        public long BytesTotal;
+        public bool UseByteRatio;
+        public bool UseMarquee;
+
+        public static ProgressSnapshot Count(string message, int current, int total)
+        {
+            return new ProgressSnapshot
+            {
+                StatusText = message,
+                Current = current,
+                Total = total,
+                UseByteRatio = false,
+                UseMarquee = false
+            };
+        }
+
+        public static ProgressSnapshot Bytes(string message, long current, long total)
+        {
+            return new ProgressSnapshot
+            {
+                StatusText = message,
+                BytesCurrent = current,
+                BytesTotal = total,
+                UseByteRatio = true,
+                UseMarquee = false
+            };
+        }
+
+        public static ProgressSnapshot Marquee(string message)
+        {
+            return new ProgressSnapshot
+            {
+                StatusText = message,
+                UseMarquee = true
+            };
         }
     }
 }
