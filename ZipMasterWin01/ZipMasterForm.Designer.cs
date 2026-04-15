@@ -255,7 +255,7 @@ namespace ZipMasterWin01
             Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             MinimumSize = new System.Drawing.Size(592, 459);
             Name = "ZipMasterForm";
-            Text = "ZipMaster";
+            Text = "ZipMaster V1.0";
             optionsGroupBox.ResumeLayout(false);
             optionsGroupBox.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)splitSizeUpDown).EndInit();
