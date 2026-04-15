@@ -7,7 +7,7 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 namespace YOLO26BrainV10.Inference;
 
 /// <summary>
-/// Ultralytics-style YOLO11 (and compatible) ONNX: instance segmentation or detection.
+/// Ultralytics-style YOLO26 (and compatible) ONNX: instance segmentation or detection.
 /// Box outputs from standard Ultralytics ONNX exports use center-x, center-y, width, height in letterboxed pixel space.
 /// Class names must match the dataset used when training/exporting the model.
 /// </summary>

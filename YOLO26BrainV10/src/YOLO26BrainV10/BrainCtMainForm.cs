@@ -77,7 +77,7 @@ public partial class BrainCtMainForm : Form
     {
         using var dlg = new OpenFileDialog
         {
-            Title = "YOLO11 ONNX 모델 선택 (검출 또는 세그)",
+            Title = "YOLO26 ONNX 모델 선택 (검출 또는 세그)",
             Filter = "ONNX|*.onnx|모든 파일|*.*",
             CheckFileExists = true,
         };
@@ -140,7 +140,7 @@ public partial class BrainCtMainForm : Form
     {
         var explain =
             "Ultralytics 뇌 종양 데이터셋 샘플 슬라이스(CT/MRI 스타일) 이미지 한 장을 받습니다.\n" +
-            "ONNX 모델은 포함되지 않습니다. YOLO11n-seg를 뇌 CT(또는 세그 라벨이 있는 데이터)로 학습한 뒤 ONNX로보내 주세요.\n" +
+            "ONNX 모델은 포함되지 않습니다. YOLO26n-seg를 뇌 CT(또는 세그 라벨이 있는 데이터)로 학습한 뒤 ONNX로보내 주세요.\n" +
             "클래스란에는 brain-tumor.yaml 순서대로 negative,positive 가 채워집니다.\n" +
             "저장 위치: 로컬 앱 데이터 폴더의 samples입니다.\n\n" +
             "계속할까요?";

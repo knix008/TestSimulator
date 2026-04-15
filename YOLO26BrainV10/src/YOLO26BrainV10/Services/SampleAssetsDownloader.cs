@@ -82,7 +82,7 @@ internal static class SampleAssetsDownloader
 
         2) Class labels for Ultralytics brain-tumor.yaml: negative,positive (comma-separated, in that order).
 
-        3) ONNX: not included. Train YOLO11n-seg on brain CT/MRI segmentation data, then export ONNX
-           (see tools/train_yolo11n_seg_brain_ct.py and tools/export_yolo26_brain_onnx.py).
+        3) ONNX: not included. Train YOLO26n-seg on brain CT/MRI segmentation data, then export ONNX
+           (see tools/train_yolo26n_seg_brain_ct.py and tools/export_yolo26_brain_onnx.py).
         """;
 }

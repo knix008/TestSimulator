@@ -84,7 +84,7 @@ internal static class CliRunner
     internal static void PrintHelp()
     {
         Console.WriteLine("""
-            YOLO11 (Ultralytics) brain slice segmentation or detection via ONNX.
+            YOLO26 (Ultralytics) brain slice segmentation or detection via ONNX.
 
             GUI: run with no arguments.
 
@@ -92,7 +92,7 @@ internal static class CliRunner
               YOLO26BrainV10 --model <brain.onnx> --input <file|folder> [--output dir] [--conf 0.25] [--labels a,b,c]
 
             --labels default: negative,positive (Ultralytics brain-tumor.yaml order). Must match your exported model.
-            Segmentation ONNX: export a YOLO11n-seg (or compatible) model with ultralytics model.export(format="onnx").
+            Segmentation ONNX: export a YOLO26n-seg (or compatible) model with ultralytics model.export(format="onnx").
             """);
     }
 

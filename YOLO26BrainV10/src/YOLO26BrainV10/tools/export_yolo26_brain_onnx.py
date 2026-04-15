@@ -1,4 +1,4 @@
-# Export a trained Ultralytics YOLO model (detect or segment, e.g. YOLO11n-seg) to ONNX for YOLO26BrainV10 (C#).
+# Export a trained Ultralytics YOLO model (detect or segment, e.g. YOLO26n-seg) to ONNX for YOLO26BrainV10 (C#).
 # Usage:
 #   pip install -r requirements-export.txt
 #   python export_yolo26_brain_onnx.py --weights best.pt --out brain_seg.onnx
@@ -16,7 +16,7 @@ def main() -> None:
     p.add_argument(
         "--weights",
         required=True,
-        help="Trained .pt checkpoint (e.g. runs/segment/train/weights/best.pt for YOLO11n-seg)",
+        help="Trained .pt checkpoint (e.g. runs/segment/train/weights/best.pt for YOLO26n-seg)",
     )
     p.add_argument("--out", default="brain.onnx", help="Output ONNX path")
     p.add_argument("--imgsz", type=int, default=640)

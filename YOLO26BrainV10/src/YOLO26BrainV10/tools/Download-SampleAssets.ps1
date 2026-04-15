@@ -4,8 +4,8 @@
   Downloads the Ultralytics brain-tumor sample slice (CT/MRI-style) for YOLO26BrainV10.
 
 .DESCRIPTION
-  Does not download any ONNX. Train YOLO11n-seg on brain CT segmentation labels, then export ONNX
-  (see tools\train_yolo11n_seg_brain_ct.py and tools\export_yolo26_brain_onnx.py).
+  Does not download any ONNX. Train YOLO26n-seg on brain CT segmentation labels, then export ONNX
+  (see tools\train_yolo26n_seg_brain_ct.py and tools\export_yolo26_brain_onnx.py).
   Default class order for brain-tumor.yaml: negative,positive
 
 .EXAMPLE
