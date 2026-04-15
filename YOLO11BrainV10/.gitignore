@@ -1,7 +1,8 @@
-# Repo CT downloads (Download-SampleAssets.ps1 → data/ct; app default %LocalAppData%\YOLO11BrainV10\data\ct)
+# Repo CT downloads (Download-SampleAssets.ps1 → data/ct; app default %LocalAppData%\YOLO11BrainV10\data/ct)
 data/ct/*
 !data/ct/.gitkeep
 
+# Root-level model drops (if used)
 models/*.onnx
 models/*.pt
 models/*.pth
@@ -38,7 +39,36 @@ project.lock.json
 .idea/
 *.sln.iml
 
-# Python (export / train scripts)
+# ---------------------------------------------------------------------------
+# YOLO / brain_ct_pipeline / download_brain_dataset
+# ---------------------------------------------------------------------------
+# Machine-local dataset config
+data/brain_ct_seg/data.yaml
+
+# Demo / predict scratch under dataset root
+data/brain_ct_seg/_demo_brain_sample.jpg
+data/brain_ct_seg/images/**/demo_pipeline_sample.jpg
+data/brain_ct_seg/labels/**/demo_pipeline_sample.txt
+
+# Fetched or user-added training media (re-fetch with fetch --force / download_brain_dataset.py)
+data/brain_ct_seg/images/**/*.jpg
+data/brain_ct_seg/images/**/*.jpeg
+data/brain_ct_seg/images/**/*.png
+data/brain_ct_seg/images/**/*.bmp
+data/brain_ct_seg/images/**/*.tif
+data/brain_ct_seg/images/**/*.tiff
+data/brain_ct_seg/images/**/*.webp
+data/brain_ct_seg/labels/**/*.txt
+
+# Ultralytics / pipeline outputs (any depth; includes tools/runs/…)
+**/runs/
+
+# Exported ONNX at repo default path
+exports/*.onnx
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -47,6 +77,8 @@ venv/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.python-version
 
 # OS
 Thumbs.db

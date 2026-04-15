@@ -1,0 +1,36 @@
+YOLO Segment dataset root for brain_ct_pipeline.py
+====================================================
+
+Place files as follows (same base name for image and label, e.g. slice001.png + slice001.txt):
+
+  images/train/   … training slices (png, jpg, …)
+  images/val/     … validation slices
+  labels/train/   … YOLO segmentation .txt (one per image)
+  labels/val/
+
+Then from repo root or tools folder:
+
+  python tools/brain_ct_pipeline.py init
+  python tools/brain_ct_pipeline.py train
+
+To download the public Ultralytics brain-tumor set (~4.2 MB, AGPL-3.0) into this folder
+(box labels are converted to axis-aligned rectangle polygons for YOLO segment training):
+
+  python tools/brain_ct_pipeline.py fetch
+  python tools/download_brain_dataset.py
+
+Re-download (clears images/train, images/val, labels/train, labels/val first):
+
+  python tools/brain_ct_pipeline.py fetch --force
+  python tools/download_brain_dataset.py --force
+
+If images/train is still empty and you only want a smoke test (not a real model):
+
+  python tools/brain_ct_pipeline.py train --demo-data
+  python tools/brain_ct_pipeline.py all --demo-data
+
+That downloads one Ultralytics sample slice + a dummy polygon label (demo_pipeline_sample.*).
+
+data.yaml is created by "init" with path: pointing at this folder. Edit "names:" if your class list differs.
+
+For true pixel masks, use your own polygon/mask labels. The "fetch" command bootstraps from official detect boxes only.

@@ -35,19 +35,45 @@ def main() -> None:
     p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--batch", type=int, default=8)
     p.add_argument("--model", default="yolo11n-seg.pt", help="Ultralytics checkpoint to start from")
+    p.add_argument(
+        "--project",
+        default=None,
+        help="Ultralytics project directory (default: Ultralytics runs/segment)",
+    )
+    p.add_argument(
+        "--name",
+        default=None,
+        help="Run name under project (default: train, train2, …)",
+    )
+    p.add_argument(
+        "--device",
+        default=None,
+        help="예: 0, cpu. 미지정이면 Ultralytics 기본(가능 시 GPU).",
+    )
     args = p.parse_args()
 
     from ultralytics import YOLO
 
     model = YOLO(args.model)
-    model.train(
-        task="segment",
-        data=args.data,
-        epochs=args.epochs,
-        imgsz=args.imgsz,
-        batch=args.batch,
+    train_kw: dict = {
+        "task": "segment",
+        "data": args.data,
+        "epochs": args.epochs,
+        "imgsz": args.imgsz,
+        "batch": args.batch,
+    }
+    if args.project:
+        train_kw["project"] = args.project
+    if args.name:
+        train_kw["name"] = args.name
+    if args.device:
+        train_kw["device"] = args.device
+    model.train(**train_kw)
+    print(
+        "Training finished. Export ONNX, e.g.:\n"
+        "  python export_yolo11_brain_onnx.py --weights runs/segment/train/weights/best.pt --out brain_ct_yolo11n_seg.onnx\n"
+        "Or use brain_ct_pipeline.py export (fixed path: runs/brain_ct_seg/train/weights/best.pt)."
     )
-    print("Training finished. Export ONNX with tools/export_yolo11_brain_onnx.py --weights runs/segment/train/weights/best.pt")
 
 
 if __name__ == "__main__":
