@@ -27,6 +27,44 @@ public partial class BrainCtMainForm : Form
         SetSaveCommandsEnabled(false);
     }
 
+    /// <summary>확대된 클라이언트 영역에 맞춰 미리보기·목록·경로 라벨 너비를 조정합니다.</summary>
+    private void AdjustResponsiveLayout()
+    {
+        if (!IsHandleCreated || WindowState == FormWindowState.Minimized)
+            return;
+
+        const int margin = 12;
+        const int previewTop = 236;
+        const int gapBetweenViewers = 12;
+        const int listHeight = 168;
+        var w = ClientSize.Width;
+        var h = ClientSize.Height;
+        if (w < MinimumSize.Width || h < MinimumSize.Height)
+            return;
+
+        var listTop = h - margin - listHeight;
+        var previewHeight = Math.Max(80, listTop - margin - previewTop);
+        var innerW = w - 2 * margin;
+        var half = Math.Max(120, (innerW - gapBetweenViewers) / 2);
+
+        try
+        {
+            SuspendLayout();
+            txtLabels.Width = Math.Max(200, innerW);
+            lblStatus.Width = innerW;
+            listDetections.SetBounds(margin, listTop, innerW, listHeight);
+            viewerInput.SetBounds(margin, previewTop, half, previewHeight);
+            viewerOutput.SetBounds(margin + half + gapBetweenViewers, previewTop, half, previewHeight);
+            lblPreviewOutTitle.Left = margin + half + gapBetweenViewers;
+            if (w > 580)
+                lblSlicePath.Width = Math.Max(80, w - 559 - margin);
+        }
+        finally
+        {
+            ResumeLayout(performLayout: true);
+        }
+    }
+
     private void WireFormEvents()
     {
         menuSaveImage.ShortcutKeys = Keys.Control | Keys.S;
@@ -43,6 +81,8 @@ public partial class BrainCtMainForm : Form
         menuSetSampleFolder.Click += MenuSetSampleFolder_Click;
         menuOpenModelsFolder.Click += MenuOpenModelsFolder_Click;
         menuRecommendedDefaults.Click += MenuRecommendedDefaults_Click;
+        Load += (_, _) => AdjustResponsiveLayout();
+        Resize += (_, _) => AdjustResponsiveLayout();
         btnModel.Click += BtnModel_Click;
         btnImage.Click += BtnImage_Click;
         btnAnalyze.Click += BtnAnalyze_Click;

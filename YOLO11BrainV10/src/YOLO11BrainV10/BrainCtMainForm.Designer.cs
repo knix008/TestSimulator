@@ -370,10 +370,10 @@ namespace YOLO11BrainV10
             // 
             listDetections.FullRowSelect = true;
             listDetections.GridLines = true;
-            listDetections.Location = new Point(12, 634);
+            listDetections.Location = new Point(12, 549);
             listDetections.MultiSelect = false;
             listDetections.Name = "listDetections";
-            listDetections.Size = new Size(1000, 86);
+            listDetections.Size = new Size(1000, 168);
             listDetections.TabIndex = 20;
             listDetections.UseCompatibleStateImageBehavior = false;
             listDetections.View = View.Details;
@@ -410,6 +410,7 @@ namespace YOLO11BrainV10
             Name = "BrainCtMainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "YOLO11 뇌 CT 세그먼테이션";
+            WindowState = FormWindowState.Maximized;
             menuStripMain.ResumeLayout(false);
             menuStripMain.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)trackConf).EndInit();
