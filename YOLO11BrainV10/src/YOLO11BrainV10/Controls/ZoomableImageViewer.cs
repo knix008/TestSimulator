@@ -192,8 +192,10 @@ public sealed class ZoomableImageViewer : UserControl
 
         var hs = _scroll.HorizontalScroll;
         var vs = _scroll.VerticalScroll;
-        int cx = _scroll.ClientRectangle.Width / 2;
-        int cy = _scroll.ClientRectangle.Height / 2;
+        var clientPt = _scroll.PointToClient(Cursor.Position);
+        bool inside = _scroll.ClientRectangle.Contains(clientPt);
+        int cx = inside ? clientPt.X : _scroll.ClientRectangle.Width / 2;
+        int cy = inside ? clientPt.Y : _scroll.ClientRectangle.Height / 2;
         double ratio = _zoom / oldZoom;
 
         ApplyZoomLayout();

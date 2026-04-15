@@ -59,14 +59,18 @@ internal sealed class LetterboxInfo
         try
         {
             var stride = bmpData.Stride;
-            var byteCount = Math.Abs(stride) * net;
+            var strideAbs = Math.Abs(stride);
+            var byteCount = strideAbs * net;
             var buffer = new byte[byteCount];
             Marshal.Copy(bmpData.Scan0, buffer, 0, byteCount);
 
             var data = new float[3 * net * net];
             for (var y = 0; y < net; y++)
             {
-                var rowOffset = y * stride;
+                // LockBits stride can be negative for bottom-up bitmaps.
+                var rowOffset = stride >= 0
+                    ? y * strideAbs
+                    : (net - 1 - y) * strideAbs;
                 for (var x = 0; x < net; x++)
                 {
                     var i = rowOffset + x * 3;

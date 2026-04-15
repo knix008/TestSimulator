@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Drawing.Imaging;
+using System.ComponentModel;
 using YOLO11BrainV10.Dialogs;
 using YOLO11BrainV10.Inference;
 using YOLO11BrainV10.Services;
@@ -21,16 +22,24 @@ public partial class BrainCtMainForm : Form
     public BrainCtMainForm()
     {
         InitializeComponent();
+        if (IsDesignTime())
+            return;
         WireFormEvents();
         ApplySavedConfidenceFromPreferences();
         SetupDetectionListViewColumns();
         SetSaveCommandsEnabled(false);
     }
 
+    private static bool IsDesignTime() => LicenseManager.UsageMode == LicenseUsageMode.Designtime;
+
     /// <summary>확대된 클라이언트 영역에 맞춰 미리보기·목록·경로 라벨 너비를 조정합니다.</summary>
     private void AdjustResponsiveLayout()
     {
-        if (!IsHandleCreated || WindowState == FormWindowState.Minimized)
+        if (!IsHandleCreated || IsDisposed || Disposing || WindowState == FormWindowState.Minimized)
+            return;
+        if (viewerInput is null || viewerOutput is null || listDetections is null || txtLabels is null || lblStatus is null || lblPreviewOutTitle is null || lblSlicePath is null)
+            return;
+        if (viewerInput.IsDisposed || viewerOutput.IsDisposed || listDetections.IsDisposed)
             return;
 
         const int margin = 12;
@@ -277,6 +286,16 @@ public partial class BrainCtMainForm : Form
     private bool TryLoadInputImageFromPath(string path, out string? error)
     {
         error = null;
+        if (viewerInput is null || viewerOutput is null || listDetections is null || lblSlicePath is null || lblStatus is null)
+        {
+            error = "화면 컨트롤이 아직 준비되지 않았습니다. 앱을 다시 열어 주세요.";
+            return false;
+        }
+        if (viewerInput.IsDisposed || viewerOutput.IsDisposed || listDetections.IsDisposed)
+        {
+            error = "화면이 종료 중이라 이미지를 불러올 수 없습니다.";
+            return false;
+        }
         try
         {
             viewerInput.Image = null;

@@ -510,12 +510,14 @@ public sealed class BrainYolo11Session : IDisposable
         for (var y = 0; y < dh; y++)
         {
             var sy = ((y + 0.5f) / dh) * sh - 0.5f;
+            sy = Math.Clamp(sy, 0f, sh - 1f);
             var y0 = (int)Math.Floor(sy);
             var y1 = Math.Min(y0 + 1, sh - 1);
             var fy = sy - y0;
             for (var x = 0; x < dw; x++)
             {
                 var sx = ((x + 0.5f) / dw) * sw - 0.5f;
+                sx = Math.Clamp(sx, 0f, sw - 1f);
                 var x0 = (int)Math.Floor(sx);
                 var x1 = Math.Min(x0 + 1, sw - 1);
                 var fx = sx - x0;

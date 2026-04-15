@@ -53,6 +53,7 @@ namespace YOLO11BrainV10
 
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(BrainCtMainForm));
             menuStripMain = new MenuStrip();
             menuFile = new ToolStripMenuItem();
             menuSaveImage = new ToolStripMenuItem();
@@ -199,7 +200,7 @@ namespace YOLO11BrainV10
             // 
             lblOnnxTitle.Location = new Point(12, 32);
             lblOnnxTitle.Name = "lblOnnxTitle";
-            lblOnnxTitle.Size = new Size(120, 18);
+            lblOnnxTitle.Size = new Size(150, 18);
             lblOnnxTitle.TabIndex = 1;
             lblOnnxTitle.Text = "ONNX (YOLO 세그 권장)";
             // 
@@ -356,14 +357,14 @@ namespace YOLO11BrainV10
             // 
             viewerInput.Location = new Point(12, 236);
             viewerInput.Name = "viewerInput";
-            viewerInput.Size = new Size(496, 392);
+            viewerInput.Size = new Size(496, 307);
             viewerInput.TabIndex = 18;
             // 
             // viewerOutput
             // 
             viewerOutput.Location = new Point(516, 236);
             viewerOutput.Name = "viewerOutput";
-            viewerOutput.Size = new Size(496, 392);
+            viewerOutput.Size = new Size(496, 307);
             viewerOutput.TabIndex = 19;
             // 
             // listDetections
@@ -405,11 +406,12 @@ namespace YOLO11BrainV10
             Controls.Add(viewerOutput);
             Controls.Add(listDetections);
             Font = new Font("맑은 고딕", 9F);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MainMenuStrip = menuStripMain;
             MinimumSize = new Size(640, 520);
             Name = "BrainCtMainForm";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "YOLO11 뇌 CT 세그먼테이션";
+            Text = "YOLO11 뇌 CT 분류";
             WindowState = FormWindowState.Maximized;
             menuStripMain.ResumeLayout(false);
             menuStripMain.PerformLayout();
