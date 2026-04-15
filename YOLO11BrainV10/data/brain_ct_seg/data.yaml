@@ -1,0 +1,7 @@
+# YOLO segment — brain_ct_pipeline.py init 으로 생성됨. names 는 데이터에 맞게 수정하세요.
+path: C:/Home/Projects/TestSimulator/YOLO11BrainV10/data/brain_ct_seg
+train: images/train
+val: images/val
+names:
+  0: negative
+  1: positive

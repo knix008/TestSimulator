@@ -5,10 +5,10 @@
 # Root-level model drops (if used)
 #models/*.onnx
 #models/*.pt
-models/*.pth
-models/*.engine
-models/*.mlmodel
-models/*.weights
+#models/*.pth
+#models/*.engine
+#models/*.mlmodel
+#models/*.weights
 
 # .NET build
 [Bb]in/
@@ -43,22 +43,22 @@ project.lock.json
 # YOLO / brain_ct_pipeline / download_brain_dataset
 # ---------------------------------------------------------------------------
 # Machine-local dataset config
-data/brain_ct_seg/data.yaml
+#data/brain_ct_seg/data.yaml
 
 # Demo / predict scratch under dataset root
-data/brain_ct_seg/_demo_brain_sample.jpg
-data/brain_ct_seg/images/**/demo_pipeline_sample.jpg
-data/brain_ct_seg/labels/**/demo_pipeline_sample.txt
+#data/brain_ct_seg/_demo_brain_sample.jpg
+#data/brain_ct_seg/images/**/demo_pipeline_sample.jpg
+#data/brain_ct_seg/labels/**/demo_pipeline_sample.txt
 
 # Fetched or user-added training media (re-fetch with fetch --force / download_brain_dataset.py)
-data/brain_ct_seg/images/**/*.jpg
-data/brain_ct_seg/images/**/*.jpeg
-data/brain_ct_seg/images/**/*.png
-data/brain_ct_seg/images/**/*.bmp
-data/brain_ct_seg/images/**/*.tif
-data/brain_ct_seg/images/**/*.tiff
-data/brain_ct_seg/images/**/*.webp
-data/brain_ct_seg/labels/**/*.txt
+#data/brain_ct_seg/images/**/*.jpg
+#data/brain_ct_seg/images/**/*.jpeg
+#data/brain_ct_seg/images/**/*.png
+#data/brain_ct_seg/images/**/*.bmp
+#data/brain_ct_seg/images/**/*.tif
+#data/brain_ct_seg/images/**/*.tiff
+#data/brain_ct_seg/images/**/*.webp
+#data/brain_ct_seg/labels/**/*.txt
 
 # Ultralytics / pipeline outputs (any depth; includes tools/runs/…)
 #**/runs/
