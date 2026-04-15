@@ -33,8 +33,30 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <!-- WiX 설치 프로젝트(x64)가 참조할 때 동일 출력 경로 사용 -->
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
+    <Reference Include="System">
+      <HintPath>..\..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2\System.dll</HintPath>
+    </Reference>
     <Reference Include="System.Core" />
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
@@ -86,4 +108,12 @@
     </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <SkipInstaller Condition="'$(SkipInstaller)' == ''">false</SkipInstaller>
+  </PropertyGroup>
+  <!-- Release 빌드 시 MSI 생성. 설치 프로젝트가 메인을 참조할 때는 SkipInstaller로 생략. 비활성: -p:SkipInstaller=true -->
+  <!-- 솔루션으로 빌드할 때는 설치 프로젝트가 MSI를 만듦(중복 방지). csproj만 빌드할 때는 여기서 MSI 생성. -->
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true' AND '$(BuildingSolutionFile)' == ''">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)installer\ZipMasterWin01.Installer.wixproj" Targets="Restore;Build" Properties="Configuration=Release;Platform=x64" />
+  </Target>
 </Project>

@@ -1,6 +1,7 @@
 # Build outputs
 bin/
 obj/
+installer/obj/
 
 # User-specific files
 *.user
