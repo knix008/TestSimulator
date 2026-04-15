@@ -8,8 +8,8 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>YOLO11BrainV10</RootNamespace>
-    <AssemblyName>YOLO11BrainV10</AssemblyName>
+    <RootNamespace>YOLO11nBrainV10</RootNamespace>
+    <AssemblyName>YOLO11nBrainV10</AssemblyName>
     <PlatformTarget>x64</PlatformTarget>
     <Platforms>x64</Platforms>
     <LangVersion>latest</LangVersion>

@@ -1,6 +1,6 @@
-# YOLO11BrainV10
+# YOLO11nBrainV10
 
-Windows용 **뇌 CT(또는 단일 프레임 DICOM) 슬라이스**에 대해 Ultralytics 스타일 **YOLO11 ONNX**로 **인스턴스 세그멘테이션** 또는 **검출**을 실행하는 WinForms 앱입니다. ONNX Runtime으로 추론하며, CUDA가 있으면 GPU를 쓰고 없으면 CPU로 동작합니다.
+Windows용 **뇌 CT(또는 단일 프레임 DICOM) 슬라이스**에 대해 Ultralytics 스타일 **YOLO11n ONNX**로 **인스턴스 세그멘테이션** 또는 **검출**을 실행하는 WinForms 앱입니다. ONNX Runtime으로 추론하며, CUDA가 있으면 GPU를 쓰고 없으면 CPU로 동작합니다.
 
 **모델은 저장소에 포함되지 않습니다.** 뇌 CT에 맞는 가중치는 아래 **Python 학습 → ONNX 보내기** 절차로 준비한 뒤, 앱에서 해당 `.onnx`를 선택합니다.
 
@@ -148,6 +148,16 @@ python brain_ct_pipeline.py predict
 python brain_ct_pipeline.py all
 ```
 
+`all`/`train`은 기본적으로 학습 이미지가 비어 있으면 `fetch`를 자동 실행해 공개 brain-tumor 데이터를 받습니다.  
+패키지가 없는 환경에서 한 번에 진행하려면 `--auto-install`을 추가하세요.
+
+```powershell
+python brain_ct_pipeline.py all --auto-install
+```
+
+디바이스는 기본적으로 **GPU 우선**이며(CUDA 감지 시 `device=0`), GPU가 없을 때만 CPU로 폴백합니다.  
+`--device`를 직접 주면 해당 값을 우선 사용합니다.
+
 `images/train`에 아직 아무 이미지도 없으면 `train` / `all`은 실패합니다. **스모크 테스트만** 하려면 Ultralytics 샘플 1장과 더미 세그 라벨을 자동으로 넣는 옵션을 쓰세요(임상용 모델이 아닙니다).
 
 ```powershell
@@ -178,6 +188,9 @@ python brain_ct_pipeline.py all --skip-train --weights runs\brain_ct_seg\train\w
 | `export` | `runs/brain_ct_seg/train/weights/best.pt` → `exports/brain_ct_yolo11n_seg.onnx`. `--weights`로 다른 `.pt` 지정 가능. |
 | `predict` | `--weights`(`.pt` 또는 `.onnx`), `--source`(이미지). 생략 시 데모 뇌 이미지를 내려받아 시각화 저장. |
 | `all` | `init` → `train` → `export` → `predict` 순서. `--demo-data`, `--skip-train`, `--weights` 지원. |
+
+`train`/`all` 공통으로 `--auto-fetch`(기본 켜짐, `--no-auto-fetch`로 끔)과 `--auto-install`(ultralytics 자동 설치) 옵션을 지원합니다.
+`--auto-install`은 PyTorch 설치 시 **GPU wheel(cu121)를 먼저 시도**하고, 실패 시 CPU wheel로 자동 폴백합니다.
 
 **자주 쓰는 옵션**
 
@@ -224,6 +237,18 @@ python train_yolo11n_seg_brain_ct.py --data C:\path\to\MY_DATASET\data.yaml --ep
 
 ```powershell
 python export_yolo11_brain_onnx.py --weights C:\path\to\runs\brain_ct_seg\train\weights\best.pt --out brain_ct_yolo11n_seg.onnx
+```
+
+Python 의존성이 없는 환경이면 자동 설치까지 포함:
+
+```powershell
+python export_yolo11_brain_onnx.py --weights C:\path\to\best.pt --out exports\brain_ct_yolo11n_seg.onnx --auto-install
+```
+
+`--weights`를 생략하고 저장소 기본 경로(`runs/brain_ct_seg/train/weights/best.pt`)를 쓰려면:
+
+```powershell
+python export_yolo11_brain_onnx.py --repo C:\path\to\YOLO11BrainV10 --out exports\brain_ct_yolo11n_seg.onnx
 ```
 
 생성된 ONNX를 GUI **모델**에서 열고, **클래스**를 학습 시 `data.yaml`의 `names` 순서와 동일하게 입력합니다.

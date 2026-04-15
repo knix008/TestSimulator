@@ -29,9 +29,13 @@ Ultralytics 뇌 종양 공개 세트 받기(검출 박스 → 세그용 사각�
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import os
+import subprocess
 import shutil
 import sys
 import tempfile
+import time
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -45,6 +49,10 @@ DEMO_IMAGE_URL = (
 BRAIN_TUMOR_ZIP_URL = (
     "https://github.com/ultralytics/assets/releases/download/v0.0.0/brain-tumor.zip"
 )
+DEFAULT_RETRIES = 3
+PYTORCH_CUDA_INDEX_URL = "https://download.pytorch.org/whl/cu121"
+YOLO11_SEG_MODEL_DEFAULT = "yolo11n-seg.pt"
+YOLO11_SEG_ONNX_NAME = "brain_ct_yolo11n_seg.onnx"
 
 
 def find_repo_root(start: Path) -> Path:
@@ -74,7 +82,7 @@ def default_train_weights(repo: Path) -> Path:
 
 
 def default_export_onnx(repo: Path) -> Path:
-    return repo / "exports" / "brain_ct_yolo11n_seg.onnx"
+    return repo / "exports" / YOLO11_SEG_ONNX_NAME
 
 
 def ensure_layout(repo: Path) -> None:
@@ -124,12 +132,7 @@ def ensure_demo_dataset(repo: Path) -> None:
     lbl_val = ds / "labels" / "val" / f"{DEMO_STEM}.txt"
 
     if not img_train.is_file():
-        req = urllib.request.Request(
-            DEMO_IMAGE_URL,
-            headers={"User-Agent": "YOLO11BrainV10-brain_ct_pipeline/1.0"},
-        )
-        with urllib.request.urlopen(req, timeout=120) as resp:  # noqa: S310
-            img_train.write_bytes(resp.read())
+        _download_url_to_file(DEMO_IMAGE_URL, img_train, timeout=120)
     shutil.copy2(img_train, img_val)
 
     # YOLO seg: class (normalized polygon). Class 1 = positive (demo only, not clinical).
@@ -145,6 +148,81 @@ def ensure_demo_dataset(repo: Path) -> None:
 
 def _clip01(x: float) -> float:
     return max(0.0, min(1.0, x))
+
+
+def _download_url_to_file(url: str, dest: Path, *, timeout: int, retries: int = DEFAULT_RETRIES) -> None:
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "YOLO11BrainV10-brain_ct_pipeline/1.0"},
+    )
+    last_err: Exception | None = None
+    for i in range(1, max(1, retries) + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(resp.read())
+            return
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            if i >= retries:
+                break
+            wait_s = min(2 ** i, 10)
+            print(f"다운로드 재시도 {i}/{retries} 실패: {e} -> {wait_s}s 후 재시도")
+            time.sleep(wait_s)
+    raise RuntimeError(f"다운로드 실패: {url}") from last_err
+
+
+def _ensure_ultralytics_installed(*, auto_install: bool) -> None:
+    if importlib.util.find_spec("ultralytics") is not None:
+        return
+    if not auto_install:
+        raise ModuleNotFoundError(
+            "ultralytics 가 설치되지 않았습니다. "
+            "pip install -r requirements-export.txt 또는 --auto-install 옵션을 사용하세요."
+        )
+    print("ultralytics 미설치 감지 -> 자동 설치를 시도합니다.")
+    env = os.environ.copy()
+    base_pip = [sys.executable, "-m", "pip", "install"]
+
+    # 1) GPU PyTorch 우선 설치 (실패 시 CPU 폴백)
+    try:
+        print("PyTorch GPU wheel(cu121) 설치 시도…")
+        subprocess.run(
+            base_pip
+            + ["torch", "torchvision", "torchaudio", "--index-url", PYTORCH_CUDA_INDEX_URL],
+            check=True,
+            env=env,
+        )
+        print("PyTorch GPU wheel 설치 완료.")
+    except subprocess.CalledProcessError:
+        print("PyTorch GPU wheel 설치 실패 -> CPU wheel 설치로 폴백합니다.")
+        subprocess.run(base_pip + ["torch", "torchvision", "torchaudio"], check=True, env=env)
+
+    # 2) 나머지 패키지 설치
+    req = Path(__file__).resolve().parent / "requirements-export.txt"
+    if req.is_file():
+        subprocess.run(base_pip + ["-r", str(req)], check=True, env=env)
+    else:
+        subprocess.run(base_pip + ["ultralytics", "onnx", "onnxsim"], check=True, env=env)
+
+    if importlib.util.find_spec("ultralytics") is None:
+        raise ModuleNotFoundError("자동 설치 후에도 ultralytics import 에 실패했습니다.")
+
+
+def _pick_device_or_cpu(user_device: str | None) -> str:
+    if user_device:
+        return user_device
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            print("CUDA GPU 감지: 학습 디바이스로 GPU(0) 사용")
+            return "0"
+    except Exception:  # noqa: BLE001
+        # torch import 이 불가하면 Ultralytics 자동 탐지를 그대로 맡기기보다 CPU를 명시해 일관되게 처리
+        pass
+    print("CUDA GPU 미감지: 학습 디바이스로 CPU 사용")
+    return "cpu"
 
 
 def _det_line_to_seg_line(parts: list[str]) -> str | None:
@@ -217,14 +295,9 @@ def cmd_fetch(repo: Path, *, force: bool) -> int:
         _clear_dataset_media(ds)
 
     print("Ultralytics brain-tumor.zip 다운로드 중… (~4.2 MB, 데이터셋 AGPL-3.0)")
-    req = urllib.request.Request(
-        BRAIN_TUMOR_ZIP_URL,
-        headers={"User-Agent": "YOLO11BrainV10-brain_ct_pipeline/1.0"},
-    )
     with tempfile.TemporaryDirectory() as td:
         zpath = Path(td) / "brain-tumor.zip"
-        with urllib.request.urlopen(req, timeout=600) as resp:  # noqa: S310
-            zpath.write_bytes(resp.read())
+        _download_url_to_file(BRAIN_TUMOR_ZIP_URL, zpath, timeout=600)
         unpack = Path(td) / "unpacked"
         unpack.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zpath, "r") as zf:
@@ -286,6 +359,8 @@ def cmd_train(
     model: str,
     device: str | None,
     demo_data: bool,
+    auto_fetch: bool,
+    auto_install: bool,
 ) -> int:
     yml = dataset_yaml(repo)
     if not yml.is_file():
@@ -295,6 +370,12 @@ def cmd_train(
     if count_train_images(repo) < 1:
         if demo_data:
             ensure_demo_dataset(repo)
+        elif auto_fetch:
+            print("학습 이미지가 없어 공개 데이터를 자동으로 다운로드(fetch)합니다.")
+            fr = cmd_fetch(repo, force=False)
+            if fr != 0:
+                print("자동 fetch 가 실패했습니다. --demo-data 또는 fetch --force 를 시도하세요.", file=sys.stderr)
+                return fr
         else:
             print(
                 "학습 이미지가 없습니다.\n"
@@ -310,9 +391,10 @@ def cmd_train(
         print("데모 데이터 설치 후에도 이미지가 없습니다.", file=sys.stderr)
         return 1
 
+    _ensure_ultralytics_installed(auto_install=auto_install)
     from ultralytics import YOLO
 
-    m = YOLO(model)
+    yolo11_model = YOLO(model)
     kw: dict = {
         "task": "segment",
         "data": str(yml),
@@ -323,26 +405,26 @@ def cmd_train(
         "name": "train",
         "exist_ok": True,
     }
-    if device:
-        kw["device"] = device
-    m.train(**kw)
+    kw["device"] = _pick_device_or_cpu(device)
+    yolo11_model.train(**kw)
     best = default_train_weights(repo)
     print(f"학습 완료. 가중치: {best}")
     return 0 if best.is_file() else 1
 
 
-def cmd_export(repo: Path, *, weights: Path | None, imgsz: int) -> int:
+def cmd_export(repo: Path, *, weights: Path | None, imgsz: int, auto_install: bool) -> int:
     w = (weights or default_train_weights(repo)).expanduser().resolve()
     if not w.is_file():
         print(f"가중치 파일이 없습니다: {w}", file=sys.stderr)
         return 1
 
+    _ensure_ultralytics_installed(auto_install=auto_install)
     from ultralytics import YOLO
 
     out_onnx = default_export_onnx(repo)
     out_onnx.parent.mkdir(parents=True, exist_ok=True)
-    model = YOLO(str(w))
-    exported = model.export(format="onnx", imgsz=imgsz, simplify=True)
+    yolo11_model = YOLO(str(w))
+    exported = yolo11_model.export(format="onnx", imgsz=imgsz, simplify=True)
     ep = Path(exported[0] if isinstance(exported, (list, tuple)) else exported)
     shutil.copy2(ep, out_onnx)
     print(f"ONNX 저장: {out_onnx}")
@@ -353,12 +435,7 @@ def _ensure_demo_image(repo: Path) -> Path:
     dest = dataset_root(repo) / "_demo_brain_sample.jpg"
     if dest.is_file():
         return dest
-    req = urllib.request.Request(
-        DEMO_IMAGE_URL,
-        headers={"User-Agent": "YOLO11BrainV10-brain_ct_pipeline/1.0"},
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:  # noqa: S310
-        dest.write_bytes(resp.read())
+    _download_url_to_file(DEMO_IMAGE_URL, dest, timeout=120)
     return dest
 
 
@@ -369,6 +446,7 @@ def cmd_predict(
     source: Path | None,
     conf: float,
     imgsz: int,
+    auto_install: bool,
 ) -> int:
     w: Path | None = weights.expanduser().resolve() if weights else None
     if w is None or not w.is_file():
@@ -383,6 +461,7 @@ def cmd_predict(
         print(f"입력 이미지가 없습니다: {src}", file=sys.stderr)
         return 1
 
+    _ensure_ultralytics_installed(auto_install=auto_install)
     from ultralytics import YOLO
 
     model = YOLO(str(w))
@@ -415,6 +494,8 @@ def cmd_all(
     device: str | None,
     conf: float,
     demo_data: bool,
+    auto_fetch: bool,
+    auto_install: bool,
 ) -> int:
     r = cmd_init(repo, force=False)
     if r != 0:
@@ -432,14 +513,23 @@ def cmd_all(
             model=model,
             device=device,
             demo_data=demo_data,
+            auto_fetch=auto_fetch,
+            auto_install=auto_install,
         )
         if r != 0:
             return r
     export_weights = weights.expanduser().resolve() if (skip_train and weights) else None
-    r = cmd_export(repo, weights=export_weights, imgsz=imgsz)
+    r = cmd_export(repo, weights=export_weights, imgsz=imgsz, auto_install=auto_install)
     if r != 0:
         return r
-    return cmd_predict(repo, weights=default_export_onnx(repo), source=None, conf=conf, imgsz=imgsz)
+    return cmd_predict(
+        repo,
+        weights=default_export_onnx(repo),
+        source=None,
+        conf=conf,
+        imgsz=imgsz,
+        auto_install=auto_install,
+    )
 
 
 def _repo_from_args(ns: argparse.Namespace) -> Path:
@@ -475,23 +565,44 @@ def main() -> int:
     p_train.add_argument("--epochs", type=int, default=100)
     p_train.add_argument("--batch", type=int, default=8)
     p_train.add_argument("--imgsz", type=int, default=640)
-    p_train.add_argument("--model", default="yolo11n-seg.pt")
-    p_train.add_argument("--device", default=None, help="예: 0, cpu (미지정 시 Ultralytics 기본)")
+    p_train.add_argument("--model", default=YOLO11_SEG_MODEL_DEFAULT)
+    p_train.add_argument("--device", default=None, help="예: 0, cpu (미지정 시 GPU 우선, 없으면 CPU)")
     p_train.add_argument(
         "--demo-data",
         action="store_true",
         help="images/train 이 비어 있을 때만, 샘플 JPG+더미 세그 라벨을 채워 스모크 학습",
     )
+    p_train.add_argument(
+        "--auto-fetch",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="학습 이미지가 비어 있으면 자동으로 fetch 수행 (기본: 사용)",
+    )
+    p_train.add_argument(
+        "--auto-install",
+        action="store_true",
+        help="ultralytics 미설치 시 pip 자동 설치",
+    )
 
     p_exp = sub.add_parser("export", help="best.pt -> exports/brain_ct_yolo11n_seg.onnx")
     p_exp.add_argument("--weights", type=Path, default=None, help="기본: runs/brain_ct_seg/train/weights/best.pt")
     p_exp.add_argument("--imgsz", type=int, default=640)
+    p_exp.add_argument(
+        "--auto-install",
+        action="store_true",
+        help="ultralytics 미설치 시 pip 자동 설치",
+    )
 
     p_pred = sub.add_parser("predict", help="데모 이미지 또는 --source 로 predict")
     p_pred.add_argument("--weights", type=Path, default=None, help=".pt 또는 .onnx")
     p_pred.add_argument("--source", type=Path, default=None, help="이미지 경로 (없으면 Ultralytics 뇌 샘플 다운로드)")
     p_pred.add_argument("--conf", type=float, default=0.25)
     p_pred.add_argument("--imgsz", type=int, default=640)
+    p_pred.add_argument(
+        "--auto-install",
+        action="store_true",
+        help="ultralytics 미설치 시 pip 자동 설치",
+    )
 
     p_all = sub.add_parser("all", help="init 후 train + export + predict")
     p_all.add_argument("--skip-train", action="store_true")
@@ -499,56 +610,79 @@ def main() -> int:
     p_all.add_argument("--epochs", type=int, default=100)
     p_all.add_argument("--batch", type=int, default=8)
     p_all.add_argument("--imgsz", type=int, default=640)
-    p_all.add_argument("--model", default="yolo11n-seg.pt")
-    p_all.add_argument("--device", default=None)
+    p_all.add_argument("--model", default=YOLO11_SEG_MODEL_DEFAULT)
+    p_all.add_argument("--device", default=None, help="예: 0, cpu (미지정 시 GPU 우선, 없으면 CPU)")
     p_all.add_argument("--conf", type=float, default=0.25)
     p_all.add_argument(
         "--demo-data",
         action="store_true",
         help="학습 이미지가 없을 때 train 과 동일하게 데모 1장+라벨을 넣고 진행",
     )
+    p_all.add_argument(
+        "--auto-fetch",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="학습 이미지가 비어 있으면 자동으로 fetch 수행 (기본: 사용)",
+    )
+    p_all.add_argument(
+        "--auto-install",
+        action="store_true",
+        help="ultralytics 미설치 시 pip 자동 설치",
+    )
 
     ns = p.parse_args()
     repo = _repo_from_args(ns)
 
-    if ns.command == "init":
-        return cmd_init(repo, force=ns.force)
-    if ns.command == "fetch":
-        return cmd_fetch(repo, force=ns.force)
-    if ns.command == "train":
-        return cmd_train(
-            repo,
-            epochs=ns.epochs,
-            batch=ns.batch,
-            imgsz=ns.imgsz,
-            model=ns.model,
-            device=ns.device,
-            demo_data=ns.demo_data,
-        )
-    if ns.command == "export":
-        return cmd_export(repo, weights=ns.weights, imgsz=ns.imgsz)
-    if ns.command == "predict":
-        return cmd_predict(
-            repo,
-            weights=ns.weights,
-            source=ns.source,
-            conf=ns.conf,
-            imgsz=ns.imgsz,
-        )
-    if ns.command == "all":
-        return cmd_all(
-            repo,
-            skip_train=ns.skip_train,
-            weights=ns.weights,
-            epochs=ns.epochs,
-            batch=ns.batch,
-            imgsz=ns.imgsz,
-            model=ns.model,
-            device=ns.device,
-            conf=ns.conf,
-            demo_data=ns.demo_data,
-        )
-    return 1
+    try:
+        if ns.command == "init":
+            return cmd_init(repo, force=ns.force)
+        if ns.command == "fetch":
+            return cmd_fetch(repo, force=ns.force)
+        if ns.command == "train":
+            return cmd_train(
+                repo,
+                epochs=ns.epochs,
+                batch=ns.batch,
+                imgsz=ns.imgsz,
+                model=ns.model,
+                device=ns.device,
+                demo_data=ns.demo_data,
+                auto_fetch=ns.auto_fetch,
+                auto_install=ns.auto_install,
+            )
+        if ns.command == "export":
+            return cmd_export(repo, weights=ns.weights, imgsz=ns.imgsz, auto_install=ns.auto_install)
+        if ns.command == "predict":
+            return cmd_predict(
+                repo,
+                weights=ns.weights,
+                source=ns.source,
+                conf=ns.conf,
+                imgsz=ns.imgsz,
+                auto_install=ns.auto_install,
+            )
+        if ns.command == "all":
+            return cmd_all(
+                repo,
+                skip_train=ns.skip_train,
+                weights=ns.weights,
+                epochs=ns.epochs,
+                batch=ns.batch,
+                imgsz=ns.imgsz,
+                model=ns.model,
+                device=ns.device,
+                conf=ns.conf,
+                demo_data=ns.demo_data,
+                auto_fetch=ns.auto_fetch,
+                auto_install=ns.auto_install,
+            )
+        return 1
+    except ModuleNotFoundError as e:
+        print(f"필수 Python 패키지 누락: {e}", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as e:
+        print(f"자동 설치/명령 실행 실패: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

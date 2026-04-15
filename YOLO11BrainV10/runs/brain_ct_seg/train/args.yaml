@@ -1,7 +1,7 @@
 task: segment
 mode: train
 model: yolo11n-seg.pt
-data: C:\Home\Projects\TestSimulator\YOLO11BrainV10\data\brain_ct_seg\data.yaml
+data: D:\Home\Projects\TestSimulator\YOLO11BrainV10\data\brain_ct_seg\data.yaml
 epochs: 100
 time: null
 patience: 100
@@ -10,9 +10,9 @@ imgsz: 640
 save: true
 save_period: -1
 cache: false
-device: cpu
+device: '0'
 workers: 8
-project: C:\Home\Projects\TestSimulator\YOLO11BrainV10\runs\brain_ct_seg
+project: D:\Home\Projects\TestSimulator\YOLO11BrainV10\runs\brain_ct_seg
 name: train
 exist_ok: true
 pretrained: true
@@ -80,7 +80,6 @@ warmup_momentum: 0.8
 warmup_bias_lr: 0.1
 box: 7.5
 cls: 0.5
-cls_pw: 0.0
 dfl: 1.5
 pose: 12.0
 kobj: 1.0
@@ -107,4 +106,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: botsort.yaml
-save_dir: C:\Home\Projects\TestSimulator\YOLO11BrainV10\runs\brain_ct_seg\train
+save_dir: D:\Home\Projects\TestSimulator\YOLO11BrainV10\runs\brain_ct_seg\train

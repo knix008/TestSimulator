@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import argparse
 
+YOLO11_SEG_MODEL_DEFAULT = "yolo11n-seg.pt"
+
 
 def main() -> None:
     p = argparse.ArgumentParser(
@@ -34,7 +36,7 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=100)
     p.add_argument("--imgsz", type=int, default=640)
     p.add_argument("--batch", type=int, default=8)
-    p.add_argument("--model", default="yolo11n-seg.pt", help="Ultralytics checkpoint to start from")
+    p.add_argument("--model", default=YOLO11_SEG_MODEL_DEFAULT, help="Ultralytics checkpoint to start from")
     p.add_argument(
         "--project",
         default=None,
@@ -54,7 +56,7 @@ def main() -> None:
 
     from ultralytics import YOLO
 
-    model = YOLO(args.model)
+    yolo11_model = YOLO(args.model)
     train_kw: dict = {
         "task": "segment",
         "data": args.data,
@@ -68,7 +70,7 @@ def main() -> None:
         train_kw["name"] = args.name
     if args.device:
         train_kw["device"] = args.device
-    model.train(**train_kw)
+    yolo11_model.train(**train_kw)
     print(
         "Training finished. Export ONNX, e.g.:\n"
         "  python export_yolo11_brain_onnx.py --weights runs/segment/train/weights/best.pt --out brain_ct_yolo11n_seg.onnx\n"
