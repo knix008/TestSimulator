@@ -6,6 +6,16 @@ internal static class Program
     private static void Main()
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new MemoPadForm());
+        ApplicationContext appContext = new();
+        MemoPadForm firstPad = new();
+        Application.Idle += (_, _) =>
+        {
+            if (Application.OpenForms.Count == 0)
+            {
+                appContext.ExitThread();
+            }
+        };
+        firstPad.Show();
+        Application.Run(appContext);
     }
 }
