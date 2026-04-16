@@ -17,6 +17,16 @@
   </Target>
 
   <ItemGroup>
+    <Compile Update="MemoPadForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MemoPadForm.Designer.cs">
+      <DependentUpon>MemoPadForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="MemoPadForm.resx">
+      <DependentUpon>MemoPadForm.cs</DependentUpon>
+    </EmbeddedResource>
+
     <Compile Update="EditorSettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>

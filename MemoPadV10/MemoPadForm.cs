@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Text.Json;
 
 namespace MemoPadV10;
@@ -12,6 +13,12 @@ public partial class MemoPadForm : Form
     public MemoPadForm()
     {
         InitializeComponent();
+        if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+        {
+            _memoFilePath = string.Empty;
+            return;
+        }
+
         _memoFilePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "MemoPadV10",
@@ -134,6 +141,12 @@ public partial class MemoPadForm : Form
 
     private void addMemoIconButton_Click(object sender, EventArgs e)
     {
+        MemoPadForm newMemoPad = CreateOffsetMemoPad();
+        newMemoPad.Show();
+    }
+
+    private void saveMemoIconButton_Click(object sender, EventArgs e)
+    {
         AddMemo();
     }
 
@@ -222,9 +235,36 @@ public partial class MemoPadForm : Form
         editor.Text = stored;
     }
 
+    private MemoPadForm CreateOffsetMemoPad()
+    {
+        MemoPadForm newMemoPad = new();
+        newMemoPad.StartPosition = FormStartPosition.Manual;
+        newMemoPad.Location = new Point(Location.X + 30, Location.Y + 30);
+        return newMemoPad;
+    }
+
+    private MemoPadForm CreateFrontOffsetMemoPad()
+    {
+        MemoPadForm newMemoPad = new();
+        newMemoPad.StartPosition = FormStartPosition.Manual;
+        newMemoPad.Location = new Point(Location.X - 30, Location.Y - 30);
+        return newMemoPad;
+    }
+
+    private void OpenMemoInNewPadWindow(string stored)
+    {
+        MemoPadForm newMemoPad = CreateFrontOffsetMemoPad();
+        ApplyMemoContentToEditor(newMemoPad.memoEditor, stored);
+        newMemoPad.Show();
+        newMemoPad.BringToFront();
+        newMemoPad.memoEditor.Focus();
+        newMemoPad.memoEditor.SelectionStart = newMemoPad.memoEditor.TextLength;
+    }
+
     private void listIconButton_Click(object sender, EventArgs e)
     {
         LoadMemos();
+        string? memoToOpen = null;
 
         using Form listForm = new()
         {
@@ -319,9 +359,7 @@ public partial class MemoPadForm : Form
                 return;
             }
 
-            ApplyMemoContentToEditor(memoEditor, _memoItems[listBox.SelectedIndex]);
-            memoEditor.Focus();
-            memoEditor.SelectionStart = memoEditor.TextLength;
+            memoToOpen = _memoItems[listBox.SelectedIndex];
             listForm.DialogResult = DialogResult.OK;
             listForm.Close();
         }
@@ -370,6 +408,11 @@ public partial class MemoPadForm : Form
         layout.Controls.Add(buttonPanel, 0, 1);
         listForm.Controls.Add(layout);
         listForm.ShowDialog(this);
+
+        if (!string.IsNullOrEmpty(memoToOpen))
+        {
+            OpenMemoInNewPadWindow(memoToOpen);
+        }
     }
 
     private void closeIconButton_Click(object sender, EventArgs e)

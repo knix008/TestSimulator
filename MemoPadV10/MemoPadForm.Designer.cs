@@ -1,10 +1,11 @@
 namespace MemoPadV10;
 
-partial class MemoPadForm
+public partial class MemoPadForm
 {
     private System.ComponentModel.IContainer components = null!;
     private Panel topBarPanel = null!;
     private Button addMemoIconButton = null!;
+    private Button saveMemoIconButton = null!;
     private Button settingsIconButton = null!;
     private Button listIconButton = null!;
     private Button closeIconButton = null!;
@@ -25,6 +26,7 @@ partial class MemoPadForm
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MemoPadForm));
         topBarPanel = new Panel();
         addMemoIconButton = new Button();
+        saveMemoIconButton = new Button();
         settingsIconButton = new Button();
         listIconButton = new Button();
         closeIconButton = new Button();
@@ -36,6 +38,7 @@ partial class MemoPadForm
         // 
         topBarPanel.BackColor = Color.FromArgb(165, 245, 225, 125);
         topBarPanel.Controls.Add(addMemoIconButton);
+        topBarPanel.Controls.Add(saveMemoIconButton);
         topBarPanel.Controls.Add(settingsIconButton);
         topBarPanel.Controls.Add(listIconButton);
         topBarPanel.Controls.Add(closeIconButton);
@@ -50,17 +53,31 @@ partial class MemoPadForm
         // 
         // addMemoIconButton
         // 
-        addMemoIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        addMemoIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         addMemoIconButton.FlatAppearance.BorderSize = 0;
         addMemoIconButton.FlatStyle = FlatStyle.Flat;
         addMemoIconButton.Font = new Font("맑은 고딕", 14F, FontStyle.Bold);
-        addMemoIconButton.Location = new Point(222, 8);
+        addMemoIconButton.Location = new Point(8, 8);
         addMemoIconButton.Name = "addMemoIconButton";
         addMemoIconButton.Size = new Size(44, 36);
         addMemoIconButton.TabIndex = 0;
         addMemoIconButton.Text = "+";
         addMemoIconButton.UseVisualStyleBackColor = true;
         addMemoIconButton.Click += addMemoIconButton_Click;
+        // 
+        // saveMemoIconButton
+        // 
+        saveMemoIconButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        saveMemoIconButton.FlatAppearance.BorderSize = 0;
+        saveMemoIconButton.FlatStyle = FlatStyle.Flat;
+        saveMemoIconButton.Font = new Font("Segoe UI Symbol", 12F, FontStyle.Bold);
+        saveMemoIconButton.Location = new Point(222, 8);
+        saveMemoIconButton.Name = "saveMemoIconButton";
+        saveMemoIconButton.Size = new Size(44, 36);
+        saveMemoIconButton.TabIndex = 1;
+        saveMemoIconButton.Text = "💾";
+        saveMemoIconButton.UseVisualStyleBackColor = true;
+        saveMemoIconButton.Click += saveMemoIconButton_Click;
         // 
         // settingsIconButton
         // 
@@ -71,7 +88,7 @@ partial class MemoPadForm
         settingsIconButton.Location = new Point(272, 8);
         settingsIconButton.Name = "settingsIconButton";
         settingsIconButton.Size = new Size(44, 36);
-        settingsIconButton.TabIndex = 1;
+        settingsIconButton.TabIndex = 2;
         settingsIconButton.Text = "⚙";
         settingsIconButton.UseVisualStyleBackColor = true;
         settingsIconButton.Click += settingsIconButton_Click;
@@ -85,7 +102,7 @@ partial class MemoPadForm
         listIconButton.Location = new Point(322, 8);
         listIconButton.Name = "listIconButton";
         listIconButton.Size = new Size(44, 36);
-        listIconButton.TabIndex = 2;
+        listIconButton.TabIndex = 3;
         listIconButton.Text = "☰";
         listIconButton.UseVisualStyleBackColor = true;
         listIconButton.Click += listIconButton_Click;
@@ -99,7 +116,7 @@ partial class MemoPadForm
         closeIconButton.Location = new Point(372, 8);
         closeIconButton.Name = "closeIconButton";
         closeIconButton.Size = new Size(44, 36);
-        closeIconButton.TabIndex = 3;
+        closeIconButton.TabIndex = 4;
         closeIconButton.Text = "X";
         closeIconButton.UseVisualStyleBackColor = true;
         closeIconButton.Click += closeIconButton_Click;
