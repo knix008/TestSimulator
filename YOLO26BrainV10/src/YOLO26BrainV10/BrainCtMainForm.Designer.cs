@@ -36,8 +36,8 @@ namespace YOLO26BrainV10
         private Label lblPreviewOutTitle;
         private Button btnResetInputZoom;
         private Button btnResetOutputZoom;
-        private Label lblInputZoomValue;
-        private Label lblOutputZoomValue;
+        private Panel panelInputViewport;
+        private Panel panelOutputViewport;
         private PictureBox picInput;
         private PictureBox picOutput;
         private ListView listDetections;
@@ -52,6 +52,7 @@ namespace YOLO26BrainV10
 
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(BrainCtMainForm));
             menuStripMain = new MenuStrip();
             menuFile = new ToolStripMenuItem();
             menuSaveImage = new ToolStripMenuItem();
@@ -84,15 +85,17 @@ namespace YOLO26BrainV10
             lblPreviewOutTitle = new Label();
             btnResetInputZoom = new Button();
             btnResetOutputZoom = new Button();
-            lblInputZoomValue = new Label();
-            lblOutputZoomValue = new Label();
+            panelInputViewport = new Panel();
             picInput = new PictureBox();
+            panelOutputViewport = new Panel();
             picOutput = new PictureBox();
             listDetections = new ListView();
             menuStripMain.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)trackConf).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numConf).BeginInit();
+            panelInputViewport.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)picInput).BeginInit();
+            panelOutputViewport.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)picOutput).BeginInit();
             SuspendLayout();
             // 
@@ -192,8 +195,8 @@ namespace YOLO26BrainV10
             // 
             // lblOnnxPath
             // 
-            lblOnnxPath.AutoEllipsis = true;
             lblOnnxPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lblOnnxPath.AutoEllipsis = true;
             lblOnnxPath.Location = new Point(140, 56);
             lblOnnxPath.Name = "lblOnnxPath";
             lblOnnxPath.Size = new Size(289, 22);
@@ -220,8 +223,8 @@ namespace YOLO26BrainV10
             // 
             // lblSlicePath
             // 
-            lblSlicePath.AutoEllipsis = true;
             lblSlicePath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lblSlicePath.AutoEllipsis = true;
             lblSlicePath.Location = new Point(559, 60);
             lblSlicePath.Name = "lblSlicePath";
             lblSlicePath.Size = new Size(336, 22);
@@ -315,23 +318,23 @@ namespace YOLO26BrainV10
             progressInference.MarqueeAnimationSpeed = 35;
             progressInference.Name = "progressInference";
             progressInference.Size = new Size(1000, 14);
-            progressInference.Style = ProgressBarStyle.Marquee;
+            progressInference.Style = ProgressBarStyle.Continuous;
             progressInference.TabIndex = 15;
-            progressInference.Visible = false;
+            progressInference.Visible = true;
             // 
             // lblStatus
             // 
-            lblStatus.AutoEllipsis = true;
             lblStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            lblStatus.Location = new Point(12, 208);
+            lblStatus.AutoEllipsis = true;
+            lblStatus.Location = new Point(12, 211);
             lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(1000, 45);
+            lblStatus.Size = new Size(1000, 26);
             lblStatus.TabIndex = 16;
             lblStatus.Text = "준비됨 — 모델과 이미지를 선택한 뒤 [검출 실행]을 누르세요.";
             // 
             // lblPreviewInTitle
             // 
-            lblPreviewInTitle.Location = new Point(12, 214);
+            lblPreviewInTitle.Location = new Point(12, 252);
             lblPreviewInTitle.Name = "lblPreviewInTitle";
             lblPreviewInTitle.Size = new Size(200, 18);
             lblPreviewInTitle.TabIndex = 17;
@@ -339,7 +342,7 @@ namespace YOLO26BrainV10
             // 
             // lblPreviewOutTitle
             // 
-            lblPreviewOutTitle.Location = new Point(524, 214);
+            lblPreviewOutTitle.Location = new Point(514, 251);
             lblPreviewOutTitle.Name = "lblPreviewOutTitle";
             lblPreviewOutTitle.Size = new Size(200, 18);
             lblPreviewOutTitle.TabIndex = 18;
@@ -347,7 +350,7 @@ namespace YOLO26BrainV10
             // 
             // btnResetInputZoom
             // 
-            btnResetInputZoom.Location = new Point(432, 210);
+            btnResetInputZoom.Location = new Point(432, 248);
             btnResetInputZoom.Name = "btnResetInputZoom";
             btnResetInputZoom.Size = new Size(76, 24);
             btnResetInputZoom.TabIndex = 19;
@@ -356,55 +359,49 @@ namespace YOLO26BrainV10
             // 
             // btnResetOutputZoom
             // 
-            btnResetOutputZoom.Location = new Point(936, 210);
+            btnResetOutputZoom.Location = new Point(936, 246);
             btnResetOutputZoom.Name = "btnResetOutputZoom";
             btnResetOutputZoom.Size = new Size(76, 24);
             btnResetOutputZoom.TabIndex = 20;
             btnResetOutputZoom.Text = "원래 크기";
             btnResetOutputZoom.UseVisualStyleBackColor = true;
             // 
-            // lblInputZoomValue
+            // panelInputViewport
             // 
-            lblInputZoomValue.BackColor = Color.FromArgb(48, 48, 32);
-            lblInputZoomValue.BorderStyle = BorderStyle.FixedSingle;
-            lblInputZoomValue.ForeColor = Color.Gold;
-            lblInputZoomValue.Location = new Point(350, 212);
-            lblInputZoomValue.Name = "lblInputZoomValue";
-            lblInputZoomValue.Size = new Size(74, 20);
-            lblInputZoomValue.TabIndex = 21;
-            lblInputZoomValue.Text = "100%";
-            lblInputZoomValue.TextAlign = ContentAlignment.MiddleCenter;
-            // 
-            // lblOutputZoomValue
-            // 
-            lblOutputZoomValue.BackColor = Color.FromArgb(48, 48, 32);
-            lblOutputZoomValue.BorderStyle = BorderStyle.FixedSingle;
-            lblOutputZoomValue.ForeColor = Color.Gold;
-            lblOutputZoomValue.Location = new Point(854, 212);
-            lblOutputZoomValue.Name = "lblOutputZoomValue";
-            lblOutputZoomValue.Size = new Size(74, 20);
-            lblOutputZoomValue.TabIndex = 22;
-            lblOutputZoomValue.Text = "100%";
-            lblOutputZoomValue.TextAlign = ContentAlignment.MiddleCenter;
+            panelInputViewport.AutoScroll = true;
+            panelInputViewport.BackColor = Color.FromArgb(32, 32, 36);
+            panelInputViewport.BorderStyle = BorderStyle.Fixed3D;
+            panelInputViewport.Controls.Add(picInput);
+            panelInputViewport.Location = new Point(12, 278);
+            panelInputViewport.Name = "panelInputViewport";
+            panelInputViewport.Size = new Size(496, 392);
+            panelInputViewport.TabIndex = 21;
             // 
             // picInput
             // 
-            picInput.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Bottom;
             picInput.BackColor = Color.FromArgb(32, 32, 36);
-            picInput.BorderStyle = BorderStyle.Fixed3D;
-            picInput.Location = new Point(12, 262);
+            picInput.Location = new Point(0, 0);
             picInput.Name = "picInput";
             picInput.Size = new Size(496, 392);
             picInput.SizeMode = PictureBoxSizeMode.Zoom;
             picInput.TabIndex = 23;
             picInput.TabStop = false;
             // 
+            // panelOutputViewport
+            // 
+            panelOutputViewport.AutoScroll = true;
+            panelOutputViewport.BackColor = Color.FromArgb(32, 32, 36);
+            panelOutputViewport.BorderStyle = BorderStyle.Fixed3D;
+            panelOutputViewport.Controls.Add(picOutput);
+            panelOutputViewport.Location = new Point(516, 276);
+            panelOutputViewport.Name = "panelOutputViewport";
+            panelOutputViewport.Size = new Size(496, 392);
+            panelOutputViewport.TabIndex = 22;
+            // 
             // picOutput
             // 
-            picOutput.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             picOutput.BackColor = Color.FromArgb(32, 32, 36);
-            picOutput.BorderStyle = BorderStyle.Fixed3D;
-            picOutput.Location = new Point(516, 262);
+            picOutput.Location = new Point(0, 0);
             picOutput.Name = "picOutput";
             picOutput.Size = new Size(496, 392);
             picOutput.SizeMode = PictureBoxSizeMode.Zoom;
@@ -413,13 +410,13 @@ namespace YOLO26BrainV10
             // 
             // listDetections
             // 
-            listDetections.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+            listDetections.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             listDetections.FullRowSelect = true;
             listDetections.GridLines = true;
-            listDetections.Location = new Point(12, 664);
+            listDetections.Location = new Point(12, 679);
             listDetections.MultiSelect = false;
             listDetections.Name = "listDetections";
-            listDetections.Size = new Size(1000, 115);
+            listDetections.Size = new Size(1000, 100);
             listDetections.TabIndex = 25;
             listDetections.UseCompatibleStateImageBehavior = false;
             listDetections.View = View.Details;
@@ -450,12 +447,11 @@ namespace YOLO26BrainV10
             Controls.Add(lblPreviewOutTitle);
             Controls.Add(btnResetInputZoom);
             Controls.Add(btnResetOutputZoom);
-            Controls.Add(lblInputZoomValue);
-            Controls.Add(lblOutputZoomValue);
-            Controls.Add(picInput);
-            Controls.Add(picOutput);
+            Controls.Add(panelInputViewport);
+            Controls.Add(panelOutputViewport);
             Controls.Add(listDetections);
             Font = new Font("맑은 고딕", 9F);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MainMenuStrip = menuStripMain;
             MinimumSize = new Size(640, 520);
             Name = "BrainCtMainForm";
@@ -465,7 +461,9 @@ namespace YOLO26BrainV10
             menuStripMain.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)trackConf).EndInit();
             ((System.ComponentModel.ISupportInitialize)numConf).EndInit();
+            panelInputViewport.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)picInput).EndInit();
+            panelOutputViewport.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)picOutput).EndInit();
             ResumeLayout(false);
             PerformLayout();
