@@ -20,6 +20,9 @@ public sealed class BrainYolo26Session : IDisposable
 
     public string ExecutionProviderSummary { get; }
 
+    /// <summary>True when ONNX outputs include an Ultralytics-style mask prototype tensor (YOLO-seg export).</summary>
+    public bool SupportsInstanceSegmentation { get; }
+
     public BrainYolo26Session(string onnxPath, IReadOnlyList<string> classNames, int cudaDeviceId = 0)
     {
         ArgumentNullException.ThrowIfNull(classNames);
@@ -29,7 +32,8 @@ public sealed class BrainYolo26Session : IDisposable
         _classNames = classNames;
         _session = YoloOnnxSessionFactory.CreateSession(onnxPath, cudaDeviceId, out var summary);
         ExecutionProviderSummary = summary;
-        _inputName = _session.InputMetadata.Keys.First();
+        SupportsInstanceSegmentation = OutputMetadataLooksLikeUltralyticsMaskProto(_session);
+        _inputName = ResolveImageInputName(_session);
         var shape = _session.InputMetadata[_inputName].Dimensions;
         if (shape != null && shape.Length >= 4 && shape[2] > 0)
             _netSize = (int)shape[2];
@@ -40,6 +44,59 @@ public sealed class BrainYolo26Session : IDisposable
     public int NetSize => _netSize;
 
     public void Dispose() => _session.Dispose();
+
+    private static bool OutputMetadataLooksLikeUltralyticsMaskProto(InferenceSession session)
+    {
+        foreach (var meta in session.OutputMetadata.Values)
+        {
+            var d = meta.Dimensions;
+            if (d is null || d.Length != 4)
+                continue;
+            if (!TryGetProtoNmAndSize(d[0], d[1], d[2], d[3], out _, out _, out _))
+                continue;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Ultralytics ONNX uses the input name "images" when present; otherwise the first 4D image input.</summary>
+    private static string ResolveImageInputName(InferenceSession session)
+    {
+        foreach (var name in session.InputMetadata.Keys)
+        {
+            if (string.Equals(name, "images", StringComparison.OrdinalIgnoreCase))
+                return name;
+        }
+
+        foreach (var kv in session.InputMetadata)
+        {
+            var shape = kv.Value.Dimensions;
+            if (shape is { Length: >= 4 })
+                return kv.Key;
+        }
+
+        return session.InputMetadata.Keys.First();
+    }
+
+    /// <summary>
+    /// True when dimensions look like Ultralytics mask prototypes [1, nm, H, W] (nm much smaller than H,W).
+    /// </summary>
+    private static bool TryGetProtoNmAndSize(int d0, int d1, int d2, int d3, out int nm, out int mh, out int mw)
+    {
+        nm = mh = mw = 0;
+        if (d0 != 1 && d0 != -1)
+            return false;
+        if (d1 is < 4 or > 128 || d2 < 8 || d3 < 8 || d2 > 4096 || d3 > 4096)
+            return false;
+        // NCHW: mask coefficient count must be smaller than spatial axes (rejects [1,H,W,C] mis-order).
+        if (d1 >= d2 || d1 >= d3)
+            return false;
+        nm = d1;
+        mh = d2;
+        mw = d3;
+        return true;
+    }
 
     /// <summary>Runs segmentation (if ONNX includes mask prototypes) or detection; returns an annotated bitmap.</summary>
     public (Bitmap Annotated, IReadOnlyList<BrainDetection> Detections) Detect(
@@ -72,44 +129,56 @@ public sealed class BrainYolo26Session : IDisposable
 
         if (proto != null)
         {
-            var pred = PickPredTensor(results, nc, nm);
+            var pred = PickPredTensor(results, nm);
             if (pred == null)
                 throw new InvalidOperationException(
-                    $"세그멘테이션 ONNX와 클래스 수가 맞지 않습니다. 라벨 {nc}개이면 예측 채널은 {4 + nc + nm}개여야 합니다(마스크 계수 {nm}).");
+                    "Ultralytics 세그 형식의 3차원 예측 텐서를 찾지 못했습니다. " +
+                    $"마스크 프로토 채널 수(nm)={nm}, UI 클래스 이름 {nc}개. " +
+                    "data.yaml의 names 개수와 클래스란(쉼표 구분) 개수를 모델과 맞추세요. " +
+                    $"출력: {FormatOutputShapes(results)}");
 
             return PostprocessSegmentation(original, lb, pred, proto, nm, confThreshold, allowedClassIds);
         }
 
-        var detPred = PickPredTensor(results, nc, 0) ?? PickDetectionTensorLegacy(results)
+        var detPred = PickPredTensor(results, 0) ?? PickDetectionTensorLegacy(results)
                       ?? throw new InvalidOperationException(
-                          "3차원 검출 출력 텐서를 찾을 수 없습니다. ONNX가 Ultralytics 검출/세그 형식인지 확인하세요.");
+                          "3차원 검출 출력 텐서를 찾을 수 없습니다. ONNX가 Ultralytics 검출/세그 형식인지 확인하세요. " +
+                          $"출력: {FormatOutputShapes(results)}");
 
         return PostprocessDetectionOnly(original, lb, detPred, confThreshold, allowedClassIds);
     }
 
     private static DenseTensor<float>? PickProtoTensor(IReadOnlyCollection<NamedOnnxValue> results)
     {
+        DenseTensor<float>? best = null;
+        var bestArea = -1L;
         foreach (var r in results)
         {
             if (r.AsTensor<float>() is not DenseTensor<float> t)
                 continue;
-            if (t.Dimensions.Length != 4)
+            var td = t.Dimensions;
+            if (td.Length != 4)
                 continue;
-            var d0 = (int)t.Dimensions[0];
-            var d1 = (int)t.Dimensions[1];
-            var d2 = (int)t.Dimensions[2];
-            var d3 = (int)t.Dimensions[3];
-            if (d0 != 1 || d1 is < 4 or > 256 || d2 < 8 || d3 < 8)
+            if (!TryGetProtoNmAndSize(td[0], td[1], td[2], td[3], out _, out var h, out var w))
                 continue;
-            return t;
+            var area = (long)h * w;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                best = t;
+            }
         }
 
-        return null;
+        return best;
     }
 
-    private static Tensor<float>? PickPredTensor(IReadOnlyCollection<NamedOnnxValue> results, int nc, int nmExtra)
+    /// <summary>
+    /// Finds the main YOLO predictions tensor. Channel width must be 4 + nc_model + nmExtra (Ultralytics).
+    /// nc_model is taken from the tensor shape. Class scores are argmax'd over all nc_model channels so a
+    /// COCO ONNX still works when the UI lists only a short name list (extra indices show as class_N).
+    /// </summary>
+    private static Tensor<float>? PickPredTensor(IReadOnlyCollection<NamedOnnxValue> results, int nmExtra)
     {
-        var expected = 4 + nc + nmExtra;
         Tensor<float>? best = null;
         var bestScore = -1L;
         foreach (var r in results)
@@ -121,9 +190,21 @@ public sealed class BrainYolo26Session : IDisposable
             var d2 = (int)t.Dimensions[2];
             var channelsLast = d2 < d1;
             var width = channelsLast ? d2 : d1;
-            if (width != expected)
-                continue;
             var n = channelsLast ? d1 : d2;
+            if (n < 1 || width < 4)
+                continue;
+
+            if (nmExtra > 0)
+            {
+                var ncModel = width - 4 - nmExtra;
+                if (ncModel < 1)
+                    continue;
+            }
+            else if (width != 6 && width < 5)
+            {
+                continue;
+            }
+
             var score = (long)n * width;
             if (score > bestScore)
             {
@@ -133,6 +214,24 @@ public sealed class BrainYolo26Session : IDisposable
         }
 
         return best;
+    }
+
+    private static string FormatOutputShapes(IReadOnlyCollection<NamedOnnxValue> results)
+    {
+        var parts = new List<string>();
+        foreach (var r in results)
+        {
+            var t = r.AsTensor<float>();
+            if (t == null)
+            {
+                parts.Add($"{r.Name}:<non-float>");
+                continue;
+            }
+
+            parts.Add($"{r.Name}:[{string.Join(",", t.Dimensions.ToArray())}]");
+        }
+
+        return parts.Count == 0 ? "(없음)" : string.Join("; ", parts);
     }
 
     private static Tensor<float>? PickDetectionTensorLegacy(IReadOnlyCollection<NamedOnnxValue> results)
@@ -189,8 +288,17 @@ public sealed class BrainYolo26Session : IDisposable
         float P(int det, int ch) => channelsLast ? pred[0, det, ch] : pred[0, ch, det];
 
         List<DetCandidate> raw = width == 6
-            ? CollectEndToEnd(n, P, confThreshold, allowedClassIds, _classNames.Count, _netSize)
-            : CollectClassChannels(n, width, P, confThreshold, allowedClassIds, _classNames.Count, nm: 0, out _);
+            ? CollectEndToEnd(n, P, confThreshold, allowedClassIds, _netSize)
+            : CollectClassChannels(
+                n,
+                width,
+                P,
+                confThreshold,
+                allowedClassIds,
+                nm: 0,
+                _netSize,
+                _classNames.Count,
+                out _);
 
         return RenderBoxes(original, lb, Nms(raw, 0.45f, 300));
     }
@@ -222,7 +330,18 @@ public sealed class BrainYolo26Session : IDisposable
 
         float P(int det, int ch) => channelsLast ? pred[0, det, ch] : pred[0, ch, det];
 
-        var raw = CollectClassChannels(n, width, P, confThreshold, allowedClassIds, _classNames.Count, nm, out _);
+        var raw = width == 6 + nm
+            ? CollectEndToEndWithMask(n, P, confThreshold, allowedClassIds, nm, _netSize)
+            : CollectClassChannels(
+                n,
+                width,
+                P,
+                confThreshold,
+                allowedClassIds,
+                nm,
+                _netSize,
+                _classNames.Count,
+                out _);
         var kept = Nms(raw, 0.45f, 300);
 
         var mh = (int)proto.Dimensions[2];
@@ -265,6 +384,7 @@ public sealed class BrainYolo26Session : IDisposable
                         ClassId = c.ClassId,
                         Confidence = c.Confidence,
                         Label = label,
+                        HasMask = c.MaskCoeffs is { Length: > 0 },
                     });
 
                     if (c.MaskCoeffs is not { Length: > 0 })
@@ -384,6 +504,7 @@ public sealed class BrainYolo26Session : IDisposable
                     ClassId = c.ClassId,
                     Confidence = c.Confidence,
                     Label = label,
+                    HasMask = false,
                 });
 
                 var hue = (c.ClassId * 37) % 360;
@@ -435,19 +556,48 @@ public sealed class BrainYolo26Session : IDisposable
 
     private static float[] BilinearResize(float[] src, int sw, int sh, int dw, int dh)
     {
+        if (sw <= 0 || sh <= 0 || dw <= 0 || dh <= 0)
+            return new float[Math.Max(0, dw * dh)];
+
         var dst = new float[dw * dh];
         for (var y = 0; y < dh; y++)
         {
             var sy = ((y + 0.5f) / dh) * sh - 0.5f;
             var y0 = (int)Math.Floor(sy);
-            var y1 = Math.Min(y0 + 1, sh - 1);
+            var y1 = y0 + 1;
             var fy = sy - y0;
+            if (y0 < 0)
+            {
+                y0 = 0;
+                y1 = 0;
+                fy = 0f;
+            }
+            else if (y1 >= sh)
+            {
+                y1 = sh - 1;
+                y0 = sh - 1;
+                fy = 0f;
+            }
+
             for (var x = 0; x < dw; x++)
             {
                 var sx = ((x + 0.5f) / dw) * sw - 0.5f;
                 var x0 = (int)Math.Floor(sx);
-                var x1 = Math.Min(x0 + 1, sw - 1);
+                var x1 = x0 + 1;
                 var fx = sx - x0;
+                if (x0 < 0)
+                {
+                    x0 = 0;
+                    x1 = 0;
+                    fx = 0f;
+                }
+                else if (x1 >= sw)
+                {
+                    x1 = sw - 1;
+                    x0 = sw - 1;
+                    fx = 0f;
+                }
+
                 var v00 = src[y0 * sw + x0];
                 var v01 = src[y0 * sw + x1];
                 var v10 = src[y1 * sw + x0];
@@ -487,7 +637,6 @@ public sealed class BrainYolo26Session : IDisposable
         Func<int, int, float> P,
         float confThreshold,
         IReadOnlySet<int>? allowedClassIds,
-        int ncCap,
         int netSize)
     {
         var list = new List<DetCandidate>();
@@ -501,7 +650,7 @@ public sealed class BrainYolo26Session : IDisposable
             var cid = (int)Math.Round(P(i, 5));
             if (float.IsNaN(conf) || conf < confThreshold)
                 continue;
-            if (cid < 0 || cid >= ncCap)
+            if (cid < 0 || cid > 65_000)
                 continue;
             if (allowedClassIds != null && !allowedClassIds.Contains(cid))
                 continue;
@@ -528,22 +677,103 @@ public sealed class BrainYolo26Session : IDisposable
         return list;
     }
 
+    private static List<DetCandidate> CollectEndToEndWithMask(
+        int n,
+        Func<int, int, float> P,
+        float confThreshold,
+        IReadOnlySet<int>? allowedClassIds,
+        int nm,
+        int netSize)
+    {
+        var list = new List<DetCandidate>();
+        for (var i = 0; i < n; i++)
+        {
+            var x1 = P(i, 0);
+            var y1 = P(i, 1);
+            var x2 = P(i, 2);
+            var y2 = P(i, 3);
+            var conf = P(i, 4);
+            var cid = (int)Math.Round(P(i, 5));
+
+            if (float.IsNaN(conf) || conf < confThreshold)
+                continue;
+            if (cid < 0 || cid > 65_000)
+                continue;
+            if (allowedClassIds != null && !allowedClassIds.Contains(cid))
+                continue;
+
+            if (x1 <= 1.5f && y1 >= 0f && x2 <= 1.5f && y2 <= 1.5f && x2 > x1)
+            {
+                x1 *= netSize;
+                x2 *= netSize;
+                y1 *= netSize;
+                y2 *= netSize;
+            }
+
+            float[]? coeffs = null;
+            if (nm > 0)
+            {
+                coeffs = new float[nm];
+                for (var k = 0; k < nm; k++)
+                    coeffs[k] = P(i, 6 + k);
+            }
+
+            list.Add(new DetCandidate
+            {
+                X1Lb = x1,
+                Y1Lb = y1,
+                X2Lb = x2,
+                Y2Lb = y2,
+                ClassId = cid,
+                Confidence = conf,
+                MaskCoeffs = coeffs,
+            });
+        }
+
+        return list;
+    }
+
     private static List<DetCandidate> CollectClassChannels(
         int n,
         int width,
         Func<int, int, float> P,
         float confThreshold,
         IReadOnlySet<int>? allowedClassIds,
-        int ncCap,
         int nm,
+        int netSize,
+        int preferredClassCount,
         out int nmOut)
     {
         nmOut = nm;
-        var nc = width - 4 - nm;
+        var channelsAfterBox = width - 4 - nm;
+        if (channelsAfterBox <= 0)
+            return new List<DetCandidate>();
+
+        // Ultralytics variants can be either:
+        // - [cx,cy,w,h, cls... , mask...]
+        // - [cx,cy,w,h,obj, cls... , mask...]
+        // Prefer explicit UI class count when shape matches it (or +1 objectness).
+        var hasObjectness = false;
+        int nc;
+        if (preferredClassCount > 0 && channelsAfterBox == preferredClassCount + 1)
+        {
+            hasObjectness = true;
+            nc = preferredClassCount;
+        }
+        else if (preferredClassCount > 0 && channelsAfterBox == preferredClassCount)
+        {
+            nc = preferredClassCount;
+        }
+        else
+        {
+            // Fallback for generic models with unknown class count.
+            nc = channelsAfterBox;
+        }
+
         if (nc <= 0)
             return new List<DetCandidate>();
 
-        var ncUse = Math.Min(nc, ncCap);
+        var classBase = hasObjectness ? 5 : 4;
         var list = new List<DetCandidate>();
         for (var i = 0; i < n; i++)
         {
@@ -552,12 +782,14 @@ public sealed class BrainYolo26Session : IDisposable
             var bw = P(i, 2);
             var bh = P(i, 3);
             UltralyticsCxcywhToXyxy(cx, cy, bw, bh, out var x1, out var y1, out var x2, out var y2);
+            MaybeScaleNormalizedLetterboxBox(netSize, ref x1, ref y1, ref x2, ref y2);
 
             var bestC = -1;
             var bestS = 0f;
-            for (var c = 0; c < ncUse; c++)
+            var obj = hasObjectness ? ScoreValue(P(i, 4)) : 1f;
+            for (var c = 0; c < nc; c++)
             {
-                var s = ScoreValue(P(i, 4 + c));
+                var s = obj * ScoreValue(P(i, classBase + c));
                 if (s > bestS)
                 {
                     bestS = s;
@@ -575,7 +807,7 @@ public sealed class BrainYolo26Session : IDisposable
             {
                 coeffs = new float[nm];
                 for (var k = 0; k < nm; k++)
-                    coeffs[k] = P(i, 4 + nc + k);
+                    coeffs[k] = P(i, classBase + nc + k);
             }
 
             list.Add(new DetCandidate
@@ -599,6 +831,21 @@ public sealed class BrainYolo26Session : IDisposable
         y1 = cy - h * 0.5f;
         x2 = cx + w * 0.5f;
         y2 = cy + h * 0.5f;
+    }
+
+    /// <summary>Some ONNX exports use cx,cy,w,h in 0–1 on the letterboxed square instead of pixels.</summary>
+    private static void MaybeScaleNormalizedLetterboxBox(int netSize, ref float x1, ref float y1, ref float x2, ref float y2)
+    {
+        if (netSize <= 0)
+            return;
+        if (x2 > 1.5f || y2 > 1.5f)
+            return;
+        if (x1 < 0f || y1 < 0f)
+            return;
+        x1 *= netSize;
+        y1 *= netSize;
+        x2 *= netSize;
+        y2 *= netSize;
     }
 
     private static float ScoreValue(float raw) =>

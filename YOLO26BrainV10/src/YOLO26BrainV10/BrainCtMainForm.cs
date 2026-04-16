@@ -10,6 +10,24 @@ namespace YOLO26BrainV10
 
 public partial class BrainCtMainForm : Form
 {
+    private const int PreviewLeft = 12;
+    private const int PreviewGap = 8;
+    private const int PreviewTop = 262;
+    private const int PreviewTitleY = 214;
+    private const int ZoomBadgeWidth = 74;
+    private const int ZoomButtonWidth = 76;
+    private const int ListTopGap = 10;
+    private const int OuterPadding = 12;
+
+    private bool _syncingConfidenceUi;
+    private Panel? _inputScrollPanel;
+    private Panel? _outputScrollPanel;
+    private float _inputZoom = 1f;
+    private float _outputZoom = 1f;
+    private const float MinZoom = 0.2f;
+    private const float MaxZoom = 8.0f;
+    private const float ZoomStep = 1.2f;
+
     private BrainYolo26Session? _session;
     private string? _modelPath;
     private string? _lastSessionKey;
@@ -19,9 +37,12 @@ public partial class BrainCtMainForm : Form
     public BrainCtMainForm()
     {
         InitializeComponent();
+        EnsureZoomPanels();
         WireFormEvents();
         SetupDetectionListViewColumns();
         SetSaveCommandsEnabled(false);
+        ApplyRecommendedInferenceDefaults();
+        ApplyResponsiveLayout();
     }
 
     private void WireFormEvents()
@@ -34,12 +55,257 @@ public partial class BrainCtMainForm : Form
         menuDownloadSample.Click += MenuDownloadSample_Click;
         menuConvertPt.Click += MenuConvertPt_Click;
         menuOpenSampleFolder.Click += MenuOpenSampleFolder_Click;
+        menuRecommendedDefaults.Click += MenuRecommendedDefaults_Click;
         btnModel.Click += BtnModel_Click;
         btnImage.Click += BtnImage_Click;
         btnAnalyze.Click += BtnAnalyze_Click;
         btnSave.Click += BtnSave_Click;
         btnSaveCsv.Click += BtnSaveCsv_Click;
+        btnResetInputZoom.Click += (_, _) => ResetZoom(isInput: true);
+        btnResetOutputZoom.Click += (_, _) => ResetZoom(isInput: false);
         listDetections.SelectedIndexChanged += ListDetections_SelectedIndexChanged;
+        numConf.ValueChanged += ConfidenceUi_ValueChanged;
+        trackConf.ValueChanged += TrackConf_ValueChanged;
+        Resize += (_, _) => ApplyResponsiveLayout();
+        ClientSizeChanged += (_, _) => ApplyResponsiveLayout();
+    }
+
+    private void EnsureZoomPanels()
+    {
+        _inputScrollPanel = CreateImageScrollPanel();
+        _outputScrollPanel = CreateImageScrollPanel();
+
+        Controls.Add(_inputScrollPanel);
+        Controls.Add(_outputScrollPanel);
+        _inputScrollPanel.BringToFront();
+        _outputScrollPanel.BringToFront();
+
+        _inputScrollPanel.Controls.Add(picInput);
+        _outputScrollPanel.Controls.Add(picOutput);
+        picInput.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        picOutput.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        picInput.BorderStyle = BorderStyle.None;
+        picOutput.BorderStyle = BorderStyle.None;
+        picInput.MouseWheel += (_, e) => ChangeZoom(isInput: true, e.Delta > 0);
+        picOutput.MouseWheel += (_, e) => ChangeZoom(isInput: false, e.Delta > 0);
+        picInput.MouseEnter += (_, _) => _inputScrollPanel.Focus();
+        picOutput.MouseEnter += (_, _) => _outputScrollPanel.Focus();
+
+        picInput.Location = Point.Empty;
+        picOutput.Location = Point.Empty;
+    }
+
+    private Panel CreateImageScrollPanel()
+    {
+        var p = new Panel
+        {
+            AutoScroll = true,
+            BorderStyle = BorderStyle.Fixed3D,
+            BackColor = Color.FromArgb(32, 32, 36),
+            TabStop = true,
+        };
+        p.MouseWheel += ImagePanel_MouseWheel;
+        p.MouseEnter += (_, _) => p.Focus();
+        return p;
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        var availableWidth = ClientSize.Width - (OuterPadding * 2);
+        var splitWidth = Math.Max(180, (availableWidth - PreviewGap) / 2);
+        var rightX = PreviewLeft + splitWidth + PreviewGap;
+        var bottomY = ClientSize.Height - OuterPadding;
+
+        lblPreviewInTitle.Location = new Point(PreviewLeft, PreviewTitleY);
+        lblPreviewOutTitle.Location = new Point(rightX, PreviewTitleY);
+        lblInputZoomValue.Location = new Point(PreviewLeft + splitWidth - ZoomButtonWidth - ZoomBadgeWidth - 6, PreviewTitleY - 1);
+        lblOutputZoomValue.Location = new Point(rightX + (availableWidth - splitWidth - PreviewGap) - ZoomButtonWidth - ZoomBadgeWidth - 6, PreviewTitleY - 1);
+        btnResetInputZoom.Location = new Point(PreviewLeft + splitWidth - ZoomButtonWidth, PreviewTitleY - 2);
+        btnResetOutputZoom.Location = new Point(rightX + (availableWidth - splitWidth - PreviewGap) - ZoomButtonWidth, PreviewTitleY - 2);
+
+        var listHeight = Math.Max(96, listDetections.Height);
+        var listTop = Math.Max(PreviewTop + 140, bottomY - listHeight);
+        listDetections.Location = new Point(PreviewLeft, listTop);
+        listDetections.Size = new Size(availableWidth, bottomY - listTop);
+
+        var previewBottom = listTop - ListTopGap;
+        var previewHeight = Math.Max(120, previewBottom - PreviewTop);
+        if (_inputScrollPanel != null)
+        {
+            _inputScrollPanel.Location = new Point(PreviewLeft, PreviewTop);
+            _inputScrollPanel.Size = new Size(splitWidth, previewHeight);
+        }
+
+        if (_outputScrollPanel != null)
+        {
+            _outputScrollPanel.Location = new Point(rightX, PreviewTop);
+            _outputScrollPanel.Size = new Size(availableWidth - splitWidth - PreviewGap, previewHeight);
+        }
+
+        UpdateZoomLayout(picInput, _inputScrollPanel, _inputZoom);
+        UpdateZoomLayout(picOutput, _outputScrollPanel, _outputZoom);
+    }
+
+    private void ImagePanel_MouseWheel(object? sender, MouseEventArgs e)
+    {
+        if (sender is not Panel panel)
+            return;
+
+        if (panel == _inputScrollPanel)
+            ChangeZoom(isInput: true, e.Delta > 0);
+        else if (panel == _outputScrollPanel)
+            ChangeZoom(isInput: false, e.Delta > 0);
+    }
+
+    private void ChangeZoom(bool isInput, bool zoomIn)
+    {
+        if (isInput)
+        {
+            _inputZoom = Math.Clamp(_inputZoom * (zoomIn ? ZoomStep : 1f / ZoomStep), MinZoom, MaxZoom);
+            UpdateZoomLayout(picInput, _inputScrollPanel, _inputZoom);
+            UpdateZoomText(isInput: true);
+        }
+        else
+        {
+            _outputZoom = Math.Clamp(_outputZoom * (zoomIn ? ZoomStep : 1f / ZoomStep), MinZoom, MaxZoom);
+            UpdateZoomLayout(picOutput, _outputScrollPanel, _outputZoom);
+            UpdateZoomText(isInput: false);
+        }
+    }
+
+    private static void UpdateZoomLayout(PictureBox pic, Panel? panel, float zoom)
+    {
+        if (panel == null || pic.Image == null)
+            return;
+
+        var imgW = pic.Image.Width;
+        var imgH = pic.Image.Height;
+        if (imgW <= 0 || imgH <= 0)
+            return;
+
+        var cw = Math.Max(1, panel.ClientSize.Width);
+        var ch = Math.Max(1, panel.ClientSize.Height);
+        var fit = Math.Min((float)cw / imgW, (float)ch / imgH);
+        var scale = fit * zoom;
+        var drawW = Math.Max(1, (int)Math.Round(imgW * scale));
+        var drawH = Math.Max(1, (int)Math.Round(imgH * scale));
+
+        pic.SizeMode = PictureBoxSizeMode.StretchImage;
+        pic.Size = new Size(drawW, drawH);
+
+        if (zoom <= 1.0001f)
+        {
+            panel.AutoScroll = false;
+            panel.AutoScrollMinSize = Size.Empty;
+            var x = Math.Max(0, (cw - drawW) / 2);
+            var y = Math.Max(0, (ch - drawH) / 2);
+            pic.Location = new Point(x, y);
+        }
+        else
+        {
+            panel.AutoScroll = true;
+            panel.AutoScrollMinSize = new Size(drawW, drawH);
+            pic.Location = Point.Empty;
+        }
+    }
+
+    private void ResetZoom(bool isInput)
+    {
+        if (isInput)
+        {
+            _inputZoom = 1f;
+            UpdateZoomLayout(picInput, _inputScrollPanel, _inputZoom);
+            UpdateZoomText(isInput: true);
+        }
+        else
+        {
+            _outputZoom = 1f;
+            UpdateZoomLayout(picOutput, _outputScrollPanel, _outputZoom);
+            UpdateZoomText(isInput: false);
+        }
+    }
+
+    private void UpdateZoomText(bool isInput)
+    {
+        if (isInput)
+            lblInputZoomValue.Text = $"{Math.Round(_inputZoom * 100):0}%";
+        else
+            lblOutputZoomValue.Text = $"{Math.Round(_outputZoom * 100):0}%";
+    }
+
+    private void SyncTrackBarFromNumeric()
+    {
+        if (_syncingConfidenceUi)
+            return;
+        _syncingConfidenceUi = true;
+        try
+        {
+            var pct = (int)Math.Clamp((int)Math.Round((double)numConf.Value * 100), trackConf.Minimum, trackConf.Maximum);
+            if (trackConf.Value != pct)
+                trackConf.Value = pct;
+        }
+        finally
+        {
+            _syncingConfidenceUi = false;
+        }
+    }
+
+    private void SyncNumericFromTrackBar()
+    {
+        if (_syncingConfidenceUi)
+            return;
+        _syncingConfidenceUi = true;
+        try
+        {
+            var dec = Math.Round(trackConf.Value / 100m, 2, MidpointRounding.AwayFromZero);
+            dec = Math.Clamp(dec, numConf.Minimum, numConf.Maximum);
+            if (numConf.Value != dec)
+                numConf.Value = dec;
+        }
+        finally
+        {
+            _syncingConfidenceUi = false;
+        }
+    }
+
+    private void ConfidenceUi_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_syncingConfidenceUi)
+            return;
+        SyncTrackBarFromNumeric();
+    }
+
+    private void TrackConf_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_syncingConfidenceUi)
+            return;
+        SyncNumericFromTrackBar();
+    }
+
+    private void ApplyRecommendedInferenceDefaults()
+    {
+        txtLabels.Text = BrainCtInferenceDefaults.RecommendedClassLabelsComma;
+        var dec = (decimal)Math.Round(BrainCtInferenceDefaults.RecommendedMinConfidence, 2, MidpointRounding.AwayFromZero);
+        dec = Math.Clamp(dec, numConf.Minimum, numConf.Maximum);
+        numConf.Value = dec;
+        SyncTrackBarFromNumeric();
+    }
+
+    private void MenuRecommendedDefaults_Click(object? sender, EventArgs e)
+    {
+        var explain =
+            "다음 권장값을 적용합니다.\n\n" +
+            $"· 최소 신뢰도: {BrainCtInferenceDefaults.RecommendedMinConfidence:0.##} (Ultralytics YOLO predict 기본)\n" +
+            $"· 클래스: {BrainCtInferenceDefaults.RecommendedClassLabelsComma} (brain-tumor.yaml 순서)\n\n" +
+            "계속할까요?";
+        if (MessageBox.Show(this, explain, "추천 기본값", MessageBoxButtons.YesNo, MessageBoxIcon.Question) !=
+            DialogResult.Yes)
+            return;
+
+        ApplyRecommendedInferenceDefaults();
+        InvalidateSession();
+        lblStatus.Text =
+            $"추천 기본값 적용됨 · 신뢰도 {BrainCtInferenceDefaults.RecommendedMinConfidence:0.##} · 클래스 {BrainCtInferenceDefaults.RecommendedClassLabelsComma}";
     }
 
     private void SetupDetectionListViewColumns()
@@ -124,6 +390,7 @@ public partial class BrainCtMainForm : Form
             lblSlicePath.Text = "불러온 이미지가 없습니다.";
 
             picInput.Image = new Bitmap(path);
+            ResetZoom(isInput: true);
             _lastInputImagePath = path;
             lblSlicePath.Text = path;
             lblStatus.Text = $"이미지를 불러왔습니다: {Path.GetFileName(path)}";
@@ -319,9 +586,9 @@ public partial class BrainCtMainForm : Form
         var labels = ParseLabels();
         if (labels.Count == 0)
         {
-            MessageBox.Show(this, "클래스 이름을 쉼표로 하나 이상 입력하세요 (학습 시 데이터셋 순서와 동일).", "클래스 이름",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
+            labels = BrainCtInferenceDefaults.RecommendedClassLabelsComma
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
         }
 
         Bitmap? frame = null;
@@ -338,7 +605,7 @@ public partial class BrainCtMainForm : Form
         btnAnalyze.Enabled = false;
         btnModel.Enabled = false;
         btnImage.Enabled = false;
-        lblStatus.Text = "추론 중…";
+        SetInferenceProgressUi(true, "추론 중 — ONNX 세션 준비 및 검출 실행…");
 
         try
         {
@@ -349,10 +616,14 @@ public partial class BrainCtMainForm : Form
 
             picOutput.Image?.Dispose();
             picOutput.Image = annotated;
+            ResetZoom(isInput: false);
             _lastDetections = dets;
             SetSaveCommandsEnabled(true);
 
-            lblStatus.Text = $"{_session!.ExecutionProviderSummary} · 인스턴스 {dets.Count}건";
+            var modelName = Path.GetFileName(_modelPath);
+            var labelsSummary = string.Join(",", labels);
+            lblStatus.Text =
+                $"{_session!.ExecutionProviderSummary} · 모델 {modelName} · conf {conf:0.##} · labels [{labelsSummary}] · 인스턴스 {dets.Count}건";
 
             listDetections.BeginUpdate();
             listDetections.Items.Clear();
@@ -381,11 +652,22 @@ public partial class BrainCtMainForm : Form
         }
         finally
         {
+            SetInferenceProgressUi(false);
             frame?.Dispose();
             btnAnalyze.Enabled = true;
             btnModel.Enabled = true;
             btnImage.Enabled = true;
         }
+    }
+
+    private void SetInferenceProgressUi(bool active, string? statusText = null)
+    {
+        progressInference.Visible = active;
+        progressInference.Style = ProgressBarStyle.Marquee;
+        numConf.Enabled = !active;
+        trackConf.Enabled = !active;
+        if (statusText != null)
+            lblStatus.Text = statusText;
     }
 
     private void BtnSave_Click(object? sender, EventArgs e) => TrySaveResultImage();

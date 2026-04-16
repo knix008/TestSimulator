@@ -13,6 +13,7 @@ namespace YOLO26BrainV10
         private ToolStripMenuItem menuTools;
         private ToolStripMenuItem menuDownloadSample;
         private ToolStripMenuItem menuConvertPt;
+        private ToolStripMenuItem menuRecommendedDefaults;
         private ToolStripSeparator menuToolsSep;
         private ToolStripMenuItem menuOpenSampleFolder;
         private Label lblOnnxTitle;
@@ -24,13 +25,19 @@ namespace YOLO26BrainV10
         private Label lblLabels;
         private TextBox txtLabels;
         private Label lblConf;
+        private TrackBar trackConf;
         private NumericUpDown numConf;
         private Button btnAnalyze;
         private Button btnSave;
         private Button btnSaveCsv;
+        private ProgressBar progressInference;
         private Label lblStatus;
         private Label lblPreviewInTitle;
         private Label lblPreviewOutTitle;
+        private Button btnResetInputZoom;
+        private Button btnResetOutputZoom;
+        private Label lblInputZoomValue;
+        private Label lblOutputZoomValue;
         private PictureBox picInput;
         private PictureBox picOutput;
         private ListView listDetections;
@@ -54,6 +61,7 @@ namespace YOLO26BrainV10
             menuTools = new ToolStripMenuItem();
             menuDownloadSample = new ToolStripMenuItem();
             menuConvertPt = new ToolStripMenuItem();
+            menuRecommendedDefaults = new ToolStripMenuItem();
             menuToolsSep = new ToolStripSeparator();
             menuOpenSampleFolder = new ToolStripMenuItem();
             lblOnnxTitle = new Label();
@@ -65,17 +73,24 @@ namespace YOLO26BrainV10
             lblLabels = new Label();
             txtLabels = new TextBox();
             lblConf = new Label();
+            trackConf = new TrackBar();
             numConf = new NumericUpDown();
             btnAnalyze = new Button();
             btnSave = new Button();
             btnSaveCsv = new Button();
+            progressInference = new ProgressBar();
             lblStatus = new Label();
             lblPreviewInTitle = new Label();
             lblPreviewOutTitle = new Label();
+            btnResetInputZoom = new Button();
+            btnResetOutputZoom = new Button();
+            lblInputZoomValue = new Label();
+            lblOutputZoomValue = new Label();
             picInput = new PictureBox();
             picOutput = new PictureBox();
             listDetections = new ListView();
             menuStripMain.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)trackConf).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numConf).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picInput).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picOutput).BeginInit();
@@ -124,7 +139,7 @@ namespace YOLO26BrainV10
             // 
             // menuTools
             // 
-            menuTools.DropDownItems.AddRange(new ToolStripItem[] { menuDownloadSample, menuConvertPt, menuToolsSep, menuOpenSampleFolder });
+            menuTools.DropDownItems.AddRange(new ToolStripItem[] { menuDownloadSample, menuConvertPt, menuRecommendedDefaults, menuToolsSep, menuOpenSampleFolder });
             menuTools.Name = "menuTools";
             menuTools.Size = new Size(57, 20);
             menuTools.Text = "도구(&T)";
@@ -132,24 +147,30 @@ namespace YOLO26BrainV10
             // menuDownloadSample
             // 
             menuDownloadSample.Name = "menuDownloadSample";
-            menuDownloadSample.Size = new Size(266, 22);
+            menuDownloadSample.Size = new Size(233, 22);
             menuDownloadSample.Text = "뇌 CT 샘플 이미지 다운로드…";
             // 
             // menuConvertPt
             // 
             menuConvertPt.Name = "menuConvertPt";
-            menuConvertPt.Size = new Size(266, 22);
+            menuConvertPt.Size = new Size(233, 22);
             menuConvertPt.Text = "PyTorch(.pt)→ONNX 변환…";
+            // 
+            // menuRecommendedDefaults
+            // 
+            menuRecommendedDefaults.Name = "menuRecommendedDefaults";
+            menuRecommendedDefaults.Size = new Size(233, 22);
+            menuRecommendedDefaults.Text = "추천 기본값 적용(&R)";
             // 
             // menuToolsSep
             // 
             menuToolsSep.Name = "menuToolsSep";
-            menuToolsSep.Size = new Size(263, 6);
+            menuToolsSep.Size = new Size(230, 6);
             // 
             // menuOpenSampleFolder
             // 
             menuOpenSampleFolder.Name = "menuOpenSampleFolder";
-            menuOpenSampleFolder.Size = new Size(266, 22);
+            menuOpenSampleFolder.Size = new Size(233, 22);
             menuOpenSampleFolder.Text = "다운로드 폴더 열기";
             // 
             // lblOnnxTitle
@@ -172,6 +193,7 @@ namespace YOLO26BrainV10
             // lblOnnxPath
             // 
             lblOnnxPath.AutoEllipsis = true;
+            lblOnnxPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lblOnnxPath.Location = new Point(140, 56);
             lblOnnxPath.Name = "lblOnnxPath";
             lblOnnxPath.Size = new Size(289, 22);
@@ -199,6 +221,7 @@ namespace YOLO26BrainV10
             // lblSlicePath
             // 
             lblSlicePath.AutoEllipsis = true;
+            lblSlicePath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lblSlicePath.Location = new Point(559, 60);
             lblSlicePath.Name = "lblSlicePath";
             lblSlicePath.Size = new Size(336, 22);
@@ -216,6 +239,7 @@ namespace YOLO26BrainV10
             // 
             // txtLabels
             // 
+            txtLabels.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtLabels.Location = new Point(12, 108);
             txtLabels.Name = "txtLabels";
             txtLabels.PlaceholderText = "쉼표로 구분 (학습 데이터와 동일한 순서)";
@@ -225,60 +249,84 @@ namespace YOLO26BrainV10
             // 
             // lblConf
             // 
-            lblConf.Location = new Point(12, 142);
+            lblConf.Location = new Point(12, 138);
             lblConf.Name = "lblConf";
-            lblConf.Size = new Size(120, 18);
+            lblConf.Size = new Size(72, 28);
             lblConf.TabIndex = 9;
             lblConf.Text = "최소 신뢰도";
+            lblConf.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // trackConf
+            // 
+            trackConf.Location = new Point(86, 136);
+            trackConf.Maximum = 100;
+            trackConf.Minimum = 1;
+            trackConf.Name = "trackConf";
+            trackConf.Size = new Size(220, 45);
+            trackConf.TabIndex = 10;
+            trackConf.TickFrequency = 10;
+            trackConf.Value = 25;
             // 
             // numConf
             // 
             numConf.DecimalPlaces = 2;
-            numConf.Increment = new decimal(new int[] { 5, 0, 0, 131072 });
-            numConf.Location = new Point(96, 140);
+            numConf.Increment = new decimal(new int[] { 1, 0, 0, 131072 });
+            numConf.Location = new Point(312, 140);
             numConf.Maximum = new decimal(new int[] { 1, 0, 0, 0 });
             numConf.Minimum = new decimal(new int[] { 1, 0, 0, 131072 });
             numConf.Name = "numConf";
-            numConf.Size = new Size(56, 23);
-            numConf.TabIndex = 10;
+            numConf.Size = new Size(58, 23);
+            numConf.TabIndex = 11;
             numConf.Value = new decimal(new int[] { 25, 0, 0, 131072 });
             // 
             // btnAnalyze
             // 
-            btnAnalyze.Location = new Point(172, 138);
+            btnAnalyze.Location = new Point(378, 138);
             btnAnalyze.Name = "btnAnalyze";
             btnAnalyze.Size = new Size(96, 28);
-            btnAnalyze.TabIndex = 11;
+            btnAnalyze.TabIndex = 12;
             btnAnalyze.Text = "검출 실행";
             btnAnalyze.UseVisualStyleBackColor = true;
             // 
             // btnSave
             // 
             btnSave.Enabled = false;
-            btnSave.Location = new Point(278, 138);
+            btnSave.Location = new Point(480, 138);
             btnSave.Name = "btnSave";
             btnSave.Size = new Size(124, 28);
-            btnSave.TabIndex = 12;
+            btnSave.TabIndex = 13;
             btnSave.Text = "결과 이미지 저장…";
             btnSave.UseVisualStyleBackColor = true;
             // 
             // btnSaveCsv
             // 
             btnSaveCsv.Enabled = false;
-            btnSaveCsv.Location = new Point(412, 138);
+            btnSaveCsv.Location = new Point(612, 138);
             btnSaveCsv.Name = "btnSaveCsv";
             btnSaveCsv.Size = new Size(124, 28);
-            btnSaveCsv.TabIndex = 13;
+            btnSaveCsv.TabIndex = 14;
             btnSaveCsv.Text = "검출 CSV 저장…";
             btnSaveCsv.UseVisualStyleBackColor = true;
+            // 
+            // progressInference
+            // 
+            progressInference.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            progressInference.Location = new Point(12, 185);
+            progressInference.MarqueeAnimationSpeed = 35;
+            progressInference.Name = "progressInference";
+            progressInference.Size = new Size(1000, 14);
+            progressInference.Style = ProgressBarStyle.Marquee;
+            progressInference.TabIndex = 15;
+            progressInference.Visible = false;
             // 
             // lblStatus
             // 
             lblStatus.AutoEllipsis = true;
-            lblStatus.Location = new Point(12, 184);
+            lblStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lblStatus.Location = new Point(12, 208);
             lblStatus.Name = "lblStatus";
-            lblStatus.Size = new Size(1000, 71);
-            lblStatus.TabIndex = 14;
+            lblStatus.Size = new Size(1000, 45);
+            lblStatus.TabIndex = 16;
             lblStatus.Text = "준비됨 — 모델과 이미지를 선택한 뒤 [검출 실행]을 누르세요.";
             // 
             // lblPreviewInTitle
@@ -286,7 +334,7 @@ namespace YOLO26BrainV10
             lblPreviewInTitle.Location = new Point(12, 214);
             lblPreviewInTitle.Name = "lblPreviewInTitle";
             lblPreviewInTitle.Size = new Size(200, 18);
-            lblPreviewInTitle.TabIndex = 15;
+            lblPreviewInTitle.TabIndex = 17;
             lblPreviewInTitle.Text = "입력";
             // 
             // lblPreviewOutTitle
@@ -294,40 +342,85 @@ namespace YOLO26BrainV10
             lblPreviewOutTitle.Location = new Point(524, 214);
             lblPreviewOutTitle.Name = "lblPreviewOutTitle";
             lblPreviewOutTitle.Size = new Size(200, 18);
-            lblPreviewOutTitle.TabIndex = 16;
+            lblPreviewOutTitle.TabIndex = 18;
             lblPreviewOutTitle.Text = "검출 결과";
+            // 
+            // btnResetInputZoom
+            // 
+            btnResetInputZoom.Location = new Point(432, 210);
+            btnResetInputZoom.Name = "btnResetInputZoom";
+            btnResetInputZoom.Size = new Size(76, 24);
+            btnResetInputZoom.TabIndex = 19;
+            btnResetInputZoom.Text = "원래 크기";
+            btnResetInputZoom.UseVisualStyleBackColor = true;
+            // 
+            // btnResetOutputZoom
+            // 
+            btnResetOutputZoom.Location = new Point(936, 210);
+            btnResetOutputZoom.Name = "btnResetOutputZoom";
+            btnResetOutputZoom.Size = new Size(76, 24);
+            btnResetOutputZoom.TabIndex = 20;
+            btnResetOutputZoom.Text = "원래 크기";
+            btnResetOutputZoom.UseVisualStyleBackColor = true;
+            // 
+            // lblInputZoomValue
+            // 
+            lblInputZoomValue.BackColor = Color.FromArgb(48, 48, 32);
+            lblInputZoomValue.BorderStyle = BorderStyle.FixedSingle;
+            lblInputZoomValue.ForeColor = Color.Gold;
+            lblInputZoomValue.Location = new Point(350, 212);
+            lblInputZoomValue.Name = "lblInputZoomValue";
+            lblInputZoomValue.Size = new Size(74, 20);
+            lblInputZoomValue.TabIndex = 21;
+            lblInputZoomValue.Text = "100%";
+            lblInputZoomValue.TextAlign = ContentAlignment.MiddleCenter;
+            // 
+            // lblOutputZoomValue
+            // 
+            lblOutputZoomValue.BackColor = Color.FromArgb(48, 48, 32);
+            lblOutputZoomValue.BorderStyle = BorderStyle.FixedSingle;
+            lblOutputZoomValue.ForeColor = Color.Gold;
+            lblOutputZoomValue.Location = new Point(854, 212);
+            lblOutputZoomValue.Name = "lblOutputZoomValue";
+            lblOutputZoomValue.Size = new Size(74, 20);
+            lblOutputZoomValue.TabIndex = 22;
+            lblOutputZoomValue.Text = "100%";
+            lblOutputZoomValue.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // picInput
             // 
+            picInput.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Bottom;
             picInput.BackColor = Color.FromArgb(32, 32, 36);
             picInput.BorderStyle = BorderStyle.Fixed3D;
-            picInput.Location = new Point(12, 236);
+            picInput.Location = new Point(12, 262);
             picInput.Name = "picInput";
             picInput.Size = new Size(496, 392);
             picInput.SizeMode = PictureBoxSizeMode.Zoom;
-            picInput.TabIndex = 17;
+            picInput.TabIndex = 23;
             picInput.TabStop = false;
             // 
             // picOutput
             // 
+            picOutput.Anchor = AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             picOutput.BackColor = Color.FromArgb(32, 32, 36);
             picOutput.BorderStyle = BorderStyle.Fixed3D;
-            picOutput.Location = new Point(516, 236);
+            picOutput.Location = new Point(516, 262);
             picOutput.Name = "picOutput";
             picOutput.Size = new Size(496, 392);
             picOutput.SizeMode = PictureBoxSizeMode.Zoom;
-            picOutput.TabIndex = 18;
+            picOutput.TabIndex = 24;
             picOutput.TabStop = false;
             // 
             // listDetections
             // 
+            listDetections.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
             listDetections.FullRowSelect = true;
             listDetections.GridLines = true;
-            listDetections.Location = new Point(12, 634);
+            listDetections.Location = new Point(12, 664);
             listDetections.MultiSelect = false;
             listDetections.Name = "listDetections";
-            listDetections.Size = new Size(1000, 86);
-            listDetections.TabIndex = 19;
+            listDetections.Size = new Size(1000, 115);
+            listDetections.TabIndex = 25;
             listDetections.UseCompatibleStateImageBehavior = false;
             listDetections.View = View.Details;
             // 
@@ -335,7 +428,7 @@ namespace YOLO26BrainV10
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1024, 729);
+            ClientSize = new Size(1024, 791);
             Controls.Add(menuStripMain);
             Controls.Add(lblOnnxTitle);
             Controls.Add(btnModel);
@@ -346,13 +439,19 @@ namespace YOLO26BrainV10
             Controls.Add(lblLabels);
             Controls.Add(txtLabels);
             Controls.Add(lblConf);
+            Controls.Add(trackConf);
             Controls.Add(numConf);
             Controls.Add(btnAnalyze);
             Controls.Add(btnSave);
             Controls.Add(btnSaveCsv);
+            Controls.Add(progressInference);
             Controls.Add(lblStatus);
             Controls.Add(lblPreviewInTitle);
             Controls.Add(lblPreviewOutTitle);
+            Controls.Add(btnResetInputZoom);
+            Controls.Add(btnResetOutputZoom);
+            Controls.Add(lblInputZoomValue);
+            Controls.Add(lblOutputZoomValue);
             Controls.Add(picInput);
             Controls.Add(picOutput);
             Controls.Add(listDetections);
@@ -364,6 +463,7 @@ namespace YOLO26BrainV10
             Text = "YOLO26 뇌 CT 병변 검출";
             menuStripMain.ResumeLayout(false);
             menuStripMain.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)trackConf).EndInit();
             ((System.ComponentModel.ISupportInitialize)numConf).EndInit();
             ((System.ComponentModel.ISupportInitialize)picInput).EndInit();
             ((System.ComponentModel.ISupportInitialize)picOutput).EndInit();

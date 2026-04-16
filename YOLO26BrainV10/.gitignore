@@ -1,4 +1,11 @@
-samples/_cli_out/
+#samples/_cli_out/
+
+# Local training / export outputs (repo root)
+#/runs/
+#/models/
+
+# Last successful pipeline_train_brain.py run (local)
+#.pipeline_last.json
 
 # Visual Studio / .NET generated files
 .vs/

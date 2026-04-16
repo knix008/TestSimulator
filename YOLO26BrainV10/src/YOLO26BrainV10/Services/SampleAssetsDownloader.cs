@@ -13,9 +13,6 @@ internal static class SampleAssetsDownloader
     private const string BrainSampleImageUrl =
         "https://github.com/ultralytics/assets/releases/download/v0.0.0/brain-tumor-sample.jpg";
 
-    /// <summary>Ultralytics brain-tumor.yaml class order: 0 negative, 1 positive.</summary>
-    internal const string BrainTumorLabelsComma = "negative,positive";
-
     private static HttpClient CreateClient()
     {
         var h = new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(2) })
@@ -42,7 +39,7 @@ internal static class SampleAssetsDownloader
 
         await File.WriteAllTextAsync(attributionPath, AttributionText, cancellationToken).ConfigureAwait(false);
 
-        return new BrainCtSampleDownloadResult(imagePath, BrainTumorLabelsComma);
+        return new BrainCtSampleDownloadResult(imagePath, BrainCtInferenceDefaults.RecommendedClassLabelsComma);
     }
 
     private static async Task DownloadToFileAsync(
