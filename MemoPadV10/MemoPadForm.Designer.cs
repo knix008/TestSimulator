@@ -145,6 +145,7 @@ public partial class MemoPadForm
         FormBorderStyle = FormBorderStyle.None;
         Icon = (Icon)resources.GetObject("$this.Icon");
         Name = "MemoPadForm";
+        Padding = new Padding(8);
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Memo Pad";
         topBarPanel.ResumeLayout(false);

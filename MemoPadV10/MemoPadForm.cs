@@ -5,6 +5,18 @@ namespace MemoPadV10;
 
 public partial class MemoPadForm : Form
 {
+    private const int ResizeBorderThickness = 8;
+    private const int WmNcHitTest = 0x84;
+    private const int HtClient = 0x1;
+    private const int HtLeft = 0xA;
+    private const int HtRight = 0xB;
+    private const int HtTop = 0xC;
+    private const int HtTopLeft = 0xD;
+    private const int HtTopRight = 0xE;
+    private const int HtBottom = 0xF;
+    private const int HtBottomLeft = 0x10;
+    private const int HtBottomRight = 0x11;
+
     private readonly List<string> _memoItems = [];
     private readonly string _memoFilePath;
     private bool _dragging;
@@ -447,4 +459,66 @@ public partial class MemoPadForm : Form
         _dragging = false;
     }
 
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WmNcHitTest)
+        {
+            Point screenPoint = new(unchecked((short)(long)m.LParam), unchecked((short)((long)m.LParam >> 16)));
+            Point cursorPoint = PointToClient(screenPoint);
+            bool left = cursorPoint.X <= ResizeBorderThickness;
+            bool right = cursorPoint.X >= ClientSize.Width - ResizeBorderThickness;
+            bool top = cursorPoint.Y <= ResizeBorderThickness;
+            bool bottom = cursorPoint.Y >= ClientSize.Height - ResizeBorderThickness;
+
+            if (left && top)
+            {
+                m.Result = (IntPtr)HtTopLeft;
+                return;
+            }
+
+            if (right && top)
+            {
+                m.Result = (IntPtr)HtTopRight;
+                return;
+            }
+
+            if (left && bottom)
+            {
+                m.Result = (IntPtr)HtBottomLeft;
+                return;
+            }
+
+            if (right && bottom)
+            {
+                m.Result = (IntPtr)HtBottomRight;
+                return;
+            }
+
+            if (left)
+            {
+                m.Result = (IntPtr)HtLeft;
+                return;
+            }
+
+            if (right)
+            {
+                m.Result = (IntPtr)HtRight;
+                return;
+            }
+
+            if (top)
+            {
+                m.Result = (IntPtr)HtTop;
+                return;
+            }
+
+            if (bottom)
+            {
+                m.Result = (IntPtr)HtBottom;
+                return;
+            }
+        }
+
+        base.WndProc(ref m);
+    }
 }
