@@ -1,0 +1,19 @@
+# Build output
+**/bin/
+**/obj/
+
+# User/IDE files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.rsuser
+*.sln.docstates
+
+# Logs and temp files
+*.log
+*.tmp
+*.cache
+
+# Optional local env
+.env
