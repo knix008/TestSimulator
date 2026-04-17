@@ -1,0 +1,72 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+    Name="DCMViewer"
+    Manufacturer="TestSimulator"
+    Version="1.0.0"
+    UpgradeCode="A9EF6A81-43F8-4722-8E86-588021245C9A">
+
+    <SummaryInformation Description="DCMViewer Installer" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of DCMViewer is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="DaemonHammerIcon" SourceFile="..\DCMViewer\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="DaemonHammerIcon" />
+
+    <ui:WixUI Id="WixUI_Mondo" InstallDirectory="INSTALLFOLDER" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="DCMViewer" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="DCMViewer" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="MainFeature" Title="DCMViewer" Level="1" AllowAdvertise="no">
+      <ComponentGroupRef Id="AppFiles" />
+    </Feature>
+
+    <Feature Id="StartMenuShortcutFeature" Title="Start Menu shortcut" Description="Create a Start Menu shortcut." Level="1" AllowAdvertise="no">
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature" Title="Desktop shortcut" Description="Create a Desktop shortcut." Level="1" AllowAdvertise="no">
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="A596BA59-4943-42CC-8E78-30E247705AE2">
+      <Shortcut
+        Id="StartMenuShortcut"
+        Name="DCMViewer"
+        Target="[INSTALLFOLDER]DCMViewer.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Advertise="no"
+        Icon="DaemonHammerIcon"
+        IconIndex="0" />
+      <RemoveFolder Id="ApplicationProgramsFolderRemove" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\TestSimulator\DCMViewer" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="E1C4E807-8A91-45A8-BD30-DFA2E449D2A4">
+      <Shortcut
+        Id="DesktopAppShortcut"
+        Name="DCMViewer"
+        Target="[INSTALLFOLDER]DCMViewer.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Advertise="no"
+        Icon="DaemonHammerIcon"
+        IconIndex="0" />
+      <RegistryValue Root="HKCU" Key="Software\TestSimulator\DCMViewer" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>
