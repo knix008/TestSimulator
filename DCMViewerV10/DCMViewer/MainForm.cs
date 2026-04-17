@@ -16,6 +16,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        toolStripButtonInfo.Image = SystemIcons.Information.ToBitmap();
         panelScroll.ZoomWheel = OnImageMouseWheelZoom;
         pictureBoxImage.ZoomWheel = OnImageMouseWheelZoom;
     }
@@ -39,14 +40,14 @@ public partial class MainForm : Form
 
     private void ExitToolStripMenuItem_Click(object? sender, EventArgs e) => Close();
 
-    private void AboutToolStripMenuItem_Click(object? sender, EventArgs e)
+    private void AboutToolStripMenuItem_Click(object? sender, EventArgs e) => ShowProgramInfoDialog();
+
+    private void ToolStripButtonInfo_Click(object? sender, EventArgs e) => ShowProgramInfoDialog();
+
+    private void ShowProgramInfoDialog()
     {
-        MessageBox.Show(
-            this,
-            "DCMViewer — DICOM 및 일반 이미지 뷰어\n\nfo-dicom, fo-dicom.Codecs 사용",
-            Text,
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Information);
+        using var dlg = new ProgramInfoForm();
+        dlg.ShowDialog(this);
     }
 
     private void PanelScroll_Resize(object? sender, EventArgs e)

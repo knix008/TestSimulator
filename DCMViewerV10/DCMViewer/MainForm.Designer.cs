@@ -22,6 +22,7 @@ partial class MainForm
         exitToolStripMenuItem = new ToolStripMenuItem();
         helpToolStripMenuItem = new ToolStripMenuItem();
         aboutToolStripMenuItem = new ToolStripMenuItem();
+        toolStripButtonInfo = new ToolStripButton();
         statusStripMain = new StatusStrip();
         toolStripStatusLabelFile = new ToolStripStatusLabel();
         toolStripStatusLabelPatient = new ToolStripStatusLabel();
@@ -43,7 +44,7 @@ partial class MainForm
         // 
         // menuStripMain
         // 
-        menuStripMain.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, helpToolStripMenuItem });
+        menuStripMain.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, helpToolStripMenuItem, toolStripButtonInfo });
         menuStripMain.Location = new Point(0, 0);
         menuStripMain.Name = "menuStripMain";
         menuStripMain.Size = new Size(984, 24);
@@ -85,6 +86,16 @@ partial class MainForm
         aboutToolStripMenuItem.Size = new Size(123, 22);
         aboutToolStripMenuItem.Text = "정보(&A)...";
         aboutToolStripMenuItem.Click += AboutToolStripMenuItem_Click;
+        // 
+        // toolStripButtonInfo
+        // 
+        toolStripButtonInfo.Alignment = ToolStripItemAlignment.Right;
+        toolStripButtonInfo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        toolStripButtonInfo.ImageScaling = ToolStripItemImageScaling.None;
+        toolStripButtonInfo.Name = "toolStripButtonInfo";
+        toolStripButtonInfo.Size = new Size(28, 20);
+        toolStripButtonInfo.ToolTipText = "프로그램 정보";
+        toolStripButtonInfo.Click += ToolStripButtonInfo_Click;
         // 
         // statusStripMain
         // 
@@ -219,6 +230,7 @@ partial class MainForm
     private ToolStripMenuItem exitToolStripMenuItem;
     private ToolStripMenuItem helpToolStripMenuItem;
     private ToolStripMenuItem aboutToolStripMenuItem;
+    private ToolStripButton toolStripButtonInfo;
     private StatusStrip statusStripMain;
     private ToolStripStatusLabel toolStripStatusLabelFile;
     private ToolStripStatusLabel toolStripStatusLabelPatient;
