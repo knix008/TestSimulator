@@ -17,10 +17,17 @@ env/
 data/
 yolo_dataset/
 yolo_dataset_seg/
+yolo_dataset_det_public/
+yolo_dataset_seg_public/
+external_data/
 annotation/
 runs/
 yolo26_runs/
 *.cache
+inference_outputs*/
+positive_predictions*/
+box_processed_images*/
+box_processed_images_conf*/
 
 # Model and export files
 *.pt
@@ -29,6 +36,7 @@ yolo26_runs/
 
 # Secrets and local credentials
 kaggle.json
+kaggle/
 .env
 .env.*
 
