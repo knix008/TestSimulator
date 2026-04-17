@@ -1,0 +1,36 @@
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Dataset and experiment artifacts
+data/
+yolo_dataset/
+runs/
+yolo26_runs/
+
+# Model and export files
+*.pt
+*.onnx
+*.engine
+
+# Secrets and local credentials
+kaggle.json
+.env
+.env.*
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
