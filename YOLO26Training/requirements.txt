@@ -5,3 +5,7 @@ pandas
 pyyaml
 scikit-learn
 ultralytics
+# CUDA 12.8 PyTorch wheels
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision
