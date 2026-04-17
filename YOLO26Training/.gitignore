@@ -28,7 +28,7 @@ yolo26_runs/
 *.engine
 
 # Secrets and local credentials
-#kaggle.json
+kaggle.json
 .env
 .env.*
 

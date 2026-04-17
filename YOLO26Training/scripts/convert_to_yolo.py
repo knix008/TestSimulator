@@ -1,4 +1,5 @@
 import os
+import shutil
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -29,7 +30,8 @@ def convert_to_yolo():
             base = os.path.splitext(os.path.basename(row['jpg']))[0]
             out_img = os.path.join(YOLO_ROOT, f'images/{split}/{base}.jpg')
             out_label = os.path.join(YOLO_ROOT, f'labels/{split}/{base}.txt')
-            os.system(f'cp "{img_path}" "{out_img}"')
+            # Use Python copy for cross-platform compatibility (Windows/Linux/macOS).
+            shutil.copy2(img_path, out_img)
             with open(out_label, 'w') as f:
                 f.write(yolo_label)
 

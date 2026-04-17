@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import shutil
+import torch
 from ultralytics import YOLO
 
 def validate_detection_labels(labels_dir: Path) -> None:
@@ -56,7 +57,7 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=None, help="Training epochs (default: detect=30, segment=50)")
     parser.add_argument("--imgsz", type=int, default=640, help="Image size")
     parser.add_argument("--batch", type=int, default=8, help="Batch size")
-    parser.add_argument("--device", type=str, default="cpu", help="Training device (e.g. cpu, 0)")
+    parser.add_argument("--device", type=str, default="0", help="Training device (e.g. 0, 0,1)")
     parser.add_argument("--workers", type=int, default=4, help="Dataloader workers")
     parser.add_argument("--patience", type=int, default=20, help="Early stopping patience")
     parser.add_argument("--project", type=str, default="yolo26_runs", help="Project directory name")
@@ -81,6 +82,11 @@ def main() -> None:
         default_onnx_name = "yolo26-brain-ct-seg.onnx"
 
     epochs = args.epochs if args.epochs is not None else recommended_epochs[args.task]
+    if args.device != "cpu" and not torch.cuda.is_available():
+        raise RuntimeError(
+            "GPU training requested, but CUDA is not available. "
+            "Check NVIDIA driver/CUDA-enabled PyTorch installation."
+        )
 
     model = YOLO(model_name)
 
@@ -93,7 +99,7 @@ def main() -> None:
         device=args.device,
         workers=args.workers,
         patience=args.patience,
-        amp=False,        # CPU에서는 mixed precision 비활성
+        amp=(args.device != "cpu"),
         project=args.project,
         name=args.name,
         exist_ok=True

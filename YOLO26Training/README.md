@@ -31,6 +31,22 @@ bash setup.sh
 source venv/bin/activate
 ```
 
+Windows PowerShell:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install --upgrade pip
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### GPU/CUDA quick check
+
+Run this before training:
+
+```powershell
+.\venv\Scripts\python.exe scripts\check_cuda.py
+```
+
 ## 2) Kaggle Credential
 
 Put your Kaggle API key in `kaggle.json` in project root.
@@ -55,10 +71,22 @@ Runs end-to-end:
 ./run_detection_pipeline.sh
 ```
 
+Windows PowerShell:
+
+```powershell
+.\run_detection_pipeline.ps1
+```
+
 Optional args:
 
 ```bash
 ./run_detection_pipeline.sh <epochs> <run_name>
+```
+
+PowerShell args:
+
+```powershell
+.\run_detection_pipeline.ps1 -Epochs 30 -RunName ct_brain_det_auto -Device 0
 ```
 
 Defaults:
@@ -110,6 +138,10 @@ python scripts/train_yolo26.py --task detect --data yolo_data_det.yaml --model y
 python scripts/train_yolo26.py --task segment --data yolo_data_seg.yaml --model yolo26-seg.yaml
 ```
 
+If `yolo26.yaml` (or `yolo26-seg.yaml`) is not present in your environment, replace `--model` with an available Ultralytics model (for example `yolo11n.pt`) or provide your custom YOLO26 model yaml/weights path.
+
+GPU training is the default (`--device 0`). If CUDA is unavailable, training exits with an explicit error.
+
 Useful args:
 
 - `--epochs` (default: detect=30, segment=50)
@@ -133,6 +165,48 @@ Exported ONNX:
 
 - `models/yolo26-brain-ct-det.onnx`
 - `models/yolo26-brain-ct-seg.onnx`
+
+## 7) Inference (Detection + Segmentation Visualization)
+
+Run prediction on a single CT image or a folder, and save visualized outputs.
+
+PowerShell example:
+
+```powershell
+.\venv\Scripts\python.exe scripts\infer_ct.py `
+  --source ".\data\files\some_ct_image.jpg" `
+  --detect-model "runs/detect/yolo26_runs/ct_brain_det_gpu/weights/best.pt" `
+  --seg-model "runs/segment/yolo26_runs/ct_brain_seg_gpu/weights/best.pt" `
+  --output-dir "inference_outputs" `
+  --device 0
+```
+
+Output folders:
+
+- `inference_outputs/detection`
+- `inference_outputs/segmentation`
+
+You can also pass a directory to `--source` to run batch inference on multiple CT images.
+
+### Collect only positive predictions
+
+If you want only images where prediction exists:
+
+```powershell
+.\venv\Scripts\python.exe scripts\collect_positive_predictions.py `
+  --source ".\data" `
+  --detect-model "runs/detect/yolo26_runs/ct_brain_det_gpu/weights/best.pt" `
+  --seg-model "runs/segment/yolo26_runs/ct_brain_seg_gpu/weights/best.pt" `
+  --output-dir "positive_predictions" `
+  --device 0
+```
+
+Output structure:
+
+- `positive_predictions/detection_positive/raw`
+- `positive_predictions/detection_positive/vis`
+- `positive_predictions/segmentation_positive/raw`
+- `positive_predictions/segmentation_positive/vis`
 
 ## Notes
 
