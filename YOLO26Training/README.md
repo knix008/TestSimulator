@@ -48,6 +48,9 @@ python download_kaggle_ct.py
 python convert_to_yolo.py
 ```
 
+> `convert_to_yolo.py` currently creates placeholder full-image polygons.
+> This is useful for pipeline tests only, not for real clinical segmentation performance.
+
 Output directories:
 
 - `yolo_dataset/images/train`
@@ -68,6 +71,18 @@ Default behavior in `train_yolo26.py`:
 - trains model
 - exports `best.pt` to ONNX automatically
 
+### Quick test run (5 epochs)
+
+```bash
+python -c "from ultralytics import YOLO; m=YOLO('yolo26-seg.yaml'); m.train(data='yolo_data.yaml', epochs=5, imgsz=640, batch=8, device='cpu', workers=4, patience=5, amp=False, project='yolo26_runs', name='ct_brain_seg_epoch5', exist_ok=True)"
+```
+
+### ONNX export (manual)
+
+```bash
+python -c "from ultralytics import YOLO; m=YOLO('runs/segment/yolo26_runs/ct_brain_seg_epoch5/weights/best.pt'); print(m.export(format='onnx', imgsz=640, dynamic=True, simplify=True))"
+```
+
 ## 6) Output
 
 Training outputs are saved under:
@@ -79,6 +94,18 @@ Key files:
 - `weights/best.pt`
 - `weights/last.pt`
 - `weights/best.onnx`
+
+## End-to-end Pipeline
+
+Run the full flow from scratch:
+
+```bash
+python download_kaggle_ct.py
+python convert_to_yolo.py
+python train_yolo26.py
+```
+
+If you trained with a custom run name, ONNX will be inside that run's `weights` directory.
 
 ## Notes
 

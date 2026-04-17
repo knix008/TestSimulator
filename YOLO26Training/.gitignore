@@ -16,8 +16,10 @@ env/
 # Dataset and experiment artifacts
 data/
 yolo_dataset/
+annotation/
 runs/
 yolo26_runs/
+*.cache
 
 # Model and export files
 *.pt
@@ -34,3 +36,6 @@ kaggle.json
 .idea/
 .DS_Store
 Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/

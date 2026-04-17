@@ -1,4 +1,6 @@
+import argparse
 from pathlib import Path
+import shutil
 from ultralytics import YOLO
 
 def validate_segmentation_labels(labels_dir: Path) -> None:
@@ -23,7 +25,18 @@ def validate_segmentation_labels(labels_dir: Path) -> None:
                     f"Invalid line in {label_file}: '{line}'"
                 )
 
-def main():
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Train YOLO26 segmentation and export ONNX.")
+    parser.add_argument("--epochs", type=int, default=50, help="Training epochs")
+    parser.add_argument("--imgsz", type=int, default=640, help="Image size")
+    parser.add_argument("--batch", type=int, default=8, help="Batch size")
+    parser.add_argument("--device", type=str, default="cpu", help="Training device (e.g. cpu, 0)")
+    parser.add_argument("--workers", type=int, default=4, help="Dataloader workers")
+    parser.add_argument("--patience", type=int, default=20, help="Early stopping patience")
+    parser.add_argument("--project", type=str, default="yolo26_runs", help="Project directory name")
+    parser.add_argument("--name", type=str, default="ct_brain_seg_exp", help="Run name")
+    args = parser.parse_args()
+
     data_yaml = Path("yolo_data.yaml")
     if not data_yaml.exists():
         raise FileNotFoundError(f"Dataset config not found: {data_yaml.resolve()}")
@@ -37,27 +50,34 @@ def main():
     # 학습
     results = model.train(
         data=str(data_yaml),
-        epochs=50,
-        imgsz=640,
-        batch=8,          # CPU 환경에서 메모리/속도 균형
-        device="cpu",     # 현재 CUDA 비활성 환경
-        workers=4,
-        patience=20,      # 개선 없으면 조기 종료
+        epochs=args.epochs,
+        imgsz=args.imgsz,
+        batch=args.batch,
+        device=args.device,
+        workers=args.workers,
+        patience=args.patience,
         amp=False,        # CPU에서는 mixed precision 비활성
-        project="yolo26_runs",
-        name="ct_brain_seg_exp",
+        project=args.project,
+        name=args.name,
         exist_ok=True
     )
 
     # 학습 완료 후 best.pt를 ONNX로 export
-    save_dir = Path(getattr(results, "save_dir", "runs/segment/yolo26_runs/ct_brain_seg_exp"))
+    save_dir = Path(getattr(results, "save_dir", f"runs/segment/{args.project}/{args.name}"))
     best_pt = save_dir / "weights" / "best.pt"
     if not best_pt.exists():
         raise FileNotFoundError(f"Trained weight not found: {best_pt}")
 
     export_model = YOLO(str(best_pt))
-    export_path = export_model.export(format="onnx", imgsz=640, dynamic=True, simplify=True)
-    print(f"ONNX export completed: {export_path}")
+    export_path = Path(str(export_model.export(format="onnx", imgsz=640, dynamic=True, simplify=True)))
+    if not export_path.exists():
+        raise FileNotFoundError(f"Exported ONNX not found: {export_path}")
+
+    models_dir = Path("models")
+    models_dir.mkdir(parents=True, exist_ok=True)
+    fixed_onnx_path = models_dir / "yolo26-brain-ct-seg.onnx"
+    shutil.copy2(export_path, fixed_onnx_path)
+    print(f"ONNX export completed: {fixed_onnx_path.resolve()}")
 
 if __name__ == '__main__':
     main()
