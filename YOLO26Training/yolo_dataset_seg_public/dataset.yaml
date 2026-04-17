@@ -1,0 +1,5 @@
+path: D:\Home\Projects\TestSimulator\YOLO26Training\yolo_dataset_seg_public
+train: images/train
+val: images/val
+names:
+  0: hemorrhage

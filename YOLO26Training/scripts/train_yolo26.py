@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 import shutil
 import torch
+import yaml
 from ultralytics import YOLO
 
 def validate_detection_labels(labels_dir: Path) -> None:
@@ -67,16 +68,18 @@ def main() -> None:
     data_yaml = Path(args.data)
     if not data_yaml.exists():
         raise FileNotFoundError(f"Dataset config not found: {data_yaml.resolve()}")
+    data_cfg = yaml.safe_load(data_yaml.read_text(encoding="utf-8")) or {}
+    data_root = Path(data_cfg.get("path", data_yaml.parent))
+    if not data_root.is_absolute():
+        data_root = (data_yaml.parent / data_root).resolve()
 
     if args.task == "detect":
-        labels_root = Path("yolo_dataset/labels/train")
+        labels_root = data_root / "labels" / "train"
         validate_detection_labels(labels_root)
         model_name = args.model or "yolo26.yaml"
         default_onnx_name = "yolo26-brain-ct-det.onnx"
     else:
-        labels_root = Path("yolo_dataset_seg/labels/train")
-        if not labels_root.exists():
-            labels_root = Path("yolo_dataset/labels/train")
+        labels_root = data_root / "labels" / "train"
         validate_segmentation_labels(labels_root)
         model_name = args.model or "yolo26-seg.yaml"
         default_onnx_name = "yolo26-brain-ct-seg.onnx"

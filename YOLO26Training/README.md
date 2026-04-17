@@ -229,3 +229,64 @@ To get meaningful segmentation quality:
 4. Replace labels in `yolo_dataset_seg/labels/train` and `yolo_dataset_seg/labels/val`
 
 See `ANNOTATION_GUIDE.md` for details.
+
+## 8) Use Public NIfTI CT Segmentation Datasets
+
+If you download a public dataset with paired NIfTI volumes (`ct` and `mask`) such as CT-ICH / INSTANCE / HemSeg, convert it to YOLO segmentation format with:
+
+```powershell
+.\venv\Scripts\python.exe scripts\convert_nifti_ct_to_yolo_seg.py `
+  --ct-dir ".\external_data\ct_scans" `
+  --mask-dir ".\external_data\masks" `
+  --output-root "yolo_dataset_seg_real" `
+  --class-id 0 `
+  --class-name "hemorrhage"
+```
+
+Before conversion, run a quick pair/quality check:
+
+```powershell
+.\venv\Scripts\python.exe scripts\check_nifti_pairs.py `
+  --ct-dir ".\external_data\ct_scans" `
+  --mask-dir ".\external_data\masks"
+```
+
+Outputs:
+
+- `yolo_dataset_seg_real/images/train`
+- `yolo_dataset_seg_real/images/val`
+- `yolo_dataset_seg_real/labels/train`
+- `yolo_dataset_seg_real/labels/val`
+- `yolo_dataset_seg_real/dataset.yaml`
+
+Then train segmentation with real labels:
+
+```powershell
+.\venv\Scripts\python.exe scripts\train_yolo26.py `
+  --task segment `
+  --data "yolo_dataset_seg_real/dataset.yaml" `
+  --model "yolo26-seg.yaml" `
+  --name "ct_seg_real_labels" `
+  --device 0
+```
+
+### Fully automated NIfTI segmentation pipeline
+
+PowerShell (Windows):
+
+```powershell
+.\run_nifti_seg_pipeline.ps1 `
+  -CtDir ".\external_data\ct_ich\ct_scans" `
+  -MaskDir ".\external_data\ct_ich\masks" `
+  -Epochs 50 `
+  -RunName "ct_seg_real_labels" `
+  -Device 0 `
+  -RunInference `
+  -InferenceSource ".\data"
+```
+
+Bash (Linux/macOS):
+
+```bash
+./run_nifti_seg_pipeline.sh ./external_data/ct_ich/ct_scans ./external_data/ct_ich/masks 50 ct_seg_real_labels 0
+```

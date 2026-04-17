@@ -1,4 +1,5 @@
 kaggle
+nibabel
 opencv-python
 pandas
 pyyaml
