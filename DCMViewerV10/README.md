@@ -18,6 +18,20 @@ dotnet build
 dotnet run
 ```
 
+## Release + MSI 설치 파일 생성
+
+Release 빌드를 실행하면 자동으로 publish 후 WiX 기반 MSI를 생성합니다.
+
+```powershell
+cd DCMViewer
+dotnet build -c Release
+```
+
+생성 위치:
+
+- 앱 publish 결과물: `DCMViewer/bin/Release/net8.0-windows/win-x64/publish`
+- 설치 파일(MSI): `DCMViewer.Installer/bin/x64/Release/DCMViewer.Installer.msi`
+
 ## Sample DCM 파일 다운로드 방법
 
 프로젝트 루트에 `samples` 폴더를 만들고, 공개 샘플 DICOM 파일을 다운로드합니다.

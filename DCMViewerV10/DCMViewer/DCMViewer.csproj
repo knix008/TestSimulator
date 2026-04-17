@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <CreateInstaller Condition="'$(CreateInstaller)' == '' and '$(Configuration)' == 'Release'">true</CreateInstaller>
+    <InstallerPublishDir>$(MSBuildProjectDirectory)\bin\$(Configuration)\net8.0-windows\win-x64\publish</InstallerPublishDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,5 +16,23 @@
     <PackageReference Include="fo-dicom.Codecs" Version="5.16.7" />
     <PackageReference Include="fo-dicom.Imaging.Desktop" Version="5.2.6" />
   </ItemGroup>
+
+  <Target Name="BuildMsiInstaller"
+          AfterTargets="Build"
+          Condition="'$(CreateInstaller)' == 'true' and '$(Configuration)' == 'Release'">
+    <Message Text="Publishing app for MSI packaging..." Importance="high" />
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=false;CreateInstaller=false" />
+
+    <MSBuild Projects="..\DCMViewer.Installer\DCMViewer.Installer.wixproj"
+             Targets="Restore"
+             Properties="Configuration=$(Configuration);Platform=x64" />
+
+    <Message Text="Building WiX MSI installer..." Importance="high" />
+    <MSBuild Projects="..\DCMViewer.Installer\DCMViewer.Installer.wixproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);Platform=x64;PublishDir=$(InstallerPublishDir)" />
+  </Target>
 
 </Project>
