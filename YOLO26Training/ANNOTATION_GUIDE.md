@@ -6,7 +6,7 @@ This dataset does not include lesion masks, so you need to create segmentation l
 
 ```bash
 source venv/bin/activate
-python prepare_annotation_subset.py
+python scripts/prepare_annotation_subset.py
 ```
 
 This creates:
@@ -30,8 +30,8 @@ This creates:
 
 After export, put files into:
 
-- `yolo_dataset/labels/train`
-- `yolo_dataset/labels/val`
+- `yolo_dataset_seg/labels/train`
+- `yolo_dataset_seg/labels/val`
 
 Each label line must look like:
 
@@ -44,7 +44,7 @@ Coordinates must be normalized to `[0, 1]`.
 ## 4) Train segmentation model
 
 ```bash
-python train_yolo26.py
+python scripts/train_yolo26.py --task segment --data yolo_data_seg.yaml --model yolo26-seg.yaml
 ```
 
 The training script already validates segmentation label format before starting.

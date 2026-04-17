@@ -1,20 +1,28 @@
 # YOLO26 Brain CT Training
 
-This project trains an Ultralytics YOLO26 model on Brain CT data for 3 classes:
+This project trains Ultralytics YOLO26 for Brain CT classes:
 
 - aneurysm
 - cancer
 - tumor
 
-It currently supports a segmentation-oriented pipeline and ONNX export after training.
+It now provides **two separate pipelines**:
+
+1. Detection pipeline
+2. Segmentation pipeline (auto-generated from detection labels)
+
+Both pipelines export ONNX with different final file names.
 
 ## Project Files
 
-- `download_kaggle_ct.py`: download dataset from Kaggle
-- `convert_to_yolo.py`: convert dataset into YOLO segmentation label format
-- `prepare_annotation_subset.py`: prepare starter images for manual mask labeling
-- `yolo_data.yaml`: dataset config for Ultralytics
-- `train_yolo26.py`: train YOLO26 segmentation model and export ONNX
+- `scripts/download_kaggle_ct.py`: download dataset from Kaggle
+- `scripts/convert_to_yolo.py`: build YOLO **detection** dataset (`yolo_dataset`)
+- `scripts/auto_label_seg_from_detection.py`: convert detection labels to pseudo segmentation labels (`yolo_dataset_seg`)
+- `scripts/train_yolo26.py`: task-based trainer (`detect` or `segment`) + ONNX export
+- `run_detection_pipeline.sh`: detection-only full pipeline
+- `run_segmentation_pipeline.sh`: segmentation-only full pipeline
+- `yolo_data_det.yaml`: detection dataset config
+- `yolo_data_seg.yaml`: segmentation dataset config
 
 ## 1) Setup
 
@@ -27,8 +35,6 @@ source venv/bin/activate
 
 Put your Kaggle API key in `kaggle.json` in project root.
 
-Example:
-
 ```json
 {
   "username": "YOUR_KAGGLE_USERNAME",
@@ -36,95 +42,116 @@ Example:
 }
 ```
 
-## 3) Download Dataset
+## 3) Detection Pipeline (Standalone)
+
+Runs end-to-end:
+
+1. download dataset
+2. convert to detection labels
+3. train detection
+4. export detection ONNX
 
 ```bash
-python download_kaggle_ct.py
+./run_detection_pipeline.sh
 ```
 
-## 4) Convert to YOLO Format (Segmentation)
+Optional args:
 
 ```bash
-python convert_to_yolo.py
+./run_detection_pipeline.sh <epochs> <run_name>
 ```
 
-> `convert_to_yolo.py` currently creates placeholder full-image polygons.
-> This is useful for pipeline tests only, not for real clinical segmentation performance.
+Defaults:
 
-Output directories:
+- epochs: `30`
+- run name: `ct_brain_det_auto`
 
-- `yolo_dataset/images/train`
-- `yolo_dataset/images/val`
-- `yolo_dataset/labels/train`
-- `yolo_dataset/labels/val`
+Final ONNX:
 
-## 5) Train Segmentation Model
+- `models/yolo26-brain-ct-det.onnx`
+
+## 4) Segmentation Pipeline (Standalone)
+
+Runs end-to-end:
+
+1. auto-generate pseudo segmentation labels from detection labels
+2. train segmentation
+3. export segmentation ONNX
 
 ```bash
-python train_yolo26.py
+./run_segmentation_pipeline.sh
 ```
 
-Default behavior in `train_yolo26.py`:
-
-- uses `yolo26-seg.yaml`
-- validates segmentation label format before training
-- trains model
-- exports `best.pt` to ONNX automatically
-
-### Quick test run (5 epochs)
+Optional args:
 
 ```bash
-python -c "from ultralytics import YOLO; m=YOLO('yolo26-seg.yaml'); m.train(data='yolo_data.yaml', epochs=5, imgsz=640, batch=8, device='cpu', workers=4, patience=5, amp=False, project='yolo26_runs', name='ct_brain_seg_epoch5', exist_ok=True)"
+./run_segmentation_pipeline.sh <epochs> <run_name>
 ```
 
-### ONNX export (manual)
+Defaults:
+
+- epochs: `50`
+- run name: `ct_brain_seg_auto`
+
+Prerequisite:
+
+- `yolo_dataset/labels/train` must exist (run detection pipeline first)
+
+Final ONNX:
+
+- `models/yolo26-brain-ct-seg.onnx`
+
+## 5) Direct Training Command (Advanced)
+
+You can call the trainer directly:
 
 ```bash
-python -c "from ultralytics import YOLO; m=YOLO('runs/segment/yolo26_runs/ct_brain_seg_epoch5/weights/best.pt'); print(m.export(format='onnx', imgsz=640, dynamic=True, simplify=True))"
+python scripts/train_yolo26.py --task detect --data yolo_data_det.yaml --model yolo26.yaml
+python scripts/train_yolo26.py --task segment --data yolo_data_seg.yaml --model yolo26-seg.yaml
 ```
 
-## 6) Output
+Useful args:
 
-Training outputs are saved under:
+- `--epochs` (default: detect=30, segment=50)
+- `--name`
+- `--project`
+- `--onnx-name`
 
-- `runs/segment/yolo26_runs/ct_brain_seg_exp`
+## 6) Outputs
 
-Key files:
+Detection run artifacts:
 
-- `weights/best.pt`
-- `weights/last.pt`
-- `weights/best.onnx`
+- `runs/detect/yolo26_runs/<det_run_name>/weights/best.pt`
+- `runs/detect/yolo26_runs/<det_run_name>/weights/last.pt`
 
-## End-to-end Pipeline
+Segmentation run artifacts:
 
-Run the full flow from scratch:
+- `runs/segment/yolo26_runs/<seg_run_name>/weights/best.pt`
+- `runs/segment/yolo26_runs/<seg_run_name>/weights/last.pt`
 
-```bash
-python download_kaggle_ct.py
-python convert_to_yolo.py
-python train_yolo26.py
-```
+Exported ONNX:
 
-If you trained with a custom run name, ONNX will be inside that run's `weights` directory.
+- `models/yolo26-brain-ct-det.onnx`
+- `models/yolo26-brain-ct-seg.onnx`
 
 ## Notes
 
-- Segmentation quality depends on true mask/polygon annotations.
-- If labels are box-only format (`class cx cy w h`), segmentation training is not suitable.
-- ONNX export requires `onnx`, `onnxruntime`, and `onnxslim` (auto-installed by Ultralytics if missing).
+- Current segmentation labels are auto-generated from detection boxes (rectangle polygons), so segmentation accuracy is limited.
+- ONNX export uses `onnx`, `onnxruntime`, and `onnxslim` (auto-installed by Ultralytics if missing).
+- For real segmentation performance, replace pseudo labels with true lesion masks/polygons.
 
-## Real Segmentation Labels (Important)
+## Real Segmentation Labels (Recommended)
 
-The downloaded Kaggle dataset is classification-oriented and does not contain lesion masks.
+The Kaggle dataset used here is classification-oriented and does not include lesion masks.
 
-To get real segmentation performance:
+To get meaningful segmentation quality:
 
 1. Prepare annotation subset:
    ```bash
-   python prepare_annotation_subset.py
+   python scripts/prepare_annotation_subset.py
    ```
-2. Annotate polygon masks in CVAT (or Label Studio)
-3. Export as Ultralytics YOLO Segmentation
-4. Replace `yolo_dataset/labels/train` and `yolo_dataset/labels/val` with real labels
+2. Annotate lesion polygons in CVAT/Label Studio
+3. Export as Ultralytics YOLO Segmentation format
+4. Replace labels in `yolo_dataset_seg/labels/train` and `yolo_dataset_seg/labels/val`
 
-See `ANNOTATION_GUIDE.md` for the full workflow.
+See `ANNOTATION_GUIDE.md` for details.

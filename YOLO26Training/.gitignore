@@ -16,6 +16,7 @@ env/
 # Dataset and experiment artifacts
 data/
 yolo_dataset/
+yolo_dataset_seg/
 annotation/
 runs/
 yolo26_runs/
@@ -27,7 +28,7 @@ yolo26_runs/
 *.engine
 
 # Secrets and local credentials
-kaggle.json
+#kaggle.json
 .env
 .env.*
 
