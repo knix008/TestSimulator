@@ -12,6 +12,7 @@ It currently supports a segmentation-oriented pipeline and ONNX export after tra
 
 - `download_kaggle_ct.py`: download dataset from Kaggle
 - `convert_to_yolo.py`: convert dataset into YOLO segmentation label format
+- `prepare_annotation_subset.py`: prepare starter images for manual mask labeling
 - `yolo_data.yaml`: dataset config for Ultralytics
 - `train_yolo26.py`: train YOLO26 segmentation model and export ONNX
 
@@ -84,3 +85,19 @@ Key files:
 - Segmentation quality depends on true mask/polygon annotations.
 - If labels are box-only format (`class cx cy w h`), segmentation training is not suitable.
 - ONNX export requires `onnx`, `onnxruntime`, and `onnxslim` (auto-installed by Ultralytics if missing).
+
+## Real Segmentation Labels (Important)
+
+The downloaded Kaggle dataset is classification-oriented and does not contain lesion masks.
+
+To get real segmentation performance:
+
+1. Prepare annotation subset:
+   ```bash
+   python prepare_annotation_subset.py
+   ```
+2. Annotate polygon masks in CVAT (or Label Studio)
+3. Export as Ultralytics YOLO Segmentation
+4. Replace `yolo_dataset/labels/train` and `yolo_dataset/labels/val` with real labels
+
+See `ANNOTATION_GUIDE.md` for the full workflow.
