@@ -3,7 +3,7 @@ Gradio: upload a (positive) brain MRI image → **모든 파일(업로드 복사
 
 검출은 **ONNX** 모델만 사용합니다 (Ultralytics `YOLO("*.onnx", task="detect")`).
 **ONNX 파일은 UI에서 선택**하거나(목록/직접 경로), 실행 시 `--model`로 기본값을 줄 수 있습니다.
-입력 이미지와 검출 결과 이미지를 **분리**해 표시하며, 각 패널 안에서 **마우스 휠**로 확대·축소합니다.
+입력 이미지와 검출 결과 이미지를 **분리**해 표시하며, 각 패널에서 **휠**로 확대·축소, **드래그**로 이동, **더블클릭**으로 뷰를 초기화합니다.
 
 Run from project root:
   .\\venv\\Scripts\\python.exe Brain_tumor_detect_example01.py
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 
-# ONNX Runtime: fewer stderr messages (e.g. MemcpyTransformer). Override by setting ORT_LOG_SEVERITY_LEVEL before launch.
+# ONNX Runtime stderr (e.g. MemcpyTransformer). Must use ORT_* name; see onnxruntime logging docs.
 os.environ.setdefault("ORT_LOG_SEVERITY_LEVEL", "3")
 
 import argparse
@@ -31,6 +31,10 @@ import cv2
 import gradio as gr
 import numpy as np
 import pandas as pd
+import onnxruntime as ort
+
+ort.set_default_logger_severity(3)  # 0=verbose … 3=error (hides warning-level Memcpy messages)
+
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parent
@@ -49,11 +53,26 @@ _LEGACY_EN_LABELS = {"negative": "종양 음성", "positive": "종양 양성"}
 _model: YOLO | None = None
 _model_onnx_path: Path | None = None
 
-# 각 이미지 패널(.brain-zoom-panel) 위에서 휠로 scale — 캡처 단계에서만 preventDefault
-_WHEEL_ZOOM_JS = textwrap.dedent(
+# 각 이미지 패널(.brain-zoom-panel): 휠 확대/축소, 드래그 이동(translate), 더블클릭 초기화
+_IMAGE_PAN_ZOOM_JS = textwrap.dedent(
     """
     (() => {
-      const scales = new WeakMap();
+      function getState(panel) {
+        if (!panel._brainView) panel._brainView = { scale: 1, tx: 0, ty: 0 };
+        return panel._brainView;
+      }
+      function syncSrc(panel, img) {
+        const src = img.getAttribute("src") || "";
+        if (panel._brainSrc !== src) {
+          panel._brainSrc = src;
+          panel._brainView = { scale: 1, tx: 0, ty: 0 };
+        }
+      }
+      function apply(panel, img) {
+        const st = getState(panel);
+        img.style.transform = "translate(" + st.tx + "px," + st.ty + "px) scale(" + st.scale + ")";
+        img.style.transformOrigin = "center center";
+      }
       function onWheel(e) {
         const panel = e.target.closest(".brain-zoom-panel");
         if (!panel) return;
@@ -61,14 +80,62 @@ _WHEEL_ZOOM_JS = textwrap.dedent(
         if (!img || !img.getAttribute("src")) return;
         e.preventDefault();
         e.stopPropagation();
-        let s = scales.get(img) ?? 1;
+        syncSrc(panel, img);
+        const st = getState(panel);
         const step = e.deltaY > 0 ? -0.12 : 0.12;
-        s = Math.min(10, Math.max(0.12, s + step));
-        scales.set(img, s);
-        img.style.transform = "scale(" + s + ")";
-        img.style.transformOrigin = "center center";
+        st.scale = Math.min(10, Math.max(0.12, st.scale + step));
+        apply(panel, img);
+      }
+      let drag = null;
+      function onMove(e) {
+        if (!drag) return;
+        const { panel, img, startX, startY, ox, oy } = drag;
+        const st = getState(panel);
+        st.tx = ox + (e.clientX - startX);
+        st.ty = oy + (e.clientY - startY);
+        apply(panel, img);
+      }
+      function onUp() {
+        if (!drag) return;
+        drag.panel.classList.remove("brain-pan-dragging");
+        drag = null;
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      }
+      function onDown(e) {
+        if (e.button !== 0) return;
+        const panel = e.target.closest(".brain-zoom-panel");
+        if (!panel) return;
+        const img = panel.querySelector("img");
+        if (!img || !img.getAttribute("src")) return;
+        if (e.target.closest("button, a, [role='button'], .icon-button")) return;
+        syncSrc(panel, img);
+        e.preventDefault();
+        img.draggable = false;
+        const st = getState(panel);
+        drag = {
+          panel,
+          img,
+          startX: e.clientX,
+          startY: e.clientY,
+          ox: st.tx,
+          oy: st.ty,
+        };
+        panel.classList.add("brain-pan-dragging");
+        window.addEventListener("mousemove", onMove);
+        window.addEventListener("mouseup", onUp);
+      }
+      function onDblClick(e) {
+        const panel = e.target.closest(".brain-zoom-panel");
+        if (!panel) return;
+        const img = panel.querySelector("img");
+        if (!img || !img.getAttribute("src")) return;
+        panel._brainView = { scale: 1, tx: 0, ty: 0 };
+        apply(panel, img);
       }
       window.addEventListener("wheel", onWheel, { capture: true, passive: false });
+      window.addEventListener("mousedown", onDown, { capture: true });
+      window.addEventListener("dblclick", onDblClick, { capture: true });
     })();
     """
 )
@@ -313,14 +380,25 @@ def _refresh_onnx_dropdown():
 def _zoom_panel_css() -> str:
     return """
     .brain-zoom-panel {
-        overflow: auto !important;
+        overflow: hidden !important;
         max-height: 85vh;
         align-self: flex-start;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        cursor: grab;
+        user-select: none;
+    }
+    .brain-zoom-panel.brain-pan-dragging {
+        cursor: grabbing !important;
     }
     .brain-zoom-panel img {
         display: block;
         margin: 0 auto;
+        max-width: none !important;
         transition: transform 0.05s ease-out;
+        user-select: none;
+        -webkit-user-drag: none;
     }
     """
 
@@ -337,7 +415,7 @@ def build_ui(cli_model: Path | None) -> gr.Blocks:
             "업로드 복사본·오버레이·CSV·JSON은 모두 **`result/`** 에만 저장됩니다 (`sample/`에는 결과를 쓰지 않음). "
             "**오른쪽**에 박스·라벨(**종양 음성** / **종양 양성**)이 그려진 결과가 나옵니다. "
             "아래 **ONNX 모델**에서 `models` 폴더의 파일을 고르거나, **전체 경로**를 직접 입력할 수 있습니다. "
-            "각 이미지 패널 위에서 **휠**로 확대·축소합니다."
+            "각 이미지 패널에서 **휠**로 확대·축소, **드래그**로 이동, **더블클릭**으로 보기를 초기화합니다."
         )
         with gr.Row():
             onnx_dd = gr.Dropdown(
@@ -414,7 +492,7 @@ def main() -> None:
         server_port=args.port,
         share=args.share,
         css=_zoom_panel_css(),
-        js=_WHEEL_ZOOM_JS,
+        js=_IMAGE_PAN_ZOOM_JS,
         inbrowser=True,
     )
 
