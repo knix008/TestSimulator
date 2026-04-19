@@ -10,4 +10,4 @@ matplotlib
 pyyaml
 gradio
 onnx
-onnxruntime
+onnxruntime-gpu

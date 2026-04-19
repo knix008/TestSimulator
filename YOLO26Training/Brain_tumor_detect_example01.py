@@ -1,7 +1,7 @@
 """
 Gradio: upload a (positive) brain MRI image → **모든 파일(업로드 복사·오버레이·표·메타)은 `result/`에만** 저장합니다. `sample/`에는 쓰지 않습니다.
 
-검출은 **ONNX** 모델만 사용합니다 (Ultralytics `YOLO("*.onnx")`).
+검출은 **ONNX** 모델만 사용합니다 (Ultralytics `YOLO("*.onnx", task="detect")`).
 **ONNX 파일은 UI에서 선택**하거나(목록/직접 경로), 실행 시 `--model`로 기본값을 줄 수 있습니다.
 입력 이미지와 검출 결과 이미지를 **분리**해 표시하며, 각 패널 안에서 **마우스 휠**로 확대·축소합니다.
 
@@ -15,6 +15,11 @@ Positive 테스트 샘플(저장소 `sample/`):
 """
 
 from __future__ import annotations
+
+import os
+
+# ONNX Runtime: fewer stderr messages (e.g. MemcpyTransformer). Override by setting ORT_LOG_SEVERITY_LEVEL before launch.
+os.environ.setdefault("ORT_LOG_SEVERITY_LEVEL", "3")
 
 import argparse
 import json
@@ -119,7 +124,7 @@ def get_model(onnx_path: Path) -> YOLO:
         raise FileNotFoundError(f"`.onnx` 파일만 사용할 수 있습니다: {onnx_path}")
 
     if _model is None or _model_onnx_path != onnx_path:
-        _model = YOLO(str(onnx_path))
+        _model = YOLO(str(onnx_path), task="detect")
         _model_onnx_path = onnx_path
     return _model
 
