@@ -1,50 +1,105 @@
+# Byte-compiled / cache
 __pycache__/
 *.py[cod]
-*.so
-.Python
-build/
-dist/
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
+*$py.class
+*.pyo
 
 # Virtual environments
 venv/
 .venv/
 env/
 
-# Dataset and experiment artifacts
-data/
-yolo_dataset/
-yolo_dataset_seg/
-yolo_dataset_det_public/
-yolo_dataset_seg_public/
-external_data/
-annotation/
-runs/
-yolo26_runs/
-*.cache
-inference_outputs*/
-positive_predictions*/
-box_processed_images*/
-box_processed_images_conf*/
-
-# Model and export files
-*.pt
-*.onnx
-*.engine
-
-# Secrets and local credentials
-kaggle.json
-kaggle/
+# Environment & secrets
 .env
-.env.*
+.env.local
+.env.*.local
 
-# Editor and OS files
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# Test / type / coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+*.cover
+coverage.xml
+.tox/
+.nox/
+.hypothesis/
+.benchmarks/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+*.egg-link
+pip-wheel-metadata/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE (optional local config)
+.idea/
+
+# Ultralytics / training outputs
+runs/
+*.cache
+
+# Experiment tracking (if used)
+wandb/
+mlruns/
+
+# Dataset & generated config (pipeline downloads / writes)
+dataset/brain-tumor.zip
+dataset/brain-tumor/
+configs/brain_tumor_local.yaml
+
+# Exported weights & ONNX under models/
+models/*.pt
+models/*.onnx
+models/*.torchscript
+models/*.engine
+models/*.tflite
+
+# Generated reports from pipeline
+reports/
+
+# Gradio: local uploads + bundled positive samples
+#sample/*
+!sample/.gitkeep
+!sample/sample_positive_train_*.jpg
+!sample/sample_positive_train_*.jpeg
+!sample/sample_positive_train_*.png
+
+# Gradio / app detection outputs (keep folder only)
+result/*
+!result/.gitkeep
+
+.gradio/
+flagged/
+
+# Logs & temp
+*.log
+*.tmp
+*.temp
+*~
+*.orig
+*.bak
+*.rej
+*.swp
+*.swo
+
+# Zip extraction noise (macOS)
+__MACOSX/
+
+# Extra weight / export blobs under models/
+models/*.pth
+models/*.bin
+models/*.mlmodel

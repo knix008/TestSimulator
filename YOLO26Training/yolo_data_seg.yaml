@@ -1,4 +1,0 @@
-train: ./yolo_dataset_seg/images/train
-val: ./yolo_dataset_seg/images/val
-nc: 3
-names: ['aneurysm', 'cancer', 'tumor']

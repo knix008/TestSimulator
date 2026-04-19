@@ -1,292 +1,151 @@
-# YOLO26 Brain CT Training
+# YOLO26 Brain Tumor (Ultralytics) — training pipeline & Gradio demo
 
-This project trains Ultralytics YOLO26 for Brain CT classes:
+This repository automates the workflow from the Ultralytics **Brain Tumor** detection dataset ([documentation](https://docs.ultralytics.com/datasets/detect/brain-tumor/)): download data, train YOLO26n, export ONNX, validate, and write reports. It also includes a small **Gradio** app for interactive ONNX inference.
 
-- aneurysm
-- cancer
-- tumor
+**Classes** (same as upstream [`brain-tumor.yaml`](https://github.com/ultralytics/ultralytics/blob/main/ultralytics/cfg/datasets/brain-tumor.yaml)): **negative** (0), **positive** (1).
 
-It now provides **two separate pipelines**:
+---
 
-1. Detection pipeline
-2. Segmentation pipeline (auto-generated from detection labels)
+## One-command run (Windows)
 
-Both pipelines export ONNX with different final file names.
+From the repository root:
 
-## Project Files
+```powershell
+.\brain_tumor_pipeline.ps1
+```
 
-- `scripts/download_kaggle_ct.py`: download dataset from Kaggle
-- `scripts/convert_to_yolo.py`: build YOLO **detection** dataset (`yolo_dataset`)
-- `scripts/auto_label_seg_from_detection.py`: convert detection labels to pseudo segmentation labels (`yolo_dataset_seg`)
-- `scripts/train_yolo26.py`: task-based trainer (`detect` or `segment`) + ONNX export
-- `run_detection_pipeline.sh`: detection-only full pipeline
-- `run_segmentation_pipeline.sh`: segmentation-only full pipeline
-- `yolo_data_det.yaml`: detection dataset config
-- `yolo_data_seg.yaml`: segmentation dataset config
+Arguments are forwarded to `scripts/brain_tumor_auto_pipeline.py`, for example:
 
-## 1) Setup
+```powershell
+# Quick smoke; full defaults are 300 epochs and patience 60
+.\brain_tumor_pipeline.ps1 --epochs 5 --batch 8 --device cpu --patience 3 --name quick_run
+```
+
+---
+
+## One-command run (Linux / macOS)
 
 ```bash
-bash setup.sh
+chmod +x ./brain_tumor_pipeline.sh
+./brain_tumor_pipeline.sh
+```
+
+With arguments:
+
+```bash
+./brain_tumor_pipeline.sh --epochs 5 --device cpu --patience 3
+```
+
+---
+
+## Manual pipeline (existing venv)
+
+```powershell
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python scripts\brain_tumor_auto_pipeline.py --imgsz 640 --device 0
+```
+
+```bash
 source venv/bin/activate
+pip install -r requirements.txt
+python scripts/brain_tumor_auto_pipeline.py --imgsz 640 --device 0
 ```
 
-Windows PowerShell:
+### Useful flags
+
+| Flag | Meaning |
+|------|---------|
+| `--device cpu` | Train on CPU if CUDA is unavailable |
+| `--epochs N` | Max training epochs (**default 300**; early stopping uses `--patience`) |
+| `--patience N` | Stop after **N** epochs without validation improvement (**default 60**) |
+| `--weights models/yolo26n.pt` | Pretrained checkpoint (Ultralytics downloads here if missing; legacy `yolo26n.pt` in repo root is moved to `models/` on first run when possible) |
+| `--force-download` | Re-download and re-extract the dataset zip |
+| `--skip-train` | Only prepare the dataset and write `configs/brain_tumor_local.yaml` |
+
+---
+
+## Outputs
+
+| Artifact | Location |
+|----------|----------|
+| Dataset | `dataset/brain-tumor/` (images + YOLO labels) |
+| Data YAML | `configs/brain_tumor_local.yaml` (auto-generated; absolute `path:`) |
+| Pretrained backbone (first download) | `models/yolo26n.pt` |
+| Training run | `runs/detect/brain_tumor_runs/<run_name>/` |
+| Best weights (copy) | `models/brain_tumor_yolo26n_best.pt` |
+| ONNX export | `models/brain_tumor_yolo26n.onnx` |
+| Report | `reports/brain_tumor_training_report.md` |
+| Val metrics JSON | `reports/brain_tumor_val_metrics.json` |
+| Learning-curve plot (if `results.csv` + matplotlib) | `reports/brain_tumor_training_curves.png` |
+
+---
+
+## Project layout (main entries)
+
+| Path | Role |
+|------|------|
+| `scripts/brain_tumor_auto_pipeline.py` | End-to-end train → ONNX → val → report |
+| `scripts/sync_positive_train_samples.py` | Copy **train** images with **positive** labels into `sample/` |
+| `Brain_tumor_detect_example01.py` | Gradio UI: ONNX pick; uploads + overlays + CSV/JSON → **`result/` only** (not `sample/`) |
+| `brain_tumor_pipeline.ps1` / `.sh` | Create venv, install deps, run the auto pipeline |
+| `sample/` | Bundled positive train samples only (`sync_positive_train_samples.py`; Gradio does **not** write here) |
+| `result/` | Gradio run outputs: upload copy `positive_*.png`, `*_overlay.png`, `*_detections.csv`, `*_meta.json` |
+
+---
+
+## Gradio demo (`Brain_tumor_detect_example01.py`)
+
+- Uses **ONNX** only (`models/*.onnx` dropdown or custom path).
+- Each run writes **only under `result/`**: uploaded copy (`positive_<timestamp>.png`), overlay PNG, CSV, and JSON metadata. **`sample/`** is left for curated train positives only.
+- Optional: `--model path\to\file.onnx` sets the dropdown default.
 
 ```powershell
-python -m venv venv
-.\venv\Scripts\python.exe -m pip install --upgrade pip
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
+.\venv\Scripts\python.exe Brain_tumor_detect_example01.py
 ```
-
-### GPU/CUDA quick check
-
-Run this before training:
-
-```powershell
-.\venv\Scripts\python.exe scripts\check_cuda.py
-```
-
-## 2) Kaggle Credential
-
-Put your Kaggle API key in `kaggle.json` in project root.
-
-```json
-{
-  "username": "YOUR_KAGGLE_USERNAME",
-  "key": "YOUR_KAGGLE_KEY"
-}
-```
-
-## 3) Detection Pipeline (Standalone)
-
-Runs end-to-end:
-
-1. download dataset
-2. convert to detection labels
-3. train detection
-4. export detection ONNX
 
 ```bash
-./run_detection_pipeline.sh
+./venv/bin/python Brain_tumor_detect_example01.py
 ```
 
-Windows PowerShell:
+---
+
+## Sample images (`sample/`)
+
+Positive examples are taken from the **training** split (labels with class `1`). Refresh after (re)installing the dataset:
 
 ```powershell
-.\run_detection_pipeline.ps1
+.\venv\Scripts\python.exe scripts\sync_positive_train_samples.py
 ```
 
-Optional args:
+Default copies **two** images as `sample_positive_train_01.jpg`, `sample_positive_train_02.jpg` (override with `--count` / `--out-prefix`).
 
-```bash
-./run_detection_pipeline.sh <epochs> <run_name>
+---
+
+## Dependencies (`requirements.txt`)
+
+PyTorch is pulled from the **CUDA 12.8** extra index (`cu128`), matching common Ultralytics GPU setups. For CPU-only machines, switch to CPU wheels and use `--device cpu`. The Gradio path also expects **`onnx`** and **`onnxruntime`** for ONNX inference.
+
+---
+
+## Inference (Python)
+
+After training, you can run PyTorch or ONNX with Ultralytics:
+
+```python
+from ultralytics import YOLO
+
+model = YOLO("models/brain_tumor_yolo26n_best.pt")
+model.predict("sample/sample_positive_train_01.jpg", save=True)
+
+model_onnx = YOLO("models/brain_tumor_yolo26n.onnx")
+model_onnx.predict("sample/sample_positive_train_01.jpg", save=True)
 ```
 
-PowerShell args:
+See the [Ultralytics brain tumor usage](https://docs.ultralytics.com/datasets/detect/brain-tumor/#usage) section for more examples.
 
-```powershell
-.\run_detection_pipeline.ps1 -Epochs 30 -RunName ct_brain_det_auto -Device 0
-```
+---
 
-Defaults:
+## Citation
 
-- epochs: `30`
-- run name: `ct_brain_det_auto`
-
-Final ONNX:
-
-- `models/yolo26-brain-ct-det.onnx`
-
-## 4) Segmentation Pipeline (Standalone)
-
-Runs end-to-end:
-
-1. auto-generate pseudo segmentation labels from detection labels
-2. train segmentation
-3. export segmentation ONNX
-
-```bash
-./run_segmentation_pipeline.sh
-```
-
-Optional args:
-
-```bash
-./run_segmentation_pipeline.sh <epochs> <run_name>
-```
-
-Defaults:
-
-- epochs: `50`
-- run name: `ct_brain_seg_auto`
-
-Prerequisite:
-
-- `yolo_dataset/labels/train` must exist (run detection pipeline first)
-
-Final ONNX:
-
-- `models/yolo26-brain-ct-seg.onnx`
-
-## 5) Direct Training Command (Advanced)
-
-You can call the trainer directly:
-
-```bash
-python scripts/train_yolo26.py --task detect --data yolo_data_det.yaml --model yolo26.yaml
-python scripts/train_yolo26.py --task segment --data yolo_data_seg.yaml --model yolo26-seg.yaml
-```
-
-If `yolo26.yaml` (or `yolo26-seg.yaml`) is not present in your environment, replace `--model` with an available Ultralytics model (for example `yolo11n.pt`) or provide your custom YOLO26 model yaml/weights path.
-
-GPU training is the default (`--device 0`). If CUDA is unavailable, training exits with an explicit error.
-
-Useful args:
-
-- `--epochs` (default: detect=30, segment=50)
-- `--name`
-- `--project`
-- `--onnx-name`
-
-## 6) Outputs
-
-Detection run artifacts:
-
-- `runs/detect/yolo26_runs/<det_run_name>/weights/best.pt`
-- `runs/detect/yolo26_runs/<det_run_name>/weights/last.pt`
-
-Segmentation run artifacts:
-
-- `runs/segment/yolo26_runs/<seg_run_name>/weights/best.pt`
-- `runs/segment/yolo26_runs/<seg_run_name>/weights/last.pt`
-
-Exported ONNX:
-
-- `models/yolo26-brain-ct-det.onnx`
-- `models/yolo26-brain-ct-seg.onnx`
-
-## 7) Inference (Detection + Segmentation Visualization)
-
-Run prediction on a single CT image or a folder, and save visualized outputs.
-
-PowerShell example:
-
-```powershell
-.\venv\Scripts\python.exe scripts\infer_ct.py `
-  --source ".\data\files\some_ct_image.jpg" `
-  --detect-model "runs/detect/yolo26_runs/ct_brain_det_gpu/weights/best.pt" `
-  --seg-model "runs/segment/yolo26_runs/ct_brain_seg_gpu/weights/best.pt" `
-  --output-dir "inference_outputs" `
-  --device 0
-```
-
-Output folders:
-
-- `inference_outputs/detection`
-- `inference_outputs/segmentation`
-
-You can also pass a directory to `--source` to run batch inference on multiple CT images.
-
-### Collect only positive predictions
-
-If you want only images where prediction exists:
-
-```powershell
-.\venv\Scripts\python.exe scripts\collect_positive_predictions.py `
-  --source ".\data" `
-  --detect-model "runs/detect/yolo26_runs/ct_brain_det_gpu/weights/best.pt" `
-  --seg-model "runs/segment/yolo26_runs/ct_brain_seg_gpu/weights/best.pt" `
-  --output-dir "positive_predictions" `
-  --device 0
-```
-
-Output structure:
-
-- `positive_predictions/detection_positive/raw`
-- `positive_predictions/detection_positive/vis`
-- `positive_predictions/segmentation_positive/raw`
-- `positive_predictions/segmentation_positive/vis`
-
-## Notes
-
-- Current segmentation labels are auto-generated from detection boxes (rectangle polygons), so segmentation accuracy is limited.
-- ONNX export uses `onnx`, `onnxruntime`, and `onnxslim` (auto-installed by Ultralytics if missing).
-- For real segmentation performance, replace pseudo labels with true lesion masks/polygons.
-
-## Real Segmentation Labels (Recommended)
-
-The Kaggle dataset used here is classification-oriented and does not include lesion masks.
-
-To get meaningful segmentation quality:
-
-1. Prepare annotation subset:
-   ```bash
-   python scripts/prepare_annotation_subset.py
-   ```
-2. Annotate lesion polygons in CVAT/Label Studio
-3. Export as Ultralytics YOLO Segmentation format
-4. Replace labels in `yolo_dataset_seg/labels/train` and `yolo_dataset_seg/labels/val`
-
-See `ANNOTATION_GUIDE.md` for details.
-
-## 8) Use Public NIfTI CT Segmentation Datasets
-
-If you download a public dataset with paired NIfTI volumes (`ct` and `mask`) such as CT-ICH / INSTANCE / HemSeg, convert it to YOLO segmentation format with:
-
-```powershell
-.\venv\Scripts\python.exe scripts\convert_nifti_ct_to_yolo_seg.py `
-  --ct-dir ".\external_data\ct_scans" `
-  --mask-dir ".\external_data\masks" `
-  --output-root "yolo_dataset_seg_real" `
-  --class-id 0 `
-  --class-name "hemorrhage"
-```
-
-Before conversion, run a quick pair/quality check:
-
-```powershell
-.\venv\Scripts\python.exe scripts\check_nifti_pairs.py `
-  --ct-dir ".\external_data\ct_scans" `
-  --mask-dir ".\external_data\masks"
-```
-
-Outputs:
-
-- `yolo_dataset_seg_real/images/train`
-- `yolo_dataset_seg_real/images/val`
-- `yolo_dataset_seg_real/labels/train`
-- `yolo_dataset_seg_real/labels/val`
-- `yolo_dataset_seg_real/dataset.yaml`
-
-Then train segmentation with real labels:
-
-```powershell
-.\venv\Scripts\python.exe scripts\train_yolo26.py `
-  --task segment `
-  --data "yolo_dataset_seg_real/dataset.yaml" `
-  --model "yolo26-seg.yaml" `
-  --name "ct_seg_real_labels" `
-  --device 0
-```
-
-### Fully automated NIfTI segmentation pipeline
-
-PowerShell (Windows):
-
-```powershell
-.\run_nifti_seg_pipeline.ps1 `
-  -CtDir ".\external_data\ct_ich\ct_scans" `
-  -MaskDir ".\external_data\ct_ich\masks" `
-  -Epochs 50 `
-  -RunName "ct_seg_real_labels" `
-  -Device 0 `
-  -RunInference `
-  -InferenceSource ".\data"
-```
-
-Bash (Linux/macOS):
-
-```bash
-./run_nifti_seg_pipeline.sh ./external_data/ct_ich/ct_scans ./external_data/ct_ich/masks 50 ct_seg_real_labels 0
-```
+If you use the Ultralytics brain tumor dataset, cite as described in the [official documentation](https://docs.ultralytics.com/datasets/detect/brain-tumor/).

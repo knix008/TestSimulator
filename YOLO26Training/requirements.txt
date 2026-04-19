@@ -1,11 +1,13 @@
-kaggle
-nibabel
-opencv-python
-pandas
-pyyaml
-scikit-learn
-ultralytics
-# CUDA 12.8 PyTorch wheels
+# PyTorch CUDA 12.8 wheels (match your driver; use CPU-only torch if no GPU)
 --extra-index-url https://download.pytorch.org/whl/cu128
 torch
 torchvision
+
+ultralytics
+opencv-python
+pandas
+matplotlib
+pyyaml
+gradio
+onnx
+onnxruntime
