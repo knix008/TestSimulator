@@ -108,7 +108,8 @@ _IMAGE_PAN_ZOOM_JS = textwrap.dedent(
         if (!panel) return;
         const img = panel.querySelector("img");
         if (!img || !img.getAttribute("src")) return;
-        if (e.target.closest("button, a, [role='button'], .icon-button")) return;
+        /* Gradio ImagePreview wraps the image in a full-size <button>; do not treat every button as UI chrome. */
+        if (e.target.closest(".icon-button-wrapper, a.download-link")) return;
         syncSrc(panel, img);
         e.preventDefault();
         img.draggable = false;
