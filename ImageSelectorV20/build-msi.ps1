@@ -1,12 +1,13 @@
 param(
-    [string]$Version = "1.0.0",
-    [string]$Configuration = "Release"
+    [string]$Version = "1.0.0"
 )
 
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$publishDir = Join-Path $projectRoot "artifacts\publish\win-x64"
+$runtimeIdentifier = "win-x64"
+$configuration = "Release"
+$publishDir = Join-Path $projectRoot "artifacts\publish\$configuration\$runtimeIdentifier"
 $msiDir = Join-Path $projectRoot "artifacts\msi"
 $toolDir = Join-Path $projectRoot ".tools\wix"
 $wixExe = Join-Path $toolDir "wix.exe"
@@ -58,8 +59,8 @@ Assert-Success "WiX UI extension install"
 
 Write-Host "Publishing app..."
 dotnet publish "$projectRoot\ImageSelectorV10.csproj" `
-    -c $Configuration `
-    -r win-x64 `
+    -c $configuration `
+    -r $runtimeIdentifier `
     --self-contained true `
     /p:PublishSingleFile=true `
     /p:IncludeNativeLibrariesForSelfExtract=true `
