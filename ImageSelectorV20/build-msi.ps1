@@ -62,6 +62,7 @@ dotnet publish "$projectRoot\ImageSelectorV10.csproj" `
     -c $configuration `
     -r $runtimeIdentifier `
     --self-contained true `
+    /p:SkipMsiBuild=true `
     /p:PublishSingleFile=true `
     /p:IncludeNativeLibrariesForSelfExtract=true `
     -o $publishDir
