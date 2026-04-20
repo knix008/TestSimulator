@@ -1,0 +1,16 @@
+[
+  {
+    "id": "case01",
+    "stem": "case0001_z0095",
+    "split": "val",
+    "image": "case01/image.png",
+    "label": "case01/label.txt"
+  },
+  {
+    "id": "case02",
+    "stem": "case0007_z0033",
+    "split": "val",
+    "image": "case02/image.png",
+    "label": "case02/label.txt"
+  }
+]

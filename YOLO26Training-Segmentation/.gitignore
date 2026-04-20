@@ -1,0 +1,109 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+.envrc
+
+# Test / type / coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+htmlcov/
+.coverage
+.coverage.*
+*.cover
+coverage.xml
+.tox/
+.nox/
+.hypothesis/
+.benchmarks/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+*.egg-link
+pip-wheel-metadata/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+
+# IDE (local / machine-specific)
+.idea/
+
+# --- Project: data & caches (large / reproducible) ---
+# Everything under dataset/ (staging zip/extract, YOLO export, NIfTI, caches, etc.)
+# Prepared via scripts/ich_seg_prepare_cq500_yolo.py or your own layout.
+dataset/
+
+# Ultralytics dataset caches (any depth)
+**/*.cache
+
+# Auto-generated data yaml (machine-specific paths)
+configs/ich_seg_data.yaml
+
+# --- Project: training & exports ---
+runs/
+
+# Weights / exports under models/
+models/*.pt
+models/*.pth
+models/*.onnx
+models/*.torchscript
+models/*.engine
+models/*.tflite
+models/*.bin
+models/*.mlmodel
+
+# Ultralytics / pip sometimes drops weights or exports in repo root
+/*.pt
+/*.pth
+/*.onnx
+/*.torchscript
+/*.engine
+
+# --- Project: Gradio & reports ---
+.gradio/
+flagged/
+result/
+
+# Generated reports from pipeline
+reports/
+
+# Experiment tracking (if used)
+wandb/
+mlruns/
+
+# Logs & temp
+*.log
+*.tmp
+*.temp
+*~
+*.orig
+*.bak
+*.rej
+*.swp
+*.swo
+
+# Zip extraction noise (macOS)
+__MACOSX/

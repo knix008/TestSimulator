@@ -1,0 +1,17 @@
+# GPU stack: CUDA 12.8 PyTorch wheels + ONNX Runtime GPU.
+# - Match PyTorch cu128 to your NVIDIA driver; for CPU-only, remove --extra-index-url and use `pip install torch torchvision` from PyPI.
+# - Use onnxruntime-gpu only; if `import onnxruntime` loads CPU build, run: pip uninstall -y onnxruntime
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch
+torchvision
+
+ultralytics
+opencv-python
+pandas
+matplotlib
+pyyaml
+gradio
+onnx
+ml_dtypes>=0.4.0
+onnxruntime-gpu
+nibabel
