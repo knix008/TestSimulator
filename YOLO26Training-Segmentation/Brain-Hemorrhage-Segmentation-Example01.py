@@ -4,7 +4,6 @@ Gradio: 두부 CT 슬라이스 업로드 → **ICH(출혈) 인스턴스 분할**
 - 모든 저장 파일(업로드 복사·오버레이·표·메타)은 **`result/`** 에만 둡니다. `sample/`에는 쓰지 않습니다.
 - 추론은 **ONNX** + Ultralytics `YOLO("*.onnx", task="segment")` 만 사용합니다.
 - ONNX는 UI 드롭다운/경로 입력 또는 `--model` 기본값.
-- `sample/segmentation/` 에 `manifest.json` 이 있으면 **테스트 샘플**을 불러올 수 있습니다.
 
 Run from project root:
   .\\venv\\Scripts\\python.exe ich_seg_gradio_app.py
@@ -36,7 +35,6 @@ from ultralytics import YOLO
 ROOT = Path(__file__).resolve().parent
 RESULT_DIR = ROOT / "result"
 MODELS_DIR = ROOT / "models"
-SAMPLE_SEG_DIR = ROOT / "sample" / "segmentation"
 PREFERRED_ONNX = MODELS_DIR / "ich_yolo26n_seg.onnx"
 
 HEM_ID_TO_NAME: dict[int, str] = {
@@ -244,29 +242,6 @@ def _display_class_name(cls_id: int, model: YOLO) -> str:
     return f"class_{cls_id}"
 
 
-def _sample_manifest_entries() -> list[dict[str, str]]:
-    mf = SAMPLE_SEG_DIR / "manifest.json"
-    if not mf.is_file():
-        return []
-    try:
-        data = json.loads(mf.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return []
-    return data if isinstance(data, list) else []
-
-
-def load_sample_rgb(case_id: str | None) -> np.ndarray | None:
-    if not case_id or case_id == "(없음)":
-        return None
-    img_path = SAMPLE_SEG_DIR / case_id / "image.png"
-    if not img_path.is_file():
-        return None
-    bgr = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
-    if bgr is None:
-        return None
-    return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-
-
 def run_segment(
     rgb: np.ndarray | None,
     conf: float,
@@ -274,7 +249,7 @@ def run_segment(
 ) -> tuple[np.ndarray | None, pd.DataFrame, str]:
     empty_df = _empty_seg_df()
     if rgb is None:
-        return None, empty_df, "이미지를 업로드하거나 테스트 샘플을 선택한 뒤 다시 시도하세요."
+        return None, empty_df, "이미지 파일을 직접 선택하거나 업로드한 뒤 다시 시도하세요."
 
     try:
         onnx_path = parse_onnx_selection(onnx_selection)
@@ -416,13 +391,9 @@ def build_ui(cli_model: Path | None) -> gr.Blocks:
     if default_val and default_val not in choices:
         choices = [default_val] + choices
 
-    manifest = _sample_manifest_entries()
-    sample_ids = ["(없음)"] + [str(e.get("id", "")) for e in manifest if e.get("id")]
-
     with gr.Blocks(title="Brain CT ICH — YOLO segment 테스트") as demo:
         gr.Markdown(
             "**두부 CT 슬라이스**(PNG 등)를 왼쪽에 올리면 ONNX **세그멘테이션** 모델로 출혈 영역을 추론합니다. "
-            "`sample/segmentation` 테스트 이미지는 **기본 confidence(0.15)** 에서도 마스크가 나오도록 골라 두었습니다. "
             "결과 파일은 모두 **`result/`** 에만 저장됩니다. "
             "오른쪽에는 마스크·윤곽이 그려진 **분할 결과**가 표시됩니다. "
             "각 이미지 패널에서 **휠**로 확대·축소, **드래그**로 이동, **더블클릭**으로 초기화합니다."
@@ -437,18 +408,6 @@ def build_ui(cli_model: Path | None) -> gr.Blocks:
             )
             refresh_onnx = gr.Button("ONNX 목록 새로고침")
         refresh_onnx.click(fn=_refresh_onnx_dropdown, outputs=onnx_dd)
-
-        if len(sample_ids) > 1:
-            gr.Markdown("테스트 샘플은 `sample/segmentation/` 에서 불러옵니다 (`manifest.json`).")
-            sample_dd = gr.Dropdown(
-                label="테스트 샘플 (선택 시 왼쪽 입력에 로드)",
-                choices=sample_ids,
-                value="(없음)",
-            )
-            load_sample_btn = gr.Button("샘플을 입력에 불러오기", variant="secondary")
-        else:
-            sample_dd = gr.Dropdown(choices=["(없음)"], value="(없음)", visible=False)
-            load_sample_btn = gr.Button(visible=False)
 
         with gr.Row(equal_height=False):
             with gr.Column(elem_classes=["brain-zoom-panel"], scale=1):
@@ -480,11 +439,6 @@ def build_ui(cli_model: Path | None) -> gr.Blocks:
             interactive=False,
         )
         log = gr.Markdown(label="요약")
-
-        def _do_load_sample(sid: str):
-            return load_sample_rgb(None if sid == "(없음)" else sid)
-
-        load_sample_btn.click(fn=_do_load_sample, inputs=[sample_dd], outputs=[inp])
 
         btn.click(
             fn=run_segment,
