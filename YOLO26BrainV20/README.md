@@ -1,4 +1,4 @@
-# YOLO26BrainV10
+# YOLO26BrainV20
 
 Windows에서 뇌 CT·MRI 스타일 이미지에 대해 **Ultralytics YOLO26(segmentation) ONNX** 추론을 실행하는 **WinForms** 앱과, Python으로 **데이터 준비 → 학습 → ONNX보내기**까지 이어지는 도구 모음입니다.
 
@@ -17,8 +17,8 @@ GPU가 없어도 학습·추론은 가능하며, 학습 스크립트는 CUDA가 
 
 | 경로 | 설명 |
 |------|------|
-| `src/YOLO26BrainV10/` | C# WinForms 앱·ONNX 추론 코드 |
-| `src/YOLO26BrainV10/tools/` | Python 스크립트·의존성 목록 |
+| `src/YOLO26BrainV20/` | C# WinForms 앱·ONNX 추론 코드 |
+| `src/YOLO26BrainV20/tools/` | Python 스크립트·의존성 목록 |
 | `data/brain_ct_seg/` | 기본 학습 데이터(다운로드 스크립트로 채움) |
 | `samples/` | COCO 80 라벨 텍스트 등(빌드 리소스용) |
 | `runs/` | 학습 로그·가중치(로컬 생성, 기본 `.gitignore`) |
@@ -40,10 +40,10 @@ GPU가 없어도 학습·추론은 가능하며, 학습 스크립트는 CUDA가 
 
 ## 3) .NET 앱 빌드
 
-저장소 루트(`YOLO26BrainV10` 폴더, 솔루션 파일이 있는 위치)에서:
+저장소 루트(`YOLO26BrainV20` 폴더, 솔루션 파일이 있는 위치)에서:
 
 ```powershell
-dotnet build .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release
+dotnet build .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release
 ```
 
 빌드 시 `samples/coco80_labels_comma.txt`가 필요합니다(리포지토리에 포함).
@@ -51,7 +51,7 @@ dotnet build .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release
 ## 4) Python 환경
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 pip install -r requirements-train.txt
 ```
 
@@ -62,7 +62,7 @@ pip install -r requirements-train.txt
 `brain-tumor` 공개 데이터를 받아 `data/brain_ct_seg`을 채웁니다.
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 python download_brain_dataset.py
 ```
 
@@ -81,7 +81,7 @@ python download_brain_dataset.py --force
 다른 클론 경로를 쓸 때:
 
 ```powershell
-python download_brain_dataset.py --repo "C:\path\to\YOLO26BrainV10"
+python download_brain_dataset.py --repo "C:\path\to\YOLO26BrainV20"
 ```
 
 ## 6) 학습 → ONNX
@@ -94,7 +94,7 @@ python download_brain_dataset.py --repo "C:\path\to\YOLO26BrainV10"
 - ONNX 기본 출력: `<repo>\models\brain_ct_yolo26n_seg.onnx`  
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 pip install -r requirements-train.txt
 python pipeline_train_brain.py
 ```
@@ -102,7 +102,7 @@ python pipeline_train_brain.py
 PowerShell 한 스크립트:
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 .\train_from_scratch.ps1
 ```
 
@@ -134,7 +134,7 @@ python pipeline_train_brain.py --run-name my_exp1 --device cpu
 4. **나중에 다시 검사만**  
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 python pipeline_train_brain.py --verify
 ```
 
@@ -143,7 +143,7 @@ python pipeline_train_brain.py --verify
 ### 학습만
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 python train_yolo26n_seg_brain_ct.py
 ```
 
@@ -167,7 +167,7 @@ python train_yolo26n_seg_brain_ct.py --cos-lr --patience 40 --workers 4
 가중치 경로는 실제 학습 결과 폴더에 맞게 바꿉니다.
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 python export_yolo26_brain_onnx.py --weights "..\..\runs\brain_ct_yolo26n_seg\weights\best.pt" --out "..\..\models\brain_ct_yolo26n_seg.onnx" --imgsz 640 --opset 12
 ```
 
@@ -176,7 +176,7 @@ python export_yolo26_brain_onnx.py --weights "..\..\runs\brain_ct_yolo26n_seg\we
 ## 7) 샘플 이미지 (선택)
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 python download_sample_assets.py
 ```
 
@@ -185,7 +185,7 @@ python download_sample_assets.py
 저장소 루트에서:
 
 ```powershell
-dotnet run --project .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release
+dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release
 ```
 
 권장 흐름:
@@ -201,7 +201,7 @@ dotnet run --project .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release
 ## 9) 콘솔 추론
 
 ```powershell
-dotnet run --project .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release -- --model "D:\path\brain_seg.onnx" --input "D:\path\image_or_folder" --conf 0.25 --labels negative,positive
+dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release -- --model "D:\path\brain_seg.onnx" --input "D:\path\image_or_folder" --conf 0.25 --labels negative,positive
 ```
 
 | 옵션 | 설명 |
@@ -216,19 +216,19 @@ dotnet run --project .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release -- --
 
 모델·세션·후처리가 예외 없이 돌아가는지 빠르게 확인합니다. `--input`을 생략하면 아래 **순서대로** 첫 번째로 있는 이미지를 씁니다.
 
-1. `%LocalAppData%\YOLO26BrainV10\samples\brain_tumor_sample.jpg` (앱에서 **샘플 다운로드**한 경우)  
+1. `%LocalAppData%\YOLO26BrainV20\samples\brain_tumor_sample.jpg` (앱에서 **샘플 다운로드**한 경우)  
 2. 리포지토리 `<repo>\samples\brain_tumor_sample.jpg` (`python download_sample_assets.py`로 받은 경우; exe 기준 상위 폴더를 따라 `samples\coco80_labels_comma.txt`가 있는 루트를 찾음)  
 3. 없으면 **합성 640×640**
 
 샘플 이미지 받기(한 번):
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 python download_sample_assets.py
 ```
 
 ```powershell
-dotnet run --project .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release -- --smoke-test --model ".\models\brain_ct_yolo26n_seg.onnx" --conf 0.01 --labels negative,positive
+dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release -- --smoke-test --model ".\models\brain_ct_yolo26n_seg.onnx" --conf 0.01 --labels negative,positive
 ```
 
 - 종료 코드 `0`: `Detect`까지 성공  
@@ -238,7 +238,7 @@ dotnet run --project .\src\YOLO26BrainV10\YOLO26BrainV10.csproj -c Release -- --
 ONNX 그래프만 Python에서 보려면(`pip install onnxruntime` 후):
 
 ```powershell
-cd .\src\YOLO26BrainV10\tools
+cd .\src\YOLO26BrainV20\tools
 python verify_onnx_io.py "..\..\models\brain_ct_yolo26n_seg.onnx"
 ```
 
