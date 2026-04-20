@@ -1,0 +1,26 @@
+#samples/_cli_out/
+
+# Local training / export outputs (repo root)
+#/runs/
+#/models/
+
+# Last successful pipeline_train_brain.py run (local)
+#.pipeline_last.json
+
+# Visual Studio / .NET generated files
+.vs/
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Installer package outputs
+*.msi
+*.msix
+*.msm
+*.msp
+*.cab

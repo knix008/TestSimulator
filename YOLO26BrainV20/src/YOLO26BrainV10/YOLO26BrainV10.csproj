@@ -1,0 +1,71 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>YOLO26BrainV10</RootNamespace>
+    <AssemblyName>YOLO26BrainV10</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- PDB for Visual Studio debugger (default portable is fine; explicit helps some VS versions) -->
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.24.4" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="BrainCtMainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="BrainCtMainForm.Designer.cs">
+      <DependentUpon>BrainCtMainForm.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="tools\export_yolo26_brain_onnx.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\train_yolo26n_seg_brain_ct.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\requirements-export.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\Download-SampleAssets.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\download_sample_assets.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\download_brain_dataset.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\pipeline_train_brain.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\requirements-train.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\train_from_scratch.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="tools\verify_onnx_io.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\samples\coco80_labels_comma.txt">
+      <Link>Assets\coco80_labels_comma.txt</Link>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>
