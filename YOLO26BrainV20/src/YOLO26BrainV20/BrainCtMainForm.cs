@@ -281,7 +281,8 @@ public partial class BrainCtMainForm : Form
     {
         var explain =
             "다음 권장값을 적용합니다.\n\n" +
-            $"· 최소 신뢰도: {BrainCtInferenceDefaults.RecommendedMinConfidence:0.##} (Ultralytics YOLO predict 기본)\n\n" +
+            $"· 최소 신뢰도: {BrainCtInferenceDefaults.RecommendedMinConfidence:0.##} (Ultralytics YOLO predict 기본)\n" +
+            $"· 단일 클래스 표시: {BrainCtInferenceDefaults.RecommendedClassLabelsComma}\n\n" +
             "계속할까요?";
         if (MessageBox.Show(this, explain, "추천 기본값", MessageBoxButtons.YesNo, MessageBoxIcon.Question) !=
             DialogResult.Yes)
@@ -290,7 +291,7 @@ public partial class BrainCtMainForm : Form
         ApplyRecommendedInferenceDefaults();
         InvalidateSession();
         lblStatus.Text =
-            $"추천 기본값 적용됨 · 신뢰도 {BrainCtInferenceDefaults.RecommendedMinConfidence:0.##}";
+            $"추천 기본값 적용됨 · 신뢰도 {BrainCtInferenceDefaults.RecommendedMinConfidence:0.##} · 클래스 {BrainCtInferenceDefaults.RecommendedClassLabelsComma}";
     }
 
     private void SetupDetectionListViewColumns()
@@ -415,6 +416,8 @@ public partial class BrainCtMainForm : Form
             var result = await SampleAssetsDownloader.DownloadBrainCtSampleAsync(progress, CancellationToken.None)
                 .ConfigureAwait(true);
 
+            txtLabels.Text = result.SuggestedLabelsComma;
+
             if (!TryLoadInputImageFromPath(result.ImagePath, out var imgErr))
             {
                 MessageBox.Show(this,
@@ -426,7 +429,7 @@ public partial class BrainCtMainForm : Form
                 $"다운로드 완료 · 샘플: {Path.GetFileName(result.ImagePath)}";
             MessageBox.Show(this,
                 $"다운로드가 끝났습니다.\n\n이미지:\n{result.ImagePath}\n\n" +
-                "ONNX는 메뉴의 PyTorch→ONNX 변환 또는 Python 스크립트로보낸 brain CT 세그 모델을 선택하세요.",
+                "ONNX는 출혈(hemorrhage) 단일 클래스 세그 모델을 선택하세요.",
                 "완료",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -605,7 +608,7 @@ public partial class BrainCtMainForm : Form
             SetSaveCommandsEnabled(true);
 
             var modelName = Path.GetFileName(_modelPath);
-            var labelsSummary = labels.Count > 0 ? string.Join(",", labels) : "(이름 없음, ONNX 기준)";
+            var labelsSummary = string.Join(",", labels);
             lblStatus.Text =
                 $"{_session!.ExecutionProviderSummary} · 모델 {modelName} · conf {conf:0.##} · 클래스 {labelsSummary} · 인스턴스 {dets.Count}건";
 
@@ -809,7 +812,15 @@ public partial class BrainCtMainForm : Form
     private List<string> ParseLabels()
     {
         var raw = txtLabels.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        return raw.Where(s => s.Length > 0).ToList();
+        var list = raw.Where(s => s.Length > 0).ToList();
+        if (list.Count == 0 && !string.IsNullOrWhiteSpace(BrainCtInferenceDefaults.RecommendedClassLabelsComma))
+        {
+            return BrainCtInferenceDefaults.RecommendedClassLabelsComma
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
+        }
+
+        return list;
     }
 
     private void InvalidateSession()

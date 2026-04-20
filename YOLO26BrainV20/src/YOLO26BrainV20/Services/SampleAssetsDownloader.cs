@@ -39,7 +39,7 @@ internal static class SampleAssetsDownloader
 
         await File.WriteAllTextAsync(attributionPath, AttributionText, cancellationToken).ConfigureAwait(false);
 
-        return new BrainCtSampleDownloadResult(imagePath, "");
+        return new BrainCtSampleDownloadResult(imagePath, BrainCtInferenceDefaults.RecommendedClassLabelsComma);
     }
 
     private static async Task DownloadToFileAsync(

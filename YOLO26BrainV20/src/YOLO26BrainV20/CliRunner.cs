@@ -197,17 +197,22 @@ internal static class CliRunner
               YOLO26BrainV20 --smoke-test --model <brain.onnx> [--input image.png] [--conf 0.01] [--labels a,b]
               Optional: --smoke-require-detections  (exit 2 if zero detections)
 
-            --labels is optional; omit it to infer class count from the ONNX tensor and show names as class_0, class_1, …
+            --labels is optional; omit it to use the default single class name (hemorrhage) for display and channel layout.
             Segmentation ONNX: export a YOLO26n-seg (or compatible) model with ultralytics model.export(format="onnx").
             """);
     }
 
     private static string[] ParseLabelsArg(string? labelsArg)
     {
-        if (string.IsNullOrWhiteSpace(labelsArg))
-            return Array.Empty<string>();
-        return labelsArg.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (!string.IsNullOrWhiteSpace(labelsArg))
+            return labelsArg.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return DefaultDisplayClassNames();
     }
+
+    private static string[] DefaultDisplayClassNames() =>
+        BrainCtInferenceDefaults.RecommendedClassLabelsComma.Split(
+            ',',
+            StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
     private static string? GetArg(string[] args, string longName, string shortName)
     {

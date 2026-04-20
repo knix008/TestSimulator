@@ -249,7 +249,7 @@ namespace YOLO26BrainV20
             txtLabels.PlaceholderText = "선택: 쉼표 구분 클래스 이름 (비우면 ONNX에서 class_0 …)";
             txtLabels.Size = new Size(1000, 23);
             txtLabels.TabIndex = 8;
-            txtLabels.Text = "";
+            txtLabels.Text = "hemorrhage";
             txtLabels.Visible = false;
             // 
             // lblConf
@@ -458,7 +458,7 @@ namespace YOLO26BrainV20
             MinimumSize = new Size(640, 520);
             Name = "BrainCtMainForm";
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "YOLO26 뇌 CT 병변 검출";
+            Text = "YOLO26 뇌 CT 출혈(hemorrhage) 세그";
             menuStripMain.ResumeLayout(false);
             menuStripMain.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)trackConf).EndInit();
