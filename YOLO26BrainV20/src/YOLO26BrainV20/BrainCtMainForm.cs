@@ -15,12 +15,8 @@ public partial class BrainCtMainForm : Form
     private bool _syncingConfidenceUi;
     private Panel? _inputScrollPanel;
     private Panel? _outputScrollPanel;
-    private Label? _inputZoomOverlay;
-    private Label? _outputZoomOverlay;
     private float _inputZoom = 1f;
     private float _outputZoom = 1f;
-    private Point _inputPanOffset;
-    private Point _outputPanOffset;
     private bool _inputPanDragging;
     private bool _outputPanDragging;
     private Point _inputPanLastClient;
@@ -37,14 +33,6 @@ public partial class BrainCtMainForm : Form
     private IReadOnlyList<BrainDetection>? _lastDetections;
     private string? _lastInputImagePath;
 
-    private TableLayoutPanel? _tableRoot;
-    private SplitContainer? _splitUpper;
-    private SplitContainer? _splitPreview;
-    private Panel? _inputPreviewChrome;
-    private Panel? _outputPreviewChrome;
-    private Label? _lblExecutionProvider;
-    private ComboBox? _comboExecutionProvider;
-
     public BrainCtMainForm()
     {
         InitializeComponent();
@@ -52,7 +40,7 @@ public partial class BrainCtMainForm : Form
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
             return;
 
-        SetupResponsiveLayout();
+        WireResponsiveLayoutFromDesigner();
         InitializeZoomPanels();
         WireFormEvents();
         SetupDetectionListViewColumns();
@@ -60,6 +48,7 @@ public partial class BrainCtMainForm : Form
         ApplyRecommendedInferenceDefaults();
         TryApplyDefaultSegmentationModel();
         UpdateOverlayLayout();
+        LayoutAdaptiveControls();
         UpdateZoomText(isInput: true);
         UpdateZoomText(isInput: false);
     }
@@ -86,319 +75,101 @@ public partial class BrainCtMainForm : Form
         trackConf.ValueChanged += TrackConf_ValueChanged;
         Resize += (_, _) =>
         {
-            BalanceSplitters();
+            LayoutAdaptiveControls();
             UpdateOverlayLayout();
         };
         ClientSizeChanged += (_, _) =>
         {
-            BalanceSplitters();
+            LayoutAdaptiveControls();
             UpdateOverlayLayout();
         };
-        Shown += (_, _) => BalanceSplitters();
+        Shown += (_, _) => LayoutAdaptiveControls();
     }
 
     /// <summary>
-    /// Reparents toolbar and previews into a table + splitters so resizing keeps a 50/50 preview and fluid paths.
+    /// Layout lives in InitializeComponent (Designer). Here we only attach runtime handlers that need app code.
     /// </summary>
-    private void SetupResponsiveLayout()
+    private void WireResponsiveLayoutFromDesigner()
     {
-        if (_tableRoot != null)
-            return;
-
-        SuspendLayout();
-        try
-        {
-
-        _tableRoot = new TableLayoutPanel
-        {
-            Name = "tableRoot",
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            RowCount = 6,
-            Padding = new Padding(4, 2, 4, 4),
-        };
-        _tableRoot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        // Upper split is horizontal (stacked panels): mins are heights — must fit this row.
-        _tableRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 216f));
-        _tableRoot.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        _tableRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 20f));
-        _tableRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 36f));
-        _tableRoot.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-        _tableRoot.RowStyles.Add(new RowStyle(SizeType.Absolute, 108f));
-
-        _splitUpper = new SplitContainer
-        {
-            Name = "splitUpper",
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Horizontal,
-            FixedPanel = FixedPanel.None,
-            SplitterWidth = 6,
-            // Safe until Load clamps using real client height (avoids SplitterDistance exception during first layout).
-            Panel1MinSize = 32,
-            Panel2MinSize = 32,
-        };
-
-        var tblOnnx = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 2,
-            Padding = new Padding(4, 4, 8, 0),
-        };
-        tblOnnx.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        tblOnnx.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        tblOnnx.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        tblOnnx.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        lblOnnxTitle.Margin = new Padding(0, 0, 0, 2);
-        lblOnnxTitle.AutoSize = true;
-        // Fill + AutoSize in an AutoSize table row can collapse/clamp row height and clip the next row's button.
-        lblOnnxTitle.Dock = DockStyle.Top;
-        lblOnnxTitle.TextAlign = ContentAlignment.BottomLeft;
-        btnModel.Margin = new Padding(0, 0, 8, 4);
-        btnModel.Dock = DockStyle.Left;
-        lblOnnxPath.Dock = DockStyle.Fill;
-        lblOnnxPath.Margin = new Padding(0, 0, 0, 4);
-        lblOnnxPath.TextAlign = ContentAlignment.MiddleLeft;
-        tblOnnx.Controls.Add(lblOnnxTitle, 0, 0);
-        tblOnnx.SetColumnSpan(lblOnnxTitle, 2);
-        tblOnnx.Controls.Add(btnModel, 0, 1);
-        tblOnnx.Controls.Add(lblOnnxPath, 1, 1);
-        _splitUpper.Panel1.Controls.Add(tblOnnx);
-
-        var tblImg = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 2,
-            Padding = new Padding(8, 4, 4, 0),
-        };
-        tblImg.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        tblImg.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        tblImg.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        tblImg.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        lblImageTitle.Margin = new Padding(0, 0, 0, 2);
-        lblImageTitle.AutoSize = true;
-        lblImageTitle.Dock = DockStyle.Top;
-        lblImageTitle.TextAlign = ContentAlignment.BottomLeft;
-        btnImage.Margin = new Padding(0, 0, 8, 4);
-        btnImage.Dock = DockStyle.Left;
-        lblSlicePath.Dock = DockStyle.Fill;
-        lblSlicePath.Margin = new Padding(0, 0, 0, 4);
-        lblSlicePath.TextAlign = ContentAlignment.MiddleLeft;
-        tblImg.Controls.Add(lblImageTitle, 0, 0);
-        tblImg.SetColumnSpan(lblImageTitle, 2);
-        tblImg.Controls.Add(btnImage, 0, 1);
-        tblImg.Controls.Add(lblSlicePath, 1, 1);
-        _splitUpper.Panel2.Controls.Add(tblImg);
-
-        _tableRoot.Controls.Add(_splitUpper, 0, 0);
-
-        var flowActions = new FlowLayoutPanel
-        {
-            Name = "flowActions",
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = true,
-            AutoScroll = true,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(0, 2, 0, 4),
-        };
-        _lblExecutionProvider = new Label
-        {
-            Text = "ONNX 실행",
-            AutoSize = true,
-            Margin = new Padding(0, 8, 6, 0),
-            TextAlign = ContentAlignment.MiddleLeft,
-        };
-        _comboExecutionProvider = new ComboBox
-        {
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            Width = 240,
-            Margin = new Padding(0, 4, 12, 0),
-        };
-        _comboExecutionProvider.Items.AddRange(new object[]
-        {
-            "자동 (CUDA 우선, 실패 시 CPU)",
-            "CPU만",
-            "GPU (CUDA)만",
-        });
-        _comboExecutionProvider.SelectedIndex = 0;
-        _comboExecutionProvider.SelectedIndexChanged += (_, _) => InvalidateSession();
-
-        lblConf.Margin = new Padding(0, 6, 8, 0);
-        lblConf.AutoSize = true;
-        trackConf.Margin = new Padding(0, 2, 8, 0);
-        trackConf.MinimumSize = new Size(120, 0);
-        trackConf.MaximumSize = new Size(480, 0);
-        numConf.Margin = new Padding(0, 4, 12, 0);
-        btnAnalyze.Margin = new Padding(0, 2, 8, 0);
-        btnSave.Margin = new Padding(0, 2, 8, 0);
-        btnSaveCsv.Margin = new Padding(0, 2, 0, 0);
-        lblLabels.Visible = false;
-        txtLabels.Visible = false;
-        lblLabels.Margin = new Padding(12, 6, 0, 0);
-        txtLabels.Margin = new Padding(0, 2, 0, 0);
-        txtLabels.Width = 200;
-        flowActions.Controls.Add(_lblExecutionProvider);
-        flowActions.Controls.Add(_comboExecutionProvider);
-        flowActions.Controls.Add(lblConf);
-        flowActions.Controls.Add(trackConf);
-        flowActions.Controls.Add(numConf);
-        flowActions.Controls.Add(btnAnalyze);
-        flowActions.Controls.Add(btnSave);
-        flowActions.Controls.Add(btnSaveCsv);
-        flowActions.Controls.Add(lblLabels);
-        flowActions.Controls.Add(txtLabels);
-        _tableRoot.Controls.Add(flowActions, 0, 1);
-
-        progressInference.Margin = new Padding(0, 0, 0, 4);
-        progressInference.Dock = DockStyle.Fill;
-        _tableRoot.Controls.Add(progressInference, 0, 2);
-
-        lblStatus.Dock = DockStyle.Fill;
-        lblStatus.Margin = new Padding(0, 0, 0, 4);
-        _tableRoot.Controls.Add(lblStatus, 0, 3);
-
-        _splitPreview = new SplitContainer
-        {
-            Name = "splitPreview",
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Vertical,
-            FixedPanel = FixedPanel.None,
-            SplitterWidth = 6,
-            // Safe until Load clamps using real client width (vertical split mins are widths).
-            Panel1MinSize = 32,
-            Panel2MinSize = 32,
-        };
-
-        var wrapIn = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 4, 0) };
-        var headIn = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            Height = 30,
-            ColumnCount = 2,
-            RowCount = 1,
-            Padding = new Padding(0, 0, 0, 4),
-        };
-        headIn.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        headIn.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        lblPreviewInTitle.Dock = DockStyle.Fill;
-        lblPreviewInTitle.Margin = Padding.Empty;
-        lblPreviewInTitle.TextAlign = ContentAlignment.MiddleLeft;
-        btnResetInputZoom.Dock = DockStyle.Fill;
-        btnResetInputZoom.Margin = new Padding(8, 0, 0, 0);
-        btnResetInputZoom.AutoSize = true;
-        headIn.Controls.Add(lblPreviewInTitle, 0, 0);
-        headIn.Controls.Add(btnResetInputZoom, 1, 0);
-        panelInputViewport.Dock = DockStyle.Fill;
-        var chromeIn = new Panel
-        {
-            Dock = DockStyle.Fill,
-            Name = "previewInputChrome",
-            BackColor = panelInputViewport.BackColor,
-        };
-        chromeIn.Controls.Add(panelInputViewport);
-        wrapIn.Controls.Add(chromeIn);
-        wrapIn.Controls.Add(headIn);
-        _inputPreviewChrome = chromeIn;
-        _splitPreview.Panel1.Controls.Add(wrapIn);
-
-        var wrapOut = new Panel { Dock = DockStyle.Fill, Padding = new Padding(4, 0, 0, 0) };
-        var headOut = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            Height = 30,
-            ColumnCount = 2,
-            RowCount = 1,
-            Padding = new Padding(0, 0, 0, 4),
-        };
-        headOut.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-        headOut.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        lblPreviewOutTitle.Dock = DockStyle.Fill;
-        lblPreviewOutTitle.Margin = Padding.Empty;
-        lblPreviewOutTitle.TextAlign = ContentAlignment.MiddleLeft;
-        btnResetOutputZoom.Dock = DockStyle.Fill;
-        btnResetOutputZoom.Margin = new Padding(8, 0, 0, 0);
-        btnResetOutputZoom.AutoSize = true;
-        headOut.Controls.Add(lblPreviewOutTitle, 0, 0);
-        headOut.Controls.Add(btnResetOutputZoom, 1, 0);
-        panelOutputViewport.Dock = DockStyle.Fill;
-        var chromeOut = new Panel
-        {
-            Dock = DockStyle.Fill,
-            Name = "previewOutputChrome",
-            BackColor = panelOutputViewport.BackColor,
-        };
-        chromeOut.Controls.Add(panelOutputViewport);
-        wrapOut.Controls.Add(chromeOut);
-        wrapOut.Controls.Add(headOut);
-        _outputPreviewChrome = chromeOut;
-        _splitPreview.Panel2.Controls.Add(wrapOut);
-
-        _tableRoot.Controls.Add(_splitPreview, 0, 4);
-
-        listDetections.Dock = DockStyle.Fill;
-        _tableRoot.Controls.Add(listDetections, 0, 5);
-
-        Controls.Add(_tableRoot);
+        comboExecutionProvider.SelectedIndexChanged += (_, _) => InvalidateSession();
         menuStripMain.BringToFront();
-        Load += OnLoadClampSplitContainerMinimums;
-        }
-        finally
-        {
-            ResumeLayout(performLayout: true);
-        }
     }
 
-    private void OnLoadClampSplitContainerMinimums(object? sender, EventArgs e)
+    /// <summary>창 크기에 맞춰 가변 폭·미리보기 50:50·우측 버튼 정렬을 갱신합니다(디자이너 Y·좌측 열은 유지).</summary>
+    private void LayoutAdaptiveControls()
     {
-        Load -= OnLoadClampSplitContainerMinimums;
-        try
-        {
-            if (_splitPreview != null)
-            {
-                var w = Math.Max(1, _splitPreview.ClientSize.Width);
-                var s = _splitPreview.SplitterWidth;
-                var each = Math.Min(260, Math.Max(40, (w - s) / 2 - 8));
-                _splitPreview.Panel1MinSize = each;
-                _splitPreview.Panel2MinSize = each;
-            }
-
-            if (_splitUpper != null)
-            {
-                var h = Math.Max(1, _splitUpper.ClientSize.Height);
-                var s = _splitUpper.SplitterWidth;
-                var each = Math.Min(120, Math.Max(40, (h - s) / 2 - 8));
-                _splitUpper.Panel1MinSize = each;
-                _splitUpper.Panel2MinSize = each;
-            }
-
-            BalanceSplitters();
-        }
-        catch
-        {
-            // keep conservative constructor mins
-        }
-    }
-
-    private void BalanceSplitters()
-    {
-        if (_splitUpper == null || _splitPreview == null)
+        if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
             return;
         if (WindowState == FormWindowState.Minimized || !IsHandleCreated)
             return;
         try
         {
-            // Horizontal split: distance is vertical — use height.
-            var uh = _splitUpper.Height;
-            if (uh > _splitUpper.Panel1MinSize + _splitUpper.Panel2MinSize + _splitUpper.SplitterWidth)
-                _splitUpper.SplitterDistance = (uh - _splitUpper.SplitterWidth) / 2;
+            const int m = 12;
+            const int gap = 8;
+            var cw = ClientSize.Width;
+            var ch = ClientSize.Height;
+            if (cw < 1 || ch < 1)
+                return;
 
-            // Vertical split: distance is horizontal — use width.
-            var pw = _splitPreview.Width;
-            if (pw > _splitPreview.Panel1MinSize + _splitPreview.Panel2MinSize + _splitPreview.SplitterWidth)
-                _splitPreview.SplitterDistance = (pw - _splitPreview.SplitterWidth) / 2;
+            // Path labels: stretch with client width (Anchor L+R also works; SetBounds keeps left column width)
+            var pathW = Math.Max(80, cw - m - lblOnnxPath.Left);
+            lblOnnxPath.Width = pathW;
+            lblSlicePath.Width = pathW;
+
+            if (txtLabels.Visible)
+                txtLabels.Width = Math.Max(80, cw - 2 * m);
+
+            // Confidence row: right-align buttons + numeric, track fills space to their left
+            var yRow = trackConf.Top;
+            var btnH = btnAnalyze.Height;
+            var yBtn = yRow + Math.Max(0, (trackConf.Height - btnH) / 2) - 2;
+            var right = cw - m;
+            right -= btnAnalyze.Width;
+            btnAnalyze.SetBounds(right, yBtn, btnAnalyze.Width, btnH);
+            right -= gap;
+            right -= btnSave.Width;
+            btnSave.SetBounds(right, yBtn, btnSave.Width, btnH);
+            right -= gap;
+            right -= btnSaveCsv.Width;
+            btnSaveCsv.SetBounds(right, yBtn, btnSaveCsv.Width, btnH);
+            right -= gap;
+            right -= numConf.Width;
+            numConf.SetBounds(right, yRow + 6, numConf.Width, numConf.Height);
+
+            var trackLeft = trackConf.Left;
+            var trackW = Math.Max(80, numConf.Left - gap - trackLeft);
+            trackConf.SetBounds(trackLeft, yRow, trackW, trackConf.Height);
+
+            lblConf.Left = comboExecutionProvider.Right + 12;
+
+            // Progress & status stretch with width
+            progressInference.SetBounds(m, progressInference.Top, cw - 2 * m, progressInference.Height);
+            lblStatus.SetBounds(m, lblStatus.Top, cw - 2 * m, lblStatus.Height);
+
+            // Preview panes: 50/50 between margins, height up to list
+            var top = panelInputViewport.Top;
+            var listTop = listDetections.Top;
+            var h = Math.Max(80, listTop - m - top);
+            var innerW = Math.Max(gap + 200, cw - 2 * m);
+            var half = (innerW - gap) / 2;
+            panelInputViewport.SetBounds(m, top, half, h);
+            panelOutputViewport.SetBounds(m + half + gap, top, innerW - half - gap, h);
+
+            // Preview header row follows pane edges
+            var hdrY = lblPreviewInTitle.Top;
+            lblPreviewInTitle.Left = panelInputViewport.Left;
+            lblPreviewInTitle.Top = hdrY;
+            lblZoomInput.Left = lblPreviewInTitle.Right + gap;
+            lblZoomInput.Top = hdrY;
+            btnResetInputZoom.Left = panelInputViewport.Right - btnResetInputZoom.Width;
+            btnResetInputZoom.Top = hdrY - 2;
+
+            lblPreviewOutTitle.Left = panelOutputViewport.Left;
+            lblPreviewOutTitle.Top = hdrY;
+            lblZoomOutput.Left = lblPreviewOutTitle.Right + gap;
+            lblZoomOutput.Top = hdrY;
+            btnResetOutputZoom.Left = panelOutputViewport.Right - btnResetOutputZoom.Width;
+            btnResetOutputZoom.Top = hdrY - 2;
         }
         catch
         {
@@ -410,10 +181,10 @@ public partial class BrainCtMainForm : Form
     {
         _inputScrollPanel = panelInputViewport;
         _outputScrollPanel = panelOutputViewport;
-        picInput.MouseWheel += (_, e) => ChangeZoom(isInput: true, e.Delta > 0);
-        picOutput.MouseWheel += (_, e) => ChangeZoom(isInput: false, e.Delta > 0);
-        panelInputViewport.MouseWheel += (_, e) => ChangeZoom(isInput: true, e.Delta > 0);
-        panelOutputViewport.MouseWheel += (_, e) => ChangeZoom(isInput: false, e.Delta > 0);
+        picInput.MouseWheel += (s, e) => ChangeZoom(isInput: true, e.Delta > 0, (Control)s!, e);
+        picOutput.MouseWheel += (s, e) => ChangeZoom(isInput: false, e.Delta > 0, (Control)s!, e);
+        panelInputViewport.MouseWheel += (s, e) => ChangeZoom(isInput: true, e.Delta > 0, (Control)s!, e);
+        panelOutputViewport.MouseWheel += (s, e) => ChangeZoom(isInput: false, e.Delta > 0, (Control)s!, e);
         picInput.MouseEnter += (_, _) => _inputScrollPanel.Focus();
         picOutput.MouseEnter += (_, _) => _outputScrollPanel.Focus();
 
@@ -429,76 +200,79 @@ public partial class BrainCtMainForm : Form
         wirePan(picInput);
         wirePan(picOutput);
 
-        _inputZoomOverlay = CreateZoomOverlayLabel();
-        _outputZoomOverlay = CreateZoomOverlayLabel();
-        _inputZoomOverlay.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-        _outputZoomOverlay.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-        if (_inputPreviewChrome != null && _outputPreviewChrome != null)
-        {
-            _inputPreviewChrome.Controls.Add(_inputZoomOverlay);
-            _outputPreviewChrome.Controls.Add(_outputZoomOverlay);
-            LayoutViewportZoomLabels();
-        }
-
         picInput.Location = Point.Empty;
         picOutput.Location = Point.Empty;
     }
 
-    private static Label CreateZoomOverlayLabel() =>
-        new ZoomOverlayLabel
-        {
-            AutoSize = true,
-            BackColor = Color.Transparent,
-            ForeColor = Color.Red,
-            Font = new Font("맑은 고딕", 9f, FontStyle.Bold),
-            Text = "100%",
-            TabStop = false,
-        };
-
     private void UpdateOverlayLayout()
     {
-        LayoutViewportZoomLabels();
-
+        menuStripMain.BringToFront();
         UpdateZoomLayoutForSide(isInput: true);
         UpdateZoomLayoutForSide(isInput: false);
     }
 
-    /// <summary>배율 표시를 입력/출력 미리보기 영역 각각의 좌측 상단에 고정합니다(스크롤 패널 밖 크롬 위 오버레이).</summary>
-    private void LayoutViewportZoomLabels()
+    private void ChangeZoom(bool isInput, bool zoomIn, Control wheelSender, MouseEventArgs e)
     {
-        if (_inputZoomOverlay != null)
-        {
-            _inputZoomOverlay.Location = new Point(8, 8);
-            _inputZoomOverlay.BringToFront();
-        }
-
-        if (_outputZoomOverlay != null)
-        {
-            _outputZoomOverlay.Location = new Point(8, 8);
-            _outputZoomOverlay.BringToFront();
-        }
-
-        menuStripMain.BringToFront();
+        var focal = ToPanelClientPoint(wheelSender, e);
+        ChangeZoom(isInput, zoomIn, focal);
     }
 
-    private void ChangeZoom(bool isInput, bool zoomIn)
+    /// <param name="focalInPanel">패널 클라이언트 좌표 기준, 휠 줌 기준점(보통 마우스 위치).</param>
+    private void ChangeZoom(bool isInput, bool zoomIn, Point focalInPanel)
     {
         var pic = isInput ? picInput : picOutput;
-        if (pic.Image == null)
+        var panel = isInput ? _inputScrollPanel : _outputScrollPanel;
+        if (pic.Image == null || panel == null)
             return;
 
-        if (isInput)
+        var imgW = pic.Image.Width;
+        var imgH = pic.Image.Height;
+        if (imgW <= 0 || imgH <= 0)
+            return;
+
+        var (cw, ch) = GetViewportSize(panel);
+        var fit = Math.Min((float)cw / imgW, (float)ch / imgH);
+        ref var zoomRef = ref isInput ? ref _inputZoom : ref _outputZoom;
+        var zOld = zoomRef;
+        var scaleOld = fit * zOld;
+        var drawWold = Math.Max(1, (int)Math.Round(imgW * scaleOld));
+        var drawHold = Math.Max(1, (int)Math.Round(imgH * scaleOld));
+
+        float docX;
+        float docY;
+        if (panel.AutoScroll)
         {
-            _inputZoom = Math.Clamp(_inputZoom * (zoomIn ? ZoomStep : 1f / ZoomStep), MinZoom, MaxZoom);
-            UpdateZoomLayoutForSide(isInput: true);
-            UpdateZoomText(isInput: true);
+            var sx = Math.Max(0, -panel.AutoScrollPosition.X);
+            var sy = Math.Max(0, -panel.AutoScrollPosition.Y);
+            docX = focalInPanel.X + sx;
+            docY = focalInPanel.Y + sy;
         }
         else
         {
-            _outputZoom = Math.Clamp(_outputZoom * (zoomIn ? ZoomStep : 1f / ZoomStep), MinZoom, MaxZoom);
-            UpdateZoomLayoutForSide(isInput: false);
-            UpdateZoomText(isInput: false);
+            docX = focalInPanel.X - pic.Left;
+            docY = focalInPanel.Y - pic.Top;
         }
+
+        var nx = drawWold > 0 ? docX / drawWold : 0.5f;
+        var ny = drawHold > 0 ? docY / drawHold : 0.5f;
+        nx = Math.Clamp(nx, 0f, 1f);
+        ny = Math.Clamp(ny, 0f, 1f);
+
+        zoomRef = Math.Clamp(zoomRef * (zoomIn ? ZoomStep : 1f / ZoomStep), MinZoom, MaxZoom);
+
+        UpdateZoomLayoutForSide(isInput);
+
+        var drawWn = pic.Width;
+        var drawHn = pic.Height;
+        var overflowsNow = drawWn > cw || drawHn > ch;
+        if (overflowsNow && panel.AutoScroll)
+        {
+            var sxNew = (int)Math.Round(nx * drawWn - focalInPanel.X);
+            var syNew = (int)Math.Round(ny * drawHn - focalInPanel.Y);
+            SetPanelScroll(panel, pic.Width, pic.Height, sxNew, syNew);
+        }
+
+        UpdateZoomText(isInput);
     }
 
     private void UpdateZoomLayoutForSide(bool isInput)
@@ -506,7 +280,6 @@ public partial class BrainCtMainForm : Form
         PictureBox pic = isInput ? picInput : picOutput;
         Panel? panel = isInput ? _inputScrollPanel : _outputScrollPanel;
         float zoom = isInput ? _inputZoom : _outputZoom;
-        ref var panOffset = ref isInput ? ref _inputPanOffset : ref _outputPanOffset;
 
         if (panel == null || pic.Image == null)
             return;
@@ -516,8 +289,7 @@ public partial class BrainCtMainForm : Form
         if (imgW <= 0 || imgH <= 0)
             return;
 
-        var cw = Math.Max(1, panel.ClientSize.Width);
-        var ch = Math.Max(1, panel.ClientSize.Height);
+        var (cw, ch) = GetViewportSize(panel);
         var fit = Math.Min((float)cw / imgW, (float)ch / imgH);
         var scale = fit * zoom;
         var drawW = Math.Max(1, (int)Math.Round(imgW * scale));
@@ -526,17 +298,9 @@ public partial class BrainCtMainForm : Form
         pic.SizeMode = PictureBoxSizeMode.StretchImage;
         pic.Size = new Size(drawW, drawH);
 
-        // Pan with scrollbars whenever the scaled image exceeds the viewport — not only when zoom > 1
-        // (rounding can overflow at 100%, or a high zoom may still fit a tiny bitmap).
         var overflows = drawW > cw || drawH > ch;
-
-        Point priorScroll = Point.Empty;
-        if (panel.AutoScroll)
-        {
-            priorScroll = new Point(
-                Math.Max(0, -panel.AutoScrollPosition.X),
-                Math.Max(0, -panel.AutoScrollPosition.Y));
-        }
+        var priorScrollX = Math.Max(0, -panel.AutoScrollPosition.X);
+        var priorScrollY = Math.Max(0, -panel.AutoScrollPosition.Y);
 
         if (!overflows)
         {
@@ -544,44 +308,37 @@ public partial class BrainCtMainForm : Form
             panel.AutoScrollMinSize = Size.Empty;
             var cx = Math.Max(0, (cw - drawW) / 2);
             var cy = Math.Max(0, (ch - drawH) / 2);
-            var minL = Math.Min(0, cw - drawW);
-            var maxL = Math.Max(0, cw - drawW);
-            var minT = Math.Min(0, ch - drawH);
-            var maxT = Math.Max(0, ch - drawH);
-            var x = Math.Clamp(cx + panOffset.X, minL, maxL);
-            var y = Math.Clamp(cy + panOffset.Y, minT, maxT);
-            pic.Location = new Point(x, y);
-            panOffset = new Point(x - cx, y - cy);
+            pic.Location = new Point(cx, cy);
         }
         else
         {
-            panOffset = Point.Empty;
             panel.AutoScroll = true;
             panel.AutoScrollMinSize = new Size(drawW, drawH);
             pic.Location = Point.Empty;
-
-            if (priorScroll != Point.Empty)
-            {
-                var maxX = ScrollMax(panel.HorizontalScroll);
-                var maxY = ScrollMax(panel.VerticalScroll);
-                var sx = Math.Clamp(priorScroll.X, panel.HorizontalScroll.Minimum, maxX);
-                var sy = Math.Clamp(priorScroll.Y, panel.VerticalScroll.Minimum, maxY);
-                try
-                {
-                    panel.AutoScrollPosition = new Point(-sx, -sy);
-                }
-                catch
-                {
-                    // scroll range not ready
-                }
-            }
+            SetPanelScroll(panel, drawW, drawH, priorScrollX, priorScrollY);
         }
     }
 
-    private static int ScrollMax(ScrollProperties sp)
+    private static (int Width, int Height) GetViewportSize(Panel panel)
     {
-        var r = sp.Maximum - sp.LargeChange + 1;
-        return Math.Max(sp.Minimum, r);
+        return (Math.Max(1, panel.ClientSize.Width), Math.Max(1, panel.ClientSize.Height));
+    }
+
+    private static void SetPanelScroll(Panel panel, int contentW, int contentH, int scrollX, int scrollY)
+    {
+        var (cw, ch) = GetViewportSize(panel);
+        var maxX = Math.Max(0, contentW - cw);
+        var maxY = Math.Max(0, contentH - ch);
+        var sx = Math.Clamp(scrollX, 0, maxX);
+        var sy = Math.Clamp(scrollY, 0, maxY);
+        try
+        {
+            panel.AutoScrollPosition = new Point(-sx, -sy);
+        }
+        catch
+        {
+            // ignore scroll assignment race on layout transitions
+        }
     }
 
     private Panel? ViewportHostFromSender(object? sender) =>
@@ -594,11 +351,15 @@ public partial class BrainCtMainForm : Form
             _ => null,
         };
 
+    /// <summary>스크롤 오프셋과 무관하게, 패널 뷰포트(표시 영역) 기준 클라이언트 좌표로 변환합니다.</summary>
     private static Point ToPanelClientPoint(object? sender, MouseEventArgs e)
     {
-        if (sender is PictureBox pb && pb.Parent is Panel pv)
-            return new Point(e.X + pb.Left, e.Y + pb.Top);
-        return e.Location;
+        if (sender is not Control c)
+            return Point.Empty;
+        if (c is Panel)
+            return e.Location;
+        var screen = c.PointToScreen(new Point(e.X, e.Y));
+        return c.Parent is Panel pv ? pv.PointToClient(screen) : e.Location;
     }
 
     private void Viewport_MouseDown(object? sender, MouseEventArgs e)
@@ -606,7 +367,7 @@ public partial class BrainCtMainForm : Form
         if (e.Button != MouseButtons.Left)
             return;
         var panel = ViewportHostFromSender(sender);
-        if (panel == null)
+        if (panel == null || !panel.AutoScroll)
             return;
         var pt = ToPanelClientPoint(sender, e);
         // Capture on the control that received the click so drag MouseMove/MouseUp are reliable (Panel-only capture can drop moves on some layouts).
@@ -644,7 +405,7 @@ public partial class BrainCtMainForm : Form
             var dx = pt.X - _inputPanLastClient.X;
             var dy = pt.Y - _inputPanLastClient.Y;
             _inputPanLastClient = pt;
-            ApplyViewportPan(panel, picInput, isInput: true, dx, dy);
+            ApplyViewportPan(panel, picInput, dx, dy);
         }
         else
         {
@@ -653,11 +414,11 @@ public partial class BrainCtMainForm : Form
             var dx = pt.X - _outputPanLastClient.X;
             var dy = pt.Y - _outputPanLastClient.Y;
             _outputPanLastClient = pt;
-            ApplyViewportPan(panel, picOutput, isInput: false, dx, dy);
+            ApplyViewportPan(panel, picOutput, dx, dy);
         }
 
         // Do not run full UpdateZoomLayout here — it fights AutoScroll/pan and makes dragging feel stuck.
-        LayoutViewportZoomLabels();
+        menuStripMain.BringToFront();
     }
 
     private void Viewport_MouseUp(object? sender, MouseEventArgs e)
@@ -685,39 +446,18 @@ public partial class BrainCtMainForm : Form
         }
     }
 
-    private void ApplyViewportPan(Panel panel, PictureBox pic, bool isInput, int dx, int dy)
+    private void ApplyViewportPan(Panel panel, PictureBox pic, int dx, int dy)
     {
         if (pic.Image == null)
             return;
-        var zoom = isInput ? _inputZoom : _outputZoom;
-        if (zoom > 1.0001f && panel.AutoScroll)
-        {
-            var curX = Math.Max(0, -panel.AutoScrollPosition.X);
-            var curY = Math.Max(0, -panel.AutoScrollPosition.Y);
-            curX -= dx;
-            curY -= dy;
-            var maxX = ScrollMax(panel.HorizontalScroll);
-            var maxY = ScrollMax(panel.VerticalScroll);
-            curX = Math.Clamp(curX, panel.HorizontalScroll.Minimum, maxX);
-            curY = Math.Clamp(curY, panel.VerticalScroll.Minimum, maxY);
-            try
-            {
-                panel.AutoScrollPosition = new Point(-curX, -curY);
-            }
-            catch
-            {
-                // ignore
-            }
-
+        if (!panel.AutoScroll)
             return;
-        }
 
-        if (zoom <= 1.0001f)
-        {
-            ref var panOffset = ref isInput ? ref _inputPanOffset : ref _outputPanOffset;
-            panOffset = new Point(panOffset.X + dx, panOffset.Y + dy);
-            UpdateZoomLayoutForSide(isInput);
-        }
+        var curX = Math.Max(0, -panel.AutoScrollPosition.X);
+        var curY = Math.Max(0, -panel.AutoScrollPosition.Y);
+        curX -= dx;
+        curY -= dy;
+        SetPanelScroll(panel, pic.Width, pic.Height, curX, curY);
     }
 
     private void ResetZoom(bool isInput)
@@ -725,14 +465,12 @@ public partial class BrainCtMainForm : Form
         if (isInput)
         {
             _inputZoom = 1f;
-            _inputPanOffset = Point.Empty;
             UpdateZoomLayoutForSide(isInput: true);
             UpdateZoomText(isInput: true);
         }
         else
         {
             _outputZoom = 1f;
-            _outputPanOffset = Point.Empty;
             UpdateZoomLayoutForSide(isInput: false);
             UpdateZoomText(isInput: false);
         }
@@ -740,25 +478,19 @@ public partial class BrainCtMainForm : Form
 
     private void UpdateZoomText(bool isInput)
     {
-        var overlay = isInput ? _inputZoomOverlay : _outputZoomOverlay;
+        var lbl = isInput ? lblZoomInput : lblZoomOutput;
         var pic = isInput ? picInput : picOutput;
-        if (overlay == null)
-            return;
 
         if (pic.Image == null)
         {
-            overlay.Visible = false;
-            LayoutViewportZoomLabels();
+            lbl.Visible = false;
             return;
         }
 
-        overlay.Visible = true;
-        overlay.BackColor = Color.Transparent;
-        overlay.ForeColor = Color.Red;
+        lbl.Visible = true;
         var z = isInput ? _inputZoom : _outputZoom;
         var pct = Math.Round(z * 100);
-        overlay.Text = isInput ? $"입력 {pct:0}%" : $"결과 {pct:0}%";
-        LayoutViewportZoomLabels();
+        lbl.Text = isInput ? $"입력 {pct:0}%" : $"결과 {pct:0}%";
     }
 
     private void SyncTrackBarFromNumeric()
@@ -1376,7 +1108,7 @@ public partial class BrainCtMainForm : Form
     }
 
     private OnnxExecutionProviderRequest GetExecutionProviderRequest() =>
-        _comboExecutionProvider?.SelectedIndex switch
+        comboExecutionProvider.SelectedIndex switch
         {
             1 => OnnxExecutionProviderRequest.CpuOnly,
             2 => OnnxExecutionProviderRequest.CudaOnly,
@@ -1395,28 +1127,6 @@ public partial class BrainCtMainForm : Form
         _lastSessionKey = key;
     }
 
-    /// <summary>배율 텍스트만 보이고, 마우스는 아래 컨트롤로 통과합니다.</summary>
-    private sealed class ZoomOverlayLabel : Label
-    {
-        private const int WM_NCHITTEST = 0x0084;
-        private const int HTTRANSPARENT = -1;
-
-        public ZoomOverlayLabel()
-        {
-            SetStyle(ControlStyles.Selectable, false);
-        }
-
-        protected override void WndProc(ref Message m)
-        {
-            if (m.Msg == WM_NCHITTEST)
-            {
-                m.Result = (IntPtr)HTTRANSPARENT;
-                return;
-            }
-
-            base.WndProc(ref m);
-        }
-    }
 }
 
 }
