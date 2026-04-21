@@ -11,7 +11,6 @@ namespace YOLO26BrainV20
         private ToolStripSeparator menuFileSep;
         private ToolStripMenuItem menuExit;
         private ToolStripMenuItem menuTools;
-        private ToolStripMenuItem menuDownloadSample;
         private ToolStripMenuItem menuConvertPt;
         private ToolStripMenuItem menuRecommendedDefaults;
         private ToolStripSeparator menuToolsSep;
@@ -60,7 +59,6 @@ namespace YOLO26BrainV20
             menuFileSep = new ToolStripSeparator();
             menuExit = new ToolStripMenuItem();
             menuTools = new ToolStripMenuItem();
-            menuDownloadSample = new ToolStripMenuItem();
             menuConvertPt = new ToolStripMenuItem();
             menuRecommendedDefaults = new ToolStripMenuItem();
             menuToolsSep = new ToolStripSeparator();
@@ -127,7 +125,7 @@ namespace YOLO26BrainV20
             menuSaveCsv.Enabled = false;
             menuSaveCsv.Name = "menuSaveCsv";
             menuSaveCsv.Size = new Size(206, 22);
-            menuSaveCsv.Text = "검출 목록 CSV 저장(&C)…";
+            menuSaveCsv.Text = "출혈 영역 목록 CSV 저장(&C)…";
             // 
             // menuFileSep
             // 
@@ -142,16 +140,10 @@ namespace YOLO26BrainV20
             // 
             // menuTools
             // 
-            menuTools.DropDownItems.AddRange(new ToolStripItem[] { menuDownloadSample, menuConvertPt, menuRecommendedDefaults, menuToolsSep, menuOpenSampleFolder });
+            menuTools.DropDownItems.AddRange(new ToolStripItem[] { menuConvertPt, menuRecommendedDefaults, menuToolsSep, menuOpenSampleFolder });
             menuTools.Name = "menuTools";
             menuTools.Size = new Size(57, 20);
             menuTools.Text = "도구(&T)";
-            // 
-            // menuDownloadSample
-            // 
-            menuDownloadSample.Name = "menuDownloadSample";
-            menuDownloadSample.Size = new Size(233, 22);
-            menuDownloadSample.Text = "뇌 CT 샘플 이미지 다운로드…";
             // 
             // menuConvertPt
             // 
@@ -174,7 +166,7 @@ namespace YOLO26BrainV20
             // 
             menuOpenSampleFolder.Name = "menuOpenSampleFolder";
             menuOpenSampleFolder.Size = new Size(233, 22);
-            menuOpenSampleFolder.Text = "다운로드 폴더 열기";
+            menuOpenSampleFolder.Text = "샘플 이미지 폴더 열기";
             // 
             // lblOnnxTitle
             // 
@@ -188,7 +180,7 @@ namespace YOLO26BrainV20
             // 
             btnModel.Location = new Point(12, 52);
             btnModel.Name = "btnModel";
-            btnModel.Size = new Size(118, 27);
+            btnModel.Size = new Size(96, 24);
             btnModel.TabIndex = 2;
             btnModel.Text = "모델 선택…";
             btnModel.UseVisualStyleBackColor = true;
@@ -201,7 +193,7 @@ namespace YOLO26BrainV20
             lblOnnxPath.Name = "lblOnnxPath";
             lblOnnxPath.Size = new Size(289, 22);
             lblOnnxPath.TabIndex = 3;
-            lblOnnxPath.Text = "선택된 모델이 없습니다.";
+            lblOnnxPath.Text = "선택된 모델 없음";
             lblOnnxPath.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblImageTitle
@@ -216,7 +208,7 @@ namespace YOLO26BrainV20
             // 
             btnImage.Location = new Point(435, 56);
             btnImage.Name = "btnImage";
-            btnImage.Size = new Size(118, 27);
+            btnImage.Size = new Size(96, 24);
             btnImage.TabIndex = 5;
             btnImage.Text = "이미지 열기…";
             btnImage.UseVisualStyleBackColor = true;
@@ -229,7 +221,7 @@ namespace YOLO26BrainV20
             lblSlicePath.Name = "lblSlicePath";
             lblSlicePath.Size = new Size(336, 22);
             lblSlicePath.TabIndex = 6;
-            lblSlicePath.Text = "불러온 이미지가 없습니다.";
+            lblSlicePath.Text = "불러온 이미지 없음";
             lblSlicePath.TextAlign = ContentAlignment.MiddleLeft;
             // 
             // lblLabels
@@ -246,7 +238,7 @@ namespace YOLO26BrainV20
             txtLabels.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtLabels.Location = new Point(12, 108);
             txtLabels.Name = "txtLabels";
-            txtLabels.PlaceholderText = "선택: 쉼표 구분 클래스 이름 (비우면 ONNX에서 class_0 …)";
+            txtLabels.PlaceholderText = "학습 data.yaml의 names와 동일한 순서(단일 클래스면 hemorrhage)";
             txtLabels.Size = new Size(1000, 23);
             txtLabels.TabIndex = 8;
             txtLabels.Text = "hemorrhage";
@@ -290,7 +282,7 @@ namespace YOLO26BrainV20
             btnAnalyze.Name = "btnAnalyze";
             btnAnalyze.Size = new Size(96, 28);
             btnAnalyze.TabIndex = 12;
-            btnAnalyze.Text = "검출 실행";
+            btnAnalyze.Text = "세그 실행";
             btnAnalyze.UseVisualStyleBackColor = true;
             // 
             // btnSave
@@ -310,7 +302,7 @@ namespace YOLO26BrainV20
             btnSaveCsv.Name = "btnSaveCsv";
             btnSaveCsv.Size = new Size(124, 28);
             btnSaveCsv.TabIndex = 14;
-            btnSaveCsv.Text = "검출 CSV 저장…";
+            btnSaveCsv.Text = "영역 CSV 저장…";
             btnSaveCsv.UseVisualStyleBackColor = true;
             // 
             // progressInference
@@ -332,7 +324,7 @@ namespace YOLO26BrainV20
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(1000, 26);
             lblStatus.TabIndex = 16;
-            lblStatus.Text = "준비됨 — 모델과 이미지를 선택한 뒤 [검출 실행]을 누르세요.";
+            lblStatus.Text = "준비됨 — 출혈 세그 ONNX와 뇌 CT 이미지를 선택한 뒤 [세그 실행]을 누르세요.";
             // 
             // lblPreviewInTitle
             // 
@@ -340,7 +332,7 @@ namespace YOLO26BrainV20
             lblPreviewInTitle.Name = "lblPreviewInTitle";
             lblPreviewInTitle.Size = new Size(200, 18);
             lblPreviewInTitle.TabIndex = 17;
-            lblPreviewInTitle.Text = "입력";
+            lblPreviewInTitle.Text = "입력 이미지";
             // 
             // lblPreviewOutTitle
             // 
@@ -348,7 +340,7 @@ namespace YOLO26BrainV20
             lblPreviewOutTitle.Name = "lblPreviewOutTitle";
             lblPreviewOutTitle.Size = new Size(200, 18);
             lblPreviewOutTitle.TabIndex = 18;
-            lblPreviewOutTitle.Text = "검출 결과";
+            lblPreviewOutTitle.Text = "결과 이미지";
             // 
             // btnResetInputZoom
             // 
@@ -427,7 +419,7 @@ namespace YOLO26BrainV20
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1024, 741);
+            ClientSize = new Size(1440, 820);
             Controls.Add(menuStripMain);
             Controls.Add(lblOnnxTitle);
             Controls.Add(btnModel);
@@ -455,7 +447,8 @@ namespace YOLO26BrainV20
             Font = new Font("맑은 고딕", 9F);
             Icon = (Icon)resources.GetObject("$this.Icon");
             MainMenuStrip = menuStripMain;
-            MinimumSize = new Size(640, 520);
+            // Side-by-side previews need width; upper ONNX/경로 row needs height.
+            MinimumSize = new Size(1000, 680);
             Name = "BrainCtMainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "YOLO26 뇌 CT 출혈(hemorrhage) 세그";

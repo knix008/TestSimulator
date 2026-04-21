@@ -4,7 +4,11 @@ namespace YOLO26BrainV20.Inference;
 
 internal static class YoloOnnxSessionFactory
 {
-    public static InferenceSession CreateSession(string onnxPath, int cudaDeviceId, out string summary)
+    public static InferenceSession CreateSession(
+        string onnxPath,
+        OnnxExecutionProviderRequest request,
+        int cudaDeviceId,
+        out string summary)
     {
         var threads = Math.Max(1, Environment.ProcessorCount);
         void ApplyCommon(SessionOptions o)
@@ -14,6 +18,27 @@ internal static class YoloOnnxSessionFactory
             o.IntraOpNumThreads = threads;
         }
 
+        if (request == OnnxExecutionProviderRequest.CpuOnly)
+        {
+            using var soCpu = new SessionOptions();
+            ApplyCommon(soCpu);
+            var session = new InferenceSession(onnxPath, soCpu);
+            summary = "CPU (explicit)";
+            return session;
+        }
+
+        if (request == OnnxExecutionProviderRequest.CudaOnly)
+        {
+            CudaRuntimeBootstrap.EnsureCudaBinOnPath();
+            using var so = new SessionOptions();
+            ApplyCommon(so);
+            so.AppendExecutionProvider_CUDA(cudaDeviceId);
+            var session = new InferenceSession(onnxPath, so);
+            summary = $"CUDA GPU (device {cudaDeviceId}, explicit)";
+            return session;
+        }
+
+        // Auto: CUDA first, then CPU
         try
         {
             CudaRuntimeBootstrap.EnsureCudaBinOnPath();
@@ -29,7 +54,7 @@ internal static class YoloOnnxSessionFactory
             using var soCpu = new SessionOptions();
             ApplyCommon(soCpu);
             var session = new InferenceSession(onnxPath, soCpu);
-            summary = $"CPU (CUDA unavailable - {ex.GetType().Name}: {ex.Message})";
+            summary = $"CPU (CUDA unavailable — {ex.GetType().Name}: {ex.Message})";
             if (ex.Message.Contains("126", StringComparison.Ordinal))
                 summary += " [Ensure cuDNN 9 / CUDA 12 DLL directories are on PATH.]";
             return session;

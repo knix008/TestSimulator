@@ -1,13 +1,11 @@
-#samples/_cli_out/
+# --- Local / generated content ---
+samples/_cli_out/
 
-# Local training / export outputs (repo root)
-#/runs/
-#/models/
+# Large training or export trees (uncomment if you keep these under the repo root)
+# runs/
+# models/
 
-# Last successful pipeline_train_brain.py run (local)
-#.pipeline_last.json
-
-# Visual Studio / .NET generated files
+# --- Visual Studio / MSBuild / .NET ---
 .vs/
 **/bin/
 **/obj/
@@ -17,10 +15,75 @@
 *.suo
 *.userosscache
 *.sln.docstates
+*.rsuser
+*.userprefs
+*.pidb
+*.svclog
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+*.opendb
+TestResults/
+*.trx
+[Bb]uild[Ll]og.*
+*.log
+*.tlog
+*.wixpdb
+*.wixobj
+artifacts/
+BenchmarkDotNet.Artifacts/
 
-# Installer package outputs
+# Publish / packaging scratch (when not under obj/)
+**/AppPackages/
+**/BundleArtifacts/
+
+# --- WiX / installer outputs ---
 *.msi
 *.msix
 *.msm
 *.msp
 *.cab
+
+# --- NuGet (optional local fallback) ---
+**/packages/
+*.nupkg
+project.lock.json
+
+# --- Python (export / verify scripts) ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+.env
+.env.*
+*.egg-info/
+.eggs/
+dist/
+build/
+pip-wheel-metadata/
+*.egg
+.python-version
+
+# --- IDE / tooling ---
+.idea/
+*.sln.DotSettings.user
+*.DotSettings.user
+.vscode/
+
+# --- OS ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# --- Editor backups ---
+*.swp
+*~
+*.tmp

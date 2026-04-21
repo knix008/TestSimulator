@@ -14,6 +14,8 @@ internal static class BrainCtInferenceDefaults
 
     internal static readonly string[] DefaultSegmentationOnnxFallbacks =
     {
+        "hemorrhage_seg.onnx",
+        "hemorrhage.onnx",
         DefaultSegmentationOnnxFileName,
         "hemorrhage_yolo26_seg.onnx",
         "brain_ct_yolo26n_seg.onnx",

@@ -1,0 +1,18 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputName>YOLO26BrainV20</OutputName>
+    <ProductVersion>1.0.0</ProductVersion>
+    <Platforms>x64</Platforms>
+    <!-- Per-machine MSI under Program Files -->
+    <InstallerPlatform>x64</InstallerPlatform>
+    <SuppressIces>ICE69</SuppressIces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Publish referenced app; WiX exposes harvest bind path as !(bindpath.YOLO26BrainV20) -->
+    <ProjectReference
+      Include="..\..\src\YOLO26BrainV20\YOLO26BrainV20.csproj"
+      Publish="true"
+      Properties="RuntimeIdentifier=win-x64;SelfContained=false;PublishSingleFile=false" />
+  </ItemGroup>
+</Project>

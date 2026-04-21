@@ -3,7 +3,7 @@
 #   pip install -r requirements-export.txt
 #   python export_yolo26_brain_onnx.py --weights best.pt --out brain_seg.onnx
 #
-# For segmentation, --weights should be a segment checkpoint (e.g. runs/segment/train/weights/best.pt).
+# For segmentation, --weights should be a YOLO segment checkpoint (.pt), e.g. best.pt from your training run.
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def main() -> None:
     p.add_argument(
         "--weights",
         required=True,
-        help="Trained .pt checkpoint (e.g. runs/segment/train/weights/best.pt for YOLO26n-seg)",
+        help="Trained YOLO .pt checkpoint (segmentation model for hemorrhage mask export)",
     )
     p.add_argument("--out", default="brain.onnx", help="Output ONNX path")
     p.add_argument("--imgsz", type=int, default=640)

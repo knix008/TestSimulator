@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!-- UpgradeCode must stay stable for MajorUpgrade across product versions. -->
+  <Package
+      Name="YOLO26BrainV20"
+      Manufacturer="TestSimulator"
+      Version="1.0.0.0"
+      UpgradeCode="B2F7A1C3-9D4E-4B8F-9C21-A1B2C3D4E5F6"
+      Scope="perMachine"
+      Compressed="yes"
+      InstallerVersion="500"
+      Language="1033">
+    <SummaryInformation
+        Description="Brain CT hemorrhage segmentation (YOLO ONNX). Requires .NET 8 Windows Desktop Runtime (x64)." />
+
+    <Property Id="ARPPRODUCTICON" Value="DaemonHammerIco" />
+
+    <MajorUpgrade
+        AllowSameVersionUpgrades="yes"
+        DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="Main" Title="YOLO26BrainV20" Level="1" AllowAdvertise="no">
+      <ComponentGroupRef Id="AppComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <Icon Id="DaemonHammerIco" SourceFile="..\..\src\YOLO26BrainV20\daemon_hammer.ico" />
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="YOLO26BrainV20" />
+    </StandardDirectory>
+  </Fragment>
+
+  <!-- Start Menu Programs\YOLO26BrainV20 (per-machine install → common Start Menu) -->
+  <Fragment>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramMenuFolder" Name="YOLO26BrainV20" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="AppComponents" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.YOLO26BrainV20)\**">
+        <Exclude Files="!(bindpath.YOLO26BrainV20)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ShortcutComponents">
+      <Component Id="cmpDesktopShortcut" Directory="DesktopFolder" Guid="6F8E2A1B-3C4D-5E6F-7081-92A3B4C5D6E7">
+        <Shortcut
+            Id="lnkDesktopYOLO26BrainV20"
+            Name="YOLO26BrainV20"
+            Description="Brain CT hemorrhage segmentation (YOLO ONNX)"
+            Target="[INSTALLFOLDER]YOLO26BrainV20.exe"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="DaemonHammerIco" />
+        <RegistryValue
+            Root="HKCU"
+            Key="Software\TestSimulator\YOLO26BrainV20\Install"
+            Name="DesktopShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+      <Component Id="cmpStartMenuShortcut" Directory="ApplicationProgramMenuFolder" Guid="7E9F3B2C-4D5E-6F70-8192-A3B4C5D6E7F8">
+        <Shortcut
+            Id="lnkStartMenuYOLO26BrainV20"
+            Name="YOLO26BrainV20"
+            Description="Brain CT hemorrhage segmentation (YOLO ONNX)"
+            Target="[INSTALLFOLDER]YOLO26BrainV20.exe"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="DaemonHammerIco" />
+        <RemoveFolder Id="RemoveApplicationProgramMenuFolder" Directory="ApplicationProgramMenuFolder" On="uninstall" />
+        <RegistryValue
+            Root="HKCU"
+            Key="Software\TestSimulator\YOLO26BrainV20\Install"
+            Name="StartMenuShortcut"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

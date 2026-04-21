@@ -7,12 +7,20 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 namespace YOLO26BrainV20.Inference;
 
 /// <summary>
-/// Ultralytics-style YOLO26 (and compatible) ONNX: instance segmentation or detection.
+/// Ultralytics-style YOLO26 (and compatible) ONNX for Brain CT hemorrhage instance segmentation (or plain detection).
 /// Box outputs from standard Ultralytics ONNX exports use center-x, center-y, width, height in letterboxed pixel space.
 /// Optional class names for display; if omitted or shorter than the model class count, names fall back to class_N.
 /// </summary>
 public sealed class BrainYolo26Session : IDisposable
 {
+    /// <summary>Sigmoid mask value must exceed this to paint (avoids low-confidence tint outside the lesion).</summary>
+    private const float SegmentationMaskPaintThreshold = 0.52f;
+
+    /// <summary>Expand instance box when painting masks (mask can extend slightly past the box).</summary>
+    private const int SegmentationMaskBBoxPadPixels = 8;
+
+    private const byte SegmentationMaskMaxOverlayAlpha = 95;
+
     private readonly InferenceSession _session;
     private readonly string _inputName;
     private readonly int _netSize;
@@ -23,11 +31,15 @@ public sealed class BrainYolo26Session : IDisposable
     /// <summary>True when ONNX outputs include an Ultralytics-style mask prototype tensor (YOLO-seg export).</summary>
     public bool SupportsInstanceSegmentation { get; }
 
-    public BrainYolo26Session(string onnxPath, IReadOnlyList<string> classNames, int cudaDeviceId = 0)
+    public BrainYolo26Session(
+        string onnxPath,
+        IReadOnlyList<string> classNames,
+        OnnxExecutionProviderRequest executionProvider = OnnxExecutionProviderRequest.Auto,
+        int cudaDeviceId = 0)
     {
         ArgumentNullException.ThrowIfNull(classNames);
         _classNames = classNames.Count > 0 ? classNames : Array.Empty<string>();
-        _session = YoloOnnxSessionFactory.CreateSession(onnxPath, cudaDeviceId, out var summary);
+        _session = YoloOnnxSessionFactory.CreateSession(onnxPath, executionProvider, cudaDeviceId, out var summary);
         ExecutionProviderSummary = summary;
         SupportsInstanceSegmentation = OutputMetadataLooksLikeUltralyticsMaskProto(_session);
         _inputName = ResolveImageInputName(_session);
@@ -396,25 +408,38 @@ public sealed class BrainYolo26Session : IDisposable
                     var ag = stroke.G;
                     var ab = stroke.B;
 
-                    for (var oy = 0; oy < original.Height; oy++)
+                    var pad = SegmentationMaskBBoxPadPixels;
+                    var ix1 = Math.Max(0, (int)Math.Floor(rect.Left) - pad);
+                    var iy1 = Math.Max(0, (int)Math.Floor(rect.Top) - pad);
+                    var ix2 = Math.Min(original.Width - 1, (int)Math.Ceiling(rect.Right) + pad);
+                    var iy2 = Math.Min(original.Height - 1, (int)Math.Ceiling(rect.Bottom) + pad);
+                    if (ix1 > ix2 || iy1 > iy2)
+                        continue;
+
+                    var thr = SegmentationMaskPaintThreshold;
+                    var invRange = 1f / (1f - thr + 1e-5f);
+
+                    for (var oy = iy1; oy <= iy2; oy++)
                     {
                         var row = oy * stride;
                         var yLb = oy * lb.Gain + lb.PadTop;
                         if (yLb < 0 || yLb >= lb.NetSize - 0.001f)
                             continue;
-                        for (var ox = 0; ox < original.Width; ox++)
+                        for (var ox = ix1; ox <= ix2; ox++)
                         {
                             var xLb = ox * lb.Gain + lb.PadLeft;
                             if (xLb < 0 || xLb >= lb.NetSize - 0.001f)
                                 continue;
 
                             var mv = SampleBilinear(maskNet, lb.NetSize, lb.NetSize, xLb, yLb);
-                            if (mv < 0.25f)
+                            if (mv < thr)
                                 continue;
 
-                            var aFill = (byte)Math.Clamp((int)(mv * 100f), 0, 120);
-                            if (aFill == 0)
+                            var edge = (mv - thr) * invRange;
+                            if (edge <= 0f)
                                 continue;
+                            edge = Math.Clamp(edge, 0f, 1f);
+                            var aFill = (byte)Math.Clamp((int)(edge * SegmentationMaskMaxOverlayAlpha), 1, SegmentationMaskMaxOverlayAlpha);
 
                             var i = row + ox * 4;
                             var b0 = p[i];
@@ -439,6 +464,7 @@ public sealed class BrainYolo26Session : IDisposable
         using (var g = Graphics.FromImage(rendered))
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
             foreach (var c in kept)
             {
                 var ox1 = (c.X1Lb - lb.PadLeft) / lb.Gain;
@@ -452,7 +478,7 @@ public sealed class BrainYolo26Session : IDisposable
                     Math.Max(oy1, oy2));
                 var hue = (c.ClassId * 37) % 360;
                 var stroke = ColorFromHsv(hue, 0.65f, 0.95f);
-                using var pen = new Pen(Color.FromArgb(220, stroke), Math.Max(2f, original.Width / 512f));
+                using var pen = new Pen(Color.FromArgb(220, stroke), DetectionBoxPenWidth(original.Width));
                 g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
 
                 var lbl = $"{ClassLabel(c.ClassId)} {c.Confidence:0.00}";
@@ -481,6 +507,7 @@ public sealed class BrainYolo26Session : IDisposable
         {
             g.DrawImage(original, 0, 0, original.Width, original.Height);
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.PixelOffsetMode = PixelOffsetMode.Half;
 
             foreach (var c in kept)
             {
@@ -506,7 +533,7 @@ public sealed class BrainYolo26Session : IDisposable
 
                 var hue = (c.ClassId * 37) % 360;
                 var stroke = ColorFromHsv(hue, 0.65f, 0.95f);
-                using var pen = new Pen(Color.FromArgb(220, stroke), Math.Max(2f, original.Width / 512f));
+                using var pen = new Pen(Color.FromArgb(220, stroke), DetectionBoxPenWidth(original.Width));
                 g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
 
                 var text = $"{label} {c.Confidence:0.00}";
@@ -523,6 +550,9 @@ public sealed class BrainYolo26Session : IDisposable
 
         return (rendered, list);
     }
+
+    private static float DetectionBoxPenWidth(int imageWidth) =>
+        Math.Max(1f, imageWidth / 1024f);
 
     private string ClassLabel(int classId) =>
         (uint)classId < (uint)_classNames.Count ? _classNames[classId] : $"class_{classId}";

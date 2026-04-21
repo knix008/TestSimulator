@@ -28,6 +28,20 @@ internal static class CliRunner
             : (float)BrainCtInferenceDefaults.RecommendedMinConfidence;
         var labelsArg = GetArg(args, "--labels", "-l");
         var labels = ParseLabelsArg(labelsArg);
+        var epArg = GetArg(args, "--ep", "-e");
+        if (!TryParseExecutionProvider(epArg, out var ep, out var epErr))
+        {
+            Console.Error.WriteLine(epErr);
+            return 1;
+        }
+
+        var cudaStr = GetArgSingle(args, "--cuda-device");
+        if (!int.TryParse(string.IsNullOrWhiteSpace(cudaStr) ? "0" : cudaStr, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var cudaDeviceId) || cudaDeviceId < 0)
+        {
+            Console.Error.WriteLine("Invalid --cuda-device (expected non-negative integer).");
+            return 1;
+        }
 
         if (!File.Exists(model))
         {
@@ -44,10 +58,10 @@ internal static class CliRunner
 
         var outDir = !string.IsNullOrEmpty(output)
             ? output
-            : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(paths[0])) ?? ".", "brain_yolo_out");
+            : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(paths[0])) ?? ".", "brain_ct_hemorrhage_seg_out");
         Directory.CreateDirectory(outDir);
 
-        using var session = new BrainYolo26Session(model, labels);
+        using var session = new BrainYolo26Session(model, labels, ep, cudaDeviceId);
         Console.WriteLine($"Execution: {session.ExecutionProviderSummary}");
         Console.WriteLine(labels.Length > 0
             ? $"Input size: {session.NetSize}, class names: {string.Join(", ", labels)}"
@@ -61,10 +75,10 @@ internal static class CliRunner
                 var (annotated, dets) = session.Detect(bmp, conf);
                 using (annotated)
                 {
-                    var name = Path.GetFileNameWithoutExtension(path) + "_yolo.png";
+                    var name = Path.GetFileNameWithoutExtension(path) + "_hemorrhage_seg.png";
                     var dest = Path.Combine(outDir, name);
                     annotated.Save(dest, ImageFormat.Png);
-                    Console.WriteLine($"{path} -> {dest} ({dets.Count} detection(s))");
+                    Console.WriteLine($"{path} -> {dest} ({dets.Count} hemorrhage region(s))");
                     for (var i = 0; i < dets.Count; i++)
                     {
                         var d = dets[i];
@@ -95,6 +109,20 @@ internal static class CliRunner
 
         var labelsArg = GetArg(args, "--labels", "-l");
         var labels = ParseLabelsArg(labelsArg);
+        var epArg = GetArg(args, "--ep", "-e");
+        if (!TryParseExecutionProvider(epArg, out var ep, out var epErr))
+        {
+            Console.Error.WriteLine(epErr);
+            return 1;
+        }
+
+        var cudaStr = GetArgSingle(args, "--cuda-device");
+        if (!int.TryParse(string.IsNullOrWhiteSpace(cudaStr) ? "0" : cudaStr, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var cudaDeviceId) || cudaDeviceId < 0)
+        {
+            Console.Error.WriteLine("Invalid --cuda-device (expected non-negative integer).");
+            return 1;
+        }
 
         try
         {
@@ -105,16 +133,16 @@ internal static class CliRunner
             else
             {
                 var resolved = AppDataPaths.TryResolveBrainTumorSampleImagePath(
-                    SampleAssetsDownloader.ReferenceImageFileName);
+                    AppDataPaths.BrainTumorReferenceImageFileName);
                 sourceNote = resolved
-                    ?? "(synthetic 640x640 — pass --input, GUI 샘플 다운로드, 또는 python download_sample_assets.py)";
+                    ?? "(synthetic 640x640 — pass --input 또는 repo samples/brain_tumor_sample.jpg)";
             }
 
             Console.WriteLine($"Image source: {sourceNote}");
             using var bmp = LoadBitmapForSmokeTest(inputArg);
             Console.WriteLine($"Input: {bmp.Width}x{bmp.Height}px");
 
-            using var session = new BrainYolo26Session(model, labels);
+            using var session = new BrainYolo26Session(model, labels, ep, cudaDeviceId);
             Console.WriteLine(
                 $"Session: NetSize={session.NetSize}, SupportsInstanceSegmentation={session.SupportsInstanceSegmentation}");
             Console.WriteLine($"Execution: {session.ExecutionProviderSummary}");
@@ -140,7 +168,7 @@ internal static class CliRunner
 
             if (HasFlag(args, "--smoke-require-detections") && dets.Count == 0)
             {
-                Console.Error.WriteLine("Smoke test: --smoke-require-detections was set but no detections returned.");
+                Console.Error.WriteLine("Smoke test: --smoke-require-detections was set but zero instances returned.");
                 return 2;
             }
 
@@ -159,7 +187,7 @@ internal static class CliRunner
         if (!string.IsNullOrEmpty(inputPath) && File.Exists(inputPath))
             return new Bitmap(inputPath);
 
-        var resolved = AppDataPaths.TryResolveBrainTumorSampleImagePath(SampleAssetsDownloader.ReferenceImageFileName);
+        var resolved = AppDataPaths.TryResolveBrainTumorSampleImagePath(AppDataPaths.BrainTumorReferenceImageFileName);
         if (resolved != null)
             return new Bitmap(resolved);
 
@@ -186,19 +214,22 @@ internal static class CliRunner
     internal static void PrintHelp()
     {
             Console.WriteLine("""
-            YOLO26 (Ultralytics) brain slice segmentation or detection via ONNX.
+            YOLO26BrainV20: Brain CT hemorrhage instance segmentation via Ultralytics-style YOLO-seg ONNX.
 
             GUI: run with no arguments.
 
             Console (batch images):
-              YOLO26BrainV20 --model <brain.onnx> --input <file|folder> [--output dir] [--conf 0.25] [--labels a,b,c]
+              YOLO26BrainV20 --model <hemorrhage_seg.onnx> --input <file|folder> [--output dir] [--conf 0.25] [--labels hemorrhage] [--ep auto|cpu|cuda] [--cuda-device 0]
 
             Smoke test (one forward pass, no output files):
-              YOLO26BrainV20 --smoke-test --model <brain.onnx> [--input image.png] [--conf 0.01] [--labels a,b]
-              Optional: --smoke-require-detections  (exit 2 if zero detections)
+              YOLO26BrainV20 --smoke-test --model <hemorrhage_seg.onnx> [--input image.png] [--conf 0.01] [--labels hemorrhage]
+              Optional: --smoke-require-detections  (exit 2 if zero instances)
+
+            --ep, -e: ONNX Runtime execution — auto (CUDA then CPU), cpu (CPU only), cuda (CUDA only; fails if unavailable).
+            --cuda-device: CUDA device index (default 0). Used with auto or cuda.
 
             --labels is optional; omit it to use the default single class name (hemorrhage) for display and channel layout.
-            Segmentation ONNX: export a YOLO26n-seg (or compatible) model with ultralytics model.export(format="onnx").
+            PT to ONNX: use tools/export_yolo26_brain_onnx.py (see README).
             """);
     }
 
@@ -224,6 +255,42 @@ internal static class CliRunner
         }
 
         return null;
+    }
+
+    private static string? GetArgSingle(string[] args, string longName)
+    {
+        for (var i = 0; i < args.Length - 1; i++)
+        {
+            if (string.Equals(args[i], longName, StringComparison.OrdinalIgnoreCase))
+                return args[i + 1];
+        }
+
+        return null;
+    }
+
+    private static bool TryParseExecutionProvider(string? value, out OnnxExecutionProviderRequest ep, out string? error)
+    {
+        ep = OnnxExecutionProviderRequest.Auto;
+        error = null;
+        if (string.IsNullOrWhiteSpace(value))
+            return true;
+
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "auto":
+                ep = OnnxExecutionProviderRequest.Auto;
+                return true;
+            case "cpu":
+                ep = OnnxExecutionProviderRequest.CpuOnly;
+                return true;
+            case "cuda":
+            case "gpu":
+                ep = OnnxExecutionProviderRequest.CudaOnly;
+                return true;
+            default:
+                error = $"Invalid --ep value \"{value}\". Use: auto, cpu, or cuda.";
+                return false;
+        }
     }
 
     private static List<string> CollectInputs(string input)
