@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <!-- UpgradeCode must stay stable for MajorUpgrade across product versions. -->
   <Package
       Name="YOLO26BrainV20"
@@ -25,10 +26,14 @@
       <ComponentGroupRef Id="AppComponents" />
       <ComponentGroupRef Id="ShortcutComponents" />
     </Feature>
+
+    <!-- Wizard UI: welcome / license, then progress bar while files install -->
+    <UIRef Id="WixUI_ErrorProgressText" />
+    <ui:WixUI Id="WixUI_Minimal" />
   </Package>
 
   <Fragment>
-    <Icon Id="DaemonHammerIco" SourceFile="..\..\src\YOLO26BrainV20\daemon_hammer.ico" />
+    <Icon Id="DaemonHammerIco" SourceFile="..\..\daemon_hammer.ico" />
   </Fragment>
 
   <Fragment>

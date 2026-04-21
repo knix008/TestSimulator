@@ -25,13 +25,16 @@ public partial class BrainCtMainForm : Form
     private Control? _outputPanCaptureHost;
     private const float MinZoom = 0.2f;
     private const float MaxZoom = 8.0f;
-    private const float ZoomStep = 1.2f;
+    /// <summary>표준 휠 한 칸(Δ≈120)당 배율. 1.2→1.1으로 낮춰 한 단계 변화를 부드럽게 했습니다.</summary>
+    private const float ZoomStepPerNotch = 1.1f;
 
     private BrainYolo26Session? _session;
     private string? _modelPath;
     private string? _lastSessionKey;
     private IReadOnlyList<BrainDetection>? _lastDetections;
     private string? _lastInputImagePath;
+    /// <summary>추론에 사용할 클래스 이름(쉼표 구분). UI 텍스트 박스 제거 후 필드로만 유지합니다.</summary>
+    private string _classLabelsComma = BrainCtInferenceDefaults.RecommendedClassLabelsComma;
 
     public BrainCtMainForm()
     {
@@ -115,9 +118,6 @@ public partial class BrainCtMainForm : Form
             var pathW = Math.Max(80, cw - m - lblOnnxPath.Left);
             lblOnnxPath.Width = pathW;
             lblSlicePath.Width = pathW;
-
-            if (txtLabels.Visible)
-                txtLabels.Width = Math.Max(80, cw - 2 * m);
 
             // Confidence row: right-align buttons + numeric, track fills space to their left
             var yRow = trackConf.Top;
@@ -214,11 +214,12 @@ public partial class BrainCtMainForm : Form
     private void ChangeZoom(bool isInput, bool zoomIn, Control wheelSender, MouseEventArgs e)
     {
         var focal = ToPanelClientPoint(wheelSender, e);
-        ChangeZoom(isInput, zoomIn, focal);
+        ChangeZoom(isInput, zoomIn, focal, e.Delta);
     }
 
     /// <param name="focalInPanel">패널 클라이언트 좌표 기준, 휠 줌 기준점(보통 마우스 위치).</param>
-    private void ChangeZoom(bool isInput, bool zoomIn, Point focalInPanel)
+    /// <param name="wheelDelta">휠 델타(보통 ±120 배수). 크기에 비례해 한 번에 바뀌는 배율을 나눕니다.</param>
+    private void ChangeZoom(bool isInput, bool zoomIn, Point focalInPanel, int wheelDelta)
     {
         var pic = isInput ? picInput : picOutput;
         var panel = isInput ? _inputScrollPanel : _outputScrollPanel;
@@ -258,7 +259,11 @@ public partial class BrainCtMainForm : Form
         nx = Math.Clamp(nx, 0f, 1f);
         ny = Math.Clamp(ny, 0f, 1f);
 
-        zoomRef = Math.Clamp(zoomRef * (zoomIn ? ZoomStep : 1f / ZoomStep), MinZoom, MaxZoom);
+        // |Δ|/120 ≈ 휠 "칸" 수. 고해상도 휠·트랙패드에 맞춰 한 번에 너무 크게 변하지 않도록 상한을 둡니다.
+        var notchSteps = MathF.Abs(wheelDelta) / 120f;
+        notchSteps = Math.Clamp(notchSteps, 0.2f, 3f);
+        var magnitude = MathF.Pow(ZoomStepPerNotch, notchSteps);
+        zoomRef = Math.Clamp(zoomIn ? zoomRef * magnitude : zoomRef / magnitude, MinZoom, MaxZoom);
 
         UpdateZoomLayoutForSide(isInput);
 
@@ -544,7 +549,7 @@ public partial class BrainCtMainForm : Form
 
     private void ApplyRecommendedInferenceDefaults()
     {
-        txtLabels.Text = BrainCtInferenceDefaults.RecommendedClassLabelsComma;
+        _classLabelsComma = BrainCtInferenceDefaults.RecommendedClassLabelsComma;
         var dec = (decimal)Math.Round(BrainCtInferenceDefaults.RecommendedMinConfidence, 2, MidpointRounding.AwayFromZero);
         dec = Math.Clamp(dec, numConf.Minimum, numConf.Maximum);
         numConf.Value = dec;
@@ -1040,7 +1045,7 @@ public partial class BrainCtMainForm : Form
 
     private List<string> ParseLabels()
     {
-        var raw = txtLabels.Text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var raw = _classLabelsComma.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         var list = raw.Where(s => s.Length > 0).ToList();
         if (list.Count == 0 && !string.IsNullOrWhiteSpace(BrainCtInferenceDefaults.RecommendedClassLabelsComma))
         {

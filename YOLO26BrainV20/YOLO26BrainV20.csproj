@@ -21,8 +21,21 @@
     <DebugSymbols>true</DebugSymbols>
     <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
   </PropertyGroup>
+  <!-- WinForms 디자이너는 별도 프로세스에서 프로젝트를 로드합니다. OnnxRuntime.Gpu 의 CUDA 네이티브 의존이
+       없거나 로드 실패 시 디자이너가 열리지 않는 경우가 많아, 디자인 타임 빌드에서만 CPU 패키지를 씁니다. -->
+  <Choose>
+    <When Condition="'$(DesignTimeBuild)' == 'true'">
+      <ItemGroup>
+        <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.24.4" />
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
   <ItemGroup>
-    <PackageReference Include="Microsoft.ML.OnnxRuntime.Gpu" Version="1.24.4" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
     <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
   </ItemGroup>
@@ -32,6 +45,9 @@
     </Compile>
     <Compile Update="BrainCtMainForm.Designer.cs">
       <DependentUpon>BrainCtMainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Dialogs\OnnxExportOptionsForm.cs">
+      <SubType>Code</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -48,4 +64,19 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!--
+    Release MSI 후속 빌드.
+    - 솔루션 전체 빌드: BuildingSolutionFile=true 이면 WiX가 솔루션에서 같이 빌드되므로 여기서는 건너뜀(중복 방지).
+    - VS에서 시작 프로젝트만 빌드: SolutionDir 은 있으나 BuildingSolutionFile!=true → WiX가 큐에 없을 수 있어 여기서 WiX 실행.
+    - dotnet / 단독 .csproj: SolutionDir 비어 있음 → 실행.
+    비활성: -p:SkipInstaller=true
+  -->
+  <Target Name="BuildInstallerMsi"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and ('$(SolutionDir)' == '' or '$(BuildingSolutionFile)' != 'true')">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)installer\YOLO26BrainV20.Installer\YOLO26BrainV20.Installer.wixproj"
+             Targets="Build"
+             Properties="Configuration=Release;Platform=x64" />
+  </Target>
 </Project>

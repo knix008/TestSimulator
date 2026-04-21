@@ -1,5 +1,6 @@
 <Project Sdk="WixToolset.Sdk/5.0.2">
   <PropertyGroup>
+    <OutputType>Package</OutputType>
     <OutputName>YOLO26BrainV20</OutputName>
     <ProductVersion>1.0.0</ProductVersion>
     <Platforms>x64</Platforms>
@@ -10,9 +11,15 @@
 
   <ItemGroup>
     <!-- Publish referenced app; WiX exposes harvest bind path as !(bindpath.YOLO26BrainV20) -->
-    <ProjectReference
-      Include="..\..\src\YOLO26BrainV20\YOLO26BrainV20.csproj"
-      Publish="true"
-      Properties="RuntimeIdentifier=win-x64;SelfContained=false;PublishSingleFile=false" />
+    <!-- SkipInstaller: 메인 앱의 BuildInstallerMsi(솔루션 밖 단독 빌드)와 WiX가 앱을 다시 빌드할 때 순환 방지 (YOLO26V10 동일 패턴) -->
+    <ProjectReference Include="..\..\YOLO26BrainV20.csproj" Publish="true" Properties="RuntimeIdentifier=win-x64;SelfContained=false;PublishSingleFile=false;SkipInstaller=true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <BindVariable Include="WixUILicenseRtf=$(MSBuildProjectDirectory)\License.rtf" />
   </ItemGroup>
 </Project>

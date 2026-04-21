@@ -21,8 +21,6 @@ namespace YOLO26BrainV20
         private Label lblImageTitle;
         private Button btnImage;
         private Label lblSlicePath;
-        private Label lblLabels;
-        private TextBox txtLabels;
         private Label lblExecutionProvider;
         private ComboBox comboExecutionProvider;
         private Label lblConf;
@@ -73,8 +71,6 @@ namespace YOLO26BrainV20
             lblImageTitle = new Label();
             btnImage = new Button();
             lblSlicePath = new Label();
-            lblLabels = new Label();
-            txtLabels = new TextBox();
             lblExecutionProvider = new Label();
             comboExecutionProvider = new ComboBox();
             lblConf = new Label();
@@ -107,12 +103,10 @@ namespace YOLO26BrainV20
             // 
             // menuStripMain
             // 
-            menuStripMain.Dock = DockStyle.Top;
             menuStripMain.ImageScalingSize = new Size(20, 20);
             menuStripMain.Items.AddRange(new ToolStripItem[] { menuFile, menuTools });
             menuStripMain.Location = new Point(0, 0);
             menuStripMain.Name = "menuStripMain";
-            menuStripMain.Padding = new Padding(6, 2, 0, 2);
             menuStripMain.Size = new Size(1440, 24);
             menuStripMain.TabIndex = 0;
             menuStripMain.Text = "menuStripMain";
@@ -184,7 +178,7 @@ namespace YOLO26BrainV20
             lblOnnxTitle.AutoSize = true;
             lblOnnxTitle.Location = new Point(12, 32);
             lblOnnxTitle.Name = "lblOnnxTitle";
-            lblOnnxTitle.Size = new Size(70, 15);
+            lblOnnxTitle.Size = new Size(69, 15);
             lblOnnxTitle.TabIndex = 1;
             lblOnnxTitle.Text = "ONNX 모델";
             // 
@@ -237,32 +231,12 @@ namespace YOLO26BrainV20
             lblSlicePath.Text = "불러온 이미지 없음";
             lblSlicePath.TextAlign = ContentAlignment.MiddleLeft;
             // 
-            // lblLabels
-            // 
-            lblLabels.Location = new Point(12, 136);
-            lblLabels.Name = "lblLabels";
-            lblLabels.Size = new Size(200, 18);
-            lblLabels.TabIndex = 7;
-            lblLabels.Text = "클래스 이름";
-            lblLabels.Visible = false;
-            // 
-            // txtLabels
-            // 
-            txtLabels.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtLabels.Location = new Point(12, 156);
-            txtLabels.Name = "txtLabels";
-            txtLabels.PlaceholderText = "학습 data.yaml의 names와 동일한 순서(단일 클래스면 hemorrhage)";
-            txtLabels.Size = new Size(1416, 23);
-            txtLabels.TabIndex = 8;
-            txtLabels.Text = "hemorrhage";
-            txtLabels.Visible = false;
-            // 
             // lblExecutionProvider
             // 
             lblExecutionProvider.AutoSize = true;
             lblExecutionProvider.Location = new Point(12, 138);
             lblExecutionProvider.Name = "lblExecutionProvider";
-            lblExecutionProvider.Size = new Size(66, 15);
+            lblExecutionProvider.Size = new Size(69, 15);
             lblExecutionProvider.TabIndex = 26;
             lblExecutionProvider.Text = "ONNX 실행";
             // 
@@ -281,13 +255,12 @@ namespace YOLO26BrainV20
             lblConf.AutoSize = true;
             lblConf.Location = new Point(336, 138);
             lblConf.Name = "lblConf";
-            lblConf.Size = new Size(70, 15);
+            lblConf.Size = new Size(71, 15);
             lblConf.TabIndex = 9;
             lblConf.Text = "최소 신뢰도";
             // 
             // trackConf
             // 
-            trackConf.Anchor = AnchorStyles.Top | AnchorStyles.Left;
             trackConf.Location = new Point(412, 128);
             trackConf.Maximum = 100;
             trackConf.Minimum = 1;
@@ -341,18 +314,18 @@ namespace YOLO26BrainV20
             // progressInference
             // 
             progressInference.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            progressInference.Location = new Point(12, 176);
+            progressInference.Location = new Point(12, 171);
             progressInference.MarqueeAnimationSpeed = 35;
             progressInference.Name = "progressInference";
             progressInference.Size = new Size(1416, 14);
-            progressInference.TabIndex = 15;
             progressInference.Style = ProgressBarStyle.Continuous;
+            progressInference.TabIndex = 15;
             // 
             // lblStatus
             // 
             lblStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             lblStatus.AutoEllipsis = true;
-            lblStatus.Location = new Point(12, 198);
+            lblStatus.Location = new Point(12, 203);
             lblStatus.Name = "lblStatus";
             lblStatus.Size = new Size(1416, 28);
             lblStatus.TabIndex = 16;
@@ -363,7 +336,7 @@ namespace YOLO26BrainV20
             lblPreviewInTitle.AutoSize = true;
             lblPreviewInTitle.Location = new Point(12, 234);
             lblPreviewInTitle.Name = "lblPreviewInTitle";
-            lblPreviewInTitle.Size = new Size(67, 15);
+            lblPreviewInTitle.Size = new Size(71, 15);
             lblPreviewInTitle.TabIndex = 17;
             lblPreviewInTitle.Text = "입력 이미지";
             // 
@@ -374,7 +347,7 @@ namespace YOLO26BrainV20
             lblZoomInput.ForeColor = Color.Red;
             lblZoomInput.Location = new Point(100, 234);
             lblZoomInput.Name = "lblZoomInput";
-            lblZoomInput.Size = new Size(55, 15);
+            lblZoomInput.Size = new Size(67, 15);
             lblZoomInput.TabIndex = 40;
             lblZoomInput.Text = "입력 100%";
             // 
@@ -392,7 +365,7 @@ namespace YOLO26BrainV20
             lblPreviewOutTitle.AutoSize = true;
             lblPreviewOutTitle.Location = new Point(732, 234);
             lblPreviewOutTitle.Name = "lblPreviewOutTitle";
-            lblPreviewOutTitle.Size = new Size(67, 15);
+            lblPreviewOutTitle.Size = new Size(71, 15);
             lblPreviewOutTitle.TabIndex = 18;
             lblPreviewOutTitle.Text = "결과 이미지";
             // 
@@ -403,7 +376,7 @@ namespace YOLO26BrainV20
             lblZoomOutput.ForeColor = Color.Red;
             lblZoomOutput.Location = new Point(820, 234);
             lblZoomOutput.Name = "lblZoomOutput";
-            lblZoomOutput.Size = new Size(55, 15);
+            lblZoomOutput.Size = new Size(67, 15);
             lblZoomOutput.TabIndex = 41;
             lblZoomOutput.Text = "결과 100%";
             // 
@@ -432,7 +405,7 @@ namespace YOLO26BrainV20
             picInput.BackColor = Color.FromArgb(32, 32, 36);
             picInput.Location = new Point(0, 0);
             picInput.Name = "picInput";
-            picInput.Size = new Size(694, 396);
+            picInput.Size = new Size(694, 402);
             picInput.SizeMode = PictureBoxSizeMode.Zoom;
             picInput.TabIndex = 23;
             picInput.TabStop = false;
@@ -453,7 +426,7 @@ namespace YOLO26BrainV20
             picOutput.BackColor = Color.FromArgb(32, 32, 36);
             picOutput.Location = new Point(0, 0);
             picOutput.Name = "picOutput";
-            picOutput.Size = new Size(694, 396);
+            picOutput.Size = new Size(694, 402);
             picOutput.SizeMode = PictureBoxSizeMode.Zoom;
             picOutput.TabIndex = 24;
             picOutput.TabStop = false;
@@ -463,10 +436,10 @@ namespace YOLO26BrainV20
             listDetections.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             listDetections.FullRowSelect = true;
             listDetections.GridLines = true;
-            listDetections.Location = new Point(12, 676);
+            listDetections.Location = new Point(12, 668);
             listDetections.MultiSelect = false;
             listDetections.Name = "listDetections";
-            listDetections.Size = new Size(1416, 112);
+            listDetections.Size = new Size(1416, 200);
             listDetections.TabIndex = 25;
             listDetections.UseCompatibleStateImageBehavior = false;
             listDetections.View = View.Details;
@@ -475,7 +448,7 @@ namespace YOLO26BrainV20
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1440, 820);
+            ClientSize = new Size(1440, 880);
             Controls.Add(listDetections);
             Controls.Add(panelOutputViewport);
             Controls.Add(panelInputViewport);
@@ -495,8 +468,6 @@ namespace YOLO26BrainV20
             Controls.Add(lblConf);
             Controls.Add(comboExecutionProvider);
             Controls.Add(lblExecutionProvider);
-            Controls.Add(txtLabels);
-            Controls.Add(lblLabels);
             Controls.Add(lblSlicePath);
             Controls.Add(btnImage);
             Controls.Add(lblImageTitle);
@@ -519,7 +490,6 @@ namespace YOLO26BrainV20
             ((System.ComponentModel.ISupportInitialize)picInput).EndInit();
             panelOutputViewport.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)picOutput).EndInit();
-            comboExecutionProvider.SelectedIndex = 0;
             ResumeLayout(false);
             PerformLayout();
         }

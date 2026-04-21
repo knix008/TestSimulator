@@ -10,20 +10,20 @@ Windows에서 **뇌 CT 출혈(hemorrhage) 인스턴스 세그멘테이션**을 �
 | .NET | .NET 8 SDK |
 | Python | (선택) `.pt`→ONNX·`verify_onnx_io.py` 사용 시 3.10+ 및 `requirements-export.txt` |
 | GPU | (선택) C# 추론: ONNX Runtime CUDA; Python export: CUDA용 PyTorch |
-| MSI 빌드 | WiX Toolset 5 SDK(`WixToolset.Sdk`) — NuGet 복원으로 `dotnet build` 가능; Visual Studio에서는 **Release \| x64**로 솔루션 빌드 |
+| MSI 빌드 | WiX Toolset 5 SDK(`WixToolset.Sdk`) — 솔루션에 설치 프로젝트 포함·`Release` 구성에서 **솔루션 빌드** (YOLO26V10과 동일 패턴, VS 2022/2026) |
 
 ## 2) 저장소 구조
 
 | 경로 | 설명 |
 |------|------|
 | `YOLO26BrainV20.sln` | WinForms 프로젝트 + WiX 설치 프로젝트 |
-| `src/YOLO26BrainV20/` | C# WinForms 앱·ONNX 추론 코드 |
-| `src/YOLO26BrainV20/tools/` | `export_yolo26_brain_onnx.py`, `requirements-export.txt`, `verify_onnx_io.py` |
+| 루트 `*.csproj`·소스 | C# WinForms 앱·ONNX 추론 코드 |
+| `tools/` | `export_yolo26_brain_onnx.py`, `requirements-export.txt`, `verify_onnx_io.py` |
 | `installer/YOLO26BrainV20.Installer/` | WiX(`Package.wxs`) — Release 빌드 시 `YOLO26BrainV20.msi` 생성 |
 | `samples/` | (선택) 데모용 샘플 이미지 — 빌드에 필수 아님 |
 | `models/` | ONNX 등 로컬 자산(용량이 크면 `.gitignore`로 제외 권장) |
 
-**도구 스크립트 (`src/YOLO26BrainV20/tools/`)**
+**도구 스크립트 (`tools/`)**
 
 | 파일 | 역할 |
 |------|------|
@@ -36,7 +36,7 @@ Windows에서 **뇌 CT 출혈(hemorrhage) 인스턴스 세그멘테이션**을 �
 저장소 루트에서:
 
 ```powershell
-dotnet build .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release
+dotnet build .\YOLO26BrainV20.csproj -c Release
 ```
 
 **출혈 세그 ONNX**와(선택) 입력 이미지만 있으면 추론을 실행할 수 있습니다.
@@ -49,14 +49,14 @@ dotnet build .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release
 dotnet build .\installer\YOLO26BrainV20.Installer\YOLO26BrainV20.Installer.wixproj -c Release
 ```
 
-생성물: `installer\YOLO26BrainV20.Installer\bin\Release\YOLO26BrainV20.msi`
+생성물: `installer\YOLO26BrainV20.Installer\bin\x64\Release\YOLO26BrainV20.msi`
 
-Visual Studio 2022/2025/2026 등에서 솔루션을 연 뒤 **구성: Release**, **플랫폼: x64**로 빌드하면 동일하게 WiX 프로젝트가 함께 빌드됩니다.
+Visual Studio(2022/2026 등)에서 구성 **Release**, 플랫폼 **x64**(또는 Any CPU가 x64로 매핑된 경우)로 **솔루션 빌드**하면 `YOLO26BrainV20.Installer`가 함께 빌드되어 MSI가 나옵니다. **시작 프로젝트(앱)만 빌드**하는 경우에는 솔루션에 WiX가 있어도 기본적으로 설치 프로젝트가 큐에 안 올라가 MSI가 빠질 수 있어, 앱 `.csproj`의 **`BuildInstallerMsi`** 타깃이 `BuildingSolutionFile`이 아닐 때 WiX를 한 번 호출합니다. 솔루션 전체 빌드 직후에도 MSI가 없으면 루트 **`Directory.Solution.targets`**가 WiX를 한 번 보완합니다. MSI 후킹을 끄려면 **`-p:DisableEnsureReleaseMsi=true`**. 구성 관리자에서 설치 프로젝트의 **빌드** 체크가 꺼져 있으면 MSI가 나오지 않습니다. WiX 프로젝트가 VS에서 로드되지 않으면 [HeatWave](https://www.firegiant.com/docs/wix/heatwave/) 확장 설치를 권장합니다.
 
 ## 5) Python — `.pt` → ONNX (선택)
 
 ```powershell
-cd .\src\YOLO26BrainV20\tools
+cd .\tools
 pip install -r requirements-export.txt
 python export_yolo26_brain_onnx.py --weights "D:\path\to\best.pt" --out "D:\path\to\hemorrhage_seg.onnx" --imgsz 640 --opset 12
 ```
@@ -70,7 +70,7 @@ CLI 스모크 테스트(`--smoke-test`, `--input` 생략)는 `%LocalAppData%\YOL
 ## 7) WinForms 앱 (GUI)
 
 ```powershell
-dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release
+dotnet run --project .\YOLO26BrainV20.csproj -c Release
 ```
 
 1. **도구 → 추천 기본값 적용**으로 클래스(`hemorrhage`)·신뢰도를 맞출 수 있습니다.  
@@ -83,7 +83,7 @@ dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release
 ## 8) 콘솔 추론
 
 ```powershell
-dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release -- --model "D:\path\hemorrhage_seg.onnx" --input "D:\path\image_or_folder" --conf 0.25 --labels hemorrhage
+dotnet run --project .\YOLO26BrainV20.csproj -c Release -- --model "D:\path\hemorrhage_seg.onnx" --input "D:\path\image_or_folder" --conf 0.25 --labels hemorrhage
 ```
 
 | 옵션 | 설명 |
@@ -101,15 +101,15 @@ dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release -- --
 `--input` 생략 시: `%LocalAppData%\YOLO26BrainV20\samples\...` → 리포 `samples\...` → 없으면 합성 이미지.
 
 ```powershell
-dotnet run --project .\src\YOLO26BrainV20\YOLO26BrainV20.csproj -c Release -- --smoke-test --model ".\models\hemorrhage_seg.onnx" --conf 0.01 --labels hemorrhage --ep auto
+dotnet run --project .\YOLO26BrainV20.csproj -c Release -- --smoke-test --model ".\models\hemorrhage_seg.onnx" --conf 0.01 --labels hemorrhage --ep auto
 ```
 
 ### ONNX 입출력 확인 (Python)
 
 ```powershell
-cd .\src\YOLO26BrainV20\tools
+cd .\tools
 pip install onnxruntime
-python verify_onnx_io.py "..\..\models\hemorrhage_seg.onnx"
+python verify_onnx_io.py "..\models\hemorrhage_seg.onnx"
 ```
 
 ## 9) 문제 해결

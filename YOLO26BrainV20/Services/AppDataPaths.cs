@@ -18,7 +18,7 @@ internal static class AppDataPaths
     /// <summary>
     /// Resolves <paramref name="imageFileName"/> (e.g. brain_tumor_sample.jpg): LocalAppData samples folder first,
     /// then <c>&lt;repo&gt;/samples/</c> by walking parents of the app base dir until
-    /// <c>src/YOLO26BrainV20/YOLO26BrainV20.csproj</c> is found (repo root marker).
+    /// <c>YOLO26BrainV20.csproj</c> is found (repo root marker).
     /// </summary>
     internal static string? TryResolveBrainTumorSampleImagePath(string imageFileName)
     {
@@ -33,7 +33,7 @@ internal static class AppDataPaths
         {
             for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
             {
-                var repoMarker = Path.Combine(dir.FullName, "src", "YOLO26BrainV20", "YOLO26BrainV20.csproj");
+                var repoMarker = Path.Combine(dir.FullName, "YOLO26BrainV20.csproj");
                 if (!File.Exists(repoMarker))
                     continue;
 

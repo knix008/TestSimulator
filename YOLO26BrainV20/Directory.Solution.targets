@@ -1,0 +1,17 @@
+<Project>
+  <!-- dotnet build *.sln / VS 17.10+ 솔루션 메타프로젝트용. after.* 와 타깃 이름을 달리해 중복 정의 오류를 피합니다. -->
+  <PropertyGroup>
+    <_DsolRoot>$(MSBuildThisFileDirectory)</_DsolRoot>
+    <_DsolWixProj>$(_DsolRoot)installer\YOLO26BrainV20.Installer\YOLO26BrainV20.Installer.wixproj</_DsolWixProj>
+    <_DsolMsiOut>$(_DsolRoot)installer\YOLO26BrainV20.Installer\bin\x64\Release\YOLO26BrainV20.msi</_DsolMsiOut>
+  </PropertyGroup>
+  <!-- 솔루션 빌드 직후 MSI 없으면 WiX 1회(VS/dotnet 공통; 설치 프로젝트가 빠졌을 때 보완). -->
+  <Target Name="EnsureReleaseWiXMsiAfterSolution_DotNet"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(DisableEnsureReleaseMsi)' != 'true' and !Exists('$(_DsolMsiOut)')">
+    <Message Importance="high" Text="YOLO26BrainV20: MSI 없음 → WiX 빌드(Directory.Solution): $(_DsolWixProj)" />
+    <!-- 솔루션 빌드 전에 이미 복원됨. 중첩 /restore 는 assets 갱신·IDE가 패키지 복원을 반복하는 현상을 유발할 수 있음. -->
+    <Exec WorkingDirectory="$(_DsolRoot)"
+          Command="&quot;$(MSBuildBinPath)MSBuild.exe&quot; &quot;$(_DsolWixProj)&quot; /t:Build /p:Configuration=Release /p:Platform=x64 /nologo /v:m" />
+  </Target>
+</Project>
