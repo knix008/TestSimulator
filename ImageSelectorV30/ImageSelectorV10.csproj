@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>AnyCPU;x64</Platforms>
+    <EnableMsiOnReleaseBuild>true</EnableMsiOnReleaseBuild>
+    <MsiVersion Condition="'$(Version)' != ''">$(Version)</MsiVersion>
+    <MsiVersion Condition="'$(MsiVersion)' == ''">1.0.0</MsiVersion>
+  </PropertyGroup>
+
+  <Target Name="BuildMsiOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(EnableMsiOnReleaseBuild)' == 'true' and '$(SkipMsiBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Message Importance="high" Text="Building MSI installer for Release..." />
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build-msi.ps1&quot; -Version &quot;$(MsiVersion)&quot;" />
+  </Target>
+
+</Project>
