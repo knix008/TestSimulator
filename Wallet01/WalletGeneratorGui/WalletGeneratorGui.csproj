@@ -6,12 +6,23 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="Nethereum.HdWallet" Version="6.1.0" />
     <PackageReference Include="Nethereum.Signer" Version="6.1.0" />
     <PackageReference Include="Nethereum.Web3" Version="6.1.0" />
   </ItemGroup>
+
+  <!-- Release: 직접 빌드할 때만 MSI 생성. WiX가 ProjectReference로 이 프로젝트를 빌드할 때는 건너뛰어 순환(PublishWalletForMsi)을 막습니다. -->
+  <Target Name="BuildInstallerMsiAfterRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(MSBuildIsProjectReferenceBuild)' != 'true' AND '$(BuildingForWiXPublish)' != 'true'">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\WalletInstaller\WalletInstaller.wixproj"
+      Targets="Build"
+      Properties="Configuration=Release;Platform=x64" />
+  </Target>
 
 </Project>

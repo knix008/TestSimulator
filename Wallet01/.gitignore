@@ -1,3 +1,9 @@
+## WiX / MSI
+WalletInstaller/_wallet_publish/
+WalletInstaller_wallet_publish/
+*.wixobj
+*.wixpdb
+
 ## Build
 [Bb]in/
 [Oo]bj/
@@ -13,6 +19,7 @@
 *.userprefs
 *.rsuser
 *.sln.docstates
+*.slnx.user
 
 ## Build results (output folders; bin/obj already cover most artifacts)
 [Dd]ebug/
@@ -53,12 +60,16 @@ artifacts/
 ## Rider / VS Code (optional local)
 .idea/
 *.sln.iml
+*.DotSettings.user
 
 ## Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+
+## macOS / Linux (cross-platform tooling)
+.DS_Store
 
 ## Local secrets / wallet data (never commit)
 walletbook.json

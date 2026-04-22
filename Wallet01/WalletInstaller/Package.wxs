@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package
+      Name="Wallet Generator GUI"
+      Manufacturer="TestSimulator"
+      Version="1.0.0.0"
+      UpgradeCode="A8C5D2E1-B4F0-4A9E-8C7D-1E2F3A4B5C6D"
+      Scope="perMachine"
+      Compressed="yes"
+      InstallerVersion="500">
+
+    <SummaryInformation Description="Ethereum wallet helper (Windows Forms)" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ARPPRODUCTICON" Value="DaemonHammerIcon.exe" />
+
+    <Icon Id="DaemonHammerIcon.exe" SourceFile="..\WalletGeneratorGui\daemon_hammer.ico" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="WalletGeneratorGui">
+        <Component Id="MainExecutable" Guid="B7E4C1D2-9A3F-4E8B-9D1C-2F3A4B5C6D7E">
+          <File Id="MainExeFile" Source="_wallet_publish\WalletGeneratorGui.exe" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="C8F5D2E3-AB40-5F9C-AD2D-3E4B5C6D7E8F">
+        <Shortcut
+            Id="DesktopShortcutWallet"
+            Name="Wallet Generator GUI"
+            Target="[INSTALLFOLDER]WalletGeneratorGui.exe"
+            WorkingDirectory="INSTALLFOLDER"
+            Icon="DaemonHammerIcon.exe" />
+        <RegistryValue
+            Root="HKCU"
+            Key="Software\TestSimulator\WalletGeneratorGui\Shortcuts"
+            Name="Desktop"
+            Type="integer"
+            Value="1"
+            KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Wallet Generator">
+        <Component Id="StartMenuShortcut" Guid="D9A6E3F4-BC51-6A0D-BE3E-4F5C6D7E8F90">
+          <Shortcut
+              Id="StartMenuShortcutWallet"
+              Name="Wallet Generator GUI"
+              Target="[INSTALLFOLDER]WalletGeneratorGui.exe"
+              WorkingDirectory="INSTALLFOLDER"
+              Icon="DaemonHammerIcon.exe" />
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+          <RegistryValue
+              Root="HKCU"
+              Key="Software\TestSimulator\WalletGeneratorGui\Shortcuts"
+              Name="StartMenu"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature
+        Id="ProductFeature"
+        Title="Wallet Generator GUI"
+        Description="Application files"
+        Display="expand"
+        Level="1"
+        ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentRef Id="MainExecutable" />
+      <Feature
+          Id="DesktopShortcutFeature"
+          Title="Desktop shortcut"
+          Description="Creates a shortcut on the desktop (same icon as the application)."
+          Level="1"
+          Display="collapse"
+          AllowAdvertise="no">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
+      <Feature
+          Id="StartMenuShortcutFeature"
+          Title="Start Menu shortcut"
+          Description="Creates a shortcut in the Start Menu (same icon as the application)."
+          Level="1"
+          Display="collapse"
+          AllowAdvertise="no">
+        <ComponentRef Id="StartMenuShortcut" />
+      </Feature>
+    </Feature>
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+  </Package>
+</Wix>
