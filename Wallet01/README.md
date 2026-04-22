@@ -23,12 +23,13 @@ dotnet run
 - **새 지갑**: 영어 12단어 니모닉 생성, 백업 안내 대화상자
 - **지갑 불러오기**: 니모닉(12/15/18/21/24단어) 또는 64자리 hex 개인키
 - **주소 목록**: 사용한 주소를 `walletbook.json`에 저장(주소·출처·추가 시각만 저장)
-- **잔액 조회**: 입력한 **RPC URL**로 `eth_getBalance` 호출 후 ETH 단위로 표시
+- **네트워크 선택**: UI에서 Sepolia 테스트넷 / Ethereum 메인넷 선택 시 RPC URL 자동 반영
+- **잔액 조회**: 선택/입력한 **RPC URL**로 `eth_getBalance` 호출 후 ETH 단위로 표시
 - **주소 복사**: 클립보드로 복사
 
 ## RPC URL 안내
 
-일부 공개 엔드포인트(예: `cloudflare-eth.com`)는 요청이 거절되는 경우가 있습니다. 앱 첫 로드 시 해당 URL이면 기본 예시로 `https://eth.drpc.org`로 바꾸는 동작이 있습니다. **본인이 신뢰하는 RPC**를 사용하는 것을 권장합니다.
+일부 공개 엔드포인트(예: `cloudflare-eth.com`)는 요청이 거절되는 경우가 있습니다. 이 앱의 기본 RPC는 **Sepolia 테스트넷**(`https://sepolia.drpc.org`)이며, 앱 첫 로드 시 오래된 메인넷 기본값이 있으면 Sepolia URL로 교체합니다. **본인이 신뢰하는 RPC**를 사용하는 것을 권장합니다.
 
 ## 데이터 파일
 

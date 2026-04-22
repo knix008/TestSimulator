@@ -43,6 +43,8 @@ partial class WalletForm
         buttonCopyAddress = new Button();
         labelWalletList = new Label();
         listBoxWallets = new ListBox();
+        labelNetwork = new Label();
+        comboBoxNetwork = new ComboBox();
         labelJsonRpcHeader = new Label();
         numericUpDownRpcPort = new NumericUpDown();
         buttonJsonRpcToggle = new Button();
@@ -99,7 +101,8 @@ partial class WalletForm
         textBoxRpcUrl.Name = "textBoxRpcUrl";
         textBoxRpcUrl.Size = new Size(600, 23);
         textBoxRpcUrl.TabIndex = 6;
-        textBoxRpcUrl.Text = "https://eth.drpc.org";
+        textBoxRpcUrl.Text = "https://sepolia.drpc.org";
+        textBoxRpcUrl.TextChanged += textBoxRpcUrl_TextChanged;
         // 
         // buttonQueryBalance
         // 
@@ -192,6 +195,26 @@ partial class WalletForm
         listBoxWallets.TabIndex = 15;
         listBoxWallets.SelectedIndexChanged += listBoxWallets_SelectedIndexChanged;
         // 
+        // labelNetwork
+        // 
+        labelNetwork.AutoSize = true;
+        labelNetwork.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        labelNetwork.Location = new Point(886, 307);
+        labelNetwork.Name = "labelNetwork";
+        labelNetwork.Size = new Size(69, 19);
+        labelNetwork.TabIndex = 20;
+        labelNetwork.Text = "네트워크";
+        // 
+        // comboBoxNetwork
+        // 
+        comboBoxNetwork.DropDownStyle = ComboBoxStyle.DropDownList;
+        comboBoxNetwork.FormattingEnabled = true;
+        comboBoxNetwork.Location = new Point(886, 332);
+        comboBoxNetwork.Name = "comboBoxNetwork";
+        comboBoxNetwork.Size = new Size(176, 23);
+        comboBoxNetwork.TabIndex = 21;
+        comboBoxNetwork.SelectedIndexChanged += comboBoxNetwork_SelectedIndexChanged;
+        // 
         // labelJsonRpcHeader
         // 
         labelJsonRpcHeader.AutoSize = true;
@@ -241,6 +264,8 @@ partial class WalletForm
         Controls.Add(buttonJsonRpcToggle);
         Controls.Add(numericUpDownRpcPort);
         Controls.Add(labelJsonRpcHeader);
+        Controls.Add(comboBoxNetwork);
+        Controls.Add(labelNetwork);
         Controls.Add(listBoxWallets);
         Controls.Add(labelWalletList);
         Controls.Add(labelBalance);
@@ -283,6 +308,8 @@ partial class WalletForm
     private Button buttonCopyAddress;
     private Label labelWalletList;
     private ListBox listBoxWallets;
+    private Label labelNetwork;
+    private ComboBox comboBoxNetwork;
     private Label labelJsonRpcHeader;
     private NumericUpDown numericUpDownRpcPort;
     private Button buttonJsonRpcToggle;

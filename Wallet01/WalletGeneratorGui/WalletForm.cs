@@ -9,28 +9,106 @@ namespace WalletGeneratorGui;
 
 public partial class WalletForm : Form
 {
+    private static readonly RpcNetworkPreset[] NetworkPresets =
+    [
+        new("Sepolia Testnet", "https://sepolia.drpc.org"),
+        new("Ethereum Mainnet", "https://eth.drpc.org")
+    ];
+
     private readonly object _walletLock = new();
     private readonly string _walletBookFilePath;
     private readonly List<WalletEntry> _walletEntries = [];
     private string? _privateKey;
     private string? _address;
     private LocalJsonRpcServer? _jsonRpcServer;
+    private bool _suppressNetworkSync;
 
     public WalletForm()
     {
         _walletBookFilePath = Path.Combine(AppContext.BaseDirectory, "walletbook.json");
         InitializeComponent();
+        InitializeNetworkOptions();
         LoadWalletBook();
         labelWalletState.Text = "지갑 상태: 없음 (새 지갑 생성 또는 지갑 불러오기)";
     }
 
     private void WalletForm_Load(object? sender, EventArgs e)
     {
+        NormalizeLegacyRpcDefault();
+        SyncNetworkSelectionFromRpcUrl();
+    }
+
+    private void InitializeNetworkOptions()
+    {
+        comboBoxNetwork.Items.Clear();
+        foreach (var preset in NetworkPresets)
+        {
+            comboBoxNetwork.Items.Add(preset);
+        }
+
+        SyncNetworkSelectionFromRpcUrl();
+    }
+
+    private void NormalizeLegacyRpcDefault()
+    {
         var rpc = textBoxRpcUrl.Text.Trim();
         if (rpc.Contains("cloudflare-eth.com", StringComparison.OrdinalIgnoreCase))
         {
-            textBoxRpcUrl.Text = "https://eth.drpc.org";
+            SetRpcUrlWithoutSync(NetworkPresets[0].RpcUrl);
         }
+    }
+
+    private void SetRpcUrlWithoutSync(string rpcUrl)
+    {
+        _suppressNetworkSync = true;
+        try
+        {
+            textBoxRpcUrl.Text = rpcUrl;
+        }
+        finally
+        {
+            _suppressNetworkSync = false;
+        }
+    }
+
+    private void SyncNetworkSelectionFromRpcUrl()
+    {
+        var rpc = textBoxRpcUrl.Text.Trim();
+        var index = Array.FindIndex(NetworkPresets, x => string.Equals(x.RpcUrl, rpc, StringComparison.OrdinalIgnoreCase));
+        var selectedIndex = index >= 0 ? index : 0;
+
+        _suppressNetworkSync = true;
+        try
+        {
+            comboBoxNetwork.SelectedIndex = selectedIndex;
+        }
+        finally
+        {
+            _suppressNetworkSync = false;
+        }
+    }
+
+    private void comboBoxNetwork_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        if (_suppressNetworkSync)
+        {
+            return;
+        }
+
+        if (comboBoxNetwork.SelectedItem is RpcNetworkPreset preset)
+        {
+            SetRpcUrlWithoutSync(preset.RpcUrl);
+        }
+    }
+
+    private void textBoxRpcUrl_TextChanged(object? sender, EventArgs e)
+    {
+        if (_suppressNetworkSync)
+        {
+            return;
+        }
+
+        SyncNetworkSelectionFromRpcUrl();
     }
 
     private async void buttonCreateWallet_Click(object sender, EventArgs e)
@@ -246,7 +324,7 @@ public partial class WalletForm : Form
             labelBalance.Text = "자산 상태: 조회 실패";
             var detail = FormatExceptionChain(ex);
             var hint = rpcUrl.Contains("cloudflare-eth.com", StringComparison.OrdinalIgnoreCase)
-                ? "\n\n참고: cloudflare-eth.com 공개 RPC는 요청을 거절하는 경우가 많습니다. 기본값처럼 https://eth.drpc.org 등 다른 엔드포인트를 사용해 보세요."
+                ? "\n\n참고: cloudflare-eth.com 공개 RPC는 요청을 거절하는 경우가 많습니다. 기본값처럼 https://sepolia.drpc.org 등 Sepolia 엔드포인트를 사용해 보세요."
                 : string.Empty;
             MessageBox.Show($"잔액 조회 실패: {detail}{hint}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
@@ -435,4 +513,9 @@ public partial class WalletForm : Form
 internal sealed record WalletEntry(string Address, string Source, DateTimeOffset AddedAt)
 {
     public override string ToString() => $"{Address} ({Source})";
+}
+
+internal sealed record RpcNetworkPreset(string DisplayName, string RpcUrl)
+{
+    public override string ToString() => DisplayName;
 }
