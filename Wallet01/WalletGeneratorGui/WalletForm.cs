@@ -1,0 +1,438 @@
+using System.Text.Json;
+using Nethereum.HdWallet;
+using Nethereum.Signer;
+using Nethereum.Util;
+using Nethereum.Web3;
+using NBitcoin;
+
+namespace WalletGeneratorGui;
+
+public partial class WalletForm : Form
+{
+    private readonly object _walletLock = new();
+    private readonly string _walletBookFilePath;
+    private readonly List<WalletEntry> _walletEntries = [];
+    private string? _privateKey;
+    private string? _address;
+    private LocalJsonRpcServer? _jsonRpcServer;
+
+    public WalletForm()
+    {
+        _walletBookFilePath = Path.Combine(AppContext.BaseDirectory, "walletbook.json");
+        InitializeComponent();
+        LoadWalletBook();
+        labelWalletState.Text = "지갑 상태: 없음 (새 지갑 생성 또는 지갑 불러오기)";
+    }
+
+    private void WalletForm_Load(object? sender, EventArgs e)
+    {
+        var rpc = textBoxRpcUrl.Text.Trim();
+        if (rpc.Contains("cloudflare-eth.com", StringComparison.OrdinalIgnoreCase))
+        {
+            textBoxRpcUrl.Text = "https://eth.drpc.org";
+        }
+    }
+
+    private async void buttonCreateWallet_Click(object sender, EventArgs e)
+    {
+        var wallet = new Wallet(Wordlist.English, WordCount.Twelve);
+        var account = wallet.GetAccount(0);
+        lock (_walletLock)
+        {
+            _privateKey = account.PrivateKey;
+            _address = account.Address;
+        }
+
+        var phrase = string.Join(' ', wallet.Words);
+        using (var dlg = new MnemonicBackupDialog(phrase))
+        {
+            dlg.ShowDialog(this);
+        }
+
+        textBoxAddress.Text = _address;
+        AddWalletEntryIfNeeded(_address, "생성");
+        labelWalletState.Text = "지갑 상태: 생성됨 (개인키 비공개, Mnemonic은 팝업에서만 확인)";
+        labelBalance.Text = "자산 상태: 조회 전";
+        await QueryBalanceAsync();
+    }
+
+    private void buttonUnlockWallet_Click(object sender, EventArgs e)
+    {
+        using var dlg = new ImportWalletDialog();
+        if (dlg.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            if (dlg.SelectedKind == WalletImportKind.Mnemonic)
+            {
+                var phrase = NormalizeMnemonicPhrase(dlg.SecretInput);
+                var wordCount = phrase.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                if (wordCount is not (12 or 15 or 18 or 21 or 24))
+                {
+                    MessageBox.Show(
+                        "Mnemonic 단어 수는 12, 15, 18, 21, 24개여야 합니다. 공백·줄바꿈으로 단어를 구분했는지 확인하세요.",
+                        "알림",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                var wallet = new Wallet(phrase, string.Empty);
+                var account = wallet.GetAccount(0);
+                lock (_walletLock)
+                {
+                    _privateKey = account.PrivateKey;
+                    _address = account.Address;
+                }
+                textBoxAddress.Text = _address;
+                AddWalletEntryIfNeeded(_address, "Mnemonic 가져오기");
+                labelWalletState.Text = "지갑 상태: Mnemonic으로 불러옴 (개인키 비공개)";
+            }
+            else
+            {
+                var hex = NormalizePrivateKeyHex(dlg.SecretInput);
+                if (hex.Length != 64 || !IsHexString(hex))
+                {
+                    MessageBox.Show("Private Key는 64자리 16진수(hex)여야 합니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                var ecKey = new EthECKey(hex);
+                lock (_walletLock)
+                {
+                    _privateKey = ecKey.GetPrivateKey();
+                    _address = ecKey.GetPublicAddress();
+                }
+                textBoxAddress.Text = _address;
+                AddWalletEntryIfNeeded(_address, "Private Key 가져오기");
+                labelWalletState.Text = "지갑 상태: Private Key로 불러옴 (개인키 비공개)";
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"지갑 불러오기 실패: {FormatExceptionChain(ex)}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>공백·줄바꿈을 단일 공백으로 합치고, 영어 단어 목록에 맞게 소문자로 맞춥니다.</summary>
+    private static string NormalizeMnemonicPhrase(string raw)
+    {
+        var parts = raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        for (var i = 0; i < parts.Length; i++)
+        {
+            parts[i] = parts[i].ToLowerInvariant();
+        }
+
+        return string.Join(' ', parts);
+    }
+
+    private static string NormalizePrivateKeyHex(string raw)
+    {
+        var s = raw.Trim().Replace(" ", "").Replace("\r", "").Replace("\n", "");
+        if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            s = s[2..];
+        }
+
+        return s;
+    }
+
+    private static bool IsHexString(string s)
+    {
+        foreach (var c in s)
+        {
+            if (!Uri.IsHexDigit(c))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string? NormalizeEthereumAddress(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            return null;
+        }
+
+        var a = address.Trim();
+        if (!a.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            a = "0x" + a;
+        }
+
+        if (a.Length != 42)
+        {
+            return null;
+        }
+
+        return a;
+    }
+
+    private static string FormatExceptionChain(Exception ex)
+    {
+        var parts = new List<string>();
+        for (Exception? e = ex; e != null; e = e.InnerException)
+        {
+            if (string.IsNullOrWhiteSpace(e.Message))
+            {
+                continue;
+            }
+
+            if (parts.Count == 0 || !string.Equals(parts[^1], e.Message, StringComparison.Ordinal))
+            {
+                parts.Add(e.Message);
+            }
+        }
+
+        return parts.Count == 0 ? ex.GetType().Name : string.Join(" → ", parts);
+    }
+
+    private async void buttonQueryBalance_Click(object sender, EventArgs e)
+    {
+        await QueryBalanceAsync();
+    }
+
+    private async Task QueryBalanceAsync()
+    {
+        if (listBoxWallets.SelectedItem is WalletEntry selectedWallet)
+        {
+            lock (_walletLock)
+            {
+                _address = selectedWallet.Address;
+                ClearPrivateKeyIfAddressMismatch_NoLock();
+            }
+
+            textBoxAddress.Text = selectedWallet.Address;
+        }
+
+        if (string.IsNullOrWhiteSpace(_address))
+        {
+            MessageBox.Show("먼저 지갑을 생성/가져오거나 목록에서 주소를 선택하세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var rpcUrl = textBoxRpcUrl.Text.Trim();
+        if (string.IsNullOrWhiteSpace(rpcUrl))
+        {
+            MessageBox.Show("RPC URL을 입력하세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var addressForRpc = NormalizeEthereumAddress(_address);
+        if (addressForRpc is null)
+        {
+            MessageBox.Show("주소 형식이 올바르지 않습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        try
+        {
+            buttonQueryBalance.Enabled = false;
+            labelBalance.Text = "자산 상태: 조회 중...";
+
+            var web3 = new Web3(rpcUrl);
+            var wei = await web3.Eth.GetBalance.SendRequestAsync(addressForRpc);
+            var ether = UnitConversion.Convert.FromWei(wei);
+            labelBalance.Text = $"자산 상태: {ether:0.################} ETH";
+        }
+        catch (Exception ex)
+        {
+            labelBalance.Text = "자산 상태: 조회 실패";
+            var detail = FormatExceptionChain(ex);
+            var hint = rpcUrl.Contains("cloudflare-eth.com", StringComparison.OrdinalIgnoreCase)
+                ? "\n\n참고: cloudflare-eth.com 공개 RPC는 요청을 거절하는 경우가 많습니다. 기본값처럼 https://eth.drpc.org 등 다른 엔드포인트를 사용해 보세요."
+                : string.Empty;
+            MessageBox.Show($"잔액 조회 실패: {detail}{hint}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            buttonQueryBalance.Enabled = true;
+        }
+    }
+
+    private void buttonCopyAddress_Click(object sender, EventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(textBoxAddress.Text))
+        {
+            MessageBox.Show("주소가 없습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        Clipboard.SetText(textBoxAddress.Text);
+        MessageBox.Show("주소를 클립보드에 복사했습니다.", "완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void listBoxWallets_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (listBoxWallets.SelectedItem is not WalletEntry selectedWallet)
+        {
+            return;
+        }
+
+        lock (_walletLock)
+        {
+            _address = selectedWallet.Address;
+            ClearPrivateKeyIfAddressMismatch_NoLock();
+        }
+
+        textBoxAddress.Text = selectedWallet.Address;
+        labelWalletState.Text = $"지갑 상태: 선택됨 ({selectedWallet.Source})";
+        labelBalance.Text = "자산 상태: 조회 전";
+    }
+
+    private void AddWalletEntryIfNeeded(string address, string source)
+    {
+        var existing = _walletEntries.FirstOrDefault(x => string.Equals(x.Address, address, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            SelectWalletInList(existing.Address);
+            return;
+        }
+
+        var entry = new WalletEntry(address, source, DateTimeOffset.UtcNow);
+        _walletEntries.Add(entry);
+        listBoxWallets.Items.Add(entry);
+        SelectWalletInList(entry.Address);
+        SaveWalletBook();
+    }
+
+    private void SelectWalletInList(string address)
+    {
+        for (var i = 0; i < listBoxWallets.Items.Count; i++)
+        {
+            if (listBoxWallets.Items[i] is WalletEntry item &&
+                string.Equals(item.Address, address, StringComparison.OrdinalIgnoreCase))
+            {
+                listBoxWallets.SelectedIndex = i;
+                break;
+            }
+        }
+    }
+
+    private void LoadWalletBook()
+    {
+        if (!File.Exists(_walletBookFilePath))
+        {
+            return;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(_walletBookFilePath);
+            var loaded = JsonSerializer.Deserialize<List<WalletEntry>>(json) ?? [];
+            _walletEntries.Clear();
+            _walletEntries.AddRange(loaded);
+
+            listBoxWallets.Items.Clear();
+            foreach (var entry in _walletEntries)
+            {
+                listBoxWallets.Items.Add(entry);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"지갑 목록을 읽지 못했습니다: {ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void SaveWalletBook()
+    {
+        var json = JsonSerializer.Serialize(_walletEntries);
+        File.WriteAllText(_walletBookFilePath, json);
+    }
+
+    private WalletRpcSnapshot ReadWalletRpcSnapshot()
+    {
+        lock (_walletLock)
+        {
+            return new WalletRpcSnapshot(textBoxRpcUrl.Text.Trim(), _address, _privateKey);
+        }
+    }
+
+    /// <summary>목록에서 주소만 바꾼 경우, 메모리의 개인키가 해당 주소와 맞지 않으면 제거합니다.</summary>
+    private void ClearPrivateKeyIfAddressMismatch_NoLock()
+    {
+        if (_privateKey is null || string.IsNullOrWhiteSpace(_address))
+        {
+            return;
+        }
+
+        try
+        {
+            var hex = NormalizePrivateKeyHex(_privateKey);
+            if (hex.Length != 64 || !IsHexString(hex))
+            {
+                _privateKey = null;
+                return;
+            }
+
+            var keyAddr = new EthECKey(hex).GetPublicAddress();
+            if (!string.Equals(keyAddr, _address, StringComparison.OrdinalIgnoreCase))
+            {
+                _privateKey = null;
+            }
+        }
+        catch
+        {
+            _privateKey = null;
+        }
+    }
+
+    private void buttonJsonRpcToggle_Click(object sender, EventArgs e)
+    {
+        if (_jsonRpcServer is null)
+        {
+            var port = (int)numericUpDownRpcPort.Value;
+            try
+            {
+                var server = new LocalJsonRpcServer(this, ReadWalletRpcSnapshot);
+                server.Start(port);
+                _jsonRpcServer = server;
+                buttonJsonRpcToggle.Text = "로컬 JSON-RPC 중지";
+                labelJsonRpcStatus.Text = $"수신 중: http://127.0.0.1:{port}/ (POST, JSON-RPC 2.0)";
+                numericUpDownRpcPort.Enabled = false;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"JSON-RPC 서버를 시작할 수 없습니다.\n\n{FormatExceptionChain(ex)}\n\nWindows에서 URL 예약이 필요할 수 있습니다(관리자 CMD):\nnetsh http add urlacl url=http://127.0.0.1:{port}/ user=Everyone",
+                    "오류",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+        else
+        {
+            _jsonRpcServer.Dispose();
+            _jsonRpcServer = null;
+            buttonJsonRpcToggle.Text = "로컬 JSON-RPC 시작";
+            labelJsonRpcStatus.Text = "중지됨";
+            numericUpDownRpcPort.Enabled = true;
+        }
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        _jsonRpcServer?.Dispose();
+        _jsonRpcServer = null;
+        textBoxAddress.Text = string.Empty;
+        lock (_walletLock)
+        {
+            _privateKey = null;
+            _address = null;
+        }
+
+        base.OnFormClosing(e);
+    }
+}
+
+internal sealed record WalletEntry(string Address, string Source, DateTimeOffset AddedAt)
+{
+    public override string ToString() => $"{Address} ({Source})";
+}
