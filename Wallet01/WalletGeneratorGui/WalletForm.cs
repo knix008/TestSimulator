@@ -434,7 +434,9 @@ public partial class WalletForm : Form
         WalletVaultStore.Save(_walletVaultFilePath, NormalizeMnemonicPhrase(phrase), _bip39SessionPassphrase);
         labelWalletState.Text = "지갑 상태: 생성됨 (개인키 비공개, Mnemonic은 팝업에서만 확인)";
         labelBalance.Text = "자산 상태: 조회 전";
-        await QueryBalanceAsync();
+        // Do not await: RunStartupBootstrap / RunMnemonicStartupUntilDone call this method via
+        // GetAwaiter().GetResult() on the UI thread; awaiting RPC here would deadlock the message loop.
+        _ = QueryBalanceAsync();
         return true;
     }
 

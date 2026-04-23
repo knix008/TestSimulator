@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WalletGeneratorGui\WalletGeneratorGui.csproj" />
+    <ProjectReference Include="..\WalletGeneratorGui\WalletGeneratorGui.csproj" AdditionalProperties="BuildingForWiXPublish=true" />
   </ItemGroup>
 
   <PropertyGroup>
