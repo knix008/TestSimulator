@@ -179,7 +179,7 @@ partial class WalletForm
         // 
         labelWalletList.AutoSize = true;
         labelWalletList.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        labelWalletList.Location = new Point(882, 72);
+        labelWalletList.Location = new Point(812, 72);
         labelWalletList.Name = "labelWalletList";
         labelWalletList.Size = new Size(69, 19);
         labelWalletList.TabIndex = 14;
@@ -189,7 +189,7 @@ partial class WalletForm
         // 
         listBoxWallets.Font = new Font("Consolas", 9F);
         listBoxWallets.FormattingEnabled = true;
-        listBoxWallets.Location = new Point(886, 98);
+        listBoxWallets.Location = new Point(816, 98);
         listBoxWallets.Name = "listBoxWallets";
         listBoxWallets.Size = new Size(176, 200);
         listBoxWallets.TabIndex = 15;
@@ -199,9 +199,9 @@ partial class WalletForm
         // 
         labelNetwork.AutoSize = true;
         labelNetwork.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        labelNetwork.Location = new Point(886, 307);
+        labelNetwork.Location = new Point(816, 307);
         labelNetwork.Name = "labelNetwork";
-        labelNetwork.Size = new Size(69, 19);
+        labelNetwork.Size = new Size(65, 19);
         labelNetwork.TabIndex = 20;
         labelNetwork.Text = "네트워크";
         // 
@@ -209,7 +209,7 @@ partial class WalletForm
         // 
         comboBoxNetwork.DropDownStyle = ComboBoxStyle.DropDownList;
         comboBoxNetwork.FormattingEnabled = true;
-        comboBoxNetwork.Location = new Point(886, 332);
+        comboBoxNetwork.Location = new Point(816, 332);
         comboBoxNetwork.Name = "comboBoxNetwork";
         comboBoxNetwork.Size = new Size(176, 23);
         comboBoxNetwork.TabIndex = 21;
@@ -259,7 +259,7 @@ partial class WalletForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1080, 460);
+        ClientSize = new Size(1014, 460);
         Controls.Add(labelJsonRpcStatus);
         Controls.Add(buttonJsonRpcToggle);
         Controls.Add(numericUpDownRpcPort);

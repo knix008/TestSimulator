@@ -97,6 +97,5 @@
     </Feature>
 
     <ui:WixUI Id="WixUI_FeatureTree" />
-    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
   </Package>
 </Wix>
