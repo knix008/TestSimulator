@@ -17,19 +17,283 @@ public partial class WalletForm : Form
 
     private readonly object _walletLock = new();
     private readonly string _walletBookFilePath;
+    private readonly string _walletVaultFilePath;
     private readonly List<WalletEntry> _walletEntries = [];
     private string? _privateKey;
     private string? _address;
     private LocalJsonRpcServer? _jsonRpcServer;
     private bool _suppressNetworkSync;
+    /// <summary>시작 시 설정한 BIP39 패스프레이즈. 디스크에 저장하지 않으며 폼 종료 시 비웁니다.</summary>
+    private string? _bip39SessionPassphrase;
+    private bool _startupBootstrapCompleted;
 
     public WalletForm()
     {
         _walletBookFilePath = Path.Combine(AppContext.BaseDirectory, "walletbook.json");
+        _walletVaultFilePath = Path.Combine(AppContext.BaseDirectory, "walletvault.json");
         InitializeComponent();
         InitializeNetworkOptions();
         LoadWalletBook();
-        labelWalletState.Text = "지갑 상태: 없음 (새 지갑 생성 또는 지갑 불러오기)";
+        if (_walletEntries.Count == 0)
+        {
+            buttonCreateWallet.Enabled = false;
+            buttonUnlockWallet.Enabled = false;
+            labelWalletState.Text = "지갑 상태: 첫 실행 — 아래 안내에 따라 패스워드 설정과 지갑·니모닉 백업을 이어서 진행합니다.";
+        }
+        else
+        {
+            labelWalletState.Text = "지갑 상태: 없음 (새 지갑 생성 또는 지갑 불러오기)";
+        }
+
+        Shown += WalletForm_Shown;
+    }
+
+    private void WalletForm_Shown(object? sender, EventArgs e)
+    {
+        if (_startupBootstrapCompleted)
+        {
+            return;
+        }
+
+        _startupBootstrapCompleted = true;
+        if (!RunStartupBootstrap())
+        {
+            BeginInvoke(Close);
+        }
+    }
+
+    private static bool IsHdWalletBookSource(string source) =>
+        string.Equals(source, "생성", StringComparison.Ordinal) ||
+        string.Equals(source, "Mnemonic 가져오기", StringComparison.Ordinal);
+
+    private bool RunStartupBootstrap()
+    {
+        var needsHdUnlock = _walletEntries.Any(e => IsHdWalletBookSource(e.Source));
+
+        if (_walletEntries.Count == 0)
+        {
+            MessageBox.Show(
+                "처음 실행입니다.\n\n" +
+                "• 먼저 시작 패스워드를 설정합니다. 패스워드 자체는 파일로 저장되지 않습니다.\n" +
+                "• 이어서 새 지갑이 만들어지고, Mnemonic(니모닉) 12단어가 표시됩니다.\n" +
+                "• 니모닉을 오프라인에 저장했다고 확인해야만 다음 단계로 진행할 수 있습니다.\n\n" +
+                "위 순서는 한 번에 이어서 진행됩니다.",
+                "시작 안내",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+
+            using (var pwd = new PasswordSetupDialog())
+            {
+                if (pwd.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                _bip39SessionPassphrase = pwd.Passphrase;
+            }
+
+            if (!ExecuteNewWalletCreationWithMnemonicBackupAsync(
+                    requireMnemonicOfflineAck: true,
+                    promptPasswordIfUnset: false)
+                .GetAwaiter()
+                .GetResult())
+            {
+                return false;
+            }
+
+            EnableMainWalletActionsAfterFirstSetup();
+            labelWalletState.Text =
+                "지갑 상태: 첫 설정 완료. 다른 지갑은 「새 지갑 생성」, 기존 지갑은 「지갑 불러오기」를 사용하세요.";
+            return true;
+        }
+
+        if (!needsHdUnlock)
+        {
+            var r = MessageBox.Show(
+                "저장된 주소는 Private Key 출처입니다. 이후 니모닉 지갑에 쓸 시작 패스워드를 설정합니다.",
+                "시작",
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Information);
+            if (r != DialogResult.OK)
+            {
+                return false;
+            }
+
+            using (var pwd = new PasswordSetupDialog())
+            {
+                if (pwd.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                _bip39SessionPassphrase = pwd.Passphrase;
+            }
+
+            return true;
+        }
+
+        return RunHdStartupWithVaultOrMnemonic();
+    }
+
+    /// <summary>저장된 walletvault.json이 있으면 패스워드만으로 열고, 없으면 니모닉 흐름으로 진입합니다.</summary>
+    private bool RunHdStartupWithVaultOrMnemonic()
+    {
+        if (!File.Exists(_walletVaultFilePath))
+        {
+            return RunMnemonicStartupUntilDone();
+        }
+
+        while (true)
+        {
+            using (var pw = new StartupPasswordUnlockDialog())
+            {
+                var dr = pw.ShowDialog(this);
+                if (dr == DialogResult.Cancel)
+                {
+                    return false;
+                }
+
+                if (dr == DialogResult.Yes)
+                {
+                    if (!RunMnemonicStartupUntilDone())
+                    {
+                        continue;
+                    }
+
+                    return true;
+                }
+
+                if (!WalletVaultStore.TryDecrypt(_walletVaultFilePath, pw.Password, out var phrase))
+                {
+                    MessageBox.Show(
+                        "패스워드가 올바르지 않거나 저장 파일이 손상되었습니다.",
+                        "알림",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    continue;
+                }
+
+                if (!TryFinalizeHdStartup(phrase, pw.Password, suppressAddressMismatchMessage: true))
+                {
+                    MessageBox.Show(
+                        "저장된 암호화 지갑이 주소 목록과 맞지 않습니다. 「니모닉으로 복구」를 시도해 주세요.",
+                        "알림",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    continue;
+                }
+
+                return true;
+            }
+        }
+    }
+
+    private bool RunMnemonicStartupUntilDone()
+    {
+        while (true)
+        {
+            using (var dlg = new StartupUnlockDialog())
+            {
+                var dr = dlg.ShowDialog(this);
+                if (dr == DialogResult.Cancel)
+                {
+                    return false;
+                }
+
+                if (dr == DialogResult.Retry)
+                {
+                    ClearWalletBookOnDisk();
+                    using (var pwd = new PasswordSetupDialog())
+                    {
+                        if (pwd.ShowDialog(this) != DialogResult.OK)
+                        {
+                            return false;
+                        }
+
+                        _bip39SessionPassphrase = pwd.Passphrase;
+                    }
+
+                    if (!ExecuteNewWalletCreationWithMnemonicBackupAsync(
+                            requireMnemonicOfflineAck: true,
+                            promptPasswordIfUnset: false)
+                        .GetAwaiter()
+                        .GetResult())
+                    {
+                        return false;
+                    }
+
+                    EnableMainWalletActionsAfterFirstSetup();
+                    labelWalletState.Text =
+                        "지갑 상태: 목록 초기화 후 새 지갑을 만들었습니다. 추가 지갑은 「새 지갑 생성」을 사용하세요.";
+                    return true;
+                }
+
+                if (TryFinalizeHdStartup(dlg.CapturedMnemonic, dlg.CapturedPassphrase))
+                {
+                    return true;
+                }
+            }
+        }
+    }
+
+    private bool TryFinalizeHdStartup(
+        string mnemonicNormalized,
+        string bip39Passphrase,
+        bool suppressAddressMismatchMessage = false)
+    {
+        try
+        {
+            var wallet = new Wallet(mnemonicNormalized, bip39Passphrase);
+            var account = wallet.GetAccount(0);
+            var addr = account.Address;
+            var inBook = _walletEntries.Any(x =>
+                string.Equals(x.Address, addr, StringComparison.OrdinalIgnoreCase));
+            if (!inBook)
+            {
+                if (!suppressAddressMismatchMessage)
+                {
+                    MessageBox.Show(
+                        "입력한 니모닉·패스워드로 나온 주소가 저장된 목록에 없습니다. 패스워드와 니모닉을 다시 확인해 주세요.",
+                        "알림",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+
+                return false;
+            }
+
+            _bip39SessionPassphrase = bip39Passphrase;
+            lock (_walletLock)
+            {
+                _privateKey = account.PrivateKey;
+                _address = account.Address;
+            }
+
+            textBoxAddress.Text = _address;
+            SelectWalletInList(_address!);
+            labelWalletState.Text = "지갑 상태: 시작 시 검증됨 (개인키 비공개)";
+            labelBalance.Text = "자산 상태: 조회 전";
+
+            WalletVaultStore.Save(_walletVaultFilePath, mnemonicNormalized, bip39Passphrase);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Mnemonic 처리 실패: {FormatExceptionChain(ex)}",
+                "오류",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            return false;
+        }
+    }
+
+    private void ClearWalletBookOnDisk()
+    {
+        _walletEntries.Clear();
+        listBoxWallets.Items.Clear();
+        SaveWalletBook();
+        WalletVaultStore.DeleteIfExists(_walletVaultFilePath);
     }
 
     private void WalletForm_Load(object? sender, EventArgs e)
@@ -111,9 +375,38 @@ public partial class WalletForm : Form
         SyncNetworkSelectionFromRpcUrl();
     }
 
-    private async void buttonCreateWallet_Click(object sender, EventArgs e)
+    private void EnableMainWalletActionsAfterFirstSetup()
     {
-        var wallet = new Wallet(Wordlist.English, WordCount.Twelve);
+        buttonCreateWallet.Enabled = true;
+        buttonUnlockWallet.Enabled = true;
+    }
+
+    /// <summary>새 HD 지갑을 만들고 니모닉 백업 대화상자를 띄운 뒤 목록·vault를 갱신합니다.</summary>
+    private async Task<bool> ExecuteNewWalletCreationWithMnemonicBackupAsync(
+        bool requireMnemonicOfflineAck,
+        bool promptPasswordIfUnset)
+    {
+        if (promptPasswordIfUnset && _bip39SessionPassphrase is null)
+        {
+            using (var pwd = new PasswordSetupDialog())
+            {
+                if (pwd.ShowDialog(this) != DialogResult.OK)
+                {
+                    return false;
+                }
+
+                _bip39SessionPassphrase = pwd.Passphrase;
+            }
+        }
+
+        if (_bip39SessionPassphrase is null)
+        {
+            return false;
+        }
+
+        var mnemonic = new Mnemonic(Wordlist.English, WordCount.Twelve);
+        var phrase = string.Join(' ', mnemonic.Words);
+        var wallet = new Wallet(phrase, _bip39SessionPassphrase);
         var account = wallet.GetAccount(0);
         lock (_walletLock)
         {
@@ -121,21 +414,52 @@ public partial class WalletForm : Form
             _address = account.Address;
         }
 
-        var phrase = string.Join(' ', wallet.Words);
-        using (var dlg = new MnemonicBackupDialog(phrase))
+        using (var dlg = new MnemonicBackupDialog(phrase, requireMnemonicOfflineAck))
         {
-            dlg.ShowDialog(this);
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+            {
+                lock (_walletLock)
+                {
+                    _privateKey = null;
+                    _address = null;
+                }
+
+                textBoxAddress.Clear();
+                return false;
+            }
         }
 
         textBoxAddress.Text = _address;
         AddWalletEntryIfNeeded(_address, "생성");
+        WalletVaultStore.Save(_walletVaultFilePath, NormalizeMnemonicPhrase(phrase), _bip39SessionPassphrase);
         labelWalletState.Text = "지갑 상태: 생성됨 (개인키 비공개, Mnemonic은 팝업에서만 확인)";
         labelBalance.Text = "자산 상태: 조회 전";
         await QueryBalanceAsync();
+        return true;
+    }
+
+    private async void buttonCreateWallet_Click(object sender, EventArgs e)
+    {
+        await ExecuteNewWalletCreationWithMnemonicBackupAsync(
+            requireMnemonicOfflineAck: false,
+            promptPasswordIfUnset: true);
     }
 
     private void buttonUnlockWallet_Click(object sender, EventArgs e)
     {
+        if (_bip39SessionPassphrase is null)
+        {
+            using (var pwd = new PasswordSetupDialog())
+            {
+                if (pwd.ShowDialog(this) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                _bip39SessionPassphrase = pwd.Passphrase;
+            }
+        }
+
         using var dlg = new ImportWalletDialog();
         if (dlg.ShowDialog(this) != DialogResult.OK)
         {
@@ -158,7 +482,7 @@ public partial class WalletForm : Form
                     return;
                 }
 
-                var wallet = new Wallet(phrase, string.Empty);
+                var wallet = new Wallet(phrase, _bip39SessionPassphrase);
                 var account = wallet.GetAccount(0);
                 lock (_walletLock)
                 {
@@ -167,6 +491,7 @@ public partial class WalletForm : Form
                 }
                 textBoxAddress.Text = _address;
                 AddWalletEntryIfNeeded(_address, "Mnemonic 가져오기");
+                WalletVaultStore.Save(_walletVaultFilePath, phrase, _bip39SessionPassphrase);
                 labelWalletState.Text = "지갑 상태: Mnemonic으로 불러옴 (개인키 비공개)";
             }
             else
@@ -196,7 +521,7 @@ public partial class WalletForm : Form
     }
 
     /// <summary>공백·줄바꿈을 단일 공백으로 합치고, 영어 단어 목록에 맞게 소문자로 맞춥니다.</summary>
-    private static string NormalizeMnemonicPhrase(string raw)
+    public static string NormalizeMnemonicPhrase(string raw)
     {
         var parts = raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         for (var i = 0; i < parts.Length; i++)
@@ -500,6 +825,7 @@ public partial class WalletForm : Form
         _jsonRpcServer?.Dispose();
         _jsonRpcServer = null;
         textBoxAddress.Text = string.Empty;
+        _bip39SessionPassphrase = null;
         lock (_walletLock)
         {
             _privateKey = null;

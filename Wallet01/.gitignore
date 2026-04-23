@@ -73,6 +73,7 @@ $RECYCLE.BIN/
 
 ## Local secrets / wallet data (never commit)
 walletbook.json
+walletvault.json
 *.wallet
 *.keystore
 appsettings.*.local.json
