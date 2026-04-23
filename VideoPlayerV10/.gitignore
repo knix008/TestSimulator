@@ -1,0 +1,45 @@
+# Build outputs
+bin/
+obj/
+out/
+artifacts/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# Logs
+*.log
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Test and coverage
+TestResults/
+*.trx
+coverage/
+*.coverage
+*.coveragexml
+
+# Installer outputs (WiX)
+*.wixpdb
+*.msi
+*.wixobj
+*.wixout
+*.wixmst
+
+# Cursor / local editor metadata
+.cursor/
+
+# OS files
+.DS_Store
+Thumbs.db

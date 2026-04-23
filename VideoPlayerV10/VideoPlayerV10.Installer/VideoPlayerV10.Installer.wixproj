@@ -1,0 +1,11 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <DefineConstants>AppProjectName=VideoPlayerV10.App</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VideoPlayerV10.App\VideoPlayerV10.App.csproj" />
+  </ItemGroup>
+</Project>
