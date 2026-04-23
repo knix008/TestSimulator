@@ -1,4 +1,3 @@
 <Solution>
   <Project Path="VideoPlayerV10.App/VideoPlayerV10.App.csproj" />
-  <Project Path="VideoPlayerV10.Installer/VideoPlayerV10.Installer.wixproj" />
 </Solution>

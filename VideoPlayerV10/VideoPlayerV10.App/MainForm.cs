@@ -1,4 +1,5 @@
 using LibVLCSharp.Shared;
+using System.ComponentModel;
 using System.IO;
 using System.Text.RegularExpressions;
 using YoutubeExplode;
@@ -8,8 +9,8 @@ namespace VideoPlayerV10.App;
 
 public partial class MainForm : Form
 {
-    private readonly LibVLC _libVLC;
-    private readonly MediaPlayer _mediaPlayer;
+    private LibVLC? _libVLC;
+    private MediaPlayer? _mediaPlayer;
     private readonly YoutubeClient _youtubeClient = new();
     private bool _isUserSeeking;
     private string? _lastCodecHint;
@@ -19,6 +20,13 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+
+        bool isDesignMode = LicenseManager.UsageMode == LicenseUsageMode.Designtime || (Site?.DesignMode ?? false);
+        if (isDesignMode)
+        {
+            updateTimer.Enabled = false;
+            return;
+        }
 
         Core.Initialize();
         _libVLC = new LibVLC(
@@ -40,6 +48,8 @@ public partial class MainForm : Form
         AcceptButton = playButton;
         speedComboBox.SelectedIndex = 2;
         _mediaPlayer.Volume = volumeBar.Value;
+        volumeValueLabel.Text = $"{volumeBar.Value}%";
+        updateTimer.Enabled = true;
     }
 
     private async void OpenFileButton_Click(object? sender, EventArgs e)
@@ -66,18 +76,23 @@ public partial class MainForm : Form
 
     private void PauseButton_Click(object? sender, EventArgs e)
     {
-        _mediaPlayer.Pause();
+        _mediaPlayer?.Pause();
         statusLabel.Text = "Paused";
     }
 
     private void StopButton_Click(object? sender, EventArgs e)
     {
-        _mediaPlayer.Stop();
+        _mediaPlayer?.Stop();
         statusLabel.Text = "Stopped";
     }
 
     private async Task PlayFromInputAsync()
     {
+        if (_mediaPlayer is null || _libVLC is null)
+        {
+            return;
+        }
+
         string rawInput = inputTextBox.Text.Trim();
 
         if (string.IsNullOrWhiteSpace(rawInput))
@@ -171,6 +186,11 @@ public partial class MainForm : Form
 
     private void UpdateTimer_Tick(object? sender, EventArgs e)
     {
+        if (_mediaPlayer is null)
+        {
+            return;
+        }
+
         if (_mediaPlayer.Length > 0)
         {
             if (!_isUserSeeking)
@@ -193,6 +213,11 @@ public partial class MainForm : Form
 
     private string BuildMediaInfoText()
     {
+        if (_mediaPlayer is null)
+        {
+            return "Codec: -  Bitrate: -  Resolution: -  FPS: -  Playback: 1.0x";
+        }
+
         uint width = 0;
         uint height = 0;
         _mediaPlayer.Size(0, ref width, ref height);
@@ -319,7 +344,7 @@ public partial class MainForm : Form
     {
         _isUserSeeking = false;
 
-        if (_mediaPlayer.Length > 0)
+        if (_mediaPlayer is not null && _mediaPlayer.Length > 0)
         {
             _mediaPlayer.Position = (float)seekBar.Value / seekBar.Maximum;
         }
@@ -327,7 +352,11 @@ public partial class MainForm : Form
 
     private void VolumeBar_Scroll(object? sender, EventArgs e)
     {
-        _mediaPlayer.Volume = volumeBar.Value;
+        if (_mediaPlayer is not null)
+        {
+            _mediaPlayer.Volume = volumeBar.Value;
+        }
+        volumeValueLabel.Text = $"{volumeBar.Value}%";
     }
 
     private void SpeedComboBox_SelectedIndexChanged(object? sender, EventArgs e)
@@ -335,16 +364,20 @@ public partial class MainForm : Form
         string selectedText = speedComboBox.SelectedItem?.ToString() ?? "1.0x";
         if (float.TryParse(selectedText.Replace("x", string.Empty), out float speed))
         {
-            _mediaPlayer.SetRate(speed);
+            _mediaPlayer?.SetRate(speed);
         }
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         videoView.MediaPlayer = null;
-        _libVLC.Log -= LibVlc_Log;
-        _mediaPlayer.Dispose();
-        _libVLC.Dispose();
+        if (_libVLC is not null)
+        {
+            _libVLC.Log -= LibVlc_Log;
+        }
+
+        _mediaPlayer?.Dispose();
+        _libVLC?.Dispose();
         base.OnFormClosed(e);
     }
 }
