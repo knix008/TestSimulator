@@ -344,7 +344,7 @@ partial class MainForm
         mediaInfoLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         mediaInfoLabel.AutoSize = true;
         mediaInfoLabel.ForeColor = Color.FromArgb(94, 102, 113);
-        mediaInfoLabel.Location = new Point(864, 3);
+        mediaInfoLabel.Location = new Point(217, 3);
         mediaInfoLabel.Name = "mediaInfoLabel";
         mediaInfoLabel.Size = new Size(308, 15);
         mediaInfoLabel.TabIndex = 1;

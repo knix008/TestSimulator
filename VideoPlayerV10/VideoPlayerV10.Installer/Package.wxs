@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
     Name="VideoPlayerV10"
     Manufacturer="VideoPlayerV10"
     Version="1.0.0"
+    Scope="perMachine"
     UpgradeCode="DF073837-B1E2-4C62-8AA9-9149C4D03418">
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of VideoPlayerV10 is already installed." />
@@ -13,8 +15,24 @@
       <Directory Id="INSTALLFOLDER" Name="VideoPlayerV10" />
     </StandardDirectory>
 
-    <Feature Id="MainFeature" Title="VideoPlayerV10" Level="1">
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="VideoPlayerV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <Feature Id="MainFeature" Title="VideoPlayerV10" Level="1" AllowAbsent="no">
       <ComponentGroupRef Id="AppFiles" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature" Title="Create desktop shortcut" Level="1" AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <Feature Id="StartMenuShortcutFeature" Title="Create Start Menu shortcut" Level="1" AllowAbsent="yes">
+      <ComponentRef Id="StartMenuShortcutComponent" />
     </Feature>
   </Package>
 
@@ -22,5 +40,46 @@
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
       <Files Include="$(var.VideoPlayerV10.App.TargetDir)\**" />
     </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut
+          Id="DesktopShortcut"
+          Name="VideoPlayerV10"
+          Description="VideoPlayerV10"
+          Target="[INSTALLFOLDER]VideoPlayerV10.App.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\VideoPlayerV10"
+          Name="DesktopShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="StartMenuShortcutComponent" Guid="*">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Name="VideoPlayerV10"
+          Description="VideoPlayerV10"
+          Target="[INSTALLFOLDER]VideoPlayerV10.App.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\VideoPlayerV10"
+          Name="StartMenuShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
   </Fragment>
 </Wix>

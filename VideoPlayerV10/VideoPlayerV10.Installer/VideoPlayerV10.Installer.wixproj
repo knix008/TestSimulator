@@ -8,4 +8,8 @@
   <ItemGroup>
     <ProjectReference Include="..\VideoPlayerV10.App\VideoPlayerV10.App.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" GeneratePathProperty="true" />
+  </ItemGroup>
 </Project>
