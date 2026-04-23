@@ -17,7 +17,7 @@ partial class MainForm
     private Button playButton;
     private Button pauseButton;
     private Button stopButton;
-    private TrackBar seekBar;
+    private SeekBarControl seekBar;
     private Label timeLabel;
     private Label volumeLabel;
     private TrackBar volumeBar;
@@ -56,7 +56,7 @@ partial class MainForm
         volumeBar = new TrackBar();
         volumeLabel = new Label();
         timeLabel = new Label();
-        seekBar = new TrackBar();
+        seekBar = new SeekBarControl();
         stopButton = new Button();
         pauseButton = new Button();
         playButton = new Button();
@@ -72,7 +72,6 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)videoView).BeginInit();
         controlPanel.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)volumeBar).BeginInit();
-        ((System.ComponentModel.ISupportInitialize)seekBar).BeginInit();
         statusPanel.SuspendLayout();
         SuspendLayout();
         // 
@@ -249,14 +248,11 @@ partial class MainForm
         // seekBar
         // 
         seekBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        seekBar.AutoSize = false;
-        seekBar.LargeChange = 10;
+        seekBar.BackColor = Color.White;
         seekBar.Location = new Point(12, 62);
-        seekBar.Maximum = 1000;
         seekBar.Name = "seekBar";
         seekBar.Size = new Size(824, 30);
         seekBar.TabIndex = 5;
-        seekBar.TickFrequency = 50;
         seekBar.MouseDown += SeekBar_MouseDown;
         seekBar.MouseUp += SeekBar_MouseUp;
         // 
@@ -348,11 +344,12 @@ partial class MainForm
         mediaInfoLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         mediaInfoLabel.AutoSize = true;
         mediaInfoLabel.ForeColor = Color.FromArgb(94, 102, 113);
-        mediaInfoLabel.Location = new Point(913, 1);
+        mediaInfoLabel.Location = new Point(864, 3);
         mediaInfoLabel.Name = "mediaInfoLabel";
         mediaInfoLabel.Size = new Size(308, 15);
         mediaInfoLabel.TabIndex = 1;
         mediaInfoLabel.Text = "Codec: -  Bitrate: -  Resolution: -  FPS: -  Playback: 1.0x";
+        mediaInfoLabel.TextAlign = ContentAlignment.MiddleRight;
         // 
         // statusLabel
         // 
@@ -380,7 +377,7 @@ partial class MainForm
         MinimumSize = new Size(900, 560);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "Video Player V10 (WinForms Designer)";
+        Text = "My Video Player";
         rootLayout.ResumeLayout(false);
         headerPanel.ResumeLayout(false);
         headerPanel.PerformLayout();
@@ -389,7 +386,6 @@ partial class MainForm
         controlPanel.ResumeLayout(false);
         controlPanel.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)volumeBar).EndInit();
-        ((System.ComponentModel.ISupportInitialize)seekBar).EndInit();
         statusPanel.ResumeLayout(false);
         statusPanel.PerformLayout();
         ResumeLayout(false);

@@ -83,6 +83,8 @@ public partial class MainForm : Form
     private void StopButton_Click(object? sender, EventArgs e)
     {
         _mediaPlayer?.Stop();
+        seekBar.Value = seekBar.Minimum;
+        timeLabel.Text = "00:00 / 00:00";
         statusLabel.Text = "Stopped";
     }
 
