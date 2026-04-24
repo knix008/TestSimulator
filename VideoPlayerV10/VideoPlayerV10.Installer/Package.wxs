@@ -9,7 +9,9 @@
     UpgradeCode="DF073837-B1E2-4C62-8AA9-9149C4D03418">
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of VideoPlayerV10 is already installed." />
-    <MediaTemplate EmbedCab="yes" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="low" MaximumUncompressedMediaSize="500" />
+
+    <Icon Id="daemon_hammer.ico" SourceFile="$(var.VideoPlayerV10.App.TargetDir)daemon_hammer.ico" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="VideoPlayerV10" />
@@ -50,7 +52,8 @@
           Name="VideoPlayerV10"
           Description="VideoPlayerV10"
           Target="[INSTALLFOLDER]VideoPlayerV10.App.exe"
-          WorkingDirectory="INSTALLFOLDER" />
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="daemon_hammer.ico" />
         <RegistryValue
           Root="HKCU"
           Key="Software\VideoPlayerV10"
@@ -70,7 +73,8 @@
           Name="VideoPlayerV10"
           Description="VideoPlayerV10"
           Target="[INSTALLFOLDER]VideoPlayerV10.App.exe"
-          WorkingDirectory="INSTALLFOLDER" />
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="daemon_hammer.ico" />
         <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue
           Root="HKCU"
