@@ -1,0 +1,72 @@
+# 빌드된 실행 파일
+rtsp-server
+rtsp-server.exe
+
+# 오브젝트 파일
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# Windows 리소스 오브젝트 파일
+app_resource.o
+*.res
+
+# 디버그 파일
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# 컴파일러 생성 파일
+*.d
+*.dep
+*.manifest
+
+# 에디터 및 IDE 파일
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Visual Studio 관련
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# 로그 파일
+*.log
+
+# 임시 파일
+*.tmp
+*.temp
+*.bak
+*.cache
+
+# 시스템 파일
+Thumbs.db
+Desktop.ini
+
+# 테스트 비디오 파일 (선택적)
+# test_output.mp4
+# test_stream.mp4
+*.vcxproj.user
+*.sln
+
+# 로그 파일
+*.log
+
+# 임시 파일
+tmp/
+temp/
+*.tmp
+
+# 백업 파일
+*.bak
+*.backup
