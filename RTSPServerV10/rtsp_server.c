@@ -69,9 +69,10 @@ gboolean rtsp_server_start(RTSPServerContext *ctx,
     if (source_type == SOURCE_TEST) {
         g_print("Test pattern streaming mode\n");
         pipeline = g_strdup(
-            "( videotestsrc ! videoconvert ! "
-            "x264enc tune=zerolatency bitrate=2000 speed-preset=ultrafast ! "
-            "rtph264pay name=pay0 pt=96 )"
+            "( videotestsrc is-live=true ! "
+            "video/x-raw,width=640,height=480,framerate=30/1 ! "
+            "x264enc tune=zerolatency bitrate=2000 speed-preset=superfast key-int-max=30 ! "
+            "rtph264pay name=pay0 pt=96 config-interval=1 )"
         );
     } else if (source_type == SOURCE_WEBCAM) {
         g_print("Webcam streaming mode\n");
@@ -107,15 +108,14 @@ gboolean rtsp_server_start(RTSPServerContext *ctx,
         
         g_print("  URI: %s\n", uri);
         
-        // File streaming pipeline - video + audio
+        // File streaming pipeline - universal format support
+        // Using filesrc + decodebin3 for better compatibility
         pipeline = g_strdup_printf(
-            "( uridecodebin uri=\"%s\" name=decode "
-            "decode. ! queue ! videoconvert ! "
-            "x264enc tune=zerolatency bitrate=2000 speed-preset=ultrafast key-int-max=30 ! "
-            "rtph264pay name=pay0 pt=96 config-interval=1 "
-            "decode. ! queue ! audioconvert ! audioresample ! "
-            "opusenc bitrate=128000 ! rtpopuspay name=pay1 pt=97 )",
-            uri
+            "( filesrc location=\"%s\" ! "
+            "decodebin3 ! videoconvert ! video/x-raw ! "
+            "x264enc tune=zerolatency bitrate=2000 speed-preset=ultrafast key-int-max=30 bframes=0 ! "
+            "rtph264pay name=pay0 pt=96 config-interval=1 )",
+            video_file
         );
         
         g_free(uri);
@@ -124,7 +124,17 @@ gboolean rtsp_server_start(RTSPServerContext *ctx,
     g_print("Pipeline: %s\n", pipeline);
     
     gst_rtsp_media_factory_set_launch(factory, pipeline);
-    gst_rtsp_media_factory_set_shared(factory, TRUE);
+    
+    // For file sources, don't share the media to avoid EOS issues
+    // For test sources, sharing is fine
+    if (source_type == SOURCE_FILE) {
+        gst_rtsp_media_factory_set_shared(factory, FALSE);
+        gst_rtsp_media_factory_set_eos_shutdown(factory, FALSE);
+        g_print("Media sharing: DISABLED (file source)\n");
+    } else {
+        gst_rtsp_media_factory_set_shared(factory, TRUE);
+        g_print("Media sharing: ENABLED (live source)\n");
+    }
     
     // Add factory to mount point
     gchar *mount_path = g_strdup_printf("/%s", path);

@@ -11,6 +11,7 @@ typedef struct {
     GtkWidget *stop_button;
     GtkWidget *file_button;
     GtkWidget *webcam_button;
+    GtkWidget *test_button;
     GtkWidget *port_entry;
     GtkWidget *path_entry;
     GtkWidget *status_label;

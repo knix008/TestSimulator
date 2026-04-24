@@ -420,6 +420,10 @@ static void on_start_button_clicked(GtkButton *button, gpointer user_data) {
         return;
     }
     
+    if (gui->source_type == SOURCE_TEST && !gui->selected_file) {
+        gui->selected_file = g_strdup("");  // Empty for test pattern
+    }
+    
     gboolean success = rtsp_server_start(gui->server_ctx, port_text, path_text, 
                                          gui->source_type, gui->selected_file);
     
@@ -427,6 +431,9 @@ static void on_start_button_clicked(GtkButton *button, gpointer user_data) {
         gchar *url;
         if (gui->source_type == SOURCE_WEBCAM) {
             url = g_strdup_printf("RTSP 서버 시작됨 (웹캠)\nrtsp://localhost:%s/%s", 
+                                 port_text, path_text);
+        } else if (gui->source_type == SOURCE_TEST) {
+            url = g_strdup_printf("RTSP 서버 시작됨 (테스트 패턴)\nrtsp://localhost:%s/%s", 
                                  port_text, path_text);
         } else {
             url = g_strdup_printf("RTSP 서버 시작됨 (파일)\nrtsp://localhost:%s/%s", 
@@ -437,6 +444,7 @@ static void on_start_button_clicked(GtkButton *button, gpointer user_data) {
         
         gtk_widget_set_sensitive(gui->start_button, FALSE);
         gtk_widget_set_sensitive(gui->stop_button, TRUE);
+        gtk_widget_set_sensitive(gui->test_button, FALSE);
         gtk_widget_set_sensitive(gui->file_button, FALSE);
         gtk_widget_set_sensitive(gui->webcam_button, FALSE);
         gtk_widget_set_sensitive(gui->port_entry, FALSE);
@@ -461,6 +469,7 @@ static void on_stop_button_clicked(GtkButton *button, gpointer user_data) {
     
     gtk_widget_set_sensitive(gui->start_button, TRUE);
     gtk_widget_set_sensitive(gui->stop_button, FALSE);
+    gtk_widget_set_sensitive(gui->test_button, TRUE);
     gtk_widget_set_sensitive(gui->file_button, TRUE);
     gtk_widget_set_sensitive(gui->webcam_button, TRUE);
     gtk_widget_set_sensitive(gui->port_entry, TRUE);
@@ -474,6 +483,7 @@ static void on_file_button_clicked(GtkButton *button, gpointer user_data) {
     gtk_widget_set_sensitive(gui->file_chooser_button, TRUE);
     gtk_button_set_label(GTK_BUTTON(gui->file_button), "● 파일 스트리밍");
     gtk_button_set_label(GTK_BUTTON(gui->webcam_button), "○ 웹캠 스트리밍");
+    gtk_button_set_label(GTK_BUTTON(gui->test_button), "○ 테스트 패턴");
     update_status(gui, "파일 스트리밍 모드 선택됨");
 }
 
@@ -483,7 +493,18 @@ static void on_webcam_button_clicked(GtkButton *button, gpointer user_data) {
     gtk_widget_set_sensitive(gui->file_chooser_button, FALSE);
     gtk_button_set_label(GTK_BUTTON(gui->file_button), "○ 파일 스트리밍");
     gtk_button_set_label(GTK_BUTTON(gui->webcam_button), "● 웹캠 스트리밍");
+    gtk_button_set_label(GTK_BUTTON(gui->test_button), "○ 테스트 패턴");
     update_status(gui, "웹캠 스트리밍 모드 선택됨");
+}
+
+static void on_test_button_clicked(GtkButton *button, gpointer user_data) {
+    GUIContext *gui = (GUIContext *)user_data;
+    gui->source_type = SOURCE_TEST;
+    gtk_widget_set_sensitive(gui->file_chooser_button, FALSE);
+    gtk_button_set_label(GTK_BUTTON(gui->file_button), "○ 파일 스트리밍");
+    gtk_button_set_label(GTK_BUTTON(gui->webcam_button), "○ 웹캠 스트리밍");
+    gtk_button_set_label(GTK_BUTTON(gui->test_button), "● 테스트 패턴");
+    update_status(gui, "테스트 패턴 모드 선택됨");
 }
 
 static void on_file_chooser_file_set(GtkFileChooserButton *widget, gpointer user_data) {
@@ -638,11 +659,15 @@ static void activate(GtkApplication *gtk_app, gpointer user_data) {
     gtk_container_set_border_width(GTK_CONTAINER(mode_box), 10);
     gtk_container_add(GTK_CONTAINER(mode_frame), mode_box);
     
-    gui->file_button = gtk_button_new_with_label("● 파일 스트리밍");
+    gui->file_button = gtk_button_new_with_label("○ 파일 스트리밍");
     gui->webcam_button = gtk_button_new_with_label("○ 웹캠 스트리밍");
+    gui->test_button = gtk_button_new_with_label("● 테스트 패턴");
+    gtk_box_pack_start(GTK_BOX(mode_box), gui->test_button, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(mode_box), gui->file_button, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(mode_box), gui->webcam_button, TRUE, TRUE, 0);
     
+    g_signal_connect(gui->test_button, "clicked", 
+                     G_CALLBACK(on_test_button_clicked), gui);
     g_signal_connect(gui->file_button, "clicked", 
                      G_CALLBACK(on_file_button_clicked), gui);
     g_signal_connect(gui->webcam_button, "clicked", 
@@ -745,7 +770,7 @@ GUIContext* gui_create(RTSPServerContext *server_ctx) {
     GUIContext *gui = g_new0(GUIContext, 1);
     gui->server_ctx = server_ctx;
     gui->selected_file = NULL;
-    gui->source_type = SOURCE_FILE;
+    gui->source_type = SOURCE_TEST;  // Default to test pattern
     gui->playback_pipeline = NULL;
     gui->is_playing = FALSE;
     gui->position_update_id = 0;
