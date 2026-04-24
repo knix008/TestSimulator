@@ -69,10 +69,9 @@ gboolean rtsp_server_start(RTSPServerContext *ctx,
     if (source_type == SOURCE_TEST) {
         g_print("Test pattern streaming mode\n");
         pipeline = g_strdup(
-            "( videotestsrc is-live=true ! "
-            "video/x-raw,width=640,height=480,framerate=30/1 ! "
-            "x264enc tune=zerolatency bitrate=2000 speed-preset=superfast key-int-max=30 ! "
-            "rtph264pay name=pay0 pt=96 config-interval=1 )"
+            "( videotestsrc ! videoconvert ! "
+            "x264enc tune=zerolatency bitrate=2000 speed-preset=ultrafast ! "
+            "rtph264pay name=pay0 pt=96 )"
         );
     } else if (source_type == SOURCE_WEBCAM) {
         g_print("Webcam streaming mode\n");
@@ -108,14 +107,15 @@ gboolean rtsp_server_start(RTSPServerContext *ctx,
         
         g_print("  URI: %s\n", uri);
         
-        // File streaming pipeline - universal format support
-        // Using filesrc + decodebin3 for better compatibility
+        // File streaming pipeline - video + audio
         pipeline = g_strdup_printf(
-            "( filesrc location=\"%s\" ! "
-            "decodebin3 ! videoconvert ! video/x-raw ! "
-            "x264enc tune=zerolatency bitrate=2000 speed-preset=ultrafast key-int-max=30 bframes=0 ! "
-            "rtph264pay name=pay0 pt=96 config-interval=1 )",
-            video_file
+            "( uridecodebin uri=\"%s\" name=decode "
+            "decode. ! queue ! videoconvert ! "
+            "x264enc tune=zerolatency bitrate=2000 speed-preset=ultrafast key-int-max=30 ! "
+            "rtph264pay name=pay0 pt=96 config-interval=1 "
+            "decode. ! queue ! audioconvert ! audioresample ! "
+            "opusenc bitrate=128000 ! rtpopuspay name=pay1 pt=97 )",
+            uri
         );
         
         g_free(uri);
