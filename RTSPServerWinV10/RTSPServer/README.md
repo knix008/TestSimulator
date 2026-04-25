@@ -29,7 +29,15 @@ RTSP 서버는 비디오 파일을 RTSP 프로토콜을 통해 스트리밍할 �
 
 이 애플리케이션은 RTSP 스트리밍을 위해 FFmpeg이 필요합니다.
 
-### Chocolatey를 이용한 설치 (권장)
+### MSI 인스톨러를 통한 자동 설치
+
+MSI 인스톨러로 RTSP Server를 설치하면 설치 완료 후 FFmpeg 자동 설치 스크립트가 실행됩니다.
+- 인터넷 연결이 필요합니다
+- 관리자 권한이 필요합니다
+- Chocolatey가 없으면 자동으로 설치됩니다
+- FFmpeg이 이미 설치되어 있으면 건너뜁니다
+
+### Chocolatey를 이용한 수동 설치
 
 1. **PowerShell을 관리자 권한으로 실행**
    - 시작 메뉴에서 "PowerShell" 검색

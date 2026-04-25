@@ -36,6 +36,7 @@
       <ComponentGroupRef Id="MainComponents" />
       <ComponentRef Id="MachineRegistryComponent" />
       <ComponentRef Id="StartMenuShortcutsComponent" />
+      <ComponentRef Id="FFmpegScriptComponent" />
     </Feature>
     
     <!-- 바탕화면 바로가기 (선택 가능) -->
@@ -77,6 +78,31 @@
         <File Source="..\RTSPServer\LICENSE.txt" />
       </Component>
     </ComponentGroup>
+  </Fragment>
+
+  <!-- FFmpeg 설치 스크립트 컴포넌트 -->
+  <Fragment>
+    <Component Id="FFmpegScriptComponent"
+               Directory="INSTALLFOLDER"
+               Guid="E5F6A7B8-C9D0-4E5F-AF9B-2C3D4E5F6A7B">
+      <File Id="FFmpegInstallScript"
+            Source="InstallFFmpeg.ps1"
+            KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+  <!-- 커스텀 액션: FFmpeg 설치 안내 -->
+  <Fragment>
+    <CustomAction Id="LaunchFFmpegInstaller"
+                  Directory="INSTALLFOLDER"
+                  Execute="deferred"
+                  Impersonate="no"
+                  ExeCommand="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]InstallFFmpeg.ps1&quot;"
+                  Return="ignore" />
+    
+    <InstallExecuteSequence>
+      <Custom Action="LaunchFFmpegInstaller" After="InstallFinalize" Condition="NOT Installed" />
+    </InstallExecuteSequence>
   </Fragment>
 
   <!-- perMachine 설치 표시 -->
