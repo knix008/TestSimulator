@@ -149,7 +149,6 @@ partial class MainForm
         playerHostPanel.Padding = new Padding(1);
         playerHostPanel.Size = new Size(1176, 524);
         playerHostPanel.TabIndex = 1;
-        playerHostPanel.MouseDown += PlayerHostPanel_MouseDown;
         // 
         // videoView
         // 

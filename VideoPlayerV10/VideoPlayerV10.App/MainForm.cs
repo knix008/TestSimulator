@@ -49,6 +49,8 @@ public partial class MainForm : Form
         );
 
         _mediaPlayer = new MediaPlayer(_libVLC);
+        _mediaPlayer.EnableMouseInput = false;
+        _mediaPlayer.EnableKeyInput = false;
         videoView.MediaPlayer = _mediaPlayer;
         _mediaPlayer.EndReached += (_, _) => BeginInvoke(() => statusLabel.Text = "Playback ended");
         _mediaPlayer.EncounteredError += (_, _) => BeginInvoke(HandlePlaybackError);
@@ -64,7 +66,6 @@ public partial class MainForm : Form
         downloadButton.Enabled = false;
         updateTimer.Enabled = true;
 
-        this.MouseDown += MainForm_MouseDown;
     }
 
     private async void OpenFileButton_Click(object? sender, EventArgs e)
@@ -119,49 +120,14 @@ public partial class MainForm : Form
         statusLabel.Text = "Stopped";
     }
 
-    private void VideoView_Click(object? sender, EventArgs e)
-    {
-        TogglePlayPause();
-    }
-
     private void VideoView_MouseClick(object? sender, MouseEventArgs e)
     {
-        TogglePlayPause();
-    }
-
-    private void PlayerHostPanel_MouseClick(object? sender, MouseEventArgs e)
-    {
-        TogglePlayPause();
-    }
-
-    private void PlayerHostPanel_MouseDown(object? sender, MouseEventArgs e)
-    {
-        if (e.Button == MouseButtons.Left)
+        if (e.Button != MouseButtons.Left)
         {
-            TogglePlayPause();
+            return;
         }
-    }
 
-    private void PlayerHostPanel_DoubleClick(object? sender, EventArgs e)
-    {
         TogglePlayPause();
-    }
-
-    private void MainForm_MouseDown(object? sender, MouseEventArgs e)
-    {
-        if (e.Button != MouseButtons.Left) return;
-
-        // videoView 영역 내에서 클릭했는지 확인
-        if (videoView != null)
-        {
-            var videoRect = videoView.RectangleToScreen(videoView.ClientRectangle);
-            var clickPoint = this.PointToScreen(e.Location);
-
-            if (videoRect.Contains(clickPoint))
-            {
-                TogglePlayPause();
-            }
-        }
     }
 
     private void MainForm_KeyDown(object? sender, KeyEventArgs e)
@@ -178,27 +144,25 @@ public partial class MainForm : Form
 
     private void TogglePlayPause()
     {
-        statusLabel.Text = "TogglePlayPause called";
-        
         if (_mediaPlayer is null)
         {
-            statusLabel.Text = "MediaPlayer is null";
             return;
         }
 
-        statusLabel.Text = $"IsPlaying: {_mediaPlayer.IsPlaying}";
-        
+        if (_mediaPlayer.Media is null)
+        {
+            return;
+        }
+
         if (_mediaPlayer.IsPlaying)
         {
             _mediaPlayer.Pause();
             ShowPlayPauseIcon("⏸", false);
-            statusLabel.Text = "Paused by toggle";
         }
         else
         {
             _mediaPlayer.Play();
             ShowPlayPauseIcon("▶", true);
-            statusLabel.Text = "Playing by toggle";
         }
     }
 
@@ -441,6 +405,12 @@ public partial class MainForm : Form
             return;
         }
 
+        bool isNewSource = !string.Equals(_currentInput, rawInput, StringComparison.OrdinalIgnoreCase);
+        if (isNewSource)
+        {
+            PrepareForNewMedia();
+        }
+
         bool isUriCreated = Uri.TryCreate(rawInput, UriKind.Absolute, out var parsedUri);
         bool isUrl = isUriCreated
                      && parsedUri is not null
@@ -486,6 +456,28 @@ public partial class MainForm : Form
         using var fileMedia = new Media(_libVLC, new Uri(rawInput));
         _mediaPlayer.Play(fileMedia);
         statusLabel.Text = $"Playing file: {Path.GetFileName(rawInput)}";
+    }
+
+    private void PrepareForNewMedia()
+    {
+        if (_mediaPlayer is null)
+        {
+            return;
+        }
+
+        // Stop previous playback so last paused frame/state is cleared.
+        _mediaPlayer.Stop();
+        _isUserSeeking = false;
+        seekBar.Value = seekBar.Minimum;
+        timeLabel.Text = "00:00 / 00:00";
+
+        iconFadeTimer.Stop();
+        if (playPauseIconPictureBox != null)
+        {
+            playPauseIconPictureBox.Visible = false;
+            playPauseIconPictureBox.Image?.Dispose();
+            playPauseIconPictureBox.Image = null;
+        }
     }
 
     private void ResetPlaybackHints(string source)
