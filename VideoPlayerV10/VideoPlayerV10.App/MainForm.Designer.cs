@@ -98,7 +98,7 @@ partial class MainForm
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 140F));
-        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
         rootLayout.Size = new Size(1200, 760);
         rootLayout.TabIndex = 0;
         // 
@@ -281,7 +281,7 @@ partial class MainForm
         // 
         // downloadButton
         // 
-        downloadButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        downloadButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         downloadButton.BackColor = Color.FromArgb(156, 163, 175);
         downloadButton.FlatAppearance.BorderSize = 0;
         downloadButton.FlatStyle = FlatStyle.Flat;
@@ -376,7 +376,7 @@ partial class MainForm
         statusPanel.Margin = new Padding(12, 6, 12, 8);
         statusPanel.Name = "statusPanel";
         statusPanel.Padding = new Padding(12, 8, 12, 8);
-        statusPanel.Size = new Size(1176, 20);
+        statusPanel.Size = new Size(1176, 38);
         statusPanel.TabIndex = 3;
         // 
         // mediaInfoLabel

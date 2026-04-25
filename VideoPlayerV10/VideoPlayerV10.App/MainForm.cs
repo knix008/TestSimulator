@@ -18,6 +18,8 @@ public partial class MainForm : Form
     private string? _currentInput;
     private int _iconFadeCounter;
     private string _currentIcon = "▶";
+    private string? _playOverlayPath;
+    private string? _pauseOverlayPath;
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -58,6 +60,7 @@ public partial class MainForm : Form
         _mediaPlayer.Paused += (_, _) => BeginInvoke(() => statusLabel.Text = "Paused");
         _mediaPlayer.Stopped += (_, _) => BeginInvoke(() => statusLabel.Text = "Stopped");
         _libVLC.Log += LibVlc_Log;
+        LoadOverlayAssets();
 
         AcceptButton = playButton;
         speedComboBox.SelectedIndex = 2;
@@ -168,12 +171,6 @@ public partial class MainForm : Form
 
     private void ShowPlayPauseIcon(string icon, bool autoHide)
     {
-        if (playPauseIconPictureBox == null)
-        {
-            statusLabel.Text = "Icon picture box is null";
-            return;
-        }
-
         if (InvokeRequired)
         {
             BeginInvoke(() => ShowPlayPauseIcon(icon, autoHide));
@@ -183,14 +180,22 @@ public partial class MainForm : Form
         try
         {
             _currentIcon = icon;
-            
-            // 이전 이미지 해제
-            playPauseIconPictureBox.Image?.Dispose();
-            
-            // 반투명 아이콘 이미지 생성
-            playPauseIconPictureBox.Image = CreateIconImage(icon, 200, 200);
-            playPauseIconPictureBox.Visible = true;
-            playPauseIconPictureBox.BringToFront();
+
+            if (_mediaPlayer is null)
+            {
+                return;
+            }
+
+            string? overlayPath = icon == "▶" ? _playOverlayPath : _pauseOverlayPath;
+            if (string.IsNullOrWhiteSpace(overlayPath))
+            {
+                return;
+            }
+
+            _mediaPlayer.SetLogoString(VideoLogoOption.File, overlayPath);
+            _mediaPlayer.SetLogoInt(VideoLogoOption.Opacity, 255);
+            _mediaPlayer.SetLogoInt(VideoLogoOption.Position, (int)Position.Center);
+            _mediaPlayer.SetLogoInt(VideoLogoOption.Enable, 1);
             statusLabel.Text = $"Showing icon: {icon}";
 
             iconFadeTimer.Stop();
@@ -204,6 +209,30 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             statusLabel.Text = $"Icon error: {ex.Message}";
+        }
+    }
+
+    private void LoadOverlayAssets()
+    {
+        try
+        {
+            string assetsDir = Path.Combine(AppContext.BaseDirectory, "assets");
+            string playPath = Path.Combine(assetsDir, "play-button.png");
+            string pausePath = Path.Combine(assetsDir, "pause-button.png");
+
+            if (File.Exists(playPath))
+            {
+                _playOverlayPath = playPath;
+            }
+
+            if (File.Exists(pausePath))
+            {
+                _pauseOverlayPath = pausePath;
+            }
+        }
+        catch
+        {
+            // Falls back to dynamically generated overlay icon.
         }
     }
 
@@ -291,11 +320,9 @@ public partial class MainForm : Form
         if (_iconFadeCounter >= 2)
         {
             iconFadeTimer.Stop();
-            if (playPauseIconPictureBox != null)
+            if (_mediaPlayer is not null)
             {
-                playPauseIconPictureBox.Visible = false;
-                playPauseIconPictureBox.Image?.Dispose();
-                playPauseIconPictureBox.Image = null;
+                _mediaPlayer.SetLogoInt(VideoLogoOption.Enable, 0);
             }
             _iconFadeCounter = 0;
         }
@@ -472,11 +499,9 @@ public partial class MainForm : Form
         timeLabel.Text = "00:00 / 00:00";
 
         iconFadeTimer.Stop();
-        if (playPauseIconPictureBox != null)
+        if (_mediaPlayer is not null)
         {
-            playPauseIconPictureBox.Visible = false;
-            playPauseIconPictureBox.Image?.Dispose();
-            playPauseIconPictureBox.Image = null;
+            _mediaPlayer.SetLogoInt(VideoLogoOption.Enable, 0);
         }
     }
 
