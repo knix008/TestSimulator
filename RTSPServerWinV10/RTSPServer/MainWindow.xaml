@@ -194,7 +194,8 @@
                 BorderThickness="1" 
                 CornerRadius="4"
                 Margin="0,0,0,10">
-            <Grid>
+            <Grid x:Name="VideoSurfaceGrid"
+                  MouseLeftButtonUp="VideoSurfaceGrid_MouseLeftButtonUp">
                 <MediaElement x:Name="MediaPlayer"
                             LoadedBehavior="Manual"
                             UnloadedBehavior="Stop"
@@ -206,7 +207,26 @@
                           VerticalAlignment="Center"
                           FontSize="18"
                           Foreground="#666666"
+                          IsHitTestVisible="False"
                           x:Name="PlaceholderText"/>
+
+                <Border x:Name="PlaybackOverlayIcon"
+                        Width="140"
+                        Height="140"
+                        Background="#99000000"
+                        CornerRadius="70"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed"
+                        IsHitTestVisible="False">
+                    <TextBlock x:Name="PlaybackOverlayGlyph"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="64"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Text="&#xE768;"/>
+                </Border>
             </Grid>
         </Border>
 

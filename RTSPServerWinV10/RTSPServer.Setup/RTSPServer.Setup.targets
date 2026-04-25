@@ -31,7 +31,7 @@
     <MakeDir Directories="$(_MsiDir)" />
     <MSBuild Projects="$(MSBuildThisFileDirectory)..\RTSPServer\RTSPServer.csproj"
              Targets="Publish"
-             Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=false" />
+             Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=false;SkipMsiOnRelease=true" />
   </Target>
 
   <Target Name="BuildInstallerMsi"

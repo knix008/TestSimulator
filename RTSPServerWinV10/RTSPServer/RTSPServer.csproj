@@ -43,4 +43,14 @@
     <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
   </ItemGroup>
 
+  <Target Name="BuildSetupMsiOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'
+                     and '$(BuildingSolutionFile)' != 'true'
+                     and '$(SkipMsiOnRelease)' != 'true'">
+    <MSBuild Projects="..\RTSPServer.Setup\RTSPServer.Setup.wixproj"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
 </Project>

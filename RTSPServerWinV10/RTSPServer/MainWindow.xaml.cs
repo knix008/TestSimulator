@@ -11,9 +11,13 @@ namespace RTSPServer;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private const string PlayGlyph = "\uE768";
+    private const string PauseGlyph = "\uE769";
+
     private RtspServer? _rtspServer;
     private VideoPlayer _videoPlayer = null!;
     private DispatcherTimer _uiUpdateTimer = null!;
+    private DispatcherTimer _overlayIconTimer = null!;
     private string? _currentVideoFile;
     private bool _isUserDraggingSlider = false;
 
@@ -36,6 +40,12 @@ public partial class MainWindow : Window
         };
         _uiUpdateTimer.Tick += UiUpdateTimer_Tick;
         _uiUpdateTimer.Start();
+
+        _overlayIconTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(800)
+        };
+        _overlayIconTimer.Tick += OverlayIconTimer_Tick;
 
         UpdateButtonStates();
         Log("애플리케이션 시작됨");
@@ -80,27 +90,19 @@ public partial class MainWindow : Window
 
     private void BtnPlay_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_currentVideoFile))
-        {
-            MessageBox.Show("먼저 비디오를 로드하세요.", "알림", 
-                MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        MediaPlayer.Play();
-        _ = _videoPlayer.PlayAsync();
+        PlayVideo(showOverlayIcon: false);
     }
 
     private void BtnPause_Click(object sender, RoutedEventArgs e)
     {
-        MediaPlayer.Pause();
-        _videoPlayer.Pause();
+        PauseVideo(showOverlayIcon: false);
     }
 
     private void BtnStop_Click(object sender, RoutedEventArgs e)
     {
         MediaPlayer.Stop();
         _videoPlayer.Stop();
+        HideOverlayIcon();
     }
 
     private async void BtnStartServer_Click(object sender, RoutedEventArgs e)
@@ -203,6 +205,74 @@ public partial class MainWindow : Window
         }
     }
 
+    private void VideoSurfaceGrid_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_currentVideoFile))
+        {
+            return;
+        }
+
+        if (_videoPlayer.State == PlayerState.Playing)
+        {
+            PauseVideo(showOverlayIcon: true);
+            return;
+        }
+
+        PlayVideo(showOverlayIcon: true);
+    }
+
+    private void PlayVideo(bool showOverlayIcon)
+    {
+        if (string.IsNullOrEmpty(_currentVideoFile))
+        {
+            MessageBox.Show("먼저 비디오를 로드하세요.", "알림",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        MediaPlayer.Play();
+        _ = _videoPlayer.PlayAsync();
+
+        if (showOverlayIcon)
+        {
+            ShowOverlayIcon(PlayGlyph, autoHide: true);
+        }
+    }
+
+    private void PauseVideo(bool showOverlayIcon)
+    {
+        MediaPlayer.Pause();
+        _videoPlayer.Pause();
+
+        if (showOverlayIcon)
+        {
+            ShowOverlayIcon(PauseGlyph, autoHide: false);
+        }
+    }
+
+    private void ShowOverlayIcon(string glyph, bool autoHide)
+    {
+        PlaybackOverlayGlyph.Text = glyph;
+        PlaybackOverlayIcon.Visibility = Visibility.Visible;
+
+        _overlayIconTimer.Stop();
+        if (autoHide)
+        {
+            _overlayIconTimer.Start();
+        }
+    }
+
+    private void HideOverlayIcon()
+    {
+        _overlayIconTimer.Stop();
+        PlaybackOverlayIcon.Visibility = Visibility.Collapsed;
+    }
+
+    private void OverlayIconTimer_Tick(object? sender, EventArgs e)
+    {
+        HideOverlayIcon();
+    }
+
     private void UpdateButtonStates()
     {
         bool hasVideo = !string.IsNullOrEmpty(_currentVideoFile);
@@ -230,6 +300,7 @@ public partial class MainWindow : Window
         _rtspServer?.Stop();
         MediaPlayer.Close();
         _uiUpdateTimer.Stop();
+        _overlayIconTimer.Stop();
         base.OnClosing(e);
     }
 }
