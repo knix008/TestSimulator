@@ -9,7 +9,7 @@
     UpgradeCode="DF073837-B1E2-4C62-8AA9-9149C4D03418">
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of VideoPlayerV10 is already installed." />
-    <MediaTemplate EmbedCab="yes" CompressionLevel="low" MaximumUncompressedMediaSize="500" />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="low" />
 
     <Icon Id="daemon_hammer.ico" SourceFile="$(var.VideoPlayerV10.App.TargetDir)daemon_hammer.ico" />
 
