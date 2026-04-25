@@ -1,0 +1,36 @@
+# Build outputs
+rtspserver
+build/
+dist/
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.out
+
+# Debug / profiling
+*.dSYM/
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Runtime artifacts
+core
+core.*
