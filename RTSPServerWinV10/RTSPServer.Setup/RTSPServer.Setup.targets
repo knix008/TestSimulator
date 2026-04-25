@@ -1,0 +1,46 @@
+<Project>
+  <PropertyGroup>
+    <_MsiDir>$(MSBuildThisFileDirectory)..\RTSPServer\bin\$(Configuration)\net10.0-windows\win-x64\publish\</_MsiDir>
+    <_MsiPath>$(_MsiDir)RTSPServer-Setup.msi</_MsiPath>
+    <_WixExeInPf64>$(ProgramW6432)\WiX Toolset v6.0\bin\wix.exe</_WixExeInPf64>
+    <_WixExeInPf32>$(MSBuildProgramFiles32)\WiX Toolset v6.0\bin\wix.exe</_WixExeInPf32>
+  </PropertyGroup>
+  
+  <Choose>
+    <When Condition="Exists('$(_WixExeInPf64)')">
+      <PropertyGroup>
+        <WixExe>$(_WixExeInPf64)</WixExe>
+      </PropertyGroup>
+    </When>
+    <When Condition="Exists('$(_WixExeInPf32)')">
+      <PropertyGroup>
+        <WixExe>$(_WixExeInPf32)</WixExe>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <WixExe>wix</WixExe>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <!-- Release: 퍼블리시 후 MSI -->
+  <Target Name="PublishHostAppForMsi"
+          BeforeTargets="Build"
+          Condition="'$(Configuration)' == 'Release'">
+    <MakeDir Directories="$(_MsiDir)" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\RTSPServer\RTSPServer.csproj"
+             Targets="Publish"
+             Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=false" />
+  </Target>
+
+  <Target Name="BuildInstallerMsi"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'">
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)..\RTSPServer\bin\Release\net10.0-windows\win-x64\publish\RTSPServer.exe')"
+           Text="퍼블리시된 exe가 없습니다. 먼저 RTSPServer 프로젝트를 Release로 퍼블리시하세요." />
+    <Exec Command="&quot;$(WixExe)&quot; build Package.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -culture ko-kr -out &quot;$(_MsiPath)&quot;"
+          WorkingDirectory="$(MSBuildThisFileDirectory)" />
+    <Message Importance="high" Text="MSI 생성 완료: $(_MsiPath)" />
+  </Target>
+</Project>

@@ -1,0 +1,51 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RTSPServer", "RTSPServer\RTSPServer.csproj", "{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}"
+EndProject
+Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "RTSPServer.Setup", "RTSPServer.Setup\RTSPServer.Setup.wixproj", "{5D32DE01-F021-4A99-AD8E-0A096D603BA4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Debug|x64.Build.0 = Debug|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Debug|x86.Build.0 = Debug|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Release|x64.ActiveCfg = Release|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Release|x64.Build.0 = Release|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Release|x86.ActiveCfg = Release|Any CPU
+		{DB4304AC-A814-9B7D-9645-53D92FA6A2C6}.Release|x86.Build.0 = Release|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Debug|x64.Build.0 = Debug|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Debug|x86.Build.0 = Debug|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Release|x64.ActiveCfg = Release|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Release|x64.Build.0 = Release|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Release|x86.ActiveCfg = Release|Any CPU
+		{5D32DE01-F021-4A99-AD8E-0A096D603BA4}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {883A7E4D-04C9-4BD4-8E0C-85DC43344E05}
+	EndGlobalSection
+EndGlobal

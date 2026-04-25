@@ -1,0 +1,381 @@
+﻿<Window x:Class="RTSPServer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RTSPServer"
+        mc:Ignorable="d"
+        Title="RTSP Server - Video Streaming" 
+        Height="1200" Width="1500"
+        Background="#1E1E1E"
+        Icon="daemon_hammer.ico"
+        WindowStartupLocation="CenterScreen">
+    
+    <Window.Resources>
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"
+                                            Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3E3E42"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#007ACC"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.5"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Icon Button Style -->
+        <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Width" Value="60"/>
+            <Setter Property="Height" Value="60"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+        </Style>
+
+        <!-- TextBox Style -->
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <!-- Label Style -->
+        <Style TargetType="Label">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <!-- TextBlock Style -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <!-- Slider Thumb Style (must be defined before TimelineSliderStyle) -->
+        <Style x:Key="SliderThumbStyle" TargetType="Thumb">
+            <Setter Property="SnapsToDevicePixels" Value="true"/>
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Ellipse Fill="#007ACC"
+                                Stroke="White"
+                                StrokeThickness="2"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Timeline Slider Style -->
+        <Style x:Key="TimelineSliderStyle" TargetType="Slider">
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Background" Value="#3E3E42"/>
+            <Setter Property="Foreground" Value="#007ACC"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto" MinHeight="{TemplateBinding MinHeight}"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <Track Grid.Row="1" x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Style>
+                                            <Style TargetType="RepeatButton">
+                                                <Setter Property="SnapsToDevicePixels" Value="true"/>
+                                                <Setter Property="OverridesDefaultStyle" Value="true"/>
+                                                <Setter Property="IsTabStop" Value="false"/>
+                                                <Setter Property="Focusable" Value="false"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="RepeatButton">
+                                                            <Border Height="8" Background="#007ACC" CornerRadius="4,0,0,4"/>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </RepeatButton.Style>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Style>
+                                            <Style TargetType="RepeatButton">
+                                                <Setter Property="SnapsToDevicePixels" Value="true"/>
+                                                <Setter Property="OverridesDefaultStyle" Value="true"/>
+                                                <Setter Property="IsTabStop" Value="false"/>
+                                                <Setter Property="Focusable" Value="false"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="RepeatButton">
+                                                            <Border Height="8" Background="#3E3E42" CornerRadius="0,4,4,0"/>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </RepeatButton.Style>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Width="16" Height="16" Style="{StaticResource SliderThumbStyle}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Slider Button Style (Track parts) - Not used anymore -->
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="350" MinHeight="250"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="280"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#252526" Padding="15" CornerRadius="4" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="RTSP Video Streaming Server" 
+                          FontSize="24" 
+                          FontWeight="Bold" 
+                          Foreground="White"/>
+                <TextBlock Text="실시간 비디오 스트리밍 및 재생" 
+                          FontSize="14" 
+                          Foreground="#999999"
+                          Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Video Player Area -->
+        <Border Grid.Row="1" 
+                Background="#252526" 
+                BorderBrush="#3E3E42" 
+                BorderThickness="1" 
+                CornerRadius="4"
+                Margin="0,0,0,10">
+            <Grid>
+                <MediaElement x:Name="MediaPlayer"
+                            LoadedBehavior="Manual"
+                            UnloadedBehavior="Stop"
+                            Stretch="Uniform"
+                            ScrubbingEnabled="True"/>
+                
+                <TextBlock Text="비디오를 로드하려면 '비디오 열기' 버튼을 클릭하세요"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          FontSize="18"
+                          Foreground="#666666"
+                          x:Name="PlaceholderText"/>
+            </Grid>
+        </Border>
+
+        <!-- Playback Controls -->
+        <Border Grid.Row="2" 
+                Background="#252526" 
+                Padding="15" 
+                CornerRadius="4"
+                Margin="0,0,0,10">
+            <StackPanel>
+                <!-- Control Buttons -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
+                    <Button x:Name="BtnPlay" 
+                            Style="{StaticResource IconButton}"
+                            Content="&#xE768;"
+                            ToolTip="재생 (Play)"
+                            Click="BtnPlay_Click"/>
+                    <Button x:Name="BtnPause" 
+                            Style="{StaticResource IconButton}"
+                            Content="&#xE769;"
+                            ToolTip="일시정지 (Pause)"
+                            Click="BtnPause_Click"/>
+                    <Button x:Name="BtnStop" 
+                            Style="{StaticResource IconButton}"
+                            Content="&#xE71A;"
+                            ToolTip="정지 (Stop)"
+                            Click="BtnStop_Click"/>
+                </StackPanel>
+
+                <!-- Progress Bar -->
+                <Grid Margin="0,10,0,25" MinHeight="40">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <TextBlock x:Name="TxtCurrentTime" 
+                              Text="00:00:00" 
+                              Grid.Column="0"
+                              VerticalAlignment="Center"
+                              Margin="0,0,10,0"/>
+                    
+                    <Slider x:Name="TimelineSlider"
+                           Grid.Column="1"
+                           Minimum="0"
+                           Maximum="100"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource TimelineSliderStyle}"
+                           PreviewMouseLeftButtonDown="TimelineSlider_PreviewMouseLeftButtonDown"
+                           PreviewMouseLeftButtonUp="TimelineSlider_PreviewMouseLeftButtonUp"/>
+                    
+                    <TextBlock x:Name="TxtDuration" 
+                              Text="00:00:00" 
+                              Grid.Column="2"
+                              VerticalAlignment="Center"
+                              Margin="10,0,0,0"/>
+                </Grid>
+
+                <!-- File and Server Controls -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Button x:Name="BtnOpenFile" 
+                            Grid.Column="0"
+                            Content="📁 비디오 열기"
+                            Style="{StaticResource ModernButton}"
+                            Margin="0,0,10,0"
+                            Click="BtnOpenFile_Click"/>
+                    
+                    <Button x:Name="BtnStartServer" 
+                            Grid.Column="1"
+                            Content="🚀 RTSP 서버 시작"
+                            Style="{StaticResource ModernButton}"
+                            Width="200"
+                            Margin="0,0,10,0"
+                            Click="BtnStartServer_Click"/>
+                    
+                    <Button x:Name="BtnStopServer" 
+                            Grid.Column="2"
+                            Content="🛑 RTSP 서버 중지"
+                            Style="{StaticResource ModernButton}"
+                            Width="200"
+                            IsEnabled="False"
+                            Click="BtnStopServer_Click"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- RTSP Info -->
+        <Border Grid.Row="3" 
+                Background="#252526" 
+                Padding="15" 
+                CornerRadius="4"
+                Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="RTSP 서버 정보" 
+                          FontWeight="Bold" 
+                          FontSize="16"
+                          Foreground="White"
+                          Margin="0,0,0,10"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <Label Grid.Row="0" Grid.Column="0" Content="서버 주소:"/>
+                    <TextBox x:Name="TxtServerUrl" 
+                            Grid.Row="0" 
+                            Grid.Column="1"
+                            Style="{StaticResource ModernTextBox}"
+                            IsReadOnly="True"
+                            Text="rtsp://localhost:554/stream"
+                            Margin="5,0,0,5"/>
+                    
+                    <Label Grid.Row="1" Grid.Column="0" Content="비디오 파일:"/>
+                    <TextBox x:Name="TxtVideoFile" 
+                            Grid.Row="1" 
+                            Grid.Column="1"
+                            Style="{StaticResource ModernTextBox}"
+                            IsReadOnly="True"
+                            Text="비디오를 선택하세요..."
+                            Margin="5,0,0,0"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Log Area -->
+        <Border Grid.Row="4" 
+                Background="#252526" 
+                BorderBrush="#3E3E42" 
+                BorderThickness="1" 
+                CornerRadius="4">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <TextBlock Text="로그" 
+                          Grid.Row="0"
+                          FontWeight="Bold" 
+                          FontSize="14"
+                          Foreground="White"
+                          Margin="10,10,10,5"/>
+                
+                <ScrollViewer Grid.Row="1" 
+                             VerticalScrollBarVisibility="Auto"
+                             Margin="10,0,10,10">
+                    <TextBox x:Name="TxtLog"
+                            Background="Transparent"
+                            Foreground="#CCCCCC"
+                            BorderThickness="0"
+                            IsReadOnly="True"
+                            TextWrapping="Wrap"
+                            FontFamily="Consolas"
+                            FontSize="12"
+                            VerticalScrollBarVisibility="Auto"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
