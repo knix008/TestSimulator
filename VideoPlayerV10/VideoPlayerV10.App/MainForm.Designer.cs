@@ -17,6 +17,7 @@ partial class MainForm
     private Button playButton;
     private Button pauseButton;
     private Button stopButton;
+    private Button downloadButton;
     private SeekBarControl seekBar;
     private Label timeLabel;
     private Label volumeLabel;
@@ -28,6 +29,8 @@ partial class MainForm
     private Label statusLabel;
     private Label mediaInfoLabel;
     private System.Windows.Forms.Timer updateTimer;
+    private PictureBox playPauseIconPictureBox;
+    private System.Windows.Forms.Timer iconFadeTimer;
 
     protected override void Dispose(bool disposing)
     {
@@ -49,6 +52,7 @@ partial class MainForm
         titleLabel = new Label();
         playerHostPanel = new Panel();
         videoView = new VideoView();
+        playPauseIconPictureBox = new PictureBox();
         controlPanel = new Panel();
         volumeValueLabel = new Label();
         speedComboBox = new ComboBox();
@@ -60,18 +64,21 @@ partial class MainForm
         stopButton = new Button();
         pauseButton = new Button();
         playButton = new Button();
+        downloadButton = new Button();
         inputTextBox = new TextBox();
         openFileButton = new Button();
         statusPanel = new Panel();
         mediaInfoLabel = new Label();
         statusLabel = new Label();
         updateTimer = new System.Windows.Forms.Timer(components);
+        iconFadeTimer = new System.Windows.Forms.Timer(components);
         rootLayout.SuspendLayout();
         headerPanel.SuspendLayout();
         playerHostPanel.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)videoView).BeginInit();
         controlPanel.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)volumeBar).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)playPauseIconPictureBox).BeginInit();
         statusPanel.SuspendLayout();
         SuspendLayout();
         // 
@@ -90,7 +97,7 @@ partial class MainForm
         rootLayout.RowCount = 4;
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
+        rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 140F));
         rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
         rootLayout.Size = new Size(1200, 760);
         rootLayout.TabIndex = 0;
@@ -133,6 +140,7 @@ partial class MainForm
         // playerHostPanel
         // 
         playerHostPanel.BackColor = Color.FromArgb(24, 26, 29);
+        playerHostPanel.Controls.Add(playPauseIconPictureBox);
         playerHostPanel.Controls.Add(videoView);
         playerHostPanel.Dock = DockStyle.Fill;
         playerHostPanel.Location = new Point(12, 78);
@@ -141,6 +149,7 @@ partial class MainForm
         playerHostPanel.Padding = new Padding(1);
         playerHostPanel.Size = new Size(1176, 524);
         playerHostPanel.TabIndex = 1;
+        playerHostPanel.MouseDown += PlayerHostPanel_MouseDown;
         // 
         // videoView
         // 
@@ -152,6 +161,20 @@ partial class MainForm
         videoView.Size = new Size(1174, 522);
         videoView.TabIndex = 0;
         videoView.Text = "videoView";
+        videoView.MouseClick += VideoView_MouseClick;
+        // 
+        // playPauseIconPictureBox
+        // 
+        playPauseIconPictureBox.Anchor = AnchorStyles.None;
+        playPauseIconPictureBox.BackColor = Color.Transparent;
+        playPauseIconPictureBox.Location = new Point(487, 201);
+        playPauseIconPictureBox.Name = "playPauseIconPictureBox";
+        playPauseIconPictureBox.Size = new Size(200, 200);
+        playPauseIconPictureBox.SizeMode = PictureBoxSizeMode.CenterImage;
+        playPauseIconPictureBox.TabIndex = 1;
+        playPauseIconPictureBox.TabStop = false;
+        playPauseIconPictureBox.Visible = false;
+        playPauseIconPictureBox.Click += PlayPauseIcon_Click;
         // 
         // controlPanel
         // 
@@ -166,6 +189,7 @@ partial class MainForm
         controlPanel.Controls.Add(stopButton);
         controlPanel.Controls.Add(pauseButton);
         controlPanel.Controls.Add(playButton);
+        controlPanel.Controls.Add(downloadButton);
         controlPanel.Controls.Add(inputTextBox);
         controlPanel.Controls.Add(openFileButton);
         controlPanel.Dock = DockStyle.Fill;
@@ -173,7 +197,7 @@ partial class MainForm
         controlPanel.Margin = new Padding(12, 8, 12, 6);
         controlPanel.Name = "controlPanel";
         controlPanel.Padding = new Padding(12);
-        controlPanel.Size = new Size(1176, 102);
+        controlPanel.Size = new Size(1176, 126);
         controlPanel.TabIndex = 2;
         // 
         // volumeValueLabel
@@ -181,7 +205,7 @@ partial class MainForm
         volumeValueLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         volumeValueLabel.AutoSize = true;
         volumeValueLabel.ForeColor = Color.FromArgb(94, 102, 113);
-        volumeValueLabel.Location = new Point(1118, 41);
+        volumeValueLabel.Location = new Point(1118, 67);
         volumeValueLabel.Name = "volumeValueLabel";
         volumeValueLabel.Size = new Size(31, 15);
         volumeValueLabel.TabIndex = 11;
@@ -193,7 +217,7 @@ partial class MainForm
         speedComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
         speedComboBox.FormattingEnabled = true;
         speedComboBox.Items.AddRange(new object[] { "0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x" });
-        speedComboBox.Location = new Point(1065, 67);
+        speedComboBox.Location = new Point(965, 67);
         speedComboBox.Name = "speedComboBox";
         speedComboBox.Size = new Size(99, 23);
         speedComboBox.TabIndex = 10;
@@ -204,7 +228,7 @@ partial class MainForm
         speedLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         speedLabel.AutoSize = true;
         speedLabel.ForeColor = Color.FromArgb(94, 102, 113);
-        speedLabel.Location = new Point(1010, 71);
+        speedLabel.Location = new Point(910, 71);
         speedLabel.Name = "speedLabel";
         speedLabel.Size = new Size(40, 15);
         speedLabel.TabIndex = 9;
@@ -214,7 +238,7 @@ partial class MainForm
         // 
         volumeBar.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         volumeBar.AutoSize = false;
-        volumeBar.Location = new Point(1065, 14);
+        volumeBar.Location = new Point(1070, 38);
         volumeBar.Maximum = 100;
         volumeBar.Name = "volumeBar";
         volumeBar.Size = new Size(99, 26);
@@ -228,7 +252,7 @@ partial class MainForm
         volumeLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         volumeLabel.AutoSize = true;
         volumeLabel.ForeColor = Color.FromArgb(94, 102, 113);
-        volumeLabel.Location = new Point(1010, 19);
+        volumeLabel.Location = new Point(1070, 19);
         volumeLabel.Name = "volumeLabel";
         volumeLabel.Size = new Size(52, 15);
         volumeLabel.TabIndex = 7;
@@ -239,7 +263,7 @@ partial class MainForm
         timeLabel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         timeLabel.AutoSize = true;
         timeLabel.ForeColor = Color.FromArgb(94, 102, 113);
-        timeLabel.Location = new Point(842, 69);
+        timeLabel.Location = new Point(742, 69);
         timeLabel.Name = "timeLabel";
         timeLabel.Size = new Size(82, 15);
         timeLabel.TabIndex = 6;
@@ -251,10 +275,26 @@ partial class MainForm
         seekBar.BackColor = Color.White;
         seekBar.Location = new Point(12, 62);
         seekBar.Name = "seekBar";
-        seekBar.Size = new Size(824, 30);
+        seekBar.Size = new Size(724, 30);
         seekBar.TabIndex = 5;
         seekBar.MouseDown += SeekBar_MouseDown;
         seekBar.MouseUp += SeekBar_MouseUp;
+        // 
+        // downloadButton
+        // 
+        downloadButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        downloadButton.BackColor = Color.FromArgb(156, 163, 175);
+        downloadButton.FlatAppearance.BorderSize = 0;
+        downloadButton.FlatStyle = FlatStyle.Flat;
+        downloadButton.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point, 129);
+        downloadButton.ForeColor = Color.White;
+        downloadButton.Location = new Point(12, 98);
+        downloadButton.Name = "downloadButton";
+        downloadButton.Size = new Size(110, 26);
+        downloadButton.TabIndex = 12;
+        downloadButton.Text = "⬇ Download";
+        downloadButton.UseVisualStyleBackColor = false;
+        downloadButton.Click += DownloadButton_Click;
         // 
         // stopButton
         // 
@@ -311,6 +351,7 @@ partial class MainForm
         inputTextBox.PlaceholderText = "Enter file path / RTSP URL / YouTube URL";
         inputTextBox.Size = new Size(612, 23);
         inputTextBox.TabIndex = 1;
+        inputTextBox.TextChanged += InputTextBox_TextChanged;
         // 
         // openFileButton
         // 
@@ -366,6 +407,11 @@ partial class MainForm
         updateTimer.Interval = 500;
         updateTimer.Tick += UpdateTimer_Tick;
         // 
+        // iconFadeTimer
+        // 
+        iconFadeTimer.Interval = 800;
+        iconFadeTimer.Tick += IconFadeTimer_Tick;
+        // 
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
@@ -374,10 +420,12 @@ partial class MainForm
         ClientSize = new Size(1200, 760);
         Controls.Add(rootLayout);
         Icon = (Icon)resources.GetObject("$this.Icon");
+        KeyPreview = true;
         MinimumSize = new Size(900, 560);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "My Video Player";
+        KeyDown += MainForm_KeyDown;
         rootLayout.ResumeLayout(false);
         headerPanel.ResumeLayout(false);
         headerPanel.PerformLayout();

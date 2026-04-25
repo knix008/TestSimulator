@@ -16,6 +16,18 @@ public partial class MainForm : Form
     private string? _lastCodecHint;
     private string? _lastVlcErrorMessage;
     private string? _currentInput;
+    private int _iconFadeCounter;
+    private string _currentIcon = "▶";
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Space)
+        {
+            TogglePlayPause();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
 
     public MainForm()
     {
@@ -49,7 +61,10 @@ public partial class MainForm : Form
         speedComboBox.SelectedIndex = 2;
         _mediaPlayer.Volume = volumeBar.Value;
         volumeValueLabel.Text = $"{volumeBar.Value}%";
+        downloadButton.Enabled = false;
         updateTimer.Enabled = true;
+
+        this.MouseDown += MainForm_MouseDown;
     }
 
     private async void OpenFileButton_Click(object? sender, EventArgs e)
@@ -74,6 +89,22 @@ public partial class MainForm : Form
         await PlayFromInputAsync();
     }
 
+    private void InputTextBox_TextChanged(object? sender, EventArgs e)
+    {
+        string input = inputTextBox.Text.Trim();
+        bool isYouTube = IsYouTubeUrl(input);
+        downloadButton.Enabled = isYouTube;
+        
+        if (isYouTube)
+        {
+            downloadButton.BackColor = Color.FromArgb(34, 197, 94);
+        }
+        else
+        {
+            downloadButton.BackColor = Color.FromArgb(156, 163, 175);
+        }
+    }
+
     private void PauseButton_Click(object? sender, EventArgs e)
     {
         _mediaPlayer?.Pause();
@@ -86,6 +117,313 @@ public partial class MainForm : Form
         seekBar.Value = seekBar.Minimum;
         timeLabel.Text = "00:00 / 00:00";
         statusLabel.Text = "Stopped";
+    }
+
+    private void VideoView_Click(object? sender, EventArgs e)
+    {
+        TogglePlayPause();
+    }
+
+    private void VideoView_MouseClick(object? sender, MouseEventArgs e)
+    {
+        TogglePlayPause();
+    }
+
+    private void PlayerHostPanel_MouseClick(object? sender, MouseEventArgs e)
+    {
+        TogglePlayPause();
+    }
+
+    private void PlayerHostPanel_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Left)
+        {
+            TogglePlayPause();
+        }
+    }
+
+    private void PlayerHostPanel_DoubleClick(object? sender, EventArgs e)
+    {
+        TogglePlayPause();
+    }
+
+    private void MainForm_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+
+        // videoView 영역 내에서 클릭했는지 확인
+        if (videoView != null)
+        {
+            var videoRect = videoView.RectangleToScreen(videoView.ClientRectangle);
+            var clickPoint = this.PointToScreen(e.Location);
+
+            if (videoRect.Contains(clickPoint))
+            {
+                TogglePlayPause();
+            }
+        }
+    }
+
+    private void MainForm_KeyDown(object? sender, KeyEventArgs e)
+    {
+        statusLabel.Text = $"Key pressed: {e.KeyCode}";
+        
+        if (e.KeyCode == Keys.Space)
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            TogglePlayPause();
+        }
+    }
+
+    private void TogglePlayPause()
+    {
+        statusLabel.Text = "TogglePlayPause called";
+        
+        if (_mediaPlayer is null)
+        {
+            statusLabel.Text = "MediaPlayer is null";
+            return;
+        }
+
+        statusLabel.Text = $"IsPlaying: {_mediaPlayer.IsPlaying}";
+        
+        if (_mediaPlayer.IsPlaying)
+        {
+            _mediaPlayer.Pause();
+            ShowPlayPauseIcon("⏸", false);
+            statusLabel.Text = "Paused by toggle";
+        }
+        else
+        {
+            _mediaPlayer.Play();
+            ShowPlayPauseIcon("▶", true);
+            statusLabel.Text = "Playing by toggle";
+        }
+    }
+
+    private void ShowPlayPauseIcon(string icon, bool autoHide)
+    {
+        if (playPauseIconPictureBox == null)
+        {
+            statusLabel.Text = "Icon picture box is null";
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => ShowPlayPauseIcon(icon, autoHide));
+            return;
+        }
+
+        try
+        {
+            _currentIcon = icon;
+            
+            // 이전 이미지 해제
+            playPauseIconPictureBox.Image?.Dispose();
+            
+            // 반투명 아이콘 이미지 생성
+            playPauseIconPictureBox.Image = CreateIconImage(icon, 200, 200);
+            playPauseIconPictureBox.Visible = true;
+            playPauseIconPictureBox.BringToFront();
+            statusLabel.Text = $"Showing icon: {icon}";
+
+            iconFadeTimer.Stop();
+
+            if (autoHide)
+            {
+                _iconFadeCounter = 0;
+                iconFadeTimer.Start();
+            }
+        }
+        catch (Exception ex)
+        {
+            statusLabel.Text = $"Icon error: {ex.Message}";
+        }
+    }
+
+    private Bitmap CreateIconImage(string icon, int width, int height)
+    {
+        // 32비트 ARGB 비트맵 생성 (알파 채널 포함)
+        Bitmap bitmap = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        
+        using (Graphics g = Graphics.FromImage(bitmap))
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+            
+            // 투명한 배경으로 시작
+            g.Clear(Color.Transparent);
+            
+            // 원형 반투명 배경 그리기
+            int circleSize = Math.Min(width, height) - 20;
+            int circleX = (width - circleSize) / 2;
+            int circleY = (height - circleSize) / 2;
+            
+            using (SolidBrush circleBrush = new SolidBrush(Color.FromArgb(150, 0, 0, 0)))
+            {
+                g.FillEllipse(circleBrush, circleX, circleY, circleSize, circleSize);
+            }
+            
+            // 아이콘 그리기 (Play: 삼각형, Pause: 두 개의 막대)
+            using (SolidBrush iconBrush = new SolidBrush(Color.FromArgb(240, 255, 255, 255)))
+            {
+                float centerX = width / 2f;
+                float centerY = height / 2f;
+                
+                if (icon == "▶") // Play 아이콘
+                {
+                    // 삼각형 그리기
+                    float triangleSize = circleSize * 0.35f;
+                    PointF[] triangle = new PointF[]
+                    {
+                        new PointF(centerX - triangleSize/3, centerY - triangleSize/2),
+                        new PointF(centerX - triangleSize/3, centerY + triangleSize/2),
+                        new PointF(centerX + triangleSize*2/3, centerY)
+                    };
+                    g.FillPolygon(iconBrush, triangle);
+                }
+                else if (icon == "⏸") // Pause 아이콘
+                {
+                    // 두 개의 수직 막대 그리기
+                    float barWidth = circleSize * 0.12f;
+                    float barHeight = circleSize * 0.4f;
+                    float spacing = circleSize * 0.1f;
+                    
+                    RectangleF leftBar = new RectangleF(
+                        centerX - spacing - barWidth,
+                        centerY - barHeight/2,
+                        barWidth,
+                        barHeight
+                    );
+                    RectangleF rightBar = new RectangleF(
+                        centerX + spacing,
+                        centerY - barHeight/2,
+                        barWidth,
+                        barHeight
+                    );
+                    
+                    g.FillRectangle(iconBrush, leftBar);
+                    g.FillRectangle(iconBrush, rightBar);
+                }
+            }
+        }
+        
+        return bitmap;
+    }
+
+    private void PlayPauseIcon_Click(object? sender, EventArgs e)
+    {
+        // 아이콘 클릭 시 재생/일시정지 토글
+        TogglePlayPause();
+    }
+
+
+
+    private void IconFadeTimer_Tick(object? sender, EventArgs e)
+    {
+        _iconFadeCounter++;
+        if (_iconFadeCounter >= 2)
+        {
+            iconFadeTimer.Stop();
+            if (playPauseIconPictureBox != null)
+            {
+                playPauseIconPictureBox.Visible = false;
+                playPauseIconPictureBox.Image?.Dispose();
+                playPauseIconPictureBox.Image = null;
+            }
+            _iconFadeCounter = 0;
+        }
+    }
+
+    private async void DownloadButton_Click(object? sender, EventArgs e)
+    {
+        string input = inputTextBox.Text.Trim();
+
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            MessageBox.Show(this, "YouTube URL을 입력하세요.", "URL Required", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (!IsYouTubeUrl(input))
+        {
+            MessageBox.Show(this, "YouTube URL이 아닙니다.\n\nYouTube 동영상만 다운로드할 수 있습니다.", "Invalid URL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        try
+        {
+            downloadButton.Enabled = false;
+            statusLabel.Text = "YouTube 동영상 정보 가져오는 중...";
+
+            var videoId = YoutubeExplode.Videos.VideoId.Parse(input);
+            var video = await _youtubeClient.Videos.GetAsync(videoId);
+            var streamManifest = await _youtubeClient.Videos.Streams.GetManifestAsync(videoId);
+
+            IStreamInfo? streamInfo =
+                streamManifest.GetMuxedStreams().TryGetWithHighestVideoQuality()
+                ?? streamManifest.GetVideoOnlyStreams().TryGetWithHighestVideoQuality();
+
+            if (streamInfo is null)
+            {
+                MessageBox.Show(this, "다운로드 가능한 스트림을 찾을 수 없습니다.", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            string sanitizedTitle = SanitizeFileName(video.Title);
+            string extension = streamInfo.Container.Name;
+
+            using var saveDialog = new SaveFileDialog
+            {
+                FileName = $"{sanitizedTitle}.{extension}",
+                Filter = $"Video Files|*.{extension}|All Files|*.*",
+                Title = "Save YouTube Video"
+            };
+
+            if (saveDialog.ShowDialog(this) != DialogResult.OK)
+            {
+                statusLabel.Text = "다운로드 취소됨";
+                return;
+            }
+
+            statusLabel.Text = "다운로드 중... 0%";
+
+            var progress = new Progress<double>(p =>
+            {
+                int percent = (int)(p * 100);
+                if (InvokeRequired)
+                {
+                    BeginInvoke(() => statusLabel.Text = $"다운로드 중... {percent}%");
+                }
+                else
+                {
+                    statusLabel.Text = $"다운로드 중... {percent}%";
+                }
+            });
+
+            await _youtubeClient.Videos.Streams.DownloadAsync(streamInfo, saveDialog.FileName, progress);
+
+            statusLabel.Text = $"다운로드 완료: {Path.GetFileName(saveDialog.FileName)}";
+            MessageBox.Show(this, $"다운로드 완료!\n\n저장 위치:\n{saveDialog.FileName}", "Download Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            statusLabel.Text = "다운로드 실패";
+            MessageBox.Show(this, $"다운로드 중 오류가 발생했습니다:\n\n{ex.Message}", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            downloadButton.Enabled = true;
+        }
+    }
+
+    private static string SanitizeFileName(string fileName)
+    {
+        char[] invalidChars = Path.GetInvalidFileNameChars();
+        string sanitized = string.Join("_", fileName.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries));
+        return sanitized.Length > 100 ? sanitized.Substring(0, 100) : sanitized;
     }
 
     private async Task PlayFromInputAsync()
