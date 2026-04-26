@@ -2,7 +2,10 @@
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <OutputName>ScreenCaptureMasterSetup</OutputName>
-    <Platforms>x86;x64</Platforms>
+    <Platform>x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- Suppress ICE57 warning about per-user/per-machine mix -->
+    <SuppressIces>ICE57</SuppressIces>
   </PropertyGroup>
 
   <ItemGroup>
