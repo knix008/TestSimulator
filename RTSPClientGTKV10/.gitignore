@@ -1,0 +1,25 @@
+# Build outputs
+rtspclient
+*.o
+*.a
+*.so
+*.dylib
+
+# Downloaded media / temp output
+*.part
+*.mkv
+*.webm
+rtsp_record_*.mp4
+download.mp4
+
+# IDE / editor
+.idea/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Runtime logs and temp files
+*.log
+*.tmp
