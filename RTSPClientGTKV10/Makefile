@@ -4,7 +4,6 @@ OS := $(shell uname -s)
 APP := rtspclient
 SRC := main.c app_ui.c media_core.c youtube_service.c
 CORE_PKGS := gtk+-3.0 gstreamer-1.0 gstreamer-video-1.0
-WEBKIT_PKG_CANDIDATES := webkit2gtk-4.1 webkit2gtk-4.0
 CC ?= cc
 CFLAGS += -O2 -Wall -Wextra -std=c11
 
@@ -33,17 +32,17 @@ all:
 
 help:
 	@echo "Targets:"
-	@echo "  make                    - Check deps, install missing ones, then build"
-	@echo "  make deps-ensure        - Check deps, install missing ones automatically"
-	@echo "  make deps-check         - Check all dependencies"
-	@echo "  make deps-check-core    - Check core build/runtime dependencies"
-	@echo "  make deps-check-youtube - Check YouTube dependency only (yt-dlp)"
-	@echo "  make deps-install       - Install all dependencies"
-	@echo "  make deps-install-core  - Install core dependencies only"
+	@echo "  make                      - Check deps, install missing ones, then build"
+	@echo "  make deps-ensure          - Check deps, install missing ones automatically"
+	@echo "  make deps-check           - Check all dependencies"
+	@echo "  make deps-check-core      - Check core build/runtime dependencies"
+	@echo "  make deps-check-youtube   - Check YouTube dependency only (yt-dlp)"
+	@echo "  make deps-install         - Install all dependencies"
+	@echo "  make deps-install-core    - Install core dependencies only"
 	@echo "  make deps-install-youtube - Install YouTube dependency only"
-	@echo "  make build        - Build C GTK player"
-	@echo "  make run          - Build and run player"
-	@echo "  make clean        - Remove build output"
+	@echo "  make build                - Build C GTK player"
+	@echo "  make run                  - Build and run player"
+	@echo "  make clean                - Remove build output"
 
 deps-ensure:
 	@echo "[Ensure] checking dependencies..."
@@ -88,19 +87,6 @@ deps-check-core:
 			echo "  OK: $$mod"; \
 		fi; \
 	done; \
-	webkit_pkg=""; \
-	for candidate in $(WEBKIT_PKG_CANDIDATES); do \
-		if pkg-config --exists $$candidate; then \
-			webkit_pkg="$$candidate"; \
-			break; \
-		fi; \
-	done; \
-	if [ -z "$$webkit_pkg" ]; then \
-		echo "  MISSING: webkit2gtk pkg-config module (tried: $(WEBKIT_PKG_CANDIDATES))"; \
-		missing=1; \
-	else \
-		echo "  OK: $$webkit_pkg"; \
-	fi; \
 	if [ $$missing -eq 1 ]; then \
 		echo ""; \
 		echo "Core dependencies are missing. Run: make deps-install-core"; \
@@ -125,19 +111,7 @@ deps-install-core:
 ifeq ($(OS),Linux)
 	@echo "[Linux] Installing core dependencies using apt..."
 	@sudo apt update
-	@webkit_pkg=""; \
-	if apt-cache show libwebkit2gtk-4.1-dev >/dev/null 2>&1; then \
-		webkit_pkg="libwebkit2gtk-4.1-dev"; \
-	elif apt-cache show libwebkit2gtk-4.0-dev >/dev/null 2>&1; then \
-		webkit_pkg="libwebkit2gtk-4.0-dev"; \
-	fi; \
-	if [ -z "$$webkit_pkg" ]; then \
-		echo "No suitable WebKit dev package found (tried 4.1-dev, 4.0-dev)."; \
-		echo "Please install WebKitGTK dev package manually for your distro."; \
-		exit 1; \
-	fi; \
-	echo "Using WebKit package: $$webkit_pkg"; \
-	sudo apt install -y \
+	@sudo apt install -y \
 		build-essential pkg-config \
 		libgtk-3-dev \
 		libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
@@ -145,13 +119,12 @@ ifeq ($(OS),Linux)
 		gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
 		gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly \
 		gstreamer1.0-libav \
-		ca-certificates \
-		$$webkit_pkg
+		ca-certificates
 else ifeq ($(OS),Darwin)
 	@echo "[macOS] Installing core dependencies using Homebrew..."
 	@command -v brew >/dev/null 2>&1 || { echo "Homebrew is required: https://brew.sh"; exit 1; }
 	@brew update
-	@brew install pkg-config gtk+3 webkitgtk gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav
+	@brew install pkg-config gtk+3 gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav
 	@echo "Using Homebrew prefix: $$(brew --prefix)"
 	@echo "If pkg-config still fails, run:"
 	@echo "  export PKG_CONFIG_PATH=$$(brew --prefix)/lib/pkgconfig:$$(brew --prefix)/share/pkgconfig"
@@ -176,19 +149,7 @@ endif
 
 build:
 	@echo "[Build] compiling $(APP)..."
-	@webkit_pkg=""; \
-	for candidate in $(WEBKIT_PKG_CANDIDATES); do \
-		if pkg-config --exists $$candidate; then \
-			webkit_pkg="$$candidate"; \
-			break; \
-		fi; \
-	done; \
-	[ -n "$$webkit_pkg" ] || { \
-		echo "Missing WebKit pkg-config module (tried: $(WEBKIT_PKG_CANDIDATES))."; \
-		echo "Run: make deps-install-core"; \
-		exit 1; \
-	}; \
-	pkg-config --exists $(CORE_PKGS) $$webkit_pkg || { \
+	@pkg-config --exists $(CORE_PKGS) || { \
 		echo "Missing pkg-config modules. Run: make deps-install"; \
 		if [ "$(OS)" = "Darwin" ]; then \
 			echo "macOS hint: export PKG_CONFIG_PATH=$$(brew --prefix)/lib/pkgconfig:$$(brew --prefix)/share/pkgconfig"; \
@@ -196,7 +157,7 @@ build:
 		echo "Then verify with: make deps-check"; \
 		exit 1; \
 	}; \
-	$(CC) $(CFLAGS) $(SRC) -o $(APP) $$(pkg-config --cflags --libs $(CORE_PKGS) $$webkit_pkg)
+	$(CC) $(CFLAGS) $(SRC) -o $(APP) $$(pkg-config --cflags --libs $(CORE_PKGS))
 	@echo "[Build] done: ./$(APP)"
 
 run: build

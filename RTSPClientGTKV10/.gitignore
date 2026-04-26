@@ -5,12 +5,24 @@ rtspclient
 *.so
 *.dylib
 
-# Downloaded media / temp output
-*.part
-*.mkv
+# yt-dlp 다운로드 중간 파일 및 임시 파일
+# YouTube는 영상/음성을 별도 webm으로 받아 ffmpeg로 mp4로 병합함
 *.webm
+*.part
+*.ytdl
+*.f*.mp4
+*.f*.webm
+*.f*.m4a
+rtspclient_play_*.mp4
+rtspclient_play_*.mkv
+rtspclient_play_*.webm
+
+# RTSP 녹화 파일
 rtsp_record_*.mp4
+
+# 사용자 다운로드 파일 (경로를 선택하는 방식이므로 프로젝트 내 저장 방지용)
 download.mp4
+*.mkv
 
 # IDE / editor
 .idea/

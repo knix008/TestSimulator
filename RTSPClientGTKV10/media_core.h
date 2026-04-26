@@ -17,6 +17,7 @@ gboolean media_core_init(MediaCore *core, MediaLogFunc logger, void *logger_user
 void media_core_cleanup(MediaCore *core);
 
 gchar *media_core_resolve_uri(const gchar *source, gchar **error_out);
+void media_core_play_uri(MediaCore *core, const gchar *uri);
 gboolean media_core_load_and_play(MediaCore *core, const gchar *source, gchar **error_out);
 gboolean media_core_is_youtube_supported(void);
 gboolean media_core_start_download(const gchar *source, gchar **error_out);

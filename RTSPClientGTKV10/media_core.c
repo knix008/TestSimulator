@@ -22,10 +22,6 @@ static gboolean is_rtsp_url(const gchar *src) {
     return src && has_prefix_ci(src, "rtsp://");
 }
 
-static gboolean is_googlevideo_direct_url(const gchar *src) {
-    return src && g_strrstr(src, "googlevideo.com/videoplayback") != NULL;
-}
-
 static void on_playbin_source_setup(GstElement *playbin, GstElement *source, gpointer user_data) {
     (void)playbin;
     MediaCore *core = user_data;
@@ -170,18 +166,14 @@ gchar *media_core_resolve_uri(const gchar *source, gchar **error_out) {
     return NULL;
 }
 
+void media_core_play_uri(MediaCore *core, const gchar *uri) {
+    gst_element_set_state(core->playbin, GST_STATE_NULL);
+    g_object_set(core->playbin, "uri", uri, NULL);
+    gst_element_set_state(core->playbin, GST_STATE_PLAYING);
+}
+
 gboolean media_core_load_and_play(MediaCore *core, const gchar *source, gchar **error_out) {
-    gchar *uri = NULL;
-
-    if (is_googlevideo_direct_url(source)) {
-        if (error_out) {
-            *error_out = g_strdup(
-                "googlevideo 직링크는 403으로 차단될 수 있습니다. 원본 YouTube 링크를 입력해 주세요.");
-        }
-        return FALSE;
-    }
-
-    uri = media_core_resolve_uri(source, error_out);
+    gchar *uri = media_core_resolve_uri(source, error_out);
 
     if (!uri) {
         return FALSE;

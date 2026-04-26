@@ -1,8 +1,8 @@
 #include "app_ui.h"
+#include "youtube_service.h"
 
 #include <gtk/gtk.h>
 #include <gst/gst.h>
-#include <webkit2/webkit2.h>
 
 #include <stdarg.h>
 #include <sys/wait.h>
@@ -10,10 +10,8 @@
 struct AppUi {
     GtkWidget *window;
     GtkWidget *url_entry;
-    GtkWidget *content_stack;
     GtkWidget *video_widget;
     GtkWidget *video_overlay;
-    GtkWidget *web_view;
     GtkWidget *overlay_icon;
     GtkWidget *download_btn;
     GtkWidget *volume_scale;
@@ -26,7 +24,6 @@ struct AppUi {
     MediaCore *media;
 
     gboolean is_seeking;
-    gboolean using_web_view;
     gint64 last_duration_ns;
     guint overlay_timeout_id;
     guint position_timer_id;
@@ -38,60 +35,23 @@ typedef struct {
     gchar *output_path;
 } DownloadTask;
 
+typedef struct {
+    AppUi *ui;
+    gchar *source;
+} YoutubePlayTask;
+
+typedef struct {
+    AppUi *ui;
+    gchar *uri;
+    gchar *error_msg;
+} YoutubePlayResult;
+
 static gboolean is_youtube_url_text(const gchar *src) {
     return src && (g_strrstr(src, "youtube.com") != NULL || g_strrstr(src, "youtu.be") != NULL);
 }
 
 static gboolean is_rtsp_url_text(const gchar *src) {
     return src && g_str_has_prefix(src, "rtsp://");
-}
-
-static gchar *extract_youtube_video_id(const gchar *url) {
-    if (!url) {
-        return NULL;
-    }
-    const gchar *vpos = g_strstr_len(url, -1, "v=");
-    if (vpos) {
-        vpos += 2;
-        const gchar *end = strpbrk(vpos, "&?#");
-        if (!end) {
-            return g_strdup(vpos);
-        }
-        return g_strndup(vpos, (gsize)(end - vpos));
-    }
-    const gchar *short_pos = g_strrstr(url, "youtu.be/");
-    if (short_pos) {
-        short_pos += strlen("youtu.be/");
-        const gchar *end = strpbrk(short_pos, "&?#/");
-        if (!end) {
-            return g_strdup(short_pos);
-        }
-        return g_strndup(short_pos, (gsize)(end - short_pos));
-    }
-    return NULL;
-}
-
-static void load_youtube_video_only(WebKitWebView *web_view, const gchar *url) {
-    gchar *video_id = extract_youtube_video_id(url);
-    if (!video_id || *video_id == '\0') {
-        webkit_web_view_load_uri(web_view, url);
-        g_free(video_id);
-        return;
-    }
-    gchar *html = g_strdup_printf(
-        "<!doctype html><html><head><meta charset='utf-8'>"
-        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        "<style>"
-        "html,body{margin:0;width:100%%;height:100%%;background:#000;overflow:hidden;}"
-        "iframe{position:fixed;inset:0;width:100%%;height:100%%;border:0;}"
-        "</style></head><body>"
-        "<iframe src='https://www.youtube.com/embed/%s?autoplay=1&playsinline=1&rel=0&modestbranding=1'"
-        " allow='autoplay; encrypted-media; picture-in-picture; fullscreen' allowfullscreen></iframe>"
-        "</body></html>",
-        video_id);
-    webkit_web_view_load_html(web_view, html, "https://www.youtube.com");
-    g_free(html);
-    g_free(video_id);
 }
 
 static void app_ui_log(AppUi *ui, const char *fmt, ...) {
@@ -172,22 +132,57 @@ static void set_player_state(AppUi *ui, GstState state, const char *reason) {
     }
 }
 
+/* YouTube GStreamer 재생: 백그라운드 스레드에서 yt-dlp로 스트림 URL 추출 후 메인 스레드에서 재생 */
+static gboolean youtube_play_on_main(gpointer data) {
+    YoutubePlayResult *res = data;
+    AppUi *ui = res->ui;
+    if (res->uri) {
+        media_core_play_uri(ui->media, res->uri);
+        app_ui_log(ui, "YouTube 재생 시작");
+        show_overlay_icon(ui, "media-playback-start-symbolic", FALSE);
+    } else {
+        app_ui_log(ui, "오류: %s", res->error_msg ? res->error_msg : "YouTube URL 추출 실패");
+    }
+    g_free(res->uri);
+    g_free(res->error_msg);
+    g_free(res);
+    return G_SOURCE_REMOVE;
+}
+
+static gpointer youtube_play_worker(gpointer data) {
+    YoutubePlayTask *task = data;
+    gchar *error_out = NULL;
+    gchar *uri = youtube_service_resolve_playback_url(task->source, &error_out);
+
+    YoutubePlayResult *res = g_new0(YoutubePlayResult, 1);
+    res->ui = task->ui;
+    res->uri = uri;
+    res->error_msg = error_out;
+
+    g_idle_add(youtube_play_on_main, res);
+    g_free(task->source);
+    g_free(task);
+    return NULL;
+}
+
 static void on_open_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     AppUi *ui = user_data;
     const gchar *src = gtk_entry_get_text(GTK_ENTRY(ui->url_entry));
+
     if (is_youtube_url_text(src)) {
-        gtk_stack_set_visible_child(GTK_STACK(ui->content_stack), ui->web_view);
-        ui->using_web_view = TRUE;
-        media_core_stop(ui->media);
-        load_youtube_video_only(WEBKIT_WEB_VIEW(ui->web_view), src);
-        app_ui_log(ui, "YouTube WebView 재생 시작: %s", src);
-        show_overlay_icon(ui, "media-playback-start-symbolic", FALSE);
+        if (!media_core_is_youtube_supported()) {
+            app_ui_log(ui, "오류: yt-dlp가 설치되지 않았습니다. (make deps-install-youtube)");
+            return;
+        }
+        app_ui_log(ui, "YouTube 스트림 URL 추출 중...: %s", src);
+        YoutubePlayTask *task = g_new0(YoutubePlayTask, 1);
+        task->ui = ui;
+        task->source = g_strdup(src);
+        g_thread_new("yt-play", youtube_play_worker, task);
         return;
     }
 
-    ui->using_web_view = FALSE;
-    gtk_stack_set_visible_child(GTK_STACK(ui->content_stack), ui->video_overlay);
     gchar *err = NULL;
     if (!media_core_load_and_play(ui->media, src, &err)) {
         app_ui_log(ui, "%s", err ? err : "알 수 없는 오류");
@@ -231,42 +226,18 @@ static void on_choose_file(GtkButton *button, gpointer user_data) {
 static void on_play_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     AppUi *ui = user_data;
-    if (ui->using_web_view) {
-        webkit_web_view_evaluate_javascript(
-            WEBKIT_WEB_VIEW(ui->web_view),
-            "var v=document.querySelector('video'); if(v){v.play();}",
-            -1, NULL, NULL, NULL, NULL, NULL);
-        app_ui_log(ui, "YouTube WebView: play");
-        show_overlay_icon(ui, "media-playback-start-symbolic", FALSE);
-        return;
-    }
     set_player_state(ui, GST_STATE_PLAYING, "상태 변경: playing");
 }
 
 static void on_pause_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     AppUi *ui = user_data;
-    if (ui->using_web_view) {
-        webkit_web_view_evaluate_javascript(
-            WEBKIT_WEB_VIEW(ui->web_view),
-            "var v=document.querySelector('video'); if(v){v.pause();}",
-            -1, NULL, NULL, NULL, NULL, NULL);
-        app_ui_log(ui, "YouTube WebView: pause");
-        show_overlay_icon(ui, "media-playback-pause-symbolic", TRUE);
-        return;
-    }
     set_player_state(ui, GST_STATE_PAUSED, "상태 변경: paused");
 }
 
 static void on_stop_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     AppUi *ui = user_data;
-    if (ui->using_web_view) {
-        webkit_web_view_load_uri(WEBKIT_WEB_VIEW(ui->web_view), "about:blank");
-        ui->using_web_view = FALSE;
-        gtk_stack_set_visible_child(GTK_STACK(ui->content_stack), ui->video_overlay);
-        app_ui_log(ui, "YouTube WebView 정지");
-    }
     media_core_stop(ui->media);
     gtk_range_set_value(GTK_RANGE(ui->seek_scale), 0.0);
     gtk_label_set_text(GTK_LABEL(ui->time_label), "00:00 / 00:00");
@@ -278,14 +249,6 @@ static gboolean on_video_click(GtkWidget *widget, GdkEventButton *event, gpointe
     (void)widget;
     (void)event;
     AppUi *ui = user_data;
-    if (ui->using_web_view) {
-        webkit_web_view_evaluate_javascript(
-            WEBKIT_WEB_VIEW(ui->web_view),
-            "var v=document.querySelector('video'); if(v){ if(v.paused){v.play();} else {v.pause();}}",
-            -1, NULL, NULL, NULL, NULL, NULL);
-        app_ui_log(ui, "동영상 클릭: WebView 재생/일시정지 토글");
-        return TRUE;
-    }
     GstState state = GST_STATE_NULL;
     gst_element_get_state(ui->media->playbin, &state, NULL, 0);
     if (state == GST_STATE_NULL) {
@@ -348,6 +311,7 @@ static void on_download_process_exit(GPid pid, gint status, gpointer data) {
     }
 
     g_spawn_close_pid(pid);
+    update_download_button(u);
     g_free(t->source);
     g_free(t->output_path);
     g_free(t);
@@ -388,24 +352,23 @@ static void on_download_clicked(GtkButton *button, gpointer user_data) {
     GError *gerr = NULL;
     gboolean ok = FALSE;
 
+    gtk_widget_set_sensitive(ui->download_btn, FALSE);
+
     if (is_youtube_url_text(src)) {
-        gchar *q_src = g_shell_quote(src);
-        gchar *q_out = g_shell_quote(save_path);
-        gchar *cmd = g_strdup_printf(
-            "yt-dlp --no-playlist --force-ipv4 "
-            "--extractor-args 'youtube:player_client=android,web' "
-            "-f 'best[ext=mp4]/best' -o %s %s "
-            "|| yt-dlp --no-playlist -f 'best[ext=mp4]/best' -o %s %s "
-            "|| yt-dlp --no-playlist --cookies-from-browser chrome -f best -o %s %s",
-            q_out, q_src, q_out, q_src, q_out, q_src);
-        gchar *argv[] = {"/bin/bash", "-lc", cmd, NULL};
+        /* bestvideo+bestaudio 선택 후 ffmpeg로 mp4 병합 (webm 중간 파일 자동 처리) */
+        gchar *argv[] = {
+            "yt-dlp",
+            "--no-playlist",
+            "--merge-output-format", "mp4",
+            "-f", "bestvideo+bestaudio/best",
+            "-o", save_path,
+            (gchar *)src,
+            NULL
+        };
         ok = g_spawn_async(
             NULL, argv, NULL,
             G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
             NULL, NULL, &child_pid, &gerr);
-        g_free(cmd);
-        g_free(q_src);
-        g_free(q_out);
     } else {
         gchar *location_arg = g_strdup_printf("location=%s", src);
         gchar *output_arg = g_strdup_printf("location=%s", save_path);
@@ -429,10 +392,9 @@ static void on_download_clicked(GtkButton *button, gpointer user_data) {
 
     if (!ok) {
         app_ui_log(ui, "다운로드 시작 실패: %s", gerr ? gerr->message : "unknown");
-        if (gerr) {
-            g_error_free(gerr);
-        }
+        if (gerr) g_error_free(gerr);
         g_free(save_path);
+        update_download_button(ui);
         return;
     }
 
@@ -442,7 +404,6 @@ static void on_download_clicked(GtkButton *button, gpointer user_data) {
     task->output_path = save_path;
 
     g_child_watch_add(child_pid, on_download_process_exit, task);
-
     app_ui_log(ui, "다운로드 시작: %s -> %s", src, save_path);
 }
 
@@ -562,10 +523,7 @@ AppUi *app_ui_create(MediaCore *media) {
     gtk_box_pack_start(GTK_BOX(input_row), ui->url_entry, TRUE, TRUE, 0);
 
     ui->video_overlay = gtk_overlay_new();
-    ui->content_stack = gtk_stack_new();
-    gtk_box_pack_start(GTK_BOX(root), ui->content_stack, TRUE, TRUE, 0);
-    gtk_stack_set_transition_type(GTK_STACK(ui->content_stack), GTK_STACK_TRANSITION_TYPE_CROSSFADE);
-    gtk_stack_add_named(GTK_STACK(ui->content_stack), ui->video_overlay, "gst-video");
+    gtk_box_pack_start(GTK_BOX(root), ui->video_overlay, TRUE, TRUE, 0);
 
     if (ui->media->video_sink) {
         g_object_get(ui->media->video_sink, "widget", &ui->video_widget, NULL);
@@ -583,15 +541,6 @@ AppUi *app_ui_create(MediaCore *media) {
     gtk_overlay_add_overlay(GTK_OVERLAY(ui->video_overlay), ui->overlay_icon);
     gtk_widget_set_no_show_all(ui->overlay_icon, TRUE);
     gtk_widget_hide(ui->overlay_icon);
-
-    WebKitSettings *wk_settings = webkit_settings_new_with_settings(
-        "media-playback-allows-inline", TRUE,
-        "enable-javascript", TRUE,
-        NULL);
-    ui->web_view = webkit_web_view_new_with_settings(wk_settings);
-    g_object_unref(wk_settings);
-    gtk_stack_add_named(GTK_STACK(ui->content_stack), ui->web_view, "web-youtube");
-    gtk_stack_set_visible_child(GTK_STACK(ui->content_stack), ui->video_overlay);
 
     GtkWidget *control_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_box_pack_start(GTK_BOX(root), control_row, FALSE, FALSE, 0);
