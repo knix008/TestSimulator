@@ -355,7 +355,7 @@ static void on_download_clicked(GtkButton *button, gpointer user_data) {
     gtk_widget_set_sensitive(ui->download_btn, FALSE);
 
     if (is_youtube_url_text(src)) {
-        /* bestvideo+bestaudio 선택 후 ffmpeg로 mp4 병합 (webm 중간 파일 자동 처리) */
+        /* web 클라이언트 + node JS 런타임으로 PO Token 자동 생성, mp4로 병합 출력 */
         gchar *argv[] = {
             "yt-dlp",
             "--no-playlist",

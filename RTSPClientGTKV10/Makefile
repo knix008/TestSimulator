@@ -95,14 +95,19 @@ deps-check-core:
 	echo "Core dependencies look good."
 
 deps-check-youtube:
-	@echo "[Check] youtube dependency..."
-	@command -v yt-dlp >/dev/null 2>&1 && { \
-		echo "  OK: yt-dlp"; \
-	} || { \
-		echo "  MISSING: yt-dlp"; \
+	@echo "[Check] youtube dependencies..."
+	@missing=0; \
+	for cmd in yt-dlp node ffmpeg; do \
+		if ! command -v $$cmd >/dev/null 2>&1; then \
+			echo "  MISSING: $$cmd"; missing=1; \
+		else \
+			echo "  OK: $$cmd ($$($$cmd --version 2>&1 | head -1))"; \
+		fi; \
+	done; \
+	if [ $$missing -eq 1 ]; then \
 		echo "Install with: make deps-install-youtube"; \
 		exit 1; \
-	}
+	fi
 
 deps-install: deps-install-core deps-install-youtube
 	@echo "[Install] completed. Run: make deps-check"
@@ -137,11 +142,33 @@ deps-install-youtube:
 ifeq ($(OS),Linux)
 	@echo "[Linux] Installing YouTube dependency..."
 	@sudo apt update
-	@sudo apt install -y yt-dlp
+	@sudo apt install -y yt-dlp nodejs ffmpeg
+	@echo "=== Configuring yt-dlp JavaScript runtime ==="
+	@mkdir -p "$$HOME/.config/yt-dlp"; \
+	config_file="$$HOME/.config/yt-dlp/config"; \
+	if [ -f "$$config_file" ]; then \
+		grep -v "js-runtimes" "$$config_file" > "$$config_file.tmp" && mv "$$config_file.tmp" "$$config_file"; \
+	fi; \
+	if command -v node >/dev/null 2>&1; then \
+		echo "--js-runtimes node" >> "$$config_file"; \
+		echo "yt-dlp configured to use node $$(node --version)"; \
+	else \
+		echo "node not found; yt-dlp will use android client fallback (no JS runtime needed)"; \
+	fi
 else ifeq ($(OS),Darwin)
 	@echo "[macOS] Installing YouTube dependency..."
 	@command -v brew >/dev/null 2>&1 || { echo "Homebrew is required: https://brew.sh"; exit 1; }
-	@brew install yt-dlp
+	@brew install yt-dlp node ffmpeg
+	@echo "=== Configuring yt-dlp JavaScript runtime ==="
+	@mkdir -p "$$HOME/.config/yt-dlp"; \
+	config_file="$$HOME/.config/yt-dlp/config"; \
+	if [ -f "$$config_file" ]; then \
+		grep -v "js-runtimes" "$$config_file" > "$$config_file.tmp" && mv "$$config_file.tmp" "$$config_file"; \
+	fi; \
+	if command -v node >/dev/null 2>&1; then \
+		echo "--js-runtimes node" >> "$$config_file"; \
+		echo "yt-dlp configured to use node $$(node --version)"; \
+	fi
 else
 	@echo "Unsupported OS: $(OS)"
 	@exit 1
