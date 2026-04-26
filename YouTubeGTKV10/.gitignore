@@ -1,0 +1,11 @@
+# Build outputs
+youtube
+*.o
+
+# Downloaded media
+downloads/
+
+# Temporary/editor files
+*.swp
+*.swo
+*~
