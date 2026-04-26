@@ -1,0 +1,34 @@
+<Window x:Class="ScreenCaptureMaster.RegionSelector"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Select Region"
+        WindowStyle="None"
+        WindowState="Maximized"
+        AllowsTransparency="True"
+        Background="#40000000"
+        Topmost="True"
+        ShowInTaskbar="False"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseMove="Window_MouseMove"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp"
+        KeyDown="Window_KeyDown"
+        Focusable="True">
+    
+    <Grid>
+        <!-- Canvas for selection rectangle -->
+        <Canvas x:Name="SelectionCanvas" />
+        
+        <!-- Instruction text -->
+        <TextBlock x:Name="InstructionText"
+                   Text="Click and drag to select a region to capture. Press ESC to cancel."
+                   FontSize="16"
+                   FontWeight="Bold"
+                   Foreground="White"
+                   Background="#CC000000"
+                   Padding="15,10"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Margin="0,20,0,0"
+                   TextAlignment="Center"/>
+    </Grid>
+</Window>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <AssemblyName>ScreenCaptureMaster</AssemblyName>
+    <RootNamespace>ScreenCaptureMaster</RootNamespace>
+    <Platforms>AnyCPU;x64;x86</Platforms>
+    <Version>1.0.0</Version>
+    <Company>Your Company</Company>
+    <Product>Screen Capture Master</Product>
+    <Copyright>Copyright © 2026</Copyright>
+    <Description>A modern screen capture application</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="daemon_hammer.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="daemon_hammer.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

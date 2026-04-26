@@ -1,0 +1,28 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>ScreenCaptureMasterSetup</OutputName>
+    <Platforms>x86;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScreenCaptureMaster\ScreenCaptureMaster.csproj">
+      <Name>ScreenCaptureMaster</Name>
+      <Project>{B8E5D3A2-9F4C-4F7E-A8B1-2C5D6E7F8A9B}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\daemon_hammer.ico">
+      <Link>daemon_hammer.ico</Link>
+    </Content>
+  </ItemGroup>
+</Project>

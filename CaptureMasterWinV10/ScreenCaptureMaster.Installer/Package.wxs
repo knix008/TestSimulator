@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  
+  <Package Name="Screen Capture Master"
+           Manufacturer="Your Company"
+           Version="1.0.0.0"
+           UpgradeCode="E5F6A7B8-C9D0-4E1F-B2A3-3C4D5E6F7A8B"
+           Language="1033"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="Screen Capture Master Installer"
+                        Comments="Installs Screen Capture Master application"
+                        Manufacturer="Your Company"
+                        Keywords="Installer,Screen Capture,Screenshot" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+                  AllowSameVersionUpgrades="yes" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <!-- UI Configuration -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <WixVariable Id="WixUIDialogBmp" Value="$(var.ScreenCaptureMaster.TargetDir)daemon_hammer.ico" Overridable="yes" />
+
+    <!-- Standard directories -->
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="Screen Capture Master">
+        <Component Id="MainExecutable" Bitness="always64">
+          <File Id="ScreenCaptureMasterEXE"
+                Source="$(var.ScreenCaptureMaster.TargetPath)"
+                KeyPath="yes">
+            <Shortcut Id="StartMenuShortcut"
+                      Directory="ProgramMenuFolder"
+                      Name="Screen Capture Master"
+                      Description="Launch Screen Capture Master"
+                      WorkingDirectory="INSTALLFOLDER"
+                      Icon="AppIcon"
+                      Advertise="yes" />
+            <Shortcut Id="DesktopShortcut"
+                      Directory="DesktopFolder"
+                      Name="Screen Capture Master"
+                      Description="Launch Screen Capture Master"
+                      WorkingDirectory="INSTALLFOLDER"
+                      Icon="AppIcon"
+                      Advertise="yes" />
+          </File>
+          
+          <!-- Icon file -->
+          <File Id="IconFile"
+                Source="..\daemon_hammer.ico"
+                KeyPath="no" />
+        </Component>
+
+        <!-- Additional dependencies -->
+        <Component Id="Dependencies" Bitness="always64">
+          <File Id="SystemDrawingCommonDLL"
+                Source="$(var.ScreenCaptureMaster.TargetDir)System.Drawing.Common.dll"
+                KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Features -->
+    <Feature Id="MainApplication"
+             Title="Screen Capture Master"
+             Description="Main application files"
+             Level="1"
+             ConfigurableDirectory="INSTALLFOLDER"
+             AllowAdvertise="yes"
+             Display="expand">
+      
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="Dependencies" />
+
+      <Feature Id="StartMenuShortcuts"
+               Title="Start Menu Shortcuts"
+               Description="Add shortcuts to Start Menu"
+               Level="1"
+               AllowAdvertise="yes">
+        <ComponentRef Id="MainExecutable" />
+      </Feature>
+
+      <Feature Id="DesktopShortcuts"
+               Title="Desktop Shortcut"
+               Description="Add shortcut to Desktop"
+               Level="1"
+               AllowAdvertise="yes">
+        <ComponentRef Id="MainExecutable" />
+      </Feature>
+    </Feature>
+
+    <!-- Custom properties for shortcuts -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    
+    <!-- Launch application after install (optional) -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" 
+              Value="Launch Screen Capture Master" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#ScreenCaptureMasterEXE]" />
+    
+    <CustomAction Id="LaunchApplication"
+                  BinaryKey="WixCA"
+                  DllEntry="WixShellExec"
+                  Impersonate="yes" />
+
+    <InstallExecuteSequence>
+      <Custom Action="LaunchApplication" After="InstallFinalize">
+        WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed
+      </Custom>
+    </InstallExecuteSequence>
+
+  </Package>
+</Wix>
