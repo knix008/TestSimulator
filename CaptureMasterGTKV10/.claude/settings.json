@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gdbus call:*)",
+      "Bash(rpm -qa)",
+      "Bash(journalctl --user -u xdg-desktop-portal-gnome --since \"1 minute ago\" -n 30)",
+      "Bash(journalctl --user _COMM=xdg-desktop-portal-gnome --since \"5 minutes ago\" -n 30)",
+      "Read(//tmp/**)",
+      "Bash(pkg-config --cflags libpipewire-0.3)",
+      "Bash(grep ^-I echo \"---\" find /usr/include -name \"format-utils.h\")",
+      "Bash(grep video:*)"
+    ]
+  }
+}

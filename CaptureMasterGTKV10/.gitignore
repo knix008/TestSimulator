@@ -1,0 +1,66 @@
+# Build outputs
+*.o
+*.so
+*.so.*
+*.a
+*.out
+*.exe
+capturemaster
+build/
+dist/
+
+# Compiler generated
+*.d
+*.dep
+*.gcda
+*.gcno
+*.gcov
+
+# macOS specific
+.DS_Store
+*.dSYM/
+._*
+.AppleDouble
+.LSOverride
+
+# Linux specific
+*.swp
+*.swo
+*.swn
+*~
+.*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+.project
+.cproject
+.settings/
+
+# Debugging
+*.log
+*.out
+vgcore.*
+core
+core.*
+
+# Dependencies and packages
+.deps/
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+
+# Screenshots (optional - uncomment if you don't want to track test screenshots)
+# *.png
+# *.jpg
+# *.jpeg
