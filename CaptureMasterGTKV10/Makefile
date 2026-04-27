@@ -104,10 +104,14 @@ ifeq ($(UNAME_S),Linux)
 	@echo "[ INSTALL ] Desktop entry and icon"
 	@mkdir -p "$$HOME/.local/share/applications"
 	@mkdir -p "$$HOME/.local/share/icons/hicolor/256x256/apps"
-	@cp capturemaster.desktop "$$HOME/.local/share/applications/capturemaster.desktop"
+	@sed -e "s|^Exec=.*|Exec=$(CURDIR)/$(TARGET)|" \
+	     -e "s|^Icon=.*|Icon=$(CURDIR)/daemon_hammer.ico|" \
+	     capturemaster.desktop > "$$HOME/.local/share/applications/capturemaster.desktop"
 	@cp daemon_hammer.ico "$$HOME/.local/share/icons/hicolor/256x256/apps/capturemaster.ico" || true
 	@cp daemon_hammer.png "$$HOME/.local/share/icons/hicolor/256x256/apps/capturemaster.png" || true
 	@cp daemon_hammer.jpg "$$HOME/.local/share/icons/hicolor/256x256/apps/capturemaster.jpg" || true
+	@chmod +x "$$HOME/.local/share/applications/capturemaster.desktop"
+	@command -v update-desktop-database > /dev/null && update-desktop-database "$$HOME/.local/share/applications" || true
 	@echo "Installed to $$HOME/.local/share. Re-login or restart GNOME Shell if icon cache persists."
 else
 	@echo "install-desktop is Linux-only (GNOME desktop integration)."
