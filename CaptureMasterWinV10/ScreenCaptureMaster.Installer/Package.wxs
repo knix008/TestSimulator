@@ -30,7 +30,7 @@
       <Directory Id="INSTALLFOLDER" Name="Screen Capture Master">
         <Component Id="MainExecutable" Bitness="always64" Guid="A1B2C3D4-E5F6-4A5B-8C9D-1E2F3A4B5C6D">
           <File Id="ScreenCaptureMasterEXE"
-                Source="$(var.ScreenCaptureMaster.TargetPath)">
+                Source="..\ScreenCaptureMaster\bin\Release\net8.0-windows\win-x64\publish\ScreenCaptureMaster.exe">
             
             <!-- Start Menu Shortcut -->
             <Shortcut Id="StartMenuShortcut"
@@ -51,12 +51,6 @@
           
           <File Id="IconFile"
                 Source="..\daemon_hammer.ico" />
-                
-          <File Id="RuntimeConfigJson"
-                Source="$(var.ScreenCaptureMaster.TargetDir)ScreenCaptureMaster.runtimeconfig.json" />
-                
-          <File Id="DepsJson"
-                Source="$(var.ScreenCaptureMaster.TargetDir)ScreenCaptureMaster.deps.json" />
           
           <!-- Registry entry as KeyPath for non-advertised shortcuts -->
           <RemoveFolder Id="RemoveProgramMenuFolder" Directory="ProgramMenuFolder" On="uninstall" />
