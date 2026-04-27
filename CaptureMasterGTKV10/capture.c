@@ -25,6 +25,7 @@
 
 #ifdef __linux__
 #include <sys/mman.h>
+#include <unistd.h>
 #include <gio/gio.h>
 #include <pipewire/pipewire.h>
 #include <spa/param/video/format-utils.h>
@@ -139,6 +140,91 @@ static ImageData* crop_image(const ImageData *src,
     return dst;
 }
 
+/* Trim fully-black margins that some portal window captures include.
+ * We only trim rows/cols that are almost entirely black to avoid cutting
+ * legitimate dark window content. */
+static ImageData* trim_black_margins(const ImageData *src) {
+    if (!src || !src->data || src->width <= 0 || src->height <= 0 || src->channels < 3)
+        return NULL;
+
+    const int w = src->width;
+    const int h = src->height;
+    const int c = src->channels;
+    const int black_thr = 8;          /* near-black threshold */
+    const int row_allow_nonblack = w / 200 + 2; /* ~0.5% + epsilon */
+    const int col_allow_nonblack = h / 200 + 2;
+
+    int top = 0, bottom = h - 1, left = 0, right = w - 1;
+
+    while (top < h) {
+        int nonblack = 0;
+        const uint8_t *row = src->data + (size_t)top * w * c;
+        for (int x = 0; x < w; x++) {
+            const uint8_t *p = row + x * c;
+            if (p[0] > black_thr || p[1] > black_thr || p[2] > black_thr) {
+                nonblack++;
+                if (nonblack > row_allow_nonblack) break;
+            }
+        }
+        if (nonblack > row_allow_nonblack) break;
+        top++;
+    }
+
+    while (bottom >= top) {
+        int nonblack = 0;
+        const uint8_t *row = src->data + (size_t)bottom * w * c;
+        for (int x = 0; x < w; x++) {
+            const uint8_t *p = row + x * c;
+            if (p[0] > black_thr || p[1] > black_thr || p[2] > black_thr) {
+                nonblack++;
+                if (nonblack > row_allow_nonblack) break;
+            }
+        }
+        if (nonblack > row_allow_nonblack) break;
+        bottom--;
+    }
+
+    while (left < w) {
+        int nonblack = 0;
+        for (int y = top; y <= bottom; y++) {
+            const uint8_t *p = src->data + ((size_t)y * w + left) * c;
+            if (p[0] > black_thr || p[1] > black_thr || p[2] > black_thr) {
+                nonblack++;
+                if (nonblack > col_allow_nonblack) break;
+            }
+        }
+        if (nonblack > col_allow_nonblack) break;
+        left++;
+    }
+
+    while (right >= left) {
+        int nonblack = 0;
+        for (int y = top; y <= bottom; y++) {
+            const uint8_t *p = src->data + ((size_t)y * w + right) * c;
+            if (p[0] > black_thr || p[1] > black_thr || p[2] > black_thr) {
+                nonblack++;
+                if (nonblack > col_allow_nonblack) break;
+            }
+        }
+        if (nonblack > col_allow_nonblack) break;
+        right--;
+    }
+
+    int cw = right - left + 1;
+    int ch = bottom - top + 1;
+    if (cw <= 0 || ch <= 0)
+        return NULL;
+
+    /* If almost nothing was trimmed, keep original image. */
+    if (cw >= w - 2 && ch >= h - 2)
+        return NULL;
+
+    ImageData *trimmed = crop_image(src, left, top, cw, ch);
+    if (trimmed)
+        utils_log_info("Trimmed black margins: %dx%d -> %dx%d", w, h, cw, ch);
+    return trimmed;
+}
+
 /* ═══════════════════════ Linux-only section ════════════════════════ */
 #ifdef __linux__
 
@@ -181,12 +267,21 @@ static ImageData* capture_via_gdk(void) {
     return img;
 }
 
-static ImageData* capture_via_gnome_screenshot(CaptureMode mode) {
-    if (!g_find_program_in_path("gnome-screenshot"))
-        return NULL;
-
+static ImageData* image_from_png_file(const char *path) {
     GError *err = NULL;
-    gchar  *tmp_path = NULL;
+    GdkPixbuf *pb = gdk_pixbuf_new_from_file(path, &err);
+    if (!pb) {
+        if (err) g_error_free(err);
+        return NULL;
+    }
+    ImageData *img = pixbuf_to_imagedata(pb);
+    g_object_unref(pb);
+    return img;
+}
+
+static ImageData* capture_via_shell_dbus_fullscreen(void) {
+    GError *err = NULL;
+    gchar *tmp_path = NULL;
     int fd = g_file_open_tmp("capturemaster-XXXXXX.png", &tmp_path, &err);
     if (fd < 0) {
         if (err) g_error_free(err);
@@ -194,45 +289,82 @@ static ImageData* capture_via_gnome_screenshot(CaptureMode mode) {
     }
     close(fd);
 
-    gchar *cmd = NULL;
-    switch (mode) {
-        case CAPTURE_MODE_AREA:
-            cmd = g_strdup_printf("gnome-screenshot -a -f \"%s\"", tmp_path);
-            break;
-        case CAPTURE_MODE_WINDOW:
-            cmd = g_strdup_printf("gnome-screenshot -w -f \"%s\"", tmp_path);
-            break;
-        case CAPTURE_MODE_FULLSCREEN:
-        default:
-            cmd = g_strdup_printf("gnome-screenshot -f \"%s\"", tmp_path);
-            break;
-    }
-
-    gchar *out = NULL, *err_out = NULL;
-    int status = 0;
-    gboolean ok = g_spawn_command_line_sync(cmd, &out, &err_out, &status, &err);
-    g_free(cmd);
-    g_free(out);
-    g_free(err_out);
-    if (!ok || status != 0) {
+    GDBusConnection *conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+    if (!conn) {
         if (err) g_error_free(err);
         g_unlink(tmp_path);
         g_free(tmp_path);
         return NULL;
     }
 
-    GdkPixbuf *pb = gdk_pixbuf_new_from_file(tmp_path, &err);
+    GVariant *ret = g_dbus_connection_call_sync(
+        conn,
+        "org.gnome.Shell.Screenshot",
+        "/org/gnome/Shell/Screenshot",
+        "org.gnome.Shell.Screenshot",
+        "Screenshot",
+        g_variant_new("(bbs)", FALSE, TRUE, tmp_path),
+        NULL,
+        G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
+
+    g_object_unref(conn);
+    if (!ret) {
+        if (err) g_error_free(err);
+        g_unlink(tmp_path);
+        g_free(tmp_path);
+        return NULL;
+    }
+    g_variant_unref(ret);
+
+    ImageData *img = image_from_png_file(tmp_path);
     g_unlink(tmp_path);
     g_free(tmp_path);
-    if (!pb) {
+    return img;
+}
+
+static ImageData* capture_via_shell_dbus_window(void) {
+    GError *err = NULL;
+    gchar *tmp_path = NULL;
+    int fd = g_file_open_tmp("capturemaster-XXXXXX.png", &tmp_path, &err);
+    if (fd < 0) {
         if (err) g_error_free(err);
         return NULL;
     }
+    close(fd);
 
-    ImageData *img = pixbuf_to_imagedata(pb);
-    g_object_unref(pb);
+    GDBusConnection *conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+    if (!conn) {
+        if (err) g_error_free(err);
+        g_unlink(tmp_path);
+        g_free(tmp_path);
+        return NULL;
+    }
+
+    GVariant *ret = g_dbus_connection_call_sync(
+        conn,
+        "org.gnome.Shell.Screenshot",
+        "/org/gnome/Shell/Screenshot",
+        "org.gnome.Shell.Screenshot",
+        "ScreenshotWindow",
+        g_variant_new("(bbbs)", TRUE, FALSE, TRUE, tmp_path),
+        NULL,
+        G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
+
+    g_object_unref(conn);
+    if (!ret) {
+        if (err) g_error_free(err);
+        g_unlink(tmp_path);
+        g_free(tmp_path);
+        return NULL;
+    }
+    g_variant_unref(ret);
+
+    ImageData *img = image_from_png_file(tmp_path);
+    g_unlink(tmp_path);
+    g_free(tmp_path);
     return img;
 }
+
 
 /* ──────────────────── PipeWire one-frame capture ───────────────── */
 
@@ -712,6 +844,119 @@ static ImageData* capture_via_screencast(uint32_t source_types) {
     return img;
 }
 
+typedef struct {
+    gboolean  done;
+    guint32   response;
+    GVariant *results;   /* caller unref */
+} PortalResp;
+
+static void portal_resp_cb(GDBusConnection *c, const char *s, const char *p,
+                           const char *i, const char *sig,
+                           GVariant *params, gpointer ud) {
+    (void)c; (void)s; (void)p; (void)i; (void)sig;
+    PortalResp *r = (PortalResp*)ud;
+    GVariant *res = NULL;
+    g_variant_get(params, "(u@a{sv})", &r->response, &res);
+    r->results = res;
+    r->done = TRUE;
+}
+
+static GVariant* portal_screenshot_call(GDBusConnection *conn, gboolean interactive) {
+    const char *uname = g_dbus_connection_get_unique_name(conn);
+    char sender_flat[64];
+    {
+        const char *s = uname + 1;
+        char *d = sender_flat;
+        while (*s && d - sender_flat < 63)
+            *d++ = (*s == '.') ? '_' : *s, s++;
+        *d = '\0';
+    }
+
+    const char *token = interactive ? "shot_i" : "shot_f";
+    char req_path[256];
+    snprintf(req_path, sizeof(req_path),
+             "/org/freedesktop/portal/desktop/request/%s/%s",
+             sender_flat, token);
+
+    PortalResp state = {FALSE, 2, NULL};
+    guint sub = g_dbus_connection_signal_subscribe(conn, NULL,
+        "org.freedesktop.portal.Request", "Response", req_path,
+        NULL, G_DBUS_SIGNAL_FLAGS_NO_MATCH_RULE,
+        portal_resp_cb, &state, NULL);
+
+    GVariantBuilder opts;
+    g_variant_builder_init(&opts, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add(&opts, "{sv}", "handle_token", g_variant_new_string(token));
+    g_variant_builder_add(&opts, "{sv}", "interactive", g_variant_new_boolean(interactive));
+
+    GError *err = NULL;
+    GVariant *ret = g_dbus_connection_call_sync(
+        conn,
+        "org.freedesktop.portal.Desktop",
+        "/org/freedesktop/portal/desktop",
+        "org.freedesktop.portal.Screenshot",
+        "Screenshot",
+        g_variant_new("(sa{sv})", "", &opts),
+        G_VARIANT_TYPE("(o)"),
+        G_DBUS_CALL_FLAGS_NONE, -1, NULL, &err);
+    if (!ret) {
+        if (err) g_error_free(err);
+        g_dbus_connection_signal_unsubscribe(conn, sub);
+        return NULL;
+    }
+    g_variant_unref(ret);
+
+    while (!state.done) {
+        if (!g_main_context_iteration(NULL, FALSE))
+            g_usleep(5000);
+    }
+    g_dbus_connection_signal_unsubscribe(conn, sub);
+
+    if (state.response != 0) {
+        if (state.results) g_variant_unref(state.results);
+        return NULL;
+    }
+    return state.results;
+}
+
+static ImageData* capture_via_portal_screenshot(gboolean interactive) {
+    GError *err = NULL;
+    GDBusConnection *conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+    if (!conn) {
+        if (err) g_error_free(err);
+        return NULL;
+    }
+
+    GVariant *res = portal_screenshot_call(conn, interactive);
+    g_object_unref(conn);
+    if (!res)
+        return NULL;
+
+    char uri[1024] = {0};
+    GVariant *v = g_variant_lookup_value(res, "uri", NULL);
+    if (v) {
+        GVariant *inner = v;
+        if (g_variant_is_of_type(v, G_VARIANT_TYPE_VARIANT)) {
+            inner = g_variant_get_variant(v);
+            g_variant_unref(v);
+        }
+        if (g_variant_is_of_type(inner, G_VARIANT_TYPE_STRING)) {
+            const char *s = g_variant_get_string(inner, NULL);
+            if (s) snprintf(uri, sizeof(uri), "%s", s);
+        }
+        g_variant_unref(inner);
+    }
+    g_variant_unref(res);
+
+    if (!uri[0]) return NULL;
+
+    char *path = g_filename_from_uri(uri, NULL, NULL);
+    if (!path) return NULL;
+    ImageData *img = image_from_png_file(path);
+    g_free(path);
+    return img;
+}
+
 #endif  /* __linux__ */
 
 /* ═══════════════════════ macOS-only section ════════════════════════ */
@@ -784,10 +1029,17 @@ ImageData* capture_fullscreen(void) {
     return img;
 
 #elif __linux__
-    /* GNOME path: match gnome-screenshot behavior when available. */
-    ImageData *img = capture_via_gnome_screenshot(CAPTURE_MODE_FULLSCREEN);
+    /* Portal Screenshot path: non-interactive fullscreen capture. */
+    ImageData *img = capture_via_portal_screenshot(FALSE);
     if (img) {
-        utils_log_info("gnome-screenshot fullscreen: %dx%d", img->width, img->height);
+        utils_log_info("portal fullscreen: %dx%d", img->width, img->height);
+        return img;
+    }
+
+    /* GNOME Shell DBus path (may be blocked on some setups). */
+    img = capture_via_shell_dbus_fullscreen();
+    if (img) {
+        utils_log_info("shell-dbus fullscreen: %dx%d", img->width, img->height);
         return img;
     }
 
@@ -799,16 +1051,16 @@ ImageData* capture_fullscreen(void) {
             utils_log_info("GDK capture: %dx%d", img->width, img->height);
             return img;
         }
-    } else {
-        utils_log_info("Wayland: skipping GDK root capture (use portal)");
     }
 
-    /* 2. Native Wayland (or GDK fallback failed): portal + PipeWire */
-    utils_log_info("Using XDG ScreenCast + PipeWire");
+    /* Final fallback: ScreenCast portal + PipeWire (may show picker). */
     img = capture_via_screencast(1); /* MONITOR */
-    if (img) return img;
+    if (img) {
+        utils_log_info("screencast fullscreen fallback: %dx%d", img->width, img->height);
+        return img;
+    }
 
-    set_error("Fullscreen capture failed (GDK + ScreenCast both failed)");
+    set_error("Fullscreen capture failed (portal/shell/GDK unavailable)");
     return NULL;
 #else
     set_error("Unsupported platform");
@@ -817,17 +1069,25 @@ ImageData* capture_fullscreen(void) {
 }
 
 ImageData* capture_area(const CaptureArea *area) {
-    if (!area) { set_error("Invalid capture area"); return NULL; }
+#ifdef __linux__
+    if (!area) {
+        ImageData *interactive = capture_via_portal_screenshot(TRUE);
+        if (interactive) {
+            utils_log_info("portal interactive area: %dx%d",
+                           interactive->width, interactive->height);
+            return interactive;
+        }
+        set_error("Area capture failed: selection unavailable");
+        return NULL;
+    }
 
     utils_log_info("Area capture %dx%d at (%d,%d)",
                    area->width, area->height, area->x, area->y);
 
-#ifdef __linux__
-    ImageData *img = capture_via_gnome_screenshot(CAPTURE_MODE_AREA);
-    if (img) {
-        utils_log_info("gnome-screenshot area: %dx%d", img->width, img->height);
-        return img;
-    }
+#else
+    if (!area) { set_error("Invalid capture area"); return NULL; }
+    utils_log_info("Area capture %dx%d at (%d,%d)",
+                   area->width, area->height, area->x, area->y);
 #endif
 
     ImageData *full = capture_fullscreen();
@@ -842,16 +1102,25 @@ ImageData* capture_area(const CaptureArea *area) {
 
 ImageData* capture_window(void) {
 #ifdef __linux__
-    ImageData *img = capture_via_gnome_screenshot(CAPTURE_MODE_WINDOW);
+    /* Prefer chooser-based window selection first. */
+    ImageData *img = capture_via_screencast(2); /* WINDOW */
     if (img) {
-        utils_log_info("gnome-screenshot window: %dx%d", img->width, img->height);
+        ImageData *trimmed = trim_black_margins(img);
+        if (trimmed) {
+            image_free(img);
+            img = trimmed;
+        }
+        utils_log_info("screencast chooser window: %dx%d", img->width, img->height);
         return img;
     }
 
-    utils_log_info("Window capture via XDG ScreenCast");
-    /* WINDOW type lets the portal chooser ask which window to capture. */
-    img = capture_via_screencast(2);
-    if (img) return img;
+    /* Fallback: GNOME Shell captures currently focused window. */
+    img = capture_via_shell_dbus_window();
+    if (img) {
+        utils_log_info("shell-dbus window: %dx%d", img->width, img->height);
+        return img;
+    }
+
     set_error("Window capture failed");
     return NULL;
 #else

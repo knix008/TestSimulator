@@ -29,27 +29,27 @@ static void on_about_clicked(GtkWidget *widget, gpointer data);
 
 // Helper to display captured image
 static void display_captured_image(UIContext *ctx, ImageData *img);
+static ImageData* crop_image_for_ui(const ImageData *src, const CaptureArea *area);
 
+static void hide_main_window_for_capture(UIContext *ctx);
+static void restore_main_window_after_capture(UIContext *ctx);
+static gboolean restore_window_pulse_cb(gpointer data);
+static gboolean restore_window_retry_cb(gpointer data);
 typedef struct {
     GtkWidget *window;
     GMainLoop *loop;
     gboolean selecting;
     gboolean accepted;
-    double start_x;
-    double start_y;
-    double cur_x;
-    double cur_y;
+    double start_x, start_y, cur_x, cur_y;
     CaptureArea area;
+    GdkPixbuf *background;
 } AreaSelectionState;
-
 static gboolean area_overlay_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 static gboolean area_overlay_on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data);
 static gboolean area_overlay_on_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data);
 static gboolean area_overlay_on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data);
 static gboolean area_overlay_on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer data);
-static gboolean select_area_interactively(UIContext *ctx, CaptureArea *out_area);
-static void hide_main_window_for_capture(UIContext *ctx);
-static void restore_main_window_after_capture(UIContext *ctx);
+static gboolean select_area_interactively(UIContext *ctx, CaptureArea *out_area, const ImageData *background_img);
 
 // GdkPixbufDestroyNotify wrapper for g_free
 static void pixbuf_data_free(guchar *pixels, gpointer data) {
@@ -57,40 +57,82 @@ static void pixbuf_data_free(guchar *pixels, gpointer data) {
     g_free(pixels);
 }
 
+static void hide_main_window_for_capture(UIContext *ctx) {
+    if (!ctx || !ctx->window)
+        return;
+    gtk_window_iconify(GTK_WINDOW(ctx->window));
+    while (gtk_events_pending()) {
+        gtk_main_iteration();
+    }
+    utils_sleep_ms(200);
+}
+
+static gboolean restore_window_pulse_cb(gpointer data) {
+    UIContext *ctx = (UIContext*)data;
+    if (!ctx || !ctx->window)
+        return G_SOURCE_REMOVE;
+
+    gtk_window_deiconify(GTK_WINDOW(ctx->window));
+    gtk_window_set_keep_above(GTK_WINDOW(ctx->window), TRUE);
+    gtk_window_present(GTK_WINDOW(ctx->window));
+
+    while (gtk_events_pending()) {
+        gtk_main_iteration();
+    }
+
+    gtk_window_set_keep_above(GTK_WINDOW(ctx->window), FALSE);
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean restore_window_retry_cb(gpointer data) {
+    UIContext *ctx = (UIContext*)data;
+    if (!ctx || !ctx->window)
+        return G_SOURCE_REMOVE;
+
+    gtk_widget_show(ctx->window);
+    gtk_window_deiconify(GTK_WINDOW(ctx->window));
+    gtk_window_set_keep_above(GTK_WINDOW(ctx->window), TRUE);
+    gtk_window_present(GTK_WINDOW(ctx->window));
+    gtk_window_set_urgency_hint(GTK_WINDOW(ctx->window), TRUE);
+
+    while (gtk_events_pending()) {
+        gtk_main_iteration();
+    }
+
+    gtk_window_set_urgency_hint(GTK_WINDOW(ctx->window), FALSE);
+    gtk_window_set_keep_above(GTK_WINDOW(ctx->window), FALSE);
+    return G_SOURCE_REMOVE;
+}
+
 static gboolean area_overlay_on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     (void)widget;
     AreaSelectionState *s = (AreaSelectionState*)data;
-
-    cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.35);
+    if (s->background) {
+        gdk_cairo_set_source_pixbuf(cr, s->background, 0, 0);
+        cairo_paint(cr);
+    }
+    cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.25);
     cairo_paint(cr);
-
-    if (!s->selecting)
-        return FALSE;
-
+    if (!s->selecting) return FALSE;
     double x = MIN(s->start_x, s->cur_x);
     double y = MIN(s->start_y, s->cur_y);
     double w = fabs(s->cur_x - s->start_x);
     double h = fabs(s->cur_y - s->start_y);
-
     cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
     cairo_rectangle(cr, x, y, w, h);
     cairo_fill(cr);
-
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     cairo_set_source_rgba(cr, 0.2, 0.6, 1.0, 0.95);
     cairo_set_line_width(cr, 2.0);
     cairo_rectangle(cr, x, y, w, h);
     cairo_stroke(cr);
-
     return FALSE;
 }
 
 static gboolean area_overlay_on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
     (void)widget;
     AreaSelectionState *s = (AreaSelectionState*)data;
-    if (event->button != 1)
-        return FALSE;
-
+    if (event->button != 1) return FALSE;
     s->selecting = TRUE;
     s->start_x = s->cur_x = event->x;
     s->start_y = s->cur_y = event->y;
@@ -101,9 +143,7 @@ static gboolean area_overlay_on_button_press(GtkWidget *widget, GdkEventButton *
 static gboolean area_overlay_on_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
     (void)widget;
     AreaSelectionState *s = (AreaSelectionState*)data;
-    if (!s->selecting)
-        return FALSE;
-
+    if (!s->selecting) return FALSE;
     s->cur_x = event->x;
     s->cur_y = event->y;
     gtk_widget_queue_draw(s->window);
@@ -113,26 +153,18 @@ static gboolean area_overlay_on_motion(GtkWidget *widget, GdkEventMotion *event,
 static gboolean area_overlay_on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
     (void)widget;
     AreaSelectionState *s = (AreaSelectionState*)data;
-    if (event->button != 1 || !s->selecting)
-        return FALSE;
-
+    if (event->button != 1 || !s->selecting) return FALSE;
     s->cur_x = event->x;
     s->cur_y = event->y;
-
     int x = (int)MIN(s->start_x, s->cur_x);
     int y = (int)MIN(s->start_y, s->cur_y);
     int w = (int)fabs(s->cur_x - s->start_x);
     int h = (int)fabs(s->cur_y - s->start_y);
-
     s->selecting = FALSE;
     if (w >= 2 && h >= 2) {
-        s->area.x = x;
-        s->area.y = y;
-        s->area.width = w;
-        s->area.height = h;
+        s->area.x = x; s->area.y = y; s->area.width = w; s->area.height = h;
         s->accepted = TRUE;
     }
-
     g_main_loop_quit(s->loop);
     return TRUE;
 }
@@ -148,14 +180,32 @@ static gboolean area_overlay_on_key_press(GtkWidget *widget, GdkEventKey *event,
     return FALSE;
 }
 
-static gboolean select_area_interactively(UIContext *ctx, CaptureArea *out_area) {
-    if (!ctx || !out_area)
-        return FALSE;
-
+static gboolean select_area_interactively(UIContext *ctx, CaptureArea *out_area, const ImageData *background_img) {
+    if (!ctx || !out_area) return FALSE;
     AreaSelectionState s;
     memset(&s, 0, sizeof(s));
     s.loop = g_main_loop_new(NULL, FALSE);
-
+    s.background = NULL;
+    if (background_img && background_img->data && background_img->channels >= 3) {
+        guchar *buf = g_malloc(background_img->size);
+        if (buf) {
+            memcpy(buf, background_img->data, background_img->size);
+            s.background = gdk_pixbuf_new_from_data(
+                buf,
+                GDK_COLORSPACE_RGB,
+                background_img->channels == 4,
+                8,
+                background_img->width,
+                background_img->height,
+                background_img->width * background_img->channels,
+                pixbuf_data_free,
+                NULL
+            );
+            if (!s.background) {
+                g_free(buf);
+            }
+        }
+    }
     s.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_decorated(GTK_WINDOW(s.window), FALSE);
     gtk_window_fullscreen(GTK_WINDOW(s.window));
@@ -163,46 +213,59 @@ static gboolean select_area_interactively(UIContext *ctx, CaptureArea *out_area)
     gtk_window_set_skip_taskbar_hint(GTK_WINDOW(s.window), TRUE);
     gtk_window_set_skip_pager_hint(GTK_WINDOW(s.window), TRUE);
     gtk_widget_set_app_paintable(s.window, TRUE);
-    gtk_widget_add_events(s.window,
-                          GDK_BUTTON_PRESS_MASK |
-                          GDK_BUTTON_RELEASE_MASK |
-                          GDK_POINTER_MOTION_MASK |
-                          GDK_KEY_PRESS_MASK);
-
+    gtk_widget_add_events(s.window, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+                                    GDK_POINTER_MOTION_MASK | GDK_KEY_PRESS_MASK);
     g_signal_connect(s.window, "draw", G_CALLBACK(area_overlay_on_draw), &s);
     g_signal_connect(s.window, "button-press-event", G_CALLBACK(area_overlay_on_button_press), &s);
     g_signal_connect(s.window, "motion-notify-event", G_CALLBACK(area_overlay_on_motion), &s);
     g_signal_connect(s.window, "button-release-event", G_CALLBACK(area_overlay_on_button_release), &s);
     g_signal_connect(s.window, "key-press-event", G_CALLBACK(area_overlay_on_key_press), &s);
-
     gtk_widget_show_all(s.window);
     gtk_widget_grab_focus(s.window);
-
     g_main_loop_run(s.loop);
-
     gtk_widget_destroy(s.window);
     g_main_loop_unref(s.loop);
-
-    if (!s.accepted)
-        return FALSE;
-
+    if (s.background) {
+        g_object_unref(s.background);
+    }
+    if (!s.accepted) return FALSE;
     *out_area = s.area;
     return TRUE;
 }
 
-static void hide_main_window_for_capture(UIContext *ctx) {
-    if (!ctx || !ctx->window)
-        return;
-    gtk_window_iconify(GTK_WINDOW(ctx->window));
-    while (gtk_events_pending()) {
-        gtk_main_iteration();
+static ImageData* crop_image_for_ui(const ImageData *src, const CaptureArea *area) {
+    if (!src || !src->data || !area) return NULL;
+    int x = area->x, y = area->y, w = area->width, h = area->height;
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > src->width)  w = src->width  - x;
+    if (y + h > src->height) h = src->height - y;
+    if (w <= 0 || h <= 0) return NULL;
+
+    ImageData *dst = (ImageData*)utils_malloc(sizeof(ImageData));
+    if (!dst) return NULL;
+    dst->width = w;
+    dst->height = h;
+    dst->channels = src->channels;
+    dst->size = (size_t)w * h * src->channels;
+    dst->data = (uint8_t*)utils_malloc(dst->size);
+    if (!dst->data) {
+        utils_free(dst);
+        return NULL;
     }
-    utils_sleep_ms(200);
+
+    for (int row = 0; row < h; row++) {
+        memcpy(dst->data + row * w * src->channels,
+               src->data + ((size_t)(y + row) * src->width + x) * src->channels,
+               (size_t)w * src->channels);
+    }
+    return dst;
 }
 
 static void restore_main_window_after_capture(UIContext *ctx) {
     if (!ctx || !ctx->window)
         return;
+    gtk_widget_show(ctx->window);
     gtk_window_deiconify(GTK_WINDOW(ctx->window));
     while (gtk_events_pending()) {
         gtk_main_iteration();
@@ -214,10 +277,18 @@ static void restore_main_window_after_capture(UIContext *ctx) {
         gtk_main_iteration();
     }
     gtk_window_set_keep_above(GTK_WINDOW(ctx->window), FALSE);
+
+    /* Some compositors delay focus handover after portal dialogs. */
+    g_timeout_add(120, restore_window_pulse_cb, ctx);
+    g_timeout_add(300, restore_window_retry_cb, ctx);
+    g_timeout_add(550, restore_window_retry_cb, ctx);
+    g_timeout_add(900, restore_window_retry_cb, ctx);
 }
 
 // Initialize UI context
 UIContext* ui_init(int argc, char *argv[]) {
+    g_set_prgname("capturemaster");
+    gdk_set_program_class("capturemaster");
     gtk_init(&argc, &argv);
     
     UIContext *ctx = (UIContext*)utils_malloc(sizeof(UIContext));
@@ -227,39 +298,61 @@ UIContext* ui_init(int argc, char *argv[]) {
     
     // Create main window
     ctx->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_icon_name(GTK_WINDOW(ctx->window), "capturemaster");
+    gtk_window_set_default_icon_name("capturemaster");
     gtk_window_set_title(GTK_WINDOW(ctx->window), "CaptureMaster GTK");
     gtk_window_set_default_size(GTK_WINDOW(ctx->window), 900, 800);
     gtk_window_set_position(GTK_WINDOW(ctx->window), GTK_WIN_POS_CENTER);
     gtk_container_set_border_width(GTK_CONTAINER(ctx->window), 0);
+
+    // Title bar with top-right INFO button
+    GtkWidget *header = gtk_header_bar_new();
+    gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(header), TRUE);
+    gtk_header_bar_set_title(GTK_HEADER_BAR(header), "CaptureMaster");
+    gtk_window_set_titlebar(GTK_WINDOW(ctx->window), header);
     
-    // Set window icon - try multiple formats/paths
+    // Set app/window icon - try executable directory first.
     GError *icon_error = NULL;
-    const char *icon_paths[] = {
-        "daemon_hammer.jpg",
-        "./daemon_hammer.jpg",
-        "daemon_hammer.png",
-        "./daemon_hammer.png",
-        "daemon_hammer.ico",
-        "./daemon_hammer.ico",
+    gchar *resolved_exe = g_find_program_in_path(argv[0]);
+    gchar *exe_dir = g_path_get_dirname(resolved_exe ? resolved_exe : argv[0]);
+    gchar *icon_paths[] = {
+        g_build_filename(exe_dir, "daemon_hammer.ico", NULL),
+        g_build_filename(exe_dir, "daemon_hammer.png", NULL),
+        g_build_filename(exe_dir, "daemon_hammer.jpg", NULL),
+        g_strdup("daemon_hammer.ico"),
+        g_strdup("./daemon_hammer.ico"),
+        g_strdup("daemon_hammer.png"),
+        g_strdup("./daemon_hammer.png"),
+        g_strdup("daemon_hammer.jpg"),
+        g_strdup("./daemon_hammer.jpg"),
         NULL
     };
-    
+
     gboolean icon_loaded = FALSE;
     for (int i = 0; icon_paths[i] != NULL && !icon_loaded; i++) {
         icon_error = NULL;
-        if (gtk_window_set_icon_from_file(GTK_WINDOW(ctx->window), 
-                                          icon_paths[i], 
-                                          &icon_error)) {
+        GdkPixbuf *icon = gdk_pixbuf_new_from_file(icon_paths[i], &icon_error);
+        if (icon) {
+            gtk_window_set_default_icon(icon);
+            gtk_window_set_icon(GTK_WINDOW(ctx->window), icon);
+            g_object_unref(icon);
             utils_log("INFO", "Icon loaded successfully from: %s", icon_paths[i]);
             icon_loaded = TRUE;
         } else if (icon_error) {
             g_error_free(icon_error);
+            icon_error = NULL;
         }
     }
     
     if (!icon_loaded) {
         utils_log("WARNING", "Failed to load icon from any path");
     }
+
+    for (int i = 0; icon_paths[i] != NULL; i++) {
+        g_free(icon_paths[i]);
+    }
+    g_free(exe_dir);
+    g_free(resolved_exe);
     
     // Initialize pixbuf storage
     ctx->current_pixbuf = NULL;
@@ -301,39 +394,10 @@ UIContext* ui_init(int argc, char *argv[]) {
     gtk_box_pack_start(GTK_BOX(mode_hbox), ctx->capture_area_btn, TRUE, TRUE, 5);
     gtk_box_pack_start(GTK_BOX(mode_hbox), ctx->capture_window_btn, TRUE, TRUE, 5);
     
-    // Settings frame
-    GtkWidget *settings_frame = gtk_frame_new("설정");
-    gtk_box_pack_start(GTK_BOX(left_vbox), settings_frame, FALSE, FALSE, 5);
-    
-    GtkWidget *settings_grid = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(settings_grid), 10);
-    gtk_grid_set_column_spacing(GTK_GRID(settings_grid), 10);
-    gtk_container_set_border_width(GTK_CONTAINER(settings_grid), 10);
-    gtk_container_add(GTK_CONTAINER(settings_frame), settings_grid);
-    
-    // Delay combo
-    GtkWidget *delay_label = gtk_label_new("지연 시간:");
-    gtk_widget_set_halign(delay_label, GTK_ALIGN_START);
-    ctx->delay_combo = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(ctx->delay_combo), "없음");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(ctx->delay_combo), "3초");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(ctx->delay_combo), "5초");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(ctx->delay_combo), "10초");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(ctx->delay_combo), 0);
-    
-    gtk_grid_attach(GTK_GRID(settings_grid), delay_label, 0, 0, 1, 1);
-    gtk_grid_attach(GTK_GRID(settings_grid), ctx->delay_combo, 1, 0, 1, 1);
-    
-    // Format combo
-    GtkWidget *format_label = gtk_label_new("저장 형식:");
-    gtk_widget_set_halign(format_label, GTK_ALIGN_START);
-    ctx->format_combo = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(ctx->format_combo), "PNG");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(ctx->format_combo), "JPEG");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(ctx->format_combo), 0);
-    
-    gtk_grid_attach(GTK_GRID(settings_grid), format_label, 0, 1, 1, 1);
-    gtk_grid_attach(GTK_GRID(settings_grid), ctx->format_combo, 1, 1, 1, 1);
+    // Settings removed by request; capture runs immediately and
+    // format is inferred at save time from chosen filename extension.
+    ctx->delay_combo = NULL;
+    ctx->format_combo = NULL;
     
     // Save button
     ctx->save_btn = gtk_button_new_with_label("💾 다른 이름으로 저장");
@@ -348,9 +412,9 @@ UIContext* ui_init(int argc, char *argv[]) {
     gtk_widget_set_halign(ctx->status_label, GTK_ALIGN_START);
     gtk_box_pack_start(GTK_BOX(left_vbox), ctx->status_label, FALSE, FALSE, 5);
     
-    // About button at bottom
-    GtkWidget *about_btn = gtk_button_new_with_label("정보");
-    gtk_box_pack_end(GTK_BOX(left_vbox), about_btn, FALSE, FALSE, 0);
+    // About/Info button in title bar
+    GtkWidget *about_btn = gtk_button_new_with_label("INFO");
+    gtk_header_bar_pack_end(GTK_HEADER_BAR(header), about_btn);
     
     // Bottom panel - Preview
     GtkWidget *right_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
@@ -669,21 +733,30 @@ static void on_capture_area_clicked(GtkWidget *widget, gpointer data) {
 
     hide_main_window_for_capture(ctx);
 
-    CaptureArea area;
-    ui_update_status(ctx, "마우스로 영역을 드래그하세요 (ESC 취소)");
-    gboolean selected = select_area_interactively(ctx, &area);
+    ui_update_status(ctx, "영역을 선택하세요...");
 
-    if (!selected) {
+    ImageData *base = capture_fullscreen();
+    if (!base) {
+        restore_main_window_after_capture(ctx);
+        ui_update_status(ctx, "캡처 실패");
+        ui_show_error(ctx, capture_get_last_error());
+        return;
+    }
+
+    CaptureArea area;
+    if (!select_area_interactively(ctx, &area, base)) {
+        image_free(base);
         restore_main_window_after_capture(ctx);
         ui_update_status(ctx, "영역 선택이 취소되었습니다");
         return;
     }
 
-    ImageData *img = capture_area(&area);
+    ImageData *img = crop_image_for_ui(base, &area);
+    image_free(base);
     if (!img) {
         restore_main_window_after_capture(ctx);
-        ui_show_error(ctx, capture_get_last_error());
         ui_update_status(ctx, "캡처 실패");
+        ui_show_error(ctx, "선택 영역을 잘라내지 못했습니다.");
         return;
     }
 

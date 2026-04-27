@@ -1,270 +1,124 @@
-# CaptureMaster GTK v1.0 🔨
-
-<div align="center">
+# CaptureMaster GTK v1.0
 
 ![Icon](daemon_hammer.jpg)
 
-**크로스 플랫폼 스크린 캡처 애플리케이션**
+Linux/macOS용 GTK3 스크린 캡처 도구입니다.
 
-*Linux & macOS 지원*
+## 개요
 
-</div>
+`CaptureMaster`는 C11 + GTK3로 작성된 캡처 프로그램입니다.  
+현재 프로젝트는 **Linux + macOS**를 지원합니다.
 
-## 📋 개요
+## 주요 기능
 
-CaptureMaster는 GTK3 기반의 경량 스크린 캡처 도구입니다. C언어로 작성되었으며, 순수 GTK API를 사용하여 Linux와 macOS에서 네이티브하게 동작합니다.
+- 전체 화면 캡처
+- 선택 영역 캡처
+- 특정 창 캡처
+- PNG/JPEG 저장(사용자 파일명 확장자 기준)
+- 캡처 후 미리보기 표시
+- 앱 아이콘(`daemon_hammer.ico/.png/.jpg`) 적용
 
-### 특징
-- 🎯 순수 C 언어로 구현된 경량 애플리케이션
-- 🔧 GTK3 기반으로 크로스 플랫폼 호환성 보장
-- 📦 모듈화된 구조로 유지보수 용이
-- 🖼️ GdkPixbuf를 활용한 이미지 처리
-- 🔨 daemon_hammer.jpg 아이콘 사용
+## 동작 방식
 
-## ✨ 주요 기능
+- **전체 화면**
+  - 선택 UI 없이 즉시 캡처를 시도합니다.
+  - 환경에 따라 `GNOME Shell DBus` → `GDK(X11)` → `XDG ScreenCast/PipeWire` 순으로 폴백합니다.
+- **선택 영역**
+  - 시스템 선택 UI(포털 interactive)를 우선 시도하고, 실패 시 앱 내 드래그 선택으로 폴백합니다.
+  - 선택한 영역은 앱에서 즉시 crop되어 미리보기에 표시됩니다.
+- **창 캡처**
+  - XDG ScreenCast의 WINDOW 선택 경로를 우선 사용합니다.
+  - 결과에 검은 여백이 포함되면 자동 트리밍을 시도합니다.
 
-- ✅ 전체 화면 캡처 (구현 완료)
-- ✅ 선택 영역 캡처 (구현 완료)
-- ✅ 창 단위 캡처 (구현 완료)
-- ✅ PNG/JPEG 형식 저장
-- 🔄 지연 캡처 타이머 (3초/5초/10초)
-- 📋 클립보드 자동 복사
-- ⌨️ 커스텀 단축키 설정
+## UI 정책
 
-## 🔧 시스템 요구사항
+- 설정(지연/형식) 패널 제거
+- 저장은 `저장` 버튼 클릭 후 파일 선택 다이얼로그로 진행
+- `INFO` 버튼은 상단 타이틀바에 배치
+- 캡처 시작 시 앱 창 숨김, 완료 후 자동 복원 및 전면 표시
 
-### Linux
-- GTK+ 3.0 이상
-- GCC 또는 Clang
-- pkg-config
-- X11 또는 Wayland
+## 시스템 요구사항
+
+- Linux
+- GTK+ 3.0
+- PipeWire 0.3
+- GLib runtime tools (`gdbus`)
+- GCC / Make / pkg-config
 
 ### macOS
-- macOS 10.12 이상
-- GTK+ 3.0 (Homebrew 통해 설치)
+
+- macOS
+- GTK+ 3.0 (`brew install gtk+3`)
 - Xcode Command Line Tools
 - pkg-config
 
-## 📦 의존성 설치
-
-### 자동 설치 (권장)
+## 의존성 설치
 
 ```bash
 make install-deps
 ```
 
-### 수동 설치
+수동 설치 예시:
 
-#### Ubuntu/Debian
+### Ubuntu/Debian
+
 ```bash
 sudo apt-get update
-sudo apt-get install libgtk-3-dev build-essential pkg-config
+sudo apt-get install -y libgtk-3-dev libpipewire-0.3-dev libglib2.0-bin build-essential pkg-config
 ```
 
-#### Fedora/RHEL
+### Fedora
+
 ```bash
-sudo dnf install gtk3-devel gcc make pkg-config
+sudo dnf install -y gtk3-devel pipewire-devel glib2 gcc make pkg-config
 ```
 
-#### Arch Linux
+### Arch Linux
+
 ```bash
-sudo pacman -S gtk3 base-devel pkg-config
+sudo pacman -S --needed gtk3 pipewire glib2 base-devel pkg-config
 ```
 
-#### macOS (Homebrew 필요)
+### macOS (Homebrew)
+
 ```bash
 brew install gtk+3 pkg-config
 ```
 
-## 🚀 빌드 및 실행
+## 빌드 / 실행
 
-### 의존성 확인
 ```bash
 make check-deps
-```
-
-### 빌드
-```bash
 make
-```
-
-### 실행
-```bash
-make run
-# 또는
 ./capturemaster
 ```
 
-### 디버그 빌드
+또는:
+
 ```bash
-make debug
+make run
 ```
 
-## 🏗️ 프로젝트 구조
+## 프로젝트 구조
 
-```
+```text
 CaptureMasterGTKV10/
-├── main.c              # 메인 애플리케이션 진입점
-├── ui.c                # GTK UI 컴포넌트 (GTK 의존 레이어)
-├── ui.h                # UI 인터페이스 헤더
-├── capture.c           # 플랫폼 별 스크린 캡처 구현
-├── capture.h           # 캡처 API 헤더
-├── utils.c             # 플랫폼 독립 유틸리티 함수
-├── utils.h             # 유틸리티 헤더
-├── daemon_hammer.jpg   # 프로그램 아이콘 (윈도우 타이틀바에 표시)
-├── Makefile            # 크로스 플랫폼 빌드 시스템
-├── README.md           # 프로젝트 문서
-└── .gitignore          # Git 제외 파일 목록
+├── main.c
+├── ui.c
+├── ui.h
+├── capture.c
+├── capture.h
+├── utils.c
+├── utils.h
+├── daemon_hammer.ico
+├── daemon_hammer.jpg
+├── capturemaster.desktop
+├── Makefile
+├── README.md
+└── .gitignore
 ```
 
-### 모듈 설명
+## 참고
 
-- **main.c**: 애플리케이션 초기화 및 메인 이벤트 루프
-- **ui.c/h**: GTK 의존적인 UI 컴포넌트 (다른 UI 프레임워크로 포팅 가능)
-- **capture.c/h**: GdkPixbuf를 사용한 스크린 캡처 로직
-- **utils.c/h**: 파일 I/O, 경로 처리, 시간 관리 등 범용 함수
-
-## 🎮 사용 방법
-
-### GUI 모드
-1. 애플리케이션 실행: `./capturemaster`
-2. 캡처 모드 선택:
-   - 🖥️ **전체 화면 캡처**: 모든 모니터의 화면을 캡처
-   - ✂️ **영역 선택 캡처**: 마우스로 영역을 드래그하여 선택
-   - 🪟 **창 캡처**: 특정 창을 선택하여 캡처
-3. 저장 경로 설정 (기본: `~/Pictures`)
-4. 이미지 형식 선택 (PNG/JPEG)
-5. 지연 시간 설정 (선택 사항)
-6. '캡처' 버튼 클릭
-
-### 저장 파일 형식
-캡처된 이미지는 타임스탬프가 포함된 파일명으로 자동 저장됩니다:
-```
-screenshot_20260427_123456.png
-```
-
-## 🛠️ 개발
-
-### 빌드 타겟
-
-| 타겟 | 설명 |
-|------|------|
-| `make` | 기본 빌드 (최적화 활성화) |
-| `make debug` | 디버그 빌드 (심볼 포함, -g -DDEBUG) |
-| `make clean` | 빌드 산출물 제거 |
-| `make distclean` | 전체 클린 (빌드 디렉토리 포함) |
-| `make run` | 빌드 후 실행 |
-| `make info` | 빌드 환경 정보 출력 |
-| `make check-deps` | 의존성 확인 |
-| `make install-deps` | 의존성 자동 설치 |
-
-### 컴파일러 플래그
-- `-Wall -Wextra`: 모든 경고 활성화
-- `-O2`: 최적화 레벨 2
-- `-std=c11`: C11 표준 사용
-- `-g -DDEBUG`: 디버그 모드 (debug 타겟)
-
-### 코드 스타일
-- 들여쓰기: 공백 4칸
-- 함수명: `snake_case`
-- 구조체명: `PascalCase`
-- 상수: `UPPER_CASE`
-
-## 🐛 문제 해결
-
-### 컴파일 오류
-
-**증상**: `GTK not found` 또는 `pkg-config: command not found`
-```bash
-make install-deps
-```
-
-**증상**: `size_t` 또는 `usleep` 관련 경고
-- 이미 해결됨: `utils.c`에 `_DEFAULT_SOURCE`와 `_POSIX_C_SOURCE` 정의
-- `capture.h`에 `<stddef.h>` 포함
-
-### 실행 오류
-
-**증상**: 아이콘이 표시되지 않음
-- `daemon_hammer.jpg` 파일이 실행 파일과 같은 디렉토리에 있는지 확인
-- JPG 형식이 지원되지 않으면 PNG로 변환하여 시도해볼 수 있음
-
-**증상**: macOS에서 창이 표시되지 않음
-```bash
-brew install xquartz
-# XQuartz 설치 후 로그아웃/로그인 필요
-```
-
-**증상**: 캡처 후 빈 이미지가 저장됨
-- Wayland 사용 시: `GDK_BACKEND=x11` 환경 변수 설정
-- X11 권한 문제: `xhost +local:` 실행
-
-### 빌드 시스템
-
-**증상**: `make: *** No rule to make target` 오류
-```bash
-make distclean
-make
-```
-
-**증상**: 플랫폼이 올바르게 감지되지 않음
-```bash
-make info  # 현재 설정 확인
-```
-
-## � 기술 스택
-
-- **언어**: C11
-- **UI 프레임워크**: GTK+ 3.0
-- **이미지 처리**: GdkPixbuf
-- **빌드 시스템**: GNU Make
-- **지원 플랫폼**: Linux (X11/Wayland), macOS
-
-## 📊 성능
-
-- 메모리 사용량: ~15-20MB (실행 시)
-- 시작 시간: < 1초
-- 캡처 속도: 즉시 (지연 없음)
-- 바이너리 크기: ~50KB (stripped)
-
-## 🗺️ 로드맵
-
-- [x] 기본 UI 구현
-- [x] 전체 화면 캡처
-- [x] 영역 선택 캡처
-- [x] 창 캡처
-- [x] PNG/JPEG 저장
-- [ ] 클립보드 복사 기능
-- [ ] 단축키 설정
-- [ ] 이미지 편집 기능 (주석, 화살표)
-- [ ] 비디오 녹화
-- [ ] Windows 포팅
-
-## 📄 라이선스
-
-MIT License
-
-## 👥 기여
-
-이슈 및 풀 리퀘스트를 환영합니다!
-
-### 기여 방법
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📮 연락처
-
-프로젝트 관련 문의사항이 있으시면 이슈를 등록해 주세요.
-
-## 🙏 감사의 말
-
-- GTK+ 프로젝트 팀
-- GdkPixbuf 개발자들
-- 오픈소스 커뮤니티
-
----
-
-**Note**: 이 프로젝트는 교육 및 개발 목적으로 만들어졌습니다. daemon_hammer 아이콘은 프로그램의 시각적 정체성을 나타냅니다.
+- Linux에서는 `make install-desktop`으로 GNOME 런처/아이콘 설치가 가능합니다.
+- 테스트 중 생성되는 `screenshot_*.png/.jpg/.jpeg` 파일은 `.gitignore`에 포함되어 있습니다.

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=CaptureMaster
+Comment=Linux GTK screen capture tool
+Exec=/home/shkwon/Projects/TestSimulator/CaptureMasterGTKV10/capturemaster
+Icon=capturemaster
+Terminal=false
+Categories=Graphics;Utility;
+StartupWMClass=capturemaster
