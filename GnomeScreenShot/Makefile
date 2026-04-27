@@ -16,7 +16,7 @@ OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
 # Detect Linux distribution
 DISTRO := $(shell if [ -f /etc/os-release ]; then . /etc/os-release; echo $$ID; else echo "unknown"; fi)
 
-.PHONY: all clean install deps install-deps check-deps help
+.PHONY: all clean install deps install-deps check-deps help run debug
 
 all: $(TARGET)
 
@@ -103,11 +103,21 @@ install-deps:
 	@echo "Dependencies installed successfully!"
 	@echo "Now run 'make' to build the application."
 
+# Run the application
+run: $(TARGET)
+	@./run.sh
+
+# Run in debug mode
+debug: $(TARGET)
+	@./debug.sh
+
 help:
 	@echo "Enhanced Screenshot - Build System"
 	@echo ""
 	@echo "Usage:"
 	@echo "  make               - Build the application"
+	@echo "  make run           - Build and run the application"
+	@echo "  make debug         - Run in debug mode with verbose output"
 	@echo "  make deps          - Install dependencies (auto-detects distro)"
 	@echo "  make check-deps    - Check if dependencies are installed"
 	@echo "  make clean         - Remove build files"
@@ -129,5 +139,7 @@ help:
 	@echo ""
 	@echo "Quick start:"
 	@echo "  1. make deps       # Install dependencies"
-	@echo "  2. make            # Build the application"
-	@echo "  3. ./enhanced-screenshot  # Run the application"
+	@echo "  2. make run        # Build and run"
+	@echo ""
+	@echo "Or simply run:"
+	@echo "  ./run.sh           # Automatic build and run"

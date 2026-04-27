@@ -59,9 +59,20 @@ make
 ./enhanced-screenshot
 ```
 
+**또는 실행 스크립트 사용 (권장):**
+```bash
+# 일반 실행 (자동으로 X11 설정)
+./run.sh
+
+# 디버그 모드 실행 (상세 로그 출력)
+./debug.sh
+```
+
 ### 중요: X11 환경에서 실행
 
-현재 버전은 X11에서만 완전히 지원됩니다. Wayland 환경에서는 다음과 같이 실행하세요:
+현재 버전은 X11에서만 완전히 지원됩니다. `run.sh` 스크립트는 Wayland 환경을 자동으로 감지하고 X11 백엔드를 사용합니다.
+
+수동으로 실행하려면:
 
 ```bash
 GDK_BACKEND=x11 ./enhanced-screenshot
