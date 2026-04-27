@@ -47,6 +47,26 @@ meson compile -C build
 ./build/enhanced-screenshot
 ```
 
+**또는 Makefile 사용:**
+```bash
+# 의존성 설치 (처음 한 번만)
+make deps
+
+# 빌드
+make
+
+# 실행
+./enhanced-screenshot
+```
+
+### 중요: X11 환경에서 실행
+
+현재 버전은 X11에서만 완전히 지원됩니다. Wayland 환경에서는 다음과 같이 실행하세요:
+
+```bash
+GDK_BACKEND=x11 ./enhanced-screenshot
+```
+
 ## 사용 방법
 
 1. **스크린샷 캡처**: "스크린샷 캡처" 버튼 클릭
