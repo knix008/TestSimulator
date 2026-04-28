@@ -1,0 +1,31 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MeetingMinute.App", "src\MeetingMinute.App\MeetingMinute.App.csproj", "{C1D2E3F4-5A6B-7890-CDEF-1234567890AB}"
+EndProject
+Project("{930C7802-8A8C-48F9-8165-68863BCCD3DD}") = "MeetingMinute.Installer", "installer\MeetingMinute.Installer.wixproj", "{E7D8F9A0-1234-5678-9ABC-DEF012345678}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C1D2E3F4-5A6B-7890-CDEF-1234567890AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1D2E3F4-5A6B-7890-CDEF-1234567890AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1D2E3F4-5A6B-7890-CDEF-1234567890AB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C1D2E3F4-5A6B-7890-CDEF-1234567890AB}.Debug|x64.Build.0 = Debug|Any CPU
+		{C1D2E3F4-5A6B-7890-CDEF-1234567890AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1D2E3F4-5A6B-7890-CDEF-1234567890AB}.Release|x64.ActiveCfg = Release|Any CPU
+		{E7D8F9A0-1234-5678-9ABC-DEF012345678}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{E7D8F9A0-1234-5678-9ABC-DEF012345678}.Debug|x64.ActiveCfg = Debug|x64
+		{E7D8F9A0-1234-5678-9ABC-DEF012345678}.Release|Any CPU.ActiveCfg = Release|x64
+		{E7D8F9A0-1234-5678-9ABC-DEF012345678}.Release|Any CPU.Build.0 = Release|x64
+		{E7D8F9A0-1234-5678-9ABC-DEF012345678}.Release|x64.ActiveCfg = Release|x64
+		{E7D8F9A0-1234-5678-9ABC-DEF012345678}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+EndGlobal
