@@ -17,22 +17,25 @@ public static class WordMeetingSerializer
 
         var title = string.IsNullOrWhiteSpace(doc.Title) ? "제목 없음" : doc.Title.Trim();
         body.Append(CreateMainTitle("회의록"));
+        if (!string.IsNullOrWhiteSpace(doc.Author))
+            body.Append(CreateRightAlignedParagraph(doc.Author.Trim()));
         body.Append(CreateBlankParagraph());
 
-        body.Append(CreateHeading2("1. 시간/장소"));
+        AppendSection(body, "1. 회의 제목", title);
+
+        body.Append(CreateHeading2("2. 시간/장소"));
         var (datePart, timePart) = SplitDateAndTime(doc.DateTimeText);
-        body.Append(CreateBodyParagraph($"회의 제목: {title}"));
         body.Append(CreateBodyParagraph($"날짜: {datePart}"));
         body.Append(CreateBodyParagraph($"시간: {timePart}"));
         body.Append(CreateBodyParagraph($"장소: {doc.Location}"));
-        body.Append(CreateBodyParagraph($"작성자/참석자: {BuildAuthorAttendeesLine(doc.Author, doc.Attendees)}"));
+        body.Append(CreateBodyParagraph($"참석자: {(doc.Attendees ?? "").Replace("\r\n", ", ", StringComparison.Ordinal).Replace('\n', ',').Trim(' ', ',')}"));
         body.Append(CreateBlankParagraph());
 
-        AppendSection(body, "2. 안건 및 논의", doc.AgendaAndDiscussion);
-        AppendSection(body, "3. 결정 사항", doc.Decisions);
-        AppendSection(body, "4. 액션 아이템", doc.ActionItems);
-        AppendSection(body, "5. 차기 회의", doc.NextMeeting);
-        AppendSection(body, "6. 기타 메모", doc.Notes);
+        AppendSection(body, "3. 안건 및 논의", doc.AgendaAndDiscussion);
+        AppendSection(body, "4. 결정 사항", doc.Decisions);
+        AppendSection(body, "5. 액션 아이템", doc.ActionItems);
+        AppendSection(body, "6. 차기 회의", doc.NextMeeting);
+        AppendSection(body, "7. 기타 메모", doc.Notes);
 
         mainPart.Document.Save();
     }
@@ -61,6 +64,16 @@ public static class WordMeetingSerializer
         return CreateParagraph(text, "Heading1");
     }
 
+    private static Paragraph CreateRightAlignedParagraph(string text)
+    {
+        var paragraph = new Paragraph(
+            new ParagraphProperties(
+                new Justification { Val = JustificationValues.Right }));
+        paragraph.Append(new Run(
+            new Text(text) { Space = SpaceProcessingModeValues.Preserve }));
+        return paragraph;
+    }
+
     private static Paragraph CreateMainTitle(string text)
     {
         var paragraph = new Paragraph(
@@ -83,7 +96,7 @@ public static class WordMeetingSerializer
         var run = new Run(
             new RunProperties(
                 new Bold(),
-                new FontSize { Val = "40" }), // 20pt
+                new FontSize { Val = "32" }), // 16pt
             new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve });
         paragraph.Append(run);
         return paragraph;
@@ -123,14 +136,4 @@ public static class WordMeetingSerializer
         return (raw, "");
     }
 
-    private static string BuildAuthorAttendeesLine(string? author, string? attendees)
-    {
-        var a = (author ?? "").Trim();
-        var b = (attendees ?? "").Replace("\r\n", ", ", StringComparison.Ordinal).Replace('\n', ',').Trim(' ', ',');
-        if (string.IsNullOrWhiteSpace(a))
-            return b;
-        if (string.IsNullOrWhiteSpace(b))
-            return a;
-        return $"{a} / {b}";
-    }
 }

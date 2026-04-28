@@ -7,26 +7,32 @@ namespace MeetingMinute.App.Services;
 
 public static class MarkdownMeetingSerializer
 {
-    private const string TimePlaceHeader = "## 1. 시간/장소";
-    private const string AgendaHeader = "## 2. 안건 및 논의";
-    private const string DecisionsHeader = "## 3. 결정 사항";
-    private const string ActionsHeader = "## 4. 액션 아이템";
-    private const string NextHeader = "## 5. 차기 회의";
-    private const string NotesHeader = "## 6. 기타 메모";
+    private const string TitleHeader = "## 1. 회의 제목";
+    private const string TimePlaceHeader = "## 2. 시간/장소";
+    private const string AgendaHeader = "## 3. 안건 및 논의";
+    private const string DecisionsHeader = "## 4. 결정 사항";
+    private const string ActionsHeader = "## 5. 액션 아이템";
+    private const string NextHeader = "## 6. 차기 회의";
+    private const string NotesHeader = "## 7. 기타 메모";
 
     public static string ToMarkdown(MeetingMinuteDocument doc)
     {
         var sb = new StringBuilder();
         var title = string.IsNullOrWhiteSpace(doc.Title) ? "제목 없음" : doc.Title.Trim();
         sb.AppendLine("# 회의록");
+        if (!string.IsNullOrWhiteSpace(doc.Author))
+            sb.AppendLine(CultureInfo.InvariantCulture, $"<div align=\"right\">{EscapeInline(doc.Author.Trim())}</div>");
+        sb.AppendLine();
+        sb.AppendLine(TitleHeader);
+        sb.AppendLine();
+        sb.AppendLine(EscapeInline(title));
         sb.AppendLine();
         sb.AppendLine(TimePlaceHeader);
         var (dateText, timeText) = SplitDateAndTime(doc.DateTimeText);
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- **회의 제목**: {EscapeInline(title)}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- **날짜**: {EscapeInline(dateText)}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- **시간**: {EscapeInline(timeText)}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- **장소**: {EscapeInline(doc.Location)}");
-        sb.AppendLine(CultureInfo.InvariantCulture, $"- **작성자/참석자**: {EscapeInline(BuildAuthorAttendeesLine(doc.Author, doc.Attendees))}");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"- **참석자**: {EscapeInline((doc.Attendees ?? "").Replace("\r\n", ", ", StringComparison.Ordinal).Replace('\n', ',').Trim(' ', ','))}");
         sb.AppendLine();
         sb.AppendLine(AgendaHeader);
         sb.AppendLine();
@@ -93,7 +99,11 @@ public static class MarkdownMeetingSerializer
             return sb.ToString().TrimEnd();
         }
 
-        var timePlaceBlock = SectionAfter(lines, TimePlaceHeader, "## 1. 메타", "## 메타");
+        var titleBlock = SectionAfter(lines, TitleHeader);
+        if (!string.IsNullOrWhiteSpace(titleBlock))
+            doc.Title = titleBlock.Trim();
+
+        var timePlaceBlock = SectionAfter(lines, TimePlaceHeader, "## 1. 시간/장소", "## 1. 메타", "## 메타");
         var titleInMeta = ExtractMetaLine(timePlaceBlock, "회의 제목");
         if (string.IsNullOrWhiteSpace(doc.Title))
             doc.Title = titleInMeta;
@@ -104,7 +114,8 @@ public static class MarkdownMeetingSerializer
         else
             doc.DateTimeText = ExtractMetaLine(timePlaceBlock, "일시");
         doc.Location = ExtractMetaLine(timePlaceBlock, "장소");
-        doc.Author = ExtractMetaLine(timePlaceBlock, "작성");
+        doc.Attendees = ExtractMetaLine(timePlaceBlock, "참석자");
+        // 구버전 호환: 작성자/참석자 키에서 분리
         var authorAttendees = ExtractMetaLine(timePlaceBlock, "작성자/참석자");
         if (!string.IsNullOrWhiteSpace(authorAttendees))
         {
@@ -112,9 +123,10 @@ public static class MarkdownMeetingSerializer
             if (split.Length == 2)
             {
                 doc.Author = split[0];
-                doc.Attendees = split[1];
+                if (string.IsNullOrWhiteSpace(doc.Attendees))
+                    doc.Attendees = split[1];
             }
-            else
+            else if (string.IsNullOrWhiteSpace(doc.Author))
             {
                 doc.Author = authorAttendees;
             }
@@ -122,11 +134,11 @@ public static class MarkdownMeetingSerializer
 
         if (string.IsNullOrWhiteSpace(doc.Attendees))
             doc.Attendees = SectionAfter(lines, "## 2. 참석자", "## 참석자");
-        doc.AgendaAndDiscussion = SectionAfter(lines, AgendaHeader, "## 3. 안건 및 논의", "## 안건 및 논의");
-        doc.Decisions = SectionAfter(lines, DecisionsHeader, "## 4. 결정 사항", "## 결정 사항");
-        doc.ActionItems = SectionAfter(lines, ActionsHeader, "## 5. 액션 아이템", "## 액션 아이템");
-        doc.NextMeeting = SectionAfter(lines, NextHeader, "## 6. 차기 회의", "## 차기 회의");
-        doc.Notes = SectionAfter(lines, NotesHeader, "## 7. 기타 메모", "## 기타 메모");
+        doc.AgendaAndDiscussion = SectionAfter(lines, AgendaHeader, "## 2. 안건 및 논의", "## 안건 및 논의");
+        doc.Decisions = SectionAfter(lines, DecisionsHeader, "## 3. 결정 사항", "## 결정 사항");
+        doc.ActionItems = SectionAfter(lines, ActionsHeader, "## 4. 액션 아이템", "## 액션 아이템");
+        doc.NextMeeting = SectionAfter(lines, NextHeader, "## 5. 차기 회의", "## 차기 회의");
+        doc.Notes = SectionAfter(lines, NotesHeader, "## 6. 기타 메모", "## 기타 메모");
 
         return doc;
     }
@@ -170,14 +182,4 @@ public static class MarkdownMeetingSerializer
         return (raw, "");
     }
 
-    private static string BuildAuthorAttendeesLine(string? author, string? attendees)
-    {
-        var a = (author ?? "").Trim();
-        var b = (attendees ?? "").Replace("\r\n", ", ", StringComparison.Ordinal).Replace('\n', ',').Trim(' ', ',');
-        if (string.IsNullOrWhiteSpace(a))
-            return b;
-        if (string.IsNullOrWhiteSpace(b))
-            return a;
-        return $"{a} / {b}";
-    }
 }

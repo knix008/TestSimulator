@@ -17,6 +17,7 @@
     <SolidColorBrush x:Key="BrushAccentHover" Color="{StaticResource AccentHover}" />
     <SolidColorBrush x:Key="BrushText" Color="{StaticResource TextPrimary}" />
     <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource TextMuted}" />
+    <SolidColorBrush x:Key="BrushError" Color="#FFEF4444" />
 
     <Style x:Key="CardBorder" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource BrushBgPanel}" />

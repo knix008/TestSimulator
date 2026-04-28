@@ -47,7 +47,7 @@
 
   <Fragment>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <Files Include="out\publish\**">
+      <Files Include="..\src\MeetingMinute.App\bin\Release\net8.0-windows\win-x64\publish\**">
         <Exclude Files="*.pdb" />
       </Files>
     </ComponentGroup>

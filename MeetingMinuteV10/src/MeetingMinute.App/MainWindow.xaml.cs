@@ -535,6 +535,15 @@ public partial class MainWindow : Window
         if (TryParseTime(tb.Text, out var parsed))
         {
             tb.Text = parsed.ToString(@"hh\:mm", CultureInfo.InvariantCulture);
+            tb.ClearValue(BorderBrushProperty);
+        }
+        else if (!string.IsNullOrWhiteSpace(tb.Text))
+        {
+            tb.BorderBrush = (System.Windows.Media.Brush)FindResource("BrushError");
+        }
+        else
+        {
+            tb.ClearValue(BorderBrushProperty);
         }
     }
 
@@ -625,8 +634,10 @@ public partial class MainWindow : Window
     private static bool TryParseTime(string text, out TimeSpan value)
     {
         var t = text.Trim();
-        return TimeSpan.TryParse(t, CultureInfo.CurrentCulture, out value)
-               || TimeSpan.TryParse(t, CultureInfo.InvariantCulture, out value);
+        if (!(TimeSpan.TryParse(t, CultureInfo.CurrentCulture, out value)
+              || TimeSpan.TryParse(t, CultureInfo.InvariantCulture, out value)))
+            return false;
+        return value >= TimeSpan.Zero && value < TimeSpan.FromHours(24);
     }
 
     private static string FormatDuration(TimeSpan span)
