@@ -25,4 +25,8 @@
     <Exec Command="dotnet restore &quot;$(MSBuildProjectFullPath)&quot;" />
   </Target>
 
+  <Target Name="StopRunningAppForReleaseBuild" BeforeTargets="PrepareForBuild" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="taskkill /IM MeetingMinute.App.exe /F" IgnoreExitCode="true" />
+  </Target>
+
 </Project>
