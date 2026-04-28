@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC Client2</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>WebRTC Client2: 영상/음성 분리 송수신</h1>
+
+      <section class="controls">
+        <label>
+          Signaling URL
+          <input id="signalingUrlInput" value="ws://localhost:3000" />
+        </label>
+        <label>
+          Room ID
+          <input id="roomIdInput" value="demo-room" />
+        </label>
+        <button id="joinBtn">방 입장</button>
+      </section>
+
+      <section class="controls">
+        <button id="startVideoBtn">영상 시작</button>
+        <button id="stopVideoBtn">영상 중지</button>
+        <button id="startAudioBtn">음성 시작</button>
+        <button id="stopAudioBtn">음성 중지</button>
+      </section>
+
+      <section class="videos">
+        <article>
+          <h2>내 화면</h2>
+          <video id="localVideo" autoplay playsinline muted></video>
+        </article>
+        <article>
+          <h2>상대 화면</h2>
+          <video id="remoteVideo" autoplay playsinline></video>
+        </article>
+      </section>
+
+      <section class="status">
+        <h2>상태</h2>
+        <pre id="log"></pre>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

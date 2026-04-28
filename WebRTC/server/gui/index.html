@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Signaling Server Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Server GUI Dashboard</h1>
+      <p class="desc">WebRTC 시그널링 서버 상태를 확인합니다.</p>
+
+      <section class="panel">
+        <h2>연결 정보</h2>
+        <div>WebSocket: <code id="wsUrl"></code></div>
+        <div>상태: <span id="status">연결 전</span></div>
+      </section>
+
+      <section class="panel">
+        <h2>룸 상태</h2>
+        <ul id="roomList"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>실시간 이벤트</h2>
+        <pre id="events"></pre>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "webrtc-client2",
+  "version": "1.0.0",
+  "description": "WebRTC browser client2 (standalone)",
+  "private": true,
+  "scripts": {
+    "start": "npx http-server . -p 5175 -c-1"
+  }
+}

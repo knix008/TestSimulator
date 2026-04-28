@@ -1,0 +1,39 @@
+body {
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: Arial, sans-serif;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.desc {
+  color: #93c5fd;
+}
+
+.panel {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+#roomList {
+  margin: 0;
+  padding-left: 18px;
+}
+
+pre {
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 12px;
+  min-height: 220px;
+  max-height: 320px;
+  overflow: auto;
+}
