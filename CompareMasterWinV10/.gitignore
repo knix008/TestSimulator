@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.log
+*.tmp
+*.bak
+*.pdb
+*.ilk
+*.aps
+*.nupkg
+*.snupkg
+artifacts/
+TestResults/
+user-settings.json
