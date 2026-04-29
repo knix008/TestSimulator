@@ -39,4 +39,11 @@
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
   </ItemGroup>
 
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(MSBuildProjectName)' == 'ScreenCaptureMaster' and '$(SkipInstallerBuild)' != 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\ScreenCaptureMaster.Installer\ScreenCaptureMaster.Installer.wixproj&quot; -c Release -p:Platform=x64" />
+  </Target>
+
 </Project>

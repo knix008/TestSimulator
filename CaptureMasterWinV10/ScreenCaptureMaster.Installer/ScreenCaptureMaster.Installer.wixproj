@@ -1,32 +1,21 @@
-<Project Sdk="WixToolset.Sdk/4.0.5">
+<Project Sdk="WixToolset.Sdk/6.0.2">
   <PropertyGroup>
     <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
     <OutputName>ScreenCaptureMasterSetup</OutputName>
-    <Platform>x64</Platform>
     <InstallerPlatform>x64</InstallerPlatform>
-    <!-- Suppress ICE57 warning about per-user/per-machine mix -->
-    <SuppressIces>ICE57</SuppressIces>
+    <SuppressValidation>true</SuppressValidation>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\ScreenCaptureMaster\ScreenCaptureMaster.csproj">
-      <Name>ScreenCaptureMaster</Name>
-      <Project>{B8E5D3A2-9F4C-4F7E-A8B1-2C5D6E7F8A9B}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>PublishItemsOutputGroup</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-      <Properties>RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true</Properties>
-    </ProjectReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="..\daemon_hammer.ico">
-      <Link>daemon_hammer.ico</Link>
-    </Content>
-  </ItemGroup>
+  <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild">
+    <Exec Command="cmd /c taskkill /IM ScreenCaptureMaster.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\ScreenCaptureMaster\ScreenCaptureMaster.csproj&quot; -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true /p:SkipInstallerBuild=true" />
+  </Target>
 </Project>
