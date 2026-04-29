@@ -1,0 +1,17 @@
+{
+  "name": "webrtc-stun-server",
+  "version": "1.0.0",
+  "description": "STUN server for WebRTC NAT traversal",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["stun", "webrtc", "nat-traversal"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "stun": "^2.1.0"
+  }
+}
