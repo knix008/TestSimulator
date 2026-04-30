@@ -11,7 +11,7 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
 
     <MediaTemplate EmbedCab="yes" />
-    <Icon Id="AppIcon" SourceFile="daemon_hammer.ico" />
+    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
 
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="ProgramMenuDir" Name="Super Resolution Studio" />
