@@ -19,6 +19,18 @@ Windows WinForms diff tool for directory and file comparison.
 dotnet build CompareMasterWinV10.slnx
 ```
 
+### Release Build (with MSI)
+
+`CompareMasterWinV10.App` project is configured to build the WiX installer automatically in `Release`.
+
+```powershell
+dotnet build CompareMasterWinV10.App/CompareMasterWinV10.App.csproj -c Release
+```
+
+MSI output:
+
+- `installer/bin/Release/CompareMasterWinV10Setup.msi`
+
 ## Run
 
 ```powershell
@@ -28,5 +40,6 @@ dotnet run --project CompareMasterWinV10.App
 ## Project Files
 
 - `CompareMasterWinV10.App/Form1.cs`: main UI and compare logic
+- `installer/CompareMasterWinV10.Installer.wixproj`: WiX installer project
 - `.gitignore`: git ignore rules
 - `.ignore`: additional ignore rules for tools/workflows
