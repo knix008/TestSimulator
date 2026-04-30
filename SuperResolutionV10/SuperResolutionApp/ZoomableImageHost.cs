@@ -10,6 +10,9 @@ public class ZoomableImageHost : UserControl
     private readonly Label _zoomLabel = new();
     private float _userZoom = 1f;
     private const double WheelFactor = 1.12;
+    private bool _isPanning;
+    private Point _panStartMouse;
+    private Point _panStartScroll;
 
     public ZoomableImageHost()
     {
@@ -47,6 +50,13 @@ public class ZoomableImageHost : UserControl
 
         Resize += (_, _) => LayoutImage();
         _scroll.Resize += (_, _) => LayoutImage();
+
+        _scroll.MouseDown += BeginPan;
+        _scroll.MouseMove += ContinuePan;
+        _scroll.MouseUp += EndPan;
+        _picture.MouseDown += BeginPan;
+        _picture.MouseMove += ContinuePan;
+        _picture.MouseUp += EndPan;
     }
 
     /// <summary>Image to display (caller owns lifetime unless cleared before dispose).</summary>
@@ -125,6 +135,70 @@ public class ZoomableImageHost : UserControl
         int pct = (int)Math.Round(_userZoom * 100);
         _zoomLabel.Text = $"{pct}%";
         _zoomLabel.Visible = true;
+    }
+
+    private void BeginPan(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left || !CanPan())
+        {
+            return;
+        }
+
+        _isPanning = true;
+        _panStartMouse = GetScreenMousePosition(sender as Control, e.Location);
+        _panStartScroll = GetCurrentScrollOffset();
+        Cursor = Cursors.SizeAll;
+        _picture.Cursor = Cursors.SizeAll;
+        _scroll.Cursor = Cursors.SizeAll;
+    }
+
+    private void ContinuePan(object? sender, MouseEventArgs e)
+    {
+        if (!_isPanning)
+        {
+            return;
+        }
+
+        var current = GetScreenMousePosition(sender as Control, e.Location);
+        int dx = current.X - _panStartMouse.X;
+        int dy = current.Y - _panStartMouse.Y;
+
+        int maxX = Math.Max(0, _scroll.DisplayRectangle.Width - _scroll.ClientSize.Width);
+        int maxY = Math.Max(0, _scroll.DisplayRectangle.Height - _scroll.ClientSize.Height);
+
+        int targetX = Math.Clamp(_panStartScroll.X - dx, 0, maxX);
+        int targetY = Math.Clamp(_panStartScroll.Y - dy, 0, maxY);
+        _scroll.AutoScrollPosition = new Point(targetX, targetY);
+    }
+
+    private void EndPan(object? sender, MouseEventArgs e)
+    {
+        if (!_isPanning)
+        {
+            return;
+        }
+
+        _isPanning = false;
+        Cursor = Cursors.Default;
+        _picture.Cursor = Cursors.Default;
+        _scroll.Cursor = Cursors.Default;
+    }
+
+    private bool CanPan()
+    {
+        return _picture.Image is not null &&
+               (_picture.Width > _scroll.ClientSize.Width || _picture.Height > _scroll.ClientSize.Height);
+    }
+
+    private Point GetCurrentScrollOffset()
+    {
+        var p = _scroll.AutoScrollPosition;
+        return new Point(-p.X, -p.Y);
+    }
+
+    private static Point GetScreenMousePosition(Control? source, Point location)
+    {
+        return source?.PointToScreen(location) ?? Control.MousePosition;
     }
 
     protected override void OnResize(EventArgs e)

@@ -106,6 +106,29 @@ public partial class SuperResolutionForm : Form
 
     private async void buttonPrepareModels_Click(object sender, EventArgs e)
     {
+        var selectedAlgorithm = (SrAlgorithm)comboAlgorithm.SelectedItem!;
+        if (selectedAlgorithm == SrAlgorithm.Bicubic)
+        {
+            MessageBox.Show(
+                "Bicubic은 ONNX 모델이 필요하지 않습니다.\nSwinIR/ESRGAN/AuraSR를 선택한 뒤 실행해 주세요.",
+                "No Model Required",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        var expectedModelPath = GetExpectedModelPathForAlgorithm(selectedAlgorithm);
+        if (File.Exists(expectedModelPath))
+        {
+            MessageBox.Show(
+                $"현재 선택된 모델의 ONNX가 이미 존재합니다.\n{expectedModelPath}",
+                "Model Already Exists",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            SetStatus($"Model already present: {Path.GetFileName(expectedModelPath)}");
+            return;
+        }
+
         var scriptsDir = FindScriptsDirectory();
         var scriptPath = Path.Combine(scriptsDir, "prepare_sr_models.py");
         if (!File.Exists(scriptPath))
@@ -118,16 +141,37 @@ public partial class SuperResolutionForm : Form
             return;
         }
 
+        if (!TryResolvePythonExecutable(out var pythonExe))
+        {
+            var install = MessageBox.Show(
+                "Python이 설치되어 있지 않아 모델 자동 준비를 실행할 수 없습니다.\n\n" +
+                "예(Yes): Python 설치 페이지를 열고 winget 설치를 시도합니다.\n" +
+                "아니오(No): 취소합니다.",
+                "Python Not Found",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (install == DialogResult.Yes)
+            {
+                LaunchPythonInstallHelpers();
+            }
+
+            SetStatus("Model preparation cancelled (Python not found).");
+            return;
+        }
+
+        var scriptArgs = BuildPrepareArgumentsForAlgorithm(selectedAlgorithm);
+
         buttonPrepareModels.Enabled = false;
         SetAppState("Preparing Models");
-        SetStatus("Preparing models... download + ONNX conversion in progress.");
+        SetStatus($"Preparing {selectedAlgorithm} model... download + ONNX conversion in progress.");
 
         try
         {
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
-                FileName = "python",
-                Arguments = $"\"{scriptPath}\"",
+                FileName = pythonExe,
+                Arguments = $"\"{scriptPath}\" {scriptArgs}",
                 WorkingDirectory = Path.GetDirectoryName(scriptPath)!,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -155,10 +199,10 @@ public partial class SuperResolutionForm : Form
             }
 
             UpdateModelPathUiAndAutoLoad();
-            SetStatus("Model preparation completed.");
+            SetStatus($"{selectedAlgorithm} model preparation completed.");
             SetAppState("Completed");
             MessageBox.Show(
-                "모델 다운로드 및 ONNX 변환이 완료되었습니다.",
+                $"{selectedAlgorithm} 모델 다운로드 및 ONNX 변환이 완료되었습니다.",
                 "Prepare Models",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -180,6 +224,111 @@ public partial class SuperResolutionForm : Form
             {
                 SetAppState("Idle");
             }
+        }
+    }
+
+    private string GetExpectedModelPathForAlgorithm(SrAlgorithm algorithm)
+    {
+        if (TryFindDefaultModelPath(algorithm, out var existing))
+        {
+            return existing;
+        }
+
+        var modelsRoot = FindModelsDirectory();
+        return algorithm switch
+        {
+            SrAlgorithm.SwinIR => Path.Combine(modelsRoot, "swinir_x4_gan.onnx"),
+            SrAlgorithm.ESRGAN => Path.Combine(modelsRoot, "esrgan.onnx"),
+            SrAlgorithm.AuraSR => Path.Combine(modelsRoot, "aurasr_v2.onnx"),
+            _ => string.Empty
+        };
+    }
+
+    private static string BuildPrepareArgumentsForAlgorithm(SrAlgorithm algorithm)
+    {
+        return algorithm switch
+        {
+            SrAlgorithm.SwinIR => "--skip-esrgan --skip-aurasr",
+            SrAlgorithm.ESRGAN => "--skip-swinir --skip-aurasr --esrgan-mode single",
+            SrAlgorithm.AuraSR => "--skip-swinir --skip-esrgan",
+            _ => "--skip-swinir --skip-esrgan --skip-aurasr"
+        };
+    }
+
+    private static bool TryResolvePythonExecutable(out string executable)
+    {
+        if (CanRunCommand("python", "--version"))
+        {
+            executable = "python";
+            return true;
+        }
+
+        if (CanRunCommand("py", "-3 --version"))
+        {
+            executable = "py";
+            return true;
+        }
+
+        executable = string.Empty;
+        return false;
+    }
+
+    private static bool CanRunCommand(string fileName, string args)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = fileName,
+                Arguments = args,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var p = System.Diagnostics.Process.Start(psi);
+            if (p is null)
+            {
+                return false;
+            }
+
+            p.WaitForExit(5000);
+            return p.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void LaunchPythonInstallHelpers()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://www.python.org/downloads/windows/",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Ignore browser launch failures.
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell",
+                Arguments = "-NoExit -Command \"winget install -e --id Python.Python.3.12\"",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Ignore winget launch failures.
         }
     }
 
