@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -19,9 +19,14 @@
     </None>
   </ItemGroup>
 
-  <Target Name="BuildInstallerOnRelease"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true'">
+  <ItemGroup>
+    <Compile Update="CompareForm.cs" />
+    <Compile Update="CompareForm.Designer.cs">
+      <DependentUpon>CompareForm.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and '$(DesignTimeBuild)' != 'true'">
     <Exec Command="dotnet build &quot;$(InstallerProjectPath)&quot; -c Release" />
   </Target>
 

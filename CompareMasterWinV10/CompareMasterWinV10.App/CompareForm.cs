@@ -5,30 +5,33 @@ using System.Text.RegularExpressions;
 
 namespace CompareMasterWinV10.App;
 
+[DesignerCategory("Form")]
 public partial class CompareForm : Form
 {
-    private readonly TabControl _tabs = new() { Dock = DockStyle.Fill };
+    private TabControl _tabs = null!;
 
-    private readonly Label _leftDirLabel = new() { Dock = DockStyle.Fill, Text = "Left: (not selected)", AutoEllipsis = true };
-    private readonly Label _rightDirLabel = new() { Dock = DockStyle.Fill, Text = "Right: (not selected)", AutoEllipsis = true };
-    private readonly SyncTreeView _leftDirTree = new() { Dock = DockStyle.Fill, HideSelection = false };
-    private readonly SyncTreeView _rightDirTree = new() { Dock = DockStyle.Fill, HideSelection = false };
-    private readonly ImageList _dirStatusIcons = new() { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
-    private readonly CheckBox _dirIgnoreCase = new() { Text = "Ignore Case", AutoSize = false, Width = 95, Height = 26, CheckAlign = ContentAlignment.MiddleLeft, TextAlign = ContentAlignment.MiddleLeft };
-    private readonly CheckBox _dirIgnoreWhitespace = new() { Text = "Ignore Whitespace", AutoSize = false, Width = 135, Height = 26, CheckAlign = ContentAlignment.MiddleLeft, TextAlign = ContentAlignment.MiddleLeft };
-    private readonly TextBox _excludePattern = new() { Width = 200, Height = 26, Text = ".git;bin;obj" };
+    private Label _leftDirLabel = null!;
+    private Label _rightDirLabel = null!;
+    private SyncTreeView _leftDirTree = null!;
+    private SyncTreeView _rightDirTree = null!;
+    private ImageList _dirStatusIcons = null!;
+    private CheckBox _dirIgnoreCase = null!;
+    private CheckBox _dirIgnoreWhitespace = null!;
+    private TextBox _excludePattern = null!;
 
-    private readonly Label _leftFileLabel = new() { Dock = DockStyle.Fill, Text = "Left: (not selected)", AutoEllipsis = true };
-    private readonly Label _rightFileLabel = new() { Dock = DockStyle.Fill, Text = "Right: (not selected)", AutoEllipsis = true };
-    private readonly SyncRichTextBox _leftDiff = new() { Dock = DockStyle.Fill, Font = new Font("Consolas", 10F), ReadOnly = true, WordWrap = false };
-    private readonly SyncRichTextBox _rightDiff = new() { Dock = DockStyle.Fill, Font = new Font("Consolas", 10F), ReadOnly = true, WordWrap = false };
-    private readonly DiffIndicatorBar _leftIndicator = new();
-    private readonly DiffIndicatorBar _rightIndicator = new();
-    private readonly CheckBox _fileIgnoreCase = new() { Text = "Ignore Case", AutoSize = false, Width = 95, Height = 26, CheckAlign = ContentAlignment.MiddleLeft, TextAlign = ContentAlignment.MiddleLeft };
-    private readonly CheckBox _fileIgnoreWhitespace = new() { Text = "Ignore Whitespace", AutoSize = false, Width = 135, Height = 26, CheckAlign = ContentAlignment.MiddleLeft, TextAlign = ContentAlignment.MiddleLeft };
-    private readonly Label _fileSummary = new() { AutoSize = false, Width = 120, Height = 26, Text = "Diff: -", TextAlign = ContentAlignment.MiddleLeft };
-    private readonly SplitContainer _dirSplit = new() { Dock = DockStyle.Fill, Orientation = Orientation.Vertical };
-    private readonly SplitContainer _fileSplit = new() { Dock = DockStyle.Fill, Orientation = Orientation.Vertical };
+    private Label _leftFileLabel = null!;
+    private Label _rightFileLabel = null!;
+    private SyncRichTextBox _leftDiff = null!;
+    private SyncRichTextBox _rightDiff = null!;
+    private DiffIndicatorBar _leftIndicator = null!;
+    private DiffIndicatorBar _rightIndicator = null!;
+    private CheckBox _fileIgnoreCase = null!;
+    private CheckBox _fileIgnoreWhitespace = null!;
+    private Label _fileSummary = null!;
+    private SplitContainer _dirSplit = null!;
+    private SplitContainer _fileSplit = null!;
+    private StatusStrip _statusStrip = null!;
+    private ToolStripStatusLabel _statusLabel = null!;
 
     private string _leftDirPath = string.Empty;
     private string _rightDirPath = string.Empty;
@@ -36,29 +39,31 @@ public partial class CompareForm : Form
     private string _rightFilePath = string.Empty;
 
     // Stores aligned rows (keyed by relative path) for double-click navigation
-    private readonly List<(string RelPath, CompareStatus? LeftStatus, CompareStatus? RightStatus)> _alignedRows = [];
+    private readonly List<(string RelPath, CompareStatus? LeftStatus, CompareStatus? RightStatus)> _alignedRows = new();
 
     public CompareForm()
     {
         InitializeComponent();
-        BuildUi();
+        InitializeRuntimeUi();
     }
 
-    private void BuildUi()
+    private static bool IsDesignTime()
     {
-        Text = "CompareMasterWinV10 - Rebuilt WinForms UI";
-        Width = 1300;
-        Height = 860;
+        return LicenseManager.UsageMode == LicenseUsageMode.Designtime;
+    }
 
-        var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "daemon_hammer.ico");
-        if (File.Exists(iconPath))
-            Icon = new Icon(iconPath);
-
+    private void InitializeRuntimeUi()
+    {
         SetupDirTrees();
         SetupFileDiffs();
-        _tabs.TabPages.Add(BuildDirectoryTab());
-        _tabs.TabPages.Add(BuildFileTab());
-        Controls.Add(_tabs);
+        _dirSplit.SplitterDistance = Math.Max(100, _dirSplit.Width / 2);
+        _fileSplit.SplitterDistance = Math.Max(100, _fileSplit.Width / 2);
+        SetStatus("Ready");
+    }
+
+    private void SetStatus(string message)
+    {
+        _statusLabel.Text = message;
     }
 
     // ── Directory tree setup ──────────────────────────────────────────────────
@@ -323,7 +328,7 @@ public partial class CompareForm : Form
         var indicator = left ? _leftIndicator : _rightIndicator;
 
         box.Clear();
-        indicator.SetColors([]);
+        indicator.SetColors(Array.Empty<Color>());
 
         if (!File.Exists(path)) return;
 
@@ -336,6 +341,7 @@ public partial class CompareForm : Form
         }
         indicator.SetColors(colors);
         _fileSummary.Text = "Diff: -";
+        SetStatus(left ? $"Left file loaded: {Path.GetFileName(path)}" : $"Right file loaded: {Path.GetFileName(path)}");
     }
 
     // ── Directory comparison ───────────────────────────────────────────────────
@@ -399,6 +405,7 @@ public partial class CompareForm : Form
         var summary = $"Same={same}, Different={diff}, LeftOnly={leftOnly}, RightOnly={rightOnly}";
         _leftDirLabel.Text = $"Left: {_leftDirPath} | {summary}";
         _rightDirLabel.Text = $"Right: {_rightDirPath} | {summary}";
+        SetStatus($"Directory compare completed | {summary}");
     }
 
     private void PopulateBothTrees(
@@ -555,9 +562,10 @@ public partial class CompareForm : Form
             rightBarColors.Add(Color.DarkOrange);
         }
 
-        _leftIndicator.SetColors([.. leftBarColors]);
-        _rightIndicator.SetColors([.. rightBarColors]);
+        _leftIndicator.SetColors(leftBarColors.ToArray());
+        _rightIndicator.SetColors(rightBarColors.ToArray());
         _fileSummary.Text = $"Diff: {diffCount} lines";
+        SetStatus($"File compare completed | Diff lines={diffCount}");
     }
 
     private static void AppendLine(RichTextBox box, string text, Color bg)
@@ -859,7 +867,7 @@ public partial class CompareForm : Form
     // Narrow bar drawn beside the file diff panels showing diff status at a glance
     private sealed class DiffIndicatorBar : Control
     {
-        private Color[] _lineColors = [];
+        private Color[] _lineColors = Array.Empty<Color>();
 
         public DiffIndicatorBar()
         {
