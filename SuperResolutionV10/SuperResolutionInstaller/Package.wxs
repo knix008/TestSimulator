@@ -1,0 +1,27 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="Super Resolution Studio"
+      Manufacturer="SuperResolutionV10"
+      Version="1.0.0.0"
+      UpgradeCode="E7A3D4C2-B5F1-4A0E-8C7D-6B5A49382710"
+      Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="CompanyFolder" Name="SuperResolutionV10">
+        <Directory Id="INSTALLFOLDER" Name="Super Resolution Studio" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.PublishOutput)\**" />
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="Super Resolution Studio" Display="expand" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+  </Package>
+</Wix>

@@ -1,0 +1,44 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>SuperResolutionAppSetup</OutputName>
+    <!-- Match solution Release|Any CPU so SLNX / VS build the installer with the app. -->
+    <Platforms>AnyCPU</Platforms>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!-- MSI product version must be major.minor.patch.build -->
+    <ProductVersion>$(Version).0</ProductVersion>
+    <InstallerPayloadDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\obj\installer-publish\'))</InstallerPayloadDir>
+    <ArtifactsDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\artifacts\'))</ArtifactsDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BindPath Include="$(InstallerPayloadDir)" BindName="PublishOutput" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SuperResolutionApp\SuperResolutionApp.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <AdditionalProperties>SkipInstallerBuild=true</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Publish win-x64 payload before compiling WiX (Release and Debug both get matching binaries). -->
+  <Target Name="PrepareInstallerPayload" BeforeTargets="BeforeBuild">
+    <RemoveDir Directories="$(InstallerPayloadDir)" Condition="Exists('$(InstallerPayloadDir)')" />
+    <MakeDir Directories="$(InstallerPayloadDir)" />
+    <Exec
+      Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\SuperResolutionApp\SuperResolutionApp.csproj&quot; -c $(Configuration) -r win-x64 --self-contained false -o &quot;$(InstallerPayloadDir.TrimEnd('\'))&quot;"
+      WorkingDirectory="$(MSBuildProjectDirectory)\.." />
+  </Target>
+
+  <Target Name="CopyInstallerToArtifacts" AfterTargets="Build">
+    <MakeDir Directories="$(ArtifactsDir)" Condition="!Exists('$(ArtifactsDir)')" />
+    <ItemGroup>
+      <_MsiOut Include="$(MSBuildProjectDirectory)\bin\**\$(OutputName).msi" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_MsiOut)" DestinationFolder="$(ArtifactsDir)" SkipUnchangedFiles="true" Condition="@(_MsiOut->Count()) &gt; 0" />
+  </Target>
+
+</Project>

@@ -1,0 +1,84 @@
+## Build outputs
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]uild/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.meta
+
+## Visual Studio / VS Code
+.vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+## Test & coverage
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+
+## NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## JetBrains Rider
+.idea/
+*.sln.iml
+
+## OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## User secrets & local env (do not commit secrets)
+**/appsettings.*.local.json
+*.pfx
+*.key
+secrets.json
+
+## ONNX / large models (optional: remove line if you want to commit small models)
+*.onnx
+*.ort
+*.engine
+*.trt
+
+## Installer (WiX / MSI)
+*.msi
+*.wixpdb
+
+## Misc
+*.tmp
+*.temp
+*.log
+*.bak
+*.swp
+*~

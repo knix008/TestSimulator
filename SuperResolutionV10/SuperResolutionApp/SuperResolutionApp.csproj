@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!--
+    Visual Studio에서 SuperResolutionApp 프로젝트만 Release 빌드해도
+    설치용 MSI가 함께 생성되도록 후속 빌드를 트리거한다.
+  -->
+  <Target
+    Name="BuildInstallerOnReleaseInVisualStudio"
+    AfterTargets="Build"
+    Condition="
+      '$(Configuration)' == 'Release'
+      and '$(BuildingInsideVisualStudio)' == 'true'
+      and '$(DesignTimeBuild)' != 'true'
+      and '$(SkipInstallerBuild)' != 'true'
+    ">
+    <MSBuild
+      Projects="$(MSBuildProjectDirectory)\..\SuperResolutionInstaller\SuperResolutionInstaller.wixproj"
+      Targets="Build"
+      Properties="Configuration=$(Configuration);Platform=AnyCPU;SkipInstallerBuild=true" />
+  </Target>
+
+</Project>
