@@ -9,10 +9,20 @@
     <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <InstallerProjectPath>$(MSBuildProjectDirectory)\..\installer\CompareMasterWinV10.Installer.wixproj</InstallerProjectPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <None Include="daemon_hammer.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true'">
+    <Exec Command="dotnet build &quot;$(InstallerProjectPath)&quot; -c Release" />
+  </Target>
 
 </Project>
