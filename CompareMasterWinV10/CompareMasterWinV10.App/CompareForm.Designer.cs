@@ -1,6 +1,6 @@
-﻿namespace CompareMasterWinV10.App;
+namespace CompareMasterWinV10.App;
 
-partial class Form1
+partial class CompareForm
 {
     /// <summary>
     ///  Required designer variable.
@@ -31,7 +31,7 @@ partial class Form1
         components = new System.ComponentModel.Container();
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(800, 450);
-        Text = "Form1";
+        Text = "CompareForm";
     }
 
     #endregion
