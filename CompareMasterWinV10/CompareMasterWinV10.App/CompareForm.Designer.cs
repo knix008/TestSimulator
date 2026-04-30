@@ -82,7 +82,6 @@ partial class CompareForm
         _fileIgnoreWhitespace = new CheckBox();
         _fileIgnoreCase = new CheckBox();
         _compareFileButton = new Button();
-        _fileSummary = new Label();
         _dirStatusIcons = new ImageList(components);
         _statusStrip = new StatusStrip();
         _statusLabel = new ToolStripStatusLabel();
@@ -170,7 +169,7 @@ partial class CompareForm
         // _leftDirTree
         // 
         _leftDirTree.BackColor = Color.FromArgb(255, 255, 255);
-        _leftDirTree.BorderStyle = BorderStyle.None;
+        _leftDirTree.BorderStyle = BorderStyle.FixedSingle;
         _leftDirTree.Dock = DockStyle.Fill;
         _leftDirTree.ForeColor = Color.FromArgb(33, 37, 41);
         _leftDirTree.HideSelection = false;
@@ -182,11 +181,13 @@ partial class CompareForm
         // _leftDirLabel
         // 
         _leftDirLabel.AutoEllipsis = true;
+        _leftDirLabel.BackColor = Color.FromArgb(235, 241, 248);
         _leftDirLabel.Dock = DockStyle.Top;
         _leftDirLabel.ForeColor = Color.FromArgb(92, 99, 112);
         _leftDirLabel.Location = new Point(8, 8);
         _leftDirLabel.Name = "_leftDirLabel";
-        _leftDirLabel.Size = new Size(1008, 24);
+        _leftDirLabel.Padding = new Padding(8, 0, 0, 0);
+        _leftDirLabel.Size = new Size(1008, 28);
         _leftDirLabel.TabIndex = 1;
         _leftDirLabel.Text = "Left: (not selected)";
         // 
@@ -206,7 +207,7 @@ partial class CompareForm
         // _rightDirTree
         // 
         _rightDirTree.BackColor = Color.FromArgb(255, 255, 255);
-        _rightDirTree.BorderStyle = BorderStyle.None;
+        _rightDirTree.BorderStyle = BorderStyle.FixedSingle;
         _rightDirTree.Dock = DockStyle.Fill;
         _rightDirTree.ForeColor = Color.FromArgb(33, 37, 41);
         _rightDirTree.HideSelection = false;
@@ -218,11 +219,13 @@ partial class CompareForm
         // _rightDirLabel
         // 
         _rightDirLabel.AutoEllipsis = true;
+        _rightDirLabel.BackColor = Color.FromArgb(235, 241, 248);
         _rightDirLabel.Dock = DockStyle.Top;
         _rightDirLabel.ForeColor = Color.FromArgb(92, 99, 112);
         _rightDirLabel.Location = new Point(8, 8);
         _rightDirLabel.Name = "_rightDirLabel";
-        _rightDirLabel.Size = new Size(212, 24);
+        _rightDirLabel.Padding = new Padding(8, 0, 0, 0);
+        _rightDirLabel.Size = new Size(212, 28);
         _rightDirLabel.TabIndex = 1;
         _rightDirLabel.Text = "Right: (not selected)";
         // 
@@ -235,10 +238,12 @@ partial class CompareForm
         _dirTopBar.Controls.Add(_dirIgnoreWhitespace);
         _dirTopBar.Controls.Add(_dirIgnoreCase);
         _dirTopBar.Controls.Add(_compareDirButton);
+        _dirTopBar.Padding = new Padding(8, 6, 8, 6);
+        _dirTopBar.BackColor = Color.FromArgb(245, 247, 250);
         _dirTopBar.Dock = DockStyle.Top;
         _dirTopBar.Location = new Point(0, 0);
         _dirTopBar.Name = "_dirTopBar";
-        _dirTopBar.Size = new Size(1292, 42);
+        _dirTopBar.Size = new Size(1292, 44);
         _dirTopBar.TabIndex = 1;
         _dirTopBar.WrapContents = false;
         // 
@@ -248,10 +253,10 @@ partial class CompareForm
         _leftDirButton.FlatAppearance.BorderColor = Color.FromArgb(76, 84, 98);
         _leftDirButton.FlatStyle = FlatStyle.Flat;
         _leftDirButton.ForeColor = Color.FromArgb(33, 37, 41);
-        _leftDirButton.Location = new Point(2, 6);
-        _leftDirButton.Margin = new Padding(2, 6, 2, 0);
+        _leftDirButton.Location = new Point(8, 6);
+        _leftDirButton.Margin = new Padding(0, 0, 6, 0);
         _leftDirButton.Name = "_leftDirButton";
-        _leftDirButton.Size = new Size(182, 30);
+        _leftDirButton.Size = new Size(160, 30);
         _leftDirButton.TabIndex = 0;
         _leftDirButton.Text = "Left Directory Select";
         _leftDirButton.UseVisualStyleBackColor = false;
@@ -263,10 +268,10 @@ partial class CompareForm
         _rightDirButton.FlatAppearance.BorderColor = Color.FromArgb(76, 84, 98);
         _rightDirButton.FlatStyle = FlatStyle.Flat;
         _rightDirButton.ForeColor = Color.FromArgb(33, 37, 41);
-        _rightDirButton.Location = new Point(188, 6);
-        _rightDirButton.Margin = new Padding(2, 6, 2, 0);
+        _rightDirButton.Location = new Point(174, 6);
+        _rightDirButton.Margin = new Padding(0, 0, 6, 0);
         _rightDirButton.Name = "_rightDirButton";
-        _rightDirButton.Size = new Size(182, 30);
+        _rightDirButton.Size = new Size(160, 30);
         _rightDirButton.TabIndex = 1;
         _rightDirButton.Text = "Right Directory Select";
         _rightDirButton.UseVisualStyleBackColor = false;
@@ -275,8 +280,8 @@ partial class CompareForm
         // _excludeLabel
         // 
         _excludeLabel.ForeColor = Color.FromArgb(92, 99, 112);
-        _excludeLabel.Location = new Point(380, 8);
-        _excludeLabel.Margin = new Padding(8, 8, 0, 0);
+        _excludeLabel.Location = new Point(344, 8);
+        _excludeLabel.Margin = new Padding(4, 2, 0, 0);
         _excludeLabel.Name = "_excludeLabel";
         _excludeLabel.Size = new Size(80, 26);
         _excludeLabel.TabIndex = 2;
@@ -288,10 +293,10 @@ partial class CompareForm
         _excludePattern.BackColor = Color.FromArgb(255, 255, 255);
         _excludePattern.BorderStyle = BorderStyle.FixedSingle;
         _excludePattern.ForeColor = Color.FromArgb(33, 37, 41);
-        _excludePattern.Location = new Point(462, 8);
-        _excludePattern.Margin = new Padding(2, 8, 2, 0);
+        _excludePattern.Location = new Point(424, 8);
+        _excludePattern.Margin = new Padding(2, 0, 8, 0);
         _excludePattern.Name = "_excludePattern";
-        _excludePattern.Size = new Size(222, 25);
+        _excludePattern.Size = new Size(200, 25);
         _excludePattern.TabIndex = 3;
         _excludePattern.Text = ".git;bin;obj";
         // 
@@ -299,8 +304,8 @@ partial class CompareForm
         // 
         _dirIgnoreWhitespace.AutoSize = true;
         _dirIgnoreWhitespace.ForeColor = Color.FromArgb(92, 99, 112);
-        _dirIgnoreWhitespace.Location = new Point(694, 8);
-        _dirIgnoreWhitespace.Margin = new Padding(8, 8, 2, 0);
+        _dirIgnoreWhitespace.Location = new Point(634, 8);
+        _dirIgnoreWhitespace.Margin = new Padding(0, 2, 8, 0);
         _dirIgnoreWhitespace.Name = "_dirIgnoreWhitespace";
         _dirIgnoreWhitespace.Size = new Size(142, 23);
         _dirIgnoreWhitespace.TabIndex = 4;
@@ -310,8 +315,8 @@ partial class CompareForm
         // 
         _dirIgnoreCase.AutoSize = true;
         _dirIgnoreCase.ForeColor = Color.FromArgb(92, 99, 112);
-        _dirIgnoreCase.Location = new Point(840, 8);
-        _dirIgnoreCase.Margin = new Padding(2, 8, 2, 0);
+        _dirIgnoreCase.Location = new Point(784, 8);
+        _dirIgnoreCase.Margin = new Padding(0, 2, 8, 0);
         _dirIgnoreCase.Name = "_dirIgnoreCase";
         _dirIgnoreCase.Size = new Size(101, 23);
         _dirIgnoreCase.TabIndex = 5;
@@ -323,10 +328,10 @@ partial class CompareForm
         _compareDirButton.FlatAppearance.BorderColor = Color.FromArgb(37, 105, 196);
         _compareDirButton.FlatStyle = FlatStyle.Flat;
         _compareDirButton.ForeColor = Color.White;
-        _compareDirButton.Location = new Point(951, 6);
-        _compareDirButton.Margin = new Padding(8, 6, 2, 0);
+        _compareDirButton.Location = new Point(893, 6);
+        _compareDirButton.Margin = new Padding(0, 0, 0, 0);
         _compareDirButton.Name = "_compareDirButton";
-        _compareDirButton.Size = new Size(122, 30);
+        _compareDirButton.Size = new Size(100, 30);
         _compareDirButton.TabIndex = 6;
         _compareDirButton.Text = "Compare";
         _compareDirButton.UseVisualStyleBackColor = false;
@@ -419,11 +424,13 @@ partial class CompareForm
         // _leftFileLabel
         // 
         _leftFileLabel.AutoEllipsis = true;
+        _leftFileLabel.BackColor = Color.FromArgb(235, 241, 248);
         _leftFileLabel.Dock = DockStyle.Top;
         _leftFileLabel.ForeColor = Color.FromArgb(92, 99, 112);
         _leftFileLabel.Location = new Point(8, 8);
         _leftFileLabel.Name = "_leftFileLabel";
-        _leftFileLabel.Size = new Size(1002, 24);
+        _leftFileLabel.Padding = new Padding(8, 0, 0, 0);
+        _leftFileLabel.Size = new Size(1002, 28);
         _leftFileLabel.TabIndex = 1;
         _leftFileLabel.Text = "Left: (not selected)";
         // 
@@ -481,11 +488,13 @@ partial class CompareForm
         // _rightFileLabel
         // 
         _rightFileLabel.AutoEllipsis = true;
+        _rightFileLabel.BackColor = Color.FromArgb(235, 241, 248);
         _rightFileLabel.Dock = DockStyle.Top;
         _rightFileLabel.ForeColor = Color.FromArgb(92, 99, 112);
         _rightFileLabel.Location = new Point(8, 8);
         _rightFileLabel.Name = "_rightFileLabel";
-        _rightFileLabel.Size = new Size(218, 24);
+        _rightFileLabel.Padding = new Padding(8, 0, 0, 0);
+        _rightFileLabel.Size = new Size(218, 28);
         _rightFileLabel.TabIndex = 1;
         _rightFileLabel.Text = "Right: (not selected)";
         // 
@@ -496,11 +505,12 @@ partial class CompareForm
         _fileTopBar.Controls.Add(_fileIgnoreWhitespace);
         _fileTopBar.Controls.Add(_fileIgnoreCase);
         _fileTopBar.Controls.Add(_compareFileButton);
-        _fileTopBar.Controls.Add(_fileSummary);
+        _fileTopBar.Padding = new Padding(8, 6, 8, 6);
+        _fileTopBar.BackColor = Color.FromArgb(245, 247, 250);
         _fileTopBar.Dock = DockStyle.Top;
         _fileTopBar.Location = new Point(0, 0);
         _fileTopBar.Name = "_fileTopBar";
-        _fileTopBar.Size = new Size(1292, 42);
+        _fileTopBar.Size = new Size(1292, 44);
         _fileTopBar.TabIndex = 1;
         _fileTopBar.WrapContents = false;
         // 
@@ -510,8 +520,8 @@ partial class CompareForm
         _leftFileButton.FlatAppearance.BorderColor = Color.FromArgb(76, 84, 98);
         _leftFileButton.FlatStyle = FlatStyle.Flat;
         _leftFileButton.ForeColor = Color.FromArgb(33, 37, 41);
-        _leftFileButton.Location = new Point(2, 6);
-        _leftFileButton.Margin = new Padding(2, 6, 2, 0);
+        _leftFileButton.Location = new Point(8, 6);
+        _leftFileButton.Margin = new Padding(0, 0, 6, 0);
         _leftFileButton.Name = "_leftFileButton";
         _leftFileButton.Size = new Size(160, 30);
         _leftFileButton.TabIndex = 0;
@@ -525,8 +535,8 @@ partial class CompareForm
         _rightFileButton.FlatAppearance.BorderColor = Color.FromArgb(76, 84, 98);
         _rightFileButton.FlatStyle = FlatStyle.Flat;
         _rightFileButton.ForeColor = Color.FromArgb(33, 37, 41);
-        _rightFileButton.Location = new Point(166, 6);
-        _rightFileButton.Margin = new Padding(2, 6, 2, 0);
+        _rightFileButton.Location = new Point(174, 6);
+        _rightFileButton.Margin = new Padding(0, 0, 6, 0);
         _rightFileButton.Name = "_rightFileButton";
         _rightFileButton.Size = new Size(160, 30);
         _rightFileButton.TabIndex = 1;
@@ -538,8 +548,8 @@ partial class CompareForm
         // 
         _fileIgnoreWhitespace.AutoSize = true;
         _fileIgnoreWhitespace.ForeColor = Color.FromArgb(92, 99, 112);
-        _fileIgnoreWhitespace.Location = new Point(336, 8);
-        _fileIgnoreWhitespace.Margin = new Padding(8, 8, 2, 0);
+        _fileIgnoreWhitespace.Location = new Point(342, 8);
+        _fileIgnoreWhitespace.Margin = new Padding(0, 2, 8, 0);
         _fileIgnoreWhitespace.Name = "_fileIgnoreWhitespace";
         _fileIgnoreWhitespace.Size = new Size(142, 23);
         _fileIgnoreWhitespace.TabIndex = 2;
@@ -549,8 +559,8 @@ partial class CompareForm
         // 
         _fileIgnoreCase.AutoSize = true;
         _fileIgnoreCase.ForeColor = Color.FromArgb(92, 99, 112);
-        _fileIgnoreCase.Location = new Point(482, 8);
-        _fileIgnoreCase.Margin = new Padding(2, 8, 2, 0);
+        _fileIgnoreCase.Location = new Point(492, 8);
+        _fileIgnoreCase.Margin = new Padding(0, 2, 8, 0);
         _fileIgnoreCase.Name = "_fileIgnoreCase";
         _fileIgnoreCase.Size = new Size(101, 23);
         _fileIgnoreCase.TabIndex = 3;
@@ -562,25 +572,14 @@ partial class CompareForm
         _compareFileButton.FlatAppearance.BorderColor = Color.FromArgb(37, 105, 196);
         _compareFileButton.FlatStyle = FlatStyle.Flat;
         _compareFileButton.ForeColor = Color.White;
-        _compareFileButton.Location = new Point(593, 6);
-        _compareFileButton.Margin = new Padding(8, 6, 2, 0);
+        _compareFileButton.Location = new Point(601, 6);
+        _compareFileButton.Margin = new Padding(0, 0, 8, 0);
         _compareFileButton.Name = "_compareFileButton";
         _compareFileButton.Size = new Size(100, 30);
         _compareFileButton.TabIndex = 4;
         _compareFileButton.Text = "Compare";
         _compareFileButton.UseVisualStyleBackColor = false;
         _compareFileButton.Click += CompareFileButton_Click;
-        // 
-        // _fileSummary
-        // 
-        _fileSummary.ForeColor = Color.FromArgb(33, 37, 41);
-        _fileSummary.Location = new Point(707, 8);
-        _fileSummary.Margin = new Padding(12, 8, 2, 0);
-        _fileSummary.Name = "_fileSummary";
-        _fileSummary.Size = new Size(120, 26);
-        _fileSummary.TabIndex = 5;
-        _fileSummary.Text = "Diff: -";
-        _fileSummary.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // _dirStatusIcons
         // 

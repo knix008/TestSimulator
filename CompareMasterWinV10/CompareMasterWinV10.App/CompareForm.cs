@@ -8,6 +8,13 @@ namespace CompareMasterWinV10.App;
 [DesignerCategory("Form")]
 public partial class CompareForm : Form
 {
+    private const int WM_SETREDRAW = 0x000B;
+    private const int EM_GETFIRSTVISIBLELINE = 0x00CE;
+    private const int EM_LINESCROLL = 0x00B6;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
     private TabControl _tabs = null!;
 
     private Label _leftDirLabel = null!;
@@ -27,7 +34,6 @@ public partial class CompareForm : Form
     private DiffIndicatorBar _rightIndicator = null!;
     private CheckBox _fileIgnoreCase = null!;
     private CheckBox _fileIgnoreWhitespace = null!;
-    private Label _fileSummary = null!;
     private SplitContainer _dirSplit = null!;
     private SplitContainer _fileSplit = null!;
     private StatusStrip _statusStrip = null!;
@@ -176,13 +182,11 @@ public partial class CompareForm : Form
         compareButton.Click += (_, _) => CompareFiles();
         _fileIgnoreWhitespace.Margin = new Padding(8, 8, 2, 0);
         _fileIgnoreCase.Margin = new Padding(2, 8, 2, 0);
-        _fileSummary.Margin = new Padding(12, 8, 2, 0);
         topBar.Controls.Add(leftSelect);
         topBar.Controls.Add(rightSelect);
         topBar.Controls.Add(_fileIgnoreWhitespace);
         topBar.Controls.Add(_fileIgnoreCase);
         topBar.Controls.Add(compareButton);
-        topBar.Controls.Add(_fileSummary);
 
         _fileSplit.SplitterDistance = 620;
         _fileSplit.Panel1.Controls.Add(BuildFileSide("LEFT PANEL", _leftFileLabel, _leftDiff, _leftIndicator, indicatorOnRight: true, () => SelectFile(true)));
@@ -327,21 +331,29 @@ public partial class CompareForm : Form
         var box = left ? _leftDiff : _rightDiff;
         var indicator = left ? _leftIndicator : _rightIndicator;
 
-        box.Clear();
-        indicator.SetColors(Array.Empty<Color>());
-
-        if (!File.Exists(path)) return;
-
-        var lines = File.ReadAllLines(path);
-        var colors = new Color[lines.Length];
-        for (var i = 0; i < lines.Length; i++)
+        SetRedraw(box, false);
+        try
         {
-            AppendLine(box, lines[i], SystemColors.Window);
-            colors[i] = SystemColors.Window;
+            box.Clear();
+            indicator.SetColors(Array.Empty<Color>());
+
+            if (!File.Exists(path)) return;
+
+            var lines = File.ReadAllLines(path);
+            var colors = new Color[lines.Length];
+            for (var i = 0; i < lines.Length; i++)
+            {
+                AppendLine(box, lines[i], SystemColors.Window);
+                colors[i] = SystemColors.Window;
+            }
+            indicator.SetColors(colors);
+            SetStatus(left ? $"Left file loaded: {Path.GetFileName(path)}" : $"Right file loaded: {Path.GetFileName(path)}");
+            ScrollDiffToTop(box);
         }
-        indicator.SetColors(colors);
-        _fileSummary.Text = "Diff: -";
-        SetStatus(left ? $"Left file loaded: {Path.GetFileName(path)}" : $"Right file loaded: {Path.GetFileName(path)}");
+        finally
+        {
+            SetRedraw(box, true);
+        }
     }
 
     // ── Directory comparison ───────────────────────────────────────────────────
@@ -515,57 +527,109 @@ public partial class CompareForm : Form
             return;
         }
 
-        _leftDiff.Clear();
-        _rightDiff.Clear();
-        var leftLines = File.ReadAllLines(_leftFilePath);
-        var rightLines = File.ReadAllLines(_rightFilePath);
-        var pairs = BuildAlignedLines(leftLines, rightLines, _fileIgnoreWhitespace.Checked, _fileIgnoreCase.Checked);
-        var diffCount = 0;
-        var leftBarColors = new List<Color>();
-        var rightBarColors = new List<Color>();
-
-        foreach (var (l, r) in pairs)
+        _leftFilePanel.SuspendLayout();
+        _rightFilePanel.SuspendLayout();
+        SetRedraw(_leftDiff, false);
+        SetRedraw(_rightDiff, false);
+        try
         {
-            var same = LinesEqual(l, r, _fileIgnoreWhitespace.Checked, _fileIgnoreCase.Checked);
-            if (!same) diffCount++;
+            _leftDiff.Clear();
+            _rightDiff.Clear();
+            var leftLines = File.ReadAllLines(_leftFilePath);
+            var rightLines = File.ReadAllLines(_rightFilePath);
+            var pairs = BuildAlignedLines(leftLines, rightLines, _fileIgnoreWhitespace.Checked, _fileIgnoreCase.Checked);
+            var diffCount = 0;
+            var leftBarColors = new List<Color>();
+            var rightBarColors = new List<Color>();
 
-            if (same)
+            foreach (var (l, r) in pairs)
             {
-                AppendLine(_leftDiff, l ?? string.Empty, Color.Honeydew);
-                AppendLine(_rightDiff, r ?? string.Empty, Color.Honeydew);
-                leftBarColors.Add(Color.Honeydew);
-                rightBarColors.Add(Color.Honeydew);
-                continue;
+                var same = LinesEqual(l, r, _fileIgnoreWhitespace.Checked, _fileIgnoreCase.Checked);
+                if (!same) diffCount++;
+
+                if (same)
+                {
+                    AppendLine(_leftDiff, l ?? string.Empty, Color.Honeydew);
+                    AppendLine(_rightDiff, r ?? string.Empty, Color.Honeydew);
+                    leftBarColors.Add(Color.Honeydew);
+                    rightBarColors.Add(Color.Honeydew);
+                    continue;
+                }
+
+                if (l is null)
+                {
+                    AppendLine(_leftDiff, string.Empty, Color.LightGray);
+                    AppendLine(_rightDiff, r ?? string.Empty, Color.MistyRose);
+                    leftBarColors.Add(Color.LightGray);
+                    rightBarColors.Add(Color.Crimson);
+                    continue;
+                }
+
+                if (r is null)
+                {
+                    AppendLine(_leftDiff, l, Color.MistyRose);
+                    AppendLine(_rightDiff, string.Empty, Color.LightGray);
+                    leftBarColors.Add(Color.Crimson);
+                    rightBarColors.Add(Color.LightGray);
+                    continue;
+                }
+
+                AppendLineWithInlineDiff(_leftDiff, l, r);
+                AppendLineWithInlineDiff(_rightDiff, r, l);
+                leftBarColors.Add(Color.DarkOrange);
+                rightBarColors.Add(Color.DarkOrange);
             }
 
-            if (l is null)
-            {
-                AppendLine(_leftDiff, string.Empty, Color.LightGray);
-                AppendLine(_rightDiff, r ?? string.Empty, Color.MistyRose);
-                leftBarColors.Add(Color.LightGray);
-                rightBarColors.Add(Color.Crimson);
-                continue;
-            }
-
-            if (r is null)
-            {
-                AppendLine(_leftDiff, l, Color.MistyRose);
-                AppendLine(_rightDiff, string.Empty, Color.LightGray);
-                leftBarColors.Add(Color.Crimson);
-                rightBarColors.Add(Color.LightGray);
-                continue;
-            }
-
-            AppendLineWithInlineDiff(_leftDiff, l, r);
-            AppendLineWithInlineDiff(_rightDiff, r, l);
-            leftBarColors.Add(Color.DarkOrange);
-            rightBarColors.Add(Color.DarkOrange);
+            _leftIndicator.SetColors(leftBarColors.ToArray());
+            _rightIndicator.SetColors(rightBarColors.ToArray());
+            SetStatus($"File compare completed | Diff lines={diffCount}");
+            ScrollDiffToTop(_leftDiff);
+            ScrollDiffToTop(_rightDiff);
+            AlignDiffViewports();
         }
+        finally
+        {
+            SetRedraw(_leftDiff, true);
+            SetRedraw(_rightDiff, true);
+            _leftFilePanel.ResumeLayout(true);
+            _rightFilePanel.ResumeLayout(true);
+        }
+    }
 
-        _leftIndicator.SetColors(leftBarColors.ToArray());
-        _rightIndicator.SetColors(rightBarColors.ToArray());
-        _fileSummary.Text = $"Diff: {diffCount} lines";
-        SetStatus($"File compare completed | Diff lines={diffCount}");
+    private static void SetRedraw(Control control, bool enabled)
+    {
+        if (!control.IsHandleCreated)
+            return;
+
+        SendMessage(control.Handle, WM_SETREDRAW, enabled ? new IntPtr(1) : IntPtr.Zero, IntPtr.Zero);
+        if (enabled)
+        {
+            control.Invalidate(true);
+            control.Update();
+            control.Refresh();
+        }
+    }
+
+    private static void ScrollDiffToTop(RichTextBox box)
+    {
+        if (box.TextLength == 0)
+            return;
+
+        box.SelectionStart = 0;
+        box.SelectionLength = 0;
+        box.ScrollToCaret();
+    }
+
+    private void AlignDiffViewports()
+    {
+        if (!_leftDiff.IsHandleCreated || !_rightDiff.IsHandleCreated)
+            return;
+
+        var leftTop = (int)SendMessage(_leftDiff.Handle, EM_GETFIRSTVISIBLELINE, IntPtr.Zero, IntPtr.Zero);
+        var rightTop = (int)SendMessage(_rightDiff.Handle, EM_GETFIRSTVISIBLELINE, IntPtr.Zero, IntPtr.Zero);
+        var delta = leftTop - rightTop;
+        if (delta != 0)
+            SendMessage(_rightDiff.Handle, EM_LINESCROLL, IntPtr.Zero, new IntPtr(delta));
     }
 
     private static void AppendLine(RichTextBox box, string text, Color bg)
@@ -852,6 +916,10 @@ public partial class CompareForm : Form
             _syncing = true;
             try
             {
+                // Mirror native vertical scroll messages first for tighter sync
+                if (m.Msg == WM_VSCROLL)
+                    SendMessage(Buddy.Handle, WM_VSCROLL, m.WParam, IntPtr.Zero);
+
                 const int EM_GETFIRSTVISIBLELINE = 0x00CE;
                 const int EM_LINESCROLL = 0x00B6;
                 var myLine = (int)SendMessage(Handle, EM_GETFIRSTVISIBLELINE, IntPtr.Zero, IntPtr.Zero);
