@@ -46,18 +46,45 @@ Visual Studio에서 **`SuperResolutionV10.sln`**을 연 뒤 구성을 **Release*
 
 ## 현재 동작
 
-- 입력 이미지 로드, 배율(x2~x8) 선택, 결과 저장, 입력/출력 미리보기(휠 줌·스크롤)
-- `ISuperResolutionEngine` 기반으로 알고리즘별 엔진을 붙일 수 있는 구조
-- MVP 단계에서는 **고품질 Bicubic** 업스케일로 동작합니다(실제 신경망 추론은 다음 단계).
+- 알고리즘 선택: `Bicubic`, `SwinIR`, `ESRGAN`, `AuraSR`
+- 모델 선택 시 기본 파라미터(Scale/Runtime/Tile/Overlap) 자동 적용
+- 입력/출력 미리보기: 휠 줌, 스크롤, 가운데 정렬
+- 진행률 표시: ProgressBar + `%` + 상태바 상태 텍스트
+- 저장: 자동 저장(기본 `Pictures`, 불가 시 `Desktop`) + 수동 저장(`JPG/PNG`)
+- 실행 장치: `CPU` / `CUDA` 선택(기본 `CPU`)
 
-## 실제 모델 연동(다음 단계)
+## 모델 준비 자동화
 
-1. 사용할 모델을 **ONNX**(`.onnx`)로 준비합니다.
-2. NuGet에 `Microsoft.ML.OnnxRuntime`(필요 시 GPU 패키지)을 추가합니다.
-3. 알고리즘별 엔진 클래스를 구현합니다(예: `EsrganOnnxEngine`, `SwinIrOnnxEngine`, `AuraSrOnnxEngine`).
-4. `SuperResolutionService`에서 선택된 알고리즘과 모델 경로에 맞게 엔진을 매핑합니다.
+앱 GUI의 **`Prepare Models`** 버튼을 누르면 아래 작업을 자동 실행합니다.
 
-> **참고:** 기본 `.gitignore`에서 `*.onnx`와 `artifacts/`를 제외해 두었습니다. MSI를 저장소에 포함하려면 `.gitignore`에서 `artifacts/` 줄을 제거하세요.
+- `SwinIR` ONNX 다운로드
+- `ESRGAN` ONNX 다운로드/구성
+- `AuraSR` 소스 가중치 다운로드 + ONNX export
+- ONNX Runtime 로딩 검증(스크립트 옵션에 따라 생략 가능)
+
+동일 기능을 CLI로도 실행할 수 있습니다:
+
+```powershell
+python .\scripts\prepare_sr_models.py
+```
+
+옵션 예시:
+
+```powershell
+# ESRGAN을 external-data(.onnx + .data) 형태로 준비
+python .\scripts\prepare_sr_models.py --esrgan-mode external
+
+# 특정 모델만 준비
+python .\scripts\prepare_sr_models.py --skip-swinir --skip-esrgan
+```
+
+> **중요:** `AuraSR`는 export 결과가 external data 파일(여러 sidecar 파일)을 생성할 수 있으므로 `models` 폴더의 관련 파일들을 함께 유지해야 합니다.
+
+## 모델 파일과 Git
+
+- 이 저장소는 모델 파일을 Git에 포함하지 않는 정책입니다.
+- `.gitignore`에서 `models/**`, `*.onnx`, `*.engine`, `*.trt` 등을 제외합니다.
+- 따라서 모델은 각 개발 환경에서 `Prepare Models` 버튼(또는 스크립트)으로 로컬에 준비해야 합니다.
 
 ## 라이선스
 

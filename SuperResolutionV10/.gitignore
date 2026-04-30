@@ -65,11 +65,13 @@ Desktop.ini
 *.key
 secrets.json
 
-## ONNX / large models (optional: remove line if you want to commit small models)
+## Models and large inference assets (local-only; do not commit)
 *.onnx
 *.ort
 *.engine
 *.trt
+models/**
+!models/.gitkeep
 
 ## Installer (WiX / MSI)
 *.msi

@@ -2,6 +2,14 @@ namespace SuperResolutionApp;
 
 public partial class SuperResolutionForm : Form
 {
+    private readonly record struct AlgorithmDefaults(int Scale, SrRuntimeDevice Runtime, int TileSize, int TileOverlap);
+
+    private enum SaveImageFormat
+    {
+        JPG,
+        PNG
+    }
+
     private readonly SuperResolutionService _service = new();
     private readonly PreviewWheelMessageFilter _previewWheelFilter;
     private readonly Dictionary<SrAlgorithm, string[]> _defaultModelCandidates;
@@ -13,9 +21,14 @@ public partial class SuperResolutionForm : Form
         InitializeComponent();
         comboAlgorithm.DataSource = Enum.GetValues<SrAlgorithm>();
         comboAlgorithm.SelectedItem = SrAlgorithm.SwinIR;
+        comboRuntime.DataSource = Enum.GetValues<SrRuntimeDevice>();
+        comboRuntime.SelectedItem = SrRuntimeDevice.CPU;
+        comboSaveFormat.DataSource = Enum.GetValues<SaveImageFormat>();
+        comboSaveFormat.SelectedItem = SaveImageFormat.JPG;
         _defaultModelCandidates = BuildDefaultModelCandidates();
         comboAlgorithm.SelectedIndexChanged += (_, _) => UpdateModelPathUiAndAutoLoad();
         UpdateModelPathUiAndAutoLoad();
+        SetAppState("Idle");
 
         _previewWheelFilter = new PreviewWheelMessageFilter(this);
         Application.AddMessageFilter(_previewWheelFilter);
@@ -91,6 +104,85 @@ public partial class SuperResolutionForm : Form
         SetStatus($"Loaded: {Path.GetFileName(dialog.FileName)} ({_inputBitmap.Width}x{_inputBitmap.Height})");
     }
 
+    private async void buttonPrepareModels_Click(object sender, EventArgs e)
+    {
+        var scriptsDir = FindScriptsDirectory();
+        var scriptPath = Path.Combine(scriptsDir, "prepare_sr_models.py");
+        if (!File.Exists(scriptPath))
+        {
+            MessageBox.Show(
+                $"모델 준비 스크립트를 찾지 못했습니다.\n{scriptPath}",
+                "Script Not Found",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
+        buttonPrepareModels.Enabled = false;
+        SetAppState("Preparing Models");
+        SetStatus("Preparing models... download + ONNX conversion in progress.");
+
+        try
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "python",
+                Arguments = $"\"{scriptPath}\"",
+                WorkingDirectory = Path.GetDirectoryName(scriptPath)!,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = new System.Diagnostics.Process { StartInfo = startInfo };
+            process.Start();
+            string stdout = await process.StandardOutput.ReadToEndAsync();
+            string stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0)
+            {
+                var detail = string.IsNullOrWhiteSpace(stderr) ? stdout : stderr;
+                MessageBox.Show(
+                    $"모델 준비 중 오류가 발생했습니다.\n{detail}",
+                    "Prepare Models Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                SetStatus("Model preparation failed.");
+                SetAppState("Failed");
+                return;
+            }
+
+            UpdateModelPathUiAndAutoLoad();
+            SetStatus("Model preparation completed.");
+            SetAppState("Completed");
+            MessageBox.Show(
+                "모델 다운로드 및 ONNX 변환이 완료되었습니다.",
+                "Prepare Models",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"모델 준비 실행 중 오류가 발생했습니다.\n{ex.Message}",
+                "Prepare Models Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            SetStatus("Model preparation failed.");
+            SetAppState("Failed");
+        }
+        finally
+        {
+            buttonPrepareModels.Enabled = true;
+            if (toolStripStateLabel.Text == "Preparing Models")
+            {
+                SetAppState("Idle");
+            }
+        }
+    }
+
     private void buttonSelectModel_Click(object sender, EventArgs e)
     {
         using var dialog = new OpenFileDialog
@@ -101,32 +193,96 @@ public partial class SuperResolutionForm : Form
         if (dialog.ShowDialog() == DialogResult.OK)
         {
             textBoxModelPath.Text = dialog.FileName;
+            AutoApplySettingsFromSelectedModel(dialog.FileName);
         }
+    }
+
+    private void AutoApplySettingsFromSelectedModel(string modelPath)
+    {
+        var inferred = InferAlgorithmFromModelPath(modelPath);
+        if (inferred is null)
+        {
+            SetStatus($"Model selected: {Path.GetFileName(modelPath)} (algorithm auto-detect failed)");
+            return;
+        }
+
+        comboAlgorithm.SelectedItem = inferred.Value;
+        var defaults = GetAlgorithmDefaults(inferred.Value);
+        ApplyAlgorithmDefaults(defaults);
+        SetStatus($"Model selected: {Path.GetFileName(modelPath)} | auto: {inferred.Value}, x{defaults.Scale}, {defaults.Runtime}, tile={defaults.TileSize}, overlap={defaults.TileOverlap}");
+    }
+
+    private static SrAlgorithm? InferAlgorithmFromModelPath(string modelPath)
+    {
+        var name = Path.GetFileNameWithoutExtension(modelPath).ToLowerInvariant();
+        if (name.Contains("swin"))
+        {
+            return SrAlgorithm.SwinIR;
+        }
+
+        if (name.Contains("esrgan") || name.Contains("real-esrgan") || name.Contains("realesrgan"))
+        {
+            return SrAlgorithm.ESRGAN;
+        }
+
+        if (name.Contains("aura"))
+        {
+            return SrAlgorithm.AuraSR;
+        }
+
+        return null;
     }
 
     private void UpdateModelPathUiAndAutoLoad()
     {
         var algorithm = (SrAlgorithm)comboAlgorithm.SelectedItem!;
         bool requiresModel = algorithm != SrAlgorithm.Bicubic;
+        var defaults = GetAlgorithmDefaults(algorithm);
+        ApplyAlgorithmDefaults(defaults);
 
         textBoxModelPath.Enabled = requiresModel;
         buttonSelectModel.Enabled = requiresModel;
         if (!requiresModel)
         {
             textBoxModelPath.Text = string.Empty;
+            SetStatus($"Defaults applied: {algorithm} / x{defaults.Scale}, {defaults.Runtime}, tile={defaults.TileSize}, overlap={defaults.TileOverlap}");
             return;
         }
 
         if (TryFindDefaultModelPath(algorithm, out var modelPath))
         {
             textBoxModelPath.Text = modelPath;
-            SetStatus($"Model loaded: {Path.GetFileName(modelPath)}");
+            SetStatus($"Model loaded: {Path.GetFileName(modelPath)} | x{defaults.Scale}, {defaults.Runtime}, tile={defaults.TileSize}, overlap={defaults.TileOverlap}");
         }
         else
         {
             textBoxModelPath.Text = string.Empty;
-            SetStatus($"No default ONNX found for {algorithm}. Please select model file.");
+            SetStatus($"No default ONNX found for {algorithm}. Defaults: x{defaults.Scale}, {defaults.Runtime}, tile={defaults.TileSize}, overlap={defaults.TileOverlap}");
         }
+    }
+
+    private static AlgorithmDefaults GetAlgorithmDefaults(SrAlgorithm algorithm)
+    {
+        return algorithm switch
+        {
+            // Bicubic does not need model/GPU. Keep CPU default and no overlap.
+            SrAlgorithm.Bicubic => new AlgorithmDefaults(Scale: 4, Runtime: SrRuntimeDevice.CPU, TileSize: 256, TileOverlap: 0),
+            // SwinIR tends to consume more memory; smaller tile improves stability.
+            SrAlgorithm.SwinIR => new AlgorithmDefaults(Scale: 4, Runtime: SrRuntimeDevice.CPU, TileSize: 192, TileOverlap: 24),
+            // ESRGAN model in this project uses fixed 128x128 input.
+            SrAlgorithm.ESRGAN => new AlgorithmDefaults(Scale: 4, Runtime: SrRuntimeDevice.CPU, TileSize: 128, TileOverlap: 8),
+            // AuraSR export in this project uses fixed 64x64 input.
+            SrAlgorithm.AuraSR => new AlgorithmDefaults(Scale: 4, Runtime: SrRuntimeDevice.CPU, TileSize: 64, TileOverlap: 8),
+            _ => new AlgorithmDefaults(Scale: 4, Runtime: SrRuntimeDevice.CPU, TileSize: 192, TileOverlap: 16)
+        };
+    }
+
+    private void ApplyAlgorithmDefaults(AlgorithmDefaults defaults)
+    {
+        numericScale.Value = Math.Clamp(defaults.Scale, (int)numericScale.Minimum, (int)numericScale.Maximum);
+        comboRuntime.SelectedItem = defaults.Runtime;
+        numericTileSize.Value = Math.Clamp(defaults.TileSize, (int)numericTileSize.Minimum, (int)numericTileSize.Maximum);
+        numericTileOverlap.Value = Math.Clamp(defaults.TileOverlap, (int)numericTileOverlap.Minimum, (int)numericTileOverlap.Maximum);
     }
 
     private Dictionary<SrAlgorithm, string[]> BuildDefaultModelCandidates()
@@ -136,8 +292,8 @@ public partial class SuperResolutionForm : Form
         {
             [SrAlgorithm.ESRGAN] = new[]
             {
-                Path.Combine(modelsRoot, "esrgan", "esrgan-onnx-float", "esrgan.onnx"),
-                Path.Combine(modelsRoot, "esrgan.onnx")
+                Path.Combine(modelsRoot, "esrgan.onnx"),
+                Path.Combine(modelsRoot, "esrgan", "esrgan-onnx-float", "esrgan.onnx")
             },
             [SrAlgorithm.SwinIR] = new[]
             {
@@ -169,6 +325,23 @@ public partial class SuperResolutionForm : Form
         return Path.Combine(AppContext.BaseDirectory, "models");
     }
 
+    private static string FindScriptsDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, "scripts");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            dir = dir.Parent;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "scripts");
+    }
+
     private bool TryFindDefaultModelPath(SrAlgorithm algorithm, out string modelPath)
     {
         modelPath = string.Empty;
@@ -197,18 +370,47 @@ public partial class SuperResolutionForm : Form
             return;
         }
 
-        buttonRun.Enabled = false;
+        var selectedAlgorithm = (SrAlgorithm)comboAlgorithm.SelectedItem!;
+        var selectedModelPath = textBoxModelPath.Text.Trim();
+        if (selectedAlgorithm != SrAlgorithm.Bicubic)
+        {
+            if (string.IsNullOrWhiteSpace(selectedModelPath))
+            {
+                MessageBox.Show(
+                    $"{selectedAlgorithm} 모델 ONNX 파일을 찾지 못했습니다.\nmodels 폴더에 해당 ONNX를 추가하거나, [ ... ] 버튼으로 직접 선택해 주세요.",
+                    "Model Required",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!File.Exists(selectedModelPath))
+            {
+                MessageBox.Show(
+                    $"선택된 ONNX 파일이 존재하지 않습니다.\n{selectedModelPath}",
+                    "Model Not Found",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+        }
+
+        SetRunButtonBusy(isBusy: true);
         buttonSaveResult.Enabled = false;
         UpdateProgress(0);
         SetStatus("Running super resolution...");
+        SetAppState("Running");
 
         try
         {
             var options = new SrOptions
             {
-                Algorithm = (SrAlgorithm)comboAlgorithm.SelectedItem!,
+                Algorithm = selectedAlgorithm,
                 Scale = (int)numericScale.Value,
-                ModelPath = string.IsNullOrWhiteSpace(textBoxModelPath.Text) ? null : textBoxModelPath.Text.Trim()
+                ModelPath = string.IsNullOrWhiteSpace(selectedModelPath) ? null : selectedModelPath,
+                RuntimeDevice = (SrRuntimeDevice)comboRuntime.SelectedItem!,
+                TileSize = (int)numericTileSize.Value,
+                TileOverlap = (int)numericTileOverlap.Value
             };
 
             var progress = new Progress<int>(p => UpdateProgress(p));
@@ -218,17 +420,33 @@ public partial class SuperResolutionForm : Form
             _outputBitmap = result;
             zoomHostOutput.PreviewImage = _outputBitmap;
             buttonSaveResult.Enabled = true;
+
+            var autoSaved = SaveResultAuto(_outputBitmap, options.Algorithm);
+            ShowSavedPopup(autoSaved);
             UpdateProgress(100);
-            SetStatus($"Done: {_outputBitmap.Width}x{_outputBitmap.Height} ({options.Algorithm}, x{options.Scale})");
+            if (checkAutoSave.Checked)
+            {
+                SetStatus($"Done + Saved: {Path.GetFileName(autoSaved)} ({_service.LastRuntimeDevice})");
+            }
+            else
+            {
+                SetStatus($"Done (auto saved): {Path.GetFileName(autoSaved)} ({options.Algorithm}, x{options.Scale}, {_service.LastRuntimeDevice})");
+            }
+            SetAppState("Completed");
         }
         catch (Exception ex)
         {
             MessageBox.Show($"처리 중 오류가 발생했습니다.\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus("Failed.");
+            SetAppState("Failed");
         }
         finally
         {
-            buttonRun.Enabled = true;
+            SetRunButtonBusy(isBusy: false);
+            if (toolStripStateLabel.Text == "Running")
+            {
+                SetAppState("Idle");
+            }
         }
     }
 
@@ -246,10 +464,13 @@ public partial class SuperResolutionForm : Form
             return;
         }
 
+        var selectedFormat = (SaveImageFormat)comboSaveFormat.SelectedItem!;
+        var defaultDir = GetDefaultOutputDirectory();
         using var dialog = new SaveFileDialog
         {
-            Filter = "PNG|*.png|JPEG|*.jpg|Bitmap|*.bmp",
-            FileName = "sr_result.png"
+            Filter = "JPEG|*.jpg|PNG|*.png",
+            InitialDirectory = defaultDir,
+            FileName = BuildAutoSaveFileName((SrAlgorithm)comboAlgorithm.SelectedItem!, selectedFormat)
         };
 
         if (dialog.ShowDialog() != DialogResult.OK)
@@ -257,21 +478,90 @@ public partial class SuperResolutionForm : Form
             return;
         }
 
-        var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
-        var format = extension switch
-        {
-            ".jpg" or ".jpeg" => System.Drawing.Imaging.ImageFormat.Jpeg,
-            ".bmp" => System.Drawing.Imaging.ImageFormat.Bmp,
-            _ => System.Drawing.Imaging.ImageFormat.Png
-        };
+        var format = ResolveImageFormatByExtension(dialog.FileName);
 
         _outputBitmap.Save(dialog.FileName, format);
         SetStatus($"Saved: {dialog.FileName}");
+        ShowSavedPopup(dialog.FileName);
+    }
+
+    private string SaveResultAuto(Bitmap bitmap, SrAlgorithm algorithm)
+    {
+        var selectedFormat = (SaveImageFormat)comboSaveFormat.SelectedItem!;
+        var outputDir = GetDefaultOutputDirectory();
+        Directory.CreateDirectory(outputDir);
+        var fileName = BuildAutoSaveFileName(algorithm, selectedFormat);
+        var fullPath = Path.Combine(outputDir, fileName);
+        bitmap.Save(fullPath, ResolveImageFormat(selectedFormat));
+        UpdateProgress(100);
+        return fullPath;
+    }
+
+    private static string GetDefaultOutputDirectory()
+    {
+        var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        if (!string.IsNullOrWhiteSpace(pictures))
+        {
+            return pictures;
+        }
+
+        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (!string.IsNullOrWhiteSpace(desktop))
+        {
+            return desktop;
+        }
+
+        return AppContext.BaseDirectory;
+    }
+
+    private static string BuildAutoSaveFileName(SrAlgorithm algorithm, SaveImageFormat format)
+    {
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var extension = format == SaveImageFormat.JPG ? "jpg" : "png";
+        return $"sr_{algorithm}_{timestamp}.{extension}";
+    }
+
+    private static System.Drawing.Imaging.ImageFormat ResolveImageFormat(SaveImageFormat format)
+    {
+        return format == SaveImageFormat.JPG
+            ? System.Drawing.Imaging.ImageFormat.Jpeg
+            : System.Drawing.Imaging.ImageFormat.Png;
+    }
+
+    private static System.Drawing.Imaging.ImageFormat ResolveImageFormatByExtension(string path)
+    {
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => System.Drawing.Imaging.ImageFormat.Jpeg,
+            _ => System.Drawing.Imaging.ImageFormat.Png
+        };
     }
 
     private void SetStatus(string message)
     {
         toolStripStatusLabel.Text = message;
+    }
+
+    private void SetAppState(string state)
+    {
+        toolStripStateLabel.Text = state;
+    }
+
+    private void SetRunButtonBusy(bool isBusy)
+    {
+        buttonRun.Enabled = !isBusy;
+        buttonRun.BackColor = isBusy ? Color.Gray : Color.RoyalBlue;
+        buttonRun.ForeColor = isBusy ? Color.Gainsboro : Color.White;
+    }
+
+    private static void ShowSavedPopup(string fullPath)
+    {
+        MessageBox.Show(
+            $"SR 처리 완료(100%).\n저장된 파일 경로:\n{fullPath}",
+            "Completed",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)

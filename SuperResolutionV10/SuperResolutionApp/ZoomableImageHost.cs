@@ -1,7 +1,7 @@
 namespace SuperResolutionApp;
 
 /// <summary>
-/// AutoScroll + mouse-wheel zoom preview. When the image exceeds the viewport, shows zoom % at top-left.
+/// AutoScroll + mouse-wheel zoom preview with persistent zoom %.
 /// </summary>
 public class ZoomableImageHost : UserControl
 {
@@ -46,6 +46,7 @@ public class ZoomableImageHost : UserControl
         _zoomLabel.MouseEnter += focusScroll;
 
         Resize += (_, _) => LayoutImage();
+        _scroll.Resize += (_, _) => LayoutImage();
     }
 
     /// <summary>Image to display (caller owns lifetime unless cleared before dispose).</summary>
@@ -105,22 +106,17 @@ public class ZoomableImageHost : UserControl
         int w = Math.Max(1, (int)Math.Round(img.Width * scale));
         int h = Math.Max(1, (int)Math.Round(img.Height * scale));
         _picture.Size = new Size(w, h);
-        // Top-left only: centering would expand AutoScroll's logical size and show bogus scrollbars.
-        _picture.Location = Point.Empty;
+        // Center if smaller than viewport; pin to top-left when larger so scrollbars work naturally.
+        int x = w < cw ? (cw - w) / 2 : 0;
+        int y = h < ch ? (ch - h) / 2 : 0;
+        _picture.Location = new Point(x, y);
 
-        UpdateZoomLabel(cw, ch, w, h);
+        UpdateZoomLabel();
     }
 
-    private void UpdateZoomLabel(int viewportW, int viewportH, int contentW, int contentH)
+    private void UpdateZoomLabel()
     {
         if (_picture.Image is null)
-        {
-            _zoomLabel.Visible = false;
-            return;
-        }
-
-        bool largerThanViewport = contentW > viewportW || contentH > viewportH;
-        if (!largerThanViewport)
         {
             _zoomLabel.Visible = false;
             return;

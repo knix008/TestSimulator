@@ -8,6 +8,7 @@ public sealed class BicubicFallbackEngine : ISuperResolutionEngine
     }
 
     public SrAlgorithm Algorithm { get; }
+    public string LastRuntimeDevice => "CPU";
 
     public Task<Bitmap> UpscaleAsync(Bitmap input, SrOptions options, IProgress<int>? progress = null)
     {

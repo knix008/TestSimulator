@@ -24,13 +24,15 @@
     </ProjectReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
   <!-- Publish win-x64 payload before compiling WiX (Release and Debug both get matching binaries). -->
   <Target Name="PrepareInstallerPayload" BeforeTargets="BeforeBuild">
     <RemoveDir Directories="$(InstallerPayloadDir)" Condition="Exists('$(InstallerPayloadDir)')" />
     <MakeDir Directories="$(InstallerPayloadDir)" />
-    <Exec
-      Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\SuperResolutionApp\SuperResolutionApp.csproj&quot; -c $(Configuration) -r win-x64 --self-contained false -o &quot;$(InstallerPayloadDir.TrimEnd('\'))&quot;"
-      WorkingDirectory="$(MSBuildProjectDirectory)\.." />
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\SuperResolutionApp\SuperResolutionApp.csproj&quot; -c $(Configuration) -r win-x64 --self-contained false -o &quot;$(InstallerPayloadDir.TrimEnd('\'))&quot;" WorkingDirectory="$(MSBuildProjectDirectory)\.." />
   </Target>
 
   <Target Name="CopyInstallerToArtifacts" AfterTargets="Build">
@@ -38,7 +40,7 @@
     <ItemGroup>
       <_MsiOut Include="$(MSBuildProjectDirectory)\bin\**\$(OutputName).msi" />
     </ItemGroup>
-    <Copy SourceFiles="@(_MsiOut)" DestinationFolder="$(ArtifactsDir)" SkipUnchangedFiles="true" Condition="@(_MsiOut->Count()) &gt; 0" />
+    <Copy SourceFiles="@(_MsiOut)" DestinationFolder="$(ArtifactsDir)" SkipUnchangedFiles="true" Condition="@(_MsiOut-&gt;Count()) &gt; 0" />
   </Target>
 
 </Project>
