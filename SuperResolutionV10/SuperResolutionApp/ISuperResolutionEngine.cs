@@ -3,5 +3,5 @@ namespace SuperResolutionApp;
 public interface ISuperResolutionEngine
 {
     SrAlgorithm Algorithm { get; }
-    Task<Bitmap> UpscaleAsync(Bitmap input, SrOptions options);
+    Task<Bitmap> UpscaleAsync(Bitmap input, SrOptions options, IProgress<int>? progress = null);
 }

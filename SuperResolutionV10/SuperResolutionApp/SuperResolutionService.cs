@@ -8,25 +8,30 @@ public sealed class SuperResolutionService
     {
         _engines = new Dictionary<SrAlgorithm, ISuperResolutionEngine>
         {
-            [SrAlgorithm.ESRGAN] = new BicubicFallbackEngine(SrAlgorithm.ESRGAN),
-            [SrAlgorithm.SwinIR] = new BicubicFallbackEngine(SrAlgorithm.SwinIR),
-            [SrAlgorithm.AuraSR] = new BicubicFallbackEngine(SrAlgorithm.AuraSR)
+            [SrAlgorithm.Bicubic] = new BicubicFallbackEngine(SrAlgorithm.Bicubic),
+            [SrAlgorithm.ESRGAN] = new EsrganOnnxEngine(),
+            [SrAlgorithm.SwinIR] = new SwinIrOnnxEngine(),
+            [SrAlgorithm.AuraSR] = new AuraSrOnnxEngine()
         };
     }
 
-    public Task<Bitmap> RunAsync(Bitmap input, SrOptions options)
+    public Task<Bitmap> RunAsync(Bitmap input, SrOptions options, IProgress<int>? progress = null)
     {
+        if (!_engines.TryGetValue(options.Algorithm, out var engine))
+        {
+            throw new NotSupportedException($"Unsupported algorithm: {options.Algorithm}");
+        }
+
+        if (options.Algorithm == SrAlgorithm.Bicubic)
+        {
+            return engine.UpscaleAsync(input, options, progress);
+        }
+
         if (string.IsNullOrWhiteSpace(options.ModelPath))
         {
-            return _engines[options.Algorithm].UpscaleAsync(input, options);
+            throw new InvalidOperationException($"{options.Algorithm} requires an ONNX model path.");
         }
 
-        if (!File.Exists(options.ModelPath))
-        {
-            throw new FileNotFoundException("Model file not found.", options.ModelPath);
-        }
-
-        // Placeholder branch for future ONNX runtime engine.
-        return _engines[options.Algorithm].UpscaleAsync(input, options);
+        return engine.UpscaleAsync(input, options, progress);
     }
 }

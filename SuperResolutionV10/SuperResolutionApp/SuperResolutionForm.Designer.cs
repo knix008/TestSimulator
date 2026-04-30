@@ -42,6 +42,8 @@ partial class SuperResolutionForm
         flowLayoutPanelActions = new FlowLayoutPanel();
         buttonSaveResult = new Button();
         buttonLoadImage = new Button();
+        progressBarProcessing = new ProgressBar();
+        labelProgressPercent = new Label();
         splitContainerPreview = new SplitContainer();
         zoomHostInput = new ZoomableImageHost();
         zoomHostOutput = new ZoomableImageHost();
@@ -176,6 +178,8 @@ partial class SuperResolutionForm
         // 
         flowLayoutPanelActions.Controls.Add(buttonLoadImage);
         flowLayoutPanelActions.Controls.Add(buttonSaveResult);
+        flowLayoutPanelActions.Controls.Add(progressBarProcessing);
+        flowLayoutPanelActions.Controls.Add(labelProgressPercent);
         flowLayoutPanelActions.Dock = DockStyle.Fill;
         flowLayoutPanelActions.FlowDirection = FlowDirection.LeftToRight;
         flowLayoutPanelActions.Location = new Point(12, 148);
@@ -205,6 +209,23 @@ partial class SuperResolutionForm
         buttonLoadImage.Text = "Load Image";
         buttonLoadImage.UseVisualStyleBackColor = true;
         buttonLoadImage.Click += buttonLoadImage_Click;
+        // 
+        // progressBarProcessing
+        // 
+        progressBarProcessing.Location = new Point(261, 8);
+        progressBarProcessing.Name = "progressBarProcessing";
+        progressBarProcessing.Size = new Size(260, 29);
+        progressBarProcessing.Style = ProgressBarStyle.Continuous;
+        progressBarProcessing.TabIndex = 2;
+        // 
+        // labelProgressPercent
+        // 
+        labelProgressPercent.AutoSize = true;
+        labelProgressPercent.Location = new Point(527, 11);
+        labelProgressPercent.Name = "labelProgressPercent";
+        labelProgressPercent.Size = new Size(36, 20);
+        labelProgressPercent.TabIndex = 3;
+        labelProgressPercent.Text = "0 %";
         // 
         // splitContainerPreview
         // 
@@ -295,6 +316,8 @@ partial class SuperResolutionForm
     private FlowLayoutPanel flowLayoutPanelActions;
     private Button buttonLoadImage;
     private Button buttonSaveResult;
+    private ProgressBar progressBarProcessing;
+    private Label labelProgressPercent;
     private SplitContainer splitContainerPreview;
     private ZoomableImageHost zoomHostInput;
     private ZoomableImageHost zoomHostOutput;

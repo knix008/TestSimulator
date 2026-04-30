@@ -8,23 +8,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.25.1" />
+  </ItemGroup>
+
   <!--
     Visual Studio에서 SuperResolutionApp 프로젝트만 Release 빌드해도
     설치용 MSI가 함께 생성되도록 후속 빌드를 트리거한다.
   -->
-  <Target
-    Name="BuildInstallerOnReleaseInVisualStudio"
-    AfterTargets="Build"
-    Condition="
-      '$(Configuration)' == 'Release'
-      and '$(BuildingInsideVisualStudio)' == 'true'
-      and '$(DesignTimeBuild)' != 'true'
-      and '$(SkipInstallerBuild)' != 'true'
-    ">
-    <MSBuild
-      Projects="$(MSBuildProjectDirectory)\..\SuperResolutionInstaller\SuperResolutionInstaller.wixproj"
-      Targets="Build"
-      Properties="Configuration=$(Configuration);Platform=AnyCPU;SkipInstallerBuild=true" />
+  <Target Name="BuildInstallerOnReleaseInVisualStudio" AfterTargets="Build" Condition="&#xD;&#xA;      '$(Configuration)' == 'Release'&#xD;&#xA;      and '$(BuildingInsideVisualStudio)' == 'true'&#xD;&#xA;      and '$(DesignTimeBuild)' != 'true'&#xD;&#xA;      and '$(SkipInstallerBuild)' != 'true'&#xD;&#xA;    ">
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\SuperResolutionInstaller\SuperResolutionInstaller.wixproj" Targets="Build" Properties="Configuration=$(Configuration);Platform=AnyCPU;SkipInstallerBuild=true" />
   </Target>
 
 </Project>

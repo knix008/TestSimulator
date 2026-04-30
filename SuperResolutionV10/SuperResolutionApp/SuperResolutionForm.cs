@@ -4,6 +4,7 @@ public partial class SuperResolutionForm : Form
 {
     private readonly SuperResolutionService _service = new();
     private readonly PreviewWheelMessageFilter _previewWheelFilter;
+    private readonly Dictionary<SrAlgorithm, string[]> _defaultModelCandidates;
     private Bitmap? _inputBitmap;
     private Bitmap? _outputBitmap;
 
@@ -11,7 +12,10 @@ public partial class SuperResolutionForm : Form
     {
         InitializeComponent();
         comboAlgorithm.DataSource = Enum.GetValues<SrAlgorithm>();
-        comboAlgorithm.SelectedItem = SrAlgorithm.ESRGAN;
+        comboAlgorithm.SelectedItem = SrAlgorithm.SwinIR;
+        _defaultModelCandidates = BuildDefaultModelCandidates();
+        comboAlgorithm.SelectedIndexChanged += (_, _) => UpdateModelPathUiAndAutoLoad();
+        UpdateModelPathUiAndAutoLoad();
 
         _previewWheelFilter = new PreviewWheelMessageFilter(this);
         Application.AddMessageFilter(_previewWheelFilter);
@@ -100,6 +104,91 @@ public partial class SuperResolutionForm : Form
         }
     }
 
+    private void UpdateModelPathUiAndAutoLoad()
+    {
+        var algorithm = (SrAlgorithm)comboAlgorithm.SelectedItem!;
+        bool requiresModel = algorithm != SrAlgorithm.Bicubic;
+
+        textBoxModelPath.Enabled = requiresModel;
+        buttonSelectModel.Enabled = requiresModel;
+        if (!requiresModel)
+        {
+            textBoxModelPath.Text = string.Empty;
+            return;
+        }
+
+        if (TryFindDefaultModelPath(algorithm, out var modelPath))
+        {
+            textBoxModelPath.Text = modelPath;
+            SetStatus($"Model loaded: {Path.GetFileName(modelPath)}");
+        }
+        else
+        {
+            textBoxModelPath.Text = string.Empty;
+            SetStatus($"No default ONNX found for {algorithm}. Please select model file.");
+        }
+    }
+
+    private Dictionary<SrAlgorithm, string[]> BuildDefaultModelCandidates()
+    {
+        var modelsRoot = FindModelsDirectory();
+        return new Dictionary<SrAlgorithm, string[]>
+        {
+            [SrAlgorithm.ESRGAN] = new[]
+            {
+                Path.Combine(modelsRoot, "esrgan", "esrgan-onnx-float", "esrgan.onnx"),
+                Path.Combine(modelsRoot, "esrgan.onnx")
+            },
+            [SrAlgorithm.SwinIR] = new[]
+            {
+                Path.Combine(modelsRoot, "swinir_x4_gan.onnx"),
+                Path.Combine(modelsRoot, "swinir.onnx")
+            },
+            [SrAlgorithm.AuraSR] = new[]
+            {
+                Path.Combine(modelsRoot, "aurasr_v2.onnx"),
+                Path.Combine(modelsRoot, "aurasr.onnx"),
+                Path.Combine(modelsRoot, "AuraSR.onnx")
+            }
+        };
+    }
+
+    private static string FindModelsDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            var candidate = Path.Combine(dir.FullName, "models");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+            dir = dir.Parent;
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, "models");
+    }
+
+    private bool TryFindDefaultModelPath(SrAlgorithm algorithm, out string modelPath)
+    {
+        modelPath = string.Empty;
+        if (!_defaultModelCandidates.TryGetValue(algorithm, out var candidates))
+        {
+            return false;
+        }
+
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path))
+            {
+                modelPath = path;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private async void buttonRun_Click(object sender, EventArgs e)
     {
         if (_inputBitmap is null)
@@ -110,6 +199,7 @@ public partial class SuperResolutionForm : Form
 
         buttonRun.Enabled = false;
         buttonSaveResult.Enabled = false;
+        UpdateProgress(0);
         SetStatus("Running super resolution...");
 
         try
@@ -121,12 +211,14 @@ public partial class SuperResolutionForm : Form
                 ModelPath = string.IsNullOrWhiteSpace(textBoxModelPath.Text) ? null : textBoxModelPath.Text.Trim()
             };
 
-            var result = await _service.RunAsync(_inputBitmap, options);
+            var progress = new Progress<int>(p => UpdateProgress(p));
+            var result = await _service.RunAsync(_inputBitmap, options, progress);
 
             _outputBitmap?.Dispose();
             _outputBitmap = result;
             zoomHostOutput.PreviewImage = _outputBitmap;
             buttonSaveResult.Enabled = true;
+            UpdateProgress(100);
             SetStatus($"Done: {_outputBitmap.Width}x{_outputBitmap.Height} ({options.Algorithm}, x{options.Scale})");
         }
         catch (Exception ex)
@@ -138,6 +230,13 @@ public partial class SuperResolutionForm : Form
         {
             buttonRun.Enabled = true;
         }
+    }
+
+    private void UpdateProgress(int percent)
+    {
+        percent = Math.Clamp(percent, 0, 100);
+        progressBarProcessing.Value = percent;
+        labelProgressPercent.Text = $"{percent} %";
     }
 
     private void buttonSaveResult_Click(object sender, EventArgs e)
