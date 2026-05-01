@@ -599,8 +599,8 @@ partial class MainForm
         AutoScaleDimensions = new SizeF(8F, 20F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1184, 761);
-        Controls.Add(statusStripMain);
         Controls.Add(splitMain);
+        Controls.Add(statusStripMain);
         Margin = new Padding(3, 4, 3, 4);
         MinimumSize = new Size(900, 560);
         Name = "MainForm";

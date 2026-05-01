@@ -654,25 +654,20 @@ public partial class MainForm : Form
 
         int viewportWidth = panelImageScrollHost.ClientSize.Width;
         int viewportHeight = panelImageScrollHost.ClientSize.Height;
-        bool needsHScroll = picturePreview.Width >= viewportWidth;
-        bool needsVScroll = picturePreview.Height >= viewportHeight;
+        bool needsHScroll = picturePreview.Width > viewportWidth;
+        bool needsVScroll = picturePreview.Height > viewportHeight;
 
-        if (needsHScroll || needsVScroll)
-        {
-            // Keep image origin at top-left for stable two-axis scrolling.
-            picturePreview.Location = Point.Empty;
+        int x = needsHScroll ? 0 : Math.Max(0, (viewportWidth - picturePreview.Width) / 2);
+        int y = needsVScroll ? 0 : Math.Max(0, (viewportHeight - picturePreview.Height) / 2);
+        picturePreview.Location = new Point(x, y);
 
-            // Add a tiny margin so boundary-size images still get scrollbars reliably.
-            int minW = needsHScroll ? picturePreview.Width + 2 : picturePreview.Width;
-            int minH = needsVScroll ? picturePreview.Height + 2 : picturePreview.Height;
-            panelImageScrollHost.AutoScrollMinSize = new Size(minW, minH);
-        }
-        else
+        // Scroll axis keeps content larger than viewport; non-scroll axis can stay centered.
+        int minW = needsHScroll ? picturePreview.Width + 2 : Math.Max(picturePreview.Width, viewportWidth - 1);
+        int minH = needsVScroll ? picturePreview.Height + 2 : Math.Max(picturePreview.Height, viewportHeight - 1);
+        panelImageScrollHost.AutoScrollMinSize = new Size(minW, minH);
+
+        if (!needsHScroll && !needsVScroll)
         {
-            int x = Math.Max(0, (viewportWidth - picturePreview.Width) / 2);
-            int y = Math.Max(0, (viewportHeight - picturePreview.Height) / 2);
-            picturePreview.Location = new Point(x, y);
-            panelImageScrollHost.AutoScrollMinSize = picturePreview.Size;
             panelImageScrollHost.AutoScrollPosition = Point.Empty;
         }
 
