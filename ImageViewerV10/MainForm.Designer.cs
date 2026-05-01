@@ -26,7 +26,17 @@ partial class MainForm
     private Label labelImageZoomInfo;
     private Panel panelVideoHost;
     private TableLayoutPanel layoutVideo;
+    private Panel panelVideoStage;
     private LibVLCSharp.WinForms.VideoView videoView;
+    private Label labelVideoOverlayIcon;
+    private Panel panelVideoBottom;
+    private Panel panelVideoBottomSeparator;
+    private TableLayoutPanel layoutVideoBottom;
+    private TableLayoutPanel layoutVideoButtons;
+    private Panel panelVideoTimeline;
+    private Label labelVideoTime;
+    private Label labelVideoPercent;
+    private MediaSeekBar videoSeekBar;
     private FlowLayoutPanel flowVideoControls;
     private Button buttonVideoPlay;
     private Button buttonVideoPause;
@@ -71,7 +81,17 @@ partial class MainForm
         labelImageZoomInfo = new Label();
         panelVideoHost = new Panel();
         layoutVideo = new TableLayoutPanel();
+        panelVideoStage = new Panel();
         videoView = new LibVLCSharp.WinForms.VideoView();
+        labelVideoOverlayIcon = new Label();
+        panelVideoBottom = new Panel();
+        panelVideoBottomSeparator = new Panel();
+        layoutVideoBottom = new TableLayoutPanel();
+        layoutVideoButtons = new TableLayoutPanel();
+        panelVideoTimeline = new Panel();
+        labelVideoTime = new Label();
+        labelVideoPercent = new Label();
+        videoSeekBar = new MediaSeekBar();
         flowVideoControls = new FlowLayoutPanel();
         buttonVideoPlay = new Button();
         buttonVideoPause = new Button();
@@ -97,7 +117,12 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)picturePreview).BeginInit();
         panelVideoHost.SuspendLayout();
         layoutVideo.SuspendLayout();
+        panelVideoStage.SuspendLayout();
+        panelVideoBottom.SuspendLayout();
+        layoutVideoBottom.SuspendLayout();
+        layoutVideoButtons.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)videoView).BeginInit();
+        panelVideoTimeline.SuspendLayout();
         flowVideoControls.SuspendLayout();
         statusStripMain.SuspendLayout();
         SuspendLayout();
@@ -331,46 +356,173 @@ partial class MainForm
         //
         layoutVideo.ColumnCount = 1;
         layoutVideo.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        layoutVideo.Controls.Add(videoView, 0, 0);
-        layoutVideo.Controls.Add(flowVideoControls, 0, 1);
+        layoutVideo.Controls.Add(panelVideoStage, 0, 0);
+        layoutVideo.Controls.Add(panelVideoBottom, 0, 1);
         layoutVideo.Dock = DockStyle.Fill;
         layoutVideo.Location = new Point(0, 0);
         layoutVideo.Margin = new Padding(3, 4, 3, 4);
         layoutVideo.Name = "layoutVideo";
         layoutVideo.RowCount = 2;
         layoutVideo.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layoutVideo.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
+        layoutVideo.RowStyles.Add(new RowStyle(SizeType.Absolute, 114F));
         layoutVideo.Size = new Size(858, 761);
         layoutVideo.TabIndex = 0;
+        //
+        // panelVideoStage
+        //
+        panelVideoStage.BackColor = Color.Black;
+        panelVideoStage.Controls.Add(labelVideoOverlayIcon);
+        panelVideoStage.Controls.Add(videoView);
+        panelVideoStage.Dock = DockStyle.Fill;
+        panelVideoStage.Location = new Point(0, 0);
+        panelVideoStage.Margin = new Padding(0);
+        panelVideoStage.Name = "panelVideoStage";
+        panelVideoStage.Padding = new Padding(0, 0, 0, 0);
+        panelVideoStage.Size = new Size(858, 647);
+        panelVideoStage.TabIndex = 0;
         //
         // videoView
         //
         videoView.BackColor = Color.Black;
         videoView.Dock = DockStyle.Fill;
-        videoView.Location = new Point(3, 4);
-        videoView.Margin = new Padding(3, 4, 3, 4);
+        videoView.Location = new Point(0, 0);
+        videoView.Margin = new Padding(0);
         videoView.MediaPlayer = null;
         videoView.Name = "videoView";
-        videoView.Size = new Size(852, 697);
+        videoView.Size = new Size(858, 647);
         videoView.TabIndex = 0;
         videoView.TabStop = false;
         //
+        // labelVideoOverlayIcon
+        //
+        labelVideoOverlayIcon.Anchor = AnchorStyles.None;
+        labelVideoOverlayIcon.BackColor = Color.FromArgb(140, 20, 20, 20);
+        labelVideoOverlayIcon.Font = new Font("Segoe MDL2 Assets", 42F, FontStyle.Regular, GraphicsUnit.Point);
+        labelVideoOverlayIcon.ForeColor = Color.WhiteSmoke;
+        labelVideoOverlayIcon.Location = new Point(354, 273);
+        labelVideoOverlayIcon.Name = "labelVideoOverlayIcon";
+        labelVideoOverlayIcon.Size = new Size(150, 100);
+        labelVideoOverlayIcon.TabIndex = 1;
+        labelVideoOverlayIcon.Text = "\uE102";
+        labelVideoOverlayIcon.TextAlign = ContentAlignment.MiddleCenter;
+        labelVideoOverlayIcon.Visible = false;
+        //
+        // panelVideoBottom
+        //
+        panelVideoBottom.BackColor = Color.FromArgb(20, 20, 24);
+        panelVideoBottom.Controls.Add(layoutVideoBottom);
+        panelVideoBottom.Controls.Add(panelVideoBottomSeparator);
+        panelVideoBottom.Dock = DockStyle.Fill;
+        panelVideoBottom.Location = new Point(0, 647);
+        panelVideoBottom.Margin = new Padding(0);
+        panelVideoBottom.Name = "panelVideoBottom";
+        panelVideoBottom.Padding = new Padding(0, 0, 0, 0);
+        panelVideoBottom.Size = new Size(858, 114);
+        panelVideoBottom.TabIndex = 1;
+        //
+        // panelVideoBottomSeparator
+        //
+        panelVideoBottomSeparator.BackColor = Color.FromArgb(64, 64, 72);
+        panelVideoBottomSeparator.Dock = DockStyle.Top;
+        panelVideoBottomSeparator.Location = new Point(0, 0);
+        panelVideoBottomSeparator.Name = "panelVideoBottomSeparator";
+        panelVideoBottomSeparator.Size = new Size(858, 1);
+        panelVideoBottomSeparator.TabIndex = 0;
+        //
+        // layoutVideoBottom
+        //
+        layoutVideoBottom.ColumnCount = 1;
+        layoutVideoBottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        layoutVideoBottom.Controls.Add(panelVideoTimeline, 0, 0);
+        layoutVideoBottom.Controls.Add(layoutVideoButtons, 0, 1);
+        layoutVideoBottom.Dock = DockStyle.Fill;
+        layoutVideoBottom.Location = new Point(0, 1);
+        layoutVideoBottom.Margin = new Padding(0);
+        layoutVideoBottom.Name = "layoutVideoBottom";
+        layoutVideoBottom.RowCount = 2;
+        layoutVideoBottom.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+        layoutVideoBottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layoutVideoBottom.Size = new Size(858, 113);
+        layoutVideoBottom.TabIndex = 1;
+        //
+        // layoutVideoButtons
+        //
+        layoutVideoButtons.ColumnCount = 3;
+        layoutVideoButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        layoutVideoButtons.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layoutVideoButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        layoutVideoButtons.Controls.Add(flowVideoControls, 1, 0);
+        layoutVideoButtons.Dock = DockStyle.Fill;
+        layoutVideoButtons.Location = new Point(0, 38);
+        layoutVideoButtons.Margin = new Padding(0);
+        layoutVideoButtons.Name = "layoutVideoButtons";
+        layoutVideoButtons.RowCount = 1;
+        layoutVideoButtons.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        layoutVideoButtons.Size = new Size(858, 75);
+        layoutVideoButtons.TabIndex = 2;
+        //
+        // panelVideoTimeline
+        //
+        panelVideoTimeline.BackColor = Color.FromArgb(20, 20, 24);
+        panelVideoTimeline.Controls.Add(videoSeekBar);
+        panelVideoTimeline.Controls.Add(labelVideoPercent);
+        panelVideoTimeline.Controls.Add(labelVideoTime);
+        panelVideoTimeline.Dock = DockStyle.Fill;
+        panelVideoTimeline.Location = new Point(0, 0);
+        panelVideoTimeline.Margin = new Padding(0, 0, 0, 0);
+        panelVideoTimeline.Name = "panelVideoTimeline";
+        panelVideoTimeline.Padding = new Padding(12, 8, 12, 4);
+        panelVideoTimeline.Size = new Size(858, 38);
+        panelVideoTimeline.TabIndex = 1;
+        //
+        // labelVideoTime
+        //
+        labelVideoTime.AutoSize = true;
+        labelVideoTime.Dock = DockStyle.Left;
+        labelVideoTime.ForeColor = Color.Gainsboro;
+        labelVideoTime.Location = new Point(12, 8);
+        labelVideoTime.Name = "labelVideoTime";
+        labelVideoTime.Size = new Size(89, 20);
+        labelVideoTime.TabIndex = 0;
+        labelVideoTime.Text = "00:00 / 00:00";
+        //
+        // labelVideoPercent
+        //
+        labelVideoPercent.AutoSize = true;
+        labelVideoPercent.Dock = DockStyle.Right;
+        labelVideoPercent.ForeColor = Color.Gainsboro;
+        labelVideoPercent.Location = new Point(793, 8);
+        labelVideoPercent.Name = "labelVideoPercent";
+        labelVideoPercent.Size = new Size(47, 20);
+        labelVideoPercent.TabIndex = 2;
+        labelVideoPercent.Text = "0.0 %";
+        //
+        // videoSeekBar
+        //
+        videoSeekBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        videoSeekBar.Location = new Point(120, 10);
+        videoSeekBar.Name = "videoSeekBar";
+        videoSeekBar.Progress = 0D;
+        videoSeekBar.Size = new Size(665, 16);
+        videoSeekBar.TabIndex = 1;
+        //
         // flowVideoControls
         //
+        flowVideoControls.Anchor = AnchorStyles.None;
         flowVideoControls.AutoSize = true;
         flowVideoControls.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         flowVideoControls.BackColor = Color.FromArgb(32, 32, 38);
         flowVideoControls.Controls.Add(buttonVideoPlay);
         flowVideoControls.Controls.Add(buttonVideoPause);
         flowVideoControls.Controls.Add(buttonVideoStop);
-        flowVideoControls.Dock = DockStyle.Fill;
+        flowVideoControls.Dock = DockStyle.None;
         flowVideoControls.FlowDirection = FlowDirection.LeftToRight;
-        flowVideoControls.Location = new Point(3, 708);
-        flowVideoControls.Margin = new Padding(3, 4, 3, 4);
+        flowVideoControls.Location = new Point(344, 13);
+        flowVideoControls.Margin = new Padding(0);
         flowVideoControls.Name = "flowVideoControls";
         flowVideoControls.Padding = new Padding(10, 8, 10, 8);
-        flowVideoControls.Size = new Size(852, 49);
-        flowVideoControls.TabIndex = 1;
+        flowVideoControls.Size = new Size(170, 49);
+        flowVideoControls.TabIndex = 2;
         flowVideoControls.WrapContents = false;
         //
         // buttonVideoPlay
@@ -474,8 +626,14 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)picturePreview).EndInit();
         panelVideoHost.ResumeLayout(false);
         layoutVideo.ResumeLayout(false);
-        layoutVideo.PerformLayout();
+        panelVideoStage.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)videoView).EndInit();
+        panelVideoBottom.ResumeLayout(false);
+        layoutVideoBottom.ResumeLayout(false);
+        layoutVideoButtons.ResumeLayout(false);
+        layoutVideoButtons.PerformLayout();
+        panelVideoTimeline.ResumeLayout(false);
+        panelVideoTimeline.PerformLayout();
         flowVideoControls.ResumeLayout(false);
         statusStripMain.ResumeLayout(false);
         statusStripMain.PerformLayout();

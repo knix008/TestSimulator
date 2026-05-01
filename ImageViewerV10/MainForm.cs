@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using System.Drawing.Drawing2D;
 using System.Threading;
@@ -40,19 +41,27 @@ public partial class MainForm : Form
         "ImageViewerV10",
         "appstate.json");
     private readonly string _iconFolderPath = Path.Combine(AppContext.BaseDirectory, "assets", "icons");
+    private const bool UseRealVideoFrameThumbnails = false;
 
     private string? _currentFolder;
     private readonly Dictionary<string, ListViewItem> _fileItemByPath = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _thumbnailLoadCts;
+    private readonly System.Windows.Forms.Timer _videoProgressTimer = new() { Interval = 250 };
+    private readonly System.Windows.Forms.Timer _videoOverlayTimer = new() { Interval = 550 };
     private LibVLC? _libVlc;
     private MediaPlayer? _mediaPlayer;
     private Media? _loadedVideoMedia;
     private Image? _ownedPreviewImage;
     private double _zoomFactor = 1.0;
+    private bool _isUserSeekingVideo;
+    private bool _isImagePanning;
+    private Point _imagePanStartMouse;
+    private Point _imagePanStartScroll;
 
     public MainForm()
     {
         InitializeComponent();
+        ApplyWindowIcon();
         WireEvents();
 
         if (IsDesignMode())
@@ -69,8 +78,39 @@ public partial class MainForm : Form
         _libVlc = new LibVLC();
         _mediaPlayer = new MediaPlayer(_libVlc);
         videoView.MediaPlayer = _mediaPlayer;
+        _videoProgressTimer.Tick += (_, _) => UpdateVideoProgressUi();
+        _videoProgressTimer.Start();
+        _videoOverlayTimer.Tick += (_, _) =>
+        {
+            _videoOverlayTimer.Stop();
+            labelVideoOverlayIcon.Visible = false;
+        };
         InitializeIconLists();
         LoadInitialFolder();
+    }
+
+    private void ApplyWindowIcon()
+    {
+        try
+        {
+            string[] candidates =
+            {
+                Path.Combine(AppContext.BaseDirectory, "daemon_hammer.ico"),
+                Path.Combine(Application.StartupPath, "daemon_hammer.ico"),
+                Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty, "daemon_hammer.ico"),
+                Path.Combine(Environment.CurrentDirectory, "daemon_hammer.ico")
+            };
+
+            string? iconPath = candidates.FirstOrDefault(File.Exists);
+            if (!string.IsNullOrWhiteSpace(iconPath))
+            {
+                Icon = new Icon(iconPath);
+            }
+        }
+        catch
+        {
+            // Keep default icon when custom icon load fails.
+        }
     }
 
     private static bool IsDesignMode()
@@ -87,9 +127,17 @@ public partial class MainForm : Form
         panelImageScrollHost.MouseWheel += PanelImageScrollHost_MouseWheel;
         picturePreview.MouseWheel += PanelImageScrollHost_MouseWheel;
         panelImageScrollHost.Resize += (_, _) => UpdateImageViewportLayout();
-        buttonVideoPlay.Click += (_, _) => _mediaPlayer?.Play();
-        buttonVideoPause.Click += (_, _) => _mediaPlayer?.Pause();
-        buttonVideoStop.Click += (_, _) => _mediaPlayer?.Stop();
+        panelImageScrollHost.MouseDown += ImagePan_MouseDown;
+        panelImageScrollHost.MouseMove += ImagePan_MouseMove;
+        panelImageScrollHost.MouseUp += ImagePan_MouseUp;
+        picturePreview.MouseDown += ImagePan_MouseDown;
+        picturePreview.MouseMove += ImagePan_MouseMove;
+        picturePreview.MouseUp += ImagePan_MouseUp;
+        buttonVideoPlay.Click += (_, _) => PlayVideo();
+        buttonVideoPause.Click += (_, _) => PauseVideo();
+        buttonVideoStop.Click += (_, _) => StopVideo();
+        videoSeekBar.SeekRequested += VideoSeekBar_SeekRequested;
+        videoSeekBar.SeekingStateChanged += seeking => _isUserSeekingVideo = seeking;
         panelImageScrollHost.MouseEnter += (_, _) => panelImageScrollHost.Focus();
         FormClosing += MainForm_FormClosing;
     }
@@ -194,6 +242,10 @@ public partial class MainForm : Form
         ClearImagePreview();
         DisposeThumbnailControls();
         ReleaseVideoMedia();
+        _videoProgressTimer.Stop();
+        _videoProgressTimer.Dispose();
+        _videoOverlayTimer.Stop();
+        _videoOverlayTimer.Dispose();
         _mediaPlayer?.Dispose();
         _mediaPlayer = null;
         _libVlc?.Dispose();
@@ -511,6 +563,7 @@ public partial class MainForm : Form
     private void ShowPlaceholder()
     {
         CancelThumbnailLoading();
+        ResetVideoProgressUi();
         labelPreviewPlaceholder.Visible = true;
         labelPreviewPlaceholder.Text = "폴더와 파일을 선택하면 여기에 표시됩니다.";
         panelGalleryHost.Visible = false;
@@ -522,6 +575,7 @@ public partial class MainForm : Form
     private void ShowUnsupported(string path)
     {
         CancelThumbnailLoading();
+        ResetVideoProgressUi();
         labelPreviewPlaceholder.Visible = true;
         labelPreviewPlaceholder.Text = $"이 형식은 미리보기를 지원하지 않습니다.\n{Path.GetFileName(path)}";
         panelGalleryHost.Visible = false;
@@ -534,6 +588,7 @@ public partial class MainForm : Form
     private void ShowImage(string path)
     {
         CancelThumbnailLoading();
+        ResetVideoProgressUi();
         ReleaseVideoMedia();
         labelPreviewPlaceholder.Visible = false;
         panelGalleryHost.Visible = false;
@@ -561,12 +616,14 @@ public partial class MainForm : Form
         if (_ownedPreviewImage is null)
         {
             labelImageZoomInfo.Text = "—";
+            panelImageScrollHost.AutoScrollMinSize = Size.Empty;
             return;
         }
 
         int w = Math.Max(1, (int)Math.Round(_ownedPreviewImage.Width * _zoomFactor));
         int h = Math.Max(1, (int)Math.Round(_ownedPreviewImage.Height * _zoomFactor));
         picturePreview.Size = new Size(w, h);
+        panelImageScrollHost.AutoScrollMinSize = picturePreview.Size;
         UpdateImageViewportLayout();
 
         int gcd = GreatestCommonDivisor(_ownedPreviewImage.Width, _ownedPreviewImage.Height);
@@ -597,9 +654,67 @@ public partial class MainForm : Form
 
         int viewportWidth = panelImageScrollHost.ClientSize.Width;
         int viewportHeight = panelImageScrollHost.ClientSize.Height;
-        int x = Math.Max(0, (viewportWidth - picturePreview.Width) / 2);
-        int y = Math.Max(0, (viewportHeight - picturePreview.Height) / 2);
-        picturePreview.Location = new Point(x, y);
+        bool needsHScroll = picturePreview.Width > viewportWidth;
+        bool needsVScroll = picturePreview.Height > viewportHeight;
+
+        if (needsHScroll || needsVScroll)
+        {
+            // Keep image origin at top-left for stable two-axis scrolling.
+            picturePreview.Location = Point.Empty;
+        }
+        else
+        {
+            int x = Math.Max(0, (viewportWidth - picturePreview.Width) / 2);
+            int y = Math.Max(0, (viewportHeight - picturePreview.Height) / 2);
+            picturePreview.Location = new Point(x, y);
+            panelImageScrollHost.AutoScrollPosition = Point.Empty;
+        }
+
+        panelImageScrollHost.PerformLayout();
+    }
+
+    private void ImagePan_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left || _ownedPreviewImage is null || !panelImageHost.Visible)
+        {
+            return;
+        }
+
+        if (panelImageScrollHost.HorizontalScroll.Visible || panelImageScrollHost.VerticalScroll.Visible)
+        {
+            _isImagePanning = true;
+            _imagePanStartMouse = Cursor.Position;
+            _imagePanStartScroll = new Point(-panelImageScrollHost.AutoScrollPosition.X, -panelImageScrollHost.AutoScrollPosition.Y);
+            panelImageScrollHost.Cursor = Cursors.SizeAll;
+            picturePreview.Cursor = Cursors.SizeAll;
+        }
+    }
+
+    private void ImagePan_MouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!_isImagePanning)
+        {
+            return;
+        }
+
+        Point now = Cursor.Position;
+        int dx = now.X - _imagePanStartMouse.X;
+        int dy = now.Y - _imagePanStartMouse.Y;
+        int targetX = Math.Max(0, _imagePanStartScroll.X - dx);
+        int targetY = Math.Max(0, _imagePanStartScroll.Y - dy);
+        panelImageScrollHost.AutoScrollPosition = new Point(targetX, targetY);
+    }
+
+    private void ImagePan_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (!_isImagePanning)
+        {
+            return;
+        }
+
+        _isImagePanning = false;
+        panelImageScrollHost.Cursor = Cursors.Default;
+        picturePreview.Cursor = Cursors.Default;
     }
 
     private static int GreatestCommonDivisor(int a, int b)
@@ -654,9 +769,10 @@ public partial class MainForm : Form
         try
         {
             ReleaseVideoMedia();
+            ResetVideoProgressUi();
             _loadedVideoMedia = new Media(_libVlc, path, FromType.FromPath);
             _mediaPlayer.Media = _loadedVideoMedia;
-            _mediaPlayer.Play();
+            PlayVideo();
         }
         catch (Exception ex)
         {
@@ -677,9 +793,112 @@ public partial class MainForm : Form
         _loadedVideoMedia = null;
     }
 
+    private void UpdateVideoProgressUi()
+    {
+        if (_mediaPlayer is null || !panelVideoHost.Visible)
+        {
+            return;
+        }
+
+        long lengthMs = _mediaPlayer.Length;
+        long timeMs = _mediaPlayer.Time;
+
+        if (lengthMs <= 0)
+        {
+            labelVideoTime.Text = $"{FormatMediaTime(timeMs)} / --:--";
+            labelVideoPercent.Text = "0.0 %";
+            if (!_isUserSeekingVideo)
+            {
+                videoSeekBar.Progress = 0d;
+            }
+            return;
+        }
+
+        double progress = Math.Clamp((double)timeMs / lengthMs, 0d, 1d);
+        if (!_isUserSeekingVideo)
+        {
+            videoSeekBar.Progress = progress;
+        }
+
+        labelVideoTime.Text = $"{FormatMediaTime(timeMs)} / {FormatMediaTime(lengthMs)}";
+        labelVideoPercent.Text = $"{progress * 100:0.0} %";
+    }
+
+    private void ResetVideoProgressUi()
+    {
+        _isUserSeekingVideo = false;
+        videoSeekBar.Progress = 0d;
+        labelVideoTime.Text = "00:00 / 00:00";
+        labelVideoPercent.Text = "0.0 %";
+        labelVideoOverlayIcon.Visible = false;
+    }
+
+    private void PlayVideo()
+    {
+        _mediaPlayer?.Play();
+        ShowVideoOverlayIcon("\uE102");
+    }
+
+    private void PauseVideo()
+    {
+        _mediaPlayer?.Pause();
+        ShowVideoOverlayIcon("\uE103");
+    }
+
+    private void StopVideo()
+    {
+        _mediaPlayer?.Stop();
+        ResetVideoProgressUi();
+        ShowVideoOverlayIcon("\uE15B");
+    }
+
+    private void ShowVideoOverlayIcon(string glyph)
+    {
+        if (!panelVideoHost.Visible)
+        {
+            return;
+        }
+
+        labelVideoOverlayIcon.Text = glyph;
+        labelVideoOverlayIcon.Visible = true;
+        labelVideoOverlayIcon.BringToFront();
+        _videoOverlayTimer.Stop();
+        _videoOverlayTimer.Start();
+    }
+
+    private void VideoSeekBar_SeekRequested(double progress)
+    {
+        if (_mediaPlayer is null || _mediaPlayer.Length <= 0)
+        {
+            return;
+        }
+
+        long target = (long)Math.Round(_mediaPlayer.Length * Math.Clamp(progress, 0d, 1d));
+        _mediaPlayer.Time = target;
+        labelVideoTime.Text = $"{FormatMediaTime(target)} / {FormatMediaTime(_mediaPlayer.Length)}";
+        labelVideoPercent.Text = $"{progress * 100:0.0} %";
+    }
+
+    private static string FormatMediaTime(long milliseconds)
+    {
+        if (milliseconds < 0)
+        {
+            milliseconds = 0;
+        }
+
+        TimeSpan t = TimeSpan.FromMilliseconds(milliseconds);
+        if (t.TotalHours >= 1)
+        {
+            return $"{(int)t.TotalHours:00}:{t.Minutes:00}:{t.Seconds:00}";
+        }
+
+        return $"{t.Minutes:00}:{t.Seconds:00}";
+    }
+
     private void ClearImagePreview()
     {
         picturePreview.Image = null;
+        panelImageScrollHost.AutoScrollMinSize = Size.Empty;
         _ownedPreviewImage?.Dispose();
         _ownedPreviewImage = null;
     }
@@ -888,7 +1107,9 @@ public partial class MainForm : Form
             }
         }
 
-        if (VideoExtensions.Contains(ext) && TryBuildVideoFirstFrameThumbnail(filePath, targetWidth, targetHeight, out Image? videoThumb))
+        if (UseRealVideoFrameThumbnails &&
+            VideoExtensions.Contains(ext) &&
+            TryBuildVideoFirstFrameThumbnail(filePath, targetWidth, targetHeight, out Image? videoThumb))
         {
             return videoThumb!;
         }
