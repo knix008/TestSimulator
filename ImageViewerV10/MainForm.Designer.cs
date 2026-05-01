@@ -364,7 +364,7 @@ partial class MainForm
         layoutVideo.Name = "layoutVideo";
         layoutVideo.RowCount = 2;
         layoutVideo.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layoutVideo.RowStyles.Add(new RowStyle(SizeType.Absolute, 114F));
+        layoutVideo.RowStyles.Add(new RowStyle(SizeType.Absolute, 168F));
         layoutVideo.Size = new Size(858, 761);
         layoutVideo.TabIndex = 0;
         //
@@ -417,7 +417,7 @@ partial class MainForm
         panelVideoBottom.Margin = new Padding(0);
         panelVideoBottom.Name = "panelVideoBottom";
         panelVideoBottom.Padding = new Padding(0, 0, 0, 0);
-        panelVideoBottom.Size = new Size(858, 114);
+        panelVideoBottom.Size = new Size(858, 168);
         panelVideoBottom.TabIndex = 1;
         //
         // panelVideoBottomSeparator
@@ -440,9 +440,9 @@ partial class MainForm
         layoutVideoBottom.Margin = new Padding(0);
         layoutVideoBottom.Name = "layoutVideoBottom";
         layoutVideoBottom.RowCount = 2;
-        layoutVideoBottom.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+        layoutVideoBottom.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
         layoutVideoBottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layoutVideoBottom.Size = new Size(858, 113);
+        layoutVideoBottom.Size = new Size(858, 167);
         layoutVideoBottom.TabIndex = 1;
         //
         // layoutVideoButtons
@@ -453,12 +453,12 @@ partial class MainForm
         layoutVideoButtons.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
         layoutVideoButtons.Controls.Add(flowVideoControls, 1, 0);
         layoutVideoButtons.Dock = DockStyle.Fill;
-        layoutVideoButtons.Location = new Point(0, 38);
+        layoutVideoButtons.Location = new Point(0, 52);
         layoutVideoButtons.Margin = new Padding(0);
         layoutVideoButtons.Name = "layoutVideoButtons";
         layoutVideoButtons.RowCount = 1;
         layoutVideoButtons.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layoutVideoButtons.Size = new Size(858, 75);
+        layoutVideoButtons.Size = new Size(858, 115);
         layoutVideoButtons.TabIndex = 2;
         //
         // panelVideoTimeline
@@ -472,7 +472,7 @@ partial class MainForm
         panelVideoTimeline.Margin = new Padding(0, 0, 0, 0);
         panelVideoTimeline.Name = "panelVideoTimeline";
         panelVideoTimeline.Padding = new Padding(12, 8, 12, 4);
-        panelVideoTimeline.Size = new Size(858, 38);
+        panelVideoTimeline.Size = new Size(858, 52);
         panelVideoTimeline.TabIndex = 1;
         //
         // labelVideoTime
@@ -480,7 +480,7 @@ partial class MainForm
         labelVideoTime.AutoSize = true;
         labelVideoTime.Dock = DockStyle.Left;
         labelVideoTime.ForeColor = Color.Gainsboro;
-        labelVideoTime.Location = new Point(12, 8);
+        labelVideoTime.Location = new Point(12, 15);
         labelVideoTime.Name = "labelVideoTime";
         labelVideoTime.Size = new Size(89, 20);
         labelVideoTime.TabIndex = 0;
@@ -491,7 +491,7 @@ partial class MainForm
         labelVideoPercent.AutoSize = true;
         labelVideoPercent.Dock = DockStyle.Right;
         labelVideoPercent.ForeColor = Color.Gainsboro;
-        labelVideoPercent.Location = new Point(793, 8);
+        labelVideoPercent.Location = new Point(793, 15);
         labelVideoPercent.Name = "labelVideoPercent";
         labelVideoPercent.Size = new Size(47, 20);
         labelVideoPercent.TabIndex = 2;
@@ -500,7 +500,7 @@ partial class MainForm
         // videoSeekBar
         //
         videoSeekBar.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        videoSeekBar.Location = new Point(120, 10);
+        videoSeekBar.Location = new Point(120, 17);
         videoSeekBar.Name = "videoSeekBar";
         videoSeekBar.Progress = 0D;
         videoSeekBar.Size = new Size(665, 16);
@@ -517,21 +517,21 @@ partial class MainForm
         flowVideoControls.Controls.Add(buttonVideoStop);
         flowVideoControls.Dock = DockStyle.None;
         flowVideoControls.FlowDirection = FlowDirection.LeftToRight;
-        flowVideoControls.Location = new Point(344, 13);
+        flowVideoControls.Location = new Point(344, 33);
         flowVideoControls.Margin = new Padding(0);
         flowVideoControls.Name = "flowVideoControls";
-        flowVideoControls.Padding = new Padding(10, 8, 10, 8);
-        flowVideoControls.Size = new Size(170, 49);
+        flowVideoControls.Padding = new Padding(12, 12, 12, 12);
+        flowVideoControls.Size = new Size(180, 65);
         flowVideoControls.TabIndex = 2;
         flowVideoControls.WrapContents = false;
         //
         // buttonVideoPlay
         //
         buttonVideoPlay.Font = new Font("Segoe MDL2 Assets", 14.25F, FontStyle.Regular, GraphicsUnit.Point);
-        buttonVideoPlay.Location = new Point(13, 12);
-        buttonVideoPlay.Margin = new Padding(3, 4, 6, 4);
+        buttonVideoPlay.Location = new Point(15, 16);
+        buttonVideoPlay.Margin = new Padding(3, 4, 8, 4);
         buttonVideoPlay.Name = "buttonVideoPlay";
-        buttonVideoPlay.Size = new Size(44, 40);
+        buttonVideoPlay.Size = new Size(46, 36);
         buttonVideoPlay.TabIndex = 0;
         buttonVideoPlay.Text = "\uE102";
         buttonVideoPlay.UseVisualStyleBackColor = true;
@@ -539,10 +539,10 @@ partial class MainForm
         // buttonVideoPause
         //
         buttonVideoPause.Font = new Font("Segoe MDL2 Assets", 14.25F, FontStyle.Regular, GraphicsUnit.Point);
-        buttonVideoPause.Location = new Point(63, 12);
-        buttonVideoPause.Margin = new Padding(3, 4, 6, 4);
+        buttonVideoPause.Location = new Point(69, 16);
+        buttonVideoPause.Margin = new Padding(3, 4, 8, 4);
         buttonVideoPause.Name = "buttonVideoPause";
-        buttonVideoPause.Size = new Size(44, 40);
+        buttonVideoPause.Size = new Size(46, 36);
         buttonVideoPause.TabIndex = 1;
         buttonVideoPause.Text = "\uE103";
         buttonVideoPause.UseVisualStyleBackColor = true;
@@ -550,10 +550,10 @@ partial class MainForm
         // buttonVideoStop
         //
         buttonVideoStop.Font = new Font("Segoe MDL2 Assets", 14.25F, FontStyle.Regular, GraphicsUnit.Point);
-        buttonVideoStop.Location = new Point(113, 12);
-        buttonVideoStop.Margin = new Padding(3, 4, 6, 4);
+        buttonVideoStop.Location = new Point(123, 16);
+        buttonVideoStop.Margin = new Padding(3, 4, 8, 4);
         buttonVideoStop.Name = "buttonVideoStop";
-        buttonVideoStop.Size = new Size(44, 40);
+        buttonVideoStop.Size = new Size(46, 36);
         buttonVideoStop.TabIndex = 2;
         buttonVideoStop.Text = "\uE15B";
         buttonVideoStop.UseVisualStyleBackColor = true;
