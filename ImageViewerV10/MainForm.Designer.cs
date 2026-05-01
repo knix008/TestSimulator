@@ -5,6 +5,8 @@ partial class MainForm
     private System.ComponentModel.IContainer components = null!;
 
     private SplitContainer splitMain;
+    private ImageList imageListTree;
+    private ImageList imageListFiles;
     private Panel panelLeft;
     private Panel panelFolderBar;
     private TextBox textFolderPath;
@@ -30,6 +32,9 @@ partial class MainForm
     private Button buttonVideoPause;
     private Button buttonVideoStop;
     private Label labelPreviewPlaceholder;
+    private StatusStrip statusStripMain;
+    private ToolStripStatusLabel statusLabelDirectory;
+    private ToolStripStatusLabel statusLabelFile;
 
     protected override void Dispose(bool disposing)
     {
@@ -45,6 +50,8 @@ partial class MainForm
     {
         components = new System.ComponentModel.Container();
         splitMain = new SplitContainer();
+        imageListTree = new ImageList(components);
+        imageListFiles = new ImageList(components);
         panelLeft = new Panel();
         panelFolderBar = new Panel();
         textFolderPath = new TextBox();
@@ -70,6 +77,9 @@ partial class MainForm
         buttonVideoPause = new Button();
         buttonVideoStop = new Button();
         labelPreviewPlaceholder = new Label();
+        statusStripMain = new StatusStrip();
+        statusLabelDirectory = new ToolStripStatusLabel();
+        statusLabelFile = new ToolStripStatusLabel();
         ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
         splitMain.Panel1.SuspendLayout();
         splitMain.Panel2.SuspendLayout();
@@ -89,6 +99,7 @@ partial class MainForm
         layoutVideo.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)videoView).BeginInit();
         flowVideoControls.SuspendLayout();
+        statusStripMain.SuspendLayout();
         SuspendLayout();
         //
         // splitMain
@@ -105,6 +116,18 @@ partial class MainForm
         splitMain.SplitterDistance = 320;
         splitMain.SplitterWidth = 6;
         splitMain.TabIndex = 0;
+        //
+        // imageListTree
+        //
+        imageListTree.ColorDepth = ColorDepth.Depth32Bit;
+        imageListTree.ImageSize = new Size(16, 16);
+        imageListTree.TransparentColor = Color.Transparent;
+        //
+        // imageListFiles
+        //
+        imageListFiles.ColorDepth = ColorDepth.Depth32Bit;
+        imageListFiles.ImageSize = new Size(16, 16);
+        imageListFiles.TransparentColor = Color.Transparent;
         //
         // panelLeft
         //
@@ -168,8 +191,10 @@ partial class MainForm
         //
         treeFolders.Dock = DockStyle.Fill;
         treeFolders.HideSelection = false;
+        treeFolders.ImageList = imageListTree;
         treeFolders.Location = new Point(0, 0);
         treeFolders.Name = "treeFolders";
+        treeFolders.SelectedImageKey = "folder-open";
         treeFolders.Size = new Size(304, 340);
         treeFolders.TabIndex = 0;
         //
@@ -180,6 +205,7 @@ partial class MainForm
         listViewFiles.FullRowSelect = true;
         listViewFiles.GridLines = true;
         listViewFiles.HideSelection = false;
+        listViewFiles.SmallImageList = imageListFiles;
         listViewFiles.Location = new Point(8, 56);
         listViewFiles.Margin = new Padding(3, 4, 3, 4);
         listViewFiles.MultiSelect = false;
@@ -390,11 +416,38 @@ partial class MainForm
         labelPreviewPlaceholder.Text = "폴더와 파일을 선택하면 여기에 표시됩니다.";
         labelPreviewPlaceholder.TextAlign = ContentAlignment.MiddleCenter;
         //
+        // statusStripMain
+        //
+        statusStripMain.ImageScalingSize = new Size(20, 20);
+        statusStripMain.Items.AddRange(new ToolStripItem[] { statusLabelDirectory, statusLabelFile });
+        statusStripMain.Location = new Point(0, 735);
+        statusStripMain.Name = "statusStripMain";
+        statusStripMain.Size = new Size(1184, 26);
+        statusStripMain.TabIndex = 1;
+        statusStripMain.Text = "statusStrip1";
+        //
+        // statusLabelDirectory
+        //
+        statusLabelDirectory.Name = "statusLabelDirectory";
+        statusLabelDirectory.Size = new Size(806, 20);
+        statusLabelDirectory.Spring = true;
+        statusLabelDirectory.Text = "디렉토리를 선택하세요.";
+        statusLabelDirectory.TextAlign = ContentAlignment.MiddleLeft;
+        //
+        // statusLabelFile
+        //
+        statusLabelFile.BorderSides = ToolStripStatusLabelBorderSides.Left;
+        statusLabelFile.Name = "statusLabelFile";
+        statusLabelFile.Size = new Size(363, 20);
+        statusLabelFile.Text = "파일을 선택하면 정보가 표시됩니다.";
+        statusLabelFile.TextAlign = ContentAlignment.MiddleLeft;
+        //
         // MainForm
         //
         AutoScaleDimensions = new SizeF(8F, 20F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1184, 761);
+        Controls.Add(statusStripMain);
         Controls.Add(splitMain);
         Margin = new Padding(3, 4, 3, 4);
         MinimumSize = new Size(900, 560);
@@ -424,6 +477,9 @@ partial class MainForm
         layoutVideo.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)videoView).EndInit();
         flowVideoControls.ResumeLayout(false);
+        statusStripMain.ResumeLayout(false);
+        statusStripMain.PerformLayout();
         ResumeLayout(false);
+        PerformLayout();
     }
 }
