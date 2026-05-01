@@ -1,9 +1,15 @@
 # Build outputs
 bin/
 obj/
+Debug/
+Release/
+x64/
+x86/
+AnyCPU/
 
 # Visual Studio user-specific files
 .vs/
+.vscode/
 *.user
 *.suo
 *.userosscache
@@ -15,9 +21,22 @@ obj/
 # NuGet
 packages/
 *.nupkg
+*.snupkg
 
 # Logs
 *.log
+
+# Test and coverage
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# WiX/Installer build artifacts
+*.wixobj
+*.wixpdb
+*.wixstate
+*.cab
 
 # OS generated
 Thumbs.db
