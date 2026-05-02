@@ -2,32 +2,20 @@ namespace Viewer3DWinForms;
 
 partial class ThreeDViewerForm
 {
-    /// <summary>
-    ///  Required designer variable.
-    /// </summary>
     private System.ComponentModel.IContainer components = null;
 
-    /// <summary>
-    ///  Clean up any resources being used.
-    /// </summary>
-    /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
     protected override void Dispose(bool disposing)
     {
         if (disposing && (components != null))
-        {
             components.Dispose();
-        }
         base.Dispose(disposing);
     }
 
     #region Windows Form Designer generated code
 
-    /// <summary>
-    ///  Required method for Designer support - do not modify
-    ///  the contents of this method with the code editor.
-    /// </summary>
     private void InitializeComponent()
     {
+        var resources = new System.ComponentModel.ComponentResourceManager(typeof(ThreeDViewerForm));
         components = new System.ComponentModel.Container();
         splitMain = new SplitContainer();
         splitLeft = new SplitContainer();
@@ -43,6 +31,17 @@ partial class ThreeDViewerForm
         lblStatus = new ToolStripStatusLabel();
         treeImageList = new ImageList(components);
         fileImageList = new ImageList(components);
+        fileListContextMenu = new ContextMenuStrip(components);
+        menuRenameFile = new ToolStripMenuItem();
+        menuDeleteFile = new ToolStripMenuItem();
+        panelLighting = new Panel();
+        lblLightTitle = new Label();
+        lblAmbientCap = new Label();
+        trackAmbient = new TrackBar();
+        lblAmbientVal = new Label();
+        lblEmissiveCap = new Label();
+        trackEmissive = new TrackBar();
+        lblEmissiveVal = new Label();
         ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
         splitMain.Panel1.SuspendLayout();
         splitMain.Panel2.SuspendLayout();
@@ -53,6 +52,9 @@ partial class ThreeDViewerForm
         splitLeft.SuspendLayout();
         topPanel.SuspendLayout();
         statusStrip.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)trackAmbient).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)trackEmissive).BeginInit();
+        panelLighting.SuspendLayout();
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1400, 850);
         Controls.Add(splitMain);
@@ -65,6 +67,7 @@ partial class ThreeDViewerForm
         splitMain.Location = new Point(0, 0);
         splitMain.Name = "splitMain";
         splitMain.Panel1.Controls.Add(splitLeft);
+        splitMain.Panel2.Controls.Add(panelLighting);
         splitMain.Panel2.Controls.Add(panelZoomInfo);
         splitMain.Panel2.Controls.Add(viewerHost);
         splitMain.Size = new Size(1400, 828);
@@ -121,6 +124,17 @@ partial class ThreeDViewerForm
         listFiles.UseCompatibleStateImageBehavior = false;
         listFiles.View = View.List;
         listFiles.SelectedIndexChanged += listFiles_SelectedIndexChanged;
+        listFiles.KeyDown += listFiles_KeyDown;
+        listFiles.ContextMenuStrip = fileListContextMenu;
+        fileListContextMenu.Items.AddRange(new ToolStripItem[] { menuRenameFile, menuDeleteFile });
+        fileListContextMenu.Name = "fileListContextMenu";
+        fileListContextMenu.Opening += fileListContextMenu_Opening;
+        menuRenameFile.Name = "menuRenameFile";
+        menuRenameFile.Text = "이름 바꾸기...";
+        menuRenameFile.Click += menuRenameFile_Click;
+        menuDeleteFile.Name = "menuDeleteFile";
+        menuDeleteFile.Text = "삭제";
+        menuDeleteFile.Click += menuDeleteFile_Click;
         panelZoomInfo.BackColor = System.Drawing.Color.FromArgb(180, 32, 32, 32);
         panelZoomInfo.Controls.Add(lblZoomRatio);
         panelZoomInfo.Location = new Point(8, 8);
@@ -150,6 +164,81 @@ partial class ThreeDViewerForm
         statusStrip.Text = "statusStrip1";
         lblStatus.Name = "lblStatus";
         lblStatus.Size = new Size(0, 16);
+        // panelLighting
+        panelLighting.BackColor = System.Drawing.Color.FromArgb(210, 32, 32, 32);
+        panelLighting.Controls.Add(lblLightTitle);
+        panelLighting.Controls.Add(lblAmbientCap);
+        panelLighting.Controls.Add(trackAmbient);
+        panelLighting.Controls.Add(lblAmbientVal);
+        panelLighting.Controls.Add(lblEmissiveCap);
+        panelLighting.Controls.Add(trackEmissive);
+        panelLighting.Controls.Add(lblEmissiveVal);
+        panelLighting.Location = new Point(710, 8);
+        panelLighting.Name = "panelLighting";
+        panelLighting.Size = new Size(248, 78);
+        panelLighting.TabIndex = 2;
+        panelLighting.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        lblLightTitle.AutoSize = false;
+        lblLightTitle.ForeColor = System.Drawing.Color.White;
+        lblLightTitle.Font = new Font("Segoe UI", 8.25f, FontStyle.Bold);
+        lblLightTitle.Location = new Point(6, 4);
+        lblLightTitle.Name = "lblLightTitle";
+        lblLightTitle.Size = new Size(236, 14);
+        lblLightTitle.Text = "조명 설정";
+        lblAmbientCap.AutoSize = false;
+        lblAmbientCap.ForeColor = System.Drawing.Color.White;
+        lblAmbientCap.Font = new Font("Segoe UI", 8f);
+        lblAmbientCap.Location = new Point(4, 24);
+        lblAmbientCap.Name = "lblAmbientCap";
+        lblAmbientCap.Size = new Size(42, 14);
+        lblAmbientCap.Text = "환경광";
+        trackAmbient.AutoSize = false;
+        trackAmbient.Location = new Point(46, 16);
+        trackAmbient.Maximum = 255;
+        trackAmbient.Minimum = 0;
+        trackAmbient.Name = "trackAmbient";
+        trackAmbient.Size = new Size(162, 28);
+        trackAmbient.TabIndex = 1;
+        trackAmbient.TickStyle = TickStyle.None;
+        trackAmbient.Value = 160;
+        trackAmbient.SmallChange = 5;
+        trackAmbient.LargeChange = 20;
+        trackAmbient.ValueChanged += trackAmbient_ValueChanged;
+        lblAmbientVal.AutoSize = false;
+        lblAmbientVal.ForeColor = System.Drawing.Color.White;
+        lblAmbientVal.Font = new Font("Segoe UI", 8f);
+        lblAmbientVal.Location = new Point(212, 24);
+        lblAmbientVal.Name = "lblAmbientVal";
+        lblAmbientVal.Size = new Size(30, 14);
+        lblAmbientVal.Text = "160";
+        lblAmbientVal.TextAlign = ContentAlignment.MiddleRight;
+        lblEmissiveCap.AutoSize = false;
+        lblEmissiveCap.ForeColor = System.Drawing.Color.White;
+        lblEmissiveCap.Font = new Font("Segoe UI", 8f);
+        lblEmissiveCap.Location = new Point(4, 52);
+        lblEmissiveCap.Name = "lblEmissiveCap";
+        lblEmissiveCap.Size = new Size(42, 14);
+        lblEmissiveCap.Text = "발 광";
+        trackEmissive.AutoSize = false;
+        trackEmissive.Location = new Point(46, 44);
+        trackEmissive.Maximum = 100;
+        trackEmissive.Minimum = 0;
+        trackEmissive.Name = "trackEmissive";
+        trackEmissive.Size = new Size(162, 28);
+        trackEmissive.TabIndex = 2;
+        trackEmissive.TickStyle = TickStyle.None;
+        trackEmissive.Value = 60;
+        trackEmissive.SmallChange = 2;
+        trackEmissive.LargeChange = 10;
+        trackEmissive.ValueChanged += trackEmissive_ValueChanged;
+        lblEmissiveVal.AutoSize = false;
+        lblEmissiveVal.ForeColor = System.Drawing.Color.White;
+        lblEmissiveVal.Font = new Font("Segoe UI", 8f);
+        lblEmissiveVal.Location = new Point(212, 52);
+        lblEmissiveVal.Name = "lblEmissiveVal";
+        lblEmissiveVal.Size = new Size(30, 14);
+        lblEmissiveVal.Text = "60";
+        lblEmissiveVal.TextAlign = ContentAlignment.MiddleRight;
         splitMain.Panel1.ResumeLayout(false);
         splitMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitMain).EndInit();
@@ -159,10 +248,14 @@ partial class ThreeDViewerForm
         ((System.ComponentModel.ISupportInitialize)splitLeft).EndInit();
         splitLeft.ResumeLayout(false);
         topPanel.ResumeLayout(false);
+        panelLighting.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)trackAmbient).EndInit();
+        ((System.ComponentModel.ISupportInitialize)trackEmissive).EndInit();
         statusStrip.ResumeLayout(false);
         statusStrip.PerformLayout();
         ResumeLayout(false);
         PerformLayout();
+        resources.ApplyResources(this, "$this");
     }
 
     #endregion
@@ -181,4 +274,15 @@ partial class ThreeDViewerForm
     private ToolStripStatusLabel lblStatus;
     private ImageList treeImageList;
     private ImageList fileImageList;
+    private ContextMenuStrip fileListContextMenu;
+    private ToolStripMenuItem menuRenameFile;
+    private ToolStripMenuItem menuDeleteFile;
+    private Panel panelLighting;
+    private Label lblLightTitle;
+    private Label lblAmbientCap;
+    private TrackBar trackAmbient;
+    private Label lblAmbientVal;
+    private Label lblEmissiveCap;
+    private TrackBar trackEmissive;
+    private Label lblEmissiveVal;
 }

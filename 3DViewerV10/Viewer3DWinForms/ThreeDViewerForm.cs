@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using Ai = Assimp;
@@ -25,16 +26,25 @@ public partial class ThreeDViewerForm : Form
         ".fbx", ".dae", ".ply", ".glb", ".gltf"
     };
 
+    private readonly HashSet<string> _gltfExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".glb", ".gltf"
+    };
+
     private readonly HashSet<string> _assimpExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".fbx", ".dae", ".ply", ".glb", ".gltf"
+        ".fbx", ".dae", ".ply"
     };
 
     private readonly HelixViewport3D _viewport;
     private readonly ModelVisual3D _modelRoot;
     private string? _rootDirectory;
+    private string? _currentListDirectory;
+    private string? _lastLoadedModelPath;
     private double _basePerspectiveDistance = 1.0;
     private double _baseOrthographicWidth = 1.0;
+    private readonly AmbientLight _ambientLight = new(System.Windows.Media.Color.FromRgb(160, 160, 160));
+    private readonly List<System.Windows.Media.SolidColorBrush> _emissiveBrushes = new();
 
     public ThreeDViewerForm()
     {
@@ -51,7 +61,11 @@ public partial class ThreeDViewerForm : Form
             ZoomGesture = new MouseGesture(MouseAction.MiddleClick)
         };
 
+        TextureBrushQuality.ApplyToViewport(_viewport);
+
         _viewport.Children.Add(new SunLight());
+        // glTF/Assimp 모두에서 역광 쪽이 과하게 어두워지지 않도록 약한 환경광을 둡니다.
+        _viewport.Children.Add(new ModelVisual3D { Content = _ambientLight });
         _modelRoot = new ModelVisual3D();
         _viewport.Children.Add(_modelRoot);
         _viewport.CameraChanged += Viewport_CameraChanged;
@@ -59,6 +73,7 @@ public partial class ThreeDViewerForm : Form
         viewerHost.Child = _viewport;
         viewerHost.BackColor = System.Drawing.Color.Black;
         panelZoomInfo.BringToFront();
+        panelLighting.BringToFront();
         UpdateZoomRatioLabel();
     }
 
@@ -167,6 +182,7 @@ public partial class ThreeDViewerForm : Form
 
     private void UpdateFileList(string directoryPath)
     {
+        _currentListDirectory = directoryPath;
         listFiles.BeginUpdate();
         listFiles.Items.Clear();
 
@@ -194,6 +210,7 @@ public partial class ThreeDViewerForm : Form
         catch (Exception ex)
         {
             SetStatus($"파일 목록을 불러오지 못했습니다: {ex.Message}");
+            ShowExceptionDialog("파일 목록 오류", ex);
         }
         finally
         {
@@ -221,10 +238,15 @@ public partial class ThreeDViewerForm : Form
         try
         {
             Cursor = System.Windows.Forms.Cursors.WaitCursor;
+            _emissiveBrushes.Clear();
             var extension = Path.GetExtension(modelPath);
             Model3D model;
 
-            if (_assimpExtensions.Contains(extension))
+            if (_gltfExtensions.Contains(extension))
+            {
+                model = GltfSceneLoader.Load(modelPath, trackEmissive.Value, _emissiveBrushes);
+            }
+            else if (_assimpExtensions.Contains(extension))
             {
                 model = LoadWithAssimp(modelPath);
             }
@@ -235,6 +257,7 @@ public partial class ThreeDViewerForm : Form
             }
 
             _modelRoot.Content = model;
+            _lastLoadedModelPath = modelPath;
             _viewport.ZoomExtents();
             CaptureZoomBaseline();
             UpdateZoomRatioLabel();
@@ -243,7 +266,9 @@ public partial class ThreeDViewerForm : Form
         catch (Exception ex)
         {
             _modelRoot.Content = null;
+            _lastLoadedModelPath = null;
             SetStatus($"모델 로드 실패: {ex.Message}");
+            ShowExceptionDialog("모델 로드 오류", ex);
         }
         finally
         {
@@ -254,6 +279,229 @@ public partial class ThreeDViewerForm : Form
     private void SetStatus(string message)
     {
         lblStatus.Text = message;
+    }
+
+    private void ShowExceptionDialog(string title, Exception ex)
+    {
+        var text = ex.ToString();
+        const int maxLen = 16000;
+        if (text.Length > maxLen)
+        {
+            text = text[..maxLen] + Environment.NewLine + "…(이하 생략)";
+        }
+
+        MessageBox.Show(this, text, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+
+    private void fileListContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        var hasFile = listFiles.SelectedItems.Count > 0
+            && listFiles.SelectedItems[0].Tag is string path
+            && File.Exists(path);
+        menuRenameFile.Enabled = hasFile;
+        menuDeleteFile.Enabled = hasFile;
+    }
+
+    private void menuRenameFile_Click(object? sender, EventArgs e)
+    {
+        TryRenameSelectedFile();
+    }
+
+    private void menuDeleteFile_Click(object? sender, EventArgs e)
+    {
+        TryDeleteSelectedFile();
+    }
+
+    private void listFiles_KeyDown(object? sender, System.Windows.Forms.KeyEventArgs e)
+    {
+        if (e.KeyCode != Keys.Delete)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        e.SuppressKeyPress = true;
+        TryDeleteSelectedFile();
+    }
+
+    private void TryRenameSelectedFile()
+    {
+        if (_currentListDirectory is null
+            || listFiles.SelectedItems.Count == 0
+            || listFiles.SelectedItems[0].Tag is not string oldPath
+            || !File.Exists(oldPath))
+        {
+            return;
+        }
+
+        var oldName = Path.GetFileName(oldPath);
+        if (!TryPromptNewFileName(this, oldName, out var newName))
+        {
+            return;
+        }
+
+        var safeName = Path.GetFileName(newName.Trim());
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            MessageBox.Show(this, "파일 이름이 비어 있습니다.", "이름 바꾸기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (safeName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            MessageBox.Show(this, "파일 이름에 사용할 수 없는 문자가 포함되어 있습니다.", "이름 바꾸기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var root = Path.GetFullPath(_currentListDirectory.TrimEnd(Path.DirectorySeparatorChar));
+        var newPath = Path.GetFullPath(Path.Combine(root, safeName));
+        if (!newPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show(this, "현재 폴더 밖으로 이름을 바꿀 수 없습니다.", "이름 바꾸기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (File.Exists(newPath))
+        {
+            MessageBox.Show(this, "같은 이름의 파일이 이미 있습니다.", "이름 바꾸기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        try
+        {
+            ClearViewerIfShowing(oldPath);
+            File.Move(oldPath, newPath);
+            UpdateFileList(_currentListDirectory);
+            SelectListItemByPath(newPath);
+            SetStatus($"이름 변경: {Path.GetFileName(newPath)}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"이름을 바꿀 수 없습니다.\n{ex.Message}", "이름 바꾸기", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void TryDeleteSelectedFile()
+    {
+        if (_currentListDirectory is null
+            || listFiles.SelectedItems.Count == 0
+            || listFiles.SelectedItems[0].Tag is not string path
+            || !File.Exists(path))
+        {
+            return;
+        }
+
+        var name = Path.GetFileName(path);
+        var result = MessageBox.Show(
+            this,
+            $"다음 파일을 삭제할까요?\n\n{name}\n\n휴지통이 아니라 완전히 삭제됩니다.",
+            "파일 삭제",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button2);
+
+        if (result != DialogResult.Yes)
+        {
+            return;
+        }
+
+        try
+        {
+            ClearViewerIfShowing(path);
+            File.Delete(path);
+            UpdateFileList(_currentListDirectory);
+            SetStatus($"삭제됨: {name}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"삭제할 수 없습니다.\n{ex.Message}", "파일 삭제", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void ClearViewerIfShowing(string fullPath)
+    {
+        if (_lastLoadedModelPath is not null
+            && string.Equals(_lastLoadedModelPath, fullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _modelRoot.Content = null;
+            _lastLoadedModelPath = null;
+        }
+    }
+
+    private void SelectListItemByPath(string fullPath)
+    {
+        foreach (ListViewItem item in listFiles.Items)
+        {
+            if (item.Tag is string p && string.Equals(p, fullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                item.Selected = true;
+                item.Focused = true;
+                break;
+            }
+        }
+    }
+
+    private static bool TryPromptNewFileName(IWin32Window owner, string currentFileName, out string newName)
+    {
+        using var form = new Form
+        {
+            Text = "이름 바꾸기",
+            ClientSize = new System.Drawing.Size(420, 110),
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterParent,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            ShowInTaskbar = false,
+            ShowIcon = false
+        };
+
+        var textBox = new TextBox
+        {
+            Text = currentFileName,
+            Location = new System.Drawing.Point(12, 36),
+            Width = 396
+        };
+        var label = new Label
+        {
+            Text = "새 파일 이름:",
+            Location = new System.Drawing.Point(12, 10),
+            AutoSize = true
+        };
+        var ok = new Button
+        {
+            Text = "확인",
+            DialogResult = DialogResult.OK,
+            Location = new System.Drawing.Point(228, 70),
+            Width = 88
+        };
+        var cancel = new Button
+        {
+            Text = "취소",
+            DialogResult = DialogResult.Cancel,
+            Location = new System.Drawing.Point(320, 70),
+            Width = 88
+        };
+
+        form.Controls.Add(label);
+        form.Controls.Add(textBox);
+        form.Controls.Add(ok);
+        form.Controls.Add(cancel);
+        form.AcceptButton = ok;
+        form.CancelButton = cancel;
+
+        if (form.ShowDialog(owner) != DialogResult.OK)
+        {
+            newName = string.Empty;
+            return false;
+        }
+
+        newName = textBox.Text;
+        return true;
     }
 
     private void Viewport_CameraChanged(object? sender, System.Windows.RoutedEventArgs e)
@@ -298,7 +546,6 @@ public partial class ThreeDViewerForm : Form
         var scene = context.ImportFile(
             modelPath,
             Ai.PostProcessSteps.Triangulate |
-            Ai.PostProcessSteps.JoinIdenticalVertices |
             Ai.PostProcessSteps.GenerateSmoothNormals |
             Ai.PostProcessSteps.SortByPrimitiveType |
             Ai.PostProcessSteps.ImproveCacheLocality)
@@ -328,7 +575,7 @@ public partial class ThreeDViewerForm : Form
                 continue;
             }
 
-            var geometryModel = CreateGeometryModel(mesh, scene.Materials[mesh.MaterialIndex], worldTransform, modelDirectory);
+            var geometryModel = CreateGeometryModel(scene, mesh, scene.Materials[mesh.MaterialIndex], worldTransform, modelDirectory);
             output.Children.Add(geometryModel);
         }
 
@@ -338,7 +585,7 @@ public partial class ThreeDViewerForm : Form
         }
     }
 
-    private static GeometryModel3D CreateGeometryModel(Ai.Mesh mesh, Ai.Material? assimpMaterial, Matrix3D transform, string modelDirectory)
+    private static GeometryModel3D CreateGeometryModel(Ai.Scene scene, Ai.Mesh mesh, Ai.Material? assimpMaterial, Matrix3D transform, string modelDirectory)
     {
         var geometry = new MeshGeometry3D();
         geometry.Positions = new Point3DCollection(mesh.Vertices.Select(v => new Point3D(v.X, v.Y, v.Z)));
@@ -362,7 +609,8 @@ public partial class ThreeDViewerForm : Form
         }
 
         geometry.TriangleIndices = triangleIndices;
-        var material = CreateWpfMaterial(assimpMaterial, modelDirectory);
+        PopulateTextureCoordinates(geometry, mesh, assimpMaterial);
+        var material = CreateWpfMaterial(scene, assimpMaterial, modelDirectory);
 
         return new GeometryModel3D
         {
@@ -373,7 +621,7 @@ public partial class ThreeDViewerForm : Form
         };
     }
 
-    private static System.Windows.Media.Media3D.Material CreateWpfMaterial(Ai.Material? assimpMaterial, string modelDirectory)
+    private static System.Windows.Media.Media3D.Material CreateWpfMaterial(Ai.Scene scene, Ai.Material? assimpMaterial, string modelDirectory)
     {
         var diffuseColor = Colors.LightGray;
         var specularColor = Colors.White;
@@ -397,12 +645,118 @@ public partial class ThreeDViewerForm : Form
             }
         }
 
-        // Prefer texture when available; fallback to diffuse color.
-        var textureBrush = TryCreateDiffuseTextureBrush(assimpMaterial, modelDirectory);
+        var textureBrush = TryCreatePrimaryColorTextureBrush(assimpMaterial, modelDirectory, scene);
         var group = new MaterialGroup();
         group.Children.Add(new DiffuseMaterial(textureBrush ?? new SolidColorBrush(diffuseColor)));
-        group.Children.Add(new SpecularMaterial(new SolidColorBrush(specularColor), shininess));
+        if (textureBrush is null)
+        {
+            group.Children.Add(new SpecularMaterial(new SolidColorBrush(specularColor), shininess));
+        }
+
         return group;
+    }
+
+    private static void PopulateTextureCoordinates(MeshGeometry3D geometry, Ai.Mesh mesh, Ai.Material? material)
+    {
+        var positionCount = geometry.Positions?.Count ?? 0;
+        if (positionCount == 0)
+        {
+            return;
+        }
+
+        var uvChannel = ResolvePrimaryUvChannel(mesh, material);
+        if (uvChannel < 0 || !mesh.HasTextureCoords(uvChannel))
+        {
+            return;
+        }
+
+        var uvs = mesh.TextureCoordinateChannels[uvChannel];
+        if (uvs is null || uvs.Count == 0)
+        {
+            return;
+        }
+
+        var texturePoints = new PointCollection(positionCount);
+        for (var i = 0; i < positionCount; i++)
+        {
+            if (i < uvs.Count)
+            {
+                var uv = uvs[i];
+                texturePoints.Add(new System.Windows.Point(uv.X, 1.0 - uv.Y));
+            }
+            else
+            {
+                texturePoints.Add(new System.Windows.Point(0.5, 0.5));
+            }
+        }
+
+        geometry.TextureCoordinates = texturePoints;
+    }
+
+    private static int ResolvePrimaryUvChannel(Ai.Mesh mesh, Ai.Material? material)
+    {
+        if (material is not null)
+        {
+            var slots = material.GetAllMaterialTextures();
+            if (slots is { Length: > 0 })
+            {
+                foreach (var slot in slots.OrderBy(s => BaseColorTexturePriority(s.TextureType)))
+                {
+                    if (IsNonColorTextureType(slot.TextureType))
+                    {
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(slot.FilePath))
+                    {
+                        continue;
+                    }
+
+                    var channel = slot.UVIndex;
+                    if (mesh.HasTextureCoords(channel))
+                    {
+                        return channel;
+                    }
+                }
+            }
+        }
+
+        if (mesh.HasTextureCoords(0))
+        {
+            return 0;
+        }
+
+        if (mesh.HasTextureCoords(1))
+        {
+            return 1;
+        }
+
+        return -1;
+    }
+
+    private static bool IsNonColorTextureType(Ai.TextureType textureType)
+    {
+        return textureType is Ai.TextureType.None
+            or Ai.TextureType.Normals
+            or Ai.TextureType.Height
+            or Ai.TextureType.Opacity
+            or Ai.TextureType.Displacement
+            or Ai.TextureType.Shininess;
+    }
+
+    private static int BaseColorTexturePriority(Ai.TextureType textureType)
+    {
+        return textureType switch
+        {
+            Ai.TextureType.Diffuse => 0,
+            Ai.TextureType.Unknown => 1,
+            Ai.TextureType.Ambient => 2,
+            Ai.TextureType.Specular => 3,
+            Ai.TextureType.Lightmap => 4,
+            Ai.TextureType.Emissive => 5,
+            Ai.TextureType.Reflection => 6,
+            _ => 50
+        };
     }
 
     private static Matrix3D ToMatrix3D(Ai.Matrix4x4 matrix)
@@ -560,42 +914,376 @@ public partial class ThreeDViewerForm : Form
         }
     }
 
-    private static System.Windows.Media.Brush? TryCreateDiffuseTextureBrush(Ai.Material? assimpMaterial, string modelDirectory)
+    private static System.Windows.Media.Brush? TryCreatePrimaryColorTextureBrush(Ai.Material? assimpMaterial, string modelDirectory, Ai.Scene scene)
     {
-        if (assimpMaterial is null || !assimpMaterial.HasTextureDiffuse)
+        if (assimpMaterial is null)
         {
             return null;
         }
 
-        var texturePath = assimpMaterial.TextureDiffuse.FilePath;
-        if (string.IsNullOrWhiteSpace(texturePath))
+        var allSlots = assimpMaterial.GetAllMaterialTextures();
+        if (allSlots is { Length: > 0 })
+        {
+            foreach (var slot in allSlots.OrderBy(s => BaseColorTexturePriority(s.TextureType)))
+            {
+                if (IsNonColorTextureType(slot.TextureType))
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(slot.FilePath))
+                {
+                    continue;
+                }
+
+                var brush = TryCreateBrushFromTextureSlot(slot, scene, modelDirectory);
+                if (brush is not null)
+                {
+                    return brush;
+                }
+            }
+        }
+
+        var textureTypes = new[]
+        {
+            Ai.TextureType.Diffuse,
+            Ai.TextureType.Unknown,
+            Ai.TextureType.Ambient,
+            Ai.TextureType.Emissive,
+            Ai.TextureType.Lightmap
+        };
+
+        foreach (var textureType in textureTypes)
+        {
+            var count = assimpMaterial.GetMaterialTextureCount(textureType);
+            for (var index = 0; index < count; index++)
+            {
+                if (!assimpMaterial.GetMaterialTexture(textureType, index, out var slot))
+                {
+                    continue;
+                }
+
+                var brush = TryCreateBrushFromTextureSlot(slot, scene, modelDirectory);
+                if (brush is not null)
+                {
+                    return brush;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static System.Windows.Media.Brush? TryCreateBrushFromTextureSlot(Ai.TextureSlot slot, Ai.Scene scene, string modelDirectory)
+    {
+        var path = slot.FilePath;
+        if (string.IsNullOrWhiteSpace(path))
         {
             return null;
         }
 
-        var normalizedPath = texturePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
-        var candidate = Path.IsPathRooted(normalizedPath)
-            ? normalizedPath
-            : Path.Combine(modelDirectory, normalizedPath.TrimStart('.', Path.DirectorySeparatorChar));
+        path = NormalizeMaterialTexturePath(path);
 
-        if (!File.Exists(candidate))
+        if (path.StartsWith("*", StringComparison.Ordinal))
+        {
+            var suffix = path.AsSpan(1).Trim();
+            if (!int.TryParse(suffix, NumberStyles.Integer, CultureInfo.InvariantCulture, out var embeddedIndex))
+            {
+                return null;
+            }
+
+            return TryCreateBrushFromEmbeddedIndex(scene, embeddedIndex);
+        }
+
+        var resolved = TryResolveTexturePath(path, modelDirectory);
+        return resolved is null ? null : CreateFrozenImageBrush(resolved);
+    }
+
+    private static System.Windows.Media.Brush? TryCreateBrushFromEmbeddedIndex(Ai.Scene scene, int embeddedIndex)
+    {
+        if (!scene.HasTextures || scene.TextureCount == 0)
         {
             return null;
         }
 
+        var brush = TryCreateBrushFromEmbeddedAt(scene, embeddedIndex);
+        if (brush is not null)
+        {
+            return brush;
+        }
+
+        if (embeddedIndex > 0)
+        {
+            brush = TryCreateBrushFromEmbeddedAt(scene, embeddedIndex - 1);
+            if (brush is not null)
+            {
+                return brush;
+            }
+        }
+
+        if (embeddedIndex >= 0 && embeddedIndex + 1 < scene.TextureCount)
+        {
+            brush = TryCreateBrushFromEmbeddedAt(scene, embeddedIndex + 1);
+            if (brush is not null)
+            {
+                return brush;
+            }
+        }
+
+        return null;
+    }
+
+    private static System.Windows.Media.Brush? TryCreateBrushFromEmbeddedAt(Ai.Scene scene, int index)
+    {
+        if (index < 0 || index >= scene.TextureCount)
+        {
+            return null;
+        }
+
+        return TryCreateBrushFromEmbedded(scene.Textures[index]);
+    }
+
+    private static System.Windows.Media.Brush? TryCreateBrushFromEmbedded(Ai.EmbeddedTexture? texture)
+    {
+        if (texture is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (texture.HasCompressedData && texture.CompressedData is { Length: > 0 } bytes)
+            {
+                var brush = TryCreateBrushFromImageBytes(bytes);
+                if (brush is not null)
+                {
+                    return brush;
+                }
+
+                using var stream = new MemoryStream(bytes, writable: false);
+                var image = new BitmapImage();
+                image.BeginInit();
+                image.StreamSource = stream;
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                image.EndInit();
+                image.Freeze();
+
+                var fallbackBrush = new ImageBrush(image)
+                {
+                    Stretch = Stretch.Fill,
+                    TileMode = TileMode.Tile
+                };
+                TextureBrushQuality.ApplyToBrush(fallbackBrush);
+                fallbackBrush.Freeze();
+                return fallbackBrush;
+            }
+
+            if (texture.HasNonCompressedData
+                && texture.Width > 0
+                && texture.Height > 0
+                && texture.NonCompressedData is { Length: > 0 } raw
+                && raw.Length >= texture.Width * texture.Height * 4)
+            {
+                var width = texture.Width;
+                var height = texture.Height;
+                var stride = width * 4;
+                var wb = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
+                wb.WritePixels(new System.Windows.Int32Rect(0, 0, width, height), raw, stride, 0);
+                wb.Freeze();
+
+                var brush = new ImageBrush(wb)
+                {
+                    Stretch = Stretch.Fill,
+                    TileMode = TileMode.Tile
+                };
+                TextureBrushQuality.ApplyToBrush(brush);
+                brush.Freeze();
+                return brush;
+            }
+        }
+        catch
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private static ImageBrush? TryCreateBrushFromImageBytes(byte[] bytes)
+    {
+        if (bytes.Length < 8)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            var decoder = BitmapDecoder.Create(
+                stream,
+                BitmapCreateOptions.IgnoreColorProfile,
+                BitmapCacheOption.OnLoad);
+            var frame = decoder.Frames[0];
+            frame.Freeze();
+
+            var brush = new ImageBrush(frame)
+            {
+                Stretch = Stretch.Fill,
+                TileMode = TileMode.Tile
+            };
+            TextureBrushQuality.ApplyToBrush(brush);
+            brush.Freeze();
+            return brush;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string NormalizeMaterialTexturePath(string path)
+    {
+        var trimmed = path.Trim().Trim('"', '\'');
+        if (trimmed.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var uri = new Uri(trimmed);
+                return uri.LocalPath.Replace('/', Path.DirectorySeparatorChar);
+            }
+            catch (UriFormatException)
+            {
+                // Fall through to manual strip
+                var withoutScheme = trimmed["file://".Length..];
+                if (withoutScheme.StartsWith("//", StringComparison.Ordinal))
+                {
+                    withoutScheme = withoutScheme[2..];
+                }
+
+                return Uri.UnescapeDataString(withoutScheme).Replace('/', Path.DirectorySeparatorChar);
+            }
+        }
+
+        if (trimmed.Contains('%', StringComparison.Ordinal))
+        {
+            try
+            {
+                trimmed = Uri.UnescapeDataString(trimmed);
+            }
+            catch (UriFormatException)
+            {
+                // keep trimmed
+            }
+        }
+
+        return trimmed.Replace('/', Path.DirectorySeparatorChar);
+    }
+
+    private static string? TryResolveTexturePath(string? rawPath, string modelDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(rawPath) || rawPath.StartsWith("*", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var normalized = NormalizeMaterialTexturePath(rawPath);
+        var candidates = new List<string>();
+        CollectExternalTextureCandidates(normalized, modelDirectory, candidates);
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static void CollectExternalTextureCandidates(string normalized, string modelDirectory, List<string> candidates)
+    {
+        void Add(string? p)
+        {
+            if (string.IsNullOrWhiteSpace(p))
+            {
+                return;
+            }
+
+            try
+            {
+                candidates.Add(Path.GetFullPath(p));
+            }
+            catch (Exception)
+            {
+                candidates.Add(p);
+            }
+        }
+
+        if (Path.IsPathRooted(normalized))
+        {
+            Add(normalized);
+            return;
+        }
+
+        var trimmedRelative = normalized.TrimStart('.', Path.DirectorySeparatorChar);
+        var fileNameOnly = Path.GetFileName(normalized);
+
+        if (!string.IsNullOrWhiteSpace(modelDirectory))
+        {
+            var root = Path.GetFullPath(modelDirectory.TrimEnd(Path.DirectorySeparatorChar));
+            Add(Path.Combine(root, trimmedRelative));
+            Add(Path.Combine(root, fileNameOnly));
+            Add(Path.Combine(root, "textures", trimmedRelative));
+            Add(Path.Combine(root, "Textures", trimmedRelative));
+            Add(Path.Combine(root, "textures", fileNameOnly));
+            Add(Path.Combine(root, "Textures", fileNameOnly));
+
+            var parent = Directory.GetParent(root)?.FullName;
+            if (!string.IsNullOrWhiteSpace(parent))
+            {
+                Add(Path.Combine(parent, fileNameOnly));
+                Add(Path.Combine(parent, "textures", fileNameOnly));
+                Add(Path.Combine(parent, "Textures", fileNameOnly));
+            }
+        }
+    }
+
+    private static ImageBrush CreateFrozenImageBrush(string imagePath)
+    {
         var image = new BitmapImage();
         image.BeginInit();
         image.CacheOption = BitmapCacheOption.OnLoad;
-        image.UriSource = new Uri(candidate, UriKind.Absolute);
+        image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+        image.UriSource = new Uri(imagePath, UriKind.Absolute);
         image.EndInit();
         image.Freeze();
 
         var brush = new ImageBrush(image)
         {
-            Stretch = Stretch.Fill
+            Stretch = Stretch.Fill,
+            TileMode = TileMode.Tile
         };
+        TextureBrushQuality.ApplyToBrush(brush);
         brush.Freeze();
         return brush;
+    }
+
+    private void trackAmbient_ValueChanged(object? sender, EventArgs e)
+    {
+        var v = (byte)trackAmbient.Value;
+        _ambientLight.Color = System.Windows.Media.Color.FromRgb(v, v, v);
+        lblAmbientVal.Text = v.ToString();
+    }
+
+    private void trackEmissive_ValueChanged(object? sender, EventArgs e)
+    {
+        var v = (byte)Math.Clamp(trackEmissive.Value, 0, 255);
+        lblEmissiveVal.Text = trackEmissive.Value.ToString();
+        var newColor = System.Windows.Media.Color.FromRgb(v, v, v);
+        foreach (var brush in _emissiveBrushes)
+            brush.Color = newColor;
     }
 
     private sealed class ViewerAppState

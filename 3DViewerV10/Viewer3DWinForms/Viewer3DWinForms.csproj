@@ -7,11 +7,40 @@
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="ThreeDViewerForm.resx">
+      <DependentUpon>ThreeDViewerForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="AssimpNet" Version="4.1.0" />
     <PackageReference Include="HelixToolkit.Wpf" Version="3.1.2" />
+    <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.5" />
   </ItemGroup>
+
+  <!--
+    Publish 후 Inno Setup 6으로 setup.exe를 자동 생성합니다.
+    조건: Configuration=Release AND RuntimeIdentifier=win-x64 (Release_win-x64 프로필)
+    Inno Setup 6 설치: https://jrsoftware.org/isinfo.php
+  -->
+  <Target Name="RunInnoSetup" AfterTargets="Publish"
+          Condition="'$(Configuration)' == 'Release' AND '$(RuntimeIdentifier)' == 'win-x64'">
+    <PropertyGroup>
+      <_IsccPath Condition="Exists('C:\Program Files (x86)\Inno Setup 6\iscc.exe')">C:\Program Files (x86)\Inno Setup 6\iscc.exe</_IsccPath>
+      <_IsccPath Condition="'$(_IsccPath)' == '' AND Exists('C:\Program Files\Inno Setup 6\iscc.exe')">C:\Program Files\Inno Setup 6\iscc.exe</_IsccPath>
+    </PropertyGroup>
+    <Exec Condition="'$(_IsccPath)' != ''"
+          Command="&quot;$(_IsccPath)&quot; &quot;$(MSBuildProjectDirectory)\Installer\setup.iss&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)\Installer"
+          ContinueOnError="true" />
+    <Message Condition="'$(_IsccPath)' != ''" Importance="High"
+             Text="✔ 인스톨러 생성 완료: publish\Viewer3DWinForms_Setup_1.0.0.exe" />
+    <Warning Condition="'$(_IsccPath)' == ''"
+             Text="Inno Setup 6가 설치되지 않아 setup.exe를 만들지 못했습니다. https://jrsoftware.org/isinfo.php 에서 설치하세요." />
+  </Target>
 
 </Project>
