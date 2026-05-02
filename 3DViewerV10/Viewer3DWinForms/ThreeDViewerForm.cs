@@ -74,6 +74,7 @@ public partial class ThreeDViewerForm : Form
         viewerHost.BackColor = System.Drawing.Color.Black;
         panelZoomInfo.BringToFront();
         panelLighting.BringToFront();
+        panelViews.BringToFront();
         UpdateZoomRatioLabel();
     }
 
@@ -1268,6 +1269,45 @@ public partial class ThreeDViewerForm : Form
         TextureBrushQuality.ApplyToBrush(brush);
         brush.Freeze();
         return brush;
+    }
+
+    private void SetPresetView(System.Windows.Media.Media3D.Vector3D lookDir, System.Windows.Media.Media3D.Vector3D upDir)
+    {
+        if (_viewport.Camera is not PerspectiveCamera cam)
+            return;
+
+        var bounds = _modelRoot.Content?.Bounds ?? new System.Windows.Media.Media3D.Rect3D(-1, -1, -1, 2, 2, 2);
+        var center = new System.Windows.Media.Media3D.Point3D(
+            bounds.X + bounds.SizeX / 2,
+            bounds.Y + bounds.SizeY / 2,
+            bounds.Z + bounds.SizeZ / 2);
+        var radius = Math.Sqrt(
+            bounds.SizeX * bounds.SizeX +
+            bounds.SizeY * bounds.SizeY +
+            bounds.SizeZ * bounds.SizeZ) / 2.0;
+        if (radius < 0.001)
+            radius = 1.0;
+
+        lookDir.Normalize();
+        var distance = radius * 2.8;
+        cam.Position = center - lookDir * distance;
+        cam.LookDirection = lookDir;
+        cam.UpDirection = upDir;
+        CaptureZoomBaseline();
+        UpdateZoomRatioLabel();
+    }
+
+    private void btnViewFront_Click(object? sender, EventArgs e)  => SetPresetView(new(0,  0, -1), new(0, 1,  0));
+    private void btnViewBack_Click(object? sender, EventArgs e)   => SetPresetView(new(0,  0,  1), new(0, 1,  0));
+    private void btnViewLeft_Click(object? sender, EventArgs e)   => SetPresetView(new( 1, 0,  0), new(0, 1,  0));
+    private void btnViewRight_Click(object? sender, EventArgs e)  => SetPresetView(new(-1, 0,  0), new(0, 1,  0));
+    private void btnViewTop_Click(object? sender, EventArgs e)    => SetPresetView(new(0, -1,  0), new(0, 0, -1));
+    private void btnViewBottom_Click(object? sender, EventArgs e) => SetPresetView(new(0,  1,  0), new(0, 0,  1));
+    private void btnViewHome_Click(object? sender, EventArgs e)
+    {
+        _viewport.ZoomExtents();
+        CaptureZoomBaseline();
+        UpdateZoomRatioLabel();
     }
 
     private void trackAmbient_ValueChanged(object? sender, EventArgs e)
