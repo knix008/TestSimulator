@@ -53,7 +53,7 @@ internal static class GltfSceneLoader
                     continue;
                 }
 
-                var wpfMaterial = CreateWpfMaterial(baseColorChannel, emissiveLift, emissiveBrushesOut);
+                var wpfMaterial = CreateWpfMaterial(prim.Material, baseColorChannel, emissiveLift, emissiveBrushesOut);
                 root.Children.Add(new GeometryModel3D
                 {
                     Geometry = geometry,
@@ -155,10 +155,13 @@ internal static class GltfSceneLoader
         return mesh;
     }
 
-    private static System.Windows.Media.Media3D.Material CreateWpfMaterial(MaterialChannel? baseColorChannel, int emissiveLift, IList<System.Windows.Media.SolidColorBrush>? emissiveBrushesOut)
+    private static System.Windows.Media.Media3D.Material CreateWpfMaterial(
+        GltfMaterial? gltfMaterial,
+        MaterialChannel? baseColorChannel,
+        int emissiveLift,
+        IList<System.Windows.Media.SolidColorBrush>? emissiveBrushesOut)
     {
         var diffuseColor = Colors.LightGray;
-        var specularColor = Colors.White;
         ImageBrush? textureBrush = null;
 
         if (baseColorChannel is { } baseChannel)
@@ -174,18 +177,31 @@ internal static class GltfSceneLoader
                 }
             }
 
-            var rgba = baseChannel.Color;
-            if (rgba != Vector4.Zero)
+            try
             {
-                diffuseColor = System.Windows.Media.Color.FromScRgb(rgba.W, rgba.X, rgba.Y, rgba.Z);
+                var rgba = baseChannel.Color;
+                if (rgba != Vector4.Zero)
+                {
+                    diffuseColor = System.Windows.Media.Color.FromScRgb(rgba.W, rgba.X, rgba.Y, rgba.Z);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // BaseColor 팩터 없이 텍스처만 있는 경우 등
             }
         }
+
+        TryReadMetallicRoughnessFactors(gltfMaterial, out _, out var roughness);
+        var specularPower = SpecularPowerFromGltfRoughness(roughness);
 
         var group = new MaterialGroup();
         System.Windows.Media.Brush diffuseBrush = textureBrush is not null
             ? textureBrush
             : new SolidColorBrush(diffuseColor);
         group.Children.Add(new DiffuseMaterial(diffuseBrush));
+        // 텍스처 여부와 관계없이 스펙큘러를 넣어야 WPF에서 광택(하이라이트)이 보입니다.
+        group.Children.Add(new SpecularMaterial(new SolidColorBrush(Colors.White), specularPower));
+
         if (textureBrush is not null)
         {
             var v = (byte)Math.Clamp(emissiveLift, 0, 255);
@@ -193,13 +209,50 @@ internal static class GltfSceneLoader
             emissiveBrushesOut?.Add(lift);
             group.Children.Add(new EmissiveMaterial(lift));
         }
-        else
-        {
-            group.Children.Add(new SpecularMaterial(new SolidColorBrush(specularColor), 32.0));
-        }
 
         return group;
     }
+
+    private static void TryReadMetallicRoughnessFactors(GltfMaterial? material, out float metallic, out float roughness)
+    {
+        metallic = 0f;
+        roughness = 0.5f;
+        if (material is null)
+        {
+            return;
+        }
+
+        foreach (var ch in material.Channels)
+        {
+            if (ch.Key != "MetallicRoughness")
+            {
+                continue;
+            }
+
+            try
+            {
+                var c = ch.Color;
+                metallic = Math.Clamp(SafeFactor(c.X), 0f, 1f);
+                roughness = Math.Clamp(SafeFactor(c.Y), 0f, 1f);
+            }
+            catch (InvalidOperationException)
+            {
+                // MetallicRoughness가 텍스처만 있고 RGBA 팩터가 없는 경우 SharpGLTF가 예외를 던집니다.
+            }
+
+            return;
+        }
+    }
+
+    /// <summary>glTF roughness(0=매끈, 1=거침)를 WPF <see cref="SpecularMaterial"/> Power로 변환합니다.</summary>
+    private static double SpecularPowerFromGltfRoughness(float roughness)
+    {
+        var r = Math.Clamp(roughness, 0f, 1f);
+        var tightness = 1.0 - r;
+        return Math.Clamp(8.0 + 120.0 * tightness * tightness, 4.0, 128.0);
+    }
+
+    private static float SafeFactor(float v) => float.IsFinite(v) ? v : 0f;
 
     private static ImageBrush? TryCreateBrushFromImageBytes(byte[] bytes, TextureSampler? sampler)
     {

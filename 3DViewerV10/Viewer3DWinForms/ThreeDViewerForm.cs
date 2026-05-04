@@ -43,7 +43,21 @@ public partial class ThreeDViewerForm : Form
     private string? _lastLoadedModelPath;
     private double _basePerspectiveDistance = 1.0;
     private double _baseOrthographicWidth = 1.0;
-    private readonly AmbientLight _ambientLight = new(System.Windows.Media.Color.FromRgb(160, 160, 160));
+    private readonly AmbientLight _ambientLight = new(System.Windows.Media.Color.FromRgb(110, 110, 110));
+    private readonly SunLight _sunLight;
+    private readonly DirectionalLight _mainDirectional;
+    private readonly PointLight _mainPoint;
+    private readonly DirectionalLight _fillDirectional;
+    private readonly PointLight _fillPoint;
+    private readonly ModelVisual3D _ambientVisual;
+    private readonly ModelVisual3D _mainDirHost;
+    private readonly ModelVisual3D _mainPointHost;
+    private readonly ModelVisual3D _fillDirHost;
+    private readonly ModelVisual3D _fillPointHost;
+    /// <summary>보조 방향광 기본 색(RGB). 슬라이더로 스케일합니다.</summary>
+    private const byte FillLightBaseR = 205;
+    private const byte FillLightBaseG = 210;
+    private const byte FillLightBaseB = 230;
     private readonly List<System.Windows.Media.SolidColorBrush> _emissiveBrushes = new();
 
     public ThreeDViewerForm()
@@ -63,12 +77,46 @@ public partial class ThreeDViewerForm : Form
 
         TextureBrushQuality.ApplyToViewport(_viewport);
 
-        _viewport.Children.Add(new SunLight());
-        // glTF/Assimp 모두에서 역광 쪽이 과하게 어두워지지 않도록 약한 환경광을 둡니다.
-        _viewport.Children.Add(new ModelVisual3D { Content = _ambientLight });
+        // 태양광: 낮은 내장 앰비언트 + 밝기로 방향성 유지(스펙큘러 대비).
+        _sunLight = new SunLight
+        {
+            Ambient = 0.26,
+            Brightness = 1.14,
+            Altitude = 52,
+            Azimuth = 38
+        };
+
+        _mainDirectional = new DirectionalLight { Color = Colors.White };
+        _mainPoint = new PointLight
+        {
+            Color = Colors.White,
+            Range = 2000,
+            Position = new Point3D(1200, 900, 600)
+        };
+
+        // 보조광: 방향광 기본 방향은 기존과 동일(밝기 슬라이더로 색 스케일).
+        _fillDirectional = new DirectionalLight
+        {
+            Direction = new Vector3D(-0.62, -0.28, 0.73),
+            Color = Colors.White
+        };
+        _fillPoint = new PointLight
+        {
+            Color = Colors.White,
+            Range = 2000,
+            Position = new Point3D(-600, 400, -400)
+        };
+
+        _ambientVisual = new ModelVisual3D { Content = _ambientLight };
+        _mainDirHost = new ModelVisual3D { Content = _mainDirectional };
+        _mainPointHost = new ModelVisual3D { Content = _mainPoint };
+        _fillDirHost = new ModelVisual3D { Content = _fillDirectional };
+        _fillPointHost = new ModelVisual3D { Content = _fillPoint };
+
         _modelRoot = new ModelVisual3D();
-        _viewport.Children.Add(_modelRoot);
         _viewport.CameraChanged += Viewport_CameraChanged;
+
+        InitializeAdvancedLightingUi();
 
         viewerHost.Child = _viewport;
         viewerHost.BackColor = System.Drawing.Color.Black;
@@ -642,10 +690,10 @@ public partial class ThreeDViewerForm : Form
         var textureBrush = TryCreatePrimaryColorTextureBrush(assimpMaterial, modelDirectory, scene);
         var group = new MaterialGroup();
         group.Children.Add(new DiffuseMaterial(textureBrush ?? new SolidColorBrush(diffuseColor)));
-        if (textureBrush is null)
-        {
-            group.Children.Add(new SpecularMaterial(new SolidColorBrush(specularColor), shininess));
-        }
+
+        // 텍스처가 있어도 Diffuse만 두면 완전 무광처럼 보이므로 항상 스펙큘러를 넣습니다.
+        var specPower = textureBrush is not null ? Math.Min(shininess, 88.0) : shininess;
+        group.Children.Add(new SpecularMaterial(new SolidColorBrush(specularColor), specPower));
 
         return group;
     }
