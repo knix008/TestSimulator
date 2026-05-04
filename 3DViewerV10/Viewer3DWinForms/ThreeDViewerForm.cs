@@ -284,14 +284,7 @@ public partial class ThreeDViewerForm : Form
 
     private void ShowExceptionDialog(string title, Exception ex)
     {
-        var text = ex.ToString();
-        const int maxLen = 16000;
-        if (text.Length > maxLen)
-        {
-            text = text[..maxLen] + Environment.NewLine + "…(이하 생략)";
-        }
-
-        MessageBox.Show(this, text, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        ViewerErrorReporter.Show(this, title, ex);
     }
 
     private void fileListContextMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -383,7 +376,7 @@ public partial class ThreeDViewerForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"이름을 바꿀 수 없습니다.\n{ex.Message}", "이름 바꾸기", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ViewerErrorReporter.Show(this, "이름 바꾸기", ex);
         }
     }
 
@@ -420,7 +413,7 @@ public partial class ThreeDViewerForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"삭제할 수 없습니다.\n{ex.Message}", "파일 삭제", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ViewerErrorReporter.Show(this, "파일 삭제", ex);
         }
     }
 
