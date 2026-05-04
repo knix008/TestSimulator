@@ -33,15 +33,17 @@ Name: "korean";  MessagesFile: "compiler:Languages\Korean.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+; 기본 해제: 사용자가 설치 마법사에서 선택해야 바로가기가 만들어짐. 아이콘은 daemon_hammer.ico
+Name: "startmenuicon"; Description: "시작 메뉴에 바로가기 만들기 (daemon_hammer.ico)"; GroupDescription: "바로가기 옵션:"; Flags: unchecked
+Name: "desktopicon"; Description: "바탕 화면에 바로가기 만들기 (daemon_hammer.ico)"; GroupDescription: "바로가기 옵션:"; Flags: unchecked
 
 [Files]
 Source: "{#SrcDir}\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#AppName}";                           Filename: "{app}\{#AppExeName}"
-Name: "{group}\{cm:UninstallProgram,{#AppName}}";     Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#AppName}";                     Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "..\daemon_hammer.ico"; Tasks: startmenuicon
+Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"; IconFilename: "..\daemon_hammer.ico"; Tasks: startmenuicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "..\daemon_hammer.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent

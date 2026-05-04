@@ -8,6 +8,7 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,9 +24,23 @@
   </ItemGroup>
 
   <!--
-    Publish 후 Inno Setup 6으로 setup.exe를 자동 생성합니다.
+    Release Build 시 Publish 파이프라인을 자동으로 시작합니다.
+    RuntimeIdentifier가 비어 있는 일반 Build에서만 동작합니다.
+    (Publish 직접 실행 시에는 이미 RuntimeIdentifier가 설정되어 있으므로 중복 실행하지 않습니다.)
+  -->
+  <Target Name="CreateReleaseInstaller" AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(RuntimeIdentifier)' == ''">
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore;Publish"
+             Properties="Configuration=Release;PublishProfile=Release_win-x64"
+             BuildInParallel="false" />
+  </Target>
+
+  <!--
+    Publish 후 Inno Setup 6으로 setup.exe를 자동 생성합니다(선택).
+    MSI(WiX)와 별개이며, Inno가 없어도 Release 빌드는 성공합니다.
     조건: Configuration=Release AND RuntimeIdentifier=win-x64 (Release_win-x64 프로필)
-    Inno Setup 6 설치: https://jrsoftware.org/isinfo.php
+    Inno 설치: https://jrsoftware.org/isinfo.php
   -->
   <Target Name="RunInnoSetup" AfterTargets="Publish"
           Condition="'$(Configuration)' == 'Release' AND '$(RuntimeIdentifier)' == 'win-x64'">
@@ -39,8 +54,35 @@
           ContinueOnError="true" />
     <Message Condition="'$(_IsccPath)' != ''" Importance="High"
              Text="✔ 인스톨러 생성 완료: publish\Viewer3DWinForms_Setup_1.0.0.exe" />
-    <Warning Condition="'$(_IsccPath)' == ''"
-             Text="Inno Setup 6가 설치되지 않아 setup.exe를 만들지 못했습니다. https://jrsoftware.org/isinfo.php 에서 설치하세요." />
+    <Message Condition="'$(_IsccPath)' == ''" Importance="normal"
+             Text="Inno Setup 6가 없어 setup.exe는 건너뜁니다(MSI는 WiX 단계에서 생성). setup.exe가 필요하면 https://jrsoftware.org/isinfo.php 에서 Inno 6을 설치하세요." />
+  </Target>
+
+  <!--
+    Publish 후 WiX CLI로 .msi를 자동 생성합니다.
+    조건: Configuration=Release AND RuntimeIdentifier=win-x64 (Release_win-x64 프로필)
+    사전 설치: WiX GitHub 릴리스에서 WiX CLI(wix.exe) 설치 후 PATH 추가,
+    또는 dotnet tool install 전역(g) wix
+  -->
+  <Target Name="RunWixMsi" AfterTargets="RunInnoSetup"
+          Condition="'$(Configuration)' == 'Release' AND '$(RuntimeIdentifier)' == 'win-x64'">
+    <PropertyGroup>
+      <_WxsFile>$(MSBuildProjectDirectory)\Installer\Package.wxs</_WxsFile>
+      <_PublishRoot>$(MSBuildProjectDirectory)\..\publish</_PublishRoot>
+      <_SrcDir>$(_PublishRoot)\win-x64</_SrcDir>
+      <_MsiOut>$(_PublishRoot)\Viewer3DWinForms_Setup_1.0.0.msi</_MsiOut>
+    </PropertyGroup>
+    <Exec Condition="Exists('$(_SrcDir)\Viewer3DWinForms.exe')"
+          Command="wix build &quot;$(_WxsFile)&quot; -arch x64 -ext WixToolset.UI.wixext -define &quot;var.ProjectDir=$(MSBuildProjectDirectory)&quot; -define &quot;var.SourceDir=$(_SrcDir)&quot; -o &quot;$(_MsiOut)&quot;"
+          ContinueOnError="true"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Warning Condition="!Exists('$(_SrcDir)\Viewer3DWinForms.exe')"
+             Text="MSI를 만들지 못했습니다: publish 출력이 없습니다 ($(_SrcDir)\Viewer3DWinForms.exe). Release publish가 먼저 성공했는지 확인하세요." />
+    <Message Condition="Exists('$(_MsiOut)')"
+             Importance="High"
+             Text="MSI 생성: $(_MsiOut)" />
+    <Warning Condition="Exists('$(_SrcDir)\Viewer3DWinForms.exe') AND !Exists('$(_MsiOut)')"
+             Text="WiX로 MSI 빌드에 실패했습니다. wix.exe가 PATH에 있는지, WiX UI 확장이 있는지 확인하세요. (예: wix extension list)" />
   </Target>
 
 </Project>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="3D Viewer"
+           Manufacturer="Suho Kwon"
+           Version="1.0.0"
+           UpgradeCode="A2B3C4D5-E6F7-8A9B-0C1D-2E3F4A5B6C7D"
+           Scope="perUser"
+           Codepage="949">
+
+    <MajorUpgrade DowngradeErrorMessage="더 새로운 버전이 이미 설치되어 있습니다. 먼저 제거 후 설치해 주세요." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="$(var.ProjectDir)\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <!-- 기본값 1: 본체만 설치. 시작 메뉴·바탕화면(Level 2)은 사용자 지정 설치에서만 선택 가능 -->
+    <Property Id="INSTALLLEVEL" Value="1" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\Installer\License.rtf" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="3D Viewer">
+        <Component Id="MainExecutable" Guid="*">
+          <File Id="AppExe" Source="$(var.SourceDir)\Viewer3DWinForms.exe" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramMenuDir" Name="3D Viewer">
+        <Component Id="StartMenuShortcutComp" Guid="*">
+          <Shortcut Id="StartMenuShortcut"
+                    Name="3D Viewer"
+                    Target="[INSTALLFOLDER]Viewer3DWinForms.exe"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="AppIcon"
+                    IconIndex="0" />
+          <RemoveFolder Id="CleanupAppStartMenuDir" Directory="AppProgramMenuDir" On="uninstall" />
+          <RegistryValue Root="HKCU" Key="Software\SuhoKwon\3DViewer"
+                         Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComp" Guid="*">
+        <Shortcut Id="DesktopShortcut"
+                  Name="3D Viewer"
+                  Target="[INSTALLFOLDER]Viewer3DWinForms.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon"
+                  IconIndex="0" />
+        <RegistryValue Root="HKCU" Key="Software\SuhoKwon\3DViewer"
+                       Name="Desktop" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <Feature Id="ProductFeature"
+             Title="3D Viewer"
+             Level="1"
+             Display="expand"
+             Description="프로그램 본체입니다. 아래 두 항목은 설치 시 선택할 수 있습니다(사용자 지정 설치 권장).">
+      <ComponentRef Id="MainExecutable" />
+      <Feature Id="StartMenuFeature"
+               Title="시작 메뉴 바로가기 (daemon_hammer.ico)"
+               Description="시작 메뉴에 3D Viewer 바로가기를 추가합니다. 아이콘은 daemon_hammer.ico입니다."
+               Level="2">
+        <ComponentRef Id="StartMenuShortcutComp" />
+      </Feature>
+      <Feature Id="DesktopFeature"
+               Title="바탕화면 바로가기 (daemon_hammer.ico)"
+               Description="바탕화면에 3D Viewer 바로가기를 추가합니다. 아이콘은 daemon_hammer.ico입니다."
+               Level="2">
+        <ComponentRef Id="DesktopShortcutComp" />
+      </Feature>
+    </Feature>
+
+  </Package>
+
+</Wix>

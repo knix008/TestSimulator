@@ -1,36 +1,85 @@
-# Build outputs
-bin/
-obj/
+# Build outputs (.NET / MSBuild)
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Oo]ut/
+artifacts/
 
-# Visual Studio / VS Code
+# Visual Studio
 .vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.userprefs
+*.sln.docstates
+*.vsp
+*.vspx
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+*.binlog
+
+# VS Code / Cursor
 .vscode/
 
-# User-specific files
-*.user
-*.suo
-*.userosscache
-*.sln.docstates
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# ReSharper / dotCover
+*_ReSharper.*
+*.DotSettings.user
+*.dotCover
 
 # NuGet
 packages/
 *.nupkg
+*.snupkg
+**/project.fragment.lock.json
 
-# Logs and temp files
+# Publish & installers (solution-relative publish from Release profile)
+publish/
+*.msi
+*.wixobj
+*.wixpdb
+
+# Publish profile secrets
+*.pubxml.user
+
+# Testing & coverage
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+BenchmarkDotNet.Artifacts/
+
+# Certificates & local secrets (never commit)
+*.pfx
+*.p12
+*.key
+secrets.json
+appsettings.*.local.json
+
+# OS files & temp
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
 *.log
 *.tmp
 *.temp
 
-# OS files
-Thumbs.db
-Desktop.ini
-.DS_Store
-
-# Publish output
-publish/
-
-# Publish user settings
-*.pubxml.user
-
-# App state / local data
+# App / viewer local state (runtime)
 viewer-state.json
+
+# Local AI / agent overrides (optional)
+**/.claude/settings.local.json

@@ -3,7 +3,9 @@
     "allow": [
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(Start-Process \"D:\\\\Home\\\\Projects\\\\TestSimulator\\\\3DViewerV10\\\\Viewer3DWinForms\\\\bin\\\\Release\\\\net10.0-windows\\\\Viewer3DWinForms.exe\")",
-      "PowerShell(Start-Process \"D:\\\\Home\\\\Projects\\\\TestSimulator\\\\3DViewerV10\\\\Viewer3DWinForms\\\\bin\\\\Release\\\\net10.0-windows\\\\Viewer3DWinForms.exe\")"
+      "PowerShell(Start-Process \"D:\\\\Home\\\\Projects\\\\TestSimulator\\\\3DViewerV10\\\\Viewer3DWinForms\\\\bin\\\\Release\\\\net10.0-windows\\\\Viewer3DWinForms.exe\")",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet --list-runtimes)"
     ]
   }
 }
