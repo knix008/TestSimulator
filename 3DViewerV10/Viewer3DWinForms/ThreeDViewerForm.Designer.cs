@@ -51,14 +51,6 @@ partial class ThreeDViewerForm
         lblFillBrightCap = new Label();
         trackFillBright = new TrackBar();
         lblFillBrightVal = new Label();
-        panelViews = new Panel();
-        btnViewFront = new Button();
-        btnViewBack = new Button();
-        btnViewLeft = new Button();
-        btnViewRight = new Button();
-        btnViewTop = new Button();
-        btnViewBottom = new Button();
-        btnViewHome = new Button();
         ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
         splitMain.Panel1.SuspendLayout();
         splitMain.Panel2.SuspendLayout();
@@ -75,7 +67,6 @@ partial class ThreeDViewerForm
         ((System.ComponentModel.ISupportInitialize)trackSunAzimuth).BeginInit();
         ((System.ComponentModel.ISupportInitialize)trackFillBright).BeginInit();
         panelLighting.SuspendLayout();
-        panelViews.SuspendLayout();
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1400, 850);
         Controls.Add(splitMain);
@@ -88,7 +79,6 @@ partial class ThreeDViewerForm
         splitMain.Location = new Point(0, 0);
         splitMain.Name = "splitMain";
         splitMain.Panel1.Controls.Add(splitLeft);
-        splitMain.Panel2.Controls.Add(panelViews);
         splitMain.Panel2.Controls.Add(panelLighting);
         splitMain.Panel2.Controls.Add(panelZoomInfo);
         splitMain.Panel2.Controls.Add(viewerHost);
@@ -346,27 +336,6 @@ partial class ThreeDViewerForm
         lblEmissiveVal.Size = new Size(30, 14);
         lblEmissiveVal.Text = "60";
         lblEmissiveVal.TextAlign = ContentAlignment.MiddleRight;
-        // panelViews — 뷰 프리셋 버튼 (조명 패널 바로 아래)
-        panelViews.BackColor = System.Drawing.Color.FromArgb(210, 32, 32, 32);
-        panelViews.Controls.Add(btnViewFront);
-        panelViews.Controls.Add(btnViewBack);
-        panelViews.Controls.Add(btnViewLeft);
-        panelViews.Controls.Add(btnViewRight);
-        panelViews.Controls.Add(btnViewTop);
-        panelViews.Controls.Add(btnViewBottom);
-        panelViews.Controls.Add(btnViewHome);
-        panelViews.Location = new Point(710, 274);
-        panelViews.Name = "panelViews";
-        panelViews.Size = new Size(248, 60);
-        panelViews.TabIndex = 3;
-        panelViews.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        ConfigureViewButton(btnViewFront,  "정면",   new Point(4,   4), new Size(58, 24), 0, btnViewFront_Click);
-        ConfigureViewButton(btnViewBack,   "후면",   new Point(64,  4), new Size(58, 24), 1, btnViewBack_Click);
-        ConfigureViewButton(btnViewLeft,   "좌측",   new Point(124, 4), new Size(58, 24), 2, btnViewLeft_Click);
-        ConfigureViewButton(btnViewRight,  "우측",   new Point(184, 4), new Size(58, 24), 3, btnViewRight_Click);
-        ConfigureViewButton(btnViewTop,    "상단",   new Point(4,  32), new Size(58, 24), 4, btnViewTop_Click);
-        ConfigureViewButton(btnViewBottom, "하단",   new Point(64, 32), new Size(58, 24), 5, btnViewBottom_Click);
-        ConfigureViewButton(btnViewHome,   "↺ 홈",   new Point(124,32), new Size(120,24), 6, btnViewHome_Click);
         splitMain.Panel1.ResumeLayout(false);
         splitMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitMain).EndInit();
@@ -377,7 +346,6 @@ partial class ThreeDViewerForm
         splitLeft.ResumeLayout(false);
         topPanel.ResumeLayout(false);
         panelLighting.ResumeLayout(false);
-        panelViews.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)trackAmbient).EndInit();
         ((System.ComponentModel.ISupportInitialize)trackEmissive).EndInit();
         ((System.ComponentModel.ISupportInitialize)trackSunAltitude).EndInit();
@@ -390,22 +358,6 @@ partial class ThreeDViewerForm
         resources.ApplyResources(this, "$this");
     }
 
-    private static void ConfigureViewButton(Button btn, string text, Point location, Size size, int tabIndex, EventHandler handler)
-    {
-        btn.BackColor = System.Drawing.Color.FromArgb(55, 55, 55);
-        btn.FlatStyle = FlatStyle.Flat;
-        btn.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(80, 80, 80);
-        btn.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(75, 75, 75);
-        btn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(100, 100, 100);
-        btn.ForeColor = System.Drawing.Color.White;
-        btn.Font = new Font("Segoe UI", 8f);
-        btn.Location = location;
-        btn.Size = size;
-        btn.TabIndex = tabIndex;
-        btn.Text = text;
-        btn.UseVisualStyleBackColor = false;
-        btn.Click += handler;
-    }
 
     #endregion
 
@@ -443,12 +395,4 @@ partial class ThreeDViewerForm
     private Label lblFillBrightCap;
     private TrackBar trackFillBright;
     private Label lblFillBrightVal;
-    private Panel panelViews;
-    private Button btnViewFront;
-    private Button btnViewBack;
-    private Button btnViewLeft;
-    private Button btnViewRight;
-    private Button btnViewTop;
-    private Button btnViewBottom;
-    private Button btnViewHome;
 }

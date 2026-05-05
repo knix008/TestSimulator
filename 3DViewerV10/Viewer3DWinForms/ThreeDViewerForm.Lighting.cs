@@ -372,7 +372,6 @@ public partial class ThreeDViewerForm
 
         panelLighting.AutoScrollMinSize = new Size(0, 0);
         panelLighting.Height = y + 6;
-        panelViews.Top = panelLighting.Bottom + 6;
     }
 
     private void RebuildViewportLights()
