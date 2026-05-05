@@ -38,6 +38,7 @@ public partial class ThreeDViewerForm : Form
 
     private readonly HelixViewport3D _viewport;
     private readonly ModelVisual3D _modelRoot;
+    private FileSystemWatcher? _fileListWatcher;
     private string? _rootDirectory;
     private string? _currentListDirectory;
     private string? _lastLoadedModelPath;
@@ -124,6 +125,7 @@ public partial class ThreeDViewerForm : Form
         panelZoomInfo.BringToFront();
         panelLighting.BringToFront();
         UpdateZoomRatioLabel();
+        FormClosed += ThreeDViewerForm_FormClosed;
     }
 
     private void ViewerForm_Load(object? sender, EventArgs e)
@@ -168,6 +170,8 @@ public partial class ThreeDViewerForm : Form
         AddDirectoryPlaceholders(rootNode, rootPath);
         treeDirectories.Nodes.Add(rootNode);
         rootNode.Expand();
+        treeDirectories.SelectedNode = rootNode;
+        UpdateFileList(rootPath);
 
         treeDirectories.EndUpdate();
     }
@@ -232,6 +236,7 @@ public partial class ThreeDViewerForm : Form
     private void UpdateFileList(string directoryPath)
     {
         _currentListDirectory = directoryPath;
+        ConfigureFileListWatcher(directoryPath);
         listFiles.BeginUpdate();
         listFiles.Items.Clear();
 
@@ -265,6 +270,95 @@ public partial class ThreeDViewerForm : Form
         {
             listFiles.EndUpdate();
         }
+    }
+
+    private void ConfigureFileListWatcher(string directoryPath)
+    {
+        if (!Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        if (_fileListWatcher is not null
+            && string.Equals(_fileListWatcher.Path, directoryPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        DisposeFileListWatcher();
+
+        _fileListWatcher = new FileSystemWatcher(directoryPath)
+        {
+            IncludeSubdirectories = false,
+            NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.LastWrite | NotifyFilters.CreationTime
+        };
+
+        _fileListWatcher.Created += FileListWatcher_Changed;
+        _fileListWatcher.Deleted += FileListWatcher_Changed;
+        _fileListWatcher.Changed += FileListWatcher_Changed;
+        _fileListWatcher.Renamed += FileListWatcher_Renamed;
+        _fileListWatcher.EnableRaisingEvents = true;
+    }
+
+    private void FileListWatcher_Changed(object sender, FileSystemEventArgs e)
+    {
+        RefreshFileListFromWatcher(e.FullPath);
+    }
+
+    private void FileListWatcher_Renamed(object sender, RenamedEventArgs e)
+    {
+        if (ShouldRefreshFileList(e.OldFullPath) || ShouldRefreshFileList(e.FullPath))
+        {
+            RefreshFileListFromWatcher(e.FullPath);
+        }
+    }
+
+    private void RefreshFileListFromWatcher(string changedPath)
+    {
+        if (!ShouldRefreshFileList(changedPath) || string.IsNullOrWhiteSpace(_currentListDirectory))
+        {
+            return;
+        }
+
+        if (!IsHandleCreated || IsDisposed)
+        {
+            return;
+        }
+
+        BeginInvoke(new Action(() =>
+        {
+            if (!string.IsNullOrWhiteSpace(_currentListDirectory))
+            {
+                UpdateFileList(_currentListDirectory);
+            }
+        }));
+    }
+
+    private bool ShouldRefreshFileList(string filePath)
+    {
+        var extension = Path.GetExtension(filePath);
+        return _supportedExtensions.Contains(extension);
+    }
+
+    private void DisposeFileListWatcher()
+    {
+        if (_fileListWatcher is null)
+        {
+            return;
+        }
+
+        _fileListWatcher.EnableRaisingEvents = false;
+        _fileListWatcher.Created -= FileListWatcher_Changed;
+        _fileListWatcher.Deleted -= FileListWatcher_Changed;
+        _fileListWatcher.Changed -= FileListWatcher_Changed;
+        _fileListWatcher.Renamed -= FileListWatcher_Renamed;
+        _fileListWatcher.Dispose();
+        _fileListWatcher = null;
+    }
+
+    private void ThreeDViewerForm_FormClosed(object? sender, FormClosedEventArgs e)
+    {
+        DisposeFileListWatcher();
     }
 
     private void listFiles_SelectedIndexChanged(object? sender, EventArgs e)
