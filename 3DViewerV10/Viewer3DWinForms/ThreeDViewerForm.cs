@@ -69,7 +69,8 @@ public partial class ThreeDViewerForm : Form
         {
             ShowCoordinateSystem = true,
             ShowFrameRate = false,
-            // Explicitly map interactions: left drag rotate, wheel zoom.
+            // Trackball: 마우스로 모든 방향(극 포함) 자유 회전 — Turntable의 짐벌락 방지
+            CameraRotationMode = CameraRotationMode.Trackball,
             RotateGesture = new MouseGesture(MouseAction.LeftClick),
             PanGesture = new MouseGesture(MouseAction.RightClick),
             ZoomGesture = new MouseGesture(MouseAction.MiddleClick)
@@ -307,9 +308,7 @@ public partial class ThreeDViewerForm : Form
 
             _modelRoot.Content = model;
             _lastLoadedModelPath = modelPath;
-            _viewport.ZoomExtents();
-            CaptureZoomBaseline();
-            UpdateZoomRatioLabel();
+            SetPresetView(new(0, 0, -1), new(0, 1, 0));
             SetStatus($"로드 완료: {Path.GetFileName(modelPath)}");
         }
         catch (Exception ex)
@@ -1338,12 +1337,52 @@ public partial class ThreeDViewerForm : Form
         UpdateZoomRatioLabel();
     }
 
+    private const double RotateStepDeg = 15.0;
+
+    private void RotateCamera(double yawDeg, double pitchDeg)
+    {
+        if (_viewport.Camera is not PerspectiveCamera cam) return;
+
+        var bounds = _modelRoot.Content?.Bounds ?? new System.Windows.Media.Media3D.Rect3D(-1, -1, -1, 2, 2, 2);
+        var center = new Point3D(
+            bounds.X + bounds.SizeX / 2,
+            bounds.Y + bounds.SizeY / 2,
+            bounds.Z + bounds.SizeZ / 2);
+
+        var offset = cam.Position - center;
+        var r = offset.Length;
+        if (r < 1e-10) return;
+
+        // 현재 위치를 구면 좌표계(수평각 θ, 고도각 φ)로 변환
+        var theta = Math.Atan2(offset.X, offset.Z);
+        var phi   = Math.Asin(Math.Clamp(offset.Y / r, -1.0, 1.0));
+
+        theta += yawDeg   * (Math.PI / 180.0);
+        phi   -= pitchDeg * (Math.PI / 180.0);
+
+        // 극점(±90°) 근접 시 짐벌락 방지: ±89° 이내로 제한
+        const double MaxPhi = Math.PI / 2.0 - 0.0175;
+        phi = Math.Clamp(phi, -MaxPhi, MaxPhi);
+
+        // 구면 좌표 → 직교 좌표로 복원
+        var newOffset = new Vector3D(
+            r * Math.Cos(phi) * Math.Sin(theta),
+            r * Math.Sin(phi),
+            r * Math.Cos(phi) * Math.Cos(theta));
+
+        cam.Position      = center + newOffset;
+        cam.LookDirection = -newOffset;
+        cam.UpDirection   = new Vector3D(0, 1, 0);
+        CaptureZoomBaseline();
+        UpdateZoomRatioLabel();
+    }
+
     private void btnViewFront_Click(object? sender, EventArgs e)  => SetPresetView(new(0,  0, -1), new(0, 1,  0));
     private void btnViewBack_Click(object? sender, EventArgs e)   => SetPresetView(new(0,  0,  1), new(0, 1,  0));
-    private void btnViewLeft_Click(object? sender, EventArgs e)   => SetPresetView(new( 1, 0,  0), new(0, 1,  0));
-    private void btnViewRight_Click(object? sender, EventArgs e)  => SetPresetView(new(-1, 0,  0), new(0, 1,  0));
-    private void btnViewTop_Click(object? sender, EventArgs e)    => SetPresetView(new(0, -1,  0), new(0, 0, -1));
-    private void btnViewBottom_Click(object? sender, EventArgs e) => SetPresetView(new(0,  1,  0), new(0, 0,  1));
+    private void btnViewLeft_Click(object? sender, EventArgs e)   => RotateCamera(-RotateStepDeg, 0);
+    private void btnViewRight_Click(object? sender, EventArgs e)  => RotateCamera(+RotateStepDeg, 0);
+    private void btnViewTop_Click(object? sender, EventArgs e)    => RotateCamera(0, -RotateStepDeg);
+    private void btnViewBottom_Click(object? sender, EventArgs e) => RotateCamera(0, +RotateStepDeg);
     private void btnViewHome_Click(object? sender, EventArgs e)
     {
         _viewport.ZoomExtents();
