@@ -2,12 +2,16 @@
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Globalization;
 using System.Windows.Threading;
 using System.Windows.Input;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using MeetingMinute.App.Models;
 using MeetingMinute.App.Services;
@@ -16,6 +20,11 @@ namespace MeetingMinute.App;
 
 public partial class MainWindow : Window
 {
+    private static readonly HashSet<string> SupportedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"
+    };
+
     private static bool IsDesignMode =>
         DesignerProperties.GetIsInDesignMode(new DependencyObject()) ||
         LicenseManager.UsageMode == LicenseUsageMode.Designtime;
@@ -50,6 +59,10 @@ public partial class MainWindow : Window
         ["label.author"] = "작성자",
         ["label.attendees"] = "참석자 (한 줄에 한 명, 또는 쉼표 구분)",
         ["label.agenda"] = "안건 및 논의",
+        ["button.agendaImage.add"] = "이미지 추가…",
+        ["button.agendaImage.remove"] = "이미지 제거",
+        ["text.agendaImage.none"] = "선택된 이미지가 없습니다.",
+        ["text.agendaImage.path"] = "이미지: {0} ({1} x {2})",
         ["label.decisions"] = "결정 사항",
         ["label.actions"] = "액션 아이템 (담당 / 내용 / 기한 형식 권장)",
         ["label.next"] = "차기 회의",
@@ -94,6 +107,10 @@ public partial class MainWindow : Window
         ["label.author"] = "Author",
         ["label.attendees"] = "Attendees (one per line or comma-separated)",
         ["label.agenda"] = "Agenda & Discussion",
+        ["button.agendaImage.add"] = "Add Image…",
+        ["button.agendaImage.remove"] = "Remove Image",
+        ["text.agendaImage.none"] = "No image selected.",
+        ["text.agendaImage.path"] = "Image: {0} ({1} x {2})",
         ["label.decisions"] = "Decisions",
         ["label.actions"] = "Action Items (Owner / Task / Due Date)",
         ["label.next"] = "Next Meeting",
@@ -125,6 +142,16 @@ public partial class MainWindow : Window
     private UiLanguage _language = UiLanguage.Ko;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _isTimeTextInternalChange;
+    private const double AgendaImageMinWidth = 32;
+    private const double AgendaImageMinHeight = 24;
+    private AgendaImageMeta? _resizingMeta;
+    private Image? _resizingImage;
+    private Grid? _resizingGrid;
+    private Point _resizeAnchorPos;
+    private double _resizeAnchorW, _resizeAnchorH;
+    private static readonly Regex AgendaImageTagRegex = new(
+        "<img\\s+[^>]*src=\"([^\"]+)\"[^>]*?(?:width=\"([0-9]+(?:\\.[0-9]+)?)\")?[^>]*?(?:height=\"([0-9]+(?:\\.[0-9]+)?)\")?[^>]*?>",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     public MainWindow()
     {
@@ -142,6 +169,10 @@ public partial class MainWindow : Window
             _statusTimer.Tick += (_, _) => UpdateElapsedStatus();
             _statusTimer.Start();
             UpdateElapsedStatus();
+            this.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent,
+                new MouseButtonEventHandler(OnWindowResizeDown), handledEventsToo: true);
+            PreviewMouseMove += OnResizeMouseMove;
+            PreviewMouseLeftButtonUp += OnResizeMouseUp;
         };
     }
 
@@ -164,7 +195,7 @@ public partial class MainWindow : Window
             Location = FldLocation.Text,
             Author = FldAuthor.Text,
             Attendees = FldAttendees.Text,
-            AgendaAndDiscussion = FldAgenda.Text,
+            AgendaAndDiscussion = SerializeAgendaContent(),
             Decisions = FldDecisions.Text,
             ActionItems = FldActions.Text,
             NextMeeting = FldNext.Text,
@@ -179,7 +210,7 @@ public partial class MainWindow : Window
         FldLocation.Text = doc.Location;
         FldAuthor.Text = doc.Author;
         FldAttendees.Text = doc.Attendees;
-        FldAgenda.Text = doc.AgendaAndDiscussion;
+        LoadAgendaContent(doc.AgendaAndDiscussion);
         FldDecisions.Text = doc.Decisions;
         FldActions.Text = doc.ActionItems;
         FldNext.Text = doc.NextMeeting;
@@ -664,6 +695,275 @@ public partial class MainWindow : Window
             RefreshMarkdownFromForm();
     }
 
+    private void BtnAgendaImageAdd_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Filter = _language == UiLanguage.En
+                ? "Image files (*.png;*.jpg;*.jpeg;*.gif;*.webp;*.avif)|*.png;*.jpg;*.jpeg;*.gif;*.webp;*.avif|All files (*.*)|*.*"
+                : "이미지 파일 (*.png;*.jpg;*.jpeg;*.gif;*.webp;*.avif)|*.png;*.jpg;*.jpeg;*.gif;*.webp;*.avif|모든 파일 (*.*)|*.*",
+            Title = _language == UiLanguage.En ? "Select Agenda Image" : "안건 이미지 선택"
+        };
+
+        if (dlg.ShowDialog(this) != true)
+            return;
+
+        InsertAgendaImageAtCaret(dlg.FileName, 480, 270);
+    }
+
+    private void BtnAgendaImageRemove_Click(object sender, RoutedEventArgs e)
+    {
+        var container = FindSelectedImageContainer();
+        if (container?.Parent is Paragraph paragraph)
+            paragraph.Inlines.Remove(container);
+    }
+
+    private void InsertAgendaImageAtCaret(string path, double width, double height)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return;
+
+        var caret = FldAgendaRich.CaretPosition;
+        if (caret.Paragraph is null)
+        {
+            var p = new Paragraph();
+            FldAgendaRich.Document.Blocks.Add(p);
+            caret = p.ContentStart;
+        }
+
+        var imageElement = CreateResizableAgendaImageElement(path, width, height);
+        var container = new InlineUIContainer(imageElement, caret);
+        FldAgendaRich.CaretPosition = container.ElementEnd;
+        FldAgendaRich.Focus();
+    }
+
+    private void FldAgendaRich_PreviewDragOver(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        var paths = e.Data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+        e.Effects = paths.Any(IsImageFile) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void FldAgendaRich_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            return;
+
+        var paths = e.Data.GetData(DataFormats.FileDrop) as string[] ?? Array.Empty<string>();
+        var imagePaths = paths.Where(IsImageFile).ToArray();
+        if (imagePaths.Length == 0)
+            return;
+
+        var dropPosition = FldAgendaRich.GetPositionFromPoint(e.GetPosition(FldAgendaRich), true);
+        if (dropPosition is not null)
+            FldAgendaRich.CaretPosition = dropPosition;
+
+        foreach (var imagePath in imagePaths)
+            InsertAgendaImageAtCaret(imagePath, 480, 270);
+
+        e.Handled = true;
+    }
+
+    private Grid CreateResizableAgendaImageElement(string path, double width, double height)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(path, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        var imageMeta = new AgendaImageMeta
+        {
+            Path = path,
+            Width = Math.Max(AgendaImageMinWidth, width),
+            Height = Math.Max(AgendaImageMinHeight, height)
+        };
+
+        var image = new Image
+        {
+            Source = bitmap,
+            Width = imageMeta.Width,
+            Height = imageMeta.Height,
+            Stretch = Stretch.Fill,
+            IsHitTestVisible = false
+        };
+
+        var resizeHandle = new Border
+        {
+            Width = 14,
+            Height = 14,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Background = Brushes.DodgerBlue,
+            BorderBrush = Brushes.White,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(2),
+            Cursor = Cursors.SizeNWSE
+        };
+
+        var grid = new Grid
+        {
+            Width = imageMeta.Width,
+            Height = imageMeta.Height,
+            Margin = new Thickness(4),
+            Tag = imageMeta,
+            Background = Brushes.Transparent
+        };
+        grid.Children.Add(image);
+        grid.Children.Add(resizeHandle);
+
+        // 리사이즈 핸들 식별을 위해 Tag에 메타 저장 (Window 레벨 핸들러에서 참조)
+        resizeHandle.Tag = imageMeta;
+
+        grid.MouseRightButtonUp += (_, e) =>
+        {
+            RemoveImageInlineForElement(grid);
+            e.Handled = true;
+        };
+
+        return grid;
+    }
+
+    private InlineUIContainer? FindSelectedImageContainer()
+    {
+        return FindAncestorInlineUiContainer(FldAgendaRich.Selection.Start)
+            ?? FindAncestorInlineUiContainer(FldAgendaRich.Selection.End);
+    }
+
+    private static InlineUIContainer? FindAncestorInlineUiContainer(TextPointer pointer)
+    {
+        DependencyObject? current = pointer.Parent as DependencyObject;
+        while (current is not null)
+        {
+            if (current is InlineUIContainer container)
+                return container;
+            current = LogicalTreeHelper.GetParent(current);
+        }
+
+        return null;
+    }
+
+    private void RemoveImageInlineForElement(DependencyObject element)
+    {
+        var container = FindAncestorInlineUiContainerFromElement(element);
+        if (container?.Parent is Paragraph paragraph)
+            paragraph.Inlines.Remove(container);
+    }
+
+    private static InlineUIContainer? FindAncestorInlineUiContainerFromElement(DependencyObject? element)
+    {
+        var current = element;
+        while (current is not null)
+        {
+            if (current is InlineUIContainer container)
+                return container;
+            current = LogicalTreeHelper.GetParent(current);
+        }
+
+        return null;
+    }
+
+    private string SerializeAgendaContent()
+    {
+        var sb = new StringBuilder();
+        foreach (var block in FldAgendaRich.Document.Blocks)
+        {
+            if (block is not Paragraph paragraph)
+                continue;
+
+            foreach (var inline in paragraph.Inlines)
+            {
+                switch (inline)
+                {
+                    case Run run:
+                        sb.Append(run.Text);
+                        break;
+                    case LineBreak:
+                        sb.Append('\n');
+                        break;
+                    case InlineUIContainer container:
+                        if (container.Child is Grid { Tag: AgendaImageMeta meta })
+                        {
+                            var src = meta.Path.Replace("\\", "/", StringComparison.Ordinal);
+                            sb.Append(CultureInfo.InvariantCulture, $"<img src=\"{src}\" width=\"{Math.Round(meta.Width)}\" height=\"{Math.Round(meta.Height)}\" alt=\"agenda-image\" />");
+                        }
+                        break;
+                }
+            }
+
+            sb.AppendLine();
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    private void LoadAgendaContent(string? content)
+    {
+        var doc = new FlowDocument();
+        var raw = content ?? "";
+        var lines = raw.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        foreach (var line in lines)
+        {
+            var paragraph = new Paragraph();
+            var pos = 0;
+            foreach (Match match in AgendaImageTagRegex.Matches(line))
+            {
+                if (match.Index > pos)
+                    paragraph.Inlines.Add(new Run(line[pos..match.Index]));
+
+                var path = match.Groups[1].Value.Replace("/", "\\", StringComparison.Ordinal);
+                var width = TryParseImageSize(match.Groups[2].Value, 480);
+                var height = TryParseImageSize(match.Groups[3].Value, 270);
+                if (File.Exists(path))
+                    paragraph.Inlines.Add(new InlineUIContainer(CreateResizableAgendaImageElement(path, width, height)));
+                else
+                    paragraph.Inlines.Add(new Run(match.Value));
+                pos = match.Index + match.Length;
+            }
+
+            if (pos < line.Length)
+                paragraph.Inlines.Add(new Run(line[pos..]));
+            if (paragraph.Inlines.FirstInline is null)
+                paragraph.Inlines.Add(new Run(string.Empty));
+
+            doc.Blocks.Add(paragraph);
+        }
+
+        if (!doc.Blocks.Any())
+            doc.Blocks.Add(new Paragraph(new Run(string.Empty)));
+        FldAgendaRich.Document = doc;
+    }
+
+    private static double TryParseImageSize(string raw, double fallback)
+    {
+        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var size))
+            return size;
+        return fallback;
+    }
+
+    private static bool IsImageFile(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return false;
+        var ext = Path.GetExtension(path);
+        return SupportedImageExtensions.Contains(ext);
+    }
+
+    private sealed class AgendaImageMeta
+    {
+        public string Path { get; init; } = "";
+        public double Width { get; set; }
+        public double Height { get; set; }
+    }
+
     private string T(string key)
     {
         var src = _language == UiLanguage.Ko ? Ko : En;
@@ -693,6 +993,8 @@ public partial class MainWindow : Window
         LblAuthor.Text = T("label.author");
         LblAttendees.Text = T("label.attendees");
         LblAgenda.Text = T("label.agenda");
+        BtnAgendaImageAdd.Content = T("button.agendaImage.add");
+        BtnAgendaImageRemove.Content = T("button.agendaImage.remove");
         LblDecisions.Text = T("label.decisions");
         LblActions.Text = T("label.actions");
         LblNextMeeting.Text = T("label.next");
@@ -749,4 +1051,71 @@ public partial class MainWindow : Window
         var json = JsonSerializer.Serialize(pref, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(PreferencesPath(), json, Encoding.UTF8);
     }
+
+    private void OnWindowResizeDown(object sender, MouseButtonEventArgs e)
+    {
+        // e.OriginalSource는 TextEditor가 Paragraph/FlowDocument로 교체하므로 신뢰할 수 없다.
+        // VisualTreeHelper.HitTest로 직접 비주얼 트리를 탐색한다.
+        var (handle, meta) = HitTestResizeHandle(e.GetPosition(FldAgendaRich));
+        if (handle is null || meta is null) return;
+
+        var grid = VisualTreeHelper.GetParent(handle) as Grid;
+        var image = grid?.Children.OfType<Image>().FirstOrDefault();
+        if (grid is null || image is null) return;
+
+        _resizingMeta = meta;
+        _resizingImage = image;
+        _resizingGrid = grid;
+        _resizeAnchorPos = e.GetPosition(this);
+        _resizeAnchorW = meta.Width;
+        _resizeAnchorH = meta.Height;
+        e.Handled = true;
+    }
+
+    private void OnResizeMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_resizingMeta is not null)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                _resizingMeta = null;
+                Cursor = null;
+                return;
+            }
+            var pos = e.GetPosition(this);
+            _resizingMeta.Width = Math.Max(AgendaImageMinWidth, _resizeAnchorW + pos.X - _resizeAnchorPos.X);
+            _resizingMeta.Height = Math.Max(AgendaImageMinHeight, _resizeAnchorH + pos.Y - _resizeAnchorPos.Y);
+            _resizingImage!.Width = _resizingMeta.Width;
+            _resizingImage!.Height = _resizingMeta.Height;
+            _resizingGrid!.Width = _resizingMeta.Width;
+            _resizingGrid!.Height = _resizingMeta.Height;
+            e.Handled = true;
+        }
+        else
+        {
+            // 커서도 WPF가 Paragraph로 교체해버리므로 수동으로 설정
+            var (handle, _) = HitTestResizeHandle(e.GetPosition(FldAgendaRich));
+            Cursor = handle is not null ? Cursors.SizeNWSE : null;
+        }
+    }
+
+    private void OnResizeMouseUp(object _, MouseButtonEventArgs __)
+    {
+        _resizingMeta = null;
+        Cursor = null;
+    }
+
+    private (Border? handle, AgendaImageMeta? meta) HitTestResizeHandle(Point posInRtb)
+    {
+        var hitResult = VisualTreeHelper.HitTest(FldAgendaRich, posInRtb);
+        var current = hitResult?.VisualHit as DependencyObject;
+        while (current is not null)
+        {
+            if (current is Border b && b.Tag is AgendaImageMeta meta)
+                return (b, meta);
+            current = current is Visual ? VisualTreeHelper.GetParent(current) : null;
+        }
+        return (null, null);
+    }
 }
+

@@ -183,9 +183,37 @@
 
                         <Border Style="{StaticResource CardBorder}">
                             <StackPanel>
-                                <TextBlock x:Name="LblAgenda" Style="{StaticResource FieldLabel}" Text="안건 및 논의" />
-                                <TextBox x:Name="FldAgenda" Style="{StaticResource ModernTextBox}"
-                                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="140" VerticalScrollBarVisibility="Auto" />
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock x:Name="LblAgenda"
+                                               DockPanel.Dock="Left"
+                                               Style="{StaticResource FieldLabel}"
+                                               Text="안건 및 논의" />
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <Button x:Name="BtnAgendaImageAdd"
+                                                Content="이미지 추가…"
+                                                Style="{StaticResource ToolbarButton}"
+                                                Margin="0,0,8,0"
+                                                Click="BtnAgendaImageAdd_Click" />
+                                        <Button x:Name="BtnAgendaImageRemove"
+                                                Content="이미지 제거"
+                                                Style="{StaticResource ToolbarButton}"
+                                                Click="BtnAgendaImageRemove_Click" />
+                                    </StackPanel>
+                                </DockPanel>
+                                <RichTextBox x:Name="FldAgendaRich"
+                                             MinHeight="220"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             Padding="10"
+                                             Background="{StaticResource BrushBgElevated}"
+                                             Foreground="{StaticResource BrushText}"
+                                             BorderBrush="{StaticResource BrushBorder}"
+                                             BorderThickness="1"
+                                             FontFamily="Segoe UI Variable Display, Segoe UI"
+                                             FontSize="14"
+                                             AllowDrop="True"
+                                             PreviewDragOver="FldAgendaRich_PreviewDragOver"
+                                             Drop="FldAgendaRich_Drop" />
                             </StackPanel>
                         </Border>
 
