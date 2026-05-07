@@ -37,8 +37,46 @@ public partial class EasyMDForm : Form
 
     private int _savedSidebarWidth = 220;
 
+    // ─── Outline Icons ────────────────────────────────────────────────────────
+
+    private static ImageList CreateOutlineImageList()
+    {
+        var il = new ImageList { ImageSize = new Size(20, 20), ColorDepth = ColorDepth.Depth32Bit };
+
+        // EmbeddedResource로 포함된 PNG 파일 로드 (h1.png ~ h6.png)
+        // 교체하려면 Resources/Icons/ 폴더의 PNG 파일을 교체 후 재빌드
+        var asm = System.Reflection.Assembly.GetExecutingAssembly();
+        string[] names = { "h1", "h2", "h3", "h4", "h5", "h6" };
+
+        foreach (var name in names)
+        {
+            string resourceName = $"EaxyMDV10.Resources.Icons.{name}.png";
+            using var stream = asm.GetManifestResourceStream(resourceName);
+            if (stream != null)
+                il.Images.Add(new Bitmap(stream));
+            else
+                il.Images.Add(CreateFallbackIcon(name));
+        }
+
+        return il;
+    }
+
+    private static Bitmap CreateFallbackIcon(string label)
+    {
+        var bmp = new Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(bmp);
+        g.Clear(Color.FromArgb(150, 150, 150));
+        using var font = new Font("Segoe UI", 7f, FontStyle.Bold);
+        using var brush = new SolidBrush(Color.White);
+        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        g.DrawString(label.ToUpper(), font, brush, new RectangleF(0, 0, 20, 20), sf);
+        return bmp;
+    }
+
     private async void EasyMDForm_Load(object sender, EventArgs e)
     {
+        treeOutline.ImageList = CreateOutlineImageList();
+
         try
         {
             await webViewPreview.EnsureCoreWebView2Async(null);
@@ -149,7 +187,13 @@ public partial class EasyMDForm : Form
 
             int level = m.Groups[1].Length;
             string text = m.Groups[2].Value.Trim();
-            var node = new TreeNode(text) { Tag = i };
+            int imgIdx = Math.Clamp(level - 1, 0, 5);
+            var node = new TreeNode(text)
+            {
+                Tag = i,
+                ImageIndex = imgIdx,
+                SelectedImageIndex = imgIdx
+            };
 
             while (stack.Count > 0 && stack.Peek().level >= level)
                 stack.Pop();

@@ -330,15 +330,16 @@ partial class EasyMDForm
         outerSplitContainer.Panel2.Controls.Add(splitContainer1);
 
         // ── pnlSidebar ──────────────────────────────────────────────────────
+        pnlSidebar.BackColor = Color.FromArgb(245, 245, 245);
         pnlSidebar.Dock = DockStyle.Fill;
         pnlSidebar.Name = "pnlSidebar";
         pnlSidebar.Controls.Add(treeOutline);
         pnlSidebar.Controls.Add(pnlSidebarHeader);
 
         // ── pnlSidebarHeader ────────────────────────────────────────────────
-        pnlSidebarHeader.BackColor = Color.FromArgb(240, 240, 240);
+        pnlSidebarHeader.BackColor = Color.FromArgb(51, 51, 51);
         pnlSidebarHeader.Dock = DockStyle.Top;
-        pnlSidebarHeader.Height = 34;
+        pnlSidebarHeader.Height = 36;
         pnlSidebarHeader.Name = "pnlSidebarHeader";
         pnlSidebarHeader.Controls.Add(lblOutline);
         pnlSidebarHeader.Controls.Add(btnCollapse);
@@ -347,31 +348,38 @@ partial class EasyMDForm
         lblOutline.AutoSize = false;
         lblOutline.Dock = DockStyle.Fill;
         lblOutline.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-        lblOutline.ForeColor = Color.FromArgb(80, 80, 80);
+        lblOutline.ForeColor = Color.White;
         lblOutline.Name = "lblOutline";
-        lblOutline.Padding = new Padding(8, 0, 0, 0);
+        lblOutline.Padding = new Padding(10, 0, 0, 0);
         lblOutline.Text = "문서 구조";
         lblOutline.TextAlign = ContentAlignment.MiddleLeft;
 
         // ── btnCollapse ──────────────────────────────────────────────────────
+        btnCollapse.BackColor = Color.Transparent;
+        btnCollapse.Cursor = Cursors.Hand;
         btnCollapse.Dock = DockStyle.Right;
         btnCollapse.FlatStyle = FlatStyle.Flat;
         btnCollapse.FlatAppearance.BorderSize = 0;
-        btnCollapse.Font = new Font("Segoe UI", 11f);
+        btnCollapse.FlatAppearance.MouseOverBackColor = Color.FromArgb(80, 80, 80);
+        btnCollapse.Font = new Font("Segoe UI", 12f);
+        btnCollapse.ForeColor = Color.White;
         btnCollapse.Name = "btnCollapse";
-        btnCollapse.Size = new Size(34, 34);
+        btnCollapse.Size = new Size(36, 36);
         btnCollapse.Text = "◀";
         btnCollapse.Click += btnCollapse_Click;
 
         // ── treeOutline ──────────────────────────────────────────────────────
-        treeOutline.BackColor = Color.FromArgb(248, 248, 248);
+        treeOutline.BackColor = Color.FromArgb(245, 245, 245);
         treeOutline.BorderStyle = BorderStyle.None;
         treeOutline.Dock = DockStyle.Fill;
         treeOutline.Font = new Font("Segoe UI", 10f);
-        treeOutline.Indent = 16;
+        treeOutline.FullRowSelect = true;
+        treeOutline.HotTracking = true;
+        treeOutline.Indent = 14;
+        treeOutline.ItemHeight = 26;
         treeOutline.Name = "treeOutline";
-        treeOutline.ShowLines = true;
-        treeOutline.ShowRootLines = true;
+        treeOutline.ShowLines = false;
+        treeOutline.ShowRootLines = false;
         treeOutline.TabIndex = 0;
         treeOutline.NodeMouseClick += treeOutline_NodeMouseClick;
 

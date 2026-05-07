@@ -16,4 +16,13 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\h1.png" />
+    <EmbeddedResource Include="Resources\Icons\h2.png" />
+    <EmbeddedResource Include="Resources\Icons\h3.png" />
+    <EmbeddedResource Include="Resources\Icons\h4.png" />
+    <EmbeddedResource Include="Resources\Icons\h5.png" />
+    <EmbeddedResource Include="Resources\Icons\h6.png" />
+  </ItemGroup>
+
 </Project>
