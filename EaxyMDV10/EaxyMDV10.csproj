@@ -17,6 +17,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\h1.png" />
     <EmbeddedResource Include="Resources\Icons\h2.png" />
     <EmbeddedResource Include="Resources\Icons\h3.png" />
@@ -24,5 +30,17 @@
     <EmbeddedResource Include="Resources\Icons\h5.png" />
     <EmbeddedResource Include="Resources\Icons\h6.png" />
   </ItemGroup>
+
+  <!--
+    Release 빌드 후 자동으로 MSI 생성.
+    VS 에서 HeatWave 확장 없이도 동작합니다.
+  -->
+  <Target Name="BuildMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="▶ MSI 빌드 시작..." Importance="high" />
+    <Exec
+      Command="dotnet build &quot;$(MSBuildThisFileDirectory)EaxyMDV10.Installer\EaxyMDV10.Installer.wixproj&quot; -c Release --no-dependencies"
+      ConsoleToMsBuild="true" />
+    <Message Text="✔ MSI 생성 완료: EaxyMDV10.Installer\bin\Release\ko-KR\EaxyMD-Setup.msi" Importance="high" />
+  </Target>
 
 </Project>
