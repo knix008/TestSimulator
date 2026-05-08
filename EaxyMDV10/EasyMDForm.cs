@@ -6,6 +6,8 @@ namespace EaxyMDV10;
 
 public partial class EasyMDForm : Form
 {
+    private sealed record OutlineTarget(int LineIndex, string HeadingId);
+
     private string _currentFilePath = string.Empty;
     private bool _isDirty = false;
     private bool _isSyncing = false;
@@ -116,8 +118,26 @@ public partial class EasyMDForm : Form
     private void UpdatePreview()
     {
         if (webViewPreview.CoreWebView2 == null) return;
-        string html = Markdown.ToHtml(txtMarkdown.Text, _pipeline);
+        string html = InjectHeadingIds(Markdown.ToHtml(txtMarkdown.Text, _pipeline));
         webViewPreview.NavigateToString(BuildPage(html));
+    }
+
+    private static string InjectHeadingIds(string html)
+    {
+        int headingIndex = 0;
+        return Regex.Replace(
+            html,
+            "<h([1-6])([^>]*)>",
+            m =>
+            {
+                string level = m.Groups[1].Value;
+                string attrs = m.Groups[2].Value;
+                headingIndex++;
+                // Markdig가 이미 id를 생성한 경우가 있어 기존 id를 제거하고
+                // 아웃라인-프리뷰 동기화용 id를 항상 동일 규칙으로 부여한다.
+                attrs = Regex.Replace(attrs, @"\sid\s*=\s*(""[^""]*""|'[^']*')", "", RegexOptions.IgnoreCase);
+                return $"<h{level}{attrs} id=\"outline-heading-{headingIndex}\">";
+            });
     }
 
     private static string BuildPage(string body) => $$"""
@@ -179,6 +199,7 @@ public partial class EasyMDForm : Form
 
         var stack = new Stack<(int level, TreeNode node)>();
         string[] lines = txtMarkdown.Lines;
+        int headingIndex = 0;
 
         for (int i = 0; i < lines.Length; i++)
         {
@@ -188,9 +209,10 @@ public partial class EasyMDForm : Form
             int level = m.Groups[1].Length;
             string text = m.Groups[2].Value.Trim();
             int imgIdx = Math.Clamp(level - 1, 0, 5);
+            headingIndex++;
             var node = new TreeNode(text)
             {
-                Tag = i,
+                Tag = new OutlineTarget(i, $"outline-heading-{headingIndex}"),
                 ImageIndex = imgIdx,
                 SelectedImageIndex = imgIdx
             };
@@ -212,13 +234,24 @@ public partial class EasyMDForm : Form
 
     private void treeOutline_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
     {
-        if (e.Node.Tag is not int lineIndex) return;
-        int charIndex = txtMarkdown.GetFirstCharIndexFromLine(lineIndex);
+        if (e.Node.Tag is not OutlineTarget target) return;
+        int charIndex = txtMarkdown.GetFirstCharIndexFromLine(target.LineIndex);
         if (charIndex < 0) return;
         txtMarkdown.SelectionStart = charIndex;
         txtMarkdown.SelectionLength = 0;
         txtMarkdown.ScrollToCaret();
         txtMarkdown.Focus();
+        ScrollPreviewToHeading(target.HeadingId);
+    }
+
+    private void ScrollPreviewToHeading(string headingId)
+    {
+        if (webViewPreview.CoreWebView2 == null || string.IsNullOrWhiteSpace(headingId))
+            return;
+
+        string escapedId = headingId.Replace("\\", "\\\\").Replace("'", "\\'");
+        _ = webViewPreview.CoreWebView2.ExecuteScriptAsync(
+            $"document.getElementById('{escapedId}')?.scrollIntoView({{ behavior: 'auto', block: 'start' }});");
     }
 
     private void btnToggleSidebar_Click(object sender, EventArgs e)
@@ -329,6 +362,7 @@ public partial class EasyMDForm : Form
         _isDirty = false;
         UpdateTitleBar();
         UpdatePreview();
+        UpdateOutline();
     }
 
     private void openToolStripMenuItem_Click(object sender, EventArgs e)
@@ -367,6 +401,7 @@ public partial class EasyMDForm : Form
         _isDirty = false;
         UpdateTitleBar();
         UpdatePreview();
+        UpdateOutline();
     }
 
     private void SaveAs()
