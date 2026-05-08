@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EasyMD - Markdown 편집기</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Markdown 파서 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <!-- XSS 방지 -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.5/dist/purify.min.js"></script>
+  <!-- 코드 하이라이팅 -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css"
+    id="hljs-theme-light"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css"
+    id="hljs-theme-dark"
+    disabled
+  />
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+</head>
+<body>
+  <!-- 최상단 메뉴바 -->
+  <header class="menubar">
+    <div class="brand">
+      <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M7 8v8M7 12h4M11 8v8M15 8v8l3-3 3 3V8" />
+      </svg>
+      <span class="brand-name">EasyMD</span>
+      <span class="brand-tag">Markdown 편집기</span>
+    </div>
+
+    <nav class="menu-actions">
+      <button class="menu-btn" id="btn-new" title="새 문서 (Ctrl+N)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="12" y1="18" x2="12" y2="12" />
+          <line x1="9" y1="15" x2="15" y2="15" />
+        </svg>
+        <span>새 문서</span>
+      </button>
+
+      <button class="menu-btn" id="btn-open" title="파일 열기 (Ctrl+O)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </svg>
+        <span>열기</span>
+      </button>
+      <input type="file" id="file-input" accept=".md,.markdown,.txt" hidden />
+
+      <button class="menu-btn" id="btn-save" title="파일로 다운로드 (Ctrl+S)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        <span>다운로드</span>
+      </button>
+
+      <button class="menu-btn" id="btn-save-server" title="서버에 저장 (Ctrl+Shift+S)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3" />
+          <path d="M3 5v6c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          <path d="M3 11v6c0 1.66 4 3 9 3s9-1.34 9-3v-6" />
+        </svg>
+        <span>서버 저장</span>
+      </button>
+
+      <div class="menu-divider"></div>
+
+      <button class="menu-btn" id="btn-toggle-sidebar" title="사이드바 토글">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="9" y1="3" x2="9" y2="21" />
+        </svg>
+        <span>사이드바</span>
+      </button>
+
+      <button class="menu-btn" id="btn-toggle-preview" title="미리보기 토글">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        <span>미리보기</span>
+      </button>
+
+      <button class="menu-btn" id="btn-theme" title="테마 전환">
+        <svg id="icon-theme" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+        <span id="label-theme">다크 모드</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Markdown 편집 툴바 -->
+  <div class="toolbar" role="toolbar" aria-label="Markdown 편집 도구">
+    <button class="tool-btn" data-action="h1" title="제목 1 (#)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 5v14M14 5v14M4 12h10" />
+        <text x="16" y="19" font-family="ui-monospace,monospace" font-size="9"
+              font-weight="700" fill="currentColor" stroke="none">1</text>
+      </svg>
+      <span>제목1</span>
+    </button>
+
+    <button class="tool-btn" data-action="h2" title="제목 2 (##)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 5v14M14 5v14M4 12h10" />
+        <text x="16" y="19" font-family="ui-monospace,monospace" font-size="9"
+              font-weight="700" fill="currentColor" stroke="none">2</text>
+      </svg>
+      <span>제목2</span>
+    </button>
+
+    <button class="tool-btn" data-action="h3" title="제목 3 (###)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 5v14M14 5v14M4 12h10" />
+        <text x="16" y="19" font-family="ui-monospace,monospace" font-size="9"
+              font-weight="700" fill="currentColor" stroke="none">3</text>
+      </svg>
+      <span>제목3</span>
+    </button>
+
+    <div class="tool-divider"></div>
+
+    <button class="tool-btn" data-action="bold" title="굵게 (Ctrl+B)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 5h6a4 4 0 0 1 0 8H7zM7 13h7a4 4 0 0 1 0 8H7z" />
+      </svg>
+      <span>굵게</span>
+    </button>
+
+    <button class="tool-btn" data-action="italic" title="기울임 (Ctrl+I)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="4" x2="10" y2="4" />
+        <line x1="14" y1="20" x2="5" y2="20" />
+        <line x1="15" y1="4" x2="9" y2="20" />
+      </svg>
+      <span>기울임</span>
+    </button>
+
+    <button class="tool-btn" data-action="strike" title="취소선 (~~ ~~)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6" />
+        <line x1="4" y1="12" x2="20" y2="12" />
+      </svg>
+      <span>취소선</span>
+    </button>
+
+    <div class="tool-divider"></div>
+
+    <button class="tool-btn" data-action="link" title="링크 ([텍스트](URL))">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+        <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+      </svg>
+      <span>링크</span>
+    </button>
+
+    <button class="tool-btn" data-action="image" title="이미지 (![alt](URL))">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-5-5L5 21" />
+      </svg>
+      <span>이미지</span>
+    </button>
+
+    <button class="tool-btn" data-action="code" title="인라인 코드 (`code`)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6" />
+        <polyline points="8 6 2 12 8 18" />
+      </svg>
+      <span>코드</span>
+    </button>
+
+    <button class="tool-btn" data-action="codeblock" title="코드 블록 (```)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M9 9l-2 3 2 3M15 9l2 3-2 3" />
+      </svg>
+      <span>코드블록</span>
+    </button>
+
+    <div class="tool-divider"></div>
+
+    <button class="tool-btn" data-action="quote" title="인용 (>)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 21c3 0 7-1 7-8V5H3v8h4M14 21c3 0 7-1 7-8V5h-7v8h4" />
+      </svg>
+      <span>인용</span>
+    </button>
+
+    <button class="tool-btn" data-action="ul" title="순서 없는 목록 (-)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <circle cx="3.5" cy="6" r="1.2" fill="currentColor" />
+        <circle cx="3.5" cy="12" r="1.2" fill="currentColor" />
+        <circle cx="3.5" cy="18" r="1.2" fill="currentColor" />
+      </svg>
+      <span>목록</span>
+    </button>
+
+    <button class="tool-btn" data-action="ol" title="순서 있는 목록 (1.)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="10" y1="6" x2="21" y2="6" />
+        <line x1="10" y1="12" x2="21" y2="12" />
+        <line x1="10" y1="18" x2="21" y2="18" />
+        <text x="2" y="9" font-family="ui-monospace,monospace" font-size="8"
+              font-weight="700" fill="currentColor" stroke="none">1.</text>
+        <text x="2" y="15" font-family="ui-monospace,monospace" font-size="8"
+              font-weight="700" fill="currentColor" stroke="none">2.</text>
+        <text x="2" y="21" font-family="ui-monospace,monospace" font-size="8"
+              font-weight="700" fill="currentColor" stroke="none">3.</text>
+      </svg>
+      <span>번호목록</span>
+    </button>
+
+    <button class="tool-btn" data-action="task" title="작업 목록 (- [ ])">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="6" height="6" rx="1" />
+        <path d="m4.5 8 1.2 1.2L8 7" />
+        <rect x="3" y="14" width="6" height="6" rx="1" />
+        <line x1="12" y1="8" x2="21" y2="8" />
+        <line x1="12" y1="17" x2="21" y2="17" />
+      </svg>
+      <span>체크리스트</span>
+    </button>
+
+    <div class="tool-divider"></div>
+
+    <button class="tool-btn" data-action="hr" title="구분선 (---)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="6" x2="6" y2="6" />
+        <line x1="3" y1="18" x2="6" y2="18" />
+        <line x1="18" y1="6" x2="21" y2="6" />
+        <line x1="18" y1="18" x2="21" y2="18" />
+      </svg>
+      <span>구분선</span>
+    </button>
+
+    <button class="tool-btn" data-action="table" title="표 삽입">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="3" y1="9" x2="21" y2="9" />
+        <line x1="3" y1="15" x2="21" y2="15" />
+        <line x1="9" y1="3" x2="9" y2="21" />
+        <line x1="15" y1="3" x2="15" y2="21" />
+      </svg>
+      <span>표</span>
+    </button>
+  </div>
+
+  <!-- 메인 영역: 사이드바 + 에디터 + 미리보기 -->
+  <main class="workspace">
+    <!-- 사이드바: 문서 구조(목차) + 내 문서 목록 -->
+    <aside class="sidebar" id="sidebar">
+      <!-- 1) 문서 구조(목차) -->
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 6h16M4 12h16M4 18h10" />
+          </svg>
+          <h2>문서 구조</h2>
+        </div>
+        <div class="outline" id="outline">
+          <p class="outline-empty">문서에 제목(<code>#</code>)을 추가하면<br />여기에 목차가 나타납니다.</p>
+        </div>
+      </div>
+
+      <!-- 2) 서버에 저장된 내 문서 -->
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M3 5v6c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+            <path d="M3 11v6c0 1.66 4 3 9 3s9-1.34 9-3v-6" />
+          </svg>
+          <h2>내 문서</h2>
+          <button class="icon-btn" id="btn-refresh-docs" title="새로고침">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
+        </div>
+        <div class="docs-list" id="docs-list">
+          <p class="outline-empty">서버 폴더 <code>documents/</code>의 파일이<br />여기에 표시됩니다.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 에디터 -->
+    <section class="pane editor-pane">
+      <div class="pane-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
+        </svg>
+        <h3>편집기</h3>
+        <span class="filename" id="filename">untitled.md</span>
+      </div>
+      <textarea
+        id="editor"
+        spellcheck="false"
+        placeholder="여기에 Markdown을 입력하세요..."
+      ></textarea>
+    </section>
+
+    <!-- 미리보기 -->
+    <section class="pane preview-pane" id="preview-pane">
+      <div class="pane-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        <h3>미리보기</h3>
+        <span class="status" id="word-count">0 단어</span>
+      </div>
+      <article id="preview" class="preview markdown-body"></article>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

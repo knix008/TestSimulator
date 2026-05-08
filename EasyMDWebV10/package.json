@@ -1,0 +1,23 @@
+{
+  "name": "easymd-web",
+  "version": "1.0.0",
+  "description": "Web-based Markdown editor with live preview, document outline sidebar, and Node.js backend for server-side document storage.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "markdown",
+    "editor",
+    "express",
+    "nodejs"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1"
+  }
+}

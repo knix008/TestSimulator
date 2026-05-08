@@ -1,0 +1,70 @@
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+
+# 패키지 매니저 산출물
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ===== 환경 변수 / 시크릿 =====
+.env
+.env.*
+!.env.example
+
+# ===== 빌드 / 캐시 =====
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vite/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# ===== 로그 =====
+logs/
+*.log
+
+# ===== 런타임 / 임시 =====
+pids/
+*.pid
+*.seed
+*.pid.lock
+tmp/
+temp/
+
+# ===== 사용자 작성 문서 (서버 저장 폴더) =====
+# documents/ 폴더에는 사용자가 저장한 .md 파일이 쌓이므로 git 추적에서 제외.
+# 폴더 자체는 유지하기 위해 .gitkeep만 커밋합니다.
+documents/*
+!documents/.gitkeep
+
+# ===== 에디터 / IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===== 기타 =====
+*.tgz
+*.tar.gz
+.history/
