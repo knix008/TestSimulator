@@ -126,8 +126,8 @@ namespace ScreenCaptureMaster
                     this.WindowState = WindowState.Minimized;
                     System.Threading.Thread.Sleep(300);
 
-                    // Capture the selected window
-                    lastCapture = ScreenCapture.CaptureRegion(windowSelector.SelectedWindow.Bounds);
+                    // Capture the selected window by handle so occluded windows can still be captured.
+                    lastCapture = ScreenCapture.CaptureWindow(windowSelector.SelectedWindow.Handle);
 
                     // Restore main window
                     this.WindowState = WindowState.Normal;

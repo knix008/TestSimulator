@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <GenerateMsiOnBuild>true</GenerateMsiOnBuild>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <RootNamespace>ImageViewerV10</RootNamespace>
+    <AssemblyName>ImageViewerV10</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibVLCSharp.WinForms" Version="3.9.7.1" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="MainForm.cs" />
+    <Compile Update="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\icons\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target
+    Name="BuildInstallerMsi"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Release' and '$(GenerateMsiOnBuild)' == 'true'"
+    Inputs="$(TargetPath);$(TargetDir)**\*;$(MSBuildProjectDirectory)\ImageViewerV10.Installer\Package.wxs;$(MSBuildProjectDirectory)\ImageViewerV10.Installer\ImageViewerV10.Installer.wixproj"
+    Outputs="$(MSBuildProjectDirectory)\ImageViewerV10.Installer\bin\x64\$(Configuration)\ImageViewerV10.Installer.msi">
+    <Message Importance="high" Text="Building MSI installer for Release configuration..." />
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\ImageViewerV10.Installer\ImageViewerV10.Installer.wixproj&quot; -c $(Configuration) -p:GenerateMsiOnBuild=false -p:BuildProjectReferences=false" />
+  </Target>
+
+</Project>

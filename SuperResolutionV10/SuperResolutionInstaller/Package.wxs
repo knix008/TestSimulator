@@ -1,0 +1,71 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+      Name="Super Resolution Studio"
+      Manufacturer="SuperResolutionV10"
+      Version="1.0.0.0"
+      UpgradeCode="E7A3D4C2-B5F1-4A0E-8C7D-6B5A49382710"
+      Scope="perMachine">
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="AppIcon" SourceFile="..\daemon_hammer.ico" />
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="Super Resolution Studio" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="CompanyFolder" Name="SuperResolutionV10">
+        <Directory Id="INSTALLFOLDER" Name="Super Resolution Studio" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.PublishOutput)\**" />
+    </ComponentGroup>
+
+    <ComponentGroup Id="DesktopShortcutComponents" Directory="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut
+          Id="DesktopShortcut"
+          Name="Super Resolution Studio"
+          Target="[INSTALLFOLDER]SuperResolutionApp.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon"
+          IconIndex="0" />
+        <RegistryValue Root="HKCU" Key="Software\SuperResolutionV10" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="StartMenuShortcutComponents" Directory="ProgramMenuDir">
+      <Component Id="StartMenuShortcutComponent" Guid="*">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Name="Super Resolution Studio"
+          Target="[INSTALLFOLDER]SuperResolutionApp.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon"
+          IconIndex="0" />
+        <RemoveFolder Id="ProgramMenuDirOnUninstall" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\SuperResolutionV10" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="Super Resolution Studio" Display="expand" AllowAdvertise="no" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature" Title="Desktop shortcut" AllowAdvertise="no" Level="1">
+      <ComponentGroupRef Id="DesktopShortcutComponents" />
+    </Feature>
+
+    <Feature Id="StartMenuShortcutFeature" Title="Start menu shortcut" AllowAdvertise="no" Level="1">
+      <ComponentGroupRef Id="StartMenuShortcutComponents" />
+    </Feature>
+  </Package>
+</Wix>

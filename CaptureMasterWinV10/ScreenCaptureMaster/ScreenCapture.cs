@@ -14,6 +14,12 @@ namespace ScreenCaptureMaster
         private static extern IntPtr GetDesktopWindow();
 
         [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern bool PrintWindow(IntPtr hWnd, IntPtr hdcBlt, int nFlags);
+
+        [DllImport("user32.dll")]
         private static extern IntPtr GetWindowDC(IntPtr hwnd);
 
         [DllImport("user32.dll")]
@@ -39,6 +45,16 @@ namespace ScreenCaptureMaster
         private static extern bool DeleteDC(IntPtr hdc);
 
         private const int SRCCOPY = 0x00CC0020;
+        private const int PW_RENDERFULLCONTENT = 0x00000002;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
 
         /// <summary>
         /// Captures the entire screen
@@ -73,6 +89,68 @@ namespace ScreenCaptureMaster
             DeleteObject(bitmap);
 
             return result;
+        }
+
+        /// <summary>
+        /// Captures a specific window by handle.
+        /// Uses PrintWindow to capture even when the window is occluded/minimized.
+        /// </summary>
+        /// <param name="windowHandle">Target window handle (HWND)</param>
+        /// <returns>Bitmap of the captured window</returns>
+        public static Bitmap CaptureWindow(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+                throw new ArgumentException("Invalid window handle.", nameof(windowHandle));
+
+            if (!GetWindowRect(windowHandle, out RECT rect))
+                throw new InvalidOperationException("Failed to get target window bounds.");
+
+            int width = rect.Right - rect.Left;
+            int height = rect.Bottom - rect.Top;
+            if (width <= 0 || height <= 0)
+                throw new InvalidOperationException("Target window has invalid size.");
+
+            IntPtr desktopWindow = GetDesktopWindow();
+            IntPtr desktopDC = GetWindowDC(desktopWindow);
+            IntPtr memoryDC = IntPtr.Zero;
+            IntPtr bitmap = IntPtr.Zero;
+            IntPtr oldBitmap = IntPtr.Zero;
+
+            try
+            {
+                memoryDC = CreateCompatibleDC(desktopDC);
+                bitmap = CreateCompatibleBitmap(desktopDC, width, height);
+                oldBitmap = SelectObject(memoryDC, bitmap);
+
+                bool success = PrintWindow(windowHandle, memoryDC, PW_RENDERFULLCONTENT);
+                if (!success)
+                {
+                    // Some windows do not support PrintWindow. Try Windows Graphics Capture first.
+                    try
+                    {
+                        return WindowsGraphicsCaptureHelper.CaptureWindow(windowHandle);
+                    }
+                    catch
+                    {
+                        // Last fallback: copy visible screen area.
+                        BitBlt(memoryDC, 0, 0, width, height, desktopDC, rect.Left, rect.Top, SRCCOPY);
+                    }
+                }
+
+                Bitmap result = Image.FromHbitmap(bitmap);
+                return result;
+            }
+            finally
+            {
+                if (oldBitmap != IntPtr.Zero && memoryDC != IntPtr.Zero)
+                    SelectObject(memoryDC, oldBitmap);
+                if (memoryDC != IntPtr.Zero)
+                    DeleteDC(memoryDC);
+                if (desktopDC != IntPtr.Zero)
+                    ReleaseDC(desktopWindow, desktopDC);
+                if (bitmap != IntPtr.Zero)
+                    DeleteObject(bitmap);
+            }
         }
 
         /// <summary>

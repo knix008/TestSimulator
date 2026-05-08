@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <InstallerProjectPath>$(MSBuildProjectDirectory)\..\installer\CompareMasterWinV10.Installer.wixproj</InstallerProjectPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="CompareForm.cs" />
+    <Compile Update="CompareForm.Designer.cs">
+      <DependentUpon>CompareForm.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <Target Name="BuildInstallerOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="dotnet build &quot;$(InstallerProjectPath)&quot; -c Release" />
+  </Target>
+
+</Project>

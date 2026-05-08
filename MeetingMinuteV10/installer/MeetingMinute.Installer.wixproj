@@ -1,0 +1,21 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
+    <OutputName>MeetingMinuteSetup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <SuppressValidation>true</SuppressValidation>
+    <OutputPath>$(MSBuildThisFileDirectory)bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+  </ItemGroup>
+
+  <Target Name="PublishForInstaller" BeforeTargets="PrepareForBuild">
+    <Exec Command="cmd /c taskkill /IM MeetingMinute.App.exe /F &gt;nul 2&gt;&amp;1" IgnoreExitCode="true" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet publish &quot;$(MSBuildProjectDirectory)\..\src\MeetingMinute.App\MeetingMinute.App.csproj&quot; -c Release -r win-x64 --self-contained false -p:SkipInstaller=true" />
+  </Target>
+</Project>

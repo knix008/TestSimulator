@@ -1,0 +1,17 @@
+{
+  "name": "webrtc-turn-server",
+  "version": "1.0.0",
+  "description": "TURN relay server for WebRTC NAT traversal",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["turn", "webrtc", "relay", "nat-traversal"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "node-turn": "^0.0.7"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(dotnet run *)",
+      "Bash(taskkill /PID 14072 /F)",
+      "Bash(powershell -Command \"[System.Guid]::NewGuid\\(\\).ToString\\(\\).ToUpper\\(\\)\")"
+    ]
+  }
+}

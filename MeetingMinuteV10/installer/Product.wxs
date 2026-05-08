@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="Meeting Minute"
+           Manufacturer="MeetingMinute"
+           Version="1.0.0.0"
+           Scope="perMachine"
+           InstallerVersion="500"
+           UpgradeCode="A3C2F1E8-7B6D-4C5A-9E0F-123456789ABC">
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\src\MeetingMinute.App\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MeetingMinute" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuAppFolder" Name="Meeting Minute" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="ProductFeature" Title="Meeting Minute" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <Feature Id="StartMenuShortcutFeature"
+             Title="Start Menu Shortcut"
+             Description="Create a Start Menu shortcut."
+             Level="1"
+             AllowAbsent="yes">
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+
+    <Feature Id="DesktopShortcutFeature"
+             Title="Desktop Shortcut"
+             Description="Create a Desktop shortcut."
+             Level="1"
+             AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Files Include="..\src\MeetingMinute.App\bin\Release\net8.0-windows\win-x64\publish\**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ProgramMenuAppFolder">
+      <Component Id="StartMenuShortcutComponent" Guid="*">
+        <Shortcut Id="StartMenuShortcut"
+                  Name="Meeting Minute"
+                  Description="Meeting minute writer"
+                  Target="[INSTALLFOLDER]MeetingMinute.App.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RemoveFolder Id="ProgramMenuAppFolderRemove" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\MeetingMinute"
+                       Name="StartMenuShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="*">
+        <Shortcut Id="DesktopShortcut"
+                  Name="Meeting Minute"
+                  Description="Meeting minute writer"
+                  Target="[INSTALLFOLDER]MeetingMinute.App.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\MeetingMinute"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+</Wix>

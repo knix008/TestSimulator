@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationTitle>Meeting Minute</ApplicationTitle>
+    <Product>Meeting Minute</Product>
+    <AssemblyTitle>Meeting Minute (회의록)</AssemblyTitle>
+    <Description>Markdown으로 저장하는 회의록 작성기</Description>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <SkipInstaller Condition="'$(SkipInstaller)' == ''">false</SkipInstaller>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="daemon_hammer.ico" />
+  </ItemGroup>
+
+  <Target Name="EnsureNuGetRestoreWhenAssetsMissing" BeforeTargets="PrepareForBuild" Condition="!Exists('$(ProjectAssetsFile)')">
+    <Exec Command="dotnet restore &quot;$(MSBuildProjectFullPath)&quot;" />
+  </Target>
+
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(SkipInstaller)' != 'true' and Exists('$(MSBuildProjectDirectory)\..\..\installer\MeetingMinute.Installer.wixproj')">
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\..\installer\MeetingMinute.Installer.wixproj&quot; -c Release -p:Platform=x64" />
+  </Target>
+
+</Project>

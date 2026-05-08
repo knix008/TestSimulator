@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
@@ -33,7 +33,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.26100.1742" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
   </ItemGroup>
+
+  <Target Name="BuildInstallerOnRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(MSBuildProjectName)' == 'ScreenCaptureMaster' and '$(SkipInstallerBuild)' != 'true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\.."
+          Command="dotnet build &quot;$(MSBuildProjectDirectory)\..\ScreenCaptureMaster.Installer\ScreenCaptureMaster.Installer.wixproj&quot; -c Release -p:Platform=x64" />
+  </Target>
 
 </Project>

@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+installer/out/
+installer/bin/
+installer/**/*.wixpdb
+.vs/
+*.user
+*.suo
+*.tmp
+*.log
+*.cache
+*.pdb
+*.orig
+Thumbs.db
+Desktop.ini

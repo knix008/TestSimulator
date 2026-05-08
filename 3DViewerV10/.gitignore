@@ -1,0 +1,85 @@
+# Build outputs (.NET / MSBuild)
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Oo]ut/
+artifacts/
+
+# Visual Studio
+.vs/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.userprefs
+*.sln.docstates
+*.vsp
+*.vspx
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+*.binlog
+
+# VS Code / Cursor
+.vscode/
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# ReSharper / dotCover
+*_ReSharper.*
+*.DotSettings.user
+*.dotCover
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+**/project.fragment.lock.json
+
+# Publish & installers (solution-relative publish from Release profile)
+publish/
+*.msi
+*.wixobj
+*.wixpdb
+
+# Publish profile secrets
+*.pubxml.user
+
+# Testing & coverage
+TestResults/
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+BenchmarkDotNet.Artifacts/
+
+# Certificates & local secrets (never commit)
+*.pfx
+*.p12
+*.key
+secrets.json
+appsettings.*.local.json
+
+# OS files & temp
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+*.log
+*.tmp
+*.temp
+
+# App / viewer local state (runtime)
+viewer-state.json
+
+# Local AI / agent overrides (optional)
+**/.claude/settings.local.json

@@ -1,0 +1,46 @@
+# Build outputs
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+AnyCPU/
+
+# Visual Studio user-specific files
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+
+# Logs
+*.log
+
+# Test and coverage
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# WiX/Installer build artifacts
+*.wixobj
+*.wixpdb
+*.wixstate
+*.cab
+
+# OS generated
+Thumbs.db
+Desktop.ini
+
+# Local app state (runtime)
+appstate.json
