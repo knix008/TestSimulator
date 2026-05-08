@@ -23,18 +23,27 @@ function safeParse(jsonText) {
 }
 
 function createLocalSession(ws) {
-  const shell = process.env.SHELL || "bash";
+  const isWindows = process.platform === "win32";
+  const shell = process.env.SHELL || (isWindows ? "powershell.exe" : "bash");
+  const cwd = process.env.HOME || process.env.USERPROFILE;
   const term = pty.spawn(shell, [], {
     name: "xterm-256color",
     cols: 100,
     rows: 30,
-    cwd: process.env.HOME,
+    cwd,
     env: process.env,
   });
 
   term.onData((data) => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(data);
+    }
+  });
+
+  term.onExit(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send("\r\n[Session ended]\r\n");
+      ws.close();
     }
   });
 
