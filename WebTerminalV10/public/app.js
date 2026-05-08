@@ -80,6 +80,15 @@ function syncTabSize(tab) {
   }
 }
 
+function scheduleTabFit(tab) {
+  if (!tab) return;
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      syncTabSize(tab);
+    });
+  });
+}
+
 function renderTabs() {
   const tabButtons = tabsEl.querySelectorAll(".tab");
   for (const btn of tabButtons) btn.remove();
@@ -109,8 +118,8 @@ function activateTab(tabId) {
   renderTabs();
   updateStatusForTab(nextTab);
 
+  scheduleTabFit(nextTab);
   setTimeout(() => {
-    syncTabSize(nextTab);
     nextTab.term.focus();
   }, 0);
 }
@@ -238,6 +247,11 @@ function connectActiveTab() {
 }
 
 createTab();
+scheduleTabFit(getActiveTab());
+
+window.addEventListener("load", () => {
+  scheduleTabFit(getActiveTab());
+});
 
 window.addEventListener("resize", () => {
   syncTabSize(getActiveTab());
