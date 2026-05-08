@@ -1,0 +1,18 @@
+{
+  "name": "webterminalv10",
+  "version": "1.0.0",
+  "description": "Web embedded terminal with localhost default connection",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "node-pty": "^1.1.0",
+    "ssh2": "^1.17.0",
+    "ws": "^8.20.0"
+  }
+}
