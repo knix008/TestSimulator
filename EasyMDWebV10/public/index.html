@@ -291,40 +291,55 @@
     <!-- 사이드바: 문서 구조(목차) + 내 문서 목록 -->
     <aside class="sidebar" id="sidebar">
       <!-- 1) 문서 구조(목차) -->
-      <div class="sidebar-section">
-        <div class="sidebar-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
+      <div class="sidebar-section" data-section="outline">
+        <button class="sidebar-header" type="button" aria-expanded="true"
+                aria-controls="outline" title="섹션 접기/펼치기">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+          <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 6h16M4 12h16M4 18h10" />
           </svg>
           <h2>문서 구조</h2>
-        </div>
-        <div class="outline" id="outline">
-          <p class="outline-empty">문서에 제목(<code>#</code>)을 추가하면<br />여기에 목차가 나타납니다.</p>
+        </button>
+        <div class="section-body">
+          <div class="outline" id="outline">
+            <p class="outline-empty">문서에 제목(<code>#</code>)을 추가하면<br />여기에 목차가 나타납니다.</p>
+          </div>
         </div>
       </div>
 
       <!-- 2) 서버에 저장된 내 문서 -->
-      <div class="sidebar-section">
-        <div class="sidebar-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
+      <div class="sidebar-section" data-section="docs">
+        <button class="sidebar-header" type="button" aria-expanded="true"
+                aria-controls="docs-list" title="섹션 접기/펼치기">
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+          <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <ellipse cx="12" cy="5" rx="9" ry="3" />
             <path d="M3 5v6c0 1.66 4 3 9 3s9-1.34 9-3V5" />
             <path d="M3 11v6c0 1.66 4 3 9 3s9-1.34 9-3v-6" />
           </svg>
           <h2>내 문서</h2>
-          <button class="icon-btn" id="btn-refresh-docs" title="새로고침">
+          <span class="icon-btn" id="btn-refresh-docs" role="button" tabindex="0"
+                title="새로고침">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                  stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10" />
               <polyline points="1 20 1 14 7 14" />
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
-          </button>
-        </div>
-        <div class="docs-list" id="docs-list">
-          <p class="outline-empty">서버 폴더 <code>documents/</code>의 파일이<br />여기에 표시됩니다.</p>
+          </span>
+        </button>
+        <div class="section-body">
+          <div class="docs-list" id="docs-list">
+            <p class="outline-empty">서버 폴더 <code>documents/</code>의 파일이<br />여기에 표시됩니다.</p>
+          </div>
         </div>
       </div>
     </aside>

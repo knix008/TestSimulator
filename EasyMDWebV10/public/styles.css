@@ -251,21 +251,79 @@ body {
   min-height: 0;
   flex: 1 1 0;
   border-bottom: 1px solid var(--border);
+  transition: flex-grow 220ms ease;
 }
 
 .sidebar-section:last-child {
   border-bottom: 0;
 }
 
+.sidebar-section.collapsed {
+  flex: 0 0 auto;
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   height: 42px;
-  padding: 0 16px;
+  padding: 0 12px 0 8px;
+  border: 0;
   border-bottom: 1px solid var(--border);
+  background: transparent;
   color: var(--text-muted);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
   flex-shrink: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.sidebar-header:hover {
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.sidebar-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sidebar-header .chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.sidebar-header .section-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.sidebar-section.collapsed .sidebar-header {
+  border-bottom-color: transparent;
+}
+
+.sidebar-section.collapsed .chevron {
+  transform: rotate(-90deg);
+}
+
+.section-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: opacity 180ms ease;
+}
+
+.sidebar-section.collapsed .section-body {
+  flex: 0 0 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .icon-btn {
@@ -306,6 +364,7 @@ body {
 
 .outline {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 10px 8px;
 }
@@ -389,6 +448,7 @@ body {
 /* ===== 서버 문서 목록 ===== */
 .docs-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 8px;
 }

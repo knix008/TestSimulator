@@ -341,6 +341,37 @@ console.log(greet('EasyMD'));
     workspace.classList.toggle('no-preview');
   });
 
+  // ===== 사이드바 섹션 접기/펼치기 =====
+  const SECTION_KEY = 'easymd:collapsed-sections';
+  const collapsedSections = new Set();
+  try {
+    const raw = localStorage.getItem(SECTION_KEY);
+    if (raw) JSON.parse(raw).forEach((id) => collapsedSections.add(id));
+  } catch (_) {}
+
+  document.querySelectorAll('.sidebar-section').forEach((section) => {
+    const id = section.dataset.section;
+    const header = section.querySelector('.sidebar-header');
+    if (!id || !header) return;
+
+    if (collapsedSections.has(id)) {
+      section.classList.add('collapsed');
+      header.setAttribute('aria-expanded', 'false');
+    }
+
+    header.addEventListener('click', (e) => {
+      // 헤더 안의 다른 버튼(예: 새로고침) 클릭은 토글에서 제외
+      if (e.target.closest('.icon-btn')) return;
+      const collapsed = section.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      if (collapsed) collapsedSections.add(id);
+      else collapsedSections.delete(id);
+      try {
+        localStorage.setItem(SECTION_KEY, JSON.stringify([...collapsedSections]));
+      } catch (_) {}
+    });
+  });
+
   // ===== 서버 API 연동 =====
   async function apiListDocs() {
     const res = await fetch(API_BASE, { headers: { Accept: 'application/json' } });
@@ -517,7 +548,19 @@ console.log(greet('EasyMD'));
   }
 
   document.getElementById('btn-save-server').addEventListener('click', saveToServer);
-  document.getElementById('btn-refresh-docs').addEventListener('click', refreshDocsList);
+
+  const refreshDocsBtn = document.getElementById('btn-refresh-docs');
+  refreshDocsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    refreshDocsList();
+  });
+  refreshDocsBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      refreshDocsList();
+    }
+  });
 
   // ===== 테마 =====
   const themeBtn = document.getElementById('btn-theme');
