@@ -1,0 +1,15 @@
+# Build output
+obj/
+build/
+screenshot
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

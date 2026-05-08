@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Screenshot
+GenericName=Screenshot Tool
+Comment=Take screenshots of your desktop
+Icon=applets-screenshooter
+Exec=screenshot
+Terminal=false
+Categories=GTK;GNOME;Utility;
+Keywords=screenshot;capture;image;
+StartupNotify=true
+X-GNOME-Bugzilla-Bugzilla=GNOME
+X-GNOME-Bugzilla-Product=screenshot
+X-GNOME-UsesNotifications=true
+DBusActivatable=false

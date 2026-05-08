@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkg-config --list-all)",
+      "Bash(pkg-config --exists gnome-desktop-3.0)",
+      "Bash(pkg-config --exists gio-2.0)",
+      "Bash(pkg-config --exists libwnck-3.0)",
+      "Bash(pkg-config --exists xfixes)",
+      "Bash(pkg-config --exists gdk-x11-3.0)",
+      "Bash(dpkg -l gnome-screenshot)",
+      "Bash(dpkg -L gnome-screenshot)",
+      "Bash(apt-get source *)",
+      "Bash(gio introspect *)",
+      "Bash(dbus-send --session --print-reply --dest=org.gnome.Shell /org/gnome/Shell org.freedesktop.DBus.Introspectable.Introspect)",
+      "Bash(pkg-config --modversion xfixes)",
+      "Bash(pkg-config --cflags xfixes)",
+      "Bash(pkg-config --exists x11)",
+      "Bash(pkg-config --exists xcomposite)",
+      "Bash(pkg-config --exists xdamage)",
+      "Bash(ldd /usr/bin/gnome-screenshot)",
+      "Bash(meson setup *)",
+      "Bash(ninja)",
+      "Bash(dpkg -l xwayland)",
+      "Bash(gdbus introspect *)",
+      "Bash(gdbus call *)",
+      "Read(//tmp/**)",
+      "Bash(echo \"ScreenshotArea exit: $?\")",
+      "Bash(echo \"Portal exit: $?\")"
+    ]
+  }
+}

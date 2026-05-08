@@ -1,0 +1,35 @@
+{
+    "app-id": "org.custom.Screenshot",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "47",
+    "sdk": "org.gnome.Sdk",
+    "command": "screenshot",
+    "finish-args": [
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--share=ipc",
+        "--device=dri",
+        "--talk-name=org.freedesktop.portal.Desktop",
+        "--talk-name=org.freedesktop.portal.Screenshot",
+        "--talk-name=org.gnome.Shell.Screenshot"
+    ],
+    "modules": [
+        {
+            "name": "screenshot",
+            "buildsystem": "simple",
+            "build-commands": [
+                "make",
+                "install -Dm755 screenshot /app/bin/screenshot",
+                "install -Dm644 org.custom.Screenshot.desktop /app/share/applications/org.custom.Screenshot.desktop",
+                "mkdir -p /app/share/icons/hicolor/scalable/apps",
+                "echo '<?xml version=\"1.0\" encoding=\"UTF-8\"?><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"48\" height=\"48\" viewBox=\"0 0 48 48\"><rect x=\"8\" y=\"8\" width=\"32\" height=\"32\" rx=\"4\" fill=\"#3584e4\"/><path d=\"M24 18a6 6 0 100 12 6 6 0 000-12z\" fill=\"white\"/><rect x=\"32\" y=\"12\" width=\"4\" height=\"4\" rx=\"2\" fill=\"white\"/></svg>' > /app/share/icons/hicolor/scalable/apps/org.custom.Screenshot.svg"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "."
+                }
+            ]
+        }
+    ]
+}
