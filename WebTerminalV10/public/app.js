@@ -9,53 +9,39 @@ const term = new Terminal({
 
 const fitAddon = new FitAddon.FitAddon();
 term.loadAddon(fitAddon);
-term.open(document.getElementById("terminal"));
+const terminalEl = document.getElementById("terminal");
+const terminalWrapEl = document.getElementById("terminalWrap");
+term.open(terminalEl);
 fitAddon.fit();
 
 let socket = null;
+const connectBtn = document.getElementById("connectBtn");
+const statusDot = document.getElementById("statusDot");
+const statusText = document.getElementById("statusText");
 
-function connect() {
-  const hostInput = document.getElementById("host").value.trim();
-  const host = hostInput || "localhost";
-  const port = document.getElementById("port").value.trim() || "22";
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
-
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.close();
-  }
-
-  term.clear();
-  term.writeln(`Connecting to ${host} ...`);
-
-  const params = new URLSearchParams({ host, port });
-  if (username) params.set("username", username);
-  if (password) params.set("password", password);
-
-  const protocol = location.protocol === "https:" ? "wss" : "ws";
-  socket = new WebSocket(`${protocol}://${location.host}?${params.toString()}`);
-
-  socket.addEventListener("open", () => {
-    const { cols, rows } = term;
-    socket.send(JSON.stringify({ type: "resize", cols, rows }));
-  });
-
-  socket.addEventListener("message", (event) => {
-    term.write(event.data);
-  });
-
-  socket.addEventListener("close", () => {
-    term.writeln("\r\n[Disconnected]");
-  });
+function setButtonConnected(isConnected) {
+  connectBtn.textContent = isConnected ? "Disconnect" : "Connect";
 }
 
-term.onData((data) => {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "input", data }));
-  }
-});
+function setConnectionState(state) {
+  statusDot.classList.remove("connecting", "connected");
 
-window.addEventListener("resize", () => {
+  if (state === "connected") {
+    statusDot.classList.add("connected");
+    statusText.textContent = "Connected";
+    return;
+  }
+
+  if (state === "connecting") {
+    statusDot.classList.add("connecting");
+    statusText.textContent = "Connecting";
+    return;
+  }
+
+  statusText.textContent = "Disconnected";
+}
+
+function syncTerminalSize() {
   fitAddon.fit();
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(
@@ -66,8 +52,84 @@ window.addEventListener("resize", () => {
       })
     );
   }
+}
+
+function disconnect() {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.close();
+    return;
+  }
+
+  if (socket && socket.readyState === WebSocket.CONNECTING) {
+    socket.close();
+    term.writeln("\r\n[Connection cancelled]");
+  }
+}
+
+function connect() {
+  const hostInput = document.getElementById("host").value.trim();
+  const host = hostInput || "localhost";
+  const port = document.getElementById("port").value.trim() || "22";
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  disconnect();
+
+  term.clear();
+  term.writeln(`Connecting to ${host} ...`);
+  setButtonConnected(true);
+  setConnectionState("connecting");
+
+  const params = new URLSearchParams({ host, port });
+  if (username) params.set("username", username);
+  if (password) params.set("password", password);
+
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  socket = new WebSocket(`${protocol}://${location.host}?${params.toString()}`);
+
+  socket.addEventListener("open", () => {
+    syncTerminalSize();
+    setConnectionState("connected");
+  });
+
+  socket.addEventListener("message", (event) => {
+    term.write(event.data);
+  });
+
+  socket.addEventListener("close", () => {
+    term.writeln("\r\n[Disconnected]");
+    setButtonConnected(false);
+    setConnectionState("disconnected");
+    socket = null;
+  });
+}
+
+term.onData((data) => {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "input", data }));
+  }
 });
 
-document.getElementById("connectBtn").addEventListener("click", connect);
+window.addEventListener("resize", () => {
+  syncTerminalSize();
+});
 
-connect();
+if (typeof ResizeObserver !== "undefined") {
+  const resizeObserver = new ResizeObserver(() => {
+    syncTerminalSize();
+  });
+  resizeObserver.observe(terminalWrapEl);
+}
+
+connectBtn.addEventListener("click", () => {
+  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+    disconnect();
+    return;
+  }
+
+  connect();
+});
+
+setButtonConnected(false);
+setConnectionState("disconnected");
+term.writeln("Ready. Click 'Connect' to start a session.");
