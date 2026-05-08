@@ -633,7 +633,7 @@ static GtkWidget *build_menu_bar(UIContext *ctx, GtkAccelGroup *ag) {
         mi_icon("accessories-text-editor-symbolic",
                 "인라인 코드 `","<Control>e", G_CALLBACK(on_ins_code),  ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("view-code-symbolic",
+        mi_icon("applications-development-symbolic",
                 "코드 블록 ```", NULL, G_CALLBACK(on_ins_fence), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
@@ -644,10 +644,10 @@ static GtkWidget *build_menu_bar(UIContext *ctx, GtkAccelGroup *ag) {
                 "이미지 ![](url)", NULL, G_CALLBACK(on_ins_image), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("format-list-unordered-symbolic",
+        mi_icon("view-list-symbolic",
                 "글머리 기호 -", NULL, G_CALLBACK(on_ins_ul), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("format-list-ordered-symbolic",
+        mi_icon("view-sort-ascending-symbolic",
                 "번호 매기기 1.", NULL, G_CALLBACK(on_ins_ol), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
         mi_icon("format-indent-more-symbolic",
@@ -741,15 +741,15 @@ static GtkWidget *build_toolbar(UIContext *ctx) {
     ADD_SEP();
     /* Code. */
     ADD_BTN("accessories-text-editor-symbolic", "Code",  "인라인 코드 (Ctrl+E)", on_ins_code);
-    ADD_BTN("view-code-symbolic",               "Block", "코드 블록",            on_ins_fence);
+    ADD_BTN("applications-development-symbolic","Block", "코드 블록",            on_ins_fence);
     ADD_SEP();
     /* Link / image. */
     ADD_BTN("insert-link-symbolic",  "Link",  "링크 (Ctrl+K)", on_ins_link);
     ADD_BTN("insert-image-symbolic", "Image", "이미지",         on_ins_image);
     ADD_SEP();
     /* Block-level formatting. */
-    ADD_BTN("format-list-unordered-symbolic", "List",     "글머리 기호", on_ins_ul);
-    ADD_BTN("format-list-ordered-symbolic",   "Numbered", "번호 매기기", on_ins_ol);
+    ADD_BTN("view-list-symbolic",             "List",     "글머리 기호", on_ins_ul);
+    ADD_BTN("view-sort-ascending-symbolic",   "Numbered", "번호 매기기", on_ins_ol);
     ADD_BTN("format-indent-more-symbolic",    "Quote",    "인용",        on_ins_quote);
     ADD_BTN("format-justify-fill-symbolic",   "HR",       "수평선",      on_ins_hr);
     ADD_BTN("view-grid-symbolic",             "Table",    "표 (2x3)",    on_ins_table);
@@ -846,7 +846,7 @@ static GdkPixbuf *easymd_load_app_icon(const char *argv0) {
         GError *err = NULL;
         icon = gdk_pixbuf_new_from_file(p, &err);
         if (icon) {
-            utils_log_info("App icon loaded from: %s", p);
+            /* utils_log_info("App icon loaded from: %s", p); */
         } else if (err) {
             utils_log_info("App icon at %s failed to load: %s", p, err->message);
             g_error_free(err);
