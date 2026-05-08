@@ -1,23 +1,18 @@
-const term = new Terminal({
-  cursorBlink: true,
-  fontSize: 14,
-  theme: {
-    background: "#020617",
-    foreground: "#e2e8f0",
-  },
-});
-
-const fitAddon = new FitAddon.FitAddon();
-term.loadAddon(fitAddon);
-const terminalEl = document.getElementById("terminal");
 const terminalWrapEl = document.getElementById("terminalWrap");
-term.open(terminalEl);
-fitAddon.fit();
-
-let socket = null;
+const terminalHostEl = document.getElementById("terminalHost");
+const tabsEl = document.getElementById("tabs");
+const newTabBtn = document.getElementById("newTabBtn");
 const connectBtn = document.getElementById("connectBtn");
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
+const hostInputEl = document.getElementById("host");
+const portInputEl = document.getElementById("port");
+const usernameInputEl = document.getElementById("username");
+const passwordInputEl = document.getElementById("password");
+
+const tabs = new Map();
+let activeTabId = null;
+let tabCounter = 0;
 
 function setButtonConnected(isConnected) {
   connectBtn.textContent = isConnected ? "Disconnect" : "Connect";
@@ -41,95 +36,246 @@ function setConnectionState(state) {
   statusText.textContent = "Disconnected";
 }
 
-function syncTerminalSize() {
-  fitAddon.fit();
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(
+function getActiveTab() {
+  if (!activeTabId) return null;
+  return tabs.get(activeTabId) || null;
+}
+
+function updateStatusForTab(tab) {
+  if (!tab) {
+    setButtonConnected(false);
+    setConnectionState("disconnected");
+    return;
+  }
+
+  if (tab.state === "connected") {
+    setButtonConnected(true);
+    setConnectionState("connected");
+    return;
+  }
+
+  if (tab.state === "connecting") {
+    setButtonConnected(true);
+    setConnectionState("connecting");
+    return;
+  }
+
+  setButtonConnected(false);
+  setConnectionState("disconnected");
+}
+
+function syncTabSize(tab) {
+  if (!tab) return;
+
+  tab.fitAddon.fit();
+
+  if (tab.socket && tab.socket.readyState === WebSocket.OPEN) {
+    tab.socket.send(
       JSON.stringify({
         type: "resize",
-        cols: term.cols,
-        rows: term.rows,
+        cols: tab.term.cols,
+        rows: tab.term.rows,
       })
     );
   }
 }
 
-function disconnect() {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.close();
-    return;
-  }
+function renderTabs() {
+  const tabButtons = tabsEl.querySelectorAll(".tab");
+  for (const btn of tabButtons) btn.remove();
 
-  if (socket && socket.readyState === WebSocket.CONNECTING) {
-    socket.close();
-    term.writeln("\r\n[Connection cancelled]");
+  for (const tab of tabs.values()) {
+    const tabBtn = document.createElement("div");
+    tabBtn.className = `tab${tab.id === activeTabId ? " active" : ""}`;
+    tabBtn.dataset.tabId = tab.id;
+    tabBtn.innerHTML = `
+      <span>${tab.title}</span>
+      <button type="button" class="tab-close" data-close-id="${tab.id}" aria-label="Close tab">x</button>
+    `;
+    tabsEl.insertBefore(tabBtn, newTabBtn);
   }
 }
 
-function connect() {
-  const hostInput = document.getElementById("host").value.trim();
+function activateTab(tabId) {
+  const nextTab = tabs.get(tabId);
+  if (!nextTab) return;
+
+  for (const tab of tabs.values()) {
+    tab.terminalPane.classList.remove("active");
+  }
+  nextTab.terminalPane.classList.add("active");
+
+  activeTabId = tabId;
+  renderTabs();
+  updateStatusForTab(nextTab);
+
+  setTimeout(() => {
+    syncTabSize(nextTab);
+    nextTab.term.focus();
+  }, 0);
+}
+
+function disconnectTab(tab) {
+  if (!tab) return;
+
+  if (tab.socket && tab.socket.readyState === WebSocket.OPEN) {
+    tab.socket.close();
+    return;
+  }
+
+  if (tab.socket && tab.socket.readyState === WebSocket.CONNECTING) {
+    tab.socket.close();
+    tab.term.writeln("\r\n[Connection cancelled]");
+    tab.state = "disconnected";
+    if (tab.id === activeTabId) updateStatusForTab(tab);
+  }
+}
+
+function closeTab(tabId) {
+  const tab = tabs.get(tabId);
+  if (!tab) return;
+
+  disconnectTab(tab);
+  tab.term.dispose();
+  tab.terminalPane.remove();
+  tabs.delete(tabId);
+
+  if (tabs.size === 0) {
+    createTab();
+    return;
+  }
+
+  if (activeTabId === tabId) {
+    const nextTabId = tabs.keys().next().value;
+    activateTab(nextTabId);
+  } else {
+    renderTabs();
+  }
+}
+
+function createTab() {
+  tabCounter += 1;
+  const tabId = `tab-${tabCounter}`;
+  const title = `Terminal ${tabCounter}`;
+
+  const terminalPane = document.createElement("div");
+  terminalPane.className = "terminal-pane";
+  terminalHostEl.appendChild(terminalPane);
+
+  const term = new Terminal({
+    cursorBlink: true,
+    fontSize: 14,
+    theme: {
+      background: "#020617",
+      foreground: "#e2e8f0",
+    },
+  });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(terminalPane);
+
+  const tab = {
+    id: tabId,
+    title,
+    terminalPane,
+    term,
+    fitAddon,
+    socket: null,
+    state: "disconnected",
+  };
+
+  term.onData((data) => {
+    if (tab.socket && tab.socket.readyState === WebSocket.OPEN) {
+      tab.socket.send(JSON.stringify({ type: "input", data }));
+    }
+  });
+
+  tabs.set(tabId, tab);
+  activateTab(tabId);
+  term.writeln("Ready. Click 'Connect' to start a session.");
+}
+
+function connectActiveTab() {
+  const tab = getActiveTab();
+  if (!tab) return;
+
+  const hostInput = hostInputEl.value.trim();
   const host = hostInput || "localhost";
-  const port = document.getElementById("port").value.trim() || "22";
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
+  const port = portInputEl.value.trim() || "22";
+  const username = usernameInputEl.value.trim();
+  const password = passwordInputEl.value;
 
-  disconnect();
+  disconnectTab(tab);
 
-  term.clear();
-  term.writeln(`Connecting to ${host} ...`);
-  setButtonConnected(true);
-  setConnectionState("connecting");
+  tab.term.clear();
+  tab.term.writeln(`[${tab.title}] Connecting to ${host} ...`);
+  tab.state = "connecting";
+  updateStatusForTab(tab);
 
   const params = new URLSearchParams({ host, port });
   if (username) params.set("username", username);
   if (password) params.set("password", password);
 
   const protocol = location.protocol === "https:" ? "wss" : "ws";
-  socket = new WebSocket(`${protocol}://${location.host}?${params.toString()}`);
+  tab.socket = new WebSocket(`${protocol}://${location.host}?${params.toString()}`);
 
-  socket.addEventListener("open", () => {
-    syncTerminalSize();
-    setConnectionState("connected");
+  tab.socket.addEventListener("open", () => {
+    tab.state = "connected";
+    syncTabSize(tab);
+    if (tab.id === activeTabId) updateStatusForTab(tab);
   });
 
-  socket.addEventListener("message", (event) => {
-    term.write(event.data);
+  tab.socket.addEventListener("message", (event) => {
+    tab.term.write(event.data);
   });
 
-  socket.addEventListener("close", () => {
-    term.writeln("\r\n[Disconnected]");
-    setButtonConnected(false);
-    setConnectionState("disconnected");
-    socket = null;
+  tab.socket.addEventListener("close", () => {
+    tab.term.writeln("\r\n[Disconnected]");
+    tab.state = "disconnected";
+    tab.socket = null;
+    if (tab.id === activeTabId) updateStatusForTab(tab);
   });
 }
 
-term.onData((data) => {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "input", data }));
-  }
-});
+createTab();
 
 window.addEventListener("resize", () => {
-  syncTerminalSize();
+  syncTabSize(getActiveTab());
 });
 
 if (typeof ResizeObserver !== "undefined") {
   const resizeObserver = new ResizeObserver(() => {
-    syncTerminalSize();
+    syncTabSize(getActiveTab());
   });
   resizeObserver.observe(terminalWrapEl);
 }
 
 connectBtn.addEventListener("click", () => {
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-    disconnect();
+  const tab = getActiveTab();
+  if (!tab) return;
+
+  if (tab.socket && (tab.socket.readyState === WebSocket.OPEN || tab.socket.readyState === WebSocket.CONNECTING)) {
+    disconnectTab(tab);
     return;
   }
 
-  connect();
+  connectActiveTab();
 });
 
-setButtonConnected(false);
-setConnectionState("disconnected");
-term.writeln("Ready. Click 'Connect' to start a session.");
+tabsEl.addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) return;
+
+  const closeBtn = event.target.closest(".tab-close");
+  if (closeBtn) {
+    closeTab(closeBtn.dataset.closeId);
+    return;
+  }
+
+  const tabBtn = event.target.closest(".tab");
+  if (!tabBtn) return;
+  activateTab(tabBtn.dataset.tabId);
+});
+
+newTabBtn.addEventListener("click", () => {
+  createTab();
+});
