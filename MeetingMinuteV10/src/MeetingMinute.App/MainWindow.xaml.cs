@@ -890,10 +890,18 @@ public partial class MainWindow : Window
                         sb.Append('\n');
                         break;
                     case InlineUIContainer container:
-                        if (container.Child is Grid { Tag: AgendaImageMeta meta })
+                        if (container.Child is Grid imageGrid && imageGrid.Tag is AgendaImageMeta meta)
                         {
                             var src = meta.Path.Replace("\\", "/", StringComparison.Ordinal);
-                            sb.Append(CultureInfo.InvariantCulture, $"<img src=\"{src}\" width=\"{Math.Round(meta.Width)}\" height=\"{Math.Round(meta.Height)}\" alt=\"agenda-image\" />");
+                            var imgEl = imageGrid.Children.OfType<Image>().FirstOrDefault();
+                            // 우선순위: Image.Width → imageGrid.Width → meta.Width
+                            var w = (imgEl != null && !double.IsNaN(imgEl.Width) && imgEl.Width >= AgendaImageMinWidth)
+                                ? imgEl.Width
+                                : (!double.IsNaN(imageGrid.Width) ? imageGrid.Width : meta.Width);
+                            var h = (imgEl != null && !double.IsNaN(imgEl.Height) && imgEl.Height >= AgendaImageMinHeight)
+                                ? imgEl.Height
+                                : (!double.IsNaN(imageGrid.Height) ? imageGrid.Height : meta.Height);
+                            sb.Append(CultureInfo.InvariantCulture, $"<img src=\"{src}\" width=\"{Math.Round(w)}\" height=\"{Math.Round(h)}\" alt=\"agenda-image\" />");
                         }
                         break;
                 }
@@ -920,8 +928,8 @@ public partial class MainWindow : Window
                     paragraph.Inlines.Add(new Run(line[pos..match.Index]));
 
                 var path = match.Groups[1].Value.Replace("/", "\\", StringComparison.Ordinal);
-                var width = TryParseImageSize(match.Groups[2].Value, 480);
-                var height = TryParseImageSize(match.Groups[3].Value, 270);
+                var width = TryParseImageSize(ExtractImgAttribute(match.Value, "width"), 480);
+                var height = TryParseImageSize(ExtractImgAttribute(match.Value, "height"), 270);
                 if (File.Exists(path))
                     paragraph.Inlines.Add(new InlineUIContainer(CreateResizableAgendaImageElement(path, width, height)));
                 else
@@ -940,6 +948,12 @@ public partial class MainWindow : Window
         if (!doc.Blocks.Any())
             doc.Blocks.Add(new Paragraph(new Run(string.Empty)));
         FldAgendaRich.Document = doc;
+    }
+
+    private static string ExtractImgAttribute(string tag, string name)
+    {
+        var m = Regex.Match(tag, $@"{name}=""([0-9]+(?:\.[0-9]+)?)""", RegexOptions.IgnoreCase);
+        return m.Success ? m.Groups[1].Value : "";
     }
 
     private static double TryParseImageSize(string raw, double fallback)

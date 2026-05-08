@@ -98,8 +98,8 @@ public static class WordMeetingSerializer
                 }
 
                 var path = match.Groups[1].Value.Replace("/", "\\", StringComparison.Ordinal);
-                var width = ParseSize(match.Groups[2].Value, 480);
-                var height = ParseSize(match.Groups[3].Value, 270);
+                var width = ParseSize(ExtractTagAttribute(match.Value, "width"), 480);
+                var height = ParseSize(ExtractTagAttribute(match.Value, "height"), 270);
                 AppendImageIfExists(body, mainPart, path, width, height);
 
                 pos = match.Index + match.Length;
@@ -270,6 +270,12 @@ public static class WordMeetingSerializer
             });
 
         return new Paragraph(new Run(drawing));
+    }
+
+    private static string ExtractTagAttribute(string tag, string name)
+    {
+        var m = Regex.Match(tag, $@"{name}=""([0-9]+(?:\.[0-9]+)?)""", RegexOptions.IgnoreCase);
+        return m.Success ? m.Groups[1].Value : "";
     }
 
     private static double ParseSize(string raw, double fallback)
