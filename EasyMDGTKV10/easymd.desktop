@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=EasyMD GTK
+GenericName=Markdown Editor
+Comment=GTK3 + WebKit2 기반의 간단한 마크다운 편집기
+Exec=easymd %F
+Icon=easymd
+Terminal=false
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;text/x-markdown;text/plain;
+Keywords=markdown;md;editor;gtk;
+StartupNotify=true
