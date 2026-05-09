@@ -104,6 +104,7 @@ static void on_outline_row_activated(GtkTreeView       *tv,
                                      GtkTreePath       *path,
                                      GtkTreeViewColumn *col,
                                      gpointer           ud);
+static void on_outline_cursor_changed(GtkTreeView *tv, gpointer ud);
 
 /* Sidebar (outline) show/hide */
 static void apply_sidebar_state    (UIContext *ctx, gboolean visible);
@@ -439,9 +440,31 @@ static void on_outline_row_activated(GtkTreeView       *tv,
     if (!gtk_tree_model_get_iter(m, &iter, path)) return;
     int line = -1;
     gtk_tree_model_get(m, &iter, OUTLINE_COL_LINE, &line, -1);
-    if (line > 0) {
-        editor_goto_line(GTK_TEXT_VIEW(ctx->editor_view), line);
+    if (line <= 0) return;
+
+    editor_goto_line(GTK_TEXT_VIEW(ctx->editor_view), line);
+    preview_scroll_to_line(ctx->preview_view, line);
+}
+
+static void on_outline_cursor_changed(GtkTreeView *tv, gpointer ud) {
+    UIContext *ctx = ud;
+    GtkTreePath *path = NULL;
+    GtkTreeViewColumn *focus_col = NULL;
+    gtk_tree_view_get_cursor(tv, &path, &focus_col);
+    (void)focus_col;
+    if (!path) return;
+
+    GtkTreeModel *m = gtk_tree_view_get_model(tv);
+    GtkTreeIter iter;
+    if (gtk_tree_model_get_iter(m, &iter, path)) {
+        int line = -1;
+        gtk_tree_model_get(m, &iter, OUTLINE_COL_LINE, &line, -1);
+        if (line > 0) {
+            editor_goto_line(GTK_TEXT_VIEW(ctx->editor_view), line);
+            preview_scroll_to_line(ctx->preview_view, line);
+        }
     }
+    gtk_tree_path_free(path);
 }
 
 /* ------------------------------------------------------------------ */
@@ -934,6 +957,8 @@ UIContext *ui_init(int argc, char **argv) {
     outline_init(GTK_TREE_VIEW(ctx->outline_view));
     g_signal_connect(ctx->outline_view, "row-activated",
                      G_CALLBACK(on_outline_row_activated), ctx);
+    g_signal_connect(ctx->outline_view, "cursor-changed",
+                     G_CALLBACK(on_outline_cursor_changed), ctx);
 
     GtkWidget *outline_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(outline_scroll),

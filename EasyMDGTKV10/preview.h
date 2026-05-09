@@ -17,4 +17,7 @@ void preview_update(WebKitWebView *view,
                     const char    *markdown,
                     const char    *base_uri);
 
+/* Scroll the preview to the heading generated from source `line_1based`. */
+void preview_scroll_to_line(WebKitWebView *view, int line_1based);
+
 #endif /* EASYMD_PREVIEW_H */
