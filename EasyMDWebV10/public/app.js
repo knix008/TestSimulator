@@ -149,10 +149,22 @@ console.log(greet('EasyMD'));
         '<p class="outline-empty">문서에 제목(<code>#</code>)을 추가하면<br />여기에 목차가 나타납니다.</p>';
       return;
     }
-    const html = outlineHeadings
+    
+    // 각 헤딩의 에디터 내 위치(문자 인덱스) 찾기
+    const editorText = editor.value;
+    const headingsWithPosition = outlineHeadings.map((h) => {
+      // 헤딩 텍스트에 맞는 정규식 패턴 생성 (# 개수 + 공백 + 텍스트)
+      const escapedText = h.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`^#{${h.level}}\\s+${escapedText}`, 'm');
+      const match = editorText.match(pattern);
+      const position = match ? editorText.indexOf(match[0]) : -1;
+      return { ...h, position };
+    });
+    
+    const html = headingsWithPosition
       .map(
         (h) => `
-      <div class="outline-item lvl-${h.level}" data-id="${h.id}" title="${escapeAttr(h.text)}">
+      <div class="outline-item lvl-${h.level}" data-id="${h.id}" data-position="${h.position}" title="${escapeAttr(h.text)}">
         <span class="level-icon">H${h.level}</span>
         <span class="text">${escapeHtml(h.text)}</span>
       </div>`
@@ -163,14 +175,43 @@ console.log(greet('EasyMD'));
     outline.querySelectorAll('.outline-item').forEach((item) => {
       item.addEventListener('click', () => {
         const id = item.getAttribute('data-id');
+        const position = parseInt(item.getAttribute('data-position'), 10);
+        
+        // 미리보기 스크롤
         const target = preview.querySelector(`#${CSS.escape(id)}`);
         if (target) {
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          outline.querySelectorAll('.outline-item').forEach((i) => i.classList.remove('active'));
-          item.classList.add('active');
         }
+        
+        // 에디터 커서 이동
+        if (position >= 0) {
+          editor.focus();
+          editor.setSelectionRange(position, position);
+          // 에디터 스크롤 (커서가 보이도록)
+          scrollEditorToPosition(position);
+        }
+        
+        // 활성 상태 표시
+        outline.querySelectorAll('.outline-item').forEach((i) => i.classList.remove('active'));
+        item.classList.add('active');
       });
     });
+  }
+  
+  // 에디터의 특정 위치가 보이도록 스크롤
+  function scrollEditorToPosition(position) {
+    const text = editor.value;
+    const beforeCursor = text.substring(0, position);
+    const lineNumber = beforeCursor.split('\n').length;
+    
+    // textarea의 전체 줄 수 계산
+    const totalLines = text.split('\n').length;
+    const lineHeight = parseInt(getComputedStyle(editor).lineHeight, 10) || 20;
+    const editorHeight = editor.clientHeight;
+    
+    // 대략적인 스크롤 위치 계산 (줄 번호 기반)
+    const scrollPosition = Math.max(0, (lineNumber - 3) * lineHeight);
+    editor.scrollTop = scrollPosition;
   }
 
   function escapeHtml(s) {
@@ -634,6 +675,74 @@ console.log(greet('EasyMD'));
 
   // ===== 입력 이벤트 =====
   editor.addEventListener('input', render);
+
+  // ===== 리사이저: 편집기/미리보기 폭 조절 =====
+  const resizer = document.getElementById('resizer');
+  const editorPane = document.querySelector('.editor-pane');
+  const previewPane = document.querySelector('.preview-pane');
+  const sidebarResizer = document.getElementById('sidebar-resizer');
+  const sidebar = document.querySelector('.sidebar');
+  
+  let isResizing = false;
+  let isResizingSidebar = false;
+  
+  // 편집기/미리보기 리사이저
+  resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  
+  // 사이드바 리사이저
+  sidebarResizer.addEventListener('mousedown', (e) => {
+    isResizingSidebar = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  
+  document.addEventListener('mousemove', (e) => {
+    if (isResizing) {
+      const workspaceRect = workspace.getBoundingClientRect();
+      const sidebarWidth = workspace.classList.contains('no-sidebar') ? 0 : 
+        sidebar.getBoundingClientRect().width + sidebarResizer.offsetWidth;
+      
+      // 마우스 위치에서 사이드바 너비를 빼서 에디터+미리보기 영역 내 상대 위치 계산
+      const relativeX = e.clientX - workspaceRect.left - sidebarWidth;
+      const totalWidth = workspaceRect.width - sidebarWidth - resizer.offsetWidth;
+      
+      // 최소/최대 너비 제한 (20% ~ 80%)
+      const minWidth = totalWidth * 0.2;
+      const maxWidth = totalWidth * 0.8;
+      const editorWidth = Math.max(minWidth, Math.min(maxWidth, relativeX));
+      
+      // flex-basis를 픽셀 값으로 설정
+      editorPane.style.flexBasis = `${editorWidth}px`;
+      previewPane.style.flexBasis = `${totalWidth - editorWidth}px`;
+    }
+    
+    if (isResizingSidebar) {
+      const workspaceRect = workspace.getBoundingClientRect();
+      const newWidth = e.clientX - workspaceRect.left;
+      
+      // 사이드바 최소/최대 너비 제한 (150px ~ 600px)
+      const minWidth = 150;
+      const maxWidth = Math.min(600, workspaceRect.width * 0.4); // 최대 40%
+      const sidebarWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      
+      sidebar.style.width = `${sidebarWidth}px`;
+    }
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (isResizing || isResizingSidebar) {
+      isResizing = false;
+      isResizingSidebar = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
 
   // ===== 초기화 =====
   (function init() {

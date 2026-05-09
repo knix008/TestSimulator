@@ -216,33 +216,25 @@ body {
 /* ===== 워크스페이스 ===== */
 .workspace {
   flex: 1;
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr 1fr;
+  display: flex;
   min-height: 0;
 }
 
-.workspace.no-sidebar {
-  grid-template-columns: 0 1fr 1fr;
-}
 .workspace.no-sidebar .sidebar { display: none; }
-
-.workspace.no-preview {
-  grid-template-columns: var(--sidebar-w) 1fr 0;
-}
 .workspace.no-preview .preview-pane { display: none; }
-
-.workspace.no-sidebar.no-preview {
-  grid-template-columns: 0 1fr 0;
-}
+.workspace.no-preview .resizer { display: none; }
 
 /* ===== 사이드바 ===== */
 .sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
   background: var(--bg-elevated);
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  min-width: 150px;
+  max-width: 600px;
 }
 
 .sidebar-section {
@@ -545,9 +537,43 @@ body {
   min-height: 0;
   background: var(--bg);
   overflow: hidden;
+  flex: 1;
+  min-width: 200px;
 }
 
-.editor-pane { border-right: 1px solid var(--border); }
+.editor-pane { 
+  flex-basis: 50%;
+}
+
+.preview-pane {
+  flex-basis: 50%;
+}
+
+/* 리사이저 */
+.resizer {
+  width: 8px;
+  background: var(--border);
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.resizer:hover {
+  background: var(--accent);
+}
+
+.resizer:active {
+  background: var(--accent);
+}
+
+.sidebar-resizer {
+  /* 사이드바가 숨겨져 있을 때 리사이저도 숨김 */
+}
+
+.workspace.no-sidebar .sidebar-resizer {
+  display: none;
+}
 
 .pane-header {
   display: flex;
