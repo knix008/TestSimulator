@@ -3,6 +3,13 @@ const SERVER_ENDPOINT_KEY = 'p2pchat:serverEndpoint';
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_FILE_TYPES = {
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'],
+  video: ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'],
+  archive: ['application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/x-tar', 'application/gzip']
+};
+
 const $ = (id) => document.getElementById(id);
 
 const lobby = $('lobby');
@@ -14,6 +21,8 @@ const btnServerConnect = $('btnServerConnect');
 const btnServerDisconnect = $('btnServerDisconnect');
 const btnRefreshRooms = $('btnRefreshRooms');
 const newRoomNameInput = $('newRoomName');
+const newRoomPasswordInput = $('newRoomPassword');
+const newRoomMaxPeersInput = $('newRoomMaxPeers');
 const btnCreateRoom = $('btnCreateRoom');
 const roomTableBody = $('roomTableBody');
 const emptyRooms = $('emptyRooms');
@@ -24,6 +33,8 @@ const btnLeaveRoom = $('btnLeaveRoom');
 const messagesEl = $('messages');
 const composer = $('composer');
 const messageInput = $('messageInput');
+const fileInput = $('fileInput');
+const fileBtn = $('fileBtn');
 
 /** @type {WebSocket | null} */
 let ws = null;
@@ -32,6 +43,7 @@ let pc = null;
 /** @type {RTCDataChannel | null} */
 let dc = null;
 let currentRoomId = '';
+let currentUseP2P = false;
 let makingOffer = false;
 /** @type {RTCIceCandidateInit[]} */
 let icePending = [];
@@ -75,17 +87,63 @@ function renderMessages(entries) {
     const meta = document.createElement('span');
     meta.className = 'meta';
     meta.textContent = `${e.from === 'self' ? '나' : '상대'} · ${new Date(e.ts).toLocaleString()}`;
-    const body = document.createElement('div');
-    body.textContent = e.text;
-    div.append(meta, body);
+    
+    if (e.type === 'file' && e.fileData) {
+      const fileDiv = document.createElement('div');
+      fileDiv.className = 'file-content';
+      
+      if (e.fileData.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = e.fileData.data;
+        img.alt = e.fileData.name;
+        img.className = 'file-image';
+        img.onclick = () => window.open(e.fileData.data, '_blank');
+        fileDiv.appendChild(img);
+      } else if (e.fileData.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.src = e.fileData.data;
+        video.controls = true;
+        video.className = 'file-video';
+        fileDiv.appendChild(video);
+      } else {
+        const link = document.createElement('a');
+        link.href = e.fileData.data;
+        link.download = e.fileData.name;
+        link.className = 'file-link';
+        link.textContent = `📦 ${e.fileData.name} (${formatFileSize(e.fileData.size)})`;
+        fileDiv.appendChild(link);
+      }
+      
+      div.append(meta, fileDiv);
+    } else {
+      const body = document.createElement('div');
+      body.textContent = e.text;
+      div.append(meta, body);
+    }
+    
     messagesEl.appendChild(div);
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function appendLocalMessage(text, from) {
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function appendLocalMessage(text, from, fileData = null) {
   const entries = loadHistory(currentRoomId);
-  const entry = { id: crypto.randomUUID(), text, ts: Date.now(), from };
+  const entry = { 
+    id: crypto.randomUUID(), 
+    text, 
+    ts: Date.now(), 
+    from,
+    type: fileData ? 'file' : 'text'
+  };
+  if (fileData) {
+    entry.fileData = fileData;
+  }
   entries.push(entry);
   saveHistory(currentRoomId, entries);
   renderMessages(entries);
@@ -133,6 +191,8 @@ function setLobbyControls(connected) {
   btnServerDisconnect.disabled = !connected;
   btnRefreshRooms.disabled = !connected;
   newRoomNameInput.disabled = !connected;
+  newRoomPasswordInput.disabled = !connected;
+  newRoomMaxPeersInput.disabled = !connected;
   btnCreateRoom.disabled = !connected;
 }
 
@@ -169,7 +229,7 @@ function disconnectServer() {
 }
 
 /**
- * @param {Array<{ id: string, name: string, createdAt: number, peerCount: number }>} rooms
+ * @param {Array<{ id: string, name: string, createdAt: number, peerCount: number, hasPassword?: boolean, maxPeers?: number }>} rooms
  */
 function renderRoomList(rooms) {
   roomTableBody.innerHTML = '';
@@ -183,22 +243,31 @@ function renderRoomList(rooms) {
     const tr = document.createElement('tr');
     const tdName = document.createElement('td');
     const title = document.createElement('div');
+    title.className = 'room-title';
     title.textContent = r.name;
+    if (r.hasPassword) {
+      const lockIcon = document.createElement('span');
+      lockIcon.className = 'lock-icon';
+      lockIcon.textContent = '🔒';
+      lockIcon.title = '비밀번호가 설정된 방입니다';
+      title.appendChild(lockIcon);
+    }
     const idSpan = document.createElement('span');
     idSpan.className = 'room-id';
     idSpan.textContent = r.id;
     tdName.append(title, idSpan);
 
     const tdPeers = document.createElement('td');
-    tdPeers.textContent = `${r.peerCount} / 2`;
+    const maxPeers = r.maxPeers || 2;
+    tdPeers.textContent = `${r.peerCount} / ${maxPeers}`;
 
     const tdAct = document.createElement('td');
     tdAct.className = 'col-actions';
     const joinBtn = document.createElement('button');
     joinBtn.type = 'button';
     joinBtn.textContent = '입장';
-    joinBtn.disabled = uiMode !== 'lobby' || r.peerCount >= 2;
-    joinBtn.addEventListener('click', () => joinChatRoom(r.id));
+    joinBtn.disabled = uiMode !== 'lobby' || r.peerCount >= maxPeers;
+    joinBtn.addEventListener('click', () => joinChatRoom(r.id, r.hasPassword));
     tdAct.appendChild(joinBtn);
 
     tr.append(tdName, tdPeers, tdAct);
@@ -212,8 +281,9 @@ function showChatUi(roomId, displayName) {
   chat.classList.remove('hidden');
   const label = displayName && displayName !== roomId ? `${displayName}` : roomId;
   roomLabel.textContent = `방: ${label}`;
-  setConnBadge('시그널링 / P2P 연결 중…', 'warn');
-  messageInput.disabled = true;
+  setConnBadge(currentUseP2P ? '시그널링 / P2P 연결 중…' : '서버 연결됨', currentUseP2P ? 'warn' : 'ok');
+  messageInput.disabled = !currentUseP2P;
+  fileInput.disabled = !currentUseP2P;
   messagesEl.innerHTML = '';
   renderMessages(loadHistory(roomId));
 }
@@ -261,14 +331,26 @@ function wireDataChannel(channel) {
   channel.onopen = () => {
     setConnBadge('P2P 연결됨', 'ok');
     messageInput.disabled = false;
+    fileInput.disabled = false;
   };
   channel.onclose = () => {
     setConnBadge('데이터 채널 종료', 'warn');
     messageInput.disabled = true;
+    fileInput.disabled = true;
   };
   channel.onmessage = (ev) => {
-    const text = typeof ev.data === 'string' ? ev.data : '';
-    if (text) appendLocalMessage(text, 'peer');
+    if (typeof ev.data === 'string') {
+      try {
+        const parsed = JSON.parse(ev.data);
+        if (parsed.type === 'file' && parsed.fileData) {
+          appendLocalMessage('', 'peer', parsed.fileData);
+          return;
+        }
+      } catch {
+        // 일반 텍스트 메시지
+      }
+      if (ev.data) appendLocalMessage(ev.data, 'peer');
+    }
   };
 }
 
@@ -337,18 +419,39 @@ function handleSignalMessage(data) {
     case 'left-room':
       break;
     case 'joined':
-      setLobbyStatus(
-        data.isInitiator ? '상대 입장 대기 중…' : '방에 입장했습니다. 시그널링 대기 중…',
-      );
+      currentUseP2P = Boolean(data.useP2P);
+      if (currentUseP2P) {
+        setLobbyStatus(
+          data.isInitiator ? '상대 입장 대기 중…' : '방에 입장했습니다. 시그널링 대기 중…',
+        );
+      } else {
+        setLobbyStatus('방에 입장했습니다. 서버 중계 모드로 연결됩니다.');
+        messageInput.disabled = false;
+        fileInput.disabled = false;
+      }
       break;
     case 'peer-joined':
-      setLobbyStatus('상대가 입장했습니다. P2P 연결을 시작합니다.');
-      void createHostConnection();
+      if (currentUseP2P) {
+        setLobbyStatus('상대가 입장했습니다. P2P 연결을 시작합니다.');
+        void createHostConnection();
+      }
       break;
     case 'peer-left':
-      setConnBadge('상대 연결 끊김', 'warn');
-      messageInput.disabled = true;
-      cleanupPeer();
+      if (currentUseP2P) {
+        setConnBadge('상대 연결 끊김', 'warn');
+        messageInput.disabled = true;
+        fileInput.disabled = true;
+        cleanupPeer();
+      }
+      break;
+    case 'chat-message':
+      if (!currentUseP2P) {
+        if (data.fileData) {
+          appendLocalMessage('', 'peer', data.fileData);
+        } else if (data.text) {
+          appendLocalMessage(data.text, 'peer');
+        }
+      }
       break;
     case 'room-deleted':
       cleanupPeer();
@@ -358,13 +461,19 @@ function handleSignalMessage(data) {
       }
       break;
     case 'offer':
-      void onOffer(data.sdp);
+      if (currentUseP2P) {
+        void onOffer(data.sdp);
+      }
       break;
     case 'answer':
-      void onAnswer(data.sdp);
+      if (currentUseP2P) {
+        void onAnswer(data.sdp);
+      }
       break;
     case 'ice-candidate':
-      void onIce(data.candidate);
+      if (currentUseP2P) {
+        void onIce(data.candidate);
+      }
       break;
     case 'error':
       setLobbyStatus(data.message || '오류');
@@ -374,7 +483,7 @@ function handleSignalMessage(data) {
   }
 }
 
-function joinChatRoom(roomId) {
+function joinChatRoom(roomId, hasPassword) {
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     setLobbyStatus('먼저 서버에 연결하세요.');
     return;
@@ -382,7 +491,17 @@ function joinChatRoom(roomId) {
   if (uiMode !== 'lobby') return;
   cleanupPeer();
   currentRoomId = roomId;
-  sendSignal({ type: 'join', roomId });
+  
+  let password = '';
+  if (hasPassword) {
+    password = prompt('이 방은 비밀번호가 설정되어 있습니다. 비밀번호를 입력하세요:');
+    if (password === null) {
+      currentRoomId = '';
+      return;
+    }
+  }
+  
+  sendSignal({ type: 'join', roomId, password });
 }
 
 /** @param {string} raw */
@@ -531,19 +650,96 @@ btnRefreshRooms.addEventListener('click', () => {
 
 btnCreateRoom.addEventListener('click', () => {
   const name = newRoomNameInput.value.trim();
-  sendSignal({ type: 'create-room', name });
+  const password = newRoomPasswordInput.value.trim();
+  const maxPeersStr = newRoomMaxPeersInput.value.trim();
+  const maxPeers = maxPeersStr ? parseInt(maxPeersStr, 10) : undefined;
+  sendSignal({ type: 'create-room', name, password, maxPeers });
   newRoomNameInput.value = '';
+  newRoomPasswordInput.value = '';
+  newRoomMaxPeersInput.value = '';
 });
 
 btnLeaveRoom.addEventListener('click', () => {
   leaveChatToLobby();
 });
 
+async function sendFile(file) {
+  if (!file) return;
+  
+  // 파일 타입 검증
+  const isAllowed = Object.values(ALLOWED_FILE_TYPES).flat().some(type => {
+    if (type.includes('*')) {
+      return file.type.startsWith(type.replace('*', ''));
+    }
+    return file.type === type;
+  });
+  
+  if (!isAllowed) {
+    alert('이미지, 동영상, 압축 파일만 전송할 수 있습니다.');
+    return;
+  }
+  
+  if (file.size > MAX_FILE_SIZE) {
+    alert(`파일 크기는 ${MAX_FILE_SIZE / (1024 * 1024)}MB를 초과할 수 없습니다.`);
+    return;
+  }
+  
+  try {
+    const reader = new FileReader();
+    const dataUrl = await new Promise((resolve, reject) => {
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    
+    const fileData = {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      data: dataUrl
+    };
+    
+    if (currentUseP2P) {
+      if (!dc || dc.readyState !== 'open') {
+        alert('P2P 연결이 활성화되지 않았습니다.');
+        return;
+      }
+      dc.send(JSON.stringify({ type: 'file', fileData }));
+    } else {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('서버 연결이 끊어졌습니다.');
+        return;
+      }
+      sendSignal({ type: 'chat-message', fileData, roomId: currentRoomId });
+    }
+    
+    appendLocalMessage('', 'self', fileData);
+  } catch (err) {
+    alert('파일 전송 중 오류가 발생했습니다: ' + err.message);
+  }
+}
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    void sendFile(file);
+  }
+  fileInput.value = '';
+});
+
 composer.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = messageInput.value.trim();
-  if (!text || !dc || dc.readyState !== 'open') return;
-  dc.send(text);
+  if (!text) return;
+  
+  if (currentUseP2P) {
+    if (!dc || dc.readyState !== 'open') return;
+    dc.send(text);
+  } else {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    sendSignal({ type: 'chat-message', text, roomId: currentRoomId });
+  }
+  
   appendLocalMessage(text, 'self');
   messageInput.value = '';
 });
