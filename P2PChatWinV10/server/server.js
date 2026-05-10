@@ -9,9 +9,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ADMIN_DIR = path.join(__dirname, 'admin');
 
 const PORT = Number(process.env.PORT) || 8787;
-const MAX_PEERS_PER_ROOM = 2;
+const DEFAULT_MAX_PEERS = 2;
+const ABSOLUTE_MAX_PEERS = 20;
 
-/** @type {Map<string, { id: string, name: string, createdAt: number }>} */
+/** @type {Map<string, { id: string, name: string, createdAt: number, password?: string, maxPeers: number }>} */
 const roomRegistry = new Map();
 
 /** @type {Map<string, Set<import('ws').WebSocket>>} */
@@ -36,6 +37,8 @@ function buildRoomList() {
     name: meta.name,
     createdAt: meta.createdAt,
     peerCount: rooms.get(meta.id)?.size ?? 0,
+    hasPassword: Boolean(meta.password),
+    maxPeers: meta.maxPeers,
   }));
 }
 
@@ -75,12 +78,21 @@ function leaveRoom(ws) {
 
 /**
  * @param {string} rawName
+ * @param {string} [rawPassword]
+ * @param {number} [rawMaxPeers]
  */
-function createRoomRecord(rawName) {
+function createRoomRecord(rawName, rawPassword, rawMaxPeers) {
   const trimmed = typeof rawName === 'string' ? rawName.trim().slice(0, 64) : '';
   const id = randomUUID();
   const name = trimmed || `방 ${id.slice(0, 8)}`;
-  const meta = { id, name, createdAt: Date.now() };
+  const password = typeof rawPassword === 'string' ? rawPassword.trim() : '';
+  let maxPeers = typeof rawMaxPeers === 'number' && rawMaxPeers > 0 
+    ? Math.min(Math.floor(rawMaxPeers), ABSOLUTE_MAX_PEERS)
+    : DEFAULT_MAX_PEERS;
+  const meta = { id, name, createdAt: Date.now(), maxPeers };
+  if (password) {
+    meta.password = password;
+  }
   roomRegistry.set(id, meta);
   broadcastLobbyRoomList();
   return meta;
@@ -199,7 +211,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && pathname === '/api/rooms') {
     try {
       const body = await readJsonBody(req);
-      const meta = createRoomRecord(body.name);
+      const meta = createRoomRecord(body.name, body.password, body.maxPeers);
       res.writeHead(201, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ room: meta }));
     } catch {
@@ -276,7 +288,9 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'create-room') {
       const rawName = typeof msg.name === 'string' ? msg.name : '';
-      const meta = createRoomRecord(rawName);
+      const rawPassword = typeof msg.password === 'string' ? msg.password : '';
+      const rawMaxPeers = typeof msg.maxPeers === 'number' ? msg.maxPeers : undefined;
+      const meta = createRoomRecord(rawName, rawPassword, rawMaxPeers);
       ws.send(JSON.stringify({ type: 'room-created', room: meta }));
       return;
     }
@@ -295,9 +309,17 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({ type: 'error', message: '잘못된 방입니다.' }));
         return;
       }
-      if (!roomRegistry.has(id)) {
+      const roomMeta = roomRegistry.get(id);
+      if (!roomMeta) {
         ws.send(JSON.stringify({ type: 'error', message: '존재하지 않는 방입니다.' }));
         return;
+      }
+      if (roomMeta.password) {
+        const inputPassword = typeof msg.password === 'string' ? msg.password : '';
+        if (inputPassword !== roomMeta.password) {
+          ws.send(JSON.stringify({ type: 'error', message: '비밀번호가 일치하지 않습니다.' }));
+          return;
+        }
       }
       if (ws.signalRoomId === id) {
         return;
@@ -307,26 +329,54 @@ wss.on('connection', (ws) => {
       }
       if (!rooms.has(id)) rooms.set(id, new Set());
       const peers = rooms.get(id);
-      if (peers.size >= MAX_PEERS_PER_ROOM) {
+      const maxPeers = roomMeta.maxPeers || DEFAULT_MAX_PEERS;
+      if (peers.size >= maxPeers) {
         ws.send(JSON.stringify({ type: 'error', message: '방이 가득 찼습니다.' }));
         return;
       }
       peers.add(ws);
       ws.signalRoomId = id;
       const isInitiator = peers.size === 1;
+      const useP2P = roomMeta.maxPeers <= 2;
       ws.send(
         JSON.stringify({
           type: 'joined',
           roomId: id,
           isInitiator,
           peerCount: peers.size,
+          useP2P,
+          maxPeers: roomMeta.maxPeers,
         }),
       );
-      broadcast(id, { type: 'peer-joined', roomId: id }, ws);
+      broadcast(id, { type: 'peer-joined', roomId: id, peerCount: peers.size }, ws);
       return;
     }
 
     if (!ws.signalRoomId) return;
+
+    if (msg.type === 'chat-message') {
+      if (msg.fileData) {
+        // 파일 메시지
+        broadcast(ws.signalRoomId, { 
+          type: 'chat-message', 
+          fileData: msg.fileData,
+          from: 'peer',
+          roomId: ws.signalRoomId 
+        }, ws);
+      } else if (typeof msg.text === 'string') {
+        // 텍스트 메시지
+        const text = msg.text.trim().slice(0, 4000);
+        if (text) {
+          broadcast(ws.signalRoomId, { 
+            type: 'chat-message', 
+            text, 
+            from: 'peer',
+            roomId: ws.signalRoomId 
+          }, ws);
+        }
+      }
+      return;
+    }
 
     const forwardTypes = new Set(['offer', 'answer', 'ice-candidate']);
     if (!forwardTypes.has(msg.type)) return;

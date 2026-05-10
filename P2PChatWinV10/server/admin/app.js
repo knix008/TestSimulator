@@ -4,6 +4,8 @@ const statsLine = document.getElementById('statsLine');
 const createMsg = document.getElementById('createMsg');
 const listMsg = document.getElementById('listMsg');
 const newName = document.getElementById('newName');
+const newPassword = document.getElementById('newPassword');
+const newMaxPeers = document.getElementById('newMaxPeers');
 const btnCreate = document.getElementById('btnCreate');
 const btnRefresh = document.getElementById('btnRefresh');
 
@@ -31,12 +33,26 @@ async function loadRooms() {
   for (const r of list) {
     const tr = document.createElement('tr');
     const tdName = document.createElement('td');
-    tdName.textContent = r.name;
+    const nameDiv = document.createElement('div');
+    nameDiv.style.display = 'flex';
+    nameDiv.style.alignItems = 'center';
+    nameDiv.style.gap = '0.35rem';
+    nameDiv.textContent = r.name;
+    if (r.hasPassword) {
+      const lockIcon = document.createElement('span');
+      lockIcon.textContent = '🔒';
+      lockIcon.style.fontSize = '0.8em';
+      lockIcon.style.opacity = '0.7';
+      lockIcon.title = '비밀번호가 설정된 방';
+      nameDiv.appendChild(lockIcon);
+    }
+    tdName.appendChild(nameDiv);
     const tdId = document.createElement('td');
     tdId.className = 'mono';
     tdId.textContent = r.id;
     const tdPeers = document.createElement('td');
-    tdPeers.textContent = `${r.peerCount} / 2`;
+    const maxPeers = r.maxPeers || 2;
+    tdPeers.textContent = `${r.peerCount} / ${maxPeers}`;
     const tdTime = document.createElement('td');
     tdTime.textContent = new Date(r.createdAt).toLocaleString();
     const tdAct = document.createElement('td');
@@ -64,16 +80,24 @@ async function deleteRoom(id) {
 
 btnCreate.addEventListener('click', async () => {
   createMsg.textContent = '';
+  const maxPeersStr = newMaxPeers.value.trim();
+  const maxPeersValue = maxPeersStr ? parseInt(maxPeersStr, 10) : undefined;
   const res = await fetch('/api/rooms', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: newName.value.trim() }),
+    body: JSON.stringify({ 
+      name: newName.value.trim(),
+      password: newPassword.value.trim(),
+      maxPeers: maxPeersValue
+    }),
   });
   if (!res.ok) {
     setMsg(createMsg, `생성 실패 (${res.status})`, true);
     return;
   }
   newName.value = '';
+  newPassword.value = '';
+  newMaxPeers.value = '';
   setMsg(createMsg, '방이 생성되었습니다.');
   await loadRooms();
 });
