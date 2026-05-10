@@ -17,10 +17,31 @@
       </header>
 
       <section class="panel lobby" id="lobby">
-        <label class="field">
-          <span>시그널 서버 (ws:// 또는 wss:// — http://로 이 포트를 열면 Upgrade Required만 보입니다)</span>
-          <input id="wsUrl" type="text" value="ws://localhost:8787" autocomplete="off" />
-        </label>
+        <div class="server-block">
+          <label class="field">
+            <span>시그널 서버 (호스트 또는 IP, 도메인)</span>
+            <input
+              id="serverHost"
+              type="text"
+              placeholder="예: localhost, 192.168.0.10, chat.example.com"
+              autocomplete="off"
+            />
+          </label>
+          <div class="server-row">
+            <label class="field field-port">
+              <span>포트</span>
+              <input id="serverPort" type="text" inputmode="numeric" placeholder="8787" maxlength="6" autocomplete="off" />
+            </label>
+            <label class="field field-tls">
+              <span>TLS (wss://)</span>
+              <input id="serverTls" type="checkbox" />
+            </label>
+          </div>
+          <p class="field-hint">
+            연결에는 <strong>ws://</strong> 또는 <strong>wss://</strong> 만 사용됩니다. 전체 주소를 넣으려면 호스트 칸에
+            <code>ws://서버:포트</code> 형태로 입력하면 포트·TLS 설정은 무시됩니다.
+          </p>
+        </div>
         <div class="actions">
           <button type="button" id="btnServerConnect">서버 연결</button>
           <button type="button" id="btnServerDisconnect" class="ghost" disabled>연결 끊기</button>

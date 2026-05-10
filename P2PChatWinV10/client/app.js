@@ -1,4 +1,5 @@
 const STORAGE_PREFIX = 'p2pchat:history:';
+const SERVER_ENDPOINT_KEY = 'p2pchat:serverEndpoint';
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
@@ -6,7 +7,9 @@ const $ = (id) => document.getElementById(id);
 
 const lobby = $('lobby');
 const chat = $('chat');
-const wsUrlInput = $('wsUrl');
+const serverHostInput = $('serverHost');
+const serverPortInput = $('serverPort');
+const serverTlsInput = $('serverTls');
 const btnServerConnect = $('btnServerConnect');
 const btnServerDisconnect = $('btnServerDisconnect');
 const btnRefreshRooms = $('btnRefreshRooms');
@@ -123,7 +126,9 @@ async function flushIcePending() {
 }
 
 function setLobbyControls(connected) {
-  wsUrlInput.disabled = connected;
+  serverHostInput.disabled = connected;
+  serverPortInput.disabled = connected;
+  serverTlsInput.disabled = connected;
   btnServerConnect.disabled = connected;
   btnServerDisconnect.disabled = !connected;
   btnRefreshRooms.disabled = !connected;
@@ -390,21 +395,80 @@ function normalizeWsUrl(raw) {
   return u;
 }
 
-function connectToServer() {
-  const normalized = normalizeWsUrl(wsUrlInput.value);
-  if (!normalized) {
-    setLobbyStatus('WebSocket 주소를 입력하세요.');
+function loadServerEndpoint() {
+  try {
+    const raw = localStorage.getItem(SERVER_ENDPOINT_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (typeof o.host !== 'string') return null;
+    return {
+      host: o.host,
+      port: typeof o.port === 'string' && o.port ? o.port : '8787',
+      tls: Boolean(o.tls),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveServerEndpoint() {
+  const payload = {
+    host: serverHostInput.value.trim(),
+    port: serverPortInput.value.trim() || '8787',
+    tls: serverTlsInput.checked,
+  };
+  localStorage.setItem(SERVER_ENDPOINT_KEY, JSON.stringify(payload));
+}
+
+function applyServerEndpointToInputs() {
+  const saved = loadServerEndpoint();
+  if (saved) {
+    serverHostInput.value = saved.host;
+    serverPortInput.value = saved.port;
+    serverTlsInput.checked = saved.tls;
     return;
   }
-  wsUrlInput.value = normalized;
+  serverHostInput.value = 'localhost';
+  serverPortInput.value = '8787';
+  serverTlsInput.checked = false;
+}
+
+function buildSignalingUrl() {
+  const hostRaw = serverHostInput.value.trim();
+  if (!hostRaw) return '';
+  if (/^wss?:\/\//i.test(hostRaw)) {
+    return normalizeWsUrl(hostRaw);
+  }
+  let authority = hostRaw.replace(/^https?:\/\//i, '');
+  const slash = authority.indexOf('/');
+  if (slash !== -1) {
+    authority = authority.slice(0, slash);
+  }
+  const hasPort = /:\d+$/.test(authority);
+  if (hasPort) {
+    const scheme = serverTlsInput.checked ? 'wss' : 'ws';
+    return normalizeWsUrl(`${scheme}://${authority}`);
+  }
+  const port = serverPortInput.value.trim() || '8787';
+  const scheme = serverTlsInput.checked ? 'wss' : 'ws';
+  return normalizeWsUrl(`${scheme}://${authority}:${port}`);
+}
+
+function connectToServer() {
+  const normalized = buildSignalingUrl();
+  if (!normalized) {
+    setLobbyStatus('시그널 서버 호스트를 입력하세요.');
+    return;
+  }
   disconnectServer();
   setLobbyStatus('서버에 연결 중…');
   uiMode = 'lobby';
 
   ws = new WebSocket(normalized);
   ws.onopen = () => {
+    saveServerEndpoint();
     setLobbyControls(true);
-    setLobbyStatus('연결됨. 방을 만들거나 목록에서 입장하세요.');
+    setLobbyStatus(`연결됨: ${normalized}. 방을 만들거나 목록에서 입장하세요.`);
     requestListRooms();
   };
   ws.onmessage = (ev) => {
@@ -449,6 +513,8 @@ function leaveChatToLobby() {
   showLobbyUi();
   setLobbyStatus('로비입니다. 다른 방에 입장할 수 있습니다.');
 }
+
+applyServerEndpointToInputs();
 
 btnServerConnect.addEventListener('click', () => {
   connectToServer();

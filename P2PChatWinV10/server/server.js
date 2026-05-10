@@ -19,6 +19,17 @@ const rooms = new Map();
 
 const STATIC_FILES = new Set(['index.html', 'styles.css', 'app.js']);
 
+/** 브라우저가 자동 요청 — 본문 없이 204로 조용히 처리 */
+const NO_BODY_OK = new Set([
+  '/favicon.ico',
+  '/apple-touch-icon.png',
+  '/apple-touch-icon-precomposed.png',
+]);
+
+function isGetOrHead(method) {
+  return method === 'GET' || method === 'HEAD';
+}
+
 function buildRoomList() {
   return [...roomRegistry.values()].map((meta) => ({
     id: meta.id,
@@ -125,7 +136,7 @@ function readJsonBody(req) {
  * @param {string} fileName
  * @param {string} contentType
  */
-function sendAdminFile(res, fileName, contentType) {
+function sendAdminFile(req, res, fileName, contentType) {
   if (!STATIC_FILES.has(fileName)) {
     res.writeHead(404);
     res.end();
@@ -138,6 +149,14 @@ function sendAdminFile(res, fileName, contentType) {
       res.end();
       return;
     }
+    if (req.method === 'HEAD') {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': data.length,
+      });
+      res.end();
+      return;
+    }
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(data);
   });
@@ -145,8 +164,26 @@ function sendAdminFile(res, fileName, contentType) {
 
 const server = http.createServer(async (req, res) => {
   const host = req.headers.host || 'localhost';
-  const url = new URL(req.url || '/', `http://${host}`);
-  const { pathname } = url;
+  let pathname = '/';
+  try {
+    pathname = new URL(req.url || '/', `http://${host}`).pathname;
+  } catch {
+    res.writeHead(400);
+    res.end();
+    return;
+  }
+
+  if (pathname === '/admin' || pathname === '/admin/') {
+    res.writeHead(302, { Location: '/' });
+    res.end();
+    return;
+  }
+
+  if (isGetOrHead(req.method) && NO_BODY_OK.has(pathname)) {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
   if (req.method === 'GET' && pathname === '/api/rooms') {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -190,23 +227,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'GET' && pathname === '/') {
-    sendAdminFile(res, 'index.html', 'text/html; charset=utf-8');
+  if (isGetOrHead(req.method) && (pathname === '/' || pathname === '/index.html')) {
+    sendAdminFile(req, res, 'index.html', 'text/html; charset=utf-8');
     return;
   }
 
-  if (req.method === 'GET' && pathname === '/styles.css') {
-    sendAdminFile(res, 'styles.css', 'text/css; charset=utf-8');
+  if (isGetOrHead(req.method) && pathname === '/styles.css') {
+    sendAdminFile(req, res, 'styles.css', 'text/css; charset=utf-8');
     return;
   }
 
-  if (req.method === 'GET' && pathname === '/app.js') {
-    sendAdminFile(res, 'app.js', 'application/javascript; charset=utf-8');
+  if (isGetOrHead(req.method) && pathname === '/app.js') {
+    sendAdminFile(req, res, 'app.js', 'application/javascript; charset=utf-8');
     return;
   }
 
-  res.writeHead(404);
-  res.end();
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end(`Not found: ${pathname}`);
 });
 
 const wss = new WebSocketServer({ noServer: true });
