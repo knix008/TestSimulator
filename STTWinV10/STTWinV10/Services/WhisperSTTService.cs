@@ -104,16 +104,22 @@ namespace STTWinV10.Services
                 var result = "";
                 await foreach (var segment in _processor.ProcessAsync(audioData, cancellationToken))
                 {
-                    result += segment.Text;
+                    // 텍스트 필터링 (대괄호 안 내용 제거)
+                    var cleanedText = CleanTranscriptionText(segment.Text);
                     
-                    // 세그먼트별로 이벤트 발생 (실시간 피드백)
-                    TranscriptionReceived?.Invoke(this, new TranscriptionEventArgs
+                    if (!string.IsNullOrWhiteSpace(cleanedText))
                     {
-                        Text = segment.Text,
-                        StartTime = segment.Start,
-                        EndTime = segment.End,
-                        IsPartial = false
-                    });
+                        result += cleanedText;
+                        
+                        // 세그먼트별로 이벤트 발생 (실시간 피드백)
+                        TranscriptionReceived?.Invoke(this, new TranscriptionEventArgs
+                        {
+                            Text = cleanedText,
+                            StartTime = segment.Start,
+                            EndTime = segment.End,
+                            IsPartial = false
+                        });
+                    }
                 }
 
                 return result;
@@ -152,15 +158,20 @@ namespace STTWinV10.Services
                 
                 await foreach (var segment in _processor.ProcessAsync(fileStream, cancellationToken))
                 {
-                    result += segment.Text;
+                    var cleanedText = CleanTranscriptionText(segment.Text);
                     
-                    TranscriptionReceived?.Invoke(this, new TranscriptionEventArgs
+                    if (!string.IsNullOrWhiteSpace(cleanedText))
                     {
-                        Text = segment.Text,
-                        StartTime = segment.Start,
-                        EndTime = segment.End,
-                        IsPartial = false
-                    });
+                        result += cleanedText;
+                        
+                        TranscriptionReceived?.Invoke(this, new TranscriptionEventArgs
+                        {
+                            Text = cleanedText,
+                            StartTime = segment.Start,
+                            EndTime = segment.End,
+                            IsPartial = false
+                        });
+                    }
                 }
 
                 return result;
@@ -174,6 +185,26 @@ namespace STTWinV10.Services
             {
                 _processingLock.Release();
             }
+        }
+
+        /// <summary>
+        /// 인식 텍스트 정리 (대괄호 제거, 불필요한 공백 제거)
+        /// </summary>
+        private string CleanTranscriptionText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            // 대괄호와 그 안의 내용 제거
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(text, @"\[.*?\]", "");
+            
+            // 연속된 공백을 하나로
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ");
+            
+            // 양쪽 공백 제거
+            cleaned = cleaned.Trim();
+            
+            return cleaned;
         }
 
         public void Dispose()

@@ -4,143 +4,459 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="실시간 음성 인식 (Whisper STT)" Height="600" Width="800"
-        WindowStartupLocation="CenterScreen">
+        Title="실시간 음성 인식 (Whisper STT)" Height="680" Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="#1A1A2E"
+        Icon="daemon_hammer.ico">
     <Window.Resources>
-        <Style x:Key="ButtonStyle" TargetType="Button">
-            <Setter Property="Padding" Value="25,15"/>
+        <!-- 모던 버튼 스타일 -->
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="25,12"/>
             <Setter Property="Margin" Value="8"/>
             <Setter Property="MinWidth" Value="140"/>
-            <Setter Property="MinHeight" Value="50"/>
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="MinHeight" Value="42"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Background" Value="#2196F3"/>
+            <Setter Property="Background" Value="#6C5CE7"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" 
-                                CornerRadius="5" 
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}" 
+                                CornerRadius="10" 
                                 BorderThickness="{TemplateBinding BorderThickness}"
                                 BorderBrush="{TemplateBinding BorderBrush}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="10" 
+                                                  ShadowDepth="3" 
+                                                  Opacity="0.3" 
+                                                  Color="Black"/>
+                            </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                           Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.ShadowDepth)"
+                                                           To="5" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                           Storyboard.TargetProperty="(Border.Effect).(DropShadowEffect.ShadowDepth)"
+                                                           To="3" Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1976D2"/>
+                    <Setter Property="Opacity" Value="0.9"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#CCCCCC"/>
-                    <Setter Property="Foreground" Value="#666666"/>
+                    <Setter Property="Background" Value="#3A3A4E"/>
+                    <Setter Property="Foreground" Value="#6C6C7D"/>
+                    <Setter Property="Opacity" Value="0.6"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- 카드 스타일 -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#16213E"/>
+            <Setter Property="CornerRadius" Value="15"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.4" Color="Black"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <!-- 메인 그라디언트 배경 -->
+    <Grid>
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#1A1A2E" Offset="0"/>
+                <GradientStop Color="#16213E" Offset="0.5"/>
+                <GradientStop Color="#0F3460" Offset="1"/>
+            </LinearGradientBrush>
+        </Grid.Background>
 
-        <!-- 제목 -->
-        <TextBlock Grid.Row="0" 
-                   Text="🎤 실시간 음성 인식 (Whisper)" 
-                   FontSize="24" 
-                   FontWeight="Bold"
-                   Margin="0,0,0,20"
-                   Foreground="#2196F3"/>
-
-        <!-- 컨트롤 버튼 -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,20">
-            <Button x:Name="StartButton" 
-                    Content="🎙️ 시작" 
-                    Style="{StaticResource ButtonStyle}"
-                    Click="StartButton_Click"
-                    Background="#4CAF50"/>
-            
-            <Button x:Name="StopButton" 
-                    Content="⏹️ 중지" 
-                    Style="{StaticResource ButtonStyle}"
-                    Click="StopButton_Click"
-                    IsEnabled="False"
-                    Background="#F44336"/>
-            
-            <Button x:Name="ProcessButton" 
-                    Content="⚡ 즉시 처리" 
-                    Style="{StaticResource ButtonStyle}"
-                    Click="ProcessButton_Click"
-                    IsEnabled="False"
-                    Background="#FF9800"/>
-            
-            <Button x:Name="ClearButton" 
-                    Content="🗑️ 지우기" 
-                    Style="{StaticResource ButtonStyle}"
-                    Click="ClearButton_Click"
-                    Background="#9E9E9E"/>
-        </StackPanel>
-
-        <!-- 인식 결과 표시 영역 -->
-        <Grid Grid.Row="2">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
-            <TextBlock Grid.Row="0" 
-                       Text="인식 결과:" 
-                       FontSize="16" 
-                       FontWeight="SemiBold"
-                       Margin="0,0,0,10"/>
-
-            <Border Grid.Row="1" 
-                    BorderBrush="#DDDDDD" 
-                    BorderThickness="2" 
-                    CornerRadius="5"
-                    Background="#F9F9F9">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <TextBox x:Name="TranscriptionTextBox"
-                             TextWrapping="Wrap"
-                             AcceptsReturn="True"
-                             FontSize="14"
-                             Padding="10"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             IsReadOnly="False"
-                             VerticalAlignment="Stretch"/>
-                </ScrollViewer>
-            </Border>
-        </Grid>
-
-        <!-- 상태 표시줄 -->
-        <Border Grid.Row="3" 
-                Background="#F5F5F5" 
-                Padding="10" 
-                Margin="0,20,0,0"
-                CornerRadius="5">
+        <!-- 컨텐츠 컨테이너 -->
+        <Border Style="{StaticResource CardStyle}" Margin="30">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <TextBlock Grid.Column="0" 
-                           Text="상태: " 
-                           FontWeight="SemiBold"
-                           VerticalAlignment="Center"/>
-                
-                <TextBlock x:Name="StatusTextBlock" 
-                           Grid.Column="1"
-                           Text="준비" 
-                           VerticalAlignment="Center"
-                           Foreground="#666666"/>
+                <!-- 헤더 섹션 -->
+                <Border Grid.Row="0" 
+                        Background="#6C5CE7" 
+                        CornerRadius="10" 
+                        Padding="20,15"
+                        Margin="0,0,0,25">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="15" ShadowDepth="4" Opacity="0.5" Color="#6C5CE7"/>
+                    </Border.Effect>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" 
+                                   Text="🎤" 
+                                   FontSize="32" 
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,15,0"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="실시간 음성 인식" 
+                                       FontSize="26" 
+                                       FontWeight="Bold"
+                                       Foreground="White"/>
+                            <TextBlock Text="Powered by OpenAI Whisper" 
+                                       FontSize="12" 
+                                       Foreground="#E0E0E0"
+                                       Margin="0,2,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 마이크 선택 섹션 -->
+                <Border Grid.Row="1" 
+                        Background="#1A2332" 
+                        CornerRadius="10"
+                        Padding="20,15" 
+                        Margin="0,0,0,20"
+                        BorderBrush="#6C5CE7"
+                        BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" 
+                                   Text="🎙️ 마이크:" 
+                                   FontSize="14" 
+                                   FontWeight="SemiBold"
+                                   Foreground="#E0E0E0"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,15,0"/>
+                        
+                        <ComboBox x:Name="MicrophoneComboBox"
+                                  Grid.Column="1"
+                                  FontSize="13"
+                                  Padding="10,8"
+                                  Background="#0F1419"
+                                  Foreground="White"
+                                  BorderBrush="#6C5CE7"
+                                  BorderThickness="1"
+                                  SelectionChanged="MicrophoneComboBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DeviceName}" Foreground="White"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        
+                        <Button x:Name="RefreshMicButton"
+                                Grid.Column="2"
+                                Content="🔄"
+                                ToolTip="마이크 목록 새로고침"
+                                Background="#6C5CE7"
+                                Foreground="White"
+                                BorderThickness="0"
+                                Padding="12,8"
+                                Margin="10,0,0,0"
+                                FontSize="14"
+                                Cursor="Hand"
+                                Click="RefreshMicButton_Click">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}" 
+                                                        CornerRadius="8"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" 
+                                                                      VerticalAlignment="Center"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Opacity" Value="0.8"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- 볼륨 조절 섹션 -->
+                <Border Grid.Row="2" 
+                        Background="#1A2332" 
+                        CornerRadius="10"
+                        Padding="20,15" 
+                        Margin="0,0,0,20"
+                        BorderBrush="#6C5CE7"
+                        BorderThickness="1">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <!-- 볼륨 레이블 및 값 -->
+                        <Grid Grid.Row="0" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Column="0" 
+                                       Text="🔊 마이크 볼륨:" 
+                                       FontSize="14" 
+                                       FontWeight="SemiBold"
+                                       Foreground="#E0E0E0"
+                                       VerticalAlignment="Center"/>
+                            
+                            <TextBlock x:Name="VolumeValueText"
+                                       Grid.Column="2"
+                                       Text="100%" 
+                                       FontSize="14" 
+                                       FontWeight="Bold"
+                                       Foreground="#6C5CE7"
+                                       VerticalAlignment="Center"
+                                       MinWidth="50"
+                                       TextAlignment="Right"/>
+                        </Grid>
+                        
+                        <!-- 볼륨 슬라이더 -->
+                        <Slider x:Name="VolumeSlider"
+                                Grid.Row="1"
+                                Minimum="0"
+                                Maximum="200"
+                                Value="100"
+                                TickFrequency="10"
+                                IsSnapToTickEnabled="True"
+                                TickPlacement="BottomRight"
+                                ValueChanged="VolumeSlider_ValueChanged"
+                                Foreground="#6C5CE7">
+                            <Slider.Style>
+                                <Style TargetType="Slider">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Slider">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    
+                                                    <Border x:Name="TrackBackground"
+                                                            Grid.Row="0"
+                                                            Height="6"
+                                                            Background="#0F1419"
+                                                            CornerRadius="3"
+                                                            BorderBrush="#6C5CE7"
+                                                            BorderThickness="1"/>
+                                                    
+                                                    <Track x:Name="PART_Track" Grid.Row="0">
+                                                        <Track.DecreaseRepeatButton>
+                                                            <RepeatButton Command="Slider.DecreaseLarge" 
+                                                                          Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
+                                                                          Background="#6C5CE7"
+                                                                          Height="6"/>
+                                                        </Track.DecreaseRepeatButton>
+                                                        <Track.Thumb>
+                                                            <Thumb Width="20" Height="20">
+                                                                <Thumb.Style>
+                                                                    <Style TargetType="Thumb">
+                                                                        <Setter Property="Template">
+                                                                            <Setter.Value>
+                                                                                <ControlTemplate TargetType="Thumb">
+                                                                                    <Ellipse Fill="#6C5CE7" 
+                                                                                             Stroke="White" 
+                                                                                             StrokeThickness="2">
+                                                                                        <Ellipse.Effect>
+                                                                                            <DropShadowEffect BlurRadius="8" 
+                                                                                                              ShadowDepth="2" 
+                                                                                                              Opacity="0.5"/>
+                                                                                        </Ellipse.Effect>
+                                                                                    </Ellipse>
+                                                                                </ControlTemplate>
+                                                                            </Setter.Value>
+                                                                        </Setter>
+                                                                    </Style>
+                                                                </Thumb.Style>
+                                                            </Thumb>
+                                                        </Track.Thumb>
+                                                        <Track.IncreaseRepeatButton>
+                                                            <RepeatButton Command="Slider.IncreaseLarge" 
+                                                                          Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
+                                                                          Background="Transparent"/>
+                                                        </Track.IncreaseRepeatButton>
+                                                    </Track>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Slider.Style>
+                        </Slider>
+                    </Grid>
+                </Border>
+
+                <!-- 컨트롤 버튼 -->
+                <StackPanel Grid.Row="3" 
+                            Orientation="Horizontal" 
+                            HorizontalAlignment="Center"
+                            Margin="0,0,0,25">
+                    <Button x:Name="StartButton" 
+                            Content="🎙️ 시작" 
+                            Style="{StaticResource ModernButtonStyle}"
+                            Click="StartButton_Click"
+                            Background="#00D2A0"/>
+                    
+                    <Button x:Name="StopButton" 
+                            Content="⏹️ 중지" 
+                            Style="{StaticResource ModernButtonStyle}"
+                            Click="StopButton_Click"
+                            IsEnabled="False"
+                            Background="#FF6B6B"/>
+                    
+                    <Button x:Name="ProcessButton" 
+                            Content="⚡ 즉시 처리" 
+                            Style="{StaticResource ModernButtonStyle}"
+                            Click="ProcessButton_Click"
+                            IsEnabled="False"
+                            Background="#FFA502"/>
+                    
+                    <Button x:Name="ClearButton" 
+                            Content="🗑️ 지우기" 
+                            Style="{StaticResource ModernButtonStyle}"
+                            Click="ClearButton_Click"
+                            Background="#747D8C"/>
+                </StackPanel>
+
+                <!-- 인식 결과 표시 영역 -->
+                <Border Grid.Row="4" 
+                        Background="#0F1419" 
+                        CornerRadius="12" 
+                        Padding="0"
+                        BorderBrush="#6C5CE7"
+                        BorderThickness="2">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="3" Opacity="0.3" Color="Black"/>
+                    </Border.Effect>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- 결과 헤더 -->
+                        <Border Grid.Row="0" 
+                                Background="#1A2332" 
+                                CornerRadius="12,12,0,0"
+                                Padding="20,12">
+                            <TextBlock Text="📝 인식 결과" 
+                                       FontSize="16" 
+                                       FontWeight="SemiBold"
+                                       Foreground="#E0E0E0"/>
+                        </Border>
+
+                        <!-- 결과 텍스트 영역 -->
+                        <Border Grid.Row="1" 
+                                Background="#0F1419"
+                                CornerRadius="0,0,12,12"
+                                Padding="5">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Margin="5">
+                                <TextBox x:Name="TranscriptionTextBox"
+                                         TextWrapping="Wrap"
+                                         AcceptsReturn="True"
+                                         FontSize="14"
+                                         Padding="15"
+                                         BorderThickness="0"
+                                         Background="Transparent"
+                                         Foreground="#E8E8E8"
+                                         CaretBrush="#6C5CE7"
+                                         SelectionBrush="#6C5CE7"
+                                         IsReadOnly="False"
+                                         VerticalAlignment="Stretch"
+                                         FontFamily="Segoe UI"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- 상태 표시줄 -->
+                <Border Grid.Row="5" 
+                        Background="#1A2332" 
+                        CornerRadius="10"
+                        Padding="15,12" 
+                        Margin="0,20,0,0"
+                        BorderBrush="#6C5CE7"
+                        BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Ellipse Grid.Column="0"
+                                 Width="10" Height="10"
+                                 Fill="#00D2A0"
+                                 Margin="0,0,10,0"
+                                 VerticalAlignment="Center">
+                            <Ellipse.Effect>
+                                <DropShadowEffect BlurRadius="5" Color="#00D2A0" ShadowDepth="0" Opacity="0.8"/>
+                            </Ellipse.Effect>
+                        </Ellipse>
+                        
+                        <TextBlock x:Name="StatusTextBlock" 
+                                   Grid.Column="1"
+                                   Text="준비" 
+                                   VerticalAlignment="Center"
+                                   Foreground="#B8B8B8"
+                                   FontSize="13"/>
+                        
+                        <TextBlock Grid.Column="2"
+                                   Text="Whisper AI"
+                                   VerticalAlignment="Center"
+                                   Foreground="#6C5CE7"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"/>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
     </Grid>

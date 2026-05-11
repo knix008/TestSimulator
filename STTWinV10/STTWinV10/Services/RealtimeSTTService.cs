@@ -43,6 +43,28 @@ namespace STTWinV10.Services
         }
 
         /// <summary>
+        /// 마이크 장치 설정
+        /// </summary>
+        public void SetMicrophoneDevice(int deviceNumber)
+        {
+            if (_isRunning)
+            {
+                StatusChanged?.Invoke(this, "실행 중에는 마이크를 변경할 수 없습니다.");
+                return;
+            }
+
+            _audioCaptureService.DeviceNumber = deviceNumber;
+        }
+
+        /// <summary>
+        /// 마이크 볼륨 설정 (0.0 ~ 2.0)
+        /// </summary>
+        public void SetMicrophoneVolume(float volume)
+        {
+            _audioCaptureService.VolumeGain = volume;
+        }
+
+        /// <summary>
         /// 실시간 STT 시작
         /// </summary>
         public async Task StartAsync()

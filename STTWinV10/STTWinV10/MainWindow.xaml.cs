@@ -32,6 +32,9 @@ namespace STTWinV10
             {
                 UpdateStatus("초기화 중...");
 
+                // 마이크 목록 로드
+                LoadMicrophones();
+
                 // Whisper 서비스 생성
                 var whisperService = new WhisperSTTService(_modelPath);
                 
@@ -51,6 +54,68 @@ namespace STTWinV10
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 UpdateStatus($"초기화 실패: {ex.Message}");
             }
+        }
+
+        private void LoadMicrophones()
+        {
+            try
+            {
+                var devices = AudioCaptureService.GetAvailableDevices();
+                MicrophoneComboBox.ItemsSource = devices;
+                
+                if (devices.Count > 0)
+                {
+                    MicrophoneComboBox.SelectedIndex = 0;
+                    UpdateStatus($"{devices.Count}개의 마이크를 찾았습니다.");
+                }
+                else
+                {
+                    UpdateStatus("마이크를 찾을 수 없습니다.");
+                    MessageBox.Show("사용 가능한 마이크를 찾을 수 없습니다.", "경고",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"마이크 로드 실패: {ex.Message}");
+            }
+        }
+
+        private void MicrophoneComboBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (MicrophoneComboBox.SelectedItem is AudioDevice device && _sttService != null)
+            {
+                _sttService.SetMicrophoneDevice(device.DeviceNumber);
+                UpdateStatus($"마이크 선택: {device.DeviceName}");
+            }
+        }
+
+        private void RefreshMicButton_Click(object sender, RoutedEventArgs e)
+        {
+            LoadMicrophones();
+        }
+
+        private void VolumeSlider_ValueChanged(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        {
+            UpdateMicrophoneVolume();
+        }
+
+        private void VolumeSlider_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)
+        {
+            UpdateMicrophoneVolume();
+        }
+
+        private void UpdateMicrophoneVolume()
+        {
+            if (_sttService == null || VolumeValueText == null)
+                return;
+
+            // 슬라이더 값을 0.0 ~ 2.0 범위로 변환 (슬라이더는 0~200)
+            float volume = (float)(VolumeSlider.Value / 100.0);
+            _sttService.SetMicrophoneVolume(volume);
+
+            // 텍스트 업데이트
+            VolumeValueText.Text = $"{(int)VolumeSlider.Value}%";
         }
 
         private async void StartButton_Click(object sender, RoutedEventArgs e)

@@ -16,17 +16,51 @@ namespace STTWinV10.Services
         private readonly List<float> _audioBuffer;
         private readonly object _bufferLock = new();
         private bool _isCapturing;
+        private int _deviceNumber = 0;
+        private float _volumeGain = 1.0f; // 기본값 1.0 (100%)
 
         public event EventHandler<AudioDataEventArgs>? AudioDataAvailable;
         public event EventHandler<string>? ErrorOccurred;
 
         public bool IsCapturing => _isCapturing;
+        public int DeviceNumber 
+        { 
+            get => _deviceNumber;
+            set => _deviceNumber = value;
+        }
+        
+        /// <summary>
+        /// 볼륨 게인 (0.0 ~ 2.0, 1.0 = 100%)
+        /// </summary>
+        public float VolumeGain
+        {
+            get => _volumeGain;
+            set => _volumeGain = Math.Clamp(value, 0.0f, 2.0f);
+        }
 
         public AudioCaptureService(int sampleRate = 16000, int channels = 1)
         {
             _sampleRate = sampleRate;
             _channels = channels;
             _audioBuffer = new List<float>();
+        }
+
+        /// <summary>
+        /// 사용 가능한 오디오 입력 장치 목록 가져오기
+        /// </summary>
+        public static List<AudioDevice> GetAvailableDevices()
+        {
+            var devices = new List<AudioDevice>();
+            for (int i = 0; i < WaveInEvent.DeviceCount; i++)
+            {
+                var capabilities = WaveInEvent.GetCapabilities(i);
+                devices.Add(new AudioDevice
+                {
+                    DeviceNumber = i,
+                    DeviceName = capabilities.ProductName
+                });
+            }
+            return devices;
         }
 
         /// <summary>
@@ -41,6 +75,7 @@ namespace STTWinV10.Services
             {
                 _waveIn = new WaveInEvent
                 {
+                    DeviceNumber = _deviceNumber,
                     WaveFormat = new WaveFormat(_sampleRate, 16, _channels),
                     BufferMilliseconds = 100
                 };
@@ -137,7 +172,11 @@ namespace STTWinV10.Services
             for (int i = 0; i < sampleCount; i++)
             {
                 short sample = BitConverter.ToInt16(buffer, i * 2);
-                floatBuffer[i] = sample / 32768f; // Normalize to [-1, 1]
+                // Normalize to [-1, 1] and apply volume gain
+                floatBuffer[i] = (sample / 32768f) * _volumeGain;
+                
+                // Clamp to prevent distortion
+                floatBuffer[i] = Math.Clamp(floatBuffer[i], -1.0f, 1.0f);
             }
 
             return floatBuffer;
@@ -165,5 +204,11 @@ namespace STTWinV10.Services
         {
             AudioData = audioData;
         }
+    }
+
+    public class AudioDevice
+    {
+        public int DeviceNumber { get; set; }
+        public string DeviceName { get; set; } = string.Empty;
     }
 }
