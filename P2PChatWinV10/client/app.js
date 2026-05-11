@@ -1,5 +1,6 @@
 const STORAGE_PREFIX = 'p2pchat:history:';
 const SERVER_ENDPOINT_KEY = 'p2pchat:serverEndpoint';
+const NICKNAME_KEY = 'p2pchat:nickname';
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
 
@@ -14,6 +15,7 @@ const $ = (id) => document.getElementById(id);
 
 const lobby = $('lobby');
 const chat = $('chat');
+const userNicknameInput = $('userNickname');
 const serverHostInput = $('serverHost');
 const serverPortInput = $('serverPort');
 const serverTlsInput = $('serverTls');
@@ -29,6 +31,7 @@ const emptyRooms = $('emptyRooms');
 const lobbyStatus = $('lobbyStatus');
 const roomLabel = $('roomLabel');
 const connBadge = $('connBadge');
+const btnChangePassword = $('btnChangePassword');
 const btnLeaveRoom = $('btnLeaveRoom');
 const messagesEl = $('messages');
 const composer = $('composer');
@@ -44,6 +47,8 @@ let pc = null;
 let dc = null;
 let currentRoomId = '';
 let currentUseP2P = false;
+let currentIsOwner = false;
+let currentNickname = '';
 let makingOffer = false;
 /** @type {RTCIceCandidateInit[]} */
 let icePending = [];
@@ -86,7 +91,8 @@ function renderMessages(entries) {
     div.className = `msg ${e.from === 'self' ? 'self' : 'peer'}`;
     const meta = document.createElement('span');
     meta.className = 'meta';
-    meta.textContent = `${e.from === 'self' ? '나' : '상대'} · ${new Date(e.ts).toLocaleString()}`;
+    const displayName = e.nickname || (e.from === 'self' ? '나' : '상대');
+    meta.textContent = `${displayName} · ${new Date(e.ts).toLocaleString()}`;
     
     if (e.type === 'file' && e.fileData) {
       const fileDiv = document.createElement('div');
@@ -132,7 +138,7 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-function appendLocalMessage(text, from, fileData = null) {
+function appendLocalMessage(text, from, fileData = null, nickname = null) {
   const entries = loadHistory(currentRoomId);
   const entry = { 
     id: crypto.randomUUID(), 
@@ -143,6 +149,9 @@ function appendLocalMessage(text, from, fileData = null) {
   };
   if (fileData) {
     entry.fileData = fileData;
+  }
+  if (nickname) {
+    entry.nickname = nickname;
   }
   entries.push(entry);
   saveHistory(currentRoomId, entries);
@@ -293,6 +302,8 @@ function showLobbyUi() {
   lobby.classList.remove('hidden');
   chat.classList.add('hidden');
   currentRoomId = '';
+  currentIsOwner = false;
+  btnChangePassword.classList.add('hidden');
   setConnBadge('연결 중…');
   setLobbyControls(true);
   requestListRooms();
@@ -343,11 +354,15 @@ function wireDataChannel(channel) {
       try {
         const parsed = JSON.parse(ev.data);
         if (parsed.type === 'file' && parsed.fileData) {
-          appendLocalMessage('', 'peer', parsed.fileData);
+          appendLocalMessage('', 'peer', parsed.fileData, parsed.nickname);
+          return;
+        }
+        if (parsed.type === 'text' && parsed.text) {
+          appendLocalMessage(parsed.text, 'peer', null, parsed.nickname);
           return;
         }
       } catch {
-        // 일반 텍스트 메시지
+        // 일반 텍스트 메시지 (호환성)
       }
       if (ev.data) appendLocalMessage(ev.data, 'peer');
     }
@@ -420,6 +435,8 @@ function handleSignalMessage(data) {
       break;
     case 'joined':
       currentUseP2P = Boolean(data.useP2P);
+      currentIsOwner = Boolean(data.isOwner);
+      btnChangePassword.classList.toggle('hidden', !currentIsOwner);
       if (currentUseP2P) {
         setLobbyStatus(
           data.isInitiator ? '상대 입장 대기 중…' : '방에 입장했습니다. 시그널링 대기 중…',
@@ -447,11 +464,19 @@ function handleSignalMessage(data) {
     case 'chat-message':
       if (!currentUseP2P) {
         if (data.fileData) {
-          appendLocalMessage('', 'peer', data.fileData);
+          appendLocalMessage('', 'peer', data.fileData, data.nickname);
         } else if (data.text) {
-          appendLocalMessage(data.text, 'peer');
+          appendLocalMessage(data.text, 'peer', null, data.nickname);
         }
       }
+      break;
+    case 'owner-transferred':
+      currentIsOwner = true;
+      btnChangePassword.classList.remove('hidden');
+      setLobbyStatus(data.message || '방 개설자 권한이 이전되었습니다.');
+      break;
+    case 'password-changed':
+      alert(data.message || '비밀번호가 변경되었습니다.');
       break;
     case 'room-deleted':
       cleanupPeer();
@@ -489,19 +514,29 @@ function joinChatRoom(roomId, hasPassword) {
     return;
   }
   if (uiMode !== 'lobby') return;
+  
+  const nickname = userNicknameInput.value.trim();
+  if (!nickname) {
+    alert('닉네임을 입력해주세요.');
+    userNicknameInput.focus();
+    return;
+  }
+  
   cleanupPeer();
   currentRoomId = roomId;
+  currentNickname = nickname;
+  saveNickname(nickname);
   
   let password = '';
   if (hasPassword) {
-    password = prompt('이 방은 비밀번호가 설정되어 있습니다. 비밀번호를 입력하세요:');
+    password = prompt('이 방은 비밀번호가 설정되어 있습니다. 비밀밀호를 입력하세요:');
     if (password === null) {
       currentRoomId = '';
       return;
     }
   }
   
-  sendSignal({ type: 'join', roomId, password });
+  sendSignal({ type: 'join', roomId, password, nickname });
 }
 
 /** @param {string} raw */
@@ -539,17 +574,34 @@ function saveServerEndpoint() {
   localStorage.setItem(SERVER_ENDPOINT_KEY, JSON.stringify(payload));
 }
 
+function saveNickname(nickname) {
+  localStorage.setItem(NICKNAME_KEY, nickname);
+}
+
+function loadNickname() {
+  try {
+    return localStorage.getItem(NICKNAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
 function applyServerEndpointToInputs() {
   const saved = loadServerEndpoint();
   if (saved) {
     serverHostInput.value = saved.host;
     serverPortInput.value = saved.port;
     serverTlsInput.checked = saved.tls;
-    return;
+  } else {
+    serverHostInput.value = 'localhost';
+    serverPortInput.value = '8787';
+    serverTlsInput.checked = false;
   }
-  serverHostInput.value = 'localhost';
-  serverPortInput.value = '8787';
-  serverTlsInput.checked = false;
+  
+  const nickname = loadNickname();
+  if (nickname) {
+    userNicknameInput.value = nickname;
+  }
 }
 
 function buildSignalingUrl() {
@@ -659,6 +711,21 @@ btnCreateRoom.addEventListener('click', () => {
   newRoomMaxPeersInput.value = '';
 });
 
+btnChangePassword.addEventListener('click', () => {
+  if (!currentIsOwner) {
+    alert('방 개설자만 비밀번호를 변경할 수 있습니다.');
+    return;
+  }
+  const newPassword = prompt('새 비밀번호를 입력하세요 (비워두면 비밀번호 제거):');
+  if (newPassword === null) return;
+  
+  sendSignal({ 
+    type: 'change-password', 
+    password: newPassword.trim(),
+    roomId: currentRoomId 
+  });
+});
+
 btnLeaveRoom.addEventListener('click', () => {
   leaveChatToLobby();
 });
@@ -704,16 +771,16 @@ async function sendFile(file) {
         alert('P2P 연결이 활성화되지 않았습니다.');
         return;
       }
-      dc.send(JSON.stringify({ type: 'file', fileData }));
+      dc.send(JSON.stringify({ type: 'file', fileData, nickname: currentNickname }));
     } else {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         alert('서버 연결이 끊어졌습니다.');
         return;
       }
-      sendSignal({ type: 'chat-message', fileData, roomId: currentRoomId });
+      sendSignal({ type: 'chat-message', fileData, roomId: currentRoomId, nickname: currentNickname });
     }
     
-    appendLocalMessage('', 'self', fileData);
+    appendLocalMessage('', 'self', fileData, currentNickname);
   } catch (err) {
     alert('파일 전송 중 오류가 발생했습니다: ' + err.message);
   }
@@ -734,13 +801,13 @@ composer.addEventListener('submit', (e) => {
   
   if (currentUseP2P) {
     if (!dc || dc.readyState !== 'open') return;
-    dc.send(text);
+    dc.send(JSON.stringify({ type: 'text', text, nickname: currentNickname }));
   } else {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    sendSignal({ type: 'chat-message', text, roomId: currentRoomId });
+    sendSignal({ type: 'chat-message', text, roomId: currentRoomId, nickname: currentNickname });
   }
   
-  appendLocalMessage(text, 'self');
+  appendLocalMessage(text, 'self', null, currentNickname);
   messageInput.value = '';
 });
 

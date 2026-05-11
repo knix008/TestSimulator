@@ -16,6 +16,18 @@
       </header>
 
       <section class="panel lobby" id="lobby">
+        <div class="user-block">
+          <label class="field">
+            <span>닉네임 (채팅방에서 표시될 이름)</span>
+            <input
+              id="userNickname"
+              type="text"
+              placeholder="닉네임을 입력하세요"
+              maxlength="20"
+              autocomplete="off"
+            />
+          </label>
+        </div>
         <div class="server-block">
           <label class="field">
             <span>시그널 서버 (호스트 또는 IP, 도메인)</span>
@@ -103,6 +115,7 @@
         <div class="chat-toolbar">
           <span id="roomLabel"></span>
           <span class="badge" id="connBadge">연결 중…</span>
+          <button type="button" id="btnChangePassword" class="ghost hidden" title="비밀번호 변경">🔑 비밀번호</button>
           <button type="button" id="btnLeaveRoom" class="ghost">로비로 나가기</button>
         </div>
         <div class="messages" id="messages" aria-live="polite"></div>

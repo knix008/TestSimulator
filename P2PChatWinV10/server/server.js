@@ -12,7 +12,7 @@ const PORT = Number(process.env.PORT) || 8787;
 const DEFAULT_MAX_PEERS = 2;
 const ABSOLUTE_MAX_PEERS = 20;
 
-/** @type {Map<string, { id: string, name: string, createdAt: number, password?: string, maxPeers: number }>} */
+/** @type {Map<string, { id: string, name: string, createdAt: number, password?: string, maxPeers: number, ownerId?: string }>} */
 const roomRegistry = new Map();
 
 /** @type {Map<string, Set<import('ws').WebSocket>>} */
@@ -70,9 +70,34 @@ function leaveRoom(ws) {
     return;
   }
   const peers = rooms.get(roomId);
+  const roomMeta = roomRegistry.get(roomId);
+  const wasOwner = roomMeta && roomMeta.ownerId === ws.clientId;
+  
   peers.delete(ws);
-  broadcast(roomId, { type: 'peer-left', roomId }, null);
-  if (peers.size === 0) rooms.delete(roomId);
+  
+  // 마지막 참가자가 나가면 방 삭제
+  if (peers.size === 0) {
+    rooms.delete(roomId);
+    roomRegistry.delete(roomId);
+    broadcastLobbyRoomList();
+    ws.signalRoomId = null;
+    return;
+  }
+  
+  // 개설자가 나가면 다음 참가자에게 권한 이전
+  if (wasOwner && roomMeta) {
+    const nextOwner = [...peers][0];
+    if (nextOwner && nextOwner.clientId) {
+      roomMeta.ownerId = nextOwner.clientId;
+      nextOwner.send(JSON.stringify({ 
+        type: 'owner-transferred', 
+        roomId,
+        message: '방 개설자 권한이 이전되었습니다.' 
+      }));
+    }
+  }
+  
+  broadcast(roomId, { type: 'peer-left', roomId, peerCount: peers.size }, null);
   ws.signalRoomId = null;
 }
 
@@ -80,8 +105,9 @@ function leaveRoom(ws) {
  * @param {string} rawName
  * @param {string} [rawPassword]
  * @param {number} [rawMaxPeers]
+ * @param {string} [ownerId]
  */
-function createRoomRecord(rawName, rawPassword, rawMaxPeers) {
+function createRoomRecord(rawName, rawPassword, rawMaxPeers, ownerId) {
   const trimmed = typeof rawName === 'string' ? rawName.trim().slice(0, 64) : '';
   const id = randomUUID();
   const name = trimmed || `방 ${id.slice(0, 8)}`;
@@ -92,6 +118,9 @@ function createRoomRecord(rawName, rawPassword, rawMaxPeers) {
   const meta = { id, name, createdAt: Date.now(), maxPeers };
   if (password) {
     meta.password = password;
+  }
+  if (ownerId) {
+    meta.ownerId = ownerId;
   }
   roomRegistry.set(id, meta);
   broadcastLobbyRoomList();
@@ -271,7 +300,9 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 wss.on('connection', (ws) => {
+  ws.clientId = randomUUID();
   ws.signalRoomId = null;
+  ws.nickname = '';
 
   ws.on('message', (raw) => {
     let msg;
@@ -290,7 +321,7 @@ wss.on('connection', (ws) => {
       const rawName = typeof msg.name === 'string' ? msg.name : '';
       const rawPassword = typeof msg.password === 'string' ? msg.password : '';
       const rawMaxPeers = typeof msg.maxPeers === 'number' ? msg.maxPeers : undefined;
-      const meta = createRoomRecord(rawName, rawPassword, rawMaxPeers);
+      const meta = createRoomRecord(rawName, rawPassword, rawMaxPeers, ws.clientId);
       ws.send(JSON.stringify({ type: 'room-created', room: meta }));
       return;
     }
@@ -321,6 +352,12 @@ wss.on('connection', (ws) => {
           return;
         }
       }
+      
+      // 닉네임 저장
+      const nickname = typeof msg.nickname === 'string' ? msg.nickname.trim().slice(0, 20) : '';
+      if (nickname) {
+        ws.nickname = nickname;
+      }
       if (ws.signalRoomId === id) {
         return;
       }
@@ -338,6 +375,7 @@ wss.on('connection', (ws) => {
       ws.signalRoomId = id;
       const isInitiator = peers.size === 1;
       const useP2P = roomMeta.maxPeers <= 2;
+      const isOwner = roomMeta.ownerId === ws.clientId;
       ws.send(
         JSON.stringify({
           type: 'joined',
@@ -346,22 +384,55 @@ wss.on('connection', (ws) => {
           peerCount: peers.size,
           useP2P,
           maxPeers: roomMeta.maxPeers,
+          isOwner,
         }),
       );
       broadcast(id, { type: 'peer-joined', roomId: id, peerCount: peers.size }, ws);
       return;
     }
 
+    if (msg.type === 'change-password') {
+      const roomId = ws.signalRoomId;
+      if (!roomId) {
+        ws.send(JSON.stringify({ type: 'error', message: '방에 입장하지 않았습니다.' }));
+        return;
+      }
+      const roomMeta = roomRegistry.get(roomId);
+      if (!roomMeta) {
+        ws.send(JSON.stringify({ type: 'error', message: '방을 찾을 수 없습니다.' }));
+        return;
+      }
+      if (roomMeta.ownerId !== ws.clientId) {
+        ws.send(JSON.stringify({ type: 'error', message: '방 개설자만 비밀번호를 변경할 수 있습니다.' }));
+        return;
+      }
+      const newPassword = typeof msg.password === 'string' ? msg.password.trim() : '';
+      if (newPassword) {
+        roomMeta.password = newPassword;
+      } else {
+        delete roomMeta.password;
+      }
+      broadcastLobbyRoomList();
+      ws.send(JSON.stringify({ 
+        type: 'password-changed', 
+        message: newPassword ? '비밀번호가 설정되었습니다.' : '비밀번호가 제거되었습니다.',
+        hasPassword: Boolean(newPassword)
+      }));
+      return;
+    }
+
     if (!ws.signalRoomId) return;
 
     if (msg.type === 'chat-message') {
+      const nickname = ws.nickname || '상대';
       if (msg.fileData) {
         // 파일 메시지
         broadcast(ws.signalRoomId, { 
           type: 'chat-message', 
           fileData: msg.fileData,
           from: 'peer',
-          roomId: ws.signalRoomId 
+          roomId: ws.signalRoomId,
+          nickname 
         }, ws);
       } else if (typeof msg.text === 'string') {
         // 텍스트 메시지
@@ -371,7 +442,8 @@ wss.on('connection', (ws) => {
             type: 'chat-message', 
             text, 
             from: 'peer',
-            roomId: ws.signalRoomId 
+            roomId: ws.signalRoomId,
+            nickname 
           }, ws);
         }
       }
