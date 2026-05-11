@@ -44,16 +44,27 @@ WebRTC P2P 및 서버 중계 방식을 지원하는 채팅 애플리케이션입
 
 - Node.js 18 이상 권장 (`crypto.randomUUID`, ES Modules 지원)
 
-## 실행 방법
+## 빌드 및 실행 방법
 
 ### 1. 시그널 서버
+
+#### 빌드
+Node.js 프로젝트이므로 별도의 빌드 과정이 필요 없습니다. 의존성 설치만 하면 됩니다.
 
 ```bash
 cd Server
 npm install
-npm start
 ```
 
+#### 실행
+
+```bash
+npm start
+# 또는
+node server.js
+```
+
+#### 서버 정보
 - 기본 포트: **8787** (`PORT` 환경 변수로 변경 가능)
 - **관리 화면:** 브라우저에서 `http://localhost:8787/`  
   - 방 목록·생성·삭제
@@ -62,33 +73,77 @@ npm start
   - 8초마다 자동 갱신
 - **WebSocket:** `ws://localhost:8787` (채팅 클라이언트에서 사용)
 
-### 2. 채팅 클라이언트
+### 2. 웹 클라이언트 (브라우저)
 
-#### 웹 클라이언트 (브라우저)
+#### 빌드
+정적 파일 프로젝트이므로 별도의 빌드 과정이 필요 없습니다. 의존성 설치만 하면 됩니다.
 
 ```bash
 cd WebClient
 npm install
+```
+
+#### 실행
+
+```bash
 npm start
 ```
 
 브라우저에서 `http://localhost:3000` 을 연 뒤, 시그널 주소에 `ws://localhost:8787` 을 입력하고 **서버 연결** → 방 만들기 또는 목록에서 **입장**합니다.
 
+#### 기능
 - 방 생성 시 **비밀번호**와 **최대 인원**(2~20명)을 설정할 수 있습니다
 - 📎 버튼으로 **이미지, 동영상, 압축 파일**을 전송할 수 있습니다 (최대 10MB)
 - 전송된 이미지는 바로 표시되며, 동영상은 재생 가능하고, 압축 파일은 다운로드 링크가 생성됩니다
 
-#### C# Windows 클라이언트
+### 3. C# Windows 클라이언트
 
+#### 빌드
+
+**명령줄 방식:**
 ```powershell
-cd PCClient\PCClient
+cd PCClient
 dotnet restore
-dotnet run
+dotnet build
 ```
 
-또는 Visual Studio에서 `PCClient.sln`을 열어 F5로 실행합니다.
+**Visual Studio 방식:**
+1. `PCClient\PCClient.sln` 파일을 Visual Studio에서 엽니다
+2. 메뉴: **빌드 > 솔루션 빌드** (Ctrl+Shift+B)
 
+**릴리즈 빌드 (배포용):**
+```powershell
+cd PCClient
+dotnet publish -c Release -r win-x64 --self-contained false
+```
+- 실행 파일 위치: `PCClient\bin\Release\net8.0-windows\win-x64\publish\`
+
+#### 실행
+
+**명령줄 방식:**
+```powershell
+cd PCClient\PCClient
+dotnet run
+# 또는 빌드 후
+dotnet .\bin\Debug\net8.0-windows\PCClient.dll
+```
+
+**Visual Studio 방식:**
+1. `PCClient\PCClient.sln` 파일을 Visual Studio에서 엽니다
+2. F5 키를 눌러 디버그 모드로 실행
+3. 또는 Ctrl+F5로 디버깅 없이 실행
+
+**릴리즈 빌드 실행:**
+```powershell
+cd PCClient\bin\Release\net8.0-windows\win-x64\publish
+.\PCClient.exe
+```
+
+#### 요구사항
 - **.NET 8.0** 이상 필요 (Windows 10/11)
+- [.NET 8.0 Runtime 다운로드](https://dotnet.microsoft.com/download/dotnet/8.0)
+
+#### 주요 기능
 - **다중 창 지원**: 로비 창(방 목록)과 각 채팅방마다 독립적인 창
   - 로비 창에서 방 목록 관리 (생성, 새로고침, 참가)
   - 방 더블클릭으로 참가
@@ -101,6 +156,33 @@ dotnet run
 - 웹 클라이언트와 동일한 서버에 연결 가능
 - 동일한 암호화 방식(AES-256-GCM)으로 웹 사용자와 통신 가능
 - 자세한 내용은 [PCClient/PCClient/README.md](PCClient/PCClient/README.md) 참조
+
+### 전체 시스템 실행 순서
+
+1. **서버 시작** (필수):
+   ```bash
+   cd Server
+   npm install
+   npm start
+   ```
+
+2. **클라이언트 실행** (선택):
+   - **웹 클라이언트**:
+     ```bash
+     cd WebClient
+     npm install
+     npm start
+     # 브라우저에서 http://localhost:3000 접속
+     ```
+   
+   - **Windows 클라이언트**:
+     ```powershell
+     cd PCClient\PCClient
+     dotnet run
+     ```
+
+3. **관리자 페이지 접속** (선택):
+   - 브라우저에서 `http://localhost:8787/` 접속
 
 ## 사용 방법
 
