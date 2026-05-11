@@ -6,9 +6,13 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationIcon />
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
     <StartupObject />
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="daemon_hammer.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
