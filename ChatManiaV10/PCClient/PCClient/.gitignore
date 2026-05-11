@@ -1,0 +1,10 @@
+## C# 빌드 아티팩트
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.csproj.user
+
+## Visual Studio
+.vs/
