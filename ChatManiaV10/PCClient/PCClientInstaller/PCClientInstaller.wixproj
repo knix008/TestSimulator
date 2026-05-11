@@ -1,0 +1,22 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+
+  <PropertyGroup>
+    <OutputName>PCClientSetup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <Version>1.0.0.0</Version>
+    <PCClientPublishDir>$(MSBuildThisFileDirectory)obj\$(Configuration)\publish\</PCClientPublishDir>
+    <PCClientSourceDir>$(MSBuildThisFileDirectory)..\PCClient\</PCClientSourceDir>
+    <DefineConstants>PCClientPublishDir=$(PCClientPublishDir);PCClientSourceDir=$(PCClientSourceDir)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+  </ItemGroup>
+
+  <Target Name="PublishPCClient" BeforeTargets="Compile" Condition="'$(SkipPublishPCClient)' != 'true'">
+    <MSBuild Projects="..\PCClient\PCClient.csproj"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;PublishDir=$(PCClientPublishDir)" />
+  </Target>
+
+</Project>

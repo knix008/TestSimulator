@@ -18,345 +18,329 @@ namespace PCClient
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-            this.groupBoxConnection = new System.Windows.Forms.GroupBox();
-            this.textBoxNickname = new System.Windows.Forms.TextBox();
-            this.labelNickname = new System.Windows.Forms.Label();
-            this.textBoxServerUrl = new System.Windows.Forms.TextBox();
-            this.labelServerUrl = new System.Windows.Forms.Label();
-            this.buttonConnect = new System.Windows.Forms.Button();
-            this.buttonDisconnect = new System.Windows.Forms.Button();
-            this.labelStatus = new System.Windows.Forms.Label();
-
-            this.groupBoxRoomManagement = new System.Windows.Forms.GroupBox();
-            this.buttonRefreshRooms = new System.Windows.Forms.Button();
-            this.listViewRooms = new System.Windows.Forms.ListView();
-            this.columnHeaderRoomName = new System.Windows.Forms.ColumnHeader();
-            this.columnHeaderRoomId = new System.Windows.Forms.ColumnHeader();
-            this.columnHeaderPeers = new System.Windows.Forms.ColumnHeader();
-            this.columnHeaderLocked = new System.Windows.Forms.ColumnHeader();
-            this.textBoxRoomName = new System.Windows.Forms.TextBox();
-            this.labelRoomName = new System.Windows.Forms.Label();
-            this.textBoxRoomPassword = new System.Windows.Forms.TextBox();
-            this.labelRoomPassword = new System.Windows.Forms.Label();
-            this.numericUpDownMaxPeers = new System.Windows.Forms.NumericUpDown();
-            this.labelMaxPeers = new System.Windows.Forms.Label();
-            this.buttonCreateRoom = new System.Windows.Forms.Button();
-            this.buttonJoinRoom = new System.Windows.Forms.Button();
-
-            this.groupBoxConnection.SuspendLayout();
-            this.groupBoxRoomManagement.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.numericUpDownMaxPeers)).BeginInit();
-            this.SuspendLayout();
-
+            groupBoxConnection = new GroupBox();
+            labelStatus = new Label();
+            buttonDisconnect = new Button();
+            buttonConnect = new Button();
+            textBoxServerUrl = new TextBox();
+            labelServerUrl = new Label();
+            textBoxNickname = new TextBox();
+            labelNickname = new Label();
+            groupBoxRoomManagement = new GroupBox();
+            buttonJoinRoom = new Button();
+            buttonCreateRoom = new Button();
+            numericUpDownMaxPeers = new NumericUpDown();
+            labelMaxPeers = new Label();
+            textBoxRoomPassword = new TextBox();
+            labelRoomPassword = new Label();
+            textBoxRoomName = new TextBox();
+            labelRoomName = new Label();
+            listViewRooms = new ListView();
+            columnHeaderRoomName = new ColumnHeader();
+            columnHeaderRoomId = new ColumnHeader();
+            columnHeaderPeers = new ColumnHeader();
+            columnHeaderLocked = new ColumnHeader();
+            buttonRefreshRooms = new Button();
+            groupBoxConnection.SuspendLayout();
+            groupBoxRoomManagement.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numericUpDownMaxPeers).BeginInit();
+            SuspendLayout();
             // 
             // groupBoxConnection
             // 
-            this.groupBoxConnection.BackColor = System.Drawing.Color.FromArgb(248, 249, 250);
-            this.groupBoxConnection.Controls.Add(this.labelStatus);
-            this.groupBoxConnection.Controls.Add(this.buttonDisconnect);
-            this.groupBoxConnection.Controls.Add(this.buttonConnect);
-            this.groupBoxConnection.Controls.Add(this.textBoxServerUrl);
-            this.groupBoxConnection.Controls.Add(this.labelServerUrl);
-            this.groupBoxConnection.Controls.Add(this.textBoxNickname);
-            this.groupBoxConnection.Controls.Add(this.labelNickname);
-            this.groupBoxConnection.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.groupBoxConnection.Location = new System.Drawing.Point(15, 15);
-            this.groupBoxConnection.Name = "groupBoxConnection";
-            this.groupBoxConnection.Padding = new System.Windows.Forms.Padding(10);
-            this.groupBoxConnection.Size = new System.Drawing.Size(380, 160);
-            this.groupBoxConnection.TabIndex = 0;
-            this.groupBoxConnection.TabStop = false;
-            this.groupBoxConnection.Text = "🔌 서버 연결";
-
-            // 
-            // textBoxNickname
-            // 
-            this.textBoxNickname.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.textBoxNickname.Location = new System.Drawing.Point(95, 35);
-            this.textBoxNickname.MaxLength = 20;
-            this.textBoxNickname.Name = "textBoxNickname";
-            this.textBoxNickname.Size = new System.Drawing.Size(265, 21);
-            this.textBoxNickname.TabIndex = 0;
-            this.textBoxNickname.Text = "C#사용자";
-
-            // 
-            // labelNickname
-            // 
-            this.labelNickname.AutoSize = true;
-            this.labelNickname.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.labelNickname.Location = new System.Drawing.Point(20, 38);
-            this.labelNickname.Name = "labelNickname";
-            this.labelNickname.Size = new System.Drawing.Size(43, 15);
-            this.labelNickname.TabIndex = 1;
-            this.labelNickname.Text = "닉네임:";
-
-            // 
-            // textBoxServerUrl
-            // 
-            this.textBoxServerUrl.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.textBoxServerUrl.Location = new System.Drawing.Point(95, 65);
-            this.textBoxServerUrl.Name = "textBoxServerUrl";
-            this.textBoxServerUrl.Size = new System.Drawing.Size(265, 21);
-            this.textBoxServerUrl.TabIndex = 2;
-            this.textBoxServerUrl.Text = "ws://localhost:8787";
-
-            // 
-            // labelServerUrl
-            // 
-            this.labelServerUrl.AutoSize = true;
-            this.labelServerUrl.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.labelServerUrl.Location = new System.Drawing.Point(20, 68);
-            this.labelServerUrl.Name = "labelServerUrl";
-            this.labelServerUrl.Size = new System.Drawing.Size(55, 15);
-            this.labelServerUrl.TabIndex = 3;
-            this.labelServerUrl.Text = "서버 주소:";
-
-            // 
-            // buttonConnect
-            // 
-            this.buttonConnect.BackColor = System.Drawing.Color.FromArgb(84, 110, 122);
-            this.buttonConnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonConnect.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
-            this.buttonConnect.ForeColor = System.Drawing.Color.White;
-            this.buttonConnect.Location = new System.Drawing.Point(95, 105);
-            this.buttonConnect.Name = "buttonConnect";
-            this.buttonConnect.Size = new System.Drawing.Size(130, 35);
-            this.buttonConnect.TabIndex = 4;
-            this.buttonConnect.Text = "연결";
-            this.buttonConnect.UseVisualStyleBackColor = false;
-            this.buttonConnect.Click += new System.EventHandler(this.buttonConnect_Click);
-
-            // 
-            // buttonDisconnect
-            // 
-            this.buttonDisconnect.BackColor = System.Drawing.Color.FromArgb(189, 195, 199);
-            this.buttonDisconnect.Enabled = false;
-            this.buttonDisconnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonDisconnect.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
-            this.buttonDisconnect.ForeColor = System.Drawing.Color.FromArgb(52, 73, 94);
-            this.buttonDisconnect.Location = new System.Drawing.Point(230, 105);
-            this.buttonDisconnect.Name = "buttonDisconnect";
-            this.buttonDisconnect.Size = new System.Drawing.Size(130, 35);
-            this.buttonDisconnect.TabIndex = 5;
-            this.buttonDisconnect.Text = "연결 해제";
-            this.buttonDisconnect.UseVisualStyleBackColor = false;
-            this.buttonDisconnect.Click += new System.EventHandler(this.buttonDisconnect_Click);
-
+            groupBoxConnection.BackColor = Color.FromArgb(248, 249, 250);
+            groupBoxConnection.Controls.Add(labelStatus);
+            groupBoxConnection.Controls.Add(buttonDisconnect);
+            groupBoxConnection.Controls.Add(buttonConnect);
+            groupBoxConnection.Controls.Add(textBoxServerUrl);
+            groupBoxConnection.Controls.Add(labelServerUrl);
+            groupBoxConnection.Controls.Add(textBoxNickname);
+            groupBoxConnection.Controls.Add(labelNickname);
+            groupBoxConnection.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            groupBoxConnection.Location = new Point(15, 19);
+            groupBoxConnection.Margin = new Padding(3, 4, 3, 4);
+            groupBoxConnection.Name = "groupBoxConnection";
+            groupBoxConnection.Padding = new Padding(10, 12, 10, 12);
+            groupBoxConnection.Size = new Size(380, 200);
+            groupBoxConnection.TabIndex = 0;
+            groupBoxConnection.TabStop = false;
+            groupBoxConnection.Text = "🔌 서버 연결";
             // 
             // labelStatus
             // 
-            this.labelStatus.AutoSize = true;
-            this.labelStatus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.labelStatus.ForeColor = System.Drawing.Color.FromArgb(149, 165, 166);
-            this.labelStatus.Location = new System.Drawing.Point(20, 140);
-            this.labelStatus.Name = "labelStatus";
-            this.labelStatus.Size = new System.Drawing.Size(103, 15);
-            this.labelStatus.TabIndex = 6;
-            this.labelStatus.Text = "❌ 연결되지 않음";
-
+            labelStatus.AutoSize = true;
+            labelStatus.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            labelStatus.ForeColor = Color.FromArgb(149, 165, 166);
+            labelStatus.Location = new Point(20, 175);
+            labelStatus.Name = "labelStatus";
+            labelStatus.Size = new Size(100, 15);
+            labelStatus.TabIndex = 6;
+            labelStatus.Text = "❌ 연결되지 않음";
+            // 
+            // buttonDisconnect
+            // 
+            buttonDisconnect.BackColor = Color.FromArgb(189, 195, 199);
+            buttonDisconnect.Enabled = false;
+            buttonDisconnect.FlatStyle = FlatStyle.Flat;
+            buttonDisconnect.Font = new Font("맑은 고딕", 9.75F, FontStyle.Bold);
+            buttonDisconnect.ForeColor = Color.FromArgb(52, 73, 94);
+            buttonDisconnect.Location = new Point(230, 131);
+            buttonDisconnect.Margin = new Padding(3, 4, 3, 4);
+            buttonDisconnect.Name = "buttonDisconnect";
+            buttonDisconnect.Size = new Size(130, 44);
+            buttonDisconnect.TabIndex = 5;
+            buttonDisconnect.Text = "연결 해제";
+            buttonDisconnect.UseVisualStyleBackColor = false;
+            buttonDisconnect.Click += buttonDisconnect_Click;
+            // 
+            // buttonConnect
+            // 
+            buttonConnect.BackColor = Color.FromArgb(84, 110, 122);
+            buttonConnect.FlatStyle = FlatStyle.Flat;
+            buttonConnect.Font = new Font("맑은 고딕", 9.75F, FontStyle.Bold);
+            buttonConnect.ForeColor = Color.White;
+            buttonConnect.Location = new Point(95, 131);
+            buttonConnect.Margin = new Padding(3, 4, 3, 4);
+            buttonConnect.Name = "buttonConnect";
+            buttonConnect.Size = new Size(130, 44);
+            buttonConnect.TabIndex = 4;
+            buttonConnect.Text = "연결";
+            buttonConnect.UseVisualStyleBackColor = false;
+            buttonConnect.Click += buttonConnect_Click;
+            // 
+            // textBoxServerUrl
+            // 
+            textBoxServerUrl.Font = new Font("맑은 고딕", 9F);
+            textBoxServerUrl.Location = new Point(95, 81);
+            textBoxServerUrl.Margin = new Padding(3, 4, 3, 4);
+            textBoxServerUrl.Name = "textBoxServerUrl";
+            textBoxServerUrl.Size = new Size(265, 23);
+            textBoxServerUrl.TabIndex = 2;
+            textBoxServerUrl.Text = "ws://localhost:8787";
+            // 
+            // labelServerUrl
+            // 
+            labelServerUrl.AutoSize = true;
+            labelServerUrl.Font = new Font("맑은 고딕", 9F);
+            labelServerUrl.Location = new Point(20, 85);
+            labelServerUrl.Name = "labelServerUrl";
+            labelServerUrl.Size = new Size(62, 15);
+            labelServerUrl.TabIndex = 3;
+            labelServerUrl.Text = "서버 주소:";
+            // 
+            // textBoxNickname
+            // 
+            textBoxNickname.Font = new Font("맑은 고딕", 9F);
+            textBoxNickname.Location = new Point(95, 44);
+            textBoxNickname.Margin = new Padding(3, 4, 3, 4);
+            textBoxNickname.MaxLength = 20;
+            textBoxNickname.Name = "textBoxNickname";
+            textBoxNickname.Size = new Size(265, 23);
+            textBoxNickname.TabIndex = 0;
+            textBoxNickname.Text = "C#사용자";
+            // 
+            // labelNickname
+            // 
+            labelNickname.AutoSize = true;
+            labelNickname.Font = new Font("맑은 고딕", 9F);
+            labelNickname.Location = new Point(20, 48);
+            labelNickname.Name = "labelNickname";
+            labelNickname.Size = new Size(46, 15);
+            labelNickname.TabIndex = 1;
+            labelNickname.Text = "닉네임:";
             // 
             // groupBoxRoomManagement
             // 
-            this.groupBoxRoomManagement.BackColor = System.Drawing.Color.FromArgb(248, 249, 250);
-            this.groupBoxRoomManagement.Controls.Add(this.buttonJoinRoom);
-            this.groupBoxRoomManagement.Controls.Add(this.buttonCreateRoom);
-            this.groupBoxRoomManagement.Controls.Add(this.numericUpDownMaxPeers);
-            this.groupBoxRoomManagement.Controls.Add(this.labelMaxPeers);
-            this.groupBoxRoomManagement.Controls.Add(this.textBoxRoomPassword);
-            this.groupBoxRoomManagement.Controls.Add(this.labelRoomPassword);
-            this.groupBoxRoomManagement.Controls.Add(this.textBoxRoomName);
-            this.groupBoxRoomManagement.Controls.Add(this.labelRoomName);
-            this.groupBoxRoomManagement.Controls.Add(this.listViewRooms);
-            this.groupBoxRoomManagement.Controls.Add(this.buttonRefreshRooms);
-            this.groupBoxRoomManagement.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.groupBoxRoomManagement.Location = new System.Drawing.Point(15, 185);
-            this.groupBoxRoomManagement.Name = "groupBoxRoomManagement";
-            this.groupBoxRoomManagement.Padding = new System.Windows.Forms.Padding(10);
-            this.groupBoxRoomManagement.Size = new System.Drawing.Size(380, 420);
-            this.groupBoxRoomManagement.TabIndex = 1;
-            this.groupBoxRoomManagement.TabStop = false;
-            this.groupBoxRoomManagement.Text = "🏠 방 관리";
-
-            // 
-            // buttonRefreshRooms
-            // 
-            this.buttonRefreshRooms.BackColor = System.Drawing.Color.FromArgb(189, 195, 199);
-            this.buttonRefreshRooms.Enabled = false;
-            this.buttonRefreshRooms.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonRefreshRooms.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.buttonRefreshRooms.ForeColor = System.Drawing.Color.FromArgb(52, 73, 94);
-            this.buttonRefreshRooms.Location = new System.Drawing.Point(20, 30);
-            this.buttonRefreshRooms.Name = "buttonRefreshRooms";
-            this.buttonRefreshRooms.Size = new System.Drawing.Size(340, 32);
-            this.buttonRefreshRooms.TabIndex = 0;
-            this.buttonRefreshRooms.Text = "🔄 방 목록 새로고침";
-            this.buttonRefreshRooms.UseVisualStyleBackColor = false;
-            this.buttonRefreshRooms.Click += new System.EventHandler(this.buttonRefreshRooms_Click);
-
-            // 
-            // listViewRooms
-            // 
-            this.listViewRooms.BackColor = System.Drawing.Color.White;
-            this.listViewRooms.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.columnHeaderRoomName,
-            this.columnHeaderRoomId,
-            this.columnHeaderPeers,
-            this.columnHeaderLocked});
-            this.listViewRooms.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.listViewRooms.FullRowSelect = true;
-            this.listViewRooms.GridLines = true;
-            this.listViewRooms.HideSelection = false;
-            this.listViewRooms.Location = new System.Drawing.Point(20, 68);
-            this.listViewRooms.MultiSelect = false;
-            this.listViewRooms.Name = "listViewRooms";
-            this.listViewRooms.Size = new System.Drawing.Size(340, 155);
-            this.listViewRooms.TabIndex = 1;
-            this.listViewRooms.UseCompatibleStateImageBehavior = false;
-            this.listViewRooms.View = System.Windows.Forms.View.Details;
-            this.listViewRooms.DoubleClick += new System.EventHandler(this.listViewRooms_DoubleClick);
-
-            // 
-            // columnHeaderRoomName
-            // 
-            this.columnHeaderRoomName.Text = "방 이름";
-            this.columnHeaderRoomName.Width = 120;
-
-            // 
-            // columnHeaderRoomId
-            // 
-            this.columnHeaderRoomId.Text = "방 ID";
-            this.columnHeaderRoomId.Width = 80;
-
-            // 
-            // columnHeaderPeers
-            // 
-            this.columnHeaderPeers.Text = "인원";
-            this.columnHeaderPeers.Width = 50;
-
-            // 
-            // columnHeaderLocked
-            // 
-            this.columnHeaderLocked.Text = "잠금";
-            this.columnHeaderLocked.Width = 50;
-
-            // 
-            // textBoxRoomName
-            // 
-            this.textBoxRoomName.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.textBoxRoomName.Location = new System.Drawing.Point(100, 235);
-            this.textBoxRoomName.Name = "textBoxRoomName";
-            this.textBoxRoomName.Size = new System.Drawing.Size(260, 21);
-            this.textBoxRoomName.TabIndex = 2;
-            this.textBoxRoomName.Text = "새 방";
-
-            // 
-            // labelRoomName
-            // 
-            this.labelRoomName.AutoSize = true;
-            this.labelRoomName.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.labelRoomName.Location = new System.Drawing.Point(20, 238);
-            this.labelRoomName.Name = "labelRoomName";
-            this.labelRoomName.Size = new System.Drawing.Size(43, 15);
-            this.labelRoomName.TabIndex = 3;
-            this.labelRoomName.Text = "방 이름:";
-
-            // 
-            // textBoxRoomPassword
-            // 
-            this.textBoxRoomPassword.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.textBoxRoomPassword.Location = new System.Drawing.Point(100, 265);
-            this.textBoxRoomPassword.Name = "textBoxRoomPassword";
-            this.textBoxRoomPassword.PasswordChar = '*';
-            this.textBoxRoomPassword.Size = new System.Drawing.Size(260, 21);
-            this.textBoxRoomPassword.TabIndex = 4;
-
-            // 
-            // labelRoomPassword
-            // 
-            this.labelRoomPassword.AutoSize = true;
-            this.labelRoomPassword.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.labelRoomPassword.Location = new System.Drawing.Point(20, 268);
-            this.labelRoomPassword.Name = "labelRoomPassword";
-            this.labelRoomPassword.Size = new System.Drawing.Size(67, 15);
-            this.labelRoomPassword.TabIndex = 5;
-            this.labelRoomPassword.Text = "비밀번호(옵션):";
-
-            // 
-            // numericUpDownMaxPeers
-            // 
-            this.numericUpDownMaxPeers.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.numericUpDownMaxPeers.Location = new System.Drawing.Point(100, 295);
-            this.numericUpDownMaxPeers.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
-            this.numericUpDownMaxPeers.Minimum = new decimal(new int[] { 2, 0, 0, 0 });
-            this.numericUpDownMaxPeers.Name = "numericUpDownMaxPeers";
-            this.numericUpDownMaxPeers.Size = new System.Drawing.Size(260, 21);
-            this.numericUpDownMaxPeers.TabIndex = 6;
-            this.numericUpDownMaxPeers.Value = new decimal(new int[] { 10, 0, 0, 0 });
-
-            // 
-            // labelMaxPeers
-            // 
-            this.labelMaxPeers.AutoSize = true;
-            this.labelMaxPeers.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.labelMaxPeers.Location = new System.Drawing.Point(20, 298);
-            this.labelMaxPeers.Name = "labelMaxPeers";
-            this.labelMaxPeers.Size = new System.Drawing.Size(55, 15);
-            this.labelMaxPeers.TabIndex = 7;
-            this.labelMaxPeers.Text = "최대 인원:";
-
-            // 
-            // buttonCreateRoom
-            // 
-            this.buttonCreateRoom.BackColor = System.Drawing.Color.FromArgb(189, 195, 199);
-            this.buttonCreateRoom.Enabled = false;
-            this.buttonCreateRoom.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonCreateRoom.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
-            this.buttonCreateRoom.ForeColor = System.Drawing.Color.FromArgb(52, 73, 94);
-            this.buttonCreateRoom.Location = new System.Drawing.Point(20, 330);
-            this.buttonCreateRoom.Name = "buttonCreateRoom";
-            this.buttonCreateRoom.Size = new System.Drawing.Size(340, 35);
-            this.buttonCreateRoom.TabIndex = 8;
-            this.buttonCreateRoom.Text = "➕ 방 만들기";
-            this.buttonCreateRoom.UseVisualStyleBackColor = false;
-            this.buttonCreateRoom.Click += new System.EventHandler(this.buttonCreateRoom_Click);
-
+            groupBoxRoomManagement.BackColor = Color.FromArgb(248, 249, 250);
+            groupBoxRoomManagement.Controls.Add(buttonJoinRoom);
+            groupBoxRoomManagement.Controls.Add(buttonCreateRoom);
+            groupBoxRoomManagement.Controls.Add(numericUpDownMaxPeers);
+            groupBoxRoomManagement.Controls.Add(labelMaxPeers);
+            groupBoxRoomManagement.Controls.Add(textBoxRoomPassword);
+            groupBoxRoomManagement.Controls.Add(labelRoomPassword);
+            groupBoxRoomManagement.Controls.Add(textBoxRoomName);
+            groupBoxRoomManagement.Controls.Add(labelRoomName);
+            groupBoxRoomManagement.Controls.Add(listViewRooms);
+            groupBoxRoomManagement.Controls.Add(buttonRefreshRooms);
+            groupBoxRoomManagement.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            groupBoxRoomManagement.Location = new Point(15, 231);
+            groupBoxRoomManagement.Margin = new Padding(3, 4, 3, 4);
+            groupBoxRoomManagement.Name = "groupBoxRoomManagement";
+            groupBoxRoomManagement.Padding = new Padding(10, 12, 10, 12);
+            groupBoxRoomManagement.Size = new Size(380, 525);
+            groupBoxRoomManagement.TabIndex = 1;
+            groupBoxRoomManagement.TabStop = false;
+            groupBoxRoomManagement.Text = "🏠 방 관리";
             // 
             // buttonJoinRoom
             // 
-            this.buttonJoinRoom.BackColor = System.Drawing.Color.FromArgb(84, 110, 122);
-            this.buttonJoinRoom.Enabled = false;
-            this.buttonJoinRoom.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonJoinRoom.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
-            this.buttonJoinRoom.ForeColor = System.Drawing.Color.White;
-            this.buttonJoinRoom.Location = new System.Drawing.Point(20, 373);
-            this.buttonJoinRoom.Name = "buttonJoinRoom";
-            this.buttonJoinRoom.Size = new System.Drawing.Size(340, 35);
-            this.buttonJoinRoom.TabIndex = 9;
-            this.buttonJoinRoom.Text = "🚪 선택한 방 참가 (새 창 열기)";
-            this.buttonJoinRoom.UseVisualStyleBackColor = false;
-            this.buttonJoinRoom.Click += new System.EventHandler(this.buttonJoinRoom_Click);
-
+            buttonJoinRoom.BackColor = Color.FromArgb(84, 110, 122);
+            buttonJoinRoom.Enabled = false;
+            buttonJoinRoom.FlatStyle = FlatStyle.Flat;
+            buttonJoinRoom.Font = new Font("맑은 고딕", 9.75F, FontStyle.Bold);
+            buttonJoinRoom.ForeColor = Color.White;
+            buttonJoinRoom.Location = new Point(20, 466);
+            buttonJoinRoom.Margin = new Padding(3, 4, 3, 4);
+            buttonJoinRoom.Name = "buttonJoinRoom";
+            buttonJoinRoom.Size = new Size(340, 44);
+            buttonJoinRoom.TabIndex = 9;
+            buttonJoinRoom.Text = "🚪 선택한 방 참가 (새 창 열기)";
+            buttonJoinRoom.UseVisualStyleBackColor = false;
+            buttonJoinRoom.Click += buttonJoinRoom_Click;
+            // 
+            // buttonCreateRoom
+            // 
+            buttonCreateRoom.BackColor = Color.FromArgb(189, 195, 199);
+            buttonCreateRoom.Enabled = false;
+            buttonCreateRoom.FlatStyle = FlatStyle.Flat;
+            buttonCreateRoom.Font = new Font("맑은 고딕", 9.75F, FontStyle.Bold);
+            buttonCreateRoom.ForeColor = Color.FromArgb(52, 73, 94);
+            buttonCreateRoom.Location = new Point(20, 412);
+            buttonCreateRoom.Margin = new Padding(3, 4, 3, 4);
+            buttonCreateRoom.Name = "buttonCreateRoom";
+            buttonCreateRoom.Size = new Size(340, 44);
+            buttonCreateRoom.TabIndex = 8;
+            buttonCreateRoom.Text = "➕ 방 만들기";
+            buttonCreateRoom.UseVisualStyleBackColor = false;
+            buttonCreateRoom.Click += buttonCreateRoom_Click;
+            // 
+            // numericUpDownMaxPeers
+            // 
+            numericUpDownMaxPeers.Font = new Font("맑은 고딕", 9F);
+            numericUpDownMaxPeers.Location = new Point(100, 369);
+            numericUpDownMaxPeers.Margin = new Padding(3, 4, 3, 4);
+            numericUpDownMaxPeers.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
+            numericUpDownMaxPeers.Minimum = new decimal(new int[] { 2, 0, 0, 0 });
+            numericUpDownMaxPeers.Name = "numericUpDownMaxPeers";
+            numericUpDownMaxPeers.Size = new Size(260, 23);
+            numericUpDownMaxPeers.TabIndex = 6;
+            numericUpDownMaxPeers.Value = new decimal(new int[] { 10, 0, 0, 0 });
+            // 
+            // labelMaxPeers
+            // 
+            labelMaxPeers.AutoSize = true;
+            labelMaxPeers.Font = new Font("맑은 고딕", 9F);
+            labelMaxPeers.Location = new Point(20, 372);
+            labelMaxPeers.Name = "labelMaxPeers";
+            labelMaxPeers.Size = new Size(62, 15);
+            labelMaxPeers.TabIndex = 7;
+            labelMaxPeers.Text = "최대 인원:";
+            // 
+            // textBoxRoomPassword
+            // 
+            textBoxRoomPassword.Font = new Font("맑은 고딕", 9F);
+            textBoxRoomPassword.Location = new Point(100, 331);
+            textBoxRoomPassword.Margin = new Padding(3, 4, 3, 4);
+            textBoxRoomPassword.Name = "textBoxRoomPassword";
+            textBoxRoomPassword.PasswordChar = '*';
+            textBoxRoomPassword.Size = new Size(260, 23);
+            textBoxRoomPassword.TabIndex = 4;
+            // 
+            // labelRoomPassword
+            // 
+            labelRoomPassword.AutoSize = true;
+            labelRoomPassword.Font = new Font("맑은 고딕", 9F);
+            labelRoomPassword.Location = new Point(20, 335);
+            labelRoomPassword.Name = "labelRoomPassword";
+            labelRoomPassword.Size = new Size(90, 15);
+            labelRoomPassword.TabIndex = 5;
+            labelRoomPassword.Text = "비밀번호(옵션):";
+            // 
+            // textBoxRoomName
+            // 
+            textBoxRoomName.Font = new Font("맑은 고딕", 9F);
+            textBoxRoomName.Location = new Point(100, 294);
+            textBoxRoomName.Margin = new Padding(3, 4, 3, 4);
+            textBoxRoomName.Name = "textBoxRoomName";
+            textBoxRoomName.Size = new Size(260, 23);
+            textBoxRoomName.TabIndex = 2;
+            textBoxRoomName.Text = "새 방";
+            // 
+            // labelRoomName
+            // 
+            labelRoomName.AutoSize = true;
+            labelRoomName.Font = new Font("맑은 고딕", 9F);
+            labelRoomName.Location = new Point(20, 298);
+            labelRoomName.Name = "labelRoomName";
+            labelRoomName.Size = new Size(50, 15);
+            labelRoomName.TabIndex = 3;
+            labelRoomName.Text = "방 이름:";
+            // 
+            // listViewRooms
+            // 
+            listViewRooms.BackColor = Color.White;
+            listViewRooms.Columns.AddRange(new ColumnHeader[] { columnHeaderRoomName, columnHeaderRoomId, columnHeaderPeers, columnHeaderLocked });
+            listViewRooms.Font = new Font("맑은 고딕", 9F);
+            listViewRooms.FullRowSelect = true;
+            listViewRooms.GridLines = true;
+            listViewRooms.Location = new Point(20, 85);
+            listViewRooms.Margin = new Padding(3, 4, 3, 4);
+            listViewRooms.MultiSelect = false;
+            listViewRooms.Name = "listViewRooms";
+            listViewRooms.Size = new Size(340, 193);
+            listViewRooms.TabIndex = 1;
+            listViewRooms.UseCompatibleStateImageBehavior = false;
+            listViewRooms.View = View.Details;
+            listViewRooms.DoubleClick += listViewRooms_DoubleClick;
+            // 
+            // columnHeaderRoomName
+            // 
+            columnHeaderRoomName.Text = "방 이름";
+            columnHeaderRoomName.Width = 120;
+            // 
+            // columnHeaderRoomId
+            // 
+            columnHeaderRoomId.Text = "방 ID";
+            columnHeaderRoomId.Width = 80;
+            // 
+            // columnHeaderPeers
+            // 
+            columnHeaderPeers.Text = "인원";
+            columnHeaderPeers.Width = 50;
+            // 
+            // columnHeaderLocked
+            // 
+            columnHeaderLocked.Text = "잠금";
+            columnHeaderLocked.Width = 50;
+            // 
+            // buttonRefreshRooms
+            // 
+            buttonRefreshRooms.BackColor = Color.FromArgb(189, 195, 199);
+            buttonRefreshRooms.Enabled = false;
+            buttonRefreshRooms.FlatStyle = FlatStyle.Flat;
+            buttonRefreshRooms.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            buttonRefreshRooms.ForeColor = Color.FromArgb(52, 73, 94);
+            buttonRefreshRooms.Location = new Point(20, 38);
+            buttonRefreshRooms.Margin = new Padding(3, 4, 3, 4);
+            buttonRefreshRooms.Name = "buttonRefreshRooms";
+            buttonRefreshRooms.Size = new Size(340, 40);
+            buttonRefreshRooms.TabIndex = 0;
+            buttonRefreshRooms.Text = "🔄 방 목록 새로고침";
+            buttonRefreshRooms.UseVisualStyleBackColor = false;
+            buttonRefreshRooms.Click += buttonRefreshRooms_Click;
             // 
             // MainForm
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(410, 620);
-            this.Controls.Add(this.groupBoxRoomManagement);
-            this.Controls.Add(this.groupBoxConnection);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
-            this.Name = "MainForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "P2P Chat Client - 방 목록 💬";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
-            this.groupBoxConnection.ResumeLayout(false);
-            this.groupBoxConnection.PerformLayout();
-            this.groupBoxRoomManagement.ResumeLayout(false);
-            this.groupBoxRoomManagement.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.numericUpDownMaxPeers)).EndInit();
-            this.ResumeLayout(false);
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            BackColor = Color.White;
+            ClientSize = new Size(410, 775);
+            Controls.Add(groupBoxRoomManagement);
+            Controls.Add(groupBoxConnection);
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            Icon = (Icon)resources.GetObject("$this.Icon");
+            Margin = new Padding(3, 4, 3, 4);
+            MaximizeBox = false;
+            Name = "MainForm";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "P2P Chat Client - 방 목록 💬";
+            FormClosing += MainForm_FormClosing;
+            groupBoxConnection.ResumeLayout(false);
+            groupBoxConnection.PerformLayout();
+            groupBoxRoomManagement.ResumeLayout(false);
+            groupBoxRoomManagement.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numericUpDownMaxPeers).EndInit();
+            ResumeLayout(false);
         }
 
         #endregion

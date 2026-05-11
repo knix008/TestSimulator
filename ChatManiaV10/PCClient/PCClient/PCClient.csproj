@@ -8,11 +8,27 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon />
     <StartupObject />
+    <RuntimeIdentifiers>win-x64;win-x86</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
+
+  <Target Name="BuildInstaller" AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(IsBuildingInstaller)' != 'true'">
+    <PropertyGroup>
+      <InstallerProjPath>$(MSBuildThisFileDirectory)..\PCClientInstaller\PCClientInstaller.wixproj</InstallerProjPath>
+      <InstallerPublishDir>$(MSBuildThisFileDirectory)..\PCClientInstaller\obj\$(Configuration)\publish\</InstallerPublishDir>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;PublishDir=$(InstallerPublishDir);IsBuildingInstaller=true" />
+    <MSBuild Projects="$(InstallerProjPath)"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);SkipPublishPCClient=true" />
+    <Message Text="MSI built: $(MSBuildThisFileDirectory)..\PCClientInstaller\bin\$(Configuration)\PCClientSetup.msi" Importance="High" />
+  </Target>
 
 </Project>

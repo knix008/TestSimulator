@@ -17,184 +17,176 @@ namespace PCClient
 
         private void InitializeComponent()
         {
-            this.groupBoxChat = new System.Windows.Forms.GroupBox();
-            this.labelStatus = new System.Windows.Forms.Label();
-            this.labelCurrentRoom = new System.Windows.Forms.Label();
-            this.buttonChangePassword = new System.Windows.Forms.Button();
-            this.buttonLeaveRoom = new System.Windows.Forms.Button();
-            this.buttonSendFile = new System.Windows.Forms.Button();
-            this.buttonSendMessage = new System.Windows.Forms.Button();
-            this.textBoxMessage = new System.Windows.Forms.TextBox();
-            this.richTextBoxChatHistory = new System.Windows.Forms.RichTextBox();
-
-            this.groupBoxChat.SuspendLayout();
-            this.SuspendLayout();
-
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(ChatRoomForm));
+            groupBoxChat = new GroupBox();
+            labelStatus = new Label();
+            labelCurrentRoom = new Label();
+            buttonChangePassword = new Button();
+            buttonLeaveRoom = new Button();
+            buttonSendFile = new Button();
+            buttonSendMessage = new Button();
+            textBoxMessage = new TextBox();
+            richTextBoxChatHistory = new RichTextBox();
+            groupBoxChat.SuspendLayout();
+            SuspendLayout();
             // 
             // groupBoxChat
             // 
-            this.groupBoxChat.BackColor = System.Drawing.Color.FromArgb(248, 249, 250);
-            this.groupBoxChat.Controls.Add(this.labelStatus);
-            this.groupBoxChat.Controls.Add(this.labelCurrentRoom);
-            this.groupBoxChat.Controls.Add(this.buttonChangePassword);
-            this.groupBoxChat.Controls.Add(this.buttonLeaveRoom);
-            this.groupBoxChat.Controls.Add(this.buttonSendFile);
-            this.groupBoxChat.Controls.Add(this.buttonSendMessage);
-            this.groupBoxChat.Controls.Add(this.textBoxMessage);
-            this.groupBoxChat.Controls.Add(this.richTextBoxChatHistory);
-            this.groupBoxChat.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.groupBoxChat.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.groupBoxChat.Location = new System.Drawing.Point(15, 15);
-            this.groupBoxChat.Name = "groupBoxChat";
-            this.groupBoxChat.Padding = new System.Windows.Forms.Padding(10);
-            this.groupBoxChat.Size = new System.Drawing.Size(650, 620);
-            this.groupBoxChat.TabIndex = 0;
-            this.groupBoxChat.TabStop = false;
-            this.groupBoxChat.Text = "💬 채팅";
-
+            groupBoxChat.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            groupBoxChat.BackColor = Color.FromArgb(248, 249, 250);
+            groupBoxChat.Controls.Add(labelStatus);
+            groupBoxChat.Controls.Add(labelCurrentRoom);
+            groupBoxChat.Controls.Add(buttonChangePassword);
+            groupBoxChat.Controls.Add(buttonLeaveRoom);
+            groupBoxChat.Controls.Add(buttonSendFile);
+            groupBoxChat.Controls.Add(buttonSendMessage);
+            groupBoxChat.Controls.Add(textBoxMessage);
+            groupBoxChat.Controls.Add(richTextBoxChatHistory);
+            groupBoxChat.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            groupBoxChat.Location = new Point(15, 19);
+            groupBoxChat.Margin = new Padding(3, 4, 3, 4);
+            groupBoxChat.Name = "groupBoxChat";
+            groupBoxChat.Padding = new Padding(10, 12, 10, 12);
+            groupBoxChat.Size = new Size(650, 775);
+            groupBoxChat.TabIndex = 0;
+            groupBoxChat.TabStop = false;
+            groupBoxChat.Text = "💬 채팅";
             // 
             // labelStatus
             // 
-            this.labelStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.labelStatus.AutoSize = true;
-            this.labelStatus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.labelStatus.ForeColor = System.Drawing.Color.FromArgb(149, 165, 166);
-            this.labelStatus.Location = new System.Drawing.Point(430, 30);
-            this.labelStatus.Name = "labelStatus";
-            this.labelStatus.Size = new System.Drawing.Size(103, 15);
-            this.labelStatus.TabIndex = 0;
-            this.labelStatus.Text = "⌛ 연결 중...";
-
+            labelStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            labelStatus.AutoSize = true;
+            labelStatus.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            labelStatus.ForeColor = Color.FromArgb(149, 165, 166);
+            labelStatus.Location = new Point(430, 38);
+            labelStatus.Name = "labelStatus";
+            labelStatus.Size = new Size(73, 15);
+            labelStatus.TabIndex = 0;
+            labelStatus.Text = "⌛ 연결 중...";
             // 
             // labelCurrentRoom
             // 
-            this.labelCurrentRoom.AutoSize = true;
-            this.labelCurrentRoom.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.labelCurrentRoom.ForeColor = System.Drawing.Color.FromArgb(52, 73, 94);
-            this.labelCurrentRoom.Location = new System.Drawing.Point(20, 30);
-            this.labelCurrentRoom.Name = "labelCurrentRoom";
-            this.labelCurrentRoom.Size = new System.Drawing.Size(180, 19);
-            this.labelCurrentRoom.TabIndex = 1;
-            this.labelCurrentRoom.Text = "현재 방: (연결 중...)";
-
-            // 
-            // richTextBoxChatHistory
-            // 
-            this.richTextBoxChatHistory.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.richTextBoxChatHistory.BackColor = System.Drawing.Color.White;
-            this.richTextBoxChatHistory.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.richTextBoxChatHistory.Font = new System.Drawing.Font("맑은 고딕", 9.75F);
-            this.richTextBoxChatHistory.Location = new System.Drawing.Point(20, 60);
-            this.richTextBoxChatHistory.Name = "richTextBoxChatHistory";
-            this.richTextBoxChatHistory.ReadOnly = true;
-            this.richTextBoxChatHistory.Size = new System.Drawing.Size(610, 480);
-            this.richTextBoxChatHistory.TabIndex = 2;
-            this.richTextBoxChatHistory.Text = "";
-
-            // 
-            // textBoxMessage
-            // 
-            this.textBoxMessage.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxMessage.Enabled = false;
-            this.textBoxMessage.Font = new System.Drawing.Font("맑은 고딕", 9.75F);
-            this.textBoxMessage.Location = new System.Drawing.Point(20, 550);
-            this.textBoxMessage.Name = "textBoxMessage";
-            this.textBoxMessage.Size = new System.Drawing.Size(430, 25);
-            this.textBoxMessage.TabIndex = 3;
-            this.textBoxMessage.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.textBoxMessage_KeyPress);
-
-            // 
-            // buttonSendMessage
-            // 
-            this.buttonSendMessage.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonSendMessage.BackColor = System.Drawing.Color.FromArgb(84, 110, 122);
-            this.buttonSendMessage.Enabled = false;
-            this.buttonSendMessage.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonSendMessage.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
-            this.buttonSendMessage.ForeColor = System.Drawing.Color.White;
-            this.buttonSendMessage.Location = new System.Drawing.Point(460, 550);
-            this.buttonSendMessage.Name = "buttonSendMessage";
-            this.buttonSendMessage.Size = new System.Drawing.Size(80, 30);
-            this.buttonSendMessage.TabIndex = 4;
-            this.buttonSendMessage.Text = "전송";
-            this.buttonSendMessage.UseVisualStyleBackColor = false;
-            this.buttonSendMessage.Click += new System.EventHandler(this.buttonSendMessage_Click);
-
-            // 
-            // buttonSendFile
-            // 
-            this.buttonSendFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonSendFile.BackColor = System.Drawing.Color.FromArgb(189, 195, 199);
-            this.buttonSendFile.Enabled = false;
-            this.buttonSendFile.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonSendFile.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
-            this.buttonSendFile.ForeColor = System.Drawing.Color.FromArgb(52, 73, 94);
-            this.buttonSendFile.Location = new System.Drawing.Point(550, 550);
-            this.buttonSendFile.Name = "buttonSendFile";
-            this.buttonSendFile.Size = new System.Drawing.Size(80, 30);
-            this.buttonSendFile.TabIndex = 5;
-            this.buttonSendFile.Text = "파일📎";
-            this.buttonSendFile.UseVisualStyleBackColor = false;
-            this.buttonSendFile.Click += new System.EventHandler(this.buttonSendFile_Click);
-
-            // 
-            // buttonLeaveRoom
-            // 
-            this.buttonLeaveRoom.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonLeaveRoom.BackColor = System.Drawing.Color.FromArgb(231, 76, 60);
-            this.buttonLeaveRoom.Enabled = false;
-            this.buttonLeaveRoom.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonLeaveRoom.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.buttonLeaveRoom.ForeColor = System.Drawing.Color.White;
-            this.buttonLeaveRoom.Location = new System.Drawing.Point(350, 586);
-            this.buttonLeaveRoom.Name = "buttonLeaveRoom";
-            this.buttonLeaveRoom.Size = new System.Drawing.Size(280, 26);
-            this.buttonLeaveRoom.TabIndex = 6;
-            this.buttonLeaveRoom.Text = "🔙 방 나가기 (창 닫기)";
-            this.buttonLeaveRoom.UseVisualStyleBackColor = false;
-            this.buttonLeaveRoom.Click += new System.EventHandler(this.buttonLeaveRoom_Click);
-
+            labelCurrentRoom.AutoSize = true;
+            labelCurrentRoom.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            labelCurrentRoom.ForeColor = Color.FromArgb(52, 73, 94);
+            labelCurrentRoom.Location = new Point(20, 38);
+            labelCurrentRoom.Name = "labelCurrentRoom";
+            labelCurrentRoom.Size = new Size(134, 19);
+            labelCurrentRoom.TabIndex = 1;
+            labelCurrentRoom.Text = "현재 방: (연결 중...)";
             // 
             // buttonChangePassword
             // 
-            this.buttonChangePassword.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonChangePassword.BackColor = System.Drawing.Color.FromArgb(189, 195, 199);
-            this.buttonChangePassword.Enabled = false;
-            this.buttonChangePassword.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.buttonChangePassword.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.buttonChangePassword.ForeColor = System.Drawing.Color.FromArgb(52, 73, 94);
-            this.buttonChangePassword.Location = new System.Drawing.Point(20, 586);
-            this.buttonChangePassword.Name = "buttonChangePassword";
-            this.buttonChangePassword.Size = new System.Drawing.Size(320, 26);
-            this.buttonChangePassword.TabIndex = 7;
-            this.buttonChangePassword.Text = "비밀번호 변경 🔑 (방장만 가능)";
-            this.buttonChangePassword.UseVisualStyleBackColor = false;
-            this.buttonChangePassword.Click += new System.EventHandler(this.buttonChangePassword_Click);
-
+            buttonChangePassword.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            buttonChangePassword.BackColor = Color.FromArgb(189, 195, 199);
+            buttonChangePassword.Enabled = false;
+            buttonChangePassword.FlatStyle = FlatStyle.Flat;
+            buttonChangePassword.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            buttonChangePassword.ForeColor = Color.FromArgb(52, 73, 94);
+            buttonChangePassword.Location = new Point(20, 732);
+            buttonChangePassword.Margin = new Padding(3, 4, 3, 4);
+            buttonChangePassword.Name = "buttonChangePassword";
+            buttonChangePassword.Size = new Size(320, 32);
+            buttonChangePassword.TabIndex = 7;
+            buttonChangePassword.Text = "비밀번호 변경 🔑 (방장만 가능)";
+            buttonChangePassword.UseVisualStyleBackColor = false;
+            buttonChangePassword.Click += buttonChangePassword_Click;
+            // 
+            // buttonLeaveRoom
+            // 
+            buttonLeaveRoom.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            buttonLeaveRoom.BackColor = Color.FromArgb(231, 76, 60);
+            buttonLeaveRoom.Enabled = false;
+            buttonLeaveRoom.FlatStyle = FlatStyle.Flat;
+            buttonLeaveRoom.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            buttonLeaveRoom.ForeColor = Color.White;
+            buttonLeaveRoom.Location = new Point(350, 732);
+            buttonLeaveRoom.Margin = new Padding(3, 4, 3, 4);
+            buttonLeaveRoom.Name = "buttonLeaveRoom";
+            buttonLeaveRoom.Size = new Size(280, 32);
+            buttonLeaveRoom.TabIndex = 6;
+            buttonLeaveRoom.Text = "🔙 방 나가기 (창 닫기)";
+            buttonLeaveRoom.UseVisualStyleBackColor = false;
+            buttonLeaveRoom.Click += buttonLeaveRoom_Click;
+            // 
+            // buttonSendFile
+            // 
+            buttonSendFile.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            buttonSendFile.BackColor = Color.FromArgb(189, 195, 199);
+            buttonSendFile.Enabled = false;
+            buttonSendFile.FlatStyle = FlatStyle.Flat;
+            buttonSendFile.Font = new Font("맑은 고딕", 9.75F, FontStyle.Bold);
+            buttonSendFile.ForeColor = Color.FromArgb(52, 73, 94);
+            buttonSendFile.Location = new Point(550, 688);
+            buttonSendFile.Margin = new Padding(3, 4, 3, 4);
+            buttonSendFile.Name = "buttonSendFile";
+            buttonSendFile.Size = new Size(80, 38);
+            buttonSendFile.TabIndex = 5;
+            buttonSendFile.Text = "파일📎";
+            buttonSendFile.UseVisualStyleBackColor = false;
+            buttonSendFile.Click += buttonSendFile_Click;
+            // 
+            // buttonSendMessage
+            // 
+            buttonSendMessage.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            buttonSendMessage.BackColor = Color.FromArgb(84, 110, 122);
+            buttonSendMessage.Enabled = false;
+            buttonSendMessage.FlatStyle = FlatStyle.Flat;
+            buttonSendMessage.Font = new Font("맑은 고딕", 9.75F, FontStyle.Bold);
+            buttonSendMessage.ForeColor = Color.White;
+            buttonSendMessage.Location = new Point(460, 688);
+            buttonSendMessage.Margin = new Padding(3, 4, 3, 4);
+            buttonSendMessage.Name = "buttonSendMessage";
+            buttonSendMessage.Size = new Size(80, 38);
+            buttonSendMessage.TabIndex = 4;
+            buttonSendMessage.Text = "전송";
+            buttonSendMessage.UseVisualStyleBackColor = false;
+            buttonSendMessage.Click += buttonSendMessage_Click;
+            // 
+            // textBoxMessage
+            // 
+            textBoxMessage.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            textBoxMessage.Enabled = false;
+            textBoxMessage.Font = new Font("맑은 고딕", 9.75F);
+            textBoxMessage.Location = new Point(20, 688);
+            textBoxMessage.Margin = new Padding(3, 4, 3, 4);
+            textBoxMessage.Name = "textBoxMessage";
+            textBoxMessage.Size = new Size(430, 25);
+            textBoxMessage.TabIndex = 3;
+            textBoxMessage.KeyPress += textBoxMessage_KeyPress;
+            // 
+            // richTextBoxChatHistory
+            // 
+            richTextBoxChatHistory.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            richTextBoxChatHistory.BackColor = Color.White;
+            richTextBoxChatHistory.BorderStyle = BorderStyle.FixedSingle;
+            richTextBoxChatHistory.Font = new Font("맑은 고딕", 9.75F);
+            richTextBoxChatHistory.Location = new Point(20, 75);
+            richTextBoxChatHistory.Margin = new Padding(3, 4, 3, 4);
+            richTextBoxChatHistory.Name = "richTextBoxChatHistory";
+            richTextBoxChatHistory.ReadOnly = true;
+            richTextBoxChatHistory.Size = new Size(610, 599);
+            richTextBoxChatHistory.TabIndex = 2;
+            richTextBoxChatHistory.Text = "";
             // 
             // ChatRoomForm
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(680, 650);
-            this.Controls.Add(this.groupBoxChat);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Sizable;
-            this.MaximizeBox = true;
-            this.MinimumSize = new System.Drawing.Size(500, 500);
-            this.Name = "ChatRoomForm";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "채팅방";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.ChatRoomForm_FormClosing);
-            this.Load += new System.EventHandler(this.ChatRoomForm_Load);
-            this.groupBoxChat.ResumeLayout(false);
-            this.groupBoxChat.PerformLayout();
-            this.ResumeLayout(false);
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            BackColor = Color.White;
+            ClientSize = new Size(680, 812);
+            Controls.Add(groupBoxChat);
+            Icon = (Icon)resources.GetObject("$this.Icon");
+            Margin = new Padding(3, 4, 3, 4);
+            MinimumSize = new Size(500, 615);
+            Name = "ChatRoomForm";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "채팅방";
+            FormClosing += ChatRoomForm_FormClosing;
+            Load += ChatRoomForm_Load;
+            groupBoxChat.ResumeLayout(false);
+            groupBoxChat.PerformLayout();
+            ResumeLayout(false);
         }
 
         #endregion

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($f = Get-Item \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\ChatManiaV10\\\\PCClient\\\\PCClientInstaller\\\\bin\\\\Release\\\\PCClientSetup.msi\"; Write-Output \"$\\($f.Name\\) - $\\([math]::Round\\($f.Length/1MB,2\\)\\) MB \\($\\($f.Length\\) bytes\\)\")",
+      "PowerShell(wix extension list 2>&1)"
+    ],
+    "additionalDirectories": [
+      "d:\\Home\\Projects\\TestSimulator\\ChatManiaV10\\PCClient\\PCClientInstaller\\obj\\Release"
+    ]
+  }
+}
