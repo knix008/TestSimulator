@@ -4,10 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="실시간 음성 인식 (Whisper STT)" Height="680" Width="900"
+        Title="실시간 음성 인식 (Whisper STT)" Height="800" Width="900"
         WindowStartupLocation="CenterScreen"
-        Background="#1A1A2E"
-        Icon="daemon_hammer.ico">
+        Background="#1A1A2E">
     <Window.Resources>
         <!-- 모던 버튼 스타일 -->
         <Style x:Key="ModernButtonStyle" TargetType="Button">
@@ -105,6 +104,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -166,18 +166,147 @@
                         
                         <ComboBox x:Name="MicrophoneComboBox"
                                   Grid.Column="1"
-                                  FontSize="13"
-                                  Padding="10,8"
+                                  FontSize="14"
                                   Background="#0F1419"
                                   Foreground="White"
                                   BorderBrush="#6C5CE7"
                                   BorderThickness="1"
                                   SelectionChanged="MicrophoneComboBox_SelectionChanged">
+                            <ComboBox.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#0F1419"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#6C5CE7"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                            </ComboBox.Resources>
+                            <ComboBox.Style>
+                                <Style TargetType="ComboBox">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ComboBox">
+                                                <Grid>
+                                                    <ToggleButton x:Name="ToggleButton"
+                                                                  Grid.Column="2"
+                                                                  Focusable="false"
+                                                                  IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                  ClickMode="Press"
+                                                                  Background="{TemplateBinding Background}"
+                                                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                                                  BorderThickness="{TemplateBinding BorderThickness}">
+                                                        <ToggleButton.Style>
+                                                            <Style TargetType="ToggleButton">
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <Border Background="{TemplateBinding Background}"
+                                                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                                                    CornerRadius="5">
+                                                                                <Grid>
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <ContentPresenter Grid.Column="0"/>
+                                                                                    <Path Grid.Column="1"
+                                                                                          x:Name="Arrow"
+                                                                                          HorizontalAlignment="Center"
+                                                                                          VerticalAlignment="Center"
+                                                                                          Data="M 0 0 L 4 4 L 8 0 Z"
+                                                                                          Fill="White"
+                                                                                          Margin="0,0,8,0"/>
+                                                                                </Grid>
+                                                                            </Border>
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Style>
+                                                        </ToggleButton.Style>
+                                                    </ToggleButton>
+                                                    <ContentPresenter x:Name="ContentSite"
+                                                                      IsHitTestVisible="False"
+                                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                                      Margin="10,8,30,8"
+                                                                      VerticalAlignment="Center"
+                                                                      HorizontalAlignment="Left">
+                                                        <ContentPresenter.Resources>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                                <Setter Property="FontSize" Value="14"/>
+                                                            </Style>
+                                                        </ContentPresenter.Resources>
+                                                    </ContentPresenter>
+                                                    <Popup x:Name="Popup"
+                                                           Placement="Bottom"
+                                                           IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                           AllowsTransparency="True"
+                                                           Focusable="False"
+                                                           PopupAnimation="Slide">
+                                                        <Grid x:Name="DropDown"
+                                                              SnapsToDevicePixels="True"
+                                                              MinWidth="{TemplateBinding ActualWidth}"
+                                                              MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                                            <Border x:Name="DropDownBorder"
+                                                                    Background="#0F1419"
+                                                                    BorderBrush="#6C5CE7"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="5"
+                                                                    Margin="0,2,0,0">
+                                                                <ScrollViewer Margin="2"
+                                                                              SnapsToDevicePixels="True">
+                                                                    <StackPanel IsItemsHost="True"
+                                                                                KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                                                </ScrollViewer>
+                                                            </Border>
+                                                        </Grid>
+                                                    </Popup>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ComboBox.Style>
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding DeviceName}" Foreground="White"/>
+                                    <TextBlock Text="{Binding DeviceName}" 
+                                               Foreground="White"
+                                               FontSize="14"
+                                               Padding="5,5"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="Background" Value="#0F1419"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Padding" Value="10,8"/>
+                                    <Setter Property="FontSize" Value="14"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ComboBoxItem">
+                                                <Border x:Name="Bd"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsHighlighted" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#6C5CE7"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#5548C8"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
                         </ComboBox>
                         
                         <Button x:Name="RefreshMicButton"
@@ -217,7 +346,7 @@
                     </Grid>
                 </Border>
 
-                <!-- 볼륨 조절 섹션 -->
+                <!-- 모델 선택 섹션 -->
                 <Border Grid.Row="2" 
                         Background="#1A2332" 
                         CornerRadius="10"
@@ -226,7 +355,169 @@
                         BorderBrush="#6C5CE7"
                         BorderThickness="1">
                     <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" 
+                                   Text="🤖 AI 모델:" 
+                                   FontSize="14" 
+                                   FontWeight="SemiBold"
+                                   Foreground="#E0E0E0"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,15,0"/>
+                        
+                        <ComboBox x:Name="ModelComboBox"
+                                  Grid.Column="1"
+                                  FontSize="14"
+                                  Background="#0F1419"
+                                  Foreground="White"
+                                  BorderBrush="#6C5CE7"
+                                  BorderThickness="1"
+                                  SelectionChanged="ModelComboBox_SelectionChanged">
+                            <ComboBox.Resources>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#0F1419"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#6C5CE7"/>
+                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
+                            </ComboBox.Resources>
+                            <ComboBox.Style>
+                                <Style TargetType="ComboBox">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ComboBox">
+                                                <Grid>
+                                                    <ToggleButton x:Name="ToggleButton"
+                                                                  Grid.Column="2"
+                                                                  Focusable="false"
+                                                                  IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                  ClickMode="Press"
+                                                                  Background="{TemplateBinding Background}"
+                                                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                                                  BorderThickness="{TemplateBinding BorderThickness}">
+                                                        <ToggleButton.Style>
+                                                            <Style TargetType="ToggleButton">
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <Border Background="{TemplateBinding Background}"
+                                                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                                                    CornerRadius="5">
+                                                                                <Grid>
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <ContentPresenter Grid.Column="0"/>
+                                                                                    <Path Grid.Column="1"
+                                                                                          x:Name="Arrow"
+                                                                                          HorizontalAlignment="Center"
+                                                                                          VerticalAlignment="Center"
+                                                                                          Data="M 0 0 L 4 4 L 8 0 Z"
+                                                                                          Fill="White"
+                                                                                          Margin="0,0,8,0"/>
+                                                                                </Grid>
+                                                                            </Border>
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Style>
+                                                        </ToggleButton.Style>
+                                                    </ToggleButton>
+                                                    <ContentPresenter x:Name="ContentSite"
+                                                                      IsHitTestVisible="False"
+                                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                                      Margin="10,8,30,8"
+                                                                      VerticalAlignment="Center"
+                                                                      HorizontalAlignment="Left">
+                                                        <ContentPresenter.Resources>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                                <Setter Property="FontSize" Value="14"/>
+                                                            </Style>
+                                                        </ContentPresenter.Resources>
+                                                    </ContentPresenter>
+                                                    <Popup x:Name="Popup"
+                                                           Placement="Bottom"
+                                                           IsOpen="{TemplateBinding IsDropDownOpen}"
+                                                           AllowsTransparency="True"
+                                                           Focusable="False"
+                                                           PopupAnimation="Slide">
+                                                        <Grid x:Name="DropDown"
+                                                              SnapsToDevicePixels="True"
+                                                              MinWidth="{TemplateBinding ActualWidth}"
+                                                              MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                                            <Border x:Name="DropDownBorder"
+                                                                    Background="#0F1419"
+                                                                    BorderBrush="#6C5CE7"
+                                                                    BorderThickness="1"
+                                                                    CornerRadius="5"
+                                                                    Margin="0,2,0,0">
+                                                                <ScrollViewer Margin="2"
+                                                                              SnapsToDevicePixels="True">
+                                                                    <StackPanel IsItemsHost="True"
+                                                                                KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                                                </ScrollViewer>
+                                                            </Border>
+                                                        </Grid>
+                                                    </Popup>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ComboBox.Style>
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="Background" Value="#0F1419"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                    <Setter Property="Padding" Value="10,8"/>
+                                    <Setter Property="FontSize" Value="14"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ComboBoxItem">
+                                                <Border x:Name="Bd"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsHighlighted" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#6C5CE7"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="#5548C8"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
+                    </Grid>
+                </Border>
+
+                <!-- 볼륨 조절 섹션 -->
+                <Border Grid.Row="3" 
+                        Background="#1A2332" 
+                        CornerRadius="10"
+                        Padding="20,15" 
+                        Margin="0,0,0,20"
+                        BorderBrush="#6C5CE7"
+                        BorderThickness="1">
+                    <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
@@ -289,10 +580,19 @@
                                                     
                                                     <Track x:Name="PART_Track" Grid.Row="0">
                                                         <Track.DecreaseRepeatButton>
-                                                            <RepeatButton Command="Slider.DecreaseLarge" 
-                                                                          Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
-                                                                          Background="#6C5CE7"
-                                                                          Height="6"/>
+                                                            <RepeatButton Command="Slider.DecreaseLarge">
+                                                                <RepeatButton.Style>
+                                                                    <Style TargetType="RepeatButton">
+                                                                        <Setter Property="Template">
+                                                                            <Setter.Value>
+                                                                                <ControlTemplate TargetType="RepeatButton">
+                                                                                    <Border Background="#6C5CE7" Height="6"/>
+                                                                                </ControlTemplate>
+                                                                            </Setter.Value>
+                                                                        </Setter>
+                                                                    </Style>
+                                                                </RepeatButton.Style>
+                                                            </RepeatButton>
                                                         </Track.DecreaseRepeatButton>
                                                         <Track.Thumb>
                                                             <Thumb Width="20" Height="20">
@@ -318,9 +618,19 @@
                                                             </Thumb>
                                                         </Track.Thumb>
                                                         <Track.IncreaseRepeatButton>
-                                                            <RepeatButton Command="Slider.IncreaseLarge" 
-                                                                          Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
-                                                                          Background="Transparent"/>
+                                                            <RepeatButton Command="Slider.IncreaseLarge">
+                                                                <RepeatButton.Style>
+                                                                    <Style TargetType="RepeatButton">
+                                                                        <Setter Property="Template">
+                                                                            <Setter.Value>
+                                                                                <ControlTemplate TargetType="RepeatButton">
+                                                                                    <Border Background="Transparent"/>
+                                                                                </ControlTemplate>
+                                                                            </Setter.Value>
+                                                                        </Setter>
+                                                                    </Style>
+                                                                </RepeatButton.Style>
+                                                            </RepeatButton>
                                                         </Track.IncreaseRepeatButton>
                                                     </Track>
                                                 </Grid>
@@ -330,11 +640,49 @@
                                 </Style>
                             </Slider.Style>
                         </Slider>
+                        
+                        <!-- 오디오 레벨 미터 -->
+                        <Grid Grid.Row="2" Margin="0,15,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Grid.Row="0" 
+                                       Text="🎤 입력 레벨:" 
+                                       FontSize="14" 
+                                       FontWeight="SemiBold"
+                                       Foreground="#E0E0E0"
+                                       Margin="0,0,0,8"/>
+                            
+                            <Border Grid.Row="1"
+                                    Background="#0F1419"
+                                    BorderBrush="#6C5CE7"
+                                    BorderThickness="1"
+                                    CornerRadius="5"
+                                    Height="25">
+                                <ProgressBar x:Name="AudioLevelBar"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="0"
+                                             Height="21"
+                                             BorderThickness="0"
+                                             Margin="2"
+                                             Foreground="#00D2A0">
+                                    <ProgressBar.Style>
+                                        <Style TargetType="ProgressBar">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="Foreground" Value="#00D2A0"/>
+                                        </Style>
+                                    </ProgressBar.Style>
+                                </ProgressBar>
+                            </Border>
+                        </Grid>
                     </Grid>
                 </Border>
 
                 <!-- 컨트롤 버튼 -->
-                <StackPanel Grid.Row="3" 
+                <StackPanel Grid.Row="4" 
                             Orientation="Horizontal" 
                             HorizontalAlignment="Center"
                             Margin="0,0,0,25">
@@ -366,7 +714,7 @@
                 </StackPanel>
 
                 <!-- 인식 결과 표시 영역 -->
-                <Border Grid.Row="4" 
+                <Border Grid.Row="5" 
                         Background="#0F1419" 
                         CornerRadius="12" 
                         Padding="0"
@@ -418,7 +766,7 @@
                 </Border>
 
                 <!-- 상태 표시줄 -->
-                <Border Grid.Row="5" 
+                <Border Grid.Row="6" 
                         Background="#1A2332" 
                         CornerRadius="10"
                         Padding="15,12" 

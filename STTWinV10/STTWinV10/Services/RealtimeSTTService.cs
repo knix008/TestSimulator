@@ -19,6 +19,7 @@ namespace STTWinV10.Services
         public event EventHandler<string>? TranscriptionReceived;
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<string>? ErrorOccurred;
+        public event EventHandler<float>? AudioLevelChanged;
 
         public bool IsRunning => _isRunning;
 
@@ -38,6 +39,7 @@ namespace STTWinV10.Services
 
             // 이벤트 연결
             _audioCaptureService.ErrorOccurred += (s, e) => ErrorOccurred?.Invoke(this, e);
+            _audioCaptureService.AudioLevelChanged += (s, level) => AudioLevelChanged?.Invoke(this, level);
             _whisperService.ErrorOccurred += (s, e) => ErrorOccurred?.Invoke(this, e);
             _whisperService.TranscriptionReceived += (s, e) => TranscriptionReceived?.Invoke(this, e.Text);
         }

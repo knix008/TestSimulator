@@ -20,6 +20,7 @@ namespace STTWinV10.Services
         private float _volumeGain = 1.0f; // 기본값 1.0 (100%)
 
         public event EventHandler<AudioDataEventArgs>? AudioDataAvailable;
+        public event EventHandler<float>? AudioLevelChanged;
         public event EventHandler<string>? ErrorOccurred;
 
         public bool IsCapturing => _isCapturing;
@@ -142,6 +143,10 @@ namespace STTWinV10.Services
                 // 16-bit PCM을 float로 변환
                 var floatData = ConvertBytesToFloat(e.Buffer, e.BytesRecorded);
 
+                // 오디오 레벨 계산 (RMS)
+                float level = CalculateAudioLevel(floatData);
+                AudioLevelChanged?.Invoke(this, level);
+
                 lock (_bufferLock)
                 {
                     _audioBuffer.AddRange(floatData);
@@ -180,6 +185,25 @@ namespace STTWinV10.Services
             }
 
             return floatBuffer;
+        }
+
+        /// <summary>
+        /// 오디오 레벨 계산 (RMS - Root Mean Square)
+        /// </summary>
+        private float CalculateAudioLevel(float[] samples)
+        {
+            if (samples.Length == 0)
+                return 0f;
+
+            float sum = 0f;
+            for (int i = 0; i < samples.Length; i++)
+            {
+                sum += samples[i] * samples[i];
+            }
+            
+            float rms = (float)Math.Sqrt(sum / samples.Length);
+            // 0-1 범위로 정규화 (일반적으로 RMS는 0.0-0.5 정도, 2배 스케일링)
+            return Math.Clamp(rms * 2.0f, 0f, 1f);
         }
 
         public void Dispose()

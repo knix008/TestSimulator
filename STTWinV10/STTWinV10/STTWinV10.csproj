@@ -17,4 +17,8 @@
     <PackageReference Include="System.Reactive" Version="6.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="daemon_hammer.ico" />
+  </ItemGroup>
+
 </Project>
