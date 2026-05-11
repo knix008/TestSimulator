@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="실시간 음성 인식 (Whisper STT)" Height="800" Width="900"
+        Title="실시간 음성 인식 (Whisper STT)" Height="900" Width="900"
         WindowStartupLocation="CenterScreen"
         Background="#1A1A2E">
     <Window.Resources>

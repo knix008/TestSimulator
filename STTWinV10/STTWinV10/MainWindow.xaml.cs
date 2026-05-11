@@ -117,7 +117,8 @@ namespace STTWinV10
                 {
                     new WhisperModel { Name = "Tiny (75MB) - 빠른 속도", Type = GgmlType.Tiny, FileName = "ggml-tiny.bin" },
                     new WhisperModel { Name = "Base (142MB) - 균형 (권장)", Type = GgmlType.Base, FileName = "ggml-base.bin" },
-                    new WhisperModel { Name = "Small (466MB) - 높은 정확도", Type = GgmlType.Small, FileName = "ggml-small.bin" }
+                    new WhisperModel { Name = "Small (466MB) - 높은 정확도", Type = GgmlType.Small, FileName = "ggml-small.bin" },
+                    new WhisperModel { Name = "Large-v3 (2.9GB) - 최고 정확도", Type = GgmlType.LargeV3, FileName = "ggml-large-v3.bin" }
                 };
 
                 ModelComboBox.ItemsSource = models;
