@@ -25,6 +25,7 @@ namespace PCClient
         public event EventHandler<bool>? ConnectionStateChanged;
         public event EventHandler<JObject>? RoomListReceived;
         public event EventHandler<string>? RoomJoined;
+        public event EventHandler<string>? RoomLeft;
         public event EventHandler<string>? FileReceived;
 
         public bool IsConnected => _webSocket?.State == WebSocketState.Open;
@@ -259,6 +260,17 @@ namespace PCClient
                             _isOwner = msg["isOwner"]?.ToObject<bool>() ?? false;
                             SystemMessage?.Invoke(this, $"방에 참가했습니다: {roomId}");
                             RoomJoined?.Invoke(this, roomId ?? "");
+                            break;
+                        }
+
+                    case "left-room":
+                        {
+                            string leftRoomId = _currentRoomId ?? "";
+                            _currentRoomId = null;
+                            _encryptionKey = null;
+                            _isOwner = false;
+                            SystemMessage?.Invoke(this, "방에서 나갔습니다.");
+                            RoomLeft?.Invoke(this, leftRoomId);
                             break;
                         }
 

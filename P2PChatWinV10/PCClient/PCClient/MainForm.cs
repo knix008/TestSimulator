@@ -36,11 +36,12 @@ namespace PCClient
                 _chatClient.ConnectionStateChanged += OnConnectionStateChanged;
                 _chatClient.RoomListReceived += OnRoomListReceived;
                 _chatClient.RoomJoined += OnRoomJoined;
+                _chatClient.RoomLeft += OnRoomLeft;
                 _chatClient.FileReceived += OnFileReceived;
 
                 buttonConnect.Enabled = false;
-                labelStatus.Text = "연결 중...";
-                labelStatus.ForeColor = Color.Orange;
+                labelStatus.Text = "⌛ 연결 중...";
+                labelStatus.ForeColor = Color.FromArgb(149, 165, 166);
 
                 await _chatClient.ConnectAsync(textBoxServerUrl.Text, textBoxNickname.Text);
             }
@@ -48,8 +49,8 @@ namespace PCClient
             {
                 MessageBox.Show($"연결 실패: {ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 buttonConnect.Enabled = true;
-                labelStatus.Text = "연결되지 않음";
-                labelStatus.ForeColor = Color.Red;
+                labelStatus.Text = "❌ 연결되지 않음";
+                labelStatus.ForeColor = Color.FromArgb(149, 165, 166);
             }
         }
 
@@ -317,8 +318,8 @@ namespace PCClient
 
             if (isConnected)
             {
-                labelStatus.Text = "연결됨 🔒";
-                labelStatus.ForeColor = Color.Green;
+                labelStatus.Text = "✅ 연결됨 🔒";
+                labelStatus.ForeColor = Color.FromArgb(84, 110, 122);
                 buttonConnect.Enabled = false;
                 buttonDisconnect.Enabled = true;
                 buttonRefreshRooms.Enabled = true;
@@ -327,8 +328,8 @@ namespace PCClient
             }
             else
             {
-                labelStatus.Text = "연결되지 않음";
-                labelStatus.ForeColor = Color.Red;
+                labelStatus.Text = "❌ 연결되지 않음";
+                labelStatus.ForeColor = Color.FromArgb(149, 165, 166);
                 buttonConnect.Enabled = true;
                 buttonDisconnect.Enabled = false;
                 buttonRefreshRooms.Enabled = false;
@@ -389,6 +390,18 @@ namespace PCClient
             {
                 buttonChangePassword.Enabled = true;
             }
+        }
+
+        private void OnRoomLeft(object? sender, string roomId)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => OnRoomLeft(sender, roomId)));
+                return;
+            }
+
+            AppendChatMessage($"[시스템] 방 {roomId}에서 나갔습니다.", Color.Red);
+            UpdateRoomState(false);
         }
 
         // 방 상태 UI 업데이트
