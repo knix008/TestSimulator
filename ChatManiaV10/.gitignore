@@ -1,6 +1,8 @@
-# Dependencies
+# Node.js Dependencies
 node_modules/
 package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
 # Logs
 logs/
@@ -8,6 +10,8 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
 
 # Environment
 .env
@@ -18,23 +22,82 @@ yarn-error.log*
 Thumbs.db
 Desktop.ini
 .DS_Store
+.AppleDouble
+.LSOverride
+ehthumbs.db
+ehthumbs_vista.db
 
-# Editor
+# Editor / IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
 # Build / cache
 dist/
 build/
 .cache/
 *.tsbuildinfo
+out/
 
 # Test coverage
 coverage/
+*.lcov
+.nyc_output
+
+# .NET Build outputs
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# .NET User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET Build Results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.sln.docstates
+*.userprefs
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
 
 # Optional local notes
 *.local
 notes.md
+TODO.md

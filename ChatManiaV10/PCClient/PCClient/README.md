@@ -5,16 +5,26 @@ WebSocket 기반 채팅 서버에 연결하는 C# WinForms 클라이언트입니
 ## 주요 기능
 
 - ✅ **End-to-End 암호화**: AES-256-GCM 암호화 지원
-- ✅ **WinForms GUI**: 사용하기 쉬운 Windows Forms 인터페이스
+- ✅ **다중 창 관리**: 로비 창과 각 채팅방마다 독립적인 창
+  - 로비 창에서 방 목록 관리 및 서버 연결
+  - 각 채팅방은 별도의 창으로 열림
+  - 여러 채팅방을 동시에 사용 가능
+  - 중복 참가 방지 (같은 방 클릭 시 기존 창 활성화)
+- ✅ **자동 동작**:
+  - 방 생성 시 자동으로 채팅 창 열림
+  - 서버에서 방 삭제 시 해당 채팅 창 자동 종료
+  - 방 더블클릭으로 빠른 참가
+- ✅ **WinForms GUI**: 사용하기 쉬운 Windows Forms 인터페이스 (크기 조절 가능)
 - ✅ **방 관리**: 방 생성, 참가, 목록 조회
 - ✅ **비밀번호 보호**: 방 비밀번호 설정 및 변경 (방장)
 - ✅ **파일 전송**: 이미지, 동영상, 압축 파일 전송 (최대 10MB)
 - ✅ **닉네임 시스템**: 사용자 닉네임 설정
 - ✅ **실시간 채팅**: WebSocket 기반 실시간 통신
+- ✅ **독립 연결**: 각 채팅방마다 독립적인 WebSocket 연결
 
 ## 요구사항
 
-- .NET 6.0 이상 (Windows)
+- .NET 8.0 이상 (Windows)
 - Windows 10/11
 
 ## 빌드 및 실행
@@ -91,13 +101,44 @@ dotnet publish -c Release -r win-x64 --self-contained false
 
 모든 채팅 메시지는 암호화되어 전송되며, 서버는 암호화된 데이터만 중계합니다.
 
+## 아키텍처
+
+### 다중 창 구조
+
+- **MainForm (로비 창)**: 
+  - 서버 연결 관리
+  - 방 목록 표시 및 새로고침
+  - 방 생성 및 참가 UI
+  - 열려 있는 채팅방 추적 (중복 방지)
+  - 단일 ChatClient 인스턴스 사용
+
+- **ChatRoomForm (채팅방 창)**:
+  - 각 방마다 독립적인 창
+  - 독립적인 ChatClient 인스턴스
+  - 실시간 메시지 송수신
+  - 파일 전송 기능
+  - 방장 권한 (비밀번호 변경)
+  - 크기 조절 가능 (최소 500x500)
+
+### 이벤트 기반 통신
+
+- **RoomCreated**: 방 생성 완료 시 자동으로 채팅 창 열림
+- **RoomDeleted**: 서버에서 방 삭제 시 해당 채팅 창 자동 종료
+- **RoomJoined/RoomLeft**: 방 참가/퇴장 상태 추적
+
 ## 프로젝트 구조
 
 ```
 PCClient/
-├── PCClient.csproj          # 프로젝트 파일
-├── Program.cs               # 진입점
-├── MainForm.cs              # 메인 폼 로직
+├── PCClient.sln             # 솔루션 파일
+└── PCClient/
+    ├── PCClient.csproj      # 프로젝트 파일 (.NET 8.0)
+    ├── Program.cs           # 진입점
+    ├── MainForm.cs          # 로비 창 로직
+    ├── MainForm.Designer.cs # 로비 창 UI
+    ├── ChatRoomForm.cs      # 채팅방 창 로직
+    ├── ChatRoomForm.Designer.cs # 채팅방 창 UI
+    ├── ChatClient.cs        # WebSocket 통신
 ├── MainForm.Designer.cs     # 메인 폼 UI 디자인
 ├── ChatClient.cs            # WebSocket 클라이언트
 ├── EncryptionHelper.cs      # AES-256-GCM 암호화 헬퍼

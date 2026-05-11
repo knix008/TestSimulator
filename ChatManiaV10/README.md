@@ -35,10 +35,10 @@ WebRTC P2P 및 서버 중계 방식을 지원하는 채팅 애플리케이션입
 
 | 경로 | 설명 |
 |------|------|
-| `server/` | WebSocket 시그널 서버 + 메시지 중계 + **관리용 HTTP GUI** (`/`) |
-| `server/admin/` | 관리자 웹 인터페이스 (정적 파일) |
-| `client/` | 채팅 웹 클라이언트 (정적 파일 + `serve`) |
-| `PCClient/` | **C# Windows 클라이언트** (.NET 6.0 WinForms) |
+| `Server/` | WebSocket 시그널 서버 + 메시지 중계 + **관리용 HTTP GUI** (`/`) |
+| `Server/admin/` | 관리자 웹 인터페이스 (정적 파일) - 방 관리 및 대기실 클라이언트 현황 표시 |
+| `WebClient/` | 채팅 웹 클라이언트 (정적 파일 + `serve`) |
+| `PCClient/` | **C# Windows 클라이언트** (.NET 8.0 WinForms) - 다중 창 지원 |
 
 ## 요구 사항
 
@@ -49,14 +49,17 @@ WebRTC P2P 및 서버 중계 방식을 지원하는 채팅 애플리케이션입
 ### 1. 시그널 서버
 
 ```bash
-cd server
+cd Server
 npm install
 npm start
 ```
 
 - 기본 포트: **8787** (`PORT` 환경 변수로 변경 가능)
 - **관리 화면:** 브라우저에서 `http://localhost:8787/`  
-  방 목록·생성·삭제, 시그널 연결 수 확인
+  - 방 목록·생성·삭제
+  - 시그널 연결 수 확인
+  - **대기실 클라이언트 현황**: 방에 들어가지 않은 클라이언트의 닉네임, ID, 연결 시각 실시간 표시
+  - 8초마다 자동 갱신
 - **WebSocket:** `ws://localhost:8787` (채팅 클라이언트에서 사용)
 
 ### 2. 채팅 클라이언트
@@ -64,7 +67,8 @@ npm start
 #### 웹 클라이언트 (브라우저)
 
 ```bash
-cd client
+cd WebClient
+npm install
 npm start
 ```
 
@@ -77,17 +81,26 @@ npm start
 #### C# Windows 클라이언트
 
 ```powershell
-cd PCClient
+cd PCClient\PCClient
 dotnet restore
 dotnet run
 ```
 
-또는 Visual Studio에서 `PCClient.csproj`를 열어 F5로 실행합니다.
+또는 Visual Studio에서 `PCClient.sln`을 열어 F5로 실행합니다.
 
-- .NET 6.0 이상 필요 (Windows 10/11)
+- **.NET 8.0** 이상 필요 (Windows 10/11)
+- **다중 창 지원**: 로비 창(방 목록)과 각 채팅방마다 독립적인 창
+  - 로비 창에서 방 목록 관리 (생성, 새로고침, 참가)
+  - 방 더블클릭으로 참가
+  - 여러 채팅방을 동시에 열어 사용 가능
+  - 각 채팅방마다 독립적인 WebSocket 연결
+- **자동 동작**:
+  - 방 생성 시 자동으로 채팅 창 열림
+  - 서버에서 방 삭제 시 해당 채팅 창 자동 종료
+  - 같은 방 중복 참가 방지
 - 웹 클라이언트와 동일한 서버에 연결 가능
-- 동일한 암호화 방식으로 웹 사용자와 통신 가능
-- 자세한 내용은 [PCClient/README.md](PCClient/README.md) 참조
+- 동일한 암호화 방식(AES-256-GCM)으로 웹 사용자와 통신 가능
+- 자세한 내용은 [PCClient/PCClient/README.md](PCClient/PCClient/README.md) 참조
 
 ## 사용 방법
 
