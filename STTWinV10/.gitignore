@@ -36,9 +36,10 @@ bld/
 *.pfx
 *.publishsettings
 
-# Whisper Models
-*.bin
-!ggml-*.bin
+# Whisper Models (downloaded to %APPDATA%)
+# Note: Models are stored in user's AppData folder, not in repository
+# If you manually download models to the project folder, uncomment:
+# *.bin
 
 # Logs
 *.log
@@ -46,3 +47,15 @@ bld/
 # OS Files
 .DS_Store
 Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
