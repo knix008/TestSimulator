@@ -41,6 +41,13 @@ bld/
 # If you manually download models to the project folder, uncomment:
 # *.bin
 
+# WiX Installer
+*.wixobj
+*.wixpdb
+*.msi
+STTWinV10.Installer/bin/
+STTWinV10.Installer/obj/
+
 # Logs
 *.log
 

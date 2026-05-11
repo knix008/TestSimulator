@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="STTWinV10" 
+           Manufacturer="Your Company Name"
+           Version="1.3.0.0"
+           Codepage="949"
+           UpgradeCode="8B5E5D5A-9F3E-4C1D-8E2A-1B3C4D5E6F7B">
+    
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 설치 아이콘 -->
+    <Icon Id="AppIcon.ico" SourceFile="..\STTWinV10\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    
+    <!-- 프로그램 추가/제거에 표시될 정보 -->
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/yourname/STTWinV10" />
+    <Property Id="ARPCOMMENTS" Value="실시간 음성 인식 애플리케이션 (Whisper STT)" />
+    
+    <!-- 바로가기 설치 옵션 (기본값: 모두 설치) -->
+    <Property Id="INSTALLDESKTOPSHORTCUT" Value="1" />
+    <Property Id="INSTALLSTARTMENUSHORTCUT" Value="1" />
+    
+    <!-- 기능 정의 -->
+    <Feature Id="ProductFeature" Title="STTWinV10" Level="1" ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+    
+    <!-- 시작 메뉴 바로가기 (선택 가능) -->
+    <Feature Id="StartMenuShortcutFeature" 
+             Title="시작 메뉴 바로가기" 
+             Description="시작 메뉴에 바로가기를 생성합니다."
+             Level="1"
+             AllowAdvertise="no">
+      <ComponentRef Id="StartMenuShortcutComponent" />
+    </Feature>
+    
+    <!-- 바탕화면 바로가기 (선택 가능) -->
+    <Feature Id="DesktopShortcutFeature" 
+             Title="바탕화면 바로가기" 
+             Description="바탕화면에 바로가기를 생성합니다."
+             Level="1"
+             AllowAdvertise="no">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <!-- UI 설정 -->
+    <!-- 
+    선택사항: 라이선스와 이미지 파일 경로 설정
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <WixVariable Id="WixUIDialogBmp" Value="DialogBackground.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="Banner.bmp" />
+    -->
+    
+    <!-- FeatureTree UI: 사용자가 설치할 기능을 선택할 수 있습니다 -->
+    <ui:WixUI Id="WixUI_FeatureTree" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui" />
+  </Package>
+
+  <!-- 디렉터리 구조 -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="STTWinV10" />
+    </StandardDirectory>
+    
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="STTWinV10" />
+    </StandardDirectory>
+    
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <!-- 설치 파일들 -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- 주 실행 파일 -->
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="STTWinV10.exe" 
+              Source="$(var.STTWinV10.TargetDir)STTWinV10.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- DLL 파일들 -->
+      <Component Id="STTWinV10.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)STTWinV10.dll" />
+      </Component>
+      
+      <Component Id="NAudio.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)NAudio.dll" />
+      </Component>
+      
+      <Component Id="NAudio.Asio.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)NAudio.Asio.dll" />
+      </Component>
+      
+      <Component Id="NAudio.Core.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)NAudio.Core.dll" />
+      </Component>
+      
+      <Component Id="NAudio.Midi.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)NAudio.Midi.dll" />
+      </Component>
+      
+      <Component Id="NAudio.Wasapi.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)NAudio.Wasapi.dll" />
+      </Component>
+      
+      <Component Id="NAudio.WinForms.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)NAudio.WinForms.dll" />
+      </Component>
+      
+      <Component Id="NAudio.WinMM.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)NAudio.WinMM.dll" />
+      </Component>
+
+      <!-- Whisper.net 파일들 -->
+      <Component Id="Whisper.net.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)Whisper.net.dll" />
+      </Component>
+
+      <!-- System.Reactive 파일들 -->
+      <Component Id="System.Reactive.dll" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)System.Reactive.dll" />
+      </Component>
+
+      <!-- 런타임 파일들 -->
+      <Component Id="STTWinV10.runtimeconfig.json" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)STTWinV10.runtimeconfig.json" />
+      </Component>
+      
+      <Component Id="STTWinV10.deps.json" Guid="*">
+        <File Source="$(var.STTWinV10.TargetDir)STTWinV10.deps.json" />
+      </Component>
+
+      <!-- 아이콘 파일 -->
+      <Component Id="daemon_hammer.ico" Guid="*">
+        <File Source="$(var.STTWinV10.ProjectDir)daemon_hammer.ico" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- 시작 메뉴 바로가기 -->
+    <Component Id="StartMenuShortcutComponent" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut Id="StartMenuShortcut"
+                Name="실시간 음성 인식 (STTWinV10)"
+                Target="[INSTALLFOLDER]STTWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU" 
+                     Key="Software\STTWinV10" 
+                     Name="StartMenuShortcut" 
+                     Type="integer" 
+                     Value="1" 
+                     KeyPath="yes" />
+      <RemoveFolder Id="CleanUpStartMenuFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+    </Component>
+
+    <!-- 바탕화면 바로가기 -->
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="*">
+      <Shortcut Id="DesktopShortcut"
+                Name="실시간 음성 인식 (STTWinV10)"
+                Target="[INSTALLFOLDER]STTWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\STTWinV10"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

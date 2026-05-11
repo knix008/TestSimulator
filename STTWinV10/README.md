@@ -36,7 +36,22 @@ C#과 Whisper 모델을 사용한 실시간 음성 인식 애플리케이션입�
 
 ## 설치 및 실행
 
-### 1. 프로젝트 빌드
+### 방법 1: MSI 설치 파일 (권장)
+
+1. **MSI 다운로드**
+   - [Releases](https://github.com/yourname/STTWinV10/releases)에서 최신 `STTWinV10Setup.msi` 다운로드
+
+2. **설치**
+   - MSI 파일을 더블클릭하여 설치 마법사 실행
+   - 설치 경로: `C:\Program Files\STTWinV10\`
+   - 시작 메뉴와 바탕화면에 바로가기 자동 생성
+
+3. **실행**
+   - 시작 메뉴에서 "STTWinV10" 또는 바탕화면 바로가기 클릭
+
+### 방법 2: 소스 코드에서 빌드
+
+#### 1. 프로젝트 빌드
 
 ```powershell
 cd d:\Home\Projects\TestSimulator\STTWinV10
@@ -44,7 +59,7 @@ dotnet restore
 dotnet build
 ```
 
-### 2. 실행
+#### 2. 실행
 
 ```powershell
 dotnet run --project STTWinV10\STTWinV10.csproj
@@ -85,17 +100,22 @@ STTWinV10/
 ├── .gitignore                       # Git 제외 파일 목록
 ├── README.md                        # 프로젝트 문서
 ├── STTWinV10.sln                    # Visual Studio 솔루션
-└── STTWinV10/
-    ├── STTWinV10.csproj            # 프로젝트 파일
-    ├── daemon_hammer.ico            # 애플리케이션 아이콘
-    ├── App.xaml                     # WPF 애플리케이션
-    ├── App.xaml.cs                  # 전역 예외 처리
-    ├── MainWindow.xaml              # 메인 UI (모던 다크 테마)
-    ├── MainWindow.xaml.cs           # UI 이벤트 핸들러
-    └── Services/
-        ├── AudioCaptureService.cs   # NAudio 기반 오디오 캡처
-        ├── WhisperSTTService.cs     # Whisper 모델 관리 및 STT
-        └── RealtimeSTTService.cs    # 실시간 처리 파이프라인
+├── STTWinV10/
+│   ├── STTWinV10.csproj            # 프로젝트 파일
+│   ├── daemon_hammer.ico            # 애플리케이션 아이콘
+│   ├── App.xaml                     # WPF 애플리케이션
+│   ├── App.xaml.cs                  # 전역 예외 처리
+│   ├── MainWindow.xaml              # 메인 UI (모던 다크 테마)
+│   ├── MainWindow.xaml.cs           # UI 이벤트 핸들러
+│   └── Services/
+│       ├── AudioCaptureService.cs   # NAudio 기반 오디오 캡처
+│       ├── WhisperSTTService.cs     # Whisper 모델 관리 및 STT
+│       └── RealtimeSTTService.cs    # 실시간 처리 파이프라인
+└── STTWinV10.Installer/
+    ├── STTWinV10.Installer.wixproj  # WiX 설치 프로젝트
+    ├── Product.wxs                  # MSI 패키지 정의
+    ├── License.rtf                  # 라이선스 문서
+    └── BUILD.md                     # 빌드 가이드
 ```
 
 ## 주요 클래스 설명
@@ -171,6 +191,48 @@ private string CleanTranscriptionText(string text)
     return text.Trim();
 }
 ```
+
+## MSI 설치 파일 빌드
+
+### 사전 요구사항
+
+1. **WiX Toolset v4 설치**
+   ```powershell
+   dotnet tool install --global wix --version 4.0.5
+   ```
+
+2. **Visual Studio 2022 이상** (Release 빌드용)
+
+### Release 빌드 및 MSI 생성
+
+#### Visual Studio에서:
+1. 빌드 구성을 `Release | x64`로 변경
+2. `STTWinV10.Installer` 프로젝트 빌드
+3. 생성된 MSI 파일 위치: `STTWinV10.Installer\bin\x64\Release\STTWinV10Setup.msi`
+
+#### 명령줄에서:
+```powershell
+# 1. Release 모드로 애플리케이션 빌드
+dotnet build -c Release
+
+# 2. MSI 설치 파일 생성
+dotnet build STTWinV10.Installer\STTWinV10.Installer.wixproj -c Release
+```
+
+생성된 MSI 파일: `STTWinV10.Installer\bin\x64\Release\STTWinV10Setup.msi` (약 1.8MB)
+
+### MSI 파일 특징
+
+- **버전**: 1.3.0.0
+- **플랫폼**: x64 (64비트)
+- **설치 위치**: `C:\Program Files\STTWinV10\`
+- **바로가기**: 시작 메뉴 + 바탕화면 (설치 시 선택 가능)
+- **아이콘**: daemon_hammer.ico
+- **포함 내용**: 모든 실행 파일, DLL, 런타임 파일, 아이콘
+
+설치 시 사용자는 시작 메뉴 바로가기와 바탕화면 바로가기를 선택적으로 설치할 수 있습니다.
+
+자세한 빌드 방법은 [STTWinV10.Installer/BUILD.md](STTWinV10.Installer/BUILD.md)를 참고하세요.
 
 ## 문제 해결
 
