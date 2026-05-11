@@ -19,4 +19,13 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
+
+  <Target Name="BuildInstaller" AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' AND '$(InstallerBuildInProgress)' != 'true'">
+    <Message Text="MSI 인스톨러 빌드 시작..." Importance="high" />
+    <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)..\PCClient.Installer\PCClient.Installer.wixproj&quot; -c Release -p:Platform=x86 -p:InstallerBuildInProgress=true"
+          WorkingDirectory="$(MSBuildThisFileDirectory)" />
+    <Message Text="MSI 생성 완료: PCClient.Installer\bin\x86\Release\PCClientInstaller.msi" Importance="high" />
+  </Target>
+
 </Project>

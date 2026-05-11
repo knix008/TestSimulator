@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(Get-ChildItem \"C:\\\\Program Files \\(x86\\)\\\\Microsoft Visual Studio\" -Recurse -Filter \"Wix.targets\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 5 FullName)"
+    ]
+  }
+}

@@ -1,24 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
-     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-  
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
   <?define ProductName = "P2P Chat Client" ?>
   <?define ProductVersion = "1.0.0.0" ?>
   <?define Manufacturer = "P2P Chat" ?>
   <?define UpgradeCode = "12345678-1234-1234-1234-123456789ABC" ?>
-  
-  <Product Id="*" 
-           Name="$(var.ProductName)" 
-           Language="1042" 
-           Version="$(var.ProductVersion)" 
-           Manufacturer="$(var.Manufacturer)" 
-           UpgradeCode="$(var.UpgradeCode)">
-    
-    <Package InstallerVersion="200" 
-             Compressed="yes" 
-             InstallScope="perMachine"
-             Description="$(var.ProductName) 설치 프로그램"
-             Comments="P2P 채팅 클라이언트" />
+
+  <Package Name="$(ProductName)"
+           Language="1042"
+           Codepage="utf-8"
+           Version="$(ProductVersion)"
+           Manufacturer="$(Manufacturer)"
+           UpgradeCode="$(UpgradeCode)"
+           InstallerVersion="500"
+           Compressed="yes"
+           Scope="perMachine">
 
     <MajorUpgrade DowngradeErrorMessage="이미 새 버전이 설치되어 있습니다." />
     <MediaTemplate EmbedCab="yes" />
@@ -27,8 +25,7 @@
     <Icon Id="ProductIcon" SourceFile="$(var.PCClient.ProjectDir)daemon_hammer.ico" />
     <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
 
-    <!-- 속성 정의 -->
-    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <!-- 바로가기 기본값 (체크된 상태) -->
     <Property Id="DESKTOP_SHORTCUT" Value="1" />
     <Property Id="STARTMENU_SHORTCUT" Value="1" />
 
@@ -39,105 +36,63 @@
       <ComponentRef Id="ApplicationShortcutStartMenu" />
     </Feature>
 
-    <!-- UI 설정 -->
-    <UI>
-      <UIRef Id="WixUI_InstallDir" />
-      <UIRef Id="WixUI_ErrorProgressText" />
-      
-      <!-- 사용자 정의 대화상자 -->
-      <Dialog Id="ShortcutsDlg" Width="370" Height="270" Title="[ProductName] 설치">
-        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}바로 가기 설정" />
-        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15" Transparent="yes" NoPrefix="yes" Text="바로 가기를 생성할 위치를 선택하세요." />
-        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
-        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
-        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
-        
-        <!-- 바탕화면 바로가기 체크박스 -->
-        <Control Id="DesktopShortcutCheckBox" Type="CheckBox" X="20" Y="60" Width="290" Height="17" 
-                 Property="DESKTOP_SHORTCUT" CheckBoxValue="1" Text="바탕화면에 바로 가기 만들기" />
-        
-        <!-- 시작 메뉴 바로가기 체크박스 -->
-        <Control Id="StartMenuShortcutCheckBox" Type="CheckBox" X="20" Y="80" Width="290" Height="17" 
-                 Property="STARTMENU_SHORTCUT" CheckBoxValue="1" Text="시작 메뉴에 바로 가기 만들기" />
-        
-        <!-- 버튼 -->
-        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
-        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
-        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
-          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
-        </Control>
-      </Dialog>
-      
-      <!-- 설치 순서 수정 -->
-      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ShortcutsDlg">1</Publish>
-      <Publish Dialog="ShortcutsDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg">1</Publish>
-      <Publish Dialog="ShortcutsDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
-      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ShortcutsDlg">1</Publish>
-    </UI>
+    <!-- 기본 UI (설치 경로 선택 포함) -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
 
     <!-- 디렉토리 구조 -->
-    <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="ProgramFilesFolder">
-        <Directory Id="INSTALLFOLDER" Name="P2P Chat Client" />
-      </Directory>
-      
-      <!-- 바탕화면 -->
-      <Directory Id="DesktopFolder" Name="Desktop" />
-      
-      <!-- 시작 메뉴 -->
-      <Directory Id="ProgramMenuFolder">
-        <Directory Id="ApplicationProgramsFolder" Name="P2P Chat Client" />
-      </Directory>
-    </Directory>
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="P2P Chat Client" />
+    </StandardDirectory>
 
-    <!-- 컴포넌트 그룹 -->
+    <StandardDirectory Id="DesktopFolder" />
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="P2P Chat Client" />
+    </StandardDirectory>
+
+    <!-- 파일 컴포넌트 그룹 -->
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <Component Id="PCClient.exe" Guid="*">
-        <File Id="PCClient.exe" 
-              Source="$(var.PCClient.TargetPath)" 
+      <Component Id="PCClient_exe" Guid="*">
+        <File Id="PCClient_exe_file"
+              Source="$(var.PCClient.TargetDir)PCClient.exe"
               KeyPath="yes" />
       </Component>
-      
-      <!-- 추가 DLL 파일들 -->
-      <Component Id="DependencyFiles" Guid="*">
-        <File Id="Newtonsoft.Json.dll" 
+
+      <Component Id="NewtonsoftJson" Guid="*">
+        <File Id="Newtonsoft_Json_dll"
               Source="$(var.PCClient.TargetDir)Newtonsoft.Json.dll" />
-        <File Id="System.Net.WebSockets.Client.dll" 
-              Source="$(var.PCClient.TargetDir)System.Net.WebSockets.Client.dll" />
       </Component>
-      
-      <!-- Runtime 파일들 -->
+
       <Component Id="RuntimeFiles" Guid="*">
-        <File Id="PCClient.dll" 
+        <File Id="PCClient_dll"
               Source="$(var.PCClient.TargetDir)PCClient.dll" />
-        <File Id="PCClient.deps.json" 
+        <File Id="PCClient_deps_json"
               Source="$(var.PCClient.TargetDir)PCClient.deps.json" />
-        <File Id="PCClient.runtimeconfig.json" 
+        <File Id="PCClient_runtimeconfig_json"
               Source="$(var.PCClient.TargetDir)PCClient.runtimeconfig.json" />
       </Component>
     </ComponentGroup>
 
-    <!-- 바탕화면 바로가기 컴포넌트 -->
-    <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolder" Guid="*">
-      <Condition>DESKTOP_SHORTCUT = 1</Condition>
+    <!-- 바탕화면 바로가기 (사용자가 체크한 경우만 설치) -->
+    <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolder" Guid="*"
+               Condition="DESKTOP_SHORTCUT = 1">
       <Shortcut Id="DesktopShortcut"
                 Name="P2P Chat Client"
                 Description="P2P 채팅 클라이언트"
                 Target="[INSTALLFOLDER]PCClient.exe"
                 WorkingDirectory="INSTALLFOLDER"
                 Icon="ProductIcon" />
-      <RemoveFolder Id="RemoveDesktopFolder" On="uninstall" />
-      <RegistryValue Root="HKCU" 
-                     Key="Software\P2PChat\PCClient" 
-                     Name="DesktopShortcut" 
-                     Type="integer" 
-                     Value="1" 
+      <RegistryValue Root="HKCU"
+                     Key="Software\P2PChat\PCClient"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
                      KeyPath="yes" />
     </Component>
 
-    <!-- 시작 메뉴 바로가기 컴포넌트 -->
-    <Component Id="ApplicationShortcutStartMenu" Directory="ApplicationProgramsFolder" Guid="*">
-      <Condition>STARTMENU_SHORTCUT = 1</Condition>
+    <!-- 시작 메뉴 바로가기 (사용자가 체크한 경우만 설치) -->
+    <Component Id="ApplicationShortcutStartMenu" Directory="ApplicationProgramsFolder" Guid="*"
+               Condition="STARTMENU_SHORTCUT = 1">
       <Shortcut Id="StartMenuShortcut"
                 Name="P2P Chat Client"
                 Description="P2P 채팅 클라이언트"
@@ -145,13 +100,54 @@
                 WorkingDirectory="INSTALLFOLDER"
                 Icon="ProductIcon" />
       <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
-      <RegistryValue Root="HKCU" 
-                     Key="Software\P2PChat\PCClient" 
-                     Name="StartMenuShortcut" 
-                     Type="integer" 
-                     Value="1" 
+      <RegistryValue Root="HKCU"
+                     Key="Software\P2PChat\PCClient"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
                      KeyPath="yes" />
     </Component>
 
-  </Product>
+  </Package>
+
+  <!-- 바로가기 옵션 선택 다이얼로그 -->
+  <Fragment>
+    <UI>
+      <Dialog Id="ShortcutsDlg" Width="370" Height="270" Title="[ProductName] 설치">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15"
+                 Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}바로 가기 설정" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="280" Height="15"
+                 Transparent="yes" NoPrefix="yes" Text="설치할 바로 가기의 위치를 선택하세요." />
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44"
+                 TabSkip="no" Text="!(loc.InstallDirDlgBannerBitmap)" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="DesktopCheckBox" Type="CheckBox" X="20" Y="70" Width="290" Height="17"
+                 Property="DESKTOP_SHORTCUT" CheckBoxValue="1" Text="바탕화면에 바로 가기 만들기" />
+        <Control Id="StartMenuCheckBox" Type="CheckBox" X="20" Y="95" Width="290" Height="17"
+                 Property="STARTMENU_SHORTCUT" CheckBoxValue="1" Text="시작 메뉴에 바로 가기 만들기" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17"
+                 Text="!(loc.WixUIBack)">
+          <Publish Event="NewDialog" Value="InstallDirDlg" Condition="1" />
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17"
+                 Default="yes" Text="!(loc.WixUINext)">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg" Condition="1" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17"
+                 Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg" Condition="1" />
+        </Control>
+      </Dialog>
+
+      <!-- InstallDirDlg Next 를 ShortcutsDlg 로 우회 (Order=3으로 내장 Order=2 오버라이드) -->
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog"
+               Value="ShortcutsDlg" Order="3" Condition="1" />
+
+      <!-- VerifyReadyDlg Back 을 ShortcutsDlg 로 우회 (Order=3으로 내장 Order=2 오버라이드) -->
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog"
+               Value="ShortcutsDlg" Order="3" Condition="1" />
+    </UI>
+  </Fragment>
+
 </Wix>
