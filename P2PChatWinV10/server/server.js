@@ -45,7 +45,7 @@ function buildRoomList() {
 function broadcastLobbyRoomList() {
   const payload = JSON.stringify({ type: 'room-list', rooms: buildRoomList() });
   for (const client of wss.clients) {
-    if (client.readyState === 1 && !client.signalRoomId) {
+    if (client.readyState === 1) {
       client.send(payload);
     }
   }
@@ -98,6 +98,7 @@ function leaveRoom(ws) {
   }
   
   broadcast(roomId, { type: 'peer-left', roomId, peerCount: peers.size }, null);
+  broadcastLobbyRoomList(); // 피어가 나갈 때 방 목록 업데이트
   ws.signalRoomId = null;
 }
 
@@ -388,6 +389,7 @@ wss.on('connection', (ws) => {
         }),
       );
       broadcast(id, { type: 'peer-joined', roomId: id, peerCount: peers.size }, ws);
+      broadcastLobbyRoomList(); // 피어가 참가할 때 방 목록 업데이트
       return;
     }
 
@@ -426,7 +428,7 @@ wss.on('connection', (ws) => {
     if (msg.type === 'chat-message') {
       const nickname = ws.nickname || '상대';
       if (msg.fileData) {
-        // 파일 메시지
+        // 파일 메시지 (암호화 안 됨)
         broadcast(ws.signalRoomId, { 
           type: 'chat-message', 
           fileData: msg.fileData,
@@ -435,17 +437,15 @@ wss.on('connection', (ws) => {
           nickname 
         }, ws);
       } else if (typeof msg.text === 'string') {
-        // 텍스트 메시지
-        const text = msg.text.trim().slice(0, 4000);
-        if (text) {
-          broadcast(ws.signalRoomId, { 
-            type: 'chat-message', 
-            text, 
-            from: 'peer',
-            roomId: ws.signalRoomId,
-            nickname 
-          }, ws);
-        }
+        // 텍스트 메시지 (암호화됨)
+        broadcast(ws.signalRoomId, { 
+          type: 'chat-message', 
+          text: msg.text,
+          from: 'peer',
+          roomId: ws.signalRoomId,
+          nickname,
+          encrypted: msg.encrypted || false
+        }, ws);
       }
       return;
     }

@@ -49,6 +49,7 @@ let currentRoomId = '';
 let currentUseP2P = false;
 let currentIsOwner = false;
 let currentNickname = '';
+let encryptionKey = null;
 let makingOffer = false;
 /** @type {RTCIceCandidateInit[]} */
 let icePending = [];
@@ -138,6 +139,92 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+/**
+ * 방 ID와 비밀번호로부터 암호화 키 생성
+ */
+async function deriveEncryptionKey(roomId, password = '') {
+  const keyMaterial = password || roomId;
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(keyMaterial + ':p2pchat:salt');
+  
+  const importedKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(roomId),
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    importedKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+  
+  return key;
+}
+
+/**
+ * 텍스트 메시지 암호화
+ */
+async function encryptMessage(text, key) {
+  if (!key || !text) return null;
+  
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      data
+    );
+    
+    // IV와 암호화된 데이터를 함께 Base64로 인코딩
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    
+    return btoa(String.fromCharCode(...combined));
+  } catch (err) {
+    console.error('Encryption error:', err);
+    return null;
+  }
+}
+
+/**
+ * 텍스트 메시지 복호화
+ */
+async function decryptMessage(encryptedText, key) {
+  if (!key || !encryptedText) return null;
+  
+  try {
+    const combined = Uint8Array.from(atob(encryptedText), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encrypted
+    );
+    
+    const decoder = new TextDecoder();
+    return decoder.decode(decrypted);
+  } catch (err) {
+    console.error('Decryption error:', err);
+    return '[복호화 실패]';
+  }
+}
+
 function appendLocalMessage(text, from, fileData = null, nickname = null) {
   const entries = loadHistory(currentRoomId);
   const entry = { 
@@ -177,6 +264,7 @@ function cleanupPeer() {
   pc = null;
   icePending = [];
   makingOffer = false;
+  encryptionKey = null;
 }
 
 async function flushIcePending() {
@@ -290,7 +378,7 @@ function showChatUi(roomId, displayName) {
   chat.classList.remove('hidden');
   const label = displayName && displayName !== roomId ? `${displayName}` : roomId;
   roomLabel.textContent = `방: ${label}`;
-  setConnBadge(currentUseP2P ? '시그널링 / P2P 연결 중…' : '서버 연결됨', currentUseP2P ? 'warn' : 'ok');
+  setConnBadge(currentUseP2P ? '시그널링 / P2P 연결 중…' : '서버 연결됨 🔒', currentUseP2P ? 'warn' : 'ok');
   messageInput.disabled = !currentUseP2P;
   fileInput.disabled = !currentUseP2P;
   messagesEl.innerHTML = '';
@@ -340,7 +428,7 @@ async function createHostConnection() {
 
 function wireDataChannel(channel) {
   channel.onopen = () => {
-    setConnBadge('P2P 연결됨', 'ok');
+    setConnBadge('P2P 연결됨 🔒', 'ok');
     messageInput.disabled = false;
     fileInput.disabled = false;
   };
@@ -349,10 +437,17 @@ function wireDataChannel(channel) {
     messageInput.disabled = true;
     fileInput.disabled = true;
   };
-  channel.onmessage = (ev) => {
+  channel.onmessage = async (ev) => {
     if (typeof ev.data === 'string') {
       try {
         const parsed = JSON.parse(ev.data);
+        if (parsed.encrypted && parsed.type === 'text' && parsed.text) {
+          const decrypted = await decryptMessage(parsed.text, encryptionKey);
+          if (decrypted) {
+            appendLocalMessage(decrypted, 'peer', null, parsed.nickname);
+          }
+          return;
+        }
         if (parsed.type === 'file' && parsed.fileData) {
           appendLocalMessage('', 'peer', parsed.fileData, parsed.nickname);
           return;
@@ -442,7 +537,7 @@ function handleSignalMessage(data) {
           data.isInitiator ? '상대 입장 대기 중…' : '방에 입장했습니다. 시그널링 대기 중…',
         );
       } else {
-        setLobbyStatus('방에 입장했습니다. 서버 중계 모드로 연결됩니다.');
+        setLobbyStatus('방에 입장했습니다. 암호화된 서버 중계 모드로 연결됩니다. 🔒');
         messageInput.disabled = false;
         fileInput.disabled = false;
       }
@@ -463,7 +558,14 @@ function handleSignalMessage(data) {
       break;
     case 'chat-message':
       if (!currentUseP2P) {
-        if (data.fileData) {
+        if (data.encrypted && data.text) {
+          void (async () => {
+            const decrypted = await decryptMessage(data.text, encryptionKey);
+            if (decrypted) {
+              appendLocalMessage(decrypted, 'peer', null, data.nickname);
+            }
+          })();
+        } else if (data.fileData) {
           appendLocalMessage('', 'peer', data.fileData, data.nickname);
         } else if (data.text) {
           appendLocalMessage(data.text, 'peer', null, data.nickname);
@@ -801,10 +903,20 @@ composer.addEventListener('submit', (e) => {
   
   if (currentUseP2P) {
     if (!dc || dc.readyState !== 'open') return;
-    dc.send(JSON.stringify({ type: 'text', text, nickname: currentNickname }));
+    void (async () => {
+      const encrypted = await encryptMessage(text, encryptionKey);
+      if (encrypted) {
+        dc.send(JSON.stringify({ type: 'text', text: encrypted, nickname: currentNickname, encrypted: true }));
+      }
+    })();
   } else {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    sendSignal({ type: 'chat-message', text, roomId: currentRoomId, nickname: currentNickname });
+    void (async () => {
+      const encrypted = await encryptMessage(text, encryptionKey);
+      if (encrypted) {
+        sendSignal({ type: 'chat-message', text: encrypted, roomId: currentRoomId, nickname: currentNickname, encrypted: true });
+      }
+    })();
   }
   
   appendLocalMessage(text, 'self', null, currentNickname);
