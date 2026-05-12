@@ -107,6 +107,11 @@ deps-check-youtube:
 	if [ $$missing -eq 1 ]; then \
 		echo "Install with: make deps-install-youtube"; \
 		exit 1; \
+	fi; \
+	yt_line=$$(yt-dlp --version 2>&1 | head -1); \
+	if echo "$$yt_line" | grep -qE '^20(2[0-3]|24)\.'; then \
+		echo "  WARNING: yt-dlp가 오래되었습니다 ($$yt_line). YouTube 403이 날 수 있습니다."; \
+		echo "           최신 바이너리 설치: make deps-install-youtube"; \
 	fi
 
 deps-install: deps-install-core deps-install-youtube
@@ -140,10 +145,21 @@ endif
 
 deps-install-youtube:
 ifeq ($(OS),Linux)
-	@echo "[Linux] Installing YouTube dependency..."
+	@echo "[Linux] YouTube: ffmpeg·nodejs 설치 및 최신 yt-dlp(GitHub) 설치..."
 	@sudo apt update
-	@sudo apt install -y yt-dlp nodejs ffmpeg
-	@echo "=== Configuring yt-dlp JavaScript runtime ==="
+	@sudo apt install -y curl ca-certificates ffmpeg nodejs
+	@curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /tmp/yt-dlp-install.bin
+	@chmod 755 /tmp/yt-dlp-install.bin
+	@if sudo install -m 755 /tmp/yt-dlp-install.bin /usr/local/bin/yt-dlp; then \
+		echo "Installed: $$(command -v yt-dlp) ($$(yt-dlp --version 2>&1 | head -1))"; \
+	else \
+		mkdir -p "$$HOME/.local/bin"; \
+		install -m 755 /tmp/yt-dlp-install.bin "$$HOME/.local/bin/yt-dlp"; \
+		echo "Installed: $$HOME/.local/bin/yt-dlp ($$($$HOME/.local/bin/yt-dlp --version 2>&1 | head -1))"; \
+		echo "PATH 앞에 ~/.local/bin 이 오도록 해 주세요 (예: export PATH=\"$$HOME/.local/bin:$$PATH\")."; \
+	fi
+	@rm -f /tmp/yt-dlp-install.bin
+	@echo "=== Optional: yt-dlp 사용자 설정에 JS 런타임(쉘에서 yt-dlp 쓸 때) ==="
 	@mkdir -p "$$HOME/.config/yt-dlp"; \
 	config_file="$$HOME/.config/yt-dlp/config"; \
 	if [ -f "$$config_file" ]; then \
@@ -151,14 +167,13 @@ ifeq ($(OS),Linux)
 	fi; \
 	if command -v node >/dev/null 2>&1; then \
 		echo "--js-runtimes node" >> "$$config_file"; \
-		echo "yt-dlp configured to use node $$(node --version)"; \
-	else \
-		echo "node not found; yt-dlp will use android client fallback (no JS runtime needed)"; \
+		echo "Wrote --js-runtimes node to $$config_file (앱은 --ignore-config 사용)"; \
 	fi
 else ifeq ($(OS),Darwin)
 	@echo "[macOS] Installing YouTube dependency..."
 	@command -v brew >/dev/null 2>&1 || { echo "Homebrew is required: https://brew.sh"; exit 1; }
 	@brew install yt-dlp node ffmpeg
+	@brew upgrade yt-dlp 2>/dev/null || true
 	@echo "=== Configuring yt-dlp JavaScript runtime ==="
 	@mkdir -p "$$HOME/.config/yt-dlp"; \
 	config_file="$$HOME/.config/yt-dlp/config"; \

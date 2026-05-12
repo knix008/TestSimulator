@@ -132,7 +132,7 @@ static void set_player_state(AppUi *ui, GstState state, const char *reason) {
     }
 }
 
-/* YouTube GStreamer 재생: 백그라운드 스레드에서 yt-dlp로 스트림 URL 추출 후 메인 스레드에서 재생 */
+/* YouTube: 백그라운드에서 yt-dlp로 임시 파일 받은 뒤 메인 스레드에서 file:// 재생 */
 static gboolean youtube_play_on_main(gpointer data) {
     YoutubePlayResult *res = data;
     AppUi *ui = res->ui;
@@ -168,29 +168,39 @@ static gpointer youtube_play_worker(gpointer data) {
 static void on_open_clicked(GtkButton *button, gpointer user_data) {
     (void)button;
     AppUi *ui = user_data;
-    const gchar *src = gtk_entry_get_text(GTK_ENTRY(ui->url_entry));
+    gchar *trimmed = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui->url_entry)));
+    g_strstrip(trimmed);
 
-    if (is_youtube_url_text(src)) {
+    if (trimmed[0] == '\0') {
+        app_ui_log(ui, "오류: URL 또는 파일 경로를 입력하세요.");
+        g_free(trimmed);
+        return;
+    }
+
+    if (is_youtube_url_text(trimmed)) {
         if (!media_core_is_youtube_supported()) {
             app_ui_log(ui, "오류: yt-dlp가 설치되지 않았습니다. (make deps-install-youtube)");
+            g_free(trimmed);
             return;
         }
-        app_ui_log(ui, "YouTube 스트림 URL 추출 중...: %s", src);
+        app_ui_log(ui, "YouTube 임시 다운로드 중(재생 준비)...: %s", trimmed);
         YoutubePlayTask *task = g_new0(YoutubePlayTask, 1);
         task->ui = ui;
-        task->source = g_strdup(src);
+        task->source = trimmed;
         g_thread_new("yt-play", youtube_play_worker, task);
         return;
     }
 
     gchar *err = NULL;
-    if (!media_core_load_and_play(ui->media, src, &err)) {
+    if (!media_core_load_and_play(ui->media, trimmed, &err)) {
         app_ui_log(ui, "%s", err ? err : "알 수 없는 오류");
         g_free(err);
+        g_free(trimmed);
         return;
     }
-    app_ui_log(ui, "재생 시작: %s", src);
+    app_ui_log(ui, "재생 시작: %s", trimmed);
     show_overlay_icon(ui, "media-playback-start-symbolic", FALSE);
+    g_free(trimmed);
 }
 
 static void on_choose_file(GtkButton *button, gpointer user_data) {
@@ -358,6 +368,7 @@ static void on_download_clicked(GtkButton *button, gpointer user_data) {
         /* web 클라이언트 + node JS 런타임으로 PO Token 자동 생성, mp4로 병합 출력 */
         gchar *argv[] = {
             "yt-dlp",
+            "--ignore-config",
             "--no-playlist",
             "--merge-output-format", "mp4",
             "-f", "bestvideo+bestaudio/best",

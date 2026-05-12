@@ -3,6 +3,36 @@
 
 #include <string.h>
 
+static gchar *query_ytdlp_dump_user_agent(void) {
+    if (!g_find_program_in_path("yt-dlp")) {
+        return NULL;
+    }
+    gchar *argv[] = {"yt-dlp", "--ignore-config", "--dump-user-agent", NULL};
+    gchar *out = NULL;
+    gchar *err = NULL;
+    gint st = 0;
+    GError *gerr = NULL;
+    if (!g_spawn_sync(NULL, argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, &out, &err, &st, &gerr)) {
+        if (gerr) {
+            g_error_free(gerr);
+        }
+        g_free(err);
+        g_free(out);
+        return NULL;
+    }
+    g_free(err);
+    (void)st;
+    if (!out) {
+        return NULL;
+    }
+    g_strstrip(out);
+    if (out[0] == '\0') {
+        g_free(out);
+        return NULL;
+    }
+    return out;
+}
+
 static gboolean has_prefix_ci(const gchar *text, const gchar *prefix) {
     if (!text || !prefix) {
         return FALSE;
@@ -22,8 +52,12 @@ static gboolean is_rtsp_url(const gchar *src) {
     return src && has_prefix_ci(src, "rtsp://");
 }
 
+/* playbin의 uri는 source-setup 시점에 아직 비어 있거나 내부 URI와 다를 수 있음 */
+static gboolean url_is_youtube_cdn_media(const gchar *url) {
+    return url && g_strrstr(url, "googlevideo.com") != NULL;
+}
+
 static void on_playbin_source_setup(GstElement *playbin, GstElement *source, gpointer user_data) {
-    (void)playbin;
     MediaCore *core = user_data;
 
     if (!source || !G_OBJECT_TYPE_NAME(source)) {
@@ -47,24 +81,52 @@ static void on_playbin_source_setup(GstElement *playbin, GstElement *source, gpo
         return;
     }
 
+    gchar *loc = NULL;
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(source), "location")) {
+        g_object_get(source, "location", &loc, NULL);
+    }
+    gchar *play_uri = NULL;
+    g_object_get(playbin, "uri", &play_uri, NULL);
+    gboolean is_googlevideo = url_is_youtube_cdn_media(loc) || url_is_youtube_cdn_media(play_uri) ||
+                              url_is_youtube_cdn_media(core->last_play_uri);
+    g_free(loc);
+    g_free(play_uri);
+
+    if (is_googlevideo) {
+        /* googlevideo는 서명·n 파라미터가 특정 클라이언트와 묶이므로 yt-dlp UA에 맞춘다.
+         * Origin은 CDN이 거부하는 경우가 있어 Referer만 둔다. */
+        const gchar *ua = core->ytdlp_user_agent;
+        if (!ua) {
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                 "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+        }
+        if (g_object_class_find_property(G_OBJECT_GET_CLASS(source), "user-agent")) {
+            g_object_set(source, "user-agent", ua, NULL);
+        }
+        if (g_object_class_find_property(G_OBJECT_GET_CLASS(source), "extra-headers")) {
+            GstStructure *headers = gst_structure_new(
+                "extra-headers",
+                "Referer", G_TYPE_STRING, "https://www.youtube.com/",
+                "Accept", G_TYPE_STRING, "*/*",
+                NULL);
+            g_object_set(source, "extra-headers", headers, NULL);
+            gst_structure_free(headers);
+        }
+        if (core->logger) {
+            core->logger(core->logger_userdata, "YouTube CDN(googlevideo)용 HTTP 헤더 적용");
+        }
+        return;
+    }
+
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(source), "user-agent")) {
         g_object_set(source, "user-agent",
                      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                      NULL);
     }
-    if (g_object_class_find_property(G_OBJECT_GET_CLASS(source), "extra-headers")) {
-        GstStructure *headers = gst_structure_new(
-            "extra-headers",
-            "Referer", G_TYPE_STRING, "https://www.youtube.com/",
-            "Origin", G_TYPE_STRING, "https://www.youtube.com",
-            NULL);
-        g_object_set(source, "extra-headers", headers, NULL);
-        gst_structure_free(headers);
-    }
 
     if (core->logger) {
-        core->logger(core->logger_userdata, "HTTPS source headers applied");
+        core->logger(core->logger_userdata, "HTTPS source: 기본 User-Agent 적용");
     }
 }
 
@@ -81,6 +143,8 @@ gboolean media_core_init(MediaCore *core, MediaLogFunc logger, void *logger_user
         return FALSE;
     }
     g_signal_connect(core->playbin, "source-setup", G_CALLBACK(on_playbin_source_setup), core);
+
+    core->ytdlp_user_agent = query_ytdlp_dump_user_agent();
 
     core->video_sink = gst_element_factory_make("gtksink", "videosink");
     if (core->video_sink) {
@@ -106,6 +170,10 @@ void media_core_cleanup(MediaCore *core) {
     if (!core) {
         return;
     }
+    g_free(core->ytdlp_user_agent);
+    core->ytdlp_user_agent = NULL;
+    g_free(core->last_play_uri);
+    core->last_play_uri = NULL;
     if (core->playbin) {
         gst_element_set_state(core->playbin, GST_STATE_NULL);
         gst_object_unref(core->playbin);
@@ -149,7 +217,7 @@ gchar *media_core_resolve_uri(const gchar *source, gchar **error_out) {
         if (is_youtube_url(trimmed)) {
             gchar *resolved = youtube_service_resolve_playback_url(trimmed, error_out);
             if (!resolved && error_out && *error_out == NULL) {
-                *error_out = g_strdup("YouTube 스트림 URL을 찾지 못했습니다.");
+                *error_out = g_strdup("YouTube 재생용 임시 파일을 만들지 못했습니다.");
             }
             g_free(trimmed);
             return resolved;
@@ -167,6 +235,8 @@ gchar *media_core_resolve_uri(const gchar *source, gchar **error_out) {
 }
 
 void media_core_play_uri(MediaCore *core, const gchar *uri) {
+    g_free(core->last_play_uri);
+    core->last_play_uri = uri ? g_strdup(uri) : NULL;
     gst_element_set_state(core->playbin, GST_STATE_NULL);
     g_object_set(core->playbin, "uri", uri, NULL);
     gst_element_set_state(core->playbin, GST_STATE_PLAYING);
@@ -178,6 +248,8 @@ gboolean media_core_load_and_play(MediaCore *core, const gchar *source, gchar **
     if (!uri) {
         return FALSE;
     }
+    g_free(core->last_play_uri);
+    core->last_play_uri = g_strdup(uri);
     gst_element_set_state(core->playbin, GST_STATE_NULL);
     g_object_set(core->playbin, "uri", uri, NULL);
     gst_element_set_state(core->playbin, GST_STATE_PLAYING);

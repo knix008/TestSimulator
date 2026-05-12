@@ -45,6 +45,7 @@ static gchar *download_temp_and_return_file_uri(const gchar *source, gchar **err
     /* --extractor-args 없이 web 클라이언트 + JS 런타임(node)으로 자동 처리 */
     gchar *cmd[] = {
         "yt-dlp",
+        "--ignore-config",
         "--no-playlist",
         "--format", "best[ext=mp4]/best",
         "--print", "after_move:filepath",
@@ -59,9 +60,19 @@ static gchar *download_temp_and_return_file_uri(const gchar *source, gchar **err
     if (!ok || exit_status != 0) {
         if (error_out) {
             gchar *err_line = extract_error_line(stderr_text);
-            *error_out = g_strdup_printf("YouTube 임시 다운로드 실패: %s",
+            gchar *base = g_strdup_printf("YouTube 임시 다운로드 실패: %s",
                 err_line ? err_line : (gerr ? gerr->message : "알 수 없는 오류"));
             g_free(err_line);
+            if (stderr_text && (g_strrstr(stderr_text, "403") != NULL ||
+                                g_strrstr(stderr_text, "unable to download video data") != NULL)) {
+                gchar *with_hint = g_strdup_printf(
+                    "%s — 배포판 yt-dlp가 오래된 경우입니다. 터미널에서 \"make deps-install-youtube\" 로 최신 바이너리를 설치하세요.",
+                    base);
+                g_free(base);
+                *error_out = with_hint;
+            } else {
+                *error_out = base;
+            }
         }
         if (gerr) g_error_free(gerr);
         g_free(stdout_text);
@@ -101,39 +112,9 @@ gboolean youtube_service_is_supported(void) {
     return g_find_program_in_path("yt-dlp") != NULL;
 }
 
-/* web 클라이언트 + node JS 런타임으로 PO Token 자동 생성, 실패 시 임시 파일 다운로드 폴백 */
+/* GStreamer가 googlevideo 직링크로 요청하면 Range/세션 차이로 403이 잦으므로,
+ * yt-dlp가 직접 받아 임시 파일을 만든 뒤 file:// 로 재생한다. */
 gchar *youtube_service_resolve_playback_url(const gchar *source, gchar **error_out) {
-    gchar *stdout_text = NULL;
-    gchar *stderr_text = NULL;
-    gint exit_status = 0;
-    GError *gerr = NULL;
-
-    gchar *cmd[] = {
-        "yt-dlp",
-        "-g",
-        "-f", "b",
-        "--no-playlist",
-        (gchar *)source,
-        NULL
-    };
-
-    gboolean ok = g_spawn_sync(NULL, cmd, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL,
-                               &stdout_text, &stderr_text, &exit_status, &gerr);
-
-    if (ok && exit_status == 0) {
-        gchar *resolved = first_non_empty_line(stdout_text);
-        g_free(stdout_text);
-        g_free(stderr_text);
-        if (gerr) g_error_free(gerr);
-        if (resolved) {
-            return resolved;
-        }
-    }
-
-    if (gerr) g_error_free(gerr);
-    g_free(stdout_text);
-    g_free(stderr_text);
-
     return download_temp_and_return_file_uri(source, error_out);
 }
 
@@ -141,6 +122,7 @@ gboolean youtube_service_start_download(const gchar *source, gchar **error_out) 
     GError *gerr = NULL;
     gchar *cmd[] = {
         "yt-dlp",
+        "--ignore-config",
         "--no-playlist",
         "-f", "bestvideo+bestaudio/best",
         "-o", "%(title)s.%(ext)s",

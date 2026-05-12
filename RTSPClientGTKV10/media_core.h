@@ -11,6 +11,10 @@ typedef struct {
     GstElement *video_sink;
     MediaLogFunc logger;
     void *logger_userdata;
+    /* googlevideo 재생 시 SoupHTTPSrc가 yt-dlp와 동일한 UA를 쓰도록 (403 방지) */
+    gchar *ytdlp_user_agent;
+    /* playbin uri가 source-setup 시점에 비어 있을 수 있어, 직전에 설정한 재생 URI를 보관 */
+    gchar *last_play_uri;
 } MediaCore;
 
 gboolean media_core_init(MediaCore *core, MediaLogFunc logger, void *logger_userdata, gchar **error_out);
