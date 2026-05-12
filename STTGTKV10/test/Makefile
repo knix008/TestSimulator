@@ -14,22 +14,17 @@ WHISPER_PC_OK := $(shell PKG_CONFIG_PATH=$(WHISPER_PC_PATH) pkg-config --exists 
 
 ifeq ($(WHISPER_PC_OK),yes)
   WHISPER_CFLAGS  := $(shell PKG_CONFIG_PATH=$(WHISPER_PC_PATH) pkg-config --cflags whisper)
-  WHISPER_LDFLAGS := $(shell PKG_CONFIG_PATH=$(WHISPER_PC_PATH) pkg-config --libs   whisper)
 else
   WHISPER_CFLAGS  := -I$(WHISPER_INSTALL)/include
-  WHISPER_LDFLAGS := -L$(WHISPER_INSTALL)/lib -lwhisper
 endif
+WHISPER_LDFLAGS := -L$(WHISPER_INSTALL)/lib \
+  -Wl,--start-group -lwhisper -lggml-cpu -lggml-base -lggml -Wl,--end-group -lgomp -lm
 
 CFLAGS   := -O2 -Wall -std=c11   -I$(PARENT) $(WHISPER_CFLAGS)
 CXXFLAGS := -O2 -Wall -std=c++17 -I$(PARENT) $(WHISPER_CFLAGS)
-LDFLAGS  := $(WHISPER_LDFLAGS) -lpthread -lstdc++ -lm
+LDFLAGS  := $(WHISPER_LDFLAGS) -lpthread -lstdc++
 
-ifeq ($(OS),Linux)
-  LDFLAGS += -Wl,-rpath,$(abspath $(WHISPER_INSTALL)/lib)
-  RUN_ENV := LD_LIBRARY_PATH=$(abspath $(WHISPER_INSTALL)/lib):$$LD_LIBRARY_PATH
-else ifeq ($(OS),Darwin)
-  RUN_ENV := DYLD_LIBRARY_PATH=$(abspath $(WHISPER_INSTALL)/lib):$$DYLD_LIBRARY_PATH
-endif
+RUN_ENV  :=
 
 MODEL_DIR := $(HOME)/.local/share/sttgtk/models
 ifeq ($(OS),Darwin)
@@ -39,20 +34,32 @@ endif
 SRCS  := test_stt.c $(PARENT)/stt_core.cpp
 OBJS  := test_stt.o stt_core.o
 
-.PHONY: all build run run-all clean
+.PHONY: all build test run run-all clean
 
 all: build
 
-build: $(APP)
+build: $(APP) test_filter
 
 test_stt.o: test_stt.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	@echo "  [컴파일]  $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 stt_core.o: $(PARENT)/stt_core.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	@echo "  [컴파일]  $<"
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(APP): $(OBJS)
-	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+	@echo "  [링크]    $(APP)"
+	@$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+	@echo "  [완료]    ./$(APP)"
+
+test_filter: test_filter.cpp
+	@echo "  [컴파일]  test_filter.cpp"
+	@$(CXX) -std=c++17 -O2 -Wall $< -o $@
+	@echo "  [완료]    ./test_filter"
+
+test: build
+	@bash run_tests.sh
 
 run: build
 	@model=$(MODEL_DIR)/ggml-tiny.bin; \
@@ -81,4 +88,6 @@ run-all: build
 	done
 
 clean:
-	rm -f $(OBJS) $(APP)
+	@echo "  [삭제]  오브젝트 파일 및 바이너리..."
+	@rm -f $(OBJS) $(APP) test_filter
+	@echo "  [완료]"

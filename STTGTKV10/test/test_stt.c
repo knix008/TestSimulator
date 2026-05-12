@@ -8,10 +8,12 @@
  *   ffmpeg -i input.mp3 -ar 16000 -ac 1 -sample_fmt s16 output.wav
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "../stt_core.h"
 
@@ -57,11 +59,17 @@ static float *wav_read_f32(const char *path, int *out_n) {
     uint32_t chunk_size;
     while (fread(id, 1, 4, fp) == 4 && fread(&chunk_size, 4, 1, fp) == 1) {
         if (memcmp(id, "fmt ", 4) == 0) {
-            fread(&audio_format,   2, 1, fp);
-            fread(&num_channels,   2, 1, fp);
-            fread(&sample_rate,    4, 1, fp);
+            if (fread(&audio_format,    2, 1, fp) != 1 ||
+                fread(&num_channels,    2, 1, fp) != 1 ||
+                fread(&sample_rate,     4, 1, fp) != 1) {
+                fprintf(stderr, "WAV: truncated fmt chunk in %s\n", path);
+                fclose(fp); return NULL;
+            }
             fseek(fp, 6, SEEK_CUR);           /* skip byte_rate + block_align */
-            fread(&bits_per_sample, 2, 1, fp);
+            if (fread(&bits_per_sample, 2, 1, fp) != 1) {
+                fprintf(stderr, "WAV: truncated fmt chunk in %s\n", path);
+                fclose(fp); return NULL;
+            }
             if (chunk_size > 16)
                 fseek(fp, (long)(chunk_size - 16), SEEK_CUR);
             found_fmt = 1;
@@ -141,9 +149,13 @@ int main(int argc, char *argv[]) {
            n_samples, (double)n_samples / 16000.0);
 
     printf("[3/3] Transcribing (language=ko)...\n");
+    struct timespec t0, t1;
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     int rc = stt_transcribe(ctx, pcm, n_samples, on_result, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_nsec - t0.tv_nsec) * 1e-9;
     if (rc != 0) fprintf(stderr, "      Transcription failed.\n");
-    else         printf("      Done.\n");
+    else         printf("  TIME: %.2fs\n", elapsed);
 
     free(pcm);
     stt_context_free(ctx);

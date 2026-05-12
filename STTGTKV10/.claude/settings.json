@@ -25,7 +25,8 @@
       "Bash(PKG_CONFIG_PATH=third_party/install/lib/pkgconfig pkg-config --exists whisper)",
       "Bash(PKG_CONFIG_PATH=third_party/install/lib/pkgconfig pkg-config --cflags whisper)",
       "Bash(PKG_CONFIG_PATH=third_party/install/lib/pkgconfig pkg-config --static --libs whisper)",
-      "Bash(ldd ./sttgtk)"
+      "Bash(ldd ./sttgtk)",
+      "Bash(bash run_tests.sh)"
     ]
   }
 }
