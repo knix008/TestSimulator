@@ -25,8 +25,17 @@ int stt_transcribe(SttContext      *ctx,
 
 typedef struct SttStream SttStream;
 
-/* Create a streaming session.  Starts an internal worker thread. */
-SttStream *stt_stream_new(SttContext *ctx, stt_result_cb_t cb, void *userdata);
+typedef enum {
+    STT_STREAM_COMMAND,      /* mic: short commands, permissive VAD+whisper */
+    STT_STREAM_TRANSCRIPTION /* file/video: stricter VAD+whisper, fewer hallucinations */
+} SttStreamMode;
+
+/* Create a streaming session.  Starts an internal worker thread.
+   stt_stream_new uses COMMAND mode (mic/short words).
+   stt_stream_new_ex lets the caller specify the mode. */
+SttStream *stt_stream_new   (SttContext *ctx, stt_result_cb_t cb, void *userdata);
+SttStream *stt_stream_new_ex(SttContext *ctx, SttStreamMode mode,
+                              stt_result_cb_t cb, void *userdata);
 
 /* Push raw PCM frames from the PortAudio callback.
    Thread-safe; non-blocking (samples are queued). */
@@ -39,6 +48,10 @@ void stt_stream_flush(SttStream *stream);
 
 /* Free memory.  Call after stt_stream_flush(). */
 void stt_stream_free(SttStream *stream);
+
+/* Cancel immediately: discard all pending audio, stop worker, free memory.
+   Do NOT call stt_stream_flush/free after this. */
+void stt_stream_cancel(SttStream *stream);
 
 #ifdef __cplusplus
 }

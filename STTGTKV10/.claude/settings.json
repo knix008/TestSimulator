@@ -26,7 +26,8 @@
       "Bash(PKG_CONFIG_PATH=third_party/install/lib/pkgconfig pkg-config --cflags whisper)",
       "Bash(PKG_CONFIG_PATH=third_party/install/lib/pkgconfig pkg-config --static --libs whisper)",
       "Bash(ldd ./sttgtk)",
-      "Bash(bash run_tests.sh)"
+      "Bash(bash run_tests.sh)",
+      "Bash(gst-inspect-1.0 gtksink *)"
     ]
   }
 }

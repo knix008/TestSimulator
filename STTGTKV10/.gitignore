@@ -21,3 +21,6 @@ test/*.o
 # Compiled Python
 __pycache__/
 *.pyc
+
+# Media files
+*.mp4

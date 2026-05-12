@@ -30,13 +30,17 @@ static void pre_emphasis(float *pcm, int n) {
 
 /* RMS-normalise to a fixed target level so whisper always gets a
    consistent input amplitude regardless of mic gain.                       */
-static void rms_normalize(float *pcm, int n) {
+/* max_scale controls how much amplification is allowed:
+   - 8.0f  for mic/command mode (amplify quiet speech up to 8×)
+   - 1.5f  for file/transcription mode (don't amplify background noise
+            to speech levels — the main cause of Whisper hallucinations) */
+static void rms_normalize(float *pcm, int n, float max_scale) {
     float sum = 0.0f;
     for (int i = 0; i < n; i++) sum += pcm[i] * pcm[i];
     float rms = sqrtf(sum / (float)n);
-    if (rms < 1e-5f) return;                    /* silence, leave as-is    */
-    float scale = 0.12f / rms;                  /* target ≈ –18 dBFS       */
-    if (scale > 8.0f) scale = 8.0f;             /* cap: don't amplify noise */
+    if (rms < 1e-5f) return;
+    float scale = 0.12f / rms;
+    if (scale > max_scale) scale = max_scale;
     for (int i = 0; i < n; i++) pcm[i] *= scale;
 }
 
@@ -61,8 +65,15 @@ static bool has_hangul(const char *text) {
 static bool is_valid_korean_text(const char *text) {
     if (!text || text[0] == '\0') return false;
 
-    /* Reject [metadata] and (noise) markers */
-    if (text[0] == '[' || text[0] == '(') return false;
+    /* Reject [metadata], (noise) markers, and leading "-" / "–" / "—"
+       The dash prefix is Whisper's hallucination signature for music/noise. */
+    if (text[0] == '[' || text[0] == '(' || text[0] == '-') return false;
+    /* UTF-8 en-dash U+2013 (0xE2 0x80 0x93) and em-dash U+2014 (0xE2 0x80 0x94) */
+    {
+        const unsigned char *u = (const unsigned char *)text;
+        if (u[0] == 0xE2 && u[1] == 0x80 && (u[2] == 0x93 || u[2] == 0x94))
+            return false;
+    }
 
     /* Reject whitespace-only strings */
     bool has_content = false;
@@ -130,6 +141,8 @@ void stt_context_free(SttContext *ctx) {
 
 static int whisper_run(struct whisper_context *wctx,
                        const float *pcm_in, int n_in,
+                       float no_speech_thold, float logprob_thold,
+                       bool use_prompt,
                        stt_result_cb_t cb, void *userdata) {
 
     /* Working copy for in-place preprocessing */
@@ -139,7 +152,10 @@ static int whisper_run(struct whisper_context *wctx,
     /* tail is already zero (calloc) — silence padding */
 
     pre_emphasis(work, n);
-    rms_normalize(work, n);
+    /* Transcription mode caps amplification at 1.5× so background music/noise
+       stays below speech amplitude and Whisper can detect it as no_speech.
+       Command mode (mic) allows up to 8× to catch quiet whispered words.   */
+    rms_normalize(work, n, use_prompt ? 8.0f : 1.5f);
 
     /* ── Whisper parameters ────────────────────────────────────────────── */
     whisper_full_params p = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
@@ -158,10 +174,9 @@ static int whisper_run(struct whisper_context *wctx,
     p.temperature     = 0.0f;
     p.temperature_inc = 0.20f;
 
-    /* Thresholds — loosen no_speech so short Korean commands aren't skipped */
-    p.no_speech_thold = 0.35f;   /* default 0.60 — lower = more inclusive  */
-    p.entropy_thold   = 2.60f;   /* default 2.80 — tighter = less garbage  */
-    p.logprob_thold   = -1.20f;  /* default -1.00                          */
+    p.no_speech_thold = no_speech_thold;
+    p.entropy_thold   = 2.60f;   /* tighter than default 2.80 */
+    p.logprob_thold   = logprob_thold;
 
     /* Output quality */
     p.suppress_blank       = true;
@@ -175,10 +190,18 @@ static int whisper_run(struct whisper_context *wctx,
     /* Context: no carry-over between utterances (VAD gives clean chunks) */
     p.no_context           = true;
 
-    /* Korean initial prompt: always prepended so the decoder stays in
-       Korean even when the audio is ambiguous or very short.               */
-    p.initial_prompt       = KO_PROMPT;
-    p.carry_initial_prompt = true;
+    /* Korean prompt only for command mode.
+       In transcription mode, removing the prompt lets Whisper's no_speech
+       detector work correctly — the prompt biases it to always output Korean
+       even on silence or background noise, causing hallucinations.          */
+    if (use_prompt) {
+        p.initial_prompt       = KO_PROMPT;
+        p.carry_initial_prompt = true;
+    } else {
+        p.language             = "ko";  /* still decode Korean when speech is present */
+        p.initial_prompt       = nullptr;
+        p.carry_initial_prompt = false;
+    }
 
     /* Threading */
     p.n_threads = (int)std::thread::hardware_concurrency();
@@ -191,8 +214,12 @@ static int whisper_run(struct whisper_context *wctx,
 
     int ns = whisper_full_n_segments(wctx);
     for (int i = 0; i < ns; i++) {
+        /* Explicitly check no_speech probability — more reliable than relying
+           solely on no_speech_thold in params, especially without a prompt.  */
+        float nsp = whisper_full_get_segment_no_speech_prob(wctx, i);
+        if (nsp > no_speech_thold) continue;
+
         const char *raw = whisper_full_get_segment_text(wctx, i);
-        /* Strip leading space that whisper adds before each segment */
         if (raw && raw[0] == ' ') raw++;
         if (is_valid_korean_text(raw) && cb)
             cb(raw, userdata);
@@ -203,7 +230,7 @@ static int whisper_run(struct whisper_context *wctx,
 int stt_transcribe(SttContext *ctx, const float *pcm, int n,
                    stt_result_cb_t cb, void *userdata) {
     if (!ctx || !ctx->wctx || !pcm || n <= 0) return -1;
-    return whisper_run(ctx->wctx, pcm, n, cb, userdata);
+    return whisper_run(ctx->wctx, pcm, n, 0.60f, -1.00f, true, cb, userdata);
 }
 
 /* ── VAD parameters ───────────────────────────────────────────────────── */
@@ -241,6 +268,14 @@ struct SttStream {
     int                   speech_frames;
     int                   silence_frames;
     bool                  in_speech;
+
+    /* Mode-dependent thresholds (set at creation time) */
+    float                 vad_thresh;
+    int                   min_speech_frames;
+    float                 no_speech_thold;
+    float                 logprob_thold;
+    bool                  use_prompt; /* false = no KO_PROMPT, let no_speech detection work */
+    std::atomic<bool>     cancelling; /* set by stt_stream_cancel to discard pending audio */
 
     /* Pre-roll: circular buffer of last PRE_ROLL_FRAMES frames captured
        before in_speech becomes true, to preserve word onsets. */
@@ -282,6 +317,7 @@ static void segment_run(SttStream *st) {
         return;
     }
     whisper_run(st->ctx->wctx, st->speech, st->speech_len,
+                st->no_speech_thold, st->logprob_thold, st->use_prompt,
                 st->cb, st->userdata);
     st->speech_len = 0;
 }
@@ -292,7 +328,7 @@ static void vad_process_frame(SttStream *st, const float *frame, int n) {
     float rms = sqrtf(sum / (float)n);
 
     st->energy_ema = VAD_EMA_ALPHA * rms + (1.0f - VAD_EMA_ALPHA) * st->energy_ema;
-    bool is_speech = (st->energy_ema > VAD_THRESH);
+    bool is_speech = (st->energy_ema > st->vad_thresh);
 
     if (!st->in_speech) {
         /* Pre-speech: maintain a rolling window so word onsets aren't lost
@@ -304,7 +340,7 @@ static void vad_process_frame(SttStream *st, const float *frame, int n) {
         if (is_speech) {
             st->speech_frames++;
             st->silence_frames = 0;
-            if (st->speech_frames >= MIN_SPEECH_FRAMES) {
+            if (st->speech_frames >= st->min_speech_frames) {
                 st->in_speech = true;
                 /* Flush pre-roll (oldest first) into speech buffer */
                 int start = (st->pre_roll_count < PRE_ROLL_FRAMES)
@@ -392,7 +428,7 @@ static void *stream_worker(void *arg) {
         }
     }
 
-    if (st->speech_len > 0)
+    if (st->speech_len > 0 && !st->cancelling.load(std::memory_order_acquire))
         segment_run(st);
 
     return nullptr;
@@ -400,7 +436,8 @@ static void *stream_worker(void *arg) {
 
 /* ── Public streaming API ────────────────────────────────────────────── */
 
-SttStream *stt_stream_new(SttContext *ctx, stt_result_cb_t cb, void *userdata) {
+SttStream *stt_stream_new_ex(SttContext *ctx, SttStreamMode mode,
+                              stt_result_cb_t cb, void *userdata) {
     SttStream *st = static_cast<SttStream *>(calloc(1, sizeof(SttStream)));
     st->ctx      = ctx;
     st->cb       = cb;
@@ -409,10 +446,33 @@ SttStream *stt_stream_new(SttContext *ctx, stt_result_cb_t cb, void *userdata) {
     st->speech   = static_cast<float *>(malloc((size_t)MAX_SPEECH_SAMPLES * sizeof(float)));
     st->stopping.store(false, std::memory_order_relaxed);
 
+    if (mode == STT_STREAM_TRANSCRIPTION) {
+        /* File / video: strict — suppress hallucinations from background audio.
+           use_prompt=false lets Whisper's no_speech detector work correctly;
+           the KO_PROMPT biases the decoder to always output Korean, even on
+           silence, causing the hallucinations the user sees.                  */
+        st->vad_thresh        = 0.030f;
+        st->min_speech_frames = 12;
+        st->no_speech_thold   = 0.80f;
+        st->logprob_thold     = -1.00f;
+        st->use_prompt        = false;
+    } else {
+        /* Mic / command: permissive — catch short quiet Korean words */
+        st->vad_thresh        = VAD_THRESH;
+        st->min_speech_frames = MIN_SPEECH_FRAMES;
+        st->no_speech_thold   = 0.35f;
+        st->logprob_thold     = -1.20f;
+        st->use_prompt        = true;
+    }
+
     pthread_mutex_init(&st->ring_mtx, nullptr);
     pthread_cond_init(&st->ring_cond, nullptr);
     pthread_create(&st->worker, nullptr, stream_worker, st);
     return st;
+}
+
+SttStream *stt_stream_new(SttContext *ctx, stt_result_cb_t cb, void *userdata) {
+    return stt_stream_new_ex(ctx, STT_STREAM_COMMAND, cb, userdata);
 }
 
 void stt_stream_push(SttStream *st, const float *pcm, int n) {
@@ -443,4 +503,16 @@ void stt_stream_free(SttStream *st) {
     free(st->ring);
     free(st->speech);
     free(st);
+}
+
+void stt_stream_cancel(SttStream *st) {
+    if (!st) return;
+    st->cancelling.store(true, std::memory_order_release);
+    pthread_mutex_lock(&st->ring_mtx);
+    st->ring_head = st->ring_tail;  /* drain ring buffer */
+    st->stopping.store(true, std::memory_order_relaxed);
+    pthread_cond_signal(&st->ring_cond);
+    pthread_mutex_unlock(&st->ring_mtx);
+    pthread_join(st->worker, nullptr);
+    stt_stream_free(st);
 }

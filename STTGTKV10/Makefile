@@ -13,7 +13,7 @@ WHISPER_INSTALL := $(THIRD_PARTY)/install
 WHISPER_STAMP   := $(WHISPER_INSTALL)/.whisper_built
 
 # ── Source files ───────────────────────────────────────────────────────────
-C_SRCS   := main.c app_ui.c audio_capture.c model_manager.c
+C_SRCS   := main.c app_ui.c audio_capture.c model_manager.c video_player.c
 CXX_SRCS := stt_core.cpp
 C_OBJS   := $(C_SRCS:.c=.o)
 CXX_OBJS := $(CXX_SRCS:.cpp=.o)
@@ -35,7 +35,7 @@ ifeq ($(OS),Darwin)
 endif
 
 # ── System package groups ──────────────────────────────────────────────────
-SYS_PKGS    := gtk+-3.0 portaudio-2.0 libcurl
+SYS_PKGS    := gtk+-3.0 portaudio-2.0 libcurl gstreamer-1.0 gstreamer-app-1.0
 
 # ── Compile / link flags ──────────────────────────────────────────────────
 SYS_CFLAGS  := $(shell pkg-config --cflags $(SYS_PKGS) 2>/dev/null)
@@ -201,7 +201,12 @@ ifeq ($(OS),Linux)
 		libgtk-3-dev \
 		portaudio19-dev \
 		libcurl4-openssl-dev \
-		pulseaudio-utils
+		pulseaudio-utils \
+		libgstreamer1.0-dev \
+		libgstreamer-plugins-base1.0-dev \
+		gstreamer1.0-plugins-base \
+		gstreamer1.0-plugins-good \
+		gstreamer1.0-gtk3
 	@echo ""
 	@echo "  [Linux] 설치 완료."
 else ifeq ($(OS),Darwin)
