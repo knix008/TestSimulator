@@ -17,6 +17,27 @@ namespace STTWinV10.Services
         private bool _isInitialized;
         private readonly SemaphoreSlim _processingLock = new(1, 1);
 
+        // 성능 최적화 옵션
+        public int ThreadCount { get; set; } = Environment.ProcessorCount;
+        public int BeamSize { get; set; } = 1;
+        public bool UseVadFilter { get; set; } = true;
+        public bool UseGpu { get; set; } = false;
+
+        // 할루시네이션 방지 옵션
+        public float NoSpeechThreshold { get; set; } = 0.6f;  // 이 값 이상이면 무음으로 판단
+        public float MinAudioRms { get; set; } = 0.01f;       // 이 에너지 미만이면 Whisper 호출 생략
+        public float MinSegmentProbability { get; set; } = -1.0f; // 평균 로그 확률 하한 (미만이면 할루시네이션으로 간주)
+
+        // Whisper가 무음/잡음에서 생성하는 흔한 한국어 할루시네이션 목록
+        private static readonly HashSet<string> _hallucinationPhrases = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "감사합니다", "고맙습니다", "수고하셨습니다", "수고했습니다",
+            "구독", "좋아요", "알림 설정", "구독과 좋아요",
+            "시청해 주셔서 감사합니다", "시청해주셔서 감사합니다",
+            "MBC 뉴스", "KBS 뉴스", "SBS 뉴스",
+            "자막 제공", "자막 서비스",
+        };
+
         public event EventHandler<TranscriptionEventArgs>? TranscriptionReceived;
         public event EventHandler<string>? ErrorOccurred;
 
@@ -50,10 +71,11 @@ namespace STTWinV10.Services
                     await DownloadModelAsync();
                 }
 
-                // Whisper 프로세서 생성
                 var factory = WhisperFactory.FromPath(_modelPath);
                 _processor = factory.CreateBuilder()
-                    .WithLanguage("ko") // 한국어 설정
+                    .WithLanguage("ko")
+                    .WithNoSpeechThreshold(NoSpeechThreshold)
+                    .WithProbabilities()               // segment.Probability 계산 활성화
                     .Build();
 
                 _isInitialized = true;
@@ -98,20 +120,26 @@ namespace STTWinV10.Services
                 throw new InvalidOperationException("WhisperSTTService가 초기화되지 않았습니다.");
             }
 
+            // 오디오 에너지가 너무 낮으면 Whisper 호출 자체를 생략 (할루시네이션 방지)
+            if (!HasSufficientAudioEnergy(audioData))
+                return string.Empty;
+
             await _processingLock.WaitAsync(cancellationToken);
             try
             {
                 var result = "";
                 await foreach (var segment in _processor.ProcessAsync(audioData, cancellationToken))
                 {
-                    // 텍스트 필터링 (대괄호 안 내용 제거)
+                    // 평균 로그 확률이 너무 낮은 세그먼트는 할루시네이션으로 간주
+                    if (segment.Probability < MinSegmentProbability)
+                        continue;
+
                     var cleanedText = CleanTranscriptionText(segment.Text);
-                    
+
                     if (!string.IsNullOrWhiteSpace(cleanedText))
                     {
                         result += cleanedText;
-                        
-                        // 세그먼트별로 이벤트 발생 (실시간 피드백)
+
                         TranscriptionReceived?.Invoke(this, new TranscriptionEventArgs
                         {
                             Text = cleanedText,
@@ -188,22 +216,42 @@ namespace STTWinV10.Services
         }
 
         /// <summary>
-        /// 인식 텍스트 정리 (대괄호 제거, 불필요한 공백 제거)
+        /// 오디오 RMS 에너지가 최소 임계값 이상인지 확인
+        /// </summary>
+        private bool HasSufficientAudioEnergy(float[] audioData)
+        {
+            if (audioData.Length == 0) return false;
+
+            double sumSquares = 0;
+            foreach (var sample in audioData)
+                sumSquares += sample * sample;
+
+            var rms = Math.Sqrt(sumSquares / audioData.Length);
+            return rms >= MinAudioRms;
+        }
+
+        /// <summary>
+        /// 인식 텍스트 정리 (대괄호 제거, 할루시네이션 필터링)
         /// </summary>
         private string CleanTranscriptionText(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return string.Empty;
 
-            // 대괄호와 그 안의 내용 제거
-            var cleaned = System.Text.RegularExpressions.Regex.Replace(text, @"\[.*?\]", "");
-            
-            // 연속된 공백을 하나로
-            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ");
-            
-            // 양쪽 공백 제거
-            cleaned = cleaned.Trim();
-            
+            // 대괄호/소괄호 안의 내용 제거 ([음악], (박수) 등)
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(text, @"[\[\(].*?[\]\)]", "");
+
+            // 연속된 공백을 하나로, 양쪽 공백 제거
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+", " ").Trim();
+
+            // 알려진 할루시네이션 문구와 정확히 일치하면 제거
+            if (_hallucinationPhrases.Contains(cleaned))
+                return string.Empty;
+
+            // 구두점/특수문자만 남은 경우 제거
+            if (System.Text.RegularExpressions.Regex.IsMatch(cleaned, @"^[\s\.\,\-\!\?\~\*]+$"))
+                return string.Empty;
+
             return cleaned;
         }
 

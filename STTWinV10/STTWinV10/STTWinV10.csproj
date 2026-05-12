@@ -14,6 +14,9 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Whisper.net" Version="1.7.0" />
     <PackageReference Include="Whisper.net.Runtime" Version="1.7.0" />
+    <!-- GPU 가속을 위한 CUDA 런타임 (선택적) -->
+    <!-- GPU가 있고 CUDA를 사용하려면 아래 주석을 해제하세요 -->
+    <!-- <PackageReference Include="Whisper.net.Runtime.Cuda" Version="1.7.0" /> -->
     <PackageReference Include="System.Reactive" Version="6.0.0" />
   </ItemGroup>
 

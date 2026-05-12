@@ -53,8 +53,14 @@ namespace STTWinV10
                 // 모델 목록 로드
                 LoadModels();
 
-                // Whisper 서비스 생성
-                _whisperService = new WhisperSTTService(_currentModelPath);
+                // Whisper 서비스 생성 (성능 최적화 설정)
+                _whisperService = new WhisperSTTService(_currentModelPath)
+                {
+                    ThreadCount = Environment.ProcessorCount, // 모든 CPU 코어 사용
+                    BeamSize = 1, // 빠른 처리를 위해 빔 크기 최소화
+                    UseVadFilter = true, // 음성 활동 감지로 무음 구간 제거
+                    UseGpu = false // GPU 사용 시 true로 변경 (CUDA 필요)
+                };
                 
                 // 실시간 STT 서비스 생성 (3초마다 처리)
                 _sttService = new RealtimeSTTService(_whisperService, processingIntervalSeconds: 3.0);
@@ -164,8 +170,14 @@ namespace STTWinV10
                         _sttService.Dispose();
                     }
 
-                    // 새 Whisper 서비스 생성
-                    _whisperService = new WhisperSTTService(_currentModelPath);
+                    // 새 Whisper 서비스 생성 (성능 최적화 설정)
+                    _whisperService = new WhisperSTTService(_currentModelPath)
+                    {
+                        ThreadCount = Environment.ProcessorCount,
+                        BeamSize = 1, // 빠른 처리
+                        UseVadFilter = true, // 무음 구간 제거
+                        UseGpu = false // GPU 사용 시 true로 변경
+                    };
                     
                     // 모델이 없으면 다운로드
                     if (!File.Exists(_currentModelPath))
