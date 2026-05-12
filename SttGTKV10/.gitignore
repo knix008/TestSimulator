@@ -1,0 +1,23 @@
+# Build output
+sttgtk
+*.o
+
+# Third-party (whisper.cpp source + built libraries)
+third_party/
+
+# Test binaries
+test/test_stt
+test/test_filter
+test/*.o
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiled Python
+__pycache__/
+*.pyc

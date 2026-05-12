@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sudo apt-get install -y portaudio19-dev)",
+      "Bash(ffmpeg -version)",
+      "Bash(espeak-ng --version)",
+      "Bash(pkg-config --exists libsndfile)",
+      "Bash(espeak-ng -v ko \"안녕하세요\" -w /tmp/stt_test_probe.wav)",
+      "Read(//tmp/**)",
+      "Bash(grep -v \"^$\")",
+      "Bash(readelf -d /home/shkwon/Projects/TestSimulator/SttGTKV10/test/test_stt)",
+      "Bash(objdump -p /home/shkwon/Projects/TestSimulator/SttGTKV10/test/test_stt)",
+      "Bash(pactl list *)",
+      "Bash(pkg-config --exists portaudio-2.0)",
+      "Bash(pkg-config --exists gtk+-3.0)",
+      "Bash(pkg-config --exists libcurl)",
+      "Bash(brew list *)",
+      "Bash(g++ -std=c++17 test_filter.cpp -o test_filter)",
+      "Bash(./test_filter)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}
