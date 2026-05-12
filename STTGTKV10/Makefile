@@ -46,16 +46,15 @@ WHISPER_PC_OK   := $(shell PKG_CONFIG_PATH=$(WHISPER_PC_PATH) pkg-config --exist
 
 ifeq ($(WHISPER_PC_OK),yes)
   WHISPER_CFLAGS  := $(shell PKG_CONFIG_PATH=$(WHISPER_PC_PATH) pkg-config --cflags whisper)
-  WHISPER_LDFLAGS := $(shell PKG_CONFIG_PATH=$(WHISPER_PC_PATH) pkg-config --libs   whisper)
 else
   WHISPER_CFLAGS  := -I$(WHISPER_INSTALL)/include
-  WHISPER_LDFLAGS := -L$(WHISPER_INSTALL)/lib -lwhisper
 endif
+WHISPER_LDFLAGS := -L$(WHISPER_INSTALL)/lib \
+  -Wl,--start-group -lwhisper -lggml-cpu -lggml-base -lggml -Wl,--end-group -lgomp -lm
 
 CFLAGS   := -O2 -Wall -Wextra -std=c11   $(SYS_CFLAGS) $(WHISPER_CFLAGS)
 CXXFLAGS := -O2 -Wall -Wextra -std=c++17 $(SYS_CFLAGS) $(WHISPER_CFLAGS)
 LDFLAGS  := $(SYS_LDFLAGS) $(WHISPER_LDFLAGS) -lpthread
-LDFLAGS  += -Wl,-rpath,$(abspath $(WHISPER_INSTALL)/lib)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Main targets
@@ -244,7 +243,7 @@ $(WHISPER_STAMP):
 	@cmake -S "$(WHISPER_SRC)" -B "$(WHISPER_SRC)/build" \
 		-DCMAKE_INSTALL_PREFIX="$(abspath $(WHISPER_INSTALL))" \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DBUILD_SHARED_LIBS=ON \
+		-DBUILD_SHARED_LIBS=OFF \
 		-DWHISPER_BUILD_TESTS=OFF \
 		-DWHISPER_BUILD_EXAMPLES=OFF \
 		-DGGML_BUILD_TESTS=OFF \
@@ -286,11 +285,7 @@ run: build
 	@echo ""
 	@echo "  STT Korean 시작..."
 	@echo ""
-ifeq ($(OS),Linux)
-	@LD_LIBRARY_PATH="$(abspath $(WHISPER_INSTALL)/lib):$$LD_LIBRARY_PATH" ./$(APP)
-else ifeq ($(OS),Darwin)
-	@DYLD_LIBRARY_PATH="$(abspath $(WHISPER_INSTALL)/lib):$$DYLD_LIBRARY_PATH" ./$(APP)
-endif
+	@./$(APP)
 
 clean:
 	@echo "  [삭제]  오브젝트 파일 및 바이너리..."

@@ -216,6 +216,7 @@ int stt_transcribe(SttContext *ctx, const float *pcm, int n,
 #define POST_SILENCE_FRAMES   22         /* ~700 ms trailing silence → send */
 #define MAX_SPEECH_SAMPLES    (SAMPLE_RATE * 25)  /* 25 s hard cap          */
 #define RING_CAP              (SAMPLE_RATE * 12)  /* 12 s ring buffer       */
+#define PRE_ROLL_FRAMES       6          /* ~192 ms pre-speech capture      */
 
 /* ── SttStream ────────────────────────────────────────────────────────── */
 
@@ -240,6 +241,12 @@ struct SttStream {
     int                   speech_frames;
     int                   silence_frames;
     bool                  in_speech;
+
+    /* Pre-roll: circular buffer of last PRE_ROLL_FRAMES frames captured
+       before in_speech becomes true, to preserve word onsets. */
+    float                 pre_roll[PRE_ROLL_FRAMES * VAD_FRAME];
+    int                   pre_roll_pos;
+    int                   pre_roll_count;
 
     /* Worker */
     pthread_t             worker;
@@ -287,6 +294,40 @@ static void vad_process_frame(SttStream *st, const float *frame, int n) {
     st->energy_ema = VAD_EMA_ALPHA * rms + (1.0f - VAD_EMA_ALPHA) * st->energy_ema;
     bool is_speech = (st->energy_ema > VAD_THRESH);
 
+    if (!st->in_speech) {
+        /* Pre-speech: maintain a rolling window so word onsets aren't lost
+           when in_speech is finally triggered. */
+        memcpy(st->pre_roll + st->pre_roll_pos * n, frame, (size_t)n * sizeof(float));
+        st->pre_roll_pos = (st->pre_roll_pos + 1) % PRE_ROLL_FRAMES;
+        if (st->pre_roll_count < PRE_ROLL_FRAMES) st->pre_roll_count++;
+
+        if (is_speech) {
+            st->speech_frames++;
+            st->silence_frames = 0;
+            if (st->speech_frames >= MIN_SPEECH_FRAMES) {
+                st->in_speech = true;
+                /* Flush pre-roll (oldest first) into speech buffer */
+                int start = (st->pre_roll_count < PRE_ROLL_FRAMES)
+                            ? 0 : st->pre_roll_pos;
+                for (int f = 0; f < st->pre_roll_count; f++) {
+                    int idx  = (start + f) % PRE_ROLL_FRAMES;
+                    int room = MAX_SPEECH_SAMPLES - st->speech_len;
+                    if (room < n) break;
+                    memcpy(st->speech + st->speech_len,
+                           st->pre_roll + idx * n, (size_t)n * sizeof(float));
+                    st->speech_len += n;
+                }
+                st->pre_roll_count = 0;
+                st->pre_roll_pos   = 0;
+            }
+        } else {
+            /* Isolated noise burst — don't let it accumulate toward threshold */
+            st->speech_frames = 0;
+        }
+        return;
+    }
+
+    /* ── in_speech: accumulate audio and watch for trailing silence ──────── */
     if (st->speech_len + n <= MAX_SPEECH_SAMPLES) {
         memcpy(st->speech + st->speech_len, frame, (size_t)n * sizeof(float));
         st->speech_len += n;
@@ -295,11 +336,9 @@ static void vad_process_frame(SttStream *st, const float *frame, int n) {
     if (is_speech) {
         st->speech_frames++;
         st->silence_frames = 0;
-        if (!st->in_speech && st->speech_frames >= MIN_SPEECH_FRAMES)
-            st->in_speech = true;
     } else {
         st->silence_frames++;
-        if (st->in_speech && st->silence_frames >= POST_SILENCE_FRAMES) {
+        if (st->silence_frames >= POST_SILENCE_FRAMES) {
             int trim = st->silence_frames * n;
             if (trim > st->speech_len) trim = st->speech_len;
             st->speech_len -= trim;
@@ -343,7 +382,8 @@ static void *stream_worker(void *arg) {
         }
 
         if (done) {
-            if (frame_pos > 0 && st->speech_len + frame_pos <= MAX_SPEECH_SAMPLES) {
+            if (st->in_speech && frame_pos > 0 &&
+                    st->speech_len + frame_pos <= MAX_SPEECH_SAMPLES) {
                 memcpy(st->speech + st->speech_len, frame,
                        (size_t)frame_pos * sizeof(float));
                 st->speech_len += frame_pos;
