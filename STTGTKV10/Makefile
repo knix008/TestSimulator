@@ -82,8 +82,8 @@ all:
 	@$(MAKE) --no-print-directory build
 	@echo ""
 	@echo "╔══════════════════════════════════════════╗"
-	@echo "║  빌드 완료  →  ./$(APP)              ║"
-	@echo "║  실행       →  make run               ║"
+	@echo "║  빌드 완료  →  ./$(APP)                    ║"
+	@echo "║  실행       →  make run                   ║"
 	@echo "╚══════════════════════════════════════════╝"
 	@echo ""
 
@@ -144,15 +144,31 @@ deps-check:
 	\
 	if [ "$(OS)" = "Linux" ]; then \
 		echo "  ┌─ Linux 유틸리티 ────────────────────────────────┐"; \
-		for cmd in pactl awk; do \
+		for cmd in pactl awk gst-inspect-1.0; do \
 			if command -v $$cmd >/dev/null 2>&1; then \
 				ver=$$($$cmd --version 2>&1 | head -1 || echo ""); \
-				printf "  │  %-12s  %-40s│\n" "[OK] $$cmd" "$$ver"; \
+				printf "  │  %-18s  %-34s│\n" "[OK] $$cmd" "$$ver"; \
 			else \
-				printf "  │  %-12s  %-40s│\n" "[NG] $$cmd" "(설치 필요)"; \
+				printf "  │  %-18s  %-34s│\n" "[NG] $$cmd" "(설치 필요)"; \
 				fail=1; \
 			fi; \
 		done; \
+		echo "  └─────────────────────────────────────────────────┘"; \
+		echo ""; \
+		echo "  ┌─ GStreamer 플러그인 ────────────────────────────┐"; \
+		if command -v gst-inspect-1.0 >/dev/null 2>&1; then \
+			for plugin in gtksink decodebin appsink audioconvert avdec_h264; do \
+				if gst-inspect-1.0 $$plugin >/dev/null 2>&1; then \
+					printf "  │  %-18s  %-34s│\n" "[OK] $$plugin" ""; \
+				else \
+					printf "  │  %-18s  %-34s│\n" "[NG] $$plugin" "(패키지 설치 필요)"; \
+					fail=1; \
+				fi; \
+			done; \
+		else \
+			printf "  │  %-18s  %-34s│\n" "[--] 플러그인 검사" "(gst-inspect-1.0 없음)"; \
+			fail=1; \
+		fi; \
 		echo "  └─────────────────────────────────────────────────┘"; \
 		echo ""; \
 	fi; \
@@ -206,7 +222,10 @@ ifeq ($(OS),Linux)
 		libgstreamer-plugins-base1.0-dev \
 		gstreamer1.0-plugins-base \
 		gstreamer1.0-plugins-good \
-		gstreamer1.0-gtk3
+		gstreamer1.0-plugins-bad \
+		gstreamer1.0-gtk3 \
+		gstreamer1.0-libav \
+		gstreamer1.0-tools
 	@echo ""
 	@echo "  [Linux] 설치 완료."
 else ifeq ($(OS),Darwin)
@@ -222,7 +241,12 @@ else ifeq ($(OS),Darwin)
 		pkg-config \
 		gtk+3 \
 		portaudio \
-		curl
+		curl \
+		gstreamer \
+		gst-plugins-base \
+		gst-plugins-good \
+		gst-plugins-bad \
+		gst-libav
 	@echo ""
 	@echo "  [macOS] 설치 완료."
 else
