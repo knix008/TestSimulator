@@ -6,7 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\STTWinV10\STTWinV10.csproj" />
+    <ProjectReference Include="..\STTWinV10\STTWinV10.csproj">
+      <AdditionalProperties>DisableInstallerChain=true</AdditionalProperties>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
