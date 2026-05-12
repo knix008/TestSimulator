@@ -2,7 +2,7 @@
 
 ## 🚀 STT 파이프라인 요약
 
-앱은 **Whisper.net 기본 `WhisperProcessor` 옵션**에 가깝게 두고, **`WithLanguage("ko")`만** 지정합니다. 스레드 수·온도·프롬프트·`SplitOnWord`·무음 RMS 스킵·대괄호 후처리 등은 **코드에서 건드리지 않습니다**(Whisper.net / whisper.cpp 기본값).
+앱은 **Whisper.net 기본 `WhisperProcessor` 옵션**에 가깝게 두고, **`WithLanguage("ko")`만** 지정합니다. 스레드 수·온도·프롬프트·`SplitOnWord`·무음 RMS 스킵 등은 **빌더에서 건드리지 않습니다**. 전사 **텍스트**에서는 반각/전각 **대괄호로만 둘러싼 블록**을 구조적으로 제거합니다(내용 추측·치환 없음).
 
 ### 1. **언어**
 - **한국어 `ko` 고정** — 자동 언어 감지(`WithLanguageDetection`) 미사용

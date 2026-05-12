@@ -511,7 +511,7 @@
                         </ComboBox>
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                   Text="인식 언어: 한국어(ko) 고정 · Whisper.net 기본 디코더"
+                                   Text="인식 언어: 한국어(ko) 고정 · 기본 디코더 · 대괄호 메타 블록만 제거"
                                    FontSize="12"
                                    Foreground="#9090A8"
                                    Margin="0,10,0,0"

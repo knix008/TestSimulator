@@ -93,7 +93,7 @@ STTWinV10/
 
 ### WhisperSTTService
 
-- Whisper.net으로 GGML 로드, **`WithLanguage("ko")`만 지정**하고 나머지는 라이브러리 기본값
+- Whisper.net으로 GGML 로드, **`WithLanguage("ko")`만 지정**하고 나머지는 라이브러리 기본값, 출력에서 **`[` `]` / `［` `］` 메타 블록만** 구조적으로 제거
 
 ### RealtimeSTTService
 
@@ -123,7 +123,7 @@ _sttService = new RealtimeSTTService(_whisperService, processingIntervalSeconds:
 
 ### 대괄호·메타 텍스트
 
-Whisper가 출력하는 `[음악]` 등은 **그대로 표시**됩니다. 후처리가 필요하면 앱 레벨에서 별도로 필터링하세요.
+`WhisperSTTService`는 **`[` `]` / `［` `］`로만 감싼 블록**을 제거합니다(Whisper 자막·이벤트 태그 형식). 괄호 밖의 전사는 바꾸지 않으며, 키워드 추측·치환은 하지 않습니다.
 
 ## MSI 빌드 (개발자)
 
