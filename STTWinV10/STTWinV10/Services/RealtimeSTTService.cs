@@ -16,6 +16,9 @@ namespace STTWinV10.Services
         private bool _isRunning;
         private bool _isProcessing;
 
+        /// <summary>주기 처리 시 최소 오디오 길이(샘플). 16kHz 기준 8000 = 0.5초.</summary>
+        public int MinSamplesForPeriodicDecode { get; set; } = 8000;
+
         public event EventHandler<string>? TranscriptionReceived;
         public event EventHandler<string>? StatusChanged;
         public event EventHandler<string>? ErrorOccurred;
@@ -141,8 +144,8 @@ namespace STTWinV10.Services
                 // 버퍼된 오디오 데이터 가져오기
                 var audioData = _audioCaptureService.GetAndClearBuffer();
 
-                // 최소 오디오 길이 체크 (0.5초 이상)
-                if (audioData.Length < 8000) // 16kHz * 0.5초
+                // 최소 오디오 길이 (16kHz 기준 약 0.5초)
+                if (audioData.Length < MinSamplesForPeriodicDecode)
                 {
                     return;
                 }

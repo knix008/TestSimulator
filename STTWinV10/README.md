@@ -93,11 +93,11 @@ STTWinV10/
 
 ### WhisperSTTService
 
-- Whisper.net으로 GGML 로드, 누락 시 다운로드, **한국어**(`WithLanguage("ko")`), 반각·전각 **대괄호 블록**만 제거 후 표시
+- Whisper.net으로 GGML 로드, **`WithLanguage("ko")`만 지정**하고 나머지는 라이브러리 기본값
 
 ### RealtimeSTTService
 
-- 캡처와 Whisper 연결, 타이머 주기 처리, 최소 버퍼 길이, `ProcessCurrentBufferAsync()` 즉시 처리
+- 캡처와 Whisper 연결, 타이머 주기 처리, 최소 버퍼 샘플 수, `ProcessCurrentBufferAsync()` 즉시 처리
 
 고급 설정 예시는 아래 **고급 설정**을 참고하세요.
 
@@ -117,13 +117,13 @@ _sttService = new RealtimeSTTService(_whisperService, processingIntervalSeconds:
 
 `AudioCaptureService`의 샘플레이트·채널, `BufferMilliseconds`(기본 100ms) 등은 해당 클래스에서 조정합니다.
 
-### 대괄호 메타 구간
+### Whisper 디코더
 
-Whisper가 출력하는 `[끝]`, `[모두]`, `[음악]` 등 **대괄호로 둘러싼 구간**은 기본으로 제거합니다. 끄려면 `WhisperSTTService.RemoveSquareBracketAnnotations = false` 로 설정합니다.
+`WhisperSTTService`는 **`ko`만 고정**하고, `CreateBuilder()`에는 **`WithLanguage` 외 옵션을 넣지 않습니다**. 추가 튜닝은 `WhisperSTTService.cs`의 빌더 체인을 수정하세요. 실시간 간격·버퍼는 `RealtimeSTTService`와 [PERFORMANCE_GUIDE.md](STTWinV10/PERFORMANCE_GUIDE.md)를 참고하세요.
 
-### 모델 출력·무음 스킵
+### 대괄호·메타 텍스트
 
-- 무음·저에너지 구간에서는 기본으로 Whisper를 호출하지 않습니다(`SkipDecodeWhenSilent`, `MinAudioRms`). 끄려면 `SkipDecodeWhenSilent = false` 로 설정합니다.
+Whisper가 출력하는 `[음악]` 등은 **그대로 표시**됩니다. 후처리가 필요하면 앱 레벨에서 별도로 필터링하세요.
 
 ## MSI 빌드 (개발자)
 

@@ -1,53 +1,38 @@
 # STT 성능 최적화 가이드
 
-## 🚀 적용된 최적화 사항
+## 🚀 STT 파이프라인 요약
 
-현재 Whisper.net에 다음과 같은 성능 최적화가 적용되었습니다:
+앱은 **Whisper.net 기본 `WhisperProcessor` 옵션**에 가깝게 두고, **`WithLanguage("ko")`만** 지정합니다. 스레드 수·온도·프롬프트·`SplitOnWord`·무음 RMS 스킵·대괄호 후처리 등은 **코드에서 건드리지 않습니다**(Whisper.net / whisper.cpp 기본값).
 
-### 1. **멀티스레딩 최적화**
-- **ThreadCount**: CPU 코어 수만큼 스레드 사용
-- 기본값: `Environment.ProcessorCount` (시스템의 모든 코어 활용)
+### 1. **언어**
+- **한국어 `ko` 고정** — 자동 언어 감지(`WithLanguageDetection`) 미사용
 
-### 2. **빔 서치 크기 조정**
-- **BeamSize**: 1 (빠른 처리 우선)
-- 더 높은 정확도가 필요하면 5로 증가 (속도 감소)
+### 2. **실시간 처리**
+- `RealtimeSTTService`의 타이머 간격·최소 버퍼 샘플 수 등은 **캡처 파이프라인** 설정입니다(Whisper 디코더 옵션과 별개).
 
-### 3. **음성 활동 감지 (VAD)**
-- **UseVadFilter**: true (무음 구간 자동 제거)
-- 불필요한 오디오 처리 생략으로 속도 향상
-
-### 4. **무음 시 Whisper 호출 생략**
-- **SkipDecodeWhenSilent**: 기본 `true` — 버퍼 RMS가 **MinAudioRms**(기본 0.01) 미만이면 디코더를 돌리지 않습니다.
-- 아주 작은 소리까지 인식해야 하면 `SkipDecodeWhenSilent = false` 또는 `MinAudioRms`를 낮춥니다.
-
-### 5. **GPU 가속 지원 (선택적)**
-- NVIDIA GPU가 있는 경우 CUDA 런타임 활성화 가능
+### 3. **GPU 가속 (선택)**
+- NVIDIA GPU 사용 시 `Whisper.net.Runtime.Cuda` 패키지 및 Whisper.net 문서에 맞는 **모델 로드/팩토리** 구성이 필요합니다. 현재 `WhisperSTTService`는 파일 경로 기준 `WhisperFactory.FromPath`만 사용합니다.
 
 ---
 
-## ⚙️ 설정 변경 방법
+## ⚙️ 디코더를 직접 바꾸려면
 
-### MainWindow.xaml.cs 수정
+`WhisperSTTService.InitializeAsync()` 안의 `CreateBuilder()` 체인에 `WithThreads`, `WithTemperature`, `WithPrompt`, `SplitOnWord` 등을 **필요할 때만** 추가하면 됩니다.
 
 ```csharp
-_whisperService = new WhisperSTTService(_currentModelPath, model.Type)
-{
-    ThreadCount = Environment.ProcessorCount,
-    BeamSize = 1,
-    UseVadFilter = true,
-    UseGpu = false,
-    SkipDecodeWhenSilent = true,  // 무음이면 STT 생략
-    MinAudioRms = 0.01f           // 더 민감히: 값을 낮춤
-};
+// 현재(요지)
+_processor = factory.CreateBuilder()
+    .WithLanguage(WhisperSTTService.RecognitionLanguage)
+    .Build();
 ```
 
-### 속도 vs 정확도 트레이드오프
+### 속도 vs 품질 (참고)
 
-| 설정 | 속도 | 정확도 | 권장 사용처 |
-|------|------|--------|-------------|
-| BeamSize = 1 | ⚡⚡⚡ | ⭐⭐ | 실시간 대화, 빠른 응답 필요 |
-| BeamSize = 3 | ⚡⚡ | ⭐⭐⭐ | 일반적인 사용 |
-| BeamSize = 5 | ⚡ | ⭐⭐⭐⭐ | 높은 정확도 요구 (회의록 등) |
+| 방법 | 효과 |
+|------|------|
+| 더 큰 GGML 모델(Small, Large) | 정확도 향상, CPU·메모리 부담 증가 |
+| `processingIntervalSeconds` 조정 | 반응성 vs 부하 트레이드오프 |
+| 빌더에 `WithThreads(n)` 추가 | 인코딩/디코딩 스레드 수 명시(미지정 시 Whisper.net이 하드웨어에 맞게 설정) |
 
 ---
 
@@ -63,11 +48,9 @@ _whisperService = new WhisperSTTService(_currentModelPath, model.Type)
 
 위의 주석을 해제하고 패키지를 복원합니다.
 
-### 2. MainWindow.xaml.cs 수정
+### 2. MainWindow.xaml.cs (GPU 사용 시 개념)
 
-```csharp
-UseGpu = true  // GPU 가속 활성화
-```
+GPU 가속은 **CUDA 런타임 패키지**와 Whisper.net에서 안내하는 **GPU용 모델 로드** 방식을 맞춰야 합니다. `WhisperSTTService`를 그에 맞게 수정해야 할 수 있습니다.
 
 ### 3. 요구 사항
 - NVIDIA GPU (CUDA Compute Capability 3.5 이상)
@@ -79,56 +62,43 @@ UseGpu = true  // GPU 가속 활성화
 
 ---
 
-## 🔧 모델별 권장 설정
+## 🔧 모델별 참고
+
+GGML 파일만 다르며, **디코더 빌더는 동일**합니다. 정확도와 속도·메모리는 모델 크기에 따라 달라집니다.
 
 ### Tiny 모델 (75MB)
-```csharp
-BeamSize = 1,
-UseVadFilter = true
-```
-- 이미 충분히 빠르므로 기본 설정 유지
+- 저사양·빠른 응답 위주
 
 ### Base 모델 (142MB) - **권장**
-```csharp
-BeamSize = 1,
-UseVadFilter = true,
-ThreadCount = Environment.ProcessorCount
-```
-- 속도와 정확도의 균형
+- 속도와 품질 균형
 
 ### Small 모델 (466MB)
-```csharp
-BeamSize = 3,  // 정확도 향상
-UseVadFilter = true,
-UseGpu = true  // GPU 권장
-```
+- 정확도 우선, CPU/GPU 부담 증가
 
 ### Large-v3 모델 (2.9GB)
-```csharp
-BeamSize = 5,  // 최고 정확도
-UseVadFilter = true,
-UseGpu = true  // GPU 필수 권장
-```
+- 최고 정확도, **GPU 권장**
 
 ---
 
-## 📊 성능 비교
+## 📊 성능 비교 (참고)
 
-### CPU (Intel i7-12700K, 12코어)
-| 모델 | BeamSize=1 | BeamSize=5 |
-|------|------------|------------|
-| Tiny | ~0.1초/초 | ~0.2초/초 |
-| Base | ~0.3초/초 | ~0.8초/초 |
-| Small | ~1.0초/초 | ~2.5초/초 |
-| Large-v3 | ~3.0초/초 | ~8.0초/초 |
+아래 수치는 **과거 빔 크기 비교 예시**이며, 현재 앱은 Whisper.net 기본 디코더에 **`ko`만 지정**합니다. 실제 RTF는 CPU·모델·런타임에 따라 다릅니다.
 
-### GPU (NVIDIA RTX 4070)
-| 모델 | BeamSize=1 | BeamSize=5 |
-|------|------------|------------|
-| Tiny | ~0.05초/초 | ~0.1초/초 |
-| Base | ~0.1초/초 | ~0.3초/초 |
-| Small | ~0.3초/초 | ~0.8초/초 |
-| Large-v3 | ~1.0초/초 | ~2.5초/초 |
+### CPU (Intel i7-12700K, 12코어) — 대략적 RTF
+| 모델 | 기본 디코더(참고) |
+|------|------------------|
+| Tiny | ~0.1초/초 |
+| Base | ~0.3초/초 |
+| Small | ~1.0초/초 |
+| Large-v3 | ~3.0초/초 |
+
+### GPU (NVIDIA RTX 4070) — 대략적 RTF
+| 모델 | 기본 디코더(참고) |
+|------|------------------|
+| Tiny | ~0.05초/초 |
+| Base | ~0.1초/초 |
+| Small | ~0.3초/초 |
+| Large-v3 | ~1.0초/초 |
 
 *"초/초"는 1초 오디오 처리에 걸리는 시간*
 
@@ -173,16 +143,16 @@ UseGpu = true  // GPU 필수 권장
 ## 🔍 문제 해결
 
 ### "처리 속도가 느려요"
-1. BeamSize를 1로 낮추기
-2. 더 작은 모델 사용 (Base 또는 Tiny)
-3. GPU 가속 활성화
-4. processingIntervalSeconds 증가
+1. 더 작은 모델 사용 (Base 또는 Tiny)
+2. GPU 가속 활성화
+3. `processingIntervalSeconds` 증가
+4. `WhisperSTTService`의 `CreateBuilder()`에 `WithThreads`, `WithTemperature` 등을 추가해 동작을 조정
 
 ### "정확도가 낮아요"
-1. BeamSize를 5로 높이기
-2. 더 큰 모델 사용 (Small 또는 Large)
-3. 마이크 볼륨 조정
-4. VAD 필터 비활성화 (조용한 발음도 인식)
+1. 더 큰 모델 사용 (Small 또는 Large)
+2. `WhisperSTTService` 빌더에 `WithPrompt` 등 whisper.net 옵션을 추가해 문맥·스타일 조정(환경에 따라 효과 다름)
+3. 마이크 볼륨·배경 소음 조정
+4. 짧은 말이 잘리면 `RealtimeSTTService.MinSamplesForPeriodicDecode` 또는 처리 간격 조정
 
 ### "GPU가 인식되지 않아요"
 1. CUDA Toolkit 설치 확인
