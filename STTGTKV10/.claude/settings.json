@@ -21,7 +21,9 @@
       "Bash(git add *)",
       "Bash(git -C /home/shkwon/Projects/TestSimulator config --get credential.helper)",
       "Bash(git -C /home/shkwon/Projects/TestSimulator remote get-url origin)",
-      "Bash(git -C /home/shkwon/Projects/TestSimulator status --short)"
+      "Bash(git -C /home/shkwon/Projects/TestSimulator status --short)",
+      "Bash(PKG_CONFIG_PATH=third_party/install/lib/pkgconfig pkg-config --exists whisper)",
+      "Bash(PKG_CONFIG_PATH=third_party/install/lib/pkgconfig pkg-config --cflags whisper)"
     ]
   }
 }
