@@ -63,6 +63,10 @@ struct AppWindow {
     gboolean         seeking;          /* user is dragging the seek bar */
     gboolean         seek_was_playing; /* was playing before drag started */
 
+    /* Deduplication: suppress consecutive outputs that share the same
+       leading bytes (catches "MBC 뉴스 이준범" / "MBC 뉴스 김성현" etc.) */
+    char             stt_dedup[512];
+
     AppState state;
 };
 
@@ -164,7 +168,21 @@ static gboolean append_text_idle(gpointer data) {
 
 /* Called from SttStream worker thread */
 static void on_stt_segment(const char *text, void *userdata) {
-    AppWindow   *win = (AppWindow *)userdata;
+    AppWindow *win = (AppWindow *)userdata;
+
+    /* Deduplication: suppress outputs that are identical to or share a long
+       common prefix with the previous result.
+       "MBC 뉴스 이준범입니다" and "MBC 뉴스 김성현입니다" both start with
+       "MBC 뉴스 " (10 bytes) — one of the two would be suppressed.          */
+    size_t tlen = strlen(text);
+    size_t plen = strlen(win->stt_dedup);
+    size_t cmp  = tlen < plen ? tlen : plen;
+    /* Suppress exact match OR shared prefix ≥ 10 bytes */
+    if (cmp >= 10 && strncmp(text, win->stt_dedup, 10) == 0) return;
+    if (strcmp(text, win->stt_dedup) == 0) return;
+    strncpy(win->stt_dedup, text, sizeof(win->stt_dedup) - 1);
+    win->stt_dedup[sizeof(win->stt_dedup) - 1] = '\0';
+
     TextPayload *p   = malloc(sizeof(TextPayload));
     p->win  = win;
     p->text = strdup(text);
@@ -258,6 +276,7 @@ static gboolean on_seek_released(GtkWidget *w, GdkEventButton *ev, gpointer data
         win->stream = stt_stream_new_ex(win->stt, STT_STREAM_TRANSCRIPTION,
                                          on_stt_segment, win);
     }
+    win->stt_dedup[0] = '\0';
 
     if (win->seek_was_playing) {
         video_player_resume(win->video_player);

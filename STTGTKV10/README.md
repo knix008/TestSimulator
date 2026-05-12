@@ -1,34 +1,40 @@
 # STT Korean – 한국어 실시간 음성 인식 (GTK3)
 
-C/C++로 작성한 GTK3 기반 한국어 실시간 Speech-to-Text 데스크탑 애플리케이션입니다.
+C/C++로 작성한 GTK3 기반 한국어 Speech-to-Text 데스크탑 애플리케이션입니다.  
+마이크 실시간 입력과 동영상·오디오 파일 재생 중 동시 STT를 지원합니다.
 
 ## 기술 스택
 
 | 역할 | 라이브러리 |
 |------|-----------|
-| STT 엔진 | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (OpenAI Whisper C++ 구현체) |
-| 오디오 캡처 | PortAudio (Linux/macOS 공통) |
+| STT 엔진 | [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (정적 링크) |
+| 오디오 캡처 | PortAudio |
+| 동영상·오디오 재생 | GStreamer 1.0 |
 | GUI | GTK3 |
 | 모델 다운로드 | libcurl |
 | Linux 오디오 장치 | PulseAudio/PipeWire (`pactl`) |
 
+whisper.cpp · ggml 라이브러리는 정적 링크되어 실행 파일 하나로 배포됩니다.
+
 ## 파일 구조
 
 ```
-SttGTKV10/
-├── main.c              GTK 초기화 및 메인 루프
-├── app_ui.h / .c       GTK UI (마이크·모델 선택, 버튼, 텍스트창)
-├── audio_capture.h/.c  PortAudio 마이크 캡처 (GTK 비의존)
-├── stt_core.h / .cpp   whisper.cpp 래퍼 + 실시간 스트림 (GTK 비의존)
-├── model_manager.h/.c  모델 다운로드 및 경로 관리 (GTK 비의존)
+STTGTKV10/
+├── main.c                GTK·GStreamer 초기화 및 메인 루프
+├── app_ui.h / .c         GTK UI (마이크·파일 입력, 비디오 영역, 버튼)
+├── audio_capture.h / .c  PortAudio 마이크 캡처
+├── stt_core.h / .cpp     whisper.cpp 래퍼 + VAD 기반 실시간 스트림
+├── model_manager.h / .c  모델 다운로드 및 경로 관리
+├── video_player.h / .c   GStreamer 동영상/오디오 플레이어
 ├── Makefile
 └── test/
-    ├── test_stt.c        STT 정확도 CLI 테스트
-    ├── test_filter.cpp   필터 단위 테스트
-    └── *.wav             한국어 테스트 오디오
+    ├── test_stt.c          STT 정확도 CLI 테스트
+    ├── test_filter.cpp     필터 단위 테스트
+    ├── run_tests.sh        전체 테스트 자동화 스크립트
+    └── *.wav               한국어 테스트 오디오 (경비·출퇴근·문장 등)
 ```
 
-> GTK 의존 코드(`app_ui`, `main`)와 핵심 로직(`audio_capture`, `stt_core`, `model_manager`)이 완전히 분리되어 있습니다.
+GTK 의존 코드(`app_ui`, `main`, `video_player`)와 핵심 로직(`audio_capture`, `stt_core`, `model_manager`)이 분리되어 있습니다.
 
 ## 빌드 및 실행
 
@@ -40,13 +46,15 @@ make
 make run
 ```
 
-`make` 한 번으로 의존성 확인·설치, whisper.cpp 클론·빌드, 앱 컴파일이 순서대로 진행됩니다.
+`make` 한 번으로 의존성 확인·설치, whisper.cpp 클론·빌드(정적), 앱 컴파일이 순서대로 진행됩니다.
 
 ### 의존성 개별 관리
 
 ```bash
-make deps-check    # 현재 설치 상태 확인
+make deps-check    # 현재 설치 상태 확인 (GStreamer 플러그인 포함)
 make deps-install  # 전체 재설치
+make clean         # 오브젝트 파일 및 바이너리 제거
+make clean-all     # third_party/ 포함 전체 제거 (whisper.cpp 재빌드 필요)
 ```
 
 ### 의존성 목록
@@ -55,37 +63,86 @@ make deps-install  # 전체 재설치
 ```
 build-essential  g++  cmake  git  pkg-config  ca-certificates
 libgtk-3-dev  portaudio19-dev  libcurl4-openssl-dev  pulseaudio-utils
+libgstreamer1.0-dev  libgstreamer-plugins-base1.0-dev
+gstreamer1.0-plugins-base  gstreamer1.0-plugins-good  gstreamer1.0-plugins-bad
+gstreamer1.0-gtk3  gstreamer1.0-libav  gstreamer1.0-tools
 ```
 
-**macOS**
+**macOS (Homebrew)**
 ```
 cmake  git  pkg-config  gtk+3  portaudio  curl
-```
-
-### 빌드 단계별 메시지 예시
-
-```
-━━━ [1/3] 의존성 확인 및 설치 ━━━━━
-  모든 의존성이 이미 설치되어 있습니다.
-
-━━━ [2/3] whisper.cpp 라이브러리 빌드 ━━━
-  whisper.cpp 라이브러리가 이미 빌드되어 있습니다.
-
-━━━ [3/3] 애플리케이션 빌드 ━━━━━━━━
-  [컴파일]  main.c
-  [컴파일]  app_ui.c
-  [링크]    sttgtk
-  [완료]    ./sttgtk
+gstreamer  gst-plugins-base  gst-plugins-good  gst-plugins-bad  gst-libav
 ```
 
 ## 기능
 
-- **실시간 STT**: 말이 끝나면 즉시 인식 (VAD 기반, 무음 700 ms 후 처리)
-- **마이크 선택**: PulseAudio/PipeWire 소스 자동 열거 및 전환
-- **모델 선택 및 자동 다운로드**: Hugging Face에서 진행률 표시와 함께 백그라운드 다운로드
-- **한국어 고정**: `params.language = "ko"`, 한국어 initial prompt 항상 적용
-- **결과 필터**: 무음·메타데이터(`[음악]`, `♪`, `…` 등) 자동 제거
-- **클립보드 복사**: "복사" 버튼
+### 마이크 실시간 STT
+- VAD(음성 활동 감지) 기반 — 무음 700 ms 후 세그먼트 전송
+- PulseAudio/PipeWire 소스 자동 열거 및 전환
+- 프리롤 버퍼(~192 ms)로 단어 시작부 손실 방지
+
+### 동영상 / 오디오 파일 STT
+- MP4, MKV, AVI, MOV, WebM, MP3, WAV, AAC, OGG, FLAC 등 지원
+- GStreamer 파이프라인으로 영상과 STT를 동시 처리
+- 재생 제어: 일시정지 / 재생 (STT 동기 중단·재개)
+- 시크바 드래그로 임의 위치 이동 — seek 시 이전 오디오 버퍼 자동 폐기 후 재시작
+- 일시정지·재생 시 화면 중앙에 ▶ / ⏸ 아이콘 오버레이 표시
+- 오디오 전용 파일은 파형 영역에 "오디오 재생 중" 안내 표시
+
+### 공통
+- 모델 선택 및 자동 다운로드 (Hugging Face, 진행률 표시)
+- 결과 텍스트 클립보드 복사
+- 정상 종료 시 백그라운드 스레드(STT 워커·GStreamer 파이프라인) 안전 정리
+
+## UI 레이아웃
+
+```
+┌──────────────────────────────────────────┐
+│  설정 (마이크, 모델, 다운로드)             │
+├──────────────────────────────────────────┤  ← 구분선 드래그로 크기 조절 가능
+│ ┌── 동영상 ──────────────────────────┐   │
+│ │   (파일 미선택 시 안내 화면)         │   │
+│ │   또는 실제 동영상 재생 영역         │   │
+│ │                                    │   │
+│ │  ⏸ 일시정지  [시크바──────]  0:00/5:23│ │
+│ └────────────────────────────────────┘   │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│ ┌── STT 결과 ─────────────────────────┐  │
+│ │  실시간 인식된 텍스트...             │  │
+│ └─────────────────────────────────────┘  │
+├──────────────────────────────────────────┤
+│  [▶ STT 시작]  [📂 파일 열기]  [지우기]  [복사] │
+└──────────────────────────────────────────┘
+```
+
+## STT 처리 모드
+
+STT 스트림은 입력 소스에 따라 두 가지 모드로 동작합니다.
+
+| 파라미터 | 마이크 명령어 모드 | 파일 전사 모드 |
+|----------|-----------------|--------------|
+| `vad_thresh` | 0.015 | 0.030 |
+| `min_speech_frames` | 8 (256 ms) | 12 (384 ms) |
+| `no_speech_thold` | 0.35 | 0.85 |
+| `logprob_thold` | −1.20 | −1.00 |
+| `rms_normalize` 상한 | 8× | 3× |
+| `initial_prompt` | 한국어 프롬프트 사용 | 사용 안 함 |
+
+파일 모드에서 `initial_prompt`를 제거하고 `no_speech_thold`를 높인 이유:  
+프롬프트가 있으면 Whisper가 무음·배경음에서도 한국어를 억지로 생성하여 환각이 발생합니다.
+
+## 출력 필터 규칙
+
+텍스트 세그먼트는 아래 조건을 모두 통과해야 출력됩니다.
+
+| 규칙 | 예시 |
+|------|------|
+| `[...]` / `(...)` 시작 거부 | `[음악]`, `(박수)`, `[BLANK]` |
+| `-` / `–` / `—` 시작 거부 | `-너는 안 돼.` (음악 환각 패턴) |
+| 공백·탭만 거부 | |
+| 한글 음절 또는 ASCII 영숫자 필수 | `…`, `♪`, `。` 등 단독 기호 거부 |
+| Whisper 한국어 환각 패턴 거부 | `MBC 뉴스`, `KBS 뉴스`, `구독과 좋아요` 등 |
+| 연속 중복 억제 | 직전 결과와 앞 10바이트 동일 시 차단 |
 
 ## 지원 모델
 
@@ -102,93 +159,33 @@ cmake  git  pkg-config  gtk+3  portaudio  curl
 - Linux: `~/.local/share/sttgtk/models/`
 - macOS: `~/Library/Application Support/sttgtk/models/`
 
-## 한국어 최적화
-
-| 최적화 | 내용 |
-|--------|------|
-| Beam Search | `beam_size=5` (greedy 대비 정확도 향상) |
-| Pre-emphasis | `y[n] = x[n] − 0.97·x[n−1]` (자음 명료도 향상) |
-| RMS 정규화 | 마이크 게인 차이 보정 |
-| Korean Prompt | `"다음은 한국어 음성입니다."` 항상 prepend |
-| no_speech_thold | 0.60 → 0.35 (짧은 명령어 인식 개선) |
-| 무음 패딩 | 1초 미만 오디오 자동 패딩 |
-
-## 출력 필터 규칙
-
-텍스트 세그먼트는 아래 조건을 모두 통과해야 출력됩니다.
-
-1. `[...]` / `(...)` 형태로 시작하지 않을 것
-2. 공백·탭만으로 이루어지지 않을 것
-3. **한글 음절(U+AC00–D7A3) 또는 ASCII 영숫자가 하나 이상** 포함될 것
-
-이 규칙으로 `[음악]`, `(박수)`, `…`, `♪`, `♫`, `。`, 공백 전용 등이 자동으로 걸러집니다.
-
----
-
-## 테스트 결과
-
-테스트 환경: Ubuntu 24.04 LTS, CPU only (GPU 없음)
-
-### 필터 단위 테스트 (`test/test_filter.cpp`)
-
-```
-  입력              기대    결과    판정
-  ─────────────────────────────────────────────
-  [음악]            REJECT  REJECT  ✓
-  [BLANK]           REJECT  REJECT  ✓
-  [무음]            REJECT  REJECT  ✓
-  (박수)            REJECT  REJECT  ✓
-  (noise)           REJECT  REJECT  ✓
-  ...               REJECT  REJECT  ✓
-  … (U+2026)        REJECT  REJECT  ✓
-  ♪ (U+266A)        REJECT  REJECT  ✓
-  ♫ (U+266B)        REJECT  REJECT  ✓
-  。 (CJK 마침표)   REJECT  REJECT  ✓
-  · (가운뎃점)      REJECT  REJECT  ✓
-  (공백)            REJECT  REJECT  ✓
-  출근합니다.       PASS    PASS    ✓
-  경비를 해제합니다. PASS   PASS    ✓
-  3번 출구          PASS    PASS    ✓
-  OK 확인           PASS    PASS    ✓
-  ... (총 35개)
-  결과: 35 / 35 통과
-```
-
-### STT 정확도 테스트 (`test/test_stt.c`)
-
-테스트 케이스 21개 (출근·퇴근·경비·해제 어휘 + 짧은 단어 + 문장)
-
-| 모델 | 정확도 | 비고 |
-|------|--------|------|
-| Tiny (~75 MB) | **21/21 (100%)** | 단음절 "네", "예" 포함 |
-| Base (~142 MB) | **21/21 (100%)** | |
-| Small (~466 MB) | **21/21 (100%)** | |
-
-### 대표 인식 결과 (Small 모델)
-
-| 입력 음성 | 인식 결과 |
-|-----------|----------|
-| 출근합니다. | 출근합니다. |
-| 퇴근 처리를 해주세요. | 퇴근 처리를 해주세요. |
-| 경비를 해제합니다. | 경비를 해제합니다. |
-| 경비 설정입니다. | 경비 설정입니다. |
-| 출근 (단어) | 출근 |
-| 퇴근 (단어) | 퇴근 |
-| 해제 (단어) | 해제 |
-| 경비 (단어) | 경비 |
-| 네 (단어) | 네. |
-| 예 (단어) | 예. |
-| 지금 출근 처리해 주세요. | 지금 출근 처리해주세요. |
-| 경비 해제 후 출입문을 열어 주세요. | 경비, 해제 후, 출입문을 열어주세요. |
-
----
-
-## 기타
+## 테스트
 
 ```bash
-# 오브젝트 파일 및 바이너리 제거
-make clean
+cd test
 
-# third_party/ 포함 전체 제거 (whisper.cpp 재빌드 필요)
-make clean-all
+make test           # 빌드 + 전체 테스트 실행 (tiny 모델)
+./run_tests.sh base # 특정 모델로 실행
 ```
+
+`run_tests.sh`는 tiny · base · small 세 모델을 순차 실행하며, 필터 단위 테스트와 STT 통합 테스트(경비·출퇴근·문장·짧은 명령어 등 24개 케이스)를 자동화합니다.
+
+### 테스트 결과 (Ubuntu 24.04, CPU 전용)
+
+```
+  필터      ✓  35 / 35
+  ──────────────────────────
+  tiny      ✓  24 / 24
+  base      ✓  24 / 24
+  small     ✓  24 / 24
+  ──────────────────────────
+  전체      ✓  73 / 73
+```
+
+각 케이스에는 소요 시간이 함께 표시됩니다.
+
+| 모델 | 평균 소요 시간 |
+|------|--------------|
+| tiny | 0.3 – 1.4 s |
+| base | 0.5 – 1.3 s |
+| small | 1.4 – 2.3 s |

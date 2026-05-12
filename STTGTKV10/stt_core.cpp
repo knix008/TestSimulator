@@ -62,6 +62,15 @@ static bool has_hangul(const char *text) {
     return false;
 }
 
+/* Whisper Korean hallucination fingerprints – these phrases appear in training
+   data millions of times (broadcasts, YouTube) and are generated whenever
+   the model cannot decode the audio properly.  Block them explicitly.        */
+static const char * const HALLUC_PATTERNS[] = {
+    "MBC 뉴스", "KBS 뉴스", "SBS 뉴스", "YTN 뉴스", "JTBC 뉴스",
+    "구독과 좋아요", "구독, 좋아요",
+    NULL
+};
+
 static bool is_valid_korean_text(const char *text) {
     if (!text || text[0] == '\0') return false;
 
@@ -72,6 +81,12 @@ static bool is_valid_korean_text(const char *text) {
     {
         const unsigned char *u = (const unsigned char *)text;
         if (u[0] == 0xE2 && u[1] == 0x80 && (u[2] == 0x93 || u[2] == 0x94))
+            return false;
+    }
+
+    /* Reject known hallucination patterns */
+    for (int i = 0; HALLUC_PATTERNS[i]; i++) {
+        if (strstr(text, HALLUC_PATTERNS[i]))
             return false;
     }
 
@@ -155,50 +170,45 @@ static int whisper_run(struct whisper_context *wctx,
     /* Transcription mode caps amplification at 1.5× so background music/noise
        stays below speech amplitude and Whisper can detect it as no_speech.
        Command mode (mic) allows up to 8× to catch quiet whispered words.   */
-    rms_normalize(work, n, use_prompt ? 8.0f : 1.5f);
+    /* Command (mic): up to 8× — catch quiet whispered words.
+       Transcription (file): up to 3× — enough to normalise real speech
+       (typical RMS 0.04 → 0.12) without amplifying background noise 8×. */
+    rms_normalize(work, n, use_prompt ? 8.0f : 3.0f);
 
     /* ── Whisper parameters ────────────────────────────────────────────── */
     whisper_full_params p = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
 
-    /* Language & translation */
-    p.language      = "ko";
-    p.translate     = false;
-    p.detect_language = false;
-
-    /* Beam search: beam_size 5 matches OpenAI's default for best accuracy */
+    p.translate           = false;
     p.beam_search.beam_size = 5;
     p.beam_search.patience  = 1.0f;
+    p.temperature           = 0.0f;
+    p.temperature_inc       = 0.20f;
+    p.no_speech_thold       = no_speech_thold;
+    p.entropy_thold         = 2.60f;
+    p.logprob_thold         = logprob_thold;
+    p.suppress_blank        = true;
+    p.single_segment        = true;
+    p.no_timestamps         = true;
+    p.print_special         = false;
+    p.print_progress        = false;
+    p.print_realtime        = false;
+    p.print_timestamps      = false;
+    p.no_context            = true;
 
-    /* Temperature schedule: start at 0 (deterministic), fall back
-       to higher temps on entropy failures */
-    p.temperature     = 0.0f;
-    p.temperature_inc = 0.20f;
+    /* Always decode Korean (detect_language=true fails on short VAD segments:
+       Whisper needs ~30 s to reliably detect language; on 1–3 s chunks it
+       misidentifies Korean as Japanese/Chinese, producing no Hangul output). */
+    p.language        = "ko";
+    p.detect_language = false;
 
-    p.no_speech_thold = no_speech_thold;
-    p.entropy_thold   = 2.60f;   /* tighter than default 2.80 */
-    p.logprob_thold   = logprob_thold;
-
-    /* Output quality */
-    p.suppress_blank       = true;
-    p.single_segment       = true;    /* VAD handles segmentation for us   */
-    p.no_timestamps        = true;
-    p.print_special        = false;
-    p.print_progress       = false;
-    p.print_realtime       = false;
-    p.print_timestamps     = false;
-
-    /* Context: no carry-over between utterances (VAD gives clean chunks) */
-    p.no_context           = true;
-
-    /* Korean prompt only for command mode.
-       In transcription mode, removing the prompt lets Whisper's no_speech
-       detector work correctly — the prompt biases it to always output Korean
-       even on silence or background noise, causing hallucinations.          */
     if (use_prompt) {
+        /* Command mode (mic): Korean prompt locks the decoder onto Korean */
         p.initial_prompt       = KO_PROMPT;
         p.carry_initial_prompt = true;
     } else {
-        p.language             = "ko";  /* still decode Korean when speech is present */
+        /* Transcription mode (file/video): no prompt so the no_speech token
+           is not suppressed — combined with no_speech_thold=0.85 and the
+           rms_normalize cap this greatly reduces hallucinations.            */
         p.initial_prompt       = nullptr;
         p.carry_initial_prompt = false;
     }
@@ -453,7 +463,7 @@ SttStream *stt_stream_new_ex(SttContext *ctx, SttStreamMode mode,
            silence, causing the hallucinations the user sees.                  */
         st->vad_thresh        = 0.030f;
         st->min_speech_frames = 12;
-        st->no_speech_thold   = 0.80f;
+        st->no_speech_thold   = 0.85f;
         st->logprob_thold     = -1.00f;
         st->use_prompt        = false;
     } else {
