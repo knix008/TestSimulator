@@ -53,8 +53,8 @@ namespace STTWinV10
                 // 모델 목록 로드
                 LoadModels();
 
-                // Whisper 서비스 생성 (성능 최적화 설정)
-                _whisperService = new WhisperSTTService(_currentModelPath)
+                var initialGgml = (ModelComboBox.SelectedItem as WhisperModel)?.Type ?? GgmlType.Base;
+                _whisperService = new WhisperSTTService(_currentModelPath, initialGgml)
                 {
                     ThreadCount = Environment.ProcessorCount, // 모든 CPU 코어 사용
                     BeamSize = 1, // 빠른 처리를 위해 빔 크기 최소화
@@ -170,8 +170,7 @@ namespace STTWinV10
                         _sttService.Dispose();
                     }
 
-                    // 새 Whisper 서비스 생성 (성능 최적화 설정)
-                    _whisperService = new WhisperSTTService(_currentModelPath)
+                    _whisperService = new WhisperSTTService(_currentModelPath, model.Type)
                     {
                         ThreadCount = Environment.ProcessorCount,
                         BeamSize = 1, // 빠른 처리

@@ -16,7 +16,11 @@
 - **UseVadFilter**: true (무음 구간 자동 제거)
 - 불필요한 오디오 처리 생략으로 속도 향상
 
-### 4. **GPU 가속 지원 (선택적)**
+### 4. **무음 시 Whisper 호출 생략**
+- **SkipDecodeWhenSilent**: 기본 `true` — 버퍼 RMS가 **MinAudioRms**(기본 0.01) 미만이면 디코더를 돌리지 않습니다.
+- 아주 작은 소리까지 인식해야 하면 `SkipDecodeWhenSilent = false` 또는 `MinAudioRms`를 낮춥니다.
+
+### 5. **GPU 가속 지원 (선택적)**
 - NVIDIA GPU가 있는 경우 CUDA 런타임 활성화 가능
 
 ---
@@ -26,12 +30,14 @@
 ### MainWindow.xaml.cs 수정
 
 ```csharp
-_whisperService = new WhisperSTTService(_currentModelPath)
+_whisperService = new WhisperSTTService(_currentModelPath, model.Type)
 {
-    ThreadCount = Environment.ProcessorCount, // CPU 코어 수
-    BeamSize = 1,        // 1=빠름, 5=정확함
-    UseVadFilter = true, // 무음 제거
-    UseGpu = false       // GPU 사용 여부
+    ThreadCount = Environment.ProcessorCount,
+    BeamSize = 1,
+    UseVadFilter = true,
+    UseGpu = false,
+    SkipDecodeWhenSilent = true,  // 무음이면 STT 생략
+    MinAudioRms = 0.01f           // 더 민감히: 값을 낮춤
 };
 ```
 

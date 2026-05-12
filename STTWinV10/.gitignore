@@ -4,6 +4,9 @@
 *.suo
 *.userosscache
 *.sln.docstates
+UpgradeLog.htm
+UpgradeLog*.htm
+*.FileListAbsolute.txt
 
 # Build results
 [Dd]ebug/
@@ -19,8 +22,11 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+artifacts/
+publish/
+[Pp]ublish[Pp]rofiles/
 
-# NuGet Packages
+# NuGet
 *.nupkg
 *.snupkg
 **/packages/*
@@ -28,41 +34,58 @@ bld/
 *.nuget.props
 *.nuget.targets
 
-# User-specific files
+# User-specific / secrets
 *.rsuser
 *.csproj.user
 *.dbmdl
 *.jfm
 *.pfx
 *.publishsettings
+*.DotSettings.user
+secrets.json
+appsettings.*.local.json
+.env
+.env.*.local
 
-# Whisper Models (downloaded to %APPDATA%)
-# Note: Models are stored in user's AppData folder, not in repository
-# If you manually download models to the project folder, uncomment:
-# *.bin
-
-# WiX Installer
+# WiX / MSI (build outputs)
 *.wixobj
 *.wixpdb
 *.msi
-STTWinV10.Installer/bin/
-STTWinV10.Installer/obj/
 
-# Logs
+# Tests & coverage
+[Tt]est[Rr]esult*/
+[Bb]enchmark[Dd]ot[Nn]et.*/
+*.trx
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+
+# Logs & temp
 *.log
+*.tmp
+*.temp
+*.cache
+*.bak
+*~
 
-# OS Files
+# OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# Temporary files
-*.tmp
-*.temp
-*.cache
+# ReSharper / Rider
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotCover
+
+# Whisper / GGML models (if copied into repo; default cache is %APPDATA%)
+# ggml-*.bin
+# *.ggml
