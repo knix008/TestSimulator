@@ -18,7 +18,10 @@
       "Bash(g++ -std=c++17 test_filter.cpp -o test_filter)",
       "Bash(./test_filter)",
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git -C /home/shkwon/Projects/TestSimulator config --get credential.helper)",
+      "Bash(git -C /home/shkwon/Projects/TestSimulator remote get-url origin)",
+      "Bash(git -C /home/shkwon/Projects/TestSimulator status --short)"
     ]
   }
 }
