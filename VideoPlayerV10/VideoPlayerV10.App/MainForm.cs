@@ -58,7 +58,12 @@ public partial class MainForm : Form
         videoView.MediaPlayer = _mediaPlayer;
         _mediaPlayer.EndReached += (_, _) => BeginInvoke(() => statusLabel.Text = "Playback ended");
         _mediaPlayer.EncounteredError += (_, _) => BeginInvoke(HandlePlaybackError);
-        _mediaPlayer.Playing += (_, _) => BeginInvoke(() => statusLabel.Text = "Playing");
+        _mediaPlayer.Playing += (_, _) => BeginInvoke(() =>
+        {
+            statusLabel.Text = "Playing";
+            HidePictureBoxOverlay();
+            ShowPlayPauseIcon("▶", true);
+        });
         _mediaPlayer.Paused += (_, _) => BeginInvoke(() => statusLabel.Text = "Paused");
         _mediaPlayer.Stopped += (_, _) => BeginInvoke(() => statusLabel.Text = "Stopped");
         _libVLC.Log += LibVlc_Log;
@@ -115,7 +120,7 @@ public partial class MainForm : Form
     {
         _mediaPlayer?.Pause();
         statusLabel.Text = "Paused";
-        ShowPlayPauseIcon("⏸", true);
+        ShowPlayPauseIcon("⏸", false);
     }
 
     private void StopButton_Click(object? sender, EventArgs e)
@@ -164,13 +169,20 @@ public partial class MainForm : Form
         if (_mediaPlayer.IsPlaying)
         {
             _mediaPlayer.Pause();
-            ShowPlayPauseIcon("⏸", true);
+            ShowPlayPauseIcon("⏸", false);
         }
         else
         {
             _mediaPlayer.Play();
             ShowPlayPauseIcon("▶", true);
         }
+    }
+
+    private void HidePictureBoxOverlay()
+    {
+        if (!_pictureBoxOverlayActive) return;
+        playPauseIconPictureBox.Visible = false;
+        _pictureBoxOverlayActive = false;
     }
 
     private void ShowPlayPauseIcon(string icon, bool autoHide)
@@ -184,6 +196,7 @@ public partial class MainForm : Form
         try
         {
             _currentIcon = icon;
+            HidePictureBoxOverlay();
 
             if (_mediaPlayer is null)
             {
@@ -206,7 +219,6 @@ public partial class MainForm : Form
             _mediaPlayer.SetLogoInt(VideoLogoOption.Opacity, 255);
             _mediaPlayer.SetLogoInt(VideoLogoOption.Position, (int)Position.Center);
             _mediaPlayer.SetLogoInt(VideoLogoOption.Enable, 1);
-            statusLabel.Text = $"Showing icon: {icon}";
 
             iconFadeTimer.Stop();
 
@@ -349,13 +361,13 @@ public partial class MainForm : Form
         {
             playPauseIconPictureBox.Image?.Dispose();
             playPauseIconPictureBox.Image = Image.FromFile(_stopOverlayPath);
+            playPauseIconPictureBox.BackColor = Color.Black;
 
             int x = (playerHostPanel.Width - playPauseIconPictureBox.Width) / 2;
             int y = (playerHostPanel.Height - playPauseIconPictureBox.Height) / 2;
             playPauseIconPictureBox.Location = new Point(x, y);
             playPauseIconPictureBox.BringToFront();
             playPauseIconPictureBox.Visible = true;
-
             _pictureBoxOverlayActive = true;
             _iconFadeCounter = 0;
             iconFadeTimer.Stop();
