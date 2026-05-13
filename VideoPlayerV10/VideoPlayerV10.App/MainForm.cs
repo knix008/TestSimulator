@@ -17,12 +17,31 @@ public partial class MainForm : Form
     private string? _lastVlcErrorMessage;
     private string? _currentInput;
     private int _iconFadeCounter;
-    private string _currentIcon = "▶";
     private string? _playOverlayPath;
     private string? _pauseOverlayPath;
     private string? _stopOverlayPath;
-    private bool _pictureBoxOverlayActive;
     private bool _isDownloading;
+    private IconOverlayForm? _overlayForm;
+    private PictureBox? _overlayPicBox;
+    private Image? _cachedPlayIcon;
+    private Image? _cachedPauseIcon;
+    private Image? _cachedStopIcon;
+
+    private sealed class IconOverlayForm : Form
+    {
+        protected override bool ShowWithoutActivation => true;
+
+        public IconOverlayForm()
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            ShowInTaskbar = false;
+            BackColor = Color.Black;
+            TransparencyKey = Color.Black;
+            AllowTransparency = true;
+            StartPosition = FormStartPosition.Manual;
+            Size = new Size(90, 90);
+        }
+    }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -62,13 +81,13 @@ public partial class MainForm : Form
         _mediaPlayer.Playing += (_, _) => BeginInvoke(() =>
         {
             if (!_isDownloading) statusLabel.Text = "Playing";
-            HidePictureBoxOverlay();
             ShowPlayPauseIcon("▶", true);
         });
         _mediaPlayer.Paused += (_, _) => BeginInvoke(() => { if (!_isDownloading) statusLabel.Text = "Paused"; });
         _mediaPlayer.Stopped += (_, _) => BeginInvoke(() => { if (!_isDownloading) statusLabel.Text = "Stopped"; });
         _libVLC.Log += LibVlc_Log;
         LoadOverlayAssets();
+        InitOverlayForm();
 
         AcceptButton = playButton;
         speedComboBox.SelectedIndex = 2;
@@ -179,49 +198,65 @@ public partial class MainForm : Form
         }
     }
 
-    private void HidePictureBoxOverlay()
+    private void InitOverlayForm()
     {
-        if (!_pictureBoxOverlayActive) return;
-        playPauseIconPictureBox.Visible = false;
-        _pictureBoxOverlayActive = false;
+        _overlayPicBox = new PictureBox
+        {
+            BackColor = Color.Black,
+            Dock = DockStyle.Fill,
+            SizeMode = PictureBoxSizeMode.CenterImage
+        };
+        _overlayPicBox.Click += (_, _) => TogglePlayPause();
+
+        _overlayForm = new IconOverlayForm();
+        _overlayForm.Controls.Add(_overlayPicBox);
+        _overlayForm.Click += (_, _) => TogglePlayPause();
+
+        Move += (_, _) => UpdateOverlayPosition();
+        playerHostPanel.SizeChanged += (_, _) => UpdateOverlayPosition();
     }
 
-    private void ShowPlayPauseIcon(string icon, bool autoHide)
+    private Point GetOverlayCenterPosition()
     {
-        if (InvokeRequired)
-        {
-            BeginInvoke(() => ShowPlayPauseIcon(icon, autoHide));
-            return;
-        }
+        var r = playerHostPanel.RectangleToScreen(playerHostPanel.ClientRectangle);
+        return new Point(
+            r.Left + (r.Width - _overlayForm!.Width) / 2,
+            r.Top + (r.Height - _overlayForm.Height) / 2);
+    }
+
+    private void UpdateOverlayPosition()
+    {
+        if (_overlayForm is null || !_overlayForm.Visible) return;
+        _overlayForm.Location = GetOverlayCenterPosition();
+    }
+
+    private void HideOverlay()
+    {
+        iconFadeTimer.Stop();
+        _overlayForm?.Hide();
+    }
+
+    private void ShowIconOverlay(Image? image, bool autoHide)
+    {
+        if (InvokeRequired) { BeginInvoke(() => ShowIconOverlay(image, autoHide)); return; }
+        if (_overlayForm is null || _overlayPicBox is null || image is null) return;
 
         try
         {
-            _currentIcon = icon;
-            HidePictureBoxOverlay();
-
-            if (_mediaPlayer is null)
-            {
-                return;
-            }
-
-            string? overlayPath = icon switch
-            {
-                "▶" => _playOverlayPath,
-                "⏸" => _pauseOverlayPath,
-                "⏹" => _stopOverlayPath,
-                _ => null
-            };
-            if (string.IsNullOrWhiteSpace(overlayPath))
-            {
-                return;
-            }
-
-            _mediaPlayer.SetLogoString(VideoLogoOption.File, overlayPath);
-            _mediaPlayer.SetLogoInt(VideoLogoOption.Opacity, 255);
-            _mediaPlayer.SetLogoInt(VideoLogoOption.Position, (int)Position.Center);
-            _mediaPlayer.SetLogoInt(VideoLogoOption.Enable, 1);
-
             iconFadeTimer.Stop();
+            _overlayPicBox.Image = image;
+
+            Point pos = GetOverlayCenterPosition();
+            _overlayForm.Location = pos;
+            _overlayForm.Show(this);
+            _overlayForm.Location = pos;  // force correct position after HWND creation
+
+            // defer one more time to handle async layout (e.g. first Playing event)
+            BeginInvoke(() =>
+            {
+                if (_overlayForm?.Visible == true)
+                    _overlayForm.Location = GetOverlayCenterPosition();
+            });
 
             if (autoHide)
             {
@@ -231,8 +266,20 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            statusLabel.Text = $"Icon error: {ex.Message}";
+            statusLabel.Text = $"Overlay error: {ex.GetType().Name}: {ex.Message}";
         }
+    }
+
+    private void ShowPlayPauseIcon(string icon, bool autoHide)
+    {
+        Image? image = icon switch
+        {
+            "▶" => _cachedPlayIcon,
+            "⏸" => _cachedPauseIcon,
+            "⏹" => _cachedStopIcon,
+            _ => null
+        };
+        ShowIconOverlay(image, autoHide);
     }
 
     private void LoadOverlayAssets()
@@ -242,6 +289,10 @@ public partial class MainForm : Form
         _playOverlayPath = ResolveOverlayPath(assetsDir, tempDir, "play-button.png", "▶");
         _pauseOverlayPath = ResolveOverlayPath(assetsDir, tempDir, "pause-button.png", "⏸");
         _stopOverlayPath = ResolveOverlayPath(assetsDir, tempDir, "stop-button.png", "⏹");
+
+        if (_playOverlayPath is not null) _cachedPlayIcon = Image.FromFile(_playOverlayPath);
+        if (_pauseOverlayPath is not null) _cachedPauseIcon = Image.FromFile(_pauseOverlayPath);
+        if (_stopOverlayPath is not null) _cachedStopIcon = Image.FromFile(_stopOverlayPath);
     }
 
     private string? ResolveOverlayPath(string assetsDir, string tempDir, string fileName, string icon)
@@ -355,26 +406,7 @@ public partial class MainForm : Form
 
     private void ShowStopIcon()
     {
-        if (string.IsNullOrWhiteSpace(_stopOverlayPath) || !File.Exists(_stopOverlayPath))
-            return;
-
-        try
-        {
-            playPauseIconPictureBox.Image?.Dispose();
-            playPauseIconPictureBox.Image = Image.FromFile(_stopOverlayPath);
-            playPauseIconPictureBox.BackColor = Color.Black;
-
-            int x = (playerHostPanel.Width - playPauseIconPictureBox.Width) / 2;
-            int y = (playerHostPanel.Height - playPauseIconPictureBox.Height) / 2;
-            playPauseIconPictureBox.Location = new Point(x, y);
-            playPauseIconPictureBox.BringToFront();
-            playPauseIconPictureBox.Visible = true;
-            _pictureBoxOverlayActive = true;
-            _iconFadeCounter = 0;
-            iconFadeTimer.Stop();
-            iconFadeTimer.Start();
-        }
-        catch { }
+        ShowPlayPauseIcon("⏹", true);
     }
 
     private void IconFadeTimer_Tick(object? sender, EventArgs e)
@@ -382,16 +414,7 @@ public partial class MainForm : Form
         _iconFadeCounter++;
         if (_iconFadeCounter >= 2)
         {
-            iconFadeTimer.Stop();
-            if (_pictureBoxOverlayActive)
-            {
-                playPauseIconPictureBox.Visible = false;
-                _pictureBoxOverlayActive = false;
-            }
-            else if (_mediaPlayer is not null)
-            {
-                _mediaPlayer.SetLogoInt(VideoLogoOption.Opacity, 0);
-            }
+            HideOverlay();
             _iconFadeCounter = 0;
         }
     }
@@ -564,16 +587,7 @@ public partial class MainForm : Form
         seekBar.Value = seekBar.Minimum;
         timeLabel.Text = "00:00 / 00:00";
 
-        iconFadeTimer.Stop();
-        if (_mediaPlayer is not null)
-        {
-            _mediaPlayer.SetLogoInt(VideoLogoOption.Opacity, 0);
-        }
-        if (_pictureBoxOverlayActive)
-        {
-            playPauseIconPictureBox.Visible = false;
-            _pictureBoxOverlayActive = false;
-        }
+        HideOverlay();
     }
 
     private void ResetPlaybackHints(string source)
@@ -806,6 +820,10 @@ public partial class MainForm : Form
 
         _mediaPlayer?.Dispose();
         _libVLC?.Dispose();
+        _cachedPlayIcon?.Dispose();
+        _cachedPauseIcon?.Dispose();
+        _cachedStopIcon?.Dispose();
+        _overlayForm?.Dispose();
         base.OnFormClosed(e);
     }
 }
