@@ -20,6 +20,7 @@ public partial class MainForm : Form
     private string _currentIcon = "▶";
     private string? _playOverlayPath;
     private string? _pauseOverlayPath;
+    private string? _stopOverlayPath;
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -113,6 +114,7 @@ public partial class MainForm : Form
     {
         _mediaPlayer?.Pause();
         statusLabel.Text = "Paused";
+        ShowPlayPauseIcon("⏸", false);
     }
 
     private void StopButton_Click(object? sender, EventArgs e)
@@ -121,6 +123,7 @@ public partial class MainForm : Form
         seekBar.Value = seekBar.Minimum;
         timeLabel.Text = "00:00 / 00:00";
         statusLabel.Text = "Stopped";
+        ShowPlayPauseIcon("⏹", true);
     }
 
     private void VideoView_MouseClick(object? sender, MouseEventArgs e)
@@ -186,7 +189,13 @@ public partial class MainForm : Form
                 return;
             }
 
-            string? overlayPath = icon == "▶" ? _playOverlayPath : _pauseOverlayPath;
+            string? overlayPath = icon switch
+            {
+                "▶" => _playOverlayPath,
+                "⏸" => _pauseOverlayPath,
+                "⏹" => _stopOverlayPath,
+                _ => null
+            };
             if (string.IsNullOrWhiteSpace(overlayPath))
             {
                 return;
@@ -216,23 +225,29 @@ public partial class MainForm : Form
     {
         try
         {
-            string assetsDir = Path.Combine(AppContext.BaseDirectory, "assets");
-            string playPath = Path.Combine(assetsDir, "play-button.png");
-            string pausePath = Path.Combine(assetsDir, "pause-button.png");
+            string tempDir = Path.Combine(Path.GetTempPath(), "VideoPlayerV10");
+            Directory.CreateDirectory(tempDir);
 
-            if (File.Exists(playPath))
-            {
-                _playOverlayPath = playPath;
-            }
+            string playPath = Path.Combine(tempDir, "play-button.png");
+            string pausePath = Path.Combine(tempDir, "pause-button.png");
+            string stopPath = Path.Combine(tempDir, "stop-button.png");
 
-            if (File.Exists(pausePath))
-            {
-                _pauseOverlayPath = pausePath;
-            }
+            using (var bmp = CreateIconImage("▶", 120, 120))
+                bmp.Save(playPath, System.Drawing.Imaging.ImageFormat.Png);
+
+            using (var bmp = CreateIconImage("⏸", 120, 120))
+                bmp.Save(pausePath, System.Drawing.Imaging.ImageFormat.Png);
+
+            using (var bmp = CreateIconImage("⏹", 120, 120))
+                bmp.Save(stopPath, System.Drawing.Imaging.ImageFormat.Png);
+
+            _playOverlayPath = playPath;
+            _pauseOverlayPath = pausePath;
+            _stopOverlayPath = stopPath;
         }
         catch
         {
-            // Falls back to dynamically generated overlay icon.
+            // Falls back to no overlay.
         }
     }
 
@@ -283,7 +298,7 @@ public partial class MainForm : Form
                     float barWidth = circleSize * 0.12f;
                     float barHeight = circleSize * 0.4f;
                     float spacing = circleSize * 0.1f;
-                    
+
                     RectangleF leftBar = new RectangleF(
                         centerX - spacing - barWidth,
                         centerY - barHeight/2,
@@ -296,9 +311,20 @@ public partial class MainForm : Form
                         barWidth,
                         barHeight
                     );
-                    
+
                     g.FillRectangle(iconBrush, leftBar);
                     g.FillRectangle(iconBrush, rightBar);
+                }
+                else if (icon == "⏹") // Stop 아이콘
+                {
+                    float squareSize = circleSize * 0.38f;
+                    RectangleF stopRect = new RectangleF(
+                        centerX - squareSize / 2,
+                        centerY - squareSize / 2,
+                        squareSize,
+                        squareSize
+                    );
+                    g.FillRectangle(iconBrush, stopRect);
                 }
             }
         }
