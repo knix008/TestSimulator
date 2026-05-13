@@ -51,8 +51,8 @@ partial class MainForm
         subtitleLabel = new Label();
         titleLabel = new Label();
         playerHostPanel = new Panel();
-        videoView = new VideoView();
         playPauseIconPictureBox = new PictureBox();
+        videoView = new VideoView();
         controlPanel = new Panel();
         volumeValueLabel = new Label();
         speedComboBox = new ComboBox();
@@ -75,10 +75,10 @@ partial class MainForm
         rootLayout.SuspendLayout();
         headerPanel.SuspendLayout();
         playerHostPanel.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)playPauseIconPictureBox).BeginInit();
         ((System.ComponentModel.ISupportInitialize)videoView).BeginInit();
         controlPanel.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)volumeBar).BeginInit();
-        ((System.ComponentModel.ISupportInitialize)playPauseIconPictureBox).BeginInit();
         statusPanel.SuspendLayout();
         SuspendLayout();
         // 
@@ -140,15 +140,28 @@ partial class MainForm
         // playerHostPanel
         // 
         playerHostPanel.BackColor = Color.FromArgb(24, 26, 29);
-        playerHostPanel.Controls.Add(playPauseIconPictureBox);
         playerHostPanel.Controls.Add(videoView);
+        playerHostPanel.Controls.Add(playPauseIconPictureBox);
         playerHostPanel.Dock = DockStyle.Fill;
         playerHostPanel.Location = new Point(12, 78);
         playerHostPanel.Margin = new Padding(12, 6, 12, 8);
         playerHostPanel.Name = "playerHostPanel";
         playerHostPanel.Padding = new Padding(1);
-        playerHostPanel.Size = new Size(1176, 524);
+        playerHostPanel.Size = new Size(1176, 482);
         playerHostPanel.TabIndex = 1;
+        // 
+        // playPauseIconPictureBox
+        // 
+        playPauseIconPictureBox.Anchor = AnchorStyles.None;
+        playPauseIconPictureBox.BackColor = Color.Transparent;
+        playPauseIconPictureBox.Location = new Point(487, 149);
+        playPauseIconPictureBox.Name = "playPauseIconPictureBox";
+        playPauseIconPictureBox.Size = new Size(200, 200);
+        playPauseIconPictureBox.SizeMode = PictureBoxSizeMode.CenterImage;
+        playPauseIconPictureBox.TabIndex = 1;
+        playPauseIconPictureBox.TabStop = false;
+        playPauseIconPictureBox.Visible = false;
+        playPauseIconPictureBox.Click += PlayPauseIcon_Click;
         // 
         // videoView
         // 
@@ -157,23 +170,10 @@ partial class MainForm
         videoView.Location = new Point(1, 1);
         videoView.MediaPlayer = null;
         videoView.Name = "videoView";
-        videoView.Size = new Size(1174, 522);
+        videoView.Size = new Size(1174, 480);
         videoView.TabIndex = 0;
         videoView.Text = "videoView";
         videoView.MouseClick += VideoView_MouseClick;
-        // 
-        // playPauseIconPictureBox
-        // 
-        playPauseIconPictureBox.Anchor = AnchorStyles.None;
-        playPauseIconPictureBox.BackColor = Color.Transparent;
-        playPauseIconPictureBox.Location = new Point(487, 201);
-        playPauseIconPictureBox.Name = "playPauseIconPictureBox";
-        playPauseIconPictureBox.Size = new Size(200, 200);
-        playPauseIconPictureBox.SizeMode = PictureBoxSizeMode.CenterImage;
-        playPauseIconPictureBox.TabIndex = 1;
-        playPauseIconPictureBox.TabStop = false;
-        playPauseIconPictureBox.Visible = false;
-        playPauseIconPictureBox.Click += PlayPauseIcon_Click;
         // 
         // controlPanel
         // 
@@ -192,7 +192,7 @@ partial class MainForm
         controlPanel.Controls.Add(inputTextBox);
         controlPanel.Controls.Add(openFileButton);
         controlPanel.Dock = DockStyle.Fill;
-        controlPanel.Location = new Point(12, 618);
+        controlPanel.Location = new Point(12, 576);
         controlPanel.Margin = new Padding(12, 8, 12, 6);
         controlPanel.Name = "controlPanel";
         controlPanel.Padding = new Padding(12);
@@ -279,22 +279,6 @@ partial class MainForm
         seekBar.MouseDown += SeekBar_MouseDown;
         seekBar.MouseUp += SeekBar_MouseUp;
         // 
-        // downloadButton
-        // 
-        downloadButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
-        downloadButton.BackColor = Color.FromArgb(156, 163, 175);
-        downloadButton.FlatAppearance.BorderSize = 0;
-        downloadButton.FlatStyle = FlatStyle.Flat;
-        downloadButton.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point, 129);
-        downloadButton.ForeColor = Color.White;
-        downloadButton.Location = new Point(12, 98);
-        downloadButton.Name = "downloadButton";
-        downloadButton.Size = new Size(110, 26);
-        downloadButton.TabIndex = 12;
-        downloadButton.Text = "⬇ Download";
-        downloadButton.UseVisualStyleBackColor = false;
-        downloadButton.Click += DownloadButton_Click;
-        // 
         // stopButton
         // 
         stopButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -341,6 +325,21 @@ partial class MainForm
         playButton.UseVisualStyleBackColor = false;
         playButton.Click += PlayButton_Click;
         // 
+        // downloadButton
+        // 
+        downloadButton.BackColor = Color.FromArgb(156, 163, 175);
+        downloadButton.FlatAppearance.BorderSize = 0;
+        downloadButton.FlatStyle = FlatStyle.Flat;
+        downloadButton.Font = new Font("Segoe UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point, 129);
+        downloadButton.ForeColor = Color.White;
+        downloadButton.Location = new Point(12, 98);
+        downloadButton.Name = "downloadButton";
+        downloadButton.Size = new Size(110, 26);
+        downloadButton.TabIndex = 12;
+        downloadButton.Text = "⬇ Download";
+        downloadButton.UseVisualStyleBackColor = false;
+        downloadButton.Click += DownloadButton_Click;
+        // 
         // inputTextBox
         // 
         inputTextBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -372,7 +371,7 @@ partial class MainForm
         statusPanel.Controls.Add(mediaInfoLabel);
         statusPanel.Controls.Add(statusLabel);
         statusPanel.Dock = DockStyle.Fill;
-        statusPanel.Location = new Point(12, 732);
+        statusPanel.Location = new Point(12, 714);
         statusPanel.Margin = new Padding(12, 6, 12, 8);
         statusPanel.Name = "statusPanel";
         statusPanel.Padding = new Padding(12, 8, 12, 8);
@@ -429,6 +428,7 @@ partial class MainForm
         headerPanel.ResumeLayout(false);
         headerPanel.PerformLayout();
         playerHostPanel.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)playPauseIconPictureBox).EndInit();
         ((System.ComponentModel.ISupportInitialize)videoView).EndInit();
         controlPanel.ResumeLayout(false);
         controlPanel.PerformLayout();
