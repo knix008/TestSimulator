@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using NAudio.CoreAudioApi;
 using STTWinV20.Services;
 
 namespace STTWinV20;
@@ -24,6 +25,19 @@ public partial class MainWindow : Window
     private string? _currentFilePath;
     private int _segmentCount;
     private ModelInfo? _selectedModel;
+
+    // ── Volume mode ──
+    private bool _isVideoVolumeMode;
+    private double _micVolumeSaved   = 70;
+    private double _videoVolumeSaved = 70;
+
+    // ── 동영상 출력 레벨 측정 (WASAPI) ──
+    private DispatcherTimer? _videoLevelTimer;
+    private MMDeviceEnumerator? _mmEnumerator;
+    private MMDevice? _renderDevice;
+
+    // 레벨바: 항상 밝은 녹색
+    private static readonly SolidColorBrush LevelBrush = new(Color.FromRgb(0x39, 0xFF, 0x7A));
 
     // ── Colours used for status dot ──
     private static readonly Color ColGreen = Color.FromRgb(0x00, 0xD2, 0xA0);
@@ -46,18 +60,30 @@ public partial class MainWindow : Window
     {
         LoadMicrophones();
         LoadModelList();
+        SwitchToMicVolumeMode();    // 초기 상태: 마이크 볼륨 모드
         SetStatus("준비", ColGreen);
     }
 
     private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        // 진행 중인 모든 작업을 즉시 취소 (non-blocking)
         _micStt?.Stop();
         _fileStt?.Stop();
         _seekTimer.Stop();
+        StopVideoLevelMeter();
         VideoPlayer.Stop();
-        _micStt?.Dispose();
-        _fileStt?.Dispose();
-        _stt.Dispose();
+
+        // Dispose는 백그라운드에서 실행 — UI 스레드를 블로킹하지 않아 창이 즉시 닫힘.
+        // 프로세스 종료 시 OS가 잔여 리소스를 정리하므로 지연 완료도 안전함.
+        var mic  = _micStt;
+        var file = _fileStt;
+        var stt  = _stt;
+        Task.Run(() =>
+        {
+            try { mic?.Dispose();  } catch { }
+            try { file?.Dispose(); } catch { }
+            try { stt.Dispose();   } catch { }
+        });
     }
 
     // ══════════════════════════════════════════════════════════
@@ -82,8 +108,82 @@ public partial class MainWindow : Window
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (VolumeValueText is null) return; // InitializeComponent 완료 전 이벤트 방어
-        VolumeValueText.Text = $"{(int)e.NewValue}%";
-        _micStt?.SetVolume((float)(e.NewValue / 100.0));
+
+        double pct = e.NewValue;
+        VolumeValueText.Text = $"{(int)pct}%";
+
+        if (_isVideoVolumeMode)
+        {
+            VideoPlayer.Volume = pct / 100.0;
+            // 레벨바는 WASAPI 타이머(_videoLevelTimer)가 실시간 출력 신호로 갱신
+            _videoVolumeSaved = pct;
+        }
+        else
+        {
+            _micStt?.SetVolume((float)(pct / 100.0));
+            VolumeLevelBar.Value = 0;              // 마이크: 실시간 레벨은 이벤트에서 갱신
+            _micVolumeSaved = pct;
+        }
+    }
+
+    // 동영상 볼륨 모드: 슬라이더 → MediaElement.Volume, 레벨바 → WASAPI 출력 피크
+    private void SwitchToVideoVolumeMode()
+    {
+        _isVideoVolumeMode = true;
+        VolumeModeLabel.Text = "🔊 동영상";
+        VolumeLevelBar.Foreground = LevelBrush;
+        VolumeSlider.Value = _videoVolumeSaved;
+        VideoPlayer.Volume = _videoVolumeSaved / 100.0;
+        StartVideoLevelMeter();
+    }
+
+    // 마이크 볼륨 모드: 슬라이더 → 마이크 게인, 레벨바 → 실시간 입력 레벨
+    private void SwitchToMicVolumeMode()
+    {
+        _isVideoVolumeMode = false;
+        VolumeModeLabel.Text = "🔊 마이크";
+        VolumeLevelBar.Foreground = LevelBrush;
+        VolumeLevelBar.Value = 0;
+        VolumeSlider.Value = _micVolumeSaved;
+        StopVideoLevelMeter();
+    }
+
+    // ── WASAPI 출력 레벨 모니터 ──
+
+    private void StartVideoLevelMeter()
+    {
+        StopVideoLevelMeter(); // 중복 방지
+        try
+        {
+            _mmEnumerator = new MMDeviceEnumerator();
+            _renderDevice = _mmEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+        }
+        catch { return; }
+
+        _videoLevelTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
+        _videoLevelTimer.Tick += OnVideoLevelTick;
+        _videoLevelTimer.Start();
+    }
+
+    private void StopVideoLevelMeter()
+    {
+        _videoLevelTimer?.Stop();
+        _videoLevelTimer = null;
+        _renderDevice?.Dispose();  _renderDevice = null;
+        _mmEnumerator?.Dispose(); _mmEnumerator = null;
+        if (VolumeLevelBar != null) VolumeLevelBar.Value = 0;
+    }
+
+    private void OnVideoLevelTick(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_renderDevice == null) return;
+            // MasterPeakValue: 0.0–1.0, 현재 재생 중인 오디오 출력 피크
+            float peak = _renderDevice.AudioMeterInformation.MasterPeakValue;
+            VolumeLevelBar.Value = Math.Clamp(peak * 100f, 0f, 100f);
+        }
+        catch { /* 장치 변경 등 일시적 오류 무시 */ }
     }
 
     // ══════════════════════════════════════════════════════════
@@ -232,6 +332,7 @@ public partial class MainWindow : Window
         FileOpenBtn.IsEnabled = true;
         MicLevelPanel.Visibility = Visibility.Collapsed;
         AudioLevelBar.Value = 0;
+        VolumeLevelBar.Value = 0;   // 마이크 레벨바 초기화
         SetStatus("중지됨", ColGreen);
     }
 
@@ -240,7 +341,12 @@ public partial class MainWindow : Window
         var svc = new MicSttService(_stt);
         svc.TranscriptionReceived += (_, text) => AppendText(text);
         svc.AudioLevelChanged += (_, level) =>
-            Dispatcher.InvokeAsync(() => AudioLevelBar.Value = level * 100);
+            Dispatcher.InvokeAsync(() =>
+            {
+                AudioLevelBar.Value = level * 100;      // 동영상 오버레이 레벨바
+                if (!_isVideoVolumeMode)
+                    VolumeLevelBar.Value = level * 100; // 설정 패널 레벨바 (마이크 모드 시)
+            });
         svc.StatusChanged += (_, msg) =>
             Dispatcher.InvokeAsync(() => SetStatus(msg, ColGreen));
         svc.ErrorOccurred += (_, err) =>
@@ -280,6 +386,8 @@ public partial class MainWindow : Window
         PlaybackControls.Visibility = Visibility.Visible;
         VideoPlayer.Play();
         _seekTimer.Start();
+        ShowOverlay("▶", keepVisible: false);   // 첫 재생: ▶ 잠깐 표시
+        SwitchToVideoVolumeMode();              // 볼륨 → 동영상 모드
 
         // Start background file STT
         _fileStt ??= CreateFileService();
@@ -327,12 +435,19 @@ public partial class MainWindow : Window
         CloseFileBtn.IsEnabled = false;
         FileOpenBtn.IsEnabled = true;
         MicBtn.IsEnabled = true;
+        SwitchToMicVolumeMode();    // 볼륨 → 마이크 모드로 복귀
         SetStatus("준비", ColGreen);
     }
 
     // ══════════════════════════════════════════════════════════
     // Playback controls
     // ══════════════════════════════════════════════════════════
+
+    private void VideoArea_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!_isFileOpen) return;
+        PlayPauseBtn_Click(sender, new RoutedEventArgs());
+    }
 
     private void PlayPauseBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -343,14 +458,14 @@ public partial class MainWindow : Window
             VideoPlayer.Pause();
             _fileStt?.Pause();
             PlayPauseBtn.Content = "▶";
-            ShowOverlay("⏸");
+            ShowOverlay("⏸", keepVisible: true);   // 일시정지: 계속 표시
         }
         else
         {
             VideoPlayer.Play();
             _fileStt?.Resume();
             PlayPauseBtn.Content = "⏸";
-            ShowOverlay("▶");
+            ShowOverlay("▶", keepVisible: false);   // 재생: 잠깐 표시 후 페이드
         }
     }
 
@@ -420,16 +535,24 @@ public partial class MainWindow : Window
     // Play/Pause overlay animation
     // ══════════════════════════════════════════════════════════
 
-    private void ShowOverlay(string icon)
+    // keepVisible=true  → 아이콘을 계속 표시 (Pause 상태)
+    // keepVisible=false → 잠깐 표시 후 페이드아웃 (Play / 첫 재생)
+    private void ShowOverlay(string icon, bool keepVisible)
     {
-        PlayPauseOverlay.Text = icon;
-        // Cancel any running animation then snap to visible
-        PlayPauseOverlay.BeginAnimation(OpacityProperty, null);
+        // Assets 폴더의 PNG 파일을 pack URI로 참조
+        var uri = icon == "▶"
+            ? new Uri("pack://application:,,,/Assets/play_icon.png")
+            : new Uri("pack://application:,,,/Assets/pause_icon.png");
+
+        PlayPauseOverlay.Source = new System.Windows.Media.Imaging.BitmapImage(uri);
+        PlayPauseOverlay.BeginAnimation(OpacityProperty, null); // 진행 중인 애니메이션 취소
         PlayPauseOverlay.Opacity = 1.0;
 
-        var fade = new DoubleAnimation(1.0, 0.0, new Duration(TimeSpan.FromMilliseconds(600)))
+        if (keepVisible) return;
+
+        var fade = new DoubleAnimation(1.0, 0.0, new Duration(TimeSpan.FromMilliseconds(500)))
         {
-            BeginTime = TimeSpan.FromMilliseconds(400),
+            BeginTime = TimeSpan.FromMilliseconds(600),
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn },
         };
         PlayPauseOverlay.BeginAnimation(OpacityProperty, fade);

@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <Resource Include="daemon_hammer.ico" />
+    <Resource Include="Assets\play_icon.png" />
+    <Resource Include="Assets\pause_icon.png" />
   </ItemGroup>
 
   <!-- Release 빌드 시 MSI 인스톨러를 자동으로 생성합니다.

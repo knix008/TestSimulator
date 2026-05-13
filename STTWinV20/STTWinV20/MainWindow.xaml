@@ -286,23 +286,37 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- ── Row 4: 볼륨 ── -->
+                <!-- ── Row 4: 볼륨 (마이크/동영상 모드 공통, 최대 100%) ── -->
                 <TextBlock Grid.Row="4" Grid.Column="0"
+                           x:Name="VolumeModeLabel"
                            Text="🔊 볼륨" FontSize="12" FontWeight="SemiBold"
                            Foreground="#CCC" VerticalAlignment="Center"/>
                 <Grid Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
                       VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="44"/>
+                        <ColumnDefinition Width="*"/>    <!-- 슬라이더 -->
+                        <ColumnDefinition Width="82"/>   <!-- 레벨바 고정 -->
+                        <ColumnDefinition Width="40"/>   <!-- 퍼센트 텍스트 -->
                     </Grid.ColumnDefinitions>
+
+                    <!-- 볼륨 슬라이더 0-100 (시스템 기준 100% 초과 없음) -->
                     <Slider Grid.Column="0" x:Name="VolumeSlider"
-                            Minimum="0" Maximum="200" Value="100"
+                            Minimum="0" Maximum="100" Value="70"
                             VerticalAlignment="Center" Margin="0,0,8,0"
                             Foreground="#6C5CE7"
                             ValueChanged="VolumeSlider_ValueChanged"/>
-                    <TextBlock Grid.Column="1" x:Name="VolumeValueText"
-                               Text="100%" FontSize="12" FontWeight="Bold"
+
+                    <!-- 볼륨/입력 레벨 막대
+                         마이크 모드: 실시간 입력 레벨(녹색)
+                         동영상 모드: 현재 볼륨 설정 표시(보라) -->
+                    <ProgressBar Grid.Column="1" x:Name="VolumeLevelBar"
+                                 Height="8" Minimum="0" Maximum="100" Value="0"
+                                 Foreground="#39FF7A" Background="#1A1A2E"
+                                 BorderBrush="#444" BorderThickness="1"
+                                 VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                    <TextBlock Grid.Column="2" x:Name="VolumeValueText"
+                               Text="70%" FontSize="12" FontWeight="Bold"
                                Foreground="#6C5CE7" VerticalAlignment="Center"
                                HorizontalAlignment="Right"/>
                 </Grid>
@@ -322,7 +336,7 @@
 
             <!-- ── Video area ── -->
             <Border Grid.Row="0" CornerRadius="10" Background="#050505" ClipToBounds="True">
-                <Grid>
+                <Grid MouseLeftButtonUp="VideoArea_MouseLeftButtonUp" Background="Transparent">
                     <!-- Placeholder (no file open) -->
                     <StackPanel x:Name="VideoPlaceholder"
                                 HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -350,15 +364,18 @@
                                   MediaEnded="VideoPlayer_MediaEnded"
                                   MediaFailed="VideoPlayer_MediaFailed"/>
 
-                    <!-- Play/Pause icon overlay (fades out after tap) -->
-                    <TextBlock x:Name="PlayPauseOverlay"
-                               Opacity="0" FontSize="80" Foreground="White"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               IsHitTestVisible="False">
-                        <TextBlock.Effect>
-                            <DropShadowEffect BlurRadius="25" ShadowDepth="0" Opacity="0.8" Color="Black"/>
-                        </TextBlock.Effect>
-                    </TextBlock>
+                    <!-- Play/Pause image overlay
+                         Source는 코드에서 Assets/play_icon.png 또는 pause_icon.png 로 전환 -->
+                    <Image x:Name="PlayPauseOverlay"
+                           Width="90" Height="90"
+                           Opacity="0"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           IsHitTestVisible="False"
+                           RenderOptions.BitmapScalingMode="HighQuality">
+                        <Image.Effect>
+                            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.7" Color="Black"/>
+                        </Image.Effect>
+                    </Image>
 
                     <!-- Playback controls bar (bottom gradient) -->
                     <Grid x:Name="PlaybackControls" VerticalAlignment="Bottom" Visibility="Collapsed">
