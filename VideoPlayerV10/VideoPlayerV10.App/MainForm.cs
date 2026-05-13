@@ -22,6 +22,7 @@ public partial class MainForm : Form
     private string? _pauseOverlayPath;
     private string? _stopOverlayPath;
     private bool _pictureBoxOverlayActive;
+    private bool _isDownloading;
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -56,16 +57,16 @@ public partial class MainForm : Form
         _mediaPlayer.EnableMouseInput = false;
         _mediaPlayer.EnableKeyInput = false;
         videoView.MediaPlayer = _mediaPlayer;
-        _mediaPlayer.EndReached += (_, _) => BeginInvoke(() => statusLabel.Text = "Playback ended");
+        _mediaPlayer.EndReached += (_, _) => BeginInvoke(() => { if (!_isDownloading) statusLabel.Text = "Playback ended"; });
         _mediaPlayer.EncounteredError += (_, _) => BeginInvoke(HandlePlaybackError);
         _mediaPlayer.Playing += (_, _) => BeginInvoke(() =>
         {
-            statusLabel.Text = "Playing";
+            if (!_isDownloading) statusLabel.Text = "Playing";
             HidePictureBoxOverlay();
             ShowPlayPauseIcon("▶", true);
         });
-        _mediaPlayer.Paused += (_, _) => BeginInvoke(() => statusLabel.Text = "Paused");
-        _mediaPlayer.Stopped += (_, _) => BeginInvoke(() => statusLabel.Text = "Stopped");
+        _mediaPlayer.Paused += (_, _) => BeginInvoke(() => { if (!_isDownloading) statusLabel.Text = "Paused"; });
+        _mediaPlayer.Stopped += (_, _) => BeginInvoke(() => { if (!_isDownloading) statusLabel.Text = "Stopped"; });
         _libVLC.Log += LibVlc_Log;
         LoadOverlayAssets();
 
@@ -413,6 +414,7 @@ public partial class MainForm : Form
 
         try
         {
+            _isDownloading = true;
             downloadButton.Enabled = false;
             statusLabel.Text = "YouTube 동영상 정보 가져오는 중...";
 
@@ -448,17 +450,13 @@ public partial class MainForm : Form
 
             statusLabel.Text = "다운로드 중... 0%";
 
+            int lastPercent = -1;
             var progress = new Progress<double>(p =>
             {
                 int percent = (int)(p * 100);
-                if (InvokeRequired)
-                {
-                    BeginInvoke(() => statusLabel.Text = $"다운로드 중... {percent}%");
-                }
-                else
-                {
-                    statusLabel.Text = $"다운로드 중... {percent}%";
-                }
+                if (percent == lastPercent) return;
+                lastPercent = percent;
+                statusLabel.Text = $"다운로드 중... {percent}%";
             });
 
             await _youtubeClient.Videos.Streams.DownloadAsync(streamInfo, saveDialog.FileName, progress);
@@ -473,6 +471,7 @@ public partial class MainForm : Form
         }
         finally
         {
+            _isDownloading = false;
             downloadButton.Enabled = true;
         }
     }
