@@ -1,6 +1,8 @@
-import { auth } from "@/auth"
+import NextAuth from "next-auth"
+import { authConfig } from "@/auth.config"
 import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
+
+const { auth } = NextAuth(authConfig)
 
 const protectedPaths = [
   "/marketplace/listing/new",
@@ -8,11 +10,10 @@ const protectedPaths = [
   "/profile",
 ]
 
-export default auth((req: NextRequest & { auth: unknown }) => {
-  const isLoggedIn = !!(req as { auth?: unknown }).auth
+export default auth((req) => {
+  const isLoggedIn = !!req.auth
   const pathname = req.nextUrl.pathname
-
-  const isProtected = protectedPaths.some((path) => pathname.startsWith(path))
+  const isProtected = protectedPaths.some((p) => pathname.startsWith(p))
 
   if (isProtected && !isLoggedIn) {
     const signinUrl = new URL("/signin", req.url)
