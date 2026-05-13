@@ -1,4 +1,10 @@
 <Solution>
+  <Project Path="STTWinV20/STTWinV20.csproj">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
   <Project Path="STTWinV20.Installer/STTWinV20.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0" />
-  <Project Path="STTWinV20/STTWinV20.csproj" />
 </Solution>

@@ -8,6 +8,7 @@
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,13 +24,7 @@
   <!-- Release 빌드 시 MSI 인스톨러를 자동으로 생성합니다.
        솔루션 전체 빌드(BuildingSolutionFile)일 때는 설치 프로젝트가 직접 빌드되므로 여기서는 생략.
        DisableInstallerChain: WiX ProjectReference에서 재호출 방지. -->
-  <Target Name="BuildInstallerAfterRelease" AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release'
-                 and '$(MSBuildIsProjectReference)' != 'true'
-                 and '$(DesignTimeBuild)'         != 'true'
-                 and '$(BuildingPackage)'         != 'true'
-                 and '$(DisableInstallerChain)'   != 'true'
-                 and '$(BuildingSolutionFile)'    != 'true'">
+  <Target Name="BuildInstallerAfterRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'&#xD;&#xA;                 and '$(MSBuildIsProjectReference)' != 'true'&#xD;&#xA;                 and '$(DesignTimeBuild)'         != 'true'&#xD;&#xA;                 and '$(BuildingPackage)'         != 'true'&#xD;&#xA;                 and '$(DisableInstallerChain)'   != 'true'&#xD;&#xA;                 and '$(BuildingSolutionFile)'    != 'true'">
     <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)..\STTWinV20.Installer\STTWinV20.Installer.wixproj&quot; -c Release -p:Platform=x64" />
   </Target>
 
