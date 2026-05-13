@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --use-npm)",
+      "Bash(npx create-next-app@latest web --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git --use-npm)",
+      "Bash(npm install *)",
+      "Bash(npx prisma *)",
+      "Bash(node -e \"const pkg = require\\('./node_modules/next-auth/package.json'\\); console.log\\('NextAuth version:', pkg.version\\);\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/prisma/package.json'\\); console.log\\('Prisma version:', pkg.version\\);\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@auth/prisma-adapter/package.json'\\); console.log\\('Auth Prisma Adapter:', pkg.version\\);\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@auth/prisma-adapter/package.json'\\); console.log\\(JSON.stringify\\(pkg.peerDependencies, null, 2\\)\\);\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@prisma/client/package.json'\\); console.log\\('@prisma/client version:', pkg.version\\);\")",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
