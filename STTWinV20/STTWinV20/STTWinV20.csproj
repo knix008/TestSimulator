@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Whisper.net" Version="1.7.0" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="daemon_hammer.ico" />
+  </ItemGroup>
+
+  <!-- Release 빌드 시 MSI 인스톨러를 자동으로 생성합니다.
+       솔루션 전체 빌드(BuildingSolutionFile)일 때는 설치 프로젝트가 직접 빌드되므로 여기서는 생략.
+       DisableInstallerChain: WiX ProjectReference에서 재호출 방지. -->
+  <Target Name="BuildInstallerAfterRelease" AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'
+                 and '$(MSBuildIsProjectReference)' != 'true'
+                 and '$(DesignTimeBuild)'         != 'true'
+                 and '$(BuildingPackage)'         != 'true'
+                 and '$(DisableInstallerChain)'   != 'true'
+                 and '$(BuildingSolutionFile)'    != 'true'">
+    <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)..\STTWinV20.Installer\STTWinV20.Installer.wixproj&quot; -c Release -p:Platform=x64" />
+  </Target>
+
+</Project>

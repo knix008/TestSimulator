@@ -1,0 +1,19 @@
+<Project TreatAsLocalProperty="Platform" Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <OutputName>STTWinV20Setup</OutputName>
+    <OutputType>Package</OutputType>
+    <!-- 솔루션이 AnyCPU로 빌드해도 항상 x64 MSI를 생성합니다.
+         TreatAsLocalProperty="Platform" 덕분에 외부 -p:Platform 오버라이드를 무시합니다. -->
+    <Platform>x64</Platform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\STTWinV20\STTWinV20.csproj">
+      <AdditionalProperties>DisableInstallerChain=true</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,517 @@
+<Window x:Class="STTWinV20.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="한국어 음성 인식 (Whisper STT)"
+        Icon="daemon_hammer.ico"
+        Height="920" Width="1020" MinWidth="720" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#1A1A2E">
+
+    <Window.Resources>
+
+        <!-- ── Button ── -->
+        <Style x:Key="BtnStyle" TargetType="Button">
+            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="MinWidth" Value="120"/>
+            <Setter Property="MinHeight" Value="38"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.3" Color="Black"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Card border ── -->
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#16213E"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="15" ShadowDepth="3" Opacity="0.4" Color="Black"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── ComboBox item container (드롭다운 항목) ── -->
+        <Style x:Key="DarkComboItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#0F1419"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Malgun Gothic, Segoe UI"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#6C5CE7"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#5548C8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── 다크 테마 ComboBox (선택 항목 텍스트 색상 보장) ──
+             ContentPresenter.Resources 의 암묵적 TextBlock 스타일로
+             시스템 테마가 덮어쓰는 색상 문제를 확실히 차단합니다. -->
+        <Style x:Key="DarkComboBox" TargetType="ComboBox">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Malgun Gothic, Segoe UI"/>
+            <Setter Property="Background" Value="#0F1419"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#6C5CE7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboItem}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <!-- 헤더 영역 -->
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="22"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- 선택된 항목 표시 영역
+                                         ContentPresenter.Resources 의 TextBlock Style 로
+                                         흰색 텍스트를 확실히 보장 -->
+                                    <ContentPresenter Grid.Column="0"
+                                                      x:Name="ContentSite"
+                                                      IsHitTestVisible="False"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                      Margin="8,0,0,0"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left">
+                                        <ContentPresenter.Resources>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="White"/>
+                                                <Setter Property="FontSize" Value="12"/>
+                                                <Setter Property="FontFamily" Value="Malgun Gothic, Segoe UI"/>
+                                            </Style>
+                                        </ContentPresenter.Resources>
+                                    </ContentPresenter>
+
+                                    <!-- 드롭다운 화살표 -->
+                                    <Path Grid.Column="1"
+                                          Data="M 0 0 L 5 5 L 10 0 Z"
+                                          Fill="#AAA"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- 클릭 영역 (투명 ToggleButton) -->
+                            <ToggleButton
+                                Focusable="false"
+                                IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                            RelativeSource={RelativeSource TemplatedParent}}"
+                                ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent"/>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <!-- 드롭다운 팝업 -->
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border x:Name="DropDownBorder"
+                                        Background="#0F1419"
+                                        BorderBrush="#6C5CE7"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Margin="0,2,0,0"
+                                        MinWidth="{Binding ActualWidth,
+                                                   RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"
+                                                    KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#9D8FF0"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>   <!-- Settings -->
+            <RowDefinition Height="*"/>      <!-- Video + STT result -->
+            <RowDefinition Height="Auto"/>   <!-- Buttons -->
+            <RowDefinition Height="Auto"/>   <!-- Status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ══════════════════════════════════════════════
+             Row 0 — Settings panel
+             ══════════════════════════════════════════════ -->
+        <!-- ══ 설정 패널 ══
+             행 구성: 콘텐츠(40px) | 간격(8px) | 콘텐츠(40px) | 간격(8px) | 콘텐츠(40px)
+             모든 크기가 고정이라 런타임에 레이아웃이 변하지 않습니다. -->
+        <Border Grid.Row="0" Background="#16213E" CornerRadius="10"
+                Padding="14,10" Margin="0,0,0,8">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="15" ShadowDepth="3" Opacity="0.4" Color="Black"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="40"/>   <!-- 마이크 콘텐츠 -->
+                    <RowDefinition Height="8"/>    <!-- 간격 -->
+                    <RowDefinition Height="40"/>   <!-- 모델 콘텐츠 -->
+                    <RowDefinition Height="8"/>    <!-- 간격 -->
+                    <RowDefinition Height="40"/>   <!-- 볼륨 콘텐츠 -->
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="76"/>    <!-- 레이블 고정 -->
+                    <ColumnDefinition Width="*"/>     <!-- 콤보박스 가변 -->
+                    <ColumnDefinition Width="130"/>   <!-- 버튼/프로그레스 고정 -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ── Row 0: 마이크 ── -->
+                <TextBlock Grid.Row="0" Grid.Column="0"
+                           Text="🎙️ 마이크" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#CCC" VerticalAlignment="Center"/>
+                <ComboBox x:Name="MicComboBox" Grid.Row="0" Grid.Column="1"
+                          Style="{StaticResource DarkComboBox}"
+                          VerticalAlignment="Center" Margin="0,0,6,0"
+                          SelectionChanged="MicComboBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DeviceName}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Grid.Row="0" Grid.Column="2"
+                        x:Name="RefreshMicBtn" Content="🔄 새로고침"
+                        ToolTip="마이크 목록 새로고침"
+                        Style="{StaticResource BtnStyle}" Background="#6C5CE7"
+                        Height="28" MinHeight="0" VerticalAlignment="Center"
+                        MinWidth="0" Padding="10,5" FontSize="12" Margin="0"
+                        Click="RefreshMicBtn_Click"/>
+
+                <!-- ── Row 2: 모델 ── -->
+                <TextBlock Grid.Row="2" Grid.Column="0"
+                           Text="🤖 모델" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#CCC" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ModelComboBox" Grid.Row="2" Grid.Column="1"
+                          Style="{StaticResource DarkComboBox}"
+                          VerticalAlignment="Center" Margin="0,0,6,0"
+                          SelectionChanged="ModelComboBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <!-- 다운로드 버튼/프로그레스바를 동일 셀에 겹침.
+                     Height를 행 높이(40px)와 동일하게 고정 → Visibility 전환 시 레이아웃 불변.
+                     버튼에 MinHeight="0"을 직접 지정해 BtnStyle의 MinHeight="38"을 무력화. -->
+                <Grid Grid.Row="2" Grid.Column="2"
+                      Height="40" VerticalAlignment="Center">
+                    <Button x:Name="DownloadBtn" Content="⬇ 다운로드"
+                            Style="{StaticResource BtnStyle}" Background="#00D2A0"
+                            MinWidth="0" MinHeight="0"
+                            Padding="10,5" FontSize="12" Margin="2,4"
+                            Click="DownloadBtn_Click"/>
+                    <StackPanel x:Name="DownloadProgressPanel" Visibility="Collapsed"
+                                Orientation="Vertical" VerticalAlignment="Center">
+                        <ProgressBar x:Name="DownloadProgressBar"
+                                     Height="8" Minimum="0" Maximum="100" Value="0"
+                                     Foreground="#00D2A0" Background="#333" BorderThickness="0"/>
+                        <TextBlock x:Name="DownloadProgressText" Text="0%"
+                                   FontSize="10" Foreground="#AAA"
+                                   HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ── Row 4: 볼륨 ── -->
+                <TextBlock Grid.Row="4" Grid.Column="0"
+                           Text="🔊 볼륨" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#CCC" VerticalAlignment="Center"/>
+                <Grid Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
+                      VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="44"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0" x:Name="VolumeSlider"
+                            Minimum="0" Maximum="200" Value="100"
+                            VerticalAlignment="Center" Margin="0,0,8,0"
+                            Foreground="#6C5CE7"
+                            ValueChanged="VolumeSlider_ValueChanged"/>
+                    <TextBlock Grid.Column="1" x:Name="VolumeValueText"
+                               Text="100%" FontSize="12" FontWeight="Bold"
+                               Foreground="#6C5CE7" VerticalAlignment="Center"
+                               HorizontalAlignment="Right"/>
+                </Grid>
+
+            </Grid>
+        </Border>
+
+        <!-- ══════════════════════════════════════════════
+             Row 1 — Video area + GridSplitter + STT result
+             ══════════════════════════════════════════════ -->
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="3*" MinHeight="140"/>
+                <RowDefinition Height="6"/>
+                <RowDefinition Height="2*" MinHeight="90"/>
+            </Grid.RowDefinitions>
+
+            <!-- ── Video area ── -->
+            <Border Grid.Row="0" CornerRadius="10" Background="#050505" ClipToBounds="True">
+                <Grid>
+                    <!-- Placeholder (no file open) -->
+                    <StackPanel x:Name="VideoPlaceholder"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="📂" FontSize="52" HorizontalAlignment="Center"/>
+                        <TextBlock Text="파일을 열어 동영상/오디오 STT를 시작하세요"
+                                   FontSize="14" Foreground="#666"
+                                   HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                    </StackPanel>
+
+                    <!-- Audio-only file indicator -->
+                    <StackPanel x:Name="AudioOnlyPanel" Visibility="Collapsed"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="🎵" FontSize="52" HorizontalAlignment="Center"/>
+                        <TextBlock Text="오디오 재생 중" FontSize="16" Foreground="#CCC"
+                                   HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                    </StackPanel>
+
+                    <!-- Video player -->
+                    <MediaElement x:Name="VideoPlayer"
+                                  Visibility="Collapsed"
+                                  LoadedBehavior="Manual"
+                                  UnloadedBehavior="Stop"
+                                  Stretch="Uniform"
+                                  MediaOpened="VideoPlayer_MediaOpened"
+                                  MediaEnded="VideoPlayer_MediaEnded"
+                                  MediaFailed="VideoPlayer_MediaFailed"/>
+
+                    <!-- Play/Pause icon overlay (fades out after tap) -->
+                    <TextBlock x:Name="PlayPauseOverlay"
+                               Opacity="0" FontSize="80" Foreground="White"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IsHitTestVisible="False">
+                        <TextBlock.Effect>
+                            <DropShadowEffect BlurRadius="25" ShadowDepth="0" Opacity="0.8" Color="Black"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+
+                    <!-- Playback controls bar (bottom gradient) -->
+                    <Grid x:Name="PlaybackControls" VerticalAlignment="Bottom" Visibility="Collapsed">
+                        <Grid.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Color="Transparent" Offset="0"/>
+                                <GradientStop Color="#DD000000" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Grid.Background>
+                        <Grid Margin="12,6,12,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Column="0" x:Name="PlayPauseBtn"
+                                    Content="⏸" FontSize="20" Foreground="White"
+                                    Background="Transparent" BorderThickness="0"
+                                    Cursor="Hand" Padding="6,4" Margin="0,0,10,0"
+                                    Click="PlayPauseBtn_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <TextBlock Text="{TemplateBinding Content}"
+                                                   FontSize="{TemplateBinding FontSize}"
+                                                   Foreground="{TemplateBinding Foreground}"
+                                                   Cursor="{TemplateBinding Cursor}"
+                                                   Padding="{TemplateBinding Padding}"/>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <Slider Grid.Column="1" x:Name="SeekBar"
+                                    Minimum="0" Maximum="1" Value="0"
+                                    VerticalAlignment="Center" Foreground="#6C5CE7"
+                                    Thumb.DragStarted="SeekBar_DragStarted"
+                                    Thumb.DragCompleted="SeekBar_DragCompleted"/>
+
+                            <TextBlock Grid.Column="2" x:Name="TimeDisplay"
+                                       Text="0:00 / 0:00" Foreground="White"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Margin="10,0,0,0" MinWidth="95"/>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Mic input level overlay (visible during mic STT) -->
+                    <Border x:Name="MicLevelPanel"
+                            VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                            Visibility="Collapsed"
+                            Background="#BB000000" CornerRadius="0,8,0,0" Padding="8,5">
+                        <Grid Width="150">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="🎤" FontSize="11"
+                                       Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <ProgressBar Grid.Column="1" x:Name="AudioLevelBar"
+                                         Height="8" Minimum="0" Maximum="100" Value="0"
+                                         Foreground="#00D2A0" Background="#333" BorderThickness="0"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- GridSplitter -->
+            <GridSplitter Grid.Row="1"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                          Background="#6C5CE7" Opacity="0.45" Cursor="SizeNS"
+                          ResizeDirection="Rows"/>
+
+            <!-- ── STT result area ── -->
+            <Border Grid.Row="2" Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Result header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="📝 STT 결과"
+                                   FontSize="14" FontWeight="SemiBold" Foreground="#DDD"/>
+                        <TextBlock Grid.Column="1" x:Name="SegmentCountText"
+                                   Text="" FontSize="11" Foreground="#888" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- Result text box -->
+                    <Border Grid.Row="1" Background="#0A0E1A" CornerRadius="8"
+                            BorderBrush="#6C5CE7" BorderThickness="1">
+                        <ScrollViewer x:Name="ResultScroll"
+                                      VerticalScrollBarVisibility="Auto" Margin="2">
+                            <TextBox x:Name="TranscriptionTextBox"
+                                     TextWrapping="Wrap" AcceptsReturn="True"
+                                     FontSize="14" FontFamily="Malgun Gothic, Segoe UI"
+                                     Padding="12" BorderThickness="0"
+                                     Background="Transparent" Foreground="#E8E8E8"
+                                     CaretBrush="#6C5CE7" SelectionBrush="#6C5CE7"
+                                     IsReadOnly="False" VerticalAlignment="Stretch"/>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ══════════════════════════════════════════════
+             Row 2 — Control buttons
+             ══════════════════════════════════════════════ -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal"
+                    HorizontalAlignment="Center" Margin="0,0,0,8">
+            <Button x:Name="MicBtn"  Content="🎙️ STT 시작"
+                    Style="{StaticResource BtnStyle}" Background="#00D2A0"
+                    Click="MicBtn_Click"/>
+            <Button x:Name="FileOpenBtn" Content="📂 파일 열기"
+                    Style="{StaticResource BtnStyle}" Background="#6C5CE7"
+                    Click="FileOpenBtn_Click"/>
+            <Button x:Name="CloseFileBtn" Content="⏹ 파일 닫기"
+                    Style="{StaticResource BtnStyle}" Background="#FF6B6B"
+                    IsEnabled="False" Click="CloseFileBtn_Click"/>
+            <Button x:Name="ClearBtn" Content="🗑️ 지우기"
+                    Style="{StaticResource BtnStyle}" Background="#747D8C"
+                    Click="ClearBtn_Click"/>
+            <Button x:Name="CopyBtn"  Content="📋 복사"
+                    Style="{StaticResource BtnStyle}" Background="#4ECDC4"
+                    Click="CopyBtn_Click"/>
+        </StackPanel>
+
+        <!-- ══════════════════════════════════════════════
+             Row 3 — Status bar
+             ══════════════════════════════════════════════ -->
+        <Border Grid.Row="3" Background="#16213E" CornerRadius="8" Padding="12,7"
+                BorderBrush="#6C5CE7" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Ellipse Grid.Column="0" x:Name="StatusDot"
+                         Width="10" Height="10" Fill="#00D2A0" Margin="0,0,8,0" VerticalAlignment="Center">
+                    <Ellipse.Effect>
+                        <DropShadowEffect BlurRadius="6" Color="#00D2A0" ShadowDepth="0" Opacity="0.9"/>
+                    </Ellipse.Effect>
+                </Ellipse>
+                <TextBlock Grid.Column="1" x:Name="StatusText"
+                           Text="준비" Foreground="#BBB" FontSize="12" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="Whisper STT v2.0"
+                           Foreground="#6C5CE7" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package Name="STTWinV20"
+           Manufacturer="Suho Kwon"
+           Version="2.0.0.0"
+           Codepage="949"
+           UpgradeCode="9412EFAF-C43F-4C9E-9EBB-6301137F219A">
+
+    <!-- 기존 버전을 자동으로 업그레이드 -->
+    <MajorUpgrade DowngradeErrorMessage="이미 최신 버전이 설치되어 있습니다." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 제어판 아이콘 및 정보 -->
+    <Icon Id="AppIcon.ico" SourceFile="..\STTWinV20\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPCOMMENTS"    Value="한국어 실시간 음성 인식 (Whisper STT)" />
+
+    <!-- ──────────────────────────────────────────────
+         기능(Feature) 정의
+         WixUI_FeatureTree 다이얼로그에서 사용자가
+         바탕화면 / 시작 메뉴 바로가기를 선택/해제할 수 있습니다.
+         ────────────────────────────────────────────── -->
+
+    <!-- 핵심 파일: 필수(Level=1), 숨김 처리하지 않음 -->
+    <!-- 핵심 파일은 WixUI_FeatureTree UI에서 Display="expand"로 항상 표시되며
+         Level=1로 기본 설치됩니다. WiX v4에서는 Absent 속성이 제거됨. -->
+    <Feature Id="ProductFeature"
+             Title="STTWinV20 (필수)"
+             Description="애플리케이션 실행에 필요한 모든 파일을 설치합니다."
+             Level="1"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="RuntimeFiles" />
+    </Feature>
+
+    <!-- 시작 메뉴 바로가기: 기본 선택(Level=1) -->
+    <Feature Id="StartMenuFeature"
+             Title="시작 메뉴 바로가기"
+             Description="시작 메뉴에 바로가기를 추가합니다."
+             Level="1"
+             AllowAdvertise="no">
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <!-- 바탕화면 바로가기: 기본 선택(Level=1) -->
+    <Feature Id="DesktopFeature"
+             Title="바탕화면 바로가기"
+             Description="바탕화면에 바로가기를 추가합니다."
+             Level="1"
+             AllowAdvertise="no">
+      <ComponentRef Id="DesktopShortcut" />
+    </Feature>
+
+    <!-- UI: FeatureTree — 기능 선택 화면 포함 -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <ui:WixUI Id="WixUI_FeatureTree" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui" />
+
+  </Package>
+
+  <!-- ══════════════════════════════════════════════
+       디렉터리 구조
+       ══════════════════════════════════════════════ -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="STTWinV20">
+        <!-- Whisper.net 네이티브 DLL 하위 경로 -->
+        <Directory Id="RuntimesFolder"  Name="runtimes">
+          <Directory Id="WinX64Folder" Name="win-x64" />
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="STTWinV20" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <!-- ══════════════════════════════════════════════
+       애플리케이션 파일 컴포넌트 그룹
+       ══════════════════════════════════════════════ -->
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+
+      <!-- 주 실행 파일 -->
+      <Component Id="Comp_MainExe" Guid="*" Bitness="always64">
+        <File Id="STTWinV20.exe"
+              Source="$(var.STTWinV20.TargetDir)STTWinV20.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="Comp_AppDll" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)STTWinV20.dll" />
+      </Component>
+
+      <!-- 런타임 메타 -->
+      <Component Id="Comp_RuntimeConfig" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)STTWinV20.runtimeconfig.json" />
+      </Component>
+
+      <Component Id="Comp_DepsJson" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)STTWinV20.deps.json" />
+      </Component>
+
+      <!-- NAudio -->
+      <Component Id="Comp_NAudio" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)NAudio.dll" />
+      </Component>
+      <Component Id="Comp_NAudioAsio" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)NAudio.Asio.dll" />
+      </Component>
+      <Component Id="Comp_NAudioCore" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)NAudio.Core.dll" />
+      </Component>
+      <Component Id="Comp_NAudioMidi" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)NAudio.Midi.dll" />
+      </Component>
+      <Component Id="Comp_NAudioWasapi" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)NAudio.Wasapi.dll" />
+      </Component>
+      <Component Id="Comp_NAudioWinForms" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)NAudio.WinForms.dll" />
+      </Component>
+      <Component Id="Comp_NAudioWinMM" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)NAudio.WinMM.dll" />
+      </Component>
+
+      <!-- Whisper.net 매니지드 -->
+      <Component Id="Comp_WhisperNet" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)Whisper.net.dll" />
+      </Component>
+
+      <!-- 애플리케이션 아이콘 (제어판 표시용) -->
+      <Component Id="Comp_AppIcon" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.ProjectDir)daemon_hammer.ico" />
+      </Component>
+
+    </ComponentGroup>
+
+    <!-- Whisper.net 네이티브 DLL (runtimes\win-x64\) -->
+    <ComponentGroup Id="RuntimeFiles" Directory="WinX64Folder">
+      <Component Id="Comp_WhisperDll" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)runtimes\win-x64\whisper.dll" />
+      </Component>
+      <Component Id="Comp_GgmlDll" Guid="*" Bitness="always64">
+        <File Source="$(var.STTWinV20.TargetDir)runtimes\win-x64\ggml.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ── 시작 메뉴 바로가기 ── -->
+    <Component Id="StartMenuShortcut" Directory="AppMenuFolder" Guid="*" Bitness="always64">
+      <Shortcut Id="SC_StartMenu"
+                Name="한국어 음성 인식 (STTWinV20)"
+                Target="[INSTALLFOLDER]STTWinV20.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <!-- 키 경로는 레지스트리로 설정 (바로가기 파일은 KeyPath 불가) -->
+      <RegistryValue Root="HKCU"
+                     Key="Software\STTWinV20"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+      <RemoveFolder Id="CleanStartMenu" Directory="AppMenuFolder" On="uninstall" />
+    </Component>
+
+    <!-- ── 바탕화면 바로가기 ── -->
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="*" Bitness="always64">
+      <Shortcut Id="SC_Desktop"
+                Name="한국어 음성 인식 (STTWinV20)"
+                Target="[INSTALLFOLDER]STTWinV20.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\STTWinV20"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+  </Fragment>
+
+</Wix>

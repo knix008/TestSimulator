@@ -1,0 +1,32 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# MSI build output
+STTWinV20.Installer/bin/
+STTWinV20.Installer/obj/
+
+# NuGet
+*.nupkg
+.nuget/
+
+# Downloaded Whisper models (large binary files)
+# Models are stored in %LOCALAPPDATA%\STTWinV20\models\ at runtime
+# No model files live in the repo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rider / JetBrains
+.idea/
+
+# Test results
+TestResults/
+
+
+# Etc.
+.claude/
