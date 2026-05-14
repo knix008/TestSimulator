@@ -1,0 +1,38 @@
+# Build output
+build/
+*.o
+*.a
+*.so
+
+# CMake artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temp files created by TTS engines
+/tmp/tts_festival_in.txt
+/tmp/tts_festival_out.wav
+/tmp/tts_piper_in.txt
+/tmp/tts_piper_out.wav
+
+# Piper model files (downloaded separately via download_ko_model.sh)
+models/
+
+# Exported audio (don't commit generated output)
+*.wav
+*.mp3
+
+# Claude Code
+.claude/
