@@ -11,14 +11,19 @@
     <RootNamespace>TTSWinV10</RootNamespace>
     <AssemblyName>TTSWinV10</AssemblyName>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <!-- Sherpa-ONNX 네이티브 DLL은 x64; AnyCPU 32비트 프로세스에서 BadImageFormatException(0x8007000B) 방지 -->
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.22621.2428" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.12.29" />
     <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
     <PackageReference Include="System.Runtime.WindowsRuntime" Version="4.7.0" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="System.Net.Http" />
     <Reference Include="System.Speech" />
   </ItemGroup>
   <ItemGroup>
@@ -47,14 +52,7 @@
     <InstallerWixProj>$(MSBuildThisFileDirectory)TTSWinV10.Installer\TTSWinV10.Installer.wixproj</InstallerWixProj>
   </PropertyGroup>
 
-  <Target Name="BuildInstallerMsiAfterRelease"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release'
-                      and '$(BuildingForInstaller)' != 'true'
-                      and '$(DesignTimeBuild)' != 'true'
-                      and Exists('$(InstallerWixProj)')">
-    <MSBuild Projects="$(InstallerWixProj)"
-             Targets="Build"
-             Properties="Configuration=Release;Platform=x64" />
+  <Target Name="BuildInstallerMsiAfterRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'&#xD;&#xA;                      and '$(BuildingForInstaller)' != 'true'&#xD;&#xA;                      and '$(DesignTimeBuild)' != 'true'&#xD;&#xA;                      and Exists('$(InstallerWixProj)')">
+    <MSBuild Projects="$(InstallerWixProj)" Targets="Build" Properties="Configuration=Release;Platform=x64" />
   </Target>
 </Project>

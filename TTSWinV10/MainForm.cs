@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Speech.Synthesis;
 using System.Text;
@@ -23,15 +24,178 @@ public partial class MainForm : Form, IMessageFilter
     private CancellationTokenSource? _synthCts;
     private readonly List<float> _peakRing = new();
     private float[] _wavePaintScratch = Array.Empty<float>();
+    /// <summary>시간축 확대: 값이 클수록 더 짧은 구간(초)을 화면에 담습니다.</summary>
     private float _waveHorizontalMag = 1f;
+    private float[] _bakedWavePeaks = Array.Empty<float>();
+    private double _bakedWaveDurationSec;
+    private double _waveViewStartSec;
+    private double _lastPlaybackSec;
+    private readonly float[] _vuBarHistory = new float[32];
+    private int _vuBarHead;
+    private int _vuBarCount;
     private bool _waveWheelFilterRegistered;
     private Font? _waveRulerFont;
-    private double _waveRulerPlaybackSec;
     private volatile bool _isPlaying;
+    private volatile bool _playbackUserAbort;
+    private bool _waveformScrubDrag;
     private volatile bool _isSynthesizing;
     private readonly List<VoiceEntry> _allVoiceEntries = new();
     private Bitmap? _transportPlayIcon;
     private Bitmap? _transportStopIcon;
+
+    private readonly struct SpeechProgressMark(double timeSec, int charStart, int charLength)
+    {
+        public double TimeSec { get; } = timeSec;
+        public int CharStart { get; } = charStart;
+        public int CharLength { get; } = charLength;
+        public int CharEndExclusive => CharStart + Math.Max(0, CharLength);
+    }
+
+    private sealed class SpeechSyncTrack
+    {
+        public bool LinearMode { get; private set; }
+        public List<SpeechProgressMark> Marks { get; } = new();
+        private readonly object _gate = new();
+        private readonly List<(TimeSpan AudioTime, int CharStart, int CharLen)> _raw = new();
+
+        public void Clear()
+        {
+            lock (_gate)
+            {
+                _raw.Clear();
+            }
+
+            Marks.Clear();
+            LinearMode = false;
+        }
+
+        public void AddSpeakProgress(SpeakProgressEventArgs e)
+        {
+            lock (_gate)
+            {
+                _raw.Add((e.AudioPosition, e.CharacterPosition, Math.Max(1, e.CharacterCount)));
+            }
+        }
+
+        public void FinalizeFromSapi(string displayText, bool ssmlUsed)
+        {
+            Marks.Clear();
+            if (ssmlUsed)
+            {
+                LinearMode = true;
+                return;
+            }
+
+            LinearMode = false;
+            lock (_gate)
+            {
+                foreach ((TimeSpan at, int cs, int cl) in _raw)
+                {
+                    double t = at.TotalSeconds;
+                    if (t < 0)
+                    {
+                        t = 0;
+                    }
+
+                    int start = ClampInt(cs, 0, displayText.Length);
+                    int len = ClampInt(cl, 1, Math.Max(1, displayText.Length - start));
+                    Marks.Add(new SpeechProgressMark(t, start, len));
+                }
+            }
+
+            if (Marks.Count == 0)
+            {
+                LinearMode = true;
+                return;
+            }
+
+            Marks.Sort((a, b) => a.TimeSec.CompareTo(b.TimeSec));
+        }
+
+        public void ForceLinear()
+        {
+            Marks.Clear();
+            lock (_gate)
+            {
+                _raw.Clear();
+            }
+
+            LinearMode = true;
+        }
+
+        public void FinalizeWinRt()
+        {
+            Marks.Clear();
+            LinearMode = true;
+        }
+
+        /// <summary>
+        /// WinRT/Sherpa 등 마크가 없을 때, 공백으로 나눈 단어에 오디오 길이를 글자 수 비례로 나눠
+        /// SAPI <see cref="FinalizeFromSapi"/> 와 같은 단어 단위 선택을 근사합니다.
+        /// </summary>
+        public void FinalizeApproximateWordsByWhitespace(string displayText, double audioDurationSec)
+        {
+            Marks.Clear();
+            LinearMode = false;
+            if (string.IsNullOrEmpty(displayText) || audioDurationSec < 1e-6)
+            {
+                LinearMode = true;
+                return;
+            }
+
+            var spans = new List<(int Start, int Len)>();
+            int n = displayText.Length;
+            int i = 0;
+            while (i < n)
+            {
+                while (i < n && char.IsWhiteSpace(displayText[i]))
+                {
+                    i++;
+                }
+
+                if (i >= n)
+                {
+                    break;
+                }
+
+                int start = i;
+                while (i < n && !char.IsWhiteSpace(displayText[i]))
+                {
+                    i++;
+                }
+
+                int len = i - start;
+                if (len > 0)
+                {
+                    spans.Add((start, len));
+                }
+            }
+
+            if (spans.Count == 0)
+            {
+                LinearMode = true;
+                return;
+            }
+
+            double totalWeight = 0;
+            foreach ((_, int len) in spans)
+            {
+                totalWeight += Math.Max(1, len);
+            }
+
+            double t = 0;
+            foreach ((int start, int len) in spans)
+            {
+                double w = Math.Max(1, len);
+                Marks.Add(new SpeechProgressMark(t, start, len));
+                t += audioDurationSec * (w / totalWeight);
+            }
+        }
+    }
+
+    private List<SpeechProgressMark> _playbackSpeechMarks = new();
+    private bool _playbackSpeechLinear;
+    private string _playbackSpeechSourceText = "";
 
     public MainForm()
     {
@@ -69,6 +233,15 @@ public partial class MainForm : Form, IMessageFilter
             null,
             panelBody,
             new object[] { true });
+        foreach (Control c in new Control[] { panelBottomBar, panelVolumeHost, flowBottomButtons })
+        {
+            typeof(Control).InvokeMember(
+                "DoubleBuffered",
+                BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                c,
+                new object[] { true });
+        }
 
         ApplyModernTheme();
         panelSynthCard.Paint += PanelSynthCard_Paint;
@@ -84,6 +257,10 @@ public partial class MainForm : Form, IMessageFilter
         ConfigurePlaybackStopGlyphs();
         _waveRulerFont = new Font(Font.FontFamily, 8.25f, FontStyle.Regular, GraphicsUnit.Point);
         panelWaveform.SizeChanged += PanelWaveform_SizeChanged;
+        panelWaveform.MouseDown += PanelWaveform_MouseDown;
+        panelWaveform.MouseMove += PanelWaveform_MouseMove;
+        panelWaveform.MouseUp += PanelWaveform_MouseUp;
+        panelWaveform.MouseLeave += PanelWaveform_MouseLeave;
         Load += MainForm_Load;
         comboBoxSynthMethod.SelectedIndexChanged += ComboBoxSynthMethod_SelectedIndexChanged;
     }
@@ -409,6 +586,8 @@ public partial class MainForm : Form, IMessageFilter
             comboBoxEmphasis.SelectedIndex = 0;
         }
 
+        textBoxContent.HideSelection = false;
+
         if (!_waveWheelFilterRegistered)
         {
             Application.AddMessageFilter(this);
@@ -483,6 +662,9 @@ public partial class MainForm : Form, IMessageFilter
         comboBoxSynthMethod.Items.Add(new SynthMethodItem(
             SpeechSynthesisMethod.WindowsMediaWinRt,
             "WinRT (Windows.Media.SpeechSynthesis) — 시스템 음성"));
+        comboBoxSynthMethod.Items.Add(new SynthMethodItem(
+            SpeechSynthesisMethod.SherpaOnnxKoreanMimic3KssLow,
+            "Sherpa ONNX — 한국어 (Mimic3 KSS low, 오프라인 · 모델 폴더 필요)"));
         comboBoxSynthMethod.SelectedIndex = 0;
     }
 
@@ -509,9 +691,12 @@ public partial class MainForm : Form, IMessageFilter
             ? cur.CultureName
             : null;
 
-        string? engineDefault = GetSelectedSynthMethod() == SpeechSynthesisMethod.WindowsMediaWinRt
-            ? PopulateWinRtVoices()
-            : PopulateSapiVoices();
+        string? engineDefault = GetSelectedSynthMethod() switch
+        {
+            SpeechSynthesisMethod.WindowsMediaWinRt => PopulateWinRtVoices(),
+            SpeechSynthesisMethod.SherpaOnnxKoreanMimic3KssLow => PopulateSherpaOnnxKoreanVoices(),
+            _ => PopulateSapiVoices(),
+        };
 
         string? preferName = null;
         if (cultureHint is { } ch && !string.IsNullOrWhiteSpace(ch))
@@ -548,6 +733,17 @@ public partial class MainForm : Form, IMessageFilter
 
         _allVoiceEntries.Sort((a, b) => string.Compare(a.Caption, b.Caption, StringComparison.CurrentCultureIgnoreCase));
         return defaultVoiceName;
+    }
+
+    private string? PopulateSherpaOnnxKoreanVoices()
+    {
+        _allVoiceEntries.Clear();
+        bool ok = SherpaOnnxKoreanTts.TryResolveModelDirectory() is not null;
+        string caption = ok
+            ? "KSS 한국어 (Sherpa ONNX · Mimic3 low, 화자 0)"
+            : "KSS 한국어 (Sherpa ONNX) — 첫 재생 시 받기 · 경로는 SherpaKoModelDir.txt 또는 환경 변수";
+        _allVoiceEntries.Add(new VoiceEntry("0", caption, "ko-KR"));
+        return "0";
     }
 
     private string? PopulateWinRtVoices()
@@ -851,6 +1047,10 @@ public partial class MainForm : Form, IMessageFilter
         _synthCts = new CancellationTokenSource();
         var token = _synthCts.Token;
 
+        _playbackSpeechMarks.Clear();
+        _playbackSpeechLinear = true;
+        _playbackSpeechSourceText = "";
+
         SetBusy(true);
         _isSynthesizing = true;
         SetStatus("음성 합성 중…");
@@ -859,9 +1059,10 @@ public partial class MainForm : Form, IMessageFilter
 
         byte[]? wavBytes = null;
         Exception? synthError = null;
+        var syncTrack = new SpeechSyncTrack();
         try
         {
-            wavBytes = await Task.Run(() => SynthesizeToWavBytes(text, token, synthOptions)).ConfigureAwait(true);
+            wavBytes = await Task.Run(() => SynthesizeToWavBytes(text, token, synthOptions, syncTrack, ReportSherpaModelStatus)).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -879,16 +1080,49 @@ public partial class MainForm : Form, IMessageFilter
 
         if (synthError is not null)
         {
+            _playbackSpeechMarks.Clear();
+            _playbackSpeechSourceText = "";
             MessageBox.Show(this, synthError.Message, "합성 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus("오류");
             return;
         }
 
-        if (token.IsCancellationRequested || wavBytes is null || wavBytes.Length == 0)
+        if (token.IsCancellationRequested)
         {
-            SetStatus(token.IsCancellationRequested ? "취소됨" : "합성 결과가 비어 있습니다");
+            _playbackSpeechMarks.Clear();
+            _playbackSpeechSourceText = "";
+            SetStatus("취소됨");
             return;
         }
+
+        if (wavBytes is null || wavBytes.Length == 0)
+        {
+            _playbackSpeechMarks.Clear();
+            _playbackSpeechSourceText = "";
+            MessageBox.Show(
+                this,
+                "재생할 오디오 데이터가 없습니다. 합성 결과가 비어 있거나 유효한 WAV가 아닐 수 있습니다.",
+                "재생 실패",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            SetStatus("재생 실패");
+            return;
+        }
+
+        double wavDurationSec = TryGetWavDurationSeconds(wavBytes);
+        if (wavDurationSec > 1e-3
+            && syncTrack.LinearMode
+            && syncTrack.Marks.Count == 0
+            && (synthOptions.Method == SpeechSynthesisMethod.WindowsMediaWinRt
+                || synthOptions.Method == SpeechSynthesisMethod.SherpaOnnxKoreanMimic3KssLow))
+        {
+            syncTrack.FinalizeApproximateWordsByWhitespace(text, wavDurationSec);
+        }
+
+        _playbackSpeechMarks.Clear();
+        _playbackSpeechMarks.AddRange(syncTrack.Marks);
+        _playbackSpeechLinear = syncTrack.LinearMode;
+        _playbackSpeechSourceText = text;
 
         try
         {
@@ -896,7 +1130,8 @@ public partial class MainForm : Form, IMessageFilter
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "재생 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            string detail = FormatPlaybackFailureMessage("재생을 시작할 수 없습니다. 원인은 다음과 같습니다.", ex);
+            MessageBox.Show(this, detail, "재생 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus("재생 실패");
         }
     }
@@ -949,7 +1184,7 @@ public partial class MainForm : Form, IMessageFilter
             byte[] wavBytes = await Task.Run(() =>
             {
                 using var cts = new CancellationTokenSource();
-                return SynthesizeToWavBytes(text, cts.Token, synthOptions) ?? Array.Empty<byte>();
+                return SynthesizeToWavBytes(text, cts.Token, synthOptions, null) ?? Array.Empty<byte>();
             }).ConfigureAwait(true);
 
             if (wavBytes.Length == 0)
@@ -1083,6 +1318,12 @@ public partial class MainForm : Form, IMessageFilter
 
         var ms = new MemoryStream(wavBytes, writable: false);
         _playReader = new WaveFileReader(ms);
+        TryBakeWaveformEnvelope(_playReader);
+        _playReader.Position = 0;
+        _lastPlaybackSec = 0;
+        _waveViewStartSec = 0;
+        ResetVuBarHistory();
+
         _volumeProvider = new VolumeSampleProvider(new Pcm16BitToSampleProvider(_playReader)) { Volume = VolumeFactor };
         _peakProbe = new PeakProbe(_volumeProvider);
 
@@ -1093,6 +1334,7 @@ public partial class MainForm : Form, IMessageFilter
         _waveOut.Play();
         buttonSpeak.Enabled = false;
         SetStatus("재생 중…");
+        panelWaveform.Invalidate();
     }
 
     private void WaveOut_PlaybackStopped(object? sender, StoppedEventArgs e)
@@ -1103,19 +1345,61 @@ public partial class MainForm : Form, IMessageFilter
             return;
         }
 
-        _isPlaying = false;
-        if (e.Exception is not null)
+        if (_playReader is not null)
         {
-            MessageBox.Show(this, e.Exception.Message, "재생 중 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            try
+            {
+                _lastPlaybackSec = Math.Max(0, _playReader.TotalTime.TotalSeconds);
+            }
+            catch
+            {
+                _lastPlaybackSec = Math.Max(_lastPlaybackSec, _bakedWaveDurationSec);
+            }
+        }
+
+        _isPlaying = false;
+        bool playbackFailed = e.Exception is not null;
+        if (playbackFailed)
+        {
+            Exception ex = e.Exception!;
+            string detail = FormatPlaybackFailureMessage("재생이 중단되었습니다. 원인은 다음과 같습니다.", ex);
+            MessageBox.Show(this, detail, "재생 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         DisposePlaybackGraph();
         buttonSpeak.Enabled = !_isSynthesizing;
-        SetStatus("준비됨");
+        SetStatus(playbackFailed ? "재생 실패" : "준비됨");
+        if (!playbackFailed)
+        {
+            if (_playbackUserAbort)
+            {
+                ClearPlaybackTextSelection();
+                _playbackUserAbort = false;
+            }
+            else
+            {
+                ApplyPlaybackCompletedTextSelection();
+            }
+        }
+        else
+        {
+            ClearPlaybackTextSelection();
+        }
+
+        panelWaveform.Invalidate();
     }
 
     private void StopPlayback(bool sendStop)
     {
+        if (sendStop)
+        {
+            _playbackUserAbort = true;
+        }
+        else
+        {
+            _playbackUserAbort = false;
+        }
+
         if (_waveOut is not null)
         {
             try
@@ -1140,6 +1424,11 @@ public partial class MainForm : Form, IMessageFilter
         if (!_isSynthesizing)
         {
             buttonSpeak.Enabled = true;
+        }
+
+        if (sendStop)
+        {
+            ClearPlaybackTextSelection();
         }
     }
 
@@ -1172,26 +1461,42 @@ public partial class MainForm : Form, IMessageFilter
         {
             try
             {
-                _waveRulerPlaybackSec = _playReader.CurrentTime.TotalSeconds;
+                _lastPlaybackSec = _playReader.CurrentTime.TotalSeconds;
             }
             catch
             {
-                _waveRulerPlaybackSec = 0;
+                _lastPlaybackSec = 0;
             }
-        }
-        else
-        {
-            _waveRulerPlaybackSec = 0;
         }
 
         if (_isPlaying && _peakProbe is not null)
         {
-            float peak = _peakProbe.DrainPeak();
-            PushPeak(VisualGain(peak));
+            float peak = VisualGain(_peakProbe.DrainPeak());
+            PushVuBar(peak);
+            if (_bakedWavePeaks.Length == 0)
+            {
+                PushPeak(peak);
+            }
         }
         else
         {
-            PushPeak(0f);
+            if (_bakedWavePeaks.Length == 0)
+            {
+                PushPeak(0f);
+            }
+        }
+
+        if (_bakedWavePeaks.Length > 0 && _bakedWaveDurationSec > 1e-6 && _isPlaying)
+        {
+            double span = GetVisibleSpanSec();
+            double maxStart = Math.Max(0, _bakedWaveDurationSec - span);
+            double want = _lastPlaybackSec - span * 0.22;
+            _waveViewStartSec = ClampDouble(want, 0, maxStart);
+        }
+
+        if (!_waveformScrubDrag)
+        {
+            UpdatePlaybackTextSelection();
         }
 
         panelWaveform.Invalidate();
@@ -1233,7 +1538,163 @@ public partial class MainForm : Form, IMessageFilter
     private void ClearWaveform()
     {
         _peakRing.Clear();
+        _bakedWavePeaks = Array.Empty<float>();
+        _bakedWaveDurationSec = 0;
+        _waveViewStartSec = 0;
+        _lastPlaybackSec = 0;
+        ResetVuBarHistory();
+        _playbackSpeechMarks.Clear();
+        _playbackSpeechLinear = false;
+        _playbackSpeechSourceText = "";
         panelWaveform.Invalidate();
+    }
+
+    private void ClearPlaybackTextSelection()
+    {
+        if (!textBoxContent.IsHandleCreated)
+        {
+            return;
+        }
+
+        try
+        {
+            int len = textBoxContent.TextLength;
+            int pos = textBoxContent.SelectionStart;
+            if (pos > len)
+            {
+                pos = len;
+            }
+
+            textBoxContent.Select(pos, 0);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void ApplyPlaybackCompletedTextSelection()
+    {
+        if (_playbackSpeechSourceText.Length == 0)
+        {
+            return;
+        }
+
+        if (!string.Equals(textBoxContent.Text, _playbackSpeechSourceText, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        try
+        {
+            textBoxContent.Select(0, _playbackSpeechSourceText.Length);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private static int FindLastSpeechMarkIndex(IReadOnlyList<SpeechProgressMark> marks, double tSec)
+    {
+        if (marks.Count == 0)
+        {
+            return -1;
+        }
+
+        int lo = 0;
+        int hi = marks.Count - 1;
+        int ans = -1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >> 1;
+            if (marks[mid].TimeSec <= tSec + 1e-6)
+            {
+                ans = mid;
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+
+        return ans;
+    }
+
+    private void UpdatePlaybackTextSelection()
+    {
+        if (!_isPlaying || !textBoxContent.IsHandleCreated)
+        {
+            return;
+        }
+
+        string tb = textBoxContent.Text;
+        if (!string.Equals(tb, _playbackSpeechSourceText, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        int n = tb.Length;
+        int selStart;
+        int selLen;
+
+        if (_playbackSpeechLinear || _playbackSpeechMarks.Count == 0)
+        {
+            double total = _bakedWaveDurationSec > 1e-6 ? _bakedWaveDurationSec : 1.0;
+            int end = ClampInt((int)Math.Round(n * (_lastPlaybackSec / total)), 0, n);
+            selStart = 0;
+            selLen = end;
+        }
+        else
+        {
+            double audioTotal = _playReader is not null
+                ? Math.Max(1e-6, _playReader.TotalTime.TotalSeconds)
+                : (_bakedWaveDurationSec > 1e-6 ? _bakedWaveDurationSec : 1.0);
+
+            int caret = ComputeCaretIndexFromPlaybackTime(_lastPlaybackSec, tb, audioTotal);
+            // 길이 0 선택은 포커스가 없으면 커서가 그려지지 않습니다. SAPI처럼 비포커스에서도
+            // 진행 위치가 보이도록 현재 글자 하나를 선택합니다(HideSelection=false일 때 회색 강조).
+            if (n <= 0)
+            {
+                selStart = 0;
+                selLen = 0;
+            }
+            else if (caret >= n)
+            {
+                selStart = n - 1;
+                selLen = 1;
+            }
+            else
+            {
+                selStart = caret;
+                selLen = 1;
+            }
+        }
+
+        if (textBoxContent.SelectionStart == selStart && textBoxContent.SelectionLength == selLen)
+        {
+            return;
+        }
+
+        try
+        {
+            textBoxContent.Select(selStart, selLen);
+            if (!_playbackSpeechLinear && _playbackSpeechMarks.Count > 0)
+            {
+                textBoxContent.ScrollToCaret();
+                SendMessage(textBoxContent.Handle, EmScrollCaret, IntPtr.Zero, IntPtr.Zero);
+            }
+            else if (selLen == 0)
+            {
+                textBoxContent.ScrollToCaret();
+                SendMessage(textBoxContent.Handle, EmScrollCaret, IntPtr.Zero, IntPtr.Zero);
+            }
+        }
+        catch
+        {
+            // ignore
+        }
     }
 
     private static void FillWaveScratchFromRing(List<float> ring, float[] scratch, int take)
@@ -1281,6 +1742,468 @@ public partial class MainForm : Form, IMessageFilter
         return scratch[i0] * (1f - f) + scratch[i0 + 1] * f;
     }
 
+    private static int ClampInt(int v, int lo, int hi) => v < lo ? lo : (v > hi ? hi : v);
+
+    private static double ClampDouble(double v, double lo, double hi) => v < lo ? lo : (v > hi ? hi : v);
+
+    private static float ClampFloat(float v, float lo, float hi) => v < lo ? lo : (v > hi ? hi : v);
+
+    /// <summary>재생 실패 팝업에 표시할 예외 정보(형식, 메시지, HRESULT, 내부 예외)를 정리합니다.</summary>
+    private static string FormatPlaybackFailureMessage(string headline, Exception? ex)
+    {
+        const int maxLen = 3800;
+        var sb = new StringBuilder();
+        sb.Append(headline);
+        if (ex is null)
+        {
+            string s0 = sb.ToString();
+            return s0.Length > maxLen ? s0.Substring(0, maxLen - 1) + "…" : s0;
+        }
+
+        sb.AppendLine();
+        sb.AppendLine();
+        Exception? cur = ex;
+        for (int depth = 0; cur is not null && depth < 12; depth++, cur = cur.InnerException)
+        {
+            string typeName = cur.GetType().Name;
+            string msg = cur.Message.Trim();
+            if (string.IsNullOrEmpty(msg))
+            {
+                sb.AppendLine("• " + typeName);
+            }
+            else
+            {
+                sb.AppendLine("• " + typeName + ": " + msg);
+            }
+
+            if (cur is COMException com)
+            {
+                sb.AppendLine("  HRESULT: 0x" + ((uint)com.HResult).ToString("X8"));
+            }
+        }
+
+        string s = sb.ToString().TrimEnd();
+        if (s.Length > maxLen)
+        {
+            return s.Substring(0, maxLen - 1) + "…";
+        }
+
+        return s;
+    }
+
+    private void PushVuBar(float sample01)
+    {
+        _vuBarHistory[_vuBarHead] = sample01;
+        _vuBarHead = (_vuBarHead + 1) % _vuBarHistory.Length;
+        if (_vuBarCount < _vuBarHistory.Length)
+        {
+            _vuBarCount++;
+        }
+    }
+
+    private void ResetVuBarHistory()
+    {
+        _vuBarHead = 0;
+        _vuBarCount = 0;
+        Array.Clear(_vuBarHistory, 0, _vuBarHistory.Length);
+    }
+
+    private double GetVisibleSpanSec()
+    {
+        if (_bakedWaveDurationSec <= 1e-9)
+        {
+            return 1.0;
+        }
+
+        double mag = ClampDouble(_waveHorizontalMag, 0.25, 12.0);
+        double span = _bakedWaveDurationSec / mag;
+        return ClampDouble(span, 0.05, _bakedWaveDurationSec);
+    }
+
+    private void TryBakeWaveformEnvelope(WaveFileReader reader)
+    {
+        _bakedWavePeaks = Array.Empty<float>();
+        _bakedWaveDurationSec = 0;
+
+        try
+        {
+            double totalSec = reader.TotalTime.TotalSeconds;
+            if (totalSec <= 1e-6 || reader.Length <= reader.WaveFormat.BlockAlign)
+            {
+                return;
+            }
+
+            int bucketCount = ClampInt(Math.Max(panelWaveform.ClientSize.Width, 320) * 3, 2048, 12000);
+            var peaks = new float[bucketCount];
+            reader.Position = 0;
+            var sp = new Pcm16BitToSampleProvider(reader);
+            int ch = sp.WaveFormat.Channels;
+            if (ch < 1)
+            {
+                return;
+            }
+
+            long estFrames = Math.Max(
+                1L,
+                (long)Math.Round(reader.WaveFormat.SampleRate * totalSec));
+            long frameIndex = 0;
+            float[] buf = new float[ch * 65536];
+            while (true)
+            {
+                int got = sp.Read(buf, 0, buf.Length);
+                if (got <= 0)
+                {
+                    break;
+                }
+
+                int frames = got / ch;
+                for (int f = 0; f < frames; f++)
+                {
+                    float m = 0f;
+                    for (int c = 0; c < ch; c++)
+                    {
+                        float s = Math.Abs(buf[f * ch + c]);
+                        if (s > m)
+                        {
+                            m = s;
+                        }
+                    }
+
+                    long fi = frameIndex + f;
+                    int bi = (int)(fi * (long)bucketCount / estFrames);
+                    if (bi >= bucketCount)
+                    {
+                        bi = bucketCount - 1;
+                    }
+
+                    if (m > peaks[bi])
+                    {
+                        peaks[bi] = m;
+                    }
+                }
+
+                frameIndex += frames;
+            }
+
+            float maxP = 1e-6f;
+            for (int i = 0; i < bucketCount; i++)
+            {
+                if (peaks[i] > maxP)
+                {
+                    maxP = peaks[i];
+                }
+            }
+
+            float inv = 1f / maxP;
+            for (int i = 0; i < bucketCount; i++)
+            {
+                peaks[i] = ClampFloat(peaks[i] * inv, 0f, 1f);
+            }
+
+            _bakedWavePeaks = peaks;
+            _bakedWaveDurationSec = totalSec;
+        }
+        catch
+        {
+            _bakedWavePeaks = Array.Empty<float>();
+            _bakedWaveDurationSec = 0;
+        }
+    }
+
+    private float SampleBakedAtTimeSeconds(double tSec)
+    {
+        float[] p = _bakedWavePeaks;
+        if (p.Length == 0 || _bakedWaveDurationSec <= 1e-9)
+        {
+            return 0f;
+        }
+
+        if (tSec <= 0)
+        {
+            return p[0];
+        }
+
+        if (tSec >= _bakedWaveDurationSec)
+        {
+            return p[p.Length - 1];
+        }
+
+        double u = tSec / _bakedWaveDurationSec * (p.Length - 1);
+        int i0 = (int)u;
+        if (i0 >= p.Length - 1)
+        {
+            return p[p.Length - 1];
+        }
+
+        float f = (float)(u - i0);
+        return p[i0] * (1f - f) + p[i0 + 1] * f;
+    }
+
+    private static void GetWaveformPanelLayout(Rectangle client, out Rectangle plotRect, out Rectangle rulerRect)
+    {
+        const int preferRulerH = 26;
+        int rulerH = Math.Min(preferRulerH, Math.Max(16, client.Height / 5));
+        if (rulerH >= client.Height - 8)
+        {
+            rulerH = Math.Max(12, client.Height / 6);
+        }
+
+        int plotHeight = Math.Max(10, client.Height - rulerH);
+        plotRect = new Rectangle(client.X, client.Y, client.Width, plotHeight);
+        rulerRect = new Rectangle(client.X, client.Y + plotHeight, client.Width, rulerH);
+    }
+
+    private bool TryGetPlaybackTimeFromWaveformPoint(System.Drawing.Point clientPt, bool clampHorizontalOnly, out double tSec)
+    {
+        tSec = 0;
+        if (!_isPlaying || _playReader is null)
+        {
+            return false;
+        }
+
+        GetWaveformPanelLayout(panelWaveform.ClientRectangle, out Rectangle plotRect, out _);
+        if (!clampHorizontalOnly && !plotRect.Contains(clientPt))
+        {
+            return false;
+        }
+
+        double total = Math.Max(1e-6, _playReader.TotalTime.TotalSeconds);
+        int w = plotRect.Width;
+        if (w < 2)
+        {
+            return false;
+        }
+
+        int x = ClampInt(clientPt.X, plotRect.Left, Math.Max(plotRect.Left, plotRect.Right - 1));
+        double frac = (x - plotRect.Left) / (double)(w - 1);
+
+        if (_bakedWavePeaks.Length > 0 && _bakedWaveDurationSec > 1e-9)
+        {
+            double viewSpan = GetVisibleSpanSec();
+            double maxStart = Math.Max(0, _bakedWaveDurationSec - viewSpan);
+            double viewStart = ClampDouble(_waveViewStartSec, 0, maxStart);
+            tSec = viewStart + frac * viewSpan;
+        }
+        else
+        {
+            tSec = frac * total;
+        }
+
+        tSec = ClampDouble(tSec, 0, total);
+        return true;
+    }
+
+    private int ComputeCaretIndexFromPlaybackTime(double tSec, string tb, double audioTotalSec)
+    {
+        int n = tb.Length;
+        if (n <= 0)
+        {
+            return 0;
+        }
+
+        double total = audioTotalSec > 1e-6 ? audioTotalSec : 1.0;
+
+        if (_playbackSpeechLinear || _playbackSpeechMarks.Count == 0)
+        {
+            return ClampInt((int)Math.Round(n * (tSec / total)), 0, n);
+        }
+
+        int idx = FindLastSpeechMarkIndex(_playbackSpeechMarks, tSec);
+        if (idx < 0)
+        {
+            return ClampInt((int)Math.Round(n * (tSec / total)), 0, n);
+        }
+
+        if (tSec >= total - 0.05)
+        {
+            return n;
+        }
+
+        SpeechProgressMark m = _playbackSpeechMarks[idx];
+        int wStart = ClampInt(m.CharStart, 0, n);
+        int wEndEx = ClampInt(m.CharEndExclusive, wStart, n);
+        if (idx + 1 < _playbackSpeechMarks.Count)
+        {
+            int nextStart = ClampInt(_playbackSpeechMarks[idx + 1].CharStart, 0, n);
+            wEndEx = Math.Min(wEndEx, nextStart);
+        }
+
+        if (idx == _playbackSpeechMarks.Count - 1
+            && tSec > m.TimeSec + 0.02
+            && total > 1e-6
+            && tSec >= total - 0.05)
+        {
+            wEndEx = n;
+        }
+
+        double t0 = m.TimeSec;
+        double t1 = idx + 1 < _playbackSpeechMarks.Count
+            ? _playbackSpeechMarks[idx + 1].TimeSec
+            : total;
+        if (t1 <= t0 + 1e-9)
+        {
+            t1 = t0 + 1e-6;
+        }
+
+        double u = (tSec - t0) / (t1 - t0);
+        u = ClampDouble(u, 0, 1);
+
+        int span = wEndEx - wStart;
+        if (span <= 0)
+        {
+            return wStart;
+        }
+
+        int maxOffset = span - 1;
+        int offset = maxOffset == 0 ? 0 : (int)Math.Floor(u * maxOffset + 1e-9);
+        return ClampInt(wStart + offset, 0, n);
+    }
+
+    private void SeekPlaybackToSeconds(double tSec)
+    {
+        if (_playReader is null || !_isPlaying)
+        {
+            return;
+        }
+
+        try
+        {
+            double total = Math.Max(0, _playReader.TotalTime.TotalSeconds);
+            double clamped = ClampDouble(tSec, 0, Math.Max(0, total - 0.01));
+            _playReader.CurrentTime = TimeSpan.FromSeconds(clamped);
+            _lastPlaybackSec = clamped;
+
+            if (_bakedWavePeaks.Length > 0 && _bakedWaveDurationSec > 1e-6)
+            {
+                double span = GetVisibleSpanSec();
+                double maxStart = Math.Max(0, _bakedWaveDurationSec - span);
+                double want = clamped - span * 0.22;
+                _waveViewStartSec = ClampDouble(want, 0, maxStart);
+            }
+
+            ApplyTextCaretFromPlaybackSeconds(clamped);
+            panelWaveform.Invalidate();
+        }
+        catch
+        {
+            // ignore seek errors
+        }
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    private const int EmScrollCaret = 0x00B7;
+
+    private void ApplyTextCaretFromPlaybackSeconds(double tSec)
+    {
+        if (!textBoxContent.IsHandleCreated)
+        {
+            return;
+        }
+
+        string tb = textBoxContent.Text;
+        if (!string.Equals(tb, _playbackSpeechSourceText, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        double audioTotal = _playReader is not null
+            ? Math.Max(1e-6, _playReader.TotalTime.TotalSeconds)
+            : (_bakedWaveDurationSec > 1e-6 ? _bakedWaveDurationSec : 1.0);
+
+        int caret = ComputeCaretIndexFromPlaybackTime(tSec, tb, audioTotal);
+        if (textBoxContent.SelectionStart == caret && textBoxContent.SelectionLength == 0)
+        {
+            ScrollTextCaretIntoView();
+            return;
+        }
+
+        try
+        {
+            textBoxContent.Focus();
+            textBoxContent.Select(caret, 0);
+            textBoxContent.ScrollToCaret();
+            SendMessage(textBoxContent.Handle, EmScrollCaret, IntPtr.Zero, IntPtr.Zero);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void ScrollTextCaretIntoView()
+    {
+        if (!textBoxContent.IsHandleCreated)
+        {
+            return;
+        }
+
+        try
+        {
+            SendMessage(textBoxContent.Handle, EmScrollCaret, IntPtr.Zero, IntPtr.Zero);
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void PanelWaveform_MouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left)
+        {
+            return;
+        }
+
+        if (!TryGetPlaybackTimeFromWaveformPoint(e.Location, clampHorizontalOnly: false, out double t))
+        {
+            return;
+        }
+
+        _waveformScrubDrag = true;
+        panelWaveform.Capture = true;
+        SeekPlaybackToSeconds(t);
+    }
+
+    private void PanelWaveform_MouseMove(object? sender, MouseEventArgs e)
+    {
+        if (!_waveformScrubDrag)
+        {
+            bool can = _isPlaying && _playReader is not null;
+            GetWaveformPanelLayout(panelWaveform.ClientRectangle, out Rectangle plotRect, out _);
+            panelWaveform.Cursor = can && plotRect.Contains(e.Location) ? Cursors.Hand : Cursors.Default;
+            return;
+        }
+
+        if (TryGetPlaybackTimeFromWaveformPoint(e.Location, clampHorizontalOnly: true, out double t))
+        {
+            SeekPlaybackToSeconds(t);
+        }
+    }
+
+    private void PanelWaveform_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (!_waveformScrubDrag)
+        {
+            return;
+        }
+
+        _waveformScrubDrag = false;
+        panelWaveform.Capture = false;
+        panelWaveform.Cursor = Cursors.Default;
+        UpdatePlaybackTextSelection();
+        panelWaveform.Invalidate();
+    }
+
+    private void PanelWaveform_MouseLeave(object? sender, EventArgs e)
+    {
+        if (!_waveformScrubDrag)
+        {
+            panelWaveform.Cursor = Cursors.Default;
+        }
+    }
+
     private void PanelWaveform_Paint(object? sender, PaintEventArgs e)
     {
         var g = e.Graphics;
@@ -1290,20 +2213,62 @@ public partial class MainForm : Form, IMessageFilter
             g.FillRectangle(bg, rect);
         }
 
-        const int preferRulerH = 26;
-        int rulerH = Math.Min(preferRulerH, Math.Max(16, rect.Height / 5));
-        if (rulerH >= rect.Height - 8)
-        {
-            rulerH = Math.Max(12, rect.Height / 6);
-        }
-
-        int plotHeight = Math.Max(10, rect.Height - rulerH);
-        var plotRect = new Rectangle(rect.X, rect.Y, rect.Width, plotHeight);
-        var rulerRect = new Rectangle(rect.X, rect.Y + plotHeight, rect.Width, rulerH);
+        GetWaveformPanelLayout(rect, out Rectangle plotRect, out Rectangle rulerRect);
 
         int w = plotRect.Width;
         if (w < 2)
         {
+            return;
+        }
+
+        int midY = plotRect.Y + plotRect.Height / 2;
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+        DrawWaveformHorizontalGrid(g, plotRect);
+
+        if (_bakedWavePeaks.Length > 0 && _bakedWaveDurationSec > 1e-9)
+        {
+            double viewSpan = GetVisibleSpanSec();
+            double maxStart = Math.Max(0, _bakedWaveDurationSec - viewSpan);
+            double viewStart = ClampDouble(_waveViewStartSec, 0, maxStart);
+
+            DrawWaveformTimeVerticalTicksAbsolute(g, plotRect, viewStart, viewSpan);
+
+            using (var axisPen = new Pen(Color.FromArgb(88, 90, 110, 130), 1f))
+            {
+                g.DrawLine(axisPen, plotRect.Left, midY, plotRect.Right, midY);
+            }
+
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var wavePen = new Pen(Color.FromArgb(210, 110, 175, 245), 1.65f);
+            float denom = Math.Max(1f, w - 1);
+            float gain = trackBarWaveGain.Value / 100f;
+            float amp = plotRect.Height * 0.48f * Math.Max(0.15f, gain);
+
+            for (int px = 0; px < w - 1; px++)
+            {
+                double u0 = viewStart + (px / denom) * viewSpan;
+                double u1 = viewStart + ((px + 1) / denom) * viewSpan;
+                float v0 = SampleBakedAtTimeSeconds(u0);
+                float v1 = SampleBakedAtTimeSeconds(u1);
+                float x0 = plotRect.X + px;
+                float x1 = plotRect.X + px + 1;
+                float y0 = midY - v0 * amp;
+                float y1 = midY - v1 * amp;
+                g.DrawLine(wavePen, x0, y0, x1, y1);
+            }
+
+            double headT = _lastPlaybackSec;
+            if (headT >= viewStart - 1e-6 && headT <= viewStart + viewSpan + 1e-6)
+            {
+                float playX = plotRect.X + (float)((headT - viewStart) / viewSpan * (w - 1));
+                DrawPlayheadVuColumn(g, plotRect, playX, amp);
+            }
+
+            if (rulerRect.Height > 4 && _waveRulerFont is not null)
+            {
+                DrawWaveformTimeRulerBaked(g, rulerRect, plotRect, viewStart, viewSpan);
+            }
+
             return;
         }
 
@@ -1319,35 +2284,32 @@ public partial class MainForm : Form, IMessageFilter
         double dtSec = _waveTimer.Interval / 1000.0;
         double windowSec = Math.Max(take * dtSec, dtSec);
 
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-        DrawWaveformHorizontalGrid(g, plotRect);
-        DrawWaveformTimeVerticalTicks(g, plotRect, windowSec);
+        DrawWaveformTimeVerticalTicksLegacy(g, plotRect, windowSec);
 
-        int midY = plotRect.Y + plotRect.Height / 2;
         using (var axisPen = new Pen(Color.FromArgb(88, 90, 110, 130), 1f))
         {
             g.DrawLine(axisPen, plotRect.Left, midY, plotRect.Right, midY);
         }
 
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        using var wavePen = new Pen(Color.FromArgb(235, 120, 190, 255), 1.75f);
-        float denom = Math.Max(1f, w - 1);
+        using var wavePenLegacy = new Pen(Color.FromArgb(235, 120, 190, 255), 1.75f);
+        float denomL = Math.Max(1f, w - 1);
         for (int px = 0; px < w - 1; px++)
         {
-            float t0 = px / denom * (take - 1);
-            float t1 = (px + 1) / denom * (take - 1);
+            float t0 = px / denomL * (take - 1);
+            float t1 = (px + 1) / denomL * (take - 1);
             float v0 = SampleWaveScratch(_wavePaintScratch, take, t0);
             float v1 = SampleWaveScratch(_wavePaintScratch, take, t1);
             float x0 = plotRect.X + px;
             float x1 = plotRect.X + px + 1;
             float y0 = midY - v0 * (plotRect.Height * 0.48f);
             float y1 = midY - v1 * (plotRect.Height * 0.48f);
-            g.DrawLine(wavePen, x0, y0, x1, y1);
+            g.DrawLine(wavePenLegacy, x0, y0, x1, y1);
         }
 
         if (rulerRect.Height > 4 && _waveRulerFont is not null)
         {
-            DrawWaveformTimeRuler(g, rulerRect, plotRect, windowSec, _waveRulerPlaybackSec);
+            DrawWaveformTimeRulerLegacy(g, rulerRect, plotRect, windowSec, _lastPlaybackSec);
         }
     }
 
@@ -1367,7 +2329,7 @@ public partial class MainForm : Form, IMessageFilter
         }
     }
 
-    private static void DrawWaveformTimeVerticalTicks(Graphics g, Rectangle plotRect, double windowSec)
+    private static void DrawWaveformTimeVerticalTicksLegacy(Graphics g, Rectangle plotRect, double windowSec)
     {
         if (plotRect.Width < 2 || windowSec <= 0)
         {
@@ -1401,7 +2363,143 @@ public partial class MainForm : Form, IMessageFilter
         }
     }
 
-    private void DrawWaveformTimeRuler(Graphics g, Rectangle rulerRect, Rectangle plotRect, double windowSec, double playbackOffsetSec)
+    private static void DrawWaveformTimeVerticalTicksAbsolute(Graphics g, Rectangle plotRect, double viewStartSec, double viewSpanSec)
+    {
+        if (plotRect.Width < 2 || viewSpanSec <= 0)
+        {
+            return;
+        }
+
+        int w = plotRect.Width;
+        int approxTicks = Math.Max(4, Math.Min(16, w / 72));
+        double step = NiceTimeStep(viewSpanSec, approxTicks);
+        if (step <= 0)
+        {
+            step = viewSpanSec / approxTicks;
+        }
+
+        using var tickPen = new Pen(Color.FromArgb(48, 100, 120, 150), 1f);
+        double tMark = Math.Floor(viewStartSec / step) * step;
+        double endT = viewStartSec + viewSpanSec + step * 0.5;
+        for (; tMark <= endT; tMark += step)
+        {
+            if (tMark < viewStartSec - 1e-9 || tMark > viewStartSec + viewSpanSec + 1e-9)
+            {
+                continue;
+            }
+
+            float x = plotRect.X + (float)((tMark - viewStartSec) / viewSpanSec * (w - 1));
+            if (x < plotRect.Left - 1 || x > plotRect.Right + 1)
+            {
+                continue;
+            }
+
+            g.DrawLine(tickPen, x, plotRect.Top, x, plotRect.Bottom);
+        }
+    }
+
+    private void DrawPlayheadVuColumn(Graphics g, Rectangle plotRect, float centerX, float waveAmp)
+    {
+        const int barCount = 11;
+        const int spacing = 3;
+        float baseY = plotRect.Bottom - 3f;
+        float maxBarH = Math.Max(8f, waveAmp * 0.85f);
+
+        using (var linePen = new Pen(Color.FromArgb(245, 255, 90, 90), 1.5f))
+        {
+            linePen.Alignment = System.Drawing.Drawing2D.PenAlignment.Center;
+            g.DrawLine(linePen, centerX, plotRect.Top + 2, centerX, plotRect.Bottom - 2);
+        }
+
+        for (int i = 0; i < barCount; i++)
+        {
+            float h = GetVuBarHeightForIndex(i, barCount) * maxBarH;
+            if (h < 3f)
+            {
+                h = 3f;
+            }
+
+            float offset = (i - (barCount - 1) / 2f) * spacing;
+            float x = centerX + offset;
+            int alpha = 90 + (int)(130 * (i + 1) / (float)barCount);
+            using var br = new SolidBrush(Color.FromArgb(alpha, 235, 55, 65));
+            g.FillRectangle(br, x - 1f, baseY - h, 2f, h);
+        }
+    }
+
+    private float GetVuBarHeightForIndex(int barIndex, int barCount)
+    {
+        if (_vuBarCount <= 0)
+        {
+            return 0.12f;
+        }
+
+        int span = Math.Min(barCount, _vuBarCount);
+        int rel = barIndex * span / Math.Max(1, barCount);
+        int newest = (_vuBarHead - 1 + _vuBarHistory.Length) % _vuBarHistory.Length;
+        int pos = (newest - rel + _vuBarHistory.Length * 2) % _vuBarHistory.Length;
+        return ClampFloat(_vuBarHistory[pos], 0.06f, 1f);
+    }
+
+    private void DrawWaveformTimeRulerBaked(Graphics g, Rectangle rulerRect, Rectangle plotRect, double viewStartSec, double viewSpanSec)
+    {
+        Font font = _waveRulerFont ?? SystemFonts.SmallCaptionFont;
+
+        using var bandBrush = new SolidBrush(Color.FromArgb(255, 14, 17, 22));
+        g.FillRectangle(bandBrush, rulerRect);
+        using var sepPen = new Pen(Color.FromArgb(60, 80, 100, 130), 1f);
+        g.DrawLine(sepPen, rulerRect.Left, rulerRect.Top, rulerRect.Right, rulerRect.Top);
+
+        string span =
+            $"재생 {FormatSecondsCompact(_lastPlaybackSec)} / {FormatSecondsCompact(_bakedWaveDurationSec)} · "
+            + $"보기 {FormatSecondsCompact(viewStartSec)}–{FormatSecondsCompact(viewStartSec + viewSpanSec)}";
+
+        using var smallBrush = new SolidBrush(Color.FromArgb(140, 120, 130, 150));
+        using var sfRight = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+        var spanRect = new RectangleF(rulerRect.X + 4, rulerRect.Y, rulerRect.Width - 8, rulerRect.Height);
+        g.DrawString(span, font, smallBrush, spanRect, sfRight);
+
+        int w = plotRect.Width;
+        if (w < 2)
+        {
+            return;
+        }
+
+        int approxTicks = Math.Max(4, Math.Min(16, w / 72));
+        double step = NiceTimeStep(viewSpanSec, approxTicks);
+        if (step <= 0)
+        {
+            step = viewSpanSec / approxTicks;
+        }
+
+        using var tickPen = new Pen(Color.FromArgb(72, 130, 150, 175), 1f);
+        using var textBrush = new SolidBrush(Color.FromArgb(210, 190, 200, 220));
+        using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+
+        double tMark = Math.Floor(viewStartSec / step) * step;
+        double endT = viewStartSec + viewSpanSec + step * 0.5;
+        for (; tMark <= endT; tMark += step)
+        {
+            if (tMark < viewStartSec - 1e-9 || tMark > viewStartSec + viewSpanSec + 1e-9)
+            {
+                continue;
+            }
+
+            float x = plotRect.X + (float)((tMark - viewStartSec) / viewSpanSec * (w - 1));
+            if (x < rulerRect.Left - 2 || x > rulerRect.Right + 2)
+            {
+                continue;
+            }
+
+            g.DrawLine(tickPen, x, rulerRect.Top, x, rulerRect.Top + 5);
+            string label = FormatTimeSecondsLabel(tMark, step);
+            var layout = new RectangleF(x - 36, rulerRect.Top + 4, 72, rulerRect.Height - 4);
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            g.DrawString(label, font, textBrush, layout, sf);
+        }
+    }
+
+    private void DrawWaveformTimeRulerLegacy(Graphics g, Rectangle rulerRect, Rectangle plotRect, double windowSec, double playbackOffsetSec)
     {
         Font font = _waveRulerFont ?? SystemFonts.SmallCaptionFont;
 
@@ -1519,6 +2617,33 @@ public partial class MainForm : Form, IMessageFilter
         statusLabel.Text = text;
     }
 
+    private void ReportSherpaModelStatus(string message)
+    {
+        if (IsDisposed || !IsHandleCreated)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            try
+            {
+                BeginInvoke(new Action(() => SetStatus(message)));
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+                // 핸들이 없거나 창이 닫히는 중 BeginInvoke 불가
+            }
+        }
+        else
+        {
+            SetStatus(message);
+        }
+    }
+
     private static bool IsLikelyWavePcm(byte[] data)
     {
         if (data.Length < 12)
@@ -1536,11 +2661,30 @@ public partial class MainForm : Form, IMessageFilter
             && data[11] == (byte)'E';
     }
 
-    private static byte[]? SynthesizeToWavBytes(string text, CancellationToken token, SynthOptions options)
+    private static double TryGetWavDurationSeconds(byte[] wavBytes)
+    {
+        try
+        {
+            using var ms = new MemoryStream(wavBytes, writable: false);
+            using var reader = new WaveFileReader(ms);
+            return reader.TotalTime.TotalSeconds;
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
+    }
+
+    private static byte[]? SynthesizeToWavBytes(string text, CancellationToken token, SynthOptions options, SpeechSyncTrack? syncTrack, Action<string>? sherpaModelStatus = null)
     {
         if (options.Method == SpeechSynthesisMethod.WindowsMediaWinRt)
         {
-            return SynthesizeToWavBytesWinRt(text, token, options);
+            return SynthesizeToWavBytesWinRt(text, token, options, syncTrack);
+        }
+
+        if (options.Method == SpeechSynthesisMethod.SherpaOnnxKoreanMimic3KssLow)
+        {
+            return SynthesizeToWavBytesSherpaOnnxKorean(text, token, options, syncTrack, sherpaModelStatus);
         }
 
         byte[]? result = null;
@@ -1550,6 +2694,7 @@ public partial class MainForm : Form, IMessageFilter
         {
             try
             {
+                syncTrack?.Clear();
                 using var synth = new SpeechSynthesizer();
                 ApplySynthOptions(synth, options);
                 using var ms = new MemoryStream();
@@ -1561,13 +2706,26 @@ public partial class MainForm : Form, IMessageFilter
                     completed.Set();
                 }
 
+                void OnProgress(object? _, SpeakProgressEventArgs e)
+                {
+                    syncTrack?.AddSpeakProgress(e);
+                }
+
+                string? ssml = BuildSsmlForSpeak(text, in options);
+                bool ssmlUsed = ssml is not null;
+                bool hookProgress = syncTrack is not null && !ssmlUsed;
+
                 synth.SpeakCompleted += OnCompleted;
+                if (hookProgress)
+                {
+                    synth.SpeakProgress += OnProgress;
+                }
+
                 try
                 {
-                    string? ssml = BuildSsmlForSpeak(text, in options);
-                    if (ssml is not null)
+                    if (ssmlUsed)
                     {
-                        synth.SpeakSsmlAsync(ssml);
+                        synth.SpeakSsmlAsync(ssml!);
                     }
                     else
                     {
@@ -1584,6 +2742,11 @@ public partial class MainForm : Form, IMessageFilter
                 }
                 finally
                 {
+                    if (hookProgress)
+                    {
+                        synth.SpeakProgress -= OnProgress;
+                    }
+
                     synth.SpeakCompleted -= OnCompleted;
                 }
 
@@ -1598,11 +2761,17 @@ public partial class MainForm : Form, IMessageFilter
                     caught = new InvalidOperationException(
                         "음성 합성 결과가 올바른 WAV 형식이 아닙니다. 다른 음성이나 속도로 다시 시도해 보세요.");
                     result = null;
+                    syncTrack?.ForceLinear();
+                }
+                else
+                {
+                    syncTrack?.FinalizeFromSapi(text, ssmlUsed);
                 }
             }
             catch (Exception ex)
             {
                 caught = ex;
+                syncTrack?.ForceLinear();
             }
         });
 
@@ -1625,7 +2794,12 @@ public partial class MainForm : Form, IMessageFilter
         return v < 0.5 ? 0.5 : (v > 3.0 ? 3.0 : v);
     }
 
-    private static byte[]? SynthesizeToWavBytesWinRt(string text, CancellationToken token, SynthOptions options)
+    private static byte[]? SynthesizeToWavBytesSherpaOnnxKorean(
+        string text,
+        CancellationToken token,
+        SynthOptions options,
+        SpeechSyncTrack? syncTrack,
+        Action<string>? sherpaModelStatus)
     {
         byte[]? result = null;
         Exception? caught = null;
@@ -1634,6 +2808,65 @@ public partial class MainForm : Form, IMessageFilter
         {
             try
             {
+                syncTrack?.Clear();
+                float speed = (float)MapSapiRateToWinRtSpeakingRate(options.Rate);
+                int sid = 0;
+                if (options.VoiceName is { Length: > 0 } idRaw
+                    && int.TryParse(idRaw.Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int parsed))
+                {
+                    sid = parsed;
+                }
+
+                float vol01 = options.SynthVolume / 100f;
+                if (vol01 < 0f)
+                {
+                    vol01 = 0f;
+                }
+                else if (vol01 > 1f)
+                {
+                    vol01 = 1f;
+                }
+
+                byte[] wav = SherpaOnnxKoreanTts.SynthesizeToWavBytes(text, speed, sid, vol01, token, sherpaModelStatus);
+                if (!IsLikelyWavePcm(wav))
+                {
+                    syncTrack?.ForceLinear();
+                    caught = new InvalidOperationException("Sherpa ONNX 출력이 올바른 WAV 형식이 아닙니다.");
+                    return;
+                }
+
+                syncTrack?.FinalizeWinRt();
+                result = wav;
+            }
+            catch (Exception ex)
+            {
+                caught = ex;
+                syncTrack?.ForceLinear();
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (caught is not null)
+        {
+            throw caught;
+        }
+
+        return result;
+    }
+
+    private static byte[]? SynthesizeToWavBytesWinRt(string text, CancellationToken token, SynthOptions options, SpeechSyncTrack? syncTrack)
+    {
+        byte[]? result = null;
+        Exception? caught = null;
+
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                syncTrack?.Clear();
                 var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
                 if (!string.IsNullOrWhiteSpace(options.VoiceName))
                 {
@@ -1711,11 +2944,17 @@ public partial class MainForm : Form, IMessageFilter
                 {
                     caught = new InvalidOperationException("WinRT 합성 결과가 올바른 WAV 형식이 아닙니다.");
                     result = null;
+                    syncTrack?.ForceLinear();
+                }
+                else
+                {
+                    syncTrack?.FinalizeWinRt();
                 }
             }
             catch (Exception ex)
             {
                 caught = ex;
+                syncTrack?.ForceLinear();
             }
         });
 
@@ -1757,6 +2996,18 @@ public partial class MainForm : Form, IMessageFilter
         return true;
     }
 
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        if (!IsHandleCreated || WindowState == FormWindowState.Minimized)
+        {
+            return;
+        }
+
+        // 가로·세로 리사이즈 시 새로 드러난 영역에 이전 프레임이 남는 현상 방지(특히 상단 클라이언트).
+        Invalidate(true);
+    }
+
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         if (_waveWheelFilterRegistered)
@@ -1771,6 +3022,10 @@ public partial class MainForm : Form, IMessageFilter
         DisposeTransportButtonImages();
 
         panelWaveform.SizeChanged -= PanelWaveform_SizeChanged;
+        panelWaveform.MouseDown -= PanelWaveform_MouseDown;
+        panelWaveform.MouseMove -= PanelWaveform_MouseMove;
+        panelWaveform.MouseUp -= PanelWaveform_MouseUp;
+        panelWaveform.MouseLeave -= PanelWaveform_MouseLeave;
         panelSynthCard.Paint -= PanelSynthCard_Paint;
         comboBoxSynthMethod.SelectedIndexChanged -= ComboBoxSynthMethod_SelectedIndexChanged;
         _waveTimer.Stop();

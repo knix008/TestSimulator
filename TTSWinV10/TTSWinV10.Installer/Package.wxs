@@ -121,6 +121,15 @@
       <Component Id="System.Security.Principal.Windows.dll" Guid="*">
         <File Source="$(var.TTSWinV10.TargetDir)System.Security.Principal.Windows.dll" />
       </Component>
+      <Component Id="sherpa_onnx_dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)sherpa-onnx.dll" />
+      </Component>
+      <Component Id="sherpa_onnx_c_api_dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)sherpa-onnx-c-api.dll" />
+      </Component>
+      <Component Id="onnxruntime_dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)onnxruntime.dll" />
+      </Component>
     </ComponentGroup>
 
     <ComponentGroup Id="AssetsComponents" Directory="AssetsFolder">

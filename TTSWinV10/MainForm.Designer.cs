@@ -126,7 +126,7 @@ partial class MainForm
         panelWaveform.Name = "panelWaveform";
         panelWaveform.Size = new Size(848, 247);
         panelWaveform.TabIndex = 7;
-        toolTipMain.SetToolTip(panelWaveform, "하단: 시간(초) 눈금(오른쪽=현재). 마우스 휠로 시간축 확대·축소. 파형 위에서 휠 동작.");
+        toolTipMain.SetToolTip(panelWaveform, "합성 후 전체 파형을 먼저 표시하고, 재생 중 막대가 재생 위치를 따라갑니다. 파형 영역을 드래그하면 재생 위치와 텍스트 커서가 함께 이동합니다. 마우스 휠로 시간축 확대·축소.");
         panelWaveform.Paint += PanelWaveform_Paint;
         // 
         // panelBottomBar

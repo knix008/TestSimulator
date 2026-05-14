@@ -12,6 +12,9 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+## Ad-hoc / alternate dotnet -o outputs (local smoke builds)
+_out*/
+
 ## Visual Studio
 .vs/
 *.user
@@ -63,6 +66,15 @@ publish/
 *.publishproj
 *.pubxml
 *.pubxml.user
+
+## WiX / MSI (installer build output; keep source .wxs tracked)
+*.msi
+*.wixpdb
+
+## Sherpa ONNX — downloaded models (large) & machine-local path hints
+sherpa-onnx-models/
+SherpaKoModelDir.txt
+SherpaModelsRoot.txt
 
 ## Others
 *.tmp
