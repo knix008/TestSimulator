@@ -6,14 +6,39 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationIcon />
+    <UseWinFormsOutOfProcDesigner>true</UseWinFormsOutOfProcDesigner>
+    <ApplicationIcon>$(MSBuildProjectDirectory)\daemon_hammer.ico</ApplicationIcon>
     <RootNamespace>TTSWinV10</RootNamespace>
     <AssemblyName>TTSWinV10</AssemblyName>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.22621.2428" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
+    <PackageReference Include="System.Runtime.WindowsRuntime" Version="4.7.0" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Speech" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="daemon_hammer.ico" />
+    <Content Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\play.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\stop.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
 </Project>
