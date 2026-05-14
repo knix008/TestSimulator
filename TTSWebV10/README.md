@@ -1,6 +1,6 @@
 # TTS Web V10
 
-**오프라인** 웹 TTS입니다. 브라우저에서 텍스트를 입력하거나 파일을 올리면, 서버가 **Sherpa-ONNX**로 음성을 만들고 **WAV**로 돌려줍니다. 파형·재생·WAV 저장을 지원합니다. Microsoft Edge TTS 등 **외부 음성 API는 사용하지 않습니다.**
+**오프라인** 웹 TTS입니다. 브라우저에서 텍스트를 입력하거나 파일을 올리면, 서버가 **Sherpa-ONNX**로 음성을 만들고 **WAV**로 돌려줍니다. 파형·재생·**WAV·MP3 저장**을 지원합니다(MP3는 서버에서 `lamejs`로 WAV를 변환). Microsoft Edge TTS 등 **외부 음성 API는 사용하지 않습니다.**
 
 ## 필요 사항
 
@@ -33,8 +33,9 @@ $env:PORT = "8080"; npm start
 |------|------|
 | 엔진 | `sherpa-onnx-node` (로컬 ONNX 추론) |
 | 네트워크 | 런타임에 외부 음성 서비스 호출 **없음** |
-| 출력 | `audio/wav` (`POST /api/tts`) |
+| 출력 | 합성: `audio/wav` (`POST /api/tts`). 저장: WAV 그대로, MP3는 `POST /api/wav-to-mp3` |
 | 음성 목록 | 모델의 화자 수(`sid`)에 따라 로컬에서만 생성 |
+| GUI | **재생** 시 문장·음성 옵션이 바뀌었을 때만 합성 후 재생. 텍스트는 재생 중 **읽은 구간(현재 글자까지) 흰 바탕·검은 글자** 오버레이·자동 스크롤(문자 비율 근사). **저장**은 형식(WAV/MP3) 선택 후 한 번에 다운로드. |
 | 파라미터 | 속도(`ratePercent` → Sherpa `speed`), 피치(`pitchHz` → 합성 후 리샘플), 크기(`volumePercent` → 게인), 화자 `sid` |
 
 ## API
@@ -45,6 +46,7 @@ $env:PORT = "8080"; npm start
 | `GET` | `/api/voices` | `{ ok, voices[] }` 또는 503 |
 | `POST` | `/api/tts` | JSON → WAV 바이너리 |
 | `POST` | `/api/tts-from-file` | multipart `file` → WAV |
+| `POST` | `/api/wav-to-mp3` | 요청 본문 = WAV 바이너리 → `audio/mpeg` |
 
 `POST /api/tts` 본문 예:
 
@@ -65,6 +67,7 @@ $env:PORT = "8080"; npm start
 - 앱 `package.json`의 **license** 필드(기본 **ISC**).
 - **`sherpa-onnx-node`**: **Apache-2.0** (및 플랫폼별 optional 바이너리 패키지).
 - **VITS 모델**: 배포본의 라이선스·출처를 모델과 함께 확인하세요.
+- **`lamejs`** (MP3 인코딩): **LGPL-3.0** ([npm/lamejs](https://www.npmjs.com/package/lamejs)). Node에서는 패키지의 `lame.all.js` 번들을 `vm`으로 로드해 사용합니다(`require('lamejs')` 모듈 그래프는 Node에서 깨지는 경우가 있습니다).
 
 ## 디렉터리
 
@@ -72,6 +75,7 @@ $env:PORT = "8080"; npm start
 TTSWebV10/
   server.js          # Express
   sherpa-tts.mjs     # Sherpa 초기화·합성
+  wav-to-mp3.mjs     # WAV PCM → MP3 (lamejs)
   public/            # 정적 UI
   models/README.md   # 모델 배치 방법
   test/              # 샘플 입력·fixture

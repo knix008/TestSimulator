@@ -12,12 +12,12 @@
         <div class="masthead-main">
           <h1 class="title">TTS Web <span class="title-ver">V10</span></h1>
           <p class="lede">
-            Sherpa-ONNX VITS 로컬 합성 · 외부 음성 API 없음 · 출력 WAV
+            Sherpa-ONNX VITS 로컬 합성 · 외부 음성 API 없음 · 출력 WAV·MP3
           </p>
         </div>
         <ul class="badges" aria-label="특징">
           <li>오프라인</li>
-          <li>WAV</li>
+          <li>WAV·MP3</li>
         </ul>
       </header>
 
@@ -25,16 +25,21 @@
         <section class="panel panel-text" aria-labelledby="h-text">
           <h2 id="h-text" class="panel-h">텍스트</h2>
           <label class="sr-only" for="text">합성할 문장</label>
-          <textarea
-            id="text"
-            class="input-text"
-            rows="8"
-            placeholder="합성할 문장을 입력하세요."
-            spellcheck="true"
-          ></textarea>
+          <div class="readalong-wrap" id="readalongWrap">
+            <textarea
+              id="text"
+              class="input-text"
+              rows="8"
+              placeholder="합성할 문장을 입력하세요."
+              spellcheck="true"
+            ></textarea>
+            <div id="readalongOverlay" class="readalong-overlay" aria-hidden="true">
+              <div id="readalongOverlayInner" class="readalong-overlay-inner"></div>
+            </div>
+          </div>
           <p class="readalong-hint" id="readalongHint">
-            재생 중에는 음성에 대응하는 글자까지 <strong>선택 영역</strong>이 이동합니다. 입력란을 편집할 때(포커스)는
-            갱신이 멈춥니다(문자 수에 비례한 근사 위치).
+            <strong>재생</strong>을 누르면 필요할 때 합성 후 바로 재생됩니다. 재생 중에는 이미 읽은 구간이
+            <strong>흰 바탕·검은 글자</strong>로 강조되며 스크롤이 따라갑니다(문자 비율 근사).
           </p>
           <div class="file-block">
             <label class="file-label" for="file">파일에서 불러오기</label>
@@ -76,17 +81,14 @@
             <p class="hint">합성 후 게인</p>
           </div>
 
-          <div class="action-bar">
-            <button type="button" class="btn btn-primary" id="synthesize">합성</button>
-            <p class="status" id="status" role="status" aria-live="polite"></p>
-          </div>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
         </section>
 
         <section class="panel panel-player" aria-labelledby="h-player">
           <h2 id="h-player" class="panel-h">재생 · 파형</h2>
-          <audio id="player" class="player-audio" controls preload="none"></audio>
+          <audio id="player" class="player-audio" preload="none"></audio>
           <div class="transport">
-            <button type="button" class="btn" id="playPause">재생</button>
+            <button type="button" class="btn btn-primary" id="playPause">재생</button>
             <span class="time" id="time">0:00 / 0:00</span>
           </div>
           <p class="wave-help">
@@ -96,7 +98,12 @@
             <canvas id="wave" width="960" height="200" aria-label="오디오 파형과 시간 눈금"></canvas>
           </div>
           <div class="export-bar">
-            <button type="button" class="btn btn-secondary" id="dlWav" disabled>WAV 저장</button>
+            <label class="export-label" for="saveFormat">저장 형식 (WAV·MP3)</label>
+            <select id="saveFormat" class="input-select export-format" disabled>
+              <option value="wav">WAV</option>
+              <option value="mp3">MP3</option>
+            </select>
+            <button type="button" class="btn btn-secondary" id="saveAudio" disabled>저장</button>
           </div>
         </section>
       </main>

@@ -10,6 +10,7 @@ import {
   resolveModelDir,
   isReady,
 } from "./sherpa-tts.mjs";
+import { wavBufferToMp3Buffer } from "./wav-to-mp3.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -89,6 +90,27 @@ app.post("/api/tts", async (req, res) => {
     res.send(buf);
   } catch (e) {
     res.status(503).json({ error: String(e?.message || e) });
+  }
+});
+
+const wavBodyParser = express.raw({
+  type: ["audio/wav", "application/octet-stream"],
+  limit: "50mb",
+});
+
+app.post("/api/wav-to-mp3", wavBodyParser, (req, res) => {
+  try {
+    const body = req.body;
+    if (!Buffer.isBuffer(body) || body.length === 0) {
+      res.status(400).json({ error: "WAV 바이너리 본문이 필요합니다." });
+      return;
+    }
+    const mp3 = wavBufferToMp3Buffer(body);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(mp3);
+  } catch (e) {
+    res.status(400).json({ error: String(e?.message || e) });
   }
 });
 

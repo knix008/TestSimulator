@@ -1,6 +1,9 @@
 const $ = (id) => document.getElementById(id);
 
 const textEl = $("text");
+const readalongWrap = $("readalongWrap");
+const readalongOverlay = $("readalongOverlay");
+const readalongOverlayInner = $("readalongOverlayInner");
 const fileEl = $("file");
 const voiceEl = $("voice");
 const rateEl = $("rate");
@@ -9,13 +12,13 @@ const volumeEl = $("volume");
 const rateVal = $("rateVal");
 const pitchVal = $("pitchVal");
 const volumeVal = $("volumeVal");
-const synthBtn = $("synthesize");
 const statusEl = $("status");
 const audioEl = $("player");
 const playPauseBtn = $("playPause");
 const timeEl = $("time");
 const waveCanvas = $("wave");
-const dlWav = $("dlWav");
+const saveFormatEl = $("saveFormat");
+const saveAudioBtn = $("saveAudio");
 
 const ctx = waveCanvas.getContext("2d");
 
@@ -24,10 +27,14 @@ const WAVE_MAJOR_DIVISIONS = 5;
 let lastAudioBlob = null;
 let lastFilenameBase = "tts";
 let lastAudioBuffer = null;
-/** 마지막으로 합성에 사용된 문자열(재생-텍스트 동기화 기준) */
+/** 마지막으로 합성에 사용된 문자열(읽기 진행 기준 길이) */
 let lastSynthText = "";
+/** 마지막 합성 시 텍스트·옵션 지문(재합성 필요 여부) */
+let lastSynthFingerprint = "";
 let peaks = null;
 let rafId = 0;
+/** `updateTextPlayhead`가 마지막으로 계산한 문자 인덱스(스크롤 시 오버레이 재배치용) */
+let lastReadalongDisplayIdx = 0;
 
 function fmtTime(sec) {
   if (!Number.isFinite(sec) || sec < 0) return "0:00";
@@ -112,49 +119,215 @@ function readAlignBaseLength() {
   return Math.max(1, live);
 }
 
-/** 재생 진행에 맞춰 텍스트 선택(플레이헤드) 갱신. 입력란 포커스 시에는 건너뜀. */
-function updateTextPlayhead() {
-  const live = textEl.value;
-  const safeSel = (start, end) => {
-    try {
-      textEl.setSelectionRange(start, end);
-    } catch {
-      /* readonly 등 */
-    }
-  };
+function currentSynthFingerprint(t) {
+  return JSON.stringify({
+    t,
+    voice: voiceEl.value,
+    rate: rateEl.value,
+    pitch: pitchEl.value,
+    vol: volumeEl.value,
+  });
+}
 
-  if (!live) {
-    if (document.activeElement !== textEl) safeSel(0, 0);
+function needsResynth() {
+  const t = textEl.value.trim();
+  if (!t) return true;
+  if (!lastAudioBuffer || !audioEl.src) return true;
+  return currentSynthFingerprint(t) !== lastSynthFingerprint;
+}
+
+/** 읽는 위치가 보이도록 textarea 스크롤 */
+function scrollTextareaToIndex(idx, len) {
+  const el = textEl;
+  const v = el.value;
+  const n = len > 0 ? len : v.length;
+  if (!n) return;
+  const i = Math.max(0, Math.min(idx, v.length));
+  const scrollMax = Math.max(0, el.scrollHeight - el.clientHeight);
+  if (scrollMax <= 0) return;
+  const ratio = i / n;
+  const target = ratio * el.scrollHeight - el.clientHeight * 0.38;
+  readalongProgrammaticScroll = true;
+  el.scrollTop = Math.max(0, Math.min(scrollMax, target));
+  queueMicrotask(() => {
+    readalongProgrammaticScroll = false;
+  });
+}
+
+const READALONG_LAYOUT_PROPS = [
+  "direction",
+  "boxSizing",
+  "overflow",
+  "overflowX",
+  "overflowY",
+  "borderTopWidth",
+  "borderRightWidth",
+  "borderBottomWidth",
+  "borderLeftWidth",
+  "borderTopStyle",
+  "borderRightStyle",
+  "borderBottomStyle",
+  "borderLeftStyle",
+  "paddingTop",
+  "paddingRight",
+  "paddingBottom",
+  "paddingLeft",
+  "fontStyle",
+  "fontVariant",
+  "fontWeight",
+  "fontStretch",
+  "fontSize",
+  "fontFamily",
+  "lineHeight",
+  "textAlign",
+  "textTransform",
+  "textIndent",
+  "textDecoration",
+  "letterSpacing",
+  "wordSpacing",
+  "whiteSpace",
+  "wordWrap",
+  "overflowWrap",
+  "wordBreak",
+  "tabSize",
+];
+
+function copyTextareaLayoutToMirror(from, to) {
+  const cs = getComputedStyle(from);
+  for (const p of READALONG_LAYOUT_PROPS) {
+    to.style[p] = cs[p];
+  }
+  to.style.whiteSpace = "pre-wrap";
+  to.style.wordWrap = "break-word";
+  to.style.overflowWrap = "break-word";
+  to.style.width = "100%";
+  to.style.boxSizing = "border-box";
+}
+
+function escapeHtml(s) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+let readalongCacheReadEnd = -1;
+let readalongCacheScroll = -2;
+/** `scrollTextareaToIndex` 등 코드에서 스크롤할 때(사용자 스크롤과 구분) */
+let readalongProgrammaticScroll = false;
+
+function invalidateReadalongOverlay() {
+  readalongCacheReadEnd = -1;
+  readalongCacheScroll = -2;
+}
+
+function hideReadalongOverlay() {
+  readalongOverlay.classList.remove("is-visible");
+  readalongOverlayInner.innerHTML = "";
+}
+
+/**
+ * textarea는 부분 색상을 줄 수 없어, 동일 타이포·줄바꿈 오버레이에
+ * 읽은 구간(현재 글자까지)만 흰 배경·검정 글자로 그린다.
+ */
+function syncReadalongOverlay(idx) {
+  const playing = !audioEl.paused && !audioEl.ended && Boolean(audioEl.src);
+  if (!playing || !textEl.value.length) {
+    hideReadalongOverlay();
     return;
   }
 
-  if (!audioEl.src) {
+  const v = textEl.value;
+  const len = v.length;
+  const pos = Math.max(0, Math.min(idx, len));
+  const readEnd = Math.min(pos + 1, len);
+
+  if (readEnd === readalongCacheReadEnd && textEl.scrollTop === readalongCacheScroll) {
+    readalongOverlay.classList.add("is-visible");
+    return;
+  }
+  readalongCacheReadEnd = readEnd;
+  readalongCacheScroll = textEl.scrollTop;
+
+  readalongOverlay.style.left = `${textEl.clientLeft}px`;
+  readalongOverlay.style.top = `${textEl.clientTop}px`;
+  readalongOverlay.style.width = `${textEl.clientWidth}px`;
+  readalongOverlay.style.height = `${textEl.clientHeight}px`;
+
+  copyTextareaLayoutToMirror(textEl, readalongOverlayInner);
+  readalongOverlayInner.style.overflow = "visible";
+  readalongOverlayInner.style.overflowX = "visible";
+  readalongOverlayInner.style.overflowY = "visible";
+  readalongOverlayInner.style.position = "relative";
+  readalongOverlayInner.style.top = `${-textEl.scrollTop}px`;
+  readalongOverlayInner.style.left = "0";
+  readalongOverlayInner.style.minHeight = `${textEl.scrollHeight}px`;
+
+  const readPart = v.slice(0, readEnd);
+  const tailPart = v.slice(readEnd);
+  readalongOverlayInner.innerHTML = `<span class="readalong-read">${escapeHtml(readPart)}</span><span class="readalong-tail">${escapeHtml(tailPart)}</span>`;
+
+  void readalongOverlay.offsetHeight;
+  readalongOverlay.classList.add("is-visible");
+}
+
+/** 재생 진행에 맞춰 선택·스크롤·읽기 강조(오버레이). 재생 중에는 입력란이 읽기 전용입니다. */
+function updateTextPlayhead() {
+  const live = textEl.value;
+  const safeSel = (a, b) => {
+    try {
+      textEl.setSelectionRange(a, b);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  if (!live || !audioEl.src) {
+    lastReadalongDisplayIdx = 0;
+    readalongWrap.classList.remove("readalong-wrap--playing");
+    invalidateReadalongOverlay();
+    hideReadalongOverlay();
     if (document.activeElement !== textEl) safeSel(0, 0);
     return;
   }
 
   const dur = getWaveDuration();
   if (!dur) {
+    readalongWrap.classList.remove("readalong-wrap--playing");
+    invalidateReadalongOverlay();
+    hideReadalongOverlay();
     if (document.activeElement !== textEl) safeSel(0, 0);
     return;
   }
 
-  const focused = document.activeElement === textEl;
   const baseLen = readAlignBaseLength();
   const p = Math.max(0, Math.min(1, audioEl.currentTime / dur));
   const ideal = Math.floor(p * baseLen);
   const idx = Math.min(live.length, ideal);
+  lastReadalongDisplayIdx = idx;
 
-  if (audioEl.paused || audioEl.ended) {
-    if (focused) return;
+  const playing = !audioEl.paused && !audioEl.ended;
+  const editing = document.activeElement === textEl && !textEl.readOnly;
+
+  if (!playing) {
+    invalidateReadalongOverlay();
+    hideReadalongOverlay();
+    if (editing) return;
     const atEnd = audioEl.ended || audioEl.currentTime >= dur - 0.03;
-    if (atEnd) safeSel(live.length, live.length);
-    else safeSel(idx, idx);
+    if (atEnd) {
+      safeSel(live.length, live.length);
+      scrollTextareaToIndex(live.length, baseLen);
+    } else {
+      safeSel(idx, idx);
+      scrollTextareaToIndex(idx, baseLen);
+    }
     return;
   }
 
-  if (focused) return;
-  safeSel(0, idx);
+  safeSel(idx, idx);
+  scrollTextareaToIndex(idx, baseLen);
+  syncReadalongOverlay(idx);
 }
 
 function waveLayout(canvasHeight, dpr) {
@@ -357,9 +530,7 @@ function triggerDownload(blob, name) {
 }
 
 async function synthesizeFromText(text) {
-  lastSynthText = "";
   setStatus("합성 중…");
-  synthBtn.disabled = true;
   try {
     const res = await fetch("/api/tts", {
       method: "POST",
@@ -380,12 +551,11 @@ async function synthesizeFromText(text) {
     const blob = await res.blob();
     await applyAudioBlob(blob);
     lastSynthText = text;
-    setStatus("완료");
+    lastSynthFingerprint = currentSynthFingerprint(text);
+    setStatus("");
   } catch (e) {
     setStatus(String(e.message || e));
     throw e;
-  } finally {
-    synthBtn.disabled = false;
   }
 }
 
@@ -400,7 +570,8 @@ async function applyAudioBlob(blob) {
   audioEl.src = URL.createObjectURL(blob);
   audioEl.load();
 
-  dlWav.disabled = false;
+  saveFormatEl.disabled = false;
+  saveAudioBtn.disabled = false;
   playPauseBtn.textContent = "재생";
 
   redrawFromAudio();
@@ -413,19 +584,42 @@ fileEl.addEventListener("change", async () => {
   const t = await f.text();
   textEl.value = t;
   lastSynthText = "";
+  lastSynthFingerprint = "";
   lastFilenameBase = f.name.replace(/\.[^/.]+$/, "") || "tts";
   setStatus(`파일 로드: ${f.name}`);
 });
 
-synthBtn.addEventListener("click", async () => {
-  const text = textEl.value.trim();
-  if (!text) {
-    setStatus("텍스트를 입력하거나 파일을 선택하세요.");
+playPauseBtn.addEventListener("click", async () => {
+  if (!audioEl.paused) {
+    audioEl.pause();
     return;
   }
+
+  const t = textEl.value.trim();
+  if (!t) {
+    setStatus("문장을 입력한 뒤 재생을 누르세요.");
+    return;
+  }
+
   const f = fileEl.files?.[0];
   lastFilenameBase = f ? f.name.replace(/\.[^/.]+$/, "") || "tts" : "tts";
-  await synthesizeFromText(text);
+
+  playPauseBtn.disabled = true;
+  textEl.readOnly = true;
+  try {
+    if (needsResynth()) {
+      await synthesizeFromText(t);
+    }
+    await audioEl.play();
+  } catch (e) {
+    textEl.readOnly = false;
+    readalongWrap.classList.remove("readalong-wrap--playing");
+    hideReadalongOverlay();
+    const msg = String(e?.message || e);
+    if (!msg.includes("AbortError")) setStatus(msg);
+  } finally {
+    playPauseBtn.disabled = false;
+  }
 });
 
 rateEl.addEventListener("input", updateSliderLabels);
@@ -441,23 +635,27 @@ audioEl.addEventListener("timeupdate", () => {
 });
 audioEl.addEventListener("play", () => {
   playPauseBtn.textContent = "일시정지";
+  readalongWrap.classList.add("readalong-wrap--playing");
+  invalidateReadalongOverlay();
   startRaf();
 });
 audioEl.addEventListener("pause", () => {
   playPauseBtn.textContent = "재생";
+  textEl.readOnly = false;
+  readalongWrap.classList.remove("readalong-wrap--playing");
+  invalidateReadalongOverlay();
+  hideReadalongOverlay();
   stopRaf();
   redrawFromAudio();
 });
 audioEl.addEventListener("ended", () => {
   playPauseBtn.textContent = "재생";
+  textEl.readOnly = false;
+  readalongWrap.classList.remove("readalong-wrap--playing");
+  invalidateReadalongOverlay();
+  hideReadalongOverlay();
   stopRaf();
   redrawFromAudio();
-});
-
-playPauseBtn.addEventListener("click", () => {
-  if (!audioEl.src) return;
-  if (audioEl.paused) void audioEl.play();
-  else audioEl.pause();
 });
 
 waveCanvas.addEventListener("click", (ev) => {
@@ -470,14 +668,61 @@ waveCanvas.addEventListener("click", (ev) => {
   redrawFromAudio();
 });
 
-dlWav.addEventListener("click", () => {
+saveAudioBtn.addEventListener("click", async () => {
   if (!lastAudioBlob) return;
-  triggerDownload(lastAudioBlob, `${lastFilenameBase}.wav`);
+  const fmt = saveFormatEl.value;
+  if (fmt === "wav") {
+    triggerDownload(lastAudioBlob, `${lastFilenameBase}.wav`);
+    return;
+  }
+  setStatus("MP3 인코딩…");
+  saveAudioBtn.disabled = true;
+  saveFormatEl.disabled = true;
+  try {
+    const buf = await lastAudioBlob.arrayBuffer();
+    const res = await fetch("/api/wav-to-mp3", {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav" },
+      body: buf,
+    });
+    const ct = res.headers.get("content-type") || "";
+    if (!res.ok) {
+      const err = ct.includes("json") ? (await res.json()).error : await res.text();
+      throw new Error(err || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    triggerDownload(blob, `${lastFilenameBase}.mp3`);
+    setStatus("");
+  } catch (e) {
+    setStatus(String(e.message || e));
+  } finally {
+    saveAudioBtn.disabled = false;
+    saveFormatEl.disabled = false;
+  }
 });
 
 window.addEventListener("resize", () => {
+  invalidateReadalongOverlay();
   if (lastAudioBuffer) redrawFromAudio();
 });
+
+textEl.addEventListener("scroll", () => {
+  if (readalongProgrammaticScroll) return;
+  invalidateReadalongOverlay();
+  if (!audioEl.paused && !audioEl.ended && audioEl.src) {
+    syncReadalongOverlay(lastReadalongDisplayIdx);
+  }
+});
+
+if (typeof ResizeObserver !== "undefined") {
+  const ro = new ResizeObserver(() => {
+    invalidateReadalongOverlay();
+    if (!audioEl.paused && !audioEl.ended && audioEl.src) {
+      syncReadalongOverlay(lastReadalongDisplayIdx);
+    }
+  });
+  ro.observe(textEl);
+}
 
 updateSliderLabels();
 
