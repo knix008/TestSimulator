@@ -164,3 +164,35 @@ models/                 # ONNX 모델 파일 (make sherpa-model)
 | eSpeak-NG | 폴백 TTS 엔진 |
 | libsndfile | WAV 파일 저장 |
 | LAME | MP3 인코딩 |
+
+## 라이선스
+
+### 이 프로젝트 소스 코드
+
+MIT License — 자유롭게 사용, 수정, 배포 가능합니다.
+
+### 사용 모델 (`vits-mimic3-ko_KO-kss_low`)
+
+| 구성 요소 | 라이선스 | 참고 |
+|-----------|----------|------|
+| **KSS 데이터셋** (학습 데이터) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Kyungmin Lee 제작; 출처 표기 시 상업적 사용 가능 |
+| **VITS 모델 아키텍처** | [MIT License](https://github.com/jaywalnut310/vits/blob/main/LICENSE) | jaywalnut310/vits |
+| **Mimic3 학습 코드** | [Apache 2.0](https://github.com/MycroftAI/mimic3/blob/master/LICENSE) | MycroftAI/mimic3 |
+| **ONNX 변환 및 배포** | [Apache 2.0](https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE) | k2-fsa/sherpa-onnx |
+
+모델 원본: [MycroftAI/mimic3-voices — ko_KO/kss_low](https://github.com/MycroftAI/mimic3-voices/tree/master/voices/ko_KO/kss_low)
+
+### 의존 라이브러리 라이선스
+
+| 라이브러리 | 라이선스 |
+|-----------|----------|
+| eSpeak-NG | **GPL v3** — 링크 시 소스 공개 의무 발생 가능 |
+| GTK 3 | LGPL v2.1 |
+| GStreamer | LGPL v2.0 |
+| ONNX Runtime | MIT |
+| libsndfile | LGPL v2.1 |
+| LAME (MP3) | LGPL v2 |
+
+> **배포 시 주의:** eSpeak-NG는 GPL v3 라이선스입니다. 이 앱을 바이너리 형태로 배포할 경우
+> GPL 조건에 따라 전체 소스 코드를 공개해야 할 수 있습니다. 임베디드 폐쇄 환경에서는
+> eSpeak-NG를 제외하고 Sherpa-ONNX 단독 사용을 고려하세요.
