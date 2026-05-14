@@ -1,17 +1,13 @@
 # Build output
 build/
-*.o
-*.a
-*.so
+gtktts
 
-# CMake artifacts
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
-install_manifest.txt
-CTestTestfile.cmake
-_deps/
+# Sherpa-ONNX library (downloaded via: make sherpa-lib)
+deps/
+
+# Model ONNX files (large binary, downloaded via: make sherpa-model)
+models/**/*.onnx
+models/**/espeak-ng-data/
 
 # Editor / IDE
 .vscode/
@@ -20,19 +16,6 @@ _deps/
 *.swo
 *~
 .DS_Store
-
-# Temp files created by TTS engines
-/tmp/tts_festival_in.txt
-/tmp/tts_festival_out.wav
-/tmp/tts_piper_in.txt
-/tmp/tts_piper_out.wav
-
-# Piper model files (downloaded separately via download_ko_model.sh)
-models/
-
-# Exported audio (don't commit generated output)
-*.wav
-*.mp3
 
 # Claude Code
 .claude/

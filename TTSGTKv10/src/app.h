@@ -13,9 +13,13 @@
 
 typedef struct App App;
 
-typedef void (*AppOnSynthStart)(App *app, void *user);
-typedef void (*AppOnSynthDone) (App *app, bool ok, void *user);
-typedef void (*AppOnPlayback)  (App *app, bool playing, double pos, void *user);
+typedef void (*AppOnSynthStart)  (App *app, void *user);
+typedef void (*AppOnSynthDone)   (App *app, bool ok, void *user);
+typedef void (*AppOnPlayback)    (App *app, bool playing, double pos, void *user);
+/* Partial audio during synthesis — called on the GLib main thread */
+typedef void (*AppOnSynthPartial)(App *app,
+                                   const int16_t *samples, int count,
+                                   int sample_rate, void *user);
 
 /* ── App struct (opaque to UI) ────────────────────────────────────────────── */
 
@@ -31,10 +35,11 @@ struct App {
     GMutex       mutex;
 
     /* Callbacks set by the UI layer */
-    AppOnSynthStart on_synth_start;
-    AppOnSynthDone  on_synth_done;
-    AppOnPlayback   on_playback;
-    void           *cb_user;
+    AppOnSynthStart   on_synth_start;
+    AppOnSynthDone    on_synth_done;
+    AppOnSynthPartial on_synth_partial;
+    AppOnPlayback     on_playback;
+    void             *cb_user;
 };
 
 /* ── Lifecycle ────────────────────────────────────────────────────────────── */

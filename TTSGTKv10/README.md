@@ -1,154 +1,166 @@
 # TTS Simulator
 
-GTK3 기반 Text-to-Speech 시뮬레이터 (C11)
+GTK3 기반 Text-to-Speech 시뮬레이터 (C11)  
+Sherpa-ONNX VITS 모델을 직접 로드하는 임베디드 친화적 구조.
 
 ## 주요 기능
 
-- **다중 TTS 엔진 선택** — eSpeak-NG (기본), Festival (설치 시 자동 감지)
-- **텍스트 입력** — 직접 입력 또는 `.txt` 파일 불러오기
-- **파라미터 조정** — 속도(WPM), 피치
-- **실시간 파형 표시** — 합성 결과를 Cairo로 렌더링, 재생 위치 커서
-- **볼륨 제어** — 슬라이더로 실시간 조절
+- **Sherpa-ONNX** — ONNX Runtime C API 직접 사용, 외부 바이너리 불필요
+- **eSpeak-NG** — 폴백 엔진, 항상 사용 가능
+- **▶ 재생 버튼** — 합성과 재생을 한 번에 처리 (파라미터 변경 시 자동 재합성)
+- **실시간 파형** — 재생 중 파형이 왼쪽으로 스크롤, 재생 위치 고정 표시
+- **파라미터 조정** — 속도 배율(×0.25–×4.0), 피치 배율(×0.5–×2.0)
 - **파일 저장** — WAV / MP3 형식으로 내보내기
-- **백그라운드 합성** — UI 블로킹 없이 별도 스레드에서 합성
+- **ARM 크로스컴파일** — aarch64 / armhf 대상 빌드 지원
 
-## 아키텍처
-
-GTK 의존 코드와 비즈니스 로직을 명확히 분리합니다.
-
-```
-src/
-├── main.c              # 진입점 (GTK/GStreamer 초기화만)
-│
-├── app.h / app.c       # GTK 없음 — 엔진 관리, 합성 스레드, 재생 오케스트레이션
-├── tts_engine.h / .c   # GTK 없음 — AudioData 구조체 및 엔진 인터페이스 정의
-├── tts_espeak.h / .c   # GTK 없음 — eSpeak-NG C 라이브러리 엔진
-├── tts_festival.h / .c # GTK 없음 — Festival (text2wave CLI 기반)
-├── audio_player.h / .c # GTK 없음 — GStreamer appsrc 파이프라인, 볼륨, 위치 추적
-├── file_saver.h / .c   # GTK 없음 — WAV (libsndfile), MP3 (LAME) 저장
-│
-├── ui.h / ui.c         # GTK 전용 — 모든 위젯 생성 및 시그널 핸들러
-└── waveform_widget.h/c # GTK 전용 — Cairo 파형 그리기 위젯
-```
-
-새 TTS 엔진을 추가할 때는 `tts_*.h/.c` 파일만 작성하고 `app.c`의 `app_new()`에 등록하면 됩니다. GTK 코드를 건드릴 필요가 없습니다.
-
-## 빌드
-
-### 1. 의존성 설치
+## 빠른 시작
 
 ```bash
-./install_deps.sh
+# 처음 설치 (호스트 x86_64)
+make setup           # 의존성 + Sherpa 라이브러리 + 한국어 모델 + 빌드
+
+# 실행
+make run
 ```
 
-수동으로 설치하려면:
+## Makefile 타겟
+
+```
+make                  — 의존성 검사 + 빌드 (기본)
+make setup            — 전체 설치 (deps + sherpa-lib + sherpa-model + build)
+make deps             — 시스템 패키지 설치 (Linux: apt, macOS: brew)
+make check-deps       — 필수 라이브러리 확인
+make build            — 소스 컴파일
+make sherpa-lib       — 사전 빌드 Sherpa-ONNX 라이브러리 다운로드 → deps/sherpa-onnx/
+make sherpa-from-src  — Sherpa-ONNX 소스 클론 후 직접 빌드
+make sherpa-model     — 한국어 VITS 모델 다운로드 → models/
+make cross-deps       — ARM 크로스컴파일러 설치 (Linux)
+make install          — 바이너리 설치 (기본: /usr/local/bin)
+make run              — 한국어 로케일로 실행
+make clean            — 빌드 결과물 삭제
+make distclean        — 빌드 + 모델 + 라이브러리 + 소스 전체 삭제
+```
+
+오버라이드 옵션:
+
+```bash
+make setup ARCH=aarch64              # ARM64 전체 빌드
+make setup ARCH=armhf                # ARM32 전체 빌드
+make sherpa-from-src ARCH=aarch64    # ARM64용 소스 빌드
+make build ARCH=aarch64 SYSROOT=/path/to/sysroot
+make install PREFIX=/usr
+```
+
+### 수동 설치 (Linux)
 
 ```bash
 sudo apt install -y \
-    build-essential cmake pkg-config \
-    libgtk-3-dev \
-    libespeak-ng-dev \
-    libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev \
-    libsndfile1-dev \
-    libmp3lame-dev \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-pulseaudio
+    build-essential cmake git pkg-config \
+    libgtk-3-dev libespeak-ng-dev \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    libsndfile1-dev libmp3lame-dev \
+    gstreamer1.0-plugins-good gstreamer1.0-pulseaudio
+
+make sherpa-lib sherpa-model build
+./gtktts
 ```
 
-Festival을 추가로 지원하려면:
+### macOS (Homebrew)
 
 ```bash
-sudo apt install festival festvox-kallpc16k
+brew install pkg-config cmake git gtk+3 espeak-ng \
+    gstreamer gst-plugins-base gst-plugins-good \
+    libsndfile lame
+
+make sherpa-lib sherpa-model build
+./gtktts
 ```
 
-### Piper TTS 설치 (한국어 고품질)
+### Sherpa-ONNX 소스 빌드
+
+사전 빌드 바이너리 대신 직접 컴파일할 경우:
 
 ```bash
-./download_ko_model.sh
+make deps              # cmake, git 포함 설치
+make sherpa-from-src   # 소스 클론 + 빌드 (수 분 소요)
+make sherpa-model
+make build
 ```
 
-이 스크립트가 자동으로 처리합니다:
-1. `pip install piper-tts` 로 piper 바이너리 설치
-2. `~/.local/share/piper/` 에 한국어 모델 다운로드
-
-수동으로 설치하려면:
-```bash
-pip install piper-tts
-mkdir -p ~/.local/share/piper
-
-# medium 품질 (권장, ~63 MB)
-wget -P ~/.local/share/piper \
-  https://huggingface.co/rhasspy/piper-voices/resolve/main/ko/ko_KR/kss/medium/ko_KR-kss-medium.onnx \
-  https://huggingface.co/rhasspy/piper-voices/resolve/main/ko/ko_KR/kss/medium/ko_KR-kss-medium.onnx.json
-```
-
-### 2. 빌드
+## ARM 크로스컴파일
 
 ```bash
-./build.sh
+# 크로스컴파일러 설치
+make cross-deps
+
+# ARM64 (aarch64) 빌드
+make setup ARCH=aarch64
+
+# ARM32 (armhf) 빌드
+make setup ARCH=armhf
+
+# sysroot 지정 (선택)
+make build ARCH=aarch64 SYSROOT=/opt/sysroot-aarch64
 ```
 
-또는 직접:
-
-```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j$(nproc)
-```
-
-### 3. 실행
-
-```bash
-./build/tts_simulator
-```
+| ARCH | 크로스컴파일러 | Sherpa 사전 빌드 태그 |
+|------|--------------|----------------------|
+| `native` (기본) | 호스트 cc | `linux-x64-shared-lib` |
+| `aarch64` | `aarch64-linux-gnu-cc` | `linux-aarch64-shared` |
+| `armhf` | `arm-linux-gnueabihf-cc` | `linux-arm-gnueabihf-shared` |
 
 ## 사용법
 
-1. **엔진 선택** — 드롭다운에서 TTS 엔진을 선택합니다.
-2. **음성 선택** — 선택한 엔진에서 사용 가능한 음성 목록이 자동으로 채워집니다.
-3. **텍스트 입력** — 텍스트 영역에 직접 입력하거나 `파일에서 텍스트 불러오기`로 `.txt` 파일을 엽니다.
-4. **합성** — `합성 (Synthesize)` 버튼을 누릅니다. 백그라운드에서 실행되며 완료 후 파형이 표시됩니다.
-5. **재생** — `▶ 재생` 버튼으로 재생합니다. 볼륨 슬라이더로 조절할 수 있습니다.
-6. **저장** — `WAV 저장` 또는 `MP3 저장` 버튼으로 파일을 내보냅니다.
+1. **엔진 선택** — Sherpa-ONNX (기본) 또는 eSpeak-NG
+2. **텍스트 입력** — 텍스트 영역에 입력하거나 파일 불러오기
+3. **파라미터 설정** — 속도·피치 슬라이더 조정 (변경 즉시 다음 재생에 적용)
+4. **▶ 재생** — 합성 후 자동 재생. 텍스트/파라미터 변경 시 자동 재합성
+5. **파형 확인** — 재생 중 파형이 왼쪽으로 스크롤, 재생 위치 붉은 선으로 표시
+6. **저장** — WAV 또는 MP3로 내보내기
+
+## 파라미터
+
+| 슬라이더 | 범위 | 기본값 | 설명 |
+|---------|------|--------|------|
+| 속도 (×) | ×0.25 – ×4.0 | **×1.00** | 1.0 = 정상 속도. Sherpa: `gen.speed` + 리샘플링 후처리. eSpeak: 175 WPM 기준 |
+| 피치 (×) | ×0.5 – ×2.0 | **×1.00** | 1.0 = 원음. Sherpa: 선형 보간 리샘플링. eSpeak: `espeakPITCH` (50 기준) |
+
+> 속도·피치 모두 슬라이더 변경 후 다음 ▶ 재생 클릭 시 자동 재합성됩니다.
+
+## 아키텍처
+
+```
+src/
+├── main.c              # 진입점
+├── app.c / app.h       # 엔진 관리, 합성 스레드
+├── tts_engine.h        # TTSEngine 인터페이스
+├── tts_sherpa.c/h      # Sherpa-ONNX VITS (주 엔진)
+├── tts_espeak.c/h      # eSpeak-NG (폴백)
+├── tts_engine.c        # AudioData 헬퍼
+├── audio_player.c/h    # GStreamer 재생
+├── file_saver.c/h      # WAV/MP3 저장
+├── ui.c/h              # GTK 위젯
+└── waveform_widget.c/h # Cairo 파형 (스크롤링)
+
+deps/sherpa-onnx/       # Sherpa-ONNX 라이브러리 (make sherpa-lib 또는 sherpa-from-src)
+deps/sherpa-onnx-src/   # Sherpa-ONNX 소스 (make sherpa-from-src 시 생성)
+models/                 # ONNX 모델 파일 (make sherpa-model)
+```
+
+## 새 엔진 추가
+
+1. `src/tts_myengine.h/.c`에 `TTSEngine` 인터페이스 구현
+2. `src/app.c`의 `app_new()`에 등록
+3. `Makefile`의 `SRCS`에 `src/tts_myengine.c` 추가
 
 ## 의존 라이브러리
 
 | 라이브러리 | 용도 |
 |-----------|------|
-| GTK 3 | GUI 프레임워크, Cairo 파형 렌더링 |
-| GStreamer (gstreamer-1.0, gstreamer-app-1.0) | 오디오 재생 파이프라인 |
-| eSpeak-NG (libespeak-ng-dev) | 기본 TTS 합성 엔진 |
+| Sherpa-ONNX | VITS ONNX 추론 엔진 (C API) |
+| ONNX Runtime | Sherpa-ONNX 내장 |
+| GTK 3 | GUI, Cairo 파형 렌더링 |
+| GStreamer | 오디오 재생 파이프라인 |
+| eSpeak-NG | 폴백 TTS 엔진 |
 | libsndfile | WAV 파일 저장 |
-| LAME (libmp3lame-dev) | MP3 인코딩 |
-| Festival / text2wave | 선택적 TTS 엔진 |
-| Piper TTS (`piper-tts`) | 선택적 고품질 신경망 TTS 엔진 (한국어 지원) |
-
-## 새 TTS 엔진 추가 방법
-
-1. `src/tts_myengine.h/.c` 파일을 작성하고 `TTSEngine` 인터페이스를 구현합니다:
-
-```c
-// tts_engine.h 의 인터페이스
-struct TTSEngine {
-    const char   *name;
-    bool  (*init)       (TTSEngine *self);
-    bool  (*synthesize) (TTSEngine *self, const char *text, const char *voice,
-                         int speed, int pitch, AudioData **out);
-    const char **(*get_voices) (TTSEngine *self, int *count);
-    void  (*cleanup)    (TTSEngine *self);
-    void  *priv;
-};
-```
-
-2. `src/app.c`의 `app_new()` 함수에 등록합니다:
-
-```c
-TTSEngine *myengine = tts_myengine_new();
-if (myengine->init(myengine))
-    app->engines[app->engine_count++] = myengine;
-else
-    myengine->cleanup(myengine);
-```
-
-3. `CMakeLists.txt`의 `SOURCES`에 `src/tts_myengine.c`를 추가합니다.
+| LAME | MP3 인코딩 |

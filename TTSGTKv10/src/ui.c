@@ -26,6 +26,8 @@ typedef struct {
     GtkWidget *save_wav_btn;
     GtkWidget *save_mp3_btn;
     GtkWidget *status_label;
+
+    bool auto_play;   /* play immediately after synthesis completes */
 } UiState;
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
@@ -35,11 +37,11 @@ static void set_status(UiState *ui, const char *msg)
     gtk_label_set_text(GTK_LABEL(ui->status_label), msg);
 }
 
-static void set_playback_sensitive(UiState *ui, bool can_play)
+static void set_playback_sensitive(UiState *ui, bool can_save)
 {
-    gtk_widget_set_sensitive(ui->play_btn,     can_play);
-    gtk_widget_set_sensitive(ui->save_wav_btn, can_play);
-    gtk_widget_set_sensitive(ui->save_mp3_btn, can_play);
+    /* play_btn is always sensitive; only save buttons depend on audio */
+    gtk_widget_set_sensitive(ui->save_wav_btn, can_save);
+    gtk_widget_set_sensitive(ui->save_mp3_btn, can_save);
 }
 
 static void set_synth_sensitive(UiState *ui, bool sensitive)
@@ -59,14 +61,29 @@ static void populate_voices(UiState *ui, TTSEngine *engine)
     const char **voices = engine->get_voices(engine, &count);
     if (!voices) return;
 
-    for (int i = 0; i < count; i++)
+    int default_idx = 0;
+    for (int i = 0; i < count; i++) {
         gtk_combo_box_text_append_text(cb, voices[i]);
+        if (default_idx == 0) {
+            gchar *lower = g_ascii_strdown(voices[i], -1);
+            if (strstr(lower, "ko")) default_idx = i;
+            g_free(lower);
+        }
+    }
     free(voices);
 
-    gtk_combo_box_set_active(GTK_COMBO_BOX(cb), 0);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(cb), default_idx);
 }
 
 /* ── App callbacks (called on GLib main thread) ───────────────────────────── */
+
+static void clear_playback_cursor(UiState *ui)
+{
+    GtkTextBuffer *tbuf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui->text_view));
+    GtkTextIter s, e;
+    gtk_text_buffer_get_bounds(tbuf, &s, &e);
+    gtk_text_buffer_remove_tag_by_name(tbuf, "playback-cursor", &s, &e);
+}
 
 static void cb_synth_start(App *app, void *user)
 {
@@ -76,13 +93,33 @@ static void cb_synth_start(App *app, void *user)
     set_playback_sensitive(ui, false);
     gtk_widget_set_sensitive(ui->stop_btn, false);
     gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(ui->progress), 0.0);
+    waveform_widget_clear(ui->waveform);   /* reset for fresh streaming */
+    clear_playback_cursor(ui);
     set_status(ui, "합성 중...");
+}
+
+static void cb_synth_partial(App *app, const int16_t *samples,
+                               int count, int sample_rate, void *user)
+{
+    (void)app;
+    UiState *ui = user;
+    waveform_widget_append_data(ui->waveform, samples, count, sample_rate);
+}
+
+static void start_playback(UiState *ui)
+{
+    double vol = gtk_range_get_value(GTK_RANGE(ui->volume_scale)) / 100.0;
+    app_play(ui->app, vol);
+    gtk_widget_set_sensitive(ui->play_btn, false);
+    gtk_widget_set_sensitive(ui->stop_btn, true);
+    set_status(ui, "재생 중...");
 }
 
 static void cb_synth_done(App *app, bool ok, void *user)
 {
     UiState *ui = user;
     set_synth_sensitive(ui, true);
+    gtk_widget_set_sensitive(ui->play_btn, true);
     gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(ui->progress), 0.0);
 
     if (ok) {
@@ -94,13 +131,31 @@ static void cb_synth_done(App *app, bool ok, void *user)
 
         char buf[128];
         double dur = (double)audio->num_samples / audio->sample_rate;
-        snprintf(buf, sizeof(buf),
-                 "준비 완료  (%.1f초, %d Hz)", dur, audio->sample_rate);
+        snprintf(buf, sizeof(buf), "합성 완료  (%.1f초, %d Hz)", dur, audio->sample_rate);
         set_status(ui, buf);
         set_playback_sensitive(ui, true);
+
+        if (ui->auto_play) {
+            ui->auto_play = false;
+            start_playback(ui);
+        }
     } else {
+        ui->auto_play = false;
         set_status(ui, "합성 실패");
         set_playback_sensitive(ui, false);
+
+        GtkWidget *dlg = gtk_message_dialog_new(
+            GTK_WINDOW(gtk_widget_get_toplevel(ui->waveform)),
+            GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_CLOSE,
+            "TTS 합성에 실패했습니다.");
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(dlg),
+            "선택한 엔진이 설치되어 있는지 확인하세요.\n"
+            "Sherpa-ONNX: make sherpa-model");
+        gtk_dialog_run(GTK_DIALOG(dlg));
+        gtk_widget_destroy(dlg);
     }
 }
 
@@ -110,9 +165,33 @@ static void cb_playback(App *app, bool playing, double pos, void *user)
     UiState *ui = user;
     waveform_widget_set_pos(ui->waveform, pos);
 
+    /* Highlight current reading position in text view */
+    {
+        GtkTextBuffer *tbuf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui->text_view));
+        gint total = gtk_text_buffer_get_char_count(tbuf);
+        GtkTextIter ts, te;
+        gtk_text_buffer_get_bounds(tbuf, &ts, &te);
+        gtk_text_buffer_remove_tag_by_name(tbuf, "playback-cursor", &ts, &te);
+
+        if (playing && total > 0) {
+            gint cp = (gint)(pos * total);
+            if (cp < 0)     cp = 0;
+            if (cp >= total) cp = total - 1;
+            GtkTextIter it, it2;
+            gtk_text_buffer_get_iter_at_offset(tbuf, &it, cp);
+            it2 = it;
+            if (!gtk_text_iter_is_end(&it2))
+                gtk_text_iter_forward_char(&it2);
+            gtk_text_buffer_apply_tag_by_name(tbuf, "playback-cursor", &it, &it2);
+            gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(ui->text_view),
+                                         &it, 0.0, TRUE, 0.0, 0.5);
+        }
+    }
+
     if (!playing) {
         gtk_widget_set_sensitive(ui->play_btn, true);
         gtk_widget_set_sensitive(ui->stop_btn, false);
+        clear_playback_cursor(ui);
         set_status(ui, "재생 완료");
     }
 }
@@ -129,6 +208,14 @@ static gboolean pulse_progress(gpointer user)
 
 /* ── Signal handlers ──────────────────────────────────────────────────────── */
 
+static void invalidate_audio(UiState *ui)
+{
+    audio_data_free(ui->app->audio);
+    ui->app->audio = NULL;
+    waveform_widget_clear(ui->waveform);
+    set_playback_sensitive(ui, false);
+}
+
 static void on_engine_changed(GtkComboBox *combo, gpointer user)
 {
     UiState *ui = user;
@@ -137,19 +224,43 @@ static void on_engine_changed(GtkComboBox *combo, gpointer user)
 
     ui->app->active_engine_idx = idx;
     populate_voices(ui, ui->app->engines[idx]);
-    waveform_widget_clear(ui->waveform);
-    audio_data_free(ui->app->audio);
-    ui->app->audio = NULL;
-    set_playback_sensitive(ui, false);
+    invalidate_audio(ui);
 }
 
-static void on_synthesize(GtkWidget *btn, gpointer user)
+static void on_text_changed(GtkTextBuffer *buf, gpointer user)
+{
+    (void)buf;
+    UiState *ui = user;
+    if (app_has_audio(ui->app))
+        invalidate_audio(ui);
+}
+
+static void on_param_changed(GtkRange *range, gpointer user)
+{
+    (void)range;
+    UiState *ui = user;
+    /* audio_player_stop() is synchronous — safe to free audio immediately after */
+    if (audio_player_is_playing(ui->app->player))
+        app_stop(ui->app);
+    if (app_has_audio(ui->app)) {
+        invalidate_audio(ui);
+        set_status(ui, "설정 변경됨 — ▶ 재생 버튼으로 새 음성을 출력하세요");
+    }
+}
+
+static void on_play(GtkWidget *btn, gpointer user)
 {
     (void)btn;
     UiState *ui = user;
 
     if (app_is_synthesizing(ui->app)) return;
 
+    if (app_has_audio(ui->app)) {
+        start_playback(ui);
+        return;
+    }
+
+    /* No audio yet: synthesize then auto-play */
     GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui->text_view));
     GtkTextIter s, e;
     gtk_text_buffer_get_bounds(buf, &s, &e);
@@ -163,28 +274,19 @@ static void on_synthesize(GtkWidget *btn, gpointer user)
 
     char *voice = gtk_combo_box_text_get_active_text(
                       GTK_COMBO_BOX_TEXT(ui->voice_combo));
-    int speed = (int)gtk_range_get_value(GTK_RANGE(ui->speed_scale));
-    int pitch = (int)gtk_range_get_value(GTK_RANGE(ui->pitch_scale));
+    /* Convert speed multiplier → WPM (175 = 1×); pitch multiplier × 50 + 50 */
+    double speed_mult = gtk_range_get_value(GTK_RANGE(ui->speed_scale));
+    double pitch_mult = gtk_range_get_value(GTK_RANGE(ui->pitch_scale));
+    int speed = (int)(speed_mult * 175.0);
+    int pitch = (int)(pitch_mult * 50.0);
 
+    ui->auto_play = true;
+    gtk_widget_set_sensitive(ui->play_btn, false);
     app_synthesize(ui->app, text, voice, speed, pitch);
     g_free(text);
     g_free(voice);
 
     g_timeout_add(100, pulse_progress, ui);
-}
-
-static void on_play(GtkWidget *btn, gpointer user)
-{
-    (void)btn;
-    UiState *ui = user;
-    if (!app_has_audio(ui->app)) return;
-
-    double vol = gtk_range_get_value(GTK_RANGE(ui->volume_scale)) / 100.0;
-    app_play(ui->app, vol);
-
-    gtk_widget_set_sensitive(ui->play_btn, false);
-    gtk_widget_set_sensitive(ui->stop_btn, true);
-    set_status(ui, "재생 중...");
 }
 
 static void on_stop(GtkWidget *btn, gpointer user)
@@ -244,6 +346,12 @@ static void save_dialog(UiState *ui, bool as_mp3)
 {
     if (!app_has_audio(ui->app)) return;
 
+    /* gtk_dialog_run() spins a nested event loop — app->audio could be freed
+       while the chooser is open (e.g. params change, synthesis restart).
+       Clone the audio now so we always save from a stable copy.            */
+    AudioData *snap = audio_data_clone(ui->app->audio);
+    if (!snap) return;
+
     const char *title      = as_mp3 ? "MP3로 저장" : "WAV로 저장";
     const char *default_fn = as_mp3 ? "output.mp3" : "output.wav";
     const char *ext        = as_mp3 ? ".mp3"       : ".wav";
@@ -273,8 +381,8 @@ static void save_dialog(UiState *ui, bool as_mp3)
                       : g_strconcat(path, ext, NULL);
 
         bool ok = as_mp3
-                  ? file_save_mp3(final, ui->app->audio, 128)
-                  : file_save_wav(final, ui->app->audio);
+                  ? file_save_mp3(final, snap, 128)
+                  : file_save_wav(final, snap);
 
         char status[512];
         if (ok)
@@ -289,6 +397,7 @@ static void save_dialog(UiState *ui, bool as_mp3)
         g_free(path);
     }
     gtk_widget_destroy(dlg);
+    audio_data_free(snap);
 }
 
 static void on_save_wav(GtkWidget *btn, gpointer user)
@@ -325,10 +434,11 @@ GtkWidget *ui_build(App *app)
     ui->app = app;
 
     /* Register app callbacks */
-    app->on_synth_start = cb_synth_start;
-    app->on_synth_done  = cb_synth_done;
-    app->on_playback    = cb_playback;
-    app->cb_user        = ui;
+    app->on_synth_start   = cb_synth_start;
+    app->on_synth_done    = cb_synth_done;
+    app->on_synth_partial = cb_synth_partial;
+    app->on_playback      = cb_playback;
+    app->cb_user          = ui;
 
     /* Window */
     ui->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -350,10 +460,15 @@ GtkWidget *ui_build(App *app)
     gtk_box_pack_start(GTK_BOX(ehbox), gtk_label_new("엔진:"), FALSE, FALSE, 0);
     ui->engine_combo = gtk_combo_box_text_new();
     gtk_widget_set_size_request(ui->engine_combo, 140, -1);
-    for (int i = 0; i < app->engine_count; i++)
+    int default_engine = 0;
+    for (int i = 0; i < app->engine_count; i++) {
         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(ui->engine_combo),
                                        app->engines[i]->name);
-    gtk_combo_box_set_active(GTK_COMBO_BOX(ui->engine_combo), 0);
+        if (strcmp(app->engines[i]->name, "Sherpa-ONNX") == 0)
+            default_engine = i;
+    }
+    app->active_engine_idx = default_engine;
+    gtk_combo_box_set_active(GTK_COMBO_BOX(ui->engine_combo), default_engine);
     g_signal_connect(ui->engine_combo, "changed",
                      G_CALLBACK(on_engine_changed), ui);
     gtk_box_pack_start(GTK_BOX(ehbox), ui->engine_combo, FALSE, FALSE, 0);
@@ -374,15 +489,21 @@ GtkWidget *ui_build(App *app)
     gtk_container_set_border_width(GTK_CONTAINER(pgrid), 8);
     gtk_container_add(GTK_CONTAINER(pf), pgrid);
 
-    GtkWidget *speed_row = labeled_scale("속도 (WPM):", 80, 450, 5, 175,
+    GtkWidget *speed_row = labeled_scale("속도 (×):", 0.25, 4.0, 0.05, 1.0,
                                           &ui->speed_scale);
+    gtk_scale_set_digits(GTK_SCALE(ui->speed_scale), 2);
     gtk_widget_set_hexpand(speed_row, TRUE);
     gtk_grid_attach(GTK_GRID(pgrid), speed_row, 0, 0, 1, 1);
+    g_signal_connect(ui->speed_scale, "value-changed",
+                     G_CALLBACK(on_param_changed), ui);
 
-    GtkWidget *pitch_row = labeled_scale("피치:", 0, 100, 1, 50,
+    GtkWidget *pitch_row = labeled_scale("피치 (×):", 0.5, 2.0, 0.05, 1.0,
                                           &ui->pitch_scale);
+    gtk_scale_set_digits(GTK_SCALE(ui->pitch_scale), 2);
     gtk_widget_set_hexpand(pitch_row, TRUE);
     gtk_grid_attach(GTK_GRID(pgrid), pitch_row, 1, 0, 1, 1);
+    g_signal_connect(ui->pitch_scale, "value-changed",
+                     G_CALLBACK(on_param_changed), ui);
 
     /* ── Text input ──────────────────────────────────────────────────────── */
     GtkWidget *tf = gtk_frame_new("텍스트 입력");
@@ -405,12 +526,15 @@ GtkWidget *ui_build(App *app)
     gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(ui->text_view),
                                 GTK_WRAP_WORD_CHAR);
     gtk_container_add(GTK_CONTAINER(scroll), ui->text_view);
-
-    GtkWidget *synth_btn = gtk_button_new_with_label("합성 (Synthesize)");
-    gtk_style_context_add_class(gtk_widget_get_style_context(synth_btn),
-                                "suggested-action");
-    g_signal_connect(synth_btn, "clicked", G_CALLBACK(on_synthesize), ui);
-    gtk_box_pack_start(GTK_BOX(tvbox), synth_btn, FALSE, FALSE, 0);
+    /* Tag for playback position highlight — visible regardless of focus */
+    gtk_text_buffer_create_tag(
+        gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui->text_view)),
+        "playback-cursor",
+        "background", "#3584E4",
+        "foreground", "white",
+        NULL);
+    g_signal_connect(gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui->text_view)),
+                     "changed", G_CALLBACK(on_text_changed), ui);
 
     /* ── Waveform ─────────────────────────────────────────────────────────── */
     GtkWidget *wf_frame = gtk_frame_new("파형 (Waveform)");
@@ -441,7 +565,8 @@ GtkWidget *ui_build(App *app)
     gtk_box_pack_start(GTK_BOX(cvbox), btn_hbox, FALSE, FALSE, 0);
 
     ui->play_btn = gtk_button_new_with_label("▶ 재생");
-    gtk_widget_set_sensitive(ui->play_btn, false);
+    gtk_style_context_add_class(gtk_widget_get_style_context(ui->play_btn),
+                                "suggested-action");
     g_signal_connect(ui->play_btn, "clicked", G_CALLBACK(on_play), ui);
     gtk_box_pack_start(GTK_BOX(btn_hbox), ui->play_btn, TRUE, TRUE, 0);
 

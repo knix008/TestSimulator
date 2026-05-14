@@ -81,7 +81,7 @@ static bool espeak_synthesize_fn(TTSEngine *self,
 
     g_active = priv;
 
-    espeak_SetVoiceByName(voice && voice[0] ? voice : "en");
+    espeak_SetVoiceByName(voice && voice[0] ? voice : "ko");
     espeak_SetParameter(espeakRATE,   speed, 0);
     espeak_SetParameter(espeakPITCH,  pitch, 0);
     espeak_SetParameter(espeakVOLUME, 100,   0);

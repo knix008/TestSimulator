@@ -36,6 +36,13 @@ struct TTSEngine {
 
     void  (*cleanup)    (TTSEngine *self);
 
+    /* Optional: called with partial PCM samples during synthesis.
+       Invoked from the synthesis thread — implementations must be thread-safe.
+       samples and count are valid only for the duration of the call. */
+    void  (*progress_cb)(const int16_t *samples, int count,
+                         int sample_rate, float progress, void *user);
+    void  *progress_user;
+
     void  *priv;
 };
 

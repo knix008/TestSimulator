@@ -1,7 +1,6 @@
 #include "app.h"
 #include "tts_espeak.h"
-#include "tts_festival.h"
-#include "tts_piper.h"
+#include "tts_sherpa.h"
 
 #include <glib.h>
 #include <stdlib.h>
@@ -64,6 +63,43 @@ static gpointer synth_thread(gpointer data)
     return NULL;
 }
 
+/* ── Partial audio delivery (synthesis thread → GLib main thread) ────────── */
+
+typedef struct {
+    App     *app;
+    int16_t *samples;
+    int      count;
+    int      sample_rate;
+} PartialDelivery;
+
+static gboolean deliver_partial_idle(gpointer data)
+{
+    PartialDelivery *d = data;
+    if (d->app->on_synth_partial)
+        d->app->on_synth_partial(d->app, d->samples, d->count,
+                                  d->sample_rate, d->app->cb_user);
+    free(d->samples);
+    free(d);
+    return G_SOURCE_REMOVE;
+}
+
+/* Called from the synthesis thread via engine->progress_cb. */
+static void engine_progress_cb(const int16_t *samples, int count,
+                                int sample_rate, float progress, void *user)
+{
+    (void)progress;
+    App *app = user;
+    if (!app->on_synth_partial || count <= 0) return;
+
+    PartialDelivery *d = malloc(sizeof(PartialDelivery));
+    d->app         = app;
+    d->count       = count;
+    d->sample_rate = sample_rate;
+    d->samples     = malloc((size_t)count * sizeof(int16_t));
+    memcpy(d->samples, samples, (size_t)count * sizeof(int16_t));
+    g_idle_add(deliver_partial_idle, d);
+}
+
 /* ── Playback callback (from audio_player, GLib main thread) ──────────────── */
 
 static void playback_cb(bool playing, double pos, void *user)
@@ -81,32 +117,25 @@ App *app_new(void)
     g_mutex_init(&app->mutex);
 
     /* Register available TTS engines */
-    int cap = 4;
+    int cap = 2;
     app->engines = malloc((size_t)cap * sizeof(TTSEngine *));
 
-    /* eSpeak-NG — always present */
+    /* Sherpa-ONNX — primary: VITS C API, embedded-ready */
+    TTSEngine *sherpa = tts_sherpa_new();
+    if (sherpa->init(sherpa)) {
+        sherpa->progress_cb   = engine_progress_cb;
+        sherpa->progress_user = app;
+        app->engines[app->engine_count++] = sherpa;
+    } else {
+        sherpa->cleanup(sherpa);
+    }
+
+    /* eSpeak-NG — fallback, always available */
     TTSEngine *espeak = tts_espeak_new();
     if (espeak->init(espeak)) {
         app->engines[app->engine_count++] = espeak;
     } else {
-        fprintf(stderr, "[app] eSpeak-NG init failed\n");
         espeak->cleanup(espeak);
-    }
-
-    /* Festival — optional, only if text2wave is installed */
-    TTSEngine *festival = tts_festival_new();
-    if (festival->init(festival)) {
-        app->engines[app->engine_count++] = festival;
-    } else {
-        festival->cleanup(festival);
-    }
-
-    /* Piper TTS — optional, only if piper/piper-tts binary is in PATH */
-    TTSEngine *piper = tts_piper_new();
-    if (piper->init(piper)) {
-        app->engines[app->engine_count++] = piper;
-    } else {
-        piper->cleanup(piper);
     }
 
     app->player = audio_player_new();

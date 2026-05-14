@@ -30,6 +30,8 @@ struct AudioPlayer {
 
 /* ── GStreamer callbacks ──────────────────────────────────────────────────── */
 
+#define CHUNK_SAMPLES 4096   /* push in small chunks so mid-playback volume changes apply */
+
 /* Called from GStreamer streaming thread when pipeline needs more data. */
 static void need_data_cb(GstAppSrc *src, guint length, gpointer user_data)
 {
@@ -52,7 +54,9 @@ static void need_data_cb(GstAppSrc *src, guint length, gpointer user_data)
         return;
     }
 
-    gsize bytes = (gsize)remaining * sizeof(int16_t);
+    int chunk = remaining < CHUNK_SAMPLES ? remaining : CHUNK_SAMPLES;
+    gsize bytes = (gsize)chunk * sizeof(int16_t);
+
     GstBuffer *buf = gst_buffer_new_allocate(NULL, bytes, NULL);
 
     GstMapInfo map;
@@ -63,17 +67,19 @@ static void need_data_cb(GstAppSrc *src, guint length, gpointer user_data)
     GST_BUFFER_PTS(buf) = gst_util_uint64_scale(
         (guint64)p->pushed, GST_SECOND, (guint64)p->data->sample_rate);
     GST_BUFFER_DURATION(buf) = gst_util_uint64_scale(
-        (guint64)remaining, GST_SECOND, (guint64)p->data->sample_rate);
+        (guint64)chunk, GST_SECOND, (guint64)p->data->sample_rate);
 
-    p->pushed    = p->data->num_samples;
-    p->eos_sent  = true;
+    p->pushed += chunk;
+    bool last = (p->pushed >= p->data->num_samples);
+    if (last) p->eos_sent = true;
     g_mutex_unlock(&p->mutex);
 
     GstFlowReturn ret = gst_app_src_push_buffer(src, buf);
     if (ret != GST_FLOW_OK)
         fprintf(stderr, "[player] push_buffer: %d\n", ret);
 
-    gst_app_src_end_of_stream(src);
+    if (last)
+        gst_app_src_end_of_stream(src);
 }
 
 /* Called from GLib main loop via bus watch. */
@@ -125,10 +131,22 @@ static gboolean position_tick(gpointer user_data)
 
     if (p->cb) {
         GstFormat fmt = GST_FORMAT_TIME;
-        gint64    pos = 0, dur = 0;
-        gst_element_query_position(p->pipeline, fmt, &pos);
-        gst_element_query_duration(p->pipeline, fmt, &dur);
-        double ratio = (dur > 0) ? (double)pos / (double)dur : 0.0;
+        gint64    gst_pos = 0, gst_dur = 0;
+        gst_element_query_position(p->pipeline, fmt, &gst_pos);
+        gst_element_query_duration(p->pipeline, fmt, &gst_dur);
+
+        double ratio;
+        if (gst_dur > 0) {
+            ratio = (double)gst_pos / (double)gst_dur;
+        } else {
+            /* appsrc pipelines often report duration=0; estimate from
+               how many samples have been pushed to the pipeline.        */
+            g_mutex_lock(&p->mutex);
+            ratio = (p->data && p->data->num_samples > 0)
+                    ? (double)p->pushed / p->data->num_samples : 0.0;
+            if (ratio > 1.0) ratio = 1.0;
+            g_mutex_unlock(&p->mutex);
+        }
         p->cb(true, ratio, p->cb_data);
     }
     return G_SOURCE_CONTINUE;
