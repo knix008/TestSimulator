@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="TTSWinV10"
+           Manufacturer="Suho Kwon"
+           Version="1.0.0.0"
+           Codepage="949"
+           UpgradeCode="A7C3E901-4F82-4B6D-9E1A-2C8D5F6B0A4E">
+
+    <MajorUpgrade DowngradeErrorMessage="이미 최신 버전의 [ProductName]이(가) 설치되어 있습니다." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon.ico" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPCOMMENTS" Value="TTSWinV10 Windows 애플리케이션" />
+
+    <!-- FeatureTree: 본문 아래에서 바탕화면/시작 메뉴 바로가기를 각각 선택할 수 있습니다. -->
+    <Feature Id="ProductFeature"
+             Title="TTSWinV10"
+             Description="프로그램 파일 설치 및 바로가기 옵션"
+             Level="1"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="AssetsComponents" />
+
+      <Feature Id="DesktopShortcutFeature"
+               Title="바탕화면 바로가기"
+               Description="바탕화면에 TTSWinV10 바로가기를 만듭니다."
+               Level="1"
+               AllowAdvertise="no">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+
+      <Feature Id="StartMenuShortcutFeature"
+               Title="시작 메뉴 바로가기"
+               Description="시작 메뉴에 TTSWinV10 바로가기를 만듭니다."
+               Level="1"
+               AllowAdvertise="no">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+    </Feature>
+
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <ui:WixUI Id="WixUI_FeatureTree" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui" />
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="TTSWinV10">
+        <Directory Id="AssetsFolder" Name="Assets" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="TTSWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="TTSWinV10.exe"
+              Source="$(var.TTSWinV10.TargetDir)TTSWinV10.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="TTSWinV10.exe.config" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)TTSWinV10.exe.config" />
+      </Component>
+
+      <Component Id="daemon_hammer.ico" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)daemon_hammer.ico" />
+      </Component>
+
+      <Component Id="Microsoft.Win32.Registry.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)Microsoft.Win32.Registry.dll" />
+      </Component>
+      <Component Id="NAudio.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)NAudio.dll" />
+      </Component>
+      <Component Id="NAudio.Asio.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)NAudio.Asio.dll" />
+      </Component>
+      <Component Id="NAudio.Core.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)NAudio.Core.dll" />
+      </Component>
+      <Component Id="NAudio.Midi.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)NAudio.Midi.dll" />
+      </Component>
+      <Component Id="NAudio.Wasapi.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)NAudio.Wasapi.dll" />
+      </Component>
+      <Component Id="NAudio.WinForms.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)NAudio.WinForms.dll" />
+      </Component>
+      <Component Id="NAudio.WinMM.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)NAudio.WinMM.dll" />
+      </Component>
+      <Component Id="System.Buffers.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)System.Buffers.dll" />
+      </Component>
+      <Component Id="System.Memory.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)System.Memory.dll" />
+      </Component>
+      <Component Id="System.Numerics.Vectors.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)System.Numerics.Vectors.dll" />
+      </Component>
+      <Component Id="System.Resources.Extensions.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)System.Resources.Extensions.dll" />
+      </Component>
+      <Component Id="System.Runtime.CompilerServices.Unsafe.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)System.Runtime.CompilerServices.Unsafe.dll" />
+      </Component>
+      <Component Id="System.Security.AccessControl.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)System.Security.AccessControl.dll" />
+      </Component>
+      <Component Id="System.Security.Principal.Windows.dll" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)System.Security.Principal.Windows.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="AssetsComponents" Directory="AssetsFolder">
+      <Component Id="Assets_play.png" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)Assets\play.png" />
+      </Component>
+      <Component Id="Assets_stop.png" Guid="*">
+        <File Source="$(var.TTSWinV10.TargetDir)Assets\stop.png" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StartMenuShortcutComponent" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut Id="StartMenuShortcut"
+                Name="TTSWinV10"
+                Target="[INSTALLFOLDER]TTSWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\TTSWinV10"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+      <RemoveFolder Id="CleanUpStartMenuFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+    </Component>
+
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="*">
+      <Shortcut Id="DesktopShortcut"
+                Name="TTSWinV10"
+                Target="[INSTALLFOLDER]TTSWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\TTSWinV10"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

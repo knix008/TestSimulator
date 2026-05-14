@@ -41,4 +41,20 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
   </ItemGroup>
+
+  <!-- Visual Studio에서 Release로 앱만 빌드할 때도 WiX MSI가 빌드되도록 (설치 프로젝트는 별도 로드/체크가 필요할 수 있음) -->
+  <PropertyGroup>
+    <InstallerWixProj>$(MSBuildThisFileDirectory)TTSWinV10.Installer\TTSWinV10.Installer.wixproj</InstallerWixProj>
+  </PropertyGroup>
+
+  <Target Name="BuildInstallerMsiAfterRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'
+                      and '$(BuildingForInstaller)' != 'true'
+                      and '$(DesignTimeBuild)' != 'true'
+                      and Exists('$(InstallerWixProj)')">
+    <MSBuild Projects="$(InstallerWixProj)"
+             Targets="Build"
+             Properties="Configuration=Release;Platform=x64" />
+  </Target>
 </Project>

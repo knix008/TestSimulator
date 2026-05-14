@@ -1,0 +1,32 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+  <PropertyGroup>
+    <OutputName>TTSWinV10Setup</OutputName>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <!-- WiX v7 OSMF: https://wixtoolset.org/osmf/ -->
+    <AcceptEula>wix7</AcceptEula>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TTSWinV10.csproj">
+      <!-- WiX는 x64 MSI이지만, 참조 앱은 AnyCPU + 고정 OutputPath로 RID 오류 및 이중 출력 폴더를 피합니다. -->
+      <AdditionalProperties>BuildingForInstaller=true;Platform=AnyCPU;OutputPath=$(MSBuildThisFileDirectory)..\bin\$(Configuration)\net481\</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+  </ItemGroup>
+
+  <!-- MSI는 bin\x64\<cfg>\ 에 생성되므로, exe와 같은 Release 출력 폴더에도 복사해 두면 VS에서 찾기 쉽습니다. -->
+  <Target Name="CopyMsiNextToApplication" AfterTargets="Build">
+    <PropertyGroup>
+      <_MsiPath>$(MSBuildProjectDirectory)\bin\x64\$(Configuration)\$(OutputName).msi</_MsiPath>
+      <_AppOutDir>$(MSBuildProjectDirectory)\..\bin\$(Configuration)\net481\</_AppOutDir>
+    </PropertyGroup>
+    <Copy SourceFiles="$(_MsiPath)"
+          DestinationFiles="$(_AppOutDir)$(OutputName).msi"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(_MsiPath)')" />
+  </Target>
+</Project>
