@@ -522,7 +522,9 @@ partial class MainForm
         // 
         statusLabel.Name = "statusLabel";
         statusLabel.Size = new Size(43, 15);
+        statusLabel.Spring = true;
         statusLabel.Text = "준비됨";
+        statusLabel.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // MainForm
         // 
@@ -534,7 +536,7 @@ partial class MainForm
         Icon = (Icon)resources.GetObject("$this.Icon");
         MinimumSize = new Size(820, 680);
         Name = "MainForm";
-        Text = "TTS WinForms — 음성 읽기 · 파형 · 저장";
+        Text = "TTSWinV10 — 음성 읽기 · 파형 · 저장";
         panelBody.ResumeLayout(false);
         panelBody.PerformLayout();
         panelBottomBar.ResumeLayout(false);

@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -8,6 +9,7 @@ using System.Speech.Synthesis;
 using System.Text;
 using System.Threading;
 using Windows.Foundation;
+using Windows.Media.Core;
 using NAudio.MediaFoundation;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
@@ -55,6 +57,8 @@ public partial class MainForm : Form, IMessageFilter
     {
         public bool LinearMode { get; private set; }
         public List<SpeechProgressMark> Marks { get; } = new();
+        /// <summary>SAPI 재생에 WinRT 단어 경계 시간만 스케일해 입힌 경우 true( SpeakProgress 기반 보정 비활성).</summary>
+        public bool UsesWinRtScaledTiming { get; private set; }
         private readonly object _gate = new();
         private readonly List<(TimeSpan AudioTime, int CharStart, int CharLen)> _raw = new();
 
@@ -67,6 +71,7 @@ public partial class MainForm : Form, IMessageFilter
 
             Marks.Clear();
             LinearMode = false;
+            UsesWinRtScaledTiming = false;
         }
 
         public void AddSpeakProgress(SpeakProgressEventArgs e)
@@ -80,6 +85,7 @@ public partial class MainForm : Form, IMessageFilter
         public void FinalizeFromSapi(string displayText, bool ssmlUsed)
         {
             Marks.Clear();
+            UsesWinRtScaledTiming = false;
             if (ssmlUsed)
             {
                 LinearMode = true;
@@ -110,6 +116,13 @@ public partial class MainForm : Form, IMessageFilter
             }
 
             Marks.Sort((a, b) => a.TimeSec.CompareTo(b.TimeSec));
+
+            // 첫 단어가 t>0에서만 시작하면 재생 초반(0~첫 마크) 구간이 선형 폴백으로 느리게 보입니다.
+            if (Marks.Count > 0 && Marks[0].CharStart == 0 && Marks[0].TimeSec > 0.03)
+            {
+                SpeechProgressMark m0 = Marks[0];
+                Marks[0] = new SpeechProgressMark(0, m0.CharStart, m0.CharLength);
+            }
         }
 
         public void ForceLinear()
@@ -121,12 +134,57 @@ public partial class MainForm : Form, IMessageFilter
             }
 
             LinearMode = true;
+            UsesWinRtScaledTiming = false;
         }
 
-        public void FinalizeWinRt()
+        /// <summary>
+        /// WinRT 합성 스트림에 포함된 단어 경계 메타데이터로 마크를 채웁니다.
+        /// SSML 등 입력과 표시 텍스트 인덱스가 다를 때는 <paramref name="useWordMetadata"/>를 false로 두고 선형으로 둡니다.
+        /// </summary>
+        public void FinalizeFromWinRtStream(Windows.Media.SpeechSynthesis.SpeechSynthesisStream stream, string displayText, bool useWordMetadata)
         {
             Marks.Clear();
-            LinearMode = true;
+            UsesWinRtScaledTiming = false;
+            if (!useWordMetadata)
+            {
+                LinearMode = true;
+                return;
+            }
+
+            try
+            {
+                PopulateWinRtWordMarksToList(stream, displayText, Marks);
+            }
+            catch
+            {
+                Marks.Clear();
+            }
+
+            if (Marks.Count == 0)
+            {
+                LinearMode = true;
+                return;
+            }
+
+            Marks.Sort((a, b) => a.TimeSec.CompareTo(b.TimeSec));
+            LinearMode = false;
+        }
+
+        /// <summary>SAPI WAV 길이에 맞춰 WinRT 단어 시각을 스케일한 마크로 교체합니다.</summary>
+        public void ReplaceMarksFromWinRtScaledForSapiPlayback(IReadOnlyList<SpeechProgressMark> scaledMarks)
+        {
+            Marks.Clear();
+            if (scaledMarks.Count == 0)
+            {
+                LinearMode = true;
+                UsesWinRtScaledTiming = false;
+                return;
+            }
+
+            Marks.AddRange(scaledMarks);
+            Marks.Sort((a, b) => a.TimeSec.CompareTo(b.TimeSec));
+            LinearMode = false;
+            UsesWinRtScaledTiming = true;
         }
 
         /// <summary>
@@ -137,6 +195,7 @@ public partial class MainForm : Form, IMessageFilter
         {
             Marks.Clear();
             LinearMode = false;
+            UsesWinRtScaledTiming = false;
             if (string.IsNullOrEmpty(displayText) || audioDurationSec < 1e-6)
             {
                 LinearMode = true;
@@ -193,14 +252,213 @@ public partial class MainForm : Form, IMessageFilter
         }
     }
 
+    private static void PopulateWinRtWordMarksToList(
+        Windows.Media.SpeechSynthesis.SpeechSynthesisStream stream,
+        string displayText,
+        List<SpeechProgressMark> dest)
+    {
+        dest.Clear();
+        foreach (TimedMetadataTrack track in stream.TimedMetadataTracks)
+        {
+            if (track.TimedMetadataKind != TimedMetadataKind.Speech)
+            {
+                continue;
+            }
+
+            if (!string.Equals(track.Label, "SpeechWord", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (IMediaCue cue in track.Cues)
+            {
+                if (cue is not SpeechCue sc)
+                {
+                    continue;
+                }
+
+                double t = sc.StartTime.TotalSeconds;
+                if (t < 0)
+                {
+                    t = 0;
+                }
+
+                if (!sc.StartPositionInInput.HasValue || !sc.EndPositionInInput.HasValue)
+                {
+                    continue;
+                }
+
+                int start = (int)sc.StartPositionInInput.Value;
+                int endIn = (int)sc.EndPositionInInput.Value;
+                int len = Math.Max(1, endIn - start + 1);
+                start = ClampInt(start, 0, displayText.Length);
+                len = ClampInt(len, 1, Math.Max(1, displayText.Length - start));
+                dest.Add(new SpeechProgressMark(t, start, len));
+            }
+        }
+    }
+
+    private static void ApplyWinRtProxyVoiceForCulture(Windows.Media.SpeechSynthesis.SpeechSynthesizer synth, string voiceCulture)
+    {
+        string norm = string.IsNullOrWhiteSpace(voiceCulture) ? "ko-KR" : voiceCulture.Trim().Replace('_', '-');
+        Windows.Media.SpeechSynthesis.VoiceInformation? prefixMatch = null;
+        foreach (Windows.Media.SpeechSynthesis.VoiceInformation v in Windows.Media.SpeechSynthesis.SpeechSynthesizer.AllVoices)
+        {
+            if (string.Equals(v.Language, norm, StringComparison.OrdinalIgnoreCase))
+            {
+                synth.Voice = v;
+                return;
+            }
+
+            if (norm.Length >= 2)
+            {
+                string prefix = norm.Substring(0, 2);
+                if (v.Language.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && prefixMatch is null)
+                {
+                    prefixMatch = v;
+                }
+            }
+        }
+
+        if (prefixMatch is not null)
+        {
+            synth.Voice = prefixMatch;
+        }
+    }
+
+    private static bool TryWinRtPlainTextSynthesizeForWordMarks(
+        string text,
+        in SynthOptions options,
+        CancellationToken token,
+        out byte[]? winRtWav,
+        out List<SpeechProgressMark>? winRtMarks)
+    {
+        winRtWav = null;
+        winRtMarks = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        try
+        {
+            var marks = new List<SpeechProgressMark>();
+            var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
+            synth.Options.IncludeWordBoundaryMetadata = true;
+            ApplyWinRtProxyVoiceForCulture(synth, options.VoiceCulture);
+            synth.Options.SpeakingRate = MapSapiRateToWinRtSpeakingRate(options.Rate);
+            double vol = options.SynthVolume / 100.0;
+            if (vol < 0.0)
+            {
+                vol = 0.0;
+            }
+            else if (vol > 1.0)
+            {
+                vol = 1.0;
+            }
+
+            synth.Options.AudioVolume = vol;
+
+            var op = synth.SynthesizeTextToStreamAsync(text);
+            while (op.Status == AsyncStatus.Started)
+            {
+                if (token.IsCancellationRequested)
+                {
+                    op.Cancel();
+                    return false;
+                }
+
+                Thread.Sleep(25);
+            }
+
+            if (op.Status != AsyncStatus.Completed)
+            {
+                return false;
+            }
+
+            using Windows.Media.SpeechSynthesis.SpeechSynthesisStream stream = op.GetResults();
+            PopulateWinRtWordMarksToList(stream, text, marks);
+            using Stream net = stream.AsStreamForRead();
+            using var ms = new MemoryStream();
+            net.CopyTo(ms);
+            byte[] wav = ms.ToArray();
+            if (marks.Count == 0 || !IsLikelyWavePcm(wav))
+            {
+                return false;
+            }
+
+            winRtWav = wav;
+            winRtMarks = marks;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void TryReplaceSapiSyncMarksWithWinRtScaledWordTiming(
+        string text,
+        in SynthOptions options,
+        CancellationToken token,
+        SpeechSyncTrack? syncTrack,
+        byte[] sapiWav)
+    {
+        if (syncTrack is null || sapiWav.Length == 0)
+        {
+            return;
+        }
+
+        double ts = TryGetWavDurationSeconds(sapiWav);
+        if (ts < 1e-3)
+        {
+            return;
+        }
+
+        try
+        {
+            if (!TryWinRtPlainTextSynthesizeForWordMarks(text, in options, token, out byte[]? winRtWav, out List<SpeechProgressMark>? winRtMarks)
+                || winRtMarks is null
+                || winRtMarks.Count == 0
+                || winRtWav is null
+                || winRtWav.Length == 0)
+            {
+                return;
+            }
+
+            double tw = TryGetWavDurationSeconds(winRtWav);
+            if (tw < 1e-3)
+            {
+                return;
+            }
+
+            double scale = ts / tw;
+            var scaled = new List<SpeechProgressMark>(winRtMarks.Count);
+            foreach (SpeechProgressMark m in winRtMarks)
+            {
+                scaled.Add(new SpeechProgressMark(m.TimeSec * scale, m.CharStart, m.CharLength));
+            }
+
+            scaled.Sort((a, b) => a.TimeSec.CompareTo(b.TimeSec));
+            syncTrack.ReplaceMarksFromWinRtScaledForSapiPlayback(scaled);
+        }
+        catch
+        {
+            // SpeakProgress / 선형 마크 유지
+        }
+    }
+
     private List<SpeechProgressMark> _playbackSpeechMarks = new();
     private bool _playbackSpeechLinear;
+    /// <summary>SAPI <see cref="SpeechSynthesisMethod.SystemSpeechSapi"/> 의 SpeakProgress 마크로 동기할 때만 true.</summary>
+    private bool _playbackTextSyncSapiMarks;
     private string _playbackSpeechSourceText = "";
 
     public MainForm()
     {
         // InitializeComponent may paint panelWaveform; PanelWaveform_Paint reads _waveTimer.Interval.
-        _waveTimer = new System.Windows.Forms.Timer { Interval = 35 };
+        // 재생 헤드·텍스트 동기: 너무 길면 커서가 오디오보다 늦게 느껴짐(NAudio WaveOut 기본 300ms 버퍼).
+        _waveTimer = new System.Windows.Forms.Timer { Interval = 16 };
         InitializeComponent();
 
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
@@ -319,31 +577,36 @@ public partial class MainForm : Form, IMessageFilter
 
     private void ApplyModernTheme()
     {
-        Font uiFont = TryCreateUiFont(10f) ?? new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point);
-        Font uiFontSemi = new Font(uiFont.FontFamily, uiFont.SizeInPoints + 0.25f, FontStyle.Bold, GraphicsUnit.Point);
+        Font uiFont = TryCreateUiFont(10.25f) ?? new Font("Segoe UI", 10.25f, FontStyle.Regular, GraphicsUnit.Point);
+        Font uiFontSemi = new Font(uiFont.FontFamily, 11f, FontStyle.Bold, GraphicsUnit.Point);
 
-        Color appBg = Color.FromArgb(242, 244, 248);
+        Color appBg = Color.FromArgb(243, 245, 249);
         Color surface = Color.White;
-        Color border = Color.FromArgb(220, 224, 232);
-        Color textPrimary = Color.FromArgb(28, 30, 36);
-        Color textMuted = Color.FromArgb(96, 101, 112);
-        Color accent = Color.FromArgb(0, 103, 192);
-        Color accentDark = Color.FromArgb(0, 78, 152);
+        Color cardFrame = Color.FromArgb(248, 249, 252);
+        Color border = Color.FromArgb(210, 216, 228);
+        Color textPrimary = Color.FromArgb(26, 32, 44);
+        Color textMuted = Color.FromArgb(100, 108, 124);
+        Color accent = Color.FromArgb(0, 120, 212);
+        Color accentDark = Color.FromArgb(0, 92, 168);
 
         Font = uiFont;
         BackColor = appBg;
         ForeColor = textPrimary;
 
         panelBody.BackColor = appBg;
+        panelBody.Padding = new Padding(20, 16, 20, 16);
+
         textBoxContent.Font = uiFont;
         textBoxContent.BackColor = surface;
         textBoxContent.ForeColor = textPrimary;
         textBoxContent.BorderStyle = BorderStyle.FixedSingle;
+        textBoxContent.Margin = new Padding(0, 0, 0, 12);
 
-        panelSynthCard.BackColor = surface;
+        panelSynthCard.BackColor = cardFrame;
+        panelSynthCard.Padding = new Padding(18, 16, 18, 16);
         labelSynthTitle.Font = uiFontSemi;
         labelSynthTitle.ForeColor = textPrimary;
-        labelSynthTitle.BackColor = surface;
+        labelSynthTitle.BackColor = Color.Transparent;
 
         foreach (Label lbl in new[] { labelVoice, labelRate, labelSynthVol, labelPitch, labelEmphasis, labelWaveGain, labelVolume, labelSynthMethod })
         {
@@ -367,8 +630,10 @@ public partial class MainForm : Form, IMessageFilter
 
         panelBottomBar.BackColor = appBg;
         panelVolumeHost.BackColor = appBg;
+        panelBottomBar.Padding = new Padding(0, 6, 0, 10);
+        flowBottomButtons.Padding = new Padding(0, 2, 0, 6);
 
-        Color dropDownFieldBack = Color.FromArgb(243, 246, 252);
+        Color dropDownFieldBack = Color.FromArgb(250, 251, 253);
         ApplyDropDownFieldStyle(comboBoxSynthMethod, dropDownFieldBack, textPrimary, uiFont);
         ApplyDropDownFieldStyle(comboBoxVoice, dropDownFieldBack, textPrimary, uiFont);
         ApplyDropDownFieldStyle(comboBoxEmphasis, dropDownFieldBack, textPrimary, uiFont);
@@ -376,19 +641,24 @@ public partial class MainForm : Form, IMessageFilter
         ApplySecondaryChrome(buttonOpenFile, surface, textPrimary, border);
         ApplyPrimaryChrome(buttonSave, accent, accentDark, surface);
 
-        trackBarRate.BackColor = surface;
-        trackBarSynthVol.BackColor = surface;
-        trackBarPitch.BackColor = surface;
+        panelWaveform.BackColor = Color.FromArgb(22, 26, 36);
+        panelWaveform.Margin = new Padding(0, 0, 0, 12);
+
+        foreach (TrackBar tb in new[] { trackBarRate, trackBarSynthVol, trackBarPitch, trackBarWaveGain })
+        {
+            tb.BackColor = surface;
+            tb.TickStyle = TickStyle.None;
+        }
+
         trackBarPitch.SmallChange = 1;
         trackBarPitch.LargeChange = 1;
-        trackBarWaveGain.BackColor = surface;
-        // TrackBar는 Transparent 배경을 허용하지 않는 경우가 많음.
         trackBarVolume.BackColor = appBg;
+        trackBarVolume.TickStyle = TickStyle.None;
 
-        // StatusStrip은 System 렌더러와 함께 임의 BackColor를 두면 ArgumentException이 날 수 있음.
         statusLabel.ForeColor = textMuted;
         statusLabel.Font = uiFont;
-        statusLabel.Margin = new Padding(6, 2, 6, 2);
+        statusLabel.Margin = new Padding(10, 3, 10, 3);
+        statusStrip.Padding = new Padding(4, 5, 16, 5);
 
         // ToolTip의 BackColor/ForeColor는 환경에 따라 유효하지 않아 예외가 날 수 있음.
     }
@@ -400,12 +670,30 @@ public partial class MainForm : Form, IMessageFilter
             return;
         }
 
-        var g = e.Graphics;
-        Rectangle r = p.ClientRectangle;
-        r.Width -= 1;
-        r.Height -= 1;
-        using var pen = new Pen(Color.FromArgb(220, 224, 232), 1f);
-        g.DrawRectangle(pen, r);
+        Graphics g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        Rectangle bounds = p.ClientRectangle;
+        bounds.Width--;
+        bounds.Height--;
+
+        const int inset = 5;
+        Rectangle inner = bounds;
+        inner.Inflate(-inset, -inset);
+
+        Rectangle shadow = inner;
+        shadow.Offset(1, 2);
+        using (var sh = new SolidBrush(Color.FromArgb(28, 60, 80, 120)))
+        {
+            g.FillRectangle(sh, shadow);
+        }
+
+        using (var fill = new SolidBrush(Color.White))
+        {
+            g.FillRectangle(fill, inner);
+        }
+
+        using var pen = new Pen(Color.FromArgb(218, 224, 236), 1f);
+        g.DrawRectangle(pen, inner);
     }
 
     private static Font? TryCreateUiFont(float sizePt)
@@ -429,7 +717,7 @@ public partial class MainForm : Form, IMessageFilter
 
     private static void ApplyDropDownFieldStyle(ComboBox cb, Color fieldBack, Color fieldFore, Font font)
     {
-        cb.FlatStyle = FlatStyle.Popup;
+        cb.FlatStyle = FlatStyle.Flat;
         cb.BackColor = fieldBack;
         cb.ForeColor = fieldFore;
         cb.Font = font;
@@ -444,8 +732,8 @@ public partial class MainForm : Form, IMessageFilter
         b.FlatAppearance.BorderColor = border;
         b.BackColor = surface;
         b.ForeColor = text;
-        b.FlatAppearance.MouseOverBackColor = Color.FromArgb(236, 240, 247);
-        b.FlatAppearance.MouseDownBackColor = Color.FromArgb(224, 230, 242);
+        b.FlatAppearance.MouseOverBackColor = Color.FromArgb(240, 244, 250);
+        b.FlatAppearance.MouseDownBackColor = Color.FromArgb(228, 234, 246);
     }
 
     private static void ApplyPrimaryChrome(Button b, Color accent, Color accentPressed, Color onAccent)
@@ -545,19 +833,21 @@ public partial class MainForm : Form, IMessageFilter
         b.FlatAppearance.BorderSize = 0;
         if (accentPlay)
         {
-            b.BackColor = Color.FromArgb(0, 114, 198);
+            Color play = Color.FromArgb(0, 120, 212);
+            b.BackColor = play;
             b.ForeColor = Color.White;
-            b.FlatAppearance.BorderColor = b.BackColor;
-            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(28, 145, 228);
-            b.FlatAppearance.MouseDownBackColor = Color.FromArgb(0, 88, 164);
+            b.FlatAppearance.BorderColor = play;
+            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(38, 148, 232);
+            b.FlatAppearance.MouseDownBackColor = Color.FromArgb(0, 96, 176);
         }
         else
         {
-            b.BackColor = Color.FromArgb(196, 54, 61);
+            Color stop = Color.FromArgb(196, 60, 68);
+            b.BackColor = stop;
             b.ForeColor = Color.White;
-            b.FlatAppearance.BorderColor = b.BackColor;
-            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(218, 86, 92);
-            b.FlatAppearance.MouseDownBackColor = Color.FromArgb(168, 44, 50);
+            b.FlatAppearance.BorderColor = stop;
+            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(220, 88, 94);
+            b.FlatAppearance.MouseDownBackColor = Color.FromArgb(168, 48, 54);
         }
     }
 
@@ -1049,6 +1339,7 @@ public partial class MainForm : Form, IMessageFilter
 
         _playbackSpeechMarks.Clear();
         _playbackSpeechLinear = true;
+        _playbackTextSyncSapiMarks = false;
         _playbackSpeechSourceText = "";
 
         SetBusy(true);
@@ -1081,6 +1372,7 @@ public partial class MainForm : Form, IMessageFilter
         if (synthError is not null)
         {
             _playbackSpeechMarks.Clear();
+            _playbackTextSyncSapiMarks = false;
             _playbackSpeechSourceText = "";
             MessageBox.Show(this, synthError.Message, "합성 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus("오류");
@@ -1090,6 +1382,7 @@ public partial class MainForm : Form, IMessageFilter
         if (token.IsCancellationRequested)
         {
             _playbackSpeechMarks.Clear();
+            _playbackTextSyncSapiMarks = false;
             _playbackSpeechSourceText = "";
             SetStatus("취소됨");
             return;
@@ -1098,6 +1391,7 @@ public partial class MainForm : Form, IMessageFilter
         if (wavBytes is null || wavBytes.Length == 0)
         {
             _playbackSpeechMarks.Clear();
+            _playbackTextSyncSapiMarks = false;
             _playbackSpeechSourceText = "";
             MessageBox.Show(
                 this,
@@ -1122,6 +1416,11 @@ public partial class MainForm : Form, IMessageFilter
         _playbackSpeechMarks.Clear();
         _playbackSpeechMarks.AddRange(syncTrack.Marks);
         _playbackSpeechLinear = syncTrack.LinearMode;
+        _playbackTextSyncSapiMarks =
+            synthOptions.Method == SpeechSynthesisMethod.SystemSpeechSapi
+            && !syncTrack.LinearMode
+            && syncTrack.Marks.Count > 0
+            && !syncTrack.UsesWinRtScaledTiming;
         _playbackSpeechSourceText = text;
 
         try
@@ -1327,7 +1626,11 @@ public partial class MainForm : Form, IMessageFilter
         _volumeProvider = new VolumeSampleProvider(new Pcm16BitToSampleProvider(_playReader)) { Volume = VolumeFactor };
         _peakProbe = new PeakProbe(_volumeProvider);
 
-        _waveOut = new WaveOutEvent();
+        _waveOut = new WaveOutEvent
+        {
+            DesiredLatency = 60,
+            NumberOfBuffers = 4,
+        };
         _waveOut.PlaybackStopped += WaveOut_PlaybackStopped;
         _waveOut.Init(_peakProbe.ToWaveProvider16());
         _isPlaying = true;
@@ -1455,13 +1758,59 @@ public partial class MainForm : Form, IMessageFilter
         _playReader = null;
     }
 
+    /// <summary>
+    /// WinMM 장치가 실제로 재생한 바이트 기준 시각. <see cref="WaveStream.CurrentTime"/>은 출력 버퍼 때문에
+    /// 들리는 소리와 어긋날 수 있어, 텍스트·파형 헤드는 이 값을 우선합니다.
+    /// </summary>
+    private bool TryGetPlaybackSecondsFromWaveOut(out double seconds)
+    {
+        seconds = 0;
+        if (_waveOut is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            WaveFormat wf = _waveOut.OutputWaveFormat;
+            int bps = wf.AverageBytesPerSecond;
+            int ba = wf.BlockAlign;
+            if (bps <= 0 || ba <= 0)
+            {
+                return false;
+            }
+
+            long pos = _waveOut.GetPosition();
+            pos -= pos % ba;
+            if (pos < 0)
+            {
+                return false;
+            }
+
+            seconds = pos / (double)bps;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private void WaveTimer_Tick(object? sender, EventArgs e)
     {
         if (_isPlaying && _playReader is not null)
         {
             try
             {
-                _lastPlaybackSec = _playReader.CurrentTime.TotalSeconds;
+                if (TryGetPlaybackSecondsFromWaveOut(out double devSec))
+                {
+                    double total = Math.Max(1e-9, _playReader.TotalTime.TotalSeconds);
+                    _lastPlaybackSec = ClampDouble(devSec, 0, total);
+                }
+                else
+                {
+                    _lastPlaybackSec = _playReader.CurrentTime.TotalSeconds;
+                }
             }
             catch
             {
@@ -1545,6 +1894,7 @@ public partial class MainForm : Form, IMessageFilter
         ResetVuBarHistory();
         _playbackSpeechMarks.Clear();
         _playbackSpeechLinear = false;
+        _playbackTextSyncSapiMarks = false;
         _playbackSpeechSourceText = "";
         panelWaveform.Invalidate();
     }
@@ -1641,7 +1991,9 @@ public partial class MainForm : Form, IMessageFilter
 
         if (_playbackSpeechLinear || _playbackSpeechMarks.Count == 0)
         {
-            double total = _bakedWaveDurationSec > 1e-6 ? _bakedWaveDurationSec : 1.0;
+            double total = _playReader is not null
+                ? Math.Max(1e-6, _playReader.TotalTime.TotalSeconds)
+                : (_bakedWaveDurationSec > 1e-6 ? _bakedWaveDurationSec : 1.0);
             int end = ClampInt((int)Math.Round(n * (_lastPlaybackSec / total)), 0, n);
             selStart = 0;
             selLen = end;
@@ -2003,6 +2355,13 @@ public partial class MainForm : Form, IMessageFilter
 
         double total = audioTotalSec > 1e-6 ? audioTotalSec : 1.0;
 
+        if (_playbackTextSyncSapiMarks && !_playbackSpeechLinear && _playbackSpeechMarks.Count > 0)
+        {
+            // SpeakProgress의 AudioPosition이 재생 헤드·실제 발화보다 약간 늦게 잡히는 경우가 있어 소량 선행합니다.
+            const double sapiTextSyncLeadSec = 0.038;
+            tSec = Math.Min(total, tSec + sapiTextSyncLeadSec);
+        }
+
         if (_playbackSpeechLinear || _playbackSpeechMarks.Count == 0)
         {
             return ClampInt((int)Math.Round(n * (tSec / total)), 0, n);
@@ -2055,7 +2414,7 @@ public partial class MainForm : Form, IMessageFilter
         }
 
         int maxOffset = span - 1;
-        int offset = maxOffset == 0 ? 0 : (int)Math.Floor(u * maxOffset + 1e-9);
+        int offset = maxOffset == 0 ? 0 : ClampInt((int)Math.Round(u * maxOffset), 0, maxOffset);
         return ClampInt(wStart + offset, 0, n);
     }
 
@@ -2766,6 +3125,10 @@ public partial class MainForm : Form, IMessageFilter
                 else
                 {
                     syncTrack?.FinalizeFromSapi(text, ssmlUsed);
+                    if (!ssmlUsed && result is not null)
+                    {
+                        TryReplaceSapiSyncMarksWithWinRtScaledWordTiming(text, in options, token, syncTrack, result);
+                    }
                 }
             }
             catch (Exception ex)
@@ -2835,7 +3198,7 @@ public partial class MainForm : Form, IMessageFilter
                     return;
                 }
 
-                syncTrack?.FinalizeWinRt();
+                syncTrack?.ForceLinear();
                 result = wav;
             }
             catch (Exception ex)
@@ -2868,6 +3231,7 @@ public partial class MainForm : Form, IMessageFilter
             {
                 syncTrack?.Clear();
                 var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
+                synth.Options.IncludeWordBoundaryMetadata = true;
                 if (!string.IsNullOrWhiteSpace(options.VoiceName))
                 {
                     foreach (Windows.Media.SpeechSynthesis.VoiceInformation v in Windows.Media.SpeechSynthesis.SpeechSynthesizer.AllVoices)
@@ -2935,6 +3299,9 @@ public partial class MainForm : Form, IMessageFilter
                 }
 
                 using Windows.Media.SpeechSynthesis.SpeechSynthesisStream stream = op.GetResults();
+                bool plainInput = ssml is null;
+                syncTrack?.FinalizeFromWinRtStream(stream, text, plainInput);
+
                 using Stream net = stream.AsStreamForRead();
                 using var ms = new MemoryStream();
                 net.CopyTo(ms);
@@ -2945,10 +3312,6 @@ public partial class MainForm : Form, IMessageFilter
                     caught = new InvalidOperationException("WinRT 합성 결과가 올바른 WAV 형식이 아닙니다.");
                     result = null;
                     syncTrack?.ForceLinear();
-                }
-                else
-                {
-                    syncTrack?.FinalizeWinRt();
                 }
             }
             catch (Exception ex)
