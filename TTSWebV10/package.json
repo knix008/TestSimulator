@@ -1,0 +1,21 @@
+{
+  "name": "ttswebv10",
+  "version": "1.0.0",
+  "description": "Offline web TTS (Sherpa-ONNX VITS), waveform, WAV export",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "download-model": "node scripts/download-model.mjs"
+  },
+  "keywords": ["tts", "sherpa-onnx", "offline", "web"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "sherpa-onnx-node": "^1.13.2"
+  }
+}

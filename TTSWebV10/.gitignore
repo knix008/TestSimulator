@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Build / cache (if added later)
+dist/
+build/
+.cache/
+*.tsbuildinfo
+
+# Local test artifacts
+_out*.mp3
+_tmp-tts-body.json
+test/output/
+
+# Bundled ONNX models (large; place locally — see models/README.md)
+models/*
+!models/README.md

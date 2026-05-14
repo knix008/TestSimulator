@@ -1,0 +1,1 @@
+Special characters test: 3 < 5, A & B, "quotes", and apostrophe's use in plain text.
