@@ -19,9 +19,13 @@ const dlWav = $("dlWav");
 
 const ctx = waveCanvas.getContext("2d");
 
+const WAVE_MAJOR_DIVISIONS = 5;
+
 let lastAudioBlob = null;
 let lastFilenameBase = "tts";
 let lastAudioBuffer = null;
+/** 마지막으로 합성에 사용된 문자열(재생-텍스트 동기화 기준) */
+let lastSynthText = "";
 let peaks = null;
 let rafId = 0;
 
@@ -92,41 +96,209 @@ function computePeaks(audioBuffer, width) {
   return { outMin, outMax };
 }
 
-function drawWaveform(progress01) {
-  const w = waveCanvas.width;
-  const h = waveCanvas.height;
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#0a0d12";
-  ctx.fillRect(0, 0, w, h);
-  if (!peaks) return;
+function getWaveDuration() {
+  const d = audioEl.duration;
+  if (Number.isFinite(d) && d > 0) return d;
+  if (lastAudioBuffer && Number.isFinite(lastAudioBuffer.duration) && lastAudioBuffer.duration > 0) {
+    return lastAudioBuffer.duration;
+  }
+  return 0;
+}
 
-  const mid = h / 2;
-  const amp = mid * 0.92;
-  ctx.strokeStyle = "#3d4a63";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, mid);
-  ctx.lineTo(w, mid);
-  ctx.stroke();
+/** 재생 위치와 맞출 기준 글자 수(마지막 합성 문장 길이 우선) */
+function readAlignBaseLength() {
+  if (lastSynthText) return Math.max(1, lastSynthText.length);
+  const live = textEl.value.length;
+  return Math.max(1, live);
+}
 
-  ctx.strokeStyle = "#7ea3ff";
-  ctx.lineWidth = 1;
-  for (let x = 0; x < w; x++) {
-    const ymin = peaks.outMin[x] * amp;
-    const ymax = peaks.outMax[x] * amp;
-    ctx.beginPath();
-    ctx.moveTo(x + 0.5, mid + ymin);
-    ctx.lineTo(x + 0.5, mid + ymax);
-    ctx.stroke();
+/** 재생 진행에 맞춰 텍스트 선택(플레이헤드) 갱신. 입력란 포커스 시에는 건너뜀. */
+function updateTextPlayhead() {
+  const live = textEl.value;
+  const safeSel = (start, end) => {
+    try {
+      textEl.setSelectionRange(start, end);
+    } catch {
+      /* readonly 등 */
+    }
+  };
+
+  if (!live) {
+    if (document.activeElement !== textEl) safeSel(0, 0);
+    return;
   }
 
+  if (!audioEl.src) {
+    if (document.activeElement !== textEl) safeSel(0, 0);
+    return;
+  }
+
+  const dur = getWaveDuration();
+  if (!dur) {
+    if (document.activeElement !== textEl) safeSel(0, 0);
+    return;
+  }
+
+  const focused = document.activeElement === textEl;
+  const baseLen = readAlignBaseLength();
+  const p = Math.max(0, Math.min(1, audioEl.currentTime / dur));
+  const ideal = Math.floor(p * baseLen);
+  const idx = Math.min(live.length, ideal);
+
+  if (audioEl.paused || audioEl.ended) {
+    if (focused) return;
+    const atEnd = audioEl.ended || audioEl.currentTime >= dur - 0.03;
+    if (atEnd) safeSel(live.length, live.length);
+    else safeSel(idx, idx);
+    return;
+  }
+
+  if (focused) return;
+  safeSel(0, idx);
+}
+
+function waveLayout(canvasHeight, dpr) {
+  const rulerH = Math.min(
+    Math.max(Math.round(38 * dpr), Math.floor(canvasHeight * 0.26)),
+    Math.floor(canvasHeight * 0.36),
+  );
+  const waveH = canvasHeight - rulerH;
+  return { waveH: Math.max(2, waveH), rulerH };
+}
+
+/**
+ * @param {CanvasRenderingContext2D} c
+ */
+function drawTimeRuler(c, w, h, waveH, durationSec, dpr) {
+  const top = waveH;
+  const rulerH = h - waveH;
+  const tickTop = top + Math.round(4 * dpr);
+  const majorH = Math.round(9 * dpr);
+  const minorH = Math.round(5 * dpr);
+  const baseline = tickTop + majorH;
+  const fontPx = Math.max(10, Math.round(11 * dpr));
+  const pad = Math.round(6 * dpr);
+
+  c.fillStyle = "#070910";
+  c.fillRect(0, top, w, rulerH);
+
+  c.strokeStyle = "#2a3548";
+  c.lineWidth = Math.max(1, dpr);
+  c.beginPath();
+  c.moveTo(0, top + 0.5);
+  c.lineTo(w, top + 0.5);
+  c.stroke();
+
+  const dur = Number.isFinite(durationSec) && durationSec > 0 ? durationSec : 0;
+
+  c.font = `600 ${fontPx}px system-ui, "Segoe UI", "Noto Sans KR", sans-serif`;
+  c.textBaseline = "top";
+
+  for (let i = 0; i <= WAVE_MAJOR_DIVISIONS; i++) {
+    const x = (i / WAVE_MAJOR_DIVISIONS) * (w - 1);
+    c.strokeStyle = "#6a7a94";
+    c.lineWidth = Math.max(1, 1.1 * dpr);
+    c.beginPath();
+    c.moveTo(x + 0.5, tickTop);
+    c.lineTo(x + 0.5, baseline);
+    c.stroke();
+
+    const t = dur > 0 ? (i / WAVE_MAJOR_DIVISIONS) * dur : 0;
+    const label = dur > 0 ? fmtTime(t) : i === 0 ? "0:00" : "";
+    if (!label) continue;
+    c.fillStyle = "#97a3b8";
+    if (i === 0) {
+      c.textAlign = "left";
+      c.fillText(label, pad, baseline + Math.round(3 * dpr));
+    } else if (i === WAVE_MAJOR_DIVISIONS) {
+      c.textAlign = "right";
+      c.fillText(label, w - pad, baseline + Math.round(3 * dpr));
+    } else {
+      c.textAlign = "center";
+      c.fillText(label, x, baseline + Math.round(3 * dpr));
+    }
+  }
+
+  if (w > 180 * dpr) {
+    c.strokeStyle = "#3d4a5c";
+    c.lineWidth = Math.max(0.8, 0.85 * dpr);
+    for (let i = 0; i < WAVE_MAJOR_DIVISIONS; i++) {
+      for (let j = 1; j < 5; j++) {
+        const frac = (i + j / 5) / WAVE_MAJOR_DIVISIONS;
+        const x = frac * (w - 1);
+        c.beginPath();
+        c.moveTo(x + 0.5, baseline - minorH);
+        c.lineTo(x + 0.5, baseline);
+        c.stroke();
+      }
+    }
+  }
+}
+
+function drawWaveform(progress01, durationSec) {
+  const w = waveCanvas.width;
+  const h = waveCanvas.height;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const { waveH } = waveLayout(h, dpr);
+  const dur = Number.isFinite(durationSec) && durationSec > 0 ? durationSec : 0;
   const p = Math.max(0, Math.min(1, progress01));
-  const x = p * (w - 1);
-  ctx.strokeStyle = "#c94c4c";
-  ctx.lineWidth = 3;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#0a0d12";
+  ctx.fillRect(0, 0, w, waveH);
+
+  if (peaks) {
+    const mid = waveH / 2;
+    const amp = mid * 0.9;
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= WAVE_MAJOR_DIVISIONS; i++) {
+      const gx = (i / WAVE_MAJOR_DIVISIONS) * (w - 1);
+      ctx.beginPath();
+      ctx.moveTo(gx + 0.5, 0);
+      ctx.lineTo(gx + 0.5, waveH);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = "#3d4a63";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(w, mid);
+    ctx.stroke();
+
+    ctx.strokeStyle = "#7ea3ff";
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x++) {
+      const ymin = peaks.outMin[x] * amp;
+      const ymax = peaks.outMax[x] * amp;
+      ctx.beginPath();
+      ctx.moveTo(x + 0.5, mid + ymin);
+      ctx.lineTo(x + 0.5, mid + ymax);
+      ctx.stroke();
+    }
+  }
+
+  drawTimeRuler(ctx, w, h, waveH, dur, dpr);
+
+  const xPlay = p * (w - 1);
+  ctx.save();
+  ctx.shadowColor = "rgba(220, 64, 64, 0.55)";
+  ctx.shadowBlur = 8 * dpr;
+  ctx.strokeStyle = "#e23d3d";
+  ctx.lineWidth = Math.max(3.5, 3 * dpr);
   ctx.beginPath();
-  ctx.moveTo(x, 0);
-  ctx.lineTo(x, h);
+  ctx.moveTo(xPlay, 0);
+  ctx.lineTo(xPlay, waveH);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(255, 220, 220, 0.9)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(xPlay, 0);
+  ctx.lineTo(xPlay, Math.min(Math.round(12 * dpr), waveH));
   ctx.stroke();
 }
 
@@ -134,7 +306,7 @@ function resizeCanvasToDisplaySize() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const rect = waveCanvas.getBoundingClientRect();
   const w = Math.max(320, Math.floor(rect.width * dpr));
-  const h = Math.floor(160 * dpr);
+  const h = Math.max(80, Math.floor((rect.height || 200) * dpr));
   if (waveCanvas.width !== w || waveCanvas.height !== h) {
     waveCanvas.width = w;
     waveCanvas.height = h;
@@ -147,12 +319,14 @@ function redrawFromAudio() {
   resizeCanvasToDisplaySize();
   if (!lastAudioBuffer) {
     peaks = null;
-    drawWaveform(0);
+    drawWaveform(0, 0);
+    updateTextPlayhead();
     return;
   }
   peaks = computePeaks(lastAudioBuffer, waveCanvas.width);
   const cur = audioEl.duration ? audioEl.currentTime / audioEl.duration : 0;
-  drawWaveform(cur);
+  drawWaveform(cur, getWaveDuration());
+  updateTextPlayhead();
 }
 
 function tick() {
@@ -160,7 +334,8 @@ function tick() {
   const cur = audioEl.currentTime;
   timeEl.textContent = `${fmtTime(cur)} / ${fmtTime(d || 0)}`;
   const p = d ? cur / d : 0;
-  drawWaveform(p);
+  drawWaveform(p, getWaveDuration());
+  updateTextPlayhead();
   rafId = requestAnimationFrame(tick);
 }
 
@@ -182,6 +357,7 @@ function triggerDownload(blob, name) {
 }
 
 async function synthesizeFromText(text) {
+  lastSynthText = "";
   setStatus("합성 중…");
   synthBtn.disabled = true;
   try {
@@ -203,6 +379,7 @@ async function synthesizeFromText(text) {
     }
     const blob = await res.blob();
     await applyAudioBlob(blob);
+    lastSynthText = text;
     setStatus("완료");
   } catch (e) {
     setStatus(String(e.message || e));
@@ -227,6 +404,7 @@ async function applyAudioBlob(blob) {
   playPauseBtn.textContent = "재생";
 
   redrawFromAudio();
+  updateTextPlayhead();
 }
 
 fileEl.addEventListener("change", async () => {
@@ -234,6 +412,7 @@ fileEl.addEventListener("change", async () => {
   if (!f) return;
   const t = await f.text();
   textEl.value = t;
+  lastSynthText = "";
   lastFilenameBase = f.name.replace(/\.[^/.]+$/, "") || "tts";
   setStatus(`파일 로드: ${f.name}`);
 });
@@ -253,6 +432,13 @@ rateEl.addEventListener("input", updateSliderLabels);
 pitchEl.addEventListener("input", updateSliderLabels);
 volumeEl.addEventListener("input", updateSliderLabels);
 
+audioEl.addEventListener("loadedmetadata", () => {
+  redrawFromAudio();
+  updateTextPlayhead();
+});
+audioEl.addEventListener("timeupdate", () => {
+  updateTextPlayhead();
+});
 audioEl.addEventListener("play", () => {
   playPauseBtn.textContent = "일시정지";
   startRaf();
@@ -275,11 +461,12 @@ playPauseBtn.addEventListener("click", () => {
 });
 
 waveCanvas.addEventListener("click", (ev) => {
-  if (!audioEl.duration || !Number.isFinite(audioEl.duration)) return;
+  const dur = getWaveDuration();
+  if (!dur || !Number.isFinite(dur)) return;
   const rect = waveCanvas.getBoundingClientRect();
   const x = ev.clientX - rect.left;
   const p = x / rect.width;
-  audioEl.currentTime = Math.max(0, Math.min(audioEl.duration, p * audioEl.duration));
+  audioEl.currentTime = Math.max(0, Math.min(dur, p * dur));
   redrawFromAudio();
 });
 
@@ -295,6 +482,7 @@ window.addEventListener("resize", () => {
 updateSliderLabels();
 
 resizeCanvasToDisplaySize();
-drawWaveform(0);
+drawWaveform(0, 0);
+updateTextPlayhead();
 
 loadVoices().catch((e) => setStatus(String(e.message || e)));

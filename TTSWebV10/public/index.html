@@ -3,80 +3,103 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TTS Web V10 — 합성 · 파형 · 저장</title>
+    <title>TTS Web V10</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="page">
-      <header class="header">
-        <h1>TTS Web</h1>
-        <p class="sub">
-          <strong>오프라인</strong> 합성입니다. 로컬에 둔 Sherpa-ONNX VITS 모델(<code>sherpa-onnx-node</code>)만 사용하며,
-          Microsoft 등 외부 음성 API는 호출하지 않습니다. 모델 폴더가 준비되어 있어야 하며, 출력은
-          <strong>WAV</strong>입니다.
-        </p>
+      <header class="masthead">
+        <div class="masthead-main">
+          <h1 class="title">TTS Web <span class="title-ver">V10</span></h1>
+          <p class="lede">
+            Sherpa-ONNX VITS 로컬 합성 · 외부 음성 API 없음 · 출력 WAV
+          </p>
+        </div>
+        <ul class="badges" aria-label="특징">
+          <li>오프라인</li>
+          <li>WAV</li>
+        </ul>
       </header>
 
-      <div class="grid">
-        <section class="card wide">
-          <h2>텍스트</h2>
-          <div class="field">
-            <label class="label" for="text">직접 입력</label>
-            <textarea id="text" placeholder="여기에 읽을 문장을 입력하세요."></textarea>
-          </div>
-          <div class="field file-row">
-            <label class="label" for="file">텍스트 파일(.txt 등)</label>
-            <input id="file" type="file" accept=".txt,text/plain" />
+      <main class="layout">
+        <section class="panel panel-text" aria-labelledby="h-text">
+          <h2 id="h-text" class="panel-h">텍스트</h2>
+          <label class="sr-only" for="text">합성할 문장</label>
+          <textarea
+            id="text"
+            class="input-text"
+            rows="8"
+            placeholder="합성할 문장을 입력하세요."
+            spellcheck="true"
+          ></textarea>
+          <p class="readalong-hint" id="readalongHint">
+            재생 중에는 음성에 대응하는 글자까지 <strong>선택 영역</strong>이 이동합니다. 입력란을 편집할 때(포커스)는
+            갱신이 멈춥니다(문자 수에 비례한 근사 위치).
+          </p>
+          <div class="file-block">
+            <label class="file-label" for="file">파일에서 불러오기</label>
+            <input id="file" class="input-file" type="file" accept=".txt,text/plain" />
           </div>
         </section>
 
-        <section class="card">
-          <h2>음성 · 파라미터</h2>
+        <section class="panel panel-options" aria-labelledby="h-options">
+          <h2 id="h-options" class="panel-h">음성 · 설정</h2>
           <div class="field">
             <label class="label" for="voice">화자 (sid)</label>
-            <select id="voice"></select>
+            <select id="voice" class="input-select"></select>
           </div>
-          <div class="field">
-            <label class="label" for="rate">속도 <span class="val" id="rateVal">0%</span></label>
-            <input id="rate" type="range" min="-50" max="100" value="0" step="1" />
-            <span class="hint">Sherpa 재생 속도 계수(느림 ↔ 빠름).</span>
+
+          <div class="slider-block">
+            <div class="slider-head">
+              <label class="label" for="rate">속도</label>
+              <span class="val" id="rateVal">0%</span>
+            </div>
+            <input id="rate" class="slider" type="range" min="-50" max="100" value="0" step="1" />
+            <p class="hint">재생 속도 계수 (느림 ↔ 빠름)</p>
           </div>
-          <div class="field">
-            <label class="label" for="pitch">피치 <span class="val" id="pitchVal">0</span></label>
-            <input id="pitch" type="range" min="-50" max="50" value="0" step="1" />
-            <span class="hint">합성 후 음높이를 조절합니다(대략 반음 스케일). 0은 그대로입니다.</span>
+
+          <div class="slider-block">
+            <div class="slider-head">
+              <label class="label" for="pitch">피치</label>
+              <span class="val" id="pitchVal">0</span>
+            </div>
+            <input id="pitch" class="slider" type="range" min="-50" max="50" value="0" step="1" />
+            <p class="hint">합성 후 음높이 (대략 반음 스케일, 0 = 변경 없음)</p>
           </div>
-          <div class="field">
-            <label class="label" for="volume">크기 <span class="val" id="volumeVal">0%</span></label>
-            <input id="volume" type="range" min="-50" max="50" value="0" step="1" />
-            <span class="hint">합성 후 샘플에 간단한 게인을 적용합니다.</span>
+
+          <div class="slider-block">
+            <div class="slider-head">
+              <label class="label" for="volume">크기</label>
+              <span class="val" id="volumeVal">0%</span>
+            </div>
+            <input id="volume" class="slider" type="range" min="-50" max="50" value="0" step="1" />
+            <p class="hint">합성 후 게인</p>
           </div>
-          <div class="actions">
-            <button type="button" class="primary" id="synthesize">합성</button>
-            <span class="status" id="status"></span>
+
+          <div class="action-bar">
+            <button type="button" class="btn btn-primary" id="synthesize">합성</button>
+            <p class="status" id="status" role="status" aria-live="polite"></p>
           </div>
         </section>
 
-        <section class="card wide">
-          <h2>재생 · 파형</h2>
-          <div class="player">
-            <audio id="player" controls preload="none"></audio>
-            <div class="transport">
-              <button type="button" id="playPause">재생</button>
-              <span class="time" id="time">0:00 / 0:00</span>
-            </div>
-            <p class="sub" style="margin: 0">
-              파형 위를 클릭하면 해당 위치로 이동합니다. 붉은 막대는 재생 진행 위치입니다.
-            </p>
-            <div class="wave-wrap">
-              <canvas id="wave" width="960" height="160" aria-label="파형"></canvas>
-            </div>
-            <div class="export">
-              <button type="button" id="dlWav" disabled>WAV 저장</button>
-            </div>
+        <section class="panel panel-player" aria-labelledby="h-player">
+          <h2 id="h-player" class="panel-h">재생 · 파형</h2>
+          <audio id="player" class="player-audio" controls preload="none"></audio>
+          <div class="transport">
+            <button type="button" class="btn" id="playPause">재생</button>
+            <span class="time" id="time">0:00 / 0:00</span>
+          </div>
+          <p class="wave-help">
+            파형·시간 눈금 위를 클릭하면 해당 시점으로 이동합니다. 붉은 막대는 재생 위치입니다.
+          </p>
+          <div class="wave-shell">
+            <canvas id="wave" width="960" height="200" aria-label="오디오 파형과 시간 눈금"></canvas>
+          </div>
+          <div class="export-bar">
+            <button type="button" class="btn btn-secondary" id="dlWav" disabled>WAV 저장</button>
           </div>
         </section>
-      </div>
+      </main>
     </div>
     <script src="/app.js"></script>
   </body>
