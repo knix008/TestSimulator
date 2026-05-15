@@ -1,0 +1,43 @@
+## Build
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+*.log
+
+## Visual Studio / VS Code / Rider
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+.idea/
+*.rsuser
+
+## NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+## Test / coverage
+TestResults/
+[Tt]emp/
+*.coverage
+*.coveragexml
+
+## OS / tooling
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## Local / secrets (never commit)
+*.pfx
+*.snk
+appsettings.*.local.json
+.env
+.env.*
+
+## IL dumps (optional local analysis)
+**/obj/*.il

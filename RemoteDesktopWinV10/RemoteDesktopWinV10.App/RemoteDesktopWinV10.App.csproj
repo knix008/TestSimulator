@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationTitle>Remote Desktop Win</ApplicationTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Lemutec.RemoteViewing.Windows.Forms" Version="1.2.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <Reference Include="AxMSTSCLib">
+      <HintPath>RdpInterop\AxMSTSCLib.dll</HintPath>
+    </Reference>
+    <Reference Include="MSTSCLib">
+      <HintPath>RdpInterop\MSTSCLib.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="AppSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="AppSettingsForm.Designer.cs">
+      <DependentUpon>AppSettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="ProfileEditForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="ProfileEditForm.Designer.cs">
+      <DependentUpon>ProfileEditForm.cs</DependentUpon>
+    </Compile>
+    <Compile Update="ProfileManagerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="ProfileManagerForm.Designer.cs">
+      <DependentUpon>ProfileManagerForm.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>
