@@ -15,9 +15,6 @@ public partial class MainForm : Form
     private bool _remoteClientsInitialized;
     private bool _vncConnecting;
     private bool _rdpConnecting;
-    private bool _suppressDefaults;
-    private bool _suppressProfileChange;
-    private bool _suppressHistoryChange;
     private bool _fullScreenChromeHidden;
     private FormBorderStyle _savedBorder = FormBorderStyle.Sizable;
     private FormWindowState _savedWindowState = FormWindowState.Normal;
@@ -58,61 +55,29 @@ public partial class MainForm : Form
         ApplyModernChrome();
         InitializeRemoteClients();
 
-        protocolCombo.Items.AddRange(new object[] { "RDP", "VNC" });
-        protocolCombo.SelectedIndex = 0;
+        toolStripProtocol.Items.AddRange(new object[] { "RDP", "VNC" });
+        toolStripProtocol.SelectedIndex = 0;
 
         manageProfilesToolStripMenuItem.Click += (_, _) => OpenProfileManager();
         appMenuVisibilityToolStripMenuItem.Click += (_, _) => OpenAppSettings();
-        toolStripManageProfiles.Click += (_, _) => OpenProfileManager();
-        toolStripAppSettings.Click += (_, _) => OpenAppSettings();
         openDataFolderToolStripMenuItem.Click += (_, _) => OpenLocalDataFolder();
         exitToolStripMenuItem.Click += (_, _) => Application.Exit();
         fullScreenToolStripMenuItem.Click += (_, _) => ToggleFullScreen();
+        connectToolStripMenuItem.Click += async (_, _) => await OnQuickConnectClickAsync();
+        connectionSettingsToolStripMenuItem.Click += (_, _) => OpenConnectionSettings();
 
-        protocolCombo.SelectedIndexChanged += (_, _) => ApplyProtocolDefaults();
-        connectButton.Click += async (_, _) =>
-        {
-            try
-            {
-                await OnConnectClickAsync();
-            }
-            catch (Exception ex)
-            {
-                _rdpConnecting = false;
-                _vncConnecting = false;
-                try
-                {
-                    UpdateConnectUi();
-                }
-                catch
-                {
-                    // ignore
-                }
-
-                MessageBox.Show(
-                    this,
-                    ExceptionMessageFormatter.Format(ex, "연결 처리 중 예외가 발생했습니다."),
-                    Text,
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
-            }
-        };
-        profilesCombo.SelectedIndexChanged += (_, _) => OnProfileSelected();
-        historyCombo.SelectedIndexChanged += (_, _) => OnHistorySelected();
+        toolStripProtocol.SelectedIndexChanged += (_, _) => ApplyQuickConnectDefaults();
+        toolStripConnect.Click += async (_, _) => await OnQuickConnectClickAsync();
+        
         KeyDown += OnFormKeyDown;
-        credSspCheck.CheckedChanged += OnStatusRelatedInputChanged;
-        nlaCheck.CheckedChanged += OnStatusRelatedInputChanged;
-        relaxedCertCheck.CheckedChanged += OnStatusRelatedInputChanged;
-        rdpClipboardCheck.CheckedChanged += OnStatusRelatedInputChanged;
-        rdpDrivesCheck.CheckedChanged += OnStatusRelatedInputChanged;
-        rdpPrintersCheck.CheckedChanged += OnStatusRelatedInputChanged;
-        hostText.TextChanged += OnStatusRelatedInputChanged;
-        portText.TextChanged += OnStatusRelatedInputChanged;
+        toolStripHost.TextChanged += OnStatusRelatedInputChanged;
+        toolStripPort.TextChanged += OnStatusRelatedInputChanged;
+
+        // Load profiles and history
+        LoadProfilesAndHistory();
 
         ApplyMainMenuFromSettings();
-        ReloadProfilesIntoCombo(selectId: null);
-        ReloadHistoryIntoCombo(preserveSelection: false);
-        ApplyProtocolDefaults();
+        ApplyQuickConnectDefaults();
         UpdateConnectUi();
     }
 
@@ -155,14 +120,7 @@ public partial class MainForm : Form
         ForeColor = UiTheme.TextPrimary;
 
         UiTheme.ApplyLightToolStripChrome(mainMenuStrip);
-        UiTheme.ApplyLightToolStripChrome(mainToolStrip);
-
-        splitRoot.BackColor = UiTheme.BgApp;
-        panelConnection.BackColor = UiTheme.BgToolbar;
-        panelConnection.Padding = new Padding(12, 8, 12, 6);
-        panelProfileRow.BackColor = UiTheme.BgToolbar;
-        panelServerRow.BackColor = UiTheme.BgToolbar;
-        flowRdpOptions.BackColor = UiTheme.BgToolbar;
+        UiTheme.ApplyLightToolStripChrome(quickConnectToolStrip);
 
         remotePanel.BackColor = UiTheme.BgRemote;
         rdpHostPanel.BackColor = UiTheme.BgRemote;
@@ -179,8 +137,6 @@ public partial class MainForm : Form
         toolStripStatusViewport.ForeColor = UiTheme.TextMuted;
         toolStripStatusOptions.BorderSides = ToolStripStatusLabelBorderSides.None;
         toolStripStatusOptions.ForeColor = UiTheme.TextMuted;
-
-        ApplyConnectionPanelChromeRecursive(panelConnection);
     }
 
     private void ApplyConnectionPanelChromeRecursive(Control parent)
@@ -244,10 +200,11 @@ public partial class MainForm : Form
         {
             _rdpConnecting = false;
             SetStatusHeadline("RDP 연결됨 — 원격 데스크톱 세션이 수립되었습니다");
-            if (int.TryParse(portText.Text.Trim(), out var hp) && hp > 0)
-            {
-                TryRecordConnectionHistory(RemoteDesktopProtocol.Rdp, hostText.Text.Trim(), hp);
-            }
+            // TODO: Record connection history from toolbar controls
+            // if (int.TryParse(toolStripPort.Text.Trim(), out var hp) && hp > 0)
+            // {
+            //     TryRecordConnectionHistory(RemoteDesktopProtocol.Rdp, toolStripHost.Text.Trim(), hp);
+            // }
 
             UpdateConnectUi();
         });
@@ -307,10 +264,10 @@ public partial class MainForm : Form
 
     private void OpenProfileManager()
     {
-        var prevId = profilesCombo.SelectedIndex > 0 ? _profilesList[profilesCombo.SelectedIndex - 1].Id : (Guid?)null;
         using var dlg = new ProfileManagerForm();
         dlg.ShowDialog(this);
-        ReloadProfilesIntoCombo(dlg.LastSelectedProfileId ?? prevId);
+        // Reload profiles after profile manager closes
+        LoadProfilesAndHistory();
         RefreshStatusStrip();
     }
 
@@ -404,8 +361,8 @@ public partial class MainForm : Form
         toolStripStatusState.Text = "상태: " + _statusHeadline;
 
         var proto = IsRdp ? "RDP" : "VNC";
-        var host = hostText.Text.Trim();
-        var portStr = portText.Text.Trim();
+        var host = toolStripHost.Text.Trim();
+        var portStr = toolStripPort.Text.Trim();
         if (host.Length == 0)
         {
             toolStripStatusConnection.Text = "연결: " + proto + " — 호스트 미입력";
@@ -473,13 +430,10 @@ public partial class MainForm : Form
             toolStripStatusViewport.Text = "원격 패널: VNC 영역 표시됨 · 미연결";
         }
 
+        // TODO: Display RDP/VNC options from connection settings dialog
         if (IsRdp)
         {
-            toolStripStatusOptions.Text =
-                "RDP: CredSSP=" + (credSspCheck.Checked ? "예" : "아니오")
-                + ", NLA=" + (nlaCheck.Checked ? "예" : "아니오")
-                + ", 인증서완화=" + (relaxedCertCheck.Checked ? "예" : "아니오")
-                + ", 클립보드=" + (rdpClipboardCheck.Checked ? "예" : "아니오");
+            toolStripStatusOptions.Text = "RDP: 설정 확인 필요";
         }
         else
         {
@@ -506,8 +460,8 @@ public partial class MainForm : Form
             _savedWindowState = WindowState;
 
             mainMenuStrip.Visible = false;
-            mainToolStrip.Visible = false;
-            splitRoot.Panel1Collapsed = true;
+            quickConnectToolStrip.Visible = false;
+            statusStrip.Visible = false;
 
             FormBorderStyle = FormBorderStyle.None;
             WindowState = FormWindowState.Maximized;
@@ -546,8 +500,8 @@ public partial class MainForm : Form
             }
 
             mainMenuStrip.Visible = true;
-            mainToolStrip.Visible = true;
-            splitRoot.Panel1Collapsed = false;
+            quickConnectToolStrip.Visible = true;
+            statusStrip.Visible = true;
 
             FormBorderStyle = _savedBorder;
             WindowState = _savedWindowState;
@@ -564,6 +518,8 @@ public partial class MainForm : Form
         RefreshStatusStrip();
     }
 
+    // Profiles combo no longer exists - profiles are managed through ConnectionDialog
+    /*
     private void ReloadProfilesIntoCombo(Guid? selectId)
     {
         _suppressProfileChange = true;
@@ -605,7 +561,10 @@ public partial class MainForm : Form
 
         RefreshStatusStrip();
     }
+    */
 
+    // History combo no longer exists - history is managed through ConnectionDialog
+    /*
     private void ReloadHistoryIntoCombo(bool preserveSelection)
     {
         var prev = preserveSelection && historyCombo.SelectedIndex > 0 && historyCombo.SelectedIndex <= _historyList.Count
@@ -655,13 +614,14 @@ public partial class MainForm : Form
 
         RefreshStatusStrip();
     }
+    */
 
     private void TryRecordConnectionHistory(RemoteDesktopProtocol protocol, string host, int port)
     {
         try
         {
             ConnectionHistoryStore.Record(protocol, host, port);
-            ReloadHistoryIntoCombo(preserveSelection: false);
+            // ReloadHistoryIntoCombo(preserveSelection: false); // History combo removed
         }
         catch (Exception ex)
         {
@@ -674,6 +634,8 @@ public partial class MainForm : Form
         }
     }
 
+    // History selection handled by ConnectionDialog
+    /*
     private void OnHistorySelected()
     {
         if (_suppressHistoryChange)
@@ -699,7 +661,10 @@ public partial class MainForm : Form
         SetRdpRedirectControlsEnabled(IsRdp);
         RefreshStatusStrip();
     }
+    */
 
+    // Profile selection handled by ConnectionDialog
+    /*
     private void OnProfileSelected()
     {
         if (_suppressProfileChange)
@@ -759,7 +724,10 @@ public partial class MainForm : Form
         SetRdpRedirectControlsEnabled(IsRdp);
         RefreshStatusStrip();
     }
+    */
 
+    // Protocol defaults handled by toolbar controls (ApplyQuickConnectDefaults)
+    /*
     private void ApplyProtocolDefaults()
     {
         if (_suppressDefaults)
@@ -779,15 +747,19 @@ public partial class MainForm : Form
         SetRdpRedirectControlsEnabled(isRdp);
         RefreshStatusStrip();
     }
+    */
 
+    // RDP redirect controls removed - settings managed through ConnectionDialog
+    /*
     private void SetRdpRedirectControlsEnabled(bool rdp)
     {
         rdpClipboardCheck.Enabled = rdp;
         rdpDrivesCheck.Enabled = rdp;
         rdpPrintersCheck.Enabled = rdp;
     }
+    */
 
-    private bool IsRdp => protocolCombo.SelectedIndex == 0;
+    private bool IsRdp => toolStripProtocol.SelectedIndex == 0;
 
     private bool IsSessionActive
     {
@@ -807,44 +779,44 @@ public partial class MainForm : Form
         var active = IsSessionActive;
         var connecting = _vncConnecting || _rdpConnecting;
 
+        // Update toolbar connect button
         if (active)
         {
-            connectButton.Enabled = true;
-            connectButton.Text = "연결 끊기";
-            UiTheme.StyleConnectButton(connectButton, true);
+            toolStripConnect.Enabled = true;
+            toolStripConnect.Text = "연결 끊기";
+            toolStripConnect.BackColor = Color.FromArgb(220, 53, 69); // Red for disconnect
+            toolStripConnect.ForeColor = Color.White;
         }
         else if (connecting)
         {
-            connectButton.Enabled = false;
-            connectButton.Text = "연결 중…";
-            UiTheme.StyleConnectButtonConnecting(connectButton);
+            toolStripConnect.Enabled = false;
+            toolStripConnect.Text = "연결 중…";
+            toolStripConnect.BackColor = Color.FromArgb(255, 193, 7); // Yellow for connecting
+            toolStripConnect.ForeColor = Color.Black;
         }
         else
         {
-            connectButton.Enabled = true;
-            connectButton.Text = "연결";
-            UiTheme.StyleConnectButton(connectButton, false);
+            toolStripConnect.Enabled = true;
+            toolStripConnect.Text = "연결";
+            toolStripConnect.BackColor = Color.FromArgb(40, 167, 69); // Green for connect
+            toolStripConnect.ForeColor = Color.White;
         }
 
         var busy = active || connecting;
         UseWaitCursor = connecting;
 
-        profilesCombo.Enabled = !busy;
-        protocolCombo.Enabled = !busy;
-        hostText.Enabled = !busy;
-        portText.Enabled = !busy;
-        userText.Enabled = !busy && IsRdp;
-        passwordText.Enabled = !busy;
-        credSspCheck.Enabled = !busy;
-        nlaCheck.Enabled = !busy;
-        relaxedCertCheck.Enabled = !busy;
-        historyCombo.Enabled = !busy;
-        SetRdpRedirectControlsEnabled(!busy && IsRdp);
+        // Enable/disable toolbar controls
+        toolStripProtocol.Enabled = !busy;
+        toolStripHost.Enabled = !busy;
+        toolStripPort.Enabled = !busy;
+        
         RefreshStatusStrip();
     }
 
     private void OnStatusRelatedInputChanged(object? sender, EventArgs e) => RefreshStatusStrip();
 
+    // Old connect method - replaced by OnQuickConnectClickAsync
+    /*
     private async Task OnConnectClickAsync()
     {
         if (IsSessionActive)
@@ -886,38 +858,31 @@ public partial class MainForm : Form
             await ConnectVncAsync(host, port, passwordText.Text);
         }
     }
+    */
 
     private void ApplyRdpSecurityOptions()
     {
-        ((IMsRdpClientAdvancedSettings6)rdpClient.AdvancedSettings6).EnableCredSspSupport = credSspCheck.Checked;
+        // TODO: Get security options from ConnectionDialog settings
+        // Using defaults for now
+        ((IMsRdpClientAdvancedSettings6)rdpClient.AdvancedSettings6).EnableCredSspSupport = true;
 
         var ocx = (IMsRdpClientNonScriptable3)rdpClient.GetOcx();
-        ocx.NegotiateSecurityLayer = nlaCheck.Checked;
+        ocx.NegotiateSecurityLayer = true;
 
         var n4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
-        if (relaxedCertCheck.Checked)
-        {
-            n4.TrustedZoneSite = true;
-            rdpClient.AdvancedSettings5.AuthenticationLevel = 0u;
-        }
-        else
-        {
-            n4.TrustedZoneSite = false;
-            // 인증서 완화를 끈 뒤에도 0이 남으면 서버가 세션을 바로 끊는 경우가 있어 기본(2)으로 복구합니다.
-            rdpClient.AdvancedSettings5.AuthenticationLevel = 2u;
-        }
+        n4.TrustedZoneSite = false;
+        rdpClient.AdvancedSettings5.AuthenticationLevel = 2u;
     }
 
     private void ApplyRdpRedirection()
     {
-        rdpClient.AdvancedSettings2.RedirectDrives = rdpDrivesCheck.Checked;
-        rdpClient.AdvancedSettings2.RedirectPrinters = rdpPrintersCheck.Checked;
-        rdpClient.AdvancedSettings6.RedirectClipboard = rdpClipboardCheck.Checked;
-        if (rdpClipboardCheck.Checked)
-        {
-            var n4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
-            n4.WarnAboutClipboardRedirection = false;
-        }
+        // TODO: Get redirection options from ConnectionDialog settings
+        // Using defaults for now
+        rdpClient.AdvancedSettings2.RedirectDrives = false;
+        rdpClient.AdvancedSettings2.RedirectPrinters = false;
+        rdpClient.AdvancedSettings6.RedirectClipboard = true;
+        var n4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
+        n4.WarnAboutClipboardRedirection = false;
     }
 
     private void ConnectRdp(string host, int port, string user, string password)
@@ -1139,5 +1104,126 @@ public partial class MainForm : Form
         }
 
         base.OnFormClosing(e);
+    }
+
+    private void ApplyQuickConnectDefaults()
+    {
+        var isRdp = toolStripProtocol.SelectedIndex == 0;
+        toolStripPort.Text = isRdp ? "3389" : "5900";
+        RefreshStatusStrip();
+    }
+
+    private async Task OnQuickConnectClickAsync()
+    {
+        if (IsSessionActive)
+        {
+            DisconnectCurrent();
+            return;
+        }
+
+        // Reload profiles and history before opening dialog
+        LoadProfilesAndHistory();
+
+        // Open ConnectionDialog to get connection details
+        using var dialog = new ConnectionDialog();
+        
+        // Load current toolbar settings into dialog
+        dialog.Protocol = toolStripProtocol.SelectedItem?.ToString() ?? "RDP";
+        dialog.Host = toolStripHost.Text.Trim();
+        dialog.Port = toolStripPort.Text.Trim();
+        dialog.SetProfiles(_profilesList);
+        dialog.SetHistory(_historyList);
+        dialog.LoadCurrentSettings();
+        
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        // Update toolbar from dialog
+        toolStripProtocol.SelectedItem = dialog.Protocol;
+        toolStripHost.Text = dialog.Host;
+        toolStripPort.Text = dialog.Port;
+
+        var host = dialog.Host.Trim();
+        if (host.Length == 0)
+        {
+            SetStatusHeadline("입력 필요 — 서버(호스트) 주소를 입력하세요");
+            MessageBox.Show(this, "서버 주소를 입력하세요.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (!int.TryParse(dialog.Port.Trim(), out var port) || port is < 1 or > 65535)
+        {
+            SetStatusHeadline("입력 오류 — 포트는 1~65535 숫자여야 합니다");
+            MessageBox.Show(this, "포트는 1~65535 사이여야 합니다.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (dialog.Protocol == "RDP")
+        {
+            var user = dialog.Username.Trim();
+            if (string.IsNullOrWhiteSpace(user))
+            {
+                SetStatusHeadline("입력 필요 — RDP 사용자 이름을 입력하세요");
+                MessageBox.Show(this, "RDP 사용자 이름을 입력하세요.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            await Task.Yield();
+            ConnectRdp(host, port, user, dialog.Password);
+        }
+        else
+        {
+            await ConnectVncAsync(host, port, dialog.Password);
+        }
+    }
+
+    private void OpenConnectionSettings()
+    {
+        // Reload profiles and history before opening dialog
+        LoadProfilesAndHistory();
+        
+        using var dialog = new ConnectionDialog();
+        
+        // Load current toolbar settings into dialog
+        dialog.Protocol = toolStripProtocol.SelectedItem?.ToString() ?? "RDP";
+        dialog.Host = toolStripHost.Text.Trim();
+        dialog.Port = toolStripPort.Text.Trim();
+        dialog.SetProfiles(_profilesList);
+        dialog.SetHistory(_historyList);
+        dialog.LoadCurrentSettings();
+        
+        if (dialog.ShowDialog(this) == DialogResult.OK)
+        {
+            // Apply settings from dialog to toolbar
+            toolStripProtocol.SelectedItem = dialog.Protocol;
+            toolStripHost.Text = dialog.Host;
+            toolStripPort.Text = dialog.Port;
+        }
+        
+        // Reload profiles in case any were saved
+        LoadProfilesAndHistory();
+    }
+    
+    private void LoadProfilesAndHistory()
+    {
+        try
+        {
+            _profilesList = ConnectionProfileStore.Load();
+        }
+        catch
+        {
+            _profilesList = new List<ConnectionProfile>();
+        }
+        
+        try
+        {
+            _historyList = ConnectionHistoryStore.Load();
+        }
+        catch
+        {
+            _historyList = new List<ConnectionHistoryEntry>();
+        }
     }
 }
