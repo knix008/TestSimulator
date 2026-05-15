@@ -138,6 +138,30 @@
         background: #0f172a;
         border: 1px dashed #475569;
       }
+      .file-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .file-row input[type="text"] {
+        flex: 1;
+        min-width: 200px;
+      }
+      .file-row button {
+        background: #0f766e;
+        white-space: nowrap;
+      }
+      .file-row button.dl-btn {
+        background: #7c3aed;
+      }
+      .file-status {
+        font-size: 13px;
+        color: #94a3b8;
+      }
+      .file-status.ok { color: #22c55e; }
+      .file-status.err { color: #ef4444; }
       #terminalWrap {
         height: 72vh;
         min-height: 280px;
@@ -174,6 +198,67 @@
           grid-template-columns: 1fr;
         }
       }
+
+      /* ── File Browser Modal ────────────────────────────── */
+      .fb-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 100;
+      }
+      .fb-modal {
+        background: #1e293b;
+        border: 1px solid #475569;
+        border-radius: 12px;
+        width: 560px; max-width: 95vw;
+        display: flex; flex-direction: column;
+        max-height: 78vh;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      }
+      .fb-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid #334155;
+        font-weight: 600; font-size: 15px; flex-shrink: 0;
+      }
+      .fb-close-btn {
+        background: transparent; border: none;
+        color: #94a3b8; font-size: 18px; padding: 2px 8px; cursor: pointer; border-radius: 6px;
+      }
+      .fb-close-btn:hover { background: #334155; color: #f1f5f9; }
+      .fb-path-row {
+        display: flex; gap: 6px; align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid #334155; flex-shrink: 0;
+      }
+      .fb-path-row input { flex: 1; font-size: 13px; font-family: monospace; padding: 7px 10px; }
+      .fb-path-row button { padding: 7px 11px; font-size: 13px; white-space: nowrap; }
+      .fb-list {
+        flex: 1; overflow-y: auto;
+        padding: 4px 0; min-height: 240px;
+      }
+      .fb-item {
+        display: flex; align-items: center; gap: 10px;
+        padding: 7px 18px; cursor: pointer;
+        font-size: 14px; color: #e2e8f0; user-select: none;
+      }
+      .fb-item:hover { background: #273548; }
+      .fb-item.fb-selected { background: #1d4ed8; color: #fff; }
+      .fb-item-icon { font-size: 15px; flex-shrink: 0; }
+      .fb-empty { padding: 40px; text-align: center; color: #64748b; font-size: 13px; }
+      .fb-footer {
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 14px;
+        border-top: 1px solid #334155; flex-shrink: 0;
+      }
+      .fb-footer-info {
+        flex: 1; font-size: 12px; color: #94a3b8;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        font-family: monospace;
+      }
+      .fb-action-btn { background: #0f766e; }
+      .fb-action-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+      .fb-cancel-btn { background: #374151; }
     </style>
   </head>
   <body>
@@ -203,6 +288,35 @@
       </div>
       <div id="tabs" class="tabs">
         <button id="newTabBtn" type="button">+ New Tab</button>
+      </div>
+      <div class="file-row">
+        <input type="file" id="fileInput" style="display:none" multiple />
+        <button id="uploadBtn" type="button">&#8593; Upload</button>
+        <input id="uploadDir" type="text" placeholder="Upload directory (빈칸 = ~)" style="max-width:220px;" />
+        <button id="downloadBtn" type="button" class="dl-btn">&#8595; Download</button>
+        <input id="downloadPath" type="text" placeholder="Download 파일 경로 (빈칸 = 브라우저로 선택)" />
+        <span id="fileStatus" class="file-status"></span>
+      </div>
+
+      <!-- File Browser Modal -->
+      <div id="fileBrowserModal" class="fb-overlay" style="display:none">
+        <div class="fb-modal">
+          <div class="fb-header">
+            <span id="fbTitle">파일 브라우저</span>
+            <button id="fbClose" type="button" class="fb-close-btn">✕</button>
+          </div>
+          <div class="fb-path-row">
+            <button id="fbUpBtn" type="button">⬆ Up</button>
+            <input id="fbPathInput" type="text" />
+            <button id="fbGoBtn" type="button">이동</button>
+          </div>
+          <div id="fbList" class="fb-list"></div>
+          <div class="fb-footer">
+            <span id="fbFooterInfo" class="fb-footer-info"></span>
+            <button id="fbCancelBtn" type="button" class="fb-cancel-btn">취소</button>
+            <button id="fbActionBtn" type="button" class="fb-action-btn">선택</button>
+          </div>
+        </div>
       </div>
       <div id="terminalWrap">
         <div id="terminalHost"></div>

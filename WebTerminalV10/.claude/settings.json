@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(/usr/bin/npm install *)",
+      "Bash(/home/shkwon/.local/share/containers/storage/overlay/ac588e6513006233c174b8e0ce4f4de01669f7d15cdd3e0bac67eeefcc63bc19/diff/emsdk/node/20.18.0_64bit/lib/node_modules/npm/bin/npm install *)",
+      "Bash(ls ~/.local/bin/npm* ~/.local/bin/node* 2>/dev/null; find /opt /snap -name \"npm\" -executable 2>/dev/null | head -5)",
+      "Read(//snap/**)",
+      "Bash(node server.js)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(curl -v \"http://localhost:3000/api/download?path=/home/shkwon/Projects/TestSimulator/WebTerminalV10/README.md\")",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(node /home/shkwon/Projects/TestSimulator/WebTerminalV10/server.js)",
+      "Bash(curl -s -I \"http://localhost:3000/api/download?host=localhost&path=/home/shkwon/Projects/TestSimulator/WebTerminalV10/README.md\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /tmp/downloaded.bin \"http://localhost:3000/api/download?host=localhost&path=/tmp/test_binary.bin\")",
+      "Bash(echo \"Hello 한글 テスト\")",
+      "Bash(curl -s -o /tmp/dl_text.txt \"http://localhost:3000/api/download?host=localhost&path=/tmp/test_text.txt\")"
+    ]
+  }
+}
