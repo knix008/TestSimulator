@@ -8,4 +8,7 @@ public sealed class UiSettings
 
     /// <summary>「파일」에 데이터 폴더 열기 항목 표시.</summary>
     public bool ShowOpenDataFolderMenuItem { get; set; }
+
+    /// <summary>마지막 RDP 사용자 이름(연결 대화상자 기본값).</summary>
+    public string? LastRdpUsername { get; set; }
 }

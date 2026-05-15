@@ -41,3 +41,6 @@ appsettings.*.local.json
 
 ## IL dumps (optional local analysis)
 **/obj/*.il
+
+# Etc.
+.claude/

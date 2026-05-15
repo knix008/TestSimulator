@@ -12,10 +12,10 @@ public partial class ConnectionDialog : Form
     public string Username { get; set; } = "";
     public string Password { get; set; } = "";
     
-    // RDP Options
+    // RDP Options — RelaxedCertificate: AuthenticationLevel=0 으로 인증서 경고 완화(CredSSP는 유지)
     public bool EnableCredSsp { get; set; } = true;
     public bool EnableNla { get; set; } = true;
-    public bool RelaxedCertificate { get; set; } = false;
+    public bool RelaxedCertificate { get; set; } = true;
     public bool EnableClipboard { get; set; } = true;
     public bool EnableDrives { get; set; } = false;
     public bool EnablePrinters { get; set; } = false;
@@ -179,6 +179,9 @@ public partial class ConnectionDialog : Form
         hostText.Text = profile.Host;
         portText.Text = profile.Port.ToString();
         userText.Text = profile.User ?? "";
+
+        var savedPw = ConnectionProfileStore.UnprotectPassword(profile.EncryptedPasswordBase64);
+        passwordText.Text = savedPw ?? "";
         
         if (profile.Protocol == RemoteDesktopProtocol.Rdp)
         {
@@ -203,67 +206,95 @@ public partial class ConnectionDialog : Form
 
     private void OnSaveProfileClick(object? sender, EventArgs e)
     {
-        var profileName = Microsoft.VisualBasic.Interaction.InputBox(
-            "프로필 이름을 입력하세요:",
-            "프로필 저장",
-            "");
-        
-        if (string.IsNullOrWhiteSpace(profileName))
-        {
-            return;
-        }
+        // 현재 선택된 프로필 이름을 기본값으로 채워 업데이트를 쉽게 함
+        var defaultName = profilesCombo.SelectedIndex > 0
+            ? profilesCombo.SelectedItem?.ToString() ?? ""
+            : "";
 
-        var profile = new ConnectionProfile
+        var existingNames = _profilesList.Select(p => p.Name).ToList();
+        using var saveDlg = new SaveProfileDialog(existingNames, defaultName);
+        if (saveDlg.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        var profileName = saveDlg.ProfileName;
+
+        var isRdp = protocolCombo.SelectedItem?.ToString() == "RDP";
+        var newProfile = new ConnectionProfile
         {
-            Name = profileName.Trim(),
-            Protocol = protocolCombo.SelectedItem?.ToString() == "RDP" ? RemoteDesktopProtocol.Rdp : RemoteDesktopProtocol.Vnc,
+            Name = profileName,
+            Protocol = isRdp ? RemoteDesktopProtocol.Rdp : RemoteDesktopProtocol.Vnc,
             Host = hostText.Text.Trim(),
-            Port = int.TryParse(portText.Text.Trim(), out var p) ? p : (protocolCombo.SelectedItem?.ToString() == "RDP" ? 3389 : 5900),
-            User = userText.Text.Trim()
+            Port = int.TryParse(portText.Text.Trim(), out var p)
+                ? p
+                : (isRdp ? 3389 : 5900),
+            User = userText.Text.Trim(),
         };
 
-        if (profile.Protocol == RemoteDesktopProtocol.Rdp)
+        if (isRdp)
         {
-            profile.CredSspEnabled = credSspCheck.Checked;
-            profile.NegotiateSecurityLayer = nlaCheck.Checked;
-            profile.RelaxedCertificateValidation = relaxedCertCheck.Checked;
-            profile.RdpRedirectClipboard = rdpClipboardCheck.Checked;
-            profile.RdpRedirectDrives = rdpDrivesCheck.Checked;
-            profile.RdpRedirectPrinters = rdpPrintersCheck.Checked;
+            newProfile.CredSspEnabled = credSspCheck.Checked;
+            newProfile.NegotiateSecurityLayer = nlaCheck.Checked;
+            newProfile.RelaxedCertificateValidation = relaxedCertCheck.Checked;
+            newProfile.RdpRedirectClipboard = rdpClipboardCheck.Checked;
+            newProfile.RdpRedirectDrives = rdpDrivesCheck.Checked;
+            newProfile.RdpRedirectPrinters = rdpPrintersCheck.Checked;
         }
 
-        // Save password if provided
+        // 비밀번호 암호화 (ConnectionProfileStore 와 동일한 entropy)
         if (!string.IsNullOrEmpty(passwordText.Text))
         {
             try
             {
-                var encrypted = System.Security.Cryptography.ProtectedData.Protect(
-                    System.Text.Encoding.UTF8.GetBytes(passwordText.Text),
-                    null,
-                    System.Security.Cryptography.DataProtectionScope.CurrentUser);
-                profile.EncryptedPasswordBase64 = Convert.ToBase64String(encrypted);
+                var protectedBytes = ConnectionProfileStore.ProtectPassword(passwordText.Text);
+                if (protectedBytes != null)
+                {
+                    newProfile.EncryptedPasswordBase64 = Convert.ToBase64String(protectedBytes);
+                }
             }
-            catch
-            {
-                // Ignore password encryption errors
-            }
+            catch { }
         }
 
         try
         {
             var profiles = ConnectionProfileStore.Load();
-            profiles.Add(profile);
+            var existingIdx = profiles.FindIndex(
+                p => string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase));
+
+            bool isUpdate = existingIdx >= 0;
+            if (isUpdate)
+            {
+                // 기존 ID 유지 — 비밀번호가 비어 있으면 기존 암호 그대로 보존
+                newProfile.Id = profiles[existingIdx].Id;
+                if (string.IsNullOrEmpty(passwordText.Text))
+                {
+                    newProfile.EncryptedPasswordBase64 = profiles[existingIdx].EncryptedPasswordBase64;
+                }
+                profiles[existingIdx] = newProfile;
+            }
+            else
+            {
+                profiles.Add(newProfile);
+            }
+
             ConnectionProfileStore.Save(profiles);
-            
-            MessageBox.Show(this, $"프로필 '{profileName}'이(가) 저장되었습니다.", "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            
-            // Reload profiles in combo
+
+            var resultMsg = isUpdate
+                ? $"프로필 '{profileName}'이(가) 업데이트되었습니다."
+                : $"프로필 '{profileName}'이(가) 새로 저장되었습니다.";
+            MessageBox.Show(this, resultMsg, "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            // 콤보박스 갱신 후 저장된 프로필 선택
             SetProfiles(profiles);
-            profilesCombo.SelectedIndex = profilesCombo.Items.Count - 1;
+            var savedIdx = profiles.FindIndex(
+                p => string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase));
+            if (savedIdx >= 0)
+            {
+                profilesCombo.SelectedIndex = savedIdx + 1; // 0번은 "(선택 안함)"
+            }
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"프로필 저장 실패: {ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ErrorDialog.Show(this, $"프로필 저장 실패: {ex.Message}", "오류", MessageBoxIcon.Error);
         }
     }
 }

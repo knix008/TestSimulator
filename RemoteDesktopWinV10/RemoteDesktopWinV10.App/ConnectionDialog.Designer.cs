@@ -341,6 +341,8 @@ public partial class ConnectionDialog
         // relaxedCertCheck
         //
         relaxedCertCheck.AutoSize = true;
+        relaxedCertCheck.Checked = true;
+        relaxedCertCheck.CheckState = CheckState.Checked;
         relaxedCertCheck.Location = new Point(265, 7);
         relaxedCertCheck.Margin = new Padding(3, 3, 12, 3);
         relaxedCertCheck.Name = "relaxedCertCheck";

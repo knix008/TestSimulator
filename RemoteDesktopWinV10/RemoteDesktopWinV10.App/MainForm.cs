@@ -12,12 +12,47 @@ namespace RemoteDesktopWinV10.App;
 
 public partial class MainForm : Form
 {
+    // 패널 더블버퍼 활성화 (DoubleBuffered 프로퍼티는 protected이므로 reflection 사용)
+    private static void EnableDoubleBuffer(Control ctrl)
+    {
+        typeof(Control)
+            .GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+            ?.SetValue(ctrl, true);
+    }
+
     private bool _remoteClientsInitialized;
     private bool _vncConnecting;
     private bool _rdpConnecting;
     private bool _fullScreenChromeHidden;
+
+    // RDP COM 객체 세대 번호 — ReinitRdpClient() 호출마다 증가, 구버전 이벤트 무시에 사용
+    private int _rdpGen;
+
+    // 사용자가 직접 끊기를 누른 경우 — 예기치 않은 종료 팝업 억제에 사용
+    private bool _userDisconnecting;
+    // OnFatalError가 이미 팝업을 띄운 경우 — OnDisconnected 팝업 중복 방지
+    private bool _rdpFatalErrorFired;
+
+    // 마지막으로 시도한 연결 정보 (OnConnected 핸들러에서 history 기록에 사용)
+    private string _currentConnectHost = "";
+    private int _currentConnectPort;
+
+    // 마지막으로 적용한 RDP 옵션 (상태바 표시에 사용)
+    private bool _rdpOptCredSsp = true;
+    private bool _rdpOptNla = true;
+    private bool _rdpOptRelaxedCert;
+    private bool _rdpOptClipboard = true;
+    private bool _rdpOptDrives;
+    private bool _rdpOptPrinters;
     private FormBorderStyle _savedBorder = FormBorderStyle.Sizable;
     private FormWindowState _savedWindowState = FormWindowState.Normal;
+    private Padding _savedRemotePanelPadding;
+
+    // 전체화면 힌트 바 (전체화면 진입 시 상단에 표시, 3초 후 자동 숨김)
+    private Panel _fullScreenBar = null!;
+    private System.Windows.Forms.Timer _fullScreenBarHideTimer = null!;
+    private System.Windows.Forms.Timer _fullScreenMousePollTimer = null!;
 
     private List<ConnectionProfile> _profilesList = new();
     private List<ConnectionHistoryEntry> _historyList = new();
@@ -54,6 +89,7 @@ public partial class MainForm : Form
 
         ApplyModernChrome();
         InitializeRemoteClients();
+        InitializeFullScreenBar();
 
         toolStripProtocol.Items.AddRange(new object[] { "RDP", "VNC" });
         toolStripProtocol.SelectedIndex = 0;
@@ -68,8 +104,7 @@ public partial class MainForm : Form
 
         toolStripProtocol.SelectedIndexChanged += (_, _) => ApplyQuickConnectDefaults();
         toolStripConnect.Click += async (_, _) => await OnQuickConnectClickAsync();
-        
-        KeyDown += OnFormKeyDown;
+
         toolStripHost.TextChanged += OnStatusRelatedInputChanged;
         toolStripPort.TextChanged += OnStatusRelatedInputChanged;
 
@@ -115,6 +150,13 @@ public partial class MainForm : Form
 
     private void ApplyModernChrome()
     {
+        // 폼과 핵심 패널에 더블버퍼 적용 — 전체화면 전환·VNC 고속 프레임 깜빡임 방지
+        SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
+        UpdateStyles();
+        EnableDoubleBuffer(remotePanel);
+        EnableDoubleBuffer(rdpHostPanel);
+        EnableDoubleBuffer(vncHostPanel);
+
         Font = UiTheme.UiFont;
         BackColor = UiTheme.BgApp;
         ForeColor = UiTheme.TextPrimary;
@@ -176,6 +218,8 @@ public partial class MainForm : Form
         rdpHostPanel.Controls.Add(rdpClient);
         ((ISupportInitialize)rdpClient).EndInit();
 
+        WireRdpClientEvents(_rdpGen);
+
         vncRemote = new VncControl();
         vncRemote.Dock = DockStyle.Fill;
         vncRemote.Location = new Point(0, 0);
@@ -187,48 +231,100 @@ public partial class MainForm : Form
         vncRemote.Connected += (_, _) => BeginInvoke(UpdateConnectUi);
         vncRemote.Closed += (_, _) => BeginInvoke(() =>
         {
+            var wasUser = _userDisconnecting;
+            _userDisconnecting = false;
+            vncHostPanel.Visible = false;
             SetStatusHeadline("VNC 연결 종료");
             UpdateConnectUi();
+            if (!wasUser)
+            {
+                ErrorDialog.Show(this,
+                    "VNC 연결이 종료되었습니다.\n\n서버가 연결을 끊었거나 네트워크 문제가 발생했을 수 있습니다.",
+                    Text, MessageBoxIcon.Information);
+            }
         });
         vncRemote.ConnectionFailed += (_, _) => BeginInvoke(() =>
         {
-            SetStatusHeadline("VNC 연결 실패 — 암호·포트·서버 주소를 확인하세요");
+            SetStatusHeadline("VNC 연결 실패");
             UpdateConnectUi();
         });
 
+        _remoteClientsInitialized = true;
+    }
+
+    /// <summary>
+    /// RDP COM 객체를 재생성합니다. 한 번 연결을 시도한 COM 객체는 일부 보안 속성을
+    /// 변경할 수 없으므로(E_INVALIDARG), 재연결 시 이 메서드로 초기화합니다.
+    /// </summary>
+    private void ReinitRdpClient()
+    {
+        var old = rdpClient;
+        _rdpGen++; // 구버전 이벤트 핸들러를 무효화
+
+        rdpClient = new AxMsRdpClient10NotSafeForScripting();
+        ((ISupportInitialize)rdpClient).BeginInit();
+        rdpClient.Dock = DockStyle.Fill;
+        rdpClient.Enabled = true;
+        rdpClient.Location = new Point(0, 0);
+        rdpClient.Name = "rdpClient";
+        rdpClient.TabIndex = 0;
+
+        WireRdpClientEvents(_rdpGen);
+
+        rdpHostPanel.Controls.Remove(old);
+        rdpHostPanel.Controls.Add(rdpClient);
+        ((ISupportInitialize)rdpClient).EndInit();
+
+        try { old.Disconnect(); } catch { }
+        try { old.Dispose(); } catch { }
+    }
+
+    /// <summary>현재 <see cref="rdpClient"/>에 이벤트 핸들러를 연결합니다. gen 으로 구버전 이벤트를 무시합니다.</summary>
+    private void WireRdpClientEvents(int gen)
+    {
         rdpClient.OnConnected += (_, _) => BeginInvoke(() =>
         {
+            if (_rdpGen != gen) return;
             _rdpConnecting = false;
             SetStatusHeadline("RDP 연결됨 — 원격 데스크톱 세션이 수립되었습니다");
-            // TODO: Record connection history from toolbar controls
-            // if (int.TryParse(toolStripPort.Text.Trim(), out var hp) && hp > 0)
-            // {
-            //     TryRecordConnectionHistory(RemoteDesktopProtocol.Rdp, toolStripHost.Text.Trim(), hp);
-            // }
-
+            TryRecordConnectionHistory(RemoteDesktopProtocol.Rdp, _currentConnectHost, _currentConnectPort);
             UpdateConnectUi();
         });
-        rdpClient.OnDisconnected += (_, _) => BeginInvoke(() =>
+
+        rdpClient.OnDisconnected += (_, e) => BeginInvoke(() =>
         {
+            if (_rdpGen != gen) return;
+            var wasFatal = _rdpFatalErrorFired;
+            _rdpFatalErrorFired = false;
+            var wasUser = _userDisconnecting;
+            _userDisconnecting = false;
             _rdpConnecting = false;
+
             if (rdpClient.FullScreen)
             {
-                try
-                {
-                    rdpClient.FullScreen = false;
-                }
-                catch
-                {
-                    // ignore
-                }
+                try { rdpClient.FullScreen = false; } catch { }
             }
 
-            SetStatusHeadline("RDP 연결 종료 — 자격 증명·도메인(PC\\사용자)·NLA·인증서 완화 설정을 확인하세요");
+            var disc = e.discReason;
+            var ext = (int)rdpClient.ExtendedDisconnectReason;
+            var hint = BuildRdpDisconnectHint(disc, ext);
+            SetStatusHeadline("RDP 연결 종료");
+            rdpHostPanel.Visible = false;
             UpdateConnectUi();
+
+            var normalClose = wasUser || disc == 1;
+            if (!normalClose && !wasFatal)
+            {
+                var msg = $"RDP 연결이 종료되었습니다.\n\n{hint}\n\n진단 코드: disc={disc}, ext={ext}";
+                ErrorDialog.Show(this, msg, Text, MessageBoxIcon.Warning);
+            }
         });
+
         rdpClient.OnFatalError += (_, e) => BeginInvoke(() =>
         {
+            if (_rdpGen != gen) return;
             _rdpConnecting = false;
+            _rdpFatalErrorFired = true;
             var code = Convert.ToInt64(e.errorCode);
             var desc = RdpFatalErrorDescription.Describe(code);
             var body =
@@ -238,11 +334,31 @@ public partial class MainForm : Form
                 + desc
                 + "\r\n\r\n자격 증명, NLA, 네트워크·방화벽, 서버 설정을 확인하세요.";
             SetStatusHeadline("RDP 치명적 오류 — 코드 " + code);
-            MessageBox.Show(this, body, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ErrorDialog.Show(this, body, Text, MessageBoxIcon.Error);
             UpdateConnectUi();
         });
 
-        _remoteClientsInitialized = true;
+        rdpClient.OnLogonError += (_, e) => BeginInvoke(() =>
+        {
+            if (_rdpGen != gen) return;
+            _rdpConnecting = false;
+            var code = e.lError;
+            if (code == 0)
+            {
+                return;
+            }
+
+            var body =
+                "RDP 로그온에 실패했습니다.\r\n\r\n"
+                + "로그온 오류 코드: " + code + "\r\n"
+                + RdpLogonErrorDescription.Describe(code)
+                + "\r\n\r\n• DOMAIN\\user 또는 user@도메인 형식 확인\r\n"
+                + "• IP로 접속 시 로컬 계정은 사용자 이름만 또는 .\\사용자\r\n"
+                + "• NLA·인증서 완화 옵션, 원격 데스크톱 사용자 그룹";
+            SetStatusHeadline("RDP 로그온 실패 — 코드 " + code);
+            ErrorDialog.Show(this, body, Text, MessageBoxIcon.Warning);
+            UpdateConnectUi();
+        });
     }
 
     private void ApplyMainMenuFromSettings()
@@ -290,11 +406,10 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
+            ErrorDialog.Show(
                 null,
                 ExceptionMessageFormatter.Format(ex, "데이터 폴더를 열 수 없습니다.\r\n경로: " + dir),
                 "Remote Desktop",
-                MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }
     }
@@ -334,20 +449,42 @@ public partial class MainForm : Form
             return;
         }
 
-        var host = serverHost.Trim();
-        if (host.Length == 0)
+        // IP·호스트만으로는 도메인을 추측하지 않습니다(잘못된 Domain=`.` 등으로 로그온 실패 방지).
+        // 원격 로컬 계정: user 만 입력하거나 .\user / PC이름\user 를 직접 입력하세요.
+    }
+
+    private static string BuildRdpDisconnectHint(int disc, int ext)
+    {
+        // 확장 이유 코드 우선 (exDiscReasonXxx 값 기준)
+        switch (ext)
         {
-            return;
+            case 7:  return "서버가 연결을 거부했습니다. 계정의 원격 데스크톱 액세스 권한을 확인하세요.";
+            case 9:  return "계정에 원격 로그인 권한이 없습니다. 서버에서 'Remote Desktop Users' 그룹에 계정을 추가하세요.";
+            case 10: return "NLA 인증에 실패했습니다. 사용자 이름·암호·도메인을 확인하거나 연결 옵션에서 '인증서 완화'를 활성화하세요.";
+            case 12:
+            case 256: return "원격 세션에서 로그오프했습니다.";
         }
 
-        if (IPAddress.TryParse(host, out _))
+        return disc switch
         {
-            domain = ".";
-            return;
-        }
-
-        var dot = host.IndexOf('.');
-        domain = dot > 0 ? host[..dot] : host;
+            0    => "원인 불명 — 네트워크 상태를 확인하세요.",
+            1    => "연결이 정상적으로 종료되었습니다.",
+            2    => "원격 세션에서 로그오프했습니다.",
+            3    => "서버에서 연결을 끊었습니다.",
+            260  => "DNS 이름 조회에 실패했습니다. 호스트 이름을 확인하세요.",
+            516  => "연결 시간이 초과되었습니다.",
+            518  => "서버에 연결할 수 없습니다. 호스트·포트·방화벽을 확인하세요.",
+            776  => "네트워크 연결이 끊겼습니다.",
+            1800 => "CredSSP 보안 협상에 실패했습니다 (0x708).\n"
+                  + "원인: 서버와 클라이언트의 CredSSP 암호화 정책이 일치하지 않거나, 서버 인증서를 신뢰할 수 없습니다.\n"
+                  + "해결 방법:\n"
+                  + "  1. '연결' 대화상자 → 'RDP 옵션'에서 '인증서 완화' 체크 후 재연결\n"
+                  + "  2. NLA 체크 해제 후 재연결",
+            2308 => "원격 세션이 서버에 의해 종료되었습니다.",
+            2825 => "서버 인증서가 만료되었거나 신뢰할 수 없습니다. 연결 옵션에서 '인증서 완화'를 활성화하세요.",
+            3591 => "서버 인증서 검증에 실패했습니다. 연결 옵션에서 '인증서 완화'를 활성화하세요.",
+            _    => $"연결이 종료되었습니다. 자격 증명·도메인·NLA·인증서 설정을 확인하세요. (disc={disc}, ext={ext})",
+        };
     }
 
     private void SetStatusHeadline(string headline)
@@ -390,15 +527,7 @@ public partial class MainForm : Form
         else if (rdpHostPanel.Visible)
         {
             var conn = rdpClient.Connected != 0;
-            var fs = false;
-            try
-            {
-                fs = rdpClient.FullScreen;
-            }
-            catch
-            {
-                // ignore
-            }
+            var fs = _fullScreenChromeHidden;
 
             if (conn && fs)
             {
@@ -430,10 +559,16 @@ public partial class MainForm : Form
             toolStripStatusViewport.Text = "원격 패널: VNC 영역 표시됨 · 미연결";
         }
 
-        // TODO: Display RDP/VNC options from connection settings dialog
         if (IsRdp)
         {
-            toolStripStatusOptions.Text = "RDP: 설정 확인 필요";
+            var opts = new System.Text.StringBuilder("RDP:");
+            opts.Append(_rdpOptCredSsp ? " CredSSP" : " NoCredSSP");
+            opts.Append(_rdpOptNla ? " NLA" : " NoNLA");
+            if (_rdpOptRelaxedCert) opts.Append(" 인증서완화");
+            if (_rdpOptClipboard) opts.Append(" 클립보드");
+            if (_rdpOptDrives) opts.Append(" 드라이브");
+            if (_rdpOptPrinters) opts.Append(" 프린터");
+            toolStripStatusOptions.Text = opts.ToString();
         }
         else
         {
@@ -443,13 +578,93 @@ public partial class MainForm : Form
         }
     }
 
-    private void OnFormKeyDown(object? sender, KeyEventArgs e)
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (e.KeyCode == Keys.F11)
+        if (keyData == Keys.F11)
         {
-            e.Handled = true;
             ToggleFullScreen();
+            return true;
         }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private void InitializeFullScreenBar()
+    {
+        _savedRemotePanelPadding = remotePanel.Padding;
+
+        // 3초 후 힌트 바 자동 숨김 후 원격 컨트롤에 포커스
+        _fullScreenBarHideTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+        _fullScreenBarHideTimer.Tick += (_, _) =>
+        {
+            _fullScreenBarHideTimer.Stop();
+            _fullScreenBar.Visible = false;
+            FocusRemoteControl();
+        };
+
+        // 200ms마다 마우스 위치를 체크 — 상단 4px 안에 들어오면 바 재표시
+        _fullScreenMousePollTimer = new System.Windows.Forms.Timer { Interval = 200 };
+        _fullScreenMousePollTimer.Tick += (_, _) =>
+        {
+            if (!_fullScreenChromeHidden || _fullScreenBar.Visible) return;
+            var cur = Cursor.Position;
+            var b = Bounds;
+            if (cur.Y <= b.Top + 4 && cur.X >= b.Left && cur.X <= b.Right)
+            {
+                ShowFullScreenBar();
+            }
+        };
+
+        _fullScreenBar = new Panel
+        {
+            Height = 36,
+            BackColor = Color.FromArgb(220, 20, 20, 20),
+            Visible = false,
+            Cursor = Cursors.Hand,
+        };
+        var barLabel = new Label
+        {
+            Text = "전체화면 모드  ·  F11 또는 여기 클릭하여 창 모드로 복귀",
+            ForeColor = Color.White,
+            Font = UiTheme.UiFont,
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Cursor = Cursors.Hand,
+            BackColor = Color.Transparent,
+        };
+        barLabel.Click += (_, _) => ToggleFullScreen();
+        _fullScreenBar.Click += (_, _) => ToggleFullScreen();
+        _fullScreenBar.Controls.Add(barLabel);
+        remotePanel.Controls.Add(_fullScreenBar);
+        _fullScreenBar.BringToFront(); // z-order 초기 설정 — 이후에는 다시 호출하지 않음
+    }
+
+    private void FocusRemoteControl()
+    {
+        if (!_remoteClientsInitialized) return;
+        try
+        {
+            if (IsRdp)
+            {
+                if (rdpClient.Connected != 0) rdpClient.Focus();
+            }
+            else
+            {
+                if (vncRemote.Client.IsConnected) vncRemote.Focus();
+            }
+        }
+        catch { }
+    }
+
+    private void ShowFullScreenBar()
+    {
+        _fullScreenBar.Width = remotePanel.ClientSize.Width;
+        _fullScreenBar.Location = new Point(0, 0);
+        _fullScreenBar.Visible = true;
+        // BringToFront는 InitializeFullScreenBar에서 1회만 호출 — 반복 호출 시 리페인트 발생
+        _fullScreenBarHideTimer.Stop();
+        _fullScreenBarHideTimer.Start();
     }
 
     private void ToggleFullScreen()
@@ -458,61 +673,36 @@ public partial class MainForm : Form
         {
             _savedBorder = FormBorderStyle;
             _savedWindowState = WindowState;
+            _savedRemotePanelPadding = remotePanel.Padding;
 
             mainMenuStrip.Visible = false;
             quickConnectToolStrip.Visible = false;
             statusStrip.Visible = false;
-
+            remotePanel.Padding = Padding.Empty;
             FormBorderStyle = FormBorderStyle.None;
             WindowState = FormWindowState.Maximized;
 
-            if (IsRdp && rdpClient.Connected != 0)
-            {
-                try
-                {
-                    rdpClient.FullScreen = true;
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
-            else if (!IsRdp && vncRemote.Client.IsConnected)
-            {
-                vncRemote.SizeMode = VncControlSizeMode.Zoom;
-            }
-
             _fullScreenChromeHidden = true;
-            SetStatusHeadline("전체 화면 모드 — 메뉴/도구줄 숨김 (F11로 복귀)");
+            ShowFullScreenBar();
+            _fullScreenMousePollTimer.Start();
+            BeginInvoke(FocusRemoteControl);
+            SetStatusHeadline("전체화면 모드 — F11 또는 상단 표시줄 클릭으로 복귀");
         }
         else
         {
-            if (rdpClient.Connected != 0)
-            {
-                try
-                {
-                    rdpClient.FullScreen = false;
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
+            _fullScreenBarHideTimer.Stop();
+            _fullScreenMousePollTimer.Stop();
+            _fullScreenBar.Visible = false;
 
+            remotePanel.Padding = _savedRemotePanelPadding;
             mainMenuStrip.Visible = true;
             quickConnectToolStrip.Visible = true;
             statusStrip.Visible = true;
-
             FormBorderStyle = _savedBorder;
             WindowState = _savedWindowState;
 
-            if (vncRemote.Client.IsConnected)
-            {
-                vncRemote.SizeMode = VncControlSizeMode.Zoom;
-            }
-
             _fullScreenChromeHidden = false;
-            SetStatusHeadline("창 모드 — 메뉴/도구줄 표시");
+            SetStatusHeadline("창 모드로 복귀");
         }
 
         RefreshStatusStrip();
@@ -625,11 +815,10 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
+            ErrorDialog.Show(
                 this,
                 ExceptionMessageFormatter.Format(ex, "최근 연결 기록을 저장하거나 다시 불러오지 못했습니다."),
                 Text,
-                MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
     }
@@ -860,61 +1049,97 @@ public partial class MainForm : Form
     }
     */
 
-    private void ApplyRdpSecurityOptions()
+    private void ApplyRdpSecurityOptions(bool credSsp, bool nla, bool relaxedCert)
     {
-        // TODO: Get security options from ConnectionDialog settings
-        // Using defaults for now
-        ((IMsRdpClientAdvancedSettings6)rdpClient.AdvancedSettings6).EnableCredSspSupport = true;
+        ((IMsRdpClientAdvancedSettings6)rdpClient.AdvancedSettings6).EnableCredSspSupport = credSsp;
 
-        var ocx = (IMsRdpClientNonScriptable3)rdpClient.GetOcx();
-        ocx.NegotiateSecurityLayer = true;
+        var ocx3 = (IMsRdpClientNonScriptable3)rdpClient.GetOcx();
+        ocx3.NegotiateSecurityLayer = nla;
 
-        var n4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
-        n4.TrustedZoneSite = false;
-        rdpClient.AdvancedSettings5.AuthenticationLevel = 2u;
+        // TrustedZoneSite / AuthenticationLevel 은 TLS/NLA 협상(nla=true)일 때만 유효.
+        // nla=false(클래식 RDP 보안)에서 설정하면 COM E_INVALIDARG(0x80070057) 발생.
+        if (nla)
+        {
+            try
+            {
+                var ocx4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
+                ocx4.TrustedZoneSite = relaxedCert;
+            }
+            catch { }
+
+            rdpClient.AdvancedSettings5.AuthenticationLevel = relaxedCert ? 0u : 2u;
+        }
     }
 
-    private void ApplyRdpRedirection()
+    private void ApplyRdpRedirection(bool clipboard, bool drives, bool printers)
     {
-        // TODO: Get redirection options from ConnectionDialog settings
-        // Using defaults for now
-        rdpClient.AdvancedSettings2.RedirectDrives = false;
-        rdpClient.AdvancedSettings2.RedirectPrinters = false;
-        rdpClient.AdvancedSettings6.RedirectClipboard = true;
-        var n4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
-        n4.WarnAboutClipboardRedirection = false;
+        rdpClient.AdvancedSettings2.RedirectDrives = drives;
+        rdpClient.AdvancedSettings2.RedirectPrinters = printers;
+        rdpClient.AdvancedSettings6.RedirectClipboard = clipboard;
+        try { rdpClient.AdvancedSettings2.SmartSizing = true; } catch { }
+        try
+        {
+            var n4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
+            n4.WarnAboutClipboardRedirection = false;
+        }
+        catch { }
     }
 
-    private void ConnectRdp(string host, int port, string user, string password)
+    private void ConnectRdp(string host, int port, string user, string password,
+        bool credSsp, bool nla, bool relaxedCert, bool clipboard, bool drives, bool printers)
     {
         _rdpConnecting = true;
+        _rdpFatalErrorFired = false;
+        _userDisconnecting = false;
+        _currentConnectHost = host;
+        _currentConnectPort = port;
+        _rdpOptCredSsp = credSsp;
+        _rdpOptNla = nla;
+        _rdpOptRelaxedCert = relaxedCert;
+        _rdpOptClipboard = clipboard;
+        _rdpOptDrives = drives;
+        _rdpOptPrinters = printers;
+
         try
         {
             vncHostPanel.Visible = false;
             rdpHostPanel.Visible = true;
 
-            if (rdpClient.Connected != 0)
-            {
-                try
-                {
-                    rdpClient.Disconnect();
-                }
-                catch
-                {
-                    // ignore
-                }
-            }
+            // COM 객체 재생성 — 이전 연결 시도 후 일부 보안 속성(EnableCredSspSupport 등)은
+            // 변경 불가(E_INVALIDARG) 상태가 되므로 매 연결마다 신선한 COM 객체를 사용합니다.
+            ReinitRdpClient();
 
-            ApplyRdpSecurityOptions();
+            ApplyRdpSecurityOptions(credSsp, nla, relaxedCert);
 
-            SplitRdpUserForLogon(user, host, out var rdpDomain, out var rdpUser);
+            var connectHost = RdpConnectionHelper.NormalizeConnectHost(host);
+
+            SplitRdpUserForLogon(user, connectHost, out var rdpDomain, out var rdpUser);
             rdpClient.Domain = rdpDomain;
             rdpClient.UserName = rdpUser;
-            rdpClient.Server = host.Trim();
+            rdpClient.Server = connectHost;
             rdpClient.AdvancedSettings9.RDPPort = port;
             rdpClient.AdvancedSettings9.ClearTextPassword = password;
 
-            ApplyRdpRedirection();
+            ApplyRdpRedirection(clipboard, drives, printers);
+
+            if (!RdpConnectionHelper.TryReachPort(host.Trim(), port, 6000, out var tcpError))
+            {
+                SetStatusHeadline("RDP — TCP(3389) 수신 대기 없음");
+                var proceed = ErrorDialog.ShowConfirm(
+                    this,
+                    tcpError!,
+                    Text,
+                    confirmText: "그래도 연결 시도",
+                    cancelText: "취소",
+                    icon: MessageBoxIcon.Warning);
+                if (!proceed)
+                {
+                    _rdpConnecting = false;
+                    rdpHostPanel.Visible = false;
+                    UpdateConnectUi();
+                    return;
+                }
+            }
 
             var logonHint = string.IsNullOrEmpty(rdpDomain)
                 ? "로그온: " + rdpUser
@@ -926,17 +1151,30 @@ public partial class MainForm : Form
             {
                 try
                 {
+                    rdpHostPanel.PerformLayout();
+                    var w = Math.Max(rdpHostPanel.ClientSize.Width, 800);
+                    var h = Math.Max(rdpHostPanel.ClientSize.Height, 600);
+                    try
+                    {
+                        rdpClient.DesktopWidth = w;
+                        rdpClient.DesktopHeight = h;
+                    }
+                    catch
+                    {
+                        // ignore — 일부 환경에서만 지원
+                    }
+
                     rdpClient.Connect();
                 }
                 catch (Exception ex)
                 {
                     _rdpConnecting = false;
-                    SetStatusHeadline("RDP 연결 실패 — " + ex.Message);
-                    MessageBox.Show(
+                    rdpHostPanel.Visible = false;
+                    SetStatusHeadline("RDP 연결 실패");
+                    ErrorDialog.Show(
                         this,
                         ExceptionMessageFormatter.Format(ex, "RDP Connect() 호출이 실패했습니다."),
                         Text,
-                        MessageBoxButtons.OK,
                         MessageBoxIcon.Error);
                     UpdateConnectUi();
                 }
@@ -954,12 +1192,12 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             _rdpConnecting = false;
-            SetStatusHeadline("RDP 연결 실패 — " + ex.Message);
-            MessageBox.Show(
+            rdpHostPanel.Visible = false;
+            SetStatusHeadline("RDP 연결 실패");
+            ErrorDialog.Show(
                 this,
                 ExceptionMessageFormatter.Format(ex, "RDP 연결 준비 중 예외가 발생했습니다."),
                 Text,
-                MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
             UpdateConnectUi();
         }
@@ -999,44 +1237,32 @@ public partial class MainForm : Form
             }
             catch (VncException ex)
             {
-                SetStatusHeadline(
-                    "VNC 연결 실패 — "
-                    + (string.IsNullOrWhiteSpace(ex.Message) ? ex.Reason.ToString() : ex.Message));
+                SetStatusHeadline("VNC 연결 실패");
                 var body = ExceptionMessageFormatter.Format(
                     ex,
                     "VNC 연결에 실패했습니다.\r\nReason: " + ex.Reason);
                 var hint = VncFailureReasonUserHints.GetHint(ex.Reason);
-                if (!string.IsNullOrEmpty(hint))
-                {
-                    body += "\r\n\r\n" + hint;
-                }
-
+                if (!string.IsNullOrEmpty(hint)) body += "\r\n\r\n" + hint;
                 var extra = VncFailureReasonUserHints.GetMessageSpecificHint(ex.Message);
-                if (!string.IsNullOrEmpty(extra))
-                {
-                    body += "\r\n\r\n" + extra;
-                }
-
-                MessageBox.Show(this, body, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (!string.IsNullOrEmpty(extra)) body += "\r\n\r\n" + extra;
+                ErrorDialog.Show(this, body, Text, MessageBoxIcon.Error);
             }
             catch (SocketException ex)
             {
-                SetStatusHeadline("VNC 연결 실패 — 소켓: " + ex.SocketErrorCode);
-                MessageBox.Show(
+                SetStatusHeadline("VNC 연결 실패");
+                ErrorDialog.Show(
                     this,
                     ExceptionMessageFormatter.Format(ex, "VNC TCP 연결에 실패했습니다."),
                     Text,
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
             catch (Exception ex)
             {
-                SetStatusHeadline("VNC 연결 실패 — " + ex.Message);
-                MessageBox.Show(
+                SetStatusHeadline("VNC 연결 실패");
+                ErrorDialog.Show(
                     this,
                     ExceptionMessageFormatter.Format(ex, "VNC 연결 중 예외가 발생했습니다."),
                     Text,
-                    MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }
         }
@@ -1048,6 +1274,11 @@ public partial class MainForm : Form
             }
 
             _vncConnecting = false;
+            // 연결 실패 시 VNC 패널도 검은 화면으로
+            if (!vncRemote.Client.IsConnected)
+            {
+                vncHostPanel.Visible = false;
+            }
             UpdateConnectUi();
         }
     }
@@ -1060,6 +1291,7 @@ public partial class MainForm : Form
         {
             if (rdpClient.Connected != 0)
             {
+                _userDisconnecting = true;
                 try
                 {
                     if (rdpClient.FullScreen)
@@ -1077,6 +1309,7 @@ public partial class MainForm : Form
         }
         else if (vncRemote.Client.IsConnected)
         {
+            _userDisconnecting = true;
             vncRemote.Client.Close();
         }
 
@@ -1126,11 +1359,13 @@ public partial class MainForm : Form
 
         // Open ConnectionDialog to get connection details
         using var dialog = new ConnectionDialog();
+        var uiSettings = UiSettingsStore.Load();
         
         // Load current toolbar settings into dialog
         dialog.Protocol = toolStripProtocol.SelectedItem?.ToString() ?? "RDP";
         dialog.Host = toolStripHost.Text.Trim();
         dialog.Port = toolStripPort.Text.Trim();
+        dialog.Username = uiSettings.LastRdpUsername ?? "";
         dialog.SetProfiles(_profilesList);
         dialog.SetHistory(_historyList);
         dialog.LoadCurrentSettings();
@@ -1170,8 +1405,14 @@ public partial class MainForm : Form
                 return;
             }
 
+            var ui = UiSettingsStore.Load();
+            ui.LastRdpUsername = user;
+            UiSettingsStore.Save(ui);
+
             await Task.Yield();
-            ConnectRdp(host, port, user, dialog.Password);
+            ConnectRdp(host, port, user, dialog.Password,
+                dialog.EnableCredSsp, dialog.EnableNla, dialog.RelaxedCertificate,
+                dialog.EnableClipboard, dialog.EnableDrives, dialog.EnablePrinters);
         }
         else
         {
