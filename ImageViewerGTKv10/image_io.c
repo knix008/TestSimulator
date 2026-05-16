@@ -52,9 +52,9 @@ static gboolean output_jpg_ok(const char *jpg_path) {
     return jpg_path && g_file_test(jpg_path, G_FILE_TEST_IS_REGULAR);
 }
 
-/* Canon HIF 등 PQ/HDR이 sRGB로 잘못 태그되면 ImageMagick mean(Q16)이 ~23000대 */
-#define IM_OVERBRIGHT_MEAN 15000.0
-#define GDK_OVERBRIGHT_LUMA 0.30
+/* 진짜 오버브라이트(PQ 미처리)는 mean > 45000 (Q16 ~69%). heif-convert 정상 출력 ~23000은 허용 */
+#define IM_OVERBRIGHT_MEAN 45000.0
+#define GDK_OVERBRIGHT_LUMA 0.75
 static double image_io_pixbuf_sample_luma_mean(GdkPixbuf *pb) {
     if (!pb || gdk_pixbuf_get_colorspace(pb) != GDK_COLORSPACE_RGB) {
         return 0.0;
@@ -282,6 +282,29 @@ static bool try_imagemagick_heif_to_jpeg(const char *heif_path, const char *jpg_
     return try_imagemagick_srgb_jpeg(heif_path, jpg_path);
 }
 
+/* Canon .hif: heif-convert가 이미 올바른 sRGB JPEG를 출력 → IM LCMS 파이프라인 불필요 */
+static bool try_heif_convert_hif_direct(const char *heif_path, const char *jpg_path) {
+    char *heif_convert = g_find_program_in_path("heif-convert");
+    if (!heif_convert) {
+        return false;
+    }
+    char *argv[] = {
+        heif_convert,
+        (char *)"-q",
+        (char *)"100",
+        (char *)heif_path,
+        (char *)jpg_path,
+        NULL,
+    };
+    gboolean ok = spawn_quiet(argv);
+    g_free(heif_convert);
+    if (!ok || !output_jpg_ok(jpg_path)) {
+        remove_output_jpg(jpg_path);
+        return false;
+    }
+    return true;
+}
+
 static bool try_heif_convert_to_jpeg(const char *heif_path, const char *jpg_path) {
     char *heif_convert = g_find_program_in_path("heif-convert");
     if (!heif_convert) {
@@ -321,7 +344,6 @@ static bool try_heif_convert_to_jpeg(const char *heif_path, const char *jpg_path
         return false;
     }
 
-  /* heif-convert 단독 출력은 PQ를 sRGB로 잘못 해석해 밝음 → LCMS로 재매핑 */
     ok = try_imagemagick_srgb_jpeg(tmp_jpg, jpg_path);
     g_unlink(tmp_jpg);
     g_free(tmp_jpg);
@@ -518,11 +540,22 @@ char *image_io_heif_jpg_path(const char *path) {
         return NULL;
     }
 
-    /* ffmpeg Hable 톤매핑 우선 시도 (HIF 포함). 실패하면 ImageMagick → heif-convert → gdk */
-    if (try_ffmpeg_heif_to_jpeg(path, jpg_path) ||
-        try_imagemagick_heif_to_jpeg(path, jpg_path) ||
-        try_heif_convert_to_jpeg(path, jpg_path) ||
-        image_io_heif_to_jpeg_via_pixbuf(path, jpg_path)) {
+    const char *ext = strrchr(path, '.');
+    gboolean is_hif = ext && g_ascii_strcasecmp(ext, ".hif") == 0;
+
+    gboolean ok;
+    if (is_hif) {
+        /* .hif: heif-convert 직접 변환 우선 (IM LCMS 파이프라인이 이미지를 어둡게 만듦) */
+        ok = try_heif_convert_hif_direct(path, jpg_path) ||
+             try_imagemagick_heif_to_jpeg(path, jpg_path) ||
+             image_io_heif_to_jpeg_via_pixbuf(path, jpg_path);
+    } else {
+        ok = try_ffmpeg_heif_to_jpeg(path, jpg_path) ||
+             try_imagemagick_heif_to_jpeg(path, jpg_path) ||
+             try_heif_convert_to_jpeg(path, jpg_path) ||
+             image_io_heif_to_jpeg_via_pixbuf(path, jpg_path);
+    }
+    if (ok) {
         return jpg_path;
     }
 

@@ -38,15 +38,21 @@ struct App {
     char *current_folder;
     char *selected_file;
     gboolean file_select_via_mouse;
+    gboolean file_selection_skip_preview;
+    gboolean tree_selection_skip_navigate;
+    gboolean context_menu_in_progress;
+    GtkWidget *gallery_selected_btn;
 
-    /* 파일 작업 클립보드 (복사/붙여넣기) */
+    /* 파일 작업 클립보드 (복사·잘라내기/붙여넣기) */
     char *fs_clipboard_path;
     gboolean fs_clipboard_is_dir;
+    gboolean fs_clipboard_cut;
 
     GFileMonitor *folder_monitor;
     guint folder_refresh_pending;
     guint folder_scan_gen;
     guint preview_op_gen;
+    guint heif_commit_gen;
 
     GdkPixbuf *image_pixbuf;
     char *image_path;
@@ -67,6 +73,9 @@ struct App {
 
     guint video_timer_id;
     gboolean video_seeking;
+
+    /* HIF 커밋 직후 폴더 감시 이벤트 1회 억제 (이미 동기 스캔 완료) */
+    gboolean heif_commit_refresh_pending;
 
 #ifdef HAVE_LIBVLC
     void *vlc_inst;

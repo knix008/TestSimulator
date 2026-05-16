@@ -238,11 +238,125 @@ static gboolean tree_iter_folder_path(App *app, GtkTreeIter *iter, char **folder
     return TRUE;
 }
 
+gboolean browser_is_context_menu_event(App *app) {
+    if (app && app->context_menu_in_progress) {
+        return TRUE;
+    }
+    GdkEvent *ev = gtk_get_current_event();
+    if (!ev) {
+        return FALSE;
+    }
+    gboolean ctx = gdk_event_triggers_context_menu(ev);
+    gdk_event_free(ev);
+    return ctx;
+}
+
+typedef struct {
+    App *app;
+    char *path;
+    gboolean is_dir;
+    gboolean restrict_root_ops;
+    GdkEvent *event;
+} ContextMenuRequest;
+
+static void show_file_context_menu(App *app,
+                                   GdkEvent *event,
+                                   const char *path,
+                                   gboolean is_dir,
+                                   gboolean restrict_root_ops);
+
+static void context_menu_request_free(ContextMenuRequest *req) {
+    if (!req) {
+        return;
+    }
+    gdk_event_free(req->event);
+    g_free(req->path);
+    g_free(req);
+}
+
+static gboolean context_menu_idle_show(gpointer user_data) {
+    ContextMenuRequest *req = user_data;
+    if (req->app) {
+        req->app->context_menu_in_progress = FALSE;
+        req->app->file_selection_skip_preview = FALSE;
+        req->app->tree_selection_skip_navigate = FALSE;
+    }
+    show_file_context_menu(req->app, req->event, req->path, req->is_dir, req->restrict_root_ops);
+    context_menu_request_free(req);
+    return G_SOURCE_REMOVE;
+}
+
+static void browser_queue_context_menu(App *app,
+                                       const char *path,
+                                       gboolean is_dir,
+                                       gboolean restrict_root_ops,
+                                       GdkEvent *event) {
+    if (!app || !path) {
+        return;
+    }
+    ContextMenuRequest *req = g_new0(ContextMenuRequest, 1);
+    req->app = app;
+    req->path = g_strdup(path);
+    req->is_dir = is_dir;
+    req->restrict_root_ops = restrict_root_ops;
+    req->event = event ? gdk_event_copy(event) : NULL;
+    app->context_menu_in_progress = TRUE;
+    g_idle_add(context_menu_idle_show, req);
+}
+
+static gboolean tree_view_path_at_button(GtkTreeView *view,
+                                         GdkEventButton *event,
+                                         GtkTreePath **path_out,
+                                         GtkTreeViewColumn **col_out) {
+    gint tx = 0;
+    gint ty = 0;
+    GdkWindow *bin = gtk_tree_view_get_bin_window(view);
+
+    /* GtkTreeView 행 클릭 이벤트는 bin_window 기준 좌표로 올 수 있음 */
+    if (bin && event->window == bin) {
+        tx = (gint)event->x;
+        ty = (gint)event->y;
+    } else {
+        gtk_tree_view_convert_widget_to_tree_coords(view, (gint)event->x, (gint)event->y,
+                                                    &tx, &ty);
+    }
+    return gtk_tree_view_get_path_at_pos(view, tx, ty, path_out, col_out, NULL, NULL);
+}
+
+static gboolean tree_view_select_at_button(GtkTreeView *view,
+                                           GdkEventButton *event,
+                                           GtkTreeModel *model,
+                                           GtkTreeIter *iter_out) {
+    GtkTreePath *path = NULL;
+    GtkTreeViewColumn *col = NULL;
+    if (!tree_view_path_at_button(view, event, &path, &col)) {
+        return FALSE;
+    }
+    if (!gtk_tree_model_get_iter(model, iter_out, path)) {
+        gtk_tree_path_free(path);
+        return FALSE;
+    }
+    if (!col) {
+        col = gtk_tree_view_get_column(view, 0);
+    }
+    GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
+    gtk_tree_selection_unselect_all(sel);
+    gtk_tree_selection_select_path(sel, path);
+    gtk_tree_view_set_cursor(view, path, col, FALSE);
+    gtk_tree_view_scroll_to_cell(view, path, col, FALSE, 0.5, 0.0);
+    gtk_widget_grab_focus(GTK_WIDGET(view));
+    gtk_tree_path_free(path);
+    return TRUE;
+}
+
 static void on_tree_row_activated(GtkTreeView *view, GtkTreePath *path,
                                   GtkTreeViewColumn *col, gpointer data) {
     (void)view;
     (void)col;
     App *app = data;
+    if (app->tree_selection_skip_navigate || browser_is_context_menu_event(app)) {
+        return;
+    }
     GtkTreeIter iter;
     if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(app->tree_store), &iter, path)) {
         return;
@@ -256,6 +370,10 @@ static void on_tree_row_activated(GtkTreeView *view, GtkTreePath *path,
 
 static void on_tree_cursor_changed(GtkTreeView *view, gpointer data) {
     App *app = data;
+    if (app->tree_selection_skip_navigate || browser_is_context_menu_event(app)) {
+        app->tree_selection_skip_navigate = FALSE;
+        return;
+    }
     GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
     GtkTreeIter iter;
     if (!gtk_tree_selection_get_selected(sel, NULL, &iter)) {
@@ -268,14 +386,10 @@ static void on_tree_cursor_changed(GtkTreeView *view, gpointer data) {
     g_free(folder);
 }
 
-void browser_show_file_for_path(App *app, const char *path, gboolean via_mouse) {
-    if (!path || !g_file_test(path, G_FILE_TEST_EXISTS)) {
+static void browser_update_file_status_for_path(App *app, const char *path) {
+    if (!path) {
         return;
     }
-
-    g_free(app->selected_file);
-    app->selected_file = g_strdup(path);
-
     struct stat st;
     if (g_stat(path, &st) == 0) {
         char *sz = utils_format_file_size((int64_t)st.st_size);
@@ -287,18 +401,80 @@ void browser_show_file_for_path(App *app, const char *path, gboolean via_mouse) 
         g_free(msg);
         g_free(sz);
         g_free(mt);
+    } else {
+        gtk_app_update_status_file(app, g_path_get_basename(path));
+    }
+}
+
+static void browser_track_selected_file_path(App *app, const char *path) {
+    g_free(app->selected_file);
+    app->selected_file = path ? g_strdup(path) : NULL;
+}
+
+void browser_select_file_context_only(App *app, const char *path) {
+    if (!app || !path || !g_file_test(path, G_FILE_TEST_EXISTS)) {
+        return;
+    }
+    browser_track_selected_file_path(app, path);
+    browser_update_file_status_for_path(app, path);
+}
+
+void browser_show_file_for_path(App *app, const char *path, gboolean via_mouse) {
+    (void)via_mouse;
+    if (!path || !g_file_test(path, G_FILE_TEST_EXISTS)) {
+        return;
     }
 
+    browser_track_selected_file_path(app, path);
+    browser_update_file_status_for_path(app, path);
+
     const char *ext = path_ext(path);
-    if (utils_is_heif_path(path) && via_mouse) {
-        preview_commit_heif_file(app, path);
-    } else if (utils_is_image_ext(ext) || utils_is_heif_path(path)) {
+    if (utils_is_image_ext(ext) || utils_is_heif_path(path)) {
         preview_show_image(app, path);
     } else if (utils_is_video_ext(ext)) {
         preview_show_video(app, path);
     } else {
         preview_show_placeholder(app, "이 형식은 미리보기를 지원하지 않습니다.");
     }
+}
+
+void browser_sync_file_list_to_path(App *app, const char *path) {
+    if (!app || !path) {
+        return;
+    }
+    GtkTreeIter iter;
+    gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(app->file_store), &iter);
+    GtkTreeSelection *fsel = gtk_tree_view_get_selection(GTK_TREE_VIEW(app->file_view));
+    GtkTreeViewColumn *col = gtk_tree_view_get_column(GTK_TREE_VIEW(app->file_view), 0);
+
+    while (valid) {
+        gchar *fp = NULL;
+        gtk_tree_model_get(GTK_TREE_MODEL(app->file_store), &iter, FILE_COL_PATH, &fp, -1);
+        if (fp && g_ascii_strcasecmp(fp, path) == 0) {
+            GtkTreePath *tp = gtk_tree_model_get_path(GTK_TREE_MODEL(app->file_store), &iter);
+            g_signal_handlers_block_by_func(fsel, on_file_selection_changed, app);
+            gtk_tree_selection_select_iter(fsel, &iter);
+            gtk_tree_view_set_cursor(GTK_TREE_VIEW(app->file_view), tp, col, FALSE);
+            gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(app->file_view), tp, col, TRUE, 0.3, 0.0);
+            g_signal_handlers_unblock_by_func(fsel, on_file_selection_changed, app);
+            gtk_tree_path_free(tp);
+            g_free(fp);
+            return;
+        }
+        g_free(fp);
+        valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(app->file_store), &iter);
+    }
+}
+
+void browser_show_file_actions_menu(App *app, const char *path, GdkEvent *event) {
+    if (!app || !path) {
+        return;
+    }
+    browser_select_file_context_only(app, path);
+    browser_sync_file_list_to_path(app, path);
+    app->context_menu_in_progress = TRUE;
+    show_file_context_menu(app, event, path, FALSE, FALSE);
+    app->context_menu_in_progress = FALSE;
 }
 
 static void on_file_selection_changed(GtkTreeSelection *sel, gpointer data) {
@@ -310,8 +486,7 @@ static void on_file_selection_changed(GtkTreeSelection *sel, gpointer data) {
         if (page && g_strcmp0(page, "gallery") == 0) {
             return;
         }
-        gtk_app_update_status_file(app, "파일을 선택하면 정보가 표시됩니다.");
-        preview_show_placeholder(app, "폴더와 파일을 선택하면 여기에 표시됩니다.");
+        gtk_app_update_status_file(app, "파일을 선택하세요.");
         return;
     }
 
@@ -322,9 +497,7 @@ static void on_file_selection_changed(GtkTreeSelection *sel, gpointer data) {
         return;
     }
 
-    gboolean via_mouse = app->file_select_via_mouse;
-    app->file_select_via_mouse = FALSE;
-    browser_show_file_for_path(app, path, via_mouse);
+    browser_select_file_context_only(app, path);
     g_free(path);
 }
 
@@ -741,6 +914,139 @@ static void browser_request_copy_to(App *app, const char *src, gboolean src_is_d
     g_object_unref(task);
 }
 
+static gboolean browser_move_item(const char *src, const char *dest, GError **err) {
+    GFile *sf = g_file_new_for_path(src);
+    GFile *df = g_file_new_for_path(dest);
+    gboolean ok = g_file_move(sf, df, G_FILE_COPY_NONE, NULL, NULL, NULL, err);
+    if (!ok && err && *err && (*err)->code == G_IO_ERROR_NOT_SUPPORTED) {
+        g_clear_error(err);
+        ok = browser_copy_recursive(src, dest, err);
+        if (ok) {
+            ok = path_remove_recursive(src, err);
+        }
+    }
+    g_object_unref(sf);
+    g_object_unref(df);
+    return ok;
+}
+
+static void browser_after_move(App *app, const char *src, const char *dest, gboolean dest_is_dir) {
+    if (preview_uses_path(app, src)) {
+        preview_clear(app);
+        g_free(app->selected_file);
+        app->selected_file = NULL;
+    }
+
+    char *src_parent = g_path_get_dirname(src);
+    char *dest_parent = dest ? g_path_get_dirname(dest) : NULL;
+    gboolean src_in_current = app->current_folder && src_parent &&
+                              g_strcmp0(src_parent, app->current_folder) == 0;
+    gboolean dest_in_current = app->current_folder && dest_parent &&
+                               g_strcmp0(dest_parent, app->current_folder) == 0;
+    g_free(src_parent);
+    g_free(dest_parent);
+
+    if (dest_is_dir) {
+        browser_refresh_views(app);
+        gtk_app_update_status_file(app, "폴더를 이동했습니다.");
+        return;
+    }
+
+    if (dest_in_current && app->current_folder) {
+        app_refresh_file_list(app, app->current_folder, FALSE, dest);
+        browser_select_file_by_path(app, dest);
+        app->file_select_via_mouse = FALSE;
+        browser_show_file_for_path(app, dest, FALSE);
+    } else if (src_in_current && app->current_folder) {
+        app_refresh_file_list(app, app->current_folder, FALSE, NULL);
+    } else {
+        browser_refresh_views(app);
+    }
+    gtk_app_update_status_file(app, "이동했습니다.");
+}
+
+static void move_done_cb(GObject *source, GAsyncResult *result, gpointer user_data) {
+    (void)source;
+    App *app = user_data;
+    GError *task_err = NULL;
+    CopyWorkResult *out = g_task_propagate_pointer(G_TASK(result), &task_err);
+    if (!out) {
+        g_clear_error(&task_err);
+        return;
+    }
+
+    if (!out->ok) {
+        GtkWidget *dlg = gtk_message_dialog_new(
+            GTK_WINDOW(app->window),
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_OK,
+            "이동할 수 없습니다.");
+        if (out->error && out->error->message) {
+            gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dlg),
+                                                       "%s", out->error->message);
+        }
+        gtk_dialog_run(GTK_DIALOG(dlg));
+        gtk_widget_destroy(dlg);
+        copy_work_result_free(out);
+        return;
+    }
+
+    browser_after_move(app, out->src, out->dest, out->dest_is_dir);
+    g_free(app->fs_clipboard_path);
+    app->fs_clipboard_path = NULL;
+    app->fs_clipboard_is_dir = FALSE;
+    app->fs_clipboard_cut = FALSE;
+    copy_work_result_free(out);
+}
+
+static void move_worker(GTask *task, gpointer source, gpointer data, GCancellable *cancel) {
+    (void)source;
+    (void)cancel;
+    CopyWorkResult *req = data;
+    CopyWorkResult *out = g_new0(CopyWorkResult, 1);
+    out->src = g_strdup(req->src);
+    out->dest = g_strdup(req->dest);
+    out->dest_is_dir = req->dest_is_dir;
+    out->ok = browser_move_item(req->src, req->dest, &out->error);
+    g_task_return_pointer(task, out, (GDestroyNotify)copy_work_result_free);
+}
+
+static void browser_request_move_to(App *app, const char *src, gboolean src_is_dir,
+                                    const char *dest_dir) {
+    if (!src || !dest_dir || !g_file_test(src, G_FILE_TEST_EXISTS)) {
+        return;
+    }
+    if (path_is_equal_or_child(src, dest_dir)) {
+        gtk_app_show_warning(app, "폴더를 자기 자신 안으로 이동할 수 없습니다.");
+        return;
+    }
+
+    char *dest = g_build_filename(dest_dir, g_path_get_basename(src), NULL);
+    if (g_strcmp0(src, dest) == 0) {
+        g_free(dest);
+        gtk_app_update_status_file(app, "같은 위치입니다.");
+        return;
+    }
+    if (g_file_test(dest, G_FILE_TEST_EXISTS)) {
+        g_free(dest);
+        gtk_app_show_warning(app, "같은 이름의 항목이 이미 있습니다.");
+        return;
+    }
+
+    gtk_app_update_status_file(app, "이동하는 중…");
+
+    CopyWorkResult *req = g_new0(CopyWorkResult, 1);
+    req->src = g_strdup(src);
+    req->dest = dest;
+    req->dest_is_dir = src_is_dir;
+
+    GTask *task = g_task_new(NULL, NULL, move_done_cb, app);
+    g_task_set_task_data(task, req, (GDestroyNotify)copy_work_result_free);
+    g_task_run_in_thread(task, move_worker);
+    g_object_unref(task);
+}
+
 static gboolean browser_get_tree_selection(App *app, char **path_out, gboolean *is_dir_out,
                                            gboolean *is_root_out) {
     GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(app->tree_view));
@@ -798,17 +1104,38 @@ static gboolean browser_get_focused_selection(App *app, char **path_out, gboolea
         from_tree = FALSE;
     } else if (gtk_widget_is_focus(app->tree_view)) {
         from_tree = TRUE;
-    } else if (app->selected_file && g_file_test(app->selected_file, G_FILE_TEST_EXISTS)) {
-        *path_out = g_strdup(app->selected_file);
-        if (is_dir_out) {
-            *is_dir_out = FALSE;
-        }
-        if (from_tree_out) {
-            *from_tree_out = FALSE;
-        }
-        return TRUE;
     } else {
-        from_tree = TRUE;
+        const char *page =
+            gtk_stack_get_visible_child_name(GTK_STACK(app->preview_stack));
+        if (page && g_strcmp0(page, "gallery") == 0) {
+            from_tree = FALSE;
+        } else if (app->selected_file && g_file_test(app->selected_file, G_FILE_TEST_EXISTS)) {
+            *path_out = g_strdup(app->selected_file);
+            if (is_dir_out) {
+                *is_dir_out = FALSE;
+            }
+            if (from_tree_out) {
+                *from_tree_out = FALSE;
+            }
+            return TRUE;
+        } else {
+            from_tree = TRUE;
+        }
+    }
+
+    if (!from_tree && app->selected_file && g_file_test(app->selected_file, G_FILE_TEST_EXISTS)) {
+        const char *page =
+            gtk_stack_get_visible_child_name(GTK_STACK(app->preview_stack));
+        if (page && g_strcmp0(page, "gallery") == 0) {
+            *path_out = g_strdup(app->selected_file);
+            if (is_dir_out) {
+                *is_dir_out = FALSE;
+            }
+            if (from_tree_out) {
+                *from_tree_out = FALSE;
+            }
+            return TRUE;
+        }
     }
 
     if (from_tree) {
@@ -833,10 +1160,11 @@ static gboolean browser_get_focused_selection(App *app, char **path_out, gboolea
     return TRUE;
 }
 
-static void browser_clipboard_set(App *app, const char *path, gboolean is_dir) {
+static void browser_clipboard_set(App *app, const char *path, gboolean is_dir, gboolean cut) {
     g_free(app->fs_clipboard_path);
     app->fs_clipboard_path = g_strdup(path);
     app->fs_clipboard_is_dir = is_dir;
+    app->fs_clipboard_cut = cut;
 }
 
 static void browser_action_copy(App *app) {
@@ -846,7 +1174,7 @@ static void browser_action_copy(App *app) {
         gtk_app_update_status_file(app, "복사할 항목을 선택하세요.");
         return;
     }
-    browser_clipboard_set(app, path, is_dir);
+    browser_clipboard_set(app, path, is_dir, FALSE);
     const char *name = g_path_get_basename(path);
     char *msg = g_strdup_printf("복사됨: %s (Ctrl+V로 붙여넣기)", name);
     gtk_app_update_status_file(app, msg);
@@ -854,17 +1182,53 @@ static void browser_action_copy(App *app) {
     g_free(path);
 }
 
+static void browser_action_cut(App *app) {
+    char *path = NULL;
+    gboolean is_dir = FALSE;
+    gboolean from_tree = FALSE;
+    if (!browser_get_focused_selection(app, &path, &is_dir, &from_tree)) {
+        gtk_app_update_status_file(app, "잘라낼 항목을 선택하세요.");
+        return;
+    }
+    if (from_tree && is_dir) {
+        GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(app->tree_view));
+        GtkTreeIter iter;
+        GtkTreeModel *model = GTK_TREE_MODEL(app->tree_store);
+        if (gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+            GtkTreeIter parent;
+            if (!gtk_tree_model_iter_parent(model, &parent, &iter)) {
+                gtk_app_show_warning(app,
+                                     "현재 열린 루트 폴더는 잘라낼 수 없습니다.");
+                g_free(path);
+                return;
+            }
+        }
+    }
+    browser_clipboard_set(app, path, is_dir, TRUE);
+    const char *name = g_path_get_basename(path);
+    char *msg = g_strdup_printf("잘라냄: %s (Ctrl+V로 붙여넣기)", name);
+    gtk_app_update_status_file(app, msg);
+    g_free(msg);
+    g_free(path);
+}
+
 static void browser_action_paste(App *app) {
     if (!app->fs_clipboard_path || !g_file_test(app->fs_clipboard_path, G_FILE_TEST_EXISTS)) {
-        gtk_app_update_status_file(app, "붙여넣을 항목이 없습니다. 먼저 Ctrl+C로 복사하세요.");
+        gtk_app_update_status_file(app,
+                                   "붙여넣을 항목이 없습니다. 먼저 복사하거나 잘라내세요.");
         return;
     }
     if (!app->current_folder || !g_file_test(app->current_folder, G_FILE_TEST_IS_DIR)) {
         gtk_app_show_warning(app, "붙여넣을 폴더가 열려 있지 않습니다.");
         return;
     }
-    browser_request_copy_to(app, app->fs_clipboard_path, app->fs_clipboard_is_dir,
-                            app->current_folder);
+    if (app->fs_clipboard_cut) {
+        browser_request_move_to(app, app->fs_clipboard_path, app->fs_clipboard_is_dir,
+                                app->current_folder);
+    } else {
+        browser_request_copy_to(app, app->fs_clipboard_path, app->fs_clipboard_is_dir,
+                                app->current_folder);
+    }
 }
 
 static void browser_action_duplicate(App *app) {
@@ -943,7 +1307,24 @@ static void on_copy_menu_activate(GtkMenuItem *item, gpointer data) {
     const char *path = g_object_get_data(G_OBJECT(item), "fs-path");
     gboolean is_dir = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "fs-is-dir"));
     if (path && g_file_test(path, G_FILE_TEST_EXISTS)) {
-        browser_clipboard_set(app, path, is_dir);
+        browser_clipboard_set(app, path, is_dir, FALSE);
+        const char *name = g_path_get_basename(path);
+        char *msg = g_strdup_printf("복사됨: %s", name);
+        gtk_app_update_status_file(app, msg);
+        g_free(msg);
+    }
+}
+
+static void on_cut_menu_activate(GtkMenuItem *item, gpointer data) {
+    App *app = data;
+    const char *path = g_object_get_data(G_OBJECT(item), "fs-path");
+    gboolean is_dir = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "fs-is-dir"));
+    if (path && g_file_test(path, G_FILE_TEST_EXISTS)) {
+        browser_clipboard_set(app, path, is_dir, TRUE);
+        const char *name = g_path_get_basename(path);
+        char *msg = g_strdup_printf("잘라냄: %s", name);
+        gtk_app_update_status_file(app, msg);
+        g_free(msg);
     }
 }
 
@@ -959,6 +1340,31 @@ static void on_duplicate_menu_activate(GtkMenuItem *item, gpointer data) {
     g_free(parent);
 }
 
+static void on_convert_menu_activate(GtkMenuItem *item, gpointer data) {
+    App *app = data;
+    const char *path = g_object_get_data(G_OBJECT(item), "fs-path");
+    if (!path || !utils_is_heif_path(path)) {
+        return;
+    }
+    preview_commit_heif_file(app, path);
+}
+
+static void on_preview_menu_activate(GtkMenuItem *item, gpointer data) {
+    App *app = data;
+    const char *path = g_object_get_data(G_OBJECT(item), "fs-path");
+    if (!path || !g_file_test(path, G_FILE_TEST_EXISTS)) {
+        return;
+    }
+    browser_show_file_for_path(app, path, FALSE);
+}
+
+static gboolean path_can_delete(const char *path) {
+    char *parent = g_path_get_dirname(path);
+    gboolean ok = g_access(parent, W_OK) == 0;
+    g_free(parent);
+    return ok;
+}
+
 static GtkWidget *menu_item_with_path(GtkWidget *menu, const char *label, const char *path,
                                       gboolean is_dir, GCallback activate_cb, App *app) {
     GtkWidget *item = gtk_menu_item_new_with_label(label);
@@ -970,12 +1376,35 @@ static GtkWidget *menu_item_with_path(GtkWidget *menu, const char *label, const 
 }
 
 static void show_file_context_menu(App *app,
-                                   GdkEventButton *event,
+                                   GdkEvent *event,
                                    const char *path,
-                                   gboolean is_dir) {
+                                   gboolean is_dir,
+                                   gboolean restrict_root_ops) {
     GtkWidget *menu = gtk_menu_new();
 
-    menu_item_with_path(menu, "복사(_C)", path, is_dir, G_CALLBACK(on_copy_menu_activate), app);
+    if (!is_dir) {
+        GtkWidget *convert = menu_item_with_path(menu, "변환(_T)", path, FALSE,
+                                                 G_CALLBACK(on_convert_menu_activate), app);
+        if (!utils_is_heif_path(path)) {
+            gtk_widget_set_sensitive(convert, FALSE);
+            gtk_widget_set_tooltip_text(convert,
+                                        "HIF/HEIF/HEIC 파일만 변환할 수 있습니다.");
+        } else if (image_io_heif_existing_jpg_path(path)) {
+            gtk_widget_set_sensitive(convert, FALSE);
+            gtk_widget_set_tooltip_text(convert, "이미 JPG가 있습니다.");
+        }
+
+        menu_item_with_path(menu, "미리보기(_P)", path, FALSE,
+                            G_CALLBACK(on_preview_menu_activate), app);
+
+        GtkWidget *sep0 = gtk_separator_menu_item_new();
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep0);
+    }
+
+    GtkWidget *cut = menu_item_with_path(menu, "잘라내기(_X)", path, is_dir,
+                                         G_CALLBACK(on_cut_menu_activate), app);
+    GtkWidget *copy = menu_item_with_path(menu, "복사(_C)", path, is_dir,
+                                          G_CALLBACK(on_copy_menu_activate), app);
 
     GtkWidget *paste = gtk_menu_item_new_with_label("붙여넣기(_V)");
     if (app->fs_clipboard_path &&
@@ -987,16 +1416,72 @@ static void show_file_context_menu(App *app,
     }
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), paste);
 
-    menu_item_with_path(menu, "복제(_D)", path, is_dir,
-                        G_CALLBACK(on_duplicate_menu_activate), app);
+    GtkWidget *dup = menu_item_with_path(menu, "복제(_D)", path, is_dir,
+                                         G_CALLBACK(on_duplicate_menu_activate), app);
 
     GtkWidget *sep = gtk_separator_menu_item_new();
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), sep);
 
-    menu_item_with_path(menu, "삭제", path, is_dir, G_CALLBACK(on_delete_menu_activate), app);
+    GtkWidget *del = menu_item_with_path(menu, "삭제", path, is_dir,
+                                         G_CALLBACK(on_delete_menu_activate), app);
+    if (restrict_root_ops) {
+        gtk_widget_set_sensitive(cut, FALSE);
+        gtk_widget_set_sensitive(copy, FALSE);
+        gtk_widget_set_sensitive(dup, FALSE);
+        gtk_widget_set_sensitive(del, FALSE);
+    } else if (!path_can_delete(path)) {
+        gtk_widget_set_sensitive(del, FALSE);
+        gtk_widget_set_tooltip_text(del, "쓰기 권한이 없어 삭제할 수 없습니다.");
+    }
 
     gtk_widget_show_all(menu);
-    gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)event);
+    gtk_menu_attach_to_widget(GTK_MENU(menu), app->window, NULL);
+    if (event) {
+        gtk_menu_popup_at_pointer(GTK_MENU(menu), event);
+    } else {
+        gtk_menu_popup_at_pointer(GTK_MENU(menu), NULL);
+    }
+}
+
+void browser_popup_context_menu(App *app, const char *path, gboolean is_dir, GdkEvent *event) {
+    if (!app || !path) {
+        return;
+    }
+    if (event &&
+        (event->type == GDK_BUTTON_PRESS || event->type == GDK_BUTTON_RELEASE)) {
+        app->context_menu_in_progress = TRUE;
+        show_file_context_menu(app, event, path, is_dir, FALSE);
+        app->context_menu_in_progress = FALSE;
+        app->file_selection_skip_preview = FALSE;
+        app->tree_selection_skip_navigate = FALSE;
+        return;
+    }
+    browser_queue_context_menu(app, path, is_dir, FALSE, event);
+}
+
+void browser_set_gallery_thumb_highlight(App *app, GtkWidget *thumb_btn) {
+    if (!app) {
+        return;
+    }
+    if (app->gallery_selected_btn && app->gallery_selected_btn != thumb_btn &&
+        gtk_widget_get_parent(app->gallery_selected_btn)) {
+        gtk_button_set_relief(GTK_BUTTON(app->gallery_selected_btn), GTK_RELIEF_NONE);
+    }
+    app->gallery_selected_btn = thumb_btn;
+    if (thumb_btn) {
+        gtk_button_set_relief(GTK_BUTTON(thumb_btn), GTK_RELIEF_NORMAL);
+    }
+}
+
+void browser_select_file_for_ui(App *app, const char *path, gboolean via_mouse,
+                                gboolean show_preview) {
+    (void)via_mouse;
+    (void)show_preview;
+    if (!app || !path) {
+        return;
+    }
+    browser_select_file_context_only(app, path);
+    browser_sync_file_list_to_path(app, path);
 }
 
 static void on_paste_menu_activate(GtkMenuItem *item, gpointer data) {
@@ -1018,6 +1503,10 @@ static gboolean on_browser_key_press(GtkWidget *widget, GdkEventKey *event, gpoi
 
     GdkModifierType state = event->state & gtk_accelerator_get_default_mod_mask();
 
+    if (state == GDK_CONTROL_MASK && (event->keyval == GDK_KEY_x || event->keyval == GDK_KEY_X)) {
+        browser_action_cut(app);
+        return TRUE;
+    }
     if (state == GDK_CONTROL_MASK && (event->keyval == GDK_KEY_c || event->keyval == GDK_KEY_C)) {
         browser_action_copy(app);
         return TRUE;
@@ -1037,84 +1526,183 @@ static gboolean on_browser_key_press(GtkWidget *widget, GdkEventKey *event, gpoi
     return FALSE;
 }
 
-static gboolean tree_view_select_at_event(GtkTreeView *view, GdkEventButton *event) {
-    GtkTreePath *path = NULL;
-    GtkTreeViewColumn *col = NULL;
-    int tx = 0;
-    int ty = 0;
-    gtk_tree_view_convert_widget_to_tree_coords(view, (int)event->x, (int)event->y,
-                                                &tx, &ty);
-    if (!gtk_tree_view_get_path_at_pos(view, tx, ty, &path, &col, NULL, NULL)) {
-        return FALSE;
-    }
-    GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
-    gtk_tree_selection_unselect_all(sel);
-    gtk_tree_selection_select_path(sel, path);
-    gtk_tree_path_free(path);
-    return TRUE;
-}
-
-static gboolean on_tree_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
-    if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
-        return FALSE;
-    }
-
-    App *app = data;
-    GtkTreeView *view = GTK_TREE_VIEW(widget);
-    if (!tree_view_select_at_event(view, event)) {
-        return FALSE;
+static char *file_path_at_tree_event(App *app, GtkTreeView *view, GdkEvent *event) {
+    if (event && (event->type == GDK_BUTTON_PRESS || event->type == GDK_BUTTON_RELEASE)) {
+        GtkTreePath *tp = NULL;
+        if (tree_view_path_at_button(view, (GdkEventButton *)event, &tp, NULL)) {
+            GtkTreeIter iter;
+            if (gtk_tree_model_get_iter(GTK_TREE_MODEL(app->file_store), &iter, tp)) {
+                gchar *path = NULL;
+                gtk_tree_model_get(GTK_TREE_MODEL(app->file_store), &iter,
+                                   FILE_COL_PATH, &path, -1);
+                gtk_tree_path_free(tp);
+                if (path && g_file_test(path, G_FILE_TEST_EXISTS)) {
+                    return path;
+                }
+                g_free(path);
+            } else {
+                gtk_tree_path_free(tp);
+            }
+        }
     }
 
     GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
     GtkTreeIter iter;
     if (!gtk_tree_selection_get_selected(sel, NULL, &iter)) {
-        return TRUE;
+        return NULL;
+    }
+    gchar *path = NULL;
+    gtk_tree_model_get(GTK_TREE_MODEL(app->file_store), &iter, FILE_COL_PATH, &path, -1);
+    if (path && g_file_test(path, G_FILE_TEST_EXISTS)) {
+        return path;
+    }
+    g_free(path);
+    return NULL;
+}
+
+static gboolean tree_folder_at_tree_event(App *app,
+                                          GtkTreeView *view,
+                                          GdkEvent *event,
+                                          char **folder_out,
+                                          gboolean *is_root_out) {
+    GtkTreeIter iter;
+    gboolean have_iter = FALSE;
+
+    if (event && (event->type == GDK_BUTTON_PRESS || event->type == GDK_BUTTON_RELEASE)) {
+        GtkTreePath *tp = NULL;
+        if (tree_view_path_at_button(view, (GdkEventButton *)event, &tp, NULL)) {
+            have_iter = gtk_tree_model_get_iter(GTK_TREE_MODEL(app->tree_store), &iter, tp);
+            gtk_tree_path_free(tp);
+        }
+    }
+
+    if (!have_iter) {
+        GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
+        if (!gtk_tree_selection_get_selected(sel, NULL, &iter)) {
+            return FALSE;
+        }
     }
 
     GtkTreeModel *model = GTK_TREE_MODEL(app->tree_store);
     GtkTreeIter parent;
-    if (!gtk_tree_model_iter_parent(model, &parent, &iter)) {
-        GtkWidget *dlg = gtk_message_dialog_new(
-            GTK_WINDOW(app->window),
-            GTK_DIALOG_MODAL,
-            GTK_MESSAGE_INFO,
-            GTK_BUTTONS_OK,
-            "현재 열린 루트 폴더는 여기서 삭제할 수 없습니다.\n"
-            "다른 폴더를 선택하거나 파일 탐색기에서 삭제하세요.");
-        gtk_dialog_run(GTK_DIALOG(dlg));
-        gtk_widget_destroy(dlg);
+    if (is_root_out) {
+        *is_root_out = !gtk_tree_model_iter_parent(model, &parent, &iter);
+    }
+    return tree_iter_folder_path(app, &iter, folder_out);
+}
+
+static gboolean on_tree_popup_menu(GtkWidget *widget, gpointer data) {
+    GdkEvent *event = gtk_get_current_event();
+    if (event && (event->type == GDK_BUTTON_PRESS || event->type == GDK_BUTTON_RELEASE)) {
+        gdk_event_free(event);
         return TRUE;
     }
+    gdk_event_free(event);
+
+    App *app = data;
+    GtkTreeView *view = GTK_TREE_VIEW(widget);
+    char *folder = NULL;
+    gboolean is_root = FALSE;
+    if (!tree_folder_at_tree_event(app, view, NULL, &folder, &is_root)) {
+        return FALSE;
+    }
+    browser_queue_context_menu(app, folder, TRUE, is_root, NULL);
+    g_free(folder);
+    return TRUE;
+}
+
+static gboolean on_file_popup_menu(GtkWidget *widget, gpointer data) {
+    GdkEvent *event = gtk_get_current_event();
+    if (event && (event->type == GDK_BUTTON_PRESS || event->type == GDK_BUTTON_RELEASE)) {
+        gdk_event_free(event);
+        return TRUE;
+    }
+    gdk_event_free(event);
+
+    App *app = data;
+    GtkTreeView *view = GTK_TREE_VIEW(widget);
+    char *path = file_path_at_tree_event(app, view, NULL);
+    if (!path) {
+        return FALSE;
+    }
+    browser_select_file_context_only(app, path);
+    browser_queue_context_menu(app, path, FALSE, FALSE, NULL);
+    g_free(path);
+    return TRUE;
+}
+
+static gboolean on_tree_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+    (void)widget;
+    App *app = data;
+    if (event->type == GDK_BUTTON_PRESS && event->button == 3) {
+        app->tree_selection_skip_navigate = TRUE;
+        app->context_menu_in_progress = TRUE;
+    }
+    return FALSE;
+}
+
+static gboolean on_tree_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+    if (event->type != GDK_BUTTON_RELEASE || event->button != 3) {
+        return FALSE;
+    }
+
+    App *app = data;
+    GtkTreeView *view = GTK_TREE_VIEW(widget);
+
+    g_signal_handlers_block_by_func(view, on_tree_cursor_changed, app);
+    GtkTreeIter iter;
+    gboolean ok = tree_view_select_at_button(view, event, GTK_TREE_MODEL(app->tree_store), &iter);
+    g_signal_handlers_unblock_by_func(view, on_tree_cursor_changed, app);
+    app->tree_selection_skip_navigate = FALSE;
+
+    if (!ok) {
+        app->context_menu_in_progress = FALSE;
+        return FALSE;
+    }
+
+    GtkTreeModel *model = GTK_TREE_MODEL(app->tree_store);
+    GtkTreeIter parent;
+    gboolean is_root = !gtk_tree_model_iter_parent(model, &parent, &iter);
 
     char *folder = NULL;
     if (!tree_iter_folder_path(app, &iter, &folder)) {
+        app->context_menu_in_progress = FALSE;
         return TRUE;
     }
 
-    show_file_context_menu(app, event, folder, TRUE);
+    app->context_menu_in_progress = TRUE;
+    show_file_context_menu(app, (GdkEvent *)event, folder, TRUE, is_root);
+    app->context_menu_in_progress = FALSE;
+    app->tree_selection_skip_navigate = FALSE;
     g_free(folder);
     return TRUE;
 }
 
 static gboolean on_file_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+    if (event->type != GDK_BUTTON_PRESS) {
+        return FALSE;
+    }
+    if (event->button == 3) {
+        App *app = data;
+        app->file_selection_skip_preview = TRUE;
+        app->context_menu_in_progress = TRUE;
+        return FALSE;
+    }
+    if (event->button != 1) {
+        return FALSE;
+    }
+
     App *app = data;
-    if (event->type == GDK_BUTTON_PRESS && event->button == 1) {
-        app->file_select_via_mouse = TRUE;
-        return FALSE;
-    }
-    if (event->type != GDK_BUTTON_PRESS || event->button != 3) {
-        return FALSE;
-    }
-
     GtkTreeView *view = GTK_TREE_VIEW(widget);
-    if (!tree_view_select_at_event(view, event)) {
-        return FALSE;
-    }
+    GtkTreeSelection *fsel = gtk_tree_view_get_selection(view);
 
-    GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
+    g_signal_handlers_block_by_func(fsel, on_file_selection_changed, app);
     GtkTreeIter iter;
-    if (!gtk_tree_selection_get_selected(sel, NULL, &iter)) {
-        return TRUE;
+    gboolean ok = tree_view_select_at_button(view, event, GTK_TREE_MODEL(app->file_store), &iter);
+    g_signal_handlers_unblock_by_func(fsel, on_file_selection_changed, app);
+
+    if (!ok) {
+        return FALSE;
     }
 
     gchar *path = NULL;
@@ -1124,7 +1712,41 @@ static gboolean on_file_button_press(GtkWidget *widget, GdkEventButton *event, g
         return TRUE;
     }
 
-    show_file_context_menu(app, event, path, FALSE);
+    browser_show_file_for_path(app, path, TRUE);
+    g_free(path);
+    return TRUE;
+}
+
+static gboolean on_file_button_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+    if (event->type != GDK_BUTTON_RELEASE || event->button != 3) {
+        return FALSE;
+    }
+
+    App *app = data;
+    GtkTreeView *view = GTK_TREE_VIEW(widget);
+    GtkTreeSelection *fsel = gtk_tree_view_get_selection(view);
+
+    g_signal_handlers_block_by_func(fsel, on_file_selection_changed, app);
+    GtkTreeIter iter;
+    gboolean ok = tree_view_select_at_button(view, event, GTK_TREE_MODEL(app->file_store), &iter);
+    g_signal_handlers_unblock_by_func(fsel, on_file_selection_changed, app);
+
+    app->file_selection_skip_preview = FALSE;
+
+    if (!ok) {
+        app->context_menu_in_progress = FALSE;
+        return FALSE;
+    }
+
+    gchar *path = NULL;
+    gtk_tree_model_get(GTK_TREE_MODEL(app->file_store), &iter, FILE_COL_PATH, &path, -1);
+    if (!path || !g_file_test(path, G_FILE_TEST_EXISTS)) {
+        g_free(path);
+        app->context_menu_in_progress = FALSE;
+        return TRUE;
+    }
+
+    browser_show_file_actions_menu(app, path, (GdkEvent *)event);
     g_free(path);
     return TRUE;
 }
@@ -1178,14 +1800,22 @@ void browser_init(App *app) {
     gtk_tree_selection_set_mode(fsel, GTK_SELECTION_SINGLE);
     g_signal_connect(fsel, "changed", G_CALLBACK(on_file_selection_changed), app);
 
-    gtk_widget_add_events(app->tree_view, GDK_BUTTON_PRESS_MASK | GDK_KEY_PRESS_MASK);
-    gtk_widget_add_events(app->file_view, GDK_BUTTON_PRESS_MASK | GDK_KEY_PRESS_MASK);
+    gtk_widget_add_events(app->tree_view,
+                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_KEY_PRESS_MASK);
+    gtk_widget_add_events(app->file_view,
+                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_KEY_PRESS_MASK);
     gtk_widget_set_can_focus(app->tree_view, TRUE);
     gtk_widget_set_can_focus(app->file_view, TRUE);
+    g_signal_connect(app->tree_view, "popup-menu", G_CALLBACK(on_tree_popup_menu), app);
     g_signal_connect(app->tree_view, "button-press-event",
                      G_CALLBACK(on_tree_button_press), app);
+    g_signal_connect(app->tree_view, "button-release-event",
+                     G_CALLBACK(on_tree_button_release), app);
+    g_signal_connect(app->file_view, "popup-menu", G_CALLBACK(on_file_popup_menu), app);
     g_signal_connect(app->file_view, "button-press-event",
                      G_CALLBACK(on_file_button_press), app);
+    g_signal_connect(app->file_view, "button-release-event",
+                     G_CALLBACK(on_file_button_release), app);
     g_signal_connect(app->tree_view, "key-press-event", G_CALLBACK(on_browser_key_press), app);
     g_signal_connect(app->file_view, "key-press-event", G_CALLBACK(on_browser_key_press), app);
 }
@@ -1567,8 +2197,6 @@ static void browser_select_file_by_path(App *app, const char *path) {
 
 void browser_refresh_after_heif_commit(App *app, const char *jpg_path,
                                        const char *heif_source_path) {
-    (void)heif_source_path;
-
     if (!app->current_folder || !jpg_path) {
         return;
     }
@@ -1585,7 +2213,8 @@ void browser_refresh_after_heif_commit(App *app, const char *jpg_path,
     apply_folder_scan(app, res);
     folder_scan_result_free(res);
 
-    /* 파일 이동이 유발한 폴더 감시 재갱신 취소 — 방금 동기 스캔으로 이미 반영됨 */
+    /* .hif 이동이 유발할 폴더 감시 이벤트를 1회 억제 — 동기 스캔으로 이미 반영됨 */
+    app->heif_commit_refresh_pending = TRUE;
     if (app->folder_refresh_pending) {
         g_source_remove(app->folder_refresh_pending);
         app->folder_refresh_pending = 0;
@@ -1619,10 +2248,9 @@ void browser_refresh_after_heif_commit(App *app, const char *jpg_path,
         g_free(msg);
     }
 
-    const char *page =
-        gtk_stack_get_visible_child_name(GTK_STACK(app->preview_stack));
-    if (page && g_strcmp0(page, "gallery") == 0) {
-        preview_show_gallery(app, app->current_folder);
+    /* 변환 후 갤러리 재구성 — preview_op_gen 을 올리지 않아 완료 상태가 유지됨 */
+    if (app->current_folder && g_file_test(app->current_folder, G_FILE_TEST_IS_DIR)) {
+        preview_refresh_gallery(app, app->current_folder);
     }
 }
 
@@ -1718,6 +2346,14 @@ static gboolean folder_refresh_debounce(gpointer data) {
 }
 
 static void schedule_folder_refresh(App *app) {
+    if (app->heif_commit_refresh_pending) {
+        app->heif_commit_refresh_pending = FALSE;
+        if (app->folder_refresh_pending) {
+            g_source_remove(app->folder_refresh_pending);
+            app->folder_refresh_pending = 0;
+        }
+        return;
+    }
     if (app->folder_refresh_pending) {
         g_source_remove(app->folder_refresh_pending);
     }

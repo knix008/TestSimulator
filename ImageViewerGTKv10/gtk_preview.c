@@ -27,6 +27,7 @@ typedef struct {
     guint generation;
     char *path;
     gboolean heif_commit;
+    gboolean keep_gallery_visible;
 } PreviewLoadRequest;
 
 typedef struct {
@@ -290,6 +291,7 @@ void preview_cancel_thumbnails(App *app) {
     }
     app->thumb_index = 0;
 
+    app->gallery_selected_btn = NULL;
     if (app->gallery_flow && GTK_IS_FLOW_BOX(app->gallery_flow)) {
         GtkFlowBox *flow = GTK_FLOW_BOX(app->gallery_flow);
         GtkFlowBoxChild *child;
@@ -388,33 +390,29 @@ static gboolean on_image_scroll(GtkWidget *w, GdkEventScroll *ev, gpointer data)
     return TRUE;
 }
 
-static void on_thumb_clicked(GtkButton *btn, gpointer data) {
+static gboolean on_thumb_button_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+    if (event->type != GDK_BUTTON_PRESS) {
+        return FALSE;
+    }
+    if (event->button != 1 && event->button != 3) {
+        return FALSE;
+    }
+
     App *app = data;
-    const char *path = g_object_get_data(G_OBJECT(btn), "file-path");
-    if (!path) {
-        return;
+    const char *path = g_object_get_data(G_OBJECT(widget), "file-path");
+    if (!path || !g_file_test(path, G_FILE_TEST_EXISTS)) {
+        return FALSE;
     }
-    GtkTreeIter iter;
-    gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(app->file_store), &iter);
-    while (valid) {
-        gchar *fp = NULL;
-        gtk_tree_model_get(GTK_TREE_MODEL(app->file_store), &iter,
-                           FILE_COL_PATH, &fp, -1);
-        if (fp && g_ascii_strcasecmp(fp, path) == 0) {
-            app->file_select_via_mouse = TRUE;
-            GtkTreeSelection *fsel =
-                gtk_tree_view_get_selection(GTK_TREE_VIEW(app->file_view));
-            gtk_tree_selection_select_iter(fsel, &iter);
-            GtkTreePath *tp = gtk_tree_model_get_path(GTK_TREE_MODEL(app->file_store), &iter);
-            gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(app->file_view), tp, NULL,
-                                         TRUE, 0.3, 0.0);
-            gtk_tree_path_free(tp);
-            g_free(fp);
-            return;
-        }
-        g_free(fp);
-        valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(app->file_store), &iter);
+
+    browser_set_gallery_thumb_highlight(app, widget);
+
+    if (event->button == 1) {
+        browser_sync_file_list_to_path(app, path);
+        browser_show_file_for_path(app, path, TRUE);
+    } else {
+        browser_show_file_actions_menu(app, path, (GdkEvent *)event);
     }
+    return TRUE;
 }
 
 static GtkWidget *make_thumb_card(App *app, const char *path, GdkPixbuf *thumb) {
@@ -437,7 +435,8 @@ static GtkWidget *make_thumb_card(App *app, const char *path, GdkPixbuf *thumb) 
     gtk_box_pack_start(GTK_BOX(inner), lbl, TRUE, TRUE, 0);
     gtk_container_add(GTK_CONTAINER(btn), inner);
     g_object_set_data_full(G_OBJECT(btn), "file-path", g_strdup(path), g_free);
-    g_signal_connect(btn, "clicked", G_CALLBACK(on_thumb_clicked), app);
+    gtk_widget_add_events(btn, GDK_BUTTON_PRESS_MASK);
+    g_signal_connect(btn, "button-press-event", G_CALLBACK(on_thumb_button_press), app);
 
     gtk_flow_box_insert(GTK_FLOW_BOX(app->gallery_flow), btn, -1);
     gtk_widget_show_all(btn);
@@ -558,8 +557,10 @@ static void thumb_start_next(App *app) {
     g_object_unref(task);
 }
 
-void preview_show_gallery(App *app, const char *folder) {
-    app->preview_op_gen++;
+static void preview_show_gallery_internal(App *app, const char *folder, gboolean quiet) {
+    if (!quiet) {
+        app->preview_op_gen++;
+    }
     preview_cancel_thumbnails(app);
     preview_clear_media(app);
     preview_set_toolbar_visible(app, FALSE);
@@ -600,8 +601,18 @@ void preview_show_gallery(App *app, const char *folder) {
     app->thumb_paths = g_list_sort(app->thumb_paths, ptr_str_compare);
     app->thumb_index = 0;
 
-    gtk_app_update_status_file(app, "썸네일을 불러오는 중…");
+    if (!quiet) {
+        gtk_app_update_status_file(app, "썸네일을 불러오는 중…");
+    }
     thumb_start_next(app);
+}
+
+void preview_show_gallery(App *app, const char *folder) {
+    preview_show_gallery_internal(app, folder, FALSE);
+}
+
+void preview_refresh_gallery(App *app, const char *folder) {
+    preview_show_gallery_internal(app, folder, TRUE);
 }
 
 static void show_image_error_dialog(App *app, const char *path, GError *err) {
@@ -683,7 +694,12 @@ static void preview_load_done_cb(GObject *source, GAsyncResult *result, gpointer
         return;
     }
 
-    if (res->generation != app->preview_op_gen) {
+    if (res->heif_commit) {
+        if (res->generation != app->heif_commit_gen) {
+            preview_load_result_free(res);
+            return;
+        }
+    } else if (res->generation != app->preview_op_gen) {
         preview_load_result_free(res);
         return;
     }
@@ -692,7 +708,11 @@ static void preview_load_done_cb(GObject *source, GAsyncResult *result, gpointer
         show_image_error_dialog(app, res->path, res->error);
         if (res->heif_commit) {
             gtk_app_update_status_file(app, "HIF/HEIF 변환에 실패했습니다.");
-            preview_show_placeholder(app, "HIF/HEIF 변환 실패");
+            if (app->current_folder) {
+                preview_refresh_gallery(app, app->current_folder);
+            } else {
+                preview_show_placeholder(app, "HIF/HEIF 변환 실패");
+            }
         } else {
             preview_show_placeholder(app,
                                    utils_is_heif_path(res->path)
@@ -703,42 +723,57 @@ static void preview_load_done_cb(GObject *source, GAsyncResult *result, gpointer
         return;
     }
 
+    if (res->heif_commit) {
+        char *jpg_path = res->edit_path;
+        if (jpg_path && g_file_test(jpg_path, G_FILE_TEST_EXISTS)) {
+            g_free(app->selected_file);
+            app->selected_file = g_strdup(jpg_path);
+            browser_refresh_after_heif_commit(app, jpg_path, res->path);
+        } else if (app->current_folder) {
+            preview_refresh_gallery(app, app->current_folder);
+        }
+        preview_load_result_free(res);
+        return;
+    }
+
     g_free(app->image_path);
     g_free(app->image_edit_path);
     app->image_path = g_strdup(res->path);
     app->image_edit_path = g_steal_pointer(&res->edit_path);
 
-    if (!res->heif_commit) {
-        preview_set_toolbar_visible(app, app->image_edit_path != NULL);
-    } else {
-        preview_set_toolbar_visible(app, TRUE);
-    }
+    preview_set_toolbar_visible(app, app->image_edit_path != NULL);
 
     GdkPixbuf *pb = g_steal_pointer(&res->pixbuf);
     set_image_pixbuf(app, pb);
     stack_show(app, app->image_page);
 
-    if (res->heif_commit && app->image_edit_path) {
-        g_free(app->selected_file);
-        app->selected_file = g_strdup(app->image_edit_path);
-        browser_refresh_after_heif_commit(app, app->image_edit_path, res->path);
-    }
-
     preview_load_result_free(res);
 }
 
-static void preview_start_load(App *app, const char *path, gboolean heif_commit) {
-    app->preview_op_gen++;
-    preview_clear_media(app);
-
+static void preview_start_load(App *app, const char *path, gboolean heif_commit,
+                               gboolean keep_gallery_visible) {
     PreviewLoadRequest *req = g_new(PreviewLoadRequest, 1);
-    req->generation = app->preview_op_gen;
+    if (heif_commit) {
+        app->heif_commit_gen++;
+        req->generation = app->heif_commit_gen;
+        if (!keep_gallery_visible) {
+            app->preview_op_gen++;
+            preview_clear_media(app);
+        }
+    } else {
+        app->preview_op_gen++;
+        req->generation = app->preview_op_gen;
+        preview_clear_media(app);
+    }
     req->path = g_strdup(path);
     req->heif_commit = heif_commit;
+    req->keep_gallery_visible = keep_gallery_visible;
 
     if (heif_commit) {
         gtk_app_update_status_file(app, "HIF/HEIF 변환 중…");
-        preview_show_placeholder(app, "변환 중입니다…");
+        if (!keep_gallery_visible) {
+            preview_show_placeholder(app, "변환 중입니다…");
+        }
     } else {
         gtk_app_update_status_file(app, "이미지를 불러오는 중…");
     }
@@ -750,19 +785,25 @@ static void preview_start_load(App *app, const char *path, gboolean heif_commit)
 }
 
 void preview_show_image(App *app, const char *path) {
+    if (browser_is_context_menu_event(app)) {
+        return;
+    }
     preview_cancel_thumbnails(app);
     preview_clear_media(app);
-    preview_start_load(app, path, FALSE);
+    preview_start_load(app, path, FALSE, FALSE);
 }
 
 void preview_commit_heif_file(App *app, const char *path) {
+    if (browser_is_context_menu_event(app)) {
+        return;
+    }
     if (!utils_is_heif_path(path)) {
         preview_show_image(app, path);
         return;
     }
 
-    preview_clear(app);
-    preview_start_load(app, path, TRUE);
+    /* 갤러리·목록 유지: preview_clear()는 썸네일을 모두 지우므로 호출하지 않음 */
+    preview_start_load(app, path, TRUE, TRUE);
 }
 
 static void transform_worker(GTask *task, gpointer source, gpointer data, GCancellable *cancel) {

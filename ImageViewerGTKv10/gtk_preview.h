@@ -6,6 +6,7 @@
 void preview_init(App *app);
 void preview_show_placeholder(App *app, const char *text);
 void preview_show_gallery(App *app, const char *folder);
+void preview_refresh_gallery(App *app, const char *folder);
 void preview_show_image(App *app, const char *path);
 void preview_commit_heif_file(App *app, const char *path);
 void preview_show_video(App *app, const char *path);

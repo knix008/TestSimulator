@@ -31,6 +31,14 @@ void browser_revalidate_file_selection(App *app);
 void browser_show_folder_contents(App *app, const char *folder, gboolean show_gallery);
 /* 파일 목록·갤러리에서 파일 선택 시 미리보기 표시 */
 void browser_show_file_for_path(App *app, const char *path, gboolean via_mouse);
+gboolean browser_is_context_menu_event(App *app);
+void browser_select_file_context_only(App *app, const char *path);
+void browser_sync_file_list_to_path(App *app, const char *path);
+void browser_select_file_for_ui(App *app, const char *path, gboolean via_mouse,
+                                gboolean show_preview);
+void browser_show_file_actions_menu(App *app, const char *path, GdkEvent *event);
+void browser_set_gallery_thumb_highlight(App *app, GtkWidget *thumb_btn);
+void browser_popup_context_menu(App *app, const char *path, gboolean is_dir, GdkEvent *event);
 void browser_refresh_after_heif_commit(App *app, const char *jpg_path,
                                        const char *heif_source_path);
 void browser_refresh_views(App *app);
