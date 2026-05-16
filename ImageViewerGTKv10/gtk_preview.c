@@ -22,6 +22,8 @@
 
 #define THUMB_W 142
 #define THUMB_H 126
+/* 썸네일 카드에 표시할 파일명 최대 글자 수 (초과 시 앞부분 + "...") */
+#define THUMB_NAME_MAX_CHARS 18
 
 typedef struct {
     guint generation;
@@ -135,7 +137,82 @@ static void preview_queue_image_redraw(App *app) {
     }
 }
 
+static void preview_image_scaled_size(App *app, int *w_out, int *h_out) {
+    int iw = 1;
+    int ih = 1;
+    if (app->image_pixbuf && app->image_nat_w > 0 && app->image_nat_h > 0) {
+        iw = MAX(1, (int)(app->image_nat_w * app->zoom_factor));
+        ih = MAX(1, (int)(app->image_nat_h * app->zoom_factor));
+    }
+    if (w_out) {
+        *w_out = iw;
+    }
+    if (h_out) {
+        *h_out = ih;
+    }
+}
+
+/* 뷰포트보다 이미지가 크면 GtkScrolledWindow 가 스크롤바를 표시 */
+static void preview_update_image_scroll_size(App *app) {
+    if (!app->image_da) {
+        return;
+    }
+    int iw, ih;
+    preview_image_scaled_size(app, &iw, &ih);
+    gtk_widget_set_size_request(app->image_da, iw, ih);
+    gtk_widget_queue_resize(app->image_da);
+    preview_queue_image_redraw(app);
+}
+
+static void preview_image_scroll_reset(App *app) {
+    if (!app->image_scrolled) {
+        return;
+    }
+    GtkAdjustment *hadj =
+        gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
+    GtkAdjustment *vadj =
+        gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
+    if (hadj) {
+        gtk_adjustment_set_value(hadj, gtk_adjustment_get_lower(hadj));
+    }
+    if (vadj) {
+        gtk_adjustment_set_value(vadj, gtk_adjustment_get_lower(vadj));
+    }
+}
+
+static void preview_image_scroll_set(GtkAdjustment *adj, double value) {
+    if (!adj) {
+        return;
+    }
+    double lower = gtk_adjustment_get_lower(adj);
+    double upper = gtk_adjustment_get_upper(adj);
+    double page = gtk_adjustment_get_page_size(adj);
+    double max_val = MAX(lower, upper - page);
+    gtk_adjustment_set_value(adj, CLAMP(value, lower, max_val));
+}
+
+static void preview_image_pan_end(App *app) {
+    if (!app->image_panning) {
+        return;
+    }
+    app->image_panning = FALSE;
+    GdkDisplay *dpy = gdk_display_get_default();
+    if (dpy) {
+        GdkSeat *seat = gdk_display_get_default_seat(dpy);
+        if (seat) {
+            gdk_seat_ungrab(seat);
+        }
+    }
+    if (app->image_viewport && gtk_widget_get_window(app->image_viewport)) {
+        gdk_window_set_cursor(gtk_widget_get_window(app->image_viewport), NULL);
+    }
+    if (app->image_da && gtk_widget_get_window(app->image_da)) {
+        gdk_window_set_cursor(gtk_widget_get_window(app->image_da), NULL);
+    }
+}
+
 static void preview_clear_media(App *app) {
+    preview_image_pan_end(app);
     if (app->image_pixbuf) {
         g_object_unref(app->image_pixbuf);
         app->image_pixbuf = NULL;
@@ -330,8 +407,8 @@ static gboolean on_image_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
         return FALSE;
     }
 
-    int iw = MAX(1, (int)(app->image_nat_w * app->zoom_factor));
-    int ih = MAX(1, (int)(app->image_nat_h * app->zoom_factor));
+    int iw, ih;
+    preview_image_scaled_size(app, &iw, &ih);
 
     GdkPixbuf *scaled = gdk_pixbuf_scale_simple(
         app->image_pixbuf, iw, ih, GDK_INTERP_BILINEAR);
@@ -339,6 +416,7 @@ static gboolean on_image_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
         return FALSE;
     }
 
+    /* 뷰포트가 작을 때는 drawing area 가 이미지 크기(iw×ih) — (0,0) 에 그림 */
     int x = (iw < vw) ? (vw - iw) / 2 : 0;
     int y = (ih < vh) ? (vh - ih) / 2 : 0;
     gdk_cairo_set_source_pixbuf(cr, scaled, x, y);
@@ -386,7 +464,81 @@ static gboolean on_image_scroll(GtkWidget *w, GdkEventScroll *ev, gpointer data)
     double step = (ev->direction == GDK_SCROLL_UP || ev->delta_y < 0) ? 1.1 : 1.0 / 1.1;
     app->zoom_factor = CLAMP(app->zoom_factor * step, 0.05, 16.0);
     update_zoom_label(app);
-    preview_queue_image_redraw(app);
+    preview_update_image_scroll_size(app);
+    return TRUE;
+}
+
+static gboolean on_image_pan_press(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+    if (event->type != GDK_BUTTON_PRESS || event->button != 1) {
+        return FALSE;
+    }
+
+    App *app = data;
+    if (!app->image_pixbuf || !app->image_scrolled) {
+        return FALSE;
+    }
+
+    GtkAdjustment *hadj =
+        gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
+    GtkAdjustment *vadj =
+        gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
+    if (!hadj || !vadj) {
+        return FALSE;
+    }
+
+    app->image_panning = TRUE;
+    app->pan_start_x = (int)event->x_root;
+    app->pan_start_y = (int)event->y_root;
+    app->pan_start_h = gtk_adjustment_get_value(hadj);
+    app->pan_start_v = gtk_adjustment_get_value(vadj);
+
+    GdkWindow *win = gtk_widget_get_window(widget);
+    if (win) {
+        GdkDevice *device = gdk_event_get_device((GdkEvent *)event);
+        GdkSeat *seat = device ? gdk_device_get_seat(device)
+                               : gdk_display_get_default_seat(gdk_window_get_display(win));
+        if (seat) {
+            gdk_seat_grab(seat, win, GDK_SEAT_CAPABILITY_POINTER, FALSE, NULL, NULL, NULL,
+                          NULL);
+        }
+        GdkCursor *cur =
+            gdk_cursor_new_for_display(gdk_window_get_display(win), GDK_FLEUR);
+        gdk_window_set_cursor(win, cur);
+        g_object_unref(cur);
+    }
+    return TRUE;
+}
+
+static gboolean on_image_pan_motion(GtkWidget *widget, GdkEventMotion *event, gpointer data) {
+    (void)widget;
+    App *app = data;
+    if (!app->image_panning || !app->image_scrolled) {
+        return FALSE;
+    }
+
+    GtkAdjustment *hadj =
+        gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
+    GtkAdjustment *vadj =
+        gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
+
+    int dx = (int)event->x_root - app->pan_start_x;
+    int dy = (int)event->y_root - app->pan_start_y;
+    preview_image_scroll_set(hadj, app->pan_start_h - dx);
+    preview_image_scroll_set(vadj, app->pan_start_v - dy);
+    return TRUE;
+}
+
+static gboolean on_image_pan_release(GtkWidget *widget, GdkEventButton *event, gpointer data) {
+    (void)widget;
+    if (event->type != GDK_BUTTON_RELEASE || event->button != 1) {
+        return FALSE;
+    }
+
+    App *app = data;
+    if (!app->image_panning) {
+        return FALSE;
+    }
+    preview_image_pan_end(app);
     return TRUE;
 }
 
@@ -415,6 +567,25 @@ static gboolean on_thumb_button_press(GtkWidget *widget, GdkEventButton *event, 
     return TRUE;
 }
 
+static char *thumb_format_basename(const char *path) {
+    const char *base = g_path_get_basename(path);
+    if (!base || !*base) {
+        return g_strdup("");
+    }
+
+    glong n_chars = g_utf8_strlen(base, -1);
+    if (n_chars <= THUMB_NAME_MAX_CHARS) {
+        return g_strdup(base);
+    }
+
+    const char *end = g_utf8_offset_to_pointer(base, THUMB_NAME_MAX_CHARS);
+    size_t byte_len = (size_t)(end - base);
+    char *out = g_malloc(byte_len + 4);
+    memcpy(out, base, byte_len);
+    memcpy(out + byte_len, "...", 4);
+    return out;
+}
+
 static GtkWidget *make_thumb_card(App *app, const char *path, GdkPixbuf *thumb) {
     if (!thumb || !GDK_IS_PIXBUF(thumb) || !app->gallery_flow ||
         !GTK_IS_FLOW_BOX(app->gallery_flow)) {
@@ -423,9 +594,11 @@ static GtkWidget *make_thumb_card(App *app, const char *path, GdkPixbuf *thumb) 
 
     GtkWidget *img = gtk_image_new_from_pixbuf(thumb);
     gtk_widget_set_size_request(img, THUMB_W, THUMB_H);
-    GtkWidget *lbl = gtk_label_new(g_path_get_basename(path));
+    char *name = thumb_format_basename(path);
+    GtkWidget *lbl = gtk_label_new(name);
+    g_free(name);
     gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
-    gtk_label_set_ellipsize(GTK_LABEL(lbl), PANGO_ELLIPSIZE_END);
+    gtk_widget_set_size_request(lbl, THUMB_W, -1);
     gtk_widget_set_halign(lbl, GTK_ALIGN_START);
 
     GtkWidget *btn = gtk_button_new();
@@ -644,7 +817,8 @@ static void set_image_pixbuf(App *app, GdkPixbuf *pb) {
     app->image_nat_h = gdk_pixbuf_get_height(pb);
     app->zoom_factor = calc_fit_zoom(app);
     update_zoom_label(app);
-    preview_queue_image_redraw(app);
+    preview_update_image_scroll_size(app);
+    preview_image_scroll_reset(app);
 }
 
 static void preview_load_worker(GTask *task, gpointer source, gpointer data,
@@ -1054,9 +1228,17 @@ static void on_video_stop(GtkButton *b, gpointer data) {
 }
 #endif
 
+static void preview_connect_image_pan(App *app, GtkWidget *widget) {
+    g_signal_connect(widget, "button-press-event", G_CALLBACK(on_image_pan_press), app);
+    g_signal_connect(widget, "button-release-event", G_CALLBACK(on_image_pan_release), app);
+    g_signal_connect(widget, "motion-notify-event", G_CALLBACK(on_image_pan_motion), app);
+}
+
 void preview_init(App *app) {
     g_signal_connect(app->image_da, "draw", G_CALLBACK(on_image_draw), app);
     g_signal_connect(app->image_viewport, "scroll-event", G_CALLBACK(on_image_scroll), app);
+    preview_connect_image_pan(app, app->image_da);
+    preview_connect_image_pan(app, app->image_viewport);
 
 #ifdef HAVE_LIBVLC
     const char *vlc_args[] = {"--intf", "dummy", "--quiet"};

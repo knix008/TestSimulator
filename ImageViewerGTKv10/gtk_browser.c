@@ -131,10 +131,16 @@ static void browser_add_icon_name_column(GtkTreeView *view,
     gtk_tree_view_column_add_attribute(col, pix, "pixbuf", icon_col);
 
     GtkCellRenderer *text = gtk_cell_renderer_text_new();
+    g_object_set(text, "xalign", 0.0, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
     gtk_tree_view_column_pack_start(col, text, TRUE);
     gtk_tree_view_column_add_attribute(col, text, "text", text_col);
 
     gtk_tree_view_append_column(view, col);
+}
+
+static void browser_tree_scroll_to_row(GtkTreeView *view, GtkTreePath *path) {
+    /* 가로 스크롤 없이 행만 보이게 (긴 파일명 클릭 시 목록이 옆으로 밀리지 않음) */
+    gtk_tree_view_scroll_to_cell(view, path, NULL, FALSE, 0.0, 0.0);
 }
 
 static void tree_add_dummy(GtkTreeIter *parent, GtkTreeStore *store) {
@@ -343,7 +349,7 @@ static gboolean tree_view_select_at_button(GtkTreeView *view,
     gtk_tree_selection_unselect_all(sel);
     gtk_tree_selection_select_path(sel, path);
     gtk_tree_view_set_cursor(view, path, col, FALSE);
-    gtk_tree_view_scroll_to_cell(view, path, col, FALSE, 0.5, 0.0);
+    browser_tree_scroll_to_row(view, path);
     gtk_widget_grab_focus(GTK_WIDGET(view));
     gtk_tree_path_free(path);
     return TRUE;
@@ -455,7 +461,7 @@ void browser_sync_file_list_to_path(App *app, const char *path) {
             g_signal_handlers_block_by_func(fsel, on_file_selection_changed, app);
             gtk_tree_selection_select_iter(fsel, &iter);
             gtk_tree_view_set_cursor(GTK_TREE_VIEW(app->file_view), tp, col, FALSE);
-            gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(app->file_view), tp, col, TRUE, 0.3, 0.0);
+            browser_tree_scroll_to_row(GTK_TREE_VIEW(app->file_view), tp);
             g_signal_handlers_unblock_by_func(fsel, on_file_selection_changed, app);
             gtk_tree_path_free(tp);
             g_free(fp);
@@ -2183,8 +2189,7 @@ static void browser_select_file_by_path(App *app, const char *path) {
                 gtk_tree_model_get_path(GTK_TREE_MODEL(app->file_store), &iter);
             g_signal_handlers_block_by_func(fsel, on_file_selection_changed, app);
             gtk_tree_selection_select_iter(fsel, &iter);
-            gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(app->file_view), tp, NULL,
-                                         TRUE, 0.3, 0.0);
+            browser_tree_scroll_to_row(GTK_TREE_VIEW(app->file_view), tp);
             gtk_tree_path_free(tp);
             g_signal_handlers_unblock_by_func(fsel, on_file_selection_changed, app);
             g_free(fp);

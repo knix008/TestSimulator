@@ -1,4 +1,5 @@
 #include "image_io.h"
+#include "heif_native.h"
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -10,14 +11,32 @@
 
 #define JPEG_QUALITY "100"
 
-/* ffmpeg zscale+tonemap: HDR/PQ(HIF) → SDR JPEG */
-#define FFMPEG_TONEMAP_VF \
-    "zscale=transfer=linear:npl=100,format=gbrpf32le," \
-    "zscale=primaries=bt709,transfer=bt709:matrix=bt709:range=pc," \
-    "tonemap=tonemap=hable:desat=0," \
-    "zscale=transfer=bt709:matrix=bt709:primaries=bt709,format=yuvj444p"
+/* 10-bit PQ/HDR → 8-bit SDR JPEG (heif-convert 단독은 PQ 톤매핑 없음 — libheif #1183) */
+static const char *const FFMPEG_TONEMAP_VFS[] = {
+    "zscale=transfer=linear:npl=250,format=gbrpf32le,"
+    "tonemap=tonemap=mobius:desat=0,"
+    "zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuvj420p",
+    "zscale=transfer=linear:npl=100,format=gbrpf32le,"
+    "zscale=primaries=bt709:transfer=bt709:matrix=bt709:range=tv,"
+    "tonemap=tonemap=hable:desat=0,"
+    "zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuvj420p",
+    "zscale=transfer=linear,format=gbrpf32le,"
+    "tonemap=tonemap=reinhard:desat=0,"
+    "zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuvj420p",
+    "tonemap=tonemap=hable:desat=0,format=yuvj420p",
+    NULL,
+};
 
-#define FFMPEG_TONEMAP_SIMPLE_VF "tonemap=tonemap=hable:desat=0,format=yuvj444p"
+/* ffmpeg colorspace: BT.2020/PQ 입력 → BT.709 출력 */
+#define FFMPEG_COLORSPACE_VF \
+    "colorspace=all=bt709:iall=bt2020:itrc=smpte2084:iprimaries=bt2020:irange=tv:" \
+    "fast=0,format=yuvj420p"
+
+#define FFMPEG_ZSCALE_AUTO_VF \
+    "zscale=transfer=linear:tonemap=tonemap=hable:desat=0," \
+    "zscale=transfer=bt709:matrix=bt709:primaries=bt709:range=tv,format=yuvj420p"
+
+#define TARGET_SDR_LUMA 0.45
 
 static gboolean spawn_quiet(char **argv) {
     GError *spawn_err = NULL;
@@ -52,9 +71,11 @@ static gboolean output_jpg_ok(const char *jpg_path) {
     return jpg_path && g_file_test(jpg_path, G_FILE_TEST_IS_REGULAR);
 }
 
-/* 진짜 오버브라이트(PQ 미처리)는 mean > 45000 (Q16 ~69%). heif-convert 정상 출력 ~23000은 허용 */
+/* ImageMagick %[mean] Q16: PQ 미처리(과밝) / 톤매핑 과다(과어두) 결과 걸러냄 */
 #define IM_OVERBRIGHT_MEAN 45000.0
+#define IM_UNDERDARK_MEAN 6000.0
 #define GDK_OVERBRIGHT_LUMA 0.75
+#define GDK_UNDERDARK_LUMA 0.06
 static double image_io_pixbuf_sample_luma_mean(GdkPixbuf *pb) {
     if (!pb || gdk_pixbuf_get_colorspace(pb) != GDK_COLORSPACE_RGB) {
         return 0.0;
@@ -83,7 +104,7 @@ static double image_io_pixbuf_sample_luma_mean(GdkPixbuf *pb) {
     return samples > 0 ? sum / (samples * 255.0) : 0.0;
 }
 
-static gboolean image_io_jpg_is_overbright(const char *jpg_path) {
+static double image_io_im_jpg_mean(const char *jpg_path) {
     static const char *const cmds[] = {"magick", "convert", NULL};
     for (int i = 0; cmds[i]; i++) {
         char *prog = g_find_program_in_path(cmds[i]);
@@ -102,18 +123,88 @@ static gboolean image_io_jpg_is_overbright(const char *jpg_path) {
         if (out) {
             double im_mean = g_ascii_strtod(out, NULL);
             g_free(out);
-            return im_mean > IM_OVERBRIGHT_MEAN;
+            return im_mean;
         }
     }
+    return -1.0;
+}
 
+static double image_io_gdk_jpg_luma_mean(const char *jpg_path) {
     GdkPixbuf *pb =
         gdk_pixbuf_new_from_file_at_scale(jpg_path, 256, 256, TRUE, NULL);
     if (!pb) {
-        return FALSE;
+        return -1.0;
     }
     double mean = image_io_pixbuf_sample_luma_mean(pb);
     g_object_unref(pb);
-    return mean > GDK_OVERBRIGHT_LUMA;
+    return mean;
+}
+
+static gboolean image_io_jpg_is_overbright(const char *jpg_path) {
+    double im_mean = image_io_im_jpg_mean(jpg_path);
+    if (im_mean >= 0.0) {
+        return im_mean > IM_OVERBRIGHT_MEAN;
+    }
+    double luma = image_io_gdk_jpg_luma_mean(jpg_path);
+    return luma >= 0.0 && luma > GDK_OVERBRIGHT_LUMA;
+}
+
+static gboolean image_io_jpg_is_underdark(const char *jpg_path) {
+    double im_mean = image_io_im_jpg_mean(jpg_path);
+    if (im_mean >= 0.0) {
+        return im_mean < IM_UNDERDARK_MEAN;
+    }
+    double luma = image_io_gdk_jpg_luma_mean(jpg_path);
+    return luma >= 0.0 && luma < GDK_UNDERDARK_LUMA;
+}
+
+static gboolean image_io_jpg_looks_sdr_valid(const char *jpg_path) {
+    if (!output_jpg_ok(jpg_path)) {
+        return FALSE;
+    }
+    if (image_io_jpg_is_overbright(jpg_path) || image_io_jpg_is_underdark(jpg_path)) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/* 후보 선택용: 극단만 제외 */
+static gboolean image_io_jpg_is_plausible(const char *jpg_path) {
+    if (!output_jpg_ok(jpg_path)) {
+        return FALSE;
+    }
+    double im_mean = image_io_im_jpg_mean(jpg_path);
+    if (im_mean >= 0.0) {
+        return im_mean > 3000.0 && im_mean < 52000.0;
+    }
+    double luma = image_io_gdk_jpg_luma_mean(jpg_path);
+    return luma >= 0.05 && luma <= 0.90;
+}
+
+static double image_io_jpg_brightness_score(const char *jpg_path) {
+    double im_mean = image_io_im_jpg_mean(jpg_path);
+    if (im_mean >= 0.0) {
+        return fabs(im_mean / 65535.0 - TARGET_SDR_LUMA);
+    }
+    double luma = image_io_gdk_jpg_luma_mean(jpg_path);
+    if (luma >= 0.0) {
+        return fabs(luma - TARGET_SDR_LUMA);
+    }
+    return 1e9;
+}
+
+static char *image_io_temp_jpg_path(void) {
+    GError *err = NULL;
+    char *path = NULL;
+    int fd = g_file_open_tmp("iv-heif-cand-XXXXXX.jpg", &path, &err);
+    if (fd < 0 || !path) {
+        g_clear_error(&err);
+        g_free(path);
+        return NULL;
+    }
+    close(fd);
+    g_unlink(path);
+    return path;
 }
 
 static void remove_output_jpg(const char *jpg_path) {
@@ -218,12 +309,19 @@ static bool try_ffmpeg_heif_to_jpeg_vf(const char *heif_path, const char *jpg_pa
     return false;
 }
 
-/* HDR/PQ HIF: 톤 매핑 후 JPEG (밝기 과다 방지) */
+static bool try_ffmpeg_colorspace_jpeg(const char *heif_path, const char *jpg_path) {
+    return try_ffmpeg_heif_to_jpeg_vf(heif_path, jpg_path, FFMPEG_COLORSPACE_VF) ||
+           try_ffmpeg_heif_to_jpeg_vf(heif_path, jpg_path, FFMPEG_ZSCALE_AUTO_VF);
+}
+
+/* HDR/PQ: zscale+tonemap 으로 10-bit → 8-bit SDR JPEG */
 static bool try_ffmpeg_heif_to_jpeg(const char *heif_path, const char *jpg_path) {
-    if (try_ffmpeg_heif_to_jpeg_vf(heif_path, jpg_path, FFMPEG_TONEMAP_VF)) {
-        return true;
+    for (int i = 0; FFMPEG_TONEMAP_VFS[i]; i++) {
+        if (try_ffmpeg_heif_to_jpeg_vf(heif_path, jpg_path, FFMPEG_TONEMAP_VFS[i])) {
+            return true;
+        }
     }
-    return try_ffmpeg_heif_to_jpeg_vf(heif_path, jpg_path, FFMPEG_TONEMAP_SIMPLE_VF);
+    return false;
 }
 
 static bool try_imagemagick_argv(const char *prog, char **argv, const char *jpg_path) {
@@ -270,7 +368,7 @@ static bool try_imagemagick_srgb_jpeg(const char *input_path, const char *jpg_pa
         };
         gboolean ok = try_imagemagick_argv(prog, argv, jpg_path);
         g_free(prog);
-        if (ok && !image_io_jpg_is_overbright(jpg_path)) {
+        if (ok && image_io_jpg_looks_sdr_valid(jpg_path)) {
             return true;
         }
         remove_output_jpg(jpg_path);
@@ -282,8 +380,63 @@ static bool try_imagemagick_heif_to_jpeg(const char *heif_path, const char *jpg_
     return try_imagemagick_srgb_jpeg(heif_path, jpg_path);
 }
 
-/* Canon .hif: heif-convert가 이미 올바른 sRGB JPEG를 출력 → IM LCMS 파이프라인 불필요 */
-static bool try_heif_convert_hif_direct(const char *heif_path, const char *jpg_path) {
+/* ImageMagick 6 + libheif: 단순 sRGB 출력 (ICC 강제 없음) */
+static bool try_imagemagick_direct_jpeg(const char *input_path, const char *jpg_path) {
+    static const char *const cmds[] = {"magick", "convert", NULL};
+    for (int i = 0; cmds[i]; i++) {
+        char *prog = g_find_program_in_path(cmds[i]);
+        if (!prog) {
+            continue;
+        }
+        char *argv[] = {
+            prog,
+            (char *)input_path,
+            (char *)"-auto-orient",
+            (char *)"-strip",
+            (char *)"-quality",
+            (char *)"100",
+            (char *)jpg_path,
+            NULL,
+        };
+        gboolean ok = try_imagemagick_argv(prog, argv, jpg_path);
+        g_free(prog);
+        if (ok) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool try_imagemagick_gamma_jpeg(const char *input_path, const char *jpg_path) {
+    static const char *const cmds[] = {"magick", "convert", NULL};
+    for (int i = 0; cmds[i]; i++) {
+        char *prog = g_find_program_in_path(cmds[i]);
+        if (!prog) {
+            continue;
+        }
+        char *argv[] = {
+            prog,
+            (char *)input_path,
+            (char *)"-auto-orient",
+            (char *)"-gamma",
+            (char *)"0.4545",
+            (char *)"-strip",
+            (char *)"-quality",
+            (char *)"100",
+            (char *)jpg_path,
+            NULL,
+        };
+        gboolean ok = try_imagemagick_argv(prog, argv, jpg_path);
+        g_free(prog);
+        if (ok) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* SDR HEIF 전용: heif-convert → JPEG (HDR 은 PQ 값이 그대로 들어가 밝기가 깨짐) */
+static bool try_heif_convert_direct_sdr(const char *heif_path, const char *jpg_path) {
     char *heif_convert = g_find_program_in_path("heif-convert");
     if (!heif_convert) {
         return false;
@@ -298,7 +451,7 @@ static bool try_heif_convert_hif_direct(const char *heif_path, const char *jpg_p
     };
     gboolean ok = spawn_quiet(argv);
     g_free(heif_convert);
-    if (!ok || !output_jpg_ok(jpg_path)) {
+    if (!ok || !image_io_jpg_looks_sdr_valid(jpg_path)) {
         remove_output_jpg(jpg_path);
         return false;
     }
@@ -487,6 +640,85 @@ static char *heif_convert_temp_png(const char *heif_path) {
     return png;
 }
 
+/* heif-convert(16-bit PNG) → ffmpeg 톤매핑 (ffmpeg 가 HIF 를 직접 못 읽을 때) */
+static bool try_heif_png_ffmpeg_jpeg(const char *heif_path, const char *jpg_path) {
+    char *png_tmp = heif_convert_temp_png(heif_path);
+    if (!png_tmp) {
+        return false;
+    }
+    bool ok = try_ffmpeg_heif_to_jpeg(png_tmp, jpg_path);
+    g_unlink(png_tmp);
+    g_free(png_tmp);
+    return ok;
+}
+
+typedef bool (*image_io_heif_conv_fn)(const char *, const char *);
+
+static bool image_io_heif_convert_best(const char *heif_path, const char *jpg_path) {
+    static const image_io_heif_conv_fn convs[] = {
+        try_ffmpeg_colorspace_jpeg,
+        try_ffmpeg_heif_to_jpeg,
+        try_imagemagick_direct_jpeg,
+        try_imagemagick_gamma_jpeg,
+        try_imagemagick_heif_to_jpeg,
+        try_heif_convert_direct_sdr,
+        try_heif_convert_to_jpeg,
+        try_heif_png_ffmpeg_jpeg,
+    };
+
+    char *best_tmp = NULL;
+    double best_score = 1e9;
+
+    for (guint i = 0; i < G_N_ELEMENTS(convs); i++) {
+        char *tmp = image_io_temp_jpg_path();
+        if (!tmp) {
+            continue;
+        }
+        if (!convs[i](heif_path, tmp) || !image_io_jpg_is_plausible(tmp)) {
+            remove_output_jpg(tmp);
+            g_free(tmp);
+            continue;
+        }
+        double score = image_io_jpg_brightness_score(tmp);
+        if (score < best_score) {
+            if (best_tmp) {
+                remove_output_jpg(best_tmp);
+                g_free(best_tmp);
+            }
+            best_tmp = tmp;
+            best_score = score;
+        } else {
+            remove_output_jpg(tmp);
+            g_free(tmp);
+        }
+    }
+
+    if (!best_tmp) {
+        return false;
+    }
+
+    gboolean ok = FALSE;
+    GError *err = NULL;
+    if (g_file_test(jpg_path, G_FILE_TEST_EXISTS)) {
+        g_unlink(jpg_path);
+    }
+    if (g_rename(best_tmp, jpg_path) == 0) {
+        ok = TRUE;
+    } else {
+        GFile *src = g_file_new_for_path(best_tmp);
+        GFile *dst = g_file_new_for_path(jpg_path);
+        if (g_file_copy(src, dst, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &err)) {
+            ok = TRUE;
+        }
+        g_clear_error(&err);
+        g_object_unref(src);
+        g_object_unref(dst);
+    }
+    remove_output_jpg(best_tmp);
+    g_free(best_tmp);
+    return ok && image_io_jpg_looks_sdr_valid(jpg_path);
+}
+
 static bool image_io_heif_to_jpeg_via_pixbuf(const char *heif_path, const char *jpg_path) {
     char *png_tmp = heif_convert_temp_png(heif_path);
     if (png_tmp && try_imagemagick_srgb_jpeg(png_tmp, jpg_path)) {
@@ -515,11 +747,11 @@ static bool image_io_heif_to_jpeg_via_pixbuf(const char *heif_path, const char *
         remove_output_jpg(jpg_path);
         return false;
     }
-    if (image_io_jpg_is_overbright(jpg_path)) {
+    if (!image_io_jpg_looks_sdr_valid(jpg_path)) {
         remove_output_jpg(jpg_path);
         return false;
     }
-    return output_jpg_ok(jpg_path);
+    return true;
 }
 
 char *image_io_heif_jpg_path(const char *path) {
@@ -529,7 +761,7 @@ char *image_io_heif_jpg_path(const char *path) {
 
     char *jpg_path = path_with_ext(path, ".jpg");
     if (g_file_test(jpg_path, G_FILE_TEST_EXISTS)) {
-        if (!image_io_jpg_is_overbright(jpg_path)) {
+        if (image_io_jpg_looks_sdr_valid(jpg_path)) {
             return jpg_path;
         }
         g_unlink(jpg_path);
@@ -540,19 +772,17 @@ char *image_io_heif_jpg_path(const char *path) {
         return NULL;
     }
 
-    const char *ext = strrchr(path, '.');
-    gboolean is_hif = ext && g_ascii_strcasecmp(ext, ".hif") == 0;
+    gboolean ok = FALSE;
 
-    gboolean ok;
-    if (is_hif) {
-        /* .hif: heif-convert 직접 변환 우선 (IM LCMS 파이프라인이 이미지를 어둡게 만듦) */
-        ok = try_heif_convert_hif_direct(path, jpg_path) ||
-             try_imagemagick_heif_to_jpeg(path, jpg_path) ||
-             image_io_heif_to_jpeg_via_pixbuf(path, jpg_path);
+    /* 1) libheif 직접 디코드 + PQ/HLG 톤매핑 (권장, libheif-dev 필요) */
+    if (heif_native_is_available() &&
+        heif_native_heif_to_jpeg(path, jpg_path) &&
+        image_io_jpg_looks_sdr_valid(jpg_path)) {
+        ok = TRUE;
     } else {
-        ok = try_ffmpeg_heif_to_jpeg(path, jpg_path) ||
-             try_imagemagick_heif_to_jpeg(path, jpg_path) ||
-             try_heif_convert_to_jpeg(path, jpg_path) ||
+        remove_output_jpg(jpg_path);
+        /* 2) 여러 외부 도구 결과 중 밝기가 가장 자연스러운 JPG 선택 */
+        ok = image_io_heif_convert_best(path, jpg_path) ||
              image_io_heif_to_jpeg_via_pixbuf(path, jpg_path);
     }
     if (ok) {

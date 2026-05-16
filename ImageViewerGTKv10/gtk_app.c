@@ -165,7 +165,7 @@ static GtkWidget *build_left_pane(App *app) {
     gtk_box_pack_start(GTK_BOX(file_box), file_label, FALSE, FALSE, 0);
     GtkWidget *file_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(file_scroll),
-                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(file_scroll), app->file_view);
     gtk_box_pack_start(GTK_BOX(file_box), file_scroll, TRUE, TRUE, 0);
     gtk_paned_pack2(GTK_PANED(vpaned), file_box, TRUE, FALSE);
@@ -205,8 +205,15 @@ static GtkWidget *build_preview_pane(App *app) {
                         app->gallery_scrolled, "gallery");
 
     app->image_da = gtk_drawing_area_new();
-    gtk_widget_set_size_request(app->image_da, 200, 200);
+    gtk_widget_set_hexpand(app->image_da, FALSE);
+    gtk_widget_set_vexpand(app->image_da, FALSE);
+    gtk_widget_add_events(app->image_da,
+                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+                              GDK_POINTER_MOTION_MASK);
     app->image_viewport = gtk_viewport_new(NULL, NULL);
+    gtk_widget_add_events(app->image_viewport,
+                          GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
+                              GDK_POINTER_MOTION_MASK);
     gtk_container_add(GTK_CONTAINER(app->image_viewport), app->image_da);
     app->image_scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(app->image_scrolled),
