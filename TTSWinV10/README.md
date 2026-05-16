@@ -31,10 +31,10 @@ dotnet run --project TTSWinV10.csproj
 ### Sherpa 한국어 모델
 
 - 첫 재생 시 모델이 없으면 공식 `tts-models` 아카이브에서 **자동 다운로드·압축 해제**합니다.
-- 기본 저장 위치: 실행 파일과 같은 폴더 아래 `sherpa-onnx-models\vits-mimic3-ko_KO-kss_low\`(쓰기 불가 시 `%LocalAppData%\TTSWinV10\sherpa-onnx-models\` 등).
+- 기본 저장 위치: **프로젝트 루트 `models\vits-mimic3-ko_KO-kss_low\`** (쓰기 불가 시 `%LocalAppData%\TTSWinV10\models\` 등).
 - **다른 디스크/폴더에 ONNX를 두려면** 다음 중 하나를 사용합니다.
   - 환경 변수 **`TTSWINV10_SHERPA_KO_MODEL_DIR`**: `ko_KO-kss_low.onnx`, `tokens.txt`, `espeak-ng-data` 가 들어 있는 **모델 폴더 전체** 경로.
-  - 환경 변수 **`TTSWINV10_SHERPA_MODELS_ROOT`**: 그 아래에 `sherpa-onnx-models\vits-mimic3-ko_KO-kss_low\` 구조로 저장하거나 받습니다.
+  - 환경 변수 **`TTSWINV10_SHERPA_MODELS_ROOT`**: 그 아래에 `models\vits-mimic3-ko_KO-kss_low\` 구조로 저장하거나 받습니다.
   - 실행 파일과 같은 폴더의 **`SherpaKoModelDir.txt`** / **`SherpaModelsRoot.txt`**: 위와 동일 의미로 **한 줄**(주석은 `#` 로 시작). 환경 변수가 우선합니다.
 - 경로에 `%USERNAME%` 등 환경 변수 치환을 사용할 수 있습니다. 이 두 설정 파일은 보통 PC마다 경로가 달라 `.gitignore`에 포함되어 있습니다.
 

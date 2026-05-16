@@ -15,7 +15,7 @@ namespace TTSWinV10;
 /// ONNX·토큰·espeak 데이터를 <b>원하는 폴더</b>에 둘 수 있습니다.
 /// <list type="bullet">
 /// <item><description><c>TTSWINV10_SHERPA_KO_MODEL_DIR</c> — 모델 폴더 전체 경로( onnx, tokens.txt, espeak-ng-data 가 바로 그 안에 있음).</description></item>
-/// <item><description><c>TTSWINV10_SHERPA_MODELS_ROOT</c> — 그 아래에 <c>sherpa-onnx-models\vits-mimic3-ko_KO-kss_low\</c> 구조로 쓰거나 받습니다.</description></item>
+/// <item><description><c>TTSWINV10_SHERPA_MODELS_ROOT</c> — 그 아래에 <c>models\vits-mimic3-ko_KO-kss_low\</c> 구조로 쓰거나 받습니다.</description></item>
 /// <item><description>실행 파일과 같은 폴더의 <c>SherpaKoModelDir.txt</c> — 한 줄에 위와 같은 모델 폴더 전체 경로.</description></item>
 /// <item><description><c>SherpaModelsRoot.txt</c> — 한 줄에 <c>TTSWINV10_SHERPA_MODELS_ROOT</c>와 동일 의미의 경로.</description></item>
 /// </list>
@@ -24,7 +24,7 @@ namespace TTSWinV10;
 internal static class SherpaOnnxKoreanTts
 {
     internal const string ModelFolderName = "vits-mimic3-ko_KO-kss_low";
-    internal const string ModelsRootFolderName = "sherpa-onnx-models";
+    internal const string ModelsRootFolderName = "models";
     internal const string ModelDownloadUrl =
         "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-mimic3-ko_KO-kss_low.tar.bz2";
 
@@ -76,13 +76,15 @@ internal static class SherpaOnnxKoreanTts
             yield return koFromFile;
         }
 
+        // 프로젝트 루트의 models 디렉토리를 최우선으로 검색
+        yield return Path.Combine(baseDir, ModelsRootFolderName, ModelFolderName);
+
         string? storeRoot = TryGetConfiguredModelsStoreRoot(baseDir);
         if (storeRoot is not null)
         {
             yield return Path.Combine(storeRoot, ModelsRootFolderName, ModelFolderName);
         }
 
-        yield return Path.Combine(baseDir, ModelsRootFolderName, ModelFolderName);
         yield return Path.Combine(baseDir, ModelFolderName);
         yield return Path.Combine(localData, ModelsRootFolderName, ModelFolderName);
     }
@@ -258,9 +260,16 @@ internal static class SherpaOnnxKoreanTts
         }
     }
 
-    /// <summary><c>sherpa-onnx-models</c>의 상위 경로(저장 루트). 환경 변수·설정 파일을 반영합니다.</summary>
+    /// <summary><c>models</c>의 상위 경로(저장 루트). 프로젝트 루트를 우선 사용합니다.</summary>
     private static string GetModelsStoreRootForDownload(Action<string>? status, string baseDir)
     {
+        // 프로젝트 루트의 models 디렉토리를 우선 사용
+        if (IsDirectoryWritable(baseDir))
+        {
+            status?.Invoke($"Sherpa 모델 저장 위치: {Path.Combine(baseDir, ModelsRootFolderName)}");
+            return baseDir;
+        }
+
         string? configured = TryGetConfiguredModelsStoreRoot(baseDir);
         if (configured is not null && IsDirectoryWritable(configured))
         {
