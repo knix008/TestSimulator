@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  
+  <Package Name="Remote Desktop Win V10" 
+           Manufacturer="Your Company Name" 
+           Version="1.0.0.0" 
+           UpgradeCode="12345678-1234-1234-1234-123456789012"
+           Language="1042"
+           Codepage="949">
+    
+    <SummaryInformation Description="Remote Desktop Win V10 Installer" 
+                        Manufacturer="Your Company Name" 
+                        Keywords="Installer" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 아이콘 설정 -->
+    <Icon Id="ProductIcon" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+
+    <!-- 설치 디렉토리 -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Remote Desktop Win V10">
+        <Component Id="MainExecutable" Bitness="always64" Guid="*">
+          <File Id="RemoteDesktopWinV10.App.exe" 
+                Name="RemoteDesktopWinV10.App.exe"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)RemoteDesktopWinV10.App.exe" 
+                KeyPath="yes" />
+        </Component>
+        
+        <Component Id="StartMenuShortcutComponent" Bitness="always64" Guid="*">
+          <Shortcut Id="StartMenuShortcut"
+                    Directory="ProgramMenuFolder"
+                    Name="Remote Desktop Win V10"
+                    Description="Remote Desktop Win V10 Application"
+                    Target="[INSTALLFOLDER]RemoteDesktopWinV10.App.exe"
+                    Icon="ProductIcon"
+                    WorkingDirectory="INSTALLFOLDER" />
+          <RegistryValue Root="HKCU" 
+                         Key="Software\[Manufacturer]\[ProductName]" 
+                         Name="StartMenuShortcut" 
+                         Type="integer" 
+                         Value="1" 
+                         KeyPath="yes" />
+          <RemoveFolder Id="RemoveStartMenuFolder" Directory="ProgramMenuFolder" On="uninstall" />
+        </Component>
+        
+        <Component Id="MainDll" Bitness="always64" Guid="*">
+          <File Id="RemoteDesktopWinV10.App.dll" 
+                Name="RemoteDesktopWinV10.App.dll"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)RemoteDesktopWinV10.App.dll" 
+                KeyPath="yes" />
+        </Component>
+        
+        <Component Id="DepsJson" Bitness="always64" Guid="*">
+          <File Id="RemoteDesktopWinV10.App.deps.json" 
+                Name="RemoteDesktopWinV10.App.deps.json"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)RemoteDesktopWinV10.App.deps.json" 
+                KeyPath="yes" />
+        </Component>
+        
+        <Component Id="RuntimeConfig" Bitness="always64" Guid="*">
+          <File Id="RemoteDesktopWinV10.App.runtimeconfig.json" 
+                Name="RemoteDesktopWinV10.App.runtimeconfig.json"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)RemoteDesktopWinV10.App.runtimeconfig.json" 
+                KeyPath="yes" />
+        </Component>
+
+        <Component Id="AxMSTSCLib" Bitness="always64" Guid="*">
+          <File Id="AxMSTSCLib.dll" 
+                Name="AxMSTSCLib.dll"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)AxMSTSCLib.dll" 
+                KeyPath="yes" />
+        </Component>
+        
+        <Component Id="MSTSCLib" Bitness="always64" Guid="*">
+          <File Id="MSTSCLib.dll" 
+                Name="MSTSCLib.dll"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)MSTSCLib.dll" 
+                KeyPath="yes" />
+        </Component>
+        
+        <Component Id="LemutecRemoteViewing" Bitness="always64" Guid="*">
+          <File Id="Lemutec.RemoteViewing.dll" 
+                Name="Lemutec.RemoteViewing.dll"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)Lemutec.RemoteViewing.dll" 
+                KeyPath="yes" />
+        </Component>
+        
+        <Component Id="LemutecRemoteViewingWinForms" Bitness="always64" Guid="*">
+          <File Id="Lemutec.RemoteViewing.Windows.Forms.dll" 
+                Name="Lemutec.RemoteViewing.Windows.Forms.dll"
+                Source="$(var.RemoteDesktopWinV10.App.TargetDir)Lemutec.RemoteViewing.Windows.Forms.dll" 
+                KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- 바탕화면 바로가기 (선택적) -->
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Bitness="always64">
+        <Shortcut Id="DesktopShortcut"
+                  Name="Remote Desktop Win V10"
+                  Description="Remote Desktop Win V10 Application"
+                  Target="[INSTALLFOLDER]RemoteDesktopWinV10.App.exe"
+                  Icon="ProductIcon"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" 
+                       Key="Software\[Manufacturer]\[ProductName]" 
+                       Name="DesktopShortcut" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+        <RemoveFolder Id="RemoveDesktopFolder" On="uninstall" />
+      </Component>
+    </StandardDirectory>
+
+    <!-- 시작 메뉴 폴더 -->
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <!-- Feature 정의 -->
+    <Feature Id="ProductFeature" 
+             Title="Remote Desktop Win V10" 
+             Level="1"
+             Description="메인 애플리케이션"
+             ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="StartMenuShortcutComponent" />
+      <ComponentRef Id="MainDll" />
+      <ComponentRef Id="DepsJson" />
+      <ComponentRef Id="RuntimeConfig" />
+      <ComponentRef Id="AxMSTSCLib" />
+      <ComponentRef Id="MSTSCLib" />
+      <ComponentRef Id="LemutecRemoteViewing" />
+      <ComponentRef Id="LemutecRemoteViewingWinForms" />
+      
+      <Feature Id="DesktopShortcutFeature" 
+               Title="바탕화면 바로가기" 
+               Level="1"
+               Description="바탕화면에 바로가기를 생성합니다.">
+        <ComponentRef Id="DesktopShortcut" />
+      </Feature>
+    </Feature>
+
+  </Package>
+</Wix>

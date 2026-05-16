@@ -1,0 +1,25 @@
+<Project Sdk="WixToolset.Sdk/5.0.1">
+  <PropertyGroup>
+    <OutputName>RemoteDesktopWinV10Setup</OutputName>
+    <OutputType>Package</OutputType>
+    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RemoteDesktopWinV10.App\RemoteDesktopWinV10.App.csproj">
+      <Name>RemoteDesktopWinV10.App</Name>
+      <Project>{EA153F23-7332-45C7-870D-5F9133403C98}</Project>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\daemon_hammer.ico">
+      <Link>daemon_hammer.ico</Link>
+    </Content>
+  </ItemGroup>
+</Project>
