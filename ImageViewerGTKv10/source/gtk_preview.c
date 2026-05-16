@@ -154,14 +154,20 @@ static void preview_image_scaled_size(App *app, int *w_out, int *h_out) {
     }
 }
 
-/* 뷰포트보다 이미지가 크면 GtkScrolledWindow 가 스크롤바를 표시 */
+/* 드로잉 영역을 max(이미지, 뷰포트) 크기로 설정.
+ * 이미지 < 뷰포트: 드로잉 영역이 뷰포트를 채워 on_image_draw 에서 중앙 배치.
+ * 이미지 > 뷰포트: 드로잉 영역이 이미지 크기 → GtkScrolledWindow 스크롤바 표시. */
 static void preview_update_image_scroll_size(App *app) {
-    if (!app->image_da) {
+    if (!app->image_da || !app->image_viewport) {
         return;
     }
     int iw, ih;
     preview_image_scaled_size(app, &iw, &ih);
-    gtk_widget_set_size_request(app->image_da, iw, ih);
+
+    int vw = gtk_widget_get_allocated_width(app->image_viewport);
+    int vh = gtk_widget_get_allocated_height(app->image_viewport);
+
+    gtk_widget_set_size_request(app->image_da, MAX(iw, vw), MAX(ih, vh));
     gtk_widget_queue_resize(app->image_da);
     preview_queue_image_redraw(app);
 }
@@ -408,8 +414,8 @@ void preview_show_placeholder(App *app, const char *text) {
 
 static gboolean on_image_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     App *app = data;
-    int vw = gtk_widget_get_allocated_width(widget);
-    int vh = gtk_widget_get_allocated_height(widget);
+    int da_w = gtk_widget_get_allocated_width(widget);
+    int da_h = gtk_widget_get_allocated_height(widget);
     cairo_set_source_rgb(cr, 0.08, 0.08, 0.1);
     cairo_paint(cr);
 
@@ -426,9 +432,9 @@ static gboolean on_image_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
         return FALSE;
     }
 
-    /* 뷰포트가 작을 때는 drawing area 가 이미지 크기(iw×ih) — (0,0) 에 그림 */
-    int x = (iw < vw) ? (vw - iw) / 2 : 0;
-    int y = (ih < vh) ? (vh - ih) / 2 : 0;
+    /* 드로잉 영역(= max(이미지, 뷰포트)) 안에서 이미지를 중앙 배치 */
+    int x = (da_w - iw) / 2;
+    int y = (da_h - ih) / 2;
     gdk_cairo_set_source_pixbuf(cr, scaled, x, y);
     cairo_paint(cr);
     g_object_unref(scaled);
@@ -473,6 +479,7 @@ static gboolean on_image_scroll(GtkWidget *w, GdkEventScroll *ev, gpointer data)
     }
     double step = (ev->direction == GDK_SCROLL_UP || ev->delta_y < 0) ? 1.1 : 1.0 / 1.1;
     app->zoom_factor = CLAMP(app->zoom_factor * step, 0.05, 16.0);
+    app->zoom_fit_mode = FALSE;
     update_zoom_label(app);
     preview_update_image_scroll_size(app);
     return TRUE;
@@ -858,6 +865,7 @@ static void set_image_pixbuf(App *app, GdkPixbuf *pb) {
     app->image_pixbuf = pb;
     app->image_nat_w = gdk_pixbuf_get_width(pb);
     app->image_nat_h = gdk_pixbuf_get_height(pb);
+    app->zoom_fit_mode = TRUE;
     app->zoom_factor = calc_fit_zoom(app);
     update_zoom_label(app);
     preview_update_image_scroll_size(app);
@@ -963,6 +971,10 @@ static void preview_load_done_cb(GObject *source, GAsyncResult *result, gpointer
     GdkPixbuf *pb = g_steal_pointer(&res->pixbuf);
     set_image_pixbuf(app, pb);
     stack_show(app, app->image_page);
+
+    char *basename = g_path_get_basename(res->path);
+    gtk_app_update_status_file(app, basename);
+    g_free(basename);
 
     preview_load_result_free(res);
 }
@@ -1277,9 +1289,29 @@ static void preview_connect_image_pan(App *app, GtkWidget *widget) {
     g_signal_connect(widget, "motion-notify-event", G_CALLBACK(on_image_pan_motion), app);
 }
 
+/* 뷰포트 크기 변경(창 리사이즈 등) 시 fit 모드이면 줌 재계산 */
+static void on_viewport_size_allocate(GtkWidget *widget, GdkRectangle *alloc,
+                                       gpointer data) {
+    (void)widget;
+    (void)alloc;
+    App *app = data;
+    if (!app->zoom_fit_mode || !app->image_pixbuf) {
+        return;
+    }
+    double new_fit = calc_fit_zoom(app);
+    if (fabs(new_fit - app->zoom_factor) < 1e-9) {
+        return;
+    }
+    app->zoom_factor = new_fit;
+    update_zoom_label(app);
+    preview_update_image_scroll_size(app);
+}
+
 void preview_init(App *app) {
     g_signal_connect(app->image_da, "draw", G_CALLBACK(on_image_draw), app);
     g_signal_connect(app->image_viewport, "scroll-event", G_CALLBACK(on_image_scroll), app);
+    g_signal_connect(app->image_viewport, "size-allocate",
+                     G_CALLBACK(on_viewport_size_allocate), app);
     preview_connect_image_pan(app, app->image_da);
     preview_connect_image_pan(app, app->image_viewport);
 

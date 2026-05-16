@@ -257,10 +257,10 @@ run: all
 
 clean:
 	@rm -rf $(BUILDDIR) $(TARGET)
+	@rm -f $(GEN_ICONS)
 
 distclean: clean
 	@rm -f $(ICON_STAMP)
-	@rm -f $(GEN_ICONS)
 
 debug: CFLAGS += -g -DDEBUG -O0
 debug: clean all

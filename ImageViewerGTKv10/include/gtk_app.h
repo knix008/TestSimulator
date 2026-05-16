@@ -58,6 +58,7 @@ struct App {
     char *image_path;
     char *image_edit_path;
     double zoom_factor;
+    gboolean zoom_fit_mode;   /* TRUE: 뷰포트 크기 변경 시 자동 재맞춤 */
     int image_nat_w;
     int image_nat_h;
     gboolean image_panning;

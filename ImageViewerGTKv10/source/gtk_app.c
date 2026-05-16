@@ -190,7 +190,7 @@ static GtkWidget *build_preview_pane(App *app) {
     app->gallery_flow = gtk_flow_box_new();
     gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(app->gallery_flow), GTK_SELECTION_NONE);
     gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(app->gallery_flow), FALSE);
-    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(app->gallery_flow), 0);
+    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(app->gallery_flow), G_MAXUINT);
     gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(app->gallery_flow), 10);
     gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(app->gallery_flow), 10);
     gtk_widget_set_valign(app->gallery_flow, GTK_ALIGN_START);
