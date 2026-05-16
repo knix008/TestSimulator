@@ -6,8 +6,8 @@
 
 bool utils_is_heif_path(const char *path);
 
-/* HEIF/HIF → JPG 디스크 변환 (이미 .jpg 있으면 그 경로만 반환, 재변환·덮어쓰기 없음).
- * preview_commit_heif_file(파일 목록·갤러리 마우스 선택)에서만 호출할 것. */
+/* HEIF/HIF → JPG (C 변환기: heif_native.c + gdk-pixbuf JPEG 저장).
+ * 이미 .jpg 있으면 그 경로만 반환. preview_commit_heif_file 에서만 호출. */
 char *image_io_heif_jpg_path(const char *path);
 
 /* JPG가 이미 있으면 경로 반환, 없으면 NULL (변환하지 않음). */
@@ -16,7 +16,7 @@ char *image_io_heif_existing_jpg_path(const char *path);
 /* 원본 HEIF 파일을 같은 폴더의 hif/ 하위로 이동. 성공 시 true. */
 bool image_io_move_heif_to_subdir(const char *path);
 
-/* 디스크에 저장하지 않고 pixbuf만 로드 (썸네일용). HEIF 자동 변환 없음. */
+/* pixbuf 로드. HEIF/HIF 는 C 변환기(heif_native)로 메모리 디코드. */
 GdkPixbuf *image_io_load_pixbuf(const char *path, GError **err);
 
 /* JPEG quality 100, ICC 프로필 보존 (회전/대칭 후). */

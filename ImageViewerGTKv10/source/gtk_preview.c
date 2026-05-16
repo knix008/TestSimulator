@@ -1,4 +1,5 @@
 #include "gtk_preview.h"
+#include "assets.h"
 #include "gtk_browser.h"
 #include "image_io.h"
 #include "utils.h"
@@ -20,10 +21,11 @@
 #endif
 #endif
 
-#define THUMB_W 142
-#define THUMB_H 126
-/* 썸네일 카드에 표시할 파일명 최대 글자 수 (초과 시 앞부분 + "...") */
-#define THUMB_NAME_MAX_CHARS 18
+/* 갤러리 썸네일: 정사각형 이미지 + 아래 파일명 (고정 크기, 빈 공간 채우지 않음) */
+#define THUMB_SIZE 128
+#define THUMB_LABEL_H 34
+#define THUMB_CARD_GAP 4
+#define THUMB_NAME_MAX_CHARS 14
 
 typedef struct {
     guint generation;
@@ -339,7 +341,7 @@ static GdkPixbuf *get_ext_gallery_thumb(const char *label,
         g_free(key);
         return g_object_ref(cached);
     }
-    GdkPixbuf *icon = build_ext_file_icon(THUMB_W, THUMB_H, label,
+    GdkPixbuf *icon = build_ext_file_icon(THUMB_SIZE, THUMB_SIZE, label,
                                           fill_r, fill_g, fill_b,
                                           edge_r, edge_g, edge_b);
     g_hash_table_insert(icon_cache, key, g_object_ref(icon));
@@ -347,6 +349,14 @@ static GdkPixbuf *get_ext_gallery_thumb(const char *label,
 }
 
 static GdkPixbuf *get_hif_gallery_thumb(void) {
+    GdkPixbuf *src = assets_load_icon("file-heif.png", THUMB_SIZE);
+    if (src) {
+        GdkPixbuf *thumb = scale_fit(src, THUMB_SIZE, THUMB_SIZE);
+        g_object_unref(src);
+        if (thumb) {
+            return thumb;
+        }
+    }
     return get_ext_gallery_thumb("HIF", 0.26, 0.67, 0.55, 0.18, 0.48, 0.40);
 }
 
@@ -586,34 +596,59 @@ static char *thumb_format_basename(const char *path) {
     return out;
 }
 
+static void thumb_card_configure_no_expand(GtkWidget *btn) {
+    gtk_widget_set_hexpand(btn, FALSE);
+    gtk_widget_set_vexpand(btn, FALSE);
+    gtk_widget_set_halign(btn, GTK_ALIGN_START);
+    gtk_widget_set_valign(btn, GTK_ALIGN_START);
+}
+
 static GtkWidget *make_thumb_card(App *app, const char *path, GdkPixbuf *thumb) {
     if (!thumb || !GDK_IS_PIXBUF(thumb) || !app->gallery_flow ||
         !GTK_IS_FLOW_BOX(app->gallery_flow)) {
         return NULL;
     }
 
+    const int card_w = THUMB_SIZE;
+    const int card_h = THUMB_SIZE + THUMB_LABEL_H + THUMB_CARD_GAP;
+
     GtkWidget *img = gtk_image_new_from_pixbuf(thumb);
-    gtk_widget_set_size_request(img, THUMB_W, THUMB_H);
+    gtk_widget_set_size_request(img, THUMB_SIZE, THUMB_SIZE);
+    gtk_widget_set_halign(img, GTK_ALIGN_CENTER);
+    gtk_widget_set_hexpand(img, FALSE);
+    gtk_widget_set_vexpand(img, FALSE);
+
     char *name = thumb_format_basename(path);
     GtkWidget *lbl = gtk_label_new(name);
     g_free(name);
-    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
-    gtk_widget_set_size_request(lbl, THUMB_W, -1);
-    gtk_widget_set_halign(lbl, GTK_ALIGN_START);
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.5);
+    gtk_label_set_justify(GTK_LABEL(lbl), GTK_JUSTIFY_CENTER);
+    gtk_label_set_line_wrap(GTK_LABEL(lbl), TRUE);
+    gtk_label_set_line_wrap_mode(GTK_LABEL(lbl), PANGO_WRAP_WORD_CHAR);
+    gtk_label_set_max_width_chars(GTK_LABEL(lbl), THUMB_NAME_MAX_CHARS);
+    gtk_widget_set_size_request(lbl, THUMB_SIZE, THUMB_LABEL_H);
+    gtk_widget_set_halign(lbl, GTK_ALIGN_CENTER);
+    gtk_widget_set_hexpand(lbl, FALSE);
+    gtk_widget_set_vexpand(lbl, FALSE);
 
     GtkWidget *btn = gtk_button_new();
     gtk_button_set_relief(GTK_BUTTON(btn), GTK_RELIEF_NONE);
-    GtkWidget *inner = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_size_request(btn, card_w, card_h);
+
+    GtkWidget *inner = gtk_box_new(GTK_ORIENTATION_VERTICAL, THUMB_CARD_GAP);
+    gtk_widget_set_halign(inner, GTK_ALIGN_CENTER);
+    gtk_widget_set_hexpand(inner, FALSE);
+    gtk_widget_set_vexpand(inner, FALSE);
     gtk_box_pack_start(GTK_BOX(inner), img, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(inner), lbl, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(inner), lbl, FALSE, FALSE, 0);
     gtk_container_add(GTK_CONTAINER(btn), inner);
     g_object_set_data_full(G_OBJECT(btn), "file-path", g_strdup(path), g_free);
     gtk_widget_add_events(btn, GDK_BUTTON_PRESS_MASK);
     g_signal_connect(btn, "button-press-event", G_CALLBACK(on_thumb_button_press), app);
 
     gtk_flow_box_insert(GTK_FLOW_BOX(app->gallery_flow), btn, -1);
+    thumb_card_configure_no_expand(btn);
     gtk_widget_show_all(btn);
-    gtk_widget_queue_resize(app->gallery_flow);
     return btn;
 }
 
@@ -633,7 +668,7 @@ static GdkPixbuf *decode_gallery_thumb_bg(const char *path, char **ext_label_out
         GError *err = NULL;
         GdkPixbuf *src = image_io_load_pixbuf(path, &err);
         if (src) {
-            GdkPixbuf *thumb = scale_fit(src, THUMB_W, THUMB_H);
+            GdkPixbuf *thumb = scale_fit(src, THUMB_SIZE, THUMB_SIZE);
             g_object_unref(src);
             return thumb;
         }
@@ -642,7 +677,7 @@ static GdkPixbuf *decode_gallery_thumb_bg(const char *path, char **ext_label_out
         return NULL;
     }
     if (utils_is_video_ext(ext)) {
-        return build_video_placeholder(THUMB_W, THUMB_H);
+        return build_video_placeholder(THUMB_SIZE, THUMB_SIZE);
     }
     return NULL;
 }
@@ -685,8 +720,16 @@ static void thumb_decode_done_cb(GObject *source, GAsyncResult *result, gpointer
         thumb = res->pixbuf;
         res->pixbuf = NULL;
     } else if (res->ext_label) {
-        thumb = get_ext_gallery_thumb(res->ext_label, 0.35, 0.45, 0.65, 0.22, 0.30,
-                                      0.48);
+        const char *icon_file = assets_icon_file_for_path(res->path);
+        GdkPixbuf *src = assets_load_icon(icon_file, THUMB_SIZE);
+        if (src) {
+            thumb = scale_fit(src, THUMB_SIZE, THUMB_SIZE);
+            g_object_unref(src);
+        }
+        if (!thumb) {
+            thumb = get_ext_gallery_thumb(res->ext_label, 0.35, 0.45, 0.65, 0.22, 0.30,
+                                          0.48);
+        }
     }
 
     if (thumb && GDK_IS_PIXBUF(thumb)) {
@@ -797,8 +840,8 @@ static void show_image_error_dialog(App *app, const char *path, GError *err) {
         "%s",
         utils_is_heif_path(path)
             ? "HIF/HEIF 파일을 변환할 수 없습니다.\n\n"
-              "libheif 및 gdk-pixbuf HEIF 플러그인을 설치해 주세요.\n"
-              "(make install-deps)"
+              "libheif-dev 설치 후 make install-deps && make 로\n"
+              "다시 빌드해 주세요."
             : "이미지를 열 수 없습니다.");
     if (err && err->message) {
         gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dlg),
@@ -890,7 +933,7 @@ static void preview_load_done_cb(GObject *source, GAsyncResult *result, gpointer
         } else {
             preview_show_placeholder(app,
                                    utils_is_heif_path(res->path)
-                                       ? "HIF/HEIF 미리보기 실패"
+                                       ? "HIF/HEIF 미리보기 실패 (libheif 필요)"
                                        : "이미지를 열 수 없습니다.");
         }
         preview_load_result_free(res);

@@ -29,9 +29,7 @@ Linux / macOS용 이미지·동영상 폴더 뷰어입니다. [ImageViewerV20](.
 | gcc, make, pkg-config | 빌드 |
 | GTK+ 3 | UI |
 | gdk-pixbuf 2 | 이미지 로드 |
-| libheif + gdk-pixbuf HEIF 플러그인 | HEIF/HEIC/HIF 디코딩 |
-| ImageMagick (`magick`/`convert`) | HIF→JPG 고품질·색상 변환 (Linux/macOS 권장) |
-| ffmpeg, heif-convert | HIF→JPG 대체 변환기 (선택) |
+| libheif-dev | HIF/HEIC/HEIF → JPG **내장 C 변환기** (`heif_native.c`) |
 | libvlc + vlc | 동영상 재생 (선택, 없으면 `NO_LIBVLC`로 빌드) |
 
 ## 빌드 및 실행
@@ -64,12 +62,12 @@ ln -sf ../daemon_hammer.ico daemon_hammer.ico
 | `make` | 의존성 확인(필요 시 설치) + 빌드 (기본) |
 | `make setup` | `make`와 동일 |
 | `make deps` | 의존성 요약 |
-| `make install-deps` | 빌드·실행 의존성 설치 (ImageMagick 포함) |
-| `make install-hif-tools` | HIF→JPG용 ImageMagick·ffmpeg·heif-convert만 설치 |
+| `make install-deps` | 빌드·실행 의존성 설치 |
 | `make check-deps` | 의존성 검증 (누락 시 실패) |
 | `make run` | 빌드 후 실행 |
 | `make clean` | 오브젝트·실행 파일 삭제 |
-| `make distclean` | `clean` + 생성된 `assets/daemon_hammer.png` 삭제 |
+| `make assets` | `assets/icons/` 형식·폴더 아이콘 PNG 재생성 |
+| `make distclean` | `clean` + 아이콘 생성 도구 정리 |
 | `make debug` | 디버그 심볼로 재빌드 |
 | `make install-desktop` | Linux 사용자 데스크톱 메뉴 등록 |
 | `make info` | 의존성·컴파일 플래그 출력 |
@@ -88,56 +86,48 @@ ln -sf ../daemon_hammer.ico daemon_hammer.ico
 
 ```bash
 sudo apt-get install -y build-essential pkg-config \
-  libgtk-3-dev libgdk-pixbuf-2.0-dev \
-  libvlc-dev vlc \
-  libheif1 libheif-plugin-gdk-pixbuf
+  libgtk-3-dev libgdk-pixbuf-2.0-dev libheif-dev \
+  libvlc-dev vlc
 ```
 
-HEIF/HIF→JPG 변환 도구 (ImageMagick 등, `make` 시 자동 설치 시도):
-
 ```bash
-make install-hif-tools
-# 또는 전체 의존성과 함께
 make install-deps
 ```
 
 **macOS (Homebrew)**
 
 ```bash
-make install-deps          # GTK·VLC·HEIF·ImageMagick 등 일괄
-# 또는
-make install-hif-tools     # ImageMagick·ffmpeg만
+make install-deps
 make IV_AUTO_INSTALL=0     # 자동 설치 끄고 수동 brew 시:
-# brew install pkg-config gtk+3 gdk-pixbuf libheif imagemagick ffmpeg vlc
+# brew install pkg-config gtk+3 gdk-pixbuf libheif vlc
 ```
-
-`make` / `make install-deps`는 macOS에서 Homebrew로 **ImageMagick**(`imagemagick`)을 포함해 설치합니다.
 
 ## HEIF / JPG 변환 참고
 
+- **순수 C** 구현: `heif_native.c` (libheif C API) + `image_io.c` (JPEG 저장). **Python·ffmpeg·heif-convert CLI 미사용.**
 - 이미 같은 이름의 `.jpg`가 있으면 다시 변환하지 않습니다.
-- 변환 순서: **ffmpeg 톤매핑**(HDR→SDR) → **ImageMagick+ICC** → **heif-convert** → gdk-pixbuf(밝기 보정).
-- `-colorspace sRGB`만 쓰면 Canon HIF(HDR/PQ)가 **과하게 밝게** 나올 수 있어 사용하지 않습니다.
-- `make install-hif-tools`로 **ffmpeg**, **ImageMagick**을 설치하세요.
 - **이미 만들어진 `.jpg`는 다시 변환하지 않습니다.** 밝기가 이상하면 해당 JPG를 삭제한 뒤 HIF를 다시 선택하세요.
 
 ## 프로젝트 구조
 
 ```
 ImageViewerGTKv10/
-├── main.c              # 진입점 (app_create / app_run)
-├── app.h               # 공개 API (GTK 비의존)
-├── gtk_app.c/h         # 메인 창, 레이아웃, 아이콘, gtk_init
-├── gtk_browser.c/h     # 폴더 트리, 파일 목록, 삭제, 폴더 감시
-├── gtk_preview.c/h     # 갤러리, 이미지·동영상 미리보기, HEIF 변환
-├── state.c/h           # 설정 저장 (마지막 폴더)
-├── utils.c/h           # 확장자·경로 유틸
-├── image_io.c/h        # pixbuf 로드, HEIF→JPG, 이미지 변환 저장
+├── source/             # C 소스
+│   ├── main.c          # 진입점
+│   ├── gtk_app.c       # 메인 창, 레이아웃, gtk_init
+│   ├── gtk_browser.c   # 폴더 트리, 파일 목록
+│   ├── gtk_preview.c   # 갤러리, 미리보기, HEIF 변환
+│   ├── state.c / utils.c / assets.c / image_io.c / heif_native.c
+├── include/            # 헤더
+│   ├── app.h           # 공개 API (GTK 비의존)
+│   └── gtk_*.h, state.h, utils.h, assets.h, image_io.h, heif_native.h
+├── tools/gen_icons.c   # assets/icons PNG 생성
+├── build/              # 오브젝트 (make clean 시 삭제)
 ├── Makefile
+├── imageviewer         # 실행 파일 (빌드 결과)
 ├── imageviewer.desktop
-├── daemon_hammer.ico   # 앱 아이콘 (심볼릭 링크 가능)
-└── assets/
-    └── daemon_hammer.png   # 빌드 시 생성 (gitignore, 데스크톱 아이콘용)
+├── daemon_hammer.ico
+└── assets/icons/       # 형식·폴더 아이콘 (make 시 자동 생성)
 ```
 
 ## 라이선스

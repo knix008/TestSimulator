@@ -1,4 +1,5 @@
 #include "gtk_browser.h"
+#include "assets.h"
 #include "image_io.h"
 #include "gtk_preview.h"
 #include "state.h"
@@ -89,18 +90,6 @@ static GdkPixbuf *browser_fallback_icon(void) {
     return fallback;
 }
 
-static GdkPixbuf *browser_get_icon(BrowserIconKind kind) {
-    browser_init_icons();
-    GdkPixbuf *icon = browser_icons[kind];
-    if (!icon) {
-        icon = browser_icons[BROWSER_ICON_IMAGE];
-    }
-    if (!icon) {
-        icon = browser_fallback_icon();
-    }
-    return icon;
-}
-
 static const char *path_ext(const char *path) {
     const char *dot = strrchr(path, '.');
     return dot ? dot : "";
@@ -115,6 +104,34 @@ static BrowserIconKind browser_file_icon_kind(const char *path) {
         return BROWSER_ICON_VIDEO;
     }
     return BROWSER_ICON_IMAGE;
+}
+
+static GdkPixbuf *browser_get_icon(BrowserIconKind kind) {
+    browser_init_icons();
+    GdkPixbuf *icon = browser_icons[kind];
+    if (!icon) {
+        icon = browser_icons[BROWSER_ICON_IMAGE];
+    }
+    if (!icon) {
+        icon = browser_fallback_icon();
+    }
+    return icon;
+}
+
+static GdkPixbuf *browser_get_folder_list_icon(gboolean open) {
+    GdkPixbuf *pb = assets_load_folder_icon(open, LIST_ICON_SIZE);
+    if (pb) {
+        return pb;
+    }
+    return browser_get_icon(BROWSER_ICON_FOLDER);
+}
+
+static GdkPixbuf *browser_get_file_list_icon(const char *path) {
+    GdkPixbuf *pb = assets_load_icon_for_path(path, LIST_ICON_SIZE);
+    if (pb) {
+        return pb;
+    }
+    return browser_get_icon(browser_file_icon_kind(path));
 }
 
 static void browser_add_icon_name_column(GtkTreeView *view,
@@ -204,7 +221,7 @@ static void tree_populate_children(App *app, GtkTreeIter *parent) {
         base = base ? base + 1 : path;
         gtk_tree_store_append(app->tree_store, &iter, parent);
         gtk_tree_store_set(app->tree_store, &iter,
-                           TREE_COL_ICON, browser_get_icon(BROWSER_ICON_FOLDER),
+                           TREE_COL_ICON, browser_get_folder_list_icon(FALSE),
                            TREE_COL_NAME, base,
                            TREE_COL_PATH, path,
                            -1);
@@ -224,7 +241,29 @@ static void on_tree_row_expanded(GtkTreeView *view, GtkTreeIter *iter, GtkTreePa
     (void)view;
     (void)path;
     App *app = data;
+    gchar *name = NULL;
+    gtk_tree_model_get(GTK_TREE_MODEL(app->tree_store), iter, TREE_COL_NAME, &name, -1);
+    if (name && g_strcmp0(name, BROWSER_DUMMY) != 0) {
+        gtk_tree_store_set(app->tree_store, iter,
+                           TREE_COL_ICON, browser_get_folder_list_icon(TRUE),
+                           -1);
+    }
+    g_free(name);
     tree_populate_children(app, iter);
+}
+
+static void on_tree_row_collapsed(GtkTreeView *view, GtkTreeIter *iter, GtkTreePath *path, gpointer data) {
+    (void)view;
+    (void)path;
+    App *app = data;
+    gchar *name = NULL;
+    gtk_tree_model_get(GTK_TREE_MODEL(app->tree_store), iter, TREE_COL_NAME, &name, -1);
+    if (name && g_strcmp0(name, BROWSER_DUMMY) != 0) {
+        gtk_tree_store_set(app->tree_store, iter,
+                           TREE_COL_ICON, browser_get_folder_list_icon(FALSE),
+                           -1);
+    }
+    g_free(name);
 }
 
 static gboolean tree_iter_folder_path(App *app, GtkTreeIter *iter, char **folder_out) {
@@ -1789,6 +1828,7 @@ void browser_init(App *app) {
 
     gtk_tree_view_set_activate_on_single_click(GTK_TREE_VIEW(app->tree_view), TRUE);
     g_signal_connect(app->tree_view, "row-expanded", G_CALLBACK(on_tree_row_expanded), app);
+    g_signal_connect(app->tree_view, "row-collapsed", G_CALLBACK(on_tree_row_collapsed), app);
     g_signal_connect(app->tree_view, "row-activated", G_CALLBACK(on_tree_row_activated), app);
     g_signal_connect(G_OBJECT(app->tree_view), "cursor-changed", G_CALLBACK(on_tree_cursor_changed), app);
 
@@ -1852,7 +1892,7 @@ void browser_load_root(App *app, const char *folder) {
     }
     gtk_tree_store_append(app->tree_store, &root, NULL);
     gtk_tree_store_set(app->tree_store, &root,
-                       TREE_COL_ICON, browser_get_icon(BROWSER_ICON_FOLDER),
+                       TREE_COL_ICON, browser_get_folder_list_icon(FALSE),
                        TREE_COL_NAME, base,
                        TREE_COL_PATH, folder,
                        -1);
@@ -2007,7 +2047,7 @@ static void apply_folder_scan(App *app, FolderScanResult *res) {
         GtkTreeIter iter;
         gtk_list_store_append(app->file_store, &iter);
         gtk_list_store_set(app->file_store, &iter,
-                           FILE_COL_ICON, browser_get_icon(row->icon_kind),
+                           FILE_COL_ICON, browser_get_file_list_icon(row->path),
                            FILE_COL_NAME, row->name,
                            FILE_COL_SIZE, row->size,
                            FILE_COL_MODIFIED, row->modified,
