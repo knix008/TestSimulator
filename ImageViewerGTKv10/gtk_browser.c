@@ -1585,6 +1585,12 @@ void browser_refresh_after_heif_commit(App *app, const char *jpg_path,
     apply_folder_scan(app, res);
     folder_scan_result_free(res);
 
+    /* 파일 이동이 유발한 폴더 감시 재갱신 취소 — 방금 동기 스캔으로 이미 반영됨 */
+    if (app->folder_refresh_pending) {
+        g_source_remove(app->folder_refresh_pending);
+        app->folder_refresh_pending = 0;
+    }
+
     const char *jpg_base = g_path_get_basename(jpg_path);
     const char *src_base =
         (heif_source_path && *heif_source_path) ? g_path_get_basename(heif_source_path)

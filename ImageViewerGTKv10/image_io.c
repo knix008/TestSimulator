@@ -38,9 +38,8 @@ static char *spawn_capture_stdout(char **argv) {
     gchar *stdout_buf = NULL;
     int status = 0;
     gboolean ok = g_spawn_sync(NULL, argv, NULL,
-                               G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL |
-                                   G_SPAWN_STDERR_TO_DEV_NULL,
-                               NULL, &stdout_buf, NULL, NULL, &status, &spawn_err);
+                               G_SPAWN_SEARCH_PATH | G_SPAWN_STDERR_TO_DEV_NULL,
+                               NULL, NULL, &stdout_buf, NULL, &status, &spawn_err);
     if (!ok || spawn_err || !g_spawn_check_wait_status(status, NULL) || !stdout_buf) {
         g_clear_error(&spawn_err);
         g_free(stdout_buf);
@@ -519,11 +518,8 @@ char *image_io_heif_jpg_path(const char *path) {
         return NULL;
     }
 
-    const char *ext = strrchr(path, '.');
-    gboolean is_hif = ext && g_ascii_strcasecmp(ext, ".hif") == 0;
-
-    /* Canon .hif: ffmpeg 미지원. ImageMagick(RGB+ICC) → heif-convert+LCMS → gdk */
-    if ((!is_hif && try_ffmpeg_heif_to_jpeg(path, jpg_path)) ||
+    /* ffmpeg Hable 톤매핑 우선 시도 (HIF 포함). 실패하면 ImageMagick → heif-convert → gdk */
+    if (try_ffmpeg_heif_to_jpeg(path, jpg_path) ||
         try_imagemagick_heif_to_jpeg(path, jpg_path) ||
         try_heif_convert_to_jpeg(path, jpg_path) ||
         image_io_heif_to_jpeg_via_pixbuf(path, jpg_path)) {
