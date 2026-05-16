@@ -6,7 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <UseWindowsForms>true</UseWindowsForms>
-    <UseWinFormsOutOfProcDesigner>true</UseWinFormsOutOfProcDesigner>
     <ApplicationIcon>$(MSBuildProjectDirectory)\daemon_hammer.ico</ApplicationIcon>
     <RootNamespace>TTSWinV10</RootNamespace>
     <AssemblyName>TTSWinV10</AssemblyName>

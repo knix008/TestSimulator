@@ -515,6 +515,7 @@ public partial class MainForm : Form, IMessageFilter
         UpdatePitchLabel();
         ConfigurePlaybackStopGlyphs();
         _waveRulerFont = new Font(Font.FontFamily, 8.25f, FontStyle.Regular, GraphicsUnit.Point);
+        panelWaveform.Paint += PanelWaveform_Paint;
         panelWaveform.SizeChanged += PanelWaveform_SizeChanged;
         panelWaveform.MouseDown += PanelWaveform_MouseDown;
         panelWaveform.MouseMove += PanelWaveform_MouseMove;
@@ -2605,6 +2606,11 @@ public partial class MainForm : Form, IMessageFilter
 
     private void PanelWaveform_Paint(object? sender, PaintEventArgs e)
     {
+        if (DesignMode || LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+        {
+            return;
+        }
+
         var g = e.Graphics;
         var rect = panelWaveform.ClientRectangle;
         using (var bg = new SolidBrush(panelWaveform.BackColor))
