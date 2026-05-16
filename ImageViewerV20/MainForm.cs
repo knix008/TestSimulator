@@ -139,6 +139,7 @@ public partial class MainForm : Form
         picturePreview.MouseUp += ImagePan_MouseUp;
         buttonRotateCCW.Click += (_, _) => RotateCurrentImage(RotateFlipType.Rotate270FlipNone);
         buttonRotateCW.Click += (_, _) => RotateCurrentImage(RotateFlipType.Rotate90FlipNone);
+        buttonFlipHorizontal.Click += (_, _) => RotateCurrentImage(RotateFlipType.RotateNoneFlipX);
         buttonVideoPlay.Click += (_, _) => PlayVideo();
         buttonVideoPause.Click += (_, _) => PauseVideo();
         buttonVideoStop.Click += (_, _) => StopVideo();
@@ -590,6 +591,7 @@ public partial class MainForm : Form
         panelGalleryHost.Visible = false;
         panelImageHost.Visible = false;
         panelVideoHost.Visible = false;
+        panelImageToolbar.Visible = false;
         ReleaseVideoMedia();
     }
 
@@ -602,6 +604,7 @@ public partial class MainForm : Form
         panelGalleryHost.Visible = false;
         panelImageHost.Visible = false;
         panelVideoHost.Visible = false;
+        panelImageToolbar.Visible = false;
         ReleaseVideoMedia();
         ClearImagePreview();
     }
@@ -615,6 +618,7 @@ public partial class MainForm : Form
         panelGalleryHost.Visible = false;
         panelVideoHost.Visible = false;
         panelImageHost.Visible = true;
+        panelImageToolbar.Visible = true;
 
         try
         {
@@ -796,6 +800,7 @@ public partial class MainForm : Form
         panelGalleryHost.Visible = false;
         panelImageHost.Visible = false;
         panelVideoHost.Visible = true;
+        panelImageToolbar.Visible = false;
 
         if (_mediaPlayer is null || _libVlc is null)
         {
@@ -1074,12 +1079,14 @@ public partial class MainForm : Form
                 panelGalleryHost.Visible = false;
                 panelImageHost.Visible = false;
                 panelVideoHost.Visible = false;
+                panelImageToolbar.Visible = false;
                 return;
             }
 
             panelGalleryHost.Visible = true;
             panelImageHost.Visible = false;
             panelVideoHost.Visible = false;
+            panelImageToolbar.Visible = false;
 
             _thumbnailLoadCts = new CancellationTokenSource();
             _ = LoadThumbnailsAsync(files, _thumbnailLoadCts.Token);

@@ -27,6 +27,7 @@ partial class MainForm
     private Label labelImageZoomInfo;
     private Button buttonRotateCCW;
     private Button buttonRotateCW;
+    private Button buttonFlipHorizontal;
     private Panel panelVideoHost;
     private TableLayoutPanel layoutVideo;
     private Panel panelVideoStage;
@@ -76,6 +77,11 @@ partial class MainForm
         buttonPickFolder = new Button();
         textFolderPath = new TextBox();
         panelPreviewRoot = new Panel();
+        panelImageToolbar = new Panel();
+        buttonRotateCW = new Button();
+        buttonRotateCCW = new Button();
+        buttonFlipHorizontal = new Button();
+        labelImageZoomInfo = new Label();
         labelPreviewPlaceholder = new Label();
         panelVideoHost = new Panel();
         layoutVideo = new TableLayoutPanel();
@@ -95,10 +101,6 @@ partial class MainForm
         buttonVideoStop = new Button();
         panelVideoBottomSeparator = new Panel();
         panelImageHost = new Panel();
-        panelImageToolbar = new Panel();
-        labelImageZoomInfo = new Label();
-        buttonRotateCCW = new Button();
-        buttonRotateCW = new Button();
         panelImageScrollHost = new Panel();
         picturePreview = new PictureBox();
         panelGalleryHost = new Panel();
@@ -117,6 +119,7 @@ partial class MainForm
         splitLeft.SuspendLayout();
         panelFolderBar.SuspendLayout();
         panelPreviewRoot.SuspendLayout();
+        panelImageToolbar.SuspendLayout();
         panelVideoHost.SuspendLayout();
         layoutVideo.SuspendLayout();
         panelVideoStage.SuspendLayout();
@@ -127,7 +130,6 @@ partial class MainForm
         layoutVideoButtons.SuspendLayout();
         flowVideoControls.SuspendLayout();
         panelImageHost.SuspendLayout();
-        panelImageToolbar.SuspendLayout();
         panelImageScrollHost.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)picturePreview).BeginInit();
         panelGalleryHost.SuspendLayout();
@@ -274,6 +276,7 @@ partial class MainForm
         // panelPreviewRoot
         // 
         panelPreviewRoot.BackColor = Color.FromArgb(24, 24, 28);
+        panelPreviewRoot.Controls.Add(panelImageToolbar);
         panelPreviewRoot.Controls.Add(labelPreviewPlaceholder);
         panelPreviewRoot.Controls.Add(panelVideoHost);
         panelPreviewRoot.Controls.Add(panelImageHost);
@@ -283,6 +286,79 @@ partial class MainForm
         panelPreviewRoot.Name = "panelPreviewRoot";
         panelPreviewRoot.Size = new Size(751, 547);
         panelPreviewRoot.TabIndex = 0;
+        // 
+        // panelImageToolbar
+        // 
+        panelImageToolbar.BackColor = Color.FromArgb(28, 28, 34);
+        panelImageToolbar.Controls.Add(buttonRotateCW);
+        panelImageToolbar.Controls.Add(buttonRotateCCW);
+        panelImageToolbar.Controls.Add(buttonFlipHorizontal);
+        panelImageToolbar.Controls.Add(labelImageZoomInfo);
+        panelImageToolbar.Dock = DockStyle.Top;
+        panelImageToolbar.Location = new Point(0, 0);
+        panelImageToolbar.Name = "panelImageToolbar";
+        panelImageToolbar.Size = new Size(751, 44);
+        panelImageToolbar.TabIndex = 1;
+        panelImageToolbar.Visible = false;
+        // 
+        // buttonRotateCW
+        // 
+        buttonRotateCW.BackColor = Color.FromArgb(50, 50, 58);
+        buttonRotateCW.Dock = DockStyle.Right;
+        buttonRotateCW.FlatAppearance.BorderSize = 0;
+        buttonRotateCW.FlatStyle = FlatStyle.Flat;
+        buttonRotateCW.Font = new Font("Segoe UI", 14F);
+        buttonRotateCW.ForeColor = Color.WhiteSmoke;
+        buttonRotateCW.Location = new Point(619, 0);
+        buttonRotateCW.Name = "buttonRotateCW";
+        buttonRotateCW.Size = new Size(44, 44);
+        buttonRotateCW.TabIndex = 2;
+        buttonRotateCW.Text = "↻";
+        buttonRotateCW.UseVisualStyleBackColor = false;
+        // 
+        // buttonRotateCCW
+        // 
+        buttonRotateCCW.BackColor = Color.FromArgb(50, 50, 58);
+        buttonRotateCCW.Dock = DockStyle.Right;
+        buttonRotateCCW.FlatAppearance.BorderSize = 0;
+        buttonRotateCCW.FlatStyle = FlatStyle.Flat;
+        buttonRotateCCW.Font = new Font("Segoe UI", 14F);
+        buttonRotateCCW.ForeColor = Color.WhiteSmoke;
+        buttonRotateCCW.Location = new Point(663, 0);
+        buttonRotateCCW.Name = "buttonRotateCCW";
+        buttonRotateCCW.Size = new Size(44, 44);
+        buttonRotateCCW.TabIndex = 1;
+        buttonRotateCCW.Text = "↺";
+        buttonRotateCCW.UseVisualStyleBackColor = false;
+        // 
+        // buttonFlipHorizontal
+        // 
+        buttonFlipHorizontal.BackColor = Color.FromArgb(50, 50, 58);
+        buttonFlipHorizontal.Dock = DockStyle.Right;
+        buttonFlipHorizontal.FlatAppearance.BorderSize = 0;
+        buttonFlipHorizontal.FlatStyle = FlatStyle.Flat;
+        buttonFlipHorizontal.Font = new Font("Segoe UI", 20F);
+        buttonFlipHorizontal.ForeColor = Color.WhiteSmoke;
+        buttonFlipHorizontal.Location = new Point(707, 0);
+        buttonFlipHorizontal.Name = "buttonFlipHorizontal";
+        buttonFlipHorizontal.Size = new Size(44, 44);
+        buttonFlipHorizontal.TabIndex = 3;
+        buttonFlipHorizontal.Text = "⇔";
+        buttonFlipHorizontal.UseVisualStyleBackColor = false;
+        // 
+        // labelImageZoomInfo
+        // 
+        labelImageZoomInfo.BackColor = Color.Transparent;
+        labelImageZoomInfo.Dock = DockStyle.Fill;
+        labelImageZoomInfo.Font = new Font("Segoe UI Semibold", 9.75F, FontStyle.Bold);
+        labelImageZoomInfo.ForeColor = Color.WhiteSmoke;
+        labelImageZoomInfo.Location = new Point(0, 0);
+        labelImageZoomInfo.Name = "labelImageZoomInfo";
+        labelImageZoomInfo.Padding = new Padding(10, 0, 0, 0);
+        labelImageZoomInfo.Size = new Size(751, 44);
+        labelImageZoomInfo.TabIndex = 0;
+        labelImageZoomInfo.Text = "100% · —";
+        labelImageZoomInfo.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // labelPreviewPlaceholder
         // 
@@ -403,13 +479,17 @@ partial class MainForm
         panelVideoTimeline.TabIndex = 1;
         // 
         // videoSeekBar
-        //
+        // 
         videoSeekBar.Dock = DockStyle.Fill;
+        videoSeekBar.Location = new Point(92, 6);
+        videoSeekBar.MinimumSize = new Size(60, 16);
         videoSeekBar.Name = "videoSeekBar";
+        videoSeekBar.Progress = 0D;
+        videoSeekBar.Size = new Size(611, 30);
         videoSeekBar.TabIndex = 1;
-        //
+        // 
         // labelVideoPercent
-        //
+        // 
         labelVideoPercent.AutoSize = true;
         labelVideoPercent.Dock = DockStyle.Right;
         labelVideoPercent.ForeColor = Color.Gainsboro;
@@ -505,10 +585,9 @@ partial class MainForm
         panelVideoBottomSeparator.Name = "panelVideoBottomSeparator";
         panelVideoBottomSeparator.Size = new Size(751, 1);
         panelVideoBottomSeparator.TabIndex = 0;
-        //
+        // 
         // panelImageHost
-        //
-        panelImageHost.Controls.Add(panelImageToolbar);
+        // 
         panelImageHost.Controls.Add(panelImageScrollHost);
         panelImageHost.Dock = DockStyle.Fill;
         panelImageHost.Location = new Point(0, 0);
@@ -516,61 +595,7 @@ partial class MainForm
         panelImageHost.Size = new Size(751, 547);
         panelImageHost.TabIndex = 0;
         panelImageHost.Visible = false;
-        //
-        // panelImageToolbar — 스크롤 영역과 분리된 툴바(DockStyle.Top)
-        //
-        panelImageToolbar.BackColor = Color.FromArgb(28, 28, 34);
-        panelImageToolbar.Controls.Add(labelImageZoomInfo);
-        panelImageToolbar.Controls.Add(buttonRotateCCW);
-        panelImageToolbar.Controls.Add(buttonRotateCW);
-        panelImageToolbar.Dock = DockStyle.Top;
-        panelImageToolbar.Height = 44;
-        panelImageToolbar.Name = "panelImageToolbar";
-        panelImageToolbar.TabIndex = 1;
-        //
-        // labelImageZoomInfo
-        //
-        labelImageZoomInfo.AutoSize = true;
-        labelImageZoomInfo.BackColor = Color.Transparent;
-        labelImageZoomInfo.Font = new Font("Segoe UI Semibold", 9.75F, FontStyle.Bold);
-        labelImageZoomInfo.ForeColor = Color.WhiteSmoke;
-        labelImageZoomInfo.Location = new Point(10, 13);
-        labelImageZoomInfo.Margin = new Padding(3);
-        labelImageZoomInfo.Name = "labelImageZoomInfo";
-        labelImageZoomInfo.Size = new Size(76, 17);
-        labelImageZoomInfo.TabIndex = 0;
-        labelImageZoomInfo.Text = "100% · —";
-        //
-        // buttonRotateCCW
-        //
-        buttonRotateCCW.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        buttonRotateCCW.BackColor = Color.FromArgb(50, 50, 58);
-        buttonRotateCCW.FlatAppearance.BorderSize = 0;
-        buttonRotateCCW.FlatStyle = FlatStyle.Flat;
-        buttonRotateCCW.Font = new Font("Segoe UI", 14F);
-        buttonRotateCCW.ForeColor = Color.WhiteSmoke;
-        buttonRotateCCW.Location = new Point(671, 6);
-        buttonRotateCCW.Name = "buttonRotateCCW";
-        buttonRotateCCW.Size = new Size(36, 32);
-        buttonRotateCCW.TabIndex = 1;
-        buttonRotateCCW.Text = "↺";
-        buttonRotateCCW.UseVisualStyleBackColor = false;
-        //
-        // buttonRotateCW
-        //
-        buttonRotateCW.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        buttonRotateCW.BackColor = Color.FromArgb(50, 50, 58);
-        buttonRotateCW.FlatAppearance.BorderSize = 0;
-        buttonRotateCW.FlatStyle = FlatStyle.Flat;
-        buttonRotateCW.Font = new Font("Segoe UI", 14F);
-        buttonRotateCW.ForeColor = Color.WhiteSmoke;
-        buttonRotateCW.Location = new Point(711, 6);
-        buttonRotateCW.Name = "buttonRotateCW";
-        buttonRotateCW.Size = new Size(36, 32);
-        buttonRotateCW.TabIndex = 2;
-        buttonRotateCW.Text = "↻";
-        buttonRotateCW.UseVisualStyleBackColor = false;
-        //
+        // 
         // panelImageScrollHost
         // 
         panelImageScrollHost.AutoScroll = true;
@@ -666,6 +691,7 @@ partial class MainForm
         panelFolderBar.ResumeLayout(false);
         panelFolderBar.PerformLayout();
         panelPreviewRoot.ResumeLayout(false);
+        panelImageToolbar.ResumeLayout(false);
         panelVideoHost.ResumeLayout(false);
         layoutVideo.ResumeLayout(false);
         panelVideoStage.ResumeLayout(false);
@@ -678,9 +704,6 @@ partial class MainForm
         layoutVideoButtons.PerformLayout();
         flowVideoControls.ResumeLayout(false);
         panelImageHost.ResumeLayout(false);
-        panelImageHost.PerformLayout();
-        panelImageToolbar.ResumeLayout(false);
-        panelImageToolbar.PerformLayout();
         panelImageScrollHost.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)picturePreview).EndInit();
         panelGalleryHost.ResumeLayout(false);
