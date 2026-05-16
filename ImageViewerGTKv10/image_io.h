@@ -6,7 +6,8 @@
 
 bool utils_is_heif_path(const char *path);
 
-/* HEIF/HIF → JPG 파일로 변환 (이미 있으면 재변환 안 함). 선택된 파일만 호출. */
+/* HEIF/HIF → JPG 디스크 변환 (이미 .jpg 있으면 그 경로만 반환, 재변환·덮어쓰기 없음).
+ * preview_commit_heif_file(파일 목록·갤러리 마우스 선택)에서만 호출할 것. */
 char *image_io_heif_jpg_path(const char *path);
 
 /* JPG가 이미 있으면 경로 반환, 없으면 NULL (변환하지 않음). */

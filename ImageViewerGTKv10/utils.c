@@ -39,6 +39,14 @@ bool utils_is_previewable_ext(const char *ext) {
     return utils_is_image_ext(ext) || utils_is_video_ext(ext);
 }
 
+bool utils_is_hif_path(const char *path) {
+    if (!path) {
+        return false;
+    }
+    const char *ext = strrchr(path, '.');
+    return ext && g_ascii_strcasecmp(ext, ".hif") == 0;
+}
+
 char *utils_format_file_size(int64_t bytes) {
     double v = (double)bytes;
     const char *units[] = {"B", "KB", "MB", "GB", "TB"};
@@ -116,4 +124,12 @@ bool utils_dir_has_subdirs(const char *path) {
 
 char *utils_basename_dup(const char *path) {
     return g_path_get_basename(path);
+}
+
+char *utils_ext_display_label(const char *path) {
+    const char *dot = strrchr(path, '.');
+    if (!dot || !dot[1]) {
+        return g_strdup("FILE");
+    }
+    return g_ascii_strup(dot + 1, -1);
 }

@@ -1,24 +1,108 @@
-#include "app.h"
-#include "browser.h"
-
-/* TREE_N_COLS / FILE_N_COLS from browser.h */
-#include "preview.h"
+#include "gtk_app.h"
+#include "gtk_browser.h"
+#include "gtk_preview.h"
 #include "state.h"
 #include "utils.h"
 
-#include <glib.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <string.h>
 
-void app_set_folder(App *app, const char *folder) {
+#if defined(__APPLE__)
+#include <limits.h>
+#include <mach-o/dyld.h>
+#endif
+
+#ifndef APP_ICON_FILE
+#define APP_ICON_FILE "daemon_hammer.ico"
+#endif
+
+static char *app_resolve_icon_path(void) {
+    const char *name = APP_ICON_FILE;
+
+#if defined(__linux__)
+    char *exe = g_file_read_link("/proc/self/exe", NULL);
+    if (exe) {
+        char *dir = g_path_get_dirname(exe);
+        char *beside = g_build_filename(dir, name, NULL);
+        g_free(dir);
+        g_free(exe);
+        if (g_file_test(beside, G_FILE_TEST_IS_REGULAR)) {
+            return beside;
+        }
+        g_free(beside);
+    }
+#elif defined(__APPLE__)
+    char exe_buf[PATH_MAX];
+    uint32_t size = sizeof(exe_buf);
+    if (_NSGetExecutablePath(exe_buf, &size) == 0) {
+        char *dir = g_path_get_dirname(exe_buf);
+        char *beside = g_build_filename(dir, name, NULL);
+        g_free(dir);
+        if (g_file_test(beside, G_FILE_TEST_IS_REGULAR)) {
+            return beside;
+        }
+        g_free(beside);
+    }
+#endif
+
+    if (g_path_is_absolute(name) && g_file_test(name, G_FILE_TEST_IS_REGULAR)) {
+        return g_strdup(name);
+    }
+
+    if (g_file_test(name, G_FILE_TEST_IS_REGULAR)) {
+        return g_canonicalize_filename(name, NULL);
+    }
+
+    char *cwd = g_build_filename(g_get_current_dir(), name, NULL);
+    if (g_file_test(cwd, G_FILE_TEST_IS_REGULAR)) {
+        return cwd;
+    }
+    g_free(cwd);
+
+    return NULL;
+}
+
+static void app_apply_window_icon(GtkWidget *window) {
+    char *icon_path = app_resolve_icon_path();
+    if (!icon_path) {
+        g_warning("앱 아이콘을 찾을 수 없습니다: %s", APP_ICON_FILE);
+        return;
+    }
+
+    GError *err = NULL;
+    GdkPixbuf *icon = gdk_pixbuf_new_from_file(icon_path, &err);
+    if (!icon) {
+        g_warning("앱 아이콘 로드 실패 (%s): %s", icon_path,
+                  err ? err->message : "unknown");
+        g_clear_error(&err);
+        g_free(icon_path);
+        return;
+    }
+
+    gtk_window_set_default_icon(icon);
+    if (window && GTK_IS_WINDOW(window)) {
+        gtk_window_set_icon(GTK_WINDOW(window), icon);
+    }
+
+    g_object_unref(icon);
+    g_free(icon_path);
+}
+
+void gtk_app_show_warning(App *app, const char *message) {
+    GtkWidget *dlg = gtk_message_dialog_new(
+        GTK_WINDOW(app->window),
+        GTK_DIALOG_MODAL,
+        GTK_MESSAGE_WARNING,
+        GTK_BUTTONS_OK,
+        "%s",
+        message);
+    gtk_dialog_run(GTK_DIALOG(dlg));
+    gtk_widget_destroy(dlg);
+}
+
+void gtk_app_set_folder(App *app, const char *folder) {
     if (!folder || !g_file_test(folder, G_FILE_TEST_IS_DIR)) {
-        GtkWidget *dlg = gtk_message_dialog_new(
-            GTK_WINDOW(app->window),
-            GTK_DIALOG_MODAL,
-            GTK_MESSAGE_WARNING,
-            GTK_BUTTONS_OK,
-            "폴더를 찾을 수 없습니다.");
-        gtk_dialog_run(GTK_DIALOG(dlg));
-        gtk_widget_destroy(dlg);
+        gtk_app_show_warning(app, "폴더를 찾을 수 없습니다.");
         return;
     }
 
@@ -27,10 +111,7 @@ void app_set_folder(App *app, const char *folder) {
     gtk_entry_set_text(GTK_ENTRY(app->folder_entry), folder);
     state_save_last_folder(folder);
     browser_load_root(app, folder);
-    browser_start_folder_watch(app);
-    app_refresh_file_list(app, folder);
-    app_update_status_dir(app, folder);
-    preview_show_gallery(app, folder);
+    browser_show_folder_contents(app, folder, TRUE);
 }
 
 static GtkWidget *build_toolbar_folder(App *app, GtkWidget **pick_btn_out) {
@@ -56,29 +137,23 @@ static GtkWidget *build_left_pane(App *app) {
     GtkWidget *folder_bar = build_toolbar_folder(app, &pick_btn);
     gtk_box_pack_start(GTK_BOX(vbox), folder_bar, FALSE, FALSE, 0);
 
-    /* ImageViewerV20: 폴더 경로 바 → (위) 폴더 트리 / (아래) 파일 목록 */
     GtkWidget *vpaned = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
     gtk_widget_set_hexpand(vpaned, TRUE);
     gtk_widget_set_vexpand(vpaned, TRUE);
 
-    app->tree_store = gtk_tree_store_new(TREE_N_COLS, G_TYPE_STRING, G_TYPE_STRING);
+    app->tree_store = gtk_tree_store_new(TREE_N_COLS,
+                                         GDK_TYPE_PIXBUF, G_TYPE_STRING, G_TYPE_STRING);
     app->tree_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(app->tree_store));
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(app->tree_view), TRUE);
 
-    GtkWidget *tree_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-    GtkWidget *tree_label = gtk_label_new("폴더");
-    gtk_label_set_xalign(GTK_LABEL(tree_label), 0.0);
-    gtk_widget_set_margin_start(tree_label, 4);
-    gtk_box_pack_start(GTK_BOX(tree_box), tree_label, FALSE, FALSE, 0);
     GtkWidget *tree_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tree_scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(tree_scroll), app->tree_view);
-    gtk_box_pack_start(GTK_BOX(tree_box), tree_scroll, TRUE, TRUE, 0);
-    gtk_paned_pack1(GTK_PANED(vpaned), tree_box, FALSE, FALSE);
+    gtk_paned_pack1(GTK_PANED(vpaned), tree_scroll, FALSE, FALSE);
 
     app->file_store = gtk_list_store_new(FILE_N_COLS,
-                                         G_TYPE_STRING, G_TYPE_STRING,
+                                         GDK_TYPE_PIXBUF, G_TYPE_STRING, G_TYPE_STRING,
                                          G_TYPE_STRING, G_TYPE_STRING);
     app->file_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(app->file_store));
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(app->file_view), TRUE);
@@ -116,9 +191,15 @@ static GtkWidget *build_preview_pane(App *app) {
     gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(app->gallery_flow), GTK_SELECTION_NONE);
     gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(app->gallery_flow), FALSE);
     gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(app->gallery_flow), 32);
+    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(app->gallery_flow), 8);
+    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(app->gallery_flow), 8);
+    gtk_widget_set_margin_start(app->gallery_flow, 8);
+    gtk_widget_set_margin_end(app->gallery_flow, 8);
+    gtk_widget_set_margin_top(app->gallery_flow, 8);
+    gtk_widget_set_margin_bottom(app->gallery_flow, 8);
     app->gallery_scrolled = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(app->gallery_scrolled),
-                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(app->gallery_scrolled), app->gallery_flow);
     gtk_stack_add_named(GTK_STACK(app->preview_stack),
                         app->gallery_scrolled, "gallery");
@@ -225,7 +306,7 @@ static GtkWidget *build_status(App *app) {
     return box;
 }
 
-App *app_create(int argc, char **argv) {
+App *gtk_app_create(int argc, char **argv) {
     gtk_init(&argc, &argv);
 
     App *app = g_new0(App, 1);
@@ -235,6 +316,7 @@ App *app_create(int argc, char **argv) {
     gtk_window_set_title(GTK_WINDOW(app->window), "ImageViewer GTK");
     gtk_window_set_default_size(GTK_WINDOW(app->window), 1200, 720);
     g_signal_connect(app->window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    app_apply_window_icon(app->window);
 
     GtkWidget *root = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_container_add(GTK_CONTAINER(app->window), root);
@@ -249,6 +331,8 @@ App *app_create(int argc, char **argv) {
     gtk_paned_pack2(GTK_PANED(main_paned), right, TRUE, FALSE);
     gtk_paned_set_position(GTK_PANED(main_paned), 380);
 
+    browser_connect_shortcuts(app);
+
     GtkWidget *status = build_status(app);
     gtk_box_pack_start(GTK_BOX(root), status, FALSE, FALSE, 0);
 
@@ -256,18 +340,18 @@ App *app_create(int argc, char **argv) {
     if (!folder) {
         folder = utils_get_default_pictures_dir();
     }
-    app_set_folder(app, folder);
+    gtk_app_set_folder(app, folder);
     g_free(folder);
 
     return app;
 }
 
-void app_run(App *app) {
+void gtk_app_run(App *app) {
     gtk_widget_show_all(app->window);
     gtk_main();
 }
 
-void app_destroy(App *app) {
+void gtk_app_destroy(App *app) {
     if (!app) {
         return;
     }
@@ -279,6 +363,41 @@ void app_destroy(App *app) {
     }
     g_free(app->current_folder);
     g_free(app->selected_file);
+    g_free(app->fs_clipboard_path);
     g_free(app->image_edit_path);
     g_free(app);
+}
+
+void gtk_app_update_status_dir(App *app, const char *folder) {
+    (void)app;
+    (void)folder;
+}
+
+void gtk_app_update_status_file(App *app, const char *message) {
+    gtk_label_set_text(GTK_LABEL(app->status_file), message);
+}
+
+/* app.h 공개 API — GTK 구현으로 위임 */
+App *app_create(int argc, char **argv) {
+    return gtk_app_create(argc, argv);
+}
+
+void app_run(App *app) {
+    gtk_app_run(app);
+}
+
+void app_destroy(App *app) {
+    gtk_app_destroy(app);
+}
+
+void app_set_folder(App *app, const char *folder) {
+    gtk_app_set_folder(app, folder);
+}
+
+void app_update_status_dir(App *app, const char *folder) {
+    gtk_app_update_status_dir(app, folder);
+}
+
+void app_update_status_file(App *app, const char *message) {
+    gtk_app_update_status_file(app, message);
 }
