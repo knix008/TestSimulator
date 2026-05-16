@@ -1,0 +1,37 @@
+# Build
+imageviewer
+*.o
+*.a
+*.so
+*.d
+
+# Debug / coverage
+*.gcda
+*.gcno
+*.gcov
+vgcore.*
+core
+core.*
+
+# Logs
+*.log
+
+# Editor / IDE
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local install artifacts
+*.desktop~
+
+# Optional: test/run outputs in project folder
+# hif/

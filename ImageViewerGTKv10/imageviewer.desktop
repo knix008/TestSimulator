@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ImageViewer GTK
+Comment=Image and video folder viewer
+Exec=imageviewer
+Icon=daemon_hammer.ico
+Terminal=false
+Categories=Graphics;Viewer;
