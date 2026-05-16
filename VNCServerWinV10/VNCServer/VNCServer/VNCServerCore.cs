@@ -40,7 +40,33 @@ public class VNCServerCore
 
         try
         {
-            _listener = new TcpListener(IPAddress.Any, _settings.Port);
+            // IPv6 지원
+            IPAddress bindAddress;
+            if (_settings.EnableIPv6)
+            {
+                bindAddress = IPAddress.IPv6Any;
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(_settings.BindAddress) && 
+                    IPAddress.TryParse(_settings.BindAddress, out var parsed))
+                {
+                    bindAddress = parsed;
+                }
+                else
+                {
+                    bindAddress = IPAddress.Any;
+                }
+            }
+
+            _listener = new TcpListener(bindAddress, _settings.Port);
+            
+            // IPv6와 IPv4 모두 허용 (DualMode)
+            if (_settings.EnableIPv6 && _listener.Server.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+            {
+                _listener.Server.DualMode = true;
+            }
+            
             _listener.Start();
             _isRunning = true;
 
@@ -50,7 +76,8 @@ public class VNCServerCore
             };
             _serverThread.Start();
 
-            OnStatusChanged($"VNC Server started on port {_settings.Port}");
+            string addressType = _settings.EnableIPv6 ? "IPv4/IPv6 (DualMode)" : "IPv4";
+            OnStatusChanged($"VNC Server started on {addressType} port {_settings.Port}");
         }
         catch (Exception ex)
         {

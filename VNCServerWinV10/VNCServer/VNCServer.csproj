@@ -6,6 +6,14 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <ProjectGuid>{f6eabf31-2b7a-4862-9533-224dcf8940a8}</ProjectGuid>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
 </Project>

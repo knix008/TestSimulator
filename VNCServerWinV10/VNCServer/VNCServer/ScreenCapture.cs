@@ -21,9 +21,29 @@ public class ScreenCapture
 
     private const int SRCCOPY = 0x00CC0020;
 
+    // 캡처 영역 설정
+    private static Rectangle? _captureArea = null;
+    private static int _imageQuality = 75;
+
+    /// <summary>
+    /// 캡처 영역 설정 (null이면 전체 화면)
+    /// </summary>
+    public static void SetCaptureArea(Rectangle? area)
+    {
+        _captureArea = area;
+    }
+
+    /// <summary>
+    /// 이미지 품질 설정 (1-100)
+    /// </summary>
+    public static void SetImageQuality(int quality)
+    {
+        _imageQuality = Math.Clamp(quality, 1, 100);
+    }
+
     public static Bitmap CaptureScreen()
     {
-        Rectangle bounds = GetScreenBounds();
+        Rectangle bounds = _captureArea ?? GetScreenBounds();
         return CaptureScreen(bounds);
     }
 
@@ -59,6 +79,28 @@ public class ScreenCapture
         }
 
         return bitmap;
+    }
+
+    /// <summary>
+    /// 화면을 캡처하고 설정된 품질로 압축
+    /// </summary>
+    public static byte[] CaptureScreenAsJpeg()
+    {
+        using (var bitmap = CaptureScreen())
+        {
+            return ImageCompressor.EncodeJpeg(bitmap, _imageQuality);
+        }
+    }
+
+    /// <summary>
+    /// 특정 영역을 캡처하고 압축
+    /// </summary>
+    public static byte[] CaptureAreaAsJpeg(Rectangle area)
+    {
+        using (var bitmap = CaptureScreen(area))
+        {
+            return ImageCompressor.EncodeJpeg(bitmap, _imageQuality);
+        }
     }
 
     public static Rectangle GetScreenBounds()

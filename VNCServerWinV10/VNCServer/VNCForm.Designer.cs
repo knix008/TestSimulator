@@ -21,6 +21,14 @@ partial class VNCForm
         this.lblStatus = new Label();
         this.lblStatusLabel = new Label();
         
+        this.grpProfiles = new GroupBox();
+        this.cmbProfiles = new ComboBox();
+        this.lblProfile = new Label();
+        this.btnSaveProfile = new Button();
+        this.btnLoadProfile = new Button();
+        this.btnDeleteProfile = new Button();
+        this.btnResetToDefaults = new Button();
+        
         this.grpSettings = new GroupBox();
         this.chkMinimizeToTray = new CheckBox();
         this.chkAutoStart = new CheckBox();
@@ -33,6 +41,7 @@ partial class VNCForm
         this.numPort = new NumericUpDown();
         this.lblPortSetting = new Label();
         this.btnSaveSettings = new Button();
+        this.btnAdvancedSettings = new Button();
         
         this.grpControl = new GroupBox();
         this.btnStart = new Button();
@@ -94,10 +103,76 @@ partial class VNCForm
         this.lblConnections.TabIndex = 3;
         this.lblConnections.Text = "연결: 0";
         
+        // grpProfiles
+        this.grpProfiles.Controls.Add(this.lblProfile);
+        this.grpProfiles.Controls.Add(this.cmbProfiles);
+        this.grpProfiles.Controls.Add(this.btnSaveProfile);
+        this.grpProfiles.Controls.Add(this.btnLoadProfile);
+        this.grpProfiles.Controls.Add(this.btnDeleteProfile);
+        this.grpProfiles.Controls.Add(this.btnResetToDefaults);
+        this.grpProfiles.Location = new Point(12, 98);
+        this.grpProfiles.Name = "grpProfiles";
+        this.grpProfiles.Size = new Size(760, 60);
+        this.grpProfiles.TabIndex = 1;
+        this.grpProfiles.TabStop = false;
+        this.grpProfiles.Text = "프로필 관리";
+        
+        // lblProfile
+        this.lblProfile.AutoSize = true;
+        this.lblProfile.Location = new Point(15, 25);
+        this.lblProfile.Name = "lblProfile";
+        this.lblProfile.Size = new Size(55, 15);
+        this.lblProfile.TabIndex = 0;
+        this.lblProfile.Text = "프로필:";
+        
+        // cmbProfiles
+        this.cmbProfiles.DropDownStyle = ComboBoxStyle.DropDownList;
+        this.cmbProfiles.FormattingEnabled = true;
+        this.cmbProfiles.Location = new Point(75, 22);
+        this.cmbProfiles.Name = "cmbProfiles";
+        this.cmbProfiles.Size = new Size(200, 23);
+        this.cmbProfiles.TabIndex = 1;
+        
+        // btnSaveProfile
+        this.btnSaveProfile.Location = new Point(285, 21);
+        this.btnSaveProfile.Name = "btnSaveProfile";
+        this.btnSaveProfile.Size = new Size(100, 25);
+        this.btnSaveProfile.TabIndex = 2;
+        this.btnSaveProfile.Text = "저장하기";
+        this.btnSaveProfile.UseVisualStyleBackColor = true;
+        this.btnSaveProfile.Click += (s, e) => SaveCurrentProfile();
+        
+        // btnLoadProfile
+        this.btnLoadProfile.Location = new Point(395, 21);
+        this.btnLoadProfile.Name = "btnLoadProfile";
+        this.btnLoadProfile.Size = new Size(100, 25);
+        this.btnLoadProfile.TabIndex = 3;
+        this.btnLoadProfile.Text = "불러오기";
+        this.btnLoadProfile.UseVisualStyleBackColor = true;
+        this.btnLoadProfile.Click += (s, e) => LoadSelectedProfile();
+        
+        // btnDeleteProfile
+        this.btnDeleteProfile.Location = new Point(505, 21);
+        this.btnDeleteProfile.Name = "btnDeleteProfile";
+        this.btnDeleteProfile.Size = new Size(100, 25);
+        this.btnDeleteProfile.TabIndex = 4;
+        this.btnDeleteProfile.Text = "삭제";
+        this.btnDeleteProfile.UseVisualStyleBackColor = true;
+        this.btnDeleteProfile.Click += (s, e) => DeleteSelectedProfile();
+        
+        // btnResetToDefaults
+        this.btnResetToDefaults.Location = new Point(615, 21);
+        this.btnResetToDefaults.Name = "btnResetToDefaults";
+        this.btnResetToDefaults.Size = new Size(130, 25);
+        this.btnResetToDefaults.TabIndex = 5;
+        this.btnResetToDefaults.Text = "기본값으로 초기화";
+        this.btnResetToDefaults.UseVisualStyleBackColor = true;
+        this.btnResetToDefaults.Click += (s, e) => ResetToDefaultSettings();
+        
         // grpControl
         this.grpControl.Controls.Add(this.btnStart);
         this.grpControl.Controls.Add(this.btnStop);
-        this.grpControl.Location = new Point(12, 98);
+        this.grpControl.Location = new Point(12, 164);
         this.grpControl.Name = "grpControl";
         this.grpControl.Size = new Size(760, 60);
         this.grpControl.TabIndex = 1;
@@ -124,6 +199,7 @@ partial class VNCForm
         this.btnStop.Click += (s, e) => StopServer();
         
         // grpSettings
+        this.grpSettings.Controls.Add(this.btnAdvancedSettings);
         this.grpSettings.Controls.Add(this.btnSaveSettings);
         this.grpSettings.Controls.Add(this.lblPortSetting);
         this.grpSettings.Controls.Add(this.numPort);
@@ -135,12 +211,12 @@ partial class VNCForm
         this.grpSettings.Controls.Add(this.chkAllowMultiple);
         this.grpSettings.Controls.Add(this.chkAutoStart);
         this.grpSettings.Controls.Add(this.chkMinimizeToTray);
-        this.grpSettings.Location = new Point(12, 164);
+        this.grpSettings.Location = new Point(12, 230);
         this.grpSettings.Name = "grpSettings";
         this.grpSettings.Size = new Size(760, 200);
         this.grpSettings.TabIndex = 2;
         this.grpSettings.TabStop = false;
-        this.grpSettings.Text = "설정";
+        this.grpSettings.Text = "기본 설정";
         
         // lblPortSetting
         this.lblPortSetting.AutoSize = true;
@@ -256,10 +332,19 @@ partial class VNCForm
             _settings.Save();
             MessageBox.Show("설정이 저장되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
+
+        // btnAdvancedSettings
+        this.btnAdvancedSettings.Location = new Point(125, 170);
+        this.btnAdvancedSettings.Name = "btnAdvancedSettings";
+        this.btnAdvancedSettings.Size = new Size(100, 25);
+        this.btnAdvancedSettings.TabIndex = 11;
+        this.btnAdvancedSettings.Text = "고급 설정...";
+        this.btnAdvancedSettings.UseVisualStyleBackColor = true;
+        this.btnAdvancedSettings.Click += (s, e) => ShowAdvancedSettings();
         
         // grpLog
         this.grpLog.Controls.Add(this.lstLog);
-        this.grpLog.Location = new Point(12, 370);
+        this.grpLog.Location = new Point(12, 436);
         this.grpLog.Name = "grpLog";
         this.grpLog.Size = new Size(760, 180);
         this.grpLog.TabIndex = 3;
@@ -278,16 +363,36 @@ partial class VNCForm
         // VNCForm
         this.AutoScaleDimensions = new SizeF(7F, 15F);
         this.AutoScaleMode = AutoScaleMode.Font;
-        this.ClientSize = new Size(784, 561);
+        this.ClientSize = new Size(784, 627);
         this.Controls.Add(this.grpLog);
         this.Controls.Add(this.grpSettings);
         this.Controls.Add(this.grpControl);
+        this.Controls.Add(this.grpProfiles);
         this.Controls.Add(this.grpStatus);
         this.FormBorderStyle = FormBorderStyle.FixedSingle;
         this.MaximizeBox = false;
         this.Name = "VNCForm";
         this.StartPosition = FormStartPosition.CenterScreen;
         this.Text = "VNC Server";
+        
+        // Load and set icon
+        try
+        {
+            var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "daemon_hammer.ico");
+            if (File.Exists(iconPath))
+            {
+                this.Icon = new Icon(iconPath);
+            }
+            else
+            {
+                iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "daemon_hammer.ico");
+                if (File.Exists(iconPath))
+                {
+                    this.Icon = new Icon(iconPath);
+                }
+            }
+        }
+        catch { }
         
         this.grpStatus.ResumeLayout(false);
         this.grpStatus.PerformLayout();
@@ -322,6 +427,14 @@ partial class VNCForm
     private Button btnStart;
     private Button btnStop;
     
+    private GroupBox grpProfiles;
+    private Label lblProfile;
+    private ComboBox cmbProfiles;
+    private Button btnSaveProfile;
+    private Button btnLoadProfile;
+    private Button btnDeleteProfile;
+    private Button btnResetToDefaults;
+    
     private GroupBox grpSettings;
     private Label lblPortSetting;
     private NumericUpDown numPort;
@@ -334,6 +447,7 @@ partial class VNCForm
     private CheckBox chkAutoStart;
     private CheckBox chkMinimizeToTray;
     private Button btnSaveSettings;
+    private Button btnAdvancedSettings;
     
     private GroupBox grpLog;
     private ListBox lstLog;

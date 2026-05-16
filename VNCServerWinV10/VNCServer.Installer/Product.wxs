@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  
+  <Package Name="VNC Server"
+           Manufacturer="Your Company Name"
+           Version="1.0.0.0"
+           UpgradeCode="eeedb00d-4720-4464-a905-34acd3b25281">
+    
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <MediaTemplate EmbedCab="yes" />
+    
+    <!-- Application Icon -->
+    <Icon Id="AppIcon" SourceFile="..\VNCServer\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    
+    <!-- Features with user-selectable options -->
+    <Feature Id="MainApplication" Title="VNC Server" Level="1" 
+             Description="VNC Server main application" 
+             ConfigurableDirectory="INSTALLFOLDER" 
+             AllowAdvertise="no" 
+             Display="expand">
+      
+      <ComponentGroupRef Id="ProductComponents" />
+      
+      <!-- Desktop Shortcut Feature (Optional) -->
+      <Feature Id="DesktopShortcut" Title="Desktop Shortcut" Level="1000" 
+               Description="Add a shortcut to the desktop">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+      
+      <!-- Start Menu Shortcut Feature (Optional) -->
+      <Feature Id="StartMenuShortcut" Title="Start Menu Shortcut" Level="1000" 
+               Description="Add a shortcut to the Start Menu">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+    </Feature>
+    
+    <!-- Use custom UI -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+    
+    <!-- Properties for installation directory -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Package>
+  
+  <!-- Directory structure -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="VNCServer" />
+    </StandardDirectory>
+    
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="VNC Server"/>
+    </StandardDirectory>
+    
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+  
+  <!-- Components -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Main executable -->
+      <Component Id="VNCServerExe" Guid="c8045f22-0e29-4fa8-a0a8-6430bbde4f10">
+        <File Id="VNCServerExeFile" 
+              Source="$(var.VNCServer.TargetPath)" 
+              KeyPath="yes" />
+      </Component>
+      
+      <!-- Start Menu Shortcut in same component as exe -->
+      <Component Id="ProgramMenuDir" Guid="8766b0f2-f906-434b-b1bd-5ef6da488eac" Directory="ApplicationProgramsFolder">
+        <Shortcut Id="MainExeShortcut"
+                  Name="VNC Server"
+                  Description="VNC Server Application"
+                  Target="[INSTALLFOLDER]VNCServer.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon"
+                  IconIndex="0" />
+        <RemoveFolder Id="RemoveProgramMenuDir" On="uninstall" />
+        <RegistryValue Root="HKCU" 
+                      Key="Software\[Manufacturer]\[ProductName]" 
+                      Name="Installed" 
+                      Type="integer" 
+                      Value="1" 
+                      KeyPath="yes" />
+      </Component>
+      
+      <!-- Additional files (config, DLLs, etc.) -->
+      <Component Id="ConfigFiles" Guid="b999750f-39ca-4b52-9dee-b122b0c32aac">
+        <File Id="VNCServerDepsJson" 
+              Source="$(var.VNCServer.TargetDir)VNCServer.deps.json" 
+              KeyPath="yes" />
+        <File Id="VNCServerRuntimeConfigJson" 
+              Source="$(var.VNCServer.TargetDir)VNCServer.runtimeconfig.json" />
+      </Component>
+      
+      <!-- Icon file -->
+      <Component Id="IconFile" Guid="56b59c5c-5acb-49ce-8725-4166e34018e2">
+        <File Id="AppIconFile" 
+              Source="..\VNCServer\daemon_hammer.ico" 
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+    
+    <!-- Desktop Shortcut Component -->
+    <Component Id="DesktopShortcutComponent" 
+               Directory="DesktopFolder" 
+               Guid="08f4510c-8fd5-4faa-8a8b-c799f1018a2b">
+      <Shortcut Id="DesktopShortcut"
+                Name="VNC Server"
+                Description="VNC Server Application"
+                Target="[INSTALLFOLDER]VNCServer.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU" 
+                     Key="Software\[Manufacturer]\[ProductName]" 
+                     Name="DesktopShortcut" 
+                     Type="integer" 
+                     Value="1" 
+                     KeyPath="yes" />
+      <RemoveFolder Id="RemoveDesktopShortcut" On="uninstall" />
+    </Component>
+    
+    <!-- Start Menu Shortcut Component -->
+    <Component Id="StartMenuShortcutComponent" 
+               Directory="ApplicationProgramsFolder" 
+               Guid="611cef38-8b8c-4472-8b8b-11d7c7c5fb7d">
+      <Shortcut Id="StartMenuShortcut"
+                Name="VNC Server"
+                Description="VNC Server Application"
+                Target="[INSTALLFOLDER]VNCServer.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU" 
+                     Key="Software\[Manufacturer]\[ProductName]" 
+                     Name="StartMenuShortcut" 
+                     Type="integer" 
+                     Value="1" 
+                     KeyPath="yes" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+    </Component>
+  </Fragment>
+</Wix>

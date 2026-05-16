@@ -148,6 +148,76 @@ dotnet publish -c Release -r win-x64 --self-contained true ^
 ### 로컬 테스트
 1. VNC Server 실행
 2. VNC Viewer로 `localhost:5900` 접속
+
+## MSI 설치 파일 빌드
+
+### WiX Toolset 설치
+```powershell
+dotnet tool install --global wix
+```
+
+### Visual Studio에서 MSI 빌드
+1. `VNCServer.sln` 솔루션 열기
+2. 빌드 구성을 **Release**로 변경
+3. 솔루션 빌드 (Ctrl+Shift+B)
+4. MSI 파일 생성: `VNCServer.Installer\bin\Release\VNCServerSetup.msi`
+
+### 명령줄에서 MSI 빌드
+```powershell
+# 전체 솔루션 빌드
+cd D:\Home\Projects\TestSimulator\VNCServerWinV10
+dotnet build VNCServer.sln -c Release
+
+# MSI 위치
+dir VNCServer.Installer\bin\Release\**\*.msi
+```
+
+### MSI 설치 옵션
+설치 파일에서 사용자가 선택할 수 있는 옵션:
+- ✅ 메인 애플리케이션 (필수)
+- □ 바탕화면 바로가기 생성 (선택)
+- □ 시작 메뉴 바로가기 생성 (선택)
+
+모든 바로가기는 `daemon_hammer.ico` 아이콘 사용
+
+### WiX 설정 커스터마이징
+
+#### 1. 제품 정보 변경
+`VNCServer.Installer\Product.wxs` 편집:
+```xml
+<Package Name="VNC Server"
+         Manufacturer="Your Company Name"
+         Version="1.0.0.0"
+         UpgradeCode="고유-GUID">
+```
+
+#### 2. GUID 생성
+```powershell
+[guid]::NewGuid()
+```
+
+각 Component에 고유한 GUID 할당 필요
+
+#### 3. 설치 디렉토리 변경
+기본값: `C:\Program Files\VNCServer`
+
+### MSI 설치/제거 명령
+
+```powershell
+# 자동 설치 (Silent)
+msiexec /i VNCServerSetup.msi /quiet /qn
+
+# 로그와 함께 설치
+msiexec /i VNCServerSetup.msi /l*v install.log
+
+# 자동 제거
+msiexec /x VNCServerSetup.msi /quiet /qn
+
+# 특정 기능만 설치
+msiexec /i VNCServerSetup.msi ADDLOCAL=MainApplication,DesktopShortcut
+```
+
+자세한 MSI 빌드 가이드는 프로젝트 루트의 별도 문서 참조
 3. 비밀번호 입력
 4. 화면 공유 확인
 
