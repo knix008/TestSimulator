@@ -85,3 +85,7 @@ SherpaModelsRoot.txt
 *.svclog
 *.pdb
 ~$*
+
+
+# Etc.
+.claude/

@@ -29,6 +29,7 @@ public partial class MainForm : Form, IMessageFilter
     /// <summary>시간축 확대: 값이 클수록 더 짧은 구간(초)을 화면에 담습니다.</summary>
     private float _waveHorizontalMag = 1f;
     private float[] _bakedWavePeaks = Array.Empty<float>();
+    private float[] _bakedWaveValleys = Array.Empty<float>();
     private double _bakedWaveDurationSec;
     private double _waveViewStartSec;
     private double _lastPlaybackSec;
@@ -1888,6 +1889,7 @@ public partial class MainForm : Form, IMessageFilter
     {
         _peakRing.Clear();
         _bakedWavePeaks = Array.Empty<float>();
+        _bakedWaveValleys = Array.Empty<float>();
         _bakedWaveDurationSec = 0;
         _waveViewStartSec = 0;
         _lastPlaybackSec = 0;
@@ -2175,6 +2177,7 @@ public partial class MainForm : Form, IMessageFilter
     private void TryBakeWaveformEnvelope(WaveFileReader reader)
     {
         _bakedWavePeaks = Array.Empty<float>();
+        _bakedWaveValleys = Array.Empty<float>();
         _bakedWaveDurationSec = 0;
 
         try
@@ -2187,6 +2190,7 @@ public partial class MainForm : Form, IMessageFilter
 
             int bucketCount = ClampInt(Math.Max(panelWaveform.ClientSize.Width, 320) * 3, 2048, 12000);
             var peaks = new float[bucketCount];
+            var valleys = new float[bucketCount];
             reader.Position = 0;
             var sp = new Pcm16BitToSampleProvider(reader);
             int ch = sp.WaveFormat.Channels;
@@ -2211,14 +2215,13 @@ public partial class MainForm : Form, IMessageFilter
                 int frames = got / ch;
                 for (int f = 0; f < frames; f++)
                 {
-                    float m = 0f;
+                    float hi = 0f;
+                    float lo = 0f;
                     for (int c = 0; c < ch; c++)
                     {
-                        float s = Math.Abs(buf[f * ch + c]);
-                        if (s > m)
-                        {
-                            m = s;
-                        }
+                        float s = buf[f * ch + c];
+                        if (s > hi) hi = s;
+                        if (s < lo) lo = s;
                     }
 
                     long fi = frameIndex + f;
@@ -2228,36 +2231,35 @@ public partial class MainForm : Form, IMessageFilter
                         bi = bucketCount - 1;
                     }
 
-                    if (m > peaks[bi])
-                    {
-                        peaks[bi] = m;
-                    }
+                    if (hi > peaks[bi]) peaks[bi] = hi;
+                    if (lo < valleys[bi]) valleys[bi] = lo;
                 }
 
                 frameIndex += frames;
             }
 
-            float maxP = 1e-6f;
+            float maxAbs = 1e-6f;
             for (int i = 0; i < bucketCount; i++)
             {
-                if (peaks[i] > maxP)
-                {
-                    maxP = peaks[i];
-                }
+                if (peaks[i] > maxAbs) maxAbs = peaks[i];
+                if (-valleys[i] > maxAbs) maxAbs = -valleys[i];
             }
 
-            float inv = 1f / maxP;
+            float inv = 1f / maxAbs;
             for (int i = 0; i < bucketCount; i++)
             {
                 peaks[i] = ClampFloat(peaks[i] * inv, 0f, 1f);
+                valleys[i] = ClampFloat(valleys[i] * inv, -1f, 0f);
             }
 
             _bakedWavePeaks = peaks;
+            _bakedWaveValleys = valleys;
             _bakedWaveDurationSec = totalSec;
         }
         catch
         {
             _bakedWavePeaks = Array.Empty<float>();
+            _bakedWaveValleys = Array.Empty<float>();
             _bakedWaveDurationSec = 0;
         }
     }
@@ -2291,9 +2293,45 @@ public partial class MainForm : Form, IMessageFilter
         return p[i0] * (1f - f) + p[i0 + 1] * f;
     }
 
+    private float SampleBakedValleyAtTimeSeconds(double tSec)
+    {
+        float[] p = _bakedWaveValleys;
+        if (p.Length == 0 || _bakedWaveDurationSec <= 1e-9)
+        {
+            return 0f;
+        }
+
+        if (tSec <= 0)
+        {
+            return p[0];
+        }
+
+        if (tSec >= _bakedWaveDurationSec)
+        {
+            return p[p.Length - 1];
+        }
+
+        double u = tSec / _bakedWaveDurationSec * (p.Length - 1);
+        int i0 = (int)u;
+        if (i0 >= p.Length - 1)
+        {
+            return p[p.Length - 1];
+        }
+
+        float frac = (float)(u - i0);
+        return p[i0] * (1f - frac) + p[i0 + 1] * frac;
+    }
+
     private static void GetWaveformPanelLayout(Rectangle client, out Rectangle plotRect, out Rectangle rulerRect)
     {
+        GetWaveformPanelLayout(client, out plotRect, out rulerRect, out _);
+    }
+
+    private static void GetWaveformPanelLayout(Rectangle client, out Rectangle plotRect, out Rectangle rulerRect, out Rectangle yAxisRect)
+    {
         const int preferRulerH = 26;
+        const int yAxisW = 38;
+
         int rulerH = Math.Min(preferRulerH, Math.Max(16, client.Height / 5));
         if (rulerH >= client.Height - 8)
         {
@@ -2301,8 +2339,10 @@ public partial class MainForm : Form, IMessageFilter
         }
 
         int plotHeight = Math.Max(10, client.Height - rulerH);
-        plotRect = new Rectangle(client.X, client.Y, client.Width, plotHeight);
-        rulerRect = new Rectangle(client.X, client.Y + plotHeight, client.Width, rulerH);
+        int pw = Math.Max(2, client.Width - yAxisW);
+        yAxisRect = new Rectangle(client.X, client.Y, yAxisW, plotHeight);
+        plotRect = new Rectangle(client.X + yAxisW, client.Y, pw, plotHeight);
+        rulerRect = new Rectangle(client.X + yAxisW, client.Y + plotHeight, pw, rulerH);
     }
 
     private bool TryGetPlaybackTimeFromWaveformPoint(System.Drawing.Point clientPt, bool clampHorizontalOnly, out double tSec)
@@ -2572,7 +2612,7 @@ public partial class MainForm : Form, IMessageFilter
             g.FillRectangle(bg, rect);
         }
 
-        GetWaveformPanelLayout(rect, out Rectangle plotRect, out Rectangle rulerRect);
+        GetWaveformPanelLayout(rect, out Rectangle plotRect, out Rectangle rulerRect, out Rectangle yAxisRect);
 
         int w = plotRect.Width;
         if (w < 2)
@@ -2581,8 +2621,14 @@ public partial class MainForm : Form, IMessageFilter
         }
 
         int midY = plotRect.Y + plotRect.Height / 2;
+        float gain = trackBarWaveGain.Value / 100f;
+        float amp = plotRect.Height * 0.48f * Math.Max(0.15f, gain);
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
         DrawWaveformHorizontalGrid(g, plotRect);
+        if (_waveRulerFont is not null)
+        {
+            DrawWaveformAmplitudeYAxis(g, yAxisRect, midY, amp);
+        }
 
         if (_bakedWavePeaks.Length > 0 && _bakedWaveDurationSec > 1e-9)
         {
@@ -2597,30 +2643,26 @@ public partial class MainForm : Form, IMessageFilter
                 g.DrawLine(axisPen, plotRect.Left, midY, plotRect.Right, midY);
             }
 
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using var wavePen = new Pen(Color.FromArgb(210, 110, 175, 245), 1.65f);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+            using var wavePen = new Pen(Color.FromArgb(210, 110, 175, 245), 1f);
             float denom = Math.Max(1f, w - 1);
-            float gain = trackBarWaveGain.Value / 100f;
-            float amp = plotRect.Height * 0.48f * Math.Max(0.15f, gain);
 
-            for (int px = 0; px < w - 1; px++)
+            for (int px = 0; px < w; px++)
             {
-                double u0 = viewStart + (px / denom) * viewSpan;
-                double u1 = viewStart + ((px + 1) / denom) * viewSpan;
-                float v0 = SampleBakedAtTimeSeconds(u0);
-                float v1 = SampleBakedAtTimeSeconds(u1);
-                float x0 = plotRect.X + px;
-                float x1 = plotRect.X + px + 1;
-                float y0 = midY - v0 * amp;
-                float y1 = midY - v1 * amp;
-                g.DrawLine(wavePen, x0, y0, x1, y1);
+                double u = viewStart + (px / denom) * viewSpan;
+                float vHi = SampleBakedAtTimeSeconds(u);
+                float vLo = SampleBakedValleyAtTimeSeconds(u);
+                float x = plotRect.X + px;
+                float yTop = midY - vHi * amp;
+                float yBot = midY - vLo * amp;
+                g.DrawLine(wavePen, x, yTop, x, Math.Max(yTop + 1f, yBot));
             }
 
             double headT = _lastPlaybackSec;
             if (headT >= viewStart - 1e-6 && headT <= viewStart + viewSpan + 1e-6)
             {
                 float playX = plotRect.X + (float)((headT - viewStart) / viewSpan * (w - 1));
-                DrawPlayheadVuColumn(g, plotRect, playX, amp);
+                DrawPlayhead(g, plotRect, playX);
             }
 
             if (rulerRect.Height > 4 && _waveRulerFont is not null)
@@ -2650,20 +2692,18 @@ public partial class MainForm : Form, IMessageFilter
             g.DrawLine(axisPen, plotRect.Left, midY, plotRect.Right, midY);
         }
 
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        using var wavePenLegacy = new Pen(Color.FromArgb(235, 120, 190, 255), 1.75f);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+        using var wavePenLegacy = new Pen(Color.FromArgb(235, 120, 190, 255), 1f);
         float denomL = Math.Max(1f, w - 1);
-        for (int px = 0; px < w - 1; px++)
+        float legacyAmp = plotRect.Height * 0.48f;
+        for (int px = 0; px < w; px++)
         {
-            float t0 = px / denomL * (take - 1);
-            float t1 = (px + 1) / denomL * (take - 1);
-            float v0 = SampleWaveScratch(_wavePaintScratch, take, t0);
-            float v1 = SampleWaveScratch(_wavePaintScratch, take, t1);
-            float x0 = plotRect.X + px;
-            float x1 = plotRect.X + px + 1;
-            float y0 = midY - v0 * (plotRect.Height * 0.48f);
-            float y1 = midY - v1 * (plotRect.Height * 0.48f);
-            g.DrawLine(wavePenLegacy, x0, y0, x1, y1);
+            float t = px / denomL * (take - 1);
+            float v = SampleWaveScratch(_wavePaintScratch, take, t);
+            float x = plotRect.X + px;
+            float yTop = midY - v * legacyAmp;
+            float yBot = midY + v * legacyAmp;
+            g.DrawLine(wavePenLegacy, x, yTop, x, Math.Max(yTop + 1f, yBot));
         }
 
         if (rulerRect.Height > 4 && _waveRulerFont is not null)
@@ -2685,6 +2725,41 @@ public partial class MainForm : Form, IMessageFilter
         {
             float y = plotRect.Y + j * (plotRect.Height / (float)DivY);
             g.DrawLine(gridPen, plotRect.Left, y, plotRect.Right, y);
+        }
+    }
+
+    private void DrawWaveformAmplitudeYAxis(Graphics g, Rectangle yAxisRect, int midY, float amp)
+    {
+        if (yAxisRect.Width < 14 || yAxisRect.Height < 20)
+        {
+            return;
+        }
+
+        Font font = _waveRulerFont ?? SystemFonts.SmallCaptionFont;
+
+        using var sepPen = new Pen(Color.FromArgb(55, 100, 110, 130), 1f);
+        g.DrawLine(sepPen, yAxisRect.Right - 1, yAxisRect.Top, yAxisRect.Right - 1, yAxisRect.Bottom);
+
+        (float level, string label)[] marks =
+        {
+            (1.0f, "+1"), (0.5f, "+½"), (0.0f, "0"), (-0.5f, "-½"), (-1.0f, "-1")
+        };
+        using var textBrush = new SolidBrush(Color.FromArgb(160, 185, 195, 215));
+        using var tickPen = new Pen(Color.FromArgb(65, 100, 110, 130), 1f);
+        using var sf = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        foreach (var (level, label) in marks)
+        {
+            float y = midY - level * amp;
+            if (y < yAxisRect.Top - 2 || y > yAxisRect.Bottom + 2)
+            {
+                continue;
+            }
+
+            g.DrawLine(tickPen, yAxisRect.Right - 5, y, yAxisRect.Right - 1, y);
+            var lr = new RectangleF(yAxisRect.X, y - 8f, yAxisRect.Width - 7f, 16f);
+            g.DrawString(label, font, textBrush, lr, sf);
         }
     }
 
@@ -2757,47 +2832,13 @@ public partial class MainForm : Form, IMessageFilter
         }
     }
 
-    private void DrawPlayheadVuColumn(Graphics g, Rectangle plotRect, float centerX, float waveAmp)
+    private static void DrawPlayhead(Graphics g, Rectangle plotRect, float centerX)
     {
-        const int barCount = 11;
-        const int spacing = 3;
-        float baseY = plotRect.Bottom - 3f;
-        float maxBarH = Math.Max(8f, waveAmp * 0.85f);
-
-        using (var linePen = new Pen(Color.FromArgb(245, 255, 90, 90), 1.5f))
-        {
-            linePen.Alignment = System.Drawing.Drawing2D.PenAlignment.Center;
-            g.DrawLine(linePen, centerX, plotRect.Top + 2, centerX, plotRect.Bottom - 2);
-        }
-
-        for (int i = 0; i < barCount; i++)
-        {
-            float h = GetVuBarHeightForIndex(i, barCount) * maxBarH;
-            if (h < 3f)
-            {
-                h = 3f;
-            }
-
-            float offset = (i - (barCount - 1) / 2f) * spacing;
-            float x = centerX + offset;
-            int alpha = 90 + (int)(130 * (i + 1) / (float)barCount);
-            using var br = new SolidBrush(Color.FromArgb(alpha, 235, 55, 65));
-            g.FillRectangle(br, x - 1f, baseY - h, 2f, h);
-        }
-    }
-
-    private float GetVuBarHeightForIndex(int barIndex, int barCount)
-    {
-        if (_vuBarCount <= 0)
-        {
-            return 0.12f;
-        }
-
-        int span = Math.Min(barCount, _vuBarCount);
-        int rel = barIndex * span / Math.Max(1, barCount);
-        int newest = (_vuBarHead - 1 + _vuBarHistory.Length) % _vuBarHistory.Length;
-        int pos = (newest - rel + _vuBarHistory.Length * 2) % _vuBarHistory.Length;
-        return ClampFloat(_vuBarHistory[pos], 0.06f, 1f);
+        const float barW = 2.5f;
+        using var barBrush = new SolidBrush(Color.FromArgb(170, 220, 40, 40));
+        g.FillRectangle(barBrush, centerX - barW / 2f, plotRect.Top + 1, barW, plotRect.Height - 2);
+        using var linePen = new Pen(Color.FromArgb(240, 255, 110, 110), 1f);
+        g.DrawLine(linePen, centerX, plotRect.Top + 1, centerX, plotRect.Bottom - 1);
     }
 
     private void DrawWaveformTimeRulerBaked(Graphics g, Rectangle rulerRect, Rectangle plotRect, double viewStartSec, double viewSpanSec)
@@ -2832,8 +2873,31 @@ public partial class MainForm : Form, IMessageFilter
         }
 
         using var tickPen = new Pen(Color.FromArgb(72, 130, 150, 175), 1f);
+        using var minorTickPen = new Pen(Color.FromArgb(40, 100, 120, 150), 1f);
         using var textBrush = new SolidBrush(Color.FromArgb(210, 190, 200, 220));
         using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+
+        double halfStep = step / 2;
+        double tMinor = Math.Floor(viewStartSec / halfStep) * halfStep;
+        for (; tMinor <= viewStartSec + viewSpanSec + halfStep * 0.5; tMinor += halfStep)
+        {
+            if (tMinor < viewStartSec - 1e-9 || tMinor > viewStartSec + viewSpanSec + 1e-9)
+            {
+                continue;
+            }
+
+            bool isMajor = Math.Abs((tMinor / step) - Math.Round(tMinor / step)) < 0.01;
+            if (isMajor)
+            {
+                continue;
+            }
+
+            float x = plotRect.X + (float)((tMinor - viewStartSec) / viewSpanSec * (w - 1));
+            if (x >= rulerRect.Left - 1 && x <= rulerRect.Right + 1)
+            {
+                g.DrawLine(minorTickPen, x, rulerRect.Top, x, rulerRect.Top + 3);
+            }
+        }
 
         double tMark = Math.Floor(viewStartSec / step) * step;
         double endT = viewStartSec + viewSpanSec + step * 0.5;
@@ -2850,9 +2914,9 @@ public partial class MainForm : Form, IMessageFilter
                 continue;
             }
 
-            g.DrawLine(tickPen, x, rulerRect.Top, x, rulerRect.Top + 5);
+            g.DrawLine(tickPen, x, rulerRect.Top, x, rulerRect.Top + 7);
             string label = FormatTimeSecondsLabel(tMark, step);
-            var layout = new RectangleF(x - 36, rulerRect.Top + 4, 72, rulerRect.Height - 4);
+            var layout = new RectangleF(x - 36, rulerRect.Top + 7, 72, rulerRect.Height - 7);
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             g.DrawString(label, font, textBrush, layout, sf);
         }
@@ -2897,8 +2961,31 @@ public partial class MainForm : Form, IMessageFilter
         }
 
         using var tickPen = new Pen(Color.FromArgb(72, 130, 150, 175), 1f);
+        using var minorTickPen = new Pen(Color.FromArgb(40, 100, 120, 150), 1f);
         using var textBrush = new SolidBrush(Color.FromArgb(210, 190, 200, 220));
         using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+
+        double halfStep = step / 2;
+        double tMinorStart = Math.Ceiling(-windowSec / halfStep) * halfStep - halfStep;
+        for (double t = tMinorStart; t <= halfStep * 0.5; t += halfStep)
+        {
+            if (t < -windowSec - 1e-9 || t > 1e-9)
+            {
+                continue;
+            }
+
+            bool isMajor = Math.Abs((t / step) - Math.Round(t / step)) < 0.01;
+            if (isMajor)
+            {
+                continue;
+            }
+
+            float x = plotRect.X + (float)((t + windowSec) / windowSec * (w - 1));
+            if (x >= rulerRect.Left - 1 && x <= rulerRect.Right + 1)
+            {
+                g.DrawLine(minorTickPen, x, rulerRect.Top, x, rulerRect.Top + 3);
+            }
+        }
 
         double tStart = Math.Ceiling(-windowSec / step) * step - step;
         for (double t = tStart; t <= step * 0.5; t += step)
@@ -2914,10 +3001,10 @@ public partial class MainForm : Form, IMessageFilter
                 continue;
             }
 
-            g.DrawLine(tickPen, x, rulerRect.Top, x, rulerRect.Top + 5);
+            g.DrawLine(tickPen, x, rulerRect.Top, x, rulerRect.Top + 7);
             double labelT = t + playbackOffsetSec;
             string label = FormatTimeSecondsLabel(labelT, step);
-            var layout = new RectangleF(x - 36, rulerRect.Top + 4, 72, rulerRect.Height - 4);
+            var layout = new RectangleF(x - 36, rulerRect.Top + 7, 72, rulerRect.Height - 7);
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             g.DrawString(label, font, textBrush, layout, sf);
         }
