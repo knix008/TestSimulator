@@ -3,58 +3,13 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
-#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
 #define JPEG_QUALITY "100"
-#define JPG_MIN_LUMA 0.07
-#define JPG_MAX_LUMA 0.48
 
 static gboolean output_jpg_ok(const char *jpg_path) {
     return jpg_path && g_file_test(jpg_path, G_FILE_TEST_IS_REGULAR);
-}
-
-static double image_io_pixbuf_sample_luma_mean(GdkPixbuf *pb) {
-    if (!pb || gdk_pixbuf_get_colorspace(pb) != GDK_COLORSPACE_RGB) {
-        return 0.0;
-    }
-    int w = gdk_pixbuf_get_width(pb);
-    int h = gdk_pixbuf_get_height(pb);
-    int nc = gdk_pixbuf_get_n_channels(pb);
-    if (w < 1 || h < 1 || nc < 3) {
-        return 0.0;
-    }
-
-    guchar *px = gdk_pixbuf_get_pixels(pb);
-    int rs = gdk_pixbuf_get_rowstride(pb);
-    double sum = 0.0;
-    int samples = 0;
-
-    for (int sy = 0; sy < 12; sy++) {
-        int y = (h == 1) ? 0 : (h - 1) * sy / 11;
-        for (int sx = 0; sx < 12; sx++) {
-            int x = (w == 1) ? 0 : (w - 1) * sx / 11;
-            guchar *p = px + y * rs + x * nc;
-            sum += 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
-            samples++;
-        }
-    }
-    return samples > 0 ? sum / (samples * 255.0) : 0.0;
-}
-
-static gboolean image_io_jpg_looks_sdr_valid(const char *jpg_path) {
-    if (!output_jpg_ok(jpg_path)) {
-        return FALSE;
-    }
-    GdkPixbuf *pb =
-        gdk_pixbuf_new_from_file_at_scale(jpg_path, 256, 256, TRUE, NULL);
-    if (!pb) {
-        return FALSE;
-    }
-    double luma = image_io_pixbuf_sample_luma_mean(pb);
-    g_object_unref(pb);
-    return luma >= JPG_MIN_LUMA && luma <= JPG_MAX_LUMA;
 }
 
 static void remove_output_jpg(const char *jpg_path) {
@@ -168,7 +123,7 @@ static bool image_io_heif_to_jpeg_file(const char *heif_path, const char *jpg_pa
         remove_output_jpg(jpg_path);
         return false;
     }
-    return image_io_jpg_looks_sdr_valid(jpg_path);
+    return output_jpg_ok(jpg_path);
 }
 
 char *image_io_heif_jpg_path(const char *path) {
@@ -178,7 +133,7 @@ char *image_io_heif_jpg_path(const char *path) {
 
     char *jpg_path = path_with_ext(path, ".jpg");
     if (g_file_test(jpg_path, G_FILE_TEST_EXISTS)) {
-        if (image_io_jpg_looks_sdr_valid(jpg_path)) {
+        if (output_jpg_ok(jpg_path)) {
             return jpg_path;
         }
         g_unlink(jpg_path);
