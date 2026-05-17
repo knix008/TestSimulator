@@ -37,6 +37,10 @@ namespace XMan
         // 요청 처리
         bool ProcessRequest(const std::vector<uint8_t> &data);
 
+        // 응답 가져오기 (있으면)
+        std::vector<uint8_t> GetPendingResponse();
+        bool HasPendingResponse() const { return !m_pendingResponse.empty(); }
+
         // 이벤트 전송
         void SendEvent(const std::vector<uint8_t> &event);
 
@@ -44,8 +48,12 @@ namespace XMan
         bool ProcessCreateWindow(const uint8_t *data, size_t length);
         bool ProcessMapWindow(const uint8_t *data, size_t length);
         bool ProcessCreateGC(const uint8_t *data, size_t length);
+        void ProcessQueryExtension(const uint8_t *data, size_t length);
+        void ProcessInternAtom(const uint8_t *data, size_t length);
+        void ProcessGetProperty(const uint8_t *data, size_t length);
 
         uint16_t m_sequenceNumber = 0;
+        std::vector<uint8_t> m_pendingResponse;
     };
 
 } // namespace XMan

@@ -46,7 +46,7 @@ namespace XMan
         sockaddr_in serverAddr{};
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_addr.s_addr = INADDR_ANY;
-        serverAddr.sin_port = htons(m_port);
+        serverAddr.sin_port = htons(static_cast<u_short>(m_port));
 
         if (bind(m_serverSocket, (sockaddr *)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR)
         {
@@ -128,7 +128,8 @@ namespace XMan
 
     void NetworkServer::HandleClient(SOCKET clientSocket)
     {
-        // 각 클라이언트는 별도 스레드에서 처리됨
+        (void)clientSocket;
+        // Each client is handled in a separate thread
     }
 
     // ===== NetworkClient =====
@@ -136,6 +137,9 @@ namespace XMan
     NetworkClient::NetworkClient(SOCKET socket)
         : m_socket(socket), m_protocol(std::make_unique<X11Protocol>())
     {
+        // Set recv timeout to detect hung clients
+        DWORD timeout = 5000; // 5 seconds
+        setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout, sizeof(timeout));
     }
 
     NetworkClient::~NetworkClient()
@@ -183,6 +187,12 @@ namespace XMan
                 break;
             }
 
+            // Skip processing if no data received (timeout)
+            if (buffer.empty())
+            {
+                continue;
+            }
+
             if (!connectionSetup)
             {
                 // 첫 번째 메시지는 연결 설정
@@ -197,6 +207,18 @@ namespace XMan
             {
                 // 일반 X11 요청 처리
                 m_protocol->ProcessRequest(buffer);
+
+                // 응답이 있으면 전송
+                if (m_protocol->HasPendingResponse())
+                {
+                    auto response = m_protocol->GetPendingResponse();
+                    std::cout << "Sending response: " << response.size() << " bytes" << std::endl;
+                    SendData(response);
+                }
+                else
+                {
+                    std::cout << "No response to send" << std::endl;
+                }
             }
 
             buffer.clear();
@@ -209,35 +231,47 @@ namespace XMan
     {
         uint8_t tempBuffer[4096];
 
+        std::cout << "Waiting for data from client..." << std::endl;
         int bytesReceived = recv(m_socket, (char *)tempBuffer, sizeof(tempBuffer), 0);
 
         if (bytesReceived > 0)
         {
+            std::cout << "Received " << bytesReceived << " bytes from client" << std::endl;
             buffer.insert(buffer.end(), tempBuffer, tempBuffer + bytesReceived);
             return true;
         }
         else if (bytesReceived == 0)
         {
             // 연결 종료
+            std::cout << "Client closed connection (recv returned 0)" << std::endl;
             return false;
         }
         else
         {
             // 오류
-            std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+            int error = WSAGetLastError();
+            if (error == WSAETIMEDOUT)
+            {
+                // Timeout - no data available, continue waiting
+                std::cout << "recv timeout (no data), continuing..." << std::endl;
+                return true; // Continue the loop
+            }
+            std::cerr << "recv failed: " << error << std::endl;
             return false;
         }
     }
 
     bool NetworkClient::SendData(const std::vector<uint8_t> &data)
     {
-        int bytesSent = send(m_socket, (const char *)data.data(), data.size(), 0);
+        int bytesSent = send(m_socket, (const char *)data.data(), static_cast<int>(data.size()), 0);
 
         if (bytesSent == SOCKET_ERROR)
         {
             std::cerr << "send failed: " << WSAGetLastError() << std::endl;
             return false;
         }
+
+        std::cout << "Actually sent " << bytesSent << " bytes (requested " << data.size() << ")" << std::endl;
 
         return true;
     }

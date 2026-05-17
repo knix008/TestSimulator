@@ -18,7 +18,7 @@ Windows 환경에서 동작하는 X11 Window Server 구현체입니다. 원격 L
 # 1. 빌드
 mkdir build
 cd build
-cmake .. -G "Visual Studio 17 2022" -A x64
+cmake .. -G "Visual Studio 18 2026" -A x64
 cmake --build . --config Release
 
 # 2. 실행
@@ -106,6 +106,12 @@ cd build
 
 ### 3. CMake 구성
 
+**Visual Studio 2026 사용 (권장):**
+
+```powershell
+cmake .. -G "Visual Studio 18 2026" -A x64
+```
+
 **Visual Studio 2022 사용:**
 
 ```powershell
@@ -117,6 +123,12 @@ cmake .. -G "Visual Studio 17 2022" -A x64
 ```powershell
 cmake .. -G "Visual Studio 16 2019" -A x64
 ```
+
+> **참고:** 이전에 다른 Visual Studio 버전으로 CMake를 실행한 경우, `CMakeCache.txt`와 `CMakeFiles` 디렉토리를 삭제하고 다시 실행하세요:
+>
+> ```powershell
+> Remove-Item CMakeCache.txt, CMakeFiles -Recurse -Force -ErrorAction SilentlyContinue
+> ```
 
 ### 4. 빌드 실행
 

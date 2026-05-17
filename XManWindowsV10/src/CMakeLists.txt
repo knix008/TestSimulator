@@ -20,7 +20,12 @@ target_link_libraries(XManWindowsV10
 
 # 컴파일 옵션
 if(MSVC)
-    target_compile_options(XManWindowsV10 PRIVATE /W4 /WX-)
+    target_compile_options(XManWindowsV10 PRIVATE 
+        /W4 
+        /WX-
+        /utf-8          # Use UTF-8 encoding
+        /wd4819         # Disable C4819 (code page) warning
+    )
 else()
     target_compile_options(XManWindowsV10 PRIVATE -Wall -Wextra)
 endif()

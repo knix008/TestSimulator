@@ -213,9 +213,9 @@ namespace XMan
         case WM_PAINT:
         {
             PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hwnd, &ps);
+            BeginPaint(hwnd, &ps);
 
-            // TODO: DirectX 렌더링
+            // TODO: DirectX rendering
 
             EndPaint(hwnd, &ps);
             return 0;
@@ -235,13 +235,13 @@ namespace XMan
 
         case WM_DESTROY:
         {
-            // 윈도우가 파괴될 때
+            // Window destroyed
             return 0;
         }
 
         case WM_CLOSE:
         {
-            // X 클라이언트에 이벤트 전송
+            // Send event to X client
             return 0;
         }
 

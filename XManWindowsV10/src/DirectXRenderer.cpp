@@ -27,7 +27,7 @@ namespace XMan
             return false;
         }
 
-        // 뷰포트 설정
+        // Setup viewport
         D3D11_VIEWPORT viewport{};
         viewport.TopLeftX = 0;
         viewport.TopLeftY = 0;
@@ -64,7 +64,7 @@ namespace XMan
 
     void DirectXRenderer::EndFrame()
     {
-        // 프레임 제시
+        // Present frame
         m_swapChain->Present(1, 0);
     }
 
@@ -76,19 +76,33 @@ namespace XMan
 
     void DirectXRenderer::DrawRectangle(int x, int y, int width, int height, uint32_t color)
     {
-        // TODO: 사각형 그리기 구현
-        // 버텍스 버퍼와 셰이더 필요
+        (void)x;
+        (void)y;
+        (void)width;
+        (void)height;
+        (void)color;
+        // TODO: Rectangle drawing implementation
+        // Requires vertex buffer and shader
     }
 
     void DirectXRenderer::DrawLine(int x1, int y1, int x2, int y2, uint32_t color)
     {
-        // TODO: 선 그리기 구현
+        (void)x1;
+        (void)y1;
+        (void)x2;
+        (void)y2;
+        (void)color;
+        // TODO: Line drawing implementation
     }
 
     void DirectXRenderer::DrawText(int x, int y, const char *text, uint32_t color)
     {
-        // TODO: 텍스트 렌더링 구현
-        // DirectWrite 또는 텍스처 기반 폰트 필요
+        (void)x;
+        (void)y;
+        (void)text;
+        (void)color;
+        // TODO: Text rendering implementation
+        // Requires DirectWrite or texture-based font
     }
 
     void DirectXRenderer::Resize(int width, int height)
@@ -99,10 +113,10 @@ namespace XMan
         m_width = width;
         m_height = height;
 
-        // 기존 렌더 타겟 해제
+        // Release existing render target
         ReleaseRenderTarget();
 
-        // 스왑 체인 크기 조정
+        // Resize swap chain
         HRESULT hr = m_swapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
         if (FAILED(hr))
         {
@@ -113,7 +127,7 @@ namespace XMan
         // 렌더 타겟 재생성
         CreateRenderTarget();
 
-        // 뷰포트 재설정
+        // Reset viewport
         D3D11_VIEWPORT viewport{};
         viewport.TopLeftX = 0;
         viewport.TopLeftY = 0;
