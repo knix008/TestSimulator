@@ -2,41 +2,90 @@
 
 Linux / macOS용 이미지·동영상 폴더 뷰어입니다. [ImageViewerV20](../ImageViewerV20) (Windows)와 비슷한 사용 흐름을 GTK3로 구현했습니다.
 
-## 기능
+---
 
-- 폴더 선택 및 마지막 폴더 복원 (`~/.config/ImageViewerGTKv10/appstate.json`)
-- 왼쪽 패널: 폴더 트리(상단) + 파일 목록(하단), 항목 앞에 형식별 아이콘
-- **폴더 선택** → 오른쪽에 썸네일 갤러리
-- **파일 선택** → 이미지 미리보기(확대·팬) 또는 동영상 재생
-- **HEIF / HEIC / HIF**: 파일을 **마우스로 선택했을 때만** JPG로 변환 (갤러리는 메모리 디코딩, `.hif`만 아이콘)
-- 변환 후 원본 HEIF는 같은 폴더의 `hif/` 하위로 이동
-- 이미지 편집: ↺ 반시계 회전, ↻ 시계 회전, ⇔ 좌우 뒤집기 (JPG에 저장)
-- 동영상 재생 (libvlc, 없으면 안내 메시지)
-- 폴더 변경 감시 후 목록 자동 새로고침 (갤러리 로딩 중에는 썸네일 재시작하지 않음)
-- 폴더 스캔·썸네일·이미지 로드·삭제 등은 **백그라운드 스레드**에서 처리해 UI 멈춤 최소화
+## 주요 기능
+
+| 기능 | 설명 |
+|------|------|
+| 폴더 탐색 | 폴더 트리(상단) + 파일 목록(하단), 마지막 폴더 자동 복원 |
+| 갤러리 | 폴더 선택 → 썸네일 갤러리 (백그라운드 로딩) |
+| 이미지 미리보기 | 파일 선택 → 창 크기에 맞춤 표시, 휠 확대/축소, 드래그 패닝 |
+| 이미지 편집 | ↺ 반시계 회전, ↻ 시계 회전, ⇔ 좌우 뒤집기 (JPG에 저장) |
+| **이미지 변환** | **우클릭 → 변환… → JPEG / PNG / WebP / BMP / TIFF 선택 후 저장** |
+| HEIF / HEIC / HIF | 파일 선택 시 메모리 디코딩, 우클릭 → 변환으로 다른 포맷 저장 |
+| HDR 톤 매핑 | 10-bit PQ (HIF) 파일 → PQ EOTF → BT.2020→BT.709 → ACES filmic → sRGB |
+| 동영상 재생 | libvlc 기반 재생·일시정지·정지·시크 |
+| 파일 관리 | 복사·잘라내기·붙여넣기·복제·삭제·이름 바꾸기 (우클릭 메뉴) |
+| 폴더 감시 | 외부 변경 감지 후 파일 목록 자동 새로고침 |
+
+---
+
+## 이미지 변환 (Image Conversion)
+
+모든 이미지 파일을 **우클릭 → 변환…** 으로 다른 포맷으로 저장할 수 있습니다.
+
+```
+원본:        IMG_1234.HIF
+출력 형식:   [JPEG ▼]            ← JPEG / PNG / WebP / BMP / TIFF 선택
+품질 (1–100): ━━━━━●━━━ 85       ← JPEG / WebP 에서만 표시
+저장 경로:   /path/IMG_1234.jpg  ← 직접 입력 또는 […] 로 선택
+                        [취소]  [변환]
+```
+
+- 포맷 변경 시 출력 확장자 자동 업데이트
+- 원본 파일 덮어쓰기 방지
+- 기존 파일 존재 시 덮어쓰기 확인
+- 변환은 백그라운드 스레드에서 실행, 완료 후 파일 목록 자동 갱신
+
+---
 
 ## 지원 형식
 
 | 종류 | 확장자 |
 |------|--------|
-| 이미지 | png, jpg, jpeg, gif, bmp, tif, tiff, ico, webp, heif, heic, hif, avif |
+| 이미지 입력 | png, jpg, jpeg, gif, bmp, tif, tiff, ico, webp, heif, heic, hif, avif |
+| 이미지 출력 | jpeg, png, webp, bmp, tiff |
 | 동영상 | mp4, mkv, avi, mov, wmv, webm, m4v, mpeg, mpg, ts, m2ts, flv |
+
+---
+
+## HEIF / HIF HDR 변환 상세
+
+`heif_native.c` (libheif C API) 가 다음 파이프라인으로 10-bit PQ HDR 파일을 sRGB 8-bit 로 변환합니다.
+
+```
+HIF (10-bit PQ, BT.2020)
+  ↓ libheif: heif_chroma_interleaved_RRGGBB_LE (16-bit 디코딩)
+  ↓ PQ EOTF (ST 2084)  →  선형 광 [nits]                 ← LUT(1024 항목)
+  ↓ BT.2020 → BT.709  색역 변환 (ITU-T H.273 행렬)
+  ↓ ACES filmic 톤 맵  (100 nit = 1.0 기준)
+  ↓ sRGB OETF (감마 인코딩)                               ← LUT(4096 항목)
+  ↓ GdkPixbuf (8-bit RGB)
+```
+
+- SDR HEIC/HEIF: libheif 8-bit 출력을 직접 복사 (추가 변환 없음)
+- LUT 최적화로 27 MP(6960×3904) 기준 약 1.5 초
+
+---
 
 ## 요구 사항
 
 | 항목 | 용도 |
 |------|------|
 | gcc, make, pkg-config | 빌드 |
-| GTK+ 3 | UI |
-| gdk-pixbuf 2 | 이미지 로드 |
-| libheif-dev | HIF/HEIC/HEIF → JPG **내장 C 변환기** (`heif_native.c`) |
-| libvlc + vlc | 동영상 재생 (선택, 없으면 `NO_LIBVLC`로 빌드) |
+| GTK+ 3 (`libgtk-3-dev`) | UI |
+| gdk-pixbuf 2 (`libgdk-pixbuf-2.0-dev`) | 이미지 로드·저장 |
+| libheif (`libheif-dev`) | HEIF/HEIC/HIF 디코딩 |
+| libvlc (`libvlc-dev`) | 동영상 재생 (선택) |
+
+---
 
 ## 빌드 및 실행
 
 ```bash
 cd ImageViewerGTKv10
-make          # 의존성 확인(필요 시 설치) + 빌드
+make          # 의존성 확인(필요 시 자동 설치) + 빌드
 ./imageviewer
 ```
 
@@ -46,12 +95,11 @@ make          # 의존성 확인(필요 시 설치) + 빌드
 make run
 ```
 
-### 아이콘
+### 앱 아이콘
 
-앱·창 아이콘은 프로젝트 루트의 `daemon_hammer.ico`를 사용합니다. 없으면 빌드 시 상위 폴더(`../daemon_hammer.ico`)로 연결·복사를 시도합니다.
+프로젝트 루트의 `daemon_hammer.ico`를 사용합니다. 없으면 `../daemon_hammer.ico` 로 연결·복사를 시도합니다.
 
 ```bash
-# 수동 연결 예
 ln -sf ../daemon_hammer.ico daemon_hammer.ico
 ```
 
@@ -60,15 +108,14 @@ ln -sf ../daemon_hammer.ico daemon_hammer.ico
 | 명령 | 설명 |
 |------|------|
 | `make` | 의존성 확인(필요 시 설치) + 빌드 (기본) |
-| `make setup` | `make`와 동일 |
-| `make deps` | 의존성 요약 |
+| `make run` | 빌드 후 실행 |
+| `make clean` | 오브젝트·실행 파일·`tools/gen_icons` 삭제 |
+| `make distclean` | `clean` + `assets/icons/.stamp` 삭제 |
+| `make debug` | 디버그 심볼로 재빌드 |
+| `make assets` | `assets/icons/` 아이콘 PNG 재생성 |
 | `make install-deps` | 빌드·실행 의존성 설치 |
 | `make check-deps` | 의존성 검증 (누락 시 실패) |
-| `make run` | 빌드 후 실행 |
-| `make clean` | 오브젝트·실행 파일 삭제 |
-| `make assets` | `assets/icons/` 형식·폴더 아이콘 PNG 재생성 |
-| `make distclean` | `clean` + 아이콘 생성 도구 정리 |
-| `make debug` | 디버그 심볼로 재빌드 |
+| `make deps` | 의존성 요약 출력 |
 | `make install-desktop` | Linux 사용자 데스크톱 메뉴 등록 |
 | `make info` | 의존성·컴파일 플래그 출력 |
 | `make help` | 도움말 |
@@ -77,8 +124,10 @@ ln -sf ../daemon_hammer.ico daemon_hammer.ico
 
 | 변수 | 설명 |
 |------|------|
-| `IV_AUTO_INSTALL=0` | `make` 시 자동 `apt` 설치 비활성화 |
-| `IV_VERBOSE=1` | 컴파일·의존성 상세 로그 |
+| `IV_AUTO_INSTALL=0` | `make` 시 자동 apt/brew 설치 비활성화 |
+| `IV_VERBOSE=1` | 컴파일·의존성 상세 로그 출력 |
+
+---
 
 ## 패키지 설치 (수동)
 
@@ -90,45 +139,61 @@ sudo apt-get install -y build-essential pkg-config \
   libvlc-dev vlc
 ```
 
+**Fedora / RHEL**
+
 ```bash
-make install-deps
+sudo dnf install -y gcc make pkg-config \
+  gtk3-devel gdk-pixbuf2-devel libheif-devel vlc-devel
 ```
 
 **macOS (Homebrew)**
 
 ```bash
-make install-deps
-make IV_AUTO_INSTALL=0     # 자동 설치 끄고 수동 brew 시:
-# brew install pkg-config gtk+3 gdk-pixbuf libheif vlc
+brew install pkg-config gtk+3 gdk-pixbuf libheif vlc
 ```
 
-## HEIF / JPG 변환 참고
+또는:
 
-- **순수 C** 구현: `heif_native.c` (libheif C API) + `image_io.c` (JPEG 저장). **Python·ffmpeg·heif-convert CLI 미사용.**
-- 이미 같은 이름의 `.jpg`가 있으면 다시 변환하지 않습니다.
-- **이미 만들어진 `.jpg`는 다시 변환하지 않습니다.** 밝기가 이상하면 해당 JPG를 삭제한 뒤 HIF를 다시 선택하세요.
+```bash
+make install-deps
+```
+
+---
 
 ## 프로젝트 구조
 
 ```
 ImageViewerGTKv10/
-├── source/             # C 소스
-│   ├── main.c          # 진입점
-│   ├── gtk_app.c       # 메인 창, 레이아웃, gtk_init
-│   ├── gtk_browser.c   # 폴더 트리, 파일 목록
-│   ├── gtk_preview.c   # 갤러리, 미리보기, HEIF 변환
-│   ├── state.c / utils.c / assets.c / image_io.c / heif_native.c
-├── include/            # 헤더
-│   ├── app.h           # 공개 API (GTK 비의존)
-│   └── gtk_*.h, state.h, utils.h, assets.h, image_io.h, heif_native.h
-├── tools/gen_icons.c   # assets/icons PNG 생성
-├── build/              # 오브젝트 (make clean 시 삭제)
+├── source/
+│   ├── main.c          진입점
+│   ├── gtk_app.c       메인 창, 레이아웃, gtk_init
+│   ├── gtk_browser.c   폴더 트리, 파일 목록, 컨텍스트 메뉴, 변환 다이얼로그
+│   ├── gtk_preview.c   갤러리 썸네일, 이미지 미리보기, 동영상 재생
+│   ├── image_io.c      이미지 로드·저장·변환 (포맷 변환 포함)
+│   ├── heif_native.c   HEIF/HIF libheif 디코딩 + HDR 톤 매핑
+│   ├── state.c         앱 상태 영속화 (마지막 폴더 등)
+│   ├── utils.c         확장자 판별, 파일 크기·시간 포맷 등
+│   └── assets.c        아이콘 파일 로딩
+├── include/
+│   ├── app.h           공개 App API (GTK 비의존)
+│   ├── gtk_app.h       App 구조체, GTK 창 API
+│   ├── gtk_browser.h   브라우저 API
+│   ├── gtk_preview.h   미리보기 API
+│   ├── image_io.h      이미지 I/O + 포맷 변환 API
+│   ├── heif_native.h   HEIF 디코딩 API
+│   ├── state.h / utils.h / assets.h
+├── tools/
+│   └── gen_icons.c     assets/icons/ PNG 생성 (빌드 시 자동 실행)
+├── assets/
+│   └── icons/          형식·폴더 아이콘 PNG (make 시 자동 생성, .gitignore)
+├── build/              컴파일 오브젝트 (make clean 시 삭제, .gitignore)
 ├── Makefile
-├── imageviewer         # 실행 파일 (빌드 결과)
+├── imageviewer         실행 파일 (빌드 결과, .gitignore)
 ├── imageviewer.desktop
-├── daemon_hammer.ico
-└── assets/icons/       # 형식·폴더 아이콘 (make 시 자동 생성)
+└── daemon_hammer.ico   앱 아이콘
 ```
+
+---
 
 ## 라이선스
 

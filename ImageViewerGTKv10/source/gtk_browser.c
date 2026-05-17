@@ -1385,13 +1385,376 @@ static void on_duplicate_menu_activate(GtkMenuItem *item, gpointer data) {
     g_free(parent);
 }
 
+/* ── 범용 이미지 변환 다이얼로그 ────────────────────────────────── */
+
+typedef struct {
+    App        *app;
+    char       *src_path;
+    char       *dest_path;   /* worker 가 채움 */
+    ImageFormat format;
+    int         quality;
+    gboolean    ok;
+    GError     *error;
+} ConvertWorkCtx;
+
+static void convert_work_ctx_free(ConvertWorkCtx *ctx) {
+    if (!ctx) return;
+    g_free(ctx->src_path);
+    g_free(ctx->dest_path);
+    g_clear_error(&ctx->error);
+    g_free(ctx);
+}
+
+static void convert_bg_worker(GTask *task, gpointer source,
+                               gpointer data, GCancellable *cancel) {
+    (void)source; (void)cancel;
+    ConvertWorkCtx *ctx = data;
+    ImageConvertParams p = {
+        .src_path  = ctx->src_path,
+        .dest_path = ctx->dest_path,
+        .format    = ctx->format,
+        .quality   = ctx->quality,
+    };
+    ctx->ok = image_io_convert_file(&p, &ctx->error);
+    g_task_return_pointer(task, ctx, (GDestroyNotify)convert_work_ctx_free);
+    /* task가 ctx 소유권을 가져감 → data 포인터 무효화 */
+}
+
+static void convert_bg_done(GObject *source, GAsyncResult *result,
+                             gpointer user_data) {
+    (void)source;
+    App *app = user_data;
+    GError *task_err = NULL;
+    ConvertWorkCtx *ctx = g_task_propagate_pointer(G_TASK(result), &task_err);
+    if (!ctx) { g_clear_error(&task_err); return; }
+
+    if (!ctx->ok) {
+        GtkWidget *dlg = gtk_message_dialog_new(
+            GTK_WINDOW(app->window), GTK_DIALOG_MODAL,
+            GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "변환에 실패했습니다.");
+        if (ctx->error)
+            gtk_message_dialog_format_secondary_text(
+                GTK_MESSAGE_DIALOG(dlg), "%s", ctx->error->message);
+        gtk_dialog_run(GTK_DIALOG(dlg));
+        gtk_widget_destroy(dlg);
+        convert_work_ctx_free(ctx);
+        return;
+    }
+
+    struct stat st;
+    char *src_base  = g_path_get_basename(ctx->src_path);
+    char *dest_base = g_path_get_basename(ctx->dest_path);
+    if (g_stat(ctx->dest_path, &st) == 0) {
+        char *sz  = utils_format_file_size((int64_t)st.st_size);
+        char *mt  = utils_format_mtime(st.st_mtime);
+        char *msg = g_strdup_printf("변환 완료: %s → %s | 크기: %s | 수정: %s",
+                                    src_base, dest_base, sz, mt);
+        gtk_app_update_status_file(app, msg);
+        g_free(msg); g_free(sz); g_free(mt);
+    } else {
+        char *msg = g_strdup_printf("변환 완료: %s → %s", src_base, dest_base);
+        gtk_app_update_status_file(app, msg);
+        g_free(msg);
+    }
+    g_free(src_base);
+    g_free(dest_base);
+
+    if (app->current_folder)
+        app_refresh_file_list(app, app->current_folder, FALSE, ctx->dest_path);
+    browser_select_file_by_path(app, ctx->dest_path);
+
+    convert_work_ctx_free(ctx);
+}
+
+/* 다이얼로그 내부 상태 */
+typedef struct {
+    GtkWidget  *quality_row;   /* 품질 행 (표시/숨김 토글) */
+    GtkWidget  *quality_scale;
+    GtkWidget  *quality_label;
+    GtkWidget  *dest_entry;
+    GtkWidget  *accept_btn;
+    const char *src_path;
+} ConvDlgData;
+
+static void update_dest_path(ConvDlgData *d, ImageFormat fmt) {
+    const ImageFormatInfo *fmts = image_io_format_info_all();
+    char *new_path = image_io_path_with_ext(d->src_path, fmts[fmt].ext);
+    gtk_entry_set_text(GTK_ENTRY(d->dest_entry), new_path);
+    g_free(new_path);
+}
+
+static void on_fmt_combo_changed(GtkComboBox *combo, gpointer user_data) {
+    ConvDlgData *d = user_data;
+    int idx = gtk_combo_box_get_active(combo);
+    if (idx < 0 || idx >= IMAGE_FORMAT_COUNT) return;
+
+    const ImageFormatInfo *fmts = image_io_format_info_all();
+    gboolean has_q = fmts[idx].has_quality;
+    if (has_q)
+        gtk_widget_show(d->quality_row);
+    else
+        gtk_widget_hide(d->quality_row);
+
+    update_dest_path(d, (ImageFormat)idx);
+
+    gboolean writable = image_io_format_is_writable((ImageFormat)idx);
+    gtk_widget_set_sensitive(d->accept_btn, writable);
+    if (!writable)
+        gtk_widget_set_tooltip_text(d->accept_btn,
+                                    "이 시스템에서 해당 포맷 쓰기를 지원하지 않습니다.");
+    else
+        gtk_widget_set_tooltip_text(d->accept_btn, NULL);
+}
+
+static void on_quality_changed(GtkRange *range, gpointer user_data) {
+    GtkWidget *lbl = user_data;
+    char buf[8];
+    g_snprintf(buf, sizeof(buf), "%d", (int)gtk_range_get_value(range));
+    gtk_label_set_text(GTK_LABEL(lbl), buf);
+}
+
+static void on_browse_dest(GtkButton *btn, gpointer user_data) {
+    (void)btn;
+    ConvDlgData *d = user_data;
+    const char *cur = gtk_entry_get_text(GTK_ENTRY(d->dest_entry));
+
+    GtkWidget *chooser = gtk_file_chooser_dialog_new(
+        "출력 경로 선택", NULL,
+        GTK_FILE_CHOOSER_ACTION_SAVE,
+        "취소", GTK_RESPONSE_CANCEL,
+        "선택", GTK_RESPONSE_ACCEPT,
+        NULL);
+    gtk_file_chooser_set_do_overwrite_confirmation(
+        GTK_FILE_CHOOSER(chooser), TRUE);
+
+    if (cur && *cur) {
+        gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(chooser), cur);
+    }
+    if (gtk_dialog_run(GTK_DIALOG(chooser)) == GTK_RESPONSE_ACCEPT) {
+        char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+        gtk_entry_set_text(GTK_ENTRY(d->dest_entry), path);
+        g_free(path);
+    }
+    gtk_widget_destroy(chooser);
+}
+
+static void show_convert_dialog(App *app, const char *src_path) {
+    const ImageFormatInfo *fmts = image_io_format_info_all();
+
+    GtkWidget *dlg = gtk_dialog_new_with_buttons(
+        "이미지 변환",
+        GTK_WINDOW(app->window),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        "취소", GTK_RESPONSE_CANCEL,
+        NULL);
+    GtkWidget *accept_btn = gtk_dialog_add_button(
+        GTK_DIALOG(dlg), "변환", GTK_RESPONSE_ACCEPT);
+    gtk_widget_set_can_default(accept_btn, TRUE);
+    gtk_dialog_set_default_response(GTK_DIALOG(dlg), GTK_RESPONSE_ACCEPT);
+    gtk_window_set_resizable(GTK_WINDOW(dlg), FALSE);
+
+    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 10);
+    gtk_widget_set_margin_start(grid, 16);
+    gtk_widget_set_margin_end(grid, 16);
+    gtk_widget_set_margin_top(grid, 12);
+    gtk_widget_set_margin_bottom(grid, 12);
+    gtk_box_pack_start(GTK_BOX(content), grid, TRUE, TRUE, 0);
+
+    int row = 0;
+
+    /* 원본 파일 */
+    GtkWidget *lbl_src_h = gtk_label_new("원본:");
+    gtk_widget_set_halign(lbl_src_h, GTK_ALIGN_END);
+    char *src_base = g_path_get_basename(src_path);
+    GtkWidget *lbl_src = gtk_label_new(src_base);
+    g_free(src_base);
+    gtk_widget_set_halign(lbl_src, GTK_ALIGN_START);
+    gtk_label_set_selectable(GTK_LABEL(lbl_src), TRUE);
+    gtk_label_set_ellipsize(GTK_LABEL(lbl_src), PANGO_ELLIPSIZE_MIDDLE);
+    gtk_widget_set_hexpand(lbl_src, TRUE);
+    gtk_grid_attach(GTK_GRID(grid), lbl_src_h, 0, row, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), lbl_src,   1, row, 3, 1);
+    row++;
+
+    GtkWidget *sep1 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_grid_attach(GTK_GRID(grid), sep1, 0, row, 4, 1);
+    row++;
+
+    /* 포맷 선택 */
+    GtkWidget *lbl_fmt = gtk_label_new("출력 형식:");
+    gtk_widget_set_halign(lbl_fmt, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), lbl_fmt, 0, row, 1, 1);
+
+    /* GtkListStore 기반 ComboBox (비활성 항목 표시 가능) */
+    GtkListStore *fmt_store = gtk_list_store_new(3,
+        G_TYPE_STRING,   /* 표시 이름 */
+        G_TYPE_BOOLEAN,  /* 활성 여부 */
+        G_TYPE_INT);     /* ImageFormat 인덱스 */
+    int default_fmt = IMAGE_FORMAT_JPEG;
+    for (int i = 0; i < IMAGE_FORMAT_COUNT; i++) {
+        gboolean w = image_io_format_is_writable((ImageFormat)i);
+        GtkTreeIter it;
+        gtk_list_store_append(fmt_store, &it);
+        gtk_list_store_set(fmt_store, &it,
+                           0, fmts[i].label,
+                           1, w,
+                           2, i, -1);
+        if (!w && i == default_fmt) default_fmt = -1;
+    }
+    if (default_fmt < 0) default_fmt = IMAGE_FORMAT_PNG; /* fallback */
+
+    GtkWidget *fmt_combo = gtk_combo_box_new_with_model(GTK_TREE_MODEL(fmt_store));
+    g_object_unref(fmt_store);
+    GtkCellRenderer *cr = gtk_cell_renderer_text_new();
+    gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(fmt_combo), cr, TRUE);
+    gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(fmt_combo), cr,
+                                   "text",      0,
+                                   "sensitive", 1, NULL);
+    gtk_combo_box_set_active(GTK_COMBO_BOX(fmt_combo), default_fmt);
+    gtk_grid_attach(GTK_GRID(grid), fmt_combo, 1, row, 3, 1);
+    row++;
+
+    /* 품질 슬라이더 */
+    GtkWidget *quality_row_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget *quality_scale = gtk_scale_new_with_range(
+        GTK_ORIENTATION_HORIZONTAL, 1.0, 100.0, 1.0);
+    gtk_range_set_value(GTK_RANGE(quality_scale), 85.0);
+    gtk_scale_set_draw_value(GTK_SCALE(quality_scale), FALSE);
+    gtk_widget_set_hexpand(quality_scale, TRUE);
+    GtkWidget *quality_val_lbl = gtk_label_new("85");
+    gtk_widget_set_size_request(quality_val_lbl, 32, -1);
+    gtk_box_pack_start(GTK_BOX(quality_row_box), quality_scale,     TRUE,  TRUE,  0);
+    gtk_box_pack_start(GTK_BOX(quality_row_box), quality_val_lbl,   FALSE, FALSE, 0);
+
+    GtkWidget *lbl_q = gtk_label_new("품질 (1–100):");
+    gtk_widget_set_halign(lbl_q, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), lbl_q,           0, row, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), quality_row_box, 1, row, 3, 1);
+    /* 품질 행 = lbl_q + quality_row_box 를 함께 표시/숨김하는 container */
+    row++;
+
+    GtkWidget *sep2 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_grid_attach(GTK_GRID(grid), sep2, 0, row, 4, 1);
+    row++;
+
+    /* 출력 경로 */
+    GtkWidget *lbl_dest = gtk_label_new("저장 경로:");
+    gtk_widget_set_halign(lbl_dest, GTK_ALIGN_END);
+    gtk_grid_attach(GTK_GRID(grid), lbl_dest, 0, row, 1, 1);
+
+    GtkWidget *dest_entry = gtk_entry_new();
+    gtk_widget_set_hexpand(dest_entry, TRUE);
+    char *init_dest = image_io_path_with_ext(src_path, fmts[default_fmt].ext);
+    gtk_entry_set_text(GTK_ENTRY(dest_entry), init_dest);
+    g_free(init_dest);
+
+    GtkWidget *browse_btn = gtk_button_new_with_label("…");
+    gtk_widget_set_tooltip_text(browse_btn, "저장 경로 선택");
+    gtk_grid_attach(GTK_GRID(grid), dest_entry, 1, row, 2, 1);
+    gtk_grid_attach(GTK_GRID(grid), browse_btn, 3, row, 1, 1);
+    row++;
+
+    /* 내부 상태 구조체 */
+    ConvDlgData dlg_data = {
+        .quality_row   = quality_row_box,
+        .quality_scale = quality_scale,
+        .quality_label = quality_val_lbl,
+        .dest_entry    = dest_entry,
+        .accept_btn    = accept_btn,
+        .src_path      = src_path,
+    };
+    /* 품질 행(lbl_q + quality_row_box)을 함께 숨기기 위해 lbl_q도 저장 */
+    g_object_set_data(G_OBJECT(dlg), "quality-label-h", lbl_q);
+
+    /* 시그널 연결 */
+    g_signal_connect(fmt_combo,     "changed",       G_CALLBACK(on_fmt_combo_changed), &dlg_data);
+    g_signal_connect(quality_scale, "value-changed", G_CALLBACK(on_quality_changed),   quality_val_lbl);
+    g_signal_connect(browse_btn,    "clicked",       G_CALLBACK(on_browse_dest),        &dlg_data);
+
+    /* 초기 품질 행 표시 여부 */
+    if (!fmts[default_fmt].has_quality) {
+        gtk_widget_hide(lbl_q);
+        gtk_widget_hide(quality_row_box);
+    }
+
+    gtk_widget_show_all(content);
+    /* 다시 hide (show_all 이 숨겨둔 것을 되살리므로) */
+    if (!fmts[default_fmt].has_quality) {
+        gtk_widget_hide(lbl_q);
+        gtk_widget_hide(quality_row_box);
+    }
+
+    gint response = gtk_dialog_run(GTK_DIALOG(dlg));
+    if (response != GTK_RESPONSE_ACCEPT) {
+        gtk_widget_destroy(dlg);
+        return;
+    }
+
+    int active = gtk_combo_box_get_active(GTK_COMBO_BOX(fmt_combo));
+    if (active < 0 || active >= IMAGE_FORMAT_COUNT) {
+        gtk_widget_destroy(dlg);
+        return;
+    }
+    ImageFormat chosen_fmt = (ImageFormat)active;
+    int chosen_quality = (int)gtk_range_get_value(GTK_RANGE(quality_scale));
+    const char *dest_path_raw = gtk_entry_get_text(GTK_ENTRY(dest_entry));
+    char *dest_path = g_strdup(dest_path_raw);
+    gtk_widget_destroy(dlg);
+
+    if (!dest_path || !*dest_path) { g_free(dest_path); return; }
+
+    /* 원본과 같은 경로로 덮어쓰기 방지 */
+    if (g_strcmp0(src_path, dest_path) == 0) {
+        GtkWidget *w = gtk_message_dialog_new(
+            GTK_WINDOW(app->window), GTK_DIALOG_MODAL,
+            GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
+            "원본 파일을 덮어쓸 수 없습니다.\n다른 저장 경로를 지정해 주세요.");
+        gtk_dialog_run(GTK_DIALOG(w));
+        gtk_widget_destroy(w);
+        g_free(dest_path);
+        return;
+    }
+
+    /* 기존 파일 덮어쓰기 확인 */
+    if (g_file_test(dest_path, G_FILE_TEST_EXISTS)) {
+        char *base = g_path_get_basename(dest_path);
+        char *msg  = g_strdup_printf("\"%s\" 파일이 이미 존재합니다. 덮어쓰시겠습니까?", base);
+        g_free(base);
+        GtkWidget *confirm = gtk_message_dialog_new(
+            GTK_WINDOW(app->window), GTK_DIALOG_MODAL,
+            GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO, "%s", msg);
+        g_free(msg);
+        gint r = gtk_dialog_run(GTK_DIALOG(confirm));
+        gtk_widget_destroy(confirm);
+        if (r != GTK_RESPONSE_YES) { g_free(dest_path); return; }
+    }
+
+    /* 백그라운드 변환 시작 */
+    ConvertWorkCtx *ctx = g_new0(ConvertWorkCtx, 1);
+    ctx->app        = app;
+    ctx->src_path   = g_strdup(src_path);
+    ctx->dest_path  = dest_path;
+    ctx->format     = chosen_fmt;
+    ctx->quality    = chosen_quality;
+
+    gtk_app_update_status_file(app, "변환 중…");
+
+    GTask *task = g_task_new(NULL, NULL, convert_bg_done, app);
+    g_task_set_task_data(task, ctx, NULL); /* ctx 해제는 convert_bg_done 에서 */
+    g_task_run_in_thread(task, convert_bg_worker);
+    g_object_unref(task);
+}
+
 static void on_convert_menu_activate(GtkMenuItem *item, gpointer data) {
     App *app = data;
     const char *path = g_object_get_data(G_OBJECT(item), "fs-path");
-    if (!path || !utils_is_heif_path(path)) {
+    if (!path || !g_file_test(path, G_FILE_TEST_EXISTS)) {
         return;
     }
-    preview_commit_heif_file(app, path);
+    show_convert_dialog(app, path);
 }
 
 static void on_preview_menu_activate(GtkMenuItem *item, gpointer data) {
@@ -1428,15 +1791,13 @@ static void show_file_context_menu(App *app,
     GtkWidget *menu = gtk_menu_new();
 
     if (!is_dir) {
-        GtkWidget *convert = menu_item_with_path(menu, "변환(_T)", path, FALSE,
+        const char *dot = strrchr(path, '.');
+        gboolean is_image = dot && utils_is_image_ext(dot);
+        GtkWidget *convert = menu_item_with_path(menu, "변환…", path, FALSE,
                                                  G_CALLBACK(on_convert_menu_activate), app);
-        if (!utils_is_heif_path(path)) {
+        if (!is_image) {
             gtk_widget_set_sensitive(convert, FALSE);
-            gtk_widget_set_tooltip_text(convert,
-                                        "HIF/HEIF/HEIC 파일만 변환할 수 있습니다.");
-        } else if (image_io_heif_existing_jpg_path(path)) {
-            gtk_widget_set_sensitive(convert, FALSE);
-            gtk_widget_set_tooltip_text(convert, "이미 JPG가 있습니다.");
+            gtk_widget_set_tooltip_text(convert, "이미지 파일만 변환할 수 있습니다.");
         }
 
         menu_item_with_path(menu, "미리보기(_P)", path, FALSE,

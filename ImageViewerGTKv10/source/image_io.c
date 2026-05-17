@@ -31,7 +31,7 @@ bool utils_is_heif_path(const char *path) {
            g_ascii_strcasecmp(ext, ".hif") == 0;
 }
 
-static char *path_with_ext(const char *path, const char *new_ext) {
+char *image_io_path_with_ext(const char *path, const char *new_ext) {
     char *dir = g_path_get_dirname(path);
     char *base = g_path_get_basename(path);
     char *dot = strrchr(base, '.');
@@ -48,7 +48,7 @@ char *image_io_heif_existing_jpg_path(const char *path) {
     if (!utils_is_heif_path(path)) {
         return NULL;
     }
-    char *jpg_path = path_with_ext(path, ".jpg");
+    char *jpg_path = image_io_path_with_ext(path, ".jpg");
     if (g_file_test(jpg_path, G_FILE_TEST_EXISTS)) {
         return jpg_path;
     }
@@ -131,7 +131,7 @@ char *image_io_heif_jpg_path(const char *path) {
         return NULL;
     }
 
-    char *jpg_path = path_with_ext(path, ".jpg");
+    char *jpg_path = image_io_path_with_ext(path, ".jpg");
     if (g_file_test(jpg_path, G_FILE_TEST_EXISTS)) {
         if (output_jpg_ok(jpg_path)) {
             return jpg_path;
@@ -299,4 +299,105 @@ GdkPixbuf *image_io_apply_transform_file(const char *edit_path,
     }
     g_free(tmp);
     return dst;
+}
+
+/* ── 포맷 변환 구현 ─────────────────────────────────────────────── */
+
+static const ImageFormatInfo k_format_table[IMAGE_FORMAT_COUNT] = {
+    [IMAGE_FORMAT_JPEG] = {"JPEG", ".jpg",  "jpeg", TRUE},
+    [IMAGE_FORMAT_PNG]  = {"PNG",  ".png",  "png",  FALSE},
+    [IMAGE_FORMAT_WEBP] = {"WebP", ".webp", "webp", TRUE},
+    [IMAGE_FORMAT_BMP]  = {"BMP",  ".bmp",  "bmp",  FALSE},
+    [IMAGE_FORMAT_TIFF] = {"TIFF", ".tif",  "tiff", FALSE},
+};
+
+const ImageFormatInfo *image_io_format_info_all(void) {
+    return k_format_table;
+}
+
+gboolean image_io_format_is_writable(ImageFormat fmt) {
+    if (fmt < 0 || fmt >= IMAGE_FORMAT_COUNT) {
+        return FALSE;
+    }
+    const char *type = k_format_table[fmt].pixbuf_type;
+    GSList *fmts = gdk_pixbuf_get_formats();
+    gboolean writable = FALSE;
+    for (GSList *l = fmts; l; l = l->next) {
+        GdkPixbufFormat *f = l->data;
+        if (g_strcmp0(gdk_pixbuf_format_get_name(f), type) == 0) {
+            writable = gdk_pixbuf_format_is_writable(f);
+            break;
+        }
+    }
+    g_slist_free(fmts);
+    return writable;
+}
+
+void image_convert_params_free(ImageConvertParams *p) {
+    if (!p) return;
+    g_free(p->src_path);
+    g_free(p->dest_path);
+    g_free(p);
+}
+
+gboolean image_io_convert_file(const ImageConvertParams *params, GError **err) {
+    if (!params || !params->src_path || !params->dest_path) {
+        if (err) *err = g_error_new(G_FILE_ERROR, G_FILE_ERROR_INVAL, "잘못된 인자");
+        return FALSE;
+    }
+    if (params->format < 0 || params->format >= IMAGE_FORMAT_COUNT) {
+        if (err) *err = g_error_new(G_FILE_ERROR, G_FILE_ERROR_INVAL, "알 수 없는 포맷");
+        return FALSE;
+    }
+
+    GdkPixbuf *src = image_io_load_pixbuf(params->src_path, err);
+    if (!src) return FALSE;
+
+    gboolean ok = FALSE;
+    char quality_str[8];
+    g_snprintf(quality_str, sizeof(quality_str), "%d",
+               CLAMP(params->quality, 1, 100));
+
+    switch (params->format) {
+    case IMAGE_FORMAT_JPEG: {
+        GdkPixbuf *flat = image_io_flatten_alpha(src);
+        if (!flat) {
+            if (err) *err = g_error_new(G_FILE_ERROR, G_FILE_ERROR_FAILED,
+                                        "JPEG용 이미지 준비 실패");
+            g_object_unref(src);
+            return FALSE;
+        }
+        const char *icc = gdk_pixbuf_get_option(src, "icc-profile");
+        if (!icc) icc = gdk_pixbuf_get_option(flat, "icc-profile");
+        if (icc)
+            ok = gdk_pixbuf_save(flat, params->dest_path, "jpeg", err,
+                                 "quality", quality_str,
+                                 "icc-profile", icc, NULL);
+        else
+            ok = gdk_pixbuf_save(flat, params->dest_path, "jpeg", err,
+                                 "quality", quality_str, NULL);
+        if (flat != src) g_object_unref(flat);
+        break;
+    }
+    case IMAGE_FORMAT_PNG:
+        ok = gdk_pixbuf_save(src, params->dest_path, "png", err, NULL);
+        break;
+    case IMAGE_FORMAT_WEBP:
+        ok = gdk_pixbuf_save(src, params->dest_path, "webp", err,
+                             "quality", quality_str, NULL);
+        break;
+    case IMAGE_FORMAT_BMP:
+        ok = gdk_pixbuf_save(src, params->dest_path, "bmp", err, NULL);
+        break;
+    case IMAGE_FORMAT_TIFF:
+        ok = gdk_pixbuf_save(src, params->dest_path, "tiff", err, NULL);
+        break;
+    default:
+        if (err) *err = g_error_new(G_FILE_ERROR, G_FILE_ERROR_INVAL,
+                                    "지원하지 않는 포맷");
+        break;
+    }
+
+    g_object_unref(src);
+    return ok;
 }
