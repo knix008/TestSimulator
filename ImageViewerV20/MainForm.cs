@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using LibVLCSharp.Shared;
 using SixLabors.ImageSharp.Formats.Jpeg;
 
-namespace ImageViewerV10;
+namespace ImageViewerV20;
 
 public partial class MainForm : Form
 {
@@ -46,6 +46,9 @@ public partial class MainForm : Form
 
     private string? _currentFolder;
     private string? _currentPreviewPath;
+    private string? _clipboardPath;
+    private bool _clipboardIsCut;
+    private bool _suppressImageDisplay;
     private readonly Dictionary<string, ListViewItem> _fileItemByPath = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _thumbnailLoadCts;
     private readonly System.Windows.Forms.Timer _videoProgressTimer = new() { Interval = 250 };
@@ -100,18 +103,21 @@ public partial class MainForm : Form
                 Path.Combine(AppContext.BaseDirectory, "daemon_hammer.ico"),
                 Path.Combine(Application.StartupPath, "daemon_hammer.ico"),
                 Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty, "daemon_hammer.ico"),
-                Path.Combine(Environment.CurrentDirectory, "daemon_hammer.ico")
             };
 
             string? iconPath = candidates.FirstOrDefault(File.Exists);
             if (!string.IsNullOrWhiteSpace(iconPath))
             {
                 Icon = new Icon(iconPath);
+                return;
             }
+            // ico 파일이 없으면 EXE에 임베드된 아이콘 사용
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
         }
         catch
         {
-            // Keep default icon when custom icon load fails.
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application; }
+            catch { }
         }
     }
 
@@ -124,10 +130,12 @@ public partial class MainForm : Form
     {
         buttonPickFolder.Click += ButtonPickFolder_Click;
         listViewFiles.SelectedIndexChanged += ListViewFiles_SelectedIndexChanged;
+        listViewFiles.MouseDown += (_, e) => { if (e.Button == MouseButtons.Right) _suppressImageDisplay = true; };
+        listViewFiles.MouseUp += ListViewFiles_MouseUp;
         treeFolders.BeforeExpand += TreeFolders_BeforeExpand;
         treeFolders.AfterSelect += TreeFolders_AfterSelect;
-        // AfterSelect는 이미 선택된 노드 재클릭 시 발생하지 않으므로 NodeMouseClick으로 보완
         treeFolders.NodeMouseClick += TreeFolders_NodeMouseClick;
+        treeFolders.MouseUp += TreeFolders_MouseUp;
         panelImageScrollHost.MouseWheel += PanelImageScrollHost_MouseWheel;
         picturePreview.MouseWheel += PanelImageScrollHost_MouseWheel;
         panelImageScrollHost.Resize += (_, _) => UpdateImageViewportLayout();
@@ -137,6 +145,8 @@ public partial class MainForm : Form
         picturePreview.MouseDown += ImagePan_MouseDown;
         picturePreview.MouseMove += ImagePan_MouseMove;
         picturePreview.MouseUp += ImagePan_MouseUp;
+        picturePreview.MouseUp += ImageView_MouseUp;
+        panelImageScrollHost.MouseUp += ImageView_MouseUp;
         buttonRotateCCW.Click += (_, _) => RotateCurrentImage(RotateFlipType.Rotate270FlipNone);
         buttonRotateCW.Click += (_, _) => RotateCurrentImage(RotateFlipType.Rotate90FlipNone);
         buttonFlipHorizontal.Click += (_, _) => RotateCurrentImage(RotateFlipType.RotateNoneFlipX);
@@ -552,7 +562,7 @@ public partial class MainForm : Form
         if (listViewFiles.SelectedItems.Count == 0)
         {
             statusLabelFile.Text = "파일을 선택하면 정보가 표시됩니다.";
-            ShowPlaceholder();
+            if (!_suppressImageDisplay) ShowPlaceholder();
             return;
         }
 
@@ -565,6 +575,9 @@ public partial class MainForm : Form
         }
 
         UpdateFileStatus(path);
+
+        // 우클릭 선택 시: 상태바/선택 표시만 하고 미리보기는 억제
+        if (_suppressImageDisplay) return;
 
         string ext = Path.GetExtension(path);
         if (ImageExtensions.Contains(ext))
@@ -624,31 +637,17 @@ public partial class MainForm : Form
         {
             ClearImagePreview();
             _ownedPreviewImage = LoadImageWithHeifSupport(path);
-            _currentPreviewPath = IsHeifFile(path) ? Path.ChangeExtension(path, ".jpg") : path;
+            _currentPreviewPath = path;
             _zoomFactor = CalculateFitZoomFactor(_ownedPreviewImage.Size);
             picturePreview.Image = _ownedPreviewImage;
             ApplyImageZoom();
-
-            if (IsHeifFile(path) && File.Exists(path))
-            {
-                bool dirCreated = !Directory.Exists(Path.Combine(Path.GetDirectoryName(path)!, "hif"));
-                MoveHeifToSubdirectory(path);
-                if (_currentFolder is not null)
-                {
-                    LoadFileList(_currentFolder);
-                    if (dirCreated && treeFolders.SelectedNode is TreeNode selectedNode)
-                        ForceRefreshChildFolders(selectedNode);
-                }
-            }
         }
-        catch (Exception ex)
+        catch
         {
+            // 표시 실패 시 파일 아이콘을 이미지 대신 표시
             ClearImagePreview();
-            string msg = IsHeifFile(path)
-                ? $"HIF/HEIF 파일을 변환할 수 없습니다.\n\nWindows HEIF Image Extensions 코덱이 필요합니다.\nMicrosoft Store에서 'HEIF 이미지 확장' 을 설치해 주세요.\n\n오류: {ex.Message}"
-                : ex.Message;
-            MessageBox.Show(this, msg, "이미지를 열 수 없습니다", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            ShowPlaceholder();
+            _currentPreviewPath = path;
+            ShowFileIconPreview(path);
         }
     }
 
@@ -975,21 +974,39 @@ public partial class MainForm : Form
         return jpgPath;
     }
 
-    // 변환된 JPG가 이미 있으면 바로 반환, 없으면 변환 후 반환
+    // HEIF/HIF를 디스크 저장 없이 메모리에서 디코딩 (WIC 사용)
+    private static System.Drawing.Image? TryLoadHeifInMemory(string filePath)
+    {
+        var decoder = System.Windows.Media.Imaging.BitmapDecoder.Create(
+            new Uri(filePath, UriKind.Absolute),
+            System.Windows.Media.Imaging.BitmapCreateOptions.None,
+            System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+        var frame = decoder.Frames[0];
+        var pngEncoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        pngEncoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(frame));
+        using var ms = new MemoryStream();
+        pngEncoder.Save(ms);
+        ms.Position = 0;
+        using var tmp = new System.Drawing.Bitmap(ms);
+        // MemoryStream이 닫혀도 살아있는 독립적인 복사본 반환
+        var result = new System.Drawing.Bitmap(tmp.Width, tmp.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var g = System.Drawing.Graphics.FromImage(result);
+        g.DrawImage(tmp, 0, 0);
+        return result;
+    }
+
     private static System.Drawing.Image LoadImageWithHeifSupport(string filePath)
     {
         if (!IsHeifFile(filePath))
             return System.Drawing.Image.FromFile(filePath);
-
-        return System.Drawing.Image.FromFile(ConvertHeifToJpg(filePath));
+        return TryLoadHeifInMemory(filePath) ?? throw new InvalidOperationException("HEIF 파일을 로드할 수 없습니다.");
     }
 
     private static System.Drawing.Image LoadImageWithHeifSupportForThumbnail(string filePath)
     {
         if (!IsHeifFile(filePath))
             return System.Drawing.Image.FromFile(filePath);
-
-        return System.Drawing.Image.FromFile(ConvertHeifToJpg(filePath));
+        return TryLoadHeifInMemory(filePath) ?? throw new InvalidOperationException("HEIF 파일을 로드할 수 없습니다.");
     }
 
     private static void MoveHeifToSubdirectory(string filePath)
@@ -1001,6 +1018,342 @@ public partial class MainForm : Form
         if (File.Exists(dest))
             File.Delete(dest);
         File.Move(filePath, dest);
+    }
+
+    // ── 파일 아이콘 플레이스홀더 ────────────────────────────────────────
+    private void ShowFileIconPreview(string filePath)
+    {
+        try
+        {
+            using var shellIcon = Icon.ExtractAssociatedIcon(filePath);
+            if (shellIcon is not null)
+            {
+                var bmp = new System.Drawing.Bitmap(256, 256);
+                using var g = System.Drawing.Graphics.FromImage(bmp);
+                g.Clear(Color.FromArgb(28, 28, 34));
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.DrawIcon(shellIcon, new Rectangle(80, 60, 96, 96));
+                _ownedPreviewImage = bmp;
+                picturePreview.Image = _ownedPreviewImage;
+                _zoomFactor = CalculateFitZoomFactor(_ownedPreviewImage.Size);
+                ApplyImageZoom();
+                return;
+            }
+        }
+        catch { }
+        ShowPlaceholder();
+    }
+
+    // ── 컨텍스트 메뉴 이벤트 ──────────────────────────────────────────────
+    private void ListViewFiles_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right) return;
+        var item = listViewFiles.GetItemAt(e.X, e.Y);
+        string? path = item?.Tag as string;
+        ShowFileContextMenu(path, listViewFiles, listViewFiles.PointToScreen(e.Location));
+        _suppressImageDisplay = false;
+    }
+
+    private void TreeFolders_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right) return;
+        var node = treeFolders.GetNodeAt(e.X, e.Y);
+        if (node is null || node.Tag is not string folderPath) return;
+        treeFolders.SelectedNode = node;   // 우클릭한 노드 선택 표시
+        ShowFolderContextMenu(folderPath, treeFolders, treeFolders.PointToScreen(e.Location));
+    }
+
+    private void ImageView_MouseUp(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Right || _isImagePanning) return;
+        var ctrl = sender as Control ?? picturePreview;
+        ShowFileContextMenu(_currentPreviewPath, ctrl, ctrl.PointToScreen(e.Location));
+    }
+
+    // ── 컨텍스트 메뉴 빌더 ───────────────────────────────────────────────
+    private void ShowFileContextMenu(string? filePath, Control anchor, Point screenPt)
+    {
+        var menu = new ContextMenuStrip();
+        bool hasFile = filePath is not null && File.Exists(filePath);
+        bool isImage = hasFile && ImageExtensions.Contains(Path.GetExtension(filePath!));
+
+        if (isImage)
+        {
+            var convertMenu = new ToolStripMenuItem("이미지 변환");
+            string currentExt = Path.GetExtension(filePath!).ToLowerInvariant();
+            foreach (var (label, ext) in new (string Label, string Ext)[]
+            {
+                ("JPEG (.jpg)", ".jpg"), ("PNG (.png)", ".png"),
+                ("BMP (.bmp)", ".bmp"), ("TIFF (.tif)", ".tif"),
+                ("WebP (.webp)", ".webp"), ("GIF (.gif)", ".gif")
+            })
+            {
+                string capturedExt = ext;
+                var sub = new ToolStripMenuItem(label) { Enabled = currentExt != ext };
+                sub.Click += (_, _) => ConvertImageFile(filePath!, capturedExt);
+                convertMenu.DropDownItems.Add(sub);
+            }
+            menu.Items.Add(convertMenu);
+            menu.Items.Add(new ToolStripSeparator());
+        }
+
+        if (hasFile)
+        {
+            menu.Items.Add(new ToolStripMenuItem("복사", null, (_, _) => SetClipboard(filePath!, cut: false)));
+            menu.Items.Add(new ToolStripMenuItem("잘라내기", null, (_, _) => SetClipboard(filePath!, cut: true)));
+        }
+
+        var pasteItem = new ToolStripMenuItem("붙여넣기", null, (_, _) =>
+            PasteFile(hasFile ? Path.GetDirectoryName(filePath!)! : _currentFolder ?? string.Empty));
+        pasteItem.Enabled = _clipboardPath is not null && File.Exists(_clipboardPath);
+        menu.Items.Add(pasteItem);
+
+        if (hasFile)
+        {
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(new ToolStripMenuItem("삭제", null, (_, _) => DeleteFile(filePath!)));
+        }
+
+        if (menu.Items.Count > 0) menu.Show(screenPt);
+    }
+
+    private void ShowFolderContextMenu(string folderPath, Control anchor, Point screenPt)
+    {
+        var menu = new ContextMenuStrip();
+
+        menu.Items.Add(new ToolStripMenuItem("복사", null, (_, _) => SetClipboard(folderPath, cut: false)));
+        menu.Items.Add(new ToolStripMenuItem("잘라내기", null, (_, _) => SetClipboard(folderPath, cut: true)));
+
+        bool hasClip = _clipboardPath is not null &&
+                       (File.Exists(_clipboardPath) || Directory.Exists(_clipboardPath));
+        var pasteItem = new ToolStripMenuItem("붙여넣기", null, (_, _) => PasteToFolder(folderPath));
+        pasteItem.Enabled = hasClip;
+        menu.Items.Add(pasteItem);
+
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("삭제", null, (_, _) => DeleteFolder(folderPath)));
+
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("탐색기에서 열기", null,
+            (_, _) => System.Diagnostics.Process.Start("explorer.exe", folderPath)));
+
+        menu.Show(screenPt);
+    }
+
+    // ── 파일 작업 ────────────────────────────────────────────────────────
+    private void SetClipboard(string filePath, bool cut)
+    {
+        _clipboardPath = filePath;
+        _clipboardIsCut = cut;
+        // Windows 클립보드에도 등록 (탐색기와 공유)
+        var files = new System.Collections.Specialized.StringCollection();
+        files.Add(filePath);
+        var data = new DataObject();
+        data.SetFileDropList(files);
+        if (cut)
+        {
+            using var dropEffect = new MemoryStream(new byte[] { 2, 0, 0, 0 });
+            data.SetData("Preferred DropEffect", dropEffect);
+        }
+        Clipboard.SetDataObject(data, true);
+    }
+
+    private void PasteFile(string targetFolder)
+    {
+        if (string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder)) return;
+        string? src = _clipboardPath;
+        bool cut = _clipboardIsCut;
+
+        // Windows 클립보드 우선 사용
+        if (src is null && Clipboard.ContainsFileDropList())
+        {
+            var list = Clipboard.GetFileDropList();
+            if (list.Count > 0) src = list[0];
+            var dropData = Clipboard.GetData("Preferred DropEffect") as MemoryStream;
+            cut = dropData?.ToArray() is byte[] b && b.Length >= 1 && b[0] == 2;
+        }
+
+        if (src is null || !File.Exists(src)) return;
+
+        try
+        {
+            string dest = Path.Combine(targetFolder, Path.GetFileName(src));
+            if (File.Exists(dest))
+            {
+                string nameNoExt = Path.GetFileNameWithoutExtension(src);
+                string ext = Path.GetExtension(src);
+                int i = 1;
+                do { dest = Path.Combine(targetFolder, $"{nameNoExt}_복사{i++}{ext}"); }
+                while (File.Exists(dest));
+            }
+            if (cut) { File.Move(src, dest); _clipboardPath = null; }
+            else File.Copy(src, dest);
+            if (_currentFolder is not null) LoadFileList(_currentFolder);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "붙여넣기 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void PasteToFolder(string targetFolder)
+    {
+        if (string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder)) return;
+        string? src = _clipboardPath;
+        bool cut = _clipboardIsCut;
+
+        if (src is null && Clipboard.ContainsFileDropList())
+        {
+            var list = Clipboard.GetFileDropList();
+            if (list.Count > 0) src = list[0];
+            var dropData = Clipboard.GetData("Preferred DropEffect") as MemoryStream;
+            cut = dropData?.ToArray() is byte[] b && b.Length >= 1 && b[0] == 2;
+        }
+        if (src is null) return;
+
+        try
+        {
+            string name = Path.GetFileName(src.TrimEnd(Path.DirectorySeparatorChar));
+            string dest = Path.Combine(targetFolder, name);
+
+            if (File.Exists(src))
+            {
+                if (File.Exists(dest))
+                {
+                    int i = 1;
+                    string nameNoExt = Path.GetFileNameWithoutExtension(src);
+                    string ext = Path.GetExtension(src);
+                    do { dest = Path.Combine(targetFolder, $"{nameNoExt}_복사{i++}{ext}"); }
+                    while (File.Exists(dest));
+                }
+                if (cut) { File.Move(src, dest); _clipboardPath = null; }
+                else File.Copy(src, dest);
+            }
+            else if (Directory.Exists(src))
+            {
+                if (cut) { Directory.Move(src, dest); _clipboardPath = null; }
+                else CopyDirectoryRecursive(src, dest);
+            }
+
+            if (_currentFolder is not null) LoadFileList(_currentFolder);
+            if (treeFolders.SelectedNode is TreeNode node) ForceRefreshChildFolders(node);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "붙여넣기 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private static void CopyDirectoryRecursive(string src, string dest)
+    {
+        Directory.CreateDirectory(dest);
+        foreach (string file in Directory.GetFiles(src))
+            File.Copy(file, Path.Combine(dest, Path.GetFileName(file)), overwrite: true);
+        foreach (string dir in Directory.GetDirectories(src))
+            CopyDirectoryRecursive(dir, Path.Combine(dest, Path.GetFileName(dir)));
+    }
+
+    private void DeleteFolder(string folderPath)
+    {
+        string name = Path.GetFileName(folderPath.TrimEnd(Path.DirectorySeparatorChar));
+        bool isEmpty = !Directory.EnumerateFileSystemEntries(folderPath).Any();
+        string msg = isEmpty
+            ? $"'{name}' 폴더를 삭제하시겠습니까?"
+            : $"'{name}' 폴더와 내부의 모든 파일을 삭제하시겠습니까?";
+
+        if (MessageBox.Show(this, msg, "폴더 삭제 확인",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        try
+        {
+            Directory.Delete(folderPath, recursive: true);
+            // 트리에서 부모 노드 새로고침
+            if (treeFolders.SelectedNode?.Parent is TreeNode parent)
+                ForceRefreshChildFolders(parent);
+            else
+                LoadFolderTree(_currentFolder ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "삭제 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void DeleteFile(string filePath)
+    {
+        string name = Path.GetFileName(filePath);
+        if (MessageBox.Show(this, $"'{name}' 파일을 삭제하시겠습니까?", "삭제 확인",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        try
+        {
+            if (_currentPreviewPath == filePath) { ClearImagePreview(); _currentPreviewPath = null; ShowPlaceholder(); }
+            File.Delete(filePath);
+            if (_currentFolder is not null) LoadFileList(_currentFolder);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "삭제 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void ConvertImageFile(string sourcePath, string targetExt)
+    {
+        try
+        {
+            string dir = Path.GetDirectoryName(sourcePath)!;
+            string name = Path.GetFileNameWithoutExtension(sourcePath);
+            string destPath = Path.Combine(dir, name + targetExt);
+            if (File.Exists(destPath))
+            {
+                int i = 1;
+                do { destPath = Path.Combine(dir, $"{name}_{i++}{targetExt}"); } while (File.Exists(destPath));
+            }
+
+            System.Drawing.Image src = IsHeifFile(sourcePath)
+                ? (TryLoadHeifInMemory(sourcePath) ?? throw new InvalidOperationException("HEIF 로드 실패"))
+                : System.Drawing.Image.FromFile(sourcePath);
+
+            using (src)
+            {
+                if (targetExt == ".webp")
+                {
+                    using var ms = new MemoryStream();
+                    src.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                    ms.Position = 0;
+                    using var isImg = SixLabors.ImageSharp.Image.Load(ms);
+                    using var outFs = new FileStream(destPath, FileMode.Create);
+                    isImg.Save(outFs, new SixLabors.ImageSharp.Formats.Webp.WebpEncoder());
+                }
+                else
+                {
+                    var fmt = targetExt switch
+                    {
+                        ".jpg" or ".jpeg" => System.Drawing.Imaging.ImageFormat.Jpeg,
+                        ".png"  => System.Drawing.Imaging.ImageFormat.Png,
+                        ".bmp"  => System.Drawing.Imaging.ImageFormat.Bmp,
+                        ".tif" or ".tiff" => System.Drawing.Imaging.ImageFormat.Tiff,
+                        ".gif"  => System.Drawing.Imaging.ImageFormat.Gif,
+                        _ => throw new NotSupportedException(targetExt)
+                    };
+                    if (targetExt is ".jpg" or ".jpeg")
+                    {
+                        var codec = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders()
+                            .First(c => c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+                        var ep = new System.Drawing.Imaging.EncoderParameters(1);
+                        ep.Param[0] = new System.Drawing.Imaging.EncoderParameter(
+                            System.Drawing.Imaging.Encoder.Quality, 95L);
+                        src.Save(destPath, codec, ep);
+                    }
+                    else src.Save(destPath, fmt);
+                }
+            }
+
+            if (_currentFolder is not null) LoadFileList(_currentFolder);
+            statusLabelFile.Text = $"변환 완료: {Path.GetFileName(destPath)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "변환 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void RotateCurrentImage(RotateFlipType rotation)
@@ -1208,9 +1561,30 @@ public partial class MainForm : Form
             Tag = filePath
         };
 
-        card.Click += Thumbnail_Click;
-        thumb.Click += Thumbnail_Click;
-        name.Click += Thumbnail_Click;
+        MouseEventHandler leftClickOnly = (s, e) => { if (e.Button == MouseButtons.Left) Thumbnail_Click(s, e); };
+        card.MouseClick += leftClickOnly;
+        thumb.MouseClick += leftClickOnly;
+        name.MouseClick += leftClickOnly;
+        MouseEventHandler thumbRightClick = (s, e) =>
+        {
+            if (e.Button != MouseButtons.Right) return;
+            // 파일 목록에서 해당 항목 선택 표시 (이미지/갤러리 뷰 변경 억제)
+            _suppressImageDisplay = true;
+            if (_fileItemByPath.TryGetValue(filePath, out var lvItem))
+            {
+                // MultiSelect=false이므로 Selected=true만으로 이전 항목 자동 해제됨
+                // Clear()를 쓰면 count=0 SelectedIndexChanged가 ShowPlaceholder를 호출하므로 사용 안 함
+                lvItem.Selected = true;
+                lvItem.Focused = true;
+                lvItem.EnsureVisible();
+            }
+            _suppressImageDisplay = false;
+            var ctrl = (Control)(s ?? card);
+            ShowFileContextMenu(filePath, ctrl, ctrl.PointToScreen(e.Location));
+        };
+        card.MouseUp += thumbRightClick;
+        thumb.MouseUp += thumbRightClick;
+        name.MouseUp += thumbRightClick;
         card.Controls.Add(name);
         card.Controls.Add(thumb);
         return card;

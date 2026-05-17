@@ -1,4 +1,4 @@
-namespace ImageViewerV10;
+namespace ImageViewerV20;
 
 partial class MainForm
 {
@@ -678,7 +678,7 @@ partial class MainForm
         MinimumSize = new Size(790, 430);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "ImageViewerV10 — 폴더 미리보기";
+        Text = "ImageViewerV20 — 폴더 미리보기";
         splitMain.Panel1.ResumeLayout(false);
         splitMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitMain).EndInit();

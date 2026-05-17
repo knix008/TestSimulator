@@ -1,4 +1,4 @@
-namespace ImageViewerV10;
+namespace ImageViewerV20;
 
 public sealed class MediaSeekBar : Control
 {

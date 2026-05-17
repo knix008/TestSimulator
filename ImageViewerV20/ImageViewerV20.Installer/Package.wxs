@@ -2,30 +2,30 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package
-    Name="ImageViewerV10"
-    Manufacturer="ImageViewerV10"
+    Name="ImageViewerV20"
+    Manufacturer="ImageViewerV20"
     Version="1.0.0"
     Scope="perMachine"
     UpgradeCode="B7B58C6B-D2C8-4CE1-B7C4-9CB8D6D16BE0">
 
-    <MajorUpgrade DowngradeErrorMessage="A newer version of ImageViewerV10 is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of ImageViewerV20 is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="low" />
 
-    <Icon Id="daemon_hammer.ico" SourceFile="$(var.ImageViewerV10.TargetDir)daemon_hammer.ico" />
+    <Icon Id="daemon_hammer.ico" SourceFile="$(var.ImageViewerV20.TargetDir)daemon_hammer.ico" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="ImageViewerV10" />
+      <Directory Id="INSTALLFOLDER" Name="ImageViewerV20" />
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="ApplicationProgramsFolder" Name="ImageViewerV10" />
+      <Directory Id="ApplicationProgramsFolder" Name="ImageViewerV20" />
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder" />
 
     <ui:WixUI Id="WixUI_FeatureTree" />
 
-    <Feature Id="MainFeature" Title="ImageViewerV10" Level="1" AllowAbsent="no">
+    <Feature Id="MainFeature" Title="ImageViewerV20" Level="1" AllowAbsent="no">
       <ComponentGroupRef Id="AppFiles" />
     </Feature>
 
@@ -40,7 +40,7 @@
 
   <Fragment>
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-      <Files Include="$(var.ImageViewerV10.TargetDir)\**" />
+      <Files Include="$(var.ImageViewerV20.TargetDir)\**" />
     </ComponentGroup>
   </Fragment>
 
@@ -49,14 +49,14 @@
       <Component Id="DesktopShortcutComponent" Guid="*">
         <Shortcut
           Id="DesktopShortcut"
-          Name="ImageViewerV10"
-          Description="ImageViewerV10"
-          Target="[INSTALLFOLDER]ImageViewerV10.exe"
+          Name="ImageViewerV20"
+          Description="ImageViewerV20"
+          Target="[INSTALLFOLDER]ImageViewerV20.exe"
           WorkingDirectory="INSTALLFOLDER"
           Icon="daemon_hammer.ico" />
         <RegistryValue
           Root="HKCU"
-          Key="Software\ImageViewerV10"
+          Key="Software\ImageViewerV20"
           Name="DesktopShortcut"
           Type="integer"
           Value="1"
@@ -70,15 +70,15 @@
       <Component Id="StartMenuShortcutComponent" Guid="*">
         <Shortcut
           Id="StartMenuShortcut"
-          Name="ImageViewerV10"
-          Description="ImageViewerV10"
-          Target="[INSTALLFOLDER]ImageViewerV10.exe"
+          Name="ImageViewerV20"
+          Description="ImageViewerV20"
+          Target="[INSTALLFOLDER]ImageViewerV20.exe"
           WorkingDirectory="INSTALLFOLDER"
           Icon="daemon_hammer.ico" />
         <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
         <RegistryValue
           Root="HKCU"
-          Key="Software\ImageViewerV10"
+          Key="Software\ImageViewerV20"
           Name="StartMenuShortcut"
           Type="integer"
           Value="1"

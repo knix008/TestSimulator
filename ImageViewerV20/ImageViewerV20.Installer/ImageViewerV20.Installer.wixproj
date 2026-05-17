@@ -2,11 +2,11 @@
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
-    <DefineConstants>AppProjectName=ImageViewerV10</DefineConstants>
+    <DefineConstants>AppProjectName=ImageViewerV20</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ImageViewerV10.csproj" />
+    <ProjectReference Include="..\ImageViewerV20.csproj" />
   </ItemGroup>
 
   <ItemGroup>
