@@ -34,6 +34,8 @@ namespace XMan
         // 윈도우 크기 변경
         void Resize(int width, int height);
 
+        bool IsInitialized() const { return m_device != nullptr; }
+
         ID3D11Device *GetDevice() { return m_device.Get(); }
         ID3D11DeviceContext *GetContext() { return m_context.Get(); }
 

@@ -8,7 +8,7 @@ file(GLOB_RECURSE SOURCES
 add_executable(XManWindowsV10 ${SOURCES})
 
 # 링크 라이브러리
-target_link_libraries(XManWindowsV10 
+target_link_libraries(XManWindowsV10
     PRIVATE
         ws2_32      # Winsock2
         d3d11       # DirectX 11
@@ -16,6 +16,7 @@ target_link_libraries(XManWindowsV10
         d3dcompiler # Shader compiler
         user32      # Win32 User
         gdi32       # GDI
+        comctl32    # Common Controls (ServerGUI)
 )
 
 # 컴파일 옵션

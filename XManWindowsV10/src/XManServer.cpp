@@ -44,17 +44,9 @@ namespace XMan
 
     void XManServer::Run()
     {
-        while (m_running)
-        {
-            // Windows 메시지 처리
-            if (m_windowManager)
-            {
-                m_windowManager->ProcessMessages();
-            }
-
-            // 짧은 대기로 CPU 사용률 감소
-            Sleep(1);
-        }
+        // CommandQueue 드레인 (주로 비어있음, 창 생성/맵핑은 수신 스레드 직접 처리)
+        if (m_windowManager)
+            m_windowManager->ProcessMessages();
     }
 
     bool XManServer::IsRunning() const
@@ -78,7 +70,7 @@ namespace XMan
 
         // Network Server 초기화
         m_networkServer = std::make_unique<NetworkServer>();
-        if (!m_networkServer->Start(m_displayNumber))
+        if (!m_networkServer->Start(m_displayNumber, m_windowManager.get()))
         {
             std::cerr << "Failed to start NetworkServer" << std::endl;
             return false;

@@ -1,63 +1,60 @@
+#include "ServerGUI.h"
 #include "XManServer.h"
-#include <iostream>
+#include <Windows.h>
 #include <csignal>
+#include <iostream>
 
-static bool g_running = true;
+using namespace XMan;
 
-void SignalHandler(int signal)
+static ServerGUI *g_gui = nullptr;
+
+// Ctrl+C → 서버 중지
+void SignalHandler(int sig)
 {
-    if (signal == SIGINT || signal == SIGTERM)
-    {
-        std::cout << "\nShutting down..." << std::endl;
-        g_running = false;
-    }
+    if ((sig == SIGINT || sig == SIGTERM) && g_gui)
+        PostMessageW(g_gui->GetHwnd(), WM_CLOSE, 0, 0);
 }
 
 int main(int argc, char *argv[])
 {
-    std::cout << "XManWindowsV10 - X Window Server for Windows" << std::endl;
-    std::cout << "=============================================" << std::endl;
+    int displayNumber = (argc > 1) ? atoi(argv[1]) : 0;
 
-    // 시그널 핸들러 등록
-    signal(SIGINT, SignalHandler);
+    signal(SIGINT,  SignalHandler);
     signal(SIGTERM, SignalHandler);
 
-    // 디스플레이 번호 (기본값: 0)
-    int displayNumber = 0;
+    // 콘솔 창 숨기기 (GUI 모드)
+    if (HWND con = GetConsoleWindow())
+        ShowWindow(con, SW_HIDE);
 
-    if (argc > 1)
+    // GUI 생성
+    ServerGUI gui;
+    g_gui = &gui;
+
+    // std::cout / std::cerr → GUI 로그로 리디렉트
+    GUILogBuf coutBuf(&gui);
+    GUILogBuf cerrBuf(&gui);
+    std::streambuf *oldCout = std::cout.rdbuf(&coutBuf);
+    std::streambuf *oldCerr = std::cerr.rdbuf(&cerrBuf);
+
+    if (!gui.Create(GetModuleHandleW(nullptr), displayNumber))
     {
-        displayNumber = atoi(argv[1]);
-    }
-
-    // XMan 서버 생성 및 시작
-    XMan::XManServer server;
-
-    if (!server.Start(displayNumber))
-    {
-        std::cerr << "Failed to start XMan server" << std::endl;
+        std::cout.rdbuf(oldCout);
+        std::cerr.rdbuf(oldCerr);
         return 1;
     }
 
-    std::cout << "\nServer is running. Press Ctrl+C to stop." << std::endl;
-    std::cout << "\nTo connect from a remote machine, set the DISPLAY variable:" << std::endl;
-    std::cout << "  export DISPLAY=<this-machine-ip>:" << displayNumber << std::endl;
-    std::cout << "\nThen run any X application, for example:" << std::endl;
-    std::cout << "  xterm" << std::endl;
-    std::cout << "  xclock" << std::endl;
-    std::cout << "  xeyes" << std::endl;
-    std::cout << std::endl;
-
-    // 메인 루프
-    while (g_running && server.IsRunning())
+    // 메시지 루프 (GetMessage가 WM_TIMER + X11창 메시지 + GUI 메시지 모두 처리)
+    MSG msg;
+    while (GetMessageW(&msg, nullptr, 0, 0) > 0)
     {
-        server.Run();
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
     }
 
-    // 서버 중지
-    server.Stop();
+    // 리디렉트 복원
+    std::cout.rdbuf(oldCout);
+    std::cerr.rdbuf(oldCerr);
 
-    std::cout << "XMan server stopped. Goodbye!" << std::endl;
-
+    g_gui = nullptr;
     return 0;
 }
