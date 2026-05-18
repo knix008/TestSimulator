@@ -11,7 +11,8 @@ file static class MfVideoGuids
 
 file static class MfAudioGuids
 {
-    public static readonly Guid Aac = new("000000FF-0000-0010-8000-00AA00389B71");
+    // MFAudioFormat_AAC (WAVE_FORMAT_MPEG_HEAAC = 0x1610) — Windows AAC encoder output format
+    public static readonly Guid Aac = new("00001610-0000-0010-8000-00AA00389B71");
     public static readonly Guid Pcm = new("00000001-0000-0010-8000-00AA00389B71");
 }
 
@@ -57,7 +58,10 @@ internal sealed class MfH264Writer : IDisposable
 
         try
         {
-            _writer = MediaFactory.MFCreateSinkWriterFromURL(outPath, null, null);
+            // MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS: let MF find both HW and SW encoders
+            using var writerAttrs = MediaFactory.MFCreateAttributes(1);
+            writerAttrs.Set(new Guid("a634a91c-822b-41b9-a494-4de4643612b0"), 1u);
+            _writer = MediaFactory.MFCreateSinkWriterFromURL(outPath, null, writerAttrs);
 
             using var outType = MediaFactory.MFCreateMediaType();
             outType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
@@ -107,6 +111,7 @@ internal sealed class MfH264Writer : IDisposable
         audioOut.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)MicrophoneCapture.SampleRate);
         audioOut.Set(MediaTypeAttributeKeys.AudioBitsPerSample, (uint)MicrophoneCapture.BitsPerSample);
         audioOut.Set(MediaTypeAttributeKeys.AudioAvgBytesPerSecond, 16_000u); // 128 kbps
+        audioOut.Set(MediaTypeAttributeKeys.AudioBlockAlignment, 1u);         // required for compressed audio
 
         _audioStreamIndex = (int)_writer!.AddStream(audioOut);
 

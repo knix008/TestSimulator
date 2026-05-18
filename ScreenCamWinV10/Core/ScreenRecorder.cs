@@ -81,7 +81,8 @@ public sealed class ScreenRecorder : IDisposable
             IsBackground = true,
             Name         = "ScreenCaptureThread",
         };
-        _thread.SetApartmentState(ApartmentState.STA);
+        // MTA required for Media Foundation codec discovery (AAC encoder MFT)
+        _thread.SetApartmentState(ApartmentState.MTA);
         _thread.Start();
 
         _initSignal.Wait(10_000);

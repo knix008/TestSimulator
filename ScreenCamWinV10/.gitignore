@@ -49,8 +49,3 @@ UpgradeLog.htm
 
 # Local / agent settings
 .claude/
-
-# Recorded output (local tests — do not commit)
-*.avi
-*.mp4
-!**/docs/**/*.mp4

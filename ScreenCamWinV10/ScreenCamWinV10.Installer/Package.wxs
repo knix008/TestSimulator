@@ -4,7 +4,7 @@
   <Package
     Name="ScreenCamWin V10"
     Manufacturer="ScreenCamWin"
-    Version="1.0.0"
+    Version="1.1.0"
     Scope="perMachine"
     Language="1042"
     Codepage="949"
@@ -16,7 +16,7 @@
     <!-- 바로가기·프로그램 추가/제거 아이콘: 앱과 동일한 프로젝트 루트 daemon_hammer.ico -->
     <Icon Id="AppIcon.ico" SourceFile="$(var.ScreenCamWin.ProjectDir)daemon_hammer.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
-    <Property Id="ARPCOMMENTS" Value="화면 녹화 (ScreenCamWin V10)" />
+    <Property Id="ARPCOMMENTS" Value="화면 녹화 · 마이크 동시 녹음 (ScreenCamWin V10)" />
 
     <!-- FeatureTree: '사용자 지정' 단계에서 바탕화면/시작 메뉴 바로가기를 각각 선택 -->
     <Feature Id="ProductFeature"
