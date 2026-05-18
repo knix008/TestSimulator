@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\VNCServerWinV10\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "PowerShell(Get-Process -Name \"VNCServer\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Start-Process \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\VNCServerWinV10\\\\VNCServer\\\\bin\\\\Release\\\\net8.0-windows\\\\VNCServer.exe\")",
+      "PowerShell(& \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\VNCServerWinV10\\\\VNCServer\\\\bin\\\\Release\\\\net8.0-windows\\\\VNCServer.exe\" 2>&1; Write-Host \"Exit code: $LASTEXITCODE\")",
+      "PowerShell(Get-Process | Where-Object { $_.MainWindowTitle -ne \"\" } | Select-Object Name, Id, MainWindowTitle | Sort-Object Name)",
+      "PowerShell($p = Start-Process \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\VNCServerWinV10\\\\VNCServer\\\\bin\\\\Release\\\\net8.0-windows\\\\VNCServer.exe\" -PassThru; Start-Sleep -Seconds 3; if \\($p.HasExited\\) { Write-Host \"Exited with code: $\\($p.ExitCode\\)\" } else { Write-Host \"Running - PID: $\\($p.Id\\), Window: $\\($p.MainWindowTitle\\)\" })",
+      "PowerShell(Get-Process -Name \"VNCServer\" -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1; $p = Start-Process \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\VNCServerWinV10\\\\VNCServer\\\\bin\\\\Release\\\\net8.0-windows\\\\VNCServer.exe\" -PassThru; Start-Sleep -Seconds 2; if \\($p.HasExited\\) { \"Exited: $\\($p.ExitCode\\)\" } else { \"Running - PID: $\\($p.Id\\)\" })"
+    ]
+  }
+}

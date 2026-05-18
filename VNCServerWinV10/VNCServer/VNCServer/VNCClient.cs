@@ -17,6 +17,9 @@ public class VNCClient
     private Thread? _clientThread;
     private bool _isConnected;
     private Rectangle _screenBounds;
+    private byte[]? _sendBuffer;       // reused across frames to avoid per-frame GC
+    private byte[]? _prevBuffer;       // previous frame for GDI dirty detection
+    private DxgiCapture? _dxgi;        // null when DXGI is unavailable → falls back to GDI
 
     public event EventHandler<string>? Disconnected;
     public event EventHandler<int>? FrameRateChanged;
@@ -33,6 +36,13 @@ public class VNCClient
         _frameRateController = new AdaptiveFrameRateController(settings);
         _screenBounds = ScreenCapture.GetScreenBounds();
         ScreenCapture.SetImageQuality(settings.ImageQuality);
+
+        // Try DXGI Desktop Duplication for faster capture; fall back to GDI on failure
+        var dxgi = new DxgiCapture();
+        if (dxgi.TryInitialize())
+            _dxgi = dxgi;
+        else
+            dxgi.Dispose();
     }
 
     public void UpdateSettings(ServerSettings settings)
@@ -61,38 +71,37 @@ public class VNCClient
             _tcpClient?.Close();
         }
         catch { }
+
+        _dxgi?.Dispose();
+        _dxgi = null;
     }
 
     private void HandleClient()
     {
         try
         {
-            // Send RFB Protocol Version
             SendProtocolVersion();
 
-            // Authenticate
             if (!Authenticate())
             {
                 Disconnect();
                 return;
             }
 
-            // Send Server Init
             SendServerInit();
 
-            // Main loop
-            while (_isConnected && _tcpClient.Connected)
+            while (_isConnected && IsSocketAlive())
             {
                 if (_stream.DataAvailable)
                 {
                     int messageType = _stream.ReadByte();
-                    if (messageType == -1) break;
+                    if (messageType == -1) break; // graceful close
 
                     HandleClientMessage((byte)messageType);
                 }
                 else
                 {
-                    Thread.Sleep(10);
+                    Thread.Sleep(1);
                 }
             }
         }
@@ -104,6 +113,20 @@ public class VNCClient
         {
             Disconnect();
             Disconnected?.Invoke(this, ClientAddress);
+        }
+    }
+
+    private bool IsSocketAlive()
+    {
+        try
+        {
+            var socket = _tcpClient.Client;
+            // Poll returns true if readable; Available == 0 on a readable closed socket means EOF/reset
+            return !(socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0);
+        }
+        catch
+        {
+            return false;
         }
     }
 
@@ -243,92 +266,103 @@ public class VNCClient
         byte[] request = new byte[9];
         _stream.Read(request, 0, 9);
 
+        // request[0]: incremental flag — 0=full update required, 1=skip if unchanged
+        bool incremental = request[0] != 0;
+
         _frameRateController.WaitForNextFrameSlot();
-        SendFramebufferUpdate();
+        SendFramebufferUpdate(incremental);
     }
 
-    private void SendFramebufferUpdate()
+    private void SendFramebufferUpdate(bool incremental = true)
     {
         var stopwatch = Stopwatch.StartNew();
-        var bytesSent = 0;
 
+        // GDI 캡처
+        using Bitmap screenshot = ScreenCapture.CaptureScreen(_screenBounds);
+        int width  = screenshot.Width;
+        int height = screenshot.Height;
+        int pixelDataSize = width * height * 4;
+
+        if (_sendBuffer == null || _sendBuffer.Length < pixelDataSize)
+            _sendBuffer = new byte[pixelDataSize];
+        if (_prevBuffer == null || _prevBuffer.Length < pixelDataSize)
+            _prevBuffer = new byte[pixelDataSize];
+
+        BitmapData bmpData = screenshot.LockBits(
+            new Rectangle(0, 0, width, height),
+            ImageLockMode.ReadOnly,
+            PixelFormat.Format32bppArgb);
         try
         {
-            using (Bitmap screenshot = ScreenCapture.CaptureScreen(_screenBounds))
+            int stride = bmpData.Stride;
+            if (stride == width * 4)
             {
-                // Message type
-                _stream.WriteByte(0);
-
-                // Padding
-                _stream.WriteByte(0);
-
-                // Number of rectangles
-                _stream.WriteByte(0);
-                _stream.WriteByte(1);
-
-                // Rectangle: x, y, width, height
-                WriteUInt16(0);
-                WriteUInt16(0);
-                WriteUInt16((ushort)_screenBounds.Width);
-                WriteUInt16((ushort)_screenBounds.Height);
-
-                // Encoding type (0 = Raw)
-                WriteInt32(0);
-
-                // Send pixel data (Raw encoding)
-                BitmapData bmpData = screenshot.LockBits(
-                    new Rectangle(0, 0, screenshot.Width, screenshot.Height),
-                    ImageLockMode.ReadOnly,
-                    PixelFormat.Format32bppArgb);
-
-                try
-                {
-                    int stride = bmpData.Stride;
-                    int bytes = Math.Abs(stride) * screenshot.Height;
-                    byte[] rgbValues = new byte[bytes];
-                    
+                System.Runtime.InteropServices.Marshal.Copy(
+                    bmpData.Scan0, _sendBuffer, 0, pixelDataSize);
+            }
+            else
+            {
+                for (int row = 0; row < height; row++)
                     System.Runtime.InteropServices.Marshal.Copy(
-                        bmpData.Scan0, rgbValues, 0, bytes);
-
-                    // Convert BGRA to RGB
-                    byte[] rgbData = new byte[screenshot.Width * screenshot.Height * 4];
-                    for (int i = 0; i < screenshot.Height; i++)
-                    {
-                        for (int j = 0; j < screenshot.Width; j++)
-                        {
-                            int srcIndex = i * stride + j * 4;
-                            int dstIndex = (i * screenshot.Width + j) * 4;
-                            
-                            rgbData[dstIndex] = rgbValues[srcIndex];     // B
-                            rgbData[dstIndex + 1] = rgbValues[srcIndex + 1]; // G
-                            rgbData[dstIndex + 2] = rgbValues[srcIndex + 2]; // R
-                            rgbData[dstIndex + 3] = 0; // Padding
-                        }
-                    }
-
-                    bytesSent = rgbData.Length;
-                    _stream.Write(rgbData, 0, rgbData.Length);
-                    _stream.Flush();
-                }
-                finally
-                {
-                    screenshot.UnlockBits(bmpData);
-                }
-            }
-
-            stopwatch.Stop();
-            var previousFps = _frameRateController.CurrentFps;
-            _frameRateController.RecordFrame(stopwatch.ElapsedMilliseconds, bytesSent);
-
-            if (_frameRateController.CurrentFps != previousFps)
-            {
-                FrameRateChanged?.Invoke(this, _frameRateController.CurrentFps);
+                        bmpData.Scan0 + row * stride, _sendBuffer, row * width * 4, width * 4);
             }
         }
-        catch (Exception ex)
+        finally
         {
-            System.Diagnostics.Debug.WriteLine($"Error sending framebuffer: {ex.Message}");
+            screenshot.UnlockBits(bmpData);
         }
+
+        bool changed = !incremental || HasFrameChanged(_sendBuffer, _prevBuffer, pixelDataSize);
+
+        if (changed)
+        {
+            Buffer.BlockCopy(_sendBuffer, 0, _prevBuffer, 0, pixelDataSize);
+
+            // 전체 프레임 전송
+            _stream.WriteByte(0); // FramebufferUpdate
+            _stream.WriteByte(0); // padding
+            _stream.WriteByte(0); // num rects high
+            _stream.WriteByte(1); // num rects low (1 rectangle)
+            WriteUInt16(0); WriteUInt16(0);
+            WriteUInt16((ushort)width);
+            WriteUInt16((ushort)height);
+            WriteInt32(0); // Raw encoding
+            _stream.Write(_sendBuffer, 0, pixelDataSize);
+        }
+        else
+        {
+            // 변화 없음 — 클라이언트 교착 방지를 위해 0-rect 응답 전송
+            _stream.WriteByte(0); // FramebufferUpdate
+            _stream.WriteByte(0); // padding
+            _stream.WriteByte(0); // num rects high = 0
+            _stream.WriteByte(0); // num rects low  = 0
+        }
+
+        _stream.Flush();
+
+        stopwatch.Stop();
+        var previousFps = _frameRateController.CurrentFps;
+        _frameRateController.RecordFrame(stopwatch.ElapsedMilliseconds, changed ? pixelDataSize : 0);
+
+        if (_frameRateController.CurrentFps != previousFps)
+            FrameRateChanged?.Invoke(this, _frameRateController.CurrentFps);
+    }
+
+    private static bool HasFrameChanged(byte[] current, byte[] previous, int length)
+    {
+        // Compare as 64-bit chunks for speed (8x fewer comparisons than byte-by-byte)
+        int longCount = length / 8;
+        var currentSpan  = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, long>(
+            current.AsSpan(0, longCount * 8));
+        var previousSpan = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, long>(
+            previous.AsSpan(0, longCount * 8));
+
+        for (int i = 0; i < currentSpan.Length; i++)
+        {
+            if (currentSpan[i] != previousSpan[i])
+                return true;
+        }
+        return false;
     }
 
     private void HandleKeyEvent()
