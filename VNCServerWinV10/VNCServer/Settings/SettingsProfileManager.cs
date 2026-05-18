@@ -23,11 +23,7 @@ public class SettingsProfileManager
             }
 
             var profilePath = GetProfilePath(profileName);
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
-            });
-            File.WriteAllText(profilePath, json);
+            File.WriteAllText(profilePath, settings.SerializeToJson());
         }
         catch (Exception ex)
         {
@@ -46,7 +42,7 @@ public class SettingsProfileManager
             }
 
             var json = File.ReadAllText(profilePath);
-            return JsonSerializer.Deserialize<ServerSettings>(json) ?? new ServerSettings();
+            return ServerSettings.DeserializeFromJson(json);
         }
         catch (Exception ex)
         {

@@ -106,7 +106,7 @@ public class ServerSettings
             if (File.Exists(SettingsPath))
             {
                 var json = File.ReadAllText(SettingsPath);
-                return JsonSerializer.Deserialize<ServerSettings>(json) ?? new ServerSettings();
+                return DeserializeFromJson(json);
             }
         }
         catch (Exception ex)
@@ -126,17 +126,29 @@ public class ServerSettings
                 Directory.CreateDirectory(directory);
             }
 
-            var json = JsonSerializer.Serialize(this, new JsonSerializerOptions 
-            { 
-                WriteIndented = true 
-            });
-            File.WriteAllText(SettingsPath, json);
+            File.WriteAllText(SettingsPath, SerializeToJson());
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Failed to save settings: {ex.Message}");
         }
     }
+
+    public string SerializeToJson() =>
+        JsonSerializer.Serialize(this, JsonOptions);
+
+    public static ServerSettings DeserializeFromJson(string json) =>
+        JsonSerializer.Deserialize<ServerSettings>(json, JsonOptions) ?? new ServerSettings();
+
+    public ServerSettings Clone() => DeserializeFromJson(SerializeToJson());
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true
+    };
 
     public void ResetToDefaults()
     {

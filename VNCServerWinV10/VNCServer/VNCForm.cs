@@ -114,6 +114,7 @@ public partial class VNCForm : Form
 
     private void BtnSaveSettings_Click(object? sender, EventArgs e)
     {
+        SyncSettingsFromControls();
         _settings.Save();
         _server?.UpdateSettings(_settings);
         MessageBox.Show("설정이 저장되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -226,6 +227,20 @@ public partial class VNCForm : Form
         txtPassword.Enabled = _settings.RequirePassword;
         trackTransmissionSpeed.Value = Math.Clamp(_settings.TransmissionSpeedPercent, 10, 100);
         UpdateTransmissionSpeedLabel();
+    }
+
+    /// <summary>메인 화면 컨트롤 값을 설정 객체에 반영 (프로필/설정 저장 전 호출)</summary>
+    private void SyncSettingsFromControls()
+    {
+        _settings.Port = (int)numPort.Value;
+        _settings.Password = txtPassword.Text;
+        _settings.RequirePassword = chkRequirePassword.Checked;
+        _settings.AllowMouseControl = chkAllowMouse.Checked;
+        _settings.AllowKeyboardControl = chkAllowKeyboard.Checked;
+        _settings.AllowMultipleConnections = chkAllowMultiple.Checked;
+        _settings.AutoStart = chkAutoStart.Checked;
+        _settings.MinimizeToTray = chkMinimizeToTray.Checked;
+        _settings.TransmissionSpeedPercent = (int)trackTransmissionSpeed.Value;
     }
 
     private void InitializeServer()
@@ -407,9 +422,10 @@ public partial class VNCForm : Form
     {
         using var advancedForm = new AdvancedSettingsForm(_settings);
         advancedForm.ShowDialog(this);
+        SyncSettingsFromControls();
         _settings.Save();
         _server?.UpdateSettings(_settings);
-        LoadSettings();
+        ApplySettingsToControls();
         UpdateUI();
     }
 
@@ -504,7 +520,8 @@ public partial class VNCForm : Form
 
             try
             {
-                SettingsProfileManager.SaveProfile(profileName, _settings);
+                SyncSettingsFromControls();
+                SettingsProfileManager.SaveProfile(profileName, _settings.Clone());
                 RefreshProfilesList();
                 cmbProfiles.SelectedItem = profileName;
                 MessageBox.Show($"프로필 '{profileName}'이(가) 저장되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -528,8 +545,10 @@ public partial class VNCForm : Form
         {
             var profileName = cmbProfiles.SelectedItem.ToString()!;
             _settings = SettingsProfileManager.LoadProfile(profileName);
-            _settings.Save(); // 현재 설정으로 저장
-            LoadSettings();
+            ApplySettingsToControls();
+            _settings.Save();
+            _server?.UpdateSettings(_settings);
+            cmbProfiles.SelectedItem = profileName;
             UpdateUI();
             MessageBox.Show($"프로필 '{profileName}'을(를) 불러왔습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
@@ -580,8 +599,9 @@ public partial class VNCForm : Form
         if (result == DialogResult.Yes)
         {
             _settings.ResetToDefaults();
+            ApplySettingsToControls();
             _settings.Save();
-            LoadSettings();
+            _server?.UpdateSettings(_settings);
             UpdateUI();
             MessageBox.Show("기본값으로 초기화되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
