@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ScreenCamWin</AssemblyName>
+    <RootNamespace>ScreenCamWin</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <!-- x64: matches the 64-bit VFW codecs installed by default on modern Windows -->
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Icon file: copied to output so it can be loaded at runtime if needed -->
+    <Content Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- MainForm.resx is auto-included by the SDK as EmbeddedResource -->
+    <!-- DependentUpon metadata only (no duplicate Include needed) -->
+    <EmbeddedResource Update="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

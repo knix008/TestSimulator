@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Process -Name \"ScreenCamWin\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Process -Name \"ScreenCamWin\",\"dotnet\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Set-Location \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\"; $proc = Start-Process \"dotnet\" -ArgumentList \"run\",\"--no-build\" -WorkingDirectory \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\" -RedirectStandardOutput \"C:\\\\Temp\\\\scw_out.txt\" -RedirectStandardError \"C:\\\\Temp\\\\scw_err.txt\" -NoNewWindow -PassThru; Start-Sleep -Seconds 6; $proc.HasExited; if \\($proc.HasExited\\) { $proc.ExitCode; Get-Content \"C:\\\\Temp\\\\scw_out.txt\" -ErrorAction SilentlyContinue; Get-Content \"C:\\\\Temp\\\\scw_err.txt\" -ErrorAction SilentlyContinue })",
+      "PowerShell(Start-Process \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\\\\bin\\\\Release\\\\net8.0-windows\\\\ScreenCamWin.exe\")",
+      "PowerShell(Set-Location \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\"; $env:DOTNET_DbgMiniDumpName=\"crash.dmp\"; Start-Process \"dotnet\" -ArgumentList \"run\",\"--no-build\" -WorkingDirectory \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\" -RedirectStandardError \"C:\\\\Temp\\\\scw_err.txt\" -NoNewWindow -PassThru; $null)",
+      "PowerShell(Stop-Process -Force)",
+      "PowerShell($proc = Start-Process -FilePath \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\\\\bin\\\\Release\\\\net8.0-windows\\\\ScreenCamWin.exe\" -PassThru; Start-Sleep -Seconds 3; if \\($proc.HasExited\\) { \"Process exited with code: $\\($proc.ExitCode\\)\" } else { \"Running — PID $\\($proc.Id\\)\" })",
+      "PowerShell(Stop-Process -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Start-Process -FilePath \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\\\\bin\\\\Release\\\\net8.0-windows\\\\ScreenCamWin.exe\")",
+      "PowerShell(Start-Process -FilePath \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\\\\bin\\\\Release\\\\net8.0-windows\\\\ScreenCamWin.exe\" -PassThru)",
+      "PowerShell($p = Start-Process -FilePath \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\\\\bin\\\\Release\\\\net8.0-windows\\\\ScreenCamWin.exe\" -PassThru; Start-Sleep -Seconds 3; if \\($p.HasExited\\) { \"종료됨 \\(exit code $\\($p.ExitCode\\)\\)\" } else { \"실행 중 — PID $\\($p.Id\\)\" })",
+      "PowerShell(Get-Process -Name \"ScreenCamWin\" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 300; $p = Start-Process -FilePath \"c:\\\\Home\\\\Projects\\\\TestSimulator\\\\ScreenCamWinV10\\\\bin\\\\Release\\\\net8.0-windows\\\\ScreenCamWin.exe\" -PassThru; Start-Sleep -Seconds 3; if \\($p.HasExited\\) { \"종료 \\(exit $\\($p.ExitCode\\)\\)\" } else { \"실행 중 PID $\\($p.Id\\)\" })"
+    ]
+  }
+}
