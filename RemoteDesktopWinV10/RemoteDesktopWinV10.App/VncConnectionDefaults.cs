@@ -19,6 +19,12 @@ public sealed record VncClientSettings
     /// <summary>서버가 자체서명 인증서를 사용할 때 true로 설정.</summary>
     public bool IgnoreTlsCertErrors { get; init; } = false;
 
+    /// <summary>녹화 프레임률(초당 프레임).</summary>
+    public int RecordingFps { get; init; } = 15;
+
+    /// <summary>녹화 파일 저장 폴더(비어 있으면 동영상/Videos 하위).</summary>
+    public string? RecordingOutputFolder { get; init; }
+
     public static VncClientSettings Default { get; } = new();
 
     public static VncClientSettings FromProfile(ConnectionProfile p) => new()

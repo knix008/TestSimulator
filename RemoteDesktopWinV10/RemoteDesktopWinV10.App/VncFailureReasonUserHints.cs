@@ -52,7 +52,8 @@ internal static class VncFailureReasonUserHints
                 + "이 문구는 VNC 서버 프로그램이 같은 PC에서의 뷰어 접속을 막을 때 흔히 보냅니다. 이 클라이언트 옵션으로는 우회할 수 없습니다.\r\n\r\n"
                 + "• TightVNC 서버: 트레이 아이콘 → 제어 위원회(또는 구성) → 서버 → 접근 제어 → Allow loopback connections(루프백 연결 허용)을 켭니다.\r\n"
                 + "• UltraVNC 서버: Admin Properties → Allow Loopback Connections.\r\n"
-                + "• 임시 우회: 호스트를 이 PC의 컴퓨터 이름 또는 LAN IP(예: 192.168.x.x)로 입력해 접속해 보세요.";
+                + "• TigerVNC: vncconfig 또는 서버 설정에서 loopback/localhost 접속 허용 여부를 확인합니다.\r\n"
+                + "• 임시 우회: 서버 주소에 127.0.0.1 대신 이 PC의 LAN IP(예: 192.168.x.x)를 입력합니다. 연결 시 「LAN IP로 연결」 안내가 나오면 그것을 사용하세요.";
         }
 
         return null;

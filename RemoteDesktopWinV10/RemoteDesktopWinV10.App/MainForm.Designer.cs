@@ -20,6 +20,7 @@ public partial class MainForm
     private ToolStripTextBox passwordText;
     private Panel connectActionsPanel;
     private Button connectButton;
+    private Button recordButton;
     private Button advancedSettingsButton;
 
     private ToolStripMenuItem fileToolStripMenuItem;
@@ -85,6 +86,7 @@ public partial class MainForm
         passwordText = new ToolStripTextBox();
         connectActionsPanel = new Panel();
         connectButton = new Button();
+        recordButton = new Button();
         advancedSettingsButton = new Button();
         remotePanel = new Panel();
         vncHostPanel = new Panel();
@@ -184,7 +186,7 @@ public partial class MainForm
         connectInputToolStrip.Location = new Point(4, 2);
         connectInputToolStrip.Name = "connectInputToolStrip";
         connectInputToolStrip.Padding = new Padding(0, 2, 4, 2);
-        connectInputToolStrip.Size = new Size(972, 40);
+        connectInputToolStrip.Size = new Size(884, 40);
         connectInputToolStrip.TabIndex = 0;
 
         toolStripLabelProfile.Name = "toolStripLabelProfile";
@@ -230,28 +232,37 @@ public partial class MainForm
         passwordText.Size = new Size(100, 27);
 
         connectActionsPanel.Controls.Add(connectButton);
+        connectActionsPanel.Controls.Add(recordButton);
         connectActionsPanel.Controls.Add(advancedSettingsButton);
         connectActionsPanel.Dock = DockStyle.Right;
-        connectActionsPanel.Location = new Point(976, 2);
+        connectActionsPanel.Location = new Point(888, 2);
         connectActionsPanel.Name = "connectActionsPanel";
-        connectActionsPanel.Padding = new Padding(4, 4, 0, 0);
-        connectActionsPanel.Size = new Size(232, 40);
+        connectActionsPanel.Padding = new Padding(0);
+        connectActionsPanel.Size = new Size(344, 40);
         connectActionsPanel.TabIndex = 1;
 
-        connectButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        connectButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
         connectButton.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
         connectButton.Location = new Point(8, 4);
         connectButton.Name = "connectButton";
-        connectButton.Size = new Size(100, 32);
+        connectButton.Size = new Size(104, 32);
         connectButton.TabIndex = 0;
         connectButton.Text = "연결";
         connectButton.UseVisualStyleBackColor = true;
 
-        advancedSettingsButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        advancedSettingsButton.Location = new Point(124, 4);
+        recordButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        recordButton.Location = new Point(120, 4);
+        recordButton.Name = "recordButton";
+        recordButton.Size = new Size(104, 32);
+        recordButton.TabIndex = 1;
+        recordButton.Text = "녹화";
+        recordButton.UseVisualStyleBackColor = false;
+
+        advancedSettingsButton.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+        advancedSettingsButton.Location = new Point(232, 4);
         advancedSettingsButton.Name = "advancedSettingsButton";
-        advancedSettingsButton.Size = new Size(100, 32);
-        advancedSettingsButton.TabIndex = 1;
+        advancedSettingsButton.Size = new Size(104, 32);
+        advancedSettingsButton.TabIndex = 2;
         advancedSettingsButton.Text = "고급 설정";
         advancedSettingsButton.UseVisualStyleBackColor = true;
 

@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
+using RemoteDesktopWinV10.App.Recording;
 using RemoteViewing.Vnc;
 using RemoteViewing.Windows.Forms;
 
@@ -51,6 +52,10 @@ public partial class MainForm : Form
 
     private bool _runtimeUiInitialized;
 
+    private VncSessionRecorder? _sessionRecorder;
+    private System.Windows.Forms.Timer? _recordingUiTimer;
+    private bool _recordingStarting;
+
     public MainForm()
     {
         InitializeComponent();
@@ -70,9 +75,9 @@ public partial class MainForm : Form
 
         _runtimeUiInitialized = true;
 
-        ApplyModernChrome();
         InitializeRemoteClients();
         InitializeFullScreenBar();
+        ApplyModernChrome();
 
         manageProfilesToolStripMenuItem.Click += (_, _) => OpenProfileManager();
         appMenuVisibilityToolStripMenuItem.Click += (_, _) => OpenAppSettings();
@@ -82,6 +87,7 @@ public partial class MainForm : Form
         connectToolStripMenuItem.Click += async (_, _) => await OnConnectClickAsync();
         advancedSettingsToolStripMenuItem.Click += (_, _) => OpenAdvancedSettings();
         connectButton.Click += async (_, _) => await OnConnectClickAsync();
+        recordButton.Click += async (_, _) => await OnRecordToggleClickAsync();
         advancedSettingsButton.Click += (_, _) => OpenAdvancedSettings();
         profilesCombo.SelectedIndexChanged += OnProfileComboChanged;
         historyCombo.SelectedIndexChanged += OnHistoryComboChanged;
@@ -175,7 +181,9 @@ public partial class MainForm : Form
         connectBarPanel.BackColor = UiTheme.BgToolbar;
         connectActionsPanel.BackColor = UiTheme.BgToolbar;
         UiTheme.StyleConnectButton(connectButton, sessionActive: false);
+        UpdateRecordButtonChrome();
         UiTheme.StyleSecondaryButton(advancedSettingsButton, minHeight: 32);
+        LayoutConnectActionButtons();
 
         remotePanel.BackColor = UiTheme.BgRemote;
         vncHostPanel.BackColor = UiTheme.BgRemote;
@@ -229,8 +237,9 @@ public partial class MainForm : Form
 
         vncRemote.SizeMode = VncControlSizeMode.Zoom;
         vncRemote.Connected += (_, _) => BeginInvoke(UpdateConnectUi);
-        vncRemote.Closed += (_, _) => BeginInvoke(() =>
+        vncRemote.Closed += (_, _) => BeginInvoke(async () =>
         {
+            await StopRecordingAsync(showMessage: false);
             _vncTlsClient?.Dispose();
             _vncTlsClient = null;
             var wasUser = _userDisconnecting;
@@ -586,7 +595,8 @@ public partial class MainForm : Form
         }
     }
 
-    private bool IsSessionActive => vncRemote.Client.IsConnected;
+    private bool IsSessionActive =>
+        _remoteClientsInitialized && vncRemote.Client.IsConnected;
 
     private void UpdateConnectUi()
     {
@@ -620,7 +630,71 @@ public partial class MainForm : Form
         advancedSettingsButton.Enabled = !busy;
         connectButton.Enabled = active || !connecting;
 
+        UpdateRecordButtonChrome();
+        LayoutConnectActionButtons();
+
         RefreshStatusStrip();
+    }
+
+    private void LayoutConnectActionButtons()
+    {
+        const int gap = 8;
+        const int top = 4;
+        const int height = 32;
+        const int minWidth = 96;
+        const int horizontalPadding = 8;
+
+        var maxTextWidth = 0;
+        foreach (var button in new[] { connectButton, recordButton, advancedSettingsButton })
+        {
+            var textWidth = TextRenderer.MeasureText(
+                button.Text,
+                button.Font,
+                Size.Empty,
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
+            maxTextWidth = Math.Max(maxTextWidth, textWidth + 24);
+        }
+
+        var buttonWidth = Math.Max(minWidth, maxTextWidth);
+        var x = horizontalPadding;
+        foreach (var button in new[] { connectButton, recordButton, advancedSettingsButton })
+        {
+            button.AutoSize = false;
+            button.Size = new Size(buttonWidth, height);
+            button.Location = new Point(x, top);
+            x += buttonWidth + gap;
+        }
+
+        connectActionsPanel.Width = x - gap + horizontalPadding;
+    }
+
+    private void UpdateRecordButtonChrome()
+    {
+        var active = IsSessionActive;
+        var connecting = _vncConnecting;
+        var recording = _sessionRecorder?.IsRecording == true;
+
+        if (_recordingStarting)
+        {
+            recordButton.Enabled = false;
+            recordButton.Text = "준비…";
+            UiTheme.StyleSecondaryButton(recordButton, minHeight: 32);
+        }
+        else if (recording)
+        {
+            recordButton.Enabled = true;
+            recordButton.Text = "멈춤";
+            UiTheme.StyleStopRecordButton(recordButton, minHeight: 32);
+            recordButton.ForeColor = Color.White;
+        }
+        else
+        {
+            recordButton.Enabled = active && !connecting;
+            recordButton.Text = "녹화";
+            UiTheme.StyleRecordButton(recordButton, minHeight: 32);
+        }
+
+        LayoutConnectActionButtons();
     }
 
     private void OnStatusRelatedInputChanged(object? sender, EventArgs e) => RefreshStatusStrip();
@@ -696,6 +770,12 @@ public partial class MainForm : Form
             catch (VncException ex)
             {
                 SetStatusHeadline("VNC 연결 실패");
+                if (await TryReconnectViaLanIpAfterLoopbackFailureAsync(host, port, password, settings, ex)
+                    .ConfigureAwait(true))
+                {
+                    return;
+                }
+
                 var body = ExceptionMessageFormatter.Format(
                     ex,
                     "VNC 연결에 실패했습니다.\r\nReason: " + ex.Reason);
@@ -753,7 +833,13 @@ public partial class MainForm : Form
         }
     }
 
-    private void DisconnectCurrent()
+    private async Task DisconnectCurrentAsync()
+    {
+        await StopRecordingAsync(showMessage: false);
+        DisconnectCurrentSync();
+    }
+
+    private void DisconnectCurrentSync()
     {
         if (vncRemote.Client.IsConnected)
         {
@@ -777,11 +863,16 @@ public partial class MainForm : Form
             PersistVncSettingsToUi();
         }
 
+        StopRecording(showMessage: false);
+        _recordingUiTimer?.Stop();
+        _recordingUiTimer?.Dispose();
+        _recordingUiTimer = null;
+
         if (_remoteClientsInitialized)
         {
             try
             {
-                DisconnectCurrent();
+                DisconnectCurrentSync();
             }
             catch
             {
@@ -836,7 +927,7 @@ public partial class MainForm : Form
     {
         if (IsSessionActive)
         {
-            DisconnectCurrent();
+            await DisconnectCurrentAsync();
             return;
         }
 
@@ -857,9 +948,67 @@ public partial class MainForm : Form
             return;
         }
 
+        var connectHost = host;
+        if (VncLoopbackHelper.IsLoopbackHost(host))
+        {
+            var lanIp = VncLoopbackHelper.TryGetLocalLanIpv4();
+            if (lanIp != null)
+            {
+                var useLan = ErrorDialog.ShowConfirm(
+                    this,
+                    VncLoopbackHelper.BuildPreConnectLoopbackMessage(host, lanIp),
+                    Text,
+                    confirmText: "LAN IP로 연결",
+                    cancelText: "localhost 그대로",
+                    MessageBoxIcon.Warning);
+                if (useLan)
+                {
+                    connectHost = lanIp;
+                    hostText.Text = lanIp;
+                }
+            }
+        }
+
         var settings = GetEffectiveVncSettings();
-        SaveLastConnectFields(host, port);
-        await ConnectVncAsync(host, port, passwordText.Text, settings);
+        SaveLastConnectFields(connectHost, port);
+        await ConnectVncAsync(connectHost, port, passwordText.Text, settings);
+    }
+
+    private async Task<bool> TryReconnectViaLanIpAfterLoopbackFailureAsync(
+        string host,
+        int port,
+        string password,
+        VncClientSettings settings,
+        VncException ex)
+    {
+        if (!VncLoopbackHelper.IsLoopbackConnectionError(ex.Message))
+        {
+            return false;
+        }
+
+        var lanIp = VncLoopbackHelper.TryGetLocalLanIpv4();
+        if (lanIp == null || string.Equals(host, lanIp, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var retry = ErrorDialog.ShowConfirm(
+            this,
+            VncLoopbackHelper.BuildRetryLoopbackMessage(lanIp),
+            Text,
+            confirmText: "LAN IP로 다시 연결",
+            cancelText: "닫기",
+            MessageBoxIcon.Warning);
+
+        if (!retry)
+        {
+            return false;
+        }
+
+        hostText.Text = lanIp;
+        SaveLastConnectFields(lanIp, port);
+        await ConnectVncAsync(lanIp, port, password, settings).ConfigureAwait(true);
+        return true;
     }
 
     private void OpenAdvancedSettings()
@@ -872,6 +1021,182 @@ public partial class MainForm : Form
             PersistVncSettingsToUi();
             RefreshStatusStrip();
         }
+    }
+
+    private async Task OnRecordToggleClickAsync()
+    {
+        if (_sessionRecorder?.IsRecording == true)
+        {
+            await StopRecordingAsync(showMessage: true);
+            return;
+        }
+
+        if (!IsSessionActive || _recordingStarting)
+        {
+            return;
+        }
+
+        var settings = GetEffectiveVncSettings();
+        _recordingStarting = true;
+        UpdateConnectUi();
+        SetStatusHeadline("녹화 준비 중…");
+
+        try
+        {
+            _sessionRecorder?.Dispose();
+            _sessionRecorder = new VncSessionRecorder(
+                vncRemote,
+                settings.RecordingFps,
+                settings.RecordingOutputFolder);
+            _sessionRecorder.StatusChanged += OnRecorderStatusChanged;
+
+            var label = $"{hostText.Text.Trim()}_{portText.Text.Trim()}";
+            await _sessionRecorder.StartAsync(label).ConfigureAwait(true);
+
+            EnsureRecordingUiTimer();
+            SetStatusHeadline("녹화 중 — 멈춤 버튼으로 저장을 완료하세요");
+        }
+        catch (Exception ex)
+        {
+            _sessionRecorder?.Dispose();
+            _sessionRecorder = null;
+            ErrorDialog.Show(
+                this,
+                ExceptionMessageFormatter.Format(ex, "녹화를 시작할 수 없습니다."),
+                Text,
+                MessageBoxIcon.Error);
+            SetStatusHeadline("녹화 시작 실패");
+        }
+        finally
+        {
+            _recordingStarting = false;
+            UpdateConnectUi();
+            RefreshStatusStrip();
+        }
+    }
+
+    // 폼 닫기 등 동기 컨텍스트 전용 — 짧은 타임아웃(5초)으로 블로킹
+    private void StopRecording(bool showMessage)
+    {
+        if (_sessionRecorder == null || !_sessionRecorder.IsRecording) return;
+
+        _sessionRecorder.StatusChanged -= OnRecorderStatusChanged;
+        try { _sessionRecorder.Stop(); } catch { }
+
+        SetStatusHeadline(showMessage ? "녹화 완료" : "준비됨");
+        UpdateConnectUi();
+        UpdateRecordButtonChrome();
+        RefreshStatusStrip();
+    }
+
+    private async Task StopRecordingAsync(bool showMessage)
+    {
+        if (_sessionRecorder == null || !_sessionRecorder.IsRecording) return;
+
+        var path = _sessionRecorder.OutputPath;
+        var snapshot = _sessionRecorder.GetStatusSnapshot();
+        _sessionRecorder.StatusChanged -= OnRecorderStatusChanged;
+
+        // 프로그래스 다이얼로그 표시 — 비동기 저장 중 UI가 응답을 유지한다
+        using var dlg = new RecordingFinalizeDialog(snapshot.FramesWritten, snapshot.Elapsed);
+        dlg.Show(this);
+
+        Exception? stopError = null;
+        try
+        {
+            await _sessionRecorder.StopAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            stopError = ex;
+        }
+
+        dlg.Close();
+
+        if (stopError != null)
+        {
+            ErrorDialog.Show(
+                this,
+                ExceptionMessageFormatter.Format(stopError, "녹화를 중지하는 중 오류가 발생했습니다."),
+                Text,
+                MessageBoxIcon.Warning);
+        }
+
+        if (showMessage && !string.IsNullOrEmpty(path))
+        {
+            var frames = _sessionRecorder.GetStatusSnapshot().FramesWritten;
+            var sizeText = TryGetFileSizeText(path);
+            var frameNote = frames == 0
+                ? "\r\n\r\n경고: 저장된 프레임이 없습니다. 연결 상태와 녹화 시간을 확인하세요."
+                : $"\r\n프레임: {frames}";
+            MessageBox.Show(
+                this,
+                $"녹화가 저장되었습니다.\r\n\r\n파일: {path}{frameNote}{sizeText}",
+                Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        SetStatusHeadline(showMessage ? "녹화 완료" : "준비됨");
+        UpdateConnectUi();
+        UpdateRecordButtonChrome();
+        RefreshStatusStrip();
+    }
+
+    private static string TryGetFileSizeText(string path)
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return "";
+            }
+
+            var len = new FileInfo(path).Length;
+            var mb = len / (1024.0 * 1024.0);
+            return $"\r\n크기: {mb:0.##} MB";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private void EnsureRecordingUiTimer()
+    {
+        _recordingUiTimer ??= new System.Windows.Forms.Timer { Interval = 500 };
+        _recordingUiTimer.Tick -= OnRecordingUiTimerTick;
+        _recordingUiTimer.Tick += OnRecordingUiTimerTick;
+        _recordingUiTimer.Start();
+    }
+
+    private void OnRecordingUiTimerTick(object? sender, EventArgs e)
+    {
+        if (_sessionRecorder?.IsRecording != true)
+        {
+            _recordingUiTimer?.Stop();
+            return;
+        }
+
+        RefreshRecordingStatusHeadline();
+    }
+
+    private void OnRecorderStatusChanged(object? sender, RecordingStatusEventArgs e) =>
+        BeginInvoke(RefreshRecordingStatusHeadline);
+
+    private void RefreshRecordingStatusHeadline()
+    {
+        if (_sessionRecorder?.IsRecording != true)
+        {
+            return;
+        }
+
+        var s = _sessionRecorder.GetStatusSnapshot();
+        var elapsed = s.Elapsed;
+        var file = string.IsNullOrEmpty(s.OutputPath) ? "" : Path.GetFileName(s.OutputPath);
+        SetStatusHeadline(
+            $"녹화 중 {elapsed:mm\\:ss} · 프레임 {s.FramesWritten} · {file}");
+        RefreshStatusStrip();
     }
 
     private void LoadProfilesAndHistory()

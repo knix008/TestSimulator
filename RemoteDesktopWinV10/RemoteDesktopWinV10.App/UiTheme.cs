@@ -16,6 +16,7 @@ internal static class UiTheme
     public static readonly Color TextMuted = Color.FromArgb(96, 96, 96);
     public static readonly Color Accent = Color.FromArgb(0, 120, 212);
     public static readonly Color AccentDisconnect = Color.FromArgb(196, 43, 28);
+    public static readonly Color AccentRecord = Color.FromArgb(22, 163, 74);
     public static readonly Color BorderSubtle = Color.FromArgb(218, 218, 218);
 
     private static readonly ToolStripRenderer LightToolStripRenderer =
@@ -157,6 +158,35 @@ internal static class UiTheme
         b.Padding = new Padding(12, 4, 12, 4);
     }
 
+    public static void StyleRecordButton(Button b, int minHeight = 32)
+    {
+        StylePrimaryButton(b, minHeight);
+        var fill = AccentRecord;
+        b.BackColor = fill;
+        b.ForeColor = Color.White;
+        b.FlatAppearance.MouseOverBackColor = ControlPaint.Light(fill, 0.12f);
+        b.FlatAppearance.MouseDownBackColor = ControlPaint.Light(fill, 0.22f);
+        b.MinimumSize = new Size(96, minHeight);
+    }
+
+    public static void StyleStopRecordButton(Button b, int minHeight = 32)
+    {
+        b.Font = UiFont;
+        b.FlatStyle = FlatStyle.Flat;
+        b.UseVisualStyleBackColor = false;
+        b.FlatAppearance.BorderSize = 0;
+        var fill = AccentDisconnect;
+        b.BackColor = fill;
+        b.ForeColor = Color.White;
+        b.Cursor = Cursors.Hand;
+        b.FlatAppearance.MouseOverBackColor = ControlPaint.Light(fill, 0.12f);
+        b.FlatAppearance.MouseDownBackColor = ControlPaint.Light(fill, 0.22f);
+        b.AutoSize = false;
+        b.Height = Math.Max(b.Height, minHeight);
+        b.Padding = new Padding(12, 4, 12, 4);
+        b.MinimumSize = new Size(96, minHeight);
+    }
+
     public static void StyleDangerOutlineButton(Button b, int minHeight = 30)
     {
         b.Font = UiFont;
@@ -181,8 +211,7 @@ internal static class UiTheme
         b.BackColor = fill;
         b.FlatAppearance.MouseOverBackColor = ControlPaint.Light(fill, 0.12f);
         b.FlatAppearance.MouseDownBackColor = ControlPaint.Light(fill, 0.22f);
-        b.MinimumSize = new Size(104, 32);
-        b.Width = Math.Max(b.Width, sessionActive ? 112 : 96);
+        b.MinimumSize = new Size(96, 32);
     }
 
     /// <summary>세션 수립 중(서버 응답 대기)일 때 연결 버튼 표시.</summary>
@@ -199,10 +228,9 @@ internal static class UiTheme
         b.FlatAppearance.MouseOverBackColor = fill;
         b.FlatAppearance.MouseDownBackColor = fill;
         b.AutoSize = false;
-        b.MinimumSize = new Size(120, 32);
+        b.MinimumSize = new Size(96, 32);
         b.Height = Math.Max(b.Height, 32);
         b.Padding = new Padding(12, 4, 12, 4);
-        b.Width = Math.Max(b.Width, 120);
     }
 
     public static void StyleConnectToolStripButton(ToolStripButton b, bool sessionActive)

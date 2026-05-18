@@ -27,6 +27,9 @@ public sealed class UiSettings
     public bool VncUseTls { get; set; }
     public bool VncIgnoreTlsCertErrors { get; set; }
 
+    public int RecordingFps { get; set; } = 15;
+    public string? RecordingOutputFolder { get; set; }
+
     public VncClientSettings ToVncClientSettings()
     {
         if (!Enum.TryParse<VncScaleMode>(VncSizeMode, ignoreCase: true, out var mode))
@@ -46,6 +49,8 @@ public sealed class UiSettings
             MaxUpdateRate = VncMaxFps > 0 ? VncMaxFps : 15,
             UseTls = VncUseTls,
             IgnoreTlsCertErrors = VncIgnoreTlsCertErrors,
+            RecordingFps = RecordingFps > 0 ? RecordingFps : 15,
+            RecordingOutputFolder = RecordingOutputFolder,
         };
     }
 
@@ -61,5 +66,7 @@ public sealed class UiSettings
         VncMaxFps = settings.MaxUpdateRate > 0 ? (int)settings.MaxUpdateRate : 0;
         VncUseTls = settings.UseTls;
         VncIgnoreTlsCertErrors = settings.IgnoreTlsCertErrors;
+        RecordingFps = settings.RecordingFps > 0 ? settings.RecordingFps : 15;
+        RecordingOutputFolder = settings.RecordingOutputFolder;
     }
 }

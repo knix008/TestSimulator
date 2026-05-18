@@ -17,6 +17,13 @@ partial class VncAdvancedSettingsDialog
     private ComboBox vncMaxFpsCombo;
     private CheckBox vncUseTlsCheck;
     private CheckBox vncIgnoreTlsCertCheck;
+    private GroupBox groupRecording;
+    private Label labelRecordingFps;
+    private ComboBox recordingFpsCombo;
+    private Label labelRecordingFolder;
+    private TextBox recordingFolderText;
+    private Button recordingFolderBrowseButton;
+    private Label labelRecordingHint;
     private Button buttonOk;
     private Button buttonCancel;
 
@@ -44,9 +51,17 @@ partial class VncAdvancedSettingsDialog
         vncMaxFpsCombo = new ComboBox();
         vncUseTlsCheck = new CheckBox();
         vncIgnoreTlsCertCheck = new CheckBox();
+        groupRecording = new GroupBox();
+        labelRecordingFps = new Label();
+        recordingFpsCombo = new ComboBox();
+        labelRecordingFolder = new Label();
+        recordingFolderText = new TextBox();
+        recordingFolderBrowseButton = new Button();
+        labelRecordingHint = new Label();
         buttonOk = new Button();
         buttonCancel = new Button();
         groupVncOptions.SuspendLayout();
+        groupRecording.SuspendLayout();
         SuspendLayout();
 
         groupVncOptions.Controls.Add(vncViewOnlyCheck);
@@ -139,14 +154,58 @@ partial class VncAdvancedSettingsDialog
         vncIgnoreTlsCertCheck.Text = "인증서 오류 무시";
         vncIgnoreTlsCertCheck.UseVisualStyleBackColor = true;
 
+        groupRecording.Controls.Add(labelRecordingFps);
+        groupRecording.Controls.Add(recordingFpsCombo);
+        groupRecording.Controls.Add(labelRecordingFolder);
+        groupRecording.Controls.Add(recordingFolderText);
+        groupRecording.Controls.Add(recordingFolderBrowseButton);
+        groupRecording.Controls.Add(labelRecordingHint);
+        groupRecording.Location = new Point(12, 158);
+        groupRecording.Name = "groupRecording";
+        groupRecording.Padding = new Padding(8);
+        groupRecording.Size = new Size(520, 96);
+        groupRecording.TabIndex = 1;
+        groupRecording.TabStop = false;
+        groupRecording.Text = "화면 녹화 (H.264 MP4)";
+
+        labelRecordingFps.AutoSize = true;
+        labelRecordingFps.Location = new Point(12, 28);
+        labelRecordingFps.Text = "녹화 FPS:";
+
+        recordingFpsCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        recordingFpsCombo.FormattingEnabled = true;
+        recordingFpsCombo.Items.AddRange(new object[] { "30 fps", "24 fps", "15 fps", "10 fps", "5 fps" });
+        recordingFpsCombo.Location = new Point(88, 24);
+        recordingFpsCombo.Size = new Size(120, 23);
+        recordingFpsCombo.SelectedIndex = 2;
+
+        labelRecordingFolder.AutoSize = true;
+        labelRecordingFolder.Location = new Point(12, 56);
+        labelRecordingFolder.Text = "저장 폴더:";
+
+        recordingFolderText.Location = new Point(88, 52);
+        recordingFolderText.Size = new Size(332, 23);
+        recordingFolderText.PlaceholderText = "비워 두면 동영상\\RemoteDesktopWinV10";
+
+        recordingFolderBrowseButton.Location = new Point(426, 50);
+        recordingFolderBrowseButton.Size = new Size(74, 27);
+        recordingFolderBrowseButton.Text = "찾아보기…";
+        recordingFolderBrowseButton.UseVisualStyleBackColor = true;
+
+        labelRecordingHint.AutoSize = false;
+        labelRecordingHint.Location = new Point(220, 26);
+        labelRecordingHint.Size = new Size(280, 36);
+        labelRecordingHint.Text = "Windows Media Foundation H.264 인코더를 사용합니다. 별도 코덱 설치가 필요 없습니다.";
+        labelRecordingHint.ForeColor = System.Drawing.SystemColors.GrayText;
+
         buttonOk.DialogResult = DialogResult.OK;
-        buttonOk.Location = new Point(356, 164);
+        buttonOk.Location = new Point(356, 268);
         buttonOk.Size = new Size(80, 32);
         buttonOk.Text = "확인";
         buttonOk.UseVisualStyleBackColor = true;
 
         buttonCancel.DialogResult = DialogResult.Cancel;
-        buttonCancel.Location = new Point(452, 164);
+        buttonCancel.Location = new Point(452, 268);
         buttonCancel.Size = new Size(80, 32);
         buttonCancel.Text = "취소";
         buttonCancel.UseVisualStyleBackColor = true;
@@ -155,8 +214,9 @@ partial class VncAdvancedSettingsDialog
         CancelButton = buttonCancel;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(544, 208);
+        ClientSize = new Size(544, 312);
         Controls.Add(groupVncOptions);
+        Controls.Add(groupRecording);
         Controls.Add(buttonOk);
         Controls.Add(buttonCancel);
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -168,6 +228,8 @@ partial class VncAdvancedSettingsDialog
 
         groupVncOptions.ResumeLayout(false);
         groupVncOptions.PerformLayout();
+        groupRecording.ResumeLayout(false);
+        groupRecording.PerformLayout();
         ResumeLayout(false);
         PerformLayout();
     }
