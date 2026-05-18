@@ -38,6 +38,9 @@ internal static class NativeMethods
     public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
 
     public const int WM_NCLBUTTONDOWN = 0xA1;
+    public const int WM_SETICON      = 0x0080;
+    public const int ICON_SMALL      = 0;
+    public const int ICON_BIG        = 1;
     public const int HT_CAPTION       = 0x2;
 
     // ── Window capture ───────────────────────────────────────────────────────

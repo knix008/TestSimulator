@@ -13,8 +13,8 @@
     <MajorUpgrade DowngradeErrorMessage="이미 최신 버전의 [ProductName]이(가) 설치되어 있습니다." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="low" />
 
-    <!-- 바로가기·프로그램 추가/제거 아이콘: daemon_hammer.ico -->
-    <Icon Id="AppIcon.ico" SourceFile="..\daemon_hammer.ico" />
+    <!-- 바로가기·프로그램 추가/제거 아이콘: 앱과 동일한 프로젝트 루트 daemon_hammer.ico -->
+    <Icon Id="AppIcon.ico" SourceFile="$(var.ScreenCamWin.ProjectDir)daemon_hammer.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
     <Property Id="ARPCOMMENTS" Value="화면 녹화 (ScreenCamWin V10)" />
 

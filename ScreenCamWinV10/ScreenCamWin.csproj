@@ -20,7 +20,7 @@
   <ItemGroup>
     <!-- Icon file: copied to output so it can be loaded at runtime if needed -->
     <Content Include="daemon_hammer.ico">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <!-- MainForm.resx is auto-included by the SDK as EmbeddedResource -->
     <!-- DependentUpon metadata only (no duplicate Include needed) -->

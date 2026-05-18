@@ -17,6 +17,7 @@ public partial class MainForm : Form
     private bool _isRecording;
     private bool _hiddenForDesktopCapture;
     private NotifyIcon? _recordingTray;
+    private Icon? _formIcon;
 
     public MainForm()
     {
@@ -24,25 +25,64 @@ public partial class MainForm : Form
         SetDaemonHammerIcon();
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        ApplyTaskbarIcon();
+    }
+
+    static string? DaemonHammerIconPath
+    {
+        get
+        {
+            foreach (string dir in new[]
+            {
+                AppContext.BaseDirectory,
+                AppDomain.CurrentDomain.BaseDirectory,
+            })
+            {
+                string path = Path.Combine(dir, "daemon_hammer.ico");
+                if (File.Exists(path))
+                    return path;
+            }
+            return null;
+        }
+    }
+
     void SetDaemonHammerIcon()
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "daemon_hammer.ico");
-        if (!File.Exists(path))
+        string? path = DaemonHammerIconPath;
+        if (path is null)
             return;
 
-        using var fileIcon = new Icon(path);
-        Icon = (Icon)fileIcon.Clone();
+        _formIcon?.Dispose();
+        _formIcon = new Icon(path);
+        Icon = (Icon)_formIcon.Clone();
 
         const int titleIconPx = 22;
-        using var sized = new Icon(fileIcon, new Size(titleIconPx, titleIconPx));
+        using var sized = new Icon(_formIcon, new Size(titleIconPx, titleIconPx));
         picAppIcon.Image?.Dispose();
         picAppIcon.Image = sized.ToBitmap();
+
+        ApplyTaskbarIcon();
+    }
+
+    void ApplyTaskbarIcon()
+    {
+        if (!IsHandleCreated || Icon is null)
+            return;
+
+        NativeMethods.SendMessage(Handle, NativeMethods.WM_SETICON,
+            (IntPtr)NativeMethods.ICON_SMALL, Icon.Handle);
+        NativeMethods.SendMessage(Handle, NativeMethods.WM_SETICON,
+            (IntPtr)NativeMethods.ICON_BIG, Icon.Handle);
     }
 
     // ── Form load ────────────────────────────────────────────────────────────
 
     private void MainForm_Load(object? sender, EventArgs e)
     {
+        ApplyTaskbarIcon();
         ApplyLabelTheme();
         RefreshWindowList();
         LoadCodecList();
@@ -517,6 +557,10 @@ public partial class MainForm : Form
         _recorder?.Dispose();
         _uiTimer.Dispose();
         _prevTimer.Dispose();
+
+        picAppIcon.Image?.Dispose();
+        _formIcon?.Dispose();
+        _formIcon = null;
 
         base.OnFormClosed(e);
     }

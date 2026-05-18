@@ -139,7 +139,7 @@ partial class MainForm
         lblAppName.ForeColor = Color.FromArgb(248, 250, 252);
         lblAppName.Location = new Point(44, 11);
         lblAppName.Name = "lblAppName";
-        lblAppName.Size = new Size(108, 20);
+        lblAppName.Size = new Size(114, 20);
         lblAppName.TabIndex = 1;
         lblAppName.Text = "ScreenCamWin";
         lblAppName.MouseDown += TitleBar_MouseDown;
@@ -207,7 +207,7 @@ partial class MainForm
         cboWindow.FlatStyle = FlatStyle.Flat;
         cboWindow.Font = new Font("Segoe UI", 9F);
         cboWindow.ForeColor = Color.FromArgb(248, 250, 252);
-        cboWindow.Location = new Point(10, 30);
+        cboWindow.Location = new Point(10, 33);
         cboWindow.Name = "cboWindow";
         cboWindow.Size = new Size(416, 23);
         cboWindow.TabIndex = 1;
@@ -317,7 +317,7 @@ partial class MainForm
         lblCodecStatus.AutoSize = true;
         lblCodecStatus.Font = new Font("Segoe UI", 8.5F);
         lblCodecStatus.ForeColor = Color.FromArgb(34, 197, 94);
-        lblCodecStatus.Location = new Point(218, 36);
+        lblCodecStatus.Location = new Point(218, 34);
         lblCodecStatus.Name = "lblCodecStatus";
         lblCodecStatus.Size = new Size(68, 15);
         lblCodecStatus.TabIndex = 2;
@@ -331,7 +331,7 @@ partial class MainForm
         btnInstallCodec.FlatStyle = FlatStyle.Flat;
         btnInstallCodec.Font = new Font("Segoe UI", 8.5F);
         btnInstallCodec.ForeColor = Color.FromArgb(248, 250, 252);
-        btnInstallCodec.Location = new Point(430, 30);
+        btnInstallCodec.Location = new Point(430, 27);
         btnInstallCodec.Name = "btnInstallCodec";
         btnInstallCodec.Size = new Size(72, 30);
         btnInstallCodec.TabIndex = 3;
@@ -458,7 +458,7 @@ partial class MainForm
         txtOutput.BorderStyle = BorderStyle.FixedSingle;
         txtOutput.Font = new Font("Segoe UI", 9F);
         txtOutput.ForeColor = Color.FromArgb(248, 250, 252);
-        txtOutput.Location = new Point(78, 117);
+        txtOutput.Location = new Point(75, 117);
         txtOutput.Name = "txtOutput";
         txtOutput.Size = new Size(352, 23);
         txtOutput.TabIndex = 8;
@@ -471,7 +471,7 @@ partial class MainForm
         btnBrowse.FlatStyle = FlatStyle.Flat;
         btnBrowse.Font = new Font("Segoe UI", 8F);
         btnBrowse.ForeColor = Color.FromArgb(148, 163, 184);
-        btnBrowse.Location = new Point(436, 112);
+        btnBrowse.Location = new Point(437, 112);
         btnBrowse.Name = "btnBrowse";
         btnBrowse.Size = new Size(66, 34);
         btnBrowse.TabIndex = 9;
@@ -488,7 +488,7 @@ partial class MainForm
         chkCursor.Cursor = Cursors.Hand;
         chkCursor.Font = new Font("Segoe UI", 9F);
         chkCursor.ForeColor = Color.FromArgb(248, 250, 252);
-        chkCursor.Location = new Point(14, 582);
+        chkCursor.Location = new Point(16, 585);
         chkCursor.Name = "chkCursor";
         chkCursor.Size = new Size(116, 19);
         chkCursor.TabIndex = 5;
@@ -526,7 +526,7 @@ partial class MainForm
         lblTimer.AutoSize = true;
         lblTimer.Font = new Font("Consolas", 16F, FontStyle.Bold);
         lblTimer.ForeColor = Color.FromArgb(248, 250, 252);
-        lblTimer.Location = new Point(357, 17);
+        lblTimer.Location = new Point(362, 19);
         lblTimer.Name = "lblTimer";
         lblTimer.Size = new Size(108, 26);
         lblTimer.TabIndex = 1;
@@ -537,7 +537,7 @@ partial class MainForm
         lblStatus.AutoSize = true;
         lblStatus.Font = new Font("Segoe UI", 8.5F);
         lblStatus.ForeColor = Color.FromArgb(148, 163, 184);
-        lblStatus.Location = new Point(14, 684);
+        lblStatus.Location = new Point(14, 690);
         lblStatus.Name = "lblStatus";
         lblStatus.Size = new Size(43, 15);
         lblStatus.TabIndex = 7;
@@ -557,13 +557,14 @@ partial class MainForm
         Controls.Add(lblStatus);
         FormBorderStyle = FormBorderStyle.None;
         MinimumSize = new Size(540, 758);
+        ShowIcon = true;
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "ScreenCamWin";
         Load += MainForm_Load;
-        ((System.ComponentModel.ISupportInitialize)picAppIcon).EndInit();
         pnlTitle.ResumeLayout(false);
         pnlTitle.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)picAppIcon).EndInit();
         pnlSource.ResumeLayout(false);
         pnlSource.PerformLayout();
         pnlPreview.ResumeLayout(false);
