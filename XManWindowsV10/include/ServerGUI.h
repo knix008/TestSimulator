@@ -65,7 +65,7 @@ private:
     HBRUSH m_hBkBrush  = nullptr;
 };
 
-// std::cout / std::cerr → ServerGUI::Log 리디렉터
+// std::cout / std::cerr → ServerGUI::Log 리디렉터 (thread-safe)
 class GUILogBuf : public std::streambuf
 {
 public:
@@ -78,8 +78,9 @@ protected:
 
 private:
     void flush();
-    ServerGUI   *m_gui;
-    std::string  m_buf;
+    ServerGUI        *m_gui;
+    std::string       m_buf;
+    std::mutex        m_mutex; // 멀티스레드 보호
 };
 
 } // namespace XMan
