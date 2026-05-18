@@ -18,8 +18,7 @@
 
 ## NuGet
 *.nupkg
-**/packages/*
-!**/packages/build/
+**/packages/
 
 ## Test / coverage
 TestResults/
@@ -45,4 +44,3 @@ appsettings.*.local.json
 
 # Etc.
 .claude/
-.vs/
