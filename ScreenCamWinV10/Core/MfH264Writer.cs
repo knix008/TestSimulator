@@ -5,33 +5,44 @@ namespace ScreenCamWin.Core;
 
 file static class MfVideoGuids
 {
-    public static readonly Guid H264 = new("34363248-0000-0010-8000-00AA00389B71"); // MFVideoFormat_H264
-    public static readonly Guid NV12 = new("3231564E-0000-0010-8000-00AA00389B71"); // MFVideoFormat_NV12
+    public static readonly Guid H264 = new("34363248-0000-0010-8000-00AA00389B71");
+    public static readonly Guid NV12 = new("3231564E-0000-0010-8000-00AA00389B71");
+}
+
+file static class MfAudioGuids
+{
+    public static readonly Guid Aac = new("000000FF-0000-0010-8000-00AA00389B71");
+    public static readonly Guid Pcm = new("00000001-0000-0010-8000-00AA00389B71");
 }
 
 /// <summary>
 /// Encodes BGR24 frames to H.264 MP4 using Windows Media Foundation (Vortice bindings).
+/// Optional AAC audio from microphone PCM.
 /// </summary>
 internal sealed class MfH264Writer : IDisposable
 {
     private IMFSinkWriter? _writer;
-    private int    _streamIndex;
+    private int    _videoStreamIndex;
+    private int    _audioStreamIndex = -1;
     private long   _timestamp;
+    private long   _audioSamplePosition;
     private readonly long _frameDuration;
     private readonly int  _width, _height;
+    private readonly bool _withAudio;
     private bool _finalized;
     private bool _mfStarted;
 
     const int MF_E_NOTACCEPTING = unchecked((int)0xC00D36B5);
 
-    public MfH264Writer(string path, int width, int height, int fps, int bitrateBps = 4_000_000)
+    public MfH264Writer(string path, int width, int height, int fps, bool withAudio, int bitrateBps = 4_000_000)
     {
         if (width < 16 || height < 16 || (width & 15) != 0 || (height & 15) != 0)
             throw new ArgumentException(
                 $"H.264 인코더는 가로·세로가 16의 배수여야 합니다 (현재 {width}x{height}).");
 
-        _width  = width;
-        _height = height;
+        _width      = width;
+        _height     = height;
+        _withAudio  = withAudio;
         _frameDuration = 10_000_000L / fps;
 
         string outPath = Path.GetFullPath(path);
@@ -57,7 +68,7 @@ internal sealed class MfH264Writer : IDisposable
             outType.Set(MediaTypeAttributeKeys.FrameRate, PackRatio(fps, 1));
             outType.Set(MediaTypeAttributeKeys.PixelAspectRatio, PackRatio(1, 1));
 
-            _streamIndex = (int)_writer.AddStream(outType);
+            _videoStreamIndex = (int)_writer.AddStream(outType);
 
             using var inType = MediaFactory.MFCreateMediaType();
             inType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
@@ -68,7 +79,11 @@ internal sealed class MfH264Writer : IDisposable
             inType.Set(MediaTypeAttributeKeys.PixelAspectRatio, PackRatio(1, 1));
             inType.Set(MediaTypeAttributeKeys.DefaultStride, (uint)width);
 
-            _writer.SetInputMediaType(_streamIndex, inType, null);
+            _writer.SetInputMediaType(_videoStreamIndex, inType, null);
+
+            if (_withAudio)
+                ConfigureAudioStream();
+
             _writer.BeginWriting();
         }
         catch
@@ -78,6 +93,33 @@ internal sealed class MfH264Writer : IDisposable
             ShutdownMf();
             throw;
         }
+    }
+
+    void ConfigureAudioStream()
+    {
+        ushort blockAlign = (ushort)(MicrophoneCapture.Channels * MicrophoneCapture.BitsPerSample / 8);
+        uint avgBytes = (uint)(MicrophoneCapture.SampleRate * blockAlign);
+
+        using var audioOut = MediaFactory.MFCreateMediaType();
+        audioOut.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio);
+        audioOut.Set(MediaTypeAttributeKeys.Subtype, MfAudioGuids.Aac);
+        audioOut.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)MicrophoneCapture.Channels);
+        audioOut.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)MicrophoneCapture.SampleRate);
+        audioOut.Set(MediaTypeAttributeKeys.AudioBitsPerSample, (uint)MicrophoneCapture.BitsPerSample);
+        audioOut.Set(MediaTypeAttributeKeys.AvgBitrate, 128_000u);
+
+        _audioStreamIndex = (int)_writer!.AddStream(audioOut);
+
+        using var audioIn = MediaFactory.MFCreateMediaType();
+        audioIn.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio);
+        audioIn.Set(MediaTypeAttributeKeys.Subtype, MfAudioGuids.Pcm);
+        audioIn.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)MicrophoneCapture.Channels);
+        audioIn.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)MicrophoneCapture.SampleRate);
+        audioIn.Set(MediaTypeAttributeKeys.AudioBitsPerSample, (uint)MicrophoneCapture.BitsPerSample);
+        audioIn.Set(MediaTypeAttributeKeys.AudioBlockAlignment, blockAlign);
+        audioIn.Set(MediaTypeAttributeKeys.AudioAvgBytesPerSecond, avgBytes);
+
+        _writer.SetInputMediaType(_audioStreamIndex, audioIn, null);
     }
 
     public void WriteFrame(byte[] bgr24)
@@ -104,9 +146,46 @@ internal sealed class MfH264Writer : IDisposable
         sample.SampleTime     = _timestamp;
         sample.SampleDuration = _frameDuration;
 
-        WriteSampleWithRetry(sample);
+        WriteSampleWithRetry(_videoStreamIndex, sample);
 
         _timestamp += _frameDuration;
+    }
+
+    public long AudioBytesWritten =>
+        _audioSamplePosition * MicrophoneCapture.Channels * MicrophoneCapture.BitsPerSample / 8;
+
+    public void WriteAudioPcm(byte[] pcm, int byteCount)
+    {
+        if (_finalized || !_withAudio || _audioStreamIndex < 0 || byteCount <= 0)
+            return;
+        if (_writer is null) throw new ObjectDisposedException(nameof(MfH264Writer));
+
+        int blockAlign = MicrophoneCapture.Channels * MicrophoneCapture.BitsPerSample / 8;
+        int samples    = byteCount / blockAlign;
+        if (samples <= 0) return;
+
+        long duration = samples * 10_000_000L / MicrophoneCapture.SampleRate;
+        long time     = _audioSamplePosition * 10_000_000L / MicrophoneCapture.SampleRate;
+
+        using var buffer = MediaFactory.MFCreateMemoryBuffer(byteCount);
+        buffer.Lock(out IntPtr pData, out _, out _);
+        try
+        {
+            Marshal.Copy(pcm, 0, pData, byteCount);
+        }
+        finally
+        {
+            buffer.Unlock();
+        }
+        buffer.CurrentLength = byteCount;
+
+        using var sample = MediaFactory.MFCreateSample();
+        sample.AddBuffer(buffer);
+        sample.SampleTime     = time;
+        sample.SampleDuration = duration;
+
+        WriteSampleWithRetry(_audioStreamIndex, sample);
+        _audioSamplePosition += samples;
     }
 
     public void FinalizeFile()
@@ -124,21 +203,21 @@ internal sealed class MfH264Writer : IDisposable
         ShutdownMf();
     }
 
-    void WriteSampleWithRetry(IMFSample sample)
+    void WriteSampleWithRetry(int streamIndex, IMFSample sample)
     {
-        for (int attempt = 0; attempt < 50; attempt++)
+        for (int attempt = 0; attempt < 30; attempt++)
         {
             try
             {
-                _writer!.WriteSample(_streamIndex, sample);
+                _writer!.WriteSample(streamIndex, sample);
                 return;
             }
             catch (COMException ex) when (ex.HResult == MF_E_NOTACCEPTING)
             {
-                Thread.Sleep(2);
+                Thread.Sleep(5);
             }
         }
-        throw new COMException("MF 오류 (WriteSample — 인코더 버퍼 대기 시간 초과)", MF_E_NOTACCEPTING);
+        // Drop sample instead of aborting recording (burst audio used to freeze MF).
     }
 
     void ShutdownMf()

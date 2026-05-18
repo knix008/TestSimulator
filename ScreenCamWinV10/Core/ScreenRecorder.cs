@@ -6,14 +6,25 @@ namespace ScreenCamWin.Core;
 public sealed class ScreenRecorder : IDisposable
 {
     private readonly RecordingSettings _s;
-    private Thread?        _thread;
+    private Thread? _thread;
     private CancellationTokenSource? _cts;
-    private int  _captureW, _captureH;
+    private int _captureW, _captureH;
     private volatile bool _isRecording;
 
-    // Init synchronisation
     private ManualResetEventSlim _initSignal = new(false);
     private Exception? _initError;
+
+    private MicrophoneCapture? _mic;
+    private MicWavWriter? _wavWriter;
+    private Action<float>? _micLevelHandler;
+
+    private RecordingOutputPaths? _outputPaths;
+    private string? _tempDirectory;
+    private string? _videoPath;
+    private string? _audioPath;
+    private int _videoFrameCount;
+
+    private RecordingStopResult? _lastStopResult;
 
     private static readonly ImageCodecInfo _jpegCodec =
         ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
@@ -23,51 +34,66 @@ public sealed class ScreenRecorder : IDisposable
 
     public event EventHandler<TimeSpan>?  Elapsed;
     public event EventHandler<Exception>? Error;
+    public event Action<float>? MicLevel;
 
     public ScreenRecorder(RecordingSettings settings) => _s = settings;
 
-    // ── Start / Stop ─────────────────────────────────────────────────────────
+    public RecordingStopResult? GetStopResult() => _lastStopResult;
+
+    public void SetMicrophoneGain(int gainPercent)
+    {
+        if (_mic is not null)
+            _mic.InputGain = Math.Clamp(gainPercent, 0, 100) / 100f;
+    }
 
     public void Start()
     {
         if (_isRecording) return;
 
-        // Probe frame → actual render dimensions (avoids DPI/PrintWindow discrepancy)
+        if (_s.CaptureMicrophone && string.IsNullOrWhiteSpace(_s.MicrophoneDeviceId))
+            throw new InvalidOperationException("마이크 장치를 선택해 주세요.");
+
         using (var probe = ScreenCapture.Capture(_s.Target))
         {
             _captureW = (probe.Width  / 2) * 2;
             _captureH = (probe.Height / 2) * 2;
             if (_s.Codec.Kind == VideoCodecKind.H264_MF)
             {
-                // Windows H.264 MFT requires macroblock-aligned (16px) dimensions.
                 _captureW = (_captureW / 16) * 16;
                 _captureH = (_captureH / 16) * 16;
             }
         }
+
         int minSize = _s.Codec.Kind == VideoCodecKind.H264_MF ? 16 : 2;
         if (_captureW < minSize || _captureH < minSize)
             throw new InvalidOperationException("캡처 영역이 너무 작습니다.");
 
-        // Validate output extension for H.264
-        if (_s.Codec.Kind == VideoCodecKind.H264_MF &&
-            !_s.OutputPath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+        _outputPaths = _s.OutputPaths
+            ?? RecordingPathHelper.CreateSessionPaths(_s.OutputPath, _s.CaptureMicrophone, _s.Codec.Kind);
+
+        if (_s.Codec.Kind == VideoCodecKind.H264_MF && _s.CaptureMicrophone
+            && _outputPaths.MergedPath is not null
+            && !_outputPaths.MergedPath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
-                "H.264 (Windows 내장) 코덱은 .mp4 파일로 저장해야 합니다.\n" +
-                "출력 경로의 확장자를 .mp4 로 변경해 주세요.");
+                "H.264 (Windows 내장) 코덱은 합친 동영상이 .mp4 여야 합니다.");
+
+        Directory.CreateDirectory(_outputPaths.SessionDirectory);
+        SetupOutputPaths();
 
         _initSignal.Reset();
-        _initError   = null;
-        _cts         = new CancellationTokenSource();
-        _isRecording = true;
+        _initError        = null;
+        _lastStopResult   = null;
+        _cts              = new CancellationTokenSource();
+        _isRecording      = true;
 
         _thread = new Thread(RecordingMain)
         {
             IsBackground = true,
             Name         = "ScreenCaptureThread",
         };
+        _thread.SetApartmentState(ApartmentState.STA);
         _thread.Start();
 
-        // Wait up to 10 s for the recording thread to finish initialisation
         _initSignal.Wait(10_000);
         if (_initError != null)
         {
@@ -77,49 +103,84 @@ public sealed class ScreenRecorder : IDisposable
         }
     }
 
+    void SetupOutputPaths()
+    {
+        _tempDirectory = null;
+        _audioPath     = null;
+
+        if (_s.CaptureMicrophone)
+        {
+            _tempDirectory = Path.Combine(Path.GetTempPath(), "ScreenCamWin", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_tempDirectory);
+
+            string ext = Path.GetExtension(_outputPaths!.VideoPath);
+            _videoPath = Path.Combine(_tempDirectory, "video" + ext);
+            _audioPath = Path.Combine(_tempDirectory, "audio.wav");
+        }
+        else
+        {
+            _videoPath = _outputPaths!.VideoPath;
+        }
+    }
+
     public void Stop()
     {
         if (!_isRecording) return;
         _isRecording = false;
         _cts?.Cancel();
-        _thread?.Join(4000);
+        _thread?.Join(8000);
         _thread = null;
     }
 
-    // ── Recording thread ──────────────────────────────────────────────────────
-
-    private void RecordingMain()
+    void RecordingMain()
     {
-        // ALL COM / MF / VFW objects are created here on this MTA thread.
-        AviContainer?  avi = null;
-        MfH264Writer?  mf  = null;
+        AviContainer? avi = null;
+        MfH264Writer? mf  = null;
+        bool separateAudio = _s.CaptureMicrophone;
 
         try
         {
+            if (separateAudio)
+            {
+                _mic = new MicrophoneCapture
+                {
+                    InputGain = Math.Clamp(_s.MicrophoneGain, 0, 100) / 100f,
+                };
+                _micLevelHandler = level => MicLevel?.Invoke(level);
+                _mic.LevelChanged += _micLevelHandler;
+            }
+
             switch (_s.Codec.Kind)
             {
                 case VideoCodecKind.H264_MF:
-                    mf = new MfH264Writer(_s.OutputPath, _captureW, _captureH, _s.Fps);
+                    mf = new MfH264Writer(_videoPath!, _captureW, _captureH, _s.Fps, withAudio: false);
                     break;
 
                 case VideoCodecKind.Mjpeg:
-                    avi = new AviContainer(_s.OutputPath, _captureW, _captureH, _s.Fps);
+                    avi = new AviContainer(_videoPath!, _captureW, _captureH, _s.Fps, withAudio: false);
                     avi.WriteFileHeader(AviContainer.ParseFourCC("MJPG"),
-                                        AviContainer.MakeMjpegStrf(_captureW, _captureH));
+                        AviContainer.MakeMjpegStrf(_captureW, _captureH));
                     break;
 
                 case VideoCodecKind.Uncompressed:
-                    avi = new AviContainer(_s.OutputPath, _captureW, _captureH, _s.Fps);
+                    avi = new AviContainer(_videoPath!, _captureW, _captureH, _s.Fps, withAudio: false);
                     avi.WriteFileHeader(0u, MakeRgbStrf(_captureW, _captureH));
                     break;
             }
 
-            _initSignal.Set(); // ← signal success to Start()
+            _initSignal.Set();
 
-            // Let the host hide its window before the first desktop frame.
             if (_s.Target.IsDesktop)
                 Thread.Sleep(350);
 
+            if (separateAudio)
+            {
+                _wavWriter = new MicWavWriter(_audioPath!);
+                _mic!.StartRecording(_s.MicrophoneDeviceId, (buffer, count) =>
+                    _wavWriter.Write(buffer, count));
+            }
+
+            _videoFrameCount = 0;
             CaptureLoop(_cts!.Token, avi, mf);
         }
         catch (Exception ex)
@@ -127,7 +188,7 @@ public sealed class ScreenRecorder : IDisposable
             if (!_initSignal.IsSet)
             {
                 _initError = ex;
-                _initSignal.Set(); // ← signal failure to Start()
+                _initSignal.Set();
             }
             else if (!(_cts?.IsCancellationRequested ?? true))
             {
@@ -138,16 +199,44 @@ public sealed class ScreenRecorder : IDisposable
         }
         finally
         {
-            // Dispose everything on this thread (important for COM objects)
+            try { _mic?.StopAcceptingSamples(); } catch { }
+            try { _mic?.Stop(); } catch { }
+
+            try { _wavWriter?.Dispose(); } catch { }
+            _wavWriter = null;
+
+            if (separateAudio && _audioPath is not null && File.Exists(_audioPath) && _videoFrameCount > 0)
+            {
+                long pcmBytes = Math.Max(0, new FileInfo(_audioPath).Length - 44);
+                long expected = WavFileHelper.ExpectedPcmBytesForVideo(_videoFrameCount, _s.Fps);
+                if (pcmBytes > 0 && expected > 0)
+                    WavFileHelper.TrimToDataBytes(_audioPath, expected);
+            }
+
             try { avi?.FinalizeFile(); mf?.FinalizeFile(); } catch { }
             avi?.Dispose();
             mf?.Dispose();
+
+            if (_mic is not null && _micLevelHandler is not null)
+                _mic.LevelChanged -= _micLevelHandler;
+            _micLevelHandler = null;
+            _mic?.Dispose();
+            _mic = null;
+
+            _lastStopResult = BuildStopResult();
         }
     }
 
-    // ── Capture loop ──────────────────────────────────────────────────────────
+    RecordingStopResult BuildStopResult() => new()
+    {
+        OutputPaths       = _outputPaths!,
+        CaptureMicrophone = _s.CaptureMicrophone,
+        TempDirectory     = _tempDirectory,
+        TempVideoPath     = _s.CaptureMicrophone ? _videoPath : null,
+        TempAudioPath     = _s.CaptureMicrophone ? _audioPath : null,
+    };
 
-    private void CaptureLoop(CancellationToken ct, AviContainer? avi, MfH264Writer? mf)
+    void CaptureLoop(CancellationToken ct, AviContainer? avi, MfH264Writer? mf)
     {
         var interval  = TimeSpan.FromSeconds(1.0 / _s.Fps);
         var startTime = DateTime.UtcNow;
@@ -172,10 +261,12 @@ public sealed class ScreenRecorder : IDisposable
         }
     }
 
-    private void CaptureAndWrite(AviContainer? avi, MfH264Writer? mf)
+    void CaptureAndWrite(AviContainer? avi, MfH264Writer? mf)
     {
         using var bmp = ScreenCapture.Capture(_s.Target);
         if (_s.CaptureCursor) ScreenCapture.DrawCursor(bmp, _s.Target);
+
+        _videoFrameCount++;
 
         switch (_s.Codec.Kind)
         {
@@ -198,9 +289,7 @@ public sealed class ScreenRecorder : IDisposable
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static byte[] ToJpeg(Bitmap bmp, int quality)
+    static byte[] ToJpeg(Bitmap bmp, int quality)
     {
         using var ms   = new MemoryStream();
         using var pars = new EncoderParameters(1);
@@ -209,7 +298,7 @@ public sealed class ScreenRecorder : IDisposable
         return ms.ToArray();
     }
 
-    private static byte[] MakeRgbStrf(int w, int h)
+    static byte[] MakeRgbStrf(int w, int h)
     {
         using var ms = new MemoryStream(40);
         using var bw = new BinaryWriter(ms);

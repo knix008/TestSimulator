@@ -1,5 +1,5 @@
 using System.IO;
-using ScreenCamWin.Core;  // CodecStatus, CodecManager, ScreenRecorder, …
+using ScreenCamWin.Core;
 using ScreenCamWin.Models;
 using ScreenCamWin.Native;
 using ScreenCamWin.UI;
@@ -18,6 +18,14 @@ public partial class MainForm : Form
     private bool _hiddenForDesktopCapture;
     private NotifyIcon? _recordingTray;
     private Icon? _formIcon;
+    private MicrophoneCapture? _micMonitor;
+    private int _micMonitorGeneration;
+    private readonly ManualResetEventSlim _micDeviceReleased = new(initialState: true);
+    private Action<float>? _recorderMicLevelHandler;
+    private readonly System.Windows.Forms.Timer _micMeterTimer = new() { Interval = 33 };
+    private float _micLevelUi;
+    private bool _syncingMicGain;
+    private bool _formLoaded;
 
     public MainForm()
     {
@@ -84,12 +92,97 @@ public partial class MainForm : Form
     {
         ApplyTaskbarIcon();
         ApplyLabelTheme();
+        ApplyControlTheme();
+        LayoutValueLabels();
         RefreshWindowList();
         LoadCodecList();
+        LoadMicrophoneList();
         SetDefaultOutputPath();
+        _formLoaded = true;
+        UpdateMicrophoneControls();
+        LayoutMicInputRow();
+        pnlAudio.Resize += (_, _) => LayoutMicInputRow();
 
         _uiTimer.Tick   += UiTimer_Tick;
         _prevTimer.Tick += PrevTimer_Tick;
+        _micMeterTimer.Tick += MicMeterTimer_Tick;
+    }
+
+    int MicGain => nudMicGain is null ? 100 : (int)nudMicGain.Value;
+    float MicInputGain => MicGain / 100f;
+
+    bool MicUiReady =>
+        _formLoaded && !IsDisposed
+        && chkMicrophone is not null
+        && cboMicrophone is not null
+        && micMeterPanel is not null
+        && lblMicInputVal is not null
+        && trkMicGain is not null
+        && nudMicGain is not null;
+
+    static void SetControlEnabled(Control? control, bool enabled)
+    {
+        if (control is not null)
+            control.Enabled = enabled;
+    }
+
+    void SetMicInputLevelDisplay(float level)
+    {
+        _micLevelUi = Math.Clamp(level, 0f, 1f);
+        if (!IsDisposed && micMeterPanel is not null && !micMeterPanel.IsDisposed)
+            micMeterPanel.SetLevel(_micLevelUi);
+        if (lblMicInputVal is not null && !lblMicInputVal.IsDisposed)
+            lblMicInputVal.Text = $"{(int)Math.Round(_micLevelUi * 100f)}%";
+    }
+
+    void MicMeterTimer_Tick(object? sender, EventArgs e)
+    {
+        if (IsDisposed || chkMicrophone is null || !chkMicrophone.Checked) return;
+        micMeterPanel?.SetLevel(_micLevelUi);
+        if (lblMicInputVal is not null)
+            lblMicInputVal.Text = $"{(int)Math.Round(_micLevelUi * 100f)}%";
+    }
+
+    void ResetMicInputLevelDisplay()
+    {
+        micMeterPanel?.ResetLevel();
+        if (lblMicInputVal is not null)
+            lblMicInputVal.Text = "0%";
+    }
+
+    /// <summary>Keeps gain slider, meter, and labels on one horizontal line (meter fills middle).</summary>
+    void LayoutMicInputRow()
+    {
+        if (pnlAudio.IsDisposed || micMeterPanel is null || nudMicGain is null
+            || trkMicGain is null || lblMicInputVal is null)
+            return;
+
+        const int rowY  = 92;
+        const int rowH  = 32;
+        const int barY  = 96;
+        const int barH  = 28;
+        const int padR  = 10;
+        const int valW  = 44;
+
+        const int nudW  = 52;
+        const int gainX = 88;
+
+        int right = pnlAudio.ClientSize.Width - padR;
+        lblMicInputVal.SetBounds(right - valW, rowY, valW, rowH);
+
+        int nudLeft = gainX + 154;
+        int maxNud  = lblMicInputVal.Left - 6 - nudW - 70;
+        if (nudLeft > maxNud) nudLeft = Math.Max(gainX + 60, maxNud);
+        nudMicGain.SetBounds(nudLeft, rowY + 2, nudW, rowH - 4);
+
+        int meterLeft = nudMicGain.Right + 6;
+        int meterW    = lblMicInputVal.Left - meterLeft - 6;
+        if (meterW >= 60)
+            micMeterPanel.SetBounds(meterLeft, barY, meterW, barH);
+
+        int sliderW = nudMicGain.Left - gainX - 6;
+        if (sliderW >= 40)
+            trkMicGain.SetBounds(gainX, barY, sliderW, barH);
     }
 
     private void ApplyLabelTheme()
@@ -98,9 +191,15 @@ public partial class MainForm : Form
         Theme.ApplySectionLabel(lblPreviewTitle);
         Theme.ApplySectionLabel(lblCodecTitle);
         Theme.ApplySectionLabel(lblSettingsTitle);
+        Theme.ApplySectionLabel(lblAudioTitle);
         Theme.ApplyFieldLabel(lblFps);
         Theme.ApplyFieldLabel(lblQuality);
         Theme.ApplyFieldLabel(lblOutput);
+        if (lblMicrophone is not null) Theme.ApplyFieldLabel(lblMicrophone);
+        if (lblMicLevel is not null) Theme.ApplyFieldLabel(lblMicLevel);
+        if (trkMicGain is not null) Theme.ApplyTrackBar(trkMicGain, Theme.BgCard);
+        if (nudMicGain is not null) Theme.ApplyNumericUpDown(nudMicGain, Theme.BgCard);
+        if (lblMicInputVal is not null) Theme.ApplyValueLabel(lblMicInputVal, Theme.BgCard);
         Theme.ApplyValueLabel(lblFpsVal);
         Theme.ApplyValueLabel(lblQualityVal);
         lblTimer.BackColor = Theme.BgCard;
@@ -109,16 +208,42 @@ public partial class MainForm : Form
         lblStatus.ForeColor = Theme.TextSub;
         lblCodecStatus.BackColor = Theme.BgCard;
         lblCodecStatus.BringToFront();
-        AlignSettingsValueLabels();
     }
 
-    private void AlignSettingsValueLabels()
+    private void ApplyControlTheme()
     {
-        const int rightPad = 10;
-        lblFpsVal.Location = new Point(
-            pnlSettings.ClientSize.Width - lblFpsVal.PreferredSize.Width - rightPad, 40);
-        lblQualityVal.Location = new Point(
-            pnlSettings.ClientSize.Width - lblQualityVal.PreferredSize.Width - rightPad, 76);
+        foreach (var cb in new[] { cboWindow, cboCodec, cboMicrophone })
+        {
+            if (cb is not null)
+                Theme.ApplyComboBox(cb);
+        }
+
+        Theme.ApplyTextBox(txtOutput);
+        Theme.ApplyTrackBar(trkFps, Theme.BgCard);
+        Theme.ApplyTrackBar(trkQuality, Theme.BgCard);
+        Theme.ApplyCheckBox(chkCursor, Theme.BgCard);
+        if (chkMicrophone is not null)
+            Theme.ApplyCheckBox(chkMicrophone, Theme.BgCard);
+        Theme.ApplySecondaryButton(btnRefresh);
+        Theme.ApplySecondaryButton(btnBrowse);
+        Theme.ApplySecondaryButton(btnTogglePreview);
+
+        pnlTitle.BackColor    = Color.FromArgb(18, 18, 36);
+        pnlSource.BackColor   = Theme.BgCard;
+        pnlPreview.BackColor  = Theme.BgCard;
+        pnlCodec.BackColor    = Theme.BgCard;
+        pnlSettings.BackColor = Theme.BgCard;
+        pnlAudio.BackColor    = Theme.BgCard;
+        pnlRecord.BackColor   = Theme.BgCard;
+        picPreview.BackColor  = Theme.BgMain;
+    }
+
+    private void LayoutValueLabels()
+    {
+        const int rightPad = 8;
+        int right = pnlSettings.ClientSize.Width - rightPad;
+        lblFpsVal.Location = new Point(right - lblFpsVal.PreferredSize.Width, 34);
+        lblQualityVal.Location = new Point(right - lblQualityVal.PreferredSize.Width, 70);
     }
 
     // ── Title-bar drag (Win32 native — avoids coordinate feedback loop) ───────
@@ -246,14 +371,7 @@ public partial class MainForm : Form
 
     private void UpdateOutputExtension()
     {
-        if (cboCodec.SelectedItem is not CodecInfo codec) return;
-        string path = txtOutput.Text;
-        if (string.IsNullOrWhiteSpace(path)) return;
-
-        string want = codec.Kind == VideoCodecKind.H264_MF ? ".mp4" : ".avi";
-        string current = Path.GetExtension(path).ToLowerInvariant();
-        if (current != want)
-            txtOutput.Text = Path.ChangeExtension(path, want);
+        // Output is a session folder; extensions are fixed inside (video/merged + codec).
     }
 
     private void UpdateCodecStatus()
@@ -280,30 +398,31 @@ public partial class MainForm : Form
 
     private void BtnBrowse_Click(object? sender, EventArgs e)
     {
-        bool isMp4 = (cboCodec.SelectedItem as CodecInfo)?.Kind == VideoCodecKind.H264_MF;
-        string filter = isMp4
-            ? "MP4 파일 (*.mp4)|*.mp4|모든 파일 (*.*)|*.*"
-            : "AVI 파일 (*.avi)|*.avi|모든 파일 (*.*)|*.*";
-
-        using var dlg = new SaveFileDialog
+        string initial = txtOutput.Text.Trim();
+        if (string.IsNullOrEmpty(initial) || !Directory.Exists(initial))
         {
-            Title            = "저장 경로 선택",
-            Filter           = filter,
-            FileName         = Path.GetFileName(txtOutput.Text),
-            InitialDirectory = Path.GetDirectoryName(txtOutput.Text)
-                               ?? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos),
+            string? parent = Path.GetDirectoryName(initial);
+            initial = string.IsNullOrEmpty(parent)
+                ? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)
+                : parent;
+        }
+
+        using var dlg = new FolderBrowserDialog
+        {
+            Description         = "녹화 파일을 저장할 폴더를 선택하세요.\n(하위에 video, audio, merged 파일이 생성됩니다)",
+            UseDescriptionForTitle = true,
+            SelectedPath        = initial,
         };
-        if (dlg.ShowDialog() == DialogResult.OK)
-            txtOutput.Text = dlg.FileName;
+
+        if (dlg.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(dlg.SelectedPath))
+            txtOutput.Text = dlg.SelectedPath;
     }
 
     private void SetDefaultOutputPath()
     {
         string folder = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
         string stamp  = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-        bool   isMp4  = (cboCodec.SelectedItem as CodecInfo)?.Kind == VideoCodecKind.H264_MF;
-        string ext    = isMp4 ? "mp4" : "avi";
-        txtOutput.Text = Path.Combine(folder, $"ScreenCamWin_{stamp}.{ext}");
+        txtOutput.Text = Path.Combine(folder, $"ScreenCamWin_{stamp}");
     }
 
     // ── Recording ────────────────────────────────────────────────────────────
@@ -327,14 +446,16 @@ public partial class MainForm : Form
             return;
         }
 
-        try { Directory.CreateDirectory(Path.GetDirectoryName(path)!); }
+        var outputPaths = RecordingPathHelper.CreateSessionPaths(
+            path, chkMicrophone.Checked, codec.Kind);
+
+        try { Directory.CreateDirectory(outputPaths.SessionDirectory); }
         catch (Exception ex)
         {
             CopyableDialog.ShowError(this, ex, "저장 경로 오류");
             return;
         }
 
-        // Stop preview to avoid GDI conflicts with the recording thread
         if (_previewOn)
         {
             _previewOn = false;
@@ -343,40 +464,82 @@ public partial class MainForm : Form
             btnTogglePreview.ForeColor = Color.FromArgb(148, 163, 184);
         }
 
+        StopMicMonitoring(waitForDevice: true);
+
         var settings = new RecordingSettings
         {
-            Target        = target,
-            Fps           = trkFps.Value,
-            Quality       = trkQuality.Value,
-            OutputPath    = path,
-            CaptureCursor = chkCursor.Checked,
-            Codec         = codec,
+            Target              = target,
+            Fps                 = trkFps.Value,
+            Quality             = trkQuality.Value,
+            OutputPath          = outputPaths.SessionDirectory,
+            OutputPaths         = outputPaths,
+            CaptureCursor       = chkCursor.Checked,
+            Codec               = codec,
+            CaptureMicrophone   = chkMicrophone.Checked,
+            MicrophoneDeviceId  = (cboMicrophone.SelectedItem as AudioDeviceInfo)?.Id ?? string.Empty,
+            MicrophoneGain      = MicGain,
         };
 
+        btnRecord.Enabled = false;
+        SetStatus("녹화 준비 중…");
+        Task.Run(() => StartRecordingWorker(settings, target));
+    }
+
+    void StartRecordingWorker(RecordingSettings settings, WindowInfo target)
+    {
+        ScreenRecorder? recorder = null;
+        Action<float>? micHandler = null;
         try
         {
-            _elapsed  = TimeSpan.Zero;
-            _recorder = new ScreenRecorder(settings);
-            _recorder.Elapsed += (_, ts) => _elapsed = ts;
-            _recorder.Error   += OnRecordingError;
-            _recorder.Start();
+            recorder = new ScreenRecorder(settings);
+            recorder.Elapsed += (_, ts) => _elapsed = ts;
+            recorder.Error   += OnRecordingError;
+            if (settings.CaptureMicrophone)
+            {
+                micHandler = OnRecorderMicLevel;
+                recorder.MicLevel += micHandler;
+            }
+
+            recorder.Start();
+
+            if (IsDisposed)
+            {
+                recorder.Dispose();
+                return;
+            }
+
+            BeginInvoke(() => FinishStartRecording(recorder, micHandler, target));
         }
         catch (Exception ex)
         {
-            _recorder?.Dispose();
-            _recorder = null;
-            CopyableDialog.ShowError(this, ex, "녹화 시작 오류");
-            return;
+            recorder?.Dispose();
+            if (IsDisposed) return;
+            BeginInvoke(() =>
+            {
+                btnRecord.Enabled = true;
+                CopyableDialog.ShowError(this, ex, "녹화 시작 오류");
+                SetStatus("준비됨");
+            });
         }
+    }
 
+    void FinishStartRecording(ScreenRecorder recorder, Action<float>? micHandler, WindowInfo target)
+    {
+        if (IsDisposed) { recorder.Dispose(); return; }
+
+        _recorder = recorder;
+        _recorderMicLevelHandler = micHandler;
         _isRecording = true;
         _uiTimer.Start();
+        if (chkMicrophone.Checked)
+            _micMeterTimer.Start();
 
         if (target.IsDesktop)
             HideForDesktopRecording();
 
         btnRecord.Text      = "■  녹화 중지";
         btnRecord.BackColor = Color.FromArgb(239, 68, 68);
+        btnRecord.Enabled   = true;
         SetStatus($"녹화 중 → {target}");
         SetControlsEnabled(false);
     }
@@ -397,10 +560,15 @@ public partial class MainForm : Form
     private void StopRecording()
     {
         _uiTimer.Stop();
+        _micMeterTimer.Stop();
+
+        Models.RecordingStopResult? stopResult = null;
+        string savedPath = string.Empty;
 
         try
         {
             _recorder?.Stop();
+            stopResult = _recorder?.GetStopResult();
         }
         catch (Exception ex)
         {
@@ -408,6 +576,9 @@ public partial class MainForm : Form
         }
         finally
         {
+            if (_recorder is not null && _recorderMicLevelHandler is not null)
+                _recorder.MicLevel -= _recorderMicLevelHandler;
+            _recorderMicLevelHandler = null;
             _recorder?.Dispose();
             _recorder    = null;
             _isRecording = false;
@@ -417,22 +588,103 @@ public partial class MainForm : Form
 
         btnRecord.Text      = "● 녹화 시작";
         btnRecord.BackColor = Color.FromArgb(34, 197, 94);
+        btnRecord.Enabled   = true;
         lblTimer.Text       = "00:00:00";
 
-        string savedPath = txtOutput.Text;
+        bool mergeOk = true;
+        Exception? mergeError = null;
+
+        if (stopResult is { CaptureMicrophone: true, RequiresMerge: true })
+        {
+            var paths = stopResult.OutputPaths;
+
+            SetStatus("영상·오디오 저장 및 합치기…");
+            SetControlsEnabled(false);
+
+            mergeOk = MergeProgressForm.ShowSaveAndMerge(
+                this,
+                stopResult.TempVideoPath!,
+                stopResult.TempAudioPath!,
+                paths.VideoPath,
+                paths.AudioPath!,
+                paths.MergedPath!,
+                out string? savedVideo,
+                out string? savedAudio,
+                out string? mergedPath,
+                out mergeError);
+
+            if (mergeOk)
+            {
+                RecordingMerger.TryDeleteTempDirectory(stopResult.TempDirectory);
+                savedPath = paths.SessionDirectory;
+                SetStatus(BuildSessionSaveStatusMessage(paths.SessionDirectory, mergedPath, savedVideo, savedAudio));
+            }
+            else
+            {
+                CopyableDialog.ShowError(this, mergeError!, "저장·합치기 오류");
+                SetStatus($"저장 실패 — 임시 폴더: {stopResult.TempDirectory}");
+            }
+        }
+        else if (stopResult is { CaptureMicrophone: true, TempVideoPath: not null }
+                 && File.Exists(stopResult.TempVideoPath))
+        {
+            var paths = stopResult.OutputPaths;
+
+            SetStatus("영상·오디오 파일 저장 중…");
+            SetControlsEnabled(false);
+
+            mergeOk = MergeProgressForm.ShowSaveSeparateOnly(
+                this,
+                stopResult.TempVideoPath,
+                stopResult.TempAudioPath,
+                paths.VideoPath,
+                File.Exists(stopResult.TempAudioPath ?? "") ? paths.AudioPath : null,
+                out string? savedVideo,
+                out string? savedAudio,
+                out mergeError);
+
+            if (mergeOk)
+            {
+                RecordingMerger.TryDeleteTempDirectory(stopResult.TempDirectory);
+                savedPath = paths.SessionDirectory;
+                SetStatus(BuildSessionSaveStatusMessage(paths.SessionDirectory, null, savedVideo, savedAudio));
+            }
+            else
+            {
+                CopyableDialog.ShowError(this, mergeError!, "저장 오류");
+            }
+        }
+        else if (stopResult is not null)
+        {
+            savedPath = stopResult.OutputPaths.SessionDirectory;
+            if (File.Exists(stopResult.OutputPaths.VideoPath))
+                SetStatus($"저장 완료 → {savedPath}");
+        }
+
         SetDefaultOutputPath();
 
-        if (File.Exists(savedPath))
+        if (mergeOk && !string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath)
+            && stopResult is not { CaptureMicrophone: true })
         {
-            var info = new FileInfo(savedPath);
-            SetStatus($"저장 완료 ({info.Length / 1024:N0} KB) → {savedPath}");
-        }
-        else
-        {
-            SetStatus("녹화 완료 (파일을 확인해 주세요)");
+            SetStatus($"저장 완료 → {savedPath}");
         }
 
         SetControlsEnabled(true);
+        if (chkMicrophone.Checked)
+            StartMicMonitoring();
+    }
+
+    static string BuildSessionSaveStatusMessage(
+        string sessionDir, string? mergedPath, string? videoPath, string? audioPath)
+    {
+        var lines = new List<string> { $"저장 폴더: {sessionDir}" };
+        if (videoPath is not null && File.Exists(videoPath))
+            lines.Add("video");
+        if (audioPath is not null && File.Exists(audioPath))
+            lines.Add("audio");
+        if (mergedPath is not null && File.Exists(mergedPath))
+            lines.Add("merged");
+        return string.Join(" | ", lines);
     }
 
     // ── UI timer ─────────────────────────────────────────────────────────────
@@ -521,6 +773,19 @@ public partial class MainForm : Form
         trkQuality.Enabled       = enabled;
         btnBrowse.Enabled        = enabled;
         chkCursor.Enabled        = enabled;
+        SetControlEnabled(chkMicrophone, enabled);
+        bool micOn = enabled && chkMicrophone is not null && chkMicrophone.Checked;
+        SetControlEnabled(cboMicrophone, micOn);
+        SetControlEnabled(lblMicrophone, micOn);
+        SetControlEnabled(lblMicLevel, micOn);
+        SetControlEnabled(trkMicGain, micOn);
+        SetControlEnabled(nudMicGain, micOn);
+        SetControlEnabled(micMeterPanel, micOn);
+        SetControlEnabled(lblMicInputVal, micOn);
+        if (micOn)
+            _micMeterTimer.Start();
+        else
+            _micMeterTimer.Stop();
         btnTogglePreview.Enabled = enabled;
 
         // Enabled=false on dark theme makes text invisible — use ReadOnly + explicit colors
@@ -536,9 +801,16 @@ public partial class MainForm : Form
         }
 
         chkCursor.ForeColor = enabled ? Theme.TextMain : Theme.TextSub;
+        if (chkMicrophone is not null)
+            chkMicrophone.ForeColor = enabled ? Theme.TextMain : Theme.TextSub;
+        if (cboMicrophone is not null)
+        {
+            cboMicrophone.ForeColor = micOn ? Theme.TextMain : Theme.TextSub;
+            cboMicrophone.BackColor = Theme.BgSection;
+        }
 
-        // Labels stay visible while recording
         ApplyLabelTheme();
+        ApplyControlTheme();
         lblCodecStatus.BringToFront();
     }
 
@@ -562,6 +834,224 @@ public partial class MainForm : Form
         _formIcon?.Dispose();
         _formIcon = null;
 
+        StopMicMonitoring();
+        _micMeterTimer.Stop();
+        _micMeterTimer.Dispose();
+        _micDeviceReleased.Dispose();
+
         base.OnFormClosed(e);
+    }
+
+    // ── Microphone ───────────────────────────────────────────────────────────
+
+    private void LoadMicrophoneList()
+    {
+        cboMicrophone.Items.Clear();
+        try
+        {
+            foreach (var device in MicrophoneCapture.EnumerateDevices())
+                cboMicrophone.Items.Add(device);
+            if (cboMicrophone.Items.Count > 0)
+                cboMicrophone.SelectedIndex = 0;
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"마이크 목록 오류: {ex.Message}");
+        }
+    }
+
+    private void ChkMicrophone_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (!_formLoaded || chkMicrophone is null || IsDisposed) return;
+        try { UpdateMicrophoneControls(); }
+        catch (Exception ex) { SetStatus($"마이크 설정 오류: {ex.Message}"); }
+    }
+
+    private void CboMicrophone_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        if (chkMicrophone is { Checked: true } && !_isRecording)
+            StartMicMonitoring();
+    }
+
+    private void UpdateMicrophoneControls()
+    {
+        if (!MicUiReady) return;
+
+        bool on = chkMicrophone!.Checked;
+        SetControlEnabled(cboMicrophone, on && !_isRecording);
+        SetControlEnabled(lblMicrophone, on);
+        SetControlEnabled(lblMicLevel, on);
+        SetControlEnabled(trkMicGain, on);
+        SetControlEnabled(nudMicGain, on);
+        SetControlEnabled(micMeterPanel, on);
+        SetControlEnabled(lblMicInputVal, on);
+
+        if (lblMicInputVal is not null)
+            lblMicInputVal.ForeColor = on ? Theme.TextMain : Theme.TextSub;
+
+        if (!on)
+        {
+            _micMeterTimer.Stop();
+            ResetMicInputLevelDisplay();
+            StopMicMonitoring();
+            return;
+        }
+
+        if (!_isRecording)
+        {
+            if (!_micMeterTimer.Enabled)
+                _micMeterTimer.Start();
+            StartMicMonitoring();
+        }
+    }
+
+    private void StartMicMonitoring()
+    {
+        if (_isRecording || !MicUiReady) return;
+        if (chkMicrophone is not { Checked: true }) return;
+        if (cboMicrophone!.SelectedItem is not AudioDeviceInfo device) return;
+
+        StopMicMonitoring();
+
+        int generation = ++_micMonitorGeneration;
+        string deviceId = device.Id;
+        float gain = MicInputGain;
+
+        Task.Run(() =>
+        {
+            MicrophoneCapture? mic = null;
+            try
+            {
+                mic = new MicrophoneCapture { InputGain = gain };
+                mic.LevelChanged += OnMicMonitorLevelChanged;
+                mic.StartMonitoring(deviceId);
+            }
+            catch (Exception ex)
+            {
+                mic?.Dispose();
+                if (generation != _micMonitorGeneration || IsDisposed) return;
+                try
+                {
+                    BeginInvoke(() =>
+                    {
+                        if (generation != _micMonitorGeneration || IsDisposed) return;
+                        SetStatus($"마이크 열기 실패: {ex.Message}");
+                    });
+                }
+                catch { }
+                return;
+            }
+
+            if (generation != _micMonitorGeneration || IsDisposed)
+            {
+                mic.Dispose();
+                return;
+            }
+
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    if (generation != _micMonitorGeneration || IsDisposed
+                        || chkMicrophone is not { Checked: true })
+                    {
+                        mic.Dispose();
+                        return;
+                    }
+
+                    _micMonitor = mic;
+                    if (!_micMeterTimer.Enabled)
+                        _micMeterTimer.Start();
+                });
+            }
+            catch
+            {
+                mic.Dispose();
+            }
+        });
+    }
+
+    private void StopMicMonitoring(bool waitForDevice = false)
+    {
+        _micMonitorGeneration++;
+
+        var mic = _micMonitor;
+        _micMonitor = null;
+        if (mic is null)
+        {
+            _micDeviceReleased.Set();
+            return;
+        }
+
+        _micDeviceReleased.Reset();
+        mic.LevelChanged -= OnMicMonitorLevelChanged;
+
+        var waitHandle = waitForDevice ? _micDeviceReleased : null;
+        Task.Run(() =>
+        {
+            try
+            {
+                mic.Stop();
+                mic.Dispose();
+            }
+            catch { }
+            finally
+            {
+                _micDeviceReleased.Set();
+            }
+
+            if (!IsDisposed)
+            {
+                try
+                {
+                    BeginInvoke(ResetMicInputLevelDisplay);
+                }
+                catch { }
+            }
+        });
+
+        waitHandle?.Wait(3000);
+    }
+
+    private void OnMicMonitorLevelChanged(float level) =>
+        _micLevelUi = Math.Clamp(level, 0f, 1f);
+
+    private void OnRecorderMicLevel(float level) =>
+        _micLevelUi = Math.Clamp(level, 0f, 1f);
+
+    private void TrkMicGain_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_syncingMicGain || trkMicGain is null || nudMicGain is null) return;
+        _syncingMicGain = true;
+        try
+        {
+            int v = Math.Clamp(trkMicGain.Value, trkMicGain.Minimum, trkMicGain.Maximum);
+            if (trkMicGain.Value != v) trkMicGain.Value = v;
+            if ((int)nudMicGain.Value != v) nudMicGain.Value = v;
+            ApplyMicGain();
+        }
+        finally { _syncingMicGain = false; }
+    }
+
+    private void NudMicGain_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_syncingMicGain || trkMicGain is null || nudMicGain is null) return;
+        _syncingMicGain = true;
+        try
+        {
+            int v = (int)Math.Clamp(nudMicGain.Value, nudMicGain.Minimum, nudMicGain.Maximum);
+            if (trkMicGain.Value != v) trkMicGain.Value = v;
+            ApplyMicGain();
+        }
+        finally { _syncingMicGain = false; }
+    }
+
+    void ApplyMicGain()
+    {
+        float gain = MicInputGain;
+        if (_micMonitor is not null)
+            _micMonitor.InputGain = gain;
+        if (_recorder is { IsRecording: true })
+            _recorder.SetMicrophoneGain(MicGain);
     }
 }

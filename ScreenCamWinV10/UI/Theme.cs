@@ -19,6 +19,18 @@ internal static class Theme
     public static readonly Font FontSmall    = new("Segoe UI", 8f);
     public static readonly Font FontMono     = new("Consolas",  11f, FontStyle.Bold);
 
+  // ── Form layout (540px wide content panels) ───────────────────────────────
+    public const int PanelMargin   = 14;
+    public const int PanelWidth    = 512;
+    public const int LabelX        = 10;
+    public const int LabelWidth    = 72;
+    public const int FieldX        = 88;
+    public const int FieldWidth    = 336;
+    public const int ActionX       = 432;
+    public const int ActionWidth   = 70;
+    public const int RowHeight     = 36;
+    public const int SectionGap    = 8;
+
     public static void ApplyButton(Button btn, Color? bg = null, Color? fg = null)
     {
         btn.FlatStyle = FlatStyle.Flat;
@@ -52,13 +64,42 @@ internal static class Theme
         tb.TickStyle  = TickStyle.None;
     }
 
-    public static void ApplyCheckBox(CheckBox cb)
+    public static void ApplyNumericUpDown(NumericUpDown nud, Color? panelBg = null)
     {
-        cb.BackColor  = Color.Transparent;
-        cb.ForeColor  = TextMain;
-        cb.FlatStyle  = FlatStyle.Flat;
-        cb.Font       = FontBody;
-        cb.Cursor     = Cursors.Hand;
+        nud.BackColor   = BgSection;
+        nud.ForeColor   = TextMain;
+        nud.BorderStyle = BorderStyle.FixedSingle;
+        nud.Font        = FontBody;
+    }
+
+    public static void ApplyCheckBox(CheckBox cb, Color? panelBg = null)
+    {
+        cb.BackColor = panelBg ?? BgCard;
+        cb.ForeColor = TextMain;
+        cb.FlatStyle = FlatStyle.Flat;
+        cb.Font      = FontBody;
+        cb.Cursor    = Cursors.Hand;
+        cb.UseVisualStyleBackColor = false;
+    }
+
+    public static void ApplySecondaryButton(Button btn)
+    {
+        btn.FlatStyle = FlatStyle.Flat;
+        btn.BackColor = BgSection;
+        btn.ForeColor = TextSub;
+        btn.FlatAppearance.BorderColor = Border;
+        btn.FlatAppearance.BorderSize  = 1;
+        btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 40, 64);
+        btn.Cursor = Cursors.Hand;
+        btn.Font   = FontSmall;
+        btn.UseVisualStyleBackColor = false;
+    }
+
+    public static void ApplyProgressBar(ProgressBar bar, Color? panelBg = null)
+    {
+        bar.BackColor = panelBg ?? BgSection;
+        bar.ForeColor = Success;
+        bar.Style     = ProgressBarStyle.Continuous;
     }
 
     public static void ApplySectionLabel(Label lbl, Color? panelBg = null)

@@ -1,132 +1,187 @@
 namespace ScreenCamWin.Core;
 
 /// <summary>
-/// Low-level AVI (RIFF) file writer. Codec-agnostic; the caller supplies
-/// per-frame compressed bytes.
-///
-/// idx1 offsets follow the AVI spec: relative to the "movi" type-field
-/// (i.e. the 4-byte "movi" FourCC inside the LIST chunk), NOT to "LIST".
-/// First frame → offset 4.  VirtualDub / VLC / WMP all agree on this.
+/// Low-level AVI (RIFF) writer with optional PCM audio stream.
 /// </summary>
 internal sealed class AviContainer : IDisposable
 {
     private readonly FileStream   _fs;
     private readonly BinaryWriter _bw;
     private readonly int _width, _height, _fps;
+    private readonly bool _withAudio;
 
     private long _riffSizePos;
     private long _moviSizePos;
-    private long _moviTypePos;        // position of "movi" FourCC — idx1 base
+    private long _moviTypePos;
     private long _aviTotalFramesPos;
     private long _strhLengthPos;
+    private long _audioStrhLengthPos;
 
-    private readonly List<(long Offset, int Size, bool IsKey)> _frames = [];
+    private readonly List<(string FourCC, long Offset, int Size, uint Flags)> _index = [];
     private bool _finalized;
 
-    public AviContainer(string path, int width, int height, int fps)
+    public AviContainer(string path, int width, int height, int fps, bool withAudio = false)
     {
-        _width  = width;
-        _height = height;
-        _fps    = fps;
+        _width     = width;
+        _height    = height;
+        _fps       = fps;
+        _withAudio = withAudio;
         _fs = new FileStream(path, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
         _bw = new BinaryWriter(_fs, System.Text.Encoding.ASCII, leaveOpen: true);
     }
 
-    // ── Header writing ───────────────────────────────────────────────────────
-
     public void WriteFileHeader(uint fccHandler, byte[] strfData)
     {
-        // ── RIFF ──────────────────────────────────────────────────────────────
         FourCC("RIFF");
         _riffSizePos = _fs.Position;
         _bw.Write(0u);
         FourCC("AVI ");
 
-        // ── hdrl LIST ─────────────────────────────────────────────────────────
         FourCC("LIST");
         long hdrlSizePos = _fs.Position;
         _bw.Write(0u);
         FourCC("hdrl");
 
-        // avih — 56 bytes
         FourCC("avih");
         _bw.Write(56u);
-        _bw.Write((uint)(1_000_000u / (uint)_fps)); // MicroSecPerFrame
-        _bw.Write(0u);    // MaxBytesPerSec
-        _bw.Write(0u);    // PaddingGranularity
-        _bw.Write(0x10u); // AVIF_HASINDEX
+        _bw.Write((uint)(1_000_000u / (uint)_fps));
+        _bw.Write(0u);
+        _bw.Write(0u);
+        _bw.Write(0x10u);
         _aviTotalFramesPos = _fs.Position;
-        _bw.Write(0u);    // TotalFrames (patched later)
-        _bw.Write(0u);    // InitialFrames
-        _bw.Write(1u);    // Streams
-        _bw.Write(0u);    // SuggestedBufferSize
+        _bw.Write(0u);
+        _bw.Write(0u);
+        _bw.Write((uint)(_withAudio ? 2u : 1u));
+        _bw.Write(0u);
         _bw.Write((uint)_width);
         _bw.Write((uint)_height);
-        for (int i = 0; i < 4; i++) _bw.Write(0u); // Reserved[4]
+        for (int i = 0; i < 4; i++) _bw.Write(0u);
 
-        // strl LIST
+        WriteVideoStreamList(fccHandler, strfData);
+
+        if (_withAudio)
+            WriteAudioStreamList();
+
+        PatchSize(hdrlSizePos);
+
+        FourCC("LIST");
+        _moviSizePos = _fs.Position;
+        _bw.Write(0u);
+        _moviTypePos = _fs.Position;
+        FourCC("movi");
+    }
+
+    void WriteVideoStreamList(uint fccHandler, byte[] strfData)
+    {
         FourCC("LIST");
         long strlSizePos = _fs.Position;
         _bw.Write(0u);
         FourCC("strl");
 
-        // strh — 56 bytes
         FourCC("strh");
         _bw.Write(56u);
-        FourCC("vids");           // stream type: video
-        _bw.Write(fccHandler);    // codec FourCC ("MJPG", "XVID", …)
-        _bw.Write(0u);            // Flags
-        _bw.Write((ushort)0);     // Priority
-        _bw.Write((ushort)0);     // Language
-        _bw.Write(0u);            // InitialFrames
-        _bw.Write(1u);            // Scale
-        _bw.Write((uint)_fps);    // Rate  →  fps/1 = fps
-        _bw.Write(0u);            // Start
+        FourCC("vids");
+        _bw.Write(fccHandler);
+        _bw.Write(0u);
+        _bw.Write((ushort)0);
+        _bw.Write((ushort)0);
+        _bw.Write(0u);
+        _bw.Write(1u);
+        _bw.Write((uint)_fps);
+        _bw.Write(0u);
         _strhLengthPos = _fs.Position;
-        _bw.Write(0u);            // Length (frame count, patched later)
-        _bw.Write(0u);            // SuggestedBufferSize
-        _bw.Write(uint.MaxValue); // Quality (-1 = default)
-        _bw.Write(0u);            // SampleSize
+        _bw.Write(0u);
+        _bw.Write(0u);
+        _bw.Write(uint.MaxValue);
+        _bw.Write(0u);
         _bw.Write((short)0); _bw.Write((short)0);
         _bw.Write((short)_width); _bw.Write((short)_height);
 
-        // strf (BITMAPINFOHEADER or codec-specific)
         FourCC("strf");
         _bw.Write((uint)strfData.Length);
         _bw.Write(strfData);
 
         PatchSize(strlSizePos);
-        PatchSize(hdrlSizePos);
-
-        // ── movi LIST ─────────────────────────────────────────────────────────
-        FourCC("LIST");
-        _moviSizePos = _fs.Position;   // size field of the movi LIST chunk
-        _bw.Write(0u);
-        _moviTypePos = _fs.Position;   // ← "movi" FourCC position (idx1 base)
-        FourCC("movi");
-        // First frame will be at _moviTypePos + 4  →  idx1 offset = 4
     }
 
-    // ── Frame writing ────────────────────────────────────────────────────────
+    void WriteAudioStreamList()
+    {
+        FourCC("LIST");
+        long strlSizePos = _fs.Position;
+        _bw.Write(0u);
+        FourCC("strl");
+
+        FourCC("strh");
+        _bw.Write(56u);
+        FourCC("auds");
+        _bw.Write(1u); // WAVE_FORMAT_PCM
+        _bw.Write(0u);
+        _bw.Write((ushort)0);
+        _bw.Write((ushort)0);
+        _bw.Write(0u);
+        _bw.Write(1u);
+        _bw.Write((uint)MicrophoneCapture.SampleRate);
+        _bw.Write(0u);
+        _audioStrhLengthPos = _fs.Position;
+        _bw.Write(0u);
+        _bw.Write(0u);
+        _bw.Write(uint.MaxValue);
+        _bw.Write((uint)(MicrophoneCapture.Channels * MicrophoneCapture.BitsPerSample / 8));
+        _bw.Write((short)0); _bw.Write((short)0);
+        _bw.Write((short)0); _bw.Write((short)0);
+
+        byte[] strf = MakePcmWaveFormat();
+        FourCC("strf");
+        _bw.Write((uint)strf.Length);
+        _bw.Write(strf);
+
+        PatchSize(strlSizePos);
+    }
+
+    public static byte[] MakePcmWaveFormat()
+    {
+        ushort blockAlign = (ushort)(MicrophoneCapture.Channels * MicrophoneCapture.BitsPerSample / 8);
+        uint avgBytes = (uint)(MicrophoneCapture.SampleRate * blockAlign);
+        using var ms = new MemoryStream(18);
+        using var bw = new BinaryWriter(ms, System.Text.Encoding.ASCII, leaveOpen: true);
+        bw.Write((ushort)1); // PCM
+        bw.Write((ushort)MicrophoneCapture.Channels);
+        bw.Write((uint)MicrophoneCapture.SampleRate);
+        bw.Write(avgBytes);
+        bw.Write(blockAlign);
+        bw.Write((ushort)MicrophoneCapture.BitsPerSample);
+        return ms.ToArray();
+    }
 
     public void WriteVideoFrame(byte[] data, bool isKeyFrame)
     {
         if (_finalized) throw new InvalidOperationException("Writer is finalized.");
-
-        // idx1 offset = distance from the "movi" FourCC to this chunk's FourCC
-        long offset = _fs.Position - _moviTypePos;  // first frame → 4
-
+        long offset = _fs.Position - _moviTypePos;
         FourCC("00dc");
         _bw.Write((uint)data.Length);
         _bw.Write(data);
-        if (data.Length % 2 != 0) _bw.Write((byte)0); // RIFF even-padding
-
-        _frames.Add((offset, data.Length, isKeyFrame));
+        if (data.Length % 2 != 0) _bw.Write((byte)0);
+        _index.Add(("00dc", offset, data.Length, isKeyFrame ? 0x10u : 0u));
     }
 
-    public int FrameCount => _frames.Count;
+    public void WriteAudioFrame(byte[] data)
+    {
+        if (_finalized) throw new InvalidOperationException("Writer is finalized.");
+        if (!_withAudio || data.Length == 0) return;
 
-    // ── Finalize ─────────────────────────────────────────────────────────────
+        long offset = _fs.Position - _moviTypePos;
+        FourCC("01wb");
+        _bw.Write((uint)data.Length);
+        _bw.Write(data);
+        if (data.Length % 2 != 0) _bw.Write((byte)0);
+        _index.Add(("01wb", offset, data.Length, 0x10u));
+    }
+
+    public int VideoFrameCount =>
+        _index.Count(e => e.FourCC == "00dc");
+
+    public int AudioByteCount =>
+        _index.Where(e => e.FourCC == "01wb").Sum(e => e.Size);
 
     public void FinalizeFile()
     {
@@ -134,56 +189,59 @@ internal sealed class AviContainer : IDisposable
         _finalized = true;
 
         _bw.Flush();
-
         PatchSize(_moviSizePos);
 
-        // idx1 chunk
         FourCC("idx1");
-        _bw.Write((uint)(_frames.Count * 16));
-        foreach (var (offset, size, isKey) in _frames)
+        _bw.Write((uint)(_index.Count * 16));
+        foreach (var (fourCC, offset, size, flags) in _index)
         {
-            FourCC("00dc");
-            _bw.Write(isKey ? 0x10u : 0u); // AVIIF_KEYFRAME
+            FourCC(fourCC);
+            _bw.Write(flags);
             _bw.Write((uint)offset);
             _bw.Write((uint)size);
         }
 
         PatchSize(_riffSizePos);
 
-        // Patch frame counts in avih.TotalFrames and strh.Length
+        int videoFrames = VideoFrameCount;
         _fs.Position = _aviTotalFramesPos;
-        _bw.Write((uint)_frames.Count);
+        _bw.Write((uint)videoFrames);
+
         _fs.Position = _strhLengthPos;
-        _bw.Write((uint)_frames.Count);
+        _bw.Write((uint)videoFrames);
+
+        if (_withAudio && _audioStrhLengthPos > 0)
+        {
+            int bytesPerSec = MicrophoneCapture.SampleRate
+                * MicrophoneCapture.Channels * MicrophoneCapture.BitsPerSample / 8;
+            uint audioSamples = (uint)(AudioByteCount * MicrophoneCapture.SampleRate / bytesPerSec);
+            _fs.Position = _audioStrhLengthPos;
+            _bw.Write(audioSamples);
+        }
 
         _bw.Flush();
         _fs.Flush();
     }
 
-    // ── Static helpers ────────────────────────────────────────────────────────
-
     public static uint ParseFourCC(string s) =>
         (uint)s[0] | ((uint)s[1] << 8) | ((uint)s[2] << 16) | ((uint)s[3] << 24);
 
-    /// <summary>Builds the 40-byte BITMAPINFOHEADER for an MJPEG stream.</summary>
     public static byte[] MakeMjpegStrf(int width, int height)
     {
         using var ms = new MemoryStream(40);
         using var bw = new BinaryWriter(ms, System.Text.Encoding.ASCII, leaveOpen: true);
         uint mjpg = ParseFourCC("MJPG");
-        bw.Write(40u);                        // biSize
-        bw.Write(width);                      // biWidth
-        bw.Write(height);                     // biHeight (positive → bottom-up convention, OK for MJPEG)
-        bw.Write((ushort)1);                  // biPlanes
-        bw.Write((ushort)24);                 // biBitCount
-        bw.Write(mjpg);                       // biCompression
-        bw.Write((uint)(width * height * 3)); // biSizeImage
-        bw.Write(0); bw.Write(0);             // biXPelsPerMeter / biYPelsPerMeter
-        bw.Write(0u); bw.Write(0u);           // biClrUsed / biClrImportant
+        bw.Write(40u);
+        bw.Write(width);
+        bw.Write(height);
+        bw.Write((ushort)1);
+        bw.Write((ushort)24);
+        bw.Write(mjpg);
+        bw.Write((uint)(width * height * 3));
+        bw.Write(0); bw.Write(0);
+        bw.Write(0u); bw.Write(0u);
         return ms.ToArray();
     }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
 
     private void FourCC(string s)
     {
@@ -193,7 +251,6 @@ internal sealed class AviContainer : IDisposable
         _bw.Write((byte)s[3]);
     }
 
-    // Writes the chunk size = (current pos) - sizePos - 4, then restores position.
     private void PatchSize(long sizePos)
     {
         long end = _fs.Position;
