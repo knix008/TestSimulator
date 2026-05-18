@@ -16,6 +16,7 @@ public class VNCServerCore
     public event EventHandler<string>? StatusChanged;
     public event EventHandler<string>? ClientConnected;
     public event EventHandler<string>? ClientDisconnected;
+    public event EventHandler<int>? ClientCountChanged;
     public event EventHandler<Exception>? ErrorOccurred;
 
     public bool IsRunning => _isRunning;
@@ -29,6 +30,14 @@ public class VNCServerCore
     public void UpdateSettings(ServerSettings settings)
     {
         _settings = settings;
+
+        lock (_lock)
+        {
+            foreach (var client in _clients)
+            {
+                client.UpdateSettings(settings);
+            }
+        }
     }
 
     public void Start()
@@ -109,6 +118,7 @@ public class VNCServerCore
                 _clients.Clear();
             }
 
+            OnClientCountChanged(0);
             OnStatusChanged("VNC Server stopped");
         }
         catch (Exception ex)
@@ -127,9 +137,12 @@ public class VNCServerCore
                 {
                     var tcpClient = _listener.AcceptTcpClient();
                     
+                    var remoteAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint!).Address.ToString();
+
                     if (!_settings.AllowMultipleConnections && _clients.Count > 0)
                     {
                         tcpClient.Close();
+                        OnStatusChanged($"연결 거부: {remoteAddress} (다중 연결 비활성)");
                         continue;
                     }
 
@@ -140,17 +153,24 @@ public class VNCServerCore
                         _clients.Add(client);
                     }
 
-                    client.Disconnected += (s, e) =>
+                    client.Disconnected += (s, address) =>
                     {
                         lock (_lock)
                         {
                             _clients.Remove(client);
                         }
-                        OnClientDisconnected(e);
+                        OnClientDisconnected(address);
+                        OnClientCountChanged(ConnectedClients);
+                    };
+
+                    client.FrameRateChanged += (s, fps) =>
+                    {
+                        OnStatusChanged($"네트워크 적응 FPS: {fps}");
                     };
 
                     client.Start();
-                    OnClientConnected(((IPEndPoint)tcpClient.Client.RemoteEndPoint!).Address.ToString());
+                    OnClientConnected(client.ClientAddress);
+                    OnClientCountChanged(ConnectedClients);
                 }
             }
             catch (SocketException)
@@ -185,6 +205,11 @@ public class VNCServerCore
     protected virtual void OnClientDisconnected(string clientInfo)
     {
         ClientDisconnected?.Invoke(this, clientInfo);
+    }
+
+    protected virtual void OnClientCountChanged(int count)
+    {
+        ClientCountChanged?.Invoke(this, count);
     }
 
     protected virtual void OnErrorOccurred(Exception ex)

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows.Forms;
 using VNCServer.Settings;
 
@@ -7,11 +8,19 @@ public partial class AdvancedSettingsForm : Form
 {
     private ServerSettings _settings;
 
+    public AdvancedSettingsForm() : this(new ServerSettings())
+    {
+    }
+
     public AdvancedSettingsForm(ServerSettings settings)
     {
         _settings = settings;
         InitializeComponent();
-        LoadSettings();
+
+        if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+        {
+            LoadSettings();
+        }
     }
 
     private void LoadSettings()
@@ -24,6 +33,9 @@ public partial class AdvancedSettingsForm : Form
         trackImageQuality.Value = _settings.ImageQuality;
         lblImageQualityValue.Text = _settings.ImageQuality.ToString();
         numFrameRate.Value = _settings.FrameRate;
+        chkAdaptiveFrameRate.Checked = _settings.EnableAdaptiveFrameRate;
+        numMinFrameRate.Value = _settings.MinFrameRate;
+        numMinFrameRate.Enabled = _settings.EnableAdaptiveFrameRate;
         numCompressionLevel.Value = _settings.CompressionLevel;
 
         // 기능 탭
@@ -80,6 +92,8 @@ public partial class AdvancedSettingsForm : Form
         // 성능 탭
         _settings.ImageQuality = trackImageQuality.Value;
         _settings.FrameRate = (int)numFrameRate.Value;
+        _settings.EnableAdaptiveFrameRate = chkAdaptiveFrameRate.Checked;
+        _settings.MinFrameRate = Math.Min((int)numMinFrameRate.Value, _settings.FrameRate);
         _settings.CompressionLevel = (int)numCompressionLevel.Value;
 
         // 기능 탭
@@ -217,6 +231,8 @@ public partial class AdvancedSettingsForm : Form
     private void BtnSave_Click(object? sender, EventArgs e)
     {
         SaveSettings();
+        DialogResult = DialogResult.OK;
+        Close();
     }
 
     private void BtnCancel_Click(object? sender, EventArgs e)

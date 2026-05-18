@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using VNCServer.Settings;
 using VNCServer.VNCServer;
 
@@ -5,18 +6,138 @@ namespace VNCServer;
 
 public partial class VNCForm : Form
 {
+    // 서버 시작: 밝은 파란색, 서버 중지: 빨간색(경고/중단)
+    private static readonly Color ServerStartButtonColor = Color.FromArgb(100, 181, 255);
+    private static readonly Color ServerStartButtonForeColor = Color.Black;
+    private static readonly Color ServerStopButtonColor = Color.FromArgb(232, 82, 82);
+    private static readonly Color ServerStopButtonForeColor = Color.White;
+    private static readonly Color StatusRunningColor = Color.FromArgb(76, 175, 80);
+    private static readonly Color StatusStoppedColor = Color.FromArgb(158, 158, 158);
+
     private VNCServerCore? _server;
     private ServerSettings _settings = new ServerSettings();
     private NotifyIcon? _trayIcon;
     private ContextMenuStrip? _trayMenu;
+    private ToolStripMenuItem? _trayToggleServerItem;
 
     public VNCForm()
     {
         InitializeComponent();
-        InitializeTrayIcon();
-        LoadSettings();
-        InitializeServer();
-        UpdateUI();
+
+        if (!IsDesignTime)
+        {
+            WireUpControlEvents();
+            btnToggleServer.Font = new Font(btnToggleServer.Font.FontFamily, btnToggleServer.Font.Size, FontStyle.Bold);
+            lblConnections.Font = new Font(lblConnections.Font.FontFamily, lblConnections.Font.Size, FontStyle.Bold);
+            ApplyToggleServerButtonStyle(false);
+            UpdateConnectionDisplay(0);
+            TrySetFormIcon();
+            InitializeTrayIcon();
+            LoadSettings();
+            InitializeServer();
+            UpdateUI();
+        }
+    }
+
+    private static bool IsDesignTime =>
+        LicenseManager.UsageMode == LicenseUsageMode.Designtime;
+
+    private void WireUpControlEvents()
+    {
+        btnSaveProfile.Click += BtnSaveProfile_Click;
+        btnLoadProfile.Click += BtnLoadProfile_Click;
+        btnDeleteProfile.Click += BtnDeleteProfile_Click;
+        btnResetToDefaults.Click += BtnResetToDefaults_Click;
+        btnToggleServer.Click += BtnToggleServer_Click;
+        numPort.ValueChanged += NumPort_ValueChanged;
+        chkRequirePassword.CheckedChanged += ChkRequirePassword_CheckedChanged;
+        txtPassword.TextChanged += TxtPassword_TextChanged;
+        chkAllowMouse.CheckedChanged += ChkAllowMouse_CheckedChanged;
+        chkAllowKeyboard.CheckedChanged += ChkAllowKeyboard_CheckedChanged;
+        chkAllowMultiple.CheckedChanged += ChkAllowMultiple_CheckedChanged;
+        chkAutoStart.CheckedChanged += ChkAutoStart_CheckedChanged;
+        chkMinimizeToTray.CheckedChanged += ChkMinimizeToTray_CheckedChanged;
+        btnSaveSettings.Click += BtnSaveSettings_Click;
+        btnAdvancedSettings.Click += BtnAdvancedSettings_Click;
+        trackTransmissionSpeed.ValueChanged += TrackTransmissionSpeed_ValueChanged;
+        trackTransmissionSpeed.Scroll += TrackTransmissionSpeed_Scroll;
+    }
+
+    private void BtnSaveProfile_Click(object? sender, EventArgs e) => SaveCurrentProfile();
+
+    private void BtnLoadProfile_Click(object? sender, EventArgs e) => LoadSelectedProfile();
+
+    private void BtnDeleteProfile_Click(object? sender, EventArgs e) => DeleteSelectedProfile();
+
+    private void BtnResetToDefaults_Click(object? sender, EventArgs e) => ResetToDefaultSettings();
+
+    private void BtnToggleServer_Click(object? sender, EventArgs e) => ToggleServer();
+
+    private void ToggleServer()
+    {
+        if (_server?.IsRunning == true)
+        {
+            StopServer();
+        }
+        else
+        {
+            StartServer();
+        }
+    }
+
+    private void NumPort_ValueChanged(object? sender, EventArgs e) =>
+        _settings.Port = (int)numPort.Value;
+
+    private void ChkRequirePassword_CheckedChanged(object? sender, EventArgs e)
+    {
+        _settings.RequirePassword = chkRequirePassword.Checked;
+        txtPassword.Enabled = chkRequirePassword.Checked;
+    }
+
+    private void TxtPassword_TextChanged(object? sender, EventArgs e) =>
+        _settings.Password = txtPassword.Text;
+
+    private void ChkAllowMouse_CheckedChanged(object? sender, EventArgs e) =>
+        _settings.AllowMouseControl = chkAllowMouse.Checked;
+
+    private void ChkAllowKeyboard_CheckedChanged(object? sender, EventArgs e) =>
+        _settings.AllowKeyboardControl = chkAllowKeyboard.Checked;
+
+    private void ChkAllowMultiple_CheckedChanged(object? sender, EventArgs e) =>
+        _settings.AllowMultipleConnections = chkAllowMultiple.Checked;
+
+    private void ChkAutoStart_CheckedChanged(object? sender, EventArgs e) =>
+        _settings.AutoStart = chkAutoStart.Checked;
+
+    private void ChkMinimizeToTray_CheckedChanged(object? sender, EventArgs e) =>
+        _settings.MinimizeToTray = chkMinimizeToTray.Checked;
+
+    private void BtnSaveSettings_Click(object? sender, EventArgs e)
+    {
+        _settings.Save();
+        _server?.UpdateSettings(_settings);
+        MessageBox.Show("설정이 저장되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private void BtnAdvancedSettings_Click(object? sender, EventArgs e) => ShowAdvancedSettings();
+
+    private void TrackTransmissionSpeed_Scroll(object? sender, EventArgs e) =>
+        ApplyTransmissionSpeedFromTrackBar();
+
+    private void TrackTransmissionSpeed_ValueChanged(object? sender, EventArgs e) =>
+        ApplyTransmissionSpeedFromTrackBar();
+
+    private void ApplyTransmissionSpeedFromTrackBar()
+    {
+        _settings.TransmissionSpeedPercent = trackTransmissionSpeed.Value;
+        UpdateTransmissionSpeedLabel();
+        _server?.UpdateSettings(_settings);
+    }
+
+    private void UpdateTransmissionSpeedLabel()
+    {
+        var effectiveFps = _settings.GetEffectiveMaxFrameRate();
+        lblTransmissionSpeedValue.Text = $"{trackTransmissionSpeed.Value}% ({effectiveFps} FPS)";
     }
 
     private void InitializeTrayIcon()
@@ -24,8 +145,8 @@ public partial class VNCForm : Form
         _trayMenu = new ContextMenuStrip();
         _trayMenu.Items.Add("열기", null, (s, e) => ShowWindow());
         _trayMenu.Items.Add(new ToolStripSeparator());
-        _trayMenu.Items.Add("서버 시작", null, (s, e) => StartServer());
-        _trayMenu.Items.Add("서버 중지", null, (s, e) => StopServer());
+        _trayToggleServerItem = new ToolStripMenuItem("서버 시작", null, (s, e) => ToggleServer());
+        _trayMenu.Items.Add(_trayToggleServerItem);
         _trayMenu.Items.Add(new ToolStripSeparator());
         _trayMenu.Items.Add("종료", null, (s, e) => ExitApplication());
 
@@ -41,6 +162,15 @@ public partial class VNCForm : Form
         };
 
         _trayIcon.DoubleClick += (s, e) => ShowWindow();
+    }
+
+    private void TrySetFormIcon()
+    {
+        var icon = LoadApplicationIcon();
+        if (icon != null)
+        {
+            Icon = icon;
+        }
     }
 
     private Icon? LoadApplicationIcon()
@@ -72,20 +202,36 @@ public partial class VNCForm : Form
     private void LoadSettings()
     {
         _settings = ServerSettings.Load();
-        
+        ApplySettingsToControls();
+
         // 프로필 목록 로드
         RefreshProfilesList();
-        
+
         if (_settings.AutoStart)
         {
             StartServer();
         }
     }
 
+    private void ApplySettingsToControls()
+    {
+        numPort.Value = Math.Clamp(_settings.Port, (int)numPort.Minimum, (int)numPort.Maximum);
+        txtPassword.Text = _settings.Password;
+        chkRequirePassword.Checked = _settings.RequirePassword;
+        chkAllowMouse.Checked = _settings.AllowMouseControl;
+        chkAllowKeyboard.Checked = _settings.AllowKeyboardControl;
+        chkAllowMultiple.Checked = _settings.AllowMultipleConnections;
+        chkAutoStart.Checked = _settings.AutoStart;
+        chkMinimizeToTray.Checked = _settings.MinimizeToTray;
+        txtPassword.Enabled = _settings.RequirePassword;
+        trackTransmissionSpeed.Value = Math.Clamp(_settings.TransmissionSpeedPercent, 10, 100);
+        UpdateTransmissionSpeedLabel();
+    }
+
     private void InitializeServer()
     {
         _server = new VNCServerCore(_settings);
-        
+
         _server.StatusChanged += (s, status) =>
         {
             if (InvokeRequired)
@@ -100,26 +246,17 @@ public partial class VNCForm : Form
 
         _server.ClientConnected += (s, client) =>
         {
-            if (InvokeRequired)
-            {
-                Invoke(() => AddLog($"클라이언트 연결: {client}"));
-            }
-            else
-            {
-                AddLog($"클라이언트 연결: {client}");
-            }
+            RunOnUiThread(() => OnClientConnected(client));
         };
 
         _server.ClientDisconnected += (s, client) =>
         {
-            if (InvokeRequired)
-            {
-                Invoke(() => AddLog($"클라이언트 연결 해제: {client}"));
-            }
-            else
-            {
-                AddLog($"클라이언트 연결 해제: {client}");
-            }
+            RunOnUiThread(() => OnClientDisconnected(client));
+        };
+
+        _server.ClientCountChanged += (s, count) =>
+        {
+            RunOnUiThread(() => UpdateConnectionDisplay(count));
         };
 
         _server.ErrorOccurred += (s, ex) =>
@@ -173,20 +310,67 @@ public partial class VNCForm : Form
     {
         bool isRunning = _server?.IsRunning ?? false;
         
-        btnStart.Enabled = !isRunning;
-        btnStop.Enabled = isRunning;
+        btnToggleServer.Text = isRunning ? "서버 중지" : "서버 시작";
+        ApplyToggleServerButtonStyle(isRunning);
         grpSettings.Enabled = !isRunning;
 
         lblStatus.Text = isRunning ? "실행 중" : "중지됨";
-        lblStatus.ForeColor = isRunning ? Color.Green : Color.Red;
+        lblStatus.ForeColor = isRunning ? StatusRunningColor : StatusStoppedColor;
 
         lblPort.Text = $"포트: {_settings.Port}";
-        lblConnections.Text = $"연결: {_server?.ConnectedClients ?? 0}";
+        UpdateConnectionDisplay(_server?.ConnectedClients ?? 0);
 
-        if (_trayMenu != null)
+        if (_trayToggleServerItem != null)
         {
-            _trayMenu.Items[2].Enabled = !isRunning; // 시작
-            _trayMenu.Items[3].Enabled = isRunning;  // 중지
+            _trayToggleServerItem.Text = isRunning ? "서버 중지" : "서버 시작";
+        }
+    }
+
+    private void RunOnUiThread(Action action)
+    {
+        if (InvokeRequired)
+        {
+            Invoke(action);
+        }
+        else
+        {
+            action();
+        }
+    }
+
+    private void OnClientConnected(string clientAddress)
+    {
+        var count = _server?.ConnectedClients ?? 0;
+        AddLog($"클라이언트 접속: {clientAddress} (현재 {count}개)");
+    }
+
+    private void OnClientDisconnected(string clientAddress)
+    {
+        var count = _server?.ConnectedClients ?? 0;
+        AddLog($"클라이언트 접속 종료: {clientAddress} (현재 {count}개)");
+    }
+
+    private void UpdateConnectionDisplay(int count)
+    {
+        lblConnections.Text = $"접속 클라이언트: {count}개";
+        lblConnections.ForeColor = count > 0 ? StatusRunningColor : StatusStoppedColor;
+    }
+
+    private void ApplyToggleServerButtonStyle(bool isRunning)
+    {
+        if (isRunning)
+        {
+            btnToggleServer.BackColor = ServerStopButtonColor;
+            btnToggleServer.ForeColor = ServerStopButtonForeColor;
+            btnToggleServer.FlatAppearance.MouseOverBackColor = ServerStopButtonColor;
+            btnToggleServer.FlatAppearance.MouseDownBackColor = ServerStopButtonColor;
+        }
+        else
+        {
+            btnToggleServer.BackColor = ServerStartButtonColor;
+            btnToggleServer.ForeColor = ServerStartButtonForeColor;
+            btnToggleServer.FlatAppearance.MouseOverBackColor = ServerStartButtonColor;
+            btnToggleServer.FlatAppearance.MouseDownBackColor = ServerStartButtonColor;
         }
     }
 
@@ -223,8 +407,8 @@ public partial class VNCForm : Form
     {
         using var advancedForm = new AdvancedSettingsForm(_settings);
         advancedForm.ShowDialog(this);
-        
-        // 설정 다시 로드
+        _settings.Save();
+        _server?.UpdateSettings(_settings);
         LoadSettings();
         UpdateUI();
     }

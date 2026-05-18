@@ -35,6 +35,9 @@ partial class AdvancedSettingsForm
     private Label lblImageQualityValue;
     private Label lblFrameRate;
     private NumericUpDown numFrameRate;
+    private CheckBox chkAdaptiveFrameRate;
+    private Label lblMinFrameRate;
+    private NumericUpDown numMinFrameRate;
     private Label lblCompressionLevel;
     private NumericUpDown numCompressionLevel;
     private Label lblPerformanceInfo;
@@ -286,6 +289,9 @@ partial class AdvancedSettingsForm
         this.lblImageQualityValue = new Label();
         this.lblFrameRate = new Label();
         this.numFrameRate = new NumericUpDown();
+        this.chkAdaptiveFrameRate = new CheckBox();
+        this.lblMinFrameRate = new Label();
+        this.numMinFrameRate = new NumericUpDown();
         this.lblCompressionLevel = new Label();
         this.numCompressionLevel = new NumericUpDown();
         this.lblPerformanceInfo = new Label();
@@ -293,6 +299,9 @@ partial class AdvancedSettingsForm
         this.tabPerformance.Controls.Add(this.lblPerformanceInfo);
         this.tabPerformance.Controls.Add(this.numCompressionLevel);
         this.tabPerformance.Controls.Add(this.lblCompressionLevel);
+        this.tabPerformance.Controls.Add(this.numMinFrameRate);
+        this.tabPerformance.Controls.Add(this.lblMinFrameRate);
+        this.tabPerformance.Controls.Add(this.chkAdaptiveFrameRate);
         this.tabPerformance.Controls.Add(this.numFrameRate);
         this.tabPerformance.Controls.Add(this.lblFrameRate);
         this.tabPerformance.Controls.Add(this.lblImageQualityValue);
@@ -336,7 +345,7 @@ partial class AdvancedSettingsForm
         this.lblFrameRate.Name = "lblFrameRate";
         this.lblFrameRate.Size = new Size(150, 15);
         this.lblFrameRate.TabIndex = 3;
-        this.lblFrameRate.Text = "프레임레이트 (FPS):";
+        this.lblFrameRate.Text = "최대 프레임레이트 (FPS):";
 
         this.numFrameRate.Location = new Point(200, 97);
         this.numFrameRate.Maximum = new decimal(new int[] { 60, 0, 0, 0 });
@@ -346,14 +355,37 @@ partial class AdvancedSettingsForm
         this.numFrameRate.TabIndex = 4;
         this.numFrameRate.Value = new decimal(new int[] { 30, 0, 0, 0 });
 
+        this.chkAdaptiveFrameRate.AutoSize = true;
+        this.chkAdaptiveFrameRate.Location = new Point(20, 130);
+        this.chkAdaptiveFrameRate.Name = "chkAdaptiveFrameRate";
+        this.chkAdaptiveFrameRate.Size = new Size(280, 19);
+        this.chkAdaptiveFrameRate.TabIndex = 5;
+        this.chkAdaptiveFrameRate.Text = "네트워크에 맞게 FPS 자동 조절";
+        this.chkAdaptiveFrameRate.UseVisualStyleBackColor = true;
+
+        this.lblMinFrameRate.AutoSize = true;
+        this.lblMinFrameRate.Location = new Point(40, 158);
+        this.lblMinFrameRate.Name = "lblMinFrameRate";
+        this.lblMinFrameRate.Size = new Size(95, 15);
+        this.lblMinFrameRate.TabIndex = 6;
+        this.lblMinFrameRate.Text = "최소 FPS:";
+
+        this.numMinFrameRate.Location = new Point(200, 155);
+        this.numMinFrameRate.Maximum = new decimal(new int[] { 60, 0, 0, 0 });
+        this.numMinFrameRate.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        this.numMinFrameRate.Name = "numMinFrameRate";
+        this.numMinFrameRate.Size = new Size(120, 23);
+        this.numMinFrameRate.TabIndex = 7;
+        this.numMinFrameRate.Value = new decimal(new int[] { 5, 0, 0, 0 });
+
         this.lblCompressionLevel.AutoSize = true;
-        this.lblCompressionLevel.Location = new Point(20, 140);
+        this.lblCompressionLevel.Location = new Point(20, 190);
         this.lblCompressionLevel.Name = "lblCompressionLevel";
         this.lblCompressionLevel.Size = new Size(150, 15);
         this.lblCompressionLevel.TabIndex = 5;
         this.lblCompressionLevel.Text = "압축 레벨 (0-9):";
 
-        this.numCompressionLevel.Location = new Point(200, 137);
+        this.numCompressionLevel.Location = new Point(200, 187);
         this.numCompressionLevel.Maximum = new decimal(new int[] { 9, 0, 0, 0 });
         this.numCompressionLevel.Minimum = new decimal(new int[] { 0, 0, 0, 0 });
         this.numCompressionLevel.Name = "numCompressionLevel";
@@ -361,14 +393,14 @@ partial class AdvancedSettingsForm
         this.numCompressionLevel.TabIndex = 6;
         this.numCompressionLevel.Value = new decimal(new int[] { 6, 0, 0, 0 });
 
-        this.lblPerformanceInfo.Location = new Point(20, 180);
+        this.lblPerformanceInfo.Location = new Point(20, 230);
         this.lblPerformanceInfo.Name = "lblPerformanceInfo";
-        this.lblPerformanceInfo.Size = new Size(600, 80);
-        this.lblPerformanceInfo.TabIndex = 7;
+        this.lblPerformanceInfo.Size = new Size(600, 100);
+        this.lblPerformanceInfo.TabIndex = 8;
         this.lblPerformanceInfo.Text = "성능 최적화 가이드:\n" +
+                                       "• 프레임레이트: 최대 FPS (상한)\n" +
+                                       "• 자동 조절: 전송 지연을 측정해 느린 네트워크에서는 FPS를 낮춤\n" +
                                        "• 낮은 품질 (30): 저속 네트워크용, CPU 사용량 낮음\n" +
-                                       "• 중간 품질 (60): 권장 설정, 균형있는 성능\n" +
-                                       "• 높은 품질 (85): 고속 네트워크용, 최상의 화질\n" +
                                        "• 압축 레벨이 높을수록 전송량 감소, CPU 사용량 증가";
     }
 

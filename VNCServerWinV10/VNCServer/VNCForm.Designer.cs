@@ -15,404 +15,440 @@ partial class VNCForm
     /// </summary>
     private void InitializeComponent()
     {
-        this.grpStatus = new GroupBox();
-        this.lblConnections = new Label();
-        this.lblPort = new Label();
-        this.lblStatus = new Label();
-        this.lblStatusLabel = new Label();
-        
-        this.grpProfiles = new GroupBox();
-        this.cmbProfiles = new ComboBox();
-        this.lblProfile = new Label();
-        this.btnSaveProfile = new Button();
-        this.btnLoadProfile = new Button();
-        this.btnDeleteProfile = new Button();
-        this.btnResetToDefaults = new Button();
-        
-        this.grpSettings = new GroupBox();
-        this.chkMinimizeToTray = new CheckBox();
-        this.chkAutoStart = new CheckBox();
-        this.chkAllowMultiple = new CheckBox();
-        this.chkAllowMouse = new CheckBox();
-        this.chkAllowKeyboard = new CheckBox();
-        this.chkRequirePassword = new CheckBox();
-        this.txtPassword = new TextBox();
-        this.lblPassword = new Label();
-        this.numPort = new NumericUpDown();
-        this.lblPortSetting = new Label();
-        this.btnSaveSettings = new Button();
-        this.btnAdvancedSettings = new Button();
-        
-        this.grpControl = new GroupBox();
-        this.btnStart = new Button();
-        this.btnStop = new Button();
-        
-        this.grpLog = new GroupBox();
-        this.lstLog = new ListBox();
-        
-        this.grpStatus.SuspendLayout();
-        this.grpSettings.SuspendLayout();
-        ((System.ComponentModel.ISupportInitialize)this.numPort).BeginInit();
-        this.grpControl.SuspendLayout();
-        this.grpLog.SuspendLayout();
-        this.SuspendLayout();
-        
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(VNCForm));
+        grpStatus = new GroupBox();
+        lblConnections = new Label();
+        lblPort = new Label();
+        lblStatus = new Label();
+        lblStatusLabel = new Label();
+        grpProfiles = new GroupBox();
+        lblProfile = new Label();
+        cmbProfiles = new ComboBox();
+        btnSaveProfile = new Button();
+        btnLoadProfile = new Button();
+        btnDeleteProfile = new Button();
+        btnResetToDefaults = new Button();
+        grpSettings = new GroupBox();
+        btnAdvancedSettings = new Button();
+        btnSaveSettings = new Button();
+        lblPortSetting = new Label();
+        numPort = new NumericUpDown();
+        lblPassword = new Label();
+        txtPassword = new TextBox();
+        chkRequirePassword = new CheckBox();
+        chkAllowMouse = new CheckBox();
+        chkAllowKeyboard = new CheckBox();
+        chkAllowMultiple = new CheckBox();
+        chkAutoStart = new CheckBox();
+        chkMinimizeToTray = new CheckBox();
+        lblTransmissionSpeed = new Label();
+        trackTransmissionSpeed = new TrackBar();
+        lblTransmissionSpeedValue = new Label();
+        lblSpeedSlow = new Label();
+        lblSpeedFast = new Label();
+        grpControl = new GroupBox();
+        btnToggleServer = new Button();
+        grpLog = new GroupBox();
+        lstLog = new ListBox();
+        grpStatus.SuspendLayout();
+        grpProfiles.SuspendLayout();
+        grpSettings.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)numPort).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)trackTransmissionSpeed).BeginInit();
+        grpControl.SuspendLayout();
+        grpLog.SuspendLayout();
+        SuspendLayout();
+        // 
         // grpStatus
-        this.grpStatus.Controls.Add(this.lblConnections);
-        this.grpStatus.Controls.Add(this.lblPort);
-        this.grpStatus.Controls.Add(this.lblStatus);
-        this.grpStatus.Controls.Add(this.lblStatusLabel);
-        this.grpStatus.Location = new Point(12, 12);
-        this.grpStatus.Name = "grpStatus";
-        this.grpStatus.Size = new Size(760, 80);
-        this.grpStatus.TabIndex = 0;
-        this.grpStatus.TabStop = false;
-        this.grpStatus.Text = "상태";
-        
-        // lblStatusLabel
-        this.lblStatusLabel.AutoSize = true;
-        this.lblStatusLabel.Location = new Point(15, 30);
-        this.lblStatusLabel.Name = "lblStatusLabel";
-        this.lblStatusLabel.Size = new Size(43, 15);
-        this.lblStatusLabel.TabIndex = 0;
-        this.lblStatusLabel.Text = "상태:";
-        
-        // lblStatus
-        this.lblStatus.AutoSize = true;
-        this.lblStatus.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
-        this.lblStatus.ForeColor = Color.Red;
-        this.lblStatus.Location = new Point(65, 30);
-        this.lblStatus.Name = "lblStatus";
-        this.lblStatus.Size = new Size(55, 15);
-        this.lblStatus.TabIndex = 1;
-        this.lblStatus.Text = "중지됨";
-        
-        // lblPort
-        this.lblPort.AutoSize = true;
-        this.lblPort.Location = new Point(15, 50);
-        this.lblPort.Name = "lblPort";
-        this.lblPort.Size = new Size(67, 15);
-        this.lblPort.TabIndex = 2;
-        this.lblPort.Text = "포트: 5900";
-        
+        // 
+        grpStatus.Controls.Add(lblConnections);
+        grpStatus.Controls.Add(lblPort);
+        grpStatus.Controls.Add(lblStatus);
+        grpStatus.Controls.Add(lblStatusLabel);
+        grpStatus.Location = new Point(12, 12);
+        grpStatus.Name = "grpStatus";
+        grpStatus.Size = new Size(760, 80);
+        grpStatus.TabIndex = 0;
+        grpStatus.TabStop = false;
+        grpStatus.Text = "상태";
+        // 
         // lblConnections
-        this.lblConnections.AutoSize = true;
-        this.lblConnections.Location = new Point(150, 50);
-        this.lblConnections.Name = "lblConnections";
-        this.lblConnections.Size = new Size(55, 15);
-        this.lblConnections.TabIndex = 3;
-        this.lblConnections.Text = "연결: 0";
-        
+        // 
+        lblConnections.AutoSize = true;
+        lblConnections.Location = new Point(150, 50);
+        lblConnections.Name = "lblConnections";
+        lblConnections.Size = new Size(45, 15);
+        lblConnections.TabIndex = 3;
+        lblConnections.Text = "접속 클라이언트: 0개";
+        // 
+        // lblPort
+        // 
+        lblPort.AutoSize = true;
+        lblPort.Location = new Point(15, 50);
+        lblPort.Name = "lblPort";
+        lblPort.Size = new Size(66, 15);
+        lblPort.TabIndex = 2;
+        lblPort.Text = "포트: 5900";
+        // 
+        // lblStatus
+        // 
+        lblStatus.AutoSize = true;
+        lblStatus.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+        lblStatus.ForeColor = Color.Red;
+        lblStatus.Location = new Point(65, 30);
+        lblStatus.Name = "lblStatus";
+        lblStatus.Size = new Size(43, 15);
+        lblStatus.TabIndex = 1;
+        lblStatus.Text = "중지됨";
+        // 
+        // lblStatusLabel
+        // 
+        lblStatusLabel.AutoSize = true;
+        lblStatusLabel.Location = new Point(15, 30);
+        lblStatusLabel.Name = "lblStatusLabel";
+        lblStatusLabel.Size = new Size(34, 15);
+        lblStatusLabel.TabIndex = 0;
+        lblStatusLabel.Text = "상태:";
+        // 
         // grpProfiles
-        this.grpProfiles.Controls.Add(this.lblProfile);
-        this.grpProfiles.Controls.Add(this.cmbProfiles);
-        this.grpProfiles.Controls.Add(this.btnSaveProfile);
-        this.grpProfiles.Controls.Add(this.btnLoadProfile);
-        this.grpProfiles.Controls.Add(this.btnDeleteProfile);
-        this.grpProfiles.Controls.Add(this.btnResetToDefaults);
-        this.grpProfiles.Location = new Point(12, 98);
-        this.grpProfiles.Name = "grpProfiles";
-        this.grpProfiles.Size = new Size(760, 60);
-        this.grpProfiles.TabIndex = 1;
-        this.grpProfiles.TabStop = false;
-        this.grpProfiles.Text = "프로필 관리";
-        
+        // 
+        grpProfiles.Controls.Add(lblProfile);
+        grpProfiles.Controls.Add(cmbProfiles);
+        grpProfiles.Controls.Add(btnSaveProfile);
+        grpProfiles.Controls.Add(btnLoadProfile);
+        grpProfiles.Controls.Add(btnDeleteProfile);
+        grpProfiles.Controls.Add(btnResetToDefaults);
+        grpProfiles.Location = new Point(12, 98);
+        grpProfiles.Name = "grpProfiles";
+        grpProfiles.Size = new Size(760, 60);
+        grpProfiles.TabIndex = 1;
+        grpProfiles.TabStop = false;
+        grpProfiles.Text = "프로필 관리";
+        // 
         // lblProfile
-        this.lblProfile.AutoSize = true;
-        this.lblProfile.Location = new Point(15, 25);
-        this.lblProfile.Name = "lblProfile";
-        this.lblProfile.Size = new Size(55, 15);
-        this.lblProfile.TabIndex = 0;
-        this.lblProfile.Text = "프로필:";
-        
+        // 
+        lblProfile.AutoSize = true;
+        lblProfile.Location = new Point(15, 25);
+        lblProfile.Name = "lblProfile";
+        lblProfile.Size = new Size(46, 15);
+        lblProfile.TabIndex = 0;
+        lblProfile.Text = "프로필:";
+        // 
         // cmbProfiles
-        this.cmbProfiles.DropDownStyle = ComboBoxStyle.DropDownList;
-        this.cmbProfiles.FormattingEnabled = true;
-        this.cmbProfiles.Location = new Point(75, 22);
-        this.cmbProfiles.Name = "cmbProfiles";
-        this.cmbProfiles.Size = new Size(200, 23);
-        this.cmbProfiles.TabIndex = 1;
-        
+        // 
+        cmbProfiles.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbProfiles.FormattingEnabled = true;
+        cmbProfiles.Location = new Point(75, 22);
+        cmbProfiles.Name = "cmbProfiles";
+        cmbProfiles.Size = new Size(200, 23);
+        cmbProfiles.TabIndex = 1;
+        // 
         // btnSaveProfile
-        this.btnSaveProfile.Location = new Point(285, 21);
-        this.btnSaveProfile.Name = "btnSaveProfile";
-        this.btnSaveProfile.Size = new Size(100, 25);
-        this.btnSaveProfile.TabIndex = 2;
-        this.btnSaveProfile.Text = "저장하기";
-        this.btnSaveProfile.UseVisualStyleBackColor = true;
-        this.btnSaveProfile.Click += (s, e) => SaveCurrentProfile();
-        
+        // 
+        btnSaveProfile.Location = new Point(285, 21);
+        btnSaveProfile.Name = "btnSaveProfile";
+        btnSaveProfile.Size = new Size(100, 25);
+        btnSaveProfile.TabIndex = 2;
+        btnSaveProfile.Text = "저장하기";
+        btnSaveProfile.UseVisualStyleBackColor = true;
+        // 
         // btnLoadProfile
-        this.btnLoadProfile.Location = new Point(395, 21);
-        this.btnLoadProfile.Name = "btnLoadProfile";
-        this.btnLoadProfile.Size = new Size(100, 25);
-        this.btnLoadProfile.TabIndex = 3;
-        this.btnLoadProfile.Text = "불러오기";
-        this.btnLoadProfile.UseVisualStyleBackColor = true;
-        this.btnLoadProfile.Click += (s, e) => LoadSelectedProfile();
-        
+        // 
+        btnLoadProfile.Location = new Point(395, 21);
+        btnLoadProfile.Name = "btnLoadProfile";
+        btnLoadProfile.Size = new Size(100, 25);
+        btnLoadProfile.TabIndex = 3;
+        btnLoadProfile.Text = "불러오기";
+        btnLoadProfile.UseVisualStyleBackColor = true;
+        // 
         // btnDeleteProfile
-        this.btnDeleteProfile.Location = new Point(505, 21);
-        this.btnDeleteProfile.Name = "btnDeleteProfile";
-        this.btnDeleteProfile.Size = new Size(100, 25);
-        this.btnDeleteProfile.TabIndex = 4;
-        this.btnDeleteProfile.Text = "삭제";
-        this.btnDeleteProfile.UseVisualStyleBackColor = true;
-        this.btnDeleteProfile.Click += (s, e) => DeleteSelectedProfile();
-        
+        // 
+        btnDeleteProfile.Location = new Point(505, 21);
+        btnDeleteProfile.Name = "btnDeleteProfile";
+        btnDeleteProfile.Size = new Size(100, 25);
+        btnDeleteProfile.TabIndex = 4;
+        btnDeleteProfile.Text = "삭제";
+        btnDeleteProfile.UseVisualStyleBackColor = true;
+        // 
         // btnResetToDefaults
-        this.btnResetToDefaults.Location = new Point(615, 21);
-        this.btnResetToDefaults.Name = "btnResetToDefaults";
-        this.btnResetToDefaults.Size = new Size(130, 25);
-        this.btnResetToDefaults.TabIndex = 5;
-        this.btnResetToDefaults.Text = "기본값으로 초기화";
-        this.btnResetToDefaults.UseVisualStyleBackColor = true;
-        this.btnResetToDefaults.Click += (s, e) => ResetToDefaultSettings();
-        
-        // grpControl
-        this.grpControl.Controls.Add(this.btnStart);
-        this.grpControl.Controls.Add(this.btnStop);
-        this.grpControl.Location = new Point(12, 164);
-        this.grpControl.Name = "grpControl";
-        this.grpControl.Size = new Size(760, 60);
-        this.grpControl.TabIndex = 1;
-        this.grpControl.TabStop = false;
-        this.grpControl.Text = "제어";
-        
-        // btnStart
-        this.btnStart.Location = new Point(15, 22);
-        this.btnStart.Name = "btnStart";
-        this.btnStart.Size = new Size(100, 30);
-        this.btnStart.TabIndex = 0;
-        this.btnStart.Text = "서버 시작";
-        this.btnStart.UseVisualStyleBackColor = true;
-        this.btnStart.Click += (s, e) => StartServer();
-        
-        // btnStop
-        this.btnStop.Enabled = false;
-        this.btnStop.Location = new Point(125, 22);
-        this.btnStop.Name = "btnStop";
-        this.btnStop.Size = new Size(100, 30);
-        this.btnStop.TabIndex = 1;
-        this.btnStop.Text = "서버 중지";
-        this.btnStop.UseVisualStyleBackColor = true;
-        this.btnStop.Click += (s, e) => StopServer();
-        
+        // 
+        btnResetToDefaults.Location = new Point(615, 21);
+        btnResetToDefaults.Name = "btnResetToDefaults";
+        btnResetToDefaults.Size = new Size(130, 25);
+        btnResetToDefaults.TabIndex = 5;
+        btnResetToDefaults.Text = "기본값으로 초기화";
+        btnResetToDefaults.UseVisualStyleBackColor = true;
+        // 
         // grpSettings
-        this.grpSettings.Controls.Add(this.btnAdvancedSettings);
-        this.grpSettings.Controls.Add(this.btnSaveSettings);
-        this.grpSettings.Controls.Add(this.lblPortSetting);
-        this.grpSettings.Controls.Add(this.numPort);
-        this.grpSettings.Controls.Add(this.lblPassword);
-        this.grpSettings.Controls.Add(this.txtPassword);
-        this.grpSettings.Controls.Add(this.chkRequirePassword);
-        this.grpSettings.Controls.Add(this.chkAllowMouse);
-        this.grpSettings.Controls.Add(this.chkAllowKeyboard);
-        this.grpSettings.Controls.Add(this.chkAllowMultiple);
-        this.grpSettings.Controls.Add(this.chkAutoStart);
-        this.grpSettings.Controls.Add(this.chkMinimizeToTray);
-        this.grpSettings.Location = new Point(12, 230);
-        this.grpSettings.Name = "grpSettings";
-        this.grpSettings.Size = new Size(760, 200);
-        this.grpSettings.TabIndex = 2;
-        this.grpSettings.TabStop = false;
-        this.grpSettings.Text = "기본 설정";
-        
-        // lblPortSetting
-        this.lblPortSetting.AutoSize = true;
-        this.lblPortSetting.Location = new Point(15, 30);
-        this.lblPortSetting.Name = "lblPortSetting";
-        this.lblPortSetting.Size = new Size(43, 15);
-        this.lblPortSetting.TabIndex = 0;
-        this.lblPortSetting.Text = "포트:";
-        
-        // numPort
-        this.numPort.Location = new Point(100, 27);
-        this.numPort.Maximum = new decimal(new int[] { 65535, 0, 0, 0 });
-        this.numPort.Minimum = new decimal(new int[] { 1024, 0, 0, 0 });
-        this.numPort.Name = "numPort";
-        this.numPort.Size = new Size(120, 23);
-        this.numPort.TabIndex = 1;
-        this.numPort.Value = new decimal(new int[] { 5900, 0, 0, 0 });
-        this.numPort.ValueChanged += (s, e) => _settings.Port = (int)numPort.Value;
-        
-        // chkRequirePassword
-        this.chkRequirePassword.AutoSize = true;
-        this.chkRequirePassword.Checked = true;
-        this.chkRequirePassword.CheckState = CheckState.Checked;
-        this.chkRequirePassword.Location = new Point(15, 60);
-        this.chkRequirePassword.Name = "chkRequirePassword";
-        this.chkRequirePassword.Size = new Size(122, 19);
-        this.chkRequirePassword.TabIndex = 2;
-        this.chkRequirePassword.Text = "비밀번호 요구";
-        this.chkRequirePassword.UseVisualStyleBackColor = true;
-        this.chkRequirePassword.CheckedChanged += (s, e) => {
-            _settings.RequirePassword = chkRequirePassword.Checked;
-            txtPassword.Enabled = chkRequirePassword.Checked;
-        };
-        
-        // lblPassword
-        this.lblPassword.AutoSize = true;
-        this.lblPassword.Location = new Point(35, 90);
-        this.lblPassword.Name = "lblPassword";
-        this.lblPassword.Size = new Size(59, 15);
-        this.lblPassword.TabIndex = 3;
-        this.lblPassword.Text = "비밀번호:";
-        
-        // txtPassword
-        this.txtPassword.Location = new Point(100, 87);
-        this.txtPassword.Name = "txtPassword";
-        this.txtPassword.PasswordChar = '*';
-        this.txtPassword.Size = new Size(200, 23);
-        this.txtPassword.TabIndex = 4;
-        this.txtPassword.TextChanged += (s, e) => _settings.Password = txtPassword.Text;
-        
-        // chkAllowMouse
-        this.chkAllowMouse.AutoSize = true;
-        this.chkAllowMouse.Checked = true;
-        this.chkAllowMouse.CheckState = CheckState.Checked;
-        this.chkAllowMouse.Location = new Point(15, 120);
-        this.chkAllowMouse.Name = "chkAllowMouse";
-        this.chkAllowMouse.Size = new Size(146, 19);
-        this.chkAllowMouse.TabIndex = 5;
-        this.chkAllowMouse.Text = "마우스 제어 허용";
-        this.chkAllowMouse.UseVisualStyleBackColor = true;
-        this.chkAllowMouse.CheckedChanged += (s, e) => _settings.AllowMouseControl = chkAllowMouse.Checked;
-        
-        // chkAllowKeyboard
-        this.chkAllowKeyboard.AutoSize = true;
-        this.chkAllowKeyboard.Location = new Point(200, 120);
-        this.chkAllowKeyboard.Name = "chkAllowKeyboard";
-        this.chkAllowKeyboard.Size = new Size(146, 19);
-        this.chkAllowKeyboard.TabIndex = 6;
-        this.chkAllowKeyboard.Text = "키보드 제어 허용";
-        this.chkAllowKeyboard.UseVisualStyleBackColor = true;
-        this.chkAllowKeyboard.CheckedChanged += (s, e) => _settings.AllowKeyboardControl = chkAllowKeyboard.Checked;
-        
-        // chkAllowMultiple
-        this.chkAllowMultiple.AutoSize = true;
-        this.chkAllowMultiple.Location = new Point(400, 120);
-        this.chkAllowMultiple.Name = "chkAllowMultiple";
-        this.chkAllowMultiple.Size = new Size(146, 19);
-        this.chkAllowMultiple.TabIndex = 7;
-        this.chkAllowMultiple.Text = "다중 연결 허용";
-        this.chkAllowMultiple.UseVisualStyleBackColor = true;
-        this.chkAllowMultiple.CheckedChanged += (s, e) => _settings.AllowMultipleConnections = chkAllowMultiple.Checked;
-        
-        // chkAutoStart
-        this.chkAutoStart.AutoSize = true;
-        this.chkAutoStart.Location = new Point(15, 145);
-        this.chkAutoStart.Name = "chkAutoStart";
-        this.chkAutoStart.Size = new Size(122, 19);
-        this.chkAutoStart.TabIndex = 8;
-        this.chkAutoStart.Text = "자동 시작";
-        this.chkAutoStart.UseVisualStyleBackColor = true;
-        this.chkAutoStart.CheckedChanged += (s, e) => _settings.AutoStart = chkAutoStart.Checked;
-        
-        // chkMinimizeToTray
-        this.chkMinimizeToTray.AutoSize = true;
-        this.chkMinimizeToTray.Checked = true;
-        this.chkMinimizeToTray.CheckState = CheckState.Checked;
-        this.chkMinimizeToTray.Location = new Point(200, 145);
-        this.chkMinimizeToTray.Name = "chkMinimizeToTray";
-        this.chkMinimizeToTray.Size = new Size(170, 19);
-        this.chkMinimizeToTray.TabIndex = 9;
-        this.chkMinimizeToTray.Text = "트레이로 최소화";
-        this.chkMinimizeToTray.UseVisualStyleBackColor = true;
-        this.chkMinimizeToTray.CheckedChanged += (s, e) => _settings.MinimizeToTray = chkMinimizeToTray.Checked;
-        
-        // btnSaveSettings
-        this.btnSaveSettings.Location = new Point(15, 170);
-        this.btnSaveSettings.Name = "btnSaveSettings";
-        this.btnSaveSettings.Size = new Size(100, 25);
-        this.btnSaveSettings.TabIndex = 10;
-        this.btnSaveSettings.Text = "설정 저장";
-        this.btnSaveSettings.UseVisualStyleBackColor = true;
-        this.btnSaveSettings.Click += (s, e) => {
-            _settings.Save();
-            MessageBox.Show("설정이 저장되었습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        };
-
+        // 
+        grpSettings.Controls.Add(btnAdvancedSettings);
+        grpSettings.Controls.Add(btnSaveSettings);
+        grpSettings.Controls.Add(lblPortSetting);
+        grpSettings.Controls.Add(numPort);
+        grpSettings.Controls.Add(lblPassword);
+        grpSettings.Controls.Add(txtPassword);
+        grpSettings.Controls.Add(chkRequirePassword);
+        grpSettings.Controls.Add(chkAllowMouse);
+        grpSettings.Controls.Add(chkAllowKeyboard);
+        grpSettings.Controls.Add(chkAllowMultiple);
+        grpSettings.Controls.Add(chkAutoStart);
+        grpSettings.Controls.Add(chkMinimizeToTray);
+        grpSettings.Location = new Point(12, 248);
+        grpSettings.Name = "grpSettings";
+        grpSettings.Size = new Size(760, 200);
+        grpSettings.TabIndex = 2;
+        grpSettings.TabStop = false;
+        grpSettings.Text = "기본 설정";
+        // 
         // btnAdvancedSettings
-        this.btnAdvancedSettings.Location = new Point(125, 170);
-        this.btnAdvancedSettings.Name = "btnAdvancedSettings";
-        this.btnAdvancedSettings.Size = new Size(100, 25);
-        this.btnAdvancedSettings.TabIndex = 11;
-        this.btnAdvancedSettings.Text = "고급 설정...";
-        this.btnAdvancedSettings.UseVisualStyleBackColor = true;
-        this.btnAdvancedSettings.Click += (s, e) => ShowAdvancedSettings();
-        
+        // 
+        btnAdvancedSettings.Location = new Point(125, 170);
+        btnAdvancedSettings.Name = "btnAdvancedSettings";
+        btnAdvancedSettings.Size = new Size(100, 25);
+        btnAdvancedSettings.TabIndex = 11;
+        btnAdvancedSettings.Text = "고급 설정...";
+        btnAdvancedSettings.UseVisualStyleBackColor = true;
+        // 
+        // btnSaveSettings
+        // 
+        btnSaveSettings.Location = new Point(15, 170);
+        btnSaveSettings.Name = "btnSaveSettings";
+        btnSaveSettings.Size = new Size(100, 25);
+        btnSaveSettings.TabIndex = 10;
+        btnSaveSettings.Text = "설정 저장";
+        btnSaveSettings.UseVisualStyleBackColor = true;
+        // 
+        // lblPortSetting
+        // 
+        lblPortSetting.AutoSize = true;
+        lblPortSetting.Location = new Point(15, 30);
+        lblPortSetting.Name = "lblPortSetting";
+        lblPortSetting.Size = new Size(34, 15);
+        lblPortSetting.TabIndex = 0;
+        lblPortSetting.Text = "포트:";
+        // 
+        // numPort
+        // 
+        numPort.Location = new Point(100, 27);
+        numPort.Maximum = new decimal(new int[] { 65535, 0, 0, 0 });
+        numPort.Minimum = new decimal(new int[] { 1024, 0, 0, 0 });
+        numPort.Name = "numPort";
+        numPort.Size = new Size(120, 23);
+        numPort.TabIndex = 1;
+        numPort.Value = new decimal(new int[] { 5900, 0, 0, 0 });
+        // 
+        // lblPassword
+        // 
+        lblPassword.AutoSize = true;
+        lblPassword.Location = new Point(35, 90);
+        lblPassword.Name = "lblPassword";
+        lblPassword.Size = new Size(58, 15);
+        lblPassword.TabIndex = 3;
+        lblPassword.Text = "비밀번호:";
+        // 
+        // txtPassword
+        // 
+        txtPassword.Location = new Point(100, 87);
+        txtPassword.Name = "txtPassword";
+        txtPassword.PasswordChar = '*';
+        txtPassword.Size = new Size(200, 23);
+        txtPassword.TabIndex = 4;
+        // 
+        // chkRequirePassword
+        // 
+        chkRequirePassword.AutoSize = true;
+        chkRequirePassword.Checked = true;
+        chkRequirePassword.CheckState = CheckState.Checked;
+        chkRequirePassword.Location = new Point(15, 60);
+        chkRequirePassword.Name = "chkRequirePassword";
+        chkRequirePassword.Size = new Size(102, 19);
+        chkRequirePassword.TabIndex = 2;
+        chkRequirePassword.Text = "비밀번호 요구";
+        chkRequirePassword.UseVisualStyleBackColor = true;
+        // 
+        // chkAllowMouse
+        // 
+        chkAllowMouse.AutoSize = true;
+        chkAllowMouse.Checked = true;
+        chkAllowMouse.CheckState = CheckState.Checked;
+        chkAllowMouse.Location = new Point(15, 120);
+        chkAllowMouse.Name = "chkAllowMouse";
+        chkAllowMouse.Size = new Size(118, 19);
+        chkAllowMouse.TabIndex = 5;
+        chkAllowMouse.Text = "마우스 제어 허용";
+        chkAllowMouse.UseVisualStyleBackColor = true;
+        // 
+        // chkAllowKeyboard
+        // 
+        chkAllowKeyboard.AutoSize = true;
+        chkAllowKeyboard.Location = new Point(200, 120);
+        chkAllowKeyboard.Name = "chkAllowKeyboard";
+        chkAllowKeyboard.Size = new Size(118, 19);
+        chkAllowKeyboard.TabIndex = 6;
+        chkAllowKeyboard.Text = "키보드 제어 허용";
+        chkAllowKeyboard.UseVisualStyleBackColor = true;
+        // 
+        // chkAllowMultiple
+        // 
+        chkAllowMultiple.AutoSize = true;
+        chkAllowMultiple.Location = new Point(400, 120);
+        chkAllowMultiple.Name = "chkAllowMultiple";
+        chkAllowMultiple.Size = new Size(106, 19);
+        chkAllowMultiple.TabIndex = 7;
+        chkAllowMultiple.Text = "다중 연결 허용";
+        chkAllowMultiple.UseVisualStyleBackColor = true;
+        // 
+        // chkAutoStart
+        // 
+        chkAutoStart.AutoSize = true;
+        chkAutoStart.Location = new Point(15, 145);
+        chkAutoStart.Name = "chkAutoStart";
+        chkAutoStart.Size = new Size(78, 19);
+        chkAutoStart.TabIndex = 8;
+        chkAutoStart.Text = "자동 시작";
+        chkAutoStart.UseVisualStyleBackColor = true;
+        // 
+        // chkMinimizeToTray
+        // 
+        chkMinimizeToTray.AutoSize = true;
+        chkMinimizeToTray.Checked = true;
+        chkMinimizeToTray.CheckState = CheckState.Checked;
+        chkMinimizeToTray.Location = new Point(200, 145);
+        chkMinimizeToTray.Name = "chkMinimizeToTray";
+        chkMinimizeToTray.Size = new Size(114, 19);
+        chkMinimizeToTray.TabIndex = 9;
+        chkMinimizeToTray.Text = "트레이로 최소화";
+        chkMinimizeToTray.UseVisualStyleBackColor = true;
+        // 
+        // lblTransmissionSpeed
+        // 
+        lblTransmissionSpeed.AutoSize = true;
+        lblTransmissionSpeed.Location = new Point(135, 28);
+        lblTransmissionSpeed.Name = "lblTransmissionSpeed";
+        lblTransmissionSpeed.Size = new Size(62, 15);
+        lblTransmissionSpeed.TabIndex = 1;
+        lblTransmissionSpeed.Text = "전송 속도:";
+        // 
+        // trackTransmissionSpeed
+        // 
+        trackTransmissionSpeed.LargeChange = 10;
+        trackTransmissionSpeed.Location = new Point(210, 16);
+        trackTransmissionSpeed.Maximum = 100;
+        trackTransmissionSpeed.Minimum = 10;
+        trackTransmissionSpeed.Name = "trackTransmissionSpeed";
+        trackTransmissionSpeed.Size = new Size(400, 45);
+        trackTransmissionSpeed.SmallChange = 5;
+        trackTransmissionSpeed.TabIndex = 2;
+        trackTransmissionSpeed.TickFrequency = 10;
+        trackTransmissionSpeed.TickStyle = TickStyle.Both;
+        trackTransmissionSpeed.Value = 100;
+        // 
+        // lblTransmissionSpeedValue
+        // 
+        lblTransmissionSpeedValue.AutoSize = true;
+        lblTransmissionSpeedValue.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+        lblTransmissionSpeedValue.Location = new Point(618, 30);
+        lblTransmissionSpeedValue.Name = "lblTransmissionSpeedValue";
+        lblTransmissionSpeedValue.Size = new Size(39, 15);
+        lblTransmissionSpeedValue.TabIndex = 3;
+        lblTransmissionSpeedValue.Text = "100%";
+        // 
+        // lblSpeedSlow
+        // 
+        lblSpeedSlow.AutoSize = true;
+        lblSpeedSlow.ForeColor = Color.Gray;
+        lblSpeedSlow.Location = new Point(210, 56);
+        lblSpeedSlow.Name = "lblSpeedSlow";
+        lblSpeedSlow.Size = new Size(31, 15);
+        lblSpeedSlow.TabIndex = 4;
+        lblSpeedSlow.Text = "느림";
+        // 
+        // lblSpeedFast
+        // 
+        lblSpeedFast.AutoSize = true;
+        lblSpeedFast.ForeColor = Color.Gray;
+        lblSpeedFast.Location = new Point(575, 56);
+        lblSpeedFast.Name = "lblSpeedFast";
+        lblSpeedFast.Size = new Size(31, 15);
+        lblSpeedFast.TabIndex = 5;
+        lblSpeedFast.Text = "빠름";
+        // 
+        // grpControl
+        // 
+        grpControl.Controls.Add(lblSpeedFast);
+        grpControl.Controls.Add(lblSpeedSlow);
+        grpControl.Controls.Add(lblTransmissionSpeedValue);
+        grpControl.Controls.Add(trackTransmissionSpeed);
+        grpControl.Controls.Add(lblTransmissionSpeed);
+        grpControl.Controls.Add(btnToggleServer);
+        grpControl.Location = new Point(12, 164);
+        grpControl.Name = "grpControl";
+        grpControl.Size = new Size(760, 78);
+        grpControl.TabIndex = 1;
+        grpControl.TabStop = false;
+        grpControl.Text = "제어";
+        // 
+        // btnToggleServer
+        // 
+        btnToggleServer.FlatAppearance.BorderSize = 0;
+        btnToggleServer.FlatStyle = FlatStyle.Flat;
+        btnToggleServer.Location = new Point(15, 20);
+        btnToggleServer.Name = "btnToggleServer";
+        btnToggleServer.Size = new Size(110, 32);
+        btnToggleServer.TabIndex = 0;
+        btnToggleServer.Text = "서버 시작";
+        btnToggleServer.UseVisualStyleBackColor = false;
+        btnToggleServer.BackColor = Color.FromArgb(100, 181, 255);
+        btnToggleServer.ForeColor = Color.Black;
+        // 
         // grpLog
-        this.grpLog.Controls.Add(this.lstLog);
-        this.grpLog.Location = new Point(12, 436);
-        this.grpLog.Name = "grpLog";
-        this.grpLog.Size = new Size(760, 180);
-        this.grpLog.TabIndex = 3;
-        this.grpLog.TabStop = false;
-        this.grpLog.Text = "로그";
-        
+        // 
+        grpLog.Controls.Add(lstLog);
+        grpLog.Location = new Point(12, 454);
+        grpLog.Name = "grpLog";
+        grpLog.Size = new Size(760, 180);
+        grpLog.TabIndex = 3;
+        grpLog.TabStop = false;
+        grpLog.Text = "로그";
+        // 
         // lstLog
-        this.lstLog.Dock = DockStyle.Fill;
-        this.lstLog.FormattingEnabled = true;
-        this.lstLog.ItemHeight = 15;
-        this.lstLog.Location = new Point(3, 19);
-        this.lstLog.Name = "lstLog";
-        this.lstLog.Size = new Size(754, 158);
-        this.lstLog.TabIndex = 0;
-        
+        // 
+        lstLog.Dock = DockStyle.Fill;
+        lstLog.FormattingEnabled = true;
+        lstLog.ItemHeight = 15;
+        lstLog.Location = new Point(3, 19);
+        lstLog.Name = "lstLog";
+        lstLog.Size = new Size(754, 158);
+        lstLog.TabIndex = 0;
+        // 
         // VNCForm
-        this.AutoScaleDimensions = new SizeF(7F, 15F);
-        this.AutoScaleMode = AutoScaleMode.Font;
-        this.ClientSize = new Size(784, 627);
-        this.Controls.Add(this.grpLog);
-        this.Controls.Add(this.grpSettings);
-        this.Controls.Add(this.grpControl);
-        this.Controls.Add(this.grpProfiles);
-        this.Controls.Add(this.grpStatus);
-        this.FormBorderStyle = FormBorderStyle.FixedSingle;
-        this.MaximizeBox = false;
-        this.Name = "VNCForm";
-        this.StartPosition = FormStartPosition.CenterScreen;
-        this.Text = "VNC Server";
-        
-        // Load and set icon
-        try
-        {
-            var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "daemon_hammer.ico");
-            if (File.Exists(iconPath))
-            {
-                this.Icon = new Icon(iconPath);
-            }
-            else
-            {
-                iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "daemon_hammer.ico");
-                if (File.Exists(iconPath))
-                {
-                    this.Icon = new Icon(iconPath);
-                }
-            }
-        }
-        catch { }
-        
-        this.grpStatus.ResumeLayout(false);
-        this.grpStatus.PerformLayout();
-        this.grpSettings.ResumeLayout(false);
-        this.grpSettings.PerformLayout();
-        ((System.ComponentModel.ISupportInitialize)this.numPort).EndInit();
-        this.grpControl.ResumeLayout(false);
-        this.grpLog.ResumeLayout(false);
-        this.ResumeLayout(false);
-        
-        // Load settings into controls
-        this.numPort.Value = _settings.Port;
-        this.txtPassword.Text = _settings.Password;
-        this.chkRequirePassword.Checked = _settings.RequirePassword;
-        this.chkAllowMouse.Checked = _settings.AllowMouseControl;
-        this.chkAllowKeyboard.Checked = _settings.AllowKeyboardControl;
-        this.chkAllowMultiple.Checked = _settings.AllowMultipleConnections;
-        this.chkAutoStart.Checked = _settings.AutoStart;
-        this.chkMinimizeToTray.Checked = _settings.MinimizeToTray;
-        this.txtPassword.Enabled = _settings.RequirePassword;
+        // 
+        AutoScaleDimensions = new SizeF(7F, 15F);
+        AutoScaleMode = AutoScaleMode.Font;
+        ClientSize = new Size(784, 645);
+        Controls.Add(grpLog);
+        Controls.Add(grpSettings);
+        Controls.Add(grpControl);
+        Controls.Add(grpProfiles);
+        Controls.Add(grpStatus);
+        FormBorderStyle = FormBorderStyle.FixedSingle;
+        Icon = (Icon)resources.GetObject("$this.Icon");
+        MaximizeBox = false;
+        Name = "VNCForm";
+        StartPosition = FormStartPosition.CenterScreen;
+        Text = "VNC Server";
+        grpStatus.ResumeLayout(false);
+        grpStatus.PerformLayout();
+        grpProfiles.ResumeLayout(false);
+        grpProfiles.PerformLayout();
+        grpSettings.ResumeLayout(false);
+        grpSettings.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)numPort).EndInit();
+        ((System.ComponentModel.ISupportInitialize)trackTransmissionSpeed).EndInit();
+        grpControl.ResumeLayout(false);
+        grpControl.PerformLayout();
+        grpLog.ResumeLayout(false);
+        ResumeLayout(false);
     }
 
     #endregion
@@ -424,8 +460,7 @@ partial class VNCForm
     private Label lblConnections;
     
     private GroupBox grpControl;
-    private Button btnStart;
-    private Button btnStop;
+    private Button btnToggleServer;
     
     private GroupBox grpProfiles;
     private Label lblProfile;
@@ -448,6 +483,11 @@ partial class VNCForm
     private CheckBox chkMinimizeToTray;
     private Button btnSaveSettings;
     private Button btnAdvancedSettings;
+    private Label lblTransmissionSpeed;
+    private TrackBar trackTransmissionSpeed;
+    private Label lblTransmissionSpeedValue;
+    private Label lblSpeedSlow;
+    private Label lblSpeedFast;
     
     private GroupBox grpLog;
     private ListBox lstLog;

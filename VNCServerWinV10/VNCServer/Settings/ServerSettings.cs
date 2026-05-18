@@ -22,6 +22,18 @@ public class ServerSettings
     
     public int CompressionLevel { get; set; } = 6;
     public int FrameRate { get; set; } = 30;
+    /// <summary>네트워크 상태에 따라 FPS를 자동 조절 (FrameRate = 상한)</summary>
+    public bool EnableAdaptiveFrameRate { get; set; } = true;
+    /// <summary>적응형 FPS 하한</summary>
+    public int MinFrameRate { get; set; } = 5;
+    /// <summary>전송 속도 (10~100%, FrameRate 대비 상한 비율)</summary>
+    public int TransmissionSpeedPercent { get; set; } = 100;
+
+    public int GetEffectiveMaxFrameRate()
+    {
+        var percent = Math.Clamp(TransmissionSpeedPercent, 10, 100);
+        return Math.Max(1, (int)Math.Round(FrameRate * (percent / 100.0)));
+    }
     public bool AutoStart { get; set; } = false;
     public bool MinimizeToTray { get; set; } = true;
     
@@ -143,6 +155,9 @@ public class ServerSettings
         AllowControlRequest = defaults.AllowControlRequest;
         CompressionLevel = defaults.CompressionLevel;
         FrameRate = defaults.FrameRate;
+        EnableAdaptiveFrameRate = defaults.EnableAdaptiveFrameRate;
+        MinFrameRate = defaults.MinFrameRate;
+        TransmissionSpeedPercent = defaults.TransmissionSpeedPercent;
         AutoStart = defaults.AutoStart;
         MinimizeToTray = defaults.MinimizeToTray;
         EnableTLS = defaults.EnableTLS;

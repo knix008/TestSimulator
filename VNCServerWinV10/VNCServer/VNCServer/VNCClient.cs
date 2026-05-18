@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Net.Sockets;
@@ -11,18 +13,33 @@ public class VNCClient
     private TcpClient _tcpClient;
     private NetworkStream _stream;
     private ServerSettings _settings;
+    private readonly AdaptiveFrameRateController _frameRateController;
     private Thread? _clientThread;
     private bool _isConnected;
     private Rectangle _screenBounds;
 
     public event EventHandler<string>? Disconnected;
+    public event EventHandler<int>? FrameRateChanged;
+
+    public string ClientAddress { get; }
+    public int CurrentFrameRate => _frameRateController.CurrentFps;
 
     public VNCClient(TcpClient tcpClient, ServerSettings settings)
     {
         _tcpClient = tcpClient;
+        ClientAddress = ((IPEndPoint)tcpClient.Client.RemoteEndPoint!).Address.ToString();
         _stream = tcpClient.GetStream();
         _settings = settings;
+        _frameRateController = new AdaptiveFrameRateController(settings);
         _screenBounds = ScreenCapture.GetScreenBounds();
+        ScreenCapture.SetImageQuality(settings.ImageQuality);
+    }
+
+    public void UpdateSettings(ServerSettings settings)
+    {
+        _settings = settings;
+        _frameRateController.ApplySettings(settings);
+        ScreenCapture.SetImageQuality(settings.ImageQuality);
     }
 
     public void Start()
@@ -86,7 +103,7 @@ public class VNCClient
         finally
         {
             Disconnect();
-            Disconnected?.Invoke(this, "Client disconnected");
+            Disconnected?.Invoke(this, ClientAddress);
         }
     }
 
@@ -226,14 +243,15 @@ public class VNCClient
         byte[] request = new byte[9];
         _stream.Read(request, 0, 9);
 
-        bool incremental = request[0] != 0;
-        
-        // incremental 여부와 관계없이 화면 업데이트 전송
+        _frameRateController.WaitForNextFrameSlot();
         SendFramebufferUpdate();
     }
 
     private void SendFramebufferUpdate()
     {
+        var stopwatch = Stopwatch.StartNew();
+        var bytesSent = 0;
+
         try
         {
             using (Bitmap screenshot = ScreenCapture.CaptureScreen(_screenBounds))
@@ -288,12 +306,23 @@ public class VNCClient
                         }
                     }
 
+                    bytesSent = rgbData.Length;
                     _stream.Write(rgbData, 0, rgbData.Length);
+                    _stream.Flush();
                 }
                 finally
                 {
                     screenshot.UnlockBits(bmpData);
                 }
+            }
+
+            stopwatch.Stop();
+            var previousFps = _frameRateController.CurrentFps;
+            _frameRateController.RecordFrame(stopwatch.ElapsedMilliseconds, bytesSent);
+
+            if (_frameRateController.CurrentFps != previousFps)
+            {
+                FrameRateChanged?.Invoke(this, _frameRateController.CurrentFps);
             }
         }
         catch (Exception ex)
