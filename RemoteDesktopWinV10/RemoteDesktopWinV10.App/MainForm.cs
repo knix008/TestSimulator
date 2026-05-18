@@ -2,7 +2,9 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using AxMSTSCLib;
 using MSTSCLib;
 using RemoteViewing.Vnc;
@@ -23,6 +25,7 @@ public partial class MainForm : Form
 
     private bool _remoteClientsInitialized;
     private bool _vncConnecting;
+    private TcpClient? _vncTlsClient;
     private bool _rdpConnecting;
     private bool _fullScreenChromeHidden;
 
@@ -231,6 +234,8 @@ public partial class MainForm : Form
         vncRemote.Connected += (_, _) => BeginInvoke(UpdateConnectUi);
         vncRemote.Closed += (_, _) => BeginInvoke(() =>
         {
+            _vncTlsClient?.Dispose();
+            _vncTlsClient = null;
             var wasUser = _userDisconnecting;
             _userDisconnecting = false;
             vncHostPanel.Visible = false;
@@ -572,9 +577,7 @@ public partial class MainForm : Form
         }
         else
         {
-            toolStripStatusOptions.Text =
-                "VNC: ShareDesktop=" + VncConnectionDefaults.ShareDesktop
-                + ", 기본TCP=" + VncConnectionDefaults.DefaultPort;
+            toolStripStatusOptions.Text = "VNC: 기본TCP=" + VncConnectionDefaults.DefaultPort;
         }
     }
 
@@ -1203,7 +1206,7 @@ public partial class MainForm : Form
         }
     }
 
-    private async Task ConnectVncAsync(string host, int port, string password)
+    private async Task ConnectVncAsync(string host, int port, string password, VncClientSettings settings)
     {
         if (vncRemote.Client.IsConnected)
         {
@@ -1213,8 +1216,11 @@ public partial class MainForm : Form
         rdpHostPanel.Visible = false;
         vncHostPanel.Visible = true;
 
+        // VncControl 설정(입력·클립보드·커서·화면 맞춤·FPS)은 UI 스레드에서 미리 적용
+        VncConnectionDefaults.ApplyControlSettings(vncRemote, settings);
+
         var options = new VncClientConnectOptions();
-        VncConnectionDefaults.ApplyTo(options);
+        VncConnectionDefaults.ApplyTo(options, settings);
         options.Password = password.ToCharArray();
 
         _vncConnecting = true;
@@ -1226,12 +1232,37 @@ public partial class MainForm : Form
         {
             try
             {
-                await Task.Run(() => vncRemote.Client.Connect(host, port, options));
+                if (settings.UseTls)
+                {
+                    // TLS: 먼저 TCP 연결 후 SslStream으로 래핑, 그 위에 RFB 핸드셰이크
+                    _vncTlsClient?.Dispose();
+                    var tcpClient = new TcpClient();
+                    _vncTlsClient = tcpClient;
+                    await tcpClient.ConnectAsync(host, port);
+                    var sslStream = new SslStream(
+                        tcpClient.GetStream(),
+                        leaveInnerStreamOpen: false,
+                        userCertificateValidationCallback: settings.IgnoreTlsCertErrors
+                            ? (_, _, _, _) => true
+                            : null);
+                    var sslOptions = new SslClientAuthenticationOptions
+                    {
+                        TargetHost = host,
+                        EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                    };
+                    await sslStream.AuthenticateAsClientAsync(sslOptions);
+                    await Task.Run(() => vncRemote.Client.Connect(sslStream, options));
+                }
+                else
+                {
+                    _vncTlsClient?.Dispose();
+                    _vncTlsClient = null;
+                    await Task.Run(() => vncRemote.Client.Connect(host, port, options));
+                }
                 SetStatusHeadline("VNC 연결됨 — 원격 화면이 아래에 표시됩니다");
                 TryRecordConnectionHistory(RemoteDesktopProtocol.Vnc, host, port);
                 BeginInvoke(() =>
                 {
-                    vncRemote.SizeMode = VncControlSizeMode.Zoom;
                     vncRemote.Focus();
                 });
             }
@@ -1256,6 +1287,16 @@ public partial class MainForm : Form
                     Text,
                     MessageBoxIcon.Error);
             }
+            catch (AuthenticationException ex)
+            {
+                SetStatusHeadline("VNC TLS 인증 실패");
+                ErrorDialog.Show(
+                    this,
+                    ExceptionMessageFormatter.Format(ex,
+                        "TLS 핸드셰이크에 실패했습니다.\r\n서버 인증서를 신뢰할 수 없거나 TLS 버전이 맞지 않습니다.\r\n'인증서 오류 무시' 옵션을 활성화하거나 서버 설정을 확인하세요."),
+                    Text,
+                    MessageBoxIcon.Error);
+            }
             catch (Exception ex)
             {
                 SetStatusHeadline("VNC 연결 실패");
@@ -1277,6 +1318,8 @@ public partial class MainForm : Form
             // 연결 실패 시 VNC 패널도 검은 화면으로
             if (!vncRemote.Client.IsConnected)
             {
+                _vncTlsClient?.Dispose();
+                _vncTlsClient = null;
                 vncHostPanel.Visible = false;
             }
             UpdateConnectUi();
@@ -1416,7 +1459,20 @@ public partial class MainForm : Form
         }
         else
         {
-            await ConnectVncAsync(host, port, dialog.Password);
+            var vncSettings = new VncClientSettings
+            {
+                ViewOnly = dialog.VncViewOnly,
+                ShareDesktop = dialog.VncShareDesktop,
+                ClipboardFromServer = dialog.VncClipboardFromServer,
+                ClipboardToServer = dialog.VncClipboardToServer,
+                RemoteCursor = dialog.VncRemoteCursor,
+                AutoReconnect = dialog.VncAutoReconnect,
+                SizeMode = dialog.VncSizeMode,
+                MaxUpdateRate = dialog.VncMaxFps > 0 ? (double)dialog.VncMaxFps : 15,
+                UseTls = dialog.VncUseTls,
+                IgnoreTlsCertErrors = dialog.VncIgnoreTlsCertErrors,
+            };
+            await ConnectVncAsync(host, port, dialog.Password, vncSettings);
         }
     }
 

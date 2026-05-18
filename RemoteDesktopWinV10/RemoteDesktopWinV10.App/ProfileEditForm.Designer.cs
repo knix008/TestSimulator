@@ -27,6 +27,19 @@ public partial class ProfileEditForm
     private CheckBox rdpClipboardCheck;
     private CheckBox rdpDrivesCheck;
     private CheckBox rdpPrintersCheck;
+    private GroupBox groupVnc;
+    private CheckBox vncViewOnlyCheck;
+    private CheckBox vncShareDesktopCheck;
+    private CheckBox vncClipFromServerCheck;
+    private CheckBox vncClipToServerCheck;
+    private CheckBox vncRemoteCursorCheck;
+    private CheckBox vncAutoReconnectCheck;
+    private Label labelVncSizeMode;
+    private ComboBox vncSizeModeCombo;
+    private Label labelVncMaxFps;
+    private ComboBox vncMaxFpsCombo;
+    private CheckBox vncUseTlsCheck;
+    private CheckBox vncIgnoreTlsCertCheck;
     private FlowLayoutPanel flowButtons;
     private Button buttonOk;
     private Button buttonCancel;
@@ -66,6 +79,19 @@ public partial class ProfileEditForm
         rdpClipboardCheck = new CheckBox();
         rdpDrivesCheck = new CheckBox();
         rdpPrintersCheck = new CheckBox();
+        groupVnc = new GroupBox();
+        vncViewOnlyCheck = new CheckBox();
+        vncShareDesktopCheck = new CheckBox();
+        vncClipFromServerCheck = new CheckBox();
+        vncClipToServerCheck = new CheckBox();
+        vncRemoteCursorCheck = new CheckBox();
+        vncAutoReconnectCheck = new CheckBox();
+        labelVncSizeMode = new Label();
+        vncSizeModeCombo = new ComboBox();
+        labelVncMaxFps = new Label();
+        vncMaxFpsCombo = new ComboBox();
+        vncUseTlsCheck = new CheckBox();
+        vncIgnoreTlsCertCheck = new CheckBox();
         flowButtons = new FlowLayoutPanel();
         buttonOk = new Button();
         buttonCancel = new Button();
@@ -73,6 +99,7 @@ public partial class ProfileEditForm
         panelBody.SuspendLayout();
         panelButtons.SuspendLayout();
         groupRdp.SuspendLayout();
+        groupVnc.SuspendLayout();
         flowButtons.SuspendLayout();
         SuspendLayout();
         //
@@ -130,6 +157,7 @@ public partial class ProfileEditForm
         // panelBody
         //
         panelBody.AutoScroll = true;
+        panelBody.Controls.Add(groupVnc);
         panelBody.Controls.Add(groupRdp);
         panelBody.Controls.Add(passwordText);
         panelBody.Controls.Add(labelPassword);
@@ -335,6 +363,146 @@ public partial class ProfileEditForm
         rdpPrintersCheck.Text = "RDP 프린터";
         rdpPrintersCheck.UseVisualStyleBackColor = true;
         //
+        // groupVnc
+        //
+        groupVnc.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        groupVnc.Controls.Add(vncViewOnlyCheck);
+        groupVnc.Controls.Add(vncShareDesktopCheck);
+        groupVnc.Controls.Add(vncClipFromServerCheck);
+        groupVnc.Controls.Add(vncClipToServerCheck);
+        groupVnc.Controls.Add(vncRemoteCursorCheck);
+        groupVnc.Controls.Add(vncAutoReconnectCheck);
+        groupVnc.Controls.Add(labelVncSizeMode);
+        groupVnc.Controls.Add(vncSizeModeCombo);
+        groupVnc.Controls.Add(labelVncMaxFps);
+        groupVnc.Controls.Add(vncMaxFpsCombo);
+        groupVnc.Controls.Add(vncUseTlsCheck);
+        groupVnc.Controls.Add(vncIgnoreTlsCertCheck);
+        groupVnc.Location = new Point(8, 204);
+        groupVnc.Name = "groupVnc";
+        groupVnc.Padding = new Padding(8, 4, 8, 8);
+        groupVnc.Size = new Size(432, 156);
+        groupVnc.TabIndex = 13;
+        groupVnc.TabStop = false;
+        groupVnc.Text = "VNC 옵션";
+        groupVnc.Visible = false;
+        //
+        // vncViewOnlyCheck
+        //
+        vncViewOnlyCheck.AutoSize = true;
+        vncViewOnlyCheck.Location = new Point(12, 20);
+        vncViewOnlyCheck.Name = "vncViewOnlyCheck";
+        vncViewOnlyCheck.TabIndex = 0;
+        vncViewOnlyCheck.Text = "화면 전용(뷰 온리)";
+        vncViewOnlyCheck.UseVisualStyleBackColor = true;
+        //
+        // vncShareDesktopCheck
+        //
+        vncShareDesktopCheck.AutoSize = true;
+        vncShareDesktopCheck.Checked = true;
+        vncShareDesktopCheck.CheckState = CheckState.Checked;
+        vncShareDesktopCheck.Location = new Point(200, 20);
+        vncShareDesktopCheck.Name = "vncShareDesktopCheck";
+        vncShareDesktopCheck.TabIndex = 1;
+        vncShareDesktopCheck.Text = "화면 공유(다중 뷰어)";
+        vncShareDesktopCheck.UseVisualStyleBackColor = true;
+        //
+        // vncClipFromServerCheck
+        //
+        vncClipFromServerCheck.AutoSize = true;
+        vncClipFromServerCheck.Checked = true;
+        vncClipFromServerCheck.CheckState = CheckState.Checked;
+        vncClipFromServerCheck.Location = new Point(12, 46);
+        vncClipFromServerCheck.Name = "vncClipFromServerCheck";
+        vncClipFromServerCheck.TabIndex = 2;
+        vncClipFromServerCheck.Text = "클립보드 수신(서버→)";
+        vncClipFromServerCheck.UseVisualStyleBackColor = true;
+        //
+        // vncClipToServerCheck
+        //
+        vncClipToServerCheck.AutoSize = true;
+        vncClipToServerCheck.Checked = true;
+        vncClipToServerCheck.CheckState = CheckState.Checked;
+        vncClipToServerCheck.Location = new Point(200, 46);
+        vncClipToServerCheck.Name = "vncClipToServerCheck";
+        vncClipToServerCheck.TabIndex = 3;
+        vncClipToServerCheck.Text = "클립보드 송신(→서버)";
+        vncClipToServerCheck.UseVisualStyleBackColor = true;
+        //
+        // vncRemoteCursorCheck
+        //
+        vncRemoteCursorCheck.AutoSize = true;
+        vncRemoteCursorCheck.Checked = true;
+        vncRemoteCursorCheck.CheckState = CheckState.Checked;
+        vncRemoteCursorCheck.Location = new Point(12, 72);
+        vncRemoteCursorCheck.Name = "vncRemoteCursorCheck";
+        vncRemoteCursorCheck.TabIndex = 4;
+        vncRemoteCursorCheck.Text = "원격 커서 표시";
+        vncRemoteCursorCheck.UseVisualStyleBackColor = true;
+        //
+        // vncAutoReconnectCheck
+        //
+        vncAutoReconnectCheck.AutoSize = true;
+        vncAutoReconnectCheck.Location = new Point(200, 72);
+        vncAutoReconnectCheck.Name = "vncAutoReconnectCheck";
+        vncAutoReconnectCheck.TabIndex = 5;
+        vncAutoReconnectCheck.Text = "자동 재연결(실험)";
+        vncAutoReconnectCheck.UseVisualStyleBackColor = true;
+        //
+        // labelVncSizeMode
+        //
+        labelVncSizeMode.AutoSize = true;
+        labelVncSizeMode.Location = new Point(12, 102);
+        labelVncSizeMode.Name = "labelVncSizeMode";
+        labelVncSizeMode.TabIndex = 6;
+        labelVncSizeMode.Text = "화면 맞춤:";
+        //
+        // vncSizeModeCombo
+        //
+        vncSizeModeCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        vncSizeModeCombo.FormattingEnabled = true;
+        vncSizeModeCombo.Items.AddRange(new object[] { "Zoom", "Stretch", "Clip", "AutoSize", "Center" });
+        vncSizeModeCombo.Location = new Point(84, 98);
+        vncSizeModeCombo.Name = "vncSizeModeCombo";
+        vncSizeModeCombo.Size = new Size(100, 23);
+        vncSizeModeCombo.TabIndex = 7;
+        //
+        // labelVncMaxFps
+        //
+        labelVncMaxFps.AutoSize = true;
+        labelVncMaxFps.Location = new Point(198, 102);
+        labelVncMaxFps.Name = "labelVncMaxFps";
+        labelVncMaxFps.TabIndex = 8;
+        labelVncMaxFps.Text = "최대 FPS:";
+        //
+        // vncMaxFpsCombo
+        //
+        vncMaxFpsCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+        vncMaxFpsCombo.FormattingEnabled = true;
+        vncMaxFpsCombo.Items.AddRange(new object[] { "기본값 (15 fps)", "30 fps", "15 fps", "10 fps", "5 fps" });
+        vncMaxFpsCombo.Location = new Point(268, 98);
+        vncMaxFpsCombo.Name = "vncMaxFpsCombo";
+        vncMaxFpsCombo.Size = new Size(110, 23);
+        vncMaxFpsCombo.TabIndex = 9;
+        //
+        // vncUseTlsCheck
+        //
+        vncUseTlsCheck.AutoSize = true;
+        vncUseTlsCheck.Location = new Point(12, 128);
+        vncUseTlsCheck.Name = "vncUseTlsCheck";
+        vncUseTlsCheck.TabIndex = 10;
+        vncUseTlsCheck.Text = "TLS 암호화 사용";
+        vncUseTlsCheck.UseVisualStyleBackColor = true;
+        //
+        // vncIgnoreTlsCertCheck
+        //
+        vncIgnoreTlsCertCheck.AutoSize = true;
+        vncIgnoreTlsCertCheck.Location = new Point(160, 128);
+        vncIgnoreTlsCertCheck.Name = "vncIgnoreTlsCertCheck";
+        vncIgnoreTlsCertCheck.TabIndex = 11;
+        vncIgnoreTlsCertCheck.Text = "인증서 오류 무시(자체서명)";
+        vncIgnoreTlsCertCheck.UseVisualStyleBackColor = true;
+        //
         // ProfileEditForm
         //
         AcceptButton = buttonOk;
@@ -356,6 +524,8 @@ public partial class ProfileEditForm
         panelButtons.PerformLayout();
         groupRdp.ResumeLayout(false);
         groupRdp.PerformLayout();
+        groupVnc.ResumeLayout(false);
+        groupVnc.PerformLayout();
         flowButtons.ResumeLayout(false);
         ResumeLayout(false);
     }

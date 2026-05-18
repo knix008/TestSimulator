@@ -70,6 +70,18 @@ public partial class ProfileEditForm : Form
             rdpPrintersCheck.Checked = Profile.RdpRedirectPrinters.Value;
         }
 
+        // VNC 옵션 초기값
+        vncViewOnlyCheck.Checked = Profile.VncViewOnly ?? false;
+        vncShareDesktopCheck.Checked = Profile.VncShareDesktop ?? true;
+        vncClipFromServerCheck.Checked = Profile.VncClipboardFromServer ?? true;
+        vncClipToServerCheck.Checked = Profile.VncClipboardToServer ?? true;
+        vncRemoteCursorCheck.Checked = Profile.VncRemoteCursor ?? true;
+        vncAutoReconnectCheck.Checked = Profile.VncAutoReconnect ?? false;
+        vncSizeModeCombo.SelectedIndex = (int)(Profile.VncSizeMode ?? VncScaleMode.Zoom);
+        vncMaxFpsCombo.SelectedIndex = FpsValueToComboIndex(Profile.VncMaxFps ?? 0);
+        vncUseTlsCheck.Checked = Profile.VncUseTls ?? false;
+        vncIgnoreTlsCertCheck.Checked = Profile.VncIgnoreTlsCertErrors ?? false;
+
         ApplyProtocolUi();
         protocolCombo.SelectedIndexChanged += (_, _) => ApplyProtocolUi();
     }
@@ -82,12 +94,8 @@ public partial class ProfileEditForm : Form
     {
         var rdp = IsRdp;
         userText.Enabled = rdp;
-        rdpClipboardCheck.Enabled = rdp;
-        rdpDrivesCheck.Enabled = rdp;
-        rdpPrintersCheck.Enabled = rdp;
-        credSspCheck.Enabled = rdp;
-        nlaCheck.Enabled = rdp;
-        relaxedCertCheck.Enabled = rdp;
+        groupRdp.Visible = rdp;
+        groupVnc.Visible = !rdp;
         hostText.PlaceholderText = rdp
             ? "호스트 이름 또는 IP"
             : "localhost 또는 서버 IP (같은 PC면 localhost)";
@@ -138,12 +146,43 @@ public partial class ProfileEditForm : Form
         Profile.Host = hostText.Text.Trim();
         Profile.Port = port;
         Profile.User = userText.Text.Trim();
-        Profile.CredSspEnabled = credSspCheck.Checked;
-        Profile.NegotiateSecurityLayer = nlaCheck.Checked;
-        Profile.RelaxedCertificateValidation = relaxedCertCheck.Checked;
-        Profile.RdpRedirectClipboard = rdpClipboardCheck.Checked;
-        Profile.RdpRedirectDrives = rdpDrivesCheck.Checked;
-        Profile.RdpRedirectPrinters = rdpPrintersCheck.Checked;
+
+        if (IsRdp)
+        {
+            Profile.CredSspEnabled = credSspCheck.Checked;
+            Profile.NegotiateSecurityLayer = nlaCheck.Checked;
+            Profile.RelaxedCertificateValidation = relaxedCertCheck.Checked;
+            Profile.RdpRedirectClipboard = rdpClipboardCheck.Checked;
+            Profile.RdpRedirectDrives = rdpDrivesCheck.Checked;
+            Profile.RdpRedirectPrinters = rdpPrintersCheck.Checked;
+            Profile.VncViewOnly = null;
+            Profile.VncShareDesktop = null;
+            Profile.VncClipboardFromServer = null;
+            Profile.VncClipboardToServer = null;
+            Profile.VncRemoteCursor = null;
+            Profile.VncAutoReconnect = null;
+            Profile.VncSizeMode = null;
+        }
+        else
+        {
+            Profile.CredSspEnabled = null;
+            Profile.NegotiateSecurityLayer = null;
+            Profile.RelaxedCertificateValidation = null;
+            Profile.RdpRedirectClipboard = null;
+            Profile.RdpRedirectDrives = null;
+            Profile.RdpRedirectPrinters = null;
+            Profile.VncViewOnly = vncViewOnlyCheck.Checked;
+            Profile.VncShareDesktop = vncShareDesktopCheck.Checked;
+            Profile.VncClipboardFromServer = vncClipFromServerCheck.Checked;
+            Profile.VncClipboardToServer = vncClipToServerCheck.Checked;
+            Profile.VncRemoteCursor = vncRemoteCursorCheck.Checked;
+            Profile.VncAutoReconnect = vncAutoReconnectCheck.Checked;
+            Profile.VncSizeMode = (VncScaleMode)vncSizeModeCombo.SelectedIndex;
+            var fps = FpsComboToValue(vncMaxFpsCombo.SelectedIndex);
+            Profile.VncMaxFps = fps > 0 ? fps : null;
+            Profile.VncUseTls = vncUseTlsCheck.Checked;
+            Profile.VncIgnoreTlsCertErrors = vncIgnoreTlsCertCheck.Checked;
+        }
 
         if (savePassword && passwordText.TextLength > 0)
         {
@@ -174,5 +213,16 @@ public partial class ProfileEditForm : Form
     private void buttonCancel_Click(object sender, EventArgs e)
     {
         DialogResult = DialogResult.Cancel;
+    }
+
+    private static readonly int[] FpsPresets = { 0, 30, 15, 10, 5 };
+
+    private static int FpsComboToValue(int index) =>
+        (uint)index < (uint)FpsPresets.Length ? FpsPresets[index] : 0;
+
+    private static int FpsValueToComboIndex(int fps)
+    {
+        var idx = Array.IndexOf(FpsPresets, fps);
+        return idx >= 0 ? idx : 0;
     }
 }

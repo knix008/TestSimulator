@@ -45,3 +45,4 @@ appsettings.*.local.json
 
 # Etc.
 .claude/
+.vs/
