@@ -8,6 +8,19 @@ internal sealed class H264Mp4Recorder : IDisposable
 {
     private const long TicksPerSecond = 10_000_000;
 
+    // Codec API attribute GUIDs (CODECAPI_*)
+    private static readonly Guid AVEncCommonRateControlMode =
+        new("1C0608E9-370C-4B58-A7BF-D657E73F985D");
+    private static readonly Guid AVEncCommonQuality =
+        new("FCBF57A3-7EA5-4B0C-9644-69B40C39C391");
+    private static readonly Guid AVEncMPVGOPSize =
+        new("95F31927-C6D2-49F0-AF73-2B1EB231406D");
+    private static readonly Guid AVEncH264CABACEnable =
+        new("EE4CAD6F-FE31-47D6-8232-7B82E011E301");
+
+    // eAVEncCommonRateControlMode_Quality = 3
+    private const uint RateControlQuality = 3;
+
     private readonly int _width;
     private readonly int _height;
     private readonly int _fps;
@@ -53,7 +66,9 @@ internal sealed class H264Mp4Recorder : IDisposable
         using var outputType = MediaFactory.MFCreateMediaType();
         outputType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         outputType.Set(MediaTypeAttributeKeys.Subtype, MediaFoundationGuids.VideoH264);
-        var bitrate = (uint)Math.Clamp(_width * _height * _fps, 1_000_000, 25_000_000);
+        // 화면 녹화용 목표 비트레이트: width*height*fps/20 (≈ 0.05 bpp/frame)
+        // 예) 1920×1080@10fps → ~1 Mbps, @15fps → ~1.5 Mbps
+        var bitrate = (uint)Math.Clamp((long)_width * _height * _fps / 20, 300_000, 8_000_000);
         outputType.Set(MediaTypeAttributeKeys.AvgBitrate, bitrate);
         outputType.Set(MediaTypeAttributeKeys.InterlaceMode, (uint)VideoInterlaceMode.Progressive);
         outputType.Set(MediaTypeAttributeKeys.FrameSize, PackSize(_width, _height));
@@ -72,7 +87,15 @@ internal sealed class H264Mp4Recorder : IDisposable
         inputType.Set(MediaTypeAttributeKeys.DefaultStride, _stride);
         inputType.Set(MediaTypeAttributeKeys.SampleSize, (uint)_frameBytes);
 
-        _sinkWriter.SetInputMediaType(_streamIndex, inputType, null);
+        // 화질 기반 VBR: 정적 화면은 거의 비트를 사용하지 않고, 변화 시에만 높은 비트 사용
+        // CABAC 엔트로피 코딩 + GOP 크기 조정으로 추가 압축률 향상
+        using var encodingParams = MediaFactory.MFCreateAttributes(4);
+        encodingParams.Set(AVEncCommonRateControlMode, RateControlQuality);
+        encodingParams.Set(AVEncCommonQuality, 70u);         // 0~100, 70 = 고화질·저용량 균형
+        encodingParams.Set(AVEncH264CABACEnable, 1u);        // CABAC 엔트로피 코딩 (약 10~15% 추가 압축)
+        encodingParams.Set(AVEncMPVGOPSize, (uint)(_fps * 4)); // 4초마다 키프레임 (정적 화면에 유리)
+
+        _sinkWriter.SetInputMediaType(_streamIndex, inputType, encodingParams);
         _sinkWriter.BeginWriting();
     }
 
