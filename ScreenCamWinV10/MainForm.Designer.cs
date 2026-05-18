@@ -5,8 +5,9 @@ partial class MainForm
     private System.ComponentModel.IContainer components = null!;
 
     // ── Title bar ────────────────────────────────────────────────────────────
-    private Panel  pnlTitle;
-    private Label  lblAppName;
+    private Panel       pnlTitle;
+    private PictureBox  picAppIcon;
+    private Label       lblAppName;
     private Button btnMinimize;
     private Button btnClose;
 
@@ -58,55 +59,42 @@ partial class MainForm
 
     private void InitializeComponent()
     {
-        components = new System.ComponentModel.Container();
-
-        // ── instantiate ──────────────────────────────────────────────────────
-        pnlTitle        = new Panel();
-        lblAppName      = new Label();
-        btnMinimize     = new Button();
-        btnClose        = new Button();
-
-        pnlSource       = new Panel();
-        lblSourceTitle  = new Label();
-        cboWindow       = new ComboBox();
-        btnRefresh      = new Button();
-
-        pnlPreview      = new Panel();
+        pnlTitle = new Panel();
+        picAppIcon = new PictureBox();
+        lblAppName = new Label();
+        btnMinimize = new Button();
+        btnClose = new Button();
+        pnlSource = new Panel();
+        lblSourceTitle = new Label();
+        cboWindow = new ComboBox();
+        btnRefresh = new Button();
+        pnlPreview = new Panel();
         lblPreviewTitle = new Label();
-        btnTogglePreview= new Button();
-        picPreview      = new PictureBox();
-
-        pnlCodec        = new Panel();
-        lblCodecTitle   = new Label();
-        cboCodec        = new ComboBox();
-        lblCodecStatus  = new Label();
+        btnTogglePreview = new Button();
+        picPreview = new PictureBox();
+        pnlCodec = new Panel();
+        lblCodecTitle = new Label();
+        cboCodec = new ComboBox();
+        lblCodecStatus = new Label();
         btnInstallCodec = new Button();
-
-        pnlSettings     = new Panel();
-        lblSettingsTitle= new Label();
-        lblFps          = new Label();
-        trkFps          = new TrackBar();
-        lblFpsVal       = new Label();
-        lblQuality      = new Label();
-        trkQuality      = new TrackBar();
-        lblQualityVal   = new Label();
-        lblOutput       = new Label();
-        txtOutput       = new TextBox();
-        btnBrowse       = new Button();
-        chkCursor       = new CheckBox();
-
-        pnlRecord       = new Panel();
-        btnRecord       = new Button();
-        lblTimer        = new Label();
-        lblStatus       = new Label();
-
-        // ── load resources (icon via ComponentResourceManager → designer-editable) ──
-        System.ComponentModel.ComponentResourceManager resources =
-            new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-
-        // ── suspend layout ───────────────────────────────────────────────────
-        SuspendLayout();
+        pnlSettings = new Panel();
+        lblSettingsTitle = new Label();
+        lblFps = new Label();
+        trkFps = new TrackBar();
+        lblFpsVal = new Label();
+        lblQuality = new Label();
+        trkQuality = new TrackBar();
+        lblQualityVal = new Label();
+        lblOutput = new Label();
+        txtOutput = new TextBox();
+        btnBrowse = new Button();
+        chkCursor = new CheckBox();
+        pnlRecord = new Panel();
+        btnRecord = new Button();
+        lblTimer = new Label();
+        lblStatus = new Label();
         pnlTitle.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)picAppIcon).BeginInit();
         pnlSource.SuspendLayout();
         pnlPreview.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)picPreview).BeginInit();
@@ -115,280 +103,246 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)trkFps).BeginInit();
         ((System.ComponentModel.ISupportInitialize)trkQuality).BeginInit();
         pnlRecord.SuspendLayout();
-
-        // ════════════════════════════════════════════════════════════════════
-        // Form
-        // ════════════════════════════════════════════════════════════════════
-        Name            = "MainForm";
-        Text            = "ScreenCamWin";
-        FormBorderStyle = FormBorderStyle.None;
-        StartPosition   = FormStartPosition.CenterScreen;
-        Size            = new Size(540, 758);
-        MinimumSize     = new Size(540, 758);
-        BackColor       = System.Drawing.Color.FromArgb(13, 13, 26);
-
-        // ════════════════════════════════════════════════════════════════════
-        // Title bar
-        // ════════════════════════════════════════════════════════════════════
-        pnlTitle.Dock      = DockStyle.Top;
-        pnlTitle.Height    = 44;
-        pnlTitle.BackColor = System.Drawing.Color.FromArgb(18, 18, 36);
-
-        lblAppName.Text      = "⏺  ScreenCamWin";
-        lblAppName.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
-        lblAppName.Font      = new System.Drawing.Font("Segoe UI", 11f, System.Drawing.FontStyle.Bold);
-        lblAppName.AutoSize  = true;
-        lblAppName.Location  = new Point(14, 11);
-
-        btnMinimize.Text      = "─";
-        btnMinimize.Size      = new Size(44, 44);
-        btnMinimize.Location  = new Point(452, 0);
-        btnMinimize.FlatStyle = FlatStyle.Flat;
-        btnMinimize.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        btnMinimize.BackColor = System.Drawing.Color.Transparent;
-        btnMinimize.FlatAppearance.BorderSize = 0;
-        btnMinimize.Font   = new System.Drawing.Font("Segoe UI", 11f);
-        btnMinimize.Cursor = Cursors.Hand;
-        btnMinimize.Name   = "btnMinimize";
-
-        btnClose.Text      = "✕";
-        btnClose.Size      = new Size(44, 44);
-        btnClose.Location  = new Point(496, 0);
-        btnClose.FlatStyle = FlatStyle.Flat;
-        btnClose.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
-        btnClose.BackColor = System.Drawing.Color.Transparent;
-        btnClose.FlatAppearance.BorderSize          = 0;
-        btnClose.FlatAppearance.MouseOverBackColor  = System.Drawing.Color.FromArgb(239, 68, 68);
-        btnClose.Font   = new System.Drawing.Font("Segoe UI", 10f, System.Drawing.FontStyle.Bold);
-        btnClose.Cursor = Cursors.Hand;
-        btnClose.Name   = "btnClose";
-
+        SuspendLayout();
+        // 
+        // pnlTitle
+        // 
+        pnlTitle.BackColor = Color.FromArgb(18, 18, 36);
+        pnlTitle.Controls.Add(picAppIcon);
         pnlTitle.Controls.Add(lblAppName);
         pnlTitle.Controls.Add(btnMinimize);
         pnlTitle.Controls.Add(btnClose);
-
-        // ════════════════════════════════════════════════════════════════════
-        // Content panels layout helper: vertical stack starting at y=52
-        // ════════════════════════════════════════════════════════════════════
-        const int PAD = 14;
-        const int CW  = 540 - PAD * 2;  // 512
-        int y = 52;
-
-        // ════════════════════════════════════════════════════════════════════
-        // Source section
-        // ════════════════════════════════════════════════════════════════════
-        pnlSource.Location  = new Point(PAD, y);
-        pnlSource.Size      = new Size(CW, 80);
-        pnlSource.BackColor = System.Drawing.Color.FromArgb(22, 22, 40);
-
-        lblSourceTitle.Text      = "캡처 대상";
-        lblSourceTitle.ForeColor = System.Drawing.Color.FromArgb(99, 102, 241);
-        lblSourceTitle.Font      = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold);
-        lblSourceTitle.AutoSize  = true;
-        lblSourceTitle.Location  = new Point(10, 10);
-
-        cboWindow.Location        = new Point(10, 30);
-        cboWindow.Size            = new Size(CW - 96, 30);
-        cboWindow.DropDownStyle   = ComboBoxStyle.DropDownList;
-        cboWindow.BackColor       = System.Drawing.Color.FromArgb(30, 30, 52);
-        cboWindow.ForeColor       = System.Drawing.Color.FromArgb(248, 250, 252);
-        cboWindow.FlatStyle       = FlatStyle.Flat;
-        cboWindow.Font            = new System.Drawing.Font("Segoe UI", 9f);
-        cboWindow.Name            = "cboWindow";
-
-        btnRefresh.Text      = "↻ 새로고침";
-        btnRefresh.Location  = new Point(CW - 82, 30);
-        btnRefresh.Size      = new Size(82, 30);
-        btnRefresh.FlatStyle = FlatStyle.Flat;
-        btnRefresh.BackColor = System.Drawing.Color.FromArgb(30, 30, 52);
-        btnRefresh.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        btnRefresh.FlatAppearance.BorderSize  = 1;
-        btnRefresh.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(51, 65, 85);
-        btnRefresh.Font   = new System.Drawing.Font("Segoe UI", 8.5f);
-        btnRefresh.Cursor = Cursors.Hand;
-        btnRefresh.Name   = "btnRefresh";
-
+        pnlTitle.Dock = DockStyle.Top;
+        pnlTitle.Location = new Point(0, 0);
+        pnlTitle.Name = "pnlTitle";
+        pnlTitle.Size = new Size(540, 44);
+        pnlTitle.TabIndex = 0;
+        pnlTitle.MouseDown += TitleBar_MouseDown;
+        pnlTitle.MouseMove += TitleBar_MouseMove;
+        // 
+        // picAppIcon
+        // 
+        picAppIcon.BackColor = Color.FromArgb(18, 18, 36);
+        picAppIcon.Location = new Point(14, 11);
+        picAppIcon.Name = "picAppIcon";
+        picAppIcon.Size = new Size(22, 22);
+        picAppIcon.SizeMode = PictureBoxSizeMode.Zoom;
+        picAppIcon.TabIndex = 0;
+        picAppIcon.TabStop = false;
+        picAppIcon.MouseDown += TitleBar_MouseDown;
+        picAppIcon.MouseMove += TitleBar_MouseMove;
+        // 
+        // lblAppName
+        // 
+        lblAppName.AutoSize = true;
+        lblAppName.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
+        lblAppName.ForeColor = Color.FromArgb(248, 250, 252);
+        lblAppName.Location = new Point(44, 11);
+        lblAppName.Name = "lblAppName";
+        lblAppName.Size = new Size(108, 20);
+        lblAppName.TabIndex = 1;
+        lblAppName.Text = "ScreenCamWin";
+        lblAppName.MouseDown += TitleBar_MouseDown;
+        lblAppName.MouseMove += TitleBar_MouseMove;
+        // 
+        // btnMinimize
+        // 
+        btnMinimize.BackColor = Color.Transparent;
+        btnMinimize.Cursor = Cursors.Hand;
+        btnMinimize.FlatAppearance.BorderSize = 0;
+        btnMinimize.FlatStyle = FlatStyle.Flat;
+        btnMinimize.Font = new Font("Segoe UI", 11F);
+        btnMinimize.ForeColor = Color.FromArgb(148, 163, 184);
+        btnMinimize.Location = new Point(452, 0);
+        btnMinimize.Name = "btnMinimize";
+        btnMinimize.Size = new Size(44, 44);
+        btnMinimize.TabIndex = 1;
+        btnMinimize.Text = "─";
+        btnMinimize.UseVisualStyleBackColor = false;
+        btnMinimize.Click += BtnMinimize_Click;
+        // 
+        // btnClose
+        // 
+        btnClose.BackColor = Color.Transparent;
+        btnClose.Cursor = Cursors.Hand;
+        btnClose.FlatAppearance.BorderSize = 0;
+        btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 68, 68);
+        btnClose.FlatStyle = FlatStyle.Flat;
+        btnClose.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        btnClose.ForeColor = Color.FromArgb(248, 250, 252);
+        btnClose.Location = new Point(496, 0);
+        btnClose.Name = "btnClose";
+        btnClose.Size = new Size(44, 44);
+        btnClose.TabIndex = 2;
+        btnClose.Text = "✕";
+        btnClose.UseVisualStyleBackColor = false;
+        btnClose.Click += BtnClose_Click;
+        // 
+        // pnlSource
+        // 
+        pnlSource.BackColor = Color.FromArgb(22, 22, 40);
         pnlSource.Controls.Add(lblSourceTitle);
         pnlSource.Controls.Add(cboWindow);
         pnlSource.Controls.Add(btnRefresh);
-
-        y += pnlSource.Height + 8;
-
-        // ════════════════════════════════════════════════════════════════════
-        // Preview section
-        // ════════════════════════════════════════════════════════════════════
-        pnlPreview.Location  = new Point(PAD, y);
-        pnlPreview.Size      = new Size(CW, 170);
-        pnlPreview.BackColor = System.Drawing.Color.FromArgb(22, 22, 40);
-
-        lblPreviewTitle.Text      = "미리보기";
-        lblPreviewTitle.ForeColor = System.Drawing.Color.FromArgb(99, 102, 241);
-        lblPreviewTitle.Font      = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold);
-        lblPreviewTitle.AutoSize  = true;
-        lblPreviewTitle.Location  = new Point(10, 10);
-
-        btnTogglePreview.Text      = "켜기";
-        btnTogglePreview.Size      = new Size(54, 22);
-        btnTogglePreview.Location  = new Point(CW - 64, 7);
-        btnTogglePreview.FlatStyle = FlatStyle.Flat;
-        btnTogglePreview.BackColor = System.Drawing.Color.FromArgb(30, 30, 52);
-        btnTogglePreview.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        btnTogglePreview.FlatAppearance.BorderSize  = 1;
-        btnTogglePreview.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(51, 65, 85);
-        btnTogglePreview.Font   = new System.Drawing.Font("Segoe UI", 8f);
-        btnTogglePreview.Cursor = Cursors.Hand;
-        btnTogglePreview.Name   = "btnTogglePreview";
-
-        picPreview.Location    = new Point(10, 34);
-        picPreview.Size        = new Size(CW - 20, 126);
-        picPreview.BorderStyle = BorderStyle.None;
-        picPreview.BackColor   = System.Drawing.Color.FromArgb(13, 13, 26);
-        picPreview.SizeMode    = PictureBoxSizeMode.Zoom;
-        picPreview.Name        = "picPreview";
-
+        pnlSource.Location = new Point(14, 52);
+        pnlSource.Name = "pnlSource";
+        pnlSource.Size = new Size(512, 80);
+        pnlSource.TabIndex = 1;
+        // 
+        // lblSourceTitle
+        // 
+        lblSourceTitle.AutoSize = true;
+        lblSourceTitle.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+        lblSourceTitle.ForeColor = Color.FromArgb(99, 102, 241);
+        lblSourceTitle.Location = new Point(10, 10);
+        lblSourceTitle.Name = "lblSourceTitle";
+        lblSourceTitle.Size = new Size(54, 13);
+        lblSourceTitle.TabIndex = 0;
+        lblSourceTitle.Text = "캡처 대상";
+        // 
+        // cboWindow
+        // 
+        cboWindow.BackColor = Color.FromArgb(30, 30, 52);
+        cboWindow.DropDownStyle = ComboBoxStyle.DropDownList;
+        cboWindow.FlatStyle = FlatStyle.Flat;
+        cboWindow.Font = new Font("Segoe UI", 9F);
+        cboWindow.ForeColor = Color.FromArgb(248, 250, 252);
+        cboWindow.Location = new Point(10, 30);
+        cboWindow.Name = "cboWindow";
+        cboWindow.Size = new Size(416, 23);
+        cboWindow.TabIndex = 1;
+        // 
+        // btnRefresh
+        // 
+        btnRefresh.BackColor = Color.FromArgb(30, 30, 52);
+        btnRefresh.Cursor = Cursors.Hand;
+        btnRefresh.FlatAppearance.BorderColor = Color.FromArgb(51, 65, 85);
+        btnRefresh.FlatStyle = FlatStyle.Flat;
+        btnRefresh.Font = new Font("Segoe UI", 8.5F);
+        btnRefresh.ForeColor = Color.FromArgb(148, 163, 184);
+        btnRefresh.Location = new Point(430, 30);
+        btnRefresh.Name = "btnRefresh";
+        btnRefresh.Size = new Size(82, 30);
+        btnRefresh.TabIndex = 2;
+        btnRefresh.Text = "↻ 새로고침";
+        btnRefresh.UseVisualStyleBackColor = false;
+        btnRefresh.Click += BtnRefresh_Click;
+        // 
+        // pnlPreview
+        // 
+        pnlPreview.BackColor = Color.FromArgb(22, 22, 40);
         pnlPreview.Controls.Add(lblPreviewTitle);
         pnlPreview.Controls.Add(btnTogglePreview);
         pnlPreview.Controls.Add(picPreview);
-
-        y += pnlPreview.Height + 8;
-
-        // ════════════════════════════════════════════════════════════════════
-        // Codec section
-        // ════════════════════════════════════════════════════════════════════
-        pnlCodec.Location  = new Point(PAD, y);
-        pnlCodec.Size      = new Size(CW, 80);
-        pnlCodec.BackColor = System.Drawing.Color.FromArgb(22, 22, 40);
-
-        lblCodecTitle.Text      = "비디오 코덱";
-        lblCodecTitle.ForeColor = System.Drawing.Color.FromArgb(99, 102, 241);
-        lblCodecTitle.Font      = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold);
-        lblCodecTitle.AutoSize  = true;
-        lblCodecTitle.Location  = new Point(10, 10);
-
-        cboCodec.Location      = new Point(10, 30);
-        cboCodec.Size          = new Size(200, 30);
-        cboCodec.DropDownStyle = ComboBoxStyle.DropDownList;
-        cboCodec.BackColor     = System.Drawing.Color.FromArgb(30, 30, 52);
-        cboCodec.ForeColor     = System.Drawing.Color.FromArgb(248, 250, 252);
-        cboCodec.FlatStyle     = FlatStyle.Flat;
-        cboCodec.Font          = new System.Drawing.Font("Segoe UI", 9f);
-        cboCodec.Name          = "cboCodec";
-
-        lblCodecStatus.Text      = "● 사용 가능";
-        lblCodecStatus.ForeColor = System.Drawing.Color.FromArgb(34, 197, 94);
-        lblCodecStatus.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
-        lblCodecStatus.AutoSize  = true;
-        lblCodecStatus.Anchor    = AnchorStyles.Top | AnchorStyles.Left;
-        lblCodecStatus.Location  = new Point(218, 36);
-        lblCodecStatus.Name      = "lblCodecStatus";
-
-        btnInstallCodec.Text      = "설치";
-        btnInstallCodec.Size      = new Size(72, 30);
-        btnInstallCodec.Location  = new Point(CW - 82, 30);
-        btnInstallCodec.FlatStyle = FlatStyle.Flat;
-        btnInstallCodec.BackColor = System.Drawing.Color.FromArgb(99, 102, 241);
-        btnInstallCodec.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
-        btnInstallCodec.FlatAppearance.BorderSize = 0;
-        btnInstallCodec.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
-        btnInstallCodec.Cursor    = Cursors.Hand;
-        btnInstallCodec.Visible   = false;
-        btnInstallCodec.Name      = "btnInstallCodec";
-
+        pnlPreview.Location = new Point(14, 140);
+        pnlPreview.Name = "pnlPreview";
+        pnlPreview.Size = new Size(512, 170);
+        pnlPreview.TabIndex = 2;
+        // 
+        // lblPreviewTitle
+        // 
+        lblPreviewTitle.AutoSize = true;
+        lblPreviewTitle.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+        lblPreviewTitle.ForeColor = Color.FromArgb(99, 102, 241);
+        lblPreviewTitle.Location = new Point(10, 10);
+        lblPreviewTitle.Name = "lblPreviewTitle";
+        lblPreviewTitle.Size = new Size(51, 13);
+        lblPreviewTitle.TabIndex = 0;
+        lblPreviewTitle.Text = "미리보기";
+        // 
+        // btnTogglePreview
+        // 
+        btnTogglePreview.BackColor = Color.FromArgb(30, 30, 52);
+        btnTogglePreview.Cursor = Cursors.Hand;
+        btnTogglePreview.FlatAppearance.BorderColor = Color.FromArgb(51, 65, 85);
+        btnTogglePreview.FlatStyle = FlatStyle.Flat;
+        btnTogglePreview.Font = new Font("Segoe UI", 8F);
+        btnTogglePreview.ForeColor = Color.FromArgb(148, 163, 184);
+        btnTogglePreview.Location = new Point(448, 7);
+        btnTogglePreview.Name = "btnTogglePreview";
+        btnTogglePreview.Size = new Size(54, 22);
+        btnTogglePreview.TabIndex = 1;
+        btnTogglePreview.Text = "켜기";
+        btnTogglePreview.UseVisualStyleBackColor = false;
+        btnTogglePreview.Click += BtnTogglePreview_Click;
+        // 
+        // picPreview
+        // 
+        picPreview.BackColor = Color.FromArgb(13, 13, 26);
+        picPreview.Location = new Point(10, 34);
+        picPreview.Name = "picPreview";
+        picPreview.Size = new Size(492, 126);
+        picPreview.SizeMode = PictureBoxSizeMode.Zoom;
+        picPreview.TabIndex = 2;
+        picPreview.TabStop = false;
+        // 
+        // pnlCodec
+        // 
+        pnlCodec.BackColor = Color.FromArgb(22, 22, 40);
         pnlCodec.Controls.Add(lblCodecTitle);
         pnlCodec.Controls.Add(cboCodec);
         pnlCodec.Controls.Add(lblCodecStatus);
         pnlCodec.Controls.Add(btnInstallCodec);
-
-        y += pnlCodec.Height + 8;
-
-        // ════════════════════════════════════════════════════════════════════
-        // Settings section
-        // ════════════════════════════════════════════════════════════════════
-        pnlSettings.Location  = new Point(PAD, y);
-        pnlSettings.Size      = new Size(CW, 168);
-        pnlSettings.BackColor = System.Drawing.Color.FromArgb(22, 22, 40);
-
-        lblSettingsTitle.Text      = "녹화 설정";
-        lblSettingsTitle.ForeColor = System.Drawing.Color.FromArgb(99, 102, 241);
-        lblSettingsTitle.Font      = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold);
-        lblSettingsTitle.AutoSize  = true;
-        lblSettingsTitle.Location  = new Point(10, 10);
-
-        // FPS row
-        lblFps.Text      = "FPS";
-        lblFps.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        lblFps.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
-        lblFps.AutoSize  = true;
-        lblFps.Location  = new Point(10, 40);
-
-        trkFps.Location    = new Point(60, 34);
-        trkFps.Size        = new Size(CW - 130, 28);
-        trkFps.Minimum     = 5;
-        trkFps.Maximum     = 60;
-        trkFps.Value       = 30;
-        trkFps.TickStyle   = TickStyle.None;
-        trkFps.BackColor   = System.Drawing.Color.FromArgb(22, 22, 40);
-        trkFps.Name        = "trkFps";
-
-        lblFpsVal.Text      = "30 fps";
-        lblFpsVal.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
-        lblFpsVal.Font      = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold);
-        lblFpsVal.AutoSize  = true;
-        lblFpsVal.Anchor    = AnchorStyles.Top | AnchorStyles.Right;
-        lblFpsVal.Location  = new Point(CW - 58, 40);
-        lblFpsVal.Name      = "lblFpsVal";
-
-        // Quality row
-        lblQuality.Text      = "화질";
-        lblQuality.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        lblQuality.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
-        lblQuality.AutoSize  = true;
-        lblQuality.Location  = new Point(10, 76);
-
-        trkQuality.Location  = new Point(60, 70);
-        trkQuality.Size      = new Size(CW - 130, 28);
-        trkQuality.Minimum   = 10;
-        trkQuality.Maximum   = 100;
-        trkQuality.Value     = 70;
-        trkQuality.TickStyle = TickStyle.None;
-        trkQuality.BackColor = System.Drawing.Color.FromArgb(22, 22, 40);
-        trkQuality.Name      = "trkQuality";
-
-        lblQualityVal.Text      = "70%";
-        lblQualityVal.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
-        lblQualityVal.Font      = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold);
-        lblQualityVal.AutoSize  = true;
-        lblQualityVal.Anchor    = AnchorStyles.Top | AnchorStyles.Right;
-        lblQualityVal.Location  = new Point(CW - 58, 76);
-        lblQualityVal.Name      = "lblQualityVal";
-
-        // Output path row (extra height avoids DPI text clipping)
-        lblOutput.Text      = "저장 경로";
-        lblOutput.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        lblOutput.Font      = new System.Drawing.Font("Segoe UI", 9f);
-        lblOutput.AutoSize  = true;
-        lblOutput.Location  = new Point(10, 120);
-
-        txtOutput.Location    = new Point(78, 114);
-        txtOutput.Size        = new Size(CW - 160, 34);
-        txtOutput.BackColor   = System.Drawing.Color.FromArgb(30, 30, 52);
-        txtOutput.ForeColor   = System.Drawing.Color.FromArgb(248, 250, 252);
-        txtOutput.BorderStyle = BorderStyle.FixedSingle;
-        txtOutput.Font        = new System.Drawing.Font("Segoe UI", 9f);
-        txtOutput.Name        = "txtOutput";
-
-        btnBrowse.Text      = "찾기";
-        btnBrowse.Location  = new Point(CW - 76, 114);
-        btnBrowse.Size      = new Size(66, 34);
-        btnBrowse.FlatStyle = FlatStyle.Flat;
-        btnBrowse.BackColor = System.Drawing.Color.FromArgb(30, 30, 52);
-        btnBrowse.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        btnBrowse.FlatAppearance.BorderSize  = 1;
-        btnBrowse.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(51, 65, 85);
-        btnBrowse.Font   = new System.Drawing.Font("Segoe UI", 8f);
-        btnBrowse.Cursor = Cursors.Hand;
-        btnBrowse.Name   = "btnBrowse";
-
+        pnlCodec.Location = new Point(14, 318);
+        pnlCodec.Name = "pnlCodec";
+        pnlCodec.Size = new Size(512, 80);
+        pnlCodec.TabIndex = 3;
+        // 
+        // lblCodecTitle
+        // 
+        lblCodecTitle.AutoSize = true;
+        lblCodecTitle.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+        lblCodecTitle.ForeColor = Color.FromArgb(99, 102, 241);
+        lblCodecTitle.Location = new Point(10, 10);
+        lblCodecTitle.Name = "lblCodecTitle";
+        lblCodecTitle.Size = new Size(65, 13);
+        lblCodecTitle.TabIndex = 0;
+        lblCodecTitle.Text = "비디오 코덱";
+        // 
+        // cboCodec
+        // 
+        cboCodec.BackColor = Color.FromArgb(30, 30, 52);
+        cboCodec.DropDownStyle = ComboBoxStyle.DropDownList;
+        cboCodec.FlatStyle = FlatStyle.Flat;
+        cboCodec.Font = new Font("Segoe UI", 9F);
+        cboCodec.ForeColor = Color.FromArgb(248, 250, 252);
+        cboCodec.Location = new Point(10, 30);
+        cboCodec.Name = "cboCodec";
+        cboCodec.Size = new Size(200, 23);
+        cboCodec.TabIndex = 1;
+        cboCodec.SelectedIndexChanged += CboCodec_SelectedIndexChanged;
+        // 
+        // lblCodecStatus
+        // 
+        lblCodecStatus.AutoSize = true;
+        lblCodecStatus.Font = new Font("Segoe UI", 8.5F);
+        lblCodecStatus.ForeColor = Color.FromArgb(34, 197, 94);
+        lblCodecStatus.Location = new Point(218, 36);
+        lblCodecStatus.Name = "lblCodecStatus";
+        lblCodecStatus.Size = new Size(68, 15);
+        lblCodecStatus.TabIndex = 2;
+        lblCodecStatus.Text = "● 사용 가능";
+        // 
+        // btnInstallCodec
+        // 
+        btnInstallCodec.BackColor = Color.FromArgb(99, 102, 241);
+        btnInstallCodec.Cursor = Cursors.Hand;
+        btnInstallCodec.FlatAppearance.BorderSize = 0;
+        btnInstallCodec.FlatStyle = FlatStyle.Flat;
+        btnInstallCodec.Font = new Font("Segoe UI", 8.5F);
+        btnInstallCodec.ForeColor = Color.FromArgb(248, 250, 252);
+        btnInstallCodec.Location = new Point(430, 30);
+        btnInstallCodec.Name = "btnInstallCodec";
+        btnInstallCodec.Size = new Size(72, 30);
+        btnInstallCodec.TabIndex = 3;
+        btnInstallCodec.Text = "설치";
+        btnInstallCodec.UseVisualStyleBackColor = false;
+        btnInstallCodec.Visible = false;
+        btnInstallCodec.Click += BtnInstallCodec_Click;
+        // 
+        // pnlSettings
+        // 
+        pnlSettings.BackColor = Color.FromArgb(22, 22, 40);
         pnlSettings.Controls.Add(lblSettingsTitle);
         pnlSettings.Controls.Add(lblFps);
         pnlSettings.Controls.Add(trkFps);
@@ -399,65 +353,200 @@ partial class MainForm
         pnlSettings.Controls.Add(lblOutput);
         pnlSettings.Controls.Add(txtOutput);
         pnlSettings.Controls.Add(btnBrowse);
-
-        y += pnlSettings.Height + 8;
-
-        // cursor checkbox — BackColor must NOT be Transparent on a dark form;
-        // Transparent + FlatStyle.Flat breaks WinForms hit-test on dark backgrounds.
-        chkCursor.Text      = "마우스 커서 포함";
-        chkCursor.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
-        chkCursor.BackColor = System.Drawing.Color.FromArgb(13, 13, 26); // same as form BG
-        chkCursor.FlatStyle = FlatStyle.Standard;
-        chkCursor.Font      = new System.Drawing.Font("Segoe UI", 9f);
-        chkCursor.Checked   = true;
-        chkCursor.Location  = new Point(PAD, y);
-        chkCursor.AutoSize  = true;
-        chkCursor.Cursor    = Cursors.Hand;
-        chkCursor.Name      = "chkCursor";
-
-        y += 30;
-
-        // ════════════════════════════════════════════════════════════════════
-        // Record section
-        // ════════════════════════════════════════════════════════════════════
-        pnlRecord.Location  = new Point(PAD, y);
-        pnlRecord.Size      = new Size(CW, 64);
-        pnlRecord.BackColor = System.Drawing.Color.FromArgb(22, 22, 40);
-
-        btnRecord.Text      = "● 녹화 시작";
-        btnRecord.Location  = new Point(10, 10);
-        btnRecord.Size      = new Size(CW - 170, 44);
-        btnRecord.FlatStyle = FlatStyle.Flat;
-        btnRecord.BackColor = System.Drawing.Color.FromArgb(34, 197, 94);
-        btnRecord.ForeColor = System.Drawing.Color.FromArgb(255, 255, 255);
-        btnRecord.FlatAppearance.BorderSize = 0;
-        btnRecord.Font      = new System.Drawing.Font("Segoe UI", 12f, System.Drawing.FontStyle.Bold);
-        btnRecord.Cursor    = Cursors.Hand;
-        btnRecord.Name      = "btnRecord";
-
-        lblTimer.Text      = "00:00:00";
-        lblTimer.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
-        lblTimer.Font      = new System.Drawing.Font("Consolas", 16f, System.Drawing.FontStyle.Bold);
-        lblTimer.AutoSize  = true;
-        lblTimer.Location  = new Point(CW - 155, 17);
-        lblTimer.Name      = "lblTimer";
-
+        pnlSettings.Location = new Point(14, 406);
+        pnlSettings.Name = "pnlSettings";
+        pnlSettings.Size = new Size(512, 168);
+        pnlSettings.TabIndex = 4;
+        // 
+        // lblSettingsTitle
+        // 
+        lblSettingsTitle.AutoSize = true;
+        lblSettingsTitle.Font = new Font("Segoe UI", 8F, FontStyle.Bold);
+        lblSettingsTitle.ForeColor = Color.FromArgb(99, 102, 241);
+        lblSettingsTitle.Location = new Point(10, 10);
+        lblSettingsTitle.Name = "lblSettingsTitle";
+        lblSettingsTitle.Size = new Size(54, 13);
+        lblSettingsTitle.TabIndex = 0;
+        lblSettingsTitle.Text = "녹화 설정";
+        // 
+        // lblFps
+        // 
+        lblFps.AutoSize = true;
+        lblFps.Font = new Font("Segoe UI", 8.5F);
+        lblFps.ForeColor = Color.FromArgb(148, 163, 184);
+        lblFps.Location = new Point(10, 40);
+        lblFps.Name = "lblFps";
+        lblFps.Size = new Size(26, 15);
+        lblFps.TabIndex = 1;
+        lblFps.Text = "FPS";
+        // 
+        // trkFps
+        // 
+        trkFps.BackColor = Color.FromArgb(22, 22, 40);
+        trkFps.Location = new Point(60, 34);
+        trkFps.Maximum = 60;
+        trkFps.Minimum = 5;
+        trkFps.Name = "trkFps";
+        trkFps.Size = new Size(382, 45);
+        trkFps.TabIndex = 2;
+        trkFps.TickStyle = TickStyle.None;
+        trkFps.Value = 30;
+        trkFps.ValueChanged += TrkFps_ValueChanged;
+        // 
+        // lblFpsVal
+        // 
+        lblFpsVal.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        lblFpsVal.AutoSize = true;
+        lblFpsVal.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        lblFpsVal.ForeColor = Color.FromArgb(248, 250, 252);
+        lblFpsVal.Location = new Point(454, 40);
+        lblFpsVal.Name = "lblFpsVal";
+        lblFpsVal.Size = new Size(41, 15);
+        lblFpsVal.TabIndex = 3;
+        lblFpsVal.Text = "30 fps";
+        // 
+        // lblQuality
+        // 
+        lblQuality.AutoSize = true;
+        lblQuality.Font = new Font("Segoe UI", 8.5F);
+        lblQuality.ForeColor = Color.FromArgb(148, 163, 184);
+        lblQuality.Location = new Point(10, 76);
+        lblQuality.Name = "lblQuality";
+        lblQuality.Size = new Size(31, 15);
+        lblQuality.TabIndex = 4;
+        lblQuality.Text = "화질";
+        // 
+        // trkQuality
+        // 
+        trkQuality.BackColor = Color.FromArgb(22, 22, 40);
+        trkQuality.Location = new Point(60, 70);
+        trkQuality.Maximum = 100;
+        trkQuality.Minimum = 10;
+        trkQuality.Name = "trkQuality";
+        trkQuality.Size = new Size(382, 45);
+        trkQuality.TabIndex = 5;
+        trkQuality.TickStyle = TickStyle.None;
+        trkQuality.Value = 70;
+        trkQuality.ValueChanged += TrkQuality_ValueChanged;
+        // 
+        // lblQualityVal
+        // 
+        lblQualityVal.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        lblQualityVal.AutoSize = true;
+        lblQualityVal.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+        lblQualityVal.ForeColor = Color.FromArgb(248, 250, 252);
+        lblQualityVal.Location = new Point(454, 76);
+        lblQualityVal.Name = "lblQualityVal";
+        lblQualityVal.Size = new Size(31, 15);
+        lblQualityVal.TabIndex = 6;
+        lblQualityVal.Text = "70%";
+        // 
+        // lblOutput
+        // 
+        lblOutput.Font = new Font("Segoe UI", 9F);
+        lblOutput.ForeColor = Color.FromArgb(148, 163, 184);
+        lblOutput.Location = new Point(10, 112);
+        lblOutput.Name = "lblOutput";
+        lblOutput.Size = new Size(62, 34);
+        lblOutput.TabIndex = 7;
+        lblOutput.Text = "저장 경로";
+        lblOutput.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // txtOutput
+        // 
+        txtOutput.BackColor = Color.FromArgb(30, 30, 52);
+        txtOutput.BorderStyle = BorderStyle.FixedSingle;
+        txtOutput.Font = new Font("Segoe UI", 9F);
+        txtOutput.ForeColor = Color.FromArgb(248, 250, 252);
+        txtOutput.Location = new Point(78, 117);
+        txtOutput.Name = "txtOutput";
+        txtOutput.Size = new Size(352, 23);
+        txtOutput.TabIndex = 8;
+        // 
+        // btnBrowse
+        // 
+        btnBrowse.BackColor = Color.FromArgb(30, 30, 52);
+        btnBrowse.Cursor = Cursors.Hand;
+        btnBrowse.FlatAppearance.BorderColor = Color.FromArgb(51, 65, 85);
+        btnBrowse.FlatStyle = FlatStyle.Flat;
+        btnBrowse.Font = new Font("Segoe UI", 8F);
+        btnBrowse.ForeColor = Color.FromArgb(148, 163, 184);
+        btnBrowse.Location = new Point(436, 112);
+        btnBrowse.Name = "btnBrowse";
+        btnBrowse.Size = new Size(66, 34);
+        btnBrowse.TabIndex = 9;
+        btnBrowse.Text = "찾기";
+        btnBrowse.UseVisualStyleBackColor = false;
+        btnBrowse.Click += BtnBrowse_Click;
+        // 
+        // chkCursor
+        // 
+        chkCursor.AutoSize = true;
+        chkCursor.BackColor = Color.FromArgb(13, 13, 26);
+        chkCursor.Checked = true;
+        chkCursor.CheckState = CheckState.Checked;
+        chkCursor.Cursor = Cursors.Hand;
+        chkCursor.Font = new Font("Segoe UI", 9F);
+        chkCursor.ForeColor = Color.FromArgb(248, 250, 252);
+        chkCursor.Location = new Point(14, 582);
+        chkCursor.Name = "chkCursor";
+        chkCursor.Size = new Size(116, 19);
+        chkCursor.TabIndex = 5;
+        chkCursor.Text = "마우스 커서 포함";
+        chkCursor.UseVisualStyleBackColor = false;
+        // 
+        // pnlRecord
+        // 
+        pnlRecord.BackColor = Color.FromArgb(22, 22, 40);
         pnlRecord.Controls.Add(btnRecord);
         pnlRecord.Controls.Add(lblTimer);
-
-        y += pnlRecord.Height + 8;
-
-        // ── Status label ──────────────────────────────────────────────────
-        lblStatus.Text      = "준비됨";
-        lblStatus.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        lblStatus.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
-        lblStatus.AutoSize  = true;
-        lblStatus.Location  = new Point(PAD, y);
-        lblStatus.Name      = "lblStatus";
-
-        // ════════════════════════════════════════════════════════════════════
-        // Add everything to the form
-        // ════════════════════════════════════════════════════════════════════
+        pnlRecord.Location = new Point(14, 612);
+        pnlRecord.Name = "pnlRecord";
+        pnlRecord.Size = new Size(512, 64);
+        pnlRecord.TabIndex = 6;
+        // 
+        // btnRecord
+        // 
+        btnRecord.BackColor = Color.FromArgb(34, 197, 94);
+        btnRecord.Cursor = Cursors.Hand;
+        btnRecord.FlatAppearance.BorderSize = 0;
+        btnRecord.FlatStyle = FlatStyle.Flat;
+        btnRecord.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+        btnRecord.ForeColor = Color.FromArgb(255, 255, 255);
+        btnRecord.Location = new Point(10, 10);
+        btnRecord.Name = "btnRecord";
+        btnRecord.Size = new Size(342, 44);
+        btnRecord.TabIndex = 0;
+        btnRecord.Text = "● 녹화 시작";
+        btnRecord.UseVisualStyleBackColor = false;
+        btnRecord.Click += BtnRecord_Click;
+        // 
+        // lblTimer
+        // 
+        lblTimer.AutoSize = true;
+        lblTimer.Font = new Font("Consolas", 16F, FontStyle.Bold);
+        lblTimer.ForeColor = Color.FromArgb(248, 250, 252);
+        lblTimer.Location = new Point(357, 17);
+        lblTimer.Name = "lblTimer";
+        lblTimer.Size = new Size(108, 26);
+        lblTimer.TabIndex = 1;
+        lblTimer.Text = "00:00:00";
+        // 
+        // lblStatus
+        // 
+        lblStatus.AutoSize = true;
+        lblStatus.Font = new Font("Segoe UI", 8.5F);
+        lblStatus.ForeColor = Color.FromArgb(148, 163, 184);
+        lblStatus.Location = new Point(14, 684);
+        lblStatus.Name = "lblStatus";
+        lblStatus.Size = new Size(43, 15);
+        lblStatus.TabIndex = 7;
+        lblStatus.Text = "준비됨";
+        // 
+        // MainForm
+        // 
+        BackColor = Color.FromArgb(13, 13, 26);
+        ClientSize = new Size(540, 758);
         Controls.Add(pnlTitle);
         Controls.Add(pnlSource);
         Controls.Add(pnlPreview);
@@ -466,34 +555,29 @@ partial class MainForm
         Controls.Add(chkCursor);
         Controls.Add(pnlRecord);
         Controls.Add(lblStatus);
-
-        // ── wire up events ───────────────────────────────────────────────────
-        btnClose.Click          += BtnClose_Click;
-        btnMinimize.Click       += BtnMinimize_Click;
-        pnlTitle.MouseDown      += TitleBar_MouseDown;
-        pnlTitle.MouseMove      += TitleBar_MouseMove;
-        lblAppName.MouseDown    += TitleBar_MouseDown;
-        lblAppName.MouseMove    += TitleBar_MouseMove;
-        btnRefresh.Click        += BtnRefresh_Click;
-        btnTogglePreview.Click  += BtnTogglePreview_Click;
-        cboCodec.SelectedIndexChanged += CboCodec_SelectedIndexChanged;
-        btnInstallCodec.Click   += BtnInstallCodec_Click;
-        trkFps.ValueChanged     += TrkFps_ValueChanged;
-        trkQuality.ValueChanged += TrkQuality_ValueChanged;
-        btnBrowse.Click         += BtnBrowse_Click;
-        btnRecord.Click         += BtnRecord_Click;
-        Load                    += MainForm_Load;
-
-        // ── resume layout ────────────────────────────────────────────────────
+        FormBorderStyle = FormBorderStyle.None;
+        MinimumSize = new Size(540, 758);
+        Name = "MainForm";
+        StartPosition = FormStartPosition.CenterScreen;
+        Text = "ScreenCamWin";
+        Load += MainForm_Load;
+        ((System.ComponentModel.ISupportInitialize)picAppIcon).EndInit();
+        pnlTitle.ResumeLayout(false);
+        pnlTitle.PerformLayout();
+        pnlSource.ResumeLayout(false);
+        pnlSource.PerformLayout();
+        pnlPreview.ResumeLayout(false);
+        pnlPreview.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)picPreview).EndInit();
+        pnlCodec.ResumeLayout(false);
+        pnlCodec.PerformLayout();
+        pnlSettings.ResumeLayout(false);
+        pnlSettings.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)trkFps).EndInit();
         ((System.ComponentModel.ISupportInitialize)trkQuality).EndInit();
-        ((System.ComponentModel.ISupportInitialize)picPreview).EndInit();
         pnlRecord.ResumeLayout(false);
-        pnlSettings.ResumeLayout(false);
-        pnlCodec.ResumeLayout(false);
-        pnlPreview.ResumeLayout(false);
-        pnlSource.ResumeLayout(false);
-        pnlTitle.ResumeLayout(false);
+        pnlRecord.PerformLayout();
         ResumeLayout(false);
+        PerformLayout();
     }
 }

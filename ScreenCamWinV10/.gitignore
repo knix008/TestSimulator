@@ -1,0 +1,53 @@
+# Build outputs
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+AnyCPU/
+
+# Visual Studio / IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.sln.iml
+
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+
+# Logs and test
+*.log
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+*.binlog
+
+# WiX / MSI build artifacts
+*.wixobj
+*.wixpdb
+*.wixstate
+*.cab
+*.msi
+*.msm
+*.msp
+
+# OS
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Local / agent settings
+.claude/
+
+# Recorded output (local tests — do not commit)
+*.avi
+*.mp4
+!**/docs/**/*.mp4

@@ -76,52 +76,12 @@ internal static class NativeMethods
     [DllImport("gdi32.dll")]
     public static extern bool DeleteObject(IntPtr hObject);
 
-    // ── VFW / ICM ────────────────────────────────────────────────────────────
-
-    [DllImport("msvfw32.dll")]
-    public static extern IntPtr ICOpen(uint fccType, uint fccHandler, uint dwMode);
-
-    [DllImport("msvfw32.dll")]
-    public static extern int ICClose(IntPtr hic);
-
-    [DllImport("msvfw32.dll", CharSet = CharSet.Unicode)]
-    public static extern int ICGetInfo(IntPtr hic, ref ICINFO lpicinfo, int cb);
-
-    [DllImport("msvfw32.dll")]
-    public static extern bool ICInfo(uint fccType, uint fccHandler, ref ICINFO lpicinfo);
-
-    [DllImport("msvfw32.dll")]
-    public static extern int ICCompressGetFormat(IntPtr hic, IntPtr lpbiInput, IntPtr lpbiOutput);
-
-    [DllImport("msvfw32.dll")]
-    public static extern int ICCompressGetSize(IntPtr hic, IntPtr lpbiInput, IntPtr lpbiOutput);
-
-    [DllImport("msvfw32.dll")]
-    public static extern int ICCompressBegin(IntPtr hic, IntPtr lpbiInput, IntPtr lpbiOutput);
-
-    [DllImport("msvfw32.dll")]
-    public static extern int ICCompress(
-        IntPtr hic, uint dwFlags,
-        IntPtr lpbiOutput, IntPtr lpData,
-        IntPtr lpbiInput,  IntPtr lpBits,
-        out uint lpckid,   out uint lpdwFlags,
-        int lFrameNum,     uint dwFrameSize,
-        uint dwQuality,    IntPtr lpbiPrev, IntPtr lpPrev);
-
-    [DllImport("msvfw32.dll")]
-    public static extern int ICCompressEnd(IntPtr hic);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern IntPtr LoadLibrary(string lpFileName);
-
     // ── Constants ────────────────────────────────────────────────────────────
 
     public const uint SRCCOPY             = 0x00CC0020;
     public const uint CURSOR_SHOWING      = 0x00000001;
     public const uint DI_NORMAL           = 0x0003;
     public const uint PW_RENDERFULLCONTENT = 0x00000002;
-    public const uint ICMODE_COMPRESS     = 1;
-    public const uint ICTYPE_VIDEO        = 0x73646976; // 'vids'
 
     // ── Structs ──────────────────────────────────────────────────────────────
 
@@ -158,29 +118,4 @@ internal static class NativeMethods
         public IntPtr hbmColor;
     }
 
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct ICINFO
-    {
-        public uint  dwSize;
-        public uint  fccType;
-        public uint  fccHandler;
-        public uint  dwFlags;
-        public uint  dwVersion;
-        public uint  dwVersionICM;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 16)]
-        public string szName;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string szDescription;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string szDriver;
-    }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    public static uint FourCCToUInt(string fourcc)
-    {
-        if (fourcc.Length < 4) fourcc = fourcc.PadRight(4);
-        return (uint)fourcc[0] | ((uint)fourcc[1] << 8) |
-               ((uint)fourcc[2] << 16) | ((uint)fourcc[3] << 24);
-    }
 }

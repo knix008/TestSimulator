@@ -1,6 +1,5 @@
 namespace ScreenCamWin.Models;
 
-// Xvid and other 32-bit VFW codecs are excluded: this app targets x64 only.
 public enum VideoCodecKind { Mjpeg, Uncompressed, H264_MF }
 
 public class CodecInfo
@@ -9,8 +8,6 @@ public class CodecInfo
     public string         DisplayName { get; init; } = string.Empty;
     public string         FourCC      { get; init; } = string.Empty;
     public bool           IsBuiltIn   { get; init; }
-    public string?        DirectDownloadUrl { get; init; }
-    public string?        DownloadPageUrl   { get; init; }
 
     public override string ToString() => DisplayName;
 

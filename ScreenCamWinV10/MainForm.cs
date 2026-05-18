@@ -27,8 +27,16 @@ public partial class MainForm : Form
     void SetDaemonHammerIcon()
     {
         string path = Path.Combine(AppContext.BaseDirectory, "daemon_hammer.ico");
-        if (File.Exists(path))
-            Icon = new Icon(path);
+        if (!File.Exists(path))
+            return;
+
+        using var fileIcon = new Icon(path);
+        Icon = (Icon)fileIcon.Clone();
+
+        const int titleIconPx = 22;
+        using var sized = new Icon(fileIcon, new Size(titleIconPx, titleIconPx));
+        picAppIcon.Image?.Dispose();
+        picAppIcon.Image = sized.ToBitmap();
     }
 
     // ── Form load ────────────────────────────────────────────────────────────
@@ -211,82 +219,15 @@ public partial class MainForm : Form
     private void UpdateCodecStatus()
     {
         if (cboCodec.SelectedItem is not CodecInfo codec) return;
-        var status = CodecManager.GetCodecStatus(codec);
 
-        if (status == CodecStatus.Available)
-        {
-            lblCodecStatus.Text      = "● 사용 가능";
-            lblCodecStatus.ForeColor = Color.FromArgb(34, 197, 94);
-            btnInstallCodec.Visible  = false;
-        }
-        else
-        {
-            // Any non-available state: treat as not installed.
-            // Only 64-bit codecs work in this 64-bit app.
-            string hint = status switch
-            {
-                CodecStatus.VfwUnavailable => "● VFW 미지원 (H.264 권장)",
-                CodecStatus.Only32Bit        => "● 32비트만 설치됨",
-                CodecStatus.RegisteredButUnloadable => "● 로드 불가",
-                _ => "● 미설치",
-            };
-            lblCodecStatus.Text      = hint;
-            lblCodecStatus.ForeColor = Color.FromArgb(245, 158, 11);
-            btnInstallCodec.Visible  = !codec.IsBuiltIn;
-            btnInstallCodec.Text     = "설치";
-        }
+        lblCodecStatus.Text      = "● 사용 가능";
+        lblCodecStatus.ForeColor = Color.FromArgb(34, 197, 94);
+        btnInstallCodec.Visible  = false;
     }
 
     private void BtnInstallCodec_Click(object? sender, EventArgs e)
     {
-        if (cboCodec.SelectedItem is not CodecInfo codec) return;
-
-        var result = MessageBox.Show(
-            $"{codec.DisplayName} 코덱을 자동으로 설치하시겠습니까?\n\n" +
-            "설치 중 관리자 권한 요청이 나타날 수 있습니다.",
-            "코덱 설치", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-
-        if (result == DialogResult.Yes)
-            _ = InstallCodecAsync(codec);
-    }
-
-    private async Task InstallCodecAsync(CodecInfo codec)
-    {
-        btnInstallCodec.Enabled  = false;
-        btnInstallCodec.Text     = "다운로드 중...";
-        lblCodecStatus.ForeColor = Color.FromArgb(245, 158, 11);
-
-        var progress = new Progress<(int Percent, string Status)>(p =>
-        {
-            if (!IsDisposed)
-            {
-                btnInstallCodec.Text = $"{p.Percent}%";
-                SetStatus(p.Status);
-            }
-        });
-
-        var installResult = await CodecManager.DownloadAndInstallAsync(codec, progress);
-
-        if (!IsDisposed)
-        {
-            btnInstallCodec.Enabled = true;
-            UpdateCodecStatus();
-
-            if (installResult.Success)
-            {
-                SetStatus(installResult.Message);
-            }
-            else if (installResult.BrowserOpened)
-            {
-                // Browser was opened — show as info, not error
-                MessageBox.Show(installResult.Message, "수동 설치 안내",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            else
-            {
-                CopyableDialog.ShowWarning(this, installResult.Message, "설치 실패");
-            }
-        }
+        // All codecs are built-in; install button is hidden.
     }
 
     // ── Settings ─────────────────────────────────────────────────────────────
@@ -337,34 +278,6 @@ public partial class MainForm : Form
     {
         var codec  = cboCodec.SelectedItem as CodecInfo ?? CodecInfo.Mjpeg;
         var target = GetSelectedWindow();
-
-        var codecStatus = CodecManager.GetCodecStatus(codec);
-        if (codecStatus != CodecStatus.Available)
-        {
-            string msg = codecStatus switch
-            {
-                CodecStatus.VfwUnavailable =>
-                    $"'{codec.DisplayName}' DLL은 설치되어 있으나,\n" +
-                    "Windows 64비트에서는 VFW(Video for Windows) 압축 코덱을\n" +
-                    "이 앱에서 사용할 수 없습니다.\n\n" +
-                    "별도 설치 없이 동작하는\n" +
-                    "'H.264 (Windows 내장, .mp4)' 코덱을 선택해 주세요.",
-                CodecStatus.Only32Bit =>
-                    $"'{codec.DisplayName}'의 32비트 버전만 설치되어 있습니다.\n\n" +
-                    "이 앱은 64비트입니다. 64비트 빌드를 설치하거나\n" +
-                    "'H.264 (Windows 내장, .mp4)'을 사용하세요.",
-                CodecStatus.RegisteredButUnloadable =>
-                    $"'{codec.DisplayName}'이(가) 등록되어 있으나 로드할 수 없습니다.\n\n" +
-                    "64비트 코덱이 설치되었는지 확인하거나\n" +
-                    "'H.264 (Windows 내장, .mp4)'을 사용하세요.",
-                _ =>
-                    $"'{codec.DisplayName}'이(가) 설치되어 있지 않습니다.\n\n" +
-                    "설치 버튼으로 코덱을 설치하거나\n" +
-                    "'H.264 (Windows 내장, .mp4)'을 사용하세요.",
-            };
-            CopyableDialog.ShowWarning(this, msg, "코덱 없음");
-            return;
-        }
 
         string path = txtOutput.Text.Trim();
         if (string.IsNullOrEmpty(path))
