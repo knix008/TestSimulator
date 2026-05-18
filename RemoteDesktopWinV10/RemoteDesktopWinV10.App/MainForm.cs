@@ -5,8 +5,6 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
-using AxMSTSCLib;
-using MSTSCLib;
 using RemoteViewing.Vnc;
 using RemoteViewing.Windows.Forms;
 
@@ -26,28 +24,11 @@ public partial class MainForm : Form
     private bool _remoteClientsInitialized;
     private bool _vncConnecting;
     private TcpClient? _vncTlsClient;
-    private bool _rdpConnecting;
     private bool _fullScreenChromeHidden;
-
-    // RDP COM 객체 세대 번호 — ReinitRdpClient() 호출마다 증가, 구버전 이벤트 무시에 사용
-    private int _rdpGen;
 
     // 사용자가 직접 끊기를 누른 경우 — 예기치 않은 종료 팝업 억제에 사용
     private bool _userDisconnecting;
-    // OnFatalError가 이미 팝업을 띄운 경우 — OnDisconnected 팝업 중복 방지
-    private bool _rdpFatalErrorFired;
 
-    // 마지막으로 시도한 연결 정보 (OnConnected 핸들러에서 history 기록에 사용)
-    private string _currentConnectHost = "";
-    private int _currentConnectPort;
-
-    // 마지막으로 적용한 RDP 옵션 (상태바 표시에 사용)
-    private bool _rdpOptCredSsp = true;
-    private bool _rdpOptNla = true;
-    private bool _rdpOptRelaxedCert;
-    private bool _rdpOptClipboard = true;
-    private bool _rdpOptDrives;
-    private bool _rdpOptPrinters;
     private FormBorderStyle _savedBorder = FormBorderStyle.Sizable;
     private FormWindowState _savedWindowState = FormWindowState.Normal;
     private Padding _savedRemotePanelPadding;
@@ -59,12 +40,11 @@ public partial class MainForm : Form
 
     private List<ConnectionProfile> _profilesList = new();
     private List<ConnectionHistoryEntry> _historyList = new();
+    private VncClientSettings _vncSettings = VncClientSettings.Default;
+    private bool _suppressProfileChange;
 
     /// <summary>하단 상태 표시줄 첫 칸에 표시할 한 줄 요약.</summary>
     private string _statusHeadline = "준비됨";
-
-    /// <summary>RDP ActiveX — 디자이너에는 없고 <see cref="InitializeRemoteClients"/>에서만 생성합니다.</summary>
-    private AxMsRdpClient10NotSafeForScripting rdpClient = null!;
 
     /// <summary>VNC 뷰어 — 디자이너에는 없고 <see cref="InitializeRemoteClients"/>에서만 생성합니다.</summary>
     private VncControl vncRemote = null!;
@@ -94,29 +74,54 @@ public partial class MainForm : Form
         InitializeRemoteClients();
         InitializeFullScreenBar();
 
-        toolStripProtocol.Items.AddRange(new object[] { "RDP", "VNC" });
-        toolStripProtocol.SelectedIndex = 0;
-
         manageProfilesToolStripMenuItem.Click += (_, _) => OpenProfileManager();
         appMenuVisibilityToolStripMenuItem.Click += (_, _) => OpenAppSettings();
         openDataFolderToolStripMenuItem.Click += (_, _) => OpenLocalDataFolder();
         exitToolStripMenuItem.Click += (_, _) => Application.Exit();
         fullScreenToolStripMenuItem.Click += (_, _) => ToggleFullScreen();
-        connectToolStripMenuItem.Click += async (_, _) => await OnQuickConnectClickAsync();
-        connectionSettingsToolStripMenuItem.Click += (_, _) => OpenConnectionSettings();
+        connectToolStripMenuItem.Click += async (_, _) => await OnConnectClickAsync();
+        advancedSettingsToolStripMenuItem.Click += (_, _) => OpenAdvancedSettings();
+        connectButton.Click += async (_, _) => await OnConnectClickAsync();
+        advancedSettingsButton.Click += (_, _) => OpenAdvancedSettings();
+        profilesCombo.SelectedIndexChanged += OnProfileComboChanged;
+        historyCombo.SelectedIndexChanged += OnHistoryComboChanged;
 
-        toolStripProtocol.SelectedIndexChanged += (_, _) => ApplyQuickConnectDefaults();
-        toolStripConnect.Click += async (_, _) => await OnQuickConnectClickAsync();
+        hostText.TextChanged += OnStatusRelatedInputChanged;
+        portText.TextChanged += OnStatusRelatedInputChanged;
+        hostText.KeyDown += OnConnectFieldKeyDown;
+        portText.KeyDown += OnConnectFieldKeyDown;
+        passwordText.KeyDown += OnConnectFieldKeyDown;
 
-        toolStripHost.TextChanged += OnStatusRelatedInputChanged;
-        toolStripPort.TextChanged += OnStatusRelatedInputChanged;
-
-        // Load profiles and history
         LoadProfilesAndHistory();
 
         ApplyMainMenuFromSettings();
         ApplyQuickConnectDefaults();
         UpdateConnectUi();
+        Shown += (_, _) => EnsureWindowOnScreen();
+    }
+
+    /// <summary>다중 모니터·해상도 변경 후 창이 화면 밖에 있으면 주 모니터 중앙으로 이동합니다.</summary>
+    private void EnsureWindowOnScreen()
+    {
+        if (WindowState != FormWindowState.Normal)
+        {
+            return;
+        }
+
+        var onScreen = Screen.AllScreens.Any(s => s.WorkingArea.IntersectsWith(Bounds));
+        if (onScreen)
+        {
+            return;
+        }
+
+        var area = Screen.PrimaryScreen?.WorkingArea ?? Screen.FromControl(this).WorkingArea;
+        var w = Math.Min(Width, area.Width);
+        var h = Math.Min(Height, area.Height);
+        StartPosition = FormStartPosition.Manual;
+        Location = new Point(
+            area.Left + Math.Max(0, (area.Width - w) / 2),
+            area.Top + Math.Max(0, (area.Height - h) / 2));
+        Size = new Size(w, h);
     }
 
     /// <summary>디자인 타임(디자이너·DesignToolsServer)이면 true.</summary>
@@ -157,7 +162,6 @@ public partial class MainForm : Form
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
         UpdateStyles();
         EnableDoubleBuffer(remotePanel);
-        EnableDoubleBuffer(rdpHostPanel);
         EnableDoubleBuffer(vncHostPanel);
 
         Font = UiTheme.UiFont;
@@ -165,10 +169,15 @@ public partial class MainForm : Form
         ForeColor = UiTheme.TextPrimary;
 
         UiTheme.ApplyLightToolStripChrome(mainMenuStrip);
-        UiTheme.ApplyLightToolStripChrome(quickConnectToolStrip);
+        UiTheme.ApplyLightToolStripChrome(connectInputToolStrip);
+        passwordText.TextBox.UseSystemPasswordChar = true;
+
+        connectBarPanel.BackColor = UiTheme.BgToolbar;
+        connectActionsPanel.BackColor = UiTheme.BgToolbar;
+        UiTheme.StyleConnectButton(connectButton, sessionActive: false);
+        UiTheme.StyleSecondaryButton(advancedSettingsButton, minHeight: 32);
 
         remotePanel.BackColor = UiTheme.BgRemote;
-        rdpHostPanel.BackColor = UiTheme.BgRemote;
         vncHostPanel.BackColor = UiTheme.BgRemote;
 
         statusStrip.Font = UiTheme.UiFont;
@@ -211,18 +220,6 @@ public partial class MainForm : Form
 
     private void InitializeRemoteClients()
     {
-        rdpClient = new AxMsRdpClient10NotSafeForScripting();
-        ((ISupportInitialize)rdpClient).BeginInit();
-        rdpClient.Dock = DockStyle.Fill;
-        rdpClient.Enabled = true;
-        rdpClient.Location = new Point(0, 0);
-        rdpClient.Name = "rdpClient";
-        rdpClient.TabIndex = 0;
-        rdpHostPanel.Controls.Add(rdpClient);
-        ((ISupportInitialize)rdpClient).EndInit();
-
-        WireRdpClientEvents(_rdpGen);
-
         vncRemote = new VncControl();
         vncRemote.Dock = DockStyle.Fill;
         vncRemote.Location = new Point(0, 0);
@@ -255,115 +252,6 @@ public partial class MainForm : Form
         });
 
         _remoteClientsInitialized = true;
-    }
-
-    /// <summary>
-    /// RDP COM 객체를 재생성합니다. 한 번 연결을 시도한 COM 객체는 일부 보안 속성을
-    /// 변경할 수 없으므로(E_INVALIDARG), 재연결 시 이 메서드로 초기화합니다.
-    /// </summary>
-    private void ReinitRdpClient()
-    {
-        var old = rdpClient;
-        _rdpGen++; // 구버전 이벤트 핸들러를 무효화
-
-        rdpClient = new AxMsRdpClient10NotSafeForScripting();
-        ((ISupportInitialize)rdpClient).BeginInit();
-        rdpClient.Dock = DockStyle.Fill;
-        rdpClient.Enabled = true;
-        rdpClient.Location = new Point(0, 0);
-        rdpClient.Name = "rdpClient";
-        rdpClient.TabIndex = 0;
-
-        WireRdpClientEvents(_rdpGen);
-
-        rdpHostPanel.Controls.Remove(old);
-        rdpHostPanel.Controls.Add(rdpClient);
-        ((ISupportInitialize)rdpClient).EndInit();
-
-        try { old.Disconnect(); } catch { }
-        try { old.Dispose(); } catch { }
-    }
-
-    /// <summary>현재 <see cref="rdpClient"/>에 이벤트 핸들러를 연결합니다. gen 으로 구버전 이벤트를 무시합니다.</summary>
-    private void WireRdpClientEvents(int gen)
-    {
-        rdpClient.OnConnected += (_, _) => BeginInvoke(() =>
-        {
-            if (_rdpGen != gen) return;
-            _rdpConnecting = false;
-            SetStatusHeadline("RDP 연결됨 — 원격 데스크톱 세션이 수립되었습니다");
-            TryRecordConnectionHistory(RemoteDesktopProtocol.Rdp, _currentConnectHost, _currentConnectPort);
-            UpdateConnectUi();
-        });
-
-        rdpClient.OnDisconnected += (_, e) => BeginInvoke(() =>
-        {
-            if (_rdpGen != gen) return;
-            var wasFatal = _rdpFatalErrorFired;
-            _rdpFatalErrorFired = false;
-            var wasUser = _userDisconnecting;
-            _userDisconnecting = false;
-            _rdpConnecting = false;
-
-            if (rdpClient.FullScreen)
-            {
-                try { rdpClient.FullScreen = false; } catch { }
-            }
-
-            var disc = e.discReason;
-            var ext = (int)rdpClient.ExtendedDisconnectReason;
-            var hint = BuildRdpDisconnectHint(disc, ext);
-            SetStatusHeadline("RDP 연결 종료");
-            rdpHostPanel.Visible = false;
-            UpdateConnectUi();
-
-            var normalClose = wasUser || disc == 1;
-            if (!normalClose && !wasFatal)
-            {
-                var msg = $"RDP 연결이 종료되었습니다.\n\n{hint}\n\n진단 코드: disc={disc}, ext={ext}";
-                ErrorDialog.Show(this, msg, Text, MessageBoxIcon.Warning);
-            }
-        });
-
-        rdpClient.OnFatalError += (_, e) => BeginInvoke(() =>
-        {
-            if (_rdpGen != gen) return;
-            _rdpConnecting = false;
-            _rdpFatalErrorFired = true;
-            var code = Convert.ToInt64(e.errorCode);
-            var desc = RdpFatalErrorDescription.Describe(code);
-            var body =
-                "RDP 클라이언트에서 치명적 오류가 보고되었습니다.\r\n\r\n"
-                + "오류 코드(십진): " + code + "\r\n"
-                + "오류 코드(16진): 0x" + code.ToString("X") + "\r\n\r\n"
-                + desc
-                + "\r\n\r\n자격 증명, NLA, 네트워크·방화벽, 서버 설정을 확인하세요.";
-            SetStatusHeadline("RDP 치명적 오류 — 코드 " + code);
-            ErrorDialog.Show(this, body, Text, MessageBoxIcon.Error);
-            UpdateConnectUi();
-        });
-
-        rdpClient.OnLogonError += (_, e) => BeginInvoke(() =>
-        {
-            if (_rdpGen != gen) return;
-            _rdpConnecting = false;
-            var code = e.lError;
-            if (code == 0)
-            {
-                return;
-            }
-
-            var body =
-                "RDP 로그온에 실패했습니다.\r\n\r\n"
-                + "로그온 오류 코드: " + code + "\r\n"
-                + RdpLogonErrorDescription.Describe(code)
-                + "\r\n\r\n• DOMAIN\\user 또는 user@도메인 형식 확인\r\n"
-                + "• IP로 접속 시 로컬 계정은 사용자 이름만 또는 .\\사용자\r\n"
-                + "• NLA·인증서 완화 옵션, 원격 데스크톱 사용자 그룹";
-            SetStatusHeadline("RDP 로그온 실패 — 코드 " + code);
-            ErrorDialog.Show(this, body, Text, MessageBoxIcon.Warning);
-            UpdateConnectUi();
-        });
     }
 
     private void ApplyMainMenuFromSettings()
@@ -419,79 +307,6 @@ public partial class MainForm : Form
         }
     }
 
-    /// <summary>
-    /// <c>DOMAIN\user</c>, <c>user@fqdn</c>, 또는 단일 이름(원격 PC 로컬 계정)에 맞춰 RDP Domain / UserName 을 나눕니다.
-    /// </summary>
-    private static void SplitRdpUserForLogon(string combinedUser, string serverHost, out string domain, out string userName)
-    {
-        domain = string.Empty;
-        userName = combinedUser.Trim();
-        if (userName.Length == 0)
-        {
-            return;
-        }
-
-        var slash = userName.IndexOf('\\');
-        if (slash > 0)
-        {
-            domain = userName[..slash].Trim();
-            userName = userName[(slash + 1)..].Trim();
-            return;
-        }
-
-        if (slash == 0 && userName.Length > 1)
-        {
-            domain = ".";
-            userName = userName[1..].Trim();
-            return;
-        }
-
-        var at = userName.LastIndexOf('@');
-        if (at > 0 && at < userName.Length - 1)
-        {
-            domain = userName[(at + 1)..].Trim();
-            userName = userName[..at].Trim();
-            return;
-        }
-
-        // IP·호스트만으로는 도메인을 추측하지 않습니다(잘못된 Domain=`.` 등으로 로그온 실패 방지).
-        // 원격 로컬 계정: user 만 입력하거나 .\user / PC이름\user 를 직접 입력하세요.
-    }
-
-    private static string BuildRdpDisconnectHint(int disc, int ext)
-    {
-        // 확장 이유 코드 우선 (exDiscReasonXxx 값 기준)
-        switch (ext)
-        {
-            case 7:  return "서버가 연결을 거부했습니다. 계정의 원격 데스크톱 액세스 권한을 확인하세요.";
-            case 9:  return "계정에 원격 로그인 권한이 없습니다. 서버에서 'Remote Desktop Users' 그룹에 계정을 추가하세요.";
-            case 10: return "NLA 인증에 실패했습니다. 사용자 이름·암호·도메인을 확인하거나 연결 옵션에서 '인증서 완화'를 활성화하세요.";
-            case 12:
-            case 256: return "원격 세션에서 로그오프했습니다.";
-        }
-
-        return disc switch
-        {
-            0    => "원인 불명 — 네트워크 상태를 확인하세요.",
-            1    => "연결이 정상적으로 종료되었습니다.",
-            2    => "원격 세션에서 로그오프했습니다.",
-            3    => "서버에서 연결을 끊었습니다.",
-            260  => "DNS 이름 조회에 실패했습니다. 호스트 이름을 확인하세요.",
-            516  => "연결 시간이 초과되었습니다.",
-            518  => "서버에 연결할 수 없습니다. 호스트·포트·방화벽을 확인하세요.",
-            776  => "네트워크 연결이 끊겼습니다.",
-            1800 => "CredSSP 보안 협상에 실패했습니다 (0x708).\n"
-                  + "원인: 서버와 클라이언트의 CredSSP 암호화 정책이 일치하지 않거나, 서버 인증서를 신뢰할 수 없습니다.\n"
-                  + "해결 방법:\n"
-                  + "  1. '연결' 대화상자 → 'RDP 옵션'에서 '인증서 완화' 체크 후 재연결\n"
-                  + "  2. NLA 체크 해제 후 재연결",
-            2308 => "원격 세션이 서버에 의해 종료되었습니다.",
-            2825 => "서버 인증서가 만료되었거나 신뢰할 수 없습니다. 연결 옵션에서 '인증서 완화'를 활성화하세요.",
-            3591 => "서버 인증서 검증에 실패했습니다. 연결 옵션에서 '인증서 완화'를 활성화하세요.",
-            _    => $"연결이 종료되었습니다. 자격 증명·도메인·NLA·인증서 설정을 확인하세요. (disc={disc}, ext={ext})",
-        };
-    }
-
     private void SetStatusHeadline(string headline)
     {
         _statusHeadline = headline;
@@ -502,20 +317,19 @@ public partial class MainForm : Form
     {
         toolStripStatusState.Text = "상태: " + _statusHeadline;
 
-        var proto = IsRdp ? "RDP" : "VNC";
-        var host = toolStripHost.Text.Trim();
-        var portStr = toolStripPort.Text.Trim();
+        var host = hostText.Text.Trim();
+        var portStr = portText.Text.Trim();
         if (host.Length == 0)
         {
-            toolStripStatusConnection.Text = "연결: " + proto + " — 호스트 미입력";
+            toolStripStatusConnection.Text = "연결: VNC — 호스트 미입력";
         }
         else if (!int.TryParse(portStr, out var portNum) || portNum is < 1 or > 65535)
         {
-            toolStripStatusConnection.Text = $"연결: {proto} {host} — 포트 확인 ({portStr})";
+            toolStripStatusConnection.Text = $"연결: VNC {host} — 포트 확인 ({portStr})";
         }
         else
         {
-            toolStripStatusConnection.Text = $"연결: {proto} {host}:{portNum}";
+            toolStripStatusConnection.Text = $"연결: VNC {host}:{portNum}";
         }
 
         if (!_remoteClientsInitialized)
@@ -525,31 +339,9 @@ public partial class MainForm : Form
             return;
         }
 
-        if (!rdpHostPanel.Visible && !vncHostPanel.Visible)
+        if (!vncHostPanel.Visible)
         {
             toolStripStatusViewport.Text = "원격 패널: 비표시 — 연결 후 이 영역에 원격 화면이 나타납니다";
-        }
-        else if (rdpHostPanel.Visible)
-        {
-            var conn = rdpClient.Connected != 0;
-            var fs = _fullScreenChromeHidden;
-
-            if (conn && fs)
-            {
-                toolStripStatusViewport.Text = "원격 패널: RDP · 전체 화면";
-            }
-            else if (conn)
-            {
-                toolStripStatusViewport.Text = "원격 패널: RDP · 창 모드 (F11 전체 화면)";
-            }
-            else if (_rdpConnecting)
-            {
-                toolStripStatusViewport.Text = "원격 패널: RDP · 서버에 연결하는 중(잠시 걸릴 수 있음)…";
-            }
-            else
-            {
-                toolStripStatusViewport.Text = "원격 패널: RDP 영역 표시됨 · 세션 수립 중(검은 화면이면 NLA·인증서 완화·계정 확인)";
-            }
         }
         else if (_vncConnecting && !vncRemote.Client.IsConnected)
         {
@@ -564,21 +356,17 @@ public partial class MainForm : Form
             toolStripStatusViewport.Text = "원격 패널: VNC 영역 표시됨 · 미연결";
         }
 
-        if (IsRdp)
-        {
-            var opts = new System.Text.StringBuilder("RDP:");
-            opts.Append(_rdpOptCredSsp ? " CredSSP" : " NoCredSSP");
-            opts.Append(_rdpOptNla ? " NLA" : " NoNLA");
-            if (_rdpOptRelaxedCert) opts.Append(" 인증서완화");
-            if (_rdpOptClipboard) opts.Append(" 클립보드");
-            if (_rdpOptDrives) opts.Append(" 드라이브");
-            if (_rdpOptPrinters) opts.Append(" 프린터");
-            toolStripStatusOptions.Text = opts.ToString();
-        }
-        else
-        {
-            toolStripStatusOptions.Text = "VNC: 기본TCP=" + VncConnectionDefaults.DefaultPort;
-        }
+        toolStripStatusOptions.Text = FormatVncOptionsSummary();
+    }
+
+    private string FormatVncOptionsSummary()
+    {
+        var parts = new List<string> { $"포트 기본 {VncConnectionDefaults.DefaultPort}" };
+        if (_vncSettings.ViewOnly) parts.Add("뷰온리");
+        if (_vncSettings.UseTls) parts.Add(_vncSettings.IgnoreTlsCertErrors ? "TLS(인증서무시)" : "TLS");
+        if (_vncSettings.MaxUpdateRate > 0) parts.Add($"{_vncSettings.MaxUpdateRate:0}fps");
+        parts.Add(_vncSettings.SizeMode.ToString());
+        return "옵션: " + string.Join(" · ", parts);
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -648,14 +436,7 @@ public partial class MainForm : Form
         if (!_remoteClientsInitialized) return;
         try
         {
-            if (IsRdp)
-            {
-                if (rdpClient.Connected != 0) rdpClient.Focus();
-            }
-            else
-            {
-                if (vncRemote.Client.IsConnected) vncRemote.Focus();
-            }
+            if (vncRemote.Client.IsConnected) vncRemote.Focus();
         }
         catch { }
     }
@@ -679,7 +460,7 @@ public partial class MainForm : Form
             _savedRemotePanelPadding = remotePanel.Padding;
 
             mainMenuStrip.Visible = false;
-            quickConnectToolStrip.Visible = false;
+            connectBarPanel.Visible = false;
             statusStrip.Visible = false;
             remotePanel.Padding = Padding.Empty;
             FormBorderStyle = FormBorderStyle.None;
@@ -699,7 +480,7 @@ public partial class MainForm : Form
 
             remotePanel.Padding = _savedRemotePanelPadding;
             mainMenuStrip.Visible = true;
-            quickConnectToolStrip.Visible = true;
+            connectBarPanel.Visible = true;
             statusStrip.Visible = true;
             FormBorderStyle = _savedBorder;
             WindowState = _savedWindowState;
@@ -711,110 +492,89 @@ public partial class MainForm : Form
         RefreshStatusStrip();
     }
 
-    // Profiles combo no longer exists - profiles are managed through ConnectionDialog
-    /*
-    private void ReloadProfilesIntoCombo(Guid? selectId)
+    private void ReloadProfilesIntoCombo(Guid? selectId = null)
     {
         _suppressProfileChange = true;
         try
         {
-            _profilesList = ConnectionProfileStore.Load();
             profilesCombo.Items.Clear();
-            profilesCombo.Items.Add("(프로필 없음)");
+            profilesCombo.Items.Add("(선택 안함)");
             var selectIndex = 0;
             for (var i = 0; i < _profilesList.Count; i++)
             {
-                var p = _profilesList[i];
-                var idx = profilesCombo.Items.Add(p.Name);
-                if (selectId.HasValue && p.Id == selectId.Value)
+                var idx = profilesCombo.Items.Add(_profilesList[i].Name);
+                if (selectId.HasValue && _profilesList[i].Id == selectId.Value)
                 {
                     selectIndex = idx;
                 }
             }
-
-            profilesCombo.SelectedIndex = selectIndex >= 0 && selectIndex < profilesCombo.Items.Count ? selectIndex : 0;
-        }
-        catch (Exception ex)
-        {
-            _profilesList = new List<ConnectionProfile>();
-            profilesCombo.Items.Clear();
-            profilesCombo.Items.Add("(프로필 없음)");
-            profilesCombo.SelectedIndex = 0;
-            MessageBox.Show(
-                this,
-                ExceptionMessageFormatter.Format(ex, "프로필 목록을 불러오지 못했습니다."),
-                Text,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+            profilesCombo.SelectedIndex = selectIndex;
         }
         finally
         {
             _suppressProfileChange = false;
         }
-
-        RefreshStatusStrip();
     }
-    */
 
-    // History combo no longer exists - history is managed through ConnectionDialog
-    /*
-    private void ReloadHistoryIntoCombo(bool preserveSelection)
+    private void ReloadHistoryIntoCombo()
     {
-        var prev = preserveSelection && historyCombo.SelectedIndex > 0 && historyCombo.SelectedIndex <= _historyList.Count
-            ? _historyList[historyCombo.SelectedIndex - 1]
-            : null;
-
-        _suppressHistoryChange = true;
-        try
+        historyCombo.Items.Clear();
+        historyCombo.Items.Add("(최근 기록 없음)");
+        foreach (var entry in _historyList.Take(20))
         {
-            _historyList = ConnectionHistoryStore.Load();
-            historyCombo.Items.Clear();
-            historyCombo.Items.Add("(최근 연결 없음)");
-            var selectIndex = 0;
-            for (var i = 0; i < _historyList.Count; i++)
-            {
-                var h = _historyList[i];
-                var label = (h.Protocol == RemoteDesktopProtocol.Rdp ? "RDP" : "VNC") + "  " + h.Host + ":" + h.Port.ToString(CultureInfo.InvariantCulture);
-                var idx = historyCombo.Items.Add(label);
-                if (prev != null
-                    && h.Port == prev.Port
-                    && string.Equals(h.Host, prev.Host, StringComparison.OrdinalIgnoreCase)
-                    && h.Protocol == prev.Protocol)
-                {
-                    selectIndex = idx;
-                }
-            }
-
-            historyCombo.SelectedIndex = selectIndex >= 0 && selectIndex < historyCombo.Items.Count ? selectIndex : 0;
+            historyCombo.Items.Add($"{entry.Host}:{entry.Port}");
         }
-        catch (Exception ex)
+        historyCombo.SelectedIndex = 0;
+    }
+
+    private void OnProfileComboChanged(object? sender, EventArgs e)
+    {
+        if (_suppressProfileChange || profilesCombo.SelectedIndex <= 0)
         {
-            _historyList = new List<ConnectionHistoryEntry>();
-            historyCombo.Items.Clear();
-            historyCombo.Items.Add("(최근 연결 없음)");
-            historyCombo.SelectedIndex = 0;
-            MessageBox.Show(
-                this,
-                ExceptionMessageFormatter.Format(ex, "최근 연결 목록을 불러오지 못했습니다."),
-                Text,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-        }
-        finally
-        {
-            _suppressHistoryChange = false;
+            return;
         }
 
+        var name = profilesCombo.SelectedItem?.ToString();
+        var profile = _profilesList.FirstOrDefault(p => p.Name == name);
+        if (profile != null)
+        {
+            ApplyProfileToForm(profile);
+        }
+    }
+
+    private void OnHistoryComboChanged(object? sender, EventArgs e)
+    {
+        if (historyCombo.SelectedIndex <= 0)
+        {
+            return;
+        }
+
+        var text = historyCombo.SelectedItem?.ToString();
+        var entry = _historyList.FirstOrDefault(h => $"{h.Host}:{h.Port}" == text);
+        if (entry != null)
+        {
+            hostText.Text = entry.Host;
+            portText.Text = entry.Port.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    private void ApplyProfileToForm(ConnectionProfile profile)
+    {
+        hostText.Text = profile.Host;
+        portText.Text = profile.Port > 0
+            ? profile.Port.ToString(CultureInfo.InvariantCulture)
+            : VncConnectionDefaults.DefaultPort.ToString(CultureInfo.InvariantCulture);
+        var savedPw = ConnectionProfileStore.UnprotectPassword(profile.EncryptedPasswordBase64);
+        passwordText.Text = savedPw ?? "";
+        _vncSettings = VncClientSettings.FromProfile(profile);
         RefreshStatusStrip();
     }
-    */
 
-    private void TryRecordConnectionHistory(RemoteDesktopProtocol protocol, string host, int port)
+    private void TryRecordConnectionHistory(string host, int port)
     {
         try
         {
-            ConnectionHistoryStore.Record(protocol, host, port);
-            // ReloadHistoryIntoCombo(preserveSelection: false); // History combo removed
+            ConnectionHistoryStore.Record(host, port);
         }
         catch (Exception ex)
         {
@@ -826,383 +586,51 @@ public partial class MainForm : Form
         }
     }
 
-    // History selection handled by ConnectionDialog
-    /*
-    private void OnHistorySelected()
-    {
-        if (_suppressHistoryChange)
-        {
-            return;
-        }
-
-        if (historyCombo.SelectedIndex <= 0)
-        {
-            return;
-        }
-
-        var h = _historyList[historyCombo.SelectedIndex - 1];
-        _suppressDefaults = true;
-        _suppressProfileChange = true;
-        profilesCombo.SelectedIndex = 0;
-        _suppressProfileChange = false;
-        protocolCombo.SelectedIndex = h.Protocol == RemoteDesktopProtocol.Rdp ? 0 : 1;
-        hostText.Text = h.Host;
-        portText.Text = h.Port.ToString(CultureInfo.InvariantCulture);
-        passwordText.Clear();
-        _suppressDefaults = false;
-        SetRdpRedirectControlsEnabled(IsRdp);
-        RefreshStatusStrip();
-    }
-    */
-
-    // Profile selection handled by ConnectionDialog
-    /*
-    private void OnProfileSelected()
-    {
-        if (_suppressProfileChange)
-        {
-            return;
-        }
-
-        if (profilesCombo.SelectedIndex <= 0)
-        {
-            return;
-        }
-
-        var p = _profilesList[profilesCombo.SelectedIndex - 1];
-        _suppressDefaults = true;
-        protocolCombo.SelectedIndex = p.Protocol == RemoteDesktopProtocol.Rdp ? 0 : 1;
-        hostText.Text = p.Host;
-        portText.Text = p.Port.ToString(CultureInfo.InvariantCulture);
-        userText.Text = p.User;
-        passwordText.Clear();
-        var saved = ConnectionProfileStore.UnprotectPassword(p.EncryptedPasswordBase64);
-        if (!string.IsNullOrEmpty(saved))
-        {
-            passwordText.Text = saved;
-        }
-
-        if (p.CredSspEnabled.HasValue)
-        {
-            credSspCheck.Checked = p.CredSspEnabled.Value;
-        }
-
-        if (p.NegotiateSecurityLayer.HasValue)
-        {
-            nlaCheck.Checked = p.NegotiateSecurityLayer.Value;
-        }
-
-        if (p.RelaxedCertificateValidation.HasValue)
-        {
-            relaxedCertCheck.Checked = p.RelaxedCertificateValidation.Value;
-        }
-
-        if (p.RdpRedirectClipboard.HasValue)
-        {
-            rdpClipboardCheck.Checked = p.RdpRedirectClipboard.Value;
-        }
-
-        if (p.RdpRedirectDrives.HasValue)
-        {
-            rdpDrivesCheck.Checked = p.RdpRedirectDrives.Value;
-        }
-
-        if (p.RdpRedirectPrinters.HasValue)
-        {
-            rdpPrintersCheck.Checked = p.RdpRedirectPrinters.Value;
-        }
-
-        _suppressDefaults = false;
-        SetRdpRedirectControlsEnabled(IsRdp);
-        RefreshStatusStrip();
-    }
-    */
-
-    // Protocol defaults handled by toolbar controls (ApplyQuickConnectDefaults)
-    /*
-    private void ApplyProtocolDefaults()
-    {
-        if (_suppressDefaults)
-        {
-            return;
-        }
-
-        var isRdp = protocolCombo.SelectedIndex == 0;
-        portText.Text = isRdp ? "3389" : VncConnectionDefaults.DefaultPort.ToString(CultureInfo.InvariantCulture);
-        userText.Enabled = isRdp;
-        hostText.PlaceholderText = isRdp
-            ? "호스트 이름 또는 IP"
-            : "localhost 또는 서버 IP (같은 PC면 localhost)";
-        passwordText.PlaceholderText = isRdp
-            ? ""
-            : "VNC 암호(없으면 빈 칸; 표준 인증은 앞 8자만)";
-        SetRdpRedirectControlsEnabled(isRdp);
-        RefreshStatusStrip();
-    }
-    */
-
-    // RDP redirect controls removed - settings managed through ConnectionDialog
-    /*
-    private void SetRdpRedirectControlsEnabled(bool rdp)
-    {
-        rdpClipboardCheck.Enabled = rdp;
-        rdpDrivesCheck.Enabled = rdp;
-        rdpPrintersCheck.Enabled = rdp;
-    }
-    */
-
-    private bool IsRdp => toolStripProtocol.SelectedIndex == 0;
-
-    private bool IsSessionActive
-    {
-        get
-        {
-            if (IsRdp)
-            {
-                return rdpClient.Connected != 0;
-            }
-
-            return vncRemote.Client.IsConnected;
-        }
-    }
+    private bool IsSessionActive => vncRemote.Client.IsConnected;
 
     private void UpdateConnectUi()
     {
         var active = IsSessionActive;
-        var connecting = _vncConnecting || _rdpConnecting;
+        var connecting = _vncConnecting;
 
-        // Update toolbar connect button
         if (active)
         {
-            toolStripConnect.Enabled = true;
-            toolStripConnect.Text = "연결 끊기";
-            toolStripConnect.BackColor = Color.FromArgb(220, 53, 69); // Red for disconnect
-            toolStripConnect.ForeColor = Color.White;
+            UiTheme.StyleConnectButton(connectButton, sessionActive: true);
+            connectButton.Text = "연결 끊기";
         }
         else if (connecting)
         {
-            toolStripConnect.Enabled = false;
-            toolStripConnect.Text = "연결 중…";
-            toolStripConnect.BackColor = Color.FromArgb(255, 193, 7); // Yellow for connecting
-            toolStripConnect.ForeColor = Color.Black;
+            UiTheme.StyleConnectButtonConnecting(connectButton);
+            connectButton.Text = "연결 중…";
         }
         else
         {
-            toolStripConnect.Enabled = true;
-            toolStripConnect.Text = "연결";
-            toolStripConnect.BackColor = Color.FromArgb(40, 167, 69); // Green for connect
-            toolStripConnect.ForeColor = Color.White;
+            UiTheme.StyleConnectButton(connectButton, sessionActive: false);
+            connectButton.Text = "연결";
         }
 
         var busy = active || connecting;
         UseWaitCursor = connecting;
 
-        // Enable/disable toolbar controls
-        toolStripProtocol.Enabled = !busy;
-        toolStripHost.Enabled = !busy;
-        toolStripPort.Enabled = !busy;
-        
+        hostText.Enabled = !busy;
+        portText.Enabled = !busy;
+        passwordText.Enabled = !busy;
+        profilesCombo.Enabled = !busy;
+        historyCombo.Enabled = !busy;
+        advancedSettingsButton.Enabled = !busy;
+        connectButton.Enabled = active || !connecting;
+
         RefreshStatusStrip();
     }
 
     private void OnStatusRelatedInputChanged(object? sender, EventArgs e) => RefreshStatusStrip();
 
-    // Old connect method - replaced by OnQuickConnectClickAsync
-    /*
-    private async Task OnConnectClickAsync()
+    private async void OnConnectFieldKeyDown(object? sender, KeyEventArgs e)
     {
-        if (IsSessionActive)
+        if (e.KeyCode == Keys.Enter)
         {
-            DisconnectCurrent();
-            return;
-        }
-
-        var host = hostText.Text.Trim();
-        if (host.Length == 0)
-        {
-            SetStatusHeadline("입력 필요 — 서버(호스트) 주소를 입력하세요");
-            MessageBox.Show(this, "서버 주소를 입력하세요.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        if (!int.TryParse(portText.Text.Trim(), out var port) || port is < 1 or > 65535)
-        {
-            SetStatusHeadline("입력 오류 — 포트는 1~65535 숫자여야 합니다");
-            MessageBox.Show(this, "포트는 1~65535 사이여야 합니다.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
-        if (IsRdp)
-        {
-            var user = userText.Text.Trim();
-            if (user.Length == 0)
-            {
-                SetStatusHeadline("입력 필요 — RDP 사용자 이름을 입력하세요");
-                MessageBox.Show(this, "RDP 사용자 이름을 입력하세요.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            await Task.Yield();
-            ConnectRdp(host, port, user, passwordText.Text);
-        }
-        else
-        {
-            await ConnectVncAsync(host, port, passwordText.Text);
-        }
-    }
-    */
-
-    private void ApplyRdpSecurityOptions(bool credSsp, bool nla, bool relaxedCert)
-    {
-        ((IMsRdpClientAdvancedSettings6)rdpClient.AdvancedSettings6).EnableCredSspSupport = credSsp;
-
-        var ocx3 = (IMsRdpClientNonScriptable3)rdpClient.GetOcx();
-        ocx3.NegotiateSecurityLayer = nla;
-
-        // TrustedZoneSite / AuthenticationLevel 은 TLS/NLA 협상(nla=true)일 때만 유효.
-        // nla=false(클래식 RDP 보안)에서 설정하면 COM E_INVALIDARG(0x80070057) 발생.
-        if (nla)
-        {
-            try
-            {
-                var ocx4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
-                ocx4.TrustedZoneSite = relaxedCert;
-            }
-            catch { }
-
-            rdpClient.AdvancedSettings5.AuthenticationLevel = relaxedCert ? 0u : 2u;
-        }
-    }
-
-    private void ApplyRdpRedirection(bool clipboard, bool drives, bool printers)
-    {
-        rdpClient.AdvancedSettings2.RedirectDrives = drives;
-        rdpClient.AdvancedSettings2.RedirectPrinters = printers;
-        rdpClient.AdvancedSettings6.RedirectClipboard = clipboard;
-        try { rdpClient.AdvancedSettings2.SmartSizing = true; } catch { }
-        try
-        {
-            var n4 = (IMsRdpClientNonScriptable4)rdpClient.GetOcx();
-            n4.WarnAboutClipboardRedirection = false;
-        }
-        catch { }
-    }
-
-    private void ConnectRdp(string host, int port, string user, string password,
-        bool credSsp, bool nla, bool relaxedCert, bool clipboard, bool drives, bool printers)
-    {
-        _rdpConnecting = true;
-        _rdpFatalErrorFired = false;
-        _userDisconnecting = false;
-        _currentConnectHost = host;
-        _currentConnectPort = port;
-        _rdpOptCredSsp = credSsp;
-        _rdpOptNla = nla;
-        _rdpOptRelaxedCert = relaxedCert;
-        _rdpOptClipboard = clipboard;
-        _rdpOptDrives = drives;
-        _rdpOptPrinters = printers;
-
-        try
-        {
-            vncHostPanel.Visible = false;
-            rdpHostPanel.Visible = true;
-
-            // COM 객체 재생성 — 이전 연결 시도 후 일부 보안 속성(EnableCredSspSupport 등)은
-            // 변경 불가(E_INVALIDARG) 상태가 되므로 매 연결마다 신선한 COM 객체를 사용합니다.
-            ReinitRdpClient();
-
-            ApplyRdpSecurityOptions(credSsp, nla, relaxedCert);
-
-            var connectHost = RdpConnectionHelper.NormalizeConnectHost(host);
-
-            SplitRdpUserForLogon(user, connectHost, out var rdpDomain, out var rdpUser);
-            rdpClient.Domain = rdpDomain;
-            rdpClient.UserName = rdpUser;
-            rdpClient.Server = connectHost;
-            rdpClient.AdvancedSettings9.RDPPort = port;
-            rdpClient.AdvancedSettings9.ClearTextPassword = password;
-
-            ApplyRdpRedirection(clipboard, drives, printers);
-
-            if (!RdpConnectionHelper.TryReachPort(host.Trim(), port, 6000, out var tcpError))
-            {
-                SetStatusHeadline("RDP — TCP(3389) 수신 대기 없음");
-                var proceed = ErrorDialog.ShowConfirm(
-                    this,
-                    tcpError!,
-                    Text,
-                    confirmText: "그래도 연결 시도",
-                    cancelText: "취소",
-                    icon: MessageBoxIcon.Warning);
-                if (!proceed)
-                {
-                    _rdpConnecting = false;
-                    rdpHostPanel.Visible = false;
-                    UpdateConnectUi();
-                    return;
-                }
-            }
-
-            var logonHint = string.IsNullOrEmpty(rdpDomain)
-                ? "로그온: " + rdpUser
-                : "로그온: [" + rdpDomain + "]\\" + rdpUser;
-            SetStatusHeadline("RDP 연결 중… — " + logonHint);
-            UpdateConnectUi();
-
-            void RunConnect()
-            {
-                try
-                {
-                    rdpHostPanel.PerformLayout();
-                    var w = Math.Max(rdpHostPanel.ClientSize.Width, 800);
-                    var h = Math.Max(rdpHostPanel.ClientSize.Height, 600);
-                    try
-                    {
-                        rdpClient.DesktopWidth = w;
-                        rdpClient.DesktopHeight = h;
-                    }
-                    catch
-                    {
-                        // ignore — 일부 환경에서만 지원
-                    }
-
-                    rdpClient.Connect();
-                }
-                catch (Exception ex)
-                {
-                    _rdpConnecting = false;
-                    rdpHostPanel.Visible = false;
-                    SetStatusHeadline("RDP 연결 실패");
-                    ErrorDialog.Show(
-                        this,
-                        ExceptionMessageFormatter.Format(ex, "RDP Connect() 호출이 실패했습니다."),
-                        Text,
-                        MessageBoxIcon.Error);
-                    UpdateConnectUi();
-                }
-            }
-
-            if (IsHandleCreated)
-            {
-                BeginInvoke((Action)RunConnect);
-            }
-            else
-            {
-                RunConnect();
-            }
-        }
-        catch (Exception ex)
-        {
-            _rdpConnecting = false;
-            rdpHostPanel.Visible = false;
-            SetStatusHeadline("RDP 연결 실패");
-            ErrorDialog.Show(
-                this,
-                ExceptionMessageFormatter.Format(ex, "RDP 연결 준비 중 예외가 발생했습니다."),
-                Text,
-                MessageBoxIcon.Error);
-            UpdateConnectUi();
+            e.SuppressKeyPress = true;
+            await OnConnectClickAsync();
         }
     }
 
@@ -1213,7 +641,6 @@ public partial class MainForm : Form
             vncRemote.Client.Close();
         }
 
-        rdpHostPanel.Visible = false;
         vncHostPanel.Visible = true;
 
         // VncControl 설정(입력·클립보드·커서·화면 맞춤·FPS)은 UI 스레드에서 미리 적용
@@ -1260,7 +687,7 @@ public partial class MainForm : Form
                     await Task.Run(() => vncRemote.Client.Connect(host, port, options));
                 }
                 SetStatusHeadline("VNC 연결됨 — 원격 화면이 아래에 표시됩니다");
-                TryRecordConnectionHistory(RemoteDesktopProtocol.Vnc, host, port);
+                TryRecordConnectionHistory(host, port);
                 BeginInvoke(() =>
                 {
                     vncRemote.Focus();
@@ -1328,29 +755,7 @@ public partial class MainForm : Form
 
     private void DisconnectCurrent()
     {
-        _rdpConnecting = false;
-
-        if (IsRdp)
-        {
-            if (rdpClient.Connected != 0)
-            {
-                _userDisconnecting = true;
-                try
-                {
-                    if (rdpClient.FullScreen)
-                    {
-                        rdpClient.FullScreen = false;
-                    }
-                }
-                catch
-                {
-                    // ignore
-                }
-
-                rdpClient.Disconnect();
-            }
-        }
-        else if (vncRemote.Client.IsConnected)
+        if (vncRemote.Client.IsConnected)
         {
             _userDisconnecting = true;
             vncRemote.Client.Close();
@@ -1367,6 +772,11 @@ public partial class MainForm : Form
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        if (_runtimeUiInitialized)
+        {
+            PersistVncSettingsToUi();
+        }
+
         if (_remoteClientsInitialized)
         {
             try
@@ -1384,12 +794,45 @@ public partial class MainForm : Form
 
     private void ApplyQuickConnectDefaults()
     {
-        var isRdp = toolStripProtocol.SelectedIndex == 0;
-        toolStripPort.Text = isRdp ? "3389" : "5900";
+        var ui = UiSettingsStore.Load();
+        if (!string.IsNullOrWhiteSpace(ui.LastVncHost))
+        {
+            hostText.Text = ui.LastVncHost;
+        }
+
+        portText.Text = ui.LastVncPort is > 0 and <= 65535
+            ? ui.LastVncPort.Value.ToString(CultureInfo.InvariantCulture)
+            : VncConnectionDefaults.DefaultPort.ToString(CultureInfo.InvariantCulture);
+
+        if (string.IsNullOrWhiteSpace(hostText.Text) && _historyList.Count > 0)
+        {
+            hostText.Text = _historyList[0].Host;
+            portText.Text = _historyList[0].Port.ToString(CultureInfo.InvariantCulture);
+        }
+
+        _vncSettings = ui.ToVncClientSettings();
         RefreshStatusStrip();
     }
 
-    private async Task OnQuickConnectClickAsync()
+    private void SaveLastConnectFields(string host, int port)
+    {
+        var ui = UiSettingsStore.Load();
+        ui.LastVncHost = host;
+        ui.LastVncPort = port;
+        ui.ApplyVncClientSettings(_vncSettings);
+        UiSettingsStore.Save(ui);
+    }
+
+    private void PersistVncSettingsToUi()
+    {
+        var ui = UiSettingsStore.Load();
+        ui.ApplyVncClientSettings(_vncSettings);
+        UiSettingsStore.Save(ui);
+    }
+
+    private VncClientSettings GetEffectiveVncSettings() => _vncSettings;
+
+    private async Task OnConnectClickAsync()
     {
         if (IsSessionActive)
         {
@@ -1397,112 +840,40 @@ public partial class MainForm : Form
             return;
         }
 
-        // Reload profiles and history before opening dialog
-        LoadProfilesAndHistory();
-
-        // Open ConnectionDialog to get connection details
-        using var dialog = new ConnectionDialog();
-        var uiSettings = UiSettingsStore.Load();
-        
-        // Load current toolbar settings into dialog
-        dialog.Protocol = toolStripProtocol.SelectedItem?.ToString() ?? "RDP";
-        dialog.Host = toolStripHost.Text.Trim();
-        dialog.Port = toolStripPort.Text.Trim();
-        dialog.Username = uiSettings.LastRdpUsername ?? "";
-        dialog.SetProfiles(_profilesList);
-        dialog.SetHistory(_historyList);
-        dialog.LoadCurrentSettings();
-        
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-        {
-            return;
-        }
-
-        // Update toolbar from dialog
-        toolStripProtocol.SelectedItem = dialog.Protocol;
-        toolStripHost.Text = dialog.Host;
-        toolStripPort.Text = dialog.Port;
-
-        var host = dialog.Host.Trim();
+        var host = hostText.Text.Trim();
         if (host.Length == 0)
         {
             SetStatusHeadline("입력 필요 — 서버(호스트) 주소를 입력하세요");
             MessageBox.Show(this, "서버 주소를 입력하세요.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            hostText.Focus();
             return;
         }
 
-        if (!int.TryParse(dialog.Port.Trim(), out var port) || port is < 1 or > 65535)
+        if (!int.TryParse(portText.Text.Trim(), out var port) || port is < 1 or > 65535)
         {
             SetStatusHeadline("입력 오류 — 포트는 1~65535 숫자여야 합니다");
             MessageBox.Show(this, "포트는 1~65535 사이여야 합니다.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            portText.Focus();
             return;
         }
 
-        if (dialog.Protocol == "RDP")
-        {
-            var user = dialog.Username.Trim();
-            if (string.IsNullOrWhiteSpace(user))
-            {
-                SetStatusHeadline("입력 필요 — RDP 사용자 이름을 입력하세요");
-                MessageBox.Show(this, "RDP 사용자 이름을 입력하세요.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            var ui = UiSettingsStore.Load();
-            ui.LastRdpUsername = user;
-            UiSettingsStore.Save(ui);
-
-            await Task.Yield();
-            ConnectRdp(host, port, user, dialog.Password,
-                dialog.EnableCredSsp, dialog.EnableNla, dialog.RelaxedCertificate,
-                dialog.EnableClipboard, dialog.EnableDrives, dialog.EnablePrinters);
-        }
-        else
-        {
-            var vncSettings = new VncClientSettings
-            {
-                ViewOnly = dialog.VncViewOnly,
-                ShareDesktop = dialog.VncShareDesktop,
-                ClipboardFromServer = dialog.VncClipboardFromServer,
-                ClipboardToServer = dialog.VncClipboardToServer,
-                RemoteCursor = dialog.VncRemoteCursor,
-                AutoReconnect = dialog.VncAutoReconnect,
-                SizeMode = dialog.VncSizeMode,
-                MaxUpdateRate = dialog.VncMaxFps > 0 ? (double)dialog.VncMaxFps : 15,
-                UseTls = dialog.VncUseTls,
-                IgnoreTlsCertErrors = dialog.VncIgnoreTlsCertErrors,
-            };
-            await ConnectVncAsync(host, port, dialog.Password, vncSettings);
-        }
+        var settings = GetEffectiveVncSettings();
+        SaveLastConnectFields(host, port);
+        await ConnectVncAsync(host, port, passwordText.Text, settings);
     }
 
-    private void OpenConnectionSettings()
+    private void OpenAdvancedSettings()
     {
-        // Reload profiles and history before opening dialog
-        LoadProfilesAndHistory();
-        
-        using var dialog = new ConnectionDialog();
-        
-        // Load current toolbar settings into dialog
-        dialog.Protocol = toolStripProtocol.SelectedItem?.ToString() ?? "RDP";
-        dialog.Host = toolStripHost.Text.Trim();
-        dialog.Port = toolStripPort.Text.Trim();
-        dialog.SetProfiles(_profilesList);
-        dialog.SetHistory(_historyList);
-        dialog.LoadCurrentSettings();
-        
-        if (dialog.ShowDialog(this) == DialogResult.OK)
+        using var dlg = new VncAdvancedSettingsDialog();
+        dlg.LoadSettings(_vncSettings);
+        if (dlg.ShowDialog(this) == DialogResult.OK)
         {
-            // Apply settings from dialog to toolbar
-            toolStripProtocol.SelectedItem = dialog.Protocol;
-            toolStripHost.Text = dialog.Host;
-            toolStripPort.Text = dialog.Port;
+            _vncSettings = dlg.ToSettings();
+            PersistVncSettingsToUi();
+            RefreshStatusStrip();
         }
-        
-        // Reload profiles in case any were saved
-        LoadProfilesAndHistory();
     }
-    
+
     private void LoadProfilesAndHistory()
     {
         try
@@ -1513,7 +884,7 @@ public partial class MainForm : Form
         {
             _profilesList = new List<ConnectionProfile>();
         }
-        
+
         try
         {
             _historyList = ConnectionHistoryStore.Load();
@@ -1522,5 +893,8 @@ public partial class MainForm : Form
         {
             _historyList = new List<ConnectionHistoryEntry>();
         }
+
+        ReloadProfilesIntoCombo();
+        ReloadHistoryIntoCombo();
     }
 }

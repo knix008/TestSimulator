@@ -68,20 +68,6 @@
                 KeyPath="yes" />
         </Component>
 
-        <Component Id="AxMSTSCLib" Bitness="always64" Guid="*">
-          <File Id="AxMSTSCLib.dll" 
-                Name="AxMSTSCLib.dll"
-                Source="$(var.RemoteDesktopWinV10.App.TargetDir)AxMSTSCLib.dll" 
-                KeyPath="yes" />
-        </Component>
-        
-        <Component Id="MSTSCLib" Bitness="always64" Guid="*">
-          <File Id="MSTSCLib.dll" 
-                Name="MSTSCLib.dll"
-                Source="$(var.RemoteDesktopWinV10.App.TargetDir)MSTSCLib.dll" 
-                KeyPath="yes" />
-        </Component>
-        
         <Component Id="LemutecRemoteViewing" Bitness="always64" Guid="*">
           <File Id="Lemutec.RemoteViewing.dll" 
                 Name="Lemutec.RemoteViewing.dll"
@@ -131,8 +117,6 @@
       <ComponentRef Id="MainDll" />
       <ComponentRef Id="DepsJson" />
       <ComponentRef Id="RuntimeConfig" />
-      <ComponentRef Id="AxMSTSCLib" />
-      <ComponentRef Id="MSTSCLib" />
       <ComponentRef Id="LemutecRemoteViewing" />
       <ComponentRef Id="LemutecRemoteViewingWinForms" />
       

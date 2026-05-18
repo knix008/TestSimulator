@@ -2,12 +2,6 @@ using System.Text.Json.Serialization;
 
 namespace RemoteDesktopWinV10.App;
 
-public enum RemoteDesktopProtocol
-{
-    Rdp,
-    Vnc,
-}
-
 public enum VncScaleMode
 {
     Zoom,
@@ -23,8 +17,6 @@ public sealed class ConnectionProfile
 
     public string Name { get; set; } = "";
 
-    public RemoteDesktopProtocol Protocol { get; set; }
-
     public string Host { get; set; } = "";
 
     public int Port { get; set; }
@@ -34,25 +26,6 @@ public sealed class ConnectionProfile
     /// <summary>DPAPI(CurrentUser)로 보호된 UTF-8 암호. 없으면 연결 시마다 입력.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? EncryptedPasswordBase64 { get; set; }
-
-    // RDP 옵션
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? CredSspEnabled { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? NegotiateSecurityLayer { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? RelaxedCertificateValidation { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? RdpRedirectClipboard { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? RdpRedirectDrives { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public bool? RdpRedirectPrinters { get; set; }
 
     // VNC 옵션
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -91,17 +64,10 @@ public sealed class ConnectionProfile
     {
         Id = Id,
         Name = Name,
-        Protocol = Protocol,
         Host = Host,
         Port = Port,
         User = User,
         EncryptedPasswordBase64 = EncryptedPasswordBase64,
-        CredSspEnabled = CredSspEnabled,
-        NegotiateSecurityLayer = NegotiateSecurityLayer,
-        RelaxedCertificateValidation = RelaxedCertificateValidation,
-        RdpRedirectClipboard = RdpRedirectClipboard,
-        RdpRedirectDrives = RdpRedirectDrives,
-        RdpRedirectPrinters = RdpRedirectPrinters,
         VncViewOnly = VncViewOnly,
         VncShareDesktop = VncShareDesktop,
         VncClipboardFromServer = VncClipboardFromServer,

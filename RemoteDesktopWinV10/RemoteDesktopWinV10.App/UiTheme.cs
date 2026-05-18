@@ -205,6 +205,28 @@ internal static class UiTheme
         b.Width = Math.Max(b.Width, 120);
     }
 
+    public static void StyleConnectToolStripButton(ToolStripButton b, bool sessionActive)
+    {
+        b.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        b.Font = new Font(UiFont.FontFamily, 9f, FontStyle.Bold);
+        var fill = sessionActive ? AccentDisconnect : Accent;
+        b.BackColor = fill;
+        b.ForeColor = Color.White;
+        b.AutoSize = false;
+        b.Width = sessionActive ? 96 : 88;
+    }
+
+    public static void StyleConnectToolStripButtonConnecting(ToolStripButton b)
+    {
+        b.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        b.Font = new Font(UiFont.FontFamily, 9f, FontStyle.Bold);
+        b.BackColor = Color.FromArgb(255, 193, 7);
+        b.ForeColor = Color.Black;
+        b.Enabled = false;
+        b.AutoSize = false;
+        b.Width = 96;
+    }
+
     public static void StylePanelRoot(Panel p)
     {
         p.BackColor = BgApp;

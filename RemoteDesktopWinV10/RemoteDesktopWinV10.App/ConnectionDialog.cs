@@ -6,32 +6,21 @@ public partial class ConnectionDialog : Form
 {
     public string SelectedProfile { get; set; } = "";
     public string SelectedHistory { get; set; } = "";
-    public string Protocol { get; set; } = "RDP";
     public string Host { get; set; } = "";
     public string Port { get; set; } = "";
-    public string Username { get; set; } = "";
     public string Password { get; set; } = "";
-    
-    // RDP Options — RelaxedCertificate: AuthenticationLevel=0 으로 인증서 경고 완화(CredSSP는 유지)
-    public bool EnableCredSsp { get; set; } = true;
-    public bool EnableNla { get; set; } = true;
-    public bool RelaxedCertificate { get; set; } = true;
-    public bool EnableClipboard { get; set; } = true;
-    public bool EnableDrives { get; set; } = false;
-    public bool EnablePrinters { get; set; } = false;
 
-    // VNC Options
-    public bool VncViewOnly { get; set; } = false;
+    public bool VncViewOnly { get; set; }
     public bool VncShareDesktop { get; set; } = true;
     public bool VncClipboardFromServer { get; set; } = true;
     public bool VncClipboardToServer { get; set; } = true;
     public bool VncRemoteCursor { get; set; } = true;
-    public bool VncAutoReconnect { get; set; } = false;
+    public bool VncAutoReconnect { get; set; }
     public VncScaleMode VncSizeMode { get; set; } = VncScaleMode.Zoom;
     /// <summary>0 = 기본값(15 fps)</summary>
-    public int VncMaxFps { get; set; } = 0;
-    public bool VncUseTls { get; set; } = false;
-    public bool VncIgnoreTlsCertErrors { get; set; } = false;
+    public int VncMaxFps { get; set; }
+    public bool VncUseTls { get; set; }
+    public bool VncIgnoreTlsCertErrors { get; set; }
 
     private List<ConnectionProfile> _profilesList = new();
     private List<ConnectionHistoryEntry> _historyList = new();
@@ -39,6 +28,31 @@ public partial class ConnectionDialog : Form
     public ConnectionDialog()
     {
         InitializeComponent();
+        ArrangeVncOnlyUi();
+    }
+
+    private void ArrangeVncOnlyUi()
+    {
+        Text = "VNC 연결";
+        groupRdpOptions.Visible = false;
+        groupVncOptions.Visible = true;
+        labelProtocolHead.Visible = false;
+        protocolCombo.Visible = false;
+        labelUserHead.Visible = false;
+        userText.Visible = false;
+        labelPasswordHead.Text = "VNC 암호";
+        hostText.PlaceholderText = "localhost 또는 서버 IP";
+        passwordText.PlaceholderText = "VNC 암호(없으면 빈 칸; 표준 인증은 앞 8자만)";
+        if (string.IsNullOrWhiteSpace(portText.Text))
+        {
+            portText.Text = VncConnectionDefaults.DefaultPort.ToString();
+        }
+
+        ClientSize = new Size(684, 372);
+        const int buttonY = 328;
+        saveProfileButton.Location = new Point(12, buttonY);
+        connectButton.Location = new Point(512, buttonY);
+        cancelButton.Location = new Point(598, buttonY);
     }
 
     public void SetProfiles(List<ConnectionProfile> profiles)
@@ -67,18 +81,11 @@ public partial class ConnectionDialog : Form
 
     public void LoadCurrentSettings()
     {
-        protocolCombo.SelectedItem = Protocol;
         hostText.Text = Host;
-        portText.Text = Port;
-        userText.Text = Username;
+        portText.Text = string.IsNullOrWhiteSpace(Port)
+            ? VncConnectionDefaults.DefaultPort.ToString()
+            : Port;
         passwordText.Text = Password;
-        
-        credSspCheck.Checked = EnableCredSsp;
-        nlaCheck.Checked = EnableNla;
-        relaxedCertCheck.Checked = RelaxedCertificate;
-        rdpClipboardCheck.Checked = EnableClipboard;
-        rdpDrivesCheck.Checked = EnableDrives;
-        rdpPrintersCheck.Checked = EnablePrinters;
 
         vncViewOnlyCheck.Checked = VncViewOnly;
         vncShareDesktopCheck.Checked = VncShareDesktop;
@@ -90,24 +97,13 @@ public partial class ConnectionDialog : Form
         vncMaxFpsCombo.SelectedIndex = FpsValueToComboIndex(VncMaxFps);
         vncUseTlsCheck.Checked = VncUseTls;
         vncIgnoreTlsCertCheck.Checked = VncIgnoreTlsCertErrors;
-
-        UpdateProtocolVisibility();
     }
 
     private void SaveSettings()
     {
-        Protocol = protocolCombo.SelectedItem?.ToString() ?? "RDP";
         Host = hostText.Text;
         Port = portText.Text;
-        Username = userText.Text;
         Password = passwordText.Text;
-        
-        EnableCredSsp = credSspCheck.Checked;
-        EnableNla = nlaCheck.Checked;
-        RelaxedCertificate = relaxedCertCheck.Checked;
-        EnableClipboard = rdpClipboardCheck.Checked;
-        EnableDrives = rdpDrivesCheck.Checked;
-        EnablePrinters = rdpPrintersCheck.Checked;
 
         VncViewOnly = vncViewOnlyCheck.Checked;
         VncShareDesktop = vncShareDesktopCheck.Checked;
@@ -129,39 +125,6 @@ public partial class ConnectionDialog : Form
         {
             SelectedHistory = historyCombo.SelectedItem?.ToString() ?? "";
         }
-    }
-
-    private void UpdateProtocolVisibility()
-    {
-        bool isRdp = protocolCombo.SelectedItem?.ToString() == "RDP";
-        groupRdpOptions.Visible = isRdp;
-        groupVncOptions.Visible = !isRdp;
-        userText.Enabled = isRdp;
-
-        labelPasswordHead.Text = isRdp ? "암호" : "VNC 암호";
-
-        // RDP: groupRdpOptions(H=100) → 버튼 Y=290, 총 높이 334
-        // VNC: groupVncOptions(H=140) → 버튼 Y=328, 총 높이 372
-        int buttonY;
-        if (isRdp)
-        {
-            ClientSize = new Size(684, 334);
-            buttonY = 290;
-        }
-        else
-        {
-            ClientSize = new Size(684, 372);
-            buttonY = 328;
-        }
-
-        saveProfileButton.Location = new Point(12, buttonY);
-        connectButton.Location = new Point(512, buttonY);
-        cancelButton.Location = new Point(598, buttonY);
-    }
-
-    private void OnProtocolChanged(object? sender, EventArgs e)
-    {
-        UpdateProtocolVisibility();
     }
 
     private void OnConnectClick(object? sender, EventArgs e)
@@ -203,51 +166,34 @@ public partial class ConnectionDialog : Form
 
     private void ApplyProfile(ConnectionProfile profile)
     {
-        protocolCombo.SelectedItem = profile.Protocol == RemoteDesktopProtocol.Rdp ? "RDP" : "VNC";
         hostText.Text = profile.Host;
-        portText.Text = profile.Port.ToString();
-        userText.Text = profile.User ?? "";
+        portText.Text = profile.Port > 0
+            ? profile.Port.ToString()
+            : VncConnectionDefaults.DefaultPort.ToString();
 
         var savedPw = ConnectionProfileStore.UnprotectPassword(profile.EncryptedPasswordBase64);
         passwordText.Text = savedPw ?? "";
-        
-        if (profile.Protocol == RemoteDesktopProtocol.Rdp)
-        {
-            credSspCheck.Checked = profile.CredSspEnabled ?? true;
-            nlaCheck.Checked = profile.NegotiateSecurityLayer ?? true;
-            relaxedCertCheck.Checked = profile.RelaxedCertificateValidation ?? false;
-            rdpClipboardCheck.Checked = profile.RdpRedirectClipboard ?? true;
-            rdpDrivesCheck.Checked = profile.RdpRedirectDrives ?? false;
-            rdpPrintersCheck.Checked = profile.RdpRedirectPrinters ?? false;
-        }
-        else
-        {
-            vncViewOnlyCheck.Checked = profile.VncViewOnly ?? false;
-            vncShareDesktopCheck.Checked = profile.VncShareDesktop ?? true;
-            vncClipFromServerCheck.Checked = profile.VncClipboardFromServer ?? true;
-            vncClipToServerCheck.Checked = profile.VncClipboardToServer ?? true;
-            vncRemoteCursorCheck.Checked = profile.VncRemoteCursor ?? true;
-            vncAutoReconnectCheck.Checked = profile.VncAutoReconnect ?? false;
-            vncSizeModeCombo.SelectedIndex = (int)(profile.VncSizeMode ?? VncScaleMode.Zoom);
-            vncMaxFpsCombo.SelectedIndex = FpsValueToComboIndex(profile.VncMaxFps ?? 0);
-            vncUseTlsCheck.Checked = profile.VncUseTls ?? false;
-            vncIgnoreTlsCertCheck.Checked = profile.VncIgnoreTlsCertErrors ?? false;
-        }
 
-        UpdateProtocolVisibility();
+        vncViewOnlyCheck.Checked = profile.VncViewOnly ?? false;
+        vncShareDesktopCheck.Checked = profile.VncShareDesktop ?? true;
+        vncClipFromServerCheck.Checked = profile.VncClipboardFromServer ?? true;
+        vncClipToServerCheck.Checked = profile.VncClipboardToServer ?? true;
+        vncRemoteCursorCheck.Checked = profile.VncRemoteCursor ?? true;
+        vncAutoReconnectCheck.Checked = profile.VncAutoReconnect ?? false;
+        vncSizeModeCombo.SelectedIndex = (int)(profile.VncSizeMode ?? VncScaleMode.Zoom);
+        vncMaxFpsCombo.SelectedIndex = FpsValueToComboIndex(profile.VncMaxFps ?? 0);
+        vncUseTlsCheck.Checked = profile.VncUseTls ?? false;
+        vncIgnoreTlsCertCheck.Checked = profile.VncIgnoreTlsCertErrors ?? false;
     }
 
     private void ApplyHistoryEntry(ConnectionHistoryEntry entry)
     {
-        protocolCombo.SelectedItem = entry.Protocol == RemoteDesktopProtocol.Rdp ? "RDP" : "VNC";
         hostText.Text = entry.Host;
         portText.Text = entry.Port.ToString();
-        UpdateProtocolVisibility();
     }
 
     private void OnSaveProfileClick(object? sender, EventArgs e)
     {
-        // 현재 선택된 프로필 이름을 기본값으로 채워 업데이트를 쉽게 함
         var defaultName = profilesCombo.SelectedIndex > 0
             ? profilesCombo.SelectedItem?.ToString() ?? ""
             : "";
@@ -255,47 +201,32 @@ public partial class ConnectionDialog : Form
         var existingNames = _profilesList.Select(p => p.Name).ToList();
         using var saveDlg = new SaveProfileDialog(existingNames, defaultName);
         if (saveDlg.ShowDialog(this) != DialogResult.OK)
+        {
             return;
+        }
 
         var profileName = saveDlg.ProfileName;
-
-        var isRdp = protocolCombo.SelectedItem?.ToString() == "RDP";
         var newProfile = new ConnectionProfile
         {
             Name = profileName,
-            Protocol = isRdp ? RemoteDesktopProtocol.Rdp : RemoteDesktopProtocol.Vnc,
             Host = hostText.Text.Trim(),
             Port = int.TryParse(portText.Text.Trim(), out var p)
                 ? p
-                : (isRdp ? 3389 : 5900),
-            User = userText.Text.Trim(),
+                : VncConnectionDefaults.DefaultPort,
+            VncViewOnly = vncViewOnlyCheck.Checked,
+            VncShareDesktop = vncShareDesktopCheck.Checked,
+            VncClipboardFromServer = vncClipFromServerCheck.Checked,
+            VncClipboardToServer = vncClipToServerCheck.Checked,
+            VncRemoteCursor = vncRemoteCursorCheck.Checked,
+            VncAutoReconnect = vncAutoReconnectCheck.Checked,
+            VncSizeMode = (VncScaleMode)vncSizeModeCombo.SelectedIndex,
+            VncUseTls = vncUseTlsCheck.Checked,
+            VncIgnoreTlsCertErrors = vncIgnoreTlsCertCheck.Checked,
         };
 
-        if (isRdp)
-        {
-            newProfile.CredSspEnabled = credSspCheck.Checked;
-            newProfile.NegotiateSecurityLayer = nlaCheck.Checked;
-            newProfile.RelaxedCertificateValidation = relaxedCertCheck.Checked;
-            newProfile.RdpRedirectClipboard = rdpClipboardCheck.Checked;
-            newProfile.RdpRedirectDrives = rdpDrivesCheck.Checked;
-            newProfile.RdpRedirectPrinters = rdpPrintersCheck.Checked;
-        }
-        else
-        {
-            newProfile.VncViewOnly = vncViewOnlyCheck.Checked;
-            newProfile.VncShareDesktop = vncShareDesktopCheck.Checked;
-            newProfile.VncClipboardFromServer = vncClipFromServerCheck.Checked;
-            newProfile.VncClipboardToServer = vncClipToServerCheck.Checked;
-            newProfile.VncRemoteCursor = vncRemoteCursorCheck.Checked;
-            newProfile.VncAutoReconnect = vncAutoReconnectCheck.Checked;
-            newProfile.VncSizeMode = (VncScaleMode)vncSizeModeCombo.SelectedIndex;
-            var fps = FpsComboToValue(vncMaxFpsCombo.SelectedIndex);
-            newProfile.VncMaxFps = fps > 0 ? fps : null;
-            newProfile.VncUseTls = vncUseTlsCheck.Checked;
-            newProfile.VncIgnoreTlsCertErrors = vncIgnoreTlsCertCheck.Checked;
-        }
+        var fps = FpsComboToValue(vncMaxFpsCombo.SelectedIndex);
+        newProfile.VncMaxFps = fps > 0 ? fps : null;
 
-        // 비밀번호 암호화 (ConnectionProfileStore 와 동일한 entropy)
         if (!string.IsNullOrEmpty(passwordText.Text))
         {
             try
@@ -315,10 +246,9 @@ public partial class ConnectionDialog : Form
             var existingIdx = profiles.FindIndex(
                 p => string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase));
 
-            bool isUpdate = existingIdx >= 0;
+            var isUpdate = existingIdx >= 0;
             if (isUpdate)
             {
-                // 기존 ID 유지 — 비밀번호가 비어 있으면 기존 암호 그대로 보존
                 newProfile.Id = profiles[existingIdx].Id;
                 if (string.IsNullOrEmpty(passwordText.Text))
                 {
@@ -338,13 +268,12 @@ public partial class ConnectionDialog : Form
                 : $"프로필 '{profileName}'이(가) 새로 저장되었습니다.";
             MessageBox.Show(this, resultMsg, "성공", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-            // 콤보박스 갱신 후 저장된 프로필 선택
             SetProfiles(profiles);
             var savedIdx = profiles.FindIndex(
                 p => string.Equals(p.Name, profileName, StringComparison.OrdinalIgnoreCase));
             if (savedIdx >= 0)
             {
-                profilesCombo.SelectedIndex = savedIdx + 1; // 0번은 "(선택 안함)"
+                profilesCombo.SelectedIndex = savedIdx + 1;
             }
         }
         catch (Exception ex)

@@ -56,8 +56,8 @@ public static class ConnectionHistoryStore
         File.Delete(tmp);
     }
 
-    /// <summary>성공한 연결을 기록 맨 앞에 반영합니다(동일 호스트·포트·프로토콜은 갱신).</summary>
-    public static void Record(RemoteDesktopProtocol protocol, string host, int port)
+    /// <summary>성공한 연결을 기록 맨 앞에 반영합니다(동일 호스트·포트는 갱신).</summary>
+    public static void Record(string host, int port)
     {
         host = host.Trim();
         if (host.Length == 0)
@@ -69,8 +69,7 @@ public static class ConnectionHistoryStore
         var now = DateTimeOffset.UtcNow;
         var existing = list.FirstOrDefault(e =>
             e.Port == port
-            && string.Equals(e.Host, host, StringComparison.OrdinalIgnoreCase)
-            && e.Protocol == protocol);
+            && string.Equals(e.Host, host, StringComparison.OrdinalIgnoreCase));
 
         if (existing != null)
         {
@@ -82,7 +81,6 @@ public static class ConnectionHistoryStore
         {
             list.Insert(0, new ConnectionHistoryEntry
             {
-                Protocol = protocol,
                 Host = host,
                 Port = port,
                 LastUsed = now,

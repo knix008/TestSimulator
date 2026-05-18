@@ -223,7 +223,6 @@ public partial class ConnectionDialog
         protocolCombo.Name = "protocolCombo";
         protocolCombo.Size = new Size(188, 23);
         protocolCombo.TabIndex = 5;
-        protocolCombo.SelectedIndexChanged += OnProtocolChanged;
         
         //
         // labelHostHead
@@ -439,7 +438,7 @@ public partial class ConnectionDialog
         groupVncOptions.TabIndex = 2;
         groupVncOptions.TabStop = false;
         groupVncOptions.Text = "VNC 옵션";
-        groupVncOptions.Visible = false;
+        groupVncOptions.Visible = true;
 
         //
         // vncViewOnlyCheck
@@ -621,7 +620,6 @@ public partial class ConnectionDialog
         CancelButton = cancelButton;
         ClientSize = new Size(684, 334);
         Controls.Add(groupConnection);
-        Controls.Add(groupRdpOptions);
         Controls.Add(groupVncOptions);
         Controls.Add(saveProfileButton);
         Controls.Add(connectButton);
@@ -644,7 +642,5 @@ public partial class ConnectionDialog
         groupVncOptions.PerformLayout();
         ResumeLayout(false);
         
-        // Initialize protocol to RDP
-        protocolCombo.SelectedIndex = 0;
     }
 }

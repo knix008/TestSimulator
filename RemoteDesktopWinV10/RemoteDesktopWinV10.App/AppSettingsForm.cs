@@ -22,11 +22,10 @@ public partial class AppSettingsForm : Form
     {
         try
         {
-            UiSettingsStore.Save(new UiSettings
-            {
-                ShowViewMenu = checkShowViewMenu.Checked,
-                ShowOpenDataFolderMenuItem = checkShowDataFolderItem.Checked,
-            });
+            var s = UiSettingsStore.Load();
+            s.ShowViewMenu = checkShowViewMenu.Checked;
+            s.ShowOpenDataFolderMenuItem = checkShowDataFolderItem.Checked;
+            UiSettingsStore.Save(s);
         }
         catch (Exception ex)
         {
