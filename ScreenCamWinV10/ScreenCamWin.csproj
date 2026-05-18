@@ -13,6 +13,8 @@
     <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
     <!-- x64: matches the 64-bit VFW codecs installed by default on modern Windows -->
     <PlatformTarget>x64</PlatformTarget>
+    <!-- Release 빌드 시 MSI 설치 패키지도 함께 생성 -->
+    <GenerateMsiOnBuild>true</GenerateMsiOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,5 +28,19 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Vortice.MediaFoundation" Version="3.6.2" />
+  </ItemGroup>
+
+  <Target
+    Name="BuildInstallerMsi"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Release' and '$(GenerateMsiOnBuild)' == 'true'"
+    Inputs="$(TargetPath);$(TargetDir)**\*;$(MSBuildProjectDirectory)\ScreenCamWinV10.Installer\Package.wxs;$(MSBuildProjectDirectory)\ScreenCamWinV10.Installer\ScreenCamWinV10.Installer.wixproj"
+    Outputs="$(MSBuildProjectDirectory)\ScreenCamWinV10.Installer\bin\x64\$(Configuration)\ScreenCamWinV10Setup.msi">
+    <Message Importance="high" Text="Building MSI installer (Release)..." />
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\ScreenCamWinV10.Installer\ScreenCamWinV10.Installer.wixproj&quot; -c $(Configuration) -p:GenerateMsiOnBuild=false -p:BuildProjectReferences=false" />
+  </Target>
 
 </Project>

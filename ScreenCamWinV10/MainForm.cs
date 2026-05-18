@@ -2,6 +2,7 @@ using System.IO;
 using ScreenCamWin.Core;  // CodecStatus, CodecManager, ScreenRecorder, …
 using ScreenCamWin.Models;
 using ScreenCamWin.Native;
+using ScreenCamWin.UI;
 
 namespace ScreenCamWin;
 
@@ -14,19 +15,62 @@ public partial class MainForm : Form
     private TimeSpan _elapsed = TimeSpan.Zero;
     private bool _previewOn;
     private bool _isRecording;
+    private bool _hiddenForDesktopCapture;
+    private NotifyIcon? _recordingTray;
 
-    public MainForm() => InitializeComponent();
+    public MainForm()
+    {
+        InitializeComponent();
+        SetDaemonHammerIcon();
+    }
+
+    void SetDaemonHammerIcon()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "daemon_hammer.ico");
+        if (File.Exists(path))
+            Icon = new Icon(path);
+    }
 
     // ── Form load ────────────────────────────────────────────────────────────
 
     private void MainForm_Load(object? sender, EventArgs e)
     {
+        ApplyLabelTheme();
         RefreshWindowList();
         LoadCodecList();
         SetDefaultOutputPath();
 
         _uiTimer.Tick   += UiTimer_Tick;
         _prevTimer.Tick += PrevTimer_Tick;
+    }
+
+    private void ApplyLabelTheme()
+    {
+        Theme.ApplySectionLabel(lblSourceTitle);
+        Theme.ApplySectionLabel(lblPreviewTitle);
+        Theme.ApplySectionLabel(lblCodecTitle);
+        Theme.ApplySectionLabel(lblSettingsTitle);
+        Theme.ApplyFieldLabel(lblFps);
+        Theme.ApplyFieldLabel(lblQuality);
+        Theme.ApplyFieldLabel(lblOutput);
+        Theme.ApplyValueLabel(lblFpsVal);
+        Theme.ApplyValueLabel(lblQualityVal);
+        lblTimer.BackColor = Theme.BgCard;
+        lblTimer.ForeColor = Theme.TextMain;
+        lblStatus.BackColor = Theme.BgMain;
+        lblStatus.ForeColor = Theme.TextSub;
+        lblCodecStatus.BackColor = Theme.BgCard;
+        lblCodecStatus.BringToFront();
+        AlignSettingsValueLabels();
+    }
+
+    private void AlignSettingsValueLabels()
+    {
+        const int rightPad = 10;
+        lblFpsVal.Location = new Point(
+            pnlSettings.ClientSize.Width - lblFpsVal.PreferredSize.Width - rightPad, 40);
+        lblQualityVal.Location = new Point(
+            pnlSettings.ClientSize.Width - lblQualityVal.PreferredSize.Width - rightPad, 76);
     }
 
     // ── Title-bar drag (Win32 native — avoids coordinate feedback loop) ───────
@@ -179,10 +223,13 @@ public partial class MainForm : Form
         {
             // Any non-available state: treat as not installed.
             // Only 64-bit codecs work in this 64-bit app.
-            string hint = (status == CodecStatus.RegisteredButUnloadable ||
-                           status == CodecStatus.Only32Bit)
-                ? "● 미설치 (64비트 버전 필요)"
-                : "● 미설치";
+            string hint = status switch
+            {
+                CodecStatus.VfwUnavailable => "● VFW 미지원 (H.264 권장)",
+                CodecStatus.Only32Bit        => "● 32비트만 설치됨",
+                CodecStatus.RegisteredButUnloadable => "● 로드 불가",
+                _ => "● 미설치",
+            };
             lblCodecStatus.Text      = hint;
             lblCodecStatus.ForeColor = Color.FromArgb(245, 158, 11);
             btnInstallCodec.Visible  = !codec.IsBuiltIn;
@@ -237,8 +284,7 @@ public partial class MainForm : Form
             }
             else
             {
-                MessageBox.Show(installResult.Message, "설치 실패",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                CopyableDialog.ShowWarning(this, installResult.Message, "설치 실패");
             }
         }
     }
@@ -297,16 +343,26 @@ public partial class MainForm : Form
         {
             string msg = codecStatus switch
             {
-                CodecStatus.RegisteredButUnloadable or CodecStatus.Only32Bit =>
-                    $"'{codec.DisplayName}'의 32비트 버전이 설치되어 있습니다.\n\n" +
-                    "이 앱은 64비트입니다. 반드시 64비트 버전의 코덱을 설치해야 합니다.\n" +
-                    "또는 별도 코덱 없이 동작하는 'H.264 (Windows 내장)'을 사용하세요.",
+                CodecStatus.VfwUnavailable =>
+                    $"'{codec.DisplayName}' DLL은 설치되어 있으나,\n" +
+                    "Windows 64비트에서는 VFW(Video for Windows) 압축 코덱을\n" +
+                    "이 앱에서 사용할 수 없습니다.\n\n" +
+                    "별도 설치 없이 동작하는\n" +
+                    "'H.264 (Windows 내장, .mp4)' 코덱을 선택해 주세요.",
+                CodecStatus.Only32Bit =>
+                    $"'{codec.DisplayName}'의 32비트 버전만 설치되어 있습니다.\n\n" +
+                    "이 앱은 64비트입니다. 64비트 빌드를 설치하거나\n" +
+                    "'H.264 (Windows 내장, .mp4)'을 사용하세요.",
+                CodecStatus.RegisteredButUnloadable =>
+                    $"'{codec.DisplayName}'이(가) 등록되어 있으나 로드할 수 없습니다.\n\n" +
+                    "64비트 코덱이 설치되었는지 확인하거나\n" +
+                    "'H.264 (Windows 내장, .mp4)'을 사용하세요.",
                 _ =>
                     $"'{codec.DisplayName}'이(가) 설치되어 있지 않습니다.\n\n" +
-                    "설치 버튼을 눌러 64비트 버전을 설치하거나\n" +
-                    "'H.264 (Windows 내장)'을 사용하세요.",
+                    "설치 버튼으로 코덱을 설치하거나\n" +
+                    "'H.264 (Windows 내장, .mp4)'을 사용하세요.",
             };
-            MessageBox.Show(msg, "코덱 없음", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            CopyableDialog.ShowWarning(this, msg, "코덱 없음");
             return;
         }
 
@@ -321,8 +377,7 @@ public partial class MainForm : Form
         try { Directory.CreateDirectory(Path.GetDirectoryName(path)!); }
         catch (Exception ex)
         {
-            MessageBox.Show($"저장 경로를 만들 수 없습니다:\n{ex.Message}",
-                "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            CopyableDialog.ShowError(this, ex, "저장 경로 오류");
             return;
         }
 
@@ -357,13 +412,15 @@ public partial class MainForm : Form
         {
             _recorder?.Dispose();
             _recorder = null;
-            MessageBox.Show($"녹화를 시작할 수 없습니다:\n{ex.Message}",
-                "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            CopyableDialog.ShowError(this, ex, "녹화 시작 오류");
             return;
         }
 
         _isRecording = true;
         _uiTimer.Start();
+
+        if (target.IsDesktop)
+            HideForDesktopRecording();
 
         btnRecord.Text      = "■  녹화 중지";
         btnRecord.BackColor = Color.FromArgb(239, 68, 68);
@@ -379,8 +436,7 @@ public partial class MainForm : Form
             if (!IsDisposed)
             {
                 StopRecording();
-                MessageBox.Show($"녹화 중 오류가 발생했습니다:\n{ex.Message}",
-                    "녹화 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                CopyableDialog.ShowError(this, ex, "녹화 오류");
             }
         });
     }
@@ -403,6 +459,8 @@ public partial class MainForm : Form
             _recorder    = null;
             _isRecording = false;
         }
+
+        RestoreAfterDesktopRecording();
 
         btnRecord.Text      = "● 녹화 시작";
         btnRecord.BackColor = Color.FromArgb(34, 197, 94);
@@ -434,6 +492,58 @@ public partial class MainForm : Form
             StopRecording(); // recorder stopped unexpectedly (error)
     }
 
+    // ── Desktop capture: hide main window ────────────────────────────────────
+
+    private void HideForDesktopRecording()
+    {
+        if (_hiddenForDesktopCapture) return;
+        _hiddenForDesktopCapture = true;
+
+        var menu = new ContextMenuStrip();
+        var stopItem = new ToolStripMenuItem("녹화 중지");
+        stopItem.Click += (_, _) =>
+        {
+            if (!IsDisposed && IsHandleCreated)
+                BeginInvoke(StopRecording);
+        };
+        menu.Items.Add(stopItem);
+
+        _recordingTray = new NotifyIcon
+        {
+            Icon               = Icon ?? SystemIcons.Application,
+            Text               = "ScreenCamWin — 녹화 중",
+            Visible            = true,
+            ContextMenuStrip   = menu,
+        };
+        _recordingTray.DoubleClick += (_, _) =>
+        {
+            if (!IsDisposed && IsHandleCreated)
+                BeginInvoke(StopRecording);
+        };
+
+        Hide();
+    }
+
+    private void RestoreAfterDesktopRecording()
+    {
+        if (!_hiddenForDesktopCapture) return;
+        _hiddenForDesktopCapture = false;
+
+        if (_recordingTray != null)
+        {
+            _recordingTray.Visible = false;
+            _recordingTray.Dispose();
+            _recordingTray = null;
+        }
+
+        if (IsDisposed) return;
+
+        Show();
+        WindowState = FormWindowState.Normal;
+        Activate();
+        BringToFront();
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private WindowInfo GetSelectedWindow() =>
@@ -453,12 +563,30 @@ public partial class MainForm : Form
         cboWindow.Enabled        = enabled;
         btnRefresh.Enabled       = enabled;
         cboCodec.Enabled         = enabled;
+        btnInstallCodec.Enabled  = enabled;
         trkFps.Enabled           = enabled;
         trkQuality.Enabled       = enabled;
-        txtOutput.Enabled        = enabled;
         btnBrowse.Enabled        = enabled;
         chkCursor.Enabled        = enabled;
         btnTogglePreview.Enabled = enabled;
+
+        // Enabled=false on dark theme makes text invisible — use ReadOnly + explicit colors
+        txtOutput.ReadOnly  = !enabled;
+        txtOutput.Enabled   = true;
+        txtOutput.ForeColor = Theme.TextMain;
+        txtOutput.BackColor = Theme.BgSection;
+
+        foreach (var cb in new[] { cboWindow, cboCodec })
+        {
+            cb.ForeColor = enabled ? Theme.TextMain : Theme.TextSub;
+            cb.BackColor = Theme.BgSection;
+        }
+
+        chkCursor.ForeColor = enabled ? Theme.TextMain : Theme.TextSub;
+
+        // Labels stay visible while recording
+        ApplyLabelTheme();
+        lblCodecStatus.BringToFront();
     }
 
     protected override void OnFormClosed(FormClosedEventArgs e)
@@ -470,6 +598,8 @@ public partial class MainForm : Form
         {
             try { _recorder?.Stop(); } catch { }
         }
+
+        RestoreAfterDesktopRecording();
 
         _recorder?.Dispose();
         _uiTimer.Dispose();

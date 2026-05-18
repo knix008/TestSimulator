@@ -37,8 +37,15 @@ public sealed class ScreenRecorder : IDisposable
         {
             _captureW = (probe.Width  / 2) * 2;
             _captureH = (probe.Height / 2) * 2;
+            if (_s.Codec.Kind == VideoCodecKind.H264_MF)
+            {
+                // Windows H.264 MFT requires macroblock-aligned (16px) dimensions.
+                _captureW = (_captureW / 16) * 16;
+                _captureH = (_captureH / 16) * 16;
+            }
         }
-        if (_captureW < 2 || _captureH < 2)
+        int minSize = _s.Codec.Kind == VideoCodecKind.H264_MF ? 16 : 2;
+        if (_captureW < minSize || _captureH < minSize)
             throw new InvalidOperationException("캡처 영역이 너무 작습니다.");
 
         // Validate output extension for H.264
@@ -85,7 +92,6 @@ public sealed class ScreenRecorder : IDisposable
     {
         // ALL COM / MF / VFW objects are created here on this MTA thread.
         AviContainer?  avi = null;
-        VfwEncoder?    vfw = null;
         MfH264Writer?  mf  = null;
 
         try
@@ -106,17 +112,15 @@ public sealed class ScreenRecorder : IDisposable
                     avi = new AviContainer(_s.OutputPath, _captureW, _captureH, _s.Fps);
                     avi.WriteFileHeader(0u, MakeRgbStrf(_captureW, _captureH));
                     break;
-
-                default: // VFW (x264vfw 64bit)
-                    vfw = new VfwEncoder(_s.Codec.FourCC, _captureW, _captureH, _s.Fps, _s.Quality);
-                    avi = new AviContainer(_s.OutputPath, _captureW, _captureH, _s.Fps);
-                    avi.WriteFileHeader(vfw.OutFourCC, vfw.StrfBytes);
-                    break;
             }
 
             _initSignal.Set(); // ← signal success to Start()
 
-            CaptureLoop(_cts!.Token, avi, vfw, mf);
+            // Let the host hide its window before the first desktop frame.
+            if (_s.Target.IsDesktop)
+                Thread.Sleep(350);
+
+            CaptureLoop(_cts!.Token, avi, mf);
         }
         catch (Exception ex)
         {
@@ -138,14 +142,12 @@ public sealed class ScreenRecorder : IDisposable
             try { avi?.FinalizeFile(); mf?.FinalizeFile(); } catch { }
             avi?.Dispose();
             mf?.Dispose();
-            vfw?.Dispose();
         }
     }
 
     // ── Capture loop ──────────────────────────────────────────────────────────
 
-    private void CaptureLoop(CancellationToken ct,
-                              AviContainer? avi, VfwEncoder? vfw, MfH264Writer? mf)
+    private void CaptureLoop(CancellationToken ct, AviContainer? avi, MfH264Writer? mf)
     {
         var interval  = TimeSpan.FromSeconds(1.0 / _s.Fps);
         var startTime = DateTime.UtcNow;
@@ -158,7 +160,7 @@ public sealed class ScreenRecorder : IDisposable
             {
                 nextFrame += interval;
                 if (nextFrame < now) nextFrame = now + interval;
-                CaptureAndWrite(avi, vfw, mf);
+                CaptureAndWrite(avi, mf);
                 Elapsed?.Invoke(this, DateTime.UtcNow - startTime);
             }
             else
@@ -170,7 +172,7 @@ public sealed class ScreenRecorder : IDisposable
         }
     }
 
-    private void CaptureAndWrite(AviContainer? avi, VfwEncoder? vfw, MfH264Writer? mf)
+    private void CaptureAndWrite(AviContainer? avi, MfH264Writer? mf)
     {
         using var bmp = ScreenCapture.Capture(_s.Target);
         if (_s.CaptureCursor) ScreenCapture.DrawCursor(bmp, _s.Target);
@@ -193,14 +195,6 @@ public sealed class ScreenRecorder : IDisposable
                 lock (avi!) avi.WriteVideoFrame(
                     ScreenCapture.ToBgr24BottomUp(bmp, _captureW, _captureH), isKeyFrame: true);
                 break;
-
-            default:
-            {
-                var raw = ScreenCapture.ToBgr24BottomUp(bmp, _captureW, _captureH);
-                var (data, isKey) = vfw!.CompressFrame(raw);
-                lock (avi!) avi.WriteVideoFrame(data, isKey);
-                break;
-            }
         }
     }
 

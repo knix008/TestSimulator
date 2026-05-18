@@ -60,4 +60,28 @@ internal static class Theme
         cb.Font       = FontBody;
         cb.Cursor     = Cursors.Hand;
     }
+
+    public static void ApplySectionLabel(Label lbl, Color? panelBg = null)
+    {
+        lbl.BackColor              = panelBg ?? BgCard;
+        lbl.ForeColor              = Accent;
+        lbl.Enabled                = true;
+        lbl.UseCompatibleTextRendering = true;
+    }
+
+    public static void ApplyFieldLabel(Label lbl, Color? panelBg = null)
+    {
+        lbl.BackColor              = panelBg ?? BgCard;
+        lbl.ForeColor              = TextSub;
+        lbl.Enabled                = true;
+        lbl.UseCompatibleTextRendering = true;
+    }
+
+    public static void ApplyValueLabel(Label lbl, Color? panelBg = null)
+    {
+        lbl.BackColor              = panelBg ?? BgCard;
+        lbl.ForeColor              = TextMain;
+        lbl.Enabled                = true;
+        lbl.UseCompatibleTextRendering = true;
+    }
 }

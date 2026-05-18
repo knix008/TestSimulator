@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+    Name="ScreenCamWin V10"
+    Manufacturer="ScreenCamWin"
+    Version="1.0.0"
+    Scope="perMachine"
+    Language="1042"
+    Codepage="949"
+    UpgradeCode="C8E4A91F-2D6B-4F03-9A17-5B3E8D2C1040">
+
+    <MajorUpgrade DowngradeErrorMessage="이미 최신 버전의 [ProductName]이(가) 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="low" />
+
+    <!-- 바로가기·프로그램 추가/제거 아이콘: daemon_hammer.ico -->
+    <Icon Id="AppIcon.ico" SourceFile="..\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPCOMMENTS" Value="화면 녹화 (ScreenCamWin V10)" />
+
+    <!-- FeatureTree: '사용자 지정' 단계에서 바탕화면/시작 메뉴 바로가기를 각각 선택 -->
+    <Feature Id="ProductFeature"
+             Title="ScreenCamWin V10"
+             Description="프로그램 파일 설치 및 바로가기 옵션"
+             Level="1"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+
+      <ComponentGroupRef Id="AppFiles" />
+
+      <Feature Id="DesktopShortcutFeature"
+               Title="바탕화면 바로가기"
+               Description="바탕화면에 ScreenCamWin V10 바로가기를 만듭니다."
+               Level="1"
+               AllowAbsent="yes"
+               AllowAdvertise="no">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+
+      <Feature Id="StartMenuShortcutFeature"
+               Title="시작 메뉴 바로가기"
+               Description="시작 메뉴에 ScreenCamWin V10 바로가기를 만듭니다."
+               Level="1"
+               AllowAbsent="yes"
+               AllowAdvertise="no">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+    </Feature>
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="ScreenCamWin V10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="ScreenCamWin V10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.ScreenCamWin.TargetDir)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="*">
+      <Shortcut
+        Id="DesktopShortcut"
+        Name="ScreenCamWin V10"
+        Description="화면 녹화 (ScreenCamWin V10)"
+        Target="[INSTALLFOLDER]ScreenCamWin.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico"
+        IconIndex="0" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\ScreenCamWin"
+        Name="DesktopShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <Component Id="StartMenuShortcutComponent" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut
+        Id="StartMenuShortcut"
+        Name="ScreenCamWin V10"
+        Description="화면 녹화 (ScreenCamWin V10)"
+        Target="[INSTALLFOLDER]ScreenCamWin.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico"
+        IconIndex="0" />
+      <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\ScreenCamWin"
+        Name="StartMenuShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

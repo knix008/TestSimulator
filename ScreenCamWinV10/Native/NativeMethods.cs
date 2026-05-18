@@ -111,6 +111,9 @@ internal static class NativeMethods
     [DllImport("msvfw32.dll")]
     public static extern int ICCompressEnd(IntPtr hic);
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr LoadLibrary(string lpFileName);
+
     // ── Constants ────────────────────────────────────────────────────────────
 
     public const uint SRCCOPY             = 0x00CC0020;

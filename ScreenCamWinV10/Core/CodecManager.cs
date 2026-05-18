@@ -8,7 +8,15 @@ using ScreenCamWin.Native;
 
 namespace ScreenCamWin.Core;
 
-public enum CodecStatus { Available, RegisteredButUnloadable, Only32Bit, NotInstalled }
+public enum CodecStatus
+{
+    Available,
+    RegisteredButUnloadable,
+    Only32Bit,
+    NotInstalled,
+    /// <summary>64-bit VFW/ICM has no compressors (common on Windows 10/11 x64).</summary>
+    VfwUnavailable,
+}
 
 public static class CodecManager
 {
@@ -30,11 +38,12 @@ public static class CodecManager
 
         if (in64Registry || in32Registry)
         {
-            // Registered but ICOpen failed → likely bitness mismatch
             if (IntPtr.Size == 8 && in32Registry && !in64Registry)
-                return CodecStatus.Only32Bit; // only 32-bit codec, but app is x64
+                return CodecStatus.Only32Bit;
             if (IntPtr.Size == 4 && in64Registry && !in32Registry)
-                return CodecStatus.Only32Bit; // only 64-bit codec, but app is x86
+                return CodecStatus.Only32Bit;
+            if (IntPtr.Size == 8 && IsVfwSubsystemEmpty())
+                return CodecStatus.VfwUnavailable;
             return CodecStatus.RegisteredButUnloadable;
         }
 
@@ -43,6 +52,7 @@ public static class CodecManager
 
     private static bool CanOpenVfwCodec(string fourcc)
     {
+        TryPreloadDriverDll(fourcc);
         try
         {
             uint fcc = NativeMethods.FourCCToUInt(fourcc);
@@ -52,6 +62,59 @@ public static class CodecManager
         }
         catch { }
         return false;
+    }
+
+    private static void TryPreloadDriverDll(string fourcc)
+    {
+        foreach (bool wow64 in new[] { false, true })
+        {
+            string? dll = ResolveDriverDllPath(fourcc, wow64);
+            if (dll is not null && File.Exists(dll))
+                NativeMethods.LoadLibrary(dll);
+        }
+    }
+
+    private static string? ResolveDriverDllPath(string fourcc, bool wow64)
+    {
+        try
+        {
+            string regPath = wow64
+                ? @"SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\Drivers32"
+                : @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Drivers32";
+            using var key = Registry.LocalMachine.OpenSubKey(regPath);
+            string? fileName = key?.GetValue($"vidc.{fourcc}") as string;
+            if (string.IsNullOrWhiteSpace(fileName)) return null;
+
+            string sysDir = wow64
+                ? Environment.GetFolderPath(Environment.SpecialFolder.SystemX86)
+                : Environment.SystemDirectory;
+            return Path.Combine(sysDir, fileName);
+        }
+        catch { return null; }
+    }
+
+    private static bool? _vfwSubsystemEmpty;
+
+    private static bool IsVfwSubsystemEmpty()
+    {
+        if (_vfwSubsystemEmpty.HasValue) return _vfwSubsystemEmpty.Value;
+        bool empty = true;
+        try
+        {
+            uint next = 0;
+            var ic = new NativeMethods.ICINFO
+            {
+                dwSize = (uint)Marshal.SizeOf<NativeMethods.ICINFO>(),
+            };
+            while (NativeMethods.ICInfo(NativeMethods.ICTYPE_VIDEO, next, ref ic))
+            {
+                empty = false;
+                break;
+            }
+        }
+        catch { }
+        _vfwSubsystemEmpty = empty;
+        return empty;
     }
 
     private static bool IsInRegistry(string fourcc, bool wow64)
@@ -85,7 +148,6 @@ public static class CodecManager
             return new InstallResult(false,
                 $"브라우저에서 다운로드 페이지를 열었습니다.\n\n" +
                 $"이 앱은 64비트입니다 — 반드시 64비트 파일을 선택하세요.\n\n" +
-                $"x264vfw: 파일 목록에서 'x264vfw_x64.exe'를 내려받아 설치해 주세요.\n" +
                 $"설치 후 앱을 재시작하면 코덱이 인식됩니다.",
                 BrowserOpened: true);
         }
@@ -143,6 +205,10 @@ public static class CodecManager
             {
                 CodecStatus.Available => new InstallResult(true,
                     $"{codec.DisplayName} 설치 완료!"),
+                CodecStatus.VfwUnavailable => new InstallResult(false,
+                    "코덱 DLL은 설치되어 있으나, Windows 64비트의 VFW(ICM)에서\n" +
+                    "압축 코덱을 사용할 수 없습니다.\n\n" +
+                    "'H.264 (Windows 내장, .mp4)' 코덱을 사용해 주세요."),
                 CodecStatus.RegisteredButUnloadable => new InstallResult(false,
                     "코덱이 등록되었지만 로드할 수 없습니다.\n" +
                     "이 앱은 64비트입니다. 64비트 코덱 DLL이 설치되었는지 확인하세요."),

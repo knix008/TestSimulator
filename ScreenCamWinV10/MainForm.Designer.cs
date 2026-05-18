@@ -123,10 +123,9 @@ partial class MainForm
         Text            = "ScreenCamWin";
         FormBorderStyle = FormBorderStyle.None;
         StartPosition   = FormStartPosition.CenterScreen;
-        Size            = new Size(540, 740);
-        MinimumSize     = new Size(540, 740);
+        Size            = new Size(540, 758);
+        MinimumSize     = new Size(540, 758);
         BackColor       = System.Drawing.Color.FromArgb(13, 13, 26);
-        Icon            = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")!));
 
         // ════════════════════════════════════════════════════════════════════
         // Title bar
@@ -279,7 +278,8 @@ partial class MainForm
         lblCodecStatus.ForeColor = System.Drawing.Color.FromArgb(34, 197, 94);
         lblCodecStatus.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
         lblCodecStatus.AutoSize  = true;
-        lblCodecStatus.Location  = new Point(220, 36);
+        lblCodecStatus.Anchor    = AnchorStyles.Top | AnchorStyles.Left;
+        lblCodecStatus.Location  = new Point(218, 36);
         lblCodecStatus.Name      = "lblCodecStatus";
 
         btnInstallCodec.Text      = "설치";
@@ -305,7 +305,7 @@ partial class MainForm
         // Settings section
         // ════════════════════════════════════════════════════════════════════
         pnlSettings.Location  = new Point(PAD, y);
-        pnlSettings.Size      = new Size(CW, 150);
+        pnlSettings.Size      = new Size(CW, 168);
         pnlSettings.BackColor = System.Drawing.Color.FromArgb(22, 22, 40);
 
         lblSettingsTitle.Text      = "녹화 설정";
@@ -334,7 +334,8 @@ partial class MainForm
         lblFpsVal.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
         lblFpsVal.Font      = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold);
         lblFpsVal.AutoSize  = true;
-        lblFpsVal.Location  = new Point(CW - 64, 40);
+        lblFpsVal.Anchor    = AnchorStyles.Top | AnchorStyles.Right;
+        lblFpsVal.Location  = new Point(CW - 58, 40);
         lblFpsVal.Name      = "lblFpsVal";
 
         // Quality row
@@ -357,27 +358,28 @@ partial class MainForm
         lblQualityVal.ForeColor = System.Drawing.Color.FromArgb(248, 250, 252);
         lblQualityVal.Font      = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold);
         lblQualityVal.AutoSize  = true;
-        lblQualityVal.Location  = new Point(CW - 64, 76);
+        lblQualityVal.Anchor    = AnchorStyles.Top | AnchorStyles.Right;
+        lblQualityVal.Location  = new Point(CW - 58, 76);
         lblQualityVal.Name      = "lblQualityVal";
 
-        // Output path row
+        // Output path row (extra height avoids DPI text clipping)
         lblOutput.Text      = "저장 경로";
         lblOutput.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);
-        lblOutput.Font      = new System.Drawing.Font("Segoe UI", 8.5f);
+        lblOutput.Font      = new System.Drawing.Font("Segoe UI", 9f);
         lblOutput.AutoSize  = true;
-        lblOutput.Location  = new Point(10, 110);
+        lblOutput.Location  = new Point(10, 120);
 
-        txtOutput.Location    = new Point(78, 104);
-        txtOutput.Size        = new Size(CW - 160, 28);
+        txtOutput.Location    = new Point(78, 114);
+        txtOutput.Size        = new Size(CW - 160, 34);
         txtOutput.BackColor   = System.Drawing.Color.FromArgb(30, 30, 52);
         txtOutput.ForeColor   = System.Drawing.Color.FromArgb(248, 250, 252);
         txtOutput.BorderStyle = BorderStyle.FixedSingle;
-        txtOutput.Font        = new System.Drawing.Font("Segoe UI", 8.5f);
+        txtOutput.Font        = new System.Drawing.Font("Segoe UI", 9f);
         txtOutput.Name        = "txtOutput";
 
         btnBrowse.Text      = "찾기";
-        btnBrowse.Location  = new Point(CW - 76, 104);
-        btnBrowse.Size      = new Size(66, 28);
+        btnBrowse.Location  = new Point(CW - 76, 114);
+        btnBrowse.Size      = new Size(66, 34);
         btnBrowse.FlatStyle = FlatStyle.Flat;
         btnBrowse.BackColor = System.Drawing.Color.FromArgb(30, 30, 52);
         btnBrowse.ForeColor = System.Drawing.Color.FromArgb(148, 163, 184);

@@ -1,0 +1,23 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>ScreenCamWinV10Setup</OutputName>
+    <Platform>x64</Platform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScreenCamWin.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <!-- 빌드 시 앱 출력에 없어도 아이콘 소스 확보 -->
+  <ItemGroup>
+    <Content Include="..\daemon_hammer.ico">
+      <Link>daemon_hammer.ico</Link>
+    </Content>
+  </ItemGroup>
+</Project>
+
