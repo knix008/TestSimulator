@@ -44,6 +44,9 @@ Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
+# Visual Studio upgrade log
+UpgradeLog.htm
+
 # Local / agent settings
 .claude/
 
@@ -51,6 +54,3 @@ $RECYCLE.BIN/
 *.avi
 *.mp4
 !**/docs/**/*.mp4
-
-# FFmpeg binaries (run scripts\fetch-ffmpeg.ps1)
-tools/*.exe

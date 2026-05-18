@@ -409,9 +409,9 @@ public partial class MainForm : Form
 
         using var dlg = new FolderBrowserDialog
         {
-            Description         = "녹화 파일을 저장할 폴더를 선택하세요.\n(하위에 video, audio, merged 파일이 생성됩니다)",
+            Description            = "녹화 파일을 저장할 폴더를 선택하세요.",
             UseDescriptionForTitle = true,
-            SelectedPath        = initial,
+            SelectedPath           = initial,
         };
 
         if (dlg.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(dlg.SelectedPath))
@@ -438,22 +438,25 @@ public partial class MainForm : Form
         var codec  = cboCodec.SelectedItem as CodecInfo ?? CodecInfo.Mjpeg;
         var target = GetSelectedWindow();
 
-        string path = txtOutput.Text.Trim();
-        if (string.IsNullOrEmpty(path))
+        string basePath = txtOutput.Text.Trim();
+        if (string.IsNullOrEmpty(basePath))
         {
             MessageBox.Show("저장 경로를 지정해 주세요.", "경로 필요",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        var outputPaths = RecordingPathHelper.CreateSessionPaths(
-            path, chkMicrophone.Checked, codec.Kind);
+        string videoPath = RecordingPathHelper.CreateVideoPath(basePath, codec.Kind);
 
-        try { Directory.CreateDirectory(outputPaths.SessionDirectory); }
-        catch (Exception ex)
+        string? dir = Path.GetDirectoryName(videoPath);
+        if (!string.IsNullOrEmpty(dir))
         {
-            CopyableDialog.ShowError(this, ex, "저장 경로 오류");
-            return;
+            try { Directory.CreateDirectory(dir); }
+            catch (Exception ex)
+            {
+                CopyableDialog.ShowError(this, ex, "저장 경로 오류");
+                return;
+            }
         }
 
         if (_previewOn)
@@ -468,16 +471,15 @@ public partial class MainForm : Form
 
         var settings = new RecordingSettings
         {
-            Target              = target,
-            Fps                 = trkFps.Value,
-            Quality             = trkQuality.Value,
-            OutputPath          = outputPaths.SessionDirectory,
-            OutputPaths         = outputPaths,
-            CaptureCursor       = chkCursor.Checked,
-            Codec               = codec,
-            CaptureMicrophone   = chkMicrophone.Checked,
-            MicrophoneDeviceId  = (cboMicrophone.SelectedItem as AudioDeviceInfo)?.Id ?? string.Empty,
-            MicrophoneGain      = MicGain,
+            Target             = target,
+            Fps                = trkFps.Value,
+            Quality            = trkQuality.Value,
+            OutputPath         = videoPath,
+            CaptureCursor      = chkCursor.Checked,
+            Codec              = codec,
+            CaptureMicrophone  = chkMicrophone.Checked,
+            MicrophoneDeviceId = (cboMicrophone.SelectedItem as AudioDeviceInfo)?.Id ?? string.Empty,
+            MicrophoneGain     = MicGain,
         };
 
         btnRecord.Enabled = false;
@@ -562,13 +564,14 @@ public partial class MainForm : Form
         _uiTimer.Stop();
         _micMeterTimer.Stop();
 
-        Models.RecordingStopResult? stopResult = null;
         string savedPath = string.Empty;
 
         try
         {
             _recorder?.Stop();
-            stopResult = _recorder?.GetStopResult();
+            var stopResult = _recorder?.GetStopResult();
+            if (stopResult is not null && File.Exists(stopResult.VideoPath))
+                savedPath = stopResult.VideoPath;
         }
         catch (Exception ex)
         {
@@ -591,100 +594,14 @@ public partial class MainForm : Form
         btnRecord.Enabled   = true;
         lblTimer.Text       = "00:00:00";
 
-        bool mergeOk = true;
-        Exception? mergeError = null;
-
-        if (stopResult is { CaptureMicrophone: true, RequiresMerge: true })
-        {
-            var paths = stopResult.OutputPaths;
-
-            SetStatus("영상·오디오 저장 및 합치기…");
-            SetControlsEnabled(false);
-
-            mergeOk = MergeProgressForm.ShowSaveAndMerge(
-                this,
-                stopResult.TempVideoPath!,
-                stopResult.TempAudioPath!,
-                paths.VideoPath,
-                paths.AudioPath!,
-                paths.MergedPath!,
-                out string? savedVideo,
-                out string? savedAudio,
-                out string? mergedPath,
-                out mergeError);
-
-            if (mergeOk)
-            {
-                RecordingMerger.TryDeleteTempDirectory(stopResult.TempDirectory);
-                savedPath = paths.SessionDirectory;
-                SetStatus(BuildSessionSaveStatusMessage(paths.SessionDirectory, mergedPath, savedVideo, savedAudio));
-            }
-            else
-            {
-                CopyableDialog.ShowError(this, mergeError!, "저장·합치기 오류");
-                SetStatus($"저장 실패 — 임시 폴더: {stopResult.TempDirectory}");
-            }
-        }
-        else if (stopResult is { CaptureMicrophone: true, TempVideoPath: not null }
-                 && File.Exists(stopResult.TempVideoPath))
-        {
-            var paths = stopResult.OutputPaths;
-
-            SetStatus("영상·오디오 파일 저장 중…");
-            SetControlsEnabled(false);
-
-            mergeOk = MergeProgressForm.ShowSaveSeparateOnly(
-                this,
-                stopResult.TempVideoPath,
-                stopResult.TempAudioPath,
-                paths.VideoPath,
-                File.Exists(stopResult.TempAudioPath ?? "") ? paths.AudioPath : null,
-                out string? savedVideo,
-                out string? savedAudio,
-                out mergeError);
-
-            if (mergeOk)
-            {
-                RecordingMerger.TryDeleteTempDirectory(stopResult.TempDirectory);
-                savedPath = paths.SessionDirectory;
-                SetStatus(BuildSessionSaveStatusMessage(paths.SessionDirectory, null, savedVideo, savedAudio));
-            }
-            else
-            {
-                CopyableDialog.ShowError(this, mergeError!, "저장 오류");
-            }
-        }
-        else if (stopResult is not null)
-        {
-            savedPath = stopResult.OutputPaths.SessionDirectory;
-            if (File.Exists(stopResult.OutputPaths.VideoPath))
-                SetStatus($"저장 완료 → {savedPath}");
-        }
-
         SetDefaultOutputPath();
 
-        if (mergeOk && !string.IsNullOrEmpty(savedPath) && Directory.Exists(savedPath)
-            && stopResult is not { CaptureMicrophone: true })
-        {
+        if (!string.IsNullOrEmpty(savedPath))
             SetStatus($"저장 완료 → {savedPath}");
-        }
 
         SetControlsEnabled(true);
         if (chkMicrophone.Checked)
             StartMicMonitoring();
-    }
-
-    static string BuildSessionSaveStatusMessage(
-        string sessionDir, string? mergedPath, string? videoPath, string? audioPath)
-    {
-        var lines = new List<string> { $"저장 폴더: {sessionDir}" };
-        if (videoPath is not null && File.Exists(videoPath))
-            lines.Add("video");
-        if (audioPath is not null && File.Exists(audioPath))
-            lines.Add("audio");
-        if (mergedPath is not null && File.Exists(mergedPath))
-            lines.Add("merged");
-        return string.Join(" | ", lines);
     }
 
     // ── UI timer ─────────────────────────────────────────────────────────────

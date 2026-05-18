@@ -126,6 +126,7 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)trkQuality).BeginInit();
         pnlAudio.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)trkMicGain).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)nudMicGain).BeginInit();
         pnlRecord.SuspendLayout();
         SuspendLayout();
         // 
@@ -161,7 +162,7 @@ partial class MainForm
         lblAppName.AutoSize = true;
         lblAppName.Font = new Font("Segoe UI", 11F, FontStyle.Bold);
         lblAppName.ForeColor = Color.FromArgb(248, 250, 252);
-        lblAppName.Location = new Point(44, 11);
+        lblAppName.Location = new Point(44, 12);
         lblAppName.Name = "lblAppName";
         lblAppName.Size = new Size(114, 20);
         lblAppName.TabIndex = 1;
@@ -606,10 +607,8 @@ partial class MainForm
         trkMicGain.LargeChange = 10;
         trkMicGain.Location = new Point(88, 96);
         trkMicGain.Maximum = 100;
-        trkMicGain.Minimum = 0;
         trkMicGain.Name = "trkMicGain";
-        trkMicGain.Size = new Size(148, 28);
-        trkMicGain.SmallChange = 1;
+        trkMicGain.Size = new Size(148, 45);
         trkMicGain.TabIndex = 5;
         trkMicGain.TickStyle = TickStyle.None;
         trkMicGain.Value = 100;
@@ -617,11 +616,9 @@ partial class MainForm
         // 
         // nudMicGain
         // 
-        nudMicGain.Increment = new decimal(new int[] { 1, 0, 0, 0 });
         nudMicGain.Location = new Point(242, 94);
-        nudMicGain.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
         nudMicGain.Name = "nudMicGain";
-        nudMicGain.Size = new Size(52, 27);
+        nudMicGain.Size = new Size(52, 23);
         nudMicGain.TabIndex = 6;
         nudMicGain.Value = new decimal(new int[] { 100, 0, 0, 0 });
         nudMicGain.ValueChanged += NudMicGain_ValueChanged;
@@ -730,6 +727,7 @@ partial class MainForm
         pnlAudio.ResumeLayout(false);
         pnlAudio.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)trkMicGain).EndInit();
+        ((System.ComponentModel.ISupportInitialize)nudMicGain).EndInit();
         pnlRecord.ResumeLayout(false);
         pnlRecord.PerformLayout();
         ResumeLayout(false);

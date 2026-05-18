@@ -106,7 +106,7 @@ internal sealed class MfH264Writer : IDisposable
         audioOut.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)MicrophoneCapture.Channels);
         audioOut.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)MicrophoneCapture.SampleRate);
         audioOut.Set(MediaTypeAttributeKeys.AudioBitsPerSample, (uint)MicrophoneCapture.BitsPerSample);
-        audioOut.Set(MediaTypeAttributeKeys.AvgBitrate, 128_000u);
+        audioOut.Set(MediaTypeAttributeKeys.AudioAvgBytesPerSecond, 16_000u); // 128 kbps
 
         _audioStreamIndex = (int)_writer!.AddStream(audioOut);
 

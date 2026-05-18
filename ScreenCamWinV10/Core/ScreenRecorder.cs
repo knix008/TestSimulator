@@ -15,14 +15,12 @@ public sealed class ScreenRecorder : IDisposable
     private Exception? _initError;
 
     private MicrophoneCapture? _mic;
-    private MicWavWriter? _wavWriter;
     private Action<float>? _micLevelHandler;
 
-    private RecordingOutputPaths? _outputPaths;
-    private string? _tempDirectory;
-    private string? _videoPath;
-    private string? _audioPath;
-    private int _videoFrameCount;
+    // Audio accumulator: tracks how many PCM bytes have been written so far,
+    // so each video frame pulls exactly the right number of samples.
+    private long _audioBytesPulled;
+    private byte[]? _audioFrameBuffer;
 
     private RecordingStopResult? _lastStopResult;
 
@@ -68,23 +66,15 @@ public sealed class ScreenRecorder : IDisposable
         if (_captureW < minSize || _captureH < minSize)
             throw new InvalidOperationException("캡처 영역이 너무 작습니다.");
 
-        _outputPaths = _s.OutputPaths
-            ?? RecordingPathHelper.CreateSessionPaths(_s.OutputPath, _s.CaptureMicrophone, _s.Codec.Kind);
-
-        if (_s.Codec.Kind == VideoCodecKind.H264_MF && _s.CaptureMicrophone
-            && _outputPaths.MergedPath is not null
-            && !_outputPaths.MergedPath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException(
-                "H.264 (Windows 내장) 코덱은 합친 동영상이 .mp4 여야 합니다.");
-
-        Directory.CreateDirectory(_outputPaths.SessionDirectory);
-        SetupOutputPaths();
+        string? dir = Path.GetDirectoryName(_s.OutputPath);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
 
         _initSignal.Reset();
-        _initError        = null;
-        _lastStopResult   = null;
-        _cts              = new CancellationTokenSource();
-        _isRecording      = true;
+        _initError      = null;
+        _lastStopResult = null;
+        _cts            = new CancellationTokenSource();
+        _isRecording    = true;
 
         _thread = new Thread(RecordingMain)
         {
@@ -103,32 +93,12 @@ public sealed class ScreenRecorder : IDisposable
         }
     }
 
-    void SetupOutputPaths()
-    {
-        _tempDirectory = null;
-        _audioPath     = null;
-
-        if (_s.CaptureMicrophone)
-        {
-            _tempDirectory = Path.Combine(Path.GetTempPath(), "ScreenCamWin", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(_tempDirectory);
-
-            string ext = Path.GetExtension(_outputPaths!.VideoPath);
-            _videoPath = Path.Combine(_tempDirectory, "video" + ext);
-            _audioPath = Path.Combine(_tempDirectory, "audio.wav");
-        }
-        else
-        {
-            _videoPath = _outputPaths!.VideoPath;
-        }
-    }
-
     public void Stop()
     {
         if (!_isRecording) return;
         _isRecording = false;
         _cts?.Cancel();
-        _thread?.Join(8000);
+        _thread?.Join(10_000);
         _thread = null;
     }
 
@@ -136,11 +106,11 @@ public sealed class ScreenRecorder : IDisposable
     {
         AviContainer? avi = null;
         MfH264Writer? mf  = null;
-        bool separateAudio = _s.CaptureMicrophone;
+        bool withAudio = _s.CaptureMicrophone;
 
         try
         {
-            if (separateAudio)
+            if (withAudio)
             {
                 _mic = new MicrophoneCapture
                 {
@@ -153,19 +123,33 @@ public sealed class ScreenRecorder : IDisposable
             switch (_s.Codec.Kind)
             {
                 case VideoCodecKind.H264_MF:
-                    mf = new MfH264Writer(_videoPath!, _captureW, _captureH, _s.Fps, withAudio: false);
+                    mf = new MfH264Writer(_s.OutputPath, _captureW, _captureH, _s.Fps,
+                                          withAudio: withAudio);
                     break;
 
                 case VideoCodecKind.Mjpeg:
-                    avi = new AviContainer(_videoPath!, _captureW, _captureH, _s.Fps, withAudio: false);
+                    avi = new AviContainer(_s.OutputPath, _captureW, _captureH, _s.Fps,
+                                           withAudio: withAudio);
                     avi.WriteFileHeader(AviContainer.ParseFourCC("MJPG"),
                         AviContainer.MakeMjpegStrf(_captureW, _captureH));
                     break;
 
                 case VideoCodecKind.Uncompressed:
-                    avi = new AviContainer(_videoPath!, _captureW, _captureH, _s.Fps, withAudio: false);
+                    avi = new AviContainer(_s.OutputPath, _captureW, _captureH, _s.Fps,
+                                           withAudio: withAudio);
                     avi.WriteFileHeader(0u, MakeRgbStrf(_captureW, _captureH));
                     break;
+            }
+
+            if (withAudio)
+            {
+                // Pre-allocate audio buffer: maximum bytes for one video frame (with margin)
+                int maxBytesPerFrame = (int)Math.Ceiling(
+                    (double)MicrophoneCapture.SampleRate
+                    * MicrophoneCapture.Channels
+                    * (MicrophoneCapture.BitsPerSample / 8)
+                    / _s.Fps) + MicrophoneCapture.Channels * (MicrophoneCapture.BitsPerSample / 8);
+                _audioFrameBuffer = new byte[maxBytesPerFrame];
             }
 
             _initSignal.Set();
@@ -173,15 +157,12 @@ public sealed class ScreenRecorder : IDisposable
             if (_s.Target.IsDesktop)
                 Thread.Sleep(350);
 
-            if (separateAudio)
-            {
-                _wavWriter = new MicWavWriter(_audioPath!);
-                _mic!.StartRecording(_s.MicrophoneDeviceId, (buffer, count) =>
-                    _wavWriter.Write(buffer, count));
-            }
+            if (withAudio)
+                _mic!.StartRecording(_s.MicrophoneDeviceId);
 
-            _videoFrameCount = 0;
-            CaptureLoop(_cts!.Token, avi, mf);
+            _audioBytesPulled = 0;
+            int videoFrameCount = 0;
+            CaptureLoop(_cts!.Token, avi, mf, ref videoFrameCount);
         }
         catch (Exception ex)
         {
@@ -199,19 +180,7 @@ public sealed class ScreenRecorder : IDisposable
         }
         finally
         {
-            try { _mic?.StopAcceptingSamples(); } catch { }
             try { _mic?.Stop(); } catch { }
-
-            try { _wavWriter?.Dispose(); } catch { }
-            _wavWriter = null;
-
-            if (separateAudio && _audioPath is not null && File.Exists(_audioPath) && _videoFrameCount > 0)
-            {
-                long pcmBytes = Math.Max(0, new FileInfo(_audioPath).Length - 44);
-                long expected = WavFileHelper.ExpectedPcmBytesForVideo(_videoFrameCount, _s.Fps);
-                if (pcmBytes > 0 && expected > 0)
-                    WavFileHelper.TrimToDataBytes(_audioPath, expected);
-            }
 
             try { avi?.FinalizeFile(); mf?.FinalizeFile(); } catch { }
             avi?.Dispose();
@@ -223,20 +192,12 @@ public sealed class ScreenRecorder : IDisposable
             _mic?.Dispose();
             _mic = null;
 
-            _lastStopResult = BuildStopResult();
+            _lastStopResult = new RecordingStopResult { VideoPath = _s.OutputPath };
         }
     }
 
-    RecordingStopResult BuildStopResult() => new()
-    {
-        OutputPaths       = _outputPaths!,
-        CaptureMicrophone = _s.CaptureMicrophone,
-        TempDirectory     = _tempDirectory,
-        TempVideoPath     = _s.CaptureMicrophone ? _videoPath : null,
-        TempAudioPath     = _s.CaptureMicrophone ? _audioPath : null,
-    };
-
-    void CaptureLoop(CancellationToken ct, AviContainer? avi, MfH264Writer? mf)
+    void CaptureLoop(CancellationToken ct, AviContainer? avi, MfH264Writer? mf,
+                     ref int frameCount)
     {
         var interval  = TimeSpan.FromSeconds(1.0 / _s.Fps);
         var startTime = DateTime.UtcNow;
@@ -249,7 +210,7 @@ public sealed class ScreenRecorder : IDisposable
             {
                 nextFrame += interval;
                 if (nextFrame < now) nextFrame = now + interval;
-                CaptureAndWrite(avi, mf);
+                CaptureAndWrite(avi, mf, ref frameCount);
                 Elapsed?.Invoke(this, DateTime.UtcNow - startTime);
             }
             else
@@ -261,17 +222,18 @@ public sealed class ScreenRecorder : IDisposable
         }
     }
 
-    void CaptureAndWrite(AviContainer? avi, MfH264Writer? mf)
+    void CaptureAndWrite(AviContainer? avi, MfH264Writer? mf, ref int frameCount)
     {
         using var bmp = ScreenCapture.Capture(_s.Target);
         if (_s.CaptureCursor) ScreenCapture.DrawCursor(bmp, _s.Target);
 
-        _videoFrameCount++;
+        frameCount++;
 
         switch (_s.Codec.Kind)
         {
             case VideoCodecKind.H264_MF:
                 mf!.WriteFrame(ScreenCapture.ToBgr24TopDown(bmp, _captureW, _captureH));
+                WriteAudioFrame(null, mf, frameCount);
                 break;
 
             case VideoCodecKind.Mjpeg:
@@ -280,13 +242,48 @@ public sealed class ScreenRecorder : IDisposable
                     ? ToJpeg(bmp, _s.Quality)
                     : ToJpeg(new Bitmap(bmp, _captureW, _captureH), _s.Quality);
                 lock (avi!) avi.WriteVideoFrame(jpeg, isKeyFrame: true);
+                WriteAudioFrame(avi, null, frameCount);
                 break;
             }
             case VideoCodecKind.Uncompressed:
                 lock (avi!) avi.WriteVideoFrame(
                     ScreenCapture.ToBgr24BottomUp(bmp, _captureW, _captureH), isKeyFrame: true);
+                WriteAudioFrame(avi, null, frameCount);
                 break;
         }
+    }
+
+    // Pulls the exact audio bytes needed to keep audio in sync with frameCount video frames.
+    // Any bytes not available yet are padded with silence.
+    void WriteAudioFrame(AviContainer? avi, MfH264Writer? mf, int frameCount)
+    {
+        if (_mic is null || _audioFrameBuffer is null) return;
+
+        int blockAlign = MicrophoneCapture.Channels * (MicrophoneCapture.BitsPerSample / 8);
+
+        // Accumulator: how many PCM bytes should correspond to frameCount video frames
+        long expectedBytes = (long)frameCount * MicrophoneCapture.SampleRate / _s.Fps * blockAlign;
+        int wantBytes = (int)(expectedBytes - _audioBytesPulled);
+        wantBytes = Math.Max(0, wantBytes - (wantBytes % blockAlign));
+
+        if (wantBytes <= 0) return;
+
+        // Ensure buffer is large enough (it should always be, given pre-allocation)
+        if (_audioFrameBuffer.Length < wantBytes)
+            _audioFrameBuffer = new byte[wantBytes];
+
+        int got = _mic.PullPcm(_audioFrameBuffer, wantBytes);
+
+        // Pad remainder with silence
+        if (got < wantBytes)
+            Array.Clear(_audioFrameBuffer, got, wantBytes - got);
+
+        if (avi is not null)
+            lock (avi) avi.WriteAudioFrame(_audioFrameBuffer[..wantBytes]);
+        else
+            mf?.WriteAudioPcm(_audioFrameBuffer, wantBytes);
+
+        _audioBytesPulled += wantBytes;
     }
 
     static byte[] ToJpeg(Bitmap bmp, int quality)

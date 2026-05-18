@@ -17,19 +17,14 @@ public sealed class MicrophoneCapture : IDisposable
     private WasapiCapture? _capture;
     private BufferedWaveProvider? _captureBuffer;
     private IWaveProvider? _pcmProvider;
-    private Action<byte[], int>? _recordSink;
-    private readonly object _sinkLock = new();
-    private volatile bool _acceptSamples = true;
-    private long _bytesWritten;
-    private int _inputBytesPerSecond;
+    private readonly object _providerLock = new();
     private bool _isRecording;
     private bool _disposed;
     private float _inputGain = 1f;
     private long _lastLevelTick;
+    private int _inputBytesPerSecond;
 
     public event Action<float>? LevelChanged;
-
-    public long BytesWritten => _bytesWritten;
 
     public float InputGain
     {
@@ -46,37 +41,30 @@ public sealed class MicrophoneCapture : IDisposable
         return list;
     }
 
-    public void StartMonitoring(string deviceId) => Start(deviceId, recordSink: null);
+    // Monitoring: drains buffer in callback for level metering
+    public void StartMonitoring(string deviceId) => Start(deviceId, recording: false);
 
-    public void StartRecording(string deviceId, Action<byte[], int> recordSink)
-    {
-        ArgumentNullException.ThrowIfNull(recordSink);
-        _bytesWritten = 0;
-        _acceptSamples = true;
-        Start(deviceId, recordSink);
-    }
+    // Recording: OnDataAvailable only fills buffer; video thread calls PullPcm() per frame
+    public void StartRecording(string deviceId) => Start(deviceId, recording: true);
 
-    public void StopAcceptingSamples() => _acceptSamples = false;
-
-    void Start(string deviceId, Action<byte[], int>? recordSink)
+    void Start(string deviceId, bool recording)
     {
         Stop();
         if (string.IsNullOrWhiteSpace(deviceId))
             throw new ArgumentException("마이크 장치가 선택되지 않았습니다.", nameof(deviceId));
 
-        _isRecording = recordSink is not null;
+        _isRecording = recording;
 
         using var enumerator = new MMDeviceEnumerator();
         var device = enumerator.GetDevice(deviceId);
         _capture = new WasapiCapture(device);
 
         _inputBytesPerSecond = Math.Max(_capture.WaveFormat.AverageBytesPerSecond, 1);
-        int bytesPerSec = _inputBytesPerSecond;
 
         _captureBuffer = new BufferedWaveProvider(_capture.WaveFormat)
         {
-            DiscardOnBufferOverflow = !_isRecording,
-            BufferLength          = bytesPerSec * (_isRecording ? 10 : 4),
+            DiscardOnBufferOverflow = true,
+            BufferLength = _inputBytesPerSecond * 10,
         };
 
         ISampleProvider samples = _captureBuffer.ToSampleProvider();
@@ -86,7 +74,6 @@ public sealed class MicrophoneCapture : IDisposable
             samples = new WdlResamplingSampleProvider(samples, SampleRate);
 
         _pcmProvider = new SampleToWaveProvider16(samples);
-        _recordSink  = recordSink;
 
         _capture.DataAvailable += OnDataAvailable;
         _capture.RecordingStopped += (_, _) => { };
@@ -95,76 +82,67 @@ public sealed class MicrophoneCapture : IDisposable
 
     void OnDataAvailable(object? sender, WaveInEventArgs e)
     {
-        if (e.BytesRecorded <= 0 || _captureBuffer is null || _pcmProvider is null) return;
+        if (e.BytesRecorded <= 0 || _captureBuffer is null) return;
 
         _captureBuffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
 
+        if (!_isRecording && _pcmProvider is not null)
+            DrainForMonitoring();
+    }
+
+    // Monitoring only: drain buffer and fire level events
+    void DrainForMonitoring()
+    {
         int targetBytes = (int)Math.Ceiling(
-            e.BytesRecorded * (double)BytesPerSecond / _inputBytesPerSecond);
+            BytesPerSecond * (double)_captureBuffer!.BufferedBytes / _inputBytesPerSecond);
         targetBytes = AlignDown(Math.Max(targetBytes, BytesPerSampleFrame));
 
-        int maxDrainBytes = _isRecording
-            ? Math.Min(Math.Max(targetBytes * 3, BytesPerSecond / 20), BytesPerSecond / 2)
-            : Math.Min(Math.Max(targetBytes * 4, BytesPerSecond / 25), BytesPerSecond / 4);
-        maxDrainBytes = AlignDown(maxDrainBytes);
-
+        int maxDrain = AlignDown(Math.Min(Math.Max(targetBytes * 4, BytesPerSecond / 25), BytesPerSecond / 4));
         int chunkBytes = AlignDown(Math.Max(BytesPerSampleFrame * 32, BytesPerSecond / 50));
         var chunk = new byte[chunkBytes];
 
         int drained = 0;
-        for (int i = 0; i < 128 && drained < maxDrainBytes; i++)
+        for (int i = 0; i < 64 && drained < maxDrain; i++)
         {
-            int want = Math.Min(chunk.Length, maxDrainBytes - drained);
+            int want = Math.Min(chunk.Length, maxDrain - drained);
             if (want < BytesPerSampleFrame) break;
-
-            int read = _pcmProvider.Read(chunk, 0, want);
-            if (read <= 0) break;
-
+            int read = _pcmProvider!.Read(chunk, 0, want);
             read = AlignDown(read);
             if (read <= 0) break;
-
             drained += read;
 
             float peak = Math.Min(1f, ComputePeak(chunk, read) * _inputGain);
             RaiseLevelChanged(peak);
-
-            if (_isRecording && _acceptSamples && _recordSink is not null)
-                WriteToSink(chunk, read);
         }
     }
 
-    void FlushRemainingToSink()
+    // Called by the video capture thread once per frame in recording mode.
+    // Fills buffer[0..byteCount) with PCM; pads with silence if not enough data.
+    public int PullPcm(byte[] buffer, int byteCount)
     {
-        if (!_isRecording || _pcmProvider is null || _recordSink is null) return;
+        if (_pcmProvider is null) return 0;
+        byteCount = AlignDown(Math.Min(byteCount, buffer.Length));
+        if (byteCount <= 0) return 0;
 
-        var chunk = new byte[8192];
-        for (int i = 0; i < 512; i++)
+        int totalRead = 0;
+        for (int attempt = 0; attempt < 16 && totalRead < byteCount; attempt++)
         {
-            int read = _pcmProvider.Read(chunk, 0, chunk.Length);
-            if (read <= 0) break;
-
+            int read = _pcmProvider.Read(buffer, totalRead, byteCount - totalRead);
             read = AlignDown(read);
-            if (read > 0)
-                WriteToSink(chunk, read, honorAcceptFlag: false);
+            if (read <= 0) break;
+            totalRead += read;
         }
-    }
 
-    void WriteToSink(byte[] chunk, int count, bool honorAcceptFlag = true)
-    {
-        if (count <= 0) return;
-
-        var pcm = new byte[count];
-        Buffer.BlockCopy(chunk, 0, pcm, 0, count);
-        if (Math.Abs(_inputGain - 1f) > 0.001f)
-            ApplyGainInPlace(pcm, count, _inputGain);
-
-        lock (_sinkLock)
+        if (totalRead > 0)
         {
-            if (honorAcceptFlag && (!_acceptSamples || _recordSink is null)) return;
-            if (_recordSink is null) return;
-            _recordSink.Invoke(pcm, count);
-            _bytesWritten += count;
+            if (Math.Abs(_inputGain - 1f) > 0.001f)
+                ApplyGainInPlace(buffer, totalRead, _inputGain);
+
+            float peak = Math.Min(1f, ComputePeak(buffer, totalRead) * _inputGain);
+            RaiseLevelChanged(peak);
         }
+
+        return totalRead;
     }
 
     static int AlignDown(int bytes)
@@ -183,16 +161,11 @@ public sealed class MicrophoneCapture : IDisposable
 
     public void Stop()
     {
-        _acceptSamples = false;
-        try { FlushRemainingToSink(); } catch { }
-
-        _recordSink = null;
-
         if (_capture is null) return;
         try { _capture.StopRecording(); } catch { }
         _capture.DataAvailable -= OnDataAvailable;
         _capture.Dispose();
-        _capture = null;
+        _capture      = null;
         _captureBuffer = null;
         _pcmProvider   = null;
         _isRecording   = false;

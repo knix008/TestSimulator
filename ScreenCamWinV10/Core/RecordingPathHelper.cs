@@ -4,51 +4,31 @@ namespace ScreenCamWin.Core;
 
 internal static class RecordingPathHelper
 {
-    public static RecordingOutputPaths CreateSessionPaths(
-        string userPath,
-        bool captureMicrophone,
-        VideoCodecKind codec)
+    public static string CreateVideoPath(string userPath, VideoCodecKind codec)
     {
         string ext = codec == VideoCodecKind.H264_MF ? ".mp4" : ".avi";
 
-        string sessionDir;
-        if (!string.IsNullOrWhiteSpace(userPath) && Directory.Exists(userPath))
+        if (string.IsNullOrWhiteSpace(userPath))
         {
-            sessionDir = Path.GetFullPath(userPath);
-        }
-        else
-        {
-            string parentDir;
-            string sessionName;
-
-            if (string.IsNullOrWhiteSpace(userPath))
-            {
-                parentDir   = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
-                sessionName = $"ScreenCamWin_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
-            }
-            else if (Path.HasExtension(userPath))
-            {
-                parentDir   = Path.GetDirectoryName(userPath) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
-                sessionName = Path.GetFileNameWithoutExtension(userPath);
-            }
-            else
-            {
-                parentDir   = Path.GetDirectoryName(userPath) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
-                sessionName = Path.GetFileName(userPath);
-            }
-
-            if (string.IsNullOrEmpty(sessionName))
-                sessionName = $"ScreenCamWin_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
-
-            sessionDir = Path.Combine(parentDir, sessionName);
+            string dir  = Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+            string name = $"ScreenCamWin_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
+            return Path.Combine(dir, name + ext);
         }
 
-        return new RecordingOutputPaths
+        // If path is an existing directory, generate a timestamped filename inside it
+        if (Directory.Exists(userPath))
         {
-            SessionDirectory = sessionDir,
-            VideoPath        = Path.Combine(sessionDir, "video" + ext),
-            AudioPath        = captureMicrophone ? Path.Combine(sessionDir, "audio.wav") : null,
-            MergedPath       = captureMicrophone ? Path.Combine(sessionDir, "merged" + ext) : null,
-        };
+            string name = $"ScreenCamWin_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
+            return Path.Combine(userPath, name + ext);
+        }
+
+        // Strip any existing extension and append the correct one
+        string parent = Path.GetDirectoryName(userPath)
+            ?? Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+        string stem   = Path.GetFileNameWithoutExtension(userPath);
+        if (string.IsNullOrEmpty(stem))
+            stem = $"ScreenCamWin_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}";
+
+        return Path.Combine(parent, stem + ext);
     }
 }
