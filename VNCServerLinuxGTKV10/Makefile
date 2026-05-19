@@ -21,12 +21,18 @@ X11_CFLAGS  := $(shell $(PKG_CONFIG) --cflags x11 2>/dev/null)
 X11_LIBS    := $(shell $(PKG_CONFIG) --libs x11 2>/dev/null)
 XTST_LIBS   := $(shell $(PKG_CONFIG) --libs xtst 2>/dev/null)
 XEXT_LIBS   := -lXext
+XCOMPOSITE_LIBS := -lXcomposite
+XDAMAGE_LIBS    := -lXdamage
+GST_CFLAGS  := $(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 2>/dev/null)
+GST_LIBS    := $(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 2>/dev/null)
 
-CXXFLAGS := -std=c++17 -Wall -Wextra -O2 -pthread \
-            -Iinclude $(GTK_CFLAGS) $(VNC_CFLAGS) $(X11_CFLAGS) $(CPPFLAGS)
-LDFLAGS  := -pthread $(GTK_LIBS) $(VNC_LIBS) $(X11_LIBS) $(XEXT_LIBS) $(XTST_LIBS) $(LDFLAGS_EXTRA)
+CXXFLAGS := -std=c++17 -Wall -Wextra -Werror -O2 -pthread \
+            -Iinclude $(GTK_CFLAGS) $(VNC_CFLAGS) $(X11_CFLAGS) $(GST_CFLAGS) $(CPPFLAGS)
+LDFLAGS  := -pthread $(GTK_LIBS) $(VNC_LIBS) $(X11_LIBS) $(XEXT_LIBS) $(XCOMPOSITE_LIBS) \
+            $(XDAMAGE_LIBS) $(GST_LIBS) $(XTST_LIBS) $(LDFLAGS_EXTRA)
 
-SRCS     := src/main.cpp src/gui_gtk.cpp src/vnc_core.cpp
+SRCS     := src/main.cpp src/gui_gtk.cpp src/vnc_core.cpp src/capture_gstreamer.cpp \
+            src/window_picker.cpp
 OBJS     := $(SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 N_OBJS   := $(words $(OBJS))
 
@@ -34,8 +40,10 @@ N_OBJS   := $(words $(OBJS))
 MODULE_DESC_main     := Application entry point (no GTK)
 MODULE_DESC_gui_gtk  := GTK3 GUI — window, controls, server start/stop
 MODULE_DESC_vnc_core := VNC core — libvncserver, X11 capture, remote input
+MODULE_DESC_capture_gstreamer := GStreamer / portal full-desktop capture
+MODULE_DESC_window_picker := X11 window list and picker dialog
 
-.PHONY: all deps deps-list clean run check-deps banner done
+.PHONY: all deps deps-list clean run check-deps banner done compile
 
 # $(call step, title)
 define step
@@ -49,16 +57,12 @@ define detail
 	@printf "  → %s\n" "$(1)"
 endef
 
-# $(call compile_banner, index, source, object, summary)
-define compile_banner
-	@printf "\n========================================\n"
-	@printf "  [2/4] Compiling ($(1)/$(N_OBJS)): $(2)\n"
-	@printf "========================================\n"
-	@printf "  Summary : $(4)\n"
-	@printf "  Output  : $(3)\n"
-endef
+all: banner check-deps compile $(TARGET) done
 
-all: banner check-deps $(TARGET) done
+# Show the compilation banner once, then build all object files.
+compile: | $(BUILD_DIR)
+	$(call step,[2/4] Compiling ($(N_OBJS) source files))
+	@$(MAKE) $(MAKEFLAGS) --no-print-directory $(OBJS)
 
 banner:
 	$(call step,Build: $(PROJECT))
@@ -71,7 +75,7 @@ done:
 check-deps:
 	$(call step,[1/4] Checking dependencies)
 	$(call detail,Required: gtk+-3.0 libvncserver x11 xtst)
-	@$(PKG_CONFIG) --exists gtk+-3.0 libvncserver x11 xtst || \
+	@$(PKG_CONFIG) --exists gtk+-3.0 libvncserver x11 xtst gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 || \
 		(printf "  → ERROR: missing packages. Run: make deps\n\n"; exit 1)
 	$(call detail,OK — all required packages found.)
 
@@ -83,17 +87,24 @@ $(TARGET): $(OBJS) | $(BUILD_DIR)
 	@$(CXX) $(OBJS) -o $@ $(LDFLAGS)
 	$(call detail,Link complete.)
 
-# Explicit rules so compile step index (1/N, 2/N, ...) is shown correctly
 $(BUILD_DIR)/main.o: src/main.cpp | $(BUILD_DIR)
-	$(call compile_banner,1,$<,$@,$(MODULE_DESC_main))
+	@printf "  [CC] %s\n" "$<"
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/gui_gtk.o: src/gui_gtk.cpp | $(BUILD_DIR)
-	$(call compile_banner,2,$<,$@,$(MODULE_DESC_gui_gtk))
+	@printf "  [CC] %s\n" "$<"
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/vnc_core.o: src/vnc_core.cpp | $(BUILD_DIR)
-	$(call compile_banner,3,$<,$@,$(MODULE_DESC_vnc_core))
+	@printf "  [CC] %s\n" "$<"
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/capture_gstreamer.o: src/capture_gstreamer.cpp | $(BUILD_DIR)
+	@printf "  [CC] %s\n" "$<"
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/window_picker.o: src/window_picker.cpp | $(BUILD_DIR)
+	@printf "  [CC] %s\n" "$<"
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR):
@@ -106,7 +117,13 @@ APT_PACKAGES := \
 	libgtk-3-dev \
 	libvncserver-dev \
 	libx11-dev \
-	libxtst-dev
+	libxcomposite-dev \
+	libxtst-dev \
+	gstreamer1.0-tools \
+	gstreamer1.0-plugins-base \
+	gstreamer1.0-plugins-good \
+	libgstreamer1.0-dev \
+	libgstreamer-plugins-base1.0-dev
 
 deps-list:
 	$(call step,Dependency package list)
@@ -120,7 +137,7 @@ deps:
 		sudo apt-get update && sudo apt-get install -y $(APT_PACKAGES); \
 	elif command -v dnf >/dev/null 2>&1; then \
 		printf "  → Package manager: dnf\n"; \
-		sudo dnf install -y gcc-c++ make pkg-config gtk3-devel libvncserver-devel libX11-devel libXtst-devel; \
+		sudo dnf install -y gcc-c++ make pkg-config gtk3-devel libvncserver-devel libX11-devel libXcomposite-devel libXtst-devel gstreamer1-devel gstreamer1-plugins-base-devel; \
 	elif command -v pacman >/dev/null 2>&1; then \
 		printf "  → Package manager: pacman\n"; \
 		sudo pacman -S --needed --noconfirm base-devel pkg-config gtk3 libvncserver libxtst; \

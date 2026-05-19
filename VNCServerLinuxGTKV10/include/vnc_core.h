@@ -1,12 +1,20 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <string>
+
+enum class VncCaptureMode {
+    FullDesktop,
+    SingleWindow,
+};
 
 struct VncServerOptions {
     int port = 5900;
     std::string password;
     bool allow_input = true;
+    VncCaptureMode capture_mode = VncCaptureMode::FullDesktop;
+    std::uint64_t target_window = 0;
 };
 
 using VncStatusCallback = std::function<void(const std::string& message)>;
