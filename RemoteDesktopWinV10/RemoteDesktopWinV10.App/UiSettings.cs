@@ -46,7 +46,7 @@ public sealed class UiSettings
             RemoteCursor = VncRemoteCursor,
             AutoReconnect = VncAutoReconnect,
             SizeMode = mode,
-            MaxUpdateRate = VncMaxFps > 0 ? VncMaxFps : 15,
+            MaxUpdateRate = VncMaxFps,  // 0 = 기본값(라이브러리 기본 15 fps 사용)
             UseTls = VncUseTls,
             IgnoreTlsCertErrors = VncIgnoreTlsCertErrors,
             RecordingFps = RecordingFps > 0 ? RecordingFps : 15,

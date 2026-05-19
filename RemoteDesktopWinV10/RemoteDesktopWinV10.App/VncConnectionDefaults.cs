@@ -36,7 +36,7 @@ public sealed record VncClientSettings
         RemoteCursor = p.VncRemoteCursor ?? true,
         AutoReconnect = p.VncAutoReconnect ?? false,
         SizeMode = p.VncSizeMode ?? VncScaleMode.Zoom,
-        MaxUpdateRate = p.VncMaxFps.HasValue ? (double)p.VncMaxFps.Value : 15,
+        MaxUpdateRate = (double)(p.VncMaxFps ?? 0),  // 0 = 기본값
         UseTls = p.VncUseTls ?? false,
         IgnoreTlsCertErrors = p.VncIgnoreTlsCertErrors ?? false,
     };

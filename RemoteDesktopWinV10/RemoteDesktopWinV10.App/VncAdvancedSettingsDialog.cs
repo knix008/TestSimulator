@@ -46,7 +46,7 @@ public partial class VncAdvancedSettingsDialog : Form
             RemoteCursor = vncRemoteCursorCheck.Checked,
             AutoReconnect = vncAutoReconnectCheck.Checked,
             SizeMode = (VncScaleMode)vncSizeModeCombo.SelectedIndex,
-            MaxUpdateRate = fps > 0 ? fps : 15,
+            MaxUpdateRate = fps,  // 0 = "기본값"; 실제 연결 시 ApplyControlSettings에서 15로 처리
             UseTls = vncUseTlsCheck.Checked,
             IgnoreTlsCertErrors = vncIgnoreTlsCertCheck.Checked,
             RecordingFps = RecordingFpsComboToValue(recordingFpsCombo.SelectedIndex),

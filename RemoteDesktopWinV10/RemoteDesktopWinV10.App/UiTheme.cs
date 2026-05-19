@@ -88,7 +88,7 @@ internal static class UiTheme
     public static void StyleTextBox(TextBox tb)
     {
         tb.Font = UiFont;
-        tb.BorderStyle = BorderStyle.FixedSingle;
+        tb.BorderStyle = BorderStyle.Fixed3D;
         tb.BackColor = BgPanel;
         tb.ForeColor = TextPrimary;
     }

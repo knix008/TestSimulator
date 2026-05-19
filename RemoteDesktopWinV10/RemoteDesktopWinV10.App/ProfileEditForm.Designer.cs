@@ -528,6 +528,7 @@ public partial class ProfileEditForm
         groupVnc.PerformLayout();
         flowButtons.ResumeLayout(false);
         ResumeLayout(false);
+        PerformLayout();
     }
 }
 

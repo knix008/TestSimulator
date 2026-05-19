@@ -575,7 +575,12 @@ public partial class MainForm : Form
             : VncConnectionDefaults.DefaultPort.ToString(CultureInfo.InvariantCulture);
         var savedPw = ConnectionProfileStore.UnprotectPassword(profile.EncryptedPasswordBase64);
         passwordText.Text = savedPw ?? "";
-        _vncSettings = VncClientSettings.FromProfile(profile);
+        // 녹화 설정(FPS·폴더)은 프로필에 저장되지 않으므로 기존 값을 유지한다.
+        _vncSettings = VncClientSettings.FromProfile(profile) with
+        {
+            RecordingFps = _vncSettings.RecordingFps,
+            RecordingOutputFolder = _vncSettings.RecordingOutputFolder,
+        };
         RefreshStatusStrip();
     }
 
