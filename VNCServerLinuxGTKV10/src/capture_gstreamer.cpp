@@ -311,6 +311,7 @@ bool pipeline_start(const std::string& pipeline_desc) {
     g_appsink = gst_bin_get_by_name(GST_BIN(g_pipeline), "sink");
     if (!g_appsink) {
         notify("GStreamer pipeline: missing appsink named 'sink'");
+        gst_element_set_state(g_pipeline, GST_STATE_NULL);
         gst_object_unref(g_pipeline);
         g_pipeline = nullptr;
         return false;
@@ -321,16 +322,46 @@ bool pipeline_start(const std::string& pipeline_desc) {
     gst_app_sink_set_max_buffers(GST_APP_SINK(g_appsink), 1);
 
     const GstStateChangeReturn ret = gst_element_set_state(g_pipeline, GST_STATE_PLAYING);
-    if (ret == GST_STATE_CHANGE_FAILURE) {
-        notify("GStreamer pipeline: failed to start PLAYING");
+    // ASYNC and NO_PREROLL are both normal for live sources like pipewiresrc.
+    if (ret == GST_STATE_CHANGE_SUCCESS || ret == GST_STATE_CHANGE_ASYNC ||
+        ret == GST_STATE_CHANGE_NO_PREROLL) {
+        return true;
+    }
+    {
+        // Read the bus error to give a specific failure reason.
+        GstBus* bus_obj = gst_element_get_bus(g_pipeline);
+        if (bus_obj) {
+            GstMessage* msg = gst_bus_timed_pop_filtered(bus_obj, 0,
+                static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_WARNING));
+            if (msg) {
+                GError* gerr = nullptr;
+                gchar* dbg = nullptr;
+                if (GST_MESSAGE_TYPE(msg) == GST_MESSAGE_ERROR) {
+                    gst_message_parse_error(msg, &gerr, &dbg);
+                } else {
+                    gst_message_parse_warning(msg, &gerr, &dbg);
+                }
+                if (gerr) {
+                    notify("GStreamer pipeline error: " + std::string(gerr->message) +
+                           (dbg ? (" [" + std::string(dbg) + "]") : ""));
+                    g_error_free(gerr);
+                }
+                g_free(dbg);
+                gst_message_unref(msg);
+            } else {
+                notify("GStreamer pipeline: failed to start PLAYING");
+            }
+            gst_object_unref(bus_obj);
+        } else {
+            notify("GStreamer pipeline: failed to start PLAYING");
+        }
+        gst_element_set_state(g_pipeline, GST_STATE_NULL);
         gst_object_unref(g_appsink);
         g_appsink = nullptr;
         gst_object_unref(g_pipeline);
         g_pipeline = nullptr;
         return false;
     }
-
-    return true;
 }
 
 bool portal_run_select_sources(GDBusConnection* bus, const char* session_handle, bool interactive) {
@@ -346,8 +377,9 @@ bool portal_run_select_sources(GDBusConnection* bus, const char* session_handle,
     if (!select_params) {
         return false;
     }
+    // select_params is a floating GVariant; g_dbus_connection_call_sync (called
+    // inside portal_call_request) sinks and frees it — do not unref here.
     GVariant* select_results = portal_call_request(bus, "SelectSources", select_params);
-    g_variant_unref(select_params);
     if (!select_results) {
         return false;
     }
@@ -410,8 +442,8 @@ bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
         g_object_unref(bus);
         return false;
     }
+    // Floating GVariant — consumed by g_dbus inside portal_call_request.
     GVariant* start_results = portal_call_request(bus, "Start", start_params);
-    g_variant_unref(start_params);
     if (!start_results) {
         g_free(session_handle);
         g_object_unref(bus);
@@ -437,11 +469,11 @@ bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
         g_object_unref(bus);
         return false;
     }
+    // Floating GVariant — consumed by g_dbus_connection_call_with_unix_fd_list_sync.
     GVariant* fd_result = g_dbus_connection_call_with_unix_fd_list_sync(
         bus, kPortalBus, kPortalPath, kScreenCast, "OpenPipeWireRemote", fd_params,
         G_VARIANT_TYPE("(h)"), G_DBUS_CALL_FLAGS_NONE, kPortalTimeoutMs, nullptr, &fd_list,
         nullptr, &error);
-    g_variant_unref(fd_params);
     g_free(session_handle);
 
     if (!fd_result || !fd_list) {
@@ -488,13 +520,16 @@ bool init_portal_pipeline() {
         return false;
     }
 
+    // target-object is a String property — pass node_id as decimal string.
+    // videoscale is placed AFTER videoconvert to handle any source resolution.
     char pipeline[1024];
     std::snprintf(pipeline, sizeof(pipeline),
-                  "pipewiresrc fd=%d target-object=%u do-timestamp=true ! "
+                  "pipewiresrc fd=%d target-object=%u ! "
                   "videoconvert ! videoscale ! "
                   "video/x-raw,width=%d,height=%d,format=BGRx ! "
                   "appsink name=sink sync=false max-buffers=1 drop=true",
                   g_portal_pw_fd, node_id, g_width, g_height);
+    notify("GStreamer pipeline: " + std::string(pipeline));
 
     if (!pipeline_start(pipeline)) {
         close(g_portal_pw_fd);
@@ -508,7 +543,7 @@ bool init_portal_pipeline() {
     return true;
 }
 
-double sample_nonzero_ratio(GstSample* sample) {
+[[maybe_unused]] double sample_nonzero_ratio(GstSample* sample) {
     if (!sample) {
         return 0.0;
     }
@@ -547,17 +582,12 @@ bool capture_gstreamer_init_desktop(int width, int height, CaptureStatusFn on_st
         g_gst_initialized = true;
     }
 
+    // Don't block waiting for the first frame: pipewiresrc negotiates with the
+    // PipeWire daemon asynchronously and the first sample may arrive later.
+    // capture_gstreamer_frame() will return false until frames flow; the caller
+    // falls back to X11 for those frames and switches to PipeWire automatically.
     if (init_portal_pipeline()) {
-        GstSample* probe = gst_app_sink_try_pull_sample(GST_APP_SINK(g_appsink), 8 * GST_SECOND);
-        if (probe && sample_nonzero_ratio(probe) >= 0.05) {
-            gst_sample_unref(probe);
-            return true;
-        }
-        if (probe) {
-            gst_sample_unref(probe);
-        }
-        capture_gstreamer_shutdown();
-        notify("Portal capture empty — will use X11 fallback");
+        return true;
     }
 
     return false;

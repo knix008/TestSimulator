@@ -7,6 +7,14 @@
 #include <rfb/rfb.h>
 #pragma GCC diagnostic pop
 
+#ifdef LIBVNCSERVER_HAVE_LIBZ
+#include <zlib.h>
+extern "C" void rfbFreeZrleData(rfbClientPtr cl);
+#ifdef LIBVNCSERVER_HAVE_LIBJPEG
+extern "C" void rfbFreeTightData(rfbClientPtr cl);
+#endif
+#endif
+
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -95,6 +103,13 @@ struct CaptureStats {
 
 CaptureStats g_capture_stats;
 std::vector<char> g_prev_framebuffer;
+// Framebuffers collected during resize hooks and freed after rfbProcessEvents
+// returns. Multiple resize requests can arrive within a single rfbProcessEvents
+// call; freeing immediately would invalidate buffers libvncserver is still using.
+std::vector<char*> g_deferred_fbs;
+bool g_pending_encoder_reset = false;
+// After resize, send one Raw framebuffer update so TightVNC resyncs zlib state.
+bool g_force_raw_after_resize = false;
 std::vector<StackedWindowEntry> g_stacked_windows;
 std::chrono::steady_clock::time_point g_stacked_list_time{};
 
@@ -187,11 +202,65 @@ bool window_root_position(Window window, int* out_x, int* out_y);
 bool window_is_desktop(Window window);
 void blit_ximage_to_framebuffer_opaque(XImage* image, int dst_x, int dst_y);
 
+// Reset Tight encoder state only. Do not touch ZRLE here — clearing zrleData before
+// the client receives a full Raw frame causes "ZlibInStream: inflate failed".
+void reset_client_tight_state_after_resize() {
+    if (!g_screen) {
+        return;
+    }
+
+    rfbClientIteratorPtr it = rfbGetClientIterator(g_screen);
+    rfbClientPtr cl = nullptr;
+    while ((cl = rfbClientIteratorNext(it)) != nullptr) {
+#ifdef LIBVNCSERVER_HAVE_LIBJPEG
+        for (int i = 0; i < 4; ++i) {
+            if (cl->zsActive[i]) {
+                deflateEnd(&cl->zsStruct[i]);
+                cl->zsActive[i] = FALSE;
+            }
+        }
+        rfbFreeTightData(cl);
+#endif
+        free(cl->beforeEncBuf);
+        cl->beforeEncBuf = nullptr;
+        cl->beforeEncBufSize = 0;
+        free(cl->afterEncBuf);
+        cl->afterEncBuf = nullptr;
+        cl->afterEncBufSize = 0;
+        cl->afterEncBufLen = 0;
+        cl->progressiveSliceY = 0;
+        if (g_screen->setTranslateFunction) {
+            g_screen->setTranslateFunction(cl);
+        }
+    }
+    rfbReleaseClientIterator(it);
+}
+
+void reset_client_zrle_after_resize() {
+    if (!g_screen) {
+        return;
+    }
+#ifdef LIBVNCSERVER_HAVE_LIBZ
+    rfbClientIteratorPtr it = rfbGetClientIterator(g_screen);
+    rfbClientPtr cl = nullptr;
+    while ((cl = rfbClientIteratorNext(it)) != nullptr) {
+        rfbFreeZrleData(cl);
+    }
+    rfbReleaseClientIterator(it);
+#endif
+}
+
 // Called by libvncserver when a VNC client requests a desktop resize.
 // Accepts the new size and reallocates the framebuffer so the VNC viewer
 // window fits without scroll bars.
 int desktop_resize_hook(int width, int height, int /*numScreens*/,
                         rfbExtDesktopScreen* /*screens*/, rfbClientPtr /*cl*/) {
+    if (!g_screen) {
+        return rfbExtDesktopSize_OutOfResources;
+    }
+    // libvncserver and many encoders assume width is a multiple of 4 (32-bit RGBx).
+    // Round up so the framebuffer is not smaller than the viewer window.
+    width = (width + 3) & ~3;
     if (width < 64 || height < 64 || width > 7680 || height > 4320) {
         return rfbExtDesktopSize_OutOfResources;
     }
@@ -199,19 +268,27 @@ int desktop_resize_hook(int width, int height, int /*numScreens*/,
         return rfbExtDesktopSize_Success;
     }
 
-    const size_t new_size = static_cast<size_t>(width) * static_cast<size_t>(height) * 4U;
+    const int bpp = g_screen->bitsPerPixel / 8;
+    const size_t new_size = static_cast<size_t>(width) * static_cast<size_t>(height) *
+                            static_cast<size_t>(bpp);
     char* new_fb = static_cast<char*>(malloc(new_size));
     if (!new_fb) {
         return rfbExtDesktopSize_OutOfResources;
     }
     std::memset(new_fb, 0, new_size);
 
-    char* old_fb = g_screen->frameBuffer;
-    g_screen->frameBuffer = new_fb;
-    g_screen->width = width;
-    g_screen->height = height;
-    g_screen->paddedWidthInBytes = static_cast<uint32_t>(width) * 4U;
-    free(old_fb);
+    char* const old_fb = g_screen->frameBuffer;
+    // Notify libvncserver (client regions, NewFBSize / ExtDesktopSize, mutexes).
+    rfbNewFramebuffer(g_screen, new_fb, width, height, 8, 3, bpp);
+    // Defer Tight state reset until ExtDesktopSize is sent; then send one Raw frame.
+    g_pending_encoder_reset = true;
+    g_force_raw_after_resize = true;
+
+    // Defer free until after rfbProcessEvents — rapid SetDesktopSize bursts and
+    // in-flight encoders may still reference the previous buffer briefly.
+    if (old_fb) {
+        g_deferred_fbs.push_back(old_fb);
+    }
 
     g_prev_framebuffer.clear();
     return rfbExtDesktopSize_Success;
@@ -221,6 +298,10 @@ void vnc_display_hook(rfbClientPtr cl) {
     if (!cl) {
         return;
     }
+    if (g_force_raw_after_resize) {
+        cl->preferredEncoding = rfbEncodingRaw;
+        return;
+    }
     if (cl->preferredEncoding == rfbEncodingTight) {
 #ifdef LIBVNCSERVER_HAVE_LIBZ
         cl->preferredEncoding = rfbEncodingZRLE;
@@ -228,6 +309,14 @@ void vnc_display_hook(rfbClientPtr cl) {
         cl->preferredEncoding = rfbEncodingRaw;
 #endif
     }
+}
+
+void vnc_display_finished_hook(rfbClientPtr /*cl*/, int result) {
+    if (!result || !g_force_raw_after_resize) {
+        return;
+    }
+    g_force_raw_after_resize = false;
+    reset_client_zrle_after_resize();
 }
 
 bool window_is_desktop(Window window) {
@@ -719,7 +808,11 @@ bool capture_full_desktop() {
     }
 
     if (capture_gstreamer_is_active()) {
-        return capture_gstreamer_frame(g_screen->frameBuffer, g_screen->width, g_screen->height);
+        // pipewiresrc may not have a frame ready yet (async negotiation).
+        // Fall through to X11 capture for this frame if no data is available.
+        if (capture_gstreamer_frame(g_screen->frameBuffer, g_screen->width, g_screen->height)) {
+            return true;
+        }
     }
 
     if (!g_display) {
@@ -1117,6 +1210,7 @@ void server_thread_main(VncServerOptions options) {
     g_screen->ipv6port = options.port;
     g_screen->alwaysShared = TRUE;
     g_screen->displayHook = vnc_display_hook;
+    g_screen->displayFinishedHook = vnc_display_finished_hook;
     g_screen->newClientHook = new_client_hook;
     g_screen->kbdAddEvent = kbd_add_event;
     g_screen->ptrAddEvent = ptr_add_event;
@@ -1188,6 +1282,17 @@ void server_thread_main(VncServerOptions options) {
     while (g_running.load(std::memory_order_relaxed)) {
         rfbProcessEvents(g_screen, 5 * 1000);
 
+        if (g_pending_encoder_reset) {
+            reset_client_tight_state_after_resize();
+            g_pending_encoder_reset = false;
+        }
+
+        // Free framebuffers replaced during the resize hook above.
+        for (char* old_fb : g_deferred_fbs) {
+            free(old_fb);
+        }
+        g_deferred_fbs.clear();
+
         // Drain X11 events — XDamage notifications accumulate and must be
         // acknowledged with XDamageSubtract, otherwise they flood the queue.
         while (XPending(g_display)) {
@@ -1230,6 +1335,12 @@ void server_thread_main(VncServerOptions options) {
     g_capture_stats = {};
     g_stacked_windows.clear();
     g_prev_framebuffer.clear();
+    g_pending_encoder_reset = false;
+    g_force_raw_after_resize = false;
+    for (char* old_fb : g_deferred_fbs) {
+        free(old_fb);
+    }
+    g_deferred_fbs.clear();
 
     XSetErrorHandler(prev_x11_handler);
 
