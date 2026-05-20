@@ -21,9 +21,6 @@ namespace FTPClientWin
         {
             components = new Container();
             panelTop = new Panel();
-            btnDownload = new Button();
-            btnUpload = new Button();
-            separatorV = new Panel();
             btnProfileDelete = new Button();
             btnProfileSave = new Button();
             comboProfile = new ComboBox();
@@ -73,9 +70,6 @@ namespace FTPClientWin
             // panelTop
             // 
             panelTop.BackColor = Color.FromArgb(245, 245, 248);
-            panelTop.Controls.Add(btnDownload);
-            panelTop.Controls.Add(btnUpload);
-            panelTop.Controls.Add(separatorV);
             panelTop.Controls.Add(btnProfileDelete);
             panelTop.Controls.Add(btnProfileSave);
             panelTop.Controls.Add(comboProfile);
@@ -96,36 +90,6 @@ namespace FTPClientWin
             panelTop.Name = "panelTop";
             panelTop.Size = new Size(1040, 102);
             panelTop.TabIndex = 0;
-            // 
-            // btnDownload
-            // 
-            btnDownload.FlatStyle = FlatStyle.System;
-            btnDownload.Location = new Point(535, 64);
-            btnDownload.Name = "btnDownload";
-            btnDownload.Size = new Size(100, 26);
-            btnDownload.TabIndex = 17;
-            btnDownload.Text = "↓  Download";
-            btnDownload.UseVisualStyleBackColor = true;
-            btnDownload.Click += BtnDownload_Click;
-            // 
-            // btnUpload
-            // 
-            btnUpload.FlatStyle = FlatStyle.System;
-            btnUpload.Location = new Point(432, 64);
-            btnUpload.Name = "btnUpload";
-            btnUpload.Size = new Size(95, 26);
-            btnUpload.TabIndex = 16;
-            btnUpload.Text = "↑  Upload";
-            btnUpload.UseVisualStyleBackColor = true;
-            btnUpload.Click += BtnUpload_Click;
-            // 
-            // separatorV
-            // 
-            separatorV.BackColor = Color.FromArgb(190, 190, 190);
-            separatorV.Location = new Point(420, 64);
-            separatorV.Name = "separatorV";
-            separatorV.Size = new Size(1, 28);
-            separatorV.TabIndex = 15;
             // 
             // btnProfileDelete
             // 
@@ -515,9 +479,6 @@ namespace FTPClientWin
         private ComboBox            comboProfile    = null!;
         private Button              btnProfileSave  = null!;
         private Button              btnProfileDelete= null!;
-        private Panel               separatorV      = null!;
-        private Button              btnUpload       = null!;
-        private Button              btnDownload     = null!;
         private Panel               separatorH      = null!;
         private SplitContainer      splitMain       = null!;
         private SplitContainer      splitFiles      = null!;

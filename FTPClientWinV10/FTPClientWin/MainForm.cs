@@ -15,6 +15,9 @@ namespace FTPClientWin
 {
     public partial class MainForm : Form
     {
+        // ── Transfer overlay buttons ─────────────────────────────────────────
+        private Panel? _pnlTransfer;
+
         // ── Connection state ─────────────────────────────────────────────────
         private AsyncFtpClient? _ftp;
         private SftpClient?     _sftp;
@@ -67,12 +70,12 @@ namespace FTPClientWin
             UpdateConnectButton(false);
             LoadFileIcons();
             SetupContextMenus();
+            SetupTransferButtons();
 
             treeViewServer.NodeMouseDoubleClick += TreeViewServer_DoubleClick;
             treeViewLocal.NodeMouseDoubleClick  += TreeViewLocal_DoubleClick;
             treeViewServer.MouseDown  += TreeView_MouseDown;
             treeViewLocal.MouseDown   += TreeView_MouseDown;
-            treeViewServer.BeforeExpand += TreeViewServer_BeforeExpand;
             treeViewLocal.BeforeExpand  += TreeViewLocal_BeforeExpand;
             treeViewServer.AfterSelect  += TreeViewServer_AfterSelect;
             treeViewLocal.AfterSelect   += TreeViewLocal_AfterSelect;
@@ -85,8 +88,16 @@ namespace FTPClientWin
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
-            _ftp?.Dispose();
-            _sftp?.Dispose();
+            // Dispose를 백그라운드에서 실행 — UI 스레드 블로킹 방지
+            var ftp  = _ftp;
+            var sftp = _sftp;
+            _ftp  = null;
+            _sftp = null;
+            Task.Run(() =>
+            {
+                try { ftp?.Dispose(); }  catch { }
+                try { sftp?.Dispose(); } catch { }
+            });
         }
 
         // ── Shell file icons ─────────────────────────────────────────────────
@@ -317,99 +328,81 @@ namespace FTPClientWin
             AppendLog("연결 해제됨.");
         }
 
-        // ── Server tree (lazy-loaded hierarchy) ─────────────────────────────
+        // ── Server tree (현재 디렉토리 평면 목록) ───────────────────────────
 
         private void InitServerTree()
         {
-            treeViewServer.Nodes.Clear();
-            var rootNode = MakeNode("/", "/", true);
-            treeViewServer.Nodes.Add(rootNode);
             _serverPath = "/";
-            UpdateServerLabel();
-            rootNode.Expand();  // BeforeExpand가 루트 내용을 로드함
+            _ = LoadServerDirectoryAsync("/");
         }
 
-        private async void TreeViewServer_BeforeExpand(object? sender, TreeViewCancelEventArgs e)
+        // 서버의 현재 경로 내용을 평면 목록으로 표시
+        private async Task LoadServerDirectoryAsync(string path)
         {
-            var node = e.Node;
-            if (node?.Tag is not NodeInfo info || !info.IsDirectory) return;
-            if (!HasPlaceholder(node)) return;
-            if (!_isConnected) { e.Cancel = true; return; }
+            if (!_isConnected) return;
 
-            e.Cancel = true;   // 기본 확장 취소, 로드 후 수동 확장
-            node.Nodes.Clear();
+            SetStatus($"서버 로드 중: {path}");
+            AppendLog($"서버 디렉토리: {path}");
 
+            RemoteItem[] items;
             try
             {
-                SetStatus($"서버 로드 중: {info.Path}");
-                await LoadServerChildNodes(node, info.Path).ConfigureAwait(true);
-                AppendLog($"서버 디렉토리: {info.Path}  ({node.Nodes.Count}개 항목)");
+                if (_ftp != null)
+                {
+                    var list = await _ftp.GetListing(path).ConfigureAwait(true);
+                    items = list.Select(i => new RemoteItem(
+                        i.Name, i.FullName,
+                        i.Type == FtpObjectType.Directory ||
+                        (i.Type == FtpObjectType.Link && i.LinkObject?.Type == FtpObjectType.Directory)))
+                        .ToArray();
+                }
+                else if (_sftp != null)
+                {
+                    var list = await Task.Run(() =>
+                        _sftp.ListDirectory(path)
+                             .Where(f => f.Name != "." && f.Name != "..")
+                             .ToArray()).ConfigureAwait(true);
+                    items = list.Select(f => new RemoteItem(f.Name, f.FullName, f.IsDirectory)).ToArray();
+                }
+                else return;
             }
             catch (Exception ex)
             {
-                node.Nodes.Add(new TreeNode($"[오류: {ex.Message}]") { ForeColor = Color.Red });
                 AppendLog($"서버 목록 오류: {ex.Message}");
+                ShowErrorDialog("디렉토리 조회 오류", ex.Message);
+                SetStatus("서버 목록 조회 실패");
+                return;
             }
 
-            node.Expand();
-            SetStatus($"서버: {info.Path}");
-        }
+            _serverPath = path;
+            UpdateServerLabel();
 
-        private async Task LoadServerChildNodes(TreeNode parent, string path)
-        {
-            RemoteItem[] items;
-            if (_ftp != null)
-            {
-                var list = await _ftp.GetListing(path).ConfigureAwait(true);
-                items = list.Select(i => new RemoteItem(
-                    i.Name, i.FullName,
-                    i.Type == FtpObjectType.Directory ||
-                    (i.Type == FtpObjectType.Link && i.LinkObject?.Type == FtpObjectType.Directory)))
-                    .ToArray();
-            }
-            else if (_sftp != null)
-            {
-                var list = await Task.Run(() =>
-                    _sftp.ListDirectory(path)
-                         .Where(f => f.Name != "." && f.Name != "..")
-                         .ToArray()).ConfigureAwait(true);
-                items = list.Select(f => new RemoteItem(f.Name, f.FullName, f.IsDirectory)).ToArray();
-            }
-            else return;
-
-            parent.TreeView?.BeginUpdate();
+            treeViewServer.BeginUpdate();
+            treeViewServer.Nodes.Clear();
             try
             {
+                // 상위 폴더 이동 노드
+                if (path != "/" && path.Length > 0)
+                    treeViewServer.Nodes.Add(MakeNode("[..]", GetServerParent(path), true, isParent: true));
+
                 foreach (var item in items
                     .OrderBy(i => i.IsDirectory ? 0 : 1)
                     .ThenBy(i => i.Name, StringComparer.OrdinalIgnoreCase))
-                {
-                    var node = MakeNode(item.Name, item.FullPath, item.IsDirectory);
-                    if (item.IsDirectory)
-                        node.Nodes.Add(Placeholder());   // 하위 폴더가 있을 수 있으므로
-                    parent.Nodes.Add(node);
-                }
+                    treeViewServer.Nodes.Add(MakeNode(item.Name, item.FullPath, item.IsDirectory));
             }
-            finally { parent.TreeView?.EndUpdate(); }
+            finally { treeViewServer.EndUpdate(); }
+
+            SetStatus($"서버: {path}  ({items.Length}개 항목)");
         }
 
-        private async Task RefreshServerNodeAsync()
-        {
-            var node = treeViewServer.SelectedNode
-                       ?? treeViewServer.Nodes.Cast<TreeNode>().FirstOrDefault();
-            if (node?.Tag is not NodeInfo info || !info.IsDirectory || !_isConnected) return;
-
-            node.Nodes.Clear();
-            node.Nodes.Add(Placeholder());
-            await LoadServerChildNodes(node, info.Path).ConfigureAwait(true);
-            node.Expand();
-            AppendLog($"새로 고침: {info.Path}");
-        }
+        private async Task RefreshServerNodeAsync() =>
+            await LoadServerDirectoryAsync(_serverPath).ConfigureAwait(true);
 
         private void TreeViewServer_AfterSelect(object? sender, TreeViewEventArgs e)
         {
             if (e.Node?.Tag is not NodeInfo info) return;
-            _serverPath = info.IsDirectory ? info.Path : GetServerParent(info.Path);
+            if (info.IsDirectory && !info.IsParent)
+                _serverPath = info.Path;
             UpdateServerLabel();
         }
 
@@ -574,8 +567,11 @@ namespace FTPClientWin
         // ── Double-click ─────────────────────────────────────────────────────
         private async void TreeViewServer_DoubleClick(object? sender, TreeNodeMouseClickEventArgs e)
         {
-            if (e.Node?.Tag is not NodeInfo info || info.IsDirectory) return;
-            await DownloadAsync(info.Path, isDirectory: false);
+            if (e.Node?.Tag is not NodeInfo info) return;
+            if (info.IsDirectory)
+                await LoadServerDirectoryAsync(info.Path);   // 폴더 → 이동
+            else
+                await DownloadAsync(info.Path, isDirectory: false);  // 파일 → 다운로드
         }
 
         private async void TreeViewLocal_DoubleClick(object? sender, TreeNodeMouseClickEventArgs e)
@@ -709,10 +705,6 @@ namespace FTPClientWin
                 ShowErrorDialog("업로드 오류", ex.Message);
             }
         }
-
-        // ── Toolbar upload / download ─────────────────────────────────────────
-        private async void BtnUpload_Click(object? sender, EventArgs e)   => await UploadSelectedAsync();
-        private async void BtnDownload_Click(object? sender, EventArgs e) => await DownloadSelectedAsync();
 
         // ── Profile persistence ──────────────────────────────────────────────
         private void LoadProfiles()
