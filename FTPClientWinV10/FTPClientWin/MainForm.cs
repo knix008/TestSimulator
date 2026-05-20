@@ -342,8 +342,9 @@ namespace FTPClientWin
                 DisposeClients();
                 PlayErrorSound();
                 SetStatus("연결 실패");
-                AppendLog($"연결 실패: {ex.Message}");
-                ShowErrorDialog("연결 오류", ex.Message);
+                var detail = BuildErrorDetails(ex);
+                AppendLog($"연결 실패: {detail}");
+                ShowErrorDialog("연결 오류", detail);
             }
             finally
             {
@@ -385,8 +386,8 @@ namespace FTPClientWin
                     DownloadDataType             = FtpDataType.Binary,
                     // 로컬 I/O 버퍼: 4KB → 4MB (디스크 읽기/쓰기 횟수 감소)
                     LocalFileBufferSize          = 4 * 1024 * 1024,
-                    // 전송 청크: 64KB → 1MB (TCP 왕복 횟수 ~16배 감소, 대용량 파일 최적화)
-                    TransferChunkSize            = 1 * 1024 * 1024,
+                    // 전송 청크: 64KB → 256KB (서버 호환성 유지하며 처리량 향상)
+                    TransferChunkSize            = 256 * 1024,
                     // 연결 유지 (긴 전송 중 서버 타임아웃 방지)
                     SocketKeepAlive              = true,
                     // 전송 중 NOOP 없음 (순수 데이터 전송에 집중)
@@ -470,8 +471,9 @@ namespace FTPClientWin
             }
             catch (Exception ex)
             {
-                AppendLog($"서버 목록 오류: {ex.Message}");
-                ShowErrorDialog("디렉토리 조회 오류", ex.Message);
+                var detail = BuildErrorDetails(ex);
+                AppendLog($"서버 목록 오류: {detail}");
+                ShowErrorDialog("디렉토리 조회 오류", detail);
                 SetStatus("서버 목록 조회 실패");
                 return;
             }
@@ -851,9 +853,10 @@ namespace FTPClientWin
             catch (Exception ex)
             {
                 PlayErrorSound();
-                AppendLog($"다운로드 실패: {ex.Message}");
+                var detail = BuildErrorDetails(ex);
+                AppendLog($"다운로드 실패: {detail}");
                 SetStatus("다운로드 실패");
-                ShowErrorDialog("다운로드 오류", ex.Message);
+                ShowErrorDialog("다운로드 오류", detail);
             }
             finally
             {
@@ -947,9 +950,10 @@ namespace FTPClientWin
             catch (Exception ex)
             {
                 PlayErrorSound();
-                AppendLog($"업로드 실패: {ex.Message}");
+                var detail = BuildErrorDetails(ex);
+                AppendLog($"업로드 실패: {detail}");
                 SetStatus("업로드 실패");
-                ShowErrorDialog("업로드 오류", ex.Message);
+                ShowErrorDialog("업로드 오류", detail);
             }
             finally
             {
@@ -1127,6 +1131,16 @@ namespace FTPClientWin
                 ShowTransferProgress(pct);
                 SetStatus($"{label}: {name}  {pct}%  {FormatSpeed(p.TransferSpeed)}");
             });
+        }
+
+        // ── Exception helper ─────────────────────────────────────────────────
+        // ex.Message → InnerException → ... 체인 전체를 표시
+        private static string BuildErrorDetails(Exception ex)
+        {
+            var parts = new List<string>();
+            for (var e = ex; e != null; e = e.InnerException)
+                parts.Add(e.Message);
+            return string.Join("\n\n→ ", parts);
         }
 
         // ── Sound helpers ─────────────────────────────────────────────────────
