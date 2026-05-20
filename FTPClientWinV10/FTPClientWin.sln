@@ -9,18 +9,17 @@ Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "FTPClientWinSetup", "FTPCli
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
-		Release|x64 = Release|x64
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Debug|x64.ActiveCfg = Debug|x64
-		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Debug|x64.Build.0 = Debug|x64
-		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Release|x64.ActiveCfg = Release|x64
-		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Release|x64.Build.0 = Release|x64
-		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Debug|x64.ActiveCfg = Debug|x64
-		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Debug|x64.Build.0 = Debug|x64
-		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Release|x64.ActiveCfg = Release|x64
-		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Release|x64.Build.0 = Release|x64
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Release|Any CPU.ActiveCfg = Release|x64
+		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Release|Any CPU.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

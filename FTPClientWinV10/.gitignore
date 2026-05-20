@@ -6,6 +6,7 @@ obj/
 FTPClientWinSetup/publish/
 FTPClientWinSetup/bin/
 FTPClientWinSetup/obj/
+FTPClientWinSetup/AppFiles.g.wxs
 
 # Visual Studio
 .vs/

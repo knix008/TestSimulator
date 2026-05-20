@@ -1,34 +1,24 @@
-<Project Sdk="WixToolset.Sdk/4.0.5">
+<Project Sdk="WixToolset.Sdk/7.0.0">
 
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <Platform Condition="'$(Platform)' == ''">x64</Platform>
     <Configurations>Debug;Release</Configurations>
-    <!-- 앱 publish 출력 디렉토리 -->
-    <AppPublishDir>$(MSBuildThisFileDirectory)publish\</AppPublishDir>
+    <PublishDir>$(MSBuildThisFileDirectory)publish</PublishDir>
+    <GeneratedWxs>$(MSBuildThisFileDirectory)AppFiles.g.wxs</GeneratedWxs>
+    <AppProject>$(MSBuildThisFileDirectory)..\FTPClientWin\FTPClientWin.csproj</AppProject>
   </PropertyGroup>
 
-  <!-- WiX 확장 패키지 -->
   <ItemGroup>
-    <PackageReference Include="WixToolset.UI.wixext"   Version="4.0.5" />
-    <PackageReference Include="WixToolset.Util.wixext" Version="4.0.5" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
   </ItemGroup>
 
-  <!--
-    Release 빌드 시 dotnet publish → publish\ 폴더 생성.
-    publish\ 폴더의 모든 파일이 MSI에 포함됩니다.
-  -->
-  <Target Name="PublishApp" BeforeTargets="HarvestDirectory;CompileWix">
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\FTPClientWin\FTPClientWin.csproj&quot; -c $(Configuration) --no-self-contained -r win-x64 -o &quot;$(AppPublishDir)&quot;" />
+  <!-- 빌드 전: dotnet publish → AppFiles.g.wxs 생성 -->
+  <Target Name="PublishAndHarvest" BeforeTargets="CoreCompile">
+    <Exec Command="dotnet publish &quot;$(AppProject)&quot; -c $(Configuration) --no-self-contained -r win-x64 -o &quot;$(PublishDir)&quot;" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)GenerateAppFiles.ps1&quot;"
+          EnvironmentVariables="WIX_PUBLISH_DIR=$(PublishDir);WIX_OUTPUT_FILE=$(GeneratedWxs)" />
   </Target>
 
-  <!-- publish 폴더를 통째로 수확하여 AppComponents 그룹 생성 -->
-  <ItemGroup>
-    <HarvestDirectory Include="$(AppPublishDir)">
-      <ComponentGroupName>AppComponents</ComponentGroupName>
-      <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-    </HarvestDirectory>
-  </ItemGroup>
 
 </Project>

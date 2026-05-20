@@ -1,105 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  FTP Client Installer — WiX v4 / Package.wxs
-  설치 경로: %ProgramFiles%\FTPClientWin\FTP Client\
-  시작 메뉴: FTP Client
-  필요 조건: .NET 8 Desktop Runtime (x64)
--->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
-     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <Package Name="FTP Client"
            Manufacturer="FTPClientWin"
            Version="1.0.0.0"
            UpgradeCode="B9F4E2A1-C3D6-4E8B-A0F1-2B5C7D9E3F0A"
-           Language="1042"
-           Codepage="UTF-8">
+           Language="1033">
 
-    <SummaryInformation Description="FTP Client 설치 프로그램" />
+    <SummaryInformation Description="FTP Client Installer" />
 
-    <!-- 구버전 자동 제거 (다운그레이드 방지) -->
-    <MajorUpgrade DowngradeErrorMessage="더 최신 버전의 FTP Client가 이미 설치되어 있습니다." />
-
-    <!-- 단일 CAB 파일로 묶기 -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of FTP Client is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- 설치 UI (폴더 선택 다이얼로그 포함) -->
-    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <ui:WixUI Id="WixUI_Minimal" />
 
-    <!-- 라이선스 화면 제거 (필요 시 LicenseRtfFile 경로 지정) -->
-    <WixVariable Id="WixUILicenseRtf" Overridable="yes" Value="License.rtf" />
-
-    <!-- 애플리케이션 아이콘 (프로그램 추가/제거 목록 아이콘) -->
     <Icon Id="AppIcon.ico" SourceFile="..\FTPClientWin\daemon_hammer.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
-    <Property Id="ARPHELPLINK"   Value="https://github.com/" />
 
-    <!-- .NET 8 Desktop Runtime 설치 확인 -->
-    <util:RegistrySearch Id="DotNet8DesktopCheck"
-                         Root="HKLM"
-                         Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App"
-                         Value="8.0.0"
-                         Result="exists"
-                         Variable="DotNet8DesktopInstalled" />
-
-    <Launch Condition="DotNet8DesktopInstalled"
-            Message=".NET 8 Desktop Runtime (x64) 이 설치되어 있지 않습니다.&#13;&#10;https://dotnet.microsoft.com/download/dotnet/8.0 에서 먼저 설치해 주세요." />
-
-    <!-- 설치할 기능 -->
     <Feature Id="MainFeature" Title="FTP Client" Level="1">
-      <!-- publish 폴더에서 수확된 앱 파일 전체 -->
       <ComponentGroupRef Id="AppComponents" />
-      <!-- 시작 메뉴 바로 가기 -->
       <ComponentGroupRef Id="Shortcuts" />
     </Feature>
 
   </Package>
 
-  <!-- ── 디렉토리 구조 ─────────────────────────────────────────── -->
+  <!-- Directory structure -->
   <Fragment>
-    <Directory Id="TARGETDIR" Name="SourceDir">
-
-      <!-- 설치 폴더: %ProgramFiles%\FTPClientWin\FTP Client -->
-      <Directory Id="ProgramFiles64Folder">
-        <Directory Id="CompanyFolder" Name="FTPClientWin">
-          <Directory Id="INSTALLFOLDER" Name="FTP Client" />
-        </Directory>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="ManufacturerFolder" Name="FTPClientWin">
+        <Directory Id="INSTALLFOLDER" Name="FTP Client" />
       </Directory>
-
-      <!-- 시작 메뉴 -->
-      <Directory Id="ProgramMenuFolder">
-        <Directory Id="AppMenuFolder" Name="FTP Client" />
-      </Directory>
-
-      <!-- 바탕 화면 -->
-      <Directory Id="DesktopFolder" Name="Desktop" />
-
-    </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="FTP Client" />
+    </StandardDirectory>
   </Fragment>
 
-  <!-- ── 시작 메뉴 바로 가기 ───────────────────────────────────── -->
+  <!-- Start menu shortcut -->
   <Fragment>
     <ComponentGroup Id="Shortcuts" Directory="INSTALLFOLDER">
-
       <Component Id="StartMenuShortcut" Guid="E5F6A7B8-C9D0-4E1F-2A3B-456789ABCDEF">
         <Shortcut Id="AppStartMenuShortcut"
                   Name="FTP Client"
-                  Description="FTP / FTPS / SFTP 클라이언트"
+                  Description="FTP / FTPS / SFTP Client"
                   Target="[INSTALLFOLDER]FTPClientWin.exe"
                   WorkingDirectory="INSTALLFOLDER"
                   Icon="AppIcon.ico" />
-        <!-- 시작 메뉴 폴더 정리 (제거 시) -->
         <RemoveFolder Id="CleanAppMenuFolder" Directory="AppMenuFolder" On="uninstall" />
-        <!-- 설치 상태 레지스트리 키 (KeyPath) -->
-        <RegistryValue Root="HKCU"
+        <RegistryValue Root="HKLM"
                        Key="Software\FTPClientWin\FTPClient"
                        Name="installed"
                        Type="integer"
                        Value="1"
                        KeyPath="yes" />
       </Component>
-
     </ComponentGroup>
   </Fragment>
 

@@ -50,5 +50,23 @@ namespace FTPClientWin
             DestroyIcon(shfi.hIcon);
             return bmp;
         }
+
+        // 실제 경로(드라이브 등)에서 아이콘 가져오기
+        internal static Bitmap GetShellIconForPath(string path)
+        {
+            var shfi = new SHFILEINFO { szDisplayName = "", szTypeName = "" };
+            uint flags = SHGFI_ICON | SHGFI_SMALLICON;
+
+            SHGetFileInfo(path, 0, ref shfi,
+                (uint)Marshal.SizeOf(typeof(SHFILEINFO)), flags);
+
+            if (shfi.hIcon == IntPtr.Zero)
+                return SystemIcons.WinLogo.ToBitmap();
+
+            using var icon = Icon.FromHandle(shfi.hIcon);
+            var bmp = icon.ToBitmap();
+            DestroyIcon(shfi.hIcon);
+            return bmp;
+        }
     }
 }
