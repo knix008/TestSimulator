@@ -1,0 +1,461 @@
+using System.ComponentModel;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace FTPClientWin
+{
+    partial class MainForm
+    {
+        private IContainer components = null!;
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+                components.Dispose();
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        private void InitializeComponent()
+        {
+            components = new Container();
+
+            // Instantiate all controls
+            panelTop        = new Panel();
+            lblProtocol     = new Label();
+            lblHost         = new Label();
+            lblPort         = new Label();
+            lblUser         = new Label();
+            lblPass         = new Label();
+            comboProtocol   = new ComboBox();
+            txtHost         = new TextBox();
+            txtPort         = new TextBox();
+            txtUser         = new TextBox();
+            txtPassword     = new TextBox();
+            btnConnect      = new Button();
+            lblProfile      = new Label();
+            comboProfile    = new ComboBox();
+            btnProfileSave  = new Button();
+            btnProfileDelete= new Button();
+            separatorV      = new Panel();
+            btnUpload       = new Button();
+            btnDownload     = new Button();
+            separatorH      = new Panel();
+            splitMain       = new SplitContainer();
+            splitFiles      = new SplitContainer();
+            panelServer     = new Panel();
+            lblServer       = new Label();
+            treeViewServer  = new TreeView();
+            panelLocal      = new Panel();
+            lblLocal        = new Label();
+            treeViewLocal   = new TreeView();
+            panelLog        = new Panel();
+            lblLog          = new Label();
+            richTextLog     = new RichTextBox();
+            statusStrip     = new StatusStrip();
+            statusLabel     = new ToolStripStatusLabel();
+            statusProgress  = new ToolStripProgressBar();
+            imageListFiles  = new ImageList(components);
+
+            // Suspend layout
+            panelTop.SuspendLayout();
+            ((ISupportInitialize)splitMain).BeginInit();
+            splitMain.Panel1.SuspendLayout();
+            splitMain.Panel2.SuspendLayout();
+            splitMain.SuspendLayout();
+            ((ISupportInitialize)splitFiles).BeginInit();
+            splitFiles.Panel1.SuspendLayout();
+            splitFiles.Panel2.SuspendLayout();
+            splitFiles.SuspendLayout();
+            panelServer.SuspendLayout();
+            panelLocal.SuspendLayout();
+            panelLog.SuspendLayout();
+            statusStrip.SuspendLayout();
+            SuspendLayout();
+
+            // ── imageListFiles ──────────────────────────────────────────
+            imageListFiles.ColorDepth = ColorDepth.Depth32Bit;
+            imageListFiles.ImageSize  = new Size(16, 16);
+
+            // ── panelTop ────────────────────────────────────────────────
+            panelTop.BackColor = Color.FromArgb(245, 245, 248);
+            panelTop.Controls.Add(btnDownload);
+            panelTop.Controls.Add(btnUpload);
+            panelTop.Controls.Add(separatorV);
+            panelTop.Controls.Add(btnProfileDelete);
+            panelTop.Controls.Add(btnProfileSave);
+            panelTop.Controls.Add(comboProfile);
+            panelTop.Controls.Add(lblProfile);
+            panelTop.Controls.Add(btnConnect);
+            panelTop.Controls.Add(txtPassword);
+            panelTop.Controls.Add(txtUser);
+            panelTop.Controls.Add(txtPort);
+            panelTop.Controls.Add(txtHost);
+            panelTop.Controls.Add(comboProtocol);
+            panelTop.Controls.Add(lblPass);
+            panelTop.Controls.Add(lblUser);
+            panelTop.Controls.Add(lblPort);
+            panelTop.Controls.Add(lblHost);
+            panelTop.Controls.Add(lblProtocol);
+            panelTop.Dock     = DockStyle.Top;
+            panelTop.Location = new Point(0, 0);
+            panelTop.Name     = "panelTop";
+            panelTop.Size     = new Size(1040, 102);
+            panelTop.TabIndex = 0;
+
+            // ── Labels row (y = 10) ─────────────────────────────────────
+            lblProtocol.AutoSize  = true;
+            lblProtocol.ForeColor = Color.FromArgb(80, 80, 90);
+            lblProtocol.Location  = new Point(10, 10);
+            lblProtocol.Name      = "lblProtocol";
+            lblProtocol.TabIndex  = 0;
+            lblProtocol.Text      = "Protocol";
+
+            lblHost.AutoSize  = true;
+            lblHost.ForeColor = Color.FromArgb(80, 80, 90);
+            lblHost.Location  = new Point(105, 10);
+            lblHost.Name      = "lblHost";
+            lblHost.TabIndex  = 1;
+            lblHost.Text      = "Host";
+
+            lblPort.AutoSize  = true;
+            lblPort.ForeColor = Color.FromArgb(80, 80, 90);
+            lblPort.Location  = new Point(315, 10);
+            lblPort.Name      = "lblPort";
+            lblPort.TabIndex  = 2;
+            lblPort.Text      = "Port";
+
+            lblUser.AutoSize  = true;
+            lblUser.ForeColor = Color.FromArgb(80, 80, 90);
+            lblUser.Location  = new Point(390, 10);
+            lblUser.Name      = "lblUser";
+            lblUser.TabIndex  = 3;
+            lblUser.Text      = "User";
+
+            lblPass.AutoSize  = true;
+            lblPass.ForeColor = Color.FromArgb(80, 80, 90);
+            lblPass.Location  = new Point(505, 10);
+            lblPass.Name      = "lblPass";
+            lblPass.TabIndex  = 4;
+            lblPass.Text      = "Password";
+
+            // ── Connection controls (y = 28) ────────────────────────────
+            comboProtocol.DropDownStyle     = ComboBoxStyle.DropDownList;
+            comboProtocol.FormattingEnabled = true;
+            comboProtocol.Items.AddRange(new object[] { "FTP", "FTPS", "SFTP" });
+            comboProtocol.SelectedIndex     = 0;
+            comboProtocol.Location          = new Point(10, 28);
+            comboProtocol.Name              = "comboProtocol";
+            comboProtocol.Size              = new Size(85, 23);
+            comboProtocol.TabIndex          = 5;
+
+            txtHost.Location        = new Point(105, 28);
+            txtHost.Name            = "txtHost";
+            txtHost.PlaceholderText = "hostname or IP";
+            txtHost.Size            = new Size(200, 23);
+            txtHost.TabIndex        = 6;
+
+            txtPort.Location        = new Point(315, 28);
+            txtPort.Name            = "txtPort";
+            txtPort.PlaceholderText = "21";
+            txtPort.Size            = new Size(65, 23);
+            txtPort.TabIndex        = 7;
+
+            txtUser.Location        = new Point(390, 28);
+            txtUser.Name            = "txtUser";
+            txtUser.PlaceholderText = "username";
+            txtUser.Size            = new Size(105, 23);
+            txtUser.TabIndex        = 8;
+
+            txtPassword.Location             = new Point(505, 28);
+            txtPassword.Name                 = "txtPassword";
+            txtPassword.PlaceholderText      = "password";
+            txtPassword.Size                 = new Size(105, 23);
+            txtPassword.TabIndex             = 9;
+            txtPassword.UseSystemPasswordChar = true;
+
+            btnConnect.FlatStyle           = FlatStyle.Flat;
+            btnConnect.FlatAppearance.BorderSize = 0;
+            btnConnect.Location            = new Point(620, 26);
+            btnConnect.Name                = "btnConnect";
+            btnConnect.Size                = new Size(95, 28);
+            btnConnect.TabIndex            = 10;
+            btnConnect.Text                = "Connect";
+            btnConnect.UseVisualStyleBackColor = false;
+            btnConnect.Click              += BtnConnect_Click;
+
+            // ── Profile row (y = 66) ────────────────────────────────────
+            lblProfile.AutoSize  = true;
+            lblProfile.ForeColor = Color.FromArgb(80, 80, 90);
+            lblProfile.Location  = new Point(10, 70);
+            lblProfile.Name      = "lblProfile";
+            lblProfile.TabIndex  = 11;
+            lblProfile.Text      = "Profile";
+
+            comboProfile.DropDownStyle            = ComboBoxStyle.DropDownList;
+            comboProfile.FormattingEnabled        = true;
+            comboProfile.Location                 = new Point(60, 66);
+            comboProfile.Name                     = "comboProfile";
+            comboProfile.Size                     = new Size(200, 23);
+            comboProfile.TabIndex                 = 12;
+            comboProfile.SelectedIndexChanged    += ComboProfile_SelectedIndexChanged;
+
+            btnProfileSave.FlatStyle           = FlatStyle.System;
+            btnProfileSave.Location            = new Point(268, 64);
+            btnProfileSave.Name                = "btnProfileSave";
+            btnProfileSave.Size                = new Size(65, 26);
+            btnProfileSave.TabIndex            = 13;
+            btnProfileSave.Text                = "저장";
+            btnProfileSave.UseVisualStyleBackColor = true;
+            btnProfileSave.Click              += BtnProfileSave_Click;
+
+            btnProfileDelete.FlatStyle           = FlatStyle.System;
+            btnProfileDelete.Location            = new Point(341, 64);
+            btnProfileDelete.Name                = "btnProfileDelete";
+            btnProfileDelete.Size                = new Size(65, 26);
+            btnProfileDelete.TabIndex            = 14;
+            btnProfileDelete.Text                = "삭제";
+            btnProfileDelete.UseVisualStyleBackColor = true;
+            btnProfileDelete.Click              += BtnProfileDelete_Click;
+
+            separatorV.BackColor = Color.FromArgb(190, 190, 190);
+            separatorV.Location  = new Point(420, 64);
+            separatorV.Name      = "separatorV";
+            separatorV.Size      = new Size(1, 28);
+            separatorV.TabIndex  = 15;
+
+            btnUpload.FlatStyle           = FlatStyle.System;
+            btnUpload.Location            = new Point(432, 64);
+            btnUpload.Name                = "btnUpload";
+            btnUpload.Size                = new Size(95, 26);
+            btnUpload.TabIndex            = 16;
+            btnUpload.Text                = "↑  Upload";
+            btnUpload.UseVisualStyleBackColor = true;
+            btnUpload.Click              += BtnUpload_Click;
+
+            btnDownload.FlatStyle           = FlatStyle.System;
+            btnDownload.Location            = new Point(535, 64);
+            btnDownload.Name                = "btnDownload";
+            btnDownload.Size                = new Size(100, 26);
+            btnDownload.TabIndex            = 17;
+            btnDownload.Text                = "↓  Download";
+            btnDownload.UseVisualStyleBackColor = true;
+            btnDownload.Click              += BtnDownload_Click;
+
+            // ── separatorH ──────────────────────────────────────────────
+            separatorH.BackColor = Color.FromArgb(195, 195, 205);
+            separatorH.Dock      = DockStyle.Top;
+            separatorH.Location  = new Point(0, 102);
+            separatorH.Name      = "separatorH";
+            separatorH.Size      = new Size(1040, 1);
+            separatorH.TabIndex  = 1;
+
+            // ── statusStrip ─────────────────────────────────────────────
+            statusProgress.Name    = "statusProgress";
+            statusProgress.Size    = new Size(120, 16);
+            statusProgress.Style   = ProgressBarStyle.Marquee;
+            statusProgress.Visible = false;
+
+            statusStrip.Items.AddRange(new ToolStripItem[] { statusLabel, statusProgress });
+            statusStrip.Location    = new Point(0, 678);
+            statusStrip.Name        = "statusStrip";
+            statusStrip.Size        = new Size(1040, 22);
+            statusStrip.TabIndex    = 3;
+            statusStrip.Text        = "statusStrip";
+
+            statusLabel.Name          = "statusLabel";
+            statusLabel.Size          = new Size(1025, 17);
+            statusLabel.Spring        = true;
+            statusLabel.Text          = "준비됨";
+            statusLabel.TextAlign     = ContentAlignment.MiddleLeft;
+
+            // ── splitMain ───────────────────────────────────────────────
+            splitMain.Dock        = DockStyle.Fill;
+            splitMain.Location    = new Point(0, 103);
+            splitMain.Name        = "splitMain";
+            splitMain.Orientation = Orientation.Horizontal;
+            splitMain.Panel1.Controls.Add(splitFiles);
+            splitMain.Panel2.Controls.Add(panelLog);
+            splitMain.Size        = new Size(1040, 575);
+            splitMain.SplitterWidth = 5;
+            splitMain.TabIndex    = 2;
+
+            // ── splitFiles ──────────────────────────────────────────────
+            splitFiles.Dock        = DockStyle.Fill;
+            splitFiles.Location    = new Point(0, 0);
+            splitFiles.Name        = "splitFiles";
+            splitFiles.Panel1.Controls.Add(panelServer);
+            splitFiles.Panel2.Controls.Add(panelLocal);
+            splitFiles.Size        = new Size(1040, 418);
+            splitFiles.SplitterWidth = 5;
+            splitFiles.TabIndex    = 0;
+
+            // ── panelServer ─────────────────────────────────────────────
+            panelServer.Controls.Add(treeViewServer);
+            panelServer.Controls.Add(lblServer);
+            panelServer.Dock     = DockStyle.Fill;
+            panelServer.Location = new Point(0, 0);
+            panelServer.Name     = "panelServer";
+            panelServer.Size     = new Size(517, 418);
+            panelServer.TabIndex = 0;
+
+            lblServer.BackColor = Color.FromArgb(228, 236, 250);
+            lblServer.Dock      = DockStyle.Top;
+            lblServer.Font      = new Font("Segoe UI", 9f, FontStyle.Bold);
+            lblServer.ForeColor = Color.FromArgb(25, 55, 115);
+            lblServer.Location  = new Point(0, 0);
+            lblServer.Name      = "lblServer";
+            lblServer.Padding   = new Padding(6, 0, 0, 0);
+            lblServer.Size      = new Size(517, 26);
+            lblServer.TabIndex  = 1;
+            lblServer.Text      = "서버 (Server)";
+            lblServer.TextAlign = ContentAlignment.MiddleLeft;
+
+            treeViewServer.BorderStyle  = BorderStyle.None;
+            treeViewServer.Dock         = DockStyle.Fill;
+            treeViewServer.ImageList    = imageListFiles;
+            treeViewServer.Location     = new Point(0, 26);
+            treeViewServer.Name         = "treeViewServer";
+            treeViewServer.Scrollable   = true;
+            treeViewServer.Size         = new Size(517, 392);
+            treeViewServer.TabIndex     = 0;
+
+            // ── panelLocal ──────────────────────────────────────────────
+            panelLocal.Controls.Add(treeViewLocal);
+            panelLocal.Controls.Add(lblLocal);
+            panelLocal.Dock     = DockStyle.Fill;
+            panelLocal.Location = new Point(0, 0);
+            panelLocal.Name     = "panelLocal";
+            panelLocal.Size     = new Size(518, 418);
+            panelLocal.TabIndex = 0;
+
+            lblLocal.BackColor = Color.FromArgb(228, 236, 250);
+            lblLocal.Dock      = DockStyle.Top;
+            lblLocal.Font      = new Font("Segoe UI", 9f, FontStyle.Bold);
+            lblLocal.ForeColor = Color.FromArgb(25, 55, 115);
+            lblLocal.Location  = new Point(0, 0);
+            lblLocal.Name      = "lblLocal";
+            lblLocal.Padding   = new Padding(6, 0, 0, 0);
+            lblLocal.Size      = new Size(518, 26);
+            lblLocal.TabIndex  = 1;
+            lblLocal.Text      = "로컬 (Local)";
+            lblLocal.TextAlign = ContentAlignment.MiddleLeft;
+
+            treeViewLocal.BorderStyle  = BorderStyle.None;
+            treeViewLocal.Dock         = DockStyle.Fill;
+            treeViewLocal.ImageList    = imageListFiles;
+            treeViewLocal.Location     = new Point(0, 26);
+            treeViewLocal.Name         = "treeViewLocal";
+            treeViewLocal.Scrollable   = true;
+            treeViewLocal.Size         = new Size(518, 392);
+            treeViewLocal.TabIndex     = 0;
+
+            // ── panelLog ────────────────────────────────────────────────
+            panelLog.Controls.Add(richTextLog);
+            panelLog.Controls.Add(lblLog);
+            panelLog.Dock     = DockStyle.Fill;
+            panelLog.Location = new Point(0, 0);
+            panelLog.Name     = "panelLog";
+            panelLog.Size     = new Size(1040, 152);
+            panelLog.TabIndex = 0;
+
+            lblLog.BackColor = Color.FromArgb(50, 50, 50);
+            lblLog.Dock      = DockStyle.Top;
+            lblLog.Font      = new Font("Segoe UI", 9f, FontStyle.Bold);
+            lblLog.ForeColor = Color.White;
+            lblLog.Location  = new Point(0, 0);
+            lblLog.Name      = "lblLog";
+            lblLog.Padding   = new Padding(6, 0, 0, 0);
+            lblLog.Size      = new Size(1040, 24);
+            lblLog.TabIndex  = 1;
+            lblLog.Text      = "로그 (Log)";
+            lblLog.TextAlign = ContentAlignment.MiddleLeft;
+
+            richTextLog.BackColor    = Color.FromArgb(30, 30, 30);
+            richTextLog.BorderStyle  = BorderStyle.None;
+            richTextLog.Dock         = DockStyle.Fill;
+            richTextLog.Font         = new Font("Consolas", 9f);
+            richTextLog.ForeColor    = Color.FromArgb(180, 220, 180);
+            richTextLog.Location     = new Point(0, 24);
+            richTextLog.Name         = "richTextLog";
+            richTextLog.ReadOnly     = true;
+            richTextLog.ScrollBars   = RichTextBoxScrollBars.Vertical;
+            richTextLog.Size         = new Size(1040, 128);
+            richTextLog.TabIndex     = 0;
+            richTextLog.WordWrap     = false;
+
+            // ── MainForm ────────────────────────────────────────────────
+            AutoScaleDimensions = new SizeF(7f, 15f);
+            AutoScaleMode       = AutoScaleMode.Font;
+            ClientSize          = new Size(1040, 700);
+            Controls.Add(splitMain);
+            Controls.Add(statusStrip);
+            Controls.Add(separatorH);
+            Controls.Add(panelTop);
+            Font            = new Font("Segoe UI", 9f);
+            MinimumSize     = new Size(840, 540);
+            Name            = "MainForm";
+            StartPosition   = FormStartPosition.CenterScreen;
+            Text            = "FTP Client";
+            Load           += OnFormLoad;
+
+            // Resume layout
+            panelTop.ResumeLayout(false);
+            panelTop.PerformLayout();
+            splitMain.Panel1.ResumeLayout(false);
+            splitMain.Panel2.ResumeLayout(false);
+            ((ISupportInitialize)splitMain).EndInit();
+            splitMain.ResumeLayout(false);
+            splitFiles.Panel1.ResumeLayout(false);
+            splitFiles.Panel2.ResumeLayout(false);
+            ((ISupportInitialize)splitFiles).EndInit();
+            splitFiles.ResumeLayout(false);
+            panelServer.ResumeLayout(false);
+            panelLocal.ResumeLayout(false);
+            panelLog.ResumeLayout(false);
+            statusStrip.ResumeLayout(false);
+            statusStrip.PerformLayout();
+            ResumeLayout(false);
+            PerformLayout();
+        }
+
+        #endregion
+
+        private Panel               panelTop        = null!;
+        private Label               lblProtocol     = null!;
+        private Label               lblHost         = null!;
+        private Label               lblPort         = null!;
+        private Label               lblUser         = null!;
+        private Label               lblPass         = null!;
+        private ComboBox            comboProtocol   = null!;
+        private TextBox             txtHost         = null!;
+        private TextBox             txtPort         = null!;
+        private TextBox             txtUser         = null!;
+        private TextBox             txtPassword     = null!;
+        private Button              btnConnect      = null!;
+        private Label               lblProfile      = null!;
+        private ComboBox            comboProfile    = null!;
+        private Button              btnProfileSave  = null!;
+        private Button              btnProfileDelete= null!;
+        private Panel               separatorV      = null!;
+        private Button              btnUpload       = null!;
+        private Button              btnDownload     = null!;
+        private Panel               separatorH      = null!;
+        private SplitContainer      splitMain       = null!;
+        private SplitContainer      splitFiles      = null!;
+        private Panel               panelServer     = null!;
+        private Label               lblServer       = null!;
+        private TreeView            treeViewServer  = null!;
+        private Panel               panelLocal      = null!;
+        private Label               lblLocal        = null!;
+        private TreeView            treeViewLocal   = null!;
+        private Panel               panelLog        = null!;
+        private Label               lblLog          = null!;
+        private RichTextBox         richTextLog     = null!;
+        private StatusStrip           statusStrip     = null!;
+        private ToolStripStatusLabel  statusLabel     = null!;
+        private ToolStripProgressBar  statusProgress  = null!;
+        private ImageList             imageListFiles  = null!;
+    }
+}

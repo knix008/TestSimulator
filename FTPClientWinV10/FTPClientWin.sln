@@ -1,0 +1,28 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FTPClientWin", "FTPClientWin\FTPClientWin.csproj", "{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}"
+EndProject
+Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "FTPClientWinSetup", "FTPClientWinSetup\FTPClientWinSetup.wixproj", "{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Debug|x64.ActiveCfg = Debug|x64
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Debug|x64.Build.0 = Debug|x64
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Release|x64.ActiveCfg = Release|x64
+		{3F7A9B2C-E14D-4A8F-B3C6-5D9E2F1A7B0C}.Release|x64.Build.0 = Release|x64
+		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Debug|x64.ActiveCfg = Debug|x64
+		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Debug|x64.Build.0 = Debug|x64
+		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Release|x64.ActiveCfg = Release|x64
+		{8D4E1F6A-C2B9-4D7E-A0F5-3C8B1E9D5F2A}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
