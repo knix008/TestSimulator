@@ -282,7 +282,7 @@ namespace FTPClientWin
             splitFiles.Panel2.Controls.Add(panelLocal);
             splitFiles.Size = new Size(1040, 402);
             splitFiles.SplitterDistance = 527;
-            splitFiles.SplitterWidth = 5;
+            splitFiles.SplitterWidth = 60;
             splitFiles.TabIndex = 0;
             // 
             // panelServer

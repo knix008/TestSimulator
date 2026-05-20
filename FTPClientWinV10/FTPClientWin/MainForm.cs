@@ -165,6 +165,120 @@ namespace FTPClientWin
             treeViewLocal.ContextMenuStrip = ctxLocal;
         }
 
+        // ── Transfer overlay buttons (분할 바 전체 폭 사용) ─────────────────
+        private void SetupTransferButtons()
+        {
+            // 분할 바 폭과 동일하게 (SplitterWidth = 60)
+            const int splW  = 60;
+            const int btnW  = splW - 4;   // 좌우 2px 여백
+            const int btnH  = 26;
+            const int gap   = 3;
+            const int pnlH  = btnH * 2 + gap + 4; // 두 버튼 + 간격 + 상하 여백
+
+            var tip = new ToolTip();
+
+            var btnUp = new Button
+            {
+                Text      = "",
+                Image     = MakeArrowBitmap(btnW - 8, btnH - 6, left: true,
+                                Color.FromArgb(30, 100, 30)),
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Width     = btnW, Height = btnH,
+                Location  = new Point(2, 2),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(210, 238, 210),
+                TabStop   = false,
+                Cursor    = Cursors.Hand
+            };
+            btnUp.FlatAppearance.BorderColor    = Color.FromArgb(140, 200, 140);
+            btnUp.FlatAppearance.MouseOverBackColor = Color.FromArgb(170, 220, 170);
+            btnUp.Click += async (_, _) => await UploadSelectedAsync();
+            tip.SetToolTip(btnUp, "업로드  ←  로컬 → 서버");
+
+            var btnDown = new Button
+            {
+                Text      = "",
+                Image     = MakeArrowBitmap(btnW - 8, btnH - 6, left: false,
+                                Color.FromArgb(20, 50, 130)),
+                ImageAlign = ContentAlignment.MiddleCenter,
+                Width     = btnW, Height = btnH,
+                Location  = new Point(2, 2 + btnH + gap),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(210, 225, 248),
+                TabStop   = false,
+                Cursor    = Cursors.Hand
+            };
+            btnDown.FlatAppearance.BorderColor    = Color.FromArgb(140, 170, 220);
+            btnDown.FlatAppearance.MouseOverBackColor = Color.FromArgb(170, 195, 235);
+            btnDown.Click += async (_, _) => await DownloadSelectedAsync();
+            tip.SetToolTip(btnDown, "다운로드  →  서버 → 로컬");
+
+            _pnlTransfer = new Panel
+            {
+                Width       = splW,
+                Height      = pnlH,
+                BackColor   = Color.FromArgb(235, 240, 250),
+                BorderStyle = BorderStyle.None
+            };
+            _pnlTransfer.Controls.Add(btnUp);
+            _pnlTransfer.Controls.Add(btnDown);
+
+            splitMain.Panel1.Controls.Add(_pnlTransfer);
+            _pnlTransfer.BringToFront();
+
+            PositionTransferPanel();
+            splitFiles.SplitterMoved     += (_, _) => PositionTransferPanel();
+            splitMain.Panel1.SizeChanged += (_, _) => PositionTransferPanel();
+        }
+
+        // GDI+로 화살표 비트맵 생성
+        private static Bitmap MakeArrowBitmap(int w, int h, bool left, Color color)
+        {
+            var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using var g = Graphics.FromImage(bmp);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.Clear(Color.Transparent);
+
+            int cx = w / 2, cy = h / 2;
+            int ax = w / 2 - 1;   // 화살 반폭
+            int ay = h / 2 - 1;   // 화살머리 반높이
+            int ty = h / 5;        // 몸통 반높이
+
+            Point[] pts = left
+                ? new[]   // ←
+                {
+                    new Point(cx - ax, cy),
+                    new Point(cx,      cy - ay),
+                    new Point(cx,      cy - ty),
+                    new Point(cx + ax, cy - ty),
+                    new Point(cx + ax, cy + ty),
+                    new Point(cx,      cy + ty),
+                    new Point(cx,      cy + ay),
+                }
+                : new[]   // →
+                {
+                    new Point(cx + ax, cy),
+                    new Point(cx,      cy - ay),
+                    new Point(cx,      cy - ty),
+                    new Point(cx - ax, cy - ty),
+                    new Point(cx - ax, cy + ty),
+                    new Point(cx,      cy + ty),
+                    new Point(cx,      cy + ay),
+                };
+
+            using var brush = new SolidBrush(color);
+            g.FillPolygon(brush, pts);
+            return bmp;
+        }
+
+        private void PositionTransferPanel()
+        {
+            if (_pnlTransfer == null) return;
+            var x = splitFiles.SplitterDistance;
+            var y = (splitFiles.Height - _pnlTransfer.Height) / 2;
+            _pnlTransfer.Location = new Point(x, y);
+        }
+
         // ── Status bar ───────────────────────────────────────────────────────
         private void SetStatus(string message) => statusLabel.Text = message;
 
