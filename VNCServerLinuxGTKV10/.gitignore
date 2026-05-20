@@ -1,0 +1,23 @@
+# Build output
+build/
+vncserver
+
+# Object / library artifacts
+*.o
+*.a
+*.so
+*.so.*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Debug / core dumps
+core
+core.*
+vgcore.*
+
+# Local overrides
+*.local
