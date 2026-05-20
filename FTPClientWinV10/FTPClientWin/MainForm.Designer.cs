@@ -38,7 +38,10 @@ namespace FTPClientWin
             lblProtocol = new Label();
             separatorH = new Panel();
             splitMain = new SplitContainer();
-            splitFiles = new SplitContainer();
+            panelFilesContainer = new Panel();
+            panelSplitterBar    = new Panel();
+            btnTransferUp       = new Button();
+            btnTransferDown     = new Button();
             panelServer = new Panel();
             treeViewServer = new TreeView();
             imageListFiles = new ImageList(components);
@@ -57,10 +60,8 @@ namespace FTPClientWin
             splitMain.Panel1.SuspendLayout();
             splitMain.Panel2.SuspendLayout();
             splitMain.SuspendLayout();
-            ((ISupportInitialize)splitFiles).BeginInit();
-            splitFiles.Panel1.SuspendLayout();
-            splitFiles.Panel2.SuspendLayout();
-            splitFiles.SuspendLayout();
+            panelFilesContainer.SuspendLayout();
+            panelSplitterBar.SuspendLayout();
             panelServer.SuspendLayout();
             panelLocal.SuspendLayout();
             panelLog.SuspendLayout();
@@ -257,7 +258,7 @@ namespace FTPClientWin
             // 
             // splitMain.Panel1
             // 
-            splitMain.Panel1.Controls.Add(splitFiles);
+            splitMain.Panel1.Controls.Add(panelFilesContainer);
             // 
             // splitMain.Panel2
             // 
@@ -266,33 +267,57 @@ namespace FTPClientWin
             splitMain.SplitterDistance = 402;
             splitMain.SplitterWidth = 5;
             splitMain.TabIndex = 2;
-            // 
-            // splitFiles
-            // 
-            splitFiles.Dock = DockStyle.Fill;
-            splitFiles.Location = new Point(0, 0);
-            splitFiles.Name = "splitFiles";
-            // 
-            // splitFiles.Panel1
-            // 
-            splitFiles.Panel1.Controls.Add(panelServer);
-            // 
-            // splitFiles.Panel2
-            // 
-            splitFiles.Panel2.Controls.Add(panelLocal);
-            splitFiles.Size = new Size(1040, 402);
-            splitFiles.SplitterDistance = 527;
-            splitFiles.SplitterWidth = 60;
-            splitFiles.TabIndex = 0;
+            // panelFilesContainer
+            panelFilesContainer.Controls.Add(panelLocal);        // Fill → 마지막 처리
+            panelFilesContainer.Controls.Add(panelSplitterBar);  // Left
+            panelFilesContainer.Controls.Add(panelServer);       // Left → 가장 왼쪽
+            panelFilesContainer.Dock     = DockStyle.Fill;
+            panelFilesContainer.Location = new Point(0, 0);
+            panelFilesContainer.Name     = "panelFilesContainer";
+            panelFilesContainer.Size     = new Size(1040, 420);
+            panelFilesContainer.TabIndex = 0;
+            //
+            // panelSplitterBar
+            //
+            panelSplitterBar.Controls.Add(btnTransferDown);
+            panelSplitterBar.Controls.Add(btnTransferUp);
+            panelSplitterBar.BackColor = Color.FromArgb(228, 236, 250);
+            panelSplitterBar.Cursor    = Cursors.SizeWE;
+            panelSplitterBar.Dock      = DockStyle.Left;
+            panelSplitterBar.Name      = "panelSplitterBar";
+            panelSplitterBar.Width     = 40;
+            panelSplitterBar.TabIndex  = 1;
+            //
+            // btnTransferUp (← Upload)
+            //
+            btnTransferUp.Dock      = DockStyle.None;
+            btnTransferUp.Size      = new Size(36, 24);
+            btnTransferUp.FlatStyle = FlatStyle.Flat;
+            btnTransferUp.Name      = "btnTransferUp";
+            btnTransferUp.TabIndex  = 0;
+            btnTransferUp.Cursor    = Cursors.Hand;
+            btnTransferUp.UseVisualStyleBackColor = true;
+            btnTransferUp.Click += BtnTransferUp_Click;
+            //
+            // btnTransferDown (→ Download)
+            //
+            btnTransferDown.Dock      = DockStyle.None;
+            btnTransferDown.Size      = new Size(36, 24);
+            btnTransferDown.FlatStyle = FlatStyle.Flat;
+            btnTransferDown.Name      = "btnTransferDown";
+            btnTransferDown.TabIndex  = 1;
+            btnTransferDown.Cursor    = Cursors.Hand;
+            btnTransferDown.UseVisualStyleBackColor = true;
+            btnTransferDown.Click += BtnTransferDown_Click;
             // 
             // panelServer
             // 
             panelServer.Controls.Add(treeViewServer);
             panelServer.Controls.Add(lblServer);
-            panelServer.Dock = DockStyle.Fill;
+            panelServer.Dock     = DockStyle.Left;
             panelServer.Location = new Point(0, 0);
-            panelServer.Name = "panelServer";
-            panelServer.Size = new Size(527, 402);
+            panelServer.Name     = "panelServer";
+            panelServer.Size     = new Size(490, 420);
             panelServer.TabIndex = 0;
             // 
             // treeViewServer
@@ -331,10 +356,10 @@ namespace FTPClientWin
             // 
             panelLocal.Controls.Add(treeViewLocal);
             panelLocal.Controls.Add(lblLocal);
-            panelLocal.Dock = DockStyle.Fill;
+            panelLocal.Dock     = DockStyle.Fill;
             panelLocal.Location = new Point(0, 0);
-            panelLocal.Name = "panelLocal";
-            panelLocal.Size = new Size(508, 402);
+            panelLocal.Name     = "panelLocal";
+            panelLocal.Size     = new Size(490, 420);
             panelLocal.TabIndex = 0;
             // 
             // treeViewLocal
@@ -448,10 +473,8 @@ namespace FTPClientWin
             splitMain.Panel2.ResumeLayout(false);
             ((ISupportInitialize)splitMain).EndInit();
             splitMain.ResumeLayout(false);
-            splitFiles.Panel1.ResumeLayout(false);
-            splitFiles.Panel2.ResumeLayout(false);
-            ((ISupportInitialize)splitFiles).EndInit();
-            splitFiles.ResumeLayout(false);
+            panelSplitterBar.ResumeLayout(false);
+            panelFilesContainer.ResumeLayout(false);
             panelServer.ResumeLayout(false);
             panelLocal.ResumeLayout(false);
             panelLog.ResumeLayout(false);
@@ -481,7 +504,10 @@ namespace FTPClientWin
         private Button              btnProfileDelete= null!;
         private Panel               separatorH      = null!;
         private SplitContainer      splitMain       = null!;
-        private SplitContainer      splitFiles      = null!;
+        private Panel               panelFilesContainer = null!;
+        private Panel               panelSplitterBar    = null!;
+        private Button              btnTransferUp       = null!;
+        private Button              btnTransferDown     = null!;
         private Panel               panelServer     = null!;
         private Label               lblServer       = null!;
         private TreeView            treeViewServer  = null!;
