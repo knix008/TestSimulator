@@ -1,0 +1,29 @@
+# Build output
+bin/
+obj/
+
+# WiX installer publish & output
+FTPClientWinSetup/publish/
+FTPClientWinSetup/bin/
+FTPClientWinSetup/obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+.nuget/
+packages/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs & temp
+*.log
+*.tmp
