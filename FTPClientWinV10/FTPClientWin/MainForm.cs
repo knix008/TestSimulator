@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Media;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,9 +15,14 @@ namespace FTPClientWin
     public partial class MainForm : Form
     {
         // ── Transfer buttons drag state ──────────────────────────────────────
-        private bool _isResizing;
-        private int  _dragStartX;
-        private int  _dragStartServerWidth;
+        private bool    _isResizing;
+        private int     _dragStartX;
+        private int     _dragStartServerWidth;
+        private Bitmap? _bmpArrowUp;
+        private Bitmap? _bmpArrowDown;
+        private bool    _loadingPath;
+
+        private static readonly Bitmap _errorIconBmp = SystemIcons.Error.ToBitmap();
 
         // ── Connection state ─────────────────────────────────────────────────
         private AsyncFtpClient? _ftp;
@@ -89,7 +93,9 @@ namespace FTPClientWin
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
-            // Dispose를 백그라운드에서 실행 — UI 스레드 블로킹 방지
+            _settings.Save();           // 마지막 로컬 경로 저장
+            _bmpArrowUp?.Dispose();     // GDI 비트맵 해제
+            _bmpArrowDown?.Dispose();
             var ftp  = _ftp;
             var sftp = _sftp;
             _ftp  = null;
@@ -116,7 +122,11 @@ namespace FTPClientWin
 
         private void TryAddIcon(string key, string ext, bool isFolder)
         {
-            try { imageListFiles.Images.Add(key, NativeMethods.GetShellIcon(ext, isFolder)); }
+            try
+            {
+                using var bmp = NativeMethods.GetShellIcon(ext, isFolder);
+                imageListFiles.Images.Add(key, bmp);   // ImageList가 내부 복사본 생성
+            }
             catch { }
         }
 
@@ -125,7 +135,11 @@ namespace FTPClientWin
             var key = $"drive_{drive.Name[0]}";
             if (!imageListFiles.Images.ContainsKey(key))
             {
-                try { imageListFiles.Images.Add(key, NativeMethods.GetShellIconForPath(drive.RootDirectory.FullName)); }
+                try
+                {
+                    using var bmp = NativeMethods.GetShellIconForPath(drive.RootDirectory.FullName);
+                    imageListFiles.Images.Add(key, bmp);
+                }
                 catch { return "folder"; }
             }
             return key;
@@ -152,13 +166,13 @@ namespace FTPClientWin
         // ── Context menus ────────────────────────────────────────────────────
         private void SetupContextMenus()
         {
-            var ctxServer = new ContextMenuStrip();
+            var ctxServer = new ContextMenuStrip(components); // components 등록 → 폼 Dispose 시 자동 해제
             ctxServer.Items.Add("다운로드",   null, async (_, _) => await DownloadSelectedAsync());
             ctxServer.Items.Add(new ToolStripSeparator());
             ctxServer.Items.Add("새로 고침", null, async (_, _) => await RefreshServerNodeAsync());
             treeViewServer.ContextMenuStrip = ctxServer;
 
-            var ctxLocal = new ContextMenuStrip();
+            var ctxLocal = new ContextMenuStrip(components);
             ctxLocal.Items.Add("업로드",          null, async (_, _) => await UploadSelectedAsync());
             ctxLocal.Items.Add(new ToolStripSeparator());
             ctxLocal.Items.Add("새로 고침",       null, (_, _) => RefreshLocalNode());
@@ -169,12 +183,13 @@ namespace FTPClientWin
         // ── Transfer buttons (panelSplitterBar에 직접 배치, 수직 중앙) ───────
         private void SetupTransferButtons()
         {
-            var tip = new ToolTip();
+            var tip = new ToolTip(components); // components 등록 → 폼 Dispose 시 자동 해제
             int bw = btnTransferUp.Width, bh = btnTransferUp.Height;
 
-            // ← 업로드 버튼 아이콘
-            btnTransferUp.Image      = MakeArrowBitmap(bw - 6, bh - 4, left: true,
+            // ← 업로드 버튼 아이콘 (필드에 저장 → OnFormClosing에서 Dispose)
+            _bmpArrowUp              = MakeArrowBitmap(bw - 6, bh - 4, left: true,
                                            Color.FromArgb(25, 90, 25));
+            btnTransferUp.Image      = _bmpArrowUp;
             btnTransferUp.ImageAlign = ContentAlignment.MiddleCenter;
             btnTransferUp.BackColor  = Color.FromArgb(210, 238, 210);
             btnTransferUp.FlatAppearance.BorderColor        = Color.FromArgb(130, 190, 130);
@@ -182,8 +197,9 @@ namespace FTPClientWin
             tip.SetToolTip(btnTransferUp, "업로드  ←  로컬 → 서버");
 
             // → 다운로드 버튼 아이콘
-            btnTransferDown.Image      = MakeArrowBitmap(bw - 6, bh - 4, left: false,
+            _bmpArrowDown              = MakeArrowBitmap(bw - 6, bh - 4, left: false,
                                              Color.FromArgb(20, 45, 120));
+            btnTransferDown.Image      = _bmpArrowDown;
             btnTransferDown.ImageAlign = ContentAlignment.MiddleCenter;
             btnTransferDown.BackColor  = Color.FromArgb(210, 225, 248);
             btnTransferDown.FlatAppearance.BorderColor        = Color.FromArgb(130, 160, 215);
@@ -303,7 +319,7 @@ namespace FTPClientWin
 
                 _isConnected = true;
                 UpdateConnectButton(true);
-                SystemSounds.Asterisk.Play();
+                PlaySuccessSound();
                 SetStatus($"연결됨 — {protocol}://{host}:{port}");
                 AppendLog($"연결 성공: {protocol}://{host}:{port}");
 
@@ -316,7 +332,7 @@ namespace FTPClientWin
             catch (OperationCanceledException)
             {
                 DisposeClients();
-                SystemSounds.Hand.Play();
+                PlayErrorSound();
                 SetStatus("연결 시간 초과");
                 AppendLog("연결 시간 초과 (30초)");
                 ShowErrorDialog("연결 시간 초과", "30초 이내에 서버에 연결하지 못했습니다.\n호스트 주소와 포트를 확인하세요.");
@@ -324,7 +340,7 @@ namespace FTPClientWin
             catch (Exception ex)
             {
                 DisposeClients();
-                SystemSounds.Hand.Play();
+                PlayErrorSound();
                 SetStatus("연결 실패");
                 AppendLog($"연결 실패: {ex.Message}");
                 ShowErrorDialog("연결 오류", ex.Message);
@@ -369,6 +385,8 @@ namespace FTPClientWin
                     DownloadDataType             = FtpDataType.Binary,
                     // 로컬 I/O 버퍼: 4KB → 4MB (디스크 읽기/쓰기 횟수 감소)
                     LocalFileBufferSize          = 4 * 1024 * 1024,
+                    // 전송 청크: 64KB → 1MB (TCP 왕복 횟수 ~16배 감소, 대용량 파일 최적화)
+                    TransferChunkSize            = 1 * 1024 * 1024,
                     // 연결 유지 (긴 전송 중 서버 타임아웃 방지)
                     SocketKeepAlive              = true,
                     // 전송 중 NOOP 없음 (순수 데이터 전송에 집중)
@@ -540,25 +558,32 @@ namespace FTPClientWin
                                      ni.Path.TrimEnd('\\').Equals(root.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
             if (driveNode == null) return;
 
-            driveNode.Expand();   // BeforeExpand → 드라이브 내용 로드
-
-            var parts = targetPath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
-            var cur   = driveNode;
-            var curPath = root;
-
-            for (int i = 1; i < parts.Length; i++)
+            // _loadingPath = true → BeforeExpand이 동기 로드 사용
+            // (초기 경로 복원 시에만 — 사용자가 트리를 보기 전이므로 동기 OK)
+            _loadingPath = true;
+            try
             {
-                curPath = Path.Combine(curPath, parts[i]);
-                var child = cur.Nodes.Cast<TreeNode>()
-                    .FirstOrDefault(n => n.Tag is NodeInfo ni && ni.IsDirectory &&
-                                         ni.Path.TrimEnd('\\').Equals(curPath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
-                if (child == null) break;
-                child.Expand();
-                cur = child;
-            }
+                driveNode.Expand();
 
-            treeViewLocal.SelectedNode = cur;
-            cur.EnsureVisible();
+                var parts   = targetPath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+                var cur     = driveNode;
+                var curPath = root;
+
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    curPath = Path.Combine(curPath, parts[i]);
+                    var child = cur.Nodes.Cast<TreeNode>()
+                        .FirstOrDefault(n => n.Tag is NodeInfo ni && ni.IsDirectory &&
+                                             ni.Path.TrimEnd('\\').Equals(curPath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
+                    if (child == null) break;
+                    child.Expand();
+                    cur = child;
+                }
+
+                treeViewLocal.SelectedNode = cur;
+                cur.EnsureVisible();
+            }
+            finally { _loadingPath = false; }
         }
 
         private void TreeViewLocal_BeforeExpand(object? sender, TreeViewCancelEventArgs e)
@@ -568,9 +593,14 @@ namespace FTPClientWin
             if (!HasPlaceholder(node)) return;
 
             node.Nodes.Clear();
-            LoadLocalChildNodes(node, info.Path);
+            if (_loadingPath)
+                LoadLocalChildNodes(node, info.Path);   // 경로 복원 시 동기 (UI 미표시 상태)
+            else
+                LoadLocalChildNodesAsync(node, info.Path); // 사용자 확장 시 비동기
         }
 
+        // 경로 복원(ExpandToLocalPath) 전용 동기 버전 — UI 스레드에서 호출되지만
+        // _loadingPath=true 구간은 폼 최초 표시 직후이므로 수십ms 허용 범위
         private void LoadLocalChildNodes(TreeNode parent, string path)
         {
             parent.TreeView?.BeginUpdate();
@@ -580,14 +610,12 @@ namespace FTPClientWin
                     .OrderBy(d => Path.GetFileName(d), StringComparer.OrdinalIgnoreCase))
                 {
                     var node = MakeNode(Path.GetFileName(dir), dir, true);
-                    node.Nodes.Add(Placeholder());   // 하위 폴더 대비 expand 화살표
+                    node.Nodes.Add(Placeholder());
                     parent.Nodes.Add(node);
                 }
                 foreach (var file in Directory.GetFiles(path)
                     .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase))
-                {
                     parent.Nodes.Add(MakeNode(Path.GetFileName(file), file, false));
-                }
             }
             catch (UnauthorizedAccessException)
             {
@@ -597,20 +625,104 @@ namespace FTPClientWin
             finally { parent.TreeView?.EndUpdate(); }
         }
 
+        // 사용자 트리 확장/새로 고침 전용 비동기 버전 — UI 스레드 블로킹 없음
+        private void LoadLocalChildNodesAsync(TreeNode node, string path)
+        {
+            node.Nodes.Add(new TreeNode("로딩 중...") { ForeColor = Color.Gray });
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    var dirs  = Directory.GetDirectories(path)
+                                         .OrderBy(d => Path.GetFileName(d), StringComparer.OrdinalIgnoreCase)
+                                         .ToArray();
+                    var files = Directory.GetFiles(path)
+                                         .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+                                         .ToArray();
+                    return (dirs, files, (string?)null);
+                }
+                catch (UnauthorizedAccessException) { return (Array.Empty<string>(), Array.Empty<string>(), "접근 거부"); }
+                catch (Exception ex)                { return (Array.Empty<string>(), Array.Empty<string>(), ex.Message); }
+            }).ContinueWith(t =>
+            {
+                if (IsDisposed || node.TreeView == null) return;
+                BeginInvoke(() =>
+                {
+                    node.TreeView?.BeginUpdate();
+                    node.Nodes.Clear();
+                    var (dirs, files, error) = t.Result;
+                    if (error != null)
+                    {
+                        node.Nodes.Add(new TreeNode($"[{error}]") { ForeColor = Color.Gray });
+                    }
+                    else
+                    {
+                        foreach (var dir in dirs)
+                        {
+                            var child = MakeNode(Path.GetFileName(dir), dir, true);
+                            child.Nodes.Add(Placeholder());
+                            node.Nodes.Add(child);
+                        }
+                        foreach (var file in files)
+                            node.Nodes.Add(MakeNode(Path.GetFileName(file), file, false));
+                    }
+                    node.TreeView?.EndUpdate();
+                });
+            });
+        }
+
+        // 컨텍스트 메뉴 "새로 고침" — 선택된 노드 갱신
         private void RefreshLocalNode()
         {
             var node = treeViewLocal.SelectedNode;
             if (node?.Tag is not NodeInfo info || !info.IsDirectory) return;
+            RefreshLocalNodeInternal(node, info.Path);
+        }
 
-            var expanded = node.IsExpanded;
+        // 다운로드 완료 후 저장 경로를 갱신 — 선택 여부와 무관하게 동작
+        private void RefreshLocalPath(string targetPath)
+        {
+            var node = FindLocalNode(treeViewLocal.Nodes, targetPath);
+            if (node == null) return;
+            if (node.Tag is not NodeInfo info) return;
+            RefreshLocalNodeInternal(node, info.Path);
+        }
+
+        private void RefreshLocalNodeInternal(TreeNode node, string path)
+        {
+            if (HasPlaceholder(node)) return; // 아직 한 번도 펼치지 않은 노드는 건너뜀
+
+            var wasExpanded = node.IsExpanded;
             node.Nodes.Clear();
-            node.Nodes.Add(Placeholder());
-            if (expanded)
+            if (wasExpanded)
             {
-                LoadLocalChildNodes(node, info.Path);
+                LoadLocalChildNodesAsync(node, path);
                 node.Expand();
             }
-            AppendLog($"새로 고침: {info.Path}");
+            else
+            {
+                node.Nodes.Add(Placeholder());
+            }
+        }
+
+        // 트리에서 경로가 일치하는 노드를 찾음 (펼쳐진 노드만 탐색)
+        private static TreeNode? FindLocalNode(TreeNodeCollection nodes, string path)
+        {
+            var target = path.TrimEnd('\\');
+            foreach (TreeNode node in nodes)
+            {
+                if (node.Tag is NodeInfo info && info.IsDirectory &&
+                    info.Path.TrimEnd('\\').Equals(target, StringComparison.OrdinalIgnoreCase))
+                    return node;
+
+                if (node.IsExpanded)
+                {
+                    var found = FindLocalNode(node.Nodes, path);
+                    if (found != null) return found;
+                }
+            }
+            return null;
         }
 
         private void TreeViewLocal_AfterSelect(object? sender, TreeViewEventArgs e)
@@ -624,7 +736,7 @@ namespace FTPClientWin
             {
                 _localPath              = newPath;
                 _settings.LastLocalPath = newPath;
-                _settings.Save();
+                // Save()는 OnFormClosing에서 한 번만 — 클릭마다 파일 쓰기 방지
                 lblLocal.Text = $"로컬 (Local)  │  {newPath}";
                 SetStatus($"로컬: {newPath}");
             }
@@ -687,9 +799,9 @@ namespace FTPClientWin
             var localDest = Path.Combine(_localPath, name);
 
             AppendLog($"다운로드 시작: {serverPath}  →  {localDest}");
+            ShowTransferProgress(0);
 
-            var progress = new Progress<FtpProgress>(p =>
-                SetStatus($"다운로드: {name}  {p.Progress:F0}%  {FormatSpeed(p.TransferSpeed)}"));
+            var progress = ThrottledFtpProgress("다운로드", name);
 
             try
             {
@@ -697,38 +809,73 @@ namespace FTPClientWin
                 {
                     if (isDirectory)
                         await _ftp.DownloadDirectory(localDest, serverPath,
-                            FtpFolderSyncMode.Update, FtpLocalExists.Overwrite);
+                            FtpFolderSyncMode.Update, FtpLocalExists.Overwrite,
+                            FtpVerify.None, null, progress);
                     else
                         await _ftp.DownloadFile(localDest, serverPath,
                             FtpLocalExists.Overwrite, FtpVerify.None, progress);
                 }
                 else if (_sftp != null)
                 {
-                    var fileSize = await Task.Run(() => _sftp.GetAttributes(serverPath).Size).ConfigureAwait(true);
-                    ulong transferred = 0;
-                    await Task.Run(() =>
+                    if (isDirectory)
+                        await Task.Run(() => SftpDownloadDirectory(_sftp, serverPath, localDest)).ConfigureAwait(true);
+                    else
                     {
-                        using var fs = File.Create(localDest);
-                        _sftp.DownloadFile(serverPath, fs, bytesDownloaded =>
+                        var fileSize = await Task.Run(() => _sftp.GetAttributes(serverPath).Size).ConfigureAwait(true);
+                        long sftpTick = 0;
+                        await Task.Run(() =>
                         {
-                            transferred = bytesDownloaded;
-                            var pct = fileSize > 0 ? (double)bytesDownloaded / fileSize * 100 : 0;
-                            SetStatus($"다운로드: {name}  {pct:F0}%  ({bytesDownloaded / 1024} KB)");
-                        });
-                    }).ConfigureAwait(true);
+                            using var fs = File.Create(localDest, 4 * 1024 * 1024);
+                            _sftp.DownloadFile(serverPath, fs, bytesDownloaded =>
+                            {
+                                long now = Environment.TickCount64;
+                                if (now - sftpTick < 100) return;
+                                sftpTick = now;
+                                int pct = fileSize > 0 ? (int)((long)bytesDownloaded * 100 / fileSize) : 0;
+                                BeginInvoke(() =>
+                                {
+                                    ShowTransferProgress(pct);
+                                    SetStatus($"다운로드: {name}  {pct}%  ({bytesDownloaded / 1024} KB)");
+                                });
+                            });
+                        }).ConfigureAwait(true);
+                    }
                 }
 
-                SystemSounds.Asterisk.Play();
+                ShowTransferProgress(100);
+                PlaySuccessSound();
                 AppendLog($"다운로드 완료: {name}");
                 SetStatus($"다운로드 완료: {name}");
-                RefreshLocalNode();
+                RefreshLocalPath(_localPath); // 다운로드 저장 경로를 정확히 갱신
             }
             catch (Exception ex)
             {
-                SystemSounds.Hand.Play();
+                PlayErrorSound();
                 AppendLog($"다운로드 실패: {ex.Message}");
                 SetStatus("다운로드 실패");
                 ShowErrorDialog("다운로드 오류", ex.Message);
+            }
+            finally
+            {
+                HideTransferProgress();
+            }
+        }
+
+        private void SftpDownloadDirectory(SftpClient sftp, string remotePath, string localPath)
+        {
+            Directory.CreateDirectory(localPath);
+            foreach (var entry in sftp.ListDirectory(remotePath)
+                         .Where(f => f.Name != "." && f.Name != ".."))
+            {
+                var localItem = Path.Combine(localPath, entry.Name);
+                if (entry.IsDirectory)
+                    SftpDownloadDirectory(sftp, entry.FullName, localItem);
+                else
+                {
+                    BeginInvoke(() => SetStatus($"다운로드: {entry.Name}"));
+                    using var fs = File.Create(localItem, 4 * 1024 * 1024);
+                    sftp.DownloadFile(entry.FullName, fs);
+                }
             }
         }
 
@@ -747,9 +894,9 @@ namespace FTPClientWin
             var serverDest = (_serverPath.TrimEnd('/') + "/" + name).Replace("//", "/");
 
             AppendLog($"업로드 시작: {localPath}  →  {serverDest}");
+            ShowTransferProgress(0);
 
-            var progress = new Progress<FtpProgress>(p =>
-                SetStatus($"업로드: {name}  {p.Progress:F0}%  {FormatSpeed(p.TransferSpeed)}"));
+            var progress = ThrottledFtpProgress("업로드", name);
 
             try
             {
@@ -757,37 +904,75 @@ namespace FTPClientWin
                 {
                     if (isDirectory)
                         await _ftp.UploadDirectory(localPath, serverDest,
-                            FtpFolderSyncMode.Update, FtpRemoteExists.Overwrite);
+                            FtpFolderSyncMode.Update, FtpRemoteExists.Overwrite,
+                            FtpVerify.None, null, progress);
                     else
                         await _ftp.UploadFile(localPath, serverDest,
                             FtpRemoteExists.Overwrite, false, FtpVerify.None, progress);
                 }
                 else if (_sftp != null)
                 {
-                    var fileSize = new FileInfo(localPath).Length;
-                    await Task.Run(() =>
+                    if (isDirectory)
+                        await Task.Run(() => SftpUploadDirectory(_sftp, localPath, serverDest)).ConfigureAwait(true);
+                    else
                     {
-                        using var fs = File.OpenRead(localPath);
-                        _sftp.UploadFile(fs, serverDest, true, bytesUploaded =>
+                        var fileSize = new FileInfo(localPath).Length;
+                        long sftpTick = 0;
+                        await Task.Run(() =>
                         {
-                            var pct = fileSize > 0 ? (double)bytesUploaded / fileSize * 100 : 0;
-                            SetStatus($"업로드: {name}  {pct:F0}%  ({bytesUploaded / 1024} KB)");
-                        });
-                    }).ConfigureAwait(true);
+                            using var fs = new FileStream(localPath, FileMode.Open, FileAccess.Read,
+                                FileShare.Read, 4 * 1024 * 1024, FileOptions.SequentialScan);
+                            _sftp.UploadFile(fs, serverDest, true, bytesUploaded =>
+                            {
+                                long now = Environment.TickCount64;
+                                if (now - sftpTick < 100) return;
+                                sftpTick = now;
+                                int pct = fileSize > 0 ? (int)(bytesUploaded * 100 / (ulong)fileSize) : 0;
+                                BeginInvoke(() =>
+                                {
+                                    ShowTransferProgress(pct);
+                                    SetStatus($"업로드: {name}  {pct}%  ({bytesUploaded / 1024} KB)");
+                                });
+                            });
+                        }).ConfigureAwait(true);
+                    }
                 }
 
-                SystemSounds.Asterisk.Play();
+                ShowTransferProgress(100);
+                PlaySuccessSound();
                 AppendLog($"업로드 완료: {name}");
                 SetStatus($"업로드 완료: {name}");
                 await RefreshServerNodeAsync();
             }
             catch (Exception ex)
             {
-                SystemSounds.Hand.Play();
+                PlayErrorSound();
                 AppendLog($"업로드 실패: {ex.Message}");
                 SetStatus("업로드 실패");
                 ShowErrorDialog("업로드 오류", ex.Message);
             }
+            finally
+            {
+                HideTransferProgress();
+            }
+        }
+
+        private void SftpUploadDirectory(SftpClient sftp, string localPath, string remotePath)
+        {
+            if (!sftp.Exists(remotePath))
+                sftp.CreateDirectory(remotePath);
+
+            foreach (var file in Directory.GetFiles(localPath))
+            {
+                var remoteFile = remotePath + "/" + Path.GetFileName(file);
+                BeginInvoke(() => SetStatus($"업로드: {Path.GetFileName(file)}"));
+                using var fs = new FileStream(file, FileMode.Open, FileAccess.Read,
+                    FileShare.Read, 4 * 1024 * 1024, FileOptions.SequentialScan);
+                sftp.UploadFile(fs, remoteFile, true);
+            }
+
+            foreach (var dir in Directory.GetDirectories(localPath))
+                SftpUploadDirectory(sftp, dir, remotePath + "/" + Path.GetFileName(dir));
         }
 
         // ── Profile persistence ──────────────────────────────────────────────
@@ -913,6 +1098,46 @@ namespace FTPClientWin
             AppendLog($"프로파일 삭제: {string.Join(", ", selectedNames)}");
         }
 
+        // ── Transfer progress bar ────────────────────────────────────────────
+        private void ShowTransferProgress(int pct)
+        {
+            statusProgress.Style   = ProgressBarStyle.Blocks;
+            statusProgress.Value   = Math.Clamp(pct, 0, 100);
+            statusProgress.Visible = true;
+        }
+
+        private void HideTransferProgress()
+        {
+            statusProgress.Visible = false;
+            statusProgress.Style   = ProgressBarStyle.Marquee; // 다음 연결 시 복원
+        }
+
+        // ── Throttled progress ───────────────────────────────────────────────
+        // Progress<T> 콜백은 UI 스레드에서 순차 실행되므로 lastTick 은 동기화 불필요.
+        // 100ms 미만 간격 업데이트는 무시해 UI 오버헤드 제거 → 실제 전송에 CPU 집중.
+        private IProgress<FtpProgress> ThrottledFtpProgress(string label, string name)
+        {
+            long lastTick = 0;
+            return new Progress<FtpProgress>(p =>
+            {
+                long now = Environment.TickCount64;
+                if (now - lastTick < 100) return;
+                lastTick = now;
+                int pct = (int)Math.Round(p.Progress);
+                ShowTransferProgress(pct);
+                SetStatus($"{label}: {name}  {pct}%  {FormatSpeed(p.TransferSpeed)}");
+            });
+        }
+
+        // ── Sound helpers ─────────────────────────────────────────────────────
+        // Console.Beep는 Windows 오디오 API를 직접 사용하므로
+        // 사운드 스킴이 "(없음)"이어도 볼륨이 켜져 있으면 항상 소리가 남.
+        private static void PlaySuccessSound() =>
+            Task.Run(() => { try { Console.Beep(880, 120); Console.Beep(1100, 150); } catch { } });
+
+        private static void PlayErrorSound() =>
+            Task.Run(() => { try { Console.Beep(440, 350); } catch { } });
+
         // ── Speed helper ─────────────────────────────────────────────────────
         private static string FormatSpeed(double bytesPerSec)
         {
@@ -941,7 +1166,7 @@ namespace FTPClientWin
                 StartPosition = FormStartPosition.CenterParent,
                 MaximizeBox = false, MinimizeBox = false, Font = Font
             };
-            var icon = new PictureBox { Image = SystemIcons.Error.ToBitmap(), SizeMode = PictureBoxSizeMode.StretchImage, Location = new Point(12, 14), Size = new Size(32, 32) };
+            var icon = new PictureBox { Image = _errorIconBmp, SizeMode = PictureBoxSizeMode.StretchImage, Location = new Point(12, 14), Size = new Size(32, 32) };
             var txt  = new TextBox   { Left = 52, Top = 14, Width = 400, Height = 120, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Text = message, BackColor = SystemColors.Window };
             var hint = new Label     { Left = 52, Top = 140, AutoSize = true, Text = "내용을 선택하여 복사할 수 있습니다.", ForeColor = Color.Gray };
             var btn  = new Button    { Text = "닫기", Left = 380, Top = 164, Width = 75, Height = 28, DialogResult = DialogResult.OK };
