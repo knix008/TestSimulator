@@ -1,10 +1,18 @@
 # ============================================================
 #  FTP GTK Client – Makefile
 #  Target: Linux / GTK3
-#  Protocols: FTP, FTPS (libcurl), SFTP (libssh)
+#  Protocols: FTP, FTPS, SFTP (libcurl)
+#
+#  Directory layout:
+#    include/          – all header files
+#    src/backend/      – GTK-independent: FTP backend, profile
+#    src/ui/           – GTK-dependent:   file pane, dialogs, main window
+#    resources/        – GLib resource bundle (icons)
+#    build/            – compiled objects (mirroring src/ layout)
 # ============================================================
 
 APP     := ftpclient
+INCDIR  := include
 SRCDIR  := src
 BLDDIR  := build
 RESDIR  := resources
@@ -18,33 +26,41 @@ PTHREAD := -pthread
 PKGS    := gtk+-3.0 glib-2.0 libcurl
 
 CFLAGS  := $(CSTD) $(WARN) $(OPT) $(PTHREAD) \
+           -I$(INCDIR) \
            $(shell pkg-config --cflags $(PKGS))
 LDFLAGS := $(PTHREAD) $(shell pkg-config --libs $(PKGS))
 
-SRCS    := $(SRCDIR)/ftp_backend.c \
-           $(SRCDIR)/profile.c \
-           $(SRCDIR)/file_pane.c \
-           $(SRCDIR)/site_dialog.c \
-           $(SRCDIR)/main_window.c \
-           $(SRCDIR)/main.c
+# ── Source files ─────────────────────────────────────────────
+BACKEND_SRCS := $(SRCDIR)/backend/ftp_backend.c \
+                $(SRCDIR)/backend/profile.c
 
+UI_SRCS      := $(SRCDIR)/ui/file_pane.c \
+                $(SRCDIR)/ui/site_dialog.c \
+                $(SRCDIR)/ui/main_window.c \
+                $(SRCDIR)/ui/main.c
+
+SRCS := $(BACKEND_SRCS) $(UI_SRCS)
+
+# ── Resource bundle ──────────────────────────────────────────
 RESSRC  := $(BLDDIR)/resources.c
 RESXML  := $(RESDIR)/ftpclient.gresource.xml
 RESPNGS := $(RESDIR)/icon_16.png $(RESDIR)/icon_32.png \
            $(RESDIR)/icon_48.png $(RESDIR)/icon_256.png
 
-OBJS    := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%.o,$(SRCS)) \
-           $(BLDDIR)/resources.o
+# ── Object files (mirrors src/ layout under build/) ─────────
+OBJS := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%.o,$(SRCS)) \
+        $(BLDDIR)/resources.o
 
+# ── Targets ──────────────────────────────────────────────────
 .PHONY: all deps check-deps clean run install help ftp-server ftp-server-stop
 
 all: check-deps dirs banner link done
 
 banner:
 	@echo ""
-	@echo "╔══════════════════════════════════════════════╗"
-	@echo "║   FTP GTK Client  –  build ($(words $(SRCS)) sources)   ║"
-	@echo "╚══════════════════════════════════════════════╝"
+	@echo "╔═══════════════════════════════════════════════════╗"
+	@echo "║   FTP GTK Client  –  build ($(words $(SRCS)) sources)      ║"
+	@echo "╚═══════════════════════════════════════════════════╝"
 
 done:
 	@echo ""
@@ -78,8 +94,9 @@ check-deps:
 	@echo ""
 
 dirs:
-	@mkdir -p $(BLDDIR)
+	@mkdir -p $(BLDDIR)/backend $(BLDDIR)/ui
 
+# Resource bundle: compile GLib resources into a .c then .o
 $(RESSRC): $(RESXML) $(RESPNGS) | dirs
 	@printf "  [RC]  %-36s\n" "$<"
 	@glib-compile-resources --sourcedir=$(RESDIR) --generate-source --target=$@ $<
@@ -88,14 +105,16 @@ $(BLDDIR)/resources.o: $(RESSRC)
 	@printf "  [CC]  %-36s\n" "$<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
+# Generic rule: src/backend/*.c → build/backend/*.o
+#              src/ui/*.c      → build/ui/*.o
+$(BLDDIR)/%.o: $(SRCDIR)/%.c
+	@printf "  [CC]  %-36s\n" "$<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
 link: $(OBJS)
 	@echo ""
 	@echo "  [LD]  Linking $(APP) ..."
 	@$(CC) $(OBJS) -o $(APP) $(LDFLAGS)
-
-$(BLDDIR)/%.o: $(SRCDIR)/%.c
-	@printf "  [CC]  %-36s\n" "$<"
-	@$(CC) $(CFLAGS) -c $< -o $@
 
 run: all
 	@./$(APP)

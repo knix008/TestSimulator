@@ -187,7 +187,6 @@ void ftp_normalize_local_path(const gchar *path, gchar *out, gsize out_size) {
 void ftp_settings_load(FtpAppSettings *settings) {
     memset(settings, 0, sizeof(*settings));
     g_strlcpy(settings->last_local_path, ftp_home_directory(), FTP_MAX_PATH);
-    g_strlcpy(settings->last_server_path, "/", FTP_MAX_PATH);
 
     gchar *path = settings_path();
     GKeyFile *kf = g_key_file_new();
@@ -198,11 +197,6 @@ void ftp_settings_load(FtpAppSettings *settings) {
         if (lp && lp[0])
             ftp_normalize_local_path(lp, settings->last_local_path, FTP_MAX_PATH);
         g_free(lp);
-
-        gchar *sp = g_key_file_get_string(kf, GROUP_GENERAL, "last_server_path", NULL);
-        if (sp && sp[0])
-            g_strlcpy(settings->last_server_path, sp, FTP_MAX_PATH);
-        g_free(sp);
     }
     g_clear_error(&err);
     g_key_file_free(kf);
@@ -216,7 +210,6 @@ void ftp_settings_save(const FtpAppSettings *settings) {
 
     g_mkdir_with_parents(dir, 0700);
     g_key_file_set_string(kf, GROUP_GENERAL, "last_local_path", settings->last_local_path);
-    g_key_file_set_string(kf, GROUP_GENERAL, "last_server_path", settings->last_server_path);
 
     GError *err = NULL;
     if (!g_key_file_save_to_file(kf, path, &err)) {

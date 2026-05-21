@@ -16,7 +16,6 @@ typedef struct {
 
 typedef struct {
     gchar last_local_path[FTP_MAX_PATH];
-    gchar last_server_path[FTP_MAX_PATH];
 } FtpAppSettings;
 
 gchar       *ftp_config_dir(void);

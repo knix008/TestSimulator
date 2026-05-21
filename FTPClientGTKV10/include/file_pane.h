@@ -41,11 +41,24 @@ const gchar *file_pane_get_local_home(FilePane *pane);
 const gchar *file_pane_get_local_directory(FilePane *pane);
 const gchar *file_pane_get_current_path(FilePane *pane);
 
+/* Single-selection helper (returns first selected item) */
 gboolean file_pane_get_selected(FilePane *pane,
                                 gchar *path_out,
                                 gsize path_size,
                                 gboolean *is_dir_out,
                                 gboolean *is_parent_out);
+
+/* Multi-selection: returns a GPtrArray of heap-allocated FtpDirEntry copies
+   (never NULL; may be empty). Caller must g_ptr_array_unref() the result. */
+GPtrArray *file_pane_get_selected_entries(FilePane *pane);
+
+/* Lookup row data for row-activated (path is the GtkTreePath from the signal). */
+gboolean file_pane_entry_at_path(FilePane *pane,
+                                 GtkTreePath *tree_path,
+                                 gchar *path_out,
+                                 gsize path_size,
+                                 gboolean *is_dir_out,
+                                 gboolean *is_parent_out);
 
 void file_pane_refresh_local_directory(FilePane *pane);
 gboolean file_pane_is_local_loading(FilePane *pane);

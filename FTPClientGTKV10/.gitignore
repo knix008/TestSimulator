@@ -1,4 +1,4 @@
-# Build output
+# Build output (mirrors src/ layout)
 /build/
 /ftpclient
 

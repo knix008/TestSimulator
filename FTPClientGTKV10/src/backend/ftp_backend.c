@@ -73,6 +73,31 @@ static size_t read_file_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
     return fread(ptr, size, nmemb, (FILE *)userdata);
 }
 
+static size_t curl_empty_read(char *ptr, size_t size, size_t nmemb, void *userdata) {
+    (void)ptr;
+    (void)size;
+    (void)nmemb;
+    (void)userdata;
+    return 0;
+}
+
+static void curl_apply_common(FtpSession *session, CURL *curl);
+
+static gchar *build_remote_child_path(const gchar *parent, const gchar *name) {
+    if (g_strcmp0(parent, "/") == 0)
+        return g_strdup_printf("/%s", name);
+    if (g_str_has_suffix(parent, "/"))
+        return g_strdup_printf("%s%s", parent, name);
+    return g_strdup_printf("%s/%s", parent, name);
+}
+
+static gboolean local_path_is_directory(const gchar *path) {
+    struct stat st;
+    if (stat(path, &st) == 0)
+        return S_ISDIR(st.st_mode);
+    return g_file_test(path, G_FILE_TEST_IS_DIR);
+}
+
 static void entry_set_size(FtpDirEntry *e, gint64 bytes) {
     e->size_bytes = bytes;
     if (e->is_dir)
@@ -131,9 +156,8 @@ static gboolean parse_mlsd_line(const gchar *line, FtpDirEntry *e) {
     if (!e->name[0] || g_strcmp0(e->name, ".") == 0 || g_strcmp0(e->name, "..") == 0)
         return FALSE;
 
-    e->is_dir = (strstr(line, "type=dir")  != NULL ||
-                 strstr(line, "type=cdir") != NULL ||
-                 strstr(line, "type=pdir") != NULL);
+    /* type=cdir/pdir are "." and ".." — filtered by name above */
+    e->is_dir = (strstr(line, "type=dir") != NULL);
 
     const gchar *mode_key = strstr(line, "UNIX.mode=");
     if (mode_key) {
@@ -223,7 +247,61 @@ static gboolean parse_unix_list_line(const gchar *line, FtpDirEntry *e) {
     return TRUE;
 }
 
-static void parse_listing(const gchar *raw, GPtrArray *out, const gchar *base_path) {
+/* SFTP (and some FTP) listings: one bare filename per line */
+static gboolean parse_plain_name_line(const gchar *line, FtpDirEntry *e) {
+    if (!line || !line[0]) return FALSE;
+    if (strchr(line, ' ') || strchr(line, '\t') ||
+        strchr(line, '=') || strchr(line, ';'))
+        return FALSE;
+    g_strlcpy(e->name, line, FTP_MAX_NAME);
+    if (g_strcmp0(e->name, ".") == 0 || g_strcmp0(e->name, "..") == 0)
+        return FALSE;
+    e->is_dir = FALSE;
+    e->perm[0] = '?'; /* bare-name listing — probe type later */
+    return TRUE;
+}
+
+static gboolean curl_probe_remote_dir(FtpSession *session, const gchar *remote_path) {
+    gchar *base = build_url(session, remote_path);
+    gchar *url = g_str_has_suffix(base, "/")
+               ? g_strdup(base)
+               : g_strdup_printf("%s/", base);
+    g_free(base);
+
+    MemBuf mem = { .buf = g_string_new(NULL) };
+    CURL *curl = curl_easy_init();
+    curl_apply_common(session, curl);
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_mem);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &mem);
+    if (session->protocol != FTP_PROTOCOL_SFTP)
+        curl_easy_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
+
+    CURLcode res = curl_easy_perform(curl);
+    gboolean is_dir = (res == CURLE_OK);
+    g_string_free(mem.buf, TRUE);
+    curl_easy_cleanup(curl);
+    g_free(url);
+    return is_dir;
+}
+
+static void listing_detect_dirs(FtpSession *session, GPtrArray *entries) {
+    for (guint i = 0; i < entries->len; i++) {
+        FtpDirEntry *e = g_ptr_array_index(entries, i);
+        if (e->is_dir || e->perm[0] != '?')
+            continue;
+        if (curl_probe_remote_dir(session, e->path)) {
+            e->is_dir = TRUE;
+            g_strlcpy(e->perm, "drwxr-xr-x", FTP_MAX_PERM);
+            g_strlcpy(e->size_text, "-", FTP_MAX_SIZE);
+        } else {
+            g_strlcpy(e->perm, "-rw-r--r--", FTP_MAX_PERM);
+        }
+    }
+}
+
+static void parse_listing(FtpSession *session, const gchar *raw,
+                          GPtrArray *out, const gchar *base_path) {
     gchar **lines = g_strsplit(raw, "\n", -1);
     for (gint i = 0; lines[i]; i++) {
         gchar *line = g_strstrip(lines[i]);
@@ -238,8 +316,10 @@ static void parse_listing(const gchar *raw, GPtrArray *out, const gchar *base_pa
            Unix LIST format. */
         if (strchr(line, '=') && strchr(line, ';'))
             ok = parse_mlsd_line(line, e);
-        else
+        else if (line[0] == 'd' || line[0] == '-' || line[0] == 'l')
             ok = parse_unix_list_line(line, e);
+        else
+            ok = parse_plain_name_line(line, e);
 
         if (!ok) {
             g_free(e);
@@ -250,6 +330,88 @@ static void parse_listing(const gchar *raw, GPtrArray *out, const gchar *base_pa
         g_ptr_array_add(out, e);
     }
     g_strfreev(lines);
+    listing_detect_dirs(session, out);
+}
+
+static gboolean curl_ftp_mkdir_one(FtpSession *session, const gchar *remote,
+                                     GError **err) {
+    gchar *cmd = g_strdup_printf("MKD %s", remote);
+    struct curl_slist *quote = curl_slist_append(NULL, cmd);
+    g_free(cmd);
+
+    gchar *url = build_url(session, "/");
+    CURL *curl = curl_easy_init();
+    curl_apply_common(session, curl);
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+    curl_easy_setopt(curl, CURLOPT_QUOTE, quote);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_slist_free_all(quote);
+    curl_easy_cleanup(curl);
+    g_free(url);
+
+    if (res != CURLE_OK) {
+        if (err)
+            g_set_error(err, G_FILE_ERROR, G_FILE_ERROR_FAILED,
+                        "MKD %s failed: %s", remote, curl_easy_strerror(res));
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static gboolean curl_sftp_ensure_dir_one(FtpSession *session, const gchar *remote) {
+    gchar *base = build_url(session, remote);
+    gchar *url = g_str_has_suffix(base, "/")
+               ? g_strdup(base)
+               : g_strdup_printf("%s/", base);
+    g_free(base);
+
+    CURL *curl = curl_easy_init();
+    curl_apply_common(session, curl);
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+    curl_easy_setopt(curl, CURLOPT_READFUNCTION, curl_empty_read);
+    curl_easy_setopt(curl, CURLOPT_INFILESIZE, 0L);
+    curl_easy_setopt(curl, CURLOPT_FTP_CREATE_MISSING_DIRS,
+                     (long)CURLFTP_CREATE_DIR);
+
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    g_free(url);
+    return (res == CURLE_OK);
+}
+
+static gboolean curl_ensure_remote_dir(FtpSession *session, const gchar *remote) {
+    if (!remote || !remote[0] || g_strcmp0(remote, "/") == 0)
+        return TRUE;
+
+    const gchar *walk = remote[0] == '/' ? remote + 1 : remote;
+    if (!walk[0]) return TRUE;
+
+    gchar *dup = g_strdup(walk);
+    gchar **parts = g_strsplit(dup, "/", -1);
+    GString *accum = g_string_new("");
+
+    for (guint i = 0; parts[i]; i++) {
+        if (!parts[i][0]) continue;
+        if (accum->len) g_string_append_c(accum, '/');
+        g_string_append(accum, parts[i]);
+        gchar *mkd = g_strdup_printf("/%s", accum->str);
+        if (session->protocol == FTP_PROTOCOL_SFTP) {
+            curl_sftp_ensure_dir_one(session, mkd);
+        } else {
+            GError *mkd_err = NULL;
+            if (!curl_ftp_mkdir_one(session, mkd, &mkd_err))
+                g_clear_error(&mkd_err);
+        }
+        g_free(mkd);
+    }
+
+    g_strfreev(parts);
+    g_free(dup);
+    g_string_free(accum, TRUE);
+    return TRUE;
 }
 
 static void curl_apply_common(FtpSession *session, CURL *curl) {
@@ -317,7 +479,7 @@ static GPtrArray *curl_list_directory(FtpSession *session, const gchar *path, GE
                     "List failed: %s", curl_easy_strerror(res));
     } else {
         const gchar *norm = path && path[0] ? path : "/";
-        parse_listing(mem.buf->str, arr, norm);
+        parse_listing(session, mem.buf->str, arr, norm);
     }
 
     g_string_free(mem.buf, TRUE);
@@ -405,6 +567,9 @@ static gboolean curl_upload_file(FtpSession *session,
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
     }
 
+    curl_easy_setopt(curl, CURLOPT_FTP_CREATE_MISSING_DIRS,
+                     (long)CURLFTP_CREATE_DIR_RETRY);
+
     CURLcode res = curl_easy_perform(curl);
     fclose(in);
     curl_easy_cleanup(curl);
@@ -419,6 +584,14 @@ static gboolean curl_upload_file(FtpSession *session,
     return TRUE;
 }
 
+static gboolean entry_is_dir(FtpSession *session, FtpDirEntry *e) {
+    if (e->is_dir || e->perm[0] == 'd')
+        return TRUE;
+    if (e->perm[0] == '-' || e->perm[0] == 'l')
+        return FALSE;
+    return curl_probe_remote_dir(session, e->path);
+}
+
 static gboolean curl_download_dir(FtpSession *session,
                                   const gchar *remote,
                                   const gchar *local,
@@ -431,24 +604,43 @@ static gboolean curl_download_dir(FtpSession *session,
         return FALSE;
     }
 
+    if (progress)
+        progress(0, remote, progress_data);
+
     GPtrArray *entries = curl_list_directory(session, remote, err);
+    if (!entries)
+        return FALSE;
+
     gboolean ok = TRUE;
     for (guint i = 0; i < entries->len; i++) {
         FtpDirEntry *e = g_ptr_array_index(entries, i);
+        if (g_strcmp0(e->name, ".") == 0 || g_strcmp0(e->name, "..") == 0)
+            continue;
+
         gchar *child_local = g_build_filename(local, e->name, NULL);
-        if (e->is_dir) {
+        if (entry_is_dir(session, e)) {
             if (!curl_download_dir(session, e->path, child_local,
                                    progress, progress_data, err))
                 ok = FALSE;
         } else {
+            GError *ferr = NULL;
             if (!curl_download_file(session, e->path, child_local,
-                                    progress, progress_data, err))
-                ok = FALSE;
+                                    progress, progress_data, &ferr)) {
+                g_clear_error(&ferr);
+                if (curl_probe_remote_dir(session, e->path)) {
+                    if (!curl_download_dir(session, e->path, child_local,
+                                           progress, progress_data, err))
+                        ok = FALSE;
+                } else {
+                    ok = FALSE;
+                }
+            }
         }
         g_free(child_local);
-        if (!ok) break;
     }
     g_ptr_array_unref(entries);
+    if (progress)
+        progress(100, remote, progress_data);
     return ok;
 }
 
@@ -458,6 +650,14 @@ static gboolean curl_upload_dir(FtpSession *session,
                                 FtpProgressFn progress,
                                 gpointer progress_data,
                                 GError **err) {
+    if (!g_file_test(local, G_FILE_TEST_IS_DIR)) {
+        g_set_error(err, G_FILE_ERROR, G_FILE_ERROR_FAILED,
+                    "Not a local directory: %s", local);
+        return FALSE;
+    }
+
+    curl_ensure_remote_dir(session, remote);
+
     GDir *dir = g_dir_open(local, 0, NULL);
     if (!dir) {
         g_set_error(err, G_FILE_ERROR, g_file_error_from_errno(errno),
@@ -465,17 +665,19 @@ static gboolean curl_upload_dir(FtpSession *session,
         return FALSE;
     }
 
+    if (progress)
+        progress(0, remote, progress_data);
+
     gboolean ok = TRUE;
     const gchar *name;
     while ((name = g_dir_read_name(dir)) != NULL) {
-        gchar *lp = g_build_filename(local, name, NULL);
-        gchar *rp;
-        if (g_strcmp0(remote, "/") == 0)
-            rp = g_strdup_printf("/%s", name);
-        else
-            rp = g_strdup_printf("%s/%s", remote, name);
+        if (g_strcmp0(name, ".") == 0 || g_strcmp0(name, "..") == 0)
+            continue;
 
-        if (g_file_test(lp, G_FILE_TEST_IS_DIR)) {
+        gchar *lp = g_build_filename(local, name, NULL);
+        gchar *rp = build_remote_child_path(remote, name);
+
+        if (local_path_is_directory(lp)) {
             if (!curl_upload_dir(session, lp, rp, progress, progress_data, err))
                 ok = FALSE;
         } else {
@@ -484,9 +686,10 @@ static gboolean curl_upload_dir(FtpSession *session,
         }
         g_free(lp);
         g_free(rp);
-        if (!ok) break;
     }
     g_dir_close(dir);
+    if (progress)
+        progress(100, remote, progress_data);
     return ok;
 }
 
