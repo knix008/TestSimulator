@@ -435,32 +435,6 @@ void on_port_changed(GtkSpinButton* spin, gpointer /*data*/) {
     }
 }
 
-// Returns screen dimensions from GDK (Wayland-aware).
-static bool get_screen_size(int* out_w, int* out_h) {
-    GdkDisplay* dpy = gdk_display_get_default();
-    if (dpy) {
-        GdkMonitor* mon = gdk_display_get_primary_monitor(dpy);
-        if (mon) {
-            GdkRectangle geom{};
-            gdk_monitor_get_geometry(mon, &geom);
-            if (geom.width > 0 && geom.height > 0) {
-                *out_w = geom.width;
-                *out_h = geom.height;
-                return true;
-            }
-        }
-    }
-    G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-    GdkScreen* scr = gdk_screen_get_default();
-    if (scr) {
-        *out_w = gdk_screen_get_width(scr);
-        *out_h = gdk_screen_get_height(scr);
-        return *out_w > 0 && *out_h > 0;
-    }
-    G_GNUC_END_IGNORE_DEPRECATIONS
-    return false;
-}
-
 // Returns a Portal-compatible parent-window hint string.
 // On X11 uses the XID; on Wayland returns empty (accepted by Portal).
 static std::string portal_parent_handle() {
@@ -500,18 +474,10 @@ void on_toggle_clicked(GtkWidget* /*btn*/, gpointer /*data*/) {
         return;
     }
 
-    // For full-desktop mode on Wayland (XWayland), X11 screen capture only
-    // sees XWayland windows. Use the XDG Desktop Portal + PipeWire path which
-    // captures the real Wayland compositor output.
+    // Portal init runs on the VNC worker thread (not here) so the GTK main loop
+    // stays responsive while the screen-share dialog is open.
     if (opt.capture_mode == VncCaptureMode::FullDesktop) {
-        int w = 0, h = 0;
-        if (get_screen_size(&w, &h)) {
-            capture_gstreamer_set_parent_window(portal_parent_handle().c_str());
-            post_status("화면 공유 권한을 요청 중입니다 (Portal)...");
-            if (!capture_gstreamer_init_desktop(w, h, [](const std::string& m) { post_status(m); })) {
-                post_status("Portal 캡처 불가 — X11 폴백 사용 (전체 화면이 보이지 않을 수 있음)");
-            }
-        }
+        capture_gstreamer_set_parent_window(portal_parent_handle().c_str());
     }
 
     const bool started = vnc_server_start(
@@ -633,8 +599,9 @@ GtkWidget* build_settings_section() {
 
     g_ui.combo_capture = gtk_combo_box_text_new();
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_capture),
-                                   "전체 화면 (기본)");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_capture), "특정 창만");
+                                   "전체 화면 (기본 · Portal)");
+    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_capture),
+                                   "특정 창만 (X11 창 ID)");
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_ui.combo_capture), 0);
     gtk_widget_set_halign(g_ui.combo_capture, GTK_ALIGN_START);
     g_signal_connect(g_ui.combo_capture, "changed", G_CALLBACK(on_capture_mode_changed), nullptr);
@@ -646,7 +613,8 @@ GtkWidget* build_settings_section() {
     g_signal_connect(g_ui.btn_pick_window, "clicked", G_CALLBACK(on_pick_window_clicked), nullptr);
     gtk_box_pack_start(GTK_BOX(pick_box), g_ui.btn_pick_window, FALSE, FALSE, 0);
 
-    g_ui.lbl_selected_window = gtk_label_new("전체 화면이 기본으로 공유됩니다");
+    g_ui.lbl_selected_window = gtk_label_new(
+        "기본: 전체 화면. Wayland에서는 Portal 대화상자에서 모니터를 선택하세요.");
     gtk_label_set_xalign(GTK_LABEL(g_ui.lbl_selected_window), 0.0f);
     gtk_label_set_line_wrap(GTK_LABEL(g_ui.lbl_selected_window), TRUE);
     gtk_box_pack_start(GTK_BOX(pick_box), g_ui.lbl_selected_window, TRUE, TRUE, 0);

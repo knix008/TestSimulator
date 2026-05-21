@@ -25,6 +25,7 @@ extern "C" void rfbFreeTightData(rfbClientPtr cl);
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
@@ -110,6 +111,8 @@ std::vector<char*> g_deferred_fbs;
 bool g_pending_encoder_reset = false;
 // After resize, send one Raw framebuffer update so TightVNC resyncs zlib state.
 bool g_force_raw_after_resize = false;
+// Set when portal/x11 GStreamer setup finishes (success or failure).
+std::atomic<bool> g_portal_setup_complete{false};
 std::vector<StackedWindowEntry> g_stacked_windows;
 std::chrono::steady_clock::time_point g_stacked_list_time{};
 
@@ -119,6 +122,36 @@ constexpr int kMinWindowSize = 32;
 constexpr int kStackedListRefreshSec = 2;
 constexpr double kRootContentThreshold = 0.02;
 std::chrono::steady_clock::time_point g_last_capture_time{};
+
+int framebuffer_stride_bytes() {
+    if (!g_screen) {
+        return 0;
+    }
+    if (g_screen->paddedWidthInBytes > 0) {
+        return g_screen->paddedWidthInBytes;
+    }
+    return g_screen->width * (g_screen->bitsPerPixel / 8);
+}
+
+size_t framebuffer_bytes() {
+    if (!g_screen) {
+        return 0;
+    }
+    const int stride = framebuffer_stride_bytes();
+    return static_cast<size_t>(g_screen->height) * static_cast<size_t>(stride);
+}
+
+void update_all_clients_framebuffer() {
+    if (!g_screen) {
+        return;
+    }
+    rfbClientIteratorPtr it = rfbGetClientIterator(g_screen);
+    rfbClientPtr cl = nullptr;
+    while ((cl = rfbClientIteratorNext(it)) != nullptr) {
+        rfbUpdateClient(cl);
+    }
+    rfbReleaseClientIterator(it);
+}
 std::mutex g_client_hosts_mutex;
 std::unordered_map<rfbClientPtr, std::string> g_client_hosts;
 
@@ -195,12 +228,14 @@ bool capture_root_window();
 bool overlay_windows_on_framebuffer();
 bool capture_full_desktop();
 bool capture_single_window();
+double framebuffer_nonzero_ratio();
 bool capture_via_xcomposite_window(Window window, char* framebuffer);
 bool mark_framebuffer_changes();
 void configure_vnc_server_performance();
 bool window_root_position(Window window, int* out_x, int* out_y);
 bool window_is_desktop(Window window);
 void blit_ximage_to_framebuffer_opaque(XImage* image, int dst_x, int dst_y);
+void push_framebuffer_updates_to_all_clients();
 
 // Reset Tight encoder state only. Do not touch ZRLE here — clearing zrleData before
 // the client receives a full Raw frame causes "ZlibInStream: inflate failed".
@@ -291,6 +326,14 @@ int desktop_resize_hook(int width, int height, int /*numScreens*/,
     }
 
     g_prev_framebuffer.clear();
+
+    // Fill the new buffer before the client reads a full-screen Raw update.
+    if (g_capture_mode == VncCaptureMode::FullDesktop) {
+        (void)capture_full_desktop();
+    } else if (g_capture_mode == VncCaptureMode::SingleWindow) {
+        (void)capture_single_window();
+    }
+
     return rfbExtDesktopSize_Success;
 }
 
@@ -378,18 +421,44 @@ bool window_root_position(Window window, int* out_x, int* out_y) {
 }
 
 
+void push_framebuffer_updates_to_all_clients() {
+    if (!g_screen || !g_screen->frameBuffer) {
+        return;
+    }
+
+    if (!capture_root_window()) {
+        return;
+    }
+
+    if (g_capture_mode == VncCaptureMode::FullDesktop &&
+        framebuffer_nonzero_ratio() < kRootContentThreshold) {
+        return;
+    }
+
+    g_prev_framebuffer.clear();
+    g_force_raw_after_resize = true;
+
+    mark_framebuffer_changes();
+    update_all_clients_framebuffer();
+}
+
 rfbNewClientAction new_client_hook(rfbClientPtr cl) {
     cl->clientGoneHook = gone_client_hook;
     remember_client_host(cl);
-
-    g_prev_framebuffer.clear();
 
     const int count = ++g_client_count;
     notify_clients(count);
     notify_status("Client connected: " + client_host_string(cl) +
                   " (total " + std::to_string(count) + ")");
-    if (g_screen && capture_root_window()) {
-        mark_framebuffer_changes();
+
+    if (g_capture_mode == VncCaptureMode::FullDesktop &&
+        !g_portal_setup_complete.load(std::memory_order_acquire)) {
+        notify_status("화면 공유 대화상자를 완료하면 화면이 표시됩니다.");
+        return RFB_CLIENT_ACCEPT;
+    }
+
+    g_prev_framebuffer.clear();
+    if (g_screen && capture_root_window() && mark_framebuffer_changes()) {
         rfbUpdateClient(cl);
     }
     return RFB_CLIENT_ACCEPT;
@@ -414,16 +483,210 @@ void gone_client_hook(rfbClientPtr cl) {
     notify_status(msg);
 }
 
-void ptr_add_event(int buttonMask, int x, int y, rfbClientPtr /*cl*/) {
-    if (!g_allow_input || !g_display) {
+bool is_usable_input_window(Window window) {
+    if (!g_display || window == None || window == g_x11.root) {
+        return false;
+    }
+
+    XWindowAttributes attr{};
+    if (XGetWindowAttributes(g_display, window, &attr) != 1) {
+        return false;
+    }
+    if (attr.map_state != IsViewable || attr.width < kMinWindowSize || attr.height < kMinWindowSize) {
+        return false;
+    }
+    return !window_is_desktop(window);
+}
+
+Window toplevel_window(Window window) {
+    if (!g_display || window == None || window == g_x11.root) {
+        return window;
+    }
+
+    Window cur = window;
+    for (;;) {
+        Window root = None;
+        Window parent = None;
+        Window* children = nullptr;
+        unsigned int nchildren = 0;
+        if (XQueryTree(g_display, cur, &root, &parent, &children, &nchildren) == 0) {
+            break;
+        }
+        if (children) {
+            XFree(children);
+        }
+        if (parent == None || parent == g_x11.root) {
+            return cur;
+        }
+        cur = parent;
+    }
+    return window;
+}
+
+Window window_at_root_point(int root_x, int root_y) {
+    if (!g_display) {
+        return None;
+    }
+
+    Window child = None;
+    int win_x = 0;
+    int win_y = 0;
+    if (XTranslateCoordinates(g_display, g_x11.root, g_x11.root, root_x, root_y, &win_x, &win_y,
+                              &child) == 0 ||
+        child == None) {
+        return g_x11.root;
+    }
+
+    Window cur = child;
+    for (;;) {
+        Window sub = None;
+        int sub_x = 0;
+        int sub_y = 0;
+        if (XTranslateCoordinates(g_display, cur, cur, win_x, win_y, &sub_x, &sub_y, &sub) == 0 ||
+            sub == None || sub == cur) {
+            break;
+        }
+        cur = sub;
+        win_x = sub_x;
+        win_y = sub_y;
+    }
+    return cur;
+}
+
+void activate_window(Window window) {
+    if (!g_display || !is_usable_input_window(window)) {
         return;
     }
-    XTestFakeMotionEvent(g_display, g_x11.screen, x, y, CurrentTime);
-    if (buttonMask & rfbButton1Mask) {
-        XTestFakeButtonEvent(g_display, 1, True, CurrentTime);
-    } else {
-        XTestFakeButtonEvent(g_display, 1, False, CurrentTime);
+
+    const Window top = toplevel_window(window);
+
+    XRaiseWindow(g_display, top);
+    XSetInputFocus(g_display, top, RevertToParent, CurrentTime);
+
+    const Atom net_active = XInternAtom(g_display, "_NET_ACTIVE_WINDOW", False);
+    if (net_active != None) {
+        XEvent ev{};
+        ev.xclient.type = ClientMessage;
+        ev.xclient.window = top;
+        ev.xclient.message_type = net_active;
+        ev.xclient.format = 32;
+        ev.xclient.data.l[0] = 1;
+        ev.xclient.data.l[1] = CurrentTime;
+        ev.xclient.data.l[2] = 0;
+        XSendEvent(g_display, g_x11.root, False,
+                   SubstructureRedirectMask | SubstructureNotifyMask, &ev);
     }
+}
+
+bool send_button_event_to_window(Window target, int root_x, int root_y, unsigned int button,
+                                 bool down) {
+    if (!g_display || target == None || target == g_x11.root) {
+        return false;
+    }
+
+    int win_x = 0;
+    int win_y = 0;
+    Window sub = None;
+    if (XTranslateCoordinates(g_display, g_x11.root, target, root_x, root_y, &win_x, &win_y,
+                              &sub) == 0) {
+        return false;
+    }
+
+    XButtonEvent ev{};
+    ev.type = down ? ButtonPress : ButtonRelease;
+    ev.display = g_display;
+    ev.window = target;
+    ev.root = g_x11.root;
+    ev.subwindow = sub;
+    ev.time = CurrentTime;
+    ev.x = win_x;
+    ev.y = win_y;
+    ev.x_root = root_x;
+    ev.y_root = root_y;
+    ev.button = button;
+    ev.same_screen = True;
+
+    const unsigned long mask = down ? ButtonPressMask : ButtonReleaseMask;
+    return XSendEvent(g_display, target, True, mask, reinterpret_cast<XEvent*>(&ev)) != 0;
+}
+
+void map_vnc_coords_to_root(int vnc_x, int vnc_y, int* out_x, int* out_y) {
+    if (!g_screen || !out_x || !out_y) {
+        return;
+    }
+
+    int target_w = g_x11.width;
+    int target_h = g_x11.height;
+    int origin_x = 0;
+    int origin_y = 0;
+
+    if (g_capture_mode == VncCaptureMode::SingleWindow && g_target_window && g_display) {
+        XWindowAttributes attr{};
+        if (XGetWindowAttributes(g_display, g_target_window, &attr) == 1 && attr.width > 0 &&
+            attr.height > 0) {
+            target_w = attr.width;
+            target_h = attr.height;
+            window_root_position(g_target_window, &origin_x, &origin_y);
+        }
+    }
+
+    int rx = vnc_x;
+    int ry = vnc_y;
+    if (g_screen->width > 0 && g_screen->height > 0) {
+        rx = (vnc_x * target_w) / g_screen->width;
+        ry = (vnc_y * target_h) / g_screen->height;
+    }
+
+    rx = std::clamp(rx, 0, std::max(0, target_w - 1));
+    ry = std::clamp(ry, 0, std::max(0, target_h - 1));
+    *out_x = origin_x + rx;
+    *out_y = origin_y + ry;
+}
+
+void ptr_add_event(int buttonMask, int x, int y, rfbClientPtr /*cl*/) {
+    if (!g_allow_input || !g_display || !g_screen) {
+        return;
+    }
+
+    int rx = 0;
+    int ry = 0;
+    map_vnc_coords_to_root(x, y, &rx, &ry);
+    XTestFakeMotionEvent(g_display, g_x11.screen, rx, ry, CurrentTime);
+    XSync(g_display, False);
+
+    static int g_last_ptr_button_mask = 0;
+    const int press_edge =
+        (buttonMask & ~g_last_ptr_button_mask) & (rfbButton1Mask | rfbButton2Mask | rfbButton3Mask);
+
+    Window target = window_at_root_point(rx, ry);
+    if (press_edge != 0 && is_usable_input_window(target)) {
+        activate_window(target);
+        XSync(g_display, False);
+    }
+
+    static const struct {
+        int rfb_mask;
+        unsigned int x_button;
+    } kButtons[] = {
+        {rfbButton1Mask, 1},
+        {rfbButton2Mask, 2},
+        {rfbButton3Mask, 3},
+        {rfbButton4Mask, 4},
+        {rfbButton5Mask, 5},
+    };
+
+    const bool use_window_events = is_usable_input_window(target);
+    for (const auto& btn : kButtons) {
+        const bool down = (buttonMask & btn.rfb_mask) != 0;
+        if (use_window_events && btn.x_button <= 3) {
+            send_button_event_to_window(toplevel_window(target), rx, ry, btn.x_button, down);
+        } else {
+            XTestFakeButtonEvent(g_display, btn.x_button, down ? True : False, CurrentTime);
+        }
+    }
+
+    g_last_ptr_button_mask = buttonMask;
+    XFlush(g_display);
 }
 
 void kbd_add_event(rfbBool down, rfbKeySym key, rfbClientPtr /*cl*/) {
@@ -470,7 +733,7 @@ bool copy_native_bgrx_to_framebuffer(const XImage* image, char* framebuffer, int
         return false;
     }
 
-    const int dst_stride = g_screen->width * 4;
+    const int dst_stride = framebuffer_stride_bytes();
     const int row_bytes = copy_w * 4;
 
     for (int y = 0; y < copy_h; ++y) {
@@ -490,7 +753,7 @@ void write_pixel_to_framebuffer(char* framebuffer, int x, int y, unsigned long p
     const unsigned char r = scale_channel(pixel, g_x11.red_mask, g_x11.red_max);
     const unsigned char g = scale_channel(pixel, g_x11.green_mask, g_x11.green_max);
     const unsigned char b = scale_channel(pixel, g_x11.blue_mask, g_x11.blue_max);
-    const int offset = (y * g_screen->width + x) * 4;
+    const int offset = y * framebuffer_stride_bytes() + x * 4;
     framebuffer[offset + 0] = static_cast<char>(b);
     framebuffer[offset + 1] = static_cast<char>(g);
     framebuffer[offset + 2] = static_cast<char>(r);
@@ -547,12 +810,13 @@ double framebuffer_nonzero_ratio() {
 
     const int width = g_screen->width;
     const int height = g_screen->height;
+    const int stride = framebuffer_stride_bytes();
     int samples = 0;
     int nonzero = 0;
 
     for (int y = 0; y < height; y += 37) {
         for (int x = 0; x < width; x += 53) {
-            const int offset = (y * width + x) * 4;
+            const int offset = y * stride + x * 4;
             const unsigned char* p =
                 reinterpret_cast<unsigned char*>(g_screen->frameBuffer + offset);
             if (p[0] > 8 || p[1] > 8 || p[2] > 8) {
@@ -808,10 +1072,15 @@ bool capture_full_desktop() {
     }
 
     if (capture_gstreamer_is_active()) {
-        // pipewiresrc may not have a frame ready yet (async negotiation).
-        // Fall through to X11 capture for this frame if no data is available.
-        if (capture_gstreamer_frame(g_screen->frameBuffer, g_screen->width, g_screen->height)) {
+        // Portal/ximagesrc may not have a frame ready yet (async negotiation).
+        if (capture_gstreamer_frame(g_screen->frameBuffer, g_screen->width, g_screen->height) &&
+            framebuffer_nonzero_ratio() >= kRootContentThreshold) {
             return true;
+        }
+        // Portal on Wayland: X11 root is empty and overlay only composites XWayland
+        // windows (often just the focused app). Wait for PipeWire, do not overlay.
+        if (capture_gstreamer_is_portal()) {
+            return false;
         }
     }
 
@@ -819,23 +1088,19 @@ bool capture_full_desktop() {
         return false;
     }
 
-    const size_t fb_bytes = static_cast<size_t>(g_screen->width) *
-                            static_cast<size_t>(g_screen->height) * 4U;
-    std::memset(g_screen->frameBuffer, 0, fb_bytes);
-
-    // Read the root window directly (TigerVNC x0vncserver approach).
-    // On X11 with DRI2 compositing, the compositor renders to root — this
-    // gives the full composited screen.
-    XSync(g_display, False);  // let compositor finish writing to root
+    // Native X11 fallback when GStreamer portal is unavailable.
+    XSync(g_display, False);
     bool captured = capture_via_pixmap(g_screen->frameBuffer);
 
-    // Only run the window overlay when root appears sparse (< 10% non-black).
-    // When root has good content the compositor wrote the full composited frame
-    // there — overlaying again would create duplicate images in the VNC view.
-    // When root is nearly empty (DRI3 unredirection / Wayland XWayland) the
-    // overlay tries to rebuild the screen from per-window XComposite captures.
-    if (framebuffer_nonzero_ratio() < 0.10) {
+    // On Wayland/XWayland the X11 root is empty; compositing individual windows
+    // would send one app, not the full desktop — skip overlay there.
+    if ((!captured || framebuffer_nonzero_ratio() < 0.10) && !std::getenv("WAYLAND_DISPLAY")) {
         overlay_windows_on_framebuffer();
+        captured = framebuffer_nonzero_ratio() >= kRootContentThreshold;
+    }
+
+    if (captured && framebuffer_nonzero_ratio() < kRootContentThreshold) {
+        captured = false;
     }
 
     return captured;
@@ -854,9 +1119,15 @@ bool mark_framebuffer_changes() {
         return false;
     }
 
+    if (g_capture_mode == VncCaptureMode::FullDesktop &&
+        framebuffer_nonzero_ratio() < kRootContentThreshold) {
+        return false;
+    }
+
     const int width = g_screen->width;
     const int height = g_screen->height;
-    const size_t fb_bytes = static_cast<size_t>(width) * static_cast<size_t>(height) * 4U;
+    const int stride = framebuffer_stride_bytes();
+    const size_t fb_bytes = framebuffer_bytes();
     char* const cur = g_screen->frameBuffer;
 
     if (g_prev_framebuffer.size() != fb_bytes) {
@@ -875,9 +1146,9 @@ bool mark_framebuffer_changes() {
             bool diff = false;
 
             for (int y = 0; y < th && !diff; ++y) {
-                const size_t row = (static_cast<size_t>(ty + y) * static_cast<size_t>(width) +
-                                    static_cast<size_t>(tx)) *
-                                   4U;
+                const size_t row =
+                    static_cast<size_t>(ty + y) * static_cast<size_t>(stride) +
+                    static_cast<size_t>(tx) * 4U;
                 const size_t row_bytes = static_cast<size_t>(tw) * 4U;
                 if (std::memcmp(cur + row, prev + row, row_bytes) != 0) {
                     diff = true;
@@ -890,9 +1161,9 @@ bool mark_framebuffer_changes() {
 
             rfbMarkRectAsModified(g_screen, tx, ty, tx + tw, ty + th);
             for (int y = 0; y < th; ++y) {
-                const size_t row = (static_cast<size_t>(ty + y) * static_cast<size_t>(width) +
-                                    static_cast<size_t>(tx)) *
-                                   4U;
+                const size_t row =
+                    static_cast<size_t>(ty + y) * static_cast<size_t>(stride) +
+                    static_cast<size_t>(tx) * 4U;
                 const size_t row_bytes = static_cast<size_t>(tw) * 4U;
                 std::memcpy(prev + row, cur + row, row_bytes);
             }
@@ -922,11 +1193,15 @@ void maybe_report_capture_stats() {
     }
 
     const double nz = framebuffer_nonzero_ratio();
-    notify_status("Screen TX: ok=" + std::to_string(g_capture_stats.frames_ok) + ", unchanged=" +
+    const char* mode =
+        g_capture_mode == VncCaptureMode::SingleWindow ? "window" : "desktop";
+    const char* backend = capture_gstreamer_is_active() ? capture_gstreamer_backend_name()
+                                                        : "x11";
+    notify_status(std::string("Screen TX [") + mode + "/" + backend + "]: ok=" +
+                  std::to_string(g_capture_stats.frames_ok) + ", unchanged=" +
                   std::to_string(g_capture_stats.frames_unchanged) + ", fail=" +
                   std::to_string(g_capture_stats.frames_failed) + ", content=" +
-                  std::to_string(static_cast<int>(nz * 100.0)) + "%, windows=" +
-                  std::to_string(g_stacked_windows.size()));
+                  std::to_string(static_cast<int>(nz * 100.0)) + "%");
 }
 
 void release_pixmap_shm() {
@@ -1206,6 +1481,17 @@ void server_thread_main(VncServerOptions options) {
     }
 
     g_screen->desktopName = const_cast<char*>("VNCServerLinuxGTK");
+    // Framebuffer bytes are BGRx (B,G,R,0) — match libvncserver's default shifts.
+    g_screen->serverFormat.bitsPerPixel = 32;
+    g_screen->serverFormat.depth = 24;
+    g_screen->serverFormat.bigEndian = FALSE;
+    g_screen->serverFormat.trueColour = TRUE;
+    g_screen->serverFormat.redMax = 255;
+    g_screen->serverFormat.greenMax = 255;
+    g_screen->serverFormat.blueMax = 255;
+    g_screen->serverFormat.redShift = 16;
+    g_screen->serverFormat.greenShift = 8;
+    g_screen->serverFormat.blueShift = 0;
     g_screen->port = options.port;
     g_screen->ipv6port = options.port;
     g_screen->alwaysShared = TRUE;
@@ -1235,6 +1521,9 @@ void server_thread_main(VncServerOptions options) {
         free(g_screen->frameBuffer);
     }
     g_screen->frameBuffer = static_cast<char*>(malloc(fb_size));
+    if (g_screen->frameBuffer) {
+        std::memset(g_screen->frameBuffer, 0, fb_size);
+    }
     if (!g_screen->frameBuffer) {
         notify_status("Failed to allocate framebuffer");
         rfbScreenCleanup(g_screen);
@@ -1256,18 +1545,14 @@ void server_thread_main(VncServerOptions options) {
         return;
     }
 
-    if (!verify_screen_capture()) {
-        rfbScreenCleanup(g_screen);
-        g_screen = nullptr;
-        cleanup_x11_capture();
-        XCloseDisplay(g_display);
-        g_display = nullptr;
-        g_running.store(false);
-        return;
-    }
-
     configure_vnc_server_performance();
     rfbInitServer(g_screen);
+
+    if (std::getenv("WAYLAND_DISPLAY") && g_allow_input) {
+        notify_status(
+            "입력: XTest(X11) 사용 — Wayland 네이티브 앱에는 마우스/키보드가 전달되지 않을 수 "
+            "있습니다 (XWayland 창은 동작).");
+    }
 
     if (g_capture_mode == VncCaptureMode::SingleWindow) {
         notify_status("VNC server listening on port " + std::to_string(options.port) +
@@ -1275,6 +1560,59 @@ void server_thread_main(VncServerOptions options) {
     } else {
         notify_status("VNC server listening on port " + std::to_string(options.port) +
                       " (full desktop, ~15 fps)");
+    }
+
+    // Portal dialog can block for minutes; run it on a helper thread and keep
+    // calling rfbProcessEvents so the listen socket accepts vncviewer connections.
+    g_portal_setup_complete.store(false, std::memory_order_release);
+
+    if (g_capture_mode == VncCaptureMode::FullDesktop) {
+        notify_status("화면 공유 권한을 요청 중입니다 (Portal)...");
+        std::atomic<bool> portal_finished{false};
+        bool portal_ok = false;
+        const int capture_w = g_x11.width;
+        const int capture_h = g_x11.height;
+        std::thread portal_worker([&]() {
+            portal_ok = capture_gstreamer_init_desktop(capture_w, capture_h, notify_status);
+            portal_finished.store(true, std::memory_order_release);
+        });
+
+        while (!portal_finished.load(std::memory_order_acquire) &&
+               g_running.load(std::memory_order_relaxed)) {
+            rfbProcessEvents(g_screen, 200 * 1000);
+        }
+
+        if (portal_worker.joinable()) {
+            portal_worker.join();
+        }
+
+        g_portal_setup_complete.store(true, std::memory_order_release);
+
+        if (portal_ok) {
+            notify_status(std::string("캡처 백엔드: ") + capture_gstreamer_backend_name());
+            for (int attempt = 0; attempt < 30; ++attempt) {
+                if (capture_root_window() &&
+                    framebuffer_nonzero_ratio() >= kRootContentThreshold) {
+                    push_framebuffer_updates_to_all_clients();
+                    break;
+                }
+                rfbProcessEvents(g_screen, 100 * 1000);
+                usleep(100 * 1000);
+            }
+        } else if (std::getenv("WAYLAND_DISPLAY")) {
+            notify_status("Wayland: 화면 공유(Portal)가 필요합니다. 대화상자에서 모니터(전체 화면)를 선택하세요.");
+        } else {
+            notify_status("Portal 캡처 불가 — X11 root 폴백 사용");
+            if (capture_root_window()) {
+                push_framebuffer_updates_to_all_clients();
+            }
+        }
+    } else {
+        g_portal_setup_complete.store(true, std::memory_order_release);
+    }
+
+    if (!verify_screen_capture()) {
+        notify_status("Warning: initial screen capture check failed; retrying in loop");
     }
 
     g_last_capture_time = std::chrono::steady_clock::now();
@@ -1337,6 +1675,7 @@ void server_thread_main(VncServerOptions options) {
     g_prev_framebuffer.clear();
     g_pending_encoder_reset = false;
     g_force_raw_after_resize = false;
+    g_portal_setup_complete.store(false, std::memory_order_release);
     for (char* old_fb : g_deferred_fbs) {
         free(old_fb);
     }

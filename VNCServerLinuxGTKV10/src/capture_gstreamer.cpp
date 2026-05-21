@@ -9,16 +9,18 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cinttypes>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <random>
 #include <string>
+#include <vector>
 
 namespace {
 
-enum class Backend { None, PortalPipeWire };
+enum class Backend { None, PortalPipeWire, X11Src };
 
 Backend g_backend = Backend::None;
 CaptureStatusFn g_on_status;
@@ -28,7 +30,14 @@ int g_width = 0;
 int g_height = 0;
 bool g_gst_initialized = false;
 int g_portal_pw_fd = -1;
+gchar* g_portal_session_handle = nullptr;
 std::string g_portal_parent_window;
+
+struct PortalStreamInfo {
+    uint32_t node_id = 0;
+    uint64_t pw_serial = 0;
+    bool has_pw_serial = false;
+};
 
 constexpr const char* kPortalBus = "org.freedesktop.portal.Desktop";
 constexpr const char* kPortalPath = "/org/freedesktop/portal/desktop";
@@ -228,8 +237,35 @@ GVariant* portal_variant_start_opts(const char* session_handle, const char* pare
     return g_variant_new("(osa{sv})", session_handle, parent, opts);
 }
 
-bool portal_parse_streams(GVariant* results, uint32_t* out_node_id) {
-    *out_node_id = 0;
+void portal_close_session() {
+    if (!g_portal_session_handle) {
+        return;
+    }
+
+    GError* error = nullptr;
+    GDBusConnection* bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
+    if (bus) {
+        g_dbus_connection_call_sync(
+            bus, kPortalBus, g_portal_session_handle, "org.freedesktop.portal.Session",
+            "Close", nullptr, nullptr, G_DBUS_CALL_FLAGS_NONE, 5000, nullptr, &error);
+        if (error) {
+            g_error_free(error);
+        }
+        g_object_unref(bus);
+    } else if (error) {
+        g_error_free(error);
+    }
+
+    g_free(g_portal_session_handle);
+    g_portal_session_handle = nullptr;
+}
+
+bool portal_parse_streams(GVariant* results, PortalStreamInfo* out) {
+    if (!out) {
+        return false;
+    }
+    *out = PortalStreamInfo{};
+
     if (!results) {
         return false;
     }
@@ -246,14 +282,61 @@ bool portal_parse_streams(GVariant* results, uint32_t* out_node_id) {
     guint node_id = 0;
     GVariant* stream_props = nullptr;
     if (g_variant_iter_next(&iter, "(u@a{sv})", &node_id, &stream_props)) {
-        *out_node_id = node_id;
+        out->node_id = node_id;
+
         if (stream_props) {
+            GVariant* serial =
+                g_variant_lookup_value(stream_props, "pipewire-serial", G_VARIANT_TYPE("t"));
+            if (!serial) {
+                serial = g_variant_lookup_value(stream_props, "pipewire-serial",
+                                               G_VARIANT_TYPE_UINT64);
+            }
+            if (serial) {
+                out->pw_serial = g_variant_get_uint64(serial);
+                out->has_pw_serial = out->pw_serial != 0;
+                g_variant_unref(serial);
+            }
+
+            GVariant* source_type =
+                g_variant_lookup_value(stream_props, "source_type", G_VARIANT_TYPE_UINT32);
+            if (source_type) {
+                const guint32 st = g_variant_get_uint32(source_type);
+                if (st == 2) {
+                    notify("경고: Portal이 창(WINDOW) 소스를 반환했습니다. 대화상자에서 모니터를 선택하세요.");
+                }
+                g_variant_unref(source_type);
+            }
+
             g_variant_unref(stream_props);
         }
     }
 
     g_variant_unref(streams);
-    return *out_node_id != 0;
+    return out->node_id != 0;
+}
+
+void copy_row_bgrx_to_framebuffer(const unsigned char* src_row, int src_w, unsigned char* dst_row,
+                                  int dst_w) {
+    for (int dx = 0; dx < dst_w; ++dx) {
+        const int sx = (dx * src_w) / dst_w;
+        const unsigned char* s = src_row + sx * 4;
+        dst_row[dx * 4 + 0] = s[0];
+        dst_row[dx * 4 + 1] = s[1];
+        dst_row[dx * 4 + 2] = s[2];
+        dst_row[dx * 4 + 3] = 0;
+    }
+}
+
+void copy_row_rgbx_to_framebuffer(const unsigned char* src_row, int src_w, unsigned char* dst_row,
+                                  int dst_w) {
+    for (int dx = 0; dx < dst_w; ++dx) {
+        const int sx = (dx * src_w) / dst_w;
+        const unsigned char* s = src_row + sx * 4;
+        dst_row[dx * 4 + 0] = s[2];
+        dst_row[dx * 4 + 1] = s[1];
+        dst_row[dx * 4 + 2] = s[0];
+        dst_row[dx * 4 + 3] = 0;
+    }
 }
 
 bool copy_sample_to_framebuffer(GstSample* sample, char* framebuffer, int width, int height) {
@@ -279,22 +362,88 @@ bool copy_sample_to_framebuffer(GstSample* sample, char* framebuffer, int width,
 
     const int src_w = GST_VIDEO_FRAME_WIDTH(&frame);
     const int src_h = GST_VIDEO_FRAME_HEIGHT(&frame);
-    const int copy_w = std::min(width, src_w);
-    const int copy_h = std::min(height, src_h);
+    if (src_w <= 0 || src_h <= 0 || width <= 0 || height <= 0) {
+        gst_video_frame_unmap(&frame);
+        return false;
+    }
+
     const int dst_stride = width * 4;
     const int src_stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frame, 0);
     const auto* src = GST_VIDEO_FRAME_PLANE_DATA(&frame, 0);
+    const GstVideoFormat fmt = GST_VIDEO_FRAME_FORMAT(&frame);
 
-    std::memset(framebuffer, 0, static_cast<size_t>(height) * static_cast<size_t>(dst_stride));
+    // Do not clear the framebuffer — failed or dark frames must not wipe the last good image.
 
-    for (int y = 0; y < copy_h; ++y) {
-        std::memcpy(framebuffer + y * dst_stride,
-                    static_cast<const char*>(src) + y * src_stride,
-                    static_cast<size_t>(copy_w) * 4U);
+    // Scale portal/X11 frames to the VNC framebuffer (client may resize independently).
+    for (int dy = 0; dy < height; ++dy) {
+        const int sy = (dy * src_h) / height;
+        const auto* src_row = static_cast<const unsigned char*>(src) + sy * src_stride;
+        auto* dst_row = reinterpret_cast<unsigned char*>(framebuffer) + dy * dst_stride;
+        if (fmt == GST_VIDEO_FORMAT_RGBx || fmt == GST_VIDEO_FORMAT_RGBA ||
+            fmt == GST_VIDEO_FORMAT_RGB || fmt == GST_VIDEO_FORMAT_RGB16) {
+            copy_row_rgbx_to_framebuffer(src_row, src_w, dst_row, width);
+        } else {
+            copy_row_bgrx_to_framebuffer(src_row, src_w, dst_row, width);
+        }
     }
 
     gst_video_frame_unmap(&frame);
     return true;
+}
+
+bool wait_for_first_frame(int timeout_ms) {
+    if (!g_pipeline || !g_appsink || g_width <= 0 || g_height <= 0) {
+        return false;
+    }
+
+    std::vector<char> tmp(static_cast<size_t>(g_width) * static_cast<size_t>(g_height) * 4U);
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+
+    while (std::chrono::steady_clock::now() < deadline) {
+        GstSample* sample = gst_app_sink_try_pull_sample(
+            GST_APP_SINK(g_appsink), 100 * GST_MSECOND);
+        if (sample) {
+            const bool ok =
+                copy_sample_to_framebuffer(sample, tmp.data(), g_width, g_height);
+            gst_sample_unref(sample);
+            if (ok) {
+                int samples = 0;
+                int nonzero = 0;
+                for (int y = 0; y < g_height; y += 37) {
+                    for (int x = 0; x < g_width; x += 53) {
+                        const auto* p = reinterpret_cast<const unsigned char*>(
+                            tmp.data() + (static_cast<size_t>(y) * static_cast<size_t>(g_width) +
+                                          static_cast<size_t>(x)) *
+                                             4U);
+                        if (p[0] > 8 || p[1] > 8 || p[2] > 8) {
+                            ++nonzero;
+                        }
+                        ++samples;
+                    }
+                }
+                if (samples > 0 &&
+                    static_cast<double>(nonzero) / static_cast<double>(samples) >= 0.02) {
+                    return true;
+                }
+            }
+        }
+        usleep(50 * 1000);
+    }
+    return false;
+}
+
+void pipeline_stop() {
+    if (g_pipeline) {
+        gst_element_set_state(g_pipeline, GST_STATE_NULL);
+        if (g_appsink) {
+            gst_object_unref(g_appsink);
+            g_appsink = nullptr;
+        }
+        gst_object_unref(g_pipeline);
+        g_pipeline = nullptr;
+    }
+    g_backend = Backend::None;
 }
 
 bool pipeline_start(const std::string& pipeline_desc) {
@@ -387,9 +536,12 @@ bool portal_run_select_sources(GDBusConnection* bus, const char* session_handle,
     return true;
 }
 
-bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
+bool portal_acquire_pipewire(int* out_fd, PortalStreamInfo* out_stream) {
     *out_fd = -1;
-    *out_node_id = 0;
+    if (!out_stream) {
+        return false;
+    }
+    *out_stream = PortalStreamInfo{};
 
     GError* error = nullptr;
     GDBusConnection* bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
@@ -424,8 +576,9 @@ bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
         return false;
     }
 
-    if (!portal_run_select_sources(bus, session_handle, false) &&
-        !portal_run_select_sources(bus, session_handle, true)) {
+    notify("화면 공유 대화상자에서 **전체 화면(모니터)** 을 선택하세요.");
+    if (!portal_run_select_sources(bus, session_handle, true) &&
+        !portal_run_select_sources(bus, session_handle, false)) {
         notify("화면 공유 권한이 필요합니다. 설정 → 개인 정보 보호 → 화면 공유에서 허용하세요.");
         g_free(session_handle);
         g_object_unref(bus);
@@ -450,7 +603,7 @@ bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
         return false;
     }
 
-    if (!portal_parse_streams(start_results, out_node_id)) {
+    if (!portal_parse_streams(start_results, out_stream)) {
         notify("Portal: no stream in Start response");
         g_variant_unref(start_results);
         g_free(session_handle);
@@ -474,9 +627,8 @@ bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
         bus, kPortalBus, kPortalPath, kScreenCast, "OpenPipeWireRemote", fd_params,
         G_VARIANT_TYPE("(h)"), G_DBUS_CALL_FLAGS_NONE, kPortalTimeoutMs, nullptr, &fd_list,
         nullptr, &error);
-    g_free(session_handle);
-
     if (!fd_result || !fd_list) {
+        g_free(session_handle);
         if (error) {
             notify("Portal OpenPipeWireRemote: " + std::string(error->message));
             g_error_free(error);
@@ -485,6 +637,7 @@ bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
             g_object_unref(fd_list);
         }
         g_object_unref(bus);
+        g_free(session_handle);
         return false;
     }
 
@@ -501,45 +654,90 @@ bool portal_acquire_pipewire(int* out_fd, uint32_t* out_node_id) {
             notify("Portal fd: " + std::string(error->message));
             g_error_free(error);
         }
+        g_free(session_handle);
         return false;
     }
 
+    g_portal_session_handle = session_handle;
     return true;
 }
 
+bool try_portal_pipewire_pipeline(int pw_fd, const PortalStreamInfo& stream) {
+    const char* suffix =
+        "videoconvert ! video/x-raw,format=BGRx ! "
+        "appsink name=sink sync=false max-buffers=2 drop=false";
+
+    std::vector<std::string> candidates;
+    candidates.emplace_back("pipewiresrc fd=" + std::to_string(pw_fd) + " path=" +
+                            std::to_string(stream.node_id) + " autoconnect=true ! " + suffix);
+    candidates.emplace_back("pipewiresrc fd=" + std::to_string(pw_fd) + " path=" +
+                            std::to_string(stream.node_id) + " autoconnect=false ! " + suffix);
+    candidates.emplace_back("pipewiresrc fd=" + std::to_string(pw_fd) + " autoconnect=true ! " +
+                            suffix);
+    if (stream.has_pw_serial) {
+        candidates.emplace_back("pipewiresrc fd=" + std::to_string(pw_fd) + " target-object=" +
+                                std::to_string(stream.pw_serial) + " autoconnect=true ! " +
+                                suffix);
+    }
+
+    for (const std::string& pipeline_desc : candidates) {
+        pipeline_stop();
+        notify("GStreamer try: " + pipeline_desc);
+        if (!pipeline_start(pipeline_desc)) {
+            continue;
+        }
+        if (wait_for_first_frame(8000)) {
+            notify("GStreamer pipeline OK");
+            return true;
+        }
+    }
+    pipeline_stop();
+    return false;
+}
+
 bool init_portal_pipeline() {
-    uint32_t node_id = 0;
+    PortalStreamInfo stream{};
     int pw_fd = -1;
-    if (!portal_acquire_pipewire(&pw_fd, &node_id)) {
+    if (!portal_acquire_pipewire(&pw_fd, &stream)) {
         return false;
     }
 
     g_portal_pw_fd = dup(pw_fd);
     close(pw_fd);
     if (g_portal_pw_fd < 0) {
+        portal_close_session();
         return false;
     }
 
-    // target-object is a String property — pass node_id as decimal string.
-    // videoscale is placed AFTER videoconvert to handle any source resolution.
-    char pipeline[1024];
-    std::snprintf(pipeline, sizeof(pipeline),
-                  "pipewiresrc fd=%d target-object=%u ! "
-                  "videoconvert ! videoscale ! "
-                  "video/x-raw,width=%d,height=%d,format=BGRx ! "
-                  "appsink name=sink sync=false max-buffers=1 drop=true",
-                  g_portal_pw_fd, node_id, g_width, g_height);
-    notify("GStreamer pipeline: " + std::string(pipeline));
+    notify("Portal stream: node=" + std::to_string(stream.node_id) +
+           (stream.has_pw_serial ? (" serial=" + std::to_string(stream.pw_serial)) : ""));
 
-    if (!pipeline_start(pipeline)) {
+    if (!try_portal_pipewire_pipeline(g_portal_pw_fd, stream)) {
+        notify("Portal: PipeWire에 화면 데이터가 없습니다 (모니터를 선택했는지 확인)");
         close(g_portal_pw_fd);
         g_portal_pw_fd = -1;
+        portal_close_session();
         return false;
     }
 
     g_backend = Backend::PortalPipeWire;
-    notify("Screen capture: portal PipeWire (full desktop, node " + std::to_string(node_id) +
-           ")");
+    notify("Screen capture: portal PipeWire (monitor stream)");
+    return true;
+}
+
+bool init_x11_pipeline() {
+    const char* pipeline =
+        "ximagesrc use-damage=false show-pointer=false ! "
+        "videoconvert ! video/x-raw,format=BGRx ! "
+        "appsink name=sink sync=false max-buffers=2 drop=false";
+
+    if (!pipeline_start(pipeline)) {
+        return false;
+    }
+
+    g_backend = Backend::X11Src;
+    notify("Screen capture: GStreamer ximagesrc (X11 root)");
+    wait_for_first_frame(3000);
     return true;
 }
 
@@ -573,6 +771,8 @@ void capture_gstreamer_set_parent_window(const char* parent_window) {
 }
 
 bool capture_gstreamer_init_desktop(int width, int height, CaptureStatusFn on_status) {
+    capture_gstreamer_shutdown();
+
     g_on_status = std::move(on_status);
     g_width = width;
     g_height = height;
@@ -590,33 +790,87 @@ bool capture_gstreamer_init_desktop(int width, int height, CaptureStatusFn on_st
         return true;
     }
 
+    // On native X11 (no Wayland), capture the root window when portal is unavailable.
+    if (!std::getenv("WAYLAND_DISPLAY") && init_x11_pipeline()) {
+        return true;
+    }
+
     return false;
 }
 
 void capture_gstreamer_shutdown() {
-    if (g_pipeline) {
-        gst_element_set_state(g_pipeline, GST_STATE_NULL);
-        if (g_appsink) {
-            gst_object_unref(g_appsink);
-            g_appsink = nullptr;
-        }
-        gst_object_unref(g_pipeline);
-        g_pipeline = nullptr;
-    }
+    pipeline_stop();
     if (g_portal_pw_fd >= 0) {
         close(g_portal_pw_fd);
         g_portal_pw_fd = -1;
     }
+    portal_close_session();
     g_backend = Backend::None;
 }
 
+double sample_content_ratio(GstSample* sample) {
+    if (!sample) {
+        return 0.0;
+    }
+
+    GstBuffer* buffer = gst_sample_get_buffer(sample);
+    GstCaps* caps = gst_sample_get_caps(sample);
+    if (!buffer || !caps) {
+        return 0.0;
+    }
+
+    GstVideoInfo info;
+    if (!gst_video_info_from_caps(&info, caps)) {
+        return 0.0;
+    }
+
+    GstVideoFrame frame;
+    if (!gst_video_frame_map(&frame, &info, buffer, GST_MAP_READ)) {
+        return 0.0;
+    }
+
+    const int src_w = GST_VIDEO_FRAME_WIDTH(&frame);
+    const int src_h = GST_VIDEO_FRAME_HEIGHT(&frame);
+    const int src_stride = GST_VIDEO_FRAME_PLANE_STRIDE(&frame, 0);
+    const auto* src = GST_VIDEO_FRAME_PLANE_DATA(&frame, 0);
+    const GstVideoFormat fmt = GST_VIDEO_FRAME_FORMAT(&frame);
+
+    int samples = 0;
+    int nonzero = 0;
+    for (int y = 0; y < src_h; y += 37) {
+        for (int x = 0; x < src_w; x += 53) {
+            const auto* p = static_cast<const unsigned char*>(src) + y * src_stride + x * 4;
+            unsigned char b = p[0];
+            unsigned char g = p[1];
+            unsigned char r = p[2];
+            if (fmt == GST_VIDEO_FORMAT_RGBx || fmt == GST_VIDEO_FORMAT_RGBA ||
+                fmt == GST_VIDEO_FORMAT_RGB) {
+                std::swap(r, b);
+            }
+            if (r > 8 || g > 8 || b > 8) {
+                ++nonzero;
+            }
+            ++samples;
+        }
+    }
+
+    gst_video_frame_unmap(&frame);
+    return samples > 0 ? static_cast<double>(nonzero) / static_cast<double>(samples) : 0.0;
+}
+
 bool capture_gstreamer_frame(char* framebuffer, int width, int height) {
-    if (!g_pipeline || !g_appsink || !framebuffer || width != g_width || height != g_height) {
+    if (!g_pipeline || !g_appsink || !framebuffer || width <= 0 || height <= 0) {
         return false;
     }
 
     GstSample* sample = gst_app_sink_try_pull_sample(GST_APP_SINK(g_appsink), GST_SECOND);
     if (!sample) {
+        return false;
+    }
+
+    constexpr double kMinFrameContent = 0.01;
+    if (sample_content_ratio(sample) < kMinFrameContent) {
+        gst_sample_unref(sample);
         return false;
     }
 
@@ -629,6 +883,8 @@ const char* capture_gstreamer_backend_name() {
     switch (g_backend) {
         case Backend::PortalPipeWire:
             return "portal-pipewire";
+        case Backend::X11Src:
+            return "gstreamer-x11";
         default:
             return "none";
     }
@@ -636,4 +892,8 @@ const char* capture_gstreamer_backend_name() {
 
 bool capture_gstreamer_is_active() {
     return g_backend != Backend::None;
+}
+
+bool capture_gstreamer_is_portal() {
+    return g_backend == Backend::PortalPipeWire;
 }

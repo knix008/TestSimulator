@@ -11,3 +11,4 @@ void capture_gstreamer_shutdown();
 bool capture_gstreamer_frame(char* framebuffer, int width, int height);
 const char* capture_gstreamer_backend_name();
 bool capture_gstreamer_is_active();
+bool capture_gstreamer_is_portal();
