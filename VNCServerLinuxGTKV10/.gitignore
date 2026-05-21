@@ -8,16 +8,35 @@ vncserver
 *.so
 *.so.*
 
+# Dependency / compile databases
+compile_commands.json
+.cache/
+
 # Editor / IDE
 .vscode/
 .idea/
+*.code-workspace
 *.swp
+*.swo
 *~
+.*.un~
+
+# AI / agent tooling (local only)
+.agents/
+.claude/
+.codex/
 
 # Debug / core dumps
 core
 core.*
 vgcore.*
 
-# Local overrides
+# Logs and local overrides
+*.log
 *.local
+.env
+.env.*
+
+# OS junk
+.DS_Store
+Thumbs.db
