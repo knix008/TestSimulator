@@ -32,7 +32,7 @@ LDFLAGS  := -pthread $(GTK_LIBS) $(VNC_LIBS) $(X11_LIBS) $(XEXT_LIBS) $(XCOMPOSI
             $(XDAMAGE_LIBS) $(GST_LIBS) $(XTST_LIBS) $(LDFLAGS_EXTRA)
 
 SRCS     := src/main.cpp src/gui_gtk.cpp src/vnc_core.cpp src/capture_gstreamer.cpp \
-            src/window_picker.cpp
+            src/input_inject.cpp src/window_picker.cpp
 OBJS     := $(SRCS:src/%.cpp=$(BUILD_DIR)/%.o)
 N_OBJS   := $(words $(OBJS))
 
@@ -41,6 +41,7 @@ MODULE_DESC_main     := Application entry point (no GTK)
 MODULE_DESC_gui_gtk  := GTK3 GUI — window, controls, server start/stop
 MODULE_DESC_vnc_core := VNC core — libvncserver, X11 capture, remote input
 MODULE_DESC_capture_gstreamer := GStreamer / portal full-desktop capture
+MODULE_DESC_input_inject := uinput virtual pointer and keyboard
 MODULE_DESC_window_picker := X11 window list and picker dialog
 
 .PHONY: all deps deps-list clean run check-deps banner done compile
@@ -100,6 +101,10 @@ $(BUILD_DIR)/vnc_core.o: src/vnc_core.cpp | $(BUILD_DIR)
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/capture_gstreamer.o: src/capture_gstreamer.cpp | $(BUILD_DIR)
+	@printf "  [CC] %s\n" "$<"
+	@$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/input_inject.o: src/input_inject.cpp | $(BUILD_DIR)
 	@printf "  [CC] %s\n" "$<"
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 

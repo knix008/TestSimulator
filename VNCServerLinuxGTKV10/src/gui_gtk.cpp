@@ -11,6 +11,7 @@
 #endif
 
 #include <atomic>
+#include <cstdio>
 #include <cstdint>
 #include <string>
 
@@ -21,6 +22,9 @@ struct AppWidgets {
     GtkWidget* spin_port = nullptr;
     GtkWidget* entry_password = nullptr;
     GtkWidget* chk_input = nullptr;
+    GtkAdjustment* scale_resolution_adj = nullptr;
+    GtkWidget* scale_resolution = nullptr;
+    GtkWidget* spin_resolution = nullptr;
     GtkWidget* combo_capture = nullptr;
     GtkWidget* btn_pick_window = nullptr;
     GtkWidget* lbl_selected_window = nullptr;
@@ -96,6 +100,24 @@ constexpr const char* kCss = R"(
 
   spinbutton button:hover {
     background-color: #454545;
+  }
+
+  scale.resolution-scale {
+    margin-top: 2px;
+    min-height: 48px;
+  }
+
+  scale.resolution-scale trough {
+    background-color: #2b2b2b;
+  }
+
+  scale.resolution-scale highlight {
+    background-color: #1565c0;
+  }
+
+  scale.resolution-scale marks {
+    color: #9e9e9e;
+    font-size: 90%;
   }
 
   checkbutton label {
@@ -416,6 +438,10 @@ VncServerOptions read_options_from_ui() {
         opt.password = pw;
     }
     opt.allow_input = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(g_ui.chk_input));
+    if (g_ui.scale_resolution_adj) {
+        opt.capture_scale_percent =
+            static_cast<int>(gtk_adjustment_get_value(g_ui.scale_resolution_adj));
+    }
     if (capture_mode_is_single_window()) {
         opt.capture_mode = VncCaptureMode::SingleWindow;
         opt.target_window = g_selected_window_xid;
@@ -432,6 +458,18 @@ void on_show_password_toggled(GtkToggleButton* btn, gpointer entry) {
 void on_port_changed(GtkSpinButton* spin, gpointer /*data*/) {
     if (!vnc_server_is_running()) {
         set_port_display(gtk_spin_button_get_value_as_int(spin));
+    }
+}
+
+void add_resolution_scale_marks(GtkScale* scale) {
+    for (int value = 10; value <= 100; value += 5) {
+        if (value % 10 == 0) {
+            char label[8];
+            std::snprintf(label, sizeof(label), "%d", value);
+            gtk_scale_add_mark(scale, static_cast<gdouble>(value), GTK_POS_BOTTOM, label);
+        } else {
+            gtk_scale_add_mark(scale, static_cast<gdouble>(value), GTK_POS_BOTTOM, nullptr);
+        }
     }
 }
 
@@ -461,6 +499,8 @@ void on_toggle_clicked(GtkWidget* /*btn*/, gpointer /*data*/) {
         gtk_widget_set_sensitive(g_ui.spin_port, TRUE);
         gtk_widget_set_sensitive(g_ui.entry_password, TRUE);
         gtk_widget_set_sensitive(g_ui.chk_input, TRUE);
+        gtk_widget_set_sensitive(g_ui.scale_resolution, TRUE);
+        gtk_widget_set_sensitive(g_ui.spin_resolution, TRUE);
         gtk_widget_set_sensitive(g_ui.combo_capture, TRUE);
         update_window_picker_sensitivity();
         set_port_display(gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(g_ui.spin_port)));
@@ -495,9 +535,12 @@ void on_toggle_clicked(GtkWidget* /*btn*/, gpointer /*data*/) {
     gtk_widget_set_sensitive(g_ui.spin_port, FALSE);
     gtk_widget_set_sensitive(g_ui.entry_password, FALSE);
     gtk_widget_set_sensitive(g_ui.chk_input, FALSE);
+    gtk_widget_set_sensitive(g_ui.scale_resolution, FALSE);
+    gtk_widget_set_sensitive(g_ui.spin_resolution, FALSE);
     gtk_widget_set_sensitive(g_ui.combo_capture, FALSE);
     gtk_widget_set_sensitive(g_ui.btn_pick_window, FALSE);
-    post_status("Starting VNC server on port " + std::to_string(opt.port) + "...");
+    post_status("Starting VNC server on port " + std::to_string(opt.port) + " (" +
+                std::to_string(opt.capture_scale_percent) + "% resolution)...");
 }
 
 void shutdown_application() {
@@ -597,6 +640,36 @@ GtkWidget* build_settings_section() {
     gtk_widget_set_margin_top(g_ui.chk_input, 4);
     gtk_grid_attach(GTK_GRID(grid), g_ui.chk_input, 0, 2, 2, 1);
 
+    GtkWidget* resolution_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    gtk_widget_set_valign(resolution_row, GTK_ALIGN_CENTER);
+
+    g_ui.scale_resolution_adj =
+        gtk_adjustment_new(100.0, 10.0, 100.0, 1.0, 5.0, 0.0);
+    g_ui.scale_resolution =
+        gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, g_ui.scale_resolution_adj);
+    gtk_scale_set_digits(GTK_SCALE(g_ui.scale_resolution), 0);
+    gtk_scale_set_draw_value(GTK_SCALE(g_ui.scale_resolution), FALSE);
+    gtk_scale_set_has_origin(GTK_SCALE(g_ui.scale_resolution), TRUE);
+    gtk_widget_set_hexpand(g_ui.scale_resolution, TRUE);
+    gtk_widget_set_size_request(g_ui.scale_resolution, 560, 52);
+    gtk_style_context_add_class(gtk_widget_get_style_context(g_ui.scale_resolution),
+                                "resolution-scale");
+    add_resolution_scale_marks(GTK_SCALE(g_ui.scale_resolution));
+    gtk_box_pack_start(GTK_BOX(resolution_row), g_ui.scale_resolution, TRUE, TRUE, 0);
+
+    g_ui.spin_resolution = gtk_spin_button_new(g_ui.scale_resolution_adj, 1.0, 0);
+    gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(g_ui.spin_resolution), TRUE);
+    gtk_spin_button_set_digits(GTK_SPIN_BUTTON(g_ui.spin_resolution), 0);
+    gtk_widget_set_size_request(g_ui.spin_resolution, 72, -1);
+    gtk_widget_set_valign(g_ui.spin_resolution, GTK_ALIGN_CENTER);
+    gtk_box_pack_start(GTK_BOX(resolution_row), g_ui.spin_resolution, FALSE, FALSE, 0);
+
+    GtkWidget* lbl_resolution_unit = gtk_label_new("%");
+    gtk_widget_set_valign(lbl_resolution_unit, GTK_ALIGN_CENTER);
+    gtk_box_pack_start(GTK_BOX(resolution_row), lbl_resolution_unit, FALSE, FALSE, 0);
+
+    attach_form_row(GTK_GRID(grid), 3, "전송 해상도", resolution_row);
+
     g_ui.combo_capture = gtk_combo_box_text_new();
     gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_capture),
                                    "전체 화면 (기본 · Portal)");
@@ -605,7 +678,7 @@ GtkWidget* build_settings_section() {
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_ui.combo_capture), 0);
     gtk_widget_set_halign(g_ui.combo_capture, GTK_ALIGN_START);
     g_signal_connect(g_ui.combo_capture, "changed", G_CALLBACK(on_capture_mode_changed), nullptr);
-    attach_form_row(GTK_GRID(grid), 3, "공유 범위", g_ui.combo_capture);
+    attach_form_row(GTK_GRID(grid), 4, "공유 범위", g_ui.combo_capture);
 
     GtkWidget* pick_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     g_ui.btn_pick_window = gtk_button_new_with_label("창 선택…");
@@ -618,13 +691,13 @@ GtkWidget* build_settings_section() {
     gtk_label_set_xalign(GTK_LABEL(g_ui.lbl_selected_window), 0.0f);
     gtk_label_set_line_wrap(GTK_LABEL(g_ui.lbl_selected_window), TRUE);
     gtk_box_pack_start(GTK_BOX(pick_box), g_ui.lbl_selected_window, TRUE, TRUE, 0);
-    attach_form_row(GTK_GRID(grid), 4, "대상 창", pick_box);
+    attach_form_row(GTK_GRID(grid), 5, "대상 창", pick_box);
 
     GtkWidget* hint = gtk_label_new("VNC viewers connect with  host:port  (e.g.  localhost:5900)");
     gtk_label_set_xalign(GTK_LABEL(hint), 0.0f);
     gtk_style_context_add_class(gtk_widget_get_style_context(hint), "hint-label");
     gtk_widget_set_margin_top(hint, 4);
-    gtk_grid_attach(GTK_GRID(grid), hint, 1, 5, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), hint, 1, 6, 1, 1);
 
     return make_frame("Settings", grid);
 }
@@ -677,7 +750,8 @@ void build_ui(GtkApplication* app) {
 
     g_ui.window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(g_ui.window), "VNC Server");
-    gtk_window_set_default_size(GTK_WINDOW(g_ui.window), 680, 560);
+    gtk_window_set_default_size(GTK_WINDOW(g_ui.window), 960, 560);
+    gtk_widget_set_size_request(GTK_WIDGET(g_ui.window), 820, -1);
     gtk_window_set_resizable(GTK_WINDOW(g_ui.window), TRUE);
     gtk_window_set_position(GTK_WINDOW(g_ui.window), GTK_WIN_POS_CENTER);
     g_signal_connect(g_ui.window, "destroy", G_CALLBACK(on_window_destroy), nullptr);

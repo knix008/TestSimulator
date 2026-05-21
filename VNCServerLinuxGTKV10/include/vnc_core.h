@@ -15,6 +15,8 @@ struct VncServerOptions {
     bool allow_input = true;
     VncCaptureMode capture_mode = VncCaptureMode::FullDesktop;
     std::uint64_t target_window = 0;
+    // VNC framebuffer size as % of native capture size (10–100).
+    int capture_scale_percent = 100;
 };
 
 using VncStatusCallback = std::function<void(const std::string& message)>;

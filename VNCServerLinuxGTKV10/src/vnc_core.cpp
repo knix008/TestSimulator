@@ -1,6 +1,7 @@
 #include "vnc_core.h"
 
 #include "capture_gstreamer.h"
+#include "input_inject.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wparentheses"
@@ -121,7 +122,24 @@ constexpr int kTileSize = 64;
 constexpr int kMinWindowSize = 32;
 constexpr int kStackedListRefreshSec = 2;
 constexpr double kRootContentThreshold = 0.02;
+constexpr int kMinCaptureScalePercent = 10;
+constexpr int kMaxCaptureScalePercent = 100;
 std::chrono::steady_clock::time_point g_last_capture_time{};
+int g_capture_scale_percent = 100;
+
+int clamp_capture_scale_percent(int percent) {
+    return std::clamp(percent, kMinCaptureScalePercent, kMaxCaptureScalePercent);
+}
+
+int scaled_vnc_dimension(int native, int percent) {
+    if (native <= 0) {
+        return 0;
+    }
+    const int p = clamp_capture_scale_percent(percent);
+    int scaled = (native * p) / 100;
+    scaled = (scaled + 3) & ~3;
+    return std::max(64, scaled);
+}
 
 int framebuffer_stride_bytes() {
     if (!g_screen) {
@@ -651,6 +669,12 @@ void ptr_add_event(int buttonMask, int x, int y, rfbClientPtr /*cl*/) {
     int rx = 0;
     int ry = 0;
     map_vnc_coords_to_root(x, y, &rx, &ry);
+
+    if (input_inject_is_active()) {
+        input_inject_pointer_root(rx, ry, buttonMask);
+        return;
+    }
+
     XTestFakeMotionEvent(g_display, g_x11.screen, rx, ry, CurrentTime);
     XSync(g_display, False);
 
@@ -693,6 +717,12 @@ void kbd_add_event(rfbBool down, rfbKeySym key, rfbClientPtr /*cl*/) {
     if (!g_allow_input || !g_display) {
         return;
     }
+
+    if (input_inject_is_active()) {
+        input_inject_key(static_cast<uint32_t>(key), down != 0);
+        return;
+    }
+
     KeyCode code = XKeysymToKeycode(g_display, key);
     if (code == 0) {
         return;
@@ -765,16 +795,39 @@ void convert_ximage_to_framebuffer(XImage* image, char* framebuffer) {
         return;
     }
 
-    if (copy_native_bgrx_to_framebuffer(image, framebuffer, 0, 0)) {
+    const int dst_w = g_screen->width;
+    const int dst_h = g_screen->height;
+    const int src_w = image->width;
+    const int src_h = image->height;
+    if (dst_w <= 0 || dst_h <= 0 || src_w <= 0 || src_h <= 0) {
         return;
     }
 
-    const int width = std::min(g_screen->width, image->width);
-    const int height = std::min(g_screen->height, image->height);
+    if (src_w == dst_w && src_h == dst_h && copy_native_bgrx_to_framebuffer(image, framebuffer, 0, 0)) {
+        return;
+    }
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            write_pixel_to_framebuffer(framebuffer, x, y, XGetPixel(image, x, y));
+    const int dst_stride = framebuffer_stride_bytes();
+
+    if (image_is_native_bgrx(image)) {
+        for (int dy = 0; dy < dst_h; ++dy) {
+            const int sy = (dy * src_h) / dst_h;
+            const auto* src_row = reinterpret_cast<const unsigned char*>(
+                image->data + sy * image->bytes_per_line);
+            auto* dst_row = reinterpret_cast<unsigned char*>(framebuffer) + dy * dst_stride;
+            for (int dx = 0; dx < dst_w; ++dx) {
+                const int sx = (dx * src_w) / dst_w;
+                std::memcpy(dst_row + dx * 4, src_row + sx * 4, 4);
+            }
+        }
+        return;
+    }
+
+    for (int dy = 0; dy < dst_h; ++dy) {
+        const int sy = (dy * src_h) / dst_h;
+        for (int dx = 0; dx < dst_w; ++dx) {
+            const int sx = (dx * src_w) / dst_w;
+            write_pixel_to_framebuffer(framebuffer, dx, dy, XGetPixel(image, sx, sy));
         }
     }
 }
@@ -1462,9 +1515,16 @@ void server_thread_main(VncServerOptions options) {
         g_x11.height = target_attr.height;
     }
 
-    const int width = g_x11.width;
-    const int height = g_x11.height;
+    const int native_w = g_x11.width;
+    const int native_h = g_x11.height;
+    g_capture_scale_percent = clamp_capture_scale_percent(options.capture_scale_percent);
+    const int width = scaled_vnc_dimension(native_w, g_capture_scale_percent);
+    const int height = scaled_vnc_dimension(native_h, g_capture_scale_percent);
     const int bytes_per_pixel = g_x11.bytes_per_pixel;
+
+    notify_status("Native capture " + std::to_string(native_w) + "x" + std::to_string(native_h) +
+                  " → VNC " + std::to_string(width) + "x" + std::to_string(height) + " (" +
+                  std::to_string(g_capture_scale_percent) + "%)");
 
     int argc = 1;
     char arg0[] = "vncserver";
@@ -1548,18 +1608,28 @@ void server_thread_main(VncServerOptions options) {
     configure_vnc_server_performance();
     rfbInitServer(g_screen);
 
-    if (std::getenv("WAYLAND_DISPLAY") && g_allow_input) {
-        notify_status(
-            "입력: XTest(X11) 사용 — Wayland 네이티브 앱에는 마우스/키보드가 전달되지 않을 수 "
-            "있습니다 (XWayland 창은 동작).");
+    if (g_allow_input) {
+        const int screen_w = DisplayWidth(g_display, g_x11.screen);
+        const int screen_h = DisplayHeight(g_display, g_x11.screen);
+        std::string input_backend;
+        if (input_inject_init(g_display, screen_w, screen_h, &input_backend)) {
+            notify_status("입력: uinput (가상 마우스/키보드) — Wayland·X11 공통");
+        } else if (std::getenv("WAYLAND_DISPLAY")) {
+            notify_status(
+                "입력: XTest(X11) 폴백 — Wayland 네이티브 앱에는 입력이 제한될 수 있습니다. "
+                "/dev/uinput 권한(input 그룹)을 확인하세요.");
+        } else {
+            notify_status("입력: XTest(X11) — uinput 초기화 실패 (/dev/uinput 권한 확인)");
+        }
     }
 
     if (g_capture_mode == VncCaptureMode::SingleWindow) {
         notify_status("VNC server listening on port " + std::to_string(options.port) +
-                      " (single window, ~15 fps)");
+                      " (single window, " + std::to_string(g_capture_scale_percent) +
+                      "%, ~15 fps)");
     } else {
         notify_status("VNC server listening on port " + std::to_string(options.port) +
-                      " (full desktop, ~15 fps)");
+                      " (full desktop, " + std::to_string(g_capture_scale_percent) + "%, ~15 fps)");
     }
 
     // Portal dialog can block for minutes; run it on a helper thread and keep
@@ -1662,6 +1732,7 @@ void server_thread_main(VncServerOptions options) {
     rfbScreenCleanup(g_screen);
     g_screen = nullptr;
 
+    input_inject_shutdown();
     cleanup_x11_capture();
     XCloseDisplay(g_display);
     g_display = nullptr;
