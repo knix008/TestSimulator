@@ -1,0 +1,33 @@
+# Build output
+/build/
+/ftpclient
+
+# Generated files (auto-created at build time)
+/resources/icon_*.png
+
+# Object & archive files
+*.o
+*.a
+*.so
+*.d
+
+# Compilation database
+compile_commands.json
+
+# Editor & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.clangd/
+.cache/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# User config (generated at runtime)
+# ~/.config/ftp-gtk-client/ — not in repo

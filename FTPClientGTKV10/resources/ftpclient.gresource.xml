@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/testsimulator/ftpclient">
+    <file>icon_16.png</file>
+    <file>icon_32.png</file>
+    <file>icon_48.png</file>
+    <file>icon_256.png</file>
+  </gresource>
+</gresources>
