@@ -9,6 +9,9 @@ static void on_activate(GtkApplication *app, gpointer user_data) {
 }
 
 int main(int argc, char *argv[]) {
+    g_set_prgname("commandcenter");
+    gdk_set_program_class("commandcenter");
+
     GtkApplication *app = gtk_application_new(
         "com.testsimulator.CommandCenterGTKv10",
         G_APPLICATION_DEFAULT_FLAGS);

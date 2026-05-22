@@ -2,18 +2,33 @@
 #define FILE_OPS_H
 
 #include <glib.h>
+#include <gtk/gtk.h>
+
+#include "file_ops_conflict.h"
 
 typedef void (*FileOpsProgressFn)(const char *filename, gpointer user_data);
 
+typedef struct {
+    guint copied;
+    guint skipped;
+    guint failed;
+} FileOpsTransferStats;
+
 gboolean file_ops_copy_files(GPtrArray *sources,
                              const char *dest_dir,
+                             GtkWindow *parent,
+                             FileOpsConflictState *conflict_state,
                              FileOpsProgressFn progress,
                              gpointer user_data,
+                             FileOpsTransferStats *stats,
                              GError **error);
 gboolean file_ops_move_files(GPtrArray *sources,
                              const char *dest_dir,
+                             GtkWindow *parent,
+                             FileOpsConflictState *conflict_state,
                              FileOpsProgressFn progress,
                              gpointer user_data,
+                             FileOpsTransferStats *stats,
                              GError **error);
 gboolean file_ops_delete_files(GPtrArray *paths, GError **error);
 

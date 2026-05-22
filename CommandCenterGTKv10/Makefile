@@ -1,14 +1,18 @@
 # ============================================================
 #  CommandCenterGTKv10 (FileMaster) — Makefile
-#  Target: Linux / GTK3
+#  Target: Linux / macOS (GTK3)
 #
 #  make     의존성 검사 → 누락 시 자동 설치 → 빌드
-#            실행 파일: ./CommandCenterGTKv10 (프로젝트 루트)
+#            실행 파일: ./commandcenter (프로젝트 루트)
 #  CC_AUTO_INSTALL=0 make   자동 설치 비활성화
 # ============================================================
 
-APP     := cmdcenter
-TARGET  := $(APP)
+APP       := commandcenter
+TARGET    := $(APP)
+ICON_FILE := daemon_hammer.ico
+ICON_SRCS := ../TTSWinV10/daemon_hammer.ico \
+             ../EasyMDWebV10/public/daemon_hammer.ico \
+             ../VNCServerWinV10/VNCServer/daemon_hammer.ico
 INCDIR  := include
 SRCDIR  := src
 BLDDIR  := build
@@ -25,16 +29,24 @@ PKGS    := gtk+-3.0
 GTK_CFLAGS := $(shell pkg-config --cflags $(PKGS) 2>/dev/null)
 GTK_LIBS   := $(shell pkg-config --libs $(PKGS) 2>/dev/null)
 
-CFLAGS  := $(CSTD) $(WARN) $(OPT) $(PTHREAD) -I$(INCDIR) $(GTK_CFLAGS)
+CFLAGS  := $(CSTD) $(WARN) $(OPT) $(PTHREAD) -I$(INCDIR) \
+           -DAPP_ICON_FILE=\"$(ICON_FILE)\" $(GTK_CFLAGS)
 LDFLAGS := $(PTHREAD) -lm $(GTK_LIBS)
+ifeq ($(UNAME_S),Darwin)
+  ifneq ($(BREW_PREFIX),)
+    LDFLAGS += -L$(BREW_PREFIX)/lib
+  endif
+endif
 
 SRCS := $(SRCDIR)/main.c \
+        $(SRCDIR)/app_icon.c \
         $(SRCDIR)/main_window.c \
         $(SRCDIR)/file_panel.c \
         $(SRCDIR)/folder_tree_panel.c \
         $(SRCDIR)/preview_panel.c \
         $(SRCDIR)/file_entry.c \
         $(SRCDIR)/file_ops.c \
+        $(SRCDIR)/file_ops_conflict.c \
         $(SRCDIR)/json_util.c \
         $(SRCDIR)/bookmark_manager.c \
         $(SRCDIR)/session_settings.c \
@@ -46,8 +58,37 @@ OBJS := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%.o,$(SRCS))
 UNAME_S  := $(shell uname -s)
 APT_DEBS := build-essential pkg-config libgtk-3-dev
 
-.PHONY: all deps install-deps check-deps clean run help \
-        _ensure-deps _deps-report _deps-missing _build banner done dirs
+ifeq ($(UNAME_S),Linux)
+  PLATFORM := linux
+else ifeq ($(UNAME_S),Darwin)
+  PLATFORM := macos
+  BREW_PREFIX := $(shell brew --prefix 2>/dev/null)
+  export PKG_CONFIG_PATH := $(BREW_PREFIX)/lib/pkgconfig:$(BREW_PREFIX)/opt/gtk+3/lib/pkgconfig
+else
+  $(error Unsupported OS: $(UNAME_S). Supported: Linux, macOS (Darwin))
+endif
+
+ifeq ($(UNAME_S),Darwin)
+  ifneq ($(BREW_PREFIX),)
+    PREFIX ?= $(BREW_PREFIX)
+  else
+    PREFIX ?= /usr/local
+  endif
+else
+  PREFIX ?= /usr/local
+endif
+
+DESTDIR         ?=
+INSTALL         ?= install
+BINDIR          := $(DESTDIR)$(PREFIX)/bin
+DESKTOPDIR      := $(DESTDIR)$(PREFIX)/share/applications
+SHAREDIR        := $(DESTDIR)$(PREFIX)/share/commandcenter
+ICON_256        := $(DESTDIR)$(PREFIX)/share/icons/hicolor/256x256/apps
+DESKTOP_IN      := commandcenter.desktop
+DESKTOP_INST    := commandcenter.desktop
+
+.PHONY: all deps install-deps check-deps clean run help icon \
+        install uninstall _ensure-deps _deps-report _deps-missing _build banner done dirs
 
 .DEFAULT_GOAL := all
 
@@ -76,7 +117,7 @@ _ensure-deps:
 	fi
 
 _deps-report:
-	@echo "    $(TARGET) — ($$(uname -s)/$$(uname -m))"
+	@echo "    $(TARGET) — $(PLATFORM)/$$(uname -m)"
 	@if command -v pkg-config >/dev/null 2>&1; then \
 	    echo "    [O] pkg-config $$(pkg-config --version 2>/dev/null)"; \
 	else echo "    [X] pkg-config"; fi
@@ -90,7 +131,11 @@ _deps-report:
 	    if pkg-config --exists $$pkg 2>/dev/null; then \
 	        echo "    [O] $$pkg $$(pkg-config --modversion $$pkg)"; \
 	    else \
-	        echo "    [X] $$pkg (libgtk-3-dev 등)"; \
+	        if [ "$(PLATFORM)" = "macos" ]; then \
+	            echo "    [X] $$pkg (brew install gtk+3)"; \
+	        else \
+	            echo "    [X] $$pkg (libgtk-3-dev 등)"; \
+	        fi; \
 	    fi; \
 	done
 	@echo ""
@@ -137,8 +182,13 @@ ifeq ($(UNAME_S),Linux)
 	else \
 	    echo "    [X] 지원하지 않는 패키지 매니저 — 수동: $(APT_DEBS)"; exit 1; \
 	fi
+else ifeq ($(UNAME_S),Darwin)
+	@command -v brew >/dev/null 2>&1 || { \
+	    echo "    [X] Homebrew 필요 — https://brew.sh"; exit 1; }; \
+	brew list pkg-config >/dev/null 2>&1 || brew install pkg-config; \
+	brew list gtk+3 >/dev/null 2>&1 || brew install gtk+3
 else
-	@echo "    install-deps: Linux 전용"
+	@echo "    [X] install-deps: Linux / macOS 전용"
 	@exit 1
 endif
 	@echo "    [O] 설치 완료"
@@ -157,7 +207,21 @@ done:
 dirs:
 	@mkdir -p $(BLDDIR)
 
-$(TARGET): $(OBJS)
+icon: $(ICON_FILE)
+
+$(ICON_FILE):
+	@if [ -f "$(ICON_FILE)" ]; then exit 0; fi; \
+	for p in $(ICON_SRCS); do \
+	    if [ -f "$$p" ]; then \
+	        echo "[icon] $(ICON_FILE) ← $$p"; \
+	        ln -sf "$$p" "$(ICON_FILE)"; \
+	        exit 0; \
+	    fi; \
+	done; \
+	echo "[X] $(ICON_FILE) 없음 — TestSimulator 형제 프로젝트에 ico를 두거나 루트에 복사하세요."; \
+	exit 1
+
+$(TARGET): $(OBJS) $(ICON_FILE)
 	@test -n "$(GTK_CFLAGS)" || { echo "[X] gtk+-3.0 없음 — make 재실행"; exit 1; }
 	@echo "[link] ./$(TARGET)"
 	@$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
@@ -170,6 +234,60 @@ $(BLDDIR)/%.o: $(SRCDIR)/%.c
 run: all
 	@./$(TARGET)
 
+install: all
+	@echo "==> install $(TARGET) → $(PREFIX) ($(PLATFORM))"
+	@$(INSTALL) -d "$(BINDIR)"
+	@$(INSTALL) -m 755 "$(TARGET)" "$(BINDIR)/$(TARGET)"
+	@$(INSTALL) -d "$(SHAREDIR)"
+	@$(INSTALL) -m 644 "$(ICON_FILE)" "$(SHAREDIR)/$(ICON_FILE)"
+ifeq ($(UNAME_S),Linux)
+	@$(INSTALL) -d "$(ICON_256)"
+	@$(INSTALL) -m 644 "$(ICON_FILE)" "$(ICON_256)/commandcenter.ico"
+	@$(INSTALL) -d "$(DESKTOPDIR)"
+	@{ \
+	  echo '[Desktop Entry]'; \
+	  echo 'Type=Application'; \
+	  echo 'Name=Command Center V1.0'; \
+	  echo 'GenericName=File Manager'; \
+	  echo 'Comment=Dual-panel file manager (CommandCenter)'; \
+	  echo 'Exec=$(BINDIR)/$(TARGET) %F'; \
+	  echo 'Icon=commandcenter'; \
+	  echo 'Terminal=false'; \
+	  echo 'Categories=Utility;FileManager;'; \
+	  echo 'StartupWMClass=commandcenter'; \
+	  echo 'MimeType=inode/directory;'; \
+	} > "$(DESKTOPDIR)/$(DESKTOP_INST)"
+	@chmod 644 "$(DESKTOPDIR)/$(DESKTOP_INST)"
+	@command -v gtk-update-icon-cache >/dev/null 2>&1 && \
+	    gtk-update-icon-cache -f -t "$(DESTDIR)$(PREFIX)/share/icons/hicolor" \
+	    2>/dev/null || true
+	@command -v update-desktop-database >/dev/null 2>&1 && \
+	    update-desktop-database "$(DESKTOPDIR)" 2>/dev/null || true
+	@echo "    [O] $(DESKTOPDIR)/$(DESKTOP_INST)"
+	@echo "    [O] $(ICON_256)/commandcenter.ico"
+endif
+	@echo "    [O] $(BINDIR)/$(TARGET)"
+	@echo "    [O] $(SHAREDIR)/$(ICON_FILE)"
+	@echo ""
+	@echo "  실행: $(BINDIR)/$(TARGET)"
+
+uninstall:
+	@echo "==> uninstall $(TARGET) from $(PREFIX) ($(PLATFORM))"
+	@rm -f "$(BINDIR)/$(TARGET)"
+	@rm -f "$(SHAREDIR)/$(ICON_FILE)"
+	@rmdir "$(SHAREDIR)" 2>/dev/null || true
+ifeq ($(UNAME_S),Linux)
+	@rm -f "$(ICON_256)/commandcenter.ico"
+	@rmdir "$(ICON_256)" 2>/dev/null || true
+	@rm -f "$(DESKTOPDIR)/$(DESKTOP_INST)"
+	@command -v gtk-update-icon-cache >/dev/null 2>&1 && \
+	    gtk-update-icon-cache -f -t "$(DESTDIR)$(PREFIX)/share/icons/hicolor" \
+	    2>/dev/null || true
+	@command -v update-desktop-database >/dev/null 2>&1 && \
+	    update-desktop-database "$(DESKTOPDIR)" 2>/dev/null || true
+endif
+	@echo "    [O] 제거 완료"
+
 clean:
 	@rm -rf $(BLDDIR) $(TARGET)
 
@@ -179,6 +297,13 @@ help:
 	@echo "  make check-deps      의존성만 검사"
 	@echo "  make install-deps    누락 패키지 수동 설치"
 	@echo "  make run             ./$(TARGET) 실행"
+	@echo "  make install         PREFIX=$(PREFIX) 에 설치"
+	@echo "  make uninstall       설치 제거"
 	@echo "  make clean           build/ 및 실행 파일 삭제"
+	@echo ""
+	@echo "  Linux:  sudo make install"
+	@echo "          make install PREFIX=$$HOME/.local"
+	@echo "  macOS:  make install-deps   # brew install gtk+3"
+	@echo "          make install        # PREFIX=$$(brew --prefix) 기본"
 	@echo ""
 	@echo "  CC_AUTO_INSTALL=0    자동 설치 끄기"

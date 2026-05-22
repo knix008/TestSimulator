@@ -2,6 +2,7 @@
 
 #include "file_entry.h"
 #include "file_ops.h"
+#include "file_ops_conflict.h"
 #include "folder_tree_panel.h"
 #include "input_dialog.h"
 
@@ -13,10 +14,12 @@
 #include <time.h>
 
 #define COL_NAME 0
-#define COL_SIZE 1
-#define COL_TYPE 2
-#define COL_DATE 3
-#define N_COLS 4
+#define COL_PERM 1
+#define COL_DATE 2
+#define COL_TYPE 3
+#define COL_SIZE 4
+#define COL_ENTRY 5
+#define N_COLS 5
 
 typedef struct {
     FilePanelSide side;
@@ -27,12 +30,18 @@ typedef struct {
     GtkWidget *container;
     GtkWidget *path_bar;
     GtkWidget *header_label;
-    GtkWidget *chevron_label;
     GtkWidget *folder_tree;
-    GtkWidget *drive_bar;
     GtkWidget *tree_view;
     GtkListStore *store;
     GtkWidget *status_label;
+    GtkWidget *context_menu;
+    GtkWidget *ctx_open;
+    GtkWidget *ctx_copy_other;
+    GtkWidget *ctx_move_other;
+    GtkWidget *ctx_clip_copy;
+    GtkWidget *ctx_rename;
+    GtkWidget *ctx_delete;
+    GtkWidget *ctx_properties;
 
     FilePanelVoidFn on_focus;
     FilePanelPathFn on_path_changed;
@@ -45,8 +54,105 @@ typedef struct {
     GtkSortType sort_order;
 } FilePanelData;
 
+static FilePanelData *panel_data(GtkWidget *panel);
+static GPtrArray *get_selected_paths(FilePanelData *pd);
+static void open_file(const char *path);
+
 static FilePanelData *panel_data(GtkWidget *panel) {
     return g_object_get_data(G_OBJECT(panel), "file-panel-data");
+}
+
+static GtkWindow *panel_window(GtkWidget *panel) {
+    GtkWidget *top = gtk_widget_get_toplevel(panel);
+    return GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL;
+}
+
+static void store_set_entry(GtkListStore *store, GtkTreeIter *iter, FileEntry *entry) {
+    gtk_list_store_set(store, iter, COL_ENTRY, entry, -1);
+}
+
+static gboolean selection_get_first_iter(GtkTreeSelection *sel, GtkTreeModel **model,
+                                         GtkTreeIter *iter) {
+    GtkTreeModel *m = NULL;
+    GList *rows = gtk_tree_selection_get_selected_rows(sel, &m);
+    if (!rows)
+        return FALSE;
+    gboolean ok = gtk_tree_model_get_iter(m, iter, (GtkTreePath *)rows->data);
+    if (model)
+        *model = m;
+    g_list_free_full(rows, (GDestroyNotify)gtk_tree_path_free);
+    return ok;
+}
+
+static FileEntry *store_get_entry(GtkTreeModel *model, GtkTreeIter *iter) {
+    gpointer entry = NULL;
+    gtk_tree_model_get(model, iter, COL_ENTRY, &entry, -1);
+    return (FileEntry *)entry;
+}
+
+static void activate_entry_at_iter(GtkWidget *panel, FilePanelData *pd,
+                                   GtkTreeModel *model, GtkTreeIter *iter) {
+    FileEntry *entry = store_get_entry(model, iter);
+    if (entry) {
+        if (entry->is_directory)
+            file_panel_navigate(panel, entry->full_path);
+        else
+            open_file(entry->full_path);
+        return;
+    }
+
+    gchar *name = NULL;
+    gtk_tree_model_get(model, iter, COL_NAME, &name, -1);
+    if (!name) return;
+    if (strcmp(name, "..") == 0) {
+        char *parent = g_path_get_dirname(pd->current_path);
+        if (strcmp(parent, pd->current_path) != 0)
+            file_panel_navigate(panel, parent);
+        g_free(parent);
+    } else {
+        char *full = g_build_filename(pd->current_path, name, NULL);
+        if (g_file_test(full, G_FILE_TEST_IS_DIR))
+            file_panel_navigate(panel, full);
+        g_free(full);
+    }
+    g_free(name);
+}
+
+static void activate_entry(GtkWidget *panel, FileEntry *entry) {
+    if (!entry) return;
+    if (entry->is_directory)
+        file_panel_navigate(panel, entry->full_path);
+    else
+        open_file(entry->full_path);
+}
+
+static void update_context_menu(FilePanelData *pd) {
+    GPtrArray *paths = get_selected_paths(pd);
+    gboolean has_sel = paths->len > 0;
+    gboolean single = paths->len == 1;
+    gtk_widget_set_sensitive(pd->ctx_open, has_sel);
+    gtk_widget_set_sensitive(pd->ctx_copy_other, has_sel);
+    gtk_widget_set_sensitive(pd->ctx_move_other, has_sel);
+    gtk_widget_set_sensitive(pd->ctx_clip_copy, has_sel);
+    gtk_widget_set_sensitive(pd->ctx_rename, single);
+    gtk_widget_set_sensitive(pd->ctx_delete, has_sel);
+    gtk_widget_set_sensitive(pd->ctx_properties, single);
+    g_ptr_array_free(paths, TRUE);
+}
+
+static char *format_permissions(mode_t mode) {
+    char *perm = g_malloc(10);
+    perm[0] = (mode & S_IRUSR) ? 'r' : '-';
+    perm[1] = (mode & S_IWUSR) ? 'w' : '-';
+    perm[2] = (mode & S_IXUSR) ? 'x' : '-';
+    perm[3] = (mode & S_IRGRP) ? 'r' : '-';
+    perm[4] = (mode & S_IWGRP) ? 'w' : '-';
+    perm[5] = (mode & S_IXGRP) ? 'x' : '-';
+    perm[6] = (mode & S_IROTH) ? 'r' : '-';
+    perm[7] = (mode & S_IWOTH) ? 'w' : '-';
+    perm[8] = (mode & S_IXOTH) ? 'x' : '-';
+    perm[9] = '\0';
+    return perm;
 }
 
 static void set_status(FilePanelData *pd, const char *msg) {
@@ -62,21 +168,59 @@ static int sort_compare(GtkTreeModel *model, GtkTreeIter *a, GtkTreeIter *b, gpo
     if (na && strcmp(na, "..") == 0) { g_free(na); g_free(nb); return -1; }
     if (nb && strcmp(nb, "..") == 0) { g_free(na); g_free(nb); return 1; }
 
-    FileEntry *ea = NULL, *eb = NULL;
-    gtk_tree_model_get(model, a, -1, &ea, -1);
-    gtk_tree_model_get(model, b, -1, &eb, -1);
+    FileEntry *ea = store_get_entry(model, a);
+    FileEntry *eb = store_get_entry(model, b);
     if (ea && ea->is_directory && eb && !eb->is_directory) { g_free(na); g_free(nb); return -1; }
     if (ea && !ea->is_directory && eb && eb->is_directory) { g_free(na); g_free(nb); return 1; }
 
-    gchar *va = NULL, *vb = NULL;
-    gtk_tree_model_get(model, a, pd->sort_column, &va, -1);
-    gtk_tree_model_get(model, b, pd->sort_column, &vb, -1);
-    int cmp = g_ascii_strcasecmp(va ? va : "", vb ? vb : "");
-    g_free(va);
-    g_free(vb);
+    int cmp = 0;
+    if (pd->sort_column == COL_SIZE) {
+        int64_t sa = (ea && !ea->is_directory) ? ea->size : -1;
+        int64_t sb = (eb && !eb->is_directory) ? eb->size : -1;
+        if (sa < sb) cmp = -1;
+        else if (sa > sb) cmp = 1;
+    } else if (pd->sort_column == COL_DATE) {
+        time_t ta = ea ? ea->last_modified : 0;
+        time_t tb = eb ? eb->last_modified : 0;
+        if (ta < tb) cmp = -1;
+        else if (ta > tb) cmp = 1;
+    } else {
+        gchar *va = NULL, *vb = NULL;
+        gtk_tree_model_get(model, a, pd->sort_column, &va, -1);
+        gtk_tree_model_get(model, b, pd->sort_column, &vb, -1);
+        cmp = g_ascii_strcasecmp(va ? va : "", vb ? vb : "");
+        g_free(va);
+        g_free(vb);
+    }
+
+    if (cmp == 0)
+        cmp = g_ascii_strcasecmp(na ? na : "", nb ? nb : "");
     g_free(na);
     g_free(nb);
     return pd->sort_order == GTK_SORT_ASCENDING ? cmp : -cmp;
+}
+
+static void update_sort_indicators(FilePanelData *pd) {
+    GList *cols = gtk_tree_view_get_columns(GTK_TREE_VIEW(pd->tree_view));
+    int index = 0;
+    for (GList *l = cols; l; l = l->next, index++) {
+        GtkTreeViewColumn *col = GTK_TREE_VIEW_COLUMN(l->data);
+        if (index == pd->sort_column) {
+            gtk_tree_view_column_set_sort_indicator(col, TRUE);
+            gtk_tree_view_column_set_sort_order(col, pd->sort_order);
+        } else {
+            gtk_tree_view_column_set_sort_indicator(col, FALSE);
+        }
+    }
+    g_list_free(cols);
+}
+
+static void apply_current_sort(FilePanelData *pd) {
+    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(pd->store),
+                                    pd->sort_column, sort_compare, pd, NULL);
+    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(pd->store),
+                                         pd->sort_column, pd->sort_order);
+    update_sort_indicators(pd);
 }
 
 static void update_status_counts(FilePanelData *pd) {
@@ -86,7 +230,7 @@ static void update_status_counts(FilePanelData *pd) {
     gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(pd->store), &iter);
     while (valid) {
         FileEntry *entry = NULL;
-        gtk_tree_model_get(GTK_TREE_MODEL(pd->store), &iter, -1, &entry, -1);
+        entry = store_get_entry(GTK_TREE_MODEL(pd->store), &iter);
         if (entry && strcmp(entry->name, "..") != 0) {
             if (entry->is_directory) dir_count++;
             else { file_count++; total += entry->size; }
@@ -113,9 +257,9 @@ static void load_directory(FilePanelData *pd) {
         GtkTreeIter iter;
         gtk_list_store_append(pd->store, &iter);
         gtk_list_store_set(pd->store, &iter,
-                           COL_NAME, "..", COL_SIZE, "", COL_TYPE, "폴더",
-                           COL_DATE, "", -1);
-        gtk_list_store_set(pd->store, &iter, -1, up, -1);
+                           COL_NAME, "..", COL_PERM, "", COL_DATE, "",
+                           COL_TYPE, "폴더", COL_SIZE, "", -1);
+        store_set_entry(pd->store, &iter, up);
     }
     g_free(parent);
 
@@ -157,12 +301,15 @@ static void load_directory(FilePanelData *pd) {
         struct tm *tm_info = localtime(&entry->last_modified);
         char date[32];
         strftime(date, sizeof(date), "%Y-%m-%d %H:%M", tm_info);
+        char *perm = format_permissions(st.st_mode);
         GtkTreeIter iter;
         gtk_list_store_append(pd->store, &iter);
         gtk_list_store_set(pd->store, &iter,
-                           COL_NAME, entry->name, COL_SIZE, "<DIR>",
-                           COL_TYPE, "폴더", COL_DATE, date, -1);
-        gtk_list_store_set(pd->store, &iter, -1, entry, -1);
+                           COL_NAME, entry->name, COL_PERM, perm,
+                           COL_DATE, date, COL_TYPE, "폴더", COL_SIZE, "<DIR>",
+                           -1);
+        store_set_entry(pd->store, &iter, entry);
+        g_free(perm);
     }
 
     for (guint i = 0; i < files->len; i++) {
@@ -183,18 +330,22 @@ static void load_directory(FilePanelData *pd) {
         struct tm *tm_info = localtime(&entry->last_modified);
         char date[32];
         strftime(date, sizeof(date), "%Y-%m-%d %H:%M", tm_info);
+        char *perm = format_permissions(st.st_mode);
         GtkTreeIter iter;
         gtk_list_store_append(pd->store, &iter);
         gtk_list_store_set(pd->store, &iter,
-                           COL_NAME, entry->name, COL_SIZE, size_d,
-                           COL_TYPE, type_d, COL_DATE, date, -1);
-        gtk_list_store_set(pd->store, &iter, -1, entry, -1);
+                           COL_NAME, entry->name, COL_PERM, perm,
+                           COL_DATE, date, COL_TYPE, type_d, COL_SIZE, size_d,
+                           -1);
+        store_set_entry(pd->store, &iter, entry);
         g_free(size_d);
         g_free(type_d);
+        g_free(perm);
     }
 
     g_ptr_array_free(dirs, TRUE);
     g_ptr_array_free(files, TRUE);
+    apply_current_sort(pd);
     update_status_counts(pd);
 }
 
@@ -208,41 +359,16 @@ static void on_folder_selected(const char *path, gpointer user_data) {
     file_panel_navigate(GTK_WIDGET(user_data), path);
 }
 
-static void on_path_bar_clicked(GtkWidget *w, gpointer data) {
+static gboolean on_path_bar_clicked(GtkWidget *w, GdkEvent *event, gpointer data) {
     (void)w;
+    (void)event;
     FilePanelData *pd = panel_data(GTK_WIDGET(data));
-    if (!pd) return;
-    if (folder_tree_panel_is_open(pd->folder_tree)) {
+    if (!pd) return FALSE;
+    if (folder_tree_panel_is_open(pd->folder_tree))
         folder_tree_panel_collapse(pd->folder_tree);
-        gtk_label_set_text(GTK_LABEL(pd->chevron_label), "▾");
-    } else {
+    else
         folder_tree_panel_toggle(pd->folder_tree, pd->current_path);
-        gtk_label_set_text(GTK_LABEL(pd->chevron_label), "▴");
-    }
-}
-
-static void on_drive_clicked(GtkButton *btn, gpointer path) {
-    GtkWidget *panel = GTK_WIDGET(g_object_get_data(G_OBJECT(btn), "panel"));
-    file_panel_navigate(panel, (const char *)path);
-}
-
-static void populate_drive_bar(FilePanelData *pd) {
-    GList *children = gtk_container_get_children(GTK_CONTAINER(pd->drive_bar));
-    for (GList *l = children; l; l = l->next) gtk_widget_destroy(GTK_WIDGET(l->data));
-    g_list_free(children);
-
-    const char *quick[] = { "/", g_get_home_dir(), "/tmp", NULL };
-    for (int i = 0; quick[i]; i++) {
-        if (!g_file_test(quick[i], G_FILE_TEST_IS_DIR)) continue;
-        const char *label = quick[i];
-        if (g_strcmp0(quick[i], g_get_home_dir()) == 0) label = "홈";
-        GtkWidget *btn = gtk_button_new_with_label(label);
-        char *path = g_strdup(quick[i]);
-        g_object_set_data_full(G_OBJECT(btn), "nav-path", path, g_free);
-        g_object_set_data(G_OBJECT(btn), "panel", pd->container);
-        g_signal_connect(btn, "clicked", G_CALLBACK(on_drive_clicked), path);
-        gtk_box_pack_start(GTK_BOX(pd->drive_bar), btn, FALSE, FALSE, 4);
-    }
+    return FALSE;
 }
 
 static GPtrArray *get_selected_paths(FilePanelData *pd) {
@@ -254,7 +380,7 @@ static GPtrArray *get_selected_paths(FilePanelData *pd) {
         GtkTreeIter it;
         gtk_tree_model_get_iter(model, &it, (GtkTreePath *)l->data);
         FileEntry *entry = NULL;
-        gtk_tree_model_get(model, &it, -1, &entry, -1);
+        entry = store_get_entry(model, &it);
         if (entry && strcmp(entry->name, "..") != 0)
             g_ptr_array_add(paths, g_strdup(entry->full_path));
     }
@@ -276,17 +402,16 @@ static void on_selection_changed(GtkTreeSelection *sel, gpointer data) {
 
     GtkTreeSelection *selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(pd->tree_view));
     GtkTreeModel *model = GTK_TREE_MODEL(pd->store);
-    GtkTreeIter iter;
     int sel_dirs = 0, sel_files = 0;
     int64_t sel_size = 0;
 
-    if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
-        GList *rows = gtk_tree_selection_get_selected_rows(selection, &model);
+    GList *rows = gtk_tree_selection_get_selected_rows(selection, &model);
+    if (rows) {
         for (GList *l = rows; l; l = l->next) {
             GtkTreeIter it;
             gtk_tree_model_get_iter(model, &it, (GtkTreePath *)l->data);
             FileEntry *entry = NULL;
-            gtk_tree_model_get(model, &it, -1, &entry, -1);
+            entry = store_get_entry(model, &it);
             if (!entry || strcmp(entry->name, "..") == 0) continue;
             if (entry->is_directory) sel_dirs++;
             else { sel_files++; sel_size += entry->size; }
@@ -317,18 +442,14 @@ static void open_file(const char *path) {
 
 static void on_row_activated(GtkTreeView *view, GtkTreePath *path,
                              GtkTreeViewColumn *col, gpointer data) {
-    (void)view;
     (void)col;
-    FilePanelData *pd = panel_data(GTK_WIDGET(data));
+    GtkWidget *panel = GTK_WIDGET(data);
+    FilePanelData *pd = panel_data(panel);
+    if (!pd) return;
+    GtkTreeModel *model = gtk_tree_view_get_model(view);
     GtkTreeIter iter;
-    if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(pd->store), &iter, path)) return;
-    FileEntry *entry = NULL;
-    gtk_tree_model_get(GTK_TREE_MODEL(pd->store), &iter, -1, &entry, -1);
-    if (!entry) return;
-    if (entry->is_directory)
-        file_panel_navigate(GTK_WIDGET(data), entry->full_path);
-    else
-        open_file(entry->full_path);
+    if (!gtk_tree_model_get_iter(model, &iter, path)) return;
+    activate_entry_at_iter(panel, pd, model, &iter);
 }
 
 static void on_column_clicked(GtkTreeViewColumn *column, gpointer data) {
@@ -336,9 +457,13 @@ static void on_column_clicked(GtkTreeViewColumn *column, gpointer data) {
     GList *cols = gtk_tree_view_get_columns(GTK_TREE_VIEW(pd->tree_view));
     int index = 0;
     for (GList *l = cols; l; l = l->next, index++) {
-        if (l->data == column) break;
+        if (l->data == column)
+            break;
     }
     g_list_free(cols);
+    if (index >= N_COLS)
+        return;
+
     if (pd->sort_column == index)
         pd->sort_order = pd->sort_order == GTK_SORT_ASCENDING
                              ? GTK_SORT_DESCENDING
@@ -347,18 +472,51 @@ static void on_column_clicked(GtkTreeViewColumn *column, gpointer data) {
         pd->sort_column = index;
         pd->sort_order = GTK_SORT_ASCENDING;
     }
-    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(pd->store),
-                                    pd->sort_column, sort_compare, pd, NULL);
-    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(pd->store),
-                                         pd->sort_column, pd->sort_order);
+    apply_current_sort(pd);
 }
 
-static gboolean on_button_press(GtkWidget *w, GdkEventButton *e, gpointer menu) {
-    if (e->button == 3) {
-        gtk_menu_popup_at_pointer(GTK_MENU(menu), (GdkEvent *)e);
+static gboolean on_button_press(GtkWidget *w, GdkEventButton *e, gpointer data) {
+    GtkWidget *panel = GTK_WIDGET(data);
+    FilePanelData *pd = panel_data(panel);
+    if (!pd || !pd->context_menu) return FALSE;
+
+    if (e->type == GDK_BUTTON_PRESS && e->button == 1 && pd->on_focus)
+        pd->on_focus(pd->container, pd->callback_data);
+
+    GtkTreeView *view = GTK_TREE_VIEW(w);
+    GtkTreePath *path = NULL;
+    GtkTreeViewColumn *col = NULL;
+    int cell_x, cell_y;
+
+    if (e->type == GDK_2BUTTON_PRESS && e->button == 1) {
+        if (gtk_tree_view_get_path_at_pos(view, e->x, e->y, &path, &col,
+                                          &cell_x, &cell_y)) {
+            GtkTreeModel *model = gtk_tree_view_get_model(view);
+            GtkTreeIter iter;
+            if (gtk_tree_model_get_iter(model, &iter, path))
+                activate_entry_at_iter(panel, pd, model, &iter);
+            gtk_tree_path_free(path);
+        }
         return TRUE;
     }
-    (void)w;
+
+    if (e->type == GDK_BUTTON_PRESS && e->button == 3) {
+        GtkTreeSelection *sel = gtk_tree_view_get_selection(view);
+        if (gtk_tree_view_get_path_at_pos(view, e->x, e->y, &path, &col,
+                                          &cell_x, &cell_y)) {
+            if (!gtk_tree_selection_path_is_selected(sel, path)) {
+                gtk_tree_selection_unselect_all(sel);
+                gtk_tree_selection_select_path(sel, path);
+            }
+            gtk_tree_path_free(path);
+            path = NULL;
+        }
+        update_context_menu(pd);
+        gtk_widget_show_all(pd->context_menu);
+        gtk_menu_popup_at_pointer(GTK_MENU(pd->context_menu), (GdkEvent *)e);
+        return TRUE;
+    }
+
     return FALSE;
 }
 
@@ -372,16 +530,8 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer dat
         GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(pd->tree_view));
         GtkTreeModel *model;
         GtkTreeIter iter;
-        if (gtk_tree_selection_get_selected(sel, &model, &iter)) {
-            FileEntry *entry = NULL;
-            gtk_tree_model_get(model, &iter, -1, &entry, -1);
-            if (entry) {
-                if (entry->is_directory)
-                    file_panel_navigate(GTK_WIDGET(data), entry->full_path);
-                else
-                    open_file(entry->full_path);
-            }
-        }
+        if (selection_get_first_iter(sel, &model, &iter))
+            activate_entry(GTK_WIDGET(data), store_get_entry(model, &iter));
         return TRUE;
     }
     if (key == GDK_KEY_BackSpace) {
@@ -391,7 +541,6 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer dat
         g_free(parent);
         return TRUE;
     }
-    if (key == GDK_KEY_F5) { file_panel_refresh(GTK_WIDGET(data)); return TRUE; }
     if (key == GDK_KEY_F2) { file_panel_begin_rename(GTK_WIDGET(data)); return TRUE; }
     if (key == GDK_KEY_Delete) { file_panel_request_delete(GTK_WIDGET(data)); return TRUE; }
     if (key == GDK_KEY_a && state == GDK_CONTROL_MASK) {
@@ -409,12 +558,13 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer dat
     return FALSE;
 }
 
-static void on_focus_in(GtkWidget *w, GdkEventFocus *e, gpointer data) {
+static gboolean on_focus_in(GtkWidget *w, GdkEvent *event, gpointer data) {
     (void)w;
-    (void)e;
+    (void)event;
     FilePanelData *pd = panel_data(GTK_WIDGET(data));
     if (pd && pd->on_focus)
         pd->on_focus(pd->container, pd->callback_data);
+    return FALSE;
 }
 
 /* Context menu callbacks */
@@ -424,14 +574,8 @@ static void ctx_open(GtkMenuItem *item, gpointer data) {
         GTK_TREE_VIEW(panel_data(GTK_WIDGET(data))->tree_view));
     GtkTreeModel *model;
     GtkTreeIter iter;
-    if (!gtk_tree_selection_get_selected(sel, &model, &iter)) return;
-    FileEntry *entry = NULL;
-    gtk_tree_model_get(model, &iter, -1, &entry, -1);
-    if (!entry) return;
-    if (entry->is_directory)
-        file_panel_navigate(GTK_WIDGET(data), entry->full_path);
-    else
-        open_file(entry->full_path);
+    if (!selection_get_first_iter(sel, &model, &iter)) return;
+    activate_entry(GTK_WIDGET(data), store_get_entry(model, &iter));
 }
 
 static void ctx_copy_other(GtkMenuItem *item, gpointer data) {
@@ -482,9 +626,8 @@ static void ctx_properties(GtkMenuItem *item, gpointer data) {
     GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(pd->tree_view));
     GtkTreeModel *model;
     GtkTreeIter iter;
-    if (!gtk_tree_selection_get_selected(sel, &model, &iter)) return;
-    FileEntry *entry = NULL;
-    gtk_tree_model_get(model, &iter, -1, &entry, -1);
+    if (!selection_get_first_iter(sel, &model, &iter)) return;
+    FileEntry *entry = store_get_entry(model, &iter);
     if (!entry || strcmp(entry->name, "..") == 0) return;
 
     GFileInfo *info = g_file_query_info(
@@ -497,8 +640,8 @@ static void ctx_properties(GtkMenuItem *item, gpointer data) {
         "이름: %s\n경로: %s\n크기: %s\n",
         entry->name, entry->full_path, size_str);
     g_free(size_str);
-    GtkWidget *dlg = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL,
-        GTK_MESSAGE_INFO, GTK_BUTTONS_OK, "%s", msg);
+    GtkWidget *dlg = gtk_message_dialog_new(panel_window(GTK_WIDGET(data)),
+        GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK, "%s", msg);
     gtk_window_set_title(GTK_WINDOW(dlg), "속성");
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
@@ -506,23 +649,23 @@ static void ctx_properties(GtkMenuItem *item, gpointer data) {
     (void)info;
 }
 
-static GtkWidget *build_context_menu(GtkWidget *panel) {
+static void build_context_menu(FilePanelData *pd) {
     GtkWidget *menu = gtk_menu_new();
-    struct { const char *label; GCallback cb; } items[] = {
-        { "열기", G_CALLBACK(ctx_open) },
-        { "→ 다른 패널로 복사", G_CALLBACK(ctx_copy_other) },
-        { "→ 다른 패널로 이동", G_CALLBACK(ctx_move_other) },
-        { NULL, NULL },
-        { "복사", G_CALLBACK(ctx_clip_copy) },
-        { "붙여넣기", G_CALLBACK(ctx_clip_paste) },
-        { NULL, NULL },
-        { "이름 바꾸기", G_CALLBACK(ctx_rename) },
-        { "삭제", G_CALLBACK(ctx_delete) },
-        { NULL, NULL },
-        { "새 폴더 만들기", G_CALLBACK(ctx_new_folder) },
-        { "새 파일 만들기", G_CALLBACK(ctx_new_file) },
-        { NULL, NULL },
-        { "속성", G_CALLBACK(ctx_properties) },
+    struct { const char *label; GCallback cb; GtkWidget **slot; } items[] = {
+        { "열기", G_CALLBACK(ctx_open), &pd->ctx_open },
+        { "→ 다른 패널로 복사", G_CALLBACK(ctx_copy_other), &pd->ctx_copy_other },
+        { "→ 다른 패널로 이동", G_CALLBACK(ctx_move_other), &pd->ctx_move_other },
+        { NULL, NULL, NULL },
+        { "복사", G_CALLBACK(ctx_clip_copy), &pd->ctx_clip_copy },
+        { "붙여넣기", G_CALLBACK(ctx_clip_paste), NULL },
+        { NULL, NULL, NULL },
+        { "이름 바꾸기", G_CALLBACK(ctx_rename), &pd->ctx_rename },
+        { "삭제", G_CALLBACK(ctx_delete), &pd->ctx_delete },
+        { NULL, NULL, NULL },
+        { "새 폴더 만들기", G_CALLBACK(ctx_new_folder), NULL },
+        { "새 파일 만들기", G_CALLBACK(ctx_new_file), NULL },
+        { NULL, NULL, NULL },
+        { "속성", G_CALLBACK(ctx_properties), &pd->ctx_properties },
     };
     for (guint i = 0; i < G_N_ELEMENTS(items); i++) {
         GtkWidget *item;
@@ -531,10 +674,12 @@ static GtkWidget *build_context_menu(GtkWidget *panel) {
         else
             item = gtk_menu_item_new_with_label(items[i].label);
         gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
+        if (items[i].slot)
+            *items[i].slot = item;
         if (items[i].cb)
-            g_signal_connect(item, "activate", items[i].cb, panel);
+            g_signal_connect(item, "activate", items[i].cb, pd->container);
     }
-    return menu;
+    pd->context_menu = menu;
 }
 
 GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
@@ -546,45 +691,66 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
     pd->sort_column = COL_NAME;
     pd->sort_order = GTK_SORT_ASCENDING;
 
-    pd->container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    pd->container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    gtk_widget_set_margin_start(pd->container, 8);
+    gtk_widget_set_margin_end(pd->container, 8);
+    gtk_widget_set_margin_top(pd->container, 8);
 
     pd->path_bar = gtk_event_box_new();
-    GtkWidget *path_inner = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_widget_set_margin_start(pd->path_bar, 4);
+    gtk_widget_set_margin_end(pd->path_bar, 4);
+    gtk_widget_set_margin_bottom(pd->path_bar, 4);
+    GtkWidget *path_inner = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_container_add(GTK_CONTAINER(pd->path_bar), path_inner);
-    gtk_widget_set_margin_start(path_inner, 8);
-    gtk_widget_set_margin_end(path_inner, 8);
+    gtk_widget_set_margin_start(path_inner, 12);
+    gtk_widget_set_margin_end(path_inner, 12);
+    gtk_widget_set_margin_top(path_inner, 10);
+    gtk_widget_set_margin_bottom(path_inner, 10);
 
     pd->header_label = gtk_label_new(pd->side_title);
     gtk_label_set_xalign(GTK_LABEL(pd->header_label), 0.0);
     gtk_label_set_ellipsize(GTK_LABEL(pd->header_label), PANGO_ELLIPSIZE_MIDDLE);
+    gtk_widget_set_margin_end(pd->header_label, 6);
     gtk_box_pack_start(GTK_BOX(path_inner), pd->header_label, TRUE, TRUE, 0);
-
-    pd->chevron_label = gtk_label_new("▾");
-    gtk_box_pack_end(GTK_BOX(path_inner), pd->chevron_label, FALSE, FALSE, 0);
 
     g_signal_connect(pd->path_bar, "button-press-event",
                      G_CALLBACK(on_path_bar_clicked), pd->container);
 
     pd->folder_tree = folder_tree_panel_new(on_folder_selected, pd->container);
 
-    pd->drive_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-    gtk_widget_set_margin_start(pd->drive_bar, 6);
-    gtk_widget_set_margin_end(pd->drive_bar, 6);
-
-    pd->store = gtk_list_store_new(5, G_TYPE_STRING, G_TYPE_STRING,
+    pd->store = gtk_list_store_new(6, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
                                    G_TYPE_STRING, G_TYPE_STRING, G_TYPE_POINTER);
     pd->tree_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(pd->store));
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(pd->tree_view), TRUE);
+    gtk_tree_view_set_activate_on_single_click(GTK_TREE_VIEW(pd->tree_view), FALSE);
     gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(pd->tree_view)),
                                 GTK_SELECTION_MULTIPLE);
 
-    const char *titles[] = { "이름", "크기", "종류", "수정된 날짜" };
+    const char *titles[] = { "이름", "권한", "수정일", "종류", "크기" };
+    const int default_widths[] = { 220, 100, 150, 110, 90 };
+    const int min_widths[] = { 80, 72, 100, 72, 64 };
     for (int i = 0; i < N_COLS; i++) {
         GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+        gdouble cell_xalign = 0.5;
+        if (i == COL_NAME)
+            cell_xalign = 0.0;
+        else if (i == COL_SIZE)
+            cell_xalign = 1.0;
+        g_object_set(renderer, "xalign", cell_xalign, NULL);
+
         GtkTreeViewColumn *col = gtk_tree_view_column_new_with_attributes(
             titles[i], renderer, "text", i, NULL);
-        if (i == COL_SIZE)
-            gtk_tree_view_column_set_alignment(col, 1.0);
+        gtk_tree_view_column_set_alignment(col, i == COL_SIZE ? 1.0 : 0.5);
+        gtk_tree_view_column_set_resizable(col, TRUE);
+        gtk_tree_view_column_set_min_width(col, min_widths[i]);
+        gtk_tree_view_column_set_fixed_width(col, default_widths[i]);
+        gtk_tree_view_column_set_sizing(col, GTK_TREE_VIEW_COLUMN_FIXED);
+        gtk_tree_view_column_set_clickable(col, TRUE);
+        gtk_tree_view_column_set_sort_indicator(col, i == pd->sort_column);
+        if (i == pd->sort_column)
+            gtk_tree_view_column_set_sort_order(col, pd->sort_order);
+        if (i == COL_NAME)
+            gtk_tree_view_column_set_expand(col, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(pd->tree_view), col);
         g_signal_connect(col, "clicked", G_CALLBACK(on_column_clicked), pd);
     }
@@ -598,15 +764,19 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
     gtk_label_set_xalign(GTK_LABEL(pd->status_label), 0.0);
     gtk_widget_set_margin_start(pd->status_label, 8);
 
-    GtkWidget *ctx = build_context_menu(pd->container);
+    build_context_menu(pd);
+    update_context_menu(pd);
     gtk_widget_add_events(pd->tree_view, GDK_BUTTON_PRESS_MASK);
     g_signal_connect(pd->tree_view, "button-press-event",
-                     G_CALLBACK(on_button_press), ctx);
+                     G_CALLBACK(on_button_press), pd->container);
+
+    gtk_widget_set_margin_start(pd->folder_tree, 4);
+    gtk_widget_set_margin_end(pd->folder_tree, 4);
+    gtk_widget_set_margin_bottom(pd->folder_tree, 4);
 
     gtk_box_pack_start(GTK_BOX(pd->container), pd->path_bar, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(pd->container), pd->folder_tree, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(pd->container), pd->drive_bar, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(pd->container), scroll, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(pd->container), scroll, TRUE, TRUE, 4);
     gtk_box_pack_start(GTK_BOX(pd->container), pd->status_label, FALSE, FALSE, 4);
 
     g_signal_connect(pd->tree_view, "row-activated", G_CALLBACK(on_row_activated), pd->container);
@@ -617,11 +787,8 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
 
     gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(pd->store),
                                             sort_compare, pd, NULL);
-    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(pd->store),
-                                         COL_NAME, GTK_SORT_ASCENDING);
 
     g_object_set_data_full(G_OBJECT(pd->container), "file-panel-data", pd, g_free);
-    populate_drive_bar(pd);
     update_path_display(pd);
     load_directory(pd);
     return pd->container;
@@ -648,7 +815,6 @@ void file_panel_navigate(GtkWidget *panel, const char *path) {
     FilePanelData *pd = panel_data(panel);
     if (!pd || !path || !g_file_test(path, G_FILE_TEST_IS_DIR)) return;
     folder_tree_panel_collapse(pd->folder_tree);
-    gtk_label_set_text(GTK_LABEL(pd->chevron_label), "▾");
     g_free(pd->current_path);
     pd->current_path = g_strdup(path);
     update_path_display(pd);
@@ -677,7 +843,8 @@ void file_panel_request_new_folder(GtkWidget *panel) {
     FilePanelData *pd = panel_data(panel);
     if (!pd) return;
     char *text = NULL;
-    if (!input_dialog_run(NULL, "새 폴더 만들기", "폴더 이름:", "새 폴더", &text)) return;
+    if (!input_dialog_run(panel_window(panel), "새 폴더 만들기", "폴더 이름:", "새 폴더", &text))
+        return;
     char *path = g_build_filename(pd->current_path, text, NULL);
     if (g_mkdir_with_parents(path, 0755) == 0) {
         file_panel_refresh(panel);
@@ -693,7 +860,8 @@ void file_panel_request_new_file(GtkWidget *panel) {
     FilePanelData *pd = panel_data(panel);
     if (!pd) return;
     char *text = NULL;
-    if (!input_dialog_run(NULL, "새 파일 만들기", "파일 이름:", "새 파일.txt", &text)) return;
+    if (!input_dialog_run(panel_window(panel), "새 파일 만들기", "파일 이름:", "새 파일.txt", &text))
+        return;
     char *path = g_build_filename(pd->current_path, text, NULL);
     if (g_file_set_contents(path, "", 0, NULL)) {
         file_panel_refresh(panel);
@@ -705,8 +873,8 @@ void file_panel_request_new_file(GtkWidget *panel) {
     g_free(text);
 }
 
-static void show_error(const char *msg) {
-    GtkWidget *dlg = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL,
+static void show_error(GtkWidget *panel, const char *msg) {
+    GtkWidget *dlg = gtk_message_dialog_new(panel_window(panel), GTK_DIALOG_MODAL,
         GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "%s", msg);
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
@@ -725,7 +893,7 @@ void file_panel_request_delete(GtkWidget *panel) {
         ? g_strdup_printf("'%s'을(를) 삭제하시겠습니까?",
                           g_path_get_basename(g_ptr_array_index(paths, 0)))
         : g_strdup_printf("선택한 %u개 항목을 삭제하시겠습니까?", paths->len);
-    GtkWidget *dlg = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL,
+    GtkWidget *dlg = gtk_message_dialog_new(panel_window(panel), GTK_DIALOG_MODAL,
         GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO, "%s", msg);
     g_free(msg);
     int resp = gtk_dialog_run(GTK_DIALOG(dlg));
@@ -738,7 +906,7 @@ void file_panel_request_delete(GtkWidget *panel) {
             set_status(pd, s);
             g_free(s);
         } else {
-            show_error(err ? err->message : "삭제 실패");
+            show_error(panel, err ? err->message : "삭제 실패");
             g_clear_error(&err);
         }
     }
@@ -751,13 +919,13 @@ void file_panel_begin_rename(GtkWidget *panel) {
     GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(pd->tree_view));
     GtkTreeModel *model;
     GtkTreeIter iter;
-    if (!gtk_tree_selection_get_selected(sel, &model, &iter)) return;
-    FileEntry *entry = NULL;
-    gtk_tree_model_get(model, &iter, -1, &entry, -1);
+    if (!selection_get_first_iter(sel, &model, &iter)) return;
+    FileEntry *entry = store_get_entry(model, &iter);
     if (!entry || strcmp(entry->name, "..") == 0) return;
 
     char *text = NULL;
-    if (!input_dialog_run(NULL, "이름 바꾸기", "새 이름:", entry->name, &text)) return;
+    if (!input_dialog_run(panel_window(panel), "이름 바꾸기", "새 이름:", entry->name, &text))
+        return;
     char *new_path = g_build_filename(pd->current_path, text, NULL);
     if (rename(entry->full_path, new_path) == 0) {
         file_panel_refresh(panel);
@@ -765,7 +933,7 @@ void file_panel_begin_rename(GtkWidget *panel) {
         set_status(pd, msg);
         g_free(msg);
     } else {
-        show_error("이름 바꾸기 실패");
+        show_error(panel, "이름 바꾸기 실패");
     }
     g_free(new_path);
     g_free(text);
@@ -839,14 +1007,26 @@ void file_panel_clipboard_paste(GtkWidget *panel) {
         set_status(pd, "클립보드에 붙여넣을 파일이 없습니다.");
         return;
     }
+    FileOpsConflictState conflict;
+    FileOpsTransferStats stats;
+    file_ops_conflict_reset(&conflict);
     GError *err = NULL;
-    if (file_ops_copy_files(paths, pd->current_path, NULL, NULL, &err)) {
+    GtkWindow *win = panel_window(panel);
+    if (file_ops_copy_files(paths, pd->current_path, win, &conflict,
+                            NULL, NULL, &stats, &err)) {
         file_panel_refresh(panel);
-        char *msg = g_strdup_printf("%u개 항목을 붙여넣었습니다.", paths->len);
+        char *msg = NULL;
+        if (stats.skipped > 0)
+            msg = g_strdup_printf("%u개 붙여넣기, %u개 건너뜀", stats.copied, stats.skipped);
+        else
+            msg = g_strdup_printf("%u개 항목을 붙여넣었습니다.", stats.copied);
         set_status(pd, msg);
         g_free(msg);
     } else {
-        show_error(err ? err->message : "붙여넣기 실패");
+        if (err && !g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            show_error(panel, err ? err->message : "붙여넣기 실패");
+        else
+            set_status(pd, "붙여넣기가 취소되었습니다.");
         g_clear_error(&err);
     }
     g_ptr_array_free(paths, TRUE);

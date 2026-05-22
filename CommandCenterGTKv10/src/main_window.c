@@ -1,7 +1,11 @@
 #include "main_window.h"
 
+#define APP_DISPLAY_NAME "Command Center V1.0"
+
+#include "app_icon.h"
 #include "bookmark_manager.h"
 #include "file_ops.h"
+#include "file_ops_conflict.h"
 #include "file_panel.h"
 #include "preview_panel.h"
 #include "search_dialog.h"
@@ -16,12 +20,13 @@ struct MainWindow {
     GtkWidget *lr_paned;
     GtkWidget *main_paned;
     GtkWidget *active_panel;
+    int lr_paned_last_width;
     BookmarkManager *bookmarks;
     SessionSettings *session;
 };
 
-static void show_error(const char *msg) {
-    GtkWidget *dlg = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL,
+static void show_error(MainWindow *win, const char *msg) {
+    GtkWidget *dlg = gtk_message_dialog_new(GTK_WINDOW(win->window), GTK_DIALOG_MODAL,
         GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, "%s", msg);
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
@@ -29,6 +34,44 @@ static void show_error(const char *msg) {
 
 void main_window_show_status(MainWindow *win, const char *message) {
     gtk_label_set_text(GTK_LABEL(win->status_label), message);
+}
+
+static GtkWidget *toolbar_icon(const char *icon_name, const char *fallback) {
+    GtkIconTheme *theme = gtk_icon_theme_get_default();
+    GtkWidget *image = gtk_image_new();
+    GdkPixbuf *pixbuf = gtk_icon_theme_load_icon(
+        theme, icon_name, GTK_ICON_SIZE_MENU, GTK_ICON_LOOKUP_USE_BUILTIN, NULL);
+    if (!pixbuf && fallback)
+        pixbuf = gtk_icon_theme_load_icon(
+            theme, fallback, GTK_ICON_SIZE_MENU, GTK_ICON_LOOKUP_USE_BUILTIN, NULL);
+    if (pixbuf) {
+        gtk_image_set_from_pixbuf(GTK_IMAGE(image), pixbuf);
+        g_object_unref(pixbuf);
+    }
+    return image;
+}
+
+static GtkToolItem *toolbar_add_button(GtkToolbar *toolbar, const char *icon_name,
+                                       const char *fallback, const char *label,
+                                       const char *tooltip, GCallback callback,
+                                       gpointer data) {
+    GtkWidget *btn = gtk_button_new();
+    gtk_button_set_relief(GTK_BUTTON(btn), GTK_RELIEF_NONE);
+    gtk_widget_set_tooltip_text(btn, tooltip ? tooltip : label);
+
+    GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    GtkWidget *icon = toolbar_icon(icon_name, fallback);
+    GtkWidget *lbl = gtk_label_new(label);
+    gtk_box_pack_start(GTK_BOX(hbox), icon, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(hbox), lbl, FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(btn), hbox);
+
+    GtkToolItem *item = gtk_tool_item_new();
+    gtk_container_add(GTK_CONTAINER(item), btn);
+    gtk_tool_item_set_is_important(GTK_TOOL_ITEM(item), TRUE);
+    g_signal_connect(btn, "clicked", callback, data);
+    gtk_toolbar_insert(toolbar, item, -1);
+    return item;
 }
 
 GtkWidget *main_window_get_widget(MainWindow *win) {
@@ -39,6 +82,19 @@ static GtkWidget *other_panel(MainWindow *win, GtkWidget *panel) {
     return panel == win->left_panel ? win->right_panel : win->left_panel;
 }
 
+static void show_transfer_status(MainWindow *win, const char *verb,
+                                 const char *dest_path, FileOpsTransferStats *st) {
+    char *msg = NULL;
+    if (st->skipped > 0)
+        msg = g_strdup_printf("%u개 %s, %u개 건너뜀 — '%s'",
+                              st->copied, verb, st->skipped, dest_path);
+    else
+        msg = g_strdup_printf("%u개 항목을 '%s'에 %s했습니다.",
+                              st->copied, dest_path, verb);
+    main_window_show_status(win, msg);
+    g_free(msg);
+}
+
 static void copy_between_panels(MainWindow *win, GtkWidget *src, GtkWidget *dest) {
     GPtrArray *paths = file_panel_get_selected_paths(src);
     if (paths->len == 0) {
@@ -47,16 +103,21 @@ static void copy_between_panels(MainWindow *win, GtkWidget *src, GtkWidget *dest
         return;
     }
     const char *dest_path = file_panel_get_current_path(dest);
+    FileOpsConflictState conflict;
+    FileOpsTransferStats stats;
+    file_ops_conflict_reset(&conflict);
     GError *err = NULL;
-    if (file_ops_copy_files(paths, dest_path, NULL, NULL, &err)) {
+    if (file_ops_copy_files(paths, dest_path, GTK_WINDOW(win->window), &conflict,
+                            NULL, NULL, &stats, &err)) {
         file_panel_refresh(dest);
-        char *msg = g_strdup_printf("%u개 항목을 '%s'에 복사했습니다.",
-                                    paths->len, dest_path);
-        main_window_show_status(win, msg);
-        g_free(msg);
+        if (stats.copied > 0 || stats.skipped > 0)
+            show_transfer_status(win, "복사", dest_path, &stats);
+        else
+            main_window_show_status(win, "복사할 항목이 없습니다.");
     } else {
         main_window_show_status(win, err ? err->message : "복사 실패");
-        if (err) show_error(err->message);
+        if (err && !g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            show_error(win, err->message);
         g_clear_error(&err);
     }
     g_ptr_array_free(paths, TRUE);
@@ -70,17 +131,22 @@ static void move_between_panels(MainWindow *win, GtkWidget *src, GtkWidget *dest
         return;
     }
     const char *dest_path = file_panel_get_current_path(dest);
+    FileOpsConflictState conflict;
+    FileOpsTransferStats stats;
+    file_ops_conflict_reset(&conflict);
     GError *err = NULL;
-    if (file_ops_move_files(paths, dest_path, NULL, NULL, &err)) {
+    if (file_ops_move_files(paths, dest_path, GTK_WINDOW(win->window), &conflict,
+                            NULL, NULL, &stats, &err)) {
         file_panel_refresh(src);
         file_panel_refresh(dest);
-        char *msg = g_strdup_printf("%u개 항목을 '%s'으로 이동했습니다.",
-                                    paths->len, dest_path);
-        main_window_show_status(win, msg);
-        g_free(msg);
+        if (stats.copied > 0 || stats.skipped > 0)
+            show_transfer_status(win, "이동", dest_path, &stats);
+        else
+            main_window_show_status(win, "이동할 항목이 없습니다.");
     } else {
         main_window_show_status(win, err ? err->message : "이동 실패");
-        if (err) show_error(err->message);
+        if (err && !g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            show_error(win, err->message);
         g_clear_error(&err);
     }
     g_ptr_array_free(paths, TRUE);
@@ -242,6 +308,32 @@ static void on_bookmark_menu_show(GtkWidget *item, gpointer data) {
     }
 }
 
+static void on_lr_paned_size_allocate(GtkWidget *widget, GdkRectangle *allocation,
+                                      gpointer data) {
+    MainWindow *win = data;
+    if (allocation->width <= 0)
+        return;
+    if (win->lr_paned_last_width == allocation->width)
+        return;
+    win->lr_paned_last_width = allocation->width;
+    gtk_paned_set_position(GTK_PANED(widget), allocation->width / 2);
+}
+
+static void style_lr_paned(GtkWidget *paned) {
+    gtk_widget_set_name(paned, "lr-paned");
+    gtk_paned_set_wide_handle(GTK_PANED(paned), TRUE);
+    GtkCssProvider *css = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(css,
+        "#lr-paned.horizontal > separator {"
+        "  min-width: 14px;"
+        "}",
+        -1, NULL);
+    gtk_style_context_add_provider(
+        gtk_widget_get_style_context(paned),
+        GTK_STYLE_PROVIDER(css),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+}
+
 static void on_window_delete(GtkWidget *w, GdkEvent *e, gpointer data) {
     (void)e;
     MainWindow *win = data;
@@ -312,7 +404,8 @@ MainWindow *main_window_new(GtkApplication *app) {
     session_settings_load(win->session);
 
     win->window = gtk_application_window_new(app);
-    gtk_window_set_title(GTK_WINDOW(win->window), "FileMaster");
+    app_icon_apply(GTK_WINDOW(win->window));
+    gtk_window_set_title(GTK_WINDOW(win->window), APP_DISPLAY_NAME);
     gtk_window_set_default_size(GTK_WINDOW(win->window), 1280, 780);
     gtk_window_set_position(GTK_WINDOW(win->window), GTK_WIN_POS_CENTER);
 
@@ -375,16 +468,30 @@ MainWindow *main_window_new(GtkApplication *app) {
     gtk_box_pack_start(GTK_BOX(vbox), menubar, FALSE, FALSE, 0);
 
     GtkWidget *toolbar = gtk_toolbar_new();
-    GtkToolItem *tb;
-    tb = gtk_tool_button_new(NULL, "새 폴더"); gtk_toolbar_insert(GTK_TOOLBAR(toolbar), tb, -1);
-    tb = gtk_tool_button_new(NULL, "→ 복사"); gtk_toolbar_insert(GTK_TOOLBAR(toolbar), tb, -1);
-    tb = gtk_tool_button_new(NULL, "→ 이동"); gtk_toolbar_insert(GTK_TOOLBAR(toolbar), tb, -1);
-    tb = gtk_tool_button_new(NULL, "삭제"); gtk_toolbar_insert(GTK_TOOLBAR(toolbar), tb, -1);
-    tb = gtk_tool_button_new(NULL, "검색"); gtk_toolbar_insert(GTK_TOOLBAR(toolbar), tb, -1);
+    GtkToolbar *tb = GTK_TOOLBAR(toolbar);
+    gtk_toolbar_set_icon_size(tb, GTK_ICON_SIZE_LARGE_TOOLBAR);
+    toolbar_add_button(tb, "folder-new", "gtk-directory", "새 폴더", "새 폴더 (F7)",
+                       G_CALLBACK(on_new_folder_menu), win);
+    toolbar_add_button(tb, "document-new", "gtk-new", "새 파일", "새 파일",
+                       G_CALLBACK(on_new_file_menu), win);
+    gtk_toolbar_insert(tb, gtk_separator_tool_item_new(), -1);
+    toolbar_add_button(tb, "edit-copy", "gtk-copy", "복사", "복사 (F5)",
+                       G_CALLBACK(on_copy_active), win);
+    toolbar_add_button(tb, "go-next", "gtk-go-forward", "이동", "이동 (F6)",
+                       G_CALLBACK(on_move_active), win);
+    toolbar_add_button(tb, "edit-delete", "gtk-delete", "삭제", "삭제 (F8)",
+                       G_CALLBACK(on_delete_menu), win);
+    gtk_toolbar_insert(tb, gtk_separator_tool_item_new(), -1);
+    toolbar_add_button(tb, "system-search", "gtk-find", "검색", "검색 (F9)",
+                       G_CALLBACK(on_search_clicked), win);
     gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 0);
 
     win->main_paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
     win->lr_paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    win->lr_paned_last_width = -1;
+    style_lr_paned(win->lr_paned);
+    g_signal_connect(win->lr_paned, "size-allocate",
+                     G_CALLBACK(on_lr_paned_size_allocate), win);
 
     win->left_panel = file_panel_new(FILE_PANEL_LEFT, win);
     win->right_panel = file_panel_new(FILE_PANEL_RIGHT, win);
@@ -401,7 +508,7 @@ MainWindow *main_window_new(GtkApplication *app) {
     gtk_box_pack_start(GTK_BOX(vbox), win->main_paned, TRUE, TRUE, 0);
 
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    win->status_label = gtk_label_new("FileMaster 준비 완료");
+    win->status_label = gtk_label_new(APP_DISPLAY_NAME " 준비 완료");
     gtk_label_set_xalign(GTK_LABEL(win->status_label), 0.0);
     gtk_widget_set_margin_start(win->status_label, 8);
     gtk_box_pack_start(GTK_BOX(status_bar), win->status_label, TRUE, TRUE, 0);
@@ -411,10 +518,6 @@ MainWindow *main_window_new(GtkApplication *app) {
     const char *right_init = session_settings_get_right_path(win->session);
     file_panel_set_initial_path(win->left_panel, left_init);
     file_panel_set_initial_path(win->right_panel, right_init);
-
-    int split = session_settings_get_splitter_distance(win->session);
-    if (split < 220) split = 640;
-    gtk_paned_set_position(GTK_PANED(win->lr_paned), split);
 
     file_panel_connect_focus(win->left_panel, on_left_focus, win);
     file_panel_connect_focus(win->right_panel, on_right_focus, win);

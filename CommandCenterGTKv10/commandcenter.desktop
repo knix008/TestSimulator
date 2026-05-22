@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Command Center V1.0
+GenericName=File Manager
+Comment=Dual-panel file manager (CommandCenter)
+Exec=commandcenter %F
+Icon=commandcenter
+Terminal=false
+Categories=Utility;FileManager;
+StartupWMClass=commandcenter
+MimeType=inode/directory;
