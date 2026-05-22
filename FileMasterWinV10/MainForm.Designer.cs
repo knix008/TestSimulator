@@ -32,8 +32,8 @@ partial class MainForm
         statusLabel = new ToolStripStatusLabel();
         mainSplit = new SplitContainer();
         leftRightSplit = new SplitContainer();
-        leftPanel = new FilePanel();
-        rightPanel = new FilePanel();
+        leftPanel = new FilePanel(FilePanelSide.Left);
+        rightPanel = new FilePanel(FilePanelSide.Right);
         previewPanel = new PreviewPanel();
         statusStrip.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)mainSplit).BeginInit();
@@ -131,7 +131,6 @@ partial class MainForm
         rightPanel.Dock = DockStyle.Fill;
         rightPanel.Location = new Point(0, 0);
         rightPanel.Name = "rightPanel";
-        rightPanel.PanelSide = FilePanelSide.Right;
         rightPanel.Size = new Size(636, 703);
         rightPanel.TabIndex = 0;
         //

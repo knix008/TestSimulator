@@ -11,6 +11,7 @@ public enum FilePanelSide { Left, Right }
 public partial class FilePanel : UserControl
 {
     private string _currentPath = "";
+    private FilePanelSide _panelSide = FilePanelSide.Left;
     private string _sideTitle = "왼쪽";
     private ContextMenuStrip _contextMenu = null!;
     private ToolTip _pathTip = null!;
@@ -31,7 +32,16 @@ public partial class FilePanel : UserControl
     [DefaultValue(FilePanelSide.Left)]
     [Category("Appearance")]
     [Description("패널이 왼쪽인지 오른쪽인지 지정합니다.")]
-    public FilePanelSide PanelSide { get; set; } = FilePanelSide.Left;
+    public FilePanelSide PanelSide
+    {
+        get => _panelSide;
+        set
+        {
+            if (_panelSide == value) return;
+            _panelSide = value;
+            ApplyPanelSide();
+        }
+    }
 
     public string[] SelectedPaths =>
         listView.SelectedItems.Cast<ListViewItem>()
@@ -99,7 +109,8 @@ public partial class FilePanel : UserControl
 
     private void ApplyPanelSide()
     {
-        _sideTitle = PanelSide == FilePanelSide.Left ? "왼쪽" : "오른쪽";
+        _sideTitle = _panelSide == FilePanelSide.Left ? "왼쪽" : "오른쪽";
+        if (headerLabel == null) return;
         headerLabel.Text = string.IsNullOrEmpty(_currentPath)
             ? _sideTitle
             : $"{_sideTitle}  ·  {_currentPath}";

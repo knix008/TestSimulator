@@ -24,6 +24,8 @@ public partial class MainForm : Form
         UiTheme.StyleMenuAndToolStrip(menuStrip, toolStrip);
         UiTheme.StyleStatusStrip(statusStrip);
 
+        leftPanel.SetPanelSide(FilePanelSide.Left);
+        rightPanel.SetPanelSide(FilePanelSide.Right);
         _activePanel = leftPanel;
         BuildMenus();
         BuildToolbar();
