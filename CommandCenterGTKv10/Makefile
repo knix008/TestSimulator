@@ -40,6 +40,7 @@ endif
 
 SRCS := $(SRCDIR)/main.c \
         $(SRCDIR)/app_icon.c \
+        $(SRCDIR)/about_dialog.c \
         $(SRCDIR)/main_window.c \
         $(SRCDIR)/file_panel.c \
         $(SRCDIR)/folder_tree_panel.c \

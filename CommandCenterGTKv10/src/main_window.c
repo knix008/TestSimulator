@@ -2,6 +2,7 @@
 
 #define APP_DISPLAY_NAME "Command Center V1.0"
 
+#include "about_dialog.h"
 #include "app_icon.h"
 #include "bookmark_manager.h"
 #include "file_ops.h"
@@ -288,6 +289,12 @@ static void on_bookmark_navigate(GtkMenuItem *item, gpointer data) {
     }
 }
 
+static void on_show_about(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    MainWindow *win = data;
+    about_dialog_show(GTK_WINDOW(win->window));
+}
+
 static void on_bookmark_menu_show(GtkWidget *item, gpointer data) {
     (void)item;
     MainWindow *win = data;
@@ -483,10 +490,17 @@ MainWindow *main_window_new(GtkApplication *app) {
     gtk_menu_shell_append(GTK_MENU_SHELL(bm_menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(bm_menu), bm_list_item);
 
+    GtkWidget *info_menu = gtk_menu_new();
+    GtkWidget *info_item = gtk_menu_item_new_with_mnemonic("Info(_I)");
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(info_item), info_menu);
+    GtkWidget *about_item = gtk_menu_item_new_with_label("프로그램 정보");
+    gtk_menu_shell_append(GTK_MENU_SHELL(info_menu), about_item);
+
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), file_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), edit_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), view_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), bm_item);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menubar), info_item);
     gtk_box_pack_start(GTK_BOX(vbox), menubar, FALSE, FALSE, 0);
 
     GtkWidget *toolbar = gtk_toolbar_new();
@@ -562,6 +576,7 @@ MainWindow *main_window_new(GtkApplication *app) {
                      G_CALLBACK(on_toggle_preview), win);
     g_signal_connect(refresh_item, "activate", G_CALLBACK(on_refresh_all), win);
     g_signal_connect(search_item, "activate", G_CALLBACK(on_search_clicked), win);
+    g_signal_connect(about_item, "activate", G_CALLBACK(on_show_about), win);
 
     g_object_set_data(G_OBJECT(bm_add_left), "side", GINT_TO_POINTER(0));
     g_object_set_data(G_OBJECT(bm_add_right), "side", GINT_TO_POINTER(1));

@@ -88,20 +88,35 @@ static void set_icon_list(GdkPixbuf *base) {
     }
 }
 
-void app_icon_apply(GtkWindow *window) {
+GdkPixbuf *app_icon_load_pixbuf(int max_size) {
     char *icon_path = resolve_icon_path();
-    if (!icon_path) {
-        g_warning("앱 아이콘을 찾을 수 없습니다: %s", APP_ICON_FILE);
-        return;
-    }
+    if (!icon_path)
+        return NULL;
 
     GError *err = NULL;
     GdkPixbuf *icon = gdk_pixbuf_new_from_file(icon_path, &err);
+    g_free(icon_path);
     if (!icon) {
-        g_warning("앱 아이콘 로드 실패 (%s): %s", icon_path,
-                  err ? err->message : "unknown");
-        g_clear_error(&err);
-        g_free(icon_path);
+        if (err)
+            g_error_free(err);
+        return NULL;
+    }
+
+    int w = gdk_pixbuf_get_width(icon);
+    int h = gdk_pixbuf_get_height(icon);
+    if (max_size > 0 && (w > max_size || h > max_size)) {
+        GdkPixbuf *scaled = gdk_pixbuf_scale_simple(
+            icon, max_size, max_size, GDK_INTERP_BILINEAR);
+        g_object_unref(icon);
+        return scaled;
+    }
+    return icon;
+}
+
+void app_icon_apply(GtkWindow *window) {
+    GdkPixbuf *icon = app_icon_load_pixbuf(256);
+    if (!icon) {
+        g_warning("앱 아이콘을 찾을 수 없습니다: %s", APP_ICON_FILE);
         return;
     }
 
@@ -110,5 +125,4 @@ void app_icon_apply(GtkWindow *window) {
         gtk_window_set_icon(window, icon);
 
     g_object_unref(icon);
-    g_free(icon_path);
 }
