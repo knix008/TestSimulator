@@ -14,7 +14,7 @@ public class SessionSettings
     {
         string dir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "FileMasterWinV10");
+            AppInfo.AppDataFolderName);
         Directory.CreateDirectory(dir);
         _filePath = Path.Combine(dir, "session.json");
     }

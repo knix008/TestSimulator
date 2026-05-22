@@ -4,147 +4,92 @@ using FileMasterWinV10.Helpers;
 
 namespace FileMasterWinV10;
 
-public class MainForm : Form
+public partial class MainForm : Form
 {
-    private readonly FilePanel _leftPanel;
-    private readonly FilePanel _rightPanel;
-    private readonly PreviewPanel _previewPanel;
-    private readonly SplitContainer _leftRightSplit;
-    private readonly SplitContainer _mainSplit;
-    private readonly ToolStrip _toolbar;
-    private readonly MenuStrip _menuStrip;
-    private readonly StatusStrip _mainStatus;
-    private readonly ToolStripStatusLabel _mainStatusLabel;
-    private readonly BookmarkManager _bookmarks;
+    private BookmarkManager _bookmarks = null!;
     private readonly SessionSettings _session = new();
-    private FilePanel _activePanel;
+    private FilePanel _activePanel = null!;
 
     public MainForm()
     {
+        InitializeComponent();
+        AppIconHelper.TryApplyFormIcon(this);
+
+        if (AppIconHelper.IsDesignMode(this))
+            return;
+
         _bookmarks = new BookmarkManager();
         _session.Load();
-
-        Text = "FileMaster";
-        Size = new Size(1280, 780);
-        MinimumSize = new Size(900, 560);
-        StartPosition = FormStartPosition.CenterScreen;
         UiTheme.ApplyForm(this);
+        UiTheme.StyleMenuAndToolStrip(menuStrip, toolStrip);
+        UiTheme.StyleStatusStrip(statusStrip);
 
-        _leftPanel = new FilePanel(FilePanelSide.Left) { Dock = DockStyle.Fill };
-        _rightPanel = new FilePanel(FilePanelSide.Right) { Dock = DockStyle.Fill };
-        _previewPanel = new PreviewPanel { Dock = DockStyle.Fill };
-
-        // Left | Right split
-        _leftRightSplit = new SplitContainer { Dock = DockStyle.Fill };
-        _leftRightSplit.Panel1.Controls.Add(_leftPanel);
-        _leftRightSplit.Panel2.Controls.Add(_rightPanel);
-
-        // Top | Preview split
-        _mainSplit = new SplitContainer
-        {
-            Dock = DockStyle.Fill,
-            Orientation = Orientation.Horizontal,
-            Panel2Collapsed = true,
-        };
-        _mainSplit.Panel1.Controls.Add(_leftRightSplit);
-        _mainSplit.Panel2.Controls.Add(_previewPanel);
-
-        _menuStrip = new MenuStrip();
-        _toolbar = new ToolStrip();
-        UiTheme.StyleMenuAndToolStrip(_menuStrip, _toolbar);
-
-        _mainStatus = new StatusStrip();
-        UiTheme.StyleStatusStrip(_mainStatus);
-        _mainStatusLabel = new ToolStripStatusLabel
-        {
-            Spring = true,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Text = "FileMaster 준비 완료",
-        };
-        _mainStatus.Items.Add(_mainStatusLabel);
-
-        Controls.Add(_mainSplit);
-        Controls.Add(_toolbar);
-        Controls.Add(_menuStrip);
-        Controls.Add(_mainStatus);
-        MainMenuStrip = _menuStrip;
-
-        _activePanel = _leftPanel;
+        _activePanel = leftPanel;
         BuildMenus();
         BuildToolbar();
         WireEvents();
-
-        Load += OnFormLoad;
-        FormClosing += OnFormClosing;
     }
 
-    private void OnFormLoad(object? sender, EventArgs e)
+    private void MainForm_Load(object? sender, EventArgs e)
     {
-        _leftPanel.SetInitialPath(_session.LeftPath);
-        _rightPanel.SetInitialPath(_session.RightPath);
+        leftPanel.SetInitialPath(_session.LeftPath);
+        rightPanel.SetInitialPath(_session.RightPath);
 
-        _leftRightSplit.Panel1MinSize = 220;
-        _leftRightSplit.Panel2MinSize = 220;
-        var maxDist = _leftRightSplit.Width - 220 - _leftRightSplit.SplitterWidth;
+        leftRightSplit.Panel1MinSize = 220;
+        leftRightSplit.Panel2MinSize = 220;
+        var maxDist = leftRightSplit.Width - 220 - leftRightSplit.SplitterWidth;
         if (maxDist >= 220)
         {
             var dist = _session.SplitterDistance is int saved && saved >= 220 && saved <= maxDist
                 ? saved
-                : (_leftRightSplit.Width - _leftRightSplit.SplitterWidth) / 2;
-            _leftRightSplit.SplitterDistance = Math.Clamp(dist, 220, maxDist);
+                : (leftRightSplit.Width - leftRightSplit.SplitterWidth) / 2;
+            leftRightSplit.SplitterDistance = Math.Clamp(dist, 220, maxDist);
         }
 
-        _mainSplit.Panel2MinSize = 100;
-        if (!_mainSplit.Panel2Collapsed)
-            _mainSplit.SplitterDistance = Math.Max(100, ClientSize.Height - 240);
+        mainSplit.Panel2MinSize = 100;
+        if (!mainSplit.Panel2Collapsed)
+            mainSplit.SplitterDistance = Math.Max(100, ClientSize.Height - 240);
     }
 
-    private void OnFormClosing(object? sender, FormClosingEventArgs e)
+    private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
-        int? splitter = _leftRightSplit.Width > 0 ? _leftRightSplit.SplitterDistance : null;
-        _session.Save(_leftPanel.CurrentPath, _rightPanel.CurrentPath, splitter);
+        int? splitter = leftRightSplit.Width > 0 ? leftRightSplit.SplitterDistance : null;
+        _session.Save(leftPanel.CurrentPath, rightPanel.CurrentPath, splitter);
     }
-
-    // ──────────────────── Events wiring ────────────────────
 
     private void WireEvents()
     {
-        _leftPanel.GotFocused += (_, _) => { _activePanel = _leftPanel; ShowMainStatus($"왼쪽 패널 활성  |  {_leftPanel.CurrentPath}"); };
-        _rightPanel.GotFocused += (_, _) => { _activePanel = _rightPanel; ShowMainStatus($"오른쪽 패널 활성  |  {_rightPanel.CurrentPath}"); };
+        leftPanel.GotFocused += (_, _) => { _activePanel = leftPanel; ShowMainStatus($"왼쪽 패널 활성  |  {leftPanel.CurrentPath}"); };
+        rightPanel.GotFocused += (_, _) => { _activePanel = rightPanel; ShowMainStatus($"오른쪽 패널 활성  |  {rightPanel.CurrentPath}"); };
 
-        _leftPanel.PathChanged += (_, path) => ShowMainStatus($"왼쪽 이동: {path}");
-        _rightPanel.PathChanged += (_, path) => ShowMainStatus($"오른쪽 이동: {path}");
+        leftPanel.PathChanged += (_, path) => ShowMainStatus($"왼쪽 이동: {path}");
+        rightPanel.PathChanged += (_, path) => ShowMainStatus($"오른쪽 이동: {path}");
 
-        _leftPanel.SelectionChanged += (_, paths) =>
+        leftPanel.SelectionChanged += (_, paths) =>
         {
-            if (paths.Length == 1 && File.Exists(paths[0])) _previewPanel.Preview(paths[0]);
-            else if (paths.Length == 0) _previewPanel.Clear();
+            if (paths.Length == 1 && File.Exists(paths[0])) previewPanel.Preview(paths[0]);
+            else if (paths.Length == 0) previewPanel.Clear();
         };
-        _rightPanel.SelectionChanged += (_, paths) =>
+        rightPanel.SelectionChanged += (_, paths) =>
         {
-            if (paths.Length == 1 && File.Exists(paths[0])) _previewPanel.Preview(paths[0]);
-            else if (paths.Length == 0) _previewPanel.Clear();
+            if (paths.Length == 1 && File.Exists(paths[0])) previewPanel.Preview(paths[0]);
+            else if (paths.Length == 0) previewPanel.Clear();
         };
 
-        // Cross-panel copy/move via context menu
-        _leftPanel.CopyToOtherRequested += (_, _) => CopyBetweenPanels(_leftPanel, _rightPanel);
-        _leftPanel.MoveToOtherRequested += (_, _) => MoveBetweenPanels(_leftPanel, _rightPanel);
-        _rightPanel.CopyToOtherRequested += (_, _) => CopyBetweenPanels(_rightPanel, _leftPanel);
-        _rightPanel.MoveToOtherRequested += (_, _) => MoveBetweenPanels(_rightPanel, _leftPanel);
+        leftPanel.CopyToOtherRequested += (_, _) => CopyBetweenPanels(leftPanel, rightPanel);
+        leftPanel.MoveToOtherRequested += (_, _) => MoveBetweenPanels(leftPanel, rightPanel);
+        rightPanel.CopyToOtherRequested += (_, _) => CopyBetweenPanels(rightPanel, leftPanel);
+        rightPanel.MoveToOtherRequested += (_, _) => MoveBetweenPanels(rightPanel, leftPanel);
     }
-
-    // ──────────────────── Menu ────────────────────
 
     private void BuildMenus()
     {
-        // 파일
         var fileMenu = new ToolStripMenuItem("파일(&F)");
         fileMenu.DropDownItems.Add("새 폴더(&D)", null, (_, _) => _activePanel.RequestNewFolder());
         fileMenu.DropDownItems.Add("새 파일(&N)", null, (_, _) => _activePanel.RequestNewFile());
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
         fileMenu.DropDownItems.Add("종료(&X)", null, (_, _) => Close());
 
-        // 편집
         var editMenu = new ToolStripMenuItem("편집(&E)");
         editMenu.DropDownItems.Add("→ 복사 (F5)", null, (_, _) => CopyActiveToOther());
         editMenu.DropDownItems.Add("→ 이동 (F6)", null, (_, _) => MoveActiveToOther());
@@ -154,25 +99,23 @@ public class MainForm : Form
         editMenu.DropDownItems.Add(new ToolStripSeparator());
         editMenu.DropDownItems.Add("모두 선택 (Ctrl+A)", null, (_, _) => SelectAll());
 
-        // 보기
         var viewMenu = new ToolStripMenuItem("보기(&V)");
         var previewToggle = new ToolStripMenuItem("미리보기 패널 표시") { CheckOnClick = true };
         previewToggle.CheckedChanged += (_, _) =>
         {
-            _mainSplit.Panel2Collapsed = !previewToggle.Checked;
+            mainSplit.Panel2Collapsed = !previewToggle.Checked;
             ShowMainStatus(previewToggle.Checked ? "미리보기 패널 표시됨" : "미리보기 패널 숨김");
         };
         viewMenu.DropDownItems.Add(previewToggle);
-        viewMenu.DropDownItems.Add("새로고침 (F5)", null, (_, _) => { _leftPanel.Refresh(); _rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
+        viewMenu.DropDownItems.Add("새로고침 (F5)", null, (_, _) => { leftPanel.Refresh(); rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
         viewMenu.DropDownItems.Add(new ToolStripSeparator());
-        viewMenu.DropDownItems.Add("왼쪽 패널 검색", null, (_, _) => OpenSearch(_leftPanel));
-        viewMenu.DropDownItems.Add("오른쪽 패널 검색", null, (_, _) => OpenSearch(_rightPanel));
+        viewMenu.DropDownItems.Add("왼쪽 패널 검색", null, (_, _) => OpenSearch(leftPanel));
+        viewMenu.DropDownItems.Add("오른쪽 패널 검색", null, (_, _) => OpenSearch(rightPanel));
 
-        // 즐겨찾기
         var bookmarkMenu = new ToolStripMenuItem("즐겨찾기(&B)");
         bookmarkMenu.DropDownOpening += (_, _) => BuildBookmarkDropDown(bookmarkMenu);
 
-        _menuStrip.Items.AddRange(new ToolStripItem[] { fileMenu, editMenu, viewMenu, bookmarkMenu });
+        menuStrip.Items.AddRange(new ToolStripItem[] { fileMenu, editMenu, viewMenu, bookmarkMenu });
     }
 
     private void BuildBookmarkDropDown(ToolStripMenuItem menu)
@@ -180,14 +123,14 @@ public class MainForm : Form
         menu.DropDownItems.Clear();
         menu.DropDownItems.Add("현재 폴더 추가 (왼쪽)", null, (_, _) =>
         {
-            string name = Path.GetFileName(_leftPanel.CurrentPath) is { Length: > 0 } n ? n : _leftPanel.CurrentPath;
-            bool added = _bookmarks.Add(_leftPanel.CurrentPath, name);
+            string name = Path.GetFileName(leftPanel.CurrentPath) is { Length: > 0 } n ? n : leftPanel.CurrentPath;
+            bool added = _bookmarks.Add(leftPanel.CurrentPath, name);
             ShowMainStatus(added ? $"'{name}' 즐겨찾기에 추가됨" : "이미 즐겨찾기에 있습니다.");
         });
         menu.DropDownItems.Add("현재 폴더 추가 (오른쪽)", null, (_, _) =>
         {
-            string name = Path.GetFileName(_rightPanel.CurrentPath) is { Length: > 0 } n ? n : _rightPanel.CurrentPath;
-            bool added = _bookmarks.Add(_rightPanel.CurrentPath, name);
+            string name = Path.GetFileName(rightPanel.CurrentPath) is { Length: > 0 } n ? n : rightPanel.CurrentPath;
+            bool added = _bookmarks.Add(rightPanel.CurrentPath, name);
             ShowMainStatus(added ? $"'{name}' 즐겨찾기에 추가됨" : "이미 즐겨찾기에 있습니다.");
         });
 
@@ -246,23 +189,21 @@ public class MainForm : Form
         form.ShowDialog(this);
     }
 
-    // ──────────────────── Toolbar ────────────────────
-
     private void BuildToolbar()
     {
         AddToolBtn("새 폴더", "새 폴더 만들기", (_, _) => _activePanel.RequestNewFolder());
         AddToolBtn("새 파일", "새 파일 만들기", (_, _) => _activePanel.RequestNewFile());
-        _toolbar.Items.Add(new ToolStripSeparator());
+        toolStrip.Items.Add(new ToolStripSeparator());
         AddToolBtn("→ 복사", "활성 패널에서 반대 패널로 복사 (F5)", (_, _) => CopyActiveToOther());
         AddToolBtn("→ 이동", "활성 패널에서 반대 패널로 이동 (F6)", (_, _) => MoveActiveToOther());
-        _toolbar.Items.Add(new ToolStripSeparator());
+        toolStrip.Items.Add(new ToolStripSeparator());
         AddToolBtn("이름 바꾸기", "선택 항목 이름 바꾸기 (F2)", (_, _) => _activePanel.BeginRename());
         AddToolBtn("삭제", "선택 항목 삭제 (F8)", (_, _) => _activePanel.RequestDelete());
-        _toolbar.Items.Add(new ToolStripSeparator());
-        AddToolBtn("새로고침", "양쪽 패널 새로고침 (F5)", (_, _) => { _leftPanel.Refresh(); _rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
+        toolStrip.Items.Add(new ToolStripSeparator());
+        AddToolBtn("새로고침", "양쪽 패널 새로고침 (F5)", (_, _) => { leftPanel.Refresh(); rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
         AddToolBtn("검색", "활성 패널 검색", (_, _) => OpenSearch(_activePanel));
-        _toolbar.Items.Add(new ToolStripSeparator());
-        AddToolBtn("미리보기", "미리보기 패널 토글", (_, _) => _mainSplit.Panel2Collapsed = !_mainSplit.Panel2Collapsed);
+        toolStrip.Items.Add(new ToolStripSeparator());
+        AddToolBtn("미리보기", "미리보기 패널 토글", (_, _) => mainSplit.Panel2Collapsed = !mainSplit.Panel2Collapsed);
     }
 
     private void AddToolBtn(string text, string tooltip, EventHandler handler)
@@ -275,20 +216,18 @@ public class MainForm : Form
             Padding = new Padding(6, 2, 6, 2),
         };
         btn.Click += handler;
-        _toolbar.Items.Add(btn);
+        toolStrip.Items.Add(btn);
     }
-
-    // ──────────────────── Operations ────────────────────
 
     private void CopyActiveToOther()
     {
-        var (src, dest) = _activePanel == _leftPanel ? (_leftPanel, _rightPanel) : (_rightPanel, _leftPanel);
+        var (src, dest) = _activePanel == leftPanel ? (leftPanel, rightPanel) : (rightPanel, leftPanel);
         CopyBetweenPanels(src, dest);
     }
 
     private void MoveActiveToOther()
     {
-        var (src, dest) = _activePanel == _leftPanel ? (_leftPanel, _rightPanel) : (_rightPanel, _leftPanel);
+        var (src, dest) = _activePanel == leftPanel ? (leftPanel, rightPanel) : (rightPanel, leftPanel);
         MoveBetweenPanels(src, dest);
     }
 
@@ -360,15 +299,11 @@ public class MainForm : Form
         dlg.Show(this);
     }
 
-    // ──────────────────── Status bar ────────────────────
-
     private void ShowMainStatus(string message)
     {
         if (InvokeRequired) { Invoke(() => ShowMainStatus(message)); return; }
-        _mainStatusLabel.Text = message;
+        statusLabel.Text = message;
     }
-
-    // ──────────────────── Keyboard shortcuts ────────────────────
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {

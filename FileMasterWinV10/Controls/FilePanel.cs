@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using FileMasterWinV10.Dialogs;
 using FileMasterWinV10.Helpers;
 using FileMasterWinV10.Models;
@@ -6,23 +7,15 @@ namespace FileMasterWinV10.Controls;
 
 public enum FilePanelSide { Left, Right }
 
-public class FilePanel : UserControl
+[ToolboxItem(true)]
+public partial class FilePanel : UserControl
 {
     private string _currentPath = "";
-
-    private readonly string _sideTitle;
-    private readonly Panel _pathBar;
-    private readonly Label _headerLabel;
-    private readonly Label _chevronLabel;
-    private readonly FolderTreeDropdownPanel _folderTree;
+    private string _sideTitle = "왼쪽";
+    private ContextMenuStrip _contextMenu = null!;
+    private ToolTip _pathTip = null!;
     private Form? _hookedForm;
     private MouseEventHandler? _outsideClickHandler;
-    private readonly ListView _listView;
-    private readonly ImageList _imageListSmall;
-    private readonly StatusStrip _statusStrip;
-    private readonly ToolStripStatusLabel _statusLabel;
-    private readonly FlowLayoutPanel _driveBar;
-    private readonly ContextMenuStrip _contextMenu;
 
     public event EventHandler? CopyToOtherRequested;
     public event EventHandler? MoveToOtherRequested;
@@ -32,134 +25,91 @@ public class FilePanel : UserControl
 
     public string CurrentPath => _currentPath;
 
+    [DefaultValue(FilePanelSide.Left)]
+    [Category("Appearance")]
+    [Description("패널이 왼쪽인지 오른쪽인지 지정합니다.")]
+    public FilePanelSide PanelSide { get; set; } = FilePanelSide.Left;
+
     public string[] SelectedPaths =>
-        _listView.SelectedItems.Cast<ListViewItem>()
+        listView.SelectedItems.Cast<ListViewItem>()
             .Select(i => ((FileEntry)i.Tag!).FullPath)
             .Where(p => Path.GetFileName(p) != "..")
             .ToArray();
 
+    public FilePanel() => InitializeFilePanel();
+
     public FilePanel(FilePanelSide side)
     {
+        PanelSide = side;
+        InitializeFilePanel();
+    }
+
+    private void InitializeFilePanel()
+    {
+        InitializeComponent();
+
         DoubleBuffered = true;
-        BackColor = UiTheme.Background;
-        Font = UiTheme.UiFont;
-        Padding = new Padding(1);
+        ApplyPanelSide();
 
-        _imageListSmall = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
-        _sideTitle = side == FilePanelSide.Left ? "왼쪽" : "오른쪽";
+        if (AppIconHelper.IsDesignMode(this))
+            return;
 
-        _pathBar = new Panel
-        {
-            Dock = DockStyle.Top,
-            Height = 36,
-            BackColor = UiTheme.Surface,
-            Padding = new Padding(8, 4, 8, 4),
-            Cursor = Cursors.Hand,
-        };
-        _headerLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            Text = _sideTitle,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Font = UiTheme.UiFontSemibold,
-            ForeColor = UiTheme.Accent,
-            AutoEllipsis = true,
-            Cursor = Cursors.Hand,
-        };
-        _chevronLabel = new Label
-        {
-            Dock = DockStyle.Right,
-            Width = 24,
-            Text = "▾",
-            TextAlign = ContentAlignment.MiddleCenter,
-            Font = UiTheme.UiFont,
-            ForeColor = UiTheme.TextSecondary,
-            Cursor = Cursors.Hand,
-        };
-        var pathTip = new ToolTip();
-        pathTip.SetToolTip(_pathBar, "클릭하여 폴더 목록을 펼치고 이동할 위치를 선택합니다.");
-        pathTip.SetToolTip(_headerLabel, pathTip.GetToolTip(_pathBar));
-        pathTip.SetToolTip(_chevronLabel, pathTip.GetToolTip(_pathBar));
+        UiTheme.StyleListView(listView);
+        UiTheme.StyleStatusStrip(statusStrip);
+        pathBar.BackColor = UiTheme.Surface;
+        driveBar.BackColor = UiTheme.DriveBarBg;
+        WireUi();
+        PopulateDriveBar();
+    }
 
-        void OnPathBarEnter(object? _, EventArgs __) => _pathBar.BackColor = UiTheme.HeaderBg;
-        void OnPathBarLeave(object? _, EventArgs __) => _pathBar.BackColor = UiTheme.Surface;
-        _pathBar.MouseEnter += OnPathBarEnter;
-        _pathBar.MouseLeave += OnPathBarLeave;
-        _headerLabel.MouseEnter += OnPathBarEnter;
-        _headerLabel.MouseLeave += (_, _) => OnPathBarLeave(null, EventArgs.Empty);
-        _chevronLabel.MouseEnter += OnPathBarEnter;
-        _chevronLabel.MouseLeave += (_, _) => OnPathBarLeave(null, EventArgs.Empty);
+    public void SetPanelSide(FilePanelSide side)
+    {
+        if (PanelSide == side) return;
+        PanelSide = side;
+        ApplyPanelSide();
+    }
 
-        _folderTree = new FolderTreeDropdownPanel();
-        _folderTree.FolderSelected += (_, path) => Navigate(path);
+    private void ApplyPanelSide()
+    {
+        _sideTitle = PanelSide == FilePanelSide.Left ? "왼쪽" : "오른쪽";
+        headerLabel.Text = string.IsNullOrEmpty(_currentPath)
+            ? _sideTitle
+            : $"{_sideTitle}  ·  {_currentPath}";
+    }
 
-        void OnPickFolder(object? _, EventArgs __) => ToggleFolderTree();
-        _pathBar.Click += OnPickFolder;
-        _headerLabel.Click += OnPickFolder;
-        _chevronLabel.Click += OnPickFolder;
+    private void WireUi()
+    {
+        _pathTip = new ToolTip(components);
+        _pathTip.SetToolTip(pathBar, "클릭하여 폴더 목록을 펼치고 이동할 위치를 선택합니다.");
+        _pathTip.SetToolTip(headerLabel, _pathTip.GetToolTip(pathBar));
+        _pathTip.SetToolTip(chevronLabel, _pathTip.GetToolTip(pathBar));
 
-        _pathBar.Controls.Add(_headerLabel);
-        _pathBar.Controls.Add(_chevronLabel);
+        pathBar.MouseEnter += (_, _) => pathBar.BackColor = UiTheme.HeaderBg;
+        pathBar.MouseLeave += (_, _) => pathBar.BackColor = UiTheme.Surface;
+        headerLabel.MouseEnter += (_, _) => pathBar.BackColor = UiTheme.HeaderBg;
+        headerLabel.MouseLeave += (_, _) => pathBar.BackColor = UiTheme.Surface;
+        chevronLabel.MouseEnter += (_, _) => pathBar.BackColor = UiTheme.HeaderBg;
+        chevronLabel.MouseLeave += (_, _) => pathBar.BackColor = UiTheme.Surface;
 
-        _driveBar = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            Height = 34,
-            AutoScroll = true,
-            WrapContents = false,
-            FlowDirection = FlowDirection.LeftToRight,
-            Padding = new Padding(6, 4, 6, 4),
-            BackColor = UiTheme.DriveBarBg,
-        };
+        pathBar.Click += (_, _) => ToggleFolderTree();
+        headerLabel.Click += (_, _) => ToggleFolderTree();
+        chevronLabel.Click += (_, _) => ToggleFolderTree();
 
-        _listView = new ListView
-        {
-            Dock = DockStyle.Fill,
-            View = View.Details,
-            SmallImageList = _imageListSmall,
-            FullRowSelect = true,
-            AllowColumnReorder = true,
-            MultiSelect = true,
-            LabelEdit = false,
-            AllowDrop = true,
-        };
-        UiTheme.StyleListView(_listView);
-        _listView.Columns.Add("이름", 240);
-        _listView.Columns.Add("크기", 90, HorizontalAlignment.Right);
-        _listView.Columns.Add("종류", 100);
-        _listView.Columns.Add("수정된 날짜", 150);
+        folderTree.FolderSelected += (_, path) => Navigate(path);
 
         _contextMenu = BuildContextMenu();
-        _listView.ContextMenuStrip = _contextMenu;
+        listView.ContextMenuStrip = _contextMenu;
 
-        _statusStrip = new StatusStrip { SizingGrip = false };
-        UiTheme.StyleStatusStrip(_statusStrip);
-        _statusLabel = new ToolStripStatusLabel
-        {
-            Spring = true,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Text = "준비",
-        };
-        _statusStrip.Items.Add(_statusLabel);
-
-        _listView.DoubleClick += OnDoubleClick;
-        _listView.SelectedIndexChanged += OnSelectionChanged;
-        _listView.KeyDown += OnKeyDown;
-        _listView.ColumnClick += OnColumnClick;
-        _listView.ItemDrag += OnItemDrag;
-        _listView.DragEnter += OnDragEnter;
-        _listView.DragDrop += OnDragDrop;
-        _listView.GotFocus += (_, _) => GotFocused?.Invoke(this, EventArgs.Empty);
-        _listView.AfterLabelEdit += OnAfterLabelEdit;
+        listView.DoubleClick += OnDoubleClick;
+        listView.SelectedIndexChanged += OnSelectionChanged;
+        listView.KeyDown += OnKeyDown;
+        listView.ColumnClick += OnColumnClick;
+        listView.ItemDrag += OnItemDrag;
+        listView.DragEnter += OnDragEnter;
+        listView.DragDrop += OnDragDrop;
+        listView.GotFocus += (_, _) => GotFocused?.Invoke(this, EventArgs.Empty);
+        listView.AfterLabelEdit += OnAfterLabelEdit;
         _contextMenu.Opening += OnContextMenuOpening;
-
-        Controls.Add(_listView);
-        Controls.Add(_statusStrip);
-        Controls.Add(_driveBar);
-        Controls.Add(_folderTree);
-        Controls.Add(_pathBar);
-
-        PopulateDriveBar();
     }
 
     public void SetInitialPath(string? path)
@@ -170,8 +120,6 @@ public class FilePanel : UserControl
         _currentPath = "";
         Navigate(target);
     }
-
-    // ──────────────────── Context menu ────────────────────
 
     private ContextMenuStrip BuildContextMenu()
     {
@@ -196,11 +144,11 @@ public class FilePanel : UserControl
         return cm;
     }
 
-    private void OnContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void OnContextMenuOpening(object? sender, CancelEventArgs e)
     {
-        bool hasSelection = _listView.SelectedItems.Count > 0;
-        bool singleFile = _listView.SelectedItems.Count == 1
-            && _listView.SelectedItems[0].Tag is FileEntry ff && !ff.IsDirectory;
+        bool hasSelection = listView.SelectedItems.Count > 0;
+        bool singleFile = listView.SelectedItems.Count == 1
+            && listView.SelectedItems[0].Tag is FileEntry ff && !ff.IsDirectory;
 
         var items = _contextMenu.Items;
         items[0].Enabled = hasSelection;
@@ -210,12 +158,10 @@ public class FilePanel : UserControl
         items[6].Enabled = hasSelection;
         items[7].Enabled = hasSelection;
         items[8].Enabled = Clipboard.ContainsFileDropList();
-        items[10].Enabled = _listView.SelectedItems.Count == 1 && hasSelection;
+        items[10].Enabled = listView.SelectedItems.Count == 1 && hasSelection;
         items[11].Enabled = hasSelection;
         items[16].Enabled = hasSelection;
     }
-
-    // ──────────────────── Navigation ────────────────────
 
     public void Navigate(string path)
     {
@@ -228,19 +174,19 @@ public class FilePanel : UserControl
     }
 
     private void UpdatePathDisplay() =>
-        _headerLabel.Text = $"{_sideTitle}  ·  {_currentPath}";
+        headerLabel.Text = $"{_sideTitle}  ·  {_currentPath}";
 
     private void ToggleFolderTree()
     {
-        if (_folderTree.IsOpen)
+        if (folderTree.IsOpen)
         {
             CloseFolderTree();
             return;
         }
 
-        _folderTree.Toggle(_currentPath);
-        _chevronLabel.Text = _folderTree.IsOpen ? "▴" : "▾";
-        if (_folderTree.IsOpen)
+        folderTree.Toggle(_currentPath);
+        chevronLabel.Text = folderTree.IsOpen ? "▴" : "▾";
+        if (folderTree.IsOpen)
             RegisterOutsideClose();
         else
             UnregisterOutsideClose();
@@ -248,9 +194,9 @@ public class FilePanel : UserControl
 
     private void CloseFolderTree()
     {
-        if (!_folderTree.IsOpen) return;
-        _folderTree.Collapse();
-        _chevronLabel.Text = "▾";
+        if (!folderTree.IsOpen) return;
+        folderTree.Collapse();
+        chevronLabel.Text = "▾";
         UnregisterOutsideClose();
     }
 
@@ -270,10 +216,10 @@ public class FilePanel : UserControl
 
     private void OnOutsideMouseDown(object? sender, MouseEventArgs e)
     {
-        if (!_folderTree.IsOpen) return;
+        if (!folderTree.IsOpen) return;
         var pos = Control.MousePosition;
-        var treeRect = _folderTree.RectangleToScreen(_folderTree.ClientRectangle);
-        var pathRect = _pathBar.RectangleToScreen(_pathBar.ClientRectangle);
+        var treeRect = folderTree.RectangleToScreen(folderTree.ClientRectangle);
+        var pathRect = pathBar.RectangleToScreen(pathBar.ClientRectangle);
         if (!treeRect.Contains(pos) && !pathRect.Contains(pos))
             CloseFolderTree();
     }
@@ -284,12 +230,10 @@ public class FilePanel : UserControl
         if (parent != null) Navigate(parent.FullName);
     }
 
-    // ──────────────────── Directory loading ────────────────────
-
     private void LoadDirectory()
     {
-        _listView.BeginUpdate();
-        _listView.Items.Clear();
+        listView.BeginUpdate();
+        listView.Items.Clear();
 
         try
         {
@@ -299,7 +243,7 @@ public class FilePanel : UserControl
                 var upEntry = new FileEntry { Name = "..", FullPath = parentDir.FullName, IsDirectory = true };
                 var upItem = new ListViewItem("..", GetOrAddIcon(parentDir.FullName, true)) { Tag = upEntry };
                 upItem.SubItems.AddRange(new[] { "", "폴더", "" });
-                _listView.Items.Add(upItem);
+                listView.Items.Add(upItem);
             }
 
             foreach (var dir in Directory.GetDirectories(_currentPath).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
@@ -315,7 +259,7 @@ public class FilePanel : UserControl
                         LastModified = info.LastWriteTime,
                         Attributes = info.Attributes,
                     };
-                    _listView.Items.Add(CreateItem(entry));
+                    listView.Items.Add(CreateItem(entry));
                 }
                 catch { }
             }
@@ -335,16 +279,16 @@ public class FilePanel : UserControl
                         Extension = info.Extension,
                         Attributes = info.Attributes,
                     };
-                    _listView.Items.Add(CreateItem(entry));
+                    listView.Items.Add(CreateItem(entry));
                 }
                 catch { }
             }
 
-            int dirCount = _listView.Items.Cast<ListViewItem>()
+            int dirCount = listView.Items.Cast<ListViewItem>()
                 .Count(i => i.Tag is FileEntry e && e.IsDirectory && e.Name != "..");
-            int fileCount = _listView.Items.Cast<ListViewItem>()
+            int fileCount = listView.Items.Cast<ListViewItem>()
                 .Count(i => i.Tag is FileEntry e && !e.IsDirectory);
-            long totalSize = _listView.Items.Cast<ListViewItem>()
+            long totalSize = listView.Items.Cast<ListViewItem>()
                 .Where(i => i.Tag is FileEntry e && !e.IsDirectory)
                 .Sum(i => ((FileEntry)i.Tag!).Size);
 
@@ -360,7 +304,7 @@ public class FilePanel : UserControl
         }
         finally
         {
-            _listView.EndUpdate();
+            listView.EndUpdate();
         }
     }
 
@@ -378,27 +322,27 @@ public class FilePanel : UserControl
     }
 
     private int GetOrAddIcon(string path, bool isDirectory) =>
-        IconHelper.GetIconIndex(_imageListSmall, path, isDirectory);
+        IconHelper.GetIconIndex(imageListSmall, path, isDirectory);
 
-    public void SetStatus(string message) => _statusLabel.Text = message;
+    public void SetStatus(string message) => statusLabel.Text = message;
 
     private void OnSelectionChanged(object? sender, EventArgs e)
     {
         var paths = SelectedPaths;
         SelectionChanged?.Invoke(this, paths);
 
-        if (_listView.SelectedItems.Count == 0)
+        if (listView.SelectedItems.Count == 0)
         {
-            int dirCount = _listView.Items.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && fe.IsDirectory && fe.Name != "..");
-            int fileCount = _listView.Items.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && !fe.IsDirectory);
-            long total = _listView.Items.Cast<ListViewItem>().Where(i => i.Tag is FileEntry fe && !fe.IsDirectory).Sum(i => ((FileEntry)i.Tag!).Size);
+            int dirCount = listView.Items.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && fe.IsDirectory && fe.Name != "..");
+            int fileCount = listView.Items.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && !fe.IsDirectory);
+            long total = listView.Items.Cast<ListViewItem>().Where(i => i.Tag is FileEntry fe && !fe.IsDirectory).Sum(i => ((FileEntry)i.Tag!).Size);
             SetStatus($"폴더 {dirCount}개, 파일 {fileCount}개  |  합계 {FileEntry.FormatSize(total)}");
         }
         else
         {
-            int selDirs = _listView.SelectedItems.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && fe.IsDirectory && fe.Name != "..");
-            int selFiles = _listView.SelectedItems.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && !fe.IsDirectory);
-            long selSize = _listView.SelectedItems.Cast<ListViewItem>().Where(i => i.Tag is FileEntry fe && !fe.IsDirectory).Sum(i => ((FileEntry)i.Tag!).Size);
+            int selDirs = listView.SelectedItems.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && fe.IsDirectory && fe.Name != "..");
+            int selFiles = listView.SelectedItems.Cast<ListViewItem>().Count(i => i.Tag is FileEntry fe && !fe.IsDirectory);
+            long selSize = listView.SelectedItems.Cast<ListViewItem>().Where(i => i.Tag is FileEntry fe && !fe.IsDirectory).Sum(i => ((FileEntry)i.Tag!).Size);
 
             var parts = new List<string>();
             if (selDirs > 0) parts.Add($"폴더 {selDirs}개");
@@ -409,8 +353,8 @@ public class FilePanel : UserControl
 
     private void OnDoubleClick(object? sender, EventArgs e)
     {
-        if (_listView.SelectedItems.Count == 0) return;
-        var entry = (FileEntry)_listView.SelectedItems[0].Tag!;
+        if (listView.SelectedItems.Count == 0) return;
+        var entry = (FileEntry)listView.SelectedItems[0].Tag!;
         if (entry.IsDirectory)
             Navigate(entry.FullPath);
         else
@@ -435,9 +379,9 @@ public class FilePanel : UserControl
 
     private void OnColumnClick(object? sender, ColumnClickEventArgs e)
     {
-        _listView.ListViewItemSorter = new FileEntryComparer(e.Column);
-        _listView.Sort();
-        SetStatus($"'{_listView.Columns[e.Column].Text}' 기준으로 정렬됨");
+        listView.ListViewItemSorter = new FileEntryComparer(e.Column);
+        listView.Sort();
+        SetStatus($"'{listView.Columns[e.Column].Text}' 기준으로 정렬됨");
     }
 
     private void OnItemDrag(object? sender, ItemDragEventArgs e)
@@ -445,7 +389,7 @@ public class FilePanel : UserControl
         var paths = SelectedPaths;
         if (paths.Length == 0) return;
         var data = new DataObject(DataFormats.FileDrop, paths);
-        _listView.DoDragDrop(data, DragDropEffects.Copy | DragDropEffects.Move);
+        listView.DoDragDrop(data, DragDropEffects.Copy | DragDropEffects.Move);
     }
 
     private void OnDragEnter(object? sender, DragEventArgs e) =>
@@ -470,8 +414,8 @@ public class FilePanel : UserControl
 
     private void OpenSelected()
     {
-        if (_listView.SelectedItems.Count == 0) return;
-        var entry = (FileEntry)_listView.SelectedItems[0].Tag!;
+        if (listView.SelectedItems.Count == 0) return;
+        var entry = (FileEntry)listView.SelectedItems[0].Tag!;
         if (entry.IsDirectory) { Navigate(entry.FullPath); return; }
         try
         {
@@ -545,18 +489,18 @@ public class FilePanel : UserControl
 
     public void BeginRename()
     {
-        if (_listView.SelectedItems.Count != 1) return;
-        var entry = (FileEntry)_listView.SelectedItems[0].Tag!;
+        if (listView.SelectedItems.Count != 1) return;
+        var entry = (FileEntry)listView.SelectedItems[0].Tag!;
         if (entry.Name == "..") return;
-        _listView.LabelEdit = true;
-        _listView.SelectedItems[0].BeginEdit();
+        listView.LabelEdit = true;
+        listView.SelectedItems[0].BeginEdit();
     }
 
     private void OnAfterLabelEdit(object? sender, LabelEditEventArgs e)
     {
-        _listView.LabelEdit = false;
+        listView.LabelEdit = false;
         if (e.Label == null || string.IsNullOrWhiteSpace(e.Label)) { e.CancelEdit = true; return; }
-        var entry = (FileEntry)_listView.Items[e.Item].Tag!;
+        var entry = (FileEntry)listView.Items[e.Item].Tag!;
         string newPath = Path.Combine(_currentPath, e.Label);
         try
         {
@@ -611,14 +555,14 @@ public class FilePanel : UserControl
 
     private void SelectAll()
     {
-        foreach (ListViewItem item in _listView.Items)
+        foreach (ListViewItem item in listView.Items)
             item.Selected = true;
     }
 
     private void ShowProperties()
     {
-        if (_listView.SelectedItems.Count == 0) return;
-        var entry = (FileEntry)_listView.SelectedItems[0].Tag!;
+        if (listView.SelectedItems.Count == 0) return;
+        var entry = (FileEntry)listView.SelectedItems[0].Tag!;
         if (entry.Name == "..") return;
         try
         {
@@ -642,7 +586,7 @@ public class FilePanel : UserControl
 
     private void PopulateDriveBar()
     {
-        _driveBar.Controls.Clear();
+        driveBar.Controls.Clear();
         foreach (var drive in DriveInfo.GetDrives())
         {
             var d = drive;
@@ -654,14 +598,13 @@ public class FilePanel : UserControl
                 Margin = new Padding(0, 0, 4, 0),
             };
             UiTheme.StyleSecondaryButton(btn);
-            new ToolTip().SetToolTip(btn, $"{d.Name} ({(d.IsReady ? d.DriveType.ToString() : "준비 안됨")})");
+            new ToolTip(components).SetToolTip(btn, $"{d.Name} ({(d.IsReady ? d.DriveType.ToString() : "준비 안됨")})");
             btn.Click += (_, _) => Navigate(d.Name);
-            _driveBar.Controls.Add(btn);
+            driveBar.Controls.Add(btn);
         }
     }
 
     public new void Refresh() => LoadDirectory();
-
 }
 
 internal class FileEntryComparer : System.Collections.IComparer

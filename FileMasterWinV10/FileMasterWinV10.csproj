@@ -5,7 +5,70 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>FileMasterWinV10</AssemblyName>
+    <AssemblyName>CommandCenter</AssemblyName>
     <RootNamespace>FileMasterWinV10</RootNamespace>
+    <Product>Command Center</Product>
+    <AssemblyTitle>Command Center</AssemblyTitle>
+    <Description>Command Center - dual-pane file manager</Description>
+    <Company>Command Center</Company>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- Release 빌드 시 MSI 설치 패키지도 함께 생성 -->
+    <GenerateMsiOnBuild>true</GenerateMsiOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Compile Update="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <Compile Update="Controls\FilePanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\FilePanel.Designer.cs">
+      <DependentUpon>FilePanel.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Controls\PreviewPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\PreviewPanel.Designer.cs">
+      <DependentUpon>PreviewPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Controls\FolderTreeDropdownPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Update="Controls\FolderTreeDropdownPanel.Designer.cs">
+      <DependentUpon>FolderTreeDropdownPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Dialogs\SearchDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Dialogs\SearchDialog.Designer.cs">
+      <DependentUpon>SearchDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Dialogs\InputDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Dialogs\InputDialog.Designer.cs">
+      <DependentUpon>InputDialog.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <Target
+    Name="BuildInstallerMsi"
+    AfterTargets="Build"
+    Condition="'$(Configuration)' == 'Release' and '$(GenerateMsiOnBuild)' == 'true'"
+    Inputs="$(TargetPath);$(TargetDir)**\*;$(MSBuildProjectDirectory)\CommandCenter.Installer\Package.wxs;$(MSBuildProjectDirectory)\CommandCenter.Installer\CommandCenter.Installer.wixproj"
+    Outputs="$(MSBuildProjectDirectory)\CommandCenter.Installer\bin\x64\$(Configuration)\CommandCenterSetup.msi">
+    <Message Importance="high" Text="Building MSI installer (Release)..." />
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)\CommandCenter.Installer\CommandCenter.Installer.wixproj&quot; -c $(Configuration) -p:GenerateMsiOnBuild=false -p:BuildProjectReferences=false" />
+  </Target>
 </Project>

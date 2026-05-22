@@ -1,15 +1,15 @@
+using System.ComponentModel;
 using FileMasterWinV10.Helpers;
 
 namespace FileMasterWinV10.Controls;
 
 /// <summary>경로 표시줄 아래에 펼쳐지는 인라인 폴더 트리(아이콘 포함).</summary>
-public class FolderTreeDropdownPanel : Panel
+[ToolboxItem(true)]
+public partial class FolderTreeDropdownPanel : Panel
 {
     private const string PlaceholderName = "...";
     private const int ExpandedHeight = 240;
 
-    private readonly TreeView _tree;
-    private readonly ImageList _folderIcons;
     private bool _suppressSelect;
 
     public event EventHandler<string>? FolderSelected;
@@ -18,50 +18,38 @@ public class FolderTreeDropdownPanel : Panel
 
     public FolderTreeDropdownPanel()
     {
-        Dock = DockStyle.Top;
-        Height = 0;
-        Visible = false;
-        BackColor = UiTheme.Surface;
-        Padding = new Padding(1);
-        BorderStyle = BorderStyle.FixedSingle;
-
-        _folderIcons = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
-
-        _tree = new TreeView
+        InitializeComponent();
+        if (!AppIconHelper.IsDesignMode(this))
         {
-            Dock = DockStyle.Fill,
-            HideSelection = false,
-            ShowLines = true,
-            ShowPlusMinus = true,
-            ShowRootLines = true,
-            ShowNodeToolTips = true,
-            ImageList = _folderIcons,
-            Font = UiTheme.UiFont,
-            BorderStyle = BorderStyle.None,
-            BackColor = UiTheme.Surface,
-            ItemHeight = 22,
-        };
+            BackColor = UiTheme.Surface;
+            treeView.BackColor = UiTheme.Surface;
+            treeView.Font = UiTheme.UiFont;
+            WireEvents();
+        }
+    }
 
-        _tree.BeforeExpand += OnBeforeExpand;
-        _tree.AfterSelect += OnAfterSelect;
-        _tree.NodeMouseDoubleClick += (_, e) =>
+    private void WireEvents()
+    {
+        treeView.BeforeExpand += OnBeforeExpand;
+        treeView.AfterSelect += OnAfterSelect;
+        treeView.NodeMouseDoubleClick += (_, e) =>
         {
             if (e.Node?.Tag is string path && Directory.Exists(path))
                 SelectFolder(path);
         };
-        _tree.KeyDown += (_, e) =>
+        treeView.KeyDown += (_, e) =>
         {
-            if (e.KeyCode == Keys.Enter && _tree.SelectedNode?.Tag is string path && Directory.Exists(path))
+            if (e.KeyCode == Keys.Enter && treeView.SelectedNode?.Tag is string path && Directory.Exists(path))
                 SelectFolder(path);
             else if (e.KeyCode == Keys.Escape)
                 Collapse();
         };
-
-        Controls.Add(_tree);
     }
 
     public void Toggle(string? currentPath)
     {
+        if (AppIconHelper.IsDesignMode(this)) return;
+
         if (IsOpen)
         {
             Collapse();
@@ -76,7 +64,7 @@ public class FolderTreeDropdownPanel : Panel
                 SelectPath(currentPath);
             Visible = true;
             Height = ExpandedHeight;
-            _tree.Focus();
+            treeView.Focus();
         }
         finally
         {
@@ -88,7 +76,7 @@ public class FolderTreeDropdownPanel : Panel
     {
         Visible = false;
         Height = 0;
-        _tree.Nodes.Clear();
+        treeView.Nodes.Clear();
     }
 
     private void OnAfterSelect(object? sender, TreeViewEventArgs e)
@@ -105,8 +93,8 @@ public class FolderTreeDropdownPanel : Panel
 
     private void LoadDrives()
     {
-        _tree.BeginUpdate();
-        _tree.Nodes.Clear();
+        treeView.BeginUpdate();
+        treeView.Nodes.Clear();
         foreach (var drive in DriveInfo.GetDrives())
         {
             if (drive.DriveType == DriveType.Unknown) continue;
@@ -114,13 +102,13 @@ public class FolderTreeDropdownPanel : Panel
             string label = drive.IsReady
                 ? $"{drive.Name.TrimEnd('\\')} ({drive.VolumeLabel})"
                 : $"{drive.Name.TrimEnd('\\')} (준비 안 됨)";
-            int img = IconHelper.GetIconIndex(_folderIcons, path, isDirectory: true);
+            int img = IconHelper.GetIconIndex(folderIcons, path, isDirectory: true);
             var node = new TreeNode(label, img, img) { Tag = path, ToolTipText = path };
             if (drive.IsReady)
                 node.Nodes.Add(new TreeNode(PlaceholderName));
-            _tree.Nodes.Add(node);
+            treeView.Nodes.Add(node);
         }
-        _tree.EndUpdate();
+        treeView.EndUpdate();
     }
 
     private void OnBeforeExpand(object? sender, TreeViewCancelEventArgs e)
@@ -145,7 +133,7 @@ public class FolderTreeDropdownPanel : Panel
                 {
                     var name = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                     if (string.IsNullOrEmpty(name)) continue;
-                    int img = IconHelper.GetIconIndex(_folderIcons, dir, isDirectory: true);
+                    int img = IconHelper.GetIconIndex(folderIcons, dir, isDirectory: true);
                     var child = new TreeNode(name, img, img) { Tag = dir, ToolTipText = dir };
                     if (HasSubdirectories(dir))
                         child.Nodes.Add(new TreeNode(PlaceholderName));
@@ -176,7 +164,7 @@ public class FolderTreeDropdownPanel : Panel
         catch { return; }
 
         TreeNode? current = null;
-        foreach (TreeNode driveNode in _tree.Nodes)
+        foreach (TreeNode driveNode in treeView.Nodes)
         {
             if (driveNode.Tag is not string drivePath) continue;
             if (!full.StartsWith(drivePath, StringComparison.OrdinalIgnoreCase)) continue;
@@ -190,7 +178,7 @@ public class FolderTreeDropdownPanel : Panel
         var relative = full[root.Length..].TrimStart('\\', '/');
         if (string.IsNullOrEmpty(relative))
         {
-            _tree.SelectedNode = current;
+            treeView.SelectedNode = current;
             current.EnsureVisible();
             return;
         }
@@ -212,7 +200,7 @@ public class FolderTreeDropdownPanel : Panel
                 EnsureExpanded(next, childPath);
         }
 
-        _tree.SelectedNode = current;
+        treeView.SelectedNode = current;
         current.EnsureVisible();
     }
 

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package
+    Name="Command Center"
+    Manufacturer="Command Center"
+    Version="1.0.0.0"
+    Scope="perMachine"
+    Language="1042"
+    Codepage="949"
+    UpgradeCode="B4E8F2A1-6C3D-4E5F-9A0B-1D2C3E4F5A6B">
+
+    <MajorUpgrade DowngradeErrorMessage="이미 최신 버전의 [ProductName]이(가) 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="low" />
+
+    <Icon Id="AppIcon.ico" SourceFile="$(var.FileMasterWinV10.ProjectDir)daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPCOMMENTS" Value="Command Center - dual-pane file manager" />
+
+    <!-- FeatureTree: 설치 시 바탕화면/시작 메뉴 바로가기를 각각 선택 -->
+    <Feature Id="ProductFeature"
+             Title="Command Center"
+             Description="프로그램 파일 설치 및 바로가기 옵션"
+             Level="1"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+
+      <ComponentGroupRef Id="AppFiles" />
+
+      <Feature Id="DesktopShortcutFeature"
+               Title="바탕화면 바로가기"
+               Description="바탕화면에 Command Center 바로가기를 만듭니다."
+               Level="1"
+               AllowAbsent="yes"
+               AllowAdvertise="no">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+
+      <Feature Id="StartMenuShortcutFeature"
+               Title="시작 메뉴 바로가기"
+               Description="시작 메뉴에 Command Center 바로가기를 만듭니다."
+               Level="1"
+               AllowAbsent="yes"
+               AllowAdvertise="no">
+        <ComponentRef Id="StartMenuShortcutComponent" />
+      </Feature>
+    </Feature>
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Command Center" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Command Center" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.FileMasterWinV10.TargetDir)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="*">
+      <Shortcut
+        Id="DesktopShortcut"
+        Name="Command Center"
+        Description="Command Center - dual-pane file manager"
+        Target="[INSTALLFOLDER]CommandCenter.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico"
+        IconIndex="0" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\CommandCenter"
+        Name="DesktopShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+
+    <Component Id="StartMenuShortcutComponent" Directory="ApplicationProgramsFolder" Guid="*">
+      <Shortcut
+        Id="StartMenuShortcut"
+        Name="Command Center"
+        Description="Command Center - dual-pane file manager"
+        Target="[INSTALLFOLDER]CommandCenter.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico"
+        IconIndex="0" />
+      <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\CommandCenter"
+        Name="StartMenuShortcut"
+        Type="integer"
+        Value="1"
+        KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>
