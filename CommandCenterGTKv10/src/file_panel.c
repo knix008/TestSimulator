@@ -52,6 +52,8 @@ typedef struct {
 
     int sort_column;
     GtkSortType sort_order;
+    int last_fit_width;
+    gboolean fitting_columns;
 } FilePanelData;
 
 static FilePanelData *panel_data(GtkWidget *panel);
@@ -347,6 +349,7 @@ static void load_directory(FilePanelData *pd) {
     g_ptr_array_free(files, TRUE);
     apply_current_sort(pd);
     update_status_counts(pd);
+    pd->last_fit_width = -1;
 }
 
 static void update_path_display(FilePanelData *pd) {
@@ -450,6 +453,89 @@ static void on_row_activated(GtkTreeView *view, GtkTreePath *path,
     GtkTreeIter iter;
     if (!gtk_tree_model_get_iter(model, &iter, path)) return;
     activate_entry_at_iter(panel, pd, model, &iter);
+}
+
+static void fit_columns_to_view(FilePanelData *pd) {
+    if (pd->fitting_columns)
+        return;
+
+    GtkWidget *scroll = gtk_widget_get_parent(pd->tree_view);
+    GtkAllocation alloc;
+    if (GTK_IS_SCROLLED_WINDOW(scroll))
+        gtk_widget_get_allocation(scroll, &alloc);
+    else
+        gtk_widget_get_allocation(pd->tree_view, &alloc);
+
+    if (alloc.width <= 0)
+        return;
+    if (pd->last_fit_width == alloc.width)
+        return;
+
+    /* 세로 스크롤바·컬럼 구분선·여백 */
+    const int col_spacing = 10;
+    int avail = alloc.width - 24;
+    if (avail < 320)
+        return;
+
+    GtkTreeView *view = GTK_TREE_VIEW(pd->tree_view);
+    GList *cols = gtk_tree_view_get_columns(view);
+    if (g_list_length(cols) != (guint)N_COLS) {
+        g_list_free(cols);
+        return;
+    }
+
+    int other_w[] = { 66, 96, 70, 64 };
+    const int other_min[] = { 56, 78, 56, 60 };
+    const int name_min = 64;
+
+    int other_sum = other_w[0] + other_w[1] + other_w[2] + other_w[3];
+    int name_w = avail - other_sum - col_spacing;
+
+    if (name_w < name_min) {
+        int deficit = name_min - name_w;
+        for (int i = 0; i < 4 && deficit > 0; i++) {
+            int reducible = other_w[i] - other_min[i];
+            int cut = deficit < reducible ? deficit : reducible;
+            other_w[i] -= cut;
+            deficit -= cut;
+        }
+        other_sum = other_w[0] + other_w[1] + other_w[2] + other_w[3];
+        name_w = avail - other_sum - col_spacing;
+        if (name_w < name_min)
+            name_w = name_min;
+    }
+
+    int total = name_w + other_sum + col_spacing;
+    if (total > avail) {
+        int overflow = total - avail;
+        int name_cut = overflow;
+        if (name_cut > name_w - name_min)
+            name_cut = name_w - name_min;
+        name_w -= name_cut;
+        overflow -= name_cut;
+        if (overflow > 0)
+            other_w[3] = MAX(other_min[3], other_w[3] - overflow);
+    }
+
+    pd->fitting_columns = TRUE;
+    gtk_tree_view_column_set_fixed_width(
+        GTK_TREE_VIEW_COLUMN(g_list_nth_data(cols, COL_NAME)), name_w);
+    for (int i = 0; i < 4; i++) {
+        gtk_tree_view_column_set_fixed_width(
+            GTK_TREE_VIEW_COLUMN(g_list_nth_data(cols, COL_PERM + i)), other_w[i]);
+    }
+    pd->fitting_columns = FALSE;
+    pd->last_fit_width = alloc.width;
+
+    g_list_free(cols);
+}
+
+static gboolean on_tree_view_size_allocate(GtkWidget *widget, GdkRectangle *allocation,
+                                           gpointer data) {
+    (void)widget;
+    if (allocation->width > 0)
+        fit_columns_to_view((FilePanelData *)data);
+    return FALSE;
 }
 
 static void on_column_clicked(GtkTreeViewColumn *column, gpointer data) {
@@ -690,6 +776,8 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
     pd->current_path = g_strdup(g_get_home_dir());
     pd->sort_column = COL_NAME;
     pd->sort_order = GTK_SORT_ASCENDING;
+    pd->last_fit_width = -1;
+    pd->fitting_columns = FALSE;
 
     pd->container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_widget_set_margin_start(pd->container, 8);
@@ -727,8 +815,8 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
                                 GTK_SELECTION_MULTIPLE);
 
     const char *titles[] = { "이름", "권한", "수정일", "종류", "크기" };
-    const int default_widths[] = { 220, 100, 150, 110, 90 };
-    const int min_widths[] = { 80, 72, 100, 72, 64 };
+    const int default_widths[] = { 110, 66, 96, 70, 64 };
+    const int min_widths[] = { 64, 56, 78, 56, 60 };
     for (int i = 0; i < N_COLS; i++) {
         GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
         gdouble cell_xalign = 0.5;
@@ -749,16 +837,17 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
         gtk_tree_view_column_set_sort_indicator(col, i == pd->sort_column);
         if (i == pd->sort_column)
             gtk_tree_view_column_set_sort_order(col, pd->sort_order);
-        if (i == COL_NAME)
-            gtk_tree_view_column_set_expand(col, TRUE);
         gtk_tree_view_append_column(GTK_TREE_VIEW(pd->tree_view), col);
         g_signal_connect(col, "clicked", G_CALLBACK(on_column_clicked), pd);
     }
 
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
-                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
     gtk_container_add(GTK_CONTAINER(scroll), pd->tree_view);
+
+    g_signal_connect(scroll, "size-allocate",
+                     G_CALLBACK(on_tree_view_size_allocate), pd);
 
     pd->status_label = gtk_label_new("준비");
     gtk_label_set_xalign(GTK_LABEL(pd->status_label), 0.0);
@@ -790,7 +879,6 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
 
     g_object_set_data_full(G_OBJECT(pd->container), "file-panel-data", pd, g_free);
     update_path_display(pd);
-    load_directory(pd);
     return pd->container;
 }
 
@@ -803,7 +891,12 @@ void file_panel_set_initial_path(GtkWidget *panel, const char *path) {
     g_free(pd->current_path);
     pd->current_path = g_strdup(target);
     update_path_display(pd);
-    load_directory(pd);
+}
+
+void file_panel_load_contents(GtkWidget *panel) {
+    FilePanelData *pd = panel_data(panel);
+    if (pd)
+        load_directory(pd);
 }
 
 const char *file_panel_get_current_path(GtkWidget *panel) {

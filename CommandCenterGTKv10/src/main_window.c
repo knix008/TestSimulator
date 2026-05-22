@@ -308,15 +308,37 @@ static void on_bookmark_menu_show(GtkWidget *item, gpointer data) {
     }
 }
 
+static gboolean center_lr_paned_idle(gpointer data) {
+    MainWindow *win = data;
+    GtkAllocation alloc;
+    gtk_widget_get_allocation(win->lr_paned, &alloc);
+    if (alloc.width > 0) {
+        gtk_paned_set_position(GTK_PANED(win->lr_paned), alloc.width / 2);
+        win->lr_paned_last_width = alloc.width;
+    }
+    return G_SOURCE_REMOVE;
+}
+
 static void on_lr_paned_size_allocate(GtkWidget *widget, GdkRectangle *allocation,
                                       gpointer data) {
     MainWindow *win = data;
     if (allocation->width <= 0)
         return;
+    if (win->lr_paned_last_width < 0) {
+        g_idle_add(center_lr_paned_idle, win);
+        return;
+    }
     if (win->lr_paned_last_width == allocation->width)
         return;
     win->lr_paned_last_width = allocation->width;
     gtk_paned_set_position(GTK_PANED(widget), allocation->width / 2);
+}
+
+static gboolean startup_load_panels_idle(gpointer data) {
+    MainWindow *win = data;
+    file_panel_load_contents(win->left_panel);
+    file_panel_load_contents(win->right_panel);
+    return G_SOURCE_REMOVE;
 }
 
 static void style_lr_paned(GtkWidget *paned) {
@@ -499,6 +521,7 @@ MainWindow *main_window_new(GtkApplication *app) {
 
     gtk_paned_add1(GTK_PANED(win->lr_paned), win->left_panel);
     gtk_paned_add2(GTK_PANED(win->lr_paned), win->right_panel);
+    gtk_paned_set_position(GTK_PANED(win->lr_paned), 640);
 
     win->preview_panel = preview_panel_new();
     gtk_widget_hide(win->preview_panel);
@@ -552,5 +575,6 @@ MainWindow *main_window_new(GtkApplication *app) {
 
     gtk_widget_show_all(win->window);
     gtk_widget_hide(win->preview_panel);
+    g_idle_add(startup_load_panels_idle, win);
     return win;
 }

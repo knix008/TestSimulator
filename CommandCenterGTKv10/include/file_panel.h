@@ -11,6 +11,7 @@ typedef void (*FilePanelPathsFn)(GtkWidget *panel, GPtrArray *paths, gpointer us
 
 GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window);
 void file_panel_set_initial_path(GtkWidget *panel, const char *path);
+void file_panel_load_contents(GtkWidget *panel);
 const char *file_panel_get_current_path(GtkWidget *panel);
 void file_panel_navigate(GtkWidget *panel, const char *path);
 void file_panel_refresh(GtkWidget *panel);
