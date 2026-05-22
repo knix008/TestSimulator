@@ -630,7 +630,50 @@ void on_tray_show_clicked(GtkMenuItem*, gpointer) {
     append_log("트레이 메뉴: 설정 창 표시");
 }
 
-void on_tray_icon_popup(GtkStatusIcon* icon, guint button, guint32 time, gpointer) {
+void on_tray_menu_hidden(GtkWidget* menu, gpointer) {
+    gtk_widget_destroy(menu);
+}
+
+// Build a GdkEvent with a valid GdkWindow (avoids gtk_menu_popup scale_factor CRITICAL).
+GdkEvent* make_tray_menu_event() {
+    GdkEvent* current = gtk_get_current_event();
+    if (current) return gdk_event_copy(current);
+
+    if (!GTK_IS_WIDGET(g_ui.window)) return nullptr;
+    if (!gtk_widget_get_realized(g_ui.window))
+        gtk_widget_realize(g_ui.window);
+    GdkWindow* win = gtk_widget_get_window(g_ui.window);
+    if (!win) return nullptr;
+
+    GdkDisplay* display = gdk_window_get_display(win);
+    GdkSeat*    seat    = display ? gdk_display_get_default_seat(display) : nullptr;
+    GdkDevice*  device  = seat ? gdk_seat_get_pointer(seat) : nullptr;
+
+    gint x_root = 0;
+    gint y_root = 0;
+    if (device)
+        gdk_device_get_position(device, nullptr, &x_root, &y_root);
+
+    GdkEvent* ev = gdk_event_new(GDK_BUTTON_PRESS);
+    if (!ev) return nullptr;
+
+    auto* btn = reinterpret_cast<GdkEventButton*>(ev);
+    btn->window = win;
+    g_object_ref(win);
+    btn->time   = GDK_CURRENT_TIME;
+    btn->device = device;
+    btn->button = 1;
+    btn->x_root = x_root;
+    btn->y_root = y_root;
+    gint ox = 0;
+    gint oy = 0;
+    gdk_window_get_origin(win, &ox, &oy);
+    btn->x = x_root - ox;
+    btn->y = y_root - oy;
+    return ev;
+}
+
+void popup_tray_menu(GtkStatusIcon* /*icon*/, guint /*button*/) {
     GtkWidget* menu = gtk_menu_new();
     GtkWidget* item_show = gtk_menu_item_new_with_label("설정 창 보이기");
     GtkWidget* item_stop = gtk_menu_item_new_with_label("녹화 중지");
@@ -639,17 +682,29 @@ void on_tray_icon_popup(GtkStatusIcon* icon, guint button, guint32 time, gpointe
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item_show);
     gtk_menu_shell_append(GTK_MENU_SHELL(menu), item_stop);
     gtk_widget_show_all(menu);
+    g_signal_connect(menu, "hide", G_CALLBACK(on_tray_menu_hidden), nullptr);
+
+    GdkEvent* ev = make_tray_menu_event();
+#if GTK_CHECK_VERSION(3, 22, 0)
+    gtk_menu_popup_at_pointer(GTK_MENU(menu), ev);
+#else
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    gtk_menu_popup(GTK_MENU(menu), nullptr, nullptr,
-                   gtk_status_icon_position_menu, icon, button, time);
+    gtk_menu_popup(GTK_MENU(menu), GTK_WIDGET(g_ui.window), nullptr, nullptr, nullptr, 0,
+                   ev ? gdk_event_get_time(ev) : GDK_CURRENT_TIME);
 #pragma GCC diagnostic pop
+#endif
+    if (ev) gdk_event_free(ev);
+}
+
+void on_tray_icon_popup(GtkStatusIcon* icon, guint button, guint32 /*time*/, gpointer) {
+    popup_tray_menu(icon, button);
 }
 
 // Left click during recording: open menu (do not show window — breaks PipeWire).
 void on_tray_icon_activate(GtkStatusIcon* icon, gpointer) {
     if (recorder_is_recording()) {
-        on_tray_icon_popup(icon, 1, gtk_get_current_event_time(), nullptr);
+        popup_tray_menu(icon, 1);
         return;
     }
     present_settings_window();
