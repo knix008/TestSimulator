@@ -7,6 +7,7 @@
 #include "bookmark_manager.h"
 #include "file_ops.h"
 #include "file_ops_conflict.h"
+#include "progress_dialog.h"
 #include "file_panel.h"
 #include "preview_panel.h"
 #include "search_dialog.h"
@@ -96,61 +97,165 @@ static void show_transfer_status(MainWindow *win, const char *verb,
     g_free(msg);
 }
 
-static void copy_between_panels(MainWindow *win, GtkWidget *src, GtkWidget *dest) {
+void main_window_suspend_panel_watches(MainWindow *win) {
+    if (!win)
+        return;
+    file_panel_suspend_watch(win->left_panel);
+    file_panel_suspend_watch(win->right_panel);
+}
+
+void main_window_resume_panel_watches(MainWindow *win) {
+    if (!win)
+        return;
+    file_panel_resume_watch(win->left_panel);
+    file_panel_resume_watch(win->right_panel);
+}
+
+typedef struct {
+    MainWindow *win;
+    GtkWidget *src;
+    GtkWidget *dest;
+    gboolean is_move;
+    GPtrArray *paths;
+    char *dest_path;
+    guint64 item_total;
+    ProgressDialog *prog;
+    ProgressDialogOpsCtx pctx;
+    FileOpsConflictState conflict;
+    FileOpsTransferStats stats;
+    gboolean success;
+    GError *error;
+    gchar *progress_detail;
+    gboolean progress_idle_scheduled;
+    GMutex progress_lock;
+} PanelTransferJob;
+
+static gboolean panel_transfer_set_total_idle(gpointer user_data) {
+    PanelTransferJob *job = user_data;
+    job->pctx.total = job->item_total;
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean panel_transfer_progress_idle(gpointer user_data) {
+    PanelTransferJob *job = user_data;
+    gchar *detail = NULL;
+
+    g_mutex_lock(&job->progress_lock);
+    job->progress_idle_scheduled = FALSE;
+    detail = g_steal_pointer(&job->progress_detail);
+    g_mutex_unlock(&job->progress_lock);
+
+    if (detail) {
+        progress_dialog_ops_report(&job->pctx, detail);
+        g_free(detail);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+static void panel_transfer_progress(const char *path, gpointer user_data) {
+    PanelTransferJob *job = user_data;
+
+    g_mutex_lock(&job->progress_lock);
+    g_free(job->progress_detail);
+    job->progress_detail = g_strdup(path);
+    if (!job->progress_idle_scheduled) {
+        job->progress_idle_scheduled = TRUE;
+        g_idle_add(panel_transfer_progress_idle, job);
+    }
+    g_mutex_unlock(&job->progress_lock);
+}
+
+static gboolean panel_transfer_finish_idle(gpointer user_data) {
+    PanelTransferJob *job = user_data;
+    const char *verb = job->is_move ? "이동" : "복사";
+
+    main_window_resume_panel_watches(job->win);
+
+    if (job->success) {
+        if (job->is_move)
+            file_panel_refresh(job->src);
+        file_panel_refresh(job->dest);
+        if (job->stats.copied > 0 || job->stats.skipped > 0)
+            show_transfer_status(job->win, verb, job->dest_path, &job->stats);
+        else
+            main_window_show_status(
+                job->win,
+                job->is_move ? "이동할 항목이 없습니다." : "복사할 항목이 없습니다.");
+    } else {
+        const char *fallback = job->is_move ? "이동 실패" : "복사 실패";
+        main_window_show_status(job->win,
+                                job->error ? job->error->message : fallback);
+        if (job->error &&
+            !g_error_matches(job->error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            show_error(job->win, job->error->message);
+    }
+
+    progress_dialog_end(job->prog);
+    g_mutex_clear(&job->progress_lock);
+    g_free(job->progress_detail);
+    g_clear_error(&job->error);
+    g_ptr_array_free(job->paths, TRUE);
+    g_free(job->dest_path);
+    g_free(job);
+    return G_SOURCE_REMOVE;
+}
+
+static gpointer panel_transfer_thread(gpointer user_data) {
+    PanelTransferJob *job = user_data;
+
+    job->item_total = file_ops_count_items(job->paths);
+    g_idle_add(panel_transfer_set_total_idle, job);
+
+    if (job->is_move) {
+        job->success = file_ops_move_files(
+            job->paths, job->dest_path, GTK_WINDOW(job->win->window), &job->conflict,
+            panel_transfer_progress, job, &job->stats, &job->error);
+    } else {
+        job->success = file_ops_copy_files(
+            job->paths, job->dest_path, GTK_WINDOW(job->win->window), &job->conflict,
+            panel_transfer_progress, job, &job->stats, &job->error);
+    }
+
+    g_idle_add(panel_transfer_finish_idle, job);
+    return NULL;
+}
+
+static void start_panel_transfer(MainWindow *win, GtkWidget *src, GtkWidget *dest,
+                                 gboolean is_move) {
     GPtrArray *paths = file_panel_get_selected_paths(src);
     if (paths->len == 0) {
-        main_window_show_status(win, "복사할 항목을 선택하세요.");
+        main_window_show_status(win, is_move ? "이동할 항목을 선택하세요."
+                                             : "복사할 항목을 선택하세요.");
         g_ptr_array_free(paths, TRUE);
         return;
     }
-    const char *dest_path = file_panel_get_current_path(dest);
-    FileOpsConflictState conflict;
-    FileOpsTransferStats stats;
-    file_ops_conflict_reset(&conflict);
-    GError *err = NULL;
-    if (file_ops_copy_files(paths, dest_path, GTK_WINDOW(win->window), &conflict,
-                            NULL, NULL, &stats, &err)) {
-        file_panel_refresh(dest);
-        if (stats.copied > 0 || stats.skipped > 0)
-            show_transfer_status(win, "복사", dest_path, &stats);
-        else
-            main_window_show_status(win, "복사할 항목이 없습니다.");
-    } else {
-        main_window_show_status(win, err ? err->message : "복사 실패");
-        if (err && !g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-            show_error(win, err->message);
-        g_clear_error(&err);
-    }
-    g_ptr_array_free(paths, TRUE);
+
+    PanelTransferJob *job = g_new0(PanelTransferJob, 1);
+    job->win = win;
+    job->src = src;
+    job->dest = dest;
+    job->is_move = is_move;
+    job->paths = paths;
+    job->dest_path = g_strdup(file_panel_get_current_path(dest));
+    file_ops_conflict_reset(&job->conflict);
+    g_mutex_init(&job->progress_lock);
+
+    job->prog = progress_dialog_begin(
+        GTK_WINDOW(win->window), is_move ? "이동 중..." : "복사 중...");
+    job->pctx.dlg = job->prog;
+    job->pctx.current = 0;
+    job->pctx.total = 0;
+
+    main_window_suspend_panel_watches(win);
+    g_thread_new("panel-transfer", panel_transfer_thread, job);
+}
+
+static void copy_between_panels(MainWindow *win, GtkWidget *src, GtkWidget *dest) {
+    start_panel_transfer(win, src, dest, FALSE);
 }
 
 static void move_between_panels(MainWindow *win, GtkWidget *src, GtkWidget *dest) {
-    GPtrArray *paths = file_panel_get_selected_paths(src);
-    if (paths->len == 0) {
-        main_window_show_status(win, "이동할 항목을 선택하세요.");
-        g_ptr_array_free(paths, TRUE);
-        return;
-    }
-    const char *dest_path = file_panel_get_current_path(dest);
-    FileOpsConflictState conflict;
-    FileOpsTransferStats stats;
-    file_ops_conflict_reset(&conflict);
-    GError *err = NULL;
-    if (file_ops_move_files(paths, dest_path, GTK_WINDOW(win->window), &conflict,
-                            NULL, NULL, &stats, &err)) {
-        file_panel_refresh(src);
-        file_panel_refresh(dest);
-        if (stats.copied > 0 || stats.skipped > 0)
-            show_transfer_status(win, "이동", dest_path, &stats);
-        else
-            main_window_show_status(win, "이동할 항목이 없습니다.");
-    } else {
-        main_window_show_status(win, err ? err->message : "이동 실패");
-        if (err && !g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-            show_error(win, err->message);
-        g_clear_error(&err);
-    }
-    g_ptr_array_free(paths, TRUE);
+    start_panel_transfer(win, src, dest, TRUE);
 }
 
 static void on_copy_active(GtkMenuItem *item, gpointer data) {
@@ -427,6 +532,8 @@ static gboolean on_key_press(GtkWidget *w, GdkEventKey *event, gpointer data) {
 }
 
 MainWindow *main_window_new(GtkApplication *app) {
+    file_ops_conflict_bind_main_thread();
+
     MainWindow *win = g_new0(MainWindow, 1);
     win->bookmarks = bookmark_manager_new();
     win->session = session_settings_new();

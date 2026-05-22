@@ -1,5 +1,26 @@
 #include "file_ops_conflict.h"
 
+#include <glib.h>
+
+static GThread *main_gthread;
+
+typedef struct {
+    GtkWindow *parent;
+    FileOpsConflictState *state;
+    char *name;
+    char *dest_path;
+    gboolean dest_is_dir;
+    gboolean is_move;
+    FileOpsConflictResult result;
+    gboolean done;
+    GMutex mutex;
+    GCond cond;
+} ConflictSync;
+
+void file_ops_conflict_bind_main_thread(void) {
+    main_gthread = g_thread_self();
+}
+
 void file_ops_conflict_reset(FileOpsConflictState *state) {
     if (!state)
         return;
@@ -72,4 +93,46 @@ FileOpsConflictResult file_ops_conflict_ask(GtkWindow *parent,
     }
 
     return result;
+}
+
+static gboolean conflict_sync_idle(gpointer user_data) {
+    ConflictSync *sync = user_data;
+    sync->result = file_ops_conflict_ask(
+        sync->parent, sync->state, sync->name, sync->dest_path,
+        sync->dest_is_dir, sync->is_move);
+    g_mutex_lock(&sync->mutex);
+    sync->done = TRUE;
+    g_cond_signal(&sync->cond);
+    g_mutex_unlock(&sync->mutex);
+    return G_SOURCE_REMOVE;
+}
+
+FileOpsConflictResult file_ops_conflict_ask_thread_safe(GtkWindow *parent,
+                                                        FileOpsConflictState *state,
+                                                        const char *name,
+                                                        const char *dest_path,
+                                                        gboolean dest_is_dir,
+                                                        gboolean is_move) {
+    if (!main_gthread || g_thread_self() == main_gthread)
+        return file_ops_conflict_ask(parent, state, name, dest_path,
+                                     dest_is_dir, is_move);
+
+    ConflictSync sync = {
+        .parent = parent,
+        .state = state,
+        .name = (char *)name,
+        .dest_path = (char *)dest_path,
+        .dest_is_dir = dest_is_dir,
+        .is_move = is_move,
+    };
+    g_mutex_init(&sync.mutex);
+    g_cond_init(&sync.cond);
+    g_idle_add(conflict_sync_idle, &sync);
+    g_mutex_lock(&sync.mutex);
+    while (!sync.done)
+        g_cond_wait(&sync.cond, &sync.mutex);
+    g_mutex_unlock(&sync.mutex);
+    g_mutex_clear(&sync.mutex);
+    g_cond_clear(&sync.cond);
+    return sync.result;
 }

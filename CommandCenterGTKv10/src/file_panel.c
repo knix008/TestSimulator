@@ -1,17 +1,22 @@
 #include "file_panel.h"
 
+#include "main_window.h"
 #include "file_entry.h"
 #include "file_ops.h"
 #include "file_ops_conflict.h"
+#include "progress_dialog.h"
 #include "folder_tree_panel.h"
 #include "input_dialog.h"
 
 #include <dirent.h>
 #include <errno.h>
+#include <gio/gio.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+
+#define DIR_REFRESH_DEBOUNCE_MS 250
 
 #define COL_NAME 0
 #define COL_PERM 1
@@ -54,14 +59,30 @@ typedef struct {
     GtkSortType sort_order;
     int last_fit_width;
     gboolean fitting_columns;
+
+    GFileMonitor *dir_monitor;
+    guint refresh_timeout_id;
+    gboolean watch_suspended;
 } FilePanelData;
 
 static FilePanelData *panel_data(GtkWidget *panel);
 static GPtrArray *get_selected_paths(FilePanelData *pd);
 static void open_file(const char *path);
+static void load_directory(FilePanelData *pd);
+static void notify_selection(FilePanelData *pd);
 
 static FilePanelData *panel_data(GtkWidget *panel) {
     return g_object_get_data(G_OBJECT(panel), "file-panel-data");
+}
+
+static void suspend_all_watches(FilePanelData *pd) {
+    if (pd && pd->main_window)
+        main_window_suspend_panel_watches(pd->main_window);
+}
+
+static void resume_all_watches(FilePanelData *pd) {
+    if (pd && pd->main_window)
+        main_window_resume_panel_watches(pd->main_window);
 }
 
 static GtkWindow *panel_window(GtkWidget *panel) {
@@ -225,6 +246,110 @@ static void apply_current_sort(FilePanelData *pd) {
     update_sort_indicators(pd);
 }
 
+static void stop_directory_monitor(FilePanelData *pd) {
+    if (!pd)
+        return;
+    if (pd->refresh_timeout_id) {
+        g_source_remove(pd->refresh_timeout_id);
+        pd->refresh_timeout_id = 0;
+    }
+    if (pd->dir_monitor) {
+        g_file_monitor_cancel(pd->dir_monitor);
+        g_object_unref(pd->dir_monitor);
+        pd->dir_monitor = NULL;
+    }
+}
+
+static gboolean debounced_directory_refresh(gpointer data) {
+    FilePanelData *pd = panel_data(GTK_WIDGET(data));
+    if (!pd)
+        return G_SOURCE_REMOVE;
+    pd->refresh_timeout_id = 0;
+    load_directory(pd);
+    return G_SOURCE_REMOVE;
+}
+
+static void schedule_directory_refresh(FilePanelData *pd) {
+    if (!pd || !pd->container || pd->watch_suspended)
+        return;
+    if (pd->refresh_timeout_id)
+        g_source_remove(pd->refresh_timeout_id);
+    pd->refresh_timeout_id =
+        g_timeout_add(DIR_REFRESH_DEBOUNCE_MS, debounced_directory_refresh,
+                      pd->container);
+}
+
+static void on_dir_monitor_event(GFileMonitor *monitor, GFile *file, GFile *other_file,
+                                 GFileMonitorEvent event_type, gpointer user_data) {
+    (void)monitor;
+    (void)file;
+    (void)other_file;
+    FilePanelData *pd = user_data;
+
+    switch (event_type) {
+    case G_FILE_MONITOR_EVENT_CREATED:
+    case G_FILE_MONITOR_EVENT_DELETED:
+    case G_FILE_MONITOR_EVENT_CHANGED:
+    case G_FILE_MONITOR_EVENT_CHANGES_DONE_HINT:
+    case G_FILE_MONITOR_EVENT_MOVED_IN:
+    case G_FILE_MONITOR_EVENT_MOVED_OUT:
+    case G_FILE_MONITOR_EVENT_RENAMED:
+        schedule_directory_refresh(pd);
+        break;
+    default:
+        break;
+    }
+}
+
+static void start_directory_monitor(FilePanelData *pd) {
+    if (!pd || !pd->current_path)
+        return;
+
+    stop_directory_monitor(pd);
+
+    GFile *dir = g_file_new_for_path(pd->current_path);
+    GError *err = NULL;
+    pd->dir_monitor = g_file_monitor_directory(
+        dir, G_FILE_MONITOR_WATCH_MOVES, NULL, &err);
+    g_object_unref(dir);
+
+    if (!pd->dir_monitor) {
+        g_clear_error(&err);
+        return;
+    }
+
+    g_signal_connect(pd->dir_monitor, "changed",
+                     G_CALLBACK(on_dir_monitor_event), pd);
+}
+
+static void restore_selection_paths(FilePanelData *pd, GPtrArray *paths) {
+    if (!paths || paths->len == 0)
+        return;
+
+    GtkTreeSelection *sel =
+        gtk_tree_view_get_selection(GTK_TREE_VIEW(pd->tree_view));
+    GtkTreeIter iter;
+    gboolean valid =
+        gtk_tree_model_get_iter_first(GTK_TREE_MODEL(pd->store), &iter);
+
+    while (valid) {
+        FileEntry *entry = store_get_entry(GTK_TREE_MODEL(pd->store), &iter);
+        if (entry && strcmp(entry->name, "..") != 0) {
+            for (guint i = 0; i < paths->len; i++) {
+                if (strcmp(entry->full_path, g_ptr_array_index(paths, i)) == 0) {
+                    GtkTreePath *path =
+                        gtk_tree_model_get_path(GTK_TREE_MODEL(pd->store), &iter);
+                    gtk_tree_selection_select_path(sel, path);
+                    gtk_tree_path_free(path);
+                    break;
+                }
+            }
+        }
+        valid = gtk_tree_model_iter_next(GTK_TREE_MODEL(pd->store), &iter);
+    }
+    notify_selection(pd);
+}
+
 static void update_status_counts(FilePanelData *pd) {
     int dir_count = 0, file_count = 0;
     int64_t total = 0;
@@ -248,6 +373,8 @@ static void update_status_counts(FilePanelData *pd) {
 }
 
 static void load_directory(FilePanelData *pd) {
+    GPtrArray *saved_selection = get_selected_paths(pd);
+
     gtk_list_store_clear(pd->store);
 
     char *parent = g_path_get_dirname(pd->current_path);
@@ -348,8 +475,18 @@ static void load_directory(FilePanelData *pd) {
     g_ptr_array_free(dirs, TRUE);
     g_ptr_array_free(files, TRUE);
     apply_current_sort(pd);
+    restore_selection_paths(pd, saved_selection);
+    g_ptr_array_free(saved_selection, TRUE);
     update_status_counts(pd);
     pd->last_fit_width = -1;
+}
+
+static void file_panel_data_free(gpointer data) {
+    FilePanelData *pd = data;
+    stop_directory_monitor(pd);
+    g_free(pd->current_path);
+    g_free(pd->side_title);
+    g_free(pd);
 }
 
 static void update_path_display(FilePanelData *pd) {
@@ -877,7 +1014,8 @@ GtkWidget *file_panel_new(FilePanelSide side, gpointer main_window) {
     gtk_tree_sortable_set_default_sort_func(GTK_TREE_SORTABLE(pd->store),
                                             sort_compare, pd, NULL);
 
-    g_object_set_data_full(G_OBJECT(pd->container), "file-panel-data", pd, g_free);
+    g_object_set_data_full(G_OBJECT(pd->container), "file-panel-data", pd,
+                           file_panel_data_free);
     update_path_display(pd);
     return pd->container;
 }
@@ -895,8 +1033,10 @@ void file_panel_set_initial_path(GtkWidget *panel, const char *path) {
 
 void file_panel_load_contents(GtkWidget *panel) {
     FilePanelData *pd = panel_data(panel);
-    if (pd)
-        load_directory(pd);
+    if (!pd)
+        return;
+    load_directory(pd);
+    start_directory_monitor(pd);
 }
 
 const char *file_panel_get_current_path(GtkWidget *panel) {
@@ -912,6 +1052,7 @@ void file_panel_navigate(GtkWidget *panel, const char *path) {
     pd->current_path = g_strdup(path);
     update_path_display(pd);
     load_directory(pd);
+    start_directory_monitor(pd);
     if (pd->on_path_changed)
         pd->on_path_changed(panel, path, pd->callback_data);
 }
@@ -919,6 +1060,22 @@ void file_panel_navigate(GtkWidget *panel, const char *path) {
 void file_panel_refresh(GtkWidget *panel) {
     FilePanelData *pd = panel_data(panel);
     if (pd) load_directory(pd);
+}
+
+void file_panel_suspend_watch(GtkWidget *panel) {
+    FilePanelData *pd = panel_data(panel);
+    if (!pd)
+        return;
+    pd->watch_suspended = TRUE;
+    stop_directory_monitor(pd);
+}
+
+void file_panel_resume_watch(GtkWidget *panel) {
+    FilePanelData *pd = panel_data(panel);
+    if (!pd)
+        return;
+    pd->watch_suspended = FALSE;
+    start_directory_monitor(pd);
 }
 
 GPtrArray *file_panel_get_selected_paths(GtkWidget *panel) {
@@ -992,8 +1149,13 @@ void file_panel_request_delete(GtkWidget *panel) {
     int resp = gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
     if (resp == GTK_RESPONSE_YES) {
+        GtkWindow *win = panel_window(panel);
+        suspend_all_watches(pd);
+        ProgressDialog *prog = progress_dialog_begin(win, "삭제 중...");
+        ProgressDialogOpsCtx pctx = { prog, 0, file_ops_count_items(paths) };
         GError *err = NULL;
-        if (file_ops_delete_files(paths, &err)) {
+        if (file_ops_delete_files(paths, progress_dialog_ops_callback, &pctx,
+                                  &err)) {
             file_panel_refresh(panel);
             char *s = g_strdup_printf("%u개 항목을 삭제했습니다.", paths->len);
             set_status(pd, s);
@@ -1002,6 +1164,8 @@ void file_panel_request_delete(GtkWidget *panel) {
             show_error(panel, err ? err->message : "삭제 실패");
             g_clear_error(&err);
         }
+        progress_dialog_end(prog);
+        resume_all_watches(pd);
     }
     g_ptr_array_free(paths, TRUE);
 }
@@ -1103,10 +1267,13 @@ void file_panel_clipboard_paste(GtkWidget *panel) {
     FileOpsConflictState conflict;
     FileOpsTransferStats stats;
     file_ops_conflict_reset(&conflict);
-    GError *err = NULL;
     GtkWindow *win = panel_window(panel);
+    suspend_all_watches(pd);
+    ProgressDialog *prog = progress_dialog_begin(win, "붙여넣기 중...");
+    ProgressDialogOpsCtx pctx = { prog, 0, file_ops_count_items(paths) };
+    GError *err = NULL;
     if (file_ops_copy_files(paths, pd->current_path, win, &conflict,
-                            NULL, NULL, &stats, &err)) {
+                            progress_dialog_ops_callback, &pctx, &stats, &err)) {
         file_panel_refresh(panel);
         char *msg = NULL;
         if (stats.skipped > 0)
@@ -1122,6 +1289,8 @@ void file_panel_clipboard_paste(GtkWidget *panel) {
             set_status(pd, "붙여넣기가 취소되었습니다.");
         g_clear_error(&err);
     }
+    progress_dialog_end(prog);
+    resume_all_watches(pd);
     g_ptr_array_free(paths, TRUE);
 }
 

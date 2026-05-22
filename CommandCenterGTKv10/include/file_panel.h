@@ -15,6 +15,8 @@ void file_panel_load_contents(GtkWidget *panel);
 const char *file_panel_get_current_path(GtkWidget *panel);
 void file_panel_navigate(GtkWidget *panel, const char *path);
 void file_panel_refresh(GtkWidget *panel);
+void file_panel_suspend_watch(GtkWidget *panel);
+void file_panel_resume_watch(GtkWidget *panel);
 GPtrArray *file_panel_get_selected_paths(GtkWidget *panel);
 void file_panel_set_status(GtkWidget *panel, const char *message);
 

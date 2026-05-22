@@ -30,7 +30,12 @@ gboolean file_ops_move_files(GPtrArray *sources,
                              gpointer user_data,
                              FileOpsTransferStats *stats,
                              GError **error);
-gboolean file_ops_delete_files(GPtrArray *paths, GError **error);
+guint64 file_ops_count_items(GPtrArray *paths);
+
+gboolean file_ops_delete_files(GPtrArray *paths,
+                               FileOpsProgressFn progress,
+                               gpointer user_data,
+                               GError **error);
 
 typedef struct SearchContext SearchContext;
 

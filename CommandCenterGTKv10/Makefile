@@ -52,6 +52,7 @@ SRCS := $(SRCDIR)/main.c \
         $(SRCDIR)/bookmark_manager.c \
         $(SRCDIR)/session_settings.c \
         $(SRCDIR)/input_dialog.c \
+        $(SRCDIR)/progress_dialog.c \
         $(SRCDIR)/search_dialog.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%.o,$(SRCS))

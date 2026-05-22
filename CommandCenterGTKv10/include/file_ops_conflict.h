@@ -16,11 +16,20 @@ typedef struct {
 
 void file_ops_conflict_reset(FileOpsConflictState *state);
 
+void file_ops_conflict_bind_main_thread(void);
+
 FileOpsConflictResult file_ops_conflict_ask(GtkWindow *parent,
                                             FileOpsConflictState *state,
                                             const char *name,
                                             const char *dest_path,
                                             gboolean dest_is_dir,
                                             gboolean is_move);
+
+FileOpsConflictResult file_ops_conflict_ask_thread_safe(GtkWindow *parent,
+                                                        FileOpsConflictState *state,
+                                                        const char *name,
+                                                        const char *dest_path,
+                                                        gboolean dest_is_dir,
+                                                        gboolean is_move);
 
 #endif
