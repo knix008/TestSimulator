@@ -1,0 +1,6 @@
+build/
+CommandCenterGTKv10
+*.o
+*.swp
+*.user
+*.DS_Store
