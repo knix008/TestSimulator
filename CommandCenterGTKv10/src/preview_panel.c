@@ -22,6 +22,18 @@ static gboolean is_image_ext(const char *ext) {
     return FALSE;
 }
 
+/* GtkTextBuffer requires valid UTF-8; sanitize file bytes before insert. */
+static gchar *prepare_text_for_buffer(const gchar *data, gsize len) {
+    gchar *copy = g_malloc(len + 1);
+    memcpy(copy, data, len);
+    copy[len] = '\0';
+    for (gsize i = 0; i < len; i++) {
+        if (copy[i] == '\0')
+            copy[i] = ' ';
+    }
+    return g_utf8_make_valid(copy, len);
+}
+
 static gboolean is_text_ext(const char *ext) {
     static const char *exts[] = {
         ".txt", ".c", ".h", ".cpp", ".cs", ".json", ".xml", ".html", ".htm",
@@ -128,9 +140,11 @@ void preview_panel_show_file(GtkWidget *panel, const char *path) {
             gtk_stack_set_visible_child_name(GTK_STACK(pd->stack), "info");
             return;
         }
-        GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pd->text_view));
-        gtk_text_buffer_set_text(buf, contents, -1);
+        gchar *utf8 = prepare_text_for_buffer(contents, len);
         g_free(contents);
+        GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(pd->text_view));
+        gtk_text_buffer_set_text(buf, utf8, -1);
+        g_free(utf8);
         gtk_stack_set_visible_child_name(GTK_STACK(pd->stack), "text");
         return;
     }
