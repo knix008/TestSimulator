@@ -2,6 +2,8 @@
 #include "capture.h"
 
 #include <gst/gst.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <atomic>
@@ -58,13 +60,30 @@ std::string escape_path(const std::string& path) {
 
 // ── Pipeline candidate builder ────────────────────────────────────────────────
 
-// Shared tail: encode → mux → filesink
-std::string encode_mux_sink(const RecorderOptions& opts) {
+// Encoder input: x264/x265 need YUV (I420); BGRx from Portal cannot link directly.
+std::string encoder_chain(const RecorderOptions& opts) {
     const std::string enc = (opts.codec == VideoCodec::H265)
         ? "x265enc speed-preset=ultrafast tune=zerolatency bitrate=" + std::to_string(opts.bitrate_kbps)
         : "x264enc speed-preset=ultrafast tune=zerolatency bitrate=" + std::to_string(opts.bitrate_kbps);
-    const std::string mux = (opts.format == OutputFormat::MKV) ? "matroskamux" : "mp4mux";
-    return " ! " + enc + " ! " + mux + " ! filesink location=\"" + escape_path(opts.output_path) + "\"";
+    const std::string parse = (opts.codec == VideoCodec::H265)
+        ? "h265parse config-interval=1"
+        : "h264parse config-interval=1";
+    return " ! videoconvert ! video/x-raw,format=I420 ! " + enc + " ! " + parse;
+}
+
+// Shared tail: encode → mux → filesink (live / streamable for PipeWire).
+std::string encode_mux_sink(const RecorderOptions& opts) {
+    const std::string mux = (opts.format == OutputFormat::MKV)
+        ? "matroskamux streamable=true"
+        : "mp4mux streamable=true";
+    return encoder_chain(opts) + " ! " + mux
+         + " ! filesink location=\"" + escape_path(opts.output_path)
+         + "\" sync=false async=false";
+}
+
+// PipeWire portal source — automatic-eos=false keeps recording until recorder_stop().
+std::string pipewire_src(const std::string& props) {
+    return "pipewiresrc automatic-eos=false do-timestamp=true always-copy=true " + props;
 }
 
 // Rate + optional scale tail  (placed AFTER the format capsfilter)
@@ -95,74 +114,84 @@ std::string audio_chain(const RecorderOptions& opts) {
         + " ! " + audio_enc + " ! queue";
 }
 
-// Build the ordered list of pipeline strings to try for Portal/PipeWire.
-// Ordered from most capable to most minimal.
-std::vector<std::string> portal_candidates(
+// Substitute the PipeWire FD into a template produced by portal_candidate_templates().
+std::string with_pw_fd(const std::string& templ, int pw_fd) {
+    std::string out = templ;
+    const std::string token = "__PW_FD__";
+    for (std::size_t pos = 0; (pos = out.find(token, pos)) != std::string::npos; ) {
+        out.replace(pos, token.size(), std::to_string(pw_fd));
+        pos += std::to_string(pw_fd).size();
+    }
+    return out;
+}
+
+// Build pipeline templates for Portal/PipeWire (FD placeholder __PW_FD__).
+// Video-only candidates are tried first; audio mux variants come last.
+std::vector<std::string> portal_candidate_templates(
         const RecorderOptions& opts,
-        int pw_fd, std::uint32_t node_id,
+        std::uint32_t node_id,
         std::uint64_t pw_serial, bool has_pw_serial) {
 
-    const std::string fd   = std::to_string(pw_fd);
     const std::string path = std::to_string(node_id);
     const std::string ems  = encode_mux_sink(opts);
     const std::string rsc  = rate_scale_caps(opts, /*with_fps=*/true);
     const std::string rsc_nofps = rate_scale_caps(opts, /*with_fps=*/false);
 
-    // Post-source chains to try (most specific → most lenient)
-    // BGRx as the intermediate format is confirmed working by VNCServer.
+    // Post-source chains (lenient → strict). Portal streams often reject forced fps.
     const std::vector<std::string> video_chains = {
-        // 1. BGRx intermediate → I420 downstream (VNCServer-proven format path)
+        // 1. I420 native rate (best match for x264/x265)
+        " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8" + ems,
+        // 2. BGRx from Portal → encoder_chain converts to I420
+        " ! videoconvert ! video/x-raw,format=BGRx ! queue max-size-buffers=8" + ems,
+        // 3. BGRx + optional scale/fps
         " ! videoconvert ! video/x-raw,format=BGRx ! queue max-size-buffers=8" + rsc + ems,
-        // 2. Direct I420, with explicit fps constraint
-        " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8" + rsc + ems,
-        // 3. No intermediate capsfilter (let GStreamer negotiate freely)
+        // 4. Negotiated format + fps
         " ! videoconvert ! queue max-size-buffers=8" + rsc + ems,
-        // 4. Minimal: skip rate/scale entirely (native fps from Portal)
-        " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8" + rsc_nofps + ems,
-        // 5. Ultra-minimal: videoconvert → encoder (no rate/scale/caps)
-        " ! videoconvert ! queue max-size-buffers=8" + ems,
+        // 5. I420 + forced fps
+        " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8" + rsc + ems,
     };
 
-    // pipewiresrc prefixes to try
-    const std::vector<std::string> srcs = {
-        "pipewiresrc fd=" + fd + " path=" + path + " autoconnect=true",
-        "pipewiresrc fd=" + fd + " path=" + path + " autoconnect=false",
-        "pipewiresrc fd=" + fd + " autoconnect=true",
-        has_pw_serial
-            ? "pipewiresrc fd=" + fd + " target-object=" + std::to_string(pw_serial) + " autoconnect=true"
-            : "",
-    };
+    // Prefer PipeWire serial (target-object) over node id (path) — node ids can be reused.
+    std::vector<std::string> srcs;
+    if (has_pw_serial) {
+        srcs.push_back(pipewire_src("fd=__PW_FD__ target-object=" + std::to_string(pw_serial)
+                                   + " autoconnect=true"));
+        srcs.push_back(pipewire_src("fd=__PW_FD__ target-object=" + std::to_string(pw_serial)
+                                   + " autoconnect=false"));
+    }
+    srcs.push_back(pipewire_src("fd=__PW_FD__ path=" + path + " autoconnect=true"));
+    srcs.push_back(pipewire_src("fd=__PW_FD__ path=" + path + " autoconnect=false"));
+    srcs.push_back(pipewire_src("fd=__PW_FD__ autoconnect=true"));
 
     std::vector<std::string> candidates;
-    // Combine: first source × first chain, then first source × second chain, etc.
-    // (Vary chains faster than sources so we find a working chain quickly.)
     for (const auto& chain : video_chains) {
         for (const auto& src : srcs) {
             if (src.empty()) continue;
-            if (opts.enable_audio) {
-                const std::string mux_elem = (opts.format == OutputFormat::MKV) ? "matroskamux" : "mp4mux";
-                const std::string file_sink = "filesink location=\"" + escape_path(opts.output_path) + "\"";
-                // Rebuild video branch without the trailing ems, then attach to named mux
-                // (chain ends with encoder + queue; we need to strip ems and add ! mux.)
-                // For simplicity, we only try audio with the first two chains.
-                if (&chain == &video_chains[0] || &chain == &video_chains[1]) {
-                    const std::string vchain_for_mux = [&]() -> std::string {
-                        // Rebuild video branch for mux-first syntax
-                        const std::string rsc_local = rate_scale_caps(opts, /*with_fps=*/true);
-                        const std::string enc = (opts.codec == VideoCodec::H265)
-                            ? " ! x265enc speed-preset=ultrafast tune=zerolatency bitrate=" + std::to_string(opts.bitrate_kbps)
-                            : " ! x264enc speed-preset=ultrafast tune=zerolatency bitrate=" + std::to_string(opts.bitrate_kbps);
-                        const std::string intermediate = (&chain == &video_chains[0])
-                            ? " ! videoconvert ! video/x-raw,format=BGRx ! queue max-size-buffers=8"
-                            : " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8";
-                        return src + intermediate + rsc_local + enc + " ! queue";
-                    }();
-                    candidates.push_back(mux_elem + " name=mux ! " + file_sink
-                                         + "  " + vchain_for_mux + " ! mux."
-                                         + "  " + audio_chain(opts)  + " ! mux.");
-                }
-            } else {
-                candidates.push_back(src + chain);
+            candidates.push_back(src + chain);
+        }
+    }
+
+    if (opts.enable_audio) {
+        const std::string mux_elem = (opts.format == OutputFormat::MKV)
+            ? "matroskamux streamable=true" : "mp4mux streamable=true";
+        const std::string file_sink = "filesink location=\"" + escape_path(opts.output_path)
+                                    + "\" sync=false async=false";
+        const std::string rsc_local = rate_scale_caps(opts, /*with_fps=*/true);
+        const std::string enc = encoder_chain(opts);
+
+        const std::vector<std::string> mux_intermediates = {
+            " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8",
+            " ! videoconvert ! video/x-raw,format=BGRx ! queue max-size-buffers=8",
+            " ! videoconvert ! video/x-raw,format=BGRx ! queue max-size-buffers=8" + rsc_nofps,
+        };
+
+        for (const auto& intermediate : mux_intermediates) {
+            for (const auto& src : srcs) {
+                if (src.empty()) continue;
+                const std::string vbranch = src + intermediate + enc + " ! queue";
+                candidates.push_back(mux_elem + " name=mux ! " + file_sink
+                                     + "  " + vbranch + " ! mux."
+                                     + "  " + audio_chain(opts) + " ! mux.");
             }
         }
     }
@@ -183,11 +212,11 @@ std::string x11_pipeline(const RecorderOptions& opts) {
         return src + " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8" + rsc + ems;
 
     // Audio + video for X11
-    const std::string mux_elem  = (opts.format == OutputFormat::MKV) ? "matroskamux" : "mp4mux";
-    const std::string file_sink = "filesink location=\"" + escape_path(opts.output_path) + "\"";
-    const std::string enc = (opts.codec == VideoCodec::H265)
-        ? " ! x265enc speed-preset=ultrafast tune=zerolatency bitrate=" + std::to_string(opts.bitrate_kbps)
-        : " ! x264enc speed-preset=ultrafast tune=zerolatency bitrate=" + std::to_string(opts.bitrate_kbps);
+    const std::string mux_elem  = (opts.format == OutputFormat::MKV)
+        ? "matroskamux streamable=true" : "mp4mux streamable=true";
+    const std::string file_sink = "filesink location=\"" + escape_path(opts.output_path)
+                                  + "\" sync=false async=false";
+    const std::string enc = encoder_chain(opts);
     const std::string video_branch = src
         + " ! videoconvert ! video/x-raw,format=I420 ! queue max-size-buffers=8"
         + rsc + enc + " ! queue";
@@ -198,12 +227,102 @@ std::string x11_pipeline(const RecorderOptions& opts) {
 
 // ── Pipeline trial ────────────────────────────────────────────────────────────
 
+struct FirstBufferProbe {
+    bool           seen     = false;
+    gulong         probe_id = 0;
+    GstPad*        pad      = nullptr;
+};
+
+GstPadProbeReturn on_first_buffer_probe(GstPad*, GstPadProbeInfo* info, gpointer user) {
+    auto* state = static_cast<FirstBufferProbe*>(user);
+    if (GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_BUFFER) {
+        state->seen = true;
+        state->probe_id = 0;  // GST_PAD_PROBE_REMOVE already detached the probe
+        return GST_PAD_PROBE_REMOVE;
+    }
+    return GST_PAD_PROBE_OK;
+}
+
+void clear_first_buffer_probe(FirstBufferProbe* state) {
+    if (!state || !state->pad) return;
+    if (state->probe_id != 0)
+        gst_pad_remove_probe(state->pad, state->probe_id);
+    gst_object_unref(state->pad);
+    state->pad = nullptr;
+    state->probe_id = 0;
+}
+
+bool attach_first_buffer_probe(GstElement* pipeline, FirstBufferProbe* state) {
+    if (!pipeline || !state) return false;
+    GstIterator* it = gst_bin_iterate_sources(GST_BIN(pipeline));
+    if (!it) return false;
+
+    bool attached = false;
+    GValue item = G_VALUE_INIT;
+    while (gst_iterator_next(it, &item) == GST_ITERATOR_OK) {
+        auto* el = GST_ELEMENT(g_value_get_object(&item));
+        GstPad* pad = gst_element_get_static_pad(el, "src");
+        g_value_unset(&item);
+        if (!pad) continue;
+        state->pad = pad;
+        state->probe_id = gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER,
+                                            on_first_buffer_probe, state, nullptr);
+        attached = true;
+        break;
+    }
+    gst_iterator_free(it);
+    return attached;
+}
+
+// Wait until video flows or timeout. Fails on bus ERROR/EOS during wait.
+bool wait_for_first_buffer(GstElement* pipeline, GstBus* bus, int timeout_ms) {
+    FirstBufferProbe probe{};
+    if (!attach_first_buffer_probe(pipeline, &probe)) {
+        post_log("  → 첫 프레임 대기: 소스 패드 없음");
+        return false;
+    }
+
+    const auto deadline = std::chrono::steady_clock::now()
+                        + std::chrono::milliseconds(timeout_ms);
+    bool ok = false;
+
+    while (!probe.seen && std::chrono::steady_clock::now() < deadline) {
+        GstMessage* m = gst_bus_timed_pop_filtered(
+            bus, 200 * GST_MSECOND,
+            static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS));
+        if (!m) continue;
+
+        if (GST_MESSAGE_TYPE(m) == GST_MESSAGE_EOS) {
+            post_log("  → 조기 EOS (화면 데이터 없음 — automatic-eos 또는 스트림 종료)");
+            gst_message_unref(m);
+            clear_first_buffer_probe(&probe);
+            return false;
+        }
+        GError* gerr = nullptr;
+        gchar* dbg = nullptr;
+        gst_message_parse_error(m, &gerr, &dbg);
+        std::string emsg = gerr ? gerr->message : "알 수 없음";
+        if (dbg) emsg += " [" + std::string(dbg) + "]";
+        if (gerr) g_error_free(gerr);
+        g_free(dbg);
+        gst_message_unref(m);
+        post_log("  → 첫 프레임 대기 중 오류: " + emsg);
+        clear_first_buffer_probe(&probe);
+        return false;
+    }
+
+    ok = probe.seen;
+    clear_first_buffer_probe(&probe);
+    if (!ok) post_log("  → 첫 프레임 타임아웃 (PipeWire 스트림에 데이터 없음)");
+    return ok;
+}
+
 // Attempt to start a single pipeline.
 // Returns {pipeline, bus} on success (both with new refs, caller must unref).
 // On failure returns {nullptr, nullptr} and cleans up internally.
 struct Trial { GstElement* pipeline; GstBus* bus; };
 
-Trial try_pipeline(const std::string& desc) {
+Trial try_pipeline(const std::string& desc, bool require_video_flow) {
     post_log("시도: " + desc);
 
     GError* err = nullptr;
@@ -217,7 +336,27 @@ Trial try_pipeline(const std::string& desc) {
 
     const GstStateChangeReturn ret = gst_element_set_state(pl, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
-        post_log("  → PLAYING 전환 실패");
+        GstBus* err_bus = gst_element_get_bus(pl);
+        if (err_bus) {
+            GstMessage* m = gst_bus_timed_pop_filtered(err_bus, 0,
+                static_cast<GstMessageType>(GST_MESSAGE_ERROR));
+            if (m) {
+                GError* gerr = nullptr;
+                gchar* dbg = nullptr;
+                gst_message_parse_error(m, &gerr, &dbg);
+                std::string emsg = gerr ? gerr->message : "알 수 없음";
+                if (dbg) emsg += " [" + std::string(dbg) + "]";
+                if (gerr) g_error_free(gerr);
+                g_free(dbg);
+                gst_message_unref(m);
+                post_log("  → PLAYING 전환 실패: " + emsg);
+            } else {
+                post_log("  → PLAYING 전환 실패");
+            }
+            gst_object_unref(err_bus);
+        } else {
+            post_log("  → PLAYING 전환 실패");
+        }
         gst_element_set_state(pl, GST_STATE_NULL);
         gst_object_unref(pl);
         return {nullptr, nullptr};
@@ -225,9 +364,9 @@ Trial try_pipeline(const std::string& desc) {
 
     GstBus* bus = gst_element_get_bus(pl);
 
-    // Wait for the async state change to complete (live sources are always async).
-    if (ret == GST_STATE_CHANGE_ASYNC) {
-        GstMessage* m = gst_bus_timed_pop_filtered(bus, 8 * GST_SECOND,
+    // Live Portal/PipeWire sources are ASYNC or NO_PREROLL (see VNCServer capture).
+    if (ret == GST_STATE_CHANGE_ASYNC || ret == GST_STATE_CHANGE_NO_PREROLL) {
+        GstMessage* m = gst_bus_timed_pop_filtered(bus, 12 * GST_SECOND,
             static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_ASYNC_DONE));
         if (!m) {
             post_log("  → 상태 전환 타임아웃");
@@ -238,9 +377,12 @@ Trial try_pipeline(const std::string& desc) {
         }
         if (GST_MESSAGE_TYPE(m) == GST_MESSAGE_ERROR) {
             GError* gerr = nullptr;
-            gst_message_parse_error(m, &gerr, nullptr);
+            gchar* dbg = nullptr;
+            gst_message_parse_error(m, &gerr, &dbg);
             std::string emsg = gerr ? gerr->message : "알 수 없음";
+            if (dbg) emsg += " [" + std::string(dbg) + "]";
             if (gerr) g_error_free(gerr);
+            g_free(dbg);
             gst_message_unref(m);
             post_log("  → 시작 오류: " + emsg);
             gst_object_unref(bus);
@@ -251,15 +393,17 @@ Trial try_pipeline(const std::string& desc) {
         gst_message_unref(m);  // ASYNC_DONE
     }
 
-    // Check for immediate streaming errors (e.g., "not-linked").
-    // These appear within milliseconds; 1 second is more than enough.
-    GstMessage* early = gst_bus_timed_pop_filtered(bus, GST_SECOND,
+    // Check for immediate streaming errors (e.g., pipewire negotiation failure).
+    GstMessage* early = gst_bus_timed_pop_filtered(bus, 2 * GST_SECOND,
         static_cast<GstMessageType>(GST_MESSAGE_ERROR));
     if (early) {
         GError* gerr = nullptr;
-        gst_message_parse_error(early, &gerr, nullptr);
+        gchar* dbg = nullptr;
+        gst_message_parse_error(early, &gerr, &dbg);
         std::string emsg = gerr ? gerr->message : "알 수 없음";
+        if (dbg) emsg += " [" + std::string(dbg) + "]";
         if (gerr) g_error_free(gerr);
+        g_free(dbg);
         gst_message_unref(early);
         post_log("  → 스트리밍 오류: " + emsg);
         gst_object_unref(bus);
@@ -268,7 +412,15 @@ Trial try_pipeline(const std::string& desc) {
         return {nullptr, nullptr};
     }
 
-    post_log("  → 파이프라인 정상 시작");
+    if (require_video_flow && !wait_for_first_buffer(pl, bus, 10000)) {
+        gst_object_unref(bus);
+        gst_element_set_state(pl, GST_STATE_NULL);
+        gst_object_unref(pl);
+        return {nullptr, nullptr};
+    }
+
+    post_log("  → 파이프라인 정상 시작"
+             + std::string(require_video_flow ? " (화면 데이터 수신 확인)" : ""));
     return {pl, bus};
 }
 
@@ -291,30 +443,58 @@ void worker_fn(RecorderOptions opts,
         if (capture_portal_acquire(opts.portal_parent_window,
                                    [](const std::string& m) { post_log(m); },
                                    &stream)) {
-            pw_fd       = stream.pw_fd;
+            // Dup like VNCServer: each pipeline attempt gets its own FD copy.
+            pw_fd = dup(stream.pw_fd);
+            close(stream.pw_fd);
+            if (pw_fd < 0) {
+                post_log("Portal FD dup 실패");
+                capture_portal_close_session();
+                post_to_main([on_stopped]() {
+                    on_stopped(false, "Portal PipeWire FD 복제 실패");
+                });
+                return;
+            }
             node_id     = stream.node_id;
             pw_serial   = stream.pw_serial;
             has_pw_serial = stream.has_pw_serial;
             use_portal  = true;
+            // Let the compositor apply hidden windows and the stream settle.
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         } else {
             post_log("Portal 획득 실패 — X11 ximagesrc 로 fallback 합니다.");
         }
     }
 
     // Build ordered candidate list
-    std::vector<std::string> candidates;
+    std::vector<std::string> candidate_templates;
     if (use_portal) {
-        candidates = portal_candidates(opts, pw_fd, node_id, pw_serial, has_pw_serial);
+        candidate_templates = portal_candidate_templates(opts, node_id, pw_serial, has_pw_serial);
     } else {
-        candidates.push_back(x11_pipeline(opts));
+        candidate_templates.push_back(x11_pipeline(opts));
     }
 
-    // Try candidates in order until one works
+    // Try candidates in order until one works (fresh dup'd FD per Portal attempt).
     Trial t = {nullptr, nullptr};
-    for (const auto& desc : candidates) {
-        t = try_pipeline(desc);
-        if (t.pipeline) break;
+    int active_pw_fd = -1;
+    for (const auto& templ : candidate_templates) {
+        int trial_fd = pw_fd;
+        if (use_portal) {
+            trial_fd = dup(pw_fd);
+            if (trial_fd < 0) {
+                post_log("  → FD dup 실패, 다음 후보 시도");
+                continue;
+            }
+        }
+        const std::string desc = use_portal ? with_pw_fd(templ, trial_fd) : templ;
+        t = try_pipeline(desc, use_portal);
+        if (t.pipeline) {
+            active_pw_fd = trial_fd;
+            break;
+        }
+        if (use_portal && trial_fd >= 0) close(trial_fd);
     }
+    if (pw_fd >= 0 && active_pw_fd != pw_fd) close(pw_fd);
+    pw_fd = active_pw_fd;
 
     if (!t.pipeline) {
         const std::string msg = "모든 파이프라인 후보 시도 실패.\n"
@@ -383,6 +563,17 @@ void worker_fn(RecorderOptions opts,
 
     if (pw_fd >= 0) close(pw_fd);
     capture_portal_close_session();
+
+    if (success) {
+        struct stat st {};
+        if (stat(opts.output_path.c_str(), &st) != 0 || st.st_size == 0) {
+            success = false;
+            bus_error_msg = "녹화 파일이 비어 있습니다 (0 바이트).\n"
+                            "화면 공유 시 모니터를 선택했는지, 로그의 '(화면 데이터 수신 확인)' "
+                            "메시지가 있었는지 확인하세요.";
+            post_log(bus_error_msg);
+        }
+    }
 
     const std::string result = success ? opts.output_path : bus_error_msg;
     post_to_main([on_stopped, success, result]() {

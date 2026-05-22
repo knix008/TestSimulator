@@ -80,12 +80,12 @@ ScreenCAMLInuxGTKv10/
 
 ```
 pipewiresrc fd=X path=Y autoconnect=true
-  ! videoconvert ! video/x-raw,format=BGRx
+  ! videoconvert ! video/x-raw,format=I420
   ! queue max-size-buffers=8
   ! videorate ! videoscale
   ! video/x-raw,format=I420,framerate=30/1
   ! x265enc speed-preset=ultrafast tune=zerolatency
-  ! matroskamux ! filesink location="output.mkv"
+  ! h265parse ! matroskamux ! filesink location="output.mkv"
 ```
 
 ### X11

@@ -130,9 +130,18 @@ void gui_show_result_dialog(GtkWindow* parent,
                             const std::string& message,
                             const std::string& detail_text,
                             bool is_error) {
+    GtkWindow* dlg_parent = nullptr;
+    if (parent && GTK_IS_WINDOW(parent)) {
+        if (GTK_IS_WIDGET(parent)) {
+            gtk_widget_show_all(GTK_WIDGET(parent));
+            gtk_window_present(parent);
+        }
+        dlg_parent = parent;
+    }
+
     GtkMessageType msg_type = is_error ? GTK_MESSAGE_ERROR : GTK_MESSAGE_INFO;
     GtkWidget* dlg = gtk_message_dialog_new(
-        parent,
+        dlg_parent,
         static_cast<GtkDialogFlags>(GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT),
         msg_type,
         GTK_BUTTONS_CLOSE,

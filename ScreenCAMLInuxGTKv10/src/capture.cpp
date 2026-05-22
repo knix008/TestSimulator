@@ -156,6 +156,10 @@ bool parse_portal_streams(GVariant* results, PortalStream* out) {
             GVariant* serial = g_variant_lookup_value(props, "pipewire-serial", G_VARIANT_TYPE("t"));
             if (!serial)
                 serial = g_variant_lookup_value(props, "pipewire-serial", G_VARIANT_TYPE_UINT64);
+            if (!serial)
+                serial = g_variant_lookup_value(props, "serial", G_VARIANT_TYPE("t"));
+            if (!serial)
+                serial = g_variant_lookup_value(props, "serial", G_VARIANT_TYPE_UINT64);
             if (serial) {
                 out->pw_serial     = g_variant_get_uint64(serial);
                 out->has_pw_serial = out->pw_serial != 0;
@@ -297,7 +301,10 @@ bool capture_portal_acquire(const std::string& parent_window_hint,
     }
 
     g_session_handle = session;
-    notify("Portal 스트림 획득: node=" + std::to_string(out->node_id));
+    std::string msg = "Portal 스트림 획득: node=" + std::to_string(out->node_id);
+    if (out->has_pw_serial)
+        msg += ", serial=" + std::to_string(out->pw_serial);
+    notify(msg);
     return true;
 }
 
