@@ -33,6 +33,9 @@ struct RecorderOptions {
 // on_started / on_stopped are invoked on the GTK main thread.
 // on_stopped: success=true + message=file path on normal EOS,
 //             success=false + message=error detail on pipeline failure.
+// Called on the GTK main thread immediately before PipeWire pipeline connect (Wayland).
+void recorder_set_prepare_capture(std::function<void()> fn);
+
 bool recorder_start(RecorderOptions opts,
                     RecorderLogFn on_log,
                     std::function<void()> on_started,
@@ -42,4 +45,6 @@ bool recorder_start(RecorderOptions opts,
 void recorder_stop();
 
 bool          recorder_is_recording();
+// True while the worker thread is waiting on xdg-desktop-portal (SelectSources dialog).
+bool          recorder_portal_setup_active();
 std::uint64_t recorder_elapsed_seconds();

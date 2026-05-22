@@ -62,14 +62,13 @@ struct AppWidgets {
 AppWidgets        g_ui;
 GtkApplication*   g_app              = nullptr;
 GtkStatusIcon*    g_tray_icon          = nullptr;
-GtkWidget*        g_control_window     = nullptr;
-GtkWidget*        g_control_btn_stop   = nullptr;
-GtkWidget*        g_control_lbl_elapsed = nullptr;
 bool              g_window_hidden_rec  = false;
 bool              g_hidden_for_recording = false;
 bool              g_recording_ui_begun   = false;
+bool              g_app_hold_active      = false;
 std::atomic<bool> g_shutting_down{false};
 guint             g_elapsed_timer = 0;
+guint             g_portal_pump_timer = 0;
 std::uint64_t     g_selected_xid  = 0;
 std::string       g_selected_title;
 std::string       g_last_output_path;
@@ -314,23 +313,22 @@ gboolean on_elapsed_tick(gpointer) {
         g_elapsed_timer = 0;
         return G_SOURCE_REMOVE;
     }
-    const std::string elapsed = format_elapsed(recorder_elapsed_seconds());
     if (g_ui.lbl_elapsed)
-        gtk_label_set_text(GTK_LABEL(g_ui.lbl_elapsed), elapsed.c_str());
-    if (g_control_lbl_elapsed && GTK_IS_LABEL(g_control_lbl_elapsed))
-        gtk_label_set_text(GTK_LABEL(g_control_lbl_elapsed), elapsed.c_str());
+        gtk_label_set_text(GTK_LABEL(g_ui.lbl_elapsed),
+                           format_elapsed(recorder_elapsed_seconds()).c_str());
     return G_SOURCE_CONTINUE;
 }
 
 // ── Recording window hide / stop controls ─────────────────────────────────────
 
+void flush_gtk_events();
 void show_main_window();
 void hide_main_window();
-void show_recording_control_window();
-void hide_recording_control_window();
-void destroy_recording_control_window();
-void request_stop_recording();  // defined below; used by control window
-void hide_before_recording();
+void release_hold_and_show_window();
+void present_settings_window();
+void request_stop_recording();
+void stop_portal_pump();
+void start_portal_pump();
 void restore_after_failed_start();
 void begin_recording_ui();
 void end_recording_ui();
@@ -348,8 +346,36 @@ void on_recording_started() {
     begin_recording_ui();
 }
 
+struct StopDialogData {
+    bool        success;
+    std::string message;
+};
+
+gboolean on_show_stop_result_idle(gpointer user_data) {
+    auto* data = static_cast<StopDialogData*>(user_data);
+    release_hold_and_show_window();
+    show_main_window();
+    GtkWindow* parent = GTK_IS_WINDOW(g_ui.window) ? GTK_WINDOW(g_ui.window) : nullptr;
+    if (data->success) {
+        gui_show_result_dialog(parent,
+                               "녹화 완료",
+                               "동영상 파일이 저장되었습니다.",
+                               data->message,
+                               false);
+    } else {
+        gui_show_result_dialog(parent,
+                               "녹화 오류",
+                               "녹화 중 오류가 발생했습니다.",
+                               data->message,
+                               true);
+    }
+    delete data;
+    return G_SOURCE_REMOVE;
+}
+
 void on_recording_stopped(bool success, const std::string& message) {
     if (g_shutting_down.load()) return;
+    stop_portal_pump();
     if (g_recording_ui_begun)
         end_recording_ui();
     else
@@ -363,24 +389,12 @@ void on_recording_stopped(bool success, const std::string& message) {
         gtk_widget_set_sensitive(g_ui.btn_record, TRUE);
     append_log("── 녹화 종료 ──");
 
-    GtkWindow* parent = nullptr;
-    if (g_ui.window && GTK_IS_WIDGET(g_ui.window) && gtk_widget_get_visible(g_ui.window))
-        parent = GTK_WINDOW(g_ui.window);
+    release_hold_and_show_window();
+    show_main_window();
 
-    // Show result popup.
-    if (success) {
-        gui_show_result_dialog(parent,
-                               "녹화 완료",
-                               "동영상 파일이 저장되었습니다.",
-                               message,
-                               false);
-    } else {
-        gui_show_result_dialog(parent,
-                               "녹화 오류",
-                               "녹화 중 오류가 발생했습니다.",
-                               message,
-                               true);
-    }
+    // Present the settings window before the modal result dialog (Wayland/GNOME).
+    auto* dlg_data = new StopDialogData{success, message};
+    g_idle_add(on_show_stop_result_idle, dlg_data);
 }
 
 // ── Audio helpers ─────────────────────────────────────────────────────────────
@@ -486,75 +500,44 @@ void on_pick_window_clicked(GtkWidget*, gpointer) {
     update_window_picker_ui();
 }
 
-void on_control_stop_clicked(GtkWidget*, gpointer);
-
-gboolean on_control_window_delete_event(GtkWidget* widget, GdkEvent*, gpointer) {
-    gtk_widget_hide(widget);
-    return TRUE;
+void release_hold_and_show_window() {
+    if (g_app && g_app_hold_active) {
+        g_application_release(G_APPLICATION(g_app));
+        g_app_hold_active = false;
+    }
 }
 
-void destroy_recording_control_window() {
-    if (!g_control_window) return;
-    gtk_widget_destroy(g_control_window);
-    g_control_window      = nullptr;
-    g_control_btn_stop    = nullptr;
-    g_control_lbl_elapsed = nullptr;
-}
-
-void ensure_recording_control_window() {
-    if (g_control_window || !g_app) return;
-
-    g_control_window = gtk_application_window_new(g_app);
-    gtk_window_set_title(GTK_WINDOW(g_control_window), "녹화 중");
-    gtk_window_set_default_size(GTK_WINDOW(g_control_window), 300, 72);
-    gtk_window_set_resizable(GTK_WINDOW(g_control_window), FALSE);
-    gtk_window_set_deletable(GTK_WINDOW(g_control_window), FALSE);
-    gtk_window_set_keep_above(GTK_WINDOW(g_control_window), TRUE);
-    gtk_window_set_skip_taskbar_hint(GTK_WINDOW(g_control_window), TRUE);
-    gtk_window_set_position(GTK_WINDOW(g_control_window), GTK_WIN_POS_CENTER);
-
-    GtkWidget* box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    gtk_widget_set_margin_top(box, 10);
-    gtk_widget_set_margin_bottom(box, 10);
-    gtk_widget_set_margin_start(box, 12);
-    gtk_widget_set_margin_end(box, 12);
-    gtk_container_add(GTK_CONTAINER(g_control_window), box);
-
-    g_control_lbl_elapsed = gtk_label_new("00:00:00");
-    gtk_label_set_xalign(GTK_LABEL(g_control_lbl_elapsed), 0.0f);
-    gtk_style_context_add_class(gtk_widget_get_style_context(g_control_lbl_elapsed), "elapsed-label");
-    gtk_box_pack_start(GTK_BOX(box), g_control_lbl_elapsed, FALSE, FALSE, 0);
-
-    g_control_btn_stop = gtk_button_new_with_label("녹화 중지");
-    gtk_style_context_add_class(gtk_widget_get_style_context(g_control_btn_stop), "btn-record");
-    gtk_style_context_add_class(gtk_widget_get_style_context(g_control_btn_stop), "stop");
-    g_signal_connect(g_control_btn_stop, "clicked", G_CALLBACK(on_control_stop_clicked), nullptr);
-    gtk_box_pack_start(GTK_BOX(box), g_control_btn_stop, TRUE, TRUE, 0);
-
-    g_signal_connect(g_control_window, "delete-event",
-                     G_CALLBACK(on_control_window_delete_event), nullptr);
-}
-
-void show_recording_control_window() {
-    ensure_recording_control_window();
-    if (!g_control_window) return;
-    gtk_widget_show_all(g_control_window);
-    gtk_window_present(GTK_WINDOW(g_control_window));
-}
-
-void hide_recording_control_window() {
-    if (g_control_window) gtk_widget_hide(g_control_window);
-}
-
-// Full settings window — only while not recording (large window can break Portal capture).
-void show_main_window() {
-    if (recorder_is_recording()) {
-        show_recording_control_window();
+void present_settings_window() {
+    // Showing the app window during Portal capture revokes the PipeWire stream (GNOME).
+    if (recorder_is_recording() && capture_is_wayland()) {
+        append_log("녹화 중에는 설정 창을 표시할 수 없습니다 (PipeWire 스트림이 끊깁니다).");
+        append_log("  → 트레이·알림의 [녹화 중지]로 중지하세요.");
         return;
     }
+    release_hold_and_show_window();
+    show_main_window();
+}
+
+void show_main_window() {
     if (!g_ui.window) return;
+    if (!gtk_widget_get_realized(g_ui.window))
+        gtk_widget_realize(g_ui.window);
+    gtk_widget_set_visible(g_ui.window, TRUE);
+    gtk_widget_show(g_ui.window);
     gtk_widget_show_all(g_ui.window);
-    gtk_window_present(GTK_WINDOW(g_ui.window));
+    if (GTK_IS_WINDOW(g_ui.window)) {
+        GtkWindow* win = GTK_WINDOW(g_ui.window);
+        gtk_window_deiconify(win);
+        gtk_window_set_skip_taskbar_hint(win, FALSE);
+        gtk_window_set_keep_above(win, FALSE);
+        gtk_window_present_with_time(win, GDK_CURRENT_TIME);
+    }
+    GdkWindow* gdk_win = gtk_widget_get_window(g_ui.window);
+    if (gdk_win) {
+        gdk_window_raise(gdk_win);
+        gdk_window_focus(gdk_win, GDK_CURRENT_TIME);
+    }
+    flush_gtk_events();
     g_window_hidden_rec = false;
 }
 
@@ -570,12 +553,26 @@ void flush_gtk_events() {
     if (display) gdk_display_flush(display);
 }
 
-// Hide settings window before Portal dialog / pipeline (so it is not captured).
-void hide_before_recording() {
-    hide_main_window();
+void stop_portal_pump() {
+    if (g_portal_pump_timer) {
+        g_source_remove(g_portal_pump_timer);
+        g_portal_pump_timer = 0;
+    }
+}
+
+gboolean on_portal_pump_tick(gpointer) {
+    if (!recorder_portal_setup_active()) {
+        g_portal_pump_timer = 0;
+        return G_SOURCE_REMOVE;
+    }
     flush_gtk_events();
-    g_hidden_for_recording = true;
-    if (g_ui.btn_record) gtk_widget_set_sensitive(g_ui.btn_record, FALSE);
+    return G_SOURCE_CONTINUE;
+}
+
+void start_portal_pump() {
+    stop_portal_pump();
+    if (capture_is_wayland())
+        g_portal_pump_timer = g_timeout_add(50, on_portal_pump_tick, nullptr);
 }
 
 void restore_after_failed_start() {
@@ -587,15 +584,23 @@ void restore_after_failed_start() {
 }
 
 void request_stop_recording() {
-    if (g_shutting_down.load() || !recorder_is_recording()) return;
-    recorder_stop();
-    if (g_ui.btn_record) gtk_widget_set_sensitive(g_ui.btn_record, FALSE);
-    if (g_control_btn_stop) gtk_widget_set_sensitive(g_control_btn_stop, FALSE);
-    append_log("녹화 중지 요청 — 파일 마무리 중...");
-}
-
-void on_control_stop_clicked(GtkWidget*, gpointer) {
-    request_stop_recording();
+    if (g_shutting_down.load()) return;
+    if (recorder_is_recording()) {
+        // Do not show the settings window here — it revokes the Portal/PipeWire target.
+        recorder_stop();
+        if (g_ui.btn_record) gtk_widget_set_sensitive(g_ui.btn_record, FALSE);
+        append_log("녹화 중지 요청 — 파일 마무리 중 (완료 후 설정 창 표시)...");
+        return;
+    }
+    // Pipeline already ended but UI may still be hidden.
+    if (g_hidden_for_recording || g_window_hidden_rec) {
+        end_recording_ui();
+        set_record_button(false);
+        set_settings_sensitive(true);
+        if (g_ui.btn_record) gtk_widget_set_sensitive(g_ui.btn_record, TRUE);
+        show_main_window();
+        append_log("녹화가 이미 종료됨 — 설정 창을 복구했습니다.");
+    }
 }
 
 void withdraw_recording_notification() {
@@ -607,12 +612,12 @@ void show_recording_notification() {
     if (!g_app) return;
     GNotification* n = g_notification_new("recording");
     g_notification_set_title(n, "Screen Recorder");
-    g_notification_set_body(n, "녹화 중입니다. [녹화 중지] 또는 Ctrl+Shift+S 로 중지할 수 있습니다.");
+    g_notification_set_body(n,
+        "녹화 중입니다. [녹화 중지] · Ctrl+Shift+S · 트레이 우클릭 메뉴.");
     g_notification_set_priority(n, G_NOTIFICATION_PRIORITY_URGENT);
-    // Body click opens settings — do not default to stop (avoids accidental stop + error dialog).
     g_notification_set_default_action(n, "app.record-show");
     g_notification_add_button(n, "녹화 중지", "app.record-stop");
-    g_notification_add_button(n, "녹화 제어 창", "app.record-show");
+    g_notification_add_button(n, "설정 창 보이기", "app.record-show");
     g_application_send_notification(G_APPLICATION(g_app), "recording", n);
     g_object_unref(n);
 }
@@ -621,14 +626,13 @@ void show_recording_notification() {
 
 void on_tray_stop_clicked(GtkMenuItem*, gpointer) { request_stop_recording(); }
 void on_tray_show_clicked(GtkMenuItem*, gpointer) {
-    if (recorder_is_recording()) show_recording_control_window();
-    else show_main_window();
+    present_settings_window();
+    append_log("트레이 메뉴: 설정 창 표시");
 }
 
 void on_tray_icon_popup(GtkStatusIcon* icon, guint button, guint32 time, gpointer) {
     GtkWidget* menu = gtk_menu_new();
-    GtkWidget* item_show = gtk_menu_item_new_with_label(
-        recorder_is_recording() ? "녹화 제어 창" : "설정 창 보이기");
+    GtkWidget* item_show = gtk_menu_item_new_with_label("설정 창 보이기");
     GtkWidget* item_stop = gtk_menu_item_new_with_label("녹화 중지");
     g_signal_connect(item_show, "activate", G_CALLBACK(on_tray_show_clicked), nullptr);
     g_signal_connect(item_stop, "activate", G_CALLBACK(on_tray_stop_clicked), nullptr);
@@ -642,10 +646,13 @@ void on_tray_icon_popup(GtkStatusIcon* icon, guint button, guint32 time, gpointe
 #pragma GCC diagnostic pop
 }
 
-// Left click: small control window while recording (main window breaks PipeWire target).
-void on_tray_icon_activate(GtkStatusIcon*, gpointer) {
-    if (recorder_is_recording()) show_recording_control_window();
-    else show_main_window();
+// Left click during recording: open menu (do not show window — breaks PipeWire).
+void on_tray_icon_activate(GtkStatusIcon* icon, gpointer) {
+    if (recorder_is_recording()) {
+        on_tray_icon_popup(icon, 1, gtk_get_current_event_time(), nullptr);
+        return;
+    }
+    present_settings_window();
 }
 
 void create_tray_icon() {
@@ -654,7 +661,7 @@ void create_tray_icon() {
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     g_tray_icon = gtk_status_icon_new_from_icon_name("media-record");
     gtk_status_icon_set_tooltip_text(g_tray_icon,
-        "Screen Recorder — 녹화 중 (클릭: 제어 창, 우클릭: 메뉴)");
+        "Screen Recorder — 녹화 중 (클릭/우클릭: 메뉴 → 녹화 중지)");
     gtk_status_icon_set_visible(g_tray_icon, TRUE);
     g_signal_connect(g_tray_icon, "activate", G_CALLBACK(on_tray_icon_activate), nullptr);
     g_signal_connect(g_tray_icon, "popup-menu", G_CALLBACK(on_tray_icon_popup), nullptr);
@@ -677,26 +684,26 @@ void destroy_tray_icon() {}
 
 void begin_recording_ui() {
     g_recording_ui_begun = true;
-    if (g_app) g_application_hold(G_APPLICATION(g_app));
+    if (g_app && !g_app_hold_active) {
+        g_application_hold(G_APPLICATION(g_app));
+        g_app_hold_active = true;
+    }
     create_tray_icon();
     show_recording_notification();
     hide_main_window();
     flush_gtk_events();
     // Do not auto-open control window — it would appear in the capture. Use tray/notification.
     append_log("녹화 중: 창을 숨겼습니다.");
-    append_log("  중지: 알림 [녹화 중지] · 트레이 · Ctrl+Shift+S (제어 창은 트레이에서 열기)");
+    append_log("  중지: 알림 · 트레이 [녹화 중지] · Ctrl+Shift+S (녹화 중 설정 창 표시 불가)");
 }
 
 void end_recording_ui() {
-    g_recording_ui_begun   = false;
-    g_hidden_for_recording = false;
     destroy_tray_icon();
     withdraw_recording_notification();
-    hide_recording_control_window();
-    destroy_recording_control_window();
-    if (g_app) g_application_release(G_APPLICATION(g_app));
+    release_hold_and_show_window();
     show_main_window();
-    g_window_hidden_rec = false;
+    g_recording_ui_begun   = false;
+    g_hidden_for_recording = false;
 }
 
 void record_stop_action(GSimpleAction*, GVariant*, gpointer) {
@@ -704,15 +711,18 @@ void record_stop_action(GSimpleAction*, GVariant*, gpointer) {
 }
 
 void record_show_action(GSimpleAction*, GVariant*, gpointer) {
-    if (recorder_is_recording()) show_recording_control_window();
-    else show_main_window();
+    present_settings_window();
+    append_log("알림: 설정 창 표시");
 }
 
 gboolean on_window_delete_event(GtkWidget* widget, GdkEvent*, gpointer) {
     if (recorder_is_recording()) {
         gtk_widget_hide(widget);
         g_window_hidden_rec = true;
-        show_recording_control_window();
+        if (g_app && !g_app_hold_active) {
+            g_application_hold(G_APPLICATION(g_app));
+            g_app_hold_active = true;
+        }
         return TRUE;
     }
     return FALSE;
@@ -733,7 +743,8 @@ void on_record_clicked(GtkWidget*, gpointer) {
                                "", true);
         return;
     }
-    if (source_is_window() && g_selected_xid == 0) {
+    // Wayland: window is chosen in the Portal dialog, not the X11 picker.
+    if (source_is_window() && g_selected_xid == 0 && !capture_is_wayland()) {
         gui_show_result_dialog(GTK_WINDOW(g_ui.window), "설정 오류",
                                "녹화할 창을 먼저 선택하세요.",
                                "", true);
@@ -751,7 +762,8 @@ void on_record_clicked(GtkWidget*, gpointer) {
                            ? OutputFormat::MKV : OutputFormat::MP4;  // 0=MKV, 1=MP4
     opts.codec           = (gtk_combo_box_get_active(GTK_COMBO_BOX(g_ui.combo_codec)) == 0)
                            ? VideoCodec::H265 : VideoCodec::H264;
-    opts.portal_parent_window = portal_parent_handle();
+    // Wayland: do not pass X11 parent — mapping the app window can revoke the cast.
+    opts.portal_parent_window = capture_is_wayland() ? "" : portal_parent_handle();
 
     // Compute output resolution from scale percentage + screen size.
     const int pct = g_ui.res_adj
@@ -780,8 +792,12 @@ void on_record_clicked(GtkWidget*, gpointer) {
 
     g_last_output_path = opts.output_path;
 
-    hide_before_recording();
-    append_log("화면 공유 대화상자를 선택하세요 (설정 창은 숨김 상태).");
+    append_log("화면 공유 대화상자에서 녹화 대상을 선택하세요.");
+    if (g_ui.window && GTK_IS_WINDOW(g_ui.window)) {
+        gtk_window_present(GTK_WINDOW(g_ui.window));
+        flush_gtk_events();
+    }
+    if (g_ui.btn_record) gtk_widget_set_sensitive(g_ui.btn_record, FALSE);
 
     const bool ok = recorder_start(
         std::move(opts),
@@ -790,8 +806,10 @@ void on_record_clicked(GtkWidget*, gpointer) {
         on_recording_stopped);
 
     if (!ok) {
-        restore_after_failed_start();
+        if (g_ui.btn_record) gtk_widget_set_sensitive(g_ui.btn_record, TRUE);
         append_log("오류: 이미 녹화 중이거나 시작할 수 없습니다.");
+    } else {
+        start_portal_pump();
     }
 }
 
@@ -806,7 +824,6 @@ void shutdown_app() {
 void on_window_destroy(GtkWidget*, gpointer) {
     g_ui = AppWidgets{};
     destroy_tray_icon();
-    destroy_recording_control_window();
     withdraw_recording_notification();
     if (g_app) {
         g_object_unref(g_app);
@@ -983,7 +1000,7 @@ GtkWidget* build_settings_section() {
     return gui_make_frame("녹화 설정", grid);
 }
 
-GtkWidget* build_status_section() {
+GtkWidget* build_control_section() {
     GtkWidget* grid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
     gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
@@ -991,52 +1008,53 @@ GtkWidget* build_status_section() {
     gtk_widget_set_margin_bottom(grid, 6);
     gtk_widget_set_margin_start(grid, 10);
     gtk_widget_set_margin_end(grid, 10);
+    gtk_style_context_add_class(gtk_widget_get_style_context(grid), "form-grid");
 
-    // Status LED + text
-    GtkWidget* st_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    gtk_widget_set_halign(st_box, GTK_ALIGN_START);
+    int row = 0;
+
+    GtkWidget* rec_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_valign(rec_row, GTK_ALIGN_CENTER);
+
     g_ui.status_led = gtk_drawing_area_new();
     gtk_widget_set_size_request(g_ui.status_led, 18, 18);
     gtk_widget_set_valign(g_ui.status_led, GTK_ALIGN_CENTER);
     g_signal_connect(g_ui.status_led, "draw", G_CALLBACK(on_led_draw), nullptr);
+    gtk_box_pack_start(GTK_BOX(rec_row), g_ui.status_led, FALSE, FALSE, 0);
+
     g_ui.lbl_status_text = gtk_label_new("대기 중");
     gtk_label_set_xalign(GTK_LABEL(g_ui.lbl_status_text), 0.0f);
     gtk_widget_set_valign(g_ui.lbl_status_text, GTK_ALIGN_CENTER);
-    gtk_box_pack_start(GTK_BOX(st_box), g_ui.status_led,      FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(st_box), g_ui.lbl_status_text, FALSE, FALSE, 0);
-    gui_attach_row(GTK_GRID(grid), 0, "상태", st_box);
+    gtk_box_pack_start(GTK_BOX(rec_row), g_ui.lbl_status_text, FALSE, FALSE, 0);
     set_status_recording(false);
 
-    // Elapsed time
     g_ui.lbl_elapsed = gtk_label_new("00:00:00");
     gtk_label_set_xalign(GTK_LABEL(g_ui.lbl_elapsed), 0.0f);
+    gtk_widget_set_valign(g_ui.lbl_elapsed, GTK_ALIGN_CENTER);
     gtk_style_context_add_class(gtk_widget_get_style_context(g_ui.lbl_elapsed), "elapsed-label");
-    gui_attach_row(GTK_GRID(grid), 1, "경과 시간", g_ui.lbl_elapsed);
+    gtk_box_pack_start(GTK_BOX(rec_row), g_ui.lbl_elapsed, FALSE, FALSE, 0);
 
-    return gui_make_frame("상태", grid);
-}
-
-GtkWidget* build_control_section() {
-    GtkWidget* box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-    gtk_widget_set_margin_top(box, 10);
-    gtk_widget_set_margin_bottom(box, 10);
+    GtkWidget* spacer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_hexpand(spacer, TRUE);
+    gtk_box_pack_start(GTK_BOX(rec_row), spacer, TRUE, TRUE, 0);
 
     g_ui.btn_record = gtk_button_new_with_label("녹화 시작");
     gtk_style_context_add_class(gtk_widget_get_style_context(g_ui.btn_record), "btn-record");
     gtk_style_context_add_class(gtk_widget_get_style_context(g_ui.btn_record), "start");
-    gtk_widget_set_halign(g_ui.btn_record, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign(g_ui.btn_record, GTK_ALIGN_CENTER);
     g_signal_connect(g_ui.btn_record, "clicked", G_CALLBACK(on_record_clicked), nullptr);
-    gtk_box_pack_start(GTK_BOX(box), g_ui.btn_record, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(rec_row), g_ui.btn_record, FALSE, FALSE, 0);
+
+    gui_attach_row(GTK_GRID(grid), row++, "녹화", rec_row);
 
     GtkWidget* hint = gtk_label_new(
-        "녹화가 시작되면 설정 창은 자동으로 숨겨집니다. "
-        "녹화 시작 시 설정 창이 먼저 숨겨집니다. 중지: 알림 · 트레이 · Ctrl+Shift+S.");
-    gtk_label_set_xalign(GTK_LABEL(hint), 0.5f);
+        "시작 시 설정 창이 숨겨집니다. 트레이 클릭으로 다시 열 수 있습니다. "
+        "중지: 알림 · 트레이 · Ctrl+Shift+S.");
+    gtk_label_set_xalign(GTK_LABEL(hint), 0.0f);
     gtk_label_set_line_wrap(GTK_LABEL(hint), TRUE);
     gtk_style_context_add_class(gtk_widget_get_style_context(hint), "hint-label");
-    gtk_box_pack_start(GTK_BOX(box), hint, FALSE, FALSE, 0);
+    gui_attach_row(GTK_GRID(grid), row++, "안내", hint);
 
-    return gui_make_frame("제어", box);
+    return gui_make_frame("녹화", grid);
 }
 
 GtkWidget* build_log_section() {
@@ -1186,7 +1204,6 @@ void build_ui(GtkApplication* app) {
 
     gtk_box_pack_start(GTK_BOX(main_box), build_settings_section(), FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(main_box), build_audio_section(),    FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(main_box), build_status_section(),   FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(main_box), build_control_section(),  FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(main_box), build_log_section(),      TRUE,  TRUE,  0);
 
@@ -1206,6 +1223,11 @@ void build_ui(GtkApplication* app) {
 
 void on_activate(GtkApplication* app, gpointer) {
     g_shutting_down.store(false);
+    recorder_set_prepare_capture([]() {
+        hide_main_window();
+        flush_gtk_events();
+        g_hidden_for_recording = true;
+    });
     build_ui(app);
 }
 

@@ -192,8 +192,26 @@ void close_session_internal() {
 
 }  // namespace
 
+bool portal_run_select_sources(GDBusConnection* bus, const char* session_handle,
+                               guint32 types, bool interactive) {
+    GVariantBuilder opts;
+    g_variant_builder_init(&opts, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add(&opts, "{sv}", "types", g_variant_new_uint32(types));
+    g_variant_builder_add(&opts, "{sv}", "multiple", g_variant_new_boolean(FALSE));
+    g_variant_builder_add(&opts, "{sv}", "cursor_mode", g_variant_new_uint32(2));
+    g_variant_builder_add(&opts, "{sv}", "persist_mode", g_variant_new_uint32(1));
+    g_variant_builder_add(&opts, "{sv}", "interactive", g_variant_new_boolean(interactive));
+
+    GVariant* select_res = portal_call_request(bus, "SelectSources",
+                                               g_variant_new("(oa{sv})", session_handle, &opts));
+    if (!select_res) return false;
+    g_variant_unref(select_res);
+    return true;
+}
+
 bool capture_portal_acquire(const std::string& parent_window_hint,
-                            CaptureStatusFn on_status, PortalStream* out) {
+                            CaptureStatusFn on_status, PortalStream* out,
+                            bool monitor_only) {
     if (!out) return false;
     *out = PortalStream{};
     g_on_status = on_status;
@@ -229,26 +247,19 @@ bool capture_portal_acquire(const std::string& parent_window_hint,
         return false;
     }
 
-    // SelectSources — types=3 allows both MONITOR(1) and WINDOW(2) selection.
-    // The user picks which one in the Portal dialog itself.
-    // cursor_mode=2 → embed cursor in the stream.
-    g_variant_builder_init(&opts, G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add(&opts, "{sv}", "types",        g_variant_new_uint32(3));  // MONITOR|WINDOW
-    g_variant_builder_add(&opts, "{sv}", "multiple",     g_variant_new_boolean(FALSE));
-    g_variant_builder_add(&opts, "{sv}", "cursor_mode",  g_variant_new_uint32(2));
-    g_variant_builder_add(&opts, "{sv}", "persist_mode", g_variant_new_uint32(2));
-
-    notify("화면 공유 대화상자에서 녹화할 화면 또는 창을 선택하세요.");
-    GVariant* sel_res = portal_call_request(bus, "SelectSources",
-                                            g_variant_new("(oa{sv})", session, &opts));
-    if (!sel_res) {
+    const guint32 types = monitor_only ? 1u : 2u;
+    notify(monitor_only
+           ? "화면 공유 대화상자에서 **전체 화면(모니터)** 을 선택하세요."
+           : "화면 공유 대화상자에서 녹화할 **창** 을 선택하세요.");
+    if (!portal_run_select_sources(bus, session, types, true) &&
+        !portal_run_select_sources(bus, session, types, false)) {
+        notify("화면 공유가 취소되었거나 권한이 없습니다.");
         g_free(session);
         g_object_unref(bus);
         return false;
     }
-    g_variant_unref(sel_res);
 
-    // Start
+    // Start — Wayland: empty parent (parent window mapping can break the stream).
     g_variant_builder_init(&opts, G_VARIANT_TYPE_VARDICT);
     const char* parent = parent_window_hint.empty() ? "" : parent_window_hint.c_str();
     GVariant* start_res = portal_call_request(bus, "Start",

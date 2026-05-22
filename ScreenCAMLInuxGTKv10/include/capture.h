@@ -15,8 +15,10 @@ struct PortalStream {
 // Acquire a PipeWire FD via XDG Desktop Portal ScreenCast.
 // Blocks until the user completes the Portal dialog — call from a worker thread.
 // Returns true on success; out->pw_fd is owned by the caller (must close it).
+// monitor_only: true → Portal types=1 (전체 화면). false → types=2 (창).
 bool capture_portal_acquire(const std::string& parent_window_hint,
-                            CaptureStatusFn on_status, PortalStream* out);
+                            CaptureStatusFn on_status, PortalStream* out,
+                            bool monitor_only = true);
 
 // Close the active Portal session (call after recording stops).
 void capture_portal_close_session();
