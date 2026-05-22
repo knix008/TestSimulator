@@ -16,6 +16,9 @@ public partial class FilePanel : UserControl
     private ToolTip _pathTip = null!;
     private Form? _hookedForm;
     private MouseEventHandler? _outsideClickHandler;
+    private DirectoryChangeWatcher? _directoryWatcher;
+    private bool _loadInProgress;
+    private bool _reloadPending;
 
     public event EventHandler? CopyToOtherRequested;
     public event EventHandler? MoveToOtherRequested;
@@ -60,6 +63,31 @@ public partial class FilePanel : UserControl
         driveBar.BackColor = UiTheme.DriveBarBg;
         WireUi();
         PopulateDriveBar();
+        SetupDirectoryWatcher();
+    }
+
+    private void SetupDirectoryWatcher()
+    {
+        _directoryWatcher = new DirectoryChangeWatcher(this);
+        _directoryWatcher.Changed += (_, _) => ScheduleAutoRefresh();
+        FileOperationRunner.OperationCompleted += OnFileOperationCompleted;
+    }
+
+    private void OnFileOperationCompleted() => ScheduleAutoRefresh();
+
+    private void UpdateDirectoryWatcher(string path)
+    {
+        if (AppIconHelper.IsDesignMode(this)) return;
+        _directoryWatcher?.Watch(path);
+    }
+
+    private void ScheduleAutoRefresh()
+    {
+        if (AppIconHelper.IsDesignMode(this) || string.IsNullOrEmpty(_currentPath)) return;
+
+        if (FileOperationRunner.IsRunning) return;
+
+        _ = LoadDirectoryAsync();
     }
 
     public void SetPanelSide(FilePanelSide side)
@@ -169,7 +197,8 @@ public partial class FilePanel : UserControl
         CloseFolderTree();
         _currentPath = path;
         UpdatePathDisplay();
-        LoadDirectory();
+        UpdateDirectoryWatcher(path);
+        _ = LoadDirectoryAsync();
         PathChanged?.Invoke(this, path);
     }
 
@@ -230,69 +259,145 @@ public partial class FilePanel : UserControl
         if (parent != null) Navigate(parent.FullName);
     }
 
-    private void LoadDirectory()
+    public async Task LoadDirectoryAsync()
+    {
+        if (_loadInProgress)
+        {
+            _reloadPending = true;
+            return;
+        }
+
+        if (AppIconHelper.IsDesignMode(this))
+        {
+            LoadDirectorySync();
+            return;
+        }
+
+        var path = _currentPath;
+        if (string.IsNullOrEmpty(path)) return;
+
+        _loadInProgress = true;
+        DirectoryScanResult? scan = null;
+        var failed = false;
+        try
+        {
+            scan = await Task.Run(() => ScanDirectory(path)).ConfigureAwait(true);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            SetStatus("접근 권한이 없습니다.");
+            failed = true;
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"오류: {ex.Message}");
+            failed = true;
+        }
+        finally
+        {
+            _loadInProgress = false;
+        }
+
+        if (_reloadPending)
+        {
+            _reloadPending = false;
+            _ = LoadDirectoryAsync();
+            return;
+        }
+
+        if (failed || path != _currentPath || scan == null) return;
+        ApplyDirectoryScan(scan);
+    }
+
+    private void LoadDirectorySync()
+    {
+        if (string.IsNullOrEmpty(_currentPath)) return;
+        try
+        {
+            ApplyDirectoryScan(ScanDirectory(_currentPath));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            SetStatus("접근 권한이 없습니다.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"오류: {ex.Message}");
+        }
+    }
+
+    private DirectoryScanResult ScanDirectory(string path)
+    {
+        var entries = new List<FileEntry>();
+        var parentDir = Directory.GetParent(path);
+        if (parentDir != null)
+        {
+            entries.Add(new FileEntry { Name = "..", FullPath = parentDir.FullName, IsDirectory = true });
+        }
+
+        foreach (var dir in Directory.GetDirectories(path).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var info = new DirectoryInfo(dir);
+                entries.Add(new FileEntry
+                {
+                    Name = info.Name,
+                    FullPath = info.FullName,
+                    IsDirectory = true,
+                    LastModified = info.LastWriteTime,
+                    Attributes = info.Attributes,
+                });
+            }
+            catch { }
+        }
+
+        foreach (var file in Directory.GetFiles(path).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var info = new FileInfo(file);
+                entries.Add(new FileEntry
+                {
+                    Name = info.Name,
+                    FullPath = info.FullName,
+                    IsDirectory = false,
+                    Size = info.Length,
+                    LastModified = info.LastWriteTime,
+                    Extension = info.Extension,
+                    Attributes = info.Attributes,
+                });
+            }
+            catch { }
+        }
+
+        int dirCount = entries.Count(e => e.IsDirectory && e.Name != "..");
+        int fileCount = entries.Count(e => !e.IsDirectory);
+        long totalSize = entries.Where(e => !e.IsDirectory).Sum(e => e.Size);
+        return new DirectoryScanResult(entries, dirCount, fileCount, totalSize);
+    }
+
+    private void ApplyDirectoryScan(DirectoryScanResult scan)
     {
         listView.BeginUpdate();
         listView.Items.Clear();
-
         try
         {
-            var parentDir = Directory.GetParent(_currentPath);
-            if (parentDir != null)
+            foreach (var entry in scan.Entries)
             {
-                var upEntry = new FileEntry { Name = "..", FullPath = parentDir.FullName, IsDirectory = true };
-                var upItem = new ListViewItem("..", GetOrAddIcon(parentDir.FullName, true)) { Tag = upEntry };
-                upItem.SubItems.AddRange(new[] { "", "폴더", "" });
-                listView.Items.Add(upItem);
-            }
-
-            foreach (var dir in Directory.GetDirectories(_currentPath).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
-            {
-                try
+                if (entry.Name == "..")
                 {
-                    var info = new DirectoryInfo(dir);
-                    var entry = new FileEntry
-                    {
-                        Name = info.Name,
-                        FullPath = info.FullName,
-                        IsDirectory = true,
-                        LastModified = info.LastWriteTime,
-                        Attributes = info.Attributes,
-                    };
+                    var upItem = new ListViewItem("..", GetOrAddIcon(entry.FullPath, true)) { Tag = entry };
+                    upItem.SubItems.AddRange(new[] { "", "폴더", "" });
+                    listView.Items.Add(upItem);
+                }
+                else
+                {
                     listView.Items.Add(CreateItem(entry));
                 }
-                catch { }
             }
 
-            foreach (var file in Directory.GetFiles(_currentPath).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    var info = new FileInfo(file);
-                    var entry = new FileEntry
-                    {
-                        Name = info.Name,
-                        FullPath = info.FullName,
-                        IsDirectory = false,
-                        Size = info.Length,
-                        LastModified = info.LastWriteTime,
-                        Extension = info.Extension,
-                        Attributes = info.Attributes,
-                    };
-                    listView.Items.Add(CreateItem(entry));
-                }
-                catch { }
-            }
-
-            int dirCount = listView.Items.Cast<ListViewItem>()
-                .Count(i => i.Tag is FileEntry e && e.IsDirectory && e.Name != "..");
-            int fileCount = listView.Items.Cast<ListViewItem>()
-                .Count(i => i.Tag is FileEntry e && !e.IsDirectory);
-            long totalSize = listView.Items.Cast<ListViewItem>()
-                .Where(i => i.Tag is FileEntry e && !e.IsDirectory)
-                .Sum(i => ((FileEntry)i.Tag!).Size);
-
-            SetStatus($"폴더 {dirCount}개, 파일 {fileCount}개  |  합계 {FileEntry.FormatSize(totalSize)}");
+            SetStatus($"폴더 {scan.DirCount}개, 파일 {scan.FileCount}개  |  합계 {FileEntry.FormatSize(scan.TotalSize)}");
         }
         catch (UnauthorizedAccessException)
         {
@@ -307,6 +412,12 @@ public partial class FilePanel : UserControl
             listView.EndUpdate();
         }
     }
+
+    private sealed record DirectoryScanResult(
+        List<FileEntry> Entries,
+        int DirCount,
+        int FileCount,
+        long TotalSize);
 
     private ListViewItem CreateItem(FileEntry entry)
     {
@@ -395,21 +506,21 @@ public partial class FilePanel : UserControl
     private void OnDragEnter(object? sender, DragEventArgs e) =>
         e.Effect = e.Data?.GetDataPresent(DataFormats.FileDrop) == true ? DragDropEffects.Copy : DragDropEffects.None;
 
-    private void OnDragDrop(object? sender, DragEventArgs e)
+    private async void OnDragDrop(object? sender, DragEventArgs e)
     {
         var paths = (string[]?)e.Data?.GetData(DataFormats.FileDrop);
         if (paths == null) return;
-        try
-        {
-            FileOperations.CopyFiles(paths, _currentPath, f => SetStatus($"복사 중: {f}"));
-            Refresh();
+
+        var owner = FindForm() as Form;
+        var (success, error) = await FileOperationRunner.RunAsync(owner, "복사 중",
+            (progress, ct) => FileOperations.CopyFiles(paths, _currentPath, progress, ct));
+
+        if (success)
             SetStatus($"{paths.Length}개 항목을 복사했습니다.");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"복사 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "복사 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        else if (error != null)
+            SetStatus($"복사 실패: {error.Message}");
+        else
+            SetStatus("복사가 취소되었습니다. 목록을 새로고침했습니다.");
     }
 
     private void OpenSelected()
@@ -432,7 +543,7 @@ public partial class FilePanel : UserControl
     private static void OpenWithDialog() =>
         MessageBox.Show("이 기능은 파일을 선택한 뒤 Shift+우클릭 > 연결 프로그램으로 열기로도 사용할 수 있습니다.", "연결 프로그램", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-    public void RequestDelete()
+    public async void RequestDelete()
     {
         var paths = SelectedPaths;
         if (paths.Length == 0) { SetStatus("삭제할 항목이 선택되지 않았습니다."); return; }
@@ -440,17 +551,17 @@ public partial class FilePanel : UserControl
             ? $"'{Path.GetFileName(paths[0])}'을(를) 삭제하시겠습니까?"
             : $"선택한 {paths.Length}개 항목을 삭제하시겠습니까?";
         if (MessageBox.Show(msg, "삭제 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-        try
-        {
-            FileOperations.DeleteFiles(paths);
-            Refresh();
+
+        var owner = FindForm() as Form;
+        var (success, error) = await FileOperationRunner.RunAsync(owner, "삭제 중",
+            (progress, ct) => FileOperations.DeleteFiles(paths, progress, ct));
+
+        if (success)
             SetStatus($"{paths.Length}개 항목을 삭제했습니다.");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"삭제 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "삭제 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        else if (error != null)
+            SetStatus($"삭제 실패: {error.Message}");
+        else
+            SetStatus("삭제가 취소되었습니다. 목록을 새로고침했습니다.");
     }
 
     public void RequestNewFolder()
@@ -534,23 +645,23 @@ public partial class FilePanel : UserControl
         SetStatus($"{SelectedPaths.Length}개 항목이 잘라내기 됩니다 (붙여넣기 후 원본 삭제).");
     }
 
-    private void ClipboardPaste()
+    private async void ClipboardPaste()
     {
         if (!Clipboard.ContainsFileDropList()) { SetStatus("클립보드에 붙여넣을 파일이 없습니다."); return; }
         var files = Clipboard.GetFileDropList();
         if (files == null || files.Count == 0) return;
-        try
-        {
-            var paths = files.Cast<string>().ToArray();
-            FileOperations.CopyFiles(paths, _currentPath, f => SetStatus($"붙여넣는 중: {f}"));
-            Refresh();
+        var paths = files.Cast<string>().ToArray();
+
+        var owner = FindForm() as Form;
+        var (success, error) = await FileOperationRunner.RunAsync(owner, "붙여넣는 중",
+            (progress, ct) => FileOperations.CopyFiles(paths, _currentPath, progress, ct));
+
+        if (success)
             SetStatus($"{files.Count}개 항목을 붙여넣었습니다.");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"붙여넣기 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "붙여넣기 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        else if (error != null)
+            SetStatus($"붙여넣기 실패: {error.Message}");
+        else
+            SetStatus("붙여넣기가 취소되었습니다. 목록을 새로고침했습니다.");
     }
 
     private void SelectAll()
@@ -604,7 +715,18 @@ public partial class FilePanel : UserControl
         }
     }
 
-    public new void Refresh() => LoadDirectory();
+    public new void Refresh() => _ = LoadDirectoryAsync();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            FileOperationRunner.OperationCompleted -= OnFileOperationCompleted;
+            _directoryWatcher?.Dispose();
+            components?.Dispose();
+        }
+        base.Dispose(disposing);
+    }
 }
 
 internal class FileEntryComparer : System.Collections.IComparer

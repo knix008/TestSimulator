@@ -14,13 +14,6 @@ partial class FilePanel
     private StatusStrip statusStrip;
     private ToolStripStatusLabel statusLabel;
 
-    protected override void Dispose(bool disposing)
-    {
-        if (disposing)
-            components?.Dispose();
-        base.Dispose(disposing);
-    }
-
     private void InitializeComponent()
     {
         components = new System.ComponentModel.Container();

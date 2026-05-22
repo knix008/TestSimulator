@@ -76,10 +76,10 @@ public partial class MainForm : Form
             else if (paths.Length == 0) previewPanel.Clear();
         };
 
-        leftPanel.CopyToOtherRequested += (_, _) => CopyBetweenPanels(leftPanel, rightPanel);
-        leftPanel.MoveToOtherRequested += (_, _) => MoveBetweenPanels(leftPanel, rightPanel);
-        rightPanel.CopyToOtherRequested += (_, _) => CopyBetweenPanels(rightPanel, leftPanel);
-        rightPanel.MoveToOtherRequested += (_, _) => MoveBetweenPanels(rightPanel, leftPanel);
+        leftPanel.CopyToOtherRequested += async (_, _) => await CopyBetweenPanelsAsync(leftPanel, rightPanel);
+        leftPanel.MoveToOtherRequested += async (_, _) => await MoveBetweenPanelsAsync(leftPanel, rightPanel);
+        rightPanel.CopyToOtherRequested += async (_, _) => await CopyBetweenPanelsAsync(rightPanel, leftPanel);
+        rightPanel.MoveToOtherRequested += async (_, _) => await MoveBetweenPanelsAsync(rightPanel, leftPanel);
     }
 
     private void BuildMenus()
@@ -219,51 +219,48 @@ public partial class MainForm : Form
         toolStrip.Items.Add(btn);
     }
 
-    private void CopyActiveToOther()
+    private async void CopyActiveToOther()
     {
         var (src, dest) = _activePanel == leftPanel ? (leftPanel, rightPanel) : (rightPanel, leftPanel);
-        CopyBetweenPanels(src, dest);
+        await CopyBetweenPanelsAsync(src, dest);
     }
 
-    private void MoveActiveToOther()
+    private async void MoveActiveToOther()
     {
         var (src, dest) = _activePanel == leftPanel ? (leftPanel, rightPanel) : (rightPanel, leftPanel);
-        MoveBetweenPanels(src, dest);
+        await MoveBetweenPanelsAsync(src, dest);
     }
 
-    private void CopyBetweenPanels(FilePanel src, FilePanel dest)
+    private async Task CopyBetweenPanelsAsync(FilePanel src, FilePanel dest)
     {
         var paths = src.SelectedPaths;
         if (paths.Length == 0) { ShowMainStatus("복사할 항목을 선택하세요."); return; }
-        try
-        {
-            FileOperations.CopyFiles(paths, dest.CurrentPath, f => ShowMainStatus($"복사 중: {f}"));
-            dest.Refresh();
+
+        var (success, error) = await FileOperationRunner.RunAsync(this, "복사 중",
+            (progress, ct) => FileOperations.CopyFiles(paths, dest.CurrentPath, progress, ct));
+
+        if (success)
             ShowMainStatus($"{paths.Length}개 항목을 '{dest.CurrentPath}'에 복사했습니다.");
-        }
-        catch (Exception ex)
-        {
-            ShowMainStatus($"복사 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "복사 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        else if (error != null)
+            ShowMainStatus($"복사 실패: {error.Message}");
+        else
+            ShowMainStatus("복사가 취소되었습니다. 목록을 새로고침했습니다.");
     }
 
-    private void MoveBetweenPanels(FilePanel src, FilePanel dest)
+    private async Task MoveBetweenPanelsAsync(FilePanel src, FilePanel dest)
     {
         var paths = src.SelectedPaths;
         if (paths.Length == 0) { ShowMainStatus("이동할 항목을 선택하세요."); return; }
-        try
-        {
-            FileOperations.MoveFiles(paths, dest.CurrentPath, f => ShowMainStatus($"이동 중: {f}"));
-            src.Refresh();
-            dest.Refresh();
+
+        var (success, error) = await FileOperationRunner.RunAsync(this, "이동 중",
+            (progress, ct) => FileOperations.MoveFiles(paths, dest.CurrentPath, progress, ct));
+
+        if (success)
             ShowMainStatus($"{paths.Length}개 항목을 '{dest.CurrentPath}'으로 이동했습니다.");
-        }
-        catch (Exception ex)
-        {
-            ShowMainStatus($"이동 실패: {ex.Message}");
-            MessageBox.Show(ex.Message, "이동 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        else if (error != null)
+            ShowMainStatus($"이동 실패: {error.Message}");
+        else
+            ShowMainStatus("이동이 취소되었습니다. 목록을 새로고침했습니다.");
     }
 
     private void SelectAll()

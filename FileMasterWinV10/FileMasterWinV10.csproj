@@ -60,6 +60,12 @@
     <Compile Update="Dialogs\InputDialog.Designer.cs">
       <DependentUpon>InputDialog.cs</DependentUpon>
     </Compile>
+    <Compile Update="Dialogs\FileOperationProgressDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Dialogs\FileOperationProgressDialog.Designer.cs">
+      <DependentUpon>FileOperationProgressDialog.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
 
   <Target
