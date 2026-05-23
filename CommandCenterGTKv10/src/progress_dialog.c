@@ -1,116 +1,188 @@
 #include "progress_dialog.h"
 
-#define SHOW_DELAY_MS 300
+#define PROGRESS_DIALOG_WIDTH   540
+#define PROGRESS_DIALOG_HEIGHT  150
+#define PROGRESS_INNER_WIDTH    500
+#define PROGRESS_TITLE_HEIGHT   28
+#define PROGRESS_BAR_HEIGHT     24
+#define PROGRESS_PATH_WIDTH     420
+#define MAX_FULL_PATH_CHARS     48
 
 struct ProgressDialog {
     GtkWindow *parent;
-    char *title;
-    GtkWidget *dialog;
+    char *verb;
+    GtkWidget *window;
+    GtkWidget *path_label;
     GtkWidget *progress_bar;
-    GtkWidget *detail_label;
-    guint show_timeout_id;
-    gboolean shown;
+    GtkWidget *cancel_button;
+    GCancellable *cancellable;
     gboolean closed;
+    gboolean positioned;
 };
 
-static gboolean show_timeout_cb(gpointer data) {
-    ProgressDialog *pd = data;
-    pd->show_timeout_id = 0;
-    if (pd->closed)
-        return G_SOURCE_REMOVE;
+static void apply_fixed_window_size(GtkWidget *window) {
+    GdkGeometry geom = { 0 };
+    geom.min_width = PROGRESS_DIALOG_WIDTH;
+    geom.max_width = PROGRESS_DIALOG_WIDTH;
+    geom.min_height = PROGRESS_DIALOG_HEIGHT;
+    geom.max_height = PROGRESS_DIALOG_HEIGHT;
+    gtk_window_set_geometry_hints(GTK_WINDOW(window), NULL, &geom,
+                                  GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE);
+    gtk_window_set_resizable(GTK_WINDOW(window), FALSE);
+    gtk_widget_set_size_request(window, PROGRESS_DIALOG_WIDTH, PROGRESS_DIALOG_HEIGHT);
+}
 
-    pd->dialog = gtk_dialog_new();
-    gtk_window_set_title(GTK_WINDOW(pd->dialog), pd->title);
-    gtk_window_set_transient_for(GTK_WINDOW(pd->dialog), pd->parent);
-    gtk_window_set_modal(GTK_WINDOW(pd->dialog), TRUE);
-    gtk_window_set_destroy_with_parent(GTK_WINDOW(pd->dialog), TRUE);
-    gtk_window_set_default_size(GTK_WINDOW(pd->dialog), 480, 120);
-    gtk_window_set_deletable(GTK_WINDOW(pd->dialog), FALSE);
+static char *format_path_display(const char *path) {
+    if (!path || !*path)
+        return g_strdup("...");
 
-    GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(pd->dialog));
-    gtk_container_set_border_width(GTK_CONTAINER(content), 16);
+    if (g_utf8_strlen(path, -1) <= MAX_FULL_PATH_CHARS)
+        return g_strdup(path);
 
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_box_pack_start(GTK_BOX(content), vbox, TRUE, TRUE, 0);
+    gchar *base = g_path_get_basename(path);
+    if (!base || !*base) {
+        g_free(base);
+        return g_strdup("...");
+    }
+
+    char *result = g_strdup_printf(".../%s", base);
+    g_free(base);
+
+    /* Clamp to MAX_FULL_PATH_CHARS so the label never widens the window. */
+    if (g_utf8_strlen(result, -1) > MAX_FULL_PATH_CHARS) {
+        gchar *end = g_utf8_offset_to_pointer(result, MAX_FULL_PATH_CHARS - 3);
+        gchar *clamped = g_strdup_printf("%.*s...", (int)(end - result), result);
+        g_free(result);
+        result = clamped;
+    }
+
+    return result;
+}
+
+static void set_path_text(ProgressDialog *pd, const char *path) {
+    char *display = format_path_display(path);
+    gtk_label_set_text(GTK_LABEL(pd->path_label), display);
+    g_free(display);
+}
+
+static void on_progress_cancel(GtkButton *button, gpointer user_data) {
+    ProgressDialog *pd = user_data;
+    (void)button;
+    if (pd && pd->cancellable)
+        g_cancellable_cancel(pd->cancellable);
+    gtk_widget_set_sensitive(pd->cancel_button, FALSE);
+}
+
+static void progress_dialog_show(ProgressDialog *pd) {
+    pd->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_transient_for(GTK_WINDOW(pd->window), pd->parent);
+    gtk_window_set_modal(GTK_WINDOW(pd->window), TRUE);
+    gtk_window_set_destroy_with_parent(GTK_WINDOW(pd->window), TRUE);
+    gtk_window_set_title(GTK_WINDOW(pd->window), pd->verb);
+    gtk_window_set_type_hint(GTK_WINDOW(pd->window), GDK_WINDOW_TYPE_HINT_DIALOG);
+    gtk_window_set_position(GTK_WINDOW(pd->window), GTK_WIN_POS_CENTER_ON_PARENT);
+    apply_fixed_window_size(pd->window);
+
+    GtkWidget *fixed = gtk_fixed_new();
+    gtk_widget_set_size_request(fixed, PROGRESS_INNER_WIDTH, 110);
+    gtk_container_add(GTK_CONTAINER(pd->window), fixed);
+    gtk_container_set_border_width(GTK_CONTAINER(pd->window), 20);
+
+    char *prefix = g_strdup_printf("%s : ", pd->verb);
+    GtkWidget *verb_label = gtk_label_new(prefix);
+    g_free(prefix);
+    gtk_label_set_xalign(GTK_LABEL(verb_label), 0.0);
+    gtk_label_set_yalign(GTK_LABEL(verb_label), 0.5);
+    gtk_widget_set_size_request(verb_label, PROGRESS_INNER_WIDTH - PROGRESS_PATH_WIDTH,
+                                PROGRESS_TITLE_HEIGHT);
+    gtk_fixed_put(GTK_FIXED(fixed), verb_label, 0, 0);
+
+    pd->path_label = gtk_label_new("...");
+    gtk_label_set_xalign(GTK_LABEL(pd->path_label), 0.0);
+    gtk_label_set_yalign(GTK_LABEL(pd->path_label), 0.5);
+    gtk_label_set_line_wrap(GTK_LABEL(pd->path_label), FALSE);
+    gtk_label_set_single_line_mode(GTK_LABEL(pd->path_label), TRUE);
+    gtk_label_set_ellipsize(GTK_LABEL(pd->path_label), PANGO_ELLIPSIZE_END);
+    gtk_label_set_max_width_chars(GTK_LABEL(pd->path_label), MAX_FULL_PATH_CHARS);
+    gtk_widget_set_size_request(pd->path_label, PROGRESS_PATH_WIDTH,
+                                PROGRESS_TITLE_HEIGHT);
+    GtkCssProvider *css = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(css,
+        "label { font-family: Monospace; font-size: 10pt; }", -1, NULL);
+    gtk_style_context_add_provider(gtk_widget_get_style_context(pd->path_label),
+        GTK_STYLE_PROVIDER(css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(css);
+    gtk_fixed_put(GTK_FIXED(fixed), pd->path_label,
+                  PROGRESS_INNER_WIDTH - PROGRESS_PATH_WIDTH, 0);
 
     pd->progress_bar = gtk_progress_bar_new();
     gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(pd->progress_bar), TRUE);
-    gtk_box_pack_start(GTK_BOX(vbox), pd->progress_bar, FALSE, FALSE, 0);
+    gtk_widget_set_size_request(pd->progress_bar, PROGRESS_INNER_WIDTH,
+                                PROGRESS_BAR_HEIGHT);
+    gtk_fixed_put(GTK_FIXED(fixed), pd->progress_bar, 0, 40);
 
-    pd->detail_label = gtk_label_new("");
-    gtk_label_set_xalign(GTK_LABEL(pd->detail_label), 0.0);
-    gtk_label_set_line_wrap(GTK_LABEL(pd->detail_label), TRUE);
-    gtk_label_set_max_width_chars(GTK_LABEL(pd->detail_label), 56);
-    gtk_box_pack_start(GTK_BOX(vbox), pd->detail_label, FALSE, FALSE, 0);
+    pd->cancel_button = gtk_button_new_with_mnemonic("_취소");
+    gtk_widget_set_size_request(pd->cancel_button, 88, 32);
+    g_signal_connect(pd->cancel_button, "clicked", G_CALLBACK(on_progress_cancel), pd);
+    gtk_fixed_put(GTK_FIXED(fixed), pd->cancel_button,
+                  PROGRESS_INNER_WIDTH - 88, 76);
 
-    gtk_widget_show_all(pd->dialog);
-    pd->shown = TRUE;
-    gtk_main_iteration();
-    return G_SOURCE_REMOVE;
+    set_path_text(pd, NULL);
+    gtk_widget_show_all(pd->window);
+    pd->positioned = TRUE;
 }
 
-static void pump_events(void) {
-    for (int i = 0; i < 8; i++) {
-        if (!g_main_context_pending(NULL))
-            break;
-        g_main_context_iteration(NULL, FALSE);
-    }
-}
-
-ProgressDialog *progress_dialog_begin(GtkWindow *parent, const char *title) {
+ProgressDialog *progress_dialog_begin(GtkWindow *parent, const char *verb) {
     ProgressDialog *pd = g_new0(ProgressDialog, 1);
     pd->parent = parent;
-    pd->title = g_strdup(title);
+    pd->verb = g_strdup(verb ? verb : "작업 중");
+    pd->cancellable = g_cancellable_new();
+    progress_dialog_show(pd);
     return pd;
 }
 
+GCancellable *progress_dialog_get_cancellable(ProgressDialog *pd) {
+    return pd ? pd->cancellable : NULL;
+}
+
 void progress_dialog_update(ProgressDialog *pd, guint64 current, guint64 total,
-                            const char *detail) {
-    if (!pd || pd->closed)
+                            const char *path) {
+    if (!pd || pd->closed || !pd->window)
         return;
 
-    if (!pd->shown && !pd->show_timeout_id)
-        pd->show_timeout_id = g_timeout_add(SHOW_DELAY_MS, show_timeout_cb, pd);
+    set_path_text(pd, path);
 
-    if (pd->shown) {
-        double frac = 0.0;
-        if (total > 0)
-            frac = (double)current / (double)total;
-        if (frac > 1.0)
-            frac = 1.0;
-        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(pd->progress_bar), frac);
-        if (total > 0) {
-            char *pct = g_strdup_printf("%.0f%%", frac * 100.0);
-            gtk_progress_bar_set_text(GTK_PROGRESS_BAR(pd->progress_bar), pct);
-            g_free(pct);
-        } else {
-            gtk_progress_bar_pulse(GTK_PROGRESS_BAR(pd->progress_bar));
-        }
-        if (detail && *detail)
-            gtk_label_set_text(GTK_LABEL(pd->detail_label), detail);
-        pump_events();
-    }
+    double frac = 0.0;
+    if (total > 0)
+        frac = (double)current / (double)total;
+    if (frac > 1.0)
+        frac = 1.0;
+    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(pd->progress_bar), frac);
+
+    char pct[16];
+    if (total > 0)
+        g_snprintf(pct, sizeof pct, "%3.0f%%", frac * 100.0);
+    else
+        g_strlcpy(pct, "   ", sizeof pct);
+    gtk_progress_bar_set_text(GTK_PROGRESS_BAR(pd->progress_bar), pct);
 }
 
 void progress_dialog_end(ProgressDialog *pd) {
     if (!pd)
         return;
     pd->closed = TRUE;
-    if (pd->show_timeout_id) {
-        g_source_remove(pd->show_timeout_id);
-        pd->show_timeout_id = 0;
-    }
-    if (pd->dialog)
-        gtk_widget_destroy(pd->dialog);
-    g_free(pd->title);
+    if (pd->window)
+        gtk_widget_destroy(pd->window);
+    g_clear_object(&pd->cancellable);
+    g_free(pd->verb);
     g_free(pd);
 }
 
-void progress_dialog_ops_report(ProgressDialogOpsCtx *ctx, const char *detail) {
+void progress_dialog_ops_report(ProgressDialogOpsCtx *ctx, const char *path) {
     if (!ctx || !ctx->dlg)
         return;
     ctx->current++;
-    progress_dialog_update(ctx->dlg, ctx->current, ctx->total, detail);
+    progress_dialog_update(ctx->dlg, ctx->current, ctx->total, path);
 }
 
 void progress_dialog_ops_callback(const char *path, gpointer user_data) {

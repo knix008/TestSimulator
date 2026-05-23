@@ -21,6 +21,7 @@ gboolean file_ops_copy_files(GPtrArray *sources,
                              FileOpsProgressFn progress,
                              gpointer user_data,
                              FileOpsTransferStats *stats,
+                             GCancellable *cancellable,
                              GError **error);
 gboolean file_ops_move_files(GPtrArray *sources,
                              const char *dest_dir,
@@ -29,12 +30,14 @@ gboolean file_ops_move_files(GPtrArray *sources,
                              FileOpsProgressFn progress,
                              gpointer user_data,
                              FileOpsTransferStats *stats,
+                             GCancellable *cancellable,
                              GError **error);
-guint64 file_ops_count_items(GPtrArray *paths);
+guint64 file_ops_count_items(GPtrArray *paths, GCancellable *cancellable);
 
 gboolean file_ops_delete_files(GPtrArray *paths,
                                FileOpsProgressFn progress,
                                gpointer user_data,
+                               GCancellable *cancellable,
                                GError **error);
 
 typedef struct SearchContext SearchContext;

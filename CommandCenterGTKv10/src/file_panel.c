@@ -1151,15 +1151,20 @@ void file_panel_request_delete(GtkWidget *panel) {
     if (resp == GTK_RESPONSE_YES) {
         GtkWindow *win = panel_window(panel);
         suspend_all_watches(pd);
-        ProgressDialog *prog = progress_dialog_begin(win, "삭제 중...");
-        ProgressDialogOpsCtx pctx = { prog, 0, file_ops_count_items(paths) };
+        ProgressDialog *prog = progress_dialog_begin(win, "삭제중");
+        GCancellable *cancel = progress_dialog_get_cancellable(prog);
+        ProgressDialogOpsCtx pctx = { prog, 0, file_ops_count_items(paths, cancel) };
         GError *err = NULL;
         if (file_ops_delete_files(paths, progress_dialog_ops_callback, &pctx,
-                                  &err)) {
+                                  cancel, &err)) {
             file_panel_refresh(panel);
             char *s = g_strdup_printf("%u개 항목을 삭제했습니다.", paths->len);
             set_status(pd, s);
             g_free(s);
+        } else if (err && g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            file_panel_refresh(panel);
+            set_status(pd, "삭제가 취소되었습니다.");
+            g_clear_error(&err);
         } else {
             show_error(panel, err ? err->message : "삭제 실패");
             g_clear_error(&err);
@@ -1269,11 +1274,13 @@ void file_panel_clipboard_paste(GtkWidget *panel) {
     file_ops_conflict_reset(&conflict);
     GtkWindow *win = panel_window(panel);
     suspend_all_watches(pd);
-    ProgressDialog *prog = progress_dialog_begin(win, "붙여넣기 중...");
-    ProgressDialogOpsCtx pctx = { prog, 0, file_ops_count_items(paths) };
+    ProgressDialog *prog = progress_dialog_begin(win, "붙여넣는 중");
+    GCancellable *cancel = progress_dialog_get_cancellable(prog);
+    ProgressDialogOpsCtx pctx = { prog, 0, file_ops_count_items(paths, cancel) };
     GError *err = NULL;
     if (file_ops_copy_files(paths, pd->current_path, win, &conflict,
-                            progress_dialog_ops_callback, &pctx, &stats, &err)) {
+                            progress_dialog_ops_callback, &pctx, &stats, cancel,
+                            &err)) {
         file_panel_refresh(panel);
         char *msg = NULL;
         if (stats.skipped > 0)
@@ -1282,11 +1289,12 @@ void file_panel_clipboard_paste(GtkWidget *panel) {
             msg = g_strdup_printf("%u개 항목을 붙여넣었습니다.", stats.copied);
         set_status(pd, msg);
         g_free(msg);
+    } else if (err && g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+        file_panel_refresh(panel);
+        set_status(pd, "붙여넣기가 취소되었습니다.");
+        g_clear_error(&err);
     } else {
-        if (err && !g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-            show_error(panel, err ? err->message : "붙여넣기 실패");
-        else
-            set_status(pd, "붙여넣기가 취소되었습니다.");
+        show_error(panel, err ? err->message : "붙여넣기 실패");
         g_clear_error(&err);
     }
     progress_dialog_end(prog);

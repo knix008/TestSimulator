@@ -181,12 +181,18 @@ static gboolean panel_transfer_finish_idle(gpointer user_data) {
             main_window_show_status(
                 job->win,
                 job->is_move ? "이동할 항목이 없습니다." : "복사할 항목이 없습니다.");
+    } else if (job->error &&
+               g_error_matches(job->error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+        if (job->is_move)
+            file_panel_refresh(job->src);
+        file_panel_refresh(job->dest);
+        main_window_show_status(
+            job->win, job->is_move ? "이동이 취소되었습니다." : "복사가 취소되었습니다.");
     } else {
         const char *fallback = job->is_move ? "이동 실패" : "복사 실패";
         main_window_show_status(job->win,
                                 job->error ? job->error->message : fallback);
-        if (job->error &&
-            !g_error_matches(job->error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        if (job->error)
             show_error(job->win, job->error->message);
     }
 
@@ -202,18 +208,23 @@ static gboolean panel_transfer_finish_idle(gpointer user_data) {
 
 static gpointer panel_transfer_thread(gpointer user_data) {
     PanelTransferJob *job = user_data;
+    GCancellable *cancel = progress_dialog_get_cancellable(job->prog);
 
-    job->item_total = file_ops_count_items(job->paths);
+    job->item_total = file_ops_count_items(job->paths, cancel);
     g_idle_add(panel_transfer_set_total_idle, job);
 
-    if (job->is_move) {
+    if (g_cancellable_is_cancelled(cancel)) {
+        job->success = FALSE;
+        g_set_error(&job->error, G_IO_ERROR, G_IO_ERROR_CANCELLED,
+                    "작업이 취소되었습니다.");
+    } else if (job->is_move) {
         job->success = file_ops_move_files(
             job->paths, job->dest_path, GTK_WINDOW(job->win->window), &job->conflict,
-            panel_transfer_progress, job, &job->stats, &job->error);
+            panel_transfer_progress, job, &job->stats, cancel, &job->error);
     } else {
         job->success = file_ops_copy_files(
             job->paths, job->dest_path, GTK_WINDOW(job->win->window), &job->conflict,
-            panel_transfer_progress, job, &job->stats, &job->error);
+            panel_transfer_progress, job, &job->stats, cancel, &job->error);
     }
 
     g_idle_add(panel_transfer_finish_idle, job);
@@ -241,7 +252,7 @@ static void start_panel_transfer(MainWindow *win, GtkWidget *src, GtkWidget *des
     g_mutex_init(&job->progress_lock);
 
     job->prog = progress_dialog_begin(
-        GTK_WINDOW(win->window), is_move ? "이동 중..." : "복사 중...");
+        GTK_WINDOW(win->window), is_move ? "이동중" : "복사중");
     job->pctx.dlg = job->prog;
     job->pctx.current = 0;
     job->pctx.total = 0;

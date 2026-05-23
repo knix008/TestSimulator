@@ -42,14 +42,26 @@ static gboolean path_is_ancestor_of(const char *ancestor, const char *path) {
 typedef struct {
     FileOpsProgressFn fn;
     gpointer user_data;
+    GCancellable *cancellable;
 } FileOpsProgressCtx;
+
+static gboolean ops_cancelled(FileOpsProgressCtx *ctx, GError **error) {
+    if (ctx && ctx->cancellable && g_cancellable_is_cancelled(ctx->cancellable)) {
+        g_set_error(error, G_IO_ERROR, G_IO_ERROR_CANCELLED,
+                    "작업이 취소되었습니다.");
+        return TRUE;
+    }
+    return FALSE;
+}
 
 static void report_progress(FileOpsProgressCtx *ctx, const char *path) {
     if (ctx && ctx->fn)
         ctx->fn(path, ctx->user_data);
 }
 
-static guint64 count_entry_recursive(const char *path) {
+static guint64 count_entry_recursive(const char *path, GCancellable *cancellable) {
+    if (cancellable && g_cancellable_is_cancelled(cancellable))
+        return 0;
     if (!g_file_test(path, G_FILE_TEST_IS_DIR))
         return 1;
 
@@ -60,22 +72,27 @@ static guint64 count_entry_recursive(const char *path) {
 
     const gchar *name;
     while ((name = g_dir_read_name(dir)) != NULL) {
+        if (cancellable && g_cancellable_is_cancelled(cancellable))
+            break;
         if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
             continue;
         char *child = g_build_filename(path, name, NULL);
-        n += count_entry_recursive(child);
+        n += count_entry_recursive(child, cancellable);
         g_free(child);
     }
     g_dir_close(dir);
     return n > 0 ? n : 1;
 }
 
-guint64 file_ops_count_items(GPtrArray *paths) {
+guint64 file_ops_count_items(GPtrArray *paths, GCancellable *cancellable) {
     guint64 total = 0;
     if (!paths)
         return 1;
-    for (guint i = 0; i < paths->len; i++)
-        total += count_entry_recursive(g_ptr_array_index(paths, i));
+    for (guint i = 0; i < paths->len; i++) {
+        if (cancellable && g_cancellable_is_cancelled(cancellable))
+            return total > 0 ? total : 0;
+        total += count_entry_recursive(g_ptr_array_index(paths, i), cancellable);
+    }
     return total > 0 ? total : 1;
 }
 
@@ -88,13 +105,13 @@ static gboolean remove_recursive(const char *path, FileOpsProgressCtx *progress,
 static gboolean remove_dest_if_exists(const char *dest, GError **error);
 
 static gboolean copy_file(const char *src, const char *dest, gboolean overwrite,
-                          GError **error) {
+                          GCancellable *cancellable, GError **error) {
     GFile *sf = g_file_new_for_path(src);
     GFile *df = g_file_new_for_path(dest);
     GFileCopyFlags flags = G_FILE_COPY_NOFOLLOW_SYMLINKS;
     if (overwrite)
         flags |= G_FILE_COPY_OVERWRITE;
-    gboolean ok = g_file_copy(sf, df, flags, NULL, NULL, NULL, error);
+    gboolean ok = g_file_copy(sf, df, flags, cancellable, NULL, NULL, error);
     g_object_unref(sf);
     g_object_unref(df);
     return ok;
@@ -156,6 +173,9 @@ static gboolean copy_directory_recursive(const char *src, const char *dest,
                                          gboolean is_move,
                                          FileOpsProgressCtx *progress,
                                          GError **error) {
+    if (ops_cancelled(progress, error))
+        return FALSE;
+
     report_progress(progress, src);
 
     if (g_mkdir_with_parents(dest, 0755) != 0 && errno != EEXIST) {
@@ -171,6 +191,10 @@ static gboolean copy_directory_recursive(const char *src, const char *dest,
     const gchar *name;
     gboolean ok = TRUE;
     while ((name = g_dir_read_name(dir)) != NULL) {
+        if (ops_cancelled(progress, error)) {
+            ok = FALSE;
+            break;
+        }
         if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
             continue;
         char *src_child = g_build_filename(src, name, NULL);
@@ -194,6 +218,9 @@ static gboolean copy_entry(const char *src, const char *dest,
                            GtkWindow *parent, FileOpsConflictState *conflict_state,
                            gboolean is_move, FileOpsProgressCtx *progress,
                            gboolean *skipped, GError **error) {
+    if (ops_cancelled(progress, error))
+        return FALSE;
+
     const char *name = g_path_get_basename(dest);
     gboolean dest_exists = g_file_test(dest, G_FILE_TEST_EXISTS);
 
@@ -213,13 +240,17 @@ static gboolean copy_entry(const char *src, const char *dest,
     char *parent_dir = g_path_get_dirname(dest);
     g_mkdir_with_parents(parent_dir, 0755);
     g_free(parent_dir);
-    return copy_file(src, dest, overwrite, error);
+    return copy_file(src, dest, overwrite, progress ? progress->cancellable : NULL,
+                     error);
 }
 
 static gboolean move_entry(const char *src, const char *dest,
                            GtkWindow *parent, FileOpsConflictState *conflict_state,
                            FileOpsProgressCtx *progress,
                            gboolean *skipped, GError **error) {
+    if (ops_cancelled(progress, error))
+        return FALSE;
+
     const char *name = g_path_get_basename(dest);
 
     if (!handle_dest_conflict(name, dest, TRUE, parent, conflict_state,
@@ -232,7 +263,8 @@ static gboolean move_entry(const char *src, const char *dest,
     GFile *df = g_file_new_for_path(dest);
 
     gboolean ok = g_file_move(sf, df, G_FILE_COPY_NOFOLLOW_SYMLINKS,
-                              NULL, NULL, NULL, error);
+                              progress ? progress->cancellable : NULL,
+                              NULL, NULL, error);
     g_object_unref(sf);
     g_object_unref(df);
 
@@ -274,8 +306,9 @@ static gboolean transfer_sources(GPtrArray *sources, const char *dest_dir,
                                  FileOpsConflictState *conflict_state,
                                  FileOpsProgressFn progress_fn,
                                  gpointer progress_data,
-                                 FileOpsTransferStats *stats, GError **error) {
-    FileOpsProgressCtx progress = { progress_fn, progress_data };
+                                 FileOpsTransferStats *stats,
+                                 GCancellable *cancellable, GError **error) {
+    FileOpsProgressCtx progress = { progress_fn, progress_data, cancellable };
     if (!sources || sources->len == 0) {
         g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL,
                     is_move ? "이동할 항목이 없습니다." : "복사할 항목이 없습니다.");
@@ -296,6 +329,9 @@ static gboolean transfer_sources(GPtrArray *sources, const char *dest_dir,
     g_mkdir_with_parents(dest_dir, 0755);
 
     for (guint i = 0; i < sources->len; i++) {
+        if (ops_cancelled(&progress, error))
+            return FALSE;
+
         const char *src = g_ptr_array_index(sources, i);
         const char *base = g_path_get_basename(src);
         char *dest = g_build_filename(dest_dir, base, NULL);
@@ -339,9 +375,10 @@ gboolean file_ops_copy_files(GPtrArray *sources,
                              FileOpsProgressFn progress,
                              gpointer user_data,
                              FileOpsTransferStats *stats,
+                             GCancellable *cancellable,
                              GError **error) {
     return transfer_sources(sources, dest_dir, FALSE, parent, conflict_state,
-                            progress, user_data, stats, error);
+                            progress, user_data, stats, cancellable, error);
 }
 
 gboolean file_ops_move_files(GPtrArray *sources,
@@ -351,13 +388,17 @@ gboolean file_ops_move_files(GPtrArray *sources,
                              FileOpsProgressFn progress,
                              gpointer user_data,
                              FileOpsTransferStats *stats,
+                             GCancellable *cancellable,
                              GError **error) {
     return transfer_sources(sources, dest_dir, TRUE, parent, conflict_state,
-                            progress, user_data, stats, error);
+                            progress, user_data, stats, cancellable, error);
 }
 
 static gboolean remove_recursive(const char *path, FileOpsProgressCtx *progress,
                                  GError **error) {
+    if (ops_cancelled(progress, error))
+        return FALSE;
+
     if (!g_file_test(path, G_FILE_TEST_IS_DIR)) {
         report_progress(progress, path);
         if (g_remove(path) != 0 && errno != ENOENT) {
@@ -376,6 +417,10 @@ static gboolean remove_recursive(const char *path, FileOpsProgressCtx *progress,
     gboolean ok = TRUE;
     gboolean any_child = FALSE;
     while ((name = g_dir_read_name(dir)) != NULL) {
+        if (ops_cancelled(progress, error)) {
+            ok = FALSE;
+            break;
+        }
         if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
             continue;
         any_child = TRUE;
@@ -402,9 +447,12 @@ static gboolean remove_recursive(const char *path, FileOpsProgressCtx *progress,
 gboolean file_ops_delete_files(GPtrArray *paths,
                                FileOpsProgressFn progress_fn,
                                gpointer progress_data,
+                               GCancellable *cancellable,
                                GError **error) {
-    FileOpsProgressCtx progress = { progress_fn, progress_data };
+    FileOpsProgressCtx progress = { progress_fn, progress_data, cancellable };
     for (guint i = 0; i < paths->len; i++) {
+        if (ops_cancelled(&progress, error))
+            return FALSE;
         const char *path = g_ptr_array_index(paths, i);
         if (!remove_recursive(path, &progress, error))
             return FALSE;
