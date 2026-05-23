@@ -1,4 +1,5 @@
 using Markdig;
+using Microsoft.Web.WebView2.Core;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -145,91 +146,11 @@ public partial class EasyMDForm : Form
     private void UpdatePreview()
     {
         if (webViewPreview.CoreWebView2 == null) return;
-        string html = InjectHeadingIds(Markdown.ToHtml(txtMarkdown.Text, _pipeline));
-        webViewPreview.NavigateToString(BuildPage(html));
+        webViewPreview.NavigateToString(BuildPreviewHtml());
     }
 
-    private static string InjectHeadingIds(string html)
-    {
-        int headingIndex = 0;
-        return Regex.Replace(
-            html,
-            "<h([1-6])([^>]*)>",
-            m =>
-            {
-                string level = m.Groups[1].Value;
-                string attrs = m.Groups[2].Value;
-                headingIndex++;
-                // Markdig가 이미 id를 생성한 경우가 있어 기존 id를 제거하고
-                // 아웃라인-프리뷰 동기화용 id를 항상 동일 규칙으로 부여한다.
-                attrs = Regex.Replace(attrs, @"\sid\s*=\s*(""[^""]*""|'[^']*')", "", RegexOptions.IgnoreCase);
-                return $"<h{level}{attrs} id=\"outline-heading-{headingIndex}\">";
-            });
-    }
-
-    private static string BuildPage(string body) => $$"""
-        <!DOCTYPE html>
-        <html lang="ko">
-        <head>
-          <meta charset="utf-8">
-          <meta name="color-scheme" content="light">
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body {
-              font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-              font-size: 15px; line-height: 1.75; color: #1f2328;
-              padding: 28px 36px 40px; background: #ffffff;
-              -webkit-font-smoothing: antialiased;
-            }
-            h1,h2,h3,h4,h5,h6 {
-              font-weight: 600; margin: 28px 0 14px; line-height: 1.35;
-              letter-spacing: -0.02em; color: #1f2328;
-            }
-            h1 { font-size: 1.875em; padding-bottom: 0.35em; border-bottom: 1px solid #d8dee4; }
-            h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid #eaeef2; }
-            h3 { font-size: 1.25em; }
-            p { margin: 0 0 16px; }
-            a { color: #0969da; text-decoration: none; font-weight: 500; }
-            a:hover { text-decoration: underline; }
-            code {
-              font-family: "Cascadia Mono", Consolas, monospace;
-              font-size: 0.9em; background: #f6f8fa;
-              padding: 0.15em 0.45em; border-radius: 6px;
-              border: 1px solid #d0d7de;
-            }
-            pre {
-              background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 10px;
-              padding: 18px 20px; overflow-x: auto; margin: 0 0 18px;
-              box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
-            }
-            pre code { background: none; border: none; padding: 0; font-size: 0.875em; }
-            blockquote {
-              border-left: 4px solid #0969da; margin: 0 0 18px;
-              padding: 10px 18px; color: #57606a; background: #f6f8fa;
-              border-radius: 0 8px 8px 0;
-            }
-            ul, ol { margin: 0 0 16px; padding-left: 1.75em; }
-            li { margin: 6px 0; }
-            li::marker { color: #57606a; }
-            table {
-              border-collapse: separate; border-spacing: 0; width: 100%;
-              margin: 0 0 18px; border: 1px solid #d0d7de; border-radius: 10px;
-              overflow: hidden;
-            }
-            th, td { border-bottom: 1px solid #d0d7de; border-right: 1px solid #d0d7de; padding: 10px 14px; }
-            th:last-child, td:last-child { border-right: none; }
-            tr:last-child td { border-bottom: none; }
-            th { background: #f6f8fa; font-weight: 600; text-align: left; }
-            tr:nth-child(even) td { background: #fafbfc; }
-            img { max-width: 100%; border-radius: 8px; box-shadow: 0 1px 3px rgba(27,31,36,0.12); }
-            hr { border: none; border-top: 1px solid #d8dee4; margin: 28px 0; }
-            del { color: #6e7781; }
-            strong { font-weight: 600; }
-          </style>
-        </head>
-        <body>{{body}}</body>
-        </html>
-        """;
+    private string BuildPreviewHtml()
+        => PreviewHtmlBuilder.BuildFullPage(txtMarkdown.Text, _pipeline);
 
     // ─── Outline Sidebar ─────────────────────────────────────────────────────
 
@@ -436,13 +357,24 @@ public partial class EasyMDForm : Form
         if (dlg.ShowDialog() == DialogResult.OK) LoadFile(dlg.FileName);
     }
 
-    private void saveToolStripMenuItem_Click(object sender, EventArgs e)
+    private async void saveToolStripMenuItem_Click(object sender, EventArgs e)
     {
-        if (string.IsNullOrEmpty(_currentFilePath)) SaveAs();
-        else CommitSave(_currentFilePath);
+        if (string.IsNullOrEmpty(_currentFilePath))
+            await SaveAsAsync();
+        else
+            await CommitSaveAsync(_currentFilePath);
     }
 
-    private void saveAsToolStripMenuItem_Click(object sender, EventArgs e) => SaveAs();
+    private async void saveAsToolStripMenuItem_Click(object sender, EventArgs e) => await SaveAsAsync();
+
+    private async void exportHtmlToolStripMenuItem_Click(object sender, EventArgs e)
+        => await SaveExportAsAsync("HTML 문서 (*.html)|*.html", "html", "HTML로 저장");
+
+    private async void exportPdfToolStripMenuItem_Click(object sender, EventArgs e)
+        => await SaveExportAsAsync("PDF 문서 (*.pdf)|*.pdf", "pdf", "PDF로 저장");
+
+    private async void exportWordToolStripMenuItem_Click(object sender, EventArgs e)
+        => await SaveExportAsAsync("Word 문서 (*.docx)|*.docx", "docx", "Word 문서로 저장");
 
     private void exitToolStripMenuItem_Click(object sender, EventArgs e) => Close();
 
@@ -464,26 +396,119 @@ public partial class EasyMDForm : Form
         UpdateOutline();
     }
 
-    private void SaveAs()
+    private async Task SaveAsAsync()
     {
-        using var dlg = new SaveFileDialog
+        using var dlg = CreateSaveDialog(
+            "Markdown 파일 (*.md)|*.md|" +
+            "HTML 문서 (*.html)|*.html|" +
+            "PDF 문서 (*.pdf)|*.pdf|" +
+            "Word 문서 (*.docx)|*.docx|" +
+            "텍스트 파일 (*.txt)|*.txt|" +
+            "모든 파일 (*.*)|*.*",
+            "md",
+            "다른 이름으로 저장");
+        if (dlg.ShowDialog() == DialogResult.OK)
+            await CommitSaveAsync(dlg.FileName);
+    }
+
+    private async Task SaveExportAsAsync(string filter, string defaultExt, string title)
+    {
+        using var dlg = CreateSaveDialog(filter, defaultExt, title);
+        if (dlg.ShowDialog() == DialogResult.OK)
+            await CommitSaveAsync(dlg.FileName);
+    }
+
+    private SaveFileDialog CreateSaveDialog(string filter, string defaultExt, string title) =>
+        new()
         {
-            Filter = "Markdown 파일 (*.md)|*.md|텍스트 파일 (*.txt)|*.txt|모든 파일 (*.*)|*.*",
-            Title = "다른 이름으로 저장",
-            DefaultExt = "md",
+            Filter = filter,
+            Title = title,
+            DefaultExt = defaultExt,
             FileName = string.IsNullOrEmpty(_currentFilePath)
                 ? "새 파일"
                 : Path.GetFileNameWithoutExtension(_currentFilePath)
         };
-        if (dlg.ShowDialog() == DialogResult.OK) CommitSave(dlg.FileName);
+
+    private async Task CommitSaveAsync(string path)
+    {
+        string ext = Path.GetExtension(path).ToLowerInvariant();
+        try
+        {
+            switch (ext)
+            {
+                case ".html":
+                case ".htm":
+                    await File.WriteAllTextAsync(path, BuildPreviewHtml(), Encoding.UTF8);
+                    ShowExportSuccess(path);
+                    return;
+
+                case ".pdf":
+                    if (!await ExportPreviewToPdfAsync(path))
+                        throw new InvalidOperationException("PDF 생성에 실패했습니다.");
+                    ShowExportSuccess(path);
+                    return;
+
+                case ".docx":
+                    MarkdownDocxExporter.ExportPreviewHtml(BuildPreviewHtml(), path);
+                    ShowExportSuccess(path);
+                    return;
+
+                default:
+                    await File.WriteAllTextAsync(path, txtMarkdown.Text, Encoding.UTF8);
+                    _currentFilePath = path;
+                    _isDirty = false;
+                    UpdateTitleBar();
+                    return;
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"파일을 저장하지 못했습니다.\n\n{ex.Message}",
+                "저장 오류",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
     }
 
     private void CommitSave(string path)
+        => CommitSaveAsync(path).GetAwaiter().GetResult();
+
+    private async Task<bool> ExportPreviewToPdfAsync(string path)
     {
-        File.WriteAllText(path, txtMarkdown.Text, Encoding.UTF8);
-        _currentFilePath = path;
-        _isDirty = false;
-        UpdateTitleBar();
+        if (webViewPreview.CoreWebView2 == null)
+            throw new InvalidOperationException("미리보기(WebView2)가 준비되지 않았습니다.");
+
+        string html = BuildPreviewHtml();
+        var navigation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            webViewPreview.CoreWebView2!.NavigationCompleted -= OnNavigationCompleted;
+            navigation.TrySetResult(e.IsSuccess);
+        }
+
+        webViewPreview.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
+        webViewPreview.NavigateToString(html);
+
+        if (!await navigation.Task.ConfigureAwait(true))
+            return false;
+
+        var printSettings = webViewPreview.CoreWebView2.Environment.CreatePrintSettings();
+        printSettings.ShouldPrintBackgrounds = true;
+
+        return await webViewPreview.CoreWebView2
+            .PrintToPdfAsync(path, printSettings)
+            .ConfigureAwait(true);
+    }
+
+    private static void ShowExportSuccess(string path)
+    {
+        MessageBox.Show(
+            $"미리보기와 동일한 내용으로 저장했습니다.\n\n{path}",
+            "저장 완료",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 
     private bool PromptSaveIfDirty()

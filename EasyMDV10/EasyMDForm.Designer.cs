@@ -24,6 +24,10 @@ partial class EasyMDForm
         openToolStripMenuItem = new ToolStripMenuItem();
         saveToolStripMenuItem = new ToolStripMenuItem();
         saveAsToolStripMenuItem = new ToolStripMenuItem();
+        menuSepExport = new ToolStripSeparator();
+        exportHtmlToolStripMenuItem = new ToolStripMenuItem();
+        exportPdfToolStripMenuItem = new ToolStripMenuItem();
+        exportWordToolStripMenuItem = new ToolStripMenuItem();
         menuSep1 = new ToolStripSeparator();
         exitToolStripMenuItem = new ToolStripMenuItem();
         helpToolStripMenuItem = new ToolStripMenuItem();
@@ -98,6 +102,10 @@ partial class EasyMDForm
             openToolStripMenuItem,
             saveToolStripMenuItem,
             saveAsToolStripMenuItem,
+            menuSepExport,
+            exportHtmlToolStripMenuItem,
+            exportPdfToolStripMenuItem,
+            exportWordToolStripMenuItem,
             menuSep1,
             exitToolStripMenuItem
         });
@@ -128,6 +136,24 @@ partial class EasyMDForm
         saveAsToolStripMenuItem.Size = new Size(220, 22);
         saveAsToolStripMenuItem.Text = "다른 이름으로 저장(&A)...";
         saveAsToolStripMenuItem.Click += saveAsToolStripMenuItem_Click;
+
+        menuSepExport.Name = "menuSepExport";
+        menuSepExport.Size = new Size(257, 6);
+
+        exportHtmlToolStripMenuItem.Name = "exportHtmlToolStripMenuItem";
+        exportHtmlToolStripMenuItem.Size = new Size(280, 22);
+        exportHtmlToolStripMenuItem.Text = "미리보기를 HTML로 저장(&H)...";
+        exportHtmlToolStripMenuItem.Click += exportHtmlToolStripMenuItem_Click;
+
+        exportPdfToolStripMenuItem.Name = "exportPdfToolStripMenuItem";
+        exportPdfToolStripMenuItem.Size = new Size(280, 22);
+        exportPdfToolStripMenuItem.Text = "미리보기를 PDF로 저장(&P)...";
+        exportPdfToolStripMenuItem.Click += exportPdfToolStripMenuItem_Click;
+
+        exportWordToolStripMenuItem.Name = "exportWordToolStripMenuItem";
+        exportWordToolStripMenuItem.Size = new Size(280, 22);
+        exportWordToolStripMenuItem.Text = "미리보기를 Word로 저장(&W)...";
+        exportWordToolStripMenuItem.Click += exportWordToolStripMenuItem_Click;
 
         menuSep1.Name = "menuSep1";
         menuSep1.Size = new Size(217, 6);
@@ -453,6 +479,10 @@ partial class EasyMDForm
     private ToolStripMenuItem openToolStripMenuItem;
     private ToolStripMenuItem saveToolStripMenuItem;
     private ToolStripMenuItem saveAsToolStripMenuItem;
+    private ToolStripSeparator menuSepExport;
+    private ToolStripMenuItem exportHtmlToolStripMenuItem;
+    private ToolStripMenuItem exportPdfToolStripMenuItem;
+    private ToolStripMenuItem exportWordToolStripMenuItem;
     private ToolStripSeparator menuSep1;
     private ToolStripMenuItem exitToolStripMenuItem;
     private ToolStripMenuItem helpToolStripMenuItem;

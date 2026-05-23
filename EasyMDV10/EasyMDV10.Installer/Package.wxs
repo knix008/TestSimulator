@@ -100,6 +100,14 @@
         <File Source="$(var.EasyMDV10.TargetDir)Markdig.dll" KeyPath="yes" />
       </Component>
 
+      <Component Id="OpenXml" Guid="A1B2C3D4-E5F6-4A70-8B9C-0D1E2F3A4B5C">
+        <File Source="$(var.EasyMDV10.TargetDir)DocumentFormat.OpenXml.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="OpenXmlFramework" Guid="B2C3D4E5-F6A7-4B81-9C0D-1E2F3A4B5C6D">
+        <File Source="$(var.EasyMDV10.TargetDir)DocumentFormat.OpenXml.Framework.dll" KeyPath="yes" />
+      </Component>
+
       <Component Id="WebView2Core" Guid="12F921E7-C173-4922-A061-A79A8E058A3C">
         <File Source="$(var.EasyMDV10.TargetDir)Microsoft.Web.WebView2.Core.dll" KeyPath="yes" />
       </Component>
