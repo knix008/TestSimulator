@@ -240,18 +240,33 @@ make core-only   # 코어 레이어만 GTK 없이 컴파일
 
 ```text
 EasyMDGTKV10/
-├── main.c              # UI 레이어: 진입점 (CLI 파싱 + UI 부트스트랩)
-├── ui.c / ui.h         # UI 레이어: 메뉴/툴바/3분할 레이아웃 + 앱 아이콘
-├── editor.c / .h       # UI 레이어: 마크다운 삽입 → GtkTextBuffer
-├── preview.c / .h      # UI 레이어: HTML → WebKitWebView
-├── outline.c / .h      # UI 레이어: 헤딩 → GtkTreeStore
-├── fileio.c / .h       # UI 레이어: 파일 다이얼로그
-├── mdcore.c / .h       # CORE: 스니펫 생성 / cmark→HTML / 아웃라인 파서
-├── fileio_core.c / .h  # CORE: 순수 파일 read/write
-├── utils.c / .h        # CORE: 로깅
-├── daemon_hammer.ico   # 앱/창/About 로고 (런타임에 ui.c 가 직접 로드)
-├── easymd.desktop      # GNOME 런처 정의 (install-desktop 의 입력)
-├── Makefile            # install-deps / check-deps / build / core-only / run / install-desktop
+├── source/                  # C 소스 파일
+│   ├── main.c               # UI 레이어: 진입점 (CLI 파싱 + UI 부트스트랩)
+│   ├── ui.c                 # UI 레이어: 메뉴/툴바/3분할 레이아웃 + 앱 아이콘
+│   ├── editor.c             # UI 레이어: 마크다운 삽입 → GtkTextBuffer
+│   ├── preview.c            # UI 레이어: HTML → WebKitWebView
+│   ├── outline.c            # UI 레이어: 헤딩 → GtkTreeStore
+│   ├── fileio.c             # UI 레이어: 파일 다이얼로그
+│   ├── mdcore.c             # CORE: 스니펫 생성 / cmark→HTML / 아웃라인 파서
+│   ├── fileio_core.c        # CORE: 순수 파일 read/write
+│   └── utils.c              # CORE: 로깅
+├── include/                 # 헤더 파일
+│   ├── ui.h
+│   ├── editor.h
+│   ├── preview.h
+│   ├── outline.h
+│   ├── fileio.h
+│   ├── mdcore.h
+│   ├── fileio_core.h
+│   └── utils.h
+├── style/
+│   └── modern.css           # GTK CSS 테마 (런타임 로드)
+├── example/
+│   └── example.md           # 기본 예제 문서 (시작 시 자동 로드)
+├── build/                   # 컴파일 산출물 (자동 생성, git 무시)
+├── daemon_hammer.ico        # 앱/창/About 로고 (런타임에 ui.c 가 직접 로드)
+├── easymd.desktop           # GNOME 런처 정의 (install-desktop 의 입력)
+├── Makefile                 # install-deps / check-deps / build / core-only / run / install-desktop
 ├── README.md
 └── .gitignore
 ```

@@ -38,6 +38,7 @@ out/
 # 3. 디버깅 / 분석
 # ---------------------------------------------------------------------
 *.log
+build.log
 vgcore.*
 core
 core.*
@@ -124,4 +125,8 @@ preview_*.html
 # ---------------------------------------------------------------------
 # - daemon_hammer.ico        : 앱/창/About 로고 (런타임에 직접 로드)
 # - easymd.desktop           : GNOME 런처 정의 (install-desktop 의 입력)
-# - Makefile, *.c, *.h       : 빌드 / 소스
+# - Makefile                 : 빌드 정의
+# - source/*.c               : C 소스 파일
+# - include/*.h              : 헤더 파일
+# - style/modern.css         : GTK CSS 테마
+# - example/example.md       : 기본 예제 문서

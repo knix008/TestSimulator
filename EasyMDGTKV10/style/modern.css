@@ -1,0 +1,309 @@
+/* Modern EasyMD GTK Theme
+ * All colors are explicit so dark system themes (e.g. Yaru-dark) do not
+ * bleed white text onto the app's light backgrounds. */
+
+/* ── Window & global defaults ─────────────────────────────────────── */
+window.modern-window {
+    background-color: #f7f7fa;
+    color: #23232b;
+}
+
+window.modern-window * {
+    color: #23232b;
+}
+
+/* ── Header bar (title bar) — dark to match Yaru-dark ────────────── */
+headerbar {
+    background-color: #222222;
+    color: #f7f7f7;
+    border-bottom: 1px solid #111111;
+}
+
+headerbar label,
+headerbar .title,
+headerbar .subtitle,
+headerbar > label,
+headerbar > box > label {
+    color: #f7f7f7;
+}
+
+headerbar .title {
+    font-weight: bold;
+    color: #f7f7f7;
+}
+
+headerbar .subtitle {
+    font-size: smaller;
+    color: #bbbbbb;
+}
+
+headerbar button,
+headerbar button label,
+headerbar button image {
+    color: #f7f7f7;
+}
+
+/* ── Main window titlebuttons (min/max/close) ─────────────────────── */
+headerbar button.titlebutton,
+headerbar button.close,
+headerbar button.minimize,
+headerbar button.maximize {
+    background-color: transparent;
+    color: #f7f7f7;
+    border: none;
+    box-shadow: none;
+    -gtk-icon-shadow: none;
+}
+
+headerbar button.titlebutton label,
+headerbar button.close label,
+headerbar button.minimize label,
+headerbar button.maximize label {
+    color: #f7f7f7;
+}
+
+headerbar button.titlebutton:hover,
+headerbar button.minimize:hover,
+headerbar button.maximize:hover {
+    background-color: rgba(255,255,255,0.15);
+}
+
+headerbar button.close:hover {
+    background-color: rgba(200,50,50,0.5);
+}
+
+/* ── Menu bar & menus ─────────────────────────────────────────────── */
+menubar {
+    background-color: #ededf4;
+    color: #23232b;
+}
+
+menubar > menuitem {
+    color: #23232b;
+}
+
+menubar > menuitem:hover {
+    background-color: #d0d0e8;
+    color: #23232b;
+}
+
+menu {
+    background-color: #f4f4fb;
+    color: #23232b;
+    border: 1px solid #d0d0e0;
+}
+
+menuitem {
+    color: #23232b;
+}
+
+menuitem:hover,
+menuitem:selected {
+    background-color: #d5d5ee;
+    color: #23232b;
+}
+
+menuitem accelerator {
+    color: #666680;
+}
+
+menuitem:disabled {
+    color: #a0a0b8;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────── */
+toolbar {
+    background-color: #ededf4;
+    color: #23232b;
+    border-bottom: 1px solid #d0d0e0;
+}
+
+toolbar button {
+    background-color: transparent;
+    color: #23232b;
+    border: none;
+    box-shadow: none;
+}
+
+toolbar button:hover {
+    background-color: #d5d5ee;
+}
+
+toolbar button:active {
+    background-color: #c0c0e0;
+}
+
+toolbar label {
+    color: #23232b;
+}
+
+/* ── Editor (GtkTextView) — dark mode ────────────────────────────── */
+#modern-editor,
+#modern-editor text {
+    font-family: "Fira Mono", "D2Coding", "Menlo", "Consolas", monospace;
+    font-size: 14px;
+    background-color: #1a1a2e;
+    color: #e8e8f0;
+}
+
+#modern-editor {
+    border-radius: 8px;
+    border: 1px solid #3a3a5c;
+}
+
+#modern-editor text selection {
+    background-color: #4444aa;
+    color: #ffffff;
+}
+
+/* ── Preview (WebKitWebView) ──────────────────────────────────────── */
+#modern-preview {
+    background-color: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #e0e0ef;
+}
+
+/* ── Outline panel (GtkTreeView) ──────────────────────────────────── */
+#outline-treeview {
+    background-color: #f5f7fa;
+    color: #23232b;
+    border-radius: 8px;
+    font-family: "Noto Sans", "Malgun Gothic", "Arial", sans-serif;
+    font-size: 12px;
+}
+
+#outline-treeview row {
+    background-color: #f5f7fa;
+    color: #23232b;
+}
+
+#outline-treeview row:nth-child(even) {
+    background-color: #e9eaf3;
+}
+
+#outline-treeview row:selected {
+    background-color: #5b5bdc;
+    color: #ffffff;
+}
+
+#outline-treeview row:hover {
+    background-color: #ddddf5;
+}
+
+/* ── Status bar ───────────────────────────────────────────────────── */
+#modern-statusbar {
+    background-color: #e9e9f3;
+    color: #444;
+    border-top: 1px solid #d0d0e0;
+    font-size: 12px;
+}
+
+/* ── Labels & buttons (general) ──────────────────────────────────── */
+label {
+    color: #23232b;
+}
+
+button label {
+    color: #23232b;
+}
+
+/* ── Dialogs & file chooser ───────────────────────────────────────── */
+dialog,
+dialog > box,
+dialog > box > box,
+messagedialog,
+filechooser {
+    background-color: #f4f4fb;
+    color: #23232b;
+}
+
+dialog *,
+messagedialog *,
+filechooser * {
+    color: #23232b;
+}
+
+dialog label,
+messagedialog label,
+filechooser label {
+    color: #23232b;
+}
+
+dialog button,
+messagedialog button,
+filechooser button {
+    background-color: #e8e8f4;
+    color: #23232b;
+    border: 1px solid #c0c0d8;
+}
+
+dialog button:hover,
+messagedialog button:hover,
+filechooser button:hover {
+    background-color: #d5d5ee;
+}
+
+dialog button.suggested-action {
+    background-color: #5b5bdc;
+    color: #ffffff;
+    border-color: #4444bb;
+}
+
+dialog button.suggested-action:hover {
+    background-color: #4444cc;
+}
+
+dialog button.destructive-action {
+    background-color: #cc3333;
+    color: #ffffff;
+    border-color: #aa2222;
+}
+
+dialog entry,
+filechooser entry {
+    background-color: #ffffff;
+    color: #23232b;
+    border: 1px solid #c0c0d8;
+}
+
+/* File chooser internal widgets */
+filechooser treeview,
+filechooser treeview row,
+dialog treeview,
+dialog treeview row {
+    background-color: #f8f8ff;
+    color: #23232b;
+}
+
+filechooser treeview row:selected,
+dialog treeview row:selected {
+    background-color: #5b5bdc;
+    color: #ffffff;
+}
+
+filechooser .sidebar,
+filechooser .sidebar row {
+    background-color: #ededf8;
+    color: #23232b;
+}
+
+filechooser .sidebar row:selected {
+    background-color: #5b5bdc;
+    color: #ffffff;
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────────── */
+scrollbar {
+    background-color: #ececf4;
+}
+
+scrollbar slider {
+    background-color: #b0b0cc;
+    border-radius: 4px;
+    min-width: 6px;
+    min-height: 6px;
+}
+
+scrollbar slider:hover {
+    background-color: #8888bb;
+}

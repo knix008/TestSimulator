@@ -48,9 +48,21 @@ WEBKIT_PC = $(shell pkg-config --exists webkit2gtk-4.1 && echo webkit2gtk-4.1 \
 PKGS       = gtk+-3.0 $(WEBKIT_PC) libcmark
 
 ifeq ($(UNAME_S),Linux)
+    # GtkPrinter / gtk_enumerate_printers (PDF export to file)
+    PKGS      += gtk+-unix-print-3.0
     PLATFORM   = linux
 else ifeq ($(UNAME_S),Darwin)
     PLATFORM   = macos
+    # Homebrew는 /opt/homebrew(Apple Silicon) 또는 /usr/local(Intel)에 설치됩니다.
+    # pkg-config가 Homebrew 라이브러리를 찾을 수 있도록 PKG_CONFIG_PATH를 설정합니다.
+    BREW_PREFIX := $(shell brew --prefix 2>/dev/null || echo /usr/local)
+    export PKG_CONFIG_PATH := \
+        $(BREW_PREFIX)/lib/pkgconfig:\
+        $(BREW_PREFIX)/opt/gtk+3/lib/pkgconfig:\
+        $(BREW_PREFIX)/opt/webkitgtk/lib/pkgconfig:\
+        $(BREW_PREFIX)/opt/webkitgtk@4.1/lib/pkgconfig:\
+        $(BREW_PREFIX)/opt/cmark/lib/pkgconfig:\
+        $(PKG_CONFIG_PATH)
 else
 $(error Unsupported OS: $(UNAME_S). Supported: Linux, macOS)
 endif
@@ -58,7 +70,7 @@ endif
 # 컴파일/링크 플래그도 `=` 로 두어 명령어 시점에 pkg-config 가 다시 호출되게
 # 합니다. (자동 설치 직후의 컴파일에서도 유효한 -I/-l 플래그를 받기 위함)
 GTK_CFLAGS = $(shell pkg-config --cflags $(PKGS))
-GTK_LIBS   = $(shell pkg-config --libs   $(PKGS))
+GTK_LIBS   = $(shell pkg-config --libs   $(PKGS)) -lz
 
 # Sources are split into two layers:
 #
@@ -66,15 +78,18 @@ GTK_LIBS   = $(shell pkg-config --libs   $(PKGS))
 #   * UI layer    (GTK + WebKit2)
 #
 # Keeping them visible in the Makefile makes the build dependency clear.
-CORE_SOURCES = mdcore.c fileio_core.c utils.c
-UI_SOURCES   = main.c ui.c editor.c preview.c outline.c fileio.c
 
-CORE_HEADERS = mdcore.h fileio_core.h utils.h
-UI_HEADERS   = ui.h editor.h preview.h outline.h fileio.h
+# Update for new directory structure
+CORE_SOURCES = source/mdcore.c source/fileio_core.c source/utils.c
+UI_SOURCES   = source/main.c source/ui.c source/editor.c source/preview.c source/outline.c source/fileio.c
 
-SOURCES = $(CORE_SOURCES) $(UI_SOURCES)
-HEADERS = $(CORE_HEADERS) $(UI_HEADERS)
-OBJECTS = $(SOURCES:.c=.o)
+CORE_HEADERS = include/mdcore.h include/fileio_core.h include/utils.h
+UI_HEADERS   = include/ui.h include/editor.h include/preview.h include/outline.h include/fileio.h
+
+SOURCES  = $(CORE_SOURCES) $(UI_SOURCES)
+HEADERS  = $(CORE_HEADERS) $(UI_HEADERS)
+BUILDDIR = build
+OBJECTS  = $(patsubst source/%.c,$(BUILDDIR)/%.o,$(SOURCES))
 
 # ---------------------------------------------------------------------
 # 1. 빌드 (compile + link)
@@ -97,10 +112,15 @@ all: _assert-deps $(TARGET)
 _assert-deps:
 	@missing=""; \
 	pkg-config --exists gtk+-3.0     2>/dev/null || missing="$$missing libgtk-3-dev"; \
+	pkg-config --exists gtk+-unix-print-3.0 2>/dev/null || missing="$$missing libgtk-3-dev"; \
 	pkg-config --exists libcmark     2>/dev/null || missing="$$missing libcmark-dev"; \
 	if ! pkg-config --exists webkit2gtk-4.1 2>/dev/null \
 	   && ! pkg-config --exists webkit2gtk-4.0 2>/dev/null; then \
 	    missing="$$missing libwebkit2gtk-4.1-dev"; \
+	fi; \
+	if command -v fc-list > /dev/null 2>&1; then \
+	    fc-list | grep -qi "Fira"     || missing="$$missing fonts-firacode"; \
+	    fc-list | grep -qi "Noto Sans" || missing="$$missing fonts-noto"; \
 	fi; \
 	if [ -n "$$missing" ]; then \
 	    echo ""; \
@@ -129,9 +149,12 @@ $(TARGET): $(OBJECTS)
 	@$(CC) $(OBJECTS) -o $(TARGET) $(GTK_LIBS)
 	@echo "Build complete for $(PLATFORM) ($(WEBKIT_PC))"
 
-%.o: %.c $(HEADERS)
+$(BUILDDIR)/%.o: source/%.c $(HEADERS) | $(BUILDDIR)
 	@echo "[ CC ] $<"
-	@$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) $(GTK_CFLAGS) -Iinclude -c $< -o $@
+
+$(BUILDDIR):
+	@mkdir -p $(BUILDDIR)
 
 # ---------------------------------------------------------------------
 # 2. 의존성 설치 (install-deps) + 원클릭 설정 (setup)
@@ -160,14 +183,18 @@ install-deps:
 ifeq ($(UNAME_S),Linux)
 	@# (a) 누락된 패키지 식별 — 패키지 매니저가 동일한 라이브러리에 대해
 	@#     쓰는 이름이 서로 달라, 검사 결과를 매니저별로 가공합니다.
-	@need_gtk=0; need_cmark=0; need_webkit=0; \
+	@need_gtk=0; need_cmark=0; need_webkit=0; need_fira=0; need_noto=0; \
 	pkg-config --exists gtk+-3.0     2>/dev/null || need_gtk=1; \
 	pkg-config --exists libcmark     2>/dev/null || need_cmark=1; \
 	if ! pkg-config --exists webkit2gtk-4.1 2>/dev/null \
 	   && ! pkg-config --exists webkit2gtk-4.0 2>/dev/null; then need_webkit=1; fi; \
-	echo "    detected:  GTK+3=$$( [ $$need_gtk -eq 0 ] && echo OK || echo MISSING )" \
+	fc-list 2>/dev/null | grep -qi "Fira"     || need_fira=1; \
+	fc-list 2>/dev/null | grep -qi "Noto Sans" || need_noto=1; \
+	echo "    detected:  GTK+3=$$( [ $$need_gtk -eq 0 ]    && echo OK || echo MISSING )" \
 	     " WebKit2=$$( [ $$need_webkit -eq 0 ] && echo OK || echo MISSING )" \
-	     " cmark=$$( [ $$need_cmark -eq 0 ] && echo OK || echo MISSING )"; \
+	     " cmark=$$( [ $$need_cmark -eq 0 ]   && echo OK || echo MISSING )" \
+	     " FiraCode=$$( [ $$need_fira -eq 0 ] && echo OK || echo MISSING )" \
+	     " NotoSans=$$( [ $$need_noto -eq 0 ] && echo OK || echo MISSING )"; \
 	\
 	if command -v apt-get > /dev/null; then \
 	    echo "    using: apt-get"; \
@@ -175,6 +202,8 @@ ifeq ($(UNAME_S),Linux)
 	    [ $$need_gtk    -ne 0 ] && pkgs="$$pkgs libgtk-3-dev"; \
 	    [ $$need_cmark  -ne 0 ] && pkgs="$$pkgs libcmark-dev"; \
 	    [ $$need_webkit -ne 0 ] && pkgs="$$pkgs libwebkit2gtk-4.1-dev"; \
+	    [ $$need_fira   -ne 0 ] && pkgs="$$pkgs fonts-firacode"; \
+	    [ $$need_noto   -ne 0 ] && pkgs="$$pkgs fonts-noto-core fonts-noto-cjk"; \
 	    sudo apt-get update; \
 	    sudo apt-get install -y $$pkgs \
 	    || ( [ $$need_webkit -ne 0 ] && \
@@ -187,6 +216,8 @@ ifeq ($(UNAME_S),Linux)
 	    [ $$need_gtk    -ne 0 ] && pkgs="$$pkgs gtk3-devel"; \
 	    [ $$need_cmark  -ne 0 ] && pkgs="$$pkgs cmark-devel"; \
 	    [ $$need_webkit -ne 0 ] && pkgs="$$pkgs webkit2gtk4.1-devel"; \
+	    [ $$need_fira   -ne 0 ] && pkgs="$$pkgs fira-code-fonts"; \
+	    [ $$need_noto   -ne 0 ] && pkgs="$$pkgs google-noto-sans-fonts google-noto-sans-cjk-fonts"; \
 	    sudo dnf install -y $$pkgs; \
 	elif command -v pacman > /dev/null; then \
 	    echo "    using: pacman"; \
@@ -194,18 +225,50 @@ ifeq ($(UNAME_S),Linux)
 	    [ $$need_gtk    -ne 0 ] && pkgs="$$pkgs gtk3"; \
 	    [ $$need_cmark  -ne 0 ] && pkgs="$$pkgs cmark"; \
 	    [ $$need_webkit -ne 0 ] && pkgs="$$pkgs webkit2gtk-4.1"; \
+	    [ $$need_fira   -ne 0 ] && pkgs="$$pkgs ttf-fira-code"; \
+	    [ $$need_noto   -ne 0 ] && pkgs="$$pkgs noto-fonts noto-fonts-cjk"; \
 	    sudo pacman -S --needed $$pkgs; \
 	else \
 	    echo "    !! 지원하지 않는 패키지 매니저입니다. README 참고하여 수동 설치 부탁드립니다."; \
 	    exit 1; \
 	fi
 else ifeq ($(UNAME_S),Darwin)
-	@if command -v brew > /dev/null; then \
-	    echo "    using: Homebrew"; \
-	    brew install pkg-config gtk+3 webkit2gtk cmark ; \
-	else \
-	    echo "    Homebrew 를 먼저 설치하세요: https://brew.sh/"; \
+	@# ── macOS: Homebrew 필수 ───────────────────────────────────────
+	@if ! command -v brew > /dev/null; then \
+	    echo "    !! Homebrew 가 필요합니다: https://brew.sh/"; \
 	    exit 1; \
+	fi
+	@BREW_PREFIX=$$(brew --prefix); \
+	export PKG_CONFIG_PATH="$$BREW_PREFIX/lib/pkgconfig:$$BREW_PREFIX/opt/gtk+3/lib/pkgconfig:$$BREW_PREFIX/opt/webkitgtk/lib/pkgconfig:$$BREW_PREFIX/opt/webkitgtk@4.1/lib/pkgconfig:$$BREW_PREFIX/opt/cmark/lib/pkgconfig:$$PKG_CONFIG_PATH"; \
+	need_gtk=0; need_cmark=0; need_webkit=0; need_fira=0; \
+	pkg-config --exists gtk+-3.0 2>/dev/null || need_gtk=1; \
+	pkg-config --exists libcmark 2>/dev/null || need_cmark=1; \
+	if ! pkg-config --exists webkit2gtk-4.1 2>/dev/null \
+	   && ! pkg-config --exists webkit2gtk-4.0 2>/dev/null; then need_webkit=1; fi; \
+	command -v fc-list > /dev/null 2>&1 \
+	    && { fc-list | grep -qi "Fira" || need_fira=1; } \
+	    || need_fira=1; \
+	echo "    detected:  GTK+3=$$( [ $$need_gtk -eq 0 ] && echo OK || echo MISSING )" \
+	     " WebKit2=$$( [ $$need_webkit -eq 0 ] && echo OK || echo MISSING )" \
+	     " cmark=$$( [ $$need_cmark -eq 0 ] && echo OK || echo MISSING )" \
+	     " FiraCode=$$( [ $$need_fira -eq 0 ] && echo OK || echo MISSING )"; \
+	echo "    using: Homebrew"; \
+	pkgs="pkg-config"; \
+	[ $$need_gtk    -ne 0 ] && pkgs="$$pkgs gtk+3"; \
+	[ $$need_cmark  -ne 0 ] && pkgs="$$pkgs cmark"; \
+	[ $$need_webkit -ne 0 ] && pkgs="$$pkgs webkitgtk"; \
+	if [ "$$pkgs" != "pkg-config" ]; then \
+	    brew install $$pkgs \
+	    || { [ $$need_webkit -ne 0 ] \
+	         && echo "    webkitgtk 실패 → webkitgtk@4.0 재시도..." \
+	         && brew install $$(echo $$pkgs | sed 's/webkitgtk/webkitgtk@4.0/'); }; \
+	fi; \
+	if [ $$need_fira -ne 0 ]; then \
+	    echo "    Fira Code 폰트 설치 (Homebrew Cask)..."; \
+	    brew install --cask font-fira-code 2>/dev/null \
+	    || { brew tap homebrew/cask-fonts 2>/dev/null \
+	         && brew install --cask font-fira-code 2>/dev/null; } \
+	    || echo "  [!] Fira Code 자동 설치 실패 → 수동: brew install --cask font-fira-code"; \
 	fi
 endif
 	@echo ""
@@ -231,6 +294,20 @@ check-deps:
 	@echo "  [O] gtk+-3.0     $(shell pkg-config --modversion gtk+-3.0)"
 	@echo "  [O] $(WEBKIT_PC)  $(shell pkg-config --modversion $(WEBKIT_PC))"
 	@echo "  [O] libcmark     $(shell pkg-config --modversion libcmark)"
+	@if command -v fc-list > /dev/null 2>&1; then \
+		if fc-list | grep -qi "Fira"; then \
+			echo "  [O] Fira Code    (설치됨)"; \
+		else \
+			echo "  [!] Fira Code    미설치 (권장) → 'make install-deps'"; \
+		fi; \
+		if fc-list | grep -qi "Noto Sans"; then \
+			echo "  [O] Noto Sans    (설치됨)"; \
+		else \
+			echo "  [!] Noto Sans    미설치 (권장) → 'make install-deps'"; \
+		fi; \
+	else \
+		echo "  [?] 폰트 확인 불가 (fc-list 없음 — fontconfig 미설치)"; \
+	fi
 	@echo "==> All dependencies satisfied."
 
 # ---------------------------------------------------------------------
@@ -294,12 +371,12 @@ endif
 .PHONY: clean distclean
 clean:
 	@echo "[ CLEAN ] Removing build artifacts..."
-	@rm -f $(OBJECTS) $(TARGET)
+	@rm -rf $(BUILDDIR)/ $(TARGET)
 	@echo "Clean complete"
 
 distclean: clean
 	@echo "[ CLEAN ] Removing all generated files..."
-	@rm -rf build/ .deps/
+	@rm -rf .deps/
 	@echo "Distribution clean complete"
 
 # ---------------------------------------------------------------------
@@ -311,7 +388,7 @@ debug: clean all
 
 # core-only 는 GTK 비의존 코어 레이어만 컴파일해서 분리가 실제로 유지되고
 # 있는지(코어 파일이 GTK 헤더를 끌어오지 않는지) 검증합니다.
-CORE_OBJECTS = $(CORE_SOURCES:.c=.o)
+CORE_OBJECTS = $(patsubst source/%.c,$(BUILDDIR)/%.o,$(CORE_SOURCES))
 CORE_PKGS    = glib-2.0 libcmark
 core-only:
 	@echo "==> Building core layer only (no GTK)..."

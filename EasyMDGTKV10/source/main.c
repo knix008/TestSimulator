@@ -43,6 +43,27 @@ static void easymd_quiet_software_rendering(void) {
     g_setenv("MESA_LOADER_DRIVER_OVERRIDE",     "swrast", FALSE);
 }
 
+/* Search for example/example.md relative to the executable and cwd.
+ * Returns a newly-allocated path string, or NULL if not found. */
+static gchar *find_example_doc(const char *argv0) {
+    /* 1. Current working directory (matches "make run" from project root). */
+    if (g_file_test("example/example.md", G_FILE_TEST_IS_REGULAR))
+        return g_strdup("example/example.md");
+
+    /* 2. Beside the executable (covers installed / out-of-tree builds). */
+    gchar *resolved = argv0 ? g_find_program_in_path(argv0) : NULL;
+    gchar *exe_dir  = g_path_get_dirname(resolved ? resolved : (argv0 ? argv0 : "."));
+    gchar *path     = g_build_filename(exe_dir, "example", "example.md", NULL);
+    g_free(exe_dir);
+    g_free(resolved);
+
+    if (g_file_test(path, G_FILE_TEST_IS_REGULAR))
+        return path;
+
+    g_free(path);
+    return NULL;
+}
+
 static void print_usage(const char *prog) {
     printf("%s v%s\n", APP_NAME, APP_VERSION);
     printf("Usage: %s [OPTIONS] [FILE.md]\n\n", prog);
@@ -97,6 +118,13 @@ int main(int argc, char *argv[]) {
     if (file_arg) {
         utils_log_info("Loading file from CLI: %s", file_arg);
         ui_load_file(ctx, file_arg);
+    } else {
+        gchar *example = find_example_doc(argv[0]);
+        if (example) {
+            utils_log_info("Loading default example: %s", example);
+            ui_load_file(ctx, example);
+            g_free(example);
+        }
     }
 
     ui_run(ctx);

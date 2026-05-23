@@ -67,7 +67,7 @@ void preview_init(WebKitWebView *view) {
     webkit_web_view_load_html(view,
         "<html><body style='font-family:sans-serif;color:#888;padding:24px;'>"
         "<em>편집기 내용이 여기에 미리보기로 표시됩니다.</em>"
-        "</body></html>", NULL);
+        "</body></html>", "about:blank");
 }
 
 void preview_update(WebKitWebView *view,

@@ -19,7 +19,9 @@
 #include "ui.h"
 
 #include <gtk/gtk.h>
+#include <gtk/gtkunixprint.h>
 #include <webkit2/webkit2.h>
+#include <errno.h>
 #include <string.h>
 
 #include "editor.h"
@@ -67,13 +69,29 @@ static void update_title(UIContext *ctx);
 static void set_modified(UIContext *ctx, gboolean modified);
 static void status_set(UIContext *ctx, const char *msg);
 
+
+/* Split inner paned 50/50 on first size allocation, then disconnect. */
+static void on_inner_paned_size_allocate(GtkWidget *paned,
+                                         GdkRectangle *alloc,
+                                         gpointer ud) {
+    (void)ud;
+    if (alloc->width > 1) {
+        gtk_paned_set_position(GTK_PANED(paned), alloc->width / 2);
+        g_signal_handlers_disconnect_by_func(paned,
+            G_CALLBACK(on_inner_paned_size_allocate), ud);
+    }
+}
+
 /* Menu / toolbar callbacks */
-static void on_new_file   (GtkWidget *w, gpointer ud);
-static void on_open_file  (GtkWidget *w, gpointer ud);
-static void on_save_file  (GtkWidget *w, gpointer ud);
-static void on_save_as    (GtkWidget *w, gpointer ud);
-static void on_quit       (GtkWidget *w, gpointer ud);
-static void on_about      (GtkWidget *w, gpointer ud);
+static void on_new_file     (GtkWidget *w, gpointer ud);
+static void on_open_file    (GtkWidget *w, gpointer ud);
+static void on_save_file    (GtkWidget *w, gpointer ud);
+static void on_save_as      (GtkWidget *w, gpointer ud);
+static void on_export_html  (GtkWidget *w, gpointer ud);
+static void on_export_word  (GtkWidget *w, gpointer ud);
+static void on_export_pdf   (GtkWidget *w, gpointer ud);
+static void on_quit         (GtkWidget *w, gpointer ud);
+static void on_about        (GtkWidget *w, gpointer ud);
 
 static void on_cut        (GtkWidget *w, gpointer ud);
 static void on_copy       (GtkWidget *w, gpointer ud);
@@ -130,15 +148,12 @@ static void update_title(UIContext *ctx) {
                         : NULL;
     fname = fname ? fname + 1 : (ctx->current_path ? ctx->current_path : "untitled.md");
 
-    gchar *title = g_strdup_printf("%s%s — %s",
+    gchar *title = g_strdup_printf("EasyMD - %s%s",
                                    ctx->modified ? "● " : "",
-                                   fname, APP_NAME);
+                                   fname);
     gtk_window_set_title(GTK_WINDOW(ctx->window), title);
-    if (ctx->header_bar) {
-        gtk_header_bar_set_title(GTK_HEADER_BAR(ctx->header_bar), fname);
-        gtk_header_bar_set_subtitle(GTK_HEADER_BAR(ctx->header_bar),
-                                    ctx->modified ? "수정됨" : "저장됨");
-    }
+    if (ctx->header_bar)
+        gtk_header_bar_set_title(GTK_HEADER_BAR(ctx->header_bar), title);
     g_free(title);
 }
 
@@ -218,6 +233,7 @@ static gboolean confirm_discard_changes(UIContext *ctx) {
                            "버리기",     GTK_RESPONSE_REJECT,
                            "저장",       GTK_RESPONSE_ACCEPT,
                            NULL);
+    utils_apply_dialog_css(dlg);
     gint resp = gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
 
@@ -241,6 +257,7 @@ static void load_path(UIContext *ctx, const char *path) {
             GTK_DIALOG_MODAL,
             GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
             "파일을 열 수 없습니다:\n%s", err ? err->message : path);
+        utils_apply_dialog_css(m);
         gtk_dialog_run(GTK_DIALOG(m));
         gtk_widget_destroy(m);
         if (err) g_error_free(err);
@@ -301,8 +318,12 @@ static gboolean save_to(UIContext *ctx, const char *path) {
         GtkWidget *m = gtk_message_dialog_new(
             GTK_WINDOW(ctx->window),
             GTK_DIALOG_MODAL,
-            GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
-            "저장 실패:\n%s", err ? err->message : path);
+            GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
+            "저장에 실패했습니다.");
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(m), "%s",
+            err ? err->message : path);
+        utils_apply_dialog_css(m);
         gtk_dialog_run(GTK_DIALOG(m));
         gtk_widget_destroy(m);
         if (err) g_error_free(err);
@@ -314,6 +335,19 @@ static gboolean save_to(UIContext *ctx, const char *path) {
     }
     set_modified(ctx, FALSE);
     update_title(ctx);
+    {
+        GtkWidget *m = gtk_message_dialog_new(
+            GTK_WINDOW(ctx->window),
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
+            "파일을 저장했습니다.");
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(m), "%s", path);
+        utils_apply_dialog_css(m);
+        gtk_dialog_run(GTK_DIALOG(m));
+        gtk_widget_destroy(m);
+    }
+    status_set(ctx, "저장했습니다.");
     return TRUE;
 }
 
@@ -335,6 +369,420 @@ static void on_save_as(GtkWidget *w, gpointer ud) {
         save_to(ctx, path);
         g_free(path);
     }
+}
+
+/* ── helper: strip extension from basename and return new name ─────── */
+static gchar *change_ext(const gchar *path, const gchar *new_ext) {
+    gchar *base  = path ? g_path_get_basename(path) : g_strdup("untitled");
+    gchar *dot   = strrchr(base, '.');
+    if (dot) *dot = '\0';
+    gchar *result = g_strconcat(base, new_ext, NULL);
+    g_free(base);
+    return result;
+}
+
+/* Ensure path ends with `ext` (case-insensitive). Caller owns return value. */
+static gchar *ensure_extension(const gchar *path, const gchar *ext) {
+    if (utils_str_has_suffix_ci(path, ext))
+        return g_strdup(path);
+    return g_strconcat(path, ext, NULL);
+}
+
+static void show_export_result(UIContext *ctx,
+                               gboolean success,
+                               const gchar *label,
+                               const gchar *path,
+                               GError *err) {
+    GtkWidget *m;
+    if (success) {
+        m = gtk_message_dialog_new(
+            GTK_WINDOW(ctx->window),
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
+            "%s보내기가 완료되었습니다.", label);
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(m), "%s", path);
+        gchar *status = g_strdup_printf("%s 파일로보냈습니다.", label);
+        status_set(ctx, status);
+        g_free(status);
+    } else {
+        m = gtk_message_dialog_new(
+            GTK_WINDOW(ctx->window),
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
+            "%s보내기에 실패했습니다.", label);
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(m), "%s",
+            err ? err->message : path);
+    }
+    utils_apply_dialog_css(m);
+    gtk_dialog_run(GTK_DIALOG(m));
+    gtk_widget_destroy(m);
+}
+
+typedef gboolean (*ExportFn)(const gchar *, const gchar *, GError **);
+
+static void run_markdown_export(UIContext *ctx,
+                                const gchar *dialog_title,
+                                const gchar *default_ext,
+                                const gchar *label,
+                                ExportFn export_fn) {
+    gchar *def_name = change_ext(ctx->current_path, default_ext);
+    gchar *start_dir = ctx->current_path
+                       ? g_path_get_dirname(ctx->current_path) : NULL;
+    gchar *out = NULL;
+    gboolean chosen = fileio_save_as_dialog(
+        GTK_WINDOW(ctx->window),
+        dialog_title,
+        def_name,
+        start_dir,
+        &out);
+    g_free(def_name);
+    g_free(start_dir);
+    if (!chosen) return;
+
+    gchar *path = ensure_extension(out, default_ext);
+    g_free(out);
+
+    gchar *md = get_buffer_text(ctx->editor_buffer);
+    GError *err = NULL;
+    gboolean ok = export_fn(path, md, &err);
+    show_export_result(ctx, ok, label, path, err);
+    g_clear_error(&err);
+    g_free(md);
+    g_free(path);
+}
+
+static void on_export_html(GtkWidget *w, gpointer ud) {
+    (void)w;
+    run_markdown_export(ud, "HTML로보내기", ".html", "HTML",
+                        fileio_export_html);
+}
+
+static void on_export_word(GtkWidget *w, gpointer ud) {
+    (void)w;
+    run_markdown_export(ud, "Word로보내기", ".docx", "Word",
+                        fileio_export_word);
+}
+
+/* PDF export — embedded WebKit preview only (no external browser). */
+typedef struct {
+    UIContext            *ctx;
+    gchar                *path;
+    WebKitPrintOperation *po;
+    GtkPrintSettings     *ps;
+    GtkPageSetup         *setup;
+    gboolean              failed;
+    gboolean              use_dialog;
+    gboolean              started;
+    gboolean              result_shown;
+    gulong                load_handler_id;
+    guint                 print_timeout_id;
+} PdfExportCtx;
+
+static gboolean pdf_backend_is_file(const char *backend_name) {
+    return !g_strcmp0(backend_name, "GtkPrintBackendFile") ||
+           !g_strcmp0(backend_name, "GtkPrintBackendFileBuiltin");
+}
+
+typedef struct { gchar *name; } FindFilePrinterData;
+
+static gboolean find_file_printer_cb(GtkPrinter *printer, gpointer user_data) {
+    FindFilePrinterData *d = user_data;
+    const char *backend = G_OBJECT_TYPE_NAME(gtk_printer_get_backend(printer));
+    if (pdf_backend_is_file(backend) && gtk_printer_accepts_pdf(printer)) {
+        /* GtkPrinter from gtk_enumerate_printers is valid only in this callback. */
+        d->name = g_strdup(gtk_printer_get_name(printer));
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/* Only the GTK "print to file" backend writes to OUTPUT_URI for silent export.
+ * Returns a newly allocated printer name, or NULL. */
+static gchar *find_file_printer_name(void) {
+    FindFilePrinterData d = { NULL };
+    gtk_enumerate_printers(find_file_printer_cb, &d, NULL, TRUE);
+    return d.name;
+}
+
+static gchar *pdf_absolute_path(const gchar *path) {
+    gchar *full = NULL;
+    if (g_path_is_absolute(path)) {
+        full = g_strdup(path);
+    } else {
+        gchar *cwd = g_get_current_dir();
+        full = g_build_filename(cwd, path, NULL);
+        g_free(cwd);
+    }
+    gchar *abs = g_canonicalize_filename(full, NULL);
+    g_free(full);
+    return abs ? abs : g_strdup(path);
+}
+
+static void pdf_export_sync_path_from_settings(PdfExportCtx *px) {
+    GtkPrintSettings *s;
+    const gchar      *uri;
+
+    if (!px->po) return;
+    s = webkit_print_operation_get_print_settings(px->po);
+    if (!s) return;
+    uri = gtk_print_settings_get(s, GTK_PRINT_SETTINGS_OUTPUT_URI);
+    if (!uri || !*uri) return;
+
+    GError *err = NULL;
+    gchar *p = g_filename_from_uri(uri, NULL, &err);
+    if (p) {
+        g_free(px->path);
+        px->path = p;
+    }
+    g_clear_error(&err);
+}
+
+static gboolean pdf_export_ensure_parent_dir(const gchar *path, GError **error) {
+    gchar *dir = g_path_get_dirname(path);
+    if (g_file_test(dir, G_FILE_TEST_IS_DIR)) {
+        g_free(dir);
+        return TRUE;
+    }
+    if (g_mkdir_with_parents(dir, 0755) == 0 || errno == EEXIST) {
+        g_free(dir);
+        return TRUE;
+    }
+    g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
+                "출력 폴더를 만들 수 없습니다: %s", dir);
+    g_free(dir);
+    return FALSE;
+}
+
+static void pdf_export_ctx_free(PdfExportCtx *px) {
+    if (!px) return;
+    if (px->print_timeout_id)
+        g_source_remove(px->print_timeout_id);
+    if (px->load_handler_id && px->ctx) {
+        g_signal_handler_disconnect(G_OBJECT(px->ctx->preview_view),
+                                    px->load_handler_id);
+    }
+    g_clear_object(&px->po);
+    g_clear_object(&px->ps);
+    g_clear_object(&px->setup);
+    g_free(px->path);
+    g_free(px);
+}
+
+static void pdf_export_show_result(PdfExportCtx *px,
+                                   gboolean success,
+                                   GError *err) {
+    if (px->result_shown) return;
+    px->result_shown = TRUE;
+    show_export_result(px->ctx, success, "PDF", px->path, err);
+}
+
+static void on_pdf_export_failed(WebKitPrintOperation *po,
+                                 GError *error,
+                                 gpointer user_data) {
+    (void)po;
+    PdfExportCtx *px = user_data;
+    px->failed = TRUE;
+    utils_log_error("PDF보내기 실패: %s",
+                    error ? error->message : "(unknown)");
+    pdf_export_show_result(px, FALSE, error);
+}
+
+static void on_pdf_export_finished(WebKitPrintOperation *po, gpointer user_data) {
+    (void)po;
+    PdfExportCtx *px = user_data;
+
+    if (!px->failed) {
+        pdf_export_sync_path_from_settings(px);
+        if (g_file_test(px->path, G_FILE_TEST_IS_REGULAR)) {
+            pdf_export_show_result(px, TRUE, NULL);
+        } else {
+            const char *msg = px->use_dialog
+                ? "PDF 파일이 생성되지 않았습니다. "
+                  "인쇄 대화상자에서 「파일로 인쇄」 또는 「Print to File」를 선택했는지, "
+                  "저장 위치가 올바른지 확인하세요."
+                : "PDF 파일이 생성되지 않았습니다. "
+                  "시스템의 GTK 「파일로 인쇄」 백엔드를 사용할 수 없습니다.";
+            GError *err = g_error_new(G_FILE_ERROR, G_FILE_ERROR_NOENT, "%s", msg);
+            pdf_export_show_result(px, FALSE, err);
+            g_error_free(err);
+        }
+    }
+    pdf_export_ctx_free(px);
+}
+
+static gboolean pdf_export_configure_settings(PdfExportCtx *px, GError **error) {
+    gchar *printer_name = find_file_printer_name();
+    gchar *abs_path     = pdf_absolute_path(px->path);
+
+    g_free(px->path);
+    px->path = abs_path;
+
+    if (!pdf_export_ensure_parent_dir(px->path, error)) {
+        g_free(printer_name);
+        return FALSE;
+    }
+
+    gchar *uri = g_filename_to_uri(px->path, NULL, error);
+    if (!uri) {
+        g_free(printer_name);
+        return FALSE;
+    }
+
+    gchar *dir  = g_path_get_dirname(px->path);
+    gchar *base = g_path_get_basename(px->path);
+    gchar *dot  = strrchr(base, '.');
+    if (dot) *dot = '\0';
+
+    px->ps = gtk_print_settings_new();
+    gtk_print_settings_set(px->ps, GTK_PRINT_SETTINGS_OUTPUT_FILE_FORMAT, "pdf");
+    gtk_print_settings_set(px->ps, GTK_PRINT_SETTINGS_OUTPUT_URI, uri);
+    gtk_print_settings_set(px->ps, GTK_PRINT_SETTINGS_OUTPUT_DIR, dir);
+    gtk_print_settings_set(px->ps, GTK_PRINT_SETTINGS_OUTPUT_BASENAME, base);
+
+    if (printer_name) {
+        gtk_print_settings_set(px->ps, GTK_PRINT_SETTINGS_PRINTER, printer_name);
+        px->use_dialog = FALSE;
+        utils_log_info("PDF: using file printer '%s'", printer_name);
+    } else {
+        px->use_dialog = TRUE;
+        utils_log_warn("PDF: GtkPrintBackendFile not found; opening print dialog");
+    }
+
+    g_free(printer_name);
+    g_free(uri);
+    g_free(dir);
+    g_free(base);
+    px->setup = gtk_page_setup_new();
+    return TRUE;
+}
+
+static void pdf_export_run(PdfExportCtx *px) {
+    GError *err = NULL;
+
+    if (px->started) return;
+    px->started = TRUE;
+
+    if (!pdf_export_configure_settings(px, &err)) {
+        show_export_result(px->ctx, FALSE, "PDF", px->path, err);
+        g_clear_error(&err);
+        pdf_export_ctx_free(px);
+        return;
+    }
+
+    px->po = webkit_print_operation_new(px->ctx->preview_view);
+    webkit_print_operation_set_print_settings(px->po, px->ps);
+    webkit_print_operation_set_page_setup(px->po, px->setup);
+
+    g_signal_connect(px->po, "failed",
+                     G_CALLBACK(on_pdf_export_failed), px);
+    g_signal_connect(px->po, "finished",
+                     G_CALLBACK(on_pdf_export_finished), px);
+
+    status_set(px->ctx, "PDF 파일로보내는 중...");
+
+    if (px->use_dialog) {
+        GtkWidget *hint = gtk_message_dialog_new(
+            GTK_WINDOW(px->ctx->window),
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_INFO,
+            GTK_BUTTONS_OK,
+            "인쇄 대화상자에서 「파일로 인쇄」 또는 「Print to File」를 선택하고, "
+            "형식을 PDF로 맞춘 뒤 인쇄하세요.");
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(hint),
+            "저장 위치: %s", px->path);
+        utils_apply_dialog_css(hint);
+        gtk_dialog_run(GTK_DIALOG(hint));
+        gtk_widget_destroy(hint);
+
+        WebKitPrintOperationResponse resp =
+            webkit_print_operation_run_dialog(px->po,
+                                              GTK_WINDOW(px->ctx->window));
+        if (resp == WEBKIT_PRINT_OPERATION_RESPONSE_CANCEL) {
+            px->failed = TRUE;
+            GError *cancel = g_error_new_literal(
+                G_FILE_ERROR, G_FILE_ERROR_FAILED,
+                "PDF보내기를 취소했습니다.");
+            pdf_export_show_result(px, FALSE, cancel);
+            g_error_free(cancel);
+            pdf_export_ctx_free(px);
+            return;
+        }
+        pdf_export_sync_path_from_settings(px);
+        return;
+    }
+
+    webkit_print_operation_print(px->po);
+}
+
+static gboolean pdf_export_run_idle(gpointer user_data) {
+    PdfExportCtx *px = user_data;
+    px->print_timeout_id = 0;
+    pdf_export_run(px);
+    return G_SOURCE_REMOVE;
+}
+
+static void pdf_export_schedule_print(PdfExportCtx *px) {
+    if (px->print_timeout_id)
+        g_source_remove(px->print_timeout_id);
+    px->print_timeout_id = g_timeout_add(350, pdf_export_run_idle, px);
+}
+
+static void on_pdf_preview_loaded(WebKitWebView *view,
+                                  WebKitLoadEvent load_event,
+                                  gpointer user_data) {
+    if (load_event != WEBKIT_LOAD_FINISHED) return;
+
+    PdfExportCtx *px = user_data;
+    g_signal_handler_disconnect(view, px->load_handler_id);
+    px->load_handler_id = 0;
+    pdf_export_schedule_print(px);
+}
+
+static void pdf_export_webkit_begin(UIContext *ctx, gchar *path) {
+    PdfExportCtx *px = g_new0(PdfExportCtx, 1);
+    px->ctx  = ctx;
+    px->path = path;
+
+    if (ctx->debounce_id) {
+        g_source_remove(ctx->debounce_id);
+        ctx->debounce_id = 0;
+    }
+
+    px->load_handler_id =
+        g_signal_connect(ctx->preview_view, "load-changed",
+                         G_CALLBACK(on_pdf_preview_loaded), px);
+    refresh_now(ctx);
+
+    if (!webkit_web_view_is_loading(ctx->preview_view))
+        pdf_export_schedule_print(px);
+}
+
+static void on_export_pdf(GtkWidget *w, gpointer ud) {
+    (void)w;
+    UIContext *ctx = ud;
+
+    gchar *def_name = change_ext(ctx->current_path, ".pdf");
+    gchar *start_dir = ctx->current_path
+                       ? g_path_get_dirname(ctx->current_path) : NULL;
+    gchar *out = NULL;
+    gboolean chosen = fileio_save_as_dialog(
+        GTK_WINDOW(ctx->window),
+        "PDF로보내기",
+        def_name,
+        start_dir,
+        &out);
+    g_free(def_name);
+    g_free(start_dir);
+    if (!chosen) return;
+
+    gchar *path = ensure_extension(out, ".pdf");
+    g_free(out);
+
+    status_set(ctx, "PDF 파일로보내는 중...");
+    pdf_export_webkit_begin(ctx, path);
 }
 
 static void on_quit(GtkWidget *w, gpointer ud) {
@@ -367,6 +815,7 @@ static void on_about(GtkWidget *w, gpointer ud) {
         gtk_about_dialog_set_logo_icon_name(GTK_ABOUT_DIALOG(dlg), "easymd");
     }
     gtk_window_set_transient_for(GTK_WINDOW(dlg), GTK_WINDOW(ctx->window));
+    utils_apply_dialog_css(dlg);
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
 }
@@ -599,6 +1048,19 @@ static GtkWidget *build_menu_bar(UIContext *ctx, GtkAccelGroup *ag) {
                 G_CALLBACK(on_save_as), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(file_menu),
+        mi_icon("text-html-symbolic",
+                "HTML로 내보내기(_H)…", "<Control><Shift>h",
+                G_CALLBACK(on_export_html), ctx, ag));
+    gtk_menu_shell_append(GTK_MENU_SHELL(file_menu),
+        mi_icon("x-office-document-symbolic",
+                "Word로보내기(_W)…", "<Control><Shift>w",
+                G_CALLBACK(on_export_word), ctx, ag));
+    gtk_menu_shell_append(GTK_MENU_SHELL(file_menu),
+        mi_icon("document-print-symbolic",
+                "PDF로 내보내기(_P)…", "<Control><Shift>p",
+                G_CALLBACK(on_export_pdf), ctx, ag));
+    gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), gtk_separator_menu_item_new());
+    gtk_menu_shell_append(GTK_MENU_SHELL(file_menu),
         mi_icon("application-exit-symbolic",
                 "종료(_Q)", "<Control>q",
                 G_CALLBACK(on_quit), ctx, ag));
@@ -634,13 +1096,13 @@ static GtkWidget *build_menu_bar(UIContext *ctx, GtkAccelGroup *ag) {
         mi_icon("view-list-symbolic",
                 "제목 3 (###)", "<Control>3", G_CALLBACK(on_ins_h3), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("go-next-symbolic",
+        mi_icon("media-playback-start-symbolic",
                 "제목 4 (####)", "<Control>4", G_CALLBACK(on_ins_h4), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("go-next-symbolic",
+        mi_icon("format-indent-more-symbolic",
                 "제목 5 (#####)", "<Control>5", G_CALLBACK(on_ins_h5), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("go-next-symbolic",
+        mi_icon("go-last-symbolic",
                 "제목 6 (######)", "<Control>6", G_CALLBACK(on_ins_h6), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
@@ -752,10 +1214,13 @@ static GtkWidget *build_toolbar(UIContext *ctx) {
         gtk_box_pack_start(GTK_BOX(bar), sep, FALSE, FALSE, 0);     \
     } while (0)
 
-    /* Headings — same icon family as the outline panel (★ / 📄 / ▤). */
-    ADD_BTN("starred-symbolic",            "H1", "제목 1 (Ctrl+1)", on_ins_h1);
-    ADD_BTN("emblem-documents-symbolic",   "H2", "제목 2 (Ctrl+2)", on_ins_h2);
-    ADD_BTN("view-list-symbolic",          "H3", "제목 3 (Ctrl+3)", on_ins_h3);
+    /* Headings — same icon family as the outline panel (★ / 📄 / ▤ / →). */
+    ADD_BTN("starred-symbolic",          "H1", "제목 1 (Ctrl+1)", on_ins_h1);
+    ADD_BTN("emblem-documents-symbolic", "H2", "제목 2 (Ctrl+2)", on_ins_h2);
+    ADD_BTN("view-list-symbolic",        "H3", "제목 3 (Ctrl+3)", on_ins_h3);
+    ADD_BTN("media-playback-start-symbolic","H4", "제목 4 (Ctrl+4)", on_ins_h4);
+    ADD_BTN("format-indent-more-symbolic", "H5", "제목 5 (Ctrl+5)", on_ins_h5);
+    ADD_BTN("go-last-symbolic",            "H6", "제목 6 (Ctrl+6)", on_ins_h6);
     ADD_SEP();
     /* Inline emphasis. */
     ADD_BTN("format-text-bold-symbolic",          "Bold",   "굵게 (Ctrl+B)",   on_ins_bold);
@@ -918,9 +1383,12 @@ UIContext *ui_init(int argc, char **argv) {
 
     ctx->header_bar = gtk_header_bar_new();
     gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(ctx->header_bar), TRUE);
-    gtk_header_bar_set_title(GTK_HEADER_BAR(ctx->header_bar), "untitled.md");
-    gtk_header_bar_set_subtitle(GTK_HEADER_BAR(ctx->header_bar), APP_NAME);
+    gtk_header_bar_set_title(GTK_HEADER_BAR(ctx->header_bar), "EasyMD - untitled.md");
     gtk_window_set_titlebar(GTK_WINDOW(ctx->window), ctx->header_bar);
+
+    // Modern window background
+    GtkStyleContext *win_ctx = gtk_widget_get_style_context(ctx->window);
+    gtk_style_context_add_class(win_ctx, "modern-window");
 
     GtkAccelGroup *ag = gtk_accel_group_new();
     gtk_window_add_accel_group(GTK_WINDOW(ctx->window), ag);
@@ -942,10 +1410,11 @@ UIContext *ui_init(int argc, char **argv) {
     ctx->editor_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ctx->editor_view));
     gtk_text_view_set_monospace(GTK_TEXT_VIEW(ctx->editor_view), TRUE);
     gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(ctx->editor_view), GTK_WRAP_WORD_CHAR);
-    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(ctx->editor_view), 12);
-    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(ctx->editor_view), 12);
-    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(ctx->editor_view), 8);
-    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(ctx->editor_view), 8);
+    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(ctx->editor_view), 18);
+    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(ctx->editor_view), 18);
+    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(ctx->editor_view), 14);
+    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(ctx->editor_view), 14);
+    gtk_widget_set_name(ctx->editor_view, "modern-editor");
 
     GtkWidget *editor_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(editor_scroll),
@@ -971,12 +1440,14 @@ UIContext *ui_init(int argc, char **argv) {
     /* --- Preview (right) --- */
     ctx->preview_view = WEBKIT_WEB_VIEW(webkit_web_view_new());
     preview_init(ctx->preview_view);
+    gtk_widget_set_name(GTK_WIDGET(ctx->preview_view), "modern-preview");
 
     /* --- Inner paned: editor | preview (drag-to-resize) --- */
     GtkWidget *inner = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_paned_pack1(GTK_PANED(inner), editor_scroll,                TRUE, FALSE);
     gtk_paned_pack2(GTK_PANED(inner), GTK_WIDGET(ctx->preview_view), TRUE, FALSE);
-    gtk_paned_set_position(GTK_PANED(inner), 600);
+    g_signal_connect(inner, "size-allocate",
+                     G_CALLBACK(on_inner_paned_size_allocate), NULL);
 
     /* --- Outer paned: [sidebar] | [inner paned] (drag-to-resize) ---
      * pack1 uses shrink=TRUE so the divider can travel to position 0,
@@ -997,7 +1468,43 @@ UIContext *ui_init(int argc, char **argv) {
     ctx->statusbar = gtk_statusbar_new();
     ctx->status_ctx = gtk_statusbar_get_context_id(
         GTK_STATUSBAR(ctx->statusbar), "main");
+    gtk_widget_set_name(ctx->statusbar, "modern-statusbar");
     gtk_box_pack_start(GTK_BOX(vbox), ctx->statusbar, FALSE, FALSE, 0);
+    /* Load CSS: try cwd first, then beside the executable. */
+    {
+        const char *css_rel = "style/modern.css";
+        gchar *css_path = NULL;
+        if (g_file_test(css_rel, G_FILE_TEST_IS_REGULAR)) {
+            css_path = g_strdup(css_rel);
+        } else {
+            gchar *exe = g_file_read_link("/proc/self/exe", NULL);
+            if (exe) {
+                gchar *dir = g_path_get_dirname(exe);
+                css_path = g_build_filename(dir, css_rel, NULL);
+                g_free(dir);
+                g_free(exe);
+                if (!g_file_test(css_path, G_FILE_TEST_IS_REGULAR)) {
+                    g_free(css_path);
+                    css_path = NULL;
+                }
+            }
+        }
+        GtkCssProvider *provider = gtk_css_provider_new();
+        if (css_path) {
+            GError *css_err = NULL;
+            if (!gtk_css_provider_load_from_path(provider, css_path, &css_err)) {
+                utils_log_warn("CSS load error (%s): %s", css_path,
+                               css_err ? css_err->message : "?");
+                if (css_err) g_error_free(css_err);
+            }
+            g_free(css_path);
+        } else {
+            utils_log_warn("style/modern.css not found");
+        }
+        gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+            GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+        g_object_unref(provider);
+    }
 
     /* Initial document so the user sees a working preview/outline. */
     gtk_text_buffer_set_text(ctx->editor_buffer, INITIAL_DOC, -1);

@@ -17,6 +17,22 @@ gboolean fileio_save_dialog(GtkWindow *parent,
                             const gchar *current_path,
                             gchar **out_path);
 
+/* Generic save-as dialog: caller provides title, default filename, and start
+ * directory (may be NULL to use home). On success *out_path is set. */
+gboolean fileio_save_as_dialog(GtkWindow *parent,
+                               const gchar *title,
+                               const gchar *default_name,
+                               const gchar *start_dir,
+                               gchar **out_path);
+
+/* Export the given markdown source as a standalone HTML file. */
+gboolean fileio_export_html(const gchar *path, const gchar *markdown,
+                            GError **error);
+
+/* Export markdown as an Office Open XML Word document (.docx). */
+gboolean fileio_export_word(const gchar *path, const gchar *markdown,
+                            GError **error);
+
 /* Read a UTF-8 text file. Returns malloc'd buffer (NUL terminated) on success,
  * NULL on error (sets *error). Free with g_free(). */
 gchar *fileio_read_file(const gchar *path, GError **error);

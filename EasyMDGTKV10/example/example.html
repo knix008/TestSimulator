@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EasyMD Export</title>
+<style>
+  body { font-family: 'Noto Sans', sans-serif; max-width: 860px;         margin: 2em auto; padding: 0 1.5em; color: #1e1e2e;         background: #ffffff; line-height: 1.7; }
+  h1,h2,h3,h4,h5,h6 { color: #2a2a6a; margin-top: 1.4em; }
+  h1 { border-bottom: 2px solid #4444bb; padding-bottom: 0.3em; }
+  h2 { border-bottom: 1px solid #d0d0e8; padding-bottom: 0.2em; }
+  a  { color: #4444bb; }
+  pre { background: #f4f4f8; padding: 1em; border-radius: 6px;        overflow-x: auto; border: 1px solid #ddd; }
+  code { background: #f0f0f8; padding: 0.15em 0.4em;         border-radius: 3px; font-size: 0.9em; }
+  pre code { background: transparent; padding: 0; }
+  blockquote { border-left: 4px solid #9999cc; margin-left: 0;               padding-left: 1em; color: #555; }
+  table { border-collapse: collapse; width: 100%; }
+  th,td { border: 1px solid #ccc; padding: 8px 12px; }
+  th { background: #eeeef8; font-weight: bold; }
+  tr:nth-child(even) { background: #f8f8ff; }
+  img { max-width: 100%; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 2em 0; }
+</style>
+</head>
+<body>
+<h1>EasyMD GTK - 예제 문서</h1>
+<p>이 문서는 EasyMD GTK의 다양한 마크다운 기능을 보여주는 예제입니다.</p>
+<hr />
+<h2>1. 제목과 본문</h2>
+<h1>H1 제목</h1>
+<h2>H2 제목</h2>
+<h3>H3 제목</h3>
+<h4>H4 제목</h4>
+<p>본문에 <strong>굵은 글씨</strong>, <em>기울임</em>, <code>인라인 코드</code>를 사용할 수 있습니다.</p>
+<hr />
+<h2>2. 목록</h2>
+<ul>
+<li>순서 없는 목록
+<ul>
+<li>하위 항목</li>
+</ul>
+</li>
+<li>[x] 체크박스</li>
+</ul>
+<ol>
+<li>순서 있는 목록</li>
+<li>두 번째 항목</li>
+</ol>
+<hr />
+<h2>3. 링크와 이미지</h2>
+<p><a href="https://github.com/your-repo">EasyMD GitHub</a></p>
+<p><img src="https://picsum.photos/seed/easymd/400/200" alt="샘플 이미지" title="샘플 이미지" /></p>
+<hr />
+<h2>4. 표</h2>
+<p>| 이름   | 값   | 비고     |<br />
+| ------ | ---- | -------- |<br />
+| Alpha  | 123  | 예시 데이터 |<br />
+| Beta   | 456  | 또 다른 예시 |</p>
+<hr />
+<h2>5. 코드 블록</h2>
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+int main() {
+    printf(&quot;Hello, Markdown!\n&quot;);
+    return 0;
+}
+</code></pre>
+<hr />
+<h2>6. 인용문</h2>
+<blockquote>
+<p>이곳은 인용문입니다. 마크다운에서 <code>&gt;</code> 기호로 만듭니다.</p>
+</blockquote>
+<hr />
+<h2>7. 수식 (KaTeX)</h2>
+<p>인라인 수식: $E=mc^2$</p>
+<p>블록 수식:</p>
+<p>$$<br />
+\int_{a}^{b} x^2 dx = \frac{b^3}{3} - \frac{a^3}{3}<br />
+$$</p>
+<hr />
+<h2>8. 기타</h2>
+<ul>
+<li>~~취소선~~</li>
+<li><u>밑줄</u> (HTML 지원)</li>
+<li>이모지: 😃 👍 🎉</li>
+</ul>
+<hr />
+<p>끝!</p>
+</body>
+</html>

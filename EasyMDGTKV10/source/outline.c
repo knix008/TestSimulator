@@ -15,10 +15,13 @@
  * standard freedesktop icon set (Adwaita ships them all on Linux/macOS). */
 static const char *icon_name_for_level(int level) {
     switch (level) {
-        case 1:  return "starred-symbolic";            /* H1 - "★"            */
-        case 2:  return "emblem-documents-symbolic";   /* H2 - 문서 모양       */
-        case 3:  return "view-list-symbolic";          /* H3 - 목록 모양       */
-        default: return "go-next-symbolic";            /* H4..H6 - 화살표      */
+        case 1:  return "starred-symbolic";          /* H1 - 툴바와 동일 */
+        case 2:  return "emblem-documents-symbolic"; /* H2 - 툴바와 동일 */
+        case 3:  return "view-list-symbolic";        /* H3 - 툴바와 동일 */
+        case 4:  return "media-playback-start-symbolic"; /* H4 - 툴바와 동일 */
+        case 5:  return "format-indent-more-symbolic";  /* H5 - 툴바와 동일 */
+        case 6:  return "go-last-symbolic";             /* H6 - 툴바와 동일 */
+        default: return "media-playback-start-symbolic";
     }
 }
 
@@ -39,21 +42,24 @@ void outline_init(GtkTreeView *tv) {
     gtk_tree_view_column_set_expand(col, TRUE);
 
     GtkCellRenderer *icon_r = gtk_cell_renderer_pixbuf_new();
-    g_object_set(icon_r, "stock-size", GTK_ICON_SIZE_MENU, NULL);
+    g_object_set(icon_r, "stock-size", GTK_ICON_SIZE_LARGE_TOOLBAR, NULL);
     gtk_tree_view_column_pack_start(col, icon_r, FALSE);
-    gtk_tree_view_column_add_attribute(col, icon_r,
-                                       "icon-name", OUTLINE_COL_ICON);
+    gtk_tree_view_column_add_attribute(col, icon_r, "icon-name", OUTLINE_COL_ICON);
 
     GtkCellRenderer *text_r = gtk_cell_renderer_text_new();
-    g_object_set(text_r, "ypad", 2, "xpad", 4, NULL);
+    g_object_set(text_r, "ypad", 6, "xpad", 10, "font", "Sans Bold 11", NULL);
     gtk_tree_view_column_pack_start(col, text_r, TRUE);
-    gtk_tree_view_column_add_attribute(col, text_r,
-                                       "text", OUTLINE_COL_TITLE);
+    gtk_tree_view_column_add_attribute(col, text_r, "text", OUTLINE_COL_TITLE);
 
     gtk_tree_view_append_column(tv, col);
-    gtk_tree_view_set_headers_visible(tv, TRUE);
-    gtk_tree_view_set_enable_tree_lines(tv, FALSE);
+    gtk_tree_view_set_headers_visible(tv, FALSE);
+    gtk_tree_view_set_enable_tree_lines(tv, TRUE);
     gtk_tree_view_set_show_expanders(tv, TRUE);
+
+    // Modern look: alternating row colors
+    gtk_widget_set_name(GTK_WIDGET(tv), "outline-treeview");
+    GtkStyleContext *context = gtk_widget_get_style_context(GTK_WIDGET(tv));
+    gtk_style_context_add_class(context, "data-table");
 }
 
 void outline_update(GtkTreeView *tv, const char *markdown) {

@@ -227,6 +227,6 @@ void editor_goto_line(GtkTextView *view, int line_1based) {
     GtkTextIter iter;
     gtk_text_buffer_get_iter_at_line(buf, &iter, line);
     gtk_text_buffer_place_cursor(buf, &iter);
-    gtk_text_view_scroll_to_iter(view, &iter, 0.1, TRUE, 0.0, 0.2);
+    gtk_text_view_scroll_to_iter(view, &iter, 0.0, TRUE, 0.0, 0.0);
     gtk_widget_grab_focus(GTK_WIDGET(view));
 }
