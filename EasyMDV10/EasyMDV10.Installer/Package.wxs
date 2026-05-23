@@ -1,0 +1,167 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package
+    Name="!(loc.AppName)"
+    Manufacturer="!(loc.Manufacturer)"
+    Version="1.0.0"
+    UpgradeCode="F25433C2-F6EF-4C02-915E-EC52991A6284"
+    Codepage="949"
+    Language="1042"
+    Scope="perMachine">
+
+    <!-- 이전 버전 자동 제거 후 설치 -->
+    <MajorUpgrade
+      Schedule="afterInstallInitialize"
+      DowngradeErrorMessage="!(loc.DowngradeError)" />
+
+    <!-- WixUI_FeatureTree: 사용자가 설치 항목을 선택할 수 있는 다이얼로그 -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+    <!-- ── 설치 Feature 구성 ─────────────────────────────────────── -->
+
+    <!-- 필수: 앱 본체 -->
+    <Feature Id="FeatureApp" Title="!(loc.FeatureApp)" Description="!(loc.FeatureAppDesc)" Level="1">
+      <ComponentGroupRef Id="AppComponents" />
+    </Feature>
+
+    <!-- 선택: 시작 메뉴 바로 가기 (기본 설치) -->
+    <Feature Id="FeatureStartMenu" Title="!(loc.FeatureStartMenu)" Description="!(loc.FeatureStartMenuDesc)" Level="1">
+      <ComponentGroupRef Id="StartMenuShortcuts" />
+    </Feature>
+
+    <!-- 선택: 바탕화면 바로 가기 (기본 설치 안 함) -->
+    <Feature Id="FeatureDesktop" Title="!(loc.FeatureDesktop)" Description="!(loc.FeatureDesktopDesc)" Level="10">
+      <ComponentGroupRef Id="DesktopShortcuts" />
+    </Feature>
+
+  </Package>
+
+  <!-- ── 사전 조건 검사 ────────────────────────────────────────── -->
+  <Fragment>
+
+    <Property Id="DOTNET8DESKTOP">
+      <RegistrySearch
+        Root="HKLM"
+        Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App"
+        Name="8.0.0"
+        Type="raw" />
+    </Property>
+    <Launch
+      Condition="Installed OR DOTNET8DESKTOP"
+      Message="!(loc.DotNetRequired)" />
+
+    <Property Id="WEBVIEW2INSTALLED">
+      <RegistrySearch
+        Root="HKLM"
+        Key="SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+        Name="pv"
+        Type="raw" />
+    </Property>
+    <Launch
+      Condition="Installed OR WEBVIEW2INSTALLED"
+      Message="!(loc.WebView2Required)" />
+
+  </Fragment>
+
+  <!-- ── 폴더 구조 ────────────────────────────────────────────── -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="!(loc.AppName)" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppStartMenuFolder" Name="!(loc.AppName)" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+
+  <!-- ── 아이콘 ────────────────────────────────────────────────── -->
+  <Fragment>
+    <!-- 프로젝트 소스의 ico를 직접 참조 -->
+    <Icon Id="AppIcon" SourceFile="$(var.EasyMDV10.ProjectDir)daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+  </Fragment>
+
+  <!-- ── 앱 파일 ────────────────────────────────────────────────── -->
+  <Fragment>
+    <ComponentGroup Id="AppComponents" Directory="INSTALLFOLDER">
+
+      <Component Id="MainExecutable">
+        <File
+          Id="EasyMDExe"
+          Source="$(var.EasyMDV10.TargetPath)"
+          KeyPath="yes" />
+      </Component>
+
+      <Component Id="Markdig" Guid="F26D57EF-D326-4B65-BA3E-F0522D3E20E9">
+        <File Source="$(var.EasyMDV10.TargetDir)Markdig.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="WebView2Core" Guid="12F921E7-C173-4922-A061-A79A8E058A3C">
+        <File Source="$(var.EasyMDV10.TargetDir)Microsoft.Web.WebView2.Core.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="WebView2WinForms" Guid="FA466A25-1BD8-4177-86A3-83C5D1C50AE5">
+        <File Source="$(var.EasyMDV10.TargetDir)Microsoft.Web.WebView2.WinForms.dll" KeyPath="yes" />
+      </Component>
+
+      <Component Id="AppIcon" Guid="481BB13F-BD47-4DEA-8666-C28F13DB534D">
+        <File Source="$(var.EasyMDV10.ProjectDir)daemon_hammer.ico" KeyPath="yes" />
+      </Component>
+
+      <Component Id="RuntimeConfig" Guid="24852551-3F5F-4013-88D0-CD38AF9378C7">
+        <File Source="$(var.EasyMDV10.TargetDir)EasyMDV10.runtimeconfig.json" KeyPath="yes" />
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- ── 시작 메뉴 바로 가기 ─────────────────────────────────────── -->
+  <Fragment>
+    <ComponentGroup Id="StartMenuShortcuts" Directory="AppStartMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut
+          Id="StartMenuLink"
+          Name="!(loc.AppName)"
+          Description="!(loc.AppDescription)"
+          Target="[INSTALLFOLDER]EasyMDV10.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\!(loc.Manufacturer)\!(loc.AppName)"
+          Name="StartMenu"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+        <RemoveFolder Id="RemoveStartMenuFolder" Directory="AppStartMenuFolder" On="uninstall" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- ── 바탕화면 바로 가기 ─────────────────────────────────────── -->
+  <Fragment>
+    <ComponentGroup Id="DesktopShortcuts" Directory="DesktopFolder">
+      <Component Id="DesktopShortcut">
+        <Shortcut
+          Id="DesktopLink"
+          Name="!(loc.AppName)"
+          Description="!(loc.AppDescription)"
+          Target="[INSTALLFOLDER]EasyMDV10.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\!(loc.Manufacturer)\!(loc.AppName)"
+          Name="Desktop"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
