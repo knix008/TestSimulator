@@ -3,84 +3,89 @@
 // ── CSS ────────────────────────────────────────────────────────────────────
 
 static constexpr const char* kCss = R"(
-  * { color: #e0e0e0; }
+  * { color: #e0e0e0; font-size: 12px; }
 
-  window { background-color: #121212; }
+  window { background-color: #141414; }
 
   frame {
-    background-color: #1e1e1e;
-    border: 1px solid #3a3a3a;
-    border-radius: 6px;
-    padding: 4px;
+    background-color: #1c1c1c;
+    border: 1px solid #2e2e2e;
+    border-radius: 4px;
+    padding: 2px;
   }
-  frame > label { font-weight: bold; color: #9e9e9e; }
+  frame > label { font-weight: 600; font-size: 11px; color: #808080; padding: 0 4px; }
 
-  label  { color: #e0e0e0; }
+  label  { color: #d8d8d8; }
 
   entry {
-    background-color: #2b2b2b;
-    color: #f5f5f5;
-    border: 1px solid #4a4a4a;
-    padding: 5px 8px;
+    background-color: #242424;
+    color: #f0f0f0;
+    border: 1px solid #3c3c3c;
+    border-radius: 3px;
+    padding: 3px 6px;
+    min-height: 0;
   }
-  entry:focus { border-color: #5c9fd4; box-shadow: none; }
+  entry:focus { border-color: #4a90d9; box-shadow: none; }
 
-  spinbutton            { background-color: #2b2b2b; border: 1px solid #4a4a4a; }
-  spinbutton entry      { background-color: #2b2b2b; color: #f5f5f5; border: none; }
-  spinbutton button     { background-color: #383838; color: #e0e0e0; border: none; }
-  spinbutton button:hover { background-color: #454545; }
+  spinbutton            { background-color: #242424; border: 1px solid #3c3c3c; border-radius: 3px; }
+  spinbutton entry      { background-color: #242424; color: #f0f0f0; border: none; padding: 2px 4px; }
+  spinbutton button     { background-color: #303030; color: #d8d8d8; border: none; min-height: 0; padding: 0 3px; }
+  spinbutton button:hover { background-color: #3a3a3a; }
 
-  combobox button       { background-color: #2b2b2b; border: 1px solid #4a4a4a; color: #f5f5f5; }
-  combobox button:hover { background-color: #383838; }
+  combobox button       { background-color: #242424; border: 1px solid #3c3c3c; border-radius: 3px; color: #f0f0f0; padding: 3px 6px; }
+  combobox button:hover { background-color: #303030; }
 
-  checkbutton label { color: #e0e0e0; }
+  checkbutton { padding: 1px 0; }
+  checkbutton label { color: #d8d8d8; }
+  check { min-width: 14px; min-height: 14px; }
 
-  button { background-color: #383838; color: #e0e0e0;
-           border: 1px solid #4a4a4a; padding: 4px 10px; }
-  button:hover { background-color: #454545; }
+  button { background-color: #303030; color: #d8d8d8;
+           border: 1px solid #3c3c3c; border-radius: 3px; padding: 3px 8px; }
+  button:hover { background-color: #3a3a3a; }
 
-  scale trough      { background-color: #2b2b2b; }
-  scale highlight   { background-color: #1565c0; }
+  scale trough    { background-color: #242424; border-radius: 2px; min-height: 4px; }
+  scale highlight { background-color: #1565c0; border-radius: 2px; }
+  scale slider    { min-width: 12px; min-height: 12px; background-color: #5c9fd4;
+                    border-radius: 6px; border: none; }
+  scale slider:hover { background-color: #74b3e0; }
 
-  /* Mark tick lines: uniform 6 px height, centred on the slider track */
   scale marks mark indicator {
-    min-height: 6px;
+    min-height: 4px;
     min-width:  1px;
-    background-color: #666666;
+    background-color: #505050;
   }
 
-  /* Mark labels: monospace + fixed min-width so every label aligns */
   scale marks mark label {
     font-family: monospace;
-    font-size:   80%;
-    min-width:   28px;
-    color:       #9e9e9e;
+    font-size:   10px;
+    min-width:   24px;
+    color:       #707070;
   }
 
-  scrolledwindow { background-color: #181818; border: 1px solid #3a3a3a; }
-  textview       { background-color: #181818; color: #d4d4d4; }
-  textview text  { background-color: #181818; color: #d4d4d4; }
+  scrolledwindow { background-color: #161616; border: 1px solid #2e2e2e; border-radius: 3px; }
+  textview       { background-color: #161616; color: #cccccc; }
+  textview text  { background-color: #161616; color: #cccccc; }
   textview selection, textview text selection {
     background-color: #264f78; color: #ffffff; }
 
-  .value-label   { color: #f5f5f5; }
-  .hint-label    { color: #888888; font-size: 90%; }
+  .value-label   { color: #f0f0f0; }
+  .hint-label    { color: #707070; font-size: 11px; }
   .elapsed-label { color: #81c784; font-weight: bold;
-                   font-size: 130%; font-family: monospace; }
+                   font-size: 14px; font-family: monospace; }
 
-  label.status-text           { font-weight: bold; font-size: 110%; }
+  label.status-text           { font-weight: bold; font-size: 12px; }
   label.status-text.stopped   { color: #ef9a9a; }
   label.status-text.recording { color: #81c784; }
 
-  .btn-record { min-height: 36px; min-width: 180px;
-                font-weight: bold; border: none; }
+  .btn-record { min-height: 28px; min-width: 140px;
+                font-weight: bold; font-size: 12px; border: none; border-radius: 3px; }
   .btn-record.start { background-color: #b71c1c; color: #ffffff; }
   .btn-record.start:hover { background-color: #c62828; }
   .btn-record.stop  { background-color: #1b5e20; color: #ffffff; }
   .btn-record.stop:hover  { background-color: #2e7d32; }
 
-  .form-grid { margin: 4px 8px 8px 8px; }
-  .log-view, .log-view text { background-color: #181818; color: #d4d4d4; }
+  .form-grid { margin: 2px 6px 6px 6px; }
+  .log-view, .log-view text { background-color: #161616; color: #cccccc; font-size: 11px; }
 )";
 
 // ── Public API ─────────────────────────────────────────────────────────────
@@ -102,14 +107,14 @@ GtkWidget* gui_make_frame(const char* title, GtkWidget* child) {
     GtkWidget* frame = gtk_frame_new(title);
     gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_ETCHED_IN);
     gtk_container_add(GTK_CONTAINER(frame), child);
-    gtk_widget_set_margin_bottom(frame, 4);
+    gtk_widget_set_margin_bottom(frame, 2);
     return frame;
 }
 
 void gui_attach_row(GtkGrid* grid, int row, const char* label_text, GtkWidget* field) {
     GtkWidget* lbl = gtk_label_new(label_text);
     gtk_label_set_xalign(GTK_LABEL(lbl), 1.0f);
-    gtk_widget_set_margin_end(lbl, 10);
+    gtk_widget_set_margin_end(lbl, 6);
     gtk_widget_set_valign(lbl, GTK_ALIGN_CENTER);
     gtk_grid_attach(grid, lbl, 0, row, 1, 1);
     if (field) {

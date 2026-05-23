@@ -3,7 +3,6 @@
 #include "audio.h"
 #include "capture.h"
 #include "recorder.h"
-#include "window_picker.h"
 
 #include <gdk/gdkkeysyms.h>
 #include <gio/gio.h>
@@ -37,9 +36,6 @@ struct AppWidgets {
     GtkWidget*     lbl_res_hint     = nullptr;
     GtkWidget*     spin_bitrate     = nullptr;
     GtkWidget*     chk_cursor       = nullptr;
-    GtkWidget*     combo_source     = nullptr;
-    GtkWidget*     btn_pick_window  = nullptr;
-    GtkWidget*     lbl_window       = nullptr;
     // Audio settings
     GtkWidget*     chk_audio        = nullptr;
     GtkWidget*     combo_audio_dev  = nullptr;
@@ -69,24 +65,11 @@ bool              g_app_hold_active      = false;
 std::atomic<bool> g_shutting_down{false};
 guint             g_elapsed_timer = 0;
 guint             g_portal_pump_timer = 0;
-std::uint64_t     g_selected_xid  = 0;
-std::string       g_selected_title;
 std::string       g_last_output_path;
 // Audio device list: parallel to combo_audio_dev items (index 0 = default)
 std::vector<AudioSource> g_audio_sources;
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-
-std::uint64_t own_window_xid() {
-#ifdef GDK_WINDOWING_X11
-    if (g_ui.window) {
-        GdkWindow* gdk_win = gtk_widget_get_window(g_ui.window);
-        if (gdk_win && GDK_IS_X11_WINDOW(gdk_win))
-            return gdk_x11_window_get_xid(gdk_win);
-    }
-#endif
-    return 0;
-}
 
 std::string portal_parent_handle() {
 #ifdef GDK_WINDOWING_X11
@@ -97,11 +80,6 @@ std::string portal_parent_handle() {
     }
 #endif
     return {};
-}
-
-bool source_is_window() {
-    return GTK_IS_COMBO_BOX(g_ui.combo_source) &&
-           gtk_combo_box_get_active(GTK_COMBO_BOX(g_ui.combo_source)) == 1;
 }
 
 void append_log(const std::string& line) {
@@ -210,25 +188,6 @@ void update_res_hint_label() {
     gtk_label_set_text(GTK_LABEL(g_ui.lbl_res_hint), buf);
 }
 
-void update_window_picker_ui() {
-    const bool win_mode = source_is_window();
-    if (g_ui.btn_pick_window)
-        gtk_widget_set_sensitive(g_ui.btn_pick_window, win_mode);
-    if (g_ui.lbl_window) {
-        if (win_mode) {
-            gtk_label_set_text(GTK_LABEL(g_ui.lbl_window),
-                               g_selected_xid
-                               ? g_selected_title.c_str()
-                               : "(창을 선택하세요)");
-        } else {
-            gtk_label_set_text(GTK_LABEL(g_ui.lbl_window),
-                               capture_is_wayland()
-                               ? "Wayland: Portal 대화상자에서 화면 또는 창 선택"
-                               : "X11: 전체 화면 캡처");
-        }
-    }
-}
-
 // Helper: enable/disable the audio device + volume controls (not the checkbox).
 void set_audio_device_controls_sensitive(bool sensitive) {
     const bool audio_on = g_ui.chk_audio &&
@@ -247,12 +206,10 @@ void set_settings_sensitive(bool sensitive) {
         { &g_ui.scale_fps },    { &g_ui.spin_fps },
         { &g_ui.scale_res },    { &g_ui.spin_res },
         { &g_ui.spin_bitrate }, { &g_ui.chk_cursor },
-        { &g_ui.combo_source }, { &g_ui.chk_audio }
+        { &g_ui.chk_audio }
     };
     for (auto& item : widgets)
         if (*item.w) gtk_widget_set_sensitive(*item.w, sensitive);
-    if (g_ui.btn_pick_window)
-        gtk_widget_set_sensitive(g_ui.btn_pick_window, sensitive && source_is_window());
     set_audio_device_controls_sensitive(sensitive);
 }
 
@@ -260,18 +217,18 @@ void set_settings_sensitive(bool sensitive) {
 
 gboolean on_led_draw(GtkWidget*, cairo_t* cr, gpointer) {
     if (g_shutting_down.load()) return FALSE;
-    constexpr int sz = 18;
+    constexpr int sz = 14;
     const double cx = sz / 2.0, cy = sz / 2.0;
     cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
-    cairo_set_source_rgb(cr, 0.25, 0.25, 0.25);
-    cairo_arc(cr, cx, cy, 7.0, 0, 2.0 * G_PI);
+    cairo_set_source_rgb(cr, 0.2, 0.2, 0.2);
+    cairo_arc(cr, cx, cy, 5.5, 0, 2.0 * G_PI);
     cairo_fill(cr);
     if (g_ui.status_recording) {
         cairo_set_source_rgb(cr, 0.95, 0.15, 0.15);
     } else {
-        cairo_set_source_rgb(cr, 0.35, 0.35, 0.35);
+        cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
     }
-    cairo_arc(cr, cx, cy, 5.5, 0, 2.0 * G_PI);
+    cairo_arc(cr, cx, cy, 4.0, 0, 2.0 * G_PI);
     cairo_fill(cr);
     return FALSE;
 }
@@ -382,7 +339,6 @@ void on_recording_stopped(bool success, const std::string& message) {
         restore_after_failed_start();
     set_record_button(false);
     set_settings_sensitive(true);
-    update_window_picker_ui();
     if (g_ui.lbl_elapsed)
         gtk_label_set_text(GTK_LABEL(g_ui.lbl_elapsed), "00:00:00");
     if (g_ui.btn_record)
@@ -419,10 +375,6 @@ void refresh_audio_sources() {
 }
 
 // ── Signal callbacks ──────────────────────────────────────────────────────────
-
-void on_source_changed(GtkComboBox*, gpointer) {
-    update_window_picker_ui();
-}
 
 void on_audio_toggled(GtkToggleButton*, gpointer) {
     set_audio_device_controls_sensitive(true);
@@ -488,16 +440,6 @@ void on_browse_clicked(GtkWidget*, gpointer) {
         }
     }
     gtk_widget_destroy(dlg);
-}
-
-void on_pick_window_clicked(GtkWidget*, gpointer) {
-    std::uint64_t xid = 0;
-    std::string title;
-    if (!window_picker_dialog_run(GTK_WINDOW(g_ui.window), own_window_xid(), &xid, &title))
-        return;
-    g_selected_xid   = xid;
-    g_selected_title = title;
-    update_window_picker_ui();
 }
 
 void release_hold_and_show_window() {
@@ -798,21 +740,12 @@ void on_record_clicked(GtkWidget*, gpointer) {
                                "", true);
         return;
     }
-    // Wayland: window is chosen in the Portal dialog, not the X11 picker.
-    if (source_is_window() && g_selected_xid == 0 && !capture_is_wayland()) {
-        gui_show_result_dialog(GTK_WINDOW(g_ui.window), "설정 오류",
-                               "녹화할 창을 먼저 선택하세요.",
-                               "", true);
-        return;
-    }
-
     RecorderOptions opts;
     opts.output_path     = out_path;
     opts.fps             = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(g_ui.spin_fps));
     opts.bitrate_kbps    = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(g_ui.spin_bitrate));
     opts.show_cursor     = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(g_ui.chk_cursor));
-    opts.source          = source_is_window() ? CaptureSource::Window : CaptureSource::FullDesktop;
-    opts.window_xid      = g_selected_xid;
+    opts.source          = CaptureSource::FullDesktop;
     opts.format          = (gtk_combo_box_get_active(GTK_COMBO_BOX(g_ui.combo_format)) == 0)
                            ? OutputFormat::MKV : OutputFormat::MP4;  // 0=MKV, 1=MP4
     opts.codec           = (gtk_combo_box_get_active(GTK_COMBO_BOX(g_ui.combo_codec)) == 0)
@@ -895,12 +828,12 @@ void on_app_shutdown(GtkApplication*, gpointer) {
 
 GtkWidget* build_settings_section() {
     GtkWidget* grid = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
-    gtk_widget_set_margin_top(grid, 6);
-    gtk_widget_set_margin_bottom(grid, 6);
-    gtk_widget_set_margin_start(grid, 10);
-    gtk_widget_set_margin_end(grid, 10);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+    gtk_widget_set_margin_top(grid, 4);
+    gtk_widget_set_margin_bottom(grid, 4);
+    gtk_widget_set_margin_start(grid, 8);
+    gtk_widget_set_margin_end(grid, 8);
     gtk_style_context_add_class(gtk_widget_get_style_context(grid), "form-grid");
 
     int row = 0;
@@ -947,7 +880,7 @@ GtkWidget* build_settings_section() {
     gtk_scale_set_draw_value(GTK_SCALE(g_ui.scale_fps), FALSE);
     gtk_scale_set_has_origin(GTK_SCALE(g_ui.scale_fps), TRUE);
     gtk_widget_set_hexpand(g_ui.scale_fps, TRUE);
-    gtk_widget_set_size_request(g_ui.scale_fps, 380, 48);
+    gtk_widget_set_size_request(g_ui.scale_fps, 280, 38);
 
     // FPS marks every 5 fps. Zero-pad single digit so all labels are 2 chars wide.
     static const double kFpsMarks[] = { 5, 10, 15, 20, 25, 30 };
@@ -956,7 +889,7 @@ GtkWidget* build_settings_section() {
 
     g_ui.spin_fps = gtk_spin_button_new(g_ui.fps_adj, 1.0, 0);
     gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(g_ui.spin_fps), TRUE);
-    gtk_widget_set_size_request(g_ui.spin_fps, 72, -1);
+    gtk_widget_set_size_request(g_ui.spin_fps, 58, -1);
 
     // GtkSizeGroup ensures "fps" and "%" labels take the same width → both sliders
     // have identical track length regardless of label text width difference.
@@ -978,7 +911,7 @@ GtkWidget* build_settings_section() {
     gtk_scale_set_draw_value(GTK_SCALE(g_ui.scale_res), FALSE);
     gtk_scale_set_has_origin(GTK_SCALE(g_ui.scale_res), TRUE);
     gtk_widget_set_hexpand(g_ui.scale_res, TRUE);
-    gtk_widget_set_size_request(g_ui.scale_res, 380, 48);
+    gtk_widget_set_size_request(g_ui.scale_res, 280, 38);
 
     // Resolution marks every 10%. Space-pad 2-digit values so "100" is widest.
     static const double kResMarks[] = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
@@ -989,7 +922,7 @@ GtkWidget* build_settings_section() {
 
     g_ui.spin_res = gtk_spin_button_new(g_ui.res_adj, 1.0, 0);
     gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(g_ui.spin_res), TRUE);
-    gtk_widget_set_size_request(g_ui.spin_res, 72, -1);
+    gtk_widget_set_size_request(g_ui.spin_res, 58, -1);
     g_signal_connect(g_ui.res_adj, "value-changed", G_CALLBACK(on_res_changed), nullptr);
 
     g_ui.lbl_res_hint = gtk_label_new("");
@@ -1015,7 +948,7 @@ GtkWidget* build_settings_section() {
     g_ui.spin_bitrate  = gtk_spin_button_new_with_range(200, 20000, 100);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(g_ui.spin_bitrate), 4000);
     gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(g_ui.spin_bitrate), TRUE);
-    gtk_widget_set_size_request(g_ui.spin_bitrate, 100, -1);
+    gtk_widget_set_size_request(g_ui.spin_bitrate, 80, -1);
     GtkWidget* lbl_bru = gtk_label_new("kbps");
     gtk_box_pack_start(GTK_BOX(br_box), g_ui.spin_bitrate, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(br_box), lbl_bru,           FALSE, FALSE, 0);
@@ -1026,52 +959,26 @@ GtkWidget* build_settings_section() {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(g_ui.chk_cursor), TRUE);
     gtk_grid_attach(GTK_GRID(grid), g_ui.chk_cursor, 0, row++, 2, 1);
 
-    // Row: capture source
-    g_ui.combo_source = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_source), "전체 화면");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_source),
-                                   "특정 창  (X11 전용)");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_ui.combo_source), 0);
-    gtk_widget_set_halign(g_ui.combo_source, GTK_ALIGN_START);
-    g_signal_connect(g_ui.combo_source, "changed", G_CALLBACK(on_source_changed), nullptr);
-    gui_attach_row(GTK_GRID(grid), row++, "캡처 범위", g_ui.combo_source);
-
-    // Row: window picker
-    GtkWidget* pick_box    = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    g_ui.btn_pick_window   = gtk_button_new_with_label("창 선택…");
-    gtk_widget_set_sensitive(g_ui.btn_pick_window, FALSE);
-    g_signal_connect(g_ui.btn_pick_window, "clicked", G_CALLBACK(on_pick_window_clicked), nullptr);
-    g_ui.lbl_window = gtk_label_new(
-        capture_is_wayland()
-        ? "Wayland: Portal 대화상자에서 화면 또는 창 선택"
-        : "X11: 전체 화면 캡처");
-    gtk_label_set_xalign(GTK_LABEL(g_ui.lbl_window), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(g_ui.lbl_window), TRUE);
-    gtk_style_context_add_class(gtk_widget_get_style_context(g_ui.lbl_window), "hint-label");
-    gtk_box_pack_start(GTK_BOX(pick_box), g_ui.btn_pick_window, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(pick_box), g_ui.lbl_window,      TRUE,  TRUE,  0);
-    gui_attach_row(GTK_GRID(grid), row++, "대상 창", pick_box);
-
     return gui_make_frame("녹화 설정", grid);
 }
 
 GtkWidget* build_control_section() {
     GtkWidget* grid = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
-    gtk_widget_set_margin_top(grid, 6);
-    gtk_widget_set_margin_bottom(grid, 6);
-    gtk_widget_set_margin_start(grid, 10);
-    gtk_widget_set_margin_end(grid, 10);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+    gtk_widget_set_margin_top(grid, 4);
+    gtk_widget_set_margin_bottom(grid, 4);
+    gtk_widget_set_margin_start(grid, 8);
+    gtk_widget_set_margin_end(grid, 8);
     gtk_style_context_add_class(gtk_widget_get_style_context(grid), "form-grid");
 
     int row = 0;
 
-    GtkWidget* rec_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    GtkWidget* rec_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_widget_set_valign(rec_row, GTK_ALIGN_CENTER);
 
     g_ui.status_led = gtk_drawing_area_new();
-    gtk_widget_set_size_request(g_ui.status_led, 18, 18);
+    gtk_widget_set_size_request(g_ui.status_led, 14, 14);
     gtk_widget_set_valign(g_ui.status_led, GTK_ALIGN_CENTER);
     g_signal_connect(g_ui.status_led, "draw", G_CALLBACK(on_led_draw), nullptr);
     gtk_box_pack_start(GTK_BOX(rec_row), g_ui.status_led, FALSE, FALSE, 0);
@@ -1137,27 +1044,27 @@ GtkWidget* build_log_section() {
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(scrolled), GTK_SHADOW_IN);
-    gtk_widget_set_size_request(scrolled, -1, 120);
+    gtk_widget_set_size_request(scrolled, -1, 90);
 
     g_ui.log_view = gtk_text_view_new();
     gtk_text_view_set_editable(GTK_TEXT_VIEW(g_ui.log_view), FALSE);
     gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(g_ui.log_view), TRUE);
     gtk_text_view_set_monospace(GTK_TEXT_VIEW(g_ui.log_view), TRUE);
     gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(g_ui.log_view), GTK_WRAP_WORD_CHAR);
-    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(g_ui.log_view), 8);
-    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(g_ui.log_view), 8);
-    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(g_ui.log_view), 6);
-    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(g_ui.log_view), 6);
+    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(g_ui.log_view), 6);
+    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(g_ui.log_view), 6);
+    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(g_ui.log_view), 4);
+    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(g_ui.log_view), 4);
     gtk_style_context_add_class(gtk_widget_get_style_context(g_ui.log_view), "log-view");
     g_ui.log_buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(g_ui.log_view));
     g_signal_connect(g_ui.log_view, "key-press-event", G_CALLBACK(on_log_key_press), nullptr);
     gtk_container_add(GTK_CONTAINER(scrolled), g_ui.log_view);
 
-    GtkWidget* outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-    gtk_widget_set_margin_top(outer, 4);
-    gtk_widget_set_margin_bottom(outer, 6);
-    gtk_widget_set_margin_start(outer, 8);
-    gtk_widget_set_margin_end(outer, 8);
+    GtkWidget* outer = gtk_box_new(GTK_ORIENTATION_VERTICAL, 3);
+    gtk_widget_set_margin_top(outer, 3);
+    gtk_widget_set_margin_bottom(outer, 4);
+    gtk_widget_set_margin_start(outer, 6);
+    gtk_widget_set_margin_end(outer, 6);
     gtk_box_pack_start(GTK_BOX(outer), toolbar, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(outer), scrolled, TRUE, TRUE, 0);
 
@@ -1166,12 +1073,12 @@ GtkWidget* build_log_section() {
 
 GtkWidget* build_audio_section() {
     GtkWidget* grid = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
-    gtk_widget_set_margin_top(grid, 6);
-    gtk_widget_set_margin_bottom(grid, 6);
-    gtk_widget_set_margin_start(grid, 10);
-    gtk_widget_set_margin_end(grid, 10);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+    gtk_widget_set_margin_top(grid, 4);
+    gtk_widget_set_margin_bottom(grid, 4);
+    gtk_widget_set_margin_start(grid, 8);
+    gtk_widget_set_margin_end(grid, 8);
     gtk_style_context_add_class(gtk_widget_get_style_context(grid), "form-grid");
 
     int row = 0;
@@ -1200,7 +1107,7 @@ GtkWidget* build_audio_section() {
     gtk_scale_set_draw_value(GTK_SCALE(g_ui.scale_vol), FALSE);
     gtk_scale_set_has_origin(GTK_SCALE(g_ui.scale_vol), TRUE);
     gtk_widget_set_hexpand(g_ui.scale_vol, TRUE);
-    gtk_widget_set_size_request(g_ui.scale_vol, 380, 48);
+    gtk_widget_set_size_request(g_ui.scale_vol, 280, 38);
 
     static const double kVolMarks[]  = { 0, 50, 100, 150, 200 };
     static const char* kVolLabels[]  = { "0%", "50%", "100%", "150%", "200%" };
@@ -1208,7 +1115,7 @@ GtkWidget* build_audio_section() {
 
     g_ui.spin_vol = gtk_spin_button_new(g_ui.vol_adj, 1.0, 0);
     gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(g_ui.spin_vol), TRUE);
-    gtk_widget_set_size_request(g_ui.spin_vol, 72, -1);
+    gtk_widget_set_size_request(g_ui.spin_vol, 58, -1);
 
     GtkWidget* vol_box  = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     GtkWidget* lbl_volu = gtk_label_new("%");
@@ -1246,15 +1153,15 @@ void build_ui(GtkApplication* app) {
 
     g_ui.window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(g_ui.window), "Screen Recorder");
-    gtk_window_set_default_size(GTK_WINDOW(g_ui.window), 860, 720);
-    gtk_widget_set_size_request(GTK_WIDGET(g_ui.window), 720, -1);
+    gtk_window_set_default_size(GTK_WINDOW(g_ui.window), 680, 560);
+    gtk_widget_set_size_request(GTK_WIDGET(g_ui.window), 560, -1);
     gtk_window_set_resizable(GTK_WINDOW(g_ui.window), TRUE);
     gtk_window_set_position(GTK_WINDOW(g_ui.window), GTK_WIN_POS_CENTER);
     g_signal_connect(g_ui.window, "destroy", G_CALLBACK(on_window_destroy), nullptr);
     g_signal_connect(g_ui.window, "delete-event", G_CALLBACK(on_window_delete_event), nullptr);
 
-    GtkWidget* main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
-    gtk_container_set_border_width(GTK_CONTAINER(main_box), 14);
+    GtkWidget* main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    gtk_container_set_border_width(GTK_CONTAINER(main_box), 8);
     gtk_container_add(GTK_CONTAINER(g_ui.window), main_box);
 
     gtk_box_pack_start(GTK_BOX(main_box), build_settings_section(), FALSE, FALSE, 0);
