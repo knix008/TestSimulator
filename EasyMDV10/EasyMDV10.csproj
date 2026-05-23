@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon />
+    <AssemblyName>EasyMDV10</AssemblyName>
+    <RootNamespace>EasyMDV10</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
+    <PackageReference Include="Markdig" Version="0.38.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="daemon_hammer.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\h1.png" />
+    <EmbeddedResource Include="Resources\Icons\h2.png" />
+    <EmbeddedResource Include="Resources\Icons\h3.png" />
+    <EmbeddedResource Include="Resources\Icons\h4.png" />
+    <EmbeddedResource Include="Resources\Icons\h5.png" />
+    <EmbeddedResource Include="Resources\Icons\h6.png" />
+    <EmbeddedResource Include="Resources\SampleDocument.md" />
+  </ItemGroup>
+
+  <!--
+    Release 빌드 후 자동으로 MSI 생성.
+    VS 에서 HeatWave 확장 없이도 동작합니다.
+  -->
+  <Target Name="BuildMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Message Text="▶ MSI 빌드 시작..." Importance="high" />
+    <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)EasyMDV10.Installer\EasyMDV10.Installer.wixproj&quot; -c Release --no-dependencies" ConsoleToMsBuild="true" />
+    <Message Text="✔ MSI 생성 완료: EasyMDV10.Installer\bin\Release\ko-KR\EasyMD-Setup.msi" Importance="high" />
+  </Target>
+
+</Project>
