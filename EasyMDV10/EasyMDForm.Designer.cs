@@ -37,6 +37,9 @@ partial class EasyMDForm
         btnH1 = new ToolStripButton();
         btnH2 = new ToolStripButton();
         btnH3 = new ToolStripButton();
+        btnH4 = new ToolStripButton();
+        btnH5 = new ToolStripButton();
+        btnH6 = new ToolStripButton();
         tbSep1 = new ToolStripSeparator();
         btnBold = new ToolStripButton();
         btnItalic = new ToolStripButton();
@@ -66,7 +69,7 @@ partial class EasyMDForm
         treeOutline = new TreeView();
 
         splitContainer1 = new SplitContainer();
-        txtMarkdown = new RichTextBox();
+        txtMarkdown = new MarkdownEditor();
         webViewPreview = new WebView2();
 
         renderTimer = new System.Windows.Forms.Timer(components) { Interval = 300 };
@@ -180,7 +183,7 @@ partial class EasyMDForm
         toolStrip1.Items.AddRange(new ToolStripItem[]
         {
             btnToggleSidebar, tbSep0,
-            btnH1, btnH2, btnH3, tbSep1,
+            btnH1, btnH2, btnH3, btnH4, btnH5, btnH6, tbSep1,
             btnBold, btnItalic, btnStrike, tbSep2,
             btnCode, btnCodeBlock, tbSep3,
             btnLink, btnImage, tbSep4,
@@ -195,151 +198,75 @@ partial class EasyMDForm
         toolStrip1.TabIndex = 1;
         toolStrip1.Text = "toolStrip1";
 
-        // ── 사이드바 토글 버튼 ────────────────────────────────────────────────
-        btnToggleSidebar.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnToggleSidebar.Font = new Font("Segoe UI Symbol", 11f);
+        // ── 툴바 버튼 (아이콘·레이블은 SetupToolbarIcons에서 설정) ───────────────
         btnToggleSidebar.Name = "btnToggleSidebar";
-        btnToggleSidebar.Padding = new Padding(8, 0, 8, 0);
-        btnToggleSidebar.Text = "☰";
-        btnToggleSidebar.ToolTipText = "문서 구조 사이드바 열기/닫기";
         btnToggleSidebar.Click += btnToggleSidebar_Click;
 
         tbSep0.Name = "tbSep0";
 
-        // ── 제목 버튼 ─────────────────────────────────────────────────────────
-        btnH1.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnH1.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+        // ── 제목 H1~H6 ────────────────────────────────────────────────────────
         btnH1.Name = "btnH1";
-        btnH1.Padding = new Padding(6, 0, 6, 0);
-        btnH1.Text = "H1";
-        btnH1.ToolTipText = "제목 1  (# )";
         btnH1.Click += btnH1_Click;
 
-        btnH2.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnH2.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
         btnH2.Name = "btnH2";
-        btnH2.Padding = new Padding(6, 0, 6, 0);
-        btnH2.Text = "H2";
-        btnH2.ToolTipText = "제목 2  (## )";
         btnH2.Click += btnH2_Click;
 
-        btnH3.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnH3.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
         btnH3.Name = "btnH3";
-        btnH3.Padding = new Padding(6, 0, 6, 0);
-        btnH3.Text = "H3";
-        btnH3.ToolTipText = "제목 3  (### )";
         btnH3.Click += btnH3_Click;
+
+        btnH4.Name = "btnH4";
+        btnH4.Click += btnH4_Click;
+
+        btnH5.Name = "btnH5";
+        btnH5.Click += btnH5_Click;
+
+        btnH6.Name = "btnH6";
+        btnH6.Click += btnH6_Click;
 
         tbSep1.Name = "tbSep1";
 
-        // ── 텍스트 서식 버튼 ──────────────────────────────────────────────────
-        btnBold.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnBold.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
         btnBold.Name = "btnBold";
-        btnBold.Padding = new Padding(6, 0, 6, 0);
-        btnBold.Text = "B";
-        btnBold.ToolTipText = "굵게  (**텍스트**)";
         btnBold.Click += btnBold_Click;
 
-        btnItalic.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnItalic.Font = new Font("Segoe UI", 12f, FontStyle.Italic);
         btnItalic.Name = "btnItalic";
-        btnItalic.Padding = new Padding(6, 0, 6, 0);
-        btnItalic.Text = "I";
-        btnItalic.ToolTipText = "기울임  (*텍스트*)";
         btnItalic.Click += btnItalic_Click;
 
-        btnStrike.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnStrike.Font = new Font("Segoe UI", 12f);
         btnStrike.Name = "btnStrike";
-        btnStrike.Padding = new Padding(6, 0, 6, 0);
-        btnStrike.Text = "S̶";
-        btnStrike.ToolTipText = "취소선  (~~텍스트~~)";
         btnStrike.Click += btnStrike_Click;
 
         tbSep2.Name = "tbSep2";
 
-        // ── 코드 버튼 ─────────────────────────────────────────────────────────
-        btnCode.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnCode.Font = new Font("Consolas", 11f);
         btnCode.Name = "btnCode";
-        btnCode.Padding = new Padding(6, 0, 6, 0);
-        btnCode.Text = "`코드`";
-        btnCode.ToolTipText = "인라인 코드  (`코드`)";
         btnCode.Click += btnCode_Click;
 
-        btnCodeBlock.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnCodeBlock.Font = new Font("Consolas", 11f);
         btnCodeBlock.Name = "btnCodeBlock";
-        btnCodeBlock.Padding = new Padding(6, 0, 6, 0);
-        btnCodeBlock.Text = "```블록```";
-        btnCodeBlock.ToolTipText = "코드 블록  (``` ... ```)";
         btnCodeBlock.Click += btnCodeBlock_Click;
 
         tbSep3.Name = "tbSep3";
 
-        // ── 링크/이미지 버튼 ──────────────────────────────────────────────────
-        btnLink.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnLink.Font = new Font("Segoe UI", 11f);
         btnLink.Name = "btnLink";
-        btnLink.Padding = new Padding(6, 0, 6, 0);
-        btnLink.Text = "링크";
-        btnLink.ToolTipText = "링크 삽입  ([텍스트](URL))";
         btnLink.Click += btnLink_Click;
 
-        btnImage.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnImage.Font = new Font("Segoe UI", 11f);
         btnImage.Name = "btnImage";
-        btnImage.Padding = new Padding(6, 0, 6, 0);
-        btnImage.Text = "이미지";
-        btnImage.ToolTipText = "이미지 삽입  (![설명](URL))";
         btnImage.Click += btnImage_Click;
 
         tbSep4.Name = "tbSep4";
 
-        // ── 목록/인용 버튼 ────────────────────────────────────────────────────
-        btnUL.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnUL.Font = new Font("Segoe UI", 11f);
         btnUL.Name = "btnUL";
-        btnUL.Padding = new Padding(6, 0, 6, 0);
-        btnUL.Text = "● 목록";
-        btnUL.ToolTipText = "글머리 기호 목록  (- 항목)";
         btnUL.Click += btnUL_Click;
 
-        btnOL.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnOL.Font = new Font("Segoe UI", 11f);
         btnOL.Name = "btnOL";
-        btnOL.Padding = new Padding(6, 0, 6, 0);
-        btnOL.Text = "1. 목록";
-        btnOL.ToolTipText = "번호 목록  (1. 항목)";
         btnOL.Click += btnOL_Click;
 
-        btnQuote.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnQuote.Font = new Font("Segoe UI", 11f);
         btnQuote.Name = "btnQuote";
-        btnQuote.Padding = new Padding(6, 0, 6, 0);
-        btnQuote.Text = "인용";
-        btnQuote.ToolTipText = "인용구  (> 텍스트)";
         btnQuote.Click += btnQuote_Click;
 
         tbSep5.Name = "tbSep5";
 
-        // ── 기타 버튼 ─────────────────────────────────────────────────────────
-        btnHR.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnHR.Font = new Font("Segoe UI", 11f);
         btnHR.Name = "btnHR";
-        btnHR.Padding = new Padding(6, 0, 6, 0);
-        btnHR.Text = "구분선";
-        btnHR.ToolTipText = "수평선  (---)";
         btnHR.Click += btnHR_Click;
 
-        btnTable.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        btnTable.Font = new Font("Segoe UI", 11f);
         btnTable.Name = "btnTable";
-        btnTable.Padding = new Padding(6, 0, 6, 0);
-        btnTable.Text = "표";
-        btnTable.ToolTipText = "표 삽입";
         btnTable.Click += btnTable_Click;
 
         // ── outerSplitContainer ─────────────────────────────────────────────
@@ -406,7 +333,7 @@ partial class EasyMDForm
         treeOutline.ShowRootLines = true;
         treeOutline.ShowPlusMinus = true;
         treeOutline.TabIndex = 0;
-        treeOutline.NodeMouseClick += treeOutline_NodeMouseClick;
+        treeOutline.AfterSelect += treeOutline_AfterSelect;
 
         // ── splitContainer1 ─────────────────────────────────────────────────
         splitContainer1.Dock = DockStyle.Fill;
@@ -492,6 +419,9 @@ partial class EasyMDForm
     private ToolStripButton btnH1;
     private ToolStripButton btnH2;
     private ToolStripButton btnH3;
+    private ToolStripButton btnH4;
+    private ToolStripButton btnH5;
+    private ToolStripButton btnH6;
     private ToolStripSeparator tbSep1;
     private ToolStripButton btnBold;
     private ToolStripButton btnItalic;
@@ -521,7 +451,7 @@ partial class EasyMDForm
     private TreeView treeOutline;
 
     private SplitContainer splitContainer1;
-    private RichTextBox txtMarkdown;
+    private MarkdownEditor txtMarkdown;
     private WebView2 webViewPreview;
     private System.Windows.Forms.Timer renderTimer;
 }

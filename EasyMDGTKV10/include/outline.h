@@ -14,7 +14,7 @@ enum {
     OUTLINE_COL_TITLE = 0, /* string                              */
     OUTLINE_COL_LINE,      /* int (1-based line in the source)    */
     OUTLINE_COL_LEVEL,     /* int (1..6)                          */
-    OUTLINE_COL_ICON,      /* string: themed icon-name            */
+    OUTLINE_COL_ICON,      /* string: absolute path to resources/hN.svg */
     OUTLINE_N_COLS
 };
 

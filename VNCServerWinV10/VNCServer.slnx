@@ -1,4 +1,6 @@
 <Solution>
-  <Project Path="VNCServer.Installer/VNCServer.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0" />
+  <Project Path="VNCServer.Installer/VNCServer.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
   <Project Path="VNCServer/VNCServer.csproj" />
 </Solution>

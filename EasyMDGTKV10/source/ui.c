@@ -233,7 +233,6 @@ static gboolean confirm_discard_changes(UIContext *ctx) {
                            "버리기",     GTK_RESPONSE_REJECT,
                            "저장",       GTK_RESPONSE_ACCEPT,
                            NULL);
-    utils_apply_dialog_css(dlg);
     gint resp = gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
 
@@ -257,7 +256,6 @@ static void load_path(UIContext *ctx, const char *path) {
             GTK_DIALOG_MODAL,
             GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
             "파일을 열 수 없습니다:\n%s", err ? err->message : path);
-        utils_apply_dialog_css(m);
         gtk_dialog_run(GTK_DIALOG(m));
         gtk_widget_destroy(m);
         if (err) g_error_free(err);
@@ -323,7 +321,6 @@ static gboolean save_to(UIContext *ctx, const char *path) {
         gtk_message_dialog_format_secondary_text(
             GTK_MESSAGE_DIALOG(m), "%s",
             err ? err->message : path);
-        utils_apply_dialog_css(m);
         gtk_dialog_run(GTK_DIALOG(m));
         gtk_widget_destroy(m);
         if (err) g_error_free(err);
@@ -343,7 +340,6 @@ static gboolean save_to(UIContext *ctx, const char *path) {
             "파일을 저장했습니다.");
         gtk_message_dialog_format_secondary_text(
             GTK_MESSAGE_DIALOG(m), "%s", path);
-        utils_apply_dialog_css(m);
         gtk_dialog_run(GTK_DIALOG(m));
         gtk_widget_destroy(m);
     }
@@ -415,7 +411,6 @@ static void show_export_result(UIContext *ctx,
             GTK_MESSAGE_DIALOG(m), "%s",
             err ? err->message : path);
     }
-    utils_apply_dialog_css(m);
     gtk_dialog_run(GTK_DIALOG(m));
     gtk_widget_destroy(m);
 }
@@ -693,7 +688,6 @@ static void pdf_export_run(PdfExportCtx *px) {
         gtk_message_dialog_format_secondary_text(
             GTK_MESSAGE_DIALOG(hint),
             "저장 위치: %s", px->path);
-        utils_apply_dialog_css(hint);
         gtk_dialog_run(GTK_DIALOG(hint));
         gtk_widget_destroy(hint);
 
@@ -815,7 +809,6 @@ static void on_about(GtkWidget *w, gpointer ud) {
         gtk_about_dialog_set_logo_icon_name(GTK_ABOUT_DIALOG(dlg), "easymd");
     }
     gtk_window_set_transient_for(GTK_WINDOW(dlg), GTK_WINDOW(ctx->window));
-    utils_apply_dialog_css(dlg);
     gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
 }
@@ -953,6 +946,95 @@ static void on_sidebar_toggle_item(GtkMenuItem *m, gpointer ud) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Bundled resources (resources/h1.svg .. h6.svg)                     */
+/* ------------------------------------------------------------------ */
+
+static void easymd_init_resources(const char *argv0) {
+    gchar *resolved_exe = argv0 ? g_find_program_in_path(argv0) : NULL;
+    gchar *exe_dir = g_path_get_dirname(resolved_exe ? resolved_exe : (argv0 ? argv0 : "."));
+    gchar *exe_parent = g_path_get_dirname(exe_dir);
+
+    GPtrArray *candidates = g_ptr_array_new_with_free_func(g_free);
+    g_ptr_array_add(candidates, g_strdup("resources"));
+    g_ptr_array_add(candidates, g_build_filename(exe_dir, "resources", NULL));
+    if (exe_parent)
+        g_ptr_array_add(candidates, g_build_filename(exe_parent, "resources", NULL));
+
+    for (guint i = 0; i < candidates->len; i++) {
+        const gchar *dir = g_ptr_array_index(candidates, i);
+        gchar *probe = g_build_filename(dir, "h1.svg", NULL);
+        if (g_file_test(probe, G_FILE_TEST_IS_REGULAR)) {
+            utils_set_resources_dir(dir);
+            g_free(probe);
+            break;
+        }
+        g_free(probe);
+    }
+
+    g_ptr_array_free(candidates, TRUE);
+    g_free(exe_parent);
+    g_free(exe_dir);
+    g_free(resolved_exe);
+}
+
+static GtkWidget *heading_image_new(int level, int size_px) {
+    gchar *path = utils_heading_icon_path(level);
+    GdkPixbuf *pb = path
+        ? gdk_pixbuf_new_from_file_at_scale(path, size_px, size_px, TRUE, NULL)
+        : NULL;
+    g_free(path);
+    GtkWidget *img = gtk_image_new_from_pixbuf(pb);
+    if (pb) g_object_unref(pb);
+    return img;
+}
+
+static GtkWidget *mi_heading(int level,
+                             const char *label,
+                             const char *accel,
+                             GCallback cb,
+                             gpointer ud,
+                             GtkAccelGroup *ag) {
+    GtkWidget *m = gtk_menu_item_new();
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_margin_start(box, 4);
+    gtk_widget_set_margin_end(box, 4);
+    gtk_box_pack_start(GTK_BOX(box),
+                       heading_image_new(level, 16), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box),
+                       gtk_label_new_with_mnemonic(label), FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(m), box);
+    if (cb) g_signal_connect(m, "activate", cb, ud);
+    if (accel && ag) {
+        guint key; GdkModifierType mods;
+        gtk_accelerator_parse(accel, &key, &mods);
+        if (key) gtk_widget_add_accelerator(m, "activate", ag, key, mods,
+                                            GTK_ACCEL_VISIBLE);
+    }
+    return m;
+}
+
+static GtkWidget *make_md_heading_button(int level,
+                                         const char *label,
+                                         const char *tip,
+                                         GCallback   cb,
+                                         gpointer    ud) {
+    GtkWidget *btn = gtk_button_new();
+    gtk_button_set_relief(GTK_BUTTON(btn), GTK_RELIEF_NONE);
+    gtk_widget_set_focus_on_click(btn, FALSE);
+    gtk_widget_set_tooltip_text(btn, tip);
+
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_widget_set_margin_start(box, 4);
+    gtk_widget_set_margin_end(box, 4);
+    gtk_box_pack_start(GTK_BOX(box),
+                       heading_image_new(level, 16), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), gtk_label_new(label), FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(btn), box);
+    g_signal_connect(btn, "clicked", cb, ud);
+    return btn;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Menu / toolbar construction                                       */
 /* ------------------------------------------------------------------ */
 
@@ -1087,23 +1169,17 @@ static GtkWidget *build_menu_bar(UIContext *ctx, GtkAccelGroup *ag) {
     gtk_menu_item_set_submenu(GTK_MENU_ITEM(ins), ins_menu);
 
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("starred-symbolic",
-                "제목 1 (#)", "<Control>1", G_CALLBACK(on_ins_h1), ctx, ag));
+        mi_heading(1, "제목 1 (#)", "<Control>1", G_CALLBACK(on_ins_h1), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("emblem-documents-symbolic",
-                "제목 2 (##)", "<Control>2", G_CALLBACK(on_ins_h2), ctx, ag));
+        mi_heading(2, "제목 2 (##)", "<Control>2", G_CALLBACK(on_ins_h2), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("view-list-symbolic",
-                "제목 3 (###)", "<Control>3", G_CALLBACK(on_ins_h3), ctx, ag));
+        mi_heading(3, "제목 3 (###)", "<Control>3", G_CALLBACK(on_ins_h3), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("media-playback-start-symbolic",
-                "제목 4 (####)", "<Control>4", G_CALLBACK(on_ins_h4), ctx, ag));
+        mi_heading(4, "제목 4 (####)", "<Control>4", G_CALLBACK(on_ins_h4), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("format-indent-more-symbolic",
-                "제목 5 (#####)", "<Control>5", G_CALLBACK(on_ins_h5), ctx, ag));
+        mi_heading(5, "제목 5 (#####)", "<Control>5", G_CALLBACK(on_ins_h5), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
-        mi_icon("go-last-symbolic",
-                "제목 6 (######)", "<Control>6", G_CALLBACK(on_ins_h6), ctx, ag));
+        mi_heading(6, "제목 6 (######)", "<Control>6", G_CALLBACK(on_ins_h6), ctx, ag));
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(ins_menu),
         mi_icon("format-text-bold-symbolic",
@@ -1214,13 +1290,20 @@ static GtkWidget *build_toolbar(UIContext *ctx) {
         gtk_box_pack_start(GTK_BOX(bar), sep, FALSE, FALSE, 0);     \
     } while (0)
 
-    /* Headings — same icon family as the outline panel (★ / 📄 / ▤ / →). */
-    ADD_BTN("starred-symbolic",          "H1", "제목 1 (Ctrl+1)", on_ins_h1);
-    ADD_BTN("emblem-documents-symbolic", "H2", "제목 2 (Ctrl+2)", on_ins_h2);
-    ADD_BTN("view-list-symbolic",        "H3", "제목 3 (Ctrl+3)", on_ins_h3);
-    ADD_BTN("media-playback-start-symbolic","H4", "제목 4 (Ctrl+4)", on_ins_h4);
-    ADD_BTN("format-indent-more-symbolic", "H5", "제목 5 (Ctrl+5)", on_ins_h5);
-    ADD_BTN("go-last-symbolic",            "H6", "제목 6 (Ctrl+6)", on_ins_h6);
+    /* Headings — resources/hN.svg (menu / outline / toolbar). */
+#define ADD_HEADING(N, LABEL, TIP, CB)                              \
+    gtk_box_pack_start(GTK_BOX(bar),                                \
+        make_md_heading_button((N), (LABEL), (TIP),                 \
+                               G_CALLBACK(CB), ctx),                \
+        FALSE, FALSE, 0)
+
+    ADD_HEADING(1, "H1", "제목 1 (Ctrl+1)", on_ins_h1);
+    ADD_HEADING(2, "H2", "제목 2 (Ctrl+2)", on_ins_h2);
+    ADD_HEADING(3, "H3", "제목 3 (Ctrl+3)", on_ins_h3);
+    ADD_HEADING(4, "H4", "제목 4 (Ctrl+4)", on_ins_h4);
+    ADD_HEADING(5, "H5", "제목 5 (Ctrl+5)", on_ins_h5);
+    ADD_HEADING(6, "H6", "제목 6 (Ctrl+6)", on_ins_h6);
+#undef ADD_HEADING
     ADD_SEP();
     /* Inline emphasis. */
     ADD_BTN("format-text-bold-symbolic",          "Bold",   "굵게 (Ctrl+B)",   on_ins_bold);
@@ -1360,6 +1443,8 @@ UIContext *ui_init(int argc, char **argv) {
     gdk_set_program_class("easymd");
 
     gtk_init(&argc, &argv);
+
+    easymd_init_resources(argc > 0 ? argv[0] : NULL);
 
     UIContext *ctx = g_new0(UIContext, 1);
 

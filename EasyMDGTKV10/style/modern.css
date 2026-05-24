@@ -1,6 +1,5 @@
 /* Modern EasyMD GTK Theme
- * All colors are explicit so dark system themes (e.g. Yaru-dark) do not
- * bleed white text onto the app's light backgrounds. */
+ * Scoped to the main editor window only — dialogs use the system GTK theme. */
 
 /* ── Window & global defaults ─────────────────────────────────────── */
 window.modern-window {
@@ -8,81 +7,98 @@ window.modern-window {
     color: #23232b;
 }
 
-window.modern-window * {
+window.modern-window box,
+window.modern-window menubar,
+window.modern-window toolbar,
+window.modern-window label,
+window.modern-window menu,
+window.modern-window menuitem {
     color: #23232b;
 }
 
-/* ── Header bar (title bar) — dark to match Yaru-dark ────────────── */
-headerbar {
+window.modern-window button label {
+    color: #23232b;
+}
+
+/* ── Header bar (title bar) — main window only ───────────────────── */
+window.modern-window headerbar {
     background-color: #222222;
     color: #f7f7f7;
     border-bottom: 1px solid #111111;
 }
 
-headerbar label,
-headerbar .title,
-headerbar .subtitle,
-headerbar > label,
-headerbar > box > label {
+window.modern-window headerbar label,
+window.modern-window headerbar .title,
+window.modern-window headerbar .subtitle,
+window.modern-window headerbar > label,
+window.modern-window headerbar > box > label {
     color: #f7f7f7;
 }
 
-headerbar .title {
+window.modern-window headerbar .title {
     font-weight: bold;
     color: #f7f7f7;
 }
 
-headerbar .subtitle {
+window.modern-window headerbar .subtitle {
     font-size: smaller;
     color: #bbbbbb;
 }
 
-headerbar button,
-headerbar button label,
-headerbar button image {
+window.modern-window headerbar button,
+window.modern-window headerbar button label,
+window.modern-window headerbar button image {
     color: #f7f7f7;
 }
 
-/* ── Main window titlebuttons (min/max/close) ─────────────────────── */
-headerbar button.titlebutton,
-headerbar button.close,
-headerbar button.minimize,
-headerbar button.maximize {
+window.modern-window headerbar button.titlebutton,
+window.modern-window headerbar button.close,
+window.modern-window headerbar button.minimize,
+window.modern-window headerbar button.maximize {
     background-color: transparent;
     color: #f7f7f7;
     border: none;
     box-shadow: none;
     -gtk-icon-shadow: none;
+    -gtk-icon-effect: none;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 4px;
 }
 
-headerbar button.titlebutton label,
-headerbar button.close label,
-headerbar button.minimize label,
-headerbar button.maximize label {
+window.modern-window headerbar button.titlebutton label,
+window.modern-window headerbar button.close label,
+window.modern-window headerbar button.minimize label,
+window.modern-window headerbar button.maximize label,
+window.modern-window headerbar button.titlebutton image,
+window.modern-window headerbar button.close image,
+window.modern-window headerbar button.minimize image,
+window.modern-window headerbar button.maximize image {
     color: #f7f7f7;
+    -gtk-icon-effect: none;
 }
 
-headerbar button.titlebutton:hover,
-headerbar button.minimize:hover,
-headerbar button.maximize:hover {
+window.modern-window headerbar button.titlebutton:hover,
+window.modern-window headerbar button.minimize:hover,
+window.modern-window headerbar button.maximize:hover {
     background-color: rgba(255,255,255,0.15);
 }
 
-headerbar button.close:hover {
+window.modern-window headerbar button.close:hover {
     background-color: rgba(200,50,50,0.5);
 }
 
 /* ── Menu bar & menus ─────────────────────────────────────────────── */
-menubar {
+window.modern-window menubar {
     background-color: #ededf4;
     color: #23232b;
 }
 
-menubar > menuitem {
+window.modern-window menubar > menuitem {
     color: #23232b;
 }
 
-menubar > menuitem:hover {
+window.modern-window menubar > menuitem:hover {
     background-color: #d0d0e8;
     color: #23232b;
 }
@@ -112,28 +128,28 @@ menuitem:disabled {
 }
 
 /* ── Toolbar ──────────────────────────────────────────────────────── */
-toolbar {
+window.modern-window toolbar {
     background-color: #ededf4;
     color: #23232b;
     border-bottom: 1px solid #d0d0e0;
 }
 
-toolbar button {
+window.modern-window toolbar button {
     background-color: transparent;
     color: #23232b;
     border: none;
     box-shadow: none;
 }
 
-toolbar button:hover {
+window.modern-window toolbar button:hover {
     background-color: #d5d5ee;
 }
 
-toolbar button:active {
+window.modern-window toolbar button:active {
     background-color: #c0c0e0;
 }
 
-toolbar label {
+window.modern-window toolbar label {
     color: #23232b;
 }
 
@@ -198,112 +214,18 @@ toolbar label {
     font-size: 12px;
 }
 
-/* ── Labels & buttons (general) ──────────────────────────────────── */
-label {
-    color: #23232b;
-}
-
-button label {
-    color: #23232b;
-}
-
-/* ── Dialogs & file chooser ───────────────────────────────────────── */
-dialog,
-dialog > box,
-dialog > box > box,
-messagedialog,
-filechooser {
-    background-color: #f4f4fb;
-    color: #23232b;
-}
-
-dialog *,
-messagedialog *,
-filechooser * {
-    color: #23232b;
-}
-
-dialog label,
-messagedialog label,
-filechooser label {
-    color: #23232b;
-}
-
-dialog button,
-messagedialog button,
-filechooser button {
-    background-color: #e8e8f4;
-    color: #23232b;
-    border: 1px solid #c0c0d8;
-}
-
-dialog button:hover,
-messagedialog button:hover,
-filechooser button:hover {
-    background-color: #d5d5ee;
-}
-
-dialog button.suggested-action {
-    background-color: #5b5bdc;
-    color: #ffffff;
-    border-color: #4444bb;
-}
-
-dialog button.suggested-action:hover {
-    background-color: #4444cc;
-}
-
-dialog button.destructive-action {
-    background-color: #cc3333;
-    color: #ffffff;
-    border-color: #aa2222;
-}
-
-dialog entry,
-filechooser entry {
-    background-color: #ffffff;
-    color: #23232b;
-    border: 1px solid #c0c0d8;
-}
-
-/* File chooser internal widgets */
-filechooser treeview,
-filechooser treeview row,
-dialog treeview,
-dialog treeview row {
-    background-color: #f8f8ff;
-    color: #23232b;
-}
-
-filechooser treeview row:selected,
-dialog treeview row:selected {
-    background-color: #5b5bdc;
-    color: #ffffff;
-}
-
-filechooser .sidebar,
-filechooser .sidebar row {
-    background-color: #ededf8;
-    color: #23232b;
-}
-
-filechooser .sidebar row:selected {
-    background-color: #5b5bdc;
-    color: #ffffff;
-}
-
-/* ── Scrollbars ───────────────────────────────────────────────────── */
-scrollbar {
+/* ── Scrollbars (main window only) ────────────────────────────────── */
+window.modern-window scrollbar {
     background-color: #ececf4;
 }
 
-scrollbar slider {
+window.modern-window scrollbar slider {
     background-color: #b0b0cc;
     border-radius: 4px;
     min-width: 6px;
     min-height: 6px;
 }
 
-scrollbar slider:hover {
+window.modern-window scrollbar slider:hover {
     background-color: #8888bb;
 }

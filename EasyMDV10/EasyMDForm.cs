@@ -13,7 +13,11 @@ public partial class EasyMDForm : Form
     private string _currentFilePath = string.Empty;
     private bool _isDirty = false;
     private bool _isSyncing = false;
+    private bool _suppressOutlineNavigation = false;
+    private bool _suppressCaretPreviewSync = false;
+    private string _lastPreviewHeadingId = string.Empty;
     private readonly MarkdownPipeline _pipeline;
+    private readonly System.Windows.Forms.Timer _caretSyncTimer;
 
     public EasyMDForm()
     {
@@ -24,6 +28,13 @@ public partial class EasyMDForm : Form
             .UseAdvancedExtensions()
             .Build();
 
+        _caretSyncTimer = new System.Windows.Forms.Timer(components) { Interval = 200 };
+        _caretSyncTimer.Tick += (_, _) =>
+        {
+            _caretSyncTimer.Stop();
+            SyncPreviewToCaret();
+        };
+
         txtMarkdown.TextChanged += (s, e) =>
         {
             if (_isSyncing) return;
@@ -32,11 +43,19 @@ public partial class EasyMDForm : Form
             renderTimer.Start();
         };
 
+        txtMarkdown.SelectionChanged += (_, _) =>
+        {
+            if (_isSyncing || _suppressOutlineNavigation || _suppressCaretPreviewSync) return;
+            _caretSyncTimer.Stop();
+            _caretSyncTimer.Start();
+        };
+
         renderTimer.Tick += (s, e) =>
         {
             renderTimer.Stop();
             UpdatePreview();
             UpdateOutline();
+            SyncPreviewToCaret(force: true);
         };
     }
 
@@ -48,13 +67,6 @@ public partial class EasyMDForm : Form
             this,
             menuStrip1,
             toolStrip1,
-            btnToggleSidebar,
-            btnH1, btnH2, btnH3,
-            btnBold, btnItalic, btnStrike,
-            btnCode, btnCodeBlock,
-            btnLink, btnImage,
-            btnUL, btnOL, btnQuote,
-            btnHR, btnTable,
             outerSplitContainer,
             splitContainer1,
             pnlSidebar,
@@ -66,40 +78,33 @@ public partial class EasyMDForm : Form
             webViewPreview);
     }
 
-    // ─── Outline Icons ────────────────────────────────────────────────────────
-
-    private static ImageList CreateOutlineImageList()
+    private void SetupToolbarIcons()
     {
-        var il = new ImageList { ImageSize = new Size(20, 20), ColorDepth = ColorDepth.Depth32Bit };
+        treeOutline.ImageList = ToolbarIcons.HeadingImageList;
+        toolStrip1.ImageList = ToolbarIcons.ToolbarImageList;
+        toolStrip1.ImageScalingSize = new Size(20, 20);
 
-        // EmbeddedResource로 포함된 PNG 파일 로드 (h1.png ~ h6.png)
-        // 교체하려면 Resources/Icons/ 폴더의 PNG 파일을 교체 후 재빌드
-        var asm = System.Reflection.Assembly.GetExecutingAssembly();
-        string[] names = { "h1", "h2", "h3", "h4", "h5", "h6" };
+        ToolbarIcons.ConfigureButton(btnToggleSidebar, "sidebar", "구조", "문서 구조 사이드바 열기/닫기");
 
-        foreach (var name in names)
-        {
-            string resourceName = $"EasyMDV10.Resources.Icons.{name}.png";
-            using var stream = asm.GetManifestResourceStream(resourceName);
-            if (stream != null)
-                il.Images.Add(new Bitmap(stream));
-            else
-                il.Images.Add(CreateFallbackIcon(name));
-        }
+        ToolbarIcons.ConfigureHeadingButton(btnH1, 0, "# ", "제목 1");
+        ToolbarIcons.ConfigureHeadingButton(btnH2, 1, "## ", "제목 2");
+        ToolbarIcons.ConfigureHeadingButton(btnH3, 2, "### ", "제목 3");
+        ToolbarIcons.ConfigureHeadingButton(btnH4, 3, "#### ", "제목 4");
+        ToolbarIcons.ConfigureHeadingButton(btnH5, 4, "##### ", "제목 5");
+        ToolbarIcons.ConfigureHeadingButton(btnH6, 5, "###### ", "제목 6");
 
-        return il;
-    }
-
-    private static Bitmap CreateFallbackIcon(string label)
-    {
-        var bmp = new Bitmap(20, 20, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
-        g.Clear(Color.FromArgb(150, 150, 150));
-        using var font = new Font("Segoe UI", 7f, FontStyle.Bold);
-        using var brush = new SolidBrush(Color.White);
-        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString(label.ToUpper(), font, brush, new RectangleF(0, 0, 20, 20), sf);
-        return bmp;
+        ToolbarIcons.ConfigureButton(btnBold, "bold", "B", "굵게  (**텍스트**)", fontStyle: FontStyle.Bold);
+        ToolbarIcons.ConfigureButton(btnItalic, "italic", "I", "기울임  (*텍스트*)", fontStyle: FontStyle.Italic);
+        ToolbarIcons.ConfigureButton(btnStrike, "strike", "S", "취소선  (~~텍스트~~)");
+        ToolbarIcons.ConfigureButton(btnCode, "code", "코드", "인라인 코드  (`코드`)", font: UiTheme.EditorFont);
+        ToolbarIcons.ConfigureButton(btnCodeBlock, "codeblock", "블록", "코드 블록  (``` ... ```)", font: UiTheme.EditorFont);
+        ToolbarIcons.ConfigureButton(btnLink, "link", "링크", "링크 삽입  ([텍스트](URL))");
+        ToolbarIcons.ConfigureButton(btnImage, "image", "이미지", "이미지 삽입  (![설명](URL))");
+        ToolbarIcons.ConfigureButton(btnUL, "ul", "목록", "글머리 기호 목록  (- 항목)");
+        ToolbarIcons.ConfigureButton(btnOL, "ol", "번호", "번호 목록  (1. 항목)");
+        ToolbarIcons.ConfigureButton(btnQuote, "quote", "인용", "인용구  (> 텍스트)");
+        ToolbarIcons.ConfigureButton(btnHR, "hr", "구분선", "수평선  (---)");
+        ToolbarIcons.ConfigureButton(btnTable, "table", "표", "표 삽입");
     }
 
     private static string LoadDefaultSampleDocument()
@@ -115,7 +120,7 @@ public partial class EasyMDForm : Form
 
     private async void EasyMDForm_Load(object sender, EventArgs e)
     {
-        treeOutline.ImageList = CreateOutlineImageList();
+        SetupToolbarIcons();
 
         try
         {
@@ -160,6 +165,7 @@ public partial class EasyMDForm : Form
 
     private void UpdateOutline()
     {
+        _suppressOutlineNavigation = true;
         treeOutline.BeginUpdate();
         treeOutline.Nodes.Clear();
 
@@ -182,7 +188,7 @@ public partial class EasyMDForm : Form
             TreeNode? node = null;
             if (level <= MaxOutlineLevel)
             {
-                int imgIdx = level - 1;
+                int imgIdx = ToolbarIcons.LevelToImageIndex(level);
                 node = new TreeNode(text)
                 {
                     Tag = new OutlineTarget(i, $"outline-heading-{headingIndex}"),
@@ -211,18 +217,66 @@ public partial class EasyMDForm : Form
 
         treeOutline.ExpandAll();
         treeOutline.EndUpdate();
+        _suppressOutlineNavigation = false;
     }
 
-    private void treeOutline_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+    private void treeOutline_AfterSelect(object? sender, TreeViewEventArgs e)
     {
-        if (e.Node.Tag is not OutlineTarget target) return;
-        int charIndex = txtMarkdown.GetFirstCharIndexFromLine(target.LineIndex);
-        if (charIndex < 0) return;
-        txtMarkdown.SelectionStart = charIndex;
-        txtMarkdown.SelectionLength = 0;
-        txtMarkdown.ScrollToCaret();
-        txtMarkdown.Focus();
+        if (_suppressOutlineNavigation) return;
+        if (e.Node?.Tag is OutlineTarget target)
+            NavigateToOutlineTarget(target);
+    }
+
+    private void NavigateToOutlineTarget(OutlineTarget target)
+    {
+        if (target.LineIndex < 0) return;
+
+        _suppressCaretPreviewSync = true;
+        _lastPreviewHeadingId = target.HeadingId;
         ScrollPreviewToHeading(target.HeadingId);
+
+        BeginInvoke(() =>
+        {
+            txtMarkdown.ScrollLineToTop(target.LineIndex);
+            _suppressCaretPreviewSync = false;
+        });
+    }
+
+    private void SyncPreviewToCaret(bool force = false)
+    {
+        if (webViewPreview.CoreWebView2 == null) return;
+
+        int line = txtMarkdown.GetLineFromCharIndex(txtMarkdown.SelectionStart);
+        if (line < 0) line = 0;
+
+        string? headingId = GetHeadingIdForLine(line);
+        if (string.IsNullOrEmpty(headingId))
+            return;
+
+        if (!force && headingId == _lastPreviewHeadingId)
+            return;
+
+        _lastPreviewHeadingId = headingId;
+        ScrollPreviewToHeading(headingId);
+    }
+
+    private string? GetHeadingIdForLine(int lineIndex)
+    {
+        string[] lines = txtMarkdown.Lines;
+        if (lines.Length == 0) return null;
+
+        int headingIndex = 0;
+        string? lastId = null;
+
+        int lastLine = Math.Min(lineIndex, lines.Length - 1);
+        for (int i = 0; i <= lastLine; i++)
+        {
+            if (!HeadingRegex.IsMatch(lines[i])) continue;
+            headingIndex++;
+            lastId = $"outline-heading-{headingIndex}";
+        }
+
+        return lastId;
     }
 
     private void ScrollPreviewToHeading(string headingId)
@@ -308,6 +362,9 @@ public partial class EasyMDForm : Form
     private void btnH1_Click(object sender, EventArgs e) => InsertAtLineStart("# ");
     private void btnH2_Click(object sender, EventArgs e) => InsertAtLineStart("## ");
     private void btnH3_Click(object sender, EventArgs e) => InsertAtLineStart("### ");
+    private void btnH4_Click(object sender, EventArgs e) => InsertAtLineStart("#### ");
+    private void btnH5_Click(object sender, EventArgs e) => InsertAtLineStart("##### ");
+    private void btnH6_Click(object sender, EventArgs e) => InsertAtLineStart("###### ");
     private void btnBold_Click(object sender, EventArgs e) => InsertInline("**", "**");
     private void btnItalic_Click(object sender, EventArgs e) => InsertInline("*", "*");
     private void btnStrike_Click(object sender, EventArgs e) => InsertInline("~~", "~~");

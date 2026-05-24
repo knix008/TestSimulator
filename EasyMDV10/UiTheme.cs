@@ -28,22 +28,6 @@ internal static class UiTheme
         Form form,
         MenuStrip menuStrip,
         ToolStrip toolStrip,
-        ToolStripButton btnToggleSidebar,
-        ToolStripButton btnH1,
-        ToolStripButton btnH2,
-        ToolStripButton btnH3,
-        ToolStripButton btnBold,
-        ToolStripButton btnItalic,
-        ToolStripButton btnStrike,
-        ToolStripButton btnCode,
-        ToolStripButton btnCodeBlock,
-        ToolStripButton btnLink,
-        ToolStripButton btnImage,
-        ToolStripButton btnUL,
-        ToolStripButton btnOL,
-        ToolStripButton btnQuote,
-        ToolStripButton btnHR,
-        ToolStripButton btnTable,
         SplitContainer outerSplitContainer,
         SplitContainer splitContainer1,
         Panel pnlSidebar,
@@ -51,7 +35,7 @@ internal static class UiTheme
         Label lblOutline,
         Button btnCollapse,
         TreeView treeOutline,
-        RichTextBox txtMarkdown,
+        MarkdownEditor txtMarkdown,
         WebView2 webViewPreview)
     {
         form.Font = UiFont;
@@ -68,19 +52,7 @@ internal static class UiTheme
         toolStrip.BackColor = ToolbarBackground;
         toolStrip.ForeColor = TextPrimary;
         toolStrip.Padding = new Padding(10, 6, 10, 6);
-        toolStrip.ImageScalingSize = new Size(18, 18);
-
-        StyleToolbarButton(btnToggleSidebar, ToolbarFont, isToggle: true);
-        StyleToolbarButton(btnH1, ToolbarHeadingFont);
-        StyleToolbarButton(btnH2, ToolbarHeadingFont);
-        StyleToolbarButton(btnH3, ToolbarHeadingFont);
-        StyleToolbarButton(btnBold, ToolbarFont, bold: true);
-        StyleToolbarButton(btnItalic, ToolbarFont, italic: true);
-        StyleToolbarButton(btnStrike, ToolbarFont);
-        StyleToolbarButton(btnCode, EditorFont);
-        StyleToolbarButton(btnCodeBlock, EditorFont);
-        foreach (var btn in new[] { btnLink, btnImage, btnUL, btnOL, btnQuote, btnHR, btnTable })
-            StyleToolbarButton(btn, ToolbarFont);
+        toolStrip.ImageScalingSize = new Size(20, 20);
 
         outerSplitContainer.BackColor = Border;
         outerSplitContainer.SplitterWidth = 1;
@@ -124,10 +96,11 @@ internal static class UiTheme
         txtMarkdown.ForeColor = EditorForeground;
         txtMarkdown.Font = EditorFont;
         txtMarkdown.BorderStyle = BorderStyle.None;
+        txtMarkdown.WordWrap = true;
         txtMarkdown.ScrollBars = RichTextBoxScrollBars.Vertical;
     }
 
-    private static void WrapEditor(SplitContainer split, RichTextBox editor)
+    private static void WrapEditor(SplitContainer split, MarkdownEditor editor)
     {
         var host = new Panel
         {

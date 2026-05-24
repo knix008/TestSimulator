@@ -11,17 +11,28 @@
 #include "mdcore.h"
 #include "utils.h"
 
-/* Pick a themed icon-name for a heading level. The names are part of the
- * standard freedesktop icon set (Adwaita ships them all on Linux/macOS). */
-static const char *icon_name_for_level(int level) {
-    switch (level) {
-        case 1:  return "starred-symbolic";          /* H1 - 툴바와 동일 */
-        case 2:  return "emblem-documents-symbolic"; /* H2 - 툴바와 동일 */
-        case 3:  return "view-list-symbolic";        /* H3 - 툴바와 동일 */
-        case 4:  return "media-playback-start-symbolic"; /* H4 - 툴바와 동일 */
-        case 5:  return "format-indent-more-symbolic";  /* H5 - 툴바와 동일 */
-        case 6:  return "go-last-symbolic";             /* H6 - 툴바와 동일 */
-        default: return "media-playback-start-symbolic";
+/* Pick the shared EasyMD heading icon path (resources/hN.svg) for outline rows. */
+static gchar *icon_path_for_level(int level) {
+    return utils_heading_icon_path(level);
+}
+
+static void outline_icon_cell_data_func(GtkTreeViewColumn *col,
+                                        GtkCellRenderer   *renderer,
+                                        GtkTreeModel      *model,
+                                        GtkTreeIter       *iter,
+                                        gpointer           user_data) {
+    (void)col;
+    (void)user_data;
+    gchar *path = NULL;
+    gtk_tree_model_get(model, iter, OUTLINE_COL_ICON, &path, -1);
+    if (path) {
+        GdkPixbuf *pb = gdk_pixbuf_new_from_file_at_scale(
+            path, 22, 22, TRUE, NULL);
+        g_object_set(renderer, "pixbuf", pb, NULL);
+        if (pb) g_object_unref(pb);
+        g_free(path);
+    } else {
+        g_object_set(renderer, "pixbuf", NULL, NULL);
     }
 }
 
@@ -42,9 +53,9 @@ void outline_init(GtkTreeView *tv) {
     gtk_tree_view_column_set_expand(col, TRUE);
 
     GtkCellRenderer *icon_r = gtk_cell_renderer_pixbuf_new();
-    g_object_set(icon_r, "stock-size", GTK_ICON_SIZE_LARGE_TOOLBAR, NULL);
     gtk_tree_view_column_pack_start(col, icon_r, FALSE);
-    gtk_tree_view_column_add_attribute(col, icon_r, "icon-name", OUTLINE_COL_ICON);
+    gtk_tree_view_column_set_cell_data_func(col, icon_r,
+        outline_icon_cell_data_func, NULL, NULL);
 
     GtkCellRenderer *text_r = gtk_cell_renderer_text_new();
     g_object_set(text_r, "ypad", 6, "xpad", 10, "font", "Sans Bold 11", NULL);
@@ -88,12 +99,14 @@ void outline_update(GtkTreeView *tv, const char *markdown) {
 
         GtkTreeIter cur;
         gtk_tree_store_append(store, &cur, parent);
+        gchar *icon_path = icon_path_for_level(h->level);
         gtk_tree_store_set(store, &cur,
                            OUTLINE_COL_TITLE, h->title,
                            OUTLINE_COL_LINE,  h->line,
                            OUTLINE_COL_LEVEL, h->level,
-                           OUTLINE_COL_ICON,  icon_name_for_level(h->level),
+                           OUTLINE_COL_ICON,  icon_path,
                            -1);
+        g_free(icon_path);
 
         parent_iter [h->level] = cur;
         parent_valid[h->level] = TRUE;
