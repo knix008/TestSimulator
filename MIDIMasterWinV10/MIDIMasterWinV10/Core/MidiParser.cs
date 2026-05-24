@@ -66,9 +66,11 @@ public class MidiParser
             var trackInfo = new MidiTrackInfo { TrackIndex = t };
             // key = channel(1-16) * 128 + noteNumber(0-127)
             var openNotes = new Dictionary<int, (long tick, int velocity)>();
+            long lastTick = 0;
 
             foreach (var ev in midiFile.Events[t])
             {
+                lastTick = Math.Max(lastTick, ev.AbsoluteTime);
                 if (ev is TextEvent txt && txt.MetaEventType == MetaEventType.SequenceTrackName)
                     trackInfo.Name = txt.Text;
 
@@ -109,6 +111,25 @@ public class MidiParser
                         openNotes.Remove(key);
                     }
                 }
+            }
+
+            // Close notes still held at end of track (some files omit NoteOff).
+            foreach (var (key, start) in openNotes)
+            {
+                long dur = Math.Max(1, lastTick - start.tick);
+                int noteNumber = key % 128;
+                int channel    = key / 128;
+                trackInfo.Notes.Add(new NoteEvent
+                {
+                    NoteNumber       = noteNumber,
+                    Velocity         = start.velocity,
+                    StartTick        = start.tick,
+                    DurationTicks    = dur,
+                    Channel          = channel,
+                    StartTimeSeconds = TicksToSeconds(start.tick),
+                    DurationSeconds  = TicksToSeconds(start.tick + dur) - TicksToSeconds(start.tick)
+                });
+                info.AllNotes.Add(trackInfo.Notes[^1]);
             }
 
             if (string.IsNullOrEmpty(trackInfo.Name))

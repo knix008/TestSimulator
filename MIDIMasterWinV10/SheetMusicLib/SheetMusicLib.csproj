@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>MidiSheetMusic</RootNamespace>
+    <AssemblyName>SheetMusic</AssemblyName>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <MSMBase>..\..\MidiSheetMusic(v2.6)\MidiSheetMusic\MidiSheetMusic-2.6-win-src(Revised)</MSMBase>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSMBase)\Classes\AccidSymbol.cs" Link="Classes\AccidSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\BarSymbol.cs" Link="Classes\BarSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\BlankSymbol.cs" Link="Classes\BlankSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\ChordSymbol.cs" Link="Classes\ChordSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\ClefMeasures.cs" Link="Classes\ClefMeasures.cs" />
+    <Compile Include="$(MSMBase)\Classes\ClefSymbol.cs" Link="Classes\ClefSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\ConfigINI.cs" Link="Classes\ConfigINI.cs" />
+    <Compile Include="$(MSMBase)\Classes\KeySignature.cs" Link="Classes\KeySignature.cs" />
+    <Compile Include="$(MSMBase)\Classes\LyricSymbol.cs" Link="Classes\LyricSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\MidiEvent.cs" Link="Classes\MidiEvent.cs" />
+    <Compile Include="$(MSMBase)\Classes\MidiFile.cs" Link="Classes\MidiFile.cs" />
+    <Compile Include="$(MSMBase)\Classes\MidiFileException.cs" Link="Classes\MidiFileException.cs" />
+    <Compile Include="$(MSMBase)\Classes\MidiFileReader.cs" Link="Classes\MidiFileReader.cs" />
+    <Compile Include="$(MSMBase)\Classes\MidiNote.cs" Link="Classes\MidiNote.cs" />
+    <Compile Include="$(MSMBase)\Classes\MidiOptions.cs" Link="Classes\MidiOptions.cs" />
+    <Compile Include="$(MSMBase)\Classes\MidiTrack.cs" Link="Classes\MidiTrack.cs" />
+    <Compile Include="$(MSMBase)\Classes\MusicSymbol.cs" Link="Classes\MusicSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\RestSymbol.cs" Link="Classes\RestSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\SheetMusic.cs" Link="Classes\SheetMusic.cs" />
+    <Compile Include="$(MSMBase)\Classes\Staff.cs" Link="Classes\Staff.cs" />
+    <Compile Include="$(MSMBase)\Classes\Stem.cs" Link="Classes\Stem.cs" />
+    <Compile Include="$(MSMBase)\Classes\SymbolWidths.cs" Link="Classes\SymbolWidths.cs" />
+    <Compile Include="$(MSMBase)\Classes\TimeSignature.cs" Link="Classes\TimeSignature.cs" />
+    <Compile Include="$(MSMBase)\Classes\TimeSigSymbol.cs" Link="Classes\TimeSigSymbol.cs" />
+    <Compile Include="$(MSMBase)\Classes\WhiteNote.cs" Link="Classes\WhiteNote.cs" />
+    <Compile Include="Staff.Playhead.partial.cs" />
+    <Compile Include="SheetMusic.Playhead.partial.cs" />
+    <Compile Include="SheetMusic.Layout.partial.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\bass.png" Link="Resources\Images\bass.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\eight.png" Link="Resources\Images\eight.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\four.png" Link="Resources\Images\four.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\nine.png" Link="Resources\Images\nine.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\NotePair.png" Link="Resources\Images\NotePair.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\six.png" Link="Resources\Images\six.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\three.png" Link="Resources\Images\three.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\treble.png" Link="Resources\Images\treble.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\twelve.png" Link="Resources\Images\twelve.png" />
+    <EmbeddedResource Include="$(MSMBase)\Resources\Images\two.png" Link="Resources\Images\two.png" />
+  </ItemGroup>
+</Project>

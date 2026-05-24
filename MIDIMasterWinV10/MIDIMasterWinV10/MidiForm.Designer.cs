@@ -21,7 +21,6 @@ namespace MIDIMasterWinV10
 
         // ── Sheet music (fills centre) ────────────────────────────────────────
         private System.Windows.Forms.Panel pnlSheet;
-        private System.Windows.Forms.PictureBox picSheet;
 
         // ── Control panel (bottom, two rows) ─────────────────────────────────
         // Row 1 – position slider
@@ -69,7 +68,6 @@ namespace MIDIMasterWinV10
             this.lblNoteCount      = new System.Windows.Forms.Label();
 
             this.pnlSheet          = new System.Windows.Forms.Panel();
-            this.picSheet          = new System.Windows.Forms.PictureBox();
 
             this.pnlControls       = new System.Windows.Forms.Panel();
             this.lblCurrentTime    = new System.Windows.Forms.Label();
@@ -93,7 +91,6 @@ namespace MIDIMasterWinV10
             this.pnlSheet.SuspendLayout();
             this.pnlControls.SuspendLayout();
             this.statusStrip.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)this.picSheet).BeginInit();
             ((System.ComponentModel.ISupportInitialize)this.trkPosition).BeginInit();
             this.SuspendLayout();
 
@@ -185,22 +182,10 @@ namespace MIDIMasterWinV10
             this.lblNoteCount.TabIndex = 2;
             this.lblNoteCount.Text = "음표: -";
 
-            // ── picSheet ─────────────────────────────────────────────────────
-            // Width matches panel; Height is set at runtime by RebuildSheet().
-            // No Dock=Fill so the PictureBox can be taller than the panel (enables scrolling).
-            this.picSheet.BackColor = System.Drawing.Color.White;
-            this.picSheet.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.picSheet.Location = new System.Drawing.Point(0, 0);
-            this.picSheet.Name = "picSheet";
-            this.picSheet.Size = new System.Drawing.Size(1100, 500);
-            this.picSheet.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Normal;
-            this.picSheet.TabIndex = 0;
-            this.picSheet.TabStop = false;
-
             // ── pnlSheet ─────────────────────────────────────────────────────
+            // MidiSheetMusic SheetMusic control is added at runtime when a file is opened.
             this.pnlSheet.AutoScroll = true;
             this.pnlSheet.BackColor = System.Drawing.Color.White;
-            this.pnlSheet.Controls.Add(this.picSheet);
             this.pnlSheet.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlSheet.Location = new System.Drawing.Point(0, 54);
             this.pnlSheet.Name = "pnlSheet";
@@ -375,7 +360,6 @@ namespace MIDIMasterWinV10
             this.pnlControls.PerformLayout();
             this.statusStrip.ResumeLayout(false);
             this.statusStrip.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)this.picSheet).EndInit();
             ((System.ComponentModel.ISupportInitialize)this.trkPosition).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();

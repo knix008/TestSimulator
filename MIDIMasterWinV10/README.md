@@ -2,87 +2,115 @@
 
 Windows용 MIDI 파일 플레이어. C# / WinForms (.NET 8) 기반.
 
+MIDI 재생, 오선보 악보 표시, General MIDI 악기 선택, SoundFont 합성 기반 WAV/MP3 보내기를 지원합니다.
+
 ## 주요 기능
 
 | 기능 | 설명 |
 |------|------|
-| MIDI 재생 | Windows MIDI 출력 장치를 통한 MIDI 파일 재생 (재생 / 일시정지 / 정지 / 위치 이동) |
-| 악보 표시 | 높은음자리표 + 낮은음자리표 오선보에 음표 헤드 + 기둥으로 전체 음표 표시 |
-| 악기 선택 | General MIDI 128종 악기 중 선택 가능 |
-| WAV 내보내기 | MIDI 노트를 사인파 합성으로 WAV 파일 저장 |
-| MP3 내보내기 | WAV를 LAME 인코더로 MP3 변환 저장 |
-| 오류 대화상자 | 오류 내용을 선택·복사할 수 있는 ErrorDialog |
+| MIDI 재생 | Windows MIDI 출력 장치로 재생 (재생 / 일시정지 / 정지 / 위치 이동) |
+| 악보 표시 | [MidiSheetMusic](https://github.com/madavid/MidiSheetMusic) v2.6 엔진 기반 오선보 (음표·쉼표·마디·빔·조표) |
+| 재생 위치 표시 | 빨간 세로선 플레이헤드, 재생 중 악보 자동 스크롤 |
+| 악기 선택 | General MIDI 128종 악기 — 재생·보내기에 동일 적용 (드럼 채널 제외) |
+| WAV 보내기 | MeltySynth + TimGM6mb SoundFont로 실제 악기 음색 합성 |
+| MP3 보내기 | 동일 합성 결과를 LAME으로 MP3 인코딩 |
+| 악보 줄 너비 | 창(악보 패널) 너비에 맞춰 한 줄 길이 자동 조정 |
 
 ## 개발 환경
 
 - .NET 8 (`net8.0-windows`)
+- Windows 10 이상
 - WinForms
-- Visual Studio 2026 (VS 디자이너 호환)
+- Visual Studio 2022 / 2026 (솔루션: `MIDIMasterWinV10.slnx`)
+
+### 빌드 전 준비
+
+`SheetMusicLib`는 로컬에 있는 **MidiSheetMusic v2.6** 소스를 링크합니다. 아래 경로에 원본이 있어야 합니다.
+
+```
+../MidiSheetMusic(v2.6)/MidiSheetMusic/MidiSheetMusic-2.6-win-src(Revised)/
+```
+
+`SoundFonts/TimGM6mb.sf2`는 저장소에 포함되어 있으며, 빌드 시 출력 폴더로 복사됩니다.
 
 ## NuGet 패키지
 
-- [NAudio](https://github.com/naudio/NAudio) 2.2.1 — MIDI 파일 파싱, 재생
-- [NAudio.Lame](https://github.com/Corey-M/NAudio.Lame) 2.1.0 — MP3 인코딩
+| 패키지 | 용도 |
+|--------|------|
+| [NAudio](https://github.com/naudio/NAudio) 2.2.1 | MIDI 파일 파싱·재생 |
+| [NAudio.Lame](https://github.com/Corey-M/NAudio.Lame) 2.1.0 | MP3 인코딩 |
+| [MeltySynth](https://github.com/sinshu/meltysynth) 2.4.1 | SoundFont MIDI 합성 (WAV/MP3 보내기) |
+
+서드파티 라이선스는 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 참고하세요.
 
 ## 프로젝트 구조
 
 ```
-MIDIMasterWinV10/                   # 솔루션 루트
-├── MIDIMasterWinV10/               # 메인 앱 프로젝트
+MIDIMasterWinV10/                      # 솔루션 루트
+├── MIDIMasterWinV10/                  # 메인 WinForms 앱
 │   ├── Constants/
-│   │   └── GeneralMidi.cs          # GM 128종 악기명 정의
+│   │   └── GeneralMidi.cs             # GM 128종 악기명
 │   ├── Core/
-│   │   ├── AudioExporter.cs        # WAV / MP3 내보내기
-│   │   ├── MidiParser.cs           # MIDI 파일 파싱 + MidiFileInfo 모델
-│   │   ├── MidiPlayer.cs           # MIDI 재생 엔진 (일시정지/재개 포함)
-│   │   └── SheetMusicRenderer.cs   # GDI+ 악보 렌더러 (음표 헤드 + 기둥)
+│   │   ├── AudioExporter.cs           # WAV / MP3 보내기
+│   │   ├── MidiParser.cs              # MIDI 파싱 (MidiFileInfo)
+│   │   ├── MidiPlayer.cs              # Windows MIDI 재생
+│   │   ├── SoundFontPaths.cs          # SoundFont 경로
+│   │   ├── SoundFontRenderer.cs       # MeltySynth 오프라인 렌더
+│   │   └── SheetMusicRenderer.cs      # (레거시, 미사용)
 │   ├── Models/
 │   │   ├── MidiTrackInfo.cs
 │   │   └── NoteEvent.cs
-│   ├── ErrorDialog.cs              # 오류 내용 복사 가능한 대화상자
-│   ├── MidiForm.cs                 # 메인 폼 로직
-│   ├── MidiForm.Designer.cs        # VS 디자이너 파일
+│   ├── SoundFonts/
+│   │   └── TimGM6mb.sf2               # GM SoundFont (~6 MB)
+│   ├── ErrorDialog.cs
+│   ├── MidiForm.cs / MidiForm.Designer.cs
 │   └── Program.cs
-├── MIDIMasterWinV10Setup/          # WiX v7 MSI 설치 프로젝트
-│   ├── Package.wxs
-│   ├── License.rtf
-│   └── MIDIMasterWinV10Setup.wixproj
-└── MIDIMasterWinV10.slnx           # 솔루션 파일
+├── SheetMusicLib/                     # MidiSheetMusic 래퍼 (GPL-2.0)
+│   ├── SheetMusic.Playhead.partial.cs
+│   ├── SheetMusic.Layout.partial.cs
+│   └── Staff.Playhead.partial.cs
+├── MIDIMasterWinV10Setup/            # WiX v7 MSI 설치 프로젝트
+├── ParseTest/                         # 로컬 파싱 테스트 (솔루션 미포함)
+├── THIRD_PARTY_NOTICES.md
+└── MIDIMasterWinV10.slnx
 ```
 
-## 빌드
+## 빌드 및 실행
 
 ```bash
-dotnet build
-dotnet run --project MIDIMasterWinV10
+cd MIDIMasterWinV10
+dotnet build MIDIMasterWinV10.slnx
+dotnet run --project MIDIMasterWinV10/MIDIMasterWinV10.csproj
 ```
 
-## MSI 설치 파일 생성
+## MSI 설치 파일
 
-Visual Studio 2026에서 **Release** 모드로 솔루션 빌드 시 MSI 파일이 자동 생성됩니다.
+Visual Studio에서 **Release**로 솔루션을 빌드하면 WiX MSI가 생성됩니다.
 
-- 설치 시 **바탕화면** 및 **시작 메뉴** 바로가기를 선택적으로 생성 가능
-- 바로가기 아이콘: `daemon_hammer.ico`
-- WiX Toolset v7.0.0 사용
+- 출력: `MIDIMasterWinV10Setup/bin/Release/MIDIMasterWinV10Setup.msi`
+- 바탕화면·시작 메뉴 바로가기 선택 가능
+- WiX Toolset 7.0.0
 
 ## 사용 방법
 
-1. **파일 > 열기** (Ctrl+O) 로 `.mid` / `.midi` 파일을 엽니다.
-2. 악보 패널에 전체 음표가 오선보 형태로 표시됩니다.
-3. 악기 드롭다운에서 원하는 악기를 선택합니다.
-4. **▶ 재생** 버튼으로 재생합니다. 재생 중 **⏸ 일시정지** 후 다시 **▶ 재생**하면 이어서 재생됩니다.
-5. 악보 패널에서 **마우스 휠**로 시간축 확대/축소가 가능합니다.
-6. **파일 > WAV / MP3로 내보내기** 로 오디오 파일을 저장합니다.
+1. **파일 > 열기** (Ctrl+O)로 `.mid` / `.midi` 파일을 엽니다.
+2. 악보 패널에 오선보가 표시됩니다. 창 너비에 맞춰 여러 줄로 배치됩니다.
+3. **악기** 콤보박스에서 GM 악기를 선택합니다.
+4. **▶ 재생**으로 연주합니다. **⏸ 일시정지** 후 다시 재생하면 이어서 재생됩니다.
+5. 재생 중 빨간 플레이헤드가 현재 위치를 표시하고, 필요 시 악보가 스크롤됩니다.
+6. **파일 > WAV로 보내기** 또는 **MP3로 보내기**로 오디오 파일을 저장합니다.
 
-## 악보 표시 동작
+## 재생 vs 보내기 음질
 
-- 파일을 열면 **전체 음표**가 한 화면에 들어오도록 기본 줌이 설정됩니다.
-- 마우스 휠 위로 스크롤: 확대 (더 적은 구간 표시)
-- 마우스 휠 아래로 스크롤: 축소 (더 많은 구간 표시)
-- 재생 중에는 재생 헤드가 화면의 좌측 25% 위치에 유지되도록 자동 스크롤됩니다.
+| 구분 | 방식 |
+|------|------|
+| **스피커 재생** | Windows MIDI 출력 장치 (시스템/드라이버에 따라 음색 차이) |
+| **WAV / MP3** | MeltySynth + TimGM6mb SoundFont 합성, UI에서 선택한 악기가 멜로디 채널에 적용 |
+
+보내기 시 드럼(MIDI 채널 10)은 GM 드럼 키트로 렌더링됩니다.
 
 ## 참고 사항
 
-- WAV/MP3 내보내기는 사인파 기반 단순 합성입니다. 실제 악기 음색을 원하면 SoundFont 기반 합성기(예: FluidSynth) 연동이 필요합니다.
-- MIDI 채널 10번(드럼 채널)은 악보 표시 및 내보내기 시 제외됩니다.
-- NAudio 채널 번호는 1-based(1~16)이며, 채널 10이 드럼입니다.
+- NAudio MIDI 채널 번호는 **1-based**(1~16)이며, 채널 **10**이 드럼입니다. MeltySynth 내부는 0-based이며 채널 **9**가 드럼입니다.
+- `SoundFonts/TimGM6mb.sf2`가 없으면 WAV/MP3 보내기가 실패합니다. 빌드 출력의 `SoundFonts` 폴더를 확인하세요.
+- 악보 엔진(MidiSheetMusic) 포함 배포 시 GPL v2 의무가 적용될 수 있습니다. 자세한 내용은 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)를 참고하세요.

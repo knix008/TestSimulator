@@ -4,53 +4,45 @@ using System.Drawing.Drawing2D;
 namespace MIDIMasterWinV10.Core;
 
 /// <summary>
-/// Renders MIDI notes as a piano-roll overlaid on grand staff lines.
-/// Each system (row) shows a fixed time window.  Notes are horizontal bars
-/// whose X = start time, width = duration, Y = diatonic pitch on the staff.
-/// No stems, beams, or accidental symbols — MIDI data is too dense for those.
-/// The background bitmap is pre-rendered on file load; the playhead is drawn
-/// separately on each timer tick via the PictureBox.Paint event.
+/// Renders MIDI as engraved-style grand-staff sheet music.
+/// Each system row shows a fixed number of 4/4 measures; note X follows beat
+/// position inside the measure (not proportional wall-clock time).
 /// </summary>
 public class SheetMusicRenderer
 {
-    // ── Layout constants ──────────────────────────────────────────────────────
-    public const  int SystemHeight    = 280;   // total px per system row (including margins)
-    private const int TrebleRelTop    = 55;    // treble staff top-line Y, relative to system top
-    private const int BassRelTop      = 185;   // bass staff top-line Y, relative to system top
-    private const int StaffLineSpacing = 14;   // px between adjacent staff lines
-    private const int BarsPerSystem   = 4;     // bars shown per row (assumes 4/4 time)
-    private const int LeftMargin      = 80;    // space reserved for clef + bracket
-    private const int RightMargin     = 20;
-    private const int NoteBarH        = 7;     // note bar height (fills a staff space neatly)
-    private const int MinNoteW        = 4;     // minimum bar width in pixels
+    // ── Layout ─────────────────────────────────────────────────────────────────
+    public const int SystemHeight      = 300;
+    private const int TrebleRelTop     = 62;
+    private const int BassRelTop       = 192;
+    private const int StaffLineSpacing = 14;
+    private const int BarsPerSystem    = 4;
+    private const int LeftMargin       = 108;   // clef + time signature + first barline
+    private const int RightMargin      = 16;
+    private const int NoteHeadW        = 11;
+    private const int NoteHeadH        = 8;
+    private const int StemLength       = StaffLineSpacing * 3;
+    private const int DrumChannel      = 10;
+    private const int PlayheadMargin   = 6;
+    private const int PlayheadMarkerH  = 10;
+    private const int NoteHeadTiltDeg  = -22;
+    private const int QuantizeDivisions = 16;   // sixteenth-note grid
 
-    // Diatonic step index for each chromatic pitch class (C=0 … B=6 within octave)
     private static readonly int[] ChromaticToDiatonic
         = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
 
-    // True when a chromatic pitch class is a black key (sharp/flat)
-    private static readonly bool[] IsBlackKey
+    private static readonly bool[] IsAccidental
         = [false, true, false, true, false, false, true, false, true, false, true, false];
 
-    // ── Colours ───────────────────────────────────────────────────────────────
+    // ── Colours (traditional engraving: black on white) ───────────────────────
     public Color BackgroundColor { get; set; } = Color.White;
-    public Color StaffColor      { get; set; } = Color.FromArgb(80, 80, 80);
-    public Color BarlineColor    { get; set; } = Color.FromArgb(150, 150, 165);
+    public Color StaffColor      { get; set; } = Color.Black;
+    public Color BarlineColor    { get; set; } = Color.Black;
+    public Color NoteColor       { get; set; } = Color.Black;
 
-    // Note-bar colours per staff
-    private static readonly Color TrebleNote  = Color.FromArgb(200,  30,  70, 160);  // semi-transparent navy
-    private static readonly Color BassNote    = Color.FromArgb(200,  20, 120,  60);  // semi-transparent teal
-    private static readonly Color BlackKeyBg  = Color.FromArgb(18, 0, 0, 0);         // very faint black-key tint
-
-    // ── State ─────────────────────────────────────────────────────────────────
     public double SecondsPerSystem { get; private set; }
 
     // ── Public API ────────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Renders the entire piece as a tall multi-row bitmap (no playhead).
-    /// Cache and reuse; only call again when the panel width changes.
-    /// </summary>
     public Bitmap RenderBackground(MidiFileInfo? fileInfo, int width)
     {
         if (fileInfo == null || fileInfo.AllNotes.Count == 0)
@@ -63,17 +55,17 @@ public class SheetMusicRenderer
             return empty;
         }
 
-        // 4 bars at the piece's main tempo
-        double beatsPerSec = 1_000_000.0 / fileInfo.Tempo;
-        SecondsPerSystem = BarsPerSystem * 4.0 / beatsPerSec;
+        double barSeconds = SecondsPerBar(fileInfo.Tempo);
+        SecondsPerSystem = BarsPerSystem * barSeconds;
         if (SecondsPerSystem <= 0) SecondsPerSystem = 8.0;
 
-        int systemCount  = (int)Math.Ceiling(fileInfo.TotalSeconds / SecondsPerSystem) + 1;
-        int totalHeight  = Math.Max(SystemHeight, systemCount * SystemHeight);
+        int systemCount = (int)Math.Ceiling(fileInfo.TotalSeconds / SecondsPerSystem) + 1;
+        int totalHeight = Math.Max(SystemHeight, systemCount * SystemHeight);
 
         var bmp = new Bitmap(Math.Max(1, width), totalHeight);
         using var g = Graphics.FromImage(bmp);
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
         g.Clear(BackgroundColor);
 
         for (int s = 0; s < systemCount; s++)
@@ -82,184 +74,234 @@ public class SheetMusicRenderer
         return bmp;
     }
 
-    /// <summary>
-    /// Draws the orange playhead bar for the current second.
-    /// Call from the PictureBox.Paint event — draws on top of the cached Image.
-    /// </summary>
-    public void DrawPlayhead(Graphics g, double currentSeconds, int width)
+    public void DrawPlayhead(Graphics g, double currentSeconds, int width, int tempoMicros = 500_000)
     {
         if (SecondsPerSystem <= 0) return;
 
-        int sysIndex   = (int)(currentSeconds / SecondsPerSystem);
-        double within  = currentSeconds - sysIndex * SecondsPerSystem;
-        int x          = NoteX(within, SecondsPerSystem, width);
-        int sysTop     = sysIndex * SystemHeight;
-        int trebleTop  = sysTop + TrebleRelTop;
-        int bassBot    = sysTop + BassRelTop + 4 * StaffLineSpacing;
+        int sysIndex = (int)(currentSeconds / SecondsPerSystem);
+        double sysStart = sysIndex * SecondsPerSystem;
+        int x = TimeToX(currentSeconds, sysStart, width, tempoMicros);
+        int sysTop = sysIndex * SystemHeight;
+        int yTop = sysTop + PlayheadMargin;
+        int yBottom = sysTop + SystemHeight - PlayheadMargin;
 
         using var pen = new Pen(Color.OrangeRed, 2.5f);
-        pen.DashStyle = DashStyle.Solid;
-        g.DrawLine(pen, x, trebleTop - 6, x, bassBot + 6);
+        g.DrawLine(pen, x, yTop, x, yBottom);
 
-        // Small triangle marker at the top
         var pts = new PointF[]
         {
-            new(x - 5, trebleTop - 12),
-            new(x + 5, trebleTop - 12),
-            new(x,     trebleTop - 5)
+            new(x - 6, yTop - PlayheadMarkerH),
+            new(x + 6, yTop - PlayheadMarkerH),
+            new(x, yTop - 1)
         };
         g.FillPolygon(Brushes.OrangeRed, pts);
     }
 
-    // ── System drawing ────────────────────────────────────────────────────────
+    // ── System ────────────────────────────────────────────────────────────────
 
     private void DrawSystem(Graphics g, MidiFileInfo fi, int sysY, double sysStart, int w)
     {
-        DrawSystemBackground(g, sysY, w);
+        DrawSystemSeparator(g, sysY, w);
         DrawStaves(g, sysY, w);
-        DrawClef(g, sysY);
-        DrawBarlines(g, fi, sysY, sysStart, w);
-        DrawMiddleCLedger(g, sysY, w);      // only the middle-C ledger line
-        DrawTimeLabel(g, sysY, sysStart, w);
+        DrawClefAndTimeSignature(g, sysY);
+        DrawMeasureNumbers(g, fi, sysY, sysStart, w);
+        DrawBarlines(g, sysY, w);
         DrawNotes(g, fi, sysY, sysStart, w);
     }
 
-    private void DrawSystemBackground(Graphics g, int sysY, int w)
+    private void DrawSystemSeparator(Graphics g, int sysY, int w)
     {
-        // Faint alternating bands for black-key pitch rows to aid pitch reading.
-        // We shade each black-key diatonic half-space inside the treble and bass staves.
-        // Simpler: shade the area between staves and around the staves.
-        using var sep = new Pen(Color.FromArgb(60, 200, 200, 220), 1f);
-        g.DrawLine(sep, 0, sysY + SystemHeight - 1, w, sysY + SystemHeight - 1);
+        using var pen = new Pen(Color.FromArgb(220, 220, 225), 1f);
+        g.DrawLine(pen, 0, sysY + SystemHeight - 1, w, sysY + SystemHeight - 1);
     }
 
     private void DrawStaves(Graphics g, int sysY, int w)
     {
-        using var pen = new Pen(StaffColor, 1.2f);
+        using var pen = new Pen(StaffColor, 1f);
         int trebleTop = sysY + TrebleRelTop;
         int bassTop   = sysY + BassRelTop;
 
         for (int i = 0; i < 5; i++)
         {
             g.DrawLine(pen, LeftMargin, trebleTop + i * StaffLineSpacing,
-                            w - RightMargin, trebleTop + i * StaffLineSpacing);
+                w - RightMargin, trebleTop + i * StaffLineSpacing);
             g.DrawLine(pen, LeftMargin, bassTop + i * StaffLineSpacing,
-                            w - RightMargin, bassTop + i * StaffLineSpacing);
+                w - RightMargin, bassTop + i * StaffLineSpacing);
         }
 
-        // Grand-staff bracket
-        using var thick = new Pen(StaffColor, 2.5f);
-        g.DrawLine(thick, LeftMargin, trebleTop, LeftMargin, bassTop + 4 * StaffLineSpacing);
+        using var bracket = new Pen(StaffColor, 2f);
+        g.DrawLine(bracket, LeftMargin, trebleTop, LeftMargin, bassTop + 4 * StaffLineSpacing);
     }
 
-    private void DrawClef(Graphics g, int sysY)
+    private void DrawClefAndTimeSignature(Graphics g, int sysY)
     {
         int trebleTop = sysY + TrebleRelTop;
         int bassTop   = sysY + BassRelTop;
 
-        // Use Segoe UI Symbol (always present on Win10/11) for reliable glyph rendering.
-        try
-        {
-            using var tf = new Font("Segoe UI Symbol", 34, FontStyle.Regular, GraphicsUnit.Point);
-            g.DrawString("𝄞", tf, Brushes.Black, LeftMargin + 3, trebleTop - 16);
+        using var clefFont = new Font("Times New Roman", 44, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var bassFont = new Font("Times New Roman", 34, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var sigFont  = new Font("Times New Roman", 22, FontStyle.Bold, GraphicsUnit.Pixel);
 
-            using var bf = new Font("Segoe UI Symbol", 26, FontStyle.Regular, GraphicsUnit.Point);
-            g.DrawString("𝄢", bf, Brushes.Black, LeftMargin + 5, bassTop - 6);
-        }
-        catch
+        g.DrawString("\U0001D11E", clefFont, Brushes.Black, 10, trebleTop - 26);
+        g.DrawString("\U0001D122", bassFont, Brushes.Black, 12, bassTop - 14);
+
+        // 4/4 time signature
+        float sigX = 62;
+        g.DrawString("4", sigFont, Brushes.Black, sigX, trebleTop + StaffLineSpacing - 2);
+        g.DrawString("4", sigFont, Brushes.Black, sigX, trebleTop + 3 * StaffLineSpacing - 2);
+    }
+
+    private void DrawMeasureNumbers(Graphics g, MidiFileInfo fi, int sysY, double sysStart, int w)
+    {
+        double barSeconds = SecondsPerBar(fi.Tempo);
+        int firstMeasure  = (int)Math.Floor(sysStart / barSeconds) + 1;
+
+        using var font = new Font("Times New Roman", 9, FontStyle.Italic);
+        double measureWidth = MeasureWidth(w);
+
+        for (int i = 0; i < BarsPerSystem; i++)
         {
-            // Fallback: plain-text labels if font is unavailable
-            using var lf = new Font("Segoe UI", 9, FontStyle.Bold);
-            g.DrawString("Treble", lf, Brushes.DimGray, 2, trebleTop + StaffLineSpacing);
-            g.DrawString("Bass",   lf, Brushes.DimGray, 2, bassTop   + StaffLineSpacing);
+            int measureNum = firstMeasure + i;
+            if (measureNum < 1) continue;
+            int x = LeftMargin + (int)(i * measureWidth) + 4;
+            g.DrawString(measureNum.ToString(), font, Brushes.Gray, x, sysY + 8);
         }
     }
 
-    private void DrawBarlines(Graphics g, MidiFileInfo fi, int sysY, double sysStart, int w)
+    private void DrawBarlines(Graphics g, int sysY, int w)
     {
-        double bps = 1_000_000.0 / fi.Tempo;
-        double spb = 4.0 / bps;            // seconds per bar (4/4 assumed)
-        if (spb <= 0) spb = 2.0;
-
         int trebleTop = sysY + TrebleRelTop;
-        int bassBot   = sysY + BassRelTop + 4 * StaffLineSpacing;
+        int bassTop   = sysY + BassRelTop;
+        int bassBot   = bassTop + 4 * StaffLineSpacing;
+        double measureWidth = MeasureWidth(w);
 
-        using var pen = new Pen(BarlineColor, 1f);
+        using var thin = new Pen(BarlineColor, 1f);
+        using var heavy = new Pen(BarlineColor, 1.8f);
 
-        double firstBar = Math.Ceiling(sysStart / spb) * spb;
-        for (double t = firstBar; t <= sysStart + SecondsPerSystem + 0.001; t += spb)
+        for (int i = 0; i <= BarsPerSystem; i++)
         {
-            double ratio = (t - sysStart) / SecondsPerSystem;
-            if (ratio < 0 || ratio > 1.001) continue;
-            int x = NoteX(t - sysStart, SecondsPerSystem, w);
+            int x = LeftMargin + (int)Math.Round(i * measureWidth);
+            var pen = i == 0 ? heavy : thin;
             g.DrawLine(pen, x, trebleTop, x, trebleTop + 4 * StaffLineSpacing);
-            g.DrawLine(pen, x, sysY + BassRelTop, x, bassBot);
+            g.DrawLine(pen, x, bassTop, x, bassBot);
         }
-    }
-
-    private void DrawMiddleCLedger(Graphics g, int sysY, int w)
-    {
-        // Middle C (MIDI 60) sits on a ledger line between treble and bass staves.
-        // Draw a faint horizontal line across the note area at that pitch.
-        (int relY, _) = NoteToRelY(60);
-        if (relY == int.MinValue) return;
-        int y = sysY + relY;
-        using var pen = new Pen(Color.FromArgb(100, 120, 120, 140), 1f) { DashStyle = DashStyle.Dot };
-        g.DrawLine(pen, LeftMargin, y, w - RightMargin, y);
-    }
-
-    private void DrawTimeLabel(Graphics g, int sysY, double sysStart, int w)
-    {
-        using var font = new Font("Segoe UI", 8, FontStyle.Regular);
-        g.DrawString(TimeSpan.FromSeconds(sysStart).ToString(@"mm\:ss"),
-            font, Brushes.Gray, LeftMargin, sysY + 6);
-        string endStr = TimeSpan.FromSeconds(sysStart + SecondsPerSystem).ToString(@"mm\:ss");
-        var sz = g.MeasureString(endStr, font);
-        g.DrawString(endStr, font, Brushes.Gray, w - RightMargin - sz.Width, sysY + 6);
     }
 
     private void DrawNotes(Graphics g, MidiFileInfo fi, int sysY, double sysStart, int w)
     {
-        double sysEnd    = sysStart + SecondsPerSystem;
-        double noteAreaW = w - LeftMargin - RightMargin;
+        double sysEnd       = sysStart + SecondsPerSystem;
+        double beatSeconds  = fi.Tempo / 1_000_000.0;
+        if (beatSeconds <= 0) beatSeconds = 0.5;
+
+        using var accFont = new Font("Times New Roman", 11, FontStyle.Regular);
+        using var stemPen = new Pen(NoteColor, 1.3f);
+
+        var slotCounts = new Dictionary<string, int>();
+        var beamGroups = new List<BeamNote>();
 
         foreach (var note in fi.AllNotes)
         {
             double ns = note.StartTimeSeconds;
             double ne = ns + note.DurationSeconds;
             if (ne <= sysStart) continue;
-            if (ns >= sysEnd)   break;     // sorted by start time
-            if (note.Channel == 10) continue; // drums
+            if (ns >= sysEnd) break;
+            if (note.Channel == DrumChannel) continue;
 
             (int relY, bool isTreble) = NoteToRelY(note.NoteNumber);
             if (relY == int.MinValue) continue;
 
-            // Clamp note to system boundaries
             double drawStart = Math.Max(ns, sysStart);
-            double drawEnd   = Math.Min(ne, sysEnd);
+            int x = TimeToX(drawStart, sysStart, w, fi.Tempo, quantize: true);
 
-            int x  = NoteX(drawStart - sysStart, SecondsPerSystem, w);
-            int x2 = NoteX(drawEnd   - sysStart, SecondsPerSystem, w);
-            int nw = Math.Max(MinNoteW, x2 - x);
-            int y  = sysY + relY - NoteBarH / 2;
+            double relBars = (drawStart - sysStart) / SecondsPerBar(fi.Tempo);
+            int barInSys = (int)Math.Floor(relBars);
+            double beatInBar = Math.Round(((relBars - barInSys) * 4.0) * QuantizeDivisions) / QuantizeDivisions;
+            string slot = $"{barInSys}:{beatInBar:F2}:{isTreble}";
+            int stagger = slotCounts.GetValueOrDefault(slot);
+            slotCounts[slot] = stagger + 1;
+            x += stagger * 5;
 
-            Color baseColor = isTreble ? TrebleNote : BassNote;
+            int y = sysY + relY;
+            bool filled = note.DurationSeconds < beatSeconds * 0.95;
+            bool stemUp = ShouldStemUp(y, sysY, isTreble);
 
-            // Black-key notes get a slightly different shade for readability
-            if (IsBlackKey[note.NoteNumber % 12])
-                baseColor = Color.FromArgb(baseColor.A,
-                    Math.Max(0, baseColor.R - 20),
-                    Math.Max(0, baseColor.G - 20),
-                    Math.Min(255, baseColor.B + 20));
+            DrawNoteHead(g, x, y, filled, stemPen, stemUp);
+            DrawLedgerLines(g, note.NoteNumber, x, sysY, isTreble);
 
-            using var brush = new SolidBrush(baseColor);
-            var rect = new Rectangle(x, y, nw, NoteBarH);
-            g.FillRectangle(brush, rect);
+            if (IsAccidental[note.NoteNumber % 12])
+                g.DrawString("\u266F", accFont, Brushes.Black, x - 14, y - 8);
 
-            // Thin outline for separation
-            using var border = new Pen(Color.FromArgb(80, 0, 0, 0), 0.5f);
-            g.DrawRectangle(border, rect);
+            if (filled && note.DurationSeconds <= beatSeconds * 0.55)
+                beamGroups.Add(new BeamNote(x, y, stemUp, isTreble));
         }
+
+        DrawBeams(g, beamGroups, stemPen);
+    }
+
+    private void DrawNoteHead(Graphics g, int x, int y, bool filled, Pen stemPen, bool stemUp)
+    {
+        var state = g.Save();
+        g.TranslateTransform(x, y);
+        g.RotateTransform(NoteHeadTiltDeg);
+
+        var rect = new Rectangle(-NoteHeadW / 2, -NoteHeadH / 2, NoteHeadW, NoteHeadH);
+        if (filled)
+            g.FillEllipse(Brushes.Black, rect);
+        else
+        {
+            g.FillEllipse(Brushes.White, rect);
+            g.DrawEllipse(stemPen, rect);
+        }
+
+        g.Restore(state);
+
+        int stemX = stemUp ? x + NoteHeadW / 2 - 1 : x - NoteHeadW / 2 + 1;
+        int stemY2 = stemUp ? y - StemLength : y + StemLength;
+        g.DrawLine(stemPen, stemX, y, stemX, stemY2);
+    }
+
+    private void DrawBeams(Graphics g, List<BeamNote> notes, Pen pen)
+    {
+        if (notes.Count < 2) return;
+
+        var grouped = notes
+            .GroupBy(n => (n.IsTreble, n.StemUp, n.X / 12))
+            .Where(grp => grp.Count() >= 2);
+
+        foreach (var grp in grouped)
+        {
+            var list = grp.OrderBy(n => n.X).ToList();
+            bool stemUp = list[0].StemUp;
+            int beamY = stemUp
+                ? list.Min(n => n.Y) - StemLength
+                : list.Max(n => n.Y) + StemLength;
+
+            int x1 = list.First().X + (stemUp ? 4 : -4);
+            int x2 = list.Last().X + (stemUp ? 4 : -4);
+            pen.Width = 2.5f;
+            g.DrawLine(pen, x1, beamY, x2, beamY);
+            pen.Width = 1.3f;
+        }
+    }
+
+    private void DrawLedgerLines(Graphics g, int noteNumber, int x, int sysY, bool isTreble)
+    {
+        using var pen = new Pen(StaffColor, 1f);
+        int ledgerW = NoteHeadW + 8;
+
+        int staffRelTop = isTreble ? TrebleRelTop : BassRelTop;
+        int topLine     = sysY + staffRelTop;
+        int bottomLine  = topLine + 4 * StaffLineSpacing;
+
+        (int noteY, _) = NoteToRelY(noteNumber);
+        if (noteY == int.MinValue) return;
+        noteY += sysY;
+
+        for (int ly = topLine - StaffLineSpacing; ly >= noteY - NoteHeadH; ly -= StaffLineSpacing)
+            g.DrawLine(pen, x - ledgerW / 2, ly, x + ledgerW / 2, ly);
+
+        for (int ly = bottomLine + StaffLineSpacing; ly <= noteY + NoteHeadH; ly += StaffLineSpacing)
+            g.DrawLine(pen, x - ledgerW / 2, ly, x + ledgerW / 2, ly);
     }
 
     private void DrawNoFileMessage(Graphics g, int w, int h)
@@ -270,33 +312,50 @@ public class SheetMusicRenderer
         g.DrawString(msg, font, Brushes.Gray, (w - sz.Width) / 2f, (h - sz.Height) / 2f);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Layout helpers ─────────────────────────────────────────────────────────
 
-    // Returns X pixel for a time offset within the current system.
-    private int NoteX(double timeOffset, double sysDur, int w)
+    private static double BeatsPerSecond(int tempoMicros) => 1_000_000.0 / tempoMicros;
+
+    private static double SecondsPerBar(int tempoMicros) => 4.0 / BeatsPerSecond(tempoMicros);
+
+    private static double MeasureWidth(int w) => (w - LeftMargin - RightMargin) / (double)BarsPerSystem;
+
+    private static int TimeToX(double timeSec, double sysStartSec, int w, int tempoMicros, bool quantize = false)
     {
-        double ratio = timeOffset / sysDur;
-        return LeftMargin + (int)(ratio * (w - LeftMargin - RightMargin));
+        double barSeconds = SecondsPerBar(tempoMicros);
+        double relSec = timeSec - sysStartSec;
+        if (relSec < 0) relSec = 0;
+
+        double relBars = relSec / barSeconds;
+        if (quantize)
+        {
+            double beatInBar = (relBars - Math.Floor(relBars)) * 4.0;
+            beatInBar = Math.Round(beatInBar * QuantizeDivisions) / QuantizeDivisions;
+            relBars = Math.Floor(relBars) + beatInBar / 4.0;
+        }
+
+        return LeftMargin + (int)Math.Round(relBars * MeasureWidth(w));
     }
 
-    // Maps a MIDI note number to a Y position RELATIVE to the system top.
-    // Treble staff: E4 (MIDI 64) = bottom line.
-    // Bass staff:   G2 (MIDI 43) = bottom line.
-    // Returns int.MinValue for notes too far outside the staff to show.
+    private static bool ShouldStemUp(int noteY, int sysY, bool isTreble)
+    {
+        int staffRelTop = isTreble ? TrebleRelTop : BassRelTop;
+        int staffMidY   = sysY + staffRelTop + 2 * StaffLineSpacing;
+        return noteY >= staffMidY;
+    }
+
     private (int relY, bool isTreble) NoteToRelY(int noteNumber)
     {
         bool isTreble   = noteNumber >= 60;
         int staffRelTop = isTreble ? TrebleRelTop : BassRelTop;
         int refNote     = isTreble ? 64 : 43;
-        int refRelY     = staffRelTop + 4 * StaffLineSpacing;  // bottom staff line
+        int refRelY     = staffRelTop + 4 * StaffLineSpacing;
 
         int diaRef  = ToDiatonic(refNote);
         int diaCurr = ToDiatonic(noteNumber);
-        // Each diatonic step = half a staff-line spacing
         int relY    = refRelY - (int)Math.Round((diaCurr - diaRef) * StaffLineSpacing / 2.0);
 
-        // Allow 4 ledger lines above and below each staff
-        int limit = 4 * StaffLineSpacing;
+        int limit = 5 * StaffLineSpacing;
         if (relY < staffRelTop - limit || relY > staffRelTop + 4 * StaffLineSpacing + limit)
             return (int.MinValue, isTreble);
 
@@ -305,4 +364,6 @@ public class SheetMusicRenderer
 
     private static int ToDiatonic(int midi)
         => (midi / 12) * 7 + ChromaticToDiatonic[midi % 12];
+
+    private readonly record struct BeamNote(int X, int Y, bool StemUp, bool IsTreble);
 }

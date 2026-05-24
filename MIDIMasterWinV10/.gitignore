@@ -1,17 +1,28 @@
 # Build outputs
-bin/
-obj/
-out/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+artifacts/
 *.msi
+*.wixpdb
+*.wixobj
 
-# Visual Studio
+# Publish
+publish/
+*.pubxml.user
+
+# Visual Studio / VS Code / Cursor
 .vs/
+.vscode/
+.cursor/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
-
-# Solution explorer state (VS2026+)
+*.csproj.user
+*.csproj.userosscache
 .slnx.user
 
 # NuGet
@@ -19,22 +30,37 @@ out/
 packages/
 project.lock.json
 project.fragment.lock.json
-artifacts/
 
-# WiX installer build outputs
+# WiX installer
 MIDIMasterWinV10Setup/bin/
 MIDIMasterWinV10Setup/obj/
 
 # OS
 Thumbs.db
+ehthumbs.db
 Desktop.ini
 .DS_Store
 
-# Rider
+# JetBrains Rider
 .idea/
+*.sln.iml
 
-# Test results
+# Test / coverage
 TestResults/
+*.trx
+*.coverage
+*.coveragexml
 
-# User-specific files
-*.rsuser
+# Logs and temp
+*.log
+*.tmp
+*.temp
+~$*
+
+# SoundFont download helpers (TimGM6mb.sf2 in SoundFonts/ is tracked)
+*.deb
+
+# Local scratch / export tests
+export_test/
+*.wav
+*.mp3

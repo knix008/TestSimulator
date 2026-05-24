@@ -14,6 +14,7 @@ public class MidiPlayer : IDisposable
     private long _currentTick;  // written by playback thread via Volatile.Write; read by Pause()
     private int _selectedInstrument = 0;
     private bool _disposed;
+    private SynchronizationContext? _uiContext;
 
     public PlaybackState State { get; private set; } = PlaybackState.Stopped;
     public double TotalSeconds { get; private set; }
@@ -22,10 +23,13 @@ public class MidiPlayer : IDisposable
     /// <summary>Fires on the playback thread whenever the position advances.</summary>
     public event Action<double>? PositionChanged;
 
-    /// <summary>Fires on the playback thread when the song naturally reaches its end.</summary>
+    /// <summary>Fires on the UI thread when the user stops playback (Stop button).</summary>
     public event Action? PlaybackStopped;
 
-    /// <summary>Fires on the calling thread whenever State changes (Playing / Paused / Stopped).</summary>
+    /// <summary>Fires on the UI thread when the song reaches the end naturally.</summary>
+    public event Action? PlaybackCompleted;
+
+    /// <summary>Fires on the UI thread whenever State changes (Playing / Paused / Stopped).</summary>
     public event Action<PlaybackState>? StateChanged;
 
     public int OutputDeviceIndex { get; set; } = 0;
@@ -114,8 +118,11 @@ public class MidiPlayer : IDisposable
         _currentTick = 0;
         CurrentSeconds = 0;
         State = PlaybackState.Stopped;
-        StateChanged?.Invoke(State);
-        PlaybackStopped?.Invoke();
+        PostToUi(() =>
+        {
+            StateChanged?.Invoke(State);
+            PlaybackStopped?.Invoke();
+        });
     }
 
     public void SeekToSeconds(double seconds)
@@ -140,6 +147,8 @@ public class MidiPlayer : IDisposable
 
     private void StartPlayback(long fromTick)
     {
+        _uiContext ??= SynchronizationContext.Current;
+
         // Join any previous thread before creating a new one (handles resume-after-pause).
         _cts?.Cancel();
         _playThread?.Join(2000);
@@ -215,8 +224,7 @@ public class MidiPlayer : IDisposable
             foreach (var pc in priorPatch)
             {
                 if (pc.Channel == 10) continue;
-                int prog = _selectedInstrument > 0 ? _selectedInstrument : pc.Patch;
-                _midiOut?.Send(MidiMessage.ChangePatch(prog, pc.Channel).RawData);
+                _midiOut?.Send(MidiMessage.ChangePatch(_selectedInstrument, pc.Channel).RawData);
             }
 
             // Apply tempo events that happened before the resume point.
@@ -268,10 +276,7 @@ public class MidiPlayer : IDisposable
             if (ev is PatchChangeEvent pce)
             {
                 if (pce.Channel != 10)
-                {
-                    int prog = _selectedInstrument > 0 ? _selectedInstrument : pce.Patch;
-                    _midiOut?.Send(MidiMessage.ChangePatch(prog, pce.Channel).RawData);
-                }
+                    _midiOut?.Send(MidiMessage.ChangePatch(_selectedInstrument, pce.Channel).RawData);
                 continue;
             }
 
@@ -286,14 +291,31 @@ public class MidiPlayer : IDisposable
 
         // Song finished naturally (not cancelled).
         if (!token.IsCancellationRequested)
-        {
-            State = PlaybackState.Stopped;
-            CurrentSeconds = TotalSeconds;
-            _pauseAtTick = 0;
-            _currentTick = 0;
-            PlaybackStopped?.Invoke();
-            StateChanged?.Invoke(State);
-        }
+            PostToUi(OnPlaybackCompleted);
+    }
+
+    private void OnPlaybackCompleted()
+    {
+        AllNotesOff();
+        State = PlaybackState.Stopped;
+        CurrentSeconds = TotalSeconds;
+        _pauseAtTick = 0;
+        _currentTick = 0;
+        PlaybackCompleted?.Invoke();
+        StateChanged?.Invoke(State);
+    }
+
+    private void PostToUi(Action action)
+    {
+        _uiContext ??= SynchronizationContext.Current;
+        if (_uiContext != null)
+            _uiContext.Post(_ =>
+            {
+                try { action(); }
+                catch { /* ignore UI errors during shutdown */ }
+            }, null);
+        else
+            action();
     }
 
     private void AllNotesOff()

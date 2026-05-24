@@ -1,21 +1,25 @@
 using MIDIMasterWinV10.Constants;
 using MIDIMasterWinV10.Core;
-using MIDIMasterWinV10.Models;
+using MidiSheetMusic;
 
 namespace MIDIMasterWinV10;
 
 public partial class MidiForm : Form
 {
     private readonly MidiPlayer _player = new();
-    private readonly SheetMusicRenderer _renderer = new();
     private readonly AudioExporter _exporter = new();
 
     private MidiFileInfo? _midiInfo;
-    private Bitmap? _sheetBackground;               // pre-rendered sheet (no playhead)
-    private System.Windows.Forms.Timer _uiTimer = new() { Interval = 50 };
+    private MidiFile? _msmFile;
+    private SheetMusic? _sheetMusic;
+    private readonly System.Windows.Forms.Timer _uiTimer = new() { Interval = 50 };
 
     private bool _seekingPosition;
     private double _totalSeconds;
+    private int _phX, _phY, _phH;
+    private string? _sheetMusicPath;
+    private int _lastSheetPageWidth;
+    private readonly System.Windows.Forms.Timer _sheetResizeTimer = new() { Interval = 200 };
 
     public MidiForm()
     {
@@ -46,81 +50,70 @@ public partial class MidiForm : Form
 
     private void WireEvents()
     {
-        // ── Menu ──────────────────────────────────────────────────────────────
         openMenuItem.Click += (_, _) => OpenFile();
         exportWavMenuItem.Click += async (_, _) => await ExportAsync("wav");
         exportMp3MenuItem.Click += async (_, _) => await ExportAsync("mp3");
         exitMenuItem.Click += (_, _) => Close();
 
-        // ── Transport ────────────────────────────────────────────────────────
         btnPlay.Click  += (_, _) => _player.Play();
         btnPause.Click += (_, _) => _player.Pause();
         btnStop.Click  += (_, _) => _player.Stop();
 
-        // Button state follows MidiPlayer state changes (Playing / Paused / Stopped).
         _player.StateChanged += state =>
         {
-            if (InvokeRequired) Invoke(() => UpdateTransportButtons(state));
-            else UpdateTransportButtons(state);
+            if (InvokeRequired) Invoke(() => OnPlayerStateChanged(state));
+            else OnPlayerStateChanged(state);
         };
 
-        // ── Instrument ───────────────────────────────────────────────────────
         cboInstrument.SelectedIndexChanged += (_, _) =>
             _player.SetInstrument(cboInstrument.SelectedIndex);
 
-        // ── Tempo label (static for now — no playback-speed control) ─────────
         lblTempoValue.Text = "100%";
 
-        // ── Position slider ───────────────────────────────────────────────────
         trkPosition.MouseDown += (_, _) => _seekingPosition = true;
         trkPosition.MouseUp   += (_, _) =>
         {
             _seekingPosition = false;
             if (_totalSeconds > 0)
+            {
                 _player.SeekToSeconds(trkPosition.Value / 1000.0 * _totalSeconds);
+                UpdatePlayhead(scroll: false);
+            }
         };
 
-        // ── Position updates from the player ─────────────────────────────────
         _player.PositionChanged += OnPositionChanged;
         _player.PlaybackStopped += OnPlaybackStopped;
+        _player.PlaybackCompleted += OnPlaybackCompleted;
 
-        // ── Sheet: static background; only playhead is redrawn on timer ───────
-        // PictureBox.Paint fires AFTER the control draws its Image, so our
-        // handler draws the playhead on top without re-rendering the whole sheet.
-        picSheet.Paint += (_, e) =>
-        {
-            if (_midiInfo != null && _renderer.SecondsPerSystem > 0)
-                _renderer.DrawPlayhead(e.Graphics, _player.CurrentSeconds, picSheet.Width);
-        };
-
-        // Rebuild sheet when the panel is resized (width changes).
-        pnlSheet.Resize += (_, _) => RebuildSheet();
-
-        // Timer redraws the playhead and auto-scrolls to the current system.
         _uiTimer.Tick += (_, _) =>
         {
-            picSheet.Invalidate();
-            AutoScrollToPlayhead();
+            if (_player.State == PlaybackState.Playing)
+                UpdatePlayhead(scroll: true);
         };
         _uiTimer.Start();
-
-        // ── Mouse-wheel zoom: change how many seconds are shown per system ────
-        picSheet.MouseWheel += (_, e) =>
-        {
-            // (No zoom in static multi-row view — reserved for future use)
-        };
 
         FormClosed += (_, _) =>
         {
             _uiTimer.Stop();
+            _sheetResizeTimer.Stop();
             _player.Dispose();
-            _sheetBackground?.Dispose();
+            DisposeSheetMusic();
+        };
+
+        _sheetResizeTimer.Tick += (_, _) =>
+        {
+            _sheetResizeTimer.Stop();
+            RelayoutSheetForPanelWidth();
+        };
+        pnlSheet.Resize += (_, _) =>
+        {
+            if (_sheetMusicPath == null) return;
+            _sheetResizeTimer.Stop();
+            _sheetResizeTimer.Start();
         };
 
         UpdateTransportButtons(PlaybackState.Stopped);
     }
-
-    // ── File handling ─────────────────────────────────────────────────────────
 
     private void OpenFile()
     {
@@ -151,7 +144,7 @@ public partial class MidiForm : Form
             UpdateTransportButtons(PlaybackState.Stopped);
             SetStatus($"로드 완료: {name}");
 
-            RebuildSheet();
+            LoadSheetMusic(dlg.FileName);
         }
         catch (Exception ex)
         {
@@ -159,7 +152,135 @@ public partial class MidiForm : Form
         }
     }
 
-    // ── Export ────────────────────────────────────────────────────────────────
+    private int GetSheetPageWidth()
+    {
+        int w = pnlSheet.ClientSize.Width;
+        if (w < 100) w = ClientSize.Width;
+        return Math.Max(500, w - 12);
+    }
+
+    private void RelayoutSheetForPanelWidth()
+    {
+        if (_sheetMusicPath == null) return;
+        int w = GetSheetPageWidth();
+        if (w == _lastSheetPageWidth) return;
+        LoadSheetMusic(_sheetMusicPath);
+    }
+
+    private void LoadSheetMusic(string path)
+    {
+        _sheetMusicPath = path;
+        int pageWidth = GetSheetPageWidth();
+        _lastSheetPageWidth = pageWidth;
+        SheetMusic.SetPageWidth(pageWidth);
+
+        DisposeSheetMusic(clearPath: false);
+
+        _msmFile = new MidiFile(path);
+        var options = new MidiOptions(_msmFile)
+        {
+            scrollVert      = true,    // 패널 너비마다 줄바꿈
+            largeNoteSize   = true,
+            showNoteLetters = MidiOptions.NoteNameNone,
+            showLyrics      = false,
+            showMeasures    = true,
+            twoStaffs       = _msmFile.Tracks.Count <= 2,
+            combineInterval = 40
+        };
+
+        _sheetMusic = new SheetMusic(_msmFile, options);
+        _sheetMusic.EnableDoubleBuffering();
+        _sheetMusic.Parent = pnlSheet;
+        _sheetMusic.Location = new Point(0, 0);
+        _sheetMusic.SetZoom(1.0f);
+        _sheetMusic.SizeChanged += SheetMusic_SizeChanged;
+
+        pnlSheet.Controls.Clear();
+        pnlSheet.Controls.Add(_sheetMusic);
+
+        UpdatePlayhead(scroll: false);
+
+        // 패널 레이아웃 확정 후 한 줄 너비를 다시 맞춤
+        BeginInvoke(RelayoutSheetForPanelWidth);
+    }
+
+    private void SheetMusic_SizeChanged(object? sender, EventArgs e) =>
+        UpdatePlayhead(scroll: false);
+
+    private void DisposeSheetMusic(bool clearPath = true)
+    {
+        if (_sheetMusic != null)
+        {
+            _sheetMusic.SizeChanged -= SheetMusic_SizeChanged;
+            pnlSheet.Controls.Remove(_sheetMusic);
+            _sheetMusic.Dispose();
+            _sheetMusic = null;
+        }
+
+        _msmFile = null;
+        if (clearPath)
+        {
+            _sheetMusicPath = null;
+            _lastSheetPageWidth = 0;
+        }
+    }
+
+    private int SecondsToPulse(double seconds)
+    {
+        if (_msmFile == null) return 0;
+        var time = _msmFile.Time;
+        return (int)(seconds * 1_000_000.0 * time.Quarter / time.Tempo);
+    }
+
+    private void UpdatePlayhead(bool scroll)
+    {
+        if (_sheetMusic == null || _msmFile == null) return;
+
+        int pulse = SecondsToPulse(_player.CurrentSeconds);
+
+        if (scroll)
+            _sheetMusic.ScrollToPlayhead(pulse, scrollGradually: true);
+
+        Rectangle dirty = PlayheadInvalidateRect(_phX, _phY, _phH);
+
+        if (!_sheetMusic.TryGetPlayheadSpan(pulse, out int x, out int y, out int spanH))
+        {
+            _sheetMusic.SetPlayhead(0, 0, 0, visible: false);
+            if (!dirty.IsEmpty)
+                _sheetMusic.Invalidate(dirty);
+            return;
+        }
+
+        float zoom = _sheetMusic.ZoomLevel;
+        int newX = (int)(x * zoom);
+        int newY = (int)(y * zoom);
+        int newH = (int)(spanH * zoom);
+
+        dirty = Rectangle.Union(dirty, PlayheadInvalidateRect(newX, newY, newH));
+
+        _phX = newX;
+        _phY = newY;
+        _phH = newH;
+
+        _sheetMusic.SetPlayhead(newX, newY, newH, visible: true);
+        _sheetMusic.Invalidate(dirty.IsEmpty ? _sheetMusic.ClientRectangle : dirty);
+    }
+
+    private static Rectangle PlayheadInvalidateRect(int x, int y, int h)
+    {
+        if (h <= 0) return Rectangle.Empty;
+        return new Rectangle(x - 3, y, 7, h);
+    }
+
+    private void HidePlayhead()
+    {
+        if (_sheetMusic == null) return;
+        Rectangle dirty = PlayheadInvalidateRect(_phX, _phY, _phH);
+        _phH = 0;
+        _sheetMusic.SetPlayhead(0, 0, 0, visible: false);
+        if (!dirty.IsEmpty)
+            _sheetMusic.Invalidate(dirty);
+    }
 
     private async Task ExportAsync(string format)
     {
@@ -168,7 +289,7 @@ public partial class MidiForm : Form
         string ext = format.ToLower();
         using var dlg = new SaveFileDialog
         {
-            Title  = $"{ext.ToUpper()} 파일로 내보내기",
+            Title  = $"{ext.ToUpper()} 파일로 보내기",
             Filter = ext == "wav" ? "WAV 파일 (*.wav)|*.wav" : "MP3 파일 (*.mp3)|*.mp3",
             DefaultExt = ext,
             FileName = Path.GetFileNameWithoutExtension(_midiInfo.FilePath)
@@ -176,7 +297,8 @@ public partial class MidiForm : Form
 
         if (dlg.ShowDialog() != DialogResult.OK) return;
 
-        SetStatus($"{ext.ToUpper()} 변환 중...");
+        string instrumentName = GeneralMidi.GetName(cboInstrument.SelectedIndex);
+        SetStatus($"{ext.ToUpper()} 변환 중… ({instrumentName})");
         progressBar.Value   = 0;
         progressBar.Visible = true;
         exportWavMenuItem.Enabled = false;
@@ -192,13 +314,15 @@ public partial class MidiForm : Form
             else
                 await _exporter.ExportMp3Async(_midiInfo, dlg.FileName);
 
-            SetStatus($"내보내기 완료: {Path.GetFileName(dlg.FileName)}");
-            MessageBox.Show($"내보내기 완료!\n{dlg.FileName}", "완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            SetStatus($"보내기 완료: {Path.GetFileName(dlg.FileName)} ({instrumentName})");
+            MessageBox.Show(
+                $"선택 악기: {instrumentName}\n보내기 완료!\n{dlg.FileName}",
+                "완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            SetStatus("내보내기 실패");
-            ErrorDialog.Show(this, "내보내기 실패", $"{ext.ToUpper()} 내보내기 중 오류가 발생했습니다.", ex);
+            SetStatus("보내기 실패");
+            ErrorDialog.Show(this, "보내기 실패", $"{ext.ToUpper()} 보내기 중 오류가 발생했습니다.", ex);
         }
         finally
         {
@@ -208,8 +332,6 @@ public partial class MidiForm : Form
         }
     }
 
-    // ── Player event handlers ─────────────────────────────────────────────────
-
     private void OnPositionChanged(double seconds)
     {
         if (InvokeRequired) { Invoke(() => OnPositionChanged(seconds)); return; }
@@ -218,8 +340,9 @@ public partial class MidiForm : Form
             trkPosition.Value = (int)(seconds / _totalSeconds * 1000);
 
         lblCurrentTime.Text = TimeSpan.FromSeconds(seconds).ToString(@"mm\:ss\.ff");
-        // Button state is managed exclusively via _player.StateChanged — do NOT call
-        // UpdateTransportButtons here, otherwise it would fight with the Paused state.
+
+        if (_player.State is PlaybackState.Playing or PlaybackState.Paused)
+            UpdatePlayhead(scroll: _player.State == PlaybackState.Playing);
     }
 
     private void OnPlaybackStopped()
@@ -227,7 +350,27 @@ public partial class MidiForm : Form
         if (InvokeRequired) { Invoke(OnPlaybackStopped); return; }
         trkPosition.Value = 0;
         lblCurrentTime.Text = "00:00.00";
-        // StateChanged(Stopped) fires from Stop() / natural end → buttons already updated.
+        HidePlayhead();
+        UpdateTransportButtons(PlaybackState.Stopped);
+    }
+
+    private void OnPlaybackCompleted()
+    {
+        if (InvokeRequired) { Invoke(OnPlaybackCompleted); return; }
+        if (_totalSeconds > 0)
+        {
+            trkPosition.Value = trkPosition.Maximum;
+            lblCurrentTime.Text = TimeSpan.FromSeconds(_totalSeconds).ToString(@"mm\:ss\.ff");
+            UpdatePlayhead(scroll: false);
+        }
+        UpdateTransportButtons(PlaybackState.Stopped);
+        SetStatus("재생 완료");
+    }
+
+    private void OnPlayerStateChanged(PlaybackState state)
+    {
+        if (InvokeRequired) { Invoke(() => OnPlayerStateChanged(state)); return; }
+        UpdateTransportButtons(state);
     }
 
     private void UpdateTransportButtons(PlaybackState state)
@@ -238,44 +381,6 @@ public partial class MidiForm : Form
         btnPlay.Enabled  = hasFile && state != PlaybackState.Playing;
         btnPause.Enabled = state == PlaybackState.Playing;
         btnStop.Enabled  = state != PlaybackState.Stopped;
-    }
-
-    // ── Sheet music ───────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Renders the full sheet to a cached bitmap and sizes picSheet accordingly.
-    /// Expensive — call only on file load or panel resize.
-    /// </summary>
-    private void RebuildSheet()
-    {
-        int w = pnlSheet.ClientSize.Width;
-        if (w <= 0) return;
-
-        picSheet.Width = w;
-
-        var old = _sheetBackground;
-        _sheetBackground = _renderer.RenderBackground(_midiInfo, w);
-        picSheet.Height  = _sheetBackground.Height;
-        picSheet.Image   = _sheetBackground;
-        old?.Dispose();
-
-        picSheet.Invalidate();
-    }
-
-    /// <summary>
-    /// While playing, scrolls the sheet panel so the current system stays visible.
-    /// </summary>
-    private void AutoScrollToPlayhead()
-    {
-        if (_player.State != PlaybackState.Playing) return;
-        if (_renderer.SecondsPerSystem <= 0) return;
-
-        int currentSys = (int)(_player.CurrentSeconds / _renderer.SecondsPerSystem);
-        int targetY = currentSys * SheetMusicRenderer.SystemHeight;
-        // Scroll so that the system is near the top of the panel, with a small margin.
-        var desired = new Point(0, Math.Max(0, targetY - 20));
-        if (pnlSheet.AutoScrollPosition != new Point(-desired.X, -desired.Y))
-            pnlSheet.AutoScrollPosition = desired;
     }
 
     private void SetStatus(string text)
