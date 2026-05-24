@@ -11,7 +11,7 @@ public class MidiPlayer : IDisposable
     private Thread? _playThread;
     private CancellationTokenSource? _cts;
     private long _pauseAtTick;
-    private long _currentTick;     // written by playback thread, read by Pause()
+    private long _currentTick;  // written by playback thread via Volatile.Write; read by Pause()
     private int _selectedInstrument = 0;
     private bool _disposed;
 
@@ -19,8 +19,14 @@ public class MidiPlayer : IDisposable
     public double TotalSeconds { get; private set; }
     public double CurrentSeconds { get; private set; }
 
+    /// <summary>Fires on the playback thread whenever the position advances.</summary>
     public event Action<double>? PositionChanged;
+
+    /// <summary>Fires on the playback thread when the song naturally reaches its end.</summary>
     public event Action? PlaybackStopped;
+
+    /// <summary>Fires on the calling thread whenever State changes (Playing / Paused / Stopped).</summary>
+    public event Action<PlaybackState>? StateChanged;
 
     public int OutputDeviceIndex { get; set; } = 0;
 
@@ -72,41 +78,50 @@ public class MidiPlayer : IDisposable
 
         if (State == PlaybackState.Paused)
         {
-            Resume();
+            StartPlayback(_pauseAtTick);
             return;
         }
 
         StartPlayback(0);
     }
 
+    /// <summary>
+    /// Pauses playback. Non-blocking: cancels the playback thread without waiting for it to exit.
+    /// The thread will stop imminently; StartPlayback() joins it before creating a new one.
+    /// </summary>
     public void Pause()
     {
         if (State != PlaybackState.Playing) return;
-        State = PlaybackState.Paused;
-        // Capture tick before cancelling so Resume() has the right position
+
+        // Save position BEFORE cancelling the thread so Resume() starts from the right place.
         _pauseAtTick = Volatile.Read(ref _currentTick);
+        State = PlaybackState.Paused;
+        StateChanged?.Invoke(State);
+
         _cts?.Cancel();
-        _playThread?.Join(2000);
         AllNotesOff();
+        // Do NOT join here — that would block the UI thread.
+        // StartPlayback() always joins before spawning a new thread.
     }
 
     public void Stop()
     {
         if (State == PlaybackState.Stopped) return;
-        State = PlaybackState.Stopped;
         _cts?.Cancel();
         _playThread?.Join(1000);
         AllNotesOff();
         _pauseAtTick = 0;
         _currentTick = 0;
         CurrentSeconds = 0;
+        State = PlaybackState.Stopped;
+        StateChanged?.Invoke(State);
         PlaybackStopped?.Invoke();
     }
 
     public void SeekToSeconds(double seconds)
     {
         bool wasPlaying = State == PlaybackState.Playing;
-        if (wasPlaying) { State = PlaybackState.Paused; _cts?.Cancel(); _playThread?.Join(500); }
+        if (wasPlaying) { _cts?.Cancel(); _playThread?.Join(500); }
         AllNotesOff();
 
         if (_midiFile == null) return;
@@ -123,14 +138,9 @@ public class MidiPlayer : IDisposable
         if (wasPlaying) StartPlayback(_pauseAtTick);
     }
 
-    private void Resume()
-    {
-        StartPlayback(_pauseAtTick);
-    }
-
     private void StartPlayback(long fromTick)
     {
-        // Cancel and wait for any running thread before starting a new one
+        // Join any previous thread before creating a new one (handles resume-after-pause).
         _cts?.Cancel();
         _playThread?.Join(2000);
 
@@ -139,6 +149,8 @@ public class MidiPlayer : IDisposable
         SetInstrument(_selectedInstrument);
 
         State = PlaybackState.Playing;
+        StateChanged?.Invoke(State);
+
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
@@ -150,7 +162,7 @@ public class MidiPlayer : IDisposable
         _playThread.Start();
     }
 
-    // Compute elapsed microseconds from tick 0 to targetTick using the tempo map.
+    // Compute the absolute elapsed microseconds from tick 0 to targetTick using the tempo map.
     private long TicksToStartMicros(long targetTick)
     {
         if (_midiFile == null || targetTick <= 0) return 0;
@@ -165,7 +177,6 @@ public class MidiPlayer : IDisposable
         long micros = 0;
         long prevTick = 0;
         int tempo = 500000;
-
         foreach (var te in tempoChanges)
         {
             if (te.AbsoluteTime >= targetTick) break;
@@ -184,7 +195,6 @@ public class MidiPlayer : IDisposable
         int tempo = 500000;
         int dtpq = _midiFile.DeltaTicksPerQuarterNote;
 
-        // Merge all events sorted by absolute time
         var events = _midiFile.Events
             .SelectMany(t => t)
             .Where(e => e.AbsoluteTime >= fromTick)
@@ -192,7 +202,7 @@ public class MidiPlayer : IDisposable
             .ThenBy(e => e.CommandCode)
             .ToList();
 
-        // Apply program changes before fromTick
+        // Restore program changes that occurred before the resume point.
         if (fromTick > 0)
         {
             var priorPatch = _midiFile.Events
@@ -209,7 +219,7 @@ public class MidiPlayer : IDisposable
                 _midiOut?.Send(MidiMessage.ChangePatch(prog, pc.Channel).RawData);
             }
 
-            // Apply tempo events before fromTick
+            // Apply tempo events that happened before the resume point.
             foreach (var ev in _midiFile.Events
                 .SelectMany(t => t)
                 .OfType<TempoEvent>()
@@ -222,7 +232,8 @@ public class MidiPlayer : IDisposable
 
         long prevTick = fromTick;
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        // Initialize elapsedMicros to the absolute time of fromTick for correct CurrentSeconds on resume
+        // Initialize elapsedMicros to the absolute position of fromTick so CurrentSeconds
+        // is correct immediately on resume (not reset to 0).
         long startMicros = TicksToStartMicros(fromTick);
         long elapsedMicros = startMicros;
 
@@ -234,13 +245,12 @@ public class MidiPlayer : IDisposable
             long waitMicros = deltaTicks * tempo / dtpq;
             elapsedMicros += waitMicros;
 
+            // targetMs is relative to when this playback segment started (stopwatch origin).
             long targetMs = (elapsedMicros - startMicros) / 1000;
             long nowMs = sw.ElapsedMilliseconds;
             if (targetMs > nowMs)
             {
-                int sleep = (int)(targetMs - nowMs);
-                if (sleep > 0)
-                    token.WaitHandle.WaitOne(sleep);
+                token.WaitHandle.WaitOne((int)(targetMs - nowMs));
                 if (token.IsCancellationRequested) break;
             }
 
@@ -274,6 +284,7 @@ public class MidiPlayer : IDisposable
             }
         }
 
+        // Song finished naturally (not cancelled).
         if (!token.IsCancellationRequested)
         {
             State = PlaybackState.Stopped;
@@ -281,6 +292,7 @@ public class MidiPlayer : IDisposable
             _pauseAtTick = 0;
             _currentTick = 0;
             PlaybackStopped?.Invoke();
+            StateChanged?.Invoke(State);
         }
     }
 
