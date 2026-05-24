@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MIDI Master Win V10 — WiX v7 MSI 설치 패키지
+  ═══════════════════════════════════════════════
+  기능 선택 (WixUI_FeatureTree):
+    ProductFeature           (필수) 메인 프로그램
+    DesktopShortcutFeature   (선택) 바탕화면 바로가기
+    StartMenuShortcutFeature (선택) 시작 메뉴 바로가기
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <!-- ══════════════════════════════════════════════════════
+       패키지 정의
+  ═══════════════════════════════════════════════════════ -->
+  <Package
+    Name="MIDI Master Win V10"
+    Manufacturer="MIDIMaster"
+    Version="1.0.0.0"
+    UpgradeCode="{08C63A3E-8DF1-42BB-B764-4421CCFD6BF5}"
+    Language="1042"
+    Codepage="949">
+
+    <SummaryInformation Description="MIDI Master Win V10 설치 프로그램"/>
+
+    <!-- 이전 버전 제거 후 설치 (다운그레이드 방지) -->
+    <MajorUpgrade
+      DowngradeErrorMessage="더 최신 버전의 MIDI Master가 이미 설치되어 있습니다."
+      Schedule="afterInstallInitialize"/>
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high"/>
+
+    <!-- 프로그램 추가/제거 아이콘 -->
+    <Icon Id="AppIcon.ico" SourceFile="$(var.AppSrcDir)\daemon_hammer.ico"/>
+    <Property Id="ARPPRODUCTICON"  Value="AppIcon.ico"/>
+    <Property Id="ARPHELPLINK"     Value="https://github.com/knix008/TestSimulator"/>
+
+    <!-- ── 기능 정의 ─────────────────────────────────────── -->
+
+    <!-- 메인 프로그램 (필수) -->
+    <Feature
+      Id="ProductFeature"
+      Title="MIDI Master Win V10"
+      Description="MIDI 플레이어 메인 프로그램입니다."
+      Level="1"
+      Display="expand"
+      ConfigurableDirectory="INSTALLFOLDER">
+      <ComponentGroupRef Id="AppFiles"/>
+    </Feature>
+
+    <!-- 바탕화면 바로가기 (선택, 기본 ON) -->
+    <Feature
+      Id="DesktopShortcutFeature"
+      Title="바탕화면 바로가기"
+      Description="바탕화면에 'MIDI Master' 바로가기를 만듭니다."
+      Level="1">
+      <ComponentRef Id="DesktopShortcutComponent"/>
+    </Feature>
+
+    <!-- 시작 메뉴 바로가기 (선택, 기본 ON) -->
+    <Feature
+      Id="StartMenuShortcutFeature"
+      Title="시작 메뉴 바로가기"
+      Description="시작 메뉴에 'MIDI Master' 바로가기를 만듭니다."
+      Level="1">
+      <ComponentRef Id="StartMenuShortcutComponent"/>
+    </Feature>
+
+    <!-- ── UI ───────────────────────────────────────────── -->
+    <!--
+      WixUI_FeatureTree: 기능 선택 화면이 포함된 표준 설치 UI.
+      사용자는 이 화면에서 바로가기 생성 여부를 체크박스로 선택합니다.
+    -->
+    <ui:WixUI Id="WixUI_FeatureTree"/>
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf"/>
+
+  </Package>
+
+  <!-- ══════════════════════════════════════════════════════
+       디렉터리 구조
+  ═══════════════════════════════════════════════════════ -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MIDI Master Win V10"/>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder"/>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppStartMenuFolder" Name="MIDI Master"/>
+    </StandardDirectory>
+  </Fragment>
+
+  <!-- ══════════════════════════════════════════════════════
+       앱 파일 컴포넌트
+       $(var.AppBuildDir) = ..\MIDIMasterWinV10\bin\$(Configuration)\net8.0-windows
+  ═══════════════════════════════════════════════════════ -->
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+
+      <!-- 메인 실행 파일 -->
+      <Component Id="Comp_MainExe">
+        <File Id="MIDIMasterWinV10.exe"
+              Source="$(var.AppBuildDir)\MIDIMasterWinV10.exe"
+              KeyPath="yes"/>
+      </Component>
+
+      <!-- 앱 어셈블리 및 런타임 구성 -->
+      <Component Id="Comp_AppDll">
+        <File Id="MIDIMasterWinV10.dll"
+              Source="$(var.AppBuildDir)\MIDIMasterWinV10.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_DepsJson">
+        <File Id="MIDIMasterWinV10.deps.json"
+              Source="$(var.AppBuildDir)\MIDIMasterWinV10.deps.json"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_RuntimeConfig">
+        <File Id="MIDIMasterWinV10.runtimeconfig.json"
+              Source="$(var.AppBuildDir)\MIDIMasterWinV10.runtimeconfig.json"
+              KeyPath="yes"/>
+      </Component>
+
+      <!-- 아이콘 (런타임에 폼 Icon으로 사용) -->
+      <Component Id="Comp_Icon">
+        <File Id="daemon_hammer.ico"
+              Source="$(var.AppBuildDir)\daemon_hammer.ico"
+              KeyPath="yes"/>
+      </Component>
+
+      <!-- NAudio 라이브러리 -->
+      <Component Id="Comp_NAudio">
+        <File Id="NAudio.dll"
+              Source="$(var.AppBuildDir)\NAudio.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_NAudioCore">
+        <File Id="NAudio.Core.dll"
+              Source="$(var.AppBuildDir)\NAudio.Core.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_NAudioMidi">
+        <File Id="NAudio.Midi.dll"
+              Source="$(var.AppBuildDir)\NAudio.Midi.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_NAudioWinMM">
+        <File Id="NAudio.WinMM.dll"
+              Source="$(var.AppBuildDir)\NAudio.WinMM.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_NAudioWasapi">
+        <File Id="NAudio.Wasapi.dll"
+              Source="$(var.AppBuildDir)\NAudio.Wasapi.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_NAudioAsio">
+        <File Id="NAudio.Asio.dll"
+              Source="$(var.AppBuildDir)\NAudio.Asio.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_NAudioWinForms">
+        <File Id="NAudio.WinForms.dll"
+              Source="$(var.AppBuildDir)\NAudio.WinForms.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_NAudioLame">
+        <File Id="NAudio.Lame.dll"
+              Source="$(var.AppBuildDir)\NAudio.Lame.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <!-- LAME MP3 인코더 네이티브 DLL -->
+      <Component Id="Comp_Lame32">
+        <File Id="libmp3lame.32.dll"
+              Source="$(var.AppBuildDir)\libmp3lame.32.dll"
+              KeyPath="yes"/>
+      </Component>
+
+      <Component Id="Comp_Lame64">
+        <File Id="libmp3lame.64.dll"
+              Source="$(var.AppBuildDir)\libmp3lame.64.dll"
+              KeyPath="yes"/>
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- ══════════════════════════════════════════════════════
+       바탕화면 바로가기
+  ═══════════════════════════════════════════════════════ -->
+  <Fragment>
+    <Component
+      Id="DesktopShortcutComponent"
+      Directory="DesktopFolder"
+      Guid="{16BCD670-79F0-4336-983D-240BE77E7448}">
+
+      <Shortcut
+        Id="DesktopShortcut"
+        Name="MIDI Master"
+        Description="MIDI 파일 플레이어"
+        Target="[INSTALLFOLDER]MIDIMasterWinV10.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico"/>
+
+      <RemoveFolder Id="RemoveDesktopFolder" Directory="DesktopFolder" On="uninstall"/>
+
+      <!-- 컴포넌트 키: 레지스트리로 설치 여부 추적 -->
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\MIDIMaster\MIDIMasterWinV10"
+        Name="DesktopShortcut"
+        Type="integer" Value="1"
+        KeyPath="yes"/>
+    </Component>
+  </Fragment>
+
+  <!-- ══════════════════════════════════════════════════════
+       시작 메뉴 바로가기
+  ═══════════════════════════════════════════════════════ -->
+  <Fragment>
+    <Component
+      Id="StartMenuShortcutComponent"
+      Directory="AppStartMenuFolder"
+      Guid="{16DAA6B3-CB79-4555-9937-615BE3ABC27A}">
+
+      <Shortcut
+        Id="StartMenuShortcut"
+        Name="MIDI Master"
+        Description="MIDI 파일 플레이어"
+        Target="[INSTALLFOLDER]MIDIMasterWinV10.exe"
+        WorkingDirectory="INSTALLFOLDER"
+        Icon="AppIcon.ico"/>
+
+      <!-- 제거 바로가기 -->
+      <Shortcut
+        Id="UninstallShortcut"
+        Name="MIDI Master 제거"
+        Target="[SystemFolder]msiexec.exe"
+        Arguments="/x [ProductCode]"
+        Description="MIDI Master를 제거합니다."/>
+
+      <RemoveFolder Id="RemoveAppStartMenuFolder" Directory="AppStartMenuFolder" On="uninstall"/>
+      <RemoveFolder Id="RemoveProgramMenuFolder"  Directory="ProgramMenuFolder"  On="uninstall"/>
+
+      <RegistryValue
+        Root="HKCU"
+        Key="Software\MIDIMaster\MIDIMasterWinV10"
+        Name="StartMenuShortcut"
+        Type="integer" Value="1"
+        KeyPath="yes"/>
+    </Component>
+  </Fragment>
+
+</Wix>

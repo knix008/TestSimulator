@@ -1,0 +1,41 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+
+  <PropertyGroup>
+    <OutputName>MIDIMasterWinV10Setup</OutputName>
+    <!-- 64비트 MSI 생성 -->
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <Platforms>x64;x86</Platforms>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+    <!--
+      WiX 변수:
+        AppBuildDir → 메인 앱 빌드 출력 경로 (Release: bin\Release\net8.0-windows\)
+        AppSrcDir   → 메인 프로젝트 소스 루트 (daemon_hammer.ico 위치)
+
+      Visual Studio에서 Release 모드로 빌드하면:
+        $(Configuration) = Release
+      MSI 파일은 MIDIMasterWinV10Setup\bin\Release\ 에 생성됩니다.
+    -->
+    <DefineConstants>AppBuildDir=..\MIDIMasterWinV10\bin\$(Configuration)\net8.0-windows;AppSrcDir=..\MIDIMasterWinV10</DefineConstants>
+  </PropertyGroup>
+
+  <!-- WiX 확장 패키지 (v7.0.0) -->
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext"   Version="7.0.0"/>
+    <PackageReference Include="WixToolset.Util.wixext"  Version="7.0.0"/>
+  </ItemGroup>
+
+  <!-- 메인 앱 프로젝트 참조: 먼저 빌드되도록 보장 -->
+  <ItemGroup>
+    <ProjectReference Include="..\MIDIMasterWinV10\MIDIMasterWinV10.csproj">
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- 설치 동의 화면에 표시될 라이선스 RTF -->
+  <ItemGroup>
+    <Content Include="License.rtf"/>
+  </ItemGroup>
+
+</Project>

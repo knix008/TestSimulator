@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="MIDIMasterWinV10/MIDIMasterWinV10.csproj" />
+  <Project Path="MIDIMasterWinV10Setup/MIDIMasterWinV10Setup.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0">
+    <Platform Project="x64" />
+  </Project>
+</Solution>

@@ -1,0 +1,40 @@
+# Build outputs
+bin/
+obj/
+out/
+*.msi
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Solution explorer state (VS2026+)
+.slnx.user
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# WiX installer build outputs
+MIDIMasterWinV10Setup/bin/
+MIDIMasterWinV10Setup/obj/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Rider
+.idea/
+
+# Test results
+TestResults/
+
+# User-specific files
+*.rsuser
