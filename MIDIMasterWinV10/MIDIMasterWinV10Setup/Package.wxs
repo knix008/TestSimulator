@@ -92,107 +92,15 @@
   </Fragment>
 
   <!-- ══════════════════════════════════════════════════════
-       앱 파일 컴포넌트
+       앱 파일 컴포넌트 (빌드 출력 전체 수확)
        $(var.AppBuildDir) = ..\MIDIMasterWinV10\bin\$(Configuration)\net8.0-windows
+       SheetMusic.dll, MeltySynth.dll, SoundFonts\ 등 누락 방지
   ═══════════════════════════════════════════════════════ -->
   <Fragment>
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
-
-      <!-- 메인 실행 파일 -->
-      <Component Id="Comp_MainExe">
-        <File Id="MIDIMasterWinV10.exe"
-              Source="$(var.AppBuildDir)\MIDIMasterWinV10.exe"
-              KeyPath="yes"/>
-      </Component>
-
-      <!-- 앱 어셈블리 및 런타임 구성 -->
-      <Component Id="Comp_AppDll">
-        <File Id="MIDIMasterWinV10.dll"
-              Source="$(var.AppBuildDir)\MIDIMasterWinV10.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_DepsJson">
-        <File Id="MIDIMasterWinV10.deps.json"
-              Source="$(var.AppBuildDir)\MIDIMasterWinV10.deps.json"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_RuntimeConfig">
-        <File Id="MIDIMasterWinV10.runtimeconfig.json"
-              Source="$(var.AppBuildDir)\MIDIMasterWinV10.runtimeconfig.json"
-              KeyPath="yes"/>
-      </Component>
-
-      <!-- 아이콘 (런타임에 폼 Icon으로 사용) -->
-      <Component Id="Comp_Icon">
-        <File Id="daemon_hammer.ico"
-              Source="$(var.AppBuildDir)\daemon_hammer.ico"
-              KeyPath="yes"/>
-      </Component>
-
-      <!-- NAudio 라이브러리 -->
-      <Component Id="Comp_NAudio">
-        <File Id="NAudio.dll"
-              Source="$(var.AppBuildDir)\NAudio.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_NAudioCore">
-        <File Id="NAudio.Core.dll"
-              Source="$(var.AppBuildDir)\NAudio.Core.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_NAudioMidi">
-        <File Id="NAudio.Midi.dll"
-              Source="$(var.AppBuildDir)\NAudio.Midi.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_NAudioWinMM">
-        <File Id="NAudio.WinMM.dll"
-              Source="$(var.AppBuildDir)\NAudio.WinMM.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_NAudioWasapi">
-        <File Id="NAudio.Wasapi.dll"
-              Source="$(var.AppBuildDir)\NAudio.Wasapi.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_NAudioAsio">
-        <File Id="NAudio.Asio.dll"
-              Source="$(var.AppBuildDir)\NAudio.Asio.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_NAudioWinForms">
-        <File Id="NAudio.WinForms.dll"
-              Source="$(var.AppBuildDir)\NAudio.WinForms.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_NAudioLame">
-        <File Id="NAudio.Lame.dll"
-              Source="$(var.AppBuildDir)\NAudio.Lame.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <!-- LAME MP3 인코더 네이티브 DLL -->
-      <Component Id="Comp_Lame32">
-        <File Id="libmp3lame.32.dll"
-              Source="$(var.AppBuildDir)\libmp3lame.32.dll"
-              KeyPath="yes"/>
-      </Component>
-
-      <Component Id="Comp_Lame64">
-        <File Id="libmp3lame.64.dll"
-              Source="$(var.AppBuildDir)\libmp3lame.64.dll"
-              KeyPath="yes"/>
-      </Component>
-
+      <Files Include="$(var.AppBuildDir)\**">
+        <Exclude Files="$(var.AppBuildDir)\**\*.pdb" />
+      </Files>
     </ComponentGroup>
   </Fragment>
 
