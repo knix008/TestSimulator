@@ -92,6 +92,7 @@ partial class MainForm
         panelVideoBottom = new Panel();
         layoutVideoBottom = new TableLayoutPanel();
         panelVideoTimeline = new Panel();
+        videoSeekBar = new MediaSeekBar();
         labelVideoPercent = new Label();
         labelVideoTime = new Label();
         layoutVideoButtons = new TableLayoutPanel();
@@ -469,6 +470,7 @@ partial class MainForm
         // panelVideoTimeline
         // 
         panelVideoTimeline.BackColor = Color.FromArgb(20, 20, 24);
+        panelVideoTimeline.Controls.Add(videoSeekBar);
         panelVideoTimeline.Controls.Add(labelVideoPercent);
         panelVideoTimeline.Controls.Add(labelVideoTime);
         panelVideoTimeline.Dock = DockStyle.Fill;
@@ -478,6 +480,17 @@ partial class MainForm
         panelVideoTimeline.Padding = new Padding(10, 6, 10, 3);
         panelVideoTimeline.Size = new Size(751, 39);
         panelVideoTimeline.TabIndex = 1;
+        // 
+        // videoSeekBar
+        // 
+        videoSeekBar.Dock = DockStyle.Fill;
+        videoSeekBar.Location = new Point(92, 6);
+        videoSeekBar.Margin = new Padding(8, 4, 8, 4);
+        videoSeekBar.MinimumSize = new Size(60, 16);
+        videoSeekBar.Name = "videoSeekBar";
+        videoSeekBar.Progress = 0D;
+        videoSeekBar.Size = new Size(611, 30);
+        videoSeekBar.TabIndex = 1;
         // 
         // labelVideoPercent
         // 
