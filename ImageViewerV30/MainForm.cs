@@ -62,6 +62,8 @@ public partial class MainForm : Form
     private bool _isImagePanning;
     private Point _imagePanStartMouse;
     private Point _imagePanStartScroll;
+    private bool _videoEngineReady;
+    private int _fileListLoadGeneration;
 
     public MainForm()
     {
@@ -80,10 +82,6 @@ public partial class MainForm : Form
             PreviewableExtensions.Add(ext);
         }
 
-        Core.Initialize();
-        _libVlc = new LibVLC();
-        _mediaPlayer = new MediaPlayer(_libVlc);
-        videoView.MediaPlayer = _mediaPlayer;
         _videoProgressTimer.Tick += (_, _) => UpdateVideoProgressUi();
         _videoProgressTimer.Start();
         _videoOverlayTimer.Tick += (_, _) =>
@@ -92,7 +90,25 @@ public partial class MainForm : Form
             labelVideoOverlayIcon.Visible = false;
         };
         InitializeIconLists();
-        LoadInitialFolder();
+        Shown += MainForm_FirstShown;
+    }
+
+    private void MainForm_FirstShown(object? sender, EventArgs e)
+    {
+        Shown -= MainForm_FirstShown;
+        BeginInvoke(LoadInitialFolder);
+    }
+
+    private void EnsureVideoEngine()
+    {
+        if (_videoEngineReady)
+            return;
+
+        Core.Initialize();
+        _libVlc = new LibVLC();
+        _mediaPlayer = new MediaPlayer(_libVlc);
+        videoView.MediaPlayer = _mediaPlayer;
+        _videoEngineReady = true;
     }
 
     private void ApplyModernTheme()
@@ -292,6 +308,8 @@ public partial class MainForm : Form
         public string? LastFolder { get; set; }
     }
 
+    private sealed record FileListEntry(string Path, string Name, long SizeBytes, DateTime Modified);
+
     private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
         if (IsDesignMode())
@@ -328,14 +346,14 @@ public partial class MainForm : Form
         }
 
         _currentFolder = dialog.SelectedPath;
-        LoadFolderTree(_currentFolder);
+        LoadFolderTree(_currentFolder, expandRoot: true);
         SaveAppState(_currentFolder);
     }
 
     private void LoadInitialFolder()
     {
         string defaultFolder = GetSavedLastFolder() ?? GetDefaultFolder();
-        LoadFolderTree(defaultFolder);
+        LoadFolderTree(defaultFolder, expandRoot: false);
     }
 
     private string GetDefaultFolder()
@@ -391,7 +409,7 @@ public partial class MainForm : Form
         }
     }
 
-    private void LoadFolderTree(string rootFolder)
+    private void LoadFolderTree(string rootFolder, bool expandRoot = true)
     {
         if (!Directory.Exists(rootFolder))
         {
@@ -402,8 +420,9 @@ public partial class MainForm : Form
         treeFolders.BeginUpdate();
         treeFolders.Nodes.Clear();
         TreeNode root = CreateFolderNode(rootFolder);
-        root.Expand();
         treeFolders.Nodes.Add(root);
+        if (expandRoot)
+            root.Expand();
         treeFolders.SelectedNode = root;
         treeFolders.EndUpdate();
 
@@ -495,7 +514,7 @@ public partial class MainForm : Form
         textFolderPath.Text = folderPath;
         _currentFolder = folderPath;
         SaveAppState(folderPath);
-        LoadFileList(folderPath);
+        LoadFileListAsync(folderPath);
     }
 
     private void TreeFolders_NodeMouseClick(object? sender, TreeNodeMouseClickEventArgs e)
@@ -506,47 +525,67 @@ public partial class MainForm : Form
             e.Node.Tag is string folderPath &&
             Directory.Exists(folderPath))
         {
-            LoadFileList(folderPath);
+            LoadFileListAsync(folderPath);
         }
     }
 
-    private void LoadFileList(string folderPath)
+    private async void LoadFileListAsync(string folderPath)
     {
+        int generation = Interlocked.Increment(ref _fileListLoadGeneration);
+        statusLabelFile.Text = "파일 목록 불러오는 중...";
+
+        List<FileListEntry> entries;
+        try
+        {
+            entries = await Task.Run(() => EnumeratePreviewableFiles(folderPath));
+        }
+        catch (Exception ex)
+        {
+            if (generation == _fileListLoadGeneration)
+                MessageBox.Show(this, ex.Message, "폴더를 읽을 수 없습니다", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (generation != _fileListLoadGeneration ||
+            !string.Equals(_currentFolder, folderPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         listViewFiles.BeginUpdate();
         listViewFiles.Items.Clear();
         _fileItemByPath.Clear();
 
-        try
+        foreach (FileListEntry entry in entries)
         {
-            foreach (string path in Directory.EnumerateFiles(folderPath).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
-            {
-                if (!PreviewableExtensions.Contains(Path.GetExtension(path)))
-                {
-                    continue;
-                }
+            string sizeText = FormatFileSize(entry.SizeBytes);
+            string modified = entry.Modified.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
+            var item = new ListViewItem(new[] { entry.Name, sizeText, modified }) { Tag = entry.Path };
+            item.ImageKey = GetFileIconKey(entry.Path);
+            listViewFiles.Items.Add(item);
+            _fileItemByPath[entry.Path] = item;
+        }
 
-                string name = Path.GetFileName(path);
-                var info = new FileInfo(path);
-                string sizeText = FormatFileSize(info.Length);
-                string modified = info.LastWriteTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
-                var item = new ListViewItem(new[] { name, sizeText, modified }) { Tag = path };
-                item.ImageKey = GetFileIconKey(path);
-                listViewFiles.Items.Add(item);
-                _fileItemByPath[path] = item;
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, ex.Message, "폴더를 읽을 수 없습니다", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
-        finally
-        {
-            listViewFiles.EndUpdate();
-        }
+        listViewFiles.EndUpdate();
 
         UpdateDirectoryStatus(folderPath);
         statusLabelFile.Text = "파일을 선택하면 정보가 표시됩니다.";
-        ShowFolderThumbnails(folderPath);
+        ShowFolderThumbnails(folderPath, entries.Select(e => e.Path).ToList());
+    }
+
+    private static List<FileListEntry> EnumeratePreviewableFiles(string folderPath)
+    {
+        var entries = new List<FileListEntry>();
+        foreach (string path in Directory.EnumerateFiles(folderPath).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!PreviewableExtensions.Contains(Path.GetExtension(path)))
+                continue;
+
+            var info = new FileInfo(path);
+            entries.Add(new FileListEntry(path, Path.GetFileName(path), info.Length, info.LastWriteTime));
+        }
+
+        return entries;
     }
 
     private static string FormatFileSize(long bytes)
@@ -844,6 +883,17 @@ public partial class MainForm : Form
         panelImageHost.Visible = false;
         panelVideoHost.Visible = true;
         panelImageToolbar.Visible = false;
+
+        try
+        {
+            EnsureVideoEngine();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"동영상 엔진을 초기화할 수 없습니다.\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ShowPlaceholder();
+            return;
+        }
 
         if (_mediaPlayer is null || _libVlc is null)
         {
@@ -1232,7 +1282,7 @@ public partial class MainForm : Form
             }
             if (cut) { File.Move(src, dest); _clipboardPath = null; }
             else File.Copy(src, dest);
-            if (_currentFolder is not null) LoadFileList(_currentFolder);
+            if (_currentFolder is not null) LoadFileListAsync(_currentFolder);
         }
         catch (Exception ex)
         {
@@ -1279,7 +1329,7 @@ public partial class MainForm : Form
                 else CopyDirectoryRecursive(src, dest);
             }
 
-            if (_currentFolder is not null) LoadFileList(_currentFolder);
+            if (_currentFolder is not null) LoadFileListAsync(_currentFolder);
             if (treeFolders.SelectedNode is TreeNode node) ForceRefreshChildFolders(node);
         }
         catch (Exception ex)
@@ -1331,7 +1381,7 @@ public partial class MainForm : Form
         {
             if (_currentPreviewPath == filePath) { ClearImagePreview(); _currentPreviewPath = null; ShowPlaceholder(); }
             File.Delete(filePath);
-            if (_currentFolder is not null) LoadFileList(_currentFolder);
+            if (_currentFolder is not null) LoadFileListAsync(_currentFolder);
         }
         catch (Exception ex)
         {
@@ -1391,7 +1441,7 @@ public partial class MainForm : Form
                 }
             }
 
-            if (_currentFolder is not null) LoadFileList(_currentFolder);
+            if (_currentFolder is not null) LoadFileListAsync(_currentFolder);
             statusLabelFile.Text = $"변환 완료: {Path.GetFileName(destPath)}";
         }
         catch (Exception ex)
@@ -1409,7 +1459,7 @@ public partial class MainForm : Form
         if (!string.Equals(Path.GetFullPath(folder), Path.GetFullPath(_currentFolder), StringComparison.OrdinalIgnoreCase))
             return;
 
-        LoadFileList(_currentFolder);
+        LoadFileListAsync(_currentFolder);
         SelectFileInList(savedPath);
     }
 
@@ -1512,7 +1562,7 @@ public partial class MainForm : Form
         };
     }
 
-    private void ShowFolderThumbnails(string folderPath)
+    private void ShowFolderThumbnails(string folderPath, IReadOnlyList<string>? previewablePaths = null)
     {
         ReleaseVideoMedia();
         ClearImagePreview();
@@ -1521,11 +1571,13 @@ public partial class MainForm : Form
         DisposeThumbnailControls();
         try
         {
-            List<string> files = Directory
-                .EnumerateFiles(folderPath)
-                .Where(path => PreviewableExtensions.Contains(Path.GetExtension(path)))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            List<string> files = previewablePaths is not null
+                ? previewablePaths.ToList()
+                : Directory
+                    .EnumerateFiles(folderPath)
+                    .Where(path => PreviewableExtensions.Contains(Path.GetExtension(path)))
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
             labelPreviewPlaceholder.Visible = files.Count == 0;
             if (labelPreviewPlaceholder.Visible)

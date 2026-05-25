@@ -46,6 +46,7 @@ public partial class ImageEditorForm : Form
         // 마우스 휠로 확대/축소 지원
         picPreview.MouseWheel += PicPreview_MouseWheel;
         pnlScroll.MouseWheel += PicPreview_MouseWheel;
+        pnlScroll.Resize += (_, _) => FitImageToViewportOnResize();
         // 미리보기 영역이 포커스 받을 수 있도록
         picPreview.Focus();
         LoadSourceImage(imagePath);
@@ -57,10 +58,35 @@ public partial class ImageEditorForm : Form
     private async void ImageEditorForm_Shown(object? sender, EventArgs e)
     {
         Shown -= ImageEditorForm_Shown;
+        // 생성 직후에는 스크롤 영역 크기가 0에 가까울 수 있어, 레이아웃 완료 후 맞춤
+        BeginInvoke(FitImageToViewport);
+
         if (RembgBackgroundRemover.IsModelInstalled(GetSelectedRembgModel()))
             return;
 
         await AutoDownloadRembgModelAsync(showSuccessMessage: false);
+    }
+
+    private bool _pendingInitialFit = true;
+
+    private void FitImageToViewport()
+    {
+        if (_ownedPreviewBitmap is null)
+            return;
+
+        int vw = pnlScroll.ClientSize.Width;
+        int vh = pnlScroll.ClientSize.Height;
+        if (vw < 32 || vh < 32)
+            return;
+
+        _pendingInitialFit = false;
+        ZoomToFit();
+    }
+
+    private void FitImageToViewportOnResize()
+    {
+        if (_pendingInitialFit)
+            FitImageToViewport();
     }
 
     private RembgModelInfo GetSelectedRembgModel() =>
@@ -132,8 +158,8 @@ public partial class ImageEditorForm : Form
             numCropW.Value = Math.Min(_committed.Width, 16000);
             numCropH.Value = Math.Min(_committed.Height, 16000);
 
-            _zoom = 1.0;
             RefreshPreview(_committed);
+            ZoomToFit();
             UpdateStatus();
         }
         catch (Exception ex)
