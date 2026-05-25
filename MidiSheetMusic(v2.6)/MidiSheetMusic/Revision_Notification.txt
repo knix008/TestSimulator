@@ -1,0 +1,335 @@
+Revision Notification
+---------------------
+
+    Reviser : Silhwan Hyun (hyunsh@hanafos.com)
+
+
+note) The added codes or modified codes in the source program are marked with "// ****",  
+      so you can easily find them.
+
+
++++++++++++++++++++++++++
+    Date : 08 Feb 2014
++++++++++++++++++++++++++
+Original source version is changed from Ver 2.5 to Ver 2.6.
+Following are the Changelog of Ver 2.6.
+ - Fix bug where lyrics are not shown when there's only one track.
+ - Fix bug where tracks get incorrectly muted.
+ - Show recently opened files under the File menu.
+ - Support for drag-and-drop of MIDI files
+ - Fix several crashes when parsing MIDI files.
+ - Use MSBuild for command-line build scripts.
+
+The revised source programs/resource files are as follows,
+  MidiFile.cs
+  MidiPlayer.cs
+  MidiTracks.cs
+  NoteColorDialog.cs
+  Piano.cs
+  SheetMusic.cs
+  SheetMusicWindow.cs
+  Staffs.cs
+  Strings.resx 
+  Strings.en.resx (Renamed to Strings.en-US.resx)
+
+Followings are the added source programs/resource files,
+  LyricsEdit.cs
+  LyricsEdit.resx
+  LyricsEdit.en.resx
+  LyricsEdit.ko.resx
+  Strings.ko-KR.resx
+  MidiSheetMusic.chm
+
+All the previous modifications (with Ver 2.5) to enhance the functions of Midi Sheet Music are maintained.  
+
+Additional update 
+  - Support the change of operation mode from slave mode to independent mode.
+  - Support showing CHM help file(as imbeded resource, MidiSheetMusic.chm) for Korean users.
+    (You can use your local CHM help file if you modify just two lines of SheetMusicWindow.cs.
+     Search "if (myCodePage == 949)" and "System.Windows.Forms.Help.ShowHelp" if you want to know the
+     related lines.)
+
+  
+
++++++++++++++++++++++++++
+    Date : 05 Jun 2013
++++++++++++++++++++++++++
+Added some necessary codes or modified some parts of program code to support 
+lyrics editing.
+
+note) Lyrics editing is not activated if MidiSheetMusic runs at slave mode.
+   
+Followings are added source programs, (..._kor... are for Korean language)
+  LyricsEdit.cs / LyricsEdit_kor.cs
+  LyricsEdit.Designer.cs / LyricsEdit_kor.Designer.cs
+  LyricsEdit.resx / LyricsEdit_kor.resx
+ 
+Following source programs are revised.
+  MidiFile.cs
+  MidiPlayer.cs
+  MidiTracks.cs
+  SheetMusicWindow.cs
+  Staffs.cs
+
+
++++++++++++++++++++++++++
+    Date : 19 May 2013
++++++++++++++++++++++++++
+Added some necessary codes or modified some parts of program code to support 
+ - position change by mouse click on music sheet at slave mode operation
+ - "Play" button and "Stop" button on player panel at slave mode operation
+ 
+ * Supported functions are not directly performed by MidiSheetMusic.
+   MidiSheetMusic posts window messages to host program at the events of any actions with mouse 
+   or buttons, then host program decides and controls its flow according to the messages, to
+   maintain consistency of programs.
+   So, Host program should have message handler to handle messages from MidiSheetMusic.
+   Host program also should inform MidiSheetMusic at the time its player state is changed 
+   because MidiSheetMusic should know the player state of host program to set "Play" button 
+   and "Stop" button (enabled/disabled, correct label of "Play" button - "Play"/"Pause")
+
+Following source programs are revised.
+  MidiPlayer.cs
+  SheetMusicWindow.cs
+
+
++++++++++++++++++++++++++
+    Date : 12 May 2013
++++++++++++++++++++++++++
+Added some necessary codes or modified some parts of program code to support 
+ - display the lyrics of MIDI Karaoke files (*.kar)
+ - display the lyrics of some non-standard MIDI Karaoke files (*.mid, *.kar)
+ - display the lyrics of the single-track MIDI files
+ - bug fix of overlapped lyrics display at left side
+ 
+Following source programs are revised. 
+  MidiFile.cs 
+  Staff.cs
+
+
++++++++++++++++++++++++++
+    Date : 05 May 2013 
++++++++++++++++++++++++++
+I have added some necessary codes or modified some parts of program code to support 
+ "slave mode operation" of MidiSheetMusic.
+The "slave mode operation" means that MidiSheetMusic's operations are controlled by a host program.
+The main purpose of "slave mode operation" is to use MidiSheetMusic as music sheet display for
+host program.
+
+Following source programs are revised to support "slave mode operation".  
+  MidiFile.cs
+  MidiPlayer.cs
+  Piano.cs
+  SheetMusic.cs
+  SheetMusicWindow.cs
+All the added codes or modified codes in the source programs are marked with "// ****", so you can 
+ easily find them.
+
+
+The interprocess communication, to use MidiSheetMusic as music sheet display, between host program 
+ and MidiSheetMusic is performed via window messages as follows,
+(My favorite program language is Delphi, so the example code for host program is written in Delphi)
+
+ 1. Host program registers 2 window messages using RegisterWindowMessage windows API call at its
+    start-up.
+
+   // hMsg_StartUp, hMsg_Terminated : Cardinal;
+     hMsg_StartUp := RegisterWindowMessage('MIDI Sheet Music Started');
+     hMsg_Terminated := RegisterWindowMessage('MIDI Sheet Music Terminated');
+     
+ 2. Host program launches MidiSheetMusic using CreateProcess windows API call when it is requested 
+    to display music sheet.
+
+   // ProgDir : the path of MidiSheetMusic.exe 
+    {$IFNDEF UNICODE}
+     if CreateProcess(nil, pChar('"' + ProgDir + 'MidiSheetMusic.exe"), nil, nil, false,
+                    NORMAL_PRIORITY_CLASS, nil, nil, StartUpInfo, ProcessInfo) then
+    {$ELSE}
+     if CreateProcessA(nil, pAnsiChar('"' + ProgDir + 'MidiSheetMusic.exe"), nil, nil, false,
+                    NORMAL_PRIORITY_CLASS, nil, nil, StartUpInfo, ProcessInfo) then
+    {$ENDIF} 
+     begin
+       MIDIProcessHandle := ProcessInfo.hProcess;
+       MIDIThreadId := ProcessInfo.dwThreadId;
+     end;
+
+   note) You can specify the MIDI file to be played at launching MidiSheetMusic by add a parameter to 
+         command line as follows,
+
+     if CreateProcess(nil, pChar('"' + ProgDir + 'MidiSheetMusic.exe ' + MIDI_File_Path + '"'), nil, nil, 
+                    false, NORMAL_PRIORITY_CLASS, nil, nil, StartUpInfo, ProcessInfo) then 
+
+ 3. MidiSheetMusic gets the message id's previously set by host program, then broadcasts
+    to applications to notify its start-up.   
+ 
+     hMsg_StartUp = Win32API.RegisterWindowMessage("MIDI Sheet Music Started");
+     hMsg_Terminated = Win32API.RegisterWindowMessage("MIDI Sheet Music Terminated"); 
+     mbf = 0x00000010;  // BSF_POSTMESSAGE;
+     dwRecipients = 0x00000008;  // BSM_APPLICATIONS;
+    // Post message to applications to notify that MIDI Sheet Music has started.
+     Win32API.BroadcastSystemMessage(mbf, ref dwRecipients, hMsg_StartUp, Handle, 1);
+
+ 4. Host program gets the handle to MidiSheetMusic at event message handler procedure 
+    then posts a message(WM_COPYDATA) to let MidiSheetMusic know the window handle to host program.  
+
+     procedure TMainForm.ApplicationEvents1Message(var Msg: tagMSG; var Handled: Boolean);
+     var
+       ThreadId : DWORD;
+       ProcId : DWORD;
+
+     begin
+       if (Msg.message = hMsg_StartUp) then   
+       begin
+         Handled := True;
+
+         if (FhServer = 0) then    // FhServer : cardinal (global variable)
+         begin
+           if Msg.lParam <> 1 then  // check if message comes from MidiSheetMusic.
+              exit;
+
+           ThreadId := GetWindowThreadProcessId(Msg.wParam, @ProcId);
+           if ThreadId = MIDIThreadId then  // it came from my launched MidiSheetMusic ?
+           begin
+             FhServer := Msg.wParam;
+           // Post a message requesting to set window handle to host program.
+             if SendDataW(FhServer, intToStr(Self.Handle), rqSetHandle) = 0 then // 0 : failed 
+                FhServer := 0;  
+           end;
+         end;
+       end else
+       if (Msg.message = hMsg_Terminated) then 
+       begin
+         Handled := True;
+
+         if (FhServer <> 0) then   // check if this program launched MidiSheetMusic.
+         begin
+           if Msg.lParam <> 1 then  // check if message comes from MidiSheetMusic.
+              exit;
+  
+           if Msg.wParam = FhServer then  // it came from my launched MidiSheetMusic ?
+              FhServer := 0;
+         end;
+       end;
+     end;
+
+     procedure TMainForm.SendDataW(HServer : THandle; WData: WideString; RequestId : integer);
+     var
+       CopyData : TCopyDataStruct;
+       s1 : WideString;
+       nLen: integer;
+       dummy : dword;
+      
+     begin
+       if HServer = 0 then
+         exit;
+
+       CopyData.dwData := RequestId;
+
+       s1 := WData;
+       nLen := (Length(s1) + 1) * SizeOf(WideChar);
+       s1 := s1 + chr(0);
+       CopyData.cbData := nLen;
+       CopyData.lpData := pWideChar(s1);
+
+      {$IF CompilerVersion >= 22}
+       SendMessageTimeout(HServer, WM_COPYDATA, Self.Handle, LONG_PTR(@CopyData), SMTO_ABORTIFHUNG + SMTO_NORMAL,
+                           5000, @dummy);
+      {$ELSE}
+       SendMessageTimeout(HServer, WM_COPYDATA, Self.Handle, LONG_PTR(@CopyData), SMTO_ABORTIFHUNG + SMTO_NORMAL,
+                           5000, dummy);
+      {$IFEND}
+     end;
+    
+ 5. MidiSheetMusic sets handle to host program at receiving the message(WM_COPYDATA) from host program and
+    disables some menus which should to inhibited at slave mode operation.
+
+   // **** Added codes in SheetMusicWindow.cs to handle WM_COPYDATA from host program
+    protected override void WndProc(ref Message wMessage)
+    {
+       switch (wMessage.Msg)
+            {
+               case Win32API.WM_COPYDATA:                   
+                    Win32API.COPYDATASTRUCT lParam1 = (Win32API.COPYDATASTRUCT)Marshal.PtrToStructure(wMessage.LParam, 
+                                                                typeof(Win32API.COPYDATASTRUCT));
+                    Win32API.COPYDATASTRUCT lParam2 = new Win32API.COPYDATASTRUCT();
+                    lParam2 = (Win32API.COPYDATASTRUCT)wMessage.GetLParam(lParam2.GetType());
+                    IntPtr dwData = lParam2.dwData; 
+                    EventArgs args = new EventArgs();
+                    int rqID = dwData.ToInt32();
+                    if (rqID == rqOpenFile) OpenMidiFile(lParam1.lpData);  // rqOpenFile = 0x0001
+                    if (rqID == rqCloseFile) Close(this, args);     // rqCloseFile = 0x0002
+                    if (rqID == rqStop) player.Stop2(this, args);   // rqStop = 0x0005
+                    if (rqID == rqExit) Exit(this, args);   // rqExit = 0x0044 (Terminate program)
+                    if (rqID == rqSetHandle) {              // rqSetHandle = 0x0099      
+                    	if ((hClient == 0) && (int.Parse(lParam1.lpData) != 0)) {
+                    		hClient = int.Parse(lParam1.lpData);
+                    		if (midifile != null) {
+                    		   closeMenu.Enabled = false;
+                               trackMuteMenu.Enabled = false;
+                               transposeMenu.Enabled = false;
+                               shiftNotesMenu.Enabled = false;
+                               playMeasuresMenu.Enabled = false;
+                               chooseInstrumentsMenu.Enabled = false;
+                    		}
+                    		openMenu.Enabled = false;
+                    		openSampleSongMenu.Enabled = false;
+                            player.SetClientHandle(int.Parse(lParam1.lpData));  
+                    	}
+                    }
+                    	
+                    break;
+                    
+                    
+               case Win32API.WM_MIDI_PosUpdate:
+                    if ((int)wMessage.WParam.ToInt32() > 0 && (int)wMessage.LParam.ToInt32() > 0)
+                      sheetmusic.ShadeNotes((int)wMessage.WParam.ToInt32(), (int)wMessage.LParam.ToInt32(), true);
+                    else
+                      sheetmusic.ShadeNotes((int)wMessage.WParam.ToInt32(), (int)wMessage.LParam.ToInt32(), false);	
+                    piano.ShadeNotes((int)wMessage.WParam.ToInt32(), (int)wMessage.LParam.ToInt32());
+
+                    break;
+                     
+               default:
+                    break;
+            }
+
+    base.WndProc(ref wMessage);
+    }
+
+ 6. From now on host program can control MidiSheetMusic using procedure SendDataW or PostMessage.
+
+   1) Open MIDI file (= Specify the MIDI file whose music sheet is to be displayed)
+       FileName := The_Path_Of_MIDIFile_ToOpen; 
+       SendDataW(FhServer, FileName, rqOpenFile);
+
+   2) Update the position of progress bar on MidiSheetMusic
+
+     // TimePos : current playback position in milisecond
+     // PrevPosMs : the time previously posted in milisecond 
+       if (TimePos - PrevPosMs) >= 100 then  // refresh per every 100ms interval
+       begin
+         PostMessage(FhServer, WM_MIDI_PosUpdate,
+                     WPARAM(round(TimePos * TicksPerMilSec)),
+                     LPARAM(round(PrevPosMs * TicksPerMilSec)));
+         PrevPosMs := TimePos;
+       end;
+ 
+   3) Remove progress bar on MidiSheetMusic
+       SendDataW(FhServer, 'Stop', rqStop);
+  
+   4) Close MIDI file (= Clear music sheet)
+       SendDataW(FhServer, 'Close', rqCloseFile);
+
+   5) Terminate MidiSheetMusic
+       SendDataW(FhServer, 'Exit', rqExit);
+
+ 7. MidiSheetMusic posts a message to notify host program at its termination.
+   
+   protected override void OnClosed(EventArgs e) {
+      // **** post to host program that MIDI Sheet Music is going to be shut downed  
+        if (hClient != 0) {
+           Win32API.PostMessage(hClient, hMsg_Terminated, Handle, 1);
+        }
+
+ 8. Host program resets the handle to MidiSheetMusic at receiving hMsg_Terminated message. (See 4.) 
+ 

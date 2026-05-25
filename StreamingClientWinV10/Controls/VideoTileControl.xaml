@@ -1,0 +1,44 @@
+<UserControl x:Class="StreamingClientWinV10.Controls.VideoTileControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:models="clr-namespace:StreamingClientWinV10.Models"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance models:Video, IsDesignTimeCreatable=True}"
+             Width="210" Height="190">
+
+    <!-- DataContext = Video object (set by ItemsControl DataTemplate) -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="130"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Thumbnail area -->
+        <Border Grid.Row="0" Background="{Binding Thumbnail, Converter={StaticResource NullImageBrush}}"
+                ClipToBounds="True">
+            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                   StretchDirection="Both"/>
+        </Border>
+
+        <!-- Duration badge (bottom-right of thumbnail) -->
+        <Border Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Background="#CC000000" CornerRadius="3" Margin="0,0,6,6" Padding="5,2">
+            <TextBlock Text="{Binding DurationText}" Foreground="White" FontSize="11"/>
+        </Border>
+
+        <!-- Title & meta -->
+        <StackPanel Grid.Row="1" Margin="8,6,8,6">
+            <TextBlock Text="{Binding Title}"
+                       Foreground="{StaticResource TextPrimBrush}"
+                       FontSize="12" FontWeight="Medium"
+                       TextWrapping="Wrap" MaxHeight="36"
+                       TextTrimming="CharacterEllipsis"
+                       LineStackingStrategy="BlockLineHeight" LineHeight="18"/>
+            <TextBlock Text="{Binding CreatedAt, StringFormat='{}{0:yyyy-MM-dd}'}"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="10" Margin="0,2,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

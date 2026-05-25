@@ -1,0 +1,426 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="trackMenu" xml:space="preserve">
+    <value>트랙</value>
+  </data>
+  <data name="notesMenu" xml:space="preserve">
+    <value>음표</value>
+  </data>
+  <data name="fileMenu" xml:space="preserve">
+    <value>파일</value>
+  </data>
+  <data name="openMenu" xml:space="preserve">
+    <value>열기</value>
+  </data>
+  <data name="openSampleSongMenu" xml:space="preserve">
+    <value>샘플 미디파일 열기</value>
+  </data>
+  <data name="closeMenu" xml:space="preserve">
+    <value>닫기</value>
+  </data>
+  <data name="saveImagesMenu" xml:space="preserve">
+    <value>이미지 파일로 저장</value>
+  </data>
+  <data name="savePDFMenu" xml:space="preserve">
+    <value>PDF 파일로 저장</value>
+  </data>
+  <data name="previewMenu" xml:space="preserve">
+    <value>인쇄 미리 보기</value>
+  </data>
+  <data name="printMenu" xml:space="preserve">
+    <value>인쇄</value>
+  </data>
+  <data name="exitMenu" xml:space="preserve">
+    <value>프로그램 종료</value>
+  </data>
+  <data name="viewMenu" xml:space="preserve">
+    <value>보기</value>
+  </data>
+  <data name="zoomInMenu" xml:space="preserve">
+    <value>확대</value>
+  </data>
+  <data name="zoomOutMenu" xml:space="preserve">
+    <value>축소</value>
+  </data>
+  <data name="zoom100Menu" xml:space="preserve">
+    <value>100% 크기로 보기</value>
+  </data>
+  <data name="zoom150Menu" xml:space="preserve">
+    <value>150% 크기로 보기</value>
+  </data>
+  <data name="scrollVertMenu" xml:space="preserve">
+    <value>세로로 스크롤</value>
+  </data>
+  <data name="scrollHorizMenu" xml:space="preserve">
+    <value>가로로 스크롤</value>
+  </data>
+  <data name="smallNotesMenu" xml:space="preserve">
+    <value>작은 음표</value>
+  </data>
+  <data name="largeNotesMenu" xml:space="preserve">
+    <value>큰 음표</value>
+  </data>
+  <data name="colorMenu" xml:space="preserve">
+    <value>색상</value>
+  </data>
+  <data name="useColorMenu" xml:space="preserve">
+    <value>음표에 색상 입히기</value>
+  </data>
+  <data name="chooseColorMenu" xml:space="preserve">
+    <value>색상 선택</value>
+  </data>
+  <data name="trackDisplayMenu" xml:space="preserve">
+    <value>표시할 트랙 선택</value>
+  </data>
+  <data name="selectAllTracksMenu" xml:space="preserve">
+    <value>모든 트랙 보이기</value>
+  </data>
+  <data name="deselectAllTracksMenu" xml:space="preserve">
+    <value>모든 트랙 안 보이기</value>
+  </data>
+  <data name="trackMuteMenu" xml:space="preserve">
+    <value>묵음 트랙 선택</value>
+  </data>
+  <data name="muteAllTracksMenu" xml:space="preserve">
+    <value>모든 트랙 묵음</value>
+  </data>
+  <data name="unmuteAllTracksMenu" xml:space="preserve">
+    <value>모든 트랙 음출력</value>
+  </data>
+  <data name="oneStaffMenu" xml:space="preserve">
+    <value>트랙별로 구분 표시</value>
+  </data>
+  <data name="splitStaffMenu" xml:space="preserve">
+    <value>2개의 트랙으로 분할 표시</value>
+  </data>
+  <data name="combineStaffMenu" xml:space="preserve">
+    <value>2개의 트랙으로 병합하여 표시</value>
+  </data>
+  <data name="chooseInstrumentsMenu" xml:space="preserve">
+    <value>악기 선택</value>
+  </data>
+  <data name="showLettersMenu" xml:space="preserve">
+    <value>계이름 표시</value>
+  </data>
+  <data name="none" xml:space="preserve">
+    <value>표시 안함</value>
+  </data>
+  <data name="showLetters" xml:space="preserve">
+    <value>코드 표시 (C-D-...B)</value>
+  </data>
+  <data name="showFixedDoReMi" xml:space="preserve">
+    <value>고정 계명 (Do-Re-Mi...)</value>
+  </data>
+  <data name="showMovableDoReMi" xml:space="preserve">
+    <value>가변 계명 (Do-Re-Mi...)</value>
+  </data>
+  <data name="showFixedNumbers" xml:space="preserve">
+    <value>고정 번호</value>
+  </data>
+  <data name="showMovableNumbers" xml:space="preserve">
+    <value>가변 번호</value>
+  </data>
+  <data name="showLyricsMenu" xml:space="preserve">
+    <value>가사 표시</value>
+  </data>
+  <data name="showMeasuresMenu" xml:space="preserve">
+    <value>마디 번호 표시</value>
+  </data>
+  <data name="changeKeyMenu" xml:space="preserve">
+    <value>음계 선택</value>
+  </data>
+  <data name="showDefault" xml:space="preserve">
+    <value>내정 값</value>
+  </data>
+  <data name="transposeMenu" xml:space="preserve">
+    <value>음정 올리기/내리기</value>
+  </data>
+  <data name="up" xml:space="preserve">
+    <value>올리기</value>
+  </data>
+  <data name="down" xml:space="preserve">
+    <value>내리기</value>
+  </data>
+  <data name="shiftNotesMenu" xml:space="preserve">
+    <value>음표 위치 이동</value>
+  </data>
+  <data name="shiftRight18" xml:space="preserve">
+    <value>Right 1/8 note</value>
+  </data>
+  <data name="shiftRight14" xml:space="preserve">
+    <value>Right 1/4 note</value>
+  </data>
+  <data name="shiftRight38" xml:space="preserve">
+    <value>Right 3/8 note</value>
+  </data>
+  <data name="shiftRight12" xml:space="preserve">
+    <value>Right 1/2 note</value>
+  </data>
+  <data name="shiftRight58" xml:space="preserve">
+    <value>Right 5/8 note</value>
+  </data>
+  <data name="shiftRight34" xml:space="preserve">
+    <value>Right 3/4 note</value>
+  </data>
+  <data name="shiftRight78" xml:space="preserve">
+    <value>Right 7/8 note</value>
+  </data>
+  <data name="measureMenu" xml:space="preserve">
+    <value>마디 길이</value>
+  </data>
+  <data name="pulses" xml:space="preserve">
+    <value>펄스</value>
+  </data>
+  <data name="timeSigMenu" xml:space="preserve">
+    <value>박자 선택</value>
+  </data>
+  <data name="combineNotesMenu" xml:space="preserve">
+    <value>인접 음표 결합</value>
+  </data>
+  <data name="milliseconds" xml:space="preserve">
+    <value>밀리세컨드</value>
+  </data>
+  <data name="playMeasuresMenu" xml:space="preserve">
+    <value>마디 재생</value>
+  </data>
+  <data name="helpMenu" xml:space="preserve">
+    <value>도움말</value>
+  </data>
+  <data name="helpContentsMenu" xml:space="preserve">
+    <value>도움말 보기</value>
+  </data>
+  <data name="aboutMenu" xml:space="preserve">
+    <value>MidiSheetMusic은 . . .</value>
+  </data>
+  <data name="sampleSongTitle" xml:space="preserve">
+    <value>샘플 미디파일 선택</value>
+  </data>
+  <data name="okButton" xml:space="preserve">
+    <value>확인</value>
+  </data>
+  <data name="cancelButton" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="chooseColorsTitle" xml:space="preserve">
+    <value>음표 색상 선택</value>
+  </data>
+  <data name="chooseInstrumentsTitle" xml:space="preserve">
+    <value>각 트랙별 악기 선택</value>
+  </data>
+  <data name="setAllPiano" xml:space="preserve">
+    <value>모두 피아노로 설정</value>
+  </data>
+  <data name="playMeasuresTitle" xml:space="preserve">
+    <value>선택한 마디 반복 재생</value>
+  </data>
+  <data name="startMeasure" xml:space="preserve">
+    <value>시작 마디</value>
+  </data>
+  <data name="endMeasure" xml:space="preserve">
+    <value>끝 마디</value>
+  </data>
+  <data name="rewind" xml:space="preserve">
+    <value>뒤로 되돌리기</value>
+  </data>
+  <data name="play" xml:space="preserve">
+    <value>연주</value>
+  </data>
+  <data name="stop" xml:space="preserve">
+    <value>연주 중단</value>
+  </data>
+  <data name="fastForward" xml:space="preserve">
+    <value>앞으로 건너 뛰기</value>
+  </data>
+  <data name="speed" xml:space="preserve">
+    <value>속도</value>
+  </data>
+  <data name="volume" xml:space="preserve">
+    <value>볼륨</value>
+  </data>
+  <data name="strMsgSlaveMode" xml:space="preserve">
+    <value>종속모드로 동작 중입니다.</value>
+  </data>
+  <data name="strMsgLyricsEditMode_1" xml:space="preserve">
+    <value>가사 편집 중입니다.</value>
+  </data>
+  <data name="strMsgLyricsEditMode_2" xml:space="preserve">
+    <value>(편집대상 선택 : 마우스 버턴)</value>
+  </data>
+  <data name="strSaveAsMenu" xml:space="preserve">
+    <value>다른 이름으로 저장</value>
+  </data>
+  <data name="strSelEditMenu" xml:space="preserve">
+    <value>가사 편집할 트랙 선택</value>
+  </data>
+  <data name="strExitEditMenu" xml:space="preserve">
+    <value>가사 편집 끝내기</value>
+  </data>
+  <data name="strEditingMode" xml:space="preserve">
+    <value>가사편집 중입니다. 그냥 닫겠습니까 ?</value>
+  </data>
+  <data name="strLyricsDiscarded" xml:space="preserve">
+    <value>(변경된 내용은 버려집니다.)</value>
+  </data>
+  <data name="strConfirm" xml:space="preserve">
+    <value>확인</value>
+  </data>
+  <data name="strMIDIFiles" xml:space="preserve">
+    <value>미디파일</value>
+  </data>
+  <data name="strErrorSaveFile" xml:space="preserve">
+    <value>파일로 저장하지 못하였습니다.</value>
+  </data>
+  <data name="strErrorSave" xml:space="preserve">
+    <value>파일 저장 실패</value>
+  </data>
+  <data name="strQuerySave" xml:space="preserve">
+    <value>변경된 가사가 있습니다. 저장하시겠습니까 ?</value>
+  </data>
+  <data name="strFileOpenInfo" xml:space="preserve">
+    <value>파일-열기 메뉴 또는 Drag &amp;&amp; Drop 기능을 이용하여 연주할 미디 파일을 선택하십시요.</value>
+  </data>
+  <data name="strLeftToStartMenu" xml:space="preserve">
+    <value>좌측 시작 위치로 이동</value>
+  </data>
+  <data name="strNoShiftMenu" xml:space="preserve">
+    <value>원래 위치</value>
+  </data>
+  <data name="strNoTransMenu" xml:space="preserve">
+    <value>원래 음정</value>
+  </data>
+  <data name="strLeftShade" xml:space="preserve">
+    <value>왼편 음영</value>
+  </data>
+  <data name="strRightShade" xml:space="preserve">
+    <value>오른편 음영</value>
+  </data>
+  <data name="strHelpContents" xml:space="preserve">
+    <value>Midi Sheet Music 도움말</value>
+  </data>
+  <data name="strModeChange" xml:space="preserve">
+    <value>독립모드로 전환</value>
+  </data>
+  <data name="strModeTitle" xml:space="preserve">
+    <value>종속모드</value>
+  </data>
+  <data name="strSlaveModeInfo" xml:space="preserve">
+    <value>프로그램이 호스트 프로그램에 의해 제어되므로 콘트롤 일부와 여러 메뉴 기능이 제한됩니다.</value>
+  </data>
+</root>

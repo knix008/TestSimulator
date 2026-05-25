@@ -1,0 +1,129 @@
+<Window x:Class="StreamingClientWinV10.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:vm="clr-namespace:StreamingClientWinV10.ViewModels"
+        xmlns:controls="clr-namespace:StreamingClientWinV10.Controls"
+        mc:Ignorable="d"
+        Title="StreamTV — 동영상 라이브러리"
+        Height="760" Width="1280" MinWidth="700" MinHeight="480"
+        Background="{StaticResource BgBrush}"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>  <!-- Top bar -->
+            <RowDefinition Height="3"/>   <!-- Loading strip -->
+            <RowDefinition Height="*"/>   <!-- Content -->
+            <RowDefinition Height="28"/>  <!-- Status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Top Bar ── -->
+        <Border Grid.Row="0" Background="#0B1120"
+                BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Logo -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="▶" Foreground="{StaticResource AccentBrush}"
+                               FontSize="22" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="StreamTV"
+                               Foreground="{StaticResource TextPrimBrush}"
+                               FontSize="20" FontWeight="Bold" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Server URL hint -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding ServerUrl, StringFormat='서버: {0}'}"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="12" VerticalAlignment="Center"
+                           HorizontalAlignment="Center"/>
+
+                <!-- Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button Content="⟳  새로고침"
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource PrimaryBtn}" Margin="0,0,8,0"/>
+                    <Button Content="⚙  서버 설정"
+                            Click="OnSettingsClick"
+                            Style="{StaticResource SecondaryBtn}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── Loading progress strip ── -->
+        <ProgressBar Grid.Row="1"
+                     IsIndeterminate="True"
+                     Foreground="{StaticResource AccentBrush}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"/>
+
+        <!-- ── Main content ── -->
+        <Grid Grid.Row="2">
+
+            <!-- Empty state -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="▶" FontSize="60"
+                           Foreground="{StaticResource BorderBrush2}"
+                           HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                <TextBlock Text="동영상이 없습니다"
+                           Foreground="{StaticResource TextSecBrush}"
+                           FontSize="18" FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="서버 설정을 확인하고 새로고침을 눌러주세요."
+                           Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="13" HorizontalAlignment="Center" Margin="0,6,0,20"/>
+                <Button Content="⟳  새로고침"
+                        Command="{Binding RefreshCommand}"
+                        Style="{StaticResource PrimaryBtn}"
+                        HorizontalAlignment="Center" Padding="20,10"/>
+            </StackPanel>
+
+            <!-- Video grid -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding ShowEmptyState, Converter={StaticResource InvBoolToVis}}">
+                <ItemsControl ItemsSource="{Binding Videos}" Margin="12,12,12,12">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- Button wraps tile so entire card is clickable -->
+                            <Button Margin="6"
+                                    Style="{StaticResource TileBtn}"
+                                    Command="{Binding DataContext.OpenVideoCommand,
+                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding}">
+                                <controls:VideoTileControl/>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- ── Status Bar ── -->
+        <Border Grid.Row="3" Background="#0B1120"
+                BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0">
+            <TextBlock Text="{Binding StatusMessage}"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="11" VerticalAlignment="Center" Margin="16,0"/>
+        </Border>
+    </Grid>
+</Window>

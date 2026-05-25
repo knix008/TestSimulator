@@ -1,0 +1,24 @@
+{
+  "name": "streaming-server",
+  "version": "1.0.0",
+  "description": "WebRTC SFU Streaming Server with Channel Management",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "npm run build:client && nodemon src/index.js",
+    "build:client": "node scripts/build-client.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "mediasoup": "^3.14.0",
+    "mediasoup-client": "^3.7.19",
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.2",
+    "nodemon": "^3.1.0"
+  }
+}

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>방송하기</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f0f13; color: #e0e0e0;
+      display: flex; flex-direction: column; min-height: 100vh; }
+
+    header {
+      background: #1a1a2e; padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 2px solid #2a2a4a;
+    }
+    header h1 { font-size: 1.2rem; color: #ff8888; }
+    header a { color: #6060cc; text-decoration: none; font-size: 0.9rem; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; width: 100%; }
+
+    .card {
+      background: #1c1c2e; border: 1px solid #2a2a3a; border-radius: 10px;
+      padding: 20px; margin-bottom: 20px;
+    }
+    .card h2 { font-size: 1rem; color: #a0a0ff; margin-bottom: 16px; }
+
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 0.82rem; color: #999; margin-bottom: 5px; }
+    input[type=text], input[type=password] {
+      width: 100%; padding: 9px 12px; background: #11111e;
+      border: 1px solid #333; border-radius: 6px; color: #ddd; font-size: 0.9rem;
+      outline: none; transition: border-color .2s;
+    }
+    input:focus { border-color: #5050aa; }
+
+    .btn {
+      padding: 9px 20px; border-radius: 6px; border: none;
+      cursor: pointer; font-size: 0.88rem; font-weight: 600;
+      transition: background .2s;
+    }
+    .btn-primary { background: #2a2a8e; color: #aaaaff; }
+    .btn-primary:hover { background: #3a3aae; }
+    .btn-primary:disabled { background: #222; color: #555; cursor: default; }
+    .btn-danger { background: #7a2222; color: #ffaaaa; }
+    .btn-danger:hover { background: #aa3333; }
+    .btn-danger:disabled { background: #222; color: #555; cursor: default; }
+    .btn-red { background: #cc2222; color: #fff; }
+    .btn-red:hover { background: #ee3333; }
+    .btn-warn { background: #664400; color: #ffcc88; }
+    .btn-warn:hover { background: #885500; }
+
+    .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+    .row .field { flex: 1; min-width: 160px; margin-bottom: 0; }
+
+    #status {
+      padding: 10px 14px; border-radius: 6px; font-size: 0.88rem;
+      background: #111; border: 1px solid #2a2a3a;
+    }
+    #status.live { color: #ff4444; border-color: #aa2222; }
+    #status.ok { color: #44cc44; }
+    #status.error { color: #ff6666; border-color: #aa2222; }
+
+    #channelId { font-size: 0.75rem; color: #666; word-break: break-all;
+      margin-top: 6px; }
+
+    #preview {
+      width: 100%; max-height: 300px; background: #000; border-radius: 8px;
+      object-fit: contain; display: block;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📡 방송하기</h1>
+    <a href="/">← 시청 목록</a>
+  </header>
+
+  <div class="container">
+    <!-- Step 1: Create Channel -->
+    <div class="card">
+      <h2>1. 채널 만들기</h2>
+      <div class="field">
+        <label>채널명 *</label>
+        <input type="text" id="chName" placeholder="내 채널" />
+      </div>
+      <div class="field">
+        <label>설명</label>
+        <input type="text" id="chDesc" placeholder="채널 설명 (선택)" />
+      </div>
+      <div class="field">
+        <label>비밀번호 (선택)</label>
+        <input type="password" id="chPass" placeholder="없으면 공개 채널" />
+      </div>
+      <button class="btn btn-primary" id="btnCreate">채널 생성</button>
+      <div id="channelId"></div>
+    </div>
+
+    <!-- Step 2: Broadcast Controls -->
+    <div class="card hidden" id="broadcastMgmt">
+      <h2>2. 방송</h2>
+      <video id="preview" autoplay playsinline muted></video>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn btn-red" id="btnStart">방송 시작</button>
+        <button class="btn btn-danger" id="btnStop" disabled>방송 중지</button>
+      </div>
+      <div id="status" style="margin-top:12px;">채널이 준비되었습니다.</div>
+    </div>
+
+    <!-- Step 3: Channel Management -->
+    <div class="card hidden" id="channelMgmt">
+      <h2>3. 채널 관리</h2>
+      <div class="row">
+        <div class="field">
+          <label>새 비밀번호 (비워두면 비밀번호 제거)</label>
+          <input type="password" id="newPass" placeholder="새 비밀번호" />
+        </div>
+        <button class="btn btn-warn" id="btnSetPass">비밀번호 변경</button>
+      </div>
+      <hr style="border-color:#2a2a3a; margin:16px 0;" />
+      <button class="btn btn-danger" id="btnDelete">채널 삭제</button>
+    </div>
+  </div>
+
+  <script src="/bundle/broadcaster.bundle.js"></script>
+</body>
+</html>

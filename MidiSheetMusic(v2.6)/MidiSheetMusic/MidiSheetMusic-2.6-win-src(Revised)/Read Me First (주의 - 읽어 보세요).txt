@@ -1,0 +1,14 @@
+Warning - Read followings first
+
+You will get compile error after you modify the text resource file "Strings.resx", for local language support.
+The reason of the compile error is that the new Strings.Designer.cs, created automatically, has   
+wrong "namespace".
+Edit the "namespace" in the Strings.Designer.cs (from "MidiSheetMusic.Resources.Localization" to "MidiSheetMusic"), then compile again'
+
+------------------------------------------------
+
+주의 - 읽어 보세요
+
+다국어 지원용 문자열 리소스 파일인 "Strings.resx" 를 수정 후 새로 빌드할 경우에 컴파일 에러가 발생합니다.
+이 것은 Strings.resx 파일의 변경시 자동으로 새로 만들어지는 Strings.Designer.cs 의 namespace 정의가  "MidiSheetMusic" 에서 "MidiSheetMusic.Resources.Localization" 로 변경되기 때문입니다.
+그러므로 편집창에 Strings.Designer.cs를 열어서 namespace를 "MidiSheetMusic"으로 변경 후 다시 컴파일하면 해결됩니다.
