@@ -83,7 +83,6 @@ partial class MainForm
         buttonRotateCCW = new Button();
         buttonFlipHorizontal = new Button();
         buttonEditImage = new Button();
-        labelImageZoomInfo = new Label();
         labelPreviewPlaceholder = new Label();
         panelVideoHost = new Panel();
         layoutVideo = new TableLayoutPanel();
@@ -95,7 +94,6 @@ partial class MainForm
         panelVideoTimeline = new Panel();
         labelVideoPercent = new Label();
         labelVideoTime = new Label();
-        videoSeekBar = new MediaSeekBar();
         layoutVideoButtons = new TableLayoutPanel();
         flowVideoControls = new FlowLayoutPanel();
         buttonVideoPlay = new Button();
@@ -107,6 +105,7 @@ partial class MainForm
         picturePreview = new PictureBox();
         panelGalleryHost = new Panel();
         flowThumbnails = new FlowLayoutPanel();
+        labelImageZoomInfo = new Label();
         statusStripMain = new StatusStrip();
         statusLabelDirectory = new ToolStripStatusLabel();
         statusLabelFile = new ToolStripStatusLabel();
@@ -296,40 +295,24 @@ partial class MainForm
         panelImageToolbar.Controls.Add(buttonRotateCCW);
         panelImageToolbar.Controls.Add(buttonFlipHorizontal);
         panelImageToolbar.Controls.Add(buttonEditImage);
-        panelImageToolbar.Controls.Add(labelImageZoomInfo);
         panelImageToolbar.Dock = DockStyle.Top;
         panelImageToolbar.Location = new Point(0, 0);
         panelImageToolbar.Name = "panelImageToolbar";
-        panelImageToolbar.Size = new Size(751, 44);
+        panelImageToolbar.Size = new Size(751, 36);
         panelImageToolbar.TabIndex = 1;
         panelImageToolbar.Visible = false;
-        //
-        // buttonEditImage
-        //
-        buttonEditImage.BackColor = Color.FromArgb(0, 100, 180);
-        buttonEditImage.Dock = DockStyle.Left;
-        buttonEditImage.FlatAppearance.BorderSize = 0;
-        buttonEditImage.FlatStyle = FlatStyle.Flat;
-        buttonEditImage.Font = new Font("Segoe UI", 9F);
-        buttonEditImage.ForeColor = Color.WhiteSmoke;
-        buttonEditImage.Location = new Point(0, 0);
-        buttonEditImage.Name = "buttonEditImage";
-        buttonEditImage.Size = new Size(74, 44);
-        buttonEditImage.TabIndex = 10;
-        buttonEditImage.Text = "✏ 편집";
-        buttonEditImage.UseVisualStyleBackColor = false;
-        //
+        // 
         // buttonRotateCW
-        //
-        buttonRotateCW.BackColor = Color.FromArgb(50, 50, 58);
+        // 
+        buttonRotateCW.BackColor = Color.FromArgb(48, 50, 56);
         buttonRotateCW.Dock = DockStyle.Right;
         buttonRotateCW.FlatAppearance.BorderSize = 0;
         buttonRotateCW.FlatStyle = FlatStyle.Flat;
         buttonRotateCW.Font = new Font("Segoe UI", 14F);
         buttonRotateCW.ForeColor = Color.WhiteSmoke;
-        buttonRotateCW.Location = new Point(619, 0);
+        buttonRotateCW.Location = new Point(643, 0);
         buttonRotateCW.Name = "buttonRotateCW";
-        buttonRotateCW.Size = new Size(44, 44);
+        buttonRotateCW.Size = new Size(36, 36);
         buttonRotateCW.TabIndex = 2;
         buttonRotateCW.Text = "↻";
         buttonRotateCW.UseVisualStyleBackColor = false;
@@ -342,9 +325,9 @@ partial class MainForm
         buttonRotateCCW.FlatStyle = FlatStyle.Flat;
         buttonRotateCCW.Font = new Font("Segoe UI", 14F);
         buttonRotateCCW.ForeColor = Color.WhiteSmoke;
-        buttonRotateCCW.Location = new Point(663, 0);
+        buttonRotateCCW.Location = new Point(679, 0);
         buttonRotateCCW.Name = "buttonRotateCCW";
-        buttonRotateCCW.Size = new Size(44, 44);
+        buttonRotateCCW.Size = new Size(36, 36);
         buttonRotateCCW.TabIndex = 1;
         buttonRotateCCW.Text = "↺";
         buttonRotateCCW.UseVisualStyleBackColor = false;
@@ -357,32 +340,33 @@ partial class MainForm
         buttonFlipHorizontal.FlatStyle = FlatStyle.Flat;
         buttonFlipHorizontal.Font = new Font("Segoe UI", 20F);
         buttonFlipHorizontal.ForeColor = Color.WhiteSmoke;
-        buttonFlipHorizontal.Location = new Point(707, 0);
+        buttonFlipHorizontal.Location = new Point(715, 0);
         buttonFlipHorizontal.Name = "buttonFlipHorizontal";
-        buttonFlipHorizontal.Size = new Size(44, 44);
+        buttonFlipHorizontal.Size = new Size(36, 36);
         buttonFlipHorizontal.TabIndex = 3;
         buttonFlipHorizontal.Text = "⇔";
         buttonFlipHorizontal.UseVisualStyleBackColor = false;
         // 
-        // labelImageZoomInfo
+        // buttonEditImage
         // 
-        labelImageZoomInfo.BackColor = Color.Transparent;
-        labelImageZoomInfo.Dock = DockStyle.Fill;
-        labelImageZoomInfo.Font = new Font("Segoe UI Semibold", 9.75F, FontStyle.Bold);
-        labelImageZoomInfo.ForeColor = Color.WhiteSmoke;
-        labelImageZoomInfo.Location = new Point(0, 0);
-        labelImageZoomInfo.Name = "labelImageZoomInfo";
-        labelImageZoomInfo.Padding = new Padding(10, 0, 0, 0);
-        labelImageZoomInfo.Size = new Size(751, 44);
-        labelImageZoomInfo.TabIndex = 0;
-        labelImageZoomInfo.Text = "100% · —";
-        labelImageZoomInfo.TextAlign = ContentAlignment.MiddleLeft;
+        buttonEditImage.BackColor = Color.FromArgb(56, 58, 64);
+        buttonEditImage.Dock = DockStyle.Left;
+        buttonEditImage.FlatAppearance.BorderSize = 0;
+        buttonEditImage.FlatStyle = FlatStyle.Flat;
+        buttonEditImage.Font = new Font("Segoe UI", 9F);
+        buttonEditImage.ForeColor = Color.WhiteSmoke;
+        buttonEditImage.Location = new Point(0, 0);
+        buttonEditImage.Name = "buttonEditImage";
+        buttonEditImage.Size = new Size(64, 36);
+        buttonEditImage.TabIndex = 10;
+        buttonEditImage.Text = "편집";
+        buttonEditImage.UseVisualStyleBackColor = false;
         // 
         // labelPreviewPlaceholder
         // 
         labelPreviewPlaceholder.Dock = DockStyle.Fill;
         labelPreviewPlaceholder.Font = new Font("Segoe UI", 11.25F);
-        labelPreviewPlaceholder.ForeColor = Color.Gainsboro;
+        labelPreviewPlaceholder.ForeColor = Color.Gray;
         labelPreviewPlaceholder.Location = new Point(0, 0);
         labelPreviewPlaceholder.Margin = new Padding(3);
         labelPreviewPlaceholder.Name = "labelPreviewPlaceholder";
@@ -484,20 +468,9 @@ partial class MainForm
         // 
         // panelVideoTimeline
         // 
-        //
-        // videoSeekBar
-        //
-        videoSeekBar.Dock = DockStyle.Fill;
-        videoSeekBar.BackColor = Color.FromArgb(20, 20, 24);
-        videoSeekBar.Name = "videoSeekBar";
-        videoSeekBar.TabIndex = 3;
-        //
-        // panelVideoTimeline
-        //
         panelVideoTimeline.BackColor = Color.FromArgb(20, 20, 24);
         panelVideoTimeline.Controls.Add(labelVideoPercent);
         panelVideoTimeline.Controls.Add(labelVideoTime);
-        panelVideoTimeline.Controls.Add(videoSeekBar);
         panelVideoTimeline.Dock = DockStyle.Fill;
         panelVideoTimeline.Location = new Point(0, 0);
         panelVideoTimeline.Margin = new Padding(0);
@@ -510,7 +483,7 @@ partial class MainForm
         // 
         labelVideoPercent.AutoSize = true;
         labelVideoPercent.Dock = DockStyle.Right;
-        labelVideoPercent.ForeColor = Color.Gainsboro;
+        labelVideoPercent.ForeColor = Color.DimGray;
         labelVideoPercent.Location = new Point(703, 6);
         labelVideoPercent.Name = "labelVideoPercent";
         labelVideoPercent.Size = new Size(38, 15);
@@ -521,7 +494,7 @@ partial class MainForm
         // 
         labelVideoTime.AutoSize = true;
         labelVideoTime.Dock = DockStyle.Left;
-        labelVideoTime.ForeColor = Color.Gainsboro;
+        labelVideoTime.ForeColor = Color.DimGray;
         labelVideoTime.Location = new Point(10, 6);
         labelVideoTime.Name = "labelVideoTime";
         labelVideoTime.Size = new Size(82, 15);
@@ -658,6 +631,14 @@ partial class MainForm
         flowThumbnails.Padding = new Padding(10, 9, 10, 9);
         flowThumbnails.Size = new Size(751, 547);
         flowThumbnails.TabIndex = 0;
+        // 
+        // labelImageZoomInfo
+        // 
+        labelImageZoomInfo.Location = new Point(0, 0);
+        labelImageZoomInfo.Name = "labelImageZoomInfo";
+        labelImageZoomInfo.Size = new Size(100, 23);
+        labelImageZoomInfo.TabIndex = 0;
+        labelImageZoomInfo.Visible = false;
         // 
         // statusStripMain
         // 

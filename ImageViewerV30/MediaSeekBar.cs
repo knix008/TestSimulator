@@ -44,9 +44,9 @@ public sealed class MediaSeekBar : Control
         int playedWidth = (int)Math.Round(trackRect.Width * _progress);
         Rectangle playedRect = new(trackRect.X, trackRect.Y, Math.Max(0, playedWidth), trackRect.Height);
 
-        using var remainBrush = new SolidBrush(Color.FromArgb(78, 82, 88));
-        using var playedBrush = new SolidBrush(Color.FromArgb(56, 189, 248));
-        using var thumbBrush = new SolidBrush(Color.WhiteSmoke);
+        using var remainBrush = new SolidBrush(UiTheme.SeekTrack);
+        using var playedBrush = new SolidBrush(UiTheme.SeekPlayed);
+        using var thumbBrush = new SolidBrush(UiTheme.TextPrimary);
 
         e.Graphics.FillRectangle(remainBrush, trackRect);
         if (playedRect.Width > 0)

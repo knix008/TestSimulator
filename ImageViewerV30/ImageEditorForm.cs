@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.IO;
+using System.Reflection;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -19,7 +21,8 @@ public partial class ImageEditorForm : Form
     private readonly Stack<Image<Rgba32>> _redoStack = new();
 
     private readonly System.Windows.Forms.Timer _previewTimer;
-    private float _zoom = 1f;
+    private double _zoom = 1.0;
+    private Bitmap? _ownedPreviewBitmap;
     private bool _eyedropperActive;
     private System.Drawing.Color _bgColor = System.Drawing.Color.White;
     private string _sourcePath = string.Empty;
@@ -27,20 +30,79 @@ public partial class ImageEditorForm : Form
     private bool _lockRatioChanging;
     private int _originalWidth, _originalHeight;
     private bool _hasUnsavedChanges;
+    private RembgBackgroundRemover? _rembgRemover;
+
+    /// <summary>이미지가 디스크에 저장되었을 때 발생합니다(경로).</summary>
+    public event EventHandler<string>? FileSaved;
 
     public ImageEditorForm(string imagePath)
     {
         InitializeComponent();
+        ApplyWindowIcon();
         _previewTimer = new System.Windows.Forms.Timer { Interval = 180 };
         _previewTimer.Tick += (_, _) => { _previewTimer.Stop(); ApplyAdjustmentPreview(); };
 
         WireEvents();
         // 마우스 휠로 확대/축소 지원
         picPreview.MouseWheel += PicPreview_MouseWheel;
+        pnlScroll.MouseWheel += PicPreview_MouseWheel;
         // 미리보기 영역이 포커스 받을 수 있도록
         picPreview.Focus();
         LoadSourceImage(imagePath);
-        ApplyDarkTheme();
+        ApplyModernTheme();
+        UpdateAiModelStatus();
+        Shown += ImageEditorForm_Shown;
+    }
+
+    private async void ImageEditorForm_Shown(object? sender, EventArgs e)
+    {
+        Shown -= ImageEditorForm_Shown;
+        if (RembgBackgroundRemover.IsModelInstalled(GetSelectedRembgModel()))
+            return;
+
+        await AutoDownloadRembgModelAsync(showSuccessMessage: false);
+    }
+
+    private RembgModelInfo GetSelectedRembgModel() =>
+        cmbRembgModel.SelectedItem as RembgModelInfo ?? RembgModelInfo.U2Net;
+
+    private void OnRembgModelChanged()
+    {
+        _rembgRemover?.InvalidateSession();
+        _rembgRemover = null;
+        UpdateAiModelStatus();
+    }
+
+    /// <summary>선택한 rembg ONNX 모델이 없으면 자동 다운로드합니다.</summary>
+    private async Task AutoDownloadRembgModelAsync(bool showSuccessMessage)
+    {
+        var model = GetSelectedRembgModel();
+        var progress = CreateBgProgress();
+        SetBgRemovalUiBusy(true);
+        ReportBgProgress(0, $"{model.DisplayName} 모델 확인 중...");
+        try
+        {
+            await RembgBackgroundRemover.EnsureModelInstalledAsync(model, progress);
+            UpdateAiModelStatus();
+            UpdateStatus($"{model.DisplayName} 준비됨");
+            if (showSuccessMessage)
+            {
+                MessageBox.Show(this, $"{model.DisplayName}({model.FileName})이 준비되었습니다.", "완료",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            lblAiModelStatus.Text = $"모델 다운로드 실패: {ex.Message}";
+            MessageBox.Show(this,
+                $"{model.DisplayName}을(를) 다운로드하지 못했습니다.\n\n{ex.Message}",
+                "다운로드 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            HideBgProgress();
+            SetBgRemovalUiBusy(false);
+        }
     }
 
     // ── 이미지 로드 ───────────────────────────────────────────────────────
@@ -70,7 +132,7 @@ public partial class ImageEditorForm : Form
             numCropW.Value = Math.Min(_committed.Width, 16000);
             numCropH.Value = Math.Min(_committed.Height, 16000);
 
-            _zoom = 1f;
+            _zoom = 1.0;
             RefreshPreview(_committed);
             UpdateStatus();
         }
@@ -124,16 +186,12 @@ public partial class ImageEditorForm : Form
         btnApplyAdjust.Click += (_, _) => CommitAdjustments();
         btnResetAdjust.Click += (_, _) => ResetAdjustmentSliders();
 
-        // 효과 버튼
-        btnFxGrayscale.Click += (_, _) => ApplyEffect(x => x.Grayscale(), "흑백");
-        btnFxSepia.Click += (_, _) => ApplyEffect(x => x.Sepia(), "세피아");
-        btnFxInvert.Click += (_, _) => ApplyEffect(x => x.Invert(), "색 반전");
-        btnFxVignette.Click += (_, _) => ApplyEffect(x => x.Vignette(), "비네트");
-        btnFxEdge.Click += (_, _) => ApplyEffect(x => x.DetectEdges(), "엣지 검출");
+        WireInstantFxButtons();
+        WireParamFxButtons();
+        chkShowColorBg.CheckedChanged += (_, _) => pnlColorBg.Visible = chkShowColorBg.Checked;
 
         trkParamEffect.ValueChanged += (_, _) => lblParamEffectVal.Text = trkParamEffect.Value.ToString();
-        cmbParamEffect.SelectedIndexChanged += CmbParamEffect_SelectedIndexChanged;
-        btnApplyParamEffect.Click += (_, _) => ApplyParameterizedEffect();
+        UpdateParamSliderRange(0);
 
         // 변환
         numResizeW.ValueChanged += NumResizeW_ValueChanged;
@@ -152,23 +210,24 @@ public partial class ImageEditorForm : Form
         btnPickBgColor.Click += (_, _) => PickBackgroundColor();
         pnlBgColorPreview.Click += (_, _) => PickBackgroundColor();
         btnEyedropper.Click += (_, _) => ToggleEyedropper();
-        btnRemoveBg.Click += (_, _) => RemoveBackground();
+        btnColorRemoveBg.Click += async (_, _) => await RemoveBackgroundAsync();
+        cmbRembgModel.SelectedIndexChanged += (_, _) => OnRembgModelChanged();
+        btnAiRemoveBg.Click += async (_, _) => await RemoveBackgroundWithAiAsync();
 
         // 줌
-        btnZoomIn.Click += (_, _) => SetZoom(_zoom * 1.25f);
-        btnZoomOut.Click += (_, _) => SetZoom(_zoom / 1.25f);
+        btnZoomIn.Click += (_, _) => SetZoom(_zoom * 1.1);
+        btnZoomOut.Click += (_, _) => SetZoom(_zoom / 1.1);
         btnZoomFit.Click += (_, _) => ZoomToFit();
-        btnZoom1to1.Click += (_, _) => SetZoom(1f);
+        btnZoom1to1.Click += (_, _) => SetZoom(1.0);
 
         picPreview.MouseClick += PicPreview_MouseClick;
+        pnlScroll.Resize += (_, _) => UpdatePreviewViewportLayout();
+        pnlPreviewArea.Resize += (_, _) => UpdatePreviewViewportLayout();
 
         // 컨트롤 겹침 방지: 미리보기 영역을 항상 맨 앞으로
         pnlPreviewArea.BringToFront();
 
-        // 배경 제거 버튼에 rembg 연동 예시
-        btnRemoveBg.Click -= (_, _) => RemoveBackground(); // 기존 연결 해제
-        btnRemoveBg.Click += async (_, _) => await RemoveBackgroundWithRembgAsync();
-
+        Shown += (_, _) => UpdatePreviewViewportLayout();
         FormClosing += ImageEditorForm_FormClosing;
         FormClosed += (_, _) => DisposeAll();
     }
@@ -179,15 +238,68 @@ public partial class ImageEditorForm : Form
         _previewTimer.Start();
     }
 
-    private void CmbParamEffect_SelectedIndexChanged(object? sender, EventArgs e)
+    private void WireInstantFxButtons()
     {
-        int idx = cmbParamEffect.SelectedIndex;
+        var actions = new Action[]
+        {
+            () => ApplyEffect(x => x.Grayscale(), "흑백"),
+            () => ApplyEffect(x => x.Sepia(), "세피아"),
+            () => ApplyEffect(x => x.Invert(), "색 반전"),
+            () => ApplyEffect(x => x.Vignette(), "비네트"),
+            () => ApplyEffect(x => x.DetectEdges(), "엣지"),
+            () => ApplyEffect(x => x.Polaroid(), "폴라로이드"),
+            () => ApplyEffect(x => x.Glow(), "글로우"),
+            () => ApplyEffect(x => x.BlackWhite(), "고대비"),
+            () => ApplyPosterizeEffect(),
+            () => ApplyEmbossEffect(),
+            () => ApplySolarizeEffect()
+        };
+        var buttons = GetGridButtonsInOrder(tblInstantFx);
+        for (int i = 0; i < buttons.Count && i < actions.Length; i++)
+        {
+            var act = actions[i];
+            buttons[i].Click += (_, _) => act();
+        }
+    }
+
+    private void WireParamFxButtons()
+    {
+        foreach (var btn in GetGridButtonsInOrder(tblParamFx))
+        {
+            if (btn.Tag is not int effectIndex) continue;
+            btn.Click += (_, _) =>
+            {
+                UpdateParamSliderRange(effectIndex);
+                ApplyParameterizedEffect(effectIndex);
+            };
+        }
+    }
+
+    private static List<Button> GetGridButtonsInOrder(TableLayoutPanel grid)
+    {
+        var list = new List<Button>();
+        for (int r = 0; r < grid.RowCount; r++)
+        for (int c = 0; c < grid.ColumnCount; c++)
+        {
+            if (grid.GetControlFromPosition(c, r) is Button btn)
+                list.Add(btn);
+        }
+        return list;
+    }
+
+    private void UpdateParamSliderRange(int idx)
+    {
         (int min, int max, int def) = idx switch
         {
-            0 => (1, 20, 3),   // 가우시안 흐림
-            1 => (1, 20, 3),   // 선명하게
-            2 => (2, 50, 8),   // 픽셀화
-            _ => (1, 20, 10)   // 유화 효과
+            0 => (1, 20, 3),
+            1 => (1, 20, 3),
+            2 => (2, 50, 8),
+            3 => (1, 20, 10),
+            4 => (1, 30, 5),
+            5 => (2, 20, 6),
+            6 => (1, 100, 20),
+            7 => (1, 100, 20),
+            _ => (1, 30, 8)
         };
         trkParamEffect.Minimum = min;
         trkParamEffect.Maximum = max;
@@ -203,6 +315,7 @@ public partial class ImageEditorForm : Form
         if (allNeutral)
         {
             RefreshPreview(_committed);
+            RefreshStatusBar();
             return;
         }
 
@@ -214,7 +327,11 @@ public partial class ImageEditorForm : Form
             RefreshPreview(preview);
             preview.Dispose();
         }
-        finally { Cursor = Cursors.Default; }
+        finally
+        {
+            Cursor = Cursors.Default;
+            RefreshStatusBar();
+        }
     }
 
     private bool IsAllAdjustmentsNeutral() =>
@@ -280,14 +397,14 @@ public partial class ImageEditorForm : Form
         finally { Cursor = Cursors.Default; }
     }
 
-    private void ApplyParameterizedEffect()
+    private void ApplyParameterizedEffect(int effectIndex)
     {
         if (_committed is null) return;
         int v = trkParamEffect.Value;
         string name;
         Action<IImageProcessingContext> fx;
 
-        switch (cmbParamEffect.SelectedIndex)
+        switch (effectIndex)
         {
             case 0:
                 name = $"가우시안 흐림(σ={v})";
@@ -301,14 +418,143 @@ public partial class ImageEditorForm : Form
                 name = $"픽셀화({v}px)";
                 fx = x => x.Pixelate(v);
                 break;
-            default:
+            case 3:
                 name = $"유화 효과({v})";
                 int brushSize = Math.Max(1, v);
                 fx = x => x.OilPaint(10, brushSize);
                 break;
+            case 4:
+                name = $"박스 블러({v})";
+                fx = x => x.BoxBlur(v);
+                break;
+            case 5:
+                name = $"소프트 블러({v})";
+                fx = x => x.GaussianBlur(v / 2f);
+                break;
+            case 6:
+                name = $"밝게({v}%)";
+                float lighten = 1f + v / 100f;
+                fx = x => x.Brightness(lighten);
+                break;
+            case 7:
+                name = $"어둡게({v}%)";
+                float darken = Math.Max(0.05f, 1f - v / 100f);
+                fx = x => x.Brightness(darken);
+                break;
+            default:
+                name = $"강한 흐림({v})";
+                fx = x => x.GaussianBlur(v * 2);
+                break;
         }
 
         ApplyEffect(fx, name);
+    }
+
+    private void ApplyPosterizeEffect()
+    {
+        if (_committed is null) return;
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            PushUndo();
+            ApplyPosterize(_committed, 4);
+            RefreshPreview(_committed);
+            UpdateStatus("포스터 효과 적용됨");
+        }
+        finally { Cursor = Cursors.Default; }
+    }
+
+    private void ApplyEmbossEffect()
+    {
+        if (_committed is null) return;
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            PushUndo();
+            ApplyEmboss(_committed);
+            RefreshPreview(_committed);
+            UpdateStatus("엠보스 효과 적용됨");
+        }
+        finally { Cursor = Cursors.Default; }
+    }
+
+    private void ApplySolarizeEffect()
+    {
+        if (_committed is null) return;
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            PushUndo();
+            ApplySolarize(_committed, 128);
+            RefreshPreview(_committed);
+            UpdateStatus("솔라라이즈 효과 적용됨");
+        }
+        finally { Cursor = Cursors.Default; }
+    }
+
+    private static void ApplyPosterize(Image<Rgba32> image, int levels)
+    {
+        int step = Math.Max(1, 256 / levels);
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                for (int x = 0; x < row.Length; x++)
+                {
+                    ref var p = ref row[x];
+                    p = new Rgba32(
+                        (byte)(p.R / step * step),
+                        (byte)(p.G / step * step),
+                        (byte)(p.B / step * step),
+                        p.A);
+                }
+            }
+        });
+    }
+
+    private static void ApplyEmboss(Image<Rgba32> image)
+    {
+        int w = image.Width, h = image.Height;
+        var copy = image.Clone();
+        image.ProcessPixelRows(copy, (dest, src) =>
+        {
+            for (int y = 1; y < dest.Height - 1; y++)
+            {
+                var dRow = dest.GetRowSpan(y);
+                for (int x = 1; x < dRow.Length - 1; x++)
+                {
+                    var c = src.GetRowSpan(y)[x];
+                    var l = src.GetRowSpan(y)[x - 1];
+                    var t = src.GetRowSpan(y - 1)[x];
+                    int gray = Math.Clamp((c.R - l.R) + 128, 0, 255);
+                    int grayG = Math.Clamp((c.G - t.G) + 128, 0, 255);
+                    int g = (gray + grayG) / 2;
+                    dRow[x] = new Rgba32((byte)g, (byte)g, (byte)g, c.A);
+                }
+            }
+        });
+        copy.Dispose();
+    }
+
+    private static void ApplySolarize(Image<Rgba32> image, int threshold)
+    {
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                for (int x = 0; x < row.Length; x++)
+                {
+                    ref var p = ref row[x];
+                    p = new Rgba32(
+                        (byte)(p.R > threshold ? 255 - p.R : p.R),
+                        (byte)(p.G > threshold ? 255 - p.G : p.G),
+                        (byte)(p.B > threshold ? 255 - p.B : p.B),
+                        p.A);
+                }
+            }
+        });
     }
 
     // ── 변환 ─────────────────────────────────────────────────────────────
@@ -380,12 +626,12 @@ public partial class ImageEditorForm : Form
     {
         _eyedropperActive = !_eyedropperActive;
         btnEyedropper.BackColor = _eyedropperActive
-            ? System.Drawing.Color.FromArgb(0, 122, 204)
-            : System.Drawing.Color.FromArgb(55, 55, 65);
+            ? UiTheme.Accent
+            : UiTheme.BtnSecondary;
         picPreview.Cursor = _eyedropperActive ? Cursors.Cross : Cursors.Default;
-        statusLblInfo.Text = _eyedropperActive
+        SetStatusMessage(_eyedropperActive
             ? "이미지에서 배경으로 제거할 색상을 클릭하세요."
-            : "준비";
+            : "준비");
     }
 
     private void PicPreview_MouseClick(object? sender, MouseEventArgs e)
@@ -405,21 +651,58 @@ public partial class ImageEditorForm : Form
         ToggleEyedropper();
     }
 
-    private void RemoveBackground()
+    private IProgress<(int percent, string message)> CreateBgProgress() =>
+        new Progress<(int percent, string message)>(p => ReportBgProgress(p.percent, p.message));
+
+    private void ReportBgProgress(int percent, string message)
+    {
+        int value = Math.Clamp(percent, 0, 100);
+        progressBg.Visible = true;
+        lblBgProgress.Visible = true;
+        progressBg.Style = ProgressBarStyle.Continuous;
+        progressBg.Value = value;
+        lblBgProgress.Text = $"{value}% — {message}";
+        SetStatusMessage(message);
+    }
+
+    private void HideBgProgress()
+    {
+        progressBg.Visible = false;
+        lblBgProgress.Visible = false;
+        progressBg.Value = 0;
+        lblBgProgress.Text = string.Empty;
+        SetStatusMessage("준비");
+        RefreshStatusBar();
+    }
+
+    private void SetBgRemovalUiBusy(bool busy)
+    {
+        btnAiRemoveBg.Enabled = !busy;
+        btnColorRemoveBg.Enabled = !busy;
+        Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
+    }
+
+    private async Task RemoveBackgroundAsync()
     {
         if (_committed is null) return;
         int tolerance = trkTolerance.Value;
         bool floodFill = rbFloodFill.Checked;
         var target = new Rgba32(_bgColor.R, _bgColor.G, _bgColor.B, 255);
+        var progress = CreateBgProgress();
 
-        Cursor = Cursors.WaitCursor;
+        SetBgRemovalUiBusy(true);
+        ReportBgProgress(0, floodFill ? "플러드 필 배경 제거 준비 중..." : "색상 기반 배경 제거 준비 중...");
         try
         {
             PushUndo();
-            if (floodFill)
-                ApplyFloodFillRemoval(_committed, target, tolerance);
-            else
-                ApplyColorReplacement(_committed, target, tolerance);
+            var image = _committed;
+            await Task.Run(() =>
+            {
+                if (floodFill)
+                    ApplyFloodFillRemoval(image, target, tolerance, progress);
+                else
+                    ApplyColorReplacement(image, target, tolerance, progress);
+            });
 
             RefreshPreview(_committed);
             UpdateStatus("배경 제거 완료");
@@ -428,12 +711,18 @@ public partial class ImageEditorForm : Form
         {
             MessageBox.Show(this, ex.Message, "배경 제거 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
-        finally { Cursor = Cursors.Default; }
+        finally
+        {
+            HideBgProgress();
+            SetBgRemovalUiBusy(false);
+        }
     }
 
-    private static void ApplyColorReplacement(Image<Rgba32> image, Rgba32 target, int tolerance)
+    private static void ApplyColorReplacement(Image<Rgba32> image, Rgba32 target, int tolerance,
+        IProgress<(int percent, string message)>? progress = null)
     {
         int tSq = tolerance * tolerance * 3;
+        int height = image.Height;
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -445,18 +734,26 @@ public partial class ImageEditorForm : Form
                     if (ColorDistanceSq(p, target) <= tSq)
                         p = new Rgba32(0, 0, 0, 0);
                 }
+
+                if (y % 32 == 0 || y == height - 1)
+                {
+                    int pct = (y + 1) * 100 / Math.Max(1, height);
+                    progress?.Report((pct, "색상 기반 배경 제거 중..."));
+                }
             }
         });
+        progress?.Report((100, "색상 기반 배경 제거 완료"));
     }
 
-    private static void ApplyFloodFillRemoval(Image<Rgba32> image, Rgba32 target, int tolerance)
+    private static void ApplyFloodFillRemoval(Image<Rgba32> image, Rgba32 target, int tolerance,
+        IProgress<(int percent, string message)>? progress = null)
     {
         int w = image.Width, h = image.Height;
         int tSq = tolerance * tolerance * 3;
         var visited = new bool[w, h];
         var queue = new Queue<(int x, int y)>();
 
-        // 이미지 가장자리에서 시작
+        progress?.Report((5, "가장자리 색상 분석 중..."));
         for (int x = 0; x < w; x++) { Enqueue(x, 0); Enqueue(x, h - 1); }
         for (int y = 1; y < h - 1; y++) { Enqueue(0, y); Enqueue(w - 1, y); }
 
@@ -469,10 +766,14 @@ public partial class ImageEditorForm : Form
 
         int[] dx = { 0, 0, 1, -1 };
         int[] dy = { 1, -1, 0, 0 };
+        int totalPixels = w * h;
+        int expanded = 0;
 
+        progress?.Report((10, "배경 영역 확장 중..."));
         while (queue.Count > 0)
         {
             var (cx, cy) = queue.Dequeue();
+            expanded++;
             for (int d = 0; d < 4; d++)
             {
                 int nx = cx + dx[d], ny = cy + dy[d];
@@ -480,8 +781,15 @@ public partial class ImageEditorForm : Form
                 if (ColorDistanceSq(image[nx, ny], target) <= tSq)
                 { visited[nx, ny] = true; queue.Enqueue((nx, ny)); }
             }
+
+            if (expanded % 5000 == 0)
+            {
+                int pct = 10 + (int)(60.0 * expanded / totalPixels);
+                progress?.Report((Math.Min(pct, 70), "배경 영역 확장 중..."));
+            }
         }
 
+        progress?.Report((75, "투명 처리 적용 중..."));
         image.ProcessPixelRows(accessor =>
         {
             for (int y = 0; y < accessor.Height; y++)
@@ -489,8 +797,15 @@ public partial class ImageEditorForm : Form
                 var row = accessor.GetRowSpan(y);
                 for (int x = 0; x < row.Length; x++)
                     if (visited[x, y]) row[x] = new Rgba32(0, 0, 0, 0);
+
+                if (y % 32 == 0 || y == h - 1)
+                {
+                    int pct = 75 + (y + 1) * 24 / Math.Max(1, h);
+                    progress?.Report((pct, "투명 처리 적용 중..."));
+                }
             }
         });
+        progress?.Report((100, "플러드 필 배경 제거 완료"));
     }
 
     private static int ColorDistanceSq(Rgba32 a, Rgba32 b)
@@ -562,11 +877,18 @@ public partial class ImageEditorForm : Form
 
         if (result == DialogResult.Yes)
         {
+            if (!ConfirmReplaceExisting(_sourcePath))
+            {
+                e.Cancel = true;
+                return;
+            }
+
             if (HasPendingAdjustments()) CommitAdjustments();
             try
             {
                 ExportToPath(_committed!, _sourcePath);
                 _hasUnsavedChanges = false;
+                NotifyFileSaved(_sourcePath);
             }
             catch (Exception ex)
             {
@@ -592,6 +914,7 @@ public partial class ImageEditorForm : Form
         _redoStack.Clear();
         toolBtnUndo.Enabled = true;
         toolBtnRedo.Enabled = false;
+        RefreshStatusBar();
     }
 
     private void Undo()
@@ -634,10 +957,60 @@ public partial class ImageEditorForm : Form
         UpdateStatus("원본으로 초기화됨");
     }
 
+    private void ApplyWindowIcon()
+    {
+        try
+        {
+            string[] candidates =
+            {
+                Path.Combine(AppContext.BaseDirectory, "daemon_hammer.ico"),
+                Path.Combine(Application.StartupPath, "daemon_hammer.ico"),
+                Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty, "daemon_hammer.ico"),
+            };
+
+            string? iconPath = candidates.FirstOrDefault(File.Exists);
+            if (!string.IsNullOrWhiteSpace(iconPath))
+            {
+                Icon = new Icon(iconPath);
+                return;
+            }
+
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
+        }
+        catch
+        {
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application; }
+            catch { }
+        }
+    }
+
+    private bool ConfirmReplaceExisting(string path)
+    {
+        if (!File.Exists(path))
+            return true;
+
+        return MessageBox.Show(this,
+            $"「{Path.GetFileName(path)}」\n\n기존 파일을 대체(덮어쓰기)하시겠습니까?",
+            "저장 확인",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question) == DialogResult.Yes;
+    }
+
+    private void NotifyFileSaved(string path) => FileSaved?.Invoke(this, path);
+
     // ── 저장 ─────────────────────────────────────────────────────────────
     private void SaveImage(string path)
     {
         if (_committed is null) return;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            SaveImageAs();
+            return;
+        }
+
+        if (!ConfirmReplaceExisting(path))
+            return;
+
         if (HasPendingAdjustments() &&
             MessageBox.Show(this, "적용되지 않은 색상 조정이 있습니다. 현재 미리보기 상태로 저장하시겠습니까?",
                 "미적용 조정", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
@@ -650,7 +1023,8 @@ public partial class ImageEditorForm : Form
         {
             ExportToPath(_committed, path);
             _hasUnsavedChanges = false;
-            UpdateStatus($"저장됨: {System.IO.Path.GetFileName(path)}");
+            UpdateStatus($"저장됨: {Path.GetFileName(path)}");
+            NotifyFileSaved(path);
         }
         catch (Exception ex)
         {
@@ -671,6 +1045,9 @@ public partial class ImageEditorForm : Form
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
+        if (File.Exists(dlg.FileName) && !ConfirmReplaceExisting(dlg.FileName))
+            return;
+
         if (HasPendingAdjustments()) CommitAdjustments();
 
         Cursor = Cursors.WaitCursor;
@@ -679,8 +1056,9 @@ public partial class ImageEditorForm : Form
             ExportToPath(_committed!, dlg.FileName);
             _hasUnsavedChanges = false;
             _sourcePath = dlg.FileName;
-            Text = $"이미지 편집기 — {System.IO.Path.GetFileName(_sourcePath)}";
-            UpdateStatus($"저장됨: {System.IO.Path.GetFileName(dlg.FileName)}");
+            Text = $"이미지 편집기 — {Path.GetFileName(_sourcePath)}";
+            UpdateStatus($"저장됨: {Path.GetFileName(dlg.FileName)}");
+            NotifyFileSaved(dlg.FileName);
         }
         catch (Exception ex)
         {
@@ -716,111 +1094,139 @@ public partial class ImageEditorForm : Form
     private bool HasPendingAdjustments() => !IsAllAdjustmentsNeutral();
 
     // ── 미리보기 / 줌 ────────────────────────────────────────────────────
+    /// <summary>편집 이미지를 1:1 비트맵으로 갱신합니다. 줌은 <see cref="ApplyPreviewZoom"/>으로만 처리합니다.</summary>
     private void RefreshPreview(Image<Rgba32> source)
     {
-        var bmp = ImageSharpToBitmap(source);
-
-        int dw = Math.Max(1, (int)(source.Width * _zoom));
-        int dh = Math.Max(1, (int)(source.Height * _zoom));
-
-        Bitmap scaled;
-        if (Math.Abs(_zoom - 1f) < 0.001f)
-        {
-            scaled = bmp;
-        }
-        else
-        {
-            scaled = new Bitmap(dw, dh, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            using var g = System.Drawing.Graphics.FromImage(scaled);
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-            g.DrawImage(bmp, 0, 0, dw, dh);
-            bmp.Dispose();
-        }
-
-        var old = picPreview.Image;
-        picPreview.Image = scaled;
-        picPreview.Size = new System.Drawing.Size(dw, dh);
+        var old = _ownedPreviewBitmap;
+        _ownedPreviewBitmap = ImageSharpToBitmap(source);
+        picPreview.Image = _ownedPreviewBitmap;
         old?.Dispose();
-        lblZoomPct.Text = $"{_zoom * 100:0}%";
+        ApplyPreviewZoom();
     }
 
-    private void SetZoom(float zoom)
+    /// <summary>메인 창과 동일하게 PictureBox 크기만 조절해 GDI+ 스트레치로 표시합니다.</summary>
+    private void ApplyPreviewZoom()
     {
-        _zoom = Math.Clamp(zoom, 0.05f, 16f);
-        if (_committed is not null) RefreshPreviewAsync(_committed);
+        if (_ownedPreviewBitmap is null)
+        {
+            pnlScroll.AutoScrollMinSize = System.Drawing.Size.Empty;
+            return;
+        }
+
+        int w = Math.Max(1, (int)Math.Round(_ownedPreviewBitmap.Width * _zoom));
+        int h = Math.Max(1, (int)Math.Round(_ownedPreviewBitmap.Height * _zoom));
+        picPreview.Size = new System.Drawing.Size(w, h);
+        lblZoomPct.Text = $"{_zoom * 100:0.#}%";
+        UpdatePreviewViewportLayout();
+        RefreshStatusBar();
     }
 
-    // 마우스 휠로 확대/축소
+    private void SetZoom(double zoom)
+    {
+        zoom = Math.Clamp(zoom, 0.05, 16.0);
+        if (Math.Abs(zoom - _zoom) < 0.0001)
+            return;
+
+        _zoom = zoom;
+        ApplyPreviewZoom();
+    }
+
+    private double CalculateFitZoomFactor()
+    {
+        if (_ownedPreviewBitmap is null)
+            return 1.0;
+
+        int viewportWidth = Math.Max(1, pnlScroll.ClientSize.Width);
+        int viewportHeight = Math.Max(1, pnlScroll.ClientSize.Height);
+        double scaleX = (double)viewportWidth / Math.Max(1, _ownedPreviewBitmap.Width);
+        double scaleY = (double)viewportHeight / Math.Max(1, _ownedPreviewBitmap.Height);
+        return Math.Clamp(Math.Min(scaleX, scaleY), 0.05, 16.0);
+    }
+
+    // 마우스 휠로 확대/축소 (메인 창과 동일한 배율·방식)
     private void PicPreview_MouseWheel(object? sender, MouseEventArgs e)
     {
-        if (e.Delta > 0)
-            SetZoom(_zoom * 1.25f);
-        else if (e.Delta < 0)
-            SetZoom(_zoom / 1.25f);
+        if (_ownedPreviewBitmap is null)
+            return;
+
+        double step = e.Delta > 0 ? 1.1 : 1.0 / 1.1;
+        SetZoom(_zoom * step);
     }
 
-    // 비동기 미리보기 처리
-    private async void RefreshPreviewAsync(Image<Rgba32> image)
+    /// <summary>이미지가 뷰포트보다 작을 때 미리보기를 가운데 정렬합니다.</summary>
+    private void UpdatePreviewViewportLayout()
     {
-        Cursor = Cursors.WaitCursor;
-        try
-        {
-            var bmp = await Task.Run(() => ImageSharpToBitmapScaled(image, _zoom));
-            var old = picPreview.Image;
-            picPreview.Image = bmp;
-            picPreview.Size = new System.Drawing.Size(bmp.Width, bmp.Height);
-            old?.Dispose();
-            lblZoomPct.Text = $"{_zoom * 100:0}%";
-        }
-        finally { Cursor = Cursors.Default; }
+        if (picPreview.Image is null) return;
+
+        int viewportWidth = Math.Max(1, pnlScroll.ClientSize.Width);
+        int viewportHeight = Math.Max(1, pnlScroll.ClientSize.Height);
+        bool needsHScroll = picPreview.Width > viewportWidth;
+        bool needsVScroll = picPreview.Height > viewportHeight;
+
+        int x = needsHScroll ? 0 : Math.Max(0, (viewportWidth - picPreview.Width) / 2);
+        int y = needsVScroll ? 0 : Math.Max(0, (viewportHeight - picPreview.Height) / 2);
+        picPreview.Location = new System.Drawing.Point(x, y);
+
+        int minW = needsHScroll ? picPreview.Width + 2 : Math.Max(picPreview.Width, viewportWidth - 1);
+        int minH = needsVScroll ? picPreview.Height + 2 : Math.Max(picPreview.Height, viewportHeight - 1);
+        pnlScroll.AutoScrollMinSize = new System.Drawing.Size(minW, minH);
+
+        if (!needsHScroll && !needsVScroll)
+            pnlScroll.AutoScrollPosition = System.Drawing.Point.Empty;
+
+        pnlScroll.PerformLayout();
     }
 
-    // ImageSharp 이미지를 줌 비율에 맞게 Bitmap으로 변환
-    private Bitmap ImageSharpToBitmapScaled(Image<Rgba32> source, float zoom)
+    private void UpdateAiModelStatus()
     {
-        var bmp = ImageSharpToBitmap(source);
-        int dw = Math.Max(1, (int)(source.Width * zoom));
-        int dh = Math.Max(1, (int)(source.Height * zoom));
-        if (Math.Abs(zoom - 1f) < 0.001f)
-            return bmp;
-        var scaled = new Bitmap(dw, dh, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var g = System.Drawing.Graphics.FromImage(scaled);
-        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-        g.DrawImage(bmp, 0, 0, dw, dh);
-        bmp.Dispose();
-        return scaled;
+        var model = GetSelectedRembgModel();
+        lblAiModelStatus.Text = RembgBackgroundRemover.IsModelInstalled(model)
+            ? $"{model.DisplayName} 준비됨"
+            : $"{model.DisplayName} 없음 — 배경 제거 시 다운로드";
     }
 
-    // rembg 연동 예시 (ONNX 다운로드)
-    private async Task RemoveBackgroundWithRembgAsync()
+    private Task EnsureRembgModelAsync(IProgress<(int percent, string message)> progress) =>
+        RembgBackgroundRemover.EnsureModelInstalledAsync(GetSelectedRembgModel(), progress);
+
+    private async Task RemoveBackgroundWithAiAsync()
     {
         if (_committed is null) return;
-        Cursor = Cursors.WaitCursor;
+
+        var progress = CreateBgProgress();
+        SetBgRemovalUiBusy(true);
+        ReportBgProgress(0, "AI 배경 제거 준비 중...");
         try
         {
-            // ONNX 모델 다운로드 (없으면)
-            string modelsDir = Path.Combine(AppContext.BaseDirectory, "models");
-            string modelPath = await DownloadRembgModel.DownloadModelIfNotExistsAsync(modelsDir);
+            await EnsureRembgModelAsync(progress);
 
-            // 실제 ONNX 추론은 별도 구현 필요
-            MessageBox.Show(this, $"ONNX 모델 다운로드 완료: {modelPath}\n\nC#에서 ONNX 추론 코드를 추가해야 합니다.", "rembg ONNX 안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _rembgRemover ??= new RembgBackgroundRemover();
+            _rembgRemover.Model = GetSelectedRembgModel();
+
+            var result = await Task.Run(async () =>
+            {
+                using var processed = await _rembgRemover!.RemoveBackgroundAsync(_committed!, progress);
+                return processed.Clone();
+            });
+
+            PushUndo();
+            _committed.Dispose();
+            _committed = result;
+            RefreshPreview(_committed);
+            UpdateAiModelStatus();
+            UpdateStatus("rembg 배경 제거 완료");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "rembg 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, "AI 배경 제거 실패", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
-        finally { Cursor = Cursors.Default; }
+        finally
+        {
+            HideBgProgress();
+            SetBgRemovalUiBusy(false);
+        }
     }
 
-    private void ZoomToFit()
-    {
-        if (_committed is null) return;
-        var scroll = Controls.Find("pnlScroll", true).FirstOrDefault() as Panel;
-        if (scroll is null) { SetZoom(1f); return; }
-        float zx = (float)scroll.ClientSize.Width / _committed.Width;
-        float zy = (float)scroll.ClientSize.Height / _committed.Height;
-        SetZoom(Math.Min(zx, zy));
-    }
+    private void ZoomToFit() => SetZoom(CalculateFitZoomFactor());
 
     private static Bitmap ImageSharpToBitmap(Image<Rgba32> image)
     {
@@ -832,39 +1238,178 @@ public partial class ImageEditorForm : Form
     }
 
     // ── 상태 / 테마 / 유틸 ───────────────────────────────────────────────
-    private void UpdateStatus(string? extra = null)
+    private void RefreshStatusBar()
     {
-        if (_committed is null) return;
-        string info = $"현재: {_committed.Width}×{_committed.Height}";
-        if (_original is not null)
-            info = $"원본: {_original.Width}×{_original.Height}  |  {info}";
-        if (extra is not null) info += $"  |  {extra}";
-        statusLblInfo.Text = info;
+        UpdateStatusPathAndFile();
+        UpdateStatusImage();
+        UpdateStatusView();
     }
 
-    private void ApplyDarkTheme()
+    private void UpdateStatusPathAndFile()
     {
-        BackColor = System.Drawing.Color.FromArgb(30, 30, 36);
-        ForeColor = System.Drawing.Color.WhiteSmoke;
-
-        void DarkenTab(TabPage tab)
+        if (string.IsNullOrWhiteSpace(_sourcePath))
         {
-            tab.BackColor = System.Drawing.Color.FromArgb(30, 30, 36);
-            tab.ForeColor = System.Drawing.Color.WhiteSmoke;
-            foreach (Control c in tab.Controls) ApplyThemeToControl(c);
+            statusLblPath.Text = "파일 정보 없음";
+            statusLblFile.Text = "";
+            return;
         }
 
-        DarkenTab(tabAdjust);
-        DarkenTab(tabEffects);
-        DarkenTab(tabTransform);
-        DarkenTab(tabBgRemove);
-        splitMain.BackColor = System.Drawing.Color.FromArgb(30, 30, 36);
+        statusLblPath.Text = _sourcePath;
+
+        if (!File.Exists(_sourcePath))
+        {
+            statusLblFile.Text = $"{Path.GetFileName(_sourcePath)} | (디스크에 없음)";
+            return;
+        }
+
+        try
+        {
+            var info = new FileInfo(_sourcePath);
+            string ext = Path.GetExtension(_sourcePath);
+            if (string.IsNullOrWhiteSpace(ext))
+                ext = "(확장자 없음)";
+
+            statusLblFile.Text =
+                $"{info.Name} | {FormatFileSize(info.Length)} | 수정 {info.LastWriteTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture)} | {ext}";
+        }
+        catch
+        {
+            statusLblFile.Text = Path.GetFileName(_sourcePath);
+        }
     }
 
-    private static void ApplyThemeToControl(Control c)
+    private void UpdateStatusImage()
     {
-        if (c is Panel p) { p.BackColor = System.Drawing.Color.FromArgb(30, 30, 36); }
-        foreach (Control child in c.Controls) ApplyThemeToControl(child);
+        if (_committed is null)
+        {
+            statusLblImage.Text = "";
+            return;
+        }
+
+        var parts = new List<string>();
+        if (_original is not null &&
+            (_original.Width != _committed.Width || _original.Height != _committed.Height))
+        {
+            parts.Add($"원본 {_original.Width}×{_original.Height}");
+            parts.Add($"편집 {_committed.Width}×{_committed.Height}");
+        }
+        else
+        {
+            parts.Add($"{_committed.Width}×{_committed.Height}");
+        }
+
+        parts.Add("RGBA 8bpp");
+
+        if (_hasUnsavedChanges)
+            parts.Add("● 미저장");
+
+        if (_undoStack.Count > 0)
+            parts.Add($"되돌리기 {_undoStack.Count}");
+
+        if (_redoStack.Count > 0)
+            parts.Add($"다시 {_redoStack.Count}");
+
+        statusLblImage.Text = string.Join(" | ", parts);
+    }
+
+    private void UpdateStatusView()
+    {
+        if (_committed is null)
+        {
+            statusLblZoom.Text = "";
+            return;
+        }
+
+        int dw = _ownedPreviewBitmap is not null
+            ? Math.Max(1, (int)Math.Round(_ownedPreviewBitmap.Width * _zoom))
+            : _committed.Width;
+        int dh = _ownedPreviewBitmap is not null
+            ? Math.Max(1, (int)Math.Round(_ownedPreviewBitmap.Height * _zoom))
+            : _committed.Height;
+
+        string pending = HasPendingAdjustments() ? " | 조정 미적용" : "";
+        statusLblZoom.Text = $"줌 {_zoom * 100:0.#}% | 표시 {dw}×{dh}{pending}";
+    }
+
+    private void SetStatusMessage(string message) => statusLblMessage.Text = message;
+
+    private void UpdateStatus(string? message = null)
+    {
+        RefreshStatusBar();
+        if (message is not null)
+            SetStatusMessage(message);
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        double value = bytes;
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        int u = 0;
+        while (value >= 1024d && u < units.Length - 1)
+        {
+            value /= 1024;
+            u++;
+        }
+
+        return $"{value:0.##} {units[u]}";
+    }
+
+    private void ApplyModernTheme()
+    {
+        UiTheme.ApplyToForm(this);
+        UiTheme.StyleSplitContainer(splitMain);
+
+        pnlPreviewArea.BackColor = UiTheme.BgPreview;
+        pnlScroll.BackColor = UiTheme.BgPreview;
+        picPreview.BackColor = UiTheme.BgPreview;
+        pnlZoomBar.BackColor = UiTheme.BgToolbar;
+        pnlAdjustContent.BackColor = UiTheme.BgSurface;
+        pnlEffectsContent.BackColor = UiTheme.BgSurface;
+        pnlTransformContent.BackColor = UiTheme.BgSurface;
+        pnlBgContent.BackColor = UiTheme.BgSurface;
+        UiTheme.StyleTabControl(tabTools);
+        foreach (TabPage tab in tabTools.TabPages)
+        {
+            tab.BackColor = UiTheme.BgSurface;
+            tab.ForeColor = UiTheme.TextPrimary;
+        }
+
+        UiTheme.StyleToolStrip(toolStrip);
+        UiTheme.StyleStatusStrip(statusStrip);
+        UiTheme.StyleProgressBar(progressBg);
+        UiTheme.StyleLabel(lblAiModelStatus, secondary: true);
+        tblInstantFx.BackColor = UiTheme.BgSurface;
+        tblParamFx.BackColor = UiTheme.BgSurface;
+
+        UiTheme.StyleButtonsInTree(this);
+        UiTheme.StyleInputsInTree(this);
+        StylePanelLabels(pnlAdjustContent);
+        StyleSectionLabelsInTree(this);
+        lblZoomPct.ForeColor = UiTheme.TextSecondary;
+    }
+
+    private static void StyleSectionLabelsInTree(Control root)
+    {
+        foreach (Control c in root.Controls)
+        {
+            if (c is Label lbl && lbl.Name.StartsWith("sec_", StringComparison.Ordinal))
+                UiTheme.StyleSectionLabel(lbl);
+            StyleSectionLabelsInTree(c);
+        }
+    }
+
+    private static void StylePanelLabels(Control panel)
+    {
+        foreach (Control c in panel.Controls)
+        {
+            if (c is not Label lbl) continue;
+            if (lbl.Name.StartsWith("sec_", StringComparison.Ordinal))
+                UiTheme.StyleSectionLabel(lbl);
+            else if (lbl.Name.EndsWith("Val", StringComparison.Ordinal))
+                UiTheme.StyleLabel(lbl);
+            else
+                UiTheme.StyleLabel(lbl, secondary: true);
+        }
     }
 
     private static void LogError(Exception ex)
@@ -884,11 +1429,15 @@ public partial class ImageEditorForm : Form
     private void DisposeAll()
     {
         _previewTimer.Dispose();
+        _rembgRemover?.Dispose();
+        _rembgRemover = null;
         _original?.Dispose(); _original = null;
         _committed?.Dispose(); _committed = null;
         foreach (var img in _undoStack) img.Dispose();
         foreach (var img in _redoStack) img.Dispose();
         _undoStack.Clear(); _redoStack.Clear();
-        picPreview.Image?.Dispose();
+        picPreview.Image = null;
+        _ownedPreviewBitmap?.Dispose();
+        _ownedPreviewBitmap = null;
     }
 }

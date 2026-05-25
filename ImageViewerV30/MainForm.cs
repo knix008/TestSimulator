@@ -66,6 +66,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        ApplyModernTheme();
         ApplyWindowIcon();
         WireEvents();
 
@@ -92,6 +93,46 @@ public partial class MainForm : Form
         };
         InitializeIconLists();
         LoadInitialFolder();
+    }
+
+    private void ApplyModernTheme()
+    {
+        UiTheme.ApplyToForm(this);
+        UiTheme.StyleSplitContainer(splitMain);
+        UiTheme.StyleSplitContainer(splitLeft);
+
+        panelLeft.BackColor = UiTheme.BgSurface;
+        panelFolderBar.BackColor = UiTheme.BgSurface;
+        panelPreviewRoot.BackColor = UiTheme.BgPreview;
+        panelImageHost.BackColor = UiTheme.BgPreview;
+        panelImageScrollHost.BackColor = UiTheme.BgPreview;
+        panelGalleryHost.BackColor = UiTheme.BgPreview;
+        flowThumbnails.BackColor = UiTheme.BgPreview;
+        picturePreview.BackColor = UiTheme.BgPreview;
+        panelImageToolbar.BackColor = UiTheme.BgToolbar;
+        panelVideoHost.BackColor = UiTheme.BgPreview;
+        panelVideoBottom.BackColor = UiTheme.BgToolbar;
+        panelVideoTimeline.BackColor = UiTheme.BgToolbar;
+        panelVideoBottomSeparator.BackColor = UiTheme.Separator;
+        flowVideoControls.BackColor = UiTheme.BgElevated;
+
+        UiTheme.StyleTextBox(textFolderPath);
+        UiTheme.StyleButton(buttonPickFolder, UiTheme.ButtonVariant.Secondary);
+        UiTheme.StyleButton(buttonEditImage, UiTheme.ButtonVariant.Primary);
+        UiTheme.StyleButton(buttonRotateCW, UiTheme.ButtonVariant.Icon);
+        UiTheme.StyleButton(buttonRotateCCW, UiTheme.ButtonVariant.Icon);
+        UiTheme.StyleButton(buttonFlipHorizontal, UiTheme.ButtonVariant.Icon);
+        UiTheme.StyleButton(buttonVideoPlay, UiTheme.ButtonVariant.Icon);
+        UiTheme.StyleButton(buttonVideoPause, UiTheme.ButtonVariant.Icon);
+        UiTheme.StyleButton(buttonVideoStop, UiTheme.ButtonVariant.Icon);
+
+        UiTheme.StyleTreeView(treeFolders);
+        UiTheme.StyleListView(listViewFiles);
+        UiTheme.StyleStatusStrip(statusStripMain);
+        UiTheme.StyleLabel(labelPreviewPlaceholder, secondary: true);
+        UiTheme.StyleLabel(labelVideoTime);
+        UiTheme.StyleLabel(labelVideoPercent);
+        UiTheme.StyleLabel(labelVideoOverlayIcon);
     }
 
     private void ApplyWindowIcon()
@@ -139,6 +180,8 @@ public partial class MainForm : Form
         panelImageScrollHost.MouseWheel += PanelImageScrollHost_MouseWheel;
         picturePreview.MouseWheel += PanelImageScrollHost_MouseWheel;
         panelImageScrollHost.Resize += (_, _) => UpdateImageViewportLayout();
+        panelImageHost.Resize += (_, _) => UpdateImageViewportLayout();
+        splitMain.Resize += (_, _) => UpdateImageViewportLayout();
         panelImageScrollHost.MouseDown += ImagePan_MouseDown;
         panelImageScrollHost.MouseMove += ImagePan_MouseMove;
         panelImageScrollHost.MouseUp += ImagePan_MouseUp;
@@ -656,7 +699,6 @@ public partial class MainForm : Form
     {
         if (_ownedPreviewImage is null)
         {
-            labelImageZoomInfo.Text = "—";
             panelImageScrollHost.AutoScrollMinSize = Size.Empty;
             return;
         }
@@ -667,11 +709,12 @@ public partial class MainForm : Form
         panelImageScrollHost.AutoScrollMinSize = picturePreview.Size;
         UpdateImageViewportLayout();
 
-        int gcd = GreatestCommonDivisor(_ownedPreviewImage.Width, _ownedPreviewImage.Height);
-        int arW = _ownedPreviewImage.Width / gcd;
-        int arH = _ownedPreviewImage.Height / gcd;
-        labelImageZoomInfo.Text = $"{_zoomFactor * 100:0.#}% · {arW}:{arH} · {_ownedPreviewImage.Width}×{_ownedPreviewImage.Height}";
-        labelImageZoomInfo.BringToFront();
+        if (!string.IsNullOrEmpty(_currentPreviewPath))
+        {
+            string fileName = Path.GetFileName(_currentPreviewPath);
+            statusLabelFile.Text =
+                $"{fileName} · {_zoomFactor * 100:0.#}% · {_ownedPreviewImage.Width}×{_ownedPreviewImage.Height}";
+        }
     }
 
     private double CalculateFitZoomFactor(Size imageSize)
@@ -1357,6 +1400,29 @@ public partial class MainForm : Form
         }
     }
 
+    private void RefreshFileListAfterEditorSave(string savedPath)
+    {
+        string? folder = Path.GetDirectoryName(savedPath);
+        if (folder is null || _currentFolder is null)
+            return;
+
+        if (!string.Equals(Path.GetFullPath(folder), Path.GetFullPath(_currentFolder), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        LoadFileList(_currentFolder);
+        SelectFileInList(savedPath);
+    }
+
+    private void SelectFileInList(string path)
+    {
+        if (!_fileItemByPath.TryGetValue(path, out var item))
+            return;
+
+        item.Selected = true;
+        item.Focused = true;
+        item.EnsureVisible();
+    }
+
     private void OpenImageEditor()
     {
         string? path = _currentPreviewPath;
@@ -1369,6 +1435,11 @@ public partial class MainForm : Form
             ClearImagePreview();
             this.Hide();
             using var editor = new ImageEditorForm(path);
+            editor.FileSaved += (_, p) =>
+            {
+                savedPath = p;
+                RefreshFileListAfterEditorSave(p);
+            };
             editor.ShowDialog();
         }
         catch (Exception ex)
@@ -1565,7 +1636,7 @@ public partial class MainForm : Form
         {
             Width = 156,
             Height = 176,
-            BackColor = Color.FromArgb(28, 28, 34),
+            BackColor = UiTheme.BgElevated,
             Margin = new Padding(8),
             Padding = new Padding(6),
             Cursor = Cursors.Hand,
@@ -1584,7 +1655,7 @@ public partial class MainForm : Form
         var name = new Label
         {
             Dock = DockStyle.Fill,
-            ForeColor = Color.Gainsboro,
+            ForeColor = UiTheme.TextSecondary,
             TextAlign = ContentAlignment.TopLeft,
             Text = Path.GetFileName(filePath),
             AutoEllipsis = true,

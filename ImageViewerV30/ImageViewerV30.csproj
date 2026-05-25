@@ -19,6 +19,7 @@
     <PackageReference Include="LibVLCSharp.WinForms" Version="3.9.7.1" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.6" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,6 +38,14 @@
     </Content>
     <Content Include="daemon_hammer.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="models\u2net.onnx" Condition="Exists('models\u2net.onnx')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>models\u2net.onnx</Link>
+    </Content>
+    <Content Include="models\bria-rmbg-2.0.onnx" Condition="Exists('models\bria-rmbg-2.0.onnx')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>models\bria-rmbg-2.0.onnx</Link>
     </Content>
   </ItemGroup>
 
