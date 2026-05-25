@@ -35,6 +35,10 @@ public partial class ImageEditorForm : Form
         _previewTimer.Tick += (_, _) => { _previewTimer.Stop(); ApplyAdjustmentPreview(); };
 
         WireEvents();
+        // 마우스 휠로 확대/축소 지원
+        picPreview.MouseWheel += PicPreview_MouseWheel;
+        // 미리보기 영역이 포커스 받을 수 있도록
+        picPreview.Focus();
         LoadSourceImage(imagePath);
         ApplyDarkTheme();
     }
@@ -157,6 +161,13 @@ public partial class ImageEditorForm : Form
         btnZoom1to1.Click += (_, _) => SetZoom(1f);
 
         picPreview.MouseClick += PicPreview_MouseClick;
+
+        // 컨트롤 겹침 방지: 미리보기 영역을 항상 맨 앞으로
+        pnlPreviewArea.BringToFront();
+
+        // 배경 제거 버튼에 rembg 연동 예시
+        btnRemoveBg.Click -= (_, _) => RemoveBackground(); // 기존 연결 해제
+        btnRemoveBg.Click += async (_, _) => await RemoveBackgroundWithRembgAsync();
 
         FormClosing += ImageEditorForm_FormClosing;
         FormClosed += (_, _) => DisposeAll();
@@ -736,7 +747,69 @@ public partial class ImageEditorForm : Form
     private void SetZoom(float zoom)
     {
         _zoom = Math.Clamp(zoom, 0.05f, 16f);
-        if (_committed is not null) RefreshPreview(_committed);
+        if (_committed is not null) RefreshPreviewAsync(_committed);
+    }
+
+    // 마우스 휠로 확대/축소
+    private void PicPreview_MouseWheel(object? sender, MouseEventArgs e)
+    {
+        if (e.Delta > 0)
+            SetZoom(_zoom * 1.25f);
+        else if (e.Delta < 0)
+            SetZoom(_zoom / 1.25f);
+    }
+
+    // 비동기 미리보기 처리
+    private async void RefreshPreviewAsync(Image<Rgba32> image)
+    {
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            var bmp = await Task.Run(() => ImageSharpToBitmapScaled(image, _zoom));
+            var old = picPreview.Image;
+            picPreview.Image = bmp;
+            picPreview.Size = new System.Drawing.Size(bmp.Width, bmp.Height);
+            old?.Dispose();
+            lblZoomPct.Text = $"{_zoom * 100:0}%";
+        }
+        finally { Cursor = Cursors.Default; }
+    }
+
+    // ImageSharp 이미지를 줌 비율에 맞게 Bitmap으로 변환
+    private Bitmap ImageSharpToBitmapScaled(Image<Rgba32> source, float zoom)
+    {
+        var bmp = ImageSharpToBitmap(source);
+        int dw = Math.Max(1, (int)(source.Width * zoom));
+        int dh = Math.Max(1, (int)(source.Height * zoom));
+        if (Math.Abs(zoom - 1f) < 0.001f)
+            return bmp;
+        var scaled = new Bitmap(dw, dh, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var g = System.Drawing.Graphics.FromImage(scaled);
+        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        g.DrawImage(bmp, 0, 0, dw, dh);
+        bmp.Dispose();
+        return scaled;
+    }
+
+    // rembg 연동 예시 (ONNX 다운로드)
+    private async Task RemoveBackgroundWithRembgAsync()
+    {
+        if (_committed is null) return;
+        Cursor = Cursors.WaitCursor;
+        try
+        {
+            // ONNX 모델 다운로드 (없으면)
+            string modelsDir = Path.Combine(AppContext.BaseDirectory, "models");
+            string modelPath = await DownloadRembgModel.DownloadModelIfNotExistsAsync(modelsDir);
+
+            // 실제 ONNX 추론은 별도 구현 필요
+            MessageBox.Show(this, $"ONNX 모델 다운로드 완료: {modelPath}\n\nC#에서 ONNX 추론 코드를 추가해야 합니다.", "rembg ONNX 안내", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "rembg 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally { Cursor = Cursors.Default; }
     }
 
     private void ZoomToFit()

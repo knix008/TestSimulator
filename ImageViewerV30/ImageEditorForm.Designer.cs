@@ -619,21 +619,24 @@ partial class ImageEditorForm
         int totalH = 28;
         var lbl = new Label
         {
-            Text = name, Location = new Point(0, y + 6),
-            Size = new Size(56, 18), ForeColor = Color.Gainsboro,
-            TextAlign = ContentAlignment.MiddleRight, Name = "lbl" + name
+            Text = name, Location = new Point(4, y + 6),
+            Size = new Size(52, 18), ForeColor = Color.Gainsboro,
+            TextAlign = ContentAlignment.MiddleRight, Name = "lbl" + name,
+            Anchor = AnchorStyles.Left | AnchorStyles.Top
         };
-        trk.Location = new Point(60, y); trk.Size = new Size(188, totalH);
+        trk.Location = new Point(60, y); trk.Size = new Size(164, totalH);
         trk.Minimum = min; trk.Maximum = max; trk.Value = val;
         trk.TickFrequency = Math.Max(1, (max - min) / 10);
         trk.AutoSize = false;
+        trk.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
 
         string displayVal = name == "감마" ? $"{val / 100.0:0.0}" : val.ToString();
         valLabel.Text = displayVal;
-        valLabel.Location = new Point(252, y + 6);
+        valLabel.Location = new Point(228, y + 6);
         valLabel.Size = new Size(44, 18);
         valLabel.ForeColor = Color.Gainsboro;
         valLabel.TextAlign = ContentAlignment.MiddleLeft;
+        valLabel.Anchor = AnchorStyles.Right | AnchorStyles.Top;
 
         parent.Controls.AddRange(new Control[] { lbl, trk, valLabel });
     }

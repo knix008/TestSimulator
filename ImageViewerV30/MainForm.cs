@@ -1367,8 +1367,9 @@ public partial class MainForm : Form
         try
         {
             ClearImagePreview();
+            this.Hide();
             using var editor = new ImageEditorForm(path);
-            editor.ShowDialog(this);
+            editor.ShowDialog();
         }
         catch (Exception ex)
         {
@@ -1380,6 +1381,7 @@ public partial class MainForm : Form
         }
         finally
         {
+            this.Show();
             if (File.Exists(savedPath))
                 ShowImage(savedPath);
         }
