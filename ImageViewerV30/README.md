@@ -50,7 +50,7 @@ C# / .NET 8 (`net8.0-windows`)로 작성되었으며, Visual Studio 디자이너
 | **u2net** (기본) | `u2net.onnx` | 권장 (~176MB, 320×320) |
 | RMBG 2.0 | `bria-rmbg-2.0.onnx` | 고품질 (~1GB, 1024×1024) |
 
-- 설치 경로: `{실행 폴더}\models\`
+- 설치·캐시 경로: `%LocalAppData%\ImageViewerV30\models\` (MSI 설치 후에도 쓰기 가능)
 - 수동 설치·checksum 검증: [`models/README.txt`](models/README.txt)
 - 공식 프로젝트: [danielgatis/rembg](https://github.com/danielgatis/rembg)
 
@@ -103,6 +103,11 @@ dotnet build -c Release
 ```
 
 Release 빌드 시 WiX MSI가 함께 생성됩니다 (`GenerateMsiOnBuild`).
+
+**MSI 크기**: x64 Windows 전용으로 빌드하도록 설정되어 있습니다 (`RuntimeIdentifier=win-x64`, LibVLC x64만 포함).  
+이전 AnyCPU 설정에서는 x86/ARM64 LibVLC와 Android/iOS 등 ONNX 런타임까지 복사되어 설치 폴더가 **450MB+**, MSI가 **200MB+**가 될 수 있었습니다.  
+현재는 앱 출력이 약 **116MB** 수준이며, MSI는 보통 **100MB 안쪽**(압축·구성에 따라 다름)입니다.  
+`models\*.onnx`를 빌드 전에 `models` 폴더에 넣으면 MSI에 포함되므로, 배포 시에는 **모델은 첫 실행 시 자동 다운로드**를 권장합니다.
 
 ---
 

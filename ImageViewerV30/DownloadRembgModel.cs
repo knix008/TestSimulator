@@ -22,7 +22,16 @@ public static class DownloadRembgModel
         string modelsDir,
         IProgress<(int percent, string message)>? progress)
     {
-        Directory.CreateDirectory(modelsDir);
+        try
+        {
+            Directory.CreateDirectory(modelsDir);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"모델 저장 폴더를 만들 수 없습니다.\n경로: {modelsDir}\n{ex.Message}", ex);
+        }
+
         string modelPath = RembgModelInfo.GetPath(modelsDir, model);
 
         if (File.Exists(modelPath))
@@ -42,45 +51,82 @@ public static class DownloadRembgModel
         string tempPath = modelPath + ".download";
         TryDelete(tempPath);
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(90) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("ImageViewerV30/1.0");
-
-        using var response = await client.GetAsync(model.DownloadUrl, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
-
-        long? totalBytes = response.Content.Headers.ContentLength;
-        await using var httpStream = await response.Content.ReadAsStreamAsync();
-        await using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
-
-        var buffer = new byte[81920];
-        long downloaded = 0;
-        int read;
-        while ((read = await httpStream.ReadAsync(buffer)) > 0)
+        try
         {
-            await fs.WriteAsync(buffer.AsMemory(0, read));
-            downloaded += read;
+            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(90) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("ImageViewerV30/1.0");
 
-            if (totalBytes > 0)
+            using var response = await client.GetAsync(model.DownloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
             {
-                int pct = (int)Math.Clamp(downloaded * 100 / totalBytes.Value, 0, 99);
-                progress?.Report((pct,
-                    $"{model.DisplayName} 다운로드 중... ({FormatBytes(downloaded)} / {FormatBytes(totalBytes.Value)})"));
+                throw new InvalidOperationException(
+                    $"{model.DisplayName} 다운로드 실패 (HTTP {(int)response.StatusCode}).\nURL: {model.DownloadUrl}");
             }
-            else
+
+            long? totalBytes = response.Content.Headers.ContentLength;
+            await using var httpStream = await response.Content.ReadAsStreamAsync();
+            await using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+            var buffer = new byte[81920];
+            long downloaded = 0;
+            int read;
+            while ((read = await httpStream.ReadAsync(buffer)) > 0)
             {
-                progress?.Report((0, $"{model.DisplayName} 다운로드 중... ({FormatBytes(downloaded)})"));
+                await fs.WriteAsync(buffer.AsMemory(0, read));
+                downloaded += read;
+
+                if (totalBytes > 0)
+                {
+                    int pct = (int)Math.Clamp(downloaded * 100 / totalBytes.Value, 0, 99);
+                    progress?.Report((pct,
+                        $"{model.DisplayName} 다운로드 중... ({FormatBytes(downloaded)} / {FormatBytes(totalBytes.Value)})"));
+                }
+                else
+                {
+                    progress?.Report((0, $"{model.DisplayName} 다운로드 중... ({FormatBytes(downloaded)})"));
+                }
             }
+
+            await fs.FlushAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            TryDelete(tempPath);
+            throw new InvalidOperationException(
+                $"{model.DisplayName} 다운로드 중 네트워크 오류가 발생했습니다.\n인터넷 연결과 방화벽을 확인한 뒤 다시 시도해 주세요.\n{ex.Message}", ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            TryDelete(tempPath);
+            throw new InvalidOperationException(
+                $"{model.DisplayName}을(를) 저장할 권한이 없습니다.\n경로: {modelsDir}\n관리자 권한이 필요한 폴더가 아닌지 확인해 주세요.", ex);
+        }
+        catch (IOException ex)
+        {
+            TryDelete(tempPath);
+            throw new InvalidOperationException(
+                $"{model.DisplayName} 저장 중 디스크 오류가 발생했습니다.\n경로: {modelsDir}\n{ex.Message}", ex);
         }
 
-        await fs.FlushAsync();
-        fs.Close();
-
-        if (File.Exists(modelPath))
-            File.Delete(modelPath);
-        File.Move(tempPath, modelPath);
+        try
+        {
+            if (File.Exists(modelPath))
+                File.Delete(modelPath);
+            File.Move(tempPath, modelPath);
+        }
+        catch (Exception ex)
+        {
+            TryDelete(tempPath);
+            throw new InvalidOperationException(
+                $"다운로드한 {model.DisplayName} 파일을 이동할 수 없습니다.\n경로: {modelPath}\n{ex.Message}", ex);
+        }
 
         if (!await VerifyChecksumAsync(modelPath, model))
-            throw new InvalidOperationException($"{model.DisplayName} 다운로드 후 checksum 검증에 실패했습니다. 다시 시도해 주세요.");
+        {
+            TryDelete(modelPath);
+            throw new InvalidOperationException(
+                $"{model.DisplayName} 다운로드 후 checksum 검증에 실패했습니다.\n파일이 손상되었을 수 있습니다. 다시 시도해 주세요.");
+        }
 
         progress?.Report((100, $"{model.DisplayName} 다운로드 완료"));
         return modelPath;

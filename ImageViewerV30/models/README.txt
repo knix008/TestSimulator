@@ -25,7 +25,12 @@ rembg `BaseSession`과 동일한 전처리·후처리를 사용합니다 (투명
 - u2net: https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx
 - RMBG 2.0: https://github.com/danielgatis/rembg/releases/download/v0.0.0/bria-rmbg-2.0.onnx
 
-설치 경로: `{실행폴더}\models\`
+설치 경로 (자동 다운로드·캐시):
+  %LocalAppData%\ImageViewerV30\models\
+  예: C:\Users\사용자명\AppData\Local\ImageViewerV30\models\
+
+MSI(Program Files) 설치 후에도 위 사용자 폴더에 저장됩니다.
+수동 배포 시에만 `{실행폴더}\models\` 를 사용할 수 있습니다.
 
 ## 수동 설치
 

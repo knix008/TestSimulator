@@ -14,11 +14,10 @@ public sealed class RembgBackgroundRemover : IDisposable
 
     public RembgModelInfo Model { get; set; } = RembgModelInfo.U2Net;
 
-    public static string ModelsDirectory =>
-        Path.Combine(AppContext.BaseDirectory, "models");
+    public static string ModelsDirectory => RembgPaths.WritableModelsDirectory;
 
     public static bool IsModelInstalled(RembgModelInfo? model = null) =>
-        File.Exists(RembgModelInfo.GetPath(ModelsDirectory, model ?? RembgModelInfo.U2Net));
+        RembgPaths.IsModelInstalled(model ?? RembgModelInfo.U2Net);
 
     public static string DescribeEngine(RembgModelInfo? model = null)
     {
@@ -47,8 +46,11 @@ public sealed class RembgBackgroundRemover : IDisposable
 
     public static Task<string> EnsureModelInstalledAsync(
         RembgModelInfo model,
-        IProgress<(int percent, string message)>? progress = null) =>
-        DownloadRembgModel.DownloadModelIfNotExistsAsync(model, ModelsDirectory, progress);
+        IProgress<(int percent, string message)>? progress = null)
+    {
+        RembgPaths.EnsureWritableModelsDirectory();
+        return DownloadRembgModel.DownloadModelIfNotExistsAsync(model, ModelsDirectory, progress);
+    }
 
     public static Task<string> EnsureModelInstalledAsync(IProgress<(int percent, string message)>? progress = null) =>
         EnsureModelInstalledAsync(RembgModelInfo.U2Net, progress);

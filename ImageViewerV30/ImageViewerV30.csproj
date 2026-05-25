@@ -13,6 +13,12 @@
     <RootNamespace>ImageViewerV30</RootNamespace>
     <AssemblyName>ImageViewerV30</AssemblyName>
     <NoWarn>$(NoWarn);NU1903;NU1902</NoWarn>
+    <!-- MSI/배포: Windows x64만 포함 (AnyCPU 시 LibVLC 3종 + ONNX 전 플랫폼 ≈ 460MB) -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PlatformTarget>x64</PlatformTarget>
+    <VlcWindowsX64Enabled>true</VlcWindowsX64Enabled>
+    <VlcWindowsX86Enabled>false</VlcWindowsX86Enabled>
+    <VlcWindowsArm64Enabled>false</VlcWindowsArm64Enabled>
   </PropertyGroup>
 
   <ItemGroup>

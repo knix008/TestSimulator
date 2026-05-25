@@ -30,9 +30,7 @@ public sealed class RembgSegmentationService : IDisposable
     }
 
     public static string GetDefaultModelPath() =>
-        RembgModelInfo.GetPath(
-            Path.Combine(AppContext.BaseDirectory, "models"),
-            RembgModelInfo.U2Net);
+        RembgPaths.GetModelFilePath(RembgModelInfo.U2Net);
 
     public bool IsModelReady => File.Exists(_modelPath);
 
