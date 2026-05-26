@@ -141,7 +141,8 @@ static gboolean export_wav_fluidsynth(const char *midi_path, const char *wav_pat
         }
     }
 
-    fluid_player_stop(player);
+    if (fluid_player_get_status(player) == FLUID_PLAYER_PLAYING)
+        fluid_player_stop(player);
     fluid_player_join(player);
     delete_fluid_file_renderer(renderer);
     delete_fluid_player(player);

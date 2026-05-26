@@ -669,8 +669,13 @@ static void export_schedule_ui(ExportJob *job)
         return;
 
     g_mutex_lock(&job->lock);
-    if (!job->ui_closed && !job->idle_id)
-        job->idle_id = g_idle_add(export_ui_idle, job);
+    if (job->ui_closed) {
+        g_mutex_unlock(&job->lock);
+        return;
+    }
+    if (job->idle_id)
+        g_source_remove(job->idle_id);
+    job->idle_id = g_idle_add(export_ui_idle, job);
     g_mutex_unlock(&job->lock);
 }
 
@@ -710,44 +715,68 @@ static gboolean export_ui_idle(gpointer data)
     job->idle_id = 0;
     g_mutex_unlock(&job->lock);
 
-    if (already_closed || g_app_quitting) {
+    if (g_app_quitting) {
+        if (done) {
+            g_mutex_lock(&g_export_mu);
+            g_export_busy = FALSE;
+            g_mutex_unlock(&g_export_mu);
+            g_free(job->midi_path);
+            g_free(job->out_path);
+            g_mutex_clear(&job->lock);
+            g_free(job);
+        }
         g_clear_error(&err);
         return G_SOURCE_REMOVE;
-    }
-
-    if (job->bar && GTK_IS_WIDGET(job->bar))
-        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(job->bar), pct / 100.0);
-    if (job->label && GTK_IS_WIDGET(job->label)) {
-        char buf[128];
-        snprintf(buf, sizeof buf, "%s  %d%%", export_phase_text(job, pct), pct);
-        gtk_label_set_text(GTK_LABEL(job->label), buf);
     }
 
     if (!done) {
+        g_mutex_lock(&job->lock);
+        done = job->finished;
+        g_mutex_unlock(&job->lock);
+    }
+
+    if (!done) {
+        if (!already_closed && job->bar && GTK_IS_WIDGET(job->bar))
+            gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(job->bar), pct / 100.0);
+        if (!already_closed && job->label && GTK_IS_WIDGET(job->label)) {
+            char buf[128];
+            snprintf(buf, sizeof buf, "%s  %d%%", export_phase_text(job, pct), pct);
+            gtk_label_set_text(GTK_LABEL(job->label), buf);
+        }
         g_clear_error(&err);
         return G_SOURCE_REMOVE;
     }
 
-    export_cancel_idle(job);
-
-    g_mutex_lock(&job->lock);
-    if (!job->ui_closed && job->dialog && GTK_IS_WIDGET(job->dialog)) {
-        job->ui_closed = TRUE;
-        gtk_widget_destroy(job->dialog);
-        job->dialog = NULL;
-        job->label = NULL;
-        job->bar = NULL;
-    } else {
-        job->ui_closed = TRUE;
-        job->dialog = NULL;
-        job->label = NULL;
-        job->bar = NULL;
+    if (!already_closed) {
+        if (job->bar && GTK_IS_WIDGET(job->bar))
+            gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(job->bar), 1.0);
+        if (job->label && GTK_IS_WIDGET(job->label)) {
+            char buf[128];
+            snprintf(buf, sizeof buf, "%s  100%%", export_phase_text(job, 100));
+            gtk_label_set_text(GTK_LABEL(job->label), buf);
+        }
     }
-    g_mutex_unlock(&job->lock);
 
     g_mutex_lock(&g_export_mu);
     g_export_busy = FALSE;
     g_mutex_unlock(&g_export_mu);
+
+    GtkWidget *dialog_to_destroy = NULL;
+    g_mutex_lock(&job->lock);
+    if (!job->ui_closed && job->dialog && GTK_IS_WIDGET(job->dialog))
+        dialog_to_destroy = job->dialog;
+    job->ui_closed = TRUE;
+    job->dialog = NULL;
+    job->label = NULL;
+    job->bar = NULL;
+    g_mutex_unlock(&job->lock);
+
+    if (dialog_to_destroy) {
+        g_signal_handlers_disconnect_by_func(dialog_to_destroy,
+                                             G_CALLBACK(on_export_dialog_destroy), job);
+        gtk_widget_hide(dialog_to_destroy);
+        gtk_widget_destroy(dialog_to_destroy);
+    }
 
     g_mutex_lock(&g_export_thread_mu);
     g_export_thread = NULL;
@@ -815,9 +844,6 @@ static gpointer export_thread(gpointer data)
     g_mutex_unlock(&job->lock);
 
     export_schedule_ui(job);
-    g_mutex_lock(&g_export_thread_mu);
-    g_export_thread = NULL;
-    g_mutex_unlock(&g_export_thread_mu);
     return NULL;
 }
 
