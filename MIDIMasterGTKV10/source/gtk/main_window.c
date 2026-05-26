@@ -1,16 +1,16 @@
-#include "main_window.h"
+#include "gtk/main_window.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-#include "app_icon.h"
+#include "gtk/app_icon.h"
+#include "gtk/score_view.h"
 #include "audio_export.h"
 #include "general_midi.h"
 #include "midi_file.h"
 #include "midi_player.h"
 #include "paths.h"
 #include "score_verovio.h"
-#include "score_view.h"
 
 #define APP_NAME    "MIDI Master GTK V10"
 #define APP_VERSION "10.0"
@@ -162,7 +162,7 @@ static void block_scale_signals(gboolean block)
         g_signal_handlers_unblock_by_func(g_app.scale_pos, G_CALLBACK(on_scale_value_changed), NULL);
 }
 
-static void update_position_ui(double sec, gboolean move_scale)
+static void update_position_ui(double sec, gboolean move_scale, ScoreScrollMode scroll_mode)
 {
     if (!main_window_alive())
         return;
@@ -182,7 +182,7 @@ static void update_position_ui(double sec, gboolean move_scale)
     }
 
     if (main_window_alive() && g_app.score_view && g_app.score)
-        score_view_set_playhead(g_app.score_view, g_app.score, sec, total, TRUE);
+        score_view_set_playhead(g_app.score_view, g_app.score, sec, total, TRUE, scroll_mode);
 }
 
 static void setup_transport_duration(void)
@@ -201,7 +201,11 @@ static void on_position(double sec, gpointer data)
     (void)data;
     if (g_app.seeking || !g_app.loaded)
         return;
-    update_position_ui(sec, TRUE);
+
+    ScoreScrollMode scroll = SCORE_SCROLL_NONE;
+    if (g_app.player && midi_player_state(g_app.player) == MIDI_STATE_PLAYING)
+        scroll = SCORE_SCROLL_FOLLOW;
+    update_position_ui(sec, TRUE, scroll);
 }
 
 static void on_stopped(gpointer data)
@@ -210,8 +214,8 @@ static void on_stopped(gpointer data)
     block_scale_signals(TRUE);
     gtk_range_set_value(GTK_RANGE(g_app.scale_pos), 0);
     block_scale_signals(FALSE);
-    update_position_ui(0.0, FALSE);
-    score_view_set_playhead(g_app.score_view, g_app.score, 0, 0, FALSE);
+    update_position_ui(0.0, FALSE, SCORE_SCROLL_NONE);
+    score_view_set_playhead(g_app.score_view, g_app.score, 0, 0, FALSE, SCORE_SCROLL_NONE);
     update_transport();
 }
 
@@ -222,7 +226,7 @@ static void on_completed(gpointer data)
     block_scale_signals(TRUE);
     gtk_range_set_value(GTK_RANGE(g_app.scale_pos), 1000);
     block_scale_signals(FALSE);
-    update_position_ui(total, FALSE);
+    update_position_ui(total, FALSE, SCORE_SCROLL_NONE);
     set_status("재생 완료");
     update_transport();
 }
@@ -250,16 +254,45 @@ static int score_panel_width(void)
     return w;
 }
 
+static int score_panel_height(void)
+{
+    GtkWidget *panel = score_view_widget(g_app.score_view);
+    int h = 0;
+
+    if (gtk_widget_get_realized(panel))
+        h = gtk_widget_get_allocated_height(panel);
+
+    if (h < 120 && g_app.window && gtk_widget_get_realized(g_app.window))
+        h = gtk_widget_get_allocated_height(g_app.window) - 160;
+
+    if (h < 120)
+        h = 280;
+    return h;
+}
+
 typedef struct {
     char     *path;
     int       width;
+    int       height;
     guint     generation;
     gboolean  ok;
     GError   *err;
     cairo_surface_t *surface;
     int       surface_w;
     int       surface_h;
+    guint     progress_ctx_generation;
 } ScoreLoadJob;
+
+typedef struct {
+    guint generation;
+    int   pct;
+    char *phase;
+} ScoreProgressMsg;
+
+static void score_progress_show(gboolean visible);
+static void score_progress_apply(int pct, const char *phase);
+static void score_load_progress_cb(int pct, const char *phase, gpointer user_data);
+static gboolean score_progress_ui_idle(gpointer data);
 
 static void schedule_reload_score(const char *path);
 static void score_load_run_pending_reload(void);
@@ -267,8 +300,65 @@ static gboolean score_load_ui_idle(gpointer data);
 static void score_load_complete(ScoreLoadJob *job, gboolean ok, GError *err);
 static gboolean export_ui_idle(gpointer data);
 
+static void score_progress_show(gboolean visible)
+{
+    if (!g_app.progress || !GTK_IS_WIDGET(g_app.progress))
+        return;
+    gtk_widget_set_visible(g_app.progress, visible);
+}
+
+static void score_progress_apply(int pct, const char *phase)
+{
+    if (!g_app.progress || !GTK_IS_PROGRESS_BAR(g_app.progress))
+        return;
+    if (pct < 0)
+        pct = 0;
+    if (pct > 100)
+        pct = 100;
+
+    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(g_app.progress), pct / 100.0);
+    char buf[192];
+    if (phase && phase[0])
+        snprintf(buf, sizeof buf, "%d%%  %s", pct, phase);
+    else
+        snprintf(buf, sizeof buf, "%d%%", pct);
+    gtk_progress_bar_set_text(GTK_PROGRESS_BAR(g_app.progress), buf);
+    gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(g_app.progress), TRUE);
+}
+
+static void score_load_progress_cb(int pct, const char *phase, gpointer user_data)
+{
+    guint gen = GPOINTER_TO_UINT(user_data);
+    ScoreProgressMsg *msg = g_new0(ScoreProgressMsg, 1);
+    msg->generation = gen;
+    msg->pct = pct;
+    if (phase && phase[0])
+        msg->phase = g_strdup(phase);
+    g_idle_add(score_progress_ui_idle, msg);
+}
+
+static gboolean score_progress_ui_idle(gpointer data)
+{
+    ScoreProgressMsg *msg = data;
+
+    if (!g_app_quitting && main_window_alive()) {
+        g_mutex_lock(&g_score_load_mu);
+        gboolean apply = g_score_load_active && msg->generation == g_score_load_gen;
+        g_mutex_unlock(&g_score_load_mu);
+        if (apply)
+            score_progress_apply(msg->pct, msg->phase);
+    }
+
+    g_free(msg->phase);
+    g_free(msg);
+    return G_SOURCE_REMOVE;
+}
+
 static void score_load_complete(ScoreLoadJob *job, gboolean ok, GError *err)
 {
+    (void)ok;
+    score_progress_show(FALSE);
+
     g_mutex_lock(&g_score_load_mu);
     g_score_load_active = FALSE;
     g_mutex_unlock(&g_score_load_mu);
@@ -317,9 +407,17 @@ static gboolean score_load_ui_idle(gpointer data)
     if (!stale && ok && main_window_alive() && job->surface) {
         score_view_set_surface(g_app.score_view, job->surface, job->surface_w, job->surface_h);
         job->surface = NULL;
-        score_view_set_viewport_width(g_app.score_view, job->width);
-        update_position_ui(0.0, FALSE);
-        set_status("악보 로드 완료");
+        score_view_set_viewport_size(g_app.score_view, job->width, job->height);
+        update_position_ui(0.0, FALSE, SCORE_SCROLL_JUMP);
+        if (g_app.score) {
+            int pages = score_verovio_page_count(g_app.score);
+            int systems = score_verovio_total_system_rows(g_app.score);
+            char msg[128];
+            snprintf(msg, sizeof msg, "악보 로드 완료 (%d페이지, %d줄)", pages, systems);
+            set_status(msg);
+        } else {
+            set_status("악보 로드 완료");
+        }
     }
 
     score_load_complete(job, stale ? FALSE : ok, stale ? NULL : err);
@@ -350,12 +448,15 @@ static gpointer score_load_thread(gpointer data)
     ScoreLoadJob *job = data;
     GError *err = NULL;
 
-    gboolean ok = score_verovio_load(g_app.score, job->path, job->width, NULL, NULL, &err);
+    gpointer progress_ctx = GUINT_TO_POINTER(job->progress_ctx_generation);
+    gboolean ok = score_verovio_load(g_app.score, job->path, job->width, score_load_progress_cb,
+                                     progress_ctx, &err);
 
     if (ok) {
         int sw = 0, sh = 0;
-        cairo_surface_t *surface = score_verovio_render_surface(g_app.score, 1.0, &sw, &sh,
-                                                                 NULL, NULL);
+        cairo_surface_t *surface = score_verovio_render_surface(g_app.score, 2.0, &sw, &sh,
+                                                                 score_load_progress_cb,
+                                                                 progress_ctx);
         if (!surface) {
             ok = FALSE;
             g_set_error_literal(&err, G_FILE_ERROR, G_FILE_ERROR_FAILED,
@@ -411,9 +512,13 @@ static void schedule_reload_score(const char *path)
     job->width = score_panel_width();
     if (job->width < 400)
         job->width = 400;
+    job->height = score_panel_height();
     job->generation = gen;
+    job->progress_ctx_generation = gen;
     g_score_layout_width = job->width;
 
+    score_progress_show(TRUE);
+    score_progress_apply(0, "악보 준비 중…");
     set_status("악보 로드 중…");
     g_mutex_lock(&g_score_load_thread_mu);
     g_score_load_thread = g_thread_new("score-load", score_load_thread, job);
@@ -426,8 +531,11 @@ static gboolean on_score_configure(GtkWidget *widget, GdkEventConfigure *event, 
     (void)data;
     if (!g_app.loaded || !g_score_midi_path)
         return FALSE;
-    if (event->width < 120)
+    if (event->width < 120 || event->height < 80)
         return FALSE;
+
+    if (g_app.score_view)
+        score_view_set_viewport_size(g_app.score_view, event->width, event->height);
 
     int width = event->width;
     if (width < 400)
@@ -548,8 +656,16 @@ static void on_play(GtkWidget *w, gpointer d)
 {
     (void)w;
     (void)d;
-    if (g_app.player)
-        midi_player_play(g_app.player);
+    if (!g_app.player)
+        return;
+
+    if (g_app.score_view && g_app.score && g_app.loaded) {
+        score_view_reset_scroll_tracking(g_app.score_view);
+        double sec = midi_player_current_seconds(g_app.player);
+        double total = playback_duration();
+        score_view_set_playhead(g_app.score_view, g_app.score, sec, total, TRUE, SCORE_SCROLL_JUMP);
+    }
+    midi_player_play(g_app.player);
 }
 
 static void on_pause(GtkWidget *w, gpointer d)
@@ -599,8 +715,8 @@ static gboolean on_scale_released(GtkWidget *w, GdkEventButton *ev, gpointer d)
     double total = playback_duration();
     double sec = gtk_range_get_value(GTK_RANGE(g_app.scale_pos)) / 1000.0 * total;
     midi_player_seek_seconds(g_app.player, sec);
+    update_position_ui(sec, TRUE, SCORE_SCROLL_JUMP);
     g_app.seeking = FALSE;
-    update_position_ui(sec, TRUE);
     return FALSE;
 }
 
@@ -616,7 +732,7 @@ static void on_scale_value_changed(GtkRange *range, gpointer d)
     format_time_label(g_app.lbl_current, sec);
 
     if (g_app.seeking && g_app.score_view && g_app.score)
-        score_view_set_playhead(g_app.score_view, g_app.score, sec, total, TRUE);
+        score_view_set_playhead(g_app.score_view, g_app.score, sec, total, TRUE, SCORE_SCROLL_JUMP);
 }
 
 typedef struct {
@@ -1054,7 +1170,7 @@ GtkWidget *main_window_create(void)
 
     g_app.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(g_app.window), APP_NAME);
-    gtk_window_set_default_size(GTK_WINDOW(g_app.window), 1100, 800);
+    gtk_window_set_default_size(GTK_WINDOW(g_app.window), 1100, 520);
     g_signal_connect(g_app.window, "destroy", G_CALLBACK(on_destroy), NULL);
 
     g_about_icon = app_icon_load_pixbuf(128);
@@ -1168,6 +1284,9 @@ GtkWidget *main_window_create(void)
     gtk_box_pack_start(GTK_BOX(bottom), pos_row, FALSE, FALSE, 0);
 
     g_app.progress = gtk_progress_bar_new();
+    gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(g_app.progress), TRUE);
+    gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(g_app.progress), 0.0);
+    gtk_widget_set_size_request(g_app.progress, -1, 20);
     gtk_widget_set_visible(g_app.progress, FALSE);
     gtk_box_pack_start(GTK_BOX(bottom), g_app.progress, FALSE, FALSE, 0);
 
@@ -1175,7 +1294,7 @@ GtkWidget *main_window_create(void)
     gtk_label_set_xalign(GTK_LABEL(g_app.lbl_status), 0.0);
     gtk_box_pack_start(GTK_BOX(bottom), g_app.lbl_status, FALSE, FALSE, 0);
 
-    gtk_paned_set_position(GTK_PANED(paned), 700);
+    gtk_paned_set_position(GTK_PANED(paned), 360);
 
     update_transport();
     return g_app.window;

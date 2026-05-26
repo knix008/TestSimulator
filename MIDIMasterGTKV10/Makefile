@@ -14,16 +14,9 @@ APP_NAME    = MIDI Master GTK V10
 BUILDDIR    = build
 UNAME_S     := $(shell uname -s)
 
-VEROVIO_DIR     = third_party/verovio
-VEROVIO_INSTALL = $(abspath $(VEROVIO_DIR)/install)
-VEROVIO_LIB     = $(VEROVIO_INSTALL)/lib/libverovio.so
-VEROVIO_DYLIB   = $(VEROVIO_INSTALL)/lib/libverovio.dylib
-
 ifeq ($(UNAME_S),Darwin)
-  VEROVIO_LIBFILE = $(VEROVIO_DYLIB)
   PLATFORM = macos
 else
-  VEROVIO_LIBFILE = $(VEROVIO_LIB)
   PLATFORM = linux
 endif
 
@@ -35,7 +28,7 @@ ICON_SRC = ../TTSWinV10/daemon_hammer.ico \
            ../VNCServerWinV10/VNCServer/daemon_hammer.ico \
            ../CompareMasterWinV10/CompareMasterWinV10.App/daemon_hammer.ico
 
-PKGS = gtk+-3.0 gdk-pixbuf-2.0 fluidsynth sndfile glib-2.0 cairo
+PKGS = gtk+-3.0 gdk-pixbuf-2.0 librsvg-2.0 fluidsynth sndfile glib-2.0 cairo pangocairo
 
 ifeq ($(UNAME_S),Darwin)
   BREW_PREFIX := $(shell brew --prefix 2>/dev/null || echo /usr/local)
@@ -53,12 +46,7 @@ endif
 GTK_CFLAGS = $(shell pkg-config --cflags $(PKGS))
 GTK_LIBS   = $(shell pkg-config --libs $(PKGS))
 
-INCLUDES = -Iinclude -Iinclude/verovio \
-           -I$(VEROVIO_INSTALL)/include \
-           -I$(VEROVIO_INSTALL)/include/verovio
-
-VEROVIO_LIBS = -L$(VEROVIO_INSTALL)/lib -lverovio -lstdc++ -lpthread
-VEROVIO_RPATH = -Wl,-rpath,$(VEROVIO_INSTALL)/lib
+INCLUDES = -Iinclude
 
 # Optional MP3 export
 MP3_LDLIBS := $(shell pkg-config --exists lame 2>/dev/null && echo -lmp3lame || true)
@@ -66,31 +54,34 @@ ifneq ($(MP3_LDLIBS),)
   CFLAGS += -DHAVE_LAME
 endif
 
-CFLAGS += $(GTK_CFLAGS) $(INCLUDES) \
-          -DVEROVIO_RESOURCE_PATH=\"$(VEROVIO_INSTALL)/share/verovio\"
-LDFLAGS = $(GTK_LIBS) $(VEROVIO_LIBS) $(VEROVIO_RPATH) $(MP3_LDLIBS) -lm
+CFLAGS += $(GTK_CFLAGS) $(INCLUDES)
+LDFLAGS = $(GTK_LIBS) $(MP3_LDLIBS) -lm
 
-SOURCES = source/main.c \
-          source/main_window.c \
-          source/midi_file.c \
-          source/midi_player.c \
-          source/audio_export.c \
-          source/general_midi.c \
-          source/score_verovio.c \
-          source/score_view.c \
-          source/paths.c \
-          source/app_icon.c
+CORE_SOURCES = source/main.c \
+               source/midi_file.c \
+               source/midi_player.c \
+               source/audio_export.c \
+               source/general_midi.c \
+               source/score_verovio.c \
+               source/paths.c
+
+GTK_SOURCES = source/gtk/svg_raster.c \
+              source/gtk/app_icon.c \
+              source/gtk/score_view.c \
+              source/gtk/main_window.c
+
+SOURCES = $(CORE_SOURCES) $(GTK_SOURCES)
 
 OBJECTS = $(patsubst source/%.c,$(BUILDDIR)/%.o,$(SOURCES))
 
 # Plain `make` runs the full pipeline (deps check → install if needed → build).
 .DEFAULT_GOAL := all
 
-.PHONY: all setup _assert-deps install-deps check-deps verovio \
+.PHONY: all setup _assert-deps install-deps check-deps \
         soundfont appicon run test-export install-desktop clean distclean info help
 
-# 1) check-deps (install-deps on failure)  2) Verovio  3) SoundFont  4) link midimaster
-all: _assert-deps verovio soundfont appicon $(TARGET)
+# 1) check-deps (install-deps on failure)  2) SoundFont  3) link midimaster
+all: _assert-deps soundfont appicon $(TARGET)
 	@echo ""
 	@echo "==> Build complete: ./$(TARGET)   (run: make run)"
 
@@ -133,12 +124,6 @@ check-deps:
 	@chmod +x scripts/check-deps.sh
 	@bash scripts/check-deps.sh
 
-verovio:
-	@if [ ! -f "$(VEROVIO_LIBFILE)" ]; then \
-	    echo "==> Building Verovio ..."; \
-	    bash scripts/build-verovio.sh; \
-	fi
-
 soundfont: $(SOUNDFONT_DST)
 
 $(SOUNDFONT_DST):
@@ -169,11 +154,12 @@ $(ICON_DST):
 	    echo "      ln -sf ../TTSWinV10/daemon_hammer.ico $(ICON_DST)"; \
 	fi
 
-$(TARGET): $(OBJECTS) | verovio soundfont appicon
+$(TARGET): $(OBJECTS) | soundfont appicon
 	@echo "[ LD ] $(TARGET)"
 	@$(CC) $(OBJECTS) -o $(TARGET) $(LDFLAGS)
 
-$(BUILDDIR)/%.o: source/%.c include/*.h include/verovio/c_wrapper.h | $(BUILDDIR)
+$(BUILDDIR)/%.o: source/%.c include/*.h include/gtk/*.h | $(BUILDDIR)
+	@mkdir -p $(dir $@)
 	@echo "[ CC ] $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
@@ -181,9 +167,7 @@ $(BUILDDIR):
 	@mkdir -p $(BUILDDIR)
 
 run: $(TARGET)
-	@export LD_LIBRARY_PATH="$(VEROVIO_INSTALL)/lib:$$LD_LIBRARY_PATH"; \
-	export DYLD_LIBRARY_PATH="$(VEROVIO_INSTALL)/lib:$$DYLD_LIBRARY_PATH"; \
-	./$(TARGET)
+	@./$(TARGET)
 
 # Verify WAV/MP3 export (uses sample.mid from MidiSheetMusic if present)
 TEST_MIDI ?= ../MidiSheetMusic(v2.6)/MidiSheetMusic/MidiSheetMusic-2.6-win-src(Revised)/sample.mid
@@ -208,10 +192,8 @@ clean:
 	@rm -rf $(BUILDDIR) $(TARGET)
 
 distclean: clean
-	@rm -rf third_party/verovio
 
 info:
 	@echo "Platform:   $(PLATFORM)"
-	@echo "Verovio:    $(VEROVIO_INSTALL)"
 	@echo "SoundFont:  $(SOUNDFONT_DST)"
 	@echo "MP3:        $(if $(MP3_LDLIBS),enabled,disabled — install libmp3lame-dev)"

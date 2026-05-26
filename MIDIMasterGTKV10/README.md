@@ -52,17 +52,21 @@ MIDIMasterGTKV10/
 ├── Makefile
 ├── midimaster.desktop
 ├── README.md
-├── include/                 # 공개 헤더
+├── include/                 # 공개 헤더 (GTK 제외 코어)
+│   └── gtk/                 # GTK·GdkPixbuf 전용 헤더
 ├── source/
-│   ├── main.c
-│   ├── main_window.c        # GTK UI, 파일 열기, 악보 로드 스레드
-│   ├── score_verovio.c      # Verovio + MIDI→MusicXML
-│   ├── score_view.c         # 악보 표시·플레이헤드
+│   ├── main.c               # gtk_init, 메인 루프
+│   ├── score_verovio.c      # Verovio + MIDI→MusicXML (GTK 무관)
 │   ├── midi_player.c        # FluidSynth 재생
 │   ├── midi_file.c          # MIDI 메타데이터
 │   ├── audio_export.c       # WAV/MP3 보내기
 │   ├── general_midi.c
-│   └── paths.c
+│   ├── paths.c
+│   └── gtk/                 # GTK UI·SVG 래스터
+│       ├── main_window.c    # 메인 창, 파일 열기, 악보 로드 스레드
+│       ├── score_view.c     # 악보 표시·플레이헤드
+│       ├── svg_raster.c     # GdkPixbuf SVG → Cairo
+│       └── app_icon.c
 ├── scripts/
 │   ├── build-verovio.sh     # Verovio 클론·빌드
 │   ├── check-deps.sh

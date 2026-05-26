@@ -34,12 +34,19 @@ cairo_surface_t *score_verovio_render_job_take_surface(ScoreRenderJob *job,
                                                        int *out_w, int *out_h);
 void score_verovio_render_job_free(ScoreRenderJob *job);
 
-/* Prime GdkPixbuf SVG backend after GTK is initialized (call once after gtk_init). */
-void score_verovio_warmup_display(void);
-
 /* Playhead in composite surface coordinates (vertical bar). Returns FALSE if hidden. */
 gboolean score_verovio_playhead_at_time(const ScoreVerovio *score, double current_sec,
                                         double duration_sec, int *out_x, int *out_y,
-                                        int *out_h);
+                                        int *out_h, int *out_page, int *out_line);
+
+/* Fixed playhead bar height in surface pixels (0 if score not rendered yet). */
+int score_verovio_playhead_bar_h(const ScoreVerovio *score);
+
+/* Global staff-line index (0..N-1) for scroll / line-change detection. */
+int score_verovio_playhead_line_key(const ScoreVerovio *score, int page, int system);
+
+/* Layout stats after render (Verovio system = printed score line, may include 2+ staves). */
+int score_verovio_total_system_rows(const ScoreVerovio *score);
+int score_verovio_page_system_rows(const ScoreVerovio *score, int page);
 
 #endif
