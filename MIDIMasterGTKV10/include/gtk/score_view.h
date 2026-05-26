@@ -8,7 +8,7 @@ typedef struct ScoreView ScoreView;
 
 typedef enum {
     SCORE_SCROLL_NONE = 0,
-    SCORE_SCROLL_FOLLOW, /* 재생 중 가로 따라가기 (악보가 오른쪽→왼쪽으로 흐름) */
+    SCORE_SCROLL_FOLLOW, /* 재생 중 세로 따라가기 (악보가 위→아래로 흐름) */
     SCORE_SCROLL_JUMP
 } ScoreScrollMode;
 

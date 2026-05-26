@@ -1088,9 +1088,7 @@ static void on_about(GtkWidget *w, gpointer d)
     gtk_about_dialog_set_comments(
         GTK_ABOUT_DIALOG(dlg),
         "GTK 3 MIDI 플레이어\n"
-        "Verovio 악보 · FluidSynth 재생 · WAV/MP3 보내기");
-    gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(dlg), "https://www.verovio.org/");
-    gtk_about_dialog_set_website_label(GTK_ABOUT_DIALOG(dlg), "Verovio");
+        "Cairo 악보 렌더링 · FluidSynth 재생 · WAV/MP3 보내기");
     gtk_about_dialog_set_license_type(GTK_ABOUT_DIALOG(dlg), GTK_LICENSE_LGPL_3_0);
     if (g_about_icon)
         gtk_about_dialog_set_logo(GTK_ABOUT_DIALOG(dlg), g_about_icon);
@@ -1170,7 +1168,7 @@ GtkWidget *main_window_create(void)
 
     g_app.window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(g_app.window), APP_NAME);
-    gtk_window_set_default_size(GTK_WINDOW(g_app.window), 1100, 520);
+    gtk_window_set_default_size(GTK_WINDOW(g_app.window), 1100, 800);
     g_signal_connect(g_app.window, "destroy", G_CALLBACK(on_destroy), NULL);
 
     g_about_icon = app_icon_load_pixbuf(128);
@@ -1294,7 +1292,7 @@ GtkWidget *main_window_create(void)
     gtk_label_set_xalign(GTK_LABEL(g_app.lbl_status), 0.0);
     gtk_box_pack_start(GTK_BOX(bottom), g_app.lbl_status, FALSE, FALSE, 0);
 
-    gtk_paned_set_position(GTK_PANED(paned), 360);
+    gtk_paned_set_position(GTK_PANED(paned), 620);
 
     update_transport();
     return g_app.window;

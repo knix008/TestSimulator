@@ -7,7 +7,6 @@
 #include <unistd.h>
 
 static char g_soundfont[PATH_MAX];
-static char g_verovio_res[PATH_MAX];
 
 static void resolve_exe_dir(char *buf, size_t buflen)
 {
@@ -35,28 +34,13 @@ static void init_paths(void)
     done = 1;
 
     resolve_exe_dir(base, sizeof base);
-
-#ifdef VEROVIO_RESOURCE_PATH
-    snprintf(g_verovio_res, sizeof g_verovio_res, "%s", VEROVIO_RESOURCE_PATH);
-#else
-    snprintf(g_verovio_res, sizeof g_verovio_res, "%s/../third_party/verovio/install/share/verovio",
-             base);
-#endif
-
     snprintf(g_soundfont, sizeof g_soundfont, "%s/SoundFonts/TimGM6mb.sf2", base);
-    if (access(g_soundfont, R_OK) != 0) {
+    if (access(g_soundfont, R_OK) != 0)
         snprintf(g_soundfont, sizeof g_soundfont, "SoundFonts/TimGM6mb.sf2");
-    }
 }
 
 const char *paths_soundfont(void)
 {
     init_paths();
     return g_soundfont;
-}
-
-const char *paths_verovio_resources(void)
-{
-    init_paths();
-    return g_verovio_res;
 }

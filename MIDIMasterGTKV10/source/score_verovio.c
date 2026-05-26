@@ -396,11 +396,12 @@ static void draw_ledger_lines(cairo_t *cr, int note_number, double x, int sys_y,
 static void draw_staves(cairo_t *cr, int sys_x, int sys_y, int sys_w)
 {
     cairo_set_source_rgb(cr, 0, 0, 0);
-    cairo_set_line_width(cr, 1.0);
     int treble_top = sys_y + TREBLE_REL_TOP;
     int bass_top   = sys_y + BASS_REL_TOP;
-    int x0 = sys_x + LEFT_MARGIN;
+    /* Staff lines span the full system width so the clef/time-sig sit inside. */
+    int x0 = sys_x + 4;
     int x1 = sys_x + sys_w - RIGHT_MARGIN;
+    cairo_set_line_width(cr, 1.0);
     for (int i = 0; i < 5; i++) {
         cairo_move_to(cr, x0, treble_top + i * STAFF_SPACING);
         cairo_line_to(cr, x1, treble_top + i * STAFF_SPACING);
@@ -409,7 +410,7 @@ static void draw_staves(cairo_t *cr, int sys_x, int sys_y, int sys_w)
         cairo_line_to(cr, x1, bass_top + i * STAFF_SPACING);
         cairo_stroke(cr);
     }
-    /* Bracket connecting both staves */
+    /* Left system barline connecting both staves */
     cairo_set_line_width(cr, 2.0);
     cairo_move_to(cr, x0, treble_top);
     cairo_line_to(cr, x0, bass_top + 4 * STAFF_SPACING);
@@ -419,21 +420,27 @@ static void draw_staves(cairo_t *cr, int sys_x, int sys_y, int sys_w)
 static void draw_clef_and_sig(cairo_t *cr, int sys_x, int sys_y)
 {
     cairo_set_source_rgb(cr, 0, 0, 0);
-    /* U+1D11E MUSICAL SYMBOL G CLEF (𝄞) */
-    draw_pango_text(cr, sys_x + 10, sys_y + TREBLE_REL_TOP - 26,
-                    "\xf0\x9d\x84\x9e", "serif", 44);
-    /* U+1D122 MUSICAL SYMBOL F CLEF (𝄢) */
-    draw_pango_text(cr, sys_x + 12, sys_y + BASS_REL_TOP - 14,
-                    "\xf0\x9d\x84\xa2", "serif", 34);
-    /* 4/4 time signature */
-    draw_pango_text(cr, sys_x + 62, sys_y + TREBLE_REL_TOP + STAFF_SPACING - 2,
-                    "4", "serif bold", 22);
-    draw_pango_text(cr, sys_x + 62, sys_y + TREBLE_REL_TOP + 3*STAFF_SPACING - 2,
-                    "4", "serif bold", 22);
-    draw_pango_text(cr, sys_x + 62, sys_y + BASS_REL_TOP + STAFF_SPACING - 2,
-                    "4", "serif bold", 22);
-    draw_pango_text(cr, sys_x + 62, sys_y + BASS_REL_TOP + 3*STAFF_SPACING - 2,
-                    "4", "serif bold", 22);
+
+    /* G clef: anchor just above treble top line so the curl sits on G4 (line 4). */
+    draw_pango_text(cr, sys_x + 8, sys_y + TREBLE_REL_TOP - 18,
+                    "\xf0\x9d\x84\x9e", "serif", 48);
+
+    /* F clef: anchor so the dot falls near bass line 4 (F3). */
+    draw_pango_text(cr, sys_x + 10, sys_y + BASS_REL_TOP - 4,
+                    "\xf0\x9d\x84\xa2", "serif", 38);
+
+    /* 4/4 time signature.
+     * Upper "4": starts at top staff line.
+     * Lower "4": starts at middle staff line (2 * STAFF_SPACING below top).
+     * Font size ~20pt fits within one staff half (2 * STAFF_SPACING = 28px). */
+    draw_pango_text(cr, sys_x + 65, sys_y + TREBLE_REL_TOP,
+                    "4", "serif bold", 20);
+    draw_pango_text(cr, sys_x + 65, sys_y + TREBLE_REL_TOP + 2 * STAFF_SPACING,
+                    "4", "serif bold", 20);
+    draw_pango_text(cr, sys_x + 65, sys_y + BASS_REL_TOP,
+                    "4", "serif bold", 20);
+    draw_pango_text(cr, sys_x + 65, sys_y + BASS_REL_TOP + 2 * STAFF_SPACING,
+                    "4", "serif bold", 20);
 }
 
 static void draw_barlines(cairo_t *cr, int sys_x, int sys_y, int sys_w)
@@ -579,8 +586,8 @@ cairo_surface_t *score_verovio_render_surface(ScoreVerovio *score, double scale,
 
     if (progress) progress(35, "악보 그리는 중…", progress_data);
 
-    int strip_w = score->n_systems * score->system_w;
-    int strip_h = SYSTEM_H;
+    int strip_w = score->system_w;
+    int strip_h = score->n_systems * SYSTEM_H;
 
     cairo_surface_t *surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, strip_w, strip_h);
     if (cairo_surface_status(surf) != CAIRO_STATUS_SUCCESS) {
@@ -594,7 +601,7 @@ cairo_surface_t *score_verovio_render_surface(ScoreVerovio *score, double scale,
 
     for (int s = 0; s < score->n_systems; s++) {
         render_system(cr, score->notes, score->note_count,
-                      s, s * score->system_w, 0,
+                      s, 0, s * SYSTEM_H,
                       score->system_w, score->sec_per_system, score->tempo_us);
 
         if (progress && (s % 4 == 0)) {
@@ -678,7 +685,6 @@ gboolean score_verovio_playhead_at_time(const ScoreVerovio *score,
     if (sys < 0) sys = 0;
     if (sys >= score->n_systems) sys = score->n_systems - 1;
 
-    int    sys_x     = sys * score->system_w;
     double sys_start = sys * score->sec_per_system;
     double rel       = current_sec - sys_start;
     if (rel < 0.0) rel = 0.0;
@@ -686,8 +692,8 @@ gboolean score_verovio_playhead_at_time(const ScoreVerovio *score,
     if (frac > 1.0) frac = 1.0;
     double avail = score->system_w - LEFT_MARGIN - RIGHT_MARGIN;
 
-    if (out_x) *out_x = sys_x + LEFT_MARGIN + (int)(frac * avail);
-    if (out_y) *out_y = 0;
+    if (out_x) *out_x = LEFT_MARGIN + (int)(frac * avail);
+    if (out_y) *out_y = sys * SYSTEM_H;
     if (out_h) *out_h = SYSTEM_H;
     if (out_page) *out_page = sys;
     if (out_line)  *out_line  = sys;

@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# Verify all dependencies for MIDIMaster GTK V10 (build, Verovio, runtime).
+# Verify all dependencies for MIDIMaster GTK V10.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VEROVIO_LIB="$ROOT/third_party/verovio/install/lib/libverovio.so"
-VEROVIO_DYLIB="$ROOT/third_party/verovio/install/lib/libverovio.dylib"
 
 missing=""
 warn=""
@@ -25,7 +23,7 @@ for cmd in gcc g++ make pkg-config git cmake python3; do
 done
 
 # --- pkg-config libraries (link midimaster) ---
-for pkg in gtk+-3.0 gdk-pixbuf-2.0 fluidsynth sndfile glib-2.0 cairo; do
+for pkg in gtk+-3.0 gdk-pixbuf-2.0 librsvg-2.0 fluidsynth sndfile glib-2.0 cairo pangocairo; do
     if pkg-config --exists "$pkg" 2>/dev/null; then
         echo "  [O] $pkg  $(pkg-config --modversion "$pkg")"
     else
@@ -76,13 +74,6 @@ if python3 -c "import music21" 2>/dev/null; then
 else
     echo "  [X] music21     (pip install music21)"
     add_missing "python3-music21"
-fi
-
-# --- Verovio library ---
-if [ -f "$VEROVIO_LIB" ] || [ -f "$VEROVIO_DYLIB" ]; then
-    echo "  [O] verovio     built at $ROOT/third_party/verovio/install"
-else
-    echo "  [!] verovio     not built yet (will build on 'make')"
 fi
 
 # --- SoundFont ---

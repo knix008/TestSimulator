@@ -100,7 +100,7 @@ help:
 	@echo "  MIDIMaster_AUTO_INSTALL=0 make   Disable auto install on build"
 
 _assert-deps:
-	@chmod +x scripts/check-deps.sh scripts/install-deps.sh scripts/build-verovio.sh 2>/dev/null || true
+	@chmod +x scripts/check-deps.sh scripts/install-deps.sh 2>/dev/null || true
 	@if bash scripts/check-deps.sh >/dev/null 2>&1; then \
 	    :; \
 	else \

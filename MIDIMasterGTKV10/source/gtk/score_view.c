@@ -4,8 +4,8 @@
 #include <math.h>
 #include <pango/pangocairo.h>
 
-/* Horizontal extent of the sliding window (in strip row heights). Smaller = larger notes. */
-#define SCORE_VIEW_VISIBLE_WIDTH_BAR_UNITS 3.5
+/* Default viewport height (px) when the widget has not yet been allocated. */
+#define SCORE_VIEW_DEFAULT_H 500
 
 struct ScoreView {
     GtkWidget *overlay;
@@ -51,7 +51,7 @@ static void score_view_read_viewport(ScoreView *view)
     if (view->viewport_width < 80)
         view->viewport_width = 900;
     if (view->viewport_height < 80)
-        view->viewport_height = 280;
+        view->viewport_height = SCORE_VIEW_DEFAULT_H;
 }
 
 static int score_view_vp_w(const ScoreView *view)
@@ -69,38 +69,23 @@ static int score_view_vp_h(const ScoreView *view)
         return view->viewport_height;
     GtkAllocation alloc;
     gtk_widget_get_allocation(view->scrolled, &alloc);
-    return alloc.height > 80 ? alloc.height : 280;
+    return alloc.height > 80 ? alloc.height : SCORE_VIEW_DEFAULT_H;
 }
 
-static int score_view_bar_height(const ScoreView *view)
-{
-    if (view->playhead_h > 0)
-        return view->playhead_h;
-    if (view->surface_h > 0)
-        return view->surface_h;
-    return 120;
-}
-
-/* Single-line strip: window height = strip height; width = a few measures. */
+/* Vertical scroll: surface fills viewport width; height scrolls downward. */
 static void score_view_window_geometry(const ScoreView *view, double *vis_w, double *vis_h,
                                        double *out_scale)
 {
-    int bar_h = score_view_bar_height(view);
+    int sw   = view->surface_w > 0 ? view->surface_w : 800;
     int vp_w = score_view_vp_w(view);
     int vp_h = score_view_vp_h(view);
 
-    *vis_h = view->surface_h > 0 ? (double)view->surface_h : (double)bar_h;
-    *vis_w = (double)bar_h * SCORE_VIEW_VISIBLE_WIDTH_BAR_UNITS;
+    double s = (double)vp_w / (double)sw;
+    if (s < 0.25) s = 0.25;
+    if (s > 4.0)  s = 4.0;
 
-    double s_x = (double)vp_w / *vis_w;
-    double s_y = (double)vp_h / *vis_h;
-    double s = s_x > s_y ? s_x : s_y;
-
-  /* Fill the panel; keep notes readable (avoid shrinking below 1:1). */
-    if (s < 1.0)
-        s = 1.0;
-    if (s > 4.0)
-        s = 4.0;
+    *vis_w    = (double)sw;
+    *vis_h    = (double)vp_h / s;
     *out_scale = s;
 }
 
@@ -128,22 +113,19 @@ static void score_view_queue_playhead_redraw(ScoreView *view)
 
 static void score_view_update_view_origin(ScoreView *view)
 {
-    if (!view->surface || view->surface_w < 1)
+    if (!view->surface || view->surface_h < 1)
         return;
 
     double vis_w = 0.0, vis_h = 0.0, s = 1.0;
     score_view_window_geometry(view, &vis_w, &vis_h, &s);
 
-    view->view_origin_x = (double)view->playhead_x - vis_w * 0.28;
-    view->view_origin_y = 0.0;
+    view->view_origin_x = 0.0;
+    view->view_origin_y = (double)view->playhead_y - vis_h * 0.35;
 
-    double max_x = (double)view->surface_w - vis_w;
-    if (max_x < 0.0)
-        max_x = 0.0;
-    if (view->view_origin_x < 0.0)
-        view->view_origin_x = 0.0;
-    if (view->view_origin_x > max_x)
-        view->view_origin_x = max_x;
+    double max_y = (double)view->surface_h - vis_h;
+    if (max_y < 0.0) max_y = 0.0;
+    if (view->view_origin_y < 0.0) view->view_origin_y = 0.0;
+    if (view->view_origin_y > max_y) view->view_origin_y = max_y;
 }
 
 static void score_view_paint_playhead(cairo_t *cr, const ScoreView *view)
@@ -151,14 +133,16 @@ static void score_view_paint_playhead(cairo_t *cr, const ScoreView *view)
     if (!view->show_playhead)
         return;
 
-    double x = (double)view->playhead_x - view->view_origin_x;
+    /* x: playhead position within the current system row (surface coordinates).
+     * y0/y1: span the full system row height — no pitch offset. */
+    double x  = (double)view->playhead_x;
     double y0 = (double)view->playhead_y - view->view_origin_y;
-    double y1 = y0 + (double)(view->playhead_h > 0 ? view->playhead_h : 60);
+    double y1 = y0 + (double)(view->playhead_h > 0 ? view->playhead_h : 120);
 
     cairo_save(cr);
-    cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.92);
-    cairo_set_line_width(cr, 4.0 / score_view_display_scale(view));
-    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.85);
+    cairo_set_line_width(cr, 3.0 / score_view_display_scale(view));
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
     cairo_move_to(cr, x + 0.5, y0);
     cairo_line_to(cr, x + 0.5, y1);
     cairo_stroke(cr);
@@ -218,29 +202,25 @@ static gboolean on_score_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
     cairo_rectangle(cr, 0.0, 0.0, vis_w, vis_h);
     cairo_clip(cr);
 
-    int ox = (int)view->view_origin_x;
+    int oy = (int)view->view_origin_y;
     int sw = view->surface_w;
     int sh = view->surface_h;
-    int cw = (int)ceil(vis_w) + 8;
-    if (ox < 0)
-        ox = 0;
-    if (ox >= sw)
-        ox = sw > 1 ? sw - 1 : 0;
-    if (ox + cw > sw)
-        cw = sw - ox;
-    if (cw < 1)
-        cw = 1;
-    if (sh < 1)
-        sh = 1;
+    int ch = (int)ceil(vis_h) + 8;
 
-    GdkPixbuf *tile = gdk_pixbuf_get_from_surface(view->surface, ox, 0, cw, sh);
+    if (oy < 0) oy = 0;
+    if (oy >= sh) oy = sh > 1 ? sh - 1 : 0;
+    if (oy + ch > sh) ch = sh - oy;
+    if (ch < 1) ch = 1;
+    if (sw < 1) sw = 1;
+
+    GdkPixbuf *tile = gdk_pixbuf_get_from_surface(view->surface, 0, oy, sw, ch);
     if (tile) {
-        gdk_cairo_set_source_pixbuf(cr, tile, 0.0, -view->view_origin_y);
+        gdk_cairo_set_source_pixbuf(cr, tile, 0.0, 0.0);
         cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
         cairo_paint(cr);
         g_object_unref(tile);
     } else {
-        cairo_set_source_surface(cr, view->surface, -view->view_origin_x, -view->view_origin_y);
+        cairo_set_source_surface(cr, view->surface, 0.0, -view->view_origin_y);
         cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
         cairo_paint(cr);
     }
@@ -302,7 +282,7 @@ ScoreView *score_view_new(void)
     gtk_widget_set_vexpand(view->da, FALSE);
     gtk_widget_set_halign(view->da, GTK_ALIGN_FILL);
     gtk_widget_set_valign(view->da, GTK_ALIGN_FILL);
-    gtk_widget_set_size_request(view->da, 900, 280);
+    gtk_widget_set_size_request(view->da, 900, SCORE_VIEW_DEFAULT_H);
     g_signal_connect(view->da, "draw", G_CALLBACK(on_score_draw), view);
 
     gtk_box_pack_start(GTK_BOX(view->scrolled), view->da, FALSE, FALSE, 0);
@@ -320,8 +300,8 @@ ScoreView *score_view_new(void)
     g_signal_connect(view->placeholder_layer, "draw", G_CALLBACK(on_placeholder_draw), view);
     gtk_overlay_add_overlay(GTK_OVERLAY(view->overlay), view->placeholder_layer);
 
-    view->viewport_width = 900;
-    view->viewport_height = 280;
+    view->viewport_width  = 900;
+    view->viewport_height = SCORE_VIEW_DEFAULT_H;
     score_view_set_empty_state(view, TRUE);
     return view;
 }

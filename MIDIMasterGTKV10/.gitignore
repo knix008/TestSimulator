@@ -9,18 +9,8 @@ build/
 /test_audio_export
 /test_score_*
 
-# --- Verovio (cloned and built by scripts/build-verovio.sh) ---
-third_party/verovio/
-
 # --- SoundFont (copied by `make` from MIDIMasterWinV10) ---
 SoundFonts/*.sf2
-
-# --- App icon (symlinked by `make appicon`) ---
-/daemon_hammer.ico
-
-# --- Exported / generated audio (keep samples/*.mid) ---
-/*.wav
-/*.mp3
 
 # --- Python ---
 __pycache__/
