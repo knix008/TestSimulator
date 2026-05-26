@@ -130,18 +130,9 @@ static gboolean on_playhead_overlay_draw(GtkWidget *widget, cairo_t *cr, gpointe
     GtkAdjustment *vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(view->scrolled));
     double scroll_y = vadj ? gtk_adjustment_get_value(vadj) : 0.0;
 
-    int bar_h = view->playhead_h > 0 ? view->playhead_h : 180;
-    double x = (double)view->playhead_x * sx;
+    double x  = (double)view->playhead_x * sx;
     double y0 = (double)view->playhead_y * sx - scroll_y;
-    double y1 = y0 + (double)bar_h * sx;
-
-    /* At least ~95% of the visible panel so the line is easy to see while scrolling. */
-    double want_h = (double)panel_h * 0.95;
-    if (y1 - y0 < want_h) {
-        double cy = (y0 + y1) * 0.5;
-        y0 = cy - want_h * 0.5;
-        y1 = cy + want_h * 0.5;
-    }
+    double y1 = y0 + (double)(view->playhead_h > 0 ? view->playhead_h : 60) * sx;
 
     score_view_draw_playhead_bar(cr, x, y0, y1, panel_h);
     return FALSE;
@@ -350,16 +341,21 @@ void score_view_set_playhead(ScoreView *view, ScoreVerovio *score,
         if (score && score_verovio_playhead_at_time(score, current_sec, duration_sec,
                                                     &view->playhead_x, &view->playhead_y,
                                                     &view->playhead_h)) {
-            if (view->playhead_h < 100)
-                view->playhead_h = 100;
         } else if (duration_sec > 0.0 && view->surface_h > 0) {
             double t = current_sec / duration_sec;
             if (t < 0.0)
                 t = 0.0;
             if (t > 1.0)
                 t = 1.0;
-            view->playhead_y = 0;
-            view->playhead_h = view->surface_h;
+            int page_count = score ? score_verovio_page_count(score) : 1;
+            if (page_count < 1)
+                page_count = 1;
+            int page_h = view->surface_h / page_count;
+            int est_page = (int)(t * (double)page_count);
+            if (est_page >= page_count)
+                est_page = page_count - 1;
+            view->playhead_y = est_page * page_h;
+            view->playhead_h = page_h;
             view->playhead_x = (int)(t * (double)view->surface_w * 0.85);
             if (view->playhead_x < 80)
                 view->playhead_x = 80;

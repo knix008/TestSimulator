@@ -14,11 +14,42 @@ static guint16 read_be16(const unsigned char *p)
     return (guint16)(((guint16)p[0] << 8) | p[1]);
 }
 
-static double ticks_to_sec(gint64 tick, int division, int tempo_us)
+#define MAX_TEMPO_EVENTS 1024
+
+typedef struct { gint64 tick; int tempo; } TempoEntry;
+
+static int tempo_entry_cmp(const void *a, const void *b)
+{
+    const TempoEntry *ta = a, *tb = b;
+    if (ta->tick < tb->tick) return -1;
+    if (ta->tick > tb->tick) return  1;
+    return 0;
+}
+
+/* Compute total duration in seconds using a tempo map. */
+static double tempo_map_duration(TempoEntry *map, int n,
+                                 gint64 max_tick, int division)
 {
     if (division <= 0)
         return 0.0;
-    return (double)tick * (double)tempo_us / (1000000.0 * (double)division);
+
+    qsort(map, (size_t)n, sizeof(TempoEntry), tempo_entry_cmp);
+
+    double dur = 0.0;
+    gint64 prev_tick = 0;
+    int cur_tempo = 500000; /* default 120 BPM */
+
+    for (int i = 0; i < n; i++) {
+        gint64 seg = map[i].tick - prev_tick;
+        if (seg > 0)
+            dur += (double)seg * cur_tempo / (1000000.0 * division);
+        prev_tick  = map[i].tick;
+        cur_tempo  = map[i].tempo;
+    }
+    if (max_tick > prev_tick)
+        dur += (double)(max_tick - prev_tick) * cur_tempo / (1000000.0 * division);
+
+    return dur;
 }
 
 gboolean midi_file_load(const char *path, MidiFileInfo *info, GError **err)
@@ -28,7 +59,8 @@ gboolean midi_file_load(const char *path, MidiFileInfo *info, GError **err)
     int format, ntrks, division;
     gint64 max_tick = 0;
     int note_count = 0;
-    int tempo = 500000;
+    TempoEntry te_map[MAX_TEMPO_EVENTS];
+    int te_count = 0;
 
     g_return_val_if_fail(path && info, FALSE);
     memset(info, 0, sizeof *info);
@@ -188,7 +220,12 @@ gboolean midi_file_load(const char *path, MidiFileInfo *info, GError **err)
                     mlen = (mlen << 7) | (b & 0x7f);
                 } while (b & 0x80);
                 if (meta == 0x51 && mlen == 3 && pos + 2 < len) {
-                    tempo = (buf[pos] << 16) | (buf[pos + 1] << 8) | buf[pos + 2];
+                    int t = (buf[pos] << 16) | (buf[pos + 1] << 8) | buf[pos + 2];
+                    if (te_count < MAX_TEMPO_EVENTS) {
+                        te_map[te_count].tick  = abs_tick;
+                        te_map[te_count].tempo = t;
+                        te_count++;
+                    }
                 }
                 if (pos + mlen > len)
                     break;
@@ -223,7 +260,7 @@ gboolean midi_file_load(const char *path, MidiFileInfo *info, GError **err)
     info->format = format;
     info->num_tracks = ntrks;
     info->note_count = note_count;
-    info->duration_sec = ticks_to_sec(max_tick, division, tempo);
+    info->duration_sec = tempo_map_duration(te_map, te_count, max_tick, division);
     if (info->duration_sec < 0.01)
         info->duration_sec = 0.01;
     return TRUE;

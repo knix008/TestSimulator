@@ -60,6 +60,43 @@ static GMutex   g_export_thread_mu;
 static gboolean g_app_quitting;
 static GdkPixbuf *g_about_icon;
 
+/* ---------- persistent settings ------------------------------------------ */
+
+static char *settings_path(void)
+{
+    const char *cfg = g_get_user_config_dir();
+    return g_build_filename(cfg, "midimaster", "settings.ini", NULL);
+}
+
+static char *settings_load_last_dir(void)
+{
+    char *path = settings_path();
+    GKeyFile *kf = g_key_file_new();
+    char *dir = NULL;
+    if (g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL))
+        dir = g_key_file_get_string(kf, "General", "LastDir", NULL);
+    g_key_file_free(kf);
+    g_free(path);
+    return dir;
+}
+
+static void settings_save_last_dir(const char *dir)
+{
+    char *path = settings_path();
+    char *parent = g_path_get_dirname(path);
+    g_mkdir_with_parents(parent, 0700);
+    g_free(parent);
+
+    GKeyFile *kf = g_key_file_new();
+    g_key_file_load_from_file(kf, path, G_KEY_FILE_NONE, NULL);
+    g_key_file_set_string(kf, "General", "LastDir", dir);
+    g_key_file_save_to_file(kf, path, NULL);
+    g_key_file_free(kf);
+    g_free(path);
+}
+
+/* -------------------------------------------------------------------------- */
+
 static char *g_score_midi_path;
 static int   g_score_layout_width;
 static char *g_score_pending_path;
@@ -435,13 +472,25 @@ static void open_file(GtkWidget *widget, gpointer data)
     gtk_file_filter_add_pattern(f, "*.midi");
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dlg), f);
 
+    char *last_dir = settings_load_last_dir();
+    if (last_dir) {
+        gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dlg), last_dir);
+        g_free(last_dir);
+    }
+
     if (gtk_dialog_run(GTK_DIALOG(dlg)) != GTK_RESPONSE_ACCEPT) {
         gtk_widget_destroy(dlg);
         return;
     }
 
     char *path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dlg));
+    char *chosen_dir = gtk_file_chooser_get_current_folder(GTK_FILE_CHOOSER(dlg));
     gtk_widget_destroy(dlg);
+
+    if (chosen_dir) {
+        settings_save_last_dir(chosen_dir);
+        g_free(chosen_dir);
+    }
     if (!path)
         return;
 
@@ -528,27 +577,31 @@ static void on_inst_changed(GtkWidget *w, gpointer d)
         midi_player_set_instrument(g_app.player, g_app.instrument);
 }
 
-static void on_scale_pressed(GtkWidget *w, GdkEventButton *ev, gpointer d)
+static gboolean on_scale_pressed(GtkWidget *w, GdkEventButton *ev, gpointer d)
 {
     (void)w;
     (void)ev;
     (void)d;
     g_app.seeking = TRUE;
+    return FALSE;
 }
 
-static void on_scale_released(GtkWidget *w, GdkEventButton *ev, gpointer d)
+static gboolean on_scale_released(GtkWidget *w, GdkEventButton *ev, gpointer d)
 {
     (void)w;
     (void)ev;
     (void)d;
-    if (!g_app.loaded || !g_app.player)
-        return;
+    if (!g_app.loaded || !g_app.player) {
+        g_app.seeking = FALSE;
+        return FALSE;
+    }
 
     double total = playback_duration();
     double sec = gtk_range_get_value(GTK_RANGE(g_app.scale_pos)) / 1000.0 * total;
     midi_player_seek_seconds(g_app.player, sec);
     g_app.seeking = FALSE;
     update_position_ui(sec, TRUE);
+    return FALSE;
 }
 
 static void on_scale_value_changed(GtkRange *range, gpointer d)
@@ -1101,7 +1154,7 @@ GtkWidget *main_window_create(void)
     gtk_label_set_xalign(GTK_LABEL(g_app.lbl_status), 0.0);
     gtk_box_pack_start(GTK_BOX(bottom), g_app.lbl_status, FALSE, FALSE, 0);
 
-    gtk_paned_set_position(GTK_PANED(paned), 520);
+    gtk_paned_set_position(GTK_PANED(paned), 700);
 
     update_transport();
     return g_app.window;

@@ -20,6 +20,7 @@
 typedef struct {
     double t_sec;
     int    x;
+    int    y;
     int    page;
 } PlayheadPoint;
 
@@ -35,6 +36,7 @@ struct ScoreVerovio {
     int   *page_y;
     int   *page_w;
     int   *page_h;
+    int   *page_system_h;  /* pixel height of one staff system per page */
     PlayheadPoint *playhead_map;
     int            playhead_map_n;
     int            playhead_map_cap;
@@ -43,7 +45,7 @@ struct ScoreVerovio {
 
 static char *json_first_array_string(const char *json, const char *key);
 static int json_int_field(const char *json, const char *key);
-static gboolean note_x_in_svg(const char *svg, int pixel_w, const char *note_id, int *out_x);
+static gboolean note_x_in_svg(const char *svg, int pixel_w, const char *note_id, int *out_x, int *out_y);
 static double svg_definition_scale_width(const char *svg);
 static double svg_unit_to_pixel_scale(const char *svg, int pixel_w, int pixel_h);
 
@@ -227,13 +229,15 @@ static void score_clear_page_cache(ScoreVerovio *score)
     score->page_w = NULL;
     g_free(score->page_h);
     score->page_h = NULL;
+    g_free(score->page_system_h);
+    score->page_system_h = NULL;
     g_free(score->playhead_map);
     score->playhead_map = NULL;
     score->playhead_map_n = 0;
     score->playhead_map_cap = 0;
 }
 
-static void playhead_map_add(ScoreVerovio *score, double t_sec, int x, int page)
+static void playhead_map_add(ScoreVerovio *score, double t_sec, int x, int y, int page)
 {
     if (score->playhead_map_n > 0) {
         PlayheadPoint *last = &score->playhead_map[score->playhead_map_n - 1];
@@ -248,6 +252,7 @@ static void playhead_map_add(ScoreVerovio *score, double t_sec, int x, int page)
     PlayheadPoint *pt = &score->playhead_map[score->playhead_map_n++];
     pt->t_sec = t_sec;
     pt->x = x;
+    pt->y = y;
     pt->page = page;
 }
 
@@ -269,16 +274,19 @@ static double json_number_after_key_at(const char *pos, const char *key, const c
 }
 
 static gboolean lookup_note_x_on_score(const ScoreVerovio *score, const char *note_id, int page_hint,
-                                       int *x, int *page_out)
+                                       int *x, int *y_composite, int *page_out)
 {
     if (!note_id || !note_id[0])
         return FALSE;
 
+    int ny = 0;
     if (page_hint > 0 && page_hint <= score->page_count && score->page_svgs[page_hint - 1]) {
         int pw = score->page_w[page_hint - 1] > 0 ? score->page_w[page_hint - 1] : score->surface_w;
-        if (note_x_in_svg(score->page_svgs[page_hint - 1], pw, note_id, x)) {
+        if (note_x_in_svg(score->page_svgs[page_hint - 1], pw, note_id, x, &ny)) {
             if (page_out)
                 *page_out = page_hint - 1;
+            if (y_composite)
+                *y_composite = (score->page_y ? score->page_y[page_hint - 1] : 0) + ny;
             return TRUE;
         }
     }
@@ -287,39 +295,49 @@ static gboolean lookup_note_x_on_score(const ScoreVerovio *score, const char *no
         if (!score->page_svgs[p])
             continue;
         int pw = score->page_w[p] > 0 ? score->page_w[p] : score->surface_w;
-        if (note_x_in_svg(score->page_svgs[p], pw, note_id, x)) {
+        if (note_x_in_svg(score->page_svgs[p], pw, note_id, x, &ny)) {
             if (page_out)
                 *page_out = p;
+            if (y_composite)
+                *y_composite = (score->page_y ? score->page_y[p] : 0) + ny;
             return TRUE;
         }
     }
     return FALSE;
 }
 
-static void playhead_page_rect(const ScoreVerovio *score, int page, int *y, int *h)
+/* Return the height of one staff system (barline span) in composite-surface pixels. */
+static int svg_barline_height_units(const char *svg)
 {
-    if (page < 0)
-        page = 0;
-    if (page >= score->page_count)
-        page = score->page_count > 0 ? score->page_count - 1 : 0;
-
-    *y = score->page_y ? score->page_y[page] : 0;
-    *h = score->page_h && score->page_h[page] > 0 ? score->page_h[page] : score->surface_h;
-    if (*h < 1)
-        *h = score->surface_h > 0 ? score->surface_h : 400;
-
-    /* Extend past page margins so the playhead reads as one tall progress line. */
-    int pad = *h / 5;
-    if (pad < 48)
-        pad = 48;
-    *y -= pad;
-    *h += pad * 2;
-    if (*y < 0) {
-        *h += *y;
-        *y = 0;
+    if (!svg) return 0;
+    const char *p = svg;
+    int max_h = 0;
+    while (*p) {
+        const char *m = strchr(p, 'M');
+        if (!m) break;
+        int x1, y1, x2, y2;
+        if (sscanf(m, "M%d %d L%d %d", &x1, &y1, &x2, &y2) == 4 && x1 == x2) {
+            int h = y2 > y1 ? y2 - y1 : y1 - y2;
+            if (h > max_h) max_h = h;
+        }
+        p = m + 1;
     }
-    if (score->surface_h > 0 && *y + *h > score->surface_h)
-        *h = score->surface_h - *y;
+    return max_h;
+}
+
+static int playhead_system_h(const ScoreVerovio *score, int page)
+{
+    if (page < 0) page = 0;
+    if (score->page_count > 0 && page >= score->page_count)
+        page = score->page_count - 1;
+
+    if (score->page_system_h && score->page_system_h[page] > 0)
+        return score->page_system_h[page];
+
+    int ph = score->page_h && score->page_h[page] > 0 ? score->page_h[page] : 400;
+    int sys_h = ph / 8;
+    if (sys_h < 40) sys_h = 40;
+    return sys_h;
 }
 
 static void svg_page_pixel_size(const char *svg, int page_width_px, int *out_w, int *out_h)
@@ -404,9 +422,9 @@ static void score_build_playhead_map(ScoreVerovio *score)
         if (!note_id)
             note_id = json_first_array_string(cursor, "chords");
 
-        int x = 0, page = 0;
-        if (note_id && lookup_note_x_on_score(score, note_id, 0, &x, &page))
-            playhead_map_add(score, t_sec, x, page);
+        int x = 0, yc = 0, page = 0;
+        if (note_id && lookup_note_x_on_score(score, note_id, 0, &x, &yc, &page))
+            playhead_map_add(score, t_sec, x, yc, page);
 
         g_free(note_id);
         cursor = end ? end : cursor + 8;
@@ -416,7 +434,7 @@ static void score_build_playhead_map(ScoreVerovio *score)
         score->playhead_duration_sec = score->playhead_map[score->playhead_map_n - 1].t_sec;
 }
 
-static void playhead_map_interp(const ScoreVerovio *score, double sec, int *x, int *page)
+static void playhead_map_interp(const ScoreVerovio *score, double sec, int *x, int *y, int *page)
 {
     int n = score->playhead_map_n;
     if (n < 1)
@@ -424,12 +442,14 @@ static void playhead_map_interp(const ScoreVerovio *score, double sec, int *x, i
 
     if (sec <= score->playhead_map[0].t_sec) {
         *x = score->playhead_map[0].x;
+        *y = score->playhead_map[0].y;
         *page = score->playhead_map[0].page;
         return;
     }
 
     if (sec >= score->playhead_map[n - 1].t_sec) {
         *x = score->playhead_map[n - 1].x;
+        *y = score->playhead_map[n - 1].y;
         *page = score->playhead_map[n - 1].page;
         return;
     }
@@ -443,6 +463,8 @@ static void playhead_map_interp(const ScoreVerovio *score, double sec, int *x, i
         double f = span > 0.0 ? (sec - a->t_sec) / span : 0.0;
         *x = (int)(a->x + f * (double)(b->x - a->x));
         *page = a->page == b->page ? a->page : (f < 0.5 ? a->page : b->page);
+        *y = a->page == b->page ? (int)(a->y + f * (double)(b->y - a->y))
+                                : (f < 0.5 ? a->y : b->y);
         return;
     }
 }
@@ -478,6 +500,7 @@ static gboolean score_verovio_cache_page_svgs(ScoreVerovio *score, ScoreProgress
     score->page_y = g_new0(int, pages);
     score->page_w = g_new0(int, pages);
     score->page_h = g_new0(int, pages);
+    score->page_system_h = g_new0(int, pages);
 
     for (int p = 1; p <= pages; p++) {
         const char *svg = vrvToolkit_renderToSVG(score->toolkit, p, false);
@@ -810,7 +833,7 @@ static gboolean parse_translate_near(const char *pos, int *out_x, int *out_y)
     return FALSE;
 }
 
-static gboolean note_x_in_svg(const char *svg, int pixel_w, const char *note_id, int *out_x)
+static gboolean note_x_in_svg(const char *svg, int pixel_w, const char *note_id, int *out_x, int *out_y)
 {
     if (!svg || !note_id || !note_id[0])
         return FALSE;
@@ -827,6 +850,8 @@ static gboolean note_x_in_svg(const char *svg, int pixel_w, const char *note_id,
 
     double scale = svg_unit_to_pixel_scale(svg, pixel_w, 0);
     *out_x = (int)(note_x * scale);
+    if (out_y)
+        *out_y = (int)(note_y * scale);
     return TRUE;
 }
 
@@ -962,6 +987,15 @@ static gboolean score_composite_paint_next(ScoreRenderJob *job)
         score->page_y[p] = job->layout_y;
         score->page_w[p] = (int)ceil((double)w * job->composite_scale);
         score->page_h[p] = (int)ceil((double)h * job->composite_scale);
+
+        /* Compute one-system height from the SVG barline span. */
+        if (score->page_svgs && score->page_svgs[p] && score->page_system_h) {
+            int pw = score->page_w[p] > 0 ? score->page_w[p] : w;
+            double sc = svg_unit_to_pixel_scale(score->page_svgs[p], pw, 0);
+            int bar_units = svg_barline_height_units(score->page_svgs[p]);
+            if (bar_units > 0)
+                score->page_system_h[p] = (int)ceil((double)bar_units * sc * job->composite_scale);
+        }
 
         cairo_set_source_surface(job->composite_cr, page, 0, job->layout_y);
         cairo_paint(job->composite_cr);
@@ -1169,8 +1203,8 @@ gboolean score_verovio_playhead_at_time(const ScoreVerovio *score, double curren
         if (score->playhead_duration_sec > 0.01 && duration_sec > 0.01
             && fabs(score->playhead_duration_sec - duration_sec) > 0.25)
             map_sec = current_sec * score->playhead_duration_sec / duration_sec;
-        playhead_map_interp(score, map_sec, &x, &page);
-        playhead_page_rect(score, page, &y, &h);
+        playhead_map_interp(score, map_sec, &x, &y, &page);
+        h = playhead_system_h(score, page);
     } else {
         int ms = (int)(current_sec * 1000.0);
         const char *json = vrvToolkit_getElementsAtTime(score->toolkit, ms);
@@ -1179,9 +1213,11 @@ gboolean score_verovio_playhead_at_time(const ScoreVerovio *score, double curren
             note_id = json_first_array_string(json, "chords");
         int page_hint = json ? json_int_field(json, "page") : -1;
 
-        if (note_id && lookup_note_x_on_score(score, note_id, page_hint, &x, &page))
-            playhead_page_rect(score, page, &y, &h);
-        else {
+        int yc = 0;
+        if (note_id && lookup_note_x_on_score(score, note_id, page_hint, &x, &yc, &page)) {
+            y = yc;
+            h = playhead_system_h(score, page);
+        } else {
             double t = current_sec / duration_sec;
             x = (int)(t * (double)score->surface_w * 0.85);
             if (x < 80)
@@ -1189,7 +1225,10 @@ gboolean score_verovio_playhead_at_time(const ScoreVerovio *score, double curren
             page = score->page_count > 0 ? (int)(t * (double)score->page_count) : 0;
             if (page >= score->page_count)
                 page = score->page_count - 1;
-            playhead_page_rect(score, page, &y, &h);
+            int page_start_y = score->page_y ? score->page_y[page] : 0;
+            int ph = score->page_h && score->page_h[page] > 0 ? score->page_h[page] : 400;
+            y = page_start_y + ph / 2;
+            h = playhead_system_h(score, page);
         }
         g_free(note_id);
     }

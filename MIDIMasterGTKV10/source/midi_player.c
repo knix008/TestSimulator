@@ -110,10 +110,11 @@ static gboolean poll_cb(gpointer data)
 
     double sec = ticks_to_seconds(tick, div, tempo);
     if (sec > p->total_sec)
-        sec = p->total_sec;
+        p->total_sec = sec;
     emit_position(p, sec);
 
     if (status == FLUID_PLAYER_DONE) {
+        p->poll_id = 0; /* GLib removes this source; clear before callbacks fire */
         p->state = MIDI_STATE_STOPPED;
         if (p->on_completed)
             p->on_completed(p->completed_data);
@@ -309,14 +310,21 @@ void midi_player_seek_seconds(MidiPlayer *p, double seconds)
     int tick = seconds_to_ticks(seconds, div, tempo);
 
     gboolean was_playing = (p->state == MIDI_STATE_PLAYING);
+
+    /* Stop poll before stop/seek to prevent spurious FLUID_PLAYER_DONE detection. */
+    if (p->poll_id) {
+        g_source_remove(p->poll_id);
+        p->poll_id = 0;
+    }
+
     fluid_player_stop(p->player);
     fluid_player_seek(p->player, tick);
     p->pause_tick = tick;
 
-    if (was_playing)
+    if (was_playing) {
         fluid_player_play(p->player);
-    else
-        p->state = (p->state == MIDI_STATE_PLAYING) ? MIDI_STATE_PLAYING : p->state;
+        p->poll_id = g_timeout_add(50, poll_cb, p);
+    }
 
     emit_position(p, seconds);
 }
