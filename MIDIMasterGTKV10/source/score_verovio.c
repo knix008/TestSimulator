@@ -306,21 +306,102 @@ static gboolean lookup_note_x_on_score(const ScoreVerovio *score, const char *no
     return FALSE;
 }
 
-/* Return the height of one staff system (barline span) in composite-surface pixels. */
-static int svg_barline_height_units(const char *svg)
+/*
+ * Scan the SVG for vertical barlines (M x y1 L x y2 paths).
+ * Collect the leftmost ones (system-start barlines) and build a sorted table
+ * of (top, height) per system row.
+ *
+ * svg_system_top_for_y  – returns the system's top-y (SVG units) that contains
+ *                         note_y, snapping out pitch-based vertical jitter.
+ * svg_barline_height_units – returns the max system height (SVG units).
+ */
+#define SVG_MAX_SYSTEMS 64
+
+static void svg_collect_systems(const char *svg,
+                                int out_tops[], int out_bots[], int *out_n)
 {
-    if (!svg) return 0;
+    *out_n = 0;
+    if (!svg) return;
+
+    /* Pass 1: find minimum x among tall vertical lines (system-left barlines). */
+    int x_min = INT_MAX;
     const char *p = svg;
-    int max_h = 0;
     while (*p) {
         const char *m = strchr(p, 'M');
         if (!m) break;
         int x1, y1, x2, y2;
         if (sscanf(m, "M%d %d L%d %d", &x1, &y1, &x2, &y2) == 4 && x1 == x2) {
             int h = y2 > y1 ? y2 - y1 : y1 - y2;
-            if (h > max_h) max_h = h;
+            if (h > 200 && x1 < x_min)
+                x_min = x1;
         }
         p = m + 1;
+    }
+    if (x_min == INT_MAX) return;
+
+    int tol = x_min / 5 + 100;
+
+    /* Pass 2: collect leftmost barlines (one per system row). */
+    p = svg;
+    int n = 0;
+    while (*p && n < SVG_MAX_SYSTEMS) {
+        const char *m = strchr(p, 'M');
+        if (!m) break;
+        int x1, y1, x2, y2;
+        if (sscanf(m, "M%d %d L%d %d", &x1, &y1, &x2, &y2) == 4 && x1 == x2
+                && abs(x1 - x_min) <= tol) {
+            int h   = y2 > y1 ? y2 - y1 : y1 - y2;
+            int top = y1 < y2 ? y1 : y2;
+            int bot = y1 < y2 ? y2 : y1;
+            if (h > 200) {
+                gboolean dup = FALSE;
+                for (int i = 0; i < n; i++)
+                    if (abs(out_tops[i] - top) < 50) { dup = TRUE; break; }
+                if (!dup) { out_tops[n] = top; out_bots[n] = bot; n++; }
+            }
+        }
+        p = m + 1;
+    }
+
+    /* Sort by top. */
+    for (int i = 0; i < n - 1; i++)
+        for (int j = i + 1; j < n; j++)
+            if (out_tops[j] < out_tops[i]) {
+                int t = out_tops[i]; out_tops[i] = out_tops[j]; out_tops[j] = t;
+                int b = out_bots[i]; out_bots[i] = out_bots[j]; out_bots[j] = b;
+            }
+    *out_n = n;
+}
+
+/* Return the system top-y (SVG units) that contains note_y. */
+static int svg_system_top_for_y(const char *svg, int note_y)
+{
+    int tops[SVG_MAX_SYSTEMS], bots[SVG_MAX_SYSTEMS], n;
+    svg_collect_systems(svg, tops, bots, &n);
+    if (n == 0) return note_y;
+
+    for (int i = 0; i < n; i++)
+        if (note_y >= tops[i] && note_y <= bots[i])
+            return tops[i];
+
+    /* Fallback: closest system. */
+    int best = tops[0], best_d = abs(note_y - tops[0]);
+    for (int i = 1; i < n; i++) {
+        int d = abs(note_y - tops[i]);
+        if (d < best_d) { best_d = d; best = tops[i]; }
+    }
+    return best;
+}
+
+/* Return the max system height (SVG units) for use as bar height. */
+static int svg_barline_height_units(const char *svg)
+{
+    int tops[SVG_MAX_SYSTEMS], bots[SVG_MAX_SYSTEMS], n;
+    svg_collect_systems(svg, tops, bots, &n);
+    int max_h = 0;
+    for (int i = 0; i < n; i++) {
+        int h = bots[i] - tops[i];
+        if (h > max_h) max_h = h;
     }
     return max_h;
 }
@@ -850,8 +931,11 @@ static gboolean note_x_in_svg(const char *svg, int pixel_w, const char *note_id,
 
     double scale = svg_unit_to_pixel_scale(svg, pixel_w, 0);
     *out_x = (int)(note_x * scale);
-    if (out_y)
-        *out_y = (int)(note_y * scale);
+    if (out_y) {
+        /* Snap to the top of the staff system — eliminates pitch-based vertical jitter. */
+        int sys_top = svg_system_top_for_y(svg, note_y);
+        *out_y = (int)(sys_top * scale);
+    }
     return TRUE;
 }
 
