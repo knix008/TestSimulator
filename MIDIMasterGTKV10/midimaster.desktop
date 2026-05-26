@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=MIDI Master GTK
+Comment=MIDI player with Verovio sheet music
+Exec=@EXEC@
+Icon=audio-midi
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;
+MimeType=audio/midi;audio/x-midi;
