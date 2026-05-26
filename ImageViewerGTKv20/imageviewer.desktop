@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=ImageViewer GTK
+Comment=Image and video folder viewer
+Exec=imageviewer
+Icon=imageviewer
+Terminal=false
+Categories=Graphics;Viewer;
