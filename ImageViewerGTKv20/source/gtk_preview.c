@@ -140,6 +140,9 @@ static void preview_queue_image_redraw(App *app) {
     }
 }
 
+static void update_zoom_label(App *app);
+static void preview_update_image_scroll_size(App *app);
+
 static void preview_image_scaled_size(App *app, int *w_out, int *h_out) {
     int iw = 1;
     int ih = 1;
@@ -155,38 +158,51 @@ static void preview_image_scaled_size(App *app, int *w_out, int *h_out) {
     }
 }
 
-/* 드로잉 영역을 max(이미지, 뷰포트) 크기로 설정.
- * 이미지 < 뷰포트: 드로잉 영역이 뷰포트를 채워 on_image_draw 에서 중앙 배치.
- * 이미지 > 뷰포트: 드로잉 영역이 이미지 크기 → GtkScrolledWindow 스크롤바 표시. */
-static void preview_update_image_scroll_size(App *app) {
-    if (!app->image_da || !app->image_viewport) {
+/* 드로잉 영역 = 줌 적용 이미지 크기, 뷰포트보다 작으면 GtkViewport 가운데 정렬 */
+static void preview_image_scroll_center_if_fits(App *app) {
+    if (!app->image_scrolled || !app->image_pixbuf || !app->image_viewport) {
         return;
     }
     int iw, ih;
     preview_image_scaled_size(app, &iw, &ih);
-
     int vw = gtk_widget_get_allocated_width(app->image_viewport);
     int vh = gtk_widget_get_allocated_height(app->image_viewport);
-
-    gtk_widget_set_size_request(app->image_da, MAX(iw, vw), MAX(ih, vh));
-    gtk_widget_queue_resize(app->image_da);
-    preview_queue_image_redraw(app);
-}
-
-static void preview_image_scroll_reset(App *app) {
-    if (!app->image_scrolled) {
+    if (vw < 1 || vh < 1) {
         return;
     }
     GtkAdjustment *hadj =
         gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
     GtkAdjustment *vadj =
         gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(app->image_scrolled));
-    if (hadj) {
+    if (iw < vw && hadj) {
+        double page = gtk_adjustment_get_page_size(hadj);
+        double upper = gtk_adjustment_get_upper(hadj);
+        gtk_adjustment_set_value(hadj, MAX(0.0, (upper - page) / 2.0));
+    } else if (hadj) {
         gtk_adjustment_set_value(hadj, gtk_adjustment_get_lower(hadj));
     }
-    if (vadj) {
+    if (ih < vh && vadj) {
+        double page = gtk_adjustment_get_page_size(vadj);
+        double upper = gtk_adjustment_get_upper(vadj);
+        gtk_adjustment_set_value(vadj, MAX(0.0, (upper - page) / 2.0));
+    } else if (vadj) {
         gtk_adjustment_set_value(vadj, gtk_adjustment_get_lower(vadj));
     }
+}
+
+static void preview_update_image_scroll_size(App *app) {
+    if (!app->image_da || !app->image_viewport) {
+        return;
+    }
+    int iw, ih;
+    preview_image_scaled_size(app, &iw, &ih);
+    int vw = gtk_widget_get_allocated_width(app->image_viewport);
+    int vh = gtk_widget_get_allocated_height(app->image_viewport);
+
+    gtk_widget_set_size_request(app->image_da, MAX(iw, vw), MAX(ih, vh));
+    gtk_widget_queue_resize(app->image_viewport);
+    preview_queue_image_redraw(app);
+    preview_image_scroll_center_if_fits(app);
 }
 
 static void preview_image_scroll_set(GtkAdjustment *adj, double value) {
@@ -395,14 +411,53 @@ void preview_cancel_thumbnails(App *app) {
     }
 }
 
+static const char *preview_path_ext(const char *path) {
+    if (!path) {
+        return "";
+    }
+    const char *dot = strrchr(path, '.');
+    return dot ? dot : "";
+}
+
+void preview_update_edit_button(App *app) {
+    if (!app->btn_image_edit) {
+        return;
+    }
+    gboolean enabled = FALSE;
+    const char *path = app->selected_file ? app->selected_file
+                                          : (app->image_path ? app->image_path
+                                                             : app->image_edit_path);
+    if (path && g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
+        const char *ext = preview_path_ext(path);
+        gboolean is_image = utils_is_image_ext(ext) || utils_is_hif_path(path);
+        gboolean is_video = utils_is_video_ext(ext);
+        const char *page =
+            gtk_stack_get_visible_child_name(GTK_STACK(app->preview_stack));
+        if (page && g_strcmp0(page, "video") == 0) {
+            is_video = TRUE;
+        }
+#ifdef HAVE_LIBVLC
+        if (app->vlc_media) {
+            is_video = TRUE;
+        }
+#endif
+        enabled = is_image && !is_video;
+    }
+    gtk_widget_set_sensitive(app->btn_image_edit, enabled);
+}
+
 void preview_set_toolbar_visible(App *app, gboolean visible) {
     if (!app->image_toolbar) {
         return;
     }
     if (visible) {
         gtk_widget_show(app->image_toolbar);
+        preview_update_edit_button(app);
     } else {
         gtk_widget_hide(app->image_toolbar);
+        if (app->btn_image_edit) {
+            gtk_widget_set_sensitive(app->btn_image_edit, FALSE);
+        }
     }
 }
 
@@ -433,7 +488,6 @@ static gboolean on_image_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
         return FALSE;
     }
 
-    /* 드로잉 영역(= max(이미지, 뷰포트)) 안에서 이미지를 중앙 배치 */
     int x = (da_w - iw) / 2;
     int y = (da_h - ih) / 2;
     gdk_cairo_set_source_pixbuf(cr, scaled, x, y);
@@ -453,8 +507,27 @@ static double calc_fit_zoom(App *app) {
     }
     double sx = (double)vw / app->image_nat_w;
     double sy = (double)vh / app->image_nat_h;
-    double fit = fmin(sx, sy);
+    /* 부동소수점 오차로 인해 int 반올림/절삭에서 1~수 픽셀 초과하는 경우가 있어
+     * 약간(0.1%) 더 작게 잡아 항상 완전 표시되도록 함 */
+    double fit = fmin(sx, sy) * 0.999;
     return CLAMP(fit, 0.05, 16.0);
+}
+
+static gboolean preview_initial_fit_idle_cb(gpointer data) {
+    App *app = data;
+    if (!app || !app->image_pixbuf || !app->zoom_fit_mode) {
+        return G_SOURCE_REMOVE;
+    }
+    int vw = gtk_widget_get_allocated_width(app->image_viewport);
+    int vh = gtk_widget_get_allocated_height(app->image_viewport);
+    if (vw < 32 || vh < 32) {
+        /* 아직 초기 레이아웃이 완료되지 않았으면 다음 idle 에서 재시도 */
+        return G_SOURCE_CONTINUE;
+    }
+    app->zoom_factor = calc_fit_zoom(app);
+    update_zoom_label(app);
+    preview_update_image_scroll_size(app);
+    return G_SOURCE_REMOVE;
 }
 
 static void update_zoom_label(App *app) {
@@ -867,10 +940,19 @@ static void set_image_pixbuf(App *app, GdkPixbuf *pb) {
     app->image_nat_w = gdk_pixbuf_get_width(pb);
     app->image_nat_h = gdk_pixbuf_get_height(pb);
     app->zoom_fit_mode = TRUE;
-    app->zoom_factor = calc_fit_zoom(app);
-    update_zoom_label(app);
-    preview_update_image_scroll_size(app);
-    preview_image_scroll_reset(app);
+    int vw = gtk_widget_get_allocated_width(app->image_viewport);
+    int vh = gtk_widget_get_allocated_height(app->image_viewport);
+    if (vw < 32 || vh < 32) {
+        /* 뷰포트 크기가 아직 잡히지 않으면, 초기에는 100%로 표시 후 idle에서 fit */
+        app->zoom_factor = 1.0;
+        update_zoom_label(app);
+        preview_update_image_scroll_size(app);
+        g_idle_add(preview_initial_fit_idle_cb, app);
+    } else {
+        app->zoom_factor = calc_fit_zoom(app);
+        update_zoom_label(app);
+        preview_update_image_scroll_size(app);
+    }
 }
 
 static void preview_load_worker(GTask *task, gpointer source, gpointer data,
@@ -1109,10 +1191,13 @@ static void on_transform_clicked(GtkButton *btn, gpointer data) {
 }
 
 static void on_open_editor_clicked(GtkButton *btn, gpointer data) {
-    (void)btn;
     App *app = data;
+    if (!gtk_widget_get_sensitive(GTK_WIDGET(btn))) {
+        return;
+    }
     const char *path = app->image_edit_path ? app->image_edit_path : app->image_path;
-    if (!path || !g_file_test(path, G_FILE_TEST_IS_REGULAR)) {
+    if (!path || !g_file_test(path, G_FILE_TEST_IS_REGULAR) ||
+        utils_is_video_ext(preview_path_ext(path))) {
         return;
     }
     char *saved = NULL;
@@ -1313,12 +1398,22 @@ static void preview_connect_image_pan(App *app, GtkWidget *widget) {
 static void on_viewport_size_allocate(GtkWidget *widget, GdkRectangle *alloc,
                                        gpointer data) {
     (void)widget;
-    (void)alloc;
     App *app = data;
     if (!app->zoom_fit_mode || !app->image_pixbuf) {
         return;
     }
-    double new_fit = calc_fit_zoom(app);
+    /* 초기 표시에서는 allocation이 더 정확하므로 직접 사용 */
+    int vw = alloc ? alloc->width : gtk_widget_get_allocated_width(app->image_viewport);
+    int vh = alloc ? alloc->height : gtk_widget_get_allocated_height(app->image_viewport);
+    if (vw < 1) {
+        vw = 400;
+    }
+    if (vh < 1) {
+        vh = 300;
+    }
+    double sx = (double)vw / app->image_nat_w;
+    double sy = (double)vh / app->image_nat_h;
+    double new_fit = CLAMP(fmin(sx, sy) * 0.999, 0.05, 16.0);
     if (fabs(new_fit - app->zoom_factor) < 1e-9) {
         return;
     }

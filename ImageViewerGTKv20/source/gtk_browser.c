@@ -532,6 +532,7 @@ static void on_file_selection_changed(GtkTreeSelection *sel, gpointer data) {
             return;
         }
         gtk_app_update_status_file(app, "파일을 선택하세요.");
+        preview_update_edit_button(app);
         return;
     }
 
@@ -543,6 +544,7 @@ static void on_file_selection_changed(GtkTreeSelection *sel, gpointer data) {
     }
 
     browser_select_file_context_only(app, path);
+    preview_update_edit_button(app);
     g_free(path);
 }
 
@@ -553,6 +555,7 @@ static void browser_clear_file_selection(App *app) {
     g_signal_handlers_unblock_by_func(fsel, on_file_selection_changed, app);
     g_free(app->selected_file);
     app->selected_file = NULL;
+    preview_update_edit_button(app);
 }
 
 void browser_show_folder_contents(App *app, const char *folder, gboolean show_gallery) {

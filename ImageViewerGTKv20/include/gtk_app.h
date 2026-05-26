@@ -27,6 +27,7 @@ struct App {
     GtkWidget *image_da;
     GtkWidget *image_page;
     GtkWidget *image_toolbar;
+    GtkWidget *btn_image_edit;
     GtkWidget *zoom_label;
     GtkWidget *video_box;
     GtkWidget *video_frame;

@@ -18,6 +18,7 @@ typedef struct {
     App *app;
     GtkWidget *window;
     GtkWidget *preview_scroll;
+    GtkWidget *preview_viewport;
     GtkWidget *da;
     GtkWidget *status_lbl;
     GtkWidget *zoom_lbl;
@@ -69,6 +70,12 @@ typedef struct {
     int bg_tasks;
     gboolean shutting_down;
     char *saved_path;
+    char *status_activity;
+
+    GtkWidget *progress_dlg;
+    GtkWidget *dlg_primary_lbl;
+    GtkWidget *dlg_detail_lbl;
+    GtkWidget *dlg_progress_bar;
 } EditorCtx;
 
 static gboolean editor_is_active(EditorCtx *ed) {
@@ -76,6 +83,11 @@ static gboolean editor_is_active(EditorCtx *ed) {
 }
 
 static void editor_update_ai_model_status(EditorCtx *ed);
+static void editor_update_preview_scroll_size(EditorCtx *ed);
+static void editor_preview_scroll_center_if_fits(EditorCtx *ed);
+static void editor_refresh_status_bar(EditorCtx *ed);
+static void editor_close_progress_dialog(EditorCtx *ed);
+static RembgModelId editor_get_rembg_model(EditorCtx *ed);
 
 static void editor_bg_task_begin(EditorCtx *ed) {
     if (ed) {
@@ -111,8 +123,87 @@ static void editor_free_display(EditorCtx *ed) {
 static void editor_set_display(EditorCtx *ed, GdkPixbuf *pb) {
     editor_free_display(ed);
     ed->display = pb ? g_object_ref(pb) : NULL;
-    if (ed->da && GTK_IS_WIDGET(ed->da) && !ed->shutting_down) {
-        gtk_widget_queue_draw(ed->da);
+    if (ed->da && ed->preview_scroll && GTK_IS_WIDGET(ed->da) && !ed->shutting_down) {
+        editor_update_preview_scroll_size(ed);
+    }
+}
+
+static void editor_preview_scaled_size(EditorCtx *ed, int *w_out, int *h_out) {
+    int iw = 1;
+    int ih = 1;
+    if (ed->display) {
+        iw = MAX(1, (int)(gdk_pixbuf_get_width(ed->display) * ed->zoom));
+        ih = MAX(1, (int)(gdk_pixbuf_get_height(ed->display) * ed->zoom));
+    }
+    if (w_out) {
+        *w_out = iw;
+    }
+    if (h_out) {
+        *h_out = ih;
+    }
+}
+
+static gboolean editor_preview_viewport_size(EditorCtx *ed, int *w_out, int *h_out) {
+    GtkWidget *vp = ed->preview_viewport;
+    if (!vp || !GTK_IS_WIDGET(vp)) {
+        return FALSE;
+    }
+    int vw = gtk_widget_get_allocated_width(vp);
+    int vh = gtk_widget_get_allocated_height(vp);
+    if (vw < 1 || vh < 1) {
+        return FALSE;
+    }
+    if (w_out) {
+        *w_out = vw;
+    }
+    if (h_out) {
+        *h_out = vh;
+    }
+    return TRUE;
+}
+
+/* 드로잉 영역 = 줌 적용 이미지 크기, 뷰포트보다 작으면 GtkViewport 가운데 정렬 */
+static void editor_update_preview_scroll_size(EditorCtx *ed) {
+    if (!ed->da || !ed->preview_scroll || !GTK_IS_WIDGET(ed->da)) {
+        return;
+    }
+    int iw, ih;
+    editor_preview_scaled_size(ed, &iw, &ih);
+    gtk_widget_set_halign(ed->da, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign(ed->da, GTK_ALIGN_CENTER);
+    gtk_widget_set_size_request(ed->da, iw, ih);
+    gtk_widget_queue_resize(ed->preview_viewport ? ed->preview_viewport : ed->da);
+    gtk_widget_queue_draw(ed->da);
+    editor_preview_scroll_center_if_fits(ed);
+}
+
+static void editor_preview_scroll_center_if_fits(EditorCtx *ed) {
+    if (!ed->preview_scroll || !ed->display) {
+        return;
+    }
+    int iw, ih;
+    editor_preview_scaled_size(ed, &iw, &ih);
+    int vw, vh;
+    if (!editor_preview_viewport_size(ed, &vw, &vh)) {
+        return;
+    }
+    GtkAdjustment *hadj =
+        gtk_scrolled_window_get_hadjustment(GTK_SCROLLED_WINDOW(ed->preview_scroll));
+    GtkAdjustment *vadj =
+        gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(ed->preview_scroll));
+    if (iw < vw && hadj) {
+        double page = gtk_adjustment_get_page_size(hadj);
+        double upper = gtk_adjustment_get_upper(hadj);
+        gtk_adjustment_set_value(hadj, MAX(0.0, (upper - page) / 2.0));
+    } else if (hadj) {
+        gtk_adjustment_set_value(hadj, gtk_adjustment_get_lower(hadj));
+    }
+    if (ih < vh && vadj) {
+        double page = gtk_adjustment_get_page_size(vadj);
+        double upper = gtk_adjustment_get_upper(vadj);
+        gtk_adjustment_set_value(vadj, MAX(0.0, (upper - page) / 2.0));
+    } else if (vadj) {
+        gtk_adjustment_set_value(vadj, gtk_adjustment_get_lower(vadj));
     }
 }
 
@@ -212,59 +303,100 @@ static void editor_schedule_preview(EditorCtx *ed) {
         g_timeout_add(ADJ_PREVIEW_MS, editor_preview_timer_cb, ed);
 }
 
-static void editor_update_status(EditorCtx *ed, const char *msg) {
-    if (!ed->committed) {
-        gtk_label_set_text(GTK_LABEL(ed->status_lbl), msg ? msg : "");
+static void editor_format_ai_status(RembgModelId mid, char *buf, gsize buf_len) {
+    gboolean runtime_ok = rembg_onnx_is_supported();
+    gboolean installed = rembg_onnx_model_installed(mid);
+
+    if (installed) {
+        g_snprintf(buf, buf_len, "%s 설치됨%s",
+                   rembg_onnx_model_display_name(mid),
+                   runtime_ok ? "" : " (실행 불가)");
+    } else {
+        g_snprintf(buf, buf_len, "%s 미설치%s",
+                   rembg_onnx_model_display_name(mid),
+                   runtime_ok ? "(다운로드)" : " (다운로드 가능)");
+    }
+}
+
+static void editor_refresh_status_bar(EditorCtx *ed) {
+    if (!ed->status_lbl || !GTK_IS_LABEL(ed->status_lbl)) {
         return;
     }
-    char *text = g_strdup_printf(
-        "%s | %dx%d | %s%s",
-        msg ? msg : "준비",
-        gdk_pixbuf_get_width(ed->committed),
-        gdk_pixbuf_get_height(ed->committed),
-        ed->dirty ? "● 미저장 " : "",
-        rembg_onnx_is_supported() ? "" : "(ONNX 미빌드)");
+    const char *activity =
+        (ed->status_activity && ed->status_activity[0]) ? ed->status_activity
+                                                       : "준비";
+    char *basename = ed->source_path ? g_path_get_basename(ed->source_path)
+                                     : g_strdup("—");
+    RembgModelId mid = editor_get_rembg_model(ed);
+    char ai_info[96];
+    editor_format_ai_status(mid, ai_info, sizeof ai_info);
+
+    char *text;
+    if (!ed->committed) {
+        text = g_strdup_printf("%s | %s | %s", activity, basename, ai_info);
+    } else {
+        text = g_strdup_printf(
+            "%s | %s | %dx%d | 줌 %.0f%% | %s | 실행취소 %u · 다시실행 %u | %s",
+            activity, basename, gdk_pixbuf_get_width(ed->committed),
+            gdk_pixbuf_get_height(ed->committed), ed->zoom * 100.0,
+            ed->dirty ? "● 미저장" : "저장됨", (unsigned)ed->undo->len,
+            (unsigned)ed->redo->len, ai_info);
+    }
     gtk_label_set_text(GTK_LABEL(ed->status_lbl), text);
     g_free(text);
+    g_free(basename);
+}
+
+static void editor_update_status(EditorCtx *ed, const char *msg) {
+    g_free(ed->status_activity);
+    ed->status_activity = msg ? g_strdup(msg) : NULL;
+    editor_refresh_status_bar(ed);
 }
 
 static void editor_apply_zoom_label(EditorCtx *ed) {
     char *z = g_strdup_printf("%.0f%%", ed->zoom * 100.0);
     gtk_label_set_text(GTK_LABEL(ed->zoom_lbl), z);
     g_free(z);
+    editor_refresh_status_bar(ed);
 }
 
-static void editor_fit_zoom(EditorCtx *ed) {
+static gboolean editor_fit_zoom(EditorCtx *ed) {
     if (!ed->display || !ed->preview_scroll) {
-        return;
+        return FALSE;
     }
-    int alloc_w = gtk_widget_get_allocated_width(ed->preview_scroll);
-    int alloc_h = gtk_widget_get_allocated_height(ed->preview_scroll);
-    if (alloc_w < 32 || alloc_h < 32) {
-        return;
+    int alloc_w, alloc_h;
+    if (!editor_preview_viewport_size(ed, &alloc_w, &alloc_h)) {
+        alloc_w = gtk_widget_get_allocated_width(ed->preview_scroll);
+        alloc_h = gtk_widget_get_allocated_height(ed->preview_scroll);
+        if (alloc_w < 32 || alloc_h < 32) {
+            return FALSE;
+        }
     }
     int iw = gdk_pixbuf_get_width(ed->display);
     int ih = gdk_pixbuf_get_height(ed->display);
     double sx = (double)alloc_w / MAX(1, iw);
     double sy = (double)alloc_h / MAX(1, ih);
-    ed->zoom = CLAMP(MIN(sx, sy), 0.05, 16.0);
+    /* 부동소수점 오차 대비: int 반올림/절삭에서 1픽셀 초과로 잘리는 것을 방지 */
+    ed->zoom = CLAMP(MIN(sx, sy) * 0.999, 0.05, 16.0);
     editor_apply_zoom_label(ed);
-    if (ed->da) {
-        gtk_widget_queue_draw(ed->da);
-    }
+    editor_update_preview_scroll_size(ed);
+    return TRUE;
 }
 
 static void editor_try_initial_fit(EditorCtx *ed) {
     if (!ed->pending_initial_fit || !ed->display || !ed->preview_scroll) {
         return;
     }
-    int alloc_w = gtk_widget_get_allocated_width(ed->preview_scroll);
-    int alloc_h = gtk_widget_get_allocated_height(ed->preview_scroll);
-    if (alloc_w < 32 || alloc_h < 32) {
+    if (!editor_fit_zoom(ed)) {
         return;
     }
-    editor_fit_zoom(ed);
+    editor_preview_scroll_center_if_fits(ed);
     ed->pending_initial_fit = FALSE;
+}
+
+static gboolean editor_initial_fit_idle_cb(gpointer data) {
+    editor_try_initial_fit(data);
+    return G_SOURCE_REMOVE;
 }
 
 static void on_preview_scroll_size_allocate(GtkWidget *widget,
@@ -277,13 +409,12 @@ static void on_preview_scroll_size_allocate(GtkWidget *widget,
         return;
     }
     editor_try_initial_fit(ed);
+    editor_update_preview_scroll_size(ed);
 }
 
 static gboolean on_editor_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
     (void)widget;
     EditorCtx *ed = data;
-    int alloc_w = gtk_widget_get_allocated_width(ed->da);
-    int alloc_h = gtk_widget_get_allocated_height(ed->da);
     cairo_set_source_rgb(cr, 0.18, 0.18, 0.2);
     cairo_paint(cr);
 
@@ -291,16 +422,18 @@ static gboolean on_editor_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
         return FALSE;
     }
 
-    int iw = gdk_pixbuf_get_width(ed->display);
-    int ih = gdk_pixbuf_get_height(ed->display);
-    int dw = MAX(1, (int)(iw * ed->zoom));
-    int dh = MAX(1, (int)(ih * ed->zoom));
-    int ox = (alloc_w - dw) / 2;
-    int oy = (alloc_h - dh) / 2;
+    int iw, ih;
+    editor_preview_scaled_size(ed, &iw, &ih);
 
-    gdk_cairo_set_source_pixbuf(cr, ed->display, ox, oy);
-    cairo_rectangle(cr, ox, oy, dw, dh);
-    cairo_fill(cr);
+    GdkPixbuf *scaled =
+        gdk_pixbuf_scale_simple(ed->display, iw, ih, GDK_INTERP_BILINEAR);
+    if (!scaled) {
+        return FALSE;
+    }
+
+    gdk_cairo_set_source_pixbuf(cr, scaled, 0, 0);
+    cairo_paint(cr);
+    g_object_unref(scaled);
     return FALSE;
 }
 
@@ -311,15 +444,19 @@ static gboolean on_editor_scroll(GtkWidget *widget, GdkEventScroll *ev,
     if (!ed->display) {
         return FALSE;
     }
-    if (ev->direction == GDK_SCROLL_UP) {
-        ed->zoom = CLAMP(ed->zoom * 1.1, 0.05, 16.0);
-    } else if (ev->direction == GDK_SCROLL_DOWN) {
-        ed->zoom = CLAMP(ed->zoom / 1.1, 0.05, 16.0);
-    } else {
+    if (ev->direction == GDK_SCROLL_SMOOTH) {
+        if (ev->delta_y == 0.0 && ev->delta_x == 0.0) {
+            return FALSE;
+        }
+    } else if (ev->direction != GDK_SCROLL_UP && ev->direction != GDK_SCROLL_DOWN) {
         return FALSE;
     }
+    double step =
+        (ev->direction == GDK_SCROLL_UP || ev->delta_y < 0) ? 1.1 : (1.0 / 1.1);
+    ed->zoom = CLAMP(ed->zoom * step, 0.05, 16.0);
+    ed->pending_initial_fit = FALSE;
     editor_apply_zoom_label(ed);
-    gtk_widget_queue_draw(ed->da);
+    editor_update_preview_scroll_size(ed);
     return TRUE;
 }
 
@@ -542,25 +679,25 @@ static gboolean on_editor_click(GtkWidget *widget, GdkEventButton *ev,
                                 gpointer data) {
     (void)widget;
     EditorCtx *ed = data;
-    if (!ed->eyedropper || !ed->committed || ev->button != 1) {
+    if (!ed->eyedropper || !ed->display || ev->button != 1) {
         return FALSE;
     }
-    int alloc_w = gtk_widget_get_allocated_width(ed->da);
-    int alloc_h = gtk_widget_get_allocated_height(ed->da);
-    int iw = gdk_pixbuf_get_width(ed->committed);
-    int ih = gdk_pixbuf_get_height(ed->committed);
-    int dw = MAX(1, (int)(iw * ed->zoom));
-    int dh = MAX(1, (int)(ih * ed->zoom));
-    int ox = (alloc_w - dw) / 2;
-    int oy = (alloc_h - dh) / 2;
-    int ix = (int)((ev->x - ox) / ed->zoom);
-    int iy = (int)((ev->y - oy) / ed->zoom);
-    if (ix < 0 || iy < 0 || ix >= iw || iy >= ih) {
+    int da_w = gtk_widget_get_allocated_width(ed->da);
+    int da_h = gtk_widget_get_allocated_height(ed->da);
+    int sw, sh;
+    editor_preview_scaled_size(ed, &sw, &sh);
+    int ox = (da_w - sw) / 2;
+    int oy = (da_h - sh) / 2;
+    int pw = gdk_pixbuf_get_width(ed->display);
+    int ph = gdk_pixbuf_get_height(ed->display);
+    int ix = (int)((ev->x - ox) * pw / MAX(1, sw));
+    int iy = (int)((ev->y - oy) * ph / MAX(1, sh));
+    if (ix < 0 || iy < 0 || ix >= pw || iy >= ph) {
         return TRUE;
     }
-    guchar *px = gdk_pixbuf_get_pixels(ed->committed);
-    int rs = gdk_pixbuf_get_rowstride(ed->committed);
-    int nc = gdk_pixbuf_get_n_channels(ed->committed);
+    guchar *px = gdk_pixbuf_get_pixels(ed->display);
+    int rs = gdk_pixbuf_get_rowstride(ed->display);
+    int nc = gdk_pixbuf_get_n_channels(ed->display);
     guchar *p = px + iy * rs + ix * nc;
     ed->bg_r = p[0];
     ed->bg_g = p[1];
@@ -575,6 +712,84 @@ typedef struct {
     int percent;
     char *message;
 } EditorProgressIdle;
+
+static void on_progress_dlg_response(GtkDialog *dlg, gint response, gpointer data) {
+    (void)dlg;
+    EditorCtx *ed = data;
+    if (response == GTK_RESPONSE_CANCEL && ed->bg_cancel) {
+        g_cancellable_cancel(ed->bg_cancel);
+    }
+}
+
+static void on_progress_dlg_destroy(GtkWidget *widget, gpointer data) {
+    (void)widget;
+    EditorCtx *ed = data;
+    if (!ed) {
+        return;
+    }
+    ed->progress_dlg = NULL;
+    ed->dlg_primary_lbl = NULL;
+    ed->dlg_detail_lbl = NULL;
+    ed->dlg_progress_bar = NULL;
+}
+
+static void editor_close_progress_dialog(EditorCtx *ed) {
+    if (ed && ed->progress_dlg && GTK_IS_WIDGET(ed->progress_dlg)) {
+        /* destroy 이후에도 progress idle 콜백이 도는 경우가 있어,
+         * 포인터를 먼저 NULL 처리해 use-after-free 를 방지한다. */
+        GtkWidget *dlg = ed->progress_dlg;
+        ed->progress_dlg = NULL;
+        ed->dlg_primary_lbl = NULL;
+        ed->dlg_detail_lbl = NULL;
+        ed->dlg_progress_bar = NULL;
+        g_signal_handlers_disconnect_by_func(dlg,
+                                             G_CALLBACK(on_progress_dlg_response),
+                                             ed);
+        /* destroy 핸들러는 연결 유지(또는 이미 NULL) — 안전 */
+        gtk_widget_destroy(dlg);
+    }
+}
+
+static void editor_open_progress_dialog(EditorCtx *ed, const char *title,
+                                      const char *primary, const char *detail) {
+    if (!editor_is_active(ed)) {
+        return;
+    }
+    editor_close_progress_dialog(ed);
+
+    ed->progress_dlg = gtk_dialog_new_with_buttons(
+        title, GTK_WINDOW(ed->window),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT, "_취소",
+        GTK_RESPONSE_CANCEL, NULL);
+    gtk_dialog_set_default_response(GTK_DIALOG(ed->progress_dlg),
+                                    GTK_RESPONSE_CANCEL);
+
+    GtkWidget *content =
+        gtk_dialog_get_content_area(GTK_DIALOG(ed->progress_dlg));
+    gtk_container_set_border_width(GTK_CONTAINER(content), 12);
+    gtk_box_set_spacing(GTK_BOX(content), 8);
+
+    ed->dlg_primary_lbl = gtk_label_new(primary ? primary : "");
+    gtk_label_set_xalign(GTK_LABEL(ed->dlg_primary_lbl), 0.0);
+    gtk_label_set_line_wrap(GTK_LABEL(ed->dlg_primary_lbl), TRUE);
+    gtk_box_pack_start(GTK_BOX(content), ed->dlg_primary_lbl, FALSE, FALSE, 0);
+
+    ed->dlg_progress_bar = gtk_progress_bar_new();
+    gtk_progress_bar_set_show_text(GTK_PROGRESS_BAR(ed->dlg_progress_bar), TRUE);
+    gtk_box_pack_start(GTK_BOX(content), ed->dlg_progress_bar, FALSE, FALSE, 0);
+
+    ed->dlg_detail_lbl = gtk_label_new(detail ? detail : "");
+    gtk_label_set_xalign(GTK_LABEL(ed->dlg_detail_lbl), 0.0);
+    gtk_label_set_line_wrap(GTK_LABEL(ed->dlg_detail_lbl), TRUE);
+    gtk_widget_set_margin_top(ed->dlg_detail_lbl, 4);
+    gtk_box_pack_start(GTK_BOX(content), ed->dlg_detail_lbl, FALSE, FALSE, 0);
+
+    g_signal_connect(ed->progress_dlg, "response",
+                     G_CALLBACK(on_progress_dlg_response), ed);
+    g_signal_connect(ed->progress_dlg, "destroy",
+                     G_CALLBACK(on_progress_dlg_destroy), ed);
+    gtk_widget_show_all(ed->progress_dlg);
+}
 
 static void editor_hide_progress_widgets(EditorCtx *ed) {
     if (!editor_is_active(ed)) {
@@ -627,6 +842,7 @@ static void editor_clear_busy(EditorCtx *ed) {
         return;
     }
     ed->bg_busy = FALSE;
+    editor_close_progress_dialog(ed);
     if (!editor_is_active(ed)) {
         return;
     }
@@ -653,21 +869,47 @@ static gboolean editor_progress_idle_cb(gpointer data) {
         g_free(p);
         return G_SOURCE_REMOVE;
     }
-    char *status = g_strdup_printf("%d%% — %s", p->percent,
-                                   p->message ? p->message : "");
+    gboolean indeterminate = p->percent < 0;
+    char *status = indeterminate
+                       ? g_strdup_printf("%s", p->message ? p->message : "")
+                       : g_strdup_printf("%d%% — %s", p->percent,
+                                         p->message ? p->message : "");
     if (ed->progress_lbl && GTK_IS_WIDGET(ed->progress_lbl)) {
         gtk_label_set_text(GTK_LABEL(ed->progress_lbl), status);
         gtk_widget_show(ed->progress_lbl);
     }
     if (ed->progress && GTK_IS_WIDGET(ed->progress)) {
-        gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(ed->progress),
-                                      p->percent / 100.0);
+        if (indeterminate) {
+            gtk_progress_bar_pulse(GTK_PROGRESS_BAR(ed->progress));
+        } else {
+            gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(ed->progress),
+                                          p->percent / 100.0);
+        }
         gtk_widget_show(ed->progress);
+    }
+    if (ed->dlg_primary_lbl && GTK_IS_LABEL(ed->dlg_primary_lbl)) {
+        gtk_label_set_text(GTK_LABEL(ed->dlg_primary_lbl),
+                           p->message ? p->message : "");
+    }
+    if (ed->dlg_progress_bar && GTK_IS_PROGRESS_BAR(ed->dlg_progress_bar)) {
+        if (indeterminate) {
+            gtk_progress_bar_pulse(GTK_PROGRESS_BAR(ed->dlg_progress_bar));
+            gtk_progress_bar_set_text(GTK_PROGRESS_BAR(ed->dlg_progress_bar), "다운로드 중…");
+        } else {
+            gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(ed->dlg_progress_bar),
+                                          p->percent / 100.0);
+            char *bar_txt = g_strdup_printf("%d%%", p->percent);
+            gtk_progress_bar_set_text(GTK_PROGRESS_BAR(ed->dlg_progress_bar), bar_txt);
+            g_free(bar_txt);
+        }
+    }
+    if (ed->dlg_detail_lbl && GTK_IS_LABEL(ed->dlg_detail_lbl)) {
+        gtk_label_set_text(GTK_LABEL(ed->dlg_detail_lbl), status);
     }
     if (ed->app) {
         gtk_app_update_status_file(ed->app, status);
     }
-    editor_update_status(ed, status);
+    editor_update_status(ed, p->message ? p->message : status);
     g_free(status);
     g_free(p->message);
     g_free(p);
@@ -758,7 +1000,6 @@ static void color_bg_done(GObject *src, GAsyncResult *res, gpointer data) {
         return;
     }
     editor_replace(ed, out, "색상 배경 제거 완료");
-    g_object_unref(out);
     editor_refresh_preview(ed);
 }
 
@@ -798,6 +1039,69 @@ static void rembg_work_free(RembgWork *w) {
         g_object_unref(w->input);
     }
     g_free(w);
+}
+
+typedef struct {
+    EditorCtx *ed;
+    RembgModelId model;
+} RembgDownloadWork;
+
+static void rembg_download_work_free(RembgDownloadWork *w) {
+    if (!w) {
+        return;
+    }
+    g_free(w);
+}
+
+static void rembg_download_worker(GTask *task, gpointer source, gpointer data,
+                                   GCancellable *cancel) {
+    (void)source;
+    RembgDownloadWork *w = data;
+    if (g_cancellable_is_cancelled(cancel)) {
+        g_task_return_new_error(task, G_IO_ERROR, G_IO_ERROR_CANCELLED,
+                                "작업이 취소되었습니다");
+        return;
+    }
+    GError *err = NULL;
+    if (!rembg_onnx_ensure_model(w->model, editor_report_progress, w->ed, &err)) {
+        g_task_return_error(task, err);
+        return;
+    }
+    g_task_return_boolean(task, TRUE);
+}
+
+static void rembg_download_done(GObject *src, GAsyncResult *res, gpointer data) {
+    (void)src;
+    EditorCtx *ed = data;
+
+    GError *err = NULL;
+    gboolean ok = g_task_propagate_boolean(G_TASK(res), &err);
+
+    editor_clear_busy(ed);
+    editor_bg_task_end(ed);
+
+    if (!editor_is_active(ed)) {
+        if (err) {
+            g_clear_error(&err);
+        }
+        return;
+    }
+
+    if (!ok) {
+        if (!err || err->code != G_IO_ERROR_CANCELLED) {
+            gtk_app_show_warning(ed->app,
+                                 err ? err->message : "모델 다운로드 실패");
+        }
+        editor_update_status(ed, "모델 다운로드 실패");
+        editor_update_ai_model_status(ed);
+        g_clear_error(&err);
+        return;
+    }
+
+    editor_update_status(ed,
+                          "모델 다운로드 완료 (ONNX Runtime 없이 실행 불가)");
+    editor_update_ai_model_status(ed);
+    g_clear_error(&err);
 }
 
 static void rembg_worker(GTask *task, gpointer source, gpointer data,
@@ -851,7 +1155,6 @@ static void rembg_done(GObject *src, GAsyncResult *res, gpointer data) {
         editor_update_ai_model_status(ed);
         editor_refresh_preview(ed);
     }
-    g_object_unref(out);
 }
 
 static RembgModelId editor_get_rembg_model(EditorCtx *ed) {
@@ -871,24 +1174,29 @@ static RembgModelId editor_get_rembg_model(EditorCtx *ed) {
 
 static void editor_update_ai_model_status(EditorCtx *ed) {
     if (!ed->lbl_ai_model_status) {
+        editor_refresh_status_bar(ed);
         return;
     }
     RembgModelId mid = editor_get_rembg_model(ed);
-    if (!rembg_onnx_is_supported()) {
-        gtk_label_set_text(GTK_LABEL(ed->lbl_ai_model_status),
-                           "ONNX Runtime 없음 — ONNXRUNTIME_ROOT 로 다시 빌드");
-        return;
-    }
-    if (rembg_onnx_model_installed(mid)) {
-        char *t = g_strdup_printf("%s 준비됨",
-                                  rembg_onnx_model_display_name(mid));
+    gboolean runtime_ok = rembg_onnx_is_supported();
+    gboolean installed = rembg_onnx_model_installed(mid);
+
+    if (installed) {
+        char *t = g_strdup_printf("%s 준비됨 — %s%s",
+                                  rembg_onnx_model_display_name(mid),
+                                  rembg_onnx_models_directory(),
+                                  runtime_ok ? "" : " (실행 불가)");
         gtk_label_set_text(GTK_LABEL(ed->lbl_ai_model_status), t);
         g_free(t);
     } else {
-        char *t = g_strdup_printf("%s 없음 — AI 실행 시 다운로드",
-                                  rembg_onnx_model_display_name(mid));
+        char *t = g_strdup_printf(
+            "%s 없음 — AI 배경 제거 시 자동 다운로드 (%s)%s",
+            rembg_onnx_model_display_name(mid), rembg_onnx_models_directory(),
+            runtime_ok ? "" : " (실행 불가: ONNX 없음)");
         gtk_label_set_text(GTK_LABEL(ed->lbl_ai_model_status), t);
+        g_free(t);
     }
+    editor_refresh_status_bar(ed);
 }
 
 static void on_rembg_model_changed(GtkComboBox *combo, gpointer data) {
@@ -904,30 +1212,80 @@ static void on_ai_remove_bg(GtkButton *btn, gpointer data) {
     if (!ed->committed) {
         return;
     }
-    if (!rembg_onnx_is_supported()) {
-        gtk_app_show_warning(
-            ed->app,
-            "ONNX Runtime 없이 빌드되었습니다.\n\n"
-            "1) https://github.com/microsoft/onnxruntime/releases 에서\n"
-            "   Linux x64 패키지를 받아 압축 해제\n"
-            "2) ONNXRUNTIME_ROOT=/경로/to/onnxruntime make\n\n"
-            "예: ONNXRUNTIME_ROOT=$PWD/third_party/onnxruntime make");
-        return;
-    }
 
     if (ed->bg_busy) {
         return;
     }
 
+    if (g_cancellable_is_cancelled(ed->bg_cancel)) {
+        g_object_unref(ed->bg_cancel);
+        ed->bg_cancel = g_cancellable_new();
+    }
+
     RembgModelId model = editor_get_rembg_model(ed);
+    gboolean need_download = !rembg_onnx_model_installed(model);
+    const char *model_name = rembg_onnx_model_display_name(model);
+
+    gboolean runtime_ok = rembg_onnx_is_supported();
+    if (!runtime_ok) {
+        if (!need_download) {
+            gtk_app_show_warning(
+                ed->app,
+                "ONNX Runtime 없이 빌드되었습니다.\n\n"
+                "모델은 준비되어 있지만, 현재는 실행할 수 없습니다.\n"
+                "ONNXRUNTIME_ROOT를 지정해 다시 빌드하세요.");
+            editor_update_status(ed, "ONNX Runtime 없음");
+            editor_update_ai_model_status(ed);
+            return;
+        }
+
+        char *primary_dl =
+            g_strdup_printf("%s 모델을 다운로드합니다.", model_name);
+        char *detail_dl =
+            g_strdup_printf("저장 위치: %s", rembg_onnx_models_directory());
+        editor_open_progress_dialog(ed, "ONNX 모델 다운로드", primary_dl, detail_dl);
+        g_free(primary_dl);
+        g_free(detail_dl);
+
+        RembgDownloadWork *w = g_new(RembgDownloadWork, 1);
+        w->ed = ed;
+        w->model = model;
+
+        editor_set_busy(ed, "모델 다운로드 준비 중…");
+        editor_report_progress(0, "모델 다운로드 준비 중…", ed);
+        editor_bg_task_begin(ed);
+        GTask *task = g_task_new(NULL, ed->bg_cancel, rembg_download_done, ed);
+        g_task_set_task_data(task, w, (GDestroyNotify)rembg_download_work_free);
+        g_task_run_in_thread(task, rembg_download_worker);
+        g_object_unref(task);
+        return;
+    }
+
+    char *primary = NULL;
+    char *detail = NULL;
+    const char *dlg_title;
+    if (need_download) {
+        dlg_title = "ONNX 모델 다운로드";
+        primary = g_strdup_printf("%s 모델을 다운로드한 뒤 배경을 제거합니다.",
+                                  model_name);
+        detail = g_strdup_printf("저장 위치: %s", rembg_onnx_models_directory());
+    } else {
+        dlg_title = "AI 배경 제거";
+        primary = g_strdup("AI로 배경을 제거하는 중입니다.");
+        detail = g_strdup_printf("모델: %s", model_name);
+    }
+    editor_open_progress_dialog(ed, dlg_title, primary, detail);
+    g_free(primary);
+    g_free(detail);
 
     RembgWork *w = g_new(RembgWork, 1);
     w->ed = ed;
     w->model = model;
     w->input = image_effects_clone(ed->committed);
 
-    editor_set_busy(ed, "AI 배경 제거 준비 중…");
-    editor_report_progress(0, "AI 배경 제거 준비 중…", ed);
+    editor_set_busy(ed, need_download ? "모델 다운로드 준비 중…" : "AI 배경 제거 준비 중…");
+    editor_report_progress(0, need_download ? "모델 다운로드 준비 중…" : "AI 배경 제거 준비 중…",
+                           ed);
 
     editor_bg_task_begin(ed);
     GTask *task = g_task_new(NULL, ed->bg_cancel, rembg_done, ed);
@@ -1154,16 +1512,19 @@ static GtkWidget *editor_build_effects_tab(EditorCtx *ed) {
 
     ed->adj_param = gtk_adjustment_new(5, 1, 20, 1, 1, 0);
     editor_add_scale(v, "강도", ed->adj_param);
-    GtkWidget *param_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     const char *labels[] = {"블러", "선명", "픽셀", "유화", "박스", "소프트",
                             "밝게", "어둡게"};
-    for (int i = 0; i < 8; i++) {
-        GtkWidget *b = gtk_button_new_with_label(labels[i]);
-        g_object_set_data(G_OBJECT(b), "param-idx", GINT_TO_POINTER(i));
-        g_signal_connect(b, "clicked", G_CALLBACK(on_param_select), ed);
-        gtk_box_pack_start(GTK_BOX(param_row), b, TRUE, TRUE, 0);
+    for (int row = 0; row < 2; row++) {
+        GtkWidget *param_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+        for (int col = 0; col < 4; col++) {
+            int i = row * 4 + col;
+            GtkWidget *b = gtk_button_new_with_label(labels[i]);
+            g_object_set_data(G_OBJECT(b), "param-idx", GINT_TO_POINTER(i));
+            g_signal_connect(b, "clicked", G_CALLBACK(on_param_select), ed);
+            gtk_box_pack_start(GTK_BOX(param_row), b, TRUE, TRUE, 0);
+        }
+        gtk_box_pack_start(GTK_BOX(v), param_row, FALSE, FALSE, 0);
     }
-    gtk_box_pack_start(GTK_BOX(v), param_row, FALSE, FALSE, 0);
     GtkWidget *apply = gtk_button_new_with_label("강도 효과 적용");
     g_signal_connect(apply, "clicked", G_CALLBACK(on_param_apply), ed);
     gtk_box_pack_start(GTK_BOX(v), apply, FALSE, FALSE, 0);
@@ -1337,6 +1698,7 @@ static void on_editor_window_destroy(GtkWidget *widget, gpointer data) {
     ed->window = NULL;
     ed->da = NULL;
     ed->preview_scroll = NULL;
+    ed->preview_viewport = NULL;
     ed->status_lbl = NULL;
     ed->zoom_lbl = NULL;
     ed->btn_ai_remove = NULL;
@@ -1348,6 +1710,7 @@ static void on_editor_window_destroy(GtkWidget *widget, gpointer data) {
     if (ed->bg_cancel) {
         g_cancellable_cancel(ed->bg_cancel);
     }
+    editor_close_progress_dialog(ed);
     if (ed->preview_timer_id) {
         g_source_remove(ed->preview_timer_id);
         ed->preview_timer_id = 0;
@@ -1362,6 +1725,7 @@ static void editor_destroy(EditorCtx *ed) {
         return;
     }
     ed->shutting_down = TRUE;
+    editor_close_progress_dialog(ed);
     editor_wait_bg_tasks(ed);
     if (ed->bg_cancel) {
         g_object_unref(ed->bg_cancel);
@@ -1391,10 +1755,12 @@ static void editor_destroy(EditorCtx *ed) {
     g_ptr_array_free(ed->redo, TRUE);
     g_free(ed->source_path);
     g_free(ed->saved_path);
+    g_free(ed->status_activity);
     g_free(ed);
 }
 
 static gboolean on_editor_delete(GtkWidget *widget, GdkEvent *ev, gpointer data) {
+    (void)widget;
     (void)ev;
     EditorCtx *ed = data;
     if (ed->shutting_down) {
@@ -1411,9 +1777,12 @@ static gboolean on_editor_delete(GtkWidget *widget, GdkEvent *ev, gpointer data)
         gtk_widget_destroy(dlg);
         if (r == GTK_RESPONSE_YES) {
             on_save(NULL, ed);
+            if (ed->dirty) {
+                return TRUE;
+            }
         }
     }
-    gtk_widget_destroy(widget);
+    /* FALSE → GTK 기본 처리로 창을 한 번만 닫음 (직접 destroy 하면 이중 해제) */
     return FALSE;
 }
 
@@ -1493,23 +1862,36 @@ gboolean gtk_editor_open(App *app, const char *image_path, char **saved_path_out
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(tools_scroll),
                                    GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
     gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(tools_scroll),
-                                              320);
+                                              240);
     gtk_container_add(GTK_CONTAINER(tools_scroll), tools);
     gtk_paned_pack1(GTK_PANED(hpaned), tools_scroll, FALSE, FALSE);
 
     ed->preview_scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(ed->preview_scroll),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    ed->preview_viewport = gtk_viewport_new(NULL, NULL);
+    gtk_widget_add_events(ed->preview_viewport,
+                          GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
+    gtk_widget_add_events(ed->preview_scroll,
+                          GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK);
     ed->da = gtk_drawing_area_new();
-    gtk_widget_add_events(ed->da, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK);
+    gtk_widget_set_halign(ed->da, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign(ed->da, GTK_ALIGN_CENTER);
+    gtk_widget_add_events(ed->da, GDK_BUTTON_PRESS_MASK | GDK_SCROLL_MASK |
+                                      GDK_SMOOTH_SCROLL_MASK);
     g_signal_connect(ed->da, "draw", G_CALLBACK(on_editor_draw), ed);
     g_signal_connect(ed->da, "scroll-event", G_CALLBACK(on_editor_scroll), ed);
     g_signal_connect(ed->da, "button-press-event", G_CALLBACK(on_editor_click), ed);
-    gtk_container_add(GTK_CONTAINER(ed->preview_scroll), ed->da);
+    g_signal_connect(ed->preview_viewport, "scroll-event",
+                     G_CALLBACK(on_editor_scroll), ed);
+    g_signal_connect(ed->preview_scroll, "scroll-event",
+                     G_CALLBACK(on_editor_scroll), ed);
+    gtk_container_add(GTK_CONTAINER(ed->preview_viewport), ed->da);
+    gtk_container_add(GTK_CONTAINER(ed->preview_scroll), ed->preview_viewport);
     g_signal_connect(ed->preview_scroll, "size-allocate",
                      G_CALLBACK(on_preview_scroll_size_allocate), ed);
     gtk_paned_pack2(GTK_PANED(hpaned), ed->preview_scroll, TRUE, FALSE);
-    gtk_paned_set_position(GTK_PANED(hpaned), 360);
+    gtk_paned_set_position(GTK_PANED(hpaned), 260);
 
     int iw = gdk_pixbuf_get_width(ed->committed);
     int ih = gdk_pixbuf_get_height(ed->committed);
@@ -1529,6 +1911,13 @@ gboolean gtk_editor_open(App *app, const char *image_path, char **saved_path_out
     editor_refresh_preview(ed);
     editor_update_status(ed, "준비");
 
+    gboolean viewer_was_visible = FALSE;
+    if (app->window && GTK_IS_WIDGET(app->window) &&
+        gtk_widget_get_visible(app->window)) {
+        viewer_was_visible = TRUE;
+        gtk_widget_hide(app->window);
+    }
+
     ed->pending_initial_fit = TRUE;
     ed->loop = g_main_loop_new(NULL, FALSE);
     gtk_widget_show_all(ed->window);
@@ -1536,10 +1925,20 @@ gboolean gtk_editor_open(App *app, const char *image_path, char **saved_path_out
         gtk_main_iteration();
     }
     editor_try_initial_fit(ed);
+    if (ed->pending_initial_fit) {
+        g_idle_add(editor_initial_fit_idle_cb, ed);
+    }
 
     g_main_loop_run(ed->loop);
 
     editor_wait_bg_tasks(ed);
+
+    if (viewer_was_visible && app->window && GTK_IS_WIDGET(app->window)) {
+        gtk_widget_show(app->window);
+        if (GTK_IS_WINDOW(app->window)) {
+            gtk_window_present(GTK_WINDOW(app->window));
+        }
+    }
 
     gboolean ok = ed->saved_path != NULL;
     if (ok && saved_path_out) {

@@ -107,7 +107,7 @@ _iv_ok() { printf '    [O] %s\n' "$$*"; }; \
 _iv_miss() { printf '    [X] %s\n' "$$*"; };
 endef
 
-# 필수: pkg-config gcc gtk3 gdk-pixbuf libheif-dev
+# 필수: pkg-config gcc gtk3 gdk-pixbuf libheif-dev (+ AI: onnxruntime)
 define IV_DEPS_CHECK
 fail=0; miss=""; heif_dev_ok=0; \
 command -v pkg-config >/dev/null 2>&1 || { fail=1; miss="$$miss pkg-config"; }; \
@@ -117,7 +117,13 @@ pkg-config --exists gdk-pixbuf-2.0 2>/dev/null || { fail=1; miss="$$miss pixbuf"
 pkg-config --exists libheif 2>/dev/null && heif_dev_ok=1; \
 [ -f /usr/include/libheif/heif.h ] && heif_dev_ok=1; \
 [ -f /usr/include/x86_64-linux-gnu/libheif/heif.h ] && heif_dev_ok=1; \
-[ $$heif_dev_ok -eq 1 ] || { fail=1; miss="$$miss libheif-dev"; };
+[ $$heif_dev_ok -eq 1 ] || { fail=1; miss="$$miss libheif-dev"; }; \
+ort_ok=0; \
+[ -f "$(BUNDLED_ORT)/include/onnxruntime_c_api.h" ] && ort_ok=1; \
+[ -f "$(BUNDLED_ORT)/include/onnxruntime/core/session/onnxruntime_c_api.h" ] && ort_ok=1; \
+[ -f "/usr/local/include/onnxruntime_c_api.h" ] && ort_ok=1; \
+[ -f "/usr/local/include/onnxruntime/core/session/onnxruntime_c_api.h" ] && ort_ok=1; \
+[ $$ort_ok -eq 1 ] || { fail=1; miss="$$miss onnxruntime"; };
 endef
 
 .PHONY: all setup install-deps install-onnx check-deps run clean distclean debug info \
@@ -156,6 +162,11 @@ _deps-report:
 	if pkg-config --exists libvlc 2>/dev/null; then \
 	    _iv_ok "libvlc $$(pkg-config --modversion libvlc) (동영상, 선택)"; \
 	else _iv_sub "[·] libvlc 없음 — 동영상 미지원"; fi; \
+	if [ -f "$(BUNDLED_ORT)/include/onnxruntime_c_api.h" ] || [ -f "$(BUNDLED_ORT)/include/onnxruntime/core/session/onnxruntime_c_api.h" ]; then \
+	    _iv_ok "onnxruntime (third_party)"; \
+	else \
+	    _iv_miss "onnxruntime (make install-onnx)"; \
+	fi; \
 	_iv_sub "libheif: $(if $(HEIF_LIBS),on,off)  libvlc: $(if $(VLC_PC),on,off)  onnx: $(if $(ONNX_LIBS),on,off)  soup: $(if $(SOUP_LIBS),on,off)"; \
 	if [ $$fail -eq 0 ]; then _iv_sub "→ 의존성 충족"; \
 	else _iv_sub "→ 누락:$$miss — make install-deps"; fi; \
@@ -180,6 +191,8 @@ _ensure-deps:
 	        _iv_sub "끄기: IV_AUTO_INSTALL=0 make"; \
 	        $(MAKE) --no-print-directory install-deps || { \
 	            _iv_miss "자동 설치 실패 — make install-deps"; exit 1; }; \
+	        $(MAKE) --no-print-directory install-onnx || { \
+	            _iv_miss "ONNX Runtime 설치 실패 — make install-onnx"; exit 1; }; \
 	        rm -f $(OBJECTS) $(TARGET); \
 	        $(MAKE) --no-print-directory _deps-report DEPS_FAIL=0; \
 	    else \
@@ -235,7 +248,7 @@ install-onnx:
 	    _iv_ok "이미 설치됨: $(ONNX_DIR)"; \
 	else \
 	    _iv_sub "다운로드: $(ONNX_URL)"; \
-	    curl -fL "$(ONNX_URL)" -o "third_party/$(ONNX_TGZ)"; \
+	    curl -fL -sS "$(ONNX_URL)" -o "third_party/$(ONNX_TGZ)"; \
 	    tar -xzf "third_party/$(ONNX_TGZ)" -C third_party; \
 	    rm -f "third_party/$(ONNX_TGZ)"; \
 	    ln -sfn "onnxruntime-linux-x64-$(ONNX_VER)" "$(ONNX_DIR)"; \
@@ -247,9 +260,11 @@ install-deps:
 	@$(MAKE) --no-print-directory _deps-report DEPS_FAIL=0
 ifeq ($(UNAME_S),Linux)
 	@need_pm=0; need_cc=0; need_gtk=0; need_pixbuf=0; need_heif=0; need_vlc=0; \
+	need_curl=0; \
 	$(IV_SH_HELPERS) \
 	command -v pkg-config >/dev/null 2>&1 || need_pm=1; \
 	command -v $(CC) >/dev/null 2>&1 || need_cc=1; \
+	command -v curl >/dev/null 2>&1 || need_curl=1; \
 	pkg-config --exists gtk+-3.0 2>/dev/null || need_gtk=1; \
 	pkg-config --exists gdk-pixbuf-2.0 2>/dev/null || need_pixbuf=1; \
 	pkg-config --exists libheif 2>/dev/null || need_heif=1; \
@@ -259,6 +274,7 @@ ifeq ($(UNAME_S),Linux)
 	if command -v apt-get >/dev/null 2>&1; then \
 	    pkgs=""; \
 	    [ $$need_pm -ne 0 ] || [ $$need_cc -ne 0 ] && pkgs="$$pkgs build-essential pkg-config"; \
+	    [ $$need_curl -ne 0 ] && pkgs="$$pkgs curl ca-certificates"; \
 	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs libgtk-3-dev"; \
 	    [ $$need_pixbuf -ne 0 ] && pkgs="$$pkgs libgdk-pixbuf-2.0-dev"; \
 	    [ $$need_heif -ne 0 ] && pkgs="$$pkgs libheif-dev"; \
@@ -270,6 +286,7 @@ ifeq ($(UNAME_S),Linux)
 	elif command -v dnf >/dev/null 2>&1; then \
 	    pkgs=""; \
 	    [ $$need_pm -ne 0 ] || [ $$need_cc -ne 0 ] && pkgs="$$pkgs gcc make pkg-config"; \
+	    [ $$need_curl -ne 0 ] && pkgs="$$pkgs curl ca-certificates"; \
 	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs gtk3-devel"; \
 	    [ $$need_pixbuf -ne 0 ] && pkgs="$$pkgs gdk-pixbuf2-devel"; \
 	    [ $$need_heif -ne 0 ] && pkgs="$$pkgs libheif-devel"; \
@@ -281,6 +298,7 @@ ifeq ($(UNAME_S),Linux)
 	elif command -v pacman >/dev/null 2>&1; then \
 	    pkgs=""; \
 	    [ $$need_pm -ne 0 ] || [ $$need_cc -ne 0 ] && pkgs="$$pkgs base-devel"; \
+	    [ $$need_curl -ne 0 ] && pkgs="$$pkgs curl ca-certificates"; \
 	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs gtk3"; \
 	    [ $$need_pixbuf -ne 0 ] && pkgs="$$pkgs gdk-pixbuf2"; \
 	    [ $$need_heif -ne 0 ] && pkgs="$$pkgs libheif"; \
@@ -295,6 +313,7 @@ ifeq ($(UNAME_S),Linux)
 else ifeq ($(UNAME_S),Darwin)
 	@$(IV_SH_HELPERS) \
 	command -v brew >/dev/null 2>&1 || { _iv_miss "Homebrew 필요"; exit 1; }; \
+	brew list curl >/dev/null 2>&1 || brew install curl; \
 	brew list pkg-config >/dev/null 2>&1 || brew install pkg-config; \
 	brew list gtk+3 >/dev/null 2>&1 || brew install gtk+3; \
 	brew list gdk-pixbuf >/dev/null 2>&1 || brew install gdk-pixbuf; \

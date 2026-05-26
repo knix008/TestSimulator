@@ -209,6 +209,8 @@ static GtkWidget *build_preview_pane(App *app) {
     app->image_da = gtk_drawing_area_new();
     gtk_widget_set_hexpand(app->image_da, FALSE);
     gtk_widget_set_vexpand(app->image_da, FALSE);
+    gtk_widget_set_halign(app->image_da, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign(app->image_da, GTK_ALIGN_CENTER);
     gtk_widget_add_events(app->image_da,
                           GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK |
                               GDK_POINTER_MOTION_MASK);
@@ -237,18 +239,19 @@ static GtkWidget *build_preview_pane(App *app) {
     gtk_widget_set_hexpand(tb_spacer, TRUE);
     gtk_box_pack_start(GTK_BOX(app->image_toolbar), tb_spacer, TRUE, TRUE, 0);
 
-    GtkWidget *btn_edit = gtk_button_new_with_label("✏ 편집");
+    app->btn_image_edit = gtk_button_new_with_label("✏ 편집");
+    gtk_widget_set_sensitive(app->btn_image_edit, FALSE);
     GtkWidget *btn_rot_cw = gtk_button_new_with_label("↻");
     GtkWidget *btn_rot_ccw = gtk_button_new_with_label("↺");
     GtkWidget *btn_flip = gtk_button_new_with_label("⇔");
-    gtk_widget_set_tooltip_text(btn_edit, "이미지 편집기 열기");
+    gtk_widget_set_tooltip_text(app->btn_image_edit, "이미지 편집기 열기");
     gtk_widget_set_tooltip_text(btn_rot_ccw, "반시계 회전");
     gtk_widget_set_tooltip_text(btn_rot_cw, "시계 방향 회전");
     gtk_widget_set_tooltip_text(btn_flip, "좌우 대칭");
     gtk_box_pack_end(GTK_BOX(app->image_toolbar), btn_flip, FALSE, FALSE, 0);
     gtk_box_pack_end(GTK_BOX(app->image_toolbar), btn_rot_ccw, FALSE, FALSE, 0);
     gtk_box_pack_end(GTK_BOX(app->image_toolbar), btn_rot_cw, FALSE, FALSE, 0);
-    gtk_box_pack_end(GTK_BOX(app->image_toolbar), btn_edit, FALSE, FALSE, 0);
+    gtk_box_pack_end(GTK_BOX(app->image_toolbar), app->btn_image_edit, FALSE, FALSE, 0);
 
     app->image_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     gtk_box_pack_start(GTK_BOX(app->image_page), app->image_toolbar, FALSE, FALSE, 0);
@@ -294,7 +297,8 @@ static GtkWidget *build_preview_pane(App *app) {
     gtk_stack_add_named(GTK_STACK(app->preview_stack), video_overlay, "video");
 
     preview_init(app);
-    preview_connect_image_toolbar(app, btn_rot_ccw, btn_rot_cw, btn_flip, btn_edit);
+    preview_connect_image_toolbar(app, btn_rot_ccw, btn_rot_cw, btn_flip,
+                                  app->btn_image_edit);
     preview_connect_video_controls(app, btn_play, btn_pause, btn_stop);
 
     gtk_stack_set_visible_child(GTK_STACK(app->preview_stack), app->placeholder_label);

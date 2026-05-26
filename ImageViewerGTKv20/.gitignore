@@ -66,7 +66,7 @@ Desktop.ini
 # ---------------------------------------------------------------------------
 # Application state (runtime, per-user)
 # ---------------------------------------------------------------------------
-# ~/.config/ImageViewerGTKv10/ is outside repo — nothing to ignore here
+# ~/.config/ImageViewerGTK*/ is outside repo — nothing to ignore here
 
 # ---------------------------------------------------------------------------
 # Test / conversion output folders (optional — uncomment if needed)

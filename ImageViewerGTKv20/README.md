@@ -53,23 +53,25 @@ ImageViewerV30과 동일한 **rembg ONNX 모델**을 **ONNX Runtime C API**로 �
 #### 빌드에 ONNX Runtime 포함하기
 
 ```bash
-# 1) ONNX Runtime 설치 (프로젝트 third_party/)
-make install-onnx
+# 기본: make가 의존성(ONNX Runtime 포함) 자동 설치 + 빌드까지 처리합니다.
+make
 
-# 2) ONNX 지정 후 빌드
-ONNXRUNTIME_ROOT=$PWD/third_party/onnxruntime make
+# 또는 ONNX Runtime만 먼저 설치하려면:
+make install-onnx
+make
 
 # (선택) 모델 다운로드용 libsoup
 sudo apt install libsoup2.4-dev   # 없으면 curl로 다운로드
 ```
 
-이미 시스템에 설치한 경우:
+이미 시스템에 설치한 경우(선택):
 
 ```bash
 ONNXRUNTIME_ROOT=/usr/local make
 ```
 
-`make` 시 `onnxruntime_c_api.h` 가 없으면 AI 배경 제거는 빌드에서 제외되며, 편집기에서 안내 메시지가 표시됩니다.
+`make` 시 ONNX Runtime이 없으면 자동 설치가 시도되며(`IV_AUTO_INSTALL=1` 기본),
+자동 설치를 끄면(`IV_AUTO_INSTALL=0`) AI 배경 제거는 비활성화되고 안내가 표시됩니다.
 
 ---
 
@@ -136,8 +138,8 @@ HIF (10-bit PQ, BT.2020)
 ## 빌드 및 실행
 
 ```bash
-cd ImageViewerGTKv10
-make          # 의존성 확인(필요 시 자동 설치) + 빌드
+cd ImageViewerGTKv20
+make          # 의존성 확인(필요 시 자동 설치) + 빌드 (ONNX Runtime 포함)
 ./imageviewer
 ```
 
@@ -166,6 +168,7 @@ ln -sf ../daemon_hammer.ico daemon_hammer.ico
 | `make debug` | 디버그 심볼로 재빌드 |
 | `make assets` | `assets/icons/` 아이콘 PNG 재생성 |
 | `make install-deps` | 빌드·실행 의존성 설치 |
+| `make install-onnx` | ONNX Runtime 자동 다운로드/설치 (`third_party/`) |
 | `make check-deps` | 의존성 검증 (누락 시 실패) |
 | `make deps` | 의존성 요약 출력 |
 | `make install-desktop` | Linux 사용자 데스크톱 메뉴 등록 |
@@ -178,6 +181,7 @@ ln -sf ../daemon_hammer.ico daemon_hammer.ico
 |------|------|
 | `IV_AUTO_INSTALL=0` | `make` 시 자동 apt/brew 설치 비활성화 |
 | `IV_VERBOSE=1` | 컴파일·의존성 상세 로그 출력 |
+| `ONNX_VER=...` | `make install-onnx`에서 받을 ONNX Runtime 버전 (기본값 있음) |
 
 ---
 
@@ -188,7 +192,7 @@ ln -sf ../daemon_hammer.ico daemon_hammer.ico
 ```bash
 sudo apt-get install -y build-essential pkg-config \
   libgtk-3-dev libgdk-pixbuf-2.0-dev libheif-dev \
-  libvlc-dev vlc
+  libvlc-dev vlc curl ca-certificates
 ```
 
 **Fedora / RHEL**
@@ -215,7 +219,7 @@ make install-deps
 ## 프로젝트 구조
 
 ```
-ImageViewerGTKv10/
+ImageViewerGTKv20/
 ├── source/
 │   ├── main.c          진입점
 │   ├── gtk_app.c       메인 창, 레이아웃, gtk_init

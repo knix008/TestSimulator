@@ -650,7 +650,14 @@ static gboolean rembg_download_url(const char *url, const char *dest,
         done += nread;
         if (total > 0) {
             int pct = (int)CLAMP(done * 99 / total, 0, 99);
-            rembg_report(progress, user_data, pct, "모델 다운로드 중...");
+            char *msg = g_strdup_printf("모델 다운로드 중… (%0.1f / %0.1f MB)",
+                                        done / (1024.0 * 1024.0),
+                                        total / (1024.0 * 1024.0));
+            rembg_report(progress, user_data, pct, msg);
+            g_free(msg);
+        } else {
+            /* Content-Length 를 알 수 없는 경우: 퍼센트 대신 불확정 진행(pulse) */
+            rembg_report(progress, user_data, -1, "모델 다운로드 중…");
         }
     }
     g_free(buf);
@@ -680,7 +687,8 @@ static gboolean rembg_download_url(const char *url, const char *dest,
     return TRUE;
 #else
     /* curl 폴백 (Python rembg 아님) */
-    gchar *argv[] = {"curl", "-fL", "--progress-bar", "-o", (gchar *)dest,
+    /* GUI에서 진행 상황을 보여주므로 CLI 출력은 숨김 */
+    gchar *argv[] = {"curl", "-fL", "-sS", "-o", (gchar *)dest,
                      (gchar *)url, NULL};
     if (!g_find_program_in_path("curl")) {
         if (err) {
@@ -693,6 +701,7 @@ static gboolean rembg_download_url(const char *url, const char *dest,
         return FALSE;
     }
     gint wait_status = 0;
+    rembg_report(progress, user_data, -1, "curl로 모델 다운로드 중…");
     if (!g_spawn_sync(NULL, argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL,
                       NULL, &wait_status, err)) {
         return FALSE;
@@ -722,7 +731,10 @@ gboolean rembg_onnx_ensure_model(RembgModelId model, RembgProgressFn progress,
         g_unlink(path);
     }
 
-    rembg_report(progress, user_data, 0, m->display_name);
+    char *need_msg = g_strdup_printf("%s 모델이 없습니다. 다운로드를 시작합니다…",
+                                     m->display_name);
+    rembg_report(progress, user_data, 0, need_msg);
+    g_free(need_msg);
     gboolean ok = rembg_download_url(m->url, path, progress, user_data, err);
     if (ok && !rembg_verify_checksum(path, m)) {
         g_unlink(path);

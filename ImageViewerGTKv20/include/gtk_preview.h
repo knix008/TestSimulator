@@ -18,5 +18,6 @@ void preview_connect_image_toolbar(App *app, GtkWidget *rot_ccw,
                                    GtkWidget *rot_cw, GtkWidget *flip_h,
                                    GtkWidget *btn_edit);
 void preview_set_toolbar_visible(App *app, gboolean visible);
+void preview_update_edit_button(App *app);
 
 #endif
