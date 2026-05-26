@@ -669,13 +669,8 @@ static void export_schedule_ui(ExportJob *job)
         return;
 
     g_mutex_lock(&job->lock);
-    if (job->ui_closed) {
-        g_mutex_unlock(&job->lock);
-        return;
-    }
-    if (job->idle_id)
-        g_source_remove(job->idle_id);
-    job->idle_id = g_idle_add(export_ui_idle, job);
+    if (!job->ui_closed && !job->idle_id)
+        job->idle_id = g_idle_add(export_ui_idle, job);
     g_mutex_unlock(&job->lock);
 }
 

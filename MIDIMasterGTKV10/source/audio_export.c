@@ -57,7 +57,7 @@ static gboolean export_wav_fluidsynth(const char *midi_path, const char *wav_pat
     fluid_settings_setstr(settings, "audio.file.type", "wav");
     fluid_settings_setstr(settings, "player.timing-source", "sample");
     fluid_settings_setint(settings, "synth.threadsafe-api", 0);
-    fluid_settings_setint(settings, "audio.period-size", 2048);
+    fluid_settings_setint(settings, "audio.period-size", 4096);
     fluid_settings_setint(settings, "synth.chorus.active", 1);
     fluid_settings_setint(settings, "synth.reverb.active", 1);
 
@@ -98,7 +98,7 @@ static gboolean export_wav_fluidsynth(const char *midi_path, const char *wav_pat
     fluid_file_renderer_t *renderer = new_fluid_file_renderer(synth);
     if (!renderer) {
         g_set_error_literal(err, G_FILE_ERROR, G_FILE_ERROR_FAILED,
-                            "FluidSynth file renderer failed (check audio.file.name)");
+                            "FluidSynth file renderer failed");
         delete_fluid_player(player);
         delete_fluid_synth(synth);
         delete_fluid_settings(settings);
@@ -110,23 +110,30 @@ static gboolean export_wav_fluidsynth(const char *midi_path, const char *wav_pat
         total_ticks = 1;
 
     fluid_player_play(player);
-    int last_pct = -1;
+
+    /*
+     * Render at CPU speed using fluid_file_renderer_process_block.
+     * Rate-limit progress reporting to once per ~500 blocks (~47 s of rendered
+     * audio) so the UI-idle path is called at most a few hundred times total —
+     * well within the fixed export_schedule_ui locking model.
+     */
     gboolean failed = FALSE;
+    int block_count = 0;
+    int last_pct = -1;
 
     while (fluid_player_get_status(player) == FLUID_PLAYER_PLAYING) {
         if (fluid_file_renderer_process_block(renderer) != FLUID_OK) {
-            g_set_error_literal(err, G_FILE_ERROR, G_FILE_ERROR_FAILED, "Audio render block failed");
+            g_set_error_literal(err, G_FILE_ERROR, G_FILE_ERROR_FAILED,
+                                "Audio render block failed");
             failed = TRUE;
             break;
         }
-        if (progress) {
+        if (progress && (++block_count % 500 == 0)) {
             int cur = fluid_player_get_current_tick(player);
-            if (cur < 0)
-                cur = 0;
-            if (cur > total_ticks)
-                cur = total_ticks;
-            int pct = progress->pct_lo
-                      + (int)((double)(progress->pct_hi - progress->pct_lo) * cur / total_ticks);
+            if (cur < 0) cur = 0;
+            if (cur > total_ticks) cur = total_ticks;
+            int pct = progress->pct_lo + (int)((double)(progress->pct_hi - progress->pct_lo)
+                                               * cur / total_ticks);
             if (pct != last_pct) {
                 export_report(progress, (double)cur / (double)total_ticks);
                 last_pct = pct;
