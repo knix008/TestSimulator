@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.rsuser
+
+# NuGet
+*.nupkg
+packages/
+
+# WebView2 user data (created at runtime)
+WebView2/
+
+# OS
+Thumbs.db
+.DS_Store
