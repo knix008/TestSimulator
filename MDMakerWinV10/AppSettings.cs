@@ -6,7 +6,7 @@ public class PdfSettings
 {
     public string  FontFamily          { get; set; } = "'Malgun Gothic','Segoe UI',Helvetica,Arial,sans-serif";
     public double  FontSizePt          { get; set; } = 10;
-    public double  LineHeight          { get; set; } = 1.4;
+    public double  LineHeight          { get; set; } = 1.0;
     public double  ParagraphSpacingEm  { get; set; } = 0.5;
     public double  MarginVerticalInch  { get; set; } = 0.75;
     public double  MarginHorizontalInch{ get; set; } = 1.0;
