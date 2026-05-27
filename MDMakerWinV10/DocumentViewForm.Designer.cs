@@ -19,8 +19,10 @@ partial class DocumentViewForm
     private Button _btnExportHtml;
     private Button _btnExportWord;
     private Button _btnExportPdf;
-    private ProgressBar _progressBar;
-    private Label _lblStatus;
+    private Button _btnExportSettings;
+    private StatusStrip _statusStrip;
+    private ToolStripStatusLabel _tsslStatus;
+    private ToolStripProgressBar _tsspProgress;
     private ToolTip _toolTip;
 
     protected override void Dispose(bool disposing)
@@ -49,8 +51,10 @@ partial class DocumentViewForm
         _btnExportHtml = new Button();
         _btnExportWord = new Button();
         _btnExportPdf = new Button();
-        _progressBar = new ProgressBar();
-        _lblStatus = new Label();
+        _btnExportSettings = new Button();
+        _statusStrip = new StatusStrip();
+        _tsslStatus = new ToolStripStatusLabel();
+        _tsspProgress = new ToolStripProgressBar();
         _toolTip = new ToolTip(components);
         ((System.ComponentModel.ISupportInitialize)_split).BeginInit();
         _split.Panel1.SuspendLayout();
@@ -61,6 +65,7 @@ partial class DocumentViewForm
         _tabEdit.SuspendLayout();
         _pnlToolbar.SuspendLayout();
         _flowButtons.SuspendLayout();
+        _statusStrip.SuspendLayout();
         SuspendLayout();
         //
         // _split
@@ -160,8 +165,6 @@ partial class DocumentViewForm
         //
         // _pnlToolbar
         //
-        _pnlToolbar.Controls.Add(_progressBar);
-        _pnlToolbar.Controls.Add(_lblStatus);
         _pnlToolbar.Controls.Add(_flowButtons);
         _pnlToolbar.Dock = DockStyle.Bottom;
         _pnlToolbar.Height = 36;
@@ -176,10 +179,10 @@ partial class DocumentViewForm
         _flowButtons.Controls.Add(_btnExportHtml);
         _flowButtons.Controls.Add(_btnExportWord);
         _flowButtons.Controls.Add(_btnExportPdf);
+        _flowButtons.Controls.Add(_btnExportSettings);
         _flowButtons.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Bottom;
         _flowButtons.Location = new Point(4, 5);
         _flowButtons.Name = "_flowButtons";
-        _flowButtons.Size = new Size(420, 26);
         _flowButtons.TabIndex = 0;
         //
         // _btnSave
@@ -249,39 +252,52 @@ partial class DocumentViewForm
         _btnExportPdf.UseVisualStyleBackColor = true;
         _btnExportPdf.Click += ExportPdf_Click;
         //
-        // _progressBar
+        // _btnExportSettings
         //
-        _progressBar.Anchor = AnchorStyles.Left | AnchorStyles.Top;
-        _progressBar.Location = new Point(430, 8);
-        _progressBar.Name = "_progressBar";
-        _progressBar.Size = new Size(160, 20);
-        _progressBar.Style = ProgressBarStyle.Marquee;
-        _progressBar.MarqueeAnimationSpeed = 30;
-        _progressBar.TabStop = false;
-        _progressBar.Visible = false;
+        _btnExportSettings.AutoSize = true;
+        _btnExportSettings.Location = new Point(399, 0);
+        _btnExportSettings.Margin = new Padding(0, 0, 4, 0);
+        _btnExportSettings.Name = "_btnExportSettings";
+        _btnExportSettings.TabIndex = 5;
+        _btnExportSettings.Text = "내보내기 서식";
+        _btnExportSettings.UseVisualStyleBackColor = true;
+        _btnExportSettings.Click += ExportSettings_Click;
         //
-        // _lblStatus
+        // _statusStrip
         //
-        _lblStatus.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _lblStatus.AutoEllipsis = true;
-        _lblStatus.Font = new Font("Segoe UI", 8.5F);
-        _lblStatus.ForeColor = Color.FromArgb(80, 80, 80);
-        _lblStatus.Location = new Point(600, 10);
-        _lblStatus.Name = "_lblStatus";
-        _lblStatus.Size = new Size(372, 18);
-        _lblStatus.TabIndex = 1;
-        _lblStatus.TextAlign = ContentAlignment.MiddleRight;
+        _statusStrip.Items.AddRange(new ToolStripItem[] { _tsslStatus, _tsspProgress });
+        _statusStrip.Name = "_statusStrip";
+        _statusStrip.SizingGrip = false;
+        _statusStrip.TabIndex = 2;
+        //
+        // _tsslStatus
+        //
+        _tsslStatus.Font = new Font("Segoe UI", 8.5F);
+        _tsslStatus.ForeColor = Color.FromArgb(80, 80, 80);
+        _tsslStatus.Name = "_tsslStatus";
+        _tsslStatus.Size = new Size(0, 17);
+        _tsslStatus.Spring = true;
+        _tsslStatus.TextAlign = ContentAlignment.MiddleRight;
+        //
+        // _tsspProgress
+        //
+        _tsspProgress.Name = "_tsspProgress";
+        _tsspProgress.Size = new Size(160, 16);
+        _tsspProgress.Style = ProgressBarStyle.Marquee;
+        _tsspProgress.MarqueeAnimationSpeed = 30;
+        _tsspProgress.Visible = false;
         //
         // DocumentViewForm
         //
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(980, 540);
+        ClientSize = new Size(980, 562);
         Controls.Add(_split);
         Controls.Add(_pnlToolbar);
+        Controls.Add(_statusStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         KeyPreview = true;
-        MinimumSize = new Size(658, 385);
+        MinimumSize = new Size(658, 407);
         Name = "DocumentViewForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "미리보기 — MD Maker";
@@ -298,6 +314,9 @@ partial class DocumentViewForm
         _pnlToolbar.PerformLayout();
         _flowButtons.ResumeLayout(false);
         _flowButtons.PerformLayout();
+        _statusStrip.ResumeLayout(false);
+        _statusStrip.PerformLayout();
         ResumeLayout(false);
+        PerformLayout();
     }
 }

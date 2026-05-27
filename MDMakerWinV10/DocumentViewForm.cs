@@ -15,6 +15,7 @@ public partial class DocumentViewForm : Form
     private bool _needsRerender;
     private bool _initializing;
     private bool _isExporting;
+    private PdfSettings _pdfSettings = new();
     private List<OutlineItem> _outline = [];
     private readonly System.Windows.Forms.Timer _outlineTimer = new() { Interval = 800 };
     private CancellationTokenSource _statusCts = new();
@@ -42,6 +43,7 @@ public partial class DocumentViewForm : Form
     private void InitializeDocument(string content, string? filePath)
     {
         _filePath = filePath;
+        _pdfSettings = AppSettings.Load().PdfSettings ?? new();
 
         _outlineTimer.Tick += (_, _) =>
         {
@@ -233,8 +235,9 @@ public partial class DocumentViewForm : Form
         BeginExport("HTML 변환 중...");
         try
         {
-            var md = _editor.Text;
-            var html = await Task.Run(() => MarkdownConverter.ToHtml(md));
+            var md  = _editor.Text;
+            var cfg = _pdfSettings;
+            var html = await Task.Run(() => MarkdownConverter.ToHtml(md, cfg));
             await File.WriteAllTextAsync(dlg.FileName, html, new UTF8Encoding(false));
             EndExport($"HTML 저장 완료: {Path.GetFileName(dlg.FileName)}");
             ShowExportSuccess("HTML", dlg.FileName);
@@ -255,9 +258,10 @@ public partial class DocumentViewForm : Form
         BeginExport("Word 변환 중...");
         try
         {
-            var md = _editor.Text;
+            var md   = _editor.Text;
             var dest = dlg.FileName;
-            await Task.Run(() => MarkdownConverter.ToDocx(md, dest));
+            var cfg  = _pdfSettings;
+            await Task.Run(() => MarkdownConverter.ToDocx(md, dest, cfg));
             EndExport($"Word 저장 완료: {Path.GetFileName(dlg.FileName)}");
             ShowExportSuccess("Word", dlg.FileName);
         }
@@ -280,7 +284,8 @@ public partial class DocumentViewForm : Form
         try
         {
             var md = _editor.Text;
-            var pdfHtml = await Task.Run(() => MarkdownConverter.ToHtmlForPdf(md));
+            var cfg = _pdfSettings;
+            var pdfHtml = await Task.Run(() => MarkdownConverter.ToHtmlForPdf(md, cfg));
 
             UpdateExportStatus("2/3  페이지 렌더링 중...");
             var tcs = new TaskCompletionSource();
@@ -296,10 +301,10 @@ public partial class DocumentViewForm : Form
             UpdateExportStatus("3/3  PDF 변환 중...");
             var settings = _webView.CoreWebView2.Environment.CreatePrintSettings();
             settings.ShouldPrintBackgrounds = true;
-            settings.MarginTop = 0.75;
-            settings.MarginBottom = 0.75;
-            settings.MarginLeft = 1.0;
-            settings.MarginRight = 1.0;
+            settings.MarginTop    = cfg.MarginVerticalInch;
+            settings.MarginBottom = cfg.MarginVerticalInch;
+            settings.MarginLeft   = cfg.MarginHorizontalInch;
+            settings.MarginRight  = cfg.MarginHorizontalInch;
 
             bool ok = await _webView.CoreWebView2.PrintToPdfAsync(dlg.FileName, settings);
             if (ok)
@@ -318,6 +323,16 @@ public partial class DocumentViewForm : Form
         {
             _needsRerender = true;
         }
+    }
+
+    private void ExportSettings_Click(object? sender, EventArgs e)
+    {
+        using var dlg = new PdfSettingsDialog(_pdfSettings);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        _pdfSettings = dlg.Result;
+        var s = AppSettings.Load();
+        s.PdfSettings = _pdfSettings;
+        s.Save();
     }
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
@@ -400,27 +415,29 @@ public partial class DocumentViewForm : Form
     {
         _isExporting = true;
         _outlineTimer.Stop();
-        _progressBar.Visible = true;
+        _tsspProgress.Visible = true;
         _btnSave.Enabled = false;
         _btnExportHtml.Enabled = false;
         _btnExportWord.Enabled = false;
         _btnExportPdf.Enabled = false;
-        if (!IsDisposed) _lblStatus.Text = status;
+        _btnExportSettings.Enabled = false;
+        if (!IsDisposed) _tsslStatus.Text = status;
     }
 
     private void UpdateExportStatus(string status)
     {
-        if (!IsDisposed) _lblStatus.Text = status;
+        if (!IsDisposed) _tsslStatus.Text = status;
     }
 
     private void EndExport(string? completionStatus = null)
     {
         _isExporting = false;
-        _progressBar.Visible = false;
+        _tsspProgress.Visible = false;
         UpdateSaveButton();
         _btnExportHtml.Enabled = true;
         _btnExportWord.Enabled = true;
         _btnExportPdf.Enabled = _webViewReady;
+        _btnExportSettings.Enabled = true;
         if (completionStatus != null) SetStatus(completionStatus);
     }
 
@@ -452,11 +469,11 @@ public partial class DocumentViewForm : Form
         _statusCts.Cancel();
         _statusCts = new CancellationTokenSource();
         var token = _statusCts.Token;
-        if (!IsDisposed) _lblStatus.Text = msg;
+        if (!IsDisposed) _tsslStatus.Text = msg;
         try
         {
             await Task.Delay(4000, token);
-            if (!IsDisposed) _lblStatus.Text = "";
+            if (!IsDisposed) _tsslStatus.Text = "";
         }
         catch (TaskCanceledException) { }
     }

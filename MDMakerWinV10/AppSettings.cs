@@ -2,14 +2,25 @@ using System.Text.Json;
 
 namespace MDMakerWinV10;
 
+public class PdfSettings
+{
+    public string  FontFamily          { get; set; } = "'Malgun Gothic','Segoe UI',Helvetica,Arial,sans-serif";
+    public double  FontSizePt          { get; set; } = 10;
+    public double  LineHeight          { get; set; } = 1.4;
+    public double  ParagraphSpacingEm  { get; set; } = 0.5;
+    public double  MarginVerticalInch  { get; set; } = 0.75;
+    public double  MarginHorizontalInch{ get; set; } = 1.0;
+}
+
 class AppSettings
 {
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "MDMakerWinV10", "settings.json");
 
-    public string LastSourceDir { get; set; } = "";
-    public string LastOutputFile { get; set; } = "";
+    public string     LastSourceDir  { get; set; } = "";
+    public string     LastOutputFile { get; set; } = "";
+    public PdfSettings PdfSettings   { get; set; } = new();
 
     public static AppSettings Load()
     {

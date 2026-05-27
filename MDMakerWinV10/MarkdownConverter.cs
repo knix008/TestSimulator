@@ -112,18 +112,32 @@ public static class MarkdownConverter
             RegexOptions.IgnoreCase);
     }
 
-    public static string ToHtml(string markdown) =>
-        HtmlDoc(ApplyHeadingNumbering(Markdig.Markdown.ToHtml(markdown, Pipeline)));
+    public static string ToHtml(string markdown, PdfSettings? settings = null)
+    {
+        settings ??= new PdfSettings();
+        string body = ApplyHeadingNumbering(Markdig.Markdown.ToHtml(markdown, Pipeline));
+        return HtmlDoc(body, settings, forPrint: false);
+    }
 
-    public static string ToHtmlForPdf(string markdown) => ToHtmlWithAnchors(markdown, numberHeadings: true);
+    public static string ToHtmlForPdf(string markdown, PdfSettings? settings = null)
+    {
+        settings ??= new PdfSettings();
+        string body = Markdig.Markdown.ToHtml(markdown, Pipeline);
+        body = ApplyHeadingNumbering(body);
+        int i = 0;
+        body = Regex.Replace(body, @"<(h[1-6])([ >])",
+            m => $"<{m.Groups[1].Value} id=\"h-{i++}\"{m.Groups[2].Value}");
+        return HtmlDoc(body, settings, forPrint: true);
+    }
 
     // DOCX via AltChunk: Word opens the embedded HTML and converts it natively.
-    public static void ToDocx(string markdown, string outputPath)
+    public static void ToDocx(string markdown, string outputPath, PdfSettings? settings = null)
     {
         const string chunkId = "chunk1";
+        settings ??= new PdfSettings();
         // UTF-8 BOM helps Word detect encoding correctly
         byte[] htmlBytes = Encoding.UTF8.GetPreamble()
-            .Concat(Encoding.UTF8.GetBytes(ToHtml(markdown))).ToArray();
+            .Concat(Encoding.UTF8.GetBytes(ToHtml(markdown, settings))).ToArray();
 
         using var doc = WordprocessingDocument.Create(outputPath, WordprocessingDocumentType.Document);
         var main = doc.AddMainDocumentPart();
@@ -159,8 +173,58 @@ public static class MarkdownConverter
         }
     }
 
+    static string HtmlDoc(string body, PdfSettings? settings = null, bool forPrint = false)
+    {
+        if (settings == null)
+            return HtmlDocPreview(body);
+
+        var ic = System.Globalization.CultureInfo.InvariantCulture;
+        string ff = settings.FontFamily;
+        string fs = settings.FontSizePt.ToString("0.##", ic);
+        string lh = settings.LineHeight.ToString("0.##", ic);
+        string ps = settings.ParagraphSpacingEm.ToString("0.##", ic);
+        string bodyLayout = forPrint
+            ? "margin:0;padding:0"
+            : "max-width:860px;margin:40px auto;padding:0 24px";
+        string headingBreak = forPrint ? "page-break-after:avoid;" : "";
+        string blockBreak   = forPrint ? "page-break-inside:avoid;" : "";
+        return $$"""
+            <!DOCTYPE html>
+            <html><head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <meta name="color-scheme" content="light">
+            <style>
+              html{background:#fff;color:#1a1a1a;color-scheme:light}
+              body{font-family:{{ff}};font-size:{{fs}}pt;line-height:{{lh}};{{bodyLayout}};color:#1a1a1a;background:#fff}
+              p{margin-top:0;margin-bottom:{{ps}}em}
+              h1,h2,h3,h4,h5,h6{margin-top:1.0em;margin-bottom:.25em;color:#111;font-weight:600;{{headingBreak}}}
+              h1{font-size:1.8em;border-bottom:2px solid #e0e0e0;padding-bottom:.2em}
+              h2{font-size:1.4em;border-bottom:1px solid #e0e0e0;padding-bottom:.15em}
+              h3{font-size:1.15em}
+              h4,h5,h6{font-size:1em}
+              code{background:#f0f0f0;padding:.1em .35em;border-radius:3px;font-family:Consolas,'Courier New',monospace;font-size:.88em}
+              pre{background:#f5f5f5;padding:.7em 1em;border-radius:4px;overflow-x:auto;border:1px solid #e0e0e0;{{blockBreak}}}
+              pre code{background:none;padding:0}
+              blockquote{border-left:4px solid #ccc;margin:0 0 {{ps}}em;padding:.4em .8em;color:#555;background:#fafafa}
+              table{border-collapse:collapse;width:100%;margin:{{ps}}em 0;{{blockBreak}}}
+              th,td{border:1px solid #ddd;padding:.35em .7em;text-align:left}
+              th{background:#f0f0f0;font-weight:600}
+              tr:nth-child(even){background:#fafafa}
+              hr{border:none;border-top:2px solid #e0e0e0;margin:1em 0}
+              a{color:#0078d4;text-decoration:none}
+              img{max-width:100%}
+              ul,ol{padding-left:1.8em;margin:0 0 {{ps}}em}
+              li{margin:.1em 0}
+            </style>
+            </head><body>
+            {{body}}
+            </body></html>
+            """;
+    }
+
     // $$""" lets CSS use single-brace rules naturally; {{body}} is the one interpolation.
-    static string HtmlDoc(string body) => $$"""
+    static string HtmlDocPreview(string body) => $$"""
         <!DOCTYPE html>
         <html><head>
         <meta charset="utf-8">
