@@ -9,10 +9,12 @@ public partial class DocumentViewForm : Form
 {
     private WebView2? _webView;
     private string? _filePath;
+    private string? _previewTempFile;
     private bool _isDirty;
     private bool _webViewReady;
     private bool _needsRerender;
     private bool _initializing;
+    private bool _isExporting;
     private List<OutlineItem> _outline = [];
     private readonly System.Windows.Forms.Timer _outlineTimer = new() { Interval = 800 };
     private CancellationTokenSource _statusCts = new();
@@ -49,7 +51,7 @@ public partial class DocumentViewForm : Form
         };
 
         _split.Resize += (_, _) => ApplySplitterDistance(_split.SplitterDistance);
-        Shown += (_, _) => ConfigureSplitLayout();
+        Shown += DocumentViewForm_Shown;
 
         _initializing = true;
         _editor.Text = content;
@@ -60,8 +62,6 @@ public partial class DocumentViewForm : Form
         BuildOutlineTree();
         UpdateTitle();
         UpdateSaveButton();
-
-        Load += DocumentViewForm_Load;
     }
 
     private void EnsureWebView()
@@ -78,11 +78,8 @@ public partial class DocumentViewForm : Form
         _pnlPreview.Controls.Add(_webView);
     }
 
-    private async void DocumentViewForm_Load(object? sender, EventArgs e)
+    private async void DocumentViewForm_Shown(object? sender, EventArgs e)
     {
-        if (IsDesignMode)
-            return;
-
         ConfigureSplitLayout();
         await InitWebViewAsync();
     }
@@ -114,6 +111,7 @@ public partial class DocumentViewForm : Form
         try
         {
             EnsureWebView();
+            if (_webView == null || IsDisposed) return;
             var dataDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "MDMakerWinV10", "WebView2");
@@ -135,24 +133,34 @@ public partial class DocumentViewForm : Form
             _btnExportPdf.Enabled = false;
             if (_webView != null)
                 _webView.Visible = false;
+
+            string detail = $"{ex.GetType().Name}: {ex.Message}";
             _pnlPreview.Controls.Add(new Label
             {
-                Text = $"WebView2 초기화 실패\n{ex.Message}\n\nWebView2 Runtime이 설치되어 있는지 확인해 주세요.",
+                Text = "WebView2 초기화 실패. 자세한 내용은 상단 알림을 확인하세요.",
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleCenter,
                 ForeColor = Color.Gray
             });
+            ShowWebView2Error(detail);
         }
     }
 
     private void RenderPreview()
     {
-        if (!_webViewReady || _webView == null || IsDisposed) return;
+        if (!_webViewReady || _webView == null || IsDisposed || _isExporting) return;
         var md = _editor.Text;
         _outline = MarkdownConverter.GetOutline(md);
         BuildOutlineTree();
-        _webView.NavigateToString(MarkdownConverter.ToHtmlWithAnchors(md));
+        NavigateToHtml(MarkdownConverter.ToHtmlWithAnchors(md));
         _needsRerender = false;
+    }
+
+    private void NavigateToHtml(string html)
+    {
+        _previewTempFile ??= Path.ChangeExtension(Path.GetTempFileName(), ".html");
+        File.WriteAllText(_previewTempFile, html, new UTF8Encoding(false));
+        _webView!.CoreWebView2.Navigate(new Uri(_previewTempFile).AbsoluteUri);
     }
 
     private void BuildOutlineTree()
@@ -222,17 +230,19 @@ public partial class DocumentViewForm : Form
         };
         if (_filePath != null) dlg.InitialDirectory = Path.GetDirectoryName(_filePath);
         if (dlg.ShowDialog() != DialogResult.OK) return;
+        BeginExport("HTML 변환 중...");
         try
         {
-            await File.WriteAllTextAsync(dlg.FileName,
-                MarkdownConverter.ToHtml(_editor.Text), new UTF8Encoding(false));
-            SetStatus($"HTML 저장 완료: {Path.GetFileName(dlg.FileName)}");
+            var md = _editor.Text;
+            var html = await Task.Run(() => MarkdownConverter.ToHtml(md));
+            await File.WriteAllTextAsync(dlg.FileName, html, new UTF8Encoding(false));
+            EndExport($"HTML 저장 완료: {Path.GetFileName(dlg.FileName)}");
             ShowExportSuccess("HTML", dlg.FileName);
         }
-        catch (Exception ex) { ShowError(ex); }
+        catch (Exception ex) { EndExport(); ShowError(ex); }
     }
 
-    private void ExportWord_Click(object? sender, EventArgs e)
+    private async void ExportWord_Click(object? sender, EventArgs e)
     {
         using var dlg = new SaveFileDialog
         {
@@ -242,13 +252,16 @@ public partial class DocumentViewForm : Form
         };
         if (_filePath != null) dlg.InitialDirectory = Path.GetDirectoryName(_filePath);
         if (dlg.ShowDialog() != DialogResult.OK) return;
+        BeginExport("Word 변환 중...");
         try
         {
-            MarkdownConverter.ToDocx(_editor.Text, dlg.FileName);
-            SetStatus($"Word 저장 완료: {Path.GetFileName(dlg.FileName)}");
+            var md = _editor.Text;
+            var dest = dlg.FileName;
+            await Task.Run(() => MarkdownConverter.ToDocx(md, dest));
+            EndExport($"Word 저장 완료: {Path.GetFileName(dlg.FileName)}");
             ShowExportSuccess("Word", dlg.FileName);
         }
-        catch (Exception ex) { ShowError(ex); }
+        catch (Exception ex) { EndExport(); ShowError(ex); }
     }
 
     private async void ExportPdf_Click(object? sender, EventArgs e)
@@ -263,10 +276,13 @@ public partial class DocumentViewForm : Form
         if (_filePath != null) dlg.InitialDirectory = Path.GetDirectoryName(_filePath);
         if (dlg.ShowDialog() != DialogResult.OK) return;
 
-        SetStatus("PDF 생성 중...");
-        _btnExportPdf.Enabled = false;
+        BeginExport("1/3  페이지 준비 중...");
         try
         {
+            var md = _editor.Text;
+            var pdfHtml = await Task.Run(() => MarkdownConverter.ToHtmlForPdf(md));
+
+            UpdateExportStatus("2/3  페이지 렌더링 중...");
             var tcs = new TaskCompletionSource();
             void OnNav(object? s, CoreWebView2NavigationCompletedEventArgs ev)
             {
@@ -274,9 +290,10 @@ public partial class DocumentViewForm : Form
                 tcs.TrySetResult();
             }
             _webView.CoreWebView2.NavigationCompleted += OnNav;
-            _webView.NavigateToString(MarkdownConverter.ToHtmlForPdf(_editor.Text));
+            NavigateToHtml(pdfHtml);
             await tcs.Task;
 
+            UpdateExportStatus("3/3  PDF 변환 중...");
             var settings = _webView.CoreWebView2.Environment.CreatePrintSettings();
             settings.ShouldPrintBackgrounds = true;
             settings.MarginTop = 0.75;
@@ -287,17 +304,20 @@ public partial class DocumentViewForm : Form
             bool ok = await _webView.CoreWebView2.PrintToPdfAsync(dlg.FileName, settings);
             if (ok)
             {
-                SetStatus($"PDF 저장 완료: {Path.GetFileName(dlg.FileName)}");
+                EndExport($"PDF 저장 완료: {Path.GetFileName(dlg.FileName)}");
                 ShowExportSuccess("PDF", dlg.FileName);
             }
             else
             {
-                SetStatus("PDF 생성 실패");
+                EndExport("PDF 생성 실패");
                 MessageBox.Show("PDF 생성에 실패했습니다.", "오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
-        catch (Exception ex) { ShowError(ex); }
-        finally { _btnExportPdf.Enabled = _webViewReady; }
+        catch (Exception ex) { EndExport(); ShowError(ex); }
+        finally
+        {
+            _needsRerender = true;
+        }
     }
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
@@ -309,17 +329,18 @@ public partial class DocumentViewForm : Form
         }
     }
 
-    protected override void Dispose(bool disposing)
+    protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        if (disposing)
+        base.OnFormClosed(e);
+        _statusCts.Cancel();
+        _outlineTimer.Dispose();
+        _statusCts.Dispose();
+        _webView?.Dispose();
+        _webView = null;
+        if (_previewTempFile != null)
         {
-            components?.Dispose();
-            _webView?.Dispose();
-            _webView = null;
-            _outlineTimer.Dispose();
-            _statusCts.Dispose();
+            try { File.Delete(_previewTempFile); } catch { }
         }
-        base.Dispose(disposing);
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -375,6 +396,34 @@ public partial class DocumentViewForm : Form
         catch (Exception ex) { ShowError(ex); }
     }
 
+    private void BeginExport(string status)
+    {
+        _isExporting = true;
+        _outlineTimer.Stop();
+        _progressBar.Visible = true;
+        _btnSave.Enabled = false;
+        _btnExportHtml.Enabled = false;
+        _btnExportWord.Enabled = false;
+        _btnExportPdf.Enabled = false;
+        if (!IsDisposed) _lblStatus.Text = status;
+    }
+
+    private void UpdateExportStatus(string status)
+    {
+        if (!IsDisposed) _lblStatus.Text = status;
+    }
+
+    private void EndExport(string? completionStatus = null)
+    {
+        _isExporting = false;
+        _progressBar.Visible = false;
+        UpdateSaveButton();
+        _btnExportHtml.Enabled = true;
+        _btnExportWord.Enabled = true;
+        _btnExportPdf.Enabled = _webViewReady;
+        if (completionStatus != null) SetStatus(completionStatus);
+    }
+
     private void JumpEditorToLine(int line)
     {
         if (line < 0) return;
@@ -410,6 +459,45 @@ public partial class DocumentViewForm : Form
             if (!IsDisposed) _lblStatus.Text = "";
         }
         catch (TaskCanceledException) { }
+    }
+
+    private void ShowWebView2Error(string detail)
+    {
+        using var dlg = new Form
+        {
+            Text = "WebView2 초기화 실패",
+            ClientSize = new Size(520, 220),
+            MinimumSize = new Size(400, 200),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false
+        };
+
+        string msg = detail + "\n\nWebView2 Runtime이 설치되어 있는지 확인해 주세요.\n"
+                   + "Windows 11은 기본 내장, Windows 10은 별도 설치가 필요합니다.";
+
+        var txt = new TextBox
+        {
+            Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical,
+            Dock = DockStyle.Fill, Font = new Font("Consolas", 9F),
+            BackColor = Color.FromArgb(245, 245, 245), Text = msg
+        };
+        var pnlBtn = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom, Height = 40, FlowDirection = FlowDirection.RightToLeft,
+            Padding = new Padding(4)
+        };
+        var btnClose = new Button { Text = "닫기", Width = 72, Height = 28, DialogResult = DialogResult.OK };
+        var btnCopy  = new Button { Text = "복사", Width = 72, Height = 28 };
+        btnCopy.Click += (_, _) => { Clipboard.SetText(detail); btnCopy.Text = "복사됨"; };
+
+        pnlBtn.Controls.Add(btnClose);
+        pnlBtn.Controls.Add(btnCopy);
+        dlg.Controls.Add(txt);
+        dlg.Controls.Add(pnlBtn);
+        dlg.AcceptButton = btnClose;
+        dlg.ShowDialog(this);
     }
 
     private static void ShowError(Exception ex) =>

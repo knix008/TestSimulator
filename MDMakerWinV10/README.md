@@ -8,6 +8,12 @@
 - [.NET 10 Runtime](https://dotnet.microsoft.com/download)
 - WebView2 Runtime (Windows 11은 기본 내장, Windows 10은 [다운로드](https://developer.microsoft.com/microsoft-edge/webview2/))
 
+## 설치
+
+Release 빌드 시 `bin/Release/installer/MDMakerWinV10_Setup.msi` 가 자동 생성됩니다.
+
+설치 과정에서 **바탕화면 바로가기**와 **시작 메뉴 바로가기** 생성 여부를 개별 선택할 수 있습니다.
+
 ## 주요 기능
 
 ### 파일 병합
@@ -42,19 +48,32 @@
 
 ```
 MDMakerWinV10/
-├── Program.cs              진입점
-├── MainForm.cs             메인 UI (파일 선택 및 병합)
-├── MdMerger.cs             파일 탐색·병합 로직
-├── MarkdownConverter.cs    HTML/DOCX 변환, 문서 구조 추출
-└── DocumentViewForm.cs     문서 뷰어/편집기
+├── Program.cs                  진입점
+├── MainForm.cs                 메인 UI (파일 선택 및 병합)
+├── MdMerger.cs                 파일 탐색·병합 로직
+├── MarkdownConverter.cs        HTML/DOCX 변환, 문서 구조 추출
+├── DocumentViewForm.cs         문서 뷰어/편집기
+├── AppSettings.cs              설정 영속화
+├── FileItem.cs                 파일 항목 모델
+└── installer/
+    ├── Package.wxs             WiX 설치 패키지 정의
+    ├── MDMakerWinV10.Installer.wixproj
+    └── assets/
+        ├── daemon_hammer.ico   설치 아이콘
+        └── License.rtf
 ```
 
 ## 빌드
 
 ```bash
+# Debug 빌드 (앱만)
 dotnet build
-dotnet run
+
+# Release 빌드 (앱 + MSI 인스톨러 자동 생성)
+dotnet build -c Release
 ```
+
+MSI 출력 경로: `bin/Release/installer/MDMakerWinV10_Setup.msi`
 
 ## 사용 NuGet 패키지
 
