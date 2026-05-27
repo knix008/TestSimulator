@@ -1,0 +1,19 @@
+# Build output
+midimaster
+
+# SoundFont (large binary; copy separately)
+SoundFonts/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code internal
+.claude/
