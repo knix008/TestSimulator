@@ -204,7 +204,13 @@ public partial class DocumentViewForm : Form
         _outlineTimer.Start();
     }
 
-    private async void Save_Click(object? sender, EventArgs e) => await SaveAsync();
+    private async void Save_Click(object? sender, EventArgs e)
+    {
+        // 저장 버튼 클릭 시 편집 탭으로 전환
+        if (_tabs.SelectedTab != _tabEdit)
+            _tabs.SelectedTab = _tabEdit;
+        await SaveAsync();
+    }
 
     private async void ExportHtml_Click(object? sender, EventArgs e)
     {
@@ -303,6 +309,19 @@ public partial class DocumentViewForm : Form
         }
     }
 
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            components?.Dispose();
+            _webView?.Dispose();
+            _webView = null;
+            _outlineTimer.Dispose();
+            _statusCts.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
         if (_isDirty)
@@ -314,8 +333,6 @@ public partial class DocumentViewForm : Form
             if (result == DialogResult.Cancel) { e.Cancel = true; return; }
             if (result == DialogResult.Yes) SaveBeforeClose();
         }
-        _outlineTimer.Dispose();
-        _statusCts.Dispose();
         base.OnFormClosing(e);
     }
 

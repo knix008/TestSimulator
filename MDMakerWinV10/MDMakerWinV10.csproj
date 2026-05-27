@@ -9,7 +9,16 @@
     <AssemblyName>MDMakerWinV10</AssemblyName>
     <RootNamespace>MDMakerWinV10</RootNamespace>
     <StartupObject>MDMakerWinV10.Program</StartupObject>
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
+  <!-- Release 빌드 시 MSI 생성. SkipInstaller=true 로 순환 참조 방지. -->
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)installer\MDMakerWinV10.Installer.wixproj"
+      Targets="Restore;Build"
+      Properties="Configuration=Release;Platform=x64" />
+  </Target>
+
   <ItemGroup>
     <Compile Update="MainForm.cs">
       <SubType>Form</SubType>

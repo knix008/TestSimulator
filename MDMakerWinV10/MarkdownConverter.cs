@@ -1,3 +1,4 @@
+
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
@@ -13,6 +14,35 @@ public record OutlineItem(int Level, string Text, int Line, int Index);
 
 public static class MarkdownConverter
 {
+    // 마크다운 원본에 계층적 번호를 붙여 반환 (H1, H2, H3 ...)
+    public static string ApplyHeadingNumberingToMarkdown(string markdown)
+    {
+        var lines = markdown.Split('\n');
+        var counters = new int[6];
+        var sb = new StringBuilder();
+        foreach (var line in lines)
+        {
+            var m = Regex.Match(line, "^(#{1,6})\\s+(.*)");
+            if (m.Success)
+            {
+                int level = m.Groups[1].Value.Length;
+                counters[level - 1]++;
+                for (int i = level; i < 6; i++) counters[i] = 0;
+                int start = 0;
+                while (start < level - 1 && counters[start] == 0) start++;
+                var parts = new string[level - start];
+                for (int i = start; i < level; i++) parts[i - start] = counters[i].ToString();
+                string prefix = string.Join(".", parts);
+                sb.AppendLine($"{m.Groups[1].Value} {prefix} {m.Groups[2].Value}");
+            }
+            else
+            {
+                sb.AppendLine(line);
+            }
+        }
+        return sb.ToString();
+    }
+
     static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .UseAbbreviations()
         .UseCitations()

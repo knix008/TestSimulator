@@ -9,6 +9,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        // 정렬, 정렬방법, 파일명을 헤더로 삽입 그룹 초기화
         if (_cmbSort.Items.Count > 0 && _cmbSort.SelectedIndex < 0)
             _cmbSort.SelectedIndex = 0;
         UpdateMoveButtons();
@@ -296,6 +297,8 @@ public partial class MainForm : Form
         try
         {
             string content = MdMerger.Merge(files, opts);
+            // 헤더 번호 붙이기
+            content = MarkdownConverter.ApplyHeadingNumberingToMarkdown(content);
             var outDir = Path.GetDirectoryName(outPath);
             if (!string.IsNullOrEmpty(outDir)) Directory.CreateDirectory(outDir);
             File.WriteAllText(outPath, content, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
@@ -321,6 +324,8 @@ public partial class MainForm : Form
         try
         {
             string content = MdMerger.Merge(files, opts);
+            // 헤더 번호 붙이기
+            content = MarkdownConverter.ApplyHeadingNumberingToMarkdown(content);
             new DocumentViewForm(content).Show();
         }
         catch (Exception ex) { Log($"[오류] {ex.Message}"); }
