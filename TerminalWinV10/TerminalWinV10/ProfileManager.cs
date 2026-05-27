@@ -7,11 +7,14 @@ namespace TerminalWinV10
     [Serializable]
     public class TerminalProfile
     {
-        public string Name { get; set; }
-        public string ConnectionType { get; set; }
-        public string Port { get; set; }
-        public string Baud { get; set; }
-        public string IP { get; set; }
+        public string Name { get; set; } = "";
+        public string ConnectionType { get; set; } = ConnectionTypes.Local;
+        public string Port { get; set; } = "";
+        public string Baud { get; set; } = "9600";
+        public string IP { get; set; } = "127.0.0.1";
+        public bool UseSsl { get; set; }
+        /// <summary>Local 연결 시 사용자 지정 CLI 경로 (비우면 COMSPEC).</summary>
+        public string LocalShell { get; set; } = "";
     }
 
     public static class ProfileManager

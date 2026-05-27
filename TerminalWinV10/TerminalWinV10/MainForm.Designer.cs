@@ -1,41 +1,27 @@
-// ...existing code...
 namespace TerminalWinV10
 {
     partial class MainForm
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
-            {
                 components.Dispose();
-            }
             base.Dispose(disposing);
         }
 
-        #region Windows Form Designer generated code
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
-            rtbTerminal = new System.Windows.Forms.RichTextBox();
+            terminalTabs = new TerminalTabContainer();
             cmbConnectionType = new System.Windows.Forms.ComboBox();
             cmbPort = new System.Windows.Forms.ComboBox();
             txtTcpPort = new System.Windows.Forms.TextBox();
             cmbBaud = new System.Windows.Forms.ComboBox();
             txtIP = new System.Windows.Forms.TextBox();
+            txtLocalShell = new System.Windows.Forms.TextBox();
+            lblLocalShell = new System.Windows.Forms.Label();
             btnConnect = new System.Windows.Forms.Button();
             btnDisconnect = new System.Windows.Forms.Button();
             cmbProfile = new System.Windows.Forms.ComboBox();
@@ -44,67 +30,84 @@ namespace TerminalWinV10
             chkSsl = new System.Windows.Forms.CheckBox();
             SuspendLayout();
             // 
-            // rtbTerminal
+            // terminalTabs
             // 
-            rtbTerminal.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            rtbTerminal.BackColor = System.Drawing.Color.Black;
-            rtbTerminal.ForeColor = System.Drawing.Color.White;
-            rtbTerminal.Location = new System.Drawing.Point(14, 81);
-            rtbTerminal.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
-            rtbTerminal.Name = "rtbTerminal";
-            rtbTerminal.ReadOnly = true;
-            rtbTerminal.Size = new System.Drawing.Size(1064, 587);
-            rtbTerminal.TabIndex = 0;
-            rtbTerminal.Text = "";
+            terminalTabs.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
+            terminalTabs.Location = new System.Drawing.Point(14, 81);
+            terminalTabs.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            terminalTabs.Name = "terminalTabs";
+            terminalTabs.Size = new System.Drawing.Size(1064, 587);
+            terminalTabs.TabIndex = 0;
             // 
             // cmbConnectionType
             // 
             cmbConnectionType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cmbConnectionType.Items.AddRange(new object[] { "Serial", "TCP/IP" });
+            cmbConnectionType.Items.AddRange(new object[] { "Local", "Serial", "TCP/IP" });
             cmbConnectionType.Location = new System.Drawing.Point(14, 14);
             cmbConnectionType.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             cmbConnectionType.Name = "cmbConnectionType";
             cmbConnectionType.Size = new System.Drawing.Size(93, 23);
             cmbConnectionType.TabIndex = 1;
+            cmbConnectionType.SelectedIndexChanged += cmbConnectionType_SelectedIndexChanged;
             // 
             // cmbPort
             // 
             cmbPort.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cmbPort.Location = new System.Drawing.Point(117, 14);
+            cmbPort.Location = new System.Drawing.Point(114, 14);
             cmbPort.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             cmbPort.Name = "cmbPort";
-            cmbPort.Size = new System.Drawing.Size(69, 23);
+            cmbPort.Size = new System.Drawing.Size(58, 23);
             cmbPort.TabIndex = 2;
             // 
             // txtTcpPort
             // 
-            txtTcpPort.Location = new System.Drawing.Point(117, 14);
+            txtTcpPort.Location = new System.Drawing.Point(242, 14);
             txtTcpPort.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             txtTcpPort.Name = "txtTcpPort";
-            txtTcpPort.Size = new System.Drawing.Size(69, 23);
+            txtTcpPort.Size = new System.Drawing.Size(50, 23);
             txtTcpPort.TabIndex = 11;
+            txtTcpPort.Text = "8443";
             // 
             // cmbBaud
             // 
             cmbBaud.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cmbBaud.Location = new System.Drawing.Point(198, 14);
+            cmbBaud.Location = new System.Drawing.Point(178, 14);
             cmbBaud.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             cmbBaud.Name = "cmbBaud";
-            cmbBaud.Size = new System.Drawing.Size(69, 23);
+            cmbBaud.Size = new System.Drawing.Size(58, 23);
             cmbBaud.TabIndex = 3;
             // 
             // txtIP
             // 
-            txtIP.Location = new System.Drawing.Point(280, 14);
+            txtIP.Location = new System.Drawing.Point(296, 14);
             txtIP.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             txtIP.Name = "txtIP";
-            txtIP.Size = new System.Drawing.Size(116, 23);
+            txtIP.Size = new System.Drawing.Size(96, 23);
             txtIP.TabIndex = 4;
             txtIP.Text = "127.0.0.1";
             // 
+            // txtLocalShell
+            // 
+            txtLocalShell.Location = new System.Drawing.Point(428, 14);
+            txtLocalShell.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            txtLocalShell.Name = "txtLocalShell";
+            txtLocalShell.PlaceholderText = "비우면 COMSPEC/cmd.exe";
+            txtLocalShell.Size = new System.Drawing.Size(170, 23);
+            txtLocalShell.TabIndex = 12;
+            // 
+            // lblLocalShell
+            // 
+            lblLocalShell.AutoSize = true;
+            lblLocalShell.Location = new System.Drawing.Point(396, 17);
+            lblLocalShell.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            lblLocalShell.Name = "lblLocalShell";
+            lblLocalShell.Size = new System.Drawing.Size(27, 15);
+            lblLocalShell.TabIndex = 13;
+            lblLocalShell.Text = "CLI:";
+            // 
             // btnConnect
             // 
-            btnConnect.Location = new System.Drawing.Point(408, 12);
+            btnConnect.Location = new System.Drawing.Point(606, 12);
             btnConnect.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             btnConnect.Name = "btnConnect";
             btnConnect.Size = new System.Drawing.Size(88, 27);
@@ -115,7 +118,7 @@ namespace TerminalWinV10
             // 
             // btnDisconnect
             // 
-            btnDisconnect.Location = new System.Drawing.Point(513, 12);
+            btnDisconnect.Location = new System.Drawing.Point(700, 12);
             btnDisconnect.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             btnDisconnect.Name = "btnDisconnect";
             btnDisconnect.Size = new System.Drawing.Size(88, 27);
@@ -132,6 +135,7 @@ namespace TerminalWinV10
             cmbProfile.Name = "cmbProfile";
             cmbProfile.Size = new System.Drawing.Size(174, 23);
             cmbProfile.TabIndex = 7;
+            cmbProfile.SelectedIndexChanged += cmbProfile_SelectedIndexChanged;
             // 
             // btnSaveProfile
             // 
@@ -157,7 +161,7 @@ namespace TerminalWinV10
             // 
             // chkSsl
             // 
-            chkSsl.Location = new System.Drawing.Point(408, 46);
+            chkSsl.Location = new System.Drawing.Point(400, 48);
             chkSsl.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             chkSsl.Name = "chkSsl";
             chkSsl.Size = new System.Drawing.Size(140, 24);
@@ -170,6 +174,8 @@ namespace TerminalWinV10
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             ClientSize = new System.Drawing.Size(1092, 681);
+            Controls.Add(lblLocalShell);
+            Controls.Add(txtLocalShell);
             Controls.Add(chkSsl);
             Controls.Add(btnDeleteProfile);
             Controls.Add(btnSaveProfile);
@@ -181,23 +187,24 @@ namespace TerminalWinV10
             Controls.Add(cmbPort);
             Controls.Add(txtTcpPort);
             Controls.Add(cmbConnectionType);
-            Controls.Add(rtbTerminal);
+            Controls.Add(terminalTabs);
             Icon = (System.Drawing.Icon)resources.GetObject("$this.Icon");
             Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
             Name = "MainForm";
             Text = "TerminalWinV10";
+            FormClosing += MainForm_FormClosing;
             ResumeLayout(false);
             PerformLayout();
         }
 
-        #endregion
-
-        private System.Windows.Forms.RichTextBox rtbTerminal;
+        private TerminalTabContainer terminalTabs;
         private System.Windows.Forms.ComboBox cmbConnectionType;
         private System.Windows.Forms.ComboBox cmbPort;
         private System.Windows.Forms.TextBox txtTcpPort;
         private System.Windows.Forms.ComboBox cmbBaud;
         private System.Windows.Forms.TextBox txtIP;
+        private System.Windows.Forms.TextBox txtLocalShell;
+        private System.Windows.Forms.Label lblLocalShell;
         private System.Windows.Forms.Button btnConnect;
         private System.Windows.Forms.Button btnDisconnect;
         private System.Windows.Forms.CheckBox chkSsl;

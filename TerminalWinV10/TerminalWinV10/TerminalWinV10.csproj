@@ -3,10 +3,18 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
     <RootNamespace>TerminalWinV10</RootNamespace>
     <AssemblyName>TerminalWinV10</AssemblyName>
-    <!-- <ApplicationIcon>daemon_hammer.ico</ApplicationIcon> -->
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
   </PropertyGroup>
+  <!-- Release 빌드 시 MSI 생성. SkipInstaller=true 로 순환 참조 방지. -->
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\installer\TerminalWinV10.Installer.wixproj"
+      Targets="Restore;Build"
+      Properties="Configuration=Release;Platform=x64" />
+  </Target>
     <ItemGroup>
       <None Update="daemon_hammer.ico">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
