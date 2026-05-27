@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Text;
 using System.Windows.Forms;
 
 namespace TerminalWinV10
@@ -9,6 +10,7 @@ namespace TerminalWinV10
         private readonly RichTextBox _terminal;
         private readonly TerminalSession _session = new();
         private bool _isLocalSession;
+        private string _pendingEscapeSequence = string.Empty;
 
         public TerminalConnectionSettings Settings { get; } = new();
 
@@ -55,8 +57,11 @@ namespace TerminalWinV10
                 _session.Disconnect();
             _isLocalSession = false;
             if (!_terminal.IsDisposed)
+            {
                 _terminal.ReadOnly = true;
                 _terminal.Clear(); // 터미널 화면 초기화
+            }
+            _pendingEscapeSequence = string.Empty;
         }
 
         public void ApplySettings(TerminalConnectionSettings settings) => CopySettings(settings.Clone());
@@ -210,16 +215,7 @@ namespace TerminalWinV10
 
             // ConPTY는 프롬프트/입력 에코/진행률 등을 \r 로 같은 줄에 덮어써서 출력합니다.
             // RichTextBox는 이를 콘솔처럼 처리하지 못하므로, \r 을 "현재 줄 지우기"로 해석합니다.
-            if (text.IndexOf('\r') >= 0)
-            {
-                ApplyCarriageReturnOutput(text);
-                return;
-            }
-
-            text = TerminalTextNormalizer.Normalize(text);
-            if (!string.IsNullOrEmpty(text))
-                _terminal.AppendText(text);
-
+            AppendTerminalText(text);
             _terminal.SelectionStart = _terminal.TextLength;
             _terminal.SelectionLength = 0;
             _terminal.ScrollToCaret();
@@ -233,6 +229,13 @@ namespace TerminalWinV10
                 var ch = raw[i];
                 if (ch == '\r')
                 {
+                    if (i + 1 < raw.Length && raw[i + 1] == '\n')
+                    {
+                        _terminal.AppendText("\n");
+                        i++;
+                        continue;
+                    }
+
                     ClearCurrentLine();
                     continue;
                 }
