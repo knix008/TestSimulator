@@ -57,7 +57,7 @@ namespace VIXfaceSimulator
                 // TCP ?????? ???? (??? 8443 ???)
                 _sslServer = new TcpListener(IPAddress.Any, 8443);
                 
-                LogMessage("SSL server initialized.");
+                LogMessage("TLS 1.3 server initialized.");
             }
             catch (Exception ex)
             {
@@ -84,7 +84,7 @@ namespace VIXfaceSimulator
         {
             if (_isServerRunning || _sslServer == null || _serverCertificate == null)
             {
-                LogMessage("Cannot start server. SSL server or certificate is not initialized.");
+                LogMessage("Cannot start server. TLS 1.3 server or certificate is not initialized.");
                 return;
             }
 
@@ -92,7 +92,7 @@ namespace VIXfaceSimulator
             {
                 _sslServer.Start();
                 _isServerRunning = true;
-                LogMessage("SSL server started on port 8443.");
+                LogMessage("TLS 1.3 server started on port 8443.");
 
                 while (_isServerRunning && !_cancellationTokenSource.Token.IsCancellationRequested)
                 {
@@ -223,7 +223,7 @@ namespace VIXfaceSimulator
                 _isConnected = false;
                 _isTestModeEnabled = false;
                 
-                LogMessage("SSL server stopped.");
+                LogMessage("TLS 1.3 server stopped.");
             }
             catch (Exception ex)
             {
