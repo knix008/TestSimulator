@@ -3,7 +3,6 @@
 Linux용 VNC 서버 GUI 애플리케이션입니다. **GTK3**로 설정·시작 UI를 제공하고, **libvncserver**로 화면을 공유합니다.
 
 - **기본**: 전체 화면(모니터) — `xdg-desktop-portal` + PipeWire
-- **선택**: 특정 X11 창만 — XComposite / XCopyArea
 - **폴백**: Portal 실패 시 네이티브 X11에서 `ximagesrc` 또는 루트 픽스맵
 
 페어 클라이언트: [VNCClientLInuxGTKV10](../VNCClientLInuxGTKV10) (`./vncclient`)
@@ -21,8 +20,6 @@ Linux용 VNC 서버 GUI 애플리케이션입니다. **GTK3**로 설정·시작 
 
 Wayland·X11 공통 원격 입력은 **`/dev/uinput`** 권한이 필요합니다. 설정 방법은 아래 [원격 입력](#원격 입력)을 참고하세요.
 
-Wayland에서는 **XWayland**가 있어야 「특정 창만」 X11 창 선택이 동작합니다.
-
 ## 빠른 시작
 
 ```bash
@@ -32,7 +29,7 @@ make         # ./vncserver 생성
 ./vncserver
 ```
 
-1. GUI에서 **공유 범위** — 기본 **「전체 화면」** 유지  
+1. GUI에서 설정(포트/비밀번호/입력/해상도)을 확인  
 2. **Start** → 화면 공유 대화상자에서 **모니터(전체 화면)** 선택 (앱 창이 아님)  
 3. 상태에 `캡처 백엔드: portal-pipewire` 확인 후 클라이언트 연결  
 
@@ -77,15 +74,13 @@ VNCServerLinuxGTKV10/
 │   ├── gui_gtk.h
 │   ├── vnc_core.h
 │   ├── capture_gstreamer.h
-│   ├── input_inject.h
-│   └── window_picker.h
+│   └── input_inject.h
 └── src/
     ├── main.cpp
     ├── gui_gtk.cpp           # GTK3 UI
     ├── vnc_core.cpp          # libvncserver, 캡처 루프, 원격 입력
     ├── capture_gstreamer.cpp   # Portal PipeWire / ximagesrc
-    ├── input_inject.cpp      # uinput 가상 포인터·키보드
-    └── window_picker.cpp       # 「특정 창만」용 X11 창 선택
+    └── input_inject.cpp      # uinput 가상 포인터·키보드
 ```
 
 ## GUI 설정
@@ -96,9 +91,6 @@ VNCServerLinuxGTKV10/
 | **Password** | 선택; 비우면 무인증 |
 | **Allow remote mouse and keyboard** | 원격 입력 허용 |
 | **전송 해상도** | 슬라이더·숫자 입력(10–100%). 캡처 해상도 대비 VNC 전송 크기 비율 |
-| **공유 범위** | `전체 화면 (기본 · Portal)` / `특정 창만 (X11 창 ID)` |
-| **창 선택…** | 「특정 창만」일 때 대상 X11 창 지정 |
-
 서버 실행 중에는 Start 후 Portal 대화가 끝날 때까지 **화면 공유를 완료**한 뒤 클라이언트를 연결하는 것이 좋습니다.
 
 ## 화면 캡처
@@ -108,7 +100,6 @@ VNCServerLinuxGTKV10/
 | 전체 화면 | Portal → PipeWire | `portal-pipewire` |
 | 전체 화면 (Portal 실패, X11) | GStreamer `ximagesrc` | `gstreamer-x11` |
 | 전체 화면 (X11 폴백) | 루트 픽스맵 | X11 root |
-| 특정 창만 | XComposite / XCopyArea | `window` / `x11` |
 
 Wayland에서 Portal 없이 X11 창 합성만으로는 **전체 데스크톱이 아닌 일부 창만** 보일 수 있어, 전체 화면 모드에서는 Portal을 사용합니다.
 
@@ -177,7 +168,6 @@ uinput 메시지가 보이는데도 입력이 안 되면: Portal/화면 공유 �
 
 - [VNCServerWinV10](../VNCServerWinV10) 대비 다중 모니터 선택, H.264, 클립보드 파일 전송 등 미구현
 - 일부 보안 정책·원격 데스크톱 세션에서 uinput이 차단될 수 있음 (그때 XTest 폴백)
-- 「특정 창만」은 X11 창 ID 기준 (XWayland에 노출된 창)
 
 ## 문제 해결
 

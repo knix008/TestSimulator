@@ -91,8 +91,6 @@ struct StackedWindowEntry {
 };
 
 X11CaptureState g_x11;
-VncCaptureMode g_capture_mode = VncCaptureMode::FullDesktop;
-Window g_target_window = 0;
 std::string g_last_x_error;
 
 struct CaptureStats {
@@ -245,9 +243,7 @@ bool capture_via_pixmap(char* framebuffer);
 bool capture_root_window();
 bool overlay_windows_on_framebuffer();
 bool capture_full_desktop();
-bool capture_single_window();
 double framebuffer_nonzero_ratio();
-bool capture_via_xcomposite_window(Window window, char* framebuffer);
 bool mark_framebuffer_changes();
 void configure_vnc_server_performance();
 bool window_root_position(Window window, int* out_x, int* out_y);
@@ -346,11 +342,7 @@ int desktop_resize_hook(int width, int height, int /*numScreens*/,
     g_prev_framebuffer.clear();
 
     // Fill the new buffer before the client reads a full-screen Raw update.
-    if (g_capture_mode == VncCaptureMode::FullDesktop) {
-        (void)capture_full_desktop();
-    } else if (g_capture_mode == VncCaptureMode::SingleWindow) {
-        (void)capture_single_window();
-    }
+    (void)capture_full_desktop();
 
     return rfbExtDesktopSize_Success;
 }
@@ -448,8 +440,7 @@ void push_framebuffer_updates_to_all_clients() {
         return;
     }
 
-    if (g_capture_mode == VncCaptureMode::FullDesktop &&
-        framebuffer_nonzero_ratio() < kRootContentThreshold) {
+    if (framebuffer_nonzero_ratio() < kRootContentThreshold) {
         return;
     }
 
@@ -469,8 +460,7 @@ rfbNewClientAction new_client_hook(rfbClientPtr cl) {
     notify_status("Client connected: " + client_host_string(cl) +
                   " (total " + std::to_string(count) + ")");
 
-    if (g_capture_mode == VncCaptureMode::FullDesktop &&
-        !g_portal_setup_complete.load(std::memory_order_acquire)) {
+    if (!g_portal_setup_complete.load(std::memory_order_acquire)) {
         notify_status("화면 공유 대화상자를 완료하면 화면이 표시됩니다.");
         return RFB_CLIENT_ACCEPT;
     }
@@ -637,16 +627,6 @@ void map_vnc_coords_to_root(int vnc_x, int vnc_y, int* out_x, int* out_y) {
     int target_h = g_x11.height;
     int origin_x = 0;
     int origin_y = 0;
-
-    if (g_capture_mode == VncCaptureMode::SingleWindow && g_target_window && g_display) {
-        XWindowAttributes attr{};
-        if (XGetWindowAttributes(g_display, g_target_window, &attr) == 1 && attr.width > 0 &&
-            attr.height > 0) {
-            target_w = attr.width;
-            target_h = attr.height;
-            window_root_position(g_target_window, &origin_x, &origin_y);
-        }
-    }
 
     int rx = vnc_x;
     int ry = vnc_y;
@@ -1063,65 +1043,9 @@ bool overlay_windows_on_framebuffer() {
     return any;
 }
 
-bool capture_via_xcomposite_window(Window window, char* framebuffer) {
-    if (!g_display || !framebuffer || !g_x11.use_xcomposite || !window) {
-        return false;
-    }
-
-    g_last_x_error.clear();
-    const Pixmap composite_pixmap = XCompositeNameWindowPixmap(g_display, window);
-    if (!composite_pixmap) {
-        return false;
-    }
-
-    XWindowAttributes attr{};
-    if (XGetWindowAttributes(g_display, window, &attr) != 1) {
-        XFreePixmap(g_display, composite_pixmap);
-        return false;
-    }
-
-    XImage* image = XGetImage(g_display, composite_pixmap, 0, 0, attr.width, attr.height, AllPlanes,
-                              ZPixmap);
-    XFreePixmap(g_display, composite_pixmap);
-    if (!image) {
-        return false;
-    }
-
-    convert_ximage_to_framebuffer(image, framebuffer);
-    XDestroyImage(image);
-    return true;
-}
-
-
-bool capture_single_window() {
-    if (!g_display || !g_screen || !g_screen->frameBuffer || !g_target_window) {
-        return false;
-    }
-
-    if (g_x11.use_xcomposite &&
-        capture_via_xcomposite_window(g_target_window, g_screen->frameBuffer)) {
-        return true;
-    }
-
-    XImage* image = nullptr;
-    if (!capture_window_to_image(g_target_window, &image, nullptr, nullptr)) {
-        return false;
-    }
-
-    std::memset(g_screen->frameBuffer, 0,
-                static_cast<size_t>(g_screen->width) * static_cast<size_t>(g_screen->height) * 4U);
-    convert_ximage_to_framebuffer(image, g_screen->frameBuffer);
-    XDestroyImage(image);
-    return true;
-}
-
 bool capture_full_desktop() {
     if (!g_screen || !g_screen->frameBuffer) {
         return false;
-    }
-
-    if (g_capture_mode == VncCaptureMode::SingleWindow) {
-        return capture_single_window();
     }
 
     if (capture_gstreamer_is_active()) {
@@ -1172,8 +1096,7 @@ bool mark_framebuffer_changes() {
         return false;
     }
 
-    if (g_capture_mode == VncCaptureMode::FullDesktop &&
-        framebuffer_nonzero_ratio() < kRootContentThreshold) {
+    if (framebuffer_nonzero_ratio() < kRootContentThreshold) {
         return false;
     }
 
@@ -1246,11 +1169,9 @@ void maybe_report_capture_stats() {
     }
 
     const double nz = framebuffer_nonzero_ratio();
-    const char* mode =
-        g_capture_mode == VncCaptureMode::SingleWindow ? "window" : "desktop";
     const char* backend = capture_gstreamer_is_active() ? capture_gstreamer_backend_name()
                                                         : "x11";
-    notify_status(std::string("Screen TX [") + mode + "/" + backend + "]: ok=" +
+    notify_status(std::string("Screen TX [desktop/") + backend + "]: ok=" +
                   std::to_string(g_capture_stats.frames_ok) + ", unchanged=" +
                   std::to_string(g_capture_stats.frames_unchanged) + ", fail=" +
                   std::to_string(g_capture_stats.frames_failed) + ", content=" +
@@ -1408,15 +1329,6 @@ bool verify_screen_capture() {
     }
 
     const double content = framebuffer_nonzero_ratio();
-    if (g_capture_mode == VncCaptureMode::SingleWindow) {
-        if (content < kRootContentThreshold) {
-            notify_status("Warning: selected window capture looks empty.");
-        } else {
-            notify_status("Screen capture ready (single window, X11)");
-        }
-        return true;
-    }
-
     if (content < kRootContentThreshold) {
         notify_status("Warning: desktop capture looks empty on this display.");
     } else {
@@ -1460,8 +1372,6 @@ void cleanup_x11_capture() {
     capture_gstreamer_shutdown();
     release_pixmap();
     g_x11 = {};
-    g_capture_mode = VncCaptureMode::FullDesktop;
-    g_target_window = 0;
     g_stacked_windows.clear();
     g_prev_framebuffer.clear();
 }
@@ -1479,40 +1389,12 @@ void server_thread_main(VncServerOptions options) {
         return;
     }
 
-    g_capture_mode = options.capture_mode;
-    g_target_window = static_cast<Window>(options.target_window);
-
     if (!init_x11_display_info()) {
         cleanup_x11_capture();
         XCloseDisplay(g_display);
         g_display = nullptr;
         g_running.store(false);
         return;
-    }
-
-    if (g_capture_mode == VncCaptureMode::SingleWindow) {
-        if (!g_target_window) {
-            notify_status("No window selected for single-window sharing");
-            cleanup_x11_capture();
-            XCloseDisplay(g_display);
-            g_display = nullptr;
-            g_running.store(false);
-            return;
-        }
-
-        XWindowAttributes target_attr{};
-        if (XGetWindowAttributes(g_display, g_target_window, &target_attr) != 1 ||
-            target_attr.map_state != IsViewable || target_attr.width < kMinWindowSize ||
-            target_attr.height < kMinWindowSize) {
-            notify_status("Selected window is not available");
-            cleanup_x11_capture();
-            XCloseDisplay(g_display);
-            g_display = nullptr;
-            g_running.store(false);
-            return;
-        }
-        g_x11.width = target_attr.width;
-        g_x11.height = target_attr.height;
     }
 
     const int native_w = g_x11.width;
@@ -1623,62 +1505,52 @@ void server_thread_main(VncServerOptions options) {
         }
     }
 
-    if (g_capture_mode == VncCaptureMode::SingleWindow) {
-        notify_status("VNC server listening on port " + std::to_string(options.port) +
-                      " (single window, " + std::to_string(g_capture_scale_percent) +
-                      "%, ~15 fps)");
-    } else {
-        notify_status("VNC server listening on port " + std::to_string(options.port) +
-                      " (full desktop, " + std::to_string(g_capture_scale_percent) + "%, ~15 fps)");
-    }
+    notify_status("VNC server listening on port " + std::to_string(options.port) +
+                  " (full desktop, " + std::to_string(g_capture_scale_percent) + "%, ~15 fps)");
 
     // Portal dialog can block for minutes; run it on a helper thread and keep
     // calling rfbProcessEvents so the listen socket accepts vncviewer connections.
     g_portal_setup_complete.store(false, std::memory_order_release);
 
-    if (g_capture_mode == VncCaptureMode::FullDesktop) {
-        notify_status("화면 공유 권한을 요청 중입니다 (Portal)...");
-        std::atomic<bool> portal_finished{false};
-        bool portal_ok = false;
-        const int capture_w = g_x11.width;
-        const int capture_h = g_x11.height;
-        std::thread portal_worker([&]() {
-            portal_ok = capture_gstreamer_init_desktop(capture_w, capture_h, notify_status);
-            portal_finished.store(true, std::memory_order_release);
-        });
+    notify_status("화면 공유 권한을 요청 중입니다 (Portal)...");
+    std::atomic<bool> portal_finished{false};
+    bool portal_ok = false;
+    const int capture_w = g_x11.width;
+    const int capture_h = g_x11.height;
+    std::thread portal_worker([&]() {
+        portal_ok = capture_gstreamer_init_desktop(capture_w, capture_h, notify_status);
+        portal_finished.store(true, std::memory_order_release);
+    });
 
-        while (!portal_finished.load(std::memory_order_acquire) &&
-               g_running.load(std::memory_order_relaxed)) {
-            rfbProcessEvents(g_screen, 200 * 1000);
-        }
+    while (!portal_finished.load(std::memory_order_acquire) &&
+           g_running.load(std::memory_order_relaxed)) {
+        rfbProcessEvents(g_screen, 200 * 1000);
+    }
 
-        if (portal_worker.joinable()) {
-            portal_worker.join();
-        }
+    if (portal_worker.joinable()) {
+        portal_worker.join();
+    }
 
-        g_portal_setup_complete.store(true, std::memory_order_release);
+    g_portal_setup_complete.store(true, std::memory_order_release);
 
-        if (portal_ok) {
-            notify_status(std::string("캡처 백엔드: ") + capture_gstreamer_backend_name());
-            for (int attempt = 0; attempt < 30; ++attempt) {
-                if (capture_root_window() &&
-                    framebuffer_nonzero_ratio() >= kRootContentThreshold) {
-                    push_framebuffer_updates_to_all_clients();
-                    break;
-                }
-                rfbProcessEvents(g_screen, 100 * 1000);
-                usleep(100 * 1000);
-            }
-        } else if (std::getenv("WAYLAND_DISPLAY")) {
-            notify_status("Wayland: 화면 공유(Portal)가 필요합니다. 대화상자에서 모니터(전체 화면)를 선택하세요.");
-        } else {
-            notify_status("Portal 캡처 불가 — X11 root 폴백 사용");
-            if (capture_root_window()) {
+    if (portal_ok) {
+        notify_status(std::string("캡처 백엔드: ") + capture_gstreamer_backend_name());
+        for (int attempt = 0; attempt < 30; ++attempt) {
+            if (capture_root_window() &&
+                framebuffer_nonzero_ratio() >= kRootContentThreshold) {
                 push_framebuffer_updates_to_all_clients();
+                break;
             }
+            rfbProcessEvents(g_screen, 100 * 1000);
+            usleep(100 * 1000);
         }
+    } else if (std::getenv("WAYLAND_DISPLAY")) {
+        notify_status("Wayland: 화면 공유(Portal)가 필요합니다. 대화상자에서 모니터(전체 화면)를 선택하세요.");
     } else {
-        g_portal_setup_complete.store(true, std::memory_order_release);
+        notify_status("Portal 캡처 불가 — X11 root 폴백 사용");
+        if (capture_root_window()) {
+            push_framebuffer_updates_to_all_clients();
+        }
     }
 
     if (!verify_screen_capture()) {

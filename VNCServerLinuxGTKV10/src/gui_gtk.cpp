@@ -2,7 +2,6 @@
 
 #include "capture_gstreamer.h"
 #include "vnc_core.h"
-#include "window_picker.h"
 
 #include <gtk/gtk.h>
 
@@ -25,9 +24,6 @@ struct AppWidgets {
     GtkAdjustment* scale_resolution_adj = nullptr;
     GtkWidget* scale_resolution = nullptr;
     GtkWidget* spin_resolution = nullptr;
-    GtkWidget* combo_capture = nullptr;
-    GtkWidget* btn_pick_window = nullptr;
-    GtkWidget* lbl_selected_window = nullptr;
     GtkWidget* btn_toggle = nullptr;
     GtkWidget* status_led = nullptr;
     GtkWidget* lbl_status_text = nullptr;
@@ -39,8 +35,6 @@ struct AppWidgets {
 
 AppWidgets g_ui;
 std::atomic<bool> g_shutting_down{false};
-std::uint64_t g_selected_window_xid = 0;
-std::string g_selected_window_title;
 
 void shutdown_application();
 
@@ -376,61 +370,6 @@ void post_clients(int count) {
     g_main_context_invoke(nullptr, dispatch_clients_idle, GINT_TO_POINTER(count));
 }
 
-std::uint64_t own_app_window_xid() {
-#ifdef GDK_WINDOWING_X11
-    if (!g_ui.window) {
-        return 0;
-    }
-    GdkWindow* gdk_window = gtk_widget_get_window(g_ui.window);
-    if (gdk_window && GDK_IS_X11_WINDOW(gdk_window)) {
-        return gdk_x11_window_get_xid(gdk_window);
-    }
-#endif
-    return 0;
-}
-
-bool capture_mode_is_single_window() {
-    if (!GTK_IS_COMBO_BOX(g_ui.combo_capture)) {
-        return false;
-    }
-    return gtk_combo_box_get_active(GTK_COMBO_BOX(g_ui.combo_capture)) == 1;
-}
-
-void update_window_picker_sensitivity() {
-    const bool single = capture_mode_is_single_window();
-    if (g_ui.btn_pick_window) {
-        gtk_widget_set_sensitive(g_ui.btn_pick_window, single);
-    }
-    if (g_ui.lbl_selected_window) {
-        if (single) {
-            if (g_selected_window_xid != 0) {
-                gtk_label_set_text(GTK_LABEL(g_ui.lbl_selected_window),
-                                   g_selected_window_title.c_str());
-            } else {
-                gtk_label_set_text(GTK_LABEL(g_ui.lbl_selected_window), "(창을 선택하세요)");
-            }
-        } else {
-            gtk_label_set_text(GTK_LABEL(g_ui.lbl_selected_window),
-                               "전체 화면이 기본으로 공유됩니다");
-        }
-    }
-}
-
-void on_capture_mode_changed(GtkComboBox* /*combo*/, gpointer /*data*/) {
-    update_window_picker_sensitivity();
-}
-
-void on_pick_window_clicked(GtkWidget* /*btn*/, gpointer /*data*/) {
-    std::uint64_t xid = 0;
-    std::string title;
-    if (!window_picker_dialog_run(GTK_WINDOW(g_ui.window), own_app_window_xid(), &xid, &title)) {
-        return;
-    }
-    g_selected_window_xid = xid;
-    g_selected_window_title = title;
-    update_window_picker_sensitivity();
-}
-
 VncServerOptions read_options_from_ui() {
     VncServerOptions opt;
     opt.port = gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(g_ui.spin_port));
@@ -441,12 +380,6 @@ VncServerOptions read_options_from_ui() {
     if (g_ui.scale_resolution_adj) {
         opt.capture_scale_percent =
             static_cast<int>(gtk_adjustment_get_value(g_ui.scale_resolution_adj));
-    }
-    if (capture_mode_is_single_window()) {
-        opt.capture_mode = VncCaptureMode::SingleWindow;
-        opt.target_window = g_selected_window_xid;
-    } else {
-        opt.capture_mode = VncCaptureMode::FullDesktop;
     }
     return opt;
 }
@@ -501,24 +434,16 @@ void on_toggle_clicked(GtkWidget* /*btn*/, gpointer /*data*/) {
         gtk_widget_set_sensitive(g_ui.chk_input, TRUE);
         gtk_widget_set_sensitive(g_ui.scale_resolution, TRUE);
         gtk_widget_set_sensitive(g_ui.spin_resolution, TRUE);
-        gtk_widget_set_sensitive(g_ui.combo_capture, TRUE);
-        update_window_picker_sensitivity();
+        capture_gstreamer_set_parent_window(portal_parent_handle().c_str());
         set_port_display(gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(g_ui.spin_port)));
         return;
     }
 
     const VncServerOptions opt = read_options_from_ui();
 
-    if (opt.capture_mode == VncCaptureMode::SingleWindow && opt.target_window == 0) {
-        post_status("공유할 창을 먼저 선택하세요.");
-        return;
-    }
-
     // Portal init runs on the VNC worker thread (not here) so the GTK main loop
     // stays responsive while the screen-share dialog is open.
-    if (opt.capture_mode == VncCaptureMode::FullDesktop) {
-        capture_gstreamer_set_parent_window(portal_parent_handle().c_str());
-    }
+    capture_gstreamer_set_parent_window(portal_parent_handle().c_str());
 
     const bool started = vnc_server_start(
         opt,
@@ -537,8 +462,6 @@ void on_toggle_clicked(GtkWidget* /*btn*/, gpointer /*data*/) {
     gtk_widget_set_sensitive(g_ui.chk_input, FALSE);
     gtk_widget_set_sensitive(g_ui.scale_resolution, FALSE);
     gtk_widget_set_sensitive(g_ui.spin_resolution, FALSE);
-    gtk_widget_set_sensitive(g_ui.combo_capture, FALSE);
-    gtk_widget_set_sensitive(g_ui.btn_pick_window, FALSE);
     post_status("Starting VNC server on port " + std::to_string(opt.port) + " (" +
                 std::to_string(opt.capture_scale_percent) + "% resolution)...");
 }
@@ -670,34 +593,11 @@ GtkWidget* build_settings_section() {
 
     attach_form_row(GTK_GRID(grid), 3, "전송 해상도", resolution_row);
 
-    g_ui.combo_capture = gtk_combo_box_text_new();
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_capture),
-                                   "전체 화면 (기본 · Portal)");
-    gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_ui.combo_capture),
-                                   "특정 창만 (X11 창 ID)");
-    gtk_combo_box_set_active(GTK_COMBO_BOX(g_ui.combo_capture), 0);
-    gtk_widget_set_halign(g_ui.combo_capture, GTK_ALIGN_START);
-    g_signal_connect(g_ui.combo_capture, "changed", G_CALLBACK(on_capture_mode_changed), nullptr);
-    attach_form_row(GTK_GRID(grid), 4, "공유 범위", g_ui.combo_capture);
-
-    GtkWidget* pick_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    g_ui.btn_pick_window = gtk_button_new_with_label("창 선택…");
-    gtk_widget_set_sensitive(g_ui.btn_pick_window, FALSE);
-    g_signal_connect(g_ui.btn_pick_window, "clicked", G_CALLBACK(on_pick_window_clicked), nullptr);
-    gtk_box_pack_start(GTK_BOX(pick_box), g_ui.btn_pick_window, FALSE, FALSE, 0);
-
-    g_ui.lbl_selected_window = gtk_label_new(
-        "기본: 전체 화면. Wayland에서는 Portal 대화상자에서 모니터를 선택하세요.");
-    gtk_label_set_xalign(GTK_LABEL(g_ui.lbl_selected_window), 0.0f);
-    gtk_label_set_line_wrap(GTK_LABEL(g_ui.lbl_selected_window), TRUE);
-    gtk_box_pack_start(GTK_BOX(pick_box), g_ui.lbl_selected_window, TRUE, TRUE, 0);
-    attach_form_row(GTK_GRID(grid), 5, "대상 창", pick_box);
-
     GtkWidget* hint = gtk_label_new("VNC viewers connect with  host:port  (e.g.  localhost:5900)");
     gtk_label_set_xalign(GTK_LABEL(hint), 0.0f);
     gtk_style_context_add_class(gtk_widget_get_style_context(hint), "hint-label");
     gtk_widget_set_margin_top(hint, 4);
-    gtk_grid_attach(GTK_GRID(grid), hint, 1, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), hint, 1, 4, 1, 1);
 
     return make_frame("Settings", grid);
 }
