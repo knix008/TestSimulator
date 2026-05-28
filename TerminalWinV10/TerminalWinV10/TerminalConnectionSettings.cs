@@ -15,6 +15,7 @@ namespace TerminalWinV10
         public string Ip { get; set; } = "127.0.0.1";
         public string TcpPort { get; set; } = "8443";
         public bool UseSsl { get; set; }
+        public int MaxBufferLines { get; set; } = 1000;
         /// <summary>Local 연결 시 실행 파일. 비어 있으면 COMSPEC/cmd.exe 사용.</summary>
         public string LocalShell { get; set; } = "";
 
@@ -26,6 +27,7 @@ namespace TerminalWinV10
             Ip = Ip,
             TcpPort = TcpPort,
             UseSsl = UseSsl,
+            MaxBufferLines = MaxBufferLines,
             LocalShell = LocalShell
         };
     }

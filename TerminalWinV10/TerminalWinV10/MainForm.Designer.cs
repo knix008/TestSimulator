@@ -28,6 +28,8 @@ namespace TerminalWinV10
             btnSaveProfile = new System.Windows.Forms.Button();
             btnDeleteProfile = new System.Windows.Forms.Button();
             chkSsl = new System.Windows.Forms.CheckBox();
+            lblMaxBufferLines = new System.Windows.Forms.Label();
+            numMaxBufferLines = new System.Windows.Forms.NumericUpDown();
             SuspendLayout();
             // 
             // terminalTabs
@@ -169,11 +171,35 @@ namespace TerminalWinV10
             chkSsl.Text = "SSL/TLS 사용";
             chkSsl.UseVisualStyleBackColor = true;
             // 
+            // lblMaxBufferLines
+            // 
+            lblMaxBufferLines.AutoSize = true;
+            lblMaxBufferLines.Location = new System.Drawing.Point(548, 52);
+            lblMaxBufferLines.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            lblMaxBufferLines.Name = "lblMaxBufferLines";
+            lblMaxBufferLines.Size = new System.Drawing.Size(43, 15);
+            lblMaxBufferLines.TabIndex = 14;
+            lblMaxBufferLines.Text = "Buffer:";
+            // 
+            // numMaxBufferLines
+            // 
+            numMaxBufferLines.Location = new System.Drawing.Point(598, 48);
+            numMaxBufferLines.Margin = new System.Windows.Forms.Padding(4, 3, 4, 3);
+            numMaxBufferLines.Maximum = new decimal(new int[] { 100000, 0, 0, 0 });
+            numMaxBufferLines.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numMaxBufferLines.Name = "numMaxBufferLines";
+            numMaxBufferLines.Size = new System.Drawing.Size(88, 23);
+            numMaxBufferLines.TabIndex = 15;
+            numMaxBufferLines.Value = new decimal(new int[] { 1000, 0, 0, 0 });
+            numMaxBufferLines.ValueChanged += numMaxBufferLines_ValueChanged;
+            // 
             // MainForm
             // 
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             ClientSize = new System.Drawing.Size(1092, 681);
+            Controls.Add(numMaxBufferLines);
+            Controls.Add(lblMaxBufferLines);
             Controls.Add(lblLocalShell);
             Controls.Add(txtLocalShell);
             Controls.Add(chkSsl);
@@ -211,5 +237,7 @@ namespace TerminalWinV10
         private System.Windows.Forms.ComboBox cmbProfile;
         private System.Windows.Forms.Button btnSaveProfile;
         private System.Windows.Forms.Button btnDeleteProfile;
+        private System.Windows.Forms.Label lblMaxBufferLines;
+        private System.Windows.Forms.NumericUpDown numMaxBufferLines;
     }
 }

@@ -17,7 +17,7 @@ namespace TerminalWinV10
         private bool _isLocalSession;
         private string _pendingEscapeSequence = string.Empty;
         private bool _pendingCarriageReturn;
-        private bool _clearLineBeforeNextPrintable;
+        private int _viewportTopRow;
         private int _cursorRow;
         private int _cursorColumn;
         private int _lastRenderedCaretIndex = -1;
@@ -25,6 +25,7 @@ namespace TerminalWinV10
         private bool _wrapPending;
         private int _terminalColumns = 80;
         private int _terminalRows = 24;
+        private const int MinimumMaxBufferLines = 1;
 
         public TerminalConnectionSettings Settings { get; } = new();
 
@@ -89,6 +90,7 @@ namespace TerminalWinV10
             _queuedOutput.Clear();
             _renderTimer.Stop();
             _renderedText = string.Empty;
+            _viewportTopRow = 0;
             _cursorRow = 0;
             _cursorColumn = 0;
             _lastRenderedCaretIndex = -1;
@@ -96,7 +98,6 @@ namespace TerminalWinV10
             _wrapPending = false;
             _pendingEscapeSequence = string.Empty;
             _pendingCarriageReturn = false;
-            _clearLineBeforeNextPrintable = false;
         }
 
         public void ApplySettings(TerminalConnectionSettings settings) => CopySettings(settings.Clone());
@@ -109,7 +110,9 @@ namespace TerminalWinV10
             Settings.Ip = s.Ip;
             Settings.TcpPort = s.TcpPort;
             Settings.UseSsl = s.UseSsl;
+            Settings.MaxBufferLines = Math.Max(MinimumMaxBufferLines, s.MaxBufferLines);
             Settings.LocalShell = s.LocalShell;
+            TrimBufferToMaxLines();
         }
 
         public string GetTabTitle()
@@ -436,7 +439,7 @@ namespace TerminalWinV10
 
             if (final == 'd')
             {
-                _cursorRow = Math.Max(0, parameter - 1);
+                _cursorRow = _viewportTopRow + Math.Max(0, parameter - 1);
                 NormalizeCursorRow();
                 _wrapPending = false;
                 return;
@@ -480,7 +483,7 @@ namespace TerminalWinV10
             if (final == 'H' || final == 'f')
             {
                 var (row, column) = GetCursorPosition(sequence);
-                _cursorRow = Math.Max(0, row - 1);
+                _cursorRow = _viewportTopRow + Math.Max(0, row - 1);
                 _cursorColumn = Math.Max(0, column - 1);
                 NormalizeCursorRow();
                 _wrapPending = false;
@@ -578,7 +581,7 @@ namespace TerminalWinV10
             _pendingCarriageReturn = false;
             _cursorColumn = 0;
             _wrapPending = false;
-            _clearLineBeforeNextPrintable = true;
+            ClearLine(parameter: 2);
         }
 
         private void RemovePreviousCharacter()
@@ -612,7 +615,6 @@ namespace TerminalWinV10
                     break;
             }
             _wrapPending = false;
-            _clearLineBeforeNextPrintable = false;
         }
 
         private void ClearScreen(int parameter)
@@ -650,7 +652,8 @@ namespace TerminalWinV10
 
         private void ClearDisplayPreservingCursor()
         {
-            _screenLines.Clear();
+            for (int i = _viewportTopRow; i < _screenLines.Count; i++)
+                _screenLines[i].Clear();
             _wrapPending = false;
             EnsureLine(_cursorRow);
         }
@@ -671,15 +674,8 @@ namespace TerminalWinV10
                 _cursorRow++;
                 _cursorColumn = 0;
                 _wrapPending = false;
-                _clearLineBeforeNextPrintable = false;
                 NormalizeCursorRow();
                 return;
-            }
-
-            if (_clearLineBeforeNextPrintable)
-            {
-                ClearLine(parameter: 2);
-                _cursorColumn = 0;
             }
 
             if (_wrapPending)
@@ -714,17 +710,16 @@ namespace TerminalWinV10
         {
             while (_screenLines.Count <= row)
                 _screenLines.Add(new StringBuilder());
+
+            TrimBufferToMaxLines();
         }
 
         private void NormalizeCursorRow()
         {
-            if (_isLocalSession)
+            while (_isLocalSession && _cursorRow >= _viewportTopRow + _terminalRows)
             {
-                while (_cursorRow >= _terminalRows)
-                {
-                    ScrollUp(1);
-                    _cursorRow--;
-                }
+                _viewportTopRow++;
+                EnsureLine(_viewportTopRow + _terminalRows - 1);
             }
 
             EnsureLine(_cursorRow);
@@ -734,32 +729,46 @@ namespace TerminalWinV10
         {
             for (int i = 0; i < count; i++)
             {
-                if (_screenLines.Count > 0)
-                    _screenLines.RemoveAt(0);
-                _screenLines.Add(new StringBuilder());
+                _viewportTopRow++;
+                EnsureLine(_viewportTopRow + _terminalRows - 1);
             }
+            TrimBufferToMaxLines();
         }
 
         private void ScrollDown(int count)
         {
             for (int i = 0; i < count; i++)
             {
-                _screenLines.Insert(0, new StringBuilder());
-                if (_isLocalSession && _screenLines.Count > _terminalRows)
-                    _screenLines.RemoveAt(_screenLines.Count - 1);
+                if (_viewportTopRow > 0)
+                    _viewportTopRow--;
+                EnsureLine(_viewportTopRow + _terminalRows - 1);
+            }
+            TrimBufferToMaxLines();
+        }
+
+        private void TrimBufferToMaxLines()
+        {
+            var maxLines = Math.Max(MinimumMaxBufferLines, Settings.MaxBufferLines);
+            while (_screenLines.Count > maxLines)
+            {
+                _screenLines.RemoveAt(0);
+                _viewportTopRow = Math.Max(0, _viewportTopRow - 1);
+                _cursorRow = Math.Max(0, _cursorRow - 1);
+                _lastRenderedCursorRow = -1;
+                _lastRenderedCaretIndex = -1;
             }
         }
 
         private void ClearBuffer()
         {
             _screenLines.Clear();
+            _viewportTopRow = 0;
             _cursorRow = 0;
             _cursorColumn = 0;
             _lastRenderedCaretIndex = -1;
             _lastRenderedCursorRow = -1;
             _wrapPending = false;
             _pendingCarriageReturn = false;
-            _clearLineBeforeNextPrintable = false;
         }
 
         private void RenderTerminal()

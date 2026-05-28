@@ -13,6 +13,7 @@ namespace TerminalWinV10
         public string Baud { get; set; } = "9600";
         public string IP { get; set; } = "127.0.0.1";
         public bool UseSsl { get; set; }
+        public int MaxBufferLines { get; set; } = 1000;
         /// <summary>Local 연결 시 사용자 지정 CLI 경로 (비우면 COMSPEC).</summary>
         public string LocalShell { get; set; } = "";
     }

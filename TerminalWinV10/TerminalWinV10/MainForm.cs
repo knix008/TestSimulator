@@ -103,6 +103,7 @@ namespace TerminalWinV10
                 Ip = txtIP.Text.Trim(),
                 TcpPort = txtTcpPort.Text.Trim(),
                 UseSsl = chkSsl.Checked,
+                MaxBufferLines = (int)numMaxBufferLines.Value,
                 LocalShell = txtLocalShell.Text.Trim()
             };
         }
@@ -136,6 +137,7 @@ namespace TerminalWinV10
                 txtTcpPort.Text = string.IsNullOrEmpty(s.TcpPort) ? "8443" : s.TcpPort;
                 txtLocalShell.Text = s.LocalShell ?? "";
                 chkSsl.Checked = s.UseSsl;
+                numMaxBufferLines.Value = Math.Max(numMaxBufferLines.Minimum, Math.Min(numMaxBufferLines.Maximum, s.MaxBufferLines));
                 UpdateInputFields();
                 UpdateConnectButtons();
             }
@@ -194,6 +196,7 @@ namespace TerminalWinV10
                 Baud = s.Baud,
                 IP = s.Ip,
                 UseSsl = s.UseSsl,
+                MaxBufferLines = s.MaxBufferLines,
                 LocalShell = s.LocalShell
             };
             profiles.RemoveAll(p => p.Name == name);
@@ -247,9 +250,12 @@ namespace TerminalWinV10
                 cmbBaud.SelectedItem = profile.Baud;
             txtIP.Text = string.IsNullOrEmpty(profile.IP) ? "127.0.0.1" : profile.IP;
             chkSsl.Checked = profile.UseSsl;
+            numMaxBufferLines.Value = Math.Max(numMaxBufferLines.Minimum, Math.Min(numMaxBufferLines.Maximum, profile.MaxBufferLines <= 0 ? 1000 : profile.MaxBufferLines));
             UpdateInputFields();
             PushToolbarToActivePanel();
         }
+
+        private void numMaxBufferLines_ValueChanged(object sender, EventArgs e) => PushToolbarToActivePanel();
 
         private void btnConnect_Click(object sender, EventArgs e)
         {
