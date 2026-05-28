@@ -1,19 +1,35 @@
-# Build output
-midimaster
+# ── Build ────────────────────────────────────────────────────────────
+/mdmaker
+/mdmaker-gtk
+build/
+*.o
+*.a
+*.so
+*.dylib
 
-# SoundFont (large binary; copy separately)
-SoundFonts/
+# ── Debug / crash ───────────────────────────────────────────────────
+core
+core.*
+vgcore.*
+*.dSYM/
 
-# Editor / IDE
+# ── Editor / IDE ─────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.cursor/
 
-# OS
+# ── OS ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Claude Code internal
+# ── Logs / temp ──────────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+
+# ── Local / tool internal ─────────────────────────────────────────────
 .claude/
