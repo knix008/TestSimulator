@@ -44,24 +44,27 @@ src/
 | 입력 | 키보드, 마우스, 스크롤 |
 | 특수 키 | Ctrl+Alt+Del 전송 |
 | 클립보드 | 서버 → 클라이언트 텍스트 동기화 |
+| 녹화 | 툴바 `🔴 Record` / `🟢 Stop` 단일 버튼 (H.264 + 오디오) |
+| 녹화 저장 | 기본 `~/Videos/vnc-recording-YYYYMMDD-HHMMSS.mp4` |
+| 녹화 완료 알림 | 저장 완료 시 팝업으로 경로 표시 |
 
 ## 빌드
 
 ### 의존 패키지 설치
 
 ```bash
-make deps          # Ubuntu / Debian
+make deps          # Ubuntu / Debian (누락된 패키지만 설치)
 ```
 
 수동 설치:
 ```bash
-sudo apt-get install libgtk-3-dev libgcrypt20-dev libglib2.0-dev
+sudo apt-get install libgtk-3-dev libgcrypt20-dev libglib2.0-dev ffmpeg
 ```
 
 ### 빌드 및 실행
 
 ```bash
-make               # 빌드
+make               # 의존성 확인/설치 + 빌드
 make run           # 빌드 후 실행
 make install       # /usr/local/bin 에 설치
 make clean         # 빌드 결과물 삭제
@@ -85,6 +88,24 @@ make clean         # 빌드 결과물 삭제
 2. 툴바의 **Connect** 버튼 클릭
 3. 프로필 추가 → 호스트, 포트, 비밀번호 입력 후 **Save**
 4. 프로필 선택 후 **Connect**
+5. 녹화가 필요하면 **🔴 Record**, 종료 시 **🟢 Stop**
+
+## 녹화 안내
+
+- 비디오 코덱: H.264 (`libx264`, 고화질 설정)
+- 오디오 입력이 가능한 환경이면 오디오도 함께 녹화
+- 저장 완료 시 팝업으로 파일 경로 표시
+- 오디오 환경이 없으면 비디오만 저장될 수 있음
+
+## 디버그 로그
+
+기본 실행 시 CLI 디버그 로그는 출력하지 않습니다.
+
+필요 시 아래처럼 켤 수 있습니다:
+
+```bash
+VNC_CORE_VERBOSE=1 ./vncclient
+```
 
 ### 단축키
 

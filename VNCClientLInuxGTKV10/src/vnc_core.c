@@ -17,6 +17,19 @@
 #include <pthread.h>
 #include <gcrypt.h>
 
+/* Set VNC_CORE_VERBOSE=1 to enable core debug logs. */
+static bool vnc_core_verbose_enabled(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        const char *env = getenv("VNC_CORE_VERBOSE");
+        cached = (env && env[0] != '\0' && strcmp(env, "0") != 0) ? 1 : 0;
+    }
+    return cached == 1;
+}
+
+#define VNC_CORE_LOG(...) \
+    do { if (vnc_core_verbose_enabled()) fprintf(stderr, __VA_ARGS__); } while (0)
+
 /* ------------------------------------------------------------------ I/O */
 
 static ssize_t read_exact(int fd, void *buf, size_t len) {
@@ -314,7 +327,7 @@ static bool process_framebuffer_update(VncCore *c) {
         return false;
     }
     uint16_t n_rects = u16be(hdr+1);
-    fprintf(stderr, "vnc_core: framebuffer update, rectangles=%u\n", n_rects);
+    VNC_CORE_LOG("vnc_core: framebuffer update, rectangles=%u\n", n_rects);
 
     for (uint16_t i = 0; i < n_rects; i++) {
         uint8_t rhdr[12];
@@ -327,7 +340,7 @@ static bool process_framebuffer_update(VncCore *c) {
         int rw = (int)u16be(rhdr+4);
         int rh = (int)u16be(rhdr+6);
         int32_t enc = s32be(rhdr+8);
-        fprintf(stderr, "vnc_core: rect %u/%u x=%d y=%d w=%d h=%d enc=%d\n",
+        VNC_CORE_LOG("vnc_core: rect %u/%u x=%d y=%d w=%d h=%d enc=%d\n",
                 (unsigned)i + 1, (unsigned)n_rects, rx, ry, rw, rh, enc);
 
         if (enc == RFB_PSEUDO_LAST_RECT)
@@ -353,7 +366,7 @@ static bool process_framebuffer_update(VncCore *c) {
         case RFB_ENCODING_RRE:      ok = decode_rre     (c, rx, ry, rw, rh); break;
         case RFB_ENCODING_HEXTILE:  ok = decode_hextile (c, rx, ry, rw, rh); break;
         default:
-            fprintf(stderr, "vnc_core: unknown encoding %d\n", enc);
+            VNC_CORE_LOG("vnc_core: unknown encoding %d\n", enc);
             set_last_error(c, "Unsupported VNC framebuffer encoding: %d", enc);
             ok = false; break;
         }
@@ -413,7 +426,7 @@ static bool do_handshake(VncCore *c) {
                 set_last_error(c, "Server refused the connection");
                 return false;
             }
-            fprintf(stderr, "vnc_core: server refused: %s\n", reason);
+            VNC_CORE_LOG("vnc_core: server refused: %s\n", reason);
             set_last_error(c, "Server refused the connection: %s", reason);
             free(reason);
             return false;
@@ -481,7 +494,7 @@ static bool do_handshake(VncCore *c) {
                     set_last_error(c, "Authentication failed");
                     return false;
                 }
-                fprintf(stderr, "vnc_core: auth failed: %s\n", reason);
+                VNC_CORE_LOG("vnc_core: auth failed: %s\n", reason);
                 set_last_error(c, "Authentication failed: %s", reason);
                 free(reason);
             } else {
@@ -643,7 +656,7 @@ static void *vnc_thread(void *ud) {
         }
 
         default:
-            fprintf(stderr, "vnc_core: unknown server message %d\n", msg_type);
+            VNC_CORE_LOG("vnc_core: unknown server message %d\n", msg_type);
             set_last_error(c, "Unsupported VNC server message type: %u", msg_type);
             goto done;
         }

@@ -17,6 +17,9 @@ vncclient
 *.o
 *.a
 
+# Local media / logs
+*.log
+
 # Dependency / compile-commands
 compile_commands.json
 .cache/

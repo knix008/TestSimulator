@@ -5,6 +5,12 @@
 #include "profile.h"
 #include <string.h>
 #include <stdarg.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <glib/gstdio.h>
 
 struct _VncMainWindow {
     GtkApplicationWindow parent;
@@ -29,9 +35,11 @@ struct _VncMainWindow {
     GtkWidget  *btn_fullscreen;
     GtkWidget  *combo_scale;
     GtkWidget  *lbl_desktop;
+    GtkWidget  *btn_record;
 
     gboolean    fullscreen;
     gboolean    loading_profile;
+    gboolean    recording;
     GList      *toolbar_profiles;
 
     guint       fb_update_count;
@@ -39,6 +47,14 @@ struct _VncMainWindow {
     gint64      last_fb_update_us;
     guint       no_update_timeout_id;
     guint       refresh_timer_id;
+
+    GPid        ffmpeg_pid;
+    guint       ffmpeg_watch_id;
+    gint        ffmpeg_stdin_fd;
+    guint       record_timer_id;
+    gint        record_width;
+    gint        record_height;
+    gchar      *record_output_path;
 };
 
 G_DEFINE_TYPE(VncMainWindow, vnc_main_window, GTK_TYPE_APPLICATION_WINDOW)
@@ -55,6 +71,25 @@ static void show_error_dialog(VncMainWindow *self,
         GTK_BUTTONS_CLOSE,
         "%s",
         primary ? primary : "VNC error");
+
+    if (secondary && secondary[0] != '\0')
+        gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dlg),
+                                                 "%s", secondary);
+
+    gtk_dialog_run(GTK_DIALOG(dlg));
+    gtk_widget_destroy(dlg);
+}
+
+static void show_info_dialog(VncMainWindow *self,
+                             const gchar   *primary,
+                             const gchar   *secondary) {
+    GtkWidget *dlg = gtk_message_dialog_new(
+        GTK_WINDOW(self),
+        GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+        GTK_MESSAGE_INFO,
+        GTK_BUTTONS_CLOSE,
+        "%s",
+        primary ? primary : "Information");
 
     if (secondary && secondary[0] != '\0')
         gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dlg),
@@ -97,6 +132,225 @@ static void clear_refresh_timer(VncMainWindow *self) {
 static void clear_update_watch(VncMainWindow *self) {
     clear_no_update_watch(self);
     clear_refresh_timer(self);
+}
+
+static void update_recording_indicator(VncMainWindow *self) {
+    if (!self->btn_record)
+        return;
+
+    if (self->recording) {
+        gtk_tool_button_set_label(GTK_TOOL_BUTTON(self->btn_record), "🟢 Stop");
+        gtk_widget_set_tooltip_text(self->btn_record, "Stop recording");
+    } else {
+        gtk_tool_button_set_label(GTK_TOOL_BUTTON(self->btn_record), "🔴 Record");
+        gtk_widget_set_tooltip_text(self->btn_record, "Start recording (H.264, HQ)");
+    }
+}
+
+static void stop_recording(VncMainWindow *self);
+
+static gboolean write_all(gint fd, const guint8 *buf, gsize len) {
+    while (len > 0) {
+        ssize_t n = write(fd, buf, len);
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            return FALSE;
+        }
+        buf += (gsize)n;
+        len -= (gsize)n;
+    }
+    return TRUE;
+}
+
+static gboolean on_record_timer(gpointer ud) {
+    VncMainWindow *self = VNC_MAIN_WINDOW(ud);
+    if (!self->recording || self->ffmpeg_stdin_fd < 0 || !vnc_client_is_connected(self->client)) {
+        self->record_timer_id = 0;
+        return G_SOURCE_REMOVE;
+    }
+
+    const uint32_t *fb = vnc_client_lock_fb(self->client);
+    if (!fb)
+        return G_SOURCE_CONTINUE;
+
+    gsize frame_bytes = (gsize)self->record_width * (gsize)self->record_height * 4u;
+    gboolean ok = write_all(self->ffmpeg_stdin_fd, (const guint8 *)fb, frame_bytes);
+    vnc_client_unlock_fb(self->client);
+
+    if (!ok) {
+        stop_recording(self);
+        set_status(self, "Recording stopped: failed to write frames to encoder.");
+        return G_SOURCE_REMOVE;
+    }
+
+    return G_SOURCE_CONTINUE;
+}
+
+static void on_ffmpeg_child_exit(GPid pid, gint status, gpointer ud) {
+    (void)pid;
+    VncMainWindow *self = VNC_MAIN_WINDOW(ud);
+    gboolean was_recording = self->recording;
+
+    if (self->record_timer_id != 0) {
+        g_source_remove(self->record_timer_id);
+        self->record_timer_id = 0;
+    }
+    if (self->ffmpeg_stdin_fd >= 0) {
+        close(self->ffmpeg_stdin_fd);
+        self->ffmpeg_stdin_fd = -1;
+    }
+    if (self->ffmpeg_pid != 0) {
+        g_spawn_close_pid(self->ffmpeg_pid);
+        self->ffmpeg_pid = 0;
+    }
+    self->ffmpeg_watch_id = 0;
+    self->recording = FALSE;
+    update_recording_indicator(self);
+
+    if (self->record_output_path && was_recording &&
+        WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        set_status(self, "Recording saved: %s", self->record_output_path);
+        show_info_dialog(self, "Recording saved", self->record_output_path);
+    } else if (was_recording && !WIFEXITED(status)) {
+        set_status(self, "Recording stopped unexpectedly.");
+    } else if (was_recording && WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+        set_status(self, "Recording stopped unexpectedly (ffmpeg exit code %d).",
+                   WEXITSTATUS(status));
+    }
+}
+
+static gboolean start_recording(VncMainWindow *self, GError **error) {
+    if (self->recording)
+        return TRUE;
+    if (!vnc_client_is_connected(self->client)) {
+        g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                            "Connect to a server before recording.");
+        return FALSE;
+    }
+
+    gint width = vnc_client_get_width(self->client);
+    gint height = vnc_client_get_height(self->client);
+    if (width <= 0 || height <= 0) {
+        g_set_error_literal(error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                            "Framebuffer size is not available yet.");
+        return FALSE;
+    }
+
+    g_clear_pointer(&self->record_output_path, g_free);
+    GDateTime *now = g_date_time_new_now_local();
+    gchar *stamp = g_date_time_format(now, "%Y%m%d-%H%M%S");
+    const gchar *videos_dir = g_get_user_special_dir(G_USER_DIRECTORY_VIDEOS);
+    if (!videos_dir || videos_dir[0] == '\0')
+        videos_dir = g_get_home_dir();
+    if (!videos_dir || videos_dir[0] == '\0')
+        videos_dir = "/tmp";
+    if (g_mkdir_with_parents(videos_dir, 0755) != 0) {
+        videos_dir = g_get_home_dir();
+        if (!videos_dir || videos_dir[0] == '\0')
+            videos_dir = "/tmp";
+        g_mkdir_with_parents(videos_dir, 0755);
+    }
+    self->record_output_path = g_strdup_printf("%s/vnc-recording-%s.mp4", videos_dir, stamp);
+    g_free(stamp);
+    g_date_time_unref(now);
+
+    gchar *video_size = g_strdup_printf("%dx%d", width, height);
+    gchar *pulse_native = g_build_filename(g_get_user_runtime_dir(), "pulse", "native", NULL);
+    gboolean has_pulse = g_file_test(pulse_native, G_FILE_TEST_EXISTS);
+    g_free(pulse_native);
+
+    gchar *argv_with_audio[] = {
+        "ffmpeg",
+        "-y",
+        "-loglevel", "error",
+        "-f", "rawvideo",
+        "-pix_fmt", "bgr0",
+        "-s:v", video_size,
+        "-r", "10",
+        "-i", "-",
+        "-f", "pulse",
+        "-thread_queue_size", "1024",
+        "-i", "default",
+        "-map", "0:v:0",
+        "-map", "1:a:0?",
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "18",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-shortest",
+        self->record_output_path,
+        NULL
+    };
+    gchar *argv_video_only[] = {
+        "ffmpeg",
+        "-y",
+        "-loglevel", "error",
+        "-f", "rawvideo",
+        "-pix_fmt", "bgr0",
+        "-s:v", video_size,
+        "-r", "10",
+        "-i", "-",
+        "-map", "0:v:0",
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "18",
+        "-pix_fmt", "yuv420p",
+        self->record_output_path,
+        NULL
+    };
+    gchar **argv = has_pulse ? argv_with_audio : argv_video_only;
+
+    gint stdin_fd = -1;
+    gboolean spawned = g_spawn_async_with_pipes(
+        NULL, argv, NULL,
+        G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+        NULL, NULL,
+        &self->ffmpeg_pid,
+        &stdin_fd,
+        NULL,
+        NULL,
+        error);
+    g_free(video_size);
+
+    if (!spawned) {
+        g_clear_pointer(&self->record_output_path, g_free);
+        self->ffmpeg_pid = 0;
+        return FALSE;
+    }
+
+    self->ffmpeg_stdin_fd = stdin_fd;
+    self->record_width = width;
+    self->record_height = height;
+    self->recording = TRUE;
+    update_recording_indicator(self);
+
+    self->ffmpeg_watch_id = g_child_watch_add(self->ffmpeg_pid, on_ffmpeg_child_exit, self);
+    self->record_timer_id = g_timeout_add(500, on_record_timer, self);
+    return TRUE;
+}
+
+static void stop_recording(VncMainWindow *self) {
+    if (!self->recording && self->ffmpeg_pid == 0)
+        return;
+
+    if (self->record_timer_id != 0) {
+        g_source_remove(self->record_timer_id);
+        self->record_timer_id = 0;
+    }
+    self->recording = FALSE;
+    update_recording_indicator(self);
+
+    if (self->ffmpeg_stdin_fd >= 0) {
+        close(self->ffmpeg_stdin_fd);
+        self->ffmpeg_stdin_fd = -1;
+    }
+    if (self->ffmpeg_pid != 0) {
+        /* Ask ffmpeg to finalize container immediately on stop. */
+        kill(self->ffmpeg_pid, SIGINT);
+    }
 }
 
 static gboolean on_refresh_timer(gpointer ud) {
@@ -287,6 +541,8 @@ static void do_connect(VncMainWindow *self) {
 }
 
 static void do_disconnect(VncMainWindow *self) {
+    if (self->recording)
+        stop_recording(self);
     vnc_client_disconnect(self->client);
 }
 
@@ -304,6 +560,7 @@ static void on_vnc_connected(VncClient *client, gpointer ud) {
 
     gtk_label_set_text(GTK_LABEL(self->lbl_desktop), name ? name : "");
     vnc_display_on_resize(self->display, w, h);
+    gtk_widget_set_sensitive(self->btn_record, TRUE);
 
     set_status(self, "Connected: %s  (%d × %d), requesting framebuffer...",
                name ? name : "", w, h);
@@ -312,6 +569,8 @@ static void on_vnc_connected(VncClient *client, gpointer ud) {
 static void on_vnc_disconnected(VncClient *client, const gchar *reason, gpointer ud) {
     (void)client;
     VncMainWindow *self = VNC_MAIN_WINDOW(ud);
+    if (self->recording)
+        stop_recording(self);
 
     clear_update_watch(self);
     gtk_label_set_text(GTK_LABEL(self->lbl_desktop), "");
@@ -325,6 +584,7 @@ static void on_vnc_disconnected(VncClient *client, const gchar *reason, gpointer
     gtk_widget_set_sensitive(self->btn_save_profile, TRUE);
     gtk_widget_set_sensitive(self->btn_connect,    TRUE);
     gtk_widget_set_sensitive(self->btn_disconnect, FALSE);
+    gtk_widget_set_sensitive(self->btn_record,     FALSE);
 
     set_status(self, "Disconnected: %s", reason ? reason : "");
     if (!is_user_disconnect_reason(reason))
@@ -355,6 +615,12 @@ static void on_vnc_resized(VncClient *client, gint width, gint height, gpointer 
     (void)client;
     VncMainWindow *self = VNC_MAIN_WINDOW(ud);
     vnc_display_on_resize(self->display, width, height);
+    if (self->recording) {
+        stop_recording(self);
+        set_status(self, "Desktop resized to %d × %d. Recording stopped; start again to keep correct size.",
+                   width, height);
+        return;
+    }
     set_status(self, "Desktop resized to %d × %d", width, height);
 }
 
@@ -400,9 +666,9 @@ static void on_entry_activate(GtkEntry *e, gpointer ud) {
     do_connect(VNC_MAIN_WINDOW(ud));
 }
 
-static void on_fullscreen_toggled(GtkToggleButton *btn, gpointer ud) {
+static void on_fullscreen_toggled(GtkToggleToolButton *btn, gpointer ud) {
     VncMainWindow *self = VNC_MAIN_WINDOW(ud);
-    self->fullscreen = gtk_toggle_button_get_active(btn);
+    self->fullscreen = gtk_toggle_tool_button_get_active(btn);
     if (self->fullscreen) gtk_window_fullscreen(GTK_WINDOW(self));
     else                  gtk_window_unfullscreen(GTK_WINDOW(self));
 }
@@ -416,6 +682,28 @@ static void on_scale_changed(GtkComboBox *combo, gpointer ud) {
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(self->scrolled),
         mode == VNC_SCALE_NONE ? GTK_POLICY_AUTOMATIC : GTK_POLICY_NEVER,
         mode == VNC_SCALE_NONE ? GTK_POLICY_AUTOMATIC : GTK_POLICY_NEVER);
+}
+
+static void on_record_toggled(GtkToolButton *btn, gpointer ud) {
+    (void)btn;
+    VncMainWindow *self = VNC_MAIN_WINDOW(ud);
+
+    if (self->recording) {
+        stop_recording(self);
+        set_status(self, "Recording stopping...");
+        return;
+    }
+
+    GError *err = NULL;
+    if (!start_recording(self, &err)) {
+        const gchar *msg = err ? err->message : "unknown error";
+        set_status(self, "Recording start failed: %s", msg);
+        show_error_dialog(self, "Failed to start recording", msg);
+        g_clear_error(&err);
+        return;
+    }
+
+    set_status(self, "Recording started (H.264 HQ): %s", self->record_output_path);
 }
 
 static void on_send_ctrl_alt_del(GtkMenuItem *item, gpointer ud) {
@@ -433,7 +721,7 @@ static gboolean on_window_key_press(GtkWidget *w, GdkEventKey *ev, gpointer ud) 
     (void)ud;
     VncMainWindow *self = VNC_MAIN_WINDOW(w);
     if (ev->keyval == GDK_KEY_F11) {
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(self->btn_fullscreen),
+        gtk_toggle_tool_button_set_active(GTK_TOGGLE_TOOL_BUTTON(self->btn_fullscreen),
             !self->fullscreen);
         return TRUE;
     }
@@ -596,6 +884,14 @@ static GtkWidget *build_toolbar(VncMainWindow *self) {
     gtk_widget_set_sensitive(self->btn_disconnect, FALSE);
     gtk_toolbar_insert(GTK_TOOLBAR(bar), GTK_TOOL_ITEM(self->btn_disconnect), -1);
 
+    /* Record button + status indicator */
+    self->btn_record = GTK_WIDGET(gtk_tool_button_new(
+        NULL,
+        "Record"));
+    gtk_widget_set_sensitive(self->btn_record, FALSE);
+    gtk_toolbar_insert(GTK_TOOLBAR(bar), GTK_TOOL_ITEM(self->btn_record), -1);
+    update_recording_indicator(self);
+
     gtk_toolbar_insert(GTK_TOOLBAR(bar), gtk_separator_tool_item_new(), -1);
 
     /* ── view controls ── */
@@ -633,6 +929,7 @@ static GtkWidget *build_toolbar(VncMainWindow *self) {
     g_signal_connect(self->btn_save_profile, "clicked", G_CALLBACK(on_save_profile_clicked), self);
     g_signal_connect(self->btn_connect,    "clicked",  G_CALLBACK(on_connect_clicked),   self);
     g_signal_connect(self->btn_disconnect, "clicked",  G_CALLBACK(on_disconnect_clicked),self);
+    g_signal_connect(self->btn_record,     "clicked",  G_CALLBACK(on_record_toggled),    self);
     g_signal_connect(self->btn_fullscreen, "toggled",  G_CALLBACK(on_fullscreen_toggled),self);
     g_signal_connect(self->combo_scale,    "changed",  G_CALLBACK(on_scale_changed),     self);
 
@@ -643,6 +940,11 @@ static GtkWidget *build_toolbar(VncMainWindow *self) {
 
 static void vnc_main_window_dispose(GObject *obj) {
     VncMainWindow *self = VNC_MAIN_WINDOW(obj);
+    stop_recording(self);
+    if (self->ffmpeg_watch_id != 0) {
+        g_source_remove(self->ffmpeg_watch_id);
+        self->ffmpeg_watch_id = 0;
+    }
     if (self->client) {
         clear_update_watch(self);
         if (self->display)
@@ -651,6 +953,12 @@ static void vnc_main_window_dispose(GObject *obj) {
         vnc_client_free(self->client);
         self->client = NULL;
     }
+    if (self->ffmpeg_pid != 0) {
+        kill(self->ffmpeg_pid, SIGTERM);
+        g_spawn_close_pid(self->ffmpeg_pid);
+        self->ffmpeg_pid = 0;
+    }
+    g_clear_pointer(&self->record_output_path, g_free);
     g_list_free_full(self->toolbar_profiles, (GDestroyNotify)profile_free);
     self->toolbar_profiles = NULL;
     G_OBJECT_CLASS(vnc_main_window_parent_class)->dispose(obj);
@@ -663,6 +971,9 @@ static void vnc_main_window_class_init(VncMainWindowClass *klass) {
 static void vnc_main_window_init(VncMainWindow *self) {
     gtk_window_set_title(GTK_WINDOW(self), "VNC Client");
     gtk_window_set_default_size(GTK_WINDOW(self), 1280, 900);
+    self->ffmpeg_stdin_fd = -1;
+    self->ffmpeg_watch_id = 0;
+    self->record_timer_id = 0;
 
     /* VNC client */
     self->client = vnc_client_new();

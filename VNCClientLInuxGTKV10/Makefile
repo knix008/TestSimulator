@@ -56,7 +56,7 @@ TOTAL_SRCS   := $(words $(SRCS_CORE) $(SRCS_ADAPTER) $(SRCS_UI))
 # ============================================================
 .PHONY: all deps check-deps clean run install help
 
-all: check-deps dirs banner \
+all: deps check-deps dirs banner \
      layer-core layer-adapter layer-ui \
      link done
 
@@ -73,18 +73,28 @@ done:
 	@echo ""
 
 # ── dependency installation ──────────────────────────────────
-DEBS := libgtk-3-dev libgcrypt20-dev libglib2.0-dev
+DEBS := libgtk-3-dev libgcrypt20-dev libglib2.0-dev ffmpeg
 
 deps:
 	@echo ""
 	@echo "[1/3] Checking for apt-get ..."
 	@command -v apt-get >/dev/null 2>&1 || { \
 	    echo "  apt-get not found – install manually: $(DEBS)"; exit 0; }
-	@echo "[2/3] Updating package lists ..."
-	@sudo apt-get update -qq
-	@echo "[3/3] Installing build dependencies ..."
-	@sudo apt-get install -y $(DEBS)
-	@echo "  ✓  Dependencies installed."
+	@missing=""; \
+	for pkg in $(DEBS); do \
+	    dpkg -s $$pkg >/dev/null 2>&1 || missing="$$missing $$pkg"; \
+	done; \
+	if [ -n "$$missing" ]; then \
+	    echo "[2/3] Updating package lists ..."; \
+	    sudo apt-get update -qq >/dev/null 2>&1; \
+	    echo "[3/3] Installing missing dependencies..."; \
+	    sudo apt-get install -y -qq $$missing >/dev/null 2>&1; \
+	    echo "  ✓  Installed missing packages:$$missing"; \
+	else \
+	    echo "[2/3] All dependencies are already installed."; \
+	    echo "[3/3] Skipping install step."; \
+	    echo "  ✓  Dependencies already satisfied."; \
+	fi
 	@echo ""
 
 # ── check pkg-config packages ────────────────────────────────
@@ -155,8 +165,8 @@ clean:
 # ── help ─────────────────────────────────────────────────────
 help:
 	@echo ""
-	@echo "  make deps      – install build dependencies (requires sudo)"
-	@echo "  make           – build all three layers"
+	@echo "  make deps      – install dependencies (requires sudo; includes ffmpeg)"
+	@echo "  make           – install deps + build all three layers"
 	@echo "  make run       – build and launch"
 	@echo "  make install   – install to \$$(PREFIX)/bin  [default: $(PREFIX)/bin]"
 	@echo "  make clean     – remove build artefacts"

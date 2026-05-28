@@ -53,8 +53,16 @@ static void cancel_idle_sources(VncClient *c) {
     c->idle_sources = NULL;
     g_mutex_unlock(&c->sources_mutex);
 
-    for (GList *l = sources; l; l = l->next)
-        g_source_remove(GPOINTER_TO_UINT(l->data));
+    for (GList *l = sources; l; l = l->next) {
+        guint id = GPOINTER_TO_UINT(l->data);
+        if (id == 0)
+            continue;
+
+        /* Source may have already run/been removed in parallel. */
+        GSource *src = g_main_context_find_source_by_id(NULL, id);
+        if (src)
+            g_source_destroy(src);
+    }
     g_list_free(sources);
 }
 
