@@ -33,7 +33,7 @@ namespace TerminalWinV10
             Environment.OSVersion.Platform == PlatformID.Win32NT &&
             Environment.OSVersion.Version.Build >= 17763;
 
-        public void Start(string executable, string arguments, string workingDirectory)
+        public void Start(string executable, string arguments, string workingDirectory, int columns, int rows)
         {
             if (!IsSupported)
                 throw new PlatformNotSupportedException("ConPTY requires Windows 10 1809 or later.");
@@ -60,7 +60,7 @@ namespace TerminalWinV10
                 SetHandleInherit(inputRead, false);
                 SetHandleInherit(outputWrite, false);
 
-                var size = new COORD { X = 120, Y = 32 };
+                var size = new COORD { X = ToConsoleSize(columns), Y = ToConsoleSize(rows) };
                 var hr = CreatePseudoConsole(size, inputRead, outputWrite, 0, out _pseudoConsole);
                 if (hr != 0)
                     throw new InvalidOperationException($"CreatePseudoConsole failed: 0x{hr:X8}");
@@ -137,6 +137,18 @@ namespace TerminalWinV10
                 IsRunning = false;
                 throw;
             }
+        }
+
+        public void Resize(int columns, int rows)
+        {
+            if (_pseudoConsole == IntPtr.Zero)
+                return;
+
+            ResizePseudoConsole(_pseudoConsole, new COORD
+            {
+                X = ToConsoleSize(columns),
+                Y = ToConsoleSize(rows)
+            });
         }
 
         public void WriteInput(string text)
@@ -245,6 +257,8 @@ namespace TerminalWinV10
             if (d != IntPtr.Zero) CloseHandle(d);
         }
 
+        private static short ToConsoleSize(int value) => (short)Math.Max(1, Math.Min(short.MaxValue, value));
+
         public void Dispose()
         {
             if (_disposed) return;
@@ -290,6 +304,9 @@ namespace TerminalWinV10
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern void ClosePseudoConsole(IntPtr hPC);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern int ResizePseudoConsole(IntPtr hPC, COORD size);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool CreatePipe(out IntPtr hReadPipe, out IntPtr hWritePipe, IntPtr lpPipeAttributes, int nSize);

@@ -10,12 +10,21 @@ namespace TerminalWinV10
     {
         private readonly RichTextBox _terminal;
         private readonly TerminalSession _session = new();
-        private readonly System.Collections.Generic.List<string> _lines = new();
-        private readonly StringBuilder _currentLine = new();
+        private readonly System.Collections.Generic.List<StringBuilder> _screenLines = new();
+        private readonly StringBuilder _queuedOutput = new();
+        private readonly Timer _renderTimer;
         private string _renderedText = string.Empty;
         private bool _isLocalSession;
         private string _pendingEscapeSequence = string.Empty;
+        private bool _pendingCarriageReturn;
+        private bool _clearLineBeforeNextPrintable;
+        private int _cursorRow;
         private int _cursorColumn;
+        private int _lastRenderedCaretIndex = -1;
+        private int _lastRenderedCursorRow = -1;
+        private bool _wrapPending;
+        private int _terminalColumns = 80;
+        private int _terminalRows = 24;
 
         public TerminalConnectionSettings Settings { get; } = new();
 
@@ -40,11 +49,16 @@ namespace TerminalWinV10
             };
             _terminal.KeyDown += Terminal_KeyDown;
             _terminal.KeyPress += Terminal_KeyPress;
+            _terminal.SizeChanged += Terminal_SizeChanged;
+
+            _renderTimer = new Timer { Interval = 16 };
+            _renderTimer.Tick += RenderTimer_Tick;
 
             _session.OutputReceived += OnSessionOutput;
             _session.StatusChanged += OnSessionStatus;
 
             Controls.Add(_terminal);
+            UpdateTerminalSize(notifySession: false);
         }
 
         public bool IsConnected => _session.IsConnected;
@@ -54,6 +68,8 @@ namespace TerminalWinV10
             var s = settings.Clone();
             CopySettings(s);
             _isLocalSession = s.ConnectionType == ConnectionTypes.Local;
+            UpdateTerminalSize(notifySession: false);
+            _session.ResizeTerminal(_terminalColumns, _terminalRows);
             _session.Connect(s);
             _terminal.ReadOnly = true;
             _terminal.Focus();
@@ -69,11 +85,18 @@ namespace TerminalWinV10
                 _terminal.ReadOnly = true;
                 _terminal.Clear(); // 터미널 화면 초기화
             }
-            _lines.Clear();
-            _currentLine.Clear();
+            _screenLines.Clear();
+            _queuedOutput.Clear();
+            _renderTimer.Stop();
             _renderedText = string.Empty;
+            _cursorRow = 0;
             _cursorColumn = 0;
+            _lastRenderedCaretIndex = -1;
+            _lastRenderedCursorRow = -1;
+            _wrapPending = false;
             _pendingEscapeSequence = string.Empty;
+            _pendingCarriageReturn = false;
+            _clearLineBeforeNextPrintable = false;
         }
 
         public void ApplySettings(TerminalConnectionSettings settings) => CopySettings(settings.Clone());
@@ -128,7 +151,7 @@ namespace TerminalWinV10
             {
                 e.SuppressKeyPress = true;
                 e.Handled = true;
-                _session.SendInput(_isLocalSession ? "\r\n" : Environment.NewLine);
+                _session.SendInput(_isLocalSession ? "\r" : Environment.NewLine);
                 return;
             }
 
@@ -203,10 +226,37 @@ namespace TerminalWinV10
             _session.SendInput(e.KeyChar.ToString());
         }
 
-        private void OnSessionOutput(string text) => AppendOutput(text);
-        private void OnSessionStatus(string text) => AppendOutput(text + Environment.NewLine);
+        private void Terminal_SizeChanged(object? sender, EventArgs e) => UpdateTerminalSize(notifySession: true);
 
-        private void AppendOutput(string text)
+        private void UpdateTerminalSize(bool notifySession)
+        {
+            if (_terminal.ClientSize.Width <= 0 || _terminal.ClientSize.Height <= 0)
+                return;
+
+            var flags = TextFormatFlags.NoPadding | TextFormatFlags.NoClipping;
+            var charSize = TextRenderer.MeasureText("W", _terminal.Font, Size.Empty, flags);
+            var charWidth = Math.Max(1, charSize.Width);
+            var charHeight = Math.Max(1, _terminal.Font.Height);
+            var columns = Math.Max(1, _terminal.ClientSize.Width / charWidth);
+            var rows = Math.Max(1, _terminal.ClientSize.Height / charHeight);
+
+            if (columns == _terminalColumns && rows == _terminalRows)
+                return;
+
+            _terminalColumns = columns;
+            _terminalRows = rows;
+
+            if (_isLocalSession)
+                NormalizeCursorRow();
+
+            if (notifySession)
+                _session.ResizeTerminal(_terminalColumns, _terminalRows);
+        }
+
+        private void OnSessionOutput(string text) => QueueOutput(text);
+        private void OnSessionStatus(string text) => QueueOutput(text + Environment.NewLine);
+
+        private void QueueOutput(string text)
         {
             if (IsDisposed || !IsHandleCreated)
                 return;
@@ -215,7 +265,7 @@ namespace TerminalWinV10
             {
                 try
                 {
-                    BeginInvoke(new Action<string>(AppendOutput), text);
+                    BeginInvoke(new Action<string>(QueueOutput), text);
                 }
                 catch (InvalidOperationException)
                 {
@@ -230,15 +280,32 @@ namespace TerminalWinV10
             if (string.IsNullOrEmpty(text))
                 return;
 
+            _queuedOutput.Append(text);
+            if (!_renderTimer.Enabled)
+                _renderTimer.Start();
+        }
+
+        private void RenderTimer_Tick(object? sender, EventArgs e)
+        {
+            _renderTimer.Stop();
+            if (_queuedOutput.Length == 0 || _terminal.IsDisposed)
+                return;
+
+            var text = _queuedOutput.ToString();
+            _queuedOutput.Clear();
+
             // ConPTY는 프롬프트/입력 에코/진행률 등을 \r 로 같은 줄에 덮어써서 출력합니다.
             // RichTextBox는 이를 콘솔처럼 처리하지 못하므로, \r 을 "현재 줄 지우기"로 해석합니다.
             AppendTerminalText(text);
             RenderTerminal();
+
+            if (_queuedOutput.Length > 0)
+                _renderTimer.Start();
         }
 
         private void AppendTerminalText(string raw)
         {
-            var text = (_pendingEscapeSequence + raw).Replace("\r\n", "\n");
+            var text = _pendingEscapeSequence + raw;
             _pendingEscapeSequence = string.Empty;
             var plain = new StringBuilder(text.Length);
 
@@ -256,6 +323,7 @@ namespace TerminalWinV10
                 if (text[i] == '\u001b')
                 {
                     FlushPlain();
+                    PreparePendingCarriageReturnForEscape();
                     if (!TryConsumeEscapeSequence(text, ref i))
                         _pendingEscapeSequence = text.Substring(i);
                     if (_pendingEscapeSequence.Length > 0)
@@ -315,47 +383,107 @@ namespace TerminalWinV10
         private void HandleCsiSequence(string sequence)
         {
             var final = sequence[sequence.Length - 1];
-            if (final == 'J' && (sequence.Contains("2") || sequence.Contains("3")))
+            if (final == 'J')
             {
-                ClearBuffer();
+                ClearScreen(parameter: GetFirstCsiParameter(sequence, defaultValue: 0));
                 return;
             }
 
             if (final == 'K')
             {
-                ClearCurrentLine();
+                ClearLine(parameter: GetFirstCsiParameter(sequence, defaultValue: 0));
                 return;
             }
 
             var parameter = GetFirstCsiParameter(sequence, defaultValue: 1);
+            if (final == 'X')
+            {
+                EraseCharacters(Math.Max(1, parameter));
+                return;
+            }
+
+            if (final == 'A')
+            {
+                _cursorRow = Math.Max(0, _cursorRow - Math.Max(1, parameter));
+                _wrapPending = false;
+                return;
+            }
+
+            if (final == 'B')
+            {
+                _cursorRow += Math.Max(1, parameter);
+                NormalizeCursorRow();
+                _wrapPending = false;
+                return;
+            }
+
+            if (final == 'E')
+            {
+                _cursorRow += Math.Max(1, parameter);
+                _cursorColumn = 0;
+                NormalizeCursorRow();
+                _wrapPending = false;
+                return;
+            }
+
+            if (final == 'F')
+            {
+                _cursorRow = Math.Max(0, _cursorRow - Math.Max(1, parameter));
+                _cursorColumn = 0;
+                _wrapPending = false;
+                return;
+            }
+
+            if (final == 'd')
+            {
+                _cursorRow = Math.Max(0, parameter - 1);
+                NormalizeCursorRow();
+                _wrapPending = false;
+                return;
+            }
+
+            if (final == 'S')
+            {
+                ScrollUp(Math.Max(1, parameter));
+                _wrapPending = false;
+                return;
+            }
+
+            if (final == 'T')
+            {
+                ScrollDown(Math.Max(1, parameter));
+                _wrapPending = false;
+                return;
+            }
+
             if (final == 'G')
             {
                 _cursorColumn = Math.Max(0, parameter - 1);
+                _wrapPending = false;
                 return;
             }
 
             if (final == 'C')
             {
                 _cursorColumn += Math.Max(1, parameter);
+                _wrapPending = false;
                 return;
             }
 
             if (final == 'D')
             {
                 _cursorColumn = Math.Max(0, _cursorColumn - Math.Max(1, parameter));
+                _wrapPending = false;
                 return;
             }
 
             if (final == 'H' || final == 'f')
             {
                 var (row, column) = GetCursorPosition(sequence);
-                if (row <= 1 && column <= 1)
-                {
-                    _cursorColumn = 0;
-                    return;
-                }
-
+                _cursorRow = Math.Max(0, row - 1);
                 _cursorColumn = Math.Max(0, column - 1);
+                NormalizeCursorRow();
+                _wrapPending = false;
             }
         }
 
@@ -399,12 +527,27 @@ namespace TerminalWinV10
             for (int i = 0; i < text.Length; i++)
             {
                 var ch = text[i];
+
+                if (_pendingCarriageReturn)
+                {
+                    _pendingCarriageReturn = false;
+                    if (ch == '\n')
+                    {
+                        PutCharacter('\n');
+                        continue;
+                    }
+
+                    ClearLine(parameter: 2);
+                    _cursorColumn = 0;
+                }
+
                 if (ch == '\a' || ch == '\0')
                     continue;
 
                 if (ch == '\r')
                 {
-                    _cursorColumn = 0;
+                    _wrapPending = false;
+                    _pendingCarriageReturn = true;
                     continue;
                 }
 
@@ -427,70 +570,265 @@ namespace TerminalWinV10
             }
         }
 
+        private void PreparePendingCarriageReturnForEscape()
+        {
+            if (!_pendingCarriageReturn)
+                return;
+
+            _pendingCarriageReturn = false;
+            _cursorColumn = 0;
+            _wrapPending = false;
+            _clearLineBeforeNextPrintable = true;
+        }
+
         private void RemovePreviousCharacter()
         {
             if (_cursorColumn == 0)
                 return;
 
+            _wrapPending = false;
             _cursorColumn--;
-            if (_cursorColumn < _currentLine.Length)
-                _currentLine.Remove(_cursorColumn, 1);
+            var line = GetCurrentLine();
+            if (_cursorColumn < line.Length)
+                line.Remove(_cursorColumn, 1);
         }
 
-        private void ClearCurrentLine()
+        private void ClearLine(int parameter)
         {
-            if (_cursorColumn < _currentLine.Length)
-                _currentLine.Remove(_cursorColumn, _currentLine.Length - _cursorColumn);
+            var line = GetCurrentLine();
+            switch (parameter)
+            {
+                case 1:
+                    var end = Math.Min(_cursorColumn, line.Length - 1);
+                    for (int i = 0; i <= end; i++)
+                        line[i] = ' ';
+                    break;
+                case 2:
+                    line.Clear();
+                    break;
+                default:
+                    if (_cursorColumn < line.Length)
+                        line.Remove(_cursorColumn, line.Length - _cursorColumn);
+                    break;
+            }
+            _wrapPending = false;
+            _clearLineBeforeNextPrintable = false;
+        }
+
+        private void ClearScreen(int parameter)
+        {
+            switch (parameter)
+            {
+                case 1:
+                    ClearLinesBeforeCursor();
+                    ClearLine(parameter: 1);
+                    break;
+                case 2:
+                case 3:
+                    ClearDisplayPreservingCursor();
+                    break;
+                default:
+                    ClearLine(parameter: 0);
+                    ClearLinesAfterCursor();
+                    break;
+            }
+            _wrapPending = false;
+        }
+
+        private void ClearLinesBeforeCursor()
+        {
+            var end = Math.Min(_cursorRow, _screenLines.Count);
+            for (int i = 0; i < end; i++)
+                _screenLines[i].Clear();
+        }
+
+        private void ClearLinesAfterCursor()
+        {
+            for (int i = _cursorRow + 1; i < _screenLines.Count; i++)
+                _screenLines[i].Clear();
+        }
+
+        private void ClearDisplayPreservingCursor()
+        {
+            _screenLines.Clear();
+            _wrapPending = false;
+            EnsureLine(_cursorRow);
+        }
+
+        private void EraseCharacters(int count)
+        {
+            var line = GetCurrentLine();
+            var end = Math.Min(line.Length, _cursorColumn + count);
+            for (int i = _cursorColumn; i < end; i++)
+                line[i] = ' ';
+            _wrapPending = false;
         }
 
         private void PutCharacter(char ch)
         {
             if (ch == '\n')
             {
-                _lines.Add(_currentLine.ToString());
-                _currentLine.Clear();
+                _cursorRow++;
                 _cursorColumn = 0;
+                _wrapPending = false;
+                _clearLineBeforeNextPrintable = false;
+                NormalizeCursorRow();
                 return;
             }
 
-            while (_currentLine.Length < _cursorColumn)
-                _currentLine.Append(' ');
+            if (_clearLineBeforeNextPrintable)
+            {
+                ClearLine(parameter: 2);
+                _cursorColumn = 0;
+            }
 
-            if (_cursorColumn < _currentLine.Length)
-                _currentLine[_cursorColumn] = ch;
+            if (_wrapPending)
+            {
+                _cursorRow++;
+                _cursorColumn = 0;
+                _wrapPending = false;
+                NormalizeCursorRow();
+            }
+
+            var line = GetCurrentLine();
+            while (line.Length < _cursorColumn)
+                line.Append(' ');
+
+            if (_cursorColumn < line.Length)
+                line[_cursorColumn] = ch;
             else
-                _currentLine.Append(ch);
+                line.Append(ch);
 
             _cursorColumn++;
+            if (_cursorColumn >= _terminalColumns)
+                _wrapPending = true;
+        }
+
+        private StringBuilder GetCurrentLine()
+        {
+            EnsureLine(_cursorRow);
+            return _screenLines[_cursorRow];
+        }
+
+        private void EnsureLine(int row)
+        {
+            while (_screenLines.Count <= row)
+                _screenLines.Add(new StringBuilder());
+        }
+
+        private void NormalizeCursorRow()
+        {
+            if (_isLocalSession)
+            {
+                while (_cursorRow >= _terminalRows)
+                {
+                    ScrollUp(1);
+                    _cursorRow--;
+                }
+            }
+
+            EnsureLine(_cursorRow);
+        }
+
+        private void ScrollUp(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (_screenLines.Count > 0)
+                    _screenLines.RemoveAt(0);
+                _screenLines.Add(new StringBuilder());
+            }
+        }
+
+        private void ScrollDown(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                _screenLines.Insert(0, new StringBuilder());
+                if (_isLocalSession && _screenLines.Count > _terminalRows)
+                    _screenLines.RemoveAt(_screenLines.Count - 1);
+            }
         }
 
         private void ClearBuffer()
         {
-            _lines.Clear();
-            _currentLine.Clear();
-            _renderedText = string.Empty;
+            _screenLines.Clear();
+            _cursorRow = 0;
             _cursorColumn = 0;
-            if (!_terminal.IsDisposed)
-                _terminal.Clear();
+            _lastRenderedCaretIndex = -1;
+            _lastRenderedCursorRow = -1;
+            _wrapPending = false;
+            _pendingCarriageReturn = false;
+            _clearLineBeforeNextPrintable = false;
         }
 
         private void RenderTerminal()
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < _lines.Count; i++)
+            for (int i = 0; i < _screenLines.Count; i++)
             {
-                sb.Append(_lines[i]);
-                sb.Append('\n');
+                sb.Append(_screenLines[i].ToString().TrimEnd());
+                if (i < _screenLines.Count - 1)
+                    sb.Append('\n');
             }
-            sb.Append(_currentLine);
 
             var rendered = sb.ToString();
-            if (_renderedText != rendered)
-                UpdateRenderedText(rendered);
+            var textChanged = _renderedText != rendered;
+            var caretIndex = Math.Min(GetCursorTextIndex(), rendered.Length);
+            var cursorRowChanged = _lastRenderedCursorRow != _cursorRow;
+            var caretChanged = _lastRenderedCaretIndex != caretIndex || _terminal.SelectionLength != 0;
 
-            _terminal.SelectionStart = _terminal.TextLength;
-            _terminal.SelectionLength = 0;
-            _terminal.ScrollToCaret();
+            if (!textChanged && !caretChanged)
+                return;
+
+            SuspendRedraw();
+            try
+            {
+                if (textChanged)
+                    UpdateRenderedText(rendered);
+
+                caretIndex = Math.Min(caretIndex, _terminal.TextLength);
+                var shouldMoveCaret = cursorRowChanged || IsTextIndexOutsideVisibleText(caretIndex);
+                if (shouldMoveCaret && (_terminal.SelectionStart != caretIndex || _terminal.SelectionLength != 0))
+                {
+                    _terminal.SelectionStart = caretIndex;
+                    _terminal.SelectionLength = 0;
+                    _terminal.ScrollToCaret();
+                }
+                _lastRenderedCaretIndex = caretIndex;
+                _lastRenderedCursorRow = _cursorRow;
+            }
+            finally
+            {
+                ResumeRedraw();
+            }
+        }
+
+        private int GetCursorTextIndex()
+        {
+            if (_screenLines.Count == 0)
+                return 0;
+
+            var row = Math.Min(_cursorRow, _screenLines.Count - 1);
+            var index = 0;
+            for (int i = 0; i < row; i++)
+                index += _screenLines[i].ToString().TrimEnd().Length + 1;
+
+            var currentLineLength = _screenLines[row].ToString().TrimEnd().Length;
+            return index + Math.Min(_cursorColumn, currentLineLength);
+        }
+
+        private bool IsTextIndexOutsideVisibleText(int index)
+        {
+            if (_terminal.TextLength == 0)
+                return false;
+
+            var firstVisibleChar = _terminal.GetCharIndexFromPosition(new Point(0, 0));
+            var lastVisibleChar = _terminal.GetCharIndexFromPosition(new Point(
+                Math.Max(0, _terminal.ClientSize.Width - 1),
+                Math.Max(0, _terminal.ClientSize.Height - 1)));
+
+            return index < firstVisibleChar || index > lastVisibleChar;
         }
 
         private void UpdateRenderedText(string rendered)
@@ -499,17 +837,9 @@ namespace TerminalWinV10
             var oldSuffixLength = _renderedText.Length - prefixLength;
             var newSuffix = rendered.Substring(prefixLength);
 
-            SuspendRedraw();
-            try
-            {
-                _terminal.Select(prefixLength, oldSuffixLength);
-                _terminal.SelectedText = newSuffix;
-                _renderedText = rendered;
-            }
-            finally
-            {
-                ResumeRedraw();
-            }
+            _terminal.Select(prefixLength, oldSuffixLength);
+            _terminal.SelectedText = newSuffix;
+            _renderedText = rendered;
         }
 
         private static int GetCommonPrefixLength(string a, string b)
@@ -549,6 +879,9 @@ namespace TerminalWinV10
                 _session.StatusChanged -= OnSessionStatus;
                 Disconnect();
                 _session.Dispose();
+                _renderTimer.Tick -= RenderTimer_Tick;
+                _renderTimer.Dispose();
+                _terminal.SizeChanged -= Terminal_SizeChanged;
                 _terminal.KeyDown -= Terminal_KeyDown;
                 _terminal.KeyPress -= Terminal_KeyPress;
                 _terminal.Dispose();

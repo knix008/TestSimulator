@@ -19,6 +19,8 @@ namespace TerminalWinV10
         private ConPtyHost? _conPty;
         private bool _useSsl;
         private bool _disposed;
+        private int _terminalColumns = 80;
+        private int _terminalRows = 24;
 
         public bool IsConnected { get; private set; }
         public TerminalConnectionSettings Settings { get; private set; } = new();
@@ -130,6 +132,13 @@ namespace TerminalWinV10
             }
         }
 
+        public void ResizeTerminal(int columns, int rows)
+        {
+            _terminalColumns = Math.Max(1, columns);
+            _terminalRows = Math.Max(1, rows);
+            _conPty?.Resize(_terminalColumns, _terminalRows);
+        }
+
         private void ConnectSerial()
         {
             var baud = int.Parse(Settings.Baud);
@@ -172,7 +181,7 @@ namespace TerminalWinV10
                 _conPty = new ConPtyHost();
                 _conPty.OutputReceived += OnConPtyOutput;
                 _conPty.SessionEnded += OnConPtySessionEnded;
-                _conPty.Start(shell, arguments, workDir);
+                _conPty.Start(shell, arguments, workDir, _terminalColumns, _terminalRows);
                 RaiseStatus($"[Local] Started {name} (ConPTY)");
                 return;
             }
