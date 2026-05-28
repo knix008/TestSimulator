@@ -1,8 +1,7 @@
 # Build output
-midimaster
-
-# SoundFont (large binary; copy separately)
-SoundFonts/
+mdmaker
+mdmaker-gtk
+build/
 
 # Editor / IDE
 .vscode/
