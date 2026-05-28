@@ -1,6 +1,6 @@
-﻿namespace VixAirSimulator
+﻿namespace VIXfaceSimulator
 {
-    partial class VixReaderSimulator
+    partial class VIXfaceSimulator
     {
         /// <summary>
         ///  Required designer variable.
@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             LogTextBox = new TextBox();
-            VixAirServerLabel = new Label();
+            VIXfaceServerLabel = new Label();
             SuspendLayout();
             // 
             // LogTextBox
@@ -38,30 +38,30 @@
             LogTextBox.Multiline = true;
             LogTextBox.Name = "LogTextBox";
             LogTextBox.ScrollBars = ScrollBars.Both;
-            LogTextBox.Size = new Size(958, 519);
+            LogTextBox.Size = new Size(1158, 519);
             LogTextBox.TabIndex = 0;
             // 
-            // VixAirServerLabel
+            // VIXfaceServerLabel
             // 
-            VixAirServerLabel.AutoSize = true;
-            VixAirServerLabel.Location = new Point(16, 6);
-            VixAirServerLabel.Name = "VixAirServerLabel";
-            VixAirServerLabel.Size = new Size(177, 15);
-            VixAirServerLabel.TabIndex = 1;
-            VixAirServerLabel.Text = "VIXface 2.0 Simulator Output : ";
+            VIXfaceServerLabel.AutoSize = true;
+            VIXfaceServerLabel.Location = new Point(16, 6);
+            VIXfaceServerLabel.Name = "VIXfaceServerLabel";
+            VIXfaceServerLabel.Size = new Size(159, 15);
+            VIXfaceServerLabel.TabIndex = 1;
+            VIXfaceServerLabel.Text = "VIXface 2.0 Simulator Log : ";
             // 
-            // VixReaderSimulator
+            // VIXfaceSimulator
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             AutoSize = true;
-            ClientSize = new Size(984, 561);
-            Controls.Add(VixAirServerLabel);
+            ClientSize = new Size(1184, 561);
+            Controls.Add(VIXfaceServerLabel);
             Controls.Add(LogTextBox);
             MaximizeBox = false;
-            MaximumSize = new Size(1000, 600);
-            MinimumSize = new Size(1000, 600);
-            Name = "VixReaderSimulator";
+            MaximumSize = new Size(1200, 600);
+            MinimumSize = new Size(1200, 600);
+            Name = "VIXfaceSimulator";
             Text = "VIXface 2.0 Simulator";
             ResumeLayout(false);
             PerformLayout();
@@ -70,6 +70,6 @@
         #endregion
 
         private TextBox LogTextBox;
-        private Label VixAirServerLabel;
+        private Label VIXfaceServerLabel;
     }
 }

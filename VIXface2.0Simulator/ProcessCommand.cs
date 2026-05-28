@@ -3,13 +3,13 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace VixAirSimulator
+namespace VIXfaceSimulator
 {
     public class ProcessCommand
     {
-        private readonly VixReaderSimulator _simulator;
+        private readonly VIXfaceSimulator _simulator;
 
-        public ProcessCommand(VixReaderSimulator simulator)
+        public ProcessCommand(VIXfaceSimulator simulator)
         {
             _simulator = simulator;
         }
@@ -18,14 +18,14 @@ namespace VixAirSimulator
         {
             try
             {
-                _simulator.LogMessage($"AT 명령어 처리: {command}");
+                _simulator.LogMessage($"AT ????? ???: {command}");
                 
                 _simulator.UpdateLastCommandTime();
 
-                // 명령어를 대소문자 구분 없이 처리
+                // ????? ?????? ???? ???? ???
                 var upperCommand = command.ToUpper().Trim();
 
-                // AT 명령어 처리
+                // AT ????? ???
                 return upperCommand switch
                 {
                     "AT" => ProcessBasicAtCommand(),
@@ -51,14 +51,14 @@ namespace VixAirSimulator
                     "AT+CLEAR" => ProcessClearCommand(),
                     "AT+REBOOT" => ProcessRebootCommand(),
                     _ when upperCommand.StartsWith("AT+SERIAL=") => ProcessSerialSetCommand(command),
-                    _ when upperCommand.StartsWith("AT+") => CreateAtErrorResponse($"알 수 없는 AT 명령어: {command}"),
-                    _ => CreateAtErrorResponse("잘못된 AT 명령어 형식")
+                    _ when upperCommand.StartsWith("AT+") => CreateAtErrorResponse($"?? ?? ???? AT ?????: {command}"),
+                    _ => CreateAtErrorResponse("????? AT ????? ????")
                 };
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"AT 명령어 처리 오류: {ex.Message}");
-                return CreateAtErrorResponse($"AT 명령어 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"AT ????? ??? ????: {ex.Message}");
+                return CreateAtErrorResponse($"AT ????? ??? ????: {ex.Message}");
             }
         }
 
@@ -66,7 +66,7 @@ namespace VixAirSimulator
         {
             try
             {
-                // JSON 요청 파싱
+                // JSON ??? ???
                 JsonDocument requestDoc;
                 try
                 {
@@ -77,16 +77,16 @@ namespace VixAirSimulator
                     return CreateTlsErrorResponse("Invalid JSON format");
                 }
 
-                // 요청 타입 확인
+                // ??? ??? ???
                 if (!requestDoc.RootElement.TryGetProperty("action", out var actionElement))
                 {
                     return CreateTlsErrorResponse("Missing action field");
                 }
 
                 var action = actionElement.GetString();
-                _simulator.LogMessage($"TLS 요청 처리: {action}");
+                _simulator.LogMessage($"TLS ??? ???: {action}");
 
-                // 액션별 처리
+                // ???? ???
                 return action switch
                 {
                     "getMacAddress" => CreateTlsResponse(GetRealMacAddressInfo()),
@@ -97,7 +97,7 @@ namespace VixAirSimulator
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"TLS 요청 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"TLS ??? ??? ????: {ex.Message}");
                 return CreateTlsErrorResponse($"Internal error: {ex.Message}");
             }
         }
@@ -106,7 +106,7 @@ namespace VixAirSimulator
         {
             _simulator.SetConnected(true);
             
-            _simulator.LogMessage("기본 AT 명령어 처리 - 연결 설정됨");
+            _simulator.LogMessage("?? AT ????? ??? - ???? ??????");
             return "OK\r\n";
         }
 
@@ -114,12 +114,12 @@ namespace VixAirSimulator
         {
             if (!_simulator.IsConnected)
             {
-                _simulator.LogMessage("테스트 시작 실패 - 먼저 AT 명령어로 연결해야 함");
-                return "ERROR: 먼저 'AT' 명령어로 연결을 설정하세요\r\n";
+                _simulator.LogMessage("???? ???? ???? - ???? AT ?????? ??????? ??");
+                return "ERROR: ???? 'AT' ?????? ?????? ?????????\r\n";
             }
             
             _simulator.SetTestModeEnabled(true);
-            _simulator.LogMessage("테스트 모드 활성화됨");
+            _simulator.LogMessage("???? ??? ??????");
             
             return "OK\r\nTEST MODE ENABLED\r\n";
         }
@@ -128,7 +128,7 @@ namespace VixAirSimulator
         {
             _simulator.SetTestModeEnabled(false);
             
-            _simulator.LogMessage("테스트 모드 비활성화됨");
+            _simulator.LogMessage("???? ??? ????????");
             return "OK\r\nTEST MODE DISABLED\r\n";
         }
 
@@ -136,44 +136,44 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("펌웨어 버전 조회 실패 - 연결되지 않음");
+                    _simulator.LogMessage("????? ???? ??? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("펌웨어 버전 조회 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("????? ???? ??? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
                 const string firmwareVersion = "VER1.0.1";
-                _simulator.LogMessage($"펌웨어 버전 조회 성공: {firmwareVersion}");
+                _simulator.LogMessage($"????? ???? ??? ????: {firmwareVersion}");
                 return $"{firmwareVersion}\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"펌웨어 버전 조회 오류: {ex.Message}");
+                _simulator.LogMessage($"????? ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
 
         private string ProcessStatusCommand()
         {
-            // 연결 상태 확인
+            // ???? ???? ???
             if (!_simulator.IsConnected)
             {
-                _simulator.LogMessage("상태 조회 실패 - 연결되지 않음");
+                _simulator.LogMessage("???? ??? ???? - ??????? ????");
                 return "FAIL\r\n";
             }
 
-            // 테스트 모드 확인
+            // ???? ??? ???
             if (!_simulator.IsTestModeEnabled)
             {
-                _simulator.LogMessage("상태 조회 실패 - 테스트 모드가 활성화되지 않음");
+                _simulator.LogMessage("???? ??? ???? - ???? ??? ???????? ????");
                 return "FAIL\r\n";
             }
 
@@ -191,33 +191,33 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("시리얼 번호 조회 실패 - 연결되지 않음");
+                    _simulator.LogMessage("?ø??? ??? ??? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("시리얼 번호 조회 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("?ø??? ??? ??? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 시리얼 번호가 유효한지 확인
+                // ?ø??? ????? ??????? ???
                 if (string.IsNullOrWhiteSpace(_simulator.DeviceSerialNumber))
                 {
-                    _simulator.LogMessage("시리얼 번호 조회 실패 - 시리얼 번호가 설정되지 않음");
+                    _simulator.LogMessage("?ø??? ??? ??? ???? - ?ø??? ????? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage($"시리얼 번호 조회 성공: {_simulator.DeviceSerialNumber}");
+                _simulator.LogMessage($"?ø??? ??? ??? ????: {_simulator.DeviceSerialNumber}");
                 return $"{_simulator.DeviceSerialNumber}\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"시리얼 번호 조회 오류: {ex.Message}");
+                _simulator.LogMessage($"?ø??? ??? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -226,46 +226,46 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("시리얼 번호 설정 실패 - 연결되지 않음");
+                    _simulator.LogMessage("?ø??? ??? ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("시리얼 번호 설정 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("?ø??? ??? ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                // "AT+SERIAL=" 부분을 제거하고 시리얼 번호 추출
-                var serialNumberPart = command.Substring(10); // "AT+SERIAL=" 길이는 10
+                // "AT+SERIAL=" ?κ??? ??????? ?ø??? ??? ????
+                var serialNumberPart = command.Substring(10); // "AT+SERIAL=" ????? 10
                 
                 if (string.IsNullOrWhiteSpace(serialNumberPart))
                 {
-                    _simulator.LogMessage("시리얼 번호 설정 실패 - 빈 시리얼 번호");
+                    _simulator.LogMessage("?ø??? ??? ???? ???? - ?? ?ø??? ???");
                     return "FAIL\r\n";
                 }
 
-                // 시리얼 번호 검증 (영숫자와 하이픈만 허용, 최대 20자)
+                // ?ø??? ??? ???? (??????? ?????¸? ???, ??? 20??)
                 if (!Regex.IsMatch(serialNumberPart, @"^[A-Za-z0-9\-]{1,20}$"))
                 {
-                    _simulator.LogMessage($"시리얼 번호 설정 실패 - 잘못된 형식: {serialNumberPart}");
+                    _simulator.LogMessage($"?ø??? ??? ???? ???? - ????? ????: {serialNumberPart}");
                     return "FAIL\r\n";
                 }
 
-                // 시리얼 번호 업데이트
+                // ?ø??? ??? ???????
                 var oldSerialNumber = _simulator.DeviceSerialNumber;
                 _simulator.SetDeviceSerialNumber(serialNumberPart);
                 
-                _simulator.LogMessage($"시리얼 번호가 업데이트됨: {oldSerialNumber} -> {_simulator.DeviceSerialNumber}");
+                _simulator.LogMessage($"?ø??? ????? ?????????: {oldSerialNumber} -> {_simulator.DeviceSerialNumber}");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"시리얼 번호 설정 오류: {ex.Message}");
+                _simulator.LogMessage($"?ø??? ??? ???? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -274,26 +274,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("CLEAR 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("CLEAR ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("CLEAR 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("CLEAR ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("CLEAR 명령 처리 완료");
+                _simulator.LogMessage("CLEAR ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"CLEAR 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"CLEAR ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -302,26 +302,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("REBOOT 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("REBOOT ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("REBOOT 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("REBOOT ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("REBOOT 명령 처리 완료");
+                _simulator.LogMessage("REBOOT ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"REBOOT 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"REBOOT ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -330,26 +330,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("DEFBUTTON 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("DEFBUTTON ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("DEFBUTTON 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("DEFBUTTON ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("DEFBUTTON 명령 처리 완료");
+                _simulator.LogMessage("DEFBUTTON ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"DEFBUTTON 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"DEFBUTTON ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -358,26 +358,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("BIST 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("BIST ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("BIST 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("BIST ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("BIST 명령 처리 완료");
+                _simulator.LogMessage("BIST ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"BIST 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"BIST ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -386,26 +386,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("BLE 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("BLE ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("BLE 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("BLE ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("BLE 명령 처리 완료");
+                _simulator.LogMessage("BLE ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"BLE 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"BLE ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -414,26 +414,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("NFC 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("NFC ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("NFC 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("NFC ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("NFC 명령 처리 완료");
+                _simulator.LogMessage("NFC ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"NFC 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"NFC ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -442,26 +442,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("LFID 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("LFID ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("LFID 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("LFID ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("LFID 명령 처리 완료");
+                _simulator.LogMessage("LFID ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"LFID 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"LFID ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -470,26 +470,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("AUXIN 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("AUXIN ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("AUXIN 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("AUXIN ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("AUXIN 명령 처리 완료");
+                _simulator.LogMessage("AUXIN ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"AUXIN 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"AUXIN ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -498,26 +498,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("SENSOR 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("SENSOR ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("SENSOR 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("SENSOR ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("SENSOR 명령 처리 완료");
+                _simulator.LogMessage("SENSOR ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"SENSOR 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"SENSOR ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -526,26 +526,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("LOCK 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("LOCK ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("LOCK 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("LOCK ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("LOCK 명령 처리 완료");
+                _simulator.LogMessage("LOCK ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"LOCK 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"LOCK ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -554,26 +554,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("BUTTON 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("BUTTON ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("BUTTON 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("BUTTON ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("BUTTON 명령 처리 완료");
+                _simulator.LogMessage("BUTTON ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"BUTTON 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"BUTTON ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -582,26 +582,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("LED 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("LED ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("LED 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("LED ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("LED 명령 처리 완료");
+                _simulator.LogMessage("LED ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"LED 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"LED ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -610,26 +610,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("BUZZER 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("BUZZER ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("BUZZER 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("BUZZER ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("BUZZER 명령 처리 완료");
+                _simulator.LogMessage("BUZZER ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"BUZZER 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"BUZZER ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -638,26 +638,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("TAMPER 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("TAMPER ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("TAMPER 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("TAMPER ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("TAMPER 명령 처리 완료");
+                _simulator.LogMessage("TAMPER ???? ??? ???");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"TAMPER 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"TAMPER ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -666,26 +666,26 @@ namespace VixAirSimulator
         {
             try
             {
-                // 연결 상태 확인
+                // ???? ???? ???
                 if (!_simulator.IsConnected)
                 {
-                    _simulator.LogMessage("NETWORK 명령 실패 - 연결되지 않음");
+                    _simulator.LogMessage("NETWORK ???? ???? - ??????? ????");
                     return "FAIL\r\n";
                 }
 
-                // 테스트 모드 확인
+                // ???? ??? ???
                 if (!_simulator.IsTestModeEnabled)
                 {
-                    _simulator.LogMessage("NETWORK 명령 실패 - 테스트 모드가 활성화되지 않음");
+                    _simulator.LogMessage("NETWORK ???? ???? - ???? ??? ???????? ????");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage("NETWORK 명령 처리 완료 - 네트워크 상태 UP");
+                _simulator.LogMessage("NETWORK ???? ??? ??? - ?????? ???? UP");
                 return "UP\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"NETWORK 명령 처리 오류: {ex.Message}");
+                _simulator.LogMessage($"NETWORK ???? ??? ????: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
@@ -694,7 +694,7 @@ namespace VixAirSimulator
         {
             try
             {
-                // 시리얼 번호 추출
+                // ?ø??? ??? ????
                 if (requestDoc.RootElement.TryGetProperty("serialNumber", out var serialElement) ||
                     requestDoc.RootElement.TryGetProperty("serial_number", out serialElement) ||
                     requestDoc.RootElement.TryGetProperty("SerialNumber", out serialElement))
@@ -705,14 +705,14 @@ namespace VixAirSimulator
                         return CreateTlsErrorResponse("Serial number cannot be empty");
                     }
 
-                    // 시리얼 번호 검증 (영숫자와 하이픈만 허용, 최대 20자)
+                    // ?ø??? ??? ???? (??????? ?????¸? ???, ??? 20??)
                     if (!Regex.IsMatch(newSerialNumber, @"^[A-Za-z0-9\-]{1,20}$"))
                     {
                         return CreateTlsErrorResponse("Invalid serial number format");
                     }
 
                     _simulator.SetDeviceSerialNumber(newSerialNumber);
-                    _simulator.LogMessage($"시리얼 번호가 업데이트됨: {_simulator.DeviceSerialNumber}");
+                    _simulator.LogMessage($"?ø??? ????? ?????????: {_simulator.DeviceSerialNumber}");
 
                     var response = new
                     {
@@ -731,7 +731,7 @@ namespace VixAirSimulator
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"시리얼 번호 설정 오류: {ex.Message}");
+                _simulator.LogMessage($"?ø??? ??? ???? ????: {ex.Message}");
                 return CreateTlsErrorResponse($"Serial number update error: {ex.Message}");
             }
         }
@@ -776,7 +776,7 @@ namespace VixAirSimulator
                     timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                 };
 
-                _simulator.LogMessage($"시리얼 번호 조회 완료: {_simulator.DeviceSerialNumber}");
+                _simulator.LogMessage($"?ø??? ??? ??? ???: {_simulator.DeviceSerialNumber}");
                 return JsonSerializer.Serialize(serialInfo, new JsonSerializerOptions 
                 { 
                     WriteIndented = true 
@@ -784,8 +784,8 @@ namespace VixAirSimulator
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"시리얼 번호 조회 오류: {ex.Message}");
-                return JsonSerializer.Serialize(new { error = $"시리얼 번호 조회 오류: {ex.Message}" });
+                _simulator.LogMessage($"?ø??? ??? ??? ????: {ex.Message}");
+                return JsonSerializer.Serialize(new { error = $"?ø??? ??? ??? ????: {ex.Message}" });
             }
         }
 
@@ -800,7 +800,7 @@ namespace VixAirSimulator
                     Timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                 };
                 
-                _simulator.LogMessage("MAC 주소 정보 생성 완료");
+                _simulator.LogMessage("MAC ??? ???? ???? ???");
                 return JsonSerializer.Serialize(macInfo, new JsonSerializerOptions 
                 { 
                     WriteIndented = true 
@@ -808,8 +808,8 @@ namespace VixAirSimulator
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"MAC 주소 수집 오류: {ex.Message}");
-                return JsonSerializer.Serialize(new { error = $"MAC 주소 오류: {ex.Message}" });
+                _simulator.LogMessage($"MAC ??? ???? ????: {ex.Message}");
+                return JsonSerializer.Serialize(new { error = $"MAC ??? ????: {ex.Message}" });
             }
         }
 
@@ -833,7 +833,7 @@ namespace VixAirSimulator
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"네트워크 인터페이스 수집 오류: {ex.Message}");
+                _simulator.LogMessage($"?????? ????????? ???? ????: {ex.Message}");
                 return new[] { new { error = ex.Message } };
             }
         }
@@ -845,7 +845,7 @@ namespace VixAirSimulator
                 var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
                 foreach (var networkInterface in networkInterfaces)
                 {
-                    // 활성화된 이더넷 또는 WiFi 인터페이스 찾기
+                    // ?????? ????? ??? WiFi ????????? ???
                     if (networkInterface.OperationalStatus == OperationalStatus.Up &&
                         (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet ||
                          networkInterface.NetworkInterfaceType == NetworkInterfaceType.Wireless80211))
@@ -857,7 +857,7 @@ namespace VixAirSimulator
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"MAC 주소 수집 오류: {ex.Message}");
+                _simulator.LogMessage($"MAC ??? ???? ????: {ex.Message}");
                 return "MAC Address error";
             }
         }

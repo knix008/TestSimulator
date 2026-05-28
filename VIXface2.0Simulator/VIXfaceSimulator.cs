@@ -2,39 +2,41 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Authentication;
 using System.Text;
 using System.Management;
 using System.Net.NetworkInformation;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace VixAirSimulator
+namespace VIXfaceSimulator
 {
-    public partial class VixReaderSimulator : Form
+    public partial class VIXfaceSimulator : Form
     {
         private TcpListener? _sslServer;
         private X509Certificate2? _serverCertificate;
         private bool _isServerRunning = false;
         private readonly object _logLock = new object();
         private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-        private string _deviceSerialNumber = "MYWWXXXXX"; // 기본 시리얼 번호
+        private bool _isErrorDialogOpen = false;
+        private string _deviceSerialNumber = "MYWWXXXXX"; // ?? ?씅??? ???
         
-        // 전역 상태 관리 (clientEndpoint 의존성 제거)
+        // ???? ???? ???? (clientEndpoint ?????? ????)
         private bool _isConnected = false;
         private bool _isTestModeEnabled = false;
         private DateTime _lastCommandTime = DateTime.Now;
 
-        // 명령어 처리기
+        // ????? ?????
         private readonly ProcessCommand _commandProcessor;
 
-        public VixReaderSimulator()
+        public VIXfaceSimulator()
         {
             InitializeComponent();
             _commandProcessor = new ProcessCommand(this);
             InitializeServer();
         }
 
-        // ProcessCommand 클래스에서 접근할 수 있도록 속성들을 public으로 노출
+        // ProcessCommand ????????? ?????? ?? ????? ??????? public???? ????
         public bool IsConnected => _isConnected;
         public bool IsTestModeEnabled => _isTestModeEnabled;
         public DateTime LastCommandTime => _lastCommandTime;
@@ -49,24 +51,24 @@ namespace VixAirSimulator
         {
             try
             {
-                // SSL 인증서 생성 (개발용 자체 서명 인증서)
+                // SSL ?????? ???? (????? ??? ???? ??????)
                 _serverCertificate = CreateSelfSignedCertificate();
                 
-                // TCP 리스너 초기화 (포트 8443 사용)
+                // TCP ?????? ???? (??? 8443 ???)
                 _sslServer = new TcpListener(IPAddress.Any, 8443);
                 
-                LogMessage("SSL 서버가 초기화되었습니다.");
+                LogMessage("SSL server initialized.");
             }
             catch (Exception ex)
             {
-                LogMessage($"서버 초기화 오류: {ex.Message}");
+                LogMessage($"Server initialization error: {ex.Message}");
             }
         }
 
         private X509Certificate2 CreateSelfSignedCertificate()
         {
-            // 개발용 자체 서명 인증서 생성
-            // 실제 운영환경에서는 유효한 SSL 인증서를 사용해야 합니다
+            // ????? ??? ???? ?????? ????
+            // ???? ???????? ????? SSL ???????? ?????? ????
             using (var rsa = System.Security.Cryptography.RSA.Create(2048))
             {
                 var req = new System.Security.Cryptography.X509Certificates.CertificateRequest(
@@ -82,7 +84,7 @@ namespace VixAirSimulator
         {
             if (_isServerRunning || _sslServer == null || _serverCertificate == null)
             {
-                LogMessage("서버를 시작할 수 없습니다. SSL 서버 또는 인증서가 초기화되지 않았습니다.");
+                LogMessage("Cannot start server. SSL server or certificate is not initialized.");
                 return;
             }
 
@@ -90,25 +92,25 @@ namespace VixAirSimulator
             {
                 _sslServer.Start();
                 _isServerRunning = true;
-                LogMessage("SSL 서버가 포트 8443에서 시작되었습니다.");
+                LogMessage("SSL server started on port 8443.");
 
                 while (_isServerRunning && !_cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     var tcpClient = await _sslServer.AcceptTcpClientAsync();
                     var clientEndpoint = tcpClient.Client.RemoteEndPoint?.ToString() ?? "Unknown";
-                    LogMessage($"클라이언트 연결됨: {clientEndpoint}");
+                    LogMessage($"Client connected: {clientEndpoint}");
 
-                    // 각 클라이언트를 별도 작업으로 처리
+                    // ?? ????????? ???? ??????? ???
                     _ = Task.Run(() => HandleClientAsync(tcpClient, _cancellationTokenSource.Token));
                 }
             }
             catch (ObjectDisposedException)
             {
-                // 서버가 정상적으로 종료된 경우
+                // ?????? ?????????? ????? ???
             }
             catch (Exception ex)
             {
-                LogMessage($"서버 오류: {ex.Message}");
+                LogMessage($"Server error: {ex.Message}");
             }
         }
 
@@ -122,20 +124,26 @@ namespace VixAirSimulator
                 if (cancellationToken.IsCancellationRequested)
                     return;
 
-                // 서버 인증서가 null인 경우 처리
+                // ???? ???????? null?? ??? ???
                 if (_serverCertificate == null)
                 {
-                    LogMessage("서버 인증서가 초기화되지 않았습니다.");
+                    LogMessage("Server certificate is not initialized.");
                     return;
                 }
 
                 sslStream = new SslStream(tcpClient.GetStream());
-                
-                // SSL 핸드셰이크 수행 (이제 _serverCertificate가 null이 아님이 보장됨)
-                await sslStream.AuthenticateAsServerAsync(_serverCertificate);
-                LogMessage("TLS 핸드셰이크 완료");
 
-                // 연속적으로 명령어를 처리하는 루프
+                // Enforce TLS 1.3 while using self-signed certificate.
+                var tlsOptions = new SslServerAuthenticationOptions
+                {
+                    ServerCertificate = _serverCertificate,
+                    EnabledSslProtocols = SslProtocols.Tls13
+                };
+
+                await sslStream.AuthenticateAsServerAsync(tlsOptions, cancellationToken);
+                LogMessage("TLS 1.3 handshake complete");
+
+                // ?????????? ????? ?????? ????
                 while (!cancellationToken.IsCancellationRequested && tcpClient.Connected)
                 {
                     var buffer = new byte[4096];
@@ -144,31 +152,31 @@ namespace VixAirSimulator
                     if (bytesRead > 0)
                     {
                         var requestData = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
-                        LogMessage($"[{clientEndpoint}] 수신된 요청: {requestData}");
+                        LogMessage($"[{clientEndpoint}] Request received: {requestData}");
 
                         string response;
                         
-                        // AT 명령어인지 JSON 요청인지 구분
+                        // AT ????????? JSON ??????? ????
                         if (requestData.StartsWith("AT", StringComparison.OrdinalIgnoreCase))
                         {
                             response = _commandProcessor.ProcessAtCommand(requestData);
                         }
                         else
                         {
-                            // 첫 연결에서 AT 명령어가 아닌 요청을 받은 경우
+                            // ? ?????? AT ????? ??? ????? ???? ???
                             if (!_isConnected)
                             {
-                                response = "ERROR: 첫 연결에서는 반드시 'AT' 명령어로 시작해야 합니다.\r\n";
-                                LogMessage($"[{clientEndpoint}] 첫 연결에서 잘못된 요청 수신: {requestData}");
+                                response = "ERROR: First connection must start with an 'AT' command.\r\n";
+                                LogMessage($"[{clientEndpoint}] Invalid first request: {requestData}");
                             }
-                            // 기존 JSON 요청 처리 (테스트 모드가 활성화된 경우에만)
+                            // ???? JSON ??? ??? (???? ??? ?????? ??씅??)
                             else if (_isTestModeEnabled)
                             {
                                 response = _commandProcessor.ProcessTlsRequest(requestData);
                             }
                             else
                             {
-                                response = "ERROR: 테스트 모드가 활성화되지 않았습니다. 먼저 'AT+TEST=BEGIN'를 전송하세요.\r\n";
+                                response = "ERROR: Test mode is not enabled. Send 'AT+TEST=BEGIN' first.\r\n";
                             }
                         }
 
@@ -176,28 +184,28 @@ namespace VixAirSimulator
                         await sslStream.WriteAsync(responseBytes, 0, responseBytes.Length, cancellationToken);
                         await sslStream.FlushAsync(cancellationToken);
                         
-                        LogMessage($"[{clientEndpoint}] 응답 전송 완료");
+                        LogMessage($"[{clientEndpoint}] Response sent");
                     }
                     else
                     {
-                        // 클라이언트가 연결을 종료한 경우
+                        // ????????? ?????? ?????? ???
                         break;
                     }
                 }
             }
             catch (OperationCanceledException)
             {
-                // 취소된 경우 - 정상적인 종료
+                // ???? ??? - ???????? ????
             }
             catch (Exception ex)
             {
-                LogMessage($"[{clientEndpoint}] 클라이언트 처리 오류: {ex.Message}");
+                LogMessage($"[{clientEndpoint}] Client handling error: {ex.Message}");
             }
             finally
             {
                 sslStream?.Close();
                 tcpClient.Close();
-                LogMessage($"[{clientEndpoint}] 클라이언트 연결 종료됨");
+                LogMessage($"[{clientEndpoint}] Client connection closed");
             }
         }
 
@@ -211,25 +219,25 @@ namespace VixAirSimulator
                 _cancellationTokenSource.Cancel();
                 _sslServer?.Stop();
                 
-                // 전역 상태 초기화
+                // ???? ???? ????
                 _isConnected = false;
                 _isTestModeEnabled = false;
                 
-                LogMessage("SSL 서버가 중지되었습니다.");
+                LogMessage("SSL server stopped.");
             }
             catch (Exception ex)
             {
-                LogMessage($"서버 중지 오류: {ex.Message}");
+                LogMessage($"Server stop error: {ex.Message}");
             }
         }
 
         public void LogMessage(string message)
         {
-            // 폼이 dispose되었는지 먼저 확인
+            // ???? dispose??????? ???? ???
             if (IsDisposed)
                 return;
 
-            // CancellationTokenSource의 상태를 안전하게 확인
+            // CancellationTokenSource?? ???씅? ??????? ???
             try
             {
                 if (_cancellationTokenSource?.Token.IsCancellationRequested == true)
@@ -237,7 +245,7 @@ namespace VixAirSimulator
             }
             catch (ObjectDisposedException)
             {
-                // CancellationTokenSource가 이미 dispose된 경우 로깅 중단
+                // CancellationTokenSource?? ??? dispose?? ??? ?씅? ???
                 return;
             }
 
@@ -245,7 +253,7 @@ namespace VixAirSimulator
             {
                 var logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
                 
-                // UI 스레드에서 텍스트박스 업데이트
+                // UI ???????? ??????? ???????
                 if (LogTextBox.InvokeRequired)
                 {
                     LogTextBox.Invoke(new Action(() => UpdateTextBox(logEntry)));
@@ -254,20 +262,134 @@ namespace VixAirSimulator
                 {
                     UpdateTextBox(logEntry);
                 }
+
+                if (LooksLikeErrorMessage(message))
+                {
+                    ShowErrorPopup("Simulator Error", logEntry);
+                }
             }
             catch (ObjectDisposedException)
             {
-                // TextBox가 dispose된 경우 무시
+                // TextBox?? dispose?? ??? ????
             }
             catch (InvalidOperationException)
             {
-                // Invoke 호출 시 control이 dispose된 경우 무시
+                // Invoke ??? ?? control?? dispose?? ??? ????
+            }
+        }
+
+        private static bool LooksLikeErrorMessage(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+
+            return message.Contains("error", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("fail", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("??", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("??", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ShowErrorPopup(string title, string detail)
+        {
+            if (IsDisposed || Disposing)
+                return;
+
+            if (_isErrorDialogOpen)
+                return;
+
+            void ShowDialog()
+            {
+                if (IsDisposed || Disposing || _isErrorDialogOpen)
+                    return;
+
+                _isErrorDialogOpen = true;
+                try
+                {
+                    using var dialog = new Form
+                    {
+                        Text = title,
+                        StartPosition = FormStartPosition.CenterParent,
+                        Width = 760,
+                        Height = 420,
+                        MinimizeBox = false,
+                        MaximizeBox = false,
+                        FormBorderStyle = FormBorderStyle.SizableToolWindow
+                    };
+
+                    var detailTextBox = new TextBox
+                    {
+                        Multiline = true,
+                        ReadOnly = true,
+                        ScrollBars = ScrollBars.Both,
+                        WordWrap = false,
+                        Dock = DockStyle.Fill,
+                        Font = new Font("Consolas", 10F),
+                        Text = detail
+                    };
+
+                    var copyButton = new Button
+                    {
+                        Text = "Copy",
+                        Width = 100,
+                        Height = 30,
+                        Anchor = AnchorStyles.Right | AnchorStyles.Bottom
+                    };
+                    copyButton.Click += (_, __) =>
+                    {
+                        try
+                        {
+                            Clipboard.SetText(detailTextBox.Text);
+                        }
+                        catch
+                        {
+                            // Ignore clipboard access errors.
+                        }
+                    };
+
+                    var closeButton = new Button
+                    {
+                        Text = "Close",
+                        Width = 100,
+                        Height = 30,
+                        Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
+                        DialogResult = DialogResult.OK
+                    };
+
+                    var buttonPanel = new FlowLayoutPanel
+                    {
+                        Dock = DockStyle.Bottom,
+                        Height = 45,
+                        FlowDirection = FlowDirection.RightToLeft,
+                        Padding = new Padding(8)
+                    };
+                    buttonPanel.Controls.Add(closeButton);
+                    buttonPanel.Controls.Add(copyButton);
+
+                    dialog.Controls.Add(detailTextBox);
+                    dialog.Controls.Add(buttonPanel);
+                    dialog.AcceptButton = closeButton;
+
+                    dialog.ShowDialog(this);
+                }
+                finally
+                {
+                    _isErrorDialogOpen = false;
+                }
+            }
+
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action)ShowDialog);
+            }
+            else
+            {
+                ShowDialog();
             }
         }
 
         private void UpdateTextBox(string logEntry)
         {
-            // TextBox가 dispose되었는지 확인
+            // TextBox?? dispose??????? ???
             if (LogTextBox.IsDisposed)
                 return;
 
@@ -281,7 +403,7 @@ namespace VixAirSimulator
                 }
                 catch (ObjectDisposedException)
                 {
-                    // TextBox가 dispose된 경우 무시
+                    // TextBox?? dispose?? ??? ????
                 }
             }
         }
@@ -289,7 +411,7 @@ namespace VixAirSimulator
         protected override async void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            // 폼이 로드되면 서버 시작
+            // ???? ?씅??? ???? ????
             await StartServerAsync();
         }
 
