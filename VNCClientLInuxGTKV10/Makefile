@@ -77,23 +77,30 @@ DEBS := libgtk-3-dev libgcrypt20-dev libglib2.0-dev ffmpeg
 
 deps:
 	@echo ""
-	@echo "[1/3] Checking for apt-get ..."
+	@echo "──────────────────────────────────────────────"
+	@echo "[deps] 필수 패키지 설치 (ffmpeg 포함)"
+	@echo "──────────────────────────────────────────────"
+	@echo "설치 대상 패키지: $(DEBS)"
+	@echo "(ffmpeg는 화면 녹화/저장 기능에 필요합니다)"
+	@echo "[1/3] apt-get 사용 가능 여부 확인..."
 	@command -v apt-get >/dev/null 2>&1 || { \
-	    echo "  apt-get not found – install manually: $(DEBS)"; exit 0; }
+	echo "  [오류] apt-get을 찾을 수 없습니다. 아래 패키지를 수동 설치하세요:"; \
+	echo "    $(DEBS)"; \
+	exit 0; }
 	@missing=""; \
 	for pkg in $(DEBS); do \
-	    dpkg -s $$pkg >/dev/null 2>&1 || missing="$$missing $$pkg"; \
+		dpkg -s $$pkg >/dev/null 2>&1 || missing="$$missing $$pkg"; \
 	done; \
 	if [ -n "$$missing" ]; then \
-	    echo "[2/3] Updating package lists ..."; \
-	    sudo apt-get update -qq >/dev/null 2>&1; \
-	    echo "[3/3] Installing missing dependencies..."; \
-	    sudo apt-get install -y -qq $$missing >/dev/null 2>&1; \
-	    echo "  ✓  Installed missing packages:$$missing"; \
+		echo "[2/3] 패키지 목록 갱신 중..."; \
+		sudo apt-get update -qq >/dev/null 2>&1; \
+		echo "[3/3] 누락된 패키지 설치 중..."; \
+		sudo apt-get install -y -qq $$missing >/dev/null 2>&1; \
+		echo "  ✓ 설치 완료:$$missing"; \
 	else \
-	    echo "[2/3] All dependencies are already installed."; \
-	    echo "[3/3] Skipping install step."; \
-	    echo "  ✓  Dependencies already satisfied."; \
+		echo "[2/3] 모든 패키지가 이미 설치되어 있습니다."; \
+		echo "[3/3] 설치 단계 생략."; \
+		echo "  ✓ 모든 dependency가 충족됨."; \
 	fi
 	@echo ""
 
@@ -101,14 +108,39 @@ deps:
 check-deps:
 	@echo ""
 	@echo "  Checking build dependencies ..."
+	@echo "  [pkg-config 기반 빌드 라이브러리]"
 	@for pkg in $(PKGS_ALL); do \
-	    if pkg-config --exists $$pkg 2>/dev/null; then \
-	        printf "    %-24s ✓  %s\n" "$$pkg" "$$(pkg-config --modversion $$pkg)"; \
-	    else \
-	        echo "    $$pkg  ✗  NOT FOUND  (run: make deps)"; \
-	        exit 1; \
-	    fi; \
-	done
+	if pkg-config --exists $$pkg 2>/dev/null; then \
+		printf "    %-24s ✓  %s\n" "$$pkg" "$(shell pkg-config --modversion $$pkg)"; \
+	else \
+		echo "    $$pkg  ✗  NOT FOUND  (run: make deps)"; \
+		exit 1; \
+	fi; \
+done
+	@echo ""
+	@echo "  [시스템 패키지/실행파일 의존성]"
+	@missing=""; \
+	for pkg in $(DEBS); do \
+		if [ "$$pkg" = "ffmpeg" ]; then \
+			if command -v ffmpeg >/dev/null 2>&1; then \
+				printf "    %-24s ✓  %s\n" "ffmpeg (exec)" "$(shell ffmpeg -version | head -n1 | cut -d' ' -f3-)"; \
+			else \
+				echo "    ffmpeg (exec)           ✗  NOT FOUND  (run: make deps)"; \
+				missing="$$missing ffmpeg"; \
+			fi; \
+		else \
+			if dpkg -s $$pkg >/dev/null 2>&1; then \
+				printf "    %-24s ✓\n" "$$pkg"; \
+			else \
+				echo "    $$pkg  ✗  NOT FOUND  (run: make deps)"; \
+				missing="$$missing $$pkg"; \
+			fi; \
+		fi; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo "\n  일부 시스템 패키지가 누락되어 있습니다:$$missing"; \
+		exit 1; \
+	fi
 	@echo ""
 
 # ── build directories ────────────────────────────────────────
