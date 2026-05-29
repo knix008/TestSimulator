@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -14,6 +15,9 @@ namespace MyMindWin
             InitializeComponent();
             _vm = new MainViewModel();
             DataContext = _vm;
+
+            if (DesignerProperties.GetIsInDesignMode(this))
+                return;
 
             MindMapCanvas.SetViewModel(_vm);
 

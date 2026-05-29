@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -67,8 +68,15 @@ namespace MyMindWin.Controls
         public MindMapCanvasControl()
         {
             InitializeComponent();
+            if (IsInDesignMode())
+                return;
+
             SizeChanged += (_, _) => UpdateContentExtent();
+            Loaded += (_, _) => UpdateContentExtent();
         }
+
+        private bool IsInDesignMode() =>
+            DesignerProperties.GetIsInDesignMode(this);
 
         public void SetViewModel(MainViewModel vm)
         {
@@ -269,6 +277,12 @@ namespace MyMindWin.Controls
 
         private void UpdateContentExtent()
         {
+            if (IsInDesignMode() || _vm?.RootNode == null)
+            {
+                ApplyDefaultContentExtent();
+                return;
+            }
+
             var (minX, minY, maxX, maxY) = GetBoundingBox();
             if (minX == double.MaxValue)
             {
@@ -285,7 +299,21 @@ namespace MyMindWin.Controls
                 _contentHeight = Math.Max(300, maxY - minY + ContentPadding * 2);
             }
 
-            RootCanvas.Width  = _contentWidth;
+            if (RootCanvas != null)
+            {
+                RootCanvas.Width  = _contentWidth;
+                RootCanvas.Height = _contentHeight;
+            }
+        }
+
+        private void ApplyDefaultContentExtent()
+        {
+            _contentOriginX = 0;
+            _contentOriginY = 0;
+            _contentWidth = 800;
+            _contentHeight = 600;
+            if (RootCanvas == null) return;
+            RootCanvas.Width = _contentWidth;
             RootCanvas.Height = _contentHeight;
         }
 
@@ -927,10 +955,13 @@ namespace MyMindWin.Controls
 
         private (double minX, double minY, double maxX, double maxY) GetBoundingBox()
         {
+            if (IsInDesignMode() || _vm?.RootNode == null)
+                return (double.MaxValue, double.MaxValue, double.MinValue, double.MinValue);
+
             double minX = double.MaxValue, minY = double.MaxValue;
             double maxX = double.MinValue, maxY = double.MinValue;
 
-            foreach (var node in _vm!.RootNode!.GetVisibleDescendants())
+            foreach (var node in _vm.RootNode.GetVisibleDescendants())
             {
                 if (node.X < minX) minX = node.X;
                 if (node.Y < minY) minY = node.Y;

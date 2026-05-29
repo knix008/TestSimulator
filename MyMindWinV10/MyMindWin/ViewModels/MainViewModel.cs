@@ -65,8 +65,20 @@ namespace MyMindWin.ViewModels
                 if (_syncingShapeCombo || _shapeComboSelection == value) return;
                 _shapeComboSelection = value;
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(SelectedShapeOption));
                 if (SelectedNode != null && SelectedNode.Shape != value)
                     ApplyShapeToSelected(value);
+            }
+        }
+
+        public NodeShapeOption SelectedShapeOption
+        {
+            get => ShapeOptions.First(o => o.Kind == _shapeComboSelection);
+            set
+            {
+                if (value == null || _syncingShapeCombo || value.Kind == _shapeComboSelection)
+                    return;
+                ShapeComboSelection = value.Kind;
             }
         }
 
@@ -192,6 +204,7 @@ namespace MyMindWin.ViewModels
             _syncingShapeCombo = true;
             _shapeComboSelection = SelectedNode?.Shape ?? NodeShapeKind.RoundedRectangle;
             OnPropertyChanged(nameof(ShapeComboSelection));
+            OnPropertyChanged(nameof(SelectedShapeOption));
             _syncingShapeCombo = false;
         }
 
@@ -202,6 +215,7 @@ namespace MyMindWin.ViewModels
             _syncingShapeCombo = true;
             _shapeComboSelection = shape;
             OnPropertyChanged(nameof(ShapeComboSelection));
+            OnPropertyChanged(nameof(SelectedShapeOption));
             _syncingShapeCombo = false;
             RequestNodeShapeRefresh?.Invoke(this, SelectedNode);
         }

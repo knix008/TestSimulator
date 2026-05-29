@@ -118,6 +118,14 @@
             <Setter Property="Margin" Value="2,4"/>
         </Style>
 
+        <DataTemplate x:Key="ShapeOptionTemplate">
+            <TextBlock Text="{Binding Label}"
+                       Foreground="#F0F4FF"
+                       FontFamily="Segoe UI"
+                       FontSize="12"
+                       VerticalAlignment="Center"/>
+        </DataTemplate>
+
         <Style x:Key="ToolbarComboBoxItem" TargetType="ComboBoxItem">
             <Setter Property="Background" Value="#2A3548"/>
             <Setter Property="Foreground" Value="#F0F4FF"/>
@@ -139,10 +147,71 @@
             <Setter Property="Foreground" Value="#F0F4FF"/>
             <Setter Property="BorderBrush" Value="#6A7FA8"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Padding" Value="8,3,24,3"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="ItemTemplate" Value="{StaticResource ShapeOptionTemplate}"/>
             <Setter Property="ItemContainerStyle" Value="{StaticResource ToolbarComboBoxItem}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="Toggle"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="3">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="18"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Margin="8,0,2,0"
+                                                                  VerticalAlignment="Center"
+                                                                  HorizontalAlignment="Left"
+                                                                  Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  TextElement.Foreground="#F0F4FF"/>
+                                                <Path Grid.Column="1"
+                                                      Data="M 0,0 L 4,4 L 8,0 Z"
+                                                      Fill="#C8D4F0"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,6,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border Background="#2A3548"
+                                        BorderBrush="#6A7FA8"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="220">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -192,9 +261,8 @@
                 <ComboBox Style="{StaticResource ToolbarComboBox}"
                           Width="118" Height="28" Margin="0,2"
                           ItemsSource="{Binding ShapeOptions}"
-                          DisplayMemberPath="Label"
-                          SelectedValuePath="Kind"
-                          SelectedValue="{Binding ShapeComboSelection, Mode=TwoWay}"
+                          SelectedItem="{Binding SelectedShapeOption, Mode=TwoWay}"
+                          ItemTemplate="{StaticResource ShapeOptionTemplate}"
                           IsEnabled="{Binding HasSelectedNode}"
                           ToolTip="선택한 노드의 도형"/>
                 <Separator Style="{StaticResource ToolbarSep}"/>
