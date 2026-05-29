@@ -828,7 +828,6 @@ GtkWidget *build_main_window(AppState *app) {
     char **profiles = settings_list_profiles(&pcount);
     for (int i = 0; i < pcount; i++) gtk_combo_box_text_append_text(combo, profiles[i]);
     settings_free_profiles(profiles, pcount);
-    g_signal_connect(combo, "changed", G_CALLBACK(on_profile_changed), app);
     gtk_box_pack_start(GTK_BOX(prof_row), GTK_WIDGET(combo), FALSE, FALSE, 0);
     GtkWidget *btn_save_prof = gtk_button_new_with_label("저장");
     GtkWidget *btn_del_prof  = gtk_button_new_with_label("삭제");
@@ -1139,6 +1138,12 @@ GtkWidget *build_main_window(AppState *app) {
     gtk_box_pack_end(GTK_BOX(log_btns), btn_copy_log, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(log_vbox), log_btns, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(vbox), frm_log, TRUE, TRUE, 0);
+
+    /* Connect profile combo signal now that all widgets exist */
+    g_signal_connect(combo, "changed", G_CALLBACK(on_profile_changed), app);
+
+    /* Apply loaded settings to UI */
+    cfg_to_ui(app);
 
     /* Install GTK-safe log callback */
     gtk_log_install(on_log_message, app);
