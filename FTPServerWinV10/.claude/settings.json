@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet nuget *)",
+      "Bash(dotnet publish *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Home\\\\Projects\\\\TestSimulator\\\\FTPServerWinV10\\\\publish\" -ErrorAction SilentlyContinue | Select-Object Name | head -5; Write-Host \"---\"; \\(Get-ChildItem \"C:\\\\Home\\\\Projects\\\\TestSimulator\\\\FTPServerWinV10\\\\publish\" -ErrorAction SilentlyContinue\\).Count)",
+      "Bash(Get-ChildItem \"C:/Users/shkwon/.nuget/packages/wixtoolset.sdk/4.0.6/tools/\")",
+      "Bash(Write-Host \"---\")",
+      "Bash(Get-ChildItem \"C:/Users/shkwon/.nuget/packages/wixtoolset.sdk/4.0.6/\")"
+    ]
+  }
+}

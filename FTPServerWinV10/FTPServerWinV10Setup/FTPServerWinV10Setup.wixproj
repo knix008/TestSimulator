@@ -1,0 +1,33 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <OutputName>FTPServerWinV10_Setup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <AcceptEula>wix7</AcceptEula>
+    <SuppressIces>ICE69</SuppressIces>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FTPServerWinV10\FTPServerWinV10.csproj">
+      <AdditionalProperties>SkipInstaller=true</AdditionalProperties>
+      <SkipGetTargetFrameworkProperties>true</SkipGetTargetFrameworkProperties>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="License.rtf" />
+  </ItemGroup>
+
+  <Target Name="ShowMsiOutputPath" AfterTargets="Build">
+    <Message Text="MSI created: $(TargetPath)" Importance="high" />
+  </Target>
+
+</Project>

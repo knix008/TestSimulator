@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="FTP Server Manager"
+           Manufacturer="FTPServerWinV10"
+           Version="1.0.0.0"
+           UpgradeCode="{8B5CE724-3D1F-4F9A-9E5B-7C2A4F3D8E16}"
+           Language="1042"
+           Codepage="65001">
+
+    <MajorUpgrade DowngradeErrorMessage="더 높은 버전이 이미 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!--
+      daemon_hammer.ico 는 MSI 빌드 시점에 임베드됩니다.
+      ARPPRODUCTICON 으로 프로그램 추가/제거 목록에서도 동일 아이콘이 표시됩니다.
+    -->
+    <Icon Id="AppIcon" SourceFile="$(var.FTPServerWinV10.ProjectDir)daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <!--
+      Feature 구성
+        MainApp      - 핵심 파일 (필수, 해제 불가)
+          FeatDesktop   - 바탕화면 바로가기  (선택, 기본 선택됨)
+          FeatStartMenu - 시작 메뉴 바로가기 (선택, 기본 선택됨)
+    -->
+    <Feature Id="MainApp"
+             Title="FTP Server Manager"
+             Description="FTP Server Manager 핵심 파일을 설치합니다."
+             Level="1"
+             AllowAbsent="no"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+
+      <ComponentGroupRef Id="AppBinaries" />
+
+      <Feature Id="FeatDesktop"
+               Title="바탕화면 바로가기"
+               Description="바탕화면에 FTP Server Manager 바로가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="DesktopSCComp" />
+      </Feature>
+
+      <Feature Id="FeatStartMenu"
+               Title="시작 메뉴 바로가기"
+               Description="시작 메뉴에 FTP Server Manager 바로가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="StartMenuSCComp" />
+      </Feature>
+
+    </Feature>
+
+    <!-- 기능 선택 UI (라이선스 동의 → 기능 선택 → 설치 디렉터리 → 설치) -->
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+  </Package>
+
+  <!-- ── 디렉터리 구조 ───────────────────────────────────────────────────── -->
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="FTP Server Manager" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramsFolder" Name="FTP Server Manager" />
+    </StandardDirectory>
+  </Fragment>
+
+  <!-- 앱 빌드 출력 전체 수확 (ProjectReference → $(var.FTPServerWinV10.TargetDir)) -->
+  <Fragment>
+    <ComponentGroup Id="AppBinaries" Directory="INSTALLFOLDER">
+      <Files Include="$(var.FTPServerWinV10.TargetDir)**">
+        <Exclude Files="$(var.FTPServerWinV10.TargetDir)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- ── 바로가기 컴포넌트 ─────────────────────────────────────────────── -->
+  <Fragment>
+
+    <!-- 바탕화면 바로가기: 키패스는 레지스트리 값으로 처리 -->
+    <Component Id="DesktopSCComp" Directory="DesktopFolder" Guid="*">
+      <Shortcut Id="DesktopSC"
+                Name="FTP Server Manager"
+                Description="FTP 서버 관리자"
+                Target="[INSTALLFOLDER]FTPServerWinV10.exe"
+                Icon="AppIcon"
+                IconIndex="0"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\FTPServerManager\Shortcuts"
+                     Name="Desktop"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <!-- 시작 메뉴 바로가기 -->
+    <Component Id="StartMenuSCComp" Directory="AppProgramsFolder" Guid="*">
+      <Shortcut Id="StartMenuSC"
+                Name="FTP Server Manager"
+                Description="FTP 서버 관리자"
+                Target="[INSTALLFOLDER]FTPServerWinV10.exe"
+                Icon="AppIcon"
+                IconIndex="0"
+                WorkingDirectory="INSTALLFOLDER" />
+      <!-- 제거 시 빈 시작메뉴 폴더 삭제 -->
+      <RemoveFolder Id="RemoveAppProgramsFolder"
+                    Directory="AppProgramsFolder"
+                    On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\FTPServerManager\Shortcuts"
+                     Name="StartMenu"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+  </Fragment>
+
+</Wix>

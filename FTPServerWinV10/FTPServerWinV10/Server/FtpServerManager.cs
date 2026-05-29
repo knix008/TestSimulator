@@ -1,35 +1,30 @@
-using System;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace FTPServerWinV10.Server
 {
     public class FtpServerManager
     {
-        public int BufferSizeKb { get; set; } = 64;
-        public int MaxThreads { get; set; } = 4;
+        public int BufferSizeKb   { get; set; } = 64;
+        public int MaxThreads     { get; set; } = 4;
         public bool AllowAnonymous { get; set; } = true;
-        public string UserId { get; set; } = "";
-        public string UserPassword { get; set; } = "";
+        public List<UserEntry> Users { get; set; } = new();
 
-        protected string _rootPath;
+        protected readonly VirtualFileSystem _vfs;
         protected int _port;
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
         private int _clientCount = 0;
 
-        public event Action<string>? OnLog;
-        public event Action<int>? OnClientCountChanged;
+        public event Action<string>?       OnLog;
+        public event Action<int>?          OnClientCountChanged;
         public event Action<string, long>? OnFileUploaded;
         public event Action<string, long>? OnFileDownloaded;
 
-        public FtpServerManager(string rootPath, int port = 21)
+        public FtpServerManager(VirtualFileSystem vfs, int port = 21)
         {
-            _rootPath = rootPath;
+            _vfs  = vfs;
             _port = port;
         }
 
@@ -56,7 +51,7 @@ namespace FTPServerWinV10.Server
             {
                 _listener = new TcpListener(IPAddress.Any, _port);
                 _listener.Start();
-                OnLog?.Invoke($"FTP 서버 시작 (포트: {_port}, 폴더: {_rootPath})");
+                OnLog?.Invoke($"FTP 서버 시작 (포트: {_port}, 마운트: {string.Join(", ", _vfs.VirtualNames)})");
                 while (!token.IsCancellationRequested)
                 {
                     var client = await _listener.AcceptTcpClientAsync(token);
@@ -64,10 +59,7 @@ namespace FTPServerWinV10.Server
                 }
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                OnLog?.Invoke($"서버 오류: {ex.Message}");
-            }
+            catch (Exception ex) { OnLog?.Invoke($"서버 오류: {ex.Message}"); }
         }
 
         private async Task HandleClientAsync(TcpClient client, CancellationToken token)
@@ -78,18 +70,15 @@ namespace FTPServerWinV10.Server
             OnLog?.Invoke($"클라이언트 접속: {endpoint}");
             try
             {
-                var localIp = ((System.Net.IPEndPoint)client.Client.LocalEndPoint!).Address.ToString();
+                var localIp = ((IPEndPoint)client.Client.LocalEndPoint!).Address.ToString();
                 var stream = GetClientStream(client);
-                using var session = new FtpSession(stream, _rootPath, AllowAnonymous, UserId, UserPassword, BufferSizeKb, localIp);
-                session.OnLog += msg => OnLog?.Invoke(msg);
-                session.OnFileUploaded += (f, s) => OnFileUploaded?.Invoke(f, s);
-                session.OnFileDownloaded += (f, s) => OnFileDownloaded?.Invoke(f, s);
+                using var session = new FtpSession(stream, _vfs, AllowAnonymous, Users, BufferSizeKb, localIp);
+                session.OnLog          += msg       => OnLog?.Invoke(msg);
+                session.OnFileUploaded += (f, s)    => OnFileUploaded?.Invoke(f, s);
+                session.OnFileDownloaded += (f, s)  => OnFileDownloaded?.Invoke(f, s);
                 await session.ProcessAsync(token);
             }
-            catch (Exception ex)
-            {
-                OnLog?.Invoke($"클라이언트 오류 [{endpoint}]: {ex.Message}");
-            }
+            catch (Exception ex) { OnLog?.Invoke($"클라이언트 오류 [{endpoint}]: {ex.Message}"); }
             finally
             {
                 Interlocked.Decrement(ref _clientCount);
@@ -100,33 +89,34 @@ namespace FTPServerWinV10.Server
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
     internal sealed class FtpSession : IDisposable
     {
         private readonly StreamReader _reader;
         private readonly StreamWriter _writer;
-        private readonly string _rootPath;
+        private readonly VirtualFileSystem _vfs;
         private readonly bool _allowAnonymous;
-        private readonly string _userId;
-        private readonly string _userPassword;
-        private readonly int _bufferSizeKb;
+        private readonly IReadOnlyList<UserEntry> _users;
+        private readonly int    _bufferSizeKb;
         private readonly string _localIp;
-        private string _currentPath = "/";
-        private bool _authenticated;
+        private string  _currentPath = "/";
+        private bool    _authenticated;
         private string? _pendingUser;
         private TcpListener? _pasvListener;
 
-        public event Action<string>? OnLog;
+        public event Action<string>?       OnLog;
         public event Action<string, long>? OnFileUploaded;
         public event Action<string, long>? OnFileDownloaded;
 
-        public FtpSession(Stream stream, string rootPath, bool allowAnonymous, string userId, string userPassword, int bufferSizeKb, string localIp = "127.0.0.1")
+        public FtpSession(Stream stream, VirtualFileSystem vfs,
+            bool allowAnonymous, IReadOnlyList<UserEntry> users,
+            int bufferSizeKb, string localIp = "127.0.0.1")
         {
-            _rootPath = rootPath;
+            _vfs            = vfs;
             _allowAnonymous = allowAnonymous;
-            _userId = userId;
-            _userPassword = userPassword;
-            _bufferSizeKb = bufferSizeKb;
-            _localIp = localIp;
+            _users          = users;
+            _bufferSizeKb   = bufferSizeKb;
+            _localIp        = localIp;
             _reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
             _writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true) { AutoFlush = true, NewLine = "\r\n" };
         }
@@ -144,39 +134,24 @@ namespace FTPServerWinV10.Server
 
         private async Task HandleCommandAsync(string line, CancellationToken token)
         {
-            var spaceIdx = line.IndexOf(' ');
-            var cmd = (spaceIdx < 0 ? line : line[..spaceIdx]).ToUpperInvariant();
-            var arg = spaceIdx < 0 ? "" : line[(spaceIdx + 1)..].Trim();
+            var idx = line.IndexOf(' ');
+            var cmd = (idx < 0 ? line : line[..idx]).ToUpperInvariant();
+            var arg = idx < 0 ? "" : line[(idx + 1)..].Trim();
 
             switch (cmd)
             {
-                case "USER":
-                    _pendingUser = arg;
-                    Send("331 Password required");
-                    break;
+                case "USER": _pendingUser = arg; Send("331 Password required"); break;
                 case "PASS":
                     if (_pendingUser?.ToLowerInvariant() == "anonymous" && _allowAnonymous)
-                    {
-                        _authenticated = true;
-                        Send("230 Anonymous user logged in");
-                    }
-                    else if (_pendingUser == _userId && arg == _userPassword)
-                    {
-                        _authenticated = true;
-                        Send("230 User logged in");
-                    }
+                        { _authenticated = true; Send("230 Anonymous user logged in"); }
+                    else if (_users.Any(u => u.Username == _pendingUser && u.Password == arg))
+                        { _authenticated = true; Send("230 User logged in"); }
                     else
-                    {
                         Send("530 Login incorrect");
-                    }
                     break;
                 case "SYST": Send("215 UNIX Type: L8"); break;
                 case "FEAT":
-                    Send("211-Features:");
-                    Send(" PASV");
-                    Send(" SIZE");
-                    Send("211 End");
-                    break;
+                    Send("211-Features:"); Send(" PASV"); Send(" SIZE"); Send("211 End"); break;
                 case "TYPE": Send("200 Type set"); break;
                 case "NOOP": Send("200 OK"); break;
                 case "QUIT": Send("221 Goodbye"); break;
@@ -186,63 +161,62 @@ namespace FTPServerWinV10.Server
                     break;
                 case "CWD":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    HandleCwd(arg);
-                    break;
+                    HandleCwd(arg); break;
+                case "CDUP":
+                    if (!_authenticated) { Send("530 Not logged in"); break; }
+                    HandleCwd(".."); break;
                 case "PASV":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    HandlePasv();
-                    break;
+                    HandlePasv(); break;
                 case "LIST":
                 case "NLST":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    await HandleListAsync(token);
-                    break;
+                    await HandleListAsync(token); break;
                 case "RETR":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    await HandleRetrAsync(arg, token);
-                    break;
+                    await HandleRetrAsync(arg, token); break;
                 case "STOR":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    await HandleStorAsync(arg, token);
-                    break;
+                    await HandleStorAsync(arg, token); break;
                 case "SIZE":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    HandleSize(arg);
-                    break;
+                    HandleSize(arg); break;
                 case "DELE":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    HandleDele(arg);
-                    break;
+                    HandleDele(arg); break;
                 case "MKD":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    HandleMkd(arg);
-                    break;
+                    HandleMkd(arg); break;
                 case "RMD":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    HandleRmd(arg);
-                    break;
+                    HandleRmd(arg); break;
                 default:
-                    Send($"502 Command '{cmd}' not implemented");
-                    break;
+                    Send($"502 Command '{cmd}' not implemented"); break;
             }
         }
 
-        private string? GetLocalPath(string ftpPath)
-        {
-            string fullFtpPath = string.IsNullOrEmpty(ftpPath) || ftpPath == "."
-                ? _currentPath
-                : ftpPath.StartsWith('/') ? ftpPath : _currentPath.TrimEnd('/') + "/" + ftpPath;
+        // ── Path helpers ──────────────────────────────────────────────────────────
 
-            var localPath = Path.GetFullPath(Path.Combine(_rootPath, fullFtpPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
-            return localPath.StartsWith(_rootPath, StringComparison.OrdinalIgnoreCase) ? localPath : null;
+        private string AbsoluteFtpPath(string arg)
+        {
+            if (string.IsNullOrEmpty(arg) || arg == ".")
+                return _currentPath;
+            return arg.StartsWith('/')
+                ? VirtualFileSystem.NormalizePath(arg)
+                : VirtualFileSystem.NormalizePath(_currentPath + "/" + arg);
         }
+
+        private string? ResolveToPhysical(string arg) =>
+            _vfs.Resolve(AbsoluteFtpPath(arg));
+
+        // ── Command handlers ──────────────────────────────────────────────────────
 
         private void HandleCwd(string path)
         {
-            var localPath = GetLocalPath(path);
-            if (localPath != null && Directory.Exists(localPath))
+            var newPath = AbsoluteFtpPath(path);
+            if (_vfs.DirectoryExists(newPath))
             {
-                _currentPath = path.StartsWith('/') ? path : (_currentPath.TrimEnd('/') + "/" + path);
+                _currentPath = newPath;
                 Send($"250 Directory changed to {_currentPath}");
             }
             else
@@ -264,7 +238,7 @@ namespace FTPServerWinV10.Server
         private async Task<TcpClient?> AcceptDataAsync(CancellationToken token)
         {
             if (_pasvListener == null) return null;
-            try { return await _pasvListener.AcceptTcpClientAsync(token); }
+            try   { return await _pasvListener.AcceptTcpClientAsync(token); }
             finally { _pasvListener.Stop(); _pasvListener = null; }
         }
 
@@ -275,19 +249,30 @@ namespace FTPServerWinV10.Server
             if (dataClient == null) { Send("425 Can't open data connection"); return; }
             try
             {
-                using var dataWriter = new StreamWriter(dataClient.GetStream(), Encoding.ASCII) { NewLine = "\r\n", AutoFlush = true };
-                var dirPath = GetLocalPath("");
-                if (dirPath != null && Directory.Exists(dirPath))
+                using var dw = new StreamWriter(dataClient.GetStream(), Encoding.ASCII)
+                    { NewLine = "\r\n", AutoFlush = true };
+
+                if (_currentPath == "/")
                 {
-                    foreach (var dir in Directory.GetDirectories(dirPath))
+                    // Virtual root: list all mount points as directories
+                    foreach (var name in _vfs.VirtualNames)
+                        dw.WriteLine($"drwxr-xr-x 2 ftp ftp 0 Jan 01 00:00 {name}");
+                }
+                else
+                {
+                    var physical = _vfs.Resolve(_currentPath);
+                    if (physical != null && Directory.Exists(physical))
                     {
-                        var info = new DirectoryInfo(dir);
-                        dataWriter.WriteLine($"drwxr-xr-x 2 ftp ftp 0 {info.LastWriteTime:MMM dd HH:mm} {info.Name}");
-                    }
-                    foreach (var file in Directory.GetFiles(dirPath))
-                    {
-                        var info = new FileInfo(file);
-                        dataWriter.WriteLine($"-rw-r--r-- 1 ftp ftp {info.Length} {info.LastWriteTime:MMM dd HH:mm} {info.Name}");
+                        foreach (var dir in Directory.GetDirectories(physical))
+                        {
+                            var di = new DirectoryInfo(dir);
+                            dw.WriteLine($"drwxr-xr-x 2 ftp ftp 0 {di.LastWriteTime:MMM dd HH:mm} {di.Name}");
+                        }
+                        foreach (var file in Directory.GetFiles(physical))
+                        {
+                            var fi = new FileInfo(file);
+                            dw.WriteLine($"-rw-r--r-- 1 ftp ftp {fi.Length} {fi.LastWriteTime:MMM dd HH:mm} {fi.Name}");
+                        }
                     }
                 }
             }
@@ -297,7 +282,7 @@ namespace FTPServerWinV10.Server
 
         private async Task HandleRetrAsync(string fileName, CancellationToken token)
         {
-            var localPath = GetLocalPath(fileName);
+            var localPath = ResolveToPhysical(fileName);
             if (localPath == null || !File.Exists(localPath)) { Send("550 File not found"); return; }
             Send("150 Opening data connection");
             var dataClient = await AcceptDataAsync(token);
@@ -305,13 +290,13 @@ namespace FTPServerWinV10.Server
             try
             {
                 long size = 0;
-                using var dataStream = dataClient.GetStream();
-                using var fileStream = File.OpenRead(localPath);
-                var buffer = new byte[_bufferSizeKb * 1024];
+                using var ds = dataClient.GetStream();
+                using var fs = File.OpenRead(localPath);
+                var buf = new byte[_bufferSizeKb * 1024];
                 int read;
-                while ((read = await fileStream.ReadAsync(buffer, 0, buffer.Length, token)) > 0)
+                while ((read = await fs.ReadAsync(buf, 0, buf.Length, token)) > 0)
                 {
-                    await dataStream.WriteAsync(buffer.AsMemory(0, read), token);
+                    await ds.WriteAsync(buf.AsMemory(0, read), token);
                     size += read;
                 }
                 OnFileDownloaded?.Invoke(Path.GetFileName(localPath), size);
@@ -322,7 +307,7 @@ namespace FTPServerWinV10.Server
 
         private async Task HandleStorAsync(string fileName, CancellationToken token)
         {
-            var localPath = GetLocalPath(fileName);
+            var localPath = ResolveToPhysical(fileName);
             if (localPath == null) { Send("553 Permission denied"); return; }
             Send("150 Opening data connection");
             var dataClient = await AcceptDataAsync(token);
@@ -330,13 +315,13 @@ namespace FTPServerWinV10.Server
             try
             {
                 long size = 0;
-                using var dataStream = dataClient.GetStream();
-                using var fileStream = File.Create(localPath);
-                var buffer = new byte[_bufferSizeKb * 1024];
+                using var ds = dataClient.GetStream();
+                using var fs = File.Create(localPath);
+                var buf = new byte[_bufferSizeKb * 1024];
                 int read;
-                while ((read = await dataStream.ReadAsync(buffer, 0, buffer.Length, token)) > 0)
+                while ((read = await ds.ReadAsync(buf, 0, buf.Length, token)) > 0)
                 {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, read), token);
+                    await fs.WriteAsync(buf.AsMemory(0, read), token);
                     size += read;
                 }
                 OnFileUploaded?.Invoke(Path.GetFileName(localPath), size);
@@ -347,31 +332,29 @@ namespace FTPServerWinV10.Server
 
         private void HandleSize(string fileName)
         {
-            var localPath = GetLocalPath(fileName);
-            if (localPath != null && File.Exists(localPath))
-                Send($"213 {new FileInfo(localPath).Length}");
-            else
-                Send("550 File not found");
+            var p = ResolveToPhysical(fileName);
+            if (p != null && File.Exists(p)) Send($"213 {new FileInfo(p).Length}");
+            else Send("550 File not found");
         }
 
         private void HandleDele(string fileName)
         {
-            var localPath = GetLocalPath(fileName);
-            if (localPath != null && File.Exists(localPath)) { File.Delete(localPath); Send("250 File deleted"); }
+            var p = ResolveToPhysical(fileName);
+            if (p != null && File.Exists(p)) { File.Delete(p); Send("250 File deleted"); }
             else Send("550 File not found");
         }
 
         private void HandleMkd(string dirName)
         {
-            var localPath = GetLocalPath(dirName);
-            if (localPath != null) { Directory.CreateDirectory(localPath); Send($"257 \"{dirName}\" directory created"); }
+            var p = ResolveToPhysical(dirName);
+            if (p != null) { Directory.CreateDirectory(p); Send($"257 \"{dirName}\" directory created"); }
             else Send("553 Permission denied");
         }
 
         private void HandleRmd(string dirName)
         {
-            var localPath = GetLocalPath(dirName);
-            if (localPath != null && Directory.Exists(localPath)) { Directory.Delete(localPath, true); Send("250 Directory deleted"); }
+            var p = ResolveToPhysical(dirName);
+            if (p != null && Directory.Exists(p)) { Directory.Delete(p, true); Send("250 Directory deleted"); }
             else Send("550 Directory not found");
         }
 

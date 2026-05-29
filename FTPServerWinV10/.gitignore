@@ -11,22 +11,32 @@
 
 # NuGet
 *.nupkg
-# Packages folder can be ignored if using PackageReference
 packages/
-# Uncomment if necessary
-#*.snupkg
 
-# Windows image file caches
+# WiX installer output
+*.msi
+*.wixpdb
+*.wixobj
+publish/
+
+# Runtime-generated settings & logs
+server_settings.json
+profiles/
+ftpserver.log
+*.log
+
+# SSL certificates (should not be committed)
+*.pfx
+*.pem
+*.crt
+*.cer
+*.key
+
+# Windows / macOS
 Thumbs.db
 *.DS_Store
 
-# FTPServer logs and runtime data
-logs/
-ftpserver.log
-server_settings.json
-
-# Others
-*.log
+# Misc editor / temp files
 *.tmp
 *.bak
 *.swp
@@ -43,4 +53,4 @@ server_settings.json
 *.db
 *.sdf
 *.sqlite
-*.vscode
+.vscode/

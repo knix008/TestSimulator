@@ -7,9 +7,7 @@ namespace FTPServerWinV10
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
-            {
                 components.Dispose();
-            }
             base.Dispose(disposing);
         }
 
@@ -17,224 +15,560 @@ namespace FTPServerWinV10
 
         private void InitializeComponent()
         {
-            this.lblSpeed = new System.Windows.Forms.Label();
-            this.numBuffer = new System.Windows.Forms.NumericUpDown();
-            this.numThreads = new System.Windows.Forms.NumericUpDown();
-            this.chkAnonymous = new System.Windows.Forms.CheckBox();
-            this.lblUser = new System.Windows.Forms.Label();
-            this.txtUser = new System.Windows.Forms.TextBox();
-            this.lblPass = new System.Windows.Forms.Label();
-            this.txtPass = new System.Windows.Forms.TextBox();
-            this.lblCert = new System.Windows.Forms.Label();
-            this.txtCertPath = new System.Windows.Forms.TextBox();
-            this.btnSelectCert = new System.Windows.Forms.Button();
-            this.lblCertPw = new System.Windows.Forms.Label();
-            this.txtCertPw = new System.Windows.Forms.TextBox();
-            this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
-            this.btnSelectFolder = new System.Windows.Forms.Button();
-            this.txtFolder = new System.Windows.Forms.TextBox();
-            this.btnStartServer = new System.Windows.Forms.Button();
-            this.btnStopServer = new System.Windows.Forms.Button();
-            this.lblClients = new System.Windows.Forms.Label();
-            this.lstLog = new System.Windows.Forms.ListBox();
-            this.lblUploadStats = new System.Windows.Forms.Label();
-            this.lblDownloadStats = new System.Windows.Forms.Label();
-            ((System.ComponentModel.ISupportInitialize)(this.numBuffer)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numThreads)).BeginInit();
-            this.SuspendLayout();
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
+            pnlHeader = new Panel();
+            lblTitle = new Label();
+            btnStartServer = new Button();
+            pnlProfile = new Panel();
+            lblProfileTitle = new Label();
+            cmbProfiles = new ComboBox();
+            btnSaveProfile = new Button();
+            btnDeleteProfile = new Button();
+            grpServer = new GroupBox();
+            lblFolderTitle = new Label();
+            lvFolders = new ListView();
+            colVirtualName = new ColumnHeader();
+            colPhysicalPath = new ColumnHeader();
+            btnAddFolder = new Button();
+            btnRemoveFolder = new Button();
+            lblCert = new Label();
+            txtCertPath = new TextBox();
+            btnSelectCert = new Button();
+            btnGenerateCert = new Button();
+            lblCertPw = new Label();
+            txtCertPw = new TextBox();
+            grpAuth = new GroupBox();
+            chkAnonymous = new CheckBox();
+            lblUserListTitle = new Label();
+            lvUsers = new ListView();
+            colUserName = new ColumnHeader();
+            colUserPass = new ColumnHeader();
+            btnAddUser = new Button();
+            btnRemoveUser = new Button();
+            lblSpeed = new Label();
+            numBuffer = new NumericUpDown();
+            lblThreads = new Label();
+            numThreads = new NumericUpDown();
+            pnlStatus = new Panel();
+            lblClients = new Label();
+            lblUploadStats = new Label();
+            lblDownloadStats = new Label();
+            grpLog = new GroupBox();
+            lstLog = new ListBox();
+            statusStrip1 = new StatusStrip();
+            tsslInfo = new ToolStripStatusLabel();
+            folderBrowserDialog1 = new FolderBrowserDialog();
+            pnlHeader.SuspendLayout();
+            pnlProfile.SuspendLayout();
+            grpServer.SuspendLayout();
+            grpAuth.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numBuffer).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numThreads).BeginInit();
+            pnlStatus.SuspendLayout();
+            grpLog.SuspendLayout();
+            statusStrip1.SuspendLayout();
+            SuspendLayout();
             //
-            // btnSelectFolder
+            // pnlHeader
             //
-            this.btnSelectFolder.Location = new System.Drawing.Point(20, 20);
-            this.btnSelectFolder.Name = "btnSelectFolder";
-            this.btnSelectFolder.Size = new System.Drawing.Size(120, 30);
-            this.btnSelectFolder.Text = "공개 폴더 선택";
-            this.btnSelectFolder.UseVisualStyleBackColor = true;
-            this.btnSelectFolder.Click += new System.EventHandler(this.btnSelectFolder_Click);
+            pnlHeader.BackColor = Color.FromArgb(33, 47, 61);
+            pnlHeader.Controls.Add(lblTitle);
+            pnlHeader.Controls.Add(btnStartServer);
+            pnlHeader.Dock = DockStyle.Top;
+            pnlHeader.Location = new Point(0, 0);
+            pnlHeader.Name = "pnlHeader";
+            pnlHeader.Size = new Size(904, 58);
+            pnlHeader.TabIndex = 5;
             //
-            // txtFolder
+            // lblTitle
             //
-            this.txtFolder.Location = new System.Drawing.Point(150, 22);
-            this.txtFolder.Name = "txtFolder";
-            this.txtFolder.ReadOnly = true;
-            this.txtFolder.Size = new System.Drawing.Size(500, 27);
+            lblTitle.AutoSize = true;
+            lblTitle.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
+            lblTitle.ForeColor = Color.White;
+            lblTitle.Location = new Point(16, 14);
+            lblTitle.Name = "lblTitle";
+            lblTitle.Size = new Size(193, 25);
+            lblTitle.TabIndex = 0;
+            lblTitle.Text = "FTP Server Manager";
             //
-            // btnStartServer
+            // btnStartServer  (toggle: 시작 ↔ 중지)
             //
-            this.btnStartServer.Location = new System.Drawing.Point(670, 20);
-            this.btnStartServer.Name = "btnStartServer";
-            this.btnStartServer.Size = new System.Drawing.Size(100, 30);
-            this.btnStartServer.Text = "서버 시작";
-            this.btnStartServer.UseVisualStyleBackColor = true;
-            this.btnStartServer.Click += new System.EventHandler(this.btnStartServer_Click);
+            btnStartServer.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnStartServer.BackColor = Color.FromArgb(39, 174, 96);
+            btnStartServer.Cursor = Cursors.Hand;
+            btnStartServer.FlatAppearance.BorderSize = 0;
+            btnStartServer.FlatStyle = FlatStyle.Flat;
+            btnStartServer.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnStartServer.ForeColor = Color.White;
+            btnStartServer.Location = new Point(792, 15);
+            btnStartServer.Name = "btnStartServer";
+            btnStartServer.Size = new Size(100, 28);
+            btnStartServer.TabIndex = 1;
+            btnStartServer.Text = "▶  시작";
+            btnStartServer.UseVisualStyleBackColor = false;
+            btnStartServer.Click += btnStartServer_Click;
             //
-            // btnStopServer
+            // pnlProfile
             //
-            this.btnStopServer.Location = new System.Drawing.Point(780, 20);
-            this.btnStopServer.Name = "btnStopServer";
-            this.btnStopServer.Size = new System.Drawing.Size(100, 30);
-            this.btnStopServer.Text = "서버 중지";
-            this.btnStopServer.UseVisualStyleBackColor = true;
-            this.btnStopServer.Click += new System.EventHandler(this.btnStopServer_Click);
+            pnlProfile.BackColor = Color.FromArgb(235, 242, 248);
+            pnlProfile.Controls.Add(lblProfileTitle);
+            pnlProfile.Controls.Add(cmbProfiles);
+            pnlProfile.Controls.Add(btnSaveProfile);
+            pnlProfile.Controls.Add(btnDeleteProfile);
+            pnlProfile.Dock = DockStyle.Top;
+            pnlProfile.Location = new Point(0, 58);
+            pnlProfile.Name = "pnlProfile";
+            pnlProfile.Size = new Size(904, 44);
+            pnlProfile.TabIndex = 4;
+            //
+            // lblProfileTitle
+            //
+            lblProfileTitle.Font = new Font("Segoe UI", 9F);
+            lblProfileTitle.Location = new Point(12, 8);
+            lblProfileTitle.Name = "lblProfileTitle";
+            lblProfileTitle.Size = new Size(60, 27);
+            lblProfileTitle.TabIndex = 0;
+            lblProfileTitle.Text = "프로파일:";
+            lblProfileTitle.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // cmbProfiles
+            //
+            cmbProfiles.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbProfiles.Font = new Font("Segoe UI", 9F);
+            cmbProfiles.Location = new Point(76, 9);
+            cmbProfiles.Name = "cmbProfiles";
+            cmbProfiles.Size = new Size(220, 23);
+            cmbProfiles.TabIndex = 1;
+            cmbProfiles.SelectedIndexChanged += cmbProfiles_SelectedIndexChanged;
+            //
+            // btnSaveProfile
+            //
+            btnSaveProfile.Cursor = Cursors.Hand;
+            btnSaveProfile.FlatStyle = FlatStyle.System;
+            btnSaveProfile.Font = new Font("Segoe UI", 9F);
+            btnSaveProfile.Location = new Point(304, 7);
+            btnSaveProfile.Name = "btnSaveProfile";
+            btnSaveProfile.Size = new Size(68, 29);
+            btnSaveProfile.TabIndex = 2;
+            btnSaveProfile.Text = "저장";
+            btnSaveProfile.Click += btnSaveProfile_Click;
+            //
+            // btnDeleteProfile
+            //
+            btnDeleteProfile.Cursor = Cursors.Hand;
+            btnDeleteProfile.FlatStyle = FlatStyle.System;
+            btnDeleteProfile.Font = new Font("Segoe UI", 9F);
+            btnDeleteProfile.Location = new Point(378, 7);
+            btnDeleteProfile.Name = "btnDeleteProfile";
+            btnDeleteProfile.Size = new Size(68, 29);
+            btnDeleteProfile.TabIndex = 3;
+            btnDeleteProfile.Text = "삭제";
+            btnDeleteProfile.Click += btnDeleteProfile_Click;
+            //
+            // grpServer
+            //
+            grpServer.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            grpServer.Controls.Add(lblFolderTitle);
+            grpServer.Controls.Add(lvFolders);
+            grpServer.Controls.Add(btnAddFolder);
+            grpServer.Controls.Add(btnRemoveFolder);
+            grpServer.Controls.Add(lblCert);
+            grpServer.Controls.Add(txtCertPath);
+            grpServer.Controls.Add(btnSelectCert);
+            grpServer.Controls.Add(btnGenerateCert);
+            grpServer.Controls.Add(lblCertPw);
+            grpServer.Controls.Add(txtCertPw);
+            grpServer.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpServer.Location = new Point(12, 114);
+            grpServer.Name = "grpServer";
+            grpServer.Size = new Size(880, 271);
+            grpServer.TabIndex = 3;
+            grpServer.TabStop = false;
+            grpServer.Text = "서버 설정";
+            //
+            // lblFolderTitle
+            //
+            lblFolderTitle.Font = new Font("Segoe UI", 9F);
+            lblFolderTitle.Location = new Point(12, 22);
+            lblFolderTitle.Name = "lblFolderTitle";
+            lblFolderTitle.Size = new Size(90, 24);
+            lblFolderTitle.TabIndex = 0;
+            lblFolderTitle.Text = "공유 폴더 목록";
+            lblFolderTitle.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // lvFolders
+            //
+            lvFolders.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lvFolders.Columns.AddRange(new ColumnHeader[] { colVirtualName, colPhysicalPath });
+            lvFolders.Font = new Font("Segoe UI", 9F);
+            lvFolders.FullRowSelect = true;
+            lvFolders.GridLines = true;
+            lvFolders.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+            lvFolders.Location = new Point(12, 54);
+            lvFolders.MultiSelect = false;
+            lvFolders.Name = "lvFolders";
+            lvFolders.Size = new Size(856, 176);
+            lvFolders.TabIndex = 1;
+            lvFolders.UseCompatibleStateImageBehavior = false;
+            lvFolders.View = View.Details;
+            //
+            // colVirtualName
+            //
+            colVirtualName.Text = "가상 이름 (FTP 경로)";
+            colVirtualName.Width = 180;
+            //
+            // colPhysicalPath
+            //
+            colPhysicalPath.Text = "실제 경로";
+            colPhysicalPath.Width = 760;
+            //
+            // btnAddFolder
+            //
+            btnAddFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnAddFolder.Cursor = Cursors.Hand;
+            btnAddFolder.FlatStyle = FlatStyle.System;
+            btnAddFolder.Font = new Font("Segoe UI", 9F);
+            btnAddFolder.Location = new Point(728, 21);
+            btnAddFolder.Name = "btnAddFolder";
+            btnAddFolder.Size = new Size(68, 27);
+            btnAddFolder.TabIndex = 2;
+            btnAddFolder.Text = "추가";
+            btnAddFolder.Click += btnAddFolder_Click;
+            //
+            // btnRemoveFolder
+            //
+            btnRemoveFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnRemoveFolder.Cursor = Cursors.Hand;
+            btnRemoveFolder.FlatStyle = FlatStyle.System;
+            btnRemoveFolder.Font = new Font("Segoe UI", 9F);
+            btnRemoveFolder.Location = new Point(800, 21);
+            btnRemoveFolder.Name = "btnRemoveFolder";
+            btnRemoveFolder.Size = new Size(68, 27);
+            btnRemoveFolder.TabIndex = 3;
+            btnRemoveFolder.Text = "제거";
+            btnRemoveFolder.Click += btnRemoveFolder_Click;
             //
             // lblCert
             //
-            this.lblCert.Location = new System.Drawing.Point(20, 50);
-            this.lblCert.Name = "lblCert";
-            this.lblCert.Size = new System.Drawing.Size(100, 23);
-            this.lblCert.Text = "SSL 인증서";
+            lblCert.Font = new Font("Segoe UI", 9F);
+            lblCert.Location = new Point(12, 238);
+            lblCert.Name = "lblCert";
+            lblCert.Size = new Size(72, 27);
+            lblCert.TabIndex = 4;
+            lblCert.Text = "SSL 인증서";
+            lblCert.TextAlign = ContentAlignment.MiddleLeft;
             //
             // txtCertPath
             //
-            this.txtCertPath.Location = new System.Drawing.Point(120, 50);
-            this.txtCertPath.Name = "txtCertPath";
-            this.txtCertPath.Size = new System.Drawing.Size(400, 27);
+            txtCertPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtCertPath.Font = new Font("Segoe UI", 9F);
+            txtCertPath.Location = new Point(88, 239);
+            txtCertPath.Name = "txtCertPath";
+            txtCertPath.Size = new Size(440, 23);
+            txtCertPath.TabIndex = 5;
             //
             // btnSelectCert
             //
-            this.btnSelectCert.Location = new System.Drawing.Point(530, 48);
-            this.btnSelectCert.Name = "btnSelectCert";
-            this.btnSelectCert.Size = new System.Drawing.Size(80, 30);
-            this.btnSelectCert.Text = "찾기";
-            this.btnSelectCert.UseVisualStyleBackColor = true;
-            this.btnSelectCert.Click += new System.EventHandler(this.btnSelectCert_Click);
+            btnSelectCert.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnSelectCert.Cursor = Cursors.Hand;
+            btnSelectCert.FlatStyle = FlatStyle.System;
+            btnSelectCert.Font = new Font("Segoe UI", 9F);
+            btnSelectCert.Location = new Point(534, 236);
+            btnSelectCert.Name = "btnSelectCert";
+            btnSelectCert.Size = new Size(68, 29);
+            btnSelectCert.TabIndex = 6;
+            btnSelectCert.Text = "찾기";
+            btnSelectCert.Click += btnSelectCert_Click;
+            //
+            // btnGenerateCert
+            //
+            btnGenerateCert.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnGenerateCert.Cursor = Cursors.Hand;
+            btnGenerateCert.FlatStyle = FlatStyle.System;
+            btnGenerateCert.Font = new Font("Segoe UI", 9F);
+            btnGenerateCert.Location = new Point(608, 236);
+            btnGenerateCert.Name = "btnGenerateCert";
+            btnGenerateCert.Size = new Size(68, 29);
+            btnGenerateCert.TabIndex = 7;
+            btnGenerateCert.Text = "생성";
+            btnGenerateCert.Click += btnGenerateCert_Click;
             //
             // lblCertPw
             //
-            this.lblCertPw.Location = new System.Drawing.Point(620, 50);
-            this.lblCertPw.Name = "lblCertPw";
-            this.lblCertPw.Size = new System.Drawing.Size(80, 23);
-            this.lblCertPw.Text = "비밀번호";
+            lblCertPw.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lblCertPw.Font = new Font("Segoe UI", 9F);
+            lblCertPw.Location = new Point(682, 238);
+            lblCertPw.Name = "lblCertPw";
+            lblCertPw.Size = new Size(72, 27);
+            lblCertPw.TabIndex = 8;
+            lblCertPw.Text = "인증서 암호";
+            lblCertPw.TextAlign = ContentAlignment.MiddleLeft;
             //
             // txtCertPw
             //
-            this.txtCertPw.Location = new System.Drawing.Point(700, 50);
-            this.txtCertPw.Name = "txtCertPw";
-            this.txtCertPw.Size = new System.Drawing.Size(180, 27);
-            this.txtCertPw.PasswordChar = '*';
+            txtCertPw.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            txtCertPw.Font = new Font("Segoe UI", 9F);
+            txtCertPw.Location = new Point(758, 239);
+            txtCertPw.Name = "txtCertPw";
+            txtCertPw.PasswordChar = '*';
+            txtCertPw.Size = new Size(110, 23);
+            txtCertPw.TabIndex = 9;
+            //
+            // grpAuth
+            //
+            grpAuth.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            grpAuth.Controls.Add(chkAnonymous);
+            grpAuth.Controls.Add(lblUserListTitle);
+            grpAuth.Controls.Add(lvUsers);
+            grpAuth.Controls.Add(btnAddUser);
+            grpAuth.Controls.Add(btnRemoveUser);
+            grpAuth.Controls.Add(lblSpeed);
+            grpAuth.Controls.Add(numBuffer);
+            grpAuth.Controls.Add(lblThreads);
+            grpAuth.Controls.Add(numThreads);
+            grpAuth.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpAuth.Location = new Point(12, 391);
+            grpAuth.Name = "grpAuth";
+            grpAuth.Size = new Size(880, 196);
+            grpAuth.TabIndex = 2;
+            grpAuth.TabStop = false;
+            grpAuth.Text = "인증 및 성능 설정";
             //
             // chkAnonymous
             //
-            this.chkAnonymous.Location = new System.Drawing.Point(20, 82);
-            this.chkAnonymous.Name = "chkAnonymous";
-            this.chkAnonymous.Size = new System.Drawing.Size(100, 23);
-            this.chkAnonymous.Text = "익명 허용";
-            this.chkAnonymous.UseVisualStyleBackColor = true;
-            this.chkAnonymous.CheckedChanged += new System.EventHandler(this.chkAnonymous_CheckedChanged);
+            chkAnonymous.Font = new Font("Segoe UI", 9F);
+            chkAnonymous.Location = new Point(12, 20);
+            chkAnonymous.Name = "chkAnonymous";
+            chkAnonymous.Size = new Size(90, 22);
+            chkAnonymous.TabIndex = 0;
+            chkAnonymous.Text = "익명 허용";
+            chkAnonymous.CheckedChanged += chkAnonymous_CheckedChanged;
             //
-            // lblUser
+            // lblUserListTitle
             //
-            this.lblUser.Location = new System.Drawing.Point(130, 84);
-            this.lblUser.Name = "lblUser";
-            this.lblUser.Size = new System.Drawing.Size(60, 23);
-            this.lblUser.Text = "사용자";
+            lblUserListTitle.Font = new Font("Segoe UI", 9F);
+            lblUserListTitle.Location = new Point(12, 50);
+            lblUserListTitle.Name = "lblUserListTitle";
+            lblUserListTitle.Size = new Size(80, 22);
+            lblUserListTitle.TabIndex = 1;
+            lblUserListTitle.Text = "사용자 목록:";
+            lblUserListTitle.TextAlign = ContentAlignment.MiddleLeft;
             //
-            // txtUser
+            // lvUsers
             //
-            this.txtUser.Location = new System.Drawing.Point(195, 82);
-            this.txtUser.Name = "txtUser";
-            this.txtUser.Size = new System.Drawing.Size(120, 27);
+            lvUsers.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lvUsers.Columns.AddRange(new ColumnHeader[] { colUserName, colUserPass });
+            lvUsers.Font = new Font("Segoe UI", 9F);
+            lvUsers.FullRowSelect = true;
+            lvUsers.GridLines = true;
+            lvUsers.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+            lvUsers.Location = new Point(12, 74);
+            lvUsers.MultiSelect = false;
+            lvUsers.Name = "lvUsers";
+            lvUsers.Size = new Size(754, 78);
+            lvUsers.TabIndex = 2;
+            lvUsers.UseCompatibleStateImageBehavior = false;
+            lvUsers.View = View.Details;
             //
-            // lblPass
+            // colUserName
             //
-            this.lblPass.Location = new System.Drawing.Point(325, 84);
-            this.lblPass.Name = "lblPass";
-            this.lblPass.Size = new System.Drawing.Size(60, 23);
-            this.lblPass.Text = "비밀번호";
+            colUserName.Text = "사용자 이름";
+            colUserName.Width = 200;
             //
-            // txtPass
+            // colUserPass
             //
-            this.txtPass.Location = new System.Drawing.Point(390, 82);
-            this.txtPass.Name = "txtPass";
-            this.txtPass.PasswordChar = '*';
-            this.txtPass.Size = new System.Drawing.Size(120, 27);
+            colUserPass.Text = "암호";
+            colUserPass.Width = 200;
+            //
+            // btnAddUser
+            //
+            btnAddUser.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnAddUser.Cursor = Cursors.Hand;
+            btnAddUser.FlatStyle = FlatStyle.System;
+            btnAddUser.Font = new Font("Segoe UI", 9F);
+            btnAddUser.Location = new Point(772, 74);
+            btnAddUser.Name = "btnAddUser";
+            btnAddUser.Size = new Size(96, 26);
+            btnAddUser.TabIndex = 3;
+            btnAddUser.Text = "＋ 추가";
+            btnAddUser.Click += btnAddUser_Click;
+            //
+            // btnRemoveUser
+            //
+            btnRemoveUser.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnRemoveUser.Cursor = Cursors.Hand;
+            btnRemoveUser.FlatStyle = FlatStyle.System;
+            btnRemoveUser.Font = new Font("Segoe UI", 9F);
+            btnRemoveUser.Location = new Point(772, 104);
+            btnRemoveUser.Name = "btnRemoveUser";
+            btnRemoveUser.Size = new Size(96, 26);
+            btnRemoveUser.TabIndex = 4;
+            btnRemoveUser.Text = "－ 삭제";
+            btnRemoveUser.Click += btnRemoveUser_Click;
             //
             // lblSpeed
             //
-            this.lblSpeed.Location = new System.Drawing.Point(525, 84);
-            this.lblSpeed.Name = "lblSpeed";
-            this.lblSpeed.Size = new System.Drawing.Size(100, 23);
-            this.lblSpeed.Text = "버퍼(KB)/스레드";
+            lblSpeed.Font = new Font("Segoe UI", 9F);
+            lblSpeed.Location = new Point(12, 164);
+            lblSpeed.Name = "lblSpeed";
+            lblSpeed.Size = new Size(58, 24);
+            lblSpeed.TabIndex = 5;
+            lblSpeed.Text = "버퍼(KB)";
+            lblSpeed.TextAlign = ContentAlignment.MiddleLeft;
             //
             // numBuffer
             //
-            this.numBuffer.Location = new System.Drawing.Point(630, 82);
-            this.numBuffer.Maximum = new decimal(new int[] { 1024, 0, 0, 0 });
-            this.numBuffer.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            this.numBuffer.Name = "numBuffer";
-            this.numBuffer.Size = new System.Drawing.Size(70, 27);
-            this.numBuffer.Value = new decimal(new int[] { 64, 0, 0, 0 });
+            numBuffer.Font = new Font("Segoe UI", 9F);
+            numBuffer.Location = new Point(74, 162);
+            numBuffer.Maximum = new decimal(new int[] { 1024, 0, 0, 0 });
+            numBuffer.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numBuffer.Name = "numBuffer";
+            numBuffer.Size = new Size(80, 23);
+            numBuffer.TabIndex = 6;
+            numBuffer.Value = new decimal(new int[] { 64, 0, 0, 0 });
+            //
+            // lblThreads
+            //
+            lblThreads.Font = new Font("Segoe UI", 9F);
+            lblThreads.Location = new Point(166, 164);
+            lblThreads.Name = "lblThreads";
+            lblThreads.Size = new Size(50, 24);
+            lblThreads.TabIndex = 7;
+            lblThreads.Text = "스레드";
+            lblThreads.TextAlign = ContentAlignment.MiddleLeft;
             //
             // numThreads
             //
-            this.numThreads.Location = new System.Drawing.Point(710, 82);
-            this.numThreads.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
-            this.numThreads.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
-            this.numThreads.Name = "numThreads";
-            this.numThreads.Size = new System.Drawing.Size(70, 27);
-            this.numThreads.Value = new decimal(new int[] { 10, 0, 0, 0 });
+            numThreads.Font = new Font("Segoe UI", 9F);
+            numThreads.Location = new Point(220, 162);
+            numThreads.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numThreads.Name = "numThreads";
+            numThreads.Size = new Size(80, 23);
+            numThreads.TabIndex = 8;
+            numThreads.Value = new decimal(new int[] { 10, 0, 0, 0 });
+            //
+            // pnlStatus
+            //
+            pnlStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            pnlStatus.BackColor = Color.FromArgb(236, 240, 241);
+            pnlStatus.Controls.Add(lblClients);
+            pnlStatus.Controls.Add(lblUploadStats);
+            pnlStatus.Controls.Add(lblDownloadStats);
+            pnlStatus.Location = new Point(12, 599);
+            pnlStatus.Name = "pnlStatus";
+            pnlStatus.Size = new Size(880, 36);
+            pnlStatus.TabIndex = 1;
             //
             // lblClients
             //
-            this.lblClients.Location = new System.Drawing.Point(20, 110);
-            this.lblClients.Name = "lblClients";
-            this.lblClients.Size = new System.Drawing.Size(300, 23);
-            this.lblClients.Text = "접속 중인 클라이언트: 0";
+            lblClients.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblClients.ForeColor = Color.FromArgb(33, 47, 61);
+            lblClients.Location = new Point(12, 10);
+            lblClients.Name = "lblClients";
+            lblClients.Size = new Size(200, 20);
+            lblClients.TabIndex = 0;
+            lblClients.Text = "● 클라이언트: 0";
             //
             // lblUploadStats
             //
-            this.lblUploadStats.Location = new System.Drawing.Point(350, 110);
-            this.lblUploadStats.Name = "lblUploadStats";
-            this.lblUploadStats.Size = new System.Drawing.Size(250, 23);
-            this.lblUploadStats.Text = "업로드: 0 파일 (0 Bytes)";
+            lblUploadStats.Font = new Font("Segoe UI", 9F);
+            lblUploadStats.ForeColor = Color.FromArgb(39, 174, 96);
+            lblUploadStats.Location = new Point(240, 10);
+            lblUploadStats.Name = "lblUploadStats";
+            lblUploadStats.Size = new Size(300, 20);
+            lblUploadStats.TabIndex = 1;
+            lblUploadStats.Text = "↑ 업로드: 0 파일 (0 B)";
             //
             // lblDownloadStats
             //
-            this.lblDownloadStats.Location = new System.Drawing.Point(620, 110);
-            this.lblDownloadStats.Name = "lblDownloadStats";
-            this.lblDownloadStats.Size = new System.Drawing.Size(250, 23);
-            this.lblDownloadStats.Text = "다운로드: 0 파일 (0 Bytes)";
+            lblDownloadStats.Font = new Font("Segoe UI", 9F);
+            lblDownloadStats.ForeColor = Color.FromArgb(41, 128, 185);
+            lblDownloadStats.Location = new Point(575, 10);
+            lblDownloadStats.Name = "lblDownloadStats";
+            lblDownloadStats.Size = new Size(300, 20);
+            lblDownloadStats.TabIndex = 2;
+            lblDownloadStats.Text = "↓ 다운로드: 0 파일 (0 B)";
+            //
+            // grpLog
+            //
+            grpLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpLog.Controls.Add(lstLog);
+            grpLog.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpLog.Location = new Point(12, 647);
+            grpLog.Name = "grpLog";
+            grpLog.Size = new Size(880, 183);
+            grpLog.TabIndex = 0;
+            grpLog.TabStop = false;
+            grpLog.Text = "실시간 로그";
             //
             // lstLog
             //
-            this.lstLog.FormattingEnabled = true;
-            this.lstLog.ItemHeight = 20;
-            this.lstLog.Location = new System.Drawing.Point(20, 150);
-            this.lstLog.Name = "lstLog";
-            this.lstLog.Size = new System.Drawing.Size(860, 460);
+            lstLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            lstLog.BackColor = Color.FromArgb(25, 25, 25);
+            lstLog.BorderStyle = BorderStyle.None;
+            lstLog.Font = new Font("Consolas", 9F);
+            lstLog.ForeColor = Color.FromArgb(180, 220, 180);
+            lstLog.FormattingEnabled = true;
+            lstLog.ItemHeight = 14;
+            lstLog.Location = new Point(10, 24);
+            lstLog.Name = "lstLog";
+            lstLog.ScrollAlwaysVisible = true;
+            lstLog.Size = new Size(858, 146);
+            lstLog.TabIndex = 0;
+            //
+            // statusStrip1
+            //
+            statusStrip1.BackColor = Color.FromArgb(213, 219, 224);
+            statusStrip1.Items.AddRange(new ToolStripItem[] { tsslInfo });
+            statusStrip1.Location = new Point(0, 838);
+            statusStrip1.Name = "statusStrip1";
+            statusStrip1.Size = new Size(904, 22);
+            statusStrip1.SizingGrip = false;
+            statusStrip1.TabIndex = 6;
+            //
+            // tsslInfo
+            //
+            tsslInfo.Font = new Font("Segoe UI", 8.5F);
+            tsslInfo.ForeColor = Color.FromArgb(70, 80, 90);
+            tsslInfo.Name = "tsslInfo";
+            tsslInfo.Size = new Size(374, 17);
+            tsslInfo.Text = "F5: 설정 저장   |   F6: 설정 불러오기   |   FTP 포트: 21   |   FTPS 포트: 990";
             //
             // MainForm
             //
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(900, 640);
-            this.Controls.Add(this.btnSelectFolder);
-            this.Controls.Add(this.txtFolder);
-            this.Controls.Add(this.btnStartServer);
-            this.Controls.Add(this.btnStopServer);
-            this.Controls.Add(this.lblCert);
-            this.Controls.Add(this.txtCertPath);
-            this.Controls.Add(this.btnSelectCert);
-            this.Controls.Add(this.lblCertPw);
-            this.Controls.Add(this.txtCertPw);
-            this.Controls.Add(this.chkAnonymous);
-            this.Controls.Add(this.lblUser);
-            this.Controls.Add(this.txtUser);
-            this.Controls.Add(this.lblPass);
-            this.Controls.Add(this.txtPass);
-            this.Controls.Add(this.lblClients);
-            this.Controls.Add(this.lblUploadStats);
-            this.Controls.Add(this.lblDownloadStats);
-            this.Controls.Add(this.lstLog);
-            this.Controls.Add(this.lblSpeed);
-            this.Controls.Add(this.numBuffer);
-            this.Controls.Add(this.numThreads);
-            this.Name = "MainForm";
-            this.Text = "FTPServerWinV10";
-            ((System.ComponentModel.ISupportInitialize)(this.numBuffer)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.numThreads)).EndInit();
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            AutoScaleDimensions = new SizeF(7F, 15F);
+            AutoScaleMode = AutoScaleMode.Font;
+            BackColor = Color.FromArgb(245, 246, 248);
+            ClientSize = new Size(904, 860);
+            Controls.Add(grpLog);
+            Controls.Add(pnlStatus);
+            Controls.Add(grpAuth);
+            Controls.Add(grpServer);
+            Controls.Add(pnlProfile);
+            Controls.Add(pnlHeader);
+            Controls.Add(statusStrip1);
+            Font = new Font("Segoe UI", 9F);
+            Icon = (Icon)resources.GetObject("$this.Icon");
+            MinimumSize = new Size(920, 820);
+            Name = "MainForm";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "FTP Server Manager";
+            FormClosing += MainForm_FormClosing;
+            pnlHeader.ResumeLayout(false);
+            pnlHeader.PerformLayout();
+            pnlProfile.ResumeLayout(false);
+            grpServer.ResumeLayout(false);
+            grpServer.PerformLayout();
+            grpAuth.ResumeLayout(false);
+            grpAuth.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numBuffer).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numThreads).EndInit();
+            pnlStatus.ResumeLayout(false);
+            grpLog.ResumeLayout(false);
+            statusStrip1.ResumeLayout(false);
+            statusStrip1.PerformLayout();
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -243,23 +577,43 @@ namespace FTPServerWinV10
         private System.Windows.Forms.NumericUpDown numBuffer;
         private System.Windows.Forms.NumericUpDown numThreads;
         private System.Windows.Forms.CheckBox chkAnonymous;
-        private System.Windows.Forms.Label lblUser;
-        private System.Windows.Forms.TextBox txtUser;
-        private System.Windows.Forms.Label lblPass;
-        private System.Windows.Forms.TextBox txtPass;
         private System.Windows.Forms.Label lblCert;
         private System.Windows.Forms.TextBox txtCertPath;
         private System.Windows.Forms.Button btnSelectCert;
         private System.Windows.Forms.Label lblCertPw;
         private System.Windows.Forms.TextBox txtCertPw;
         private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog1;
-        private System.Windows.Forms.Button btnSelectFolder;
-        private System.Windows.Forms.TextBox txtFolder;
         private System.Windows.Forms.Button btnStartServer;
-        private System.Windows.Forms.Button btnStopServer;
         private System.Windows.Forms.Label lblClients;
         private System.Windows.Forms.ListBox lstLog;
         private System.Windows.Forms.Label lblUploadStats;
         private System.Windows.Forms.Label lblDownloadStats;
+        private System.Windows.Forms.Panel pnlHeader;
+        private System.Windows.Forms.Label lblTitle;
+        private System.Windows.Forms.Panel pnlProfile;
+        private System.Windows.Forms.Label lblProfileTitle;
+        private System.Windows.Forms.ComboBox cmbProfiles;
+        private System.Windows.Forms.Button btnSaveProfile;
+        private System.Windows.Forms.Button btnDeleteProfile;
+        private System.Windows.Forms.GroupBox grpServer;
+        private System.Windows.Forms.Label lblFolderTitle;
+        private System.Windows.Forms.ListView lvFolders;
+        private System.Windows.Forms.ColumnHeader colVirtualName;
+        private System.Windows.Forms.ColumnHeader colPhysicalPath;
+        private System.Windows.Forms.Button btnAddFolder;
+        private System.Windows.Forms.Button btnRemoveFolder;
+        private System.Windows.Forms.Button btnGenerateCert;
+        private System.Windows.Forms.GroupBox grpAuth;
+        private System.Windows.Forms.Label lblUserListTitle;
+        private System.Windows.Forms.ListView lvUsers;
+        private System.Windows.Forms.ColumnHeader colUserName;
+        private System.Windows.Forms.ColumnHeader colUserPass;
+        private System.Windows.Forms.Button btnAddUser;
+        private System.Windows.Forms.Button btnRemoveUser;
+        private System.Windows.Forms.Label lblThreads;
+        private System.Windows.Forms.Panel pnlStatus;
+        private System.Windows.Forms.GroupBox grpLog;
+        private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.ToolStripStatusLabel tsslInfo;
     }
 }

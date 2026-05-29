@@ -11,8 +11,8 @@ namespace FTPServerWinV10.Server
         private readonly string _certPassword;
         private X509Certificate2? _certificate;
 
-        public FtpsServerManager(string rootPath, string certPath, string certPassword, int port = 990)
-            : base(rootPath, port)
+        public FtpsServerManager(VirtualFileSystem vfs, string certPath, string certPassword, int port = 990)
+            : base(vfs, port)
         {
             _certPath = certPath;
             _certPassword = certPassword;
