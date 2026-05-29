@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using FxSsh;
 using FxSsh.Services;
@@ -14,6 +15,7 @@ namespace FTPServerWinV10.Server
         private SshServer? _sshServer;
         private string? _sftpRoot;
         private int _clientCount;
+        private readonly ConcurrentDictionary<Session, SessionPermissions> _permissionsBySession = new();
 
         public bool AllowAnonymous { get; set; } = true;
         public List<UserEntry> Users { get; set; } = new();
@@ -59,9 +61,9 @@ namespace FTPServerWinV10.Server
 
         private string BuildSftpRoot()
         {
-            if (_vfs.VirtualNames.Count == 1)
+            if (_vfs.IsSingleMount)
             {
-                var only = _vfs.Resolve("/" + _vfs.VirtualNames.First());
+                var only = _vfs.Resolve("/");
                 if (only != null) return only;
             }
 
@@ -111,19 +113,17 @@ namespace FTPServerWinV10.Server
         private void OnServiceRegistered(SshService service)
         {
             if (service is UserAuthService auth)
-                auth.UserAuth += (_, e) => e.Result = ValidateUser(e.Username, e.Password);
+                auth.UserAuth += OnUserAuth;
             else if (service is ConnectionService conn)
                 conn.CommandOpened += (_, e) => OnCommandOpened(e);
         }
 
-        private bool ValidateUser(string username, string password)
+        private void OnUserAuth(object? sender, UserAuthArgs e)
         {
-            if (string.IsNullOrEmpty(username)) return false;
-            if (AllowAnonymous && username.Equals("anonymous", StringComparison.OrdinalIgnoreCase))
-                return true;
-            return Users.Any(u =>
-                u.Username.Equals(username, StringComparison.OrdinalIgnoreCase) &&
-                u.Password == password);
+            e.Result = UserAuthHelper.TryAuthenticate(
+                e.Username, e.Password, AllowAnonymous, Users, out var perms);
+            if (e.Result)
+                _permissionsBySession[e.Session] = perms;
         }
 
         private void OnCommandOpened(CommandRequestedArgs e)
@@ -134,7 +134,11 @@ namespace FTPServerWinV10.Server
                 e.Agreed = true;
                 if (_sftpRoot == null) return;
 
-                var sftp = new SftpFxService(_sftpRoot);
+                var perms = SessionPermissions.DenyAll;
+                if (e.AttachedUserAuthArgs?.Session != null)
+                    _permissionsBySession.TryGetValue(e.AttachedUserAuthArgs.Session, out perms);
+
+                var sftp = new SftpFxService(_sftpRoot, perms);
                 e.Channel.DataReceived += (_, data) => sftp.OnData(data);
                 e.Channel.CloseReceived += (_, _) =>
                 {

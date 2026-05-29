@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace FTPServerWinV10.Server
 {
@@ -107,6 +109,7 @@ namespace FTPServerWinV10.Server
         private string  _currentPath = "/";
         private bool    _authenticated;
         private string? _pendingUser;
+        private SessionPermissions _permissions = SessionPermissions.DenyAll;
         private TcpListener? _pasvListener;
 
         public event Action<string>?       OnLog;
@@ -147,16 +150,37 @@ namespace FTPServerWinV10.Server
             {
                 case "USER": _pendingUser = arg; Send("331 Password required"); break;
                 case "PASS":
-                    if (_pendingUser?.ToLowerInvariant() == "anonymous" && _allowAnonymous)
-                        { _authenticated = true; Send("230 Anonymous user logged in"); }
-                    else if (_users.Any(u => u.Username == _pendingUser && u.Password == arg))
-                        { _authenticated = true; Send("230 User logged in"); }
+                    if (UserAuthHelper.TryAuthenticate(_pendingUser ?? "", arg, _allowAnonymous, _users, out var perms))
+                    {
+                        _authenticated = true;
+                        _permissions = perms;
+                        var who = _pendingUser ?? "";
+                        Send(who.Equals("anonymous", StringComparison.OrdinalIgnoreCase)
+                            ? $"230 Anonymous logged in ({perms.Summary})"
+                            : $"230 User logged in ({perms.Summary})");
+                    }
                     else
                         Send("530 Login incorrect");
                     break;
                 case "SYST": Send("215 UNIX Type: L8"); break;
                 case "FEAT":
-                    Send("211-Features:"); Send(" PASV"); Send(" SIZE"); Send("211 End"); break;
+                    Send("211-Features:");
+                    Send(" MLST type*;size*;modify*;");
+                    Send(" MLSD");
+                    Send(" PASV");
+                    Send(" SIZE");
+                    Send(" UTF8");
+                    Send("211 End");
+                    break;
+                case "OPTS":
+                    if (arg.StartsWith("UTF8", StringComparison.OrdinalIgnoreCase))
+                        Send("200 UTF8 mode enabled");
+                    else
+                        Send("200 OK");
+                    break;
+                case "AUTH":
+                    Send("502 AUTH TLS not supported (use plain FTP or enable FTPS on port 990)");
+                    break;
                 case "TYPE": Send("200 Type set"); break;
                 case "NOOP": Send("200 OK"); break;
                 case "QUIT": Send("221 Goodbye"); break;
@@ -176,7 +200,10 @@ namespace FTPServerWinV10.Server
                 case "LIST":
                 case "NLST":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
-                    await HandleListAsync(token); break;
+                    await HandleListAsync(arg, cmd == "NLST", token); break;
+                case "MLSD":
+                    if (!_authenticated) { Send("530 Not logged in"); break; }
+                    await HandleMlsdAsync(arg, token); break;
                 case "RETR":
                     if (!_authenticated) { Send("530 Not logged in"); break; }
                     await HandleRetrAsync(arg, token); break;
@@ -202,23 +229,118 @@ namespace FTPServerWinV10.Server
 
         // ── Path helpers ──────────────────────────────────────────────────────────
 
+        private static string UnquotePath(string path)
+        {
+            path = path.Trim();
+            if (path.Length >= 2 && path[0] == '"' && path[^1] == '"')
+                return path[1..^1].Trim();
+            return path;
+        }
+
+        private static string StripListOptions(string arg)
+        {
+            arg = arg.Trim();
+            while (arg.StartsWith('-'))
+            {
+                var sp = arg.IndexOf(' ');
+                if (sp < 0) return "";
+                arg = arg[(sp + 1)..].Trim();
+            }
+            return arg;
+        }
+
         private string AbsoluteFtpPath(string arg)
         {
+            arg = UnquotePath(arg);
             if (string.IsNullOrEmpty(arg) || arg == ".")
                 return _currentPath;
+            arg = arg.Replace('\\', '/');
             return arg.StartsWith('/')
                 ? VirtualFileSystem.NormalizePath(arg)
                 : VirtualFileSystem.NormalizePath(_currentPath + "/" + arg);
         }
 
+        private string ResolveListPath(string listArg)
+        {
+            listArg = StripListOptions(UnquotePath(listArg));
+            return string.IsNullOrWhiteSpace(listArg) ? _currentPath : AbsoluteFtpPath(listArg);
+        }
+
         private string? ResolveToPhysical(string arg) =>
             _vfs.Resolve(AbsoluteFtpPath(arg));
+
+        private string? ResolveToPhysicalFile(string arg)
+        {
+            arg = NormalizeFileNameArg(arg);
+            if (string.IsNullOrWhiteSpace(arg))
+                return null;
+
+            foreach (var candidate in GetFilePathCandidates(arg))
+            {
+                var physical = _vfs.Resolve(candidate);
+                if (physical != null && File.Exists(physical))
+                    return physical;
+            }
+
+            return null;
+        }
+
+        private IEnumerable<string> GetFilePathCandidates(string arg)
+        {
+            yield return AbsoluteFtpPath(arg);
+
+            if (arg.Replace('\\', '/').StartsWith('/'))
+                yield return VirtualFileSystem.NormalizePath(arg.Replace('\\', '/'));
+
+            var baseName = Path.GetFileName(arg);
+            if (!string.IsNullOrEmpty(baseName) && baseName != arg)
+                yield return AbsoluteFtpPath(baseName);
+        }
+
+        private static string NormalizeFileNameArg(string arg)
+        {
+            arg = UnquotePath(arg).Trim();
+            var tab = arg.LastIndexOf('\t');
+            if (tab >= 0)
+                return arg[(tab + 1)..].Trim();
+            if (arg.StartsWith('-') || arg.StartsWith('d'))
+                return ExtractUnixListFilename(arg);
+
+            var fromListTail = TryExtractFilenameAfterListTimestamp(arg);
+            if (fromListTail != null)
+                return fromListTail;
+
+            return arg;
+        }
+
+        private static string ExtractUnixListFilename(string line)
+        {
+            var tab = line.LastIndexOf('\t');
+            if (tab >= 0)
+                return line[(tab + 1)..].Trim();
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 9)
+                return string.Join(' ', parts, 8, parts.Length - 8);
+            return TryExtractFilenameAfterListTimestamp(line) ?? line;
+        }
+
+        private static string? TryExtractFilenameAfterListTimestamp(string arg)
+        {
+            var m = Regex.Match(arg, @"\d{1,2}:\d{2}\s+(.+)$");
+            if (m.Success) return m.Groups[1].Value.Trim();
+            m = Regex.Match(arg, @"\d{4}\s+(.+)$");
+            return m.Success ? m.Groups[1].Value.Trim() : null;
+        }
+
+        private bool DenyRead() { if (_permissions.CanRead) return false; Send("550 Permission denied. Read not allowed."); return true; }
+        private bool DenyWrite() { if (_permissions.CanWrite) return false; Send("550 Permission denied. Write not allowed."); return true; }
 
         // ── Command handlers ──────────────────────────────────────────────────────
 
         private void HandleCwd(string path)
         {
-            var newPath = AbsoluteFtpPath(path);
+            if (DenyRead()) return;
+            var newPath = AbsoluteFtpPath(UnquotePath(path));
             if (_vfs.DirectoryExists(newPath))
             {
                 _currentPath = newPath;
@@ -247,8 +369,10 @@ namespace FTPServerWinV10.Server
             finally { _pasvListener.Stop(); _pasvListener = null; }
         }
 
-        private async Task HandleListAsync(CancellationToken token)
+        private async Task HandleListAsync(string listArg, bool namesOnly, CancellationToken token)
         {
+            if (DenyRead()) return;
+            var listPath = ResolveListPath(listArg);
             Send("150 Opening data connection");
             var dataClient = await AcceptDataAsync(token);
             if (dataClient == null) { Send("425 Can't open data connection"); return; }
@@ -256,39 +380,129 @@ namespace FTPServerWinV10.Server
             {
                 using var dw = new StreamWriter(dataClient.GetStream(), Encoding.ASCII)
                     { NewLine = "\r\n", AutoFlush = true };
-
-                if (_currentPath == "/")
-                {
-                    // Virtual root: list all mount points as directories
-                    foreach (var name in _vfs.VirtualNames)
-                        dw.WriteLine($"drwxr-xr-x 2 ftp ftp 0 Jan 01 00:00 {name}");
-                }
-                else
-                {
-                    var physical = _vfs.Resolve(_currentPath);
-                    if (physical != null && Directory.Exists(physical))
-                    {
-                        foreach (var dir in Directory.GetDirectories(physical))
-                        {
-                            var di = new DirectoryInfo(dir);
-                            dw.WriteLine($"drwxr-xr-x 2 ftp ftp 0 {di.LastWriteTime:MMM dd HH:mm} {di.Name}");
-                        }
-                        foreach (var file in Directory.GetFiles(physical))
-                        {
-                            var fi = new FileInfo(file);
-                            dw.WriteLine($"-rw-r--r-- 1 ftp ftp {fi.Length} {fi.LastWriteTime:MMM dd HH:mm} {fi.Name}");
-                        }
-                    }
-                }
+                WriteListingEntries(dw, listPath, namesOnly, unixListFormat: true);
             }
             finally { dataClient.Close(); }
             Send("226 Transfer complete");
         }
 
+        private async Task HandleMlsdAsync(string listArg, CancellationToken token)
+        {
+            if (DenyRead()) return;
+            var listPath = ResolveListPath(listArg);
+            Send("150 Opening data connection");
+            var dataClient = await AcceptDataAsync(token);
+            if (dataClient == null) { Send("425 Can't open data connection"); return; }
+            try
+            {
+                using var dw = new StreamWriter(dataClient.GetStream(), Encoding.UTF8)
+                    { NewLine = "\r\n", AutoFlush = true };
+                WriteListingEntries(dw, listPath, namesOnly: false, unixListFormat: false);
+            }
+            finally { dataClient.Close(); }
+            Send("226 Transfer complete");
+        }
+
+        private void WriteListingEntries(StreamWriter dw, string listPath, bool namesOnly, bool unixListFormat)
+        {
+            var physical = _vfs.Resolve(listPath);
+            if (physical != null && File.Exists(physical))
+            {
+                WriteEntry(dw, new FileInfo(physical), namesOnly, unixListFormat);
+                return;
+            }
+
+            if (physical != null && Directory.Exists(physical))
+            {
+                foreach (var dir in Directory.GetDirectories(physical))
+                    WriteEntry(dw, new DirectoryInfo(dir), namesOnly, unixListFormat);
+                foreach (var file in Directory.GetFiles(physical))
+                    WriteEntry(dw, new FileInfo(file), namesOnly, unixListFormat);
+                return;
+            }
+
+            if (listPath != "/") return;
+
+            foreach (var name in _vfs.VirtualNames)
+            {
+                if (namesOnly)
+                {
+                    dw.WriteLine(name);
+                    continue;
+                }
+                if (unixListFormat)
+                {
+                    dw.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                        "drwxr-xr-x 1 ftp ftp {0,12} {1}\t{2}",
+                        0, FormatListTimestamp(DateTime.Now), name));
+                }
+                else
+                {
+                    dw.WriteLine($"Type=dir;Modify={FormatMlsdModify(DateTime.UtcNow)} {name}");
+                }
+            }
+        }
+
+        private static void WriteEntry(StreamWriter dw, FileSystemInfo info, bool namesOnly, bool unixListFormat)
+        {
+            if (namesOnly)
+            {
+                dw.WriteLine(info.Name);
+                return;
+            }
+
+            if (unixListFormat)
+            {
+                var isDir = info is DirectoryInfo;
+                var size = isDir ? 0L : ((FileInfo)info).Length;
+                dw.WriteLine(FormatUnixListLine(info, isDir, size, info.LastWriteTime, info.Name));
+            }
+            else if (info is DirectoryInfo di)
+            {
+                dw.WriteLine($"Type=dir;Modify={FormatMlsdModify(di.LastWriteTimeUtc)} {di.Name}");
+            }
+            else
+            {
+                var fi = (FileInfo)info;
+                dw.WriteLine($"Type=file;Size={fi.Length};Modify={FormatMlsdModify(fi.LastWriteTimeUtc)} {fi.Name}");
+            }
+        }
+
+        /// <summary>
+        /// Unix LIST line: fixed-width metadata + TAB + filename (클라이언트가 파일명만 정확히 읽도록).
+        /// </summary>
+        private static string FormatUnixListLine(FileSystemInfo info, bool isDirectory, long size, DateTime mtime, string displayName)
+        {
+            var perm = isDirectory ? "drwxr-xr-x" : "-rw-r--r--";
+            return string.Format(CultureInfo.InvariantCulture,
+                "{0} 1 ftp ftp {1,12} {2}\t{3}",
+                perm, size, FormatListTimestamp(mtime), displayName);
+        }
+
+        private static string FormatListTimestamp(DateTime dt)
+        {
+            var culture = CultureInfo.InvariantCulture;
+            var ts = (DateTime.UtcNow - dt.ToUniversalTime()).TotalDays > 180
+                ? dt.ToString("MMM dd  yyyy", culture)
+                : dt.ToString("MMM dd HH:mm", culture);
+            return ts.PadRight(12);
+        }
+
+        private static string FormatMlsdModify(DateTime utc) =>
+            utc.ToUniversalTime().ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+
         private async Task HandleRetrAsync(string fileName, CancellationToken token)
         {
-            var localPath = ResolveToPhysical(fileName);
-            if (localPath == null || !File.Exists(localPath)) { Send("550 File not found"); return; }
+            if (DenyRead()) return;
+            var normalized = NormalizeFileNameArg(fileName);
+            var ftpPath = AbsoluteFtpPath(normalized);
+            var localPath = ResolveToPhysicalFile(fileName);
+            if (localPath == null)
+            {
+                OnLog?.Invoke($"550 File not found: FTP '{ftpPath}' (cwd: {_currentPath}, arg: '{UnquotePath(fileName)}', normalized: '{normalized}')");
+                Send("550 File not found");
+                return;
+            }
             Send("150 Opening data connection");
             var dataClient = await AcceptDataAsync(token);
             if (dataClient == null) { Send("425 Can't open data connection"); return; }
@@ -312,6 +526,7 @@ namespace FTPServerWinV10.Server
 
         private async Task HandleStorAsync(string fileName, CancellationToken token)
         {
+            if (DenyWrite()) return;
             var localPath = ResolveToPhysical(fileName);
             if (localPath == null) { Send("553 Permission denied"); return; }
             Send("150 Opening data connection");
@@ -337,20 +552,23 @@ namespace FTPServerWinV10.Server
 
         private void HandleSize(string fileName)
         {
-            var p = ResolveToPhysical(fileName);
-            if (p != null && File.Exists(p)) Send($"213 {new FileInfo(p).Length}");
+            if (DenyRead()) return;
+            var p = ResolveToPhysicalFile(NormalizeFileNameArg(fileName));
+            if (p != null) Send($"213 {new FileInfo(p).Length}");
             else Send("550 File not found");
         }
 
         private void HandleDele(string fileName)
         {
-            var p = ResolveToPhysical(fileName);
-            if (p != null && File.Exists(p)) { File.Delete(p); Send("250 File deleted"); }
+            if (DenyWrite()) return;
+            var p = ResolveToPhysicalFile(fileName);
+            if (p != null) { File.Delete(p); Send("250 File deleted"); }
             else Send("550 File not found");
         }
 
         private void HandleMkd(string dirName)
         {
+            if (DenyWrite()) return;
             var p = ResolveToPhysical(dirName);
             if (p != null) { Directory.CreateDirectory(p); Send($"257 \"{dirName}\" directory created"); }
             else Send("553 Permission denied");
@@ -358,6 +576,7 @@ namespace FTPServerWinV10.Server
 
         private void HandleRmd(string dirName)
         {
+            if (DenyWrite()) return;
             var p = ResolveToPhysical(dirName);
             if (p != null && Directory.Exists(p)) { Directory.Delete(p, true); Send("250 Directory deleted"); }
             else Send("550 Directory not found");

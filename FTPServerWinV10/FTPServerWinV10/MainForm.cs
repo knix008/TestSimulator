@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace FTPServerWinV10
@@ -10,9 +11,11 @@ namespace FTPServerWinV10
             System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsFile);
         private bool allowAnonymous = true;
         private OpenFileDialog openCertDialog = new OpenFileDialog();
+        private SaveFileDialog saveLogDialog = new SaveFileDialog();
+        private readonly string _defaultLogFilePath;
         private List<Server.SharedFolderEntry> _sharedFolders = new();
         private List<Server.UserEntry> _users = new();
-        private int clientCount = 0;
+        private int totalClientCount = 0;
         private int uploadCount = 0;
         private long uploadBytes = 0;
         private int downloadCount = 0;
@@ -32,10 +35,16 @@ namespace FTPServerWinV10
             this.KeyPreview = true;
             this.KeyDown += MainForm_KeyDown;
             openCertDialog.Filter = "PFX 인증서 (*.pfx)|*.pfx|모든 파일 (*.*)|*.*";
-            logManager = new Server.LogManager(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ftpserver.log"));
+            _defaultLogFilePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ftpserver.log");
+            logManager = new Server.LogManager(_defaultLogFilePath);
+            saveLogDialog.Filter = "로그 파일 (*.log)|*.log|텍스트 (*.txt)|*.txt|모든 파일 (*.*)|*.*";
+            saveLogDialog.InitialDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            saveLogDialog.FileName = $"FTPServerWinV10_{DateTime.Now:yyyyMMdd_HHmmss}.log";
             LoadProfileList();
             LoadSettings();
             UpdateProtocolUiState();
+            SetupLogCopy();
+            AddLog($"자동 로그 저장: {_defaultLogFilePath}");
         }
 
         // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -56,6 +65,8 @@ namespace FTPServerWinV10
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
         {
             SaveSettings();
+            logManager?.Dispose();
+            logManager = null;
         }
 
         // ── Legacy settings (single file) ────────────────────────────────────────
@@ -311,40 +322,83 @@ namespace FTPServerWinV10
         // ── User management ───────────────────────────────────────────────────────
         private void btnAddUser_Click(object sender, EventArgs e)
         {
+            if (!ShowUserEditorDialog(null, out var entry))
+                return;
+            _users.Add(entry);
+            lvUsers.Items.Add(CreateUserListItem(entry));
+        }
+
+        private bool ShowUserEditorDialog(Server.UserEntry? existing, out Server.UserEntry entry)
+        {
+            entry = existing != null
+                ? new Server.UserEntry
+                {
+                    Username = existing.Username,
+                    Password = existing.Password,
+                    CanRead = existing.CanRead,
+                    CanWrite = existing.CanWrite
+                }
+                : new Server.UserEntry();
+
             using var dlg = new Form
             {
-                Text = "사용자 추가",
-                ClientSize = new System.Drawing.Size(340, 130),
+                Text = existing == null ? "사용자 추가" : "사용자 편집",
+                ClientSize = new System.Drawing.Size(360, 200),
                 FormBorderStyle = FormBorderStyle.FixedDialog,
                 StartPosition = FormStartPosition.CenterParent,
                 MaximizeBox = false,
                 MinimizeBox = false,
                 Font = new System.Drawing.Font("Segoe UI", 9F)
             };
-            var lblId  = new Label { Text = "아이디:", Location = new System.Drawing.Point(12, 18), Size = new System.Drawing.Size(56, 27), TextAlign = System.Drawing.ContentAlignment.MiddleLeft };
-            var txtId  = new TextBox { Location = new System.Drawing.Point(72, 16), Size = new System.Drawing.Size(248, 27) };
-            var lblPw  = new Label { Text = "암호:", Location = new System.Drawing.Point(12, 52), Size = new System.Drawing.Size(56, 27), TextAlign = System.Drawing.ContentAlignment.MiddleLeft };
-            var txtPw  = new TextBox { Location = new System.Drawing.Point(72, 50), Size = new System.Drawing.Size(248, 27), PasswordChar = '*' };
-            var btnOK  = new Button { Text = "확인", DialogResult = DialogResult.OK, Location = new System.Drawing.Point(154, 90), Size = new System.Drawing.Size(76, 29) };
-            var btnCnl = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Location = new System.Drawing.Point(236, 90), Size = new System.Drawing.Size(76, 29) };
-            dlg.Controls.AddRange(new Control[] { lblId, txtId, lblPw, txtPw, btnOK, btnCnl });
+            var lblId = new Label { Text = "아이디:", Location = new System.Drawing.Point(12, 18), Size = new System.Drawing.Size(72, 27), TextAlign = System.Drawing.ContentAlignment.MiddleLeft };
+            var txtId = new TextBox { Location = new System.Drawing.Point(88, 16), Size = new System.Drawing.Size(252, 27), Text = entry.Username, ReadOnly = existing != null };
+            var lblPw = new Label { Text = "암호:", Location = new System.Drawing.Point(12, 52), Size = new System.Drawing.Size(72, 27), TextAlign = System.Drawing.ContentAlignment.MiddleLeft };
+            var txtPw = new TextBox { Location = new System.Drawing.Point(88, 50), Size = new System.Drawing.Size(252, 27), PasswordChar = '*', Text = entry.Password };
+            var chkRead = new CheckBox { Text = "읽기 (다운로드·목록)", Location = new System.Drawing.Point(88, 88), Size = new System.Drawing.Size(200, 24), Checked = entry.CanRead };
+            var chkWrite = new CheckBox { Text = "쓰기 (업로드·삭제·폴더 생성)", Location = new System.Drawing.Point(88, 114), Size = new System.Drawing.Size(240, 24), Checked = entry.CanWrite };
+            var lblNote = new Label
+            {
+                Text = "익명(anonymous)은 「익명 허용」 시 읽기만 가능합니다.",
+                Location = new System.Drawing.Point(12, 142),
+                Size = new System.Drawing.Size(328, 20),
+                ForeColor = System.Drawing.Color.Gray
+            };
+            var btnOK = new Button { Text = "확인", DialogResult = DialogResult.OK, Location = new System.Drawing.Point(174, 162), Size = new System.Drawing.Size(76, 29) };
+            var btnCnl = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Location = new System.Drawing.Point(256, 162), Size = new System.Drawing.Size(76, 29) };
+            dlg.Controls.AddRange(new Control[] { lblId, txtId, lblPw, txtPw, chkRead, chkWrite, lblNote, btnOK, btnCnl });
             dlg.AcceptButton = btnOK;
             dlg.CancelButton = btnCnl;
 
-            if (dlg.ShowDialog(this) != DialogResult.OK) return;
-            string id = txtId.Text.Trim();
-            string pw = txtPw.Text;
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+                return false;
+
+            var id = txtId.Text.Trim();
             if (string.IsNullOrEmpty(id))
             {
                 ErrorDialog.ShowWarning(this, "입력 오류", "아이디를 입력하세요.",
-                    "익명 접속이 꺼져 있으면 등록된 사용자만 로그인할 수 있습니다.");
-                return;
+                    "익명 접속은 사용자 목록이 아니라 「익명 허용」으로 설정합니다.");
+                return false;
             }
-            var entry = new Server.UserEntry { Username = id, Password = pw };
-            _users.Add(entry);
-            var item = new ListViewItem(id);
-            item.SubItems.Add(new string('*', Math.Max(pw.Length, 1)));
-            lvUsers.Items.Add(item);
+            if (!chkRead.Checked && !chkWrite.Checked)
+            {
+                ErrorDialog.ShowWarning(this, "입력 오류", "읽기 또는 쓰기 권한을 하나 이상 선택하세요.", null);
+                return false;
+            }
+
+            entry.Username = id;
+            entry.Password = txtPw.Text;
+            entry.CanRead = chkRead.Checked;
+            entry.CanWrite = chkWrite.Checked;
+            return true;
+        }
+
+        private static ListViewItem CreateUserListItem(Server.UserEntry u)
+        {
+            var item = new ListViewItem(u.Username);
+            item.SubItems.Add(new string('*', Math.Max(u.Password.Length, 1)));
+            item.SubItems.Add(new Server.SessionPermissions(u.CanRead, u.CanWrite).Summary);
+            item.Tag = u;
+            return item;
         }
 
         private void btnRemoveUser_Click(object sender, EventArgs e)
@@ -505,12 +559,12 @@ namespace FTPServerWinV10
             _ftpsManager = null;
             _sftpManager = null;
             _ftpClients = _ftpsClients = _sftpClients = 0;
+            totalClientCount = 0;
             AddLog("서버 중지됨");
-            logManager?.Stop();
             uploadCount = 0; uploadBytes = 0;
             downloadCount = 0; downloadBytes = 0;
             UpdateStats();
-            UpdateClientCount(0);
+            UpdateClientDisplay(0);
             _serverRunning = false;
             UpdateServerStatus(false);
             UpdateProtocolUiState();
@@ -518,8 +572,12 @@ namespace FTPServerWinV10
 
         private void UpdateProtocolClientCount(ref int field, int count)
         {
+            var prevCurrent = _ftpClients + _ftpsClients + _sftpClients;
             field = count;
-            UpdateClientCount(_ftpClients + _ftpsClients + _sftpClients);
+            var curCurrent = _ftpClients + _ftpsClients + _sftpClients;
+            if (curCurrent > prevCurrent)
+                totalClientCount += curCurrent - prevCurrent;
+            UpdateClientDisplay(curCurrent);
         }
 
         private void UpdateProtocolUiState()
@@ -541,7 +599,7 @@ namespace FTPServerWinV10
                 btnGenerateCert.Enabled = lblCertPw.Enabled = txtCertPw.Enabled = ftps && !running;
         }
 
-        private void ProtocolCheckChanged(object? sender, EventArgs e)
+        private void ProtocolCheckChanged(object sender, EventArgs e)
         {
             // 프로토콜을 켤 때 표준 포트로 자동 설정
             if (sender == chkEnableFtp && chkEnableFtp.Checked)
@@ -573,19 +631,111 @@ namespace FTPServerWinV10
             lblDownloadStats.Text = $"↓ 다운로드: {downloadCount} 파일 ({FormatBytes(downloadBytes)})";
         }
 
-        private void UpdateClientCount(int count)
+        private void UpdateClientDisplay(int currentCount)
         {
-            if (InvokeRequired) { Invoke(new Action(() => UpdateClientCount(count))); return; }
-            clientCount = count;
-            lblClients.Text = $"● 클라이언트: {clientCount}";
+            if (InvokeRequired) { Invoke(new Action(() => UpdateClientDisplay(currentCount))); return; }
+            lblClients.Text = $"현재 접속: {currentCount}";
+            lblTotalClients.Text = $"총 접속: {totalClientCount}";
         }
 
         private void AddLog(string message)
         {
             if (InvokeRequired) { Invoke(new Action(() => AddLog(message))); return; }
+            if (btnCopyLog.Text != "전체 복사")
+                btnCopyLog.Text = "전체 복사";
+            if (btnSaveLog.Text != "로그 저장")
+                btnSaveLog.Text = "로그 저장";
             lstLog.Items.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
             lstLog.TopIndex = lstLog.Items.Count - 1;
             logManager?.WriteLog(message);
+        }
+
+        private void SetupLogCopy()
+        {
+            btnSaveLog.Click += (_, _) => SaveLogToFile();
+            btnCopyLog.Click += (_, _) => CopyAllLogLines();
+            var menu = new ContextMenuStrip();
+            menu.Items.Add("복사", null, (_, _) => CopySelectedLogLines());
+            menu.Items.Add("전체 복사", null, (_, _) => CopyAllLogLines());
+            menu.Items.Add("파일로 저장...", null, (_, _) => SaveLogToFile());
+            lstLog.ContextMenuStrip = menu;
+            lstLog.KeyDown += LstLog_KeyDown;
+        }
+
+        private void LstLog_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Control && e.KeyCode == Keys.C)
+            {
+                CopySelectedLogLines();
+                e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.A)
+            {
+                for (int i = 0; i < lstLog.Items.Count; i++)
+                    lstLog.SetSelected(i, true);
+                e.Handled = true;
+            }
+        }
+
+        private void SaveLogToFile()
+        {
+            if (lstLog.Items.Count == 0)
+            {
+                ErrorDialog.ShowWarning(this, "로그 저장", "저장할 로그가 없습니다.",
+                    $"화면에 표시된 로그가 없습니다.\n자동 저장 파일: {_defaultLogFilePath}");
+                return;
+            }
+
+            saveLogDialog.FileName = $"FTPServerWinV10_{DateTime.Now:yyyyMMdd_HHmmss}.log";
+            if (saveLogDialog.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            try
+            {
+                var text = BuildLogText(lstLog.Items);
+                File.WriteAllText(saveLogDialog.FileName, text);
+                AddLog($"로그 저장됨: {saveLogDialog.FileName}");
+                btnSaveLog.Text = "저장됨";
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "로그 저장 오류", "로그 파일을 저장하지 못했습니다.", ex,
+                    $"경로: {saveLogDialog.FileName}");
+            }
+        }
+
+        private static string BuildLogText(System.Collections.IEnumerable items) =>
+            string.Join(Environment.NewLine, items.Cast<object>().Select(x => x.ToString() ?? ""));
+
+        private void CopySelectedLogLines()
+        {
+            if (lstLog.SelectedItems.Count == 0)
+            {
+                CopyAllLogLines();
+                return;
+            }
+            try
+            {
+                Clipboard.SetText(BuildLogText(lstLog.SelectedItems));
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "복사 오류", "선택한 로그를 클립보드에 복사하지 못했습니다.", ex);
+            }
+        }
+
+        private void CopyAllLogLines()
+        {
+            if (lstLog.Items.Count == 0) return;
+            try
+            {
+                Clipboard.SetText(BuildLogText(lstLog.Items));
+                btnCopyLog.Text = "복사됨";
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "복사 오류", "로그를 클립보드에 복사하지 못했습니다.", ex);
+            }
         }
 
         private void UpdateServerStatus(bool running)
@@ -634,14 +784,16 @@ namespace FTPServerWinV10
                 lvFolders.Items.Add(item);
             }
 
-            _users = s.Users.ToList();
+            _users = s.Users.Select(u => new Server.UserEntry
+            {
+                Username = u.Username,
+                Password = u.Password,
+                CanRead = u.CanRead,
+                CanWrite = u.CanWrite
+            }).ToList();
             lvUsers.Items.Clear();
             foreach (var u in _users)
-            {
-                var item = new ListViewItem(u.Username);
-                item.SubItems.Add(new string('*', Math.Max(u.Password.Length, 1)));
-                lvUsers.Items.Add(item);
-            }
+                lvUsers.Items.Add(CreateUserListItem(u));
 
             txtCertPath.Text      = s.CertPath;
             txtCertPw.Text        = s.CertPassword;

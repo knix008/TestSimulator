@@ -50,6 +50,7 @@ namespace FTPServerWinV10
             lvUsers = new ListView();
             colUserName = new ColumnHeader();
             colUserPass = new ColumnHeader();
+            colUserPerm = new ColumnHeader();
             btnAddUser = new Button();
             btnRemoveUser = new Button();
             lblSpeed = new Label();
@@ -58,9 +59,12 @@ namespace FTPServerWinV10
             numThreads = new NumericUpDown();
             pnlStatus = new Panel();
             lblClients = new Label();
+            lblTotalClients = new Label();
             lblUploadStats = new Label();
             lblDownloadStats = new Label();
             grpLog = new GroupBox();
+            btnSaveLog = new Button();
+            btnCopyLog = new Button();
             lstLog = new ListBox();
             statusStrip1 = new StatusStrip();
             tsslInfo = new ToolStripStatusLabel();
@@ -453,7 +457,7 @@ namespace FTPServerWinV10
             // lvUsers
             //
             lvUsers.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            lvUsers.Columns.AddRange(new ColumnHeader[] { colUserName, colUserPass });
+            lvUsers.Columns.AddRange(new ColumnHeader[] { colUserName, colUserPass, colUserPerm });
             lvUsers.Font = new Font("Segoe UI", 9F);
             lvUsers.FullRowSelect = true;
             lvUsers.GridLines = true;
@@ -469,12 +473,17 @@ namespace FTPServerWinV10
             // colUserName
             //
             colUserName.Text = "사용자 이름";
-            colUserName.Width = 200;
+            colUserName.Width = 140;
             //
             // colUserPass
             //
             colUserPass.Text = "암호";
-            colUserPass.Width = 200;
+            colUserPass.Width = 100;
+            //
+            // colUserPerm
+            //
+            colUserPerm.Text = "권한";
+            colUserPerm.Width = 120;
             //
             // btnAddUser
             //
@@ -548,6 +557,7 @@ namespace FTPServerWinV10
             pnlStatus.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             pnlStatus.BackColor = Color.FromArgb(236, 240, 241);
             pnlStatus.Controls.Add(lblClients);
+            pnlStatus.Controls.Add(lblTotalClients);
             pnlStatus.Controls.Add(lblUploadStats);
             pnlStatus.Controls.Add(lblDownloadStats);
             pnlStatus.Location = new Point(12, 657);
@@ -561,15 +571,25 @@ namespace FTPServerWinV10
             lblClients.ForeColor = Color.FromArgb(33, 47, 61);
             lblClients.Location = new Point(12, 10);
             lblClients.Name = "lblClients";
-            lblClients.Size = new Size(200, 20);
+            lblClients.Size = new Size(110, 20);
             lblClients.TabIndex = 0;
-            lblClients.Text = "● 클라이언트: 0";
+            lblClients.Text = "현재 접속: 0";
+            //
+            // lblTotalClients
+            //
+            lblTotalClients.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblTotalClients.ForeColor = Color.FromArgb(127, 140, 141);
+            lblTotalClients.Location = new Point(128, 10);
+            lblTotalClients.Name = "lblTotalClients";
+            lblTotalClients.Size = new Size(110, 20);
+            lblTotalClients.TabIndex = 3;
+            lblTotalClients.Text = "총 접속: 0";
             //
             // lblUploadStats
             //
             lblUploadStats.Font = new Font("Segoe UI", 9F);
             lblUploadStats.ForeColor = Color.FromArgb(39, 174, 96);
-            lblUploadStats.Location = new Point(240, 10);
+            lblUploadStats.Location = new Point(280, 10);
             lblUploadStats.Name = "lblUploadStats";
             lblUploadStats.Size = new Size(300, 20);
             lblUploadStats.TabIndex = 1;
@@ -579,7 +599,7 @@ namespace FTPServerWinV10
             //
             lblDownloadStats.Font = new Font("Segoe UI", 9F);
             lblDownloadStats.ForeColor = Color.FromArgb(41, 128, 185);
-            lblDownloadStats.Location = new Point(575, 10);
+            lblDownloadStats.Location = new Point(600, 10);
             lblDownloadStats.Name = "lblDownloadStats";
             lblDownloadStats.Size = new Size(300, 20);
             lblDownloadStats.TabIndex = 2;
@@ -588,6 +608,8 @@ namespace FTPServerWinV10
             // grpLog
             //
             grpLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            grpLog.Controls.Add(btnSaveLog);
+            grpLog.Controls.Add(btnCopyLog);
             grpLog.Controls.Add(lstLog);
             grpLog.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpLog.Location = new Point(12, 705);
@@ -596,6 +618,30 @@ namespace FTPServerWinV10
             grpLog.TabIndex = 0;
             grpLog.TabStop = false;
             grpLog.Text = "실시간 로그";
+            //
+            // btnSaveLog
+            //
+            btnSaveLog.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            btnSaveLog.Cursor = Cursors.Hand;
+            btnSaveLog.FlatStyle = FlatStyle.System;
+            btnSaveLog.Font = new Font("Segoe UI", 9F);
+            btnSaveLog.Location = new Point(648, 150);
+            btnSaveLog.Name = "btnSaveLog";
+            btnSaveLog.Size = new Size(106, 26);
+            btnSaveLog.TabIndex = 2;
+            btnSaveLog.Text = "로그 저장";
+            //
+            // btnCopyLog
+            //
+            btnCopyLog.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            btnCopyLog.Cursor = Cursors.Hand;
+            btnCopyLog.FlatStyle = FlatStyle.System;
+            btnCopyLog.Font = new Font("Segoe UI", 9F);
+            btnCopyLog.Location = new Point(762, 150);
+            btnCopyLog.Name = "btnCopyLog";
+            btnCopyLog.Size = new Size(106, 26);
+            btnCopyLog.TabIndex = 1;
+            btnCopyLog.Text = "전체 복사";
             //
             // lstLog
             //
@@ -609,7 +655,8 @@ namespace FTPServerWinV10
             lstLog.Location = new Point(10, 24);
             lstLog.Name = "lstLog";
             lstLog.ScrollAlwaysVisible = true;
-            lstLog.Size = new Size(858, 146);
+            lstLog.SelectionMode = SelectionMode.MultiExtended;
+            lstLog.Size = new Size(858, 120);
             lstLog.TabIndex = 0;
             //
             // statusStrip1
@@ -687,7 +734,10 @@ namespace FTPServerWinV10
         private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog1;
         private System.Windows.Forms.Button btnStartServer;
         private System.Windows.Forms.Label lblClients;
+        private System.Windows.Forms.Label lblTotalClients;
         private System.Windows.Forms.ListBox lstLog;
+        private System.Windows.Forms.Button btnSaveLog;
+        private System.Windows.Forms.Button btnCopyLog;
         private System.Windows.Forms.Label lblUploadStats;
         private System.Windows.Forms.Label lblDownloadStats;
         private System.Windows.Forms.Panel pnlHeader;
@@ -717,6 +767,7 @@ namespace FTPServerWinV10
         private System.Windows.Forms.ListView lvUsers;
         private System.Windows.Forms.ColumnHeader colUserName;
         private System.Windows.Forms.ColumnHeader colUserPass;
+        private System.Windows.Forms.ColumnHeader colUserPerm;
         private System.Windows.Forms.Button btnAddUser;
         private System.Windows.Forms.Button btnRemoveUser;
         private System.Windows.Forms.Label lblThreads;

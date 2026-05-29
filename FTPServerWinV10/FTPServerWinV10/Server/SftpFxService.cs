@@ -71,12 +71,14 @@ namespace FTPServerWinV10.Server
         private readonly CancellationTokenSource _cancellationTokenSource = new();
         private readonly Dictionary<string, (string path, FileStream? fs)> _mapOfHandle = [];
         private readonly string _rootPath;
+        private readonly SessionPermissions _permissions;
         private byte[]? _pandingBytes;
         private int _handleCursor = 0;
 
-        public SftpFxService(string rootPath)
+        public SftpFxService(string rootPath, SessionPermissions permissions)
         {
             _rootPath = Path.GetFullPath(rootPath + Path.DirectorySeparatorChar);
+            _permissions = permissions;
         }
 
         public void OnData(byte[] data)
@@ -273,6 +275,19 @@ namespace FTPServerWinV10.Server
             var pflags = reader.ReadUInt32();
             var attr = ReadFileAttrs(reader);
 
+            var needsRead = (pflags & SSH_FXF_READ) != 0;
+            var needsWrite = (pflags & (SSH_FXF_WRITE | SSH_FXF_CREAT | SSH_FXF_TRUNC | SSH_FXF_APPEND)) != 0;
+            if (needsRead && !_permissions.CanRead)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, $"Read not allowed: '{filename}'.", "en");
+                return;
+            }
+            if (needsWrite && !_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, $"Write not allowed: '{filename}'.", "en");
+                return;
+            }
+
             try
             {
                 var access = default(FileAccess);
@@ -330,6 +345,12 @@ namespace FTPServerWinV10.Server
             var offset = reader.ReadUInt64();
             var data = reader.ReadBinary();
 
+            if (!_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
+                return;
+            }
+
             if (_mapOfHandle.TryGetValue(handle, out var map))
             {
                 var (path, fs) = map;
@@ -351,6 +372,11 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var path = reader.ReadString(Encoding.UTF8);
             var attr = ReadFileAttrs(reader);
+            if (!_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
+                return;
+            }
 
             var absPath = GetAbsolutePath(path);
             SetAttr(new FileInfo(absPath), attr);
@@ -363,6 +389,11 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var handle = reader.ReadString(Encoding.ASCII);
             var attr = ReadFileAttrs(reader);
+            if (!_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
+                return;
+            }
 
             if (_mapOfHandle.TryGetValue(handle, out var map))
             {
@@ -378,6 +409,11 @@ namespace FTPServerWinV10.Server
         {
             var requestId = reader.ReadUInt32();
             var filename = reader.ReadString(Encoding.UTF8);
+            if (!_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
+                return;
+            }
 
             var absPath = GetAbsolutePath(filename);
             try
@@ -396,6 +432,11 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var oldpath = reader.ReadString(Encoding.UTF8);
             var newpath = reader.ReadString(Encoding.UTF8);
+            if (!_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
+                return;
+            }
 
             var absOldPath = GetAbsolutePath(oldpath);
             var absNewPath = GetAbsolutePath(newpath);
@@ -419,6 +460,11 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var path = reader.ReadString(Encoding.UTF8);
             var attr = ReadFileAttrs(reader);
+            if (!_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
+                return;
+            }
 
             var absPath = GetAbsolutePath(path);
             try
@@ -437,6 +483,11 @@ namespace FTPServerWinV10.Server
         {
             var requestId = reader.ReadUInt32();
             var path = reader.ReadString(Encoding.UTF8);
+            if (!_permissions.CanWrite)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
+                return;
+            }
 
             var absPath = GetAbsolutePath(path);
             try
@@ -476,6 +527,8 @@ namespace FTPServerWinV10.Server
 
         private bool HasReadPermission(string path)
         {
+            if (!_permissions.CanRead)
+                return false;
             try
             {
                 if (File.Exists(path))
@@ -543,15 +596,25 @@ namespace FTPServerWinV10.Server
 
         private string GetAbsolutePath(string path)
         {
-            var absPath = Path.GetFullPath(Path.Combine(_rootPath, path.TrimStart('/')));
-            if (!absPath.StartsWith(_rootPath, StringComparison.Ordinal))
-                return _rootPath;
+            var root = Path.GetFullPath(_rootPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var absPath = Path.GetFullPath(Path.Combine(root, path.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
+            var prefix = root + Path.DirectorySeparatorChar;
+            if (!absPath.Equals(root, StringComparison.OrdinalIgnoreCase) &&
+                !absPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return root;
             return absPath;
         }
 
         private string GetRelativePath(string path)
         {
-            return "/" + Path.GetRelativePath(_rootPath, GetAbsolutePath(path)).Replace(Path.DirectorySeparatorChar, '/').TrimEnd('.');
+            var root = Path.GetFullPath(_rootPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var abs = GetAbsolutePath(path);
+            if (abs.Equals(root, StringComparison.OrdinalIgnoreCase))
+                return "/";
+            var rel = Path.GetRelativePath(root, abs).Replace(Path.DirectorySeparatorChar, '/');
+            return "/" + rel.TrimStart('/');
         }
         #endregion
 

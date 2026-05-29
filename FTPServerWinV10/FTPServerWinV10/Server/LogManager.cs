@@ -1,45 +1,62 @@
-using System;
 using System.Collections.Concurrent;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace FTPServerWinV10.Server
 {
-    public class LogManager
+    public sealed class LogManager : IDisposable
     {
-        private readonly string logFilePath;
-        private readonly BlockingCollection<string> logQueue = new BlockingCollection<string>();
-        private bool running = true;
+        private readonly string _logFilePath;
+        private readonly BlockingCollection<string> _logQueue = new();
+        private readonly Task _writerTask;
+        private bool _disposed;
+
+        public string LogFilePath => _logFilePath;
 
         public LogManager(string logFile)
         {
-            logFilePath = logFile;
-            Task.Run(() => ProcessQueue());
+            _logFilePath = logFile;
+            var dir = Path.GetDirectoryName(logFile);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+            _writerTask = Task.Run(ProcessQueue);
         }
 
         public void WriteLog(string message)
         {
-            logQueue.Add($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}");
+            if (_disposed) return;
+            try
+            {
+                _logQueue.Add($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}");
+            }
+            catch (InvalidOperationException)
+            {
+                // Queue completed during shutdown.
+            }
         }
 
         private void ProcessQueue()
         {
-            using (var writer = new StreamWriter(logFilePath, true))
+            try
             {
-                while (running || logQueue.Count > 0)
-                {
-                    if (logQueue.TryTake(out var log, TimeSpan.FromSeconds(1)))
-                    {
-                        writer.WriteLine(log);
-                        writer.Flush();
-                    }
-                }
+                foreach (var log in _logQueue.GetConsumingEnumerable())
+                    AppendLineToFile(log);
+            }
+            catch
+            {
+                // Writer thread must not crash the app.
             }
         }
 
-        public void Stop()
+        private void AppendLineToFile(string line)
         {
-            running = false;
+            File.AppendAllText(_logFilePath, line + Environment.NewLine);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _logQueue.CompleteAdding();
+            try { _writerTask.Wait(TimeSpan.FromSeconds(5)); } catch { }
         }
     }
 }
