@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:MyMindWin.Controls"
         Title="MyMind — Mind Map"
+        Icon="pack://application:,,,/daemon_hammer.ico"
         Width="1280" Height="800"
         MinWidth="800" MinHeight="500"
         WindowStartupLocation="CenterScreen"
@@ -116,16 +117,65 @@
             <Setter Property="Width" Value="1"/>
             <Setter Property="Margin" Value="2,4"/>
         </Style>
+
+        <Style x:Key="ToolbarComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#2A3548"/>
+            <Setter Property="Foreground" Value="#F0F4FF"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#3D5080"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#4A6090"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ToolbarComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#2A3548"/>
+            <Setter Property="Foreground" Value="#F0F4FF"/>
+            <Setter Property="BorderBrush" Value="#6A7FA8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource ToolbarComboBoxItem}"/>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- ══ Menu ════════════════════════════════════════════════════════ -->
+        <Menu Grid.Row="0" Background="#0D101A" Foreground="#CCFFFFFF"
+              FontFamily="Segoe UI" FontSize="12">
+            <MenuItem Header="정렬(_L)">
+                <MenuItem Header="트리 (수평) _T" Command="{Binding SetLayoutTreeCommand}"/>
+                <MenuItem Header="방사형 _R" Command="{Binding SetLayoutRadialCommand}"/>
+                <Separator/>
+                <MenuItem Header="현재 뷰 자동 정렬 _A" Command="{Binding AutoLayoutCommand}" InputGestureText="F5"/>
+            </MenuItem>
+            <MenuItem Header="도형(_S)">
+                <MenuItem Header="둥근 사각형" Command="{Binding SetShapeCommand}" CommandParameter="rounded"/>
+                <MenuItem Header="사각형" Command="{Binding SetShapeCommand}" CommandParameter="rectangle"/>
+                <MenuItem Header="알약형" Command="{Binding SetShapeCommand}" CommandParameter="pill"/>
+                <MenuItem Header="타원" Command="{Binding SetShapeCommand}" CommandParameter="ellipse"/>
+                <MenuItem Header="마름모" Command="{Binding SetShapeCommand}" CommandParameter="diamond"/>
+            </MenuItem>
+            <MenuItem Header="보기(_V)">
+                <MenuItem Header="화면 맞춤" Command="{Binding ResetViewCommand}" InputGestureText="F4"/>
+            </MenuItem>
+        </Menu>
+
         <!-- ══ Toolbar ══════════════════════════════════════════════════════ -->
-        <Border Grid.Row="0" Background="#0D101A"
+        <Border Grid.Row="1" Background="#0D101A"
                 BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1">
             <WrapPanel Orientation="Horizontal" Margin="6,3">
                 <Button Command="{Binding NewDocumentCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="New">📄 New</Button>
@@ -137,24 +187,36 @@
                 <Button Command="{Binding AddSiblingCommand}"  Style="{StaticResource ToolbarBtn}" ToolTip="Add Sibling (Enter)">↕ Sibling</Button>
                 <Button Command="{Binding DeleteNodeCommand}"  Style="{StaticResource ToolbarBtn}" ToolTip="Delete (Del)">🗑 Delete</Button>
                 <Separator Style="{StaticResource ToolbarSep}"/>
+                <TextBlock Text="도형" Foreground="#88FFFFFF" FontFamily="Segoe UI" FontSize="12"
+                           VerticalAlignment="Center" Margin="6,0,2,0"/>
+                <ComboBox Style="{StaticResource ToolbarComboBox}"
+                          Width="118" Height="28" Margin="0,2"
+                          ItemsSource="{Binding ShapeOptions}"
+                          DisplayMemberPath="Label"
+                          SelectedValuePath="Kind"
+                          SelectedValue="{Binding ShapeComboSelection, Mode=TwoWay}"
+                          IsEnabled="{Binding HasSelectedNode}"
+                          ToolTip="선택한 노드의 도형"/>
+                <Separator Style="{StaticResource ToolbarSep}"/>
                 <Button Command="{Binding ExpandAllCommand}"   Style="{StaticResource ToolbarBtn}" ToolTip="Expand All">⊞ Expand</Button>
                 <Button Command="{Binding CollapseAllCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="Collapse All">⊟ Collapse</Button>
                 <Separator Style="{StaticResource ToolbarSep}"/>
-                <Button Command="{Binding SetLayoutTreeCommand}"   Style="{StaticResource ToolbarBtn}" ToolTip="Horizontal Tree">⊣⊢ Tree</Button>
-                <Button Command="{Binding SetLayoutRadialCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="Radial">⊛ Radial</Button>
+                <Button Command="{Binding SetLayoutTreeCommand}"   Style="{StaticResource ToolbarBtn}" ToolTip="트리 레이아웃 + 자동 정렬">⊣⊢ Tree</Button>
+                <Button Command="{Binding SetLayoutRadialCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="방사형 레이아웃 + 자동 정렬">⊛ Radial</Button>
+                <Button Command="{Binding AutoLayoutCommand}"     Style="{StaticResource ToolbarBtn}" ToolTip="현재 뷰 자동 정렬 (F5)">⇅ 정렬</Button>
                 <Separator Style="{StaticResource ToolbarSep}"/>
                 <Button Command="{Binding ZoomInCommand}"    Style="{StaticResource ToolbarBtn}" ToolTip="Zoom In">🔍+</Button>
                 <Button Command="{Binding ZoomOutCommand}"   Style="{StaticResource ToolbarBtn}" ToolTip="Zoom Out">🔍-</Button>
-                <Button Command="{Binding ResetViewCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="Reset View">⌖ Reset</Button>
+                <Button Command="{Binding ResetViewCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="화면 맞춤 (F4)">⌖ 맞춤</Button>
                 <Border VerticalAlignment="Center" Margin="10,0,0,0">
-                    <TextBlock Text="Tab=Child  Enter=Sibling  Del=Delete  F2=Rename  Space=Expand  Drag=Pan  Wheel=Zoom"
+                    <TextBlock Text="우클릭=메뉴  Tab=Child  Enter=Sibling  Del=Delete  F2=Rename  Space=Expand  Drag=Move  Ctrl+Wheel=Zoom"
                                Foreground="#44FFFFFF" FontFamily="Segoe UI" FontSize="11"/>
                 </Border>
             </WrapPanel>
         </Border>
 
         <!-- ══ Main Content ══════════════════════════════════════════════════ -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="240" MinWidth="150" MaxWidth="400"/>
                 <ColumnDefinition Width="4"/>

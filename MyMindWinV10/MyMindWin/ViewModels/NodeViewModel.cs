@@ -19,6 +19,20 @@ namespace MyMindWin.ViewModels
         public int Level { get; set; }
         public int BranchColorIndex { get; set; } = 0;
 
+        private NodeShapeKind _shape = NodeShapeKind.RoundedRectangle;
+
+        public NodeShapeKind Shape
+        {
+            get => _shape;
+            set
+            {
+                if (_shape == value) return;
+                _shape = value;
+                Model.Shape = value.ToJsonValue();
+                OnPropertyChanged();
+            }
+        }
+
         public double X
         {
             get => _x;
@@ -36,6 +50,9 @@ namespace MyMindWin.ViewModels
 
         public double Width { get; set; } = 120;
         public double Height { get; set; } = 36;
+
+        /// <summary>자동 레이아웃 대신 사용자가 배치한 좌표인지 여부.</summary>
+        public bool HasManualPosition { get; set; }
 
         public double CenterX => X + Width / 2;
         public double CenterY => Y + Height / 2;
@@ -77,6 +94,23 @@ namespace MyMindWin.ViewModels
             Level = level;
             _text = model.Text;
             _isExpanded = model.IsExpanded;
+            BranchColorIndex = model.ColorIndex;
+            _shape = NodeShapeKindExtensions.FromJsonValue(model.Shape);
+
+            if (model.HasStoredPosition)
+            {
+                _x = model.X!.Value;
+                _y = model.Y!.Value;
+                HasManualPosition = true;
+            }
+        }
+
+        public void SyncToModel()
+        {
+            Model.X = X;
+            Model.Y = Y;
+            Model.ColorIndex = BranchColorIndex;
+            Model.Shape = Shape.ToJsonValue();
         }
 
         public IEnumerable<NodeViewModel> GetAllDescendants()

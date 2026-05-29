@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="MyMindWin"
+           Manufacturer="TestSimulator"
+           Version="1.0.0.0"
+           UpgradeCode="E8A4C2B1-9F3D-4E67-A1B2-3C4D5E6F7089"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Language="1042"
+           Codepage="65001">
+
+    <MajorUpgrade DowngradeErrorMessage="더 높은 버전의 MyMindWin이 이미 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- daemon_hammer.ico — MSI·바로가기·프로그램 추가/제거 아이콘 -->
+    <Icon Id="AppIcon" SourceFile="assets\daemon_hammer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="assets\License.rtf" />
+    <WixVariable Id="WixUIExclamationIco" Value="assets\daemon_hammer.ico" />
+    <WixVariable Id="WixUIInfoIco" Value="assets\daemon_hammer.ico" />
+    <WixVariable Id="WixUINewIco" Value="assets\daemon_hammer.ico" />
+    <WixVariable Id="WixUIUpIco" Value="assets\daemon_hammer.ico" />
+
+    <Launch Condition="Privileged"
+            Message="관리자 권한이 필요합니다. 설치 파일을 관리자 권한으로 실행해 주세요." />
+
+    <!--
+      기능 선택 (WixUI_FeatureTree):
+        MainApp       — 앱 파일 (필수)
+          FeatDesktop — 바탕화면 바로가기 (선택, 기본 설치)
+          FeatStartMenu — 시작 메뉴 바로가기 (선택, 기본 설치)
+    -->
+    <Feature Id="MainApp"
+             Title="MyMindWin"
+             Description="MyMind 마인드맵 애플리케이션 파일을 설치합니다."
+             Level="1"
+             AllowAbsent="no"
+             Display="expand"
+             ConfigurableDirectory="INSTALLFOLDER">
+
+      <ComponentGroupRef Id="HarvestedApp" />
+      <ComponentRef Id="MmapFileAssocComp" />
+
+      <Feature Id="FeatDesktop"
+               Title="바탕화면 바로가기"
+               Description="바탕화면에 MyMindWin 바로가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="DesktopSCComp" />
+      </Feature>
+
+      <Feature Id="FeatStartMenu"
+               Title="시작 메뉴 바로가기"
+               Description="시작 메뉴에 MyMindWin 바로가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="StartMenuSCComp" />
+      </Feature>
+
+    </Feature>
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="MyMindWin" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppProgramsFolder" Name="MyMindWin" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="HarvestedApp" Directory="INSTALLFOLDER">
+      <Files Include="$(var.MyMindWin.TargetDir)**">
+        <Exclude Files="$(var.MyMindWin.TargetDir)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="DesktopSCComp" Directory="DesktopFolder" Guid="*">
+      <Shortcut Id="DesktopSC"
+                Name="MyMindWin"
+                Description="MyMind — Mind Map Application"
+                Target="[INSTALLFOLDER]MyMindWin.exe"
+                Icon="AppIcon"
+                IconIndex="0"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\TestSimulator\MyMindWin\Setup"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="StartMenuSCComp" Directory="AppProgramsFolder" Guid="*">
+      <Shortcut Id="StartMenuSC"
+                Name="MyMindWin"
+                Description="MyMind — Mind Map Application"
+                Target="[INSTALLFOLDER]MyMindWin.exe"
+                Icon="AppIcon"
+                IconIndex="0"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveAppProgramsFolder"
+                    Directory="AppProgramsFolder"
+                    On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\TestSimulator\MyMindWin\Setup"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+  <!-- .mmap 파일 형식: 아이콘 + 더블클릭으로 MyMindWin.exe 실행 -->
+  <Fragment>
+    <Component Id="MmapFileAssocComp" Directory="INSTALLFOLDER" Guid="*">
+      <File Id="MmapFileIcoInstalled" Name="mmap_file.ico" Source="assets\mmap_file.ico" KeyPath="yes" />
+
+      <RegistryKey Root="HKCR" Key=".mmap">
+        <RegistryValue Type="string" Value="MyMindWin.Document" />
+      </RegistryKey>
+      <RegistryKey Root="HKCR" Key="MyMindWin.Document">
+        <RegistryValue Type="string" Value="MyMind Map" />
+      </RegistryKey>
+      <RegistryKey Root="HKCR" Key="MyMindWin.Document\DefaultIcon">
+        <RegistryValue Type="string" Value="[#MmapFileIcoInstalled],0" />
+      </RegistryKey>
+      <RegistryKey Root="HKCR" Key="MyMindWin.Document\shell\open\command">
+        <RegistryValue Type="string"
+                      Value="&quot;[INSTALLFOLDER]MyMindWin.exe&quot; &quot;%1&quot;" />
+      </RegistryKey>
+    </Component>
+  </Fragment>
+
+</Wix>

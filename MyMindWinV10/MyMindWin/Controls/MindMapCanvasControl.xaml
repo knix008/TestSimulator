@@ -4,47 +4,84 @@
              Background="#1A1F2E"
              Focusable="True"
              ClipToBounds="True">
+
+    <UserControl.Resources>
+        <Style x:Key="NodeContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="#2A3548"/>
+            <Setter Property="BorderBrush" Value="#6A7FA8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4,2"/>
+        </Style>
+        <Style x:Key="NodeContextMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#F0F4FF"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#3D5080"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#6688AA"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="NodeContextMenuSeparator" TargetType="Separator">
+            <Setter Property="Background" Value="#44FFFFFF"/>
+            <Setter Property="Margin" Value="8,4"/>
+            <Setter Property="Height" Value="1"/>
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
-        <!-- Main canvas viewport -->
-        <Canvas x:Name="RootCanvas"
-                MouseDown="RootCanvas_MouseDown"
-                MouseMove="RootCanvas_MouseMove"
-                MouseUp="RootCanvas_MouseUp"
-                MouseWheel="RootCanvas_MouseWheel">
-            <Canvas.RenderTransform>
-                <TransformGroup>
+        <ScrollViewer x:Name="CanvasScroller"
+                      HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Auto"
+                      PanningMode="None"
+                      PreviewMouseWheel="CanvasScroller_PreviewMouseWheel"
+                      PreviewMouseDown="CanvasScroller_PreviewMouseDown"
+                      PreviewMouseMove="CanvasScroller_PreviewMouseMove"
+                      PreviewMouseUp="CanvasScroller_PreviewMouseUp">
+            <Canvas x:Name="RootCanvas"
+                    Background="Transparent"
+                    MouseDown="RootCanvas_MouseDown">
+                <Canvas.LayoutTransform>
                     <ScaleTransform x:Name="ScaleXform" ScaleX="1" ScaleY="1"/>
-                    <TranslateTransform x:Name="TranslateXform" X="0" Y="0"/>
-                </TransformGroup>
-            </Canvas.RenderTransform>
+                </Canvas.LayoutTransform>
 
-            <!-- Connection layer (rendered first = behind nodes) -->
-            <Canvas x:Name="ConnectionCanvas" IsHitTestVisible="False"/>
+                <!-- Connection layer (rendered first = behind nodes) -->
+                <Canvas x:Name="ConnectionCanvas" IsHitTestVisible="False"/>
 
-            <!-- Node layer -->
-            <Canvas x:Name="NodeCanvas"/>
+                <!-- Node layer -->
+                <Canvas x:Name="NodeCanvas"/>
+            </Canvas>
+        </ScrollViewer>
+
+        <!-- 편집 오버레이: ScrollViewer 위에 겹치며 노드와 동일한 화면 좌표 사용 -->
+        <Canvas x:Name="EditOverlay" IsHitTestVisible="False">
+            <Border x:Name="EditBorder"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="True"
+                    CornerRadius="12"
+                    BorderBrush="#64B5F6"
+                    BorderThickness="2"
+                    Background="#1A2744"
+                    Padding="10,0,10,0">
+                <TextBox x:Name="EditBox"
+                         FontFamily="Segoe UI"
+                         FontSize="13"
+                         FontWeight="SemiBold"
+                         Padding="0"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         Foreground="White"
+                         CaretBrush="White"
+                         VerticalAlignment="Center"
+                         VerticalContentAlignment="Center"
+                         KeyDown="EditBox_KeyDown"
+                         LostFocus="EditBox_LostFocus"/>
+            </Border>
         </Canvas>
-
-        <!-- Inline text editor overlay -->
-        <Border x:Name="EditBorder"
-                Visibility="Collapsed"
-                IsHitTestVisible="True"
-                Background="Transparent">
-            <TextBox x:Name="EditBox"
-                     FontFamily="Segoe UI"
-                     FontSize="13"
-                     FontWeight="SemiBold"
-                     Padding="6,3"
-                     BorderBrush="#64B5F6"
-                     BorderThickness="2"
-                     Background="#1A2744"
-                     Foreground="White"
-                     CaretBrush="White"
-                     HorizontalAlignment="Left"
-                     VerticalAlignment="Top"
-                     KeyDown="EditBox_KeyDown"
-                     LostFocus="EditBox_LostFocus"/>
-        </Border>
 
         <!-- Zoom indicator -->
         <Border HorizontalAlignment="Right"

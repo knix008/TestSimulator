@@ -22,6 +22,11 @@ namespace MyMindWin
 
             Loaded += (_, _) =>
             {
+                if (!string.IsNullOrEmpty(App.StartupFilePath))
+                {
+                    _vm.OpenFile(App.StartupFilePath);
+                    App.ClearStartupFilePath();
+                }
                 MindMapCanvas.FitToView();
                 MindMapCanvas.Focus();
             };
@@ -69,6 +74,16 @@ namespace MyMindWin
                      Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
             {
                 _vm.SaveAsCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F5)
+            {
+                _vm.AutoLayoutCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.F4)
+            {
+                _vm.ResetViewCommand.Execute(null);
                 e.Handled = true;
             }
         }

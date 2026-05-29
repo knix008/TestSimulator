@@ -3,6 +3,12 @@
 # Build outputs
 bin/
 obj/
+installer/obj/
+installer/**/*.wixobj
+installer/**/*.wixpdb
+*.msi
+*.wixpdb
+*.wixobj
 
 # User-specific files
 *.user

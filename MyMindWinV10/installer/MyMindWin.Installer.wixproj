@@ -1,0 +1,30 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platforms>x64</Platforms>
+    <OutputName>MyMindWin_Setup</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <AcceptEula>wix7</AcceptEula>
+    <SuppressIces>ICE69</SuppressIces>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\installer\</OutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyMindWin\MyMindWin.csproj">
+      <AdditionalProperties>SkipInstaller=true</AdditionalProperties>
+    </ProjectReference>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="assets\daemon_hammer.ico" />
+    <Content Include="assets\mmap_file.ico" />
+    <Content Include="assets\License.rtf" />
+  </ItemGroup>
+
+  <Target Name="ShowMsiOutputPath" AfterTargets="Build">
+    <Message Text="MSI created: $(TargetPath)" Importance="high" />
+  </Target>
+</Project>

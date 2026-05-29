@@ -1,3 +1,6 @@
 <Solution>
+  <Project Path="installer/MyMindWin.Installer.wixproj" Type="b7dd6f7e-def8-4e67-b5b7-07ef123db6f0">
+    <Build Solution="Debug|*" Project="false" />
+  </Project>
   <Project Path="MyMindWin/MyMindWin.csproj" />
 </Solution>

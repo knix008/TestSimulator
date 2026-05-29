@@ -6,6 +6,23 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>daemon_hammer.ico</ApplicationIcon>
+    <ApplicationTitle>MyMindWin</ApplicationTitle>
   </PropertyGroup>
+
+  <!-- exe 아이콘(ApplicationIcon) + WPF 창/작업 표시줄 아이콘(Resource) -->
+  <ItemGroup>
+    <Resource Include="daemon_hammer.ico" />
+  </ItemGroup>
+
+  <!-- Release 빌드 시 MSI 생성. SkipInstaller=true 로 순환 참조 방지. -->
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <Message Text="Building MSI installer (Release)..." Importance="high" />
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\installer\MyMindWin.Installer.wixproj"
+      Targets="Restore;Build"
+      Properties="Configuration=Release;Platform=x64" />
+    <Message Text="MSI created: $(MSBuildThisFileDirectory)..\bin\Release\installer\MyMindWin_Setup.msi" Importance="high" />
+  </Target>
 
 </Project>
