@@ -104,6 +104,8 @@ public partial class MainWindow : Window
         ["dialog.filter.html"] = "HTML (*.html)|*.html",
         ["dialog.filter.all"] = "모든 파일 (*.*)|*.*",
         ["status.saving"] = "저장 중…",
+        ["dialog.close.unsaved"] = "저장하지 않은 변경 내용이 있습니다. 저장하시겠습니까?",
+        ["dialog.close.title"] = "종료",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -166,11 +168,14 @@ public partial class MainWindow : Window
         ["dialog.filter.html"] = "HTML (*.html)|*.html",
         ["dialog.filter.all"] = "All files (*.*)|*.*",
         ["status.saving"] = "Saving…",
+        ["dialog.close.unsaved"] = "You have unsaved changes. Do you want to save before closing?",
+        ["dialog.close.title"] = "Close",
     };
 
     private string? _currentPath;
     private bool _suppressMdEvents;
     private bool _markdownDirty;
+    private bool _isDirty;
     private UiLanguage _language = UiLanguage.Ko;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly DispatcherTimer _autoSaveTimer = new() { Interval = TimeSpan.FromMinutes(3) };
@@ -196,6 +201,8 @@ public partial class MainWindow : Window
         if (IsDesignMode)
             return;
 
+        Closing += MainWindow_Closing;
+
         Loaded += (_, _) =>
         {
             LoadLanguagePreference();
@@ -212,6 +219,15 @@ public partial class MainWindow : Window
                 new MouseButtonEventHandler(OnWindowResizeDown), handledEventsToo: true);
             PreviewMouseMove += OnResizeMouseMove;
             PreviewMouseLeftButtonUp += OnResizeMouseUp;
+
+            // 초기화 이후에 dirty 추적 시작 (초기화 중 값 변경은 dirty로 보지 않음)
+            foreach (var tb in new[] { FldTitle, FldLocation, FldAuthor, FldAttendees,
+                                       FldDecisions, FldActions, FldNext, FldNotes,
+                                       FldStartTime, FldEndTime })
+                tb.TextChanged += (_, _) => _isDirty = true;
+            FldAgendaRich.TextChanged += (_, _) => _isDirty = true;
+            FldDate.SelectedDateChanged += (_, _) => _isDirty = true;
+            _isDirty = false;
         };
     }
 
@@ -287,6 +303,7 @@ public partial class MainWindow : Window
         PushDocumentToUi(new MeetingMinuteDocument());
         SetDefaultDateTimeIfEmpty();
         RefreshMarkdownFromForm();
+        _isDirty = false;
     }
 
     private void BtnOpen_Click(object sender, RoutedEventArgs e)
@@ -322,6 +339,7 @@ public partial class MainWindow : Window
             {
                 FldMarkdown.Text = cleanText;
                 _markdownDirty = false;
+                _isDirty = false;
             }
             finally
             {
@@ -449,6 +467,7 @@ public partial class MainWindow : Window
             }
 
             _markdownDirty = false;
+            _isDirty = false;
             if (!silent)
                 MessageBox.Show(this, $"{T("dialog.save.success")}\n{path}", T("dialog.done"), MessageBoxButton.OK, MessageBoxImage.Information);
             return true;
@@ -496,10 +515,62 @@ public partial class MainWindow : Window
         return Path.Combine(root, "autosave.md");
     }
 
+    private async void MainWindow_Closing(object? sender, CancelEventArgs e)
+    {
+        if (!_isDirty && !_markdownDirty)
+            return;
+
+        // 닫기를 일단 취소하고 비동기로 처리
+        e.Cancel = true;
+
+        var result = MessageBox.Show(
+            this,
+            T("dialog.close.unsaved"),
+            T("dialog.close.title"),
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Warning,
+            MessageBoxResult.Cancel);
+
+        if (result == MessageBoxResult.Cancel)
+            return;
+
+        if (result == MessageBoxResult.Yes)
+        {
+            bool saved;
+            if (!string.IsNullOrEmpty(_currentPath) &&
+                string.Equals(Path.GetExtension(_currentPath), ".md", StringComparison.OrdinalIgnoreCase))
+            {
+                saved = await SaveToPath(_currentPath, silent: true);
+            }
+            else
+            {
+                var dlg = new SaveFileDialog
+                {
+                    Filter = T("dialog.filter.md"),
+                    DefaultExt = ".md",
+                    Title = T("dialog.save.title"),
+                    FileName = BuildDefaultFileName()
+                };
+                if (dlg.ShowDialog(this) != true)
+                    return; // 저장 취소 → 닫기도 취소
+                saved = await SaveToPath(dlg.FileName, silent: true);
+                if (saved) _currentPath = dlg.FileName;
+            }
+
+            if (!saved)
+                return; // 저장 실패 → 닫기 취소
+        }
+
+        // Yes(저장 성공) 또는 No(저장 안 함) → 실제 종료
+        _isDirty = false;
+        _markdownDirty = false;
+        Application.Current.Shutdown();
+    }
+
     private bool ConfirmDiscard()
     {
         var doc = PullDocumentFromUi();
-        if (!_markdownDirty && IsDocumentVisuallyEmpty(doc))
+        if (!_isDirty && !_markdownDirty && IsDocumentVisuallyEmpty(doc))
             return true;
 
         var r = MessageBox.Show(this, T("dialog.discard"), T("dialog.confirm"),
