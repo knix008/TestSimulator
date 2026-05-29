@@ -11,6 +11,7 @@ namespace FTPServerWinV10.Server
         public List<UserEntry> Users { get; set; } = new();
         public int BufferSizeKb { get; set; }
         public int MaxThreads { get; set; }
+        public ProtocolSettings Protocols { get; set; } = new();
 
         private static readonly JsonSerializerOptions _jsonOpts =
             new JsonSerializerOptions { WriteIndented = true };

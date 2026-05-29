@@ -24,6 +24,13 @@ namespace FTPServerWinV10
             cmbProfiles = new ComboBox();
             btnSaveProfile = new Button();
             btnDeleteProfile = new Button();
+            grpProtocol = new GroupBox();
+            chkEnableFtp = new CheckBox();
+            numFtpPort = new NumericUpDown();
+            chkEnableFtps = new CheckBox();
+            numFtpsPort = new NumericUpDown();
+            chkEnableSftp = new CheckBox();
+            numSftpPort = new NumericUpDown();
             grpServer = new GroupBox();
             lblFolderTitle = new Label();
             lvFolders = new ListView();
@@ -60,6 +67,10 @@ namespace FTPServerWinV10
             folderBrowserDialog1 = new FolderBrowserDialog();
             pnlHeader.SuspendLayout();
             pnlProfile.SuspendLayout();
+            grpProtocol.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numFtpPort).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numFtpsPort).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)numSftpPort).BeginInit();
             grpServer.SuspendLayout();
             grpAuth.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)numBuffer).BeginInit();
@@ -165,6 +176,91 @@ namespace FTPServerWinV10
             btnDeleteProfile.Text = "삭제";
             btnDeleteProfile.Click += btnDeleteProfile_Click;
             //
+            // grpProtocol
+            //
+            grpProtocol.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            grpProtocol.Controls.Add(chkEnableFtp);
+            grpProtocol.Controls.Add(numFtpPort);
+            grpProtocol.Controls.Add(chkEnableFtps);
+            grpProtocol.Controls.Add(numFtpsPort);
+            grpProtocol.Controls.Add(chkEnableSftp);
+            grpProtocol.Controls.Add(numSftpPort);
+            grpProtocol.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grpProtocol.Location = new Point(12, 114);
+            grpProtocol.Name = "grpProtocol";
+            grpProtocol.Size = new Size(880, 52);
+            grpProtocol.TabIndex = 7;
+            grpProtocol.TabStop = false;
+            grpProtocol.Text = "프로토콜 (동시 실행 가능)";
+            //
+            // chkEnableFtp
+            //
+            chkEnableFtp.AutoSize = true;
+            chkEnableFtp.Checked = true;
+            chkEnableFtp.CheckState = CheckState.Checked;
+            chkEnableFtp.Font = new Font("Segoe UI", 9F);
+            chkEnableFtp.Location = new Point(14, 22);
+            chkEnableFtp.Name = "chkEnableFtp";
+            chkEnableFtp.Size = new Size(48, 19);
+            chkEnableFtp.TabIndex = 0;
+            chkEnableFtp.Text = "FTP";
+            chkEnableFtp.CheckedChanged += ProtocolCheckChanged;
+            //
+            // numFtpPort
+            //
+            numFtpPort.Font = new Font("Segoe UI", 9F);
+            numFtpPort.Location = new Point(68, 20);
+            numFtpPort.Maximum = new decimal(new int[] { 65535, 0, 0, 0 });
+            numFtpPort.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numFtpPort.Name = "numFtpPort";
+            numFtpPort.Size = new Size(64, 23);
+            numFtpPort.TabIndex = 1;
+            numFtpPort.Value = new decimal(new int[] { 21, 0, 0, 0 });
+            //
+            // chkEnableFtps
+            //
+            chkEnableFtps.AutoSize = true;
+            chkEnableFtps.Font = new Font("Segoe UI", 9F);
+            chkEnableFtps.Location = new Point(150, 22);
+            chkEnableFtps.Name = "chkEnableFtps";
+            chkEnableFtps.Size = new Size(56, 19);
+            chkEnableFtps.TabIndex = 2;
+            chkEnableFtps.Text = "FTPS";
+            chkEnableFtps.CheckedChanged += ProtocolCheckChanged;
+            //
+            // numFtpsPort
+            //
+            numFtpsPort.Font = new Font("Segoe UI", 9F);
+            numFtpsPort.Location = new Point(212, 20);
+            numFtpsPort.Maximum = new decimal(new int[] { 65535, 0, 0, 0 });
+            numFtpsPort.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numFtpsPort.Name = "numFtpsPort";
+            numFtpsPort.Size = new Size(64, 23);
+            numFtpsPort.TabIndex = 3;
+            numFtpsPort.Value = new decimal(new int[] { 990, 0, 0, 0 });
+            //
+            // chkEnableSftp
+            //
+            chkEnableSftp.AutoSize = true;
+            chkEnableSftp.Font = new Font("Segoe UI", 9F);
+            chkEnableSftp.Location = new Point(294, 22);
+            chkEnableSftp.Name = "chkEnableSftp";
+            chkEnableSftp.Size = new Size(54, 19);
+            chkEnableSftp.TabIndex = 4;
+            chkEnableSftp.Text = "SFTP";
+            chkEnableSftp.CheckedChanged += ProtocolCheckChanged;
+            //
+            // numSftpPort
+            //
+            numSftpPort.Font = new Font("Segoe UI", 9F);
+            numSftpPort.Location = new Point(354, 20);
+            numSftpPort.Maximum = new decimal(new int[] { 65535, 0, 0, 0 });
+            numSftpPort.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            numSftpPort.Name = "numSftpPort";
+            numSftpPort.Size = new Size(64, 23);
+            numSftpPort.TabIndex = 5;
+            numSftpPort.Value = new decimal(new int[] { 22, 0, 0, 0 });
+            //
             // grpServer
             //
             grpServer.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -179,7 +275,7 @@ namespace FTPServerWinV10
             grpServer.Controls.Add(lblCertPw);
             grpServer.Controls.Add(txtCertPw);
             grpServer.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpServer.Location = new Point(12, 114);
+            grpServer.Location = new Point(12, 172);
             grpServer.Name = "grpServer";
             grpServer.Size = new Size(880, 271);
             grpServer.TabIndex = 3;
@@ -327,7 +423,7 @@ namespace FTPServerWinV10
             grpAuth.Controls.Add(lblThreads);
             grpAuth.Controls.Add(numThreads);
             grpAuth.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpAuth.Location = new Point(12, 391);
+            grpAuth.Location = new Point(12, 449);
             grpAuth.Name = "grpAuth";
             grpAuth.Size = new Size(880, 196);
             grpAuth.TabIndex = 2;
@@ -454,7 +550,7 @@ namespace FTPServerWinV10
             pnlStatus.Controls.Add(lblClients);
             pnlStatus.Controls.Add(lblUploadStats);
             pnlStatus.Controls.Add(lblDownloadStats);
-            pnlStatus.Location = new Point(12, 599);
+            pnlStatus.Location = new Point(12, 657);
             pnlStatus.Name = "pnlStatus";
             pnlStatus.Size = new Size(880, 36);
             pnlStatus.TabIndex = 1;
@@ -494,7 +590,7 @@ namespace FTPServerWinV10
             grpLog.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             grpLog.Controls.Add(lstLog);
             grpLog.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpLog.Location = new Point(12, 647);
+            grpLog.Location = new Point(12, 705);
             grpLog.Name = "grpLog";
             grpLog.Size = new Size(880, 183);
             grpLog.TabIndex = 0;
@@ -520,7 +616,7 @@ namespace FTPServerWinV10
             //
             statusStrip1.BackColor = Color.FromArgb(213, 219, 224);
             statusStrip1.Items.AddRange(new ToolStripItem[] { tsslInfo });
-            statusStrip1.Location = new Point(0, 838);
+            statusStrip1.Location = new Point(0, 896);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(904, 22);
             statusStrip1.SizingGrip = false;
@@ -532,18 +628,19 @@ namespace FTPServerWinV10
             tsslInfo.ForeColor = Color.FromArgb(70, 80, 90);
             tsslInfo.Name = "tsslInfo";
             tsslInfo.Size = new Size(374, 17);
-            tsslInfo.Text = "F5: 설정 저장   |   F6: 설정 불러오기   |   FTP 포트: 21   |   FTPS 포트: 990";
+            tsslInfo.Text = "F5: 저장  |  F6: 불러오기  |  FTP·FTPS·SFTP 개별 선택 후 동시 실행 가능";
             //
             // MainForm
             //
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(245, 246, 248);
-            ClientSize = new Size(904, 860);
+            ClientSize = new Size(904, 918);
             Controls.Add(grpLog);
             Controls.Add(pnlStatus);
             Controls.Add(grpAuth);
             Controls.Add(grpServer);
+            Controls.Add(grpProtocol);
             Controls.Add(pnlProfile);
             Controls.Add(pnlHeader);
             Controls.Add(statusStrip1);
@@ -557,6 +654,11 @@ namespace FTPServerWinV10
             pnlHeader.ResumeLayout(false);
             pnlHeader.PerformLayout();
             pnlProfile.ResumeLayout(false);
+            grpProtocol.ResumeLayout(false);
+            grpProtocol.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numFtpPort).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numFtpsPort).EndInit();
+            ((System.ComponentModel.ISupportInitialize)numSftpPort).EndInit();
             grpServer.ResumeLayout(false);
             grpServer.PerformLayout();
             grpAuth.ResumeLayout(false);
@@ -595,6 +697,13 @@ namespace FTPServerWinV10
         private System.Windows.Forms.ComboBox cmbProfiles;
         private System.Windows.Forms.Button btnSaveProfile;
         private System.Windows.Forms.Button btnDeleteProfile;
+        private System.Windows.Forms.GroupBox grpProtocol;
+        private System.Windows.Forms.CheckBox chkEnableFtp;
+        private System.Windows.Forms.NumericUpDown numFtpPort;
+        private System.Windows.Forms.CheckBox chkEnableFtps;
+        private System.Windows.Forms.NumericUpDown numFtpsPort;
+        private System.Windows.Forms.CheckBox chkEnableSftp;
+        private System.Windows.Forms.NumericUpDown numSftpPort;
         private System.Windows.Forms.GroupBox grpServer;
         private System.Windows.Forms.Label lblFolderTitle;
         private System.Windows.Forms.ListView lvFolders;

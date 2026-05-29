@@ -15,7 +15,12 @@ namespace FTPServerWinV10
         private long uploadBytes = 0;
         private int downloadCount = 0;
         private long downloadBytes = 0;
-        private Server.FtpServerManager? ftpServerManager;
+        private Server.FtpServerManager? _ftpManager;
+        private Server.FtpsServerManager? _ftpsManager;
+        private Server.SftpServerManager? _sftpManager;
+        private int _ftpClients;
+        private int _ftpsClients;
+        private int _sftpClients;
         private Server.LogManager? logManager;
         private bool _loadingProfiles = false;
 
@@ -28,6 +33,7 @@ namespace FTPServerWinV10
             logManager = new Server.LogManager(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ftpserver.log"));
             LoadProfileList();
             LoadSettings();
+            UpdateProtocolUiState();
         }
 
         // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -321,54 +327,158 @@ namespace FTPServerWinV10
                 return;
             }
 
+            if (!chkEnableFtp.Checked && !chkEnableFtps.Checked && !chkEnableSftp.Checked)
+            {
+                MessageBox.Show("FTP, FTPS, SFTP 중 하나 이상을 선택하세요.", "설정 필요",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (chkEnableFtps.Checked && string.IsNullOrWhiteSpace(txtCertPath.Text))
+            {
+                MessageBox.Show("FTPS를 사용하려면 SSL 인증서(PFX)를 지정하세요.", "설정 필요",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             var vfs = new Server.VirtualFileSystem(_sharedFolders);
             int bufferKb = (int)numBuffer.Value;
             int threads  = (int)numThreads.Value;
+            var users    = _users.ToList();
             string certPath = txtCertPath.Text.Trim();
             string certPw   = txtCertPw.Text;
 
-            if (!string.IsNullOrEmpty(certPath))
+            try
             {
-                ftpServerManager = new Server.FtpsServerManager(vfs, certPath, certPw, 990)
+                if (chkEnableFtp.Checked)
                 {
-                    AllowAnonymous = allowAnonymous,
-                    Users          = _users.ToList(),
-                    BufferSizeKb   = bufferKb,
-                    MaxThreads     = threads
-                };
-                AddLog("FTPS(SSL) 서버 시작 요청됨");
-            }
-            else
-            {
-                ftpServerManager = new Server.FtpServerManager(vfs, 21)
-                {
-                    AllowAnonymous = allowAnonymous,
-                    Users          = _users.ToList(),
-                    BufferSizeKb   = bufferKb,
-                    MaxThreads     = threads
-                };
-                AddLog("FTP 서버 시작 요청됨");
-            }
+                    _ftpManager = new Server.FtpServerManager(vfs, (int)numFtpPort.Value)
+                    {
+                        AllowAnonymous = allowAnonymous,
+                        Users          = users,
+                        BufferSizeKb   = bufferKb,
+                        MaxThreads     = threads
+                    };
+                    WireFtpEvents(_ftpManager);
+                    _ftpManager.Start();
+                    AddLog($"FTP 서버 시작 (포트 {(int)numFtpPort.Value})");
+                }
 
-            ftpServerManager.OnLog               += AddLog;
-            ftpServerManager.OnClientCountChanged += UpdateClientCount;
-            ftpServerManager.OnFileUploaded       += OnFileUploaded;
-            ftpServerManager.OnFileDownloaded     += OnFileDownloaded;
-            ftpServerManager.Start();
-            _serverRunning = true;
-            UpdateServerStatus(true);
+                if (chkEnableFtps.Checked)
+                {
+                    _ftpsManager = new Server.FtpsServerManager(vfs, certPath, certPw, (int)numFtpsPort.Value)
+                    {
+                        AllowAnonymous = allowAnonymous,
+                        Users          = users,
+                        BufferSizeKb   = bufferKb,
+                        MaxThreads     = threads
+                    };
+                    WireFtpEvents(_ftpsManager);
+                    _ftpsManager.Start();
+                    AddLog($"FTPS 서버 시작 (포트 {(int)numFtpsPort.Value})");
+                }
+
+                if (chkEnableSftp.Checked)
+                {
+                    _sftpManager = new Server.SftpServerManager(vfs, (int)numSftpPort.Value)
+                    {
+                        AllowAnonymous = allowAnonymous,
+                        Users          = users
+                    };
+                    _sftpManager.OnLog += AddLog;
+                    _sftpManager.OnClientCountChanged += c => UpdateProtocolClientCount(ref _sftpClients, c);
+                    _sftpManager.Start();
+                    AddLog($"SFTP 서버 시작 (포트 {(int)numSftpPort.Value})");
+                }
+
+                _serverRunning = true;
+                UpdateServerStatus(true);
+                UpdateProtocolUiState();
+            }
+            catch (Exception ex)
+            {
+                AddLog($"서버 시작 실패: {ex.Message}");
+                StopServer();
+                MessageBox.Show($"서버를 시작하지 못했습니다.\n{ex.Message}", "오류",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void WireFtpEvents(Server.FtpServerManager mgr)
+        {
+            mgr.OnLog += AddLog;
+            if (mgr is Server.FtpsServerManager)
+                mgr.OnClientCountChanged += c => UpdateProtocolClientCount(ref _ftpsClients, c);
+            else
+                mgr.OnClientCountChanged += c => UpdateProtocolClientCount(ref _ftpClients, c);
+            mgr.OnFileUploaded += OnFileUploaded;
+            mgr.OnFileDownloaded += OnFileDownloaded;
         }
 
         private void StopServer()
         {
-            ftpServerManager?.Stop();
-            AddLog("FTP 서버 중지 요청됨");
+            _ftpManager?.Stop();
+            _ftpsManager?.Stop();
+            _sftpManager?.Dispose();
+            _ftpManager = null;
+            _ftpsManager = null;
+            _sftpManager = null;
+            _ftpClients = _ftpsClients = _sftpClients = 0;
+            AddLog("서버 중지됨");
             logManager?.Stop();
             uploadCount = 0; uploadBytes = 0;
             downloadCount = 0; downloadBytes = 0;
             UpdateStats();
+            UpdateClientCount(0);
             _serverRunning = false;
             UpdateServerStatus(false);
+            UpdateProtocolUiState();
+        }
+
+        private void UpdateProtocolClientCount(ref int field, int count)
+        {
+            field = count;
+            UpdateClientCount(_ftpClients + _ftpsClients + _sftpClients);
+        }
+
+        private void UpdateProtocolUiState()
+        {
+            bool running = _serverRunning;
+            grpProtocol.Enabled = !running;
+            grpServer.Enabled = !running;
+            grpAuth.Enabled = !running;
+
+            bool ftp = chkEnableFtp.Checked;
+            bool ftps = chkEnableFtps.Checked;
+            bool sftp = chkEnableSftp.Checked;
+
+            numFtpPort.Enabled = ftp && !running;
+            numFtpsPort.Enabled = ftps && !running;
+            numSftpPort.Enabled = sftp && !running;
+
+            lblCert.Enabled = txtCertPath.Enabled = btnSelectCert.Enabled =
+                btnGenerateCert.Enabled = lblCertPw.Enabled = txtCertPw.Enabled = ftps && !running;
+        }
+
+        private void ProtocolCheckChanged(object? sender, EventArgs e)
+        {
+            // 프로토콜을 켤 때 표준 포트로 자동 설정
+            if (sender == chkEnableFtp && chkEnableFtp.Checked)
+                numFtpPort.Value = Server.ProtocolSettings.DefaultFtpPort;
+            else if (sender == chkEnableFtps && chkEnableFtps.Checked)
+                numFtpsPort.Value = Server.ProtocolSettings.DefaultFtpsPort;
+            else if (sender == chkEnableSftp && chkEnableSftp.Checked)
+                numSftpPort.Value = Server.ProtocolSettings.DefaultSftpPort;
+
+            UpdateProtocolUiState();
+        }
+
+        private static void ApplyProtocolPorts(Server.ProtocolSettings proto,
+            NumericUpDown numFtp, NumericUpDown numFtps, NumericUpDown numSftp)
+        {
+            numFtp.Value = ClampPort(Server.ProtocolSettings.NormalizePort(proto.FtpPort, Server.ProtocolSettings.DefaultFtpPort), numFtp);
+            numFtps.Value = ClampPort(Server.ProtocolSettings.NormalizePort(proto.FtpsPort, Server.ProtocolSettings.DefaultFtpsPort), numFtps);
+            numSftp.Value = ClampPort(Server.ProtocolSettings.NormalizePort(proto.SftpPort, Server.ProtocolSettings.DefaultSftpPort), numSftp);
         }
 
         // ── Stats / log callbacks ─────────────────────────────────────────────────
@@ -420,7 +530,16 @@ namespace FTPServerWinV10
             AllowAnonymous = chkAnonymous.Checked,
             Users          = _users.ToList(),
             BufferSizeKb   = (int)numBuffer.Value,
-            MaxThreads     = (int)numThreads.Value
+            MaxThreads     = (int)numThreads.Value,
+            Protocols      = new Server.ProtocolSettings
+            {
+                EnableFtp   = chkEnableFtp.Checked,
+                EnableFtps  = chkEnableFtps.Checked,
+                EnableSftp  = chkEnableSftp.Checked,
+                FtpPort     = (int)numFtpPort.Value,
+                FtpsPort    = (int)numFtpsPort.Value,
+                SftpPort    = (int)numSftpPort.Value
+            }
         };
 
         private void ApplySettings(Server.ServerSettings s)
@@ -448,7 +567,16 @@ namespace FTPServerWinV10
             chkAnonymous.Checked  = s.AllowAnonymous;
             numBuffer.Value       = Math.Max(numBuffer.Minimum, Math.Min(numBuffer.Maximum, s.BufferSizeKb));
             numThreads.Value      = Math.Max(numThreads.Minimum, Math.Min(numThreads.Maximum, s.MaxThreads));
+            var proto = s.Protocols ?? new Server.ProtocolSettings();
+            chkEnableFtp.Checked  = proto.EnableFtp;
+            chkEnableFtps.Checked = proto.EnableFtps;
+            chkEnableSftp.Checked = proto.EnableSftp;
+            ApplyProtocolPorts(proto, numFtpPort, numFtpsPort, numSftpPort);
+            UpdateProtocolUiState();
         }
+
+        private static decimal ClampPort(int port, NumericUpDown ctrl) =>
+            Math.Max(ctrl.Minimum, Math.Min(ctrl.Maximum, port));
 
         private static string FormatBytes(long bytes)
         {

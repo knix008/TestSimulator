@@ -7,7 +7,11 @@ C# WinForms 기반의 Windows용 FTP/FTPS 서버 관리자
 | 기능 | 설명 |
 |---|---|
 | 다중 공유 폴더 | 여러 물리적 폴더를 가상 FTP 경로(`/이름`)로 각각 매핑 |
-| FTP / FTPS | 평문 FTP(포트 21), SSL/TLS FTPS(포트 990) 동시 지원 |
+| FTP | 평문 FTP (기본 포트 **21**) |
+| FTPS | Implicit SSL/TLS FTPS (기본 포트 **990**, PFX 인증서 필요) |
+| SFTP | SSH SFTP v3 (기본 포트 **22**) |
+
+UI **「프로토콜」** 그룹에서 FTP / FTPS / SFTP를 각각 켜고 포트를 지정한 뒤 **동시에** 실행할 수 있습니다.
 | 자체 서명 인증서 | 앱 내에서 PFX 인증서 직접 생성 (RSA 2048, SHA-256) |
 | 인증 설정 | 익명 접속 허용 또는 사용자 ID/비밀번호 인증 선택 |
 | 프로파일 관리 | 설정을 이름으로 저장·불러오기·삭제 |
@@ -20,6 +24,11 @@ C# WinForms 기반의 Windows용 FTP/FTPS 서버 관리자
 ## 요구 사항
 
 - **개발 환경**: .NET 8 SDK, Visual Studio 2022 / 2026
+- **SFTP 빌드**: [FxSsh](https://github.com/Aimeast/FxSsh) 소스 (`dev` 브랜치) — 최초 1회 아래 명령 실행
+
+```powershell
+git clone --depth 1 --branch dev https://github.com/Aimeast/FxSsh.git FTPServerWinV10/_fxssh_src
+```
 - **런타임**: Windows 10/11, .NET 8 Runtime (framework-dependent 배포 시)
 - **MSI 빌드**: WiX Toolset **v7.0.0** — Visual Studio 2026에서는 [HeatWave for VS](https://marketplace.visualstudio.com/items?itemName=FireGiant.FireGiantHeatWaveDev17) 설치 권장 (Setup 프로젝트 로드·IntelliSense용). CLI/`dotnet build`는 HeatWave 없이 동작합니다. WiX v7은 [OSMF EULA](https://docs.firegiant.com/wix/osmf/) 수락이 필요하며, `.wixproj`에 `AcceptEula`가 설정되어 있습니다.
 

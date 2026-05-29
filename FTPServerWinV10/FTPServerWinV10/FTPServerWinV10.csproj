@@ -10,17 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SSH.NET" Version="2025.1.0" />
+    <ProjectReference Include="..\_fxssh_src\FxSsh\FxSsh.csproj" />
   </ItemGroup>
 
   <!-- Release 빌드 시 MSI 생성 (VS에서 시작 프로젝트만 빌드해도 동작). SkipInstaller로 순환 방지. -->
-  <Target Name="BuildInstallerMsi"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
     <Message Text="Building MSI installer (Release)..." Importance="high" />
-    <MSBuild Projects="$(MSBuildThisFileDirectory)..\FTPServerWinV10Setup\FTPServerWinV10Setup.wixproj"
-             Targets="Restore;Build"
-             Properties="Configuration=Release;Platform=x64" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\FTPServerWinV10Setup\FTPServerWinV10Setup.wixproj" Targets="Restore;Build" Properties="Configuration=Release;Platform=x64" />
     <Message Text="MSI created: $(MSBuildThisFileDirectory)..\FTPServerWinV10Setup\bin\Release\FTPServerWinV10_Setup.msi" Importance="high" />
   </Target>
 
