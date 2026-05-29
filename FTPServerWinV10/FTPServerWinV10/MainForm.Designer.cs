@@ -429,7 +429,7 @@ namespace FTPServerWinV10
             grpAuth.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpAuth.Location = new Point(12, 449);
             grpAuth.Name = "grpAuth";
-            grpAuth.Size = new Size(880, 196);
+            grpAuth.Size = new Size(880, 268);
             grpAuth.TabIndex = 2;
             grpAuth.TabStop = false;
             grpAuth.Text = "인증 및 성능 설정";
@@ -456,7 +456,7 @@ namespace FTPServerWinV10
             //
             // lvUsers
             //
-            lvUsers.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lvUsers.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             lvUsers.Columns.AddRange(new ColumnHeader[] { colUserName, colUserPass, colUserPerm });
             lvUsers.Font = new Font("Segoe UI", 9F);
             lvUsers.FullRowSelect = true;
@@ -465,7 +465,7 @@ namespace FTPServerWinV10
             lvUsers.Location = new Point(12, 74);
             lvUsers.MultiSelect = false;
             lvUsers.Name = "lvUsers";
-            lvUsers.Size = new Size(754, 78);
+            lvUsers.Size = new Size(754, 150);
             lvUsers.TabIndex = 2;
             lvUsers.UseCompatibleStateImageBehavior = false;
             lvUsers.View = View.Details;
@@ -513,8 +513,9 @@ namespace FTPServerWinV10
             //
             // lblSpeed
             //
+            lblSpeed.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblSpeed.Font = new Font("Segoe UI", 9F);
-            lblSpeed.Location = new Point(12, 164);
+            lblSpeed.Location = new Point(12, 232);
             lblSpeed.Name = "lblSpeed";
             lblSpeed.Size = new Size(58, 24);
             lblSpeed.TabIndex = 5;
@@ -523,8 +524,9 @@ namespace FTPServerWinV10
             //
             // numBuffer
             //
+            numBuffer.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             numBuffer.Font = new Font("Segoe UI", 9F);
-            numBuffer.Location = new Point(74, 162);
+            numBuffer.Location = new Point(74, 230);
             numBuffer.Maximum = new decimal(new int[] { 1024, 0, 0, 0 });
             numBuffer.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numBuffer.Name = "numBuffer";
@@ -534,8 +536,9 @@ namespace FTPServerWinV10
             //
             // lblThreads
             //
+            lblThreads.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             lblThreads.Font = new Font("Segoe UI", 9F);
-            lblThreads.Location = new Point(166, 164);
+            lblThreads.Location = new Point(166, 232);
             lblThreads.Name = "lblThreads";
             lblThreads.Size = new Size(50, 24);
             lblThreads.TabIndex = 7;
@@ -544,8 +547,9 @@ namespace FTPServerWinV10
             //
             // numThreads
             //
+            numThreads.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             numThreads.Font = new Font("Segoe UI", 9F);
-            numThreads.Location = new Point(220, 162);
+            numThreads.Location = new Point(220, 230);
             numThreads.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
             numThreads.Name = "numThreads";
             numThreads.Size = new Size(80, 23);
@@ -560,7 +564,7 @@ namespace FTPServerWinV10
             pnlStatus.Controls.Add(lblTotalClients);
             pnlStatus.Controls.Add(lblUploadStats);
             pnlStatus.Controls.Add(lblDownloadStats);
-            pnlStatus.Location = new Point(12, 657);
+            pnlStatus.Location = new Point(12, 729);
             pnlStatus.Name = "pnlStatus";
             pnlStatus.Size = new Size(880, 36);
             pnlStatus.TabIndex = 1;
@@ -612,9 +616,9 @@ namespace FTPServerWinV10
             grpLog.Controls.Add(btnCopyLog);
             grpLog.Controls.Add(lstLog);
             grpLog.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpLog.Location = new Point(12, 705);
+            grpLog.Location = new Point(12, 777);
             grpLog.Name = "grpLog";
-            grpLog.Size = new Size(880, 183);
+            grpLog.Size = new Size(880, 175);
             grpLog.TabIndex = 0;
             grpLog.TabStop = false;
             grpLog.Text = "실시간 로그";
@@ -663,7 +667,7 @@ namespace FTPServerWinV10
             //
             statusStrip1.BackColor = Color.FromArgb(213, 219, 224);
             statusStrip1.Items.AddRange(new ToolStripItem[] { tsslInfo });
-            statusStrip1.Location = new Point(0, 896);
+            statusStrip1.Location = new Point(0, 968);
             statusStrip1.Name = "statusStrip1";
             statusStrip1.Size = new Size(904, 22);
             statusStrip1.SizingGrip = false;
@@ -682,7 +686,7 @@ namespace FTPServerWinV10
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(245, 246, 248);
-            ClientSize = new Size(904, 918);
+            ClientSize = new Size(904, 990);
             Controls.Add(grpLog);
             Controls.Add(pnlStatus);
             Controls.Add(grpAuth);
@@ -693,7 +697,7 @@ namespace FTPServerWinV10
             Controls.Add(statusStrip1);
             Font = new Font("Segoe UI", 9F);
             Icon = (Icon)resources.GetObject("$this.Icon");
-            MinimumSize = new Size(920, 820);
+            MinimumSize = new Size(920, 900);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "FTP Server Manager";
