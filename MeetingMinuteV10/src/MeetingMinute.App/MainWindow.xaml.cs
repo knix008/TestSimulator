@@ -38,6 +38,10 @@ public partial class MainWindow : Window
     private sealed class UiPreferences
     {
         public string Language { get; set; } = "ko";
+        public string FontFamily { get; set; } = "맑은 고딕";
+        public double BodyFontSizePt { get; set; } = 11;
+        public double LineSpacing { get; set; } = 1.15;
+        public double PageMarginMm { get; set; } = 25;
     }
 
     private static readonly Dictionary<string, string> Ko = new()
@@ -85,7 +89,21 @@ public partial class MainWindow : Window
         ["status.ended"] = "회의 종료 · 총 {0} 진행 (종료 후 {1})",
         ["dialog.confirm"] = "확인",
         ["dialog.error"] = "오류",
-        ["dialog.done"] = "완료"
+        ["dialog.done"] = "완료",
+        ["label.format"] = "서식 설정",
+        ["label.format.font"] = "폰트",
+        ["label.format.size"] = "크기 (pt)",
+        ["label.format.spacing"] = "줄 간격",
+        ["label.format.margin"] = "여백",
+        ["format.margin.narrow"] = "좁게 (15 mm)",
+        ["format.margin.normal"] = "보통 (25 mm)",
+        ["format.margin.wide"] = "넓게 (38 mm)",
+        ["dialog.filter.md"] = "Markdown (*.md)|*.md",
+        ["dialog.filter.docx"] = "Word 문서 (*.docx)|*.docx",
+        ["dialog.filter.pdf"] = "PDF (*.pdf)|*.pdf",
+        ["dialog.filter.html"] = "HTML (*.html)|*.html",
+        ["dialog.filter.all"] = "모든 파일 (*.*)|*.*",
+        ["status.saving"] = "저장 중…",
     };
 
     private static readonly Dictionary<string, string> En = new()
@@ -133,7 +151,21 @@ public partial class MainWindow : Window
         ["status.ended"] = "Ended · total {0} (ended {1} ago)",
         ["dialog.confirm"] = "Confirm",
         ["dialog.error"] = "Error",
-        ["dialog.done"] = "Done"
+        ["dialog.done"] = "Done",
+        ["label.format"] = "Format Settings",
+        ["label.format.font"] = "Font",
+        ["label.format.size"] = "Size (pt)",
+        ["label.format.spacing"] = "Line Spacing",
+        ["label.format.margin"] = "Margin",
+        ["format.margin.narrow"] = "Narrow (15 mm)",
+        ["format.margin.normal"] = "Normal (25 mm)",
+        ["format.margin.wide"] = "Wide (38 mm)",
+        ["dialog.filter.md"] = "Markdown (*.md)|*.md",
+        ["dialog.filter.docx"] = "Word Document (*.docx)|*.docx",
+        ["dialog.filter.pdf"] = "PDF (*.pdf)|*.pdf",
+        ["dialog.filter.html"] = "HTML (*.html)|*.html",
+        ["dialog.filter.all"] = "All files (*.*)|*.*",
+        ["status.saving"] = "Saving…",
     };
 
     private string? _currentPath;
@@ -141,7 +173,10 @@ public partial class MainWindow : Window
     private bool _markdownDirty;
     private UiLanguage _language = UiLanguage.Ko;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DispatcherTimer _autoSaveTimer = new() { Interval = TimeSpan.FromMinutes(3) };
     private bool _isTimeTextInternalChange;
+    private bool _suppressFormatEvents;
+    private DocumentFormatSettings _formatSettings = new();
     private const double AgendaImageMinWidth = 32;
     private const double AgendaImageMinHeight = 24;
     private AgendaImageMeta? _resizingMeta;
@@ -149,6 +184,7 @@ public partial class MainWindow : Window
     private Grid? _resizingGrid;
     private Point _resizeAnchorPos;
     private double _resizeAnchorW, _resizeAnchorH;
+    private DateTime _lastHitTestTime = DateTime.MinValue;
     private static readonly Regex AgendaImageTagRegex = new(
         "<img\\s+[^>]*src=\"([^\"]+)\"[^>]*?(?:width=\"([0-9]+(?:\\.[0-9]+)?)\")?[^>]*?(?:height=\"([0-9]+(?:\\.[0-9]+)?)\")?[^>]*?>",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -163,12 +199,15 @@ public partial class MainWindow : Window
         Loaded += (_, _) =>
         {
             LoadLanguagePreference();
+            InitFormatComboBoxes();
             ApplyLanguageToUi();
             MainTabs.SelectedIndex = 0;
             SetDefaultDateTimeIfEmpty();
             _statusTimer.Tick += (_, _) => UpdateElapsedStatus();
             _statusTimer.Start();
             UpdateElapsedStatus();
+            _autoSaveTimer.Tick += (_, _) => AutoSave();
+            _autoSaveTimer.Start();
             this.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent,
                 new MouseButtonEventHandler(OnWindowResizeDown), handledEventsToo: true);
             PreviewMouseMove += OnResizeMouseMove;
@@ -219,9 +258,10 @@ public partial class MainWindow : Window
 
     private string GetMarkdownForSave()
     {
-        if (_markdownDirty && MainTabs.SelectedIndex == 1)
-            return FldMarkdown.Text;
-        return MarkdownMeetingSerializer.ToMarkdown(PullDocumentFromUi());
+        var content = (_markdownDirty && MainTabs.SelectedIndex == 1)
+            ? MarkdownMeetingSerializer.StripFormatComment(FldMarkdown.Text)
+            : MarkdownMeetingSerializer.ToMarkdown(PullDocumentFromUi());
+        return MarkdownMeetingSerializer.BuildFormatComment(_formatSettings) + "\n" + content;
     }
 
     private void RefreshMarkdownFromForm()
@@ -266,13 +306,21 @@ public partial class MainWindow : Window
         try
         {
             var text = File.ReadAllText(dlg.FileName, Encoding.UTF8);
-            var doc = MarkdownMeetingSerializer.FromMarkdown(text);
+            // 서식 메타데이터 추출 후 내용에서 제거
+            var savedFormat = MarkdownMeetingSerializer.ExtractFormat(text);
+            var cleanText = MarkdownMeetingSerializer.StripFormatComment(text);
+            var doc = MarkdownMeetingSerializer.FromMarkdown(cleanText);
             _currentPath = dlg.FileName;
             PushDocumentToUi(doc);
+            if (savedFormat is not null)
+            {
+                _formatSettings = savedFormat;
+                ApplyFormatSettingsToComboBoxes();
+            }
             _suppressMdEvents = true;
             try
             {
-                FldMarkdown.Text = text;
+                FldMarkdown.Text = cleanText;
                 _markdownDirty = false;
             }
             finally
@@ -286,29 +334,34 @@ public partial class MainWindow : Window
         }
     }
 
-    private void BtnSave_Click(object sender, RoutedEventArgs e)
+    private async void BtnSave_Click(object _, RoutedEventArgs __)
     {
         if (string.IsNullOrEmpty(_currentPath))
         {
-            SaveAsInternal();
+            await SaveAsInternal();
             return;
         }
 
-        SaveToPath(_currentPath);
+        await SaveToPath(_currentPath);
     }
 
-    private void BtnSaveAs_Click(object sender, RoutedEventArgs e)
+    private async void BtnSaveAs_Click(object _, RoutedEventArgs __)
     {
-        SaveAsInternal();
+        await SaveAsInternal();
     }
 
-    private void SaveAsInternal()
+    private async Task SaveAsInternal()
     {
+        var filter = string.Join("|",
+            T("dialog.filter.md"),
+            T("dialog.filter.docx"),
+            T("dialog.filter.pdf"),
+            T("dialog.filter.html"),
+            T("dialog.filter.all"));
+
         var dlg = new SaveFileDialog
         {
-            Filter = _language == UiLanguage.En
-                ? "Markdown (*.md)|*.md|Word Document (*.docx)|*.docx|All files (*.*)|*.*"
-                : "Markdown (*.md)|*.md|Word 문서 (*.docx)|*.docx|모든 파일 (*.*)|*.*",
+            Filter = filter,
             DefaultExt = ".md",
             Title = T("dialog.save.title"),
             FileName = BuildDefaultFileName()
@@ -317,9 +370,8 @@ public partial class MainWindow : Window
         if (dlg.ShowDialog(this) != true)
             return;
 
-            if (SaveToPath(dlg.FileName))
+        if (await SaveToPath(dlg.FileName))
             _currentPath = dlg.FileName;
-
     }
 
     private string BuildDefaultFileName()
@@ -345,14 +397,35 @@ public partial class MainWindow : Window
         return string.IsNullOrWhiteSpace(name) ? "회의록" : name;
     }
 
-    private bool SaveToPath(string path)
+    private async Task<bool> SaveToPath(string path, bool silent = false)
     {
         try
         {
             var ext = Path.GetExtension(path).ToLowerInvariant();
-            if (ext == ".docx")
+            if (ext == ".docx" || ext == ".pdf")
             {
-                WordMeetingSerializer.SaveAsDocx(path, PullDocumentFromUi());
+                TxtSavingLabel.Visibility = Visibility.Visible;
+                PrgSaving.Visibility = Visibility.Visible;
+                try
+                {
+                    var doc = PullDocumentFromUi();
+                    var fmt = _formatSettings.Clone();
+                    if (ext == ".docx")
+                        await Task.Run(() => WordMeetingSerializer.SaveAsDocx(path, doc, fmt));
+                    else
+                        await Task.Run(() => PdfMeetingSerializer.SaveAsPdf(path, doc, fmt));
+                }
+                finally
+                {
+                    TxtSavingLabel.Visibility = Visibility.Collapsed;
+                    PrgSaving.Visibility = Visibility.Collapsed;
+                }
+            }
+            else if (ext == ".html" || ext == ".htm")
+            {
+                var doc = PullDocumentFromUi();
+                var fmt = _formatSettings.Clone();
+                await Task.Run(() => HtmlMeetingSerializer.SaveAsHtml(path, doc, fmt));
             }
             else
             {
@@ -361,14 +434,51 @@ public partial class MainWindow : Window
             }
 
             _markdownDirty = false;
-            MessageBox.Show(this, $"{T("dialog.save.success")}\n{path}", T("dialog.done"), MessageBoxButton.OK, MessageBoxImage.Information);
+            if (!silent)
+                MessageBox.Show(this, $"{T("dialog.save.success")}\n{path}", T("dialog.done"), MessageBoxButton.OK, MessageBoxImage.Information);
             return true;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"{T("dialog.save.failed")}\n{ex.Message}", T("dialog.error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            if (!silent)
+                MessageBox.Show(this, $"{T("dialog.save.failed")}\n{ex.Message}", T("dialog.error"), MessageBoxButton.OK, MessageBoxImage.Error);
             return false;
         }
+    }
+
+    private async void CmdSave_Executed(object _, System.Windows.Input.ExecutedRoutedEventArgs __)
+    {
+        if (string.IsNullOrEmpty(_currentPath))
+            await SaveAsInternal();
+        else
+            await SaveToPath(_currentPath);
+    }
+
+    private void AutoSave()
+    {
+        try
+        {
+            // Auto-save only writes Markdown — Word/PDF are too slow for a background timer
+            var path = !string.IsNullOrEmpty(_currentPath) &&
+                       string.Equals(Path.GetExtension(_currentPath), ".md", StringComparison.OrdinalIgnoreCase)
+                ? _currentPath
+                : AutoSavePath();
+            var md = GetMarkdownForSave();
+            File.WriteAllText(path, md, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        }
+        catch
+        {
+            // 자동 저장 오류는 무시
+        }
+    }
+
+    private static string AutoSavePath()
+    {
+        var root = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MeetingMinute");
+        Directory.CreateDirectory(root);
+        return Path.Combine(root, "autosave.md");
     }
 
     private bool ConfirmDiscard()
@@ -777,6 +887,9 @@ public partial class MainWindow : Window
         bitmap.BeginInit();
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
         bitmap.UriSource = new Uri(path, UriKind.Absolute);
+        // 고해상도 원본을 그대로 디코딩하면 대형 BGRA 버퍼가 힙에 상주해 GC 일시 정지를 유발한다.
+        // 2048px로 제한해도 화면 표시 및 리사이즈에는 충분한 품질이 유지된다.
+        bitmap.DecodePixelWidth = 2048;
         bitmap.EndInit();
         bitmap.Freeze();
 
@@ -1018,7 +1131,25 @@ public partial class MainWindow : Window
         FldStartTime.ToolTip = _language == UiLanguage.En ? "Start time (e.g. 14:00)" : "시작 시간 (예: 14:00)";
         FldEndTime.ToolTip = _language == UiLanguage.En ? "End time (e.g. 15:00)" : "종료 시간 (예: 15:00)";
 
+        UpdateFormatLabels();
         UpdateElapsedStatus();
+    }
+
+    private void UpdateFormatLabels()
+    {
+        LblFormatSection.Text = T("label.format");
+        LblFormatFont.Text = T("label.format.font");
+        LblFormatSize.Text = T("label.format.size");
+        LblFormatSpacing.Text = T("label.format.spacing");
+        LblFormatMargin.Text = T("label.format.margin");
+        TxtSavingLabel.Text = T("status.saving");
+
+        if (CmbPageMargin.Items.Count >= 3)
+        {
+            ((ComboBoxItem)CmbPageMargin.Items[0]).Content = T("format.margin.narrow");
+            ((ComboBoxItem)CmbPageMargin.Items[1]).Content = T("format.margin.normal");
+            ((ComboBoxItem)CmbPageMargin.Items[2]).Content = T("format.margin.wide");
+        }
     }
 
     private void MenuLanguageKo_Click(object sender, RoutedEventArgs e)
@@ -1051,7 +1182,13 @@ public partial class MainWindow : Window
                 return;
             var json = File.ReadAllText(path, Encoding.UTF8);
             var pref = JsonSerializer.Deserialize<UiPreferences>(json);
-            _language = string.Equals(pref?.Language, "en", StringComparison.OrdinalIgnoreCase) ? UiLanguage.En : UiLanguage.Ko;
+            if (pref is null) return;
+            _language = string.Equals(pref.Language, "en", StringComparison.OrdinalIgnoreCase)
+                ? UiLanguage.En : UiLanguage.Ko;
+            _formatSettings.FontFamily = pref.FontFamily;
+            _formatSettings.BodyFontSizePt = pref.BodyFontSizePt;
+            _formatSettings.LineSpacing = pref.LineSpacing;
+            _formatSettings.PageMarginMm = pref.PageMarginMm;
         }
         catch
         {
@@ -1061,9 +1198,103 @@ public partial class MainWindow : Window
 
     private void SaveLanguagePreference()
     {
-        var pref = new UiPreferences { Language = _language == UiLanguage.En ? "en" : "ko" };
+        var pref = new UiPreferences
+        {
+            Language = _language == UiLanguage.En ? "en" : "ko",
+            FontFamily = _formatSettings.FontFamily,
+            BodyFontSizePt = _formatSettings.BodyFontSizePt,
+            LineSpacing = _formatSettings.LineSpacing,
+            PageMarginMm = _formatSettings.PageMarginMm
+        };
         var json = JsonSerializer.Serialize(pref, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(PreferencesPath(), json, Encoding.UTF8);
+    }
+
+    private void InitFormatComboBoxes()
+    {
+        _suppressFormatEvents = true;
+        try
+        {
+            var fonts = new[] { "맑은 고딕", "돋움", "굴림", "Calibri", "Arial", "Times New Roman" };
+            foreach (var f in fonts)
+                CmbFontFamily.Items.Add(new ComboBoxItem { Content = f, Tag = f });
+
+            var sizes = new[] { 9.0, 10.0, 11.0, 12.0, 13.0, 14.0 };
+            foreach (var s in sizes)
+                CmbFontSize.Items.Add(new ComboBoxItem { Content = $"{s}pt", Tag = s });
+
+            var spacings = new (double Val, string Label)[]
+                { (1.0, "×1.0"), (1.15, "×1.15"), (1.5, "×1.5"), (2.0, "×2.0") };
+            foreach (var (val, label) in spacings)
+                CmbLineSpacing.Items.Add(new ComboBoxItem { Content = label, Tag = val });
+
+            // 여백 — 레이블은 ApplyLanguageToUi에서 설정
+            CmbPageMargin.Items.Add(new ComboBoxItem { Tag = 15.0, Content = "" });
+            CmbPageMargin.Items.Add(new ComboBoxItem { Tag = 25.0, Content = "" });
+            CmbPageMargin.Items.Add(new ComboBoxItem { Tag = 38.0, Content = "" });
+
+            ApplyFormatSettingsToComboBoxes();
+        }
+        finally
+        {
+            _suppressFormatEvents = false;
+        }
+    }
+
+    private void ApplyFormatSettingsToComboBoxes()
+    {
+        _suppressFormatEvents = true;
+        try
+        {
+            SelectComboByTag(CmbFontFamily, _formatSettings.FontFamily);
+            SelectComboByTag(CmbFontSize, _formatSettings.BodyFontSizePt);
+            SelectComboByTag(CmbLineSpacing, _formatSettings.LineSpacing);
+            SelectComboByTag(CmbPageMargin, _formatSettings.PageMarginMm);
+        }
+        finally
+        {
+            _suppressFormatEvents = false;
+        }
+    }
+
+    private static void SelectComboByTag(ComboBox combo, string value)
+    {
+        foreach (ComboBoxItem item in combo.Items)
+        {
+            if (item.Tag is string s && string.Equals(s, value, StringComparison.Ordinal))
+            {
+                combo.SelectedItem = item;
+                return;
+            }
+        }
+        if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+    }
+
+    private static void SelectComboByTag(ComboBox combo, double value)
+    {
+        foreach (ComboBoxItem item in combo.Items)
+        {
+            if (item.Tag is double d && Math.Abs(d - value) < 0.001)
+            {
+                combo.SelectedItem = item;
+                return;
+            }
+        }
+        if (combo.Items.Count > 0) combo.SelectedIndex = 0;
+    }
+
+    private void FormatSettingChanged(object _, SelectionChangedEventArgs __)
+    {
+        if (_suppressFormatEvents) return;
+        if (CmbFontFamily.SelectedItem is ComboBoxItem fi && fi.Tag is string font)
+            _formatSettings.FontFamily = font;
+        if (CmbFontSize.SelectedItem is ComboBoxItem si && si.Tag is double size)
+            _formatSettings.BodyFontSizePt = size;
+        if (CmbLineSpacing.SelectedItem is ComboBoxItem li && li.Tag is double spacing)
+            _formatSettings.LineSpacing = spacing;
+        if (CmbPageMargin.SelectedItem is ComboBoxItem mi && mi.Tag is double margin)
+            _formatSettings.PageMarginMm = margin;
+        SaveLanguagePreference();
     }
 
     private void OnWindowResizeDown(object sender, MouseButtonEventArgs e)
@@ -1105,11 +1336,20 @@ public partial class MainWindow : Window
             _resizingGrid!.Height = _resizingMeta.Height;
             e.Handled = true;
         }
-        else
+        else if (FldAgendaRich.IsMouseOver)
         {
-            // 커서도 WPF가 Paragraph로 교체해버리므로 수동으로 설정
-            var (handle, _) = HitTestResizeHandle(e.GetPosition(FldAgendaRich));
-            Cursor = handle is not null ? Cursors.SizeNWSE : null;
+            // HitTest는 레이아웃 패스를 유발할 수 있으므로 50ms 이상 지났을 때만 수행한다.
+            var now = DateTime.UtcNow;
+            if ((now - _lastHitTestTime).TotalMilliseconds >= 50)
+            {
+                _lastHitTestTime = now;
+                var (handle, _) = HitTestResizeHandle(e.GetPosition(FldAgendaRich));
+                Cursor = handle is not null ? Cursors.SizeNWSE : null;
+            }
+        }
+        else if (Cursor is not null)
+        {
+            Cursor = null;
         }
     }
 

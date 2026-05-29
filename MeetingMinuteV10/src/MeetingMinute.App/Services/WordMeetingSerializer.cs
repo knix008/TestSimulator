@@ -14,11 +14,13 @@ namespace MeetingMinute.App.Services;
 public static class WordMeetingSerializer
 {
     private static readonly Regex AgendaImageTagRegex = new(
-        "<img\\s+[^>]*src=\"([^\"]+)\"[^>]*?(?:width=\"([0-9]+(?:\\.[0-9]+)?)\")?[^>]*?(?:height=\"([0-9]+(?:\\.[0-9]+)?)\")?[^>]*?>",
+        @"<img\s[^>]*src=""([^""]+)""[^>]*?>",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    public static void SaveAsDocx(string path, MeetingMinuteDocument doc)
+    public static void SaveAsDocx(string path, MeetingMinuteDocument doc, DocumentFormatSettings? format = null)
     {
+        var fmt = format ?? new DocumentFormatSettings();
+
         using var wordDoc = WordprocessingDocument.Create(path, WordprocessingDocumentType.Document);
         var mainPart = wordDoc.AddMainDocumentPart();
         mainPart.Document = new Document();
@@ -26,55 +28,143 @@ public static class WordMeetingSerializer
         mainPart.Document.Append(body);
 
         var title = string.IsNullOrWhiteSpace(doc.Title) ? "제목 없음" : doc.Title.Trim();
-        body.Append(CreateMainTitle("회의록"));
+        body.Append(CreateMainTitle("회의록", fmt));
         if (!string.IsNullOrWhiteSpace(doc.Author))
-            body.Append(CreateRightAlignedParagraph(doc.Author.Trim()));
-        body.Append(CreateBlankParagraph());
+            body.Append(CreateRightAlignedParagraph($"작성자 : {doc.Author.Trim()}", fmt));
+        body.Append(CreateBlankParagraph(fmt));
 
-        AppendSection(body, "1. 회의 제목", title);
+        AppendSection(body, "1. 회의 제목", title, fmt);
 
-        body.Append(CreateHeading2("2. 시간/장소"));
+        body.Append(CreateHeading2("2. 시간/장소", fmt));
         var (datePart, timePart) = SplitDateAndTime(doc.DateTimeText);
-        body.Append(CreateBodyParagraph($"날짜: {datePart}"));
-        body.Append(CreateBodyParagraph($"시간: {timePart}"));
-        body.Append(CreateBodyParagraph($"장소: {doc.Location}"));
-        body.Append(CreateBodyParagraph($"참석자: {(doc.Attendees ?? "").Replace("\r\n", ", ", StringComparison.Ordinal).Replace('\n', ',').Trim(' ', ',')}"));
-        body.Append(CreateBlankParagraph());
+        body.Append(CreateBodyParagraph($"날짜: {datePart}", fmt));
+        body.Append(CreateBodyParagraph($"시간: {timePart}", fmt));
+        body.Append(CreateBodyParagraph($"장소: {doc.Location}", fmt));
+        body.Append(CreateBodyParagraph(
+            $"참석자: {(doc.Attendees ?? "").Replace("\r\n", ", ", StringComparison.Ordinal).Replace('\n', ',').Trim(' ', ',')}",
+            fmt));
+        body.Append(CreateBlankParagraph(fmt));
 
-        body.Append(CreateHeading2("3. 안건 및 논의"));
-        AppendAgendaWithImages(body, mainPart, doc.AgendaAndDiscussion);
-        body.Append(CreateBlankParagraph());
-        AppendSection(body, "4. 결정 사항", doc.Decisions);
-        AppendSection(body, "5. 액션 아이템", doc.ActionItems);
-        AppendSection(body, "6. 차기 회의", doc.NextMeeting);
-        AppendSection(body, "7. 기타 메모", doc.Notes);
+        body.Append(CreateHeading2("3. 안건 및 논의", fmt));
+        AppendAgendaWithImages(body, mainPart, doc.AgendaAndDiscussion, fmt);
+        body.Append(CreateBlankParagraph(fmt));
+        AppendSection(body, "4. 결정 사항", doc.Decisions, fmt);
+        AppendSection(body, "5. 액션 아이템", doc.ActionItems, fmt);
+        AppendSection(body, "6. 차기 회의", doc.NextMeeting, fmt);
+        AppendSection(body, "7. 기타 메모", doc.Notes, fmt);
+
+        // 페이지 여백 적용
+        var marginTwips = (int)(fmt.PageMarginMm * 56.69);
+        var marginU = (uint)Math.Max(0, marginTwips);
+        body.Append(new SectionProperties(
+            new PageMargin
+            {
+                Top = marginTwips,
+                Bottom = marginTwips,
+                Left = marginU,
+                Right = marginU
+            }));
 
         mainPart.Document.Save();
     }
 
-    private static void AppendSection(Body body, string header, string? content)
-    {
-        body.Append(CreateHeading2(header));
-        var lines = (content ?? "").Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        if (lines.All(string.IsNullOrWhiteSpace))
-        {
-            body.Append(CreateBodyParagraph(""));
-        }
-        else
-        {
-            foreach (var line in lines)
-                body.Append(CreateBodyParagraph(line));
-        }
+    // ── 단락 빌더 ──────────────────────────────────────────────────────────
 
-        body.Append(CreateBlankParagraph());
+    private static RunProperties BuildBodyRunProps(DocumentFormatSettings fmt)
+    {
+        var halfPt = ((int)(fmt.BodyFontSizePt * 2)).ToString(CultureInfo.InvariantCulture);
+        return new RunProperties(
+            new RunFonts { Ascii = fmt.FontFamily, HighAnsi = fmt.FontFamily, EastAsia = fmt.FontFamily },
+            new FontSize { Val = halfPt },
+            new FontSizeComplexScript { Val = halfPt });
     }
 
-    private static void AppendAgendaWithImages(Body body, MainDocumentPart mainPart, string? content)
+    private static RunProperties BuildBoldRunProps(DocumentFormatSettings fmt, double sizePt)
+    {
+        var halfPt = ((int)(sizePt * 2)).ToString(CultureInfo.InvariantCulture);
+        return new RunProperties(
+            new RunFonts { Ascii = fmt.FontFamily, HighAnsi = fmt.FontFamily, EastAsia = fmt.FontFamily },
+            new Bold(),
+            new FontSize { Val = halfPt },
+            new FontSizeComplexScript { Val = halfPt });
+    }
+
+    private static ParagraphProperties BuildBodyParaProps(DocumentFormatSettings fmt)
+    {
+        var lineVal = ((int)(fmt.LineSpacing * 240)).ToString(CultureInfo.InvariantCulture);
+        return new ParagraphProperties(
+            new SpacingBetweenLines { Line = lineVal, LineRule = LineSpacingRuleValues.Auto });
+    }
+
+    private static Paragraph CreateMainTitle(string text, DocumentFormatSettings fmt)
+    {
+        var titleSizePt = Math.Max(24.0, fmt.BodyFontSizePt * 2.5);
+        var lineVal = ((int)(fmt.LineSpacing * 240)).ToString(CultureInfo.InvariantCulture);
+        var para = new Paragraph(
+            new ParagraphProperties(
+                new Justification { Val = JustificationValues.Center },
+                new SpacingBetweenLines { Line = lineVal, LineRule = LineSpacingRuleValues.Auto }));
+        para.Append(new Run(BuildBoldRunProps(fmt, titleSizePt),
+            new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve }));
+        return para;
+    }
+
+    private static Paragraph CreateHeading2(string text, DocumentFormatSettings fmt)
+    {
+        var headingSizePt = fmt.BodyFontSizePt + 4;
+        var lineVal = ((int)(fmt.LineSpacing * 240)).ToString(CultureInfo.InvariantCulture);
+        var para = new Paragraph(
+            new ParagraphProperties(
+                new SpacingBetweenLines { Line = lineVal, LineRule = LineSpacingRuleValues.Auto }));
+        para.Append(new Run(BuildBoldRunProps(fmt, headingSizePt),
+            new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve }));
+        return para;
+    }
+
+    private static Paragraph CreateRightAlignedParagraph(string text, DocumentFormatSettings fmt)
+    {
+        var lineVal = ((int)(fmt.LineSpacing * 240)).ToString(CultureInfo.InvariantCulture);
+        var para = new Paragraph(
+            new ParagraphProperties(
+                new Justification { Val = JustificationValues.Right },
+                new SpacingBetweenLines { Line = lineVal, LineRule = LineSpacingRuleValues.Auto }));
+        para.Append(new Run(BuildBodyRunProps(fmt),
+            new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve }));
+        return para;
+    }
+
+    private static Paragraph CreateBodyParagraph(string text, DocumentFormatSettings fmt)
+    {
+        var para = new Paragraph(BuildBodyParaProps(fmt));
+        para.Append(new Run(BuildBodyRunProps(fmt),
+            new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve }));
+        return para;
+    }
+
+    private static Paragraph CreateBlankParagraph(DocumentFormatSettings fmt) =>
+        CreateBodyParagraph("", fmt);
+
+    // ── 섹션 / 안건 추가 ───────────────────────────────────────────────────
+
+    private static void AppendSection(Body body, string header, string? content, DocumentFormatSettings fmt)
+    {
+        body.Append(CreateHeading2(header, fmt));
+        var lines = (content ?? "").Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        if (lines.All(string.IsNullOrWhiteSpace))
+            body.Append(CreateBodyParagraph("", fmt));
+        else
+            foreach (var line in lines)
+                body.Append(CreateBodyParagraph(line, fmt));
+        body.Append(CreateBlankParagraph(fmt));
+    }
+
+    private static void AppendAgendaWithImages(
+        Body body, MainDocumentPart mainPart, string? content, DocumentFormatSettings fmt)
     {
         var lines = (content ?? "").Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         if (lines.All(string.IsNullOrWhiteSpace))
         {
-            body.Append(CreateBodyParagraph(""));
+            body.Append(CreateBodyParagraph("", fmt));
             return;
         }
 
@@ -82,11 +172,10 @@ public static class WordMeetingSerializer
         {
             if (!AgendaImageTagRegex.IsMatch(line))
             {
-                body.Append(CreateBodyParagraph(line));
+                body.Append(CreateBodyParagraph(line, fmt));
                 continue;
             }
 
-            // 텍스트와 이미지가 섞인 줄: 순서대로 처리
             var pos = 0;
             foreach (Match match in AgendaImageTagRegex.Matches(line))
             {
@@ -94,13 +183,13 @@ public static class WordMeetingSerializer
                 {
                     var text = line[pos..match.Index].Trim();
                     if (!string.IsNullOrWhiteSpace(text))
-                        body.Append(CreateBodyParagraph(text));
+                        body.Append(CreateBodyParagraph(text, fmt));
                 }
 
-                var path = match.Groups[1].Value.Replace("/", "\\", StringComparison.Ordinal);
+                var imgPath = match.Groups[1].Value.Replace("/", "\\", StringComparison.Ordinal);
                 var width = ParseSize(ExtractTagAttribute(match.Value, "width"), 480);
                 var height = ParseSize(ExtractTagAttribute(match.Value, "height"), 270);
-                AppendImageIfExists(body, mainPart, path, width, height);
+                AppendImageIfExists(body, mainPart, imgPath, width, height, fmt);
 
                 pos = match.Index + match.Length;
             }
@@ -109,89 +198,16 @@ public static class WordMeetingSerializer
             {
                 var text = line[pos..].Trim();
                 if (!string.IsNullOrWhiteSpace(text))
-                    body.Append(CreateBodyParagraph(text));
+                    body.Append(CreateBodyParagraph(text, fmt));
             }
         }
     }
 
-    private static Paragraph CreateHeading1(string text)
-    {
-        return CreateParagraph(text, "Heading1");
-    }
+    // ── 이미지 처리 ────────────────────────────────────────────────────────
 
-    private static Paragraph CreateRightAlignedParagraph(string text)
-    {
-        var paragraph = new Paragraph(
-            new ParagraphProperties(
-                new Justification { Val = JustificationValues.Right }));
-        paragraph.Append(new Run(
-            new Text(text) { Space = SpaceProcessingModeValues.Preserve }));
-        return paragraph;
-    }
-
-    private static Paragraph CreateMainTitle(string text)
-    {
-        var paragraph = new Paragraph(
-            new ParagraphProperties(
-                new Justification { Val = JustificationValues.Center }));
-
-        var run = new Run(
-            new RunProperties(
-                new Bold(),
-                new FontSize { Val = "64" }), // 32pt
-            new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve });
-
-        paragraph.Append(run);
-        return paragraph;
-    }
-
-    private static Paragraph CreateHeading2(string text)
-    {
-        var paragraph = new Paragraph();
-        var run = new Run(
-            new RunProperties(
-                new Bold(),
-                new FontSize { Val = "32" }), // 16pt
-            new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve });
-        paragraph.Append(run);
-        return paragraph;
-    }
-
-    private static Paragraph CreateBodyParagraph(string text)
-    {
-        return CreateParagraph(text, null);
-    }
-
-    private static Paragraph CreateBlankParagraph()
-    {
-        return CreateParagraph("", null);
-    }
-
-    private static Paragraph CreateParagraph(string text, string? paragraphStyleId)
-    {
-        var paragraph = new Paragraph();
-        if (!string.IsNullOrWhiteSpace(paragraphStyleId))
-        {
-            paragraph.ParagraphProperties = new ParagraphProperties(
-                new ParagraphStyleId { Val = paragraphStyleId });
-        }
-
-        paragraph.Append(new Run(new Text(text ?? "") { Space = SpaceProcessingModeValues.Preserve }));
-        return paragraph;
-    }
-
-    private static (string DatePart, string TimePart) SplitDateAndTime(string? dateTimeText)
-    {
-        var raw = dateTimeText?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(raw))
-            return ("", "");
-        var parts = raw.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 2)
-            return (parts[0], parts[1]);
-        return (raw, "");
-    }
-
-    private static void AppendImageIfExists(Body body, MainDocumentPart mainPart, string? imagePath, double widthPx, double heightPx)
+    private static void AppendImageIfExists(
+        Body body, MainDocumentPart mainPart, string? imagePath,
+        double widthPx, double heightPx, DocumentFormatSettings fmt)
     {
         if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
             return;
@@ -202,13 +218,11 @@ public static class WordMeetingSerializer
 
         var imagePart = mainPart.AddImagePart(contentType);
         using (var stream = File.OpenRead(imagePath))
-        {
             imagePart.FeedData(stream);
-        }
 
         var relId = mainPart.GetIdOfPart(imagePart);
         body.Append(CreateImageParagraph(relId, widthPx, heightPx));
-        body.Append(CreateBlankParagraph());
+        body.Append(CreateBlankParagraph(fmt));
     }
 
     private static string? GetImageContentType(string imagePath)
@@ -217,8 +231,7 @@ public static class WordMeetingSerializer
         return ext switch
         {
             ".png" => "image/png",
-            ".jpg" => "image/jpeg",
-            ".jpeg" => "image/jpeg",
+            ".jpg" or ".jpeg" => "image/jpeg",
             ".gif" => "image/gif",
             ".webp" => "image/webp",
             ".avif" => "image/avif",
@@ -246,21 +259,17 @@ public static class WordMeetingSerializer
                             new Drawing.Transform2D(
                                 new Drawing.Offset { X = 0L, Y = 0L },
                                 new Drawing.Extents { Cx = cx, Cy = cy }),
-                            new Drawing.PresetGeometry(new Drawing.AdjustValueList()) { Preset = Drawing.ShapeTypeValues.Rectangle })))
+                            new Drawing.PresetGeometry(new Drawing.AdjustValueList())
+                            { Preset = Drawing.ShapeTypeValues.Rectangle })))
                 { Uri = "http://schemas.openxmlformats.org/drawingml/2006/picture" });
 
         var drawing = new DocumentFormat.OpenXml.Wordprocessing.Drawing(
             new DW.Inline(
                 new DW.Extent { Cx = cx, Cy = cy },
-                new DW.EffectExtent
-                {
-                    LeftEdge = 0L,
-                    TopEdge = 0L,
-                    RightEdge = 0L,
-                    BottomEdge = 0L
-                },
+                new DW.EffectExtent { LeftEdge = 0L, TopEdge = 0L, RightEdge = 0L, BottomEdge = 0L },
                 new DW.DocProperties { Id = 1U, Name = "Agenda Image" },
-                new DW.NonVisualGraphicFrameDrawingProperties(new Drawing.GraphicFrameLocks { NoChangeAspect = false }),
+                new DW.NonVisualGraphicFrameDrawingProperties(
+                    new Drawing.GraphicFrameLocks { NoChangeAspect = false }),
                 element)
             {
                 DistanceFromTop = 0U,
@@ -270,6 +279,16 @@ public static class WordMeetingSerializer
             });
 
         return new Paragraph(new Run(drawing));
+    }
+
+    // ── 유틸리티 ───────────────────────────────────────────────────────────
+
+    private static (string DatePart, string TimePart) SplitDateAndTime(string? dateTimeText)
+    {
+        var raw = dateTimeText?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(raw)) return ("", "");
+        var parts = raw.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length == 2 ? (parts[0], parts[1]) : (raw, "");
     }
 
     private static string ExtractTagAttribute(string tag, string name)
@@ -284,10 +303,4 @@ public static class WordMeetingSerializer
             return value;
         return fallback;
     }
-
-    private static string StripImageTags(string? content)
-    {
-        return AgendaImageTagRegex.Replace(content ?? "", "").Trim();
-    }
-
 }

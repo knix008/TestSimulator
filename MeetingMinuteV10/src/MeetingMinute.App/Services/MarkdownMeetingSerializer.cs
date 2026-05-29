@@ -7,6 +7,32 @@ namespace MeetingMinute.App.Services;
 
 public static class MarkdownMeetingSerializer
 {
+    private static readonly Regex FormatCommentRegex = new(
+        @"^<!--\s*meeting-format:\s*font=""([^""]*)""\s+size=([\d.]+)\s+spacing=([\d.]+)\s+margin=([\d.]+)\s*-->\r?\n?",
+        RegexOptions.Compiled);
+
+    public static string BuildFormatComment(DocumentFormatSettings fmt)
+        => string.Format(CultureInfo.InvariantCulture,
+            "<!-- meeting-format: font=\"{0}\" size={1} spacing={2} margin={3} -->",
+            fmt.FontFamily, fmt.BodyFontSizePt, fmt.LineSpacing, fmt.PageMarginMm);
+
+    public static string StripFormatComment(string markdown)
+        => FormatCommentRegex.Replace(markdown, "");
+
+    public static DocumentFormatSettings? ExtractFormat(string markdown)
+    {
+        var m = FormatCommentRegex.Match(markdown);
+        if (!m.Success) return null;
+        var fmt = new DocumentFormatSettings();
+        fmt.FontFamily = m.Groups[1].Value;
+        if (double.TryParse(m.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var size))
+            fmt.BodyFontSizePt = size;
+        if (double.TryParse(m.Groups[3].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var spacing))
+            fmt.LineSpacing = spacing;
+        if (double.TryParse(m.Groups[4].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var margin))
+            fmt.PageMarginMm = margin;
+        return fmt;
+    }
     private const string TitleHeader = "## 1. 회의 제목";
     private const string TimePlaceHeader = "## 2. 시간/장소";
     private const string AgendaHeader = "## 3. 안건 및 논의";
@@ -20,8 +46,6 @@ public static class MarkdownMeetingSerializer
         var sb = new StringBuilder();
         var title = string.IsNullOrWhiteSpace(doc.Title) ? "제목 없음" : doc.Title.Trim();
         sb.AppendLine("# 회의록");
-        if (!string.IsNullOrWhiteSpace(doc.Author))
-            sb.AppendLine(CultureInfo.InvariantCulture, $"<div align=\"right\">{EscapeInline(doc.Author.Trim())}</div>");
         sb.AppendLine();
         sb.AppendLine(TitleHeader);
         sb.AppendLine();
@@ -29,6 +53,8 @@ public static class MarkdownMeetingSerializer
         sb.AppendLine();
         sb.AppendLine(TimePlaceHeader);
         var (dateText, timeText) = SplitDateAndTime(doc.DateTimeText);
+        if (!string.IsNullOrWhiteSpace(doc.Author))
+            sb.AppendLine(CultureInfo.InvariantCulture, $"- **작성자**: {EscapeInline(doc.Author.Trim())}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- **날짜**: {EscapeInline(dateText)}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- **시간**: {EscapeInline(timeText)}");
         sb.AppendLine(CultureInfo.InvariantCulture, $"- **장소**: {EscapeInline(doc.Location)}");
@@ -113,6 +139,7 @@ public static class MarkdownMeetingSerializer
             doc.DateTimeText = string.IsNullOrWhiteSpace(timePart) ? datePart : $"{datePart} {timePart}".Trim();
         else
             doc.DateTimeText = ExtractMetaLine(timePlaceBlock, "일시");
+        doc.Author = ExtractMetaLine(timePlaceBlock, "작성자");
         doc.Location = ExtractMetaLine(timePlaceBlock, "장소");
         doc.Attendees = ExtractMetaLine(timePlaceBlock, "참석자");
         // 구버전 호환: 작성자/참석자 키에서 분리

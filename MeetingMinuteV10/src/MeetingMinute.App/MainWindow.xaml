@@ -9,6 +9,12 @@
         FontFamily="Segoe UI Variable Display, Segoe UI"
         FontSize="14"
         WindowStartupLocation="CenterScreen">
+    <Window.InputBindings>
+        <KeyBinding Key="S" Modifiers="Control" Command="{x:Static ApplicationCommands.Save}" />
+    </Window.InputBindings>
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static ApplicationCommands.Save}" Executed="CmdSave_Executed" />
+    </Window.CommandBindings>
     <DockPanel Margin="20">
         <!-- 상단 툴바 -->
         <Border DockPanel.Dock="Top"
@@ -65,11 +71,31 @@
                 CornerRadius="8"
                 Padding="10,6"
                 Margin="0,12,0,0">
-            <TextBlock x:Name="TxtElapsedStatus"
-                       Foreground="{StaticResource BrushTextMuted}"
-                       FontSize="12"
-                       VerticalAlignment="Center"
-                       Text="회의 시간 상태를 계산 중입니다." />
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="12,0,0,0">
+                    <TextBlock x:Name="TxtSavingLabel"
+                               Foreground="{StaticResource BrushTextMuted}"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"
+                               Visibility="Collapsed"
+                               Text="저장 중…" />
+                    <ProgressBar x:Name="PrgSaving"
+                                 Width="100" Height="6"
+                                 IsIndeterminate="True"
+                                 Visibility="Collapsed"
+                                 VerticalAlignment="Center"
+                                 Foreground="{StaticResource BrushAccent}"
+                                 Background="{StaticResource BrushBgElevated}"
+                                 BorderThickness="0" />
+                </StackPanel>
+                <TextBlock x:Name="TxtElapsedStatus"
+                           Foreground="{StaticResource BrushTextMuted}"
+                           FontSize="12"
+                           VerticalAlignment="Center"
+                           Text="회의 시간 상태를 계산 중입니다." />
+            </DockPanel>
         </Border>
 
         <TabControl x:Name="MainTabs"
@@ -106,6 +132,50 @@
             <TabItem x:Name="TabWrite" Header="작성">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,8,0">
                     <StackPanel>
+
+                        <!-- 서식 설정 -->
+                        <Border Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <TextBlock x:Name="LblFormatSection"
+                                           Foreground="{StaticResource BrushTextMuted}"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,10"
+                                           Text="서식 설정" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock x:Name="LblFormatFont" Style="{StaticResource FieldLabel}" Text="폰트" />
+                                        <ComboBox x:Name="CmbFontFamily" Style="{StaticResource ModernComboBox}"
+                                                  SelectionChanged="FormatSettingChanged" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock x:Name="LblFormatSize" Style="{StaticResource FieldLabel}" Text="크기" />
+                                        <ComboBox x:Name="CmbFontSize" Style="{StaticResource ModernComboBox}"
+                                                  SelectionChanged="FormatSettingChanged" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock x:Name="LblFormatSpacing" Style="{StaticResource FieldLabel}" Text="줄 간격" />
+                                        <ComboBox x:Name="CmbLineSpacing" Style="{StaticResource ModernComboBox}"
+                                                  SelectionChanged="FormatSettingChanged" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="6">
+                                        <TextBlock x:Name="LblFormatMargin" Style="{StaticResource FieldLabel}" Text="여백" />
+                                        <ComboBox x:Name="CmbPageMargin" Style="{StaticResource ModernComboBox}"
+                                                  SelectionChanged="FormatSettingChanged" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                         <Border Style="{StaticResource CardBorder}">
                             <StackPanel>
                                 <StackPanel>
