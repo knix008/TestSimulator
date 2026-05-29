@@ -494,8 +494,8 @@ public partial class MainWindow : Window
 
     private static bool IsDocumentVisuallyEmpty(MeetingMinuteDocument doc)
     {
+        // DateTimeText is excluded: it is auto-filled on startup and does not represent user input.
         return string.IsNullOrWhiteSpace(doc.Title)
-               && string.IsNullOrWhiteSpace(doc.DateTimeText)
                && string.IsNullOrWhiteSpace(doc.Location)
                && string.IsNullOrWhiteSpace(doc.Author)
                && string.IsNullOrWhiteSpace(doc.Attendees)
