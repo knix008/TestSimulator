@@ -336,13 +336,28 @@ public partial class MainWindow : Window
 
     private async void BtnSave_Click(object _, RoutedEventArgs __)
     {
-        if (string.IsNullOrEmpty(_currentPath))
+        // 저장 버튼은 항상 Markdown(.md)으로 저장
+        if (!string.IsNullOrEmpty(_currentPath) &&
+            string.Equals(Path.GetExtension(_currentPath), ".md", StringComparison.OrdinalIgnoreCase))
         {
-            await SaveAsInternal();
+            await SaveToPath(_currentPath);
             return;
         }
 
-        await SaveToPath(_currentPath);
+        // 현재 경로가 없거나 .md가 아닌 경우 — .md 저장 대화상자
+        var dlg = new SaveFileDialog
+        {
+            Filter = T("dialog.filter.md"),
+            DefaultExt = ".md",
+            Title = T("dialog.save.title"),
+            FileName = BuildDefaultFileName()
+        };
+
+        if (dlg.ShowDialog(this) != true)
+            return;
+
+        if (await SaveToPath(dlg.FileName))
+            _currentPath = dlg.FileName;
     }
 
     private async void BtnSaveAs_Click(object _, RoutedEventArgs __)

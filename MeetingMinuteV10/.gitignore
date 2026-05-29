@@ -1,5 +1,6 @@
 **/bin/
 **/obj/
+build_output/
 installer/out/
 installer/bin/
 installer/**/*.wixpdb
@@ -11,5 +12,6 @@ installer/**/*.wixpdb
 *.cache
 *.pdb
 *.orig
+UpgradeLog.htm
 Thumbs.db
 Desktop.ini
