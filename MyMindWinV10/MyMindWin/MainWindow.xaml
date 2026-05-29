@@ -1,0 +1,205 @@
+<Window x:Class="MyMindWin.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:MyMindWin.Controls"
+        Title="MyMind — Mind Map"
+        Width="1280" Height="800"
+        MinWidth="800" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        Background="#1A1F2E">
+
+    <Window.Resources>
+        <!-- TreeView Item Style -->
+        <Style x:Key="TreeNodeStyle" TargetType="TreeViewItem">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+            <Setter Property="Foreground" Value="#CCFFFFFF"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="2,3"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <Border x:Name="ItemBorder" Grid.Row="0"
+                                    Padding="4,3,4,3" CornerRadius="4"
+                                    Background="Transparent">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton x:Name="Expander" Grid.Column="0"
+                                                  IsChecked="{Binding Path=IsExpanded,
+                                                      RelativeSource={RelativeSource TemplatedParent}}"
+                                                  Width="14" Height="14">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Grid Width="14" Height="14" Cursor="Hand">
+                                                    <Path x:Name="ExpandArrow"
+                                                          Fill="#88FFFFFF"
+                                                          Data="M 3,2 L 11,7 L 3,12 Z"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                                </Grid>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsChecked" Value="True">
+                                                        <Setter TargetName="ExpandArrow" Property="Data"
+                                                                Value="M 2,4 L 12,4 L 7,12 Z"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <ContentPresenter Grid.Column="1"
+                                                      ContentSource="Header"
+                                                      VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <ItemsPresenter Grid.Row="1" Margin="14,0,0,0"
+                                            x:Name="ItemsHost" Visibility="Collapsed"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#44FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Toolbar Button Style -->
+        <Style x:Key="ToolbarBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#CCFFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#44FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#66FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToolbarSep" TargetType="Separator">
+            <Setter Property="Background" Value="#33FFFFFF"/>
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Margin" Value="2,4"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ══ Toolbar ══════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="#0D101A"
+                BorderBrush="#22FFFFFF" BorderThickness="0,0,0,1">
+            <WrapPanel Orientation="Horizontal" Margin="6,3">
+                <Button Command="{Binding NewDocumentCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="New">📄 New</Button>
+                <Button Command="{Binding OpenCommand}"        Style="{StaticResource ToolbarBtn}" ToolTip="Open">📂 Open</Button>
+                <Button Command="{Binding SaveCommand}"        Style="{StaticResource ToolbarBtn}" ToolTip="Save">💾 Save</Button>
+                <Button Command="{Binding SaveAsCommand}"      Style="{StaticResource ToolbarBtn}" ToolTip="Save As">📝 Save As</Button>
+                <Separator Style="{StaticResource ToolbarSep}"/>
+                <Button Command="{Binding AddChildCommand}"    Style="{StaticResource ToolbarBtn}" ToolTip="Add Child (Tab)">➕ Child</Button>
+                <Button Command="{Binding AddSiblingCommand}"  Style="{StaticResource ToolbarBtn}" ToolTip="Add Sibling (Enter)">↕ Sibling</Button>
+                <Button Command="{Binding DeleteNodeCommand}"  Style="{StaticResource ToolbarBtn}" ToolTip="Delete (Del)">🗑 Delete</Button>
+                <Separator Style="{StaticResource ToolbarSep}"/>
+                <Button Command="{Binding ExpandAllCommand}"   Style="{StaticResource ToolbarBtn}" ToolTip="Expand All">⊞ Expand</Button>
+                <Button Command="{Binding CollapseAllCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="Collapse All">⊟ Collapse</Button>
+                <Separator Style="{StaticResource ToolbarSep}"/>
+                <Button Command="{Binding SetLayoutTreeCommand}"   Style="{StaticResource ToolbarBtn}" ToolTip="Horizontal Tree">⊣⊢ Tree</Button>
+                <Button Command="{Binding SetLayoutRadialCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="Radial">⊛ Radial</Button>
+                <Separator Style="{StaticResource ToolbarSep}"/>
+                <Button Command="{Binding ZoomInCommand}"    Style="{StaticResource ToolbarBtn}" ToolTip="Zoom In">🔍+</Button>
+                <Button Command="{Binding ZoomOutCommand}"   Style="{StaticResource ToolbarBtn}" ToolTip="Zoom Out">🔍-</Button>
+                <Button Command="{Binding ResetViewCommand}" Style="{StaticResource ToolbarBtn}" ToolTip="Reset View">⌖ Reset</Button>
+                <Border VerticalAlignment="Center" Margin="10,0,0,0">
+                    <TextBlock Text="Tab=Child  Enter=Sibling  Del=Delete  F2=Rename  Space=Expand  Drag=Pan  Wheel=Zoom"
+                               Foreground="#44FFFFFF" FontFamily="Segoe UI" FontSize="11"/>
+                </Border>
+            </WrapPanel>
+        </Border>
+
+        <!-- ══ Main Content ══════════════════════════════════════════════════ -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" MinWidth="150" MaxWidth="400"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Tree Structure Panel -->
+            <Border Grid.Column="0" Background="#0D101A"
+                    BorderBrush="#22FFFFFF" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Background="#080A12" Padding="10,8">
+                        <TextBlock Text="STRUCTURE" Foreground="#66FFFFFF"
+                                   FontFamily="Segoe UI" FontSize="11"
+                                   FontWeight="Bold"/>
+                    </Border>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto">
+                        <TreeView x:Name="StructureTree"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  Padding="6"
+                                  ItemsSource="{Binding RootNodes}"
+                                  ItemContainerStyle="{StaticResource TreeNodeStyle}"
+                                  SelectedItemChanged="StructureTree_SelectedItemChanged">
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                    <TextBlock Text="{Binding Text}"
+                                               Foreground="#DDFFFFFF"
+                                               FontFamily="Segoe UI"
+                                               FontSize="13"
+                                               ToolTip="{Binding Text}"/>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- GridSplitter -->
+            <GridSplitter Grid.Column="1" Width="4"
+                          HorizontalAlignment="Stretch"
+                          Background="#22FFFFFF" Cursor="SizeWE"/>
+
+            <!-- Right: Mind Map Canvas -->
+            <controls:MindMapCanvasControl x:Name="MindMapCanvas" Grid.Column="2"/>
+        </Grid>
+    </Grid>
+</Window>

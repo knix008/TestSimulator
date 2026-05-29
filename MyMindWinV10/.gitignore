@@ -1,0 +1,43 @@
+## Visual Studio / .NET
+
+# Build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+
+# NuGet packages
+packages/
+*.nupkg
+**/[Nn]uget.config
+
+# Rider
+.idea/
+
+# Publish profiles
+**/Properties/PublishProfiles/
+
+# Generated
+*.g.cs
+*.g.i.cs
+
+# Crash dumps
+*.dmp
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml

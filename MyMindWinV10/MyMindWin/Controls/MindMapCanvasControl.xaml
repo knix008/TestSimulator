@@ -1,0 +1,64 @@
+<UserControl x:Class="MyMindWin.Controls.MindMapCanvasControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="#1A1F2E"
+             Focusable="True"
+             ClipToBounds="True">
+    <Grid>
+        <!-- Main canvas viewport -->
+        <Canvas x:Name="RootCanvas"
+                MouseDown="RootCanvas_MouseDown"
+                MouseMove="RootCanvas_MouseMove"
+                MouseUp="RootCanvas_MouseUp"
+                MouseWheel="RootCanvas_MouseWheel">
+            <Canvas.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform x:Name="ScaleXform" ScaleX="1" ScaleY="1"/>
+                    <TranslateTransform x:Name="TranslateXform" X="0" Y="0"/>
+                </TransformGroup>
+            </Canvas.RenderTransform>
+
+            <!-- Connection layer (rendered first = behind nodes) -->
+            <Canvas x:Name="ConnectionCanvas" IsHitTestVisible="False"/>
+
+            <!-- Node layer -->
+            <Canvas x:Name="NodeCanvas"/>
+        </Canvas>
+
+        <!-- Inline text editor overlay -->
+        <Border x:Name="EditBorder"
+                Visibility="Collapsed"
+                IsHitTestVisible="True"
+                Background="Transparent">
+            <TextBox x:Name="EditBox"
+                     FontFamily="Segoe UI"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Padding="6,3"
+                     BorderBrush="#64B5F6"
+                     BorderThickness="2"
+                     Background="#1A2744"
+                     Foreground="White"
+                     CaretBrush="White"
+                     HorizontalAlignment="Left"
+                     VerticalAlignment="Top"
+                     KeyDown="EditBox_KeyDown"
+                     LostFocus="EditBox_LostFocus"/>
+        </Border>
+
+        <!-- Zoom indicator -->
+        <Border HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="12"
+                Padding="8,4"
+                Background="#33FFFFFF"
+                CornerRadius="4"
+                IsHitTestVisible="False">
+            <TextBlock x:Name="ZoomLabel"
+                       Foreground="#AAFFFFFF"
+                       FontFamily="Segoe UI"
+                       FontSize="11"
+                       Text="100%"/>
+        </Border>
+    </Grid>
+</UserControl>
