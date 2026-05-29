@@ -42,6 +42,8 @@ namespace FTPServerWinV10
             saveLogDialog.FileName = $"FTPServerWinV10_{DateTime.Now:yyyyMMdd_HHmmss}.log";
             LoadProfileList();
             LoadSettings();
+            RefreshSftpHostKeyUi();
+            SetupSecurityTooltips();
             UpdateProtocolUiState();
             SetupLogCopy();
             AddLog($"자동 로그 저장: {_defaultLogFilePath}");
@@ -226,7 +228,94 @@ namespace FTPServerWinV10
                 : null;
         }
 
-        // ── SSL certificate generation ────────────────────────────────────────────
+        // ── FTPS SSL / SFTP host key ──────────────────────────────────────────────
+        private void SetupSecurityTooltips()
+        {
+            toolTipSecurity.SetToolTip(lblFtpsSection,
+                "FTPS(Implicit SSL, 기본 포트 990)에서만 사용합니다.\r\n" +
+                "X.509 인증서를 PFX 파일로 지정하거나 자체 서명 PFX를 생성합니다.");
+            toolTipSecurity.SetToolTip(txtCertPath,
+                "FTPS용 SSL/TLS 인증서 파일(.pfx) 경로입니다.\r\nSFTP에는 사용하지 않습니다.");
+            toolTipSecurity.SetToolTip(btnSelectCert, "기존 PFX 인증서 파일을 선택합니다.");
+            toolTipSecurity.SetToolTip(btnGenerateCert,
+                "FTPS용 자체 서명 X.509 인증서(PFX)를 새로 생성합니다.");
+            toolTipSecurity.SetToolTip(txtCertPw, "PFX 파일을 열 때 사용하는 암호입니다.");
+
+            toolTipSecurity.SetToolTip(lblSftpSection,
+                "SFTP(SSH, 기본 포트 22)에서만 사용합니다.\r\n" +
+                "SSL 인증서(PFX)가 아니라 SSH 호스트 키(PEM)입니다.\r\n" +
+                "클라이언트는 첫 접속 시 아래 SHA256 지문으로 서버를 확인합니다.");
+            toolTipSecurity.SetToolTip(txtSftpHostKeyPath,
+                "SFTP용 RSA 호스트 개인키(PEM) 경로입니다.\r\n서버 시작 시 없으면 자동 생성됩니다.");
+            toolTipSecurity.SetToolTip(btnGenerateSftpKey,
+                "SFTP용 SSH 호스트 키(RSA PEM)를 새로 생성합니다.\r\n기존 키가 있으면 덮어씁니다.");
+            toolTipSecurity.SetToolTip(btnOpenSftpKeyFolder,
+                "호스트 키가 저장된 폴더를 탐색기로 엽니다.");
+            toolTipSecurity.SetToolTip(lblSftpFingerprint,
+                "SFTP 클라이언트에 표시되는 서버 키 지문과 비교하세요.");
+        }
+
+        private void RefreshSftpHostKeyUi()
+        {
+            var path = string.IsNullOrWhiteSpace(txtSftpHostKeyPath.Text)
+                ? Server.SftpHostKeyManager.DefaultKeyPath
+                : txtSftpHostKeyPath.Text.Trim();
+            txtSftpHostKeyPath.Text = path;
+            lblSftpFingerprint.Text = "SHA256 지문: " + Server.SftpHostKeyManager.GetSha256Fingerprint(path);
+        }
+
+        private void btnGenerateSftpKey_Click(object? sender, EventArgs e)
+        {
+            var path = string.IsNullOrWhiteSpace(txtSftpHostKeyPath.Text)
+                ? Server.SftpHostKeyManager.DefaultKeyPath
+                : txtSftpHostKeyPath.Text.Trim();
+            if (File.Exists(path))
+            {
+                var ans = MessageBox.Show(
+                    "기존 SFTP 호스트 키를 덮어씁니다.\n이미 접속한 클라이언트는 호스트 키 변경 경고가 표시됩니다.\n계속하시겠습니까?",
+                    "호스트 키 재생성",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+                if (ans != DialogResult.Yes) return;
+            }
+
+            try
+            {
+                Server.SftpHostKeyManager.GenerateKey(path);
+                txtSftpHostKeyPath.Text = path;
+                RefreshSftpHostKeyUi();
+                AddLog($"SFTP 호스트 키 생성: {path}");
+                MessageBox.Show(
+                    $"SFTP SSH 호스트 키가 생성되었습니다.\n(X.509 PFX 인증서가 아닙니다.)\n\n경로:\n{path}\n\n{lblSftpFingerprint.Text}",
+                    "생성 완료",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "호스트 키 생성 오류", "SFTP 호스트 키를 생성하지 못했습니다.", ex,
+                    $"경로: {path}");
+            }
+        }
+
+        private void btnOpenSftpKeyFolder_Click(object? sender, EventArgs e)
+        {
+            var dir = Server.SftpHostKeyManager.DefaultDirectory;
+            Directory.CreateDirectory(dir);
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = dir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "폴더 열기 오류", "호스트 키 폴더를 열 수 없습니다.", ex, dir);
+            }
+        }
+
         private void btnGenerateCert_Click(object sender, EventArgs e)
         {
             using var dlg = new GenerateCertDialog();
@@ -240,8 +329,8 @@ namespace FTPServerWinV10
                 txtCertPw.Text = dlg.PfxPassword;
                 AddLog($"자체 서명 인증서 생성 완료: {dlg.PfxPath}");
                 MessageBox.Show(
-                    $"인증서가 생성되었습니다.\n경로: {dlg.PfxPath}\n유효 기간: {dlg.ValidityYears}년",
-                    "생성 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    $"FTPS용 PFX 인증서가 생성되었습니다.\n(SFTP 호스트 키와는 별개입니다.)\n\n경로: {dlg.PfxPath}\n유효 기간: {dlg.ValidityYears}년",
+                    "PFX 생성 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -503,10 +592,14 @@ namespace FTPServerWinV10
 
                 if (chkEnableSftp.Checked)
                 {
+                    var hostKeyPath = string.IsNullOrWhiteSpace(txtSftpHostKeyPath.Text)
+                        ? null
+                        : txtSftpHostKeyPath.Text.Trim();
                     _sftpManager = new Server.SftpServerManager(vfs, (int)numSftpPort.Value)
                     {
                         AllowAnonymous = allowAnonymous,
-                        Users          = users
+                        Users          = users,
+                        HostKeyPath    = hostKeyPath
                     };
                     _sftpManager.OnLog += AddLog;
                     _sftpManager.OnClientCountChanged += c => UpdateProtocolClientCount(ref _sftpClients, c);
@@ -595,8 +688,12 @@ namespace FTPServerWinV10
             numFtpsPort.Enabled = ftps && !running;
             numSftpPort.Enabled = sftp && !running;
 
-            lblCert.Enabled = txtCertPath.Enabled = btnSelectCert.Enabled =
+            lblFtpsSection.Enabled = lblCert.Enabled = txtCertPath.Enabled = btnSelectCert.Enabled =
                 btnGenerateCert.Enabled = lblCertPw.Enabled = txtCertPw.Enabled = ftps && !running;
+
+            lblSftpSection.Enabled = lblSftpKey.Enabled = txtSftpHostKeyPath.Enabled =
+                btnGenerateSftpKey.Enabled = btnOpenSftpKeyFolder.Enabled =
+                lblSftpFingerprint.Enabled = sftp && !running;
         }
 
         private void ProtocolCheckChanged(object sender, EventArgs e)
@@ -607,7 +704,10 @@ namespace FTPServerWinV10
             else if (sender == chkEnableFtps && chkEnableFtps.Checked)
                 numFtpsPort.Value = Server.ProtocolSettings.DefaultFtpsPort;
             else if (sender == chkEnableSftp && chkEnableSftp.Checked)
+            {
                 numSftpPort.Value = Server.ProtocolSettings.DefaultSftpPort;
+                RefreshSftpHostKeyUi();
+            }
 
             UpdateProtocolUiState();
         }
@@ -756,8 +856,9 @@ namespace FTPServerWinV10
         private Server.ServerSettings BuildSettings() => new Server.ServerSettings
         {
             SharedFolders  = _sharedFolders.ToList(),
-            CertPath       = txtCertPath.Text,
-            CertPassword   = txtCertPw.Text,
+            CertPath         = txtCertPath.Text,
+            CertPassword     = txtCertPw.Text,
+            SftpHostKeyPath  = txtSftpHostKeyPath.Text,
             AllowAnonymous = chkAnonymous.Checked,
             Users          = _users.ToList(),
             BufferSizeKb   = (int)numBuffer.Value,
@@ -795,8 +896,12 @@ namespace FTPServerWinV10
             foreach (var u in _users)
                 lvUsers.Items.Add(CreateUserListItem(u));
 
-            txtCertPath.Text      = s.CertPath;
-            txtCertPw.Text        = s.CertPassword;
+            txtCertPath.Text         = s.CertPath;
+            txtCertPw.Text           = s.CertPassword;
+            txtSftpHostKeyPath.Text  = string.IsNullOrWhiteSpace(s.SftpHostKeyPath)
+                ? Server.SftpHostKeyManager.DefaultKeyPath
+                : s.SftpHostKeyPath;
+            RefreshSftpHostKeyUi();
             chkAnonymous.Checked  = s.AllowAnonymous;
             numBuffer.Value       = Math.Max(numBuffer.Minimum, Math.Min(numBuffer.Maximum, s.BufferSizeKb));
             numThreads.Value      = Math.Max(numThreads.Minimum, Math.Min(numThreads.Maximum, s.MaxThreads));
@@ -828,7 +933,10 @@ namespace FTPServerWinV10
             if (chkEnableFtps.Checked)
                 sb.AppendLine($"FTPS : 포트 {(int)numFtpsPort.Value}, 인증서: {certPath}");
             if (chkEnableSftp.Checked)
+            {
                 sb.AppendLine($"SFTP : 포트 {(int)numSftpPort.Value}");
+                sb.AppendLine($"       호스트 키: {txtSftpHostKeyPath.Text.Trim()}");
+            }
             sb.AppendLine($"익명 접속: {(chkAnonymous.Checked ? "허용" : "거부")}");
             sb.AppendLine($"사용자 수: {_users.Count}");
             sb.AppendLine();
@@ -836,7 +944,8 @@ namespace FTPServerWinV10
             foreach (var f in _sharedFolders)
                 sb.AppendLine($"  /{f.VirtualName} → {f.PhysicalPath}");
             sb.AppendLine();
-            sb.AppendLine("포트가 다른 프로그램에서 사용 중이거나, SFTP junction 생성에 관리자 권한이 필요할 수 있습니다.");
+            sb.AppendLine("포트가 다른 프로그램에서 사용 중이면 시작에 실패할 수 있습니다.");
+            sb.AppendLine("SFTP는 FTPS와 달리 SSH 호스트 키를 사용합니다. 서버 설정에서 키를 생성·확인하세요.");
             return sb.ToString();
         }
     }

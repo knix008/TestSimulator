@@ -7,6 +7,8 @@ namespace FTPServerWinV10.Server
         public List<SharedFolderEntry> SharedFolders { get; set; } = new();
         public string CertPath { get; set; } = "";
         public string CertPassword { get; set; } = "";
+        /// <summary>SFTP SSH 호스트 키 PEM 경로 (비어 있으면 기본 경로).</summary>
+        public string SftpHostKeyPath { get; set; } = "";
         public bool AllowAnonymous { get; set; }
         public List<UserEntry> Users { get; set; } = new();
         public int BufferSizeKb { get; set; }

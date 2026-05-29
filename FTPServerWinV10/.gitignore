@@ -1,67 +1,87 @@
-# Visual Studio
+# ── Visual Studio / Rider ─────────────────────────────────────────────────────
 .vs/
+.vscode/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 *.rsuser
+*.userprefs
 
-# Build results
+# ── .NET 빌드 산출물 ─────────────────────────────────────────────────────────
 [Bb]in/
 [Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
 
 # NuGet
 *.nupkg
 .nuget/
 packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
 
-# WiX installer (FTPServerWinV10Setup)
+# ── WiX MSI (FTPServerWinV10Setup) ───────────────────────────────────────────
 FTPServerWinV10Setup/publish/
+FTPServerWinV10Setup/**/*.wixobj
+FTPServerWinV10Setup/**/*.wixpdb
+FTPServerWinV10Setup/**/BindTracking-*.txt
 *.msi
 *.wixpdb
 *.wixobj
 publish/
 
-# FxSsh 소스 (setup-fxssh.ps1로 클론 — 저장소에 포함하지 않음)
+# ── FxSsh 소스 (setup-fxssh.ps1로 클론 — 저장소에 포함하지 않음) ─────────────
 _fxssh_src/
 
-# 로컬 점검·임시 폴더
+# ── 로컬 점검·임시 ─────────────────────────────────────────────────────────────
 _inspect/
+FTPServerWinV10_sftp_*/
 
-# Runtime-generated settings & logs (실행 파일 폴더 기준)
-server_settings.json
-profiles/
-ftpserver.log
+# ── 런타임 설정·로그 (실행 폴더 또는 하위 bin에 생성됨) ─────────────────────
+**/server_settings.json
+**/profiles/
+**/ftpserver.log
 *.log
 
-# 앱에서 생성하는 인증서·키 (커밋 금지)
+# ── 인증서·키 (커밋 금지 — FTPS PFX, SFTP PEM, 기타) ─────────────────────────
 server_cert.pfx
+**/server_cert.pfx
 *.pfx
 *.pem
 *.crt
 *.cer
 *.key
+*.p12
+*.pkcs12
 
-# OS
+# ── OS / 편집기 임시 ───────────────────────────────────────────────────────────
 Thumbs.db
 Desktop.ini
+ehthumbs.db
 *.DS_Store
-
-# Editor / temp
 *.tmp
 *.bak
 *.swp
-*.userprefs
-*.pidb
-*.svd
+*.cache
+
+# ── 기타 빌드 부산물 ───────────────────────────────────────────────────────────
 *.pdb
 *.mdb
 *.opendb
 *.VC.db
 *.VC.VC.opendb
 *.dbmdl
-*.cache
 *.db
 *.sdf
 *.sqlite
-.vscode/
+*.svd
+*.pidb

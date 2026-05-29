@@ -38,12 +38,20 @@ namespace FTPServerWinV10
             colPhysicalPath = new ColumnHeader();
             btnAddFolder = new Button();
             btnRemoveFolder = new Button();
+            toolTipSecurity = new ToolTip();
+            lblFtpsSection = new Label();
             lblCert = new Label();
             txtCertPath = new TextBox();
             btnSelectCert = new Button();
             btnGenerateCert = new Button();
             lblCertPw = new Label();
             txtCertPw = new TextBox();
+            lblSftpSection = new Label();
+            lblSftpKey = new Label();
+            txtSftpHostKeyPath = new TextBox();
+            btnGenerateSftpKey = new Button();
+            btnOpenSftpKeyFolder = new Button();
+            lblSftpFingerprint = new Label();
             grpAuth = new GroupBox();
             chkAnonymous = new CheckBox();
             lblUserListTitle = new Label();
@@ -272,16 +280,23 @@ namespace FTPServerWinV10
             grpServer.Controls.Add(lvFolders);
             grpServer.Controls.Add(btnAddFolder);
             grpServer.Controls.Add(btnRemoveFolder);
+            grpServer.Controls.Add(lblFtpsSection);
             grpServer.Controls.Add(lblCert);
             grpServer.Controls.Add(txtCertPath);
             grpServer.Controls.Add(btnSelectCert);
             grpServer.Controls.Add(btnGenerateCert);
             grpServer.Controls.Add(lblCertPw);
             grpServer.Controls.Add(txtCertPw);
+            grpServer.Controls.Add(lblSftpSection);
+            grpServer.Controls.Add(lblSftpKey);
+            grpServer.Controls.Add(txtSftpHostKeyPath);
+            grpServer.Controls.Add(btnGenerateSftpKey);
+            grpServer.Controls.Add(btnOpenSftpKeyFolder);
+            grpServer.Controls.Add(lblSftpFingerprint);
             grpServer.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grpServer.Location = new Point(12, 172);
             grpServer.Name = "grpServer";
-            grpServer.Size = new Size(880, 271);
+            grpServer.Size = new Size(880, 358);
             grpServer.TabIndex = 3;
             grpServer.TabStop = false;
             grpServer.Text = "서버 설정";
@@ -348,21 +363,32 @@ namespace FTPServerWinV10
             btnRemoveFolder.Text = "제거";
             btnRemoveFolder.Click += btnRemoveFolder_Click;
             //
+            // lblFtpsSection
+            //
+            lblFtpsSection.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lblFtpsSection.Font = new Font("Segoe UI", 8.25F, FontStyle.Bold);
+            lblFtpsSection.ForeColor = Color.FromArgb(0, 102, 153);
+            lblFtpsSection.Location = new Point(12, 232);
+            lblFtpsSection.Name = "lblFtpsSection";
+            lblFtpsSection.Size = new Size(856, 18);
+            lblFtpsSection.TabIndex = 4;
+            lblFtpsSection.Text = "FTPS (포트 990) — SSL/TLS X.509 인증서 · PFX 파일 · SFTP와 별도";
+            //
             // lblCert
             //
             lblCert.Font = new Font("Segoe UI", 9F);
-            lblCert.Location = new Point(12, 238);
+            lblCert.Location = new Point(12, 256);
             lblCert.Name = "lblCert";
-            lblCert.Size = new Size(72, 27);
-            lblCert.TabIndex = 4;
-            lblCert.Text = "SSL 인증서";
+            lblCert.Size = new Size(76, 27);
+            lblCert.TabIndex = 5;
+            lblCert.Text = "PFX 경로";
             lblCert.TextAlign = ContentAlignment.MiddleLeft;
             //
             // txtCertPath
             //
             txtCertPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             txtCertPath.Font = new Font("Segoe UI", 9F);
-            txtCertPath.Location = new Point(88, 239);
+            txtCertPath.Location = new Point(92, 257);
             txtCertPath.Name = "txtCertPath";
             txtCertPath.Size = new Size(440, 23);
             txtCertPath.TabIndex = 5;
@@ -373,11 +399,11 @@ namespace FTPServerWinV10
             btnSelectCert.Cursor = Cursors.Hand;
             btnSelectCert.FlatStyle = FlatStyle.System;
             btnSelectCert.Font = new Font("Segoe UI", 9F);
-            btnSelectCert.Location = new Point(534, 236);
+            btnSelectCert.Location = new Point(534, 254);
             btnSelectCert.Name = "btnSelectCert";
             btnSelectCert.Size = new Size(68, 29);
             btnSelectCert.TabIndex = 6;
-            btnSelectCert.Text = "찾기";
+            btnSelectCert.Text = "PFX 찾기";
             btnSelectCert.Click += btnSelectCert_Click;
             //
             // btnGenerateCert
@@ -386,33 +412,108 @@ namespace FTPServerWinV10
             btnGenerateCert.Cursor = Cursors.Hand;
             btnGenerateCert.FlatStyle = FlatStyle.System;
             btnGenerateCert.Font = new Font("Segoe UI", 9F);
-            btnGenerateCert.Location = new Point(608, 236);
+            btnGenerateCert.Location = new Point(608, 254);
             btnGenerateCert.Name = "btnGenerateCert";
             btnGenerateCert.Size = new Size(68, 29);
             btnGenerateCert.TabIndex = 7;
-            btnGenerateCert.Text = "생성";
+            btnGenerateCert.Text = "PFX 생성";
             btnGenerateCert.Click += btnGenerateCert_Click;
             //
             // lblCertPw
             //
             lblCertPw.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             lblCertPw.Font = new Font("Segoe UI", 9F);
-            lblCertPw.Location = new Point(682, 238);
+            lblCertPw.Location = new Point(682, 256);
             lblCertPw.Name = "lblCertPw";
             lblCertPw.Size = new Size(72, 27);
-            lblCertPw.TabIndex = 8;
-            lblCertPw.Text = "인증서 암호";
+            lblCertPw.TabIndex = 9;
+            lblCertPw.Text = "PFX 암호";
             lblCertPw.TextAlign = ContentAlignment.MiddleLeft;
             //
             // txtCertPw
             //
             txtCertPw.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             txtCertPw.Font = new Font("Segoe UI", 9F);
-            txtCertPw.Location = new Point(758, 239);
+            txtCertPw.Location = new Point(758, 257);
             txtCertPw.Name = "txtCertPw";
             txtCertPw.PasswordChar = '*';
             txtCertPw.Size = new Size(110, 23);
             txtCertPw.TabIndex = 9;
+            //
+            // lblSftpSection
+            //
+            lblSftpSection.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lblSftpSection.Font = new Font("Segoe UI", 8.25F, FontStyle.Bold);
+            lblSftpSection.ForeColor = Color.FromArgb(0, 102, 153);
+            lblSftpSection.Location = new Point(12, 288);
+            lblSftpSection.Name = "lblSftpSection";
+            lblSftpSection.Size = new Size(856, 18);
+            lblSftpSection.TabIndex = 11;
+            lblSftpSection.Text = "SFTP (포트 22) — SSH 호스트 키 · PEM 파일 · X.509 인증서(PFX) 아님";
+            //
+            // lblSftpKey
+            //
+            lblSftpKey.Font = new Font("Segoe UI", 9F);
+            lblSftpKey.Location = new Point(12, 312);
+            lblSftpKey.Name = "lblSftpKey";
+            lblSftpKey.Size = new Size(76, 27);
+            lblSftpKey.TabIndex = 12;
+            lblSftpKey.Text = "키(.pem)";
+            lblSftpKey.TextAlign = ContentAlignment.MiddleLeft;
+            //
+            // txtSftpHostKeyPath
+            //
+            txtSftpHostKeyPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtSftpHostKeyPath.Font = new Font("Segoe UI", 9F);
+            txtSftpHostKeyPath.Location = new Point(92, 313);
+            txtSftpHostKeyPath.Name = "txtSftpHostKeyPath";
+            txtSftpHostKeyPath.ReadOnly = true;
+            txtSftpHostKeyPath.Size = new Size(514, 23);
+            txtSftpHostKeyPath.TabIndex = 11;
+            //
+            // btnGenerateSftpKey
+            //
+            btnGenerateSftpKey.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnGenerateSftpKey.Cursor = Cursors.Hand;
+            btnGenerateSftpKey.FlatStyle = FlatStyle.System;
+            btnGenerateSftpKey.Font = new Font("Segoe UI", 9F);
+            btnGenerateSftpKey.Location = new Point(608, 311);
+            btnGenerateSftpKey.Name = "btnGenerateSftpKey";
+            btnGenerateSftpKey.Size = new Size(68, 29);
+            btnGenerateSftpKey.TabIndex = 12;
+            btnGenerateSftpKey.Text = "키 생성";
+            btnGenerateSftpKey.Click += btnGenerateSftpKey_Click;
+            //
+            // btnOpenSftpKeyFolder
+            //
+            btnOpenSftpKeyFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnOpenSftpKeyFolder.Cursor = Cursors.Hand;
+            btnOpenSftpKeyFolder.FlatStyle = FlatStyle.System;
+            btnOpenSftpKeyFolder.Font = new Font("Segoe UI", 9F);
+            btnOpenSftpKeyFolder.Location = new Point(682, 311);
+            btnOpenSftpKeyFolder.Name = "btnOpenSftpKeyFolder";
+            btnOpenSftpKeyFolder.Size = new Size(68, 29);
+            btnOpenSftpKeyFolder.TabIndex = 13;
+            btnOpenSftpKeyFolder.Text = "키 폴더";
+            btnOpenSftpKeyFolder.Click += btnOpenSftpKeyFolder_Click;
+            //
+            // lblSftpFingerprint
+            //
+            lblSftpFingerprint.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            lblSftpFingerprint.Font = new Font("Segoe UI", 8.25F);
+            lblSftpFingerprint.ForeColor = Color.FromArgb(80, 80, 80);
+            lblSftpFingerprint.Location = new Point(92, 340);
+            lblSftpFingerprint.Name = "lblSftpFingerprint";
+            lblSftpFingerprint.Size = new Size(776, 18);
+            lblSftpFingerprint.TabIndex = 16;
+            lblSftpFingerprint.Text = "SHA256 지문: (키 없음)";
+            //
+            // toolTipSecurity
+            //
+            toolTipSecurity.AutoPopDelay = 12000;
+            toolTipSecurity.InitialDelay = 400;
+            toolTipSecurity.ReshowDelay = 200;
+            toolTipSecurity.ShowAlways = true;
             //
             // grpAuth
             //
@@ -427,7 +528,7 @@ namespace FTPServerWinV10
             grpAuth.Controls.Add(lblThreads);
             grpAuth.Controls.Add(numThreads);
             grpAuth.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpAuth.Location = new Point(12, 449);
+            grpAuth.Location = new Point(12, 536);
             grpAuth.Name = "grpAuth";
             grpAuth.Size = new Size(880, 268);
             grpAuth.TabIndex = 2;
@@ -564,7 +665,7 @@ namespace FTPServerWinV10
             pnlStatus.Controls.Add(lblTotalClients);
             pnlStatus.Controls.Add(lblUploadStats);
             pnlStatus.Controls.Add(lblDownloadStats);
-            pnlStatus.Location = new Point(12, 729);
+            pnlStatus.Location = new Point(12, 816);
             pnlStatus.Name = "pnlStatus";
             pnlStatus.Size = new Size(880, 36);
             pnlStatus.TabIndex = 1;
@@ -573,9 +674,9 @@ namespace FTPServerWinV10
             //
             lblClients.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblClients.ForeColor = Color.FromArgb(33, 47, 61);
-            lblClients.Location = new Point(12, 10);
+            lblClients.Location = new Point(10, 10);
             lblClients.Name = "lblClients";
-            lblClients.Size = new Size(110, 20);
+            lblClients.Size = new Size(205, 20);
             lblClients.TabIndex = 0;
             lblClients.Text = "현재 접속: 0";
             //
@@ -583,9 +684,9 @@ namespace FTPServerWinV10
             //
             lblTotalClients.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblTotalClients.ForeColor = Color.FromArgb(127, 140, 141);
-            lblTotalClients.Location = new Point(128, 10);
+            lblTotalClients.Location = new Point(230, 10);
             lblTotalClients.Name = "lblTotalClients";
-            lblTotalClients.Size = new Size(110, 20);
+            lblTotalClients.Size = new Size(205, 20);
             lblTotalClients.TabIndex = 3;
             lblTotalClients.Text = "총 접속: 0";
             //
@@ -593,9 +694,9 @@ namespace FTPServerWinV10
             //
             lblUploadStats.Font = new Font("Segoe UI", 9F);
             lblUploadStats.ForeColor = Color.FromArgb(39, 174, 96);
-            lblUploadStats.Location = new Point(280, 10);
+            lblUploadStats.Location = new Point(450, 10);
             lblUploadStats.Name = "lblUploadStats";
-            lblUploadStats.Size = new Size(300, 20);
+            lblUploadStats.Size = new Size(205, 20);
             lblUploadStats.TabIndex = 1;
             lblUploadStats.Text = "↑ 업로드: 0 파일 (0 B)";
             //
@@ -603,9 +704,9 @@ namespace FTPServerWinV10
             //
             lblDownloadStats.Font = new Font("Segoe UI", 9F);
             lblDownloadStats.ForeColor = Color.FromArgb(41, 128, 185);
-            lblDownloadStats.Location = new Point(600, 10);
+            lblDownloadStats.Location = new Point(670, 10);
             lblDownloadStats.Name = "lblDownloadStats";
-            lblDownloadStats.Size = new Size(300, 20);
+            lblDownloadStats.Size = new Size(200, 20);
             lblDownloadStats.TabIndex = 2;
             lblDownloadStats.Text = "↓ 다운로드: 0 파일 (0 B)";
             //
@@ -616,7 +717,7 @@ namespace FTPServerWinV10
             grpLog.Controls.Add(btnCopyLog);
             grpLog.Controls.Add(lstLog);
             grpLog.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            grpLog.Location = new Point(12, 777);
+            grpLog.Location = new Point(12, 864);
             grpLog.Name = "grpLog";
             grpLog.Size = new Size(880, 175);
             grpLog.TabIndex = 0;
@@ -686,7 +787,7 @@ namespace FTPServerWinV10
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(245, 246, 248);
-            ClientSize = new Size(904, 990);
+            ClientSize = new Size(904, 1077);
             Controls.Add(grpLog);
             Controls.Add(pnlStatus);
             Controls.Add(grpAuth);
@@ -697,7 +798,7 @@ namespace FTPServerWinV10
             Controls.Add(statusStrip1);
             Font = new Font("Segoe UI", 9F);
             Icon = (Icon)resources.GetObject("$this.Icon");
-            MinimumSize = new Size(920, 900);
+            MinimumSize = new Size(920, 950);
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "FTP Server Manager";
@@ -730,11 +831,14 @@ namespace FTPServerWinV10
         private System.Windows.Forms.NumericUpDown numBuffer;
         private System.Windows.Forms.NumericUpDown numThreads;
         private System.Windows.Forms.CheckBox chkAnonymous;
+        private System.Windows.Forms.ToolTip toolTipSecurity;
+        private System.Windows.Forms.Label lblFtpsSection;
         private System.Windows.Forms.Label lblCert;
         private System.Windows.Forms.TextBox txtCertPath;
         private System.Windows.Forms.Button btnSelectCert;
         private System.Windows.Forms.Label lblCertPw;
         private System.Windows.Forms.TextBox txtCertPw;
+        private System.Windows.Forms.Label lblSftpSection;
         private System.Windows.Forms.FolderBrowserDialog folderBrowserDialog1;
         private System.Windows.Forms.Button btnStartServer;
         private System.Windows.Forms.Label lblClients;
@@ -766,6 +870,11 @@ namespace FTPServerWinV10
         private System.Windows.Forms.Button btnAddFolder;
         private System.Windows.Forms.Button btnRemoveFolder;
         private System.Windows.Forms.Button btnGenerateCert;
+        private System.Windows.Forms.Label lblSftpKey;
+        private System.Windows.Forms.TextBox txtSftpHostKeyPath;
+        private System.Windows.Forms.Button btnGenerateSftpKey;
+        private System.Windows.Forms.Button btnOpenSftpKeyFolder;
+        private System.Windows.Forms.Label lblSftpFingerprint;
         private System.Windows.Forms.GroupBox grpAuth;
         private System.Windows.Forms.Label lblUserListTitle;
         private System.Windows.Forms.ListView lvUsers;

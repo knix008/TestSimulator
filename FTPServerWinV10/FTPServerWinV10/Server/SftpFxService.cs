@@ -1,6 +1,7 @@
 ﻿using FxSsh;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -12,8 +13,7 @@ namespace FTPServerWinV10.Server
 {
     public sealed class SftpFxService
     {
-        // just implement sftp version 3
-        // https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02
+        private const int MaxNamesPerReadDir = 48;
 
         #region defines
         private const byte SSH_FXP_INIT = 1;
@@ -34,15 +34,12 @@ namespace FTPServerWinV10.Server
         private const byte SSH_FXP_REALPATH = 16;
         private const byte SSH_FXP_STAT = 17;
         private const byte SSH_FXP_RENAME = 18;
-        private const byte SSH_FXP_READLINK = 19;
-        private const byte SSH_FXP_SYMLINK = 20;
+
         private const byte SSH_FXP_STATUS = 101;
         private const byte SSH_FXP_HANDLE = 102;
         private const byte SSH_FXP_DATA = 103;
         private const byte SSH_FXP_NAME = 104;
         private const byte SSH_FXP_ATTRS = 105;
-        private const byte SSH_FXP_EXTENDED = 200;
-        private const byte SSH_FXP_EXTENDED_REPLY = 201;
 
         private const uint SSH_FILEXFER_ATTR_SIZE = 0x00000001;
         private const uint SSH_FILEXFER_ATTR_UIDGID = 0x00000002;
@@ -55,76 +52,73 @@ namespace FTPServerWinV10.Server
         private const uint SSH_FXF_APPEND = 0x00000004;
         private const uint SSH_FXF_CREAT = 0x00000008;
         private const uint SSH_FXF_TRUNC = 0x00000010;
-        private const uint SSH_FXF_EXCL = 0x00000020;
 
         private const int SSH_FX_OK = 0;
         private const int SSH_FX_EOF = 1;
         private const int SSH_FX_NO_SUCH_FILE = 2;
         private const int SSH_FX_PERMISSION_DENIED = 3;
         private const int SSH_FX_FAILURE = 4;
-        private const int SSH_FX_BAD_MESSAGE = 5;
-        private const int SSH_FX_NO_CONNECTION = 6;
-        private const int SSH_FX_CONNECTION_LOST = 7;
         private const int SSH_FX_OP_UNSUPPORTED = 8;
         #endregion
 
-        private readonly CancellationTokenSource _cancellationTokenSource = new();
-        private readonly Dictionary<string, (string path, FileStream? fs)> _mapOfHandle = [];
-        private readonly string _rootPath;
-        private readonly SessionPermissions _permissions;
-        private byte[]? _pandingBytes;
-        private int _handleCursor = 0;
-
-        public SftpFxService(string rootPath, SessionPermissions permissions)
+        private sealed class DirHandleState
         {
-            _rootPath = Path.GetFullPath(rootPath + Path.DirectorySeparatorChar);
+            public bool VirtualRoot;
+            public string? PhysicalPath;
+            public FileStruct[]? Entries;
+            public int Index;
+        }
+
+        private readonly CancellationTokenSource _cancellationTokenSource = new();
+        private readonly Dictionary<string, (string path, FileStream? fs)> _fileHandles = [];
+        private readonly Dictionary<string, DirHandleState> _dirHandles = [];
+        private readonly VirtualFileSystem _vfs;
+        private readonly SessionPermissions _permissions;
+        private readonly Action<string>? _log;
+        private byte[]? _pandingBytes;
+        private int _handleCursor;
+
+        public SftpFxService(VirtualFileSystem vfs, SessionPermissions permissions, Action<string>? log = null)
+        {
+            _vfs = vfs;
             _permissions = permissions;
+            _log = log;
         }
 
         public void OnData(byte[] data)
         {
-            if (_pandingBytes == null)
-                _pandingBytes = data;
-            else
-                _pandingBytes = [.. _pandingBytes, .. data];
+            _pandingBytes = _pandingBytes == null ? data : [.. _pandingBytes, .. data];
 
-            var reader = new SshDataReader(_pandingBytes);
-            var length = (int)reader.ReadUInt32() + 4;
-            if (_pandingBytes.Length < length)
-                return;
-            if (_pandingBytes.Length > length)
+            while (_pandingBytes is { Length: >= 4 })
             {
-                reader = new SshDataReader(_pandingBytes.AsMemory()[..length]);
-                _pandingBytes = _pandingBytes[length..];
+                var reader = new SshDataReader(_pandingBytes);
+                var length = (int)reader.ReadUInt32() + 4;
+                if (_pandingBytes.Length < length)
+                    break;
+
+                var packet = _pandingBytes.AsMemory()[..length];
+                _pandingBytes = _pandingBytes.Length > length ? _pandingBytes[length..] : null;
+                ProcessRequest(new SshDataReader(packet));
             }
-            else
-            {
-                _pandingBytes = null;
-            }
-            ProcessRequest(reader);
         }
 
-        public void OnClose()
-        {
-            _cancellationTokenSource.Cancel();
-        }
+        public void OnClose() => _cancellationTokenSource.Cancel();
 
-        public void WaitForClose()
-        {
-            Task.Delay(-1, _cancellationTokenSource.Token).Wait();
-        }
+        public void WaitForClose() => Task.Delay(-1, _cancellationTokenSource.Token).Wait();
 
         public event EventHandler<byte[]>? DataReceived;
 
         #region Process requests
         private void ProcessRequest(SshDataReader reader)
         {
-            var packetType = reader.ReadByte();
+            // SSH 채널에서 받은 버퍼는 [길이(4)][타입(1)][본문…] 형식이다.
+            if (reader.DataAvailable >= 4)
+                reader.ReadUInt32();
 
+            var packetType = reader.ReadByte();
             switch (packetType)
             {
                 case SSH_FXP_INIT: ProcessInit(reader); break;
-                //case SSH_FXP_VERSION: break;
                 case SSH_FXP_OPEN: ProcessOpen(reader); break;
                 case SSH_FXP_CLOSE: ProcessClose(reader); break;
                 case SSH_FXP_READ: ProcessRead(reader); break;
@@ -141,17 +135,8 @@ namespace FTPServerWinV10.Server
                 case SSH_FXP_REALPATH: ProcessRealPath(reader); break;
                 case SSH_FXP_STAT: ProcessLStat(reader); break;
                 case SSH_FXP_RENAME: ProcessRename(reader); break;
-                //case SSH_FXP_READLINK: break;
-                //case SSH_FXP_SYMLINK: break;
-                //case SSH_FXP_STATUS: break;
-                //case SSH_FXP_HANDLE: break;
-                //case SSH_FXP_DATA: break;
-                //case SSH_FXP_NAME: break;
-                //case SSH_FXP_ATTRS: break;
-                //case SSH_FXP_EXTENDED: break;
-                //case SSH_FXP_EXTENDED_REPLY: break;
                 default:
-                    SendStatus(0, SSH_FX_OP_UNSUPPORTED, $"Unknow or unsupported packet type '{packetType:X}'.", "en");
+                    SendStatus(0, SSH_FX_OP_UNSUPPORTED, $"Unsupported packet type '{packetType:X}'.", "en");
                     break;
             }
         }
@@ -160,15 +145,17 @@ namespace FTPServerWinV10.Server
         {
             var clientVersion = reader.ReadUInt32();
             SendInit();
+            Log($"FXP_INIT (client v{clientVersion}) -> FXP_VERSION 3");
         }
 
         private void ProcessRealPath(SshDataReader reader)
         {
             var requestId = reader.ReadUInt32();
             var path = reader.ReadString(Encoding.UTF8);
-
-            var relativePath = GetRelativePath(path);
-            var dummyFile = new FileStruct { FileName = relativePath, LongName = "", fileAttr = new FileAttr() };
+            var virtualPath = ToVirtualPath(path);
+            var attr = IsVirtualRoot(virtualPath) ? CreateDirectoryAttr()
+                : TryGetFileSystemInfo(virtualPath, out var info) ? GetAttr(info) : CreateDirectoryAttr();
+            var dummyFile = new FileStruct { FileName = virtualPath, LongName = "", fileAttr = attr };
             SendName(requestId, [dummyFile]);
         }
 
@@ -176,22 +163,35 @@ namespace FTPServerWinV10.Server
         {
             var requestId = reader.ReadUInt32();
             var path = reader.ReadString(Encoding.UTF8);
+            var virtualPath = ToVirtualPath(path);
 
-            var absPath = GetAbsolutePath(path);
-
-            if (Directory.Exists(absPath))
+            if (!_permissions.CanRead)
             {
-                if (HasReadPermission(absPath))
-                {
-                    var handle = NextHandle();
-                    _mapOfHandle.Add(handle, (absPath, null));
-                    SendHandle(requestId, handle);
-                }
-                else
-                    SendStatus(requestId, SSH_FX_PERMISSION_DENIED, $"Denied to access '{path}'.", "en");
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, $"Denied to access '{path}'.", "en");
+                return;
             }
-            else
-                SendStatus(requestId, SSH_FX_NO_SUCH_FILE, $"No such folder '{path}'.", "en");
+
+            if (IsVirtualRoot(virtualPath))
+            {
+                var handle = NextHandle();
+                _dirHandles[handle] = new DirHandleState { VirtualRoot = true };
+                SendHandle(requestId, handle);
+                Log($"OPENDIR {virtualPath} (virtual root)");
+                return;
+            }
+
+            var physical = ResolvePhysicalPath(virtualPath);
+            if (physical != null && Directory.Exists(physical) && HasReadPermission(physical))
+            {
+                var handle = NextHandle();
+                _dirHandles[handle] = new DirHandleState { PhysicalPath = physical };
+                SendHandle(requestId, handle);
+                Log($"OPENDIR {virtualPath} -> {physical}");
+                return;
+            }
+
+            SendStatus(requestId, SSH_FX_NO_SUCH_FILE, $"No such folder '{path}'.", "en");
+            Log($"OPENDIR failed: {path} (virtual={virtualPath})");
         }
 
         private void ProcessReadDir(SshDataReader reader)
@@ -199,16 +199,44 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var handle = reader.ReadString(Encoding.ASCII);
 
-            if (_mapOfHandle.TryGetValue(handle, out var map))
-            {
-                var (path, _) = map;
-                var files = GetDir(path, false);
-                SendName(requestId, files);
-                _mapOfHandle.Remove(handle);
-            }
-            else
+            if (!_dirHandles.TryGetValue(handle, out var state))
             {
                 SendStatus(requestId, SSH_FX_EOF, "", "");
+                return;
+            }
+
+            try
+            {
+                state.Entries ??= LoadDirEntries(state);
+                if (state.Index >= state.Entries.Length)
+                {
+                    _dirHandles.Remove(handle);
+                    SendStatus(requestId, SSH_FX_EOF, "", "");
+                    return;
+                }
+
+                var batch = state.Entries
+                    .Skip(state.Index)
+                    .Take(MaxNamesPerReadDir)
+                    .ToArray();
+                state.Index += batch.Length;
+
+                if (batch.Length == 0)
+                {
+                    _dirHandles.Remove(handle);
+                    SendStatus(requestId, SSH_FX_EOF, "", "");
+                    return;
+                }
+
+                SendName(requestId, batch);
+                if (state.Index >= state.Entries.Length)
+                    _dirHandles.Remove(handle);
+            }
+            catch (Exception ex)
+            {
+                _dirHandles.Remove(handle);
+                SendStatus(requestId, SSH_FX_FAILURE, "Failed to read directory.", "en");
+                Log($"READDIR error: {ex.Message}");
             }
         }
 
@@ -217,12 +245,12 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var handle = reader.ReadString(Encoding.ASCII);
 
-            if (_mapOfHandle.TryGetValue(handle, out var map))
+            if (_fileHandles.TryGetValue(handle, out var file))
             {
-                var (_, fs) = map;
-                fs?.Close();
-                _mapOfHandle.Remove(handle);
+                file.fs?.Close();
+                _fileHandles.Remove(handle);
             }
+            _dirHandles.Remove(handle);
             SendStatus(requestId, SSH_FX_OK, "", "");
         }
 
@@ -230,18 +258,7 @@ namespace FTPServerWinV10.Server
         {
             var requestId = reader.ReadUInt32();
             var path = reader.ReadString(Encoding.UTF8);
-
-            var absPath = GetAbsolutePath(path);
-            if (HasReadPermission(absPath))
-            {
-                FileSystemInfo info = File.GetAttributes(absPath).HasFlag(FileAttributes.Directory) ?
-                    new DirectoryInfo(absPath) :
-                    new FileInfo(absPath);
-                var attr = GetAttr(info);
-                SendAttrs(requestId, attr);
-            }
-            else
-                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, $"Denied to access '{path}'.", "en");
+            StatPath(requestId, ToVirtualPath(path), path);
         }
 
         private void ProcessFStat(SshDataReader reader)
@@ -249,23 +266,44 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var handle = reader.ReadString(Encoding.ASCII);
 
-            if (_mapOfHandle.TryGetValue(handle, out var map))
+            if (_dirHandles.TryGetValue(handle, out var dir))
             {
-                var (path, _) = map;
-                if (HasReadPermission(path))
+                if (!_permissions.CanRead)
                 {
-                    FileSystemInfo info = File.GetAttributes(path).HasFlag(FileAttributes.Directory) ?
-                        new DirectoryInfo(path) :
-                        new FileInfo(path);
-                    var attr = GetAttr(info);
-                    SendAttrs(requestId, attr);
-                    _mapOfHandle.Remove(handle);
+                    SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Denied.", "en");
+                    return;
                 }
+                if (dir.VirtualRoot)
+                    SendAttrs(requestId, CreateDirectoryAttr());
+                else if (dir.PhysicalPath != null)
+                    SendAttrs(requestId, GetAttr(new DirectoryInfo(dir.PhysicalPath)));
                 else
-                    SendStatus(requestId, SSH_FX_PERMISSION_DENIED, $"Denied to access '{path}'.", "en");
+                    SendAttrs(requestId, CreateDirectoryAttr());
+                return;
             }
-            else
-                SendStatus(requestId, SSH_FX_FAILURE, $"Unknow handle '{handle}'.", "en");
+
+            if (_fileHandles.TryGetValue(handle, out var file))
+            {
+                if (!_permissions.CanRead)
+                {
+                    SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Denied.", "en");
+                    return;
+                }
+                try
+                {
+                    var info = File.GetAttributes(file.path).HasFlag(FileAttributes.Directory)
+                        ? (FileSystemInfo)new DirectoryInfo(file.path)
+                        : new FileInfo(file.path);
+                    SendAttrs(requestId, GetAttr(info));
+                }
+                catch (Exception)
+                {
+                    SendStatus(requestId, SSH_FX_FAILURE, "Failed to stat handle.", "en");
+                }
+                return;
+            }
+
+            SendStatus(requestId, SSH_FX_FAILURE, $"Unknown handle '{handle}'.", "en");
         }
 
         private void ProcessOpen(SshDataReader reader)
@@ -273,7 +311,7 @@ namespace FTPServerWinV10.Server
             var requestId = reader.ReadUInt32();
             var filename = reader.ReadString(Encoding.UTF8);
             var pflags = reader.ReadUInt32();
-            var attr = ReadFileAttrs(reader);
+            _ = ReadFileAttrs(reader);
 
             var needsRead = (pflags & SSH_FXF_READ) != 0;
             var needsWrite = (pflags & (SSH_FXF_WRITE | SSH_FXF_CREAT | SSH_FXF_TRUNC | SSH_FXF_APPEND)) != 0;
@@ -290,6 +328,11 @@ namespace FTPServerWinV10.Server
 
             try
             {
+                var virtualPath = ToVirtualPath(filename);
+                var physical = ResolvePhysicalPath(virtualPath);
+                if (physical == null || Directory.Exists(physical))
+                    throw new IOException("Not a file");
+
                 var access = default(FileAccess);
                 if ((pflags & SSH_FXF_READ) != 0) access |= FileAccess.Read;
                 if ((pflags & SSH_FXF_WRITE) != 0) access |= FileAccess.Write;
@@ -299,10 +342,9 @@ namespace FTPServerWinV10.Server
                 else if ((pflags & SSH_FXF_APPEND) != 0) mode = FileMode.Append;
                 else mode = FileMode.Open;
 
-                var absPath = GetAbsolutePath(filename);
-                var fs = new FileStream(absPath, mode, access);
+                var fs = new FileStream(physical, mode, access);
                 var handle = NextHandle();
-                _mapOfHandle.Add(handle, (absPath, fs));
+                _fileHandles[handle] = (physical, fs);
                 SendHandle(requestId, handle);
             }
             catch (Exception)
@@ -318,24 +360,18 @@ namespace FTPServerWinV10.Server
             var offset = reader.ReadUInt64();
             var length = reader.ReadUInt32();
 
-            if (_mapOfHandle.TryGetValue(handle, out var map))
+            if (_fileHandles.TryGetValue(handle, out var map) && map.fs != null)
             {
-                var (path, fs) = map;
-                if (fs == null)
-                {
-                    SendStatus(requestId, SSH_FX_FAILURE, $"Unknow handle '{handle}'.", "en");
-                    return;
-                }
-                fs.Position = (long)offset;
+                map.fs.Position = (long)offset;
                 var buffer = new byte[length];
-                var readLenth = fs.Read(buffer);
+                var readLenth = map.fs.Read(buffer);
                 if (readLenth > 0)
                     SendData(requestId, buffer.AsMemory()[..readLenth]);
                 else
                     SendStatus(requestId, SSH_FX_EOF, "", "");
             }
             else
-                SendStatus(requestId, SSH_FX_FAILURE, $"Unknow handle '{handle}'.", "en");
+                SendStatus(requestId, SSH_FX_FAILURE, $"Unknown handle '{handle}'.", "en");
         }
 
         private void ProcessWrite(SshDataReader reader)
@@ -351,20 +387,14 @@ namespace FTPServerWinV10.Server
                 return;
             }
 
-            if (_mapOfHandle.TryGetValue(handle, out var map))
+            if (_fileHandles.TryGetValue(handle, out var map) && map.fs != null)
             {
-                var (path, fs) = map;
-                if (fs == null)
-                {
-                    SendStatus(requestId, SSH_FX_FAILURE, $"Unknow handle '{handle}'.", "en");
-                    return;
-                }
-                fs.Position = (long)offset;
-                fs.Write(data);
+                map.fs.Position = (long)offset;
+                map.fs.Write(data);
                 SendStatus(requestId, SSH_FX_OK, "", "");
             }
             else
-                SendStatus(requestId, SSH_FX_FAILURE, $"Unknow handle '{handle}'.", "en");
+                SendStatus(requestId, SSH_FX_FAILURE, $"Unknown handle '{handle}'.", "en");
         }
 
         private void ProcessSetStat(SshDataReader reader)
@@ -378,9 +408,9 @@ namespace FTPServerWinV10.Server
                 return;
             }
 
-            var absPath = GetAbsolutePath(path);
-            SetAttr(new FileInfo(absPath), attr);
-
+            var physical = ResolvePhysicalPath(ToVirtualPath(path));
+            if (physical != null && File.Exists(physical))
+                SetAttr(new FileInfo(physical), attr);
             SendStatus(requestId, SSH_FX_OK, "", "");
         }
 
@@ -388,19 +418,15 @@ namespace FTPServerWinV10.Server
         {
             var requestId = reader.ReadUInt32();
             var handle = reader.ReadString(Encoding.ASCII);
-            var attr = ReadFileAttrs(reader);
+            _ = ReadFileAttrs(reader);
             if (!_permissions.CanWrite)
             {
                 SendStatus(requestId, SSH_FX_PERMISSION_DENIED, "Write not allowed.", "en");
                 return;
             }
 
-            if (_mapOfHandle.TryGetValue(handle, out var map))
-            {
-                var (path, _) = map;
-                var absPath = GetAbsolutePath(path);
-                SetAttr(new FileInfo(absPath), attr);
-            }
+            if (_fileHandles.TryGetValue(handle, out var map))
+                SetAttr(new FileInfo(map.path), new FileAttr());
 
             SendStatus(requestId, SSH_FX_OK, "", "");
         }
@@ -415,10 +441,16 @@ namespace FTPServerWinV10.Server
                 return;
             }
 
-            var absPath = GetAbsolutePath(filename);
+            var physical = ResolvePhysicalPath(ToVirtualPath(filename));
+            if (physical == null)
+            {
+                SendStatus(requestId, SSH_FX_NO_SUCH_FILE, $"No such file '{filename}'.", "en");
+                return;
+            }
+
             try
             {
-                File.Delete(absPath);
+                File.Delete(physical);
                 SendStatus(requestId, SSH_FX_OK, "", "");
             }
             catch (Exception)
@@ -438,8 +470,13 @@ namespace FTPServerWinV10.Server
                 return;
             }
 
-            var absOldPath = GetAbsolutePath(oldpath);
-            var absNewPath = GetAbsolutePath(newpath);
+            var absOldPath = ResolvePhysicalPath(ToVirtualPath(oldpath));
+            var absNewPath = ResolvePhysicalPath(ToVirtualPath(newpath));
+            if (absOldPath == null || absNewPath == null)
+            {
+                SendStatus(requestId, SSH_FX_NO_SUCH_FILE, "Path not found.", "en");
+                return;
+            }
 
             try
             {
@@ -466,11 +503,17 @@ namespace FTPServerWinV10.Server
                 return;
             }
 
-            var absPath = GetAbsolutePath(path);
+            var physical = ResolvePhysicalPath(ToVirtualPath(path));
+            if (physical == null)
+            {
+                SendStatus(requestId, SSH_FX_FAILURE, $"Failure to make directory '{path}'.", "en");
+                return;
+            }
+
             try
             {
-                Directory.CreateDirectory(absPath);
-                SetAttr(new DirectoryInfo(absPath), attr);
+                Directory.CreateDirectory(physical);
+                SetAttr(new DirectoryInfo(physical), attr);
                 SendStatus(requestId, SSH_FX_OK, "", "");
             }
             catch (Exception)
@@ -489,10 +532,16 @@ namespace FTPServerWinV10.Server
                 return;
             }
 
-            var absPath = GetAbsolutePath(path);
+            var physical = ResolvePhysicalPath(ToVirtualPath(path));
+            if (physical == null)
+            {
+                SendStatus(requestId, SSH_FX_FAILURE, $"Failure to delete directory '{path}'.", "en");
+                return;
+            }
+
             try
             {
-                Directory.Delete(absPath, false);
+                Directory.Delete(physical, false);
                 SendStatus(requestId, SSH_FX_OK, "", "");
             }
             catch (Exception)
@@ -500,7 +549,142 @@ namespace FTPServerWinV10.Server
                 SendStatus(requestId, SSH_FX_FAILURE, $"Failure to delete directory '{path}'.", "en");
             }
         }
+        #endregion
 
+        #region Path / listing helpers
+        private static string ToVirtualPath(string path) =>
+            VirtualFileSystem.NormalizePath(path);
+
+        private static bool IsVirtualRoot(string virtualPath) =>
+            virtualPath == "/";
+
+        private string? ResolvePhysicalPath(string virtualPath)
+        {
+            virtualPath = VirtualFileSystem.NormalizePath(virtualPath);
+            if (virtualPath == "/")
+                return _vfs.IsSingleMount ? _vfs.Resolve("/") : null;
+
+            return _vfs.Resolve(virtualPath) ?? _vfs.ResolveListingPath(virtualPath);
+        }
+
+        private FileStruct[] LoadDirEntries(DirHandleState state)
+        {
+            if (state.VirtualRoot)
+            {
+                return _vfs.VirtualNames
+                    .Select(name => MakeSyntheticDirEntry(name))
+                    .ToArray();
+            }
+
+            if (state.PhysicalPath == null)
+                return [];
+
+            return EnumeratePhysicalDir(state.PhysicalPath);
+        }
+
+        private static FileStruct[] EnumeratePhysicalDir(string physicalPath)
+        {
+            var list = new List<FileStruct>();
+            foreach (var x in new DirectoryInfo(physicalPath).EnumerateFileSystemInfos())
+            {
+                try
+                {
+                    list.Add(new FileStruct
+                    {
+                        FileName = x.Name,
+                        LongName = FormatLongName(x),
+                        fileAttr = GetAttr(x)
+                    });
+                }
+                catch
+                {
+                }
+            }
+            return list.ToArray();
+        }
+
+        private static FileStruct MakeSyntheticDirEntry(string name) => new()
+        {
+            FileName = name,
+            LongName = $"drwxrwxrwx 1 0 0 0 Jan  1  1970 {name}",
+            fileAttr = CreateDirectoryAttr()
+        };
+
+        private void StatPath(uint requestId, string virtualPath, string originalPath)
+        {
+            if (!_permissions.CanRead)
+            {
+                SendStatus(requestId, SSH_FX_PERMISSION_DENIED, $"Denied to access '{originalPath}'.", "en");
+                return;
+            }
+
+            if (IsVirtualRoot(virtualPath) && !_vfs.IsSingleMount)
+            {
+                SendAttrs(requestId, CreateDirectoryAttr());
+                return;
+            }
+
+            if (_vfs.DirectoryExists(virtualPath) && ResolvePhysicalPath(virtualPath) == null)
+            {
+                SendAttrs(requestId, CreateDirectoryAttr());
+                return;
+            }
+
+            if (!TryGetFileSystemInfo(virtualPath, out var info))
+            {
+                SendStatus(requestId, SSH_FX_NO_SUCH_FILE, $"No such file or directory '{originalPath}'.", "en");
+                return;
+            }
+
+            try
+            {
+                SendAttrs(requestId, GetAttr(info));
+            }
+            catch (Exception)
+            {
+                SendStatus(requestId, SSH_FX_FAILURE, $"Failed to stat '{originalPath}'.", "en");
+            }
+        }
+
+        private bool TryGetFileSystemInfo(string virtualPath, out FileSystemInfo info)
+        {
+            info = null!;
+            var physical = ResolvePhysicalPath(virtualPath);
+            if (physical == null)
+                return false;
+            if (!File.Exists(physical) && !Directory.Exists(physical))
+                return false;
+            info = File.GetAttributes(physical).HasFlag(FileAttributes.Directory)
+                ? new DirectoryInfo(physical)
+                : new FileInfo(physical);
+            return true;
+        }
+
+        private static bool HasReadPermission(string physicalPath)
+        {
+            try
+            {
+                if (File.Exists(physicalPath))
+                {
+                    using var _ = File.Open(physicalPath, FileMode.Open, FileAccess.Read);
+                    return true;
+                }
+                if (Directory.Exists(physicalPath))
+                {
+                    using var enumerator = new DirectoryInfo(physicalPath).EnumerateFileSystemInfos().GetEnumerator();
+                    return true;
+                }
+            }
+            catch
+            {
+            }
+            return false;
+        }
+
+        private void Log(string message) => _log?.Invoke($"SFTP: {message}");
+        #endregion
+
+        #region Attrs / IO helpers
         private FileAttr ReadFileAttrs(SshDataReader reader)
         {
             var attr = new FileAttr();
@@ -525,55 +709,25 @@ namespace FTPServerWinV10.Server
             return attr;
         }
 
-        private bool HasReadPermission(string path)
+        private static FileAttr CreateDirectoryAttr() => new()
         {
-            if (!_permissions.CanRead)
-                return false;
-            try
-            {
-                if (File.Exists(path))
-                {
-                    using (File.Open(path, FileMode.Open, FileAccess.Read))
-                        return true;
-                }
-                else if (Directory.Exists(path))
-                {
-                    new DirectoryInfo(path).GetFileSystemInfos();
-                    return true;
-                }
-            }
-            catch
-            {
-            }
-            return false;
-        }
+            Permissions = 0x41EDu,
+            AccessTime = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            ModificationTime = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        };
 
-        private FileStruct[] GetDir(string path, bool isReal)
-        {
-            return new DirectoryInfo(path)
-                .GetFileSystemInfos()
-                .Select(x => new FileStruct
-                {
-                    FileName = isReal ? x.FullName : x.Name,
-                    LongName = "",
-                    fileAttr = GetAttr(x)
-                })
-                .ToArray();
-        }
-
-        private FileAttr GetAttr(FileSystemInfo info)
+        private static FileAttr GetAttr(FileSystemInfo info)
         {
             try
             {
                 var isDir = info.Attributes.HasFlag(FileAttributes.Directory);
-                var attr = new FileAttr();
-                attr.Size = isDir ? null : (ulong)new FileInfo(info.FullName).Length;
-                // 0x4000 is directory, 0x8000 is regular file, 0x01B6 equal 0o666
-                attr.Permissions = isDir ? 0x41B6u : 0x81B6u;
-                attr.AccessTime = (uint)new DateTimeOffset(info.LastAccessTimeUtc, TimeSpan.Zero).ToUnixTimeSeconds();
-                attr.ModificationTime = (uint)new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero).ToUnixTimeSeconds();
-
-                return attr;
+                return new FileAttr
+                {
+                    Size = isDir ? null : (ulong)new FileInfo(info.FullName).Length,
+                    Permissions = isDir ? 0x41EDu : 0x81A4u,
+                    AccessTime = (uint)new DateTimeOffset(info.LastAccessTimeUtc, TimeSpan.Zero).ToUnixTimeSeconds(),
+                    ModificationTime = (uint)new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero).ToUnixTimeSeconds()
+                };
             }
             catch
             {
@@ -581,7 +735,7 @@ namespace FTPServerWinV10.Server
             }
         }
 
-        private void SetAttr(FileSystemInfo info, FileAttr attr)
+        private static void SetAttr(FileSystemInfo info, FileAttr attr)
         {
             if (attr.AccessTime != null)
                 info.LastAccessTimeUtc = DateTimeOffset.FromUnixTimeSeconds(attr.AccessTime.Value).UtcDateTime;
@@ -589,33 +743,17 @@ namespace FTPServerWinV10.Server
                 info.LastWriteTimeUtc = DateTimeOffset.FromUnixTimeSeconds(attr.ModificationTime.Value).UtcDateTime;
         }
 
-        private string NextHandle()
+        private static string FormatLongName(FileSystemInfo info)
         {
-            return Interlocked.Increment(ref _handleCursor).ToString();
+            var isDir = info.Attributes.HasFlag(FileAttributes.Directory);
+            var mode = isDir ? "drwxrwxrwx" : "-rw-rw-rw-";
+            var size = isDir ? 0 : new FileInfo(info.FullName).Length;
+            var stamp = info.LastWriteTimeUtc.ToString("MMM dd HH:mm", CultureInfo.InvariantCulture);
+            return $"{mode} 1 0 0 {size,8} {stamp} {info.Name}";
         }
 
-        private string GetAbsolutePath(string path)
-        {
-            var root = Path.GetFullPath(_rootPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var absPath = Path.GetFullPath(Path.Combine(root, path.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)));
-            var prefix = root + Path.DirectorySeparatorChar;
-            if (!absPath.Equals(root, StringComparison.OrdinalIgnoreCase) &&
-                !absPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                return root;
-            return absPath;
-        }
-
-        private string GetRelativePath(string path)
-        {
-            var root = Path.GetFullPath(_rootPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var abs = GetAbsolutePath(path);
-            if (abs.Equals(root, StringComparison.OrdinalIgnoreCase))
-                return "/";
-            var rel = Path.GetRelativePath(root, abs).Replace(Path.DirectorySeparatorChar, '/');
-            return "/" + rel.TrimStart('/');
-        }
+        private string NextHandle() =>
+            Interlocked.Increment(ref _handleCursor).ToString();
         #endregion
 
         #region Process responses
@@ -696,7 +834,7 @@ namespace FTPServerWinV10.Server
             SendPacket(writer.ToByteArray());
         }
 
-        private void WriteFileAttr(SshDataWriter writer, FileAttr attr)
+        private static void WriteFileAttr(SshDataWriter writer, FileAttr attr)
         {
             writer.Write(attr.Flags);
             if (attr.Size != null) writer.Write(attr.Size.Value);
@@ -715,14 +853,14 @@ namespace FTPServerWinV10.Server
         }
         #endregion
 
-        private class FileStruct
+        private sealed class FileStruct
         {
             public string FileName = "";
             public string LongName = "";
             public FileAttr fileAttr = new();
         }
 
-        private class FileAttr
+        private sealed class FileAttr
         {
             public uint Flags
             {
