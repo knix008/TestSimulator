@@ -4,6 +4,7 @@
 *.suo
 *.userosscache
 *.sln.docstates
+*.rsuser
 
 # Build results
 [Bb]in/
@@ -11,32 +12,42 @@
 
 # NuGet
 *.nupkg
+.nuget/
 packages/
 
-# WiX installer output
+# WiX installer (FTPServerWinV10Setup)
+FTPServerWinV10Setup/publish/
 *.msi
 *.wixpdb
 *.wixobj
 publish/
 
-# Runtime-generated settings & logs
+# FxSsh 소스 (setup-fxssh.ps1로 클론 — 저장소에 포함하지 않음)
+_fxssh_src/
+
+# 로컬 점검·임시 폴더
+_inspect/
+
+# Runtime-generated settings & logs (실행 파일 폴더 기준)
 server_settings.json
 profiles/
 ftpserver.log
 *.log
 
-# SSL certificates (should not be committed)
+# 앱에서 생성하는 인증서·키 (커밋 금지)
+server_cert.pfx
 *.pfx
 *.pem
 *.crt
 *.cer
 *.key
 
-# Windows / macOS
+# OS
 Thumbs.db
+Desktop.ini
 *.DS_Store
 
-# Misc editor / temp files
+# Editor / temp
 *.tmp
 *.bak
 *.swp

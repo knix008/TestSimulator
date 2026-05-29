@@ -6,6 +6,8 @@ namespace FTPServerWinV10
     public partial class MainForm : Form
     {
         private const string SettingsFile = "server_settings.json";
+        private static string SettingsFilePath =>
+            System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsFile);
         private bool allowAnonymous = true;
         private OpenFileDialog openCertDialog = new OpenFileDialog();
         private List<Server.SharedFolderEntry> _sharedFolders = new();
@@ -57,14 +59,32 @@ namespace FTPServerWinV10
         }
 
         // ── Legacy settings (single file) ────────────────────────────────────────
-        private void SaveSettings() =>
-            Server.ServerSettings.Save(SettingsFile, BuildSettings());
+        private void SaveSettings()
+        {
+            try
+            {
+                Server.ServerSettings.Save(SettingsFile, BuildSettings());
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "설정 저장 오류", "설정을 저장하지 못했습니다.", ex,
+                    $"파일: {SettingsFilePath}");
+            }
+        }
 
         private void LoadSettings()
         {
-            var settings = Server.ServerSettings.Load(SettingsFile);
-            if (settings == null) return;
-            ApplySettings(settings);
+            try
+            {
+                var settings = Server.ServerSettings.Load(SettingsFile);
+                if (settings == null) return;
+                ApplySettings(settings);
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "설정 불러오기 오류", "저장된 설정을 읽지 못했습니다.", ex,
+                    $"파일: {SettingsFilePath}");
+            }
         }
 
         // ── Profile management ────────────────────────────────────────────────────
@@ -86,20 +106,44 @@ namespace FTPServerWinV10
         {
             if (_loadingProfiles) return;
             if (cmbProfiles.SelectedItem is not string name) return;
-            var settings = Server.ServerSettings.LoadProfile(name);
-            if (settings == null) return;
-            ApplySettings(settings);
-            AddLog($"프로파일 '{name}' 불러오기 완료");
+            try
+            {
+                var settings = Server.ServerSettings.LoadProfile(name);
+                if (settings == null)
+                {
+                    ErrorDialog.ShowWarning(this, "프로파일 불러오기",
+                        $"프로파일 '{name}'을(를) 읽을 수 없습니다.",
+                        $"파일: {GetProfileFilePath(name)}");
+                    return;
+                }
+                ApplySettings(settings);
+                AddLog($"프로파일 '{name}' 불러오기 완료");
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "프로파일 불러오기 오류",
+                    $"프로파일 '{name}'을(를) 불러오지 못했습니다.", ex,
+                    $"파일: {GetProfileFilePath(name)}");
+            }
         }
 
         private void btnSaveProfile_Click(object sender, EventArgs e)
         {
             string? name = cmbProfiles.SelectedItem as string ?? PromptForProfileName();
             if (string.IsNullOrWhiteSpace(name)) return;
-            Server.ServerSettings.SaveProfile(name, BuildSettings());
-            LoadProfileList();
-            cmbProfiles.SelectedItem = name;
-            AddLog($"프로파일 '{name}' 저장 완료");
+            try
+            {
+                Server.ServerSettings.SaveProfile(name, BuildSettings());
+                LoadProfileList();
+                cmbProfiles.SelectedItem = name;
+                AddLog($"프로파일 '{name}' 저장 완료");
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "프로파일 저장 오류",
+                    $"프로파일 '{name}'을(를) 저장하지 못했습니다.", ex,
+                    $"파일: {GetProfileFilePath(name)}");
+            }
         }
 
         private void btnDeleteProfile_Click(object sender, EventArgs e)
@@ -107,10 +151,22 @@ namespace FTPServerWinV10
             if (cmbProfiles.SelectedItem is not string name) return;
             if (MessageBox.Show($"'{name}' 프로파일을 삭제할까요?", "삭제 확인",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-            Server.ServerSettings.DeleteProfile(name);
-            LoadProfileList();
-            AddLog($"프로파일 '{name}' 삭제됨");
+            try
+            {
+                Server.ServerSettings.DeleteProfile(name);
+                LoadProfileList();
+                AddLog($"프로파일 '{name}' 삭제됨");
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.ShowError(this, "프로파일 삭제 오류",
+                    $"프로파일 '{name}'을(를) 삭제하지 못했습니다.", ex,
+                    $"파일: {GetProfileFilePath(name)}");
+            }
         }
+
+        private static string GetProfileFilePath(string name) =>
+            System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "profiles", name + ".json");
 
         private string? PromptForProfileName()
         {
@@ -179,8 +235,8 @@ namespace FTPServerWinV10
             catch (Exception ex)
             {
                 AddLog($"인증서 생성 실패: {ex.Message}");
-                MessageBox.Show($"인증서 생성 실패:\n{ex.Message}", "오류",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ErrorDialog.ShowError(this, "인증서 생성 오류", "자체 서명 인증서를 생성하지 못했습니다.", ex,
+                    $"CN: {dlg.CommonName}\r\n저장 경로: {dlg.PfxPath}\r\n유효 기간: {dlg.ValidityYears}년");
             }
         }
 
@@ -226,12 +282,14 @@ namespace FTPServerWinV10
 
             if (string.IsNullOrEmpty(virtualName))
             {
-                MessageBox.Show("가상 이름을 입력하세요.", "입력 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ErrorDialog.ShowWarning(this, "입력 오류", "가상 이름을 입력하세요.",
+                    "공유 폴더의 URL 경로에 사용됩니다. 예: data → ftp://서버/data/");
                 return;
             }
             if (!System.IO.Directory.Exists(physicalPath))
             {
-                MessageBox.Show("실제 경로가 존재하지 않습니다.", "입력 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ErrorDialog.ShowWarning(this, "입력 오류", "실제 경로가 존재하지 않습니다.",
+                    $"입력한 경로:\r\n{physicalPath}\r\n\r\n폴더가 있는지, 드라이브·네트워크 경로가 연결되어 있는지 확인하세요.");
                 return;
             }
 
@@ -278,7 +336,8 @@ namespace FTPServerWinV10
             string pw = txtPw.Text;
             if (string.IsNullOrEmpty(id))
             {
-                MessageBox.Show("아이디를 입력하세요.", "입력 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ErrorDialog.ShowWarning(this, "입력 오류", "아이디를 입력하세요.",
+                    "익명 접속이 꺼져 있으면 등록된 사용자만 로그인할 수 있습니다.");
                 return;
             }
             var entry = new Server.UserEntry { Username = id, Password = pw };
@@ -323,21 +382,31 @@ namespace FTPServerWinV10
         {
             if (_sharedFolders.Count == 0)
             {
-                MessageBox.Show("공유 폴더를 먼저 추가하세요.", "설정 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ErrorDialog.ShowWarning(this, "설정 오류", "공유 폴더를 먼저 추가하세요.",
+                    "「공유 폴더」 탭에서 가상 이름과 실제 경로를 하나 이상 등록해야 서버를 시작할 수 있습니다.");
                 return;
             }
 
             if (!chkEnableFtp.Checked && !chkEnableFtps.Checked && !chkEnableSftp.Checked)
             {
-                MessageBox.Show("FTP, FTPS, SFTP 중 하나 이상을 선택하세요.", "설정 필요",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ErrorDialog.ShowWarning(this, "설정 오류",
+                    "FTP, FTPS, SFTP 중 하나 이상을 선택하세요.",
+                    "「프로토콜」 그룹에서 사용할 프로토콜을 체크하고 포트를 확인하세요.");
                 return;
             }
 
             if (chkEnableFtps.Checked && string.IsNullOrWhiteSpace(txtCertPath.Text))
             {
-                MessageBox.Show("FTPS를 사용하려면 SSL 인증서(PFX)를 지정하세요.", "설정 필요",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                ErrorDialog.ShowWarning(this, "설정 오류",
+                    "FTPS를 사용하려면 SSL 인증서(PFX)를 지정하세요.",
+                    "「인증」 영역에서 PFX 파일을 선택하거나 「인증서 생성」으로 새 인증서를 만드세요.");
+                return;
+            }
+
+            if (chkEnableFtps.Checked && !System.IO.File.Exists(txtCertPath.Text.Trim()))
+            {
+                ErrorDialog.ShowWarning(this, "설정 오류", "지정한 SSL 인증서 파일을 찾을 수 없습니다.",
+                    $"경로:\r\n{txtCertPath.Text.Trim()}");
                 return;
             }
 
@@ -399,14 +468,26 @@ namespace FTPServerWinV10
             {
                 AddLog($"서버 시작 실패: {ex.Message}");
                 StopServer();
-                MessageBox.Show($"서버를 시작하지 못했습니다.\n{ex.Message}", "오류",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ErrorDialog.ShowError(this, "서버 시작 오류", "서버를 시작하지 못했습니다.", ex,
+                    BuildServerStartDetails(certPath));
             }
+        }
+
+        private void OnServerError(string message, Exception? ex)
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new Action(() => OnServerError(message, ex)));
+                return;
+            }
+            AddLog($"{message}: {ex?.Message ?? ""}");
+            ErrorDialog.ShowError(this, "서버 실행 오류", message, ex);
         }
 
         private void WireFtpEvents(Server.FtpServerManager mgr)
         {
             mgr.OnLog += AddLog;
+            mgr.OnError += OnServerError;
             if (mgr is Server.FtpsServerManager)
                 mgr.OnClientCountChanged += c => UpdateProtocolClientCount(ref _ftpsClients, c);
             else
@@ -584,6 +665,27 @@ namespace FTPServerWinV10
             if (bytes >= 1_048_576)     return $"{bytes / 1_048_576.0:F1} MB";
             if (bytes >= 1_024)         return $"{bytes / 1_024.0:F1} KB";
             return $"{bytes} B";
+        }
+
+        private string BuildServerStartDetails(string certPath)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("── 프로토콜 ──");
+            if (chkEnableFtp.Checked)
+                sb.AppendLine($"FTP  : 포트 {(int)numFtpPort.Value}");
+            if (chkEnableFtps.Checked)
+                sb.AppendLine($"FTPS : 포트 {(int)numFtpsPort.Value}, 인증서: {certPath}");
+            if (chkEnableSftp.Checked)
+                sb.AppendLine($"SFTP : 포트 {(int)numSftpPort.Value}");
+            sb.AppendLine($"익명 접속: {(chkAnonymous.Checked ? "허용" : "거부")}");
+            sb.AppendLine($"사용자 수: {_users.Count}");
+            sb.AppendLine();
+            sb.AppendLine("── 공유 폴더 ──");
+            foreach (var f in _sharedFolders)
+                sb.AppendLine($"  /{f.VirtualName} → {f.PhysicalPath}");
+            sb.AppendLine();
+            sb.AppendLine("포트가 다른 프로그램에서 사용 중이거나, SFTP junction 생성에 관리자 권한이 필요할 수 있습니다.");
+            return sb.ToString();
         }
     }
 }

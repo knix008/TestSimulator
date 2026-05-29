@@ -18,6 +18,7 @@ namespace FTPServerWinV10.Server
         private int _clientCount = 0;
 
         public event Action<string>?       OnLog;
+        public event Action<string, Exception?>? OnError;
         public event Action<int>?          OnClientCountChanged;
         public event Action<string, long>? OnFileUploaded;
         public event Action<string, long>? OnFileDownloaded;
@@ -59,7 +60,11 @@ namespace FTPServerWinV10.Server
                 }
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { OnLog?.Invoke($"서버 오류: {ex.Message}"); }
+            catch (Exception ex)
+            {
+                OnLog?.Invoke($"서버 오류: {ex.Message}");
+                OnError?.Invoke($"FTP 수신 루프 오류 (포트 {_port})", ex);
+            }
         }
 
         private async Task HandleClientAsync(TcpClient client, CancellationToken token)

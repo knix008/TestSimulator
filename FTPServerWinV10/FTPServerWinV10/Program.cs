@@ -2,15 +2,19 @@ namespace FTPServerWinV10;
 
 static class Program
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
     [STAThread]
     static void Main()
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
         ApplicationConfiguration.Initialize();
+        Application.ThreadException += (_, e) =>
+            ErrorDialog.ShowError(null, "처리되지 않은 오류",
+                "예기치 않은 오류가 발생했습니다.", e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                ErrorDialog.ShowError(null, "치명적 오류",
+                    "프로그램을 계속 실행할 수 없습니다.", ex);
+        };
         Application.Run(new MainForm());
-    }    
+    }
 }
