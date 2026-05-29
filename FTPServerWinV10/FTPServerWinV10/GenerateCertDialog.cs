@@ -37,7 +37,7 @@ namespace FTPServerWinV10
             if (string.IsNullOrWhiteSpace(txtSavePath.Text))
             {
                 ErrorDialog.ShowWarning(this, "입력 오류", "저장 경로를 선택하세요.",
-                    "생성할 PFX 파일의 전체 경로를 지정해야 합니다.");
+                    "생성할 인증서 파일(.pfx)의 전체 경로를 지정해야 합니다.");
                 return;
             }
             DialogResult = DialogResult.OK;

@@ -34,7 +34,7 @@ namespace FTPServerWinV10
             InitializeComponent();
             this.KeyPreview = true;
             this.KeyDown += MainForm_KeyDown;
-            openCertDialog.Filter = "PFX 인증서 (*.pfx)|*.pfx|모든 파일 (*.*)|*.*";
+            openCertDialog.Filter = "SSL 인증서 (*.pfx)|*.pfx|모든 파일 (*.*)|*.*";
             _defaultLogFilePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ftpserver.log");
             logManager = new Server.LogManager(_defaultLogFilePath);
             saveLogDialog.Filter = "로그 파일 (*.log)|*.log|텍스트 (*.txt)|*.txt|모든 파일 (*.*)|*.*";
@@ -46,7 +46,23 @@ namespace FTPServerWinV10
             SetupSecurityTooltips();
             UpdateProtocolUiState();
             SetupLogCopy();
+            SetupUserListEvents();
             AddLog($"자동 로그 저장: {_defaultLogFilePath}");
+        }
+
+        private void SetupUserListEvents()
+        {
+            lvUsers.DoubleClick += (_, _) =>
+            {
+                if (lvUsers.SelectedIndices.Count == 0) return;
+                int idx = lvUsers.SelectedIndices[0];
+                var existing = _users.ElementAtOrDefault(idx)
+                    ?? lvUsers.SelectedItems[0].Tag as Server.UserEntry;
+                if (existing == null) return;
+                if (!ShowUserEditorDialog(existing, out var updated)) return;
+                _users[idx] = updated;
+                lvUsers.Items[idx] = CreateUserListItem(updated);
+            };
         }
 
         // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -130,7 +146,8 @@ namespace FTPServerWinV10
                     return;
                 }
                 ApplySettings(settings);
-                AddLog($"프로파일 '{name}' 불러오기 완료");
+                var u = settings.Users?.Count ?? 0;
+                AddLog($"프로파일 '{name}' 불러오기 완료 — 공유 {settings.SharedFolders.Count}개, 사용자 {u}명");
             }
             catch (Exception ex)
             {
@@ -146,10 +163,12 @@ namespace FTPServerWinV10
             if (string.IsNullOrWhiteSpace(name)) return;
             try
             {
-                Server.ServerSettings.SaveProfile(name, BuildSettings());
+                var settings = BuildSettings();
+                Server.ServerSettings.SaveProfile(name, settings);
+                Server.ServerSettings.Save(SettingsFile, settings);
                 LoadProfileList();
                 cmbProfiles.SelectedItem = name;
-                AddLog($"프로파일 '{name}' 저장 완료");
+                AddLog(FormatProfileSaveSummary(name, settings));
             }
             catch (Exception ex)
             {
@@ -233,17 +252,17 @@ namespace FTPServerWinV10
         {
             toolTipSecurity.SetToolTip(lblFtpsSection,
                 "FTPS(Implicit SSL, 기본 포트 990)에서만 사용합니다.\r\n" +
-                "X.509 인증서를 PFX 파일로 지정하거나 자체 서명 PFX를 생성합니다.");
+                "SSL/TLS 인증서 파일(.pfx)을 지정하거나 자체 서명 인증서를 생성합니다.");
             toolTipSecurity.SetToolTip(txtCertPath,
                 "FTPS용 SSL/TLS 인증서 파일(.pfx) 경로입니다.\r\nSFTP에는 사용하지 않습니다.");
-            toolTipSecurity.SetToolTip(btnSelectCert, "기존 PFX 인증서 파일을 선택합니다.");
+            toolTipSecurity.SetToolTip(btnSelectCert, "기존 SSL 인증서 파일(.pfx)을 선택합니다.");
             toolTipSecurity.SetToolTip(btnGenerateCert,
-                "FTPS용 자체 서명 X.509 인증서(PFX)를 새로 생성합니다.");
-            toolTipSecurity.SetToolTip(txtCertPw, "PFX 파일을 열 때 사용하는 암호입니다.");
+                "FTPS용 자체 서명 SSL 인증서(.pfx)를 새로 생성합니다.");
+            toolTipSecurity.SetToolTip(txtCertPw, "인증서 파일(.pfx)을 열 때 사용하는 암호입니다.");
 
             toolTipSecurity.SetToolTip(lblSftpSection,
                 "SFTP(SSH, 기본 포트 22)에서만 사용합니다.\r\n" +
-                "SSL 인증서(PFX)가 아니라 SSH 호스트 키(PEM)입니다.\r\n" +
+                "FTPS용 SSL 인증서가 아니라 SSH 호스트 키(.pem)입니다.\r\n" +
                 "클라이언트는 첫 접속 시 아래 SHA256 지문으로 서버를 확인합니다.");
             toolTipSecurity.SetToolTip(txtSftpHostKeyPath,
                 "SFTP용 RSA 호스트 개인키(PEM) 경로입니다.\r\n서버 시작 시 없으면 자동 생성됩니다.");
@@ -286,7 +305,7 @@ namespace FTPServerWinV10
                 RefreshSftpHostKeyUi();
                 AddLog($"SFTP 호스트 키 생성: {path}");
                 MessageBox.Show(
-                    $"SFTP SSH 호스트 키가 생성되었습니다.\n(X.509 PFX 인증서가 아닙니다.)\n\n경로:\n{path}\n\n{lblSftpFingerprint.Text}",
+                    $"SFTP SSH 호스트 키가 생성되었습니다.\n(FTPS용 SSL 인증서와는 별개입니다.)\n\n경로:\n{path}\n\n{lblSftpFingerprint.Text}",
                     "생성 완료",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -329,8 +348,8 @@ namespace FTPServerWinV10
                 txtCertPw.Text = dlg.PfxPassword;
                 AddLog($"자체 서명 인증서 생성 완료: {dlg.PfxPath}");
                 MessageBox.Show(
-                    $"FTPS용 PFX 인증서가 생성되었습니다.\n(SFTP 호스트 키와는 별개입니다.)\n\n경로: {dlg.PfxPath}\n유효 기간: {dlg.ValidityYears}년",
-                    "PFX 생성 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    $"FTPS용 SSL 인증서가 생성되었습니다.\n(SFTP 호스트 키와는 별개입니다.)\n\n경로: {dlg.PfxPath}\n유효 기간: {dlg.ValidityYears}년",
+                    "인증서 생성 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -541,8 +560,8 @@ namespace FTPServerWinV10
             if (chkEnableFtps.Checked && string.IsNullOrWhiteSpace(txtCertPath.Text))
             {
                 ErrorDialog.ShowWarning(this, "설정 오류",
-                    "FTPS를 사용하려면 SSL 인증서(PFX)를 지정하세요.",
-                    "「인증」 영역에서 PFX 파일을 선택하거나 「인증서 생성」으로 새 인증서를 만드세요.");
+                    "FTPS를 사용하려면 SSL 인증서를 지정하세요.",
+                    "「서버 설정」에서 인증서 파일(.pfx)을 선택하거나 「인증서 생성」으로 새 인증서를 만드세요.");
                 return;
             }
 
@@ -853,30 +872,85 @@ namespace FTPServerWinV10
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────
-        private Server.ServerSettings BuildSettings() => new Server.ServerSettings
+        /// <summary>목록 UI의 내용을 내부 모델과 동기화한 뒤 전체 설정 스냅샷을 만듭니다.</summary>
+        private void SyncUiToModel()
         {
-            SharedFolders  = _sharedFolders.ToList(),
-            CertPath         = txtCertPath.Text,
-            CertPassword     = txtCertPw.Text,
-            SftpHostKeyPath  = txtSftpHostKeyPath.Text,
-            AllowAnonymous = chkAnonymous.Checked,
-            Users          = _users.ToList(),
-            BufferSizeKb   = (int)numBuffer.Value,
-            MaxThreads     = (int)numThreads.Value,
-            Protocols      = new Server.ProtocolSettings
+            _sharedFolders.Clear();
+            foreach (ListViewItem item in lvFolders.Items)
             {
-                EnableFtp   = chkEnableFtp.Checked,
-                EnableFtps  = chkEnableFtps.Checked,
-                EnableSftp  = chkEnableSftp.Checked,
-                FtpPort     = (int)numFtpPort.Value,
-                FtpsPort    = (int)numFtpsPort.Value,
-                SftpPort    = (int)numSftpPort.Value
+                var physical = item.SubItems.Count > 0 ? item.SubItems[0].Text : "";
+                _sharedFolders.Add(new Server.SharedFolderEntry
+                {
+                    VirtualName = item.Text,
+                    PhysicalPath = physical
+                });
             }
+
+            _users.Clear();
+            foreach (ListViewItem item in lvUsers.Items)
+            {
+                if (item.Tag is Server.UserEntry u)
+                    _users.Add(CloneUserEntry(u));
+            }
+        }
+
+        private static Server.UserEntry CloneUserEntry(Server.UserEntry u) => new()
+        {
+            Username = u.Username,
+            Password = u.Password,
+            CanRead = u.CanRead,
+            CanWrite = u.CanWrite
         };
+
+        private Server.ServerSettings BuildSettings()
+        {
+            SyncUiToModel();
+            return new Server.ServerSettings
+            {
+                SettingsVersion = Server.ServerSettings.CurrentSettingsVersion,
+                SharedFolders = _sharedFolders.Select(f => new Server.SharedFolderEntry
+                {
+                    VirtualName = f.VirtualName,
+                    PhysicalPath = f.PhysicalPath
+                }).ToList(),
+                CertPath = txtCertPath.Text.Trim(),
+                CertPassword = txtCertPw.Text,
+                SftpHostKeyPath = txtSftpHostKeyPath.Text.Trim(),
+                AllowAnonymous = chkAnonymous.Checked,
+                Users = _users.Select(CloneUserEntry).ToList(),
+                BufferSizeKb = (int)numBuffer.Value,
+                MaxThreads = (int)numThreads.Value,
+                Protocols = new Server.ProtocolSettings
+                {
+                    EnableFtp = chkEnableFtp.Checked,
+                    EnableFtps = chkEnableFtps.Checked,
+                    EnableSftp = chkEnableSftp.Checked,
+                    FtpPort = (int)numFtpPort.Value,
+                    FtpsPort = (int)numFtpsPort.Value,
+                    SftpPort = (int)numSftpPort.Value
+                }
+            };
+        }
+
+        private static string FormatProfileSaveSummary(string name, Server.ServerSettings s)
+        {
+            var proto = s.Protocols ?? new Server.ProtocolSettings();
+            var protocols = new List<string>();
+            if (proto.EnableFtp) protocols.Add($"FTP:{proto.FtpPort}");
+            if (proto.EnableFtps) protocols.Add($"FTPS:{proto.FtpsPort}");
+            if (proto.EnableSftp) protocols.Add($"SFTP:{proto.SftpPort}");
+            return $"프로파일 '{name}' 저장 완료 — 공유 {s.SharedFolders.Count}개, 사용자 {s.Users.Count}명, " +
+                   $"익명 {(s.AllowAnonymous ? "허용" : "거부")}, 프로토콜 [{string.Join(", ", protocols)}]";
+        }
 
         private void ApplySettings(Server.ServerSettings s)
         {
-            _sharedFolders = s.SharedFolders.ToList();
+            s = Server.ServerSettings.Normalize(s);
+            _sharedFolders = s.SharedFolders.Select(f => new Server.SharedFolderEntry
+            {
+                VirtualName = f.VirtualName,
+                PhysicalPath = f.PhysicalPath
+            }).ToList();
             lvFolders.Items.Clear();
             foreach (var entry in _sharedFolders)
             {
@@ -885,13 +959,7 @@ namespace FTPServerWinV10
                 lvFolders.Items.Add(item);
             }
 
-            _users = s.Users.Select(u => new Server.UserEntry
-            {
-                Username = u.Username,
-                Password = u.Password,
-                CanRead = u.CanRead,
-                CanWrite = u.CanWrite
-            }).ToList();
+            _users = s.Users.Select(CloneUserEntry).ToList();
             lvUsers.Items.Clear();
             foreach (var u in _users)
                 lvUsers.Items.Add(CreateUserListItem(u));

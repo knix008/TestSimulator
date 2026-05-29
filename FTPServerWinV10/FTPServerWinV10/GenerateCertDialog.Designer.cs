@@ -73,7 +73,7 @@ namespace FTPServerWinV10
 
             // Row 4 – 저장 경로 (y=134): textbox + browse button
             // txtSavePath: ctrlX..330 (w=222), btnBrowse: 334..428 (w=94)
-            this.lblPath.Text = "PFX 저장 경로:";
+            this.lblPath.Text = "저장 경로:";
             this.lblPath.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lblPath.Location = new System.Drawing.Point(labelX, 134);
             this.lblPath.Size = new System.Drawing.Size(labelW, 27);
@@ -128,7 +128,7 @@ namespace FTPServerWinV10
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.Text = "FTPS 자체 서명 인증서 생성 (.pfx)";
+            this.Text = "FTPS 자체 서명 SSL 인증서 생성";
             this.CancelButton = this.btnCancel;
             this.Controls.Add(this.lblCN);
             this.Controls.Add(this.txtCN);

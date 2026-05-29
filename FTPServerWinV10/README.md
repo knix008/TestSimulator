@@ -10,10 +10,10 @@ Windows용 **FTP / FTPS / SFTP** 서버 관리 프로그램 (C# WinForms, .NET 8
 |------|------|
 | 다중 공유 폴더 | 여러 물리 폴더를 가상 경로(`/이름`)로 매핑 — FTP·SFTP 동일 경로 |
 | FTP | 평문 FTP (기본 포트 **21**), LIST/MLSD, PASV, 업·다운로드 |
-| FTPS | Implicit SSL/TLS (기본 포트 **990**, **PFX** 인증서) |
+| FTPS | Implicit SSL/TLS (기본 포트 **990**, **SSL 인증서**) |
 | SFTP | SSH SFTP v3 (기본 포트 **22**, **SSH 호스트 키** PEM) |
 | 동시 프로토콜 | UI에서 FTP / FTPS / SFTP를 각각 켜고 **동시 실행** |
-| FTPS 인증서 | 자체 서명 **PFX** 생성·선택 (RSA 2048, SHA-256) |
+| FTPS 인증서 | 자체 서명 **SSL 인증서** 생성·선택 (`.pfx`, RSA 2048) |
 | SFTP 호스트 키 | RSA **PEM** 생성·지문(SHA256) 표시 — X.509 인증서와 별도 |
 | 인증 | 익명(읽기 전용) 또는 사용자 ID/비밀번호, **읽기·쓰기** 권한 |
 | 프로파일 | 설정을 이름으로 저장·불러오기·삭제 |
@@ -26,11 +26,11 @@ Windows용 **FTP / FTPS / SFTP** 서버 관리 프로그램 (C# WinForms, .NET 8
 | | **FTPS** | **SFTP** |
 |---|----------|----------|
 | 용도 | SSL/TLS 채널 암호화 | SSH 서버 신원 확인 |
-| 파일 형식 | `.pfx` (X.509) | `.pem` (RSA 개인키) |
-| UI 위치 | 서버 설정 → **FTPS (990) — PFX** | 서버 설정 → **SFTP (22) — 호스트 키** |
+| 파일 형식 | `.pfx` (SSL/TLS 인증서) | `.pem` (SSH 호스트 키) |
+| UI 위치 | 서버 설정 → **FTPS — SSL 인증서** | 서버 설정 → **SFTP — 호스트 키** |
 | 기본 경로 | 사용자 지정 (예: `server_cert.pfx`) | `%LocalAppData%\FTPServerWinV10\ssh_host_rsa.pem` |
 
-SFTP에는 FTPS용 PFX가 필요하지 않습니다. 반대로 FTPS에는 SFTP 호스트 키가 사용되지 않습니다.
+SFTP에는 FTPS용 SSL 인증서가 필요하지 않습니다. 반대로 FTPS에는 SFTP 호스트 키가 사용되지 않습니다.
 
 ## 요구 사항
 
@@ -84,13 +84,13 @@ FTPServerWinV10/
       VirtualFileSystem.cs      가상 경로 → 물리 경로
       ServerSettings.cs         JSON 설정·프로파일
       ProtocolSettings.cs       프로토콜별 포트·활성화
-      CertificateGenerator.cs   FTPS 자체 서명 PFX
+      CertificateGenerator.cs   FTPS 자체 서명 SSL 인증서
       UserAuthHelper.cs         인증·세션 권한
       SessionPermissions.cs
       LogManager.cs
     ErrorDialog.cs              상세·복사 가능 오류 팝업
     MainForm.cs
-    GenerateCertDialog.cs       FTPS PFX 생성 대화상자
+    GenerateCertDialog.cs       FTPS SSL 인증서 생성 대화상자
   FTPServerWinV10Setup/         WiX v7 MSI
   setup-fxssh.ps1               FxSsh dev 클론 스크립트
   global.json                   WiX SDK 7.0.0 고정
@@ -132,14 +132,14 @@ FTPServerWinV10/
 |------|------|
 | SFTP `did not receive FXP_VERSION` | 서버 재시작, 로그에 `FXP_INIT -> FXP_VERSION` 여부 확인 |
 | SFTP 목록 실패 | 공유 폴더 등록·읽기 권한, 로그의 `SFTP: OPENDIR` 메시지 |
-| FTPS 연결 실패 | FTPS 체크, PFX 경로·암호, 포트 990 방화벽 |
+| FTPS 연결 실패 | FTPS 체크, 인증서 경로·암호, 포트 990 방화벽 |
 | 호스트 키 변경 경고 | SFTP **키 생성** 후 클라이언트에서 새 지문 신뢰 |
 
 상세 내용은 [UserGuide.md](UserGuide.md) §13 문제 해결을 참고하세요.
 
 ## 문서
 
-- [UserGuide.md](UserGuide.md) — 설치, UI, 프로토콜, FTPS PFX / SFTP 호스트 키, 인증, 프로파일, 문제 해결
+- [UserGuide.md](UserGuide.md) — 설치, UI, 프로토콜, FTPS SSL 인증서 / SFTP 호스트 키, 인증, 프로파일, 문제 해결
 
 ## 라이선스
 

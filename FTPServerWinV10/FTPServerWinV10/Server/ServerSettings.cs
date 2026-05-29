@@ -4,6 +4,11 @@ namespace FTPServerWinV10.Server
 {
     public class ServerSettings
     {
+        /// <summary>설정 스키마 버전 (프로파일 호환용).</summary>
+        public int SettingsVersion { get; set; } = CurrentSettingsVersion;
+
+        public const int CurrentSettingsVersion = 2;
+
         public List<SharedFolderEntry> SharedFolders { get; set; } = new();
         public string CertPath { get; set; } = "";
         public string CertPassword { get; set; } = "";
@@ -15,8 +20,13 @@ namespace FTPServerWinV10.Server
         public int MaxThreads { get; set; }
         public ProtocolSettings Protocols { get; set; } = new();
 
-        private static readonly JsonSerializerOptions _jsonOpts =
-            new JsonSerializerOptions { WriteIndented = true };
+        private static readonly JsonSerializerOptions _jsonOpts = new()
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        };
 
         // ── Single-file save/load (legacy / default) ──────────────────────────────
         public static void Save(string file, ServerSettings settings) =>
@@ -25,7 +35,19 @@ namespace FTPServerWinV10.Server
         public static ServerSettings? Load(string file)
         {
             if (!File.Exists(file)) return null;
-            return JsonSerializer.Deserialize<ServerSettings>(File.ReadAllText(file));
+            var settings = JsonSerializer.Deserialize<ServerSettings>(File.ReadAllText(file), _jsonOpts);
+            return settings == null ? null : Normalize(settings);
+        }
+
+        /// <summary>누락된 항목을 기본값으로 채웁니다.</summary>
+        public static ServerSettings Normalize(ServerSettings s)
+        {
+            s.SharedFolders ??= new List<SharedFolderEntry>();
+            s.Users ??= new List<UserEntry>();
+            s.Protocols ??= new ProtocolSettings();
+            if (s.SettingsVersion <= 0)
+                s.SettingsVersion = 1;
+            return s;
         }
 
         // ── Profile management ────────────────────────────────────────────────────
