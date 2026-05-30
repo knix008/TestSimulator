@@ -1056,7 +1056,7 @@ GtkWidget *build_main_window(AppState *app) {
     GtkWidget *ent_buf = gtk_entry_new();
     gtk_entry_set_text(GTK_ENTRY(ent_buf), "64");
     gtk_widget_set_size_request(ent_buf, 70, -1);
-    GtkWidget *lbl_thr = gtk_label_new("최대 스레드:");
+    GtkWidget *lbl_thr = gtk_label_new("최대 동시 연결수:");
     gtk_widget_set_halign(lbl_thr, GTK_ALIGN_END);
     GtkWidget *ent_thr = gtk_entry_new();
     gtk_entry_set_text(GTK_ENTRY(ent_thr), "10");

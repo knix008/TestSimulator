@@ -117,7 +117,7 @@ bool settings_load(ServerSettings *s, const char *path) {
     str_copy(s->sftp_host_key_path,  jstr(root, "SftpHostKeyPath"), MAX_PATH_LEN);
     s->allow_anonymous = jbool(root, "AllowAnonymous", false);
     s->buffer_size_kb  = jint(root, "BufferSizeKb", 64);
-    s->max_threads     = jint(root, "MaxThreads", 10);
+    s->max_threads     = jint(root, "MaxThreads", 1);
 
     json_object *users = NULL;
     if (json_object_object_get_ex(root, "Users", &users)) {

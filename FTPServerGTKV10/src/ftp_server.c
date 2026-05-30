@@ -13,6 +13,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
+#include <sys/sendfile.h>
 #include <pthread.h>
 #include <ctype.h>
 #include <openssl/ssl.h>
@@ -372,6 +373,8 @@ static void cmd_retr(Session *s, const char *arg) {
 
     struct stat st;
     fstat(file_fd, &st);
+    posix_fadvise(file_fd, 0, 0, POSIX_FADV_SEQUENTIAL);
+
     char msg[64];
     snprintf(msg, sizeof(msg), "Opening BINARY mode data connection (%lld bytes).",
              (long long)st.st_size);
@@ -380,22 +383,36 @@ static void cmd_retr(Session *s, const char *arg) {
     int dfd = open_data_connection(s);
     if (dfd < 0) { close(file_fd); send_resp(s, 425, "Cannot open data connection."); return; }
 
-    int bufsz = (s->srv->settings->buffer_size_kb > 0 ?
-                 s->srv->settings->buffer_size_kb : 64) * 1024;
-    char *buf = malloc(bufsz);
     long total = 0;
-    ssize_t n;
-    while ((n = read(file_fd, buf, bufsz)) > 0) {
-        ssize_t written = 0;
-        while (written < n) {
-            ssize_t w = data_write(s, dfd, buf + written, n - written);
-            if (w <= 0) goto retr_done;
-            written += w;
+
+    if (!s->data_ssl) {
+        /* Plain FTP: zero-copy kernel sendfile */
+        off_t offset = 0;
+        off_t remaining = st.st_size;
+        while (remaining > 0) {
+            ssize_t sent = sendfile(dfd, file_fd, &offset, (size_t)remaining);
+            if (sent <= 0) break;
+            total += sent;
+            remaining -= sent;
         }
-        total += n;
+    } else {
+        /* FTPS: must pass through SSL layer */
+        int bufsz = (s->srv->settings->buffer_size_kb > 0 ?
+                     s->srv->settings->buffer_size_kb : 64) * 1024;
+        char *buf = malloc(bufsz);
+        ssize_t n;
+        while ((n = read(file_fd, buf, bufsz)) > 0) {
+            ssize_t written = 0;
+            while (written < n) {
+                ssize_t w = data_write(s, dfd, buf + written, n - written);
+                if (w <= 0) { free(buf); goto retr_done; }
+                written += w;
+            }
+            total += n;
+        }
+        free(buf);
     }
 retr_done:
-    free(buf);
     close(file_fd);
     close_data_connection(s, dfd);
     log_manager_log("RETR %s (%ld bytes)", arg, total);
@@ -667,7 +684,16 @@ static void *accept_loop(void *arg) {
         int cfd = accept(srv->listen_fd, (struct sockaddr *)&addr, &alen);
         if (cfd < 0) continue;
 
+        /* enforce max_threads limit */
         pthread_mutex_lock(&srv->stats_mutex);
+        int max = srv->settings->max_threads > 0 ? srv->settings->max_threads : 10;
+        if (srv->cur_clients >= max) {
+            pthread_mutex_unlock(&srv->stats_mutex);
+            log_manager_log("FTP%s: 최대 연결 수 초과, 연결 거부 (max=%d)",
+                            srv->use_tls ? "S" : "", max);
+            close(cfd);
+            continue;
+        }
         int cur = ++srv->cur_clients;
         int tot = ++srv->tot_clients;
         pthread_mutex_unlock(&srv->stats_mutex);

@@ -227,6 +227,8 @@ static void handle_sftp(sftp_session sftp, SftpSessionCtx *ctx) {
                 sftp_reply_status(msg, SSH_FX_NO_SUCH_FILE, strerror(errno));
                 break;
             }
+            if (!need_write)
+                posix_fadvise(fd, 0, 0, POSIX_FADV_SEQUENTIAL);
             SftpHandle *h = calloc(1, sizeof(SftpHandle));
             h->fd = fd;
             str_copy(h->path, ppath, sizeof(h->path));
@@ -556,10 +558,41 @@ bool sftp_srv_start(SftpServer *srv, int port) {
 
     if (!key_path || !*key_path || access(key_path, F_OK) != 0) {
         char *default_path = sftp_get_default_key_path();
-        sftp_generate_host_key(default_path);
+        if (!sftp_generate_host_key(default_path)) {
+            log_manager_log("SFTP: 호스트 키 생성 실패: %s", default_path);
+            free(default_path);
+            return false;
+        }
         str_copy(srv->settings->sftp_host_key_path, default_path, MAX_PATH_LEN);
         key_path = srv->settings->sftp_host_key_path;
         free(default_path);
+    }
+
+    /* verify key loads and print fingerprint */
+    {
+        ssh_key test_key = NULL;
+        if (ssh_pki_import_privkey_file(key_path, NULL, NULL, NULL, &test_key) != SSH_OK) {
+            log_manager_log("SFTP: 호스트 키 손상됨, 재생성: %s", key_path);
+            sftp_generate_host_key(key_path);
+            if (ssh_pki_import_privkey_file(key_path, NULL, NULL, NULL, &test_key) != SSH_OK) {
+                log_manager_log("SFTP: 호스트 키 재생성 실패");
+                return false;
+            }
+        }
+        unsigned char *hash = NULL;
+        size_t hlen = 0;
+        if (ssh_get_publickey_hash(test_key, SSH_PUBLICKEY_HASH_SHA256, &hash, &hlen) == SSH_OK) {
+            char *b64 = base64_encode(hash, hlen);
+            if (b64) {
+                size_t len = strlen(b64);
+                while (len > 0 && b64[len-1] == '=') b64[--len] = '\0';
+                log_manager_log("SFTP: 호스트 키 지문 SHA256:%s", b64);
+                log_manager_log("SFTP: 클라이언트에서 위 지문을 수락하거나, known_hosts에서 이전 항목을 삭제하세요");
+                free(b64);
+            }
+            ssh_clean_pubkey_hash(&hash);
+        }
+        ssh_key_free(test_key);
     }
 
     ssh_bind sshbind = ssh_bind_new();
