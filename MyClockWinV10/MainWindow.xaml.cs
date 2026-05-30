@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using MyClockWinV10.Models;
 
@@ -21,12 +22,11 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AlarmItem> _alarms = new();
     private readonly HashSet<Guid> _firedAlarms = new();
 
-    private bool _isDigital   = true;
-    private bool _use24h      = false;
-    private bool _worldUse24h = false;
-    private bool _rightVisible = false;
-
-    private SidePanelWindow? _sidePanel;
+    private bool   _isDigital    = true;
+    private bool   _use24h       = false;
+    private bool   _worldUse24h  = false;
+    private bool   _rightVisible = false;
+    private double _baseWindowWidth;
 
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private IntPtr _trayIconHandle = IntPtr.Zero;
@@ -34,12 +34,26 @@ public partial class MainWindow : Window
     private System.Windows.Media.Color _digitColor =
         System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
 
+    private static readonly (string Label, System.Windows.Media.Color Color)[] DigitColors =
+    [
+        ("청색",   System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF)),
+        ("녹색",   System.Windows.Media.Color.FromRgb(0x00, 0xE6, 0x76)),
+        ("적색",   System.Windows.Media.Color.FromRgb(0xFF, 0x44, 0x44)),
+        ("주황",   System.Windows.Media.Color.FromRgb(0xFF, 0xC1, 0x07)),
+        ("보라",   System.Windows.Media.Color.FromRgb(0xCC, 0x44, 0xFF)),
+        ("청록",   System.Windows.Media.Color.FromRgb(0x64, 0xFF, 0xDA)),
+        ("흰색",   System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF)),
+        ("분홍",   System.Windows.Media.Color.FromRgb(0xFF, 0x80, 0xAB)),
+    ];
+
     public MainWindow()
     {
         InitializeComponent();
+        AlarmList.ItemsSource = _alarms;
+        BuildColorSwatches();
         SetActiveClockBtn(digital: true);
         InitTrayIcon();
-        PanelToggleBtn.Content = "▶";
+        _baseWindowWidth = Width;
 
         _timer.Tick += OnTick;
         _timer.Start();
@@ -68,7 +82,6 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             Hide();
-            _sidePanel?.Hide();
             UpdateTrayIcon(DateTime.Now);
             _trayIcon!.Visible = true;
         }
@@ -80,11 +93,6 @@ public partial class MainWindow : Window
         {
             _trayIcon!.Visible = false;
             Show();
-            if (_rightVisible && _sidePanel != null)
-            {
-                _sidePanel.Show();
-                PositionSidePanel();
-            }
             WindowState = WindowState.Normal;
             Activate();
         });
@@ -110,8 +118,8 @@ public partial class MainWindow : Window
         {
             double a = i * 30 * Math.PI / 180;
             bool major = i % 3 == 0;
-            float ox = cx + (r - 2)           * (float)Math.Sin(a);
-            float oy = cy - (r - 2)           * (float)Math.Cos(a);
+            float ox = cx + (r - 2)             * (float)Math.Sin(a);
+            float oy = cy - (r - 2)             * (float)Math.Cos(a);
             float ix = cx + (major ? r-6 : r-4) * (float)Math.Sin(a);
             float iy = cy - (major ? r-6 : r-4) * (float)Math.Cos(a);
             g.DrawLine(new System.Drawing.Pen(System.Drawing.Color.FromArgb(160, 180, 240), major ? 1.5f : 1f),
@@ -143,7 +151,6 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        _sidePanel?.Close();
         _trayIcon?.Dispose();
         if (_trayIconHandle != IntPtr.Zero) DestroyIcon(_trayIconHandle);
         base.OnClosed(e);
@@ -159,7 +166,7 @@ public partial class MainWindow : Window
         if (_isDigital) UpdateDigital(now);
         else            UpdateAnalog(now);
 
-        _sidePanel?.UpdateTimes(_worldUse24h);
+        WorldPanel.UpdateTimes(_worldUse24h);
         CheckAlarms(now);
 
         if (_trayIcon?.Visible == true)
@@ -211,14 +218,27 @@ public partial class MainWindow : Window
         { Owner = this }.Show();
     }
 
+    private void AddAlarm_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new AddAlarmDialog { Owner = this };
+        if (dlg.ShowDialog() == true && dlg.Result is not null)
+            _alarms.Add(dlg.Result);
+    }
+
+    private void DeleteAlarm_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is AlarmItem alarm)
+            _alarms.Remove(alarm);
+    }
+
     // ── Clock mode ────────────────────────────────────────────────────────
 
     private void DigitalBtn_Click(object sender, RoutedEventArgs e)
     {
         _isDigital = true;
-        DigitalPanel.Visibility    = Visibility.Visible;
-        AnalogClockBox.Visibility  = Visibility.Collapsed;
-        ClockStatusText.Text       = "";
+        DigitalPanel.Visibility   = Visibility.Visible;
+        AnalogClockBox.Visibility = Visibility.Collapsed;
+        ClockStatusText.Text      = "";
         SetActiveClockBtn(digital: true);
         UpdateDigital(DateTime.Now);
     }
@@ -226,8 +246,8 @@ public partial class MainWindow : Window
     private void AnalogBtn_Click(object sender, RoutedEventArgs e)
     {
         _isDigital = false;
-        DigitalPanel.Visibility    = Visibility.Collapsed;
-        AnalogClockBox.Visibility  = Visibility.Visible;
+        DigitalPanel.Visibility   = Visibility.Collapsed;
+        AnalogClockBox.Visibility = Visibility.Visible;
         SetActiveClockBtn(digital: false);
         UpdateAnalog(DateTime.Now);
     }
@@ -245,9 +265,71 @@ public partial class MainWindow : Window
         AnalogBtn.Foreground  = digital ? normalFg : accentFg;
     }
 
-    // ── Theme & settings (called back from SidePanelWindow) ───────────────
+    // ── Settings ─────────────────────────────────────────────────────────
 
-    internal void ApplyTheme(string name)
+    private void Format_Checked(object sender, RoutedEventArgs e)
+        => _use24h = Format24h?.IsChecked == true;
+
+    private void WorldFormat_Checked(object sender, RoutedEventArgs e)
+    {
+        _worldUse24h = WorldFormat24h?.IsChecked == true;
+        WorldHeaderText.Text = _worldUse24h ? "24시간 표시" : "12시간 표시";
+    }
+
+    private void Theme_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string name)
+            ApplyTheme(name);
+    }
+
+    private void Brightness_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (BrightnessLabel is null) return;
+        var slider = (Slider)sender;
+        int pct = (int)Math.Round(e.NewValue);
+        if (Math.Abs(slider.Value - pct) > 0.001)
+        {
+            slider.Value = pct;
+            return;
+        }
+        BrightnessLabel.Text = $"{pct} %";
+        ApplyBrightness(pct / 100.0);
+    }
+
+    private void BuildColorSwatches()
+    {
+        foreach (var (label, color) in DigitColors)
+        {
+            var btn = new Button
+            {
+                Width           = 66,
+                Height          = 36,
+                Content         = label,
+                FontSize        = 12,
+                Background      = new SolidColorBrush(color),
+                Foreground      = IsLight(color) ? System.Windows.Media.Brushes.Black : System.Windows.Media.Brushes.White,
+                BorderThickness = new Thickness(0),
+                Margin          = new Thickness(0, 0, 5, 5),
+                Cursor          = Cursors.Hand,
+                Tag             = color
+            };
+            btn.Click += ColorSwatch_Click;
+            ColorSwatches.Children.Add(btn);
+        }
+    }
+
+    private void ColorSwatch_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is System.Windows.Media.Color c)
+            ApplyDigitColor(c);
+    }
+
+    private static bool IsLight(System.Windows.Media.Color c)
+        => (c.R * 299 + c.G * 587 + c.B * 114) / 1000 > 128;
+
+    // ── Theme & display ───────────────────────────────────────────────────
+
+    private void ApplyTheme(string name)
     {
         var dicts = Application.Current.Resources.MergedDictionaries;
         dicts[0] = new ResourceDictionary
@@ -258,7 +340,7 @@ public partial class MainWindow : Window
         ApplyDigitColor(_digitColor);
     }
 
-    internal void ApplyDigitColor(System.Windows.Media.Color c)
+    private void ApplyDigitColor(System.Windows.Media.Color c)
     {
         _digitColor = c;
         var brush = new SolidColorBrush(c);
@@ -266,77 +348,45 @@ public partial class MainWindow : Window
         Application.Current.Resources["DigitalTextBrush"] = brush;
     }
 
-    internal void ApplyBrightness(double v) => SevenSeg.Opacity = v;
+    private void ApplyBrightness(double v) => SevenSeg.Opacity = v;
 
-    // ── Panel toggle (opens/closes SidePanelWindow) ───────────────────────
+    // ── Panel toggle ──────────────────────────────────────────────────────
 
     private void PanelToggle_Click(object sender, RoutedEventArgs e)
     {
         _rightVisible = !_rightVisible;
-
-        if (_rightVisible)
-        {
-            PanelToggleBtn.Content = "◀";
-            OpenSidePanel();
-        }
-        else
-        {
-            PanelToggleBtn.Content = "▶";
-            CloseSidePanel();
-        }
+        PanelToggleBtn.Content = _rightVisible ? "◀" : "▶";
+        AnimateRightPanel(_rightVisible);
     }
 
-    private void OpenSidePanel()
+    private void AnimateRightPanel(bool open)
     {
-        _sidePanel = new SidePanelWindow(_alarms)
+        if (open) _baseWindowWidth = Width;
+
+        double borderTarget = open ? 400 : 0;
+        double windowTarget = open ? _baseWindowWidth + 400 : _baseWindowWidth;
+
+        var ease = open
+            ? (IEasingFunction)new CubicEase { EasingMode = EasingMode.EaseOut }
+            : new CubicEase { EasingMode = EasingMode.EaseIn };
+        var dur = TimeSpan.FromMilliseconds(220);
+
+        var borderAnim = new DoubleAnimation { To = borderTarget, Duration = dur, EasingFunction = ease };
+        borderAnim.Completed += (_, _) =>
         {
-            Owner = this
-        };
-        _sidePanel.OnThemeRequested    = ApplyTheme;
-        _sidePanel.OnFormatChanged     = v => { _use24h = v; };
-        _sidePanel.OnWorldFormatChanged = v => { _worldUse24h = v; };
-        _sidePanel.OnBrightnessChanged = ApplyBrightness;
-        _sidePanel.OnDigitColorChanged = ApplyDigitColor;
-        _sidePanel.Closed             += (_, _) =>
-        {
-            if (_rightVisible)
-            {
-                _rightVisible = false;
-                PanelToggleBtn.Content = "▶";
-            }
-            _sidePanel = null;
+            RightPanelBorder.BeginAnimation(Border.WidthProperty, null);
+            RightPanelBorder.Width = borderTarget;
         };
 
-        PositionSidePanel();
-        _sidePanel.Show();
-        _sidePanel.AnimateOpen();
-    }
+        var windowAnim = new DoubleAnimation { To = windowTarget, Duration = dur, EasingFunction = ease };
+        windowAnim.Completed += (_, _) =>
+        {
+            BeginAnimation(Window.WidthProperty, null);
+            Width = windowTarget;
+        };
 
-    private void CloseSidePanel()
-    {
-        if (_sidePanel == null) return;
-        var panel = _sidePanel;
-        panel.AnimateClose(() => Dispatcher.Invoke(() => panel.Close()));
-    }
-
-    private void PositionSidePanel()
-    {
-        if (_sidePanel == null) return;
-        _sidePanel.Left   = Left + Width;
-        _sidePanel.Top    = Top;
-        _sidePanel.Height = Height;
-    }
-
-    protected override void OnLocationChanged(EventArgs e)
-    {
-        base.OnLocationChanged(e);
-        PositionSidePanel();
-    }
-
-    protected override void OnRenderSizeChanged(SizeChangedInfo info)
-    {
-        base.OnRenderSizeChanged(info);
-        PositionSidePanel();
+        RightPanelBorder.BeginAnimation(Border.WidthProperty, borderAnim);
+        BeginAnimation(Window.WidthProperty, windowAnim);
     }
 
     // ── Window chrome ─────────────────────────────────────────────────────

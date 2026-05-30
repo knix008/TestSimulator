@@ -21,15 +21,19 @@
     </shell:WindowChrome.WindowChrome>
 
     <Grid x:Name="RootGrid">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="360" MinWidth="300"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
 
         <!-- ══ Clock Panel ══════════════════════════════════════════════ -->
-        <Grid Background="{DynamicResource WindowBackgroundBrush}">
+        <Grid Grid.Column="0" Background="{DynamicResource WindowBackgroundBrush}">
             <Grid.RowDefinitions>
-                <RowDefinition Height="36"/>   <!-- caption bar -->
-                <RowDefinition Height="Auto"/> <!-- date -->
-                <RowDefinition Height="*"/>    <!-- clock face -->
-                <RowDefinition Height="Auto"/> <!-- status / analog time -->
-                <RowDefinition Height="Auto"/> <!-- toggle buttons -->
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="12"/>
             </Grid.RowDefinitions>
 
@@ -45,7 +49,6 @@
                                Foreground="{DynamicResource SubtleForegroundBrush}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
-                <!-- Window controls -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                             VerticalAlignment="Center" Margin="0,0,6,0"
                             shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -66,8 +69,6 @@
 
             <!-- Clock area -->
             <Grid Grid.Row="2" Margin="18,4,18,0">
-
-                <!-- Digital: Seven-Segment + AM/PM -->
                 <Grid x:Name="DigitalPanel">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -82,7 +83,6 @@
                                               DimColor="{DynamicResource SegDimBrush}"/>
                 </Grid>
 
-                <!-- Analog: centered, inside Viewbox so it scales to fit -->
                 <Viewbox x:Name="AnalogClockBox" Stretch="Uniform"
                          HorizontalAlignment="Center" VerticalAlignment="Center"
                          Visibility="Collapsed">
@@ -104,14 +104,189 @@
                     <Button x:Name="AnalogBtn"  Content="아날로그" Width="100" Height="34"
                             Margin="10,0,0,0" Click="AnalogBtn_Click"/>
                 </StackPanel>
-                <!-- Show/Hide right panel -->
                 <Button x:Name="PanelToggleBtn"
-                        Content="◀" Width="28" Height="28"
+                        Content="▶" Width="28" Height="28"
                         HorizontalAlignment="Right" VerticalAlignment="Center"
                         Margin="0,0,10,0" FontSize="13"
                         Click="PanelToggle_Click" ToolTip="사이드 패널 숨기기/보이기"/>
             </Grid>
         </Grid>
+
+        <!-- ══ Right Panel ══════════════════════════════════════════════ -->
+        <Border Grid.Column="1" x:Name="RightPanelBorder"
+                Width="0" ClipToBounds="True"
+                Background="{DynamicResource WindowBackgroundBrush}"
+                BorderBrush="{DynamicResource TabBackgroundBrush}"
+                BorderThickness="1,0,0,0">
+            <TabControl>
+
+                <!-- 세계 시간 -->
+                <TabItem Header="세계 시간">
+                    <Grid Margin="10,6,10,10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" x:Name="WorldHeaderText"
+                                   FontSize="11" Foreground="{DynamicResource SubtleForegroundBrush}"
+                                   HorizontalAlignment="Right" Margin="0,0,0,4"/>
+                        <ctrl:WorldTimePanel x:Name="WorldPanel" Grid.Row="1"/>
+                    </Grid>
+                </TabItem>
+
+                <!-- 알람 -->
+                <TabItem Header="알람">
+                    <Grid Margin="10,6,10,10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="0,0,0,6">
+                            <TextBlock Text="알람" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource ForegroundBrush}"
+                                       VerticalAlignment="Center"/>
+                            <Button Content="+ 추가" Height="30" Width="72"
+                                    HorizontalAlignment="Right"
+                                    Background="{DynamicResource AccentBrush}"
+                                    Foreground="{DynamicResource ActiveBtnFgBrush}"
+                                    FontWeight="SemiBold" FontSize="13"
+                                    Click="AddAlarm_Click"/>
+                        </Grid>
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="AlarmList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,2" Padding="8,7"
+                                                Background="{DynamicResource PanelBackgroundBrush}"
+                                                CornerRadius="6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding DisplayTime}"
+                                                           FontSize="20" FontWeight="Bold"
+                                                           FontFamily="Consolas"
+                                                           Foreground="{DynamicResource DigitalTextBrush}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,10,0"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Label}"
+                                                           FontSize="13"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <CheckBox Grid.Column="2"
+                                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                          Style="{StaticResource ToggleSwitchStyle}"
+                                                          VerticalAlignment="Center" Margin="8,0"/>
+                                                <Button Grid.Column="3" Content="삭제"
+                                                        Width="44" Height="26" FontSize="12"
+                                                        Background="{DynamicResource DangerBrush}"
+                                                        Foreground="White"
+                                                        VerticalAlignment="Center"
+                                                        Click="DeleteAlarm_Click"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </TabItem>
+
+                <!-- 설정 -->
+                <TabItem Header="설정">
+                    <ScrollViewer Margin="10,6,10,10" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+
+                            <!-- 시간 형식 -->
+                            <TextBlock Text="시간 형식" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SubtleForegroundBrush}"
+                                       Margin="0,0,0,5"/>
+                            <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                    CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="Format12h" Content="12시간 (오전/오후)"
+                                                 GroupName="Fmt" IsChecked="True"
+                                                 Checked="Format_Checked" FontSize="13"/>
+                                    <RadioButton x:Name="Format24h" Content="24시간"
+                                                 GroupName="Fmt" Checked="Format_Checked" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 테마 -->
+                            <TextBlock Text="테마" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SubtleForegroundBrush}"
+                                       Margin="0,0,0,5"/>
+                            <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                    CornerRadius="6" Padding="10,10" Margin="0,0,0,14">
+                                <WrapPanel>
+                                    <Button Tag="DarkTheme"   Content="다크"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                    <Button Tag="LightTheme"  Content="라이트"    Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                    <Button Tag="BlueTheme"   Content="미드나이트" Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                    <Button Tag="OceanTheme"  Content="오션"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                    <Button Tag="RedTheme"    Content="루비"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                    <Button Tag="GreenTheme"  Content="에메랄드"  Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                    <Button Tag="PurpleTheme" Content="퍼플"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                    <Button Tag="AmberTheme"  Content="앰버"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                </WrapPanel>
+                            </Border>
+
+                            <!-- 디지털 숫자 밝기 -->
+                            <TextBlock Text="디지털 숫자 밝기" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SubtleForegroundBrush}"
+                                       Margin="0,0,0,5"/>
+                            <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                    CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <Slider x:Name="BrightnessSlider"
+                                            Minimum="20" Maximum="100" Value="100"
+                                            SmallChange="1" LargeChange="10"
+                                            TickPlacement="BottomRight" TickFrequency="10"
+                                            IsSnapToTickEnabled="False"
+                                            ValueChanged="Brightness_Changed"/>
+                                    <TextBlock x:Name="BrightnessLabel"
+                                               Text="100 %" FontSize="11"
+                                               Foreground="{DynamicResource SubtleForegroundBrush}"
+                                               HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 디지털 숫자 색상 -->
+                            <TextBlock Text="디지털 숫자 색상" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SubtleForegroundBrush}"
+                                       Margin="0,0,0,5"/>
+                            <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                    CornerRadius="6" Padding="10,10" Margin="0,0,0,14">
+                                <WrapPanel x:Name="ColorSwatches"/>
+                            </Border>
+
+                            <!-- 세계 시간 형식 -->
+                            <TextBlock Text="세계 시간 형식" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SubtleForegroundBrush}"
+                                       Margin="0,0,0,5"/>
+                            <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                    CornerRadius="6" Padding="12,9">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="WorldFormat12h" Content="12시간 (오전/오후)"
+                                                 GroupName="WFmt" IsChecked="True"
+                                                 Checked="WorldFormat_Checked" FontSize="13"/>
+                                    <RadioButton x:Name="WorldFormat24h" Content="24시간"
+                                                 GroupName="WFmt"
+                                                 Checked="WorldFormat_Checked" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+            </TabControl>
+        </Border>
 
     </Grid>
 </Window>
