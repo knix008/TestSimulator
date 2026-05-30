@@ -105,20 +105,18 @@ namespace MyMindWin.Controls
             public static UIElement Delete =>
                 LineIcon("M 4,4 L 12,4 M 6,4 L 6,2 L 10,2 L 10,4 M 5,5 L 6,12 L 10,12 L 11,5", 1.4);
 
-            private static UIElement LineIcon(string geometry, double thickness) => new Viewbox
+            private static UIElement LineIcon(string geometry, double thickness) => new Path
             {
+                Data = Geometry.Parse(geometry),
+                Stroke = IconBrush,
+                StrokeThickness = thickness,
+                StrokeLineJoin = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Fill = Brushes.Transparent,
                 Width = 16,
                 Height = 16,
-                Child = new Path
-                {
-                    Data = Geometry.Parse(geometry),
-                    Stroke = IconBrush,
-                    StrokeThickness = thickness,
-                    StrokeLineJoin = PenLineJoin.Round,
-                    StrokeStartLineCap = PenLineCap.Round,
-                    StrokeEndLineCap = PenLineCap.Round,
-                    Fill = Brushes.Transparent
-                }
+                Stretch = Stretch.Uniform
             };
         }
     }

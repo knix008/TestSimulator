@@ -138,7 +138,7 @@ namespace MyMindWin.Controls
         private void OnRequestConnectionRefresh(object? sender, EventArgs e)
         {
             if (_vm?.RootNode == null) return;
-            RefreshAllVisuals();
+            RebuildAllConnections();
         }
 
         private void OnRequestAutoLayout(object? sender, EventArgs e)
@@ -478,18 +478,108 @@ namespace MyMindWin.Controls
 
         private Geometry BuildBezierGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
         {
-            Point cp1, cp2;
             if (_vm!.LayoutType == LayoutType.HorizontalTree)
+                return BuildTreeCurveGeometry(start, end);
+
+            GetRadialAxes(parent, child, out double axisX, out double axisY, out _, out _);
+            return BuildAxisCurveGeometry(start, end, axisX, axisY);
+        }
+
+        private Geometry BuildArcGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
+        {
+            if (_vm!.LayoutType == LayoutType.HorizontalTree)
+                return BuildTreeArcGeometry(start, end);
+
+            GetRadialAxes(parent, child, out double axisX, out double axisY, out double perpX, out double perpY);
+            return BuildAxisArcGeometry(start, end, axisX, axisY, perpX, perpY);
+        }
+
+        /// <summary>트리 레이아웃 곡선: 연결 축(X) 방향 arm 3차 베지어.</summary>
+        private static Geometry BuildTreeCurveGeometry(Point start, Point end)
+        {
+            return BuildAxisCurveGeometry(start, end, 1, 0);
+        }
+
+        /// <summary>트리 레이아웃 원호: 중간점에서 연결 수직(Y) bulge 2차 베지어.</summary>
+        private static Geometry BuildTreeArcGeometry(Point start, Point end)
+        {
+            return BuildAxisArcGeometry(start, end, 1, 0, 0, 1);
+        }
+
+        /// <summary>곡선: 트리와 동일 — 연결 축 방향 arm 베지어 (방사형은 부모→자식 축).</summary>
+        private static Geometry BuildAxisCurveGeometry(
+            Point start, Point end, double axisX, double axisY)
+        {
+            double axial = (end.X - start.X) * axisX + (end.Y - start.Y) * axisY;
+            double arm = Math.Clamp(Math.Abs(axial) * 0.42, ConnectionArmMin, ConnectionArmMax);
+            return BuildCubicBezierGeometry(
+                start,
+                end,
+                new Point(start.X + axisX * arm, start.Y + axisY * arm),
+                new Point(end.X - axisX * arm, end.Y - axisY * arm));
+        }
+
+        /// <summary>원호: 트리와 동일 — 중간점에서 연결 수직 bulge 2차 베지어 (방사형은 접선 방향).</summary>
+        private static Geometry BuildAxisArcGeometry(
+            Point start, Point end, double axisX, double axisY, double perpX, double perpY)
+        {
+            var mid = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
+            double axial = Math.Abs((end.X - start.X) * axisX + (end.Y - start.Y) * axisY);
+            double bulge = Math.Clamp(axial * 0.15, 8, 40);
+
+            double cross = (end.X - start.X) * perpX + (end.Y - start.Y) * perpY;
+            if (Math.Abs(cross) > 1)
+                bulge *= Math.Sign(cross);
+            else if (Math.Abs(end.Y - start.Y) > 1)
+                bulge *= Math.Sign(end.Y - start.Y);
+
+            return BuildQuadraticBezierGeometry(
+                start,
+                end,
+                new Point(mid.X - perpX * bulge, mid.Y - perpY * bulge));
+        }
+
+        /// <summary>방사형 연결 축(부모→자식)과 수직 접선을 구합니다.</summary>
+        private void GetRadialAxes(
+            NodeViewModel parent, NodeViewModel child,
+            out double axisX, out double axisY, out double perpX, out double perpY)
+        {
+            var parentCenter = new Point(
+                MapX(parent.X + parent.Width / 2),
+                MapY(parent.Y + NodeHeight / 2));
+            var childCenter = new Point(
+                MapX(child.X + child.Width / 2),
+                MapY(child.Y + NodeHeight / 2));
+
+            axisX = childCenter.X - parentCenter.X;
+            axisY = childCenter.Y - parentCenter.Y;
+            double len = Math.Sqrt(axisX * axisX + axisY * axisY);
+            if (len < 1)
             {
-                double arm = Math.Clamp((end.X - start.X) * 0.42, ConnectionArmMin, ConnectionArmMax);
-                cp1 = new Point(start.X + arm, start.Y);
-                cp2 = new Point(end.X - arm, end.Y);
+                axisX = 1;
+                axisY = 0;
             }
             else
             {
-                (cp1, cp2) = RadialBezierControls(parent, child, start, end);
+                axisX /= len;
+                axisY /= len;
             }
 
+            perpX = -axisY;
+            perpY = axisX;
+        }
+
+        private void RebuildAllConnections()
+        {
+            if (_vm?.RootNode == null) return;
+
+            ConnectionCanvas.Children.Clear();
+            _connectionPaths.Clear();
+            DrawConnections(_vm.RootNode);
+        }
+
+        private static Geometry BuildCubicBezierGeometry(Point start, Point end, Point cp1, Point cp2)
+        {
             var fig = new PathFigure { StartPoint = start, IsFilled = false };
             fig.Segments.Add(new BezierSegment(cp1, cp2, end, isStroked: true));
             var geom = new PathGeometry();
@@ -497,50 +587,13 @@ namespace MyMindWin.Controls
             return geom;
         }
 
-        /// <summary>방사형: 방사 방향과 거의 일치해도 접선 방향 bulge로 곡선이 보이게 합니다.</summary>
-        private (Point cp1, Point cp2) RadialBezierControls(
-            NodeViewModel parent, NodeViewModel child, Point start, Point end)
+        private static Geometry BuildQuadraticBezierGeometry(Point start, Point end, Point control)
         {
-            double pcx = MapX(parent.X + parent.Width / 2);
-            double pcy = MapY(parent.Y + NodeHeight / 2);
-            double ccx = MapX(child.X + child.Width / 2);
-            double ccy = MapY(child.Y + NodeHeight / 2);
-
-            double radialX = ccx - pcx;
-            double radialY = ccy - pcy;
-            double radialLen = Math.Sqrt(radialX * radialX + radialY * radialY);
-            if (radialLen < 1)
-                return (start, end);
-
-            radialX /= radialLen;
-            radialY /= radialLen;
-
-            // 접선(방사 방향에 수직)
-            double tangentX = -radialY;
-            double tangentY = radialX;
-
-            double dist = Distance(start, end);
-            double bulge = Math.Max(24, dist * 0.32);
-            double side = RadialCurveSide(pcx, pcy, radialX, radialY, start, end);
-
-            double cp1x = start.X + (end.X - start.X) * 0.28 + tangentX * bulge * side;
-            double cp1y = start.Y + (end.Y - start.Y) * 0.28 + tangentY * bulge * side;
-            double cp2x = start.X + (end.X - start.X) * 0.72 + tangentX * bulge * side;
-            double cp2y = start.Y + (end.Y - start.Y) * 0.72 + tangentY * bulge * side;
-
-            return (new Point(cp1x, cp1y), new Point(cp2x, cp2y));
-        }
-
-        /// <summary>형제 노드 간 곡선 방향이 일관되도록 부호를 결정합니다.</summary>
-        private static double RadialCurveSide(
-            double pcx, double pcy, double radialX, double radialY, Point start, Point end)
-        {
-            double cross = radialX * (start.Y - end.Y) - radialY * (start.X - end.X);
-            if (Math.Abs(cross) > 1e-6)
-                return cross > 0 ? 1.0 : -1.0;
-
-            cross = (start.X - pcx) * radialY - (start.Y - pcy) * radialX;
-            return cross >= 0 ? 1.0 : -1.0;
+            var fig = new PathFigure { StartPoint = start, IsFilled = false };
+            fig.Segments.Add(new QuadraticBezierSegment(control, end, isStroked: true));
+            var geom = new PathGeometry();
+            geom.Figures.Add(fig);
+            return geom;
         }
 
         private Geometry BuildOrthogonalGeometry(Point start, Point end)
@@ -572,113 +625,6 @@ namespace MyMindWin.Controls
             var geom = new PathGeometry();
             geom.Figures.Add(fig);
             return geom;
-        }
-
-        private Geometry BuildArcGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
-        {
-            var fig = new PathFigure { StartPoint = start, IsFilled = false };
-
-            if (_vm!.LayoutType == LayoutType.Radial)
-            {
-                var center = new Point(
-                    MapX(parent.X + parent.Width / 2),
-                    MapY(parent.Y + NodeHeight / 2));
-                var childCenter = new Point(
-                    MapX(child.X + child.Width / 2),
-                    MapY(child.Y + NodeHeight / 2));
-
-                double r = Distance(start, center);
-                if (r < 1)
-                    return BuildStraightGeometry(start, end);
-
-                double radialX = childCenter.X - center.X;
-                double radialY = childCenter.Y - center.Y;
-                double radialLen = Math.Sqrt(radialX * radialX + radialY * radialY);
-                if (radialLen < 1)
-                    return BuildStraightGeometry(start, end);
-                radialX /= radialLen;
-                radialY /= radialLen;
-
-                double startAngle = Math.Atan2(start.Y - center.Y, start.X - center.X);
-                double endAngle = Math.Atan2(end.Y - center.Y, end.X - center.X);
-                double targetAngle = Math.Atan2(childCenter.Y - center.Y, childCenter.X - center.X);
-                double sweep = NormalizeAngleDelta(targetAngle - startAngle);
-
-                // 부모→자식이 같은 방사선 상이면 sweep≈0이 되어 직선처럼 보임 → 최소 호 각도 적용
-                const double minSweep = 0.22;
-                if (Math.Abs(sweep) < minSweep)
-                {
-                    double side = RadialCurveSide(center.X, center.Y, radialX, radialY, start, end);
-                    sweep = minSweep * side;
-                }
-
-                // 자식 가장자리 방향까지 호를 확장해 연결
-                double endSweep = NormalizeAngleDelta(endAngle - startAngle);
-                if (Math.Abs(endSweep) > Math.Abs(sweep))
-                    sweep = endSweep;
-
-                var arcEnd = AppendCircularArc(fig, center, r, startAngle, sweep);
-
-                if (Distance(arcEnd, end) > 0.5)
-                    fig.Segments.Add(new LineSegment(end, isStroked: true));
-            }
-            else
-            {
-                var mid = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
-                double bulge = Math.Clamp(Math.Abs(end.X - start.X) * 0.15, 8, 40);
-                if (Math.Abs(end.Y - start.Y) > 1)
-                    bulge *= Math.Sign(end.Y - start.Y);
-                var control = new Point(mid.X, mid.Y - bulge);
-                fig.Segments.Add(new QuadraticBezierSegment(control, end, isStroked: true));
-            }
-
-            var geom = new PathGeometry();
-            geom.Figures.Add(fig);
-            return geom;
-        }
-
-        /// <summary>부모 중심 원을 따라 호를 그립니다. WPF ArcSegment는 중심을 보장하지 않아 직선 근사를 사용합니다.</summary>
-        private static Point AppendCircularArc(PathFigure fig, Point center, double radius, double startAngle, double sweep)
-        {
-            if (Math.Abs(sweep) < 0.001)
-                return fig.StartPoint;
-
-            int segments = Math.Max(4, (int)Math.Ceiling(Math.Abs(sweep) / (Math.PI / 18)));
-            Point arcEnd = fig.StartPoint;
-
-            for (int i = 1; i <= segments; i++)
-            {
-                double t = (double)i / segments;
-                double angle = startAngle + sweep * t;
-                arcEnd = new Point(
-                    center.X + Math.Cos(angle) * radius,
-                    center.Y + Math.Sin(angle) * radius);
-                fig.Segments.Add(new LineSegment(arcEnd, isStroked: true));
-            }
-
-            return arcEnd;
-        }
-
-        private static double NormalizeAngleDelta(double delta)
-        {
-            while (delta <= -Math.PI) delta += Math.PI * 2;
-            while (delta > Math.PI) delta -= Math.PI * 2;
-            return delta;
-        }
-
-        private static (double x, double y) Normalize(double x, double y, double fallbackX, double fallbackY)
-        {
-            double len = Math.Sqrt(x * x + y * y);
-            if (len < 1)
-                return (fallbackX, fallbackY);
-            return (x / len, y / len);
-        }
-
-        private static double Distance(Point a, Point b)
-        {
-            double dx = b.X - a.X;
-            double dy = b.Y - a.Y;
-            return Math.Sqrt(dx * dx + dy * dy);
         }
 
         private void DrawNodes(NodeViewModel node)
