@@ -8,16 +8,17 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- WinForms assembly for NotifyIcon — referenced without UseWindowsForms
          so no WinForms implicit usings pollute the WPF namespace. -->
-    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms"/>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Embed icon as WPF pack resource so it can be referenced in XAML Image -->
-    <Resource Include="AppIcon.ico"/>
+    <Resource Include="AppIcon.ico" />
   </ItemGroup>
 </Project>
