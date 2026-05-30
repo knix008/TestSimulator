@@ -85,23 +85,40 @@ namespace MyMindWin.Controls
 
         private static class MenuIcons
         {
-            private static readonly Brush IconFill = new SolidColorBrush(Color.FromRgb(0xA8, 0xC8, 0xFF));
+            private static readonly Brush IconBrush = new SolidColorBrush(Color.FromRgb(0xD8, 0xE8, 0xFF));
 
-            public static UIElement AddChild => Create("M 7,2 L 7,12 M 2,7 L 12,7");
-            public static UIElement AddSibling => Create("M 1,7 L 4,7 M 10,7 L 13,7 M 7,4 L 7,10");
-            public static UIElement Rename => Create("M 2,10 L 10,2 L 12,4 L 4,12 Z M 2,12 L 4,12");
-            public static UIElement Expand => Create("M 2,5 L 7,10 L 12,5");
-            public static UIElement Collapse => Create("M 2,10 L 7,5 L 12,10");
-            public static UIElement Delete => Create("M 3,4 L 11,4 M 5,4 L 5,2 L 9,2 L 9,4 M 4,4 L 5,11 L 9,11 L 10,4");
+            public static UIElement AddChild =>
+                LineIcon("M 8,3 L 8,13 M 3,8 L 13,8", 1.7);
 
-            private static UIElement Create(string geometry) => new Path
+            public static UIElement AddSibling =>
+                LineIcon("M 2,8 L 5,8 M 11,8 L 14,8 M 8,5 L 8,11", 1.6);
+
+            public static UIElement Rename =>
+                LineIcon("M 3,13 L 11,5 M 11,5 L 13,7 M 9,3 L 11,5", 1.5);
+
+            public static UIElement Expand =>
+                LineIcon("M 3,6 L 8,11 L 13,6", 1.7);
+
+            public static UIElement Collapse =>
+                LineIcon("M 3,10 L 8,5 L 13,10", 1.7);
+
+            public static UIElement Delete =>
+                LineIcon("M 4,4 L 12,4 M 6,4 L 6,2 L 10,2 L 10,4 M 5,5 L 6,12 L 10,12 L 11,5", 1.4);
+
+            private static UIElement LineIcon(string geometry, double thickness) => new Viewbox
             {
-                Data = Geometry.Parse(geometry),
-                Fill = IconFill,
-                Width = 14,
-                Height = 14,
-                Stretch = Stretch.Uniform,
-                StrokeThickness = 0
+                Width = 16,
+                Height = 16,
+                Child = new Path
+                {
+                    Data = Geometry.Parse(geometry),
+                    Stroke = IconBrush,
+                    StrokeThickness = thickness,
+                    StrokeLineJoin = PenLineJoin.Round,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round,
+                    Fill = Brushes.Transparent
+                }
             };
         }
     }

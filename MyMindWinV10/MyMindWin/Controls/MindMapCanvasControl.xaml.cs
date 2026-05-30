@@ -497,7 +497,7 @@ namespace MyMindWin.Controls
             return geom;
         }
 
-        /// <summary>방사형: 부모·자식 중심 방향으로 제어점을 두어 원형 레이아웃에 맞는 곡선을 만듭니다.</summary>
+        /// <summary>방사형: 방사 방향과 거의 일치해도 접선 방향 bulge로 곡선이 보이게 합니다.</summary>
         private (Point cp1, Point cp2) RadialBezierControls(
             NodeViewModel parent, NodeViewModel child, Point start, Point end)
         {
@@ -506,17 +506,41 @@ namespace MyMindWin.Controls
             double ccx = MapX(child.X + child.Width / 2);
             double ccy = MapY(child.Y + NodeHeight / 2);
 
-            // 부모 가장자리 → 바깥(자식 방향)
-            var (psx, psy) = Normalize(start.X - pcx, start.Y - pcy, 1, 0);
-            // 자식 가장자리 → 부모 쪽(연결선이 들어오는 방향)
-            var (towardParentX, towardParentY) = Normalize(end.X - ccx, end.Y - ccy, -1, 0);
+            double radialX = ccx - pcx;
+            double radialY = ccy - pcy;
+            double radialLen = Math.Sqrt(radialX * radialX + radialY * radialY);
+            if (radialLen < 1)
+                return (start, end);
+
+            radialX /= radialLen;
+            radialY /= radialLen;
+
+            // 접선(방사 방향에 수직)
+            double tangentX = -radialY;
+            double tangentY = radialX;
 
             double dist = Distance(start, end);
-            double arm = Math.Max(ConnectionArmMin, dist * 0.38);
+            double bulge = Math.Max(24, dist * 0.32);
+            double side = RadialCurveSide(pcx, pcy, radialX, radialY, start, end);
 
-            return (
-                new Point(start.X + psx * arm, start.Y + psy * arm),
-                new Point(end.X + towardParentX * arm, end.Y + towardParentY * arm));
+            double cp1x = start.X + (end.X - start.X) * 0.28 + tangentX * bulge * side;
+            double cp1y = start.Y + (end.Y - start.Y) * 0.28 + tangentY * bulge * side;
+            double cp2x = start.X + (end.X - start.X) * 0.72 + tangentX * bulge * side;
+            double cp2y = start.Y + (end.Y - start.Y) * 0.72 + tangentY * bulge * side;
+
+            return (new Point(cp1x, cp1y), new Point(cp2x, cp2y));
+        }
+
+        /// <summary>형제 노드 간 곡선 방향이 일관되도록 부호를 결정합니다.</summary>
+        private static double RadialCurveSide(
+            double pcx, double pcy, double radialX, double radialY, Point start, Point end)
+        {
+            double cross = radialX * (start.Y - end.Y) - radialY * (start.X - end.X);
+            if (Math.Abs(cross) > 1e-6)
+                return cross > 0 ? 1.0 : -1.0;
+
+            cross = (start.X - pcx) * radialY - (start.Y - pcy) * radialX;
+            return cross >= 0 ? 1.0 : -1.0;
         }
 
         private Geometry BuildOrthogonalGeometry(Point start, Point end)
@@ -567,9 +591,31 @@ namespace MyMindWin.Controls
                 if (r < 1)
                     return BuildStraightGeometry(start, end);
 
+                double radialX = childCenter.X - center.X;
+                double radialY = childCenter.Y - center.Y;
+                double radialLen = Math.Sqrt(radialX * radialX + radialY * radialY);
+                if (radialLen < 1)
+                    return BuildStraightGeometry(start, end);
+                radialX /= radialLen;
+                radialY /= radialLen;
+
                 double startAngle = Math.Atan2(start.Y - center.Y, start.X - center.X);
+                double endAngle = Math.Atan2(end.Y - center.Y, end.X - center.X);
                 double targetAngle = Math.Atan2(childCenter.Y - center.Y, childCenter.X - center.X);
                 double sweep = NormalizeAngleDelta(targetAngle - startAngle);
+
+                // 부모→자식이 같은 방사선 상이면 sweep≈0이 되어 직선처럼 보임 → 최소 호 각도 적용
+                const double minSweep = 0.22;
+                if (Math.Abs(sweep) < minSweep)
+                {
+                    double side = RadialCurveSide(center.X, center.Y, radialX, radialY, start, end);
+                    sweep = minSweep * side;
+                }
+
+                // 자식 가장자리 방향까지 호를 확장해 연결
+                double endSweep = NormalizeAngleDelta(endAngle - startAngle);
+                if (Math.Abs(endSweep) > Math.Abs(sweep))
+                    sweep = endSweep;
 
                 var arcEnd = AppendCircularArc(fig, center, r, startAngle, sweep);
 

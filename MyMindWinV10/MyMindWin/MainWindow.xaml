@@ -395,7 +395,7 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=Property, Mode=TwoWay}"
+                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                                                  FontFamily="Segoe UI"
                                                  FontSize="13"
                                                  Padding="2,1"

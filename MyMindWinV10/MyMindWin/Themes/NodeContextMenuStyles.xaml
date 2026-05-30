@@ -5,22 +5,38 @@
         <Setter Property="BorderBrush" Value="#6A7FA8"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="4,2"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="#2A3548"
+                            BorderBrush="#6A7FA8"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="4,2"
+                            SnapsToDevicePixels="True">
+                        <StackPanel IsItemsHost="True"
+                                    KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
     <Style x:Key="NodeContextMenuItem" TargetType="MenuItem">
+        <Setter Property="Background" Value="#2A3548"/>
         <Setter Property="Foreground" Value="#F0F4FF"/>
         <Setter Property="FontFamily" Value="Segoe UI"/>
         <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Padding" Value="8,6"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
                     <Border x:Name="ItemBorder"
-                            Background="Transparent"
+                            Background="#2A3548"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
-                        <Grid>
+                        <Grid Background="Transparent">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="22"/>
+                                <ColumnDefinition Width="24"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
@@ -30,9 +46,10 @@
                                               VerticalAlignment="Center"/>
                             <ContentPresenter Grid.Column="1"
                                               Content="{TemplateBinding Header}"
-                                              Margin="6,0,16,0"
+                                              Margin="8,0,16,0"
                                               VerticalAlignment="Center"
-                                              RecognizesAccessKey="True"/>
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="#F0F4FF"/>
                             <TextBlock Grid.Column="2"
                                        Text="{TemplateBinding InputGestureText}"
                                        Foreground="#8FA8CC"
@@ -54,8 +71,17 @@
         </Setter>
     </Style>
     <Style x:Key="NodeContextMenuSeparator" TargetType="Separator">
-        <Setter Property="Background" Value="#44FFFFFF"/>
+        <Setter Property="Background" Value="#334466"/>
         <Setter Property="Margin" Value="8,4"/>
         <Setter Property="Height" Value="1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Height="1"
+                            Margin="{TemplateBinding Margin}"
+                            Background="#334466"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 </ResourceDictionary>
