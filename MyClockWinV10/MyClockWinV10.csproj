@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>MyClockWinV10</AssemblyName>
+    <RootNamespace>MyClockWinV10</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinForms assembly for NotifyIcon — referenced without UseWindowsForms
+         so no WinForms implicit usings pollute the WPF namespace. -->
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embed icon as WPF pack resource so it can be referenced in XAML Image -->
+    <Resource Include="AppIcon.ico"/>
+  </ItemGroup>
+</Project>

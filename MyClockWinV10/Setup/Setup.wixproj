@@ -1,0 +1,18 @@
+<Project Sdk="WixToolset.Sdk/5.0.2" TreatAsLocalProperty="Platform">
+  <PropertyGroup>
+    <OutputName>MyClockWinV10-Setup</OutputName>
+    <Platform>x64</Platform>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2"/>
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyClockWinV10.csproj">
+      <DoNotHarvest>true</DoNotHarvest>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

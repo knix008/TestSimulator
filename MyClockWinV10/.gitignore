@@ -1,0 +1,22 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+.idea/
+*.log
+
+# WiX installer build output
+Setup/bin/
+Setup/obj/
+
+# Google OAuth token store
+**/google-token/
+
+# User settings / secrets
+appsettings.local.json
+credentials.json
+client_secret*.json
