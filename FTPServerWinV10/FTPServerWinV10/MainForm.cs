@@ -878,7 +878,7 @@ namespace FTPServerWinV10
             _sharedFolders.Clear();
             foreach (ListViewItem item in lvFolders.Items)
             {
-                var physical = item.SubItems.Count > 0 ? item.SubItems[0].Text : "";
+                var physical = item.SubItems.Count > 1 ? item.SubItems[1].Text : "";
                 _sharedFolders.Add(new Server.SharedFolderEntry
                 {
                     VirtualName = item.Text,

@@ -395,7 +395,7 @@ namespace FTPServerWinV10.Server
             if (dataClient == null) { Send("425 Can't open data connection"); return; }
             try
             {
-                using var dw = new StreamWriter(dataClient.GetStream(), Encoding.UTF8)
+                using var dw = new StreamWriter(dataClient.GetStream(), new UTF8Encoding(false), leaveOpen: true)
                     { NewLine = "\r\n", AutoFlush = true };
                 WriteListingEntries(dw, listPath, namesOnly: false, unixListFormat: false);
             }
@@ -405,6 +405,30 @@ namespace FTPServerWinV10.Server
 
         private void WriteListingEntries(StreamWriter dw, string listPath, bool namesOnly, bool unixListFormat)
         {
+            // Root "/" always lists virtual folder names so clients see the configured shares.
+            if (listPath == "/")
+            {
+                foreach (var name in _vfs.VirtualNames)
+                {
+                    if (namesOnly)
+                    {
+                        dw.WriteLine(name);
+                        continue;
+                    }
+                    if (unixListFormat)
+                    {
+                        dw.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                            "drwxr-xr-x 1 ftp ftp {0,12} {1} {2}",
+                            0, FormatListTimestamp(DateTime.Now), name));
+                    }
+                    else
+                    {
+                        dw.WriteLine($"Type=dir;Modify={FormatMlsdModify(DateTime.UtcNow)} {name}");
+                    }
+                }
+                return;
+            }
+
             var physical = _vfs.Resolve(listPath);
             if (physical != null && File.Exists(physical))
             {
@@ -418,28 +442,6 @@ namespace FTPServerWinV10.Server
                     WriteEntry(dw, new DirectoryInfo(dir), namesOnly, unixListFormat);
                 foreach (var file in Directory.GetFiles(physical))
                     WriteEntry(dw, new FileInfo(file), namesOnly, unixListFormat);
-                return;
-            }
-
-            if (listPath != "/") return;
-
-            foreach (var name in _vfs.VirtualNames)
-            {
-                if (namesOnly)
-                {
-                    dw.WriteLine(name);
-                    continue;
-                }
-                if (unixListFormat)
-                {
-                    dw.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                        "drwxr-xr-x 1 ftp ftp {0,12} {1}\t{2}",
-                        0, FormatListTimestamp(DateTime.Now), name));
-                }
-                else
-                {
-                    dw.WriteLine($"Type=dir;Modify={FormatMlsdModify(DateTime.UtcNow)} {name}");
-                }
             }
         }
 
@@ -475,7 +477,7 @@ namespace FTPServerWinV10.Server
         {
             var perm = isDirectory ? "drwxr-xr-x" : "-rw-r--r--";
             return string.Format(CultureInfo.InvariantCulture,
-                "{0} 1 ftp ftp {1,12} {2}\t{3}",
+                "{0} 1 ftp ftp {1,12} {2} {3}",
                 perm, size, FormatListTimestamp(mtime), displayName);
         }
 
