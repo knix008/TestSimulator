@@ -481,8 +481,8 @@ namespace MyMindWin.Controls
             if (_vm!.LayoutType == LayoutType.HorizontalTree)
                 return BuildTreeCurveGeometry(start, end);
 
-            GetRadialAxes(parent, child, out double axisX, out double axisY, out _, out _);
-            return BuildAxisCurveGeometry(start, end, axisX, axisY);
+            GetRadialAxes(parent, child, out double axisX, out double axisY, out double perpX, out double perpY);
+            return BuildRadialCurveGeometry(start, end, axisX, axisY, perpX, perpY);
         }
 
         private Geometry BuildArcGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
@@ -506,7 +506,7 @@ namespace MyMindWin.Controls
             return BuildAxisArcGeometry(start, end, 1, 0, 0, 1);
         }
 
-        /// <summary>곡선: 트리와 동일 — 연결 축 방향 arm 베지어 (방사형은 부모→자식 축).</summary>
+        /// <summary>곡선: 트리와 동일 — 연결 축 방향 arm 베지어.</summary>
         private static Geometry BuildAxisCurveGeometry(
             Point start, Point end, double axisX, double axisY)
         {
@@ -517,6 +517,30 @@ namespace MyMindWin.Controls
                 end,
                 new Point(start.X + axisX * arm, start.Y + axisY * arm),
                 new Point(end.X - axisX * arm, end.Y - axisY * arm));
+        }
+
+        /// <summary>방사형 곡선: 축 arm + 접선 S-bulge (일직선 배치에서도 곡선이 보이도록).</summary>
+        private static Geometry BuildRadialCurveGeometry(
+            Point start, Point end, double axisX, double axisY, double perpX, double perpY)
+        {
+            double axial = (end.X - start.X) * axisX + (end.Y - start.Y) * axisY;
+            double arm = Math.Clamp(Math.Abs(axial) * 0.42, ConnectionArmMin, ConnectionArmMax);
+            double bulge = Math.Clamp(Math.Abs(axial) * 0.22, 12, 44);
+
+            double cross = (end.X - start.X) * perpX + (end.Y - start.Y) * perpY;
+            double side = Math.Abs(cross) > 1
+                ? Math.Sign(cross)
+                : Math.Abs(end.Y - start.Y) > 1 ? Math.Sign(end.Y - start.Y) : 1;
+
+            return BuildCubicBezierGeometry(
+                start,
+                end,
+                new Point(
+                    start.X + axisX * arm + perpX * bulge * side,
+                    start.Y + axisY * arm + perpY * bulge * side),
+                new Point(
+                    end.X - axisX * arm - perpX * bulge * side,
+                    end.Y - axisY * arm - perpY * bulge * side));
         }
 
         /// <summary>원호: 트리와 동일 — 중간점에서 연결 수직 bulge 2차 베지어 (방사형은 접선 방향).</summary>
