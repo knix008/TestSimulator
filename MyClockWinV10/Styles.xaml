@@ -259,6 +259,32 @@
         </Setter>
     </Style>
 
+    <!-- Day-of-week pill CheckBox (used in AddAlarmDialog) -->
+    <Style x:Key="DayCheckBoxStyle" TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="Bd" Width="36" Height="30" CornerRadius="5"
+                            Background="{DynamicResource ButtonBackgroundBrush}">
+                        <TextBlock x:Name="Lbl" Text="{TemplateBinding Content}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   FontSize="13" Foreground="{DynamicResource ButtonForegroundBrush}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd"  Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="Lbl" Property="Foreground" Value="{DynamicResource ActiveBtnFgBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ButtonHoverBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ScrollBar -->
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent"/>

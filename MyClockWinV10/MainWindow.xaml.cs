@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private bool _use24h       = false;
     private bool _worldUse24h  = false;
     private bool _rightVisible = false;
+    private string _currentTheme = "DarkTheme";
 
     private SidePanelWindow? _sidePanel;
     private double _dpiScaleX = 1.0, _dpiScaleY = 1.0;
@@ -47,15 +48,115 @@ public partial class MainWindow : Window
     private System.Windows.Media.Color _digitColor =
         System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
 
+    private AppSettings _settings = new();
+
     public MainWindow()
     {
         InitializeComponent();
-        SetActiveClockBtn(digital: true);
+        var s = SettingsManager.Load();
+        ApplySettingsOnStartup(s);
         InitTrayIcon();
 
         _timer.Tick += OnTick;
         _timer.Start();
         OnTick(null, EventArgs.Empty);
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────
+
+    private void ApplySettingsOnStartup(AppSettings s)
+    {
+        _settings = s;
+
+        if (s.WindowLeft.HasValue && s.WindowTop.HasValue)
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = s.WindowLeft.Value;
+            Top  = s.WindowTop.Value;
+        }
+        Width  = s.WindowWidth;
+        Height = s.WindowHeight;
+
+        _isDigital    = s.IsDigital;
+        _use24h       = s.Use24h;
+        _worldUse24h  = s.WorldUse24h;
+        _currentTheme = s.Theme;
+        _digitColor   = ParseColor(s.DigitColor);
+
+        DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
+        AnalogClockBox.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
+
+        ApplyTheme(s.Theme);
+        ApplyBrightness(s.Brightness / 100.0);
+
+        foreach (var dto in s.Alarms)
+        {
+            if (TimeSpan.TryParseExact(dto.Time, @"hh\:mm", null, out var ts))
+                _alarms.Add(new AlarmItem
+                {
+                    Time       = ts,
+                    Label      = dto.Label,
+                    IsEnabled  = dto.IsEnabled,
+                    IsRepeat   = dto.IsRepeat,
+                    RepeatDays = dto.RepeatDays
+                });
+        }
+    }
+
+    private void SaveSettings()
+    {
+        _settings.Use24h       = _use24h;
+        _settings.WorldUse24h  = _worldUse24h;
+        _settings.Theme        = _currentTheme;
+        _settings.Brightness   = (int)Math.Round(SevenSeg.Opacity * 100);
+        _settings.DigitColor   = $"#{_digitColor.R:X2}{_digitColor.G:X2}{_digitColor.B:X2}";
+        _settings.IsDigital    = _isDigital;
+        _settings.WindowLeft   = Left;
+        _settings.WindowTop    = Top;
+        _settings.WindowWidth  = Width;
+        _settings.WindowHeight = Height;
+        _settings.Alarms = [.. _alarms.Select(a => new AlarmDto
+        {
+            Time       = $"{a.Time.Hours:D2}:{a.Time.Minutes:D2}",
+            Label      = a.Label,
+            IsEnabled  = a.IsEnabled,
+            IsRepeat   = a.IsRepeat,
+            RepeatDays = a.RepeatDays
+        })];
+        SettingsManager.Save(_settings);
+    }
+
+    private void ResetToDefaults()
+    {
+        var d = SettingsManager.Defaults();
+        _use24h       = d.Use24h;
+        _worldUse24h  = d.WorldUse24h;
+        _currentTheme = d.Theme;
+        _isDigital    = d.IsDigital;
+        _digitColor   = ParseColor(d.DigitColor);
+
+        DigitalPanel.Visibility   = Visibility.Visible;
+        AnalogClockBox.Visibility = Visibility.Collapsed;
+        ClockStatusText.Text      = "";
+        UpdateDigital(DateTime.Now);
+
+        ApplyTheme(d.Theme);
+        ApplyBrightness(d.Brightness / 100.0);
+
+        _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness);
+        SaveSettings();
+    }
+
+    private static System.Windows.Media.Color ParseColor(string hex)
+    {
+        try
+        {
+            return (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+        }
+        catch
+        {
+            return System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
+        }
     }
 
     // ── Win32 position-change hook (zero-lag side-panel sync) ─────────────
@@ -181,6 +282,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        SaveSettings();
         _sidePanel?.Close();
         _trayIcon?.Dispose();
         if (_trayIconHandle != IntPtr.Zero) DestroyIcon(_trayIconHandle);
@@ -235,10 +337,32 @@ public partial class MainWindow : Window
         foreach (var alarm in _alarms)
         {
             if (!alarm.IsEnabled) continue;
-            if (alarm.Time == current && now.Second == 0 && _firedAlarms.Add(alarm.Id))
-                FireAlarm(alarm);
+
+            if (alarm.Time == current && now.Second == 0)
+            {
+                bool shouldFire;
+                if (!alarm.IsRepeat)
+                {
+                    shouldFire = true;
+                }
+                else
+                {
+                    // DayOfWeek: Sun=0 Mon=1 … Sat=6  →  bit: Sun=0 Mon=1 … Sat=6
+                    int bit = (int)now.DayOfWeek;
+                    shouldFire = (alarm.RepeatDays & (1 << bit)) != 0;
+                }
+
+                if (shouldFire && _firedAlarms.Add(alarm.Id))
+                {
+                    FireAlarm(alarm);
+                    if (!alarm.IsRepeat)
+                        alarm.IsEnabled = false;
+                }
+            }
             else if (alarm.Time != current)
+            {
                 _firedAlarms.Remove(alarm.Id);
+            }
         }
     }
 
@@ -287,6 +411,7 @@ public partial class MainWindow : Window
 
     internal void ApplyTheme(string name)
     {
+        _currentTheme = name;
         var dicts = Application.Current.Resources.MergedDictionaries;
         dicts[0] = new ResourceDictionary
         {
@@ -320,11 +445,12 @@ public partial class MainWindow : Window
     private void OpenSidePanel()
     {
         _sidePanel = new SidePanelWindow(_alarms) { Owner = this };
-        _sidePanel.OnThemeRequested     = ApplyTheme;
+        _sidePanel.OnThemeRequested     = name => { ApplyTheme(name); SaveSettings(); };
         _sidePanel.OnFormatChanged      = v => { _use24h = v; };
         _sidePanel.OnWorldFormatChanged = v => { _worldUse24h = v; };
         _sidePanel.OnBrightnessChanged  = ApplyBrightness;
-        _sidePanel.OnDigitColorChanged  = ApplyDigitColor;
+        _sidePanel.OnDigitColorChanged  = c => { ApplyDigitColor(c); SaveSettings(); };
+        _sidePanel.OnResetRequested     = ResetToDefaults;
         _sidePanel.Closed += (_, _) =>
         {
             if (_rightVisible)
@@ -335,6 +461,7 @@ public partial class MainWindow : Window
             _sidePanel = null;
         };
 
+        _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(SevenSeg.Opacity * 100));
         PositionSidePanel();
         _sidePanel.Show();
         _sidePanel.AnimateOpen();

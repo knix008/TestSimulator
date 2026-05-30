@@ -54,43 +54,57 @@
                                 Click="AddAlarm_Click"/>
                     </Grid>
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="AlarmList">
+                        <ItemsControl x:Name="AlarmList" HorizontalContentAlignment="Stretch">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Margin="0,2" Padding="8,7"
+                                    <Border Margin="0,2" Padding="8,8"
                                             Background="{DynamicResource PanelBackgroundBrush}"
                                             CornerRadius="6">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0"
-                                                       Text="{Binding DisplayTime}"
-                                                       FontSize="20" FontWeight="Bold"
-                                                       FontFamily="Consolas"
-                                                       Foreground="{DynamicResource DigitalTextBrush}"
-                                                       VerticalAlignment="Center"
-                                                       Margin="0,0,10,0"/>
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{Binding Label}"
+                                        <StackPanel>
+                                            <!-- time + repeat badge + controls -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding DisplayTime}"
+                                                           FontSize="22" FontWeight="Bold"
+                                                           FontFamily="Consolas"
+                                                           Foreground="{DynamicResource DigitalTextBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding RepeatSummary}"
+                                                           FontSize="11"
+                                                           Foreground="{DynamicResource SubtleForegroundBrush}"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"
+                                                           Margin="4,0,4,0"/>
+                                                <CheckBox Grid.Column="2"
+                                                          IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                                          Style="{StaticResource ToggleSwitchStyle}"
+                                                          VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                <Button Grid.Column="3" Content="편집"
+                                                        Width="40" Height="26" FontSize="12"
+                                                        VerticalAlignment="Center" Margin="0,0,4,0"
+                                                        Click="EditAlarm_Click"/>
+                                                <Button Grid.Column="4" Content="삭제"
+                                                        Width="40" Height="26" FontSize="12"
+                                                        Background="{DynamicResource DangerBrush}"
+                                                        Foreground="White"
+                                                        VerticalAlignment="Center"
+                                                        Click="DeleteAlarm_Click"/>
+                                            </Grid>
+                                            <!-- label row -->
+                                            <TextBlock Text="{Binding Label}"
                                                        FontSize="13"
                                                        Foreground="{DynamicResource ForegroundBrush}"
-                                                       VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <CheckBox Grid.Column="2"
-                                                      IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                                                      Style="{StaticResource ToggleSwitchStyle}"
-                                                      VerticalAlignment="Center" Margin="8,0"/>
-                                            <Button Grid.Column="3" Content="삭제"
-                                                    Width="44" Height="26" FontSize="12"
-                                                    Background="{DynamicResource DangerBrush}"
-                                                    Foreground="White"
-                                                    VerticalAlignment="Center"
-                                                    Click="DeleteAlarm_Click"/>
-                                        </Grid>
+                                                       Margin="2,4,0,0"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -171,7 +185,7 @@
                                    Foreground="{DynamicResource SubtleForegroundBrush}"
                                    Margin="0,0,0,5"/>
                         <Border Background="{DynamicResource PanelBackgroundBrush}"
-                                CornerRadius="6" Padding="12,9">
+                                CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
                             <StackPanel Orientation="Horizontal">
                                 <RadioButton x:Name="WorldFormat12h" Content="12시간 (오전/오후)"
                                              GroupName="WFmt" IsChecked="True"
@@ -181,6 +195,13 @@
                                              Checked="WorldFormat_Checked" FontSize="13"/>
                             </StackPanel>
                         </Border>
+
+                        <!-- 초기화 -->
+                        <Button Content="기본값으로 초기화"
+                                Height="36" FontSize="13"
+                                Background="{DynamicResource DangerBrush}"
+                                Foreground="White"
+                                Click="Reset_Click"/>
 
                     </StackPanel>
                 </ScrollViewer>

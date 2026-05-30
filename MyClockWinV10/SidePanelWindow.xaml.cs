@@ -16,6 +16,7 @@ public partial class SidePanelWindow : Window
     public Action<bool>?   OnWorldFormatChanged;
     public Action<double>? OnBrightnessChanged;
     public Action<Color>?  OnDigitColorChanged;
+    public Action?         OnResetRequested;
 
     private const double TargetWidth = 400;
 
@@ -87,6 +88,12 @@ public partial class SidePanelWindow : Window
             ((ObservableCollection<AlarmItem>)AlarmList.ItemsSource!).Add(dlg.Result);
     }
 
+    private void EditAlarm_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is AlarmItem alarm)
+            new AddAlarmDialog(alarm) { Owner = Owner ?? this }.ShowDialog();
+    }
+
     private void DeleteAlarm_Click(object sender, RoutedEventArgs e)
     {
         if (((Button)sender).DataContext is AlarmItem alarm)
@@ -141,4 +148,26 @@ public partial class SidePanelWindow : Window
 
     private static bool IsLight(Color c)
         => (c.R * 299 + c.G * 587 + c.B * 114) / 1000 > 128;
+
+    // ── Settings sync (called from MainWindow) ────────────────────────────
+
+    public void ApplySettings(bool use24h, bool worldUse24h, int brightness)
+    {
+        Format12h.Checked     -= Format_Checked;
+        Format24h.Checked     -= Format_Checked;
+        WorldFormat12h.Checked -= WorldFormat_Checked;
+        WorldFormat24h.Checked -= WorldFormat_Checked;
+
+        (use24h ? Format24h : Format12h).IsChecked             = true;
+        (worldUse24h ? WorldFormat24h : WorldFormat12h).IsChecked = true;
+        BrightnessSlider.Value = brightness;
+
+        Format12h.Checked     += Format_Checked;
+        Format24h.Checked     += Format_Checked;
+        WorldFormat12h.Checked += WorldFormat_Checked;
+        WorldFormat24h.Checked += WorldFormat_Checked;
+    }
+
+    private void Reset_Click(object sender, RoutedEventArgs e)
+        => OnResetRequested?.Invoke();
 }

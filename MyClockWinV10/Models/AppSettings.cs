@@ -1,0 +1,25 @@
+namespace MyClockWinV10.Models;
+
+public class AppSettings
+{
+    public bool Use24h { get; set; } = false;
+    public bool WorldUse24h { get; set; } = false;
+    public string Theme { get; set; } = "DarkTheme";
+    public int Brightness { get; set; } = 100;
+    public string DigitColor { get; set; } = "#58A6FF";
+    public bool IsDigital { get; set; } = true;
+    public double? WindowLeft { get; set; } = null;
+    public double? WindowTop { get; set; } = null;
+    public double WindowWidth { get; set; } = 360;
+    public double WindowHeight { get; set; } = 360;
+    public List<AlarmDto> Alarms { get; set; } = new();
+}
+
+public class AlarmDto
+{
+    public string Time { get; set; } = "07:00";
+    public string Label { get; set; } = "";
+    public bool IsEnabled { get; set; } = true;
+    public bool IsRepeat { get; set; } = false;
+    public byte RepeatDays { get; set; } = 0b1111111;
+}
