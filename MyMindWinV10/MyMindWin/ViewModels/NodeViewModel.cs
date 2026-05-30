@@ -11,6 +11,7 @@ namespace MyMindWin.ViewModels
         private double _targetX, _targetY;
         private bool _isSelected;
         private bool _isExpanded;
+        private bool _isTreeEditing;
         private string _text;
 
         public MindMapNode Model { get; }
@@ -74,6 +75,12 @@ namespace MyMindWin.ViewModels
                 Model.IsExpanded = value;
                 OnPropertyChanged();
             }
+        }
+
+        public bool IsTreeEditing
+        {
+            get => _isTreeEditing;
+            set { _isTreeEditing = value; OnPropertyChanged(); }
         }
 
         public string Text

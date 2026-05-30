@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
+using MyMindWin.Models;
 using MyMindWin.ViewModels;
 
 namespace MyMindWin.Controls
@@ -59,8 +60,9 @@ namespace MyMindWin.Controls
         private const double NodeHeight     = 36;
         private const double HNodeSpacingX  = 72;   // 부모-자식 가로 간격 (연결선 길이)
         private const double HNodeSpacingY  = 38;   // 형제 노드 세로 간격
-        private const double RadialRadius0  = 58;   // 루트→1단계 자식 거리 (중심 간)
-        private const double RadialRadiusDelta = 38;
+        private const double RadialRadius0  = 72;   // 루트→1단계 자식 거리 (중심 간)
+        private const double RadialRadiusDelta = 48;
+        private const double RadialNodeGap  = 16;   // 같은 링에서 노드 사이 최소 간격
         private const double ConnectionArmMin = 20; // 베지어 제어 arm 최소
         private const double ConnectionArmMax = 56; // 베지어 제어 arm 최대
         private const double ContentPadding = 80;
@@ -71,8 +73,22 @@ namespace MyMindWin.Controls
             if (IsInDesignMode())
                 return;
 
-            SizeChanged += (_, _) => UpdateContentExtent();
-            Loaded += (_, _) => UpdateContentExtent();
+            SizeChanged += (_, _) => SyncContentExtent();
+            Loaded += (_, _) => SyncContentExtent();
+        }
+
+        private void SyncContentExtent()
+        {
+            if (_vm?.RootNode == null) return;
+
+            double oldOriginX = _contentOriginX;
+            double oldOriginY = _contentOriginY;
+            UpdateContentExtent();
+            if (Math.Abs(oldOriginX - _contentOriginX) > 0.01 ||
+                Math.Abs(oldOriginY - _contentOriginY) > 0.01)
+            {
+                RefreshAllVisuals();
+            }
         }
 
         private bool IsInDesignMode() =>
@@ -86,6 +102,7 @@ namespace MyMindWin.Controls
                 _vm.RequestAutoLayout -= OnRequestAutoLayout;
                 _vm.RequestFitView -= OnRequestFitView;
                 _vm.RequestNodeShapeRefresh -= OnRequestNodeShapeRefresh;
+                _vm.RequestConnectionRefresh -= OnRequestConnectionRefresh;
                 _vm.PropertyChanged -= Vm_PropertyChanged;
             }
             _vm = vm;
@@ -95,6 +112,7 @@ namespace MyMindWin.Controls
             _vm.RequestAutoLayout += OnRequestAutoLayout;
             _vm.RequestFitView    += OnRequestFitView;
             _vm.RequestNodeShapeRefresh += OnRequestNodeShapeRefresh;
+            _vm.RequestConnectionRefresh += OnRequestConnectionRefresh;
             _vm.PropertyChanged += Vm_PropertyChanged;
 
             RebuildCanvas();
@@ -116,6 +134,12 @@ namespace MyMindWin.Controls
         private void OnRequestLayout(object? sender, EventArgs e) => RebuildCanvas();
 
         private void OnRequestNodeShapeRefresh(object? sender, NodeViewModel node) => ReplaceNodeVisual(node);
+
+        private void OnRequestConnectionRefresh(object? sender, EventArgs e)
+        {
+            if (_vm?.RootNode == null) return;
+            RefreshAllVisuals();
+        }
 
         private void OnRequestAutoLayout(object? sender, EventArgs e)
         {
@@ -149,7 +173,10 @@ namespace MyMindWin.Controls
                 if (_vm.LayoutType == LayoutType.HorizontalTree)
                     LayoutHorizontal(_vm.RootNode, ContentPadding, ContentPadding, out _);
                 else
+                {
                     LayoutRadial(_vm.RootNode);
+                    AlignRadialRootToTreeCenter(_vm.RootNode);
+                }
 
                 foreach (var node in _vm.GetAllNodes())
                     node.SyncToModel();
@@ -170,10 +197,10 @@ namespace MyMindWin.Controls
             _nodeElements.Clear();
             _connectionPaths.Clear();
 
+            UpdateContentExtent();
+
             DrawConnections(_vm.RootNode);
             DrawNodes(_vm.RootNode);
-
-            UpdateContentExtent();
 
             if (ActualWidth > 0 && ActualHeight > 0 && !_isPanning)
             {
@@ -238,6 +265,29 @@ namespace MyMindWin.Controls
             LayoutRadialNode(root, cx, cy, 0, Math.PI * 2, RadialRadius0);
         }
 
+        /// <summary>방사형 트리에서 루트 노드가 전체 노드 영역의 중심에 오도록 이동합니다.</summary>
+        private void AlignRadialRootToTreeCenter(NodeViewModel root)
+        {
+            var (minX, minY, maxX, maxY) = GetBoundingBox();
+            if (minX == double.MaxValue) return;
+
+            double targetCx = (minX + maxX) / 2;
+            double targetCy = (minY + maxY) / 2;
+            double rootCx = root.X + root.Width / 2;
+            double rootCy = root.Y + NodeHeight / 2;
+            ShiftSubtree(root, targetCx - rootCx, targetCy - rootCy);
+        }
+
+        private static void ShiftSubtree(NodeViewModel node, double dx, double dy)
+        {
+            node.X += dx;
+            node.Y += dy;
+            node.SyncToModel();
+            if (!node.IsExpanded) return;
+            foreach (var child in node.Children)
+                ShiftSubtree(child, dx, dy);
+        }
+
         private void LayoutRadialNode(NodeViewModel node, double cx, double cy,
                                       double startAngle, double endAngle, double radius)
         {
@@ -246,15 +296,29 @@ namespace MyMindWin.Controls
 
             if (!node.IsExpanded || node.Children.Count == 0) return;
 
+            double totalAngle = endAngle - startAngle;
             int leafCount = CountLeaves(node);
-            double angleStep = (endAngle - startAngle) / Math.Max(leafCount, 1);
-            double currentAngle = startAngle;
-            double childRadius = radius + RadialRadiusDelta;
+            double angleStep = totalAngle / Math.Max(leafCount, 1);
+            double childRadius = ExpandRadiusForChildren(node.Children, radius, totalAngle, angleStep);
 
+            var spans = new List<double>(node.Children.Count);
             foreach (var child in node.Children)
             {
                 int childLeaves = CountLeaves(child);
-                double childAngleSpan = angleStep * childLeaves;
+                double proportional = angleStep * childLeaves;
+                double minimum = MinAngleForNode(child, childRadius);
+                spans.Add(Math.Max(proportional, minimum));
+            }
+
+            double usedAngle = spans.Sum();
+            double currentAngle = usedAngle < totalAngle
+                ? startAngle + (totalAngle - usedAngle) / 2
+                : startAngle;
+
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                var child = node.Children[i];
+                double childAngleSpan = spans[i];
                 double childMidAngle = currentAngle + childAngleSpan / 2;
 
                 double childCX = cx + Math.Cos(childMidAngle) * childRadius;
@@ -263,10 +327,37 @@ namespace MyMindWin.Controls
                 LayoutRadialNode(child, childCX, childCY,
                     childMidAngle - childAngleSpan / 2,
                     childMidAngle + childAngleSpan / 2,
-                    childRadius + RadialRadiusDelta * 0.16);
+                    childRadius);
 
                 currentAngle += childAngleSpan;
             }
+        }
+
+        /// <summary>노드 너비에 맞는 최소 호(arc) 각도. 반경이 클수록 같은 각도로 더 넓은 간격.</summary>
+        private static double MinAngleForNode(NodeViewModel node, double radius)
+            => (node.Width + RadialNodeGap) / Math.Max(radius, 1);
+
+        /// <summary>자식 노드가 겹치지 않도록 반경을 키웁니다.</summary>
+        private static double ExpandRadiusForChildren(
+            IList<NodeViewModel> children, double radius, double totalAngle, double angleStep)
+        {
+            double childRadius = radius + RadialRadiusDelta;
+            for (int iter = 0; iter < 24; iter++)
+            {
+                double required = 0;
+                foreach (var child in children)
+                {
+                    int childLeaves = CountLeaves(child);
+                    required += Math.Max(angleStep * childLeaves, MinAngleForNode(child, childRadius));
+                }
+
+                if (required <= totalAngle)
+                    return childRadius;
+
+                childRadius *= Math.Sqrt(required / totalAngle);
+            }
+
+            return childRadius;
         }
 
         private static int CountLeaves(NodeViewModel node)
@@ -352,28 +443,51 @@ namespace MyMindWin.Controls
 
         private Geometry BuildConnectionGeometry(NodeViewModel parent, NodeViewModel child)
         {
-            Point start, end, cp1, cp2;
+            var (start, end) = GetConnectionEndpoints(parent, child);
+            return _vm!.ConnectionLineType switch
+            {
+                ConnectionLineType.Straight => BuildStraightGeometry(start, end),
+                ConnectionLineType.Orthogonal => BuildOrthogonalGeometry(start, end),
+                ConnectionLineType.Arc => BuildArcGeometry(parent, child, start, end),
+                _ => BuildBezierGeometry(parent, child, start, end),
+            };
+        }
 
+        private (Point start, Point end) GetConnectionEndpoints(NodeViewModel parent, NodeViewModel child)
+        {
+            double pCx = parent.X + parent.Width / 2;
+            double pCy = parent.Y + NodeHeight / 2;
+            double cCx = child.X + child.Width / 2;
+            double cCy = child.Y + NodeHeight / 2;
+
+            var startWorld = NodeShapeHelper.GetEdgePoint(parent, cCx, cCy, NodeHeight);
+            var endWorld = NodeShapeHelper.GetEdgePoint(child, pCx, pCy, NodeHeight);
+            return (
+                new Point(MapX(startWorld.X), MapY(startWorld.Y)),
+                new Point(MapX(endWorld.X), MapY(endWorld.Y)));
+        }
+
+        private static Geometry BuildStraightGeometry(Point start, Point end)
+        {
+            var fig = new PathFigure { StartPoint = start, IsFilled = false };
+            fig.Segments.Add(new LineSegment(end, isStroked: true));
+            var geom = new PathGeometry();
+            geom.Figures.Add(fig);
+            return geom;
+        }
+
+        private Geometry BuildBezierGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
+        {
+            Point cp1, cp2;
             if (_vm!.LayoutType == LayoutType.HorizontalTree)
             {
-                start = new Point(MapX(parent.X + parent.Width), MapY(parent.Y + NodeHeight / 2));
-                end   = new Point(MapX(child.X),                  MapY(child.Y  + NodeHeight / 2));
                 double arm = Math.Clamp((end.X - start.X) * 0.42, ConnectionArmMin, ConnectionArmMax);
                 cp1 = new Point(start.X + arm, start.Y);
                 cp2 = new Point(end.X - arm, end.Y);
             }
             else
             {
-                double pCx = parent.X + parent.Width / 2;
-                double pCy = parent.Y + NodeHeight / 2;
-                double cCx = child.X + child.Width / 2;
-                double cCy = child.Y + NodeHeight / 2;
-
-                var startWorld = NodeShapeHelper.GetEdgePoint(parent, cCx, cCy, NodeHeight);
-                var endWorld   = NodeShapeHelper.GetEdgePoint(child, pCx, pCy, NodeHeight);
-                start = new Point(MapX(startWorld.X), MapY(startWorld.Y));
-                end   = new Point(MapX(endWorld.X),   MapY(endWorld.Y));
-                (cp1, cp2) = TightBezierControls(start, end, 0.28);
+                (cp1, cp2) = RadialBezierControls(parent, child, start, end);
             }
 
             var fig = new PathFigure { StartPoint = start, IsFilled = false };
@@ -383,21 +497,142 @@ namespace MyMindWin.Controls
             return geom;
         }
 
-        /// <summary>끝점 근처에 제어점을 두어 연결선이 짧고 단정하게 보이게 합니다.</summary>
-        private static (Point cp1, Point cp2) TightBezierControls(Point start, Point end, double fraction)
+        /// <summary>방사형: 부모·자식 중심 방향으로 제어점을 두어 원형 레이아웃에 맞는 곡선을 만듭니다.</summary>
+        private (Point cp1, Point cp2) RadialBezierControls(
+            NodeViewModel parent, NodeViewModel child, Point start, Point end)
         {
-            double dx = end.X - start.X;
-            double dy = end.Y - start.Y;
-            double dist = Math.Sqrt(dx * dx + dy * dy);
-            if (dist < 1)
-                return (start, end);
+            double pcx = MapX(parent.X + parent.Width / 2);
+            double pcy = MapY(parent.Y + NodeHeight / 2);
+            double ccx = MapX(child.X + child.Width / 2);
+            double ccy = MapY(child.Y + NodeHeight / 2);
 
-            double arm = Math.Clamp(dist * fraction, ConnectionArmMin, ConnectionArmMax);
-            double ux = dx / dist;
-            double uy = dy / dist;
+            // 부모 가장자리 → 바깥(자식 방향)
+            var (psx, psy) = Normalize(start.X - pcx, start.Y - pcy, 1, 0);
+            // 자식 가장자리 → 부모 쪽(연결선이 들어오는 방향)
+            var (towardParentX, towardParentY) = Normalize(end.X - ccx, end.Y - ccy, -1, 0);
+
+            double dist = Distance(start, end);
+            double arm = Math.Max(ConnectionArmMin, dist * 0.38);
+
             return (
-                new Point(start.X + ux * arm, start.Y + uy * arm),
-                new Point(end.X - ux * arm, end.Y - uy * arm));
+                new Point(start.X + psx * arm, start.Y + psy * arm),
+                new Point(end.X + towardParentX * arm, end.Y + towardParentY * arm));
+        }
+
+        private Geometry BuildOrthogonalGeometry(Point start, Point end)
+        {
+            var fig = new PathFigure { StartPoint = start, IsFilled = false };
+            if (_vm!.LayoutType == LayoutType.HorizontalTree)
+            {
+                double midX = (start.X + end.X) / 2;
+                fig.Segments.Add(new LineSegment(new Point(midX, start.Y), isStroked: true));
+                fig.Segments.Add(new LineSegment(new Point(midX, end.Y), isStroked: true));
+                fig.Segments.Add(new LineSegment(end, isStroked: true));
+            }
+            else
+            {
+                double dx = end.X - start.X;
+                double dy = end.Y - start.Y;
+                if (Math.Abs(dx) >= Math.Abs(dy))
+                {
+                    fig.Segments.Add(new LineSegment(new Point(end.X, start.Y), isStroked: true));
+                    fig.Segments.Add(new LineSegment(end, isStroked: true));
+                }
+                else
+                {
+                    fig.Segments.Add(new LineSegment(new Point(start.X, end.Y), isStroked: true));
+                    fig.Segments.Add(new LineSegment(end, isStroked: true));
+                }
+            }
+
+            var geom = new PathGeometry();
+            geom.Figures.Add(fig);
+            return geom;
+        }
+
+        private Geometry BuildArcGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
+        {
+            var fig = new PathFigure { StartPoint = start, IsFilled = false };
+
+            if (_vm!.LayoutType == LayoutType.Radial)
+            {
+                var center = new Point(
+                    MapX(parent.X + parent.Width / 2),
+                    MapY(parent.Y + NodeHeight / 2));
+                var childCenter = new Point(
+                    MapX(child.X + child.Width / 2),
+                    MapY(child.Y + NodeHeight / 2));
+
+                double r = Distance(start, center);
+                if (r < 1)
+                    return BuildStraightGeometry(start, end);
+
+                double startAngle = Math.Atan2(start.Y - center.Y, start.X - center.X);
+                double targetAngle = Math.Atan2(childCenter.Y - center.Y, childCenter.X - center.X);
+                double sweep = NormalizeAngleDelta(targetAngle - startAngle);
+
+                var arcEnd = AppendCircularArc(fig, center, r, startAngle, sweep);
+
+                if (Distance(arcEnd, end) > 0.5)
+                    fig.Segments.Add(new LineSegment(end, isStroked: true));
+            }
+            else
+            {
+                var mid = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
+                double bulge = Math.Clamp(Math.Abs(end.X - start.X) * 0.15, 8, 40);
+                if (Math.Abs(end.Y - start.Y) > 1)
+                    bulge *= Math.Sign(end.Y - start.Y);
+                var control = new Point(mid.X, mid.Y - bulge);
+                fig.Segments.Add(new QuadraticBezierSegment(control, end, isStroked: true));
+            }
+
+            var geom = new PathGeometry();
+            geom.Figures.Add(fig);
+            return geom;
+        }
+
+        /// <summary>부모 중심 원을 따라 호를 그립니다. WPF ArcSegment는 중심을 보장하지 않아 직선 근사를 사용합니다.</summary>
+        private static Point AppendCircularArc(PathFigure fig, Point center, double radius, double startAngle, double sweep)
+        {
+            if (Math.Abs(sweep) < 0.001)
+                return fig.StartPoint;
+
+            int segments = Math.Max(4, (int)Math.Ceiling(Math.Abs(sweep) / (Math.PI / 18)));
+            Point arcEnd = fig.StartPoint;
+
+            for (int i = 1; i <= segments; i++)
+            {
+                double t = (double)i / segments;
+                double angle = startAngle + sweep * t;
+                arcEnd = new Point(
+                    center.X + Math.Cos(angle) * radius,
+                    center.Y + Math.Sin(angle) * radius);
+                fig.Segments.Add(new LineSegment(arcEnd, isStroked: true));
+            }
+
+            return arcEnd;
+        }
+
+        private static double NormalizeAngleDelta(double delta)
+        {
+            while (delta <= -Math.PI) delta += Math.PI * 2;
+            while (delta > Math.PI) delta -= Math.PI * 2;
+            return delta;
+        }
+
+        private static (double x, double y) Normalize(double x, double y, double fallbackX, double fallbackY)
+        {
+            double len = Math.Sqrt(x * x + y * y);
+            if (len < 1)
+                return (fallbackX, fallbackY);
+            return (x / len, y / len);
+        }
+
+        private static double Distance(Point a, Point b)
+        {
+            double dx = b.X - a.X;
+            double dy = b.Y - a.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
         }
 
         private void DrawNodes(NodeViewModel node)
@@ -558,55 +793,18 @@ namespace MyMindWin.Controls
             RefreshSelectionVisuals();
             CommandManager.InvalidateRequerySuggested();
 
-            var menu = BuildNodeContextMenu(vm, border);
+            var menu = NodeContextMenuHelper.Build(
+                vm,
+                _vm,
+                this,
+                this,
+                node =>
+                {
+                    if (_nodeElements.TryGetValue(node.Model.Id, out var border))
+                        StartEditing(node, border);
+                });
             menu.PlacementTarget = border;
             menu.IsOpen = true;
-        }
-
-        private ContextMenu BuildNodeContextMenu(NodeViewModel vm, FrameworkElement target)
-        {
-            var menu = new ContextMenu { Style = (Style)FindResource("NodeContextMenu") };
-
-            menu.Items.Add(CreateCommandMenuItem("자식 노드 추가", "Tab", _vm!.AddChildCommand));
-            if (vm.Parent != null)
-                menu.Items.Add(CreateCommandMenuItem("형제 노드 추가", "Enter", _vm.AddSiblingCommand));
-
-            menu.Items.Add(new Separator { Style = (Style)FindResource("NodeContextMenuSeparator") });
-
-            var rename = CreateMenuItem("이름 바꾸기", "F2");
-            rename.Click += (_, _) => StartEditing(vm, target);
-            menu.Items.Add(rename);
-
-            if (vm.Children.Count > 0)
-            {
-                string expandLabel = vm.IsExpanded ? "접기" : "펼치기";
-                menu.Items.Add(CreateCommandMenuItem(expandLabel, "Space", _vm.ToggleExpandCommand));
-            }
-
-            menu.Items.Add(new Separator { Style = (Style)FindResource("NodeContextMenuSeparator") });
-
-            if (vm.Parent != null)
-                menu.Items.Add(CreateCommandMenuItem("삭제", "Del", _vm.DeleteNodeCommand));
-
-            return menu;
-        }
-
-        private MenuItem CreateCommandMenuItem(string header, string gesture, ICommand command)
-        {
-            var item = CreateMenuItem(header, gesture);
-            item.Command = command;
-            item.CommandTarget = this;
-            return item;
-        }
-
-        private MenuItem CreateMenuItem(string header, string? gesture = null)
-        {
-            return new MenuItem
-            {
-                Header = header,
-                InputGestureText = gesture ?? string.Empty,
-                Style = (Style)FindResource("NodeContextMenuItem")
-            };
         }
 
         private void Node_MouseMove(object sender, MouseEventArgs e)
@@ -909,6 +1107,8 @@ namespace MyMindWin.Controls
             _isPanning = false;
             CanvasScroller.ReleaseMouseCapture();
         }
+
+        public void RebuildFromViewModel() => RebuildCanvas();
 
         public void CenterView()
         {

@@ -213,6 +213,61 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <DataTemplate x:Key="ConnectionLineOptionTemplate">
+            <StackPanel Margin="0,2">
+                <TextBlock Text="{Binding Label}"
+                           Foreground="#F0F4FF"
+                           FontFamily="Segoe UI"
+                           FontSize="13"
+                           FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding Description}"
+                           Foreground="#88AACC"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           Margin="0,3,0,0"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <Style x:Key="ConnectionLineListItem" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#F0F4FF"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="#334466"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#223049"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#556688"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#334466"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#74B9FF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ConnectionLineListBox" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="ItemTemplate" Value="{StaticResource ConnectionLineOptionTemplate}"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource ConnectionLineListItem}"/>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -237,6 +292,12 @@
                 <MenuItem Header="알약형" Command="{Binding SetShapeCommand}" CommandParameter="pill"/>
                 <MenuItem Header="타원" Command="{Binding SetShapeCommand}" CommandParameter="ellipse"/>
                 <MenuItem Header="마름모" Command="{Binding SetShapeCommand}" CommandParameter="diamond"/>
+            </MenuItem>
+            <MenuItem Header="연결선(_C)">
+                <MenuItem Header="곡선" Tag="bezier" Click="ConnectionLineMenuItem_Click"/>
+                <MenuItem Header="직선" Tag="straight" Click="ConnectionLineMenuItem_Click"/>
+                <MenuItem Header="직각" Tag="orthogonal" Click="ConnectionLineMenuItem_Click"/>
+                <MenuItem Header="원호" Tag="arc" Click="ConnectionLineMenuItem_Click"/>
             </MenuItem>
             <MenuItem Header="보기(_V)">
                 <MenuItem Header="화면 맞춤" Command="{Binding ResetViewCommand}" InputGestureText="F4"/>
@@ -289,6 +350,8 @@
                 <ColumnDefinition Width="240" MinWidth="150" MaxWidth="400"/>
                 <ColumnDefinition Width="4"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="220" MinWidth="180" MaxWidth="320"/>
             </Grid.ColumnDefinitions>
 
             <!-- Left: Tree Structure Panel -->
@@ -308,14 +371,55 @@
                                   Padding="6"
                                   ItemsSource="{Binding RootNodes}"
                                   ItemContainerStyle="{StaticResource TreeNodeStyle}"
-                                  SelectedItemChanged="StructureTree_SelectedItemChanged">
+                                  SelectedItemChanged="StructureTree_SelectedItemChanged"
+                                  PreviewMouseRightButtonDown="StructureTree_PreviewMouseRightButtonDown"
+                                  MouseDoubleClick="StructureTree_MouseDoubleClick"
+                                  PreviewKeyDown="StructureTree_PreviewKeyDown">
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                    <TextBlock Text="{Binding Text}"
-                                               Foreground="#DDFFFFFF"
-                                               FontFamily="Segoe UI"
-                                               FontSize="13"
-                                               ToolTip="{Binding Text}"/>
+                                    <Grid MinWidth="80">
+                                        <TextBlock Text="{Binding Text}"
+                                                   Foreground="#DDFFFFFF"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="13"
+                                                   ToolTip="{Binding Text}"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsTreeEditing}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=Property, Mode=TwoWay}"
+                                                 FontFamily="Segoe UI"
+                                                 FontSize="13"
+                                                 Padding="2,1"
+                                                 BorderThickness="1"
+                                                 BorderBrush="#64B5F6"
+                                                 Background="#1A2744"
+                                                 Foreground="White"
+                                                 CaretBrush="White"
+                                                 VerticalAlignment="Center"
+                                                 KeyDown="StructureTreeEditBox_KeyDown"
+                                                 LostFocus="StructureTreeEditBox_LostFocus"
+                                                 Loaded="StructureTreeEditBox_Loaded">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsTreeEditing}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                    </Grid>
                                 </HierarchicalDataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>
@@ -330,6 +434,41 @@
 
             <!-- Right: Mind Map Canvas -->
             <controls:MindMapCanvasControl x:Name="MindMapCanvas" Grid.Column="2"/>
+
+            <!-- GridSplitter -->
+            <GridSplitter Grid.Column="3" Width="4"
+                          HorizontalAlignment="Stretch"
+                          Background="#22FFFFFF" Cursor="SizeWE"/>
+
+            <!-- Right: Connection Line Panel -->
+            <Border Grid.Column="4" Background="#0D101A"
+                    BorderBrush="#22FFFFFF" BorderThickness="1,0,0,0">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Background="#080A12" Padding="10,8">
+                        <TextBlock Text="연결선" Foreground="#66FFFFFF"
+                                   FontFamily="Segoe UI" FontSize="11"
+                                   FontWeight="Bold"/>
+                    </Border>
+                    <StackPanel DockPanel.Dock="Top" Margin="10,10,10,0">
+                        <TextBlock Text="연결선 종류"
+                                   Foreground="#88FFFFFF"
+                                   FontFamily="Segoe UI"
+                                   FontSize="12"
+                                   Margin="0,0,0,8"/>
+                        <ListBox Style="{StaticResource ConnectionLineListBox}"
+                                 ItemsSource="{Binding ConnectionLineOptions}"
+                                 SelectedItem="{Binding SelectedConnectionLineOption, Mode=TwoWay}"/>
+                    </StackPanel>
+                    <Border DockPanel.Dock="Bottom" Margin="10,12,10,10" Padding="10"
+                            Background="#121826" CornerRadius="6" BorderBrush="#334466" BorderThickness="1">
+                        <TextBlock Foreground="#66AACC"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Text="선택한 연결선 스타일이 캔버스에 즉시 반영됩니다. 파일 저장 시 함께 기록됩니다."/>
+                    </Border>
+                </DockPanel>
+            </Border>
         </Grid>
     </Grid>
 </Window>

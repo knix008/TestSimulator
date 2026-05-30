@@ -12,6 +12,10 @@ namespace MyMindWin.Models
         [JsonPropertyName("layout")]
         public string Layout { get; set; } = "tree";
 
+        /// <summary>"bezier", "straight", "orthogonal", "arc"</summary>
+        [JsonPropertyName("connectionLine")]
+        public string ConnectionLine { get; set; } = "bezier";
+
         [JsonPropertyName("root")]
         public MindMapNode Root { get; set; } = new();
     }

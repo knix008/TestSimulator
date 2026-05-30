@@ -12,6 +12,7 @@ using MyMindWin.Models;
 namespace MyMindWin.ViewModels
 {
     public sealed record NodeShapeOption(NodeShapeKind Kind, string Label);
+    public sealed record ConnectionLineOption(ConnectionLineType Type, string Label, string Description);
 
     public enum LayoutType { HorizontalTree, Radial }
 
@@ -20,6 +21,7 @@ namespace MyMindWin.ViewModels
         private NodeViewModel? _rootNode;
         private NodeViewModel? _selectedNode;
         private LayoutType _layoutType = LayoutType.HorizontalTree;
+        private ConnectionLineType _connectionLineType = ConnectionLineType.Bezier;
         private double _zoomLevel = 1.0;
         private string _currentFilePath = string.Empty;
         private NodeShapeKind _shapeComboSelection = NodeShapeKind.RoundedRectangle;
@@ -88,6 +90,34 @@ namespace MyMindWin.ViewModels
             set { _layoutType = value; OnPropertyChanged(); }
         }
 
+        public IReadOnlyList<ConnectionLineOption> ConnectionLineOptions { get; } =
+            Enum.GetValues<ConnectionLineType>()
+                .Select(t => new ConnectionLineOption(t, t.GetDisplayName(), t.GetDescription()))
+                .ToArray();
+
+        public ConnectionLineType ConnectionLineType
+        {
+            get => _connectionLineType;
+            set
+            {
+                if (_connectionLineType == value) return;
+                _connectionLineType = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SelectedConnectionLineOption));
+                RequestConnectionRefresh?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        public ConnectionLineOption SelectedConnectionLineOption
+        {
+            get => ConnectionLineOptions.First(o => o.Type == _connectionLineType);
+            set
+            {
+                if (value == null || value.Type == _connectionLineType) return;
+                ConnectionLineType = value.Type;
+            }
+        }
+
         public double ZoomLevel
         {
             get => _zoomLevel;
@@ -99,6 +129,7 @@ namespace MyMindWin.ViewModels
         public event EventHandler? RequestLayout;
         public event EventHandler? RequestAutoLayout;
         public event EventHandler? RequestFitView;
+        public event EventHandler? RequestConnectionRefresh;
         public event EventHandler<NodeViewModel>? RequestNodeShapeRefresh;
 
         // ── Commands ─────────────────────────────────────────────────────────
@@ -188,6 +219,10 @@ namespace MyMindWin.ViewModels
 
         public void LoadDocument(MindMapDocument document)
         {
+            _connectionLineType = MindMapFileSerializer.ParseConnectionLine(document.ConnectionLine);
+            OnPropertyChanged(nameof(ConnectionLineType));
+            OnPropertyChanged(nameof(SelectedConnectionLineOption));
+
             var layout = MindMapFileSerializer.ParseLayout(document.Layout);
             SetRoot(document.Root, layout);
         }

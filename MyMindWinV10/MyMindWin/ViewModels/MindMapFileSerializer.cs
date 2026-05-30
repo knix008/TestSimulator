@@ -42,6 +42,7 @@ namespace MyMindWin.ViewModels
             {
                 Version = 1,
                 Layout = LayoutToString(vm.LayoutType),
+                ConnectionLine = ConnectionLineToString(vm.ConnectionLineType),
                 Root = vm.RootNode.Model
             };
         }
@@ -53,6 +54,12 @@ namespace MyMindWin.ViewModels
 
         public static string LayoutToString(LayoutType layout) =>
             layout == LayoutType.Radial ? "radial" : "tree";
+
+        public static ConnectionLineType ParseConnectionLine(string? connectionLine) =>
+            ConnectionLineTypeExtensions.FromJsonValue(connectionLine);
+
+        public static string ConnectionLineToString(ConnectionLineType type) =>
+            type.ToJsonValue();
 
         private static void SyncViewModelToModel(NodeViewModel vm)
         {
