@@ -164,6 +164,8 @@ static void handle_sftp(sftp_session sftp, SftpSessionCtx *ctx) {
                 if (!sent) sftp_reply_status(msg, SSH_FX_EOF, "EOF");
                 else sftp_reply_names(msg);
             } else if (h->dir) {
+                char ppath2[MAX_PATH_LEN];
+                vfs_resolve(&ctx->vfs, h->path, ppath2, sizeof(ppath2));
                 struct dirent *de;
                 bool sent = false;
                 for (int n = 0; n < 32; n++) {
@@ -171,11 +173,9 @@ static void handle_sftp(sftp_session sftp, SftpSessionCtx *ctx) {
                     if (!de) break;
                     if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) { n--; continue; }
                     char full[MAX_PATH_LEN];
-                    char ppath2[MAX_PATH_LEN];
-                    vfs_resolve(&ctx->vfs, h->path, ppath2, sizeof(ppath2));
                     snprintf(full, sizeof(full), "%s/%s", ppath2, de->d_name);
                     struct stat st;
-                    if (stat(full, &st) != 0) continue;
+                    if (stat(full, &st) != 0) { n--; continue; }
                     sftp_attributes a = stat_to_attr(&st);
                     sftp_reply_names_add(msg, de->d_name, de->d_name, a);
                     free(a);
@@ -396,18 +396,27 @@ static void *sftp_session_thread(void *arg) {
         if (!authenticated) {
             if (mtype == SSH_REQUEST_AUTH) {
                 const char *user = ssh_message_auth_user(msg);
-                if (msub == SSH_AUTH_METHOD_PASSWORD) {
+                bool ok = false;
+
+                if (msub == SSH_AUTH_METHOD_NONE) {
+                    /* anonymous login with no credentials */
+                    if (srv->settings->allow_anonymous) {
+                        ok = true;
+                        ctx.can_read  = true;
+                        ctx.can_write = false;
+                    }
+                } else if (msub == SSH_AUTH_METHOD_PASSWORD) {
                     const char *pass = ssh_message_auth_password(msg);
-                    bool ok = false;
                     if (srv->settings->allow_anonymous &&
-                        strcmp(user, "anonymous") == 0) {
+                        strcasecmp(user ? user : "", "anonymous") == 0) {
+                        /* anonymous: accept any password */
                         ok = true;
                         ctx.can_read  = true;
                         ctx.can_write = false;
                     } else {
                         for (int i = 0; i < srv->settings->user_count; i++) {
-                            if (strcasecmp(srv->settings->users[i].username, user) == 0 &&
-                                strcmp(srv->settings->users[i].password, pass) == 0) {
+                            if (strcasecmp(srv->settings->users[i].username, user ? user : "") == 0 &&
+                                strcmp(srv->settings->users[i].password, pass ? pass : "") == 0) {
                                 ok = true;
                                 ctx.can_read  = srv->settings->users[i].can_read;
                                 ctx.can_write = srv->settings->users[i].can_write;
@@ -415,17 +424,19 @@ static void *sftp_session_thread(void *arg) {
                             }
                         }
                     }
-                    if (ok) {
-                        str_copy(authed_user, user, sizeof(authed_user));
-                        authenticated = true;
-                        log_manager_log("SFTP auth OK for user '%s'", authed_user);
-                        ssh_message_auth_reply_success(msg, 0);
-                    } else {
-                        log_manager_log("SFTP auth FAILED for user '%s'", user ? user : "");
-                        ssh_message_reply_default(msg);
-                    }
+                }
+
+                if (ok) {
+                    str_copy(authed_user, user ? user : "anonymous", sizeof(authed_user));
+                    authenticated = true;
+                    log_manager_log("SFTP auth OK for user '%s'", authed_user);
+                    ssh_message_auth_reply_success(msg, 0);
                 } else {
-                    ssh_message_auth_set_methods(msg, SSH_AUTH_METHOD_PASSWORD);
+                    int methods = SSH_AUTH_METHOD_PASSWORD;
+                    if (srv->settings->allow_anonymous)
+                        methods |= SSH_AUTH_METHOD_NONE;
+                    log_manager_log("SFTP auth FAILED for user '%s'", user ? user : "");
+                    ssh_message_auth_set_methods(msg, methods);
                     ssh_message_reply_default(msg);
                 }
             } else {
@@ -484,13 +495,25 @@ cleanup:
 static void *sftp_accept_loop(void *arg) {
     SftpServer *srv = arg;
     ssh_bind sshbind = (ssh_bind)srv->sshbind;
+    int bind_fd  = ssh_bind_get_fd(sshbind);
+    int stop_rfd = srv->stop_pipe[0];
+
+    if (bind_fd < 0 || stop_rfd < 0) return NULL;
 
     while (srv->running) {
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(bind_fd,  &rfds);
+        FD_SET(stop_rfd, &rfds);
+        int maxfd = (bind_fd > stop_rfd ? bind_fd : stop_rfd) + 1;
+        struct timeval tv = { .tv_sec = 1 };
+        if (select(maxfd, &rfds, NULL, NULL, &tv) <= 0) continue;
+        if (!srv->running || FD_ISSET(stop_rfd, &rfds)) break;
+        if (!FD_ISSET(bind_fd, &rfds)) continue;
+
         ssh_session session = ssh_new();
         if (ssh_bind_accept(sshbind, session) == SSH_ERROR) {
             ssh_free(session);
-            if (!srv->running) break;
-            usleep(100000);
             continue;
         }
 
@@ -523,6 +546,7 @@ static void *sftp_accept_loop(void *arg) {
 bool sftp_srv_init(SftpServer *srv, ServerSettings *settings) {
     memset(srv, 0, sizeof(*srv));
     srv->settings = settings;
+    srv->stop_pipe[0] = srv->stop_pipe[1] = -1;
     pthread_mutex_init(&srv->stats_mutex, NULL);
     return true;
 }
@@ -542,7 +566,6 @@ bool sftp_srv_start(SftpServer *srv, int port) {
     char portstr[16];
     snprintf(portstr, sizeof(portstr), "%d", port);
     ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, portstr);
-    ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY, key_path);
     ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, key_path);
 
     if (ssh_bind_listen(sshbind) < 0) {
@@ -550,11 +573,19 @@ bool sftp_srv_start(SftpServer *srv, int port) {
         ssh_bind_free(sshbind);
         return false;
     }
+
+    if (pipe(srv->stop_pipe) != 0) {
+        ssh_bind_free(sshbind);
+        return false;
+    }
+
     srv->sshbind = sshbind;
     srv->running = true;
 
     if (pthread_create(&srv->accept_tid, NULL, sftp_accept_loop, srv) != 0) {
         srv->running = false;
+        close(srv->stop_pipe[0]); close(srv->stop_pipe[1]);
+        srv->stop_pipe[0] = srv->stop_pipe[1] = -1;
         ssh_bind_free(sshbind);
         srv->sshbind = NULL;
         return false;
@@ -566,11 +597,19 @@ bool sftp_srv_start(SftpServer *srv, int port) {
 void sftp_srv_stop(SftpServer *srv) {
     if (!srv->running) return;
     srv->running = false;
+    /* wake accept loop immediately via self-pipe */
+    if (srv->stop_pipe[1] >= 0) {
+        char c = 0;
+        ssize_t n = write(srv->stop_pipe[1], &c, 1);
+        (void)n;
+    }
+    pthread_join(srv->accept_tid, NULL);
+    if (srv->stop_pipe[0] >= 0) { close(srv->stop_pipe[0]); srv->stop_pipe[0] = -1; }
+    if (srv->stop_pipe[1] >= 0) { close(srv->stop_pipe[1]); srv->stop_pipe[1] = -1; }
     if (srv->sshbind) {
         ssh_bind_free((ssh_bind)srv->sshbind);
         srv->sshbind = NULL;
     }
-    pthread_join(srv->accept_tid, NULL);
     log_manager_log("SFTP server stopped.");
 }
 
@@ -593,7 +632,7 @@ char *sftp_get_default_key_path(void) {
 
 bool sftp_generate_host_key(const char *path) {
     ssh_key key = NULL;
-    if (ssh_pki_generate(SSH_KEYTYPE_RSA, 2048, &key) != SSH_OK)
+    if (ssh_pki_generate(SSH_KEYTYPE_ED25519, 0, &key) != SSH_OK)
         return false;
     char *dir = path_dirname_str(path);
     make_dirs(dir, 0700);

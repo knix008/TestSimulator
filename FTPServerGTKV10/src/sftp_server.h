@@ -13,6 +13,7 @@ typedef struct {
     void            *sshbind;   /* ssh_bind (opaque to avoid header pollution) */
     pthread_t        accept_tid;
     volatile bool    running;
+    int              stop_pipe[2]; /* self-pipe for waking accept loop */
 
     int              cur_clients;
     int              tot_clients;

@@ -29,12 +29,13 @@ typedef enum { AUTH_NONE, AUTH_NEED_PASS, AUTH_OK } AuthState;
 typedef struct {
     FtpServer  *srv;
     int         ctrl_fd;
-    SSL        *ssl;
+    SSL        *ssl;         /* control channel TLS */
+    SSL        *data_ssl;    /* data channel TLS (FTPS) */
     char        cwd[MAX_PATH_LEN];
     AuthState   auth;
-    UserEntry  *user;           /* pointer into settings->users */
+    UserEntry  *user;        /* pointer into settings->users */
     bool        allow_anon;
-    char        type;           /* 'A' or 'I' */
+    char        type;        /* 'A' or 'I' */
     int         pasv_listen_fd;
     char        rnfr[MAX_PATH_LEN];
     VirtualFS   vfs;
@@ -120,12 +121,38 @@ static int accept_data(int listen_fd) {
 }
 
 static ssize_t data_write(Session *s, int data_fd, const void *buf, size_t n) {
-    (void)s; /* might add TLS data channel later */
+    if (s->data_ssl) return SSL_write(s->data_ssl, buf, (int)n);
     return write(data_fd, buf, n);
 }
 static ssize_t data_read(Session *s, int data_fd, void *buf, size_t n) {
-    (void)s;
+    if (s->data_ssl) return SSL_read(s->data_ssl, buf, (int)n);
     return read(data_fd, buf, n);
+}
+
+/* Accept data connection and wrap in TLS if FTPS. Returns fd or -1. */
+static int open_data_connection(Session *s) {
+    int dfd = accept_data(s->pasv_listen_fd);
+    close(s->pasv_listen_fd); s->pasv_listen_fd = -1;
+    if (dfd < 0) return -1;
+    if (s->srv->use_tls && s->srv->ssl_ctx) {
+        s->data_ssl = SSL_new(s->srv->ssl_ctx);
+        SSL_set_fd(s->data_ssl, dfd);
+        if (SSL_accept(s->data_ssl) <= 0) {
+            SSL_free(s->data_ssl); s->data_ssl = NULL;
+            close(dfd);
+            return -1;
+        }
+    }
+    return dfd;
+}
+
+static void close_data_connection(Session *s, int dfd) {
+    if (s->data_ssl) {
+        SSL_shutdown(s->data_ssl);
+        SSL_free(s->data_ssl);
+        s->data_ssl = NULL;
+    }
+    if (dfd >= 0) close(dfd);
 }
 
 /* ---- authentication helper -------------------------------------------- */
@@ -143,21 +170,15 @@ static UserEntry *find_user(FtpServer *srv, const char *username) {
 
 static void cmd_user(Session *s, const char *arg) {
     if (!arg || !*arg) { send_resp(s, 501, "Syntax error."); return; }
+    s->auth = AUTH_NEED_PASS;
     if (strcmp(arg, "anonymous") == 0 && s->srv->settings->allow_anonymous) {
-        s->user = NULL; /* anonymous */
-        s->auth = AUTH_NEED_PASS;
+        s->user      = NULL;
+        s->allow_anon = true;
         send_resp(s, 331, "Guest login ok, send your email as password.");
     } else {
-        UserEntry *u = find_user(s->srv, arg);
-        if (!u) {
-            s->auth = AUTH_NONE;
-            send_resp(s, 331, "Password required.");
-            /* Store username hint for PASS */
-        } else {
-            s->user = u;
-            s->auth = AUTH_NEED_PASS;
-            send_resp(s, 331, "Password required.");
-        }
+        s->allow_anon = false;
+        s->user = find_user(s->srv, arg);
+        send_resp(s, 331, "Password required.");
     }
 }
 
@@ -165,8 +186,7 @@ static void cmd_pass(Session *s, const char *arg) {
     if (s->auth != AUTH_NEED_PASS) {
         send_resp(s, 503, "Login with USER first."); return;
     }
-    /* anonymous */
-    if (!s->user && s->srv->settings->allow_anonymous) {
+    if (s->allow_anon) {
         s->auth = AUTH_OK;
         log_manager_log("Anonymous login from ctrl_fd=%d", s->ctrl_fd);
         send_resp(s, 230, "Guest login ok.");
@@ -226,6 +246,7 @@ static void cmd_type(Session *s, const char *arg) {
 }
 
 static void cmd_pwd(Session *s) {
+    if (s->auth != AUTH_OK) { send_resp(s, 530, "Not logged in."); return; }
     char msg[MAX_PATH_LEN + 8];
     snprintf(msg, sizeof(msg), "\"%s\" is current directory.", s->cwd);
     send_resp(s, 257, msg);
@@ -267,6 +288,7 @@ static void cmd_cdup(Session *s) {
 }
 
 static void cmd_pasv(Session *s) {
+    if (s->auth != AUTH_OK) { send_resp(s, 530, "Not logged in."); return; }
     if (s->pasv_listen_fd >= 0) { close(s->pasv_listen_fd); s->pasv_listen_fd = -1; }
     int port = 0;
     int fd = pasv_bind(&port);
@@ -297,8 +319,7 @@ static void cmd_list(Session *s, const char *arg) {
     vfs_normalize(target);
 
     send_resp(s, 150, "Here comes the directory listing.");
-    int dfd = accept_data(s->pasv_listen_fd);
-    close(s->pasv_listen_fd); s->pasv_listen_fd = -1;
+    int dfd = open_data_connection(s);
     if (dfd < 0) { send_resp(s, 425, "Cannot open data connection."); return; }
 
     char *listing = vfs_list(&s->vfs, target);
@@ -306,7 +327,7 @@ static void cmd_list(Session *s, const char *arg) {
         data_write(s, dfd, listing, strlen(listing));
         free(listing);
     }
-    close(dfd);
+    close_data_connection(s, dfd);
     send_resp(s, 226, "Directory send OK.");
 }
 
@@ -319,8 +340,7 @@ static void cmd_mlsd(Session *s, const char *arg) {
     vfs_normalize(target);
 
     send_resp(s, 150, "Here comes the directory listing.");
-    int dfd = accept_data(s->pasv_listen_fd);
-    close(s->pasv_listen_fd); s->pasv_listen_fd = -1;
+    int dfd = open_data_connection(s);
     if (dfd < 0) { send_resp(s, 425, "Cannot open data connection."); return; }
 
     char *listing = vfs_mlsd(&s->vfs, target);
@@ -328,7 +348,7 @@ static void cmd_mlsd(Session *s, const char *arg) {
         data_write(s, dfd, listing, strlen(listing));
         free(listing);
     }
-    close(dfd);
+    close_data_connection(s, dfd);
     send_resp(s, 226, "Directory send OK.");
 }
 
@@ -357,8 +377,7 @@ static void cmd_retr(Session *s, const char *arg) {
              (long long)st.st_size);
     send_resp(s, 150, msg);
 
-    int dfd = accept_data(s->pasv_listen_fd);
-    close(s->pasv_listen_fd); s->pasv_listen_fd = -1;
+    int dfd = open_data_connection(s);
     if (dfd < 0) { close(file_fd); send_resp(s, 425, "Cannot open data connection."); return; }
 
     int bufsz = (s->srv->settings->buffer_size_kb > 0 ?
@@ -378,7 +397,7 @@ static void cmd_retr(Session *s, const char *arg) {
 retr_done:
     free(buf);
     close(file_fd);
-    close(dfd);
+    close_data_connection(s, dfd);
     log_manager_log("RETR %s (%ld bytes)", arg, total);
 
     /* Stats callback */
@@ -410,8 +429,7 @@ static void cmd_stor(Session *s, const char *arg) {
     if (file_fd < 0) { send_resp(s, 550, "Cannot create file."); return; }
 
     send_resp(s, 150, "Ok to send data.");
-    int dfd = accept_data(s->pasv_listen_fd);
-    close(s->pasv_listen_fd); s->pasv_listen_fd = -1;
+    int dfd = open_data_connection(s);
     if (dfd < 0) { close(file_fd); send_resp(s, 425, "Cannot open data connection."); return; }
 
     int bufsz = (s->srv->settings->buffer_size_kb > 0 ?
@@ -425,7 +443,7 @@ static void cmd_stor(Session *s, const char *arg) {
     }
     free(buf);
     close(file_fd);
-    close(dfd);
+    close_data_connection(s, dfd);
     log_manager_log("STOR %s (%ld bytes)", arg, total);
 
     pthread_mutex_lock(&s->srv->stats_mutex);
@@ -590,6 +608,9 @@ static void *session_thread(void *arg) {
         s->ssl = SSL_new(s->srv->ssl_ctx);
         SSL_set_fd(s->ssl, s->ctrl_fd);
         if (SSL_accept(s->ssl) <= 0) {
+            char errbuf[256];
+            ERR_error_string_n(ERR_get_error(), errbuf, sizeof(errbuf));
+            log_manager_log("FTPS TLS 핸드셰이크 실패: %s", errbuf);
             FtpServer *srv = s->srv;
             SSL_free(s->ssl);
             close(s->ctrl_fd);
@@ -610,6 +631,7 @@ static void *session_thread(void *arg) {
 
     /* cleanup */
     if (s->pasv_listen_fd >= 0) { close(s->pasv_listen_fd); }
+    if (s->data_ssl) { SSL_shutdown(s->data_ssl); SSL_free(s->data_ssl); }
     if (s->ssl) { SSL_shutdown(s->ssl); SSL_free(s->ssl); }
     close(s->ctrl_fd);
     vfs_destroy(&s->vfs);
@@ -678,17 +700,25 @@ static void *accept_loop(void *arg) {
 /* ---- public API -------------------------------------------------------- */
 
 bool ftp_server_init(FtpServer *srv, ServerSettings *settings, bool use_tls) {
+    SSL_CTX *old_ctx = srv->ssl_ctx;
+    pthread_mutex_t old_mutex = srv->stats_mutex;
+    bool had_mutex = srv->running || old_ctx; /* heuristic: was ever started */
+
     memset(srv, 0, sizeof(*srv));
+
+    if (old_ctx) SSL_CTX_free(old_ctx);
+    if (had_mutex) pthread_mutex_destroy(&old_mutex);
+
     srv->settings  = settings;
     srv->use_tls   = use_tls;
     srv->listen_fd = -1;
     pthread_mutex_init(&srv->stats_mutex, NULL);
 
     if (use_tls) {
-        SSL_library_init();
-        SSL_load_error_strings();
         srv->ssl_ctx = SSL_CTX_new(TLS_server_method());
         if (!srv->ssl_ctx) return false;
+        SSL_CTX_set_min_proto_version(srv->ssl_ctx, TLS1_2_VERSION);
+        SSL_CTX_set_mode(srv->ssl_ctx, SSL_MODE_AUTO_RETRY);
     }
     return true;
 }
@@ -698,22 +728,42 @@ bool ftp_server_load_cert(FtpServer *srv,
     if (!srv->ssl_ctx) return false;
 
     FILE *fp = fopen(cert_path, "rb");
-    if (!fp) return false;
+    if (!fp) { log_manager_log("FTPS: 인증서 파일 열기 실패: %s", cert_path); return false; }
     PKCS12 *p12 = d2i_PKCS12_fp(fp, NULL);
     fclose(fp);
-    if (!p12) return false;
+    if (!p12) { log_manager_log("FTPS: PKCS12 파싱 실패 (파일 형식 오류)"); return false; }
+
+    /* normalize empty password to NULL */
+    const char *pass = (cert_pass && *cert_pass) ? cert_pass : NULL;
 
     EVP_PKEY *pkey = NULL;
     X509     *cert = NULL;
-    if (!PKCS12_parse(p12, cert_pass, &pkey, &cert, NULL)) {
-        PKCS12_free(p12); return false;
+    if (!PKCS12_parse(p12, pass, &pkey, &cert, NULL)) {
+        /* retry with empty string if NULL failed */
+        if (!pass) PKCS12_parse(p12, "", &pkey, &cert, NULL);
     }
     PKCS12_free(p12);
 
-    SSL_CTX_use_certificate(srv->ssl_ctx, cert);
-    SSL_CTX_use_PrivateKey(srv->ssl_ctx, pkey);
+    if (!pkey || !cert) {
+        log_manager_log("FTPS: 인증서 복호화 실패 (비밀번호 오류 또는 손상된 파일)");
+        if (pkey) EVP_PKEY_free(pkey);
+        if (cert) X509_free(cert);
+        return false;
+    }
+
+    int rc = SSL_CTX_use_certificate(srv->ssl_ctx, cert);
+    if (rc != 1) { log_manager_log("FTPS: SSL 인증서 로드 실패"); X509_free(cert); EVP_PKEY_free(pkey); return false; }
+    rc = SSL_CTX_use_PrivateKey(srv->ssl_ctx, pkey);
+    if (rc != 1) { log_manager_log("FTPS: SSL 개인키 로드 실패"); X509_free(cert); EVP_PKEY_free(pkey); return false; }
+
     X509_free(cert);
     EVP_PKEY_free(pkey);
+
+    if (SSL_CTX_check_private_key(srv->ssl_ctx) != 1) {
+        log_manager_log("FTPS: 인증서와 개인키가 일치하지 않습니다");
+        return false;
+    }
+    log_manager_log("FTPS: 인증서 로드 완료");
     return true;
 }
 

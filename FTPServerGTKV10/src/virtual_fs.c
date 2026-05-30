@@ -85,7 +85,7 @@ void vfs_normalize(char *path) {
     char out[MAX_PATH_LEN] = "";
     if (is_abs || np == 0) strcat(out, "/");
     for (int i = 0; i < np; i++) {
-        if (i > 0 || is_abs) strcat(out, "/");
+        if (i > 0) strcat(out, "/");
         strcat(out, parts[i]);
     }
     if (!is_abs && np == 0) strcpy(out, "/");

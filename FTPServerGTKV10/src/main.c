@@ -8,6 +8,7 @@
 int main(int argc, char *argv[]) {
     setlocale(LC_ALL, "");
 
+    g_setenv("GSETTINGS_BACKEND", "memory", TRUE);
     gtk_init(&argc, &argv);
 
     char *cfg_dir  = settings_get_config_dir();

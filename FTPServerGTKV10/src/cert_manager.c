@@ -18,8 +18,8 @@ bool cert_generate_self_signed(const char *path, const char *password,
     PKCS12   *p12  = NULL;
     FILE     *fp   = NULL;
 
-    /* Generate RSA 2048 key */
-    pkey = EVP_RSA_gen(2048);
+    /* Generate EC P-256 key (instant, no entropy bottleneck) */
+    pkey = EVP_EC_gen("P-256");
     if (!pkey) goto done;
 
     x509 = X509_new();
@@ -50,8 +50,8 @@ bool cert_generate_self_signed(const char *path, const char *password,
     ext = X509V3_EXT_conf_nid(NULL, &ctx, NID_basic_constraints, "CA:FALSE");
     if (ext) { X509_add_ext(x509, ext, -1); X509_EXTENSION_free(ext); }
 
-    ext = X509V3_EXT_conf_nid(NULL, &ctx, NID_key_usage,
-                              "digitalSignature,keyEncipherment");
+    /* EC key uses ECDHE: digitalSignature only (keyEncipherment is RSA-specific) */
+    ext = X509V3_EXT_conf_nid(NULL, &ctx, NID_key_usage, "digitalSignature");
     if (ext) { X509_add_ext(x509, ext, -1); X509_EXTENSION_free(ext); }
 
     ext = X509V3_EXT_conf_nid(NULL, &ctx, NID_ext_key_usage, "serverAuth");
@@ -60,8 +60,9 @@ bool cert_generate_self_signed(const char *path, const char *password,
     /* Sign */
     if (X509_sign(x509, pkey, EVP_sha256()) == 0) goto done;
 
-    /* Export as PKCS#12 */
-    p12 = PKCS12_create((char *)password, "FTPServerGTK",
+    /* Export as PKCS#12 (normalize empty password to NULL) */
+    const char *pass = (password && *password) ? password : NULL;
+    p12 = PKCS12_create((char *)pass, "FTPServerGTK",
                          pkey, x509, NULL, 0, 0, 0, 0, 0);
     if (!p12) goto done;
 

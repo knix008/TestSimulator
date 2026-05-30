@@ -41,7 +41,6 @@ struct _AppState {
 
     /* SFTP key (single-row widgets) */
     GtkWidget *ent_key_path;
-    GtkWidget *lbl_fingerprint;
     GtkWidget *frm_sftp;
 
     /* Auth */
@@ -67,6 +66,11 @@ struct _AppState {
 /* ========================================================================
    Helpers
    ======================================================================== */
+
+static char *mask_password(const char *pw) {
+    if (!pw || !*pw) return g_strdup("");
+    return g_strnfill(strlen(pw), '*');
+}
 
 static int entry_int(GtkWidget *e, int def) {
     const char *t = gtk_entry_get_text(GTK_ENTRY(e));
@@ -115,7 +119,7 @@ static void ui_to_cfg(AppState *app) {
         do {
             gchar *uname, *upass, *uperms;
             gtk_tree_model_get(GTK_TREE_MODEL(app->users_store), &it,
-                               0, &uname, 1, &upass, 2, &uperms, -1);
+                               0, &uname, 1, &upass, 3, &uperms, -1);
             if (c->user_count < MAX_USERS) {
                 g_strlcpy(c->users[c->user_count].username, uname, MAX_NAME_LEN);
                 g_strlcpy(c->users[c->user_count].password, upass, MAX_NAME_LEN);
@@ -167,22 +171,17 @@ static void cfg_to_ui(AppState *app) {
         const char *perms = (u->can_read && u->can_write) ? "읽기+쓰기" :
                              u->can_read  ? "읽기" :
                              u->can_write ? "쓰기" : "없음";
+        char *masked = mask_password(u->password);
         GtkTreeIter it;
         gtk_list_store_append(app->users_store, &it);
         gtk_list_store_set(app->users_store, &it,
-                           0, u->username, 1, u->password, 2, perms, -1);
+                           0, u->username, 1, u->password, 2, masked, 3, perms, -1);
+        g_free(masked);
     }
 
     snprintf(buf, sizeof(buf), "%d", c->buffer_size_kb); gtk_entry_set_text(GTK_ENTRY(app->ent_bufsize), buf);
     snprintf(buf, sizeof(buf), "%d", c->max_threads);    gtk_entry_set_text(GTK_ENTRY(app->ent_threads), buf);
 
-    if (c->sftp_host_key_path[0]) {
-        char *fp = sftp_get_fingerprint(c->sftp_host_key_path);
-        if (fp) {
-            gtk_label_set_text(GTK_LABEL(app->lbl_fingerprint), fp);
-            free(fp);
-        }
-    }
 }
 
 /* ========================================================================
@@ -323,14 +322,8 @@ static bool start_servers(AppState *app) {
             if (c->protocols.enable_ftps) ftp_server_stop(&app->ftps_srv);
             return false;
         }
-        if (c->sftp_host_key_path[0]) {
-            char *fp = sftp_get_fingerprint(c->sftp_host_key_path);
-            if (fp) {
-                gtk_label_set_text(GTK_LABEL(app->lbl_fingerprint), fp);
-                gtk_entry_set_text(GTK_ENTRY(app->ent_key_path), c->sftp_host_key_path);
-                free(fp);
-            }
-        }
+        if (c->sftp_host_key_path[0])
+            gtk_entry_set_text(GTK_ENTRY(app->ent_key_path), c->sftp_host_key_path);
     }
 
     return true;
@@ -563,10 +556,7 @@ static void on_generate_sftp_key(GtkWidget *btn, gpointer ud) {
         g_strlcpy(app->cfg.sftp_host_key_path, path, MAX_PATH_LEN);
         gtk_entry_set_text(GTK_ENTRY(app->ent_key_path), path);
         char *fp = sftp_get_fingerprint(path);
-        if (fp) {
-            gtk_label_set_text(GTK_LABEL(app->lbl_fingerprint), fp);
-            free(fp);
-        }
+        free(fp);
         log_manager_log("SFTP 호스트 키 생성: %s", path);
     }
     free(path);
@@ -583,7 +573,7 @@ static void on_open_key_folder(GtkWidget *btn, gpointer ud) {
         dir = path_join(cfgdir, "FTPServerGTK");
         free(cfgdir);
     }
-    char *cmd = g_strdup_printf("xdg-open \"%s\" &", dir);
+    char *cmd = g_strdup_printf("xdg-open \"%s\"", dir);
     g_spawn_command_line_async(cmd, NULL);
     g_free(cmd);
     free(dir);
@@ -645,15 +635,17 @@ static void show_user_dialog(AppState *app,
         const char *perms = (cr && cw) ? "읽기+쓰기" :
                              cr ? "읽기" : cw ? "쓰기" : "없음";
         if (*uname) {
+            char *masked = mask_password(upass);
             if (is_edit && edit_iter) {
                 gtk_list_store_set(app->users_store, edit_iter,
-                                   0, uname, 1, upass, 2, perms, -1);
+                                   0, uname, 1, upass, 2, masked, 3, perms, -1);
             } else {
                 GtkTreeIter it;
                 gtk_list_store_append(app->users_store, &it);
                 gtk_list_store_set(app->users_store, &it,
-                                   0, uname, 1, upass, 2, perms, -1);
+                                   0, uname, 1, upass, 2, masked, 3, perms, -1);
             }
+            g_free(masked);
         }
     }
     gtk_widget_destroy(dlg);
@@ -678,7 +670,7 @@ static void on_user_row_activated(GtkTreeView *tv, GtkTreePath *path,
     if (!gtk_tree_model_get_iter(GTK_TREE_MODEL(app->users_store), &it, path)) return;
     gchar *uname, *upass, *uperms;
     gtk_tree_model_get(GTK_TREE_MODEL(app->users_store), &it,
-                       0, &uname, 1, &upass, 2, &uperms, -1);
+                       0, &uname, 1, &upass, 3, &uperms, -1);
     bool cr = strstr(uperms, "읽기") != NULL;
     bool cw = strstr(uperms, "쓰기") != NULL;
     show_user_dialog(app, uname, upass, cr, cw, true, &it);
@@ -759,6 +751,18 @@ static void on_save_log(GtkWidget *btn, gpointer ud) {
     gtk_widget_destroy(fc);
 }
 
+/* ---- Window close handler ---------------------------------------------- */
+
+static gboolean on_window_delete(GtkWidget *win, GdkEvent *event, gpointer ud) {
+    AppState *app = ud;
+    ui_to_cfg(app);
+    char *path = settings_get_default_path();
+    settings_save(&app->cfg, path);
+    free(path);
+    gtk_main_quit();
+    return TRUE;
+}
+
 /* ---- Protocol checkbox toggles ---------------------------------------- */
 
 static void on_ftps_toggled(GtkToggleButton *btn, gpointer ud) {
@@ -781,7 +785,7 @@ GtkWidget *build_main_window(AppState *app) {
     gtk_window_set_title(GTK_WINDOW(win), "FTP Server Manager");
     gtk_window_set_default_size(GTK_WINDOW(win), 960, 780);
     gtk_window_set_position(GTK_WINDOW(win), GTK_WIN_POS_CENTER);
-    g_signal_connect(win, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(win, "delete-event", G_CALLBACK(on_window_delete), app);
 
     GtkCssProvider *css = gtk_css_provider_new();
     gtk_css_provider_load_from_data(css,
@@ -931,7 +935,9 @@ GtkWidget *build_main_window(AppState *app) {
     gtk_box_pack_start(GTK_BOX(auth_vbox), chk_anon, FALSE, FALSE, 0);
     app->chk_anon = chk_anon;
 
-    app->users_store = gtk_list_store_new(3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+    /* cols: 0=username 1=real_password(hidden) 2=masked_display 3=permissions */
+    app->users_store = gtk_list_store_new(4, G_TYPE_STRING, G_TYPE_STRING,
+                                             G_TYPE_STRING, G_TYPE_STRING);
     GtkWidget *users_tv = gtk_tree_view_new_with_model(GTK_TREE_MODEL(app->users_store));
     app->users_view = users_tv;
     g_signal_connect(users_tv, "row-activated", G_CALLBACK(on_user_row_activated), app);
@@ -940,10 +946,10 @@ GtkWidget *build_main_window(AppState *app) {
         gtk_tree_view_column_new_with_attributes("사용자 이름", ur, "text", 0, NULL));
     ur = gtk_cell_renderer_text_new();
     gtk_tree_view_append_column(GTK_TREE_VIEW(users_tv),
-        gtk_tree_view_column_new_with_attributes("비밀번호", ur, "text", 1, NULL));
+        gtk_tree_view_column_new_with_attributes("비밀번호", ur, "text", 2, NULL));
     ur = gtk_cell_renderer_text_new();
     gtk_tree_view_append_column(GTK_TREE_VIEW(users_tv),
-        gtk_tree_view_column_new_with_attributes("권한", ur, "text", 2, NULL));
+        gtk_tree_view_column_new_with_attributes("권한", ur, "text", 3, NULL));
     GtkWidget *users_sw = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(users_sw),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
@@ -1022,23 +1028,14 @@ GtkWidget *build_main_window(AppState *app) {
     gtk_widget_set_hexpand(ent_key, TRUE);
     GtkWidget *btn_gen_key = gtk_button_new_with_label("생성");
     GtkWidget *btn_kdir    = gtk_button_new_with_label("폴더 열기");
-    GtkWidget *lbl_fp_lbl  = gtk_label_new("지문:");
-    gtk_widget_set_halign(lbl_fp_lbl, GTK_ALIGN_END);
-    GtkWidget *lbl_fp      = gtk_label_new("(키 없음)");
-    gtk_widget_set_halign(lbl_fp, GTK_ALIGN_START);
-    gtk_label_set_selectable(GTK_LABEL(lbl_fp), TRUE);
-    gtk_widget_set_hexpand(lbl_fp, TRUE);
 
     /* All on row 0 */
     gtk_grid_attach(GTK_GRID(key_grid), lbl_key,    0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(key_grid), ent_key,    1, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(key_grid), btn_gen_key,2, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(key_grid), btn_kdir,   3, 0, 1, 1);
-    gtk_grid_attach(GTK_GRID(key_grid), lbl_fp_lbl, 4, 0, 1, 1);
-    gtk_grid_attach(GTK_GRID(key_grid), lbl_fp,     5, 0, 1, 1);
 
-    app->ent_key_path    = ent_key;
-    app->lbl_fingerprint = lbl_fp;
+    app->ent_key_path = ent_key;
     g_signal_connect(btn_gen_key, "clicked", G_CALLBACK(on_generate_sftp_key), app);
     g_signal_connect(btn_kdir,    "clicked", G_CALLBACK(on_open_key_folder),   app);
     gtk_widget_set_sensitive(frm_sftp_key, FALSE);
@@ -1169,15 +1166,6 @@ AppState *app_state_new(void) {
 
 void app_state_free(AppState *app) {
     if (app->servers_running) stop_servers(app);
-
-    char *dir  = settings_get_config_dir();
-    make_dirs(dir, 0700);
-    free(dir);
-    char *path = settings_get_default_path();
-    ui_to_cfg(app);
-    settings_save(&app->cfg, path);
-    free(path);
-
     gtk_log_uninstall();
     free(app);
 }
