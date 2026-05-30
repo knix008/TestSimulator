@@ -22,11 +22,10 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AlarmItem> _alarms = new();
     private readonly HashSet<Guid> _firedAlarms = new();
 
-    private bool   _isDigital    = true;
-    private bool   _use24h       = false;
-    private bool   _worldUse24h  = false;
-    private bool   _rightVisible = false;
-    private double _baseWindowWidth;
+    private bool _isDigital    = true;
+    private bool _use24h       = false;
+    private bool _worldUse24h  = false;
+    private bool _rightVisible = false;
 
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private IntPtr _trayIconHandle = IntPtr.Zero;
@@ -53,7 +52,6 @@ public partial class MainWindow : Window
         BuildColorSwatches();
         SetActiveClockBtn(digital: true);
         InitTrayIcon();
-        _baseWindowWidth = Width;
 
         _timer.Tick += OnTick;
         _timer.Start();
@@ -361,10 +359,13 @@ public partial class MainWindow : Window
 
     private void AnimateRightPanel(bool open)
     {
-        if (open) _baseWindowWidth = Width;
-
+        // Panel is always 400px wide; window grows/shrinks by exactly 400.
+        // Clock column is Width="*" so it fills the remainder automatically.
         double borderTarget = open ? 400 : 0;
-        double windowTarget = open ? _baseWindowWidth + 400 : _baseWindowWidth;
+        double windowTarget = open ? Width + 400 : Width - 400;
+
+        // Enforce minimum: clock min 300 + panel 400 when open, clock min 300 when closed.
+        MinWidth = open ? 700 : 300;
 
         var ease = open
             ? (IEasingFunction)new CubicEase { EasingMode = EasingMode.EaseOut }

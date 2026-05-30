@@ -13,7 +13,8 @@
       "PowerShell($p = Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\" -PassThru -RedirectStandardError \"C:\\\\Users\\\\shkwon\\\\Desktop\\\\mce.txt\" -ErrorAction SilentlyContinue; Start-Sleep -Seconds 4; if \\($p.HasExited\\) { Write-Host \"Exited with code $\\($p.ExitCode\\)\"; Get-Content \"C:\\\\Users\\\\shkwon\\\\Desktop\\\\mce.txt\" -ErrorAction SilentlyContinue } else { Write-Host \"Running PID=$\\($p.Id\\)\" })",
       "PowerShell($p = Get-Process -Id 65952 -ErrorAction SilentlyContinue; if \\($p\\) { \"Running: $\\($p.MainWindowHandle\\)\" } else { \"Dead\" })",
       "PowerShell(cd \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\"; $output = & \".\\\\MyClockWinV10.exe\" 2>&1; Write-Host \"Exit: $LASTEXITCODE\"; $output | Select-Object -First 30)",
-      "PowerShell($p = Get-Process -Id 73464 -ErrorAction SilentlyContinue; if \\($p\\) { $p.Refresh\\(\\); \"alive MainHandle=$\\($p.MainWindowHandle\\)\" } else { \"dead\" })"
+      "PowerShell($p = Get-Process -Id 73464 -ErrorAction SilentlyContinue; if \\($p\\) { $p.Refresh\\(\\); \"alive MainHandle=$\\($p.MainWindowHandle\\)\" } else { \"dead\" })",
+      "PowerShell($p = Start-Process \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyClockWinV10\\\\bin\\\\Debug\\\\net8.0-windows\\\\MyClockWinV10.exe\" -PassThru; Start-Sleep -Seconds 3; if \\($p.HasExited\\) { \"Crashed: $\\($p.ExitCode\\)\" } else { \"Running PID=$\\($p.Id\\)\" })"
     ]
   }
 }

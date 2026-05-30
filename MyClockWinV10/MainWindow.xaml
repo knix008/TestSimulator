@@ -22,7 +22,7 @@
 
     <Grid x:Name="RootGrid">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="360" MinWidth="300"/>
+            <ColumnDefinition Width="*" MinWidth="300"/>
             <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
