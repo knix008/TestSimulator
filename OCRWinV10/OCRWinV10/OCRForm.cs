@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Text;
 using OCRWinV10.Ocr;
@@ -129,7 +130,8 @@ public partial class OCRForm : Form
         innerSplitContainer.Panel2.BackColor = UiTheme.FormBackground;
 
         tsbOcr.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
-        tsbOcr.ForeColor = UiTheme.PrimaryActionText;
+        tsbOcr.ForeColor = UiTheme.OcrButtonIdleText;
+        tsbOcr.BackColor = UiTheme.OcrButtonIdle;
         tsbOcr.Margin = new Padding(4, 1, 4, 1);
         tsbCancel.ForeColor = Color.FromArgb(220, 38, 38);
 
@@ -424,6 +426,7 @@ public partial class OCRForm : Form
         if (_pages.Count == 0) return;
 
         _cts = new CancellationTokenSource();
+        var ocrStopwatch = Stopwatch.StartNew();
         SetOcrInProgress(true);
         SetOcrProgress(0, "OCR 시작");
         richTextBoxResult.Clear();
@@ -442,7 +445,8 @@ public partial class OCRForm : Form
                         "설치가 완료되지 않았거나 취소되었습니다.",
                         "OCR 엔진", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
-                SetStatus("OCR 엔진 준비 실패");
+                ocrStopwatch.Stop();
+                SetStatus($"OCR 엔진 준비 실패  ·  소요 {FormatOcrElapsed(ocrStopwatch.Elapsed)}");
                 return;
             }
 
@@ -502,20 +506,24 @@ public partial class OCRForm : Form
             SetBoxesImage(boxImage);
 
             int wordCount = result.Lines.Sum(l => l.Words.Count);
+            ocrStopwatch.Stop();
+            var elapsed = FormatOcrElapsed(ocrStopwatch.Elapsed);
             SetOcrProgress(100, "OCR 완료");
-            SetStatus($"OCR 완료  —  {result.Lines.Count}줄, {wordCount}단어, {result.Text.Length}자");
+            SetStatus($"OCR 완료  —  {result.Lines.Count}줄, {wordCount}단어, {result.Text.Length}자  ·  소요 {elapsed}");
             HideOcrProgressBar();
         }
         catch (OperationCanceledException)
         {
+            ocrStopwatch.Stop();
             HideOcrProgressBar();
-            SetStatus("OCR 취소됨");
+            SetStatus($"OCR 취소됨  ·  소요 {FormatOcrElapsed(ocrStopwatch.Elapsed)}");
         }
         catch (Exception ex)
         {
+            ocrStopwatch.Stop();
             HideOcrProgressBar();
             MessageBox.Show($"OCR 오류:\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            SetStatus("OCR 실패");
+            SetStatus($"OCR 실패  ·  소요 {FormatOcrElapsed(ocrStopwatch.Elapsed)}");
         }
         finally
         {
@@ -841,6 +849,8 @@ public partial class OCRForm : Form
     {
         tsbOpen.Enabled = !inProgress;
         tsbOcr.Enabled = !inProgress && _pages.Count > 0;
+        tsbOcr.Tag = inProgress ? UiTheme.OcrRunningTag : null;
+        RefreshOcrButtonAppearance();
         tsbCancel.Enabled = inProgress;
         tsbCancel.Visible = inProgress;
         if (inProgress)
@@ -854,6 +864,36 @@ public partial class OCRForm : Form
         {
             HideOcrProgressBar();
         }
+    }
+
+    private void RefreshOcrButtonAppearance()
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(RefreshOcrButtonAppearance);
+            return;
+        }
+
+        bool running = string.Equals(tsbOcr.Tag as string, UiTheme.OcrRunningTag, StringComparison.Ordinal);
+        tsbOcr.ForeColor = running ? UiTheme.OcrButtonRunningText : UiTheme.OcrButtonIdleText;
+        tsbOcr.BackColor = running ? UiTheme.OcrButtonRunning : UiTheme.OcrButtonIdle;
+        toolStrip.Invalidate(tsbOcr.Bounds);
+    }
+
+    private static string FormatOcrElapsed(TimeSpan elapsed)
+    {
+        if (elapsed.TotalHours >= 1)
+            return $"{(int)elapsed.TotalHours}시간 {elapsed.Minutes}분 {elapsed.Seconds}초";
+
+        if (elapsed.TotalMinutes >= 1)
+            return $"{elapsed.Minutes}분 {elapsed.Seconds}초";
+
+        if (elapsed.TotalSeconds >= 10)
+            return $"{elapsed.TotalSeconds:F1}초";
+
+        return elapsed.TotalSeconds < 0.01
+            ? "0초"
+            : $"{elapsed.TotalSeconds:F2}초";
     }
 
     private void SetStatus(string message)

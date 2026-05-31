@@ -9,13 +9,22 @@ public static class UiTheme
     public static readonly Color Accent = Color.FromArgb(37, 99, 235);
     public static readonly Color AccentHover = Color.FromArgb(29, 78, 216);
 
-    /// <summary>OCR 실행 등 주요 동작 버튼</summary>
-    public static readonly Color PrimaryAction = Color.FromArgb(5, 150, 105);
-    public static readonly Color PrimaryActionHover = Color.FromArgb(4, 120, 87);
-    public static readonly Color PrimaryActionPressed = Color.FromArgb(6, 95, 70);
-    public static readonly Color PrimaryActionText = Color.White;
-    public static readonly Color PrimaryActionDisabled = Color.FromArgb(203, 213, 225);
-    public static readonly Color PrimaryActionTextDisabled = Color.FromArgb(148, 163, 184);
+    /// <summary>OCR 실행 버튼 — 대기(밝은 녹색)</summary>
+    public static readonly Color OcrButtonIdle = Color.FromArgb(187, 247, 208);
+    public static readonly Color OcrButtonIdleHover = Color.FromArgb(134, 239, 172);
+    public static readonly Color OcrButtonIdlePressed = Color.FromArgb(110, 231, 183);
+    public static readonly Color OcrButtonIdleText = Color.FromArgb(21, 128, 61);
+
+    /// <summary>OCR 실행 버튼 — 인식 진행 중(붉은색)</summary>
+    public static readonly Color OcrButtonRunning = Color.FromArgb(239, 68, 68);
+    public static readonly Color OcrButtonRunningHover = Color.FromArgb(220, 38, 38);
+    public static readonly Color OcrButtonRunningPressed = Color.FromArgb(185, 28, 28);
+    public static readonly Color OcrButtonRunningText = Color.White;
+
+    public static readonly Color OcrButtonDisabled = Color.FromArgb(226, 232, 240);
+    public static readonly Color OcrButtonDisabledText = Color.FromArgb(148, 163, 184);
+
+    public const string OcrRunningTag = "ocr-running";
     public static readonly Color ImageCanvas = Color.FromArgb(24, 27, 34);
     public static readonly Color Border = Color.FromArgb(226, 232, 240);
     public static readonly Color TextPrimary = Color.FromArgb(15, 23, 42);

@@ -27,9 +27,7 @@ public sealed class ModernToolStripRenderer : ToolStripProfessionalRenderer
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
         if (e.Item is ToolStripButton { Name: "tsbOcr" } ocrBtn)
-            e.TextColor = ocrBtn.Enabled
-                ? UiTheme.PrimaryActionText
-                : UiTheme.PrimaryActionTextDisabled;
+            e.TextColor = GetOcrButtonTextColor(ocrBtn);
 
         base.OnRenderItemText(e);
     }
@@ -37,16 +35,39 @@ public sealed class ModernToolStripRenderer : ToolStripProfessionalRenderer
     private static void PaintOcrButtonBackground(Graphics g, ToolStripButton btn, Size size)
     {
         var rect = new Rectangle(1, 1, size.Width - 2, size.Height - 2);
-        Color bg = !btn.Enabled
-            ? UiTheme.PrimaryActionDisabled
-            : btn.Pressed
-                ? UiTheme.PrimaryActionPressed
-                : btn.Selected
-                    ? UiTheme.PrimaryActionHover
-                    : UiTheme.PrimaryAction;
-
-        using var brush = new SolidBrush(bg);
+        using var brush = new SolidBrush(GetOcrButtonBackgroundColor(btn));
         g.FillRectangle(brush, rect);
+    }
+
+    private static bool IsOcrRunning(ToolStripButton btn) =>
+        string.Equals(btn.Tag as string, UiTheme.OcrRunningTag, StringComparison.Ordinal);
+
+    private static Color GetOcrButtonBackgroundColor(ToolStripButton btn)
+    {
+        if (IsOcrRunning(btn))
+        {
+            if (btn.Pressed) return UiTheme.OcrButtonRunningPressed;
+            if (btn.Selected) return UiTheme.OcrButtonRunningHover;
+            return UiTheme.OcrButtonRunning;
+        }
+
+        if (!btn.Enabled)
+            return UiTheme.OcrButtonDisabled;
+
+        if (btn.Pressed) return UiTheme.OcrButtonIdlePressed;
+        if (btn.Selected) return UiTheme.OcrButtonIdleHover;
+        return UiTheme.OcrButtonIdle;
+    }
+
+    private static Color GetOcrButtonTextColor(ToolStripButton btn)
+    {
+        if (IsOcrRunning(btn))
+            return UiTheme.OcrButtonRunningText;
+
+        if (!btn.Enabled)
+            return UiTheme.OcrButtonDisabledText;
+
+        return UiTheme.OcrButtonIdleText;
     }
 
     private sealed class ModernColorTable : ProfessionalColorTable

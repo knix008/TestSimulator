@@ -216,8 +216,9 @@ partial class OCRForm
         // 
         tsbOcr.DisplayStyle = ToolStripItemDisplayStyle.Text;
         tsbOcr.Enabled = false;
+        tsbOcr.BackColor = Color.FromArgb(187, 247, 208);
         tsbOcr.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
-        tsbOcr.ForeColor = Color.White;
+        tsbOcr.ForeColor = Color.FromArgb(21, 128, 61);
         tsbOcr.Name = "tsbOcr";
         tsbOcr.Size = new Size(62, 22);
         tsbOcr.Text = "OCR 실행";
