@@ -23,7 +23,7 @@ public sealed class PaddleOcrProvider : IOcrProvider, IDisposable
     {
         if (!PaddleKoreanModelStore.IsRecModelReady())
         {
-            if (!await PaddleKoreanModelStore.EnsureRecModelDownloadedAsync(progress, cancellationToken))
+            if (!await PaddleKoreanModelStore.EnsureAllModelsDownloadedAsync(progress, cancellationToken))
                 return false;
         }
 

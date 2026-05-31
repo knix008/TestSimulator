@@ -14,7 +14,7 @@
 
   <Target Name="PublishMainApp" BeforeTargets="CoreCompile">
     <Message Text="[OCRWinV10Setup] Publishing self-contained win-x64..." Importance="high" />
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\OCRWinV10\OCRWinV10.csproj&quot; -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:BuildMsi=false -o &quot;$(PublishDir)&quot;"
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\OCRWinV10\OCRWinV10.csproj&quot; -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -p:BuildMsi=false -p:TrimInstallerPayload=true -o &quot;$(PublishDir)&quot;"
           IgnoreExitCode="false" />
   </Target>
 

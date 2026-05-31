@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- MSI publish 후 설치 패키지에 불필요한 네이티브/디자인 파일 제거 -->
+  <Target Name="TrimInstallerPayload" AfterTargets="Publish">
+    <PropertyGroup>
+      <_InstallerPublishDir Condition="'$(_InstallerPublishDir)' == ''">$(PublishDir)</_InstallerPublishDir>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(_InstallerPublishDir)x86"
+               Condition="Exists('$(_InstallerPublishDir)x86')" />
+    <RemoveDir Directories="$(_InstallerPublishDir)arm64"
+               Condition="Exists('$(_InstallerPublishDir)arm64')" />
+
+    <ItemGroup>
+      <_InstallerRemove Include="$(_InstallerPublishDir)opencv_videoio_ffmpeg*.dll" />
+      <_InstallerRemove Include="$(_InstallerPublishDir)System.Windows.Forms.Design.dll" />
+      <_InstallerRemove Include="$(_InstallerPublishDir)System.Windows.Forms.Design.Editors.dll" />
+      <_InstallerRemove Include="$(_InstallerPublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_InstallerRemove)" ContinueOnError="true" />
+
+    <Message Text="[Installer] Trimmed publish payload at $(_InstallerPublishDir)" Importance="high" />
+  </Target>
+</Project>

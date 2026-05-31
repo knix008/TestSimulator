@@ -7,6 +7,8 @@
              Include="$(var.PublishDir)**">
         <Exclude Files="$(var.PublishDir)OCRWinV10.exe" />
         <Exclude Files="$(var.PublishDir)**\*.pdb" />
+        <Exclude Files="$(var.PublishDir)opencv_videoio_ffmpeg*.dll" />
+        <Exclude Files="$(var.PublishDir)System.Windows.Forms.Design.dll" />
       </Files>
     </ComponentGroup>
   </Fragment>

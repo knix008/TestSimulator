@@ -75,7 +75,10 @@ WiX로 `dotnet publish`(self-contained win-x64) 후 MSI를 만듭니다.
 | Visual Studio **Release** + **솔루션 빌드** | 위와 동일 |
 | VS에서 시작 프로젝트만 **빌드** (F6) | 앱 csproj Release 시 MSI 자동 생성 |
 
-**MSI 출력:** `Setup/bin/Release/OCRWinV10Setup.msi`
+**MSI 출력:** `Setup/bin/Release/OCRWinV10Setup.msi` (약 **130MB**, 이전 대비 축소)
+
+포함: .NET self-contained, Paddle MKL, OpenCV, **한국어 인식** 모델.  
+Paddle **탐지·분류** 모델은 MSI에 넣지 않으며, PaddleOCR **최초 실행 시** 1회 다운로드(~12MB, 인터넷 필요).
 
 MSI만 따로 만들 때:
 
