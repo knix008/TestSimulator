@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="한국어 OCR"
+           Manufacturer="OCRWinV10"
+           Version="1.0.0.0"
+           UpgradeCode="F3A2B1C0-D4E5-6789-ABCD-EF0123456789"
+           Language="1042"
+           Codepage="949"
+           Scope="perMachine">
+
+    <SummaryInformation Description="한국어·영어 OCR 및 손글씨 인식"
+                        Keywords="OCR,한국어,영어,손글씨" />
+
+    <MajorUpgrade DowngradeErrorMessage="더 최신 버전이 이미 설치되어 있습니다. 먼저 기존 버전을 제거하세요." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <ui:WixUI Id="WixUI_InstallDir"
+              InstallDirectory="INSTALLFOLDER" />
+
+    <!-- 프로그램·바로가기·앱 제거에 표시할 아이콘 -->
+    <Icon Id="AppIcon.ico" SourceFile="$(var.IconPath)" />
+
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="ARPNOREPAIR" Value="yes" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="한국어 OCR" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppStartMenuFolder" Name="한국어 OCR" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- 실행 파일 (아이콘 포함) -->
+    <Component Id="MainExecutableComp" Directory="INSTALLFOLDER" Guid="A1B2C3D4-1111-2222-3333-444455556666">
+      <File Id="OCRWinV10Exe"
+            Source="$(var.PublishDir)OCRWinV10.exe"
+            KeyPath="yes"
+            Name="OCRWinV10.exe" />
+    </Component>
+
+    <!-- 시작 메뉴 바로가기 -->
+    <Component Id="StartMenuShortcutComp" Directory="AppStartMenuFolder"
+               Guid="11223344-5566-7788-99AA-BBCCDDEEFF00">
+      <Shortcut Id="StartMenuShortcut"
+                Name="한국어 OCR"
+                Description="한국어·영어 OCR 및 손글씨 인식"
+                Target="[INSTALLFOLDER]OCRWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <RemoveFolder Id="RemoveAppStartMenuFolder" Directory="AppStartMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\OCRWinV10"
+                     Name="installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- 바탕화면 바로가기 -->
+    <Component Id="DesktopShortcutComp" Directory="DesktopFolder"
+               Guid="FFEEDDCC-BBAA-9988-7766-554433221100">
+      <Shortcut Id="DesktopShortcut"
+                Name="한국어 OCR"
+                Description="한국어·영어 OCR 및 손글씨 인식"
+                Target="[INSTALLFOLDER]OCRWinV10.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon.ico"
+                IconIndex="0" />
+      <RegistryValue Root="HKCU" Key="Software\OCRWinV10"
+                     Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="MainFeature"
+             Title="한국어 OCR"
+             Description="프로그램 파일, 시작 메뉴 및 바탕화면 바로가기"
+             Level="1"
+             ConfigurableDirectory="INSTALLFOLDER"
+             AllowAdvertise="no"
+             Display="expand">
+      <ComponentRef Id="MainExecutableComp" />
+      <ComponentGroupRef Id="AppPayload" />
+      <ComponentRef Id="StartMenuShortcutComp" />
+      <ComponentRef Id="DesktopShortcutComp" />
+    </Feature>
+
+  </Package>
+</Wix>

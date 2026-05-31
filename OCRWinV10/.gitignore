@@ -1,0 +1,64 @@
+## Visual Studio / Rider
+.vs/
+**/.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.pidb
+*.userprefs
+.idea/
+
+## .NET build
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww]in32/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+publish/
+**/bin/Publish/
+
+## NuGet
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+packages/
+
+## WiX installer
+Setup/bin/
+Setup/obj/
+*.wixpdb
+*.wixobj
+*.wixlib
+*.msi
+!Setup/**/*.wxs
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+## Secrets / local overrides
+appsettings.Local.json
+*.local.json
+
+## Cursor / agent
+.agent-tools/
+.cursor/
+
+## Runtime downloads (not in repo)
+# %LocalAppData%\OCRWinV10\settings.json
+# %LocalAppData%\OCRWinV10\engines\  (EasyOCR, Tesseract, Paddle fallback cache)
+
+## Bundled models — DO commit OCRWinV10/models/paddle/ (PaddleOCR Korean, ~13MB)

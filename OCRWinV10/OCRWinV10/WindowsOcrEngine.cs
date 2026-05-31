@@ -37,26 +37,34 @@ public class WindowsOcrEngine
         cancellationToken.ThrowIfCancellationRequested();
 
         var softwareBitmap = await ToSoftwareBitmapAsync(bitmap);
-        var winResult = await _engine.RecognizeAsync(softwareBitmap);
+        using (softwareBitmap)
+        {
+            var winResult = await _engine.RecognizeAsync(softwareBitmap);
 
-        var lines = winResult.Lines
-            .Select(l => new OcrLine(
-                l.Text,
-                l.Words.Select(w => new OcrWord(
-                    w.Text,
-                    new RectangleF(
-                        (float)w.BoundingRect.X, (float)w.BoundingRect.Y,
-                        (float)w.BoundingRect.Width, (float)w.BoundingRect.Height)))
-                .ToList()))
-            .ToList();
+            cancellationToken.ThrowIfCancellationRequested();
 
-        return new OcrResult(winResult.Text, lines);
+            var lines = winResult.Lines
+                .Select(l => new OcrLine(
+                    l.Text,
+                    l.Words.Select(w => new OcrWord(
+                        w.Text,
+                        new RectangleF(
+                            (float)w.BoundingRect.X, (float)w.BoundingRect.Y,
+                            (float)w.BoundingRect.Width, (float)w.BoundingRect.Height)))
+                    .ToList()))
+                .ToList();
+
+            return new OcrResult(winResult.Text, lines);
+        }
     }
 
+    /// <summary>
+    /// PNG 대신 무손실 BMP로 전달해 손글씨 획 손실을 줄입니다.
+    /// </summary>
     private static async Task<SoftwareBitmap> ToSoftwareBitmapAsync(Bitmap bitmap)
     {
         using var ms = new MemoryStream();
-        bitmap.Save(ms, ImageFormat.Png);
+        bitmap.Save(ms, ImageFormat.Bmp);
         var bytes = ms.ToArray();
 
         using var ras = new InMemoryRandomAccessStream();

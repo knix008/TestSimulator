@@ -1,0 +1,29 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.0.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OCRWinV10", "OCRWinV10\OCRWinV10.csproj", "{2D4B6E1A-8F3C-4A2B-9E5D-7C0F1B3A2E4D}"
+EndProject
+Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "OCRWinV10Setup", "Setup\OCRWinV10Setup.wixproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567891}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2D4B6E1A-8F3C-4A2B-9E5D-7C0F1B3A2E4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D4B6E1A-8F3C-4A2B-9E5D-7C0F1B3A2E4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D4B6E1A-8F3C-4A2B-9E5D-7C0F1B3A2E4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567891}.Debug|Any CPU.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567891}.Release|Any CPU.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567891}.Release|Any CPU.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567891} = {2D4B6E1A-8F3C-4A2B-9E5D-7C0F1B3A2E4D}
+	EndGlobalSection
+EndGlobal

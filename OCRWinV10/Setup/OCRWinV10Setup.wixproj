@@ -1,0 +1,30 @@
+<Project Sdk="WixToolset.Sdk/7.0.0">
+
+  <PropertyGroup>
+    <OutputName>OCRWinV10Setup</OutputName>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+    <Configurations>Release</Configurations>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <_PublishDirRaw>$(MSBuildThisFileDirectory)..\OCRWinV10\bin\Publish\win-x64</_PublishDirRaw>
+    <PublishDir>$([System.IO.Path]::GetFullPath('$(_PublishDirRaw)'))\</PublishDir>
+    <IconPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\OCRWinV10\app.ico'))</IconPath>
+    <DefineConstants>PublishDir=$(PublishDir);IconPath=$(IconPath)</DefineConstants>
+  </PropertyGroup>
+
+  <Target Name="PublishMainApp" BeforeTargets="CoreCompile">
+    <Message Text="[OCRWinV10Setup] Publishing self-contained win-x64..." Importance="high" />
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\OCRWinV10\OCRWinV10.csproj&quot; -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o &quot;$(PublishDir)&quot;"
+          IgnoreExitCode="false" />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Product.wxs" />
+    <Compile Include="Payload.wxs" />
+  </ItemGroup>
+
+</Project>
