@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=MyOCR
+GenericName=OCR
+Comment=한글/영문 OCR (PaddleOCR · EasyOCR · Tesseract)
+Exec=myocr
+Icon=myocr
+Terminal=false
+Categories=Utility;Office;Graphics;
+StartupWMClass=myocr
+Keywords=OCR;한글;텍스트;인식;

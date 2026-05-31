@@ -30,6 +30,7 @@ GTK_SRC= \
 	src/gtk/gtk_app.c \
 	src/gtk/gtk_main_window.c \
 	src/gtk/gtk_install_progress.c \
+	src/gtk/gtk_app_icon.c \
 	src/gtk/gtk_pixbuf_util.c
 
 CORE_OBJS=$(patsubst src/%.c,$(BUILD_DIR)/%.o,$(CORE_SRC))
@@ -82,19 +83,21 @@ define BANNER
 @printf "\n$(C_MAGENTA)$(C_BOLD)▶ OCRLinuxGTKV10 빌드$(C_RESET)\n\n"
 endef
 
-.PHONY: all deps clean install-scripts test-ocr \
+.PHONY: all deps clean install-scripts app-icon test-ocr \
         stage-scripts stage-core stage-gtk stage-link stage-done \
         core-objs gtk-objs
 
 SMOKE_TEST=ocr_smoke_test
 SMOKE_OBJ=$(BUILD_DIR)/tools/ocr_smoke_test.o
+ICON=assets/myocr.png
+APP_ICON=$(APP).png
 
 all: stage-scripts stage-core stage-gtk stage-link stage-done
 
-stage-scripts: install-scripts
+stage-scripts: install-scripts app-icon
 	$(call BANNER)
 	$(call STEP,1,스크립트 준비)
-	$(call OK,paddle_ocr · easyocr_ocr)
+	$(call OK,paddle_ocr · easyocr_ocr · icon)
 
 stage-core:
 	$(call STEP,2,코어 모듈 컴파일)
@@ -119,8 +122,9 @@ stage-done:
 core-objs: $(CORE_OBJS) $(MAIN_OBJ)
 gtk-objs: $(GTK_OBJS)
 
-$(APP): $(ALL_OBJS)
+$(APP): $(ALL_OBJS) $(ICON)
 	@$(CC) $(ALL_OBJS) -o $@ $(LDFLAGS)
+	@cp $(ICON) $(APP_ICON)
 
 $(BUILD_DIR)/%.o: src/%.c
 	@mkdir -p $(dir $@)
@@ -128,6 +132,9 @@ $(BUILD_DIR)/%.o: src/%.c
 
 install-scripts:
 	@chmod +x scripts/paddle_ocr.py scripts/easyocr_ocr.py 2>/dev/null || true
+
+app-icon:
+	@python3 scripts/gen_app_icon.py > /dev/null
 
 echo_os:
 	@uname

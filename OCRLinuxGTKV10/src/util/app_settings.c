@@ -10,8 +10,7 @@ void app_settings_init_defaults(AppSettings *settings) {
     memset(settings, 0, sizeof(*settings));
     settings->preprocess_mode = 0;
     settings->ocr_provider_id = g_strdup("paddle-korean");
-    settings->outer_splitter_pos = 480;
-    settings->inner_splitter_pos = 600;
+    settings->outer_splitter_pos = 520;
     settings->window_width = 1200;
     settings->window_height = 720;
     settings->window_x = -1;

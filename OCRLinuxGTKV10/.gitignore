@@ -3,6 +3,8 @@
 # ---------------------------------------------------------------------------
 OCRLinuxGTKV10
 ocr_smoke_test
+myocr
+myocr.png
 build/
 *.o
 *.a

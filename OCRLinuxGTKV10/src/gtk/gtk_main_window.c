@@ -1,11 +1,15 @@
 #include "gtk/gtk_main_window.h"
 #include "gtk/gtk_pixbuf_util.h"
 #include "gtk/gtk_install_progress.h"
+#include "gtk/gtk_app_icon.h"
 #include "app/ocr_app.h"
 #include "util/result_save.h"
 #include <cairo/cairo.h>
 #include <math.h>
 #include <string.h>
+
+#define BOTTOM_PANEL_MIN_HEIGHT 220
+#define RESULT_TREE_MIN_HEIGHT 140
 
 typedef struct {
     OcrApp *app;
@@ -20,9 +24,11 @@ typedef struct {
     GtkWidget *next_btn;
     GtkWidget *image_area;
     GtkWidget *box_area;
-    GtkWidget *paned_outer;   /* 상·하 분할 (이미지 영역 | OCR 텍스트) */
-    GtkWidget *paned_inner;   /* 좌·우 분할 (원본 | 박스) */
-    GtkTextView *result_view;
+    GtkWidget *center_box;    /* 상단 이미지 + 하단 인식 결과 */
+    GtkWidget *bottom_panel;
+    GtkWidget *image_row;     /* 좌·우 동일 크기 (입력 | 박스) */
+    GtkWidget *result_tree;
+    GtkListStore *result_store;
     GtkWidget *ocr_btn;
     GtkWidget *copy_btn;
     GtkWidget *save_text_btn;
@@ -156,9 +162,35 @@ static void ocr_progress_cb(gpointer user_data, const char *message, int percent
 
 static void refresh_result_view(GtkMainWindow *mw) {
     const OcrResult *result = ocr_app_get_result(mw->app);
-    const char *text = (result && result->text) ? result->text : "";
-    GtkTextBuffer *buf = gtk_text_view_get_buffer(mw->result_view);
-    gtk_text_buffer_set_text(buf, text, -1);
+    gtk_list_store_clear(mw->result_store);
+
+    if (result && result->line_count > 0) {
+        for (size_t i = 0; i < result->line_count; i++) {
+            const char *line_text = result->lines[i].text;
+            if (!line_text || !line_text[0]) continue;
+            GtkTreeIter iter;
+            gtk_list_store_append(mw->result_store, &iter);
+            gtk_list_store_set(mw->result_store, &iter,
+                0, (guint)(i + 1),
+                1, line_text,
+                -1);
+        }
+    } else if (result && result->text && result->text[0]) {
+        gchar **lines = g_strsplit(result->text, "\n", -1);
+        guint row = 1;
+        for (guint i = 0; lines[i]; i++) {
+            g_strstrip(lines[i]);
+            if (!lines[i][0]) continue;
+            GtkTreeIter iter;
+            gtk_list_store_append(mw->result_store, &iter);
+            gtk_list_store_set(mw->result_store, &iter,
+                0, row++,
+                1, lines[i],
+                -1);
+        }
+        g_strfreev(lines);
+    }
+
     gtk_widget_queue_draw(mw->box_area);
     update_save_buttons(mw);
 }
@@ -181,6 +213,49 @@ static void refresh_image_view(GtkMainWindow *mw) {
     update_page_controls(mw);
 }
 
+typedef struct {
+    double scale;
+    double ox;
+    double oy;
+} ImageLayout;
+
+static ImageLayout compute_image_layout(int view_w, int view_h, int img_w, int img_h) {
+    ImageLayout layout;
+    layout.scale = MIN((double)view_w / img_w, (double)view_h / img_h);
+    double dw = img_w * layout.scale;
+    double dh = img_h * layout.scale;
+    layout.ox = (view_w - dw) / 2.0;
+    layout.oy = (view_h - dh) / 2.0;
+    return layout;
+}
+
+static OcrRect union_word_bounds(const OcrLine *line) {
+    OcrRect u = {0};
+    gboolean has = FALSE;
+    for (size_t j = 0; j < line->word_count; j++) {
+        const OcrRect *b = &line->words[j].bounds;
+        if (b->w < 1.0f || b->h < 1.0f) continue;
+        if (!has) {
+            u = *b;
+            has = TRUE;
+            continue;
+        }
+        float x2 = MAX(u.x + u.w, b->x + b->w);
+        float y2 = MAX(u.y + u.h, b->y + b->h);
+        u.x = MIN(u.x, b->x);
+        u.y = MIN(u.y, b->y);
+        u.w = x2 - u.x;
+        u.h = y2 - u.y;
+    }
+    return u;
+}
+
+static void draw_word_box(cairo_t *cr, const OcrRect *b) {
+    if (b->w < 1.0f || b->h < 1.0f) return;
+    cairo_rectangle(cr, b->x, b->y, b->w, b->h);
+    cairo_stroke(cr);
+}
+
 static void draw_image_panel(GtkMainWindow *mw, cairo_t *cr, int w, int h, gboolean with_boxes) {
     cairo_set_source_rgb(cr, with_boxes ? 0.08 : 0.12, with_boxes ? 0.08 : 0.12, with_boxes ? 0.08 : 0.12);
     cairo_paint(cr);
@@ -188,27 +263,53 @@ static void draw_image_panel(GtkMainWindow *mw, cairo_t *cr, int w, int h, gbool
 
     int pw = gdk_pixbuf_get_width(mw->display_pixbuf);
     int ph = gdk_pixbuf_get_height(mw->display_pixbuf);
-    double scale = MIN((double)w / pw, (double)h / ph);
-    double dw = pw * scale, dh = ph * scale;
-    double ox = (w - dw) / 2.0, oy = (h - dh) / 2.0;
+    ImageLayout layout = compute_image_layout(w, h, pw, ph);
 
-    gdk_cairo_set_source_pixbuf(cr, mw->display_pixbuf, ox, oy);
+    cairo_save(cr);
+    cairo_translate(cr, layout.ox, layout.oy);
+    cairo_scale(cr, layout.scale, layout.scale);
+    cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
+
+    gdk_cairo_set_source_pixbuf(cr, mw->display_pixbuf, 0, 0);
+    cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_BEST);
     cairo_paint(cr);
 
-    if (!with_boxes) return;
-    const OcrResult *result = ocr_app_get_result(mw->app);
-    if (!result) return;
+    if (with_boxes) {
+        const OcrResult *result = ocr_app_get_result(mw->app);
+        if (result) {
+            size_t drawn = 0;
+            cairo_set_source_rgba(cr, 0.0, 1.0, 0.2, 0.85);
+            cairo_set_line_width(cr, 1.5 / layout.scale);
 
-    cairo_set_source_rgba(cr, 0.0, 1.0, 0.2, 0.85);
-    cairo_set_line_width(cr, 1.5);
-    for (size_t i = 0; i < result->line_count; i++) {
-        const OcrLine *line = &result->lines[i];
-        for (size_t j = 0; j < line->word_count; j++) {
-            const OcrRect *b = &line->words[j].bounds;
-            cairo_rectangle(cr, ox + b->x * scale, oy + b->y * scale, b->w * scale, b->h * scale);
-            cairo_stroke(cr);
+            for (size_t i = 0; i < result->line_count; i++) {
+                const OcrLine *line = &result->lines[i];
+                for (size_t j = 0; j < line->word_count; j++) {
+                    const OcrRect *b = &line->words[j].bounds;
+                    if (b->w < 1.0f || b->h < 1.0f) continue;
+                    draw_word_box(cr, b);
+                    drawn++;
+                }
+            }
+
+            if (drawn == 0) {
+                cairo_set_dash(cr, (double[]){4.0 / layout.scale, 3.0 / layout.scale}, 2, 0);
+                for (size_t i = 0; i < result->line_count; i++) {
+                    OcrRect u = union_word_bounds(&result->lines[i]);
+                    draw_word_box(cr, &u);
+                }
+            }
         }
     }
+
+    cairo_restore(cr);
+}
+
+static void on_content_size_allocate(GtkWidget *widget, GdkRectangle *allocation, gpointer user_data) {
+    (void)widget;
+    (void)allocation;
+    GtkMainWindow *mw = user_data;
+    gtk_widget_queue_draw(mw->image_area);
+    gtk_widget_queue_draw(mw->box_area);
 }
 
 static gboolean on_image_draw(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
@@ -520,12 +621,7 @@ static void apply_window_settings(GtkMainWindow *mw) {
 }
 
 static void apply_splitter_settings(GtkMainWindow *mw) {
-    AppSettings *s = ocr_app_get_settings(mw->app);
-    if (!s) return;
-    if (s->outer_splitter_pos > 100)
-        gtk_paned_set_position(GTK_PANED(mw->paned_outer), s->outer_splitter_pos);
-    if (s->inner_splitter_pos > 100)
-        gtk_paned_set_position(GTK_PANED(mw->paned_inner), s->inner_splitter_pos);
+    (void)mw;
 }
 
 static void save_window_state(GtkMainWindow *mw) {
@@ -546,8 +642,6 @@ static void save_window_state(GtkMainWindow *mw) {
         s->window_y = y;
     }
 
-    s->outer_splitter_pos = gtk_paned_get_position(GTK_PANED(mw->paned_outer));
-    s->inner_splitter_pos = gtk_paned_get_position(GTK_PANED(mw->paned_inner));
     ocr_app_save_settings(mw->app, NULL);
 }
 
@@ -571,7 +665,9 @@ GtkWidget *gtk_main_window_create(OcrApp *app) {
     mw->app = app;
 
     mw->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(mw->window), "OCRLinuxGTKV10");
+    gtk_window_set_title(GTK_WINDOW(mw->window), "MyOCR");
+    gtk_window_set_wmclass(GTK_WINDOW(mw->window), "myocr", "myocr");
+    gtk_app_icon_apply(GTK_WINDOW(mw->window));
     g_signal_connect(mw->window, "destroy", G_CALLBACK(on_destroy), mw);
     g_signal_connect(mw->window, "key-press-event", G_CALLBACK(on_key_press), mw);
 
@@ -630,29 +726,41 @@ GtkWidget *gtk_main_window_create(OcrApp *app) {
 
     gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 0);
 
-    /* 상단: 원본(좌) | 박스(우)  —  하단: OCR 텍스트 */
-    mw->paned_outer = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
-    gtk_box_pack_start(GTK_BOX(vbox), mw->paned_outer, TRUE, TRUE, 0);
+    /* 상단: 입력 | 박스 (동일 크기, 창에 맞게 축소) — 하단: 인식 결과 (항상 표시) */
+    mw->center_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_box_pack_start(GTK_BOX(vbox), mw->center_box, TRUE, TRUE, 0);
+    g_signal_connect(mw->center_box, "size-allocate", G_CALLBACK(on_content_size_allocate), mw);
 
-    mw->paned_inner = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
-    gtk_paned_add1(GTK_PANED(mw->paned_outer), mw->paned_inner);
+    mw->image_row = gtk_grid_new();
+    gtk_grid_set_column_homogeneous(GTK_GRID(mw->image_row), TRUE);
+    gtk_grid_set_row_homogeneous(GTK_GRID(mw->image_row), TRUE);
+    gtk_box_pack_start(GTK_BOX(mw->center_box), mw->image_row, TRUE, TRUE, 0);
 
-    GtkWidget *orig_frame = gtk_frame_new("원본");
+    GtkWidget *orig_frame = gtk_frame_new("입력");
     gtk_frame_set_label_align(GTK_FRAME(orig_frame), 0.0, 0.5);
     mw->image_area = gtk_drawing_area_new();
+    gtk_widget_set_hexpand(mw->image_area, TRUE);
+    gtk_widget_set_vexpand(mw->image_area, TRUE);
     g_signal_connect(mw->image_area, "draw", G_CALLBACK(on_image_draw), mw);
     gtk_container_add(GTK_CONTAINER(orig_frame), mw->image_area);
-    gtk_paned_add1(GTK_PANED(mw->paned_inner), orig_frame);
+    gtk_widget_set_hexpand(orig_frame, TRUE);
+    gtk_widget_set_vexpand(orig_frame, TRUE);
+    gtk_grid_attach(GTK_GRID(mw->image_row), orig_frame, 0, 0, 1, 1);
 
-    GtkWidget *box_frame = gtk_frame_new("박스");
+    GtkWidget *box_frame = gtk_frame_new("결과 (박스)");
     gtk_frame_set_label_align(GTK_FRAME(box_frame), 0.0, 0.5);
     mw->box_area = gtk_drawing_area_new();
+    gtk_widget_set_hexpand(mw->box_area, TRUE);
+    gtk_widget_set_vexpand(mw->box_area, TRUE);
     g_signal_connect(mw->box_area, "draw", G_CALLBACK(on_box_draw), mw);
     gtk_container_add(GTK_CONTAINER(box_frame), mw->box_area);
-    gtk_paned_add2(GTK_PANED(mw->paned_inner), box_frame);
+    gtk_widget_set_hexpand(box_frame, TRUE);
+    gtk_widget_set_vexpand(box_frame, TRUE);
+    gtk_grid_attach(GTK_GRID(mw->image_row), box_frame, 1, 0, 1, 1);
 
-    GtkWidget *bottom_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_paned_add2(GTK_PANED(mw->paned_outer), bottom_box);
+    mw->bottom_panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_size_request(mw->bottom_panel, -1, BOTTOM_PANEL_MIN_HEIGHT);
+    gtk_box_pack_start(GTK_BOX(mw->center_box), mw->bottom_panel, FALSE, FALSE, 0);
 
     GtkWidget *action_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_widget_set_margin_start(action_bar, 6);
@@ -673,20 +781,42 @@ GtkWidget *gtk_main_window_create(OcrApp *app) {
     gtk_box_pack_start(GTK_BOX(action_bar), mw->save_boxes_btn, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(action_bar), mw->save_all_btn, FALSE, FALSE, 0);
     gtk_box_pack_end(GTK_BOX(action_bar), mw->clear_btn, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(bottom_box), action_bar, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mw->bottom_panel), action_bar, FALSE, FALSE, 0);
 
-    GtkWidget *result_frame = gtk_frame_new("OCR 결과");
+    GtkWidget *result_frame = gtk_frame_new("인식 결과 (행별)");
     gtk_frame_set_label_align(GTK_FRAME(result_frame), 0.0, 0.5);
-    gtk_box_pack_start(GTK_BOX(bottom_box), result_frame, TRUE, TRUE, 0);
+    gtk_widget_set_size_request(result_frame, -1, RESULT_TREE_MIN_HEIGHT);
+    gtk_box_pack_start(GTK_BOX(mw->bottom_panel), result_frame, TRUE, TRUE, 0);
+
+    mw->result_store = gtk_list_store_new(2, G_TYPE_UINT, G_TYPE_STRING);
+    mw->result_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(mw->result_store));
+
+    GtkCellRenderer *num_renderer = gtk_cell_renderer_text_new();
+    GtkTreeViewColumn *num_col = gtk_tree_view_column_new_with_attributes(
+        "행", num_renderer, "text", 0, NULL);
+    gtk_tree_view_column_set_sizing(num_col, GTK_TREE_VIEW_COLUMN_FIXED);
+    gtk_tree_view_column_set_fixed_width(num_col, 56);
+    gtk_tree_view_column_set_alignment(num_col, 0.5);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(mw->result_tree), num_col);
+
+    GtkCellRenderer *text_renderer = gtk_cell_renderer_text_new();
+    g_object_set(text_renderer, "ellipsize", PANGO_ELLIPSIZE_END, NULL);
+    GtkTreeViewColumn *text_col = gtk_tree_view_column_new_with_attributes(
+        "인식 텍스트", text_renderer, "text", 1, NULL);
+    gtk_tree_view_column_set_expand(text_col, TRUE);
+    gtk_tree_view_append_column(GTK_TREE_VIEW(mw->result_tree), text_col);
+
+    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(mw->result_tree), TRUE);
+    gtk_tree_view_set_enable_search(GTK_TREE_VIEW(mw->result_tree), TRUE);
+    gtk_tree_selection_set_mode(
+        gtk_tree_view_get_selection(GTK_TREE_VIEW(mw->result_tree)),
+        GTK_SELECTION_SINGLE);
 
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll),
         GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    mw->result_view = GTK_TEXT_VIEW(gtk_text_view_new());
-    gtk_text_view_set_editable(mw->result_view, FALSE);
-    gtk_text_view_set_monospace(mw->result_view, TRUE);
-    gtk_text_view_set_wrap_mode(mw->result_view, GTK_WRAP_WORD_CHAR);
-    gtk_container_add(GTK_CONTAINER(scroll), GTK_WIDGET(mw->result_view));
+    gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), RESULT_TREE_MIN_HEIGHT);
+    gtk_container_add(GTK_CONTAINER(scroll), mw->result_tree);
     gtk_container_add(GTK_CONTAINER(result_frame), scroll);
 
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);

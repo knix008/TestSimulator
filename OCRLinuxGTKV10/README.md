@@ -10,7 +10,7 @@ Windows용 [OCRWinV10](../OCRWinV10)과 동일하게 **PaddleOCR · EasyOCR · T
 - **한국어 + 영어** — 한글·영문 혼합 문서 인식
 - **이미지 + PDF** — PNG, JPEG, BMP, TIFF, GIF, WebP, PDF (페이지별 ◀▶ 이동)
 - **전처리 모드** — 자동 / 손글씨 / 없음 (다중 패스 + 최적 결과 선택)
-- **UI 레이아웃** — 상단: 원본 | 박스, 하단: OCR 텍스트 + 저장 버튼
+- **UI 레이아웃** — 상단: 입력 | 결과(박스) **동일 크기**, 하단: **행별** 인식 결과 목록
 - **진행 표시**
   - 모델·엔진 **최초 설치**: 별도 팝업 + 프로그레스 바
   - **OCR 실행**: 하단 상태바 + 프로그레스 바 + 단계별 메시지
@@ -29,7 +29,17 @@ Windows용 [OCRWinV10](../OCRWinV10)과 동일하게 **PaddleOCR · EasyOCR · T
 ```sh
 make deps   # 최초 1회 — OS 패키지 설치 (apt/dnf/pacman/brew)
 make
-./OCRLinuxGTKV10
+./myocr
+```
+
+빌드 시 `assets/myocr.png` 아이콘이 생성되며 실행 파일 옆에 `myocr.png`로 복사됩니다. 독/작업 표시줄에 아이콘이 표시됩니다.
+
+데스크톱 메뉴 등록 (선택):
+
+```sh
+cp myocr.desktop ~/.local/share/applications/
+cp assets/myocr.png ~/.local/share/icons/hicolor/256x256/apps/myocr.png
+gtk-update-icon-cache ~/.local/share/icons/hicolor 2>/dev/null || true
 ```
 
 색상 없이 빌드:
