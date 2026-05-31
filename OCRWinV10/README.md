@@ -66,23 +66,24 @@ dotnet run --project OCRWinV10/OCRWinV10.csproj
 
 ### Release + MSI
 
-MSI는 **Setup 프로젝트 한 곳**에서만 만듭니다 (`dotnet publish` self-contained win-x64 → WiX). 앱 프로젝트 Release 빌드와 MSI 생성을 분리해 중복 publish/MSI를 막습니다.
+WiX로 `dotnet publish`(self-contained win-x64) 후 MSI를 만듭니다.
 
-Visual Studio **Release** 구성 → **솔루션 빌드** (`OCRWinV10.sln`) 시 `OCRWinV10Setup`만 빌드됩니다. 앱만 실행·디버그할 때는 `OCRWinV10` 프로젝트를 개별 빌드하세요.
+| 빌드 방법 | MSI |
+|-----------|-----|
+| `dotnet build OCRWinV10.sln -c Release` | `OCRWinV10Setup` 프로젝트가 생성 |
+| `dotnet build OCRWinV10/OCRWinV10.csproj -c Release` | 빌드 후 `BuildMsiInstaller`가 Setup 실행 |
+| Visual Studio **Release** + **솔루션 빌드** | 위와 동일 |
+| VS에서 시작 프로젝트만 **빌드** (F6) | 앱 csproj Release 시 MSI 자동 생성 |
 
-명령줄 (솔루션):
+**MSI 출력:** `Setup/bin/Release/OCRWinV10Setup.msi`
 
-```powershell
-dotnet build OCRWinV10.sln -c Release
-```
-
-MSI만 필요할 때:
+MSI만 따로 만들 때:
 
 ```powershell
 dotnet build Setup/OCRWinV10Setup.wixproj -c Release
 ```
 
-**MSI 출력:** `Setup/bin/Release/OCRWinV10Setup.msi`
+MSI 빌드를 끄려면: `-p:BuildMsi=false`
 
 ### 설치 패키지
 

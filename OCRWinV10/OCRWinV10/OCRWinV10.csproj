@@ -33,5 +33,18 @@
     <PackageReference Include="Tesseract" Version="5.2.0" />
   </ItemGroup>
 
+  <!-- 단독 Release 빌드(시작 프로젝트) 시 MSI 생성. 솔루션 빌드는 Setup 프로젝트가 담당. -->
+  <Target Name="BuildMsiInstaller"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'
+                     and '$(BuildMsi)' != 'false'
+                     and '$(BuildingSolutionFile)' != 'true'">
+    <Message Text="Building MSI (OCRWinV10Setup)..." Importance="high" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\Setup\OCRWinV10Setup.wixproj"
+             Targets="Build"
+             Properties="Configuration=Release;Platform=x64;BuildMsi=false" />
+    <Message Text="MSI: $([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\Setup\bin\Release\OCRWinV10Setup.msi'))"
+             Importance="high" />
+  </Target>
 
 </Project>
