@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MyClockWinV10.Models;
+using static MyClockWinV10.Models.SettingsManager;
 
 namespace MyClockWinV10;
 
@@ -17,6 +18,8 @@ public partial class SidePanelWindow : Window
     public Action<double>? OnBrightnessChanged;
     public Action<Color>?  OnDigitColorChanged;
     public Action?         OnResetRequested;
+    public Action<string>? OnDigitalStyleChanged;
+    public Action<string>? OnAnalogStyleChanged;
 
     private const double TargetWidth = 400;
 
@@ -41,34 +44,54 @@ public partial class SidePanelWindow : Window
 
     // ── Open / close animation (Width expands/collapses rightward) ────────
 
-    public void AnimateOpen()
+    public void AnimateOpen(bool openRight)
     {
-        var anim = new DoubleAnimation
+        var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var dur    = TimeSpan.FromMilliseconds(220);
+
+        if (openRight)
         {
-            From           = 1,
-            To             = TargetWidth,
-            Duration       = TimeSpan.FromMilliseconds(220),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-        anim.Completed += (_, _) =>
+            var anim = new DoubleAnimation { From = 1, To = TargetWidth, Duration = dur, EasingFunction = easing };
+            anim.Completed += (_, _) => { BeginAnimation(WidthProperty, null); Width = TargetWidth; };
+            BeginAnimation(WidthProperty, anim);
+        }
+        else
         {
-            BeginAnimation(WidthProperty, null);
-            Width = TargetWidth;
-        };
-        BeginAnimation(WidthProperty, anim);
+            // Expand leftward: right edge is fixed at (Left+1), animate Width + Left in sync
+            double rightEdge = Left + 1;
+            var wAnim = new DoubleAnimation { From = 1, To = TargetWidth, Duration = dur, EasingFunction = easing };
+            wAnim.Completed += (_, _) =>
+            {
+                BeginAnimation(WidthProperty, null);
+                BeginAnimation(LeftProperty,  null);
+                Width = TargetWidth;
+                Left  = rightEdge - TargetWidth;
+            };
+            BeginAnimation(WidthProperty, wAnim);
+            BeginAnimation(LeftProperty,  new DoubleAnimation { From = Left, To = rightEdge - TargetWidth, Duration = dur, EasingFunction = easing });
+        }
     }
 
-    public void AnimateClose(Action? onComplete = null)
+    public void AnimateClose(bool openRight, Action? onComplete = null)
     {
-        var anim = new DoubleAnimation
+        var easing = new CubicEase { EasingMode = EasingMode.EaseIn };
+        var dur    = TimeSpan.FromMilliseconds(180);
+
+        if (openRight)
         {
-            From           = Width,
-            To             = 1,
-            Duration       = TimeSpan.FromMilliseconds(180),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
-        };
-        anim.Completed += (_, _) => onComplete?.Invoke();
-        BeginAnimation(WidthProperty, anim);
+            var anim = new DoubleAnimation { From = Width, To = 1, Duration = dur, EasingFunction = easing };
+            anim.Completed += (_, _) => onComplete?.Invoke();
+            BeginAnimation(WidthProperty, anim);
+        }
+        else
+        {
+            // Collapse leftward: right edge fixed, animate Width + Left in sync
+            double rightEdge = Left + Width;
+            var wAnim = new DoubleAnimation { From = Width, To = 1, Duration = dur, EasingFunction = easing };
+            wAnim.Completed += (_, _) => { BeginAnimation(WidthProperty, null); BeginAnimation(LeftProperty, null); onComplete?.Invoke(); };
+            BeginAnimation(WidthProperty, wAnim);
+            BeginAnimation(LeftProperty,  new DoubleAnimation { From = Left, To = rightEdge - 1, Duration = dur, EasingFunction = easing });
+        }
     }
 
     // ── World time ────────────────────────────────────────────────────────
@@ -151,23 +174,67 @@ public partial class SidePanelWindow : Window
 
     // ── Settings sync (called from MainWindow) ────────────────────────────
 
-    public void ApplySettings(bool use24h, bool worldUse24h, int brightness)
+    public void ApplySettings(bool use24h, bool worldUse24h, int brightness,
+                              string digitalStyle, string analogStyle)
     {
-        Format12h.Checked     -= Format_Checked;
-        Format24h.Checked     -= Format_Checked;
-        WorldFormat12h.Checked -= WorldFormat_Checked;
-        WorldFormat24h.Checked -= WorldFormat_Checked;
+        Format12h.Checked       -= Format_Checked;
+        Format24h.Checked       -= Format_Checked;
+        WorldFormat12h.Checked  -= WorldFormat_Checked;
+        WorldFormat24h.Checked  -= WorldFormat_Checked;
+        StartupToggle.Checked   -= Startup_Changed;
+        StartupToggle.Unchecked -= Startup_Changed;
+        DigStyleSeg.Checked     -= DigStyle_Checked;
+        DigStyleLcd.Checked     -= DigStyle_Checked;
+        DigStyleMin.Checked     -= DigStyle_Checked;
+        AnaStyleClassic.Checked -= AnaStyle_Checked;
+        AnaStyleMinimal.Checked -= AnaStyle_Checked;
+        AnaStyleRoman.Checked   -= AnaStyle_Checked;
+        AnaStyleIndices.Checked -= AnaStyle_Checked;
 
-        (use24h ? Format24h : Format12h).IsChecked             = true;
+        (use24h ? Format24h : Format12h).IsChecked                = true;
         (worldUse24h ? WorldFormat24h : WorldFormat12h).IsChecked = true;
-        BrightnessSlider.Value = brightness;
+        BrightnessSlider.Value  = brightness;
+        StartupToggle.IsChecked = IsStartupEnabled();
+        (digitalStyle switch { "LcdText" => DigStyleLcd, "Minimal" => DigStyleMin, _ => DigStyleSeg }).IsChecked = true;
+        (analogStyle  switch { "Minimal" => AnaStyleMinimal, "Roman" => AnaStyleRoman, "Indices" => AnaStyleIndices, _ => AnaStyleClassic }).IsChecked = true;
 
-        Format12h.Checked     += Format_Checked;
-        Format24h.Checked     += Format_Checked;
-        WorldFormat12h.Checked += WorldFormat_Checked;
-        WorldFormat24h.Checked += WorldFormat_Checked;
+        Format12h.Checked       += Format_Checked;
+        Format24h.Checked       += Format_Checked;
+        WorldFormat12h.Checked  += WorldFormat_Checked;
+        WorldFormat24h.Checked  += WorldFormat_Checked;
+        StartupToggle.Checked   += Startup_Changed;
+        StartupToggle.Unchecked += Startup_Changed;
+        DigStyleSeg.Checked     += DigStyle_Checked;
+        DigStyleLcd.Checked     += DigStyle_Checked;
+        DigStyleMin.Checked     += DigStyle_Checked;
+        AnaStyleClassic.Checked += AnaStyle_Checked;
+        AnaStyleMinimal.Checked += AnaStyle_Checked;
+        AnaStyleRoman.Checked   += AnaStyle_Checked;
+        AnaStyleIndices.Checked += AnaStyle_Checked;
     }
+
+    private void Startup_Changed(object sender, RoutedEventArgs e)
+        => SetStartup(StartupToggle.IsChecked == true);
 
     private void Reset_Click(object sender, RoutedEventArgs e)
         => OnResetRequested?.Invoke();
+
+    private void DigStyle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (DigStyleSeg is null) return;
+        string style = DigStyleSeg.IsChecked == true ? "SevenSegment"
+                     : DigStyleLcd.IsChecked == true ? "LcdText"
+                     : "Minimal";
+        OnDigitalStyleChanged?.Invoke(style);
+    }
+
+    private void AnaStyle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (AnaStyleClassic is null) return;
+        string style = AnaStyleClassic.IsChecked == true ? "Classic"
+                     : AnaStyleMinimal.IsChecked == true ? "Minimal"
+                     : AnaStyleRoman.IsChecked   == true ? "Roman"
+                     : "Indices";
+        OnAnalogStyleChanged?.Invoke(style);
+    }
 }

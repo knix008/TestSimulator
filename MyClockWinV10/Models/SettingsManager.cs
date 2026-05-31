@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using Microsoft.Win32;
 
 namespace MyClockWinV10.Models;
 
@@ -10,6 +12,9 @@ public static class SettingsManager
         "MyClock", "settings.json");
 
     private static readonly JsonSerializerOptions _opts = new() { WriteIndented = true };
+
+    private const string RunKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+    private const string AppName    = "MyClock";
 
     public static AppSettings Load()
     {
@@ -33,4 +38,35 @@ public static class SettingsManager
     }
 
     public static AppSettings Defaults() => new();
+
+    // ── Startup registry ──────────────────────────────────────────────────
+
+    public static bool IsStartupEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, false);
+            return key?.GetValue(AppName) != null;
+        }
+        catch { return false; }
+    }
+
+    public static void SetStartup(bool enable)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true);
+            if (key == null) return;
+            if (enable)
+            {
+                string exe = Process.GetCurrentProcess().MainModule!.FileName;
+                key.SetValue(AppName, $"\"{exe}\"");
+            }
+            else
+            {
+                key.DeleteValue(AppName, false);
+            }
+        }
+        catch { }
+    }
 }

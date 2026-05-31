@@ -33,11 +33,14 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AlarmItem> _alarms = new();
     private readonly HashSet<Guid> _firedAlarms = new();
 
-    private bool _isDigital    = true;
-    private bool _use24h       = false;
-    private bool _worldUse24h  = false;
-    private bool _rightVisible = false;
+    private bool _isDigital      = true;
+    private bool _use24h         = false;
+    private bool _worldUse24h    = false;
+    private bool _rightVisible   = false;
+    private bool _panelOpensRight = true;
     private string _currentTheme = "DarkTheme";
+    private string _digitalStyle = "SevenSegment";
+    private string _analogStyle  = "Classic";
 
     private SidePanelWindow? _sidePanel;
     private double _dpiScaleX = 1.0, _dpiScaleY = 1.0;
@@ -68,26 +71,39 @@ public partial class MainWindow : Window
     {
         _settings = s;
 
+        Width  = s.WindowWidth;
+        Height = s.WindowHeight;
+
         if (s.WindowLeft.HasValue && s.WindowTop.HasValue)
         {
             WindowStartupLocation = WindowStartupLocation.Manual;
             Left = s.WindowLeft.Value;
             Top  = s.WindowTop.Value;
         }
-        Width  = s.WindowWidth;
-        Height = s.WindowHeight;
+        else
+        {
+            // First run: top-right corner of the work area
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            var area = System.Windows.SystemParameters.WorkArea;
+            Left = area.Right - s.WindowWidth - 12;
+            Top  = area.Top                   + 12;
+        }
 
         _isDigital    = s.IsDigital;
         _use24h       = s.Use24h;
         _worldUse24h  = s.WorldUse24h;
         _currentTheme = s.Theme;
         _digitColor   = ParseColor(s.DigitColor);
+        _digitalStyle = s.DigitalStyleName;
+        _analogStyle  = s.AnalogStyleName;
 
         DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
         AnalogClockBox.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
 
         ApplyTheme(s.Theme);
         ApplyBrightness(s.Brightness / 100.0);
+        ApplyDigitalStyle(_digitalStyle);
+        ApplyAnalogStyle(_analogStyle);
 
         foreach (var dto in s.Alarms)
         {
@@ -110,7 +126,9 @@ public partial class MainWindow : Window
         _settings.Theme        = _currentTheme;
         _settings.Brightness   = (int)Math.Round(SevenSeg.Opacity * 100);
         _settings.DigitColor   = $"#{_digitColor.R:X2}{_digitColor.G:X2}{_digitColor.B:X2}";
-        _settings.IsDigital    = _isDigital;
+        _settings.IsDigital        = _isDigital;
+        _settings.DigitalStyleName = _digitalStyle;
+        _settings.AnalogStyleName  = _analogStyle;
         _settings.WindowLeft   = Left;
         _settings.WindowTop    = Top;
         _settings.WindowWidth  = Width;
@@ -135,15 +153,21 @@ public partial class MainWindow : Window
         _isDigital    = d.IsDigital;
         _digitColor   = ParseColor(d.DigitColor);
 
+        _digitalStyle = "SevenSegment";
+        _analogStyle  = "Classic";
+
         DigitalPanel.Visibility   = Visibility.Visible;
         AnalogClockBox.Visibility = Visibility.Collapsed;
         ClockStatusText.Text      = "";
+        SetActiveClockBtn(true);
+        ApplyDigitalStyle(_digitalStyle);
+        ApplyAnalogStyle(_analogStyle);
         UpdateDigital(DateTime.Now);
 
         ApplyTheme(d.Theme);
         ApplyBrightness(d.Brightness / 100.0);
 
-        _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness);
+        _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness, _digitalStyle, _analogStyle);
         SaveSettings();
     }
 
@@ -174,7 +198,7 @@ public partial class MainWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WM_WINDOWPOSCHANGING && _sidePanel != null)
+        if (msg == WM_WINDOWPOSCHANGING)
         {
             var pos = Marshal.PtrToStructure<WINDOWPOS>(lParam);
             bool noMove = (pos.flags & SWP_NOMOVE) != 0;
@@ -185,9 +209,26 @@ public partial class MainWindow : Window
             double newTop    = noMove ? Top    : pos.y  / _dpiScaleY;
             double newHeight = noSize ? Height : pos.cy / _dpiScaleY;
 
-            _sidePanel.Left   = newLeft + newWidth;
-            _sidePanel.Top    = newTop;
-            _sidePanel.Height = newHeight;
+            // Sync side panel position
+            if (_sidePanel != null)
+            {
+                _sidePanel.Left   = _panelOpensRight
+                    ? (newLeft + newWidth)
+                    : (newLeft - _sidePanel.Width);
+                _sidePanel.Top    = newTop;
+                _sidePanel.Height = newHeight;
+            }
+
+            // When panel is closed, update button side based on available space at new position
+            if (!_rightVisible)
+            {
+                bool newRight = DetermineOpenRightAt(newLeft, newWidth);
+                if (newRight != _panelOpensRight)
+                {
+                    _panelOpensRight = newRight;
+                    UpdatePanelToggleBtnSide(open: false);
+                }
+            }
         }
         return IntPtr.Zero;
     }
@@ -308,16 +349,21 @@ public partial class MainWindow : Window
 
     private void UpdateDigital(DateTime now)
     {
-        if (_use24h)
+        string ampm = _use24h ? "" : (now.Hour < 12 ? "오전" : "오후");
+
+        if (_digitalStyle == "SevenSegment")
         {
-            SevenSeg.Text = now.ToString("HH:mm:ss");
-            AmPmText.Text = "";
+            SevenSeg.Text = _use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss");
+            AmPmText.Text = ampm;
         }
         else
         {
-            SevenSeg.Text = now.ToString("hh:mm:ss");
-            AmPmText.Text = now.Hour < 12 ? "오전" : "오후";
+            TextAmPm.Text = ampm;
+            TextTime.Text = (_digitalStyle == "Minimal")
+                ? (_use24h ? now.ToString("HH:mm") : now.ToString("hh:mm"))
+                : (_use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss"));
         }
+
         ClockStatusText.Text = "";
     }
 
@@ -375,36 +421,23 @@ public partial class MainWindow : Window
 
     // ── Clock mode ────────────────────────────────────────────────────────
 
-    private void DigitalBtn_Click(object sender, RoutedEventArgs e)
+    private void ClockModeBtn_Click(object sender, RoutedEventArgs e)
     {
-        _isDigital = true;
-        DigitalPanel.Visibility   = Visibility.Visible;
-        AnalogClockBox.Visibility = Visibility.Collapsed;
-        ClockStatusText.Text      = "";
-        SetActiveClockBtn(digital: true);
-        UpdateDigital(DateTime.Now);
-    }
-
-    private void AnalogBtn_Click(object sender, RoutedEventArgs e)
-    {
-        _isDigital = false;
-        DigitalPanel.Visibility   = Visibility.Collapsed;
-        AnalogClockBox.Visibility = Visibility.Visible;
-        SetActiveClockBtn(digital: false);
-        UpdateAnalog(DateTime.Now);
+        _isDigital = !_isDigital;
+        DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
+        AnalogClockBox.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
+        SetActiveClockBtn(_isDigital);
+        if (_isDigital) UpdateDigital(DateTime.Now);
+        else            UpdateAnalog(DateTime.Now);
     }
 
     private void SetActiveClockBtn(bool digital)
     {
-        var accent   = TryFindResource("AccentBrush")           as System.Windows.Media.Brush;
-        var accentFg = TryFindResource("ActiveBtnFgBrush")      as System.Windows.Media.Brush;
-        var normal   = TryFindResource("ButtonBackgroundBrush") as System.Windows.Media.Brush;
-        var normalFg = TryFindResource("ButtonForegroundBrush") as System.Windows.Media.Brush;
-
-        DigitalBtn.Background = digital ? accent   : normal;
-        DigitalBtn.Foreground = digital ? accentFg : normalFg;
-        AnalogBtn.Background  = digital ? normal   : accent;
-        AnalogBtn.Foreground  = digital ? normalFg : accentFg;
+        IconDigital.Visibility = digital ? Visibility.Visible   : Visibility.Collapsed;
+        IconAnalog.Visibility  = digital ? Visibility.Collapsed : Visibility.Visible;
+        IconHour.Visibility    = digital ? Visibility.Collapsed : Visibility.Visible;
+        IconMin.Visibility     = digital ? Visibility.Collapsed : Visibility.Visible;
+        ClockModeBtn.ToolTip   = digital ? "아날로그로 전환" : "디지털로 전환";
     }
 
     // ── Theme & display (called from SidePanelWindow) ─────────────────────
@@ -431,55 +464,116 @@ public partial class MainWindow : Window
 
     internal void ApplyBrightness(double v) => SevenSeg.Opacity = v;
 
+    internal void ApplyDigitalStyle(string style)
+    {
+        _digitalStyle = style;
+        bool isSeg = style == "SevenSegment";
+        AmPmText.Visibility     = isSeg ? Visibility.Visible   : Visibility.Collapsed;
+        SevenSeg.Visibility     = isSeg ? Visibility.Visible   : Visibility.Collapsed;
+        TextClockBox.Visibility = isSeg ? Visibility.Collapsed : Visibility.Visible;
+
+        if (!isSeg)
+        {
+            if (style == "Minimal")
+            {
+                TextTime.FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
+                TextTime.FontWeight = FontWeights.Light;
+                TextTime.FontSize   = 72;
+            }
+            else
+            {
+                TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
+                TextTime.FontWeight = FontWeights.Bold;
+                TextTime.FontSize   = 60;
+            }
+        }
+
+        if (_isDigital) UpdateDigital(DateTime.Now);
+    }
+
+    internal void ApplyAnalogStyle(string style)
+    {
+        _analogStyle = style;
+        if (Enum.TryParse<Models.AnalogStyle>(style, out var s))
+            AnalogClock.ClockStyle = s;
+        if (!_isDigital) UpdateAnalog(DateTime.Now);
+    }
+
     // ── Side panel ────────────────────────────────────────────────────────
 
     private void PanelToggle_Click(object sender, RoutedEventArgs e)
     {
         _rightVisible = !_rightVisible;
-        PanelToggleBtn.Content = _rightVisible ? "◀" : "▶";
-
         if (_rightVisible) OpenSidePanel();
         else               CloseSidePanel();
     }
 
+    private bool DetermineOpenRight() => DetermineOpenRightAt(Left, Width);
+
+    private static bool DetermineOpenRightAt(double left, double width)
+    {
+        var area = SystemParameters.WorkArea;
+        bool canRight = (left + width + 400) <= area.Right;
+        bool canLeft  = (left         - 400) >= area.Left;
+        if (canRight) return true;
+        if (canLeft)  return false;
+        return true;
+    }
+
+    private void UpdatePanelToggleBtnSide(bool open)
+    {
+        PanelToggleBtn.HorizontalAlignment = _panelOpensRight
+            ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        PanelToggleBtn.Content = open
+            ? (_panelOpensRight ? "◀" : "▶")
+            : (_panelOpensRight ? "▶" : "◀");
+    }
+
     private void OpenSidePanel()
     {
+        _panelOpensRight = DetermineOpenRight();
+        UpdatePanelToggleBtnSide(open: true);
+
         _sidePanel = new SidePanelWindow(_alarms) { Owner = this };
-        _sidePanel.OnThemeRequested     = name => { ApplyTheme(name); SaveSettings(); };
-        _sidePanel.OnFormatChanged      = v => { _use24h = v; };
-        _sidePanel.OnWorldFormatChanged = v => { _worldUse24h = v; };
-        _sidePanel.OnBrightnessChanged  = ApplyBrightness;
-        _sidePanel.OnDigitColorChanged  = c => { ApplyDigitColor(c); SaveSettings(); };
-        _sidePanel.OnResetRequested     = ResetToDefaults;
+        _sidePanel.OnThemeRequested       = name => { ApplyTheme(name); SaveSettings(); };
+        _sidePanel.OnFormatChanged        = v => { _use24h = v; };
+        _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; };
+        _sidePanel.OnBrightnessChanged    = ApplyBrightness;
+        _sidePanel.OnDigitColorChanged    = c => { ApplyDigitColor(c); SaveSettings(); };
+        _sidePanel.OnResetRequested       = ResetToDefaults;
+        _sidePanel.OnDigitalStyleChanged  = s => { ApplyDigitalStyle(s); SaveSettings(); };
+        _sidePanel.OnAnalogStyleChanged   = s => { ApplyAnalogStyle(s); SaveSettings(); };
         _sidePanel.Closed += (_, _) =>
         {
             if (_rightVisible)
             {
                 _rightVisible = false;
-                PanelToggleBtn.Content = "▶";
+                UpdatePanelToggleBtnSide(open: false);
             }
             _sidePanel = null;
         };
 
-        _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(SevenSeg.Opacity * 100));
+        _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(SevenSeg.Opacity * 100),
+                                 _digitalStyle, _analogStyle);
         PositionSidePanel();
         _sidePanel.Show();
-        _sidePanel.AnimateOpen();
+        _sidePanel.AnimateOpen(_panelOpensRight);
     }
 
     private void CloseSidePanel()
     {
         if (_sidePanel == null) return;
+        UpdatePanelToggleBtnSide(open: false);
         var panel = _sidePanel;
-        panel.AnimateClose(() => Dispatcher.Invoke(() => panel.Close()));
+        panel.AnimateClose(_panelOpensRight, () => Dispatcher.Invoke(() => panel.Close()));
     }
 
     private void PositionSidePanel()
     {
         if (_sidePanel == null) return;
-        _sidePanel.Left   = Left + Width;
         _sidePanel.Top    = Top;
         _sidePanel.Height = Height;
+        _sidePanel.Left   = _panelOpensRight ? (Left + Width) : (Left - 1);
     }
 
     // ── Window chrome ─────────────────────────────────────────────────────

@@ -5,12 +5,12 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="MyClock"
         Icon="AppIcon.ico"
-        Height="360" Width="360"
+        Height="300" Width="300"
         MinHeight="300" MinWidth="300"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource WindowBackgroundBrush}"
-        WindowStartupLocation="CenterScreen"
+        WindowStartupLocation="Manual"
         StateChanged="Window_StateChanged">
 
     <shell:WindowChrome.WindowChrome>
@@ -26,14 +26,14 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="12"/>
         </Grid.RowDefinitions>
 
         <!-- Caption / drag bar -->
         <Grid Grid.Row="0"
               Background="{DynamicResource TabBackgroundBrush}"
               MouseLeftButtonDown="Caption_MouseLeftButtonDown">
+
+            <!-- Left: icon + title -->
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
                 <Image Source="AppIcon.ico" Width="16" Height="16" Margin="0,0,6,0"
@@ -42,9 +42,68 @@
                            Foreground="{DynamicResource SubtleForegroundBrush}"
                            VerticalAlignment="Center"/>
             </StackPanel>
+
+            <!-- Right: mode toggle + panel toggle | window controls -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                         VerticalAlignment="Center" Margin="0,0,6,0"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
+
+                <!-- Clock mode toggle (digital ↔ analog) -->
+                <Button x:Name="ClockModeBtn" Width="28" Height="22"
+                        Click="ClockModeBtn_Click" ToolTip="아날로그로 전환">
+                    <Viewbox Width="14" Height="14" Stretch="Uniform">
+                        <Canvas Width="16" Height="16">
+                            <!-- Digital-mode icon: 7-segment "8" -->
+                            <Canvas x:Name="IconDigital">
+                                <!-- a: top -->
+                                <Rectangle Canvas.Left="3.5" Canvas.Top="0.5" Width="9" Height="2"
+                                           Fill="{DynamicResource SubtleForegroundBrush}"/>
+                                <!-- f: top-left -->
+                                <Rectangle Canvas.Left="1" Canvas.Top="2.5" Width="2" Height="4.5"
+                                           Fill="{DynamicResource SubtleForegroundBrush}"/>
+                                <!-- b: top-right -->
+                                <Rectangle Canvas.Left="13" Canvas.Top="2.5" Width="2" Height="4.5"
+                                           Fill="{DynamicResource SubtleForegroundBrush}"/>
+                                <!-- g: middle -->
+                                <Rectangle Canvas.Left="3.5" Canvas.Top="7" Width="9" Height="2"
+                                           Fill="{DynamicResource SubtleForegroundBrush}"/>
+                                <!-- e: bottom-left -->
+                                <Rectangle Canvas.Left="1" Canvas.Top="9" Width="2" Height="4.5"
+                                           Fill="{DynamicResource SubtleForegroundBrush}"/>
+                                <!-- c: bottom-right -->
+                                <Rectangle Canvas.Left="13" Canvas.Top="9" Width="2" Height="4.5"
+                                           Fill="{DynamicResource SubtleForegroundBrush}"/>
+                                <!-- d: bottom -->
+                                <Rectangle Canvas.Left="3.5" Canvas.Top="13.5" Width="9" Height="2"
+                                           Fill="{DynamicResource SubtleForegroundBrush}"/>
+                            </Canvas>
+                            <!-- Analog-mode icon: clock face + hands -->
+                            <Ellipse x:Name="IconAnalog"
+                                     Canvas.Left="1" Canvas.Top="1" Width="14" Height="14"
+                                     Stroke="{DynamicResource SubtleForegroundBrush}"
+                                     StrokeThickness="1.5" Fill="Transparent"
+                                     Visibility="Collapsed"/>
+                            <Line x:Name="IconHour"
+                                  X1="8" Y1="8" X2="8" Y2="3.5"
+                                  Stroke="{DynamicResource SubtleForegroundBrush}"
+                                  StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Visibility="Collapsed"/>
+                            <Line x:Name="IconMin"
+                                  X1="8" Y1="8" X2="12.5" Y2="10.5"
+                                  Stroke="{DynamicResource SubtleForegroundBrush}"
+                                  StrokeThickness="1.5"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Visibility="Collapsed"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
+                <!-- Separator -->
+                <Rectangle Width="1" Height="16" Margin="6,0"
+                           Fill="{DynamicResource SubtleForegroundBrush}" Opacity="0.25"/>
+
+                <!-- Window controls -->
                 <Button Content="─" Width="30" Height="22" FontSize="11"
                         Click="MinBtn_Click" ToolTip="최소화"/>
                 <Button Content="□" Width="30" Height="22" FontSize="11"
@@ -67,6 +126,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
+                <!-- 7-Segment style -->
                 <TextBlock Grid.Row="0" x:Name="AmPmText"
                            FontSize="22" FontWeight="Bold"
                            Foreground="{DynamicResource AccentBrush}"
@@ -74,6 +134,19 @@
                 <ctrl:SevenSegmentDisplay Grid.Row="1" x:Name="SevenSeg"
                                           SegColor="{DynamicResource DigitalTextBrush}"
                                           DimColor="{DynamicResource SegDimBrush}"/>
+                <!-- LcdText / Minimal style -->
+                <Viewbox x:Name="TextClockBox" Grid.Row="0" Grid.RowSpan="2"
+                         Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Visibility="Collapsed">
+                    <StackPanel Margin="4" HorizontalAlignment="Center">
+                        <TextBlock x:Name="TextAmPm" HorizontalAlignment="Center"
+                                   FontSize="20" FontWeight="Bold"
+                                   Foreground="{DynamicResource AccentBrush}"/>
+                        <TextBlock x:Name="TextTime" HorizontalAlignment="Center"
+                                   FontSize="60" FontWeight="Bold" FontFamily="Consolas"
+                                   Foreground="{DynamicResource DigitalTextBrush}"/>
+                    </StackPanel>
+                </Viewbox>
             </Grid>
 
             <Viewbox x:Name="AnalogClockBox" Stretch="Uniform"
@@ -83,25 +156,16 @@
             </Viewbox>
         </Grid>
 
-        <!-- Analog time text -->
-        <TextBlock Grid.Row="3" x:Name="ClockStatusText"
-                   HorizontalAlignment="Center"
-                   Foreground="{DynamicResource SubtleForegroundBrush}"
-                   FontFamily="Consolas" FontSize="14" Margin="0,2,0,0"/>
-
-        <!-- Mode toggle + panel toggle -->
-        <Grid Grid.Row="4" Margin="0,6,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <Button x:Name="DigitalBtn" Content="디지털" Width="100" Height="34"
-                        Click="DigitalBtn_Click"/>
-                <Button x:Name="AnalogBtn"  Content="아날로그" Width="100" Height="34"
-                        Margin="10,0,0,0" Click="AnalogBtn_Click"/>
-            </StackPanel>
-            <Button x:Name="PanelToggleBtn"
-                    Content="▶" Width="28" Height="28"
+        <!-- Bottom: analog time text + panel toggle -->
+        <Grid Grid.Row="3" Margin="4,2,4,8">
+            <TextBlock x:Name="ClockStatusText"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource SubtleForegroundBrush}"
+                       FontFamily="Consolas" FontSize="14"/>
+            <Button x:Name="PanelToggleBtn" Content="▶"
+                    Width="28" Height="22" FontSize="11"
                     HorizontalAlignment="Right" VerticalAlignment="Center"
-                    Margin="0,0,10,0" FontSize="13"
-                    Click="PanelToggle_Click" ToolTip="사이드 패널 숨기기/보이기"/>
+                    Click="PanelToggle_Click" ToolTip="설정 패널"/>
         </Grid>
     </Grid>
 </Window>

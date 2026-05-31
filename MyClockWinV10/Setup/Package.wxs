@@ -34,6 +34,12 @@
                AllowAdvertise="no">
         <ComponentRef Id="DesktopShortcut"/>
       </Feature>
+
+      <Feature Id="AutoStartFeature" Title="시작 시 자동 실행" Level="2"
+               Description="Windows 시작 시 MyClock을 자동으로 실행합니다. (설치 후 앱 설정에서도 변경 가능)"
+               AllowAdvertise="no">
+        <ComponentRef Id="AutoStartComponent"/>
+      </Feature>
     </Feature>
   </Package>
 
@@ -77,6 +83,15 @@
                 Icon="AppIcon"/>
       <RegistryValue Root="HKCU" Key="Software\MyClock" Name="Desktop"
                      Value="1" Type="integer" KeyPath="yes"/>
+    </Component>
+
+    <Component Id="AutoStartComponent" Directory="INSTALLFOLDER" Bitness="always64">
+      <RegistryValue Root="HKCU"
+                     Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                     Name="MyClock"
+                     Value="&quot;[INSTALLFOLDER]MyClockWinV10.exe&quot;"
+                     Type="string"
+                     KeyPath="yes"/>
     </Component>
   </Fragment>
 

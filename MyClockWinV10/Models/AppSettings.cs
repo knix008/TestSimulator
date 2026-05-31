@@ -8,10 +8,12 @@ public class AppSettings
     public int Brightness { get; set; } = 100;
     public string DigitColor { get; set; } = "#58A6FF";
     public bool IsDigital { get; set; } = true;
+    public string DigitalStyleName { get; set; } = "SevenSegment";
+    public string AnalogStyleName  { get; set; } = "Classic";
     public double? WindowLeft { get; set; } = null;
     public double? WindowTop { get; set; } = null;
-    public double WindowWidth { get; set; } = 360;
-    public double WindowHeight { get; set; } = 360;
+    public double WindowWidth { get; set; } = 300;
+    public double WindowHeight { get; set; } = 300;
     public List<AlarmDto> Alarms { get; set; } = new();
 }
 

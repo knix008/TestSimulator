@@ -148,6 +148,10 @@
                                 <Button Tag="GreenTheme"  Content="에메랄드"  Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
                                 <Button Tag="PurpleTheme" Content="퍼플"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
                                 <Button Tag="AmberTheme"  Content="앰버"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="RoseTheme"   Content="로즈"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="MonoTheme"   Content="모노"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="SunsetTheme" Content="선셋"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="MintTheme"   Content="민트"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
                             </WrapPanel>
                         </Border>
 
@@ -180,6 +184,52 @@
                             <WrapPanel x:Name="ColorSwatches"/>
                         </Border>
 
+                        <!-- 디지털 스타일 -->
+                        <TextBlock Text="디지털 스타일" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"
+                                   Margin="0,0,0,5"/>
+                        <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
+                            <WrapPanel>
+                                <RadioButton x:Name="DigStyleSeg" Content="7-세그먼트"
+                                             GroupName="DigStyle" IsChecked="True"
+                                             Checked="DigStyle_Checked" FontSize="13"/>
+                                <RadioButton x:Name="DigStyleLcd" Content="LCD 텍스트"
+                                             GroupName="DigStyle"
+                                             Checked="DigStyle_Checked" FontSize="13"
+                                             Margin="12,0,0,0"/>
+                                <RadioButton x:Name="DigStyleMin" Content="미니멀"
+                                             GroupName="DigStyle"
+                                             Checked="DigStyle_Checked" FontSize="13"
+                                             Margin="12,0,0,0"/>
+                            </WrapPanel>
+                        </Border>
+
+                        <!-- 아날로그 스타일 -->
+                        <TextBlock Text="아날로그 스타일" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"
+                                   Margin="0,0,0,5"/>
+                        <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
+                            <WrapPanel>
+                                <RadioButton x:Name="AnaStyleClassic" Content="클래식"
+                                             GroupName="AnaStyle" IsChecked="True"
+                                             Checked="AnaStyle_Checked" FontSize="13"/>
+                                <RadioButton x:Name="AnaStyleMinimal" Content="미니멀"
+                                             GroupName="AnaStyle"
+                                             Checked="AnaStyle_Checked" FontSize="13"
+                                             Margin="10,0,0,0"/>
+                                <RadioButton x:Name="AnaStyleRoman" Content="로마 숫자"
+                                             GroupName="AnaStyle"
+                                             Checked="AnaStyle_Checked" FontSize="13"
+                                             Margin="10,0,0,0"/>
+                                <RadioButton x:Name="AnaStyleIndices" Content="인덱스"
+                                             GroupName="AnaStyle"
+                                             Checked="AnaStyle_Checked" FontSize="13"
+                                             Margin="10,0,0,0"/>
+                            </WrapPanel>
+                        </Border>
+
                         <!-- 세계 시간 형식 -->
                         <TextBlock Text="세계 시간 형식" FontSize="12" FontWeight="SemiBold"
                                    Foreground="{DynamicResource SubtleForegroundBrush}"
@@ -194,6 +244,23 @@
                                              GroupName="WFmt"
                                              Checked="WorldFormat_Checked" FontSize="13"/>
                             </StackPanel>
+                        </Border>
+
+                        <!-- 시스템 -->
+                        <TextBlock Text="시스템" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"
+                                   Margin="0,0,0,5"/>
+                        <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
+                            <Grid>
+                                <TextBlock Text="시작 시 자동 실행" FontSize="13"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                                <CheckBox x:Name="StartupToggle"
+                                          Style="{StaticResource ToggleSwitchStyle}"
+                                          HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          Checked="Startup_Changed" Unchecked="Startup_Changed"/>
+                            </Grid>
                         </Border>
 
                         <!-- 초기화 -->
