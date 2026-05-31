@@ -13,10 +13,10 @@ obj/
 Setup/bin/
 Setup/obj/
 
-# Google OAuth token store
-**/google-token/
-
-# User settings / secrets
-appsettings.local.json
-credentials.json
+# Google OAuth credentials & token store (never commit these)
+google_credentials.json
+**/google_token/
 client_secret*.json
+
+# User settings (machine-specific)
+appsettings.local.json

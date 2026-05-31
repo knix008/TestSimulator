@@ -21,4 +21,8 @@
     <!-- Embed icon as WPF pack resource so it can be referenced in XAML Image -->
     <Resource Include="AppIcon.ico" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.74.0.4154" />
+  </ItemGroup>
 </Project>

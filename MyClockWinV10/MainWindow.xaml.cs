@@ -11,6 +11,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MyClockWinV10.Models;
+using MyClockWinV10.Services;
 
 namespace MyClockWinV10;
 
@@ -45,6 +46,13 @@ public partial class MainWindow : Window
     private SidePanelWindow? _sidePanel;
     private double _dpiScaleX = 1.0, _dpiScaleY = 1.0;
 
+    // ── Google Calendar ───────────────────────────────────────────────────
+    private readonly GoogleCalendarService                   _calendarService = new();
+    private readonly ObservableCollection<CalendarEventItem> _calendarEvents  = new();
+    private readonly HashSet<string>                         _firedCalendarReminders = new();
+    private CalendarWindow?        _calendarWindow;
+    private System.Threading.Timer? _calendarSyncTimer;
+
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private IntPtr _trayIconHandle = IntPtr.Zero;
 
@@ -63,6 +71,8 @@ public partial class MainWindow : Window
         _timer.Tick += OnTick;
         _timer.Start();
         OnTick(null, EventArgs.Empty);
+
+        _ = TryAutoConnectCalendarAsync();
     }
 
     // ── Settings ──────────────────────────────────────────────────────────
@@ -209,7 +219,15 @@ public partial class MainWindow : Window
             double newTop    = noMove ? Top    : pos.y  / _dpiScaleY;
             double newHeight = noSize ? Height : pos.cy / _dpiScaleY;
 
-            // Sync side panel position
+            // Recalculate preferred side at new position (open or closed)
+            bool newRight = DetermineOpenRightAt(newLeft, newWidth, _panelOpensRight);
+            if (newRight != _panelOpensRight)
+            {
+                _panelOpensRight = newRight;
+                UpdatePanelToggleBtnSide(open: _rightVisible);
+            }
+
+            // Sync side panel position (uses updated _panelOpensRight)
             if (_sidePanel != null)
             {
                 _sidePanel.Left   = _panelOpensRight
@@ -217,17 +235,6 @@ public partial class MainWindow : Window
                     : (newLeft - _sidePanel.Width);
                 _sidePanel.Top    = newTop;
                 _sidePanel.Height = newHeight;
-            }
-
-            // When panel is closed, update button side based on available space at new position
-            if (!_rightVisible)
-            {
-                bool newRight = DetermineOpenRightAt(newLeft, newWidth);
-                if (newRight != _panelOpensRight)
-                {
-                    _panelOpensRight = newRight;
-                    UpdatePanelToggleBtnSide(open: false);
-                }
             }
         }
         return IntPtr.Zero;
@@ -324,6 +331,8 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         SaveSettings();
+        StopCalendarSync();
+        _calendarWindow?.Close();
         _sidePanel?.Close();
         _trayIcon?.Dispose();
         if (_trayIconHandle != IntPtr.Zero) DestroyIcon(_trayIconHandle);
@@ -342,6 +351,7 @@ public partial class MainWindow : Window
 
         _sidePanel?.UpdateTimes(_worldUse24h);
         CheckAlarms(now);
+        CheckCalendarReminders(now);
 
         if (_trayIcon?.Visible == true)
             UpdateTrayIcon(now);
@@ -417,6 +427,92 @@ public partial class MainWindow : Window
         System.Media.SystemSounds.Exclamation.Play();
         new AlarmNotificationWindow($"{alarm.Time.Hours:D2}:{alarm.Time.Minutes:D2}", alarm.Label)
         { Owner = this }.Show();
+    }
+
+    // ── Google Calendar ───────────────────────────────────────────────────
+
+    private async Task TryAutoConnectCalendarAsync()
+    {
+        if (!_settings.CalendarAutoConnect) return;
+        if (!GoogleCalendarService.HasCredentialsFile()) return;
+        if (!GoogleCalendarService.HasStoredToken()) return;
+        try
+        {
+            await _calendarService.ConnectAsync();
+            StartCalendarSync();
+        }
+        catch { /* silent: token expired or revoked */ }
+    }
+
+    private void StartCalendarSync()
+    {
+        _calendarSyncTimer?.Dispose();
+        _calendarSyncTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                var items = await _calendarService.GetUpcomingEventsAsync();
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    _calendarEvents.Clear();
+                    foreach (var ev in items) _calendarEvents.Add(ev);
+                });
+            }
+            catch { }
+        }, null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
+    }
+
+    private void StopCalendarSync()
+    {
+        _calendarSyncTimer?.Dispose();
+        _calendarSyncTimer = null;
+    }
+
+    private void CheckCalendarReminders(DateTime now)
+    {
+        if (now.Second != 0) return;
+        foreach (var ev in _calendarEvents)
+        {
+            if (ev.IsAllDay || ev.Start <= now) continue;
+            foreach (int minutes in ev.ReminderMinutes)
+            {
+                var fireAt = ev.Start.AddMinutes(-minutes);
+                if (now.Year   == fireAt.Year   && now.Month  == fireAt.Month  &&
+                    now.Day    == fireAt.Day    && now.Hour   == fireAt.Hour   &&
+                    now.Minute == fireAt.Minute)
+                {
+                    var key = $"{ev.Id}:{minutes}:{fireAt:yyyyMMddHHmm}";
+                    if (_firedCalendarReminders.Add(key))
+                        FireCalendarReminder(ev, minutes);
+                }
+            }
+        }
+    }
+
+    private void FireCalendarReminder(CalendarEventItem ev, int minutesBefore)
+    {
+        System.Media.SystemSounds.Exclamation.Play();
+        string when = minutesBefore switch
+        {
+            >= 1440 => $"{minutesBefore / 1440}일 후",
+            >= 60   => $"{minutesBefore / 60}시간 후",
+            _       => $"{minutesBefore}분 후"
+        };
+        new AlarmNotificationWindow(ev.Start.ToString("HH:mm"), $"[{when}] {ev.Title}")
+        { Owner = this }.Show();
+    }
+
+    private void CalendarBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_calendarWindow?.IsLoaded == true)
+        {
+            _calendarWindow.Activate();
+            return;
+        }
+        _calendarWindow = new CalendarWindow(_calendarService, _calendarEvents);
+        _calendarWindow.OnConnected    = () => { _settings.CalendarAutoConnect = true;  StartCalendarSync(); SaveSettings(); };
+        _calendarWindow.OnDisconnected = () => { _settings.CalendarAutoConnect = false; StopCalendarSync();  SaveSettings(); };
+        _calendarWindow.Show();
     }
 
     // ── Clock mode ────────────────────────────────────────────────────────
@@ -508,16 +604,16 @@ public partial class MainWindow : Window
         else               CloseSidePanel();
     }
 
-    private bool DetermineOpenRight() => DetermineOpenRightAt(Left, Width);
+    private bool DetermineOpenRight() => DetermineOpenRightAt(Left, Width, _panelOpensRight);
 
-    private static bool DetermineOpenRightAt(double left, double width)
+    // preferRight: current side — only flip when that side runs out of space
+    private static bool DetermineOpenRightAt(double left, double width, bool preferRight)
     {
         var area = SystemParameters.WorkArea;
         bool canRight = (left + width + 400) <= area.Right;
         bool canLeft  = (left         - 400) >= area.Left;
-        if (canRight) return true;
-        if (canLeft)  return false;
-        return true;
+        if (preferRight) return canRight || !canLeft; // switch to left only when right is full and left is available
+        else             return !canLeft;             // switch to right only when left is full
     }
 
     private void UpdatePanelToggleBtnSide(bool open)
