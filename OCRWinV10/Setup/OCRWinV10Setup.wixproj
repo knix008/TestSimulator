@@ -6,6 +6,8 @@
     <Platform Condition="'$(Platform)' == ''">x64</Platform>
     <Configurations>Release</Configurations>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- WiX 7 OSMF EULA (https://wixtoolset.org/osmf/) -->
+    <AcceptEula Condition="'$(AcceptEula)' == ''">wix7</AcceptEula>
     <_PublishDirRaw>$(MSBuildThisFileDirectory)..\OCRWinV10\bin\Publish\win-x64</_PublishDirRaw>
     <PublishDir>$([System.IO.Path]::GetFullPath('$(_PublishDirRaw)'))\</PublishDir>
     <IconPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\OCRWinV10\app.ico'))</IconPath>
@@ -19,7 +21,16 @@
   </Target>
 
   <ItemGroup>
-    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="7.0.0" GeneratePathProperty="true" />
+  </ItemGroup>
+
+  <!-- VS 단독 빌드 시 PackageReference만으로 확장이 안 잡히는 WIX0200 방지 -->
+  <PropertyGroup>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(PkgWixToolset_UI_wixext)' != ''">$(PkgWixToolset_UI_wixext)\wixext7\WixToolset.UI.wixext.dll</_UiWixExtDll>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.ui.wixext\7.0.0\wixext7\WixToolset.UI.wixext.dll</_UiWixExtDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <WixExtension Include="$(_UiWixExtDll)" Condition="Exists('$(_UiWixExtDll)')" />
   </ItemGroup>
 
   <ItemGroup>
