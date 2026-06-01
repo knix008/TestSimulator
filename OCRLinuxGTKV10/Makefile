@@ -141,14 +141,14 @@ endef
 HF=https://huggingface.co/SWHL/RapidOCR/resolve/main
 GH=https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils
 
-# RapidOCR: PP-OCRv4 det + PP-OCRv1 Korean rec (한국어 특화)
+# RapidOCR: PP-OCRv4 det + PP-OCRv1 Korean rec (한국어 특화, 고정)
 RAPID_DIR=$(MODELS_DIR)/rapidocr
 RAPID_DET=$(RAPID_DIR)/det.onnx
 RAPID_CLS=$(RAPID_DIR)/cls.onnx
 RAPID_REC=$(RAPID_DIR)/rec.onnx
 RAPID_DICT=$(RAPID_DIR)/korean_dict.txt
 
-# PaddleOCR ONNX: PP-OCRv4 det + PP-OCRv1 Korean rec + CLS (한국어 특화, 각도 보정 포함)
+# PaddleOCR ONNX: PP-OCRv4 det + PP-OCRv1 Korean rec + CLS (한국어 특화, 각도 보정 포함, 고정)
 PADDLE_DIR=$(MODELS_DIR)/paddle_onnx
 PADDLE_DET=$(PADDLE_DIR)/det.onnx
 PADDLE_CLS=$(PADDLE_DIR)/cls.onnx

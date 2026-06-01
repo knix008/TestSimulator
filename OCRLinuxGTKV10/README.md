@@ -3,6 +3,7 @@
 GTK 3 기반 **한글/영문 OCR** 프로그램 (Linux / macOS, C/C++)
 
 **EasyOCR 전용 Python** — RapidOCR/PaddleOCR/Tesseract는 Python 없이 실행됩니다.
+기본 OCR 엔진은 **EasyOCR**이며, 앱 시작 시 백그라운드에서 미리 준비됩니다.
 
 ## 주요 기능
 
@@ -12,7 +13,7 @@ GTK 3 기반 **한글/영문 OCR** 프로그램 (Linux / macOS, C/C++)
 - **전처리 모드** — 자동 / 손글씨 / 없음 (다중 패스 + 최적 결과 선택)
 - **OCR 버튼 색상** — 비활성(회색) / 대기(파랑) / 진행중(주황) 3단계 표시
 - **결과** — 복사, 텍스트 저장, 박스 이미지, 모두 저장, 지우기
-- **설정 자동 저장** — 엔진, 전처리, 마지막 폴더
+- **설정 자동 저장** — 엔진, 마지막 폴더 (전처리 기본은 자동)
 - **드래그 앤 드롭**, 단축키 (`Ctrl+O`, `F5`, `Ctrl+S`)
 
 ## 시스템 요구사항
@@ -65,12 +66,12 @@ gtk-update-icon-cache ~/.local/share/icons/hicolor 2>/dev/null || true
 
 | 엔진 | 모델 / 방식 | Python | 특징 |
 |------|------------|--------|------|
-| **RapidOCR** (권장) | PP-OCRv4 det + PP-OCRv1 Korean rec · ONNX RT | ✗ | 빠른 파이프라인 |
+| **RapidOCR** | PP-OCRv4 det + PP-OCRv1 Korean rec · ONNX RT | ✗ | 한국어 특화 ONNX 파이프라인 |
 | **PaddleOCR ONNX** | PP-OCRv4 det + PP-OCRv1 Korean rec + CLS · ONNX RT | ✗ | 각도 보정 포함 |
-| **EasyOCR** | ko+en · Python subprocess | ✓ | 첫 실행 시 venv + 모델 자동 설치 |
+| **EasyOCR** (기본) | ko+en · Python subprocess | ✓ | 앱 시작 시 백그라운드 준비, 첫 실행 지연 완화 |
 | **Tesseract** | tessdata_best kor+eng · libtesseract | ✗ | LSTM, 자동 다운로드 |
 
-- ONNX 모델: [huggingface.co/SWHL/RapidOCR](https://huggingface.co/SWHL/RapidOCR) (빌드 시 자동 다운로드)
+- ONNX 모델(한국어 특화 rec + korean_dict): [huggingface.co/SWHL/RapidOCR](https://huggingface.co/SWHL/RapidOCR) (빌드 시 자동 다운로드)
 - EasyOCR Python 패키지: 첫 OCR 실행 시 venv에 자동 설치
 - Tesseract 언어 데이터: 첫 사용 시 자동 다운로드
 

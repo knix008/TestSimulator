@@ -9,10 +9,13 @@ int gtk_app_run(int argc, char *argv[]) {
     /* Leptonica INFO 메시지 억제 (예: "pixRotate: 1 bpp; rotate by shear") */
     setMsgSeverity(L_SEVERITY_WARNING);
 
+    /* Dock에서 .desktop 항목과 실행 창을 안정적으로 매칭 */
+    g_set_prgname("myocr");
+    gdk_set_program_class("MyOCR");
+
     gtk_init(&argc, &argv);
 
     g_set_application_name("MyOCR");
-    g_set_prgname("myocr");
     gtk_app_icon_apply(NULL);
 
     OcrApp *app = ocr_app_new();

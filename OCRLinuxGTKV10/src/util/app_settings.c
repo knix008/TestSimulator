@@ -9,7 +9,7 @@ static char *settings_path(void) {
 void app_settings_init_defaults(AppSettings *settings) {
     memset(settings, 0, sizeof(*settings));
     settings->preprocess_mode = 0;
-    settings->ocr_provider_id = g_strdup("paddle-korean");
+    settings->ocr_provider_id = g_strdup("easyocr");
     settings->outer_splitter_pos = 520;
     settings->window_width = 1200;
     settings->window_height = 720;
@@ -89,7 +89,7 @@ gboolean app_settings_save(const AppSettings *settings, GError **error) {
     json_builder_add_string_value(builder, settings->last_directory ? settings->last_directory : "");
 
     json_builder_set_member_name(builder, "ocr_provider_id");
-    json_builder_add_string_value(builder, settings->ocr_provider_id ? settings->ocr_provider_id : "paddle-korean");
+    json_builder_add_string_value(builder, settings->ocr_provider_id ? settings->ocr_provider_id : "easyocr");
 
     json_builder_set_member_name(builder, "preprocess_mode");
     json_builder_add_int_value(builder, settings->preprocess_mode);

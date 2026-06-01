@@ -52,9 +52,11 @@ static constexpr int   DET_MAX_SIDE      = 960;
 static constexpr int   DET_MIN_SIZE      = 3;
 
 // ── Recognition tuning ─────────────────────────────────────────────────────
-static constexpr int   REC_HEIGHT  = 48;
+/* PP-OCRv1 Korean rec expects 32px text-line height. */
+static constexpr int   REC_HEIGHT  = 32;
 static constexpr int   REC_MAX_W   = 2400;
 static constexpr int   CLS_W       = 192;
+static constexpr int   CLS_H       = 48;
 static constexpr float CLS_THRESH  = 0.9f;
 
 // ── Engine struct ───────────────────────────────────────────────────────────
@@ -347,7 +349,7 @@ static std::vector<TextRegion> run_detection(RapidEngine *eng, const cv::Mat &bg
 // ── Angle classifier ────────────────────────────────────────────────────────
 static bool run_classifier(RapidEngine *eng, const cv::Mat &crop) {
     cv::Mat rsz;
-    cv::resize(crop, rsz, {CLS_W, REC_HEIGHT});
+    cv::resize(crop, rsz, {CLS_W, CLS_H});
     cv::Mat f32;
     rsz.convertTo(f32, CV_32F, 1.0 / 127.5, -1.0);  // (x/255-0.5)/0.5 → (x-127.5)/127.5
 
@@ -355,7 +357,7 @@ static bool run_classifier(RapidEngine *eng, const cv::Mat &crop) {
     cv::Mat blob = make_nchw_blob(f32, 0.f, 0.f, 0.f, 1.f, 1.f, 1.f);
 
     GError *err = nullptr;
-    std::vector<int64_t> shape = {1, 3, REC_HEIGHT, CLS_W};
+    std::vector<int64_t> shape = {1, 3, CLS_H, CLS_W};
     cv::Mat out = ort_run(eng, eng->cls_session, blob.ptr<float>(), shape, &err);
     g_clear_error(&err);
     if (out.empty()) return false;
