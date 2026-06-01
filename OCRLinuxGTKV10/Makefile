@@ -258,36 +258,71 @@ $(BUILD_DIR)/%.o: src/%.cpp
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # ── 의존성 설치 (make deps) ───────────────────────────────────────────────
+#   설치되는 패키지:
+#     - GTK3, GLib/GIO, Cairo, Pango
+#     - Tesseract OCR + Leptonica
+#     - Poppler (PDF), json-glib, libcurl
+#     - OpenCV (이미지 전처리)
+#     - Python3 + pip + venv (EasyOCR 전용)
+#     - g++ (C++17 컴파일러)
+#   ONNX Runtime은 'make' 실행 시 GitHub에서 자동 다운로드됩니다.
 deps:
 	@printf "\n$(C_MAGENTA)$(C_BOLD)▶ 의존성 설치$(C_RESET)\n\n"
-	@printf "$(C_CYAN)$(C_BOLD)[1/1]$(C_RESET) $(C_YELLOW)OS 및 패키지 매니저 감지$(C_RESET)\n"
+	@printf "$(C_CYAN)$(C_BOLD)[1/2]$(C_RESET) $(C_YELLOW)시스템 패키지 설치$(C_RESET)\n"
 	@if [ "$$(uname)" = "Darwin" ]; then \
 	  printf "       $(C_BLUE)→$(C_RESET) Homebrew 기반 설치\n"; \
-	  brew install pkg-config gtk+3 tesseract poppler json-glib curl \
-	    opencv cairo leptonica python3; \
+	  brew install \
+	    pkg-config gcc g++ \
+	    gtk+3 glib cairo pango \
+	    tesseract leptonica \
+	    poppler json-glib curl \
+	    opencv \
+	    python3; \
 	elif [ -f /etc/debian_version ]; then \
-	  printf "       $(C_BLUE)→$(C_RESET) apt 기반 설치\n"; \
+	  printf "       $(C_BLUE)→$(C_RESET) apt 기반 설치 (Ubuntu/Debian)\n"; \
 	  sudo apt-get update && sudo apt-get install -y \
 	    build-essential pkg-config g++ \
-	    libgtk-3-dev libtesseract-dev libleptonica-dev libpoppler-glib-dev \
-	    libjson-glib-dev libcurl4-openssl-dev libcairo2-dev libopencv-dev \
+	    libgtk-3-dev \
+	    libglib2.0-dev libcairo2-dev \
+	    libtesseract-dev \
+	    libleptonica-dev \
+	    libpoppler-glib-dev \
+	    libjson-glib-dev \
+	    libcurl4-openssl-dev \
+	    libopencv-dev \
 	    python3 python3-pip python3-venv; \
 	elif [ -f /etc/redhat-release ]; then \
-	  printf "       $(C_BLUE)→$(C_RESET) dnf 기반 설치\n"; \
-	  sudo dnf install -y gcc gcc-c++ pkgconf-pkg-config gtk3-devel \
-	    tesseract-devel leptonica-devel poppler-glib-devel \
-	    json-glib-devel libcurl-devel cairo-devel opencv-devel \
+	  printf "       $(C_BLUE)→$(C_RESET) dnf 기반 설치 (Fedora/RHEL)\n"; \
+	  sudo dnf install -y \
+	    gcc gcc-c++ pkgconf-pkg-config \
+	    gtk3-devel \
+	    glib2-devel cairo-devel \
+	    tesseract-devel \
+	    leptonica-devel \
+	    poppler-glib-devel \
+	    json-glib-devel \
+	    libcurl-devel \
+	    opencv-devel \
 	    python3 python3-pip; \
 	elif [ -f /etc/arch-release ]; then \
-	  printf "       $(C_BLUE)→$(C_RESET) pacman 기반 설치\n"; \
-	  sudo pacman -Sy --noconfirm base-devel gtk3 tesseract tesseract-data-eng \
-	    tesseract-data-kor leptonica poppler-glib json-glib curl cairo opencv \
+	  printf "       $(C_BLUE)→$(C_RESET) pacman 기반 설치 (Arch Linux)\n"; \
+	  sudo pacman -Sy --noconfirm \
+	    base-devel \
+	    gtk3 \
+	    glib2 cairo \
+	    tesseract tesseract-data-eng tesseract-data-kor \
+	    leptonica \
+	    poppler-glib json-glib curl \
+	    opencv \
 	    python python-pip; \
 	else \
 	  printf "       $(C_YELLOW)!$(C_RESET) 지원하지 않는 OS — 수동 설치 필요\n"; \
 	  exit 1; \
 	fi
-	@printf "       $(C_GREEN)✔$(C_RESET) 시스템 패키지 설치 완료\n"
+	@printf "       $(C_GREEN)✔$(C_RESET) 시스템 패키지 설치 완료\n\n"
+	@printf "$(C_CYAN)$(C_BOLD)[2/2]$(C_RESET) $(C_YELLOW)ONNX Runtime 준비$(C_RESET)\n"
+	@$(MAKE) --no-print-directory ort
+	@printf "       $(C_GREEN)✔$(C_RESET) ONNX Runtime v$(ORT_VERSION)\n"
 	@printf "       $(C_DIM)EasyOCR Python 패키지는 첫 OCR 실행 시 자동 설치됩니다.$(C_RESET)\n\n"
 
 # ── 정리 ─────────────────────────────────────────────────────────────────

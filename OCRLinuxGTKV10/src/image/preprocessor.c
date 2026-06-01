@@ -58,7 +58,15 @@ static void normalize_polarity(PIX *gray) {
 }
 
 static PIX *enhance_gray(PIX *gray) {
-    PIX *contrast = pixContrastNorm(NULL, gray, 0, 0, 50, 3, 3);
+    int w = pixGetWidth(gray), h = pixGetHeight(gray);
+    /* sx, sy: 타일 픽셀 크기 (≥5 필수). 이미지를 ~16분할하되 최소 5 보장 */
+    int sx = MAX(5, w / 16);
+    int sy = MAX(5, h / 16);
+    /* smoothx, smoothy: 타일 수 기준 스무딩 폭 (타일 수의 절반 미만이어야 함) */
+    int ntx = MAX(1, w / sx);
+    int nty = MAX(1, h / sy);
+    int sm = MAX(1, MIN(3, MIN(ntx, nty) / 4));
+    PIX *contrast = pixContrastNorm(NULL, gray, sx, sy, 50, sm, sm);
     if (!contrast) contrast = pixClone(gray);
     return contrast;
 }

@@ -99,6 +99,7 @@ static void hide_ocr_progress(GtkMainWindow *mw) {
     gtk_progress_bar_set_text(GTK_PROGRESS_BAR(mw->status_progress), "");
 }
 
+/* 반드시 GTK 메인 스레드에서만 호출 */
 static void set_ocr_progress(GtkMainWindow *mw, int percent, const char *message) {
     gtk_label_set_text(GTK_LABEL(mw->status_label), message);
     gtk_widget_show(mw->status_progress);
@@ -112,8 +113,7 @@ static void set_ocr_progress(GtkMainWindow *mw, int percent, const char *message
         gtk_progress_bar_pulse(GTK_PROGRESS_BAR(mw->status_progress));
         gtk_progress_bar_set_text(GTK_PROGRESS_BAR(mw->status_progress), "");
     }
-
-    while (gtk_events_pending()) gtk_main_iteration();
+    /* gtk_main_iteration() 제거 — GThread로 교체하여 불필요 */
 }
 
 /* OCR 버튼 색상 상태:
@@ -173,10 +173,6 @@ static size_t count_result_words(const OcrResult *result) {
     for (size_t i = 0; i < result->line_count; i++)
         count += result->lines[i].word_count;
     return count;
-}
-
-static void ocr_progress_cb(gpointer user_data, const char *message, int percent) {
-    set_ocr_progress(user_data, percent, message);
 }
 
 static void refresh_result_view(GtkMainWindow *mw) {
@@ -445,6 +441,107 @@ static void on_next_page(GtkButton *b, gpointer user_data) {
     refresh_result_view(mw);
 }
 
+/* ── OCR 스레드 실행 컨텍스트 ─────────────────────────────────────────── */
+typedef struct {
+    GtkMainWindow  *mw;
+    gint64          started;
+    GThread        *thread;
+    GMainLoop      *loop;
+    GMutex          lock;
+    char            pending_msg[512];
+    int             pending_pct;
+    gboolean        has_update;
+    gboolean        finished;
+    gboolean        success;
+    GError         *error;
+} OcrRunCtx;
+
+/* idle: 진행 메시지/진행률을 GTK 메인 스레드에서 업데이트 */
+static gboolean ocr_run_update_idle(gpointer user_data) {
+    OcrRunCtx *d = user_data;
+    char msg[512];
+    int pct;
+    g_mutex_lock(&d->lock);
+    g_strlcpy(msg, d->pending_msg, sizeof(msg));
+    pct = d->pending_pct;
+    d->has_update = FALSE;
+    g_mutex_unlock(&d->lock);
+    set_ocr_progress(d->mw, pct, msg);
+    return G_SOURCE_REMOVE;
+}
+
+/* idle: OCR 완료 후 메인 스레드에서 결과 표시 및 루프 종료 */
+static gboolean ocr_run_finish_idle(gpointer user_data) {
+    OcrRunCtx *d = user_data;
+
+    if (!d->success) {
+        show_error(d->mw, "OCR", d->error ? d->error->message : "실패");
+        g_clear_error(&d->error);
+        char *elapsed = format_elapsed(g_get_monotonic_time() - d->started);
+        char *status  = g_strdup_printf("OCR 실패  ·  소요 %s", elapsed);
+        set_ocr_in_progress(d->mw, FALSE);
+        update_status(d->mw, status);
+        g_free(status);
+        g_free(elapsed);
+    } else {
+        set_ocr_progress(d->mw, 92, "결과 표시 중...");
+        refresh_result_view(d->mw);
+
+        const OcrResult *result = ocr_app_get_result(d->mw->app);
+        size_t word_count = count_result_words(result);
+        size_t char_count = (result && result->text) ? strlen(result->text) : 0;
+        char *elapsed = format_elapsed(g_get_monotonic_time() - d->started);
+        char *status  = g_strdup_printf(
+            "OCR 완료 — %zu줄, %zu단어, %zu자  ·  소요 %s",
+            result ? result->line_count : 0, word_count, char_count, elapsed);
+        set_ocr_in_progress(d->mw, FALSE);
+        update_status(d->mw, status);
+        g_free(status);
+        g_free(elapsed);
+    }
+
+    g_main_loop_quit(d->loop);
+    return G_SOURCE_REMOVE;
+}
+
+/* OCR 스레드에서 호출되는 진행 콜백 */
+static void ocr_run_progress_cb(gpointer user_data, const char *msg, int pct) {
+    OcrRunCtx *d = user_data;
+    g_mutex_lock(&d->lock);
+    g_strlcpy(d->pending_msg, msg ? msg : "", sizeof(d->pending_msg));
+    d->pending_pct = pct;
+    if (!d->has_update) {
+        d->has_update = TRUE;
+        g_idle_add(ocr_run_update_idle, d);
+    }
+    g_mutex_unlock(&d->lock);
+}
+
+/* OCR 작업 스레드 */
+static gpointer ocr_run_thread(gpointer user_data) {
+    OcrRunCtx *d = user_data;
+    OcrProgressContext ctx = {
+        .report    = ocr_run_progress_cb,
+        .user_data = d,
+    };
+    d->success = ocr_app_run_ocr_ex(d->mw->app, &ctx, &d->error);
+    d->finished = TRUE;
+    g_idle_add(ocr_run_finish_idle, d);
+    return NULL;
+}
+
+/* 진행 중 프로그레스바 펄스 (타임아웃 콜백) */
+static gboolean ocr_run_pulse_idle(gpointer user_data) {
+    OcrRunCtx *d = user_data;
+    if (d->finished) return G_SOURCE_REMOVE;
+    g_mutex_lock(&d->lock);
+    int pct = d->pending_pct;
+    g_mutex_unlock(&d->lock);
+    if (pct < 0)
+        gtk_progress_bar_pulse(GTK_PROGRESS_BAR(d->mw->status_progress));
+    return G_SOURCE_CONTINUE;
+}
+
 static void run_ocr(GtkMainWindow *mw) {
     if (!ocr_app_has_image(mw->app)) return;
 
@@ -452,6 +549,7 @@ static void run_ocr(GtkMainWindow *mw) {
     set_ocr_in_progress(mw, TRUE);
     set_ocr_progress(mw, 0, "OCR 시작");
 
+    /* 엔진 준비 — 별도 설치 다이얼로그 (이미 스레드 사용) */
     GError *error = NULL;
     set_ocr_progress(mw, 5, "OCR 엔진 준비 중...");
     if (!gtk_install_progress_prepare_engine(GTK_WINDOW(mw->window), mw->app, &error)) {
@@ -459,48 +557,35 @@ static void run_ocr(GtkMainWindow *mw) {
         g_clear_error(&error);
         set_ocr_in_progress(mw, FALSE);
         char *elapsed = format_elapsed(g_get_monotonic_time() - started);
-        char *status = g_strdup_printf("OCR 엔진 준비 실패  ·  소요 %s", elapsed);
+        char *status  = g_strdup_printf("OCR 엔진 준비 실패  ·  소요 %s", elapsed);
         update_status(mw, status);
         g_free(status);
         g_free(elapsed);
         refresh_engine_combo(mw);
         return;
     }
-
     refresh_engine_combo(mw);
     set_ocr_progress(mw, 12, "엔진 준비 완료");
 
-    OcrProgressContext progress = {
-        .report = ocr_progress_cb,
-        .user_data = mw
+    /* OCR 추론을 별도 스레드에서 실행 — 메인 루프를 유지하여 UI 응답 보장 */
+    OcrRunCtx d = {
+        .mw      = mw,
+        .started = started,
     };
+    g_mutex_init(&d.lock);
 
-    if (!ocr_app_run_ocr_ex(mw->app, &progress, &error)) {
-        show_error(mw, "OCR", error ? error->message : "실패");
-        g_clear_error(&error);
-        set_ocr_in_progress(mw, FALSE);
-        char *elapsed = format_elapsed(g_get_monotonic_time() - started);
-        char *status = g_strdup_printf("OCR 실패  ·  소요 %s", elapsed);
-        update_status(mw, status);
-        g_free(status);
-        g_free(elapsed);
-        return;
-    }
+    d.loop   = g_main_loop_new(NULL, FALSE);
+    d.thread = g_thread_new("ocr-run", ocr_run_thread, &d);
 
-    set_ocr_progress(mw, 92, "결과 표시 중...");
-    refresh_result_view(mw);
+    /* 50ms 마다 펄스 (스레드 완료 전까지) */
+    guint pulse_id = g_timeout_add(50, ocr_run_pulse_idle, &d);
 
-    const OcrResult *result = ocr_app_get_result(mw->app);
-    size_t word_count = count_result_words(result);
-    size_t char_count = (result && result->text) ? strlen(result->text) : 0;
-    char *elapsed = format_elapsed(g_get_monotonic_time() - started);
-    char *status = g_strdup_printf(
-        "OCR 완료 — %zu줄, %zu단어, %zu자  ·  소요 %s",
-        result ? result->line_count : 0, word_count, char_count, elapsed);
-    set_ocr_in_progress(mw, FALSE);
-    update_status(mw, status);
-    g_free(status);
-    g_free(elapsed);
+    g_main_loop_run(d.loop);  /* 메인 루프 유지 — UI 응답 가능 */
+
+    g_source_remove(pulse_id);
+    g_thread_join(d.thread);
+    g_main_loop_unref(d.loop);
+    g_mutex_clear(&d.lock);
 }
 
 static void on_ocr_clicked(GtkButton *button, gpointer user_data) {
