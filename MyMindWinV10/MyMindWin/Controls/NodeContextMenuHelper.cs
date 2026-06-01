@@ -15,7 +15,10 @@ namespace MyMindWin.Controls
             MainViewModel vm,
             FrameworkElement resourceOwner,
             IInputElement? commandTarget = null,
-            Action<NodeViewModel>? onRename = null)
+            Action<NodeViewModel>? onRename = null,
+            Action<NodeViewModel>? onNote = null,
+            Action<NodeViewModel>? onImage = null,
+            Action<NodeViewModel>? onRemoveImage = null)
         {
             var menu = new ContextMenu
             {
@@ -36,6 +39,21 @@ namespace MyMindWin.Controls
             var rename = CreateItem(resourceOwner, "이름 바꾸기", "F2", MenuIcons.Rename);
             rename.Click += (_, _) => onRename?.Invoke(node);
             menu.Items.Add(rename);
+
+            var noteItem = CreateItem(resourceOwner, node.HasNote ? "노트 편집" : "노트 추가", string.Empty, MenuIcons.Note);
+            noteItem.Click += (_, _) => onNote?.Invoke(node);
+            menu.Items.Add(noteItem);
+
+            var imageItem = CreateItem(resourceOwner, node.HasImage ? "그림 보기" : "그림 추가", string.Empty, MenuIcons.Image);
+            imageItem.Click += (_, _) => onImage?.Invoke(node);
+            menu.Items.Add(imageItem);
+
+            if (node.HasImage && onRemoveImage != null)
+            {
+                var removeImage = CreateItem(resourceOwner, "그림 제거", string.Empty, MenuIcons.Delete);
+                removeImage.Click += (_, _) => onRemoveImage(node);
+                menu.Items.Add(removeImage);
+            }
 
             if (node.Children.Count > 0)
             {
@@ -104,6 +122,12 @@ namespace MyMindWin.Controls
 
             public static UIElement Delete =>
                 LineIcon("M 4,4 L 12,4 M 6,4 L 6,2 L 10,2 L 10,4 M 5,5 L 6,12 L 10,12 L 11,5", 1.4);
+
+            public static UIElement Note =>
+                LineIcon("M 4,3 L 12,3 L 12,12 L 4,12 Z M 6,6 L 10,6 M 6,9 L 10,9", 1.3);
+
+            public static UIElement Image =>
+                LineIcon("M 3,10 L 6,7 L 8,9 L 11,5 L 13,7 L 13,12 L 3,12 Z M 5,5 A 1,1 0 1 0 5,7 A 1,1 0 1 0 5,5", 1.3);
 
             private static UIElement LineIcon(string geometry, double thickness) => new Path
             {

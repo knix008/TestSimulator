@@ -6,7 +6,12 @@ namespace MyMindWin.Models
         Rectangle,
         Pill,
         Ellipse,
-        Diamond
+        Diamond,
+        Cloud,
+        Hexagon,
+        SpeechBubble,
+        Star,
+        Parallelogram
     }
 
     public static class NodeShapeKindExtensions
@@ -17,6 +22,11 @@ namespace MyMindWin.Models
             NodeShapeKind.Pill => "pill",
             NodeShapeKind.Ellipse => "ellipse",
             NodeShapeKind.Diamond => "diamond",
+            NodeShapeKind.Cloud => "cloud",
+            NodeShapeKind.Hexagon => "hexagon",
+            NodeShapeKind.SpeechBubble => "speech_bubble",
+            NodeShapeKind.Star => "star",
+            NodeShapeKind.Parallelogram => "parallelogram",
             _ => "rounded"
         };
 
@@ -26,6 +36,11 @@ namespace MyMindWin.Models
             "pill" => NodeShapeKind.Pill,
             "ellipse" => NodeShapeKind.Ellipse,
             "diamond" => NodeShapeKind.Diamond,
+            "cloud" => NodeShapeKind.Cloud,
+            "hexagon" => NodeShapeKind.Hexagon,
+            "speech_bubble" or "speechbubble" => NodeShapeKind.SpeechBubble,
+            "star" => NodeShapeKind.Star,
+            "parallelogram" => NodeShapeKind.Parallelogram,
             _ => NodeShapeKind.RoundedRectangle
         };
 
@@ -35,6 +50,11 @@ namespace MyMindWin.Models
             NodeShapeKind.Pill => "알약형",
             NodeShapeKind.Ellipse => "타원",
             NodeShapeKind.Diamond => "마름모",
+            NodeShapeKind.Cloud => "구름",
+            NodeShapeKind.Hexagon => "육각형",
+            NodeShapeKind.SpeechBubble => "말풍선",
+            NodeShapeKind.Star => "별",
+            NodeShapeKind.Parallelogram => "평행사변형",
             _ => "둥근 사각형"
         };
     }

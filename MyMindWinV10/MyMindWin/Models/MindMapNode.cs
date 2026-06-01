@@ -12,6 +12,16 @@ namespace MyMindWin.Models
         [JsonPropertyName("text")]
         public string Text { get; set; } = "New Node";
 
+        [JsonPropertyName("note")]
+        public string Note { get; set; } = string.Empty;
+
+        /// <summary>Base64-encoded image bytes (PNG/JPEG/GIF/BMP/WebP).</summary>
+        [JsonPropertyName("image")]
+        public string? Image { get; set; }
+
+        [JsonPropertyName("imageMime")]
+        public string? ImageMime { get; set; }
+
         [JsonPropertyName("isExpanded")]
         public bool IsExpanded { get; set; } = true;
 

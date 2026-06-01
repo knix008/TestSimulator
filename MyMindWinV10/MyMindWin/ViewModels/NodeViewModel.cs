@@ -12,13 +12,33 @@ namespace MyMindWin.ViewModels
         private bool _isSelected;
         private bool _isExpanded;
         private bool _isTreeEditing;
+        private bool _isNoteExpanded;
+        private bool _isImageExpanded;
         private string _text;
+        private string _note = string.Empty;
+        private string _imageData = string.Empty;
+        private string _imageMime = string.Empty;
 
         public MindMapNode Model { get; }
         public NodeViewModel? Parent { get; set; }
         public ObservableCollection<NodeViewModel> Children { get; } = [];
         public int Level { get; set; }
-        public int BranchColorIndex { get; set; } = 0;
+        public int BranchColorIndex { get; set; } = NodeColorPalette.InheritColorIndex;
+
+        public int NodeColorIndex
+        {
+            get => Model.ColorIndex;
+            set
+            {
+                if (Model.ColorIndex == value) return;
+                Model.ColorIndex = value;
+                BranchColorIndex = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(UsesInheritedColor));
+            }
+        }
+
+        public bool UsesInheritedColor => Level > 0 && Model.ColorIndex < 0;
 
         private NodeShapeKind _shape = NodeShapeKind.RoundedRectangle;
 
@@ -94,12 +114,82 @@ namespace MyMindWin.ViewModels
             }
         }
 
+        public string Note
+        {
+            get => _note;
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (_note == normalized) return;
+                _note = normalized;
+                Model.Note = normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasNote));
+            }
+        }
+
+        public bool HasNote => !string.IsNullOrWhiteSpace(_note);
+
+        public bool IsNoteExpanded
+        {
+            get => _isNoteExpanded;
+            set
+            {
+                if (_isNoteExpanded == value) return;
+                _isNoteExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string ImageData
+        {
+            get => _imageData;
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (_imageData == normalized) return;
+                _imageData = normalized;
+                Model.Image = string.IsNullOrEmpty(normalized) ? null : normalized;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasImage));
+            }
+        }
+
+        public string ImageMime
+        {
+            get => _imageMime;
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (_imageMime == normalized) return;
+                _imageMime = normalized;
+                Model.ImageMime = string.IsNullOrEmpty(normalized) ? null : normalized;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool HasImage => !string.IsNullOrWhiteSpace(_imageData);
+
+        public bool IsImageExpanded
+        {
+            get => _isImageExpanded;
+            set
+            {
+                if (_isImageExpanded == value) return;
+                _isImageExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+
         public NodeViewModel(MindMapNode model, NodeViewModel? parent = null, int level = 0)
         {
             Model = model;
             Parent = parent;
             Level = level;
             _text = model.Text;
+            _note = model.Note ?? string.Empty;
+            _imageData = model.Image ?? string.Empty;
+            _imageMime = model.ImageMime ?? string.Empty;
             _isExpanded = model.IsExpanded;
             BranchColorIndex = model.ColorIndex;
             _shape = NodeShapeKindExtensions.FromJsonValue(model.Shape);
@@ -116,8 +206,10 @@ namespace MyMindWin.ViewModels
         {
             Model.X = X;
             Model.Y = Y;
-            Model.ColorIndex = BranchColorIndex;
             Model.Shape = Shape.ToJsonValue();
+            Model.Note = Note;
+            Model.Image = HasImage ? ImageData : null;
+            Model.ImageMime = HasImage && !string.IsNullOrEmpty(ImageMime) ? ImageMime : null;
         }
 
         public IEnumerable<NodeViewModel> GetAllDescendants()

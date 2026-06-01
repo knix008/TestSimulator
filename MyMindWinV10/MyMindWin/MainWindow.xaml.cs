@@ -11,20 +11,27 @@ namespace MyMindWin
 {
     public partial class MainWindow : Window
     {
-        private readonly MainViewModel _vm;
+        private readonly MainViewModel? _vm;
         private NodeViewModel? _treeEditingNode;
         private string? _treeEditOriginalText;
 
         public MainWindow()
         {
             InitializeComponent();
-            _vm = new MainViewModel();
-            DataContext = _vm;
 
             if (DesignerProperties.GetIsInDesignMode(this))
                 return;
 
+            _vm = new MainViewModel();
+            DataContext = _vm;
+
             MindMapCanvas.SetViewModel(_vm);
+            _vm.RequestNodeColorRefresh += (_, node) => _vm.RefreshInheritColorPreviewIfNeeded(node);
+            _vm.SetExportImageHandler((options, path) =>
+            {
+                bool ok = MindMapCanvas.TryExportToFile(path, options, out var error);
+                return (ok, error);
+            });
 
             // Keyboard shortcuts
             PreviewKeyDown += MainWindow_PreviewKeyDown;
@@ -45,6 +52,7 @@ namespace MyMindWin
 
         private void ConnectionLineMenuItem_Click(object sender, RoutedEventArgs e)
         {
+            if (_vm == null) return;
             if (sender is not MenuItem item || item.Tag is not string tag) return;
             _vm.ConnectionLineType = ConnectionLineTypeExtensions.FromJsonValue(tag);
         }
@@ -69,7 +77,13 @@ namespace MyMindWin
             SelectTreeNode(vm);
             CommandManager.InvalidateRequerySuggested();
 
-            var menu = NodeContextMenuHelper.Build(vm, _vm, this, this, BeginTreeRename);
+            if (_vm == null) return;
+
+            var menu = NodeContextMenuHelper.Build(
+                vm, _vm, this, this, BeginTreeRename,
+                node => MindMapCanvas.OpenNoteForNode(node),
+                node => MindMapCanvas.OpenImageForNode(node),
+                node => MindMapCanvas.RemoveImageFromNode(node));
             menu.PlacementTarget = treeItem;
             menu.IsOpen = true;
         }
@@ -85,7 +99,7 @@ namespace MyMindWin
 
         private void StructureTree_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (_treeEditingNode != null) return;
+            if (_vm == null || _treeEditingNode != null) return;
 
             switch (e.Key)
             {
@@ -173,6 +187,7 @@ namespace MyMindWin
 
         private void SelectTreeNode(NodeViewModel vm)
         {
+            if (_vm == null) return;
             _suppressTreeSync = true;
             _vm.SelectedNode = vm;
             _suppressTreeSync = false;
@@ -224,6 +239,8 @@ namespace MyMindWin
 
         private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (_vm == null) return;
+
             if (e.Key == Key.N && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 _vm.NewDocumentCommand.Execute(null);

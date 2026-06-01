@@ -41,19 +41,33 @@ namespace MyMindWin.ViewModels
             return new MindMapDocument
             {
                 Version = 1,
+                Title = vm.GetDocumentTitleForSave(),
                 Layout = LayoutToString(vm.LayoutType),
                 ConnectionLine = ConnectionLineToString(vm.ConnectionLineType),
+                ConnectionLineThickness = vm.ConnectionLineThickness,
+                ConnectionLineTaper = vm.ConnectionLineTaper,
+                DefaultNodeShape = vm.DefaultNodeShape.ToJsonValue(),
+                LayoutFlipHorizontal = vm.LayoutFlipHorizontal,
+                LayoutFlipVertical = vm.LayoutFlipVertical,
                 Root = vm.RootNode.Model
             };
         }
 
-        public static LayoutType ParseLayout(string layout) =>
-            layout.Equals("radial", StringComparison.OrdinalIgnoreCase)
-                ? LayoutType.Radial
-                : LayoutType.HorizontalTree;
+        public static LayoutType ParseLayout(string layout)
+        {
+            if (layout.Equals("radial", StringComparison.OrdinalIgnoreCase))
+                return LayoutType.Radial;
+            if (layout.Equals("fishbone", StringComparison.OrdinalIgnoreCase))
+                return LayoutType.Fishbone;
+            return LayoutType.HorizontalTree;
+        }
 
-        public static string LayoutToString(LayoutType layout) =>
-            layout == LayoutType.Radial ? "radial" : "tree";
+        public static string LayoutToString(LayoutType layout) => layout switch
+        {
+            LayoutType.Radial => "radial",
+            LayoutType.Fishbone => "fishbone",
+            _ => "tree"
+        };
 
         public static ConnectionLineType ParseConnectionLine(string? connectionLine) =>
             ConnectionLineTypeExtensions.FromJsonValue(connectionLine);

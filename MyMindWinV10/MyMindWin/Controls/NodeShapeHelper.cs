@@ -55,14 +55,47 @@ namespace MyMindWin.Controls
         }
 
         public static bool UsesShapeStroke(NodeShapeKind shape) =>
-            shape is NodeShapeKind.Ellipse or NodeShapeKind.Diamond;
+            shape is NodeShapeKind.Ellipse
+                or NodeShapeKind.Diamond
+                or NodeShapeKind.Cloud
+                or NodeShapeKind.Hexagon
+                or NodeShapeKind.SpeechBubble
+                or NodeShapeKind.Star
+                or NodeShapeKind.Parallelogram;
 
-        public static UIElement? GetShapeElement(FrameworkElement? root) =>
-            root is Grid { Children.Count: > 0 } g ? g.Children[0] : null;
+        public static FrameworkElement? GetNodeVisualRoot(FrameworkElement? root)
+        {
+            if (root is Grid { Children.Count: > 0 } wrapper &&
+                wrapper.Children[0] is FrameworkElement first &&
+                first != wrapper)
+                return first;
+            return root;
+        }
+
+        public static UIElement? GetShapeElement(FrameworkElement? root)
+        {
+            root = GetNodeVisualRoot(root);
+            return root is Grid { Children.Count: > 0 } g ? g.Children[0] : null;
+        }
 
         private static UIElement? CreateShapeElement(
             NodeShapeKind shape, Brush fill, Brush stroke, double strokeThickness, double width, double height)
         {
+            if (NodeShapeGeometries.IsCustomPathShape(shape))
+            {
+                return new Path
+                {
+                    Width = width,
+                    Height = height,
+                    Data = NodeShapeGeometries.GetGeometry(shape),
+                    Fill = fill,
+                    Stroke = stroke,
+                    StrokeThickness = strokeThickness,
+                    StrokeLineJoin = PenLineJoin.Round,
+                    Stretch = Stretch.Fill
+                };
+            }
+
             return shape switch
             {
                 NodeShapeKind.Rectangle => new Rectangle
@@ -105,9 +138,15 @@ namespace MyMindWin.Controls
             NodeShapeKind.Pill => new CornerRadius(height / 2),
             NodeShapeKind.Ellipse => new CornerRadius(height / 2),
             NodeShapeKind.Diamond => new CornerRadius(0),
+            NodeShapeKind.Cloud => new CornerRadius(height / 3),
+            NodeShapeKind.Hexagon => new CornerRadius(4),
+            NodeShapeKind.SpeechBubble => new CornerRadius(10),
+            NodeShapeKind.Star => new CornerRadius(0),
+            NodeShapeKind.Parallelogram => new CornerRadius(0),
             _ => new CornerRadius(Math.Min(height / 2, 18))
         };
 
+        /// <summary>연결선용 앵커 — 노드 경계 상·하·좌·우 4점 중 대상을 향한 면의 중앙.</summary>
         public static Point GetEdgePoint(NodeViewModel node, double targetX, double targetY, double nodeHeight)
         {
             double cx = node.X + node.Width / 2;
@@ -116,40 +155,16 @@ namespace MyMindWin.Controls
             double dy = targetY - cy;
 
             if (Math.Abs(dx) < 1e-6 && Math.Abs(dy) < 1e-6)
-                return new Point(cx, cy);
+                return new Point(node.X + node.Width, cy);
 
-            return node.Shape switch
-            {
-                NodeShapeKind.Ellipse => EllipseEdge(cx, cy, node.Width / 2, nodeHeight / 2, dx, dy),
-                NodeShapeKind.Diamond => DiamondEdge(cx, cy, node.Width / 2, nodeHeight / 2, dx, dy),
-                _ => RectEdge(cx, cy, node.Width / 2, nodeHeight / 2, dx, dy)
-            };
-        }
+            if (Math.Abs(dx) >= Math.Abs(dy))
+                return dx >= 0
+                    ? new Point(node.X + node.Width, cy)
+                    : new Point(node.X, cy);
 
-        private static Point RectEdge(double cx, double cy, double halfW, double halfH, double dx, double dy)
-        {
-            halfW = Math.Max(halfW, 1);
-            halfH = Math.Max(halfH, 1);
-            double scale = 1.0 / Math.Max(Math.Abs(dx) / halfW, Math.Abs(dy) / halfH);
-            return new Point(cx + dx * scale, cy + dy * scale);
-        }
-
-        private static Point EllipseEdge(double cx, double cy, double rx, double ry, double dx, double dy)
-        {
-            rx = Math.Max(rx, 1);
-            ry = Math.Max(ry, 1);
-            double t = Math.Sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry));
-            if (t < 1e-9) return new Point(cx, cy);
-            return new Point(cx + dx / t, cy + dy / t);
-        }
-
-        private static Point DiamondEdge(double cx, double cy, double halfW, double halfH, double dx, double dy)
-        {
-            halfW = Math.Max(halfW, 1);
-            halfH = Math.Max(halfH, 1);
-            double t = Math.Abs(dx) / halfW + Math.Abs(dy) / halfH;
-            if (t < 1e-9) return new Point(cx, cy);
-            return new Point(cx + dx / t, cy + dy / t);
+            return dy >= 0
+                ? new Point(cx, node.Y + nodeHeight)
+                : new Point(cx, node.Y);
         }
     }
 }

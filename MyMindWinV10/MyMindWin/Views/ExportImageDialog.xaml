@@ -1,0 +1,75 @@
+<Window x:Class="MyMindWin.Views.ExportImageDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="이미지보내기 옵션"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1A1F2E"
+        Foreground="#E8EEF8"
+        FontFamily="Segoe UI"
+        FontSize="13"
+        ShowInTaskbar="False">
+    <Border Padding="20" BorderBrush="#334466" BorderThickness="1" CornerRadius="8">
+        <StackPanel MinWidth="360">
+            <TextBlock Text="이미지보내기"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Margin="0,0,0,14"/>
+
+            <CheckBox x:Name="IncludeHeadingCheck"
+                      Content="제목(Heading) 포함"
+                      IsChecked="True"
+                      Foreground="#E8EEF8"
+                      Margin="0,0,0,10"
+                      Checked="IncludeHeadingCheck_Changed"
+                      Unchecked="IncludeHeadingCheck_Changed"/>
+
+            <TextBlock Text="제목 (문서 제목)"
+                       Foreground="#88FFFFFF"
+                       Margin="0,0,0,6"/>
+            <TextBox x:Name="HeadingBox"
+                     MinHeight="28"
+                     Padding="8,6"
+                     Background="#121826"
+                     Foreground="#E8EEF8"
+                     BorderBrush="#445566"
+                     BorderThickness="1"
+                     CaretBrush="#64B5F6"/>
+
+            <TextBlock Text="제목을 비우거나 '제목 포함'을 해제하면 Heading 없이 저장됩니다."
+                       Foreground="#66FFFFFF"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Margin="0,10,0,0"/>
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,18,0,0">
+                <Button Content="확인"
+                        IsDefault="True"
+                        Width="88"
+                        Height="30"
+                        Margin="0,0,8,0"
+                        Padding="12,4"
+                        Background="#667EEA"
+                        Foreground="White"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="Ok_Click"/>
+                <Button Content="취소"
+                        IsCancel="True"
+                        Width="88"
+                        Height="30"
+                        Padding="12,4"
+                        Background="#2A3142"
+                        Foreground="#E8EEF8"
+                        BorderBrush="#445566"
+                        Cursor="Hand"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

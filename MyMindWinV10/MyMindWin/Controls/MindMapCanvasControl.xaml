@@ -1,15 +1,24 @@
 <UserControl x:Class="MyMindWin.Controls.MindMapCanvasControl"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="800" d:DesignHeight="500"
              Background="#1A1F2E"
              Focusable="True"
-             ClipToBounds="True">
+             ClipToBounds="True"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True"
+             TextOptions.TextFormattingMode="Display"
+             TextOptions.TextRenderingMode="ClearType">
 
     <UserControl.Resources>
     </UserControl.Resources>
 
-    <Grid>
+    <Grid Background="#1A1F2E">
         <ScrollViewer x:Name="CanvasScroller"
+                      Background="#1A1F2E"
                       HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto"
                       PanningMode="None"
@@ -18,8 +27,11 @@
                       PreviewMouseMove="CanvasScroller_PreviewMouseMove"
                       PreviewMouseUp="CanvasScroller_PreviewMouseUp">
             <Canvas x:Name="RootCanvas"
-                    Background="Transparent"
-                    MouseDown="RootCanvas_MouseDown">
+                    Background="#1A1F2E"
+                    MouseDown="RootCanvas_MouseDown"
+                    UseLayoutRounding="True"
+                    SnapsToDevicePixels="True"
+                    RenderOptions.BitmapScalingMode="HighQuality">
                 <Canvas.LayoutTransform>
                     <ScaleTransform x:Name="ScaleXform" ScaleX="1" ScaleY="1"/>
                 </Canvas.LayoutTransform>
@@ -55,6 +67,96 @@
                          VerticalContentAlignment="Center"
                          KeyDown="EditBox_KeyDown"
                          LostFocus="EditBox_LostFocus"/>
+            </Border>
+
+            <Border x:Name="NoteBorder"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="True"
+                    MinWidth="140"
+                    MaxWidth="300"
+                    CornerRadius="8"
+                    BorderBrush="#FFB74D"
+                    BorderThickness="1"
+                    Background="#1E2433"
+                    Padding="10">
+                <DockPanel LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="노트"
+                               Foreground="#FFB74D"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="Bold"
+                               Margin="0,0,0,6"/>
+                    <TextBox x:Name="NoteBox"
+                             DockPanel.Dock="Top"
+                             MinHeight="72"
+                             MaxHeight="200"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             FontFamily="Segoe UI"
+                             FontSize="12"
+                             Padding="6"
+                             BorderThickness="1"
+                             BorderBrush="#445566"
+                             Background="#121826"
+                             Foreground="#E8EEF8"
+                             CaretBrush="#FFB74D"
+                             KeyDown="NoteBox_KeyDown"
+                             LostFocus="NoteBox_LostFocus"/>
+                </DockPanel>
+            </Border>
+
+            <Border x:Name="ImageBorder"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="True"
+                    MinWidth="140"
+                    MaxWidth="320"
+                    CornerRadius="8"
+                    BorderBrush="#64B5F6"
+                    BorderThickness="1"
+                    Background="#1E2433"
+                    Padding="10">
+                <DockPanel LastChildFill="True">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="그림"
+                                   Foreground="#64B5F6"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    DockPanel.Dock="Right">
+                            <Button x:Name="ImageChangeButton"
+                                    Content="변경..."
+                                    Padding="8,2"
+                                    Margin="0,0,6,0"
+                                    FontSize="11"
+                                    Click="ImageChangeButton_Click"/>
+                            <Button x:Name="ImageRemoveButton"
+                                    Content="제거"
+                                    Padding="8,2"
+                                    Margin="0,0,6,0"
+                                    FontSize="11"
+                                    Click="ImageRemoveButton_Click"/>
+                            <Button x:Name="ImageCloseButton"
+                                    Content="닫기"
+                                    Padding="8,2"
+                                    FontSize="11"
+                                    Click="ImageCloseButton_Click"/>
+                        </StackPanel>
+                    </DockPanel>
+                    <Border Background="#121826"
+                            CornerRadius="4"
+                            Padding="4"
+                            DockPanel.Dock="Top">
+                        <Image x:Name="NodeImageDisplay"
+                               MaxHeight="220"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"/>
+                    </Border>
+                </DockPanel>
             </Border>
         </Canvas>
 

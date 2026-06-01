@@ -7,9 +7,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 using System.Windows.Shapes;
+using Microsoft.Win32;
 using MyMindWin.Models;
 using MyMindWin.ViewModels;
 
@@ -17,21 +16,6 @@ namespace MyMindWin.Controls
 {
     public partial class MindMapCanvasControl : UserControl
     {
-        private static readonly (Color light, Color dark)[] BranchColors =
-        [
-            (Color.FromRgb(0x74, 0xB9, 0xFF), Color.FromRgb(0x00, 0x84, 0xD6)),
-            (Color.FromRgb(0x55, 0xEF, 0xCB), Color.FromRgb(0x00, 0xB8, 0x94)),
-            (Color.FromRgb(0xFF, 0x7F, 0xB5), Color.FromRgb(0xE8, 0x40, 0x83)),
-            (Color.FromRgb(0xFF, 0xD3, 0x6E), Color.FromRgb(0xE6, 0x9B, 0x00)),
-            (Color.FromRgb(0xA2, 0x9B, 0xFE), Color.FromRgb(0x68, 0x5A, 0xE6)),
-            (Color.FromRgb(0x81, 0xEC, 0xEC), Color.FromRgb(0x00, 0xCE, 0xCE)),
-            (Color.FromRgb(0xFD, 0xA7, 0xDF), Color.FromRgb(0xE8, 0x4E, 0xCF)),
-            (Color.FromRgb(0xFE, 0xB0, 0x8F), Color.FromRgb(0xE8, 0x74, 0x43)),
-        ];
-
-        private static readonly Color RootLight = Color.FromRgb(0xB2, 0xBE, 0xFF);
-        private static readonly Color RootDark  = Color.FromRgb(0x66, 0x7E, 0xEA);
-
         private readonly Dictionary<Guid, FrameworkElement> _nodeElements = [];
         private readonly Dictionary<Guid, Path>   _connectionPaths = [];
         private MainViewModel? _vm;
@@ -46,6 +30,8 @@ namespace MyMindWin.Controls
 
         private NodeViewModel? _editingNode;
         private FrameworkElement? _editingNodeVisual;
+        private NodeViewModel? _notePanelNode;
+        private NodeViewModel? _imagePanelNode;
         private NodeViewModel? _dragNode;
         private Point _dragLastWorldPos;
         private bool _isDraggingNode;
@@ -60,9 +46,12 @@ namespace MyMindWin.Controls
         private const double NodeHeight     = 36;
         private const double HNodeSpacingX  = 72;   // 부모-자식 가로 간격 (연결선 길이)
         private const double HNodeSpacingY  = 38;   // 형제 노드 세로 간격
-        private const double RadialRadius0  = 72;   // 루트→1단계 자식 거리 (중심 간)
-        private const double RadialRadiusDelta = 48;
-        private const double RadialNodeGap  = 16;   // 같은 링에서 노드 사이 최소 간격
+        private const double RadialLinkGap    = 10; // 부모·자식 중심 간 최소 간격 (가장자리 기준)
+        private const double RadialSiblingGap = 10; // 같은 링에서 형제 노드 호 간 최소 간격
+        private const double FishboneRibStub   = 32; // 척추(spine)에서 1단계 카테고리 노드까지
+        private const double FishboneSpineGap  = 20; // 척추를 따라 카테고리 간 간격
+        private const double FishboneSpineTail = 48; // 척추 끝에서 루트(머리)까지
+        private const double FishbonePackMargin = 8;  // 가지 간 겹침 방지 여백
         private const double ConnectionArmMin = 20; // 베지어 제어 arm 최소
         private const double ConnectionArmMax = 56; // 베지어 제어 arm 최대
         private const double ContentPadding = 80;
@@ -102,6 +91,7 @@ namespace MyMindWin.Controls
                 _vm.RequestAutoLayout -= OnRequestAutoLayout;
                 _vm.RequestFitView -= OnRequestFitView;
                 _vm.RequestNodeShapeRefresh -= OnRequestNodeShapeRefresh;
+                _vm.RequestNodeColorRefresh -= OnRequestNodeColorRefresh;
                 _vm.RequestConnectionRefresh -= OnRequestConnectionRefresh;
                 _vm.PropertyChanged -= Vm_PropertyChanged;
             }
@@ -112,6 +102,7 @@ namespace MyMindWin.Controls
             _vm.RequestAutoLayout += OnRequestAutoLayout;
             _vm.RequestFitView    += OnRequestFitView;
             _vm.RequestNodeShapeRefresh += OnRequestNodeShapeRefresh;
+            _vm.RequestNodeColorRefresh += OnRequestNodeColorRefresh;
             _vm.RequestConnectionRefresh += OnRequestConnectionRefresh;
             _vm.PropertyChanged += Vm_PropertyChanged;
 
@@ -127,13 +118,35 @@ namespace MyMindWin.Controls
             }
             else if (e.PropertyName == nameof(MainViewModel.SelectedNode))
             {
+                if (_notePanelNode != null && _notePanelNode != _vm?.SelectedNode)
+                    CloseNotePanel();
+                if (_imagePanelNode != null && _imagePanelNode != _vm?.SelectedNode)
+                    CloseImagePanel();
                 RefreshSelectionVisuals();
             }
+        }
+
+        public void OpenNoteForNode(NodeViewModel node) => OpenNotePanel(node);
+
+        public void OpenImageForNode(NodeViewModel node)
+        {
+            if (node.HasImage)
+                OpenImagePanel(node);
+            else
+                PickImageForNode(node);
         }
 
         private void OnRequestLayout(object? sender, EventArgs e) => RebuildCanvas();
 
         private void OnRequestNodeShapeRefresh(object? sender, NodeViewModel node) => ReplaceNodeVisual(node);
+
+        private void OnRequestNodeColorRefresh(object? sender, NodeViewModel node)
+        {
+            foreach (var desc in node.GetAllDescendants())
+                ReplaceNodeVisual(desc);
+
+            RebuildAllConnections();
+        }
 
         private void OnRequestConnectionRefresh(object? sender, EventArgs e)
         {
@@ -156,6 +169,9 @@ namespace MyMindWin.Controls
         {
             if (_vm?.RootNode == null) return;
 
+            CloseNotePanel();
+            CloseImagePanel();
+
             if (_vm.LayoutType != _lastLayoutType)
             {
                 _userPositioned = false;
@@ -163,26 +179,15 @@ namespace MyMindWin.Controls
                 _lastLayoutType = _vm.LayoutType;
             }
 
-            foreach (var node in _vm.GetAllNodes())
-                node.Width = MeasureTextWidth(node.Text, node.Level == 0 ? 16 : 13) + 28;
-
             _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
 
             if (!_userPositioned)
-            {
-                if (_vm.LayoutType == LayoutType.HorizontalTree)
-                    LayoutHorizontal(_vm.RootNode, ContentPadding, ContentPadding, out _);
-                else
-                {
-                    LayoutRadial(_vm.RootNode);
-                    AlignRadialRootToTreeCenter(_vm.RootNode);
-                }
-
-                foreach (var node in _vm.GetAllNodes())
-                    node.SyncToModel();
-            }
+                ApplyAutomaticLayoutPositions();
             else
             {
+                foreach (var node in _vm.GetAllNodes())
+                    node.Width = MeasureTextWidth(node.Text, node.Level == 0 ? 16 : 13) + 28;
+
                 foreach (var node in _vm.GetAllNodes())
                 {
                     if (node.Parent != null && !node.HasManualPosition)
@@ -241,7 +246,7 @@ namespace MyMindWin.Controls
             {
                 node.X = x;
                 node.Y = yStart;
-                subtreeHeight = NodeHeight + HNodeSpacingY;
+                subtreeHeight = GetLayoutBlockHeight(node) + HNodeSpacingY;
                 return subtreeHeight;
             }
 
@@ -250,10 +255,10 @@ namespace MyMindWin.Controls
             foreach (var child in node.Children)
                 totalH += LayoutHorizontal(child, childX, yStart + totalH, out _);
 
-            double firstChildCY = node.Children[0].Y + NodeHeight / 2;
-            double lastChildCY  = node.Children[^1].Y + NodeHeight / 2;
+            double firstChildCY = node.Children[0].Y + GetLayoutBlockHeight(node.Children[0]) / 2;
+            double lastChildCY  = node.Children[^1].Y + GetLayoutBlockHeight(node.Children[^1]) / 2;
             node.X = x;
-            node.Y = (firstChildCY + lastChildCY) / 2 - NodeHeight / 2;
+            node.Y = (firstChildCY + lastChildCY) / 2 - GetLayoutBlockHeight(node) / 2;
             subtreeHeight = totalH;
             return totalH;
         }
@@ -262,7 +267,7 @@ namespace MyMindWin.Controls
         {
             double cx = ContentPadding + 80;
             double cy = ContentPadding + 80;
-            LayoutRadialNode(root, cx, cy, 0, Math.PI * 2, RadialRadius0);
+            LayoutRadialNode(root, cx, cy, 0, Math.PI * 2);
         }
 
         /// <summary>방사형 트리에서 루트 노드가 전체 노드 영역의 중심에 오도록 이동합니다.</summary>
@@ -288,8 +293,155 @@ namespace MyMindWin.Controls
                 ShiftSubtree(child, dx, dy);
         }
 
+        /// <summary>
+        /// 피쉬본(어골) 레이아웃: 루트가 오른쪽(머리), 1단계 자식은 척추에 위·아래로 교대 배치,
+        /// 하위 노드는 각 가지를 따라 왼쪽으로 뻗습니다. 가지 경계 상자가 겹치지 않도록 패킹합니다.
+        /// </summary>
+        private void LayoutFishbone(NodeViewModel root)
+        {
+            double spineY = ContentPadding + 120;
+            double spineLeft = ContentPadding + 40;
+
+            if (!root.IsExpanded || root.Children.Count == 0)
+            {
+                root.X = spineLeft + 200;
+                root.Y = spineY - NodeHeight / 2;
+                return;
+            }
+
+            var placedBounds = new List<(double minX, double minY, double maxX, double maxY)>();
+            double spineEnd = 0;
+
+            for (int i = 0; i < root.Children.Count; i++)
+            {
+                var child = root.Children[i];
+                bool upper = i % 2 == 0;
+                PrepareFishboneRib(child, upper);
+
+                var (minX, minY, maxX, maxY) = GetSubtreeBounds(child);
+                double perp = maxY - minY;
+                double attachRight = child.X + child.Width;
+
+                double spineAttach = spineEnd > 0 ? spineEnd + FishboneSpineGap : 0;
+                const int maxAttempts = 400;
+
+                for (int attempt = 0; attempt < maxAttempts; attempt++)
+                {
+                    double spineX = spineLeft + spineAttach;
+                    double dx = spineX - attachRight;
+                    double dyWorld = upper
+                        ? spineY - FishboneRibStub - (child.Y + NodeHeight)
+                        : spineY + FishboneRibStub - child.Y;
+
+                    double wMinX = minX + dx;
+                    double wMinY = minY + dyWorld;
+                    double wMaxX = maxX + dx;
+                    double wMaxY = maxY + dyWorld;
+
+                    if (!BoundsOverlapAny(placedBounds, wMinX, wMinY, wMaxX, wMaxY))
+                    {
+                        ShiftSubtree(child, dx, dyWorld);
+                        placedBounds.Add((wMinX, wMinY, wMaxX, wMaxY));
+                        spineEnd = Math.Max(spineEnd, spineAttach + perp + FishboneSpineGap);
+                        break;
+                    }
+
+                    spineAttach += 6;
+                }
+
+                if (placedBounds.Count <= i)
+                {
+                    double spineX = spineLeft + spineAttach;
+                    double dx = spineX - attachRight;
+                    double dyWorld = upper
+                        ? spineY - FishboneRibStub - (child.Y + NodeHeight)
+                        : spineY + FishboneRibStub - child.Y;
+                    ShiftSubtree(child, dx, dyWorld);
+                    var (wMinX, wMinY, wMaxX, wMaxY) = GetSubtreeBounds(child);
+                    placedBounds.Add((wMinX, wMinY, wMaxX, wMaxY));
+                    spineEnd = Math.Max(spineEnd, spineAttach + perp + FishboneSpineGap);
+                }
+            }
+
+            root.X = spineLeft + spineEnd + FishboneSpineTail;
+            root.Y = spineY - NodeHeight / 2;
+        }
+
+        private void PrepareFishboneRib(NodeViewModel child, bool upper)
+        {
+            LayoutHorizontal(child, 0, 0, out _);
+            MirrorSubtreeX(child);
+
+            var (_, minY, _, maxY) = GetSubtreeBounds(child);
+            double dyLocal = upper ? -maxY + NodeHeight : -minY;
+            ShiftSubtree(child, 0, dyLocal);
+        }
+
+        private static bool BoundsOverlapAny(
+            List<(double minX, double minY, double maxX, double maxY)> placed,
+            double minX, double minY, double maxX, double maxY)
+        {
+            double m = FishbonePackMargin;
+            foreach (var (pMinX, pMinY, pMaxX, pMaxY) in placed)
+            {
+                if (minX - m < pMaxX && maxX + m > pMinX &&
+                    minY - m < pMaxY && maxY + m > pMinY)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void ApplyLayoutFlip(bool flipHorizontal, bool flipVertical)
+        {
+            if (_vm?.RootNode == null) return;
+
+            var (minX, minY, maxX, maxY) = GetBoundingBox();
+            if (minX == double.MaxValue) return;
+
+            double cx = (minX + maxX) / 2;
+            double cy = (minY + maxY) / 2;
+
+            foreach (var node in _vm.GetAllNodes())
+            {
+                if (flipHorizontal)
+                    node.X = 2 * cx - node.X - node.Width;
+                if (flipVertical)
+                    node.Y = 2 * cy - node.Y - NodeHeight;
+            }
+        }
+
+        private static void MirrorSubtreeX(NodeViewModel node)
+        {
+            node.X = -node.X - node.Width;
+            if (!node.IsExpanded) return;
+            foreach (var child in node.Children)
+                MirrorSubtreeX(child);
+        }
+
+        private (double minX, double minY, double maxX, double maxY) GetSubtreeBounds(NodeViewModel node)
+        {
+            double minX = node.X;
+            double minY = node.Y;
+            double maxX = node.X + node.Width;
+            double maxY = GetNodeExtentBottom(node);
+
+            if (!node.IsExpanded) return (minX, minY, maxX, maxY);
+
+            foreach (var child in node.Children)
+            {
+                var (cMinX, cMinY, cMaxX, cMaxY) = GetSubtreeBounds(child);
+                minX = Math.Min(minX, cMinX);
+                minY = Math.Min(minY, cMinY);
+                maxX = Math.Max(maxX, cMaxX);
+                maxY = Math.Max(maxY, cMaxY);
+            }
+
+            return (minX, minY, maxX, maxY);
+        }
+
         private void LayoutRadialNode(NodeViewModel node, double cx, double cy,
-                                      double startAngle, double endAngle, double radius)
+                                      double startAngle, double endAngle)
         {
             node.X = cx - node.Width / 2;
             node.Y = cy - NodeHeight / 2;
@@ -299,7 +451,7 @@ namespace MyMindWin.Controls
             double totalAngle = endAngle - startAngle;
             int leafCount = CountLeaves(node);
             double angleStep = totalAngle / Math.Max(leafCount, 1);
-            double childRadius = ExpandRadiusForChildren(node.Children, radius, totalAngle, angleStep);
+            double childRadius = ComputeChildOrbitRadius(node, node.Children, totalAngle, angleStep);
 
             var spans = new List<double>(node.Children.Count);
             foreach (var child in node.Children)
@@ -326,35 +478,49 @@ namespace MyMindWin.Controls
 
                 LayoutRadialNode(child, childCX, childCY,
                     childMidAngle - childAngleSpan / 2,
-                    childMidAngle + childAngleSpan / 2,
-                    childRadius);
+                    childMidAngle + childAngleSpan / 2);
 
                 currentAngle += childAngleSpan;
             }
         }
 
-        /// <summary>노드 너비에 맞는 최소 호(arc) 각도. 반경이 클수록 같은 각도로 더 넓은 간격.</summary>
-        private static double MinAngleForNode(NodeViewModel node, double radius)
-            => (node.Width + RadialNodeGap) / Math.Max(radius, 1);
-
-        /// <summary>자식 노드가 겹치지 않도록 반경을 키웁니다.</summary>
-        private static double ExpandRadiusForChildren(
-            IList<NodeViewModel> children, double radius, double totalAngle, double angleStep)
+        private double GetNodeBoundRadius(NodeViewModel node)
         {
-            double childRadius = radius + RadialRadiusDelta;
+            double h = GetLayoutBlockHeight(node);
+            return Math.Sqrt(node.Width * node.Width + h * h) / 2;
+        }
+
+        /// <summary>같은 링에서 노드가 겹치지 않도록 하는 최소 호(arc) 각도.</summary>
+        private double MinAngleForNode(NodeViewModel node, double orbitRadius)
+        {
+            double arcLength = Math.Max(node.Width, GetLayoutBlockHeight(node)) + RadialSiblingGap;
+            return arcLength / Math.Max(orbitRadius, 1);
+        }
+
+        /// <summary>부모 중심에서 자식 링까지 최소 반경(방향·호 각도 모두 만족).</summary>
+        private double ComputeChildOrbitRadius(
+            NodeViewModel parent,
+            IList<NodeViewModel> children,
+            double totalAngle,
+            double angleStep)
+        {
+            double parentBound = GetNodeBoundRadius(parent);
+            double maxChildBound = children.Max(GetNodeBoundRadius);
+            double childRadius = parentBound + maxChildBound + RadialLinkGap;
+
             for (int iter = 0; iter < 24; iter++)
             {
-                double required = 0;
+                double requiredAngle = 0;
                 foreach (var child in children)
                 {
                     int childLeaves = CountLeaves(child);
-                    required += Math.Max(angleStep * childLeaves, MinAngleForNode(child, childRadius));
+                    requiredAngle += Math.Max(angleStep * childLeaves, MinAngleForNode(child, childRadius));
                 }
 
-                if (required <= totalAngle)
+                if (requiredAngle <= totalAngle)
                     return childRadius;
 
-                childRadius *= Math.Sqrt(required / totalAngle);
+                childRadius *= Math.Sqrt(requiredAngle / totalAngle);
             }
 
             return childRadius;
@@ -426,19 +592,41 @@ namespace MyMindWin.Controls
 
         private Path CreateConnection(NodeViewModel parent, NodeViewModel child)
         {
-            var (lightColor, _) = GetBranchColors(child.BranchColorIndex);
-            var brush = new SolidColorBrush(lightColor) { Opacity = 0.7 };
-            double strokeWidth = child.Level <= 1 ? 2.5 : 1.8;
+            var path = new Path();
+            ApplyConnectionVisual(path, parent, child);
+            return path;
+        }
 
-            return new Path
+        private void ApplyConnectionVisual(Path path, NodeViewModel parent, NodeViewModel child)
+        {
+            var (lightColor, _) = NodeColorHelper.GetNodeColors(child);
+            var brush = new SolidColorBrush(lightColor) { Opacity = 0.7 };
+            double baseThickness = _vm?.ConnectionLineThickness ?? 1.8;
+            var centerGeometry = BuildConnectionGeometry(parent, child);
+
+            if (_vm?.ConnectionLineTaper == true)
             {
-                Stroke = brush,
-                StrokeThickness = strokeWidth,
-                StrokeLineJoin  = PenLineJoin.Round,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap   = PenLineCap.Round,
-                Data = BuildConnectionGeometry(parent, child)
-            };
+                double startWidth = ConnectionLineTaperHelper.ThicknessAtLevel(parent.Level, baseThickness);
+                double endWidth = ConnectionLineTaperHelper.ThicknessAtLevel(child.Level, baseThickness);
+                var ribbon = ConnectionLineTaperHelper.BuildTaperedRibbon(centerGeometry, startWidth, endWidth);
+
+                if (!ribbon.Bounds.IsEmpty && ribbon.Figures.Count > 0)
+                {
+                    path.Fill = brush;
+                    path.Stroke = null;
+                    path.StrokeThickness = 0;
+                    path.Data = ribbon;
+                    return;
+                }
+            }
+
+            path.Fill = null;
+            path.Stroke = brush;
+            path.StrokeThickness = baseThickness;
+            path.StrokeLineJoin = PenLineJoin.Round;
+            path.StrokeStartLineCap = PenLineCap.Round;
+            path.StrokeEndLineCap = PenLineCap.Round;
+            path.Data = centerGeometry;
         }
 
         private Geometry BuildConnectionGeometry(NodeViewModel parent, NodeViewModel child)
@@ -446,9 +634,9 @@ namespace MyMindWin.Controls
             var (start, end) = GetConnectionEndpoints(parent, child);
             return _vm!.ConnectionLineType switch
             {
-                ConnectionLineType.Straight => BuildStraightGeometry(start, end),
-                ConnectionLineType.Orthogonal => BuildOrthogonalGeometry(start, end),
-                ConnectionLineType.Arc => BuildArcGeometry(parent, child, start, end),
+                ConnectionLineType.Linear => BuildStraightGeometry(start, end),
+                ConnectionLineType.SharpLinear => BuildSharpLinearGeometry(parent, child, start, end),
+                ConnectionLineType.SharpBezier => BuildSharpBezierGeometry(parent, child, start, end),
                 _ => BuildBezierGeometry(parent, child, start, end),
             };
         }
@@ -481,29 +669,44 @@ namespace MyMindWin.Controls
             if (_vm!.LayoutType == LayoutType.HorizontalTree)
                 return BuildTreeCurveGeometry(start, end);
 
-            GetRadialAxes(parent, child, out double axisX, out double axisY, out double perpX, out double perpY);
-            return BuildRadialCurveGeometry(start, end, axisX, axisY, perpX, perpY);
+            GetConnectionAxes(parent, child, out double axisX, out double axisY, out double perpX, out double perpY);
+            return _vm.LayoutType == LayoutType.Radial
+                ? BuildRadialCurveGeometry(start, end, axisX, axisY, perpX, perpY)
+                : BuildAxisCurveGeometry(start, end, axisX, axisY);
         }
 
-        private Geometry BuildArcGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
+        /// <summary>FreeMind Sharp Bezier — 꺾임(elbow) 근처 제어점을 둔 3차 베지어.</summary>
+        private Geometry BuildSharpBezierGeometry(NodeViewModel parent, NodeViewModel child, Point start, Point end)
         {
             if (_vm!.LayoutType == LayoutType.HorizontalTree)
-                return BuildTreeArcGeometry(start, end);
+            {
+                double midX = (start.X + end.X) / 2;
+                return BuildCubicBezierGeometry(
+                    start, end,
+                    new Point(midX, start.Y),
+                    new Point(midX, end.Y));
+            }
 
-            GetRadialAxes(parent, child, out double axisX, out double axisY, out double perpX, out double perpY);
-            return BuildAxisArcGeometry(start, end, axisX, axisY, perpX, perpY);
+            if (Math.Abs(end.X - start.X) >= Math.Abs(end.Y - start.Y))
+            {
+                double midX = (start.X + end.X) / 2;
+                return BuildCubicBezierGeometry(
+                    start, end,
+                    new Point(midX, start.Y),
+                    new Point(midX, end.Y));
+            }
+
+            double midY = (start.Y + end.Y) / 2;
+            return BuildCubicBezierGeometry(
+                start, end,
+                new Point(start.X, midY),
+                new Point(end.X, midY));
         }
 
         /// <summary>트리 레이아웃 곡선: 연결 축(X) 방향 arm 3차 베지어.</summary>
         private static Geometry BuildTreeCurveGeometry(Point start, Point end)
         {
             return BuildAxisCurveGeometry(start, end, 1, 0);
-        }
-
-        /// <summary>트리 레이아웃 원호: 중간점에서 연결 수직(Y) bulge 2차 베지어.</summary>
-        private static Geometry BuildTreeArcGeometry(Point start, Point end)
-        {
-            return BuildAxisArcGeometry(start, end, 1, 0, 0, 1);
         }
 
         /// <summary>곡선: 트리와 동일 — 연결 축 방향 arm 베지어.</summary>
@@ -543,27 +746,12 @@ namespace MyMindWin.Controls
                     end.Y - axisY * arm - perpY * bulge * side));
         }
 
-        /// <summary>원호: 트리와 동일 — 중간점에서 연결 수직 bulge 2차 베지어 (방사형은 접선 방향).</summary>
-        private static Geometry BuildAxisArcGeometry(
-            Point start, Point end, double axisX, double axisY, double perpX, double perpY)
-        {
-            var mid = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
-            double axial = Math.Abs((end.X - start.X) * axisX + (end.Y - start.Y) * axisY);
-            double bulge = Math.Clamp(axial * 0.15, 8, 40);
+        private void GetConnectionAxes(
+            NodeViewModel parent, NodeViewModel child,
+            out double axisX, out double axisY, out double perpX, out double perpY)
+            => GetRadialAxes(parent, child, out axisX, out axisY, out perpX, out perpY);
 
-            double cross = (end.X - start.X) * perpX + (end.Y - start.Y) * perpY;
-            if (Math.Abs(cross) > 1)
-                bulge *= Math.Sign(cross);
-            else if (Math.Abs(end.Y - start.Y) > 1)
-                bulge *= Math.Sign(end.Y - start.Y);
-
-            return BuildQuadraticBezierGeometry(
-                start,
-                end,
-                new Point(mid.X - perpX * bulge, mid.Y - perpY * bulge));
-        }
-
-        /// <summary>방사형 연결 축(부모→자식)과 수직 접선을 구합니다.</summary>
+        /// <summary>연결 축(부모→자식)과 수직 접선을 구합니다.</summary>
         private void GetRadialAxes(
             NodeViewModel parent, NodeViewModel child,
             out double axisX, out double axisY, out double perpX, out double perpY)
@@ -620,7 +808,9 @@ namespace MyMindWin.Controls
             return geom;
         }
 
-        private Geometry BuildOrthogonalGeometry(Point start, Point end)
+        /// <summary>FreeMind Sharp Linear — 직각(꺾인) 연결.</summary>
+        private Geometry BuildSharpLinearGeometry(
+            NodeViewModel parent, NodeViewModel child, Point start, Point end)
         {
             var fig = new PathFigure { StartPoint = start, IsFilled = false };
             if (_vm!.LayoutType == LayoutType.HorizontalTree)
@@ -628,6 +818,13 @@ namespace MyMindWin.Controls
                 double midX = (start.X + end.X) / 2;
                 fig.Segments.Add(new LineSegment(new Point(midX, start.Y), isStroked: true));
                 fig.Segments.Add(new LineSegment(new Point(midX, end.Y), isStroked: true));
+                fig.Segments.Add(new LineSegment(end, isStroked: true));
+            }
+            else if (_vm.LayoutType == LayoutType.Fishbone && parent.Level == 0)
+            {
+                double spineY = (start.Y + end.Y) / 2;
+                fig.Segments.Add(new LineSegment(new Point(start.X, spineY), isStroked: true));
+                fig.Segments.Add(new LineSegment(new Point(end.X, spineY), isStroked: true));
                 fig.Segments.Add(new LineSegment(end, isStroked: true));
             }
             else
@@ -667,16 +864,12 @@ namespace MyMindWin.Controls
 
         private FrameworkElement CreateNodeElement(NodeViewModel node)
         {
-            var (lightColor, darkColor) = node.Level == 0
-                ? (RootLight, RootDark)
-                : GetBranchColors(node.BranchColorIndex);
+            var (lightColor, darkColor) = NodeColorHelper.GetNodeColors(node);
 
             double fontSize = node.Level == 0 ? 16 : 13;
 
-            var gradient = new LinearGradientBrush(
-                Color.FromRgb((byte)(darkColor.R + 20), (byte)(darkColor.G + 20), (byte)(darkColor.B + 40)),
-                darkColor,
-                new Point(0, 0), new Point(1, 1));
+            var gradient = NodeColorPalette.CreateNodeFillBrush(lightColor, darkColor);
+            var borderBrush = NodeColorPalette.CreateFrozenBrush(lightColor);
 
             var text = new TextBlock
             {
@@ -694,36 +887,434 @@ namespace MyMindWin.Controls
             };
 
             double borderThickness = node.IsSelected ? 2.5 : 1.0;
-            var element = NodeShapeHelper.CreateNodeVisual(
-                node, gradient, new SolidColorBrush(lightColor), borderThickness,
+            var nodeVisual = NodeShapeHelper.CreateNodeVisual(
+                node, gradient, borderBrush, borderThickness,
                 text, node.Width, NodeHeight);
 
-            element.Effect = new DropShadowEffect
+            // DropShadowEffect + LayoutTransform(확대) 조합은 WPF에서 색 반전/깨짐을 유발할 수 있음
+            RenderOptions.SetBitmapScalingMode(nodeVisual, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(nodeVisual, EdgeMode.Aliased);
+
+            var wrapper = new Grid
             {
-                Color       = Color.FromArgb(120, 0, 0, 0),
-                BlurRadius  = 12,
-                ShadowDepth = 4,
-                Direction   = 270
+                Width = node.Width,
+                Height = NodeHeight,
+                Tag = node
             };
+            wrapper.Children.Add(nodeVisual);
 
-            element.MouseLeftButtonDown  += Node_MouseLeftButtonDown;
-            element.MouseRightButtonDown += Node_MouseRightButtonDown;
-            element.MouseMove            += Node_MouseMove;
-            element.MouseLeftButtonUp    += Node_MouseLeftButtonUp;
-            element.MouseEnter           += Node_MouseEnter;
-            element.MouseLeave           += Node_MouseLeave;
+            if (node.HasNote)
+                wrapper.Children.Add(CreateNoteBadge(node));
 
-            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250))
-            {
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-            };
-            element.BeginAnimation(OpacityProperty, fadeIn);
+            if (node.HasImage)
+                wrapper.Children.Add(CreateImageBadge(node));
 
-            return element;
+            wrapper.MouseLeftButtonDown  += Node_MouseLeftButtonDown;
+            wrapper.MouseRightButtonDown += Node_MouseRightButtonDown;
+            wrapper.MouseMove            += Node_MouseMove;
+            wrapper.MouseLeftButtonUp    += Node_MouseLeftButtonUp;
+            wrapper.MouseEnter           += Node_MouseEnter;
+            wrapper.MouseLeave           += Node_MouseLeave;
+
+            wrapper.Opacity = 1;
+
+            return wrapper;
         }
 
-        private static Border? GetNodeOutline(FrameworkElement? root) =>
-            root is Grid { Children.Count: > 0 } g ? g.Children[^1] as Border : null;
+        private Border CreateNoteBadge(NodeViewModel node)
+        {
+            var badge = new Border
+            {
+                Tag = "NoteBadge",
+                Width = 18,
+                Height = 18,
+                CornerRadius = new CornerRadius(9),
+                Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xB7, 0x4D)),
+                BorderBrush = new SolidColorBrush(Colors.White),
+                BorderThickness = new Thickness(1),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(0, -7, -7, 0),
+                Cursor = Cursors.Hand,
+                ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 펼치기",
+                Child = new TextBlock
+                {
+                    Text = node.IsNoteExpanded ? "−" : "+",
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 13,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, -1, 0, 0)
+                }
+            };
+
+            badge.PreviewMouseLeftButtonDown += (_, e) =>
+            {
+                e.Handled = true;
+                ToggleNotePanel(node);
+            };
+
+            return badge;
+        }
+
+        private Border CreateImageBadge(NodeViewModel node)
+        {
+            var badge = new Border
+            {
+                Tag = "ImageBadge",
+                Width = 18,
+                Height = 18,
+                CornerRadius = new CornerRadius(9),
+                Background = new SolidColorBrush(Color.FromRgb(0x64, 0xB5, 0xF6)),
+                BorderBrush = new SolidColorBrush(Colors.White),
+                BorderThickness = new Thickness(1),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(-7, -7, 0, 0),
+                Cursor = Cursors.Hand,
+                ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 펼치기",
+                Child = new TextBlock
+                {
+                    Text = node.IsImageExpanded ? "−" : "+",
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 13,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, -1, 0, 0)
+                }
+            };
+
+            badge.PreviewMouseLeftButtonDown += (_, e) =>
+            {
+                e.Handled = true;
+                ToggleImagePanel(node);
+            };
+
+            return badge;
+        }
+
+        private void ToggleNotePanel(NodeViewModel node)
+        {
+            if (_notePanelNode == node && node.IsNoteExpanded)
+                CloseNotePanel();
+            else
+                OpenNotePanel(node);
+        }
+
+        private void OpenNotePanel(NodeViewModel node)
+        {
+            if (_editingNode != null)
+                CancelEdit();
+
+            if (_notePanelNode != null && _notePanelNode != node)
+                CloseNotePanel();
+
+            _vm!.SelectedNode = node;
+            _notePanelNode = node;
+            node.IsNoteExpanded = true;
+
+            NoteBox.Text = node.Note;
+            NoteBorder.Visibility = Visibility.Visible;
+            UpdateOverlayHitTest();
+            UpdateNoteBadge(node);
+            AfterOverlayOpened(node, keepReflowOnClose: false);
+
+            NoteBox.Focus();
+            NoteBox.CaretIndex = NoteBox.Text.Length;
+        }
+
+        private void CloseNotePanel()
+        {
+            if (_notePanelNode == null) return;
+
+            var node = _notePanelNode;
+            bool hadNote = node.HasNote;
+            node.Note = NoteBox.Text.Trim();
+            bool noteAdded = !hadNote && node.HasNote;
+            bool noteRemoved = hadNote && !node.HasNote;
+
+            node.IsNoteExpanded = false;
+            _notePanelNode = null;
+
+            NoteBorder.Visibility = Visibility.Collapsed;
+            UpdateOverlayHitTest();
+            RestoreExpandReflowSnapshot();
+
+            if (noteAdded || noteRemoved)
+            {
+                RelayoutAfterAttachmentChange(node);
+                ReplaceNodeVisual(node);
+            }
+            else
+                UpdateNoteBadge(node);
+
+            if (_imagePanelNode == node)
+                PositionNodeOverlays(node);
+        }
+
+        private void PositionNodeOverlays(NodeViewModel node)
+        {
+            if (!_nodeElements.TryGetValue(node.Model.Id, out var border))
+                return;
+
+            double w = border.ActualWidth > 0 ? border.ActualWidth : border.Width;
+            var transform = border.TransformToVisual(this);
+            var topLeft = transform.Transform(new Point(0, 0));
+            var bottomLeft = transform.Transform(new Point(0, NodeHeight));
+
+            double nodeWidth = Math.Max(w, 80);
+            double overlayWidth = Math.Min(320, Math.Max(160, nodeWidth));
+            double y = bottomLeft.Y + 6;
+
+            if (_notePanelNode == node && NoteBorder.Visibility == Visibility.Visible)
+            {
+                NoteBorder.Width = Math.Min(300, overlayWidth);
+                Canvas.SetLeft(NoteBorder, topLeft.X);
+                Canvas.SetTop(NoteBorder, y);
+                NoteBorder.UpdateLayout();
+                y += NoteBorder.ActualHeight + 6;
+            }
+
+            if (_imagePanelNode == node && ImageBorder.Visibility == Visibility.Visible)
+            {
+                ImageBorder.Width = overlayWidth;
+                Canvas.SetLeft(ImageBorder, topLeft.X);
+                Canvas.SetTop(ImageBorder, y);
+            }
+        }
+
+        private void ToggleImagePanel(NodeViewModel node)
+        {
+            if (_imagePanelNode == node && node.IsImageExpanded)
+                CloseImagePanel();
+            else
+                OpenImagePanel(node);
+        }
+
+        private void OpenImagePanel(NodeViewModel node, bool keepReflowOnClose = false)
+        {
+            if (_editingNode != null)
+                CancelEdit();
+
+            if (!node.HasImage)
+            {
+                PickImageForNode(node);
+                return;
+            }
+
+            if (_imagePanelNode != null && _imagePanelNode != node)
+                CloseImagePanel();
+
+            _vm!.SelectedNode = node;
+            _imagePanelNode = node;
+            node.IsImageExpanded = true;
+
+            NodeImageDisplay.Source = NodeImageHelper.CreateBitmap(node.ImageData);
+            ImageBorder.Visibility = Visibility.Visible;
+            UpdateOverlayHitTest();
+            UpdateImageBadge(node);
+            AfterOverlayOpened(node, keepReflowOnClose);
+        }
+
+        private void CloseImagePanel()
+        {
+            if (_imagePanelNode == null) return;
+
+            var node = _imagePanelNode;
+            node.IsImageExpanded = false;
+            _imagePanelNode = null;
+
+            ImageBorder.Visibility = Visibility.Collapsed;
+            NodeImageDisplay.Source = null;
+            UpdateOverlayHitTest();
+            RestoreExpandReflowSnapshot();
+
+            if (node.HasImage)
+                UpdateImageBadge(node);
+
+            if (_notePanelNode == node)
+                PositionNodeOverlays(node);
+        }
+
+        private void PickImageForNode(NodeViewModel node)
+        {
+            var dlg = new OpenFileDialog
+            {
+                Title = "노드에 넣을 그림 선택",
+                Filter = "이미지|*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp|모든 파일|*.*"
+            };
+
+            if (dlg.ShowDialog() != true)
+                return;
+
+            if (!NodeImageHelper.TryReadImageFile(dlg.FileName, out var base64, out var mime, out var error))
+            {
+                MessageBox.Show(error, "그림을 불러올 수 없습니다", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            bool hadImage = node.HasImage;
+            node.ImageData = base64;
+            node.ImageMime = mime;
+            _vm!.SelectedNode = node;
+
+            if (!hadImage)
+                ReplaceNodeVisual(node);
+            else
+                UpdateImageBadge(node);
+
+            RelayoutAfterAttachmentChange(node);
+            OpenImagePanel(node, keepReflowOnClose: true);
+        }
+
+        public void RemoveImageFromNode(NodeViewModel node)
+        {
+            if (!node.HasImage) return;
+
+            if (_imagePanelNode == node)
+                CloseImagePanel();
+
+            node.ImageData = string.Empty;
+            node.ImageMime = string.Empty;
+            node.IsImageExpanded = false;
+            ReplaceNodeVisual(node);
+            RelayoutAfterAttachmentChange(node);
+        }
+
+        private void UpdateImageBadge(NodeViewModel node)
+        {
+            if (!_nodeElements.TryGetValue(node.Model.Id, out var wrapper) || wrapper is not Grid grid)
+                return;
+
+            Border? badge = null;
+            foreach (var child in grid.Children)
+            {
+                if (child is Border b && Equals(b.Tag, "ImageBadge"))
+                {
+                    badge = b;
+                    break;
+                }
+            }
+
+            if (!node.HasImage)
+            {
+                if (badge != null)
+                    grid.Children.Remove(badge);
+                return;
+            }
+
+            if (badge == null)
+            {
+                grid.Children.Add(CreateImageBadge(node));
+                return;
+            }
+
+            badge.ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 펼치기";
+            if (badge.Child is TextBlock tb)
+                tb.Text = node.IsImageExpanded ? "−" : "+";
+        }
+
+        private void UpdateNoteBadge(NodeViewModel node)
+        {
+            if (!_nodeElements.TryGetValue(node.Model.Id, out var wrapper) || wrapper is not Grid grid)
+                return;
+
+            Border? badge = null;
+            foreach (var child in grid.Children)
+            {
+                if (child is Border b && Equals(b.Tag, "NoteBadge"))
+                {
+                    badge = b;
+                    break;
+                }
+            }
+
+            if (!node.HasNote)
+            {
+                if (badge != null)
+                    grid.Children.Remove(badge);
+                return;
+            }
+
+            if (badge == null)
+            {
+                grid.Children.Add(CreateNoteBadge(node));
+                return;
+            }
+
+            badge.ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 펼치기";
+            if (badge.Child is TextBlock tb)
+                tb.Text = node.IsNoteExpanded ? "−" : "+";
+        }
+
+        private void UpdateOverlayHitTest()
+        {
+            EditOverlay.IsHitTestVisible =
+                EditBorder.Visibility == Visibility.Visible ||
+                NoteBorder.Visibility == Visibility.Visible ||
+                ImageBorder.Visibility == Visibility.Visible;
+        }
+
+        private void ImageChangeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_imagePanelNode != null)
+                PickImageForNode(_imagePanelNode);
+        }
+
+        private void ImageRemoveButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_imagePanelNode != null)
+                RemoveImageFromNode(_imagePanelNode);
+        }
+
+        private void ImageCloseButton_Click(object sender, RoutedEventArgs e) => CloseImagePanel();
+
+        private void NoteBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                CloseNotePanel();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                CloseNotePanel();
+                e.Handled = true;
+            }
+        }
+
+        private void NoteBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, () =>
+            {
+                if (NoteBorder.Visibility != Visibility.Visible)
+                    return;
+                if (NoteBox.IsKeyboardFocusWithin)
+                    return;
+                if (Keyboard.FocusedElement is DependencyObject focused &&
+                    IsDescendantOf(focused, NoteBorder))
+                    return;
+                CloseNotePanel();
+            });
+        }
+
+        private static bool IsDescendantOf(DependencyObject? child, DependencyObject parent)
+        {
+            while (child != null)
+            {
+                if (child == parent) return true;
+                child = VisualTreeHelper.GetParent(child);
+            }
+            return false;
+        }
+
+        private static Border? GetNodeOutline(FrameworkElement? root)
+        {
+            root = NodeShapeHelper.GetNodeVisualRoot(root);
+            return root is Grid { Children.Count: > 0 } g ? g.Children[^1] as Border : null;
+        }
 
         private void ReplaceNodeVisual(NodeViewModel node)
         {
@@ -761,13 +1352,13 @@ namespace MyMindWin.Controls
         {
             if (node.Parent != null &&
                 _connectionPaths.TryGetValue(node.Model.Id, out var pathToParent))
-                pathToParent.Data = BuildConnectionGeometry(node.Parent, node);
+                ApplyConnectionVisual(pathToParent, node.Parent, node);
 
             if (!node.IsExpanded) return;
             foreach (var child in node.Children)
             {
                 if (_connectionPaths.TryGetValue(child.Model.Id, out var path))
-                    path.Data = BuildConnectionGeometry(node, child);
+                    ApplyConnectionVisual(path, node, child);
             }
         }
 
@@ -818,7 +1409,10 @@ namespace MyMindWin.Controls
                 {
                     if (_nodeElements.TryGetValue(node.Model.Id, out var border))
                         StartEditing(node, border);
-                });
+                },
+                OpenNotePanel,
+                OpenImageForNode,
+                RemoveImageFromNode);
             menu.PlacementTarget = border;
             menu.IsOpen = true;
         }
@@ -897,6 +1491,13 @@ namespace MyMindWin.Controls
             }
 
             RefreshAllConnections(_vm.RootNode);
+
+            if (_notePanelNode != null || _imagePanelNode != null)
+            {
+                var overlayNode = _imagePanelNode ?? _notePanelNode;
+                if (overlayNode != null)
+                    PositionNodeOverlays(overlayNode);
+            }
         }
 
         private void RefreshAllConnections(NodeViewModel node)
@@ -905,7 +1506,7 @@ namespace MyMindWin.Controls
             foreach (var child in node.Children)
             {
                 if (_connectionPaths.TryGetValue(child.Model.Id, out var path))
-                    path.Data = BuildConnectionGeometry(node, child);
+                    ApplyConnectionVisual(path, node, child);
                 RefreshAllConnections(child);
             }
         }
@@ -934,9 +1535,7 @@ namespace MyMindWin.Controls
                 if (node == null) continue;
 
                 double thickness = node.IsSelected ? 2.5 : 1.0;
-                var (lightColor, _) = node.Level == 0
-                    ? (RootLight, RootDark)
-                    : GetBranchColors(node.BranchColorIndex);
+                var (lightColor, _) = NodeColorHelper.GetNodeColors(node);
 
                 var brush = node.IsSelected
                     ? new SolidColorBrush(Colors.White)
@@ -955,7 +1554,7 @@ namespace MyMindWin.Controls
 
         private static void ApplyShapeStroke(FrameworkElement root, Brush brush, double thickness)
         {
-            var shape = NodeShapeHelper.GetShapeElement(root);
+            var shape = NodeShapeHelper.GetShapeElement(NodeShapeHelper.GetNodeVisualRoot(root));
             switch (shape)
             {
                 case Shape s:
@@ -971,6 +1570,8 @@ namespace MyMindWin.Controls
 
         private void StartEditing(NodeViewModel vm, FrameworkElement border)
         {
+            CloseNotePanel();
+            CloseImagePanel();
             _editingNode = vm;
             _editingNodeVisual = border;
             border.Opacity = 0;
@@ -979,8 +1580,8 @@ namespace MyMindWin.Controls
             EditBox.FontSize = vm.Level == 0 ? 16 : 13;
             PositionEditOverlay(border);
 
-            EditOverlay.IsHitTestVisible = true;
             EditBorder.Visibility = Visibility.Visible;
+            UpdateOverlayHitTest();
             EditBox.SelectAll();
             EditBox.Focus();
         }
@@ -1011,7 +1612,7 @@ namespace MyMindWin.Controls
             _editingNode = null;
             _editingNodeVisual = null;
             EditBorder.Visibility = Visibility.Collapsed;
-            EditOverlay.IsHitTestVisible = false;
+            UpdateOverlayHitTest();
         }
 
         private void CommitEdit()
@@ -1080,6 +1681,8 @@ namespace MyMindWin.Controls
         {
             if (e.ChangedButton == MouseButton.Left && e.OriginalSource == RootCanvas)
             {
+                CloseNotePanel();
+                CloseImagePanel();
                 _vm!.SelectedNode = null;
                 RefreshSelectionVisuals();
             }
@@ -1182,7 +1785,8 @@ namespace MyMindWin.Controls
                 if (node.X < minX) minX = node.X;
                 if (node.Y < minY) minY = node.Y;
                 if (node.X + node.Width > maxX) maxX = node.X + node.Width;
-                if (node.Y + NodeHeight > maxY) maxY = node.Y + NodeHeight;
+                double bottom = GetNodeExtentBottom(node);
+                if (bottom > maxY) maxY = bottom;
             }
             return (minX, minY, maxX, maxY);
         }
@@ -1223,7 +1827,18 @@ namespace MyMindWin.Controls
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
-            if (_vm == null || EditBorder.Visibility == Visibility.Visible) return;
+            if (_vm == null || EditBorder.Visibility == Visibility.Visible ||
+                NoteBorder.Visibility == Visibility.Visible) return;
+
+            if (ImageBorder.Visibility == Visibility.Visible)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    CloseImagePanel();
+                    e.Handled = true;
+                }
+                return;
+            }
 
             switch (e.Key)
             {
@@ -1239,13 +1854,13 @@ namespace MyMindWin.Controls
                     if (_nodeElements.TryGetValue(_vm.SelectedNode.Model.Id, out var b))
                         StartEditing(_vm.SelectedNode, b);
                     e.Handled = true; break;
+                case Key.F3 when _vm.SelectedNode != null:
+                    OpenNotePanel(_vm.SelectedNode);
+                    e.Handled = true; break;
+                case Key.F4 when _vm.SelectedNode != null:
+                    OpenImageForNode(_vm.SelectedNode);
+                    e.Handled = true; break;
             }
-        }
-
-        private static (Color light, Color dark) GetBranchColors(int index)
-        {
-            if (index < 0) return (RootLight, RootDark);
-            return BranchColors[Math.Abs(index) % BranchColors.Length];
         }
 
         private double MeasureTextWidth(string text, double fontSize)
