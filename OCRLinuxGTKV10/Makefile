@@ -239,7 +239,7 @@ models-paddle:
 
 # EasyOCR Python 스크립트 실행 권한
 easyocr-scripts:
-	@chmod +x scripts/easyocr_ocr.py 2>/dev/null || true
+	@chmod +x scripts/easyocr_server.py scripts/easyocr_ocr.py 2>/dev/null || true
 
 # ── 컴파일 규칙 ──────────────────────────────────────────────────────────
 core-objs: $(CORE_OBJS) $(MAIN_OBJ)
