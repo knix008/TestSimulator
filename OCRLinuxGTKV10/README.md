@@ -29,20 +29,20 @@ GTK 3 기반 **한글/영문 OCR** 프로그램 (Linux / macOS, C/C++)
 ## 빌드 및 실행
 
 ```sh
-# 1. 시스템 패키지 설치 (최초 1회)
-make deps
-
-# 2. 빌드 (ONNX Runtime + ONNX 모델 자동 다운로드 포함)
+# 빌드 (시스템 패키지 + ONNX Runtime + 모델 자동 준비 후 컴파일)
 make
 
-# 3. 실행
+# 실행
 ./myocr
 ```
 
 `make` 단계에서 자동으로 수행되는 작업:
-1. ONNX Runtime v1.20.1 다운로드 → `third_party/onnxruntime/`
-2. ONNX 모델 다운로드 → `models/`
-3. 소스 컴파일 + 링크
+1. 시스템 패키지 확인 및 설치 (미설치 시 `sudo apt` 등 — 최초 1회)
+2. ONNX Runtime v1.20.1 다운로드 → `third_party/onnxruntime/`
+3. ONNX 모델 다운로드 → `models/`
+4. 소스 컴파일 + 링크
+
+패키지만 따로 설치하려면: `make deps`
 
 ### 추가 명령어
 
