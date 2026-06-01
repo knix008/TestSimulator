@@ -27,6 +27,8 @@ public partial class SidePanelWindow : Window
 
     private const double TargetWidth = 400;
 
+    private bool _panelOpensRight = true;
+
     private readonly TimerService _timer;
     private readonly AlarmSoundPlayer _sounds;
     private int _timerHours, _timerMinutes, _timerSeconds;
@@ -62,6 +64,15 @@ public partial class SidePanelWindow : Window
         BuildColorSwatches();
         BuildClockStyleRadios();
         BuildAlarmSoundCombo();
+        WorldPanel.EntriesChanged += () => OnSettingsChanged?.Invoke();
+    }
+
+    public void ApplyPanelSide(bool openRight)
+    {
+        _panelOpensRight = openRight;
+        PanelChromeBorder.BorderThickness = openRight
+            ? new Thickness(1, 0, 0, 0)
+            : new Thickness(0, 0, 1, 0);
     }
 
     private void BuildAlarmSoundCombo()
@@ -75,6 +86,7 @@ public partial class SidePanelWindow : Window
 
     public void AnimateOpen(bool openRight)
     {
+        ApplyPanelSide(openRight);
         var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
         var dur    = TimeSpan.FromMilliseconds(220);
 

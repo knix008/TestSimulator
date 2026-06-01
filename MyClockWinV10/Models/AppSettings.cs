@@ -15,12 +15,20 @@ public class AppSettings
     public double WindowWidth { get; set; } = 300;
     public double WindowHeight { get; set; } = 300;
     public List<AlarmDto> Alarms { get; set; } = new();
+    public List<WorldTimeCityDto>? WorldCities { get; set; }
 
     public int TimerHours { get; set; } = 0;
     public int TimerMinutes { get; set; } = 5;
     public int TimerSeconds { get; set; } = 0;
     public string AlarmSoundId { get; set; } = "Classic";
     public int AlarmVolume { get; set; } = 100;
+}
+
+public class WorldTimeCityDto
+{
+    public string City { get; set; } = "";
+    public string Region { get; set; } = "";
+    public string TimeZoneId { get; set; } = "";
 }
 
 public class AlarmDto

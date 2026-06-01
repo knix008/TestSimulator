@@ -60,6 +60,7 @@ public partial class MainWindow : Window
     private string _lastDigitalText = "";
 
     private AppSettings _settings = new();
+    private List<WorldTimeCityDto> _worldCities = [];
 
     public MainWindow()
     {
@@ -141,6 +142,10 @@ public partial class MainWindow : Window
                     RepeatDays = dto.RepeatDays
                 });
         }
+
+        _worldCities = s.WorldCities is { Count: > 0 }
+            ? [.. s.WorldCities]
+            : [.. WorldTimeDefaults.Cities];
     }
 
     private void SaveSettings()
@@ -174,6 +179,9 @@ public partial class MainWindow : Window
         }
         _settings.AlarmSoundId = _alarmSounds.SoundId;
         _settings.AlarmVolume  = (int)Math.Round(_alarmSounds.Volume * 100);
+        if (_sidePanel != null)
+            _worldCities = _sidePanel.WorldPanel.ToDtos();
+        _settings.WorldCities = _worldCities;
         SettingsManager.Save(_settings);
     }
 
@@ -204,6 +212,8 @@ public partial class MainWindow : Window
         _countdown.Stop();
         _countdown.SetDuration(new TimeSpan(d.TimerHours, d.TimerMinutes, d.TimerSeconds));
 
+        _worldCities = [.. WorldTimeDefaults.Cities];
+        _sidePanel?.WorldPanel.LoadEntries(_worldCities);
         _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness, _digitalStyle, _analogStyle,
             d.TimerHours, d.TimerMinutes, d.TimerSeconds, d.AlarmSoundId, d.AlarmVolume);
         SaveSettings();
@@ -253,6 +263,7 @@ public partial class MainWindow : Window
             {
                 _panelOpensRight = newRight;
                 UpdatePanelToggleBtnSide(open: _rightVisible);
+                _sidePanel?.ApplyPanelSide(_panelOpensRight);
             }
 
             // Sync side panel position (uses updated _panelOpensRight)
@@ -751,6 +762,8 @@ public partial class MainWindow : Window
         _sidePanel.OnDigitalStyleChanged  = s => { ApplyDigitalStyle(s); SaveSettings(); };
         _sidePanel.OnAnalogStyleChanged   = s => { ApplyAnalogStyle(s); SaveSettings(); };
         _sidePanel.OnSettingsChanged      = SaveSettings;
+        _sidePanel.WorldPanel.LoadEntries(_worldCities);
+        _sidePanel.WorldPanel.EntriesChanged += OnWorldCitiesChanged;
         _sidePanel.Closed += (_, _) =>
         {
             if (_rightVisible)
@@ -766,13 +779,29 @@ public partial class MainWindow : Window
             _settings.TimerHours, _settings.TimerMinutes, _settings.TimerSeconds,
             _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100));
         PositionSidePanel();
+        _sidePanel.ApplyPanelSide(_panelOpensRight);
         _sidePanel.Show();
         _sidePanel.AnimateOpen(_panelOpensRight);
+    }
+
+    internal void RequestCloseSidePanel()
+    {
+        if (!_rightVisible) return;
+        _rightVisible = false;
+        CloseSidePanel();
+    }
+
+    private void OnWorldCitiesChanged()
+    {
+        if (_sidePanel == null) return;
+        _worldCities = _sidePanel.WorldPanel.ToDtos();
+        SaveSettings();
     }
 
     private void CloseSidePanel()
     {
         if (_sidePanel == null) return;
+        _worldCities = _sidePanel.WorldPanel.ToDtos();
         UpdatePanelToggleBtnSide(open: false);
         var panel = _sidePanel;
         panel.AnimateClose(_panelOpensRight, () => Dispatcher.Invoke(() => panel.Close()));
