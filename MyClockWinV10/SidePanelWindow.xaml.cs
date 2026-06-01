@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -23,6 +25,12 @@ public partial class SidePanelWindow : Window
 
     private const double TargetWidth = 400;
 
+    private readonly List<RadioButton> _digitalStyleRadios = new();
+    private readonly List<RadioButton> _analogStyleRadios  = new();
+
+    private static readonly int[] BrightnessScaleValues =
+        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
     private static readonly (string Label, Color Color)[] DigitColors =
     [
         ("청색", Color.FromRgb(0x58, 0xA6, 0xFF)),
@@ -40,6 +48,7 @@ public partial class SidePanelWindow : Window
         InitializeComponent();
         AlarmList.ItemsSource = alarms;
         BuildColorSwatches();
+        BuildClockStyleRadios();
     }
 
     // ── Open / close animation (Width expands/collapses rightward) ────────
@@ -147,6 +156,62 @@ public partial class SidePanelWindow : Window
         OnBrightnessChanged?.Invoke(pct / 100.0);
     }
 
+    private void BrightnessSlider_Layout(object sender, RoutedEventArgs e)
+        => UpdateBrightnessScaleLabels();
+
+    private void UpdateBrightnessScaleLabels()
+    {
+        if (BrightnessScaleCanvas is null || BrightnessSlider is null) return;
+
+        double width = BrightnessSlider.ActualWidth;
+        if (width < 1) return;
+
+        BrightnessScaleCanvas.Children.Clear();
+        BrightnessScaleCanvas.Width = width;
+
+        double inset = GetSliderThumbHalfWidth(BrightnessSlider);
+        double track = Math.Max(0, width - inset * 2);
+        double min   = BrightnessSlider.Minimum;
+        double max   = BrightnessSlider.Maximum;
+        double span  = max - min;
+        if (span <= 0) return;
+
+        var labelBrush = TryFindResource("SubtleForegroundBrush") as Brush ?? Brushes.Gray;
+
+        foreach (int value in BrightnessScaleValues)
+        {
+            double t = (value - min) / span;
+            double x = inset + t * track;
+
+            var label = new TextBlock
+            {
+                Text       = value.ToString(),
+                FontSize   = 10,
+                Foreground = labelBrush
+            };
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            double w = label.DesiredSize.Width;
+            double left = Math.Clamp(x - w / 2, 0, width - w);
+            Canvas.SetLeft(label, left);
+            Canvas.SetTop(label, 0);
+            BrightnessScaleCanvas.Children.Add(label);
+        }
+    }
+
+    private static double GetSliderThumbHalfWidth(Slider slider)
+    {
+        slider.ApplyTemplate();
+        if (slider.Template?.FindName("Thumb", slider) is FrameworkElement thumb)
+        {
+            thumb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            if (thumb.DesiredSize.Width > 0)
+                return thumb.DesiredSize.Width / 2;
+            if (thumb.ActualWidth > 0)
+                return thumb.ActualWidth / 2;
+        }
+        return 9;
+    }
+
     private void BuildColorSwatches()
     {
         foreach (var (label, color) in DigitColors)
@@ -183,20 +248,15 @@ public partial class SidePanelWindow : Window
         WorldFormat24h.Checked  -= WorldFormat_Checked;
         StartupToggle.Checked   -= Startup_Changed;
         StartupToggle.Unchecked -= Startup_Changed;
-        DigStyleSeg.Checked     -= DigStyle_Checked;
-        DigStyleLcd.Checked     -= DigStyle_Checked;
-        DigStyleMin.Checked     -= DigStyle_Checked;
-        AnaStyleClassic.Checked -= AnaStyle_Checked;
-        AnaStyleMinimal.Checked -= AnaStyle_Checked;
-        AnaStyleRoman.Checked   -= AnaStyle_Checked;
-        AnaStyleIndices.Checked -= AnaStyle_Checked;
-
+        SetClockStyleHandlers(enabled: false);
         (use24h ? Format24h : Format12h).IsChecked                = true;
         (worldUse24h ? WorldFormat24h : WorldFormat12h).IsChecked = true;
-        BrightnessSlider.Value  = brightness;
+        BrightnessSlider.Value  = Math.Clamp(brightness, 0, 100);
+        Dispatcher.BeginInvoke(UpdateBrightnessScaleLabels, System.Windows.Threading.DispatcherPriority.Loaded);
         StartupToggle.IsChecked = IsStartupEnabled();
-        (digitalStyle switch { "LcdText" => DigStyleLcd, "Minimal" => DigStyleMin, _ => DigStyleSeg }).IsChecked = true;
-        (analogStyle  switch { "Minimal" => AnaStyleMinimal, "Roman" => AnaStyleRoman, "Indices" => AnaStyleIndices, _ => AnaStyleClassic }).IsChecked = true;
+        SelectStyleRadio(_digitalStyleRadios, digitalStyle, nameof(DigitalStyle.SevenSegment));
+        SelectStyleRadio(_analogStyleRadios,  analogStyle,  nameof(AnalogStyle.Classic));
+        SetClockStyleHandlers(enabled: true);
 
         Format12h.Checked       += Format_Checked;
         Format24h.Checked       += Format_Checked;
@@ -204,13 +264,6 @@ public partial class SidePanelWindow : Window
         WorldFormat24h.Checked  += WorldFormat_Checked;
         StartupToggle.Checked   += Startup_Changed;
         StartupToggle.Unchecked += Startup_Changed;
-        DigStyleSeg.Checked     += DigStyle_Checked;
-        DigStyleLcd.Checked     += DigStyle_Checked;
-        DigStyleMin.Checked     += DigStyle_Checked;
-        AnaStyleClassic.Checked += AnaStyle_Checked;
-        AnaStyleMinimal.Checked += AnaStyle_Checked;
-        AnaStyleRoman.Checked   += AnaStyle_Checked;
-        AnaStyleIndices.Checked += AnaStyle_Checked;
     }
 
     private void Startup_Changed(object sender, RoutedEventArgs e)
@@ -219,22 +272,68 @@ public partial class SidePanelWindow : Window
     private void Reset_Click(object sender, RoutedEventArgs e)
         => OnResetRequested?.Invoke();
 
+    private void BuildClockStyleRadios()
+    {
+        BuildStyleRadioGroup(DigitalStylePanel, "DigStyle", ClockStyleCatalog.Digital,
+            _digitalStyleRadios, DigStyle_Checked, isFirstDefault: true);
+        BuildStyleRadioGroup(AnalogStylePanel, "AnaStyle", ClockStyleCatalog.Analog,
+            _analogStyleRadios, AnaStyle_Checked, isFirstDefault: true);
+    }
+
+    private static void BuildStyleRadioGroup(
+        Panel panel, string groupName, IReadOnlyList<ClockStyleOption> options,
+        List<RadioButton> store, RoutedEventHandler handler, bool isFirstDefault)
+    {
+        for (int i = 0; i < options.Count; i++)
+        {
+            var opt = options[i];
+            var rb = new RadioButton
+            {
+                Content   = opt.Label,
+                Tag       = opt.Id,
+                GroupName = groupName,
+                FontSize  = 13,
+                Margin    = new Thickness(0, 0, 10, 6),
+                IsChecked = isFirstDefault && i == 0
+            };
+            rb.Checked += handler;
+            store.Add(rb);
+            panel.Children.Add(rb);
+        }
+    }
+
+    private void SetClockStyleHandlers(bool enabled)
+    {
+        foreach (var rb in _digitalStyleRadios)
+        {
+            rb.Checked -= DigStyle_Checked;
+            if (enabled) rb.Checked += DigStyle_Checked;
+        }
+        foreach (var rb in _analogStyleRadios)
+        {
+            rb.Checked -= AnaStyle_Checked;
+            if (enabled) rb.Checked += AnaStyle_Checked;
+        }
+    }
+
+    private static void SelectStyleRadio(List<RadioButton> radios, string id, string fallbackId)
+    {
+        string target = radios.Any(r => (string?)r.Tag == id) ? id : fallbackId;
+        foreach (var rb in radios)
+            rb.IsChecked = (string?)rb.Tag == target;
+    }
+
     private void DigStyle_Checked(object sender, RoutedEventArgs e)
     {
-        if (DigStyleSeg is null) return;
-        string style = DigStyleSeg.IsChecked == true ? "SevenSegment"
-                     : DigStyleLcd.IsChecked == true ? "LcdText"
-                     : "Minimal";
-        OnDigitalStyleChanged?.Invoke(style);
+        if (_digitalStyleRadios.Count == 0) return;
+        var id = _digitalStyleRadios.FirstOrDefault(r => r.IsChecked == true)?.Tag as string;
+        if (id is not null) OnDigitalStyleChanged?.Invoke(id);
     }
 
     private void AnaStyle_Checked(object sender, RoutedEventArgs e)
     {
-        if (AnaStyleClassic is null) return;
-        string style = AnaStyleClassic.IsChecked == true ? "Classic"
-                     : AnaStyleMinimal.IsChecked == true ? "Minimal"
-                     : AnaStyleRoman.IsChecked   == true ? "Roman"
-                     : "Indices";
-        OnAnalogStyleChanged?.Invoke(style);
+        if (_analogStyleRadios.Count == 0) return;
+        var id = _analogStyleRadios.FirstOrDefault(r => r.IsChecked == true)?.Tag as string;
+        if (id is not null) OnAnalogStyleChanged?.Invoke(id);
     }
 }

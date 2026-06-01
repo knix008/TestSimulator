@@ -31,12 +31,20 @@ dotnet run --project MyClockWinV10.csproj
 
 ## MSI 설치 패키지 생성
 
+**Visual Studio 2026:** 구성을 `Release | x64`로 선택한 뒤 **빌드 → 솔루션 빌드**를 하거나, 시작 프로젝트만 빌드해도 Release 빌드 후 MSI가 생성됩니다.
+
+| 위치 | 설명 |
+|------|------|
+| `bin/Release/net8.0-windows/MyClockWinV10-Setup.msi` | 앱 출력 폴더 (VS에서 찾기 쉬움) |
+| `Setup/bin/x64/Release/MyClockWinV10-Setup.msi` | WiX 프로젝트 원본 출력 |
+
 ```bash
+dotnet build MyClockWinV10.sln -c Release
+# 또는
 dotnet build Setup/Setup.wixproj -c Release
-# 출력: Setup/bin/x64/Release/MyClockWinV10-Setup.msi
 ```
 
-**요구사항:** WiX Toolset v5 (`wix` dotnet tool 또는 VS 확장)
+**요구사항:** .NET 8 SDK, [WiX Toolset](https://wixtoolset.org/) MSBuild SDK (`WixToolset.Sdk` — NuGet 복원). 솔루션 탐색기에서 `Setup` 프로젝트가 로드되지 않으면 [HeatWave](https://docs.firegiant.com/wix/using-wix/) 확장을 설치하거나, 위처럼 `dotnet build`를 사용하세요.
 
 ## 테마
 

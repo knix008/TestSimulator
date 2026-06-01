@@ -163,15 +163,19 @@
                                 CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
                             <StackPanel>
                                 <Slider x:Name="BrightnessSlider"
-                                        Minimum="20" Maximum="100" Value="100"
+                                        Minimum="0" Maximum="100" Value="100"
                                         SmallChange="1" LargeChange="10"
                                         TickPlacement="BottomRight" TickFrequency="10"
                                         IsSnapToTickEnabled="False"
+                                        Loaded="BrightnessSlider_Layout"
+                                        SizeChanged="BrightnessSlider_Layout"
                                         ValueChanged="Brightness_Changed"/>
+                                <Canvas x:Name="BrightnessScaleCanvas"
+                                        Height="14" Margin="0,2,0,0"/>
                                 <TextBlock x:Name="BrightnessLabel"
                                            Text="100 %" FontSize="11"
                                            Foreground="{DynamicResource SubtleForegroundBrush}"
-                                           HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                                           HorizontalAlignment="Right" Margin="0,6,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -189,20 +193,8 @@
                                    Foreground="{DynamicResource SubtleForegroundBrush}"
                                    Margin="0,0,0,5"/>
                         <Border Background="{DynamicResource PanelBackgroundBrush}"
-                                CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
-                            <WrapPanel>
-                                <RadioButton x:Name="DigStyleSeg" Content="7-세그먼트"
-                                             GroupName="DigStyle" IsChecked="True"
-                                             Checked="DigStyle_Checked" FontSize="13"/>
-                                <RadioButton x:Name="DigStyleLcd" Content="LCD 텍스트"
-                                             GroupName="DigStyle"
-                                             Checked="DigStyle_Checked" FontSize="13"
-                                             Margin="12,0,0,0"/>
-                                <RadioButton x:Name="DigStyleMin" Content="미니멀"
-                                             GroupName="DigStyle"
-                                             Checked="DigStyle_Checked" FontSize="13"
-                                             Margin="12,0,0,0"/>
-                            </WrapPanel>
+                                CornerRadius="6" Padding="10,10" Margin="0,0,0,14">
+                            <WrapPanel x:Name="DigitalStylePanel"/>
                         </Border>
 
                         <!-- 아날로그 스타일 -->
@@ -210,24 +202,8 @@
                                    Foreground="{DynamicResource SubtleForegroundBrush}"
                                    Margin="0,0,0,5"/>
                         <Border Background="{DynamicResource PanelBackgroundBrush}"
-                                CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
-                            <WrapPanel>
-                                <RadioButton x:Name="AnaStyleClassic" Content="클래식"
-                                             GroupName="AnaStyle" IsChecked="True"
-                                             Checked="AnaStyle_Checked" FontSize="13"/>
-                                <RadioButton x:Name="AnaStyleMinimal" Content="미니멀"
-                                             GroupName="AnaStyle"
-                                             Checked="AnaStyle_Checked" FontSize="13"
-                                             Margin="10,0,0,0"/>
-                                <RadioButton x:Name="AnaStyleRoman" Content="로마 숫자"
-                                             GroupName="AnaStyle"
-                                             Checked="AnaStyle_Checked" FontSize="13"
-                                             Margin="10,0,0,0"/>
-                                <RadioButton x:Name="AnaStyleIndices" Content="인덱스"
-                                             GroupName="AnaStyle"
-                                             Checked="AnaStyle_Checked" FontSize="13"
-                                             Margin="10,0,0,0"/>
-                            </WrapPanel>
+                                CornerRadius="6" Padding="10,10" Margin="0,0,0,14">
+                            <WrapPanel x:Name="AnalogStylePanel"/>
                         </Border>
 
                         <!-- 세계 시간 형식 -->

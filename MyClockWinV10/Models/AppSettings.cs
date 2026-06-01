@@ -14,7 +14,6 @@ public class AppSettings
     public double? WindowTop { get; set; } = null;
     public double WindowWidth { get; set; } = 300;
     public double WindowHeight { get; set; } = 300;
-    public bool CalendarAutoConnect { get; set; } = false;
     public List<AlarmDto> Alarms { get; set; } = new();
 }
 

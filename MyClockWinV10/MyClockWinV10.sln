@@ -1,7 +1,6 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.0.0
+# Visual Studio Version 18
+VisualStudioVersion = 18.6.11822.322 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MyClockWinV10", "MyClockWinV10.csproj", "{3B809E98-BA1B-40EC-A5A9-F20092E1C90A}"
 EndProject
@@ -18,11 +17,12 @@ Global
 		{3B809E98-BA1B-40EC-A5A9-F20092E1C90A}.Release|x64.ActiveCfg = Release|Any CPU
 		{3B809E98-BA1B-40EC-A5A9-F20092E1C90A}.Release|x64.Build.0 = Release|Any CPU
 		{398E06F4-4558-44C6-84F2-06010C587B11}.Debug|x64.ActiveCfg = Debug|x64
-		{398E06F4-4558-44C6-84F2-06010C587B11}.Debug|x64.Build.0 = Debug|x64
 		{398E06F4-4558-44C6-84F2-06010C587B11}.Release|x64.ActiveCfg = Release|x64
-		{398E06F4-4558-44C6-84F2-06010C587B11}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6C02D3A9-8A57-451E-832E-A45D8F9200DF}
 	EndGlobalSection
 EndGlobal

@@ -9,9 +9,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using MyClockWinV10.Models;
-using MyClockWinV10.Services;
 
 namespace MyClockWinV10;
 
@@ -46,18 +46,12 @@ public partial class MainWindow : Window
     private SidePanelWindow? _sidePanel;
     private double _dpiScaleX = 1.0, _dpiScaleY = 1.0;
 
-    // ── Google Calendar ───────────────────────────────────────────────────
-    private readonly GoogleCalendarService                   _calendarService = new();
-    private readonly ObservableCollection<CalendarEventItem> _calendarEvents  = new();
-    private readonly HashSet<string>                         _firedCalendarReminders = new();
-    private CalendarWindow?        _calendarWindow;
-    private System.Threading.Timer? _calendarSyncTimer;
-
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private IntPtr _trayIconHandle = IntPtr.Zero;
 
     private System.Windows.Media.Color _digitColor =
         System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
+    private double _brightness = 1.0;
 
     private AppSettings _settings = new();
 
@@ -71,8 +65,6 @@ public partial class MainWindow : Window
         _timer.Tick += OnTick;
         _timer.Start();
         OnTick(null, EventArgs.Empty);
-
-        _ = TryAutoConnectCalendarAsync();
     }
 
     // ── Settings ──────────────────────────────────────────────────────────
@@ -108,7 +100,7 @@ public partial class MainWindow : Window
         _analogStyle  = s.AnalogStyleName;
 
         DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
-        AnalogClockBox.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
+        AnalogClock.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
 
         ApplyTheme(s.Theme);
         ApplyBrightness(s.Brightness / 100.0);
@@ -134,7 +126,7 @@ public partial class MainWindow : Window
         _settings.Use24h       = _use24h;
         _settings.WorldUse24h  = _worldUse24h;
         _settings.Theme        = _currentTheme;
-        _settings.Brightness   = (int)Math.Round(SevenSeg.Opacity * 100);
+        _settings.Brightness   = (int)Math.Round(_brightness * 100);
         _settings.DigitColor   = $"#{_digitColor.R:X2}{_digitColor.G:X2}{_digitColor.B:X2}";
         _settings.IsDigital        = _isDigital;
         _settings.DigitalStyleName = _digitalStyle;
@@ -167,7 +159,7 @@ public partial class MainWindow : Window
         _analogStyle  = "Classic";
 
         DigitalPanel.Visibility   = Visibility.Visible;
-        AnalogClockBox.Visibility = Visibility.Collapsed;
+        AnalogClock.Visibility = Visibility.Collapsed;
         ClockStatusText.Text      = "";
         SetActiveClockBtn(true);
         ApplyDigitalStyle(_digitalStyle);
@@ -331,8 +323,6 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         SaveSettings();
-        StopCalendarSync();
-        _calendarWindow?.Close();
         _sidePanel?.Close();
         _trayIcon?.Dispose();
         if (_trayIconHandle != IntPtr.Zero) DestroyIcon(_trayIconHandle);
@@ -351,7 +341,6 @@ public partial class MainWindow : Window
 
         _sidePanel?.UpdateTimes(_worldUse24h);
         CheckAlarms(now);
-        CheckCalendarReminders(now);
 
         if (_trayIcon?.Visible == true)
             UpdateTrayIcon(now);
@@ -369,9 +358,13 @@ public partial class MainWindow : Window
         else
         {
             TextAmPm.Text = ampm;
-            TextTime.Text = (_digitalStyle == "Minimal")
-                ? (_use24h ? now.ToString("HH:mm") : now.ToString("hh:mm"))
-                : (_use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss"));
+            bool showSeconds = _digitalStyle != nameof(Models.DigitalStyle.Minimal);
+            string time = showSeconds
+                ? (_use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss"))
+                : (_use24h ? now.ToString("HH:mm") : now.ToString("hh:mm"));
+            TextTime.Text = _digitalStyle == nameof(Models.DigitalStyle.DotMatrix)
+                ? time.Replace(":", " : ")
+                : time;
         }
 
         ClockStatusText.Text = "";
@@ -429,99 +422,13 @@ public partial class MainWindow : Window
         { Owner = this }.Show();
     }
 
-    // ── Google Calendar ───────────────────────────────────────────────────
-
-    private async Task TryAutoConnectCalendarAsync()
-    {
-        if (!_settings.CalendarAutoConnect) return;
-        if (!GoogleCalendarService.HasCredentialsFile()) return;
-        if (!GoogleCalendarService.HasStoredToken()) return;
-        try
-        {
-            await _calendarService.ConnectAsync();
-            StartCalendarSync();
-        }
-        catch { /* silent: token expired or revoked */ }
-    }
-
-    private void StartCalendarSync()
-    {
-        _calendarSyncTimer?.Dispose();
-        _calendarSyncTimer = new System.Threading.Timer(async _ =>
-        {
-            try
-            {
-                var items = await _calendarService.GetUpcomingEventsAsync();
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    _calendarEvents.Clear();
-                    foreach (var ev in items) _calendarEvents.Add(ev);
-                });
-            }
-            catch { }
-        }, null, TimeSpan.Zero, TimeSpan.FromMinutes(15));
-    }
-
-    private void StopCalendarSync()
-    {
-        _calendarSyncTimer?.Dispose();
-        _calendarSyncTimer = null;
-    }
-
-    private void CheckCalendarReminders(DateTime now)
-    {
-        if (now.Second != 0) return;
-        foreach (var ev in _calendarEvents)
-        {
-            if (ev.IsAllDay || ev.Start <= now) continue;
-            foreach (int minutes in ev.ReminderMinutes)
-            {
-                var fireAt = ev.Start.AddMinutes(-minutes);
-                if (now.Year   == fireAt.Year   && now.Month  == fireAt.Month  &&
-                    now.Day    == fireAt.Day    && now.Hour   == fireAt.Hour   &&
-                    now.Minute == fireAt.Minute)
-                {
-                    var key = $"{ev.Id}:{minutes}:{fireAt:yyyyMMddHHmm}";
-                    if (_firedCalendarReminders.Add(key))
-                        FireCalendarReminder(ev, minutes);
-                }
-            }
-        }
-    }
-
-    private void FireCalendarReminder(CalendarEventItem ev, int minutesBefore)
-    {
-        System.Media.SystemSounds.Exclamation.Play();
-        string when = minutesBefore switch
-        {
-            >= 1440 => $"{minutesBefore / 1440}일 후",
-            >= 60   => $"{minutesBefore / 60}시간 후",
-            _       => $"{minutesBefore}분 후"
-        };
-        new AlarmNotificationWindow(ev.Start.ToString("HH:mm"), $"[{when}] {ev.Title}")
-        { Owner = this }.Show();
-    }
-
-    private void CalendarBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (_calendarWindow?.IsLoaded == true)
-        {
-            _calendarWindow.Activate();
-            return;
-        }
-        _calendarWindow = new CalendarWindow(_calendarService, _calendarEvents);
-        _calendarWindow.OnConnected    = () => { _settings.CalendarAutoConnect = true;  StartCalendarSync(); SaveSettings(); };
-        _calendarWindow.OnDisconnected = () => { _settings.CalendarAutoConnect = false; StopCalendarSync();  SaveSettings(); };
-        _calendarWindow.Show();
-    }
-
     // ── Clock mode ────────────────────────────────────────────────────────
 
     private void ClockModeBtn_Click(object sender, RoutedEventArgs e)
     {
         _isDigital = !_isDigital;
         DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
-        AnalogClockBox.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
+        AnalogClock.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
         SetActiveClockBtn(_isDigital);
         if (_isDigital) UpdateDigital(DateTime.Now);
         else            UpdateAnalog(DateTime.Now);
@@ -556,31 +463,62 @@ public partial class MainWindow : Window
         var brush = new SolidColorBrush(c);
         SevenSeg.SegColor = brush;
         Application.Current.Resources["DigitalTextBrush"] = brush;
+        if (_digitalStyle == nameof(Models.DigitalStyle.Neon) && TextTime.Effect is DropShadowEffect glow)
+            glow.Color = c;
     }
 
-    internal void ApplyBrightness(double v) => SevenSeg.Opacity = v;
+    internal void ApplyBrightness(double v)
+    {
+        _brightness = Math.Clamp(v, 0, 1);
+        DigitalPanel.Opacity = _brightness;
+    }
 
     internal void ApplyDigitalStyle(string style)
     {
         _digitalStyle = style;
-        bool isSeg = style == "SevenSegment";
+        bool isSeg = style == nameof(Models.DigitalStyle.SevenSegment);
         AmPmText.Visibility     = isSeg ? Visibility.Visible   : Visibility.Collapsed;
         SevenSeg.Visibility     = isSeg ? Visibility.Visible   : Visibility.Collapsed;
         TextClockBox.Visibility = isSeg ? Visibility.Collapsed : Visibility.Visible;
 
         if (!isSeg)
         {
-            if (style == "Minimal")
+            TextTime.Effect = null;
+
+            switch (style)
             {
-                TextTime.FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
-                TextTime.FontWeight = FontWeights.Light;
-                TextTime.FontSize   = 72;
-            }
-            else
-            {
-                TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
-                TextTime.FontWeight = FontWeights.Bold;
-                TextTime.FontSize   = 60;
+                case nameof(Models.DigitalStyle.Minimal):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
+                    TextTime.FontWeight = FontWeights.Light;
+                    TextTime.FontSize   = 72;
+                    break;
+                case nameof(Models.DigitalStyle.Retro):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Courier New");
+                    TextTime.FontWeight = FontWeights.Normal;
+                    TextTime.FontSize   = 56;
+                    break;
+                case nameof(Models.DigitalStyle.Neon):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
+                    TextTime.FontWeight = FontWeights.Bold;
+                    TextTime.FontSize   = 64;
+                    TextTime.Effect = new DropShadowEffect
+                    {
+                        Color       = _digitColor,
+                        BlurRadius  = 18,
+                        ShadowDepth = 0,
+                        Opacity     = 0.85
+                    };
+                    break;
+                case nameof(Models.DigitalStyle.DotMatrix):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Cascadia Mono, Consolas, Courier New");
+                    TextTime.FontWeight = FontWeights.SemiBold;
+                    TextTime.FontSize   = 52;
+                    break;
+                default: // LcdText
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
+                    TextTime.FontWeight = FontWeights.Bold;
+                    TextTime.FontSize   = 60;
+                    break;
             }
         }
 
@@ -649,7 +587,7 @@ public partial class MainWindow : Window
             _sidePanel = null;
         };
 
-        _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(SevenSeg.Opacity * 100),
+        _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(_brightness * 100),
                                  _digitalStyle, _analogStyle);
         PositionSidePanel();
         _sidePanel.Show();
