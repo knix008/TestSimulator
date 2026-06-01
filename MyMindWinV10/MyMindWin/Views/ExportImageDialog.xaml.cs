@@ -10,6 +10,9 @@ namespace MyMindWin.Views
             if (owner != null)
                 Owner = owner;
 
+            IncludeHeadingCheck.Checked += IncludeHeadingCheck_Changed;
+            IncludeHeadingCheck.Unchecked += IncludeHeadingCheck_Changed;
+
             HeadingBox.Text = documentTitle;
             UpdateHeadingEnabled();
         }
@@ -32,6 +35,9 @@ namespace MyMindWin.Views
 
         private void UpdateHeadingEnabled()
         {
+            if (HeadingBox == null || IncludeHeadingCheck == null)
+                return;
+
             HeadingBox.IsEnabled = IncludeHeadingCheck.IsChecked == true;
         }
 

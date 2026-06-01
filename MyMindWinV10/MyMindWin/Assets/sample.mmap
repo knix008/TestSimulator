@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "title": "마인드맵 시작하기",
+  "layout": "tree",
+  "connectionLine": "bezier",
+  "connectionLineTaper": true,
+  "defaultNodeShape": "rounded",
+  "root": {
+    "id": "a1000000-0000-0000-0000-000000000001",
+    "text": "마인드맵",
+    "isExpanded": true,
+    "colorIndex": -1,
+    "borderColorIndex": -1,
+    "shape": "rounded",
+    "children": [
+      {
+        "id": "a1000000-0000-0000-0000-000000000010",
+        "text": "편집",
+        "isExpanded": false,
+        "colorIndex": 0,
+        "borderColorIndex": -1,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000011",
+            "text": "노드 편집 (F2)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000012",
+            "text": "자식 추가 (Tab)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000013",
+            "text": "형제 추가 (Enter)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "a1000000-0000-0000-0000-000000000020",
+        "text": "화면 조작",
+        "isExpanded": false,
+        "colorIndex": 1,
+        "borderColorIndex": -1,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000021",
+            "text": "확대/축소 (Wheel)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000022",
+            "text": "이동 (중간 버튼 드래그)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000023",
+            "text": "전체 보기 (F4)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "a1000000-0000-0000-0000-000000000030",
+        "text": "레이아웃",
+        "isExpanded": false,
+        "colorIndex": 2,
+        "borderColorIndex": -1,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000031",
+            "text": "수평 트리",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000032",
+            "text": "방사형",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000033",
+            "text": "피시본",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          }
+        ]
+      },
+      {
+        "id": "a1000000-0000-0000-0000-000000000040",
+        "text": "저장 & 내보내기",
+        "isExpanded": false,
+        "colorIndex": 3,
+        "borderColorIndex": -1,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000041",
+            "text": ".mmap 저장 (Ctrl+S)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000042",
+            "text": "이미지 (PNG/JPG)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000043",
+            "text": "문서 (Markdown/PDF)",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "shape": "rounded",
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+}

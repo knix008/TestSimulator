@@ -29,6 +29,10 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Update="Views\ErrorWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Update="Themes\NodeContextMenuStyles.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -38,6 +42,11 @@
   <!-- exe 아이콘(ApplicationIcon) + WPF 창/작업 표시줄 아이콘(Resource) -->
   <ItemGroup>
     <Resource Include="daemon_hammer.ico" />
+  </ItemGroup>
+
+  <!-- 예제 마인드맵 파일 (앱 시작 시 로드) -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\sample.mmap" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />

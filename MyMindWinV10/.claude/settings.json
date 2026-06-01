@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyMindWinV10\\\\MyMindWin\\\\Assets\" 2>&1; echo done)",
+      "PowerShell(cd \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyMindWinV10\\\\MyMindWin\"; dotnet build -c Release --nologo 2>&1 | Out-String | Select-String \"succeeded|FAILED|Build\" -AllMatches | ForEach-Object { $_.Matches } | ForEach-Object { $_.Value })",
+      "PowerShell(cd \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyMindWinV10\\\\MyMindWin\"; $result = dotnet build -c Release --nologo 2>&1; $result | Where-Object { $_ -match \"succeeded|FAILED|error CS\" })"
+    ],
+    "additionalDirectories": [
+      "d:\\Home\\Projects\\TestSimulator\\MyMindWinV10\\MyMindWin"
+    ]
+  }
+}

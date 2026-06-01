@@ -38,23 +38,133 @@
         <Setter Property="Foreground" Value="#CCFFFFFF"/>
         <Setter Property="FontFamily" Value="Segoe UI"/>
         <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Grid.IsSharedSizeScope" Value="True"/>
     </Style>
 
-    <!-- 메뉴 항목 (드롭다운·하위 메뉴 포함 — 기본 템플릿 + 시스템 색) -->
+    <!-- 드롭다운 팝업 배경 (Popup 내부 ItemsPresenter 감싸는 Border) -->
+    <Style TargetType="{x:Type Popup}">
+        <Setter Property="Grid.IsSharedSizeScope" Value="True"/>
+    </Style>
+
+    <!-- 메뉴 항목 (드롭다운·하위 메뉴 포함) -->
     <Style TargetType="{x:Type MenuItem}">
         <Setter Property="Background" Value="{StaticResource AppMenuBg}"/>
         <Setter Property="Foreground" Value="{StaticResource AppMenuForeground}"/>
         <Setter Property="FontFamily" Value="Segoe UI"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Style.Triggers>
-            <Trigger Property="IsHighlighted" Value="True">
-                <Setter Property="Background" Value="{StaticResource AppMenuHighlightBg}"/>
-                <Setter Property="Foreground" Value="{StaticResource AppMenuForeground}"/>
-            </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
-            </Trigger>
-        </Style.Triggers>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Border x:Name="Bd"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Margin="2,1"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Icon"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Shortcut"/>
+                                <ColumnDefinition Width="13"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="IconBd"
+                                    Grid.Column="0"
+                                    Width="22" Height="22"
+                                    Margin="2,0,4,0"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                                <Viewbox Width="14" Height="14">
+                                    <ContentPresenter Content="{TemplateBinding Icon}"/>
+                                </Viewbox>
+                            </Border>
+                            <ContentPresenter x:Name="HeaderText"
+                                              Grid.Column="1"
+                                              ContentSource="Header"
+                                              Margin="6,4,6,4"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{StaticResource AppMenuForeground}"/>
+                            <TextBlock x:Name="GestureText"
+                                       Grid.Column="2"
+                                       Text="{TemplateBinding InputGestureText}"
+                                       Margin="8,4,4,4"
+                                       Foreground="{StaticResource AppMenuMuted}"
+                                       FontSize="10"
+                                       VerticalAlignment="Center"/>
+                            <Path x:Name="Arrow"
+                                  Grid.Column="3"
+                                  Data="M 0,0 L 4,4 L 0,8 Z"
+                                  Fill="{StaticResource AppMenuForeground}"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Center"
+                                  Visibility="Collapsed"/>
+                            <Popup x:Name="PART_Popup"
+                                   IsOpen="{TemplateBinding IsSubmenuOpen}"
+                                   Placement="Right"
+                                   HorizontalOffset="-4"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border Background="{StaticResource AppMenuBg}"
+                                        BorderBrush="{StaticResource AppMenuBorder}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="4,2"
+                                        SnapsToDevicePixels="True">
+                                    <ItemsPresenter x:Name="ItemsPresenter"
+                                                    KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Role" Value="TopLevelHeader">
+                            <Setter TargetName="IconBd" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="PART_Popup" Property="Placement" Value="Bottom"/>
+                            <Setter TargetName="PART_Popup" Property="HorizontalOffset" Value="0"/>
+                        </Trigger>
+                        <Trigger Property="Role" Value="TopLevelItem">
+                            <Setter TargetName="IconBd" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <Trigger Property="Role" Value="SubmenuHeader">
+                            <Setter TargetName="Arrow" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#4A6CAE"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#5A7CBE"/>
+                            <Setter TargetName="HeaderText" Property="TextElement.Foreground" Value="White"/>
+                            <Setter TargetName="GestureText" Property="Foreground" Value="#CCDDFF"/>
+                            <Setter TargetName="Arrow" Property="Fill" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsSubmenuOpen" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#3D5A9A"/>
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#5A7CBE"/>
+                            <Setter TargetName="HeaderText" Property="TextElement.Foreground" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="HeaderText" Property="TextElement.Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
+                            <Setter TargetName="GestureText" Property="Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
+                            <Setter TargetName="Arrow" Property="Fill" Value="{StaticResource AppMenuDisabledColor}"/>
+                        </Trigger>
+                        <Trigger Property="IsCheckable" Value="True">
+                            <Setter TargetName="IconBd" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsCheckable" Value="True"/>
+                                <Condition Property="IsChecked" Value="True"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="IconBd" Property="Background" Value="#3355AA"/>
+                            <Setter TargetName="IconBd" Property="CornerRadius" Value="3"/>
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
   <!-- 컨텍스트 메뉴 팝업 -->

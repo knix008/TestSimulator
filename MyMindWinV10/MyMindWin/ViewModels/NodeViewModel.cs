@@ -113,6 +113,7 @@ namespace MyMindWin.ViewModels
             get => _isExpanded;
             set
             {
+                if (_isExpanded == value) return;
                 _isExpanded = value;
                 Model.IsExpanded = value;
                 OnPropertyChanged();

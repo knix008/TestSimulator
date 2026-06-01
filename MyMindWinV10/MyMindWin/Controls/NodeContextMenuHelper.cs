@@ -20,10 +20,9 @@ namespace MyMindWin.Controls
             Action<NodeViewModel>? onImage = null,
             Action<NodeViewModel>? onRemoveImage = null)
         {
-            var menu = new ContextMenu
-            {
-                Style = (Style)resourceOwner.FindResource("NodeContextMenu")
-            };
+            var menu = new ContextMenu();
+            if (TryFindStyle(resourceOwner, "NodeContextMenu") is Style menuStyle)
+                menu.Style = menuStyle;
 
             menu.Items.Add(CreateCommandItem(resourceOwner, "자식 노드 추가", "Tab",
                 vm.AddChildCommand, commandTarget, MenuIcons.AddChild));
@@ -34,7 +33,10 @@ namespace MyMindWin.Controls
                     vm.AddSiblingCommand, commandTarget, MenuIcons.AddSibling));
             }
 
-            menu.Items.Add(new Separator { Style = (Style)resourceOwner.FindResource("NodeContextMenuSeparator") });
+            if (TryFindStyle(resourceOwner, "NodeContextMenuSeparator") is Style sepStyle)
+                menu.Items.Add(new Separator { Style = sepStyle });
+            else
+                menu.Items.Add(new Separator());
 
             var rename = CreateItem(resourceOwner, "이름 바꾸기", "F2", MenuIcons.Rename);
             rename.Click += (_, _) => onRename?.Invoke(node);
@@ -63,7 +65,10 @@ namespace MyMindWin.Controls
                     vm.ToggleExpandCommand, commandTarget, expandIcon));
             }
 
-            menu.Items.Add(new Separator { Style = (Style)resourceOwner.FindResource("NodeContextMenuSeparator") });
+            if (TryFindStyle(resourceOwner, "NodeContextMenuSeparator") is Style sepStyle2)
+                menu.Items.Add(new Separator { Style = sepStyle2 });
+            else
+                menu.Items.Add(new Separator());
 
             if (node.Parent != null)
             {
@@ -72,6 +77,13 @@ namespace MyMindWin.Controls
             }
 
             return menu;
+        }
+
+        private static Style? TryFindStyle(FrameworkElement owner, string key)
+        {
+            if (owner.TryFindResource(key) is Style style)
+                return style;
+            return Application.Current.TryFindResource(key) as Style;
         }
 
         private static MenuItem CreateCommandItem(
@@ -92,18 +104,26 @@ namespace MyMindWin.Controls
         private static MenuItem CreateItem(
             FrameworkElement resourceOwner, string header, string gesture, UIElement icon)
         {
-            return new MenuItem
+            var item = new MenuItem
             {
                 Header = header,
                 Icon = icon,
-                InputGestureText = gesture,
-                Style = (Style)resourceOwner.FindResource("NodeContextMenuItem")
+                InputGestureText = gesture
             };
+            if (TryFindStyle(resourceOwner, "NodeContextMenuItem") is Style itemStyle)
+                item.Style = itemStyle;
+            return item;
         }
 
         private static class MenuIcons
         {
-            private static readonly Brush IconBrush = new SolidColorBrush(Color.FromRgb(0xD8, 0xE8, 0xFF));
+            private static readonly Brush IconBrush;
+
+            static MenuIcons()
+            {
+                IconBrush = new SolidColorBrush(Color.FromRgb(0xD8, 0xE8, 0xFF));
+                IconBrush.Freeze();
+            }
 
             public static UIElement AddChild =>
                 LineIcon("M 8,3 L 8,13 M 3,8 L 13,8", 1.7);

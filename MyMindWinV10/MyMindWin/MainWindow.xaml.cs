@@ -1,9 +1,12 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using MyMindWin.Controls;
+using MyMindWin.Diagnostics;
 using MyMindWin.Models;
 using MyMindWin.ViewModels;
 
@@ -26,6 +29,7 @@ namespace MyMindWin
             DataContext = _vm;
 
             MindMapCanvas.SetViewModel(_vm);
+            MindMapCanvas.CanvasLayoutCompleted += (_, _) => TryShowPendingStructureMenu();
             _vm.RequestNodeColorRefresh += (_, node) =>
             {
                 _vm.RefreshInheritColorPreviewIfNeeded(node);
@@ -44,8 +48,14 @@ namespace MyMindWin
             {
                 if (!string.IsNullOrEmpty(App.StartupFilePath))
                 {
+                    // 커맨드라인 또는 파일 연결로 전달된 파일 열기
                     _vm.OpenFile(App.StartupFilePath);
                     App.ClearStartupFilePath();
+                }
+                else
+                {
+                    // 시작 시 내장 예제 마인드맵 로드
+                    _vm.LoadSampleDocument();
                 }
                 MindMapCanvas.SetViewToDefaultZoom();
                 MindMapCanvas.Focus();
@@ -62,6 +72,26 @@ namespace MyMindWin
         }
 
         private bool _suppressTreeSync;
+        private bool _suppressStructureTreeLayout;
+        private NodeViewModel? _pendingStructureMenuNode;
+
+        private void StructureTreeItem_ExpandCollapse(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is TreeViewItem { DataContext: NodeViewModel vm } item)
+                    vm.IsExpanded = item.IsExpanded;
+
+                if (_suppressTreeSync || _suppressStructureTreeLayout)
+                    return;
+
+                MindMapCanvas.ScheduleRebuildCanvas();
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "구조 트리 접기/펴기");
+            }
+        }
 
         private void StructureTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
@@ -72,24 +102,65 @@ namespace MyMindWin
 
         private void StructureTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            var treeItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
-            if (treeItem?.DataContext is not NodeViewModel vm) return;
+            try
+            {
+                var treeItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
+                if (treeItem?.DataContext is not NodeViewModel vm) return;
 
-            e.Handled = true;
-            treeItem.Focus();
-            treeItem.IsSelected = true;
-            SelectTreeNode(vm);
-            CommandManager.InvalidateRequerySuggested();
+                e.Handled = true;
+                treeItem.Focus();
+                treeItem.IsSelected = true;
+                SelectTreeNode(vm);
 
-            if (_vm == null) return;
+                if (_vm == null) return;
 
-            var menu = NodeContextMenuHelper.Build(
-                vm, _vm, this, this, BeginTreeRename,
-                node => MindMapCanvas.OpenNoteForNode(node),
-                node => MindMapCanvas.OpenImageForNode(node),
-                node => MindMapCanvas.RemoveImageFromNode(node));
-            menu.PlacementTarget = treeItem;
-            menu.IsOpen = true;
+                if (MindMapCanvas.IsCanvasLayoutBusy)
+                {
+                    _pendingStructureMenuNode = vm;
+                    return;
+                }
+
+                ShowStructureTreeContextMenu(treeItem, vm);
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "구조 트리 우클릭");
+            }
+        }
+
+        private void TryShowPendingStructureMenu()
+        {
+            if (_pendingStructureMenuNode == null || _vm == null || MindMapCanvas.IsCanvasLayoutBusy)
+                return;
+
+            var vm = _pendingStructureMenuNode;
+            _pendingStructureMenuNode = null;
+
+            var treeItem = FindTreeViewItem(StructureTree, vm);
+            if (treeItem?.IsLoaded == true)
+                ShowStructureTreeContextMenu(treeItem, vm);
+        }
+
+        private void ShowStructureTreeContextMenu(TreeViewItem treeItem, NodeViewModel vm)
+        {
+            try
+            {
+                if (_vm == null || !treeItem.IsLoaded || treeItem.Parent == null) return;
+
+                var menu = NodeContextMenuHelper.Build(
+                    vm, _vm, this, this, BeginTreeRename,
+                    node => MindMapCanvas.OpenNoteForNode(node),
+                    node => MindMapCanvas.OpenImageForNode(node),
+                    node => MindMapCanvas.RemoveImageFromNode(node));
+                menu.PlacementTarget = treeItem;
+                menu.Placement = PlacementMode.MousePoint;
+                CommandManager.InvalidateRequerySuggested();
+                menu.IsOpen = true;
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "구조 트리 컨텍스트 메뉴");
+            }
         }
 
         private void StructureTree_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -159,6 +230,12 @@ namespace MyMindWin
                 EndTreeRename(commit: true);
         }
 
+        private void StructureTreeEditBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox box && box.DataContext is NodeViewModel vm && vm.IsTreeEditing)
+                MindMapCanvas.RefreshNodeText(vm);
+        }
+
         private void BeginTreeRename(NodeViewModel vm)
         {
             EndTreeRename(commit: true);
@@ -199,11 +276,20 @@ namespace MyMindWin
 
         private void EnsureTreeItemVisible(NodeViewModel vm)
         {
-            for (var node = vm.Parent; node != null; node = node.Parent)
-                node.IsExpanded = true;
+            _suppressStructureTreeLayout = true;
+            try
+            {
+                for (var node = vm.Parent; node != null; node = node.Parent)
+                    node.IsExpanded = true;
+            }
+            finally
+            {
+                _suppressStructureTreeLayout = false;
+            }
 
             StructureTree.UpdateLayout();
             FindTreeViewItem(vm)?.BringIntoView();
+            MindMapCanvas.ScheduleRebuildCanvas();
         }
 
         private TreeViewItem? FindTreeViewItem(NodeViewModel vm) =>

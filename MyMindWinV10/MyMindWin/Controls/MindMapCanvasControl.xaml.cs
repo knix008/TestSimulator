@@ -5,10 +5,12 @@ using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.Win32;
+using MyMindWin.Diagnostics;
 using MyMindWin.Models;
 using MyMindWin.ViewModels;
 
@@ -23,6 +25,9 @@ namespace MyMindWin.Controls
         private bool _isPanning;
         private Point _panStart;
         private double _panStartScrollX, _panStartScrollY;
+        private bool _isRubberBanding;
+        private Point _rubberBandStart;
+        private Rectangle? _rubberBandRect;
         private bool _suppressZoomSync;
         private bool _userPositioned;
         private bool _pendingFitAfterLoad;
@@ -42,12 +47,26 @@ namespace MyMindWin.Controls
         private double _contentWidth = 800;
         private double _contentHeight = 600;
 
+        private bool _isRebuildingCanvas;
+        private bool _suppressExtentSync;
+        private bool _layoutRebuildPending;
+        private bool _rebuildQueuedDuringRebuild;
+        private bool _rebuildDeferredForContextMenu;
+        private Guid? _pendingContextMenuNodeId;
+        private ContextMenu? _activeContextMenu;
+
+        /// <summary>캔버스 레이아웃 재구성이 예약되었거나 진행 중입니다.</summary>
+        public bool IsCanvasLayoutBusy => _isRebuildingCanvas || _layoutRebuildPending;
+
+        /// <summary>캔버스 자동 레이아웃·재구성이 끝났을 때 발생합니다.</summary>
+        public event EventHandler? CanvasLayoutCompleted;
+
         private const double NodeMinWidth   = 90;
         private const double NodeHeight     = 36;
-        private const double HNodeSpacingX  = 72;   // 부모-자식 가로 간격 (연결선 길이)
-        private const double HNodeSpacingY  = 38;   // 형제 노드 세로 간격
-        private const double RadialLinkGap    = 10; // 부모·자식 중심 간 최소 간격 (가장자리 기준)
-        private const double RadialSiblingGap = 10; // 같은 링에서 형제 노드 호 간 최소 간격
+        private const double HNodeSpacingX  = 44;   // 부모-자식 가로 간격 (연결선 길이)
+        private const double HNodeSpacingY  = 14;   // 형제 노드 세로 간격
+        private const double RadialLinkGap    = 6;  // 부모·자식 중심 간 최소 간격 (가장자리 기준)
+        private const double RadialSiblingGap = 6;  // 같은 링에서 형제 노드 호 간 최소 간격
         private const double FishboneRibStub   = 32; // 척추(spine)에서 1단계 카테고리 노드까지
         private const double FishboneSpineGap  = 20; // 척추를 따라 카테고리 간 간격
         private const double FishboneSpineTail = 48; // 척추 끝에서 루트(머리)까지
@@ -68,7 +87,8 @@ namespace MyMindWin.Controls
 
         private void SyncContentExtent()
         {
-            if (_vm?.RootNode == null) return;
+            if (_vm?.RootNode == null || _isRebuildingCanvas || _suppressExtentSync)
+                return;
 
             double oldOriginX = _contentOriginX;
             double oldOriginY = _contentOriginY;
@@ -122,8 +142,108 @@ namespace MyMindWin.Controls
                     CloseNotePanel();
                 if (_imagePanelNode != null && _imagePanelNode != _vm?.SelectedNode)
                     CloseImagePanel();
-                RefreshSelectionVisuals();
+                if (!IsCanvasLayoutBusy)
+                    RefreshSelectionVisuals();
             }
+        }
+
+        private void CloseActiveContextMenu()
+        {
+            if (_activeContextMenu == null) return;
+            try
+            {
+                _activeContextMenu.IsOpen = false;
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "컨텍스트 메뉴 닫기");
+            }
+            finally
+            {
+                _activeContextMenu = null;
+            }
+        }
+
+        private void ShowNodeContextMenu(NodeViewModel vm)
+        {
+            try
+            {
+                if (_vm == null) return;
+
+                if (IsCanvasLayoutBusy)
+                {
+                    _pendingContextMenuNodeId = vm.Model.Id;
+                    return;
+                }
+
+                if (!TryGetLiveNodeVisual(vm, out var border))
+                    return;
+
+                _vm.SelectedNode = vm;
+                CloseActiveContextMenu();
+
+                var menu = NodeContextMenuHelper.Build(
+                    vm,
+                    _vm,
+                    this,
+                    this,
+                    node =>
+                    {
+                        if (_nodeElements.TryGetValue(node.Model.Id, out var el))
+                            StartEditing(node, el);
+                    },
+                    OpenNotePanel,
+                    OpenImageForNode,
+                    RemoveImageFromNode);
+
+                menu.Closed += OnActiveContextMenuClosed;
+                _activeContextMenu = menu;
+                menu.PlacementTarget = border;
+                menu.Placement = PlacementMode.MousePoint;
+
+                RefreshSelectionVisuals();
+                CommandManager.InvalidateRequerySuggested();
+                menu.IsOpen = true;
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "캔버스 노드 우클릭 메뉴");
+            }
+        }
+
+        private void OnActiveContextMenuClosed(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is ContextMenu menu)
+                    menu.Closed -= OnActiveContextMenuClosed;
+
+                if (ReferenceEquals(_activeContextMenu, sender))
+                    _activeContextMenu = null;
+
+                if (_rebuildDeferredForContextMenu)
+                {
+                    _rebuildDeferredForContextMenu = false;
+                    ScheduleRebuildCanvas();
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "컨텍스트 메뉴 Closed");
+            }
+        }
+
+        private bool TryGetLiveNodeVisual(NodeViewModel vm, out FrameworkElement border)
+        {
+            border = null!;
+            if (!_nodeElements.TryGetValue(vm.Model.Id, out var element))
+                return false;
+
+            if (element.Parent == null || !element.IsLoaded)
+                return false;
+
+            border = element;
+            return true;
         }
 
         public void OpenNoteForNode(NodeViewModel node) => OpenNotePanel(node);
@@ -136,7 +256,43 @@ namespace MyMindWin.Controls
                 PickImageForNode(node);
         }
 
-        private void OnRequestLayout(object? sender, EventArgs e) => RebuildCanvas();
+        private void OnRequestLayout(object? sender, EventArgs e) => ScheduleRebuildCanvas();
+
+        /// <summary>UI 스레드에서 캔버스 재구성을 한 번만 예약합니다 (재진입·중복 호출 방지).</summary>
+        public void ScheduleRebuildCanvas()
+        {
+            if (_vm?.RootNode == null)
+                return;
+
+            if (_activeContextMenu?.IsOpen == true)
+            {
+                _rebuildDeferredForContextMenu = true;
+                return;
+            }
+
+            if (_isRebuildingCanvas)
+            {
+                _rebuildQueuedDuringRebuild = true;
+                return;
+            }
+
+            if (_layoutRebuildPending)
+                return;
+
+            _layoutRebuildPending = true;
+            Dispatcher.BeginInvoke(() =>
+            {
+                _layoutRebuildPending = false;
+                try
+                {
+                    RebuildCanvas();
+                }
+                catch (Exception ex)
+                {
+                    ExceptionReporter.Show(ex, "캔버스 재구성 (예약 실행)");
+                }
+            }, System.Windows.Threading.DispatcherPriority.Normal);
+        }
 
         private void OnRequestNodeShapeRefresh(object? sender, NodeViewModel node) => ReplaceNodeVisual(node);
 
@@ -167,55 +323,91 @@ namespace MyMindWin.Controls
 
         private void RebuildCanvas()
         {
-            if (_vm?.RootNode == null) return;
+            if (_vm?.RootNode == null || _isRebuildingCanvas)
+                return;
 
-            CloseNotePanel();
-            CloseImagePanel();
-
-            if (_vm.LayoutType != _lastLayoutType)
+            _isRebuildingCanvas = true;
+            _suppressExtentSync = true;
+            try
             {
-                _userPositioned = false;
-                ClearManualPositionsOnAllNodes();
-                _lastLayoutType = _vm.LayoutType;
-            }
+                CloseActiveContextMenu();
+                CloseNotePanel(skipSideEffects: true);
+                CloseImagePanel(skipSideEffects: true);
 
-            _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
-
-            if (!_userPositioned)
-                ApplyAutomaticLayoutPositions();
-            else
-            {
-                foreach (var node in _vm.GetAllNodes())
-                    node.Width = MeasureTextWidth(node.Text, node.Level == 0 ? 16 : 13) + 28;
-
-                foreach (var node in _vm.GetAllNodes())
+                if (_vm.LayoutType != _lastLayoutType)
                 {
-                    if (node.Parent != null && !node.HasManualPosition)
-                        PlaceNewNodeNearParent(node);
-                    else
-                        node.SyncToModel();
+                    _userPositioned = false;
+                    ClearManualPositionsOnAllNodes();
+                    _lastLayoutType = _vm.LayoutType;
+                }
+
+                _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
+
+                if (!_userPositioned)
+                    ApplyAutomaticLayoutPositions();
+                else
+                {
+                    foreach (var node in _vm.GetAllNodes())
+                        node.Width = MeasureTextWidth(node.Text, node.Level == 0 ? 16 : 13) + 28;
+
+                    foreach (var node in _vm.GetAllNodes())
+                    {
+                        if (node.Parent != null && !node.HasManualPosition)
+                            PlaceNewNodeNearParent(node);
+                        else
+                            node.SyncToModel();
+                    }
+                }
+
+                NodeCanvas.Children.Clear();
+                ConnectionCanvas.Children.Clear();
+                _nodeElements.Clear();
+                _connectionPaths.Clear();
+
+                UpdateContentExtent();
+
+                DrawConnections(_vm.RootNode);
+                DrawNodes(_vm.RootNode);
+
+                if (ActualWidth > 0 && ActualHeight > 0 && !_isPanning)
+                {
+                    if (_pendingFitAfterLoad)
+                    {
+                        FitToView();
+                        _pendingFitAfterLoad = false;
+                    }
+                    else if (!_userPositioned)
+                        SetViewToDefaultZoom();
                 }
             }
-
-            NodeCanvas.Children.Clear();
-            ConnectionCanvas.Children.Clear();
-            _nodeElements.Clear();
-            _connectionPaths.Clear();
-
-            UpdateContentExtent();
-
-            DrawConnections(_vm.RootNode);
-            DrawNodes(_vm.RootNode);
-
-            if (ActualWidth > 0 && ActualHeight > 0 && !_isPanning)
+            catch (Exception ex)
             {
-                if (_pendingFitAfterLoad)
+                ExceptionReporter.Show(ex, $"캔버스 재구성 ({_vm?.LayoutType})");
+            }
+            finally
+            {
+                _suppressExtentSync = false;
+                _isRebuildingCanvas = false;
+
+                if (_rebuildQueuedDuringRebuild)
                 {
-                    FitToView();
-                    _pendingFitAfterLoad = false;
+                    _rebuildQueuedDuringRebuild = false;
+                    ScheduleRebuildCanvas();
                 }
-                else if (!_userPositioned)
-                    SetViewToDefaultZoom();
+
+                if (_pendingContextMenuNodeId is Guid pendingId)
+                {
+                    _pendingContextMenuNodeId = null;
+                    var pendingNode = FindNode(pendingId);
+                    if (pendingNode != null)
+                    {
+                        Dispatcher.BeginInvoke(
+                            () => ShowNodeContextMenu(pendingNode),
+                            System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+                    }
+                }
+
+                CanvasLayoutCompleted?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -235,7 +427,9 @@ namespace MyMindWin.Controls
             var parent = node.Parent!;
             int index = parent.Children.IndexOf(node);
             node.X = parent.X + parent.Width + HNodeSpacingX;
-            node.Y = parent.Y + index * (NodeHeight + HNodeSpacingY * 0.5);
+            node.Y = index > 0
+                ? parent.Children[index - 1].Y + NodeHeight + HNodeSpacingY
+                : parent.Y;
             node.HasManualPosition = true;
             node.SyncToModel();
         }
@@ -504,6 +698,9 @@ namespace MyMindWin.Controls
             double totalAngle,
             double angleStep)
         {
+            if (children.Count == 0)
+                return GetNodeBoundRadius(parent) + RadialLinkGap;
+
             double parentBound = GetNodeBoundRadius(parent);
             double maxChildBound = children.Max(GetNodeBoundRadius);
             double childRadius = parentBound + maxChildBound + RadialLinkGap;
@@ -908,6 +1105,26 @@ namespace MyMindWin.Controls
             if (node.HasImage)
                 wrapper.Children.Add(CreateImageBadge(node));
 
+            if (node.Children.Count > 0 && !node.IsExpanded)
+            {
+                var badge = CreateCollapseBadge(node);
+                badge.PreviewMouseLeftButtonDown += (_, e) =>
+                {
+                    try
+                    {
+                        e.Handled = true;
+                        _vm!.SelectedNode = node;
+                        node.IsExpanded = true;
+                        ScheduleRebuildCanvas();
+                    }
+                    catch (Exception ex)
+                    {
+                        ExceptionReporter.Show(ex, "노드 펼치기 배지");
+                    }
+                };
+                wrapper.Children.Add(badge);
+            }
+
             wrapper.MouseLeftButtonDown  += Node_MouseLeftButtonDown;
             wrapper.MouseRightButtonDown += Node_MouseRightButtonDown;
             wrapper.MouseMove            += Node_MouseMove;
@@ -994,6 +1211,36 @@ namespace MyMindWin.Controls
             return badge;
         }
 
+        private static Border CreateCollapseBadge(NodeViewModel node)
+        {
+            return new Border
+            {
+                Tag = "CollapseBadge",
+                Width = 16,
+                Height = 16,
+                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(Color.FromRgb(0x44, 0x77, 0xBB)),
+                BorderBrush = new SolidColorBrush(Colors.White),
+                BorderThickness = new Thickness(1),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Margin = new Thickness(2, 2, 0, 0),
+                Cursor = Cursors.Hand,
+                IsHitTestVisible = true,
+                ToolTip = $"클릭하여 펼치기 ({node.Children.Count}개 자식)",
+                Child = new TextBlock
+                {
+                    Text = "+",
+                    Foreground = Brushes.White,
+                    FontSize = 10,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, -1, 0, 0)
+                }
+            };
+        }
+
         private void ToggleNotePanel(NodeViewModel node)
         {
             if (_notePanelNode == node && node.IsNoteExpanded)
@@ -1024,7 +1271,7 @@ namespace MyMindWin.Controls
             NoteBox.CaretIndex = NoteBox.Text.Length;
         }
 
-        private void CloseNotePanel()
+        private void CloseNotePanel(bool skipSideEffects = false)
         {
             if (_notePanelNode == null) return;
 
@@ -1039,18 +1286,22 @@ namespace MyMindWin.Controls
 
             NoteBorder.Visibility = Visibility.Collapsed;
             UpdateOverlayHitTest();
-            RestoreExpandReflowSnapshot();
 
-            if (noteAdded || noteRemoved)
+            if (!skipSideEffects)
             {
-                RelayoutAfterAttachmentChange(node);
-                ReplaceNodeVisual(node);
-            }
-            else
-                UpdateNoteBadge(node);
+                RestoreExpandReflowSnapshot();
 
-            if (_imagePanelNode == node)
-                PositionNodeOverlays(node);
+                if (noteAdded || noteRemoved)
+                {
+                    RelayoutAfterAttachmentChange(node);
+                    ReplaceNodeVisual(node);
+                }
+                else
+                    UpdateNoteBadge(node);
+
+                if (_imagePanelNode == node)
+                    PositionNodeOverlays(node);
+            }
         }
 
         private void PositionNodeOverlays(NodeViewModel node)
@@ -1117,7 +1368,7 @@ namespace MyMindWin.Controls
             AfterOverlayOpened(node, keepReflowOnClose);
         }
 
-        private void CloseImagePanel()
+        private void CloseImagePanel(bool skipSideEffects = false)
         {
             if (_imagePanelNode == null) return;
 
@@ -1128,13 +1379,17 @@ namespace MyMindWin.Controls
             ImageBorder.Visibility = Visibility.Collapsed;
             NodeImageDisplay.Source = null;
             UpdateOverlayHitTest();
-            RestoreExpandReflowSnapshot();
 
-            if (node.HasImage)
-                UpdateImageBadge(node);
+            if (!skipSideEffects)
+            {
+                RestoreExpandReflowSnapshot();
 
-            if (_notePanelNode == node)
-                PositionNodeOverlays(node);
+                if (node.HasImage)
+                    UpdateImageBadge(node);
+
+                if (_notePanelNode == node)
+                    PositionNodeOverlays(node);
+            }
         }
 
         private void PickImageForNode(NodeViewModel node)
@@ -1391,29 +1646,12 @@ namespace MyMindWin.Controls
 
         private void Node_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is not FrameworkElement border || border.Tag is not NodeViewModel vm || _vm == null)
+            if (sender is not FrameworkElement { Tag: NodeViewModel vm } || _vm == null)
                 return;
 
             e.Handled = true;
-            _vm.SelectedNode = vm;
-            RefreshSelectionVisuals();
-            CommandManager.InvalidateRequerySuggested();
 
-            var menu = NodeContextMenuHelper.Build(
-                vm,
-                _vm,
-                this,
-                this,
-                node =>
-                {
-                    if (_nodeElements.TryGetValue(node.Model.Id, out var border))
-                        StartEditing(node, border);
-                },
-                OpenNotePanel,
-                OpenImageForNode,
-                RemoveImageFromNode);
-            menu.PlacementTarget = border;
-            menu.IsOpen = true;
+            ShowNodeContextMenu(vm);
         }
 
         private void Node_MouseMove(object sender, MouseEventArgs e)
@@ -1478,7 +1716,8 @@ namespace MyMindWin.Controls
 
         private void RefreshAllVisuals()
         {
-            if (_vm?.RootNode == null) return;
+            if (_vm?.RootNode == null || _isRebuildingCanvas)
+                return;
 
             foreach (var node in _vm.GetAllNodes())
             {
@@ -1513,7 +1752,11 @@ namespace MyMindWin.Controls
         private void Node_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is not FrameworkElement border) return;
-            border.RenderTransform = new ScaleTransform(1.06, 1.06, border.Width / 2, border.Height / 2);
+            double w = border.ActualWidth > 0 ? border.ActualWidth : border.Width;
+            double h = border.ActualHeight > 0 ? border.ActualHeight : border.Height;
+            if (w <= 0) w = NodeMinWidth;
+            if (h <= 0) h = NodeHeight;
+            border.RenderTransform = new ScaleTransform(1.06, 1.06, w / 2, h / 2);
             border.RenderTransformOrigin = new Point(0.5, 0.5);
             Panel.SetZIndex(border, 10);
         }
@@ -1527,7 +1770,8 @@ namespace MyMindWin.Controls
 
         private void RefreshSelectionVisuals()
         {
-            if (_vm == null) return;
+            if (_vm == null || IsCanvasLayoutBusy)
+                return;
             foreach (var (id, element) in _nodeElements)
             {
                 var node = FindNode(id);
@@ -1684,15 +1928,35 @@ namespace MyMindWin.Controls
 
         private void CanvasScroller_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            bool panLeft = e.ChangedButton == MouseButton.Left && !IsNodeHit(e.OriginalSource as DependencyObject);
-            if (e.ChangedButton == MouseButton.Middle || panLeft)
+            if (e.ChangedButton == MouseButton.Middle)
             {
                 _isPanning = true;
                 _panStart = e.GetPosition(CanvasScroller);
                 _panStartScrollX = CanvasScroller.HorizontalOffset;
                 _panStartScrollY = CanvasScroller.VerticalOffset;
                 CanvasScroller.CaptureMouse();
-                if (panLeft) e.Handled = true;
+            }
+            else if (e.ChangedButton == MouseButton.Left && !IsNodeHit(e.OriginalSource as DependencyObject))
+            {
+                _isRubberBanding = true;
+                _rubberBandStart = e.GetPosition(NodeCanvas);
+
+                _rubberBandRect = new Rectangle
+                {
+                    Stroke = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0xB5, 0xF6)),
+                    StrokeThickness = 1.5,
+                    StrokeDashArray = new DoubleCollection([5, 3]),
+                    Fill = new SolidColorBrush(Color.FromArgb(0x28, 0x64, 0xB5, 0xF6)),
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(_rubberBandRect, _rubberBandStart.X);
+                Canvas.SetTop(_rubberBandRect, _rubberBandStart.Y);
+                _rubberBandRect.Width = 0;
+                _rubberBandRect.Height = 0;
+                NodeCanvas.Children.Add(_rubberBandRect);
+
+                CanvasScroller.CaptureMouse();
+                e.Handled = true;
             }
         }
 
@@ -1708,20 +1972,108 @@ namespace MyMindWin.Controls
 
         private void CanvasScroller_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (!_isPanning) return;
-            var pos = e.GetPosition(CanvasScroller);
-            CanvasScroller.ScrollToHorizontalOffset(_panStartScrollX - (pos.X - _panStart.X));
-            CanvasScroller.ScrollToVerticalOffset(_panStartScrollY - (pos.Y - _panStart.Y));
+            if (_isPanning)
+            {
+                var pos = e.GetPosition(CanvasScroller);
+                CanvasScroller.ScrollToHorizontalOffset(_panStartScrollX - (pos.X - _panStart.X));
+                CanvasScroller.ScrollToVerticalOffset(_panStartScrollY - (pos.Y - _panStart.Y));
+            }
+            else if (_isRubberBanding && _rubberBandRect != null)
+            {
+                var cur = e.GetPosition(NodeCanvas);
+                double x = Math.Min(_rubberBandStart.X, cur.X);
+                double y = Math.Min(_rubberBandStart.Y, cur.Y);
+                double w = Math.Abs(cur.X - _rubberBandStart.X);
+                double h = Math.Abs(cur.Y - _rubberBandStart.Y);
+                Canvas.SetLeft(_rubberBandRect, x);
+                Canvas.SetTop(_rubberBandRect, y);
+                _rubberBandRect.Width = w;
+                _rubberBandRect.Height = h;
+            }
         }
 
         private void CanvasScroller_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (!_isPanning) return;
-            _isPanning = false;
-            CanvasScroller.ReleaseMouseCapture();
+            if (_isPanning && e.ChangedButton == MouseButton.Middle)
+            {
+                _isPanning = false;
+                CanvasScroller.ReleaseMouseCapture();
+            }
+            else if (_isRubberBanding && e.ChangedButton == MouseButton.Left)
+            {
+                _isRubberBanding = false;
+                if (_rubberBandRect != null)
+                {
+                    NodeCanvas.Children.Remove(_rubberBandRect);
+                    _rubberBandRect = null;
+                }
+
+                CanvasScroller.ReleaseMouseCapture();
+                var endPos = e.GetPosition(NodeCanvas);
+                ApplyRubberBandSelection(_rubberBandStart, endPos);
+            }
         }
 
-        public void RebuildFromViewModel() => RebuildCanvas();
+        private void ApplyRubberBandSelection(Point startCanvas, Point endCanvas)
+        {
+            if (_vm == null) return;
+
+            double x1 = Math.Min(startCanvas.X, endCanvas.X);
+            double y1 = Math.Min(startCanvas.Y, endCanvas.Y);
+            double x2 = Math.Max(startCanvas.X, endCanvas.X);
+            double y2 = Math.Max(startCanvas.Y, endCanvas.Y);
+
+            if (x2 - x1 < 4 && y2 - y1 < 4)
+            {
+                _vm.SelectedNode = null;
+                RefreshSelectionVisuals();
+                return;
+            }
+
+            double wx1 = x1 + _contentOriginX;
+            double wy1 = y1 + _contentOriginY;
+            double wx2 = x2 + _contentOriginX;
+            double wy2 = y2 + _contentOriginY;
+            var selRect = new Rect(wx1, wy1, wx2 - wx1, wy2 - wy1);
+
+            var hits = _vm.GetAllNodes()
+                .Where(n => _nodeElements.ContainsKey(n.Model.Id))
+                .Where(n => selRect.IntersectsWith(new Rect(n.X, n.Y, n.Width, NodeHeight)))
+                .ToList();
+
+            _vm.SetMultiSelection(hits);
+            RefreshSelectionVisuals();
+        }
+
+        public void RebuildFromViewModel() => ScheduleRebuildCanvas();
+
+        public void RefreshNodeText(NodeViewModel node)
+        {
+            if (!_nodeElements.TryGetValue(node.Model.Id, out var wrapper) || wrapper is not Grid grid)
+                return;
+
+            foreach (var child in grid.Children)
+            {
+                if (child is not Grid nodeVisualGrid)
+                    continue;
+                foreach (var vc in nodeVisualGrid.Children)
+                {
+                    if (vc is TextBlock tb)
+                    {
+                        tb.Text = node.Text;
+                        double fontSize = node.Level == 0 ? 16 : 13;
+                        double newWidth = MeasureTextWidth(node.Text, fontSize) + 28;
+                        if (Math.Abs(newWidth - node.Width) > 1)
+                        {
+                            node.Width = newWidth;
+                            grid.Width = newWidth;
+                            nodeVisualGrid.Width = newWidth;
+                        }
+                        return;
+                    }
+                }
+            }
+        }
 
         /// <summary>100% 확대로 맞춘 뒤 다이어그램 중심을 뷰포트에 배치합니다.</summary>
         public void SetViewToDefaultZoom()

@@ -1,0 +1,73 @@
+<Window x:Class="MyMindWin.Views.ErrorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="오류 발생"
+        Width="640" Height="480"
+        MinWidth="420" MinHeight="280"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        Background="#1A1F2E"
+        ShowInTaskbar="True">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <TextBlock Text="⚠" Foreground="#FF6B6B" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock Text="프로그램 오류 — 아래 내용을 복사해 알려주시면 원인 파악에 도움이 됩니다"
+                       Foreground="#FF6B6B"
+                       FontFamily="Segoe UI"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Background="#0D101A"
+                BorderBrush="#334466"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="10">
+            <TextBox x:Name="ErrorTextBox"
+                     FontFamily="Consolas, Segoe UI"
+                     FontSize="12"
+                     Foreground="#E8EEF8"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     IsReadOnly="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     AcceptsReturn="True"/>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="CopyButton"
+                    Content="클립보드에 복사"
+                    Padding="12,6"
+                    Margin="0,0,8,0"
+                    FontFamily="Segoe UI"
+                    FontSize="12"
+                    Click="CopyButton_Click"
+                    Background="#2A3548"
+                    Foreground="#F0F4FF"
+                    BorderBrush="#6A7FA8"
+                    BorderThickness="1"/>
+            <Button x:Name="CloseButton"
+                    Content="닫기"
+                    Padding="12,6"
+                    FontFamily="Segoe UI"
+                    FontSize="12"
+                    IsDefault="True"
+                    Click="CloseButton_Click"
+                    Background="#334466"
+                    Foreground="White"
+                    BorderBrush="#5A7CBE"
+                    BorderThickness="1"/>
+        </StackPanel>
+    </Grid>
+</Window>

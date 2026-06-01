@@ -22,6 +22,7 @@ namespace MyMindWin.ViewModels
     {
         private NodeViewModel? _rootNode;
         private NodeViewModel? _selectedNode;
+        private readonly List<NodeViewModel> _multiSelectedNodes = [];
         private LayoutType _layoutType = LayoutType.HorizontalTree;
         private bool _layoutFlipHorizontal;
         private bool _layoutFlipVertical;
@@ -48,20 +49,59 @@ namespace MyMindWin.ViewModels
         public IEnumerable<NodeViewModel> RootNodes =>
             _rootNode != null ? [_rootNode] : [];
 
+        public IReadOnlyList<NodeViewModel> MultiSelectedNodes => _multiSelectedNodes;
+
         public NodeViewModel? SelectedNode
         {
             get => _selectedNode;
             set
             {
+                ClearMultiSelection();
                 if (_selectedNode != null) _selectedNode.IsSelected = false;
                 _selectedNode = value;
                 if (_selectedNode != null) _selectedNode.IsSelected = true;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasSelectedNode));
+                OnPropertyChanged(nameof(SelectionStatusText));
                 SyncShapeComboFromSelectedNode();
                 SyncColorComboFromSelectedNode();
                 SyncBorderComboFromSelectedNode();
             }
+        }
+
+        public void SetMultiSelection(IEnumerable<NodeViewModel> nodes)
+        {
+            ClearMultiSelection();
+            if (_selectedNode != null) { _selectedNode.IsSelected = false; _selectedNode = null; }
+
+            var list = nodes.ToList();
+            if (list.Count == 0)
+            {
+                OnPropertyChanged(nameof(SelectedNode));
+                OnPropertyChanged(nameof(HasSelectedNode));
+                return;
+            }
+
+            _selectedNode = list[0];
+            _selectedNode.IsSelected = true;
+            foreach (var n in list.Skip(1))
+            {
+                n.IsSelected = true;
+                _multiSelectedNodes.Add(n);
+            }
+
+            OnPropertyChanged(nameof(SelectedNode));
+            OnPropertyChanged(nameof(HasSelectedNode));
+            SyncShapeComboFromSelectedNode();
+            SyncColorComboFromSelectedNode();
+            SyncBorderComboFromSelectedNode();
+        }
+
+        private void ClearMultiSelection()
+        {
+            foreach (var n in _multiSelectedNodes)
+                n.IsSelected = false;
+            _multiSelectedNodes.Clear();
         }
 
         public bool HasSelectedNode => SelectedNode != null;
@@ -104,15 +144,13 @@ namespace MyMindWin.ViewModels
                 return;
 
             bool restoreInheritSelection = SelectedNode is { Model.ColorIndex: < 0 };
+            bool prevColorSync = _syncingColorCombo;
+            _syncingColorCombo = true;
             NodeColorOptions.RemoveAt(0);
             NodeColorOptions.Insert(0, inherit);
-
             if (restoreInheritSelection)
-            {
-                _syncingColorCombo = true;
                 OnPropertyChanged(nameof(SelectedNodeColorIndex));
-                _syncingColorCombo = false;
-            }
+            _syncingColorCombo = prevColorSync;
         }
 
         private NodeColorOption BuildInheritColorOption()
@@ -204,15 +242,13 @@ namespace MyMindWin.ViewModels
                 return;
 
             bool restore = SelectedNode.Model.BorderColorIndex == NodeBorderPalette.InheritColorIndex;
+            bool prevBorderSync = _syncingBorderCombo;
+            _syncingBorderCombo = true;
             NodeBorderColorOptions.RemoveAt(0);
             NodeBorderColorOptions.Insert(0, inherit);
-
             if (restore)
-            {
-                _syncingBorderCombo = true;
                 OnPropertyChanged(nameof(SelectedNodeBorderColorIndex));
-                _syncingBorderCombo = false;
-            }
+            _syncingBorderCombo = prevBorderSync;
         }
 
         private NodeBorderColorOption BuildInheritBorderColorOption()
@@ -240,11 +276,16 @@ namespace MyMindWin.ViewModels
                 return;
 
             SelectedNode.BorderColorIndex = colorIndex;
+            foreach (var n in _multiSelectedNodes)
+                n.BorderColorIndex = colorIndex;
+
             _syncingBorderCombo = true;
             RefreshInheritBorderColorPreview();
             OnPropertyChanged(nameof(SelectedNodeBorderColorIndex));
             _syncingBorderCombo = false;
             RequestNodeShapeRefresh?.Invoke(this, SelectedNode);
+            foreach (var n in _multiSelectedNodes)
+                RequestNodeShapeRefresh?.Invoke(this, n);
         }
 
         private void ApplyBorderThicknessToSelected(double? thickness)
@@ -252,11 +293,17 @@ namespace MyMindWin.ViewModels
             if (SelectedNode == null)
                 return;
 
-            SelectedNode.BorderThickness = NodeBorderThicknessPresets.Normalize(thickness);
+            var normalized = NodeBorderThicknessPresets.Normalize(thickness);
+            SelectedNode.BorderThickness = normalized;
+            foreach (var n in _multiSelectedNodes)
+                n.BorderThickness = normalized;
+
             _syncingBorderCombo = true;
             OnPropertyChanged(nameof(SelectedNodeBorderThicknessOption));
             _syncingBorderCombo = false;
             RequestNodeShapeRefresh?.Invoke(this, SelectedNode);
+            foreach (var n in _multiSelectedNodes)
+                RequestNodeShapeRefresh?.Invoke(this, n);
         }
 
         /// <summary>문서 제목 (.mmap title → 파일명 → 루트 노드 텍스트).</summary>
@@ -526,6 +573,33 @@ namespace MyMindWin.ViewModels
             ZoomLevel = 1.0;
         }
 
+        public int TotalNodeCount => GetAllNodes().Count();
+
+        public string LayoutTypeName => _layoutType switch
+        {
+            LayoutType.Radial   => "방사형",
+            LayoutType.Fishbone => "피쉬본",
+            _                   => "수평 트리"
+        };
+
+        public string SelectionStatusText
+        {
+            get
+            {
+                int extra = _multiSelectedNodes.Count;
+                if (extra > 0 && _selectedNode != null)
+                    return $"{extra + 1}개 노드 선택됨";
+                return _selectedNode != null ? _selectedNode.Text : "선택 없음";
+            }
+        }
+
+        private void NotifyStatusChanged()
+        {
+            OnPropertyChanged(nameof(TotalNodeCount));
+            OnPropertyChanged(nameof(SelectionStatusText));
+            OnPropertyChanged(nameof(LayoutTypeName));
+        }
+
         public void SetRoot(MindMapNode model, LayoutType? layout = null)
         {
             if (layout.HasValue)
@@ -536,6 +610,7 @@ namespace MyMindWin.ViewModels
             SelectedNode = RootNode;
             OnPropertyChanged(nameof(DocumentTitle));
             OnPropertyChanged(nameof(LayoutType));
+            NotifyStatusChanged();
             RequestLayout?.Invoke(this, EventArgs.Empty);
         }
 
@@ -573,6 +648,7 @@ namespace MyMindWin.ViewModels
         {
             _layoutType = layoutType;
             OnPropertyChanged(nameof(LayoutType));
+            NotifyStatusChanged();
             RequestAutoLayout?.Invoke(this, EventArgs.Empty);
         }
 
@@ -600,12 +676,17 @@ namespace MyMindWin.ViewModels
                 return;
 
             SelectedNode.NodeColorIndex = colorIndex;
+            foreach (var n in _multiSelectedNodes)
+                n.NodeColorIndex = colorIndex;
+
             _syncingColorCombo = true;
             RefreshInheritColorPreview();
             OnPropertyChanged(nameof(SelectedNodeColorIndex));
             _syncingColorCombo = false;
 
             RequestNodeColorRefresh?.Invoke(this, SelectedNode);
+            foreach (var n in _multiSelectedNodes)
+                RequestNodeColorRefresh?.Invoke(this, n);
             RefreshInheritBorderColorPreviewIfNeeded(SelectedNode);
         }
 
@@ -649,12 +730,17 @@ namespace MyMindWin.ViewModels
         {
             if (SelectedNode == null || SelectedNode.Shape == shape) return;
             SelectedNode.Shape = shape;
+            foreach (var n in _multiSelectedNodes)
+                n.Shape = shape;
+
             _syncingShapeCombo = true;
             _shapeComboSelection = shape;
             OnPropertyChanged(nameof(ShapeComboSelection));
             OnPropertyChanged(nameof(SelectedShapeOption));
             _syncingShapeCombo = false;
             RequestNodeShapeRefresh?.Invoke(this, SelectedNode);
+            foreach (var n in _multiSelectedNodes)
+                RequestNodeShapeRefresh?.Invoke(this, n);
         }
 
         private void SetShapeFromParameter(object? parameter)
@@ -692,6 +778,7 @@ namespace MyMindWin.ViewModels
             SelectedNode.IsExpanded = true;
             SelectedNode = newVm;
 
+            NotifyStatusChanged();
             RequestLayout?.Invoke(this, EventArgs.Empty);
         }
 
@@ -720,6 +807,7 @@ namespace MyMindWin.ViewModels
             parent.Children.Insert(parent.Children.IndexOf(SelectedNode) + 1, newVm);
             SelectedNode = newVm;
 
+            NotifyStatusChanged();
             RequestLayout?.Invoke(this, EventArgs.Empty);
         }
 
@@ -732,21 +820,37 @@ namespace MyMindWin.ViewModels
             parent.Children.Remove(SelectedNode);
             SelectedNode = parent;
 
+            NotifyStatusChanged();
             RequestLayout?.Invoke(this, EventArgs.Empty);
         }
 
         private void ToggleExpand()
         {
-            if (SelectedNode == null) return;
-            SelectedNode.IsExpanded = !SelectedNode.IsExpanded;
-            RequestLayout?.Invoke(this, EventArgs.Empty);
+            try
+            {
+                if (SelectedNode == null) return;
+                SelectedNode.IsExpanded = !SelectedNode.IsExpanded;
+                RequestLayout?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                App.ReportError(ex, "노드 접기/펴기");
+            }
         }
 
         private void SetExpandAll(bool expanded)
         {
-            if (RootNode == null) return;
-            SetExpandRecursive(RootNode, expanded);
-            RequestLayout?.Invoke(this, EventArgs.Empty);
+            try
+            {
+                var startNode = SelectedNode ?? RootNode;
+                if (startNode == null) return;
+                SetExpandRecursive(startNode, expanded);
+                RequestLayout?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                App.ReportError(ex, expanded ? "모두 펼치기" : "모두 접기");
+            }
         }
 
         private static void SetExpandRecursive(NodeViewModel node, bool expanded)
@@ -898,6 +1002,31 @@ namespace MyMindWin.ViewModels
             {
                 MessageBox.Show($"파일을 저장할 수 없습니다:\n{ex.Message}", "저장 오류",
                     MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // ── Sample document ───────────────────────────────────────────────────
+
+        /// <summary>앱에 내장된 예제 마인드맵을 로드합니다. 시작 시 자동 호출됩니다.</summary>
+        public void LoadSampleDocument()
+        {
+            try
+            {
+                var assembly = typeof(MainViewModel).Assembly;
+                using var stream = assembly.GetManifestResourceStream("MyMindWin.Assets.sample.mmap");
+                if (stream == null) return;
+
+                using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
+                var json = reader.ReadToEnd();
+                var document = MindMapFileSerializer.Deserialize(json);
+                LoadDocument(document);
+                _currentFilePath = string.Empty;
+                _documentTitle = null;
+                OnPropertyChanged(nameof(DocumentTitle));
+            }
+            catch
+            {
+                // 로드 실패 시 빈 문서 그대로 유지
             }
         }
 

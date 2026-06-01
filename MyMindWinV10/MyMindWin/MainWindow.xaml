@@ -17,75 +17,11 @@
 
     <Window.Resources>
         <conv:ConnectionLineIconConverter x:Key="ConnectionLineIconConverter"/>
+        <conv:CountToHasChildrenConverter x:Key="HasChildrenConv"/>
 
-        <!-- TreeView Item Style -->
-        <Style x:Key="TreeNodeStyle" TargetType="TreeViewItem">
-            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
-            <Setter Property="Foreground" Value="#CCFFFFFF"/>
-            <Setter Property="FontFamily" Value="Segoe UI"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="2,3"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TreeViewItem">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition/>
-                            </Grid.RowDefinitions>
-                            <Border x:Name="ItemBorder" Grid.Row="0"
-                                    Padding="4,3,4,3" CornerRadius="4"
-                                    Background="Transparent">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="16"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <ToggleButton x:Name="Expander" Grid.Column="0"
-                                                  IsChecked="{Binding Path=IsExpanded,
-                                                      RelativeSource={RelativeSource TemplatedParent}}"
-                                                  Width="14" Height="14">
-                                        <ToggleButton.Template>
-                                            <ControlTemplate TargetType="ToggleButton">
-                                                <Grid Width="14" Height="14" Cursor="Hand">
-                                                    <Path x:Name="ExpandArrow"
-                                                          Fill="#88FFFFFF"
-                                                          Data="M 3,2 L 11,7 L 3,12 Z"
-                                                          HorizontalAlignment="Center"
-                                                          VerticalAlignment="Center"/>
-                                                </Grid>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsChecked" Value="True">
-                                                        <Setter TargetName="ExpandArrow" Property="Data"
-                                                                Value="M 2,4 L 12,4 L 7,12 Z"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </ToggleButton.Template>
-                                    </ToggleButton>
-                                    <ContentPresenter Grid.Column="1"
-                                                      ContentSource="Header"
-                                                      VerticalAlignment="Center"/>
-                                </Grid>
-                            </Border>
-                            <ItemsPresenter Grid.Row="1" Margin="14,0,0,0"
-                                            x:Name="ItemsHost" Visibility="Collapsed"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="HasItems" Value="False">
-                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
-                            </Trigger>
-                            <Trigger Property="IsExpanded" Value="True">
-                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Visible"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#44FFFFFF"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <Style x:Key="StructureTreeItemStyle" TargetType="TreeViewItem" BasedOn="{StaticResource TreeNodeStyle}">
+            <EventSetter Event="Expanded" Handler="StructureTreeItem_ExpandCollapse"/>
+            <EventSetter Event="Collapsed" Handler="StructureTreeItem_ExpandCollapse"/>
         </Style>
 
         <!-- Toolbar Button Style -->
@@ -255,33 +191,33 @@
         </Style>
 
         <DataTemplate x:Key="ConnectionLineOptionTemplate">
-            <Grid Margin="0,2">
+            <Grid Margin="0,1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="32"/>
+                    <ColumnDefinition Width="28"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0"
-                        Width="28" Height="28"
+                        Width="22" Height="22"
                         Background="#1A2744"
                         BorderBrush="#334466"
                         BorderThickness="1"
-                        CornerRadius="4"
-                        VerticalAlignment="Top">
+                        CornerRadius="3"
+                        VerticalAlignment="Center">
                     <ContentControl HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Content="{Binding Type, Converter={StaticResource ConnectionLineIconConverter}}"/>
                 </Border>
-                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Label}"
                                Foreground="#F0F4FF"
                                FontFamily="Segoe UI"
-                               FontSize="13"
+                               FontSize="11"
                                FontWeight="SemiBold"/>
                     <TextBlock Text="{Binding Description}"
                                Foreground="#88AACC"
                                FontFamily="Segoe UI"
-                               FontSize="11"
-                               Margin="0,3,0,0"
+                               FontSize="10"
+                               Margin="0,1,0,0"
                                TextWrapping="Wrap"/>
                 </StackPanel>
             </Grid>
@@ -292,8 +228,8 @@
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#F0F4FF"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -333,19 +269,19 @@
         </Style>
 
         <DataTemplate x:Key="ConnectionLineThicknessOptionTemplate">
-            <Grid Margin="0,2">
+            <Grid Margin="0,1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="52"/>
+                    <ColumnDefinition Width="44"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0"
-                        Height="28"
+                        Height="22"
                         Background="#1A2744"
                         BorderBrush="#334466"
                         BorderThickness="1"
-                        CornerRadius="4"
+                        CornerRadius="3"
                         VerticalAlignment="Center">
-                    <Line X1="8" Y1="14" X2="44" Y2="14"
+                    <Line X1="6" Y1="11" X2="36" Y2="11"
                           Stroke="#74B9FF"
                           StrokeThickness="{Binding Thickness}"
                           StrokeStartLineCap="Round"
@@ -356,9 +292,9 @@
                            Text="{Binding Label}"
                            Foreground="#F0F4FF"
                            FontFamily="Segoe UI"
-                           FontSize="13"
+                           FontSize="11"
                            VerticalAlignment="Center"
-                           Margin="8,0,0,0"/>
+                           Margin="6,0,0,0"/>
             </Grid>
         </DataTemplate>
 
@@ -368,29 +304,29 @@
         </Style>
 
         <DataTemplate x:Key="NodeColorOptionTemplate">
-            <Grid Margin="0,2">
+            <Grid Margin="0,1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="32"/>
+                    <ColumnDefinition Width="28"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0"
-                        Width="28" Height="28"
+                        Width="22" Height="18"
                         BorderBrush="#334466"
                         BorderThickness="1"
-                        CornerRadius="4"
+                        CornerRadius="3"
                         VerticalAlignment="Center"
                         SnapsToDevicePixels="True"
                         UseLayoutRounding="True">
-                    <Rectangle RadiusX="3" RadiusY="3"
+                    <Rectangle RadiusX="2" RadiusY="2"
                                Fill="{Binding PreviewBrush}"/>
                 </Border>
                 <TextBlock Grid.Column="1"
                            Text="{Binding Label}"
                            Foreground="#F0F4FF"
                            FontFamily="Segoe UI"
-                           FontSize="13"
+                           FontSize="11"
                            VerticalAlignment="Center"
-                           Margin="8,0,0,0"/>
+                           Margin="6,0,0,0"/>
             </Grid>
         </DataTemplate>
 
@@ -400,27 +336,27 @@
         </Style>
 
         <DataTemplate x:Key="NodeBorderColorOptionTemplate">
-            <Grid Margin="0,2">
+            <Grid Margin="0,1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="32"/>
+                    <ColumnDefinition Width="28"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0"
-                        Width="28" Height="28"
+                        Width="22" Height="18"
                         BorderBrush="#334466"
                         BorderThickness="1"
-                        CornerRadius="4"
+                        CornerRadius="3"
                         VerticalAlignment="Center">
-                    <Rectangle RadiusX="3" RadiusY="3"
+                    <Rectangle RadiusX="2" RadiusY="2"
                                Fill="{Binding PreviewBrush}"/>
                 </Border>
                 <TextBlock Grid.Column="1"
                            Text="{Binding Label}"
                            Foreground="#F0F4FF"
                            FontFamily="Segoe UI"
-                           FontSize="13"
+                           FontSize="11"
                            VerticalAlignment="Center"
-                           Margin="8,0,0,0"/>
+                           Margin="6,0,0,0"/>
             </Grid>
         </DataTemplate>
 
@@ -430,25 +366,25 @@
         </Style>
 
         <DataTemplate x:Key="NodeBorderThicknessOptionTemplate">
-            <Grid Margin="0,2">
+            <Grid Margin="0,1">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="52"/>
+                    <ColumnDefinition Width="44"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Grid.Column="0"
-                        Width="44" Height="28"
+                        Width="36" Height="18"
                         Background="#1A2744"
                         BorderBrush="#74B9FF"
                         BorderThickness="{Binding PreviewBorderThickness}"
-                        CornerRadius="4"
+                        CornerRadius="3"
                         VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1"
                            Text="{Binding Label}"
                            Foreground="#F0F4FF"
                            FontFamily="Segoe UI"
-                           FontSize="13"
+                           FontSize="11"
                            VerticalAlignment="Center"
-                           Margin="8,0,0,0"/>
+                           Margin="6,0,0,0"/>
             </Grid>
         </DataTemplate>
 
@@ -463,6 +399,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- ══ Menu ════════════════════════════════════════════════════════ -->
@@ -621,16 +558,69 @@
                         <TreeView x:Name="StructureTree"
                                   Background="#0D101A"
                                   BorderThickness="0"
-                                  Padding="6"
+                                  Padding="4,6,6,6"
                                   ItemsSource="{Binding RootNodes}"
-                                  ItemContainerStyle="{StaticResource TreeNodeStyle}"
+                                  ItemContainerStyle="{StaticResource StructureTreeItemStyle}"
                                   SelectedItemChanged="StructureTree_SelectedItemChanged"
                                   PreviewMouseRightButtonDown="StructureTree_PreviewMouseRightButtonDown"
                                   MouseDoubleClick="StructureTree_MouseDoubleClick"
                                   PreviewKeyDown="StructureTree_PreviewKeyDown">
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                    <Grid MinWidth="80">
+                                    <StackPanel Style="{StaticResource StructureTreeNodeHeader}">
+                                        <Grid Width="16" Height="16" Margin="0,0,6,0">
+                                            <Path Data="{StaticResource StructureTreeFolderIcon}"
+                                                  Stroke="#E8C04A" StrokeThickness="1.1" Fill="#C49A1A"
+                                                  StrokeLineJoin="Round" Stretch="Uniform">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding Children.Count, Converter={StaticResource HasChildrenConv}}" Value="True"/>
+                                                                    <Condition Binding="{Binding IsExpanded}" Value="False"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                            <Path Data="{StaticResource StructureTreeFolderOpenIcon}"
+                                                  Stroke="#E8C04A" StrokeThickness="1.1" Fill="#D4A82A"
+                                                  StrokeLineJoin="Round" Stretch="Uniform">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding Children.Count, Converter={StaticResource HasChildrenConv}}" Value="True"/>
+                                                                    <Condition Binding="{Binding IsExpanded}" Value="True"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                            <Path Data="{StaticResource StructureTreeFileIcon}"
+                                                  Stroke="#8AA4C4" StrokeThickness="1.1" Fill="#5A7A9A"
+                                                  StrokeLineJoin="Round" Stretch="Uniform">
+                                                <Path.Style>
+                                                    <Style TargetType="Path">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Children.Count}" Value="0">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Path.Style>
+                                            </Path>
+                                        </Grid>
+                                        <Grid MinWidth="60">
                                         <TextBlock Text="{Binding Text}"
                                                    Foreground="#DDFFFFFF"
                                                    FontFamily="Segoe UI"
@@ -660,7 +650,8 @@
                                                  VerticalAlignment="Center"
                                                  KeyDown="StructureTreeEditBox_KeyDown"
                                                  LostFocus="StructureTreeEditBox_LostFocus"
-                                                 Loaded="StructureTreeEditBox_Loaded">
+                                                 Loaded="StructureTreeEditBox_Loaded"
+                                                 TextChanged="StructureTreeEditBox_TextChanged">
                                             <TextBox.Style>
                                                 <Style TargetType="TextBox">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -672,7 +663,8 @@
                                                 </Style>
                                             </TextBox.Style>
                                         </TextBox>
-                                    </Grid>
+                                        </Grid>
+                                    </StackPanel>
                                 </HierarchicalDataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>
@@ -715,20 +707,19 @@
                                   HorizontalScrollBarVisibility="Disabled"
                                   Background="#0D101A"
                                   Padding="0,4,0,4">
-                        <StackPanel Margin="10,6,10,8" Background="#0D101A">
+                        <StackPanel Margin="8,4,8,6" Background="#0D101A">
                             <TextBlock Text="노드 색"
                                        Foreground="#88FFFFFF"
                                        FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       Margin="0,0,0,8"/>
+                                       FontSize="11"
+                                       Margin="0,0,0,4"/>
                             <TextBlock Foreground="#66AACC"
                                        FontFamily="Segoe UI"
-                                       FontSize="11"
+                                       FontSize="10"
                                        TextWrapping="Wrap"
-                                       Margin="0,0,0,8"
-                                       Text="루트는 「기본 루트 색」 또는 팔레트를 선택합니다. 하위 노드는 기본적으로 부모 색을 상속합니다."/>
+                                       Margin="0,0,0,4"
+                                       Text="루트는 기본 루트 색 또는 팔레트. 하위 노드는 부모 색 상속."/>
                             <ListBox Style="{StaticResource NodeColorListBox}"
-                                     MinHeight="200"
                                      ItemsSource="{Binding NodeColorOptions}"
                                      SelectedValue="{Binding SelectedNodeColorIndex, Mode=TwoWay}"
                                      SelectedValuePath="ColorIndex"
@@ -736,10 +727,9 @@
                             <TextBlock Text="테두리 색"
                                        Foreground="#88FFFFFF"
                                        FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       Margin="0,16,0,8"/>
+                                       FontSize="11"
+                                       Margin="0,10,0,4"/>
                             <ListBox Style="{StaticResource NodeBorderColorListBox}"
-                                     MinHeight="160"
                                      ItemsSource="{Binding NodeBorderColorOptions}"
                                      SelectedValue="{Binding SelectedNodeBorderColorIndex, Mode=TwoWay}"
                                      SelectedValuePath="ColorIndex"
@@ -747,37 +737,34 @@
                             <TextBlock Text="테두리 두께"
                                        Foreground="#88FFFFFF"
                                        FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       Margin="0,16,0,8"/>
+                                       FontSize="11"
+                                       Margin="0,10,0,4"/>
                             <ListBox Style="{StaticResource NodeBorderThicknessListBox}"
-                                     MinHeight="130"
                                      ItemsSource="{Binding NodeBorderThicknessOptions}"
                                      SelectedItem="{Binding SelectedNodeBorderThicknessOption, Mode=TwoWay}"
                                      IsEnabled="{Binding CanEditNodeBorder}"/>
                             <TextBlock Text="연결선 종류"
                                        Foreground="#88FFFFFF"
                                        FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       Margin="0,16,0,8"/>
+                                       FontSize="11"
+                                       Margin="0,10,0,4"/>
                             <ListBox Style="{StaticResource ConnectionLineListBox}"
-                                     MinHeight="130"
                                      ItemsSource="{Binding ConnectionLineOptions}"
                                      SelectedItem="{Binding SelectedConnectionLineOption, Mode=TwoWay}"/>
                             <TextBlock Text="연결선 두께"
                                        Foreground="#88FFFFFF"
                                        FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       Margin="0,16,0,8"/>
+                                       FontSize="11"
+                                       Margin="0,10,0,4"/>
                             <ListBox Style="{StaticResource ConnectionLineThicknessListBox}"
-                                     MinHeight="110"
                                      ItemsSource="{Binding ConnectionLineThicknessOptions}"
                                      SelectedItem="{Binding SelectedConnectionLineThicknessOption, Mode=TwoWay}"/>
                             <CheckBox Content="뿌리형 가늘어짐 (중심 굵게 → 세부 가늘게)"
                                       IsChecked="{Binding ConnectionLineTaper, Mode=TwoWay}"
                                       Foreground="#CCFFFFFF"
                                       FontFamily="Segoe UI"
-                                      FontSize="12"
-                                      Margin="0,14,0,8"
+                                      FontSize="11"
+                                      Margin="0,10,0,4"
                                       ToolTip="부모 쪽은 굵고 자식(세부) 노드 쪽으로 갈수록 연결선이 가늘어집니다."/>
                         </StackPanel>
                     </ScrollViewer>
@@ -793,5 +780,68 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <!-- ══ Status Bar ═══════════════════════════════════════════════════ -->
+        <Border Grid.Row="3" Background="#080A12"
+                BorderBrush="#22FFFFFF" BorderThickness="0,1,0,0"
+                Padding="8,3">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: document title + selection -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Foreground="#88AABB"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="{Binding DocumentTitle}"/>
+                    <TextBlock Text="  |  " Foreground="#33FFFFFF"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Foreground="#AACCEE"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="{Binding SelectionStatusText}"/>
+                </StackPanel>
+
+                <!-- Center: node count -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0">
+                    <TextBlock Foreground="#55AABB"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="노드: "/>
+                    <TextBlock Foreground="#88CCDD"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="{Binding TotalNodeCount}"/>
+                </StackPanel>
+
+                <!-- Right: layout + zoom -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <TextBlock Foreground="#55AABB"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="레이아웃: "/>
+                    <TextBlock Foreground="#88CCDD"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="{Binding LayoutTypeName}"/>
+                    <TextBlock Text="   " Foreground="#33FFFFFF"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Foreground="#55AABB"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="줌: "/>
+                    <TextBlock Foreground="#88CCDD"
+                               FontFamily="Segoe UI" FontSize="11"
+                               VerticalAlignment="Center"
+                               Text="{Binding ZoomLevel, StringFormat={}{0:P0}}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

@@ -8,52 +8,62 @@
         <Setter Property="Background" Value="{StaticResource AppMenuBg}"/>
         <Setter Property="Foreground" Value="{StaticResource AppMenuForeground}"/>
         <Setter Property="FontFamily" Value="Segoe UI"/>
-        <Setter Property="FontSize" Value="13"/>
-        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="8,5"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
                     <Border x:Name="ItemBorder"
-                            Background="{TemplateBinding Background}"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Margin="2,1"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="22"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0"
-                                    Width="24" Height="24"
+                                    Width="20" Height="20"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     SnapsToDevicePixels="True">
-                                <Viewbox Width="16" Height="16"
+                                <Viewbox Width="14" Height="14"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center">
-                                    <ContentPresenter Content="{TemplateBinding Icon}"/>
+                                    <ContentPresenter x:Name="IconPresenter" Content="{TemplateBinding Icon}"/>
                                 </Viewbox>
                             </Border>
-                            <ContentPresenter Grid.Column="1"
+                            <ContentPresenter x:Name="HeaderPresenter"
+                                              Grid.Column="1"
                                               Content="{TemplateBinding Header}"
-                                              Margin="8,0,16,0"
+                                              Margin="6,0,14,0"
                                               VerticalAlignment="Center"
                                               RecognizesAccessKey="True"
                                               TextElement.Foreground="{StaticResource AppMenuForeground}"/>
-                            <TextBlock Grid.Column="2"
+                            <TextBlock x:Name="GestureText"
+                                       Grid.Column="2"
                                        Text="{TemplateBinding InputGestureText}"
                                        Foreground="{StaticResource AppMenuMuted}"
                                        FontFamily="Segoe UI"
-                                       FontSize="11"
+                                       FontSize="10"
                                        VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AppMenuHighlightBg}"/>
+                            <Setter TargetName="ItemBorder" Property="Background" Value="#4A6CAE"/>
+                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#5A7CBE"/>
+                            <Setter TargetName="HeaderPresenter" Property="TextElement.Foreground" Value="White"/>
+                            <Setter TargetName="GestureText" Property="Foreground" Value="#CCDDFF"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
+                            <Setter TargetName="HeaderPresenter" Property="TextElement.Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
+                            <Setter TargetName="GestureText" Property="Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
