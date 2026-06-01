@@ -183,29 +183,41 @@ static void refresh_result_view(GtkMainWindow *mw) {
     const OcrResult *result = ocr_app_get_result(mw->app);
     gtk_list_store_clear(mw->result_store);
 
-    if (result && result->line_count > 0) {
+    if (!result || (!result->line_count && !(result->text && result->text[0]))) {
+        gtk_widget_queue_draw(mw->box_area);
+        update_save_buttons(mw);
+        return;
+    }
+
+    /* 첫 행: [ OCR 엔진 이름 ] */
+    const char *engine_name = ocr_app_active_engine_display_name(mw->app);
+    char *header = g_strdup_printf("[ %s ]", engine_name ? engine_name : "OCR");
+    GtkTreeIter iter;
+    gtk_list_store_append(mw->result_store, &iter);
+    gtk_list_store_set(mw->result_store, &iter, 0, "", 1, header, -1);
+    g_free(header);
+
+    /* 이후 행: 1번부터 인식 결과 */
+    if (result->line_count > 0) {
+        guint row = 1;
         for (size_t i = 0; i < result->line_count; i++) {
             const char *line_text = result->lines[i].text;
             if (!line_text || !line_text[0]) continue;
-            GtkTreeIter iter;
+            char num[16];
+            g_snprintf(num, sizeof(num), "%u", row++);
             gtk_list_store_append(mw->result_store, &iter);
-            gtk_list_store_set(mw->result_store, &iter,
-                0, (guint)(i + 1),
-                1, line_text,
-                -1);
+            gtk_list_store_set(mw->result_store, &iter, 0, num, 1, line_text, -1);
         }
-    } else if (result && result->text && result->text[0]) {
+    } else if (result->text && result->text[0]) {
         gchar **lines = g_strsplit(result->text, "\n", -1);
         guint row = 1;
         for (guint i = 0; lines[i]; i++) {
             g_strstrip(lines[i]);
             if (!lines[i][0]) continue;
-            GtkTreeIter iter;
+            char num[16];
+            g_snprintf(num, sizeof(num), "%u", row++);
             gtk_list_store_append(mw->result_store, &iter);
-            gtk_list_store_set(mw->result_store, &iter,
-                0, row++,
-                1, lines[i],
-                -1);
+            gtk_list_store_set(mw->result_store, &iter, 0, num, 1, lines[i], -1);
         }
         g_strfreev(lines);
     }
@@ -649,9 +661,13 @@ static void save_window_state(GtkMainWindow *mw) {
     AppSettings *s = ocr_app_get_settings(mw->app);
     if (!s) return;
 
+    /* GDK window must still be valid — call only from delete-event, not destroy */
+    GdkWindow *gdk_win = gtk_widget_get_window(mw->window);
+    if (!gdk_win || !GDK_IS_WINDOW(gdk_win)) return;
+
     GtkWindow *win = GTK_WINDOW(mw->window);
-    s->window_maximized = (gdk_window_get_state(gtk_widget_get_window(mw->window))
-        & GDK_WINDOW_STATE_MAXIMIZED) != 0;
+    s->window_maximized = (gdk_window_get_state(gdk_win)
+                           & GDK_WINDOW_STATE_MAXIMIZED) != 0;
 
     if (!s->window_maximized) {
         gint w, h, x, y;
@@ -666,10 +682,18 @@ static void save_window_state(GtkMainWindow *mw) {
     ocr_app_save_settings(mw->app, NULL);
 }
 
+/* delete-event: window still alive → safe to read GDK state */
+static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer user_data) {
+    (void)widget;
+    (void)event;
+    save_window_state(user_data);
+    return FALSE;  /* proceed with destruction */
+}
+
+/* destroy: GDK window already gone → only free GTK/app resources */
 static void on_destroy(GtkWidget *widget, gpointer user_data) {
     (void)widget;
     GtkMainWindow *mw = user_data;
-    save_window_state(mw);
     if (mw->display_pixbuf) g_object_unref(mw->display_pixbuf);
     g_free(mw);
     gtk_main_quit();
@@ -714,7 +738,8 @@ GtkWidget *gtk_main_window_create(OcrApp *app) {
         GTK_STYLE_PROVIDER(css),
         GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     g_object_unref(css);
-    g_signal_connect(mw->window, "destroy", G_CALLBACK(on_destroy), mw);
+    g_signal_connect(mw->window, "delete-event", G_CALLBACK(on_delete_event), mw);
+    g_signal_connect(mw->window, "destroy",      G_CALLBACK(on_destroy),      mw);
     g_signal_connect(mw->window, "key-press-event", G_CALLBACK(on_key_press), mw);
 
     gtk_drag_dest_set(mw->window, GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY);
@@ -834,7 +859,7 @@ GtkWidget *gtk_main_window_create(OcrApp *app) {
     gtk_widget_set_size_request(result_frame, -1, RESULT_TREE_MIN_HEIGHT);
     gtk_box_pack_start(GTK_BOX(mw->bottom_panel), result_frame, TRUE, TRUE, 0);
 
-    mw->result_store = gtk_list_store_new(2, G_TYPE_UINT, G_TYPE_STRING);
+    mw->result_store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
     mw->result_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(mw->result_store));
 
     GtkCellRenderer *num_renderer = gtk_cell_renderer_text_new();
