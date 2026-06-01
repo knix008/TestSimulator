@@ -1,0 +1,11 @@
+<UserControl x:Class="MyClockWinV10.Controls.DotMatrixDisplay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True">
+    <Viewbox Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+             UseLayoutRounding="True" SnapsToDevicePixels="True">
+        <Canvas x:Name="DotCanvas" SnapsToDevicePixels="True"
+                RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+    </Viewbox>
+</UserControl>

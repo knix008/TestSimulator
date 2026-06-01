@@ -137,7 +137,8 @@ public partial class AnalogClockControl : UserControl
     /// <summary>Scale a length defined for the 380×380 design canvas.</summary>
     private double Sc(double designUnits) => designUnits * _scale;
 
-    private double NumFontSize(double designFontSize) => Math.Max(8, designFontSize * _scale);
+    /// <summary>Font size proportional to clock radius (scales with window).</summary>
+    private double ScaledNumFont(double radiusFactor) => Math.Max(10, _r * radiusFactor);
 
     private void DrawAllTicks(Brush tickMin, Brush tickHr)
     {
@@ -161,21 +162,23 @@ public partial class AnalogClockControl : UserControl
 
     private void DrawArabicNumbers(Brush numBrush)
     {
-        double fontSize = NumFontSize(16);
+        double fontSize = ScaledNumFont(0.145);
+        double labelR   = _r * 0.72;
         for (int i = 1; i <= 12; i++)
         {
             double a = i * 30 * Math.PI / 180;
-            PlaceLabel(i.ToString(), a, _r - Sc(42), fontSize, FontWeights.Bold, numBrush);
+            PlaceLabel(i.ToString(), a, labelR, fontSize, FontWeights.Bold, numBrush);
         }
     }
 
     private void DrawRomanNumbers(Brush numBrush)
     {
-        double fontSize = NumFontSize(12);
+        double fontSize = ScaledNumFont(0.115);
+        double labelR   = _r * 0.70;
         for (int i = 1; i <= 12; i++)
         {
             double a = i * 30 * Math.PI / 180;
-            PlaceLabel(RomanNumerals[i], a, _r - Sc(44), fontSize, FontWeights.Bold, numBrush);
+            PlaceLabel(RomanNumerals[i], a, labelR, fontSize, FontWeights.Bold, numBrush);
         }
     }
 
@@ -310,7 +313,8 @@ public partial class AnalogClockControl : UserControl
 
     private void DrawAviatorFace(Brush tickMin, Brush tickHr, Brush numBrush)
     {
-        double fontSize = NumFontSize(18);
+        double fontSize = ScaledNumFont(0.15);
+        double labelR   = _r * 0.71;
         for (int i = 0; i < 12; i++)
         {
             bool isCardinal = i % 3 == 0;
@@ -329,7 +333,7 @@ public partial class AnalogClockControl : UserControl
         foreach (int h in new[] { 12, 3, 6, 9 })
         {
             double a = h * 30 * Math.PI / 180;
-            PlaceLabel(h.ToString(), a, _r - Sc(40), fontSize, FontWeights.Bold, numBrush);
+            PlaceLabel(h.ToString(), a, labelR, fontSize, FontWeights.Bold, numBrush);
         }
     }
 

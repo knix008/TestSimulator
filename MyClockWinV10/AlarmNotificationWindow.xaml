@@ -12,7 +12,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="알람" FontSize="14" FontWeight="SemiBold"
+                <TextBlock x:Name="AlarmHeaderText" Text="알람" FontSize="14" FontWeight="SemiBold"
                            Foreground="{DynamicResource SubtleForegroundBrush}"
                            HorizontalAlignment="Center" Margin="0,0,0,6"/>
                 <TextBlock x:Name="AlarmTimeText" FontSize="52" FontWeight="Bold"

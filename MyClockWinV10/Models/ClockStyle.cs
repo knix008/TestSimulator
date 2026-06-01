@@ -7,7 +7,8 @@ public enum DigitalStyle
     Minimal,
     Retro,
     Neon,
-    DotMatrix
+    DotMatrix,
+    Korean
 }
 
 public enum AnalogStyle
@@ -34,6 +35,7 @@ public static class ClockStyleCatalog
         new(nameof(DigitalStyle.Retro),       "레트로"),
         new(nameof(DigitalStyle.Neon),        "네온"),
         new(nameof(DigitalStyle.DotMatrix),   "도트"),
+        new(nameof(DigitalStyle.Korean),      "한글"),
     ];
 
     public static IReadOnlyList<ClockStyleOption> Analog { get; } =

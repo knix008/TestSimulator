@@ -11,7 +11,9 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
+using MyClockWinV10.Helpers;
 using MyClockWinV10.Models;
+using MyClockWinV10.Services;
 
 namespace MyClockWinV10;
 
@@ -33,6 +35,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly ObservableCollection<AlarmItem> _alarms = new();
     private readonly HashSet<Guid> _firedAlarms = new();
+    private readonly TimerService _countdown = new();
+    private readonly AlarmSoundPlayer _alarmSounds = new();
 
     private bool _isDigital      = true;
     private bool _use24h         = false;
@@ -52,6 +56,8 @@ public partial class MainWindow : Window
     private System.Windows.Media.Color _digitColor =
         System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
     private double _brightness = 1.0;
+    private double _digitalTextBaseFontSize = 60;
+    private string _lastDigitalText = "";
 
     private AppSettings _settings = new();
 
@@ -64,6 +70,7 @@ public partial class MainWindow : Window
 
         _timer.Tick += OnTick;
         _timer.Start();
+        DigitalPanel.SizeChanged += (_, _) => RefitCurrentDigitalText();
         OnTick(null, EventArgs.Empty);
     }
 
@@ -107,6 +114,21 @@ public partial class MainWindow : Window
         ApplyDigitalStyle(_digitalStyle);
         ApplyAnalogStyle(_analogStyle);
 
+        _alarmSounds.SoundId = AlarmSoundCatalog.IsValid(s.AlarmSoundId) ? s.AlarmSoundId : AlarmSoundCatalog.DefaultId;
+        _alarmSounds.Volume  = Math.Clamp(s.AlarmVolume, 0, 100) / 100.0;
+        _countdown.SetDuration(new TimeSpan(
+            Math.Clamp(s.TimerHours, 0, 99),
+            Math.Clamp(s.TimerMinutes, 0, 59),
+            Math.Clamp(s.TimerSeconds, 0, 59)));
+        _countdown.RemainingChanged += OnCountdownRemainingChanged;
+        _countdown.Completed        += OnCountdownCompleted;
+        _countdown.StateChanged     += _ => Dispatcher.Invoke(() =>
+        {
+            if (!IsTimerOnMainDisplay)
+                OnTick(null, EventArgs.Empty);
+            _sidePanel?.RefreshTimerUi();
+        });
+
         foreach (var dto in s.Alarms)
         {
             if (TimeSpan.TryParseExact(dto.Time, @"hh\:mm", null, out var ts))
@@ -143,6 +165,15 @@ public partial class MainWindow : Window
             IsRepeat   = a.IsRepeat,
             RepeatDays = a.RepeatDays
         })];
+        if (_sidePanel is not null)
+        {
+            var (h, m, sec) = _sidePanel.GetTimerParts();
+            _settings.TimerHours   = h;
+            _settings.TimerMinutes = m;
+            _settings.TimerSeconds = sec;
+        }
+        _settings.AlarmSoundId = _alarmSounds.SoundId;
+        _settings.AlarmVolume  = (int)Math.Round(_alarmSounds.Volume * 100);
         SettingsManager.Save(_settings);
     }
 
@@ -168,8 +199,13 @@ public partial class MainWindow : Window
 
         ApplyTheme(d.Theme);
         ApplyBrightness(d.Brightness / 100.0);
+        _alarmSounds.SoundId = d.AlarmSoundId;
+        _alarmSounds.Volume  = d.AlarmVolume / 100.0;
+        _countdown.Stop();
+        _countdown.SetDuration(new TimeSpan(d.TimerHours, d.TimerMinutes, d.TimerSeconds));
 
-        _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness, _digitalStyle, _analogStyle);
+        _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness, _digitalStyle, _analogStyle,
+            d.TimerHours, d.TimerMinutes, d.TimerSeconds, d.AlarmSoundId, d.AlarmVolume);
         SaveSettings();
     }
 
@@ -323,6 +359,7 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         SaveSettings();
+        _alarmSounds.Stop();
         _sidePanel?.Close();
         _trayIcon?.Dispose();
         if (_trayIconHandle != IntPtr.Zero) DestroyIcon(_trayIconHandle);
@@ -336,8 +373,12 @@ public partial class MainWindow : Window
         var now = DateTime.Now;
         HeaderDateText.Text = now.ToString("yyyy년 MM월 dd일  ddd");
 
-        if (_isDigital) UpdateDigital(now);
-        else            UpdateAnalog(now);
+        if (IsTimerOnMainDisplay)
+            UpdateTimerDisplay(_countdown.Remaining);
+        else if (_isDigital)
+            UpdateDigital(now);
+        else
+            UpdateAnalog(now);
 
         _sidePanel?.UpdateTimes(_worldUse24h);
         CheckAlarms(now);
@@ -346,29 +387,139 @@ public partial class MainWindow : Window
             UpdateTrayIcon(now);
     }
 
+    private bool IsTimerOnMainDisplay =>
+        _countdown.State is TimerRunState.Running or TimerRunState.Paused;
+
+    private void OnCountdownRemainingChanged(TimeSpan remaining)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (IsTimerOnMainDisplay)
+                UpdateTimerDisplay(remaining);
+            _sidePanel?.RefreshTimerUi();
+        });
+    }
+
+    private void OnCountdownCompleted()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            string label = _countdown.Duration.ToString(@"hh\:mm\:ss");
+            ShowAlarmNotification("00:00:00", label, "타이머 완료");
+            UpdateDigital(DateTime.Now);
+        });
+    }
+
+    private void UpdateTimerDisplay(TimeSpan remaining)
+    {
+        int h = (int)remaining.TotalHours;
+        string text = $"{h:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
+
+        if (UsesCanvasDigitalDisplay())
+        {
+            AmPmText.Text = _countdown.State == TimerRunState.Paused ? "일시정지" : "타이머";
+            SetCanvasDigitalTime(text);
+        }
+        else
+        {
+            TextAmPm.Text = _countdown.State == TimerRunState.Paused ? "일시정지" : "타이머";
+            string display = _digitalStyle == nameof(Models.DigitalStyle.Korean)
+                ? KoreanTimeText.FormatCountdown(remaining, showSeconds: true)
+                : text;
+            ApplyDigitalTextTime(display);
+        }
+
+        ClockStatusText.Text = "타이머";
+        if (!_isDigital)
+        {
+            AnalogClock.DrawClock(DateTime.Now);
+            ClockStatusText.Text = text;
+        }
+    }
+
     private void UpdateDigital(DateTime now)
     {
         string ampm = _use24h ? "" : (now.Hour < 12 ? "오전" : "오후");
 
-        if (_digitalStyle == "SevenSegment")
+        if (UsesCanvasDigitalDisplay())
         {
-            SevenSeg.Text = _use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss");
             AmPmText.Text = ampm;
+            SetCanvasDigitalTime(FormatCanvasDigitalTime(now));
         }
         else
         {
             TextAmPm.Text = ampm;
             bool showSeconds = _digitalStyle != nameof(Models.DigitalStyle.Minimal);
-            string time = showSeconds
-                ? (_use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss"))
-                : (_use24h ? now.ToString("HH:mm") : now.ToString("hh:mm"));
-            TextTime.Text = _digitalStyle == nameof(Models.DigitalStyle.DotMatrix)
-                ? time.Replace(":", " : ")
-                : time;
+            string display = _digitalStyle == nameof(Models.DigitalStyle.Korean)
+                ? KoreanTimeText.FormatClock(now, _use24h, showSeconds)
+                : FormatNumericDigitalTime(now, showSeconds);
+            ApplyDigitalTextTime(display);
         }
 
         ClockStatusText.Text = "";
     }
+
+    private void ApplyDigitalTextTime(string text)
+    {
+        _lastDigitalText = text;
+        double maxWidth = GetDigitalTextMaxWidth();
+
+        bool alwaysFit = _digitalStyle == nameof(Models.DigitalStyle.Korean);
+
+        TextTime.FontSize = _digitalTextBaseFontSize;
+        TextTime.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+
+        if (alwaysFit || TextTime.DesiredSize.Width > maxWidth)
+            DigitalTextFitter.FitSingleLine(TextTime, text, maxWidth, _digitalTextBaseFontSize);
+        else
+        {
+            TextTime.Text          = text;
+            TextTime.TextWrapping  = TextWrapping.NoWrap;
+            TextTime.TextAlignment = TextAlignment.Center;
+        }
+    }
+
+    private void RefitCurrentDigitalText()
+    {
+        if (!_isDigital || UsesCanvasDigitalDisplay()) return;
+        if (IsTimerOnMainDisplay)
+            UpdateTimerDisplay(_countdown.Remaining);
+        else if (!string.IsNullOrEmpty(_lastDigitalText))
+            ApplyDigitalTextTime(_lastDigitalText);
+    }
+
+    private double GetDigitalTextMaxWidth()
+    {
+        double w = DigitalPanel.ActualWidth;
+        if (w < 40)
+            w = Math.Max(0, ActualWidth - 36);
+        return Math.Max(60, w - 8);
+    }
+
+    private string FormatNumericDigitalTime(DateTime now, bool showSeconds)
+    {
+        string time = showSeconds
+            ? (_use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss"))
+            : (_use24h ? now.ToString("HH:mm") : now.ToString("hh:mm"));
+        return time;
+    }
+
+    private static bool UsesCanvasDigitalDisplay(string style) =>
+        style is nameof(Models.DigitalStyle.SevenSegment)
+            or nameof(Models.DigitalStyle.DotMatrix);
+
+    private bool UsesCanvasDigitalDisplay() => UsesCanvasDigitalDisplay(_digitalStyle);
+
+    private void SetCanvasDigitalTime(string time)
+    {
+        if (_digitalStyle == nameof(Models.DigitalStyle.DotMatrix))
+            DotMatrixClock.Text = time;
+        else
+            SevenSeg.Text = time;
+    }
+
+    private string FormatCanvasDigitalTime(DateTime now) =>
+        _use24h ? now.ToString("HH:mm:ss") : now.ToString("hh:mm:ss");
 
     private void UpdateAnalog(DateTime now)
     {
@@ -417,9 +568,19 @@ public partial class MainWindow : Window
 
     private void FireAlarm(AlarmItem alarm)
     {
-        System.Media.SystemSounds.Exclamation.Play();
-        new AlarmNotificationWindow($"{alarm.Time.Hours:D2}:{alarm.Time.Minutes:D2}", alarm.Label)
-        { Owner = this }.Show();
+        ShowAlarmNotification(
+            $"{alarm.Time.Hours:D2}:{alarm.Time.Minutes:D2}",
+            alarm.Label,
+            "알람");
+    }
+
+    private void ShowAlarmNotification(string time, string label, string header)
+    {
+        _alarmSounds.PlayAlarm(loop: true);
+        var win = new AlarmNotificationWindow(time, label, header, () => _alarmSounds.Stop())
+        { Owner = this };
+        win.Closed += (_, _) => _alarmSounds.Stop();
+        win.Show();
     }
 
     // ── Clock mode ────────────────────────────────────────────────────────
@@ -430,8 +591,12 @@ public partial class MainWindow : Window
         DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
         AnalogClock.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
         SetActiveClockBtn(_isDigital);
-        if (_isDigital) UpdateDigital(DateTime.Now);
-        else            UpdateAnalog(DateTime.Now);
+        if (IsTimerOnMainDisplay)
+            UpdateTimerDisplay(_countdown.Remaining);
+        else if (_isDigital)
+            UpdateDigital(DateTime.Now);
+        else
+            UpdateAnalog(DateTime.Now);
     }
 
     private void SetActiveClockBtn(bool digital)
@@ -462,6 +627,7 @@ public partial class MainWindow : Window
         _digitColor = c;
         var brush = new SolidColorBrush(c);
         SevenSeg.SegColor = brush;
+        DotMatrixClock.DotColor = brush;
         Application.Current.Resources["DigitalTextBrush"] = brush;
         if (_digitalStyle == nameof(Models.DigitalStyle.Neon) && TextTime.Effect is DropShadowEffect glow)
             glow.Color = c;
@@ -476,12 +642,16 @@ public partial class MainWindow : Window
     internal void ApplyDigitalStyle(string style)
     {
         _digitalStyle = style;
-        bool isSeg = style == nameof(Models.DigitalStyle.SevenSegment);
-        AmPmText.Visibility     = isSeg ? Visibility.Visible   : Visibility.Collapsed;
-        SevenSeg.Visibility     = isSeg ? Visibility.Visible   : Visibility.Collapsed;
-        TextClockBox.Visibility = isSeg ? Visibility.Collapsed : Visibility.Visible;
+        bool isSeg    = style == nameof(Models.DigitalStyle.SevenSegment);
+        bool isDot    = style == nameof(Models.DigitalStyle.DotMatrix);
+        bool isCanvas = isSeg || isDot;
 
-        if (!isSeg)
+        AmPmText.Visibility        = isCanvas ? Visibility.Visible   : Visibility.Collapsed;
+        SevenSeg.Visibility        = isSeg    ? Visibility.Visible   : Visibility.Collapsed;
+        DotMatrixClock.Visibility  = isDot    ? Visibility.Visible   : Visibility.Collapsed;
+        TextClockBox.Visibility    = isCanvas ? Visibility.Collapsed : Visibility.Visible;
+
+        if (!isCanvas)
         {
             TextTime.Effect = null;
 
@@ -490,17 +660,17 @@ public partial class MainWindow : Window
                 case nameof(Models.DigitalStyle.Minimal):
                     TextTime.FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
                     TextTime.FontWeight = FontWeights.Light;
-                    TextTime.FontSize   = 72;
+                    _digitalTextBaseFontSize = 72;
                     break;
                 case nameof(Models.DigitalStyle.Retro):
                     TextTime.FontFamily = new System.Windows.Media.FontFamily("Courier New");
                     TextTime.FontWeight = FontWeights.Normal;
-                    TextTime.FontSize   = 56;
+                    _digitalTextBaseFontSize = 56;
                     break;
                 case nameof(Models.DigitalStyle.Neon):
                     TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
                     TextTime.FontWeight = FontWeights.Bold;
-                    TextTime.FontSize   = 64;
+                    _digitalTextBaseFontSize = 64;
                     TextTime.Effect = new DropShadowEffect
                     {
                         Color       = _digitColor,
@@ -509,18 +679,21 @@ public partial class MainWindow : Window
                         Opacity     = 0.85
                     };
                     break;
-                case nameof(Models.DigitalStyle.DotMatrix):
-                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Cascadia Mono, Consolas, Courier New");
+                case nameof(Models.DigitalStyle.Korean):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Malgun Gothic, 맑은 고딕, Batang");
                     TextTime.FontWeight = FontWeights.SemiBold;
-                    TextTime.FontSize   = 52;
+                    _digitalTextBaseFontSize = 36;
                     break;
                 default: // LcdText
                     TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
                     TextTime.FontWeight = FontWeights.Bold;
-                    TextTime.FontSize   = 60;
+                    _digitalTextBaseFontSize = 60;
                     break;
             }
         }
+
+        TextTime.TextWrapping = TextWrapping.NoWrap;
+        TextTime.ClearValue(FrameworkElement.MaxWidthProperty);
 
         if (_isDigital) UpdateDigital(DateTime.Now);
     }
@@ -568,7 +741,7 @@ public partial class MainWindow : Window
         _panelOpensRight = DetermineOpenRight();
         UpdatePanelToggleBtnSide(open: true);
 
-        _sidePanel = new SidePanelWindow(_alarms) { Owner = this };
+        _sidePanel = new SidePanelWindow(_alarms, _countdown, _alarmSounds) { Owner = this };
         _sidePanel.OnThemeRequested       = name => { ApplyTheme(name); SaveSettings(); };
         _sidePanel.OnFormatChanged        = v => { _use24h = v; };
         _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; };
@@ -577,6 +750,7 @@ public partial class MainWindow : Window
         _sidePanel.OnResetRequested       = ResetToDefaults;
         _sidePanel.OnDigitalStyleChanged  = s => { ApplyDigitalStyle(s); SaveSettings(); };
         _sidePanel.OnAnalogStyleChanged   = s => { ApplyAnalogStyle(s); SaveSettings(); };
+        _sidePanel.OnSettingsChanged      = SaveSettings;
         _sidePanel.Closed += (_, _) =>
         {
             if (_rightVisible)
@@ -588,7 +762,9 @@ public partial class MainWindow : Window
         };
 
         _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(_brightness * 100),
-                                 _digitalStyle, _analogStyle);
+            _digitalStyle, _analogStyle,
+            _settings.TimerHours, _settings.TimerMinutes, _settings.TimerSeconds,
+            _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100));
         PositionSidePanel();
         _sidePanel.Show();
         _sidePanel.AnimateOpen(_panelOpensRight);

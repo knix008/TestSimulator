@@ -133,7 +133,12 @@
                            HorizontalAlignment="Center"/>
                 <ctrl:SevenSegmentDisplay Grid.Row="1" x:Name="SevenSeg"
                                           SegColor="{DynamicResource DigitalTextBrush}"
-                                          DimColor="{DynamicResource SegDimBrush}"/>
+                                          DimColor="{DynamicResource SegDimBrush}"
+                                          Visibility="Visible"/>
+                <ctrl:DotMatrixDisplay Grid.Row="1" x:Name="DotMatrixClock"
+                                        DotColor="{DynamicResource DigitalTextBrush}"
+                                        DimColor="{DynamicResource SegDimBrush}"
+                                        Visibility="Collapsed"/>
                 <!-- LcdText / Minimal style -->
                 <Viewbox x:Name="TextClockBox" Grid.Row="0" Grid.RowSpan="2"
                          Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"

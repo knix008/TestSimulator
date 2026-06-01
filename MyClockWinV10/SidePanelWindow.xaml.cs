@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MyClockWinV10.Models;
+using MyClockWinV10.Services;
 using static MyClockWinV10.Models.SettingsManager;
 
 namespace MyClockWinV10;
@@ -22,8 +23,14 @@ public partial class SidePanelWindow : Window
     public Action?         OnResetRequested;
     public Action<string>? OnDigitalStyleChanged;
     public Action<string>? OnAnalogStyleChanged;
+    public Action? OnSettingsChanged;
 
     private const double TargetWidth = 400;
+
+    private readonly TimerService _timer;
+    private readonly AlarmSoundPlayer _sounds;
+    private int _timerHours, _timerMinutes, _timerSeconds;
+    private bool _suppressSoundComboChange;
 
     private readonly List<RadioButton> _digitalStyleRadios = new();
     private readonly List<RadioButton> _analogStyleRadios  = new();
@@ -43,12 +50,25 @@ public partial class SidePanelWindow : Window
         ("분홍", Color.FromRgb(0xFF, 0x80, 0xAB)),
     ];
 
-    public SidePanelWindow(ObservableCollection<AlarmItem> alarms)
+    public SidePanelWindow(
+        ObservableCollection<AlarmItem> alarms,
+        TimerService timer,
+        AlarmSoundPlayer sounds)
     {
+        _timer  = timer;
+        _sounds = sounds;
         InitializeComponent();
         AlarmList.ItemsSource = alarms;
         BuildColorSwatches();
         BuildClockStyleRadios();
+        BuildAlarmSoundCombo();
+    }
+
+    private void BuildAlarmSoundCombo()
+    {
+        AlarmSoundCombo.ItemsSource = AlarmSoundCatalog.All;
+        AlarmSoundCombo.DisplayMemberPath = nameof(AlarmSoundOption.Label);
+        AlarmSoundCombo.SelectedValuePath = nameof(AlarmSoundOption.Id);
     }
 
     // ── Open / close animation (Width expands/collapses rightward) ────────
@@ -240,7 +260,9 @@ public partial class SidePanelWindow : Window
     // ── Settings sync (called from MainWindow) ────────────────────────────
 
     public void ApplySettings(bool use24h, bool worldUse24h, int brightness,
-                              string digitalStyle, string analogStyle)
+                              string digitalStyle, string analogStyle,
+                              int timerH, int timerM, int timerS,
+                              string alarmSoundId, int alarmVolume)
     {
         Format12h.Checked       -= Format_Checked;
         Format24h.Checked       -= Format_Checked;
@@ -254,6 +276,20 @@ public partial class SidePanelWindow : Window
         BrightnessSlider.Value  = Math.Clamp(brightness, 0, 100);
         Dispatcher.BeginInvoke(UpdateBrightnessScaleLabels, System.Windows.Threading.DispatcherPriority.Loaded);
         StartupToggle.IsChecked = IsStartupEnabled();
+
+        _timerHours   = Math.Clamp(timerH, 0, 99);
+        _timerMinutes = Math.Clamp(timerM, 0, 59);
+        _timerSeconds = Math.Clamp(timerS, 0, 59);
+        UpdateTimerDurationFields();
+        if (_timer.State == TimerRunState.Idle)
+            _timer.SetDuration(GetConfiguredDuration());
+
+        _suppressSoundComboChange = true;
+        AlarmSoundCombo.SelectedValue = AlarmSoundCatalog.IsValid(alarmSoundId)
+            ? alarmSoundId : AlarmSoundCatalog.DefaultId;
+        _suppressSoundComboChange = false;
+        AlarmVolumeSlider.Value = Math.Clamp(alarmVolume, 0, 100);
+        RefreshTimerUi();
         SelectStyleRadio(_digitalStyleRadios, digitalStyle, nameof(DigitalStyle.SevenSegment));
         SelectStyleRadio(_analogStyleRadios,  analogStyle,  nameof(AnalogStyle.Classic));
         SetClockStyleHandlers(enabled: true);
@@ -271,6 +307,87 @@ public partial class SidePanelWindow : Window
 
     private void Reset_Click(object sender, RoutedEventArgs e)
         => OnResetRequested?.Invoke();
+
+    // ── Timer ─────────────────────────────────────────────────────────────
+
+    public void RefreshTimerUi()
+    {
+        if (TimerRemainingText is null) return;
+        var r = _timer.Remaining;
+        TimerRemainingText.Text = $"{(int)r.TotalHours:D2}:{r.Minutes:D2}:{r.Seconds:D2}";
+
+        bool idle = _timer.State == TimerRunState.Idle;
+        TimerStartBtn.IsEnabled = idle || _timer.State == TimerRunState.Paused;
+        TimerPauseBtn.IsEnabled = _timer.State == TimerRunState.Running;
+        TimerStartBtn.Content = _timer.State == TimerRunState.Paused ? "재개" : "시작";
+
+    }
+
+    private TimeSpan GetConfiguredDuration() =>
+        new(_timerHours, _timerMinutes, _timerSeconds);
+
+    private void ApplyDurationToTimer()
+    {
+        if (_timer.State != TimerRunState.Idle) return;
+        _timer.SetDuration(GetConfiguredDuration());
+        RefreshTimerUi();
+        OnSettingsChanged?.Invoke();
+    }
+
+    private void UpdateTimerDurationFields()
+    {
+        TimerHoursText.Text   = _timerHours.ToString();
+        TimerMinutesText.Text = _timerMinutes.ToString();
+        TimerSecondsText.Text = _timerSeconds.ToString();
+    }
+
+    private void TimerHoursUp_Click(object sender, RoutedEventArgs e)
+    { if (_timer.State != TimerRunState.Idle) return; _timerHours = Math.Min(99, _timerHours + 1); UpdateTimerDurationFields(); ApplyDurationToTimer(); }
+    private void TimerHoursDown_Click(object sender, RoutedEventArgs e)
+    { if (_timer.State != TimerRunState.Idle) return; _timerHours = Math.Max(0, _timerHours - 1); UpdateTimerDurationFields(); ApplyDurationToTimer(); }
+    private void TimerMinutesUp_Click(object sender, RoutedEventArgs e)
+    { if (_timer.State != TimerRunState.Idle) return; _timerMinutes = (_timerMinutes + 1) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
+    private void TimerMinutesDown_Click(object sender, RoutedEventArgs e)
+    { if (_timer.State != TimerRunState.Idle) return; _timerMinutes = (_timerMinutes + 59) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
+    private void TimerSecondsUp_Click(object sender, RoutedEventArgs e)
+    { if (_timer.State != TimerRunState.Idle) return; _timerSeconds = (_timerSeconds + 1) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
+    private void TimerSecondsDown_Click(object sender, RoutedEventArgs e)
+    { if (_timer.State != TimerRunState.Idle) return; _timerSeconds = (_timerSeconds + 59) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
+
+    private void TimerStart_Click(object sender, RoutedEventArgs e)
+    {
+        if (_timer.State == TimerRunState.Idle)
+            _timer.SetDuration(GetConfiguredDuration());
+        _timer.Start();
+        OnSettingsChanged?.Invoke();
+    }
+
+    private void TimerPause_Click(object sender, RoutedEventArgs e)
+        => _timer.Pause();
+
+    private void TimerStop_Click(object sender, RoutedEventArgs e)
+        => _timer.Stop();
+
+    private void AlarmSoundCombo_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSoundComboChange || AlarmSoundCombo.SelectedValue is not string id) return;
+        _sounds.SoundId = id;
+        OnSettingsChanged?.Invoke();
+    }
+
+    private void AlarmVolume_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (AlarmVolumeLabel is null) return;
+        int pct = (int)Math.Round(e.NewValue);
+        AlarmVolumeLabel.Text = $"{pct} %";
+        _sounds.Volume = pct / 100.0;
+        OnSettingsChanged?.Invoke();
+    }
+
+    private void PreviewAlarmSound_Click(object sender, RoutedEventArgs e)
+        => _sounds.Preview();
+
+    public (int H, int M, int S) GetTimerParts() => (_timerHours, _timerMinutes, _timerSeconds);
 
     private void BuildClockStyleRadios()
     {
