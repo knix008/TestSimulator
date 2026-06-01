@@ -7,14 +7,19 @@ namespace MyMindWin.Views
         public ExportImageDialog(string documentTitle, Window? owner)
         {
             InitializeComponent();
-            if (owner != null)
-                Owner = owner;
 
             IncludeHeadingCheck.Checked += IncludeHeadingCheck_Changed;
             IncludeHeadingCheck.Unchecked += IncludeHeadingCheck_Changed;
 
             HeadingBox.Text = documentTitle;
+            IncludeHeadingCheck.IsChecked = true;
             UpdateHeadingEnabled();
+
+            if (owner != null)
+            {
+                Owner = owner;
+                WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
         }
 
         public bool IncludeHeading => IncludeHeadingCheck.IsChecked == true;

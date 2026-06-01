@@ -5,7 +5,8 @@
     <OutputName>MyMindWin_Setup</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <AcceptEula>wix7</AcceptEula>
-    <SuppressIces>ICE69</SuppressIces>
+    <!-- ICE69: per-user shortcut registry keys; ICE60: harvested .NET DLLs often lack version Language -->
+    <SuppressIces>ICE69;ICE60</SuppressIces>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\installer\</OutputPath>
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>

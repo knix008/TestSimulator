@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
+using MyMindWin.Diagnostics;
 using MyMindWin.Models;
 using MyMindWin.Services;
 
@@ -902,21 +903,21 @@ namespace MyMindWin.ViewModels
         {
             if (RootNode == null) return;
 
-            SyncAllNodesToModel();
-
-            var dlg = new SaveFileDialog
-            {
-                Title = $"마인드맵을 {format.GetDisplayName()}으로 저장",
-                Filter = format.GetSaveFileFilter() + "|모든 파일 (*.*)|*.*",
-                DefaultExt = format.GetExtension(),
-                FileName = BuildExportFileName(format)
-            };
-
-            if (dlg.ShowDialog() != true)
-                return;
-
             try
             {
+                SyncAllNodesToModel();
+
+                var dlg = new SaveFileDialog
+                {
+                    Title = $"마인드맵을 {format.GetDisplayName()}으로 저장",
+                    Filter = format.GetSaveFileFilter() + "|모든 파일 (*.*)|*.*",
+                    DefaultExt = format.GetExtension(),
+                    FileName = BuildExportFileName(format)
+                };
+
+                if (dlg.ShowDialog() != true)
+                    return;
+
                 MindMapDocumentExporter.Export(
                     RootNode.Model,
                     DocumentTitle,
@@ -925,10 +926,7 @@ namespace MyMindWin.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{format.GetDisplayName()} 파일을 저장할 수 없습니다:\n{ex.Message}",
-                    "보내기 오류",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
+                App.ReportError(ex, $"{format.GetDisplayName()} 보내기");
             }
         }
 
@@ -954,38 +952,45 @@ namespace MyMindWin.ViewModels
         {
             if (RootNode == null) return;
 
-            var optionsDlg = new Views.ExportImageDialog(DocumentTitle,
-                Application.Current?.MainWindow as Window);
-            if (optionsDlg.ShowDialog() != true)
-                return;
-
-            var dlg = new SaveFileDialog
+            try
             {
-                Title = "마인드맵을 이미지로 저장",
-                Filter = CanvasImageExporter.SaveFileFilter,
-                DefaultExt = ".png",
-                FileName = "mindmap.png"
-            };
+                var owner = Application.Current?.MainWindow;
+                var optionsDlg = new Views.ExportImageDialog(DocumentTitle, owner);
+                if (optionsDlg.ShowDialog() != true)
+                    return;
 
-            if (dlg.ShowDialog() != true)
-                return;
+                var dlg = new SaveFileDialog
+                {
+                    Title = "마인드맵을 이미지로 저장",
+                    Filter = CanvasImageExporter.SaveFileFilter,
+                    DefaultExt = ".png",
+                    FileName = "mindmap.png"
+                };
 
-            var format = CanvasImageFormatExtensions.FromExtension(System.IO.Path.GetExtension(dlg.FileName))
-                         ?? CanvasImageFormat.Png;
-            var options = CanvasImageExporter.CreateOptionsForFormat(format, optionsDlg.HeadingText);
+                if (dlg.ShowDialog() != true)
+                    return;
 
-            if (_exportImageHandler == null)
-            {
-                MessageBox.Show("이미지보내기를 사용할 수 없습니다.", "보내기 오류",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                var format = CanvasImageFormatExtensions.FromExtension(Path.GetExtension(dlg.FileName))
+                             ?? CanvasImageFormat.Png;
+                var options = CanvasImageExporter.CreateOptionsForFormat(format, optionsDlg.HeadingText);
+
+                if (_exportImageHandler == null)
+                {
+                    MessageBox.Show("이미지보내기를 사용할 수 없습니다.", "보내기 오류",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var (success, error) = _exportImageHandler(options, dlg.FileName);
+                if (!success)
+                {
+                    MessageBox.Show($"이미지를 저장할 수 없습니다:\n{error}", "보내기 오류",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
-
-            var (success, error) = _exportImageHandler(options, dlg.FileName);
-            if (!success)
+            catch (Exception ex)
             {
-                MessageBox.Show($"이미지를 저장할 수 없습니다:\n{error}", "보내기 오류",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                App.ReportError(ex, "이미지 보내기");
             }
         }
 

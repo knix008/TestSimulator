@@ -78,6 +78,17 @@
     <ComponentGroup Id="HarvestedApp" Directory="INSTALLFOLDER">
       <Files Include="$(var.MyMindWin.TargetDir)**">
         <Exclude Files="$(var.MyMindWin.TargetDir)\**\*.pdb" />
+        <!-- Windows x64 MSI: Linux/macOS/ARM·x86 네이티브 런타임 제외 -->
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\linux-arm64\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\linux-musl-x64\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\linux-x64\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\osx\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\osx-arm64\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\osx-x64\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\win-arm64\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\runtimes\win-x86\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\native\linux-arm64\**" />
+        <Exclude Files="$(var.MyMindWin.TargetDir)\native\linux-x64\**" />
       </Files>
     </ComponentGroup>
   </Fragment>

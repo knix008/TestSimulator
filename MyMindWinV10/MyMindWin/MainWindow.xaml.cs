@@ -29,7 +29,6 @@ namespace MyMindWin
             DataContext = _vm;
 
             MindMapCanvas.SetViewModel(_vm);
-            MindMapCanvas.CanvasLayoutCompleted += (_, _) => TryShowPendingStructureMenu();
             _vm.RequestNodeColorRefresh += (_, node) =>
             {
                 _vm.RefreshInheritColorPreviewIfNeeded(node);
@@ -73,7 +72,7 @@ namespace MyMindWin
 
         private bool _suppressTreeSync;
         private bool _suppressStructureTreeLayout;
-        private NodeViewModel? _pendingStructureMenuNode;
+        private ContextMenu? _activeStructureContextMenu;
 
         private void StructureTreeItem_ExpandCollapse(object sender, RoutedEventArgs e)
         {
@@ -100,25 +99,20 @@ namespace MyMindWin
                 SelectTreeNode(vm);
         }
 
-        private void StructureTree_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        private void StructureTreeItem_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
             try
             {
-                var treeItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
-                if (treeItem?.DataContext is not NodeViewModel vm) return;
+                if (sender is not TreeViewItem treeItem || treeItem.DataContext is not NodeViewModel vm)
+                    return;
 
                 e.Handled = true;
                 treeItem.Focus();
                 treeItem.IsSelected = true;
                 SelectTreeNode(vm);
+                Keyboard.Focus(StructureTree);
 
                 if (_vm == null) return;
-
-                if (MindMapCanvas.IsCanvasLayoutBusy)
-                {
-                    _pendingStructureMenuNode = vm;
-                    return;
-                }
 
                 ShowStructureTreeContextMenu(treeItem, vm);
             }
@@ -128,32 +122,51 @@ namespace MyMindWin
             }
         }
 
-        private void TryShowPendingStructureMenu()
+        private void CloseStructureContextMenu()
         {
-            if (_pendingStructureMenuNode == null || _vm == null || MindMapCanvas.IsCanvasLayoutBusy)
-                return;
-
-            var vm = _pendingStructureMenuNode;
-            _pendingStructureMenuNode = null;
-
-            var treeItem = FindTreeViewItem(StructureTree, vm);
-            if (treeItem?.IsLoaded == true)
-                ShowStructureTreeContextMenu(treeItem, vm);
+            if (_activeStructureContextMenu == null) return;
+            try
+            {
+                _activeStructureContextMenu.IsOpen = false;
+            }
+            catch
+            {
+                // ignored
+            }
+            finally
+            {
+                _activeStructureContextMenu = null;
+            }
         }
 
         private void ShowStructureTreeContextMenu(TreeViewItem treeItem, NodeViewModel vm)
         {
             try
             {
-                if (_vm == null || !treeItem.IsLoaded || treeItem.Parent == null) return;
+                if (_vm == null) return;
+
+                CloseStructureContextMenu();
 
                 var menu = NodeContextMenuHelper.Build(
-                    vm, _vm, this, this, BeginTreeRename,
+                    vm,
+                    _vm,
+                    this,
+                    this,
+                    BeginTreeRename,
                     node => MindMapCanvas.OpenNoteForNode(node),
                     node => MindMapCanvas.OpenImageForNode(node),
-                    node => MindMapCanvas.RemoveImageFromNode(node));
+                    node => MindMapCanvas.RemoveImageFromNode(node),
+                    includeExpandAllCommands: true);
+
                 menu.PlacementTarget = treeItem;
                 menu.Placement = PlacementMode.MousePoint;
+                menu.Closed += (_, _) =>
+                {
+                    if (ReferenceEquals(_activeStructureContextMenu, menu))
+                        _activeStructureContextMenu = null;
+                };
+
+                _activeStructureContextMenu = menu;
                 CommandManager.InvalidateRequerySuggested();
                 menu.IsOpen = true;
             }

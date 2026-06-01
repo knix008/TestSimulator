@@ -6,7 +6,7 @@
         mc:Ignorable="d"
         Title="이미지보내기 옵션"
         SizeToContent="WidthAndHeight"
-        WindowStartupLocation="CenterOwner"
+        WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#1A1F2E"
         Foreground="#E8EEF8"
@@ -22,7 +22,6 @@
 
             <CheckBox x:Name="IncludeHeadingCheck"
                       Content="제목(Heading) 포함"
-                      IsChecked="True"
                       Foreground="#E8EEF8"
                       Margin="0,0,0,10"/>
 

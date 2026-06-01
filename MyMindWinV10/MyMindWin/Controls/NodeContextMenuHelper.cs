@@ -18,7 +18,8 @@ namespace MyMindWin.Controls
             Action<NodeViewModel>? onRename = null,
             Action<NodeViewModel>? onNote = null,
             Action<NodeViewModel>? onImage = null,
-            Action<NodeViewModel>? onRemoveImage = null)
+            Action<NodeViewModel>? onRemoveImage = null,
+            bool includeExpandAllCommands = false)
         {
             var menu = new ContextMenu();
             if (TryFindStyle(resourceOwner, "NodeContextMenu") is Style menuStyle)
@@ -63,6 +64,14 @@ namespace MyMindWin.Controls
                 var expandIcon = node.IsExpanded ? MenuIcons.Collapse : MenuIcons.Expand;
                 menu.Items.Add(CreateCommandItem(resourceOwner, expandLabel, "Space",
                     vm.ToggleExpandCommand, commandTarget, expandIcon));
+            }
+
+            if (includeExpandAllCommands)
+            {
+                menu.Items.Add(CreateCommandItem(resourceOwner, "모두 펼치기", string.Empty,
+                    vm.ExpandAllCommand, commandTarget, MenuIcons.Expand));
+                menu.Items.Add(CreateCommandItem(resourceOwner, "모두 접기", string.Empty,
+                    vm.CollapseAllCommand, commandTarget, MenuIcons.Collapse));
             }
 
             if (TryFindStyle(resourceOwner, "NodeContextMenuSeparator") is Style sepStyle2)

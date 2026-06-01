@@ -22,6 +22,7 @@
         <Style x:Key="StructureTreeItemStyle" TargetType="TreeViewItem" BasedOn="{StaticResource TreeNodeStyle}">
             <EventSetter Event="Expanded" Handler="StructureTreeItem_ExpandCollapse"/>
             <EventSetter Event="Collapsed" Handler="StructureTreeItem_ExpandCollapse"/>
+            <EventSetter Event="PreviewMouseRightButtonDown" Handler="StructureTreeItem_PreviewMouseRightButtonDown"/>
         </Style>
 
         <!-- Toolbar Button Style -->
@@ -562,7 +563,6 @@
                                   ItemsSource="{Binding RootNodes}"
                                   ItemContainerStyle="{StaticResource StructureTreeItemStyle}"
                                   SelectedItemChanged="StructureTree_SelectedItemChanged"
-                                  PreviewMouseRightButtonDown="StructureTree_PreviewMouseRightButtonDown"
                                   MouseDoubleClick="StructureTree_MouseDoubleClick"
                                   PreviewKeyDown="StructureTree_PreviewKeyDown">
                             <TreeView.ItemTemplate>
