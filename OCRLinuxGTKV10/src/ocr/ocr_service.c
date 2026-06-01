@@ -2,17 +2,18 @@
 #include "ocr/ocr_provider_ids.h"
 
 struct OcrService {
-    OcrProvider *providers[3];
+    OcrProvider *providers[4];
     gsize provider_count;
     OcrProvider *active;
 };
 
 OcrService *ocr_service_new(void) {
     OcrService *service = g_new0(OcrService, 1);
-    service->providers[0] = paddle_provider_create();
-    service->providers[1] = easyocr_provider_create();
-    service->providers[2] = tesseract_provider_create();
-    service->provider_count = 3;
+    service->providers[0] = rapid_provider_create();
+    service->providers[1] = paddle_onnx_provider_create();
+    service->providers[2] = easyocr_provider_create();
+    service->providers[3] = tesseract_provider_create();
+    service->provider_count = 4;
     service->active = service->providers[0];
     return service;
 }

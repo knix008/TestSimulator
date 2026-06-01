@@ -5,9 +5,17 @@
 
 char *engine_paths_app_dir(void);
 char *engine_paths_engines_root(void);
-char *engine_paths_bundled_models_root(void);
-char *engine_paths_paddle_model(const char *folder_name);
+
+/* ONNX-based engines */
+char *engine_paths_rapidocr_dir(void);
+char *engine_paths_rapidocr_model(const char *filename);
+char *engine_paths_paddle_onnx_dir(void);
+char *engine_paths_paddle_onnx_model(const char *filename);
+
+/* Tesseract */
 char *engine_paths_tessdata_dir(void);
+
+/* EasyOCR (Python) */
 char *engine_paths_easyocr_models_dir(void);
 char *engine_paths_script(const char *script_name);
 char *engine_paths_python_exe(void);

@@ -28,7 +28,8 @@ static gboolean easyocr_recognize(OcrProvider *provider, PIX *image, OcrResult *
     (void)provider;
     char *script = engine_paths_script("easyocr_ocr.py");
     if (!g_file_test(script, G_FILE_TEST_IS_REGULAR)) {
-        g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOENT, "Script not found: %s", script);
+        g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_NOENT,
+                    "EasyOCR 스크립트 없음: %s", script);
         g_free(script);
         return FALSE;
     }
@@ -48,13 +49,13 @@ static void easyocr_destroy(OcrProvider *provider) {
 OcrProvider *easyocr_provider_create(void) {
     EasyOcrProvider *ep = g_new0(EasyOcrProvider, 1);
     ep->base.vtable = (OcrProviderVTable){
-        .id = OCR_PROVIDER_EASYOCR,
-        .display_name = "EasyOCR (한·영)",
-        .description = "한국어(ko)+영어(en) · 모델 ~100MB 자동 다운로드",
-        .is_installed = easyocr_is_installed,
+        .id           = OCR_PROVIDER_EASYOCR,
+        .display_name = "EasyOCR (한·영, Python)",
+        .description  = "EasyOCR ko+en · Python venv 자동 설치 · 최초 실행 시 모델 다운로드",
+        .is_installed     = easyocr_is_installed,
         .ensure_installed = easyocr_ensure_installed,
-        .recognize = easyocr_recognize,
-        .destroy = easyocr_destroy
+        .recognize    = easyocr_recognize,
+        .destroy      = easyocr_destroy,
     };
     return &ep->base;
 }

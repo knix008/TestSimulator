@@ -116,6 +116,18 @@ static void set_ocr_progress(GtkMainWindow *mw, int percent, const char *message
     while (gtk_events_pending()) gtk_main_iteration();
 }
 
+/* OCR 버튼 색상 상태:
+ *   "ocr-ready"    → 파란색  (이미지 로드됨, 실행 대기)
+ *   "ocr-progress" → 주황색  (OCR 진행 중)
+ *   (클래스 없음)  → 기본 비활성 회색
+ */
+static void set_ocr_btn_state(GtkMainWindow *mw, const char *state) {
+    GtkStyleContext *ctx = gtk_widget_get_style_context(mw->ocr_btn);
+    gtk_style_context_remove_class(ctx, "ocr-ready");
+    gtk_style_context_remove_class(ctx, "ocr-progress");
+    if (state) gtk_style_context_add_class(ctx, state);
+}
+
 static void set_ocr_in_progress(GtkMainWindow *mw, gboolean in_progress) {
     gtk_widget_set_sensitive(mw->open_btn, !in_progress);
     gtk_widget_set_sensitive(mw->ocr_btn, !in_progress && ocr_app_has_image(mw->app));
@@ -123,6 +135,13 @@ static void set_ocr_in_progress(GtkMainWindow *mw, gboolean in_progress) {
     gtk_widget_set_sensitive(mw->mode_combo, !in_progress);
     gtk_widget_set_sensitive(mw->prev_btn, !in_progress && ocr_app_has_prev_page(mw->app));
     gtk_widget_set_sensitive(mw->next_btn, !in_progress && ocr_app_has_next_page(mw->app));
+
+    if (in_progress)
+        set_ocr_btn_state(mw, "ocr-progress");
+    else if (ocr_app_has_image(mw->app))
+        set_ocr_btn_state(mw, "ocr-ready");
+    else
+        set_ocr_btn_state(mw, NULL);
 
     if (!in_progress)
         hide_ocr_progress(mw);
@@ -207,7 +226,9 @@ static void refresh_image_view(GtkMainWindow *mw) {
             pixDestroy(&pix);
         }
     }
-    gtk_widget_set_sensitive(mw->ocr_btn, ocr_app_has_image(mw->app));
+    gboolean has_image = ocr_app_has_image(mw->app);
+    gtk_widget_set_sensitive(mw->ocr_btn, has_image);
+    set_ocr_btn_state(mw, has_image ? "ocr-ready" : NULL);
     gtk_widget_queue_draw(mw->image_area);
     gtk_widget_queue_draw(mw->box_area);
     update_page_controls(mw);
@@ -666,8 +687,33 @@ GtkWidget *gtk_main_window_create(OcrApp *app) {
 
     mw->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(mw->window), "MyOCR");
-    gtk_window_set_wmclass(GTK_WINDOW(mw->window), "myocr", "myocr");
     gtk_app_icon_apply(GTK_WINDOW(mw->window));
+
+    /* OCR 버튼 3-상태 색상 CSS */
+    GtkCssProvider *css = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(css,
+        /* 활성화: 파란색 - 이미지 로드, OCR 대기 */
+        "toolbutton.ocr-ready > button {"
+        "  background-image: linear-gradient(#1976D2, #1565C0);"
+        "  color: white; font-weight: bold; border-radius: 4px;"
+        "}"
+        "toolbutton.ocr-ready > button:hover {"
+        "  background-image: linear-gradient(#2196F3, #1976D2);"
+        "}"
+        "toolbutton.ocr-ready > button:active {"
+        "  background-image: linear-gradient(#0D47A1, #1565C0);"
+        "}"
+        /* 진행중: 주황색 - OCR 실행 중 */
+        "toolbutton.ocr-progress > button {"
+        "  background-image: linear-gradient(#F57C00, #E65100);"
+        "  color: white; font-weight: bold; border-radius: 4px;"
+        "}"
+        , -1, NULL);
+    gtk_style_context_add_provider_for_screen(
+        gdk_screen_get_default(),
+        GTK_STYLE_PROVIDER(css),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(css);
     g_signal_connect(mw->window, "destroy", G_CALLBACK(on_destroy), mw);
     g_signal_connect(mw->window, "key-press-event", G_CALLBACK(on_key_press), mw);
 

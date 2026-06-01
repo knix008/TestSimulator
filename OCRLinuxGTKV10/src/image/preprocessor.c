@@ -9,9 +9,8 @@ static const int DOC_MAX_DIM = 4800;
 static const int TESS_MIN_DIM = 1200;
 
 gboolean preprocessor_uses_document_preprocess(const char *provider_id) {
-    return provider_id && (
-        g_strcmp0(provider_id, OCR_PROVIDER_EASYOCR) == 0
-        || g_strcmp0(provider_id, OCR_PROVIDER_TESSERACT) == 0);
+    return provider_id &&
+        g_strcmp0(provider_id, OCR_PROVIDER_TESSERACT) == 0;
 }
 
 void preprocess_output_free(PreprocessOutput *output) {

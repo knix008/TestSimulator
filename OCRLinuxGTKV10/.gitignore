@@ -12,9 +12,10 @@ build/
 *.d
 
 # ---------------------------------------------------------------------------
-# Generated test assets
+# Downloaded ONNX models (make models) and ONNX Runtime (make / make deps)
 # ---------------------------------------------------------------------------
-scripts/test_sample.png
+models/
+third_party/
 
 # ---------------------------------------------------------------------------
 # Debug / coverage / profiling
@@ -53,17 +54,6 @@ core.*
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# ---------------------------------------------------------------------------
-# Python (local venv / caches — app uses ~/.local/share/... at runtime)
-# ---------------------------------------------------------------------------
-.venv/
-venv/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
 
 # ---------------------------------------------------------------------------
 # Runtime data (outside repo; listed for reference)

@@ -20,12 +20,11 @@ static size_t write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) {
     return fwrite(ptr, size, nmemb, ctx->file);
 }
 
-static int progress_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t, curl_off_t) {
+static int progress_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t u1, curl_off_t u2) {
+    (void)u1; (void)u2;
     DownloadContext *ctx = clientp;
-    if (ocr_install_cancelled(ctx->install_ctx))
-        return 1;
-    if (dltotal > 0)
-        ctx->total = dltotal;
+    if (ocr_install_cancelled(ctx->install_ctx)) return 1;
+    if (dltotal > 0) ctx->total = dltotal;
     if (ctx->progress) {
         int pct = ctx->total > 0 ? (int)(dlnow * 100 / ctx->total) : -1;
         ctx->progress(ctx->label, pct, ctx->user_data);
@@ -33,7 +32,8 @@ static int progress_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl
     return 0;
 }
 
-static gboolean download_once(const char *url, const char *destination, DownloadContext *ctx, GError **error) {
+static gboolean download_once(const char *url, const char *destination,
+                               DownloadContext *ctx, GError **error) {
     CURL *curl = curl_easy_init();
     if (!curl) {
         g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_FAILED, "curl init failed");
@@ -42,7 +42,8 @@ static gboolean download_once(const char *url, const char *destination, Download
 
     ctx->file = fopen(destination, "wb");
     if (!ctx->file) {
-        g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno), "Cannot write %s", destination);
+        g_set_error(error, G_FILE_ERROR, g_file_error_from_errno(errno),
+                    "Cannot write %s", destination);
         curl_easy_cleanup(curl);
         return FALSE;
     }
@@ -67,7 +68,8 @@ static gboolean download_once(const char *url, const char *destination, Download
         return FALSE;
     }
     if (rc != CURLE_OK) {
-        g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_FAILED, "Download failed: %s", curl_easy_strerror(rc));
+        g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
+                    "Download failed: %s", curl_easy_strerror(rc));
         remove(destination);
         return FALSE;
     }
@@ -81,6 +83,7 @@ gboolean engine_download_file(
     EngineDownloadProgressFn progress,
     gpointer user_data,
     GError **error) {
+
     char *dir = g_path_get_dirname(destination);
     g_mkdir_with_parents(dir, 0755);
     g_free(dir);
@@ -88,9 +91,9 @@ gboolean engine_download_file(
     char *basename = g_path_get_basename(destination);
     DownloadContext dlctx = {
         .install_ctx = ctx,
-        .progress = progress,
-        .user_data = user_data,
-        .label = basename
+        .progress    = progress,
+        .user_data   = user_data,
+        .label       = basename,
     };
 
     for (int attempt = 0; attempt < 3; attempt++) {
@@ -124,26 +127,6 @@ static gboolean file_size_ok(const char *path, long min_bytes) {
 }
 
 typedef struct {
-    const char *folder;
-    const char *file;
-    const char *url;
-    long min_bytes;
-} ModelFileSpec;
-
-static gboolean paddle_model_ready(const char *folder) {
-    char *dir = engine_paths_paddle_model(folder);
-    char *json = g_build_filename(dir, "inference.json", NULL);
-    char *params = g_build_filename(dir, "inference.pdiparams", NULL);
-    char *yml = g_build_filename(dir, "inference.yml", NULL);
-    gboolean ok = file_size_ok(json, 500) && file_size_ok(params, 50000) && file_size_ok(yml, 500);
-    g_free(json);
-    g_free(params);
-    g_free(yml);
-    g_free(dir);
-    return ok;
-}
-
-typedef struct {
     OcrInstallContext *ctx;
     int base_pct;
     int weight_pct;
@@ -151,6 +134,7 @@ typedef struct {
 } BatchProgress;
 
 static void batch_file_progress(const char *label, int pct, gpointer user_data) {
+    (void)label;
     BatchProgress *bp = user_data;
     if (pct >= 0) {
         int overall = bp->base_pct + (pct * bp->weight_pct / 100);
@@ -158,120 +142,209 @@ static void batch_file_progress(const char *label, int pct, gpointer user_data) 
     } else {
         ocr_install_report(bp->ctx, bp->message, -1);
     }
-    (void)label;
 }
 
-gboolean engine_download_paddle_models(OcrInstallContext *ctx, GError **error) {
-    static const ModelFileSpec specs[] = {
-        {"PP-OCRv5_mobile_det", "inference.json",
-         "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/main/inference.json", 50000},
-        {"PP-OCRv5_mobile_det", "inference.pdiparams",
-         "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/main/inference.pdiparams", 3000000},
-        {"PP-OCRv5_mobile_det", "inference.yml",
-         "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/main/inference.yml", 500},
-        {"PP-LCNet_x1_0_textline_ori", "inference.json",
-         "https://huggingface.co/PaddlePaddle/PP-LCNet_x1_0_textline_ori/resolve/main/inference.json", 50000},
-        {"PP-LCNet_x1_0_textline_ori", "inference.pdiparams",
-         "https://huggingface.co/PaddlePaddle/PP-LCNet_x1_0_textline_ori/resolve/main/inference.pdiparams", 4000000},
-        {"PP-LCNet_x1_0_textline_ori", "inference.yml",
-         "https://huggingface.co/PaddlePaddle/PP-LCNet_x1_0_textline_ori/resolve/main/inference.yml", 500},
-        {"korean_PP-OCRv5_mobile_rec", "inference.json",
-         "https://huggingface.co/PaddlePaddle/korean_PP-OCRv5_mobile_rec/resolve/main/inference.json", 100000},
-        {"korean_PP-OCRv5_mobile_rec", "inference.pdiparams",
-         "https://huggingface.co/PaddlePaddle/korean_PP-OCRv5_mobile_rec/resolve/main/inference.pdiparams", 10000000},
-        {"korean_PP-OCRv5_mobile_rec", "inference.yml",
-         "https://huggingface.co/PaddlePaddle/korean_PP-OCRv5_mobile_rec/resolve/main/inference.yml", 10000},
-    };
+/*
+ * Model specs type — shared by all ONNX providers.
+ *
+ * RapidOCR: PP-OCRv4 detection + PP-OCRv1 Korean-specific recognition.
+ * PaddleOCR ONNX: PP-OCRv4 detection + PP-OCRv4 CJK recognition (한자 혼용).
+ *
+ * All URLs verified against https://huggingface.co/SWHL/RapidOCR (2024-06).
+ * korean_dict.txt: PaddleOCR official repo (14 KB, 한글+영문+기호).
+ * ppocr_keys_v1.txt: PaddleOCR official CJK dict (26 KB, Chinese+KR Hanja).
+ */
+typedef struct {
+    const char *filename;
+    const char *url;
+    long min_bytes;
+} RapidModelSpec;
 
-    if (paddle_model_ready("PP-OCRv5_mobile_det")
-        && paddle_model_ready("PP-LCNet_x1_0_textline_ori")
-        && paddle_model_ready("korean_PP-OCRv5_mobile_rec"))
-        return TRUE;
+#define HF_RAPID "https://huggingface.co/SWHL/RapidOCR/resolve/main"
+#define GH_PADDLE "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils"
 
-    ocr_install_report(ctx, "PaddleOCR 모델 다운로드를 준비합니다...", -1);
+static const RapidModelSpec RAPID_MODELS[] = {
+    /* Detection — language-agnostic PP-OCRv4 mobile */
+    {
+        "det.onnx",
+        HF_RAPID "/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx",
+        500000L
+    },
+    /* Angle classifier — PP-OCRv1 inference (v2.0 weights, ~570 KB) */
+    {
+        "cls.onnx",
+        HF_RAPID "/PP-OCRv1/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+        100000L
+    },
+    /* Recognition — Korean-specific PP-OCRv1 model (~3.2 MB) */
+    {
+        "rec.onnx",
+        HF_RAPID "/PP-OCRv1/korean_mobile_v2.0_rec_infer.onnx",
+        1000000L
+    },
+    /* Character dictionary — Korean Hangul + English + symbols */
+    {
+        "korean_dict.txt",
+        GH_PADDLE "/dict/korean_dict.txt",
+        10000L
+    },
+};
 
-    char *cache_root = engine_paths_engines_root();
-    g_mkdir_with_parents(g_build_filename(cache_root, "paddle", NULL), 0755);
-    g_free(cache_root);
+gboolean engine_download_rapidocr_models(OcrInstallContext *ctx, GError **error) {
+    char *dir = engine_paths_rapidocr_dir();
+    g_mkdir_with_parents(dir, 0755);
 
+    gsize n = G_N_ELEMENTS(RAPID_MODELS);
+
+    /* Count files that still need downloading */
     gsize pending = 0;
-    for (gsize i = 0; i < G_N_ELEMENTS(specs); i++) {
-        const ModelFileSpec *spec = &specs[i];
-        char *dir = engine_paths_paddle_model(spec->folder);
-        char *dest = g_build_filename(dir, spec->file, NULL);
-        g_free(dir);
-        if (!file_size_ok(dest, spec->min_bytes))
-            pending++;
+    for (gsize i = 0; i < n; i++) {
+        char *dest = g_build_filename(dir, RAPID_MODELS[i].filename, NULL);
+        if (!file_size_ok(dest, RAPID_MODELS[i].min_bytes)) pending++;
         g_free(dest);
     }
-    if (pending == 0)
-        pending = 1;
+    if (pending == 0) { g_free(dir); return TRUE; }
+
+    ocr_install_report(ctx, "RapidOCR ONNX 모델 다운로드를 시작합니다...", -1);
 
     gsize done = 0;
-    for (gsize i = 0; i < G_N_ELEMENTS(specs); i++) {
-        const ModelFileSpec *spec = &specs[i];
-        char *dir = engine_paths_paddle_model(spec->folder);
-        char *dest = g_build_filename(dir, spec->file, NULL);
-        g_free(dir);
-
-        if (file_size_ok(dest, spec->min_bytes)) {
+    for (gsize i = 0; i < n; i++) {
+        char *dest = g_build_filename(dir, RAPID_MODELS[i].filename, NULL);
+        if (file_size_ok(dest, RAPID_MODELS[i].min_bytes)) {
             g_free(dest);
             continue;
         }
 
         if (ocr_install_cancelled(ctx)) {
             g_set_error(error, G_IO_ERROR, G_IO_ERROR_CANCELLED, "Download cancelled");
-            g_free(dest);
+            g_free(dest); g_free(dir);
             return FALSE;
         }
 
         BatchProgress bp = {
-            .ctx = ctx,
-            .base_pct = (int)(done * 100 / pending),
-            .weight_pct = (int)(100 / pending)
+            .ctx        = ctx,
+            .base_pct   = (int)(done * 100 / pending),
+            .weight_pct = (int)(100 / pending),
         };
-        g_snprintf(bp.message, sizeof(bp.message), "PaddleOCR 모델 다운로드: %s (%s)",
-                   spec->file, spec->folder);
+        g_snprintf(bp.message, sizeof(bp.message),
+                   "RapidOCR 모델 다운로드: %s", RAPID_MODELS[i].filename);
         ocr_install_report(ctx, bp.message, bp.base_pct);
 
-        if (!engine_download_file(spec->url, dest, ctx, batch_file_progress, &bp, error)) {
-            g_free(dest);
+        if (!engine_download_file(RAPID_MODELS[i].url, dest, ctx,
+                                   batch_file_progress, &bp, error)) {
+            g_free(dest); g_free(dir);
             return FALSE;
         }
-        if (!file_size_ok(dest, spec->min_bytes)) {
+        if (!file_size_ok(dest, RAPID_MODELS[i].min_bytes)) {
             g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
-                        "Invalid Paddle model file: %s/%s", spec->folder, spec->file);
-            g_free(dest);
+                        "RapidOCR 모델 파일이 잘못됨: %s", RAPID_MODELS[i].filename);
+            g_free(dest); g_free(dir);
             return FALSE;
         }
         done++;
-        ocr_install_report(ctx, bp.message, (int)(done * 100 / pending));
         g_free(dest);
     }
 
-    ocr_install_report(ctx, "PaddleOCR 모델 다운로드 완료", 100);
+    ocr_install_report(ctx, "RapidOCR 모델 다운로드 완료", 100);
+    g_free(dir);
+    return TRUE;
+}
 
-    return paddle_model_ready("PP-OCRv5_mobile_det")
-        && paddle_model_ready("PP-LCNet_x1_0_textline_ori")
-        && paddle_model_ready("korean_PP-OCRv5_mobile_rec");
+/*
+ * PaddleOCR ONNX — PP-OCRv4 det + PP-OCRv1 Korean rec (full pipeline with CLS).
+ * Uses the same Korean models as RapidOCR but always runs the angle classifier.
+ * Best for documents with mixed orientations (rotated/upside-down text).
+ */
+static const RapidModelSpec PADDLE_ONNX_MODELS[] = {
+    /* Detection — PP-OCRv4 mobile (same as RapidOCR) */
+    {
+        "det.onnx",
+        HF_RAPID "/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx",
+        500000L
+    },
+    /* Angle classifier — PP-OCRv1 inference (~570 KB) */
+    {
+        "cls.onnx",
+        HF_RAPID "/PP-OCRv1/ch_ppocr_mobile_v2.0_cls_infer.onnx",
+        100000L
+    },
+    /* Recognition — Korean-specific PP-OCRv1 (~3.2 MB) */
+    {
+        "rec.onnx",
+        HF_RAPID "/PP-OCRv1/korean_mobile_v2.0_rec_infer.onnx",
+        1000000L
+    },
+    /* Korean character dictionary (Hangul + English + symbols) */
+    {
+        "korean_dict.txt",
+        GH_PADDLE "/dict/korean_dict.txt",
+        10000L
+    },
+};
+
+gboolean engine_download_paddle_onnx_models(OcrInstallContext *ctx, GError **error) {
+    char *dir = engine_paths_paddle_onnx_dir();
+    g_mkdir_with_parents(dir, 0755);
+
+    gsize n = G_N_ELEMENTS(PADDLE_ONNX_MODELS);
+    gsize pending = 0;
+    for (gsize i = 0; i < n; i++) {
+        char *dest = g_build_filename(dir, PADDLE_ONNX_MODELS[i].filename, NULL);
+        if (!file_size_ok(dest, PADDLE_ONNX_MODELS[i].min_bytes)) pending++;
+        g_free(dest);
+    }
+    if (pending == 0) { g_free(dir); return TRUE; }
+
+    ocr_install_report(ctx, "PaddleOCR ONNX 모델 다운로드를 시작합니다...", -1);
+
+    gsize done = 0;
+    for (gsize i = 0; i < n; i++) {
+        char *dest = g_build_filename(dir, PADDLE_ONNX_MODELS[i].filename, NULL);
+        if (file_size_ok(dest, PADDLE_ONNX_MODELS[i].min_bytes)) { g_free(dest); continue; }
+
+        if (ocr_install_cancelled(ctx)) {
+            g_set_error(error, G_IO_ERROR, G_IO_ERROR_CANCELLED, "Download cancelled");
+            g_free(dest); g_free(dir); return FALSE;
+        }
+
+        BatchProgress bp = {
+            .ctx        = ctx,
+            .base_pct   = (int)(done * 100 / pending),
+            .weight_pct = (int)(100 / pending),
+        };
+        g_snprintf(bp.message, sizeof(bp.message),
+                   "PaddleOCR ONNX 모델 다운로드: %s", PADDLE_ONNX_MODELS[i].filename);
+        ocr_install_report(ctx, bp.message, bp.base_pct);
+
+        if (!engine_download_file(PADDLE_ONNX_MODELS[i].url, dest, ctx,
+                                   batch_file_progress, &bp, error)) {
+            g_free(dest); g_free(dir); return FALSE;
+        }
+        if (!file_size_ok(dest, PADDLE_ONNX_MODELS[i].min_bytes)) {
+            g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_FAILED,
+                        "PaddleOCR ONNX 모델 파일이 잘못됨: %s", PADDLE_ONNX_MODELS[i].filename);
+            g_free(dest); g_free(dir); return FALSE;
+        }
+        done++;
+        g_free(dest);
+    }
+
+    ocr_install_report(ctx, "PaddleOCR ONNX 모델 다운로드 완료", 100);
+    g_free(dir);
+    return TRUE;
 }
 
 gboolean engine_download_tessdata(OcrInstallContext *ctx, GError **error) {
     char *tessdir = engine_paths_tessdata_dir();
     char *kor = g_build_filename(tessdir, "kor.traineddata", NULL);
     if (g_file_test(kor, G_FILE_TEST_EXISTS)) {
-        g_free(kor);
-        g_free(tessdir);
+        g_free(kor); g_free(tessdir);
         return TRUE;
     }
     g_free(kor);
-
     g_mkdir_with_parents(tessdir, 0755);
 
-    struct {
-        const char *file;
-        const char *url;
-    } files[] = {
+    struct { const char *file; const char *url; } files[] = {
         {"kor.traineddata", "https://github.com/tesseract-ocr/tessdata_best/raw/main/kor.traineddata"},
         {"eng.traineddata", "https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata"},
     };
@@ -279,12 +352,10 @@ gboolean engine_download_tessdata(OcrInstallContext *ctx, GError **error) {
     gsize pending = 0;
     for (gsize i = 0; i < G_N_ELEMENTS(files); i++) {
         char *dest = g_build_filename(tessdir, files[i].file, NULL);
-        if (!g_file_test(dest, G_FILE_TEST_EXISTS))
-            pending++;
+        if (!g_file_test(dest, G_FILE_TEST_EXISTS)) pending++;
         g_free(dest);
     }
-    if (pending == 0)
-        pending = 1;
+    if (pending == 0) pending = 1;
 
     gsize done = 0;
     for (gsize i = 0; i < G_N_ELEMENTS(files); i++) {
@@ -292,26 +363,23 @@ gboolean engine_download_tessdata(OcrInstallContext *ctx, GError **error) {
         if (!g_file_test(dest, G_FILE_TEST_EXISTS)) {
             if (ocr_install_cancelled(ctx)) {
                 g_set_error(error, G_IO_ERROR, G_IO_ERROR_CANCELLED, "Download cancelled");
-                g_free(dest);
-                g_free(tessdir);
+                g_free(dest); g_free(tessdir);
                 return FALSE;
             }
-
             BatchProgress bp = {
-                .ctx = ctx,
-                .base_pct = (int)(done * 100 / pending),
-                .weight_pct = (int)(100 / pending)
+                .ctx        = ctx,
+                .base_pct   = (int)(done * 100 / pending),
+                .weight_pct = (int)(100 / pending),
             };
-            g_snprintf(bp.message, sizeof(bp.message), "Tesseract 언어 데이터 다운로드: %s", files[i].file);
+            g_snprintf(bp.message, sizeof(bp.message),
+                       "Tesseract 언어 데이터 다운로드: %s", files[i].file);
             ocr_install_report(ctx, bp.message, bp.base_pct);
-
-            if (!engine_download_file(files[i].url, dest, ctx, batch_file_progress, &bp, error)) {
-                g_free(dest);
-                g_free(tessdir);
+            if (!engine_download_file(files[i].url, dest, ctx,
+                                       batch_file_progress, &bp, error)) {
+                g_free(dest); g_free(tessdir);
                 return FALSE;
             }
             done++;
-            ocr_install_report(ctx, bp.message, (int)(done * 100 / pending));
         }
         g_free(dest);
     }
@@ -321,9 +389,11 @@ gboolean engine_download_tessdata(OcrInstallContext *ctx, GError **error) {
     return TRUE;
 }
 
+/* ── EasyOCR: Python venv + pip install ───────────────────────────────── */
+
 static gboolean run_command(const char *argv[], GCancellable *cancellable, GError **error) {
     GSubprocess *proc = g_subprocess_newv(
-        (const gchar * const *)argv,
+        (const gchar *const *)argv,
         G_SUBPROCESS_FLAGS_STDOUT_SILENCE | G_SUBPROCESS_FLAGS_STDERR_PIPE,
         error);
     if (!proc) return FALSE;
@@ -332,14 +402,15 @@ static gboolean run_command(const char *argv[], GCancellable *cancellable, GErro
         g_cancellable_connect(cancellable, G_CALLBACK(g_subprocess_force_exit), proc, NULL);
 
     gchar *stderr_out = NULL;
-    GError *wait_err = NULL;
+    GError *wait_err  = NULL;
     if (!g_subprocess_wait_check(proc, cancellable, &wait_err)) {
         g_subprocess_communicate_utf8(proc, NULL, NULL, NULL, &stderr_out, NULL);
-        if (wait_err && g_error_matches(wait_err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+        if (wait_err && g_error_matches(wait_err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
             g_propagate_error(error, wait_err);
-        } else {
+        else {
             g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_FAILED, "%s",
-                        stderr_out ? stderr_out : (wait_err ? wait_err->message : "command failed"));
+                        stderr_out ? stderr_out
+                                   : (wait_err ? wait_err->message : "command failed"));
             g_clear_error(&wait_err);
         }
         g_free(stderr_out);
@@ -351,9 +422,9 @@ static gboolean run_command(const char *argv[], GCancellable *cancellable, GErro
 }
 
 static gboolean ensure_python_venv(OcrInstallContext *ctx, GError **error) {
-    char *root = engine_paths_engines_root();
+    char *root     = engine_paths_engines_root();
     char *venv_dir = g_build_filename(root, "venv", NULL);
-    char *venv_py = g_build_filename(venv_dir, "bin", "python3", NULL);
+    char *venv_py  = g_build_filename(venv_dir, "bin", "python3", NULL);
     g_free(root);
 
     if (g_file_test(venv_py, G_FILE_TEST_IS_EXECUTABLE)) {
@@ -371,15 +442,19 @@ static gboolean ensure_python_venv(OcrInstallContext *ctx, GError **error) {
     return ok;
 }
 
-gboolean engine_ensure_python_module(const char *module_name, OcrInstallContext *ctx, GError **error) {
-    if (!ensure_python_venv(ctx, error))
-        return FALSE;
+gboolean engine_ensure_python_module(
+    const char *module_name,
+    OcrInstallContext *ctx,
+    GError **error) {
+
+    if (!ensure_python_venv(ctx, error)) return FALSE;
 
     char *python = engine_paths_python_exe();
-    char *pip = engine_paths_pip_exe();
+    char *pip    = engine_paths_pip_exe();
+
+    /* Already installed? */
     char import_cmd[128];
     g_snprintf(import_cmd, sizeof(import_cmd), "import %s", module_name);
-
     const char *check_argv[] = { python, "-c", import_cmd, NULL };
     GError *local = NULL;
     if (run_command(check_argv, NULL, &local)) {
@@ -391,29 +466,26 @@ gboolean engine_ensure_python_module(const char *module_name, OcrInstallContext 
 
     ocr_install_report(ctx, "Python OCR 패키지를 설치합니다...", -1);
 
-    char *req_path = g_build_filename(engine_paths_app_dir(), "scripts", "requirements.txt", NULL);
+    char *app_dir  = engine_paths_app_dir();
+    char *req_path = g_build_filename(app_dir, "scripts", "requirements.txt", NULL);
+    g_free(app_dir);
+
+    gboolean ok;
     if (g_file_test(req_path, G_FILE_TEST_EXISTS)) {
         const char *pip_argv[] = { pip, "install", "-r", req_path, NULL };
-        if (!run_command(pip_argv, ctx ? ctx->cancellable : NULL, error)) {
-            g_free(req_path);
-            g_free(python);
-            g_free(pip);
-            return FALSE;
-        }
+        ok = run_command(pip_argv, ctx ? ctx->cancellable : NULL, error);
     } else {
-        g_free(req_path);
         const char *fallback[] = { pip, "install", module_name, NULL };
-        if (!run_command(fallback, ctx ? ctx->cancellable : NULL, error)) {
-            g_free(python);
-            g_free(pip);
-            return FALSE;
-        }
+        ok = run_command(fallback, ctx ? ctx->cancellable : NULL, error);
     }
+    g_free(req_path);
 
-    gboolean ok = run_command(check_argv, ctx ? ctx->cancellable : NULL, error);
+    if (ok) {
+        ok = run_command(check_argv, ctx ? ctx->cancellable : NULL, error);
+        if (ok)
+            ocr_install_report(ctx, "Python OCR 패키지 설치 완료", 100);
+    }
     g_free(python);
     g_free(pip);
-    if (ok)
-        ocr_install_report(ctx, "Python OCR 패키지 설치 완료", 100);
     return ok;
 }

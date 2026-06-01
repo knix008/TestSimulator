@@ -2,10 +2,10 @@
 Type=Application
 Name=MyOCR
 GenericName=OCR
-Comment=한글/영문 OCR (PaddleOCR · EasyOCR · Tesseract)
+Comment=한글/영문 OCR — RapidOCR · PaddleOCR ONNX · EasyOCR · Tesseract
 Exec=myocr
 Icon=myocr
 Terminal=false
 Categories=Utility;Office;Graphics;
 StartupWMClass=myocr
-Keywords=OCR;한글;텍스트;인식;
+Keywords=OCR;한글;텍스트;인식;PaddleOCR;Tesseract;ONNX;

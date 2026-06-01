@@ -14,8 +14,11 @@ gboolean engine_download_file(
     gpointer user_data,
     GError **error);
 
-gboolean engine_download_paddle_models(OcrInstallContext *ctx, GError **error);
+gboolean engine_download_rapidocr_models(OcrInstallContext *ctx, GError **error);
+gboolean engine_download_paddle_onnx_models(OcrInstallContext *ctx, GError **error);
 gboolean engine_download_tessdata(OcrInstallContext *ctx, GError **error);
+
+/* EasyOCR (Python venv 기반) */
 gboolean engine_ensure_python_module(const char *module_name, OcrInstallContext *ctx, GError **error);
 
 #endif

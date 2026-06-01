@@ -33,8 +33,9 @@ gboolean ocr_provider_is_installed(const OcrProvider *provider);
 gboolean ocr_provider_ensure_installed(OcrProvider *provider, OcrInstallContext *ctx, GError **error);
 gboolean ocr_provider_recognize(OcrProvider *provider, PIX *image, OcrResult *result, GError **error);
 
-OcrProvider *tesseract_provider_create(void);
-OcrProvider *paddle_provider_create(void);
+OcrProvider *rapid_provider_create(void);
+OcrProvider *paddle_onnx_provider_create(void);
 OcrProvider *easyocr_provider_create(void);
+OcrProvider *tesseract_provider_create(void);
 
 #endif

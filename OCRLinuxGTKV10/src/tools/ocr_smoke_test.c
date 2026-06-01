@@ -48,10 +48,11 @@ static int run_engine(OcrApp *app, const char *engine_id, const char *image_path
 }
 
 int main(int argc, char *argv[]) {
-    const char *image = argc > 1 ? argv[1] : "scripts/test_sample.png";
+    const char *image = argc > 1 ? argv[1] : "samples/Test01.png";
 
     if (!g_file_test(image, G_FILE_TEST_EXISTS)) {
         fprintf(stderr, "Test image not found: %s\n", image);
+        fprintf(stderr, "Usage: %s <image_path>\n", argv[0]);
         return 1;
     }
 
@@ -60,8 +61,8 @@ int main(int argc, char *argv[]) {
 
     OcrApp *app = ocr_app_new();
     const char *engines[] = {
-        OCR_PROVIDER_PADDLE,
-        OCR_PROVIDER_EASYOCR,
+        OCR_PROVIDER_RAPIDOCR,
+        OCR_PROVIDER_PADDLE_ONNX,
         OCR_PROVIDER_TESSERACT,
         NULL
     };
