@@ -35,6 +35,7 @@ namespace MyMindWin.ViewModels
         private NodeShapeKind _defaultNodeShape = NodeShapeKind.RoundedRectangle;
         private bool _syncingShapeCombo;
         private bool _syncingColorCombo;
+        private bool _syncingBorderCombo;
 
         // ── Properties ──────────────────────────────────────────────────────
 
@@ -59,27 +60,22 @@ namespace MyMindWin.ViewModels
                 OnPropertyChanged(nameof(HasSelectedNode));
                 SyncShapeComboFromSelectedNode();
                 SyncColorComboFromSelectedNode();
+                SyncBorderComboFromSelectedNode();
             }
         }
 
         public bool HasSelectedNode => SelectedNode != null;
 
-        public bool CanEditNodeColor => SelectedNode is { Level: > 0 };
+        public bool CanEditNodeColor => SelectedNode != null;
 
         public ObservableCollection<NodeColorOption> NodeColorOptions { get; } = BuildNodeColorOptions();
 
         public int SelectedNodeColorIndex
         {
-            get
-            {
-                if (SelectedNode == null || SelectedNode.Level == 0)
-                    return NodeColorPalette.InheritColorIndex;
-
-                return SelectedNode.Model.ColorIndex;
-            }
+            get => SelectedNode?.Model.ColorIndex ?? NodeColorPalette.InheritColorIndex;
             set
             {
-                if (_syncingColorCombo || SelectedNode == null || SelectedNode.Level == 0)
+                if (_syncingColorCombo || SelectedNode == null)
                     return;
 
                 if (SelectedNode.Model.ColorIndex == value)
@@ -107,7 +103,7 @@ namespace MyMindWin.ViewModels
             if (current.Light == inherit.Light && current.Dark == inherit.Dark)
                 return;
 
-            bool restoreInheritSelection = SelectedNode is { Level: > 0, Model.ColorIndex: < 0 };
+            bool restoreInheritSelection = SelectedNode is { Model.ColorIndex: < 0 };
             NodeColorOptions.RemoveAt(0);
             NodeColorOptions.Insert(0, inherit);
 
@@ -121,10 +117,11 @@ namespace MyMindWin.ViewModels
 
         private NodeColorOption BuildInheritColorOption()
         {
-            if (SelectedNode == null || SelectedNode.Level == 0)
-            {
-                return NodeColorOption.ForInherit(NodeColorPalette.RootLight, NodeColorPalette.RootDark);
-            }
+            if (SelectedNode == null)
+                return NodeColorOption.ForRootDefault();
+
+            if (SelectedNode.Level == 0)
+                return NodeColorOption.ForRootDefault();
 
             if (SelectedNode.Model.ColorIndex < 0)
             {
@@ -139,6 +136,127 @@ namespace MyMindWin.ViewModels
             }
 
             return NodeColorOption.ForInherit(NodeColorPalette.RootLight, NodeColorPalette.RootDark);
+        }
+
+        public bool CanEditNodeBorder => SelectedNode != null;
+
+        public ObservableCollection<NodeBorderColorOption> NodeBorderColorOptions { get; } = BuildNodeBorderColorOptions();
+
+        public int SelectedNodeBorderColorIndex
+        {
+            get => SelectedNode?.Model.BorderColorIndex ?? NodeBorderPalette.InheritColorIndex;
+            set
+            {
+                if (_syncingBorderCombo || SelectedNode == null)
+                    return;
+
+                if (SelectedNode.Model.BorderColorIndex == value)
+                    return;
+
+                ApplyBorderColorToSelected(value);
+            }
+        }
+
+        public IReadOnlyList<NodeBorderThicknessOption> NodeBorderThicknessOptions { get; } =
+            NodeBorderThicknessPresets.Presets
+                .Select(NodeBorderThicknessOption.FromPreset)
+                .ToArray();
+
+        public NodeBorderThicknessOption SelectedNodeBorderThicknessOption
+        {
+            get
+            {
+                var t = SelectedNode?.Model.BorderThickness;
+                return NodeBorderThicknessOptions.First(o => o.Thickness == t);
+            }
+            set
+            {
+                if (_syncingBorderCombo || value == null || SelectedNode == null)
+                    return;
+
+                if (SelectedNode.Model.BorderThickness == value.Thickness)
+                    return;
+
+                ApplyBorderThicknessToSelected(value.Thickness);
+            }
+        }
+
+        private static ObservableCollection<NodeBorderColorOption> BuildNodeBorderColorOptions()
+        {
+            var list = new ObservableCollection<NodeBorderColorOption>
+            {
+                NodeBorderColorOption.ForInherit(NodeColorPalette.RootLight)
+            };
+            list.Add(NodeBorderColorOption.White());
+            for (int i = 0; i < NodeColorPalette.PaletteCount; i++)
+                list.Add(NodeBorderColorOption.FromPaletteIndex(i));
+            return list;
+        }
+
+        private void RefreshInheritBorderColorPreview()
+        {
+            if (SelectedNode == null)
+                return;
+
+            var inherit = BuildInheritBorderColorOption();
+            var current = NodeBorderColorOptions[0];
+            if (current.PreviewColor == inherit.PreviewColor)
+                return;
+
+            bool restore = SelectedNode.Model.BorderColorIndex == NodeBorderPalette.InheritColorIndex;
+            NodeBorderColorOptions.RemoveAt(0);
+            NodeBorderColorOptions.Insert(0, inherit);
+
+            if (restore)
+            {
+                _syncingBorderCombo = true;
+                OnPropertyChanged(nameof(SelectedNodeBorderColorIndex));
+                _syncingBorderCombo = false;
+            }
+        }
+
+        private NodeBorderColorOption BuildInheritBorderColorOption()
+        {
+            if (SelectedNode == null)
+                return NodeBorderColorOption.ForInherit(NodeColorPalette.RootLight);
+
+            var (light, _) = NodeColorResolver.GetColors(SelectedNode);
+            return NodeBorderColorOption.ForInherit(light);
+        }
+
+        private void SyncBorderComboFromSelectedNode()
+        {
+            _syncingBorderCombo = true;
+            RefreshInheritBorderColorPreview();
+            OnPropertyChanged(nameof(CanEditNodeBorder));
+            OnPropertyChanged(nameof(SelectedNodeBorderColorIndex));
+            OnPropertyChanged(nameof(SelectedNodeBorderThicknessOption));
+            _syncingBorderCombo = false;
+        }
+
+        private void ApplyBorderColorToSelected(int colorIndex)
+        {
+            if (SelectedNode == null)
+                return;
+
+            SelectedNode.BorderColorIndex = colorIndex;
+            _syncingBorderCombo = true;
+            RefreshInheritBorderColorPreview();
+            OnPropertyChanged(nameof(SelectedNodeBorderColorIndex));
+            _syncingBorderCombo = false;
+            RequestNodeShapeRefresh?.Invoke(this, SelectedNode);
+        }
+
+        private void ApplyBorderThicknessToSelected(double? thickness)
+        {
+            if (SelectedNode == null)
+                return;
+
+            SelectedNode.BorderThickness = NodeBorderThicknessPresets.Normalize(thickness);
+            _syncingBorderCombo = true;
+            OnPropertyChanged(nameof(SelectedNodeBorderThicknessOption));
+            _syncingBorderCombo = false;
+            RequestNodeShapeRefresh?.Invoke(this, SelectedNode);
         }
 
         /// <summary>문서 제목 (.mmap title → 파일명 → 루트 노드 텍스트).</summary>
@@ -378,13 +496,23 @@ namespace MyMindWin.ViewModels
 
         private void NewDocument()
         {
+            _layoutType = LayoutType.HorizontalTree;
             _layoutFlipHorizontal = false;
             _layoutFlipVertical = false;
+            _connectionLineType = ConnectionLineType.Bezier;
+            _connectionLineThickness = ConnectionLineThicknessPresets.Normal;
+            _connectionLineTaper = true;
+
+            OnPropertyChanged(nameof(LayoutType));
             OnPropertyChanged(nameof(LayoutFlipHorizontal));
             OnPropertyChanged(nameof(LayoutFlipVertical));
+            OnPropertyChanged(nameof(ConnectionLineType));
+            OnPropertyChanged(nameof(SelectedConnectionLineOption));
+            OnPropertyChanged(nameof(ConnectionLineThickness));
+            OnPropertyChanged(nameof(SelectedConnectionLineThicknessOption));
+            OnPropertyChanged(nameof(ConnectionLineTaper));
 
             var root = new MindMapNode { Text = "Main Topic", IsExpanded = true };
-            AddSampleNodes(root);
             SetRoot(root);
             _currentFilePath = string.Empty;
             _documentTitle = null;
@@ -394,25 +522,8 @@ namespace MyMindWin.ViewModels
             OnPropertyChanged(nameof(DefaultNodeShape));
             OnPropertyChanged(nameof(ShapeComboSelection));
             OnPropertyChanged(nameof(SelectedShapeOption));
-        }
 
-        private static void AddSampleNodes(MindMapNode root)
-        {
-            var b1 = new MindMapNode { Text = "Idea 1", IsExpanded = true };
-            b1.Children.Add(new MindMapNode { Text = "Detail A" });
-            b1.Children.Add(new MindMapNode { Text = "Detail B" });
-
-            var b2 = new MindMapNode { Text = "Idea 2", IsExpanded = true };
-            b2.Children.Add(new MindMapNode { Text = "Detail C" });
-            b2.Children.Add(new MindMapNode { Text = "Detail D" });
-
-            var b3 = new MindMapNode { Text = "Idea 3", IsExpanded = true };
-            b3.Children.Add(new MindMapNode { Text = "Detail E" });
-
-            var b4 = new MindMapNode { Text = "Idea 4", IsExpanded = false };
-            b4.Children.Add(new MindMapNode { Text = "Hidden Item" });
-
-            root.Children.AddRange([b1, b2, b3, b4]);
+            RequestFitView?.Invoke(this, EventArgs.Empty);
         }
 
         public void SetRoot(MindMapNode model, LayoutType? layout = null)
@@ -421,6 +532,7 @@ namespace MyMindWin.ViewModels
                 _layoutType = layout.Value;
 
             RootNode = BuildViewModel(model, null, 0);
+            NodeColorNormalizer.Normalize(RootNode);
             SelectedNode = RootNode;
             OnPropertyChanged(nameof(DocumentTitle));
             OnPropertyChanged(nameof(LayoutType));
@@ -484,7 +596,7 @@ namespace MyMindWin.ViewModels
 
         private void ApplyColorToSelected(int colorIndex)
         {
-            if (SelectedNode == null || SelectedNode.Level == 0)
+            if (SelectedNode == null)
                 return;
 
             SelectedNode.NodeColorIndex = colorIndex;
@@ -492,20 +604,34 @@ namespace MyMindWin.ViewModels
             RefreshInheritColorPreview();
             OnPropertyChanged(nameof(SelectedNodeColorIndex));
             _syncingColorCombo = false;
+
             RequestNodeColorRefresh?.Invoke(this, SelectedNode);
+            RefreshInheritBorderColorPreviewIfNeeded(SelectedNode);
         }
 
         /// <summary>부모 색 변경 등으로 상속 색이 바뀐 뒤 속성창 견본을 맞춥니다.</summary>
         public void RefreshInheritColorPreviewIfNeeded(NodeViewModel changedNode)
         {
-            if (SelectedNode == null || SelectedNode.Level == 0)
+            if (SelectedNode == null)
                 return;
 
-            if (SelectedNode.Model.ColorIndex >= 0)
+            if (SelectedNode.Level == 0 || SelectedNode.Model.ColorIndex >= 0)
                 return;
 
             if (SelectedNode == changedNode || IsAncestor(changedNode, SelectedNode))
                 RefreshInheritColorPreview();
+        }
+
+        public void RefreshInheritBorderColorPreviewIfNeeded(NodeViewModel changedNode)
+        {
+            if (SelectedNode == null)
+                return;
+
+            if (SelectedNode.Model.BorderColorIndex != NodeBorderPalette.InheritColorIndex)
+                return;
+
+            if (SelectedNode == changedNode || IsAncestor(changedNode, SelectedNode))
+                RefreshInheritBorderColorPreview();
         }
 
         private static bool IsAncestor(NodeViewModel ancestor, NodeViewModel node)

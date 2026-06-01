@@ -5,11 +5,19 @@ namespace MyMindWin.ViewModels
 {
     public sealed record NodeColorOption(int ColorIndex, string Label, Color Light, Color Dark)
     {
+        public Brush PreviewBrush => NodeColorPalette.CreateNodeFillBrush(Light, Dark);
+
         public static NodeColorOption ForInherit(Color light, Color dark) => new(
             NodeColorPalette.InheritColorIndex,
             NodeColorPalette.GetDisplayName(NodeColorPalette.InheritColorIndex),
             light,
             dark);
+
+        public static NodeColorOption ForRootDefault() => new(
+            NodeColorPalette.InheritColorIndex,
+            "기본 루트 색",
+            NodeColorPalette.RootLight,
+            NodeColorPalette.RootDark);
 
         public static NodeColorOption FromPaletteIndex(int index)
         {

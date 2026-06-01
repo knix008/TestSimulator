@@ -40,6 +40,28 @@ namespace MyMindWin.ViewModels
 
         public bool UsesInheritedColor => Level > 0 && Model.ColorIndex < 0;
 
+        public int BorderColorIndex
+        {
+            get => Model.BorderColorIndex;
+            set
+            {
+                if (Model.BorderColorIndex == value) return;
+                Model.BorderColorIndex = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public double? BorderThickness
+        {
+            get => Model.BorderThickness;
+            set
+            {
+                if (Model.BorderThickness == value) return;
+                Model.BorderThickness = value;
+                OnPropertyChanged();
+            }
+        }
+
         private NodeShapeKind _shape = NodeShapeKind.RoundedRectangle;
 
         public NodeShapeKind Shape

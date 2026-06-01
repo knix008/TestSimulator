@@ -1,34 +1,12 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <SolidColorBrush x:Key="NodeContextMenuBg" Color="#2A3548"/>
-    <SolidColorBrush x:Key="NodeContextMenuHighlightBg" Color="#3D5080"/>
 
-    <Style x:Key="NodeContextMenu" TargetType="ContextMenu">
-        <Setter Property="Background" Value="{StaticResource NodeContextMenuBg}"/>
-        <Setter Property="BorderBrush" Value="#6A7FA8"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="4,2"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ContextMenu">
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="4"
-                            Padding="{TemplateBinding Padding}"
-                            SnapsToDevicePixels="True">
-                        <StackPanel IsItemsHost="True"
-                                    Background="{TemplateBinding Background}"
-                                    KeyboardNavigation.DirectionalNavigation="Cycle"/>
-                    </Border>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
+    <!-- 아이콘 열이 있는 컨텍스트 메뉴 항목 (코드에서 NodeContextMenuItem 키로 참조) -->
+    <Style x:Key="NodeContextMenu" TargetType="ContextMenu" BasedOn="{StaticResource {x:Type ContextMenu}}"/>
 
     <Style x:Key="NodeContextMenuItem" TargetType="MenuItem">
-        <Setter Property="Background" Value="{StaticResource NodeContextMenuBg}"/>
-        <Setter Property="Foreground" Value="#F0F4FF"/>
+        <Setter Property="Background" Value="{StaticResource AppMenuBg}"/>
+        <Setter Property="Foreground" Value="{StaticResource AppMenuForeground}"/>
         <Setter Property="FontFamily" Value="Segoe UI"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="8,6"/>
@@ -39,21 +17,18 @@
                             Background="{TemplateBinding Background}"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
-                        <Grid Background="{TemplateBinding Background}">
+                        <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="24"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0"
-                                    Background="{TemplateBinding Background}"
-                                    Width="24"
-                                    Height="24"
+                                    Width="24" Height="24"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     SnapsToDevicePixels="True">
-                                <Viewbox Width="16"
-                                         Height="16"
+                                <Viewbox Width="16" Height="16"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center">
                                     <ContentPresenter Content="{TemplateBinding Icon}"/>
@@ -64,10 +39,10 @@
                                               Margin="8,0,16,0"
                                               VerticalAlignment="Center"
                                               RecognizesAccessKey="True"
-                                              TextElement.Foreground="#F0F4FF"/>
+                                              TextElement.Foreground="{StaticResource AppMenuForeground}"/>
                             <TextBlock Grid.Column="2"
                                        Text="{TemplateBinding InputGestureText}"
-                                       Foreground="#8FA8CC"
+                                       Foreground="{StaticResource AppMenuMuted}"
                                        FontFamily="Segoe UI"
                                        FontSize="11"
                                        VerticalAlignment="Center"/>
@@ -75,10 +50,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
-                            <Setter Property="Background" Value="{StaticResource NodeContextMenuHighlightBg}"/>
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource AppMenuHighlightBg}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Foreground" Value="#6688AA"/>
+                            <Setter Property="Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -86,18 +61,6 @@
         </Setter>
     </Style>
 
-    <Style x:Key="NodeContextMenuSeparator" TargetType="Separator">
-        <Setter Property="Background" Value="#334466"/>
-        <Setter Property="Margin" Value="8,4"/>
-        <Setter Property="Height" Value="1"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Separator">
-                    <Border Height="1"
-                            Margin="{TemplateBinding Margin}"
-                            Background="#334466"/>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
+    <Style x:Key="NodeContextMenuSeparator" TargetType="Separator" BasedOn="{StaticResource {x:Type Separator}}"/>
+
 </ResourceDictionary>

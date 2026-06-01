@@ -8,12 +8,12 @@
             <SolidColorBrush x:Key="AppCanvasBackground" Color="#1A1F2E"/>
             <SolidColorBrush x:Key="AppPanelBackground" Color="#0D101A"/>
 
-            <!-- ScrollViewer 기본값은 흰색 — 다크 UI 전역 보정 -->
             <Style TargetType="{x:Type ScrollViewer}">
                 <Setter Property="Background" Value="{StaticResource AppPanelBackground}"/>
             </Style>
 
             <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/DarkTheme.xaml"/>
                 <ResourceDictionary Source="Themes/NodeContextMenuStyles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

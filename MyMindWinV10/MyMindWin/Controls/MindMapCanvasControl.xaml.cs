@@ -869,7 +869,7 @@ namespace MyMindWin.Controls
             double fontSize = node.Level == 0 ? 16 : 13;
 
             var gradient = NodeColorPalette.CreateNodeFillBrush(lightColor, darkColor);
-            var borderBrush = NodeColorPalette.CreateFrozenBrush(lightColor);
+            var (borderBrush, borderThickness) = NodeBorderHelper.GetBorder(node);
 
             var text = new TextBlock
             {
@@ -886,7 +886,6 @@ namespace MyMindWin.Controls
                 Padding             = new Thickness(8, 0, 8, 0)
             };
 
-            double borderThickness = node.IsSelected ? 2.5 : 1.0;
             var nodeVisual = NodeShapeHelper.CreateNodeVisual(
                 node, gradient, borderBrush, borderThickness,
                 text, node.Width, NodeHeight);
@@ -1534,12 +1533,7 @@ namespace MyMindWin.Controls
                 var node = FindNode(id);
                 if (node == null) continue;
 
-                double thickness = node.IsSelected ? 2.5 : 1.0;
-                var (lightColor, _) = NodeColorHelper.GetNodeColors(node);
-
-                var brush = node.IsSelected
-                    ? new SolidColorBrush(Colors.White)
-                    : new SolidColorBrush(lightColor);
+                var (brush, thickness) = NodeBorderHelper.GetBorder(node);
 
                 var outline = GetNodeOutline(element);
                 if (outline != null && outline.Visibility == Visibility.Visible)

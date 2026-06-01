@@ -26,7 +26,11 @@ namespace MyMindWin
             DataContext = _vm;
 
             MindMapCanvas.SetViewModel(_vm);
-            _vm.RequestNodeColorRefresh += (_, node) => _vm.RefreshInheritColorPreviewIfNeeded(node);
+            _vm.RequestNodeColorRefresh += (_, node) =>
+            {
+                _vm.RefreshInheritColorPreviewIfNeeded(node);
+                _vm.RefreshInheritBorderColorPreviewIfNeeded(node);
+            };
             _vm.SetExportImageHandler((options, path) =>
             {
                 bool ok = MindMapCanvas.TryExportToFile(path, options, out var error);

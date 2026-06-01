@@ -28,6 +28,14 @@ namespace MyMindWin.Models
         [JsonPropertyName("colorIndex")]
         public int ColorIndex { get; set; } = -1;
 
+        /// <summary>-1 채움색·선택 강조, -2 흰색, 0~7 팔레트.</summary>
+        [JsonPropertyName("borderColorIndex")]
+        public int BorderColorIndex { get; set; } = NodeBorderPalette.InheritColorIndex;
+
+        /// <summary>null이면 자동(1px, 선택 시 2.5px).</summary>
+        [JsonPropertyName("borderThickness")]
+        public double? BorderThickness { get; set; }
+
         [JsonPropertyName("x")]
         public double? X { get; set; }
 
