@@ -1,0 +1,35 @@
+## Build outputs
+bin/
+obj/
+
+## User-specific / IDE
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+.idea/
+
+## Local runtime data
+test_results.db
+test_results.db-journal
+test_results.db-wal
+test_results.db-shm
+*.db-journal
+
+## Publish
+**/publish/
+
+## Logs and upgrade reports
+*.log
+UpgradeLog*.htm
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+## Optional secrets (do not commit)
+*.env
+appsettings.*.local.json
