@@ -10,6 +10,8 @@
 
 #define BOTTOM_PANEL_MIN_HEIGHT 220
 #define RESULT_TREE_MIN_HEIGHT 140
+#define WINDOW_MIN_WIDTH 1100
+#define WINDOW_MIN_HEIGHT 860
 
 typedef struct {
     OcrApp *app;
@@ -94,6 +96,8 @@ static void update_status(GtkMainWindow *mw, const char *text) {
 }
 
 static void hide_ocr_progress(GtkMainWindow *mw) {
+    if (!GTK_IS_PROGRESS_BAR(mw->status_progress))
+        return;
     gtk_widget_hide(mw->status_progress);
     gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(mw->status_progress), 0.0);
     gtk_progress_bar_set_text(GTK_PROGRESS_BAR(mw->status_progress), "");
@@ -102,6 +106,8 @@ static void hide_ocr_progress(GtkMainWindow *mw) {
 /* 반드시 GTK 메인 스레드에서만 호출 */
 static void set_ocr_progress(GtkMainWindow *mw, int percent, const char *message) {
     gtk_label_set_text(GTK_LABEL(mw->status_label), message);
+    if (!GTK_IS_PROGRESS_BAR(mw->status_progress))
+        return;
     gtk_widget_show(mw->status_progress);
 
     if (percent >= 0) {
@@ -447,6 +453,7 @@ typedef struct {
     gint64          started;
     GThread        *thread;
     GMainLoop      *loop;
+    guint           pulse_id;
     GMutex          lock;
     char            pending_msg[512];
     int             pending_pct;
@@ -470,9 +477,17 @@ static gboolean ocr_run_update_idle(gpointer user_data) {
     return G_SOURCE_REMOVE;
 }
 
+static void ocr_run_stop_pulse(OcrRunCtx *d) {
+    if (d->pulse_id) {
+        g_source_remove(d->pulse_id);
+        d->pulse_id = 0;
+    }
+}
+
 /* idle: OCR 완료 후 메인 스레드에서 결과 표시 및 루프 종료 */
 static gboolean ocr_run_finish_idle(gpointer user_data) {
     OcrRunCtx *d = user_data;
+    ocr_run_stop_pulse(d);
 
     if (!d->success) {
         show_error(d->mw, "OCR", d->error ? d->error->message : "실패");
@@ -507,6 +522,8 @@ static gboolean ocr_run_finish_idle(gpointer user_data) {
 /* OCR 스레드에서 호출되는 진행 콜백 */
 static void ocr_run_progress_cb(gpointer user_data, const char *msg, int pct) {
     OcrRunCtx *d = user_data;
+    if (d->finished)
+        return;
     g_mutex_lock(&d->lock);
     g_strlcpy(d->pending_msg, msg ? msg : "", sizeof(d->pending_msg));
     d->pending_pct = pct;
@@ -533,7 +550,8 @@ static gpointer ocr_run_thread(gpointer user_data) {
 /* 진행 중 프로그레스바 펄스 (타임아웃 콜백) */
 static gboolean ocr_run_pulse_idle(gpointer user_data) {
     OcrRunCtx *d = user_data;
-    if (d->finished) return G_SOURCE_CONTINUE;  /* g_source_remove()가 단독 제거 */
+    if (d->finished || !GTK_IS_PROGRESS_BAR(d->mw->status_progress))
+        return G_SOURCE_REMOVE;
     g_mutex_lock(&d->lock);
     int pct = d->pending_pct;
     g_mutex_unlock(&d->lock);
@@ -544,6 +562,10 @@ static gboolean ocr_run_pulse_idle(gpointer user_data) {
 
 static void run_ocr(GtkMainWindow *mw) {
     if (!ocr_app_has_image(mw->app)) return;
+
+    /* 새 OCR 시작 시 이전 인식 결과·박스를 즉시 지움 (완료까지 이전 결과가 남지 않도록) */
+    ocr_app_clear_result(mw->app);
+    refresh_result_view(mw);
 
     gint64 started = g_get_monotonic_time();
     set_ocr_in_progress(mw, TRUE);
@@ -577,12 +599,11 @@ static void run_ocr(GtkMainWindow *mw) {
     d.loop   = g_main_loop_new(NULL, FALSE);
     d.thread = g_thread_new("ocr-run", ocr_run_thread, &d);
 
-    /* 50ms 마다 펄스 (스레드 완료 전까지) */
-    guint pulse_id = g_timeout_add(50, ocr_run_pulse_idle, &d);
+    d.pulse_id = g_timeout_add(50, ocr_run_pulse_idle, &d);
 
     g_main_loop_run(d.loop);  /* 메인 루프 유지 — UI 응답 가능 */
 
-    g_source_remove(pulse_id);
+    ocr_run_stop_pulse(&d);
     g_thread_join(d.thread);
     g_main_loop_unref(d.loop);
     g_mutex_clear(&d.lock);
@@ -729,8 +750,15 @@ static gboolean on_key_press(GtkWidget *widget, GdkEventKey *event, gpointer use
 static void apply_window_settings(GtkMainWindow *mw) {
     AppSettings *s = ocr_app_get_settings(mw->app);
     if (!s) return;
-    if (s->window_width >= 800 && s->window_height >= 500)
-        gtk_window_set_default_size(GTK_WINDOW(mw->window), s->window_width, s->window_height);
+
+    int width = 1280;
+    int height = 900;
+    if (s->window_width >= 800 && s->window_height >= 500) {
+        width = MAX(s->window_width, WINDOW_MIN_WIDTH);
+        height = MAX(s->window_height, WINDOW_MIN_HEIGHT);
+    }
+    gtk_window_set_default_size(GTK_WINDOW(mw->window), width, height);
+
     if (s->window_x >= 0 && s->window_y >= 0) {
         gtk_window_move(GTK_WINDOW(mw->window), s->window_x, s->window_y);
     }

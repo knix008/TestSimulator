@@ -4,6 +4,8 @@
 #include "ocr/ocr_box_transform.h"
 #include "ocr/ocr_result_scorer.h"
 #include "ocr/ocr_service.h"
+#include "ocr/ocr_provider.h"
+#include "ocr/ocr_provider_ids.h"
 #include "ocr/ocr_text_postprocessor.h"
 #include "util/result_save.h"
 #include <string.h>
@@ -22,7 +24,36 @@ struct OcrApp {
     OcrResult result;
     AppSettings settings;
     PreprocessMode preprocess_mode;
+    GThread *easyocr_warmup_thread;
+    GCancellable *easyocr_warmup_cancel;
 };
+
+static void easyocr_warmup_report(OcrInstallContext *ctx, const char *message, int percent) {
+    (void)ctx;
+    (void)message;
+    (void)percent;
+}
+
+static gpointer easyocr_warmup_thread_fn(gpointer user_data) {
+    OcrApp *app = user_data;
+    if (!app || !app->service) return NULL;
+
+    int idx = ocr_service_get_provider_index(app->service, OCR_PROVIDER_EASYOCR);
+    if (idx < 0) return NULL;
+
+    OcrProvider *provider = ocr_service_get_provider(app->service, (gsize)idx);
+    if (!provider) return NULL;
+
+    OcrInstallContext ctx = {
+        .report = easyocr_warmup_report,
+        .user_data = NULL,
+        .cancellable = app->easyocr_warmup_cancel,
+    };
+    GError *error = NULL;
+    ocr_provider_ensure_installed(provider, &ctx, &error);
+    g_clear_error(&error);
+    return NULL;
+}
 
 static void document_clear(AppDocument *doc) {
     if (!doc) return;
@@ -60,11 +91,23 @@ OcrApp *ocr_app_new(void) {
         : ocr_service_get_default_provider_id();
     if (!ocr_service_select_provider(app->service, provider))
         ocr_service_select_provider(app->service, ocr_service_get_default_provider_id());
+
+    /* 앱 시작 직후 EasyOCR를 백그라운드에서 미리 준비해 첫 실행 지연을 줄인다. */
+    app->easyocr_warmup_cancel = g_cancellable_new();
+    app->easyocr_warmup_thread = g_thread_new(
+        "easyocr-warmup", easyocr_warmup_thread_fn, app);
     return app;
 }
 
 void ocr_app_free(OcrApp *app) {
     if (!app) return;
+
+    if (app->easyocr_warmup_cancel)
+        g_cancellable_cancel(app->easyocr_warmup_cancel);
+    if (app->easyocr_warmup_thread)
+        g_thread_join(app->easyocr_warmup_thread);
+    g_clear_object(&app->easyocr_warmup_cancel);
+
     ocr_app_save_settings(app, NULL);
     document_clear(&app->document);
     ocr_result_clear(&app->result);

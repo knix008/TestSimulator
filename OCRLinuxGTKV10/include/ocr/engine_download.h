@@ -20,5 +20,6 @@ gboolean engine_download_tessdata(OcrInstallContext *ctx, GError **error);
 
 /* EasyOCR (Python venv 기반) */
 gboolean engine_ensure_python_module(const char *module_name, OcrInstallContext *ctx, GError **error);
+gboolean engine_python_can_import(const char *module_name, GError **error);
 
 #endif

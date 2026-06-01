@@ -87,6 +87,13 @@ char *engine_paths_easyocr_models_dir(void) {
     return dir;
 }
 
+char *engine_paths_easyocr_ready_marker(void) {
+    char *root = engine_paths_engines_root();
+    char *path = g_build_filename(root, "easyocr", ".ready", NULL);
+    g_free(root);
+    return path;
+}
+
 char *engine_paths_script(const char *script_name) {
     char *app_dir = engine_paths_app_dir();
     char *script  = g_build_filename(app_dir, "scripts", script_name, NULL);

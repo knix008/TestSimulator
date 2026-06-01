@@ -10,7 +10,9 @@ EasyOCR 영속 서버 — 모델을 한 번 로딩하고 stdin 이미지 경로�
 import json
 import sys
 import os
+import warnings
 
+warnings.filterwarnings("ignore")
 
 def num(v):
     return float(v) if hasattr(v, "item") else float(v)
@@ -64,23 +66,25 @@ def emit(data):
 def main():
     model_dir = sys.argv[1] if len(sys.argv) > 1 else None
 
-    # ── 모델 로딩 (최초 1회) ─────────────────────────────────────────
+    # ── 모델 로딩 (최초 1회) — loading 상태를 stdout 으로 보내 UI 진행 표시 ──
+    emit({"status": "loading", "message": "EasyOCR 패키지 확인 중..."})
     try:
         import easyocr
     except ImportError as e:
         emit({"status": "error", "message": f"easyocr not installed: {e}"})
         sys.exit(1)
 
+    emit({"status": "loading", "message": "한국어·영어 모델 로딩 중 (최초 1회, 수 분 걸릴 수 있음)..."})
     try:
         kwargs = {"lang_list": ["ko", "en"], "gpu": False, "verbose": False}
         if model_dir:
+            os.makedirs(model_dir, exist_ok=True)
             kwargs["model_storage_directory"] = model_dir
         reader = easyocr.Reader(**kwargs)
     except Exception as e:
         emit({"status": "error", "message": str(e)})
         sys.exit(1)
 
-    # ── 준비 신호 ────────────────────────────────────────────────────
     emit({"status": "ready"})
 
     # ── 이미지 요청 루프 ─────────────────────────────────────────────

@@ -73,6 +73,9 @@ gboolean app_settings_load(AppSettings *settings, GError **error) {
     if (json_object_has_member(obj, "window_maximized"))
         settings->window_maximized = json_object_get_boolean_member(obj, "window_maximized");
 
+    /* 전처리 기본값은 항상 자동으로 유지 */
+    settings->preprocess_mode = 0;
+
     g_object_unref(parser);
     return TRUE;
 }

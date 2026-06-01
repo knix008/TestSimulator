@@ -17,6 +17,7 @@ char *engine_paths_tessdata_dir(void);
 
 /* EasyOCR (Python) */
 char *engine_paths_easyocr_models_dir(void);
+char *engine_paths_easyocr_ready_marker(void);
 char *engine_paths_script(const char *script_name);
 char *engine_paths_python_exe(void);
 char *engine_paths_pip_exe(void);

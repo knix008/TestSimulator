@@ -391,6 +391,12 @@ gboolean engine_download_tessdata(OcrInstallContext *ctx, GError **error) {
 
 /* ── EasyOCR: Python venv + pip install ───────────────────────────────── */
 
+static void subprocess_force_exit_cb(GCancellable *cancellable, gpointer user_data) {
+    (void)cancellable;
+    if (G_IS_SUBPROCESS(user_data))
+        g_subprocess_force_exit(G_SUBPROCESS(user_data));
+}
+
 static gboolean run_command(const char *argv[], GCancellable *cancellable, GError **error) {
     GSubprocess *proc = g_subprocess_newv(
         (const gchar *const *)argv,
@@ -398,13 +404,21 @@ static gboolean run_command(const char *argv[], GCancellable *cancellable, GErro
         error);
     if (!proc) return FALSE;
 
-    if (cancellable)
-        g_cancellable_connect(cancellable, G_CALLBACK(g_subprocess_force_exit), proc, NULL);
+    gulong cancel_handler = 0;
+    if (cancellable) {
+        cancel_handler = g_cancellable_connect(
+            cancellable,
+            G_CALLBACK(subprocess_force_exit_cb),
+            g_object_ref(proc),
+            (GDestroyNotify)g_object_unref);
+    }
 
     gchar *stderr_out = NULL;
     GError *wait_err  = NULL;
     if (!g_subprocess_wait_check(proc, cancellable, &wait_err)) {
         g_subprocess_communicate_utf8(proc, NULL, NULL, NULL, &stderr_out, NULL);
+        if (cancel_handler)
+            g_cancellable_disconnect(cancellable, cancel_handler);
         if (wait_err && g_error_matches(wait_err, G_IO_ERROR, G_IO_ERROR_CANCELLED))
             g_propagate_error(error, wait_err);
         else {
@@ -417,6 +431,8 @@ static gboolean run_command(const char *argv[], GCancellable *cancellable, GErro
         g_object_unref(proc);
         return FALSE;
     }
+    if (cancel_handler)
+        g_cancellable_disconnect(cancellable, cancel_handler);
     g_object_unref(proc);
     return TRUE;
 }
@@ -442,6 +458,22 @@ static gboolean ensure_python_venv(OcrInstallContext *ctx, GError **error) {
     return ok;
 }
 
+gboolean engine_python_can_import(const char *module_name, GError **error) {
+    if (!module_name) {
+        g_set_error(error, G_FILE_ERROR, G_FILE_ERROR_INVAL, "module_name is NULL");
+        return FALSE;
+    }
+    if (!ensure_python_venv(NULL, error)) return FALSE;
+
+    char *python = engine_paths_python_exe();
+    char import_cmd[128];
+    g_snprintf(import_cmd, sizeof(import_cmd), "import %s", module_name);
+    const char *check_argv[] = { python, "-c", import_cmd, NULL };
+    gboolean ok = run_command(check_argv, NULL, error);
+    g_free(python);
+    return ok;
+}
+
 gboolean engine_ensure_python_module(
     const char *module_name,
     OcrInstallContext *ctx,
@@ -452,12 +484,9 @@ gboolean engine_ensure_python_module(
     char *python = engine_paths_python_exe();
     char *pip    = engine_paths_pip_exe();
 
-    /* Already installed? */
-    char import_cmd[128];
-    g_snprintf(import_cmd, sizeof(import_cmd), "import %s", module_name);
-    const char *check_argv[] = { python, "-c", import_cmd, NULL };
     GError *local = NULL;
-    if (run_command(check_argv, NULL, &local)) {
+    if (engine_python_can_import(module_name, &local)) {
+        g_clear_error(&local);
         g_free(python);
         g_free(pip);
         return TRUE;
@@ -481,7 +510,7 @@ gboolean engine_ensure_python_module(
     g_free(req_path);
 
     if (ok) {
-        ok = run_command(check_argv, ctx ? ctx->cancellable : NULL, error);
+        ok = engine_python_can_import(module_name, error);
         if (ok)
             ocr_install_report(ctx, "Python OCR 패키지 설치 완료", 100);
     }

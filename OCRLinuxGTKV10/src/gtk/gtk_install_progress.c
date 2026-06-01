@@ -20,11 +20,14 @@ typedef struct {
     gboolean has_update;
 
     gboolean finished;
+    gboolean ui_alive;
     gboolean success;
     GError *error;
 } InstallProgressDialog;
 
 static void apply_progress_ui(InstallProgressDialog *d, const char *message, int percent) {
+    if (!d->ui_alive || !GTK_IS_WIDGET(d->lbl_message) || !GTK_IS_PROGRESS_BAR(d->progress))
+        return;
     gtk_label_set_text(GTK_LABEL(d->lbl_message), message);
 
     if (percent >= 0) {
@@ -37,6 +40,8 @@ static void apply_progress_ui(InstallProgressDialog *d, const char *message, int
 
 static gboolean update_progress_idle(gpointer user_data) {
     InstallProgressDialog *d = user_data;
+    if (!d->ui_alive)
+        return G_SOURCE_REMOVE;
     char message[512];
     int percent;
 
@@ -52,6 +57,8 @@ static gboolean update_progress_idle(gpointer user_data) {
 
 static void install_report_cb(OcrInstallContext *ctx, const char *message, int percent) {
     InstallProgressDialog *d = ctx->user_data;
+    if (d->finished || !d->ui_alive)
+        return;
     g_mutex_lock(&d->lock);
     g_strlcpy(d->pending_message, message, sizeof(d->pending_message));
     d->pending_percent = percent;
@@ -75,7 +82,7 @@ static gboolean quit_install_loop_idle(gpointer user_data) {
 
 static gboolean pulse_progress_idle(gpointer user_data) {
     InstallProgressDialog *d = user_data;
-    if (d->finished)
+    if (d->finished || !d->ui_alive || !GTK_IS_PROGRESS_BAR(d->progress))
         return G_SOURCE_REMOVE;
     g_mutex_lock(&d->lock);
     int percent = d->pending_percent;
@@ -87,6 +94,8 @@ static gboolean pulse_progress_idle(gpointer user_data) {
 
 static gboolean finish_success_idle(gpointer user_data) {
     InstallProgressDialog *d = user_data;
+    if (!d->ui_alive)
+        return G_SOURCE_REMOVE;
     apply_progress_ui(d, "설치 완료", 100);
     g_timeout_add(400, quit_install_loop_idle, d);
     return G_SOURCE_REMOVE;
@@ -94,6 +103,8 @@ static gboolean finish_success_idle(gpointer user_data) {
 
 static gboolean finish_failure_idle(gpointer user_data) {
     InstallProgressDialog *d = user_data;
+    if (!d->ui_alive)
+        return G_SOURCE_REMOVE;
     if (d->error && d->error->message && d->error->message[0])
         apply_progress_ui(d, d->error->message, -1);
     else if (g_cancellable_is_cancelled(d->cancellable))
@@ -145,8 +156,13 @@ static gboolean on_delete_event(GtkWidget *widget, GdkEvent *event, gpointer use
 }
 
 gboolean gtk_install_progress_prepare_engine(GtkWindow *parent, OcrApp *app, GError **error) {
+    /*
+     * 이미 설치된 엔진은 여기서 동기 준비를 수행하지 않는다.
+     * (EasyOCR warm-up/초기화와 경합 시 메인 스레드가 잠길 수 있음)
+     * 실제 엔진 초기화는 OCR 작업 스레드 경로에서 처리된다.
+     */
     if (!ocr_app_engine_needs_install(app))
-        return ocr_app_prepare_engine(app, error);
+        return TRUE;
 
     InstallProgressDialog d = {0};
     d.app = app;
@@ -197,6 +213,7 @@ gboolean gtk_install_progress_prepare_engine(GtkWindow *parent, OcrApp *app, GEr
     apply_progress_ui(&d, d.pending_message, d.pending_percent);
 
     gtk_widget_show_all(d.dialog);
+    d.ui_alive = TRUE;
 
     guint pulse_id = g_timeout_add(50, pulse_progress_idle, &d);
     d.loop = g_main_loop_new(NULL, FALSE);
@@ -207,6 +224,7 @@ gboolean gtk_install_progress_prepare_engine(GtkWindow *parent, OcrApp *app, GEr
     d.loop = NULL;
 
     g_thread_join(d.thread);
+    d.ui_alive = FALSE;
     gtk_widget_destroy(d.dialog);
     g_mutex_clear(&d.lock);
 

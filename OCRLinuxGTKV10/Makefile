@@ -148,7 +148,7 @@ RAPID_CLS=$(RAPID_DIR)/cls.onnx
 RAPID_REC=$(RAPID_DIR)/rec.onnx
 RAPID_DICT=$(RAPID_DIR)/korean_dict.txt
 
-# PaddleOCR ONNX: PP-OCRv4 det + PP-OCRv1 Korean rec + CLS (각도 보정 포함)
+# PaddleOCR ONNX: PP-OCRv4 det + PP-OCRv1 Korean rec + CLS (한국어 특화, 각도 보정 포함)
 PADDLE_DIR=$(MODELS_DIR)/paddle_onnx
 PADDLE_DET=$(PADDLE_DIR)/det.onnx
 PADDLE_CLS=$(PADDLE_DIR)/cls.onnx
@@ -315,10 +315,8 @@ models-paddle:
 	$(call INFO,PaddleOCR ONNX 모델 \(PP-OCRv4 det + Korean rec + CLS\))
 	$(call DOWNLOAD_MODEL,det.onnx (PP-OCRv4\, ~4.6 MB),$(PADDLE_DET),$(HF)/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx)
 	$(call DOWNLOAD_MODEL,cls.onnx (PP-OCRv1\, ~0.6 MB),$(PADDLE_CLS),$(HF)/PP-OCRv1/ch_ppocr_mobile_v2.0_cls_infer.onnx)
+	$(call DOWNLOAD_MODEL,rec.onnx (Korean PP-OCRv1\, ~3.2 MB),$(PADDLE_REC),$(HF)/PP-OCRv1/korean_mobile_v2.0_rec_infer.onnx)
 	$(call DOWNLOAD_MODEL,korean_dict.txt,$(PADDLE_DICT),$(GH)/dict/korean_dict.txt)
-	@printf "       \033[34m→\033[0m rec.onnx: PP-OCRv5 ONNX 변환 시도 (paddle2onnx)\n"
-	@python3 scripts/convert_paddle_models.py $(PADDLE_DIR) 2>/dev/null || true
-	$(call DOWNLOAD_MODEL,rec.onnx fallback (PP-OCRv1\, ~3.2 MB),$(PADDLE_REC),$(HF)/PP-OCRv1/korean_mobile_v2.0_rec_infer.onnx)
 
 # EasyOCR Python 스크립트 실행 권한
 easyocr-scripts:
