@@ -3,8 +3,12 @@
 #include "gtk/gtk_app_icon.h"
 #include "app/ocr_app.h"
 #include <gtk/gtk.h>
+#include <leptonica/allheaders.h>
 
 int gtk_app_run(int argc, char *argv[]) {
+    /* Leptonica INFO 메시지 억제 (예: "pixRotate: 1 bpp; rotate by shear") */
+    setMsgSeverity(L_SEVERITY_WARNING);
+
     gtk_init(&argc, &argv);
 
     g_set_application_name("MyOCR");

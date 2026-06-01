@@ -533,7 +533,7 @@ static gpointer ocr_run_thread(gpointer user_data) {
 /* 진행 중 프로그레스바 펄스 (타임아웃 콜백) */
 static gboolean ocr_run_pulse_idle(gpointer user_data) {
     OcrRunCtx *d = user_data;
-    if (d->finished) return G_SOURCE_REMOVE;
+    if (d->finished) return G_SOURCE_CONTINUE;  /* g_source_remove()가 단독 제거 */
     g_mutex_lock(&d->lock);
     int pct = d->pending_pct;
     g_mutex_unlock(&d->lock);

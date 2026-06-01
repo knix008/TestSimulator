@@ -13,6 +13,15 @@ gboolean preprocessor_uses_document_preprocess(const char *provider_id) {
         g_strcmp0(provider_id, OCR_PROVIDER_TESSERACT) == 0;
 }
 
+/* 신경망 기반 엔진 (ONNX/EasyOCR):
+ * 이진화 없이 대비 정규화만 적용. */
+static gboolean is_neural_provider(const char *provider_id) {
+    if (!provider_id) return FALSE;
+    return g_strcmp0(provider_id, OCR_PROVIDER_RAPIDOCR)    == 0
+        || g_strcmp0(provider_id, OCR_PROVIDER_PADDLE_ONNX) == 0
+        || g_strcmp0(provider_id, OCR_PROVIDER_EASYOCR)     == 0;
+}
+
 void preprocess_output_free(PreprocessOutput *output) {
     if (!output) return;
     if (output->image)
@@ -180,6 +189,8 @@ PreprocessOutput *preprocessor_process(
     default:
         if (preprocessor_uses_document_preprocess(provider_id))
             return process_document(input, provider_id);
+        if (is_neural_provider(provider_id))
+            return process_document(input, provider_id);  /* 이진화 없이 */
         return process_binary(input, MIN_DIM, MAX_DIM);
     }
 }
@@ -204,9 +215,20 @@ PreprocessOutput **preprocessor_process_passes(
     }
 
     if (mode == PREPROCESS_MODE_AUTO && preprocessor_uses_document_preprocess(provider_id)) {
+        /* Tesseract: document 전처리 + binary 전처리 (2 패스) */
         PreprocessOutput **passes = g_new0(PreprocessOutput *, 2);
         passes[0] = process_document(input, provider_id);
         passes[1] = process_binary(input, DOC_MIN_DIM, DOC_MAX_DIM);
+        *pass_count_out = 2;
+        return passes;
+    }
+
+    if (mode == PREPROCESS_MODE_AUTO && is_neural_provider(provider_id)) {
+        /* ONNX/EasyOCR: 이진화 없이 document 전처리 + 원본 리사이즈 (2 패스)
+         * 신경망은 그레이스케일/컬러 이미지를 직접 처리하므로 이진화가 오히려 손해 */
+        PreprocessOutput **passes = g_new0(PreprocessOutput *, 2);
+        passes[0] = process_document(input, provider_id);
+        passes[1] = process_none(input);
         *pass_count_out = 2;
         return passes;
     }

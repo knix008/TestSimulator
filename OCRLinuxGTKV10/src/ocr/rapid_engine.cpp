@@ -45,9 +45,9 @@ static constexpr float DET_MEAN_R = 0.485f;
 static constexpr float DET_STD_B  = 0.225f;
 static constexpr float DET_STD_G  = 0.224f;
 static constexpr float DET_STD_R  = 0.229f;
-static constexpr float DET_DB_THRESH     = 0.3f;
-static constexpr float DET_DB_BOX_THRESH = 0.5f;
-static constexpr float DET_DB_UNCLIP     = 1.5f;
+static constexpr float DET_DB_THRESH     = 0.3f;   /* 확률맵 이진화 임계값 */
+static constexpr float DET_DB_BOX_THRESH = 0.4f;   /* 박스 신뢰도 임계값 (낮출수록 더 많이 검출) */
+static constexpr float DET_DB_UNCLIP     = 1.6f;   /* 박스 확장 비율 (한글은 약간 크게) */
 static constexpr int   DET_MAX_SIDE      = 960;
 static constexpr int   DET_MIN_SIZE      = 3;
 
