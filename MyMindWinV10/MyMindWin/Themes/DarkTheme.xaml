@@ -15,12 +15,13 @@
     <SolidColorBrush x:Key="AppMenuForeground" Color="{StaticResource AppMenuForegroundColor}"/>
     <SolidColorBrush x:Key="AppMenuMuted" Color="{StaticResource AppMenuMutedColor}"/>
     <SolidColorBrush x:Key="AppMenuBorder" Color="{StaticResource AppMenuBorderColor}"/>
+    <SolidColorBrush x:Key="AppMenuSeparatorBrush" Color="{StaticResource AppMenuSeparatorColor}"/>
 
     <!-- WPF 기본 메뉴/팝업이 참조하는 시스템 색 (밝은 테마 → 다크로 덮어씀) -->
     <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="{StaticResource AppMenuBgColor}"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="{StaticResource AppMenuForegroundColor}"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#0D101A"/>
-    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBorderBrushKey}" Color="{StaticResource AppMenuBorderColor}"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuHighlightBrushKey}" Color="{StaticResource AppMenuHighlightColor}"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="{StaticResource AppMenuHighlightColor}"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="{StaticResource AppMenuForegroundColor}"/>
     <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="{StaticResource AppMenuBgColor}"/>
@@ -83,7 +84,7 @@
 
     <!-- 메뉴·컨텍스트 메뉴 구분선 (툴바 Separator는 ToolbarSep 유지) -->
     <Style TargetType="{x:Type Separator}">
-        <Setter Property="Background" Value="{StaticResource AppMenuSeparatorColor}"/>
+        <Setter Property="Background" Value="{StaticResource AppMenuSeparatorBrush}"/>
         <Setter Property="Margin" Value="8,4"/>
         <Setter Property="Height" Value="1"/>
         <Setter Property="Template">
@@ -91,7 +92,7 @@
                 <ControlTemplate TargetType="Separator">
                     <Border Height="1"
                             Margin="{TemplateBinding Margin}"
-                            Background="{StaticResource AppMenuSeparatorColor}"/>
+                            Background="{StaticResource AppMenuSeparatorBrush}"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

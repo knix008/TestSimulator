@@ -523,7 +523,7 @@ namespace MyMindWin.ViewModels
             OnPropertyChanged(nameof(ShapeComboSelection));
             OnPropertyChanged(nameof(SelectedShapeOption));
 
-            RequestFitView?.Invoke(this, EventArgs.Empty);
+            ZoomLevel = 1.0;
         }
 
         public void SetRoot(MindMapNode model, LayoutType? layout = null)

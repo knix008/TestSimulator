@@ -215,7 +215,7 @@ namespace MyMindWin.Controls
                     _pendingFitAfterLoad = false;
                 }
                 else if (!_userPositioned)
-                    CenterView();
+                    SetViewToDefaultZoom();
             }
         }
 
@@ -1722,6 +1722,22 @@ namespace MyMindWin.Controls
         }
 
         public void RebuildFromViewModel() => RebuildCanvas();
+
+        /// <summary>100% 확대로 맞춘 뒤 다이어그램 중심을 뷰포트에 배치합니다.</summary>
+        public void SetViewToDefaultZoom()
+        {
+            if (_vm?.RootNode == null || CanvasScroller.ViewportWidth <= 0) return;
+
+            const double defaultZoom = 1.0;
+            _suppressZoomSync = true;
+            ScaleXform.ScaleX = defaultZoom;
+            ScaleXform.ScaleY = defaultZoom;
+            _vm.ZoomLevel = defaultZoom;
+            _suppressZoomSync = false;
+            ZoomLabel.Text = "100%";
+
+            CenterView();
+        }
 
         public void CenterView()
         {

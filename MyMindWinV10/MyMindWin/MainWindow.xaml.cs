@@ -47,7 +47,7 @@ namespace MyMindWin
                     _vm.OpenFile(App.StartupFilePath);
                     App.ClearStartupFilePath();
                 }
-                MindMapCanvas.FitToView();
+                MindMapCanvas.SetViewToDefaultZoom();
                 MindMapCanvas.Focus();
             };
         }
