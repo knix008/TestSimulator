@@ -138,7 +138,10 @@ public sealed class DiagramViewHost : UserControl
         _rootNodeIds = [node.Id];
         CallGraphRootChanged?.Invoke(node);
 
-        if (_viewKind is DiagramViewKind.SequenceDiagram or DiagramViewKind.DataFlow)
+        if (_viewKind is DiagramViewKind.SequenceDiagram
+            or DiagramViewKind.DataFlow
+            or DiagramViewKind.FileRelations
+            or DiagramViewKind.DirectoryRelations)
         {
             _structureViewer.ViewKind = _viewKind;
             _structureViewer.SetAnalysis(_analysis, [node.Id]);
@@ -168,7 +171,11 @@ public sealed class DiagramViewHost : UserControl
             return;
         }
 
-        _structureViewer.ViewKind = _viewKind;
+        if (_structureViewer.ViewKind != _viewKind)
+        {
+            _structureViewer.ViewKind = _viewKind;
+        }
+
         _structureViewer.SetAnalysis(_analysis, _rootNodeIds);
     }
 }

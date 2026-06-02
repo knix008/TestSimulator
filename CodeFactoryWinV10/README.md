@@ -39,6 +39,42 @@ dotnet run --project CodeAnalyzer
 1. `CodeAnalyzer.sln`을 엽니다.
 2. F5로 실행합니다.
 
+## MSI 설치 파일 빌드 (Release)
+
+이 저장소에는 WiX Toolset v5 기반 설치 프로젝트(`CodeAnalyzer.Setup`)가 포함되어 있습니다.
+
+### Visual Studio 2026
+
+1. 솔루션 `CodeAnalyzer.sln`을 엽니다.
+2. 상단 구성(Configuration)을 `Release`로 변경합니다.
+3. **Build Solution**을 실행합니다.
+4. MSI 결과물을 확인합니다.
+
+- `CodeAnalyzer.Setup/bin/Release/CodeAnalyzer.Setup.msi`
+
+### 명령줄
+
+```powershell
+dotnet build .\CodeAnalyzer.sln -c Release
+```
+
+### 문제 해결 (Visual Studio 2026)
+
+- MSI 설치 프로젝트는 실행 대상이 아닙니다. F5(디버그 시작)로 실행되지 않습니다.
+- MSI는 반드시 Build로 생성해야 합니다.
+
+권장 순서:
+
+1. 시작 프로젝트는 `CodeAnalyzer`로 둡니다.
+2. 구성(Configuration)을 `Release`로 선택합니다.
+3. Build > Build Solution을 실행합니다.
+4. `CodeAnalyzer.Setup/bin/Release/CodeAnalyzer.Setup.msi` 생성 여부를 확인합니다.
+
+추가 확인:
+
+- Configuration Manager에서 `CodeAnalyzer.Setup`의 Build 체크가 Release에 켜져 있어야 합니다.
+- 그래도 Visual Studio에서만 실패하면, 동일 솔루션에서 명령줄 `dotnet build .\CodeAnalyzer.sln -c Release`가 성공하는지 먼저 확인하세요.
+
 ## 사용 방법
 
 1. **루트 디렉터리**를 선택합니다.

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Code Analyzer"
+    Manufacturer="CodeAnalyzer Team"
+    Version="1.0.0"
+    UpgradeCode="8a1f6b8f-5d32-4dc0-bad8-01d9d8f67f52"
+    InstallerVersion="500"
+    Scope="perMachine"
+    Language="1042">
+
+    <SummaryInformation Description="Code Analyzer Installer" Manufacturer="CodeAnalyzer Team" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Code Analyzer" />
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="Code Analyzer" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.CodeAnalyzer)\**">
+        <Exclude Files="!(bindpath.CodeAnalyzer)\**\*.pdb" />
+        <Exclude Files="!(bindpath.CodeAnalyzer)\**\*.xml" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

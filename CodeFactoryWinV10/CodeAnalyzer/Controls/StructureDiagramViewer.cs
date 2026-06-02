@@ -38,6 +38,11 @@ public sealed class StructureDiagramViewer : UserControl
         get => _viewKind;
         set
         {
+            if (_viewKind == value)
+            {
+                return;
+            }
+
             _viewKind = value;
             Rebuild();
         }
