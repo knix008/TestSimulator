@@ -1,0 +1,465 @@
+using CodeAnalyzer.Controls;
+
+namespace CodeAnalyzer;
+
+partial class MainForm
+{
+    private System.ComponentModel.IContainer components = null;
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && components != null)
+        {
+            components.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
+    private void InitializeComponent()
+    {
+        splitContainerMain = new SplitContainer();
+        grpAnalysis = new GroupBox();
+        btnAnalyze = new Button();
+        lblExcludeHint = new Label();
+        checkedListDirectories = new CheckedListBox();
+        lblExclude = new Label();
+        checkedListLanguages = new CheckedListBox();
+        lblLanguages = new Label();
+        btnBrowseRoot = new Button();
+        txtRootPath = new TextBox();
+        lblRootPath = new Label();
+        callGraphViewer = new CallGraphViewer();
+        panelToolbar = new Panel();
+        btnCollapseAll = new Button();
+        btnExpandAll = new Button();
+        comboLineStyle = new ComboBox();
+        lblLineStyle = new Label();
+        comboLayoutDirection = new ComboBox();
+        lblLayout = new Label();
+        comboRootMethod = new ComboBox();
+        lblRootMethod = new Label();
+        menuStrip = new MenuStrip();
+        menuFile = new ToolStripMenuItem();
+        menuSave = new ToolStripMenuItem();
+        toolStripSearchLabel = new ToolStripLabel();
+        toolStripSearchBox = new ToolStripTextBox();
+        toolStripFindPrevious = new ToolStripButton();
+        toolStripFindNext = new ToolStripButton();
+        statusStrip = new StatusStrip();
+        progressBarAnalysis = new ToolStripProgressBar();
+        lblProgressPercent = new ToolStripStatusLabel();
+        lblStatus = new ToolStripStatusLabel();
+        ((System.ComponentModel.ISupportInitialize)splitContainerMain).BeginInit();
+        splitContainerMain.Panel1.SuspendLayout();
+        splitContainerMain.Panel2.SuspendLayout();
+        splitContainerMain.SuspendLayout();
+        grpAnalysis.SuspendLayout();
+        panelToolbar.SuspendLayout();
+        menuStrip.SuspendLayout();
+        statusStrip.SuspendLayout();
+        SuspendLayout();
+        // 
+        // splitContainerMain
+        // 
+        splitContainerMain.Dock = DockStyle.Fill;
+        splitContainerMain.Location = new Point(0, 27);
+        splitContainerMain.Name = "splitContainerMain";
+        // 
+        // splitContainerMain.Panel1
+        // 
+        splitContainerMain.Panel1.Controls.Add(grpAnalysis);
+        splitContainerMain.Panel1.Padding = new Padding(8);
+        splitContainerMain.Panel1MinSize = 260;
+        // 
+        // splitContainerMain.Panel2
+        // 
+        splitContainerMain.Panel2.Controls.Add(callGraphViewer);
+        splitContainerMain.Panel2.Controls.Add(panelToolbar);
+        splitContainerMain.Panel2MinSize = 320;
+        splitContainerMain.Size = new Size(1280, 733);
+        splitContainerMain.SplitterDistance = 320;
+        splitContainerMain.SplitterWidth = 6;
+        splitContainerMain.TabIndex = 0;
+        // 
+        // grpAnalysis
+        // 
+        grpAnalysis.Controls.Add(btnAnalyze);
+        grpAnalysis.Controls.Add(lblExcludeHint);
+        grpAnalysis.Controls.Add(checkedListDirectories);
+        grpAnalysis.Controls.Add(lblExclude);
+        grpAnalysis.Controls.Add(checkedListLanguages);
+        grpAnalysis.Controls.Add(lblLanguages);
+        grpAnalysis.Controls.Add(btnBrowseRoot);
+        grpAnalysis.Controls.Add(txtRootPath);
+        grpAnalysis.Controls.Add(lblRootPath);
+        grpAnalysis.Dock = DockStyle.Fill;
+        grpAnalysis.Location = new Point(8, 8);
+        grpAnalysis.Name = "grpAnalysis";
+        grpAnalysis.Padding = new Padding(12, 8, 12, 12);
+        grpAnalysis.Size = new Size(304, 717);
+        grpAnalysis.TabIndex = 0;
+        grpAnalysis.TabStop = false;
+        grpAnalysis.Text = "코드 분석 설정";
+        // 
+        // btnAnalyze
+        // 
+        btnAnalyze.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        btnAnalyze.Location = new Point(12, 659);
+        btnAnalyze.Name = "btnAnalyze";
+        btnAnalyze.Size = new Size(276, 36);
+        btnAnalyze.TabIndex = 8;
+        btnAnalyze.Text = "분석 실행";
+        btnAnalyze.UseVisualStyleBackColor = false;
+        btnAnalyze.Click += btnAnalyze_Click;
+        // 
+        // lblExcludeHint
+        // 
+        lblExcludeHint.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        lblExcludeHint.ForeColor = Color.DimGray;
+        lblExcludeHint.Location = new Point(12, 619);
+        lblExcludeHint.Name = "lblExcludeHint";
+        lblExcludeHint.Size = new Size(276, 32);
+        lblExcludeHint.TabIndex = 7;
+        lblExcludeHint.Text = "체크된 디렉터리는 분석에서 제외됩니다. (루트 '.' 체크 시 전체 제외)";
+        // 
+        // checkedListDirectories
+        // 
+        checkedListDirectories.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        checkedListDirectories.CheckOnClick = true;
+        checkedListDirectories.FormattingEnabled = true;
+        checkedListDirectories.IntegralHeight = false;
+        checkedListDirectories.Location = new Point(12, 282);
+        checkedListDirectories.Name = "checkedListDirectories";
+        checkedListDirectories.Size = new Size(276, 327);
+        checkedListDirectories.TabIndex = 6;
+        // 
+        // lblExclude
+        // 
+        lblExclude.AutoSize = true;
+        lblExclude.Location = new Point(12, 262);
+        lblExclude.Name = "lblExclude";
+        lblExclude.Size = new Size(123, 15);
+        lblExclude.TabIndex = 5;
+        lblExclude.Text = "제외할 하위 디렉터리";
+        // 
+        // checkedListLanguages
+        // 
+        checkedListLanguages.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        checkedListLanguages.CheckOnClick = true;
+        checkedListLanguages.FormattingEnabled = true;
+        checkedListLanguages.IntegralHeight = false;
+        checkedListLanguages.Location = new Point(12, 100);
+        checkedListLanguages.Name = "checkedListLanguages";
+        checkedListLanguages.Size = new Size(276, 150);
+        checkedListLanguages.TabIndex = 4;
+        // 
+        // lblLanguages
+        // 
+        lblLanguages.AutoSize = true;
+        lblLanguages.Location = new Point(12, 80);
+        lblLanguages.Name = "lblLanguages";
+        lblLanguages.Size = new Size(135, 15);
+        lblLanguages.TabIndex = 3;
+        lblLanguages.Text = "분석할 프로그래밍 언어";
+        // 
+        // btnBrowseRoot
+        // 
+        btnBrowseRoot.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnBrowseRoot.Location = new Point(214, 42);
+        btnBrowseRoot.Name = "btnBrowseRoot";
+        btnBrowseRoot.Size = new Size(74, 27);
+        btnBrowseRoot.TabIndex = 2;
+        btnBrowseRoot.Text = "찾아보기";
+        btnBrowseRoot.UseVisualStyleBackColor = true;
+        btnBrowseRoot.Click += btnBrowseRoot_Click;
+        // 
+        // txtRootPath
+        // 
+        txtRootPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        txtRootPath.Location = new Point(12, 44);
+        txtRootPath.Name = "txtRootPath";
+        txtRootPath.PlaceholderText = "C:\\Projects\\MyApp";
+        txtRootPath.Size = new Size(196, 23);
+        txtRootPath.TabIndex = 1;
+        txtRootPath.Leave += txtRootPath_Leave;
+        // 
+        // lblRootPath
+        // 
+        lblRootPath.AutoSize = true;
+        lblRootPath.Location = new Point(12, 24);
+        lblRootPath.Name = "lblRootPath";
+        lblRootPath.Size = new Size(83, 15);
+        lblRootPath.TabIndex = 0;
+        lblRootPath.Text = "루트 디렉터리";
+        // 
+        // callGraphViewer
+        // 
+        callGraphViewer.AutoScroll = true;
+        callGraphViewer.AutoScrollMinSize = new Size(400, 300);
+        callGraphViewer.BackColor = Color.White;
+        callGraphViewer.Dock = DockStyle.Fill;
+        callGraphViewer.LayoutDirection = Models.GraphLayoutDirection.LeftToRight;
+        callGraphViewer.LineStyle = Models.ConnectionLineStyle.Orthogonal;
+        callGraphViewer.Location = new Point(0, 48);
+        callGraphViewer.Name = "callGraphViewer";
+        callGraphViewer.Size = new Size(954, 685);
+        callGraphViewer.TabIndex = 1;
+        // 
+        // panelToolbar
+        // 
+        panelToolbar.Controls.Add(btnCollapseAll);
+        panelToolbar.Controls.Add(btnExpandAll);
+        panelToolbar.Controls.Add(comboLineStyle);
+        panelToolbar.Controls.Add(lblLineStyle);
+        panelToolbar.Controls.Add(comboLayoutDirection);
+        panelToolbar.Controls.Add(lblLayout);
+        panelToolbar.Controls.Add(comboRootMethod);
+        panelToolbar.Controls.Add(lblRootMethod);
+        panelToolbar.Dock = DockStyle.Top;
+        panelToolbar.Location = new Point(0, 0);
+        panelToolbar.Name = "panelToolbar";
+        panelToolbar.Padding = new Padding(8, 8, 8, 4);
+        panelToolbar.Size = new Size(954, 48);
+        panelToolbar.TabIndex = 0;
+        // 
+        // btnCollapseAll
+        // 
+        btnCollapseAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnCollapseAll.Location = new Point(848, 10);
+        btnCollapseAll.Name = "btnCollapseAll";
+        btnCollapseAll.Size = new Size(80, 27);
+        btnCollapseAll.TabIndex = 7;
+        btnCollapseAll.Text = "전체 접기";
+        btnCollapseAll.UseVisualStyleBackColor = true;
+        btnCollapseAll.Click += btnCollapseAll_Click;
+        // 
+        // btnExpandAll
+        // 
+        btnExpandAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnExpandAll.Location = new Point(762, 10);
+        btnExpandAll.Name = "btnExpandAll";
+        btnExpandAll.Size = new Size(80, 27);
+        btnExpandAll.TabIndex = 6;
+        btnExpandAll.Text = "전체 펼치기";
+        btnExpandAll.UseVisualStyleBackColor = true;
+        btnExpandAll.Click += btnExpandAll_Click;
+        // 
+        // comboLineStyle
+        // 
+        comboLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        comboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
+        comboLineStyle.FormattingEnabled = true;
+        comboLineStyle.Location = new Point(616, 11);
+        comboLineStyle.Name = "comboLineStyle";
+        comboLineStyle.Size = new Size(130, 23);
+        comboLineStyle.TabIndex = 5;
+        comboLineStyle.SelectedIndexChanged += comboLineStyle_SelectedIndexChanged;
+        // 
+        // lblLineStyle
+        // 
+        lblLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        lblLineStyle.AutoSize = true;
+        lblLineStyle.Location = new Point(569, 15);
+        lblLineStyle.Name = "lblLineStyle";
+        lblLineStyle.Size = new Size(43, 15);
+        lblLineStyle.TabIndex = 4;
+        lblLineStyle.Text = "연결선";
+        // 
+        // comboLayoutDirection
+        // 
+        comboLayoutDirection.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        comboLayoutDirection.DropDownStyle = ComboBoxStyle.DropDownList;
+        comboLayoutDirection.FormattingEnabled = true;
+        comboLayoutDirection.Location = new Point(425, 11);
+        comboLayoutDirection.Name = "comboLayoutDirection";
+        comboLayoutDirection.Size = new Size(130, 23);
+        comboLayoutDirection.TabIndex = 3;
+        comboLayoutDirection.SelectedIndexChanged += comboLayoutDirection_SelectedIndexChanged;
+        // 
+        // lblLayout
+        // 
+        lblLayout.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        lblLayout.AutoSize = true;
+        lblLayout.Location = new Point(366, 15);
+        lblLayout.Name = "lblLayout";
+        lblLayout.Size = new Size(55, 15);
+        lblLayout.TabIndex = 2;
+        lblLayout.Text = "레이아웃";
+        // 
+        // comboRootMethod
+        // 
+        comboRootMethod.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        comboRootMethod.DropDownStyle = ComboBoxStyle.DropDownList;
+        comboRootMethod.FormattingEnabled = true;
+        comboRootMethod.Location = new Point(72, 11);
+        comboRootMethod.Name = "comboRootMethod";
+        comboRootMethod.Size = new Size(278, 23);
+        comboRootMethod.TabIndex = 1;
+        comboRootMethod.SelectedIndexChanged += comboRootMethod_SelectedIndexChanged;
+        // 
+        // lblRootMethod
+        // 
+        lblRootMethod.AutoSize = true;
+        lblRootMethod.Location = new Point(8, 15);
+        lblRootMethod.Name = "lblRootMethod";
+        lblRootMethod.Size = new Size(59, 15);
+        lblRootMethod.TabIndex = 0;
+        lblRootMethod.Text = "시작 함수";
+        // 
+        // menuStrip
+        // 
+        menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, toolStripSearchLabel, toolStripSearchBox, toolStripFindPrevious, toolStripFindNext });
+        menuStrip.Location = new Point(0, 0);
+        menuStrip.Name = "menuStrip";
+        menuStrip.Size = new Size(1280, 27);
+        menuStrip.TabIndex = 2;
+        menuStrip.Text = "menuStrip";
+        // 
+        // menuFile
+        // 
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuSave });
+        menuFile.Name = "menuFile";
+        menuFile.Size = new Size(43, 23);
+        menuFile.Text = "파일";
+        // 
+        // menuSave
+        // 
+        menuSave.Name = "menuSave";
+        menuSave.ShortcutKeys = Keys.Control | Keys.S;
+        menuSave.Size = new Size(176, 22);
+        menuSave.Text = "결과 저장...";
+        menuSave.Click += menuSave_Click;
+        // 
+        // toolStripSearchLabel
+        // 
+        toolStripSearchLabel.Margin = new Padding(12, 0, 4, 0);
+        toolStripSearchLabel.Name = "toolStripSearchLabel";
+        toolStripSearchLabel.Size = new Size(34, 23);
+        toolStripSearchLabel.Text = "찾기:";
+        // 
+        // toolStripSearchBox
+        // 
+        toolStripSearchBox.AutoSize = false;
+        toolStripSearchBox.Enabled = false;
+        toolStripSearchBox.Name = "toolStripSearchBox";
+        toolStripSearchBox.Size = new Size(220, 23);
+        toolStripSearchBox.ToolTipText = "함수 이름·경로 검색 (Ctrl+F)";
+        toolStripSearchBox.KeyDown += toolStripSearchBox_KeyDown;
+        toolStripSearchBox.TextChanged += toolStripSearchBox_TextChanged;
+        // 
+        // toolStripFindPrevious
+        // 
+        toolStripFindPrevious.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        toolStripFindPrevious.Enabled = false;
+        toolStripFindPrevious.Name = "toolStripFindPrevious";
+        toolStripFindPrevious.Size = new Size(51, 20);
+        toolStripFindPrevious.Text = "◀ 이전";
+        toolStripFindPrevious.ToolTipText = "이전 찾기 (Shift+F3)";
+        toolStripFindPrevious.Click += toolStripFindPrevious_Click;
+        // 
+        // toolStripFindNext
+        // 
+        toolStripFindNext.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        toolStripFindNext.Enabled = false;
+        toolStripFindNext.Name = "toolStripFindNext";
+        toolStripFindNext.Size = new Size(51, 20);
+        toolStripFindNext.Text = "다음 ▶";
+        toolStripFindNext.ToolTipText = "다음 찾기 (F3)";
+        toolStripFindNext.Click += toolStripFindNext_Click;
+        // 
+        // statusStrip
+        // 
+        statusStrip.Items.AddRange(new ToolStripItem[] { progressBarAnalysis, lblProgressPercent, lblStatus });
+        statusStrip.Location = new Point(0, 760);
+        statusStrip.Name = "statusStrip";
+        statusStrip.Size = new Size(1280, 22);
+        statusStrip.TabIndex = 1;
+        statusStrip.Text = "statusStrip1";
+        // 
+        // progressBarAnalysis
+        // 
+        progressBarAnalysis.AutoSize = false;
+        progressBarAnalysis.Name = "progressBarAnalysis";
+        progressBarAnalysis.Size = new Size(160, 16);
+        progressBarAnalysis.Style = ProgressBarStyle.Continuous;
+        progressBarAnalysis.Visible = false;
+        // 
+        // lblProgressPercent
+        // 
+        lblProgressPercent.AutoSize = false;
+        lblProgressPercent.Name = "lblProgressPercent";
+        lblProgressPercent.Size = new Size(44, 17);
+        lblProgressPercent.Text = "0%";
+        lblProgressPercent.Visible = false;
+        // 
+        // lblStatus
+        // 
+        lblStatus.Name = "lblStatus";
+        lblStatus.Size = new Size(1265, 17);
+        lblStatus.Spring = true;
+        lblStatus.Text = "준비";
+        lblStatus.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // MainForm
+        // 
+        AutoScaleDimensions = new SizeF(7F, 15F);
+        AutoScaleMode = AutoScaleMode.Font;
+        ClientSize = new Size(1280, 782);
+        Controls.Add(splitContainerMain);
+        Controls.Add(statusStrip);
+        Controls.Add(menuStrip);
+        MainMenuStrip = menuStrip;
+        MinimumSize = new Size(960, 640);
+        Name = "MainForm";
+        StartPosition = FormStartPosition.CenterScreen;
+        Text = "Code Analyzer - 함수 호출 관계";
+        splitContainerMain.Panel1.ResumeLayout(false);
+        splitContainerMain.Panel2.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)splitContainerMain).EndInit();
+        splitContainerMain.ResumeLayout(false);
+        grpAnalysis.ResumeLayout(false);
+        grpAnalysis.PerformLayout();
+        panelToolbar.ResumeLayout(false);
+        panelToolbar.PerformLayout();
+        menuStrip.ResumeLayout(false);
+        menuStrip.PerformLayout();
+        statusStrip.ResumeLayout(false);
+        statusStrip.PerformLayout();
+        ResumeLayout(false);
+        PerformLayout();
+    }
+
+    private SplitContainer splitContainerMain;
+    private GroupBox grpAnalysis;
+    private Button btnAnalyze;
+    private Label lblExcludeHint;
+    private CheckedListBox checkedListDirectories;
+    private Label lblExclude;
+    private CheckedListBox checkedListLanguages;
+    private Label lblLanguages;
+    private Button btnBrowseRoot;
+    private TextBox txtRootPath;
+    private Label lblRootPath;
+    private CallGraphViewer callGraphViewer;
+    private Panel panelToolbar;
+    private Button btnCollapseAll;
+    private Button btnExpandAll;
+    private ComboBox comboLineStyle;
+    private Label lblLineStyle;
+    private ComboBox comboLayoutDirection;
+    private Label lblLayout;
+    private ComboBox comboRootMethod;
+    private Label lblRootMethod;
+    private MenuStrip menuStrip;
+    private ToolStripMenuItem menuFile;
+    private ToolStripMenuItem menuSave;
+    private ToolStripLabel toolStripSearchLabel;
+    private ToolStripTextBox toolStripSearchBox;
+    private ToolStripButton toolStripFindPrevious;
+    private ToolStripButton toolStripFindNext;
+    private StatusStrip statusStrip;
+    private ToolStripProgressBar progressBarAnalysis;
+    private ToolStripStatusLabel lblProgressPercent;
+    private ToolStripStatusLabel lblStatus;
+}
