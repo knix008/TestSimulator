@@ -15,53 +15,98 @@ public sealed class CSharpStructureExtractor
         var relations = new List<StructureRelationEdge>();
         var references = MetadataReferenceProvider.CreateReferences();
 
-        foreach (var chunk in sourceFiles.Chunk(RoslynAnalysisOptions.FilesPerCompilation))
+        await ExtractInChunksAsync(sourceFiles, references, types, relations, sourceFiles.Count, cancellationToken).ConfigureAwait(false);
+
+        return (types.Values.ToList(), relations);
+    }
+
+    private static async Task ExtractInChunksAsync(
+        IReadOnlyList<string> files,
+        IReadOnlyList<MetadataReference> references,
+        Dictionary<string, StructureTypeNode> types,
+        List<StructureRelationEdge> relations,
+        int chunkSize,
+        CancellationToken cancellationToken)
+    {
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var chunk in files.Chunk(Math.Max(1, chunkSize)))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var syntaxTrees = new List<SyntaxTree>();
-            foreach (var file in chunk)
+            try
             {
-                try
-                {
-                    var text = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
-                    syntaxTrees.Add(CSharpSyntaxTree.ParseText(text, path: file, cancellationToken: cancellationToken));
-                }
-                catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
-                {
-                    // skip file
-                }
+                await ExtractChunkAsync(chunk, references, types, relations, cancellationToken).ConfigureAwait(false);
             }
-
-            if (syntaxTrees.Count == 0)
+            catch (OutOfMemoryException) when (chunk.Length > 1)
             {
-                continue;
+                await ExtractInChunksAsync(chunk, references, types, relations, Math.Max(1, chunkSize / 2), cancellationToken).ConfigureAwait(false);
             }
-
-            var compilation = CSharpCompilation.Create(
-                $"StructureCSharp_{Guid.NewGuid():N}",
-                syntaxTrees,
-                references,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
-            foreach (var tree in syntaxTrees)
+            catch (OperationCanceledException)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                throw;
+            }
+            catch (Exception) when (chunk.Length > 1)
+            {
+                await ExtractInChunksAsync(chunk, references, types, relations, Math.Max(1, chunkSize / 2), cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // single-file chunk failed — skip it
+            }
+        }
+    }
 
-                try
-                {
-                    var model = compilation.GetSemanticModel(tree);
-                    var root = await tree.GetRootAsync(cancellationToken).ConfigureAwait(false);
-                    ExtractFromRoot(root, model, tree.FilePath ?? string.Empty, types, relations, cancellationToken);
-                }
-                catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
-                {
-                    // skip tree
-                }
+    private static async Task ExtractChunkAsync(
+        IReadOnlyList<string> chunk,
+        IReadOnlyList<MetadataReference> references,
+        Dictionary<string, StructureTypeNode> types,
+        List<StructureRelationEdge> relations,
+        CancellationToken cancellationToken)
+    {
+        var syntaxTrees = new List<SyntaxTree>();
+        foreach (var file in chunk)
+        {
+            try
+            {
+                var text = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
+                syntaxTrees.Add(CSharpSyntaxTree.ParseText(text, path: file, cancellationToken: cancellationToken));
+            }
+            catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+            {
+                // skip file
             }
         }
 
-        return (types.Values.ToList(), relations);
+        if (syntaxTrees.Count == 0)
+        {
+            return;
+        }
+
+        var compilation = CSharpCompilation.Create(
+            $"StructureCSharp_{Guid.NewGuid():N}",
+            syntaxTrees,
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        foreach (var tree in syntaxTrees)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var model = compilation.GetSemanticModel(tree);
+                var root = await tree.GetRootAsync(cancellationToken).ConfigureAwait(false);
+                ExtractFromRoot(root, model, tree.FilePath ?? string.Empty, types, relations, cancellationToken);
+            }
+            catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+            {
+                // skip tree
+            }
+        }
     }
 
     private static void ExtractFromRoot(

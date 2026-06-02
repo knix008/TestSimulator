@@ -21,6 +21,7 @@ public sealed class StructureDiagramViewer : UserControl
     private readonly HashSet<string> _highlightIds = new(StringComparer.Ordinal);
     private string? _currentHighlightId;
     private readonly DiagramZoomController _zoom = new();
+    private bool _buildError;
 
     public event Action<FileRelationNode>? FileRootChanged;
     public event Action<DirectoryRelationNode>? DirectoryRootChanged;
@@ -51,6 +52,7 @@ public sealed class StructureDiagramViewer : UserControl
     public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> functionRootIds)
     {
         _isAnalyzing = false;
+        _buildError = false;
         _zoom.Reset();
         _analysis = analysis;
         _functionRootIds = functionRootIds;
@@ -65,6 +67,7 @@ public sealed class StructureDiagramViewer : UserControl
     {
         _zoom.Reset();
         _isAnalyzing = true;
+        _buildError = false;
         _analysis = null;
         _boxes.Clear();
         _edges.Clear();
@@ -183,67 +186,84 @@ public sealed class StructureDiagramViewer : UserControl
             return;
         }
 
-        if (_viewKind == DiagramViewKind.SequenceDiagram)
+        if (_buildError)
         {
-            var state = e.Graphics.Save();
+            DrawMessage(e.Graphics, "분석에 실패했습니다.");
+            return;
+        }
+
+        try
+        {
+            if (_viewKind == DiagramViewKind.SequenceDiagram)
+            {
+                var state = e.Graphics.Save();
+                _zoom.ApplyGraphicsScale(e.Graphics);
+                e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
+                DrawSequence(e.Graphics);
+                e.Graphics.Restore(state);
+                return;
+            }
+
+            if (_boxes.Count == 0)
+            {
+                DrawMessage(e.Graphics, "표시할 구조 정보가 없습니다.");
+                return;
+            }
+
+            var diagramState = e.Graphics.Save();
             _zoom.ApplyGraphicsScale(e.Graphics);
             e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
-            DrawSequence(e.Graphics);
-            e.Graphics.Restore(state);
-            return;
-        }
 
-        if (_boxes.Count == 0)
+            foreach (var edge in _edges)
+            {
+                if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
+                {
+                    continue;
+                }
+
+                if (IsUmlClassView())
+                {
+                    UmlClassDiagramRenderer.DrawRelation(e.Graphics, from, to, edge);
+                }
+                else if (IsContainerRelationView())
+                {
+                    FileRelationDiagramRenderer.DrawFileEdge(e.Graphics, from, to, edge.Label, _lineStyle, _layoutDirection);
+                }
+                else
+                {
+                    DrawEdge(e.Graphics, edge);
+                }
+            }
+
+            foreach (var box in _boxes)
+            {
+                var isCurrent = _currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
+                var isMatch = _highlightIds.Contains(box.Id);
+
+                if (box.IsUmlStyle)
+                {
+                    UmlClassDiagramRenderer.DrawClass(e.Graphics, box, isMatch, isCurrent);
+                }
+                else if (IsContainerRelationView())
+                {
+                    FileRelationDiagramRenderer.DrawFileBox(e.Graphics, box, isMatch, isCurrent);
+                }
+                else
+                {
+                    DrawBox(e.Graphics, box);
+                }
+            }
+
+            e.Graphics.Restore(diagramState);
+        }
+        catch (OperationCanceledException)
         {
-            DrawMessage(e.Graphics, "표시할 구조 정보가 없습니다.");
-            return;
+            throw;
         }
-
-        var diagramState = e.Graphics.Save();
-        _zoom.ApplyGraphicsScale(e.Graphics);
-        e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
-
-        foreach (var edge in _edges)
+        catch
         {
-            if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
-            {
-                continue;
-            }
-
-            if (IsUmlClassView())
-            {
-                UmlClassDiagramRenderer.DrawRelation(e.Graphics, from, to, edge);
-            }
-            else if (IsContainerRelationView())
-            {
-                FileRelationDiagramRenderer.DrawFileEdge(e.Graphics, from, to, edge.Label, _lineStyle, _layoutDirection);
-            }
-            else
-            {
-                DrawEdge(e.Graphics, edge);
-            }
+            DrawMessage(e.Graphics, "분석에 실패했습니다.");
         }
-
-        foreach (var box in _boxes)
-        {
-            var isCurrent = _currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
-            var isMatch = _highlightIds.Contains(box.Id);
-
-            if (box.IsUmlStyle)
-            {
-                UmlClassDiagramRenderer.DrawClass(e.Graphics, box, isMatch, isCurrent);
-            }
-            else if (IsContainerRelationView())
-            {
-                FileRelationDiagramRenderer.DrawFileBox(e.Graphics, box, isMatch, isCurrent);
-            }
-            else
-            {
-                DrawBox(e.Graphics, box);
-            }
-        }
-
-        e.Graphics.Restore(diagramState);
     }
 
     private bool IsUmlClassView() =>
@@ -318,6 +338,7 @@ public sealed class StructureDiagramViewer : UserControl
         _edges.Clear();
         _boxMap.Clear();
         _sequence = null;
+        _buildError = false;
 
         if (_analysis is null)
         {
@@ -327,29 +348,46 @@ public sealed class StructureDiagramViewer : UserControl
             return;
         }
 
-        switch (_viewKind)
+        try
         {
-            case DiagramViewKind.ClassDiagram:
-                BuildClassDiagram(_analysis.Structure, inheritanceOnly: false);
-                break;
-            case DiagramViewKind.Inheritance:
-                BuildClassDiagram(_analysis.Structure, inheritanceOnly: true);
-                break;
-            case DiagramViewKind.FileRelations:
-                BuildFileRelations();
-                break;
-            case DiagramViewKind.DirectoryRelations:
-                BuildDirectoryRelations();
-                break;
-            case DiagramViewKind.DataFlow:
-                BuildDataFlow(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
-                break;
-            case DiagramViewKind.SequenceDiagram:
-                _sequence = SequenceDiagramBuilder.Build(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
-                _contentSize = ComputeSequenceSize(_sequence);
-                _zoom.ApplyContentSize(this, _contentSize);
-                Invalidate();
-                return;
+            switch (_viewKind)
+            {
+                case DiagramViewKind.ClassDiagram:
+                    BuildClassDiagram(_analysis.Structure, inheritanceOnly: false);
+                    break;
+                case DiagramViewKind.Inheritance:
+                    BuildClassDiagram(_analysis.Structure, inheritanceOnly: true);
+                    break;
+                case DiagramViewKind.FileRelations:
+                    BuildFileRelations();
+                    break;
+                case DiagramViewKind.DirectoryRelations:
+                    BuildDirectoryRelations();
+                    break;
+                case DiagramViewKind.DataFlow:
+                    BuildDataFlow(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
+                    break;
+                case DiagramViewKind.SequenceDiagram:
+                    _sequence = SequenceDiagramBuilder.Build(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
+                    _contentSize = ComputeSequenceSize(_sequence);
+                    _zoom.ApplyContentSize(this, _contentSize);
+                    Invalidate();
+                    return;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            _buildError = true;
+            _boxes.Clear();
+            _edges.Clear();
+            _boxMap.Clear();
+            _sequence = null;
+            _contentSize = new Size(400, 300);
+            _zoom.ApplyContentSize(this, _contentSize);
         }
 
         Invalidate();
