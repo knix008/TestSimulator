@@ -115,22 +115,23 @@ namespace MyMindWin.Controls
 
         private RenderTargetBitmap RenderMapBitmap(CanvasImageExportOptions options)
         {
-            UpdateContentExtent();
-
-            var exportBounds = GetExportBoundsInCanvasCoords();
-            if (exportBounds.IsEmpty)
-                throw new InvalidOperationException("보낼 노드가 없습니다.");
-
             double savedScaleX = ScaleXform.ScaleX;
             double savedScaleY = ScaleXform.ScaleY;
             _suppressZoomSync = true;
             try
             {
+                // Reset zoom to 1:1 first so layout positions are consistent with world coords
                 ScaleXform.ScaleX = 1;
                 ScaleXform.ScaleY = 1;
                 RootCanvas.UpdateLayout();
                 ConnectionCanvas.UpdateLayout();
                 NodeCanvas.UpdateLayout();
+                UpdateContentExtent();
+                RootCanvas.UpdateLayout();
+
+                var exportBounds = GetExportBoundsInCanvasCoords();
+                if (exportBounds.IsEmpty)
+                    throw new InvalidOperationException("보낼 노드가 없습니다.");
 
                 double viewX = exportBounds.X;
                 double viewY = exportBounds.Y;
@@ -150,59 +151,65 @@ namespace MyMindWin.Controls
 
                 bool transparent = options.TransparentBackground && options.Format.SupportsTransparency();
 
-                var mapBrush = new VisualBrush(RootCanvas)
-                {
-                    Viewbox = new Rect(viewX, viewY, viewW, viewH),
-                    ViewboxUnits = BrushMappingMode.Absolute,
-                    Stretch = Stretch.Fill,
-                    AlignmentX = AlignmentX.Left,
-                    AlignmentY = AlignmentY.Top
-                };
-                RenderOptions.SetBitmapScalingMode(mapBrush, BitmapScalingMode.HighQuality);
-                RenderOptions.SetEdgeMode(mapBrush, EdgeMode.Aliased);
+                var bitmap = new RenderTargetBitmap(pixelW, pixelH, dpi, dpi, PixelFormats.Pbgra32);
 
-                var surface = new Grid
+                // Opaque background
+                if (!transparent)
                 {
-                    Width = totalW,
-                    Height = totalH,
-                    Background = transparent ? null : new SolidColorBrush(options.OpaqueBackgroundColor)
-                };
+                    var bgVisual = new DrawingVisual();
+                    using (var dc = bgVisual.RenderOpen())
+                        dc.DrawRectangle(new SolidColorBrush(options.OpaqueBackgroundColor), null,
+                            new Rect(0, 0, pixelW, pixelH));
+                    bitmap.Render(bgVisual);
+                }
 
+                // Render ConnectionCanvas and NodeCanvas directly — NOT RootCanvas.
+                // RootCanvas has a LayoutClip set by ScrollViewer that clips to the viewport,
+                // and also has a dark Background that would break transparency.
+                // ConnectionCanvas/NodeCanvas have no parent-set LayoutClip (RootCanvas has no
+                // ClipToBounds) and no background, so bitmap.Render produces the full, unclipped
+                // content on a transparent base.
+                var contentTransform = new TransformGroup();
+                contentTransform.Children.Add(new TranslateTransform(-viewX, -viewY + headingHeight));
+                contentTransform.Children.Add(new ScaleTransform(scale, scale));
+
+                var savedConnectionXform = ConnectionCanvas.RenderTransform;
+                var savedNodeXform = NodeCanvas.RenderTransform;
+                try
+                {
+                    ConnectionCanvas.RenderTransform = contentTransform;
+                    NodeCanvas.RenderTransform = contentTransform;
+                    bitmap.Render(ConnectionCanvas);
+                    bitmap.Render(NodeCanvas);
+                }
+                finally
+                {
+                    ConnectionCanvas.RenderTransform = savedConnectionXform;
+                    NodeCanvas.RenderTransform = savedNodeXform;
+                }
+
+                // Heading rendered on top at the bitmap origin
                 if (heading != null)
                 {
-                    surface.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    surface.RowDefinitions.Add(new RowDefinition { Height = new GridLength(viewH) });
-
                     var headingBlock = CreateExportHeadingBlock(heading, totalW, transparent);
-                    Grid.SetRow(headingBlock, 0);
-                    surface.Children.Add(headingBlock);
+                    headingBlock.Measure(new Size(totalW, headingHeight));
+                    headingBlock.Arrange(new Rect(0, 0, totalW, headingHeight));
+                    headingBlock.UpdateLayout();
 
-                    var mapHost = new Grid { Width = viewW, Height = viewH };
-                    mapHost.Children.Add(new Rectangle
+                    var headingVisual = new DrawingVisual();
+                    using (var dc = headingVisual.RenderOpen())
                     {
-                        Width = viewW,
-                        Height = viewH,
-                        Fill = mapBrush
-                    });
-                    Grid.SetRow(mapHost, 1);
-                    surface.Children.Add(mapHost);
-                }
-                else
-                {
-                    surface.Children.Add(new Rectangle
-                    {
-                        Width = viewW,
-                        Height = viewH,
-                        Fill = mapBrush
-                    });
+                        var hBrush = new VisualBrush(headingBlock)
+                        {
+                            Viewbox = new Rect(0, 0, totalW, headingHeight),
+                            ViewboxUnits = BrushMappingMode.Absolute,
+                            Stretch = Stretch.Fill
+                        };
+                        dc.DrawRectangle(hBrush, null, new Rect(0, 0, pixelW, headingHeight * scale));
+                    }
+                    bitmap.Render(headingVisual);
                 }
 
-                surface.Measure(new Size(totalW, totalH));
-                surface.Arrange(new Rect(0, 0, totalW, totalH));
-                surface.UpdateLayout();
-
-                var bitmap = new RenderTargetBitmap(pixelW, pixelH, dpi, dpi, PixelFormats.Pbgra32);
-                bitmap.Render(surface);
                 bitmap.Freeze();
                 return bitmap;
             }

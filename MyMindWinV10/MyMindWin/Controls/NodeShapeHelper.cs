@@ -146,7 +146,7 @@ namespace MyMindWin.Controls
             _ => new CornerRadius(Math.Min(height / 2, 18))
         };
 
-        /// <summary>연결선용 앵커 — 노드 경계 상·하·좌·우 4점 중 대상을 향한 면의 중앙.</summary>
+        /// <summary>연결선용 앵커 — 대상 방향에 따라 노드의 좌/우/상/하 중앙 모서리.</summary>
         public static Point GetEdgePoint(NodeViewModel node, double targetX, double targetY, double nodeHeight)
         {
             double cx = node.X + node.Width / 2;
@@ -154,17 +154,27 @@ namespace MyMindWin.Controls
             double dx = targetX - cx;
             double dy = targetY - cy;
 
-            if (Math.Abs(dx) < 1e-6 && Math.Abs(dy) < 1e-6)
-                return new Point(node.X + node.Width, cy);
+            double normDx = node.Width > 0 ? Math.Abs(dx) / node.Width : 0;
+            double normDy = nodeHeight > 0 ? Math.Abs(dy) / nodeHeight : 0;
 
-            if (Math.Abs(dx) >= Math.Abs(dy))
+            if (normDx >= normDy)
                 return dx >= 0
                     ? new Point(node.X + node.Width, cy)
                     : new Point(node.X, cy);
+            else
+                return dy >= 0
+                    ? new Point(cx, node.Y + nodeHeight)
+                    : new Point(cx, node.Y);
+        }
 
-            return dy >= 0
-                ? new Point(cx, node.Y + nodeHeight)
-                : new Point(cx, node.Y);
+        /// <summary>연결선용 앵커 — 수평 방향(좌/우)만 허용. 피시본·트리 레이아웃용.</summary>
+        public static Point GetEdgePointHorizontal(NodeViewModel node, double targetX, double nodeHeight)
+        {
+            double cy = node.Y + nodeHeight / 2;
+            double cx = node.X + node.Width / 2;
+            return targetX >= cx
+                ? new Point(node.X + node.Width, cy)
+                : new Point(node.X, cy);
         }
     }
 }

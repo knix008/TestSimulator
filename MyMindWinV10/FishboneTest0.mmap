@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "title": "FishboneTest0",
+  "layout": "fishbone",
+  "connectionLine": "bezier",
+  "connectionLineThickness": 1.8,
+  "connectionLineTaper": true,
+  "defaultNodeShape": "rounded",
+  "layoutFlipHorizontal": false,
+  "layoutFlipVertical": false,
+  "root": {
+    "id": "a1000000-0000-0000-0000-000000000001",
+    "text": "\uB9C8\uC778\uB4DC\uB9F5",
+    "note": "",
+    "isExpanded": true,
+    "colorIndex": -1,
+    "borderColorIndex": -1,
+    "x": 1322,
+    "y": 182,
+    "shape": "rounded",
+    "children": [
+      {
+        "id": "a1000000-0000-0000-0000-000000000010",
+        "text": "\uD3B8\uC9D1",
+        "note": "",
+        "isExpanded": true,
+        "colorIndex": 0,
+        "borderColorIndex": -1,
+        "x": 2,
+        "y": 132,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000011",
+            "text": "\uB178\uB4DC \uD3B8\uC9D1 (F2)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": -160,
+            "y": 82,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000012",
+            "text": "\uC790\uC2DD \uCD94\uAC00 (Tab)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": -160,
+            "y": 182,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000013",
+            "text": "\uD615\uC81C \uCD94\uAC00 (Enter)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": -285.0964405360134,
+            "y": 37.27311557788937,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          }
+        ],
+        "hasStoredPosition": true
+      },
+      {
+        "id": "a1000000-0000-0000-0000-000000000020",
+        "text": "\uD654\uBA74 \uC870\uC791",
+        "note": "",
+        "isExpanded": true,
+        "colorIndex": 1,
+        "borderColorIndex": -1,
+        "x": 354.7268844221105,
+        "y": 391.0860552763819,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000021",
+            "text": "\uD655\uB300/\uCD95\uC18C (Wheel)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 175.81021775544383,
+            "y": 341.0860552763819,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000022",
+            "text": "\uC774\uB3D9 (\uC911\uAC04 \uBC84\uD2BC \uB4DC\uB798\uADF8)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 21.225854271356752,
+            "y": 468.66097152428813,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000023",
+            "text": "\uC804\uCCB4 \uBCF4\uAE30 (F4)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": -42.720477386934704,
+            "y": 268.78425460636515,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          }
+        ],
+        "hasStoredPosition": true
+      },
+      {
+        "id": "a1000000-0000-0000-0000-000000000030",
+        "text": "\uB808\uC774\uC544\uC6C3",
+        "note": "",
+        "isExpanded": true,
+        "colorIndex": 2,
+        "borderColorIndex": -1,
+        "x": 634,
+        "y": 132,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000031",
+            "text": "\uC218\uD3C9 \uD2B8\uB9AC",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 472,
+            "y": 82,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000032",
+            "text": "\uBC29\uC0AC\uD615",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 472,
+            "y": 182,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000033",
+            "text": "\uD53C\uC2DC\uBCF8",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 308.6716499162481,
+            "y": 26.66737855946394,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          }
+        ],
+        "hasStoredPosition": true
+      },
+      {
+        "id": "a1000000-0000-0000-0000-000000000040",
+        "text": "\uC800\uC7A5 \u0026 \uB0B4\uBCF4\uB0B4\uAE30",
+        "note": "",
+        "isExpanded": true,
+        "colorIndex": 3,
+        "borderColorIndex": -1,
+        "x": 961.4321859296483,
+        "y": 393.207202680067,
+        "shape": "rounded",
+        "children": [
+          {
+            "id": "a1000000-0000-0000-0000-000000000041",
+            "text": ".mmap \uC800\uC7A5 (Ctrl\u002BS)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 769.788852596315,
+            "y": 343.207202680067,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000042",
+            "text": "\uC774\uBBF8\uC9C0 (PNG/JPG)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 784.4055192629817,
+            "y": 443.207202680067,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          },
+          {
+            "id": "a1000000-0000-0000-0000-000000000043",
+            "text": "\uBB38\uC11C (Markdown/PDF)",
+            "note": "",
+            "isExpanded": true,
+            "colorIndex": -1,
+            "borderColorIndex": -1,
+            "x": 585.161432160804,
+            "y": 285.75343383584595,
+            "shape": "rounded",
+            "children": [],
+            "hasStoredPosition": true
+          }
+        ],
+        "hasStoredPosition": true
+      }
+    ],
+    "hasStoredPosition": true
+  }
+}

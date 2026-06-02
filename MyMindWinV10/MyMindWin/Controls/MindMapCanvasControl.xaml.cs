@@ -55,6 +55,7 @@ namespace MyMindWin.Controls
         private Guid? _pendingContextMenuNodeId;
         private ContextMenu? _activeContextMenu;
         private Path? _fishboneSpinePath;
+        private readonly List<Path> _fishboneSubSpinePaths = [];
 
         /// <summary>캔버스 레이아웃 재구성이 예약되었거나 진행 중입니다.</summary>
         public bool IsCanvasLayoutBusy => _isRebuildingCanvas || _layoutRebuildPending;
@@ -367,9 +368,12 @@ namespace MyMindWin.Controls
 
                 UpdateContentExtent();
 
-                DrawConnections(_vm.RootNode);
                 if (_vm.LayoutType == LayoutType.Fishbone)
+                {
                     DrawFishboneSpine(_vm.RootNode);
+                    DrawFishboneSubSpines(_vm.RootNode);
+                }
+                DrawConnections(_vm.RootNode);
                 DrawNodes(_vm.RootNode);
 
                 if (ActualWidth > 0 && ActualHeight > 0 && !_isPanning)
@@ -568,10 +572,43 @@ namespace MyMindWin.Controls
         {
             LayoutHorizontal(child, 0, 0, out _);
             MirrorSubtreeX(child);
+            // Offset L2+ descendants above/below their parent's centerY so connections are diagonal
+            ApplyFishboneSubLevelOffsets(child);
 
             var (_, minY, _, maxY) = GetSubtreeBounds(child);
             double dyLocal = upper ? -maxY + NodeHeight : -minY;
             ShiftSubtree(child, 0, dyLocal);
+        }
+
+        /// <summary>각 노드의 자식 노드들을 부모 중심 Y에서 위/아래로 오프셋하여 사선 연결선을 만듭니다.</summary>
+        private void ApplyFishboneSubLevelOffsets(NodeViewModel node)
+        {
+            if (!node.IsExpanded || node.Children.Count == 0) return;
+
+            double centerY = node.Y + NodeHeight / 2;
+            int upperIdx = 0, lowerIdx = 0;
+
+            for (int i = 0; i < node.Children.Count; i++)
+            {
+                var child = node.Children[i];
+                bool childUpper = i % 2 == 0;
+
+                double targetY;
+                if (childUpper)
+                {
+                    upperIdx++;
+                    targetY = centerY - FishboneRibStub * upperIdx - NodeHeight;
+                }
+                else
+                {
+                    lowerIdx++;
+                    targetY = centerY + FishboneRibStub * lowerIdx;
+                }
+
+                double dy = targetY - child.Y;
+                ShiftSubtree(child, 0, dy);
+                ApplyFishboneSubLevelOffsets(child);
+            }
         }
 
         private static bool BoundsOverlapAny(
@@ -836,8 +873,9 @@ namespace MyMindWin.Controls
         {
             var (start, end) = GetConnectionEndpoints(parent, child);
 
-            // Fishbone ribs (root→1st-level) are always straight diagonal lines
-            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level == 0)
+            // Fishbone: all connections use straight geometry
+            // Level 0→1: diagonal rib; Level >0→child: vertical connector from sub-spine junction
+            if (_vm?.LayoutType == LayoutType.Fishbone)
                 return BuildStraightGeometry(start, end);
 
             return _vm!.ConnectionLineType switch
@@ -851,15 +889,27 @@ namespace MyMindWin.Controls
 
         private (Point start, Point end) GetConnectionEndpoints(NodeViewModel parent, NodeViewModel child)
         {
-            // Fishbone root→1st-level: rib goes from spine attachment point to child node edge
+            // Fishbone root→1st-level: diagonal rib from spine to center of category node
+            // Center endpoint is hidden behind the node body, so the rib and L1 sub-spine
+            // (which extends to node.X + node.Width) both converge at the same hidden point.
             if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level == 0)
             {
                 double spineY = ContentPadding + 120;
-                double attachX = child.X + child.Width; // child right edge aligns with spine
-                var endWorld = NodeShapeHelper.GetEdgePoint(child, attachX, spineY, NodeHeight);
+                double attachX = child.X + child.Width;
                 return (
                     new Point(MapX(attachX), MapY(spineY)),
-                    new Point(MapX(endWorld.X), MapY(endWorld.Y)));
+                    new Point(MapX(child.X + child.Width / 2), MapY(child.Y + NodeHeight / 2)));
+            }
+
+            // Fishbone deeper levels: diagonal from sub-spine junction to center of child node.
+            // Endpoint hidden behind child body; child's sub-spine also passes through center.
+            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level > 0)
+            {
+                double junctionX = child.X + child.Width;
+                double parentCY  = parent.Y + NodeHeight / 2;
+                return (
+                    new Point(MapX(junctionX), MapY(parentCY)),
+                    new Point(MapX(child.X + child.Width / 2), MapY(child.Y + NodeHeight / 2)));
             }
 
             double pCx = parent.X + parent.Width / 2;
@@ -867,8 +917,18 @@ namespace MyMindWin.Controls
             double cCx = child.X + child.Width / 2;
             double cCy = child.Y + NodeHeight / 2;
 
-            var startWorld = NodeShapeHelper.GetEdgePoint(parent, cCx, cCy, NodeHeight);
-            var endWorld2 = NodeShapeHelper.GetEdgePoint(child, pCx, pCy, NodeHeight);
+            // Radial uses all 4 edges; other layouts (HorizontalTree, etc.) use left/right only
+            Point startWorld, endWorld2;
+            if (_vm?.LayoutType == LayoutType.Radial)
+            {
+                startWorld = NodeShapeHelper.GetEdgePoint(parent, cCx, cCy, NodeHeight);
+                endWorld2  = NodeShapeHelper.GetEdgePoint(child,  pCx, pCy, NodeHeight);
+            }
+            else
+            {
+                startWorld = NodeShapeHelper.GetEdgePointHorizontal(parent, cCx, NodeHeight);
+                endWorld2  = NodeShapeHelper.GetEdgePointHorizontal(child,  pCx, NodeHeight);
+            }
             return (
                 new Point(MapX(startWorld.X), MapY(startWorld.Y)),
                 new Point(MapX(endWorld2.X), MapY(endWorld2.Y)));
@@ -877,6 +937,17 @@ namespace MyMindWin.Controls
         private static Geometry BuildStraightGeometry(Point start, Point end)
         {
             var fig = new PathFigure { StartPoint = start, IsFilled = false };
+            fig.Segments.Add(new LineSegment(end, isStroked: true));
+            var geom = new PathGeometry();
+            geom.Figures.Add(fig);
+            return geom;
+        }
+
+        /// <summary>피쉬본 비루트 연결: 부모에서 수평으로 뻗은 선(Line 1) + 자식까지 수직으로 내린 선(Line 2).</summary>
+        private static Geometry BuildFishboneElbowGeometry(Point start, Point end)
+        {
+            var fig = new PathFigure { StartPoint = start, IsFilled = false };
+            fig.Segments.Add(new LineSegment(new Point(end.X, start.Y), isStroked: true));
             fig.Segments.Add(new LineSegment(end, isStroked: true));
             var geom = new PathGeometry();
             geom.Figures.Add(fig);
@@ -1006,10 +1077,14 @@ namespace MyMindWin.Controls
 
             ConnectionCanvas.Children.Clear();
             _fishboneSpinePath = null;
+            _fishboneSubSpinePaths.Clear();
             _connectionPaths.Clear();
-            DrawConnections(_vm.RootNode);
             if (_vm.LayoutType == LayoutType.Fishbone)
+            {
                 DrawFishboneSpine(_vm.RootNode);
+                DrawFishboneSubSpines(_vm.RootNode);
+            }
+            DrawConnections(_vm.RootNode);
         }
 
         private void DrawFishboneSpine(NodeViewModel root)
@@ -1043,7 +1118,7 @@ namespace MyMindWin.Controls
                 StrokeEndLineCap = PenLineCap.Round
             };
 
-            ConnectionCanvas.Children.Insert(0, _fishboneSpinePath);
+            ConnectionCanvas.Children.Add(_fishboneSpinePath);
         }
 
         private void RefreshFishboneSpine()
@@ -1065,6 +1140,85 @@ namespace MyMindWin.Controls
             var geom = new PathGeometry();
             geom.Figures.Add(fig);
             _fishboneSpinePath.Data = geom;
+        }
+
+        private void DrawFishboneSubSpines(NodeViewModel root)
+        {
+            _fishboneSubSpinePaths.Clear();
+            foreach (var child in root.Children)
+                DrawFishboneNodeSubSpinesRecursive(child);
+        }
+
+        private void DrawFishboneNodeSubSpinesRecursive(NodeViewModel node)
+        {
+            if (!node.IsExpanded || node.Children.Count == 0) return;
+
+            double minChildX = node.Children.Min(c => c.X);
+            // Extend to right edge so the sub-spine passes through the node body;
+            // the incoming rib from the parent also ends at this node's center (hidden),
+            // so both lines meet at the same point behind the node shape.
+            double toX = node.X + node.Width;
+            double centerY = node.Y + NodeHeight / 2;
+
+            if (minChildX < toX)
+            {
+                var fig = new PathFigure { StartPoint = new Point(MapX(minChildX), MapY(centerY)), IsFilled = false };
+                fig.Segments.Add(new LineSegment(new Point(MapX(toX), MapY(centerY)), isStroked: true));
+                var geom = new PathGeometry();
+                geom.Figures.Add(fig);
+
+                double baseThickness = _vm?.ConnectionLineThickness ?? 1.8;
+                var (lightColor, _) = NodeColorHelper.GetNodeColors(node);
+                double thickness = ConnectionLineTaperHelper.ThicknessAtLevel(node.Level, baseThickness) * 1.4;
+
+                var path = new Path
+                {
+                    Data = geom,
+                    Stroke = new SolidColorBrush(lightColor) { Opacity = 0.7 },
+                    StrokeThickness = Math.Max(1.0, thickness),
+                    StrokeLineJoin = PenLineJoin.Round,
+                    StrokeStartLineCap = PenLineCap.Round,
+                    StrokeEndLineCap = PenLineCap.Round
+                };
+
+                _fishboneSubSpinePaths.Add(path);
+                ConnectionCanvas.Children.Add(path);
+            }
+
+            foreach (var child in node.Children)
+                DrawFishboneNodeSubSpinesRecursive(child);
+        }
+
+        private void RefreshFishboneSubSpines()
+        {
+            if (_vm?.RootNode == null) return;
+            int idx = 0;
+            foreach (var child in _vm.RootNode.Children)
+                RefreshFishboneSubSpinesRecursive(child, ref idx);
+        }
+
+        private void RefreshFishboneSubSpinesRecursive(NodeViewModel node, ref int idx)
+        {
+            if (node.IsExpanded && node.Children.Count > 0)
+            {
+                if (idx < _fishboneSubSpinePaths.Count)
+                {
+                    double minChildX = node.Children.Min(c => c.X);
+                    double toX = node.X + node.Width;
+                    double centerY = node.Y + NodeHeight / 2;
+                    if (minChildX < toX)
+                    {
+                        var fig = new PathFigure { StartPoint = new Point(MapX(minChildX), MapY(centerY)), IsFilled = false };
+                        fig.Segments.Add(new LineSegment(new Point(MapX(toX), MapY(centerY)), isStroked: true));
+                        var geom = new PathGeometry();
+                        geom.Figures.Add(fig);
+                        _fishboneSubSpinePaths[idx].Data = geom;
+                    }
+                    idx++;
+                }
+            }
+            foreach (var child in node.Children)
+                RefreshFishboneSubSpinesRecursive(child, ref idx);
         }
 
         private static Geometry BuildCubicBezierGeometry(Point start, Point end, Point cp1, Point cp2)
@@ -1810,7 +1964,10 @@ namespace MyMindWin.Controls
 
             RefreshAllConnections(_vm.RootNode);
             if (_vm.LayoutType == LayoutType.Fishbone)
+            {
                 RefreshFishboneSpine();
+                RefreshFishboneSubSpines();
+            }
 
             if (_notePanelNode != null || _imagePanelNode != null)
             {
