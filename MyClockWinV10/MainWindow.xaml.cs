@@ -52,6 +52,7 @@ public partial class MainWindow : Window
 
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private IntPtr _trayIconHandle = IntPtr.Zero;
+    private bool _allowClose;
 
     private System.Windows.Media.Color _digitColor =
         System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
@@ -68,6 +69,10 @@ public partial class MainWindow : Window
         var s = SettingsManager.Load();
         ApplySettingsOnStartup(s);
         InitTrayIcon();
+        SettingsManager.EnsureStartupRegistryCommand();
+
+        if (ShouldStartMinimized())
+            Loaded += (_, _) => MinimizeToTray();
 
         _timer.Tick += OnTick;
         _timer.Start();
@@ -281,42 +286,125 @@ public partial class MainWindow : Window
 
     // ── System tray ───────────────────────────────────────────────────────
 
+    private static bool ShouldStartMinimized()
+    {
+        foreach (var arg in Environment.GetCommandLineArgs())
+        {
+            if (arg.Equals("--minimized", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     private void InitTrayIcon()
     {
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("열기", null, (_, _) => RestoreFromTray());
-        menu.Items.Add("닫기", null, (_, _) => Dispatcher.Invoke(Close));
+        menu.Items.Add("닫기", null, (_, _) => Dispatcher.Invoke(ExitApplication));
 
         _trayIcon = new System.Windows.Forms.NotifyIcon
         {
             Text             = "MyClock",
-            Visible          = false,
             ContextMenuStrip = menu
         };
         _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+
+        try
+        {
+            var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName;
+            var appIcon = System.Drawing.Icon.ExtractAssociatedIcon(exe);
+            if (appIcon != null)
+                _trayIcon.Icon = appIcon;
+        }
+        catch { /* fall back to dynamic icon on first tick */ }
+
+        _trayIcon.Visible = true;
+        UpdateTrayIcon(DateTime.Now);
+    }
+
+    private void MinimizeToTray()
+    {
+        if (_trayIcon == null) return;
+        if (!IsVisible) return;
+
+        CloseSidePanelImmediate();
+        // Keep Normal state while hidden — Minimized + ShowInTaskbar=false often fails to restore.
+        WindowState = WindowState.Normal;
+        Hide();
+        _trayIcon.Visible = true;
+        UpdateTrayIcon(DateTime.Now);
+    }
+
+    private void ExitApplication()
+    {
+        _allowClose = true;
+        Close();
     }
 
     private void Window_StateChanged(object sender, EventArgs e)
     {
-        if (WindowState == WindowState.Minimized)
+        if (WindowState == WindowState.Minimized && IsVisible)
+            MinimizeToTray();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_allowClose)
         {
-            Hide();
-            _sidePanel?.Hide();
-            UpdateTrayIcon(DateTime.Now);
-            _trayIcon!.Visible = true;
+            e.Cancel = true;
+            MinimizeToTray();
+            return;
         }
+        base.OnClosing(e);
     }
 
     private void RestoreFromTray()
     {
         Dispatcher.Invoke(() =>
         {
-            _trayIcon!.Visible = false;
-            Show();
-            if (_rightVisible) _sidePanel?.Show();
+            CloseSidePanelImmediate();
+
             WindowState = WindowState.Normal;
+            Visibility  = Visibility.Visible;
+            Show();
+
+            EnsureWindowOnScreen();
+
             Activate();
+            Topmost = true;
+            Topmost = false;
+            Focus();
+
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+            {
+                EnsureWindowOnScreen();
+                RefitCurrentDigitalText();
+            });
         });
+    }
+
+    /// <summary>Clamp window position/size so the clock stays within the work area after tray restore.</summary>
+    private void EnsureWindowOnScreen()
+    {
+        var area = SystemParameters.WorkArea;
+
+        if (Width > area.Width)
+            Width = Math.Max(MinWidth, area.Width);
+        if (Height > area.Height)
+            Height = Math.Max(MinHeight, area.Height);
+
+        const double minVisible = 80;
+        if (Left + Width < area.Left + minVisible)
+            Left = area.Left;
+        if (Left > area.Right - minVisible)
+            Left = area.Right - Math.Min(Width, area.Width);
+        if (Top + Height < area.Top + minVisible)
+            Top = area.Top;
+        if (Top > area.Bottom - minVisible)
+            Top = area.Bottom - Math.Min(Height, area.Height);
+
+        Left = Math.Clamp(Left, area.Left, Math.Max(area.Left, area.Right - Width));
+        Top  = Math.Clamp(Top,  area.Top,  Math.Max(area.Top,  area.Bottom - Height));
     }
 
     private void UpdateTrayIcon(DateTime now)
@@ -361,10 +449,12 @@ public partial class MainWindow : Window
 
         IntPtr newHandle = bmp.GetHicon();
         var    oldIcon   = _trayIcon.Icon;
-        _trayIcon.Icon = System.Drawing.Icon.FromHandle(newHandle);
+        _trayIcon.Icon   = System.Drawing.Icon.FromHandle(newHandle);
         oldIcon?.Dispose();
         if (_trayIconHandle != IntPtr.Zero) DestroyIcon(_trayIconHandle);
         _trayIconHandle = newHandle;
+
+        _trayIcon.Text = $"MyClock  {now:HH:mm:ss}";
     }
 
     protected override void OnClosed(EventArgs e)
@@ -372,9 +462,16 @@ public partial class MainWindow : Window
         SaveSettings();
         _alarmSounds.Stop();
         _sidePanel?.Close();
-        _trayIcon?.Dispose();
+        if (_trayIcon != null)
+        {
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            _trayIcon = null;
+        }
         if (_trayIconHandle != IntPtr.Zero) DestroyIcon(_trayIconHandle);
         base.OnClosed(e);
+        if (_allowClose)
+            Application.Current.Shutdown();
     }
 
     // ── Timer ─────────────────────────────────────────────────────────────
@@ -394,7 +491,7 @@ public partial class MainWindow : Window
         _sidePanel?.UpdateTimes(_worldUse24h);
         CheckAlarms(now);
 
-        if (_trayIcon?.Visible == true)
+        if (_trayIcon != null)
             UpdateTrayIcon(now);
     }
 
@@ -807,6 +904,21 @@ public partial class MainWindow : Window
         panel.AnimateClose(_panelOpensRight, () => Dispatcher.Invoke(() => panel.Close()));
     }
 
+    /// <summary>Close settings panel without animation (tray hide/restore).</summary>
+    private void CloseSidePanelImmediate()
+    {
+        if (_sidePanel == null) return;
+
+        _worldCities = _sidePanel.WorldPanel.ToDtos();
+        _rightVisible  = false;
+        UpdatePanelToggleBtnSide(open: false);
+
+        var panel = _sidePanel;
+        _sidePanel  = null;
+        panel.Hide();
+        panel.Close();
+    }
+
     private void PositionSidePanel()
     {
         if (_sidePanel == null) return;
@@ -832,5 +944,5 @@ public partial class MainWindow : Window
             : WindowState.Maximized;
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
-        => Close();
+        => MinimizeToTray();
 }

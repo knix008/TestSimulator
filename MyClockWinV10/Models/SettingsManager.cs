@@ -58,15 +58,31 @@ public static class SettingsManager
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true);
             if (key == null) return;
             if (enable)
-            {
-                string exe = Process.GetCurrentProcess().MainModule!.FileName;
-                key.SetValue(AppName, $"\"{exe}\"");
-            }
+                key.SetValue(AppName, StartupCommand());
             else
-            {
                 key.DeleteValue(AppName, false);
-            }
         }
         catch { }
+    }
+
+    /// <summary>Refresh Run-key entry so login startup passes --minimized (tray-only).</summary>
+    public static void EnsureStartupRegistryCommand()
+    {
+        if (!IsStartupEnabled()) return;
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true);
+            if (key == null) return;
+            var expected = StartupCommand();
+            if (!string.Equals(key.GetValue(AppName) as string, expected, StringComparison.OrdinalIgnoreCase))
+                key.SetValue(AppName, expected);
+        }
+        catch { }
+    }
+
+    private static string StartupCommand()
+    {
+        string exe = Process.GetCurrentProcess().MainModule!.FileName;
+        return $"\"{exe}\" --minimized";
     }
 }

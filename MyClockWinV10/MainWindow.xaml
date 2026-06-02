@@ -11,6 +11,7 @@
         ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource WindowBackgroundBrush}"
         WindowStartupLocation="Manual"
+        ShowInTaskbar="False"
         StateChanged="Window_StateChanged">
 
     <shell:WindowChrome.WindowChrome>
