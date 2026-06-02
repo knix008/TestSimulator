@@ -145,7 +145,7 @@ public sealed class CallGraphViewer : UserControl
         ClearSearchHighlight();
         _zoom.Reset();
         StopAnalysisAnimation();
-        Cursor = Cursors.Default;
+        if (!UseWaitCursor) Cursor = Cursors.Default;
         RebuildVisualTree();
     }
 
@@ -429,13 +429,13 @@ public sealed class CallGraphViewer : UserControl
 
         if (_isAnalyzing || _graph is null)
         {
-            Cursor = Cursors.Default;
+            if (!UseWaitCursor) Cursor = Cursors.Default;
             return;
         }
 
         Cursor = TryHitToggle(e.Location, out _) || TryHitNode(e.Location, out _)
             ? Cursors.Hand
-            : Cursors.Default;
+            : (UseWaitCursor ? Cursors.WaitCursor : Cursors.Default);
     }
 
     private bool TryHitToggle(Point clientPoint, out string nodeId)

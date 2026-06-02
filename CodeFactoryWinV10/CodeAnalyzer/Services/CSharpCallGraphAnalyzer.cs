@@ -119,6 +119,8 @@ public sealed class CSharpCallGraphAnalyzer
             return;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var compilation = CSharpCompilation.Create(
             assemblyName: $"CodeAnalyzerScratchCSharp_{Guid.NewGuid():N}",
             syntaxTrees: syntaxTrees,
@@ -189,13 +191,9 @@ public sealed class CSharpCallGraphAnalyzer
             var callerId = GetMethodId(methodSymbol);
             nodes.TryAdd(callerId, CreateNode(methodSymbol, filePath));
 
-            var invocationCount = 0;
             foreach (var invocation in methodDeclaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                if (++invocationCount % 8 == 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
 
                 var calleeSymbol = ResolveInvocation(compilation, semanticModel, invocation, cancellationToken);
                 if (calleeSymbol is null)
@@ -212,14 +210,7 @@ public sealed class CSharpCallGraphAnalyzer
 
     private static void ReportParseSkipped(AnalysisProgressTracker? progress, string file)
     {
-        var fileName = Path.GetFileName(file);
-        progress?.Report($"C# 건너뜀: {fileName}");
-        ReportSemanticSkipped(progress, file);
-    }
-
-    private static void ReportSemanticSkipped(AnalysisProgressTracker? progress, string file)
-    {
-        progress?.Report($"C# 의미 분석 건너뜀: {Path.GetFileName(file)}");
+        progress?.Report($"C# 건너뜀: {Path.GetFileName(file)}");
     }
 
     private static IMethodSymbol? ResolveInvocation(
@@ -249,10 +240,25 @@ public sealed class CSharpCallGraphAnalyzer
             return null;
         }
 
-        var candidates = compilation.GetSymbolsWithName(methodName, SymbolFilter.Member)
-            .OfType<IMethodSymbol>()
-            .Where(method => method.MethodKind == MethodKind.Ordinary && method.Locations.Any(location => location.IsInSource))
-            .ToList();
+        var candidates = new List<IMethodSymbol>();
+        foreach (var symbol in compilation.GetSymbolsWithName(methodName, SymbolFilter.Member))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (symbol is not IMethodSymbol method
+                || method.MethodKind != MethodKind.Ordinary
+                || !method.Locations.Any(location => location.IsInSource))
+            {
+                continue;
+            }
+
+            candidates.Add(method);
+            if (candidates.Count > 32)
+            {
+                // Enough candidates means ambiguous resolution; stop scanning early.
+                break;
+            }
+        }
 
         if (candidates.Count == 1)
         {

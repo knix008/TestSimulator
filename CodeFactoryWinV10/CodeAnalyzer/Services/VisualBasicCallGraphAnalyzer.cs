@@ -119,6 +119,8 @@ public sealed class VisualBasicCallGraphAnalyzer
             return;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var compilation = VisualBasicCompilation.Create(
             assemblyName: $"CodeAnalyzerScratchVisualBasic_{Guid.NewGuid():N}",
             syntaxTrees: syntaxTrees,
@@ -188,13 +190,9 @@ public sealed class VisualBasicCallGraphAnalyzer
             var callerId = GetMethodId(methodSymbol);
             nodes.TryAdd(callerId, CreateNode(methodSymbol, filePath));
 
-            var invocationCount = 0;
             foreach (var invocation in methodBlock.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                if (++invocationCount % 8 == 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
 
                 var symbolInfo = semanticModel.GetSymbolInfo(invocation, cancellationToken);
                 if (symbolInfo.Symbol is not IMethodSymbol calleeSymbol)
@@ -211,19 +209,12 @@ public sealed class VisualBasicCallGraphAnalyzer
 
     private static void ReportParseSkipped(AnalysisProgressTracker? progress, string file)
     {
-        var fileName = Path.GetFileName(file);
-        progress?.Report($"VB.NET 건너뜀: {fileName}");
-        ReportSemanticSkipped(progress, file);
-    }
-
-    private static void ReportSemanticSkipped(AnalysisProgressTracker? progress, string file)
-    {
-        progress?.Report($"VB.NET 의미 분석 건너뜀: {Path.GetFileName(file)}");
+        progress?.Report($"VB.NET 건너뜀: {Path.GetFileName(file)}");
     }
 
     private static string GetMethodId(IMethodSymbol methodSymbol)
     {
-        return "vbnet:" + methodSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return "vbnet:" + methodSymbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     }
 
     private static string GetSourcePath(IMethodSymbol methodSymbol, string fallbackPath)

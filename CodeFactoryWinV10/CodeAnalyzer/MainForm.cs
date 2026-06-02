@@ -328,6 +328,7 @@ public partial class MainForm : Form
         }
 
         _isStoppingAnalysis = true;
+        UseWaitCursor = false;
         btnAnalyze.Enabled = false;
         lblStatus.Text = "분석 중지 요청됨... 현재 작업 정리 후 종료합니다.";
 
@@ -354,6 +355,7 @@ public partial class MainForm : Form
 
     private void BeginAnalysisSession()
     {
+        UseWaitCursor = true;
         _isAnalysisRunning = true;
         _isStoppingAnalysis = false;
         _lastAnalysis = null;
@@ -371,6 +373,7 @@ public partial class MainForm : Form
 
     private void EndAnalysisSession()
     {
+        UseWaitCursor = false;
         _isAnalysisRunning = false;
         _isStoppingAnalysis = false;
         diagramViewHost.EndAnalysis();
@@ -1395,5 +1398,10 @@ public partial class MainForm : Form
 
         public override string ToString() =>
             IsAutoEntryPoints ? "[자동] 언어별 진입점" : Node!.FullName;
+    }
+
+    private void lblLayout_Click(object sender, EventArgs e)
+    {
+
     }
 }

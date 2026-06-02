@@ -228,33 +228,33 @@ partial class MainForm
         // 
         // btnBackView
         // 
-        btnBackView.Location = new Point(164, 10);
+        btnBackView.Location = new Point(157, 10);
         btnBackView.Name = "btnBackView";
-        btnBackView.Size = new Size(58, 27);
+        btnBackView.Size = new Size(70, 27);
         btnBackView.TabIndex = 2;
-        btnBackView.Text = "뒤로";
+        btnBackView.Text = "← 뒤로";
         btnBackView.UseVisualStyleBackColor = true;
         btnBackView.Click += btnBackView_Click;
         // 
         // btnCollapseAll
         // 
         btnCollapseAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnCollapseAll.Location = new Point(848, 10);
+        btnCollapseAll.Location = new Point(854, 10);
         btnCollapseAll.Name = "btnCollapseAll";
-        btnCollapseAll.Size = new Size(80, 27);
+        btnCollapseAll.Size = new Size(92, 27);
         btnCollapseAll.TabIndex = 7;
-        btnCollapseAll.Text = "전체 접기";
+        btnCollapseAll.Text = "▲ 전체 접기";
         btnCollapseAll.UseVisualStyleBackColor = true;
         btnCollapseAll.Click += btnCollapseAll_Click;
         // 
         // btnExpandAll
         // 
         btnExpandAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnExpandAll.Location = new Point(762, 10);
+        btnExpandAll.Location = new Point(759, 10);
         btnExpandAll.Name = "btnExpandAll";
-        btnExpandAll.Size = new Size(80, 27);
+        btnExpandAll.Size = new Size(92, 27);
         btnExpandAll.TabIndex = 6;
-        btnExpandAll.Text = "전체 펼치기";
+        btnExpandAll.Text = "▼ 전체 펼치기";
         btnExpandAll.UseVisualStyleBackColor = true;
         btnExpandAll.Click += btnExpandAll_Click;
         // 
@@ -263,9 +263,9 @@ partial class MainForm
         comboLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         comboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
         comboLineStyle.FormattingEnabled = true;
-        comboLineStyle.Location = new Point(616, 11);
+        comboLineStyle.Location = new Point(665, 11);
         comboLineStyle.Name = "comboLineStyle";
-        comboLineStyle.Size = new Size(130, 23);
+        comboLineStyle.Size = new Size(87, 23);
         comboLineStyle.TabIndex = 5;
         comboLineStyle.SelectedIndexChanged += comboLineStyle_SelectedIndexChanged;
         // 
@@ -273,7 +273,7 @@ partial class MainForm
         // 
         lblLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         lblLineStyle.AutoSize = true;
-        lblLineStyle.Location = new Point(569, 15);
+        lblLineStyle.Location = new Point(616, 14);
         lblLineStyle.Name = "lblLineStyle";
         lblLineStyle.Size = new Size(43, 15);
         lblLineStyle.TabIndex = 4;
@@ -284,9 +284,9 @@ partial class MainForm
         comboLayoutDirection.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         comboLayoutDirection.DropDownStyle = ComboBoxStyle.DropDownList;
         comboLayoutDirection.FormattingEnabled = true;
-        comboLayoutDirection.Location = new Point(425, 11);
+        comboLayoutDirection.Location = new Point(529, 11);
         comboLayoutDirection.Name = "comboLayoutDirection";
-        comboLayoutDirection.Size = new Size(130, 23);
+        comboLayoutDirection.Size = new Size(81, 23);
         comboLayoutDirection.TabIndex = 3;
         comboLayoutDirection.SelectedIndexChanged += comboLayoutDirection_SelectedIndexChanged;
         // 
@@ -294,20 +294,21 @@ partial class MainForm
         // 
         lblLayout.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         lblLayout.AutoSize = true;
-        lblLayout.Location = new Point(366, 15);
+        lblLayout.Location = new Point(468, 14);
         lblLayout.Name = "lblLayout";
         lblLayout.Size = new Size(55, 15);
         lblLayout.TabIndex = 2;
         lblLayout.Text = "레이아웃";
+        lblLayout.Click += lblLayout_Click;
         // 
         // comboRootMethod
         // 
         comboRootMethod.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         comboRootMethod.DropDownStyle = ComboBoxStyle.DropDownList;
         comboRootMethod.FormattingEnabled = true;
-        comboRootMethod.Location = new Point(286, 11);
+        comboRootMethod.Location = new Point(289, 11);
         comboRootMethod.Name = "comboRootMethod";
-        comboRootMethod.Size = new Size(72, 23);
+        comboRootMethod.Size = new Size(173, 23);
         comboRootMethod.TabIndex = 3;
         comboRootMethod.SelectedIndexChanged += comboRootMethod_SelectedIndexChanged;
         // 
@@ -324,7 +325,7 @@ partial class MainForm
         // 
         comboDiagramView.DropDownStyle = ComboBoxStyle.DropDownList;
         comboDiagramView.FormattingEnabled = true;
-        comboDiagramView.Location = new Point(36, 11);
+        comboDiagramView.Location = new Point(32, 11);
         comboDiagramView.Name = "comboDiagramView";
         comboDiagramView.Size = new Size(120, 23);
         comboDiagramView.TabIndex = 1;
@@ -367,8 +368,8 @@ partial class MainForm
         // 
         toolStripSearchLabel.Margin = new Padding(12, 0, 4, 0);
         toolStripSearchLabel.Name = "toolStripSearchLabel";
-        toolStripSearchLabel.Size = new Size(34, 23);
-        toolStripSearchLabel.Text = "찾기:";
+        toolStripSearchLabel.Size = new Size(50, 23);
+        toolStripSearchLabel.Text = "🔍 찾기:";
         // 
         // toolStripSearchBox
         // 
