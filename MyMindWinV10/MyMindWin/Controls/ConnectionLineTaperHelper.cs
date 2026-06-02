@@ -7,8 +7,8 @@ namespace MyMindWin.Controls
 {
     internal static class ConnectionLineTaperHelper
     {
-        private const double MinThicknessRatio = 0.28;
-        private const double LevelDecay = 0.68;
+        private const double MinThicknessRatio = 0.20;
+        private const double LevelDecay = 0.62;
 
         /// <summary>레벨이 깊을수록 가늘어지는 연결선 두께 (루트=가장 굵음).</summary>
         public static double ThicknessAtLevel(int level, double baseThickness)

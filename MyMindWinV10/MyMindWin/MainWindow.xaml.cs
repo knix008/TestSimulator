@@ -106,6 +106,13 @@ namespace MyMindWin
                 if (sender is not TreeViewItem treeItem || treeItem.DataContext is not NodeViewModel vm)
                     return;
 
+                // PreviewMouseRightButtonDown tunnels root→source, so an ancestor TreeViewItem
+                // fires before the actual click target. Only handle when the deepest TreeViewItem
+                // under the cursor is THIS item (not a descendant).
+                var sourceTreeItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
+                if (sourceTreeItem != null && sourceTreeItem != treeItem)
+                    return;
+
                 e.Handled = true;
                 treeItem.Focus();
                 treeItem.IsSelected = true;

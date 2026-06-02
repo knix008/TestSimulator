@@ -54,6 +54,7 @@ namespace MyMindWin.Controls
         private bool _rebuildDeferredForContextMenu;
         private Guid? _pendingContextMenuNodeId;
         private ContextMenu? _activeContextMenu;
+        private Path? _fishboneSpinePath;
 
         /// <summary>캔버스 레이아웃 재구성이 예약되었거나 진행 중입니다.</summary>
         public bool IsCanvasLayoutBusy => _isRebuildingCanvas || _layoutRebuildPending;
@@ -367,6 +368,8 @@ namespace MyMindWin.Controls
                 UpdateContentExtent();
 
                 DrawConnections(_vm.RootNode);
+                if (_vm.LayoutType == LayoutType.Fishbone)
+                    DrawFishboneSpine(_vm.RootNode);
                 DrawNodes(_vm.RootNode);
 
                 if (ActualWidth > 0 && ActualHeight > 0 && !_isPanning)
@@ -805,6 +808,9 @@ namespace MyMindWin.Controls
             {
                 double startWidth = ConnectionLineTaperHelper.ThicknessAtLevel(parent.Level, baseThickness);
                 double endWidth = ConnectionLineTaperHelper.ThicknessAtLevel(child.Level, baseThickness);
+                // Root-level connections start noticeably thicker for "growing from root" effect
+                if (parent.Level == 0)
+                    startWidth *= 1.8;
                 var ribbon = ConnectionLineTaperHelper.BuildTaperedRibbon(centerGeometry, startWidth, endWidth);
 
                 if (!ribbon.Bounds.IsEmpty && ribbon.Figures.Count > 0)
@@ -829,6 +835,11 @@ namespace MyMindWin.Controls
         private Geometry BuildConnectionGeometry(NodeViewModel parent, NodeViewModel child)
         {
             var (start, end) = GetConnectionEndpoints(parent, child);
+
+            // Fishbone ribs (root→1st-level) are always straight diagonal lines
+            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level == 0)
+                return BuildStraightGeometry(start, end);
+
             return _vm!.ConnectionLineType switch
             {
                 ConnectionLineType.Linear => BuildStraightGeometry(start, end),
@@ -840,16 +851,27 @@ namespace MyMindWin.Controls
 
         private (Point start, Point end) GetConnectionEndpoints(NodeViewModel parent, NodeViewModel child)
         {
+            // Fishbone root→1st-level: rib goes from spine attachment point to child node edge
+            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level == 0)
+            {
+                double spineY = ContentPadding + 120;
+                double attachX = child.X + child.Width; // child right edge aligns with spine
+                var endWorld = NodeShapeHelper.GetEdgePoint(child, attachX, spineY, NodeHeight);
+                return (
+                    new Point(MapX(attachX), MapY(spineY)),
+                    new Point(MapX(endWorld.X), MapY(endWorld.Y)));
+            }
+
             double pCx = parent.X + parent.Width / 2;
             double pCy = parent.Y + NodeHeight / 2;
             double cCx = child.X + child.Width / 2;
             double cCy = child.Y + NodeHeight / 2;
 
             var startWorld = NodeShapeHelper.GetEdgePoint(parent, cCx, cCy, NodeHeight);
-            var endWorld = NodeShapeHelper.GetEdgePoint(child, pCx, pCy, NodeHeight);
+            var endWorld2 = NodeShapeHelper.GetEdgePoint(child, pCx, pCy, NodeHeight);
             return (
                 new Point(MapX(startWorld.X), MapY(startWorld.Y)),
-                new Point(MapX(endWorld.X), MapY(endWorld.Y)));
+                new Point(MapX(endWorld2.X), MapY(endWorld2.Y)));
         }
 
         private static Geometry BuildStraightGeometry(Point start, Point end)
@@ -983,8 +1005,66 @@ namespace MyMindWin.Controls
             if (_vm?.RootNode == null) return;
 
             ConnectionCanvas.Children.Clear();
+            _fishboneSpinePath = null;
             _connectionPaths.Clear();
             DrawConnections(_vm.RootNode);
+            if (_vm.LayoutType == LayoutType.Fishbone)
+                DrawFishboneSpine(_vm.RootNode);
+        }
+
+        private void DrawFishboneSpine(NodeViewModel root)
+        {
+            double spineY = ContentPadding + 120;
+            double spineLeft = ContentPadding + 40;
+            double spineRight = root.X; // root (head) is at right end; spine runs to its left edge
+
+            if (spineRight <= spineLeft) return;
+
+            var fig = new PathFigure
+            {
+                StartPoint = new Point(MapX(spineLeft), MapY(spineY)),
+                IsFilled = false
+            };
+            fig.Segments.Add(new LineSegment(new Point(MapX(spineRight), MapY(spineY)), isStroked: true));
+            var geom = new PathGeometry();
+            geom.Figures.Add(fig);
+
+            double baseThickness = _vm?.ConnectionLineThickness ?? 1.8;
+            var (lightColor, _) = NodeColorHelper.GetNodeColors(root);
+            var brush = new SolidColorBrush(lightColor) { Opacity = 0.8 };
+
+            _fishboneSpinePath = new Path
+            {
+                Data = geom,
+                Stroke = brush,
+                StrokeThickness = baseThickness * 2.0,
+                StrokeLineJoin = PenLineJoin.Round,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            };
+
+            ConnectionCanvas.Children.Insert(0, _fishboneSpinePath);
+        }
+
+        private void RefreshFishboneSpine()
+        {
+            if (_fishboneSpinePath == null || _vm?.RootNode == null) return;
+
+            double spineY = ContentPadding + 120;
+            double spineLeft = ContentPadding + 40;
+            double spineRight = _vm.RootNode.X;
+
+            if (spineRight <= spineLeft) return;
+
+            var fig = new PathFigure
+            {
+                StartPoint = new Point(MapX(spineLeft), MapY(spineY)),
+                IsFilled = false
+            };
+            fig.Segments.Add(new LineSegment(new Point(MapX(spineRight), MapY(spineY)), isStroked: true));
+            var geom = new PathGeometry();
+            geom.Figures.Add(fig);
+            _fishboneSpinePath.Data = geom;
         }
 
         private static Geometry BuildCubicBezierGeometry(Point start, Point end, Point cp1, Point cp2)
@@ -1729,6 +1809,8 @@ namespace MyMindWin.Controls
             }
 
             RefreshAllConnections(_vm.RootNode);
+            if (_vm.LayoutType == LayoutType.Fishbone)
+                RefreshFishboneSpine();
 
             if (_notePanelNode != null || _imagePanelNode != null)
             {
