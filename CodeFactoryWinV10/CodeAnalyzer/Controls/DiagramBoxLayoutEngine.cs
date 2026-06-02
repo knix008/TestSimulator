@@ -1,0 +1,206 @@
+using CodeAnalyzer.Models;
+
+namespace CodeAnalyzer.Controls;
+
+internal sealed class DiagramBoxNode
+{
+    public required string Id { get; init; }
+    public required string Title { get; init; }
+    public required string Subtitle { get; init; }
+    public IReadOnlyList<string> Lines { get; init; } = [];
+    public bool IsUmlStyle { get; init; }
+    public string TypeKind { get; init; } = "class";
+    public bool IsAbstract { get; init; }
+    public IReadOnlyList<string> Attributes { get; init; } = [];
+    public IReadOnlyList<string> Operations { get; init; } = [];
+    public Rectangle Bounds { get; set; }
+}
+
+internal sealed class DiagramEdge
+{
+    public required string FromId { get; init; }
+    public required string ToId { get; init; }
+    public required string Label { get; init; }
+    public StructureRelationKind? RelationKind { get; init; }
+}
+
+internal static class DiagramBoxLayoutEngine
+{
+    private const int NodeWidth = 200;
+    private const int LineHeight = 14;
+    private const int HeaderHeight = 36;
+    private const int HorizontalGap = 48;
+    private const int VerticalGap = 56;
+
+    public static int MeasureNodeHeight(DiagramBoxNode node)
+    {
+        return HeaderHeight + Math.Max(1, node.Lines.Count) * LineHeight + 12;
+    }
+
+    public static Size LayoutLayered(
+        IReadOnlyList<DiagramBoxNode> nodes,
+        IReadOnlyDictionary<string, int> depthById)
+    {
+        if (nodes.Count == 0)
+        {
+            return new Size(400, 300);
+        }
+
+        var grouped = nodes
+            .GroupBy(node => depthById.TryGetValue(node.Id, out var depth) ? depth : 0)
+            .OrderBy(group => group.Key)
+            .ToList();
+
+        var bounds = Rectangle.Empty;
+        var y = 24;
+
+        foreach (var group in grouped)
+        {
+            var rowHeight = group.Max(MeasureNodeHeight);
+            var x = 24;
+            foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
+            {
+                var height = MeasureNodeHeight(node);
+                node.Bounds = new Rectangle(x, y, NodeWidth, height);
+                bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
+                x += NodeWidth + HorizontalGap;
+            }
+
+            y += rowHeight + VerticalGap;
+        }
+
+        return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
+    }
+
+    public static Size LayoutLeftToRightTree(
+        IReadOnlyList<DiagramBoxNode> nodes,
+        IReadOnlyDictionary<string, List<string>> outgoing,
+        string rootId)
+    {
+        if (nodes.Count == 0)
+        {
+            return new Size(400, 300);
+        }
+
+        var nodeMap = nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+        var positions = new Dictionary<string, Point>(StringComparer.Ordinal);
+        var nextY = 0;
+
+        void Place(string id, int depth)
+        {
+            if (!nodeMap.TryGetValue(id, out var node))
+            {
+                return;
+            }
+
+            if (positions.ContainsKey(id))
+            {
+                return;
+            }
+
+            var height = MeasureNodeHeight(node);
+            var y = 24 + nextY;
+            nextY += height + 28;
+            positions[id] = new Point(24 + depth * (NodeWidth + 80), y);
+            node.Bounds = new Rectangle(positions[id], new Size(NodeWidth, height));
+
+            if (outgoing.TryGetValue(id, out var children))
+            {
+                foreach (var child in children)
+                {
+                    Place(child, depth + 1);
+                }
+            }
+        }
+
+        Place(rootId, 0);
+        foreach (var node in nodes.Where(node => !positions.ContainsKey(node.Id)))
+        {
+            Place(node.Id, 0);
+        }
+
+        var bounds = nodes.Select(node => node.Bounds).Aggregate(Rectangle.Union);
+        return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
+    }
+
+    public static Size LayoutTopToBottomTree(
+        IReadOnlyList<DiagramBoxNode> nodes,
+        IReadOnlyDictionary<string, List<string>> outgoing,
+        string rootId)
+    {
+        if (nodes.Count == 0)
+        {
+            return new Size(400, 300);
+        }
+
+        var nodeMap = nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
+
+        // Compute minimum depth from the root within the outgoing adjacency.
+        var depthById = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(rootId) && nodeMap.ContainsKey(rootId))
+        {
+            var queue = new Queue<(string Id, int Depth)>();
+            depthById[rootId] = 0;
+            queue.Enqueue((rootId, 0));
+
+            while (queue.Count > 0)
+            {
+                var (id, depth) = queue.Dequeue();
+                if (!outgoing.TryGetValue(id, out var children))
+                {
+                    continue;
+                }
+
+                foreach (var childId in children)
+                {
+                    if (!nodeMap.ContainsKey(childId))
+                    {
+                        continue;
+                    }
+
+                    var nextDepth = depth + 1;
+                    if (!depthById.TryGetValue(childId, out var existing) || nextDepth < existing)
+                    {
+                        depthById[childId] = nextDepth;
+                        queue.Enqueue((childId, nextDepth));
+                    }
+                }
+            }
+        }
+
+        // Nodes outside the root-reachable set become depth 0.
+        foreach (var node in nodes)
+        {
+            if (!depthById.ContainsKey(node.Id))
+            {
+                depthById[node.Id] = 0;
+            }
+        }
+
+        var grouped = nodes
+            .GroupBy(node => depthById.TryGetValue(node.Id, out var depth) ? depth : 0)
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        var bounds = Rectangle.Empty;
+        var y = 24;
+
+        foreach (var group in grouped)
+        {
+            var rowHeight = group.Max(MeasureNodeHeight);
+            var x = 24;
+
+            foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
+            {
+                var height = MeasureNodeHeight(node);
+                node.Bounds = new Rectangle(x, y, NodeWidth, height);
+                bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
+                x += NodeWidth + HorizontalGap;
+            }
+
+            y += rowHeight + VerticalGap;
+        }
+
+        return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
+    }
+}

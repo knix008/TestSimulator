@@ -15,7 +15,16 @@ public sealed class CallGraphViewer : UserControl
     private readonly HashSet<string> _searchMatchNodeIds = new(StringComparer.Ordinal);
     private string? _currentSearchNodeId;
     private readonly System.Windows.Forms.Timer _analysisAnimationTimer;
-    private float _hourglassRotation;
+    private float _hourglassSandProgress;
+    private float _hourglassFlipAngle;
+    private HourglassAnimationPhase _hourglassPhase = HourglassAnimationPhase.Draining;
+    private readonly DiagramZoomController _zoom = new();
+
+    private enum HourglassAnimationPhase
+    {
+        Draining,
+        Flipping
+    }
 
     public CallGraphViewer()
     {
@@ -35,13 +44,37 @@ public sealed class CallGraphViewer : UserControl
             return;
         }
 
-        _hourglassRotation = (_hourglassRotation + 24f) % 360f;
+        switch (_hourglassPhase)
+        {
+            case HourglassAnimationPhase.Draining:
+                _hourglassSandProgress = Math.Min(1f, _hourglassSandProgress + 0.028f);
+                if (_hourglassSandProgress >= 1f)
+                {
+                    _hourglassPhase = HourglassAnimationPhase.Flipping;
+                }
+
+                break;
+
+            case HourglassAnimationPhase.Flipping:
+                _hourglassFlipAngle = Math.Min(180f, _hourglassFlipAngle + 14f);
+                if (_hourglassFlipAngle >= 180f)
+                {
+                    _hourglassFlipAngle = 0f;
+                    _hourglassSandProgress = 0f;
+                    _hourglassPhase = HourglassAnimationPhase.Draining;
+                }
+
+                break;
+        }
+
         Invalidate();
     }
 
     private void StartAnalysisAnimation()
     {
-        _hourglassRotation = 0f;
+        _hourglassSandProgress = 0f;
+        _hourglassFlipAngle = 0f;
+        _hourglassPhase = HourglassAnimationPhase.Draining;
         _analysisAnimationTimer.Start();
     }
 
@@ -81,6 +114,10 @@ public sealed class CallGraphViewer : UserControl
         }
     }
 
+    public event Action<CallGraphNode>? RootNodeChanged;
+
+    public IReadOnlyList<string> RootNodeIds => _rootNodeIds;
+
     public void SetGraph(CallGraphResult? graph, string? rootNodeId)
     {
         SetGraph(graph, string.IsNullOrWhiteSpace(rootNodeId) ? [] : [rootNodeId]);
@@ -96,6 +133,7 @@ public sealed class CallGraphViewer : UserControl
             .ToList();
         _collapsedNodeIds.Clear();
         ClearSearchHighlight();
+        _zoom.Reset();
         StopAnalysisAnimation();
         Cursor = Cursors.Default;
         RebuildVisualTree();
@@ -103,6 +141,7 @@ public sealed class CallGraphViewer : UserControl
 
     public void BeginAnalysis()
     {
+        _zoom.Reset();
         _isAnalyzing = true;
         _graph = null;
         _rootNodeIds = [];
@@ -110,7 +149,7 @@ public sealed class CallGraphViewer : UserControl
         _collapsedNodeIds.Clear();
         ClearSearchHighlight();
         _contentSize = new Size(400, 300);
-        AutoScrollMinSize = _contentSize;
+        _zoom.ApplyContentSize(this, _contentSize);
         AutoScrollPosition = new Point(0, 0);
         StartAnalysisAnimation();
         Invalidate();
@@ -167,11 +206,31 @@ public sealed class CallGraphViewer : UserControl
         Invalidate();
     }
 
-    public bool TryFocusNode(string nodeId)
+    public bool SetRootNode(string nodeId)
     {
-        if (_graph is null || _rootNodeIds.Count == 0)
+        if (_graph is null || !_graph.NodeMap.TryGetValue(nodeId, out var node))
         {
             return false;
+        }
+
+        _rootNodeIds = [nodeId];
+        _collapsedNodeIds.Clear();
+        RebuildVisualTree();
+        ScrollToNode(nodeId);
+        RootNodeChanged?.Invoke(node);
+        return true;
+    }
+
+    public bool TryFocusNode(string nodeId)
+    {
+        if (_graph is null || !_graph.NodeMap.ContainsKey(nodeId))
+        {
+            return false;
+        }
+
+        if (_rootNodeIds.Count == 0)
+        {
+            return SetRootNode(nodeId);
         }
 
         foreach (var rootId in _rootNodeIds)
@@ -199,7 +258,7 @@ public sealed class CallGraphViewer : UserControl
             return true;
         }
 
-        return false;
+        return SetRootNode(nodeId);
     }
 
     private static List<string>? FindPath(CallGraphResult graph, string rootId, string targetId)
@@ -252,11 +311,20 @@ public sealed class CallGraphViewer : UserControl
                 continue;
             }
 
-            var bounds = node.Bounds;
-            const int margin = 24;
-            AutoScrollPosition = new Point(Math.Max(0, bounds.Left - margin), Math.Max(0, bounds.Top - margin));
+            _zoom.ScrollToDocumentPoint(this, node.Bounds.Location, _contentSize);
             return;
         }
+    }
+
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        if (_zoom.HandleMouseWheel(this, e, _contentSize))
+        {
+            Invalidate();
+            return;
+        }
+
+        base.OnMouseWheel(e);
     }
 
     protected override void OnScroll(ScrollEventArgs se)
@@ -286,6 +354,10 @@ public sealed class CallGraphViewer : UserControl
             return;
         }
 
+        var state = e.Graphics.Save();
+        _zoom.ApplyGraphicsScale(e.Graphics);
+        e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
+
         foreach (var node in CallGraphLayoutEngine.EnumerateNodes(_roots))
         {
             DrawEdge(e.Graphics, node);
@@ -295,15 +367,28 @@ public sealed class CallGraphViewer : UserControl
         {
             DrawNode(e.Graphics, node);
         }
+
+        e.Graphics.Restore(state);
     }
 
     protected override void OnMouseClick(MouseEventArgs e)
     {
         base.OnMouseClick(e);
 
-        if (TryHitToggle(e.Location, out var nodeId))
+        if (e.Button != MouseButtons.Left)
         {
-            ToggleNode(nodeId);
+            return;
+        }
+
+        if (TryHitToggle(e.Location, out var toggleNodeId))
+        {
+            ToggleNode(toggleNodeId);
+            return;
+        }
+
+        if (TryHitNode(e.Location, out var nodeId))
+        {
+            SetRootNode(nodeId);
         }
     }
 
@@ -311,10 +396,36 @@ public sealed class CallGraphViewer : UserControl
     {
         base.OnMouseDoubleClick(e);
 
-        if (TryHitToggle(e.Location, out var nodeId))
+        if (e.Button != MouseButtons.Left)
         {
-            ToggleNode(nodeId);
+            return;
         }
+
+        if (TryHitToggle(e.Location, out var toggleNodeId))
+        {
+            ToggleNode(toggleNodeId);
+            return;
+        }
+
+        if (TryHitNode(e.Location, out var nodeId))
+        {
+            SetRootNode(nodeId);
+        }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+
+        if (_isAnalyzing || _graph is null)
+        {
+            Cursor = Cursors.Default;
+            return;
+        }
+
+        Cursor = TryHitToggle(e.Location, out _) || TryHitNode(e.Location, out _)
+            ? Cursors.Hand
+            : Cursors.Default;
     }
 
     private bool TryHitToggle(Point clientPoint, out string nodeId)
@@ -340,6 +451,34 @@ public sealed class CallGraphViewer : UserControl
         return false;
     }
 
+    private bool TryHitNode(Point clientPoint, out string nodeId)
+    {
+        nodeId = string.Empty;
+        var documentPoint = ClientToDocument(clientPoint);
+
+        foreach (var node in CallGraphLayoutEngine.EnumerateNodes(_roots))
+        {
+            if (!node.Bounds.Contains(documentPoint))
+            {
+                continue;
+            }
+
+            if (node.HasChildren)
+            {
+                var toggleHit = Rectangle.Inflate(node.ToggleBounds, 4, 4);
+                if (toggleHit.Contains(documentPoint))
+                {
+                    continue;
+                }
+            }
+
+            nodeId = node.Data.Id;
+            return true;
+        }
+
+        return false;
+    }
+
     private void ToggleNode(string nodeId)
     {
         if (_collapsedNodeIds.Contains(nodeId))
@@ -354,10 +493,7 @@ public sealed class CallGraphViewer : UserControl
         RebuildVisualTree();
     }
 
-    private Point ClientToDocument(Point clientPoint)
-    {
-        return new Point(clientPoint.X - AutoScrollPosition.X, clientPoint.Y - AutoScrollPosition.Y);
-    }
+    private Point ClientToDocument(Point clientPoint) => _zoom.ClientToDocument(this, clientPoint);
 
     private void RebuildVisualTree()
     {
@@ -366,7 +502,7 @@ public sealed class CallGraphViewer : UserControl
         if (_graph is null || _rootNodeIds.Count == 0)
         {
             _contentSize = new Size(400, 300);
-            AutoScrollMinSize = _contentSize;
+            _zoom.ApplyContentSize(this, _contentSize);
             Invalidate();
             return;
         }
@@ -389,13 +525,13 @@ public sealed class CallGraphViewer : UserControl
         if (_roots.Count == 0)
         {
             _contentSize = new Size(400, 300);
-            AutoScrollMinSize = _contentSize;
+            _zoom.ApplyContentSize(this, _contentSize);
             Invalidate();
             return;
         }
 
         _contentSize = CallGraphLayoutEngine.Layout(_roots, _layoutDirection);
-        AutoScrollMinSize = _contentSize;
+        _zoom.ApplyContentSize(this, _contentSize);
         Invalidate();
     }
 
@@ -498,7 +634,7 @@ public sealed class CallGraphViewer : UserControl
         var centerX = ClientSize.Width / 2f;
         var hourglassCenterY = startY + hourglassSize / 2f;
 
-        DrawRotatingHourglass(graphics, centerX, hourglassCenterY, hourglassSize, _hourglassRotation);
+        DrawAnimatedHourglass(graphics, centerX, hourglassCenterY, hourglassSize, _hourglassSandProgress, _hourglassFlipAngle);
 
         graphics.DrawString(
             title,
@@ -515,11 +651,17 @@ public sealed class CallGraphViewer : UserControl
             startY + hourglassSize + 16 + titleSize.Height + 8);
     }
 
-    private static void DrawRotatingHourglass(Graphics graphics, float centerX, float centerY, float size, float rotationDegrees)
+    private static void DrawAnimatedHourglass(
+        Graphics graphics,
+        float centerX,
+        float centerY,
+        float size,
+        float sandProgress,
+        float flipAngle)
     {
         var state = graphics.Save();
         graphics.TranslateTransform(centerX, centerY);
-        graphics.RotateTransform(rotationDegrees);
+        graphics.RotateTransform(flipAngle);
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
         var halfWidth = size * 0.34f;
@@ -528,6 +670,7 @@ public sealed class CallGraphViewer : UserControl
 
         using var glassFill = new SolidBrush(Color.FromArgb(235, 240, 248));
         using var sandFill = new SolidBrush(Color.FromArgb(230, 162, 60));
+        using var streamFill = new SolidBrush(Color.FromArgb(210, 140, 45));
         using var framePen = new Pen(Color.FromArgb(74, 108, 155), 2.5f);
 
         var topGlass = new[]
@@ -552,44 +695,72 @@ public sealed class CallGraphViewer : UserControl
         graphics.DrawLine(framePen, -halfWidth, -halfHeight, halfWidth, -halfHeight);
         graphics.DrawLine(framePen, -halfWidth, halfHeight, halfWidth, halfHeight);
 
-        var topSand = new[]
-        {
-            new PointF(-halfWidth * 0.72f, -halfHeight + size * 0.08f),
-            new PointF(halfWidth * 0.72f, -halfHeight + size * 0.08f),
-            new PointF(neck * 0.8f, -size * 0.04f),
-            new PointF(-neck * 0.8f, -size * 0.04f)
-        };
-        var bottomSand = new[]
-        {
-            new PointF(-neck * 0.8f, size * 0.12f),
-            new PointF(neck * 0.8f, size * 0.12f),
-            new PointF(halfWidth * 0.55f, halfHeight - size * 0.06f),
-            new PointF(-halfWidth * 0.55f, halfHeight - size * 0.06f)
-        };
+        sandProgress = Math.Clamp(sandProgress, 0f, 1f);
+        var topFill = 1f - sandProgress;
+        var bottomFill = sandProgress;
 
-        graphics.FillPolygon(sandFill, topSand);
-        graphics.FillPolygon(sandFill, bottomSand);
+        if (topFill > 0.02f)
+        {
+            var topInnerTop = -halfHeight + size * 0.08f;
+            var topInnerBottom = -size * 0.04f;
+            var topSurface = topInnerBottom - (topInnerBottom - topInnerTop) * topFill;
+            var topSand = new[]
+            {
+                new PointF(-halfWidth * 0.72f, topSurface),
+                new PointF(halfWidth * 0.72f, topSurface),
+                new PointF(neck * 0.75f * topFill, -size * 0.02f),
+                new PointF(-neck * 0.75f * topFill, -size * 0.02f)
+            };
+            graphics.FillPolygon(sandFill, topSand);
+        }
+
+        if (bottomFill > 0.02f)
+        {
+            var bottomInnerBottom = halfHeight - size * 0.06f;
+            var bottomInnerTop = size * 0.10f;
+            var bottomSurface = bottomInnerBottom - (bottomInnerBottom - bottomInnerTop) * bottomFill;
+            var bottomSand = new[]
+            {
+                new PointF(-neck * 0.75f * bottomFill, size * 0.04f),
+                new PointF(neck * 0.75f * bottomFill, size * 0.04f),
+                new PointF(halfWidth * 0.55f, bottomSurface),
+                new PointF(-halfWidth * 0.55f, bottomSurface)
+            };
+            graphics.FillPolygon(sandFill, bottomSand);
+        }
+
+        if (sandProgress is > 0.03f and < 0.97f)
+        {
+            var streamWidth = neck * 0.35f;
+            graphics.FillRectangle(streamFill, -streamWidth / 2f, -size * 0.02f, streamWidth, size * 0.06f);
+        }
 
         graphics.Restore(state);
     }
 
     private void DrawNode(Graphics graphics, GraphVisualNode node)
     {
+        var isRoot = _rootNodeIds.Count == 1
+            && string.Equals(node.Data.Id, _rootNodeIds[0], StringComparison.Ordinal);
         var isCurrentMatch = _currentSearchNodeId is not null
             && string.Equals(node.Data.Id, _currentSearchNodeId, StringComparison.Ordinal);
         var isMatch = _searchMatchNodeIds.Contains(node.Data.Id);
 
-        var fillColor = isCurrentMatch
+        var fillColor = isRoot
+            ? Color.FromArgb(225, 237, 252)
+            : isCurrentMatch
             ? Color.FromArgb(255, 236, 179)
             : isMatch
                 ? Color.FromArgb(255, 249, 219)
                 : Color.FromArgb(245, 248, 252);
-        var borderColor = isCurrentMatch
-            ? Color.FromArgb(230, 126, 34)
-            : isMatch
-                ? Color.FromArgb(241, 196, 15)
-                : Color.FromArgb(74, 108, 155);
-        var borderWidth = isCurrentMatch ? 2.5f : isMatch ? 2f : 1.5f;
+        var borderColor = isRoot
+            ? Color.FromArgb(41, 128, 185)
+            : isCurrentMatch
+                ? Color.FromArgb(230, 126, 34)
+                : isMatch
+                    ? Color.FromArgb(241, 196, 15)
+                    : Color.FromArgb(74, 108, 155);
+        var borderWidth = isRoot ? 2.5f : isCurrentMatch ? 2.5f : isMatch ? 2f : 1.5f;
 
         using var fillBrush = new SolidBrush(fillColor);
         using var borderPen = new Pen(borderColor, borderWidth);
@@ -750,6 +921,6 @@ public sealed class CallGraphViewer : UserControl
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
-        AutoScrollMinSize = _contentSize;
+        _zoom.ApplyContentSize(this, _contentSize);
     }
 }

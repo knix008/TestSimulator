@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CodeAnalyzer.Models;
 
 namespace CodeAnalyzer.Services;
@@ -6,23 +7,45 @@ public sealed class MultiLanguageCallGraphAnalyzer
 {
     private readonly CSharpCallGraphAnalyzer _csharpAnalyzer = new();
     private readonly VisualBasicCallGraphAnalyzer _visualBasicAnalyzer = new();
+    private readonly ProjectStructureAnalyzer _structureAnalyzer = new();
     private readonly IReadOnlyList<PatternCallGraphAnalyzer> _patternAnalyzers = PatternCallGraphAnalyzer.CreateAll();
 
-    public async Task<(CallGraphResult Result, int FileCount, int DirectoryCount)> AnalyzeAsync(
+    public async Task<(AnalysisResult Result, int FileCount, int DirectoryCount)> AnalyzeAsync(
         string rootPath,
         IEnumerable<string> excludedDirectories,
         IEnumerable<string> enabledLanguageIds,
         IProgress<AnalysisProgressReport>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        progress?.Report(new AnalysisProgressReport { Percent = 0, Message = "파일 검색 중..." });
+        progress?.Report(new AnalysisProgressReport
+        {
+            Percent = 0,
+            Message = "파일 검색 중...",
+            Elapsed = TimeSpan.Zero
+        });
 
         var languageIds = enabledLanguageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var extensions = LanguageRegistry.GetExtensions(languageIds);
-        var sourceFiles = DirectoryScanService
-            .GetSourceFiles(rootPath, excludedDirectories, extensions)
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var scanStopwatch = Stopwatch.StartNew();
+        var sourceFiles = new List<string>();
+
+        foreach (var file in DirectoryScanService.GetSourceFiles(rootPath, excludedDirectories, extensions))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            sourceFiles.Add(file);
+
+            if (sourceFiles.Count % 200 == 0)
+            {
+                progress?.Report(new AnalysisProgressReport
+                {
+                    Percent = 0,
+                    Message = $"파일 검색 중... ({sourceFiles.Count}개 발견)",
+                    Elapsed = scanStopwatch.Elapsed
+                });
+            }
+        }
+
+        sourceFiles.Sort(StringComparer.OrdinalIgnoreCase);
 
         var directoryCount = sourceFiles
             .Select(path => Path.GetDirectoryName(path) ?? rootPath)
@@ -32,12 +55,12 @@ public sealed class MultiLanguageCallGraphAnalyzer
         if (sourceFiles.Count == 0)
         {
             progress?.Report(new AnalysisProgressReport { Percent = 100, Message = "분석할 파일이 없습니다." });
-            return (new CallGraphResult(), 0, 0);
+            return (new AnalysisResult(), 0, 0);
         }
 
         var filesByLanguage = GroupFilesByLanguage(sourceFiles, languageIds);
         var batches = BuildAnalysisBatches(filesByLanguage, languageIds);
-        var totalSteps = sourceFiles.Count + batches.Count;
+        var totalSteps = CalculateTotalSteps(batches);
         var tracker = new AnalysisProgressTracker(progress, totalSteps);
 
         tracker.Report($"{sourceFiles.Count}개 파일, {directoryCount}개 폴더 발견", stepDelta: 0);
@@ -49,21 +72,55 @@ public sealed class MultiLanguageCallGraphAnalyzer
             cancellationToken.ThrowIfCancellationRequested();
             tracker.Report($"{batch.DisplayName} 분석 중...", stepDelta: 0);
 
-            CallGraphResult batchResult = batch.LanguageId switch
+            CallGraphResult batchResult;
+            try
             {
-                "csharp" => await _csharpAnalyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false),
-                "vbnet" => await _visualBasicAnalyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false),
-                _ => await batch.PatternAnalyzer!.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false)
-            };
+                batchResult = batch.LanguageId switch
+                {
+                    "csharp" => await _csharpAnalyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false),
+                    "vbnet" => await _visualBasicAnalyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false),
+                    _ => await batch.PatternAnalyzer!.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false)
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                tracker.Report($"{batch.DisplayName} 오류 (나머지 계속): {ex.Message}", stepDelta: 0);
+                batchResult = new CallGraphResult();
+            }
 
             results.Add(batchResult);
             tracker.Report($"{batch.DisplayName} 분석 완료");
         }
 
         var merged = CallGraphBuilder.Merge(results);
-        tracker.ReportComplete($"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개");
+        cancellationToken.ThrowIfCancellationRequested();
+        tracker.Report("파일 간 호출 관계 집계 중...", stepDelta: 0);
+        var fileRelations = FileCallGraphBuilder.Build(merged);
+        tracker.Report("디렉터리 간 호출 관계 집계 중...", stepDelta: 0);
+        var directoryRelations = DirectoryCallGraphBuilder.Build(merged);
+        tracker.Report("구조(클래스·상속) 분석 중...", stepDelta: 0);
 
-        return (merged, sourceFiles.Count, directoryCount);
+        var structure = await _structureAnalyzer.AnalyzeAsync(
+            filesByLanguage,
+            languageIds,
+            merged,
+            cancellationToken).ConfigureAwait(false);
+
+        tracker.ReportComplete(
+            $"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개, " +
+            $"파일 {fileRelations.Files.Count}개, 디렉터리 {directoryRelations.Directories.Count}개, 타입 {structure.Types.Count}개");
+
+        return (new AnalysisResult
+        {
+            CallGraph = merged,
+            FileRelations = fileRelations,
+            DirectoryRelations = directoryRelations,
+            Structure = structure
+        }, sourceFiles.Count, directoryCount);
     }
 
     private List<AnalysisBatch> BuildAnalysisBatches(
@@ -125,6 +182,20 @@ public sealed class MultiLanguageCallGraphAnalyzer
         }
 
         return groups;
+    }
+
+    private static int CalculateTotalSteps(IReadOnlyList<AnalysisBatch> batches)
+    {
+        var steps = 0;
+
+        foreach (var batch in batches)
+        {
+            var perFileSteps = batch.LanguageId is "csharp" or "vbnet" ? 2 : 1;
+            steps += batch.Files.Count * perFileSteps;
+            steps += 1;
+        }
+
+        return Math.Max(steps, 1);
     }
 
     private sealed record AnalysisBatch(

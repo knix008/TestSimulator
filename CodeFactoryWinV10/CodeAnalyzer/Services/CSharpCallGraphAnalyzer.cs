@@ -17,61 +17,209 @@ public sealed class CSharpCallGraphAnalyzer
             return new CallGraphResult();
         }
 
-        var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
-        var syntaxTrees = new List<SyntaxTree>();
-
-        foreach (var file in sourceFiles)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var sourceText = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
-            syntaxTrees.Add(CSharpSyntaxTree.ParseText(sourceText, parseOptions, file, cancellationToken: cancellationToken));
-            progress?.Report($"C#: {Path.GetFileName(file)}");
-        }
-
-        var compilation = CSharpCompilation.Create(
-            assemblyName: "CodeAnalyzerScratchCSharp",
-            syntaxTrees: syntaxTrees,
-            references: MetadataReferenceProvider.CreateReferences(),
-            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
         var nodes = new Dictionary<string, CallGraphNode>(StringComparer.Ordinal);
         var edges = new HashSet<(string CallerId, string CalleeId)>();
+        var references = MetadataReferenceProvider.CreateReferences();
 
-        foreach (var syntaxTree in syntaxTrees)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            var root = await syntaxTree.GetRootAsync(cancellationToken).ConfigureAwait(false);
-
-            foreach (var methodDeclaration in root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>())
-            {
-                var methodSymbol = semanticModel.GetDeclaredSymbol(methodDeclaration, cancellationToken);
-                if (methodSymbol is null || methodSymbol.IsImplicitlyDeclared)
-                {
-                    continue;
-                }
-
-                var callerId = GetMethodId(methodSymbol);
-                nodes.TryAdd(callerId, CreateNode(methodSymbol, syntaxTree.FilePath));
-
-                foreach (var invocation in methodDeclaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
-                {
-                    var calleeSymbol = ResolveInvocation(compilation, semanticModel, invocation, cancellationToken);
-                    if (calleeSymbol is null)
-                    {
-                        continue;
-                    }
-
-                    var calleeId = GetMethodId(calleeSymbol);
-                    nodes.TryAdd(calleeId, CreateNode(calleeSymbol, GetSourcePath(calleeSymbol, syntaxTree.FilePath)));
-                    edges.Add((callerId, calleeId));
-                }
-            }
-        }
+        await ProcessFileRangeAsync(
+            sourceFiles,
+            references,
+            nodes,
+            edges,
+            progress,
+            cancellationToken,
+            RoslynAnalysisOptions.FilesPerCompilation).ConfigureAwait(false);
 
         return CallGraphBuilder.Build(
             nodes.Values.ToList(),
             edges.Select(edge => new CallGraphEdge { CallerId = edge.CallerId, CalleeId = edge.CalleeId }).ToList());
+    }
+
+    private static async Task ProcessFileRangeAsync(
+        IReadOnlyList<string> files,
+        IReadOnlyList<MetadataReference> references,
+        Dictionary<string, CallGraphNode> nodes,
+        HashSet<(string CallerId, string CalleeId)> edges,
+        AnalysisProgressTracker? progress,
+        CancellationToken cancellationToken,
+        int chunkSize)
+    {
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        if (files.Count == 1)
+        {
+            await ProcessSingleFileSafeAsync(files[0], references, nodes, edges, progress, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        foreach (var chunk in files.Chunk(Math.Max(1, chunkSize)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                await ProcessCompilationChunkAsync(chunk, references, nodes, edges, progress, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OutOfMemoryException)
+            {
+                var nextSize = Math.Max(1, chunkSize / 2);
+                await ProcessFileRangeAsync(chunk, references, nodes, edges, progress, cancellationToken, nextSize).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception) when (chunk.Length > 1)
+            {
+                var nextSize = Math.Max(1, chunkSize / 2);
+                await ProcessFileRangeAsync(chunk, references, nodes, edges, progress, cancellationToken, nextSize).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                foreach (var file in chunk)
+                {
+                    await ProcessSingleFileSafeAsync(file, references, nodes, edges, progress, cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+    }
+
+    private static async Task ProcessCompilationChunkAsync(
+        IReadOnlyList<string> chunk,
+        IReadOnlyList<MetadataReference> references,
+        Dictionary<string, CallGraphNode> nodes,
+        HashSet<(string CallerId, string CalleeId)> edges,
+        AnalysisProgressTracker? progress,
+        CancellationToken cancellationToken)
+    {
+        var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
+        var syntaxTrees = new List<SyntaxTree>();
+
+        foreach (var file in chunk)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var sourceText = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
+                syntaxTrees.Add(CSharpSyntaxTree.ParseText(sourceText, parseOptions, file, cancellationToken: cancellationToken));
+                progress?.Report($"C#: {Path.GetFileName(file)}");
+            }
+            catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+            {
+                ReportParseSkipped(progress, file);
+            }
+        }
+
+        if (syntaxTrees.Count == 0)
+        {
+            return;
+        }
+
+        var compilation = CSharpCompilation.Create(
+            assemblyName: $"CodeAnalyzerScratchCSharp_{Guid.NewGuid():N}",
+            syntaxTrees: syntaxTrees,
+            references: references,
+            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        progress?.Report("C#: 의미 분석 준비 중...", stepDelta: 0);
+
+        foreach (var syntaxTree in syntaxTrees)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var semanticModel = compilation.GetSemanticModel(syntaxTree);
+                var root = await syntaxTree.GetRootAsync(cancellationToken).ConfigureAwait(false);
+                AnalyzeSyntaxTree(compilation, semanticModel, root, syntaxTree.FilePath, nodes, edges, cancellationToken);
+                progress?.Report($"C# 의미 분석: {Path.GetFileName(syntaxTree.FilePath)}");
+            }
+            catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+            {
+                progress?.Report($"C# 의미 분석 건너뜀: {Path.GetFileName(syntaxTree.FilePath)}");
+            }
+        }
+    }
+
+    private static async Task ProcessSingleFileSafeAsync(
+        string file,
+        IReadOnlyList<MetadataReference> references,
+        Dictionary<string, CallGraphNode> nodes,
+        HashSet<(string CallerId, string CalleeId)> edges,
+        AnalysisProgressTracker? progress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ProcessCompilationChunkAsync([file], references, nodes, edges, progress, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            ReportParseSkipped(progress, file);
+        }
+    }
+
+    private static void AnalyzeSyntaxTree(
+        Compilation compilation,
+        SemanticModel semanticModel,
+        SyntaxNode root,
+        string? filePath,
+        Dictionary<string, CallGraphNode> nodes,
+        HashSet<(string CallerId, string CalleeId)> edges,
+        CancellationToken cancellationToken)
+    {
+        foreach (var methodDeclaration in root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var methodSymbol = semanticModel.GetDeclaredSymbol(methodDeclaration, cancellationToken);
+            if (methodSymbol is null || methodSymbol.IsImplicitlyDeclared)
+            {
+                continue;
+            }
+
+            var callerId = GetMethodId(methodSymbol);
+            nodes.TryAdd(callerId, CreateNode(methodSymbol, filePath));
+
+            var invocationCount = 0;
+            foreach (var invocation in methodDeclaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                if (++invocationCount % 32 == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                var calleeSymbol = ResolveInvocation(compilation, semanticModel, invocation, cancellationToken);
+                if (calleeSymbol is null)
+                {
+                    continue;
+                }
+
+                var calleeId = GetMethodId(calleeSymbol);
+                nodes.TryAdd(calleeId, CreateNode(calleeSymbol, GetSourcePath(calleeSymbol, filePath)));
+                edges.Add((callerId, calleeId));
+            }
+        }
+    }
+
+    private static void ReportParseSkipped(AnalysisProgressTracker? progress, string file)
+    {
+        var fileName = Path.GetFileName(file);
+        progress?.Report($"C# 건너뜀: {fileName}");
+        ReportSemanticSkipped(progress, file);
+    }
+
+    private static void ReportSemanticSkipped(AnalysisProgressTracker? progress, string file)
+    {
+        progress?.Report($"C# 의미 분석 건너뜀: {Path.GetFileName(file)}");
     }
 
     private static IMethodSymbol? ResolveInvocation(
@@ -80,6 +228,8 @@ public sealed class CSharpCallGraphAnalyzer
         InvocationExpressionSyntax invocation,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var symbolInfo = semanticModel.GetSymbolInfo(invocation, cancellationToken);
         var resolved = ResolveInvokedMethod(symbolInfo.Symbol);
         if (resolved is not null)
@@ -140,9 +290,9 @@ public sealed class CSharpCallGraphAnalyzer
         return "csharp:" + methodSymbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
     }
 
-    private static string GetSourcePath(IMethodSymbol methodSymbol, string fallbackPath)
+    private static string GetSourcePath(IMethodSymbol methodSymbol, string? fallbackPath)
     {
-        return methodSymbol.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath ?? fallbackPath;
+        return methodSymbol.Locations.FirstOrDefault(location => location.IsInSource)?.SourceTree?.FilePath ?? fallbackPath ?? string.Empty;
     }
 
     private static CallGraphNode CreateNode(IMethodSymbol methodSymbol, string? filePath)

@@ -1,0 +1,863 @@
+using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
+
+namespace CodeAnalyzer.Controls;
+
+public sealed class StructureDiagramViewer : UserControl
+{
+    private DiagramViewKind _viewKind = DiagramViewKind.ClassDiagram;
+    private AnalysisResult? _analysis;
+    private IReadOnlyList<string> _functionRootIds = [];
+    private IReadOnlyList<string> _fileRootOverride = [];
+    private IReadOnlyList<string> _directoryRootOverride = [];
+    private GraphLayoutDirection _layoutDirection = GraphLayoutDirection.LeftToRight;
+    private ConnectionLineStyle _lineStyle = ConnectionLineStyle.Orthogonal;
+    private bool _isAnalyzing;
+    private Size _contentSize = new(400, 300);
+    private readonly List<DiagramBoxNode> _boxes = [];
+    private readonly List<DiagramEdge> _edges = [];
+    private readonly Dictionary<string, DiagramBoxNode> _boxMap = new(StringComparer.Ordinal);
+    private SequenceDiagramResult? _sequence;
+    private readonly HashSet<string> _highlightIds = new(StringComparer.Ordinal);
+    private string? _currentHighlightId;
+    private readonly DiagramZoomController _zoom = new();
+
+    public event Action<FileRelationNode>? FileRootChanged;
+    public event Action<DirectoryRelationNode>? DirectoryRootChanged;
+
+    public StructureDiagramViewer()
+    {
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.ResizeRedraw, true);
+        BackColor = Color.White;
+        AutoScroll = true;
+    }
+
+    public DiagramViewKind ViewKind
+    {
+        get => _viewKind;
+        set
+        {
+            _viewKind = value;
+            Rebuild();
+        }
+    }
+
+    public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> functionRootIds)
+    {
+        _isAnalyzing = false;
+        _zoom.Reset();
+        _analysis = analysis;
+        _functionRootIds = functionRootIds;
+        _fileRootOverride = [];
+        _directoryRootOverride = [];
+        _highlightIds.Clear();
+        _currentHighlightId = null;
+        Rebuild();
+    }
+
+    public void BeginAnalysis()
+    {
+        _zoom.Reset();
+        _isAnalyzing = true;
+        _analysis = null;
+        _boxes.Clear();
+        _edges.Clear();
+        _boxMap.Clear();
+        _sequence = null;
+        _contentSize = new Size(400, 300);
+        _zoom.ApplyContentSize(this, _contentSize);
+        Invalidate();
+    }
+
+    public void EndAnalysis() => _isAnalyzing = false;
+
+    public void ClearSearchHighlight()
+    {
+        _highlightIds.Clear();
+        _currentHighlightId = null;
+        Invalidate();
+    }
+
+    public void FocusFile(string fileId)
+    {
+        _fileRootOverride = [fileId];
+        _directoryRootOverride = [];
+        Rebuild();
+    }
+
+    public void FocusDirectory(string directoryId)
+    {
+        _directoryRootOverride = [directoryId];
+        _fileRootOverride = [];
+        Rebuild();
+    }
+
+    public GraphLayoutDirection LayoutDirection
+    {
+        get => _layoutDirection;
+        set
+        {
+            if (_layoutDirection == value)
+            {
+                return;
+            }
+
+            _layoutDirection = value;
+            Rebuild();
+        }
+    }
+
+    public ConnectionLineStyle LineStyle
+    {
+        get => _lineStyle;
+        set
+        {
+            if (_lineStyle == value)
+            {
+                return;
+            }
+
+            _lineStyle = value;
+            Invalidate();
+        }
+    }
+
+    public void SetSearchHighlight(IEnumerable<string> matchIds, string? currentId)
+    {
+        _highlightIds.Clear();
+        foreach (var id in matchIds)
+        {
+            _highlightIds.Add(id);
+        }
+
+        _currentHighlightId = currentId;
+        Invalidate();
+    }
+
+    protected override void OnScroll(ScrollEventArgs se)
+    {
+        base.OnScroll(se);
+        Invalidate(true);
+    }
+
+    protected override void OnPaintBackground(PaintEventArgs e)
+    {
+        using var brush = new SolidBrush(BackColor);
+        var state = e.Graphics.Save();
+        e.Graphics.ResetTransform();
+        e.Graphics.FillRectangle(brush, 0, 0, ClientSize.Width, ClientSize.Height);
+        e.Graphics.Restore(state);
+    }
+
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {
+        if (_zoom.HandleMouseWheel(this, e, _contentSize))
+        {
+            Invalidate();
+            return;
+        }
+
+        base.OnMouseWheel(e);
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        if (_isAnalyzing)
+        {
+            DrawMessage(e.Graphics, "다이어그램을 준비하는 중...");
+            return;
+        }
+
+        if (_analysis is null)
+        {
+            DrawMessage(e.Graphics, "분석을 실행하면 다이어그램이 표시됩니다.");
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.SequenceDiagram)
+        {
+            var state = e.Graphics.Save();
+            _zoom.ApplyGraphicsScale(e.Graphics);
+            e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
+            DrawSequence(e.Graphics);
+            e.Graphics.Restore(state);
+            return;
+        }
+
+        if (_boxes.Count == 0)
+        {
+            DrawMessage(e.Graphics, "표시할 구조 정보가 없습니다.");
+            return;
+        }
+
+        var diagramState = e.Graphics.Save();
+        _zoom.ApplyGraphicsScale(e.Graphics);
+        e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
+
+        foreach (var edge in _edges)
+        {
+            if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
+            {
+                continue;
+            }
+
+            if (IsUmlClassView())
+            {
+                UmlClassDiagramRenderer.DrawRelation(e.Graphics, from, to, edge);
+            }
+            else if (IsContainerRelationView())
+            {
+                FileRelationDiagramRenderer.DrawFileEdge(e.Graphics, from, to, edge.Label, _lineStyle, _layoutDirection);
+            }
+            else
+            {
+                DrawEdge(e.Graphics, edge);
+            }
+        }
+
+        foreach (var box in _boxes)
+        {
+            var isCurrent = _currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
+            var isMatch = _highlightIds.Contains(box.Id);
+
+            if (box.IsUmlStyle)
+            {
+                UmlClassDiagramRenderer.DrawClass(e.Graphics, box, isMatch, isCurrent);
+            }
+            else if (IsContainerRelationView())
+            {
+                FileRelationDiagramRenderer.DrawFileBox(e.Graphics, box, isMatch, isCurrent);
+            }
+            else
+            {
+                DrawBox(e.Graphics, box);
+            }
+        }
+
+        e.Graphics.Restore(diagramState);
+    }
+
+    private bool IsUmlClassView() =>
+        _viewKind is DiagramViewKind.ClassDiagram or DiagramViewKind.Inheritance;
+
+    private bool IsContainerRelationView() =>
+        _viewKind is DiagramViewKind.FileRelations or DiagramViewKind.DirectoryRelations;
+
+    protected override void OnMouseClick(MouseEventArgs e)
+    {
+        base.OnMouseClick(e);
+
+        if (e.Button != MouseButtons.Left || !IsContainerRelationView() || _analysis is null)
+        {
+            return;
+        }
+
+        if (!TryHitBox(e.Location, out var nodeId) || !_boxMap.TryGetValue(nodeId, out _))
+        {
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.FileRelations)
+        {
+            if (!_analysis.FileRelations.FileMap.TryGetValue(nodeId, out var file))
+            {
+                return;
+            }
+
+            _fileRootOverride = [nodeId];
+            _directoryRootOverride = [];
+            FileRootChanged?.Invoke(file);
+            Rebuild();
+            return;
+        }
+
+        if (!_analysis.DirectoryRelations.DirectoryMap.TryGetValue(nodeId, out var directory))
+        {
+            return;
+        }
+
+        _directoryRootOverride = [nodeId];
+        _fileRootOverride = [];
+        DirectoryRootChanged?.Invoke(directory);
+        Rebuild();
+    }
+
+    private bool TryHitBox(Point clientPoint, out string boxId)
+    {
+        boxId = string.Empty;
+        var documentPoint = ClientToDocument(clientPoint);
+
+        foreach (var box in _boxes)
+        {
+            if (!box.Bounds.Contains(documentPoint))
+            {
+                continue;
+            }
+
+            boxId = box.Id;
+            return true;
+        }
+
+        return false;
+    }
+
+    private Point ClientToDocument(Point clientPoint) => _zoom.ClientToDocument(this, clientPoint);
+
+    private void Rebuild()
+    {
+        _boxes.Clear();
+        _edges.Clear();
+        _boxMap.Clear();
+        _sequence = null;
+
+        if (_analysis is null)
+        {
+            _contentSize = new Size(400, 300);
+            _zoom.ApplyContentSize(this, _contentSize);
+            Invalidate();
+            return;
+        }
+
+        switch (_viewKind)
+        {
+            case DiagramViewKind.ClassDiagram:
+                BuildClassDiagram(_analysis.Structure, inheritanceOnly: false);
+                break;
+            case DiagramViewKind.Inheritance:
+                BuildClassDiagram(_analysis.Structure, inheritanceOnly: true);
+                break;
+            case DiagramViewKind.FileRelations:
+                BuildFileRelations();
+                break;
+            case DiagramViewKind.DirectoryRelations:
+                BuildDirectoryRelations();
+                break;
+            case DiagramViewKind.DataFlow:
+                BuildDataFlow(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
+                break;
+            case DiagramViewKind.SequenceDiagram:
+                _sequence = SequenceDiagramBuilder.Build(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
+                _contentSize = ComputeSequenceSize(_sequence);
+                _zoom.ApplyContentSize(this, _contentSize);
+                Invalidate();
+                return;
+        }
+
+        Invalidate();
+    }
+
+    private void BuildFileRelations()
+    {
+        var full = _analysis!.FileRelations;
+        FileRelationGraphResult subgraph;
+
+        if (_fileRootOverride.Count > 0)
+        {
+            subgraph = FileCallGraphBuilder.BuildSubgraphFromFileRoots(full, _fileRootOverride);
+        }
+        else if (_functionRootIds.Count > 0)
+        {
+            subgraph = FileCallGraphBuilder.BuildSubgraph(full, _analysis.CallGraph, _functionRootIds);
+        }
+        else
+        {
+            subgraph = full;
+        }
+
+        if (subgraph.Files.Count == 0)
+        {
+            _contentSize = new Size(400, 300);
+            _zoom.ApplyContentSize(this, _contentSize);
+            return;
+        }
+
+        foreach (var file in subgraph.Files)
+        {
+            var box = FileRelationDiagramRenderer.CreateBox(file);
+            _boxes.Add(box);
+            _boxMap[box.Id] = box;
+        }
+
+        foreach (var edge in subgraph.Edges)
+        {
+            _edges.Add(new DiagramEdge
+            {
+                FromId = edge.FromFileId,
+                ToId = edge.ToFileId,
+                Label = edge.Label,
+                RelationKind = StructureRelationKind.Dependency
+            });
+        }
+
+        var primaryRoot = _fileRootOverride.FirstOrDefault()
+            ?? FileCallGraphBuilder.ResolveFileRoots(_analysis.CallGraph, _functionRootIds).FirstOrDefault();
+
+        if (string.IsNullOrEmpty(primaryRoot))
+        {
+            var depths = ComputeFileDepths(subgraph);
+            _contentSize = DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths);
+        }
+        else
+        {
+            var orderedOutgoing = BuildOrderedOutgoing(subgraph.Outgoing);
+            _contentSize = _layoutDirection == GraphLayoutDirection.TopToBottom
+                ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(
+                    _boxes,
+                    orderedOutgoing,
+                    primaryRoot)
+                : DiagramBoxLayoutEngine.LayoutLeftToRightTree(
+                    _boxes,
+                    orderedOutgoing,
+                    primaryRoot);
+        }
+
+        _zoom.ApplyContentSize(this, _contentSize);
+    }
+
+    private void BuildDirectoryRelations()
+    {
+        var full = _analysis!.DirectoryRelations;
+        DirectoryRelationGraphResult subgraph;
+
+        if (_directoryRootOverride.Count > 0)
+        {
+            subgraph = DirectoryCallGraphBuilder.BuildSubgraphFromDirectoryRoots(full, _directoryRootOverride);
+        }
+        else if (_functionRootIds.Count > 0)
+        {
+            subgraph = DirectoryCallGraphBuilder.BuildSubgraph(full, _analysis.CallGraph, _functionRootIds);
+        }
+        else
+        {
+            subgraph = full;
+        }
+
+        if (subgraph.Directories.Count == 0)
+        {
+            _contentSize = new Size(400, 300);
+            _zoom.ApplyContentSize(this, _contentSize);
+            return;
+        }
+
+        foreach (var directory in subgraph.Directories)
+        {
+            var box = FileRelationDiagramRenderer.CreateDirectoryBox(directory);
+            _boxes.Add(box);
+            _boxMap[box.Id] = box;
+        }
+
+        foreach (var edge in subgraph.Edges)
+        {
+            _edges.Add(new DiagramEdge
+            {
+                FromId = edge.FromDirectoryId,
+                ToId = edge.ToDirectoryId,
+                Label = edge.Label,
+                RelationKind = StructureRelationKind.Dependency
+            });
+        }
+
+        var primaryRoot = _directoryRootOverride.FirstOrDefault()
+            ?? DirectoryCallGraphBuilder.ResolveDirectoryRoots(_analysis.CallGraph, _functionRootIds).FirstOrDefault();
+
+        if (string.IsNullOrEmpty(primaryRoot))
+        {
+            var depths = ComputeDirectoryDepths(subgraph);
+            _contentSize = DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths);
+        }
+        else
+        {
+            var orderedOutgoing = BuildOrderedOutgoing(subgraph.Outgoing);
+            _contentSize = _layoutDirection == GraphLayoutDirection.TopToBottom
+                ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(
+                    _boxes,
+                    orderedOutgoing,
+                    primaryRoot)
+                : DiagramBoxLayoutEngine.LayoutLeftToRightTree(
+                    _boxes,
+                    orderedOutgoing,
+                    primaryRoot);
+        }
+
+        _zoom.ApplyContentSize(this, _contentSize);
+    }
+
+    private static Dictionary<string, int> ComputeFileDepths(FileRelationGraphResult graph)
+    {
+        var nodeIds = graph.Files.Select(file => file.Id).ToList();
+        var incomingCount = nodeIds.ToDictionary(id => id, _ => 0, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var edge in graph.Edges)
+        {
+            if (incomingCount.ContainsKey(edge.ToFileId))
+            {
+                incomingCount[edge.ToFileId]++;
+            }
+        }
+
+        var queue = new Queue<string>(incomingCount.Where(pair => pair.Value == 0).Select(pair => pair.Key));
+        if (queue.Count == 0)
+        {
+            // Pure cycle graph: put every node on the same layer to avoid infinite depth propagation.
+            queue = new Queue<string>(nodeIds);
+        }
+
+        var depths = nodeIds.ToDictionary(id => id, _ => 0, StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!visited.Add(current))
+            {
+                continue;
+            }
+
+            if (!graph.Outgoing.TryGetValue(current, out var children))
+            {
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                if (!depths.ContainsKey(child))
+                {
+                    continue;
+                }
+
+                if (!visited.Contains(child))
+                {
+                    depths[child] = Math.Max(depths[child], depths[current] + 1);
+                    queue.Enqueue(child);
+                }
+            }
+        }
+
+        return depths;
+    }
+
+    private IReadOnlyDictionary<string, List<string>> BuildOrderedOutgoing(
+        IReadOnlyDictionary<string, List<string>> outgoing)
+    {
+        var ordered = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (fromId, children) in outgoing)
+        {
+            ordered[fromId] = children
+                .Where(childId => _boxMap.ContainsKey(childId))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(childId => _boxMap[childId].Title, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(childId => childId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        return ordered;
+    }
+
+    private static Dictionary<string, int> ComputeDirectoryDepths(DirectoryRelationGraphResult graph)
+    {
+        var nodeIds = graph.Directories.Select(directory => directory.Id).ToList();
+        var incomingCount = nodeIds.ToDictionary(id => id, _ => 0, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var edge in graph.Edges)
+        {
+            if (incomingCount.ContainsKey(edge.ToDirectoryId))
+            {
+                incomingCount[edge.ToDirectoryId]++;
+            }
+        }
+
+        var queue = new Queue<string>(incomingCount.Where(pair => pair.Value == 0).Select(pair => pair.Key));
+        if (queue.Count == 0)
+        {
+            queue = new Queue<string>(nodeIds);
+        }
+
+        var depths = nodeIds.ToDictionary(id => id, _ => 0, StringComparer.OrdinalIgnoreCase);
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            if (!visited.Add(current))
+            {
+                continue;
+            }
+
+            if (!graph.Outgoing.TryGetValue(current, out var children))
+            {
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                if (!depths.ContainsKey(child))
+                {
+                    continue;
+                }
+
+                if (!visited.Contains(child))
+                {
+                    depths[child] = Math.Max(depths[child], depths[current] + 1);
+                    queue.Enqueue(child);
+                }
+            }
+        }
+
+        return depths;
+    }
+
+    private void BuildClassDiagram(ProjectStructureResult structure, bool inheritanceOnly)
+    {
+        var relations = structure.Relations
+            .Where(relation => inheritanceOnly
+                ? relation.Kind == StructureRelationKind.Inheritance
+                : relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation or StructureRelationKind.Dependency)
+            .ToList();
+
+        var typeIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var relation in relations)
+        {
+            typeIds.Add(relation.FromId);
+            typeIds.Add(relation.ToId);
+        }
+
+        if (!inheritanceOnly)
+        {
+            foreach (var type in structure.Types)
+            {
+                typeIds.Add(type.Id);
+            }
+        }
+
+        foreach (var typeId in typeIds)
+        {
+            if (!structure.TypeMap.TryGetValue(typeId, out var type))
+            {
+                continue;
+            }
+
+            var box = UmlClassDiagramRenderer.CreateBox(type);
+            _boxes.Add(box);
+            _boxMap[box.Id] = box;
+        }
+
+        foreach (var relation in relations)
+        {
+            if (!_boxMap.ContainsKey(relation.FromId) || !_boxMap.ContainsKey(relation.ToId))
+            {
+                continue;
+            }
+
+            _edges.Add(new DiagramEdge
+            {
+                FromId = relation.FromId,
+                ToId = relation.ToId,
+                Label = string.Empty,
+                RelationKind = relation.Kind
+            });
+        }
+
+        var depths = ComputeTypeDepths(_boxMap.Keys, relations);
+        _contentSize = UmlClassDiagramRenderer.Layout(_boxes, depths);
+        _zoom.ApplyContentSize(this, _contentSize);
+    }
+
+    private void BuildDataFlow(CallGraphResult callGraph, string? rootNodeId)
+    {
+        var flow = DataFlowDiagramBuilder.Build(callGraph, rootNodeId);
+        foreach (var node in flow.Nodes)
+        {
+            var box = new DiagramBoxNode
+            {
+                Id = node.Id,
+                Title = node.DisplayName,
+                Subtitle = "함수",
+                Lines = [node.FullName, "→ 호출/데이터 전달"]
+            };
+            _boxes.Add(box);
+            _boxMap[box.Id] = box;
+        }
+
+        foreach (var edge in flow.Edges)
+        {
+            _edges.Add(new DiagramEdge
+            {
+                FromId = edge.FromId,
+                ToId = edge.ToId,
+                Label = edge.Label
+            });
+        }
+
+        var root = rootNodeId ?? flow.Nodes.FirstOrDefault()?.Id ?? string.Empty;
+        _contentSize = string.IsNullOrEmpty(root)
+            ? DiagramBoxLayoutEngine.LayoutLayered(_boxes, _boxes.ToDictionary(box => box.Id, _ => 0))
+            : _layoutDirection == GraphLayoutDirection.TopToBottom
+                ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(_boxes, flow.Outgoing, root)
+                : DiagramBoxLayoutEngine.LayoutLeftToRightTree(_boxes, flow.Outgoing, root);
+        _zoom.ApplyContentSize(this, _contentSize);
+    }
+
+    private static Dictionary<string, int> ComputeTypeDepths(
+        IEnumerable<string> typeIds,
+        IReadOnlyList<StructureRelationEdge> relations)
+    {
+        var inheritance = relations
+            .Where(relation => relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
+            .ToList();
+
+        var parents = inheritance
+            .GroupBy(relation => relation.FromId)
+            .ToDictionary(group => group.Key, group => group.Select(edge => edge.ToId).ToList(), StringComparer.Ordinal);
+
+        var depths = typeIds.ToDictionary(id => id, _ => 0, StringComparer.Ordinal);
+        var changed = true;
+
+        while (changed)
+        {
+            changed = false;
+            foreach (var (id, parentList) in parents)
+            {
+                if (!depths.ContainsKey(id))
+                {
+                    continue;
+                }
+
+                foreach (var parent in parentList)
+                {
+                    if (!depths.TryGetValue(parent, out var parentDepth))
+                    {
+                        depths[parent] = 0;
+                        parentDepth = 0;
+                    }
+
+                    var next = parentDepth + 1;
+                    if (depths[id] < next)
+                    {
+                        depths[id] = next;
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        return depths;
+    }
+
+    private Size ComputeSequenceSize(SequenceDiagramResult? sequence) =>
+        UmlSequenceDiagramRenderer.Measure(sequence);
+
+    private void DrawSequence(Graphics graphics)
+    {
+        if (_sequence is null || _sequence.ParticipantIds.Count == 0)
+        {
+            DrawMessage(graphics, "시퀀스 다이어그램을 표시할 호출 경로가 없습니다.");
+            return;
+        }
+
+        UmlSequenceDiagramRenderer.Draw(graphics, _sequence);
+    }
+
+    private void DrawBox(Graphics graphics, DiagramBoxNode box)
+    {
+        var isCurrent = _currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
+        var isMatch = _highlightIds.Contains(box.Id);
+
+        var fill = isCurrent
+            ? Color.FromArgb(255, 236, 179)
+            : isMatch
+                ? Color.FromArgb(255, 249, 219)
+                : Color.FromArgb(248, 250, 255);
+        var border = isCurrent
+            ? Color.FromArgb(230, 126, 34)
+            : Color.FromArgb(74, 108, 155);
+
+        using var fillBrush = new SolidBrush(fill);
+        using var borderPen = new Pen(border, isCurrent ? 2.5f : 1.6f);
+        using var titleFont = new Font(Font.FontFamily, 9f, FontStyle.Bold);
+        using var subFont = new Font(Font.FontFamily, 7.5f);
+        using var textBrush = new SolidBrush(Color.FromArgb(35, 45, 60));
+
+        graphics.FillRectangle(fillBrush, box.Bounds);
+        graphics.DrawRectangle(borderPen, box.Bounds);
+        graphics.DrawString(box.Title, titleFont, textBrush, box.Bounds.Left + 8, box.Bounds.Top + 6);
+        graphics.DrawString(box.Subtitle, subFont, Brushes.DimGray, box.Bounds.Right - 56, box.Bounds.Top + 8);
+
+        var y = box.Bounds.Top + 24;
+        foreach (var line in box.Lines.Take(6))
+        {
+            var text = line.Length > 28 ? line[..25] + "..." : line;
+            graphics.DrawString(text, subFont, textBrush, box.Bounds.Left + 8, y);
+            y += 14;
+        }
+    }
+
+    private void DrawEdge(Graphics graphics, DiagramEdge edge)
+    {
+        if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
+        {
+            return;
+        }
+
+        var start = new Point(from.Bounds.Left + from.Bounds.Width / 2, from.Bounds.Bottom);
+        var end = new Point(to.Bounds.Left + to.Bounds.Width / 2, to.Bounds.Top);
+
+        var color = edge.RelationKind switch
+        {
+            StructureRelationKind.Inheritance => Color.FromArgb(39, 174, 96),
+            StructureRelationKind.Implementation => Color.FromArgb(142, 68, 173),
+            StructureRelationKind.Dependency => Color.FromArgb(127, 140, 141),
+            _ => Color.FromArgb(74, 108, 155)
+        };
+
+        using var pen = new Pen(color, 1.6f);
+        if (edge.RelationKind == StructureRelationKind.Implementation || edge.RelationKind == StructureRelationKind.Dependency)
+        {
+            pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+        }
+
+        graphics.DrawLine(pen, start, end);
+        DrawArrowHead(graphics, pen, start.X, start.Y, end.X, end.Y);
+
+        if (!string.IsNullOrWhiteSpace(edge.Label))
+        {
+            using var font = new Font(Font.FontFamily, 7.5f);
+            graphics.DrawString(edge.Label, font, Brushes.DimGray, (start.X + end.X) / 2f, (start.Y + end.Y) / 2f - 12);
+        }
+    }
+
+    private static void DrawArrowHead(Graphics graphics, Pen pen, int x1, int y1, int x2, int y2)
+    {
+        if (x1 == x2 && y1 == y2)
+        {
+            return;
+        }
+
+        var dx = x2 - x1;
+        var dy = y2 - y1;
+        var len = MathF.Sqrt(dx * dx + dy * dy);
+        if (len < 1f)
+        {
+            return;
+        }
+
+        var ux = dx / len;
+        var uy = dy / len;
+        var tipX = x2;
+        var tipY = y2;
+        graphics.DrawLine(pen, tipX, tipY, (int)(tipX - ux * 8 - uy * 4), (int)(tipY - uy * 8 + ux * 4));
+        graphics.DrawLine(pen, tipX, tipY, (int)(tipX - ux * 8 + uy * 4), (int)(tipY - uy * 8 - ux * 4));
+    }
+
+    private void DrawMessage(Graphics graphics, string message)
+    {
+        using var font = new Font(Font.FontFamily, 10f);
+        using var brush = new SolidBrush(Color.Gray);
+        var size = graphics.MeasureString(message, font);
+        graphics.DrawString(message, font, brush, Math.Max(20, (ClientSize.Width - size.Width) / 2), Math.Max(20, (ClientSize.Height - size.Height) / 2));
+    }
+}

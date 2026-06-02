@@ -29,8 +29,9 @@ partial class MainForm
         btnBrowseRoot = new Button();
         txtRootPath = new TextBox();
         lblRootPath = new Label();
-        callGraphViewer = new CallGraphViewer();
+        diagramViewHost = new DiagramViewHost();
         panelToolbar = new Panel();
+        btnBackView = new Button();
         btnCollapseAll = new Button();
         btnExpandAll = new Button();
         comboLineStyle = new ComboBox();
@@ -39,6 +40,8 @@ partial class MainForm
         lblLayout = new Label();
         comboRootMethod = new ComboBox();
         lblRootMethod = new Label();
+        comboDiagramView = new ComboBox();
+        lblDiagramView = new Label();
         menuStrip = new MenuStrip();
         menuFile = new ToolStripMenuItem();
         menuSave = new ToolStripMenuItem();
@@ -74,7 +77,7 @@ partial class MainForm
         // 
         // splitContainerMain.Panel2
         // 
-        splitContainerMain.Panel2.Controls.Add(callGraphViewer);
+        splitContainerMain.Panel2.Controls.Add(diagramViewHost);
         splitContainerMain.Panel2.Controls.Add(panelToolbar);
         splitContainerMain.Panel2MinSize = 320;
         splitContainerMain.Size = new Size(1280, 733);
@@ -193,21 +196,17 @@ partial class MainForm
         lblRootPath.TabIndex = 0;
         lblRootPath.Text = "루트 디렉터리";
         // 
-        // callGraphViewer
+        // diagramViewHost
         // 
-        callGraphViewer.AutoScroll = true;
-        callGraphViewer.AutoScrollMinSize = new Size(400, 300);
-        callGraphViewer.BackColor = Color.White;
-        callGraphViewer.Dock = DockStyle.Fill;
-        callGraphViewer.LayoutDirection = Models.GraphLayoutDirection.LeftToRight;
-        callGraphViewer.LineStyle = Models.ConnectionLineStyle.Orthogonal;
-        callGraphViewer.Location = new Point(0, 48);
-        callGraphViewer.Name = "callGraphViewer";
-        callGraphViewer.Size = new Size(954, 685);
-        callGraphViewer.TabIndex = 1;
+        diagramViewHost.Dock = DockStyle.Fill;
+        diagramViewHost.Location = new Point(0, 48);
+        diagramViewHost.Name = "diagramViewHost";
+        diagramViewHost.Size = new Size(954, 685);
+        diagramViewHost.TabIndex = 1;
         // 
         // panelToolbar
         // 
+        panelToolbar.Controls.Add(btnBackView);
         panelToolbar.Controls.Add(btnCollapseAll);
         panelToolbar.Controls.Add(btnExpandAll);
         panelToolbar.Controls.Add(comboLineStyle);
@@ -216,12 +215,24 @@ partial class MainForm
         panelToolbar.Controls.Add(lblLayout);
         panelToolbar.Controls.Add(comboRootMethod);
         panelToolbar.Controls.Add(lblRootMethod);
+        panelToolbar.Controls.Add(comboDiagramView);
+        panelToolbar.Controls.Add(lblDiagramView);
         panelToolbar.Dock = DockStyle.Top;
         panelToolbar.Location = new Point(0, 0);
         panelToolbar.Name = "panelToolbar";
         panelToolbar.Padding = new Padding(8, 8, 8, 4);
         panelToolbar.Size = new Size(954, 48);
         panelToolbar.TabIndex = 0;
+        // 
+        // btnBackView
+        // 
+        btnBackView.Location = new Point(164, 10);
+        btnBackView.Name = "btnBackView";
+        btnBackView.Size = new Size(58, 27);
+        btnBackView.TabIndex = 2;
+        btnBackView.Text = "뒤로";
+        btnBackView.UseVisualStyleBackColor = true;
+        btnBackView.Click += btnBackView_Click;
         // 
         // btnCollapseAll
         // 
@@ -292,20 +303,39 @@ partial class MainForm
         comboRootMethod.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         comboRootMethod.DropDownStyle = ComboBoxStyle.DropDownList;
         comboRootMethod.FormattingEnabled = true;
-        comboRootMethod.Location = new Point(72, 11);
+        comboRootMethod.Location = new Point(286, 11);
         comboRootMethod.Name = "comboRootMethod";
-        comboRootMethod.Size = new Size(278, 23);
-        comboRootMethod.TabIndex = 1;
+        comboRootMethod.Size = new Size(72, 23);
+        comboRootMethod.TabIndex = 3;
         comboRootMethod.SelectedIndexChanged += comboRootMethod_SelectedIndexChanged;
         // 
         // lblRootMethod
         // 
         lblRootMethod.AutoSize = true;
-        lblRootMethod.Location = new Point(8, 15);
+        lblRootMethod.Location = new Point(228, 15);
         lblRootMethod.Name = "lblRootMethod";
         lblRootMethod.Size = new Size(59, 15);
-        lblRootMethod.TabIndex = 0;
+        lblRootMethod.TabIndex = 2;
         lblRootMethod.Text = "시작 함수";
+        // 
+        // comboDiagramView
+        // 
+        comboDiagramView.DropDownStyle = ComboBoxStyle.DropDownList;
+        comboDiagramView.FormattingEnabled = true;
+        comboDiagramView.Location = new Point(36, 11);
+        comboDiagramView.Name = "comboDiagramView";
+        comboDiagramView.Size = new Size(120, 23);
+        comboDiagramView.TabIndex = 1;
+        comboDiagramView.SelectedIndexChanged += comboDiagramView_SelectedIndexChanged;
+        // 
+        // lblDiagramView
+        // 
+        lblDiagramView.AutoSize = true;
+        lblDiagramView.Location = new Point(8, 15);
+        lblDiagramView.Name = "lblDiagramView";
+        lblDiagramView.Size = new Size(26, 15);
+        lblDiagramView.TabIndex = 0;
+        lblDiagramView.Text = "뷰";
         // 
         // menuStrip
         // 
@@ -344,7 +374,7 @@ partial class MainForm
         toolStripSearchBox.Enabled = false;
         toolStripSearchBox.Name = "toolStripSearchBox";
         toolStripSearchBox.Size = new Size(220, 23);
-        toolStripSearchBox.ToolTipText = "함수 이름·경로 검색 (Ctrl+F)";
+        toolStripSearchBox.ToolTipText = "함수·타입 검색 — 입력 시 목록 표시 (Ctrl+F, ↓ 선택, Enter 이동)";
         toolStripSearchBox.KeyDown += toolStripSearchBox_KeyDown;
         toolStripSearchBox.TextChanged += toolStripSearchBox_TextChanged;
         // 
@@ -413,7 +443,7 @@ partial class MainForm
         MinimumSize = new Size(960, 640);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "Code Analyzer - 함수 호출 관계";
+        Text = "Code Analyzer - 코드 구조 분석";
         splitContainerMain.Panel1.ResumeLayout(false);
         splitContainerMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitContainerMain).EndInit();
@@ -441,8 +471,9 @@ partial class MainForm
     private Button btnBrowseRoot;
     private TextBox txtRootPath;
     private Label lblRootPath;
-    private CallGraphViewer callGraphViewer;
+    private DiagramViewHost diagramViewHost;
     private Panel panelToolbar;
+    private Button btnBackView;
     private Button btnCollapseAll;
     private Button btnExpandAll;
     private ComboBox comboLineStyle;
@@ -451,6 +482,8 @@ partial class MainForm
     private Label lblLayout;
     private ComboBox comboRootMethod;
     private Label lblRootMethod;
+    private ComboBox comboDiagramView;
+    private Label lblDiagramView;
     private MenuStrip menuStrip;
     private ToolStripMenuItem menuFile;
     private ToolStripMenuItem menuSave;

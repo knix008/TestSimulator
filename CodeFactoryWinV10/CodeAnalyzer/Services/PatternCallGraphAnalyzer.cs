@@ -99,9 +99,17 @@ public sealed class PatternCallGraphAnalyzer
         foreach (var file in sourceFiles)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var content = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
-            fileModels.Add(ParseFile(file, content));
-            progress?.Report($"{_displayPrefix.Trim('[', ']')}: {Path.GetFileName(file)}");
+
+            try
+            {
+                var content = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
+                fileModels.Add(ParseFile(file, content));
+                progress?.Report($"{_displayPrefix.Trim('[', ']')}: {Path.GetFileName(file)}");
+            }
+            catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+            {
+                progress?.Report($"{_displayPrefix.Trim('[', ']')} 건너뜀: {Path.GetFileName(file)}");
+            }
         }
 
         var globalNameIndex = BuildGlobalNameIndex(fileModels);
@@ -110,6 +118,8 @@ public sealed class PatternCallGraphAnalyzer
 
         foreach (var fileModel in fileModels)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             foreach (var function in fileModel.Functions)
             {
                 nodes.TryAdd(function.Id, function.Node);

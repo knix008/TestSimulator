@@ -1,0 +1,154 @@
+using CodeAnalyzer.Models;
+
+namespace CodeAnalyzer.Services;
+
+public sealed class ProjectStructureAnalyzer
+{
+    private readonly CSharpStructureExtractor _csharpExtractor = new();
+    private readonly PatternStructureExtractor _patternExtractor = new();
+
+    public async Task<ProjectStructureResult> AnalyzeAsync(
+        Dictionary<string, List<string>> filesByLanguage,
+        HashSet<string> enabledLanguageIds,
+        CallGraphResult callGraph,
+        CancellationToken cancellationToken = default)
+    {
+        var types = new Dictionary<string, StructureTypeNode>(StringComparer.Ordinal);
+        var relations = new List<StructureRelationEdge>();
+
+        if (filesByLanguage.TryGetValue("csharp", out var csharpFiles) && csharpFiles.Count > 0)
+        {
+            var (csharpTypes, csharpRelations) = await _csharpExtractor.ExtractAsync(csharpFiles, cancellationToken).ConfigureAwait(false);
+            MergeStructure(csharpTypes, csharpRelations, types, relations);
+        }
+
+        foreach (var language in LanguageRegistry.All)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (language.Id is "csharp" or "vbnet")
+            {
+                continue;
+            }
+
+            if (!enabledLanguageIds.Contains(language.Id))
+            {
+                continue;
+            }
+
+            if (!filesByLanguage.TryGetValue(language.Id, out var files) || files.Count == 0)
+            {
+                continue;
+            }
+
+            var prefix = $"[{language.DisplayName}]";
+            var (patternTypes, patternRelations) = _patternExtractor.Extract(language.Id, prefix, files, cancellationToken);
+            MergeStructure(patternTypes, patternRelations, types, relations);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        AddCallDependencies(callGraph, types, relations, cancellationToken);
+
+        var typeList = types.Values.OrderBy(type => type.FullName, StringComparer.OrdinalIgnoreCase).ToList();
+        return new ProjectStructureResult
+        {
+            Types = typeList,
+            Relations = relations,
+            TypeMap = typeList.ToDictionary(type => type.Id, StringComparer.Ordinal)
+        };
+    }
+
+    private static void MergeStructure(
+        IEnumerable<StructureTypeNode> newTypes,
+        IEnumerable<StructureRelationEdge> newRelations,
+        Dictionary<string, StructureTypeNode> types,
+        List<StructureRelationEdge> relations)
+    {
+        foreach (var type in newTypes)
+        {
+            types.TryAdd(type.Id, type);
+        }
+
+        var existing = new HashSet<(string From, string To, StructureRelationKind Kind)>(
+            relations.Select(edge => (edge.FromId, edge.ToId, edge.Kind)));
+
+        foreach (var relation in newRelations)
+        {
+            if (existing.Add((relation.FromId, relation.ToId, relation.Kind)))
+            {
+                relations.Add(relation);
+            }
+        }
+    }
+
+    private static void AddCallDependencies(
+        CallGraphResult callGraph,
+        Dictionary<string, StructureTypeNode> types,
+        List<StructureRelationEdge> relations,
+        CancellationToken cancellationToken)
+    {
+        var methodToType = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var node in callGraph.Nodes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var typeName = GuessTypeName(node);
+            if (string.IsNullOrWhiteSpace(typeName))
+            {
+                continue;
+            }
+
+            var typeId = $"dep-type:{typeName}";
+            types.TryAdd(typeId, new StructureTypeNode
+            {
+                Id = typeId,
+                DisplayName = typeName,
+                FullName = typeName,
+                FilePath = node.FilePath,
+                LineNumber = node.LineNumber,
+                Kind = "class"
+            });
+            methodToType[node.Id] = typeId;
+        }
+
+        var existing = new HashSet<(string, string)>(
+            relations.Where(r => r.Kind == StructureRelationKind.Dependency).Select(r => (r.FromId, r.ToId)));
+
+        foreach (var edge in callGraph.Edges)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!methodToType.TryGetValue(edge.CallerId, out var fromType))
+            {
+                continue;
+            }
+
+            if (!methodToType.TryGetValue(edge.CalleeId, out var toType) || fromType == toType)
+            {
+                continue;
+            }
+
+            if (existing.Add((fromType, toType)))
+            {
+                relations.Add(new StructureRelationEdge
+                {
+                    FromId = fromType,
+                    ToId = toType,
+                    Kind = StructureRelationKind.Dependency
+                });
+            }
+        }
+    }
+
+    private static string? GuessTypeName(CallGraphNode node)
+    {
+        var fullName = node.FullName;
+        var separator = fullName.IndexOf("::", StringComparison.Ordinal);
+        if (separator >= 0)
+        {
+            return fullName[(separator + 2)..].Split('.').FirstOrDefault();
+        }
+
+        var dot = node.DisplayName.Contains('.') ? node.DisplayName.Split('.').Reverse().Skip(1).FirstOrDefault() : null;
+        return dot ?? node.DisplayName;
+    }
+}
