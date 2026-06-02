@@ -5,8 +5,10 @@ using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 
 namespace CodeAnalyzer.Services;
 
-public sealed class VisualBasicCallGraphAnalyzer
+public sealed class VisualBasicCallGraphAnalyzer : ICallGraphAnalyzer
 {
+    public string LanguageId => "vbnet";
+
     public async Task<CallGraphResult> AnalyzeAsync(
         IReadOnlyList<string> sourceFiles,
         AnalysisProgressTracker? progress = null,

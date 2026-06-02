@@ -18,6 +18,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.12.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.12.0" />
+    <PackageReference Include="TreeSitter.DotNet" Version="1.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,5 +29,17 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!--
+    TreeSitter.DotNet places native grammar DLLs under runtimes/<rid>/native/.
+    NativeLibrary.Load looks in the application base directory, so we copy them up to the output root.
+    Only win-x64 DLLs are needed since this is a Windows WinForms application.
+  -->
+  <Target Name="CopyTreeSitterNativeDlls" AfterTargets="Build">
+    <ItemGroup>
+      <_TreeSitterNativeDlls Include="$(OutDir)runtimes\win-x64\native\tree-sitter*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_TreeSitterNativeDlls)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

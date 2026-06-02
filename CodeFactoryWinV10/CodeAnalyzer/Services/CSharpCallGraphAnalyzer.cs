@@ -5,8 +5,10 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CodeAnalyzer.Services;
 
-public sealed class CSharpCallGraphAnalyzer
+public sealed class CSharpCallGraphAnalyzer : ICallGraphAnalyzer
 {
+    public string LanguageId => "csharp";
+
     public async Task<CallGraphResult> AnalyzeAsync(
         IReadOnlyList<string> sourceFiles,
         AnalysisProgressTracker? progress = null,

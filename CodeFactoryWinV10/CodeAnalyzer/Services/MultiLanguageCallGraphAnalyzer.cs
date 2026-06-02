@@ -5,10 +5,7 @@ namespace CodeAnalyzer.Services;
 
 public sealed class MultiLanguageCallGraphAnalyzer
 {
-    private readonly CSharpCallGraphAnalyzer _csharpAnalyzer = new();
-    private readonly VisualBasicCallGraphAnalyzer _visualBasicAnalyzer = new();
     private readonly ProjectStructureAnalyzer _structureAnalyzer = new();
-    private readonly IReadOnlyList<PatternCallGraphAnalyzer> _patternAnalyzers = PatternCallGraphAnalyzer.CreateAll();
 
     public async Task<(AnalysisResult Result, int FileCount, int DirectoryCount)> AnalyzeAsync(
         string rootPath,
@@ -75,12 +72,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
             CallGraphResult batchResult;
             try
             {
-                batchResult = batch.LanguageId switch
-                {
-                    "csharp" => await _csharpAnalyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false),
-                    "vbnet" => await _visualBasicAnalyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false),
-                    _ => await batch.PatternAnalyzer!.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false)
-                };
+                batchResult = await batch.Analyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -123,39 +115,31 @@ public sealed class MultiLanguageCallGraphAnalyzer
         }, sourceFiles.Count, directoryCount);
     }
 
-    private List<AnalysisBatch> BuildAnalysisBatches(
+    private static List<AnalysisBatch> BuildAnalysisBatches(
         Dictionary<string, List<string>> filesByLanguage,
         HashSet<string> languageIds)
     {
         var batches = new List<AnalysisBatch>();
 
-        if (filesByLanguage.TryGetValue("csharp", out var csharpFiles) && csharpFiles.Count > 0)
+        foreach (var (languageId, files) in filesByLanguage)
         {
-            batches.Add(new AnalysisBatch("csharp", "C#", csharpFiles, null));
+            if (!languageIds.Contains(languageId) || files.Count == 0) continue;
+
+            var analyzer = LanguageAnalyzerRegistry.GetAnalyzer(languageId);
+            if (analyzer is null) continue;
+
+            var displayName = LanguageRegistry.All
+                .FirstOrDefault(l => l.Id.Equals(languageId, StringComparison.OrdinalIgnoreCase))
+                ?.DisplayName ?? languageId;
+
+            batches.Add(new AnalysisBatch(languageId, displayName, files, analyzer));
         }
 
-        if (filesByLanguage.TryGetValue("vbnet", out var vbFiles) && vbFiles.Count > 0)
-        {
-            batches.Add(new AnalysisBatch("vbnet", "VB.NET", vbFiles, null));
-        }
-
-        foreach (var patternAnalyzer in _patternAnalyzers)
-        {
-            if (!languageIds.Contains(patternAnalyzer.LanguageId))
-            {
-                continue;
-            }
-
-            if (!filesByLanguage.TryGetValue(patternAnalyzer.LanguageId, out var files) || files.Count == 0)
-            {
-                continue;
-            }
-
-            var displayName = LanguageRegistry.All.First(language => language.Id == patternAnalyzer.LanguageId).DisplayName;
-            batches.Add(new AnalysisBatch(patternAnalyzer.LanguageId, displayName, files, patternAnalyzer));
-        }
-
-        return batches;
+        // Stable order: C# first (Roslyn), then VB.NET, then the rest alphabetically
+        return batches
+            .OrderBy(b => b.LanguageId switch { "csharp" => 0, "vbnet" => 1, _ => 2 })
+            .ThenBy(b => b.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static Dictionary<string, List<string>> GroupFilesByLanguage(
@@ -167,10 +151,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
         foreach (var file in sourceFiles)
         {
             var language = LanguageRegistry.FindByExtension(Path.GetExtension(file));
-            if (language is null || !enabledLanguageIds.Contains(language.Id))
-            {
-                continue;
-            }
+            if (language is null || !enabledLanguageIds.Contains(language.Id)) continue;
 
             if (!groups.TryGetValue(language.Id, out var list))
             {
@@ -190,6 +171,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
 
         foreach (var batch in batches)
         {
+            // Roslyn analyzers do two passes (parse + semantic); Tree-sitter does one
             var perFileSteps = batch.LanguageId is "csharp" or "vbnet" ? 2 : 1;
             steps += batch.Files.Count * perFileSteps;
             steps += 1;
@@ -202,5 +184,5 @@ public sealed class MultiLanguageCallGraphAnalyzer
         string LanguageId,
         string DisplayName,
         List<string> Files,
-        PatternCallGraphAnalyzer? PatternAnalyzer);
+        ICallGraphAnalyzer Analyzer);
 }
