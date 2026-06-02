@@ -32,7 +32,8 @@ public static class DirectoryScanService
     public static IEnumerable<string> GetSourceFiles(
         string rootPath,
         IEnumerable<string> excludedDirectories,
-        IEnumerable<string> extensions)
+        IEnumerable<string> extensions,
+        CancellationToken cancellationToken = default)
     {
         if (!Directory.Exists(rootPath))
         {
@@ -47,8 +48,9 @@ public static class DirectoryScanService
 
         var excluded = NormalizeExcludedPaths(excludedDirectories);
 
-        foreach (var file in EnumerateSourceFilesRecursive(rootPath, rootPath, excluded, extensionSet))
+        foreach (var file in EnumerateSourceFilesRecursive(rootPath, rootPath, excluded, extensionSet, cancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             yield return file;
         }
     }
@@ -56,17 +58,20 @@ public static class DirectoryScanService
     public static int CountSourceFiles(
         string rootPath,
         IEnumerable<string> excludedDirectories,
-        IEnumerable<string> extensions)
+        IEnumerable<string> extensions,
+        CancellationToken cancellationToken = default)
     {
-        return GetSourceFiles(rootPath, excludedDirectories, extensions).Count();
+        return GetSourceFiles(rootPath, excludedDirectories, extensions, cancellationToken).Count();
     }
 
     private static IEnumerable<string> EnumerateSourceFilesRecursive(
         string rootPath,
         string currentDirectory,
         HashSet<string> excluded,
-        HashSet<string> extensions)
+        HashSet<string> extensions,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var relativeDirectory = NormalizeRelativePath(Path.GetRelativePath(rootPath, currentDirectory));
 
         if (!IsDirectoryIncluded(relativeDirectory, excluded))
@@ -86,6 +91,7 @@ public static class DirectoryScanService
 
         foreach (var file in files)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (extensions.Contains(Path.GetExtension(file)))
             {
                 yield return file;
@@ -104,14 +110,16 @@ public static class DirectoryScanService
 
         foreach (var subdirectory in subdirectories)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var directoryName = Path.GetFileName(subdirectory);
             if (DefaultExcludedNames.Contains(directoryName))
             {
                 continue;
             }
 
-            foreach (var file in EnumerateSourceFilesRecursive(rootPath, subdirectory, excluded, extensions))
+            foreach (var file in EnumerateSourceFilesRecursive(rootPath, subdirectory, excluded, extensions, cancellationToken))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 yield return file;
             }
         }

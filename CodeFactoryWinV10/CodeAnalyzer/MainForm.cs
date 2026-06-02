@@ -258,11 +258,17 @@ public partial class MainForm : Form
         }
 
         _analysisCts = new CancellationTokenSource();
+        var cts = _analysisCts;
 
         BeginAnalysisSession();
 
         var uiProgress = new Progress<AnalysisProgressReport>(report =>
         {
+            if (cts.IsCancellationRequested || _isStoppingAnalysis)
+            {
+                return;
+            }
+
             UpdateAnalysisProgress(report.Percent);
             lblStatus.Text = AnalysisProgressFormatter.FormatStatus(report);
         });
@@ -278,8 +284,13 @@ public partial class MainForm : Form
                     excluded,
                     enabledLanguages,
                     progress,
-                    _analysisCts.Token).ConfigureAwait(false),
-                _analysisCts.Token).ConfigureAwait(true);
+                    cts.Token).ConfigureAwait(false),
+                cts.Token).ConfigureAwait(true);
+
+            if (cts.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cts.Token);
+            }
 
             _lastAnalysis = result;
             PopulateRootMethodList(_lastAnalysis.CallGraph);
@@ -309,33 +320,36 @@ public partial class MainForm : Form
         }
     }
 
-    private async Task RequestStopAnalysisAsync()
+    private Task RequestStopAnalysisAsync()
     {
         if (_analysisCts is null || _analysisCts.IsCancellationRequested || _isStoppingAnalysis)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         _isStoppingAnalysis = true;
         btnAnalyze.Enabled = false;
-        lblStatus.Text = "분석 중지 요청 중...";
+        lblStatus.Text = "분석 중지 요청됨... 현재 작업 정리 후 종료합니다.";
 
         try
         {
-            await _analysisCts.CancelAsync().ConfigureAwait(true);
+            // CancelAsync는 등록된 콜백 완료까지 기다리므로, UI 입장에서는 중지 체감이 늦어질 수 있습니다.
+            // 즉시 취소 신호만 전파하고 반환합니다.
+            _analysisCts.Cancel();
         }
         catch (ObjectDisposedException)
         {
             // 종료 타이밍 경합 시 무시
         }
-        finally
+
+        // EndAnalysisSession()가 호출될 때까지 stopping 상태를 유지해
+        // 진행 갱신/추가 입력을 최소화합니다.
+        if (_isAnalysisRunning)
         {
-            _isStoppingAnalysis = false;
-            if (_isAnalysisRunning)
-            {
-                btnAnalyze.Enabled = true;
-            }
+            btnAnalyze.Enabled = false;
         }
+
+        return Task.CompletedTask;
     }
 
     private void BeginAnalysisSession()

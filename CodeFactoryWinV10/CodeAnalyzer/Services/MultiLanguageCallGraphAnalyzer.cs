@@ -29,7 +29,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
         var scanStopwatch = Stopwatch.StartNew();
         var sourceFiles = new List<string>();
 
-        foreach (var file in DirectoryScanService.GetSourceFiles(rootPath, excludedDirectories, extensions))
+        foreach (var file in DirectoryScanService.GetSourceFiles(rootPath, excludedDirectories, extensions, cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             sourceFiles.Add(file);

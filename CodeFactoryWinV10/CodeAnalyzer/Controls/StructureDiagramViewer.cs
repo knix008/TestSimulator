@@ -616,7 +616,7 @@ public sealed class StructureDiagramViewer : UserControl
         var relations = structure.Relations
             .Where(relation => inheritanceOnly
                 ? relation.Kind == StructureRelationKind.Inheritance
-                : relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation or StructureRelationKind.Dependency)
+                : relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
             .ToList();
 
         var typeIds = new HashSet<string>(StringComparer.Ordinal);

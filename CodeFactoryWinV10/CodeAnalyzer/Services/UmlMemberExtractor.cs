@@ -39,18 +39,56 @@ public static class UmlMemberExtractor
         return (attributes, operations);
     }
 
-    private static string FormatField(IFieldSymbol field) =>
-        $"{Visibility(field.DeclaredAccessibility)} {TruncateType(field.Type)} {field.Name}";
+    private static string FormatField(IFieldSymbol field)
+    {
+        var modifiers = new List<string>();
+        if (field.IsStatic)
+        {
+            modifiers.Add("{static}");
+        }
 
-    private static string FormatProperty(IPropertySymbol property) =>
-        $"{Visibility(property.DeclaredAccessibility)} {TruncateType(property.Type)} {property.Name}";
+        if (field.IsReadOnly || field.IsConst)
+        {
+            modifiers.Add("{readOnly}");
+        }
+
+        var suffix = modifiers.Count > 0 ? " " + string.Join(" ", modifiers) : string.Empty;
+        return $"{Visibility(field.DeclaredAccessibility)} {field.Name}: {TruncateType(field.Type)}{suffix}";
+    }
+
+    private static string FormatProperty(IPropertySymbol property)
+    {
+        var modifiers = new List<string>();
+        if (property.IsStatic)
+        {
+            modifiers.Add("{static}");
+        }
+
+        var hasGetter = property.GetMethod is not null;
+        var hasSetter = property.SetMethod is not null;
+        modifiers.Add(hasGetter && hasSetter ? "{get;set;}" : hasGetter ? "{get;}" : "{set;}");
+
+        return $"{Visibility(property.DeclaredAccessibility)} {property.Name}: {TruncateType(property.Type)} {string.Join(" ", modifiers)}";
+    }
 
     private static string FormatMethod(IMethodSymbol method)
     {
         var parameters = string.Join(", ", method.Parameters.Select(parameter =>
-            $"{TruncateType(parameter.Type)} {parameter.Name}"));
+            $"{parameter.Name}: {TruncateType(parameter.Type)}"));
         var returnType = method.ReturnsVoid ? "void" : TruncateType(method.ReturnType);
-        return $"{Visibility(method.DeclaredAccessibility)} {method.Name}({parameters}) : {returnType}";
+        var modifiers = new List<string>();
+        if (method.IsAbstract)
+        {
+            modifiers.Add("{abstract}");
+        }
+
+        if (method.IsStatic)
+        {
+            modifiers.Add("{static}");
+        }
+
+        var suffix = modifiers.Count > 0 ? " " + string.Join(" ", modifiers) : string.Empty;
+        return $"{Visibility(method.DeclaredAccessibility)} {method.Name}({parameters}): {returnType}{suffix}";
     }
 
     private static string Visibility(Microsoft.CodeAnalysis.Accessibility accessibility) => accessibility switch

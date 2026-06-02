@@ -19,6 +19,9 @@ public sealed class CallGraphViewer : UserControl
     private float _hourglassFlipAngle;
     private HourglassAnimationPhase _hourglassPhase = HourglassAnimationPhase.Draining;
     private readonly DiagramZoomController _zoom = new();
+    private Image? _hourglassGifImage;
+    private bool _hourglassGifLoadAttempted;
+    private readonly EventHandler _hourglassGifFrameChangedHandler;
 
     private enum HourglassAnimationPhase
     {
@@ -35,6 +38,7 @@ public sealed class CallGraphViewer : UserControl
 
         _analysisAnimationTimer = new System.Windows.Forms.Timer { Interval = 50 };
         _analysisAnimationTimer.Tick += AnalysisAnimationTimer_Tick;
+        _hourglassGifFrameChangedHandler = (_, _) => Invalidate();
     }
 
     private void AnalysisAnimationTimer_Tick(object? sender, EventArgs e)
@@ -89,6 +93,12 @@ public sealed class CallGraphViewer : UserControl
         {
             _analysisAnimationTimer.Stop();
             _analysisAnimationTimer.Dispose();
+            if (_hourglassGifImage is not null)
+            {
+                ImageAnimator.StopAnimate(_hourglassGifImage, _hourglassGifFrameChangedHandler);
+                _hourglassGifImage.Dispose();
+                _hourglassGifImage = null;
+            }
         }
 
         base.Dispose(disposing);
@@ -633,8 +643,7 @@ public sealed class CallGraphViewer : UserControl
         var startY = Math.Max(20, (ClientSize.Height - totalHeight) / 2);
         var centerX = ClientSize.Width / 2f;
         var hourglassCenterY = startY + hourglassSize / 2f;
-
-        DrawAnimatedHourglass(graphics, centerX, hourglassCenterY, hourglassSize, _hourglassSandProgress, _hourglassFlipAngle);
+        DrawHourglassGlyph(graphics, centerX, hourglassCenterY, hourglassSize);
 
         graphics.DrawString(
             title,
@@ -649,6 +658,69 @@ public sealed class CallGraphViewer : UserControl
             subBrush,
             centerX - subtitleSize.Width / 2,
             startY + hourglassSize + 16 + titleSize.Height + 8);
+    }
+
+    private void DrawHourglassGlyph(Graphics graphics, float centerX, float centerY, float size)
+    {
+        var gif = EnsureHourglassGif();
+        if (gif is null)
+        {
+            DrawAnimatedHourglass(graphics, centerX, centerY, size, _hourglassSandProgress, _hourglassFlipAngle);
+            return;
+        }
+
+        ImageAnimator.UpdateFrames(gif);
+
+        var targetW = (int)Math.Round(size);
+        var targetH = (int)Math.Round(size);
+        if (gif.Width > 0 && gif.Height > 0)
+        {
+            var ratio = Math.Min(size / gif.Width, size / gif.Height);
+            targetW = Math.Max(1, (int)Math.Round(gif.Width * ratio));
+            targetH = Math.Max(1, (int)Math.Round(gif.Height * ratio));
+        }
+
+        var dest = new Rectangle(
+            (int)Math.Round(centerX - targetW / 2f),
+            (int)Math.Round(centerY - targetH / 2f),
+            targetW,
+            targetH);
+        graphics.DrawImage(gif, dest);
+    }
+
+    private Image? EnsureHourglassGif()
+    {
+        if (_hourglassGifLoadAttempted)
+        {
+            return _hourglassGifImage;
+        }
+
+        _hourglassGifLoadAttempted = true;
+
+        try
+        {
+            var baseDir = AppContext.BaseDirectory;
+            var candidate = Path.Combine(baseDir, "Assets", "HourGlasses.gif");
+            if (!File.Exists(candidate))
+            {
+                var alt = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "Assets", "HourGlasses.gif"));
+                candidate = File.Exists(alt) ? alt : candidate;
+            }
+
+            if (!File.Exists(candidate))
+            {
+                return null;
+            }
+
+            _hourglassGifImage = Image.FromFile(candidate);
+            ImageAnimator.Animate(_hourglassGifImage, _hourglassGifFrameChangedHandler);
+        }
+        catch
+        {
+            _hourglassGifImage = null;
+        }
+
+        return _hourglassGifImage;
     }
 
     private static void DrawAnimatedHourglass(
@@ -698,36 +770,46 @@ public sealed class CallGraphViewer : UserControl
         sandProgress = Math.Clamp(sandProgress, 0f, 1f);
         var topFill = 1f - sandProgress;
         var bottomFill = sandProgress;
+        var inset = MathF.Max(1.5f, size * 0.01f);
+        var topOuterY = -halfHeight + size * 0.08f;
+        var topNeckY = -size * 0.02f;
+        var bottomNeckY = size * 0.02f;
+        var bottomOuterY = halfHeight - size * 0.08f;
 
-        if (topFill > 0.02f)
+        float ClampHalfWidth(float w, float minInsetScale = 1f)
+            => Math.Max(inset * minInsetScale, w - inset);
+
+        float HalfWidthAtY(float y, float outerY, float neckY)
         {
-            var topInnerTop = -halfHeight + size * 0.08f;
-            var topInnerBottom = -size * 0.04f;
-            var topSurface = topInnerBottom - (topInnerBottom - topInnerTop) * topFill;
-            var topSand = new[]
-            {
-                new PointF(-halfWidth * 0.72f, topSurface),
-                new PointF(halfWidth * 0.72f, topSurface),
-                new PointF(neck * 0.75f * topFill, -size * 0.02f),
-                new PointF(-neck * 0.75f * topFill, -size * 0.02f)
-            };
-            graphics.FillPolygon(sandFill, topSand);
+            var t = Math.Clamp((y - neckY) / Math.Max(0.001f, outerY - neckY), 0f, 1f);
+            return neck + (halfWidth - neck) * t;
         }
 
-        if (bottomFill > 0.02f)
+        void DrawChamberSand(float fill, float outerY, float neckY)
         {
-            var bottomInnerBottom = halfHeight - size * 0.06f;
-            var bottomInnerTop = size * 0.10f;
-            var bottomSurface = bottomInnerBottom - (bottomInnerBottom - bottomInnerTop) * bottomFill;
-            var bottomSand = new[]
+            if (fill <= 0.02f)
             {
-                new PointF(-neck * 0.75f * bottomFill, size * 0.04f),
-                new PointF(neck * 0.75f * bottomFill, size * 0.04f),
-                new PointF(halfWidth * 0.55f, bottomSurface),
-                new PointF(-halfWidth * 0.55f, bottomSurface)
+                return;
+            }
+
+            // fill=0 -> surface at neck (empty), fill=1 -> surface at outer boundary (full)
+            var surfaceY = neckY + (outerY - neckY) * fill;
+            var halfWidthAtSurface = ClampHalfWidth(HalfWidthAtY(surfaceY, outerY, neckY));
+            var halfWidthAtNeck = ClampHalfWidth(HalfWidthAtY(neckY, outerY, neckY), 0.5f);
+
+            var sandPolygon = new[]
+            {
+                new PointF(-halfWidthAtSurface, surfaceY),
+                new PointF(halfWidthAtSurface, surfaceY),
+                new PointF(halfWidthAtNeck, neckY),
+                new PointF(-halfWidthAtNeck, neckY)
             };
-            graphics.FillPolygon(sandFill, bottomSand);
+            graphics.FillPolygon(sandFill, sandPolygon);
         }
+
+        // Top chamber drains (decreases), bottom chamber fills (increases) using the same geometry.
+        DrawChamberSand(topFill, topOuterY, topNeckY);
+        DrawChamberSand(bottomFill, bottomOuterY, bottomNeckY);
 
         if (sandProgress is > 0.03f and < 0.97f)
         {

@@ -24,6 +24,7 @@ public sealed class PatternStructureExtractor
             try
             {
                 content = File.ReadAllText(file);
+                cancellationToken.ThrowIfCancellationRequested();
             }
             catch (Exception)
             {
@@ -31,7 +32,7 @@ public sealed class PatternStructureExtractor
             }
 
             content = CommentRegex.Replace(content, match => new string(' ', match.Length));
-            ExtractFile(languageId, displayPrefix, file, content, types, relations);
+            ExtractFile(languageId, displayPrefix, file, content, types, relations, cancellationToken);
         }
 
         return (types.Values.ToList(), relations);
@@ -43,7 +44,8 @@ public sealed class PatternStructureExtractor
         string filePath,
         string content,
         Dictionary<string, StructureTypeNode> types,
-        List<StructureRelationEdge> relations)
+        List<StructureRelationEdge> relations,
+        CancellationToken cancellationToken)
     {
         var patterns = GetPatterns(languageId);
         if (patterns.Count == 0)
@@ -54,6 +56,11 @@ public sealed class PatternStructureExtractor
         var lines = content.Split('\n');
         for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
+            if (lineIndex % 64 == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             var line = lines[lineIndex];
             foreach (var pattern in patterns)
             {

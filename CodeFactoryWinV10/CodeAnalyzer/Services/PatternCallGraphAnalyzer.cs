@@ -103,7 +103,7 @@ public sealed class PatternCallGraphAnalyzer
             try
             {
                 var content = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
-                fileModels.Add(ParseFile(file, content));
+                fileModels.Add(ParseFile(file, content, cancellationToken));
                 progress?.Report($"{_displayPrefix.Trim('[', ']')}: {Path.GetFileName(file)}");
             }
             catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
@@ -122,6 +122,7 @@ public sealed class PatternCallGraphAnalyzer
 
             foreach (var function in fileModel.Functions)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 nodes.TryAdd(function.Id, function.Node);
 
                 foreach (var callName in function.CallNames)
@@ -138,6 +139,7 @@ public sealed class PatternCallGraphAnalyzer
 
                     foreach (var callee in callees)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         nodes.TryAdd(callee.Id, callee.Node);
                         edges.Add((function.Id, callee.Id));
                     }
@@ -150,7 +152,7 @@ public sealed class PatternCallGraphAnalyzer
             edges.Select(edge => new CallGraphEdge { CallerId = edge.CallerId, CalleeId = edge.CalleeId }).ToList());
     }
 
-    private FileModel ParseFile(string filePath, string content)
+    private FileModel ParseFile(string filePath, string content, CancellationToken cancellationToken)
     {
         var sanitized = StripCommentsAndStrings(content);
         var lines = sanitized.Split('\n');
@@ -158,6 +160,11 @@ public sealed class PatternCallGraphAnalyzer
 
         for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
+            if (lineIndex % 64 == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             var line = lines[lineIndex];
             var match = _definitionRegex.Match(line);
             if (!match.Success)
@@ -174,9 +181,9 @@ public sealed class PatternCallGraphAnalyzer
                 continue;
             }
 
-            var endLine = FindFunctionEndLine(lines, lineIndex, _languageId);
+            var endLine = FindFunctionEndLine(lines, lineIndex, _languageId, cancellationToken);
             var body = string.Join('\n', lines.Skip(lineIndex).Take(endLine - lineIndex + 1));
-            var callNames = ExtractCallNames(body, functionName);
+            var callNames = ExtractCallNames(body, functionName, cancellationToken);
 
             var id = CreateFunctionId(filePath, functionName);
             functions.Add(new FunctionModel(
@@ -195,13 +202,18 @@ public sealed class PatternCallGraphAnalyzer
         return new FileModel(filePath, functions);
     }
 
-    private static int FindFunctionEndLine(string[] lines, int startLine, string languageId)
+    private static int FindFunctionEndLine(string[] lines, int startLine, string languageId, CancellationToken cancellationToken)
     {
         if (languageId == "python")
         {
             var baseIndent = CountIndent(lines[startLine]);
             for (var index = startLine + 1; index < lines.Length; index++)
             {
+                if (index % 64 == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
                 if (string.IsNullOrWhiteSpace(lines[index]))
                 {
                     continue;
@@ -220,6 +232,11 @@ public sealed class PatternCallGraphAnalyzer
         var started = false;
         for (var index = startLine; index < lines.Length; index++)
         {
+            if (index % 64 == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             foreach (var ch in lines[index])
             {
                 if (ch == '{')
@@ -263,11 +280,17 @@ public sealed class PatternCallGraphAnalyzer
         return count;
     }
 
-    private HashSet<string> ExtractCallNames(string body, string selfName)
+    private HashSet<string> ExtractCallNames(string body, string selfName, CancellationToken cancellationToken)
     {
         var calls = new HashSet<string>(StringComparer.Ordinal);
+        var scanCount = 0;
         foreach (Match match in Regex.Matches(body, @"\b([A-Za-z_]\w*)\s*\(", RegexOptions.CultureInvariant))
         {
+            if (++scanCount % 64 == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             var name = match.Groups[1].Value;
             if (name == selfName || _reservedWords.Contains(name))
             {

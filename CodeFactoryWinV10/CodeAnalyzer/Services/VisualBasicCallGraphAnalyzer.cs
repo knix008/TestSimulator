@@ -191,7 +191,7 @@ public sealed class VisualBasicCallGraphAnalyzer
             var invocationCount = 0;
             foreach (var invocation in methodBlock.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                if (++invocationCount % 32 == 0)
+                if (++invocationCount % 8 == 0)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                 }

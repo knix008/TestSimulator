@@ -18,6 +18,7 @@ partial class MainForm
 
     private void InitializeComponent()
     {
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         splitContainerMain = new SplitContainer();
         grpAnalysis = new GroupBox();
         btnAnalyze = new Button();
@@ -203,6 +204,7 @@ partial class MainForm
         diagramViewHost.Name = "diagramViewHost";
         diagramViewHost.Size = new Size(954, 685);
         diagramViewHost.TabIndex = 1;
+        diagramViewHost.ViewKind = Models.DiagramViewKind.CallGraph;
         // 
         // panelToolbar
         // 
@@ -333,7 +335,7 @@ partial class MainForm
         lblDiagramView.AutoSize = true;
         lblDiagramView.Location = new Point(8, 15);
         lblDiagramView.Name = "lblDiagramView";
-        lblDiagramView.Size = new Size(26, 15);
+        lblDiagramView.Size = new Size(19, 15);
         lblDiagramView.TabIndex = 0;
         lblDiagramView.Text = "뷰";
         // 
@@ -439,6 +441,7 @@ partial class MainForm
         Controls.Add(splitContainerMain);
         Controls.Add(statusStrip);
         Controls.Add(menuStrip);
+        Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
         MinimumSize = new Size(960, 640);
         Name = "MainForm";

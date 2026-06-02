@@ -192,7 +192,7 @@ public sealed class CSharpCallGraphAnalyzer
             var invocationCount = 0;
             foreach (var invocation in methodDeclaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                if (++invocationCount % 32 == 0)
+                if (++invocationCount % 8 == 0)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                 }
