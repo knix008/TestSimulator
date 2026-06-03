@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using CodeAnalyzer.Controls;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
+using CodeAnalyzer.Services.Metrics;
+using CodeAnalyzer.Services.Reports;
 
 namespace CodeAnalyzer;
 
@@ -34,9 +37,10 @@ public partial class MainForm : Form
         diagramViewHost.CallGraphRootChanged += OnCallGraphRootChanged;
         diagramViewHost.FileRootChanged += OnFileRootChanged;
         diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
+        diagramViewHost.MetricsNavigationRequested += OnMetricsNavigationRequested;
         InitializeOptionControls();
         LoadLanguageList();
-        RestoreLastRootDirectory();
+        RestoreUserSettings();
         SetAnalyzeButtonIdle();
         UpdateResultCommandsState();
         UpdateToolbarForViewKind();
@@ -103,7 +107,9 @@ public partial class MainForm : Form
             "데이터 흐름도",
             "상속 구조",
             "파일 호출 관계",
-            "디렉터리 호출 관계"
+            "디렉터리 호출 관계",
+            "코드 메트릭",
+            "중복 코드"
         });
         comboDiagramView.SelectedIndex = 0;
 
@@ -132,6 +138,8 @@ public partial class MainForm : Form
             4 => DiagramViewKind.Inheritance,
             5 => DiagramViewKind.FileRelations,
             6 => DiagramViewKind.DirectoryRelations,
+            7 => DiagramViewKind.CodeMetrics,
+            8 => DiagramViewKind.DuplicateCode,
             _ => DiagramViewKind.CallGraph
         };
 
@@ -174,16 +182,61 @@ public partial class MainForm : Form
         ApplyRootDirectory(txtRootPath.Text.Trim(), saveSettings: true);
     }
 
-    private void RestoreLastRootDirectory()
+    private void RestoreUserSettings()
     {
-        var lastRootDirectory = _userSettings.LoadLastRootDirectory();
-        if (string.IsNullOrWhiteSpace(lastRootDirectory))
+        var settings = _userSettings.LoadSettings();
+        numMinDuplicateLines.Value = Math.Clamp(
+            settings.MinDuplicateLines,
+            UserAnalysisSettings.MinDuplicateLinesFloor,
+            UserAnalysisSettings.MinDuplicateLinesCeiling);
+        numWarnCyclomatic.Value = settings.WarnCyclomaticComplexity;
+        numWarnCognitive.Value = settings.WarnCognitiveComplexity;
+        numWarnNesting.Value = settings.WarnMaxNestingDepth;
+        numWarnFanOut.Value = settings.WarnFanOut;
+        numWarnMi.Value = (decimal)settings.WarnMaintenanceIndex;
+        numWarnTodoDensity.Value = (decimal)settings.WarnTodoDensityPer100Lines;
+        numWarnParameter.Value = settings.WarnParameterCount;
+
+        if (string.IsNullOrWhiteSpace(settings.LastRootDirectory))
         {
             return;
         }
 
-        txtRootPath.Text = lastRootDirectory;
-        ApplyRootDirectory(lastRootDirectory, saveSettings: false);
+        txtRootPath.Text = settings.LastRootDirectory;
+        ApplyRootDirectory(settings.LastRootDirectory, saveSettings: false);
+    }
+
+    private void numMinDuplicateLines_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_isAnalysisRunning)
+        {
+            return;
+        }
+
+        _userSettings.SaveMinDuplicateLines((int)numMinDuplicateLines.Value);
+    }
+
+    private void QualityThreshold_ValueChanged(object? sender, EventArgs e)
+    {
+        if (_isAnalysisRunning)
+        {
+            return;
+        }
+
+        _userSettings.SaveQualityThresholds(ReadQualityThresholdsFromUi());
+    }
+
+    private UserAnalysisSettings ReadQualityThresholdsFromUi()
+    {
+        var settings = _userSettings.LoadSettings();
+        settings.WarnCyclomaticComplexity = (int)numWarnCyclomatic.Value;
+        settings.WarnCognitiveComplexity = (int)numWarnCognitive.Value;
+        settings.WarnMaxNestingDepth = (int)numWarnNesting.Value;
+        settings.WarnFanOut = (int)numWarnFanOut.Value;
+        settings.WarnMaintenanceIndex = (double)numWarnMi.Value;
+        settings.WarnTodoDensityPer100Lines = (double)numWarnTodoDensity.Value;
+        settings.WarnParameterCount = (int)numWarnParameter.Value;
+        return settings;
     }
 
     private void ApplyRootDirectory(string rootPath, bool saveSettings)
@@ -278,11 +331,16 @@ public partial class MainForm : Form
         {
             var excluded = checkedListDirectories.CheckedItems.Cast<string>().ToList();
 
+            var minDuplicateLines = (int)numMinDuplicateLines.Value;
+            _userSettings.SaveMinDuplicateLines(minDuplicateLines);
+            _userSettings.SaveQualityThresholds(ReadQualityThresholdsFromUi());
+
             var (result, fileCount, directoryCount) = await Task.Run(
                 async () => await _analyzer.AnalyzeAsync(
                     rootPath,
                     excluded,
                     enabledLanguages,
+                    minDuplicateLines,
                     progress,
                     cts.Token).ConfigureAwait(false),
                 cts.Token).ConfigureAwait(true);
@@ -292,13 +350,24 @@ public partial class MainForm : Form
                 throw new OperationCanceledException(cts.Token);
             }
 
+            TryCompactMemoryAfterAnalysis();
             _lastAnalysis = result;
-            PopulateRootMethodList(_lastAnalysis.CallGraph);
+            ApplyAnalysisResultsToUi(result);
+
+            if (result.Issues.Count > 0)
+            {
+                DetailedErrorDialog.ShowIssues(
+                    this,
+                    "분석 중 오류 발생",
+                    $"{result.Issues.Count}개 단계에서 오류가 발생했습니다. 일부 결과만 표시될 수 있습니다. 아래 상세 내용을 확인하고 필요 시 복사하세요.",
+                    result.Issues);
+            }
             _userSettings.SaveLastRootDirectory(rootPath);
             UpdateAnalysisProgress(100);
             lblStatus.Text =
                 $"분석 완료: {directoryCount}개 폴더, {fileCount}개 파일, " +
                 $"함수 {result.CallGraph.Nodes.Count}개, 호출 {result.CallGraph.Edges.Count}개, " +
+                $"메트릭 {result.Metrics.Functions.Count}개, 중복 {result.Duplicates.Groups.Count}건, " +
                 $"파일 연관 {result.FileRelations.Edges.Count}개, 디렉터리 연관 {result.DirectoryRelations.Edges.Count}개, 타입 {result.Structure.Types.Count}개";
         }
         catch (OperationCanceledException)
@@ -310,7 +379,7 @@ public partial class MainForm : Form
         {
             ClearAnalysisResults();
             lblStatus.Text = "분석 실패";
-            ShowDetailedErrorDialog("분석 오류", ex, "분석 중 오류가 발생했습니다.");
+            DetailedErrorDialog.Show(this, "분석 오류", ex, "분석 중 오류가 발생했습니다. 아래 상세 내용을 확인하고 필요 시 복사하세요.");
         }
         finally
         {
@@ -366,6 +435,14 @@ public partial class MainForm : Form
 
         SetAnalyzeButtonRunning();
         SetToolbarEnabled(false);
+        numMinDuplicateLines.Enabled = false;
+        numWarnCyclomatic.Enabled = false;
+        numWarnCognitive.Enabled = false;
+        numWarnNesting.Enabled = false;
+        numWarnFanOut.Enabled = false;
+        numWarnMi.Enabled = false;
+        numWarnTodoDensity.Enabled = false;
+        numWarnParameter.Enabled = false;
         ResetAnalysisProgress(isActive: true);
         lblStatus.Text = "백그라운드에서 분석 중...";
         UpdateRootHistoryNavigationState();
@@ -379,7 +456,28 @@ public partial class MainForm : Form
         diagramViewHost.EndAnalysis();
         SetAnalyzeButtonIdle();
         SetToolbarEnabled(true);
+        numMinDuplicateLines.Enabled = true;
+        numWarnCyclomatic.Enabled = true;
+        numWarnCognitive.Enabled = true;
+        numWarnNesting.Enabled = true;
+        numWarnFanOut.Enabled = true;
+        numWarnMi.Enabled = true;
+        numWarnTodoDensity.Enabled = true;
+        numWarnParameter.Enabled = true;
         ResetAnalysisProgress(isActive: false);
+
+        if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.CodeMetrics
+            or DiagramViewKind.DuplicateCode)
+        {
+            try
+            {
+                diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
+            }
+            catch (Exception ex)
+            {
+                DetailedErrorDialog.Show(this, "뷰 갱신 오류", ex, "분석 뷰를 갱신하는 중 오류가 발생했습니다.");
+            }
+        }
         UpdateToolbarForViewKind();
         UpdateRootHistoryNavigationState();
     }
@@ -435,7 +533,9 @@ public partial class MainForm : Form
 
         var viewKind = GetSelectedViewKind();
         var isCallGraph = viewKind == DiagramViewKind.CallGraph;
-        var supportsLineStyle = true;
+        var isTabularView = viewKind is DiagramViewKind.CodeMetrics
+            or DiagramViewKind.DuplicateCode;
+        var supportsLineStyle = !isTabularView;
         var needsRoot = viewKind is DiagramViewKind.CallGraph
             or DiagramViewKind.SequenceDiagram
             or DiagramViewKind.DataFlow
@@ -443,8 +543,8 @@ public partial class MainForm : Form
             or DiagramViewKind.DirectoryRelations;
         var needsTypeRoot = viewKind is DiagramViewKind.ClassDiagram or DiagramViewKind.Inheritance;
 
-        comboLayoutDirection.Enabled = true;
-        comboLineStyle.Enabled = supportsLineStyle;
+        comboLayoutDirection.Enabled = !isTabularView;
+        comboLineStyle.Enabled = supportsLineStyle && !isTabularView;
         btnExpandAll.Enabled = isCallGraph;
         btnCollapseAll.Enabled = isCallGraph;
         comboRootMethod.Enabled = (needsRoot || needsTypeRoot) && _lastAnalysis is not null;
@@ -461,6 +561,35 @@ public partial class MainForm : Form
         if (isActive)
         {
             UpdateAnalysisProgress(0);
+        }
+    }
+
+    private static void TryCompactMemoryAfterAnalysis()
+    {
+        try
+        {
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: true, compacting: true);
+            GC.WaitForPendingFinalizers();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    private void ApplyAnalysisResultsToUi(AnalysisResult result)
+    {
+        try
+        {
+            PopulateRootMethodList(result.CallGraph);
+        }
+        catch (Exception ex)
+        {
+            DetailedErrorDialog.Show(
+                this,
+                "결과 표시 오류",
+                ex,
+                "분석 결과를 화면에 반영하는 중 오류가 발생했습니다. 아래 상세 내용을 확인하고 필요 시 복사하세요.");
         }
     }
 
@@ -482,20 +611,41 @@ public partial class MainForm : Form
         comboRootMethod.Items.Clear();
         comboRootMethod.Items.Add(RootMethodItem.AutoEntryPoints);
 
-        var candidates = result.Nodes
-            .OrderBy(node => node.FullName, StringComparer.OrdinalIgnoreCase)
-            .Select(node => RootMethodItem.FromNode(node))
-            .ToList();
-
-        foreach (var candidate in candidates)
+        var entryPointIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var entryPoint in CallGraphEntryPointResolver.FindEntryPoints(result))
         {
-            comboRootMethod.Items.Add(candidate);
+            entryPointIds.Add(entryPoint.Id);
+        }
+
+        var candidates = new List<CallGraphNode>();
+        foreach (var id in entryPointIds)
+        {
+            if (result.NodeMap.TryGetValue(id, out var entryNode))
+            {
+                candidates.Add(entryNode);
+            }
+        }
+
+        var remainingSlots = Math.Max(0, AnalysisScaleLimits.MaxRootMethodComboItems - candidates.Count);
+        if (remainingSlots > 0)
+        {
+            var extras = result.Nodes
+                .Where(node => !entryPointIds.Contains(node.Id))
+                .OrderByDescending(node => result.Outgoing.TryGetValue(node.Id, out var outgoing) ? outgoing.Count : 0)
+                .ThenBy(node => node.FullName, StringComparer.OrdinalIgnoreCase)
+                .Take(remainingSlots);
+            candidates.AddRange(extras);
+        }
+
+        foreach (var node in candidates.OrderBy(node => node.FullName, StringComparer.OrdinalIgnoreCase))
+        {
+            comboRootMethod.Items.Add(RootMethodItem.FromNode(node));
         }
 
         comboRootMethod.SelectedItem = RootMethodItem.AutoEntryPoints;
         FitComboDropDownWidth();
 
-        if (candidates.Count == 0)
+        if (result.Nodes.Count == 0)
         {
             diagramViewHost.SetAnalysis(_lastAnalysis, Array.Empty<string>());
             return;
@@ -814,6 +964,8 @@ public partial class MainForm : Form
                 DiagramViewKind.Inheritance => 4,
                 DiagramViewKind.FileRelations => 5,
                 DiagramViewKind.DirectoryRelations => 6,
+                DiagramViewKind.CodeMetrics => 7,
+                DiagramViewKind.DuplicateCode => 8,
                 _ => 0
             };
 
@@ -874,12 +1026,22 @@ public partial class MainForm : Form
             return;
         }
 
-        var rootIds = ResolveRootNodeIds();
-        diagramViewHost.ViewKind = GetSelectedViewKind();
-        diagramViewHost.SetAnalysis(_lastAnalysis, rootIds);
-        ApplySearchHighlightToViewer();
-
-        RecordCurrentRootSelectionBaseline();
+        try
+        {
+            var rootIds = ResolveRootNodeIds();
+            diagramViewHost.ViewKind = GetSelectedViewKind();
+            diagramViewHost.SetAnalysis(_lastAnalysis, rootIds);
+            ApplySearchHighlightToViewer();
+            RecordCurrentRootSelectionBaseline();
+        }
+        catch (Exception ex)
+        {
+            DetailedErrorDialog.Show(
+                this,
+                "다이어그램 표시 오류",
+                ex,
+                "호출 그래프/다이어그램을 그리는 중 오류가 발생했습니다.");
+        }
     }
 
     private void comboLayoutDirection_SelectedIndexChanged(object sender, EventArgs e)
@@ -929,6 +1091,122 @@ public partial class MainForm : Form
         LoadAnalysisResult();
     }
 
+    private void OnMetricsNavigationRequested(MetricsNavigationRequest request)
+    {
+        if (_lastAnalysis is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.CallGraphNodeId)
+            && _lastAnalysis.CallGraph.NodeMap.ContainsKey(request.CallGraphNodeId))
+        {
+            comboDiagramView.SelectedIndex = 0;
+            diagramViewHost.ViewKind = DiagramViewKind.CallGraph;
+            diagramViewHost.SetAnalysis(_lastAnalysis, [request.CallGraphNodeId]);
+            diagramViewHost.TryFocusNode(request.CallGraphNodeId);
+
+            if (request.HighlightCallGraphNodeIds is { Count: > 0 })
+            {
+                diagramViewHost.SetSearchHighlight(request.HighlightCallGraphNodeIds, request.CallGraphNodeId);
+            }
+
+            lblStatus.Text = "호출 그래프에서 선택한 위치로 이동했습니다.";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.FilePath) && File.Exists(request.FilePath))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = request.FilePath,
+                    UseShellExecute = true
+                });
+                lblStatus.Text = $"파일을 열었습니다: {request.FilePath}";
+            }
+            catch (Exception ex)
+            {
+                DetailedErrorDialog.Show(this, "파일 열기 오류", ex, "파일을 열 수 없습니다.");
+            }
+        }
+    }
+
+    private void menuExportReport_Click(object sender, EventArgs e)
+    {
+        if (_lastAnalysis is null)
+        {
+            MessageBox.Show(this, "보낼 분석 결과가 없습니다. 먼저 분석을 실행하세요.", "보고서보내기",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dialog = new SaveFileDialog
+        {
+            Title = "분석 보고서보내기",
+            Filter =
+                "HTML 보고서 (*.html)|*.html|" +
+                "Markdown (*.md)|*.md|" +
+                "Word 문서 (*.docx)|*.docx|" +
+                "PDF (*.pdf)|*.pdf|" +
+                "모든 지원 형식|*.html;*.md;*.docx;*.pdf",
+            DefaultExt = "html",
+            FileName = AnalysisReportExportService.BuildDefaultFileName(AnalysisReportFormat.Html)
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            AnalysisReportExportService.Save(
+                _lastAnalysis,
+                txtRootPath.Text.Trim(),
+                dialog.FileName);
+            lblStatus.Text = $"분석 보고서 저장됨: {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            DetailedErrorDialog.Show(this, "보고서보내기 오류", ex, "보고서 생성 중 오류가 발생했습니다.");
+        }
+    }
+
+    private void menuExportMetrics_Click(object sender, EventArgs e)
+    {
+        if (_lastAnalysis is null || _lastAnalysis.Metrics.Functions.Count == 0)
+        {
+            MessageBox.Show(this, "보낼 메트릭이 없습니다. 먼저 분석을 실행하세요.", "메트릭보내기",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var dialog = new SaveFileDialog
+        {
+            Title = "코드 메트릭 CSV보내기",
+            Filter = "CSV 파일 (*.csv)|*.csv|모든 파일 (*.*)|*.*",
+            DefaultExt = "csv",
+            FileName = $"CodeMetrics_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            CodeMetricsExportService.SaveToCsv(_lastAnalysis.Metrics, dialog.FileName);
+            lblStatus.Text = $"메트릭 CSV 저장됨: {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            DetailedErrorDialog.Show(this, "메트릭보내기 오류", ex, "CSV 저장 중 오류가 발생했습니다.");
+        }
+    }
+
     private void menuExportImage_Click(object sender, EventArgs e)
     {
         Bitmap? bmp;
@@ -938,7 +1216,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ShowDetailedErrorDialog("이미지 내보내기 오류", ex, "다이어그램 렌더링 중 오류가 발생했습니다.");
+            DetailedErrorDialog.Show(this,"이미지 내보내기 오류", ex, "다이어그램 렌더링 중 오류가 발생했습니다.");
             return;
         }
 
@@ -971,7 +1249,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ShowDetailedErrorDialog("이미지 저장 오류", ex, "이미지 파일 저장 중 오류가 발생했습니다.");
+            DetailedErrorDialog.Show(this, "이미지 저장 오류", ex, "이미지 파일 저장 중 오류가 발생했습니다.");
         }
     }
 
@@ -1003,7 +1281,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ShowDetailedErrorDialog("결과 저장 오류", ex, "분석 결과 저장 중 오류가 발생했습니다.");
+            DetailedErrorDialog.Show(this, "결과 저장 오류", ex, "분석 결과 저장 중 오류가 발생했습니다.");
         }
     }
 
@@ -1049,121 +1327,8 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            ShowDetailedErrorDialog("결과 불러오기 오류", ex, "분석 결과 불러오기 중 오류가 발생했습니다.");
+            DetailedErrorDialog.Show(this, "결과 불러오기 오류", ex, "분석 결과 불러오기 중 오류가 발생했습니다.");
         }
-    }
-
-    private void ShowDetailedErrorDialog(string title, Exception exception, string summaryMessage)
-    {
-        using var dialog = new Form
-        {
-            Text = title,
-            StartPosition = FormStartPosition.CenterParent,
-            ClientSize = new Size(900, 560),
-            MinimumSize = new Size(760, 420),
-            FormBorderStyle = FormBorderStyle.Sizable,
-            MaximizeBox = true,
-            MinimizeBox = false,
-            ShowInTaskbar = false
-        };
-
-        var summaryLabel = new Label
-        {
-            Dock = DockStyle.Top,
-            Height = 56,
-            Padding = new Padding(12, 12, 12, 8),
-            AutoEllipsis = true,
-            Text = summaryMessage
-        };
-
-        var detailBox = new TextBox
-        {
-            Dock = DockStyle.Fill,
-            Multiline = true,
-            ScrollBars = ScrollBars.Both,
-            ReadOnly = true,
-            WordWrap = false,
-            Font = new Font("Consolas", 9f),
-            Text = BuildErrorDetails(exception)
-        };
-
-        var buttonPanel = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
-            AutoSize = true,
-            Padding = new Padding(8)
-        };
-
-        var closeButton = new Button
-        {
-            Text = "닫기",
-            AutoSize = true,
-            Margin = new Padding(6)
-        };
-        closeButton.Click += (_, _) => dialog.Close();
-
-        var copyButton = new Button
-        {
-            Text = "오류 내용 복사",
-            AutoSize = true,
-            Margin = new Padding(6)
-        };
-        copyButton.Click += (_, _) =>
-        {
-            try
-            {
-                Clipboard.SetText(detailBox.Text);
-                lblStatus.Text = "오류 내용을 클립보드에 복사했습니다.";
-            }
-            catch (Exception clipboardEx)
-            {
-                MessageBox.Show(
-                    dialog,
-                    $"클립보드 복사 실패: {clipboardEx.Message}",
-                    "복사 오류",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
-            }
-        };
-
-        buttonPanel.Controls.Add(closeButton);
-        buttonPanel.Controls.Add(copyButton);
-
-        dialog.Controls.Add(detailBox);
-        dialog.Controls.Add(summaryLabel);
-        dialog.Controls.Add(buttonPanel);
-        dialog.AcceptButton = closeButton;
-        dialog.CancelButton = closeButton;
-
-        dialog.ShowDialog(this);
-    }
-
-    private static string BuildErrorDetails(Exception exception)
-    {
-        var lines = new List<string>
-        {
-            $"발생 시각: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
-            $"예외 형식: {exception.GetType().FullName}",
-            $"메시지: {exception.Message}",
-            string.Empty,
-            "스택 추적:",
-            exception.StackTrace ?? "(스택 추적 없음)"
-        };
-
-        var inner = exception.InnerException;
-        var depth = 1;
-        while (inner is not null)
-        {
-            lines.Add(string.Empty);
-            lines.Add($"내부 예외 #{depth}: {inner.GetType().FullName}");
-            lines.Add(inner.Message);
-            lines.Add(inner.StackTrace ?? "(스택 추적 없음)");
-            inner = inner.InnerException;
-            depth++;
-        }
-
-        return string.Join(Environment.NewLine, lines);
     }
 
     private void toolStripSearchBox_TextChanged(object sender, EventArgs e)
@@ -1613,8 +1778,15 @@ public partial class MainForm : Form
         }
 
         var maxWidth = 0;
+        var measured = 0;
         foreach (var item in comboRootMethod.Items)
         {
+            if (measured >= AnalysisScaleLimits.MaxComboDropDownMeasureItems)
+            {
+                break;
+            }
+
+            measured++;
             var text = item?.ToString() ?? string.Empty;
             var w = TextRenderer.MeasureText(text, comboRootMethod.Font).Width;
             if (w > maxWidth)

@@ -6,6 +6,8 @@ public sealed class DiagramViewHost : UserControl
 {
     private readonly CallGraphViewer _callGraphViewer = new() { Dock = DockStyle.Fill, Visible = true };
     private readonly StructureDiagramViewer _structureViewer = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly CodeMetricsViewer _metricsViewer = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly DuplicateCodeViewer _duplicateViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private DiagramViewKind _viewKind = DiagramViewKind.CallGraph;
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
@@ -14,6 +16,10 @@ public sealed class DiagramViewHost : UserControl
     {
         Controls.Add(_callGraphViewer);
         Controls.Add(_structureViewer);
+        Controls.Add(_metricsViewer);
+        Controls.Add(_duplicateViewer);
+        _metricsViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
@@ -22,6 +28,7 @@ public sealed class DiagramViewHost : UserControl
     public event Action<CallGraphNode>? CallGraphRootChanged;
     public event Action<FileRelationNode>? FileRootChanged;
     public event Action<DirectoryRelationNode>? DirectoryRootChanged;
+    public event Action<MetricsNavigationRequest>? MetricsNavigationRequested;
 
     public DiagramViewKind ViewKind
     {
@@ -67,12 +74,16 @@ public sealed class DiagramViewHost : UserControl
         _rootNodeIds = [];
         _callGraphViewer.BeginAnalysis();
         _structureViewer.BeginAnalysis();
+        _metricsViewer.BeginAnalysis();
+        _duplicateViewer.BeginAnalysis();
     }
 
     public void EndAnalysis()
     {
         _callGraphViewer.EndAnalysis();
         _structureViewer.EndAnalysis();
+        _metricsViewer.EndAnalysis();
+        _duplicateViewer.EndAnalysis();
     }
 
     public void ClearSearchHighlight()
@@ -155,22 +166,44 @@ public sealed class DiagramViewHost : UserControl
 
     private void ApplyVisibility()
     {
-        var isCallGraph = _viewKind == DiagramViewKind.CallGraph;
-        _callGraphViewer.Visible = isCallGraph;
-        _structureViewer.Visible = !isCallGraph;
+        _callGraphViewer.Visible = _viewKind == DiagramViewKind.CallGraph;
+        _structureViewer.Visible = _viewKind is DiagramViewKind.ClassDiagram
+            or DiagramViewKind.SequenceDiagram
+            or DiagramViewKind.DataFlow
+            or DiagramViewKind.Inheritance
+            or DiagramViewKind.FileRelations
+            or DiagramViewKind.DirectoryRelations;
+        _metricsViewer.Visible = _viewKind == DiagramViewKind.CodeMetrics;
+        _duplicateViewer.Visible = _viewKind == DiagramViewKind.DuplicateCode;
     }
 
     public bool IsCallGraphView => _viewKind == DiagramViewKind.CallGraph;
 
     public Bitmap? ExportToBitmap()
     {
-        return _viewKind == DiagramViewKind.CallGraph
-            ? _callGraphViewer.ExportToBitmap()
-            : _structureViewer.ExportToBitmap();
+        return _viewKind switch
+        {
+            DiagramViewKind.CallGraph => _callGraphViewer.ExportToBitmap(),
+            DiagramViewKind.CodeMetrics => null,
+            DiagramViewKind.DuplicateCode => null,
+            _ => _structureViewer.ExportToBitmap()
+        };
     }
 
     private void RefreshActiveView()
     {
+        if (_viewKind == DiagramViewKind.CodeMetrics)
+        {
+            _metricsViewer.SetMetrics(_analysis?.Metrics, _analysis?.QualityThresholds, _analysis?.CallGraph);
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.DuplicateCode)
+        {
+            _duplicateViewer.SetDuplicates(_analysis?.Duplicates);
+            return;
+        }
+
         if (_viewKind == DiagramViewKind.CallGraph)
         {
             if (_analysis is null)

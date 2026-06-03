@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -11,6 +12,8 @@ public sealed class CallGraphViewer : UserControl
     private ConnectionLineStyle _lineStyle = ConnectionLineStyle.Orthogonal;
     private List<GraphVisualNode> _roots = [];
     private Size _contentSize = new(400, 300);
+    private int _visualNodeCount;
+    private bool _visualTreeTruncated;
     private bool _isAnalyzing;
     private readonly HashSet<string> _searchMatchNodeIds = new(StringComparer.Ordinal);
     private string? _currentSearchNodeId;
@@ -146,6 +149,18 @@ public sealed class CallGraphViewer : UserControl
         _zoom.Reset();
         StopAnalysisAnimation();
         if (!UseWaitCursor) Cursor = Cursors.Default;
+
+        if (_graph is not null && _graph.Nodes.Count > AnalysisScaleLimits.CollapseCallGraphWhenNodeCountExceeds)
+        {
+            foreach (var node in _graph.Nodes)
+            {
+                if (_graph.Outgoing.TryGetValue(node.Id, out var children) && children.Count > 0)
+                {
+                    _collapsedNodeIds.Add(node.Id);
+                }
+            }
+        }
+
         RebuildVisualTree();
     }
 
@@ -535,6 +550,8 @@ public sealed class CallGraphViewer : UserControl
     private void RebuildVisualTree()
     {
         _roots = [];
+        _visualNodeCount = 0;
+        _visualTreeTruncated = false;
 
         if (_graph is null || _rootNodeIds.Count == 0)
         {
@@ -552,7 +569,7 @@ public sealed class CallGraphViewer : UserControl
             }
 
             var visitedOnPath = new HashSet<string>(StringComparer.Ordinal);
-            var rootVisual = BuildVisualNode(rootNodeId, visitedOnPath);
+            var rootVisual = BuildVisualNode(rootNodeId, visitedOnPath, depth: 0);
             if (rootVisual is not null)
             {
                 _roots.Add(rootVisual);
@@ -572,12 +589,21 @@ public sealed class CallGraphViewer : UserControl
         Invalidate();
     }
 
-    private GraphVisualNode? BuildVisualNode(string nodeId, HashSet<string> visitedOnPath)
+    private GraphVisualNode? BuildVisualNode(string nodeId, HashSet<string> visitedOnPath, int depth)
     {
+        if (_visualNodeCount >= AnalysisScaleLimits.MaxCallGraphVisualNodes
+            || depth >= AnalysisScaleLimits.MaxCallGraphVisualDepth)
+        {
+            _visualTreeTruncated = true;
+            return null;
+        }
+
         if (!_graph!.NodeMap.TryGetValue(nodeId, out var data))
         {
             return null;
         }
+
+        _visualNodeCount++;
 
         if (visitedOnPath.Contains(nodeId))
         {
@@ -605,7 +631,7 @@ public sealed class CallGraphViewer : UserControl
         {
             foreach (var childId in childIds)
             {
-                var child = BuildVisualNode(childId, visitedOnPath);
+                var child = BuildVisualNode(childId, visitedOnPath, depth + 1);
                 if (child is null)
                 {
                     continue;
@@ -634,7 +660,9 @@ public sealed class CallGraphViewer : UserControl
 
         var message = _graph is null
             ? "분석을 실행하면 함수 호출 관계가 표시됩니다."
-            : "시작 함수를 선택하세요.";
+            : _visualTreeTruncated
+                ? "표시 범위가 제한되었습니다. 노드를 펼치거나 시작 함수를 바꿔 보세요."
+                : "시작 함수를 선택하세요.";
 
         using var font = new Font(Font.FontFamily, 10f);
         using var brush = new SolidBrush(Color.Gray);

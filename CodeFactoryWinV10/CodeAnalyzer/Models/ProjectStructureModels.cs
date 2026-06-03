@@ -76,4 +76,8 @@ public sealed class AnalysisResult
     public FileRelationGraphResult FileRelations { get; init; } = new();
     public DirectoryRelationGraphResult DirectoryRelations { get; init; } = new();
     public ProjectStructureResult Structure { get; init; } = new();
+    public CodeMetricsResult Metrics { get; init; } = new();
+    public DuplicateCodeResult Duplicates { get; init; } = new();
+    public UserAnalysisSettings QualityThresholds { get; init; } = new();
+    public IReadOnlyList<AnalysisIssue> Issues { get; init; } = [];
 }
