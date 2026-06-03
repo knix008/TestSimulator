@@ -23,7 +23,9 @@ namespace MyMindWin.Services
         public static CanvasImageExportOptions CreateOptionsForFormat(
             CanvasImageFormat format,
             bool includeHeading,
-            string? heading = null)
+            string? heading = null,
+            ExportHeadingPosition headingPosition = ExportHeadingPosition.TopLeft,
+            System.Windows.Media.Color? headingColor = null)
         {
             string? resolvedHeading = includeHeading && !string.IsNullOrWhiteSpace(heading)
                 ? heading.Trim()
@@ -35,7 +37,9 @@ namespace MyMindWin.Services
                 TransparentBackground = format.SupportsTransparency(),
                 Scale = 2.0,
                 IncludeHeading = includeHeading && resolvedHeading != null,
-                Heading = resolvedHeading
+                Heading = resolvedHeading,
+                HeadingPosition = headingPosition,
+                HeadingColor = headingColor ?? System.Windows.Media.Colors.Black
             };
         }
 

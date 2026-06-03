@@ -972,10 +972,13 @@ namespace MyMindWin.ViewModels
 
                 var format = CanvasImageFormatExtensions.FromExtension(Path.GetExtension(dlg.FileName))
                              ?? CanvasImageFormat.Png;
+                var (includeHeading, heading, headingPosition, headingColor) = optionsDlg.GetExportHeadingSettings();
                 var options = CanvasImageExporter.CreateOptionsForFormat(
                     format,
-                    optionsDlg.IncludeHeading,
-                    optionsDlg.HeadingText);
+                    includeHeading,
+                    heading,
+                    headingPosition,
+                    headingColor);
 
                 if (_exportImageHandler == null)
                 {

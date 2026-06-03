@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -101,21 +100,6 @@ namespace MyMindWin.Controls
             return new Rect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
         }
 
-        private double GetExportPixelsPerDip()
-        {
-            try
-            {
-                if (IsLoaded)
-                    return VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            }
-            catch
-            {
-                // ignored
-            }
-
-            return 1.0;
-        }
-
         private RenderTargetBitmap RenderMapBitmap(CanvasImageExportOptions options)
         {
             double savedScaleX = ScaleXform.ScaleX;
@@ -146,12 +130,9 @@ namespace MyMindWin.Controls
                 string? heading = options.IncludeHeading && !string.IsNullOrWhiteSpace(options.Heading)
                     ? options.Heading.Trim()
                     : null;
-                double headingHeight = heading != null ? MeasureExportHeadingHeight(heading, viewW) : 0;
-                double totalW = viewW;
-                double totalH = viewH + headingHeight;
 
-                int pixelW = Math.Max(1, (int)Math.Ceiling(totalW * scale));
-                int pixelH = Math.Max(1, (int)Math.Ceiling(totalH * scale));
+                int pixelW = Math.Max(1, (int)Math.Ceiling(viewW * scale));
+                int pixelH = Math.Max(1, (int)Math.Ceiling(viewH * scale));
                 double dpi = 96 * scale;
 
                 bool transparent = options.TransparentBackground && options.Format.SupportsTransparency();
@@ -168,14 +149,8 @@ namespace MyMindWin.Controls
                     bitmap.Render(bgVisual);
                 }
 
-                // Render ConnectionCanvas and NodeCanvas directly — NOT RootCanvas.
-                // RootCanvas has a LayoutClip set by ScrollViewer that clips to the viewport,
-                // and also has a dark Background that would break transparency.
-                // ConnectionCanvas/NodeCanvas have no parent-set LayoutClip (RootCanvas has no
-                // ClipToBounds) and no background, so bitmap.Render produces the full, unclipped
-                // content on a transparent base.
                 var contentTransform = new TransformGroup();
-                contentTransform.Children.Add(new TranslateTransform(-viewX, -viewY + headingHeight));
+                contentTransform.Children.Add(new TranslateTransform(-viewX, -viewY));
                 contentTransform.Children.Add(new ScaleTransform(scale, scale));
 
                 var savedConnectionXform = ConnectionCanvas.RenderTransform;
@@ -193,30 +168,24 @@ namespace MyMindWin.Controls
                     NodeCanvas.RenderTransform = savedNodeXform;
                 }
 
-                // Heading: 이미지 좌측 상단 (맵 영역 위 별도 줄)
+                // Heading: 맵 위 오버레이 (배경 없음)
                 if (heading != null)
                 {
-                    var headingSurface = new Grid
-                    {
-                        Width = viewW,
-                        Height = headingHeight,
-                        Background = transparent ? null : new SolidColorBrush(options.OpaqueBackgroundColor)
-                    };
-                    headingSurface.Children.Add(CreateExportHeadingBlock(heading, viewW, transparent));
-                    headingSurface.Measure(new Size(viewW, headingHeight));
-                    headingSurface.Arrange(new Rect(0, 0, viewW, headingHeight));
-                    headingSurface.UpdateLayout();
+                    var headingOverlay = CreateExportHeadingOverlay(heading, viewW, viewH, options);
+                    headingOverlay.Measure(new Size(viewW, viewH));
+                    headingOverlay.Arrange(new Rect(0, 0, viewW, viewH));
+                    headingOverlay.UpdateLayout();
 
                     var headingTransform = new ScaleTransform(scale, scale);
-                    var savedHeadingXform = headingSurface.RenderTransform;
+                    var savedHeadingXform = headingOverlay.RenderTransform;
                     try
                     {
-                        headingSurface.RenderTransform = headingTransform;
-                        bitmap.Render(headingSurface);
+                        headingOverlay.RenderTransform = headingTransform;
+                        bitmap.Render(headingOverlay);
                     }
                     finally
                     {
-                        headingSurface.RenderTransform = savedHeadingXform;
+                        headingOverlay.RenderTransform = savedHeadingXform;
                     }
                 }
 
@@ -231,48 +200,76 @@ namespace MyMindWin.Controls
             }
         }
 
-        private double MeasureExportHeadingHeight(string heading, double totalWidth)
+        private static FrameworkElement CreateExportHeadingOverlay(
+            string heading, double viewW, double viewH, CanvasImageExportOptions options)
         {
-            double textWidth = Math.Max(80, totalWidth - ExportHeadingLeftPadding - ExportHeadingRightPadding);
-            var ft = new FormattedText(
-                heading,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
-                ExportHeadingFontSize,
-                Brushes.White,
-                GetExportPixelsPerDip())
+            bool isTop = IsTopHeadingPosition(options.HeadingPosition);
+            var grid = new Grid
             {
-                MaxTextWidth = textWidth,
-                TextAlignment = TextAlignment.Left
+                Width = viewW,
+                Height = viewH,
+                Background = Brushes.Transparent
             };
+            grid.RowDefinitions.Add(new RowDefinition
+            {
+                Height = isTop ? GridLength.Auto : new GridLength(1, GridUnitType.Star)
+            });
+            grid.RowDefinitions.Add(new RowDefinition
+            {
+                Height = isTop ? new GridLength(1, GridUnitType.Star) : GridLength.Auto
+            });
 
-            return ft.Height + ExportHeadingTopPadding + ExportHeadingBottomPadding;
+            var block = CreateExportHeadingBlock(heading, viewW, options, isTop);
+            block.HorizontalAlignment = GetHeadingHorizontalAlignment(options.HeadingPosition);
+            block.TextAlignment = GetHeadingTextAlignment(options.HeadingPosition);
+            block.VerticalAlignment = isTop ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+            Grid.SetRow(block, isTop ? 0 : 1);
+            grid.Children.Add(block);
+            return grid;
         }
 
-        private static FrameworkElement CreateExportHeadingBlock(string heading, double totalWidth, bool transparent)
-        {
-            var foreground = transparent
-                ? Color.FromRgb(0xE8, 0xEE, 0xF8)
-                : Color.FromRgb(0xE8, 0xEE, 0xF8);
+        private static bool IsTopHeadingPosition(ExportHeadingPosition position) =>
+            position is ExportHeadingPosition.TopLeft
+                or ExportHeadingPosition.TopCenter
+                or ExportHeadingPosition.TopRight;
 
+        private static HorizontalAlignment GetHeadingHorizontalAlignment(ExportHeadingPosition position) =>
+            position switch
+            {
+                ExportHeadingPosition.TopCenter or ExportHeadingPosition.BottomCenter =>
+                    HorizontalAlignment.Center,
+                ExportHeadingPosition.TopRight or ExportHeadingPosition.BottomRight =>
+                    HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Left
+            };
+
+        private static TextAlignment GetHeadingTextAlignment(ExportHeadingPosition position) =>
+            position switch
+            {
+                ExportHeadingPosition.TopCenter or ExportHeadingPosition.BottomCenter =>
+                    TextAlignment.Center,
+                ExportHeadingPosition.TopRight or ExportHeadingPosition.BottomRight =>
+                    TextAlignment.Right,
+                _ => TextAlignment.Left
+            };
+
+        private static TextBlock CreateExportHeadingBlock(
+            string heading, double totalWidth, CanvasImageExportOptions options, bool isTop)
+        {
             return new TextBlock
             {
                 Text = heading,
                 FontFamily = new FontFamily("Segoe UI"),
                 FontSize = ExportHeadingFontSize,
                 FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(foreground),
-                TextAlignment = TextAlignment.Left,
+                Foreground = new SolidColorBrush(options.HeadingColor),
                 TextWrapping = TextWrapping.Wrap,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Top,
                 MaxWidth = Math.Max(80, totalWidth - ExportHeadingLeftPadding - ExportHeadingRightPadding),
                 Margin = new Thickness(
                     ExportHeadingLeftPadding,
-                    ExportHeadingTopPadding,
+                    isTop ? ExportHeadingTopPadding : 0,
                     ExportHeadingRightPadding,
-                    ExportHeadingBottomPadding)
+                    isTop ? 0 : ExportHeadingBottomPadding)
             };
         }
     }

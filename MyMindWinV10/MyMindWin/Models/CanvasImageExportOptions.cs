@@ -24,7 +24,13 @@ namespace MyMindWin.Models
         /// <summary>Heading 포함 여부 (false면 <see cref="Heading"/> 값과 무관하게 표시하지 않음).</summary>
         public bool IncludeHeading { get; init; }
 
-        /// <summary>이미지 상단 Heading 텍스트.</summary>
+        /// <summary>Heading 텍스트.</summary>
         public string? Heading { get; init; }
+
+        /// <summary>Heading 배치 위치 (맵 위 오버레이).</summary>
+        public ExportHeadingPosition HeadingPosition { get; init; } = ExportHeadingPosition.TopLeft;
+
+        /// <summary>Heading 글자 색.</summary>
+        public Color HeadingColor { get; init; } = Colors.Black;
     }
 }
