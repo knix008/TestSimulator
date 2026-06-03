@@ -166,7 +166,7 @@ internal static class UmlClassDiagramRenderer
         }
     }
 
-    public static void DrawRelation(Graphics graphics, DiagramBoxNode from, DiagramBoxNode to, DiagramEdge edge)
+    public static void DrawRelation(Graphics graphics, DiagramBoxNode from, DiagramBoxNode to, DiagramEdge edge, ConnectionLineStyle lineStyle = ConnectionLineStyle.Straight)
     {
         var start = GetConnectionPoint(from, to, isSource: true);
         var end = GetConnectionPoint(to, from, isSource: false);
@@ -178,20 +178,20 @@ internal static class UmlClassDiagramRenderer
         {
             case StructureRelationKind.Inheritance:
                 pen.Color = Color.FromArgb(35, 45, 60);
-                DrawGeneralization(graphics, pen, start, end);
+                DrawGeneralization(graphics, pen, start, end, lineStyle);
                 break;
             case StructureRelationKind.Implementation:
                 pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
                 pen.Color = Color.FromArgb(90, 70, 120);
-                DrawRealization(graphics, pen, start, end);
+                DrawRealization(graphics, pen, start, end, lineStyle);
                 break;
             case StructureRelationKind.Dependency:
                 pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
                 pen.Color = Color.FromArgb(110, 120, 130);
-                DrawDependency(graphics, pen, start, end);
+                DrawDependency(graphics, pen, start, end, lineStyle);
                 break;
             default:
-                graphics.DrawLine(pen, start, end);
+                DrawRoutedLine(graphics, pen, start, end, lineStyle);
                 DrawOpenArrow(graphics, pen, start, end);
                 break;
         }
@@ -251,25 +251,56 @@ internal static class UmlClassDiagramRenderer
             : new Point(centerX, box.Bounds.Top);
     }
 
-    private static void DrawGeneralization(Graphics graphics, Pen pen, Point start, Point end)
+    private static void DrawGeneralization(Graphics graphics, Pen pen, Point start, Point end, ConnectionLineStyle lineStyle)
     {
         var lineEnd = OffsetFromTip(end, start, 12);
-        graphics.DrawLine(pen, start, lineEnd);
+        DrawRoutedLine(graphics, pen, start, lineEnd, lineStyle);
         DrawHollowTriangle(graphics, pen, end, start);
     }
 
-    private static void DrawRealization(Graphics graphics, Pen pen, Point start, Point end)
+    private static void DrawRealization(Graphics graphics, Pen pen, Point start, Point end, ConnectionLineStyle lineStyle)
     {
         var lineEnd = OffsetFromTip(end, start, 12);
-        graphics.DrawLine(pen, start, lineEnd);
+        DrawRoutedLine(graphics, pen, start, lineEnd, lineStyle);
         DrawHollowTriangle(graphics, pen, end, start);
     }
 
-    private static void DrawDependency(Graphics graphics, Pen pen, Point start, Point end)
+    private static void DrawDependency(Graphics graphics, Pen pen, Point start, Point end, ConnectionLineStyle lineStyle)
     {
         var lineEnd = OffsetFromTip(end, start, 10);
-        graphics.DrawLine(pen, start, lineEnd);
+        DrawRoutedLine(graphics, pen, start, lineEnd, lineStyle);
         DrawOpenArrow(graphics, pen, start, end);
+    }
+
+    private static void DrawRoutedLine(Graphics graphics, Pen pen, Point start, Point end, ConnectionLineStyle lineStyle)
+    {
+        switch (lineStyle)
+        {
+            case ConnectionLineStyle.Bezier:
+                var dx = Math.Abs(end.X - start.X);
+                var dy = Math.Abs(end.Y - start.Y);
+                var offset = Math.Max(36, Math.Max(dx, dy) / 2);
+                Point c1, c2;
+                if (dy >= dx)
+                {
+                    c1 = new Point(start.X, start.Y + offset);
+                    c2 = new Point(end.X, end.Y - offset);
+                }
+                else
+                {
+                    c1 = new Point(start.X + offset, start.Y);
+                    c2 = new Point(end.X - offset, end.Y);
+                }
+                graphics.DrawBezier(pen, start, c1, c2, end);
+                break;
+            case ConnectionLineStyle.Orthogonal:
+                var midY = (start.Y + end.Y) / 2;
+                graphics.DrawLines(pen, new Point[] { start, new Point(start.X, midY), new Point(end.X, midY), end });
+                break;
+            default:
+                graphics.DrawLine(pen, start, end);
+                break;
+        }
     }
 
     private static Point OffsetFromTip(Point tip, Point from, float distance)

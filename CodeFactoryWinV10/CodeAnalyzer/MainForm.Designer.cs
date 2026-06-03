@@ -45,6 +45,7 @@ partial class MainForm
         lblDiagramView = new Label();
         menuStrip = new MenuStrip();
         menuFile = new ToolStripMenuItem();
+        menuOpen = new ToolStripMenuItem();
         menuSave = new ToolStripMenuItem();
         toolStripSearchLabel = new ToolStripLabel();
         toolStripSearchBox = new ToolStripTextBox();
@@ -351,16 +352,24 @@ partial class MainForm
         // 
         // menuFile
         // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuSave });
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuOpen, menuSave });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(43, 23);
         menuFile.Text = "파일";
-        // 
+        //
+        // menuOpen
+        //
+        menuOpen.Name = "menuOpen";
+        menuOpen.ShortcutKeys = Keys.Control | Keys.O;
+        menuOpen.Size = new Size(200, 22);
+        menuOpen.Text = "결과 불러오기...";
+        menuOpen.Click += menuOpen_Click;
+        //
         // menuSave
-        // 
+        //
         menuSave.Name = "menuSave";
         menuSave.ShortcutKeys = Keys.Control | Keys.S;
-        menuSave.Size = new Size(176, 22);
+        menuSave.Size = new Size(200, 22);
         menuSave.Text = "결과 저장...";
         menuSave.Click += menuSave_Click;
         // 
@@ -490,6 +499,7 @@ partial class MainForm
     private Label lblDiagramView;
     private MenuStrip menuStrip;
     private ToolStripMenuItem menuFile;
+    private ToolStripMenuItem menuOpen;
     private ToolStripMenuItem menuSave;
     private ToolStripLabel toolStripSearchLabel;
     private ToolStripTextBox toolStripSearchBox;

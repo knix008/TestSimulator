@@ -223,7 +223,7 @@ public sealed class StructureDiagramViewer : UserControl
 
                 if (IsUmlClassView())
                 {
-                    UmlClassDiagramRenderer.DrawRelation(e.Graphics, from, to, edge);
+                    UmlClassDiagramRenderer.DrawRelation(e.Graphics, from, to, edge, _lineStyle);
                 }
                 else if (IsContainerRelationView())
                 {
@@ -846,8 +846,17 @@ public sealed class StructureDiagramViewer : UserControl
             return;
         }
 
-        var start = new Point(from.Bounds.Left + from.Bounds.Width / 2, from.Bounds.Bottom);
-        var end = new Point(to.Bounds.Left + to.Bounds.Width / 2, to.Bounds.Top);
+        Point start, end;
+        if (_layoutDirection == GraphLayoutDirection.LeftToRight)
+        {
+            start = new Point(from.Bounds.Right, from.Bounds.Top + from.Bounds.Height / 2);
+            end = new Point(to.Bounds.Left, to.Bounds.Top + to.Bounds.Height / 2);
+        }
+        else
+        {
+            start = new Point(from.Bounds.Left + from.Bounds.Width / 2, from.Bounds.Bottom);
+            end = new Point(to.Bounds.Left + to.Bounds.Width / 2, to.Bounds.Top);
+        }
 
         var color = edge.RelationKind switch
         {
@@ -863,13 +872,60 @@ public sealed class StructureDiagramViewer : UserControl
             pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
         }
 
-        graphics.DrawLine(pen, start, end);
+        switch (_lineStyle)
+        {
+            case ConnectionLineStyle.Bezier:
+                DrawBezierEdge(graphics, pen, start, end);
+                break;
+            case ConnectionLineStyle.Orthogonal:
+                DrawOrthogonalEdge(graphics, pen, start, end);
+                break;
+            default:
+                graphics.DrawLine(pen, start, end);
+                break;
+        }
+
         DrawArrowHead(graphics, pen, start.X, start.Y, end.X, end.Y);
 
         if (!string.IsNullOrWhiteSpace(edge.Label))
         {
             using var font = new Font(Font.FontFamily, 7.5f);
             graphics.DrawString(edge.Label, font, Brushes.DimGray, (start.X + end.X) / 2f, (start.Y + end.Y) / 2f - 12);
+        }
+    }
+
+    private static void DrawBezierEdge(Graphics graphics, Pen pen, Point start, Point end)
+    {
+        var dx = Math.Abs(end.X - start.X);
+        var dy = Math.Abs(end.Y - start.Y);
+        var offset = Math.Max(36, Math.Max(dx, dy) / 2);
+        Point c1, c2;
+        if (dx >= dy)
+        {
+            c1 = new Point(start.X + offset, start.Y);
+            c2 = new Point(end.X - offset, end.Y);
+        }
+        else
+        {
+            c1 = new Point(start.X, start.Y + offset);
+            c2 = new Point(end.X, end.Y - offset);
+        }
+        graphics.DrawBezier(pen, start, c1, c2, end);
+    }
+
+    private static void DrawOrthogonalEdge(Graphics graphics, Pen pen, Point start, Point end)
+    {
+        var midX = (start.X + end.X) / 2;
+        var midY = (start.Y + end.Y) / 2;
+        var dx = Math.Abs(end.X - start.X);
+        var dy = Math.Abs(end.Y - start.Y);
+        if (dy >= dx)
+        {
+            graphics.DrawLines(pen, new Point[] { start, new Point(start.X, midY), new Point(end.X, midY), end });
+        }
+        else
+        {
+            graphics.DrawLines(pen, new Point[] { start, new Point(midX, start.Y), new Point(midX, end.Y), end });
         }
     }
 

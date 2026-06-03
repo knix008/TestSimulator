@@ -435,9 +435,7 @@ public partial class MainForm : Form
 
         var viewKind = GetSelectedViewKind();
         var isCallGraph = viewKind == DiagramViewKind.CallGraph;
-        var supportsLineStyle = viewKind is DiagramViewKind.CallGraph
-            or DiagramViewKind.FileRelations
-            or DiagramViewKind.DirectoryRelations;
+        var supportsLineStyle = true;
         var needsRoot = viewKind is DiagramViewKind.CallGraph
             or DiagramViewKind.SequenceDiagram
             or DiagramViewKind.DataFlow
@@ -829,6 +827,11 @@ public partial class MainForm : Form
         SaveAnalysisResult();
     }
 
+    private void menuOpen_Click(object sender, EventArgs e)
+    {
+        LoadAnalysisResult();
+    }
+
     private void SaveAnalysisResult()
     {
         if (_lastAnalysis is null || _lastAnalysis.CallGraph.Nodes.Count == 0)
@@ -842,7 +845,7 @@ public partial class MainForm : Form
             Title = "분석 결과 저장",
             Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
             DefaultExt = "json",
-            FileName = $"CallGraph_{DateTime.Now:yyyyMMdd_HHmmss}.json"
+            FileName = $"CodeAnalyzer_{DateTime.Now:yyyyMMdd_HHmmss}.json"
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -852,12 +855,58 @@ public partial class MainForm : Form
 
         try
         {
-            CallGraphExportService.SaveToFile(_lastAnalysis.CallGraph, txtRootPath.Text.Trim(), dialog.FileName);
+            CallGraphExportService.SaveToFile(_lastAnalysis, txtRootPath.Text.Trim(), dialog.FileName);
             lblStatus.Text = $"결과 저장 완료: {dialog.FileName}";
         }
         catch (Exception ex)
         {
             ShowDetailedErrorDialog("결과 저장 오류", ex, "분석 결과 저장 중 오류가 발생했습니다.");
+        }
+    }
+
+    private void LoadAnalysisResult()
+    {
+        if (_isAnalysisRunning)
+        {
+            MessageBox.Show(this, "분석이 실행 중입니다. 완료 후 불러오기를 시도하세요.", "결과 불러오기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        using var dialog = new OpenFileDialog
+        {
+            Title = "분석 결과 불러오기",
+            Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            DefaultExt = "json"
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            var (analysis, rootDirectory) = CallGraphExportService.LoadFromFile(dialog.FileName);
+
+            ClearAnalysisResults();
+
+            _lastAnalysis = analysis;
+            if (!string.IsNullOrWhiteSpace(rootDirectory))
+            {
+                txtRootPath.Text = rootDirectory;
+            }
+
+            PopulateRootMethodList(_lastAnalysis.CallGraph);
+
+            lblStatus.Text =
+                $"결과 불러오기 완료: 함수 {analysis.CallGraph.Nodes.Count}개, " +
+                $"호출 {analysis.CallGraph.Edges.Count}개, " +
+                $"파일 {analysis.FileRelations.Files.Count}개, " +
+                $"타입 {analysis.Structure.Types.Count}개";
+        }
+        catch (Exception ex)
+        {
+            ShowDetailedErrorDialog("결과 불러오기 오류", ex, "분석 결과 불러오기 중 오류가 발생했습니다.");
         }
     }
 
