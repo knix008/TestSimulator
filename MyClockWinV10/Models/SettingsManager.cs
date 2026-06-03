@@ -83,6 +83,6 @@ public static class SettingsManager
     private static string StartupCommand()
     {
         string exe = Process.GetCurrentProcess().MainModule!.FileName;
-        return $"\"{exe}\" --minimized";
+        return $"\"{exe}\"";
     }
 }

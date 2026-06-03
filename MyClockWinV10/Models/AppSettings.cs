@@ -5,7 +5,7 @@ public class AppSettings
     public bool Use24h { get; set; } = false;
     public bool WorldUse24h { get; set; } = false;
     public string Theme { get; set; } = "DarkTheme";
-    public int Brightness { get; set; } = 100;
+    public int Brightness { get; set; } = 50;
     public string DigitColor { get; set; } = "#58A6FF";
     public bool IsDigital { get; set; } = true;
     public string DigitalStyleName { get; set; } = "SevenSegment";
@@ -16,12 +16,9 @@ public class AppSettings
     public double WindowHeight { get; set; } = 300;
     public List<AlarmDto> Alarms { get; set; } = new();
     public List<WorldTimeCityDto>? WorldCities { get; set; }
-
-    public int TimerHours { get; set; } = 0;
-    public int TimerMinutes { get; set; } = 5;
-    public int TimerSeconds { get; set; } = 0;
+    public List<TimerDto> Timers { get; set; } = [new TimerDto()];
     public string AlarmSoundId { get; set; } = "Classic";
-    public int AlarmVolume { get; set; } = 100;
+    public int AlarmVolume { get; set; } = 50;
 }
 
 public class WorldTimeCityDto
@@ -38,4 +35,12 @@ public class AlarmDto
     public bool IsEnabled { get; set; } = true;
     public bool IsRepeat { get; set; } = false;
     public byte RepeatDays { get; set; } = 0b1111111;
+}
+
+public class TimerDto
+{
+    public string Label { get; set; } = "";
+    public int Hours { get; set; } = 0;
+    public int Minutes { get; set; } = 5;
+    public int Seconds { get; set; } = 0;
 }

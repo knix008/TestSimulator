@@ -35,7 +35,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly ObservableCollection<AlarmItem> _alarms = new();
     private readonly HashSet<Guid> _firedAlarms = new();
-    private readonly TimerService _countdown = new();
+    private readonly ObservableCollection<TimerItem> _timers = new();
     private readonly AlarmSoundPlayer _alarmSounds = new();
 
     private bool _isDigital      = true;
@@ -70,9 +70,6 @@ public partial class MainWindow : Window
         ApplySettingsOnStartup(s);
         InitTrayIcon();
         SettingsManager.EnsureStartupRegistryCommand();
-
-        if (ShouldStartMinimized())
-            Loaded += (_, _) => MinimizeToTray();
 
         _timer.Tick += OnTick;
         _timer.Start();
@@ -122,18 +119,16 @@ public partial class MainWindow : Window
 
         _alarmSounds.SoundId = AlarmSoundCatalog.IsValid(s.AlarmSoundId) ? s.AlarmSoundId : AlarmSoundCatalog.DefaultId;
         _alarmSounds.Volume  = Math.Clamp(s.AlarmVolume, 0, 100) / 100.0;
-        _countdown.SetDuration(new TimeSpan(
-            Math.Clamp(s.TimerHours, 0, 99),
-            Math.Clamp(s.TimerMinutes, 0, 59),
-            Math.Clamp(s.TimerSeconds, 0, 59)));
-        _countdown.RemainingChanged += OnCountdownRemainingChanged;
-        _countdown.Completed        += OnCountdownCompleted;
-        _countdown.StateChanged     += _ => Dispatcher.Invoke(() =>
-        {
-            if (!IsTimerOnMainDisplay)
-                OnTick(null, EventArgs.Empty);
-            _sidePanel?.RefreshTimerUi();
-        });
+
+        var timerDtos = s.Timers is { Count: > 0 } ? s.Timers : [new TimerDto()];
+        foreach (var dto in timerDtos)
+            _timers.Add(new TimerItem(
+                Math.Clamp(dto.Hours, 0, 99),
+                Math.Clamp(dto.Minutes, 0, 59),
+                Math.Clamp(dto.Seconds, 0, 59),
+                dto.Label));
+        _timers.CollectionChanged += OnTimersCollectionChanged;
+        foreach (var t in _timers) SubscribeTimerItem(t);
 
         foreach (var dto in s.Alarms)
         {
@@ -175,13 +170,13 @@ public partial class MainWindow : Window
             IsRepeat   = a.IsRepeat,
             RepeatDays = a.RepeatDays
         })];
-        if (_sidePanel is not null)
+        _settings.Timers = [.. _timers.Select(t => new TimerDto
         {
-            var (h, m, sec) = _sidePanel.GetTimerParts();
-            _settings.TimerHours   = h;
-            _settings.TimerMinutes = m;
-            _settings.TimerSeconds = sec;
-        }
+            Label   = t.Label,
+            Hours   = t.Hours,
+            Minutes = t.Minutes,
+            Seconds = t.Seconds
+        })];
         _settings.AlarmSoundId = _alarmSounds.SoundId;
         _settings.AlarmVolume  = (int)Math.Round(_alarmSounds.Volume * 100);
         if (_sidePanel != null)
@@ -214,13 +209,14 @@ public partial class MainWindow : Window
         ApplyBrightness(d.Brightness / 100.0);
         _alarmSounds.SoundId = d.AlarmSoundId;
         _alarmSounds.Volume  = d.AlarmVolume / 100.0;
-        _countdown.Stop();
-        _countdown.SetDuration(new TimeSpan(d.TimerHours, d.TimerMinutes, d.TimerSeconds));
+        foreach (var t in _timers) t.Service.Stop();
+        _timers.Clear();
+        _timers.Add(new TimerItem(d.Timers[0].Hours, d.Timers[0].Minutes, d.Timers[0].Seconds));
 
         _worldCities = [.. WorldTimeDefaults.Cities];
         _sidePanel?.WorldPanel.LoadEntries(_worldCities);
         _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness, _digitalStyle, _analogStyle,
-            d.TimerHours, d.TimerMinutes, d.TimerSeconds, d.AlarmSoundId, d.AlarmVolume);
+            d.AlarmSoundId, d.AlarmVolume);
         SaveSettings();
     }
 
@@ -285,16 +281,6 @@ public partial class MainWindow : Window
     }
 
     // ── System tray ───────────────────────────────────────────────────────
-
-    private static bool ShouldStartMinimized()
-    {
-        foreach (var arg in Environment.GetCommandLineArgs())
-        {
-            if (arg.Equals("--minimized", StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-        return false;
-    }
 
     private void InitTrayIcon()
     {
@@ -481,8 +467,9 @@ public partial class MainWindow : Window
         var now = DateTime.Now;
         HeaderDateText.Text = now.ToString("yyyy년 MM월 dd일  ddd");
 
-        if (IsTimerOnMainDisplay)
-            UpdateTimerDisplay(_countdown.Remaining);
+        var activeTimer = FirstActiveTimer;
+        if (activeTimer != null)
+            UpdateTimerDisplay(activeTimer);
         else if (_isDigital)
             UpdateDigital(now);
         else
@@ -496,41 +483,52 @@ public partial class MainWindow : Window
     }
 
     private bool IsTimerOnMainDisplay =>
-        _countdown.State is TimerRunState.Running or TimerRunState.Paused;
+        _timers.Any(t => t.Service.State is TimerRunState.Running or TimerRunState.Paused);
 
-    private void OnCountdownRemainingChanged(TimeSpan remaining)
+    private TimerItem? FirstActiveTimer =>
+        _timers.FirstOrDefault(t => t.Service.State == TimerRunState.Running)
+        ?? _timers.FirstOrDefault(t => t.Service.State == TimerRunState.Paused);
+
+    private void SubscribeTimerItem(TimerItem item)
+    {
+        item.Service.StateChanged += _ => Dispatcher.Invoke(() => OnTick(null, EventArgs.Empty));
+        item.Completed += OnTimerCompleted;
+    }
+
+    private void OnTimersCollectionChanged(object? sender,
+        System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems == null) return;
+        foreach (TimerItem item in e.NewItems)
+            SubscribeTimerItem(item);
+    }
+
+    private void OnTimerCompleted(TimerItem item)
     {
         Dispatcher.Invoke(() =>
         {
-            if (IsTimerOnMainDisplay)
-                UpdateTimerDisplay(remaining);
-            _sidePanel?.RefreshTimerUi();
+            var dur = item.Service.Duration;
+            string time  = $"{(int)dur.TotalHours:D2}:{dur.Minutes:D2}:{dur.Seconds:D2}";
+            string label = string.IsNullOrWhiteSpace(item.Label) ? time : item.Label;
+            ShowAlarmNotification(time, label, "타이머 완료");
+            OnTick(null, EventArgs.Empty);
         });
     }
 
-    private void OnCountdownCompleted()
+    private void UpdateTimerDisplay(TimerItem timer)
     {
-        Dispatcher.Invoke(() =>
-        {
-            string label = _countdown.Duration.ToString(@"hh\:mm\:ss");
-            ShowAlarmNotification("00:00:00", label, "타이머 완료");
-            UpdateDigital(DateTime.Now);
-        });
-    }
-
-    private void UpdateTimerDisplay(TimeSpan remaining)
-    {
+        var remaining = timer.Service.Remaining;
         int h = (int)remaining.TotalHours;
         string text = $"{h:D2}:{remaining.Minutes:D2}:{remaining.Seconds:D2}";
 
         if (UsesCanvasDigitalDisplay())
         {
-            AmPmText.Text = _countdown.State == TimerRunState.Paused ? "일시정지" : "타이머";
+            AmPmText.Text = timer.IsPaused ? "일시정지" : "타이머";
             SetCanvasDigitalTime(text);
         }
         else
         {
-            TextAmPm.Text = _countdown.State == TimerRunState.Paused ? "일시정지" : "타이머";
+            TextAmPm.Text = timer.IsPaused ? "일시정지" : "타이머";
             string display = _digitalStyle == nameof(Models.DigitalStyle.Korean)
                 ? KoreanTimeText.FormatCountdown(remaining, showSeconds: true)
                 : text;
@@ -590,8 +588,9 @@ public partial class MainWindow : Window
     private void RefitCurrentDigitalText()
     {
         if (!_isDigital || UsesCanvasDigitalDisplay()) return;
-        if (IsTimerOnMainDisplay)
-            UpdateTimerDisplay(_countdown.Remaining);
+        var active = FirstActiveTimer;
+        if (active != null)
+            UpdateTimerDisplay(active);
         else if (!string.IsNullOrEmpty(_lastDigitalText))
             ApplyDigitalTextTime(_lastDigitalText);
     }
@@ -699,8 +698,9 @@ public partial class MainWindow : Window
         DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
         AnalogClock.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
         SetActiveClockBtn(_isDigital);
-        if (IsTimerOnMainDisplay)
-            UpdateTimerDisplay(_countdown.Remaining);
+        var active = FirstActiveTimer;
+        if (active != null)
+            UpdateTimerDisplay(active);
         else if (_isDigital)
             UpdateDigital(DateTime.Now);
         else
@@ -849,7 +849,7 @@ public partial class MainWindow : Window
         _panelOpensRight = DetermineOpenRight();
         UpdatePanelToggleBtnSide(open: true);
 
-        _sidePanel = new SidePanelWindow(_alarms, _countdown, _alarmSounds) { Owner = this };
+        _sidePanel = new SidePanelWindow(_alarms, _timers, _alarmSounds) { Owner = this };
         _sidePanel.OnThemeRequested       = name => { ApplyTheme(name); SaveSettings(); };
         _sidePanel.OnFormatChanged        = v => { _use24h = v; };
         _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; };
@@ -873,7 +873,6 @@ public partial class MainWindow : Window
 
         _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(_brightness * 100),
             _digitalStyle, _analogStyle,
-            _settings.TimerHours, _settings.TimerMinutes, _settings.TimerSeconds,
             _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100));
         PositionSidePanel();
         _sidePanel.ApplyPanelSide(_panelOpensRight);

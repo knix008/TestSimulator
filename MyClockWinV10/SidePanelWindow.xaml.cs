@@ -29,9 +29,8 @@ public partial class SidePanelWindow : Window
 
     private bool _panelOpensRight = true;
 
-    private readonly TimerService _timer;
+    private readonly ObservableCollection<TimerItem> _timers;
     private readonly AlarmSoundPlayer _sounds;
-    private int _timerHours, _timerMinutes, _timerSeconds;
     private bool _suppressSoundComboChange;
 
     private readonly List<RadioButton> _digitalStyleRadios = new();
@@ -54,13 +53,14 @@ public partial class SidePanelWindow : Window
 
     public SidePanelWindow(
         ObservableCollection<AlarmItem> alarms,
-        TimerService timer,
+        ObservableCollection<TimerItem> timers,
         AlarmSoundPlayer sounds)
     {
-        _timer  = timer;
+        _timers = timers;
         _sounds = sounds;
         InitializeComponent();
-        AlarmList.ItemsSource = alarms;
+        AlarmList.ItemsSource  = alarms;
+        TimerList.ItemsSource  = timers;
         BuildColorSwatches();
         BuildClockStyleRadios();
         BuildAlarmSoundCombo();
@@ -82,7 +82,7 @@ public partial class SidePanelWindow : Window
         AlarmSoundCombo.SelectedValuePath = nameof(AlarmSoundOption.Id);
     }
 
-    // ── Open / close animation (Width expands/collapses rightward) ────────
+    // ── Open / close animation ─────────────────────────────────────────────
 
     public void AnimateOpen(bool openRight)
     {
@@ -98,7 +98,6 @@ public partial class SidePanelWindow : Window
         }
         else
         {
-            // Expand leftward: right edge is fixed at (Left+1), animate Width + Left in sync
             double rightEdge = Left + 1;
             var wAnim = new DoubleAnimation { From = 1, To = TargetWidth, Duration = dur, EasingFunction = easing };
             wAnim.Completed += (_, _) =>
@@ -126,7 +125,6 @@ public partial class SidePanelWindow : Window
         }
         else
         {
-            // Collapse leftward: right edge fixed, animate Width + Left in sync
             double rightEdge = Left + Width;
             var wAnim = new DoubleAnimation { From = Width, To = 1, Duration = dur, EasingFunction = easing };
             wAnim.Completed += (_, _) => { BeginAnimation(WidthProperty, null); BeginAnimation(LeftProperty, null); onComplete?.Invoke(); };
@@ -162,6 +160,75 @@ public partial class SidePanelWindow : Window
     {
         if (((Button)sender).DataContext is AlarmItem alarm)
             ((ObservableCollection<AlarmItem>)AlarmList.ItemsSource!).Remove(alarm);
+    }
+
+    // ── Timers ────────────────────────────────────────────────────────────
+
+    private void AddTimer_Click(object sender, RoutedEventArgs e)
+    {
+        _timers.Add(new TimerItem(0, 5, 0));
+        OnSettingsChanged?.Invoke();
+    }
+
+    private void DeleteTimer_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is not TimerItem item) return;
+        item.Service.Stop();
+        _timers.Remove(item);
+        if (_timers.Count == 0)
+            _timers.Add(new TimerItem(0, 5, 0));
+        OnSettingsChanged?.Invoke();
+    }
+
+    private void TimerStart_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is not TimerItem item) return;
+        if (item.IsIdle) item.ApplyDuration();
+        item.Service.Start();
+        OnSettingsChanged?.Invoke();
+    }
+
+    private void TimerPause_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item)
+            item.Service.Pause();
+    }
+
+    private void TimerStop_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item)
+            item.Service.Stop();
+    }
+
+    private void TimerHoursUp_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item && item.IsIdle)
+        { item.Hours = Math.Min(99, item.Hours + 1); item.ApplyDuration(); OnSettingsChanged?.Invoke(); }
+    }
+    private void TimerHoursDown_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item && item.IsIdle)
+        { item.Hours = Math.Max(0, item.Hours - 1); item.ApplyDuration(); OnSettingsChanged?.Invoke(); }
+    }
+    private void TimerMinutesUp_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item && item.IsIdle)
+        { item.Minutes = (item.Minutes + 1) % 60; item.ApplyDuration(); OnSettingsChanged?.Invoke(); }
+    }
+    private void TimerMinutesDown_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item && item.IsIdle)
+        { item.Minutes = (item.Minutes + 59) % 60; item.ApplyDuration(); OnSettingsChanged?.Invoke(); }
+    }
+    private void TimerSecondsUp_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item && item.IsIdle)
+        { item.Seconds = (item.Seconds + 1) % 60; item.ApplyDuration(); OnSettingsChanged?.Invoke(); }
+    }
+    private void TimerSecondsDown_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).DataContext is TimerItem item && item.IsIdle)
+        { item.Seconds = (item.Seconds + 59) % 60; item.ApplyDuration(); OnSettingsChanged?.Invoke(); }
     }
 
     // ── Settings ──────────────────────────────────────────────────────────
@@ -222,7 +289,7 @@ public partial class SidePanelWindow : Window
                 Foreground = labelBrush
             };
             label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double w = label.DesiredSize.Width;
+            double w    = label.DesiredSize.Width;
             double left = Math.Clamp(x - w / 2, 0, width - w);
             Canvas.SetLeft(label, left);
             Canvas.SetTop(label, 0);
@@ -273,7 +340,6 @@ public partial class SidePanelWindow : Window
 
     public void ApplySettings(bool use24h, bool worldUse24h, int brightness,
                               string digitalStyle, string analogStyle,
-                              int timerH, int timerM, int timerS,
                               string alarmSoundId, int alarmVolume)
     {
         Format12h.Checked       -= Format_Checked;
@@ -289,19 +355,11 @@ public partial class SidePanelWindow : Window
         Dispatcher.BeginInvoke(UpdateBrightnessScaleLabels, System.Windows.Threading.DispatcherPriority.Loaded);
         StartupToggle.IsChecked = IsStartupEnabled();
 
-        _timerHours   = Math.Clamp(timerH, 0, 99);
-        _timerMinutes = Math.Clamp(timerM, 0, 59);
-        _timerSeconds = Math.Clamp(timerS, 0, 59);
-        UpdateTimerDurationFields();
-        if (_timer.State == TimerRunState.Idle)
-            _timer.SetDuration(GetConfiguredDuration());
-
         _suppressSoundComboChange = true;
         AlarmSoundCombo.SelectedValue = AlarmSoundCatalog.IsValid(alarmSoundId)
             ? alarmSoundId : AlarmSoundCatalog.DefaultId;
         _suppressSoundComboChange = false;
         AlarmVolumeSlider.Value = Math.Clamp(alarmVolume, 0, 100);
-        RefreshTimerUi();
         SelectStyleRadio(_digitalStyleRadios, digitalStyle, nameof(DigitalStyle.SevenSegment));
         SelectStyleRadio(_analogStyleRadios,  analogStyle,  nameof(AnalogStyle.Classic));
         SetClockStyleHandlers(enabled: true);
@@ -319,66 +377,6 @@ public partial class SidePanelWindow : Window
 
     private void Reset_Click(object sender, RoutedEventArgs e)
         => OnResetRequested?.Invoke();
-
-    // ── Timer ─────────────────────────────────────────────────────────────
-
-    public void RefreshTimerUi()
-    {
-        if (TimerRemainingText is null) return;
-        var r = _timer.Remaining;
-        TimerRemainingText.Text = $"{(int)r.TotalHours:D2}:{r.Minutes:D2}:{r.Seconds:D2}";
-
-        bool idle = _timer.State == TimerRunState.Idle;
-        TimerStartBtn.IsEnabled = idle || _timer.State == TimerRunState.Paused;
-        TimerPauseBtn.IsEnabled = _timer.State == TimerRunState.Running;
-        TimerStartBtn.Content = _timer.State == TimerRunState.Paused ? "재개" : "시작";
-
-    }
-
-    private TimeSpan GetConfiguredDuration() =>
-        new(_timerHours, _timerMinutes, _timerSeconds);
-
-    private void ApplyDurationToTimer()
-    {
-        if (_timer.State != TimerRunState.Idle) return;
-        _timer.SetDuration(GetConfiguredDuration());
-        RefreshTimerUi();
-        OnSettingsChanged?.Invoke();
-    }
-
-    private void UpdateTimerDurationFields()
-    {
-        TimerHoursText.Text   = _timerHours.ToString();
-        TimerMinutesText.Text = _timerMinutes.ToString();
-        TimerSecondsText.Text = _timerSeconds.ToString();
-    }
-
-    private void TimerHoursUp_Click(object sender, RoutedEventArgs e)
-    { if (_timer.State != TimerRunState.Idle) return; _timerHours = Math.Min(99, _timerHours + 1); UpdateTimerDurationFields(); ApplyDurationToTimer(); }
-    private void TimerHoursDown_Click(object sender, RoutedEventArgs e)
-    { if (_timer.State != TimerRunState.Idle) return; _timerHours = Math.Max(0, _timerHours - 1); UpdateTimerDurationFields(); ApplyDurationToTimer(); }
-    private void TimerMinutesUp_Click(object sender, RoutedEventArgs e)
-    { if (_timer.State != TimerRunState.Idle) return; _timerMinutes = (_timerMinutes + 1) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
-    private void TimerMinutesDown_Click(object sender, RoutedEventArgs e)
-    { if (_timer.State != TimerRunState.Idle) return; _timerMinutes = (_timerMinutes + 59) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
-    private void TimerSecondsUp_Click(object sender, RoutedEventArgs e)
-    { if (_timer.State != TimerRunState.Idle) return; _timerSeconds = (_timerSeconds + 1) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
-    private void TimerSecondsDown_Click(object sender, RoutedEventArgs e)
-    { if (_timer.State != TimerRunState.Idle) return; _timerSeconds = (_timerSeconds + 59) % 60; UpdateTimerDurationFields(); ApplyDurationToTimer(); }
-
-    private void TimerStart_Click(object sender, RoutedEventArgs e)
-    {
-        if (_timer.State == TimerRunState.Idle)
-            _timer.SetDuration(GetConfiguredDuration());
-        _timer.Start();
-        OnSettingsChanged?.Invoke();
-    }
-
-    private void TimerPause_Click(object sender, RoutedEventArgs e)
-        => _timer.Pause();
-
-    private void TimerStop_Click(object sender, RoutedEventArgs e)
-        => _timer.Stop();
 
     private void AlarmSoundCombo_Changed(object sender, SelectionChangedEventArgs e)
     {
@@ -398,8 +396,6 @@ public partial class SidePanelWindow : Window
 
     private void PreviewAlarmSound_Click(object sender, RoutedEventArgs e)
         => _sounds.Preview();
-
-    public (int H, int M, int S) GetTimerParts() => (_timerHours, _timerMinutes, _timerSeconds);
 
     private void BuildClockStyleRadios()
     {
