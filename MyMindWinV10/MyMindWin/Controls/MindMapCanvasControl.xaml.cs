@@ -52,6 +52,10 @@ namespace MyMindWin.Controls
         private bool _layoutRebuildPending;
         private bool _rebuildQueuedDuringRebuild;
         private bool _rebuildDeferredForContextMenu;
+        private bool _rebuildQueuedWhilePending;
+        private bool _structuralRebuildPending;
+        private bool _applyFitAfterRebuild;
+        private int _layoutRebuildGeneration;
         private Guid? _pendingContextMenuNodeId;
         private ContextMenu? _activeContextMenu;
         private Path? _fishboneSpinePath;
@@ -259,10 +263,19 @@ namespace MyMindWin.Controls
                 PickImageForNode(node);
         }
 
-        private void OnRequestLayout(object? sender, EventArgs e) => ScheduleRebuildCanvas();
+        private void OnRequestLayout(object? sender, EventArgs e)
+        {
+            CloseActiveContextMenu();
+            _structuralRebuildPending = true;
+            _layoutRebuildGeneration++;
+            _layoutRebuildPending = false;
+            RequestCanvasRebuild(preferImmediate: true);
+        }
 
         /// <summary>UI 스레드에서 캔버스 재구성을 한 번만 예약합니다 (재진입·중복 호출 방지).</summary>
-        public void ScheduleRebuildCanvas()
+        public void ScheduleRebuildCanvas() => RequestCanvasRebuild(preferImmediate: false);
+
+        private void RequestCanvasRebuild(bool preferImmediate)
         {
             if (_vm?.RootNode == null)
                 return;
@@ -280,21 +293,67 @@ namespace MyMindWin.Controls
             }
 
             if (_layoutRebuildPending)
+            {
+                _rebuildQueuedWhilePending = true;
                 return;
+            }
 
+            if (preferImmediate && Dispatcher.CheckAccess())
+            {
+                RunRebuildCanvasOnce();
+                return;
+            }
+
+            int generation = ++_layoutRebuildGeneration;
             _layoutRebuildPending = true;
             Dispatcher.BeginInvoke(() =>
             {
+                if (generation != _layoutRebuildGeneration)
+                    return;
+
                 _layoutRebuildPending = false;
-                try
-                {
-                    RebuildCanvas();
-                }
-                catch (Exception ex)
-                {
-                    ExceptionReporter.Show(ex, "캔버스 재구성 (예약 실행)");
-                }
+                RunRebuildCanvasOnce();
             }, System.Windows.Threading.DispatcherPriority.Normal);
+        }
+
+        private void RunRebuildCanvasOnce()
+        {
+            var rerunImmediate = false;
+            var rerunPreferStructural = false;
+
+            try
+            {
+                RebuildCanvas();
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "캔버스 재구성");
+            }
+            finally
+            {
+                if (_rebuildQueuedWhilePending)
+                {
+                    _rebuildQueuedWhilePending = false;
+                    rerunImmediate = true;
+                }
+                else if (_rebuildQueuedDuringRebuild)
+                {
+                    _rebuildQueuedDuringRebuild = false;
+                    rerunPreferStructural = _structuralRebuildPending;
+                }
+                else if (_structuralRebuildPending &&
+                         !_rebuildQueuedDuringRebuild &&
+                         !_rebuildQueuedWhilePending &&
+                         !_layoutRebuildPending)
+                {
+                    _structuralRebuildPending = false;
+                }
+            }
+
+            if (rerunImmediate)
+                RequestCanvasRebuild(preferImmediate: true);
+            else if (rerunPreferStructural)
+                RequestCanvasRebuild(preferImmediate: _structuralRebuildPending);
         }
 
         private void OnRequestNodeShapeRefresh(object? sender, NodeViewModel node) => ReplaceNodeVisual(node);
@@ -318,8 +377,16 @@ namespace MyMindWin.Controls
             _userPositioned = false;
             ClearManualPositionsOnAllNodes();
             _lastLayoutType = _vm!.LayoutType;
-            RebuildCanvas();
-            FitToView();
+            _applyFitAfterRebuild = true;
+            try
+            {
+                RebuildCanvas();
+                FitToView();
+            }
+            finally
+            {
+                _applyFitAfterRebuild = false;
+            }
         }
 
         private void OnRequestFitView(object? sender, EventArgs e) => FitToView();
@@ -344,8 +411,14 @@ namespace MyMindWin.Controls
                     _lastLayoutType = _vm.LayoutType;
                 }
 
+                if (_structuralRebuildPending)
+                {
+                    _userPositioned = false;
+                    ClearManualPositionsOnAllNodes();
+                }
+
                 PrepareForAutomaticLayout();
-                if (!UsesGlobalAutoLayout)
+                if (!UsesGlobalAutoLayout && !_userPositioned)
                     _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
 
                 if (!_userPositioned)
@@ -364,10 +437,7 @@ namespace MyMindWin.Controls
                     }
                 }
 
-                NodeCanvas.Children.Clear();
-                ConnectionCanvas.Children.Clear();
-                _nodeElements.Clear();
-                _connectionPaths.Clear();
+                ClearCanvasVisuals();
 
                 UpdateContentExtent();
 
@@ -386,24 +456,19 @@ namespace MyMindWin.Controls
                         FitToView();
                         _pendingFitAfterLoad = false;
                     }
-                    else if (!_userPositioned)
+                    else if (!_userPositioned && !_applyFitAfterRebuild)
                         SetViewToDefaultZoom();
                 }
             }
             catch (Exception ex)
             {
                 ExceptionReporter.Show(ex, $"캔버스 재구성 ({_vm?.LayoutType})");
+                try { ClearCanvasVisuals(); } catch { /* ignored */ }
             }
             finally
             {
                 _suppressExtentSync = false;
                 _isRebuildingCanvas = false;
-
-                if (_rebuildQueuedDuringRebuild)
-                {
-                    _rebuildQueuedDuringRebuild = false;
-                    ScheduleRebuildCanvas();
-                }
 
                 if (_pendingContextMenuNodeId is Guid pendingId)
                 {
@@ -419,6 +484,16 @@ namespace MyMindWin.Controls
 
                 CanvasLayoutCompleted?.Invoke(this, EventArgs.Empty);
             }
+        }
+
+        private void ClearCanvasVisuals()
+        {
+            NodeCanvas.Children.Clear();
+            ConnectionCanvas.Children.Clear();
+            _nodeElements.Clear();
+            _connectionPaths.Clear();
+            _fishboneSpinePath = null;
+            _fishboneSubSpinePaths.Clear();
         }
 
         private void ClearManualPositionsOnAllNodes()
@@ -628,6 +703,8 @@ namespace MyMindWin.Controls
                     spineAttach += 16;
                 }
             }
+
+            PackFishboneRibSiblings(head, spineY);
 
             double spineEnd = Math.Max(spineEndUpper, spineEndLower);
 
@@ -1021,6 +1098,30 @@ namespace MyMindWin.Controls
                 RootCanvas.Width  = _contentWidth;
                 RootCanvas.Height = _contentHeight;
             }
+
+            ApplyScrollExtentSize();
+        }
+
+        /// <summary>줌·콘텐츠 크기 변경 후 ScrollViewer의 Extent(스크롤 범위)를 다시 계산합니다.</summary>
+        private void ApplyScrollExtentSize()
+        {
+            if (ScrollExtentHost == null)
+                return;
+
+            ScrollExtentHost.InvalidateMeasure();
+            CanvasScroller.InvalidateMeasure();
+            CanvasScroller.UpdateLayout();
+        }
+
+        private void ScrollToClamped(double offsetX, double offsetY, bool refreshExtent = true)
+        {
+            if (refreshExtent)
+                ApplyScrollExtentSize();
+
+            double maxX = Math.Max(0, CanvasScroller.ExtentWidth - CanvasScroller.ViewportWidth);
+            double maxY = Math.Max(0, CanvasScroller.ExtentHeight - CanvasScroller.ViewportHeight);
+            CanvasScroller.ScrollToHorizontalOffset(Math.Clamp(offsetX, 0, maxX));
+            CanvasScroller.ScrollToVerticalOffset(Math.Clamp(offsetY, 0, maxY));
         }
 
         private void ApplyDefaultContentExtent()
@@ -1032,6 +1133,7 @@ namespace MyMindWin.Controls
             if (RootCanvas == null) return;
             RootCanvas.Width = _contentWidth;
             RootCanvas.Height = _contentHeight;
+            ApplyScrollExtentSize();
         }
 
         private double MapX(double worldX) => worldX - _contentOriginX;
@@ -2200,6 +2302,12 @@ namespace MyMindWin.Controls
             if (_vm?.RootNode == null || _isRebuildingCanvas)
                 return;
 
+            if (!AreConnectionPathsInSync())
+            {
+                ScheduleRebuildCanvas();
+                return;
+            }
+
             foreach (var node in _vm.GetAllNodes())
             {
                 if (_nodeElements.TryGetValue(node.Model.Id, out var border))
@@ -2233,6 +2341,25 @@ namespace MyMindWin.Controls
                     ApplyConnectionVisual(path, node, child);
                 RefreshAllConnections(child);
             }
+        }
+
+        private bool AreConnectionPathsInSync()
+        {
+            if (_vm?.RootNode == null)
+                return true;
+
+            return _connectionPaths.Count == CountExpectedConnections(_vm.RootNode);
+        }
+
+        private static int CountExpectedConnections(NodeViewModel node)
+        {
+            if (!node.IsExpanded)
+                return 0;
+
+            int count = node.Children.Count;
+            foreach (var child in node.Children)
+                count += CountExpectedConnections(child);
+            return count;
         }
 
         private void Node_MouseEnter(object sender, MouseEventArgs e)
@@ -2380,13 +2507,12 @@ namespace MyMindWin.Controls
         private void ZoomAtPoint(Point scrollerPoint, double oldZoom, double newZoom)
         {
             double ratio = newZoom / oldZoom;
-            CanvasScroller.ScrollToHorizontalOffset(
-                (CanvasScroller.HorizontalOffset + scrollerPoint.X) * ratio - scrollerPoint.X);
-            CanvasScroller.ScrollToVerticalOffset(
-                (CanvasScroller.VerticalOffset + scrollerPoint.Y) * ratio - scrollerPoint.Y);
+            double targetX = (CanvasScroller.HorizontalOffset + scrollerPoint.X) * ratio - scrollerPoint.X;
+            double targetY = (CanvasScroller.VerticalOffset + scrollerPoint.Y) * ratio - scrollerPoint.Y;
 
             ScaleXform.ScaleX = newZoom;
             ScaleXform.ScaleY = newZoom;
+            ScrollToClamped(targetX, targetY);
 
             _suppressZoomSync = true;
             if (_vm != null) _vm.ZoomLevel = newZoom;
@@ -2414,6 +2540,10 @@ namespace MyMindWin.Controls
 
         private void CanvasScroller_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
+            // 스크롤바(Thumb·Track) 클릭은 가로채지 않음 — 고무줄 선택이 스크롤을 막는 문제 방지
+            if (IsScrollBarChrome(e.OriginalSource as DependencyObject))
+                return;
+
             if (e.ChangedButton == MouseButton.Middle)
             {
                 _isPanning = true;
@@ -2422,7 +2552,9 @@ namespace MyMindWin.Controls
                 _panStartScrollY = CanvasScroller.VerticalOffset;
                 CanvasScroller.CaptureMouse();
             }
-            else if (e.ChangedButton == MouseButton.Left && !IsNodeHit(e.OriginalSource as DependencyObject))
+            else if (e.ChangedButton == MouseButton.Left
+                     && IsPointerOnMapCanvas(e.OriginalSource as DependencyObject)
+                     && !IsNodeHit(e.OriginalSource as DependencyObject))
             {
                 _isRubberBanding = true;
                 _rubberBandStart = e.GetPosition(NodeCanvas);
@@ -2456,13 +2588,41 @@ namespace MyMindWin.Controls
             return false;
         }
 
+        private static bool IsScrollBarChrome(DependencyObject? source)
+        {
+            while (source != null)
+            {
+                if (source is System.Windows.Controls.Primitives.ScrollBar)
+                    return true;
+                source = VisualTreeHelper.GetParent(source);
+            }
+            return false;
+        }
+
+        private bool IsPointerOnMapCanvas(DependencyObject? source)
+        {
+            if (source == null || RootCanvas == null)
+                return false;
+
+            while (source != null)
+            {
+                if (source == RootCanvas)
+                    return true;
+                source = VisualTreeHelper.GetParent(source);
+            }
+
+            return false;
+        }
+
         private void CanvasScroller_PreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (_isPanning)
             {
                 var pos = e.GetPosition(CanvasScroller);
-                CanvasScroller.ScrollToHorizontalOffset(_panStartScrollX - (pos.X - _panStart.X));
-                CanvasScroller.ScrollToVerticalOffset(_panStartScrollY - (pos.Y - _panStart.Y));
+                ScrollToClamped(
+                    _panStartScrollX - (pos.X - _panStart.X),
+                    _panStartScrollY - (pos.Y - _panStart.Y),
+                    refreshExtent: false);
             }
             else if (_isRubberBanding && _rubberBandRect != null)
             {
@@ -2573,51 +2733,62 @@ namespace MyMindWin.Controls
             _vm.ZoomLevel = defaultZoom;
             _suppressZoomSync = false;
             ZoomLabel.Text = "100%";
+            ApplyScrollExtentSize();
 
             CenterView();
         }
 
-        public void CenterView()
+        public void CenterView() => ApplyViewFit(centerOnly: true);
+
+        /// <summary>노드 자동 배치 후 전체가 보이도록 줌하고 다이어그램 중심을 뷰포트 정중앙에 둡니다.</summary>
+        public void FitToView() => ApplyViewFit(centerOnly: false);
+
+        private void ApplyViewFit(bool centerOnly)
         {
-            if (_vm?.RootNode == null || CanvasScroller.ViewportWidth <= 0) return;
+            if (_vm?.RootNode == null)
+                return;
 
-            var (minX, minY, maxX, maxY) = GetBoundingBox();
-            if (minX == double.MaxValue) return;
+            void ApplyNow()
+            {
+                if (CanvasScroller.ViewportWidth <= 0 || CanvasScroller.ViewportHeight <= 0)
+                    return;
 
-            double mapCX = MapX((minX + maxX) / 2);
-            double mapCY = MapY((minY + maxY) / 2);
-            double zoom  = ScaleXform.ScaleX;
+                var (minX, minY, maxX, maxY) = GetBoundingBox();
+                if (minX == double.MaxValue)
+                    return;
 
-            CanvasScroller.ScrollToHorizontalOffset(mapCX * zoom - CanvasScroller.ViewportWidth  / 2);
-            CanvasScroller.ScrollToVerticalOffset(mapCY * zoom - CanvasScroller.ViewportHeight / 2);
-        }
+                double mapCX = MapX((minX + maxX) / 2);
+                double mapCY = MapY((minY + maxY) / 2);
 
-        public void FitToView()
-        {
-            if (_vm?.RootNode == null || CanvasScroller.ViewportWidth <= 0) return;
+                double zoom = ScaleXform.ScaleX;
+                if (!centerOnly)
+                {
+                    double mapW = Math.Max(1, maxX - minX + ContentPadding);
+                    double mapH = Math.Max(1, maxY - minY + ContentPadding);
+                    double fitZoom = Math.Min(
+                        CanvasScroller.ViewportWidth / mapW,
+                        CanvasScroller.ViewportHeight / mapH);
+                    zoom = Math.Clamp(fitZoom, 0.15, 2.0);
 
-            var (minX, minY, maxX, maxY) = GetBoundingBox();
-            if (minX == double.MaxValue) return;
+                    _suppressZoomSync = true;
+                    ScaleXform.ScaleX = zoom;
+                    ScaleXform.ScaleY = zoom;
+                    if (_vm != null)
+                        _vm.ZoomLevel = zoom;
+                    _suppressZoomSync = false;
+                    ZoomLabel.Text = $"{zoom:P0}";
+                }
 
-            double mapW = maxX - minX + ContentPadding;
-            double mapH = maxY - minY + ContentPadding;
+                ApplyScrollExtentSize();
+                ScrollToClamped(
+                    mapCX * zoom - CanvasScroller.ViewportWidth / 2,
+                    mapCY * zoom - CanvasScroller.ViewportHeight / 2,
+                    refreshExtent: false);
+            }
 
-            double fitZoom = Math.Min(
-                CanvasScroller.ViewportWidth  / mapW,
-                CanvasScroller.ViewportHeight / mapH);
-            fitZoom = Math.Clamp(fitZoom, 0.15, 2.0);
-
-            _suppressZoomSync = true;
-            ScaleXform.ScaleX = fitZoom;
-            ScaleXform.ScaleY = fitZoom;
-            if (_vm != null) _vm.ZoomLevel = fitZoom;
-            _suppressZoomSync = false;
-            ZoomLabel.Text = $"{fitZoom:P0}";
-
-            double mapCX = MapX((minX + maxX) / 2);
-            double mapCY = MapY((minY + maxY) / 2);
-            CanvasScroller.ScrollToHorizontalOffset(mapCX * fitZoom - CanvasScroller.ViewportWidth  / 2);
-            CanvasScroller.ScrollToVerticalOffset(mapCY * fitZoom - CanvasScroller.ViewportHeight / 2);
+            // 레이아웃·줌 반영 후 Extent가 갱신된 다음 스크롤 (정렬 직후 중앙 맞춤)
+            ApplyScrollExtentSize();
+            Dispatcher.BeginInvoke(ApplyNow, System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private (double minX, double minY, double maxX, double maxY) GetBoundingBox()
@@ -2665,8 +2836,10 @@ namespace MyMindWin.Controls
             {
                 double t = Math.Min(1.0, (DateTime.Now - start).TotalMilliseconds / 350);
                 double eased = t * t * (3 - 2 * t);
-                CanvasScroller.ScrollToHorizontalOffset(startX + (targetX - startX) * eased);
-                CanvasScroller.ScrollToVerticalOffset(startY + (targetY - startY) * eased);
+                ScrollToClamped(
+                    startX + (targetX - startX) * eased,
+                    startY + (targetY - startY) * eased,
+                    refreshExtent: false);
                 if (t >= 1.0) timer.Stop();
             };
             timer.Start();

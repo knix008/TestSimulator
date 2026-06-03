@@ -14,6 +14,7 @@
     <SolidColorBrush x:Key="AppMenuHighlightBg" Color="{StaticResource AppMenuHighlightColor}"/>
     <SolidColorBrush x:Key="AppMenuForeground" Color="{StaticResource AppMenuForegroundColor}"/>
     <SolidColorBrush x:Key="AppMenuMuted" Color="{StaticResource AppMenuMutedColor}"/>
+    <SolidColorBrush x:Key="AppMenuDisabled" Color="{StaticResource AppMenuDisabledColor}"/>
     <SolidColorBrush x:Key="AppMenuBorder" Color="{StaticResource AppMenuBorderColor}"/>
     <SolidColorBrush x:Key="AppMenuSeparatorBrush" Color="{StaticResource AppMenuSeparatorColor}"/>
 
@@ -146,9 +147,7 @@
                             <Setter TargetName="HeaderText" Property="TextElement.Foreground" Value="White"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="HeaderText" Property="TextElement.Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
-                            <Setter TargetName="GestureText" Property="Foreground" Value="{StaticResource AppMenuDisabledColor}"/>
-                            <Setter TargetName="Arrow" Property="Fill" Value="{StaticResource AppMenuDisabledColor}"/>
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
                         </Trigger>
                         <Trigger Property="IsCheckable" Value="True">
                             <Setter TargetName="IconBd" Property="Visibility" Value="Visible"/>

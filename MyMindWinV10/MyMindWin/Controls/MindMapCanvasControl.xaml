@@ -21,27 +21,36 @@
                       Background="#1A1F2E"
                       HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Auto"
+                      CanContentScroll="False"
                       PanningMode="None"
                       PreviewMouseWheel="CanvasScroller_PreviewMouseWheel"
                       PreviewMouseDown="CanvasScroller_PreviewMouseDown"
                       PreviewMouseMove="CanvasScroller_PreviewMouseMove"
                       PreviewMouseUp="CanvasScroller_PreviewMouseUp">
-            <Canvas x:Name="RootCanvas"
+            <!-- ScrollViewer는 기본으로 자식을 Stretch → Left/Top 고정 + LayoutTransform으로 확대·스크롤 범위 계산 -->
+            <Border x:Name="ScrollExtentHost"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
                     Background="#1A1F2E"
-                    MouseDown="RootCanvas_MouseDown"
-                    UseLayoutRounding="True"
-                    SnapsToDevicePixels="True"
-                    RenderOptions.BitmapScalingMode="HighQuality">
-                <Canvas.LayoutTransform>
+                    ClipToBounds="True"
+                    SnapsToDevicePixels="True">
+                <Border.LayoutTransform>
                     <ScaleTransform x:Name="ScaleXform" ScaleX="1" ScaleY="1"/>
-                </Canvas.LayoutTransform>
+                </Border.LayoutTransform>
+                <Canvas x:Name="RootCanvas"
+                        Background="#1A1F2E"
+                        MouseDown="RootCanvas_MouseDown"
+                        UseLayoutRounding="True"
+                        SnapsToDevicePixels="True"
+                        RenderOptions.BitmapScalingMode="HighQuality">
 
-                <!-- Connection layer (rendered first = behind nodes) -->
-                <Canvas x:Name="ConnectionCanvas" IsHitTestVisible="False"/>
+                    <!-- Connection layer (rendered first = behind nodes) -->
+                    <Canvas x:Name="ConnectionCanvas" IsHitTestVisible="False"/>
 
-                <!-- Node layer -->
-                <Canvas x:Name="NodeCanvas"/>
-            </Canvas>
+                    <!-- Node layer -->
+                    <Canvas x:Name="NodeCanvas"/>
+                </Canvas>
+            </Border>
         </ScrollViewer>
 
         <!-- 편집 오버레이: ScrollViewer 위에 겹치며 노드와 동일한 화면 좌표 사용 -->

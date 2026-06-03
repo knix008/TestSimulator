@@ -264,7 +264,7 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="#F0F4FF"/>
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
-            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
             <Setter Property="ItemTemplate" Value="{StaticResource ConnectionLineOptionTemplate}"/>
             <Setter Property="ItemContainerStyle" Value="{StaticResource ConnectionLineListItem}"/>
         </Style>
@@ -555,8 +555,11 @@
                     </Border>
                     <ScrollViewer VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Auto"
+                                  CanContentScroll="False"
                                   Background="#0D101A">
                         <TreeView x:Name="StructureTree"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                   Background="#0D101A"
                                   BorderThickness="0"
                                   Padding="4,6,6,6"
@@ -705,6 +708,7 @@
                     <ScrollViewer Grid.Row="1"
                                   VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled"
+                                  CanContentScroll="False"
                                   Background="#0D101A"
                                   Padding="0,4,0,4">
                         <StackPanel Margin="8,4,8,6" Background="#0D101A">
