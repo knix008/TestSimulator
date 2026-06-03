@@ -204,6 +204,9 @@ namespace MyMindWin.ViewModels
             }
         }
 
+        /// <summary>피쉬본 레이아웃: 척추 위(true)/아래(false) 가지 여부 (연결선 방향).</summary>
+        public bool? FishboneRibUpper { get; set; }
+
         public NodeViewModel(MindMapNode model, NodeViewModel? parent = null, int level = 0)
         {
             Model = model;

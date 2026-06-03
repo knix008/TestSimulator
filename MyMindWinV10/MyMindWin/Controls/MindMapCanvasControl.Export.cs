@@ -13,10 +13,13 @@ namespace MyMindWin.Controls
 {
     public partial class MindMapCanvasControl
     {
-        private const double ExportHeadingFontSize = 22;
-        private const double ExportHeadingTopPadding = 16;
-        private const double ExportHeadingBottomPadding = 12;
-        private const double ExportHeadingHorizontalPadding = 16;
+        // CreateNodeElement: level 0 → 16, 그 외 → 13
+        private const double ExportNodeFontSize = 13;
+        private const double ExportHeadingFontSize = ExportNodeFontSize + 1;
+        private const double ExportHeadingLeftPadding = 8;
+        private const double ExportHeadingTopPadding = 8;
+        private const double ExportHeadingRightPadding = 16;
+        private const double ExportHeadingBottomPadding = 8;
 
         public bool TryExportToFile(string filePath, CanvasImageExportOptions options, out string? errorMessage)
         {
@@ -140,7 +143,9 @@ namespace MyMindWin.Controls
 
                 double scale = Math.Clamp(options.Scale, 0.5, 8.0);
 
-                string? heading = string.IsNullOrWhiteSpace(options.Heading) ? null : options.Heading.Trim();
+                string? heading = options.IncludeHeading && !string.IsNullOrWhiteSpace(options.Heading)
+                    ? options.Heading.Trim()
+                    : null;
                 double headingHeight = heading != null ? MeasureExportHeadingHeight(heading, viewW) : 0;
                 double totalW = viewW;
                 double totalH = viewH + headingHeight;
@@ -188,26 +193,31 @@ namespace MyMindWin.Controls
                     NodeCanvas.RenderTransform = savedNodeXform;
                 }
 
-                // Heading rendered on top at the bitmap origin
+                // Heading: 이미지 좌측 상단 (맵 영역 위 별도 줄)
                 if (heading != null)
                 {
-                    var headingBlock = CreateExportHeadingBlock(heading, totalW, transparent);
-                    headingBlock.Measure(new Size(totalW, headingHeight));
-                    headingBlock.Arrange(new Rect(0, 0, totalW, headingHeight));
-                    headingBlock.UpdateLayout();
-
-                    var headingVisual = new DrawingVisual();
-                    using (var dc = headingVisual.RenderOpen())
+                    var headingSurface = new Grid
                     {
-                        var hBrush = new VisualBrush(headingBlock)
-                        {
-                            Viewbox = new Rect(0, 0, totalW, headingHeight),
-                            ViewboxUnits = BrushMappingMode.Absolute,
-                            Stretch = Stretch.Fill
-                        };
-                        dc.DrawRectangle(hBrush, null, new Rect(0, 0, pixelW, headingHeight * scale));
+                        Width = viewW,
+                        Height = headingHeight,
+                        Background = transparent ? null : new SolidColorBrush(options.OpaqueBackgroundColor)
+                    };
+                    headingSurface.Children.Add(CreateExportHeadingBlock(heading, viewW, transparent));
+                    headingSurface.Measure(new Size(viewW, headingHeight));
+                    headingSurface.Arrange(new Rect(0, 0, viewW, headingHeight));
+                    headingSurface.UpdateLayout();
+
+                    var headingTransform = new ScaleTransform(scale, scale);
+                    var savedHeadingXform = headingSurface.RenderTransform;
+                    try
+                    {
+                        headingSurface.RenderTransform = headingTransform;
+                        bitmap.Render(headingSurface);
                     }
-                    bitmap.Render(headingVisual);
+                    finally
+                    {
+                        headingSurface.RenderTransform = savedHeadingXform;
+                    }
                 }
 
                 bitmap.Freeze();
@@ -223,7 +233,7 @@ namespace MyMindWin.Controls
 
         private double MeasureExportHeadingHeight(string heading, double totalWidth)
         {
-            double textWidth = Math.Max(80, totalWidth - ExportHeadingHorizontalPadding * 2);
+            double textWidth = Math.Max(80, totalWidth - ExportHeadingLeftPadding - ExportHeadingRightPadding);
             var ft = new FormattedText(
                 heading,
                 CultureInfo.CurrentCulture,
@@ -234,7 +244,7 @@ namespace MyMindWin.Controls
                 GetExportPixelsPerDip())
             {
                 MaxTextWidth = textWidth,
-                TextAlignment = TextAlignment.Center
+                TextAlignment = TextAlignment.Left
             };
 
             return ft.Height + ExportHeadingTopPadding + ExportHeadingBottomPadding;
@@ -243,7 +253,7 @@ namespace MyMindWin.Controls
         private static FrameworkElement CreateExportHeadingBlock(string heading, double totalWidth, bool transparent)
         {
             var foreground = transparent
-                ? Color.FromRgb(0x1A, 0x1F, 0x2E)
+                ? Color.FromRgb(0xE8, 0xEE, 0xF8)
                 : Color.FromRgb(0xE8, 0xEE, 0xF8);
 
             return new TextBlock
@@ -253,14 +263,15 @@ namespace MyMindWin.Controls
                 FontSize = ExportHeadingFontSize,
                 FontWeight = FontWeights.Bold,
                 Foreground = new SolidColorBrush(foreground),
-                TextAlignment = TextAlignment.Center,
+                TextAlignment = TextAlignment.Left,
                 TextWrapping = TextWrapping.Wrap,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                MaxWidth = Math.Max(80, totalWidth - ExportHeadingHorizontalPadding * 2),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                MaxWidth = Math.Max(80, totalWidth - ExportHeadingLeftPadding - ExportHeadingRightPadding),
                 Margin = new Thickness(
-                    ExportHeadingHorizontalPadding,
+                    ExportHeadingLeftPadding,
                     ExportHeadingTopPadding,
-                    ExportHeadingHorizontalPadding,
+                    ExportHeadingRightPadding,
                     ExportHeadingBottomPadding)
             };
         }

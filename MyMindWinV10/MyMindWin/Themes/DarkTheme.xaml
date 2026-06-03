@@ -208,10 +208,60 @@
         </Setter>
     </Style>
 
-    <!-- 메뉴 체크 항목(좌우 반전 등) 내부 체크박스 -->
+    <!-- 체크박스 — 다크 배경에서 선택/미선택 구분 -->
     <Style TargetType="{x:Type CheckBox}">
         <Setter Property="Foreground" Value="{StaticResource AppMenuForeground}"/>
         <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border x:Name="BoxBorder"
+                                Width="18"
+                                Height="18"
+                                CornerRadius="3"
+                                BorderBrush="#667788"
+                                BorderThickness="1.5"
+                                Background="#121826"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center">
+                            <Path x:Name="CheckMark"
+                                  Data="M 3,9 L 7,13 L 15,5"
+                                  Stroke="#FFFFFF"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Visibility="Collapsed"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Border>
+                        <ContentPresenter VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="BoxBorder" Property="Background" Value="#667EEA"/>
+                            <Setter TargetName="BoxBorder" Property="BorderBrush" Value="#667EEA"/>
+                            <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="BoxBorder" Property="BorderBrush" Value="#8899CC"/>
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsMouseOver" Value="True"/>
+                                <Condition Property="IsChecked" Value="True"/>
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="BoxBorder" Property="Background" Value="#7B93FF"/>
+                            <Setter TargetName="BoxBorder" Property="BorderBrush" Value="#7B93FF"/>
+                        </MultiTrigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="{x:Type ToolTip}">

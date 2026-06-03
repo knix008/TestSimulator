@@ -69,10 +69,11 @@ namespace MyMindWin.Controls
         private const double HNodeSpacingY  = 14;   // 형제 노드 세로 간격
         private const double RadialLinkGap    = 6;  // 부모·자식 중심 간 최소 간격 (가장자리 기준)
         private const double RadialSiblingGap = 6;  // 같은 링에서 형제 노드 호 간 최소 간격
-        private const double FishboneRibStub   = 32; // 척추(spine)에서 1단계 카테고리 노드까지
-        private const double FishboneSpineGap  = 20; // 척추를 따라 카테고리 간 간격
+        private const double FishboneRibStub   = 44; // 척추(spine)에서 1단계 카테고리 노드까지
+        private const double FishboneSpineGap  = 24; // 척추를 따라 카테고리 간 간격
         private const double FishboneSpineTail = 48; // 척추 끝에서 루트(머리)까지
-        private const double FishbonePackMargin = 8;  // 가지 간 겹침 방지 여백
+        private const double FishbonePackMargin = 12;  // 가지 간 겹침 방지 여백
+        private const double FishboneSpineClearance = 16; // 주 척추 Y 주변 노드 금지 반경
         private const double ConnectionArmMin = 20; // 베지어 제어 arm 최소
         private const double ConnectionArmMax = 56; // 베지어 제어 arm 최대
         private const double ContentPadding = 80;
@@ -343,7 +344,9 @@ namespace MyMindWin.Controls
                     _lastLayoutType = _vm.LayoutType;
                 }
 
-                _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
+                PrepareForAutomaticLayout();
+                if (!UsesGlobalAutoLayout)
+                    _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
 
                 if (!_userPositioned)
                     ApplyAutomaticLayoutPositions();
@@ -510,105 +513,332 @@ namespace MyMindWin.Controls
                 return;
             }
 
+            PlaceFishboneChildrenOnSpine(root, spineY, spineLeft, layoutRibContents: true);
+            root.Y = spineY - NodeHeight / 2;
+            AlignFishboneDiagram(root, spineY);
+        }
+
+        /// <summary>피쉬본 전체를 여백·척추 기준으로 정렬합니다.</summary>
+        private void AlignFishboneDiagram(NodeViewModel root, double spineY)
+        {
+            var (minX, minY, maxX, maxY) = GetBoundingBox();
+            if (minX == double.MaxValue) return;
+
+            double dx = ContentPadding - minX;
+            if (dx > 0.5)
+                ShiftSubtree(root, dx, 0);
+
+            (minX, minY, maxX, maxY) = GetBoundingBox();
+            double upperSpace = spineY - minY;
+            double lowerSpace = maxY - spineY;
+            double dy = (lowerSpace - upperSpace) / 2;
+            if (Math.Abs(dy) > 0.5)
+                ShiftSubtree(root, 0, dy);
+        }
+
+        /// <summary>가지(카테고리) 노드와 그 하위를 재귀적으로 fishbone 형태로 배치합니다.</summary>
+        private void LayoutFishboneRibContents(NodeViewModel node)
+        {
+            if (!node.IsExpanded || node.Children.Count == 0)
+            {
+                node.X = 0;
+                node.Y = 0;
+                return;
+            }
+
+            foreach (var child in node.Children)
+                LayoutFishboneRibContents(child);
+
+            PlaceFishboneChildrenOnSpine(node, spineY: 0, mainSpineLeft: null, layoutRibContents: false);
+        }
+
+        /// <summary>
+        /// head의 직계 자식을 척추(sub-spine)에 fishbone 형태로 배치합니다.
+        /// 메인·하위 모든 depth에서 동일한 규칙(위/아래 교대, rib stub, spine gap/tail)을 사용합니다.
+        /// </summary>
+        /// <param name="mainSpineLeft">루트 척추 X. null이면 하위 가지(로컬 좌표).</param>
+        /// <param name="layoutRibContents">true면 각 자식 가지 내부 fishbone을 먼저 구성 (루트 1단계).</param>
+        private void PlaceFishboneChildrenOnSpine(
+            NodeViewModel head,
+            double spineY,
+            double? mainSpineLeft,
+            bool layoutRibContents)
+        {
+            if (!head.IsExpanded || head.Children.Count == 0)
+            {
+                head.X = mainSpineLeft ?? 0;
+                head.Y = spineY - NodeHeight / 2;
+                return;
+            }
+
             var placedBounds = new List<(double minX, double minY, double maxX, double maxY)>();
             double spineEnd = 0;
+            bool isMainSpine = mainSpineLeft.HasValue;
 
-            for (int i = 0; i < root.Children.Count; i++)
+            // 하위 가지: head(카테고리)는 부모 척추 부착점에 고정, sub-spine만 왼쪽으로 뻗음
+            if (!isMainSpine)
             {
-                var child = root.Children[i];
-                bool upper = i % 2 == 0;
-                PrepareFishboneRib(child, upper);
+                head.X = -head.Width;
+                head.Y = spineY - NodeHeight / 2;
+            }
 
-                var (minX, minY, maxX, maxY) = GetSubtreeBounds(child);
-                double perp = maxY - minY;
+            for (int i = 0; i < head.Children.Count; i++)
+            {
+                var child = head.Children[i];
+                bool upper = i % 2 == 0;
+                child.FishboneRibUpper = upper;
+
+                if (layoutRibContents)
+                    LayoutFishboneRibContents(child);
+                AlignFishboneRibForSpinePlacement(child, upper);
+
                 double attachRight = child.X + child.Width;
 
                 double spineAttach = spineEnd > 0 ? spineEnd + FishboneSpineGap : 0;
-                const int maxAttempts = 400;
+                const int maxAttempts = 120;
+                bool placed = false;
+                double vertNudge = 0;
 
                 for (int attempt = 0; attempt < maxAttempts; attempt++)
                 {
-                    double spineX = spineLeft + spineAttach;
+                    double spineX = isMainSpine
+                        ? mainSpineLeft!.Value + spineAttach
+                        : head.X - FishboneRibStub - spineAttach;
                     double dx = spineX - attachRight;
-                    double dyWorld = upper
+                    double dyWorld = (upper
                         ? spineY - FishboneRibStub - (child.Y + NodeHeight)
-                        : spineY + FishboneRibStub - child.Y;
+                        : spineY + FishboneRibStub - child.Y)
+                        + (upper ? -vertNudge : vertNudge);
 
-                    double wMinX = minX + dx;
-                    double wMinY = minY + dyWorld;
-                    double wMaxX = maxX + dx;
-                    double wMaxY = maxY + dyWorld;
+                    var (wMinX, wMinY, wMaxX, wMaxY) = GetFishboneRibPackBounds(child, dx, dyWorld);
 
-                    if (!BoundsOverlapAny(placedBounds, wMinX, wMinY, wMaxX, wMaxY))
+                    if (!BoundsOverlapAny(placedBounds, wMinX, wMinY, wMaxX, wMaxY) &&
+                        !RibViolatesMainSpineClearance(wMinY, wMaxY, spineY, FishboneSpineClearance, upper))
                     {
                         ShiftSubtree(child, dx, dyWorld);
-                        placedBounds.Add((wMinX, wMinY, wMaxX, wMaxY));
-                        spineEnd = Math.Max(spineEnd, spineAttach + perp + FishboneSpineGap);
+                        EnsureRibClearOfMainSpine(child, upper, spineY, FishboneSpineClearance);
+                        placedBounds.Add(GetFishboneRibPackBounds(child, 0, 0));
+                        placed = true;
                         break;
                     }
 
-                    spineAttach += 6;
+                    vertNudge += 8;
                 }
 
-                if (placedBounds.Count <= i)
+                if (!placed)
                 {
-                    double spineX = spineLeft + spineAttach;
+                    double spineX = isMainSpine
+                        ? mainSpineLeft!.Value + spineAttach
+                        : head.X - FishboneRibStub - spineAttach;
                     double dx = spineX - attachRight;
-                    double dyWorld = upper
+                    double dyWorld = (upper
                         ? spineY - FishboneRibStub - (child.Y + NodeHeight)
-                        : spineY + FishboneRibStub - child.Y;
+                        : spineY + FishboneRibStub - child.Y)
+                        + (upper ? -vertNudge : vertNudge);
                     ShiftSubtree(child, dx, dyWorld);
-                    var (wMinX, wMinY, wMaxX, wMaxY) = GetSubtreeBounds(child);
-                    placedBounds.Add((wMinX, wMinY, wMaxX, wMaxY));
-                    spineEnd = Math.Max(spineEnd, spineAttach + perp + FishboneSpineGap);
+                    EnsureRibClearOfMainSpine(child, upper, spineY, FishboneSpineClearance);
+                    placedBounds.Add(GetFishboneRibPackBounds(child, 0, 0));
                 }
+
+                spineEnd = spineAttach + FishboneSpineGap;
             }
 
-            root.X = spineLeft + spineEnd + FishboneSpineTail;
-            root.Y = spineY - NodeHeight / 2;
-        }
+            PackFishboneRibSiblings(head, spineY);
 
-        private void PrepareFishboneRib(NodeViewModel child, bool upper)
-        {
-            LayoutHorizontal(child, 0, 0, out _);
-            MirrorSubtreeX(child);
-            // Offset L2+ descendants above/below their parent's centerY so connections are diagonal
-            ApplyFishboneSubLevelOffsets(child);
-
-            var (_, minY, _, maxY) = GetSubtreeBounds(child);
-            double dyLocal = upper ? -maxY + NodeHeight : -minY;
-            ShiftSubtree(child, 0, dyLocal);
-        }
-
-        /// <summary>각 노드의 자식 노드들을 부모 중심 Y에서 위/아래로 오프셋하여 사선 연결선을 만듭니다.</summary>
-        private void ApplyFishboneSubLevelOffsets(NodeViewModel node)
-        {
-            if (!node.IsExpanded || node.Children.Count == 0) return;
-
-            double centerY = node.Y + NodeHeight / 2;
-            int upperIdx = 0, lowerIdx = 0;
-
-            for (int i = 0; i < node.Children.Count; i++)
+            if (isMainSpine)
             {
-                var child = node.Children[i];
-                bool childUpper = i % 2 == 0;
-
-                double targetY;
-                if (childUpper)
-                {
-                    upperIdx++;
-                    targetY = centerY - FishboneRibStub * upperIdx - NodeHeight;
-                }
-                else
-                {
-                    lowerIdx++;
-                    targetY = centerY + FishboneRibStub * lowerIdx;
-                }
-
-                double dy = targetY - child.Y;
-                ShiftSubtree(child, 0, dy);
-                ApplyFishboneSubLevelOffsets(child);
+                head.X = mainSpineLeft!.Value + spineEnd + FishboneSpineTail;
+                head.Y = spineY - NodeHeight / 2;
             }
+        }
+
+        /// <summary>가지 패킹용 경계 — 펼친 손자 서브트리 전체를 포함해 겹침을 방지합니다.</summary>
+        private (double minX, double minY, double maxX, double maxY) GetFishboneRibPackBounds(
+            NodeViewModel ribRoot, double dx, double dy)
+        {
+            var (minX, minY, maxX, maxY) = GetSubtreeBounds(ribRoot);
+            return (minX + dx, minY + dy, maxX + dx, maxY + dy);
+        }
+
+        /// <summary>같은 척추의 형제 가지끼리 서브트리 겹침을 세로로 분리합니다.</summary>
+        private void PackFishboneRibSiblings(NodeViewModel head, double spineY)
+        {
+            if (head.Children.Count < 2) return;
+
+            var uppers = new List<NodeViewModel>();
+            var lowers = new List<NodeViewModel>();
+            for (int i = 0; i < head.Children.Count; i++)
+            {
+                if (i % 2 == 0) uppers.Add(head.Children[i]);
+                else lowers.Add(head.Children[i]);
+            }
+
+            // 위쪽 가지: 척추에 가까운 순 → 바깥쪽으로 쌓기
+            uppers.Sort((a, b) => GetSubtreeBounds(b).maxY.CompareTo(GetSubtreeBounds(a).maxY));
+            for (int k = 1; k < uppers.Count; k++)
+            {
+                var prev = uppers[k - 1];
+                var curr = uppers[k];
+                var (_, pMinY, _, _) = GetSubtreeBounds(prev);
+                var (_, cMinY, _, cMaxY) = GetSubtreeBounds(curr);
+                double limit = pMinY - FishbonePackMargin;
+                if (cMaxY > limit)
+                    ShiftSubtree(curr, 0, limit - cMaxY);
+            }
+
+            // 아래쪽 가지: 척추에 가까운 순 → 바깥쪽으로 쌓기
+            lowers.Sort((a, b) => GetSubtreeBounds(a).minY.CompareTo(GetSubtreeBounds(b).minY));
+            for (int k = 1; k < lowers.Count; k++)
+            {
+                var prev = lowers[k - 1];
+                var curr = lowers[k];
+                var (_, _, _, pMaxY) = GetSubtreeBounds(prev);
+                var (_, cMinY, _, _) = GetSubtreeBounds(curr);
+                double limit = pMaxY + FishbonePackMargin;
+                if (cMinY < limit)
+                    ShiftSubtree(curr, 0, limit - cMinY);
+            }
+
+            // 위·아래 가지 교차 겹침 및 잔여 겹침 분리
+            const int maxIterations = 24;
+            for (int iter = 0; iter < maxIterations; iter++)
+            {
+                bool moved = false;
+                for (int i = 0; i < head.Children.Count; i++)
+                {
+                    for (int j = i + 1; j < head.Children.Count; j++)
+                    {
+                        if (PushApartFishboneSubtrees(head.Children[i], head.Children[j], i, j))
+                            moved = true;
+                    }
+                }
+
+                if (!moved) break;
+            }
+
+            foreach (var child in head.Children)
+            {
+                bool upper = head.Children.IndexOf(child) % 2 == 0;
+                EnsureRibClearOfMainSpine(child, upper, spineY, FishboneSpineClearance);
+            }
+        }
+
+        private bool PushApartFishboneSubtrees(NodeViewModel a, NodeViewModel b, int indexA, int indexB)
+        {
+            var (aMinX, aMinY, aMaxX, aMaxY) = GetSubtreeBounds(a);
+            var (bMinX, bMinY, bMaxX, bMaxY) = GetSubtreeBounds(b);
+            double m = FishbonePackMargin;
+            if (aMinX - m >= bMaxX + m || bMinX - m >= aMaxX + m ||
+                aMinY - m >= bMaxY + m || bMinY - m >= aMaxY + m)
+                return false;
+
+            bool aUpper = indexA % 2 == 0;
+            bool bUpper = indexB % 2 == 0;
+
+            if (aUpper && bUpper)
+            {
+                // 더 바깥(위) 가지를 위로
+                var outer = indexA < indexB ? b : a;
+                var inner = indexA < indexB ? a : b;
+                var (_, iMinY, _, _) = GetSubtreeBounds(inner);
+                var (_, _, _, oMaxY) = GetSubtreeBounds(outer);
+                if (oMaxY > iMinY - m)
+                {
+                    ShiftSubtree(outer, 0, iMinY - m - oMaxY);
+                    return true;
+                }
+            }
+            else if (!aUpper && !bUpper)
+            {
+                var outer = indexA < indexB ? b : a;
+                var inner = indexA < indexB ? a : b;
+                var (_, _, _, iMaxY) = GetSubtreeBounds(inner);
+                var (_, oMinY, _, _) = GetSubtreeBounds(outer);
+                if (oMinY < iMaxY + m)
+                {
+                    ShiftSubtree(outer, 0, iMaxY + m - oMinY);
+                    return true;
+                }
+            }
+            else
+            {
+                var upperNode = aUpper ? a : b;
+                var lowerNode = aUpper ? b : a;
+                var (_, uMinY, _, uMaxY) = GetSubtreeBounds(upperNode);
+                var (_, lMinY, _, lMaxY) = GetSubtreeBounds(lowerNode);
+                if (uMaxY <= lMinY - m) return false;
+
+                double overlap = uMaxY - (lMinY - m);
+                ShiftSubtree(upperNode, 0, -overlap * 0.55);
+                ShiftSubtree(lowerNode, 0, overlap * 0.45);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>가지 부착점(카테고리 노드 오른쪽)과 위/아래 방향을 척추 부착에 맞게 정렬합니다.</summary>
+        private void AlignFishboneRibForSpinePlacement(NodeViewModel ribRoot, bool upper)
+        {
+            double attachRight = ribRoot.X + ribRoot.Width;
+            if (Math.Abs(attachRight) > 0.01)
+                ShiftSubtree(ribRoot, -attachRight, 0);
+
+            // 카테고리 노드(ribRoot) 기준으로만 정렬 — 손자 bbox로 과도하게 밀지 않음
+            double dyLocal = upper
+                ? -(ribRoot.Y + NodeHeight) - FishboneRibStub
+                : -ribRoot.Y + FishboneRibStub;
+            ShiftSubtree(ribRoot, 0, dyLocal);
+        }
+
+        /// <summary>가지 전체가 주 척추선과 겹치지 않도록 한쪽으로 밀어냅니다.</summary>
+        private static void EnsureRibClearOfMainSpine(
+            NodeViewModel ribRoot, bool upper, double spineY, double clearance)
+        {
+            var (_, minY, _, maxY) = GetSubtreeBoundsStatic(ribRoot);
+            if (upper)
+            {
+                double limit = spineY - clearance;
+                if (maxY > limit)
+                    ShiftSubtree(ribRoot, 0, limit - maxY);
+            }
+            else
+            {
+                double limit = spineY + clearance;
+                if (minY < limit)
+                    ShiftSubtree(ribRoot, 0, limit - minY);
+            }
+        }
+
+        private static bool RibViolatesMainSpineClearance(
+            double minY, double maxY, double spineY, double clearance, bool upper)
+        {
+            if (upper)
+                return maxY > spineY - clearance;
+            return minY < spineY + clearance;
+        }
+
+        private static (double minX, double minY, double maxX, double maxY) GetSubtreeBoundsStatic(NodeViewModel node)
+        {
+            // Instance method wrapper for use in static helpers during layout (no overlay state).
+            double minX = node.X;
+            double minY = node.Y;
+            double maxX = node.X + node.Width;
+            double maxY = node.Y + NodeHeight;
+
+            if (!node.IsExpanded)
+                return (minX, minY, maxX, maxY);
+
+            foreach (var child in node.Children)
+            {
+                var (cMinX, cMinY, cMaxX, cMaxY) = GetSubtreeBoundsStatic(child);
+                minX = Math.Min(minX, cMinX);
+                minY = Math.Min(minY, cMinY);
+                maxX = Math.Max(maxX, cMaxX);
+                maxY = Math.Max(maxY, cMaxY);
+            }
+
+            return (minX, minY, maxX, maxY);
         }
 
         private static bool BoundsOverlapAny(
@@ -643,14 +873,6 @@ namespace MyMindWin.Controls
                 if (flipVertical)
                     node.Y = 2 * cy - node.Y - NodeHeight;
             }
-        }
-
-        private static void MirrorSubtreeX(NodeViewModel node)
-        {
-            node.X = -node.X - node.Width;
-            if (!node.IsExpanded) return;
-            foreach (var child in node.Children)
-                MirrorSubtreeX(child);
         }
 
         private (double minX, double minY, double maxX, double maxY) GetSubtreeBounds(NodeViewModel node)
@@ -814,6 +1036,56 @@ namespace MyMindWin.Controls
         private double MapX(double worldX) => worldX - _contentOriginX;
         private double MapY(double worldY) => worldY - _contentOriginY;
 
+        /// <summary>피쉬본 주 척추 Y (루트 노드 중심선, 레이아웃·정렬 후 갱신).</summary>
+        private double GetFishboneSpineY()
+            => _vm?.RootNode != null
+                ? _vm.RootNode.Y + NodeHeight / 2
+                : ContentPadding + 120;
+
+        private bool IsFishboneHorizontallyMirrored()
+            => _vm?.LayoutFlipHorizontal == true;
+
+        /// <summary>가지 노드가 척추(sub-spine)에 붙는 X. 좌우 반전 시 왼쪽 가장자리, 기본은 오른쪽 가장자리.</summary>
+        private double GetFishboneRibAttachX(NodeViewModel rib)
+            => IsFishboneHorizontallyMirrored() ? rib.X : rib.X + rib.Width;
+
+        /// <summary>주 척추 수평 구간 (segLeft → segRight).</summary>
+        private void GetFishboneMainSpineSegment(NodeViewModel root, out double segLeft, out double segRight)
+        {
+            if (!root.IsExpanded || root.Children.Count == 0)
+            {
+                segLeft = ContentPadding + 40;
+                segRight = IsFishboneHorizontallyMirrored() ? root.X + root.Width : root.X;
+                return;
+            }
+
+            if (IsFishboneHorizontallyMirrored())
+            {
+                segLeft = root.X + root.Width;
+                segRight = root.Children.Max(c => GetFishboneRibAttachX(c));
+            }
+            else
+            {
+                segLeft = root.Children.Min(c => GetFishboneRibAttachX(c));
+                segRight = root.X;
+            }
+        }
+
+        /// <summary>sub-spine 수평 구간 (segLeft → segRight).</summary>
+        private void GetFishboneSubSpineSegment(NodeViewModel node, out double segLeft, out double segRight)
+        {
+            if (IsFishboneHorizontallyMirrored())
+            {
+                segLeft = GetFishboneRibAttachX(node);
+                segRight = node.Children.Max(c => GetFishboneRibAttachX(c));
+            }
+            else
+            {
+                segLeft = node.Children.Min(c => GetFishboneRibAttachX(c));
+                segRight = GetFishboneRibAttachX(node);
+            }
+        }
+
         private void DrawConnections(NodeViewModel node)
         {
             if (!node.IsExpanded) return;
@@ -887,29 +1159,28 @@ namespace MyMindWin.Controls
             };
         }
 
+        /// <summary>피쉬본 대각 rib: 척추 부착점 → 카테고리 노드 상/하 가장자리 (위·아래 가지 방향 고정).</summary>
+        private (Point start, Point end) GetFishboneRibWorldEndpoints(NodeViewModel parent, NodeViewModel child)
+        {
+            double spineY = parent.Level == 0 ? GetFishboneSpineY() : parent.Y + NodeHeight / 2;
+            double spineX = GetFishboneRibAttachX(child);
+            bool upper = child.FishboneRibUpper ?? (parent.Children.IndexOf(child) % 2 == 0);
+            double cx = child.X + child.Width / 2;
+            var start = new Point(spineX, spineY);
+            var end = upper
+                ? new Point(cx, child.Y + NodeHeight)
+                : new Point(cx, child.Y);
+            return (start, end);
+        }
+
         private (Point start, Point end) GetConnectionEndpoints(NodeViewModel parent, NodeViewModel child)
         {
-            // Fishbone root→1st-level: diagonal rib from spine to center of category node
-            // Center endpoint is hidden behind the node body, so the rib and L1 sub-spine
-            // (which extends to node.X + node.Width) both converge at the same hidden point.
-            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level == 0)
+            if (_vm?.LayoutType == LayoutType.Fishbone)
             {
-                double spineY = ContentPadding + 120;
-                double attachX = child.X + child.Width;
+                var (ribStart, ribEnd) = GetFishboneRibWorldEndpoints(parent, child);
                 return (
-                    new Point(MapX(attachX), MapY(spineY)),
-                    new Point(MapX(child.X + child.Width / 2), MapY(child.Y + NodeHeight / 2)));
-            }
-
-            // Fishbone deeper levels: diagonal from sub-spine junction to center of child node.
-            // Endpoint hidden behind child body; child's sub-spine also passes through center.
-            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level > 0)
-            {
-                double junctionX = child.X + child.Width;
-                double parentCY  = parent.Y + NodeHeight / 2;
-                return (
-                    new Point(MapX(junctionX), MapY(parentCY)),
-                    new Point(MapX(child.X + child.Width / 2), MapY(child.Y + NodeHeight / 2)));
+                    new Point(MapX(ribStart.X), MapY(ribStart.Y)),
+                    new Point(MapX(ribEnd.X), MapY(ribEnd.Y)));
             }
 
             double pCx = parent.X + parent.Width / 2;
@@ -917,7 +1188,6 @@ namespace MyMindWin.Controls
             double cCx = child.X + child.Width / 2;
             double cCy = child.Y + NodeHeight / 2;
 
-            // Radial uses all 4 edges; other layouts (HorizontalTree, etc.) use left/right only
             Point startWorld, endWorld2;
             if (_vm?.LayoutType == LayoutType.Radial)
             {
@@ -1089,9 +1359,8 @@ namespace MyMindWin.Controls
 
         private void DrawFishboneSpine(NodeViewModel root)
         {
-            double spineY = ContentPadding + 120;
-            double spineLeft = ContentPadding + 40;
-            double spineRight = root.X; // root (head) is at right end; spine runs to its left edge
+            double spineY = GetFishboneSpineY();
+            GetFishboneMainSpineSegment(root, out double spineLeft, out double spineRight);
 
             if (spineRight <= spineLeft) return;
 
@@ -1125,9 +1394,8 @@ namespace MyMindWin.Controls
         {
             if (_fishboneSpinePath == null || _vm?.RootNode == null) return;
 
-            double spineY = ContentPadding + 120;
-            double spineLeft = ContentPadding + 40;
-            double spineRight = _vm.RootNode.X;
+            double spineY = GetFishboneSpineY();
+            GetFishboneMainSpineSegment(_vm.RootNode, out double spineLeft, out double spineRight);
 
             if (spineRight <= spineLeft) return;
 
@@ -1153,17 +1421,14 @@ namespace MyMindWin.Controls
         {
             if (!node.IsExpanded || node.Children.Count == 0) return;
 
-            double minChildX = node.Children.Min(c => c.X);
-            // Extend to right edge so the sub-spine passes through the node body;
-            // the incoming rib from the parent also ends at this node's center (hidden),
-            // so both lines meet at the same point behind the node shape.
-            double toX = node.X + node.Width;
+            // 직계 자식 부착점 ~ head 척추 접합 (좌우 반전 시 방향 반대)
+            GetFishboneSubSpineSegment(node, out double subSpineLeft, out double subSpineRight);
             double centerY = node.Y + NodeHeight / 2;
 
-            if (minChildX < toX)
+            if (subSpineLeft < subSpineRight)
             {
-                var fig = new PathFigure { StartPoint = new Point(MapX(minChildX), MapY(centerY)), IsFilled = false };
-                fig.Segments.Add(new LineSegment(new Point(MapX(toX), MapY(centerY)), isStroked: true));
+                var fig = new PathFigure { StartPoint = new Point(MapX(subSpineLeft), MapY(centerY)), IsFilled = false };
+                fig.Segments.Add(new LineSegment(new Point(MapX(subSpineRight), MapY(centerY)), isStroked: true));
                 var geom = new PathGeometry();
                 geom.Figures.Add(fig);
 
@@ -1203,13 +1468,12 @@ namespace MyMindWin.Controls
             {
                 if (idx < _fishboneSubSpinePaths.Count)
                 {
-                    double minChildX = node.Children.Min(c => c.X);
-                    double toX = node.X + node.Width;
+                    GetFishboneSubSpineSegment(node, out double subSpineLeft, out double subSpineRight);
                     double centerY = node.Y + NodeHeight / 2;
-                    if (minChildX < toX)
+                    if (subSpineLeft < subSpineRight)
                     {
-                        var fig = new PathFigure { StartPoint = new Point(MapX(minChildX), MapY(centerY)), IsFilled = false };
-                        fig.Segments.Add(new LineSegment(new Point(MapX(toX), MapY(centerY)), isStroked: true));
+                        var fig = new PathFigure { StartPoint = new Point(MapX(subSpineLeft), MapY(centerY)), IsFilled = false };
+                        fig.Segments.Add(new LineSegment(new Point(MapX(subSpineRight), MapY(centerY)), isStroked: true));
                         var geom = new PathGeometry();
                         geom.Figures.Add(fig);
                         _fishboneSubSpinePaths[idx].Data = geom;
@@ -1386,18 +1650,10 @@ namespace MyMindWin.Controls
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(0, -7, -7, 0),
                 Cursor = Cursors.Hand,
-                ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 펼치기",
-                Child = new TextBlock
-                {
-                    Text = node.IsNoteExpanded ? "−" : "+",
-                    Foreground = Brushes.White,
-                    FontWeight = FontWeights.Bold,
-                    FontSize = 13,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, -1, 0, 0)
-                }
+                ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 보기",
+                Child = AttachmentBadgeHelper.CreateNoteIcon()
             };
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsNoteExpanded);
 
             badge.PreviewMouseLeftButtonDown += (_, e) =>
             {
@@ -1423,18 +1679,10 @@ namespace MyMindWin.Controls
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(-7, -7, 0, 0),
                 Cursor = Cursors.Hand,
-                ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 펼치기",
-                Child = new TextBlock
-                {
-                    Text = node.IsImageExpanded ? "−" : "+",
-                    Foreground = Brushes.White,
-                    FontWeight = FontWeights.Bold,
-                    FontSize = 13,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, -1, 0, 0)
-                }
+                ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 보기",
+                Child = AttachmentBadgeHelper.CreateImageIcon()
             };
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsImageExpanded);
 
             badge.PreviewMouseLeftButtonDown += (_, e) =>
             {
@@ -1524,12 +1772,10 @@ namespace MyMindWin.Controls
             if (!skipSideEffects)
             {
                 RestoreExpandReflowSnapshot();
+                RelayoutAfterAttachmentChange(node);
 
                 if (noteAdded || noteRemoved)
-                {
-                    RelayoutAfterAttachmentChange(node);
                     ReplaceNodeVisual(node);
-                }
                 else
                     UpdateNoteBadge(node);
 
@@ -1617,9 +1863,12 @@ namespace MyMindWin.Controls
             if (!skipSideEffects)
             {
                 RestoreExpandReflowSnapshot();
+                RelayoutAfterAttachmentChange(node);
 
                 if (node.HasImage)
                     UpdateImageBadge(node);
+                else
+                    ReplaceNodeVisual(node);
 
                 if (_notePanelNode == node)
                     PositionNodeOverlays(node);
@@ -1653,7 +1902,6 @@ namespace MyMindWin.Controls
             else
                 UpdateImageBadge(node);
 
-            RelayoutAfterAttachmentChange(node);
             OpenImagePanel(node, keepReflowOnClose: true);
         }
 
@@ -1699,9 +1947,8 @@ namespace MyMindWin.Controls
                 return;
             }
 
-            badge.ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 펼치기";
-            if (badge.Child is TextBlock tb)
-                tb.Text = node.IsImageExpanded ? "−" : "+";
+            badge.ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 보기";
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsImageExpanded);
         }
 
         private void UpdateNoteBadge(NodeViewModel node)
@@ -1732,9 +1979,8 @@ namespace MyMindWin.Controls
                 return;
             }
 
-            badge.ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 펼치기";
-            if (badge.Child is TextBlock tb)
-                tb.Text = node.IsNoteExpanded ? "−" : "+";
+            badge.ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 보기";
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsNoteExpanded);
         }
 
         private void UpdateOverlayHitTest()

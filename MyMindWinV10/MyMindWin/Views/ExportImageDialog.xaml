@@ -22,7 +22,6 @@
 
             <CheckBox x:Name="IncludeHeadingCheck"
                       Content="제목(Heading) 포함"
-                      Foreground="#E8EEF8"
                       Margin="0,0,0,10"/>
 
             <TextBlock Text="제목 (문서 제목)"

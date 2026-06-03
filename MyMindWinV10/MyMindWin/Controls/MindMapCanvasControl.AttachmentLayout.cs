@@ -19,8 +19,10 @@ namespace MyMindWin.Controls
         private double GetAttachmentReserveHeight(NodeViewModel node)
         {
             double h = 0;
-            if (node.HasImage) h += ImageAttachmentReserve;
-            if (node.HasNote) h += NoteAttachmentReserve;
+            if (node.IsImageExpanded)
+                h += ImageAttachmentReserve;
+            if (node.IsNoteExpanded)
+                h += NoteAttachmentReserve;
             return h > 0 ? h + AttachmentGap : 0;
         }
 
@@ -59,7 +61,10 @@ namespace MyMindWin.Controls
             if (_vm?.RootNode == null) return;
 
             foreach (var node in _vm.GetAllNodes())
+            {
                 node.Width = MeasureTextWidth(node.Text, node.Level == 0 ? 16 : 13) + 28;
+                node.FishboneRibUpper = null;
+            }
 
             switch (_vm.LayoutType)
             {
@@ -82,9 +87,24 @@ namespace MyMindWin.Controls
                 node.SyncToModel();
         }
 
+        /// <summary>방사형·피쉬본은 전역 레이아웃이 필요합니다 (접기/펴기·첨부 시 항상 재정렬).</summary>
+        private bool UsesGlobalAutoLayout =>
+            _vm?.LayoutType is LayoutType.Fishbone or LayoutType.Radial;
+
+        private void PrepareForAutomaticLayout()
+        {
+            if (!UsesGlobalAutoLayout)
+                return;
+
+            ClearManualPositionsOnAllNodes();
+            _userPositioned = false;
+        }
+
         private void RelayoutAfterAttachmentChange(NodeViewModel changedNode)
         {
             if (_vm == null) return;
+
+            PrepareForAutomaticLayout();
 
             if (!_userPositioned)
                 ApplyAutomaticLayoutPositions();
@@ -156,7 +176,7 @@ namespace MyMindWin.Controls
         private void AfterOverlayOpened(NodeViewModel node, bool keepReflowOnClose)
         {
             BeginExpandReflowSnapshot(keepReflowOnClose);
-            FinishOverlayReflow(node);
+            RelayoutAfterAttachmentChange(node);
         }
 
         private Rect GetExpandedOverlayWorldBounds(NodeViewModel anchor)
