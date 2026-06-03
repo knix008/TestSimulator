@@ -93,6 +93,11 @@ public sealed class DiagramViewHost : UserControl
         }
     }
 
+    public void FocusType(string? typeId)
+    {
+        _structureViewer.FocusType(typeId);
+    }
+
     public bool TryFocusNode(string nodeId)
     {
         if (_analysis is null)
@@ -156,6 +161,13 @@ public sealed class DiagramViewHost : UserControl
     }
 
     public bool IsCallGraphView => _viewKind == DiagramViewKind.CallGraph;
+
+    public Bitmap? ExportToBitmap()
+    {
+        return _viewKind == DiagramViewKind.CallGraph
+            ? _callGraphViewer.ExportToBitmap()
+            : _structureViewer.ExportToBitmap();
+    }
 
     private void RefreshActiveView()
     {

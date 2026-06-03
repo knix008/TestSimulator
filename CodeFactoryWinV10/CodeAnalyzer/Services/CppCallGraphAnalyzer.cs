@@ -23,16 +23,17 @@ public sealed class CppCallGraphAnalyzer : TreeSitterCallGraphAnalyzerBase
 
     // @name captures the function name; @def captures the whole function_definition.
     // Inside a class body, tree-sitter-cpp uses field_identifier (not identifier) for the method name.
+    // operator_name covers operator overloads: operator=, operator==, operator+, etc.
     protected override string FuncDefQueryPattern => @"
 [
   (function_definition
     declarator: (function_declarator
-      declarator: [(identifier) (field_identifier) (destructor_name)] @name)) @def
+      declarator: [(identifier) (field_identifier) (destructor_name) (operator_name)] @name)) @def
 
   (function_definition
     declarator: (function_declarator
       declarator: (qualified_identifier
-        name: [(identifier) (destructor_name)] @name))) @def
+        name: [(identifier) (destructor_name) (operator_name)] @name))) @def
 
   (function_definition
     declarator: (pointer_declarator

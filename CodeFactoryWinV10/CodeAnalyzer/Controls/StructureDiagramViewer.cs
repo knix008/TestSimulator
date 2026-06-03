@@ -22,6 +22,7 @@ public sealed class StructureDiagramViewer : UserControl
     private string? _currentHighlightId;
     private readonly DiagramZoomController _zoom = new();
     private bool _buildError;
+    private string? _focusedTypeId;
 
     public event Action<FileRelationNode>? FileRootChanged;
     public event Action<DirectoryRelationNode>? DirectoryRootChanged;
@@ -58,8 +59,20 @@ public sealed class StructureDiagramViewer : UserControl
         _functionRootIds = functionRootIds;
         _fileRootOverride = [];
         _directoryRootOverride = [];
+        // _focusedTypeId is NOT reset here — BeginAnalysis and FocusType control it.
         _highlightIds.Clear();
         _currentHighlightId = null;
+        Rebuild();
+    }
+
+    public void FocusType(string? typeId)
+    {
+        if (_focusedTypeId == typeId)
+        {
+            return;
+        }
+
+        _focusedTypeId = typeId;
         Rebuild();
     }
 
@@ -69,6 +82,7 @@ public sealed class StructureDiagramViewer : UserControl
         _isAnalyzing = true;
         _buildError = false;
         _analysis = null;
+        _focusedTypeId = null;
         _boxes.Clear();
         _edges.Clear();
         _boxMap.Clear();
@@ -271,6 +285,71 @@ public sealed class StructureDiagramViewer : UserControl
 
     private bool IsContainerRelationView() =>
         _viewKind is DiagramViewKind.FileRelations or DiagramViewKind.DirectoryRelations;
+
+    public Bitmap? ExportToBitmap()
+    {
+        if (_analysis is null)
+        {
+            return null;
+        }
+
+        var w = Math.Max(1, _contentSize.Width);
+        var h = Math.Max(1, _contentSize.Height);
+        var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.Clear(Color.Transparent);
+
+        if (_viewKind == DiagramViewKind.SequenceDiagram)
+        {
+            DrawSequence(g);
+            return bmp;
+        }
+
+        if (_boxes.Count == 0)
+        {
+            return null;
+        }
+
+        foreach (var edge in _edges)
+        {
+            if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
+            {
+                continue;
+            }
+
+            if (IsUmlClassView())
+            {
+                UmlClassDiagramRenderer.DrawRelation(g, from, to, edge, _lineStyle);
+            }
+            else if (IsContainerRelationView())
+            {
+                FileRelationDiagramRenderer.DrawFileEdge(g, from, to, edge.Label, _lineStyle, _layoutDirection);
+            }
+            else
+            {
+                DrawEdge(g, edge);
+            }
+        }
+
+        foreach (var box in _boxes)
+        {
+            if (box.IsUmlStyle)
+            {
+                UmlClassDiagramRenderer.DrawClass(g, box, isHighlight: false, isCurrent: false);
+            }
+            else if (IsContainerRelationView())
+            {
+                FileRelationDiagramRenderer.DrawFileBox(g, box, isHighlight: false, isCurrent: false);
+            }
+            else
+            {
+                DrawBox(g, box);
+            }
+        }
+
+        return bmp;
+    }
 
     protected override void OnMouseClick(MouseEventArgs e)
     {
@@ -656,24 +735,48 @@ public sealed class StructureDiagramViewer : UserControl
 
     private void BuildClassDiagram(ProjectStructureResult structure, bool inheritanceOnly)
     {
-        var relations = structure.Relations
+        var allRelations = structure.Relations
             .Where(relation => inheritanceOnly
                 ? relation.Kind == StructureRelationKind.Inheritance
                 : relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
             .ToList();
 
+        List<StructureRelationEdge> relations;
         var typeIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var relation in relations)
-        {
-            typeIds.Add(relation.FromId);
-            typeIds.Add(relation.ToId);
-        }
 
-        if (!inheritanceOnly)
+        if (_focusedTypeId is not null && structure.TypeMap.ContainsKey(_focusedTypeId))
         {
-            foreach (var type in structure.Types)
+            // Show focused type and its 1-hop neighbors via any relation.
+            typeIds.Add(_focusedTypeId);
+            foreach (var relation in structure.Relations)
             {
-                typeIds.Add(type.Id);
+                if (relation.FromId == _focusedTypeId || relation.ToId == _focusedTypeId)
+                {
+                    typeIds.Add(relation.FromId);
+                    typeIds.Add(relation.ToId);
+                }
+            }
+
+            relations = allRelations
+                .Where(r => typeIds.Contains(r.FromId) && typeIds.Contains(r.ToId))
+                .ToList();
+        }
+        else
+        {
+            relations = allRelations;
+
+            foreach (var relation in relations)
+            {
+                typeIds.Add(relation.FromId);
+                typeIds.Add(relation.ToId);
+            }
+
+            if (!inheritanceOnly)
+            {
+                foreach (var type in structure.Types)
+                {
+                    typeIds.Add(type.Id);
+                }
             }
         }
 

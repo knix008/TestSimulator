@@ -42,4 +42,27 @@
     <Copy SourceFiles="@(_TreeSitterNativeDlls)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>
 
+  <!-- Release 빌드 시 MSI를 항상 생성 (VS에서 앱 프로젝트만 빌드해도 동작) -->
+  <PropertyGroup>
+    <SetupProjectPath>$(MSBuildThisFileDirectory)..\CodeAnalyzer.Setup\CodeAnalyzer.Setup.wixproj</SetupProjectPath>
+    <MsiOutputPath>$(MSBuildThisFileDirectory)..\CodeAnalyzer.Setup\bin\$(Configuration)\CodeAnalyzer.Setup.msi</MsiOutputPath>
+  </PropertyGroup>
+
+  <Target Name="RemindMsiRequiresRelease"
+          AfterTargets="CopyTreeSitterNativeDlls"
+          Condition="'$(Configuration)' != 'Release' and '$(BuildingMsiPackage)' != 'true'">
+    <Message Importance="high" Text="MSI is not built in $(Configuration) configuration. Switch to Release | Any CPU and rebuild to create CodeAnalyzer.Setup.msi." />
+  </Target>
+
+  <Target Name="BuildMsiInstaller"
+          AfterTargets="CopyTreeSitterNativeDlls"
+          Condition="'$(Configuration)' == 'Release' and '$(BuildingMsiPackage)' != 'true' and Exists('$(SetupProjectPath)')">
+    <MSBuild Projects="$(SetupProjectPath)"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);Platform=Any CPU" />
+    <Error Condition="!Exists('$(MsiOutputPath)')"
+           Text="MSI was not created at $(MsiOutputPath). See CodeAnalyzer.Setup build output for errors." />
+    <Message Importance="high" Text="MSI ready: $(MsiOutputPath)" />
+  </Target>
+
 </Project>

@@ -16,6 +16,7 @@ public static class LanguageRegistry
         new ProgrammingLanguage { Id = "swift", DisplayName = "Swift", Extensions = [".swift"] },
         new ProgrammingLanguage { Id = "javascript", DisplayName = "JavaScript / TypeScript", Extensions = [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"] },
         new ProgrammingLanguage { Id = "ruby", DisplayName = "Ruby", Extensions = [".rb"] },
+        new ProgrammingLanguage { Id = "kotlin", DisplayName = "Kotlin", Extensions = [".kt", ".kts"] },
         new ProgrammingLanguage { Id = "php", DisplayName = "PHP", Extensions = [".php"] }
     ];
 

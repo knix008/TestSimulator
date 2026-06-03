@@ -147,7 +147,7 @@ public sealed class PatternStructureExtractor
             "cpp" =>
             [
                 new TypePattern(
-                    new Regex(@"^\s*(?:class|struct)\s+(?<name>[A-Za-z_]\w*)(?:\s*:\s*(?<base>(?:public|protected|private)\s+[A-Za-z_][\w:]*)|\s*\{)?", RegexOptions.Compiled),
+                    new Regex(@"^\s*(?:class|struct)\s+(?<name>[A-Za-z_]\w*)(?:\s*:\s*(?:(?:public|protected|private|virtual)\s+)*(?<base>[A-Za-z_][\w:]*)|\s*\{|\s*;)?", RegexOptions.Compiled),
                     StructureRelationKind.Inheritance,
                     "class",
                     "class")

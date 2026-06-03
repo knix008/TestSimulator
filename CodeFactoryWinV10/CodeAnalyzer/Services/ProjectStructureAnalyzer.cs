@@ -143,14 +143,13 @@ public sealed class ProjectStructureAnalyzer
     {
         var fullName = node.FullName;
 
-        // TreeSitter format: "[Lang] filename.ext::funcName"
-        var separator = fullName.IndexOf("::", StringComparison.Ordinal);
-        if (separator >= 0)
+        // TreeSitter format: "[Lang] filename.ext::funcName" — function name ≠ class name; skip.
+        if (fullName.Contains("::", StringComparison.Ordinal))
         {
-            return fullName[(separator + 2)..].Split('.').FirstOrDefault();
+            return null;
         }
 
-        // C#/VB.NET format: "[C#] Namespace.ClassName.MethodName(params)"
+        // Roslyn format: "[C#] Namespace.ClassName.MethodName(params)"
         var prefixEnd = fullName.IndexOf("] ", StringComparison.Ordinal);
         if (prefixEnd >= 0)
         {

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
   <Package
     Name="Code Analyzer"
     Manufacturer="CodeAnalyzer Team"
@@ -7,19 +9,50 @@
     UpgradeCode="8a1f6b8f-5d32-4dc0-bad8-01d9d8f67f52"
     InstallerVersion="500"
     Scope="perMachine"
-    Language="1042">
+    Language="1042"
+    Codepage="949">
 
     <SummaryInformation Description="Code Analyzer Installer" Manufacturer="CodeAnalyzer Team" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
+    <Icon Id="AppIcon.ico" SourceFile="!(bindpath.CodeAnalyzer)\Assets\AppIcon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="Code Analyzer" />
     </StandardDirectory>
 
-    <Feature Id="MainFeature" Title="Code Analyzer" Level="1">
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Code Analyzer" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <ui:WixUI Id="WixUI_FeatureTree" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <Feature Id="MainFeature" Title="Code Analyzer" Level="1" AllowAbsent="no">
       <ComponentGroupRef Id="AppFiles" />
+    </Feature>
+
+    <Feature
+      Id="DesktopShortcutFeature"
+      Title="바탕 화면 바로 가기 만들기"
+      Description="바탕 화면에 Code Analyzer 바로 가기를 추가합니다."
+      Level="1"
+      AllowAbsent="yes">
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <Feature
+      Id="StartMenuShortcutFeature"
+      Title="시작 메뉴 바로 가기 만들기"
+      Description="시작 메뉴에 Code Analyzer 바로 가기를 추가합니다."
+      Level="1"
+      AllowAbsent="yes">
+      <ComponentRef Id="StartMenuShortcutComponent" />
     </Feature>
   </Package>
 
@@ -30,5 +63,48 @@
         <Exclude Files="!(bindpath.CodeAnalyzer)\**\*.xml" />
       </Files>
     </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="B4E3C2D1-6E7F-8091-A2B3-4C5D6E7F8092">
+        <Shortcut
+          Id="DesktopShortcut"
+          Name="Code Analyzer"
+          Description="소스 코드 호출 관계 분석 도구"
+          Target="[INSTALLFOLDER]CodeAnalyzer.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon.ico" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\CodeAnalyzer Team\Code Analyzer"
+          Name="DesktopShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="StartMenuShortcutComponent" Guid="A3F2B1C4-5D6E-7F80-9A1B-2C3D4E5F6071">
+        <Shortcut
+          Id="StartMenuShortcut"
+          Name="Code Analyzer"
+          Description="소스 코드 호출 관계 분석 도구"
+          Target="[INSTALLFOLDER]CodeAnalyzer.exe"
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="AppIcon.ico" />
+        <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue
+          Root="HKCU"
+          Key="Software\CodeAnalyzer Team\Code Analyzer"
+          Name="StartMenuShortcut"
+          Type="integer"
+          Value="1"
+          KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
   </Fragment>
 </Wix>

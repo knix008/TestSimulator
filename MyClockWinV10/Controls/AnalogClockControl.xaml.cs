@@ -294,20 +294,37 @@ public partial class AnalogClockControl : UserControl
         for (int i = 0; i < 60; i++)
         {
             bool isHour = i % 5 == 0;
-            double a = i * 6 * Math.PI / 180;
-            double dotR = Sc(isHour ? 4.5 : 2.5);
-            double pos  = _r - Sc(10);
-            double cx = _cx + pos * Math.Sin(a);
-            double cy = _cy - pos * Math.Cos(a);
-            var dot = new Ellipse
+            double a   = i * 6 * Math.PI / 180;
+            double pos = _r - Sc(10);
+            double cx  = _cx + pos * Math.Sin(a);
+            double cy  = _cy - pos * Math.Cos(a);
+
+            if (i == 0)
             {
-                Width = dotR * 2, Height = dotR * 2,
-                Fill = isHour ? tickHr : tickMin,
-                Opacity = isHour ? 1.0 : 0.65
-            };
-            Canvas.SetLeft(dot, cx - dotR);
-            Canvas.SetTop(dot,  cy - dotR);
-            ClockCanvas.Children.Add(dot);
+                // 12시 위치: 방사 방향(수직)으로 길쭉한 pill 바
+                double bw = Sc(5), bh = Sc(20);
+                var bar = new Rectangle
+                {
+                    Width = bw, Height = bh, Fill = tickHr,
+                    RadiusX = bw / 2, RadiusY = bw / 2
+                };
+                Canvas.SetLeft(bar, cx - bw / 2);
+                Canvas.SetTop(bar,  cy - bh / 2);
+                ClockCanvas.Children.Add(bar);
+            }
+            else
+            {
+                double dotR = Sc(isHour ? 4.5 : 2.5);
+                var dot = new Ellipse
+                {
+                    Width = dotR * 2, Height = dotR * 2,
+                    Fill = isHour ? tickHr : tickMin,
+                    Opacity = isHour ? 1.0 : 0.65
+                };
+                Canvas.SetLeft(dot, cx - dotR);
+                Canvas.SetTop(dot,  cy - dotR);
+                ClockCanvas.Children.Add(dot);
+            }
         }
     }
 

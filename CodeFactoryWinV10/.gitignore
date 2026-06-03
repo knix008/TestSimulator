@@ -1,9 +1,16 @@
-# Build results
+# Build output
 [Bb]in/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
 [Oo]ut/
+
+# Installer (WiX)
+*.msi
+*.msm
+*.msp
+*.wixpdb
+*.wixobj
 
 # Visual Studio
 .vs/
@@ -12,6 +19,10 @@
 *.userosscache
 *.sln.docstates
 *.rsuser
+*.wixproj.user
+
+# VS may auto-create .slnx; this repo uses CodeAnalyzer.sln only
+*.slnx
 
 # Visual Studio Code
 .vscode/*
@@ -20,7 +31,7 @@
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# Rider / JetBrains
+# JetBrains Rider
 .idea/
 *.sln.iml
 
@@ -33,7 +44,7 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
-# Test results
+# Test / coverage
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 *.trx
@@ -53,7 +64,7 @@ $RECYCLE.BIN/
 # macOS
 .DS_Store
 
-# Temporary files
+# Temporary / logs
 *.tmp
 *.temp
 *.log

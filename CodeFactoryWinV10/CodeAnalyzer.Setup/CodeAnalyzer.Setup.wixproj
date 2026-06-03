@@ -2,9 +2,33 @@
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <InstallerPlatform>x64</InstallerPlatform>
+    <!-- Keep MSI at bin\Release\ (not bin\Any CPU\Release\) when VS passes Platform=Any CPU. -->
+    <BaseOutputPath>bin\</BaseOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CodeAnalyzer\CodeAnalyzer.csproj" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" GeneratePathProperty="true" />
   </ItemGroup>
+
+  <!-- VS/중첩 MSBuild 시 WIX0200 방지 -->
+  <PropertyGroup>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(PkgWixToolset_UI_wixext)' != ''">$(PkgWixToolset_UI_wixext)\wixext5\WixToolset.UI.wixext.dll</_UiWixExtDll>
+    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.ui.wixext\5.0.2\wixext5\WixToolset.UI.wixext.dll</_UiWixExtDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <WixExtension Include="$(_UiWixExtDll)" Condition="Exists('$(_UiWixExtDll)')" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodeAnalyzer\CodeAnalyzer.csproj">
+      <AdditionalProperties>BuildingMsiPackage=true</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="ReportMsiOutput" AfterTargets="Build">
+    <Message Importance="high" Text="MSI created: $(TargetPath)" />
+  </Target>
 </Project>

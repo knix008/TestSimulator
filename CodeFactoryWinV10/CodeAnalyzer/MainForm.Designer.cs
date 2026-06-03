@@ -47,6 +47,7 @@ partial class MainForm
         menuFile = new ToolStripMenuItem();
         menuOpen = new ToolStripMenuItem();
         menuSave = new ToolStripMenuItem();
+        menuExportImage = new ToolStripMenuItem();
         toolStripSearchLabel = new ToolStripLabel();
         toolStripSearchBox = new ToolStripTextBox();
         toolStripFindPrevious = new ToolStripButton();
@@ -352,7 +353,7 @@ partial class MainForm
         // 
         // menuFile
         // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuOpen, menuSave });
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuOpen, menuSave, menuExportImage });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(43, 23);
         menuFile.Text = "파일";
@@ -372,6 +373,14 @@ partial class MainForm
         menuSave.Size = new Size(200, 22);
         menuSave.Text = "결과 저장...";
         menuSave.Click += menuSave_Click;
+        //
+        // menuExportImage
+        //
+        menuExportImage.Name = "menuExportImage";
+        menuExportImage.ShortcutKeys = Keys.Control | Keys.E;
+        menuExportImage.Size = new Size(200, 22);
+        menuExportImage.Text = "이미지로 내보내기...";
+        menuExportImage.Click += menuExportImage_Click;
         // 
         // toolStripSearchLabel
         // 
@@ -501,6 +510,7 @@ partial class MainForm
     private ToolStripMenuItem menuFile;
     private ToolStripMenuItem menuOpen;
     private ToolStripMenuItem menuSave;
+    private ToolStripMenuItem menuExportImage;
     private ToolStripLabel toolStripSearchLabel;
     private ToolStripTextBox toolStripSearchBox;
     private ToolStripButton toolStripFindPrevious;

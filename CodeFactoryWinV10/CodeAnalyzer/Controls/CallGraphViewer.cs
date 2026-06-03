@@ -381,6 +381,33 @@ public sealed class CallGraphViewer : UserControl
         e.Graphics.Restore(state);
     }
 
+    public Bitmap? ExportToBitmap()
+    {
+        if (_graph is null || _roots.Count == 0)
+        {
+            return null;
+        }
+
+        var w = Math.Max(1, _contentSize.Width);
+        var h = Math.Max(1, _contentSize.Height);
+        var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.Clear(Color.Transparent);
+
+        foreach (var node in CallGraphLayoutEngine.EnumerateNodes(_roots))
+        {
+            DrawEdge(g, node);
+        }
+
+        foreach (var node in CallGraphLayoutEngine.EnumerateNodes(_roots))
+        {
+            DrawNode(g, node);
+        }
+
+        return bmp;
+    }
+
     protected override void OnMouseClick(MouseEventArgs e)
     {
         base.OnMouseClick(e);

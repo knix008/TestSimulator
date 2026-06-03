@@ -117,7 +117,7 @@ public sealed class CSharpStructureExtractor
         List<StructureRelationEdge> relations,
         CancellationToken cancellationToken)
     {
-        foreach (var typeDecl in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+        foreach (var typeDecl in root.DescendantNodes().OfType<BaseTypeDeclarationSyntax>())
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -151,7 +151,10 @@ public sealed class CSharpStructureExtractor
                 IsAbstract = symbol.IsAbstract
             });
 
-            if (symbol.BaseType is not null && symbol.BaseType.SpecialType != SpecialType.System_Object)
+            if (symbol.BaseType is not null
+                && symbol.BaseType.SpecialType is not (SpecialType.System_Object
+                    or SpecialType.System_ValueType
+                    or SpecialType.System_Enum))
             {
                 var baseId = GetTypeId(symbol.BaseType);
                 EnsurePlaceholderType(symbol.BaseType, types);
@@ -191,6 +194,7 @@ public sealed class CSharpStructureExtractor
             {
                 TypeKind.Interface => "interface",
                 TypeKind.Struct => "struct",
+                TypeKind.Enum => "enum",
                 _ => "class"
             }
         });

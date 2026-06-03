@@ -441,15 +441,15 @@ public partial class MainForm : Form
             or DiagramViewKind.DataFlow
             or DiagramViewKind.FileRelations
             or DiagramViewKind.DirectoryRelations;
+        var needsTypeRoot = viewKind is DiagramViewKind.ClassDiagram or DiagramViewKind.Inheritance;
 
-        // 레이아웃 방향 선택은 다른 뷰(예: 클래스/상속)에서도 사용자가 미리 고를 수 있어야 합니다.
-        // 실제로 방향을 반영하는 뷰는 StructureDiagramViewer/CallGraphViewer 내부에서 처리합니다.
         comboLayoutDirection.Enabled = true;
         comboLineStyle.Enabled = supportsLineStyle;
         btnExpandAll.Enabled = isCallGraph;
         btnCollapseAll.Enabled = isCallGraph;
-        comboRootMethod.Enabled = needsRoot && _lastAnalysis is not null;
-        lblRootMethod.Enabled = needsRoot;
+        comboRootMethod.Enabled = (needsRoot || needsTypeRoot) && _lastAnalysis is not null;
+        lblRootMethod.Enabled = needsRoot || needsTypeRoot;
+        lblRootMethod.Text = needsTypeRoot ? "클래스" : "시작 함수";
         btnBackView.Enabled = !_isAnalysisRunning && _rootHistoryIndex > 0;
     }
 
@@ -466,8 +466,20 @@ public partial class MainForm : Form
 
     private void PopulateRootMethodList(CallGraphResult result)
     {
-        comboRootMethod.Items.Clear();
+        if (IsClassStructureView() && _lastAnalysis is not null)
+        {
+            PopulateClassTypeList();
+            UpdateResultCommandsState();
+            return;
+        }
 
+        FillRootMethodCombo(result);
+        UpdateResultCommandsState();
+    }
+
+    private void FillRootMethodCombo(CallGraphResult result)
+    {
+        comboRootMethod.Items.Clear();
         comboRootMethod.Items.Add(RootMethodItem.AutoEntryPoints);
 
         var candidates = result.Nodes
@@ -480,21 +492,100 @@ public partial class MainForm : Form
             comboRootMethod.Items.Add(candidate);
         }
 
+        comboRootMethod.SelectedItem = RootMethodItem.AutoEntryPoints;
+        FitComboDropDownWidth();
+
         if (candidates.Count == 0)
         {
             diagramViewHost.SetAnalysis(_lastAnalysis, Array.Empty<string>());
             return;
         }
 
-        comboRootMethod.SelectedItem = RootMethodItem.AutoEntryPoints;
         ApplyRootMethodSelection();
-        UpdateResultCommandsState();
+    }
+
+    private void PopulateClassTypeList()
+    {
+        if (_lastAnalysis is null)
+        {
+            return;
+        }
+
+        _suppressRootComboChange = true;
+        try
+        {
+            comboRootMethod.Items.Clear();
+            comboRootMethod.Items.Add(RootTypeItem.AllTypes);
+
+            foreach (var type in _lastAnalysis.Structure.Types
+                .OrderBy(t => t.DisplayName, StringComparer.OrdinalIgnoreCase))
+            {
+                comboRootMethod.Items.Add(RootTypeItem.FromType(type));
+            }
+
+            comboRootMethod.SelectedItem = RootTypeItem.AllTypes;
+        }
+        finally
+        {
+            _suppressRootComboChange = false;
+        }
+
+        FitComboDropDownWidth();
+        ApplyRootTypeSelection();
+    }
+
+    private void ApplyRootTypeSelection()
+    {
+        if (_lastAnalysis is null)
+        {
+            return;
+        }
+
+        string? focusedTypeId = null;
+        if (comboRootMethod.SelectedItem is RootTypeItem item && !item.IsAllTypes)
+        {
+            focusedTypeId = item.Type!.Id;
+        }
+
+        // SetAnalysis first so the analysis is loaded before FocusType triggers the final rebuild.
+        diagramViewHost.ViewKind = GetSelectedViewKind();
+        diagramViewHost.SetAnalysis(_lastAnalysis, []);
+        diagramViewHost.FocusType(focusedTypeId);
     }
 
     private void comboDiagramView_SelectedIndexChanged(object sender, EventArgs e)
     {
         diagramViewHost.ViewKind = GetSelectedViewKind();
         UpdateToolbarForViewKind();
+
+        if (_lastAnalysis is not null && IsClassStructureView())
+        {
+            // Switching into a class/inheritance view — populate combo with types.
+            if (comboRootMethod.Items.Count == 0 || comboRootMethod.Items[0] is not RootTypeItem)
+            {
+                PopulateClassTypeList(); // internally calls ApplyRootTypeSelection
+                ApplySearchHighlightToViewer();
+                return;
+            }
+        }
+        else if (_lastAnalysis is not null && !IsClassStructureView()
+            && comboRootMethod.Items.Count > 0 && comboRootMethod.Items[0] is RootTypeItem)
+        {
+            // Switching away from a class/inheritance view — restore function list.
+            _suppressRootComboChange = true;
+            try
+            {
+                FillRootMethodCombo(_lastAnalysis.CallGraph); // internally calls ApplyRootMethodSelection
+            }
+            finally
+            {
+                _suppressRootComboChange = false;
+            }
+
+            ApplySearchHighlightToViewer();
+            return;
+        }
+
         ApplyRootMethodSelection();
         ApplySearchHighlightToViewer();
     }
@@ -503,6 +594,12 @@ public partial class MainForm : Form
     {
         if (_suppressRootComboChange)
         {
+            return;
+        }
+
+        if (comboRootMethod.SelectedItem is RootTypeItem)
+        {
+            ApplyRootTypeSelection();
             return;
         }
 
@@ -830,6 +927,52 @@ public partial class MainForm : Form
     private void menuOpen_Click(object sender, EventArgs e)
     {
         LoadAnalysisResult();
+    }
+
+    private void menuExportImage_Click(object sender, EventArgs e)
+    {
+        Bitmap? bmp;
+        try
+        {
+            bmp = diagramViewHost.ExportToBitmap();
+        }
+        catch (Exception ex)
+        {
+            ShowDetailedErrorDialog("이미지 내보내기 오류", ex, "다이어그램 렌더링 중 오류가 발생했습니다.");
+            return;
+        }
+
+        if (bmp is null)
+        {
+            MessageBox.Show(this, "내보낼 다이어그램이 없습니다.", "이미지 내보내기",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        using var _ = bmp;
+
+        using var dialog = new SaveFileDialog
+        {
+            Title = "이미지로 내보내기",
+            Filter = "PNG 이미지 (*.png)|*.png",
+            DefaultExt = "png",
+            FileName = $"diagram_{DateTime.Now:yyyyMMdd_HHmmss}.png"
+        };
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            bmp.Save(dialog.FileName, System.Drawing.Imaging.ImageFormat.Png);
+            lblStatus.Text = $"이미지 저장됨: {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            ShowDetailedErrorDialog("이미지 저장 오류", ex, "이미지 파일 저장 중 오류가 발생했습니다.");
+        }
     }
 
     private void SaveAnalysisResult()
@@ -1447,6 +1590,40 @@ public partial class MainForm : Form
 
         public override string ToString() =>
             IsAutoEntryPoints ? "[자동] 언어별 진입점" : Node!.FullName;
+    }
+
+    private sealed class RootTypeItem
+    {
+        public static RootTypeItem AllTypes { get; } = new() { IsAllTypes = true };
+
+        public bool IsAllTypes { get; init; }
+        public StructureTypeNode? Type { get; init; }
+
+        public static RootTypeItem FromType(StructureTypeNode type) => new() { Type = type };
+
+        public override string ToString() =>
+            IsAllTypes ? "(전체 클래스)" : Type!.FullName;
+    }
+
+    private void FitComboDropDownWidth()
+    {
+        if (comboRootMethod.Items.Count == 0)
+        {
+            return;
+        }
+
+        var maxWidth = 0;
+        foreach (var item in comboRootMethod.Items)
+        {
+            var text = item?.ToString() ?? string.Empty;
+            var w = TextRenderer.MeasureText(text, comboRootMethod.Font).Width;
+            if (w > maxWidth)
+            {
+                maxWidth = w;
+            }
+        }
+
+        comboRootMethod.DropDownWidth = Math.Max(comboRootMethod.Width, Math.Min(maxWidth + 24, 900));
     }
 
     private void lblLayout_Click(object sender, EventArgs e)

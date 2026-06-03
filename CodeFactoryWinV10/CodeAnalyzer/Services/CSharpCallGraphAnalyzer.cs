@@ -226,6 +226,22 @@ public sealed class CSharpCallGraphAnalyzer : ICallGraphAnalyzer
                 nodes.TryAdd(calleeId, CreateNode(calleeSymbol, GetSourcePath(calleeSymbol, filePath)));
                 edges.Add((callerId, calleeId));
             }
+
+            foreach (var creation in GetObjectCreations(scopeSyntax, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var symbolInfo = semanticModel.GetSymbolInfo(creation, cancellationToken);
+                if (symbolInfo.Symbol is not IMethodSymbol calleeSymbol
+                    || !calleeSymbol.Locations.Any(loc => loc.IsInSource))
+                {
+                    continue;
+                }
+
+                var calleeId = GetMethodId(calleeSymbol);
+                nodes.TryAdd(calleeId, CreateNode(calleeSymbol, GetSourcePath(calleeSymbol, filePath)));
+                edges.Add((callerId, calleeId));
+            }
         }
     }
 
@@ -236,6 +252,40 @@ public sealed class CSharpCallGraphAnalyzer : ICallGraphAnalyzer
             foreach (var invocation in GetDirectInvocationsCore(child, cancellationToken))
             {
                 yield return invocation;
+            }
+        }
+    }
+
+    private static IEnumerable<BaseObjectCreationExpressionSyntax> GetObjectCreations(SyntaxNode scope, CancellationToken cancellationToken)
+    {
+        foreach (var child in scope.ChildNodes())
+        {
+            foreach (var creation in GetObjectCreationsCore(child, cancellationToken))
+            {
+                yield return creation;
+            }
+        }
+    }
+
+    private static IEnumerable<BaseObjectCreationExpressionSyntax> GetObjectCreationsCore(SyntaxNode node, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (node is BaseObjectCreationExpressionSyntax creation)
+        {
+            yield return creation;
+        }
+
+        if (node is LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax)
+        {
+            yield break;
+        }
+
+        foreach (var child in node.ChildNodes())
+        {
+            foreach (var c in GetObjectCreationsCore(child, cancellationToken))
+            {
+                yield return c;
             }
         }
     }
