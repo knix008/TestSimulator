@@ -571,8 +571,9 @@ namespace MyMindWin.Controls
                 return;
             }
 
-            var placedBounds = new List<(double minX, double minY, double maxX, double maxY)>();
-            double spineEnd = 0;
+            // 상하 가지는 서로 겹칠 수 없으므로(척추를 기준으로 반대편), 방향별로 별도 관리합니다.
+            var upperBounds = new List<(double minX, double minY, double maxX, double maxY)>();
+            var lowerBounds = new List<(double minX, double minY, double maxX, double maxY)>();
             bool isMainSpine = mainSpineLeft.HasValue;
 
             // 하위 가지: head(카테고리)는 부모 척추 부착점에 고정, sub-spine만 왼쪽으로 뻗음
@@ -581,6 +582,11 @@ namespace MyMindWin.Controls
                 head.X = -head.Width;
                 head.Y = spineY - NodeHeight / 2;
             }
+
+            // 위/아래 가지를 각자 독립된 척추 커서로 추적합니다.
+            // 동일 spineAttach에 상하 한 쌍을 배치할 수 있어 균형잡힌 어골 형태가 됩니다.
+            double spineEndUpper = 0;
+            double spineEndLower = 0;
 
             for (int i = 0; i < head.Children.Count; i++)
             {
@@ -593,57 +599,37 @@ namespace MyMindWin.Controls
                 AlignFishboneRibForSpinePlacement(child, upper);
 
                 double attachRight = child.X + child.Width;
+                double spineAttach = upper ? spineEndUpper : spineEndLower;
+                var myBounds = upper ? upperBounds : lowerBounds;
 
-                double spineAttach = spineEnd > 0 ? spineEnd + FishboneSpineGap : 0;
                 const int maxAttempts = 120;
-                bool placed = false;
-                double vertNudge = 0;
-
                 for (int attempt = 0; attempt < maxAttempts; attempt++)
                 {
                     double spineX = isMainSpine
                         ? mainSpineLeft!.Value + spineAttach
-                        : head.X - FishboneRibStub - spineAttach;
+                        : head.X - spineAttach;
                     double dx = spineX - attachRight;
-                    double dyWorld = (upper
-                        ? spineY - FishboneRibStub - (child.Y + NodeHeight)
-                        : spineY + FishboneRibStub - child.Y)
-                        + (upper ? -vertNudge : vertNudge);
 
-                    var (wMinX, wMinY, wMaxX, wMaxY) = GetFishboneRibPackBounds(child, dx, dyWorld);
+                    // dyWorld = spineY 는 AlignFishboneRibForSpinePlacement 가 이미 로컬에서
+                    // 서브트리 범위를 반영한 stub 을 적용했으므로, 척추 Y를 더하는 것으로 충분합니다.
+                    var (wMinX, wMinY, wMaxX, wMaxY) = GetFishboneRibPackBounds(child, dx, spineY);
 
-                    if (!BoundsOverlapAny(placedBounds, wMinX, wMinY, wMaxX, wMaxY) &&
-                        !RibViolatesMainSpineClearance(wMinY, wMaxY, spineY, FishboneSpineClearance, upper))
+                    // 같은 방향(상↔상, 하↔하)끼리만 겹침 검사합니다. 반대편은 척추 덕분에 항상 분리됩니다.
+                    bool overlaps = BoundsOverlapAny(myBounds, wMinX, wMinY, wMaxX, wMaxY);
+                    if (!overlaps || attempt == maxAttempts - 1)
                     {
-                        ShiftSubtree(child, dx, dyWorld);
-                        EnsureRibClearOfMainSpine(child, upper, spineY, FishboneSpineClearance);
-                        placedBounds.Add(GetFishboneRibPackBounds(child, 0, 0));
-                        placed = true;
+                        ShiftSubtree(child, dx, spineY);
+                        myBounds.Add(GetFishboneRibPackBounds(child, 0, 0));
+                        if (upper) spineEndUpper = spineAttach + FishboneSpineGap;
+                        else       spineEndLower = spineAttach + FishboneSpineGap;
                         break;
                     }
 
-                    vertNudge += 8;
+                    spineAttach += 16;
                 }
-
-                if (!placed)
-                {
-                    double spineX = isMainSpine
-                        ? mainSpineLeft!.Value + spineAttach
-                        : head.X - FishboneRibStub - spineAttach;
-                    double dx = spineX - attachRight;
-                    double dyWorld = (upper
-                        ? spineY - FishboneRibStub - (child.Y + NodeHeight)
-                        : spineY + FishboneRibStub - child.Y)
-                        + (upper ? -vertNudge : vertNudge);
-                    ShiftSubtree(child, dx, dyWorld);
-                    EnsureRibClearOfMainSpine(child, upper, spineY, FishboneSpineClearance);
-                    placedBounds.Add(GetFishboneRibPackBounds(child, 0, 0));
-                }
-
-                spineEnd = spineAttach + FishboneSpineGap;
             }
 
-            PackFishboneRibSiblings(head, spineY);
+            double spineEnd = Math.Max(spineEndUpper, spineEndLower);
 
             if (isMainSpine)
             {
@@ -784,10 +770,25 @@ namespace MyMindWin.Controls
             if (Math.Abs(attachRight) > 0.01)
                 ShiftSubtree(ribRoot, -attachRight, 0);
 
-            // 카테고리 노드(ribRoot) 기준으로만 정렬 — 손자 bbox로 과도하게 밀지 않음
+            // stub 계산: max(Width/2, 서브트리가 척추 쪽으로 뻗은 최대 범위 + clearance)
+            // 서브트리 범위를 반영하면 손자 노드가 척추선과 겹치지 않습니다.
+            double stub;
+            if (upper)
+            {
+                // maxY = 서브트리에서 가장 아래(척추 방향)까지 내려온 바닥 Y (로컬 좌표)
+                var (_, _, _, maxY) = GetSubtreeBoundsStatic(ribRoot);
+                stub = Math.Max(ribRoot.Width / 2, maxY - NodeHeight / 2 + FishboneSpineClearance);
+            }
+            else
+            {
+                // minY = 서브트리에서 가장 위(척추 방향)까지 올라온 꼭대기 Y (로컬 좌표)
+                var (_, minY, _, _) = GetSubtreeBoundsStatic(ribRoot);
+                stub = Math.Max(ribRoot.Width / 2, -minY - NodeHeight / 2 + FishboneSpineClearance);
+            }
+
             double dyLocal = upper
-                ? -(ribRoot.Y + NodeHeight) - FishboneRibStub
-                : -ribRoot.Y + FishboneRibStub;
+                ? -(ribRoot.Y + NodeHeight) - stub
+                : -ribRoot.Y + stub;
             ShiftSubtree(ribRoot, 0, dyLocal);
         }
 
