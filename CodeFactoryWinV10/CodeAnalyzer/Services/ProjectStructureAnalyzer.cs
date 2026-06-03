@@ -142,10 +142,28 @@ public sealed class ProjectStructureAnalyzer
     private static string? GuessTypeName(CallGraphNode node)
     {
         var fullName = node.FullName;
-        var separator = fullName.IndexOf("::", StringComparison.Ordinal);
-        if (separator >= 0)
+
+        // TreeSitter format: "[Lang] filename.ext::funcName" — function name ≠ class name; skip.
+        if (fullName.Contains("::", StringComparison.Ordinal))
         {
-            return fullName[(separator + 2)..].Split('.').FirstOrDefault();
+            return null;
+        }
+
+        // Roslyn format: "[C#] Namespace.ClassName.MethodName(params)"
+        var prefixEnd = fullName.IndexOf("] ", StringComparison.Ordinal);
+        if (prefixEnd >= 0)
+        {
+            var afterPrefix = fullName[(prefixEnd + 2)..];
+            var parenIdx = afterPrefix.IndexOf('(');
+            var qualifiedName = parenIdx >= 0 ? afterPrefix[..parenIdx] : afterPrefix;
+            var lastDot = qualifiedName.LastIndexOf('.');
+            if (lastDot > 0)
+            {
+                var typePart = qualifiedName[..lastDot];
+                var typeDot = typePart.LastIndexOf('.');
+                return typeDot >= 0 ? typePart[(typeDot + 1)..] : typePart;
+            }
+            return qualifiedName;
         }
 
         var dot = node.DisplayName.Contains('.') ? node.DisplayName.Split('.').Reverse().Skip(1).FirstOrDefault() : null;

@@ -52,7 +52,7 @@ namespace TerminalWinV10
             _terminal.KeyPress += Terminal_KeyPress;
             _terminal.SizeChanged += Terminal_SizeChanged;
 
-            _renderTimer = new Timer { Interval = 16 };
+            _renderTimer = new Timer { Interval = 33 };
             _renderTimer.Tick += RenderTimer_Tick;
 
             _session.OutputReceived += OnSessionOutput;
@@ -162,7 +162,7 @@ namespace TerminalWinV10
             {
                 e.SuppressKeyPress = true;
                 e.Handled = true;
-                _session.SendInput(_isLocalSession ? "\b" : "\b");
+                _session.SendInput("\b");
                 return;
             }
 
@@ -284,8 +284,9 @@ namespace TerminalWinV10
                 return;
 
             _queuedOutput.Append(text);
-            if (!_renderTimer.Enabled)
-                _renderTimer.Start();
+            // 데이터가 여러 청크로 도착해도 마지막 청크 후 16ms에 한 번만 렌더링
+            _renderTimer.Stop();
+            _renderTimer.Start();
         }
 
         private void RenderTimer_Tick(object? sender, EventArgs e)
@@ -405,6 +406,18 @@ namespace TerminalWinV10
                 return;
             }
 
+            if (final == 'P')
+            {
+                DeleteCharacters(Math.Max(1, parameter));
+                return;
+            }
+
+            if (final == '@')
+            {
+                InsertBlankCharacters(Math.Max(1, parameter));
+                return;
+            }
+
             if (final == 'A')
             {
                 _cursorRow = Math.Max(0, _cursorRow - Math.Max(1, parameter));
@@ -480,6 +493,35 @@ namespace TerminalWinV10
                 return;
             }
 
+            if (final == 'M')
+            {
+                var n = Math.Max(1, parameter);
+                var bottom = _viewportTopRow + _terminalRows;
+                for (int i = 0; i < n; i++)
+                {
+                    if (_cursorRow < _screenLines.Count)
+                        _screenLines.RemoveAt(_cursorRow);
+                    EnsureLine(bottom - 1);
+                }
+                _wrapPending = false;
+                return;
+            }
+
+            if (final == 'L')
+            {
+                var n = Math.Max(1, parameter);
+                var bottom = _viewportTopRow + _terminalRows;
+                for (int i = 0; i < n; i++)
+                {
+                    _screenLines.Insert(Math.Min(_cursorRow, _screenLines.Count), new StringBuilder());
+                    if (_screenLines.Count > bottom)
+                        _screenLines.RemoveAt(bottom);
+                }
+                EnsureLine(bottom - 1);
+                _wrapPending = false;
+                return;
+            }
+
             if (final == 'H' || final == 'f')
             {
                 var (row, column) = GetCursorPosition(sequence);
@@ -540,8 +582,8 @@ namespace TerminalWinV10
                         continue;
                     }
 
-                    ClearLine(parameter: 2);
                     _cursorColumn = 0;
+                    ClearLine(0);
                 }
 
                 if (ch == '\a' || ch == '\0')
@@ -580,18 +622,19 @@ namespace TerminalWinV10
 
             _pendingCarriageReturn = false;
             _cursorColumn = 0;
+            ClearLine(0);
             _wrapPending = false;
-            ClearLine(parameter: 2);
         }
 
         private void RemovePreviousCharacter()
         {
+            _wrapPending = false;
+            var line = GetCurrentLine();
+            _cursorColumn = Math.Min(_cursorColumn, line.Length);
             if (_cursorColumn == 0)
                 return;
 
-            _wrapPending = false;
             _cursorColumn--;
-            var line = GetCurrentLine();
             if (_cursorColumn < line.Length)
                 line.Remove(_cursorColumn, 1);
         }
@@ -627,6 +670,14 @@ namespace TerminalWinV10
                     break;
                 case 2:
                 case 3:
+                    if (_isLocalSession)
+                    {
+                        // Local shell "cls" behaves like a viewport reset in practice.
+                        // Keep model state aligned to avoid prompt rendering glitches.
+                        ClearBuffer();
+                        EnsureLine(0);
+                        break;
+                    }
                     ClearDisplayPreservingCursor();
                     break;
                 default:
@@ -664,6 +715,33 @@ namespace TerminalWinV10
             var end = Math.Min(line.Length, _cursorColumn + count);
             for (int i = _cursorColumn; i < end; i++)
                 line[i] = ' ';
+            _wrapPending = false;
+        }
+
+        private void DeleteCharacters(int count)
+        {
+            if (count <= 0)
+                return;
+
+            var line = GetCurrentLine();
+            if (_cursorColumn >= line.Length)
+                return;
+
+            var deleteCount = Math.Min(count, line.Length - _cursorColumn);
+            line.Remove(_cursorColumn, deleteCount);
+            _wrapPending = false;
+        }
+
+        private void InsertBlankCharacters(int count)
+        {
+            if (count <= 0)
+                return;
+
+            var line = GetCurrentLine();
+            while (line.Length < _cursorColumn)
+                line.Append(' ');
+
+            line.Insert(_cursorColumn, new string(' ', count));
             _wrapPending = false;
         }
 
@@ -769,15 +847,19 @@ namespace TerminalWinV10
             _lastRenderedCursorRow = -1;
             _wrapPending = false;
             _pendingCarriageReturn = false;
+            _renderedText = string.Empty;
         }
 
         private void RenderTerminal()
         {
             var sb = new StringBuilder();
-            for (int i = 0; i < _screenLines.Count; i++)
+            var renderStartRow = GetRenderStartRow();
+            var renderEndRowExclusive = GetRenderEndRowExclusive(renderStartRow);
+
+            for (int i = renderStartRow; i < renderEndRowExclusive; i++)
             {
                 sb.Append(_screenLines[i].ToString().TrimEnd());
-                if (i < _screenLines.Count - 1)
+                if (i < renderEndRowExclusive - 1)
                     sb.Append('\n');
             }
 
@@ -798,11 +880,12 @@ namespace TerminalWinV10
 
                 caretIndex = Math.Min(caretIndex, _terminal.TextLength);
                 var shouldMoveCaret = cursorRowChanged || IsTextIndexOutsideVisibleText(caretIndex);
-                if (shouldMoveCaret && (_terminal.SelectionStart != caretIndex || _terminal.SelectionLength != 0))
+                if (_terminal.SelectionStart != caretIndex || _terminal.SelectionLength != 0)
                 {
                     _terminal.SelectionStart = caretIndex;
                     _terminal.SelectionLength = 0;
-                    _terminal.ScrollToCaret();
+                    if (shouldMoveCaret)
+                        _terminal.ScrollToCaret();
                 }
                 _lastRenderedCaretIndex = caretIndex;
                 _lastRenderedCursorRow = _cursorRow;
@@ -818,13 +901,45 @@ namespace TerminalWinV10
             if (_screenLines.Count == 0)
                 return 0;
 
-            var row = Math.Min(_cursorRow, _screenLines.Count - 1);
+            var renderStartRow = GetRenderStartRow();
+            var renderEndRowExclusive = GetRenderEndRowExclusive(renderStartRow);
+            if (renderStartRow >= renderEndRowExclusive)
+                return 0;
+
+            var row = Math.Min(_cursorRow, renderEndRowExclusive - 1);
+            if (row < renderStartRow)
+                row = renderStartRow;
             var index = 0;
-            for (int i = 0; i < row; i++)
+            for (int i = renderStartRow; i < row; i++)
                 index += _screenLines[i].ToString().TrimEnd().Length + 1;
 
             var currentLineLength = _screenLines[row].ToString().TrimEnd().Length;
             return index + Math.Min(_cursorColumn, currentLineLength);
+        }
+
+        private int GetRenderStartRow()
+        {
+            if (_screenLines.Count == 0)
+                return 0;
+
+            if (_isLocalSession)
+                return Math.Max(0, Math.Min(_viewportTopRow, _screenLines.Count - 1));
+
+            return 0;
+        }
+
+        private int GetRenderEndRowExclusive(int renderStartRow)
+        {
+            if (_screenLines.Count == 0)
+                return 0;
+
+            if (_isLocalSession)
+            {
+                var maxVisibleRows = Math.Max(1, _terminalRows);
+                return Math.Min(_screenLines.Count, renderStartRow + maxVisibleRows);
+            }
+
+            return _screenLines.Count;
         }
 
         private bool IsTextIndexOutsideVisibleText(int index)
@@ -842,6 +957,16 @@ namespace TerminalWinV10
 
         private void UpdateRenderedText(string rendered)
         {
+            // _renderedText가 리셋된 경우 RichTextBox에 이전 내용이 남아 있을 수 있으므로
+            // Select(0,0)으로 삽입하지 않고 전체를 교체한다.
+            if (_renderedText.Length == 0)
+            {
+                _terminal.Select(0, _terminal.TextLength);
+                _terminal.SelectedText = rendered;
+                _renderedText = rendered;
+                return;
+            }
+
             var prefixLength = GetCommonPrefixLength(_renderedText, rendered);
             var oldSuffixLength = _renderedText.Length - prefixLength;
             var newSuffix = rendered.Substring(prefixLength);

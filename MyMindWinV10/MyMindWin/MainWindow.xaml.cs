@@ -29,6 +29,7 @@ namespace MyMindWin
             DataContext = _vm;
 
             MindMapCanvas.SetViewModel(_vm);
+            _vm.RequestLayout += (_, _) => CloseStructureContextMenu();
             _vm.RequestNodeColorRefresh += (_, node) =>
             {
                 _vm.RefreshInheritColorPreviewIfNeeded(node);
@@ -81,7 +82,7 @@ namespace MyMindWin
                 if (sender is TreeViewItem { DataContext: NodeViewModel vm } item)
                     vm.IsExpanded = item.IsExpanded;
 
-                if (_suppressTreeSync || _suppressStructureTreeLayout)
+                if (_suppressTreeSync || _suppressStructureTreeLayout || MindMapCanvas.IsCanvasLayoutBusy)
                     return;
 
                 MindMapCanvas.ScheduleRebuildCanvas();
@@ -309,7 +310,8 @@ namespace MyMindWin
 
             StructureTree.UpdateLayout();
             FindTreeViewItem(vm)?.BringIntoView();
-            MindMapCanvas.ScheduleRebuildCanvas();
+            if (!MindMapCanvas.IsCanvasLayoutBusy)
+                MindMapCanvas.ScheduleRebuildCanvas();
         }
 
         private TreeViewItem? FindTreeViewItem(NodeViewModel vm) =>

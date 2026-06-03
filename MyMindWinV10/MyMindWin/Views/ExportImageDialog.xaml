@@ -13,6 +13,105 @@
         FontFamily="Segoe UI"
         FontSize="13"
         ShowInTaskbar="False">
+    <Window.Resources>
+        <DataTemplate x:Key="ExportComboTextTemplate">
+            <TextBlock Text="{Binding Label}"
+                       Foreground="#E8EEF8"
+                       VerticalAlignment="Center"/>
+        </DataTemplate>
+
+        <Style x:Key="ExportDialogComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#121826"/>
+            <Setter Property="Foreground" Value="#E8EEF8"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#3D5080"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#4A6090"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ExportDialogComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#121826"/>
+            <Setter Property="Foreground" Value="#E8EEF8"/>
+            <Setter Property="BorderBrush" Value="#445566"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4,24,4"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource ExportDialogComboBoxItem}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="Toggle"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="{TemplateBinding BorderThickness}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="3">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="18"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ContentPresenter Margin="8,0,2,0"
+                                                                  VerticalAlignment="Center"
+                                                                  HorizontalAlignment="Left"
+                                                                  Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  TextElement.Foreground="#E8EEF8"/>
+                                                <Path Grid.Column="1"
+                                                      Data="M 0,0 L 4,4 L 8,0 Z"
+                                                      Fill="#AABBCC"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,6,0"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border Background="#121826"
+                                        BorderBrush="#445566"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="240">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Border Padding="20" BorderBrush="#334466" BorderThickness="1" CornerRadius="8">
         <StackPanel MinWidth="360">
             <TextBlock Text="이미지보내기"
@@ -22,7 +121,6 @@
 
             <CheckBox x:Name="IncludeHeadingCheck"
                       Content="제목(Heading) 포함"
-                      Foreground="#E8EEF8"
                       Margin="0,0,0,10"/>
 
             <TextBlock Text="제목 (문서 제목)"
@@ -36,6 +134,50 @@
                      BorderBrush="#445566"
                      BorderThickness="1"
                      CaretBrush="#64B5F6"/>
+
+            <TextBlock Text="제목 위치"
+                       Foreground="#88FFFFFF"
+                       Margin="0,12,0,6"/>
+            <ComboBox x:Name="HeadingPositionCombo"
+                      Style="{StaticResource ExportDialogComboBox}"
+                      ItemTemplate="{StaticResource ExportComboTextTemplate}"
+                      MinHeight="28"/>
+
+            <TextBlock Text="글자 색"
+                       Foreground="#88FFFFFF"
+                       Margin="0,12,0,6"/>
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="HeadingColorBox"
+                         Grid.Column="0"
+                         MinHeight="28"
+                         Padding="8,6"
+                         Margin="0,0,8,0"
+                         Background="#121826"
+                         Foreground="#E8EEF8"
+                         BorderBrush="#445566"
+                         BorderThickness="1"
+                         CaretBrush="#64B5F6"
+                         MaxLength="7"/>
+                <Border x:Name="HeadingColorPreview"
+                        Grid.Column="1"
+                        Width="28"
+                        Height="28"
+                        CornerRadius="4"
+                        BorderBrush="#445566"
+                        BorderThickness="1"
+                        Background="Black"/>
+            </Grid>
+
+            <TextBlock Text="색 팔레트"
+                       Foreground="#88FFFFFF"
+                       Margin="0,0,0,6"/>
+            <UniformGrid x:Name="HeadingColorPalette"
+                         Columns="8"
+                         Margin="0,0,0,0"/>
 
             <TextBlock Text="제목을 비우거나 '제목 포함'을 해제하면 Heading 없이 저장됩니다."
                        Foreground="#66FFFFFF"

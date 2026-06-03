@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -13,10 +12,13 @@ namespace MyMindWin.Controls
 {
     public partial class MindMapCanvasControl
     {
-        private const double ExportHeadingFontSize = 22;
-        private const double ExportHeadingTopPadding = 16;
-        private const double ExportHeadingBottomPadding = 12;
-        private const double ExportHeadingHorizontalPadding = 16;
+        // CreateNodeElement: level 0 → 16, 그 외 → 13
+        private const double ExportNodeFontSize = 13;
+        private const double ExportHeadingFontSize = ExportNodeFontSize + 1;
+        private const double ExportHeadingLeftPadding = 8;
+        private const double ExportHeadingTopPadding = 8;
+        private const double ExportHeadingRightPadding = 16;
+        private const double ExportHeadingBottomPadding = 8;
 
         public bool TryExportToFile(string filePath, CanvasImageExportOptions options, out string? errorMessage)
         {
@@ -98,21 +100,6 @@ namespace MyMindWin.Controls
             return new Rect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
         }
 
-        private double GetExportPixelsPerDip()
-        {
-            try
-            {
-                if (IsLoaded)
-                    return VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            }
-            catch
-            {
-                // ignored
-            }
-
-            return 1.0;
-        }
-
         private RenderTargetBitmap RenderMapBitmap(CanvasImageExportOptions options)
         {
             double savedScaleX = ScaleXform.ScaleX;
@@ -140,13 +127,12 @@ namespace MyMindWin.Controls
 
                 double scale = Math.Clamp(options.Scale, 0.5, 8.0);
 
-                string? heading = string.IsNullOrWhiteSpace(options.Heading) ? null : options.Heading.Trim();
-                double headingHeight = heading != null ? MeasureExportHeadingHeight(heading, viewW) : 0;
-                double totalW = viewW;
-                double totalH = viewH + headingHeight;
+                string? heading = options.IncludeHeading && !string.IsNullOrWhiteSpace(options.Heading)
+                    ? options.Heading.Trim()
+                    : null;
 
-                int pixelW = Math.Max(1, (int)Math.Ceiling(totalW * scale));
-                int pixelH = Math.Max(1, (int)Math.Ceiling(totalH * scale));
+                int pixelW = Math.Max(1, (int)Math.Ceiling(viewW * scale));
+                int pixelH = Math.Max(1, (int)Math.Ceiling(viewH * scale));
                 double dpi = 96 * scale;
 
                 bool transparent = options.TransparentBackground && options.Format.SupportsTransparency();
@@ -163,14 +149,8 @@ namespace MyMindWin.Controls
                     bitmap.Render(bgVisual);
                 }
 
-                // Render ConnectionCanvas and NodeCanvas directly — NOT RootCanvas.
-                // RootCanvas has a LayoutClip set by ScrollViewer that clips to the viewport,
-                // and also has a dark Background that would break transparency.
-                // ConnectionCanvas/NodeCanvas have no parent-set LayoutClip (RootCanvas has no
-                // ClipToBounds) and no background, so bitmap.Render produces the full, unclipped
-                // content on a transparent base.
                 var contentTransform = new TransformGroup();
-                contentTransform.Children.Add(new TranslateTransform(-viewX, -viewY + headingHeight));
+                contentTransform.Children.Add(new TranslateTransform(-viewX, -viewY));
                 contentTransform.Children.Add(new ScaleTransform(scale, scale));
 
                 var savedConnectionXform = ConnectionCanvas.RenderTransform;
@@ -188,26 +168,25 @@ namespace MyMindWin.Controls
                     NodeCanvas.RenderTransform = savedNodeXform;
                 }
 
-                // Heading rendered on top at the bitmap origin
+                // Heading: 맵 위 오버레이 (배경 없음)
                 if (heading != null)
                 {
-                    var headingBlock = CreateExportHeadingBlock(heading, totalW, transparent);
-                    headingBlock.Measure(new Size(totalW, headingHeight));
-                    headingBlock.Arrange(new Rect(0, 0, totalW, headingHeight));
-                    headingBlock.UpdateLayout();
+                    var headingOverlay = CreateExportHeadingOverlay(heading, viewW, viewH, options);
+                    headingOverlay.Measure(new Size(viewW, viewH));
+                    headingOverlay.Arrange(new Rect(0, 0, viewW, viewH));
+                    headingOverlay.UpdateLayout();
 
-                    var headingVisual = new DrawingVisual();
-                    using (var dc = headingVisual.RenderOpen())
+                    var headingTransform = new ScaleTransform(scale, scale);
+                    var savedHeadingXform = headingOverlay.RenderTransform;
+                    try
                     {
-                        var hBrush = new VisualBrush(headingBlock)
-                        {
-                            Viewbox = new Rect(0, 0, totalW, headingHeight),
-                            ViewboxUnits = BrushMappingMode.Absolute,
-                            Stretch = Stretch.Fill
-                        };
-                        dc.DrawRectangle(hBrush, null, new Rect(0, 0, pixelW, headingHeight * scale));
+                        headingOverlay.RenderTransform = headingTransform;
+                        bitmap.Render(headingOverlay);
                     }
-                    bitmap.Render(headingVisual);
+                    finally
+                    {
+                        headingOverlay.RenderTransform = savedHeadingXform;
+                    }
                 }
 
                 bitmap.Freeze();
@@ -221,47 +200,76 @@ namespace MyMindWin.Controls
             }
         }
 
-        private double MeasureExportHeadingHeight(string heading, double totalWidth)
+        private static FrameworkElement CreateExportHeadingOverlay(
+            string heading, double viewW, double viewH, CanvasImageExportOptions options)
         {
-            double textWidth = Math.Max(80, totalWidth - ExportHeadingHorizontalPadding * 2);
-            var ft = new FormattedText(
-                heading,
-                CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
-                ExportHeadingFontSize,
-                Brushes.White,
-                GetExportPixelsPerDip())
+            bool isTop = IsTopHeadingPosition(options.HeadingPosition);
+            var grid = new Grid
             {
-                MaxTextWidth = textWidth,
-                TextAlignment = TextAlignment.Center
+                Width = viewW,
+                Height = viewH,
+                Background = Brushes.Transparent
             };
+            grid.RowDefinitions.Add(new RowDefinition
+            {
+                Height = isTop ? GridLength.Auto : new GridLength(1, GridUnitType.Star)
+            });
+            grid.RowDefinitions.Add(new RowDefinition
+            {
+                Height = isTop ? new GridLength(1, GridUnitType.Star) : GridLength.Auto
+            });
 
-            return ft.Height + ExportHeadingTopPadding + ExportHeadingBottomPadding;
+            var block = CreateExportHeadingBlock(heading, viewW, options, isTop);
+            block.HorizontalAlignment = GetHeadingHorizontalAlignment(options.HeadingPosition);
+            block.TextAlignment = GetHeadingTextAlignment(options.HeadingPosition);
+            block.VerticalAlignment = isTop ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+            Grid.SetRow(block, isTop ? 0 : 1);
+            grid.Children.Add(block);
+            return grid;
         }
 
-        private static FrameworkElement CreateExportHeadingBlock(string heading, double totalWidth, bool transparent)
-        {
-            var foreground = transparent
-                ? Color.FromRgb(0x1A, 0x1F, 0x2E)
-                : Color.FromRgb(0xE8, 0xEE, 0xF8);
+        private static bool IsTopHeadingPosition(ExportHeadingPosition position) =>
+            position is ExportHeadingPosition.TopLeft
+                or ExportHeadingPosition.TopCenter
+                or ExportHeadingPosition.TopRight;
 
+        private static HorizontalAlignment GetHeadingHorizontalAlignment(ExportHeadingPosition position) =>
+            position switch
+            {
+                ExportHeadingPosition.TopCenter or ExportHeadingPosition.BottomCenter =>
+                    HorizontalAlignment.Center,
+                ExportHeadingPosition.TopRight or ExportHeadingPosition.BottomRight =>
+                    HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Left
+            };
+
+        private static TextAlignment GetHeadingTextAlignment(ExportHeadingPosition position) =>
+            position switch
+            {
+                ExportHeadingPosition.TopCenter or ExportHeadingPosition.BottomCenter =>
+                    TextAlignment.Center,
+                ExportHeadingPosition.TopRight or ExportHeadingPosition.BottomRight =>
+                    TextAlignment.Right,
+                _ => TextAlignment.Left
+            };
+
+        private static TextBlock CreateExportHeadingBlock(
+            string heading, double totalWidth, CanvasImageExportOptions options, bool isTop)
+        {
             return new TextBlock
             {
                 Text = heading,
                 FontFamily = new FontFamily("Segoe UI"),
                 FontSize = ExportHeadingFontSize,
                 FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(foreground),
-                TextAlignment = TextAlignment.Center,
+                Foreground = new SolidColorBrush(options.HeadingColor),
                 TextWrapping = TextWrapping.Wrap,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                MaxWidth = Math.Max(80, totalWidth - ExportHeadingHorizontalPadding * 2),
+                MaxWidth = Math.Max(80, totalWidth - ExportHeadingLeftPadding - ExportHeadingRightPadding),
                 Margin = new Thickness(
-                    ExportHeadingHorizontalPadding,
-                    ExportHeadingTopPadding,
-                    ExportHeadingHorizontalPadding,
-                    ExportHeadingBottomPadding)
+                    ExportHeadingLeftPadding,
+                    isTop ? ExportHeadingTopPadding : 0,
+                    ExportHeadingRightPadding,
+                    isTop ? 0 : ExportHeadingBottomPadding)
             };
         }
     }

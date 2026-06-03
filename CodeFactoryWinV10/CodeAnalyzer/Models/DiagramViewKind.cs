@@ -8,5 +8,7 @@ public enum DiagramViewKind
     DataFlow,
     Inheritance,
     FileRelations,
-    DirectoryRelations
+    DirectoryRelations,
+    CodeMetrics,
+    DuplicateCode
 }

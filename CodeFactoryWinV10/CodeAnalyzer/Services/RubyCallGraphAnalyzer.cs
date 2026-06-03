@@ -15,12 +15,9 @@ public sealed class RubyCallGraphAnalyzer : TreeSitterCallGraphAnalyzerBase
     name: (identifier) @name) @def
 ]";
 
+    // tree-sitter-ruby uses only the `call` node for all method/function calls,
+    // both with and without an explicit receiver.
     protected override string CallQueryPattern => @"
-[
-  (call
-    method: (identifier) @callee)
-
-  (method_call
-    method: (identifier) @callee)
-]";
+(call
+  method: (identifier) @callee)";
 }

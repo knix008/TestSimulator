@@ -79,7 +79,8 @@ internal static class FileRelationDiagramRenderer
             y += 14;
         }
 
-        graphics.DrawLine(new Pen(Color.FromArgb(210, 218, 228)), bounds.Left, y + 2, bounds.Right, y + 2);
+        using var separatorPen = new Pen(Color.FromArgb(210, 218, 228));
+        graphics.DrawLine(separatorPen, bounds.Left, y + 2, bounds.Right, y + 2);
         y += 8;
 
         var path = box.Lines.FirstOrDefault() ?? string.Empty;
@@ -119,11 +120,9 @@ internal static class FileRelationDiagramRenderer
             end = new Point(to.Bounds.Right, to.Bounds.Top + to.Bounds.Height / 2);
         }
 
-        using var pen = new Pen(Color.FromArgb(52, 73, 94), 1.6f)
-        {
-            EndCap = System.Drawing.Drawing2D.LineCap.ArrowAnchor,
-            CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(5, 5)
-        };
+        using var arrowCap = new System.Drawing.Drawing2D.AdjustableArrowCap(5, 5);
+        using var pen = new Pen(Color.FromArgb(52, 73, 94), 1.6f);
+        pen.CustomEndCap = arrowCap;
         using var font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
         using var brush = new SolidBrush(Color.FromArgb(52, 73, 94));
 

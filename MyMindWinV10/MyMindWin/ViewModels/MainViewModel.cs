@@ -759,57 +759,75 @@ namespace MyMindWin.ViewModels
 
         public void AddChild()
         {
-            if (SelectedNode == null) return;
-
-            var newModel = new MindMapNode
+            try
             {
-                Text = "New Node",
-                Shape = DefaultNodeShape.ToJsonValue(),
-                ColorIndex = SelectedNode.Level == 0
-                    ? SelectedNode.Children.Count % NodeColorPalette.PaletteCount
-                    : NodeColorPalette.InheritColorIndex
-            };
-            SelectedNode.Model.Children.Add(newModel);
+                if (SelectedNode == null) return;
 
-            var newVm = new NodeViewModel(newModel, SelectedNode, SelectedNode.Level + 1)
+                var parent = SelectedNode;
+                var newModel = new MindMapNode
+                {
+                    Text = "New Node",
+                    Shape = DefaultNodeShape.ToJsonValue(),
+                    ColorIndex = parent.Level == 0
+                        ? parent.Children.Count % NodeColorPalette.PaletteCount
+                        : NodeColorPalette.InheritColorIndex
+                };
+                parent.Model.Children.Add(newModel);
+
+                var newVm = new NodeViewModel(newModel, parent, parent.Level + 1)
+                {
+                    Shape = DefaultNodeShape
+                };
+                parent.Children.Add(newVm);
+                parent.IsExpanded = true;
+
+                NotifyStatusChanged();
+                RequestLayout?.Invoke(this, EventArgs.Empty);
+                SelectedNode = newVm;
+            }
+            catch (Exception ex)
             {
-                Shape = DefaultNodeShape
-            };
-            SelectedNode.Children.Add(newVm);
-            SelectedNode.IsExpanded = true;
-            SelectedNode = newVm;
-
-            NotifyStatusChanged();
-            RequestLayout?.Invoke(this, EventArgs.Empty);
+                App.ReportError(ex, "자식 노드 추가");
+            }
         }
 
         public void AddSibling()
         {
-            if (SelectedNode?.Parent == null) return;
-
-            var parent = SelectedNode.Parent;
-            int insertIndex = parent.Children.IndexOf(SelectedNode) + 1;
-
-            var newModel = new MindMapNode
+            try
             {
-                Text = "New Node",
-                Shape = DefaultNodeShape.ToJsonValue(),
-                ColorIndex = parent.Level == 0
-                    ? insertIndex % NodeColorPalette.PaletteCount
-                    : NodeColorPalette.InheritColorIndex
-            };
-            int modelIdx = parent.Model.Children.IndexOf(SelectedNode.Model);
-            parent.Model.Children.Insert(modelIdx + 1, newModel);
+                if (SelectedNode?.Parent == null) return;
 
-            var newVm = new NodeViewModel(newModel, parent, SelectedNode.Level)
+                var parent = SelectedNode.Parent;
+                int insertIndex = parent.Children.IndexOf(SelectedNode);
+                if (insertIndex < 0)
+                    return;
+
+                insertIndex++;
+
+                var newModel = new MindMapNode
+                {
+                    Text = "New Node",
+                    Shape = DefaultNodeShape.ToJsonValue(),
+                    ColorIndex = parent.Level == 0
+                        ? insertIndex % NodeColorPalette.PaletteCount
+                        : NodeColorPalette.InheritColorIndex
+                };
+                parent.Model.Children.Insert(insertIndex, newModel);
+
+                var newVm = new NodeViewModel(newModel, parent, SelectedNode.Level)
+                {
+                    Shape = DefaultNodeShape
+                };
+                parent.Children.Insert(insertIndex, newVm);
+
+                NotifyStatusChanged();
+                RequestLayout?.Invoke(this, EventArgs.Empty);
+                SelectedNode = newVm;
+            }
+            catch (Exception ex)
             {
-                Shape = DefaultNodeShape
-            };
-            parent.Children.Insert(parent.Children.IndexOf(SelectedNode) + 1, newVm);
-            SelectedNode = newVm;
-
-            NotifyStatusChanged();
-            RequestLayout?.Invoke(this, EventArgs.Empty);
+                App.ReportError(ex, "형제 노드 추가");
+            }
         }
 
         public void DeleteNode()
@@ -972,7 +990,13 @@ namespace MyMindWin.ViewModels
 
                 var format = CanvasImageFormatExtensions.FromExtension(Path.GetExtension(dlg.FileName))
                              ?? CanvasImageFormat.Png;
-                var options = CanvasImageExporter.CreateOptionsForFormat(format, optionsDlg.HeadingText);
+                var (includeHeading, heading, headingPosition, headingColor) = optionsDlg.GetExportHeadingSettings();
+                var options = CanvasImageExporter.CreateOptionsForFormat(
+                    format,
+                    includeHeading,
+                    heading,
+                    headingPosition,
+                    headingColor);
 
                 if (_exportImageHandler == null)
                 {

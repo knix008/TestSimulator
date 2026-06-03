@@ -7,8 +7,13 @@ public sealed class JavaCallGraphAnalyzer : TreeSitterCallGraphAnalyzerBase
     protected override string LanguageName => "java";
 
     protected override string FuncDefQueryPattern => @"
-(method_declaration
-  name: (identifier) @name) @def";
+[
+  (method_declaration
+    name: (identifier) @name) @def
+
+  (constructor_declaration
+    name: (identifier) @name) @def
+]";
 
     protected override string CallQueryPattern => @"
 [

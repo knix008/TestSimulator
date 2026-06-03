@@ -22,14 +22,26 @@ namespace MyMindWin.Services
 
         public static CanvasImageExportOptions CreateOptionsForFormat(
             CanvasImageFormat format,
-            string? heading = null) =>
-            new()
+            bool includeHeading,
+            string? heading = null,
+            ExportHeadingPosition headingPosition = ExportHeadingPosition.TopLeft,
+            System.Windows.Media.Color? headingColor = null)
+        {
+            string? resolvedHeading = includeHeading && !string.IsNullOrWhiteSpace(heading)
+                ? heading.Trim()
+                : null;
+
+            return new()
             {
                 Format = format,
                 TransparentBackground = format.SupportsTransparency(),
                 Scale = 2.0,
-                Heading = heading
+                IncludeHeading = includeHeading && resolvedHeading != null,
+                Heading = resolvedHeading,
+                HeadingPosition = headingPosition,
+                HeadingColor = headingColor ?? System.Windows.Media.Colors.Black
             };
+        }
 
         public static void Save(BitmapSource bitmap, string filePath, CanvasImageExportOptions options)
         {

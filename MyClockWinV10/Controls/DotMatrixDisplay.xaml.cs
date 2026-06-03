@@ -8,38 +8,31 @@ namespace MyClockWinV10.Controls;
 
 public partial class DotMatrixDisplay : UserControl
 {
-    // 10 rows: horizontal segments (top/middle/bottom) are always 2 rows thick
-    private const int Rows = 10;
-    private const int Cols = 5;
+    // 7×7 square dot matrix — single-row top/bottom bars, equal width and height per digit
+    private const int Rows = 7;
+    private const int Cols = 7;
 
-    /// <summary>Lit/dim square size in device pixels (before Viewbox scale).</summary>
-    private const int DotPx = 4;
+    private const int DotPx  = 4;
+    private const int GapPx  = 2;
+    private const int Cell   = DotPx + GapPx;  // 6 px
+    private const int DigitW = Cols * Cell;      // 42 px
+    private const int DigitH = Rows * Cell;      // 42 px (square)
+    private const int ColonW  = Cell * 2;        // 12 px
+    private const int CharGap = Cell;            // 6 px
 
-    /// <summary>Minimum gap between dots horizontally and vertically.</summary>
-    private const int GapPx = 2;
-
-    /// <summary>Cell pitch = dot + gap (6px).</summary>
-    private const int Cell = DotPx + GapPx;
-
-    private const int DigitW  = Cols * Cell;
-    private const int DigitH  = Rows * Cell;
-    private const int ColonW  = Cell * 2;
-    private const int CharGap = Cell;
-
-    // 10×5 — each horizontal bar uses 2 consecutive rows (e.g. 2, 3, 5 → top bar = rows 0–1)
     private static readonly Dictionary<char, string[]> Patterns = new()
     {
-        ['0'] = ["01110","01110","10001","10001","10001","10001","01110","01110","00000","00000"],
-        ['1'] = ["00000","00100","01100","00100","00100","00100","00100","00100","00100","00100"],
-        ['2'] = ["01110","01110","00001","00001","01110","01110","10000","10000","01110","01110"],
-        ['3'] = ["01110","01110","00001","00001","01110","01110","00001","00001","01110","01110"],
-        ['4'] = ["10001","10001","10001","10001","01110","01110","00001","00001","00001","00001"],
-        ['5'] = ["01110","01110","10000","10000","01110","01110","00001","00001","01110","01110"],
-        ['6'] = ["01110","01110","10000","10000","01110","01110","10001","10001","01110","01110"],
-        ['7'] = ["01110","01110","00001","00010","00100","01000","01000","01000","01000","01000"],
-        ['8'] = ["01110","01110","10001","10001","01110","01110","10001","10001","01110","01110"],
-        ['9'] = ["01110","01110","10001","10001","01110","01110","00001","00001","01110","01110"],
-        [' '] = ["00000","00000","00000","00000","00000","00000","00000","00000","00000","00000"],
+        ['0'] = ["0111110","1000001","1000001","1000001","1000001","1000001","0111110"],
+        ['1'] = ["0001000","0011000","0001000","0001000","0001000","0001000","0111110"],
+        ['2'] = ["0111110","1000001","0000001","0011110","0110000","1000000","1111111"],
+        ['3'] = ["0111110","1000001","0000001","0001110","0000001","1000001","0111110"],
+        ['4'] = ["0010001","0100001","1000001","1111111","0000001","0000001","0000001"],
+        ['5'] = ["1111111","1000000","1000000","0111110","0000001","0000001","0111110"],
+        ['6'] = ["0111110","1000000","1000000","1111110","1000001","1000001","0111110"],
+        ['7'] = ["1111111","0000001","0000010","0000100","0001000","0010000","0010000"],
+        ['8'] = ["0111110","1000001","1000001","0111110","1000001","1000001","0111110"],
+        ['9'] = ["0111110","1000001","1000001","0111111","0000001","0000001","0111110"],
+        [' '] = ["0000000","0000000","0000000","0000000","0000000","0000000","0000000"],
     };
 
     public static readonly DependencyProperty TextProperty =
@@ -116,8 +109,8 @@ public partial class DotMatrixDisplay : UserControl
     private void DrawColon(int originX)
     {
         int cx = originX + (ColonW - DotPx) / 2;
-        AddPixel(cx, 3 * Cell, true);
-        AddPixel(cx, 7 * Cell, true);
+        AddPixel(cx, 2 * Cell, true);
+        AddPixel(cx, 4 * Cell, true);
     }
 
     private void AddPixel(int x, int y, bool on)

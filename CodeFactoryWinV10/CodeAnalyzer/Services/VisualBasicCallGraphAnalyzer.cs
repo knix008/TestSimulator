@@ -179,7 +179,9 @@ public sealed class VisualBasicCallGraphAnalyzer : ICallGraphAnalyzer
         HashSet<(string CallerId, string CalleeId)> edges,
         CancellationToken cancellationToken)
     {
-        foreach (var methodBlock in root.DescendantNodes().OfType<MethodBlockSyntax>())
+        // MethodBlockBaseSyntax covers Sub/Function (MethodBlockSyntax), Sub New (ConstructorBlockSyntax),
+        // and operator overloads (OperatorBlockSyntax).
+        foreach (var methodBlock in root.DescendantNodes().OfType<MethodBlockBaseSyntax>())
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -198,6 +200,22 @@ public sealed class VisualBasicCallGraphAnalyzer : ICallGraphAnalyzer
 
                 var symbolInfo = semanticModel.GetSymbolInfo(invocation, cancellationToken);
                 if (symbolInfo.Symbol is not IMethodSymbol calleeSymbol)
+                {
+                    continue;
+                }
+
+                var calleeId = GetMethodId(calleeSymbol);
+                nodes.TryAdd(calleeId, CreateNode(calleeSymbol, GetSourcePath(calleeSymbol, filePath ?? string.Empty)));
+                edges.Add((callerId, calleeId));
+            }
+
+            foreach (var creation in methodBlock.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var symbolInfo = semanticModel.GetSymbolInfo(creation, cancellationToken);
+                if (symbolInfo.Symbol is not IMethodSymbol calleeSymbol
+                    || !calleeSymbol.Locations.Any(location => location.IsInSource))
                 {
                     continue;
                 }

@@ -23,6 +23,8 @@ public sealed class CSharpCallGraphAnalyzer : ICallGraphAnalyzer
         var edges = new HashSet<(string CallerId, string CalleeId)>();
         var references = MetadataReferenceProvider.CreateReferences();
 
+        // Try to compile all files together for best cross-file call resolution.
+        // OOM handler in ProcessFileRangeAsync will split into smaller chunks automatically.
         await ProcessFileRangeAsync(
             sourceFiles,
             references,
@@ -30,7 +32,7 @@ public sealed class CSharpCallGraphAnalyzer : ICallGraphAnalyzer
             edges,
             progress,
             cancellationToken,
-            RoslynAnalysisOptions.FilesPerCompilation).ConfigureAwait(false);
+            sourceFiles.Count).ConfigureAwait(false);
 
         return CallGraphBuilder.Build(
             nodes.Values.ToList(),
@@ -180,25 +182,42 @@ public sealed class CSharpCallGraphAnalyzer : ICallGraphAnalyzer
         HashSet<(string CallerId, string CalleeId)> edges,
         CancellationToken cancellationToken)
     {
-        foreach (var methodDeclaration in root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>())
+        var scopes = new List<(SyntaxNode Syntax, IMethodSymbol Symbol)>();
+
+        foreach (var method in root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>())
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            var methodSymbol = semanticModel.GetDeclaredSymbol(methodDeclaration, cancellationToken);
-            if (methodSymbol is null || methodSymbol.IsImplicitlyDeclared)
+            var symbol = semanticModel.GetDeclaredSymbol(method, cancellationToken);
+            if (symbol is null || symbol.IsImplicitlyDeclared)
             {
                 continue;
             }
+            scopes.Add((method, symbol));
+            nodes.TryAdd(GetMethodId(symbol), CreateNode(symbol, filePath));
+        }
 
-            var callerId = GetMethodId(methodSymbol);
-            nodes.TryAdd(callerId, CreateNode(methodSymbol, filePath));
+        foreach (var localFunc in root.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (semanticModel.GetDeclaredSymbol(localFunc, cancellationToken) is not IMethodSymbol symbol)
+            {
+                continue;
+            }
+            scopes.Add((localFunc, symbol));
+            nodes.TryAdd(GetMethodId(symbol), CreateNode(symbol, filePath));
+        }
 
-            foreach (var invocation in methodDeclaration.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        foreach (var (scopeSyntax, callerSymbol) in scopes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var callerId = GetMethodId(callerSymbol);
+
+            foreach (var invocation in GetDirectInvocations(scopeSyntax, cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var calleeSymbol = ResolveInvocation(compilation, semanticModel, invocation, cancellationToken);
-                if (calleeSymbol is null)
+                if (calleeSymbol is null || !calleeSymbol.Locations.Any(loc => loc.IsInSource))
                 {
                     continue;
                 }
@@ -206,6 +225,91 @@ public sealed class CSharpCallGraphAnalyzer : ICallGraphAnalyzer
                 var calleeId = GetMethodId(calleeSymbol);
                 nodes.TryAdd(calleeId, CreateNode(calleeSymbol, GetSourcePath(calleeSymbol, filePath)));
                 edges.Add((callerId, calleeId));
+            }
+
+            foreach (var creation in GetObjectCreations(scopeSyntax, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var symbolInfo = semanticModel.GetSymbolInfo(creation, cancellationToken);
+                if (symbolInfo.Symbol is not IMethodSymbol calleeSymbol
+                    || !calleeSymbol.Locations.Any(loc => loc.IsInSource))
+                {
+                    continue;
+                }
+
+                var calleeId = GetMethodId(calleeSymbol);
+                nodes.TryAdd(calleeId, CreateNode(calleeSymbol, GetSourcePath(calleeSymbol, filePath)));
+                edges.Add((callerId, calleeId));
+            }
+        }
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> GetDirectInvocations(SyntaxNode scope, CancellationToken cancellationToken)
+    {
+        foreach (var child in scope.ChildNodes())
+        {
+            foreach (var invocation in GetDirectInvocationsCore(child, cancellationToken))
+            {
+                yield return invocation;
+            }
+        }
+    }
+
+    private static IEnumerable<BaseObjectCreationExpressionSyntax> GetObjectCreations(SyntaxNode scope, CancellationToken cancellationToken)
+    {
+        foreach (var child in scope.ChildNodes())
+        {
+            foreach (var creation in GetObjectCreationsCore(child, cancellationToken))
+            {
+                yield return creation;
+            }
+        }
+    }
+
+    private static IEnumerable<BaseObjectCreationExpressionSyntax> GetObjectCreationsCore(SyntaxNode node, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (node is BaseObjectCreationExpressionSyntax creation)
+        {
+            yield return creation;
+        }
+
+        if (node is LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax)
+        {
+            yield break;
+        }
+
+        foreach (var child in node.ChildNodes())
+        {
+            foreach (var c in GetObjectCreationsCore(child, cancellationToken))
+            {
+                yield return c;
+            }
+        }
+    }
+
+    private static IEnumerable<InvocationExpressionSyntax> GetDirectInvocationsCore(SyntaxNode node, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (node is InvocationExpressionSyntax invocation)
+        {
+            yield return invocation;
+        }
+
+        // Stop at nested scope boundaries — local functions and lambdas are their own scopes
+        if (node is LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax)
+        {
+            yield break;
+        }
+
+        foreach (var child in node.ChildNodes())
+        {
+            foreach (var inv in GetDirectInvocationsCore(child, cancellationToken))
+            {
+                yield return inv;
             }
         }
     }

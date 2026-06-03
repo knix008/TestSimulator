@@ -21,7 +21,16 @@ namespace MyMindWin.Models
         /// <summary>AVIF CQ level (낮을수록 고품질, 일반적으로 18~40).</summary>
         public int AvifCqLevel { get; init; } = 28;
 
-        /// <summary>이미지 상단 Heading. null/빈 문자열이면 표시하지 않습니다.</summary>
+        /// <summary>Heading 포함 여부 (false면 <see cref="Heading"/> 값과 무관하게 표시하지 않음).</summary>
+        public bool IncludeHeading { get; init; }
+
+        /// <summary>Heading 텍스트.</summary>
         public string? Heading { get; init; }
+
+        /// <summary>Heading 배치 위치 (맵 위 오버레이).</summary>
+        public ExportHeadingPosition HeadingPosition { get; init; } = ExportHeadingPosition.TopLeft;
+
+        /// <summary>Heading 글자 색.</summary>
+        public Color HeadingColor { get; init; } = Colors.Black;
     }
 }

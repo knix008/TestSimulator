@@ -21,6 +21,23 @@ partial class MainForm
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         splitContainerMain = new SplitContainer();
         grpAnalysis = new GroupBox();
+        numMinDuplicateLines = new NumericUpDown();
+        lblMinDuplicateLines = new Label();
+        numWarnParameter = new NumericUpDown();
+        lblWarnParameter = new Label();
+        numWarnTodoDensity = new NumericUpDown();
+        lblWarnTodoDensity = new Label();
+        numWarnMi = new NumericUpDown();
+        numWarnFanOut = new NumericUpDown();
+        lblWarnMi = new Label();
+        lblWarnFanOut = new Label();
+        numWarnNesting = new NumericUpDown();
+        numWarnCognitive = new NumericUpDown();
+        numWarnCyclomatic = new NumericUpDown();
+        lblWarnNesting = new Label();
+        lblWarnCognitive = new Label();
+        lblWarnCyclomatic = new Label();
+        lblQualityThresholds = new Label();
         btnAnalyze = new Button();
         lblExcludeHint = new Label();
         checkedListDirectories = new CheckedListBox();
@@ -45,7 +62,11 @@ partial class MainForm
         lblDiagramView = new Label();
         menuStrip = new MenuStrip();
         menuFile = new ToolStripMenuItem();
+        menuOpen = new ToolStripMenuItem();
         menuSave = new ToolStripMenuItem();
+        menuExportImage = new ToolStripMenuItem();
+        menuExportMetrics = new ToolStripMenuItem();
+        menuExportReport = new ToolStripMenuItem();
         toolStripSearchLabel = new ToolStripLabel();
         toolStripSearchBox = new ToolStripTextBox();
         toolStripFindPrevious = new ToolStripButton();
@@ -59,6 +80,14 @@ partial class MainForm
         splitContainerMain.Panel2.SuspendLayout();
         splitContainerMain.SuspendLayout();
         grpAnalysis.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)numMinDuplicateLines).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnParameter).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnTodoDensity).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnMi).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnFanOut).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnNesting).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnCognitive).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnCyclomatic).BeginInit();
         panelToolbar.SuspendLayout();
         menuStrip.SuspendLayout();
         statusStrip.SuspendLayout();
@@ -92,6 +121,23 @@ partial class MainForm
         grpAnalysis.Controls.Add(lblExcludeHint);
         grpAnalysis.Controls.Add(checkedListDirectories);
         grpAnalysis.Controls.Add(lblExclude);
+        grpAnalysis.Controls.Add(numMinDuplicateLines);
+        grpAnalysis.Controls.Add(lblMinDuplicateLines);
+        grpAnalysis.Controls.Add(numWarnParameter);
+        grpAnalysis.Controls.Add(lblWarnParameter);
+        grpAnalysis.Controls.Add(numWarnTodoDensity);
+        grpAnalysis.Controls.Add(lblWarnTodoDensity);
+        grpAnalysis.Controls.Add(numWarnMi);
+        grpAnalysis.Controls.Add(numWarnFanOut);
+        grpAnalysis.Controls.Add(lblWarnMi);
+        grpAnalysis.Controls.Add(lblWarnFanOut);
+        grpAnalysis.Controls.Add(numWarnNesting);
+        grpAnalysis.Controls.Add(numWarnCognitive);
+        grpAnalysis.Controls.Add(numWarnCyclomatic);
+        grpAnalysis.Controls.Add(lblWarnNesting);
+        grpAnalysis.Controls.Add(lblWarnCognitive);
+        grpAnalysis.Controls.Add(lblWarnCyclomatic);
+        grpAnalysis.Controls.Add(lblQualityThresholds);
         grpAnalysis.Controls.Add(checkedListLanguages);
         grpAnalysis.Controls.Add(lblLanguages);
         grpAnalysis.Controls.Add(btnBrowseRoot);
@@ -133,15 +179,184 @@ partial class MainForm
         checkedListDirectories.CheckOnClick = true;
         checkedListDirectories.FormattingEnabled = true;
         checkedListDirectories.IntegralHeight = false;
-        checkedListDirectories.Location = new Point(12, 282);
+        checkedListDirectories.Location = new Point(12, 498);
         checkedListDirectories.Name = "checkedListDirectories";
-        checkedListDirectories.Size = new Size(276, 327);
+        checkedListDirectories.Size = new Size(276, 111);
         checkedListDirectories.TabIndex = 6;
+        // 
+        // lblQualityThresholds
+        // 
+        lblQualityThresholds.AutoSize = true;
+        lblQualityThresholds.Location = new Point(12, 218);
+        lblQualityThresholds.Name = "lblQualityThresholds";
+        lblQualityThresholds.Size = new Size(107, 15);
+        lblQualityThresholds.TabIndex = 11;
+        lblQualityThresholds.Text = "품질 경고 기준 (≥)";
+        // 
+        // lblWarnCyclomatic
+        // 
+        lblWarnCyclomatic.AutoSize = true;
+        lblWarnCyclomatic.Location = new Point(12, 238);
+        lblWarnCyclomatic.Name = "lblWarnCyclomatic";
+        lblWarnCyclomatic.Size = new Size(25, 15);
+        lblWarnCyclomatic.TabIndex = 12;
+        lblWarnCyclomatic.Text = "CC";
+        // 
+        // numWarnCyclomatic
+        // 
+        numWarnCyclomatic.Location = new Point(40, 236);
+        numWarnCyclomatic.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
+        numWarnCyclomatic.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numWarnCyclomatic.Name = "numWarnCyclomatic";
+        numWarnCyclomatic.Size = new Size(48, 23);
+        numWarnCyclomatic.TabIndex = 13;
+        numWarnCyclomatic.Value = new decimal(new int[] { 15, 0, 0, 0 });
+        numWarnCyclomatic.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnCognitive
+        // 
+        lblWarnCognitive.AutoSize = true;
+        lblWarnCognitive.Location = new Point(100, 238);
+        lblWarnCognitive.Name = "lblWarnCognitive";
+        lblWarnCognitive.Size = new Size(31, 15);
+        lblWarnCognitive.TabIndex = 14;
+        lblWarnCognitive.Text = "인지";
+        // 
+        // numWarnCognitive
+        // 
+        numWarnCognitive.Location = new Point(134, 236);
+        numWarnCognitive.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
+        numWarnCognitive.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numWarnCognitive.Name = "numWarnCognitive";
+        numWarnCognitive.Size = new Size(48, 23);
+        numWarnCognitive.TabIndex = 15;
+        numWarnCognitive.Value = new decimal(new int[] { 15, 0, 0, 0 });
+        numWarnCognitive.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnNesting
+        // 
+        lblWarnNesting.AutoSize = true;
+        lblWarnNesting.Location = new Point(194, 238);
+        lblWarnNesting.Name = "lblWarnNesting";
+        lblWarnNesting.Size = new Size(31, 15);
+        lblWarnNesting.TabIndex = 16;
+        lblWarnNesting.Text = "중첩";
+        // 
+        // numWarnNesting
+        // 
+        numWarnNesting.Location = new Point(228, 236);
+        numWarnNesting.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
+        numWarnNesting.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numWarnNesting.Name = "numWarnNesting";
+        numWarnNesting.Size = new Size(48, 23);
+        numWarnNesting.TabIndex = 17;
+        numWarnNesting.Value = new decimal(new int[] { 4, 0, 0, 0 });
+        numWarnNesting.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnFanOut
+        // 
+        lblWarnFanOut.AutoSize = true;
+        lblWarnFanOut.Location = new Point(12, 262);
+        lblWarnFanOut.Name = "lblWarnFanOut";
+        lblWarnFanOut.Size = new Size(48, 15);
+        lblWarnFanOut.TabIndex = 18;
+        lblWarnFanOut.Text = "FanOut";
+        // 
+        // numWarnFanOut
+        // 
+        numWarnFanOut.Location = new Point(62, 260);
+        numWarnFanOut.Maximum = new decimal(new int[] { 500, 0, 0, 0 });
+        numWarnFanOut.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numWarnFanOut.Name = "numWarnFanOut";
+        numWarnFanOut.Size = new Size(48, 23);
+        numWarnFanOut.TabIndex = 19;
+        numWarnFanOut.Value = new decimal(new int[] { 10, 0, 0, 0 });
+        numWarnFanOut.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnMi
+        // 
+        lblWarnMi.AutoSize = true;
+        lblWarnMi.Location = new Point(120, 262);
+        lblWarnMi.Name = "lblWarnMi";
+        lblWarnMi.Size = new Size(43, 15);
+        lblWarnMi.TabIndex = 20;
+        lblWarnMi.Text = "MI <";
+        // 
+        // numWarnMi
+        // 
+        numWarnMi.Location = new Point(166, 260);
+        numWarnMi.Maximum = new decimal(new int[] { 171, 0, 0, 0 });
+        numWarnMi.Name = "numWarnMi";
+        numWarnMi.Size = new Size(48, 23);
+        numWarnMi.TabIndex = 21;
+        numWarnMi.Value = new decimal(new int[] { 65, 0, 0, 0 });
+        numWarnMi.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnTodoDensity
+        // 
+        lblWarnTodoDensity.AutoSize = true;
+        lblWarnTodoDensity.Location = new Point(220, 262);
+        lblWarnTodoDensity.Name = "lblWarnTodoDensity";
+        lblWarnTodoDensity.Size = new Size(58, 15);
+        lblWarnTodoDensity.TabIndex = 22;
+        lblWarnTodoDensity.Text = "TODO≥";
+        // 
+        // numWarnTodoDensity
+        // 
+        numWarnTodoDensity.DecimalPlaces = 1;
+        numWarnTodoDensity.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
+        numWarnTodoDensity.Location = new Point(278, 260);
+        numWarnTodoDensity.Maximum = new decimal(new int[] { 100, 0, 0, 0 });
+        numWarnTodoDensity.Name = "numWarnTodoDensity";
+        numWarnTodoDensity.Size = new Size(48, 23);
+        numWarnTodoDensity.TabIndex = 23;
+        numWarnTodoDensity.Value = new decimal(new int[] { 20, 0, 0, 65536 });
+        numWarnTodoDensity.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnParameter
+        // 
+        lblWarnParameter.AutoSize = true;
+        lblWarnParameter.Location = new Point(12, 286);
+        lblWarnParameter.Name = "lblWarnParameter";
+        lblWarnParameter.Size = new Size(31, 15);
+        lblWarnParameter.TabIndex = 24;
+        lblWarnParameter.Text = "매개";
+        // 
+        // numWarnParameter
+        // 
+        numWarnParameter.Location = new Point(44, 284);
+        numWarnParameter.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
+        numWarnParameter.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numWarnParameter.Name = "numWarnParameter";
+        numWarnParameter.Size = new Size(48, 23);
+        numWarnParameter.TabIndex = 25;
+        numWarnParameter.Value = new decimal(new int[] { 7, 0, 0, 0 });
+        numWarnParameter.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // numMinDuplicateLines
+        // 
+        numMinDuplicateLines.Location = new Point(12, 448);
+        numMinDuplicateLines.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
+        numMinDuplicateLines.Minimum = new decimal(new int[] { 2, 0, 0, 0 });
+        numMinDuplicateLines.Name = "numMinDuplicateLines";
+        numMinDuplicateLines.Size = new Size(80, 23);
+        numMinDuplicateLines.TabIndex = 9;
+        numMinDuplicateLines.Value = new decimal(new int[] { 3, 0, 0, 0 });
+        numMinDuplicateLines.ValueChanged += numMinDuplicateLines_ValueChanged;
+        // 
+        // lblMinDuplicateLines
+        // 
+        lblMinDuplicateLines.AutoSize = true;
+        lblMinDuplicateLines.Location = new Point(12, 428);
+        lblMinDuplicateLines.Name = "lblMinDuplicateLines";
+        lblMinDuplicateLines.Size = new Size(195, 15);
+        lblMinDuplicateLines.TabIndex = 10;
+        lblMinDuplicateLines.Text = "중복 코드 최소 줄 수 (동일 연속 줄)";
         // 
         // lblExclude
         // 
         lblExclude.AutoSize = true;
-        lblExclude.Location = new Point(12, 262);
+        lblExclude.Location = new Point(12, 478);
         lblExclude.Name = "lblExclude";
         lblExclude.Size = new Size(123, 15);
         lblExclude.TabIndex = 5;
@@ -155,7 +370,7 @@ partial class MainForm
         checkedListLanguages.IntegralHeight = false;
         checkedListLanguages.Location = new Point(12, 100);
         checkedListLanguages.Name = "checkedListLanguages";
-        checkedListLanguages.Size = new Size(276, 150);
+        checkedListLanguages.Size = new Size(276, 110);
         checkedListLanguages.TabIndex = 4;
         // 
         // lblLanguages
@@ -351,18 +566,48 @@ partial class MainForm
         // 
         // menuFile
         // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuSave });
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuOpen, menuSave, menuExportMetrics, menuExportReport, menuExportImage });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(43, 23);
         menuFile.Text = "파일";
-        // 
+        //
+        // menuOpen
+        //
+        menuOpen.Name = "menuOpen";
+        menuOpen.ShortcutKeys = Keys.Control | Keys.O;
+        menuOpen.Size = new Size(200, 22);
+        menuOpen.Text = "결과 불러오기...";
+        menuOpen.Click += menuOpen_Click;
+        //
         // menuSave
-        // 
+        //
         menuSave.Name = "menuSave";
         menuSave.ShortcutKeys = Keys.Control | Keys.S;
-        menuSave.Size = new Size(176, 22);
+        menuSave.Size = new Size(200, 22);
         menuSave.Text = "결과 저장...";
         menuSave.Click += menuSave_Click;
+        //
+        // menuExportMetrics
+        // 
+        menuExportMetrics.Name = "menuExportMetrics";
+        menuExportMetrics.Size = new Size(200, 22);
+        menuExportMetrics.Text = "메트릭 CSV보내기...";
+        menuExportMetrics.Click += menuExportMetrics_Click;
+        // 
+        // menuExportReport
+        // 
+        menuExportReport.Name = "menuExportReport";
+        menuExportReport.Size = new Size(240, 22);
+        menuExportReport.Text = "분석 보고서보내기 (HTML/MD/Word/PDF)...";
+        menuExportReport.Click += menuExportReport_Click;
+        // 
+        // menuExportImage
+        //
+        menuExportImage.Name = "menuExportImage";
+        menuExportImage.ShortcutKeys = Keys.Control | Keys.E;
+        menuExportImage.Size = new Size(200, 22);
+        menuExportImage.Text = "이미지로 내보내기...";
+        menuExportImage.Click += menuExportImage_Click;
         // 
         // toolStripSearchLabel
         // 
@@ -454,6 +699,14 @@ partial class MainForm
         splitContainerMain.ResumeLayout(false);
         grpAnalysis.ResumeLayout(false);
         grpAnalysis.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)numMinDuplicateLines).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnParameter).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnTodoDensity).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnMi).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnFanOut).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnNesting).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnCognitive).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnCyclomatic).EndInit();
         panelToolbar.ResumeLayout(false);
         panelToolbar.PerformLayout();
         menuStrip.ResumeLayout(false);
@@ -466,6 +719,23 @@ partial class MainForm
 
     private SplitContainer splitContainerMain;
     private GroupBox grpAnalysis;
+    private NumericUpDown numMinDuplicateLines;
+    private Label lblMinDuplicateLines;
+    private NumericUpDown numWarnParameter;
+    private Label lblWarnParameter;
+    private NumericUpDown numWarnTodoDensity;
+    private Label lblWarnTodoDensity;
+    private NumericUpDown numWarnMi;
+    private NumericUpDown numWarnFanOut;
+    private Label lblWarnMi;
+    private Label lblWarnFanOut;
+    private NumericUpDown numWarnNesting;
+    private NumericUpDown numWarnCognitive;
+    private NumericUpDown numWarnCyclomatic;
+    private Label lblWarnNesting;
+    private Label lblWarnCognitive;
+    private Label lblWarnCyclomatic;
+    private Label lblQualityThresholds;
     private Button btnAnalyze;
     private Label lblExcludeHint;
     private CheckedListBox checkedListDirectories;
@@ -490,7 +760,11 @@ partial class MainForm
     private Label lblDiagramView;
     private MenuStrip menuStrip;
     private ToolStripMenuItem menuFile;
+    private ToolStripMenuItem menuOpen;
     private ToolStripMenuItem menuSave;
+    private ToolStripMenuItem menuExportMetrics;
+    private ToolStripMenuItem menuExportReport;
+    private ToolStripMenuItem menuExportImage;
     private ToolStripLabel toolStripSearchLabel;
     private ToolStripTextBox toolStripSearchBox;
     private ToolStripButton toolStripFindPrevious;

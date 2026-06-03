@@ -52,6 +52,10 @@ namespace MyMindWin.Controls
         private bool _layoutRebuildPending;
         private bool _rebuildQueuedDuringRebuild;
         private bool _rebuildDeferredForContextMenu;
+        private bool _rebuildQueuedWhilePending;
+        private bool _structuralRebuildPending;
+        private bool _applyFitAfterRebuild;
+        private int _layoutRebuildGeneration;
         private Guid? _pendingContextMenuNodeId;
         private ContextMenu? _activeContextMenu;
         private Path? _fishboneSpinePath;
@@ -69,10 +73,11 @@ namespace MyMindWin.Controls
         private const double HNodeSpacingY  = 14;   // 형제 노드 세로 간격
         private const double RadialLinkGap    = 6;  // 부모·자식 중심 간 최소 간격 (가장자리 기준)
         private const double RadialSiblingGap = 6;  // 같은 링에서 형제 노드 호 간 최소 간격
-        private const double FishboneRibStub   = 32; // 척추(spine)에서 1단계 카테고리 노드까지
-        private const double FishboneSpineGap  = 20; // 척추를 따라 카테고리 간 간격
+        private const double FishboneRibStub   = 44; // 척추(spine)에서 1단계 카테고리 노드까지
+        private const double FishboneSpineGap  = 24; // 척추를 따라 카테고리 간 간격
         private const double FishboneSpineTail = 48; // 척추 끝에서 루트(머리)까지
-        private const double FishbonePackMargin = 8;  // 가지 간 겹침 방지 여백
+        private const double FishbonePackMargin = 12;  // 가지 간 겹침 방지 여백
+        private const double FishboneSpineClearance = 16; // 주 척추 Y 주변 노드 금지 반경
         private const double ConnectionArmMin = 20; // 베지어 제어 arm 최소
         private const double ConnectionArmMax = 56; // 베지어 제어 arm 최대
         private const double ContentPadding = 80;
@@ -258,10 +263,19 @@ namespace MyMindWin.Controls
                 PickImageForNode(node);
         }
 
-        private void OnRequestLayout(object? sender, EventArgs e) => ScheduleRebuildCanvas();
+        private void OnRequestLayout(object? sender, EventArgs e)
+        {
+            CloseActiveContextMenu();
+            _structuralRebuildPending = true;
+            _layoutRebuildGeneration++;
+            _layoutRebuildPending = false;
+            RequestCanvasRebuild(preferImmediate: true);
+        }
 
         /// <summary>UI 스레드에서 캔버스 재구성을 한 번만 예약합니다 (재진입·중복 호출 방지).</summary>
-        public void ScheduleRebuildCanvas()
+        public void ScheduleRebuildCanvas() => RequestCanvasRebuild(preferImmediate: false);
+
+        private void RequestCanvasRebuild(bool preferImmediate)
         {
             if (_vm?.RootNode == null)
                 return;
@@ -279,21 +293,67 @@ namespace MyMindWin.Controls
             }
 
             if (_layoutRebuildPending)
+            {
+                _rebuildQueuedWhilePending = true;
                 return;
+            }
 
+            if (preferImmediate && Dispatcher.CheckAccess())
+            {
+                RunRebuildCanvasOnce();
+                return;
+            }
+
+            int generation = ++_layoutRebuildGeneration;
             _layoutRebuildPending = true;
             Dispatcher.BeginInvoke(() =>
             {
+                if (generation != _layoutRebuildGeneration)
+                    return;
+
                 _layoutRebuildPending = false;
-                try
-                {
-                    RebuildCanvas();
-                }
-                catch (Exception ex)
-                {
-                    ExceptionReporter.Show(ex, "캔버스 재구성 (예약 실행)");
-                }
+                RunRebuildCanvasOnce();
             }, System.Windows.Threading.DispatcherPriority.Normal);
+        }
+
+        private void RunRebuildCanvasOnce()
+        {
+            var rerunImmediate = false;
+            var rerunPreferStructural = false;
+
+            try
+            {
+                RebuildCanvas();
+            }
+            catch (Exception ex)
+            {
+                ExceptionReporter.Show(ex, "캔버스 재구성");
+            }
+            finally
+            {
+                if (_rebuildQueuedWhilePending)
+                {
+                    _rebuildQueuedWhilePending = false;
+                    rerunImmediate = true;
+                }
+                else if (_rebuildQueuedDuringRebuild)
+                {
+                    _rebuildQueuedDuringRebuild = false;
+                    rerunPreferStructural = _structuralRebuildPending;
+                }
+                else if (_structuralRebuildPending &&
+                         !_rebuildQueuedDuringRebuild &&
+                         !_rebuildQueuedWhilePending &&
+                         !_layoutRebuildPending)
+                {
+                    _structuralRebuildPending = false;
+                }
+            }
+
+            if (rerunImmediate)
+                RequestCanvasRebuild(preferImmediate: true);
+            else if (rerunPreferStructural)
+                RequestCanvasRebuild(preferImmediate: _structuralRebuildPending);
         }
 
         private void OnRequestNodeShapeRefresh(object? sender, NodeViewModel node) => ReplaceNodeVisual(node);
@@ -317,8 +377,16 @@ namespace MyMindWin.Controls
             _userPositioned = false;
             ClearManualPositionsOnAllNodes();
             _lastLayoutType = _vm!.LayoutType;
-            RebuildCanvas();
-            FitToView();
+            _applyFitAfterRebuild = true;
+            try
+            {
+                RebuildCanvas();
+                FitToView();
+            }
+            finally
+            {
+                _applyFitAfterRebuild = false;
+            }
         }
 
         private void OnRequestFitView(object? sender, EventArgs e) => FitToView();
@@ -343,7 +411,15 @@ namespace MyMindWin.Controls
                     _lastLayoutType = _vm.LayoutType;
                 }
 
-                _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
+                if (_structuralRebuildPending)
+                {
+                    _userPositioned = false;
+                    ClearManualPositionsOnAllNodes();
+                }
+
+                PrepareForAutomaticLayout();
+                if (!UsesGlobalAutoLayout && !_userPositioned)
+                    _userPositioned = _vm.GetAllNodes().Any(n => n.HasManualPosition);
 
                 if (!_userPositioned)
                     ApplyAutomaticLayoutPositions();
@@ -361,10 +437,7 @@ namespace MyMindWin.Controls
                     }
                 }
 
-                NodeCanvas.Children.Clear();
-                ConnectionCanvas.Children.Clear();
-                _nodeElements.Clear();
-                _connectionPaths.Clear();
+                ClearCanvasVisuals();
 
                 UpdateContentExtent();
 
@@ -383,24 +456,19 @@ namespace MyMindWin.Controls
                         FitToView();
                         _pendingFitAfterLoad = false;
                     }
-                    else if (!_userPositioned)
+                    else if (!_userPositioned && !_applyFitAfterRebuild)
                         SetViewToDefaultZoom();
                 }
             }
             catch (Exception ex)
             {
                 ExceptionReporter.Show(ex, $"캔버스 재구성 ({_vm?.LayoutType})");
+                try { ClearCanvasVisuals(); } catch { /* ignored */ }
             }
             finally
             {
                 _suppressExtentSync = false;
                 _isRebuildingCanvas = false;
-
-                if (_rebuildQueuedDuringRebuild)
-                {
-                    _rebuildQueuedDuringRebuild = false;
-                    ScheduleRebuildCanvas();
-                }
 
                 if (_pendingContextMenuNodeId is Guid pendingId)
                 {
@@ -416,6 +484,16 @@ namespace MyMindWin.Controls
 
                 CanvasLayoutCompleted?.Invoke(this, EventArgs.Empty);
             }
+        }
+
+        private void ClearCanvasVisuals()
+        {
+            NodeCanvas.Children.Clear();
+            ConnectionCanvas.Children.Clear();
+            _nodeElements.Clear();
+            _connectionPaths.Clear();
+            _fishboneSpinePath = null;
+            _fishboneSubSpinePaths.Clear();
         }
 
         private void ClearManualPositionsOnAllNodes()
@@ -510,105 +588,335 @@ namespace MyMindWin.Controls
                 return;
             }
 
-            var placedBounds = new List<(double minX, double minY, double maxX, double maxY)>();
-            double spineEnd = 0;
+            PlaceFishboneChildrenOnSpine(root, spineY, spineLeft, layoutRibContents: true);
+            root.Y = spineY - NodeHeight / 2;
+            AlignFishboneDiagram(root, spineY);
+        }
 
-            for (int i = 0; i < root.Children.Count; i++)
+        /// <summary>피쉬본 전체를 여백·척추 기준으로 정렬합니다.</summary>
+        private void AlignFishboneDiagram(NodeViewModel root, double spineY)
+        {
+            var (minX, minY, maxX, maxY) = GetBoundingBox();
+            if (minX == double.MaxValue) return;
+
+            double dx = ContentPadding - minX;
+            if (dx > 0.5)
+                ShiftSubtree(root, dx, 0);
+
+            (minX, minY, maxX, maxY) = GetBoundingBox();
+            double upperSpace = spineY - minY;
+            double lowerSpace = maxY - spineY;
+            double dy = (lowerSpace - upperSpace) / 2;
+            if (Math.Abs(dy) > 0.5)
+                ShiftSubtree(root, 0, dy);
+        }
+
+        /// <summary>가지(카테고리) 노드와 그 하위를 재귀적으로 fishbone 형태로 배치합니다.</summary>
+        private void LayoutFishboneRibContents(NodeViewModel node)
+        {
+            if (!node.IsExpanded || node.Children.Count == 0)
             {
-                var child = root.Children[i];
+                node.X = 0;
+                node.Y = 0;
+                return;
+            }
+
+            foreach (var child in node.Children)
+                LayoutFishboneRibContents(child);
+
+            PlaceFishboneChildrenOnSpine(node, spineY: 0, mainSpineLeft: null, layoutRibContents: false);
+        }
+
+        /// <summary>
+        /// head의 직계 자식을 척추(sub-spine)에 fishbone 형태로 배치합니다.
+        /// 메인·하위 모든 depth에서 동일한 규칙(위/아래 교대, rib stub, spine gap/tail)을 사용합니다.
+        /// </summary>
+        /// <param name="mainSpineLeft">루트 척추 X. null이면 하위 가지(로컬 좌표).</param>
+        /// <param name="layoutRibContents">true면 각 자식 가지 내부 fishbone을 먼저 구성 (루트 1단계).</param>
+        private void PlaceFishboneChildrenOnSpine(
+            NodeViewModel head,
+            double spineY,
+            double? mainSpineLeft,
+            bool layoutRibContents)
+        {
+            if (!head.IsExpanded || head.Children.Count == 0)
+            {
+                head.X = mainSpineLeft ?? 0;
+                head.Y = spineY - NodeHeight / 2;
+                return;
+            }
+
+            // 상하 가지는 서로 겹칠 수 없으므로(척추를 기준으로 반대편), 방향별로 별도 관리합니다.
+            var upperBounds = new List<(double minX, double minY, double maxX, double maxY)>();
+            var lowerBounds = new List<(double minX, double minY, double maxX, double maxY)>();
+            bool isMainSpine = mainSpineLeft.HasValue;
+
+            // 하위 가지: head(카테고리)는 부모 척추 부착점에 고정, sub-spine만 왼쪽으로 뻗음
+            if (!isMainSpine)
+            {
+                head.X = -head.Width;
+                head.Y = spineY - NodeHeight / 2;
+            }
+
+            // 위/아래 가지를 각자 독립된 척추 커서로 추적합니다.
+            // 동일 spineAttach에 상하 한 쌍을 배치할 수 있어 균형잡힌 어골 형태가 됩니다.
+            double spineEndUpper = 0;
+            double spineEndLower = 0;
+
+            for (int i = 0; i < head.Children.Count; i++)
+            {
+                var child = head.Children[i];
                 bool upper = i % 2 == 0;
-                PrepareFishboneRib(child, upper);
+                child.FishboneRibUpper = upper;
 
-                var (minX, minY, maxX, maxY) = GetSubtreeBounds(child);
-                double perp = maxY - minY;
+                if (layoutRibContents)
+                    LayoutFishboneRibContents(child);
+                AlignFishboneRibForSpinePlacement(child, upper);
+
                 double attachRight = child.X + child.Width;
+                double spineAttach = upper ? spineEndUpper : spineEndLower;
+                var myBounds = upper ? upperBounds : lowerBounds;
 
-                double spineAttach = spineEnd > 0 ? spineEnd + FishboneSpineGap : 0;
-                const int maxAttempts = 400;
-
+                const int maxAttempts = 120;
                 for (int attempt = 0; attempt < maxAttempts; attempt++)
                 {
-                    double spineX = spineLeft + spineAttach;
+                    double spineX = isMainSpine
+                        ? mainSpineLeft!.Value + spineAttach
+                        : head.X - spineAttach;
                     double dx = spineX - attachRight;
-                    double dyWorld = upper
-                        ? spineY - FishboneRibStub - (child.Y + NodeHeight)
-                        : spineY + FishboneRibStub - child.Y;
 
-                    double wMinX = minX + dx;
-                    double wMinY = minY + dyWorld;
-                    double wMaxX = maxX + dx;
-                    double wMaxY = maxY + dyWorld;
+                    // dyWorld = spineY 는 AlignFishboneRibForSpinePlacement 가 이미 로컬에서
+                    // 서브트리 범위를 반영한 stub 을 적용했으므로, 척추 Y를 더하는 것으로 충분합니다.
+                    var (wMinX, wMinY, wMaxX, wMaxY) = GetFishboneRibPackBounds(child, dx, spineY);
 
-                    if (!BoundsOverlapAny(placedBounds, wMinX, wMinY, wMaxX, wMaxY))
+                    // 같은 방향(상↔상, 하↔하)끼리만 겹침 검사합니다. 반대편은 척추 덕분에 항상 분리됩니다.
+                    bool overlaps = BoundsOverlapAny(myBounds, wMinX, wMinY, wMaxX, wMaxY);
+                    if (!overlaps || attempt == maxAttempts - 1)
                     {
-                        ShiftSubtree(child, dx, dyWorld);
-                        placedBounds.Add((wMinX, wMinY, wMaxX, wMaxY));
-                        spineEnd = Math.Max(spineEnd, spineAttach + perp + FishboneSpineGap);
+                        ShiftSubtree(child, dx, spineY);
+                        myBounds.Add(GetFishboneRibPackBounds(child, 0, 0));
+                        if (upper) spineEndUpper = spineAttach + FishboneSpineGap;
+                        else       spineEndLower = spineAttach + FishboneSpineGap;
                         break;
                     }
 
-                    spineAttach += 6;
-                }
-
-                if (placedBounds.Count <= i)
-                {
-                    double spineX = spineLeft + spineAttach;
-                    double dx = spineX - attachRight;
-                    double dyWorld = upper
-                        ? spineY - FishboneRibStub - (child.Y + NodeHeight)
-                        : spineY + FishboneRibStub - child.Y;
-                    ShiftSubtree(child, dx, dyWorld);
-                    var (wMinX, wMinY, wMaxX, wMaxY) = GetSubtreeBounds(child);
-                    placedBounds.Add((wMinX, wMinY, wMaxX, wMaxY));
-                    spineEnd = Math.Max(spineEnd, spineAttach + perp + FishboneSpineGap);
+                    spineAttach += 16;
                 }
             }
 
-            root.X = spineLeft + spineEnd + FishboneSpineTail;
-            root.Y = spineY - NodeHeight / 2;
-        }
+            PackFishboneRibSiblings(head, spineY);
 
-        private void PrepareFishboneRib(NodeViewModel child, bool upper)
-        {
-            LayoutHorizontal(child, 0, 0, out _);
-            MirrorSubtreeX(child);
-            // Offset L2+ descendants above/below their parent's centerY so connections are diagonal
-            ApplyFishboneSubLevelOffsets(child);
+            double spineEnd = Math.Max(spineEndUpper, spineEndLower);
 
-            var (_, minY, _, maxY) = GetSubtreeBounds(child);
-            double dyLocal = upper ? -maxY + NodeHeight : -minY;
-            ShiftSubtree(child, 0, dyLocal);
-        }
-
-        /// <summary>각 노드의 자식 노드들을 부모 중심 Y에서 위/아래로 오프셋하여 사선 연결선을 만듭니다.</summary>
-        private void ApplyFishboneSubLevelOffsets(NodeViewModel node)
-        {
-            if (!node.IsExpanded || node.Children.Count == 0) return;
-
-            double centerY = node.Y + NodeHeight / 2;
-            int upperIdx = 0, lowerIdx = 0;
-
-            for (int i = 0; i < node.Children.Count; i++)
+            if (isMainSpine)
             {
-                var child = node.Children[i];
-                bool childUpper = i % 2 == 0;
-
-                double targetY;
-                if (childUpper)
-                {
-                    upperIdx++;
-                    targetY = centerY - FishboneRibStub * upperIdx - NodeHeight;
-                }
-                else
-                {
-                    lowerIdx++;
-                    targetY = centerY + FishboneRibStub * lowerIdx;
-                }
-
-                double dy = targetY - child.Y;
-                ShiftSubtree(child, 0, dy);
-                ApplyFishboneSubLevelOffsets(child);
+                head.X = mainSpineLeft!.Value + spineEnd + FishboneSpineTail;
+                head.Y = spineY - NodeHeight / 2;
             }
+        }
+
+        /// <summary>가지 패킹용 경계 — 펼친 손자 서브트리 전체를 포함해 겹침을 방지합니다.</summary>
+        private (double minX, double minY, double maxX, double maxY) GetFishboneRibPackBounds(
+            NodeViewModel ribRoot, double dx, double dy)
+        {
+            var (minX, minY, maxX, maxY) = GetSubtreeBounds(ribRoot);
+            return (minX + dx, minY + dy, maxX + dx, maxY + dy);
+        }
+
+        /// <summary>같은 척추의 형제 가지끼리 서브트리 겹침을 세로로 분리합니다.</summary>
+        private void PackFishboneRibSiblings(NodeViewModel head, double spineY)
+        {
+            if (head.Children.Count < 2) return;
+
+            var uppers = new List<NodeViewModel>();
+            var lowers = new List<NodeViewModel>();
+            for (int i = 0; i < head.Children.Count; i++)
+            {
+                if (i % 2 == 0) uppers.Add(head.Children[i]);
+                else lowers.Add(head.Children[i]);
+            }
+
+            // 위쪽 가지: 척추에 가까운 순 → 바깥쪽으로 쌓기
+            uppers.Sort((a, b) => GetSubtreeBounds(b).maxY.CompareTo(GetSubtreeBounds(a).maxY));
+            for (int k = 1; k < uppers.Count; k++)
+            {
+                var prev = uppers[k - 1];
+                var curr = uppers[k];
+                var (_, pMinY, _, _) = GetSubtreeBounds(prev);
+                var (_, cMinY, _, cMaxY) = GetSubtreeBounds(curr);
+                double limit = pMinY - FishbonePackMargin;
+                if (cMaxY > limit)
+                    ShiftSubtree(curr, 0, limit - cMaxY);
+            }
+
+            // 아래쪽 가지: 척추에 가까운 순 → 바깥쪽으로 쌓기
+            lowers.Sort((a, b) => GetSubtreeBounds(a).minY.CompareTo(GetSubtreeBounds(b).minY));
+            for (int k = 1; k < lowers.Count; k++)
+            {
+                var prev = lowers[k - 1];
+                var curr = lowers[k];
+                var (_, _, _, pMaxY) = GetSubtreeBounds(prev);
+                var (_, cMinY, _, _) = GetSubtreeBounds(curr);
+                double limit = pMaxY + FishbonePackMargin;
+                if (cMinY < limit)
+                    ShiftSubtree(curr, 0, limit - cMinY);
+            }
+
+            // 위·아래 가지 교차 겹침 및 잔여 겹침 분리
+            const int maxIterations = 24;
+            for (int iter = 0; iter < maxIterations; iter++)
+            {
+                bool moved = false;
+                for (int i = 0; i < head.Children.Count; i++)
+                {
+                    for (int j = i + 1; j < head.Children.Count; j++)
+                    {
+                        if (PushApartFishboneSubtrees(head.Children[i], head.Children[j], i, j))
+                            moved = true;
+                    }
+                }
+
+                if (!moved) break;
+            }
+
+            foreach (var child in head.Children)
+            {
+                bool upper = head.Children.IndexOf(child) % 2 == 0;
+                EnsureRibClearOfMainSpine(child, upper, spineY, FishboneSpineClearance);
+            }
+        }
+
+        private bool PushApartFishboneSubtrees(NodeViewModel a, NodeViewModel b, int indexA, int indexB)
+        {
+            var (aMinX, aMinY, aMaxX, aMaxY) = GetSubtreeBounds(a);
+            var (bMinX, bMinY, bMaxX, bMaxY) = GetSubtreeBounds(b);
+            double m = FishbonePackMargin;
+            if (aMinX - m >= bMaxX + m || bMinX - m >= aMaxX + m ||
+                aMinY - m >= bMaxY + m || bMinY - m >= aMaxY + m)
+                return false;
+
+            bool aUpper = indexA % 2 == 0;
+            bool bUpper = indexB % 2 == 0;
+
+            if (aUpper && bUpper)
+            {
+                // 더 바깥(위) 가지를 위로
+                var outer = indexA < indexB ? b : a;
+                var inner = indexA < indexB ? a : b;
+                var (_, iMinY, _, _) = GetSubtreeBounds(inner);
+                var (_, _, _, oMaxY) = GetSubtreeBounds(outer);
+                if (oMaxY > iMinY - m)
+                {
+                    ShiftSubtree(outer, 0, iMinY - m - oMaxY);
+                    return true;
+                }
+            }
+            else if (!aUpper && !bUpper)
+            {
+                var outer = indexA < indexB ? b : a;
+                var inner = indexA < indexB ? a : b;
+                var (_, _, _, iMaxY) = GetSubtreeBounds(inner);
+                var (_, oMinY, _, _) = GetSubtreeBounds(outer);
+                if (oMinY < iMaxY + m)
+                {
+                    ShiftSubtree(outer, 0, iMaxY + m - oMinY);
+                    return true;
+                }
+            }
+            else
+            {
+                var upperNode = aUpper ? a : b;
+                var lowerNode = aUpper ? b : a;
+                var (_, uMinY, _, uMaxY) = GetSubtreeBounds(upperNode);
+                var (_, lMinY, _, lMaxY) = GetSubtreeBounds(lowerNode);
+                if (uMaxY <= lMinY - m) return false;
+
+                double overlap = uMaxY - (lMinY - m);
+                ShiftSubtree(upperNode, 0, -overlap * 0.55);
+                ShiftSubtree(lowerNode, 0, overlap * 0.45);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>가지 부착점(카테고리 노드 오른쪽)과 위/아래 방향을 척추 부착에 맞게 정렬합니다.</summary>
+        private void AlignFishboneRibForSpinePlacement(NodeViewModel ribRoot, bool upper)
+        {
+            double attachRight = ribRoot.X + ribRoot.Width;
+            if (Math.Abs(attachRight) > 0.01)
+                ShiftSubtree(ribRoot, -attachRight, 0);
+
+            // stub 계산: max(Width/2, 서브트리가 척추 쪽으로 뻗은 최대 범위 + clearance)
+            // 서브트리 범위를 반영하면 손자 노드가 척추선과 겹치지 않습니다.
+            double stub;
+            if (upper)
+            {
+                // maxY = 서브트리에서 가장 아래(척추 방향)까지 내려온 바닥 Y (로컬 좌표)
+                var (_, _, _, maxY) = GetSubtreeBoundsStatic(ribRoot);
+                stub = Math.Max(ribRoot.Width / 2, maxY - NodeHeight / 2 + FishboneSpineClearance);
+            }
+            else
+            {
+                // minY = 서브트리에서 가장 위(척추 방향)까지 올라온 꼭대기 Y (로컬 좌표)
+                var (_, minY, _, _) = GetSubtreeBoundsStatic(ribRoot);
+                stub = Math.Max(ribRoot.Width / 2, -minY - NodeHeight / 2 + FishboneSpineClearance);
+            }
+
+            double dyLocal = upper
+                ? -(ribRoot.Y + NodeHeight) - stub
+                : -ribRoot.Y + stub;
+            ShiftSubtree(ribRoot, 0, dyLocal);
+        }
+
+        /// <summary>가지 전체가 주 척추선과 겹치지 않도록 한쪽으로 밀어냅니다.</summary>
+        private static void EnsureRibClearOfMainSpine(
+            NodeViewModel ribRoot, bool upper, double spineY, double clearance)
+        {
+            var (_, minY, _, maxY) = GetSubtreeBoundsStatic(ribRoot);
+            if (upper)
+            {
+                double limit = spineY - clearance;
+                if (maxY > limit)
+                    ShiftSubtree(ribRoot, 0, limit - maxY);
+            }
+            else
+            {
+                double limit = spineY + clearance;
+                if (minY < limit)
+                    ShiftSubtree(ribRoot, 0, limit - minY);
+            }
+        }
+
+        private static bool RibViolatesMainSpineClearance(
+            double minY, double maxY, double spineY, double clearance, bool upper)
+        {
+            if (upper)
+                return maxY > spineY - clearance;
+            return minY < spineY + clearance;
+        }
+
+        private static (double minX, double minY, double maxX, double maxY) GetSubtreeBoundsStatic(NodeViewModel node)
+        {
+            // Instance method wrapper for use in static helpers during layout (no overlay state).
+            double minX = node.X;
+            double minY = node.Y;
+            double maxX = node.X + node.Width;
+            double maxY = node.Y + NodeHeight;
+
+            if (!node.IsExpanded)
+                return (minX, minY, maxX, maxY);
+
+            foreach (var child in node.Children)
+            {
+                var (cMinX, cMinY, cMaxX, cMaxY) = GetSubtreeBoundsStatic(child);
+                minX = Math.Min(minX, cMinX);
+                minY = Math.Min(minY, cMinY);
+                maxX = Math.Max(maxX, cMaxX);
+                maxY = Math.Max(maxY, cMaxY);
+            }
+
+            return (minX, minY, maxX, maxY);
         }
 
         private static bool BoundsOverlapAny(
@@ -643,14 +951,6 @@ namespace MyMindWin.Controls
                 if (flipVertical)
                     node.Y = 2 * cy - node.Y - NodeHeight;
             }
-        }
-
-        private static void MirrorSubtreeX(NodeViewModel node)
-        {
-            node.X = -node.X - node.Width;
-            if (!node.IsExpanded) return;
-            foreach (var child in node.Children)
-                MirrorSubtreeX(child);
         }
 
         private (double minX, double minY, double maxX, double maxY) GetSubtreeBounds(NodeViewModel node)
@@ -798,6 +1098,30 @@ namespace MyMindWin.Controls
                 RootCanvas.Width  = _contentWidth;
                 RootCanvas.Height = _contentHeight;
             }
+
+            ApplyScrollExtentSize();
+        }
+
+        /// <summary>줌·콘텐츠 크기 변경 후 ScrollViewer의 Extent(스크롤 범위)를 다시 계산합니다.</summary>
+        private void ApplyScrollExtentSize()
+        {
+            if (ScrollExtentHost == null)
+                return;
+
+            ScrollExtentHost.InvalidateMeasure();
+            CanvasScroller.InvalidateMeasure();
+            CanvasScroller.UpdateLayout();
+        }
+
+        private void ScrollToClamped(double offsetX, double offsetY, bool refreshExtent = true)
+        {
+            if (refreshExtent)
+                ApplyScrollExtentSize();
+
+            double maxX = Math.Max(0, CanvasScroller.ExtentWidth - CanvasScroller.ViewportWidth);
+            double maxY = Math.Max(0, CanvasScroller.ExtentHeight - CanvasScroller.ViewportHeight);
+            CanvasScroller.ScrollToHorizontalOffset(Math.Clamp(offsetX, 0, maxX));
+            CanvasScroller.ScrollToVerticalOffset(Math.Clamp(offsetY, 0, maxY));
         }
 
         private void ApplyDefaultContentExtent()
@@ -809,10 +1133,61 @@ namespace MyMindWin.Controls
             if (RootCanvas == null) return;
             RootCanvas.Width = _contentWidth;
             RootCanvas.Height = _contentHeight;
+            ApplyScrollExtentSize();
         }
 
         private double MapX(double worldX) => worldX - _contentOriginX;
         private double MapY(double worldY) => worldY - _contentOriginY;
+
+        /// <summary>피쉬본 주 척추 Y (루트 노드 중심선, 레이아웃·정렬 후 갱신).</summary>
+        private double GetFishboneSpineY()
+            => _vm?.RootNode != null
+                ? _vm.RootNode.Y + NodeHeight / 2
+                : ContentPadding + 120;
+
+        private bool IsFishboneHorizontallyMirrored()
+            => _vm?.LayoutFlipHorizontal == true;
+
+        /// <summary>가지 노드가 척추(sub-spine)에 붙는 X. 좌우 반전 시 왼쪽 가장자리, 기본은 오른쪽 가장자리.</summary>
+        private double GetFishboneRibAttachX(NodeViewModel rib)
+            => IsFishboneHorizontallyMirrored() ? rib.X : rib.X + rib.Width;
+
+        /// <summary>주 척추 수평 구간 (segLeft → segRight).</summary>
+        private void GetFishboneMainSpineSegment(NodeViewModel root, out double segLeft, out double segRight)
+        {
+            if (!root.IsExpanded || root.Children.Count == 0)
+            {
+                segLeft = ContentPadding + 40;
+                segRight = IsFishboneHorizontallyMirrored() ? root.X + root.Width : root.X;
+                return;
+            }
+
+            if (IsFishboneHorizontallyMirrored())
+            {
+                segLeft = root.X + root.Width;
+                segRight = root.Children.Max(c => GetFishboneRibAttachX(c));
+            }
+            else
+            {
+                segLeft = root.Children.Min(c => GetFishboneRibAttachX(c));
+                segRight = root.X;
+            }
+        }
+
+        /// <summary>sub-spine 수평 구간 (segLeft → segRight).</summary>
+        private void GetFishboneSubSpineSegment(NodeViewModel node, out double segLeft, out double segRight)
+        {
+            if (IsFishboneHorizontallyMirrored())
+            {
+                segLeft = GetFishboneRibAttachX(node);
+                segRight = node.Children.Max(c => GetFishboneRibAttachX(c));
+            }
+            else
+            {
+                segLeft = node.Children.Min(c => GetFishboneRibAttachX(c));
+                segRight = GetFishboneRibAttachX(node);
+            }
+        }
 
         private void DrawConnections(NodeViewModel node)
         {
@@ -887,29 +1262,28 @@ namespace MyMindWin.Controls
             };
         }
 
+        /// <summary>피쉬본 대각 rib: 척추 부착점 → 카테고리 노드 상/하 가장자리 (위·아래 가지 방향 고정).</summary>
+        private (Point start, Point end) GetFishboneRibWorldEndpoints(NodeViewModel parent, NodeViewModel child)
+        {
+            double spineY = parent.Level == 0 ? GetFishboneSpineY() : parent.Y + NodeHeight / 2;
+            double spineX = GetFishboneRibAttachX(child);
+            bool upper = child.FishboneRibUpper ?? (parent.Children.IndexOf(child) % 2 == 0);
+            double cx = child.X + child.Width / 2;
+            var start = new Point(spineX, spineY);
+            var end = upper
+                ? new Point(cx, child.Y + NodeHeight)
+                : new Point(cx, child.Y);
+            return (start, end);
+        }
+
         private (Point start, Point end) GetConnectionEndpoints(NodeViewModel parent, NodeViewModel child)
         {
-            // Fishbone root→1st-level: diagonal rib from spine to center of category node
-            // Center endpoint is hidden behind the node body, so the rib and L1 sub-spine
-            // (which extends to node.X + node.Width) both converge at the same hidden point.
-            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level == 0)
+            if (_vm?.LayoutType == LayoutType.Fishbone)
             {
-                double spineY = ContentPadding + 120;
-                double attachX = child.X + child.Width;
+                var (ribStart, ribEnd) = GetFishboneRibWorldEndpoints(parent, child);
                 return (
-                    new Point(MapX(attachX), MapY(spineY)),
-                    new Point(MapX(child.X + child.Width / 2), MapY(child.Y + NodeHeight / 2)));
-            }
-
-            // Fishbone deeper levels: diagonal from sub-spine junction to center of child node.
-            // Endpoint hidden behind child body; child's sub-spine also passes through center.
-            if (_vm?.LayoutType == LayoutType.Fishbone && parent.Level > 0)
-            {
-                double junctionX = child.X + child.Width;
-                double parentCY  = parent.Y + NodeHeight / 2;
-                return (
-                    new Point(MapX(junctionX), MapY(parentCY)),
-                    new Point(MapX(child.X + child.Width / 2), MapY(child.Y + NodeHeight / 2)));
+                    new Point(MapX(ribStart.X), MapY(ribStart.Y)),
+                    new Point(MapX(ribEnd.X), MapY(ribEnd.Y)));
             }
 
             double pCx = parent.X + parent.Width / 2;
@@ -917,7 +1291,6 @@ namespace MyMindWin.Controls
             double cCx = child.X + child.Width / 2;
             double cCy = child.Y + NodeHeight / 2;
 
-            // Radial uses all 4 edges; other layouts (HorizontalTree, etc.) use left/right only
             Point startWorld, endWorld2;
             if (_vm?.LayoutType == LayoutType.Radial)
             {
@@ -1089,9 +1462,8 @@ namespace MyMindWin.Controls
 
         private void DrawFishboneSpine(NodeViewModel root)
         {
-            double spineY = ContentPadding + 120;
-            double spineLeft = ContentPadding + 40;
-            double spineRight = root.X; // root (head) is at right end; spine runs to its left edge
+            double spineY = GetFishboneSpineY();
+            GetFishboneMainSpineSegment(root, out double spineLeft, out double spineRight);
 
             if (spineRight <= spineLeft) return;
 
@@ -1125,9 +1497,8 @@ namespace MyMindWin.Controls
         {
             if (_fishboneSpinePath == null || _vm?.RootNode == null) return;
 
-            double spineY = ContentPadding + 120;
-            double spineLeft = ContentPadding + 40;
-            double spineRight = _vm.RootNode.X;
+            double spineY = GetFishboneSpineY();
+            GetFishboneMainSpineSegment(_vm.RootNode, out double spineLeft, out double spineRight);
 
             if (spineRight <= spineLeft) return;
 
@@ -1153,17 +1524,14 @@ namespace MyMindWin.Controls
         {
             if (!node.IsExpanded || node.Children.Count == 0) return;
 
-            double minChildX = node.Children.Min(c => c.X);
-            // Extend to right edge so the sub-spine passes through the node body;
-            // the incoming rib from the parent also ends at this node's center (hidden),
-            // so both lines meet at the same point behind the node shape.
-            double toX = node.X + node.Width;
+            // 직계 자식 부착점 ~ head 척추 접합 (좌우 반전 시 방향 반대)
+            GetFishboneSubSpineSegment(node, out double subSpineLeft, out double subSpineRight);
             double centerY = node.Y + NodeHeight / 2;
 
-            if (minChildX < toX)
+            if (subSpineLeft < subSpineRight)
             {
-                var fig = new PathFigure { StartPoint = new Point(MapX(minChildX), MapY(centerY)), IsFilled = false };
-                fig.Segments.Add(new LineSegment(new Point(MapX(toX), MapY(centerY)), isStroked: true));
+                var fig = new PathFigure { StartPoint = new Point(MapX(subSpineLeft), MapY(centerY)), IsFilled = false };
+                fig.Segments.Add(new LineSegment(new Point(MapX(subSpineRight), MapY(centerY)), isStroked: true));
                 var geom = new PathGeometry();
                 geom.Figures.Add(fig);
 
@@ -1203,13 +1571,12 @@ namespace MyMindWin.Controls
             {
                 if (idx < _fishboneSubSpinePaths.Count)
                 {
-                    double minChildX = node.Children.Min(c => c.X);
-                    double toX = node.X + node.Width;
+                    GetFishboneSubSpineSegment(node, out double subSpineLeft, out double subSpineRight);
                     double centerY = node.Y + NodeHeight / 2;
-                    if (minChildX < toX)
+                    if (subSpineLeft < subSpineRight)
                     {
-                        var fig = new PathFigure { StartPoint = new Point(MapX(minChildX), MapY(centerY)), IsFilled = false };
-                        fig.Segments.Add(new LineSegment(new Point(MapX(toX), MapY(centerY)), isStroked: true));
+                        var fig = new PathFigure { StartPoint = new Point(MapX(subSpineLeft), MapY(centerY)), IsFilled = false };
+                        fig.Segments.Add(new LineSegment(new Point(MapX(subSpineRight), MapY(centerY)), isStroked: true));
                         var geom = new PathGeometry();
                         geom.Figures.Add(fig);
                         _fishboneSubSpinePaths[idx].Data = geom;
@@ -1386,18 +1753,10 @@ namespace MyMindWin.Controls
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(0, -7, -7, 0),
                 Cursor = Cursors.Hand,
-                ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 펼치기",
-                Child = new TextBlock
-                {
-                    Text = node.IsNoteExpanded ? "−" : "+",
-                    Foreground = Brushes.White,
-                    FontWeight = FontWeights.Bold,
-                    FontSize = 13,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, -1, 0, 0)
-                }
+                ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 보기",
+                Child = AttachmentBadgeHelper.CreateNoteIcon()
             };
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsNoteExpanded);
 
             badge.PreviewMouseLeftButtonDown += (_, e) =>
             {
@@ -1423,18 +1782,10 @@ namespace MyMindWin.Controls
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(-7, -7, 0, 0),
                 Cursor = Cursors.Hand,
-                ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 펼치기",
-                Child = new TextBlock
-                {
-                    Text = node.IsImageExpanded ? "−" : "+",
-                    Foreground = Brushes.White,
-                    FontWeight = FontWeights.Bold,
-                    FontSize = 13,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, -1, 0, 0)
-                }
+                ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 보기",
+                Child = AttachmentBadgeHelper.CreateImageIcon()
             };
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsImageExpanded);
 
             badge.PreviewMouseLeftButtonDown += (_, e) =>
             {
@@ -1524,12 +1875,10 @@ namespace MyMindWin.Controls
             if (!skipSideEffects)
             {
                 RestoreExpandReflowSnapshot();
+                RelayoutAfterAttachmentChange(node);
 
                 if (noteAdded || noteRemoved)
-                {
-                    RelayoutAfterAttachmentChange(node);
                     ReplaceNodeVisual(node);
-                }
                 else
                     UpdateNoteBadge(node);
 
@@ -1617,9 +1966,12 @@ namespace MyMindWin.Controls
             if (!skipSideEffects)
             {
                 RestoreExpandReflowSnapshot();
+                RelayoutAfterAttachmentChange(node);
 
                 if (node.HasImage)
                     UpdateImageBadge(node);
+                else
+                    ReplaceNodeVisual(node);
 
                 if (_notePanelNode == node)
                     PositionNodeOverlays(node);
@@ -1653,7 +2005,6 @@ namespace MyMindWin.Controls
             else
                 UpdateImageBadge(node);
 
-            RelayoutAfterAttachmentChange(node);
             OpenImagePanel(node, keepReflowOnClose: true);
         }
 
@@ -1699,9 +2050,8 @@ namespace MyMindWin.Controls
                 return;
             }
 
-            badge.ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 펼치기";
-            if (badge.Child is TextBlock tb)
-                tb.Text = node.IsImageExpanded ? "−" : "+";
+            badge.ToolTip = node.IsImageExpanded ? "그림 접기" : "그림 보기";
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsImageExpanded);
         }
 
         private void UpdateNoteBadge(NodeViewModel node)
@@ -1732,9 +2082,8 @@ namespace MyMindWin.Controls
                 return;
             }
 
-            badge.ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 펼치기";
-            if (badge.Child is TextBlock tb)
-                tb.Text = node.IsNoteExpanded ? "−" : "+";
+            badge.ToolTip = node.IsNoteExpanded ? "노트 접기" : "노트 보기";
+            AttachmentBadgeHelper.ApplyExpandedState(badge, node.IsNoteExpanded);
         }
 
         private void UpdateOverlayHitTest()
@@ -1953,6 +2302,12 @@ namespace MyMindWin.Controls
             if (_vm?.RootNode == null || _isRebuildingCanvas)
                 return;
 
+            if (!AreConnectionPathsInSync())
+            {
+                ScheduleRebuildCanvas();
+                return;
+            }
+
             foreach (var node in _vm.GetAllNodes())
             {
                 if (_nodeElements.TryGetValue(node.Model.Id, out var border))
@@ -1986,6 +2341,25 @@ namespace MyMindWin.Controls
                     ApplyConnectionVisual(path, node, child);
                 RefreshAllConnections(child);
             }
+        }
+
+        private bool AreConnectionPathsInSync()
+        {
+            if (_vm?.RootNode == null)
+                return true;
+
+            return _connectionPaths.Count == CountExpectedConnections(_vm.RootNode);
+        }
+
+        private static int CountExpectedConnections(NodeViewModel node)
+        {
+            if (!node.IsExpanded)
+                return 0;
+
+            int count = node.Children.Count;
+            foreach (var child in node.Children)
+                count += CountExpectedConnections(child);
+            return count;
         }
 
         private void Node_MouseEnter(object sender, MouseEventArgs e)
@@ -2133,13 +2507,12 @@ namespace MyMindWin.Controls
         private void ZoomAtPoint(Point scrollerPoint, double oldZoom, double newZoom)
         {
             double ratio = newZoom / oldZoom;
-            CanvasScroller.ScrollToHorizontalOffset(
-                (CanvasScroller.HorizontalOffset + scrollerPoint.X) * ratio - scrollerPoint.X);
-            CanvasScroller.ScrollToVerticalOffset(
-                (CanvasScroller.VerticalOffset + scrollerPoint.Y) * ratio - scrollerPoint.Y);
+            double targetX = (CanvasScroller.HorizontalOffset + scrollerPoint.X) * ratio - scrollerPoint.X;
+            double targetY = (CanvasScroller.VerticalOffset + scrollerPoint.Y) * ratio - scrollerPoint.Y;
 
             ScaleXform.ScaleX = newZoom;
             ScaleXform.ScaleY = newZoom;
+            ScrollToClamped(targetX, targetY);
 
             _suppressZoomSync = true;
             if (_vm != null) _vm.ZoomLevel = newZoom;
@@ -2167,6 +2540,10 @@ namespace MyMindWin.Controls
 
         private void CanvasScroller_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
+            // 스크롤바(Thumb·Track) 클릭은 가로채지 않음 — 고무줄 선택이 스크롤을 막는 문제 방지
+            if (IsScrollBarChrome(e.OriginalSource as DependencyObject))
+                return;
+
             if (e.ChangedButton == MouseButton.Middle)
             {
                 _isPanning = true;
@@ -2175,7 +2552,9 @@ namespace MyMindWin.Controls
                 _panStartScrollY = CanvasScroller.VerticalOffset;
                 CanvasScroller.CaptureMouse();
             }
-            else if (e.ChangedButton == MouseButton.Left && !IsNodeHit(e.OriginalSource as DependencyObject))
+            else if (e.ChangedButton == MouseButton.Left
+                     && IsPointerOnMapCanvas(e.OriginalSource as DependencyObject)
+                     && !IsNodeHit(e.OriginalSource as DependencyObject))
             {
                 _isRubberBanding = true;
                 _rubberBandStart = e.GetPosition(NodeCanvas);
@@ -2209,13 +2588,41 @@ namespace MyMindWin.Controls
             return false;
         }
 
+        private static bool IsScrollBarChrome(DependencyObject? source)
+        {
+            while (source != null)
+            {
+                if (source is System.Windows.Controls.Primitives.ScrollBar)
+                    return true;
+                source = VisualTreeHelper.GetParent(source);
+            }
+            return false;
+        }
+
+        private bool IsPointerOnMapCanvas(DependencyObject? source)
+        {
+            if (source == null || RootCanvas == null)
+                return false;
+
+            while (source != null)
+            {
+                if (source == RootCanvas)
+                    return true;
+                source = VisualTreeHelper.GetParent(source);
+            }
+
+            return false;
+        }
+
         private void CanvasScroller_PreviewMouseMove(object sender, MouseEventArgs e)
         {
             if (_isPanning)
             {
                 var pos = e.GetPosition(CanvasScroller);
-                CanvasScroller.ScrollToHorizontalOffset(_panStartScrollX - (pos.X - _panStart.X));
-                CanvasScroller.ScrollToVerticalOffset(_panStartScrollY - (pos.Y - _panStart.Y));
+                ScrollToClamped(
+                    _panStartScrollX - (pos.X - _panStart.X),
+                    _panStartScrollY - (pos.Y - _panStart.Y),
+                    refreshExtent: false);
             }
             else if (_isRubberBanding && _rubberBandRect != null)
             {
@@ -2326,51 +2733,62 @@ namespace MyMindWin.Controls
             _vm.ZoomLevel = defaultZoom;
             _suppressZoomSync = false;
             ZoomLabel.Text = "100%";
+            ApplyScrollExtentSize();
 
             CenterView();
         }
 
-        public void CenterView()
+        public void CenterView() => ApplyViewFit(centerOnly: true);
+
+        /// <summary>노드 자동 배치 후 전체가 보이도록 줌하고 다이어그램 중심을 뷰포트 정중앙에 둡니다.</summary>
+        public void FitToView() => ApplyViewFit(centerOnly: false);
+
+        private void ApplyViewFit(bool centerOnly)
         {
-            if (_vm?.RootNode == null || CanvasScroller.ViewportWidth <= 0) return;
+            if (_vm?.RootNode == null)
+                return;
 
-            var (minX, minY, maxX, maxY) = GetBoundingBox();
-            if (minX == double.MaxValue) return;
+            void ApplyNow()
+            {
+                if (CanvasScroller.ViewportWidth <= 0 || CanvasScroller.ViewportHeight <= 0)
+                    return;
 
-            double mapCX = MapX((minX + maxX) / 2);
-            double mapCY = MapY((minY + maxY) / 2);
-            double zoom  = ScaleXform.ScaleX;
+                var (minX, minY, maxX, maxY) = GetBoundingBox();
+                if (minX == double.MaxValue)
+                    return;
 
-            CanvasScroller.ScrollToHorizontalOffset(mapCX * zoom - CanvasScroller.ViewportWidth  / 2);
-            CanvasScroller.ScrollToVerticalOffset(mapCY * zoom - CanvasScroller.ViewportHeight / 2);
-        }
+                double mapCX = MapX((minX + maxX) / 2);
+                double mapCY = MapY((minY + maxY) / 2);
 
-        public void FitToView()
-        {
-            if (_vm?.RootNode == null || CanvasScroller.ViewportWidth <= 0) return;
+                double zoom = ScaleXform.ScaleX;
+                if (!centerOnly)
+                {
+                    double mapW = Math.Max(1, maxX - minX + ContentPadding);
+                    double mapH = Math.Max(1, maxY - minY + ContentPadding);
+                    double fitZoom = Math.Min(
+                        CanvasScroller.ViewportWidth / mapW,
+                        CanvasScroller.ViewportHeight / mapH);
+                    zoom = Math.Clamp(fitZoom, 0.15, 2.0);
 
-            var (minX, minY, maxX, maxY) = GetBoundingBox();
-            if (minX == double.MaxValue) return;
+                    _suppressZoomSync = true;
+                    ScaleXform.ScaleX = zoom;
+                    ScaleXform.ScaleY = zoom;
+                    if (_vm != null)
+                        _vm.ZoomLevel = zoom;
+                    _suppressZoomSync = false;
+                    ZoomLabel.Text = $"{zoom:P0}";
+                }
 
-            double mapW = maxX - minX + ContentPadding;
-            double mapH = maxY - minY + ContentPadding;
+                ApplyScrollExtentSize();
+                ScrollToClamped(
+                    mapCX * zoom - CanvasScroller.ViewportWidth / 2,
+                    mapCY * zoom - CanvasScroller.ViewportHeight / 2,
+                    refreshExtent: false);
+            }
 
-            double fitZoom = Math.Min(
-                CanvasScroller.ViewportWidth  / mapW,
-                CanvasScroller.ViewportHeight / mapH);
-            fitZoom = Math.Clamp(fitZoom, 0.15, 2.0);
-
-            _suppressZoomSync = true;
-            ScaleXform.ScaleX = fitZoom;
-            ScaleXform.ScaleY = fitZoom;
-            if (_vm != null) _vm.ZoomLevel = fitZoom;
-            _suppressZoomSync = false;
-            ZoomLabel.Text = $"{fitZoom:P0}";
-
-            double mapCX = MapX((minX + maxX) / 2);
-            double mapCY = MapY((minY + maxY) / 2);
-            CanvasScroller.ScrollToHorizontalOffset(mapCX * fitZoom - CanvasScroller.ViewportWidth  / 2);
-            CanvasScroller.ScrollToVerticalOffset(mapCY * fitZoom - CanvasScroller.ViewportHeight / 2);
+            // 레이아웃·줌 반영 후 Extent가 갱신된 다음 스크롤 (정렬 직후 중앙 맞춤)
+            ApplyScrollExtentSize();
+            Dispatcher.BeginInvoke(ApplyNow, System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         private (double minX, double minY, double maxX, double maxY) GetBoundingBox()
@@ -2418,8 +2836,10 @@ namespace MyMindWin.Controls
             {
                 double t = Math.Min(1.0, (DateTime.Now - start).TotalMilliseconds / 350);
                 double eased = t * t * (3 - 2 * t);
-                CanvasScroller.ScrollToHorizontalOffset(startX + (targetX - startX) * eased);
-                CanvasScroller.ScrollToVerticalOffset(startY + (targetY - startY) * eased);
+                ScrollToClamped(
+                    startX + (targetX - startX) * eased,
+                    startY + (targetY - startY) * eased,
+                    refreshExtent: false);
                 if (t >= 1.0) timer.Stop();
             };
             timer.Start();
