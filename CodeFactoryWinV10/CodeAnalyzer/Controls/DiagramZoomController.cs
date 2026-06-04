@@ -274,7 +274,7 @@ internal sealed class DiagramZoomController
     }
 
     /// <summary>WinForms <see cref="Control.AutoScrollPosition"/>은 양수 오프셋, <see cref="Control.DisplayRectangle"/>은 음수 위치를 씁니다.</summary>
-    private static Point GetScrollOffset(ScrollableControl control)
+    internal static Point GetScrollOffset(ScrollableControl control)
     {
         var display = control.DisplayRectangle;
         return new Point(-display.X, -display.Y);
@@ -292,10 +292,10 @@ internal sealed class DiagramZoomController
     private Size ComputeScrollMinSize(ScrollableControl control, Size logicalContentSize) =>
         ComputeScrollMinSize(control, logicalContentSize, _zoom);
 
-    private int GetMaxScrollX(ScrollableControl control, Size logicalContentSize) =>
+    internal int GetMaxScrollX(ScrollableControl control, Size logicalContentSize) =>
         Math.Max(0, ComputeScrollMinSize(control, logicalContentSize).Width - Math.Max(1, control.ClientSize.Width));
 
-    private int GetMaxScrollY(ScrollableControl control, Size logicalContentSize) =>
+    internal int GetMaxScrollY(ScrollableControl control, Size logicalContentSize) =>
         Math.Max(0, ComputeScrollMinSize(control, logicalContentSize).Height - Math.Max(1, control.ClientSize.Height));
 
     private int GetDocumentWidth(Size logicalContentSize) =>

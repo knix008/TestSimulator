@@ -22,6 +22,7 @@ public sealed class CallGraphViewer : UserControl
     private float _hourglassFlipAngle;
     private HourglassAnimationPhase _hourglassPhase = HourglassAnimationPhase.Draining;
     private readonly DiagramZoomController _zoom = new();
+    private readonly DiagramScrollPan _pan = new();
     private bool _buildError;
     private Image? _hourglassGifImage;
     private bool _hourglassGifLoadAttempted;
@@ -449,11 +450,23 @@ public sealed class CallGraphViewer : UserControl
         return bmp;
     }
 
-    protected override void OnMouseClick(MouseEventArgs e)
+    protected override void OnMouseDown(MouseEventArgs e)
     {
-        base.OnMouseClick(e);
+        base.OnMouseDown(e);
+        if (_isAnalyzing || _graph is null)
+        {
+            return;
+        }
 
-        if (e.Button != MouseButtons.Left)
+        _pan.Begin(e, this);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        var blockSelection = _pan.End(this);
+        base.OnMouseUp(e);
+
+        if (blockSelection || e.Button != MouseButtons.Left || _isAnalyzing || _graph is null)
         {
             return;
         }
@@ -470,8 +483,25 @@ public sealed class CallGraphViewer : UserControl
         }
     }
 
+    protected override void OnMouseClick(MouseEventArgs e)
+    {
+        if (_pan.ShouldBlockClick(e.Location))
+        {
+            return;
+        }
+
+        _pan.AcknowledgeClick();
+        base.OnMouseClick(e);
+    }
+
     protected override void OnMouseDoubleClick(MouseEventArgs e)
     {
+        if (_pan.ShouldBlockClick(e.Location))
+        {
+            return;
+        }
+
+        _pan.AcknowledgeClick();
         base.OnMouseDoubleClick(e);
 
         if (e.Button != MouseButtons.Left)
@@ -493,6 +523,12 @@ public sealed class CallGraphViewer : UserControl
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
+        if (_pan.HandleMove(e, this, _zoom, _contentSize))
+        {
+            InvalidateDiagramSurface();
+            return;
+        }
+
         base.OnMouseMove(e);
 
         if (_isAnalyzing || _graph is null)

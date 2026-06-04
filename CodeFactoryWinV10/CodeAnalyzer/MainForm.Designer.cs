@@ -129,8 +129,8 @@ partial class MainForm
         splitContainerMain.Panel2.Controls.Add(diagramViewHost);
         splitContainerMain.Panel2.Controls.Add(panelToolbar);
         splitContainerMain.Panel2MinSize = 940;
-        splitContainerMain.Size = new Size(1372, 860);
-        splitContainerMain.SplitterDistance = 320;
+        splitContainerMain.Size = new Size(1528, 860);
+        splitContainerMain.SplitterDistance = 356;
         splitContainerMain.SplitterWidth = 6;
         splitContainerMain.TabIndex = 0;
         // 
@@ -148,7 +148,7 @@ partial class MainForm
         grpAnalysis.Location = new Point(8, 8);
         grpAnalysis.Name = "grpAnalysis";
         grpAnalysis.Padding = new Padding(12, 8, 12, 12);
-        grpAnalysis.Size = new Size(304, 844);
+        grpAnalysis.Size = new Size(340, 844);
         grpAnalysis.TabIndex = 0;
         grpAnalysis.TabStop = false;
         grpAnalysis.Text = "코드 분석 설정";
@@ -158,7 +158,7 @@ partial class MainForm
         btnAnalyze.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         btnAnalyze.Location = new Point(12, 802);
         btnAnalyze.Name = "btnAnalyze";
-        btnAnalyze.Size = new Size(276, 36);
+        btnAnalyze.Size = new Size(312, 36);
         btnAnalyze.TabIndex = 8;
         btnAnalyze.Text = "분석 실행";
         btnAnalyze.UseVisualStyleBackColor = false;
@@ -172,7 +172,7 @@ partial class MainForm
         grpExcludeDirectories.Location = new Point(4, 616);
         grpExcludeDirectories.Name = "grpExcludeDirectories";
         grpExcludeDirectories.Padding = new Padding(8, 4, 8, 8);
-        grpExcludeDirectories.Size = new Size(288, 180);
+        grpExcludeDirectories.Size = new Size(324, 180);
         grpExcludeDirectories.TabIndex = 28;
         grpExcludeDirectories.TabStop = false;
         grpExcludeDirectories.Text = "하위 디렉터리";
@@ -185,7 +185,7 @@ partial class MainForm
         checkedListDirectories.IntegralHeight = false;
         checkedListDirectories.Location = new Point(8, 20);
         checkedListDirectories.Name = "checkedListDirectories";
-        checkedListDirectories.Size = new Size(272, 113);
+        checkedListDirectories.Size = new Size(308, 113);
         checkedListDirectories.TabIndex = 0;
         // 
         // lblExcludeHint
@@ -195,7 +195,7 @@ partial class MainForm
         lblExcludeHint.Location = new Point(8, 133);
         lblExcludeHint.Name = "lblExcludeHint";
         lblExcludeHint.Padding = new Padding(0, 4, 0, 0);
-        lblExcludeHint.Size = new Size(272, 39);
+        lblExcludeHint.Size = new Size(308, 39);
         lblExcludeHint.TabIndex = 1;
         lblExcludeHint.Text = "기본은 모두 체크(전체 분석)입니다. 체크를 해제한 폴더는 분석에서 제외됩니다.";
         // 
@@ -231,7 +231,7 @@ partial class MainForm
         grpQualityThresholds.Controls.Add(lblWarnCyclomatic);
         grpQualityThresholds.Location = new Point(4, 214);
         grpQualityThresholds.Name = "grpQualityThresholds";
-        grpQualityThresholds.Size = new Size(288, 394);
+        grpQualityThresholds.Size = new Size(324, 394);
         grpQualityThresholds.TabIndex = 26;
         grpQualityThresholds.TabStop = false;
         grpQualityThresholds.Text = "품질 경고 기준";
@@ -241,7 +241,7 @@ partial class MainForm
         btnAnalysisScope.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         btnAnalysisScope.Location = new Point(8, 359);
         btnAnalysisScope.Name = "btnAnalysisScope";
-        btnAnalysisScope.Size = new Size(272, 28);
+        btnAnalysisScope.Size = new Size(308, 28);
         btnAnalysisScope.TabIndex = 39;
         btnAnalysisScope.Text = "분석 포함·제외...";
         btnAnalysisScope.UseVisualStyleBackColor = true;
@@ -250,7 +250,7 @@ partial class MainForm
         // numMinDuplicateLines
         // 
         numMinDuplicateLines.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numMinDuplicateLines.Location = new Point(224, 332);
+        numMinDuplicateLines.Location = new Point(260, 332);
         numMinDuplicateLines.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         numMinDuplicateLines.Minimum = new decimal(new int[] { 2, 0, 0, 0 });
         numMinDuplicateLines.Name = "numMinDuplicateLines";
@@ -272,7 +272,7 @@ partial class MainForm
         // numWarnGodType
         // 
         numWarnGodType.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnGodType.Location = new Point(224, 308);
+        numWarnGodType.Location = new Point(260, 308);
         numWarnGodType.Maximum = new decimal(new int[] { 500, 0, 0, 0 });
         numWarnGodType.Minimum = new decimal(new int[] { 5, 0, 0, 0 });
         numWarnGodType.Name = "numWarnGodType";
@@ -296,7 +296,7 @@ partial class MainForm
         numWarnComment.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         numWarnComment.DecimalPlaces = 1;
         numWarnComment.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
-        numWarnComment.Location = new Point(224, 282);
+        numWarnComment.Location = new Point(260, 282);
         numWarnComment.Name = "numWarnComment";
         numWarnComment.Size = new Size(56, 23);
         numWarnComment.TabIndex = 35;
@@ -316,7 +316,7 @@ partial class MainForm
         // numWarnGodFile
         // 
         numWarnGodFile.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnGodFile.Location = new Point(224, 256);
+        numWarnGodFile.Location = new Point(260, 256);
         numWarnGodFile.Maximum = new decimal(new int[] { 50000, 0, 0, 0 });
         numWarnGodFile.Minimum = new decimal(new int[] { 100, 0, 0, 0 });
         numWarnGodFile.Name = "numWarnGodFile";
@@ -338,7 +338,7 @@ partial class MainForm
         // numWarnMagic
         // 
         numWarnMagic.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnMagic.Location = new Point(224, 230);
+        numWarnMagic.Location = new Point(260, 230);
         numWarnMagic.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnMagic.Name = "numWarnMagic";
         numWarnMagic.Size = new Size(56, 23);
@@ -359,7 +359,7 @@ partial class MainForm
         // numWarnReturn
         // 
         numWarnReturn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnReturn.Location = new Point(224, 204);
+        numWarnReturn.Location = new Point(260, 204);
         numWarnReturn.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
         numWarnReturn.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnReturn.Name = "numWarnReturn";
@@ -381,7 +381,7 @@ partial class MainForm
         // numWarnParameter
         // 
         numWarnParameter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnParameter.Location = new Point(224, 178);
+        numWarnParameter.Location = new Point(260, 178);
         numWarnParameter.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
         numWarnParameter.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnParameter.Name = "numWarnParameter";
@@ -405,7 +405,7 @@ partial class MainForm
         numWarnTodoDensity.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         numWarnTodoDensity.DecimalPlaces = 1;
         numWarnTodoDensity.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
-        numWarnTodoDensity.Location = new Point(224, 152);
+        numWarnTodoDensity.Location = new Point(260, 152);
         numWarnTodoDensity.Name = "numWarnTodoDensity";
         numWarnTodoDensity.Size = new Size(56, 23);
         numWarnTodoDensity.TabIndex = 23;
@@ -425,7 +425,7 @@ partial class MainForm
         // numWarnMi
         // 
         numWarnMi.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnMi.Location = new Point(224, 126);
+        numWarnMi.Location = new Point(260, 126);
         numWarnMi.Maximum = new decimal(new int[] { 171, 0, 0, 0 });
         numWarnMi.Name = "numWarnMi";
         numWarnMi.Size = new Size(56, 23);
@@ -437,7 +437,7 @@ partial class MainForm
         // numWarnFanOut
         // 
         numWarnFanOut.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnFanOut.Location = new Point(224, 100);
+        numWarnFanOut.Location = new Point(260, 100);
         numWarnFanOut.Maximum = new decimal(new int[] { 500, 0, 0, 0 });
         numWarnFanOut.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnFanOut.Name = "numWarnFanOut";
@@ -468,7 +468,7 @@ partial class MainForm
         // numWarnNesting
         // 
         numWarnNesting.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnNesting.Location = new Point(224, 74);
+        numWarnNesting.Location = new Point(260, 74);
         numWarnNesting.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
         numWarnNesting.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnNesting.Name = "numWarnNesting";
@@ -481,7 +481,7 @@ partial class MainForm
         // numWarnCognitive
         // 
         numWarnCognitive.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnCognitive.Location = new Point(224, 48);
+        numWarnCognitive.Location = new Point(260, 48);
         numWarnCognitive.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         numWarnCognitive.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnCognitive.Name = "numWarnCognitive";
@@ -494,7 +494,7 @@ partial class MainForm
         // numWarnCyclomatic
         // 
         numWarnCyclomatic.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numWarnCyclomatic.Location = new Point(224, 22);
+        numWarnCyclomatic.Location = new Point(260, 22);
         numWarnCyclomatic.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         numWarnCyclomatic.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnCyclomatic.Name = "numWarnCyclomatic";
@@ -539,7 +539,7 @@ partial class MainForm
         checkedListLanguages.IntegralHeight = false;
         checkedListLanguages.Location = new Point(12, 100);
         checkedListLanguages.Name = "checkedListLanguages";
-        checkedListLanguages.Size = new Size(276, 110);
+        checkedListLanguages.Size = new Size(312, 110);
         checkedListLanguages.TabIndex = 4;
         // 
         // lblLanguages
@@ -554,7 +554,7 @@ partial class MainForm
         // btnBrowseRoot
         // 
         btnBrowseRoot.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnBrowseRoot.Location = new Point(214, 42);
+        btnBrowseRoot.Location = new Point(250, 42);
         btnBrowseRoot.Name = "btnBrowseRoot";
         btnBrowseRoot.Size = new Size(74, 27);
         btnBrowseRoot.TabIndex = 2;
@@ -568,7 +568,7 @@ partial class MainForm
         txtRootPath.Location = new Point(12, 44);
         txtRootPath.Name = "txtRootPath";
         txtRootPath.PlaceholderText = "C:\\Projects\\MyApp";
-        txtRootPath.Size = new Size(196, 23);
+        txtRootPath.Size = new Size(232, 23);
         txtRootPath.TabIndex = 1;
         txtRootPath.Leave += txtRootPath_Leave;
         // 
@@ -587,7 +587,7 @@ partial class MainForm
         diagramViewHost.Location = new Point(0, 48);
         diagramViewHost.Name = "diagramViewHost";
         diagramViewHost.ProjectRootDirectory = null;
-        diagramViewHost.Size = new Size(1046, 812);
+        diagramViewHost.Size = new Size(1166, 812);
         diagramViewHost.TabIndex = 1;
         diagramViewHost.ViewKind = Models.DiagramViewKind.CallGraph;
         // 
@@ -609,13 +609,13 @@ partial class MainForm
         panelToolbar.Location = new Point(0, 0);
         panelToolbar.Name = "panelToolbar";
         panelToolbar.Padding = new Padding(8, 8, 8, 4);
-        panelToolbar.Size = new Size(1046, 48);
+        panelToolbar.Size = new Size(1166, 48);
         panelToolbar.TabIndex = 0;
         // 
         // btnResetView
         // 
         btnResetView.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnResetView.Location = new Point(954, 10);
+        btnResetView.Location = new Point(1074, 10);
         btnResetView.Name = "btnResetView";
         btnResetView.Size = new Size(88, 27);
         btnResetView.TabIndex = 9;
@@ -636,7 +636,7 @@ partial class MainForm
         // btnCollapseAll
         // 
         btnCollapseAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnCollapseAll.Location = new Point(854, 10);
+        btnCollapseAll.Location = new Point(974, 10);
         btnCollapseAll.Name = "btnCollapseAll";
         btnCollapseAll.Size = new Size(92, 27);
         btnCollapseAll.TabIndex = 7;
@@ -647,7 +647,7 @@ partial class MainForm
         // btnExpandAll
         // 
         btnExpandAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnExpandAll.Location = new Point(759, 10);
+        btnExpandAll.Location = new Point(879, 10);
         btnExpandAll.Name = "btnExpandAll";
         btnExpandAll.Size = new Size(92, 27);
         btnExpandAll.TabIndex = 6;
@@ -660,7 +660,7 @@ partial class MainForm
         comboLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         comboLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
         comboLineStyle.FormattingEnabled = true;
-        comboLineStyle.Location = new Point(665, 11);
+        comboLineStyle.Location = new Point(785, 11);
         comboLineStyle.Name = "comboLineStyle";
         comboLineStyle.Size = new Size(87, 23);
         comboLineStyle.TabIndex = 5;
@@ -670,7 +670,7 @@ partial class MainForm
         // 
         lblLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         lblLineStyle.AutoSize = true;
-        lblLineStyle.Location = new Point(616, 14);
+        lblLineStyle.Location = new Point(736, 14);
         lblLineStyle.Name = "lblLineStyle";
         lblLineStyle.Size = new Size(43, 15);
         lblLineStyle.TabIndex = 4;
@@ -681,7 +681,7 @@ partial class MainForm
         comboLayoutDirection.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         comboLayoutDirection.DropDownStyle = ComboBoxStyle.DropDownList;
         comboLayoutDirection.FormattingEnabled = true;
-        comboLayoutDirection.Location = new Point(529, 11);
+        comboLayoutDirection.Location = new Point(649, 11);
         comboLayoutDirection.Name = "comboLayoutDirection";
         comboLayoutDirection.Size = new Size(81, 23);
         comboLayoutDirection.TabIndex = 3;
@@ -691,7 +691,7 @@ partial class MainForm
         // 
         lblLayout.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         lblLayout.AutoSize = true;
-        lblLayout.Location = new Point(468, 14);
+        lblLayout.Location = new Point(588, 14);
         lblLayout.Name = "lblLayout";
         lblLayout.Size = new Size(55, 15);
         lblLayout.TabIndex = 2;
@@ -705,7 +705,7 @@ partial class MainForm
         comboRootMethod.FormattingEnabled = true;
         comboRootMethod.Location = new Point(289, 11);
         comboRootMethod.Name = "comboRootMethod";
-        comboRootMethod.Size = new Size(173, 23);
+        comboRootMethod.Size = new Size(293, 23);
         comboRootMethod.TabIndex = 3;
         comboRootMethod.SelectedIndexChanged += comboRootMethod_SelectedIndexChanged;
         // 
@@ -742,7 +742,7 @@ partial class MainForm
         menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, toolStripSearchLabel, toolStripSearchBox, toolStripFindPrevious, toolStripFindNext });
         menuStrip.Location = new Point(0, 0);
         menuStrip.Name = "menuStrip";
-        menuStrip.Size = new Size(1372, 27);
+        menuStrip.Size = new Size(1528, 27);
         menuStrip.TabIndex = 2;
         menuStrip.Text = "menuStrip";
         // 
@@ -833,7 +833,7 @@ partial class MainForm
         statusStrip.Items.AddRange(new ToolStripItem[] { progressBarAnalysis, lblProgressPercent, lblStatus });
         statusStrip.Location = new Point(0, 887);
         statusStrip.Name = "statusStrip";
-        statusStrip.Size = new Size(1372, 22);
+        statusStrip.Size = new Size(1528, 22);
         statusStrip.TabIndex = 1;
         statusStrip.Text = "statusStrip1";
         // 
@@ -856,7 +856,7 @@ partial class MainForm
         // lblStatus
         // 
         lblStatus.Name = "lblStatus";
-        lblStatus.Size = new Size(1357, 17);
+        lblStatus.Size = new Size(1513, 17);
         lblStatus.Spring = true;
         lblStatus.Text = "준비";
         lblStatus.TextAlign = ContentAlignment.MiddleLeft;
@@ -865,13 +865,13 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1372, 909);
+        ClientSize = new Size(1528, 909);
         Controls.Add(splitContainerMain);
         Controls.Add(statusStrip);
         Controls.Add(menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
-        MinimumSize = new Size(1290, 740);
+        MinimumSize = new Size(1280, 760);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Code Analyzer - 코드 구조 분석";

@@ -27,15 +27,19 @@ public partial class MainForm : Form
     private bool _suppressQualityThresholdEvents;
     private bool _suppressDirectoryListEvents;
     private ToolTip? _qualityThresholdToolTip;
+    private MetricInspectionKind _enabledInspections = MetricInspectionKind.All;
     private TimeSpan? _lastCompletedAnalysisElapsed;
     private int _lastCompletedDirectoryCount;
     private int _lastCompletedFileCount;
 
     public MainForm()
     {
+        _suppressQualityThresholdEvents = true;
         InitializeComponent();
         AttachQualityThresholdToolTips();
         UserAnalysisSettings.RegisterDesignerDefaults(ReadQualityThresholdsFromControls());
+        _suppressQualityThresholdEvents = false;
+        _enabledInspections = MetricInspectionCatalog.NormalizeScope(_userSettings.LoadSettings().EnabledInspections);
         _searchPopup = new SearchResultsPopup();
         _searchPopup.ResultSelected += SearchPopup_ResultSelected;
         _searchDebounceTimer = new System.Windows.Forms.Timer { Interval = 150 };
@@ -137,7 +141,11 @@ public partial class MainForm : Form
 
     private void InitializeOptionControls()
     {
-        checkedListDirectories.ItemCheck += (_, _) => PersistDirectoryExclusionsFromSidebar();
+        checkedListDirectories.ItemCheck += (_, _) =>
+        {
+            if (!_suppressDirectoryListEvents && IsHandleCreated)
+                BeginInvoke(PersistDirectoryExclusionsFromSidebar);
+        };
 
         comboDiagramView.Items.AddRange(new object[]
         {
@@ -337,15 +345,17 @@ public partial class MainForm : Form
 
     private void btnAnalysisScope_Click(object? sender, EventArgs e)
     {
-        var settings = _userSettings.LoadSettings();
-        using var dialog = new AnalysisScopeOptionsDialog(settings.EnabledInspections);
+        using var dialog = new AnalysisScopeOptionsDialog(_enabledInspections);
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
         }
 
-        settings.EnabledInspections = MetricInspectionCatalog.NormalizeScope(dialog.SelectedInspectionScope);
+        _enabledInspections = MetricInspectionCatalog.NormalizeScope(dialog.SelectedInspectionScope);
+
+        var settings = _userSettings.LoadSettings();
+        settings.EnabledInspections = _enabledInspections;
         _userSettings.SaveSettings(settings);
 
         if (_lastAnalysis is not null)
@@ -356,10 +366,9 @@ public partial class MainForm : Form
 
     private UserAnalysisSettings ReadQualityThresholdsFromControls()
     {
-        var stored = _userSettings.LoadSettings();
         return new UserAnalysisSettings
         {
-            EnabledInspections = stored.EnabledInspections,
+            EnabledInspections = _enabledInspections,
             IncludedDirectoryPaths = [],
             ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar(),
             MinDuplicateLines = (int)numMinDuplicateLines.Value,
@@ -414,23 +423,31 @@ public partial class MainForm : Form
 
     private void LoadDirectoryList(string rootPath)
     {
-        checkedListDirectories.Items.Clear();
-
-        var directories = DirectoryScanService.ScanSubdirectories(rootPath);
-        foreach (var directory in directories)
+        _suppressDirectoryListEvents = true;
+        try
         {
-            checkedListDirectories.Items.Add(directory, isChecked: true);
-        }
+            checkedListDirectories.Items.Clear();
 
-        var settings = _userSettings.LoadSettings();
-        var hadLegacyIncludeList = settings.IncludedDirectoryPaths.Count > 0;
-        DirectoryScopeSettings.MigrateLegacyIncludedPaths(settings, directories);
-        if (hadLegacyIncludeList)
+            var directories = DirectoryScanService.ScanSubdirectories(rootPath);
+            foreach (var directory in directories)
+            {
+                checkedListDirectories.Items.Add(directory, isChecked: true);
+            }
+
+            var settings = _userSettings.LoadSettings();
+            var hadLegacyIncludeList = settings.IncludedDirectoryPaths.Count > 0;
+            DirectoryScopeSettings.MigrateLegacyIncludedPaths(settings, directories);
+            if (hadLegacyIncludeList)
+            {
+                _userSettings.SaveSettings(settings);
+            }
+
+            ApplyDirectoryChecksToSidebar(settings.ExcludedDirectoryPaths);
+        }
+        finally
         {
-            _userSettings.SaveSettings(settings);
+            _suppressDirectoryListEvents = false;
         }
-
-        ApplyDirectoryChecksToSidebar(settings.ExcludedDirectoryPaths);
     }
 
     private void ApplyDirectoryChecksToSidebar(IReadOnlyList<string> excludedPaths)
@@ -1634,6 +1651,7 @@ public partial class MainForm : Form
 
         if (analysis.QualityThresholds is not null)
         {
+            _enabledInspections = MetricInspectionCatalog.NormalizeScope(analysis.QualityThresholds.EnabledInspections);
             ApplyQualityThresholdsToUi(analysis.QualityThresholds);
         }
 

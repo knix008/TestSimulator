@@ -21,6 +21,7 @@ public sealed class StructureDiagramViewer : UserControl
     private readonly HashSet<string> _highlightIds = new(StringComparer.Ordinal);
     private string? _currentHighlightId;
     private readonly DiagramZoomController _zoom = new();
+    private readonly DiagramScrollPan _pan = new();
     private bool _buildError;
     private string? _focusedTypeId;
 
@@ -363,11 +364,23 @@ public sealed class StructureDiagramViewer : UserControl
         return bmp;
     }
 
-    protected override void OnMouseClick(MouseEventArgs e)
+    protected override void OnMouseDown(MouseEventArgs e)
     {
-        base.OnMouseClick(e);
+        base.OnMouseDown(e);
+        if (_isAnalyzing)
+        {
+            return;
+        }
 
-        if (e.Button != MouseButtons.Left || !IsContainerRelationView() || _analysis is null)
+        _pan.Begin(e, this);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        var blockSelection = _pan.End(this);
+        base.OnMouseUp(e);
+
+        if (blockSelection || e.Button != MouseButtons.Left || !IsContainerRelationView() || _analysis is null)
         {
             return;
         }
@@ -400,6 +413,28 @@ public sealed class StructureDiagramViewer : UserControl
         _fileRootOverride = [];
         DirectoryRootChanged?.Invoke(directory);
         Rebuild();
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        if (_pan.HandleMove(e, this, _zoom, _contentSize))
+        {
+            InvalidateDiagramSurface();
+            return;
+        }
+
+        base.OnMouseMove(e);
+    }
+
+    protected override void OnMouseClick(MouseEventArgs e)
+    {
+        if (_pan.ShouldBlockClick(e.Location))
+        {
+            return;
+        }
+
+        _pan.AcknowledgeClick();
+        base.OnMouseClick(e);
     }
 
     private bool TryHitBox(Point clientPoint, out string boxId)

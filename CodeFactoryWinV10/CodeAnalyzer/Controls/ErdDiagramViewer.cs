@@ -13,6 +13,7 @@ public sealed class ErdDiagramViewer : UserControl
     private readonly List<DatabaseRelation> _relations = [];
     private readonly Dictionary<string, DiagramBoxNode> _boxMap = new(StringComparer.Ordinal);
     private readonly DiagramZoomController _zoom = new();
+    private readonly DiagramScrollPan _pan = new();
     private string? _selectedTableId;
     private bool _buildError;
 
@@ -160,9 +161,69 @@ public sealed class ErdDiagramViewer : UserControl
         }
     }
 
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (_isAnalyzing)
+        {
+            return;
+        }
+
+        _pan.Begin(e, this);
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        var blockSelection = _pan.End(this);
+        base.OnMouseUp(e);
+
+        if (blockSelection || e.Button != MouseButtons.Left || _isAnalyzing)
+        {
+            return;
+        }
+
+        var docPoint = _zoom.ClientToDocument(this, e.Location);
+        var hit = _boxes.FirstOrDefault(box => box.Bounds.Contains(docPoint));
+        if (hit is null)
+        {
+            return;
+        }
+
+        _selectedTableId = hit.Id;
+        Invalidate();
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        if (_pan.HandleMove(e, this, _zoom, _contentSize))
+        {
+            Invalidate();
+            return;
+        }
+
+        base.OnMouseMove(e);
+    }
+
     protected override void OnMouseClick(MouseEventArgs e)
     {
+        if (_pan.ShouldBlockClick(e.Location))
+        {
+            return;
+        }
+
+        _pan.AcknowledgeClick();
         base.OnMouseClick(e);
+    }
+
+    protected override void OnMouseDoubleClick(MouseEventArgs e)
+    {
+        if (_pan.ShouldBlockClick(e.Location))
+        {
+            return;
+        }
+
+        _pan.AcknowledgeClick();
+        base.OnMouseDoubleClick(e);
 
         if (e.Button != MouseButtons.Left)
         {
@@ -179,7 +240,7 @@ public sealed class ErdDiagramViewer : UserControl
         _selectedTableId = hit.Id;
         Invalidate();
 
-        if (e.Clicks >= 2 && _schema?.TableMap.TryGetValue(hit.Id, out var table) == true
+        if (_schema?.TableMap.TryGetValue(hit.Id, out var table) == true
             && !string.IsNullOrWhiteSpace(table.FilePath))
         {
             NavigationRequested?.Invoke(new MetricsNavigationRequest
