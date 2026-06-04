@@ -12,6 +12,7 @@ public sealed class DuplicateCodeGroup
 {
     public required string Id { get; init; }
     public int LineCount { get; init; }
+    public IReadOnlyList<string> DuplicateLines { get; init; } = [];
     public IReadOnlyList<string> SampleLines { get; init; } = [];
     public IReadOnlyList<DuplicateCodeFragment> Fragments { get; init; } = [];
 }

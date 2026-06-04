@@ -451,6 +451,7 @@ public static class CallGraphExportService
             {
                 Id = g.Id,
                 LineCount = g.LineCount,
+                DuplicateLines = g.DuplicateLines.Count > 0 ? g.DuplicateLines : g.SampleLines,
                 SampleLines = g.SampleLines,
                 Fragments = g.Fragments.Select(f => new DuplicateCodeFragment
                 {
@@ -565,6 +566,7 @@ public static class CallGraphExportService
         {
             Id = g.Id,
             LineCount = g.LineCount,
+            DuplicateLines = g.DuplicateLines.ToList(),
             SampleLines = g.SampleLines.ToList(),
             Fragments = g.Fragments.Select(f => new DuplicateCodeFragmentRecord
             {
@@ -858,6 +860,7 @@ public static class CallGraphExportService
     {
         public string Id { get; set; } = string.Empty;
         public int LineCount { get; set; }
+        public List<string> DuplicateLines { get; set; } = [];
         public List<string> SampleLines { get; set; } = [];
         public List<DuplicateCodeFragmentRecord> Fragments { get; set; } = [];
     }

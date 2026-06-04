@@ -84,8 +84,8 @@ public static class DuplicateCodeAnalyzer
             }
 
             var extendedLength = ExtendMatchLength(fileMap, occurrences, minDuplicateLines);
-            var sampleLines = GetSampleLines(fileMap, occurrences[0], extendedLength);
-            var extendedKey = string.Join('\n', sampleLines);
+            var duplicateLines = GetMatchLines(fileMap, occurrences[0], extendedLength);
+            var extendedKey = string.Join('\n', duplicateLines);
 
             if (!reported.Add(extendedKey))
             {
@@ -108,7 +108,8 @@ public static class DuplicateCodeAnalyzer
             {
                 Id = $"dup-{++groupIndex}",
                 LineCount = extendedLength,
-                SampleLines = sampleLines,
+                DuplicateLines = duplicateLines,
+                SampleLines = duplicateLines.Take(MaxSampleLines).ToList(),
                 Fragments = fragments
             });
 
@@ -225,7 +226,7 @@ public static class DuplicateCodeAnalyzer
         return length;
     }
 
-    private static List<string> GetSampleLines(
+    private static List<string> GetMatchLines(
         Dictionary<string, FileLineData> fileMap,
         WindowOccurrence occurrence,
         int length)
@@ -237,7 +238,7 @@ public static class DuplicateCodeAnalyzer
 
         var start = occurrence.StartLine - 1;
         var count = Math.Min(length, file.Lines.Length - start);
-        return file.Lines.AsSpan(start, count).ToArray().Take(MaxSampleLines).ToList();
+        return file.Lines.AsSpan(start, count).ToArray().ToList();
     }
 
     private sealed record FileLineData(string FilePath, string LanguageId, string[] Lines);

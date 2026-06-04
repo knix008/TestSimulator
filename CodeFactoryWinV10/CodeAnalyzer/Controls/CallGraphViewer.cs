@@ -123,6 +123,7 @@ public sealed class CallGraphViewer : UserControl
         set
         {
             _lineStyle = value;
+            _zoom.InvalidateCache();
             Invalidate();
         }
     }
@@ -224,6 +225,7 @@ public sealed class CallGraphViewer : UserControl
     {
         _searchMatchNodeIds.Clear();
         _currentSearchNodeId = null;
+        _zoom.InvalidateCache();
         Invalidate();
     }
 
@@ -236,6 +238,7 @@ public sealed class CallGraphViewer : UserControl
         }
 
         _currentSearchNodeId = currentNodeId;
+        _zoom.InvalidateCache();
         Invalidate();
     }
 
@@ -345,6 +348,7 @@ public sealed class CallGraphViewer : UserControl
             }
 
             _zoom.ScrollToDocumentPoint(this, node.Bounds.Location, _contentSize);
+            InvalidateDiagramSurface();
             return;
         }
     }
@@ -353,7 +357,7 @@ public sealed class CallGraphViewer : UserControl
     {
         if (_zoom.HandleMouseWheel(this, e, _contentSize))
         {
-            Invalidate();
+            InvalidateDiagramSurface();
             return;
         }
 
@@ -363,45 +367,39 @@ public sealed class CallGraphViewer : UserControl
     protected override void OnScroll(ScrollEventArgs se)
     {
         base.OnScroll(se);
-        Invalidate(true);
+        InvalidateDiagramSurface();
     }
 
     protected override void OnPaintBackground(PaintEventArgs e)
     {
         using var brush = new SolidBrush(BackColor);
-        var state = e.Graphics.Save();
-        e.Graphics.ResetTransform();
-        e.Graphics.FillRectangle(brush, 0, 0, ClientSize.Width, ClientSize.Height);
-        e.Graphics.Restore(state);
+        e.Graphics.FillRectangle(brush, e.ClipRectangle);
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        base.OnPaint(e);
-
-        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
         if (_isAnalyzing || _graph is null || _roots.Count == 0)
         {
             DrawPlaceholder(e.Graphics);
             return;
         }
 
-        var state = e.Graphics.Save();
-        _zoom.ApplyGraphicsScale(e.Graphics);
-        e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
+        _zoom.PaintDocument(e.Graphics, this, e.ClipRectangle, _contentSize, BackColor, DrawCallGraphContent);
+    }
+
+    private void DrawCallGraphContent(Graphics graphics)
+    {
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
         foreach (var node in CallGraphLayoutEngine.EnumerateNodes(_roots))
         {
-            DrawEdge(e.Graphics, node);
+            DrawEdge(graphics, node);
         }
 
         foreach (var node in CallGraphLayoutEngine.EnumerateNodes(_roots))
         {
-            DrawNode(e.Graphics, node);
+            DrawNode(graphics, node);
         }
-
-        e.Graphics.Restore(state);
     }
 
     public Bitmap? ExportToBitmap()
@@ -592,9 +590,25 @@ public sealed class CallGraphViewer : UserControl
             return;
         }
 
-        _contentSize = CallGraphLayoutEngine.Layout(_roots, _layoutDirection);
+        _contentSize = InflateGraphContentSize(CallGraphLayoutEngine.Layout(_roots, _layoutDirection));
+        _zoom.InvalidateCache();
         _zoom.ApplyContentSize(this, _contentSize);
         Invalidate();
+    }
+
+    private Size InflateGraphContentSize(Size layoutSize)
+    {
+        var bounds = new List<Rectangle>();
+        foreach (var node in CallGraphLayoutEngine.EnumerateNodes(_roots))
+        {
+            bounds.Add(node.Bounds);
+            if (!node.ToggleBounds.IsEmpty)
+            {
+                bounds.Add(node.ToggleBounds);
+            }
+        }
+
+        return DiagramZoomController.InflateContentSize(layoutSize, bounds);
     }
 
     private GraphVisualNode? BuildVisualNode(string nodeId, HashSet<string> visitedOnPath, int depth)
@@ -1073,4 +1087,6 @@ public sealed class CallGraphViewer : UserControl
         base.OnResize(e);
         _zoom.ApplyContentSize(this, _contentSize);
     }
+
+    private void InvalidateDiagramSurface() => Invalidate(ClientRectangle);
 }

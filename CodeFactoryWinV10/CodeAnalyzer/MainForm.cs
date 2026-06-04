@@ -1043,6 +1043,7 @@ public partial class MainForm : Form
         try
         {
             var rootIds = ResolveRootNodeIds();
+            diagramViewHost.ProjectRootDirectory = txtRootPath.Text.Trim();
             diagramViewHost.ViewKind = GetSelectedViewKind();
             diagramViewHost.SetAnalysis(_lastAnalysis, rootIds);
             ApplySearchHighlightToViewer();
@@ -1358,6 +1359,7 @@ public partial class MainForm : Form
 
         try
         {
+            diagramViewHost.ProjectRootDirectory = txtRootPath.Text.Trim();
             diagramViewHost.ViewKind = GetSelectedViewKind();
             diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
             ApplySearchHighlightToViewer();

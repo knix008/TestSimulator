@@ -149,6 +149,7 @@ public sealed class StructureDiagramViewer : UserControl
             }
 
             _lineStyle = value;
+            _zoom.InvalidateCache();
             Invalidate();
         }
     }
@@ -162,29 +163,27 @@ public sealed class StructureDiagramViewer : UserControl
         }
 
         _currentHighlightId = currentId;
+        _zoom.InvalidateCache();
         Invalidate();
     }
 
     protected override void OnScroll(ScrollEventArgs se)
     {
         base.OnScroll(se);
-        Invalidate(true);
+        InvalidateDiagramSurface();
     }
 
     protected override void OnPaintBackground(PaintEventArgs e)
     {
         using var brush = new SolidBrush(BackColor);
-        var state = e.Graphics.Save();
-        e.Graphics.ResetTransform();
-        e.Graphics.FillRectangle(brush, 0, 0, ClientSize.Width, ClientSize.Height);
-        e.Graphics.Restore(state);
+        e.Graphics.FillRectangle(brush, e.ClipRectangle);
     }
 
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         if (_zoom.HandleMouseWheel(this, e, _contentSize))
         {
-            Invalidate();
+            InvalidateDiagramSurface();
             return;
         }
 
@@ -193,7 +192,6 @@ public sealed class StructureDiagramViewer : UserControl
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        base.OnPaint(e);
         e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
         if (_isAnalyzing)
@@ -218,11 +216,7 @@ public sealed class StructureDiagramViewer : UserControl
         {
             if (_viewKind == DiagramViewKind.SequenceDiagram)
             {
-                var state = e.Graphics.Save();
-                _zoom.ApplyGraphicsScale(e.Graphics);
-                e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
-                DrawSequence(e.Graphics);
-                e.Graphics.Restore(state);
+                _zoom.PaintDocument(e.Graphics, this, e.ClipRectangle, _contentSize, BackColor, DrawSequence);
                 return;
             }
 
@@ -232,51 +226,7 @@ public sealed class StructureDiagramViewer : UserControl
                 return;
             }
 
-            var diagramState = e.Graphics.Save();
-            _zoom.ApplyGraphicsScale(e.Graphics);
-            e.Graphics.TranslateTransform(AutoScrollPosition.X, AutoScrollPosition.Y);
-
-            foreach (var edge in _edges)
-            {
-                if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
-                {
-                    continue;
-                }
-
-                if (IsUmlClassView())
-                {
-                    UmlClassDiagramRenderer.DrawRelation(e.Graphics, from, to, edge, _lineStyle);
-                }
-                else if (IsContainerRelationView())
-                {
-                    FileRelationDiagramRenderer.DrawFileEdge(e.Graphics, from, to, edge.Label, _lineStyle, _layoutDirection);
-                }
-                else
-                {
-                    DrawEdge(e.Graphics, edge);
-                }
-            }
-
-            foreach (var box in _boxes)
-            {
-                var isCurrent = _currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
-                var isMatch = _highlightIds.Contains(box.Id);
-
-                if (box.IsUmlStyle)
-                {
-                    UmlClassDiagramRenderer.DrawClass(e.Graphics, box, isMatch, isCurrent);
-                }
-                else if (IsContainerRelationView())
-                {
-                    FileRelationDiagramRenderer.DrawFileBox(e.Graphics, box, isMatch, isCurrent);
-                }
-                else
-                {
-                    DrawBox(e.Graphics, box);
-                }
-            }
-
-            e.Graphics.Restore(diagramState);
+            _zoom.PaintDocument(e.Graphics, this, e.ClipRectangle, _contentSize, BackColor, DrawStructureDiagram);
         }
         catch (OperationCanceledException)
         {
@@ -293,6 +243,51 @@ public sealed class StructureDiagramViewer : UserControl
 
     private bool IsContainerRelationView() =>
         _viewKind is DiagramViewKind.FileRelations or DiagramViewKind.DirectoryRelations;
+
+    private void DrawStructureDiagram(Graphics graphics)
+    {
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+        foreach (var edge in _edges)
+        {
+            if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
+            {
+                continue;
+            }
+
+            if (IsUmlClassView())
+            {
+                UmlClassDiagramRenderer.DrawRelation(graphics, from, to, edge, _lineStyle);
+            }
+            else if (IsContainerRelationView())
+            {
+                FileRelationDiagramRenderer.DrawFileEdge(graphics, from, to, edge.Label, _lineStyle, _layoutDirection);
+            }
+            else
+            {
+                DrawEdge(graphics, edge);
+            }
+        }
+
+        foreach (var box in _boxes)
+        {
+            var isCurrent = _currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
+            var isMatch = _highlightIds.Contains(box.Id);
+
+            if (box.IsUmlStyle)
+            {
+                UmlClassDiagramRenderer.DrawClass(graphics, box, isMatch, isCurrent);
+            }
+            else if (IsContainerRelationView())
+            {
+                FileRelationDiagramRenderer.DrawFileBox(graphics, box, isMatch, isCurrent);
+            }
+            else
+            {
+                DrawBox(graphics, box);
+            }
+        }
+    }
 
     public Bitmap? ExportToBitmap()
     {
@@ -421,6 +416,7 @@ public sealed class StructureDiagramViewer : UserControl
 
     private void Rebuild()
     {
+        _zoom.InvalidateCache();
         _boxes.Clear();
         _edges.Clear();
         _boxMap.Clear();
@@ -456,8 +452,7 @@ public sealed class StructureDiagramViewer : UserControl
                     break;
                 case DiagramViewKind.SequenceDiagram:
                     _sequence = SequenceDiagramBuilder.Build(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
-                    _contentSize = ComputeSequenceSize(_sequence);
-                    _zoom.ApplyContentSize(this, _contentSize);
+                    ApplySequenceContentSize(_sequence);
                     Invalidate();
                     return;
             }
@@ -529,12 +524,12 @@ public sealed class StructureDiagramViewer : UserControl
         if (string.IsNullOrEmpty(primaryRoot))
         {
             var depths = ComputeFileDepths(subgraph);
-            _contentSize = DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths);
+            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths));
         }
         else
         {
             var orderedOutgoing = BuildOrderedOutgoing(subgraph.Outgoing);
-            _contentSize = _layoutDirection == GraphLayoutDirection.TopToBottom
+            ApplyBoxContentSize(_layoutDirection == GraphLayoutDirection.TopToBottom
                 ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(
                     _boxes,
                     orderedOutgoing,
@@ -542,10 +537,8 @@ public sealed class StructureDiagramViewer : UserControl
                 : DiagramBoxLayoutEngine.LayoutLeftToRightTree(
                     _boxes,
                     orderedOutgoing,
-                    primaryRoot);
+                    primaryRoot));
         }
-
-        _zoom.ApplyContentSize(this, _contentSize);
     }
 
     private void BuildDirectoryRelations()
@@ -597,12 +590,12 @@ public sealed class StructureDiagramViewer : UserControl
         if (string.IsNullOrEmpty(primaryRoot))
         {
             var depths = ComputeDirectoryDepths(subgraph);
-            _contentSize = DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths);
+            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths));
         }
         else
         {
             var orderedOutgoing = BuildOrderedOutgoing(subgraph.Outgoing);
-            _contentSize = _layoutDirection == GraphLayoutDirection.TopToBottom
+            ApplyBoxContentSize(_layoutDirection == GraphLayoutDirection.TopToBottom
                 ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(
                     _boxes,
                     orderedOutgoing,
@@ -610,10 +603,8 @@ public sealed class StructureDiagramViewer : UserControl
                 : DiagramBoxLayoutEngine.LayoutLeftToRightTree(
                     _boxes,
                     orderedOutgoing,
-                    primaryRoot);
+                    primaryRoot));
         }
-
-        _zoom.ApplyContentSize(this, _contentSize);
     }
 
     private static Dictionary<string, int> ComputeFileDepths(FileRelationGraphResult graph)
@@ -817,8 +808,7 @@ public sealed class StructureDiagramViewer : UserControl
         }
 
         var depths = ComputeTypeDepths(_boxMap.Keys, relations);
-        _contentSize = UmlClassDiagramRenderer.Layout(_boxes, depths);
-        _zoom.ApplyContentSize(this, _contentSize);
+        ApplyBoxContentSize(UmlClassDiagramRenderer.Layout(_boxes, depths));
     }
 
     private void BuildDataFlow(CallGraphResult callGraph, string? rootNodeId)
@@ -848,12 +838,11 @@ public sealed class StructureDiagramViewer : UserControl
         }
 
         var root = rootNodeId ?? flow.Nodes.FirstOrDefault()?.Id ?? string.Empty;
-        _contentSize = string.IsNullOrEmpty(root)
+        ApplyBoxContentSize(string.IsNullOrEmpty(root)
             ? DiagramBoxLayoutEngine.LayoutLayered(_boxes, _boxes.ToDictionary(box => box.Id, _ => 0))
             : _layoutDirection == GraphLayoutDirection.TopToBottom
                 ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(_boxes, flow.Outgoing, root)
-                : DiagramBoxLayoutEngine.LayoutLeftToRightTree(_boxes, flow.Outgoing, root);
-        _zoom.ApplyContentSize(this, _contentSize);
+                : DiagramBoxLayoutEngine.LayoutLeftToRightTree(_boxes, flow.Outgoing, root));
     }
 
     private static Dictionary<string, int> ComputeTypeDepths(
@@ -1077,4 +1066,27 @@ public sealed class StructureDiagramViewer : UserControl
         var size = graphics.MeasureString(message, font);
         graphics.DrawString(message, font, brush, Math.Max(20, (ClientSize.Width - size.Width) / 2), Math.Max(20, (ClientSize.Height - size.Height) / 2));
     }
+
+    private void ApplyBoxContentSize(Size layoutSize)
+    {
+        _contentSize = DiagramZoomController.InflateContentSize(
+            layoutSize,
+            _boxes.Select(box => box.Bounds));
+        _zoom.ApplyContentSize(this, _contentSize);
+    }
+
+    private void ApplySequenceContentSize(SequenceDiagramResult? sequence)
+    {
+        var measured = ComputeSequenceSize(sequence);
+        _contentSize = new Size(measured.Width, measured.Height + 64);
+        _zoom.ApplyContentSize(this, _contentSize);
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        _zoom.ApplyContentSize(this, _contentSize);
+    }
+
+    private void InvalidateDiagramSurface() => Invalidate(ClientRectangle);
 }

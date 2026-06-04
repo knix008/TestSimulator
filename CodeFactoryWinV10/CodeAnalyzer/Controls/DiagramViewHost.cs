@@ -61,6 +61,8 @@ public sealed class DiagramViewHost : UserControl
         }
     }
 
+    public string? ProjectRootDirectory { get; set; }
+
     public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> rootNodeIds)
     {
         _analysis = analysis;
@@ -208,7 +210,7 @@ public sealed class DiagramViewHost : UserControl
 
         if (_viewKind == DiagramViewKind.DuplicateCode)
         {
-            _duplicateViewer.SetDuplicates(_analysis?.Duplicates);
+            _duplicateViewer.SetDuplicates(_analysis?.Duplicates, ProjectRootDirectory);
             return;
         }
 
