@@ -77,4 +77,36 @@ public static class FileMetricsAggregator
         || file.MaxFanOut >= thresholds.WarnFanOut
         || file.MinMaintenanceIndex < thresholds.WarnMaintenanceIndex
         || file.TodoDensityPer100Lines >= thresholds.WarnTodoDensityPer100Lines;
+
+    public static WarningLevel GetFunctionWarningLevel(FunctionMetric func, UserAnalysisSettings t)
+    {
+        if (func.CyclomaticComplexity >= t.WarnCyclomaticComplexity * 2
+            || func.CognitiveComplexity >= t.WarnCognitiveComplexity * 2
+            || func.MaxNestingDepth >= t.WarnMaxNestingDepth * 2
+            || func.ParameterCount >= t.WarnParameterCount + 5
+            || func.FanOut >= t.WarnFanOut * 2
+            || func.MaintenanceIndex < t.WarnMaintenanceIndex * 0.6)
+            return WarningLevel.Critical;
+
+        if (ExceedsThreshold(func, t))
+            return WarningLevel.Warning;
+
+        return WarningLevel.None;
+    }
+
+    public static WarningLevel GetFileWarningLevel(FileAggregateMetric file, UserAnalysisSettings t)
+    {
+        if (file.MaxCyclomaticComplexity >= t.WarnCyclomaticComplexity * 2
+            || file.MaxCognitiveComplexity >= t.WarnCognitiveComplexity * 2
+            || file.MaxNestingDepth >= t.WarnMaxNestingDepth * 2
+            || file.MaxFanOut >= t.WarnFanOut * 2
+            || file.MinMaintenanceIndex < t.WarnMaintenanceIndex * 0.6
+            || file.TodoDensityPer100Lines >= t.WarnTodoDensityPer100Lines * 3)
+            return WarningLevel.Critical;
+
+        if (ExceedsFileThreshold(file, t))
+            return WarningLevel.Warning;
+
+        return WarningLevel.None;
+    }
 }

@@ -30,7 +30,7 @@ internal static class DiagramBoxLayoutEngine
     private const int LineHeight = 14;
     private const int HeaderHeight = 36;
     private const int HorizontalGap = 48;
-    private const int VerticalGap = 56;
+    private const int VerticalGap = 80;
 
     public static int MeasureNodeHeight(DiagramBoxNode node)
     {

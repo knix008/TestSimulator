@@ -1,5 +1,7 @@
 namespace CodeAnalyzer.Models;
 
+public enum WarningLevel { None, Warning, Critical }
+
 public enum MetricsPrecision
 {
     /// <summary>정규식·키워드 기반 근사.</summary>

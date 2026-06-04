@@ -12,8 +12,8 @@ internal static class UmlClassDiagramRenderer
     private const int LineHeight = 17;
     private const int SeparatorHeight = 1;
     private const int HorizontalGap = 80;
-    private const int InterDepthGap = 110;
-    private const int IntraDepthGap = 52;
+    private const int InterDepthGap = 160;
+    private const int IntraDepthGap = 80;
     private const int MaxDisplayedMembers = 8;
     private const int MaxNodesPerRow = 5;
 
@@ -360,19 +360,23 @@ internal static class UmlClassDiagramRenderer
         switch (style)
         {
             case ConnectionLineStyle.Bezier:
-                var dx = end.X - start.X;
-                var dy = end.Y - start.Y;
-                var off = Math.Max(40, Math.Max(Math.Abs(dx), Math.Abs(dy)) / 2);
+                var sdx = end.X - start.X;
+                var sdy = end.Y - start.Y;
+                var adx = Math.Abs(sdx);
+                var ady = Math.Abs(sdy);
+                var rawOff = Math.Max(40, Math.Max(adx, ady) / 2);
                 Point c1, c2;
-                if (Math.Abs(dy) >= Math.Abs(dx))
+                if (ady >= adx)
                 {
-                    c1 = new Point(start.X, start.Y + Math.Sign(dy) * off);
-                    c2 = new Point(end.X, end.Y - Math.Sign(dy) * off);
+                    var off = Math.Max(1, Math.Min(rawOff, ady / 2));
+                    c1 = new Point(start.X, start.Y + Math.Sign(sdy) * off);
+                    c2 = new Point(end.X, end.Y - Math.Sign(sdy) * off);
                 }
                 else
                 {
-                    c1 = new Point(start.X + Math.Sign(dx) * off, start.Y);
-                    c2 = new Point(end.X - Math.Sign(dx) * off, end.Y);
+                    var off = Math.Max(1, Math.Min(rawOff, adx / 2));
+                    c1 = new Point(start.X + Math.Sign(sdx) * off, start.Y);
+                    c2 = new Point(end.X - Math.Sign(sdx) * off, end.Y);
                 }
                 graphics.DrawBezier(pen, start, c1, c2, end);
                 break;

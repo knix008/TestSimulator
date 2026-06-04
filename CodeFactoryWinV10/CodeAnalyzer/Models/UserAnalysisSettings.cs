@@ -2,7 +2,7 @@ namespace CodeAnalyzer.Models;
 
 public sealed class UserAnalysisSettings
 {
-    public const int DefaultMinDuplicateLines = 3;
+    public const int DefaultMinDuplicateLines = 10;
     public const int MinDuplicateLinesFloor = 2;
     public const int MinDuplicateLinesCeiling = 200;
 
@@ -15,7 +15,7 @@ public sealed class UserAnalysisSettings
     public const double DefaultWarnTodoDensityPer100Lines = 2.0;
 
     public string? LastRootDirectory { get; set; }
-    public int MinDuplicateLines { get; set; } = DefaultMinDuplicateLines;
+    public int MinDuplicateLines { get; set; } = 10;
 
     public int WarnCyclomaticComplexity { get; set; } = DefaultWarnCyclomaticComplexity;
     public int WarnCognitiveComplexity { get; set; } = DefaultWarnCognitiveComplexity;

@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Diagnostics;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 using CodeAnalyzer.Services.Metrics;
@@ -10,6 +12,10 @@ public sealed class CodeMetricsViewer : UserControl
     private readonly ListView _functionList = CreateListView();
     private readonly ListView _fileList = CreateListView();
     private readonly ListView _architectureList = CreateListView();
+
+    private readonly ListViewSorter _functionSorter = new(3, 4, 5, 6, 7, 8, 9, 10);
+    private readonly ListViewSorter _fileSorter = new(2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+    private readonly ListViewSorter _archSorter = new(0);
 
     private readonly Label _summaryLabel = new()
     {
@@ -35,18 +41,26 @@ public sealed class CodeMetricsViewer : UserControl
         AddColumns(_fileList, FileColumns);
         AddColumns(_architectureList, ArchitectureColumns);
 
-        var tabFunctions = new TabPage("함수") { Padding = new Padding(4) };
-        tabFunctions.Controls.Add(_functionList);
+        _functionList.ListViewItemSorter = _functionSorter;
+        _fileList.ListViewItemSorter = _fileSorter;
+        _architectureList.ListViewItemSorter = _archSorter;
 
         var tabFiles = new TabPage("파일") { Padding = new Padding(4) };
         tabFiles.Controls.Add(_fileList);
 
+        var tabFunctions = new TabPage("함수") { Padding = new Padding(4) };
+        tabFunctions.Controls.Add(_functionList);
+
         var tabArchitecture = new TabPage("아키텍처") { Padding = new Padding(4) };
         tabArchitecture.Controls.Add(_architectureList);
 
-        _tabs.TabPages.Add(tabFunctions);
         _tabs.TabPages.Add(tabFiles);
+        _tabs.TabPages.Add(tabFunctions);
         _tabs.TabPages.Add(tabArchitecture);
+
+        _functionList.ColumnClick += (_, e) => SortList(_functionList, _functionSorter, e.Column);
+        _fileList.ColumnClick += (_, e) => SortList(_fileList, _fileSorter, e.Column);
+        _architectureList.ColumnClick += (_, e) => SortList(_architectureList, _archSorter, e.Column);
 
         _functionList.DoubleClick += OnListDoubleClick;
         _fileList.DoubleClick += OnListDoubleClick;
@@ -54,6 +68,12 @@ public sealed class CodeMetricsViewer : UserControl
 
         Controls.Add(_tabs);
         Controls.Add(_summaryLabel);
+    }
+
+    private static void SortList(ListView list, ListViewSorter sorter, int column)
+    {
+        sorter.SetColumn(column);
+        list.Sort();
     }
 
     private static void AddColumns(ListView list, ColumnHeader[] columns)
@@ -75,34 +95,34 @@ public sealed class CodeMetricsViewer : UserControl
 
     private static readonly ColumnHeader[] FunctionColumns =
     [
-        new() { Text = "언어", Width = 56 },
-        new() { Text = "함수", Width = 110 },
-        new() { Text = "파일", Width = 120 },
-        new() { Text = "줄", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "CC", Width = 32, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "인지", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "중첩", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "매개", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "In", Width = 28, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "Out", Width = 28, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "MI", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "정밀", Width = 40 }
+        new() { Text = "언어", Width = 72 },
+        new() { Text = "함수", Width = 140 },
+        new() { Text = "파일", Width = 150 },
+        new() { Text = "줄", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "CC", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "인지", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "중첩", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "매개", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "In", Width = 44, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "Out", Width = 44, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "MI", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "정밀", Width = 56 }
     ];
 
     private static readonly ColumnHeader[] FileColumns =
     [
-        new() { Text = "언어", Width = 56 },
-        new() { Text = "파일", Width = 160 },
-        new() { Text = "코드줄", Width = 48, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "함수", Width = 40, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "CC↑", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "인지↑", Width = 40, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "중첩↑", Width = 40, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "Out↑", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "MI↓", Width = 40, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "TODO", Width = 36, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "TODO/100", Width = 52, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "경고", Width = 40, TextAlign = HorizontalAlignment.Right }
+        new() { Text = "언어", Width = 72 },
+        new() { Text = "파일", Width = 180 },
+        new() { Text = "코드줄", Width = 64, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "함수", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "CC↑", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "인지↑", Width = 56, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "중첩↑", Width = 56, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "Out↑", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "MI↓", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "TODO", Width = 56, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "TODO/100", Width = 76, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "경고", Width = 52, TextAlign = HorizontalAlignment.Right }
     ];
 
     private static readonly ColumnHeader[] ArchitectureColumns =
@@ -184,7 +204,7 @@ public sealed class CodeMetricsViewer : UserControl
             $"경고 CC {summary.HighCyclomaticCount} · 인지 {summary.HighCognitiveCount} · FanOut {summary.HighFanOutCount} · " +
             $"MI↓ {summary.LowMaintenanceIndexCount} · TODO밀도 {summary.HighTodoDensityFileCount}" +
             (functionTruncated || fileTruncated ? " · 목록 상위만 표시" : "") +
-            " · 더블클릭: 호출 그래프/파일 이동";
+            " · 더블클릭: 파일 열기";
 
         BuildFunctionList();
         BuildFileList();
@@ -198,7 +218,8 @@ public sealed class CodeMetricsViewer : UserControl
     private void BuildFunctionList()
     {
         foreach (var func in _metrics!.Functions
-                     .OrderByDescending(f => f.CyclomaticComplexity)
+                     .OrderByDescending(f => FileMetricsAggregator.GetFunctionWarningLevel(f, _thresholds))
+                     .ThenByDescending(f => f.CyclomaticComplexity)
                      .ThenByDescending(f => f.CognitiveComplexity)
                      .Take(AnalysisScaleLimits.MaxCodeMetricsUiFunctions))
         {
@@ -216,10 +237,7 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(FormatPrecision(func.Precision));
             item.Tag = func;
 
-            if (FileMetricsAggregator.ExceedsThreshold(func, _thresholds))
-            {
-                HighlightWarning(item);
-            }
+            ApplyWarningColor(item, FileMetricsAggregator.GetFunctionWarningLevel(func, _thresholds));
 
             _functionList.Items.Add(item);
         }
@@ -231,7 +249,10 @@ public sealed class CodeMetricsViewer : UserControl
             ? _metrics.FileAggregates
             : BuildFallbackFileRows();
 
-        foreach (var file in fileRows.Take(AnalysisScaleLimits.MaxCodeMetricsUiFiles))
+        foreach (var file in fileRows
+                     .OrderByDescending(f => FileMetricsAggregator.GetFileWarningLevel(f, _thresholds))
+                     .ThenByDescending(f => f.MaxCyclomaticComplexity)
+                     .Take(AnalysisScaleLimits.MaxCodeMetricsUiFiles))
         {
             var item = new ListViewItem(GetLanguageDisplay(file.LanguageId));
             item.SubItems.Add(Path.GetFileName(file.FilePath));
@@ -247,10 +268,7 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(file.WarningFunctionCount.ToString());
             item.Tag = file;
 
-            if (FileMetricsAggregator.ExceedsFileThreshold(file, _thresholds))
-            {
-                HighlightWarning(item);
-            }
+            ApplyWarningColor(item, FileMetricsAggregator.GetFileWarningLevel(file, _thresholds));
 
             _fileList.Items.Add(item);
         }
@@ -284,7 +302,7 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add("순환 호출");
             item.SubItems.Add(chain.DisplayText);
             item.Tag = chain;
-            item.BackColor = Color.FromArgb(255, 248, 240);
+            item.BackColor = Color.FromArgb(255, 232, 200);
             _architectureList.Items.Add(item);
             index++;
         }
@@ -297,17 +315,23 @@ public sealed class CodeMetricsViewer : UserControl
             return;
         }
 
-        var request = list.SelectedItems[0].Tag switch
+        var tag = list.SelectedItems[0].Tag;
+
+        // Open file in system default editor; keep the current view unchanged
+        string? filePath = tag switch
         {
-            FunctionMetric func => BuildFunctionNavigation(func),
-            FileAggregateMetric file => new MetricsNavigationRequest { FilePath = file.FilePath },
-            CircularCallChain chain => BuildCycleNavigation(chain),
+            FunctionMetric func => func.FilePath,
+            FileAggregateMetric file => file.FilePath,
+            CircularCallChain chain => chain.NodeIds.Count > 0
+                ? _callGraph?.NodeMap.GetValueOrDefault(chain.NodeIds[0])?.FilePath
+                : null,
             _ => null
         };
 
-        if (request is not null)
+        if (filePath is not null && File.Exists(filePath))
         {
-            NavigationRequested?.Invoke(request);
+            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
+            catch { /* silently ignore launch failures */ }
         }
     }
 
@@ -358,10 +382,19 @@ public sealed class CodeMetricsViewer : UserControl
         }).ToList();
     }
 
-    private static void HighlightWarning(ListViewItem item)
+    private static void ApplyWarningColor(ListViewItem item, WarningLevel level)
     {
-        item.BackColor = Color.FromArgb(255, 245, 238);
-        item.ForeColor = Color.FromArgb(140, 40, 20);
+        switch (level)
+        {
+            case WarningLevel.Warning:
+                item.BackColor = Color.FromArgb(255, 245, 190);
+                item.ForeColor = Color.FromArgb(120, 90, 0);
+                break;
+            case WarningLevel.Critical:
+                item.BackColor = Color.FromArgb(255, 205, 205);
+                item.ForeColor = Color.FromArgb(160, 30, 30);
+                break;
+        }
     }
 
     private static string GetLanguageDisplay(string languageId) =>
@@ -376,4 +409,48 @@ public sealed class CodeMetricsViewer : UserControl
             MetricsPrecision.Syntax => "구문",
             _ => "근사"
         };
+
+    private sealed class ListViewSorter : IComparer
+    {
+        private readonly HashSet<int> _numericColumns;
+        private int _sortColumn = -1;
+        private SortOrder _order = SortOrder.None;
+
+        public ListViewSorter(params int[] numericColumns)
+        {
+            _numericColumns = new HashSet<int>(numericColumns);
+        }
+
+        public void SetColumn(int column)
+        {
+            if (column == _sortColumn)
+            {
+                _order = _order == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending;
+            }
+            else
+            {
+                _sortColumn = column;
+                _order = SortOrder.Ascending;
+            }
+        }
+
+        public int Compare(object? x, object? y)
+        {
+            if (x is not ListViewItem itemX || y is not ListViewItem itemY || _sortColumn < 0)
+                return 0;
+
+            var textX = _sortColumn < itemX.SubItems.Count ? itemX.SubItems[_sortColumn].Text : "";
+            var textY = _sortColumn < itemY.SubItems.Count ? itemY.SubItems[_sortColumn].Text : "";
+
+            int result;
+            if (_numericColumns.Contains(_sortColumn)
+                && double.TryParse(textX, out double numX)
+                && double.TryParse(textY, out double numY))
+                result = numX.CompareTo(numY);
+            else
+                result = string.Compare(textX, textY, StringComparison.CurrentCultureIgnoreCase);
+
+            return _order == SortOrder.Descending ? -result : result;
+        }
+    }
 }

@@ -32,13 +32,14 @@ public sealed class DuplicateCodeViewer : UserControl
 
     private readonly TextBox _sampleBox = new()
     {
-        Dock = DockStyle.Fill,
+        Dock = DockStyle.Bottom,
+        Height = 120,
         Multiline = true,
         ReadOnly = true,
         ScrollBars = ScrollBars.Both,
         Font = new Font(FontFamily.GenericMonospace, 9f),
         BackColor = Color.FromArgb(248, 248, 252),
-        BorderStyle = BorderStyle.None
+        BorderStyle = BorderStyle.FixedSingle
     };
 
     private readonly Label _summaryLabel = new()
@@ -70,10 +71,8 @@ public sealed class DuplicateCodeViewer : UserControl
         _fragmentList.Columns.Add("끝", 52, HorizontalAlignment.Right);
 
         var detailPanel = new Panel { Dock = DockStyle.Fill };
-        detailPanel.Controls.Add(_fragmentList);
         detailPanel.Controls.Add(_sampleBox);
-        _sampleBox.Dock = DockStyle.Bottom;
-        _sampleBox.Height = 120;
+        detailPanel.Controls.Add(_fragmentList);
 
         _split.Panel1.Controls.Add(_groupList);
         _split.Panel2.Controls.Add(detailPanel);

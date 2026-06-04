@@ -94,6 +94,14 @@ public sealed class StructureDiagramViewer : UserControl
 
     public void EndAnalysis() => _isAnalyzing = false;
 
+    public void ResetView()
+    {
+        _zoom.Reset();
+        _zoom.ApplyContentSize(this, _contentSize);
+        AutoScrollPosition = new Point(0, 0);
+        Invalidate();
+    }
+
     public void ClearSearchHighlight()
     {
         _highlightIds.Clear();
@@ -999,19 +1007,26 @@ public sealed class StructureDiagramViewer : UserControl
 
     private static void DrawBezierEdge(Graphics graphics, Pen pen, Point start, Point end)
     {
-        var dx = Math.Abs(end.X - start.X);
-        var dy = Math.Abs(end.Y - start.Y);
-        var offset = Math.Max(36, Math.Max(dx, dy) / 2);
+        var signedDx = end.X - start.X;
+        var signedDy = end.Y - start.Y;
+        var dx = Math.Abs(signedDx);
+        var dy = Math.Abs(signedDy);
+        var rawOff = Math.Max(36, Math.Max(dx, dy) / 2);
+
         Point c1, c2;
         if (dx >= dy)
         {
-            c1 = new Point(start.X + offset, start.Y);
-            c2 = new Point(end.X - offset, end.Y);
+            var off = Math.Max(1, Math.Min(rawOff, dx / 2));
+            var sign = signedDx >= 0 ? 1 : -1;
+            c1 = new Point(start.X + sign * off, start.Y);
+            c2 = new Point(end.X - sign * off, end.Y);
         }
         else
         {
-            c1 = new Point(start.X, start.Y + offset);
-            c2 = new Point(end.X, end.Y - offset);
+            var off = Math.Max(1, Math.Min(rawOff, dy / 2));
+            var sign = signedDy >= 0 ? 1 : -1;
+            c1 = new Point(start.X, start.Y + sign * off);
+            c2 = new Point(end.X, end.Y - sign * off);
         }
         graphics.DrawBezier(pen, start, c1, c2, end);
     }

@@ -20,6 +20,7 @@ internal static class CallGraphLayoutEngine
     private const int NodeHeight = 44;
     private const int HorizontalGap = 80;
     private const int VerticalGap = 28;
+    private const int TopToBottomDepthGap = 120;
     private const int ToggleSize = 18;
     private const int ToggleMargin = 4;
 
@@ -89,7 +90,7 @@ internal static class CallGraphLayoutEngine
         else
         {
             var x = 24 + position;
-            var y = 24 + depth * (NodeHeight + HorizontalGap);
+            var y = 24 + depth * (NodeHeight + TopToBottomDepthGap);
             node.Bounds = new Rectangle(x, y, NodeWidth, NodeHeight);
             node.ToggleBounds = node.HasChildren
                 ? new Rectangle(
