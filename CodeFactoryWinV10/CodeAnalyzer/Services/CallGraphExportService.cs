@@ -8,13 +8,15 @@ public static class CallGraphExportService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
     };
 
     public static void SaveToFile(AnalysisResult analysis, string rootDirectory, string filePath)
     {
         var document = new AnalysisDocument
         {
+            Version = "3",
             RootDirectory = rootDirectory,
             SavedAtUtc = DateTime.UtcNow,
             CallGraph = new CallGraphSection
@@ -112,9 +114,7 @@ public static class CallGraphExportService
         var json = File.ReadAllText(filePath);
 
         using var doc = JsonDocument.Parse(json);
-        var version = doc.RootElement.TryGetProperty("version", out var vProp)
-            ? vProp.GetString()
-            : "1";
+        var version = ReadDocumentVersion(doc.RootElement);
 
         if (version == "3")
         {
@@ -122,18 +122,71 @@ public static class CallGraphExportService
                 ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
             return (BuildFromV3(document), document.RootDirectory);
         }
-        else if (version == "2")
+
+        if (version == "2")
         {
             var document = JsonSerializer.Deserialize<AnalysisDocument>(json, JsonOptions)
                 ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
             return (BuildFromV2(document), document.RootDirectory);
         }
-        else
+
+        var legacy = JsonSerializer.Deserialize<LegacyCallGraphDocument>(json, JsonOptions)
+            ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
+        return (BuildFromV1(legacy), legacy.RootDirectory);
+    }
+
+    private static string ReadDocumentVersion(JsonElement root)
+    {
+        foreach (var propertyName in new[] { "version", "Version" })
         {
-            var document = JsonSerializer.Deserialize<LegacyCallGraphDocument>(json, JsonOptions)
-                ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
-            return (BuildFromV1(document), document.RootDirectory);
+            if (!root.TryGetProperty(propertyName, out var versionProperty))
+            {
+                continue;
+            }
+
+            return versionProperty.ValueKind switch
+            {
+                JsonValueKind.String => string.IsNullOrWhiteSpace(versionProperty.GetString())
+                    ? InferDocumentVersion(root)
+                    : versionProperty.GetString()!,
+                JsonValueKind.Number => versionProperty.GetInt32().ToString(),
+                _ => InferDocumentVersion(root)
+            };
         }
+
+        return InferDocumentVersion(root);
+    }
+
+    private static string InferDocumentVersion(JsonElement root)
+    {
+        if (HasProperty(root, "callGraph", "CallGraph")
+            || HasProperty(root, "metrics", "Metrics")
+            || HasProperty(root, "duplicates", "Duplicates"))
+        {
+            return "3";
+        }
+
+        if (HasProperty(root, "fileRelations", "FileRelations")
+            || HasProperty(root, "directoryRelations", "DirectoryRelations")
+            || HasProperty(root, "structure", "Structure"))
+        {
+            return "2";
+        }
+
+        return "1";
+    }
+
+    private static bool HasProperty(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static AnalysisResult BuildFromV3(AnalysisDocument d)
@@ -177,7 +230,10 @@ public static class CallGraphExportService
                 Types = types,
                 Relations = relations,
                 TypeMap = types.ToDictionary(t => t.Id, StringComparer.Ordinal)
-            }
+            },
+            Metrics = BuildMetricsResult(d.Metrics),
+            Duplicates = BuildDuplicatesResult(d.Duplicates),
+            QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
         };
     }
 
@@ -290,7 +346,12 @@ public static class CallGraphExportService
 
     private static CodeMetricsResult BuildMetricsResult(MetricsSection? s)
     {
-        if (s is null) return new();
+        if (s is null)
+        {
+            return new();
+        }
+
+        var summaryRecord = s.Summary ?? new CodeQualitySummaryRecord();
 
         var files = s.Files.Select(f => new FileLineMetric
         {
@@ -349,23 +410,23 @@ public static class CallGraphExportService
 
         var summary = new CodeQualitySummary
         {
-            ProjectDuplicateLinePercent = s.Summary.ProjectDuplicateLinePercent,
-            DuplicateLineCount = s.Summary.DuplicateLineCount,
-            TotalCodeLines = s.Summary.TotalCodeLines,
-            CircularCallChainCount = s.Summary.CircularCallChainCount,
-            CircularCallChains = s.Summary.CircularCallChains.Select(c => new CircularCallChain
+            ProjectDuplicateLinePercent = summaryRecord.ProjectDuplicateLinePercent,
+            DuplicateLineCount = summaryRecord.DuplicateLineCount,
+            TotalCodeLines = summaryRecord.TotalCodeLines,
+            CircularCallChainCount = summaryRecord.CircularCallChainCount,
+            CircularCallChains = summaryRecord.CircularCallChains.Select(c => new CircularCallChain
             {
                 DisplayText = c.DisplayText,
                 NodeIds = c.NodeIds
             }).ToList(),
-            HighCyclomaticCount = s.Summary.HighCyclomaticCount,
-            HighCognitiveCount = s.Summary.HighCognitiveCount,
-            DeepNestingCount = s.Summary.DeepNestingCount,
-            HighFanOutCount = s.Summary.HighFanOutCount,
-            LowMaintenanceIndexCount = s.Summary.LowMaintenanceIndexCount,
-            HighParameterCount = s.Summary.HighParameterCount,
-            TotalTodoMarkers = s.Summary.TotalTodoMarkers,
-            HighTodoDensityFileCount = s.Summary.HighTodoDensityFileCount
+            HighCyclomaticCount = summaryRecord.HighCyclomaticCount,
+            HighCognitiveCount = summaryRecord.HighCognitiveCount,
+            DeepNestingCount = summaryRecord.DeepNestingCount,
+            HighFanOutCount = summaryRecord.HighFanOutCount,
+            LowMaintenanceIndexCount = summaryRecord.LowMaintenanceIndexCount,
+            HighParameterCount = summaryRecord.HighParameterCount,
+            TotalTodoMarkers = summaryRecord.TotalTodoMarkers,
+            HighTodoDensityFileCount = summaryRecord.HighTodoDensityFileCount
         };
 
         return new CodeMetricsResult

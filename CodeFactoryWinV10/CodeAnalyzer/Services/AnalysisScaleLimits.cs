@@ -14,6 +14,8 @@ public static class AnalysisScaleLimits
 
     public const int MaxCodeMetricsUiFunctions = 5_000;
     public const int MaxCodeMetricsUiFiles = 3_000;
+    public const int MaxArchitectureUiInsights = 120;
+    public const int MaxArchitectureUiItemsPerCategory = 8;
 
     public const int MaxDuplicateCodeGroups = 2_000;
     public const int MaxDuplicateWindowMapEntries = 200_000;

@@ -202,7 +202,7 @@ public sealed class DiagramViewHost : UserControl
     {
         if (_viewKind == DiagramViewKind.CodeMetrics)
         {
-            _metricsViewer.SetMetrics(_analysis?.Metrics, _analysis?.QualityThresholds, _analysis?.CallGraph);
+            _metricsViewer.SetMetrics(_analysis?.Metrics, _analysis?.QualityThresholds, _analysis);
             return;
         }
 

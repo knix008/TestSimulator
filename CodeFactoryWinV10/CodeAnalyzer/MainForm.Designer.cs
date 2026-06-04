@@ -211,170 +211,178 @@ partial class MainForm
         //
         // numMinDuplicateLines
         //
-        numMinDuplicateLines.Location = new Point(196, 202);
+        numMinDuplicateLines.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numMinDuplicateLines.Location = new Point(224, 202);
         numMinDuplicateLines.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         numMinDuplicateLines.Minimum = new decimal(new int[] { 2, 0, 0, 0 });
         numMinDuplicateLines.Name = "numMinDuplicateLines";
         numMinDuplicateLines.Size = new Size(56, 23);
         numMinDuplicateLines.TabIndex = 27;
-        numMinDuplicateLines.TextAlign = HorizontalAlignment.Center;
+        numMinDuplicateLines.TextAlign = HorizontalAlignment.Right;
         numMinDuplicateLines.Value = new decimal(new int[] { 10, 0, 0, 0 });
         numMinDuplicateLines.ValueChanged += numMinDuplicateLines_ValueChanged;
         // 
         // lblMinDuplicateLines
         // 
+        lblMinDuplicateLines.AutoSize = true;
         lblMinDuplicateLines.Location = new Point(8, 204);
         lblMinDuplicateLines.Name = "lblMinDuplicateLines";
-        lblMinDuplicateLines.Size = new Size(178, 15);
+        lblMinDuplicateLines.Size = new Size(119, 15);
         lblMinDuplicateLines.TabIndex = 26;
         lblMinDuplicateLines.Text = "중복 코드 최소 줄 수 ≥";
-        lblMinDuplicateLines.TextAlign = ContentAlignment.MiddleRight;
         // 
         // numWarnParameter
         // 
-        numWarnParameter.Location = new Point(196, 178);
+        numWarnParameter.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnParameter.Location = new Point(224, 178);
         numWarnParameter.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
         numWarnParameter.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnParameter.Name = "numWarnParameter";
         numWarnParameter.Size = new Size(56, 23);
         numWarnParameter.TabIndex = 25;
-        numWarnParameter.TextAlign = HorizontalAlignment.Center;
+        numWarnParameter.TextAlign = HorizontalAlignment.Right;
         numWarnParameter.Value = new decimal(new int[] { 7, 0, 0, 0 });
         numWarnParameter.ValueChanged += QualityThreshold_ValueChanged;
         // 
         // lblWarnParameter
         // 
+        lblWarnParameter.AutoSize = true;
         lblWarnParameter.Location = new Point(8, 180);
         lblWarnParameter.Name = "lblWarnParameter";
-        lblWarnParameter.Size = new Size(178, 15);
+        lblWarnParameter.Size = new Size(95, 15);
         lblWarnParameter.TabIndex = 24;
         lblWarnParameter.Text = "매개변수 개수 ≥";
-        lblWarnParameter.TextAlign = ContentAlignment.MiddleRight;
         // 
         // numWarnTodoDensity
         // 
+        numWarnTodoDensity.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         numWarnTodoDensity.DecimalPlaces = 1;
         numWarnTodoDensity.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
-        numWarnTodoDensity.Location = new Point(196, 152);
+        numWarnTodoDensity.Location = new Point(224, 152);
         numWarnTodoDensity.Name = "numWarnTodoDensity";
         numWarnTodoDensity.Size = new Size(56, 23);
         numWarnTodoDensity.TabIndex = 23;
-        numWarnTodoDensity.TextAlign = HorizontalAlignment.Center;
+        numWarnTodoDensity.TextAlign = HorizontalAlignment.Right;
         numWarnTodoDensity.Value = new decimal(new int[] { 20, 0, 0, 65536 });
         numWarnTodoDensity.ValueChanged += QualityThreshold_ValueChanged;
         // 
         // lblWarnTodoDensity
         // 
+        lblWarnTodoDensity.AutoSize = true;
         lblWarnTodoDensity.Location = new Point(8, 154);
         lblWarnTodoDensity.Name = "lblWarnTodoDensity";
-        lblWarnTodoDensity.Size = new Size(178, 15);
+        lblWarnTodoDensity.Size = new Size(102, 15);
         lblWarnTodoDensity.TabIndex = 22;
         lblWarnTodoDensity.Text = "TODO 밀도 (%) ≥";
-        lblWarnTodoDensity.TextAlign = ContentAlignment.MiddleRight;
         // 
         // numWarnMi
         // 
-        numWarnMi.Location = new Point(196, 126);
+        numWarnMi.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnMi.Location = new Point(224, 126);
         numWarnMi.Maximum = new decimal(new int[] { 171, 0, 0, 0 });
         numWarnMi.Name = "numWarnMi";
         numWarnMi.Size = new Size(56, 23);
         numWarnMi.TabIndex = 21;
-        numWarnMi.TextAlign = HorizontalAlignment.Center;
+        numWarnMi.TextAlign = HorizontalAlignment.Right;
         numWarnMi.Value = new decimal(new int[] { 65, 0, 0, 0 });
         numWarnMi.ValueChanged += QualityThreshold_ValueChanged;
         // 
         // numWarnFanOut
         // 
-        numWarnFanOut.Location = new Point(196, 100);
+        numWarnFanOut.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnFanOut.Location = new Point(224, 100);
         numWarnFanOut.Maximum = new decimal(new int[] { 500, 0, 0, 0 });
         numWarnFanOut.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnFanOut.Name = "numWarnFanOut";
         numWarnFanOut.Size = new Size(56, 23);
         numWarnFanOut.TabIndex = 19;
-        numWarnFanOut.TextAlign = HorizontalAlignment.Center;
+        numWarnFanOut.TextAlign = HorizontalAlignment.Right;
         numWarnFanOut.Value = new decimal(new int[] { 10, 0, 0, 0 });
         numWarnFanOut.ValueChanged += QualityThreshold_ValueChanged;
         // 
         // lblWarnMi
         // 
+        lblWarnMi.AutoSize = true;
         lblWarnMi.Location = new Point(8, 128);
         lblWarnMi.Name = "lblWarnMi";
-        lblWarnMi.Size = new Size(178, 15);
+        lblWarnMi.Size = new Size(133, 15);
         lblWarnMi.TabIndex = 20;
         lblWarnMi.Text = "유지보수성 지수 (MI) <";
-        lblWarnMi.TextAlign = ContentAlignment.MiddleRight;
         // 
         // lblWarnFanOut
         // 
+        lblWarnFanOut.AutoSize = true;
         lblWarnFanOut.Location = new Point(8, 102);
         lblWarnFanOut.Name = "lblWarnFanOut";
-        lblWarnFanOut.Size = new Size(178, 15);
+        lblWarnFanOut.Size = new Size(111, 15);
         lblWarnFanOut.TabIndex = 18;
         lblWarnFanOut.Text = "팬아웃 (Fan-Out) ≥";
-        lblWarnFanOut.TextAlign = ContentAlignment.MiddleRight;
         // 
         // numWarnNesting
         // 
-        numWarnNesting.Location = new Point(196, 74);
+        numWarnNesting.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnNesting.Location = new Point(224, 74);
         numWarnNesting.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
         numWarnNesting.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnNesting.Name = "numWarnNesting";
         numWarnNesting.Size = new Size(56, 23);
         numWarnNesting.TabIndex = 17;
-        numWarnNesting.TextAlign = HorizontalAlignment.Center;
+        numWarnNesting.TextAlign = HorizontalAlignment.Right;
         numWarnNesting.Value = new decimal(new int[] { 4, 0, 0, 0 });
         numWarnNesting.ValueChanged += QualityThreshold_ValueChanged;
         // 
         // numWarnCognitive
         // 
-        numWarnCognitive.Location = new Point(196, 48);
+        numWarnCognitive.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnCognitive.Location = new Point(224, 48);
         numWarnCognitive.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         numWarnCognitive.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnCognitive.Name = "numWarnCognitive";
         numWarnCognitive.Size = new Size(56, 23);
         numWarnCognitive.TabIndex = 15;
-        numWarnCognitive.TextAlign = HorizontalAlignment.Center;
+        numWarnCognitive.TextAlign = HorizontalAlignment.Right;
         numWarnCognitive.Value = new decimal(new int[] { 15, 0, 0, 0 });
         numWarnCognitive.ValueChanged += QualityThreshold_ValueChanged;
         // 
         // numWarnCyclomatic
         // 
-        numWarnCyclomatic.Location = new Point(196, 22);
+        numWarnCyclomatic.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnCyclomatic.Location = new Point(224, 22);
         numWarnCyclomatic.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         numWarnCyclomatic.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         numWarnCyclomatic.Name = "numWarnCyclomatic";
         numWarnCyclomatic.Size = new Size(56, 23);
         numWarnCyclomatic.TabIndex = 13;
-        numWarnCyclomatic.TextAlign = HorizontalAlignment.Center;
+        numWarnCyclomatic.TextAlign = HorizontalAlignment.Right;
         numWarnCyclomatic.Value = new decimal(new int[] { 15, 0, 0, 0 });
         numWarnCyclomatic.ValueChanged += QualityThreshold_ValueChanged;
         // 
         // lblWarnNesting
         // 
+        lblWarnNesting.AutoSize = true;
         lblWarnNesting.Location = new Point(8, 76);
         lblWarnNesting.Name = "lblWarnNesting";
-        lblWarnNesting.Size = new Size(178, 15);
+        lblWarnNesting.Size = new Size(71, 15);
         lblWarnNesting.TabIndex = 16;
         lblWarnNesting.Text = "중첩 깊이 ≥";
-        lblWarnNesting.TextAlign = ContentAlignment.MiddleRight;
         // 
         // lblWarnCognitive
         // 
+        lblWarnCognitive.AutoSize = true;
         lblWarnCognitive.Location = new Point(8, 50);
         lblWarnCognitive.Name = "lblWarnCognitive";
-        lblWarnCognitive.Size = new Size(178, 15);
+        lblWarnCognitive.Size = new Size(83, 15);
         lblWarnCognitive.TabIndex = 14;
         lblWarnCognitive.Text = "인지 복잡도 ≥";
-        lblWarnCognitive.TextAlign = ContentAlignment.MiddleRight;
         // 
         // lblWarnCyclomatic
         // 
+        lblWarnCyclomatic.AutoSize = true;
         lblWarnCyclomatic.Location = new Point(8, 24);
         lblWarnCyclomatic.Name = "lblWarnCyclomatic";
-        lblWarnCyclomatic.Size = new Size(178, 15);
+        lblWarnCyclomatic.Size = new Size(83, 15);
         lblWarnCyclomatic.TabIndex = 12;
         lblWarnCyclomatic.Text = "순환 복잡도 ≥";
-        lblWarnCyclomatic.TextAlign = ContentAlignment.MiddleRight;
         //
         // checkedListLanguages
         // 

@@ -26,7 +26,7 @@ public sealed class CodeMetricsViewer : UserControl
     };
 
     private CodeMetricsResult? _metrics;
-    private CallGraphResult? _callGraph;
+    private AnalysisResult? _analysis;
     private UserAnalysisSettings _thresholds = new();
     private bool _isAnalyzing;
 
@@ -135,13 +135,13 @@ public sealed class CodeMetricsViewer : UserControl
     public void SetMetrics(
         CodeMetricsResult? metrics,
         UserAnalysisSettings? thresholds = null,
-        CallGraphResult? callGraph = null)
+        AnalysisResult? analysis = null)
     {
         try
         {
             _metrics = metrics;
-            _callGraph = callGraph;
-            _thresholds = thresholds ?? new UserAnalysisSettings();
+            _analysis = analysis;
+            _thresholds = thresholds ?? analysis?.QualityThresholds ?? new UserAnalysisSettings();
             RebuildLists();
         }
         catch (Exception ex)
@@ -204,7 +204,7 @@ public sealed class CodeMetricsViewer : UserControl
             $"경고 CC {summary.HighCyclomaticCount} · 인지 {summary.HighCognitiveCount} · FanOut {summary.HighFanOutCount} · " +
             $"MI↓ {summary.LowMaintenanceIndexCount} · TODO밀도 {summary.HighTodoDensityFileCount}" +
             (functionTruncated || fileTruncated ? " · 목록 상위만 표시" : "") +
-            " · 더블클릭: 파일 열기";
+            " · 더블클릭: 호출 그래프/파일 이동";
 
         BuildFunctionList();
         BuildFileList();
@@ -276,33 +276,35 @@ public sealed class CodeMetricsViewer : UserControl
 
     private void BuildArchitectureList()
     {
-        var summary = _metrics!.Summary;
-        var index = 1;
-
-        var summaryItem = new ListViewItem(index.ToString());
-        summaryItem.SubItems.Add("요약");
-        summaryItem.SubItems.Add(
-            $"중복 줄 {summary.DuplicateLineCount:N0} ({summary.ProjectDuplicateLinePercent:F1}%) · " +
-            $"순환 호출 {summary.CircularCallChainCount}건 · TODO 표식 {summary.TotalTodoMarkers}개");
-        _architectureList.Items.Add(summaryItem);
-        index++;
-
-        if (summary.CircularCallChains.Count == 0)
+        if (_analysis is null)
         {
-            var emptyItem = new ListViewItem(index.ToString());
-            emptyItem.SubItems.Add("순환 호출");
-            emptyItem.SubItems.Add("검출된 순환 호출 체인이 없습니다.");
-            _architectureList.Items.Add(emptyItem);
+            var summary = _metrics!.Summary;
+            var fallbackItem = new ListViewItem("1");
+            fallbackItem.SubItems.Add("요약");
+            fallbackItem.SubItems.Add(
+                $"중복 줄 {summary.DuplicateLineCount:N0} ({summary.ProjectDuplicateLinePercent:F1}%) · " +
+                $"순환 호출 {summary.CircularCallChainCount}건 · TODO 표식 {summary.TotalTodoMarkers}개");
+            _architectureList.Items.Add(fallbackItem);
             return;
         }
 
-        foreach (var chain in summary.CircularCallChains)
+        var insights = ArchitectureMetricsBuilder.BuildInsights(
+            _metrics!,
+            _analysis.CallGraph,
+            _analysis.FileRelations,
+            _analysis.DirectoryRelations,
+            _analysis.Structure,
+            _analysis.Duplicates,
+            _thresholds);
+
+        var index = 1;
+        foreach (var insight in insights)
         {
             var item = new ListViewItem(index.ToString());
-            item.SubItems.Add("순환 호출");
-            item.SubItems.Add(chain.DisplayText);
-            item.Tag = chain;
-            item.BackColor = Color.FromArgb(255, 232, 200);
+            item.SubItems.Add(insight.Category);
+            item.SubItems.Add(insight.Description);
+            item.Tag = insight.NavigationTag;
+            ApplyWarningColor(item, insight.Severity);
             _architectureList.Items.Add(item);
             index++;
         }
@@ -316,15 +318,27 @@ public sealed class CodeMetricsViewer : UserControl
         }
 
         var tag = list.SelectedItems[0].Tag;
+        MetricsNavigationRequest? request = tag switch
+        {
+            FunctionMetric func => BuildFunctionNavigation(func),
+            CircularCallChain chain => BuildCycleNavigation(chain),
+            FileRelationEdge edge => BuildFileEdgeNavigation(edge),
+            DirectoryRelationEdge edge => BuildDirectoryEdgeNavigation(edge),
+            DuplicateCodeGroup group => BuildDuplicateNavigation(group),
+            FileAggregateMetric file => new MetricsNavigationRequest { FilePath = file.FilePath },
+            _ => null
+        };
 
-        // Open file in system default editor; keep the current view unchanged
+        if (request is not null && HasNavigationTarget(request))
+        {
+            NavigationRequested?.Invoke(request);
+            return;
+        }
+
         string? filePath = tag switch
         {
             FunctionMetric func => func.FilePath,
             FileAggregateMetric file => file.FilePath,
-            CircularCallChain chain => chain.NodeIds.Count > 0
-                ? _callGraph?.NodeMap.GetValueOrDefault(chain.NodeIds[0])?.FilePath
-                : null,
             _ => null
         };
 
@@ -337,7 +351,7 @@ public sealed class CodeMetricsViewer : UserControl
 
     private MetricsNavigationRequest BuildFunctionNavigation(FunctionMetric func)
     {
-        if (_callGraph?.NodeMap.ContainsKey(func.Id) == true)
+        if (_analysis?.CallGraph.NodeMap.ContainsKey(func.Id) == true)
         {
             return new MetricsNavigationRequest
             {
@@ -353,7 +367,7 @@ public sealed class CodeMetricsViewer : UserControl
         };
     }
 
-    private static MetricsNavigationRequest BuildCycleNavigation(CircularCallChain chain)
+    private MetricsNavigationRequest BuildCycleNavigation(CircularCallChain chain)
     {
         if (chain.NodeIds.Count == 0)
         {
@@ -364,6 +378,67 @@ public sealed class CodeMetricsViewer : UserControl
         {
             CallGraphNodeId = chain.NodeIds[0],
             HighlightCallGraphNodeIds = chain.NodeIds
+        };
+    }
+
+    private MetricsNavigationRequest? BuildFileEdgeNavigation(FileRelationEdge edge)
+    {
+        if (_analysis is null
+            || !_analysis.FileRelations.FileMap.TryGetValue(edge.FromFileId, out var file))
+        {
+            return null;
+        }
+
+        return new MetricsNavigationRequest
+        {
+            FilePath = file.FilePath
+        };
+    }
+
+    private MetricsNavigationRequest? BuildDirectoryEdgeNavigation(DirectoryRelationEdge edge)
+    {
+        if (_analysis is null
+            || !_analysis.DirectoryRelations.DirectoryMap.TryGetValue(edge.FromDirectoryId, out var directory)
+            || !Directory.Exists(directory.DirectoryPath))
+        {
+            return null;
+        }
+
+        var extensions = LanguageRegistry.All
+            .SelectMany(language => language.Extensions)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var filePath = Directory.EnumerateFiles(directory.DirectoryPath, "*.*", SearchOption.AllDirectories)
+                .FirstOrDefault(path => extensions.Contains(Path.GetExtension(path)));
+
+            return filePath is null
+                ? null
+                : new MetricsNavigationRequest { FilePath = filePath };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool HasNavigationTarget(MetricsNavigationRequest request) =>
+        !string.IsNullOrWhiteSpace(request.CallGraphNodeId)
+        || (!string.IsNullOrWhiteSpace(request.FilePath) && File.Exists(request.FilePath));
+
+    private static MetricsNavigationRequest? BuildDuplicateNavigation(DuplicateCodeGroup group)
+    {
+        var fragment = group.Fragments.FirstOrDefault();
+        if (fragment is null)
+        {
+            return null;
+        }
+
+        return new MetricsNavigationRequest
+        {
+            FilePath = fragment.FilePath,
+            LineNumber = fragment.StartLine
         };
     }
 

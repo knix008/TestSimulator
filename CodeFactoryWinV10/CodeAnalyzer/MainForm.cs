@@ -193,7 +193,20 @@ public partial class MainForm : Form
 
     private void RestoreUserSettings()
     {
+        ApplyQualityThresholdsToUi(_userSettings.LoadSettings());
+
         var settings = _userSettings.LoadSettings();
+        if (string.IsNullOrWhiteSpace(settings.LastRootDirectory))
+        {
+            return;
+        }
+
+        txtRootPath.Text = settings.LastRootDirectory;
+        ApplyRootDirectory(settings.LastRootDirectory, saveSettings: false);
+    }
+
+    private void ApplyQualityThresholdsToUi(UserAnalysisSettings settings)
+    {
         numMinDuplicateLines.Value = Math.Clamp(
             settings.MinDuplicateLines,
             UserAnalysisSettings.MinDuplicateLinesFloor,
@@ -205,14 +218,6 @@ public partial class MainForm : Form
         numWarnMi.Value = (decimal)settings.WarnMaintenanceIndex;
         numWarnTodoDensity.Value = (decimal)settings.WarnTodoDensityPer100Lines;
         numWarnParameter.Value = settings.WarnParameterCount;
-
-        if (string.IsNullOrWhiteSpace(settings.LastRootDirectory))
-        {
-            return;
-        }
-
-        txtRootPath.Text = settings.LastRootDirectory;
-        ApplyRootDirectory(settings.LastRootDirectory, saveSettings: false);
     }
 
     private void numMinDuplicateLines_ValueChanged(object? sender, EventArgs e)
@@ -1291,7 +1296,10 @@ public partial class MainForm : Form
         try
         {
             CallGraphExportService.SaveToFile(_lastAnalysis, txtRootPath.Text.Trim(), dialog.FileName);
-            lblStatus.Text = $"결과 저장 완료: {dialog.FileName}";
+            lblStatus.Text =
+                $"결과 저장 완료: 함수 {_lastAnalysis.CallGraph.Nodes.Count:N0}개, " +
+                $"메트릭 {_lastAnalysis.Metrics.Functions.Count:N0}개, " +
+                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건 · {dialog.FileName}";
         }
         catch (Exception ex)
         {
@@ -1326,23 +1334,51 @@ public partial class MainForm : Form
             ClearAnalysisResults();
 
             _lastAnalysis = analysis;
-            if (!string.IsNullOrWhiteSpace(rootDirectory))
-            {
-                txtRootPath.Text = rootDirectory;
-            }
-
-            PopulateRootMethodList(_lastAnalysis.CallGraph);
-
-            lblStatus.Text =
-                $"결과 불러오기 완료: 함수 {analysis.CallGraph.Nodes.Count}개, " +
-                $"호출 {analysis.CallGraph.Edges.Count}개, " +
-                $"파일 {analysis.FileRelations.Files.Count}개, " +
-                $"타입 {analysis.Structure.Types.Count}개";
+            ApplyLoadedAnalysisResult(analysis, rootDirectory);
         }
         catch (Exception ex)
         {
             DetailedErrorDialog.Show(this, "결과 불러오기 오류", ex, "분석 결과 불러오기 중 오류가 발생했습니다.");
         }
+    }
+
+    private void ApplyLoadedAnalysisResult(AnalysisResult analysis, string rootDirectory)
+    {
+        if (!string.IsNullOrWhiteSpace(rootDirectory))
+        {
+            txtRootPath.Text = rootDirectory;
+        }
+
+        if (analysis.QualityThresholds is not null)
+        {
+            ApplyQualityThresholdsToUi(analysis.QualityThresholds);
+        }
+
+        ApplyAnalysisResultsToUi(analysis);
+
+        try
+        {
+            diagramViewHost.ViewKind = GetSelectedViewKind();
+            diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
+            ApplySearchHighlightToViewer();
+        }
+        catch (Exception ex)
+        {
+            DetailedErrorDialog.Show(
+                this,
+                "결과 표시 오류",
+                ex,
+                "불러온 분석 결과를 화면에 반영하는 중 오류가 발생했습니다.");
+        }
+
+        UpdateResultCommandsState();
+        lblStatus.Text =
+            $"결과 불러오기 완료: 함수 {analysis.CallGraph.Nodes.Count:N0}개, " +
+            $"호출 {analysis.CallGraph.Edges.Count:N0}개, " +
+            $"메트릭 {analysis.Metrics.Functions.Count:N0}개, " +
+            $"중복 {analysis.Duplicates.Groups.Count:N0}건, " +
+            $"파일 {analysis.FileRelations.Files.Count:N0}개, " +
+            $"타입 {analysis.Structure.Types.Count:N0}개";
     }
 
     private void toolStripSearchBox_TextChanged(object sender, EventArgs e)
