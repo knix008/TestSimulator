@@ -10,5 +10,7 @@ public enum DiagramViewKind
     FileRelations,
     DirectoryRelations,
     CodeMetrics,
-    DuplicateCode
+    DuplicateCode,
+    GlobalVariables,
+    DatabaseErd
 }

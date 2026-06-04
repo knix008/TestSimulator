@@ -119,7 +119,9 @@ public partial class MainForm : Form
             "파일 호출 관계",
             "디렉터리 호출 관계",
             "코드 메트릭",
-            "중복 코드"
+            "중복 코드",
+            "전역 변수",
+            "DB ERD"
         });
         comboDiagramView.SelectedIndex = 0;
 
@@ -150,6 +152,8 @@ public partial class MainForm : Form
             6 => DiagramViewKind.DirectoryRelations,
             7 => DiagramViewKind.CodeMetrics,
             8 => DiagramViewKind.DuplicateCode,
+            9 => DiagramViewKind.GlobalVariables,
+            10 => DiagramViewKind.DatabaseErd,
             _ => DiagramViewKind.CallGraph
         };
 
@@ -491,7 +495,9 @@ public partial class MainForm : Form
         ResetAnalysisProgress(isActive: false);
 
         if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.CodeMetrics
-            or DiagramViewKind.DuplicateCode)
+            or DiagramViewKind.DuplicateCode
+            or DiagramViewKind.GlobalVariables
+            or DiagramViewKind.DatabaseErd)
         {
             try
             {
@@ -557,9 +563,17 @@ public partial class MainForm : Form
 
         var viewKind = GetSelectedViewKind();
         var isTabularView = viewKind is DiagramViewKind.CodeMetrics
-            or DiagramViewKind.DuplicateCode;
+            or DiagramViewKind.DuplicateCode
+            or DiagramViewKind.GlobalVariables;
         var supportsTreeExpand = viewKind == DiagramViewKind.CallGraph;
-        var supportsLineStyle = !isTabularView;
+        var supportsLineStyle = viewKind is DiagramViewKind.CallGraph
+            or DiagramViewKind.ClassDiagram
+            or DiagramViewKind.SequenceDiagram
+            or DiagramViewKind.DataFlow
+            or DiagramViewKind.Inheritance
+            or DiagramViewKind.FileRelations
+            or DiagramViewKind.DirectoryRelations
+            or DiagramViewKind.DatabaseErd;
         var needsRoot = viewKind is DiagramViewKind.CallGraph
             or DiagramViewKind.SequenceDiagram
             or DiagramViewKind.DataFlow
@@ -990,6 +1004,8 @@ public partial class MainForm : Form
                 DiagramViewKind.DirectoryRelations => 6,
                 DiagramViewKind.CodeMetrics => 7,
                 DiagramViewKind.DuplicateCode => 8,
+                DiagramViewKind.GlobalVariables => 9,
+                DiagramViewKind.DatabaseErd => 10,
                 _ => 0
             };
 

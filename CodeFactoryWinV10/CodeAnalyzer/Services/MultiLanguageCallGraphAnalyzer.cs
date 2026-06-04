@@ -1,12 +1,16 @@
 using System.Diagnostics;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services.Duplicates;
+using CodeAnalyzer.Services.Database;
+using CodeAnalyzer.Services.GlobalVariables;
 using CodeAnalyzer.Services.Metrics;
 namespace CodeAnalyzer.Services;
 
 public sealed class MultiLanguageCallGraphAnalyzer
 {
     private readonly ProjectStructureAnalyzer _structureAnalyzer = new();
+    private readonly GlobalVariableAnalyzer _globalVariableAnalyzer = new();
+    private readonly DatabaseSchemaAnalyzer _databaseSchemaAnalyzer = new();
 
     public async Task<(AnalysisResult Result, int FileCount, int DirectoryCount)> AnalyzeAsync(
         string rootPath,
@@ -62,7 +66,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
         var metricsBatches = BuildMetricsBatches(filesByLanguage, languageIds);
         var totalSteps = CalculateTotalSteps(batches)
             + CalculateMetricsSteps(metricsBatches)
-            + 5;
+            + 7;
         var tracker = new AnalysisProgressTracker(progress, totalSteps);
         var issues = new List<AnalysisIssue>();
 
@@ -108,6 +112,47 @@ public sealed class MultiLanguageCallGraphAnalyzer
             languageIds,
             merged,
             cancellationToken).ConfigureAwait(false);
+
+        tracker.Report("전역 변수 검색 중...");
+        GlobalVariableResult globalVariables;
+        try
+        {
+            globalVariables = await _globalVariableAnalyzer.AnalyzeAsync(
+                filesByLanguage,
+                languageIds,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            RecordIssue(issues, "전역 변수", ex);
+            tracker.Report($"전역 변수 오류 (빈 결과로 계속): {ex.Message}");
+            globalVariables = new GlobalVariableResult();
+        }
+
+        tracker.Report("DB 스키마(ERD) 추출 중...");
+        DatabaseSchemaResult databaseSchema;
+        try
+        {
+            databaseSchema = await _databaseSchemaAnalyzer.AnalyzeAsync(
+                sourceFiles,
+                filesByLanguage,
+                languageIds,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            RecordIssue(issues, "DB ERD", ex);
+            tracker.Report($"DB ERD 오류 (빈 결과로 계속): {ex.Message}");
+            databaseSchema = new DatabaseSchemaResult();
+        }
 
         tracker.Report("코드 메트릭(LOC·복잡도) 분석 중...");
         var fileLineMetrics = await FileLineMetricsCollector.CollectAsync(sourceFiles, cancellationToken).ConfigureAwait(false);
@@ -201,7 +246,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
         tracker.ReportComplete(
             $"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개, " +
             $"파일 {fileRelations.Files.Count}개, 디렉터리 {directoryRelations.Directories.Count}개, 타입 {structure.Types.Count}개, " +
-            $"메트릭 함수 {mergedMetrics.Functions.Count}개, 중복 {duplicates.Groups.Count}건");
+            $"메트릭 함수 {mergedMetrics.Functions.Count}개, 중복 {duplicates.Groups.Count}건, 전역 변수 {globalVariables.Variables.Count}개, DB 테이블 {databaseSchema.Tables.Count}개");
 
         return (new AnalysisResult
         {
@@ -211,6 +256,8 @@ public sealed class MultiLanguageCallGraphAnalyzer
             Structure = structure,
             Metrics = mergedMetrics,
             Duplicates = duplicates,
+            GlobalVariables = globalVariables,
+            DatabaseSchema = databaseSchema,
             QualityThresholds = qualitySettings,
             Issues = issues
         }, sourceFiles.Count, directoryCount);

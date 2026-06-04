@@ -78,6 +78,8 @@ public sealed class AnalysisResult
     public ProjectStructureResult Structure { get; init; } = new();
     public CodeMetricsResult Metrics { get; init; } = new();
     public DuplicateCodeResult Duplicates { get; init; } = new();
+    public GlobalVariableResult GlobalVariables { get; init; } = new();
+    public DatabaseSchemaResult DatabaseSchema { get; init; } = new();
     public UserAnalysisSettings QualityThresholds { get; init; } = new();
     public IReadOnlyList<AnalysisIssue> Issues { get; init; } = [];
 }

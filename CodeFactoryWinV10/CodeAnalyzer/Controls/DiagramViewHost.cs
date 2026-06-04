@@ -8,6 +8,8 @@ public sealed class DiagramViewHost : UserControl
     private readonly StructureDiagramViewer _structureViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly CodeMetricsViewer _metricsViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly DuplicateCodeViewer _duplicateViewer = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly GlobalVariableViewer _globalVariableViewer = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly ErdDiagramViewer _erdViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private DiagramViewKind _viewKind = DiagramViewKind.CallGraph;
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
@@ -18,8 +20,12 @@ public sealed class DiagramViewHost : UserControl
         Controls.Add(_structureViewer);
         Controls.Add(_metricsViewer);
         Controls.Add(_duplicateViewer);
+        Controls.Add(_globalVariableViewer);
+        Controls.Add(_erdViewer);
         _metricsViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _globalVariableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _erdViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
@@ -58,6 +64,7 @@ public sealed class DiagramViewHost : UserControl
         {
             _callGraphViewer.LineStyle = value;
             _structureViewer.LineStyle = value;
+            _erdViewer.LineStyle = value;
         }
     }
 
@@ -78,6 +85,8 @@ public sealed class DiagramViewHost : UserControl
         _structureViewer.BeginAnalysis();
         _metricsViewer.BeginAnalysis();
         _duplicateViewer.BeginAnalysis();
+        _globalVariableViewer.BeginAnalysis();
+        _erdViewer.BeginAnalysis();
     }
 
     public void EndAnalysis()
@@ -86,6 +95,8 @@ public sealed class DiagramViewHost : UserControl
         _structureViewer.EndAnalysis();
         _metricsViewer.EndAnalysis();
         _duplicateViewer.EndAnalysis();
+        _globalVariableViewer.EndAnalysis();
+        _erdViewer.EndAnalysis();
     }
 
     public void ClearSearchHighlight()
@@ -98,6 +109,8 @@ public sealed class DiagramViewHost : UserControl
     {
         if (_viewKind == DiagramViewKind.CallGraph)
             _callGraphViewer.ResetView();
+        else if (_viewKind == DiagramViewKind.DatabaseErd)
+            _erdViewer.ResetView();
         else if (_structureViewer.Visible)
             _structureViewer.ResetView();
     }
@@ -185,6 +198,8 @@ public sealed class DiagramViewHost : UserControl
             or DiagramViewKind.DirectoryRelations;
         _metricsViewer.Visible = _viewKind == DiagramViewKind.CodeMetrics;
         _duplicateViewer.Visible = _viewKind == DiagramViewKind.DuplicateCode;
+        _globalVariableViewer.Visible = _viewKind == DiagramViewKind.GlobalVariables;
+        _erdViewer.Visible = _viewKind == DiagramViewKind.DatabaseErd;
     }
 
     public void ExpandAll()
@@ -212,6 +227,8 @@ public sealed class DiagramViewHost : UserControl
             DiagramViewKind.CallGraph => _callGraphViewer.ExportToBitmap(),
             DiagramViewKind.CodeMetrics => null,
             DiagramViewKind.DuplicateCode => null,
+            DiagramViewKind.GlobalVariables => null,
+            DiagramViewKind.DatabaseErd => _erdViewer.ExportToBitmap(),
             _ => _structureViewer.ExportToBitmap()
         };
     }
@@ -227,6 +244,18 @@ public sealed class DiagramViewHost : UserControl
         if (_viewKind == DiagramViewKind.DuplicateCode)
         {
             _duplicateViewer.SetDuplicates(_analysis?.Duplicates, ProjectRootDirectory);
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.GlobalVariables)
+        {
+            _globalVariableViewer.SetGlobals(_analysis?.GlobalVariables, ProjectRootDirectory);
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.DatabaseErd)
+        {
+            _erdViewer.SetSchema(_analysis?.DatabaseSchema);
             return;
         }
 

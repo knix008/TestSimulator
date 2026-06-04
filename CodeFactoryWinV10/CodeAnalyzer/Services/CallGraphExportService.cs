@@ -102,6 +102,8 @@ public static class CallGraphExportService
             },
             Metrics = MetricsSectionFrom(analysis.Metrics),
             Duplicates = DuplicatesSectionFrom(analysis.Duplicates),
+            GlobalVariables = GlobalVariablesSectionFrom(analysis.GlobalVariables),
+            DatabaseSchema = DatabaseSchemaSectionFrom(analysis.DatabaseSchema),
             QualityThresholds = QualityThresholdsRecordFrom(analysis.QualityThresholds)
         };
 
@@ -209,6 +211,8 @@ public static class CallGraphExportService
             },
             Metrics = BuildMetricsResult(d.Metrics),
             Duplicates = BuildDuplicatesResult(d.Duplicates),
+            GlobalVariables = BuildGlobalVariablesResult(d.GlobalVariables),
+            DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
             QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
         };
     }
@@ -233,6 +237,8 @@ public static class CallGraphExportService
             },
             Metrics = BuildMetricsResult(d.Metrics),
             Duplicates = BuildDuplicatesResult(d.Duplicates),
+            GlobalVariables = BuildGlobalVariablesResult(d.GlobalVariables),
+            DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
             QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
         };
     }
@@ -464,6 +470,81 @@ public static class CallGraphExportService
         };
     }
 
+    private static GlobalVariableResult BuildGlobalVariablesResult(GlobalVariablesSection? s)
+    {
+        if (s is null)
+        {
+            return new GlobalVariableResult();
+        }
+
+        return new GlobalVariableResult
+        {
+            Variables = s.Variables.Select(v => new GlobalVariableItem
+            {
+                Id = v.Id,
+                Name = v.Name,
+                LanguageId = v.LanguageId,
+                FilePath = v.FilePath,
+                LineNumber = v.LineNumber,
+                Scope = Enum.TryParse<GlobalVariableScope>(v.Scope, out var scope)
+                    ? scope
+                    : GlobalVariableScope.Module,
+                TypeName = v.TypeName,
+                ContainingScope = v.ContainingScope,
+                AccessModifier = v.AccessModifier,
+                IsConst = v.IsConst,
+                IsReadOnly = v.IsReadOnly,
+                Declaration = v.Declaration
+            }).ToList()
+        };
+    }
+
+    private static DatabaseSchemaResult BuildDatabaseSchemaResult(DatabaseSchemaSection? s)
+    {
+        if (s is null)
+        {
+            return new DatabaseSchemaResult();
+        }
+
+        var tables = s.Tables.Select(t => new DatabaseTable
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Schema = string.IsNullOrWhiteSpace(t.Schema) ? null : t.Schema,
+            Dialect = Enum.TryParse<DatabaseDialect>(t.Dialect, out var dialect) ? dialect : DatabaseDialect.Unknown,
+            SourceKind = t.SourceKind,
+            FilePath = t.FilePath,
+            LineNumber = t.LineNumber,
+            Columns = t.Columns.Select(c => new DatabaseColumn
+            {
+                Name = c.Name,
+                DataType = c.DataType,
+                IsPrimaryKey = c.IsPrimaryKey,
+                IsForeignKey = c.IsForeignKey,
+                IsNullable = c.IsNullable,
+                ReferencedTable = c.ReferencedTable,
+                ReferencedColumn = c.ReferencedColumn
+            }).ToList()
+        }).ToList();
+
+        var relations = s.Relations.Select(r => new DatabaseRelation
+        {
+            FromTableId = r.FromTableId,
+            ToTableId = r.ToTableId,
+            FromColumn = r.FromColumn,
+            ToColumn = r.ToColumn,
+            Kind = Enum.TryParse<DatabaseRelationKind>(r.Kind, out var kind) ? kind : DatabaseRelationKind.ForeignKey,
+            Label = r.Label
+        }).ToList();
+
+        return new DatabaseSchemaResult
+        {
+            Tables = tables,
+            Relations = relations,
+            TableMap = tables.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase)
+        };
+    }
+
     private static int NormalizeMinDuplicateLines(int value) =>
         value <= 0
             ? UserAnalysisSettings.DefaultMinDuplicateLines
@@ -586,6 +667,58 @@ public static class CallGraphExportService
         }).ToList()
     };
 
+    private static GlobalVariablesSection GlobalVariablesSectionFrom(GlobalVariableResult g) => new()
+    {
+        Variables = g.Variables.Select(v => new GlobalVariableRecord
+        {
+            Id = v.Id,
+            Name = v.Name,
+            LanguageId = v.LanguageId,
+            FilePath = v.FilePath,
+            LineNumber = v.LineNumber,
+            Scope = v.Scope.ToString(),
+            TypeName = v.TypeName,
+            ContainingScope = v.ContainingScope,
+            AccessModifier = v.AccessModifier,
+            IsConst = v.IsConst,
+            IsReadOnly = v.IsReadOnly,
+            Declaration = v.Declaration
+        }).ToList()
+    };
+
+    private static DatabaseSchemaSection DatabaseSchemaSectionFrom(DatabaseSchemaResult schema) => new()
+    {
+        Tables = schema.Tables.Select(t => new DatabaseTableRecord
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Schema = t.Schema ?? string.Empty,
+            Dialect = t.Dialect.ToString(),
+            SourceKind = t.SourceKind,
+            FilePath = t.FilePath,
+            LineNumber = t.LineNumber,
+            Columns = t.Columns.Select(c => new DatabaseColumnRecord
+            {
+                Name = c.Name,
+                DataType = c.DataType,
+                IsPrimaryKey = c.IsPrimaryKey,
+                IsForeignKey = c.IsForeignKey,
+                IsNullable = c.IsNullable,
+                ReferencedTable = c.ReferencedTable ?? string.Empty,
+                ReferencedColumn = c.ReferencedColumn ?? string.Empty
+            }).ToList()
+        }).ToList(),
+        Relations = schema.Relations.Select(r => new DatabaseRelationRecord
+        {
+            FromTableId = r.FromTableId,
+            ToTableId = r.ToTableId,
+            FromColumn = r.FromColumn ?? string.Empty,
+            ToColumn = r.ToColumn ?? string.Empty,
+            Kind = r.Kind.ToString(),
+            Label = r.Label
+        }).ToList()
+    };
+
     private static QualityThresholdsRecord QualityThresholdsRecordFrom(UserAnalysisSettings s) => new()
     {
         MinDuplicateLines = s.MinDuplicateLines,
@@ -653,6 +786,8 @@ public static class CallGraphExportService
         public StructureSection Structure { get; set; } = new();
         public MetricsSection? Metrics { get; set; }
         public DuplicatesSection? Duplicates { get; set; }
+        public GlobalVariablesSection? GlobalVariables { get; set; }
+        public DatabaseSchemaSection? DatabaseSchema { get; set; }
         public QualityThresholdsRecord? QualityThresholds { get; set; }
     }
 
@@ -701,6 +836,17 @@ public static class CallGraphExportService
     {
         public int MinDuplicateLines { get; set; } = UserAnalysisSettings.DefaultMinDuplicateLines;
         public List<DuplicateCodeGroupRecord> Groups { get; set; } = [];
+    }
+
+    private sealed class GlobalVariablesSection
+    {
+        public List<GlobalVariableRecord> Variables { get; set; } = [];
+    }
+
+    private sealed class DatabaseSchemaSection
+    {
+        public List<DatabaseTableRecord> Tables { get; set; } = [];
+        public List<DatabaseRelationRecord> Relations { get; set; } = [];
     }
 
     private sealed class QualityThresholdsRecord
@@ -879,5 +1025,54 @@ public static class CallGraphExportService
         public string LanguageId { get; set; } = string.Empty;
         public int StartLine { get; set; }
         public int EndLine { get; set; }
+    }
+
+    private sealed class GlobalVariableRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string LanguageId { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public int LineNumber { get; set; }
+        public string Scope { get; set; } = string.Empty;
+        public string TypeName { get; set; } = string.Empty;
+        public string ContainingScope { get; set; } = string.Empty;
+        public string AccessModifier { get; set; } = string.Empty;
+        public bool IsConst { get; set; }
+        public bool IsReadOnly { get; set; }
+        public string Declaration { get; set; } = string.Empty;
+    }
+
+    private sealed class DatabaseTableRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Schema { get; set; } = string.Empty;
+        public string Dialect { get; set; } = string.Empty;
+        public string SourceKind { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public int LineNumber { get; set; }
+        public List<DatabaseColumnRecord> Columns { get; set; } = [];
+    }
+
+    private sealed class DatabaseColumnRecord
+    {
+        public string Name { get; set; } = string.Empty;
+        public string DataType { get; set; } = string.Empty;
+        public bool IsPrimaryKey { get; set; }
+        public bool IsForeignKey { get; set; }
+        public bool IsNullable { get; set; } = true;
+        public string ReferencedTable { get; set; } = string.Empty;
+        public string ReferencedColumn { get; set; } = string.Empty;
+    }
+
+    private sealed class DatabaseRelationRecord
+    {
+        public string FromTableId { get; set; } = string.Empty;
+        public string ToTableId { get; set; } = string.Empty;
+        public string FromColumn { get; set; } = string.Empty;
+        public string ToColumn { get; set; } = string.Empty;
+        public string Kind { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
     }
 }
