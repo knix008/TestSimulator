@@ -239,7 +239,7 @@ partial class MainForm
         // btnAnalysisScope
         // 
         btnAnalysisScope.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        btnAnalysisScope.Location = new Point(8, 358);
+        btnAnalysisScope.Location = new Point(8, 359);
         btnAnalysisScope.Name = "btnAnalysisScope";
         btnAnalysisScope.Size = new Size(272, 28);
         btnAnalysisScope.TabIndex = 39;

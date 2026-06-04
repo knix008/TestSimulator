@@ -97,9 +97,22 @@ public sealed class ErdDiagramViewer : UserControl
         if (_zoom.HandleMouseWheel(this, e, _contentSize))
         {
             Invalidate();
+            return;
         }
 
         base.OnMouseWheel(e);
+    }
+
+    protected override void OnScroll(ScrollEventArgs se)
+    {
+        base.OnScroll(se);
+        Invalidate();
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        _zoom.ApplyContentSize(this, _contentSize);
     }
 
     protected override void OnPaint(PaintEventArgs e)

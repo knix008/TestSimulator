@@ -6,18 +6,16 @@ namespace CodeAnalyzer.Controls;
 internal sealed class DiagramZoomController
 {
     private const float MinZoom = 0.25f;
-    /// <summary>논리 배율 상한(휠 줌). 캐시 비트맵은 별도 한도로 뷰포트 렌더로 대체합니다.</summary>
     private const float MaxZoom = 32f;
     private const float ZoomStep = 1.12f;
     private const int ScrollPadding = 48;
-
-    /// <summary>이 배율 초과 시 전체 캐시 비트맵을 만들지 않고 뷰포트만 그립니다.</summary>
-    private const float MaxCacheZoom = 8f;
 
     private float _zoom = 1f;
     private Bitmap? _cache;
     private Size _cacheContentSize;
     private float _cacheZoom = -1f;
+    private Size _lastScrollMinSize = Size.Empty;
+    private Size _lastClientSize = Size.Empty;
 
     public float Zoom => _zoom;
 
@@ -26,6 +24,8 @@ internal sealed class DiagramZoomController
     public void Reset()
     {
         _zoom = 1f;
+        _lastScrollMinSize = Size.Empty;
+        _lastClientSize = Size.Empty;
         InvalidateCache();
     }
 
@@ -38,11 +38,20 @@ internal sealed class DiagramZoomController
 
     public void ApplyContentSize(ScrollableControl control, Size logicalContentSize)
     {
-        var documentWidth = GetDocumentWidth(logicalContentSize);
-        var documentHeight = GetDocumentHeight(logicalContentSize);
-        control.AutoScrollMinSize = new Size(
-            Math.Max(control.ClientSize.Width, documentWidth),
-            Math.Max(control.ClientSize.Height, documentHeight));
+        var newMin = ComputeScrollMinSize(control, logicalContentSize);
+        var clientSize = control.ClientSize;
+        if (newMin == _lastScrollMinSize && clientSize == _lastClientSize)
+        {
+            return;
+        }
+
+        var scroll = GetScrollOffset(control);
+        _lastScrollMinSize = newMin;
+        _lastClientSize = clientSize;
+        control.AutoScrollMinSize = newMin;
+        control.AutoScrollPosition = new Point(
+            Math.Clamp(scroll.X, 0, GetMaxScrollX(control, logicalContentSize)),
+            Math.Clamp(scroll.Y, 0, GetMaxScrollY(control, logicalContentSize)));
     }
 
     public static Size InflateContentSize(Size layoutSize, IEnumerable<Rectangle> bounds, int margin = 64)
@@ -76,7 +85,6 @@ internal sealed class DiagramZoomController
         Color backgroundColor,
         Action<Graphics> drawLogicalContent)
     {
-        ApplyContentSize(control, logicalContentSize);
         EnsureCache(logicalContentSize, backgroundColor, drawLogicalContent);
 
         if (clipRect.Width <= 0 || clipRect.Height <= 0)
@@ -84,22 +92,30 @@ internal sealed class DiagramZoomController
             return;
         }
 
-        if (_cache is null)
+        if (_cache is not null && TryDrawFromCache(target, control, clipRect))
         {
-            DrawViewportWithoutCache(target, control, clipRect, backgroundColor, drawLogicalContent);
             return;
         }
 
-        var scrollX = -control.AutoScrollPosition.X;
-        var scrollY = -control.AutoScrollPosition.Y;
-        var srcX = scrollX + clipRect.X;
-        var srcY = scrollY + clipRect.Y;
+        DrawViewport(target, control, clipRect, backgroundColor, drawLogicalContent);
+    }
+
+    private bool TryDrawFromCache(Graphics target, ScrollableControl control, Rectangle clipRect)
+    {
+        if (_cache is null)
+        {
+            return false;
+        }
+
+        var scroll = GetScrollOffset(control);
+        var srcX = scroll.X + clipRect.X;
+        var srcY = scroll.Y + clipRect.Y;
         var srcRect = new Rectangle(srcX, srcY, clipRect.Width, clipRect.Height);
         srcRect.Intersect(new Rectangle(0, 0, _cache.Width, _cache.Height));
 
         if (srcRect.Width <= 0 || srcRect.Height <= 0)
         {
-            return;
+            return false;
         }
 
         var destRect = new Rectangle(
@@ -111,19 +127,22 @@ internal sealed class DiagramZoomController
         target.InterpolationMode = InterpolationMode.HighQualityBicubic;
         target.PixelOffsetMode = PixelOffsetMode.HighQuality;
         target.DrawImage(_cache, destRect, srcRect, GraphicsUnit.Pixel);
+        return true;
     }
 
-    private void DrawViewportWithoutCache(
+    private void DrawViewport(
         Graphics target,
         ScrollableControl control,
         Rectangle clipRect,
         Color backgroundColor,
         Action<Graphics> drawLogicalContent)
     {
+        var display = control.DisplayRectangle;
+
         target.SetClip(clipRect);
         try
         {
-            target.TranslateTransform(-control.AutoScrollPosition.X, -control.AutoScrollPosition.Y);
+            target.TranslateTransform(display.X, display.Y);
             target.ScaleTransform(_zoom, _zoom);
             target.Clear(backgroundColor);
             target.SmoothingMode = SmoothingMode.AntiAlias;
@@ -139,9 +158,10 @@ internal sealed class DiagramZoomController
 
     public Point ClientToDocument(ScrollableControl control, Point client)
     {
+        var display = control.DisplayRectangle;
         return new Point(
-            (int)((client.X - control.AutoScrollPosition.X) / _zoom),
-            (int)((client.Y - control.AutoScrollPosition.Y) / _zoom));
+            (int)((client.X - display.X) / _zoom),
+            (int)((client.Y - display.Y) / _zoom));
     }
 
     public bool HandleMouseWheel(ScrollableControl control, MouseEventArgs e, Size logicalContentSize)
@@ -170,15 +190,18 @@ internal sealed class DiagramZoomController
             return true;
         }
 
+        _lastScrollMinSize = Size.Empty;
+        _lastClientSize = Size.Empty;
         InvalidateCache();
 
-        var docX = (e.X - control.AutoScrollPosition.X) / oldZoom;
-        var docY = (e.Y - control.AutoScrollPosition.Y) / oldZoom;
+        var display = control.DisplayRectangle;
+        var docX = (e.X - display.X) / oldZoom;
+        var docY = (e.Y - display.Y) / oldZoom;
 
         ApplyContentSize(control, logicalContentSize);
         control.AutoScrollPosition = new Point(
-            Math.Max(0, (int)(docX * _zoom - e.X)),
-            Math.Max(0, (int)(docY * _zoom - e.Y)));
+            Math.Clamp((int)(docX * _zoom - e.X), 0, GetMaxScrollX(control, logicalContentSize)),
+            Math.Clamp((int)(docY * _zoom - e.Y), 0, GetMaxScrollY(control, logicalContentSize)));
 
         return true;
     }
@@ -187,8 +210,8 @@ internal sealed class DiagramZoomController
     {
         ApplyContentSize(control, logicalContentSize);
         control.AutoScrollPosition = new Point(
-            Math.Max(0, (int)(documentPoint.X * _zoom - margin)),
-            Math.Max(0, (int)(documentPoint.Y * _zoom - margin)));
+            Math.Clamp((int)(documentPoint.X * _zoom - margin), 0, GetMaxScrollX(control, logicalContentSize)),
+            Math.Clamp((int)(documentPoint.Y * _zoom - margin), 0, GetMaxScrollY(control, logicalContentSize)));
     }
 
     private void EnsureCache(Size logicalContentSize, Color backgroundColor, Action<Graphics> drawLogicalContent)
@@ -203,12 +226,6 @@ internal sealed class DiagramZoomController
         _cache?.Dispose();
         _cache = null;
         _cacheZoom = -1f;
-
-        if (_zoom > MaxCacheZoom)
-        {
-            _cacheContentSize = logicalContentSize;
-            return;
-        }
 
         var width = Math.Max(1, GetDocumentWidth(logicalContentSize));
         var height = Math.Max(1, GetDocumentHeight(logicalContentSize));
@@ -255,6 +272,31 @@ internal sealed class DiagramZoomController
 
         return (long)width * height <= maxPixels;
     }
+
+    /// <summary>WinForms <see cref="Control.AutoScrollPosition"/>은 양수 오프셋, <see cref="Control.DisplayRectangle"/>은 음수 위치를 씁니다.</summary>
+    private static Point GetScrollOffset(ScrollableControl control)
+    {
+        var display = control.DisplayRectangle;
+        return new Point(-display.X, -display.Y);
+    }
+
+    private static Size ComputeScrollMinSize(ScrollableControl control, Size logicalContentSize, float zoom)
+    {
+        var documentWidth = (int)Math.Ceiling(logicalContentSize.Width * zoom) + ScrollPadding;
+        var documentHeight = (int)Math.Ceiling(logicalContentSize.Height * zoom) + ScrollPadding;
+        return new Size(
+            Math.Max(control.ClientSize.Width, documentWidth),
+            Math.Max(control.ClientSize.Height, documentHeight));
+    }
+
+    private Size ComputeScrollMinSize(ScrollableControl control, Size logicalContentSize) =>
+        ComputeScrollMinSize(control, logicalContentSize, _zoom);
+
+    private int GetMaxScrollX(ScrollableControl control, Size logicalContentSize) =>
+        Math.Max(0, ComputeScrollMinSize(control, logicalContentSize).Width - Math.Max(1, control.ClientSize.Width));
+
+    private int GetMaxScrollY(ScrollableControl control, Size logicalContentSize) =>
+        Math.Max(0, ComputeScrollMinSize(control, logicalContentSize).Height - Math.Max(1, control.ClientSize.Height));
 
     private int GetDocumentWidth(Size logicalContentSize) =>
         (int)Math.Ceiling(logicalContentSize.Width * _zoom) + ScrollPadding;
