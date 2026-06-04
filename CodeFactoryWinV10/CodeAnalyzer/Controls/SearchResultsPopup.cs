@@ -12,6 +12,19 @@ public sealed class SearchResultsPopup : Form
     private readonly Panel _borderPanel;
     private IReadOnlyList<SearchResultItem> _results = [];
 
+    // Prevent the popup from stealing keyboard focus under any circumstance
+    protected override bool ShowWithoutActivation => true;
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            var cp = base.CreateParams;
+            cp.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
+            return cp;
+        }
+    }
+
     public SearchResultsPopup()
     {
         FormBorderStyle = FormBorderStyle.None;

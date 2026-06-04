@@ -97,7 +97,10 @@ public static class CallGraphExportService
                         ToId = r.ToId,
                         Kind = r.Kind.ToString()
                     }).ToList()
-            }
+            },
+            Metrics = MetricsSectionFrom(analysis.Metrics),
+            Duplicates = DuplicatesSectionFrom(analysis.Duplicates),
+            QualityThresholds = QualityThresholdsRecordFrom(analysis.QualityThresholds)
         };
 
         var json = JsonSerializer.Serialize(document, JsonOptions);
@@ -113,7 +116,13 @@ public static class CallGraphExportService
             ? vProp.GetString()
             : "1";
 
-        if (version == "2")
+        if (version == "3")
+        {
+            var document = JsonSerializer.Deserialize<AnalysisDocument>(json, JsonOptions)
+                ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
+            return (BuildFromV3(document), document.RootDirectory);
+        }
+        else if (version == "2")
         {
             var document = JsonSerializer.Deserialize<AnalysisDocument>(json, JsonOptions)
                 ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
@@ -127,73 +136,36 @@ public static class CallGraphExportService
         }
     }
 
+    private static AnalysisResult BuildFromV3(AnalysisDocument d)
+    {
+        var callGraph = BuildCallGraph(d.CallGraph);
+        var (fileNodes, fileEdges) = BuildFileNodes(d.FileRelations);
+        var (dirNodes, dirEdges) = BuildDirNodes(d.DirectoryRelations);
+        var (types, relations) = BuildStructure(d.Structure);
+
+        return new AnalysisResult
+        {
+            CallGraph = callGraph,
+            FileRelations = BuildFileRelations(fileNodes, fileEdges),
+            DirectoryRelations = BuildDirectoryRelations(dirNodes, dirEdges),
+            Structure = new ProjectStructureResult
+            {
+                Types = types,
+                Relations = relations,
+                TypeMap = types.ToDictionary(t => t.Id, StringComparer.Ordinal)
+            },
+            Metrics = BuildMetricsResult(d.Metrics),
+            Duplicates = BuildDuplicatesResult(d.Duplicates),
+            QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
+        };
+    }
+
     private static AnalysisResult BuildFromV2(AnalysisDocument d)
     {
-        var callGraph = CallGraphBuilder.Build(
-            d.CallGraph.Nodes.Select(n => new CallGraphNode
-            {
-                Id = n.Id,
-                DisplayName = n.DisplayName,
-                FullName = n.FullName,
-                FilePath = n.FilePath,
-                LineNumber = n.LineNumber
-            }).ToList(),
-            d.CallGraph.Edges.Select(e => new CallGraphEdge
-            {
-                CallerId = e.CallerId,
-                CalleeId = e.CalleeId
-            }).ToList());
-
-        var fileNodes = d.FileRelations.Files.Select(f => new FileRelationNode
-        {
-            Id = f.Id,
-            FilePath = f.FilePath,
-            DisplayName = f.DisplayName,
-            FullName = f.FullName,
-            FunctionCount = f.FunctionCount
-        }).ToList();
-        var fileEdges = d.FileRelations.Edges.Select(e => new FileRelationEdge
-        {
-            FromFileId = e.FromFileId,
-            ToFileId = e.ToFileId,
-            CallCount = e.CallCount
-        }).ToList();
-
-        var dirNodes = d.DirectoryRelations.Directories.Select(n => new DirectoryRelationNode
-        {
-            Id = n.Id,
-            DirectoryPath = n.DirectoryPath,
-            DisplayName = n.DisplayName,
-            FullName = n.FullName,
-            FileCount = n.FileCount,
-            FunctionCount = n.FunctionCount
-        }).ToList();
-        var dirEdges = d.DirectoryRelations.Edges.Select(e => new DirectoryRelationEdge
-        {
-            FromDirectoryId = e.FromDirectoryId,
-            ToDirectoryId = e.ToDirectoryId,
-            CallCount = e.CallCount
-        }).ToList();
-
-        var types = d.Structure.Types.Select(t => new StructureTypeNode
-        {
-            Id = t.Id,
-            DisplayName = t.DisplayName,
-            FullName = t.FullName,
-            FilePath = t.FilePath,
-            LineNumber = t.LineNumber,
-            Kind = t.Kind,
-            Members = t.Members,
-            Attributes = t.Attributes,
-            Operations = t.Operations,
-            IsAbstract = t.IsAbstract
-        }).ToList();
-        var relations = d.Structure.Relations.Select(r => new StructureRelationEdge
-        {
-            FromId = r.FromId,
-            ToId = r.ToId,
-            Kind = Enum.TryParse<StructureRelationKind>(r.Kind, out var k) ? k : StructureRelationKind.Dependency
-        }).ToList();
+        var callGraph = BuildCallGraph(d.CallGraph);
+        var (fileNodes, fileEdges) = BuildFileNodes(d.FileRelations);
+        var (dirNodes, dirEdges) = BuildDirNodes(d.DirectoryRelations);
+        var (types, relations) = BuildStructure(d.Structure);
 
         return new AnalysisResult
         {
@@ -234,6 +206,326 @@ public static class CallGraphExportService
             Structure = new ProjectStructureResult()
         };
     }
+
+    // ── Shared build helpers ──────────────────────────────────────────────────
+
+    private static CallGraphResult BuildCallGraph(CallGraphSection s) =>
+        CallGraphBuilder.Build(
+            s.Nodes.Select(n => new CallGraphNode
+            {
+                Id = n.Id,
+                DisplayName = n.DisplayName,
+                FullName = n.FullName,
+                FilePath = n.FilePath,
+                LineNumber = n.LineNumber
+            }).ToList(),
+            s.Edges.Select(e => new CallGraphEdge
+            {
+                CallerId = e.CallerId,
+                CalleeId = e.CalleeId
+            }).ToList());
+
+    private static (List<FileRelationNode> nodes, List<FileRelationEdge> edges) BuildFileNodes(FileRelationsSection s)
+    {
+        var nodes = s.Files.Select(f => new FileRelationNode
+        {
+            Id = f.Id,
+            FilePath = f.FilePath,
+            DisplayName = f.DisplayName,
+            FullName = f.FullName,
+            FunctionCount = f.FunctionCount
+        }).ToList();
+        var edges = s.Edges.Select(e => new FileRelationEdge
+        {
+            FromFileId = e.FromFileId,
+            ToFileId = e.ToFileId,
+            CallCount = e.CallCount
+        }).ToList();
+        return (nodes, edges);
+    }
+
+    private static (List<DirectoryRelationNode> nodes, List<DirectoryRelationEdge> edges) BuildDirNodes(DirectoryRelationsSection s)
+    {
+        var nodes = s.Directories.Select(n => new DirectoryRelationNode
+        {
+            Id = n.Id,
+            DirectoryPath = n.DirectoryPath,
+            DisplayName = n.DisplayName,
+            FullName = n.FullName,
+            FileCount = n.FileCount,
+            FunctionCount = n.FunctionCount
+        }).ToList();
+        var edges = s.Edges.Select(e => new DirectoryRelationEdge
+        {
+            FromDirectoryId = e.FromDirectoryId,
+            ToDirectoryId = e.ToDirectoryId,
+            CallCount = e.CallCount
+        }).ToList();
+        return (nodes, edges);
+    }
+
+    private static (List<StructureTypeNode> types, List<StructureRelationEdge> relations) BuildStructure(StructureSection s)
+    {
+        var types = s.Types.Select(t => new StructureTypeNode
+        {
+            Id = t.Id,
+            DisplayName = t.DisplayName,
+            FullName = t.FullName,
+            FilePath = t.FilePath,
+            LineNumber = t.LineNumber,
+            Kind = t.Kind,
+            Members = t.Members,
+            Attributes = t.Attributes,
+            Operations = t.Operations,
+            IsAbstract = t.IsAbstract
+        }).ToList();
+        var relations = s.Relations.Select(r => new StructureRelationEdge
+        {
+            FromId = r.FromId,
+            ToId = r.ToId,
+            Kind = Enum.TryParse<StructureRelationKind>(r.Kind, out var k) ? k : StructureRelationKind.Dependency
+        }).ToList();
+        return (types, relations);
+    }
+
+    private static CodeMetricsResult BuildMetricsResult(MetricsSection? s)
+    {
+        if (s is null) return new();
+
+        var files = s.Files.Select(f => new FileLineMetric
+        {
+            FilePath = f.FilePath,
+            LanguageId = f.LanguageId,
+            PhysicalLines = f.PhysicalLines,
+            CodeLines = f.CodeLines,
+            BlankLines = f.BlankLines,
+            TodoMarkerCount = f.TodoMarkerCount,
+            TodoDensityPer100Lines = f.TodoDensityPer100Lines
+        }).ToList();
+
+        var aggregates = s.FileAggregates.Select(f => new FileAggregateMetric
+        {
+            FilePath = f.FilePath,
+            LanguageId = f.LanguageId,
+            PhysicalLines = f.PhysicalLines,
+            CodeLines = f.CodeLines,
+            TodoMarkerCount = f.TodoMarkerCount,
+            TodoDensityPer100Lines = f.TodoDensityPer100Lines,
+            FunctionCount = f.FunctionCount,
+            MaxCyclomaticComplexity = f.MaxCyclomaticComplexity,
+            MaxCognitiveComplexity = f.MaxCognitiveComplexity,
+            MaxNestingDepth = f.MaxNestingDepth,
+            MaxFanIn = f.MaxFanIn,
+            MaxFanOut = f.MaxFanOut,
+            AvgCyclomaticComplexity = f.AvgCyclomaticComplexity,
+            AvgCognitiveComplexity = f.AvgCognitiveComplexity,
+            AvgMaintenanceIndex = f.AvgMaintenanceIndex,
+            MinMaintenanceIndex = f.MinMaintenanceIndex,
+            TotalMagicNumbers = f.TotalMagicNumbers,
+            WarningFunctionCount = f.WarningFunctionCount
+        }).ToList();
+
+        var functions = s.Functions.Select(f => new FunctionMetric
+        {
+            Id = f.Id,
+            LanguageId = f.LanguageId,
+            DisplayName = f.DisplayName,
+            FullName = f.FullName,
+            FilePath = f.FilePath,
+            StartLine = f.StartLine,
+            EndLine = f.EndLine,
+            LineCount = f.LineCount,
+            CyclomaticComplexity = f.CyclomaticComplexity,
+            CognitiveComplexity = f.CognitiveComplexity,
+            MaxNestingDepth = f.MaxNestingDepth,
+            ParameterCount = f.ParameterCount,
+            ReturnCount = f.ReturnCount,
+            FanIn = f.FanIn,
+            FanOut = f.FanOut,
+            MagicNumberCount = f.MagicNumberCount,
+            MaintenanceIndex = f.MaintenanceIndex,
+            Precision = Enum.TryParse<MetricsPrecision>(f.Precision, out var p) ? p : MetricsPrecision.Approximate
+        }).ToList();
+
+        var summary = new CodeQualitySummary
+        {
+            ProjectDuplicateLinePercent = s.Summary.ProjectDuplicateLinePercent,
+            DuplicateLineCount = s.Summary.DuplicateLineCount,
+            TotalCodeLines = s.Summary.TotalCodeLines,
+            CircularCallChainCount = s.Summary.CircularCallChainCount,
+            CircularCallChains = s.Summary.CircularCallChains.Select(c => new CircularCallChain
+            {
+                DisplayText = c.DisplayText,
+                NodeIds = c.NodeIds
+            }).ToList(),
+            HighCyclomaticCount = s.Summary.HighCyclomaticCount,
+            HighCognitiveCount = s.Summary.HighCognitiveCount,
+            DeepNestingCount = s.Summary.DeepNestingCount,
+            HighFanOutCount = s.Summary.HighFanOutCount,
+            LowMaintenanceIndexCount = s.Summary.LowMaintenanceIndexCount,
+            HighParameterCount = s.Summary.HighParameterCount,
+            TotalTodoMarkers = s.Summary.TotalTodoMarkers,
+            HighTodoDensityFileCount = s.Summary.HighTodoDensityFileCount
+        };
+
+        return new CodeMetricsResult
+        {
+            Files = files,
+            FileAggregates = aggregates,
+            Functions = functions,
+            Summary = summary,
+            FileMap = files.ToDictionary(f => f.FilePath, StringComparer.OrdinalIgnoreCase),
+            FunctionMap = functions.ToDictionary(f => f.Id, StringComparer.Ordinal)
+        };
+    }
+
+    private static DuplicateCodeResult BuildDuplicatesResult(DuplicatesSection? s)
+    {
+        if (s is null) return new();
+
+        return new DuplicateCodeResult
+        {
+            MinDuplicateLines = s.MinDuplicateLines,
+            Groups = s.Groups.Select(g => new DuplicateCodeGroup
+            {
+                Id = g.Id,
+                LineCount = g.LineCount,
+                SampleLines = g.SampleLines,
+                Fragments = g.Fragments.Select(f => new DuplicateCodeFragment
+                {
+                    FilePath = f.FilePath,
+                    LanguageId = f.LanguageId,
+                    StartLine = f.StartLine,
+                    EndLine = f.EndLine
+                }).ToList()
+            }).ToList()
+        };
+    }
+
+    private static UserAnalysisSettings BuildQualityThresholds(QualityThresholdsRecord? r)
+    {
+        if (r is null) return new();
+
+        return new UserAnalysisSettings
+        {
+            MinDuplicateLines = r.MinDuplicateLines,
+            WarnCyclomaticComplexity = r.WarnCyclomaticComplexity,
+            WarnCognitiveComplexity = r.WarnCognitiveComplexity,
+            WarnMaxNestingDepth = r.WarnMaxNestingDepth,
+            WarnParameterCount = r.WarnParameterCount,
+            WarnFanOut = r.WarnFanOut,
+            WarnMaintenanceIndex = r.WarnMaintenanceIndex,
+            WarnTodoDensityPer100Lines = r.WarnTodoDensityPer100Lines
+        };
+    }
+
+    // ── Section builders (model → record) ───────────────────────────────────
+
+    private static MetricsSection MetricsSectionFrom(CodeMetricsResult m) => new()
+    {
+        Files = m.Files.Select(f => new FileLineMetricRecord
+        {
+            FilePath = f.FilePath,
+            LanguageId = f.LanguageId,
+            PhysicalLines = f.PhysicalLines,
+            CodeLines = f.CodeLines,
+            BlankLines = f.BlankLines,
+            TodoMarkerCount = f.TodoMarkerCount,
+            TodoDensityPer100Lines = f.TodoDensityPer100Lines
+        }).ToList(),
+        FileAggregates = m.FileAggregates.Select(f => new FileAggregateMetricRecord
+        {
+            FilePath = f.FilePath,
+            LanguageId = f.LanguageId,
+            PhysicalLines = f.PhysicalLines,
+            CodeLines = f.CodeLines,
+            TodoMarkerCount = f.TodoMarkerCount,
+            TodoDensityPer100Lines = f.TodoDensityPer100Lines,
+            FunctionCount = f.FunctionCount,
+            MaxCyclomaticComplexity = f.MaxCyclomaticComplexity,
+            MaxCognitiveComplexity = f.MaxCognitiveComplexity,
+            MaxNestingDepth = f.MaxNestingDepth,
+            MaxFanIn = f.MaxFanIn,
+            MaxFanOut = f.MaxFanOut,
+            AvgCyclomaticComplexity = f.AvgCyclomaticComplexity,
+            AvgCognitiveComplexity = f.AvgCognitiveComplexity,
+            AvgMaintenanceIndex = f.AvgMaintenanceIndex,
+            MinMaintenanceIndex = f.MinMaintenanceIndex,
+            TotalMagicNumbers = f.TotalMagicNumbers,
+            WarningFunctionCount = f.WarningFunctionCount
+        }).ToList(),
+        Functions = m.Functions.Select(f => new FunctionMetricRecord
+        {
+            Id = f.Id,
+            LanguageId = f.LanguageId,
+            DisplayName = f.DisplayName,
+            FullName = f.FullName,
+            FilePath = f.FilePath,
+            StartLine = f.StartLine,
+            EndLine = f.EndLine,
+            LineCount = f.LineCount,
+            CyclomaticComplexity = f.CyclomaticComplexity,
+            CognitiveComplexity = f.CognitiveComplexity,
+            MaxNestingDepth = f.MaxNestingDepth,
+            ParameterCount = f.ParameterCount,
+            ReturnCount = f.ReturnCount,
+            FanIn = f.FanIn,
+            FanOut = f.FanOut,
+            MagicNumberCount = f.MagicNumberCount,
+            MaintenanceIndex = f.MaintenanceIndex,
+            Precision = f.Precision.ToString()
+        }).ToList(),
+        Summary = new CodeQualitySummaryRecord
+        {
+            ProjectDuplicateLinePercent = m.Summary.ProjectDuplicateLinePercent,
+            DuplicateLineCount = m.Summary.DuplicateLineCount,
+            TotalCodeLines = m.Summary.TotalCodeLines,
+            CircularCallChainCount = m.Summary.CircularCallChainCount,
+            CircularCallChains = m.Summary.CircularCallChains.Select(c => new CircularCallChainRecord
+            {
+                DisplayText = c.DisplayText,
+                NodeIds = c.NodeIds.ToList()
+            }).ToList(),
+            HighCyclomaticCount = m.Summary.HighCyclomaticCount,
+            HighCognitiveCount = m.Summary.HighCognitiveCount,
+            DeepNestingCount = m.Summary.DeepNestingCount,
+            HighFanOutCount = m.Summary.HighFanOutCount,
+            LowMaintenanceIndexCount = m.Summary.LowMaintenanceIndexCount,
+            HighParameterCount = m.Summary.HighParameterCount,
+            TotalTodoMarkers = m.Summary.TotalTodoMarkers,
+            HighTodoDensityFileCount = m.Summary.HighTodoDensityFileCount
+        }
+    };
+
+    private static DuplicatesSection DuplicatesSectionFrom(DuplicateCodeResult d) => new()
+    {
+        MinDuplicateLines = d.MinDuplicateLines,
+        Groups = d.Groups.Select(g => new DuplicateCodeGroupRecord
+        {
+            Id = g.Id,
+            LineCount = g.LineCount,
+            SampleLines = g.SampleLines.ToList(),
+            Fragments = g.Fragments.Select(f => new DuplicateCodeFragmentRecord
+            {
+                FilePath = f.FilePath,
+                LanguageId = f.LanguageId,
+                StartLine = f.StartLine,
+                EndLine = f.EndLine
+            }).ToList()
+        }).ToList()
+    };
+
+    private static QualityThresholdsRecord QualityThresholdsRecordFrom(UserAnalysisSettings s) => new()
+    {
+        MinDuplicateLines = s.MinDuplicateLines,
+        WarnCyclomaticComplexity = s.WarnCyclomaticComplexity,
+        WarnCognitiveComplexity = s.WarnCognitiveComplexity,
+        WarnMaxNestingDepth = s.WarnMaxNestingDepth,
+        WarnParameterCount = s.WarnParameterCount,
+        WarnFanOut = s.WarnFanOut,
+        WarnMaintenanceIndex = s.WarnMaintenanceIndex,
+        WarnTodoDensityPer100Lines = s.WarnTodoDensityPer100Lines
+    };
 
     private static FileRelationGraphResult BuildFileRelations(
         List<FileRelationNode> files, List<FileRelationEdge> edges)
@@ -277,17 +569,20 @@ public static class CallGraphExportService
         };
     }
 
-    // ── Document models ─────────────────────────────────────────────────────
+    // ── Document models ──────────────────────────────────────────────────────
 
     private sealed class AnalysisDocument
     {
-        public string Version { get; set; } = "2";
+        public string Version { get; set; } = "3";
         public string RootDirectory { get; set; } = string.Empty;
         public DateTime SavedAtUtc { get; set; }
         public CallGraphSection CallGraph { get; set; } = new();
         public FileRelationsSection FileRelations { get; set; } = new();
         public DirectoryRelationsSection DirectoryRelations { get; set; } = new();
         public StructureSection Structure { get; set; } = new();
+        public MetricsSection? Metrics { get; set; }
+        public DuplicatesSection? Duplicates { get; set; }
+        public QualityThresholdsRecord? QualityThresholds { get; set; }
     }
 
     private sealed class LegacyCallGraphDocument
@@ -321,6 +616,32 @@ public static class CallGraphExportService
     {
         public List<StructureTypeRecord> Types { get; set; } = [];
         public List<StructureRelationRecord> Relations { get; set; } = [];
+    }
+
+    private sealed class MetricsSection
+    {
+        public List<FileLineMetricRecord> Files { get; set; } = [];
+        public List<FileAggregateMetricRecord> FileAggregates { get; set; } = [];
+        public List<FunctionMetricRecord> Functions { get; set; } = [];
+        public CodeQualitySummaryRecord Summary { get; set; } = new();
+    }
+
+    private sealed class DuplicatesSection
+    {
+        public int MinDuplicateLines { get; set; } = 3;
+        public List<DuplicateCodeGroupRecord> Groups { get; set; } = [];
+    }
+
+    private sealed class QualityThresholdsRecord
+    {
+        public int MinDuplicateLines { get; set; } = UserAnalysisSettings.DefaultMinDuplicateLines;
+        public int WarnCyclomaticComplexity { get; set; } = UserAnalysisSettings.DefaultWarnCyclomaticComplexity;
+        public int WarnCognitiveComplexity { get; set; } = UserAnalysisSettings.DefaultWarnCognitiveComplexity;
+        public int WarnMaxNestingDepth { get; set; } = UserAnalysisSettings.DefaultWarnMaxNestingDepth;
+        public int WarnParameterCount { get; set; } = UserAnalysisSettings.DefaultWarnParameterCount;
+        public int WarnFanOut { get; set; } = UserAnalysisSettings.DefaultWarnFanOut;
+        public double WarnMaintenanceIndex { get; set; } = UserAnalysisSettings.DefaultWarnMaintenanceIndex;
+        public double WarnTodoDensityPer100Lines { get; set; } = UserAnalysisSettings.DefaultWarnTodoDensityPer100Lines;
     }
 
     // ── Record types ─────────────────────────────────────────────────────────
@@ -392,5 +713,99 @@ public static class CallGraphExportService
         public string FromId { get; set; } = string.Empty;
         public string ToId { get; set; } = string.Empty;
         public string Kind { get; set; } = string.Empty;
+    }
+
+    private sealed class FileLineMetricRecord
+    {
+        public string FilePath { get; set; } = string.Empty;
+        public string LanguageId { get; set; } = string.Empty;
+        public int PhysicalLines { get; set; }
+        public int CodeLines { get; set; }
+        public int BlankLines { get; set; }
+        public int TodoMarkerCount { get; set; }
+        public double TodoDensityPer100Lines { get; set; }
+    }
+
+    private sealed class FileAggregateMetricRecord
+    {
+        public string FilePath { get; set; } = string.Empty;
+        public string LanguageId { get; set; } = string.Empty;
+        public int PhysicalLines { get; set; }
+        public int CodeLines { get; set; }
+        public int TodoMarkerCount { get; set; }
+        public double TodoDensityPer100Lines { get; set; }
+        public int FunctionCount { get; set; }
+        public int MaxCyclomaticComplexity { get; set; }
+        public int MaxCognitiveComplexity { get; set; }
+        public int MaxNestingDepth { get; set; }
+        public int MaxFanIn { get; set; }
+        public int MaxFanOut { get; set; }
+        public double AvgCyclomaticComplexity { get; set; }
+        public double AvgCognitiveComplexity { get; set; }
+        public double AvgMaintenanceIndex { get; set; }
+        public double MinMaintenanceIndex { get; set; }
+        public int TotalMagicNumbers { get; set; }
+        public int WarningFunctionCount { get; set; }
+    }
+
+    private sealed class FunctionMetricRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public string LanguageId { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public int StartLine { get; set; }
+        public int EndLine { get; set; }
+        public int LineCount { get; set; }
+        public int CyclomaticComplexity { get; set; }
+        public int CognitiveComplexity { get; set; }
+        public int MaxNestingDepth { get; set; }
+        public int ParameterCount { get; set; }
+        public int ReturnCount { get; set; }
+        public int FanIn { get; set; }
+        public int FanOut { get; set; }
+        public int MagicNumberCount { get; set; }
+        public double MaintenanceIndex { get; set; }
+        public string Precision { get; set; } = string.Empty;
+    }
+
+    private sealed class CodeQualitySummaryRecord
+    {
+        public double ProjectDuplicateLinePercent { get; set; }
+        public int DuplicateLineCount { get; set; }
+        public int TotalCodeLines { get; set; }
+        public int CircularCallChainCount { get; set; }
+        public List<CircularCallChainRecord> CircularCallChains { get; set; } = [];
+        public int HighCyclomaticCount { get; set; }
+        public int HighCognitiveCount { get; set; }
+        public int DeepNestingCount { get; set; }
+        public int HighFanOutCount { get; set; }
+        public int LowMaintenanceIndexCount { get; set; }
+        public int HighParameterCount { get; set; }
+        public int TotalTodoMarkers { get; set; }
+        public int HighTodoDensityFileCount { get; set; }
+    }
+
+    private sealed class CircularCallChainRecord
+    {
+        public string DisplayText { get; set; } = string.Empty;
+        public List<string> NodeIds { get; set; } = [];
+    }
+
+    private sealed class DuplicateCodeGroupRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public int LineCount { get; set; }
+        public List<string> SampleLines { get; set; } = [];
+        public List<DuplicateCodeFragmentRecord> Fragments { get; set; } = [];
+    }
+
+    private sealed class DuplicateCodeFragmentRecord
+    {
+        public string FilePath { get; set; } = string.Empty;
+        public string LanguageId { get; set; } = string.Empty;
+        public int StartLine { get; set; }
+        public int EndLine { get; set; }
     }
 }

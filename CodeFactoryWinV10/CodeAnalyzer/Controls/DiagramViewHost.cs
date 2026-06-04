@@ -12,30 +12,12 @@ public sealed class DiagramViewHost : UserControl
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
 
-    private readonly Button _btnResetView = new()
-    {
-        Text = "⟳ 뷰 초기화",
-        Size = new Size(88, 26),
-        Anchor = AnchorStyles.Top | AnchorStyles.Right,
-        BackColor = Color.FromArgb(240, 240, 245),
-        FlatStyle = FlatStyle.Flat,
-        Cursor = Cursors.Hand,
-        Visible = false
-    };
-
     public DiagramViewHost()
     {
         Controls.Add(_callGraphViewer);
         Controls.Add(_structureViewer);
         Controls.Add(_metricsViewer);
         Controls.Add(_duplicateViewer);
-        _btnResetView.Location = new Point(ClientSize.Width - _btnResetView.Width - 6, 6);
-        _btnResetView.FlatAppearance.BorderColor = Color.FromArgb(180, 180, 195);
-        Controls.Add(_btnResetView);
-        _btnResetView.BringToFront();
-        _btnResetView.Click += (_, _) => ResetView();
-        SizeChanged += (_, _) =>
-            _btnResetView.Location = new Point(ClientSize.Width - _btnResetView.Width - 6, 6);
         _metricsViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
@@ -201,10 +183,6 @@ public sealed class DiagramViewHost : UserControl
             or DiagramViewKind.DirectoryRelations;
         _metricsViewer.Visible = _viewKind == DiagramViewKind.CodeMetrics;
         _duplicateViewer.Visible = _viewKind == DiagramViewKind.DuplicateCode;
-
-        // Show reset button only for zoomable diagram views
-        _btnResetView.Visible = _callGraphViewer.Visible || _structureViewer.Visible;
-        _btnResetView.BringToFront();
     }
 
     public bool IsCallGraphView => _viewKind == DiagramViewKind.CallGraph;

@@ -22,6 +22,7 @@ public partial class MainForm : Form
     private int _searchIndex = -1;
     private string _lastSearchQuery = string.Empty;
     private readonly SearchResultsPopup _searchPopup;
+    private readonly System.Windows.Forms.Timer _searchDebounceTimer;
     private bool _suppressRootComboChange;
 
     public MainForm()
@@ -29,6 +30,14 @@ public partial class MainForm : Form
         InitializeComponent();
         _searchPopup = new SearchResultsPopup();
         _searchPopup.ResultSelected += SearchPopup_ResultSelected;
+        _searchDebounceTimer = new System.Windows.Forms.Timer { Interval = 150 };
+        _searchDebounceTimer.Tick += (_, _) =>
+        {
+            _searchDebounceTimer.Stop();
+            ExecuteSearch(resetIndex: true, showPopup: true);
+            // Restore focus to search box in case the popup grabbed it
+            toolStripSearchBox.Control?.Focus();
+        };
         Load += (_, _) =>
         {
             _searchPopup.Owner = this;
@@ -1073,6 +1082,11 @@ public partial class MainForm : Form
         CallGraphViewer.CollapseAll();
     }
 
+    private void btnResetView_Click(object sender, EventArgs e)
+    {
+        diagramViewHost.ResetView();
+    }
+
     private void btnBackView_Click(object sender, EventArgs e)
     {
         if (!TryGoBackRootSelection())
@@ -1333,7 +1347,9 @@ public partial class MainForm : Form
 
     private void toolStripSearchBox_TextChanged(object sender, EventArgs e)
     {
-        ExecuteSearch(resetIndex: true, showPopup: true);
+        // Debounce to avoid interrupting Korean IME composition on every keystroke
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
     }
 
     private void toolStripSearchBox_KeyDown(object sender, KeyEventArgs e)
