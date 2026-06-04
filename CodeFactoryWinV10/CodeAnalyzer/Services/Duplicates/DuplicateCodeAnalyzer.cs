@@ -74,7 +74,7 @@ public static class DuplicateCodeAnalyzer
         var groupIndex = 0;
         var reported = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var (_, occurrences) in windowMap)
+        foreach (var (_, occurrences) in windowMap.OrderByDescending(entry => entry.Value.Count))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -83,8 +83,16 @@ public static class DuplicateCodeAnalyzer
                 continue;
             }
 
-            var extendedLength = ExtendMatchLength(fileMap, occurrences, minDuplicateLines);
+            var extendedLength = ExtendMaximalDuplicateBlock(
+                fileMap,
+                occurrences[0],
+                minDuplicateLines);
             var duplicateLines = GetMatchLines(fileMap, occurrences[0], extendedLength);
+            if (duplicateLines.Count < minDuplicateLines)
+            {
+                continue;
+            }
+
             var extendedKey = string.Join('\n', duplicateLines);
 
             if (!reported.Add(extendedKey))
@@ -92,22 +100,16 @@ public static class DuplicateCodeAnalyzer
                 continue;
             }
 
-            var fragments = occurrences
-                .Select(occurrence => new DuplicateCodeFragment
-                {
-                    FilePath = occurrence.FilePath,
-                    LanguageId = occurrence.LanguageId,
-                    StartLine = occurrence.StartLine,
-                    EndLine = occurrence.StartLine + extendedLength - 1
-                })
-                .OrderBy(fragment => fragment.FilePath, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(fragment => fragment.StartLine)
-                .ToList();
+            var fragments = FindAllMatchingFragments(fileMap, duplicateLines, minDuplicateLines);
+            if (fragments.Count < 2)
+            {
+                continue;
+            }
 
             groups.Add(new DuplicateCodeGroup
             {
                 Id = $"dup-{++groupIndex}",
-                LineCount = extendedLength,
+                LineCount = duplicateLines.Count,
                 DuplicateLines = duplicateLines,
                 SampleLines = duplicateLines.Take(MaxSampleLines).ToList(),
                 Fragments = fragments
@@ -123,6 +125,7 @@ public static class DuplicateCodeAnalyzer
         {
             MinDuplicateLines = minDuplicateLines,
             Groups = groups
+                .Where(group => group.LineCount >= minDuplicateLines)
                 .OrderByDescending(group => group.LineCount)
                 .ThenByDescending(group => group.Fragments.Count)
                 .Take(AnalysisScaleLimits.MaxDuplicateCodeGroups)
@@ -183,47 +186,139 @@ public static class DuplicateCodeAnalyzer
     private static string BuildWindowKey(string[] lines, int start, int length)
         => string.Join('\n', lines.AsSpan(start, length).ToArray());
 
-    private static int ExtendMatchLength(
+    /// <summary>
+    /// 기준 줄 수(min) 이상으로, 프로젝트 내 2곳 이상에서 동일하게 나타나는 최대 연속 블록 길이를 구합니다.
+    /// </summary>
+    private static int ExtendMaximalDuplicateBlock(
         Dictionary<string, FileLineData> fileMap,
-        List<WindowOccurrence> occurrences,
-        int minLength)
+        WindowOccurrence reference,
+        int minDuplicateLines)
     {
-        var maxLength = minLength;
-
-        foreach (var occurrence in occurrences)
+        if (!fileMap.TryGetValue(reference.FilePath, out var refFile))
         {
-            if (!fileMap.TryGetValue(occurrence.FilePath, out var file))
-            {
-                return minLength;
-            }
-
-            var available = file.Lines.Length - (occurrence.StartLine - 1);
-            maxLength = Math.Min(maxLength, available);
+            return minDuplicateLines;
         }
 
-        var length = minLength;
+        var refStart = reference.StartLine - 1;
+        var maxLength = refFile.Lines.Length - refStart;
+        var length = minDuplicateLines;
 
         while (length < maxLength)
         {
-            string? referenceLine = null;
-
-            foreach (var occurrence in occurrences)
+            var candidateLines = refFile.Lines.AsSpan(refStart, length + 1).ToArray();
+            if (CountMatchingFragments(fileMap, candidateLines, minDuplicateLines) < 2)
             {
-                var file = fileMap[occurrence.FilePath];
-                var lineIndex = occurrence.StartLine - 1 + length;
-                var line = file.Lines[lineIndex];
-                referenceLine ??= line;
-
-                if (!string.Equals(referenceLine, line, StringComparison.Ordinal))
-                {
-                    return length;
-                }
+                break;
             }
 
             length++;
         }
 
         return length;
+    }
+
+    private static int CountMatchingFragments(
+        Dictionary<string, FileLineData> fileMap,
+        IReadOnlyList<string> duplicateLines,
+        int minDuplicateLines)
+    {
+        var length = duplicateLines.Count;
+        if (length < minDuplicateLines)
+        {
+            return 0;
+        }
+
+        var count = 0;
+
+        foreach (var file in fileMap.Values)
+        {
+            if (file.Lines.Length < length)
+            {
+                continue;
+            }
+
+            for (var start = 0; start <= file.Lines.Length - length; start++)
+            {
+                if (!WindowHasSignificantLine(file.Lines, start, minDuplicateLines))
+                {
+                    continue;
+                }
+
+                if (!LinesMatchAt(file.Lines, start, duplicateLines))
+                {
+                    continue;
+                }
+
+                count++;
+                if (count >= 2)
+                {
+                    return count;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private static List<DuplicateCodeFragment> FindAllMatchingFragments(
+        Dictionary<string, FileLineData> fileMap,
+        IReadOnlyList<string> duplicateLines,
+        int minDuplicateLines)
+    {
+        var length = duplicateLines.Count;
+        if (length < minDuplicateLines)
+        {
+            return [];
+        }
+
+        var fragments = new List<DuplicateCodeFragment>();
+
+        foreach (var file in fileMap.Values)
+        {
+            if (file.Lines.Length < length)
+            {
+                continue;
+            }
+
+            for (var start = 0; start <= file.Lines.Length - length; start++)
+            {
+                if (!WindowHasSignificantLine(file.Lines, start, minDuplicateLines))
+                {
+                    continue;
+                }
+
+                if (!LinesMatchAt(file.Lines, start, duplicateLines))
+                {
+                    continue;
+                }
+
+                fragments.Add(new DuplicateCodeFragment
+                {
+                    FilePath = file.FilePath,
+                    LanguageId = file.LanguageId,
+                    StartLine = start + 1,
+                    EndLine = start + length
+                });
+            }
+        }
+
+        return fragments
+            .OrderBy(fragment => fragment.FilePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(fragment => fragment.StartLine)
+            .ToList();
+    }
+
+    private static bool LinesMatchAt(string[] lines, int start, IReadOnlyList<string> duplicateLines)
+    {
+        for (var i = 0; i < duplicateLines.Count; i++)
+        {
+            if (!string.Equals(lines[start + i], duplicateLines[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static List<string> GetMatchLines(

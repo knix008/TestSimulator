@@ -212,7 +212,7 @@ public sealed class DuplicateCodeViewer : UserControl
         var duplicateLines = _duplicates.Groups.Sum(group =>
             group.LineCount * Math.Max(0, group.Fragments.Count - 1));
         _summaryLabel.Text =
-            $"최소 {_duplicates.MinDuplicateLines}줄 이상 동일 · 그룹 {_duplicates.Groups.Count}건 · " +
+            $"기준 {_duplicates.MinDuplicateLines}줄 이상(≥) 중복 · 그룹 {_duplicates.Groups.Count}건 · " +
             $"위치 {totalFragments}곳 · 중복 줄 {duplicateLines:N0} · 더블클릭/버튼: 파일 열기";
 
         foreach (var group in _duplicates.Groups)

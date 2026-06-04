@@ -12,7 +12,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
         string rootPath,
         IEnumerable<string> excludedDirectories,
         IEnumerable<string> enabledLanguageIds,
-        int minDuplicateLines = UserAnalysisSettings.DefaultMinDuplicateLines,
+        UserAnalysisSettings qualityThresholds,
         IProgress<AnalysisProgressReport>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -141,10 +141,12 @@ public sealed class MultiLanguageCallGraphAnalyzer
             metricsResults.SelectMany(result => result.Functions).ToList());
 
         cancellationToken.ThrowIfCancellationRequested();
-        minDuplicateLines = Math.Clamp(
-            minDuplicateLines,
+        var qualitySettings = UserAnalysisSettings.CloneThresholds(qualityThresholds);
+        qualitySettings.MinDuplicateLines = Math.Clamp(
+            qualitySettings.MinDuplicateLines,
             UserAnalysisSettings.MinDuplicateLinesFloor,
             UserAnalysisSettings.MinDuplicateLinesCeiling);
+        var minDuplicateLines = qualitySettings.MinDuplicateLines;
         DuplicateCodeResult duplicates;
         if (sourceFiles.Count > AnalysisScaleLimits.MaxSourceFilesForDuplicateDetection)
         {
@@ -175,7 +177,6 @@ public sealed class MultiLanguageCallGraphAnalyzer
         }
 
         tracker.Report("품질 메트릭 집계 중...");
-        var qualitySettings = new UserSettingsService().LoadSettings();
         CodeMetricsResult enrichedMetrics;
         try
         {

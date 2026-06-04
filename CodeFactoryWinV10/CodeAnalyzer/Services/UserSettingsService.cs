@@ -19,11 +19,13 @@ public sealed class UserSettingsService
         _settingsFilePath = Path.Combine(settingsDirectory, "settings.json");
     }
 
+    public bool HasSettingsFile() => File.Exists(_settingsFilePath);
+
     public UserAnalysisSettings LoadSettings()
     {
-        if (!File.Exists(_settingsFilePath))
+        if (!HasSettingsFile())
         {
-            return new UserAnalysisSettings();
+            return UserAnalysisSettings.CreateDefaults();
         }
 
         try
@@ -32,7 +34,7 @@ public sealed class UserSettingsService
             var settings = JsonSerializer.Deserialize<UserAnalysisSettings>(json);
             if (settings is null)
             {
-                return new UserAnalysisSettings();
+                return UserAnalysisSettings.CreateDefaults();
             }
 
             Normalize(settings);
@@ -46,7 +48,7 @@ public sealed class UserSettingsService
         }
         catch
         {
-            return new UserAnalysisSettings();
+            return UserAnalysisSettings.CreateDefaults();
         }
     }
 
@@ -108,10 +110,12 @@ public sealed class UserSettingsService
 
     private static void Normalize(UserAnalysisSettings settings)
     {
-        settings.MinDuplicateLines = Math.Clamp(
-            settings.MinDuplicateLines,
-            UserAnalysisSettings.MinDuplicateLinesFloor,
-            UserAnalysisSettings.MinDuplicateLinesCeiling);
+        settings.MinDuplicateLines = settings.MinDuplicateLines <= 0
+            ? UserAnalysisSettings.DefaultMinDuplicateLines
+            : Math.Clamp(
+                settings.MinDuplicateLines,
+                UserAnalysisSettings.MinDuplicateLinesFloor,
+                UserAnalysisSettings.MinDuplicateLinesCeiling);
 
         settings.WarnCyclomaticComplexity = Math.Clamp(settings.WarnCyclomaticComplexity, 1, 200);
         settings.WarnCognitiveComplexity = Math.Clamp(settings.WarnCognitiveComplexity, 1, 200);

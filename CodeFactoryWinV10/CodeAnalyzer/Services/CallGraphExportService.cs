@@ -446,7 +446,7 @@ public static class CallGraphExportService
 
         return new DuplicateCodeResult
         {
-            MinDuplicateLines = s.MinDuplicateLines,
+            MinDuplicateLines = NormalizeMinDuplicateLines(s.MinDuplicateLines),
             Groups = s.Groups.Select(g => new DuplicateCodeGroup
             {
                 Id = g.Id,
@@ -464,13 +464,21 @@ public static class CallGraphExportService
         };
     }
 
+    private static int NormalizeMinDuplicateLines(int value) =>
+        value <= 0
+            ? UserAnalysisSettings.DefaultMinDuplicateLines
+            : Math.Clamp(
+                value,
+                UserAnalysisSettings.MinDuplicateLinesFloor,
+                UserAnalysisSettings.MinDuplicateLinesCeiling);
+
     private static UserAnalysisSettings BuildQualityThresholds(QualityThresholdsRecord? r)
     {
         if (r is null) return new();
 
         return new UserAnalysisSettings
         {
-            MinDuplicateLines = r.MinDuplicateLines,
+            MinDuplicateLines = NormalizeMinDuplicateLines(r.MinDuplicateLines),
             WarnCyclomaticComplexity = r.WarnCyclomaticComplexity,
             WarnCognitiveComplexity = r.WarnCognitiveComplexity,
             WarnMaxNestingDepth = r.WarnMaxNestingDepth,
@@ -691,7 +699,7 @@ public static class CallGraphExportService
 
     private sealed class DuplicatesSection
     {
-        public int MinDuplicateLines { get; set; } = 3;
+        public int MinDuplicateLines { get; set; } = UserAnalysisSettings.DefaultMinDuplicateLines;
         public List<DuplicateCodeGroupRecord> Groups { get; set; } = [];
     }
 

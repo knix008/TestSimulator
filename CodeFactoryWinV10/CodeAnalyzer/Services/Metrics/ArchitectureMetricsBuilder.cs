@@ -85,11 +85,23 @@ public static class ArchitectureMetricsBuilder
         AddDirectoryCouplingInsights(insights, directoryRelations, maxPerCategory);
         AddHubInsights(insights, metrics.Functions, thresholds, maxPerCategory);
         AddIsolatedFunctionInsights(insights, metrics.Functions, maxPerCategory);
-        AddDuplicateInsights(insights, duplicates, maxPerCategory);
+        AddDuplicateInsights(insights, duplicates);
 
-        return insights.Count <= maxTotal
-            ? insights
-            : insights.Take(maxTotal).ToList();
+        var duplicateInsights = insights
+            .Where(insight => insight.Kind == ArchitectureInsightKind.DuplicateCode
+                && insight.NavigationTag is DuplicateCodeGroup)
+            .ToList();
+        var otherInsights = insights
+            .Where(insight => insight.Kind != ArchitectureInsightKind.DuplicateCode
+                || insight.NavigationTag is not DuplicateCodeGroup)
+            .ToList();
+
+        if (otherInsights.Count > maxTotal)
+        {
+            otherInsights = otherInsights.Take(maxTotal).ToList();
+        }
+
+        return otherInsights.Concat(duplicateInsights).ToList();
     }
 
     private static void AddFileCouplingInsights(
@@ -336,8 +348,7 @@ public static class ArchitectureMetricsBuilder
 
     private static void AddDuplicateInsights(
         List<ArchitectureInsight> insights,
-        DuplicateCodeResult duplicates,
-        int maxPerCategory)
+        DuplicateCodeResult duplicates)
     {
         if (duplicates.Groups.Count == 0)
         {
@@ -356,18 +367,11 @@ public static class ArchitectureMetricsBuilder
 
         foreach (var group in duplicates.Groups
                      .OrderByDescending(group => group.LineCount * Math.Max(1, group.Fragments.Count))
-                     .ThenByDescending(group => group.LineCount)
-                     .Take(maxPerCategory))
+                     .ThenByDescending(group => group.LineCount))
         {
             var locations = string.Join(", ",
                 group.Fragments
-                    .Take(3)
                     .Select(fragment => $"{Path.GetFileName(fragment.FilePath)}:{fragment.StartLine}"));
-
-            if (group.Fragments.Count > 3)
-            {
-                locations += $" 외 {group.Fragments.Count - 3}곳";
-            }
 
             insights.Add(new ArchitectureInsight
             {
@@ -378,16 +382,6 @@ public static class ArchitectureMetricsBuilder
                     ? WarningLevel.Critical
                     : WarningLevel.Warning,
                 NavigationTag = group
-            });
-        }
-
-        if (duplicates.Groups.Count > maxPerCategory)
-        {
-            insights.Add(new ArchitectureInsight
-            {
-                Kind = ArchitectureInsightKind.DuplicateCode,
-                Category = "중복 코드",
-                Description = $"외 {duplicates.Groups.Count - maxPerCategory:N0}그룹 더 있음"
             });
         }
     }

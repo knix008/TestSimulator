@@ -28,6 +28,7 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
+        UserAnalysisSettings.RegisterDesignerDefaults(ReadQualityThresholdsFromControls());
         _searchPopup = new SearchResultsPopup();
         _searchPopup.ResultSelected += SearchPopup_ResultSelected;
         _searchDebounceTimer = new System.Windows.Forms.Timer { Interval = 150 };
@@ -193,7 +194,10 @@ public partial class MainForm : Form
 
     private void RestoreUserSettings()
     {
-        ApplyQualityThresholdsToUi(_userSettings.LoadSettings());
+        if (_userSettings.HasSettingsFile())
+        {
+            ApplyQualityThresholdsToUi(_userSettings.LoadSettings());
+        }
 
         var settings = _userSettings.LoadSettings();
         if (string.IsNullOrWhiteSpace(settings.LastRootDirectory))
@@ -240,16 +244,22 @@ public partial class MainForm : Form
         _userSettings.SaveQualityThresholds(ReadQualityThresholdsFromUi());
     }
 
+    private UserAnalysisSettings ReadQualityThresholdsFromControls() => new()
+    {
+        MinDuplicateLines = (int)numMinDuplicateLines.Value,
+        WarnCyclomaticComplexity = (int)numWarnCyclomatic.Value,
+        WarnCognitiveComplexity = (int)numWarnCognitive.Value,
+        WarnMaxNestingDepth = (int)numWarnNesting.Value,
+        WarnFanOut = (int)numWarnFanOut.Value,
+        WarnMaintenanceIndex = (double)numWarnMi.Value,
+        WarnTodoDensityPer100Lines = (double)numWarnTodoDensity.Value,
+        WarnParameterCount = (int)numWarnParameter.Value
+    };
+
     private UserAnalysisSettings ReadQualityThresholdsFromUi()
     {
-        var settings = _userSettings.LoadSettings();
-        settings.WarnCyclomaticComplexity = (int)numWarnCyclomatic.Value;
-        settings.WarnCognitiveComplexity = (int)numWarnCognitive.Value;
-        settings.WarnMaxNestingDepth = (int)numWarnNesting.Value;
-        settings.WarnFanOut = (int)numWarnFanOut.Value;
-        settings.WarnMaintenanceIndex = (double)numWarnMi.Value;
-        settings.WarnTodoDensityPer100Lines = (double)numWarnTodoDensity.Value;
-        settings.WarnParameterCount = (int)numWarnParameter.Value;
+        var settings = ReadQualityThresholdsFromControls();
+        settings.LastRootDirectory = _userSettings.LoadSettings().LastRootDirectory;
         return settings;
     }
 
@@ -345,8 +355,8 @@ public partial class MainForm : Form
         {
             var excluded = checkedListDirectories.CheckedItems.Cast<string>().ToList();
 
-            var minDuplicateLines = (int)numMinDuplicateLines.Value;
-            _userSettings.SaveMinDuplicateLines(minDuplicateLines);
+            var qualityThresholds = ReadQualityThresholdsFromControls();
+            _userSettings.SaveMinDuplicateLines(qualityThresholds.MinDuplicateLines);
             _userSettings.SaveQualityThresholds(ReadQualityThresholdsFromUi());
 
             var (result, fileCount, directoryCount) = await Task.Run(
@@ -354,7 +364,7 @@ public partial class MainForm : Form
                     rootPath,
                     excluded,
                     enabledLanguages,
-                    minDuplicateLines,
+                    qualityThresholds,
                     progress,
                     cts.Token).ConfigureAwait(false),
                 cts.Token).ConfigureAwait(true);

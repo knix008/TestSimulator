@@ -19,6 +19,6 @@ public sealed class DuplicateCodeGroup
 
 public sealed class DuplicateCodeResult
 {
-    public int MinDuplicateLines { get; init; } = 3;
+    public int MinDuplicateLines { get; init; } = UserAnalysisSettings.DefaultMinDuplicateLines;
     public IReadOnlyList<DuplicateCodeGroup> Groups { get; init; } = [];
 }
