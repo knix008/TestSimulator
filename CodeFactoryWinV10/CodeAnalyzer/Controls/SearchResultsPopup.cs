@@ -1,16 +1,20 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
 public sealed class SearchResultsPopup : Form
 {
     private const int ItemHeight = 42;
-    private const int MaxVisibleItems = 10;
+    private const int MaxVisibleItems = 8;
     private const int HorizontalPadding = 10;
+    private const int DetailPanelHeight = 108;
 
     private readonly ListBox _listBox;
     private readonly Panel _borderPanel;
+    private readonly TextBox _detailBox;
     private IReadOnlyList<SearchResultItem> _results = [];
+    private AnalysisResult? _analysis;
 
     // Prevent the popup from stealing keyboard focus under any circumstance
     protected override bool ShowWithoutActivation => true;
@@ -49,16 +53,31 @@ public sealed class SearchResultsPopup : Form
             ItemHeight = ItemHeight,
             Font = new Font("Segoe UI", 9f)
         };
+        _listBox.Dock = DockStyle.Fill;
         _listBox.DrawItem += ListBox_DrawItem;
-        _listBox.MouseClick += (_, _) => ConfirmSelection();
+        _listBox.SelectedIndexChanged += (_, _) => UpdateDetailPreview();
         _listBox.DoubleClick += (_, _) => ConfirmSelection();
         _listBox.KeyDown += ListBox_KeyDown;
+
+        _detailBox = new TextBox
+        {
+            Dock = DockStyle.Bottom,
+            Height = DetailPanelHeight,
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            BorderStyle = BorderStyle.None,
+            BackColor = Color.FromArgb(248, 249, 252),
+            Font = new Font("Segoe UI", 8.75f),
+            WordWrap = true
+        };
 
         var inner = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = SystemColors.Window
         };
+        inner.Controls.Add(_detailBox);
         inner.Controls.Add(_listBox);
         _borderPanel.Controls.Add(inner);
         Controls.Add(_borderPanel);
@@ -84,9 +103,13 @@ public sealed class SearchResultsPopup : Form
 
     public bool HasResults => _results.Count > 0;
 
-    public void ShowResults(IReadOnlyList<SearchResultItem> results, Rectangle anchorScreenBounds)
+    public void ShowResults(
+        IReadOnlyList<SearchResultItem> results,
+        Rectangle anchorScreenBounds,
+        AnalysisResult? analysis = null)
     {
         _results = results;
+        _analysis = analysis;
         _listBox.BeginUpdate();
         _listBox.Items.Clear();
         foreach (var result in results)
@@ -102,12 +125,14 @@ public sealed class SearchResultsPopup : Form
             return;
         }
 
-        var width = Math.Max(anchorScreenBounds.Width, 360);
+        var width = Math.Max(anchorScreenBounds.Width, 420);
         var visibleCount = Math.Min(results.Count, MaxVisibleItems);
-        var height = visibleCount * ItemHeight + 4;
+        var listHeight = visibleCount * ItemHeight + 4;
+        var height = listHeight + DetailPanelHeight + 6;
         Location = new Point(anchorScreenBounds.Left, anchorScreenBounds.Bottom + 2);
         Size = new Size(width, height);
         SelectedIndex = 0;
+        UpdateDetailPreview();
 
         if (!Visible)
         {
@@ -138,6 +163,18 @@ public sealed class SearchResultsPopup : Form
         var next = _listBox.SelectedIndex < 0 ? 0 : _listBox.SelectedIndex + delta;
         next = Math.Clamp(next, 0, _listBox.Items.Count - 1);
         SelectedIndex = next;
+        UpdateDetailPreview();
+    }
+
+    private void UpdateDetailPreview()
+    {
+        if (_listBox.SelectedItem is not SearchResultItem item)
+        {
+            _detailBox.Text = "항목을 선택하면 상세 정보가 표시됩니다. Enter 또는 더블클릭으로 이동합니다.";
+            return;
+        }
+
+        _detailBox.Text = SearchResultDetailBuilder.BuildDetailText(_analysis, item);
     }
 
     public void ConfirmSelection()
@@ -189,6 +226,8 @@ public sealed class SearchResultsPopup : Form
         var kindColor = item.Kind switch
         {
             SearchResultKind.Type => Color.FromArgb(142, 68, 173),
+            SearchResultKind.File => Color.FromArgb(39, 174, 96),
+            SearchResultKind.Directory => Color.FromArgb(211, 84, 0),
             _ => Color.FromArgb(41, 128, 185)
         };
 

@@ -1399,7 +1399,7 @@ public partial class MainForm : Form
 
             if (_searchResults.Count > 0)
             {
-                _searchPopup.ShowResults(_searchResults, GetSearchBoxScreenBounds());
+                _searchPopup.ShowResults(_searchResults, GetSearchBoxScreenBounds(), _lastAnalysis);
                 if (_searchPopup.SelectedIndex < 0)
                 {
                     _searchPopup.SelectedIndex = 0;
@@ -1438,7 +1438,7 @@ public partial class MainForm : Form
             if (_searchPopup.Visible && _searchPopup.SelectedIndex >= 0 && _searchResults.Count > 0)
             {
                 var index = Math.Clamp(_searchPopup.SelectedIndex, 0, _searchResults.Count - 1);
-                SelectSearchResult(_searchResults[index]);
+                SelectSearchResult(_searchResults[index], showInfoDialog: true);
             }
             else if (e.Shift)
             {
@@ -1487,7 +1487,7 @@ public partial class MainForm : Form
 
     private void SearchPopup_ResultSelected(SearchResultItem item)
     {
-        SelectSearchResult(item);
+        SelectSearchResult(item, showInfoDialog: true);
     }
 
     private Rectangle GetSearchBoxScreenBounds()
@@ -1523,7 +1523,7 @@ public partial class MainForm : Form
         {
             if (showPopup)
             {
-                _searchPopup.ShowResults(_searchResults, GetSearchBoxScreenBounds());
+                _searchPopup.ShowResults(_searchResults, GetSearchBoxScreenBounds(), _lastAnalysis);
             }
 
             return;
@@ -1548,11 +1548,11 @@ public partial class MainForm : Form
 
         if (showPopup)
         {
-            _searchPopup.ShowResults(_searchResults, GetSearchBoxScreenBounds());
+            _searchPopup.ShowResults(_searchResults, GetSearchBoxScreenBounds(), _lastAnalysis);
         }
     }
 
-    private void SelectSearchResult(SearchResultItem item)
+    private void SelectSearchResult(SearchResultItem item, bool showInfoDialog = false)
     {
         _searchIndex = -1;
         for (var index = 0; index < _searchResults.Count; index++)
@@ -1581,6 +1581,20 @@ public partial class MainForm : Form
 
             SetCallGraphRootFromSearch(item.Id);
         }
+        else if (item.Kind == SearchResultKind.Type)
+        {
+            if (!IsClassStructureView())
+            {
+                comboDiagramView.SelectedIndex = 1;
+            }
+
+            EnsureClassTypeComboPopulated();
+            SelectTypeInRootCombo(item.Id);
+
+            diagramViewHost.ViewKind = GetSelectedViewKind();
+            diagramViewHost.SetAnalysis(_lastAnalysis, []);
+            diagramViewHost.FocusType(item.Id);
+        }
         else if (item.Kind == SearchResultKind.File)
         {
             comboDiagramView.SelectedIndex = 5;
@@ -1607,25 +1621,69 @@ public partial class MainForm : Form
                 fileIdOverride: null,
                 directoryIdOverride: item.Id);
         }
-        else
-        {
-            if (GetSelectedViewKind() is DiagramViewKind.CallGraph
-                or DiagramViewKind.SequenceDiagram
-                or DiagramViewKind.DataFlow
-                or DiagramViewKind.FileRelations
-                or DiagramViewKind.DirectoryRelations)
-            {
-                comboDiagramView.SelectedIndex = 1;
-            }
-            else
-            {
-                ApplyRootMethodSelection();
-            }
-        }
 
         ApplySearchHighlightToViewer();
         _searchPopup.HidePopup();
-        lblStatus.Text = $"선택: [{item.KindLabel}] {item.Title}";
+        lblStatus.Text = SearchResultDetailBuilder.BuildStatusSummary(_lastAnalysis, item);
+
+        if (showInfoDialog)
+        {
+            SearchResultInfoDialog.ShowForItem(this, _lastAnalysis, item);
+        }
+    }
+
+    private void EnsureClassTypeComboPopulated()
+    {
+        if (_lastAnalysis is null)
+        {
+            return;
+        }
+
+        if (comboRootMethod.Items.Count > 0 && comboRootMethod.Items[0] is RootTypeItem)
+        {
+            return;
+        }
+
+        _suppressRootComboChange = true;
+        try
+        {
+            comboRootMethod.Items.Clear();
+            comboRootMethod.Items.Add(RootTypeItem.AllTypes);
+
+            foreach (var type in _lastAnalysis.Structure.Types
+                         .OrderBy(t => t.DisplayName, StringComparer.OrdinalIgnoreCase))
+            {
+                comboRootMethod.Items.Add(RootTypeItem.FromType(type));
+            }
+        }
+        finally
+        {
+            _suppressRootComboChange = false;
+        }
+
+        FitComboDropDownWidth();
+    }
+
+    private void SelectTypeInRootCombo(string typeId)
+    {
+        for (var index = 0; index < comboRootMethod.Items.Count; index++)
+        {
+            if (comboRootMethod.Items[index] is RootTypeItem { IsAllTypes: false, Type: { } type }
+                && string.Equals(type.Id, typeId, StringComparison.Ordinal))
+            {
+                _suppressRootComboChange = true;
+                try
+                {
+                    comboRootMethod.SelectedIndex = index;
+                }
+                finally
+                {
+                    _suppressRootComboChange = false;
+                }
+
+                return;
+            }
+        }
     }
 
     private void FindNextMatch()

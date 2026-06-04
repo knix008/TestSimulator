@@ -656,7 +656,7 @@ partial class MainForm
         toolStripSearchBox.Enabled = false;
         toolStripSearchBox.Name = "toolStripSearchBox";
         toolStripSearchBox.Size = new Size(220, 23);
-        toolStripSearchBox.ToolTipText = "함수·타입 검색 — 입력 시 목록 표시 (Ctrl+F, ↓ 선택, Enter 이동)";
+        toolStripSearchBox.ToolTipText = "함수·타입·파일·디렉터리 검색 — ↓ 목록, Enter 선택 및 상세 정보";
         toolStripSearchBox.KeyDown += toolStripSearchBox_KeyDown;
         toolStripSearchBox.TextChanged += toolStripSearchBox_TextChanged;
         // 
