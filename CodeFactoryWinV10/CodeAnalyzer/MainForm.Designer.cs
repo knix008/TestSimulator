@@ -871,7 +871,7 @@ partial class MainForm
         Controls.Add(menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
-        MinimumSize = new Size(1280, 760);
+        MinimumSize = new Size(1400, 900);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Code Analyzer - 코드 구조 분석";

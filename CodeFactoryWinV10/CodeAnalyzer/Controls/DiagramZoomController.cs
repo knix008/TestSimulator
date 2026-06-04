@@ -5,7 +5,7 @@ namespace CodeAnalyzer.Controls;
 
 internal sealed class DiagramZoomController
 {
-    private const float MinZoom = 0.25f;
+    private const float MinZoom = 0.1f;
     private const float MaxZoom = 32f;
     private const float ZoomStep = 1.12f;
     private const int ScrollPadding = 48;

@@ -1089,6 +1089,8 @@ public sealed class CallGraphViewer : UserControl
         }
 
         using var pen = new Pen(Color.FromArgb(130, 145, 165), 1.6f);
+        using var arrowCap = new System.Drawing.Drawing2D.AdjustableArrowCap(3.5f, 4f, isFilled: true);
+        pen.CustomEndCap = arrowCap;
         var parent = node.Parent;
         var start = GetAnchorPoint(parent, towardChild: true);
         var end = GetAnchorPoint(node, towardChild: false);

@@ -5,6 +5,7 @@ namespace CodeAnalyzer.Services;
 
 public sealed class UserSettingsService
 {
+    private const int CurrentSchemaVersion = 1;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     private readonly string _settingsFilePath;
@@ -37,6 +38,13 @@ public sealed class UserSettingsService
                 return UserAnalysisSettings.CreateDefaults();
             }
 
+            // One-time migration: MinDuplicateLines was corrupted to 5 by a bug before schema versioning.
+            // Reset it so the designer default (10) is used instead.
+            if (settings.SchemaVersion < 1 && settings.MinDuplicateLines == 5)
+            {
+                settings.MinDuplicateLines = 0;
+            }
+
             Normalize(settings);
 
             if (!string.IsNullOrWhiteSpace(settings.LastRootDirectory) && !Directory.Exists(settings.LastRootDirectory))
@@ -58,6 +66,7 @@ public sealed class UserSettingsService
 
     public void SaveSettings(UserAnalysisSettings settings)
     {
+        settings.SchemaVersion = CurrentSchemaVersion;
         Normalize(settings);
 
         if (!string.IsNullOrWhiteSpace(settings.LastRootDirectory) && !Directory.Exists(settings.LastRootDirectory))

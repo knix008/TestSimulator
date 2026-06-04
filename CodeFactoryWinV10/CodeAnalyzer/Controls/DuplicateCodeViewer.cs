@@ -71,7 +71,7 @@ public sealed class DuplicateCodeViewer : UserControl
         DoubleBuffered = true;
         BackColor = Color.White;
 
-        _groupList.Columns.Add("그룹", 56);
+        _groupList.Columns.Add("그룹", 90);
         _groupList.Columns.Add("줄 수", 52, HorizontalAlignment.Right);
         _groupList.Columns.Add("위치 수", 64, HorizontalAlignment.Right);
         _groupList.SelectedIndexChanged += (_, _) => ShowSelectedGroup();

@@ -81,7 +81,7 @@ internal static class CallGraphLayoutEngine
             node.Bounds = new Rectangle(x, y, NodeWidth, NodeHeight);
             node.ToggleBounds = node.HasChildren
                 ? new Rectangle(
-                    node.Bounds.Right + ToggleMargin,
+                    node.Bounds.Right,
                     node.Bounds.Top + (NodeHeight - ToggleSize) / 2,
                     ToggleSize,
                     ToggleSize)
@@ -95,7 +95,7 @@ internal static class CallGraphLayoutEngine
             node.ToggleBounds = node.HasChildren
                 ? new Rectangle(
                     node.Bounds.Left + (NodeWidth - ToggleSize) / 2,
-                    node.Bounds.Bottom + ToggleMargin,
+                    node.Bounds.Bottom,
                     ToggleSize,
                     ToggleSize)
                 : Rectangle.Empty;

@@ -94,6 +94,8 @@ public sealed class UserAnalysisSettings
     public double WarnMinCommentPercent { get; set; }
     public int WarnGodTypeMemberCount { get; set; }
 
+    public int SchemaVersion { get; set; }
+
     public MetricInspectionKind EnabledInspections { get; set; } = MetricInspectionKind.All;
 
     public AnalysisScopeKind EnabledAnalysisScope { get; set; } = AnalysisScopeKind.All;

@@ -13,6 +13,8 @@ public sealed class AnalysisScopeOptionsDialog : Form
         IntegralHeight = false
     };
 
+    private bool _suppressDupSync;
+
     public MetricInspectionKind SelectedInspectionScope { get; private set; } = MetricInspectionKind.All;
 
     public AnalysisScopeOptionsDialog(MetricInspectionKind inspectionScope)
@@ -41,6 +43,26 @@ public sealed class AnalysisScopeOptionsDialog : Form
                 i,
                 MetricInspectionCatalog.IsEnabled(normalized, MetricInspectionCatalog.Options[i].Kind));
         }
+
+        // Sync DuplicateCodeGroups <-> FileDuplicateLines so they always change together.
+        var dupGroupsIdx = MetricInspectionCatalog.Options
+            .Select((opt, idx) => (opt, idx))
+            .First(x => x.opt.Kind == MetricInspectionKind.DuplicateCodeGroups).idx;
+        var fileDupIdx = MetricInspectionCatalog.Options
+            .Select((opt, idx) => (opt, idx))
+            .First(x => x.opt.Kind == MetricInspectionKind.FileDuplicateLines).idx;
+        _inspectionList.ItemCheck += (_, e) =>
+        {
+            if (_suppressDupSync) return;
+            if (e.Index != dupGroupsIdx && e.Index != fileDupIdx) return;
+            var otherIdx = e.Index == dupGroupsIdx ? fileDupIdx : dupGroupsIdx;
+            BeginInvoke(() =>
+            {
+                _suppressDupSync = true;
+                try { _inspectionList.SetItemChecked(otherIdx, _inspectionList.GetItemChecked(e.Index)); }
+                finally { _suppressDupSync = false; }
+            });
+        };
 
         var topPanel = new FlowLayoutPanel
         {
