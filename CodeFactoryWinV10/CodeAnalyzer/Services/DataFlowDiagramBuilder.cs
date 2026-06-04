@@ -4,7 +4,10 @@ namespace CodeAnalyzer.Services;
 
 public static class DataFlowDiagramBuilder
 {
-    public static DataFlowDiagramResult Build(CallGraphResult callGraph, string? rootNodeId, int maxDepth = 6)
+    public static DataFlowDiagramResult Build(
+        CallGraphResult callGraph,
+        string? rootNodeId,
+        int maxDepth = AnalysisScaleLimits.DefaultViewTraversalDepth)
     {
         if (string.IsNullOrWhiteSpace(rootNodeId) || !callGraph.NodeMap.ContainsKey(rootNodeId))
         {

@@ -110,7 +110,7 @@ public static class DirectoryCallGraphBuilder
         DirectoryRelationGraphResult graph,
         CallGraphResult functionGraph,
         IReadOnlyList<string> functionRootIds,
-        int maxDepth = 10)
+        int maxDepth = AnalysisScaleLimits.DefaultViewTraversalDepth)
     {
         if (graph.Directories.Count == 0)
         {
@@ -129,7 +129,7 @@ public static class DirectoryCallGraphBuilder
     public static DirectoryRelationGraphResult BuildSubgraphFromDirectoryRoots(
         DirectoryRelationGraphResult graph,
         IReadOnlyList<string> directoryRootIds,
-        int maxDepth = 10)
+        int maxDepth = AnalysisScaleLimits.DefaultViewTraversalDepth)
     {
         if (graph.Directories.Count == 0 || directoryRootIds.Count == 0)
         {

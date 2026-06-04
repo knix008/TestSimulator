@@ -151,17 +151,6 @@ public sealed class CallGraphViewer : UserControl
         StopAnalysisAnimation();
         if (!UseWaitCursor) Cursor = Cursors.Default;
 
-        if (_graph is not null && _graph.Nodes.Count > AnalysisScaleLimits.CollapseCallGraphWhenNodeCountExceeds)
-        {
-            foreach (var node in _graph.Nodes)
-            {
-                if (_graph.Outgoing.TryGetValue(node.Id, out var children) && children.Count > 0)
-                {
-                    _collapsedNodeIds.Add(node.Id);
-                }
-            }
-        }
-
         RebuildVisualTree();
     }
 

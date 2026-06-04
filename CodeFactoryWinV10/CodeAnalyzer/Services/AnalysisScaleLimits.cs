@@ -8,7 +8,11 @@ public static class AnalysisScaleLimits
 
     public const int MaxCallGraphVisualNodes = 8_000;
     public const int MaxCallGraphVisualDepth = 64;
-    public const int CollapseCallGraphWhenNodeCountExceeds = 400;
+
+    /// <summary>다이어그램 뷰 기본 표시 시 서브그래프·흐름 탐색 깊이 (전체 펼치기).</summary>
+    public const int DefaultViewTraversalDepth = int.MaxValue;
+
+    public const int MaxSequenceDiagramMessages = 500;
 
     public const int MaxNodesForCircularCallDetection = 25_000;
 

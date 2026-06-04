@@ -104,7 +104,7 @@ public static class FileCallGraphBuilder
         FileRelationGraphResult graph,
         CallGraphResult functionGraph,
         IReadOnlyList<string> functionRootIds,
-        int maxDepth = 10)
+        int maxDepth = AnalysisScaleLimits.DefaultViewTraversalDepth)
     {
         if (graph.Files.Count == 0)
         {
@@ -186,7 +186,7 @@ public static class FileCallGraphBuilder
     public static FileRelationGraphResult BuildSubgraphFromFileRoots(
         FileRelationGraphResult graph,
         IReadOnlyList<string> fileRootIds,
-        int maxDepth = 10)
+        int maxDepth = AnalysisScaleLimits.DefaultViewTraversalDepth)
     {
         if (graph.Files.Count == 0 || fileRootIds.Count == 0)
         {

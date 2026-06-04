@@ -187,6 +187,22 @@ public sealed class DiagramViewHost : UserControl
         _duplicateViewer.Visible = _viewKind == DiagramViewKind.DuplicateCode;
     }
 
+    public void ExpandAll()
+    {
+        if (_viewKind == DiagramViewKind.CallGraph)
+        {
+            _callGraphViewer.ExpandAll();
+        }
+    }
+
+    public void CollapseAll()
+    {
+        if (_viewKind == DiagramViewKind.CallGraph)
+        {
+            _callGraphViewer.CollapseAll();
+        }
+    }
+
     public bool IsCallGraphView => _viewKind == DiagramViewKind.CallGraph;
 
     public Bitmap? ExportToBitmap()
@@ -223,6 +239,7 @@ public sealed class DiagramViewHost : UserControl
             }
 
             _callGraphViewer.SetGraph(_analysis.CallGraph, _rootNodeIds);
+            _callGraphViewer.ExpandAll();
             return;
         }
 

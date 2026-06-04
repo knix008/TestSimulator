@@ -4,8 +4,6 @@ namespace CodeAnalyzer.Services;
 
 public static class SequenceDiagramBuilder
 {
-    private const int MaxMessages = 40;
-
     public static SequenceDiagramResult Build(CallGraphResult callGraph, string? rootNodeId)
     {
         if (string.IsNullOrWhiteSpace(rootNodeId) || !callGraph.NodeMap.TryGetValue(rootNodeId, out var root))
@@ -19,7 +17,8 @@ public static class SequenceDiagramBuilder
 
         void Walk(string callerId, int depth)
         {
-            if (depth > 8 || messages.Count >= MaxMessages)
+            if (depth >= AnalysisScaleLimits.MaxCallGraphVisualDepth
+                || messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
             {
                 return;
             }
@@ -50,7 +49,7 @@ public static class SequenceDiagramBuilder
                 });
 
                 Walk(calleeId, depth + 1);
-                if (messages.Count >= MaxMessages)
+                if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
                 {
                     return;
                 }

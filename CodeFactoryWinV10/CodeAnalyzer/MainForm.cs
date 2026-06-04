@@ -546,9 +546,9 @@ public partial class MainForm : Form
         }
 
         var viewKind = GetSelectedViewKind();
-        var isCallGraph = viewKind == DiagramViewKind.CallGraph;
         var isTabularView = viewKind is DiagramViewKind.CodeMetrics
             or DiagramViewKind.DuplicateCode;
+        var supportsTreeExpand = viewKind == DiagramViewKind.CallGraph;
         var supportsLineStyle = !isTabularView;
         var needsRoot = viewKind is DiagramViewKind.CallGraph
             or DiagramViewKind.SequenceDiagram
@@ -559,8 +559,8 @@ public partial class MainForm : Form
 
         comboLayoutDirection.Enabled = !isTabularView;
         comboLineStyle.Enabled = supportsLineStyle && !isTabularView;
-        btnExpandAll.Enabled = isCallGraph;
-        btnCollapseAll.Enabled = isCallGraph;
+        btnExpandAll.Enabled = supportsTreeExpand;
+        btnCollapseAll.Enabled = supportsTreeExpand;
         comboRootMethod.Enabled = (needsRoot || needsTypeRoot) && _lastAnalysis is not null;
         lblRootMethod.Enabled = needsRoot || needsTypeRoot;
         lblRootMethod.Text = needsTypeRoot ? "클래스" : "시작 함수";
@@ -1080,12 +1080,12 @@ public partial class MainForm : Form
 
     private void btnExpandAll_Click(object sender, EventArgs e)
     {
-        CallGraphViewer.ExpandAll();
+        diagramViewHost.ExpandAll();
     }
 
     private void btnCollapseAll_Click(object sender, EventArgs e)
     {
-        CallGraphViewer.CollapseAll();
+        diagramViewHost.CollapseAll();
     }
 
     private void btnResetView_Click(object sender, EventArgs e)
@@ -1180,17 +1180,20 @@ public partial class MainForm : Form
             return;
         }
 
+        var savePath = dialog.FileName;
+
         try
         {
             AnalysisReportExportService.Save(
                 _lastAnalysis,
                 txtRootPath.Text.Trim(),
-                dialog.FileName);
-            lblStatus.Text = $"분석 보고서 저장됨: {dialog.FileName}";
+                savePath);
+            lblStatus.Text = $"분석 보고서 저장됨: {savePath}";
+            ShowFileSaveSuccess(this, "분석 보고서 내보내기", savePath);
         }
         catch (Exception ex)
         {
-            DetailedErrorDialog.Show(this, "보고서보내기 오류", ex, "보고서 생성 중 오류가 발생했습니다.");
+            ShowFileSaveError(this, "분석 보고서 내보내기 오류", ex, "보고서 생성 중 오류가 발생했습니다.", savePath);
         }
     }
 
@@ -1216,14 +1219,21 @@ public partial class MainForm : Form
             return;
         }
 
+        var savePath = dialog.FileName;
+
         try
         {
-            CodeMetricsExportService.SaveToCsv(_lastAnalysis.Metrics, dialog.FileName);
-            lblStatus.Text = $"메트릭 CSV 저장됨: {dialog.FileName}";
+            CodeMetricsExportService.SaveToCsv(_lastAnalysis.Metrics, savePath);
+            lblStatus.Text = $"메트릭 CSV 저장됨: {savePath}";
+            ShowFileSaveSuccess(
+                this,
+                "메트릭 CSV 내보내기",
+                savePath,
+                $"함수 {_lastAnalysis.Metrics.Functions.Count:N0}개, 파일 {_lastAnalysis.Metrics.Files.Count:N0}개");
         }
         catch (Exception ex)
         {
-            DetailedErrorDialog.Show(this, "메트릭보내기 오류", ex, "CSV 저장 중 오류가 발생했습니다.");
+            ShowFileSaveError(this, "메트릭 CSV 내보내기 오류", ex, "CSV 저장 중 오류가 발생했습니다.", savePath);
         }
     }
 
@@ -1262,14 +1272,17 @@ public partial class MainForm : Form
             return;
         }
 
+        var savePath = dialog.FileName;
+
         try
         {
-            bmp.Save(dialog.FileName, System.Drawing.Imaging.ImageFormat.Png);
-            lblStatus.Text = $"이미지 저장됨: {dialog.FileName}";
+            bmp.Save(savePath, System.Drawing.Imaging.ImageFormat.Png);
+            lblStatus.Text = $"이미지 저장됨: {savePath}";
+            ShowFileSaveSuccess(this, "이미지 내보내기", savePath);
         }
         catch (Exception ex)
         {
-            DetailedErrorDialog.Show(this, "이미지 저장 오류", ex, "이미지 파일 저장 중 오류가 발생했습니다.");
+            ShowFileSaveError(this, "이미지 저장 오류", ex, "이미지 파일 저장 중 오류가 발생했습니다.", savePath);
         }
     }
 
@@ -1294,17 +1307,26 @@ public partial class MainForm : Form
             return;
         }
 
+        var savePath = dialog.FileName;
+
         try
         {
-            CallGraphExportService.SaveToFile(_lastAnalysis, txtRootPath.Text.Trim(), dialog.FileName);
+            CallGraphExportService.SaveToFile(_lastAnalysis, txtRootPath.Text.Trim(), savePath);
             lblStatus.Text =
                 $"결과 저장 완료: 함수 {_lastAnalysis.CallGraph.Nodes.Count:N0}개, " +
                 $"메트릭 {_lastAnalysis.Metrics.Functions.Count:N0}개, " +
-                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건 · {dialog.FileName}";
+                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건 · {savePath}";
+            ShowFileSaveSuccess(
+                this,
+                "분석 결과 저장",
+                savePath,
+                $"함수 {_lastAnalysis.CallGraph.Nodes.Count:N0}개, " +
+                $"메트릭 {_lastAnalysis.Metrics.Functions.Count:N0}개, " +
+                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건");
         }
         catch (Exception ex)
         {
-            DetailedErrorDialog.Show(this, "결과 저장 오류", ex, "분석 결과 저장 중 오류가 발생했습니다.");
+            ShowFileSaveError(this, "결과 저장 오류", ex, "분석 결과 저장 중 오류가 발생했습니다.", savePath);
         }
     }
 
@@ -1854,6 +1876,57 @@ public partial class MainForm : Form
             toolStripFindNext.Enabled = false;
             toolStripFindPrevious.Enabled = false;
         }
+    }
+
+    private static void ShowFileSaveSuccess(IWin32Window owner, string operationName, string filePath, string? details = null)
+    {
+        var fullPath = TryGetFullPath(filePath);
+        var directory = Path.GetDirectoryName(fullPath) ?? fullPath;
+        var message =
+            $"{operationName}이(가) 완료되었습니다." +
+            $"{Environment.NewLine}{Environment.NewLine}" +
+            $"저장된 파일:{Environment.NewLine}{fullPath}{Environment.NewLine}{Environment.NewLine}" +
+            $"저장 폴더:{Environment.NewLine}{directory}";
+
+        if (!string.IsNullOrWhiteSpace(details))
+        {
+            message += $"{Environment.NewLine}{Environment.NewLine}{details}";
+        }
+
+        MessageBox.Show(owner, message, $"{operationName} 완료", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    private static string TryGetFullPath(string filePath)
+    {
+        try
+        {
+            return Path.GetFullPath(filePath);
+        }
+        catch
+        {
+            return filePath;
+        }
+    }
+
+    private static void ShowFileSaveError(
+        IWin32Window owner,
+        string title,
+        Exception ex,
+        string summary,
+        string? targetPath = null)
+    {
+        var message = summary;
+        if (!string.IsNullOrWhiteSpace(targetPath))
+        {
+            var fullPath = TryGetFullPath(targetPath);
+            var directory = Path.GetDirectoryName(fullPath) ?? fullPath;
+            message +=
+                $"{Environment.NewLine}{Environment.NewLine}" +
+                $"저장 경로:{Environment.NewLine}{fullPath}{Environment.NewLine}{Environment.NewLine}" +
+                $"저장 폴더:{Environment.NewLine}{directory}";
+        }
+
+        DetailedErrorDialog.Show(owner, title, ex, message);
     }
 
     private sealed class RootMethodItem

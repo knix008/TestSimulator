@@ -5,18 +5,18 @@ namespace CodeAnalyzer.Controls;
 
 public sealed class DuplicateCodeViewer : UserControl
 {
-    private readonly SplitContainer _split = new()
+    private readonly SplitContainer _mainSplit = new()
     {
         Dock = DockStyle.Fill,
         Orientation = Orientation.Horizontal,
-        SplitterDistance = 320
+        SplitterDistance = 240
     };
 
-    private readonly SplitContainer _detailSplit = new()
+    private readonly SplitContainer _listSplit = new()
     {
         Dock = DockStyle.Fill,
-        Orientation = Orientation.Horizontal,
-        SplitterDistance = 180
+        Orientation = Orientation.Vertical,
+        SplitterDistance = 260
     };
 
     private readonly ListView _groupList = new()
@@ -98,15 +98,14 @@ public sealed class DuplicateCodeViewer : UserControl
         _openFileButton.Location = new Point(8, 8);
         actionPanel.Controls.Add(_openFileButton);
 
-        _detailSplit.Panel1.Controls.Add(_fragmentList);
-        // Fill 컨트롤을 먼저 추가하고 Top 도킹 패널을 나중에 추가해야 미리보기 영역이 남습니다.
-        _detailSplit.Panel2.Controls.Add(_previewTabs);
-        _detailSplit.Panel2.Controls.Add(actionPanel);
+        _listSplit.Panel1.Controls.Add(_groupList);
+        _listSplit.Panel2.Controls.Add(_fragmentList);
 
-        _split.Panel1.Controls.Add(_groupList);
-        _split.Panel2.Controls.Add(_detailSplit);
+        _mainSplit.Panel1.Controls.Add(_listSplit);
+        _mainSplit.Panel2.Controls.Add(_previewTabs);
+        _mainSplit.Panel2.Controls.Add(actionPanel);
 
-        Controls.Add(_split);
+        Controls.Add(_mainSplit);
         Controls.Add(_summaryLabel);
 
         Load += (_, _) => ApplySplitLayout();
@@ -115,53 +114,53 @@ public sealed class DuplicateCodeViewer : UserControl
 
     private void ApplySplitLayout()
     {
-        ApplyGroupSplitRatio();
-        ApplyDetailSplitRatio();
+        ApplyMainSplitRatio();
+        ApplyListSplitRatio();
     }
 
-    private void ApplyGroupSplitRatio()
+    private void ApplyMainSplitRatio()
     {
-        var height = _split.Height;
-        if (height <= _split.SplitterWidth + 20)
+        var height = _mainSplit.Height;
+        if (height <= _mainSplit.SplitterWidth + 20)
         {
             return;
         }
 
-        const int panel1Min = 280;
-        const int panel2Min = 200;
-        var maxDistance = height - panel2Min - _split.SplitterWidth;
-        if (maxDistance < panel1Min)
+        const int listRowMin = 200;
+        const int previewMin = 160;
+        var maxDistance = height - previewMin - _mainSplit.SplitterWidth;
+        if (maxDistance < listRowMin)
         {
             return;
         }
 
-        var desired = Math.Clamp((int)(height * 0.35), panel1Min, Math.Min(420, maxDistance));
-        if (Math.Abs(_split.SplitterDistance - desired) > 2)
+        var desired = Math.Clamp((int)(height * 0.38), listRowMin, Math.Min(340, maxDistance));
+        if (Math.Abs(_mainSplit.SplitterDistance - desired) > 2)
         {
-            _split.SplitterDistance = desired;
+            _mainSplit.SplitterDistance = desired;
         }
     }
 
-    private void ApplyDetailSplitRatio()
+    private void ApplyListSplitRatio()
     {
-        var height = _detailSplit.Height;
-        if (height <= _detailSplit.SplitterWidth + 20)
+        var width = _listSplit.Width;
+        if (width <= _listSplit.SplitterWidth + 20)
         {
             return;
         }
 
-        const int panel1Min = 80;
-        const int panel2Min = 120;
-        var maxDistance = height - panel2Min - _detailSplit.SplitterWidth;
-        if (maxDistance < panel1Min)
+        const int groupMin = 200;
+        const int fragmentMin = 280;
+        var maxDistance = width - fragmentMin - _listSplit.SplitterWidth;
+        if (maxDistance < groupMin)
         {
             return;
         }
 
-        var desired = Math.Clamp(height / 3, panel1Min, Math.Min(260, maxDistance));
-        if (Math.Abs(_detailSplit.SplitterDistance - desired) > 2)
+        var desired = Math.Clamp((int)(width * 0.34), groupMin, Math.Min(380, maxDistance));
+        if (Math.Abs(_listSplit.SplitterDistance - desired) > 2)
         {
-            _detailSplit.SplitterDistance = desired;
+            _listSplit.SplitterDistance = desired;
         }
     }
 
