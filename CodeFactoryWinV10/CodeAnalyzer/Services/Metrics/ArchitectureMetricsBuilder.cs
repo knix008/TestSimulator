@@ -14,14 +14,19 @@ public static class ArchitectureMetricsBuilder
         DirectoryRelationGraphResult directoryRelations,
         ProjectStructureResult structure,
         DuplicateCodeResult duplicates,
-        UserAnalysisSettings thresholds)
+        UserAnalysisSettings thresholds,
+        GlobalVariableResult? globalVariables = null,
+        DatabaseSchemaResult? databaseSchema = null)
     {
         var insights = new List<ArchitectureInsight>();
+        var scope = MetricInspectionScope.Normalize(thresholds.EnabledInspections);
         var summary = metrics.Summary;
         var maxPerCategory = AnalysisScaleLimits.MaxArchitectureUiItemsPerCategory;
         var maxTotal = AnalysisScaleLimits.MaxArchitectureUiInsights;
 
-        insights.Add(new ArchitectureInsight
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ShowArchitectureTab))
+        {
+            insights.Add(new ArchitectureInsight
         {
             Kind = ArchitectureInsightKind.Summary,
             Category = "요약",
@@ -31,9 +36,11 @@ public static class ArchitectureMetricsBuilder
                 $"디렉터리 {directoryRelations.Directories.Count:N0}개 · {directoryRelations.Edges.Count:N0}연결 · " +
                 $"중복 {summary.ProjectDuplicateLinePercent:F1}% ({summary.DuplicateLineCount:N0}줄) · " +
                 $"순환 {summary.CircularCallChainCount}건 · TODO {summary.TotalTodoMarkers:N0}개"
-        });
+            });
+        }
 
-        if (structure.Types.Count > 0)
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TypeStructure)
+            && structure.Types.Count > 0)
         {
             var inheritanceCount = structure.Relations.Count(relation =>
                 relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation);
@@ -49,6 +56,80 @@ public static class ArchitectureMetricsBuilder
             });
         }
 
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CircularCalls))
+        {
+            AddCircularCallInsights(insights, summary, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FileCoupling))
+        {
+            AddFileCouplingInsights(insights, fileRelations, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.DirectoryCoupling))
+        {
+            AddDirectoryCouplingInsights(insights, directoryRelations, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FanOutHub)
+            || MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FanInHub))
+        {
+            AddHubInsights(insights, metrics.Functions, thresholds, maxPerCategory, scope);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.IsolatedFunctions))
+        {
+            AddIsolatedFunctionInsights(insights, metrics.Functions, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GlobalVariables))
+        {
+            AddGlobalVariableInsights(insights, globalVariables, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.DatabaseSchema))
+        {
+            AddDatabaseSchemaInsights(insights, databaseSchema);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FileDuplicateLines))
+        {
+            AddFileDuplicateInsights(insights, metrics, duplicates, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GodFile)
+            || MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.LowCommentRatio))
+        {
+            AddGodFileAndCommentInsights(insights, metrics, thresholds, maxPerCategory, scope);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.DuplicateCodeGroups))
+        {
+            AddDuplicateInsights(insights, duplicates);
+        }
+
+        var duplicateInsights = insights
+            .Where(insight => insight.Kind == ArchitectureInsightKind.DuplicateCode
+                && insight.NavigationTag is DuplicateCodeGroup)
+            .ToList();
+        var otherInsights = insights
+            .Where(insight => insight.Kind != ArchitectureInsightKind.DuplicateCode
+                || insight.NavigationTag is not DuplicateCodeGroup)
+            .ToList();
+
+        if (otherInsights.Count > maxTotal)
+        {
+            otherInsights = otherInsights.Take(maxTotal).ToList();
+        }
+
+        return otherInsights.Concat(duplicateInsights).ToList();
+    }
+
+    private static void AddCircularCallInsights(
+        List<ArchitectureInsight> insights,
+        CodeQualitySummary summary,
+        int maxPerCategory)
+    {
         foreach (var chain in summary.CircularCallChains.Take(maxPerCategory))
         {
             insights.Add(new ArchitectureInsight
@@ -80,28 +161,6 @@ public static class ArchitectureMetricsBuilder
                 Severity = WarningLevel.Warning
             });
         }
-
-        AddFileCouplingInsights(insights, fileRelations, maxPerCategory);
-        AddDirectoryCouplingInsights(insights, directoryRelations, maxPerCategory);
-        AddHubInsights(insights, metrics.Functions, thresholds, maxPerCategory);
-        AddIsolatedFunctionInsights(insights, metrics.Functions, maxPerCategory);
-        AddDuplicateInsights(insights, duplicates);
-
-        var duplicateInsights = insights
-            .Where(insight => insight.Kind == ArchitectureInsightKind.DuplicateCode
-                && insight.NavigationTag is DuplicateCodeGroup)
-            .ToList();
-        var otherInsights = insights
-            .Where(insight => insight.Kind != ArchitectureInsightKind.DuplicateCode
-                || insight.NavigationTag is not DuplicateCodeGroup)
-            .ToList();
-
-        if (otherInsights.Count > maxTotal)
-        {
-            otherInsights = otherInsights.Take(maxTotal).ToList();
-        }
-
-        return otherInsights.Concat(duplicateInsights).ToList();
     }
 
     private static void AddFileCouplingInsights(
@@ -225,13 +284,16 @@ public static class ArchitectureMetricsBuilder
         List<ArchitectureInsight> insights,
         IReadOnlyList<FunctionMetric> functions,
         UserAnalysisSettings thresholds,
-        int maxPerCategory)
+        int maxPerCategory,
+        MetricInspectionKind scope)
     {
         if (functions.Count == 0)
         {
             return;
         }
 
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FanOutHub))
+        {
         var fanOutHubs = functions
             .Where(func => func.FanOut >= thresholds.WarnFanOut)
             .OrderByDescending(func => func.FanOut)
@@ -264,6 +326,12 @@ public static class ArchitectureMetricsBuilder
                     NavigationTag = func
                 });
             }
+        }
+        }
+
+        if (!MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FanInHub))
+        {
+            return;
         }
 
         var fanInHubs = functions
@@ -346,6 +414,248 @@ public static class ArchitectureMetricsBuilder
         }
     }
 
+    private static void AddGlobalVariableInsights(
+        List<ArchitectureInsight> insights,
+        GlobalVariableResult? globalVariables,
+        int maxPerCategory)
+    {
+        if (globalVariables is null || globalVariables.Variables.Count == 0)
+        {
+            return;
+        }
+
+        var mutablePublic = globalVariables.Variables.Count(IsPublicMutable);
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.GlobalVariable,
+            Category = "전역 변수",
+            Description =
+                $"전역 {globalVariables.Variables.Count:N0}개 · public mutable {mutablePublic:N0}개",
+            Severity = mutablePublic >= 5 ? WarningLevel.Warning : WarningLevel.None
+        });
+
+        foreach (var variable in globalVariables.Variables
+                     .OrderByDescending(variable => IsPublicAccess(variable) ? 1 : 0)
+                     .ThenBy(variable => variable.Name, StringComparer.CurrentCultureIgnoreCase)
+                     .Take(maxPerCategory))
+        {
+            var isPublicMutable = IsPublicMutable(variable);
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.GlobalVariable,
+                Category = "전역 변수",
+                Description =
+                    $"{variable.Name} · {variable.Scope} · {Path.GetFileName(variable.FilePath)}:{variable.LineNumber}",
+                Severity = isPublicMutable ? WarningLevel.Warning : WarningLevel.None,
+                NavigationTag = variable
+            });
+        }
+
+        if (globalVariables.Variables.Count > maxPerCategory)
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.GlobalVariable,
+                Category = "전역 변수",
+                Description = $"외 {globalVariables.Variables.Count - maxPerCategory:N0}개 더 있음"
+            });
+        }
+    }
+
+    private static void AddDatabaseSchemaInsights(
+        List<ArchitectureInsight> insights,
+        DatabaseSchemaResult? databaseSchema)
+    {
+        if (databaseSchema is null || databaseSchema.Tables.Count == 0)
+        {
+            return;
+        }
+
+        var withoutFk = databaseSchema.Tables.Count(table =>
+            !table.Columns.Any(column => column.IsForeignKey)
+            && databaseSchema.Relations.All(relation => relation.FromTableId != table.Id));
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.DatabaseSchema,
+            Category = "DB 스키마",
+            Description =
+                $"테이블 {databaseSchema.Tables.Count:N0} · 관계 {databaseSchema.Relations.Count:N0} · FK 없음 {withoutFk:N0}",
+            Severity = databaseSchema.Tables.Count >= 30 ? WarningLevel.Warning : WarningLevel.None
+        });
+
+        foreach (var table in databaseSchema.Tables
+                     .OrderByDescending(table => table.Columns.Count)
+                     .Take(8))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.DatabaseSchema,
+                Category = "DB 스키마",
+                Description =
+                    $"{table.Name} · 컬럼 {table.Columns.Count} · {Path.GetFileName(table.FilePath)}",
+                NavigationTag = table
+            });
+        }
+    }
+
+    private static void AddFileDuplicateInsights(
+        List<ArchitectureInsight> insights,
+        CodeMetricsResult metrics,
+        DuplicateCodeResult duplicates,
+        int maxPerCategory)
+    {
+        if (duplicates.Groups.Count == 0)
+        {
+            return;
+        }
+
+        var byFile = DuplicateLinesByFileIndex.Build(duplicates);
+        var fileRows = metrics.FileAggregates.Count > 0
+            ? metrics.FileAggregates
+            : metrics.Files.Select(file => new FileAggregateMetric
+            {
+                FilePath = file.FilePath,
+                LanguageId = file.LanguageId,
+                PhysicalLines = file.PhysicalLines,
+                CodeLines = file.CodeLines,
+                TodoMarkerCount = file.TodoMarkerCount,
+                TodoDensityPer100Lines = file.TodoDensityPer100Lines,
+                CommentPercentPer100Code = file.CommentPercentPer100Code,
+                DuplicateLineCount = byFile.GetValueOrDefault(file.FilePath),
+                FunctionCount = 0,
+                MinMaintenanceIndex = 100
+            }).ToList();
+
+        var top = fileRows
+            .Where(file => file.DuplicateLineCount > 0)
+            .OrderByDescending(file => file.DuplicateLineCount)
+            .Take(maxPerCategory)
+            .ToList();
+
+        if (top.Count == 0)
+        {
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.FileDuplicate,
+            Category = "파일별 중복",
+            Description = $"중복 구간에 참여한 파일 {byFile.Count:N0}개 (상위 표시)",
+            Severity = WarningLevel.Warning
+        });
+
+        foreach (var file in top)
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.FileDuplicate,
+                Category = "파일별 중복",
+                Description =
+                    $"{Path.GetFileName(file.FilePath)} · 중복 참여 {file.DuplicateLineCount:N0}줄 · 코드 {file.CodeLines:N0}줄",
+                Severity = file.DuplicateLineCount >= 80 ? WarningLevel.Critical : WarningLevel.Warning,
+                NavigationTag = file
+            });
+        }
+    }
+
+    private static void AddGodFileAndCommentInsights(
+        List<ArchitectureInsight> insights,
+        CodeMetricsResult metrics,
+        UserAnalysisSettings thresholds,
+        int maxPerCategory,
+        MetricInspectionKind scope)
+    {
+        var fileRows = metrics.FileAggregates.Count > 0
+            ? metrics.FileAggregates
+            : metrics.Files.Select(file => new FileAggregateMetric
+            {
+                FilePath = file.FilePath,
+                LanguageId = file.LanguageId,
+                PhysicalLines = file.PhysicalLines,
+                CodeLines = file.CodeLines,
+                TodoMarkerCount = file.TodoMarkerCount,
+                TodoDensityPer100Lines = file.TodoDensityPer100Lines,
+                CommentPercentPer100Code = file.CommentPercentPer100Code,
+                FunctionCount = 0,
+                MinMaintenanceIndex = 100
+            }).ToList();
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GodFile))
+        {
+        var godFiles = fileRows
+            .Where(file => FileMetricsAggregator.IsGodFile(file, thresholds))
+            .OrderByDescending(file => file.CodeLines)
+            .Take(maxPerCategory)
+            .ToList();
+
+        if (godFiles.Count > 0)
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.GodFile,
+                Category = "God file",
+                Description =
+                    $"코드 줄 ≥{thresholds.WarnGodFileCodeLines} 인 파일 {fileRows.Count(f => FileMetricsAggregator.IsGodFile(f, thresholds)):N0}개",
+                Severity = WarningLevel.Warning
+            });
+
+            foreach (var file in godFiles)
+            {
+                insights.Add(new ArchitectureInsight
+                {
+                    Kind = ArchitectureInsightKind.GodFile,
+                    Category = "God file",
+                    Description = $"{Path.GetFileName(file.FilePath)} · {file.CodeLines:N0}줄",
+                    Severity = file.CodeLines >= thresholds.WarnGodFileCodeLines * 2
+                        ? WarningLevel.Critical
+                        : WarningLevel.Warning,
+                    NavigationTag = file
+                });
+            }
+        }
+        }
+
+        if (!MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.LowCommentRatio))
+        {
+            return;
+        }
+
+        var lowComment = fileRows
+            .Where(file => FileMetricsAggregator.IsLowCommentFile(file, thresholds))
+            .OrderBy(file => file.CommentPercentPer100Code)
+            .Take(maxPerCategory)
+            .ToList();
+
+        if (lowComment.Count == 0)
+        {
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.LowComment,
+            Category = "주석 부족",
+            Description =
+                $"주석 비율 <{thresholds.WarnMinCommentPercent:F0}% (코드 {FileMetricsAggregator.MinCodeLinesForCommentWarning}줄 이상) · {lowComment.Count:N0}파일",
+            Severity = WarningLevel.None
+        });
+
+        foreach (var file in lowComment)
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.LowComment,
+                Category = "주석 부족",
+                Description =
+                    $"{Path.GetFileName(file.FilePath)} · 주석 {file.CommentPercentPer100Code:F1}% · 코드 {file.CodeLines:N0}줄",
+                NavigationTag = file
+            });
+        }
+    }
+
     private static void AddDuplicateInsights(
         List<ArchitectureInsight> insights,
         DuplicateCodeResult duplicates)
@@ -385,6 +695,13 @@ public static class ArchitectureMetricsBuilder
             });
         }
     }
+
+    private static bool IsPublicAccess(GlobalVariableItem variable) =>
+        !string.IsNullOrEmpty(variable.AccessModifier)
+        && variable.AccessModifier.Contains("public", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPublicMutable(GlobalVariableItem variable) =>
+        IsPublicAccess(variable) && !variable.IsReadOnly && !variable.IsConst;
 
     private static string ResolveFileName(FileRelationGraphResult fileRelations, string fileId)
     {

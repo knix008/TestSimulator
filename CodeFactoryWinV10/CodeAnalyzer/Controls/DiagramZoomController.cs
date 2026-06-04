@@ -6,9 +6,13 @@ namespace CodeAnalyzer.Controls;
 internal sealed class DiagramZoomController
 {
     private const float MinZoom = 0.25f;
-    private const float MaxZoom = 4f;
+    /// <summary>논리 배율 상한(휠 줌). 캐시 비트맵은 별도 한도로 뷰포트 렌더로 대체합니다.</summary>
+    private const float MaxZoom = 32f;
     private const float ZoomStep = 1.12f;
     private const int ScrollPadding = 48;
+
+    /// <summary>이 배율 초과 시 전체 캐시 비트맵을 만들지 않고 뷰포트만 그립니다.</summary>
+    private const float MaxCacheZoom = 8f;
 
     private float _zoom = 1f;
     private Bitmap? _cache;
@@ -75,8 +79,14 @@ internal sealed class DiagramZoomController
         ApplyContentSize(control, logicalContentSize);
         EnsureCache(logicalContentSize, backgroundColor, drawLogicalContent);
 
-        if (_cache is null || clipRect.Width <= 0 || clipRect.Height <= 0)
+        if (clipRect.Width <= 0 || clipRect.Height <= 0)
         {
+            return;
+        }
+
+        if (_cache is null)
+        {
+            DrawViewportWithoutCache(target, control, clipRect, backgroundColor, drawLogicalContent);
             return;
         }
 
@@ -98,7 +108,33 @@ internal sealed class DiagramZoomController
             srcRect.Width,
             srcRect.Height);
 
+        target.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        target.PixelOffsetMode = PixelOffsetMode.HighQuality;
         target.DrawImage(_cache, destRect, srcRect, GraphicsUnit.Pixel);
+    }
+
+    private void DrawViewportWithoutCache(
+        Graphics target,
+        ScrollableControl control,
+        Rectangle clipRect,
+        Color backgroundColor,
+        Action<Graphics> drawLogicalContent)
+    {
+        target.SetClip(clipRect);
+        try
+        {
+            target.TranslateTransform(-control.AutoScrollPosition.X, -control.AutoScrollPosition.Y);
+            target.ScaleTransform(_zoom, _zoom);
+            target.Clear(backgroundColor);
+            target.SmoothingMode = SmoothingMode.AntiAlias;
+            target.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            drawLogicalContent(target);
+        }
+        finally
+        {
+            target.ResetTransform();
+            target.ResetClip();
+        }
     }
 
     public Point ClientToDocument(ScrollableControl control, Point client)
@@ -165,21 +201,59 @@ internal sealed class DiagramZoomController
         }
 
         _cache?.Dispose();
+        _cache = null;
+        _cacheZoom = -1f;
+
+        if (_zoom > MaxCacheZoom)
+        {
+            _cacheContentSize = logicalContentSize;
+            return;
+        }
 
         var width = Math.Max(1, GetDocumentWidth(logicalContentSize));
         var height = Math.Max(1, GetDocumentHeight(logicalContentSize));
-        _cache = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-
-        using (var graphics = Graphics.FromImage(_cache))
+        if (!CanAllocateCacheBitmap(width, height))
         {
-            graphics.Clear(backgroundColor);
-            graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            graphics.ScaleTransform(_zoom, _zoom);
-            drawLogicalContent(graphics);
+            _cacheContentSize = logicalContentSize;
+            return;
         }
 
-        _cacheContentSize = logicalContentSize;
-        _cacheZoom = _zoom;
+        try
+        {
+            _cache = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+
+            using (var graphics = Graphics.FromImage(_cache))
+            {
+                graphics.Clear(backgroundColor);
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                graphics.ScaleTransform(_zoom, _zoom);
+                drawLogicalContent(graphics);
+            }
+
+            _cacheContentSize = logicalContentSize;
+            _cacheZoom = _zoom;
+        }
+        catch
+        {
+            _cache?.Dispose();
+            _cache = null;
+            _cacheZoom = -1f;
+            _cacheContentSize = logicalContentSize;
+        }
+    }
+
+    private static bool CanAllocateCacheBitmap(int width, int height)
+    {
+        const int maxDimension = 16_384;
+        const long maxPixels = 64L * 1024 * 1024;
+
+        if (width > maxDimension || height > maxDimension)
+        {
+            return false;
+        }
+
+        return (long)width * height <= maxPixels;
     }
 
     private int GetDocumentWidth(Size logicalContentSize) =>

@@ -366,6 +366,8 @@ public static class CallGraphExportService
             PhysicalLines = f.PhysicalLines,
             CodeLines = f.CodeLines,
             BlankLines = f.BlankLines,
+            CommentLines = f.CommentLines,
+            CommentPercentPer100Code = f.CommentPercentPer100Code,
             TodoMarkerCount = f.TodoMarkerCount,
             TodoDensityPer100Lines = f.TodoDensityPer100Lines
         }).ToList();
@@ -389,6 +391,9 @@ public static class CallGraphExportService
             AvgMaintenanceIndex = f.AvgMaintenanceIndex,
             MinMaintenanceIndex = f.MinMaintenanceIndex,
             TotalMagicNumbers = f.TotalMagicNumbers,
+            MaxReturnCount = f.MaxReturnCount,
+            DuplicateLineCount = f.DuplicateLineCount,
+            CommentPercentPer100Code = f.CommentPercentPer100Code,
             WarningFunctionCount = f.WarningFunctionCount
         }).ToList();
 
@@ -432,7 +437,11 @@ public static class CallGraphExportService
             LowMaintenanceIndexCount = summaryRecord.LowMaintenanceIndexCount,
             HighParameterCount = summaryRecord.HighParameterCount,
             TotalTodoMarkers = summaryRecord.TotalTodoMarkers,
-            HighTodoDensityFileCount = summaryRecord.HighTodoDensityFileCount
+            HighTodoDensityFileCount = summaryRecord.HighTodoDensityFileCount,
+            HighReturnCount = summaryRecord.HighReturnCount,
+            HighMagicNumberCount = summaryRecord.HighMagicNumberCount,
+            GodFileCount = summaryRecord.GodFileCount,
+            LowCommentFileCount = summaryRecord.LowCommentFileCount
         };
 
         return new CodeMetricsResult
@@ -491,7 +500,7 @@ public static class CallGraphExportService
                     : GlobalVariableScope.Module,
                 TypeName = v.TypeName,
                 ContainingScope = v.ContainingScope,
-                AccessModifier = v.AccessModifier,
+                AccessModifier = v.AccessModifier ?? string.Empty,
                 IsConst = v.IsConst,
                 IsReadOnly = v.IsReadOnly,
                 Declaration = v.Declaration
@@ -546,28 +555,36 @@ public static class CallGraphExportService
     }
 
     private static int NormalizeMinDuplicateLines(int value) =>
-        value <= 0
-            ? UserAnalysisSettings.DefaultMinDuplicateLines
-            : Math.Clamp(
-                value,
-                UserAnalysisSettings.MinDuplicateLinesFloor,
-                UserAnalysisSettings.MinDuplicateLinesCeiling);
+        UserAnalysisSettings.NormalizeMinDuplicateLines(value);
 
     private static UserAnalysisSettings BuildQualityThresholds(QualityThresholdsRecord? r)
     {
-        if (r is null) return new();
-
-        return new UserAnalysisSettings
+        if (r is null)
         {
-            MinDuplicateLines = NormalizeMinDuplicateLines(r.MinDuplicateLines),
+            return UserAnalysisSettings.CreateDefaults();
+        }
+
+        return UserAnalysisSettings.ResolveForAnalysis(new UserAnalysisSettings
+        {
+            MinDuplicateLines = r.MinDuplicateLines,
+            EnabledInspections = r.EnabledInspections == 0
+                ? MetricInspectionKind.All
+                : (MetricInspectionKind)r.EnabledInspections,
+            IncludedDirectoryPaths = r.IncludedDirectoryPaths?.ToList() ?? [],
+            ExcludedDirectoryPaths = r.ExcludedDirectoryPaths?.ToList() ?? [],
             WarnCyclomaticComplexity = r.WarnCyclomaticComplexity,
             WarnCognitiveComplexity = r.WarnCognitiveComplexity,
             WarnMaxNestingDepth = r.WarnMaxNestingDepth,
             WarnParameterCount = r.WarnParameterCount,
             WarnFanOut = r.WarnFanOut,
             WarnMaintenanceIndex = r.WarnMaintenanceIndex,
-            WarnTodoDensityPer100Lines = r.WarnTodoDensityPer100Lines
-        };
+            WarnTodoDensityPer100Lines = r.WarnTodoDensityPer100Lines,
+            WarnReturnCount = r.WarnReturnCount,
+            WarnMagicNumbers = r.WarnMagicNumbers,
+            WarnGodFileCodeLines = r.WarnGodFileCodeLines,
+            WarnMinCommentPercent = r.WarnMinCommentPercent,
+            WarnGodTypeMemberCount = r.WarnGodTypeMemberCount
+        });
     }
 
     // ── Section builders (model → record) ───────────────────────────────────
@@ -581,6 +598,8 @@ public static class CallGraphExportService
             PhysicalLines = f.PhysicalLines,
             CodeLines = f.CodeLines,
             BlankLines = f.BlankLines,
+            CommentLines = f.CommentLines,
+            CommentPercentPer100Code = f.CommentPercentPer100Code,
             TodoMarkerCount = f.TodoMarkerCount,
             TodoDensityPer100Lines = f.TodoDensityPer100Lines
         }).ToList(),
@@ -603,6 +622,9 @@ public static class CallGraphExportService
             AvgMaintenanceIndex = f.AvgMaintenanceIndex,
             MinMaintenanceIndex = f.MinMaintenanceIndex,
             TotalMagicNumbers = f.TotalMagicNumbers,
+            MaxReturnCount = f.MaxReturnCount,
+            DuplicateLineCount = f.DuplicateLineCount,
+            CommentPercentPer100Code = f.CommentPercentPer100Code,
             WarningFunctionCount = f.WarningFunctionCount
         }).ToList(),
         Functions = m.Functions.Select(f => new FunctionMetricRecord
@@ -644,7 +666,11 @@ public static class CallGraphExportService
             LowMaintenanceIndexCount = m.Summary.LowMaintenanceIndexCount,
             HighParameterCount = m.Summary.HighParameterCount,
             TotalTodoMarkers = m.Summary.TotalTodoMarkers,
-            HighTodoDensityFileCount = m.Summary.HighTodoDensityFileCount
+            HighTodoDensityFileCount = m.Summary.HighTodoDensityFileCount,
+            HighReturnCount = m.Summary.HighReturnCount,
+            HighMagicNumberCount = m.Summary.HighMagicNumberCount,
+            GodFileCount = m.Summary.GodFileCount,
+            LowCommentFileCount = m.Summary.LowCommentFileCount
         }
     };
 
@@ -728,7 +754,17 @@ public static class CallGraphExportService
         WarnParameterCount = s.WarnParameterCount,
         WarnFanOut = s.WarnFanOut,
         WarnMaintenanceIndex = s.WarnMaintenanceIndex,
-        WarnTodoDensityPer100Lines = s.WarnTodoDensityPer100Lines
+        WarnTodoDensityPer100Lines = s.WarnTodoDensityPer100Lines,
+        WarnReturnCount = s.WarnReturnCount,
+        WarnMagicNumbers = s.WarnMagicNumbers,
+        WarnGodFileCodeLines = s.WarnGodFileCodeLines,
+        WarnMinCommentPercent = s.WarnMinCommentPercent,
+        WarnGodTypeMemberCount = s.WarnGodTypeMemberCount,
+        EnabledInspections = (ulong)s.EnabledInspections,
+        EnabledAnalysisScope = (ulong)AnalysisScopeResolver.Resolve(
+            MetricInspectionScope.Normalize(s.EnabledInspections)),
+        IncludedDirectoryPaths = s.IncludedDirectoryPaths.ToList(),
+        ExcludedDirectoryPaths = s.ExcludedDirectoryPaths.ToList()
     };
 
     private static FileRelationGraphResult BuildFileRelations(
@@ -859,6 +895,15 @@ public static class CallGraphExportService
         public int WarnFanOut { get; set; } = UserAnalysisSettings.DefaultWarnFanOut;
         public double WarnMaintenanceIndex { get; set; } = UserAnalysisSettings.DefaultWarnMaintenanceIndex;
         public double WarnTodoDensityPer100Lines { get; set; } = UserAnalysisSettings.DefaultWarnTodoDensityPer100Lines;
+        public int WarnReturnCount { get; set; }
+        public int WarnMagicNumbers { get; set; }
+        public int WarnGodFileCodeLines { get; set; }
+        public double WarnMinCommentPercent { get; set; }
+        public int WarnGodTypeMemberCount { get; set; }
+        public ulong EnabledInspections { get; set; } = (ulong)MetricInspectionKind.All;
+        public ulong EnabledAnalysisScope { get; set; } = (ulong)AnalysisScopeKind.All;
+        public List<string> IncludedDirectoryPaths { get; set; } = [];
+        public List<string> ExcludedDirectoryPaths { get; set; } = [];
     }
 
     // ── Record types ─────────────────────────────────────────────────────────
@@ -939,6 +984,8 @@ public static class CallGraphExportService
         public int PhysicalLines { get; set; }
         public int CodeLines { get; set; }
         public int BlankLines { get; set; }
+        public int CommentLines { get; set; }
+        public double CommentPercentPer100Code { get; set; }
         public int TodoMarkerCount { get; set; }
         public double TodoDensityPer100Lines { get; set; }
     }
@@ -962,6 +1009,9 @@ public static class CallGraphExportService
         public double AvgMaintenanceIndex { get; set; }
         public double MinMaintenanceIndex { get; set; }
         public int TotalMagicNumbers { get; set; }
+        public int MaxReturnCount { get; set; }
+        public int DuplicateLineCount { get; set; }
+        public double CommentPercentPer100Code { get; set; }
         public int WarningFunctionCount { get; set; }
     }
 
@@ -1002,6 +1052,10 @@ public static class CallGraphExportService
         public int HighParameterCount { get; set; }
         public int TotalTodoMarkers { get; set; }
         public int HighTodoDensityFileCount { get; set; }
+        public int HighReturnCount { get; set; }
+        public int HighMagicNumberCount { get; set; }
+        public int GodFileCount { get; set; }
+        public int LowCommentFileCount { get; set; }
     }
 
     private sealed class CircularCallChainRecord

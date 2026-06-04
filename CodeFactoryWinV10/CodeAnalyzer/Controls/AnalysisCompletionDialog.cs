@@ -3,27 +3,27 @@ using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
-public sealed class DetailedErrorDialog : Form
+public sealed class AnalysisCompletionDialog : Form
 {
     private readonly TextBox _detailBox;
 
-    private DetailedErrorDialog(string title, string summaryMessage, string detailText)
+    private AnalysisCompletionDialog(string summaryMessage, string detailText, bool hasIssues)
     {
-        Text = title;
+        Text = "분석 완료";
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize = new Size(920, 580);
-        MinimumSize = new Size(760, 420);
+        ClientSize = new Size(640, 520);
+        MinimumSize = new Size(520, 400);
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = true;
         MinimizeBox = false;
         ShowInTaskbar = false;
         ShowIcon = true;
-        Icon = SystemIcons.Error;
+        Icon = hasIssues ? SystemIcons.Warning : SystemIcons.Information;
 
         var summaryBox = new TextBox
         {
             Dock = DockStyle.Top,
-            Height = 88,
+            Height = 110,
             Multiline = true,
             ReadOnly = true,
             BorderStyle = BorderStyle.None,
@@ -54,7 +54,7 @@ public sealed class DetailedErrorDialog : Form
 
         var closeButton = new Button
         {
-            Text = "닫기",
+            Text = "확인",
             AutoSize = true,
             DialogResult = DialogResult.OK,
             Margin = new Padding(6)
@@ -62,11 +62,11 @@ public sealed class DetailedErrorDialog : Form
 
         var copyButton = new Button
         {
-            Text = "오류 내용 복사",
+            Text = "요약 복사",
             AutoSize = true,
             Margin = new Padding(6)
         };
-        copyButton.Click += (_, _) => CopyDetailText();
+        copyButton.Click += (_, _) => CopySummaryText(summaryMessage, detailText);
 
         buttonPanel.Controls.Add(closeButton);
         buttonPanel.Controls.Add(copyButton);
@@ -81,49 +81,39 @@ public sealed class DetailedErrorDialog : Form
 
     public static void Show(
         IWin32Window? owner,
-        string title,
-        Exception exception,
-        string summaryMessage)
+        AnalysisResult result,
+        int directoryCount,
+        int fileCount,
+        TimeSpan elapsed,
+        string? rootDirectory = null)
     {
-        Show(owner, title, summaryMessage, ExceptionDetailFormatter.Format(exception));
-    }
+        var built = AnalysisCompletionSummaryBuilder.Build(
+            result,
+            directoryCount,
+            fileCount,
+            elapsed,
+            rootDirectory);
 
-    public static void Show(
-        IWin32Window? owner,
-        string title,
-        string summaryMessage,
-        string detailText)
-    {
-        using var dialog = new DetailedErrorDialog(title, summaryMessage, detailText);
+        using var dialog = new AnalysisCompletionDialog(
+            built.SummaryMessage,
+            built.DetailText,
+            result.Issues.Count > 0);
         dialog.ShowDialog(owner);
     }
 
-    public static void ShowIssues(
-        IWin32Window? owner,
-        string title,
-        string summaryMessage,
-        IReadOnlyList<AnalysisIssue> issues)
-    {
-        if (issues.Count == 0)
-        {
-            return;
-        }
-
-        Show(owner, title, summaryMessage, ExceptionDetailFormatter.FormatIssues(issues));
-    }
-
-    private void CopyDetailText()
+    private void CopySummaryText(string summaryMessage, string detailText)
     {
         try
         {
-            if (!string.IsNullOrEmpty(_detailBox.Text))
+            var text = $"{summaryMessage}{Environment.NewLine}{Environment.NewLine}{detailText}";
+            if (!string.IsNullOrEmpty(text))
             {
-                Clipboard.SetText(_detailBox.Text);
+                Clipboard.SetText(text);
             }
 
             MessageBox.Show(
                 this,
-                "오류 내용이 클립보드에 복사되었습니다.",
+                "분석 요약이 클립보드에 복사되었습니다.",
                 "복사 완료",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);

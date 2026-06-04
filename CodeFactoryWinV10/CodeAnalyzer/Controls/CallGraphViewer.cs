@@ -22,6 +22,7 @@ public sealed class CallGraphViewer : UserControl
     private float _hourglassFlipAngle;
     private HourglassAnimationPhase _hourglassPhase = HourglassAnimationPhase.Draining;
     private readonly DiagramZoomController _zoom = new();
+    private bool _buildError;
     private Image? _hourglassGifImage;
     private bool _hourglassGifLoadAttempted;
     private readonly EventHandler _hourglassGifFrameChangedHandler;
@@ -140,6 +141,8 @@ public sealed class CallGraphViewer : UserControl
     public void SetGraph(CallGraphResult? graph, IReadOnlyList<string> rootNodeIds)
     {
         _isAnalyzing = false;
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
         _graph = graph;
         _rootNodeIds = rootNodeIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -158,6 +161,8 @@ public sealed class CallGraphViewer : UserControl
     {
         _zoom.Reset();
         _isAnalyzing = true;
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
         _graph = null;
         _rootNodeIds = [];
         _roots = [];
@@ -367,13 +372,39 @@ public sealed class CallGraphViewer : UserControl
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        if (_isAnalyzing || _graph is null || _roots.Count == 0)
+        if (_isAnalyzing)
         {
             DrawPlaceholder(e.Graphics);
             return;
         }
 
-        _zoom.PaintDocument(e.Graphics, this, e.ClipRectangle, _contentSize, BackColor, DrawCallGraphContent);
+        if (_buildError)
+        {
+            DrawFailurePlaceholder(e.Graphics);
+            return;
+        }
+
+        if (_graph is null || _roots.Count == 0)
+        {
+            DrawPlaceholder(e.Graphics);
+            return;
+        }
+
+        try
+        {
+            _zoom.PaintDocument(e.Graphics, this, e.ClipRectangle, _contentSize, BackColor, DrawCallGraphContent);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        {
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph), "표시", ex);
+            DrawMultilinePlaceholder(
+                e.Graphics,
+                ViewFailureReporter.FormatCanvasMessage(ex, "호출 그래프 표시"));
+        }
     }
 
     private void DrawCallGraphContent(Graphics graphics)
@@ -547,6 +578,8 @@ public sealed class CallGraphViewer : UserControl
         _roots = [];
         _visualNodeCount = 0;
         _visualTreeTruncated = false;
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
 
         if (_graph is null || _rootNodeIds.Count == 0)
         {
@@ -556,32 +589,49 @@ public sealed class CallGraphViewer : UserControl
             return;
         }
 
-        foreach (var rootNodeId in _rootNodeIds)
+        try
         {
-            if (!_graph.NodeMap.ContainsKey(rootNodeId))
+            foreach (var rootNodeId in _rootNodeIds)
             {
-                continue;
+                if (!_graph.NodeMap.ContainsKey(rootNodeId))
+                {
+                    continue;
+                }
+
+                var visitedOnPath = new HashSet<string>(StringComparer.Ordinal);
+                var rootVisual = BuildVisualNode(rootNodeId, visitedOnPath, depth: 0);
+                if (rootVisual is not null)
+                {
+                    _roots.Add(rootVisual);
+                }
             }
 
-            var visitedOnPath = new HashSet<string>(StringComparer.Ordinal);
-            var rootVisual = BuildVisualNode(rootNodeId, visitedOnPath, depth: 0);
-            if (rootVisual is not null)
+            if (_roots.Count == 0)
             {
-                _roots.Add(rootVisual);
+                _contentSize = new Size(400, 300);
+                _zoom.ApplyContentSize(this, _contentSize);
+                Invalidate();
+                return;
             }
-        }
 
-        if (_roots.Count == 0)
-        {
-            _contentSize = new Size(400, 300);
+            _contentSize = InflateGraphContentSize(CallGraphLayoutEngine.Layout(_roots, _layoutDirection));
+            _zoom.InvalidateCache();
             _zoom.ApplyContentSize(this, _contentSize);
-            Invalidate();
-            return;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        {
+            _buildError = true;
+            _roots = [];
+            _contentSize = new Size(400, 300);
+            _zoom.InvalidateCache();
+            _zoom.ApplyContentSize(this, _contentSize);
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.CallGraph), "구성", ex);
         }
 
-        _contentSize = InflateGraphContentSize(CallGraphLayoutEngine.Layout(_roots, _layoutDirection));
-        _zoom.InvalidateCache();
-        _zoom.ApplyContentSize(this, _contentSize);
         Invalidate();
     }
 
@@ -684,6 +734,38 @@ public sealed class CallGraphViewer : UserControl
             brush,
             Math.Max(20, (ClientSize.Width - size.Width) / 2),
             Math.Max(20, (ClientSize.Height - size.Height) / 2));
+
+        graphics.Restore(state);
+    }
+
+    private void DrawFailurePlaceholder(Graphics graphics)
+    {
+        DrawMultilinePlaceholder(
+            graphics,
+            ViewFailureReporter.FormatCanvasMessage(
+                ViewFailureReporter.GetLastException(this),
+                "호출 그래프 구성"));
+    }
+
+    private void DrawMultilinePlaceholder(Graphics graphics, string message)
+    {
+        var state = graphics.Save();
+        graphics.ResetTransform();
+
+        using var font = new Font(Font.FontFamily, 10f);
+        using var brush = new SolidBrush(Color.FromArgb(80, 90, 110));
+        var lines = message.Split('\n');
+        var lineHeight = font.Height + 4;
+        var totalHeight = lines.Length * lineHeight;
+        var y = Math.Max(24, (ClientSize.Height - totalHeight) / 2);
+
+        foreach (var line in lines)
+        {
+            var size = graphics.MeasureString(line, font);
+            var x = Math.Max(12, (ClientSize.Width - size.Width) / 2f);
+            graphics.DrawString(line, font, brush, x, y);
+            y += lineHeight;
+        }
 
         graphics.Restore(state);
     }

@@ -23,14 +23,17 @@ public static class FileLineMetricsCollector
             try
             {
                 var text = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
-                var (physical, code, blank) = SourceLineCounter.Count(text);
+                var (physical, code, blank, comment) = SourceLineCounter.Count(text);
+                var commentPercent = code > 0 ? Math.Round(100.0 * comment / code, 1) : 0;
                 metrics.Add(new FileLineMetric
                 {
                     FilePath = file,
                     LanguageId = language.Id,
                     PhysicalLines = physical,
                     CodeLines = code,
-                    BlankLines = blank
+                    BlankLines = blank,
+                    CommentLines = comment,
+                    CommentPercentPer100Code = commentPercent
                 });
             }
             catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))

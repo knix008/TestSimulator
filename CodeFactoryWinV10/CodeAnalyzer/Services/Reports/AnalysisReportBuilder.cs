@@ -78,6 +78,10 @@ public static class AnalysisReportBuilder
             $"낮은 MI(<{thresholds.WarnMaintenanceIndex:F0}): {summary.LowMaintenanceIndexCount:N0}함수",
             $"다매개변수(≥{thresholds.WarnParameterCount}): {summary.HighParameterCount:N0}함수",
             $"TODO 마커 합계: {summary.TotalTodoMarkers:N0}개",
+            $"다중 return(≥{thresholds.WarnReturnCount}): {summary.HighReturnCount:N0}함수",
+            $"매직 넘버(≥{thresholds.WarnMagicNumbers}): {summary.HighMagicNumberCount:N0}함수",
+            $"God file(≥{thresholds.WarnGodFileCodeLines:N0}줄): {summary.GodFileCount:N0}파일",
+            $"주석 부족(<{thresholds.WarnMinCommentPercent:F0}%): {summary.LowCommentFileCount:N0}파일",
             $"높은 TODO 밀도 파일(≥{thresholds.WarnTodoDensityPer100Lines:F1}/100줄): {summary.HighTodoDensityFileCount:N0}개"
         };
 

@@ -24,6 +24,8 @@ internal static class FileQualityScanner
                 PhysicalLines = file.PhysicalLines,
                 CodeLines = file.CodeLines,
                 BlankLines = file.BlankLines,
+                CommentLines = file.CommentLines,
+                CommentPercentPer100Code = file.CommentPercentPer100Code,
                 TodoMarkerCount = count,
                 TodoDensityPer100Lines = density
             };

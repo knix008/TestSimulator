@@ -2,16 +2,17 @@ namespace CodeAnalyzer.Services.Metrics;
 
 internal static class SourceLineCounter
 {
-    public static (int Physical, int Code, int Blank) Count(string content)
+    public static (int Physical, int Code, int Blank, int Comment) Count(string content)
     {
         if (string.IsNullOrEmpty(content))
         {
-            return (0, 0, 0);
+            return (0, 0, 0, 0);
         }
 
         var physical = 0;
         var code = 0;
         var blank = 0;
+        var comment = 0;
         var inBlockComment = false;
 
         foreach (var line in content.Split('\n'))
@@ -46,9 +47,13 @@ internal static class SourceLineCounter
             {
                 code++;
             }
+            else if (!inBlockComment)
+            {
+                comment++;
+            }
         }
 
-        return (physical, code, blank);
+        return (physical, code, blank, comment);
     }
 
     private static bool TryStripLeadingComments(ref string line, ref bool inBlockComment)

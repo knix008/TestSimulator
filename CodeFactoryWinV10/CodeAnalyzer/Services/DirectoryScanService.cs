@@ -24,11 +24,6 @@ public static class DirectoryScanService
         return directories.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    public static bool ShouldExcludeByDefault(string relativePath)
-    {
-        return ContainsExcludedSegment(relativePath);
-    }
-
     public static IEnumerable<string> GetSourceFiles(
         string rootPath,
         IEnumerable<string> excludedDirectories,
@@ -46,7 +41,7 @@ public static class DirectoryScanService
             yield break;
         }
 
-        var excluded = NormalizeExcludedPaths(excludedDirectories);
+        var excluded = NormalizeDirectoryPaths(excludedDirectories);
 
         foreach (var file in EnumerateSourceFilesRecursive(rootPath, rootPath, excluded, extensionSet, cancellationToken))
         {
@@ -163,6 +158,7 @@ public static class DirectoryScanService
         }
     }
 
+    /// <summary>사용자 제외 목록과 bin/obj 등 기본 제외 세그먼트를 적용합니다.</summary>
     private static bool IsDirectoryIncluded(string relativeDirectory, HashSet<string> excluded)
     {
         if (ContainsExcludedSegment(relativeDirectory))
@@ -170,7 +166,38 @@ public static class DirectoryScanService
             return false;
         }
 
-        return !IsExcluded(relativeDirectory, excluded);
+        relativeDirectory = NormalizeRelativePath(relativeDirectory);
+        return !IsPathExcluded(relativeDirectory, excluded);
+    }
+
+    private static bool IsPathExcluded(string relativeDirectory, HashSet<string> excluded)
+    {
+        if (excluded.Count == 0)
+        {
+            return false;
+        }
+
+        if (excluded.Contains("."))
+        {
+            return true;
+        }
+
+        foreach (var excludedPath in excluded)
+        {
+            if (relativeDirectory.Equals(excludedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (relativeDirectory.StartsWith(
+                    excludedPath + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool ContainsExcludedSegment(string relativePath)
@@ -191,29 +218,20 @@ public static class DirectoryScanService
         return false;
     }
 
-    private static bool IsExcluded(string relativeDirectory, HashSet<string> excluded)
+    private static HashSet<string> NormalizeDirectoryPaths(IEnumerable<string> directoryPaths)
     {
-        relativeDirectory = NormalizeRelativePath(relativeDirectory);
-
-        if (excluded.Contains("."))
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in directoryPaths)
         {
-            return true;
-        }
-
-        foreach (var excludedPath in excluded)
-        {
-            if (relativeDirectory.Equals(excludedPath, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(path))
             {
-                return true;
+                continue;
             }
 
-            if (relativeDirectory.StartsWith(excludedPath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            set.Add(NormalizeRelativePath(path));
         }
 
-        return false;
+        return set;
     }
 
     private static HashSet<string> NormalizeExtensions(IEnumerable<string> extensions)
@@ -227,22 +245,6 @@ public static class DirectoryScanService
             }
 
             set.Add(extension.StartsWith('.') ? extension : "." + extension);
-        }
-
-        return set;
-    }
-
-    private static HashSet<string> NormalizeExcludedPaths(IEnumerable<string> excludedDirectories)
-    {
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var path in excludedDirectories)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                continue;
-            }
-
-            set.Add(NormalizeRelativePath(path));
         }
 
         return set;

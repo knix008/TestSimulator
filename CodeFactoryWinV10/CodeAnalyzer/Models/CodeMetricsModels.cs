@@ -19,6 +19,8 @@ public sealed class FileLineMetric
     public int PhysicalLines { get; init; }
     public int CodeLines { get; init; }
     public int BlankLines { get; init; }
+    public int CommentLines { get; init; }
+    public double CommentPercentPer100Code { get; init; }
     public int TodoMarkerCount { get; init; }
     public double TodoDensityPer100Lines { get; init; }
 }
@@ -43,7 +45,30 @@ public sealed class FileAggregateMetric
     public double AvgMaintenanceIndex { get; init; }
     public double MinMaintenanceIndex { get; init; }
     public int TotalMagicNumbers { get; init; }
+    public int MaxReturnCount { get; init; }
+    public int DuplicateLineCount { get; init; }
+    public double CommentPercentPer100Code { get; init; }
     public int WarningFunctionCount { get; init; }
+}
+
+/// <summary>UML/구조 분석 타입과 함수 메트릭을 결합한 타입 단위 집계.</summary>
+public sealed class TypeMetric
+{
+    public required string Id { get; init; }
+    public required string DisplayName { get; init; }
+    public required string FullName { get; init; }
+    public required string FilePath { get; init; }
+    public int LineNumber { get; init; }
+    public string Kind { get; init; } = "class";
+    public int MemberCount { get; init; }
+    public int OperationCount { get; init; }
+    public int MatchedFunctionCount { get; init; }
+    public int MaxCyclomaticComplexity { get; init; }
+    public int MaxCognitiveComplexity { get; init; }
+    public double MinMaintenanceIndex { get; init; }
+    public int DependencyOutCount { get; init; }
+    public int DependencyInCount { get; init; }
+    public int InheritanceOutCount { get; init; }
 }
 
 public sealed class FunctionMetric
@@ -83,6 +108,10 @@ public sealed class CodeQualitySummary
     public int HighParameterCount { get; init; }
     public int TotalTodoMarkers { get; init; }
     public int HighTodoDensityFileCount { get; init; }
+    public int HighReturnCount { get; init; }
+    public int HighMagicNumberCount { get; init; }
+    public int GodFileCount { get; init; }
+    public int LowCommentFileCount { get; init; }
 }
 
 public sealed class CodeMetricsResult

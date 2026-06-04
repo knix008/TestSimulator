@@ -10,7 +10,12 @@ public enum ArchitectureInsightKind
     FanInHub,
     IsolatedFunction,
     DuplicateCode,
-    TypeStructure
+    TypeStructure,
+    GlobalVariable,
+    DatabaseSchema,
+    FileDuplicate,
+    GodFile,
+    LowComment
 }
 
 public sealed class ArchitectureInsight

@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Diagnostics;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 using CodeAnalyzer.Services.Metrics;
@@ -14,16 +13,23 @@ public sealed class CodeMetricsViewer : UserControl
         Padding = new Point(0, 0),
         Margin = new Padding(0)
     };
+    private readonly TabPage _tabFiles;
+    private readonly TabPage _tabFunctions;
+    private readonly TabPage _tabTypes;
+    private readonly TabPage _tabArchitecture;
     private readonly ListView _functionList = CreateListView();
     private readonly ListView _fileList = CreateListView();
+    private readonly ListView _typeList = CreateListView();
     private readonly ListView _architectureList = CreateListView();
 
     private readonly ListViewColumnHeaderToolTip _functionHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _fileHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _typeHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _architectureHeaderToolTip;
 
-    private readonly ListViewSorter _functionSorter = new(3, 4, 5, 6, 7, 8, 9, 10);
-    private readonly ListViewSorter _fileSorter = new(2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+    private readonly ListViewSorter _functionSorter = new(3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+    private readonly ListViewSorter _fileSorter = new(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+    private readonly ListViewSorter _typeSorter = new(3, 4, 5, 6, 7, 8, 9, 10);
     private readonly ListViewSorter _archSorter = new(0);
 
     private readonly Label _summaryLabel = new()
@@ -50,31 +56,40 @@ public sealed class CodeMetricsViewer : UserControl
 
         AddColumns(_functionList, FunctionColumns);
         AddColumns(_fileList, FileColumns);
+        AddColumns(_typeList, TypeColumns);
         AddColumns(_architectureList, ArchitectureColumns);
 
         _functionList.ListViewItemSorter = _functionSorter;
         _fileList.ListViewItemSorter = _fileSorter;
+        _typeList.ListViewItemSorter = _typeSorter;
         _architectureList.ListViewItemSorter = _archSorter;
 
-        var tabFiles = new TabPage("파일") { Padding = new Padding(0) };
-        tabFiles.Controls.Add(_fileList);
+        _tabFiles = new TabPage("파일") { Padding = new Padding(0) };
+        _tabFiles.Controls.Add(_fileList);
 
-        var tabFunctions = new TabPage("함수") { Padding = new Padding(0) };
-        tabFunctions.Controls.Add(_functionList);
+        _tabFunctions = new TabPage("함수") { Padding = new Padding(0) };
+        _tabFunctions.Controls.Add(_functionList);
 
-        var tabArchitecture = new TabPage("아키텍처") { Padding = new Padding(0) };
-        tabArchitecture.Controls.Add(_architectureList);
+        _tabTypes = new TabPage("타입") { Padding = new Padding(0) };
+        _tabTypes.Controls.Add(_typeList);
 
-        _tabs.TabPages.Add(tabFiles);
-        _tabs.TabPages.Add(tabFunctions);
-        _tabs.TabPages.Add(tabArchitecture);
+        _tabArchitecture = new TabPage("아키텍처") { Padding = new Padding(0) };
+        _tabArchitecture.Controls.Add(_architectureList);
+
+        _tabs.TabPages.Add(_tabFiles);
+        _tabs.TabPages.Add(_tabFunctions);
+        _tabs.TabPages.Add(_tabTypes);
+        _tabs.TabPages.Add(_tabArchitecture);
+        ApplyInspectionTabVisibility();
 
         _functionList.ColumnClick += (_, e) => SortList(_functionList, _functionSorter, e.Column);
         _fileList.ColumnClick += (_, e) => SortList(_fileList, _fileSorter, e.Column);
+        _typeList.ColumnClick += (_, e) => SortList(_typeList, _typeSorter, e.Column);
         _architectureList.ColumnClick += (_, e) => SortList(_architectureList, _archSorter, e.Column);
 
         _functionList.DoubleClick += OnListDoubleClick;
         _fileList.DoubleClick += OnListDoubleClick;
+        _typeList.DoubleClick += OnListDoubleClick;
         _architectureList.DoubleClick += OnListDoubleClick;
         _tabs.SelectedIndexChanged += (_, _) => ScheduleColumnLayoutAdjust();
 
@@ -84,6 +99,9 @@ public sealed class CodeMetricsViewer : UserControl
         _fileHeaderToolTip = new ListViewColumnHeaderToolTip(
             _fileList,
             BuildFileHeaderToolTips(_thresholds));
+        _typeHeaderToolTip = new ListViewColumnHeaderToolTip(
+            _typeList,
+            BuildTypeHeaderToolTips(_thresholds));
         _architectureHeaderToolTip = new ListViewColumnHeaderToolTip(
             _architectureList,
             ArchitectureHeaderToolTips);
@@ -98,6 +116,7 @@ public sealed class CodeMetricsViewer : UserControl
         {
             _functionHeaderToolTip.Dispose();
             _fileHeaderToolTip.Dispose();
+            _typeHeaderToolTip.Dispose();
             _architectureHeaderToolTip.Dispose();
         }
 
@@ -132,8 +151,9 @@ public sealed class CodeMetricsViewer : UserControl
         _adjustingColumnLayout = true;
         try
         {
-            AdjustDescriptionColumnWidth(_functionList, 13);
-            AdjustDescriptionColumnWidth(_fileList, 13);
+            AdjustDescriptionColumnWidth(_functionList, 15);
+            AdjustDescriptionColumnWidth(_fileList, 17);
+            AdjustDescriptionColumnWidth(_typeList, 12);
             AdjustArchitectureContentColumnWidth();
         }
         finally
@@ -177,6 +197,8 @@ public sealed class CodeMetricsViewer : UserControl
         new() { Text = "인지", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "중첩", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "매개", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "return", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "매직", Width = 48, TextAlign = HorizontalAlignment.Right },
         new() { Text = "In", Width = 44, TextAlign = HorizontalAlignment.Right },
         new() { Text = "Out", Width = 44, TextAlign = HorizontalAlignment.Right },
         new() { Text = "MI", Width = 48, TextAlign = HorizontalAlignment.Right },
@@ -195,10 +217,31 @@ public sealed class CodeMetricsViewer : UserControl
         new() { Text = "인지↑", Width = 56, TextAlign = HorizontalAlignment.Right },
         new() { Text = "중첩↑", Width = 56, TextAlign = HorizontalAlignment.Right },
         new() { Text = "Out↑", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "In↑", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "매직Σ", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "MI↓", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "TODO", Width = 56, TextAlign = HorizontalAlignment.Right },
         new() { Text = "TODO/100", Width = 76, TextAlign = HorizontalAlignment.Right },
         new() { Text = "경고", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "주석%", Width = 56, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "중복줄", Width = 56, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "상태", Width = 52 },
+        new() { Text = "설명", Width = 360 }
+    ];
+
+    private static readonly ColumnHeader[] TypeColumns =
+    [
+        new() { Text = "종류", Width = 64 },
+        new() { Text = "타입", Width = 160 },
+        new() { Text = "파일", Width = 150 },
+        new() { Text = "멤버", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "연산", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "함수", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "CC↑", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "인지↑", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "MI↓", Width = 48, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "의존→", Width = 52, TextAlign = HorizontalAlignment.Right },
+        new() { Text = "←의존", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "상태", Width = 52 },
         new() { Text = "설명", Width = 360 }
     ];
@@ -231,6 +274,9 @@ public sealed class CodeMetricsViewer : UserControl
             _thresholds = nextThresholds;
             _functionHeaderToolTip.UpdateColumnToolTips(BuildFunctionHeaderToolTips(_thresholds));
             _fileHeaderToolTip.UpdateColumnToolTips(BuildFileHeaderToolTips(_thresholds));
+            _typeHeaderToolTip.UpdateColumnToolTips(BuildTypeHeaderToolTips(_thresholds));
+            ApplyInspectionTabVisibility();
+            ViewFailureReporter.Clear(this);
             RebuildLists();
         }
         catch (Exception ex)
@@ -238,13 +284,14 @@ public sealed class CodeMetricsViewer : UserControl
             _metrics = null;
             _functionList.Items.Clear();
             _fileList.Items.Clear();
+            _typeList.Items.Clear();
             _architectureList.Items.Clear();
             _summaryLabel.Text = $"메트릭 표시 오류: {ex.Message}";
-            DetailedErrorDialog.Show(
-                FindForm(),
-                "코드 메트릭 표시 오류",
-                ex,
-                "메트릭 화면을 구성하는 중 오류가 발생했습니다.");
+            ViewFailureReporter.Report(
+                this,
+                DiagramViewDisplayNames.Get(DiagramViewKind.CodeMetrics),
+                "구성",
+                ex);
         }
     }
 
@@ -254,6 +301,7 @@ public sealed class CodeMetricsViewer : UserControl
         _metrics = null;
         _functionList.Items.Clear();
         _fileList.Items.Clear();
+        _typeList.Items.Clear();
         _architectureList.Items.Clear();
         _summaryLabel.Text = "코드 메트릭 분석 중...";
     }
@@ -267,9 +315,11 @@ public sealed class CodeMetricsViewer : UserControl
     {
         _functionList.BeginUpdate();
         _fileList.BeginUpdate();
+        _typeList.BeginUpdate();
         _architectureList.BeginUpdate();
         _functionList.Items.Clear();
         _fileList.Items.Clear();
+        _typeList.Items.Clear();
         _architectureList.Items.Clear();
 
         if (_metrics is null || (_metrics.Functions.Count == 0 && _metrics.FileAggregates.Count == 0))
@@ -279,6 +329,7 @@ public sealed class CodeMetricsViewer : UserControl
                 : "표시할 메트릭이 없습니다. 분석 실행 후 결과가 여기에 표시됩니다.";
             _functionList.EndUpdate();
             _fileList.EndUpdate();
+            _typeList.EndUpdate();
             _architectureList.EndUpdate();
             return;
         }
@@ -287,20 +338,32 @@ public sealed class CodeMetricsViewer : UserControl
         var functionTruncated = _metrics.Functions.Count > AnalysisScaleLimits.MaxCodeMetricsUiFunctions;
         var fileTruncated = (_metrics.FileAggregates.Count > 0 ? _metrics.FileAggregates.Count : _metrics.Files.Count)
             > AnalysisScaleLimits.MaxCodeMetricsUiFiles;
-        _summaryLabel.Text =
-            $"파일 {_metrics.Files.Count} · 코드 줄 {summary.TotalCodeLines:N0} · 함수 {_metrics.Functions.Count:N0} · " +
-            $"중복 {summary.ProjectDuplicateLinePercent:F1}% · 순환 {summary.CircularCallChainCount} · TODO {summary.TotalTodoMarkers} · " +
-            $"경고 CC {summary.HighCyclomaticCount} · 인지 {summary.HighCognitiveCount} · FanOut {summary.HighFanOutCount} · " +
-            $"MI↓ {summary.LowMaintenanceIndexCount} · TODO밀도 {summary.HighTodoDensityFileCount}" +
-            (functionTruncated || fileTruncated ? " · 목록 상위만 표시" : "") +
-            " · 더블클릭: 호출 그래프/파일 이동";
+        var typeCount = _analysis?.Structure.Types.Count ?? 0;
+        _summaryLabel.Text = BuildSummaryText(summary, typeCount, functionTruncated, fileTruncated);
 
-        BuildFunctionList();
-        BuildFileList();
-        BuildArchitectureList();
+        if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowFunctionsTab))
+        {
+            BuildFunctionList();
+        }
+
+        if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowFilesTab))
+        {
+            BuildFileList();
+        }
+
+        if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowTypesTab))
+        {
+            BuildTypeList();
+        }
+
+        if (MetricInspectionScope.IsEnabled(_thresholds.EnabledInspections, MetricInspectionKind.ShowArchitectureTab))
+        {
+            BuildArchitectureList();
+        }
 
         _functionList.EndUpdate();
         _fileList.EndUpdate();
+        _typeList.EndUpdate();
         _architectureList.EndUpdate();
         ScheduleColumnLayoutAdjust();
     }
@@ -409,6 +472,8 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(func.CognitiveComplexity.ToString());
             item.SubItems.Add(func.MaxNestingDepth.ToString());
             item.SubItems.Add(func.ParameterCount.ToString());
+            item.SubItems.Add(func.ReturnCount.ToString());
+            item.SubItems.Add(func.MagicNumberCount.ToString());
             item.SubItems.Add(func.FanIn.ToString());
             item.SubItems.Add(func.FanOut.ToString());
             item.SubItems.Add(func.MaintenanceIndex.ToString("F0"));
@@ -445,10 +510,14 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(file.MaxCognitiveComplexity.ToString());
             item.SubItems.Add(file.MaxNestingDepth.ToString());
             item.SubItems.Add(file.MaxFanOut.ToString());
+            item.SubItems.Add(file.MaxFanIn.ToString());
+            item.SubItems.Add(file.TotalMagicNumbers.ToString());
             item.SubItems.Add(file.MinMaintenanceIndex.ToString("F0"));
             item.SubItems.Add(file.TodoMarkerCount.ToString());
             item.SubItems.Add(file.TodoDensityPer100Lines.ToString("F1"));
             item.SubItems.Add(file.WarningFunctionCount.ToString());
+            item.SubItems.Add(file.CommentPercentPer100Code.ToString("F1"));
+            item.SubItems.Add(file.DuplicateLineCount.ToString());
             var level = FileMetricsAggregator.GetFileWarningLevel(file, _thresholds);
             var description = FileMetricsAggregator.BuildFileDescription(file, _thresholds);
             item.SubItems.Add(FormatWarningLevel(level));
@@ -459,6 +528,51 @@ public sealed class CodeMetricsViewer : UserControl
             ApplyWarningColor(item, level);
 
             _fileList.Items.Add(item);
+        }
+    }
+
+    private void BuildTypeList()
+    {
+        if (_analysis is null || _analysis.Structure.Types.Count == 0)
+        {
+            return;
+        }
+
+        var typeMetrics = TypeMetricsBuilder.Build(
+            _analysis.Structure,
+            _metrics!.Functions,
+            _thresholds);
+
+        var maxCount = AnalysisScaleLimits.MaxCodeMetricsUiFiles;
+        var rows = typeMetrics.Count <= maxCount
+            ? typeMetrics
+            : typeMetrics
+                .OrderByDescending(metric => FileMetricsAggregator.GetTypeWarningLevel(metric, _thresholds))
+                .ThenByDescending(metric => metric.MemberCount + metric.OperationCount)
+                .Take(maxCount)
+                .ToList();
+
+        foreach (var type in rows)
+        {
+            var level = FileMetricsAggregator.GetTypeWarningLevel(type, _thresholds);
+            var description = FileMetricsAggregator.BuildTypeDescription(type, _thresholds);
+            var item = new ListViewItem(type.Kind);
+            item.SubItems.Add(type.DisplayName);
+            item.SubItems.Add(Path.GetFileName(type.FilePath));
+            item.SubItems.Add(type.MemberCount.ToString());
+            item.SubItems.Add(type.OperationCount.ToString());
+            item.SubItems.Add(type.MatchedFunctionCount.ToString());
+            item.SubItems.Add(type.MaxCyclomaticComplexity.ToString());
+            item.SubItems.Add(type.MaxCognitiveComplexity.ToString());
+            item.SubItems.Add(type.MinMaintenanceIndex.ToString("F0"));
+            item.SubItems.Add(type.DependencyOutCount.ToString());
+            item.SubItems.Add(type.DependencyInCount.ToString());
+            item.SubItems.Add(FormatWarningLevel(level));
+            item.SubItems.Add(description);
+            item.Tag = type;
+            item.ToolTipText = description;
+            ApplyWarningColor(item, level);
+            _typeList.Items.Add(item);
         }
     }
 
@@ -484,7 +598,9 @@ public sealed class CodeMetricsViewer : UserControl
             _analysis.DirectoryRelations,
             _analysis.Structure,
             _analysis.Duplicates,
-            _thresholds);
+            _thresholds,
+            _analysis.GlobalVariables,
+            _analysis.DatabaseSchema);
 
         var index = 1;
         foreach (var insight in insights)
@@ -588,14 +704,31 @@ public sealed class CodeMetricsViewer : UserControl
         }
 
         var tag = list.SelectedItems[0].Tag;
+
+        if (tag is FunctionMetric functionMetric)
+        {
+            SourceFileOpener.TryOpen(functionMetric.FilePath, functionMetric.StartLine);
+            return;
+        }
+
         MetricsNavigationRequest? request = tag switch
         {
-            FunctionMetric func => BuildFunctionNavigation(func),
             CircularCallChain chain => BuildCycleNavigation(chain),
             FileRelationEdge edge => BuildFileEdgeNavigation(edge),
             DirectoryRelationEdge edge => BuildDirectoryEdgeNavigation(edge),
             DuplicateCodeGroup group => BuildDuplicateNavigation(group),
             FileAggregateMetric file => new MetricsNavigationRequest { FilePath = file.FilePath },
+            TypeMetric type => new MetricsNavigationRequest { FilePath = type.FilePath, LineNumber = type.LineNumber },
+            GlobalVariableItem variable => new MetricsNavigationRequest
+            {
+                FilePath = variable.FilePath,
+                LineNumber = variable.LineNumber
+            },
+            DatabaseTable table => new MetricsNavigationRequest
+            {
+                FilePath = table.FilePath,
+                LineNumber = table.LineNumber
+            },
             _ => null
         };
 
@@ -607,34 +740,24 @@ public sealed class CodeMetricsViewer : UserControl
 
         string? filePath = tag switch
         {
-            FunctionMetric func => func.FilePath,
             FileAggregateMetric file => file.FilePath,
+            TypeMetric type => type.FilePath,
+            GlobalVariableItem variable => variable.FilePath,
+            DatabaseTable table => table.FilePath,
             _ => null
         };
 
-        if (filePath is not null && File.Exists(filePath))
+        if (filePath is not null)
         {
-            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
-            catch { /* silently ignore launch failures */ }
-        }
-    }
-
-    private MetricsNavigationRequest BuildFunctionNavigation(FunctionMetric func)
-    {
-        if (_analysis?.CallGraph.NodeMap.ContainsKey(func.Id) == true)
-        {
-            return new MetricsNavigationRequest
+            var line = tag switch
             {
-                CallGraphNodeId = func.Id,
-                HighlightCallGraphNodeIds = [func.Id]
+                TypeMetric type => type.LineNumber,
+                GlobalVariableItem variable => variable.LineNumber,
+                DatabaseTable table => table.LineNumber,
+                _ => 1
             };
+            SourceFileOpener.TryOpen(filePath, line);
         }
-
-        return new MetricsNavigationRequest
-        {
-            FilePath = func.FilePath,
-            LineNumber = func.StartLine
-        };
     }
 
     private MetricsNavigationRequest BuildCycleNavigation(CircularCallChain chain)
@@ -722,6 +845,7 @@ public sealed class CodeMetricsViewer : UserControl
             CodeLines = file.CodeLines,
             TodoMarkerCount = file.TodoMarkerCount,
             TodoDensityPer100Lines = file.TodoDensityPer100Lines,
+            CommentPercentPer100Code = file.CommentPercentPer100Code,
             FunctionCount = 0,
             MinMaintenanceIndex = 100
         }).ToList();
@@ -763,14 +887,115 @@ public sealed class CodeMetricsViewer : UserControl
             _ => "정상"
         };
 
+    private void ApplyInspectionTabVisibility()
+    {
+        var scope = _thresholds.EnabledInspections;
+        SetTabVisible(_tabFiles, MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ShowFilesTab));
+        SetTabVisible(_tabFunctions, MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ShowFunctionsTab));
+        SetTabVisible(_tabTypes, MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ShowTypesTab));
+        SetTabVisible(_tabArchitecture, MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ShowArchitectureTab));
+    }
+
+    private void SetTabVisible(TabPage tab, bool visible)
+    {
+        if (visible)
+        {
+            if (!_tabs.TabPages.Contains(tab))
+            {
+                var order = tab switch
+                {
+                    _ when ReferenceEquals(tab, _tabFiles) => 0,
+                    _ when ReferenceEquals(tab, _tabFunctions) => 1,
+                    _ when ReferenceEquals(tab, _tabTypes) => 2,
+                    _ => 3
+                };
+                _tabs.TabPages.Insert(Math.Min(order, _tabs.TabPages.Count), tab);
+            }
+        }
+        else if (_tabs.TabPages.Contains(tab))
+        {
+            _tabs.TabPages.Remove(tab);
+        }
+    }
+
+    private string BuildSummaryText(
+        CodeQualitySummary summary,
+        int typeCount,
+        bool functionTruncated,
+        bool fileTruncated)
+    {
+        var scope = _thresholds.EnabledInspections;
+        var parts = new List<string>
+        {
+            $"파일 {_metrics!.Files.Count}",
+            $"코드 줄 {summary.TotalCodeLines:N0}",
+            $"함수 {_metrics.Functions.Count:N0}"
+        };
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ShowTypesTab))
+        {
+            parts.Add($"타입 {typeCount:N0}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.DuplicateCodeGroups)
+            || MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FileDuplicateLines))
+        {
+            parts.Add($"중복 {summary.ProjectDuplicateLinePercent:F1}%");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CircularCalls))
+        {
+            parts.Add($"순환 {summary.CircularCallChainCount}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TodoDensity))
+        {
+            parts.Add($"TODO {summary.TotalTodoMarkers}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ReturnCount))
+        {
+            parts.Add($"return↑ {summary.HighReturnCount}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.MagicNumbers))
+        {
+            parts.Add($"매직↑ {summary.HighMagicNumberCount}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GodFile))
+        {
+            parts.Add($"God파일 {summary.GodFileCount}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.LowCommentRatio))
+        {
+            parts.Add($"주석↓ {summary.LowCommentFileCount}");
+        }
+
+        if (functionTruncated || fileTruncated)
+        {
+            parts.Add("목록 상위만 표시");
+        }
+
+        parts.Add("더블클릭: 함수·파일은 편집기, 아키텍처는 그래프/파일 이동");
+        return string.Join(" · ", parts);
+    }
+
     private static bool ThresholdsEqual(UserAnalysisSettings a, UserAnalysisSettings b) =>
-        a.WarnCyclomaticComplexity == b.WarnCyclomaticComplexity
+        a.EnabledInspections == b.EnabledInspections
+        && a.WarnCyclomaticComplexity == b.WarnCyclomaticComplexity
         && a.WarnCognitiveComplexity == b.WarnCognitiveComplexity
         && a.WarnMaxNestingDepth == b.WarnMaxNestingDepth
         && a.WarnParameterCount == b.WarnParameterCount
         && a.WarnFanOut == b.WarnFanOut
         && Math.Abs(a.WarnMaintenanceIndex - b.WarnMaintenanceIndex) < 0.001
-        && Math.Abs(a.WarnTodoDensityPer100Lines - b.WarnTodoDensityPer100Lines) < 0.001;
+        && Math.Abs(a.WarnTodoDensityPer100Lines - b.WarnTodoDensityPer100Lines) < 0.001
+        && a.WarnReturnCount == b.WarnReturnCount
+        && a.WarnMagicNumbers == b.WarnMagicNumbers
+        && a.WarnGodFileCodeLines == b.WarnGodFileCodeLines
+        && Math.Abs(a.WarnMinCommentPercent - b.WarnMinCommentPercent) < 0.001
+        && a.WarnGodTypeMemberCount == b.WarnGodTypeMemberCount;
 
     private static string[] BuildFunctionHeaderToolTips(UserAnalysisSettings t) =>
     [
@@ -782,6 +1007,8 @@ public sealed class CodeMetricsViewer : UserControl
         $"인지 복잡도(Cognitive Complexity). 읽기 어려운 중첩·조건을 반영합니다. 경고 기준: {t.WarnCognitiveComplexity} 이상.",
         $"함수 내부 최대 중첩 깊이입니다. 경고 기준: {t.WarnMaxNestingDepth} 이상.",
         $"매개변수 개수입니다. 경고 기준: {t.WarnParameterCount}개 이상.",
+        $"return 문 개수입니다. 경고 기준: {t.WarnReturnCount}개 이상.",
+        $"매직 넘버(리터럴 상수) 개수입니다. 경고 기준: {t.WarnMagicNumbers}개 이상.",
         "Fan-In: 다른 코드에서 이 함수를 호출하는 횟수입니다.",
         $"Fan-Out: 이 함수가 호출하는 대상 수입니다. 경고 기준: {t.WarnFanOut} 이상.",
         $"유지보수 지수(Maintenance Index, MI). 높을수록 유지보수가 쉽습니다. 경고 기준: {t.WarnMaintenanceIndex} 미만.",
@@ -800,12 +1027,33 @@ public sealed class CodeMetricsViewer : UserControl
         $"파일 내 함수들의 최대 인지 복잡도입니다. 경고 기준: {t.WarnCognitiveComplexity} 이상.",
         $"파일 내 함수들의 최대 중첩 깊이입니다. 경고 기준: {t.WarnMaxNestingDepth} 이상.",
         $"파일 내 함수들의 최대 Fan-Out입니다. 경고 기준: {t.WarnFanOut} 이상.",
+        "파일 내 함수들의 최대 Fan-In입니다.",
+        "파일 내 함수들의 매직 넘버 합계입니다.",
         $"파일 내 함수들의 최소 유지보수 지수(MI)입니다. 낮을수록 유지보수가 어렵습니다. 경고 기준: {t.WarnMaintenanceIndex} 미만.",
         "TODO, FIXME 등 미완료 작업 표식의 개수입니다.",
         $"100줄당 TODO 표식 밀도입니다. 경고 기준: {t.WarnTodoDensityPer100Lines:F1} 이상.",
         "품질 경고 기준을 하나 이상 넘긴 함수 개수입니다.",
+        $"100코드줄당 주석 줄 비율(%)입니다. 경고 기준: {t.WarnMinCommentPercent:F0}% 미만(코드 {FileMetricsAggregator.MinCodeLinesForCommentWarning}줄 이상 파일).",
+        "중복 코드 그룹에 참여한 줄 수(파일별 합계)입니다.",
         "파일 전체 품질 경고 수준입니다. 정상 · 경고 · 심각.",
         "파일 단위 권장 개선 조치입니다. 행에 마우스를 올리면 전체 설명을 볼 수 있습니다."
+    ];
+
+    private static string[] BuildTypeHeaderToolTips(UserAnalysisSettings t) =>
+    [
+        "타입 종류(class, interface 등)입니다.",
+        "분석된 타입 이름입니다.",
+        "타입이 정의된 파일입니다.",
+        "필드·속성 멤버 수입니다.",
+        "UML/구조 분석상 연산(메서드) 수입니다.",
+        "메트릭과 이름으로 매칭된 함수 수입니다.",
+        $"매칭 함수 중 최대 CC입니다. 경고 기준: {t.WarnCyclomaticComplexity} 이상.",
+        $"매칭 함수 중 최대 인지 복잡도입니다. 경고 기준: {t.WarnCognitiveComplexity} 이상.",
+        $"매칭 함수 중 최소 MI입니다. 경고 기준: {t.WarnMaintenanceIndex} 미만.",
+        "이 타입이 의존하는 다른 타입 수입니다.",
+        "이 타입에 의존하는 타입 수입니다.",
+        "타입 품질 경고 수준입니다.",
+        $"God type 기준: 멤버+연산 ≥{t.WarnGodTypeMemberCount}. 행에 마우스를 올리면 설명을 볼 수 있습니다."
     ];
 
     private static readonly string[] ArchitectureHeaderToolTips =

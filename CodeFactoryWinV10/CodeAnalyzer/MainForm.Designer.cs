@@ -21,13 +21,24 @@ partial class MainForm
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         splitContainerMain = new SplitContainer();
         grpAnalysis = new GroupBox();
-        grpExcludeDirectories = new GroupBox();
-        grpQualityThresholds = new GroupBox();
         btnAnalyze = new Button();
-        lblExcludeHint = new Label();
+        grpExcludeDirectories = new GroupBox();
         checkedListDirectories = new CheckedListBox();
+        lblExcludeHint = new Label();
+        grpQualityThresholds = new GroupBox();
+        btnAnalysisScope = new Button();
         numMinDuplicateLines = new NumericUpDown();
         lblMinDuplicateLines = new Label();
+        numWarnGodType = new NumericUpDown();
+        lblWarnGodType = new Label();
+        numWarnComment = new NumericUpDown();
+        lblWarnComment = new Label();
+        numWarnGodFile = new NumericUpDown();
+        lblWarnGodFile = new Label();
+        numWarnMagic = new NumericUpDown();
+        lblWarnMagic = new Label();
+        numWarnReturn = new NumericUpDown();
+        lblWarnReturn = new Label();
         numWarnParameter = new NumericUpDown();
         lblWarnParameter = new Label();
         numWarnTodoDensity = new NumericUpDown();
@@ -49,8 +60,8 @@ partial class MainForm
         lblRootPath = new Label();
         diagramViewHost = new DiagramViewHost();
         panelToolbar = new Panel();
-        btnBackView = new Button();
         btnResetView = new Button();
+        btnBackView = new Button();
         btnCollapseAll = new Button();
         btnExpandAll = new Button();
         comboLineStyle = new ComboBox();
@@ -84,6 +95,11 @@ partial class MainForm
         grpExcludeDirectories.SuspendLayout();
         grpQualityThresholds.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)numMinDuplicateLines).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnGodType).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnComment).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnGodFile).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnMagic).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnReturn).BeginInit();
         ((System.ComponentModel.ISupportInitialize)numWarnParameter).BeginInit();
         ((System.ComponentModel.ISupportInitialize)numWarnTodoDensity).BeginInit();
         ((System.ComponentModel.ISupportInitialize)numWarnMi).BeginInit();
@@ -113,7 +129,7 @@ partial class MainForm
         splitContainerMain.Panel2.Controls.Add(diagramViewHost);
         splitContainerMain.Panel2.Controls.Add(panelToolbar);
         splitContainerMain.Panel2MinSize = 940;
-        splitContainerMain.Size = new Size(1372, 733);
+        splitContainerMain.Size = new Size(1372, 860);
         splitContainerMain.SplitterDistance = 320;
         splitContainerMain.SplitterWidth = 6;
         splitContainerMain.TabIndex = 0;
@@ -132,7 +148,7 @@ partial class MainForm
         grpAnalysis.Location = new Point(8, 8);
         grpAnalysis.Name = "grpAnalysis";
         grpAnalysis.Padding = new Padding(12, 8, 12, 12);
-        grpAnalysis.Size = new Size(304, 717);
+        grpAnalysis.Size = new Size(304, 844);
         grpAnalysis.TabIndex = 0;
         grpAnalysis.TabStop = false;
         grpAnalysis.Text = "코드 분석 설정";
@@ -140,37 +156,26 @@ partial class MainForm
         // btnAnalyze
         // 
         btnAnalyze.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        btnAnalyze.Location = new Point(12, 639);
+        btnAnalyze.Location = new Point(12, 802);
         btnAnalyze.Name = "btnAnalyze";
         btnAnalyze.Size = new Size(276, 36);
         btnAnalyze.TabIndex = 8;
         btnAnalyze.Text = "분석 실행";
         btnAnalyze.UseVisualStyleBackColor = false;
         btnAnalyze.Click += btnAnalyze_Click;
-        //
+        // 
         // grpExcludeDirectories
-        //
+        // 
         grpExcludeDirectories.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         grpExcludeDirectories.Controls.Add(checkedListDirectories);
         grpExcludeDirectories.Controls.Add(lblExcludeHint);
-        grpExcludeDirectories.Location = new Point(4, 456);
+        grpExcludeDirectories.Location = new Point(4, 616);
         grpExcludeDirectories.Name = "grpExcludeDirectories";
         grpExcludeDirectories.Padding = new Padding(8, 4, 8, 8);
-        grpExcludeDirectories.Size = new Size(288, 175);
+        grpExcludeDirectories.Size = new Size(288, 180);
         grpExcludeDirectories.TabIndex = 28;
         grpExcludeDirectories.TabStop = false;
-        grpExcludeDirectories.Text = "제외할 하위 디렉터리";
-        // 
-        // lblExcludeHint
-        // 
-        lblExcludeHint.Dock = DockStyle.Bottom;
-        lblExcludeHint.ForeColor = Color.DimGray;
-        lblExcludeHint.Location = new Point(8, 131);
-        lblExcludeHint.Name = "lblExcludeHint";
-        lblExcludeHint.Padding = new Padding(0, 4, 0, 0);
-        lblExcludeHint.Size = new Size(272, 36);
-        lblExcludeHint.TabIndex = 1;
-        lblExcludeHint.Text = "체크된 디렉터리는 분석에서 제외됩니다. (루트 '.' 체크 시 전체 제외)";
+        grpExcludeDirectories.Text = "하위 디렉터리";
         // 
         // checkedListDirectories
         // 
@@ -178,16 +183,38 @@ partial class MainForm
         checkedListDirectories.Dock = DockStyle.Fill;
         checkedListDirectories.FormattingEnabled = true;
         checkedListDirectories.IntegralHeight = false;
-        checkedListDirectories.Location = new Point(8, 22);
+        checkedListDirectories.Location = new Point(8, 20);
         checkedListDirectories.Name = "checkedListDirectories";
-        checkedListDirectories.Size = new Size(272, 109);
+        checkedListDirectories.Size = new Size(272, 113);
         checkedListDirectories.TabIndex = 0;
-        //
+        // 
+        // lblExcludeHint
+        // 
+        lblExcludeHint.Dock = DockStyle.Bottom;
+        lblExcludeHint.ForeColor = Color.DimGray;
+        lblExcludeHint.Location = new Point(8, 133);
+        lblExcludeHint.Name = "lblExcludeHint";
+        lblExcludeHint.Padding = new Padding(0, 4, 0, 0);
+        lblExcludeHint.Size = new Size(272, 39);
+        lblExcludeHint.TabIndex = 1;
+        lblExcludeHint.Text = "기본은 모두 체크(전체 분석)입니다. 체크를 해제한 폴더는 분석에서 제외됩니다.";
+        // 
         // grpQualityThresholds
-        //
+        // 
         grpQualityThresholds.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        grpQualityThresholds.Controls.Add(btnAnalysisScope);
         grpQualityThresholds.Controls.Add(numMinDuplicateLines);
         grpQualityThresholds.Controls.Add(lblMinDuplicateLines);
+        grpQualityThresholds.Controls.Add(numWarnGodType);
+        grpQualityThresholds.Controls.Add(lblWarnGodType);
+        grpQualityThresholds.Controls.Add(numWarnComment);
+        grpQualityThresholds.Controls.Add(lblWarnComment);
+        grpQualityThresholds.Controls.Add(numWarnGodFile);
+        grpQualityThresholds.Controls.Add(lblWarnGodFile);
+        grpQualityThresholds.Controls.Add(numWarnMagic);
+        grpQualityThresholds.Controls.Add(lblWarnMagic);
+        grpQualityThresholds.Controls.Add(numWarnReturn);
+        grpQualityThresholds.Controls.Add(lblWarnReturn);
         grpQualityThresholds.Controls.Add(numWarnParameter);
         grpQualityThresholds.Controls.Add(lblWarnParameter);
         grpQualityThresholds.Controls.Add(numWarnTodoDensity);
@@ -204,15 +231,26 @@ partial class MainForm
         grpQualityThresholds.Controls.Add(lblWarnCyclomatic);
         grpQualityThresholds.Location = new Point(4, 214);
         grpQualityThresholds.Name = "grpQualityThresholds";
-        grpQualityThresholds.Size = new Size(288, 236);
+        grpQualityThresholds.Size = new Size(288, 394);
         grpQualityThresholds.TabIndex = 26;
         grpQualityThresholds.TabStop = false;
         grpQualityThresholds.Text = "품질 경고 기준";
-        //
+        // 
+        // btnAnalysisScope
+        // 
+        btnAnalysisScope.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        btnAnalysisScope.Location = new Point(8, 358);
+        btnAnalysisScope.Name = "btnAnalysisScope";
+        btnAnalysisScope.Size = new Size(272, 28);
+        btnAnalysisScope.TabIndex = 39;
+        btnAnalysisScope.Text = "분석 포함·제외...";
+        btnAnalysisScope.UseVisualStyleBackColor = true;
+        btnAnalysisScope.Click += btnAnalysisScope_Click;
+        // 
         // numMinDuplicateLines
-        //
+        // 
         numMinDuplicateLines.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        numMinDuplicateLines.Location = new Point(224, 202);
+        numMinDuplicateLines.Location = new Point(224, 332);
         numMinDuplicateLines.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         numMinDuplicateLines.Minimum = new decimal(new int[] { 2, 0, 0, 0 });
         numMinDuplicateLines.Name = "numMinDuplicateLines";
@@ -225,11 +263,120 @@ partial class MainForm
         // lblMinDuplicateLines
         // 
         lblMinDuplicateLines.AutoSize = true;
-        lblMinDuplicateLines.Location = new Point(8, 204);
+        lblMinDuplicateLines.Location = new Point(8, 334);
         lblMinDuplicateLines.Name = "lblMinDuplicateLines";
-        lblMinDuplicateLines.Size = new Size(119, 15);
+        lblMinDuplicateLines.Size = new Size(131, 15);
         lblMinDuplicateLines.TabIndex = 26;
         lblMinDuplicateLines.Text = "중복 코드 최소 줄 수 ≥";
+        // 
+        // numWarnGodType
+        // 
+        numWarnGodType.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnGodType.Location = new Point(224, 308);
+        numWarnGodType.Maximum = new decimal(new int[] { 500, 0, 0, 0 });
+        numWarnGodType.Minimum = new decimal(new int[] { 5, 0, 0, 0 });
+        numWarnGodType.Name = "numWarnGodType";
+        numWarnGodType.Size = new Size(56, 23);
+        numWarnGodType.TabIndex = 37;
+        numWarnGodType.TextAlign = HorizontalAlignment.Right;
+        numWarnGodType.Value = new decimal(new int[] { 25, 0, 0, 0 });
+        numWarnGodType.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnGodType
+        // 
+        lblWarnGodType.AutoSize = true;
+        lblWarnGodType.Location = new Point(8, 310);
+        lblWarnGodType.Name = "lblWarnGodType";
+        lblWarnGodType.Size = new Size(128, 15);
+        lblWarnGodType.TabIndex = 36;
+        lblWarnGodType.Text = "God type 멤버+연산 ≥";
+        // 
+        // numWarnComment
+        // 
+        numWarnComment.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnComment.DecimalPlaces = 1;
+        numWarnComment.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
+        numWarnComment.Location = new Point(224, 282);
+        numWarnComment.Name = "numWarnComment";
+        numWarnComment.Size = new Size(56, 23);
+        numWarnComment.TabIndex = 35;
+        numWarnComment.TextAlign = HorizontalAlignment.Right;
+        numWarnComment.Value = new decimal(new int[] { 8, 0, 0, 0 });
+        numWarnComment.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnComment
+        // 
+        lblWarnComment.AutoSize = true;
+        lblWarnComment.Location = new Point(8, 284);
+        lblWarnComment.Name = "lblWarnComment";
+        lblWarnComment.Size = new Size(113, 15);
+        lblWarnComment.TabIndex = 34;
+        lblWarnComment.Text = "주석 비율 미만 % <";
+        // 
+        // numWarnGodFile
+        // 
+        numWarnGodFile.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnGodFile.Location = new Point(224, 256);
+        numWarnGodFile.Maximum = new decimal(new int[] { 50000, 0, 0, 0 });
+        numWarnGodFile.Minimum = new decimal(new int[] { 100, 0, 0, 0 });
+        numWarnGodFile.Name = "numWarnGodFile";
+        numWarnGodFile.Size = new Size(56, 23);
+        numWarnGodFile.TabIndex = 33;
+        numWarnGodFile.TextAlign = HorizontalAlignment.Right;
+        numWarnGodFile.Value = new decimal(new int[] { 600, 0, 0, 0 });
+        numWarnGodFile.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnGodFile
+        // 
+        lblWarnGodFile.AutoSize = true;
+        lblWarnGodFile.Location = new Point(8, 258);
+        lblWarnGodFile.Name = "lblWarnGodFile";
+        lblWarnGodFile.Size = new Size(101, 15);
+        lblWarnGodFile.TabIndex = 32;
+        lblWarnGodFile.Text = "God file 코드줄 ≥";
+        // 
+        // numWarnMagic
+        // 
+        numWarnMagic.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnMagic.Location = new Point(224, 230);
+        numWarnMagic.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numWarnMagic.Name = "numWarnMagic";
+        numWarnMagic.Size = new Size(56, 23);
+        numWarnMagic.TabIndex = 31;
+        numWarnMagic.TextAlign = HorizontalAlignment.Right;
+        numWarnMagic.Value = new decimal(new int[] { 4, 0, 0, 0 });
+        numWarnMagic.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnMagic
+        // 
+        lblWarnMagic.AutoSize = true;
+        lblWarnMagic.Location = new Point(8, 232);
+        lblWarnMagic.Name = "lblWarnMagic";
+        lblWarnMagic.Size = new Size(99, 15);
+        lblWarnMagic.TabIndex = 30;
+        lblWarnMagic.Text = "매직 넘버 개수 ≥";
+        // 
+        // numWarnReturn
+        // 
+        numWarnReturn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        numWarnReturn.Location = new Point(224, 204);
+        numWarnReturn.Maximum = new decimal(new int[] { 50, 0, 0, 0 });
+        numWarnReturn.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        numWarnReturn.Name = "numWarnReturn";
+        numWarnReturn.Size = new Size(56, 23);
+        numWarnReturn.TabIndex = 29;
+        numWarnReturn.TextAlign = HorizontalAlignment.Right;
+        numWarnReturn.Value = new decimal(new int[] { 5, 0, 0, 0 });
+        numWarnReturn.ValueChanged += QualityThreshold_ValueChanged;
+        // 
+        // lblWarnReturn
+        // 
+        lblWarnReturn.AutoSize = true;
+        lblWarnReturn.Location = new Point(8, 206);
+        lblWarnReturn.Name = "lblWarnReturn";
+        lblWarnReturn.Size = new Size(79, 15);
+        lblWarnReturn.TabIndex = 28;
+        lblWarnReturn.Text = "return 개수 ≥";
         // 
         // numWarnParameter
         // 
@@ -383,7 +530,7 @@ partial class MainForm
         lblWarnCyclomatic.Size = new Size(83, 15);
         lblWarnCyclomatic.TabIndex = 12;
         lblWarnCyclomatic.Text = "순환 복잡도 ≥";
-        //
+        // 
         // checkedListLanguages
         // 
         checkedListLanguages.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -439,7 +586,8 @@ partial class MainForm
         diagramViewHost.Dock = DockStyle.Fill;
         diagramViewHost.Location = new Point(0, 48);
         diagramViewHost.Name = "diagramViewHost";
-        diagramViewHost.Size = new Size(954, 685);
+        diagramViewHost.ProjectRootDirectory = null;
+        diagramViewHost.Size = new Size(1046, 812);
         diagramViewHost.TabIndex = 1;
         diagramViewHost.ViewKind = Models.DiagramViewKind.CallGraph;
         // 
@@ -464,6 +612,17 @@ partial class MainForm
         panelToolbar.Size = new Size(1046, 48);
         panelToolbar.TabIndex = 0;
         // 
+        // btnResetView
+        // 
+        btnResetView.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnResetView.Location = new Point(954, 10);
+        btnResetView.Name = "btnResetView";
+        btnResetView.Size = new Size(88, 27);
+        btnResetView.TabIndex = 9;
+        btnResetView.Text = "⟳ 뷰 초기화";
+        btnResetView.UseVisualStyleBackColor = true;
+        btnResetView.Click += btnResetView_Click;
+        // 
         // btnBackView
         // 
         btnBackView.Location = new Point(157, 10);
@@ -473,18 +632,7 @@ partial class MainForm
         btnBackView.Text = "← 뒤로";
         btnBackView.UseVisualStyleBackColor = true;
         btnBackView.Click += btnBackView_Click;
-        //
-        // btnResetView
-        //
-        btnResetView.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnResetView.Location = new Point(954, 10);
-        btnResetView.Name = "btnResetView";
-        btnResetView.Size = new Size(88, 27);
-        btnResetView.TabIndex = 9;
-        btnResetView.Text = "⟳ 뷰 초기화";
-        btnResetView.UseVisualStyleBackColor = true;
-        btnResetView.Click += btnResetView_Click;
-        //
+        // 
         // btnCollapseAll
         // 
         btnCollapseAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -594,7 +742,7 @@ partial class MainForm
         menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, toolStripSearchLabel, toolStripSearchBox, toolStripFindPrevious, toolStripFindNext });
         menuStrip.Location = new Point(0, 0);
         menuStrip.Name = "menuStrip";
-        menuStrip.Size = new Size(1280, 27);
+        menuStrip.Size = new Size(1372, 27);
         menuStrip.TabIndex = 2;
         menuStrip.Text = "menuStrip";
         // 
@@ -683,9 +831,9 @@ partial class MainForm
         // statusStrip
         // 
         statusStrip.Items.AddRange(new ToolStripItem[] { progressBarAnalysis, lblProgressPercent, lblStatus });
-        statusStrip.Location = new Point(0, 760);
+        statusStrip.Location = new Point(0, 887);
         statusStrip.Name = "statusStrip";
-        statusStrip.Size = new Size(1280, 22);
+        statusStrip.Size = new Size(1372, 22);
         statusStrip.TabIndex = 1;
         statusStrip.Text = "statusStrip1";
         // 
@@ -708,7 +856,7 @@ partial class MainForm
         // lblStatus
         // 
         lblStatus.Name = "lblStatus";
-        lblStatus.Size = new Size(1265, 17);
+        lblStatus.Size = new Size(1357, 17);
         lblStatus.Spring = true;
         lblStatus.Text = "준비";
         lblStatus.TextAlign = ContentAlignment.MiddleLeft;
@@ -717,13 +865,13 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1372, 782);
+        ClientSize = new Size(1372, 909);
         Controls.Add(splitContainerMain);
         Controls.Add(statusStrip);
         Controls.Add(menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
-        MinimumSize = new Size(1290, 660);
+        MinimumSize = new Size(1290, 740);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Code Analyzer - 코드 구조 분석";
@@ -734,10 +882,14 @@ partial class MainForm
         grpAnalysis.ResumeLayout(false);
         grpAnalysis.PerformLayout();
         grpExcludeDirectories.ResumeLayout(false);
-        grpExcludeDirectories.PerformLayout();
         grpQualityThresholds.ResumeLayout(false);
         grpQualityThresholds.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)numMinDuplicateLines).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnGodType).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnComment).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnGodFile).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnMagic).EndInit();
+        ((System.ComponentModel.ISupportInitialize)numWarnReturn).EndInit();
         ((System.ComponentModel.ISupportInitialize)numWarnParameter).EndInit();
         ((System.ComponentModel.ISupportInitialize)numWarnTodoDensity).EndInit();
         ((System.ComponentModel.ISupportInitialize)numWarnMi).EndInit();
@@ -759,10 +911,21 @@ partial class MainForm
     private GroupBox grpAnalysis;
     private GroupBox grpExcludeDirectories;
     private GroupBox grpQualityThresholds;
+    private Button btnAnalysisScope;
     private NumericUpDown numMinDuplicateLines;
     private Label lblMinDuplicateLines;
     private NumericUpDown numWarnParameter;
     private Label lblWarnParameter;
+    private NumericUpDown numWarnReturn;
+    private Label lblWarnReturn;
+    private NumericUpDown numWarnMagic;
+    private Label lblWarnMagic;
+    private NumericUpDown numWarnGodFile;
+    private Label lblWarnGodFile;
+    private NumericUpDown numWarnComment;
+    private Label lblWarnComment;
+    private NumericUpDown numWarnGodType;
+    private Label lblWarnGodType;
     private NumericUpDown numWarnTodoDensity;
     private Label lblWarnTodoDensity;
     private NumericUpDown numWarnMi;

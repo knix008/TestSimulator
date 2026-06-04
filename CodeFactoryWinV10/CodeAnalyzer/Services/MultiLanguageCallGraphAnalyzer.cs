@@ -14,7 +14,6 @@ public sealed class MultiLanguageCallGraphAnalyzer
 
     public async Task<(AnalysisResult Result, int FileCount, int DirectoryCount)> AnalyzeAsync(
         string rootPath,
-        IEnumerable<string> excludedDirectories,
         IEnumerable<string> enabledLanguageIds,
         UserAnalysisSettings qualityThresholds,
         IProgress<AnalysisProgressReport>? progress = null,
@@ -27,12 +26,18 @@ public sealed class MultiLanguageCallGraphAnalyzer
             Elapsed = TimeSpan.Zero
         });
 
+        var qualitySettings = UserAnalysisSettings.ResolveForAnalysis(qualityThresholds);
+        var inspections = qualitySettings.EnabledInspections;
         var languageIds = enabledLanguageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var extensions = LanguageRegistry.GetExtensions(languageIds);
         var scanStopwatch = Stopwatch.StartNew();
         var sourceFiles = new List<string>();
 
-        foreach (var file in DirectoryScanService.GetSourceFiles(rootPath, excludedDirectories, extensions, cancellationToken))
+        foreach (var file in DirectoryScanService.GetSourceFiles(
+                     rootPath,
+                     qualitySettings.ExcludedDirectoryPaths,
+                     extensions,
+                     cancellationToken))
         {
             cancellationToken.ThrowIfCancellationRequested();
             sourceFiles.Add(file);
@@ -64,109 +69,86 @@ public sealed class MultiLanguageCallGraphAnalyzer
         var filesByLanguage = GroupFilesByLanguage(sourceFiles, languageIds);
         var batches = BuildAnalysisBatches(filesByLanguage, languageIds);
         var metricsBatches = BuildMetricsBatches(filesByLanguage, languageIds);
-        var totalSteps = CalculateTotalSteps(batches)
-            + CalculateMetricsSteps(metricsBatches)
-            + 7;
+        var totalSteps = CalculatePipelineTotalSteps(inspections, batches, metricsBatches);
         var tracker = new AnalysisProgressTracker(progress, totalSteps);
         var issues = new List<AnalysisIssue>();
 
         tracker.Report($"{sourceFiles.Count}개 파일, {directoryCount}개 폴더 발견", stepDelta: 0);
 
-        var results = new List<CallGraphResult>();
+        CallGraphResult merged;
+        FileRelationGraphResult fileRelations;
+        DirectoryRelationGraphResult directoryRelations;
 
-        foreach (var batch in batches)
+        if (AnalysisScopeResolver.RequiresCallGraph(inspections))
         {
+            var results = new List<CallGraphResult>();
+
+            foreach (var batch in batches)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                tracker.Report($"{batch.DisplayName} 분석 중...", stepDelta: 0);
+
+                CallGraphResult batchResult;
+                try
+                {
+                    batchResult = await batch.Analyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    RecordIssue(issues, $"{batch.DisplayName} 호출 그래프", ex);
+                    tracker.Report($"{batch.DisplayName} 오류 (나머지 계속): {ex.Message}", stepDelta: 0);
+                    batchResult = new CallGraphResult();
+                }
+
+                results.Add(batchResult);
+                tracker.Report($"{batch.DisplayName} 분석 완료");
+            }
+
+            merged = CallGraphBuilder.Merge(results);
             cancellationToken.ThrowIfCancellationRequested();
-            tracker.Report($"{batch.DisplayName} 분석 중...", stepDelta: 0);
-
-            CallGraphResult batchResult;
-            try
-            {
-                batchResult = await batch.Analyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                RecordIssue(issues, $"{batch.DisplayName} 호출 그래프", ex);
-                tracker.Report($"{batch.DisplayName} 오류 (나머지 계속): {ex.Message}", stepDelta: 0);
-                batchResult = new CallGraphResult();
-            }
-
-            results.Add(batchResult);
-            tracker.Report($"{batch.DisplayName} 분석 완료");
+            tracker.Report("파일 간 호출 관계 집계 중...");
+            fileRelations = FileCallGraphBuilder.Build(merged);
+            tracker.Report("디렉터리 간 호출 관계 집계 중...");
+            directoryRelations = DirectoryCallGraphBuilder.Build(merged);
+        }
+        else
+        {
+            merged = new CallGraphResult();
+            fileRelations = new FileRelationGraphResult();
+            directoryRelations = new DirectoryRelationGraphResult();
+            tracker.Report("호출 그래프 분석 건너뜀 (분석 설정)");
         }
 
-        var merged = CallGraphBuilder.Merge(results);
-        cancellationToken.ThrowIfCancellationRequested();
-        tracker.Report("파일 간 호출 관계 집계 중...");
-        var fileRelations = FileCallGraphBuilder.Build(merged);
-        tracker.Report("디렉터리 간 호출 관계 집계 중...");
-        var directoryRelations = DirectoryCallGraphBuilder.Build(merged);
-        tracker.Report("구조(클래스·상속) 분석 중...");
+        ProjectStructureResult structure;
+        if (AnalysisScopeResolver.RequiresTypeStructure(inspections))
+        {
+            tracker.Report("구조(클래스·상속) 분석 중...");
+            structure = await _structureAnalyzer.AnalyzeAsync(
+                filesByLanguage,
+                languageIds,
+                merged,
+                cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            structure = new ProjectStructureResult();
+            tracker.Report("구조(클래스·상속) 분석 건너뜀 (분석 설정)");
+        }
 
-        var structure = await _structureAnalyzer.AnalyzeAsync(
-            filesByLanguage,
-            languageIds,
-            merged,
-            cancellationToken).ConfigureAwait(false);
-
-        tracker.Report("전역 변수 검색 중...");
         GlobalVariableResult globalVariables;
-        try
+        if (AnalysisScopeResolver.RequiresGlobalVariables(inspections))
         {
-            globalVariables = await _globalVariableAnalyzer.AnalyzeAsync(
-                filesByLanguage,
-                languageIds,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            RecordIssue(issues, "전역 변수", ex);
-            tracker.Report($"전역 변수 오류 (빈 결과로 계속): {ex.Message}");
-            globalVariables = new GlobalVariableResult();
-        }
-
-        tracker.Report("DB 스키마(ERD) 추출 중...");
-        DatabaseSchemaResult databaseSchema;
-        try
-        {
-            databaseSchema = await _databaseSchemaAnalyzer.AnalyzeAsync(
-                sourceFiles,
-                filesByLanguage,
-                languageIds,
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            RecordIssue(issues, "DB ERD", ex);
-            tracker.Report($"DB ERD 오류 (빈 결과로 계속): {ex.Message}");
-            databaseSchema = new DatabaseSchemaResult();
-        }
-
-        tracker.Report("코드 메트릭(LOC·복잡도) 분석 중...");
-        var fileLineMetrics = await FileLineMetricsCollector.CollectAsync(sourceFiles, cancellationToken).ConfigureAwait(false);
-        var metricsResults = new List<CodeMetricsResult>();
-
-        foreach (var batch in metricsBatches)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            tracker.Report($"{batch.DisplayName} 메트릭 분석 중...", stepDelta: 0);
-
+            tracker.Report("전역 변수 검색 중...");
             try
             {
-                var batchMetrics = await batch.Analyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false);
-                metricsResults.Add(batchMetrics);
+                globalVariables = await _globalVariableAnalyzer.AnalyzeAsync(
+                    filesByLanguage,
+                    languageIds,
+                    cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -174,26 +156,108 @@ public sealed class MultiLanguageCallGraphAnalyzer
             }
             catch (Exception ex)
             {
-                RecordIssue(issues, $"{batch.DisplayName} 메트릭", ex);
-                tracker.Report($"{batch.DisplayName} 메트릭 오류 (나머지 계속): {ex.Message}", stepDelta: 0);
+                RecordIssue(issues, "전역 변수", ex);
+                tracker.Report($"전역 변수 오류 (빈 결과로 계속): {ex.Message}");
+                globalVariables = new GlobalVariableResult();
             }
-
-            tracker.Report($"{batch.DisplayName} 메트릭 완료");
+        }
+        else
+        {
+            globalVariables = new GlobalVariableResult();
+            tracker.Report("전역 변수 검색 건너뜀 (분석 설정)");
         }
 
-        var mergedMetrics = CodeMetricsBuilder.Build(
-            fileLineMetrics,
-            metricsResults.SelectMany(result => result.Functions).ToList());
+        DatabaseSchemaResult databaseSchema;
+        if (AnalysisScopeResolver.RequiresDatabaseSchema(inspections))
+        {
+            tracker.Report("DB 스키마(ERD) 추출 중...");
+            try
+            {
+                databaseSchema = await _databaseSchemaAnalyzer.AnalyzeAsync(
+                    sourceFiles,
+                    filesByLanguage,
+                    languageIds,
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RecordIssue(issues, "DB ERD", ex);
+                tracker.Report($"DB ERD 오류 (빈 결과로 계속): {ex.Message}");
+                databaseSchema = new DatabaseSchemaResult();
+            }
+        }
+        else
+        {
+            databaseSchema = new DatabaseSchemaResult();
+            tracker.Report("DB 스키마(ERD) 추출 건너뜀 (분석 설정)");
+        }
+
+        CodeMetricsResult mergedMetrics;
+        var runFileLineMetrics = MetricInspectionRuntime.RequiresFileLineMetrics(inspections);
+        var runFunctionMetrics = MetricInspectionRuntime.RequiresFunctionMetrics(inspections);
+
+        if (runFileLineMetrics || runFunctionMetrics)
+        {
+            IReadOnlyList<FileLineMetric> fileLineMetrics = [];
+            if (runFileLineMetrics)
+            {
+                tracker.Report("파일 LOC·주석 분석 중...");
+                fileLineMetrics = await FileLineMetricsCollector.CollectAsync(sourceFiles, cancellationToken).ConfigureAwait(false);
+            }
+
+            var metricFunctions = new List<FunctionMetric>();
+            if (runFunctionMetrics)
+            {
+                tracker.Report("함수 메트릭(복잡도 등) 분석 중...");
+                var metricsResults = new List<CodeMetricsResult>();
+
+                foreach (var batch in metricsBatches)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    tracker.Report($"{batch.DisplayName} 메트릭 분석 중...", stepDelta: 0);
+
+                    try
+                    {
+                        var batchMetrics = await batch.Analyzer.AnalyzeAsync(batch.Files, tracker, cancellationToken).ConfigureAwait(false);
+                        metricsResults.Add(batchMetrics);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        RecordIssue(issues, $"{batch.DisplayName} 메트릭", ex);
+                        tracker.Report($"{batch.DisplayName} 메트릭 오류 (나머지 계속): {ex.Message}", stepDelta: 0);
+                    }
+
+                    tracker.Report($"{batch.DisplayName} 메트릭 완료");
+                }
+
+                metricFunctions = metricsResults.SelectMany(result => result.Functions).ToList();
+            }
+
+            mergedMetrics = CodeMetricsBuilder.Build(fileLineMetrics, metricFunctions);
+        }
+        else
+        {
+            mergedMetrics = new CodeMetricsResult();
+            tracker.Report("코드 메트릭 분석 건너뜀 (검사 항목 미선택)");
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var qualitySettings = UserAnalysisSettings.CloneThresholds(qualityThresholds);
-        qualitySettings.MinDuplicateLines = Math.Clamp(
-            qualitySettings.MinDuplicateLines,
-            UserAnalysisSettings.MinDuplicateLinesFloor,
-            UserAnalysisSettings.MinDuplicateLinesCeiling);
         var minDuplicateLines = qualitySettings.MinDuplicateLines;
         DuplicateCodeResult duplicates;
-        if (sourceFiles.Count > AnalysisScaleLimits.MaxSourceFilesForDuplicateDetection)
+        if (!MetricInspectionRuntime.RequiresDuplicateScan(inspections))
+        {
+            duplicates = new DuplicateCodeResult { MinDuplicateLines = minDuplicateLines };
+            tracker.Report("중복 코드 검색 건너뜀 (검사 항목 미선택)");
+        }
+        else if (sourceFiles.Count > AnalysisScaleLimits.MaxSourceFilesForDuplicateDetection)
         {
             tracker.Report(
                 $"중복 코드 검색 건너뜀 (파일 {sourceFiles.Count:N0}개 > {AnalysisScaleLimits.MaxSourceFilesForDuplicateDetection:N0})");
@@ -221,27 +285,30 @@ public sealed class MultiLanguageCallGraphAnalyzer
             }
         }
 
-        tracker.Report("품질 메트릭 집계 중...");
-        CodeMetricsResult enrichedMetrics;
-        try
+        if (MetricInspectionRuntime.RequiresMetricsEnrichment(inspections))
         {
-            enrichedMetrics = CodeMetricsEnricher.Enrich(mergedMetrics, merged, duplicates, qualitySettings);
+            tracker.Report("품질 메트릭 집계 중...");
+            try
+            {
+                mergedMetrics = CodeMetricsEnricher.Enrich(
+                    mergedMetrics,
+                    merged,
+                    duplicates,
+                    qualitySettings,
+                    inspections);
+            }
+            catch (OutOfMemoryException ex)
+            {
+                ForceCompactingGc();
+                RecordIssue(issues, "품질 메트릭", ex);
+                tracker.Report("품질 메트릭 메모리 부족 (기본 메트릭 유지)");
+            }
+            catch (Exception ex)
+            {
+                RecordIssue(issues, "품질 메트릭", ex);
+                tracker.Report($"품질 메트릭 오류 (기본 유지): {ex.Message}");
+            }
         }
-        catch (OutOfMemoryException ex)
-        {
-            ForceCompactingGc();
-            RecordIssue(issues, "품질 메트릭", ex);
-            tracker.Report("품질 메트릭 메모리 부족 (기본 메트릭 유지)");
-            enrichedMetrics = mergedMetrics;
-        }
-        catch (Exception ex)
-        {
-            RecordIssue(issues, "품질 메트릭", ex);
-            tracker.Report($"품질 메트릭 오류 (기본 유지): {ex.Message}");
-            enrichedMetrics = mergedMetrics;
-        }
-
-        mergedMetrics = enrichedMetrics;
 
         tracker.ReportComplete(
             $"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개, " +
@@ -395,6 +462,58 @@ public sealed class MultiLanguageCallGraphAnalyzer
         }
 
         return steps;
+    }
+
+    private static int CalculatePipelineTotalSteps(
+        MetricInspectionKind inspections,
+        IReadOnlyList<AnalysisBatch> batches,
+        IReadOnlyList<MetricsBatch> metricsBatches)
+    {
+        var steps = 0;
+
+        if (AnalysisScopeResolver.RequiresCallGraph(inspections))
+        {
+            steps += CalculateTotalSteps(batches);
+            steps += 2;
+        }
+
+        if (AnalysisScopeResolver.RequiresTypeStructure(inspections))
+        {
+            steps += 1;
+        }
+
+        if (AnalysisScopeResolver.RequiresGlobalVariables(inspections))
+        {
+            steps += 1;
+        }
+
+        if (AnalysisScopeResolver.RequiresDatabaseSchema(inspections))
+        {
+            steps += 1;
+        }
+
+        if (MetricInspectionRuntime.RequiresFileLineMetrics(inspections))
+        {
+            steps += 1;
+        }
+
+        if (MetricInspectionRuntime.RequiresFunctionMetrics(inspections))
+        {
+            steps += CalculateMetricsSteps(metricsBatches);
+            steps += 1;
+        }
+
+        if (MetricInspectionRuntime.RequiresMetricsEnrichment(inspections))
+        {
+            steps += 1;
+        }
+
+        if (MetricInspectionRuntime.RequiresDuplicateScan(inspections))
+        {
+            steps += 1;
+        }
+
+        return Math.Max(steps, 1);
     }
 
     private sealed record AnalysisBatch(

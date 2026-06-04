@@ -98,6 +98,14 @@ public sealed class UserSettingsService
     public void SaveQualityThresholds(UserAnalysisSettings thresholds)
     {
         var settings = LoadSettings();
+        if (thresholds.MinDuplicateLines > 0)
+        {
+            settings.MinDuplicateLines = Math.Clamp(
+                thresholds.MinDuplicateLines,
+                UserAnalysisSettings.MinDuplicateLinesFloor,
+                UserAnalysisSettings.MinDuplicateLinesCeiling);
+        }
+
         settings.WarnCyclomaticComplexity = thresholds.WarnCyclomaticComplexity;
         settings.WarnCognitiveComplexity = thresholds.WarnCognitiveComplexity;
         settings.WarnMaxNestingDepth = thresholds.WarnMaxNestingDepth;
@@ -105,24 +113,94 @@ public sealed class UserSettingsService
         settings.WarnFanOut = thresholds.WarnFanOut;
         settings.WarnMaintenanceIndex = thresholds.WarnMaintenanceIndex;
         settings.WarnTodoDensityPer100Lines = thresholds.WarnTodoDensityPer100Lines;
+        settings.WarnReturnCount = thresholds.WarnReturnCount;
+        settings.WarnMagicNumbers = thresholds.WarnMagicNumbers;
+        settings.WarnGodFileCodeLines = thresholds.WarnGodFileCodeLines;
+        settings.WarnMinCommentPercent = thresholds.WarnMinCommentPercent;
+        settings.WarnGodTypeMemberCount = thresholds.WarnGodTypeMemberCount;
+        settings.EnabledInspections = MetricInspectionCatalog.NormalizeScope(thresholds.EnabledInspections);
+        settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
+        settings.IncludedDirectoryPaths = [];
+        settings.ExcludedDirectoryPaths = CloneDirectoryPaths(thresholds.ExcludedDirectoryPaths);
         SaveSettings(settings);
     }
 
+    private static List<string> CloneDirectoryPaths(IReadOnlyList<string>? paths) =>
+        paths is null || paths.Count == 0 ? [] : paths.ToList();
+
     private static void Normalize(UserAnalysisSettings settings)
     {
-        settings.MinDuplicateLines = settings.MinDuplicateLines <= 0
-            ? UserAnalysisSettings.DefaultMinDuplicateLines
-            : Math.Clamp(
+        settings.EnabledInspections = MetricInspectionCatalog.NormalizeScope(settings.EnabledInspections);
+        settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
+        settings.IncludedDirectoryPaths = [];
+        settings.ExcludedDirectoryPaths = CloneDirectoryPaths(settings.ExcludedDirectoryPaths);
+
+        if (settings.MinDuplicateLines > 0)
+        {
+            settings.MinDuplicateLines = Math.Clamp(
                 settings.MinDuplicateLines,
                 UserAnalysisSettings.MinDuplicateLinesFloor,
                 UserAnalysisSettings.MinDuplicateLinesCeiling);
+        }
 
-        settings.WarnCyclomaticComplexity = Math.Clamp(settings.WarnCyclomaticComplexity, 1, 200);
-        settings.WarnCognitiveComplexity = Math.Clamp(settings.WarnCognitiveComplexity, 1, 200);
-        settings.WarnMaxNestingDepth = Math.Clamp(settings.WarnMaxNestingDepth, 1, 50);
-        settings.WarnParameterCount = Math.Clamp(settings.WarnParameterCount, 1, 50);
-        settings.WarnFanOut = Math.Clamp(settings.WarnFanOut, 1, 500);
-        settings.WarnMaintenanceIndex = Math.Clamp(settings.WarnMaintenanceIndex, 0, 171);
-        settings.WarnTodoDensityPer100Lines = Math.Clamp(settings.WarnTodoDensityPer100Lines, 0, 100);
+        if (settings.WarnCyclomaticComplexity > 0)
+        {
+            settings.WarnCyclomaticComplexity = Math.Clamp(settings.WarnCyclomaticComplexity, 1, 200);
+        }
+
+        if (settings.WarnCognitiveComplexity > 0)
+        {
+            settings.WarnCognitiveComplexity = Math.Clamp(settings.WarnCognitiveComplexity, 1, 200);
+        }
+
+        if (settings.WarnMaxNestingDepth > 0)
+        {
+            settings.WarnMaxNestingDepth = Math.Clamp(settings.WarnMaxNestingDepth, 1, 50);
+        }
+
+        if (settings.WarnParameterCount > 0)
+        {
+            settings.WarnParameterCount = Math.Clamp(settings.WarnParameterCount, 1, 50);
+        }
+
+        if (settings.WarnFanOut > 0)
+        {
+            settings.WarnFanOut = Math.Clamp(settings.WarnFanOut, 1, 500);
+        }
+
+        if (settings.WarnMaintenanceIndex > 0)
+        {
+            settings.WarnMaintenanceIndex = Math.Clamp(settings.WarnMaintenanceIndex, 0, 171);
+        }
+
+        if (settings.WarnTodoDensityPer100Lines > 0)
+        {
+            settings.WarnTodoDensityPer100Lines = Math.Clamp(settings.WarnTodoDensityPer100Lines, 0, 100);
+        }
+
+        if (settings.WarnReturnCount > 0)
+        {
+            settings.WarnReturnCount = Math.Clamp(settings.WarnReturnCount, 1, 50);
+        }
+
+        if (settings.WarnMagicNumbers > 0)
+        {
+            settings.WarnMagicNumbers = Math.Clamp(settings.WarnMagicNumbers, 1, 100);
+        }
+
+        if (settings.WarnGodFileCodeLines > 0)
+        {
+            settings.WarnGodFileCodeLines = Math.Clamp(settings.WarnGodFileCodeLines, 100, 50_000);
+        }
+
+        if (settings.WarnMinCommentPercent > 0)
+        {
+            settings.WarnMinCommentPercent = Math.Clamp(settings.WarnMinCommentPercent, 0, 100);
+        }
+
+        if (settings.WarnGodTypeMemberCount > 0)
+        {
+            settings.WarnGodTypeMemberCount = Math.Clamp(settings.WarnGodTypeMemberCount, 5, 500);
+        }
     }
 }

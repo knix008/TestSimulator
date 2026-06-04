@@ -51,6 +51,8 @@ public sealed class SequenceDiagramResult
     public IReadOnlyList<SequenceMessage> Messages { get; init; } = [];
     public IReadOnlyDictionary<string, CallGraphNode> ParticipantMap { get; init; }
         = new Dictionary<string, CallGraphNode>(StringComparer.Ordinal);
+    public bool IsTruncated { get; init; }
+    public string? TruncationNote { get; init; }
 }
 
 public sealed class DataFlowEdge

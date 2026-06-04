@@ -24,10 +24,17 @@ public partial class MainForm : Form
     private readonly SearchResultsPopup _searchPopup;
     private readonly System.Windows.Forms.Timer _searchDebounceTimer;
     private bool _suppressRootComboChange;
+    private bool _suppressQualityThresholdEvents;
+    private bool _suppressDirectoryListEvents;
+    private ToolTip? _qualityThresholdToolTip;
+    private TimeSpan? _lastCompletedAnalysisElapsed;
+    private int _lastCompletedDirectoryCount;
+    private int _lastCompletedFileCount;
 
     public MainForm()
     {
         InitializeComponent();
+        AttachQualityThresholdToolTips();
         UserAnalysisSettings.RegisterDesignerDefaults(ReadQualityThresholdsFromControls());
         _searchPopup = new SearchResultsPopup();
         _searchPopup.ResultSelected += SearchPopup_ResultSelected;
@@ -44,6 +51,7 @@ public partial class MainForm : Form
             _searchPopup.Owner = this;
             HookClickOutsideToHideSearch(this);
         };
+        FormClosed += (_, _) => _qualityThresholdToolTip?.Dispose();
         diagramViewHost.CallGraphRootChanged += OnCallGraphRootChanged;
         diagramViewHost.FileRootChanged += OnFileRootChanged;
         diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
@@ -55,6 +63,26 @@ public partial class MainForm : Form
         UpdateResultCommandsState();
         UpdateToolbarForViewKind();
         UpdateRootHistoryNavigationState();
+    }
+
+    private void AttachQualityThresholdToolTips()
+    {
+        _qualityThresholdToolTip?.Dispose();
+        _qualityThresholdToolTip = QualityThresholdToolTipHelper.AttachToGroup(
+            grpQualityThresholds,
+            (lblWarnCyclomatic, numWarnCyclomatic, QualityThresholdToolTipTexts.Cyclomatic),
+            (lblWarnCognitive, numWarnCognitive, QualityThresholdToolTipTexts.Cognitive),
+            (lblWarnNesting, numWarnNesting, QualityThresholdToolTipTexts.Nesting),
+            (lblWarnFanOut, numWarnFanOut, QualityThresholdToolTipTexts.FanOut),
+            (lblWarnMi, numWarnMi, QualityThresholdToolTipTexts.MaintenanceIndex),
+            (lblWarnTodoDensity, numWarnTodoDensity, QualityThresholdToolTipTexts.TodoDensity),
+            (lblWarnParameter, numWarnParameter, QualityThresholdToolTipTexts.ParameterCount),
+            (lblWarnReturn, numWarnReturn, QualityThresholdToolTipTexts.ReturnCount),
+            (lblWarnMagic, numWarnMagic, QualityThresholdToolTipTexts.MagicNumbers),
+            (lblWarnGodFile, numWarnGodFile, QualityThresholdToolTipTexts.GodFile),
+            (lblWarnComment, numWarnComment, QualityThresholdToolTipTexts.CommentPercent),
+            (lblWarnGodType, numWarnGodType, QualityThresholdToolTipTexts.GodType),
+            (lblMinDuplicateLines, numMinDuplicateLines, QualityThresholdToolTipTexts.MinDuplicateLines));
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -109,6 +137,8 @@ public partial class MainForm : Form
 
     private void InitializeOptionControls()
     {
+        checkedListDirectories.ItemCheck += (_, _) => PersistDirectoryExclusionsFromSidebar();
+
         comboDiagramView.Items.AddRange(new object[]
         {
             "호출 그래프",
@@ -215,22 +245,79 @@ public partial class MainForm : Form
 
     private void ApplyQualityThresholdsToUi(UserAnalysisSettings settings)
     {
-        numMinDuplicateLines.Value = Math.Clamp(
-            settings.MinDuplicateLines,
-            UserAnalysisSettings.MinDuplicateLinesFloor,
-            UserAnalysisSettings.MinDuplicateLinesCeiling);
-        numWarnCyclomatic.Value = settings.WarnCyclomaticComplexity;
-        numWarnCognitive.Value = settings.WarnCognitiveComplexity;
-        numWarnNesting.Value = settings.WarnMaxNestingDepth;
-        numWarnFanOut.Value = settings.WarnFanOut;
-        numWarnMi.Value = (decimal)settings.WarnMaintenanceIndex;
-        numWarnTodoDensity.Value = (decimal)settings.WarnTodoDensityPer100Lines;
-        numWarnParameter.Value = settings.WarnParameterCount;
+        _suppressQualityThresholdEvents = true;
+        try
+        {
+            ApplyStoredThresholdToNumeric(
+                numMinDuplicateLines,
+                settings.MinDuplicateLines,
+                UserAnalysisSettings.MinDuplicateLinesFloor,
+                (int)numMinDuplicateLines.Maximum);
+
+            ApplyStoredThresholdToNumeric(numWarnCyclomatic, settings.WarnCyclomaticComplexity);
+            ApplyStoredThresholdToNumeric(numWarnCognitive, settings.WarnCognitiveComplexity);
+            ApplyStoredThresholdToNumeric(numWarnNesting, settings.WarnMaxNestingDepth);
+            ApplyStoredThresholdToNumeric(numWarnFanOut, settings.WarnFanOut);
+            ApplyStoredThresholdToNumeric(numWarnParameter, settings.WarnParameterCount);
+            ApplyStoredThresholdToNumeric(numWarnReturn, settings.WarnReturnCount);
+            ApplyStoredThresholdToNumeric(numWarnMagic, settings.WarnMagicNumbers);
+            ApplyStoredThresholdToNumeric(
+                numWarnGodFile,
+                settings.WarnGodFileCodeLines,
+                (int)numWarnGodFile.Minimum,
+                (int)numWarnGodFile.Maximum);
+            ApplyStoredThresholdToNumeric(
+                numWarnGodType,
+                settings.WarnGodTypeMemberCount,
+                (int)numWarnGodType.Minimum,
+                (int)numWarnGodType.Maximum);
+
+            if (settings.WarnMaintenanceIndex > 0)
+            {
+                numWarnMi.Value = Math.Clamp((decimal)settings.WarnMaintenanceIndex, numWarnMi.Minimum, numWarnMi.Maximum);
+            }
+
+            if (settings.WarnTodoDensityPer100Lines > 0)
+            {
+                numWarnTodoDensity.Value = Math.Clamp(
+                    (decimal)settings.WarnTodoDensityPer100Lines,
+                    numWarnTodoDensity.Minimum,
+                    numWarnTodoDensity.Maximum);
+            }
+
+            if (settings.WarnMinCommentPercent > 0)
+            {
+                numWarnComment.Value = Math.Clamp(
+                    (decimal)settings.WarnMinCommentPercent,
+                    numWarnComment.Minimum,
+                    numWarnComment.Maximum);
+            }
+        }
+        finally
+        {
+            _suppressQualityThresholdEvents = false;
+        }
+    }
+
+    private static void ApplyStoredThresholdToNumeric(
+        NumericUpDown control,
+        int storedValue,
+        int? minOverride = null,
+        int? maxOverride = null)
+    {
+        if (storedValue <= 0)
+        {
+            return;
+        }
+
+        var min = minOverride ?? (int)control.Minimum;
+        var max = maxOverride ?? (int)control.Maximum;
+        control.Value = Math.Clamp(storedValue, min, max);
     }
 
     private void numMinDuplicateLines_ValueChanged(object? sender, EventArgs e)
     {
-        if (_isAnalysisRunning)
+        if (_isAnalysisRunning || _suppressQualityThresholdEvents)
         {
             return;
         }
@@ -240,7 +327,7 @@ public partial class MainForm : Form
 
     private void QualityThreshold_ValueChanged(object? sender, EventArgs e)
     {
-        if (_isAnalysisRunning)
+        if (_isAnalysisRunning || _suppressQualityThresholdEvents)
         {
             return;
         }
@@ -248,17 +335,48 @@ public partial class MainForm : Form
         _userSettings.SaveQualityThresholds(ReadQualityThresholdsFromUi());
     }
 
-    private UserAnalysisSettings ReadQualityThresholdsFromControls() => new()
+    private void btnAnalysisScope_Click(object? sender, EventArgs e)
     {
-        MinDuplicateLines = (int)numMinDuplicateLines.Value,
+        var settings = _userSettings.LoadSettings();
+        using var dialog = new AnalysisScopeOptionsDialog(settings.EnabledInspections);
+
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        settings.EnabledInspections = MetricInspectionCatalog.NormalizeScope(dialog.SelectedInspectionScope);
+        _userSettings.SaveSettings(settings);
+
+        if (_lastAnalysis is not null)
+        {
+            diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
+        }
+    }
+
+    private UserAnalysisSettings ReadQualityThresholdsFromControls()
+    {
+        var stored = _userSettings.LoadSettings();
+        return new UserAnalysisSettings
+        {
+            EnabledInspections = stored.EnabledInspections,
+            IncludedDirectoryPaths = [],
+            ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar(),
+            MinDuplicateLines = (int)numMinDuplicateLines.Value,
         WarnCyclomaticComplexity = (int)numWarnCyclomatic.Value,
         WarnCognitiveComplexity = (int)numWarnCognitive.Value,
         WarnMaxNestingDepth = (int)numWarnNesting.Value,
         WarnFanOut = (int)numWarnFanOut.Value,
         WarnMaintenanceIndex = (double)numWarnMi.Value,
         WarnTodoDensityPer100Lines = (double)numWarnTodoDensity.Value,
-        WarnParameterCount = (int)numWarnParameter.Value
-    };
+        WarnParameterCount = (int)numWarnParameter.Value,
+        WarnReturnCount = (int)numWarnReturn.Value,
+        WarnMagicNumbers = (int)numWarnMagic.Value,
+        WarnGodFileCodeLines = (int)numWarnGodFile.Value,
+        WarnMinCommentPercent = (double)numWarnComment.Value,
+        WarnGodTypeMemberCount = (int)numWarnGodType.Value
+        };
+    }
 
     private UserAnalysisSettings ReadQualityThresholdsFromUi()
     {
@@ -298,14 +416,68 @@ public partial class MainForm : Form
     {
         checkedListDirectories.Items.Clear();
 
-        foreach (var directory in DirectoryScanService.ScanSubdirectories(rootPath))
+        var directories = DirectoryScanService.ScanSubdirectories(rootPath);
+        foreach (var directory in directories)
         {
-            var index = checkedListDirectories.Items.Add(directory);
-            if (DirectoryScanService.ShouldExcludeByDefault(directory))
+            checkedListDirectories.Items.Add(directory, isChecked: true);
+        }
+
+        var settings = _userSettings.LoadSettings();
+        var hadLegacyIncludeList = settings.IncludedDirectoryPaths.Count > 0;
+        DirectoryScopeSettings.MigrateLegacyIncludedPaths(settings, directories);
+        if (hadLegacyIncludeList)
+        {
+            _userSettings.SaveSettings(settings);
+        }
+
+        ApplyDirectoryChecksToSidebar(settings.ExcludedDirectoryPaths);
+    }
+
+    private void ApplyDirectoryChecksToSidebar(IReadOnlyList<string> excludedPaths)
+    {
+        _suppressDirectoryListEvents = true;
+        try
+        {
+            var excluded = new HashSet<string>(excludedPaths, StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < checkedListDirectories.Items.Count; i++)
             {
-                checkedListDirectories.SetItemChecked(index, true);
+                if (checkedListDirectories.Items[i] is string path)
+                {
+                    checkedListDirectories.SetItemChecked(i, !excluded.Contains(path));
+                }
             }
         }
+        finally
+        {
+            _suppressDirectoryListEvents = false;
+        }
+    }
+
+    private void PersistDirectoryExclusionsFromSidebar()
+    {
+        if (_suppressDirectoryListEvents || _isAnalysisRunning)
+        {
+            return;
+        }
+
+        var settings = _userSettings.LoadSettings();
+        settings.IncludedDirectoryPaths = [];
+        settings.ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar();
+        _userSettings.SaveSettings(settings);
+    }
+
+    private List<string> GetExcludedDirectoriesFromSidebar()
+    {
+        var excluded = new List<string>();
+        for (var i = 0; i < checkedListDirectories.Items.Count; i++)
+        {
+            if (!checkedListDirectories.GetItemChecked(i) && checkedListDirectories.Items[i] is string path)
+            {
+                excluded.Add(path);
+            }
+        }
+
+        return excluded;
     }
 
     private IEnumerable<string> GetSelectedLanguageIds()
@@ -342,6 +514,7 @@ public partial class MainForm : Form
         var cts = _analysisCts;
 
         BeginAnalysisSession();
+        var analysisStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         var uiProgress = new Progress<AnalysisProgressReport>(report =>
         {
@@ -357,16 +530,15 @@ public partial class MainForm : Form
 
         try
         {
-            var excluded = checkedListDirectories.CheckedItems.Cast<string>().ToList();
+            PersistDirectoryExclusionsFromSidebar();
 
-            var qualityThresholds = ReadQualityThresholdsFromControls();
-            _userSettings.SaveMinDuplicateLines(qualityThresholds.MinDuplicateLines);
-            _userSettings.SaveQualityThresholds(ReadQualityThresholdsFromUi());
+            var qualityThresholds = UserAnalysisSettings.ResolveForAnalysis(ReadQualityThresholdsFromControls());
+            qualityThresholds.LastRootDirectory = _userSettings.LoadSettings().LastRootDirectory;
+            _userSettings.SaveSettings(qualityThresholds);
 
             var (result, fileCount, directoryCount) = await Task.Run(
                 async () => await _analyzer.AnalyzeAsync(
                     rootPath,
-                    excluded,
                     enabledLanguages,
                     qualityThresholds,
                     progress,
@@ -379,8 +551,22 @@ public partial class MainForm : Form
             }
 
             TryCompactMemoryAfterAnalysis();
+            analysisStopwatch.Stop();
+            var elapsed = analysisStopwatch.Elapsed;
+
             _lastAnalysis = result;
             ApplyAnalysisResultsToUi(result);
+            _userSettings.SaveLastRootDirectory(rootPath);
+            UpdateAnalysisProgress(100);
+            RememberAnalysisCompletionStats(elapsed, directoryCount, fileCount);
+
+            AnalysisCompletionDialog.Show(
+                this,
+                result,
+                directoryCount,
+                fileCount,
+                elapsed,
+                rootPath);
 
             if (result.Issues.Count > 0)
             {
@@ -390,21 +576,18 @@ public partial class MainForm : Form
                     $"{result.Issues.Count}개 단계에서 오류가 발생했습니다. 일부 결과만 표시될 수 있습니다. 아래 상세 내용을 확인하고 필요 시 복사하세요.",
                     result.Issues);
             }
-            _userSettings.SaveLastRootDirectory(rootPath);
-            UpdateAnalysisProgress(100);
-            lblStatus.Text =
-                $"분석 완료: {directoryCount}개 폴더, {fileCount}개 파일, " +
-                $"함수 {result.CallGraph.Nodes.Count}개, 호출 {result.CallGraph.Edges.Count}개, " +
-                $"메트릭 {result.Metrics.Functions.Count}개, 중복 {result.Duplicates.Groups.Count}건, " +
-                $"파일 연관 {result.FileRelations.Edges.Count}개, 디렉터리 연관 {result.DirectoryRelations.Edges.Count}개, 타입 {result.Structure.Types.Count}개";
+
+            UpdateAnalysisCompleteStatusBar(result);
         }
         catch (OperationCanceledException)
         {
+            ClearAnalysisCompletionStats();
             ClearAnalysisResults();
             lblStatus.Text = "분석이 취소되었습니다.";
         }
         catch (Exception ex)
         {
+            ClearAnalysisCompletionStats();
             ClearAnalysisResults();
             lblStatus.Text = "분석 실패";
             DetailedErrorDialog.Show(this, "분석 오류", ex, "분석 중 오류가 발생했습니다. 아래 상세 내용을 확인하고 필요 시 복사하세요.");
@@ -412,9 +595,49 @@ public partial class MainForm : Form
         finally
         {
             EndAnalysisSession();
+            if (_lastAnalysis is not null && _lastCompletedAnalysisElapsed is { } elapsed)
+            {
+                UpdateAnalysisCompleteStatusBar(_lastAnalysis, elapsed);
+            }
+
             _analysisCts?.Dispose();
             _analysisCts = null;
         }
+    }
+
+    private void RememberAnalysisCompletionStats(TimeSpan elapsed, int directoryCount, int fileCount)
+    {
+        _lastCompletedAnalysisElapsed = elapsed;
+        _lastCompletedDirectoryCount = directoryCount;
+        _lastCompletedFileCount = fileCount;
+    }
+
+    private void ClearAnalysisCompletionStats()
+    {
+        _lastCompletedAnalysisElapsed = null;
+        _lastCompletedDirectoryCount = 0;
+        _lastCompletedFileCount = 0;
+    }
+
+    private void UpdateAnalysisCompleteStatusBar(AnalysisResult result)
+    {
+        if (_lastCompletedAnalysisElapsed is not { } elapsed)
+        {
+            return;
+        }
+
+        UpdateAnalysisCompleteStatusBar(result, elapsed);
+    }
+
+    private void UpdateAnalysisCompleteStatusBar(AnalysisResult result, TimeSpan elapsed)
+    {
+        lblStatus.Text =
+            $"분석 완료 · 소요 시간 {AnalysisProgressFormatter.FormatDuration(elapsed)} · " +
+            $"폴더 {_lastCompletedDirectoryCount:N0}개 · 파일 {_lastCompletedFileCount:N0}개 · " +
+            $"함수 {result.CallGraph.Nodes.Count:N0}개 · 호출 {result.CallGraph.Edges.Count:N0}개 · " +
+            $"메트릭 {result.Metrics.Functions.Count:N0}개 · 중복 {result.Duplicates.Groups.Count:N0}건 · " +
+            $"파일 연관 {result.FileRelations.Edges.Count:N0} · 디렉터리 연관 {result.DirectoryRelations.Edges.Count:N0} · " +
+            $"타입 {result.Structure.Types.Count:N0}개";
     }
 
     private Task RequestStopAnalysisAsync()
@@ -471,6 +694,11 @@ public partial class MainForm : Form
         numWarnMi.Enabled = false;
         numWarnTodoDensity.Enabled = false;
         numWarnParameter.Enabled = false;
+        numWarnReturn.Enabled = false;
+        numWarnMagic.Enabled = false;
+        numWarnGodFile.Enabled = false;
+        numWarnComment.Enabled = false;
+        numWarnGodType.Enabled = false;
         ResetAnalysisProgress(isActive: true);
         lblStatus.Text = "백그라운드에서 분석 중...";
         UpdateRootHistoryNavigationState();
@@ -492,6 +720,11 @@ public partial class MainForm : Form
         numWarnMi.Enabled = true;
         numWarnTodoDensity.Enabled = true;
         numWarnParameter.Enabled = true;
+        numWarnReturn.Enabled = true;
+        numWarnMagic.Enabled = true;
+        numWarnGodFile.Enabled = true;
+        numWarnComment.Enabled = true;
+        numWarnGodType.Enabled = true;
         ResetAnalysisProgress(isActive: false);
 
         if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.CodeMetrics
@@ -1161,20 +1394,21 @@ public partial class MainForm : Form
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(request.FilePath) && File.Exists(request.FilePath))
+        if (!string.IsNullOrWhiteSpace(request.FilePath))
         {
-            try
+            if (SourceFileOpener.TryOpen(request.FilePath, request.LineNumber))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = request.FilePath,
-                    UseShellExecute = true
-                });
-                lblStatus.Text = $"파일을 열었습니다: {request.FilePath}";
+                lblStatus.Text = request.LineNumber > 1
+                    ? $"파일을 열었습니다: {request.FilePath}:{request.LineNumber}"
+                    : $"파일을 열었습니다: {request.FilePath}";
             }
-            catch (Exception ex)
+            else
             {
-                DetailedErrorDialog.Show(this, "파일 열기 오류", ex, "파일을 열 수 없습니다.");
+                DetailedErrorDialog.Show(
+                    this,
+                    "파일 열기 오류",
+                    new FileNotFoundException(request.FilePath),
+                    "파일을 찾을 수 없거나 기본 편집기로 열 수 없습니다.");
             }
         }
     }

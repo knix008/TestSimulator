@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -13,6 +14,7 @@ public sealed class ErdDiagramViewer : UserControl
     private readonly Dictionary<string, DiagramBoxNode> _boxMap = new(StringComparer.Ordinal);
     private readonly DiagramZoomController _zoom = new();
     private string? _selectedTableId;
+    private bool _buildError;
 
     public event Action<MetricsNavigationRequest>? NavigationRequested;
 
@@ -38,6 +40,8 @@ public sealed class ErdDiagramViewer : UserControl
     {
         _schema = schema;
         _selectedTableId = null;
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
         Rebuild();
     }
 
@@ -45,6 +49,8 @@ public sealed class ErdDiagramViewer : UserControl
     {
         _zoom.Reset();
         _isAnalyzing = true;
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
         _schema = null;
         _boxes.Clear();
         _relations.Clear();
@@ -104,6 +110,16 @@ public sealed class ErdDiagramViewer : UserControl
             return;
         }
 
+        if (_buildError)
+        {
+            DrawCenteredMessage(
+                e.Graphics,
+                ViewFailureReporter.FormatCanvasMessage(
+                    ViewFailureReporter.GetLastException(this),
+                    "DB ERD 구성"));
+            return;
+        }
+
         if (_boxes.Count == 0)
         {
             DrawCenteredMessage(
@@ -114,7 +130,21 @@ public sealed class ErdDiagramViewer : UserControl
             return;
         }
 
-        _zoom.PaintDocument(e.Graphics, this, e.ClipRectangle, _contentSize, BackColor, DrawDiagram);
+        try
+        {
+            _zoom.PaintDocument(e.Graphics, this, e.ClipRectangle, _contentSize, BackColor, DrawDiagram);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        {
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.DatabaseErd), "표시", ex);
+            DrawCenteredMessage(
+                e.Graphics,
+                ViewFailureReporter.FormatCanvasMessage(ex, "DB ERD 표시"));
+        }
     }
 
     protected override void OnMouseClick(MouseEventArgs e)
@@ -152,6 +182,8 @@ public sealed class ErdDiagramViewer : UserControl
         _boxes.Clear();
         _relations.Clear();
         _boxMap.Clear();
+        _buildError = false;
+        ViewFailureReporter.Clear(this);
 
         if (_schema is null || _schema.Tables.Count == 0)
         {
@@ -161,16 +193,34 @@ public sealed class ErdDiagramViewer : UserControl
             return;
         }
 
-        foreach (var table in _schema.Tables)
+        try
         {
-            var box = ErdDiagramRenderer.CreateTableBox(table);
-            _boxes.Add(box);
-            _boxMap[box.Id] = box;
+            foreach (var table in _schema.Tables)
+            {
+                var box = ErdDiagramRenderer.CreateTableBox(table);
+                _boxes.Add(box);
+                _boxMap[box.Id] = box;
+            }
+
+            _relations.AddRange(_schema.Relations);
+            _contentSize = ErdDiagramRenderer.Layout(_boxes, _relations);
+            _zoom.ApplyContentSize(this, _contentSize);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
+        {
+            _buildError = true;
+            _boxes.Clear();
+            _relations.Clear();
+            _boxMap.Clear();
+            _contentSize = new Size(480, 320);
+            _zoom.ApplyContentSize(this, _contentSize);
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(DiagramViewKind.DatabaseErd), "구성", ex);
         }
 
-        _relations.AddRange(_schema.Relations);
-        _contentSize = ErdDiagramRenderer.Layout(_boxes, _relations);
-        _zoom.ApplyContentSize(this, _contentSize);
         Invalidate();
     }
 

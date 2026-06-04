@@ -6,30 +6,52 @@ public static class SequenceDiagramBuilder
 {
     public static SequenceDiagramResult Build(CallGraphResult callGraph, string? rootNodeId)
     {
-        if (string.IsNullOrWhiteSpace(rootNodeId) || !callGraph.NodeMap.TryGetValue(rootNodeId, out var root))
+        if (string.IsNullOrWhiteSpace(rootNodeId) || !callGraph.NodeMap.TryGetValue(rootNodeId, out _))
         {
             return new SequenceDiagramResult();
         }
 
         var messages = new List<SequenceMessage>();
         var visitedCalls = new HashSet<(string Caller, string Callee)>();
+        var participantOrder = new List<string> { rootNodeId };
+        var participantSet = new HashSet<string>(StringComparer.Ordinal) { rootNodeId };
+        var truncatedMessages = false;
+        var truncatedParticipants = false;
         var order = 0;
 
-        void Walk(string callerId, int depth)
+        var stack = new Stack<(string CallerId, int Depth)>();
+        stack.Push((rootNodeId, 0));
+
+        while (stack.Count > 0)
         {
-            if (depth >= AnalysisScaleLimits.MaxCallGraphVisualDepth
-                || messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
+            var (callerId, depth) = stack.Pop();
+
+            if (depth >= AnalysisScaleLimits.MaxCallGraphVisualDepth)
             {
-                return;
+                truncatedMessages = true;
+                continue;
             }
 
-            if (!callGraph.Outgoing.TryGetValue(callerId, out var callees))
+            if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
             {
-                return;
+                truncatedMessages = true;
+                break;
             }
 
-            foreach (var calleeId in callees)
+            if (!callGraph.Outgoing.TryGetValue(callerId, out var callees) || callees.Count == 0)
             {
+                continue;
+            }
+
+            for (var index = callees.Count - 1; index >= 0; index--)
+            {
+                if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
+                {
+                    truncatedMessages = true;
+                    break;
+                }
+
+                var calleeId = callees[index];
                 if (!callGraph.NodeMap.TryGetValue(calleeId, out var callee))
                 {
                     continue;
@@ -40,6 +62,18 @@ public static class SequenceDiagramBuilder
                     continue;
                 }
 
+                if (!participantSet.Contains(calleeId))
+                {
+                    if (participantSet.Count >= AnalysisScaleLimits.MaxSequenceDiagramParticipants)
+                    {
+                        truncatedParticipants = true;
+                        continue;
+                    }
+
+                    participantSet.Add(calleeId);
+                    participantOrder.Add(calleeId);
+                }
+
                 messages.Add(new SequenceMessage
                 {
                     FromId = callerId,
@@ -48,39 +82,41 @@ public static class SequenceDiagramBuilder
                     Order = order++
                 });
 
-                Walk(calleeId, depth + 1);
-                if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
-                {
-                    return;
-                }
+                stack.Push((calleeId, depth + 1));
             }
         }
 
-        Walk(rootNodeId, 0);
-
-        var participantIds = new List<string> { rootNodeId };
-        foreach (var message in messages)
-        {
-            if (!participantIds.Contains(message.FromId))
-            {
-                participantIds.Add(message.FromId);
-            }
-
-            if (!participantIds.Contains(message.ToId))
-            {
-                participantIds.Add(message.ToId);
-            }
-        }
-
-        var map = participantIds
+        var map = participantOrder
             .Where(id => callGraph.NodeMap.ContainsKey(id))
             .ToDictionary(id => id, id => callGraph.NodeMap[id], StringComparer.Ordinal);
 
+        var truncated = truncatedMessages || truncatedParticipants;
+        string? note = null;
+        if (truncated)
+        {
+            var parts = new List<string>();
+            if (truncatedMessages)
+            {
+                parts.Add($"메시지 상한 {AnalysisScaleLimits.MaxSequenceDiagramMessages}건");
+            }
+
+            if (truncatedParticipants)
+            {
+                parts.Add($"참가자 상한 {AnalysisScaleLimits.MaxSequenceDiagramParticipants}개");
+            }
+
+            note =
+                string.Join(" · ", parts) +
+                " — 루트 메서드를 더 좁게 선택하면 전체 흐름을 볼 수 있습니다.";
+        }
+
         return new SequenceDiagramResult
         {
-            ParticipantIds = participantIds,
+            ParticipantIds = participantOrder,
             Messages = messages,
-            ParticipantMap = map
+            ParticipantMap = map,
+            IsTruncated = truncated,
+            TruncationNote = note
         };
     }
 

@@ -12,7 +12,7 @@ public static class DuplicateCodeAnalyzer
         int minDuplicateLines,
         CancellationToken cancellationToken = default)
     {
-        minDuplicateLines = Math.Clamp(minDuplicateLines, 2, 200);
+        minDuplicateLines = UserAnalysisSettings.NormalizeMinDuplicateLines(minDuplicateLines);
 
         if (sourceFiles.Count == 0)
         {

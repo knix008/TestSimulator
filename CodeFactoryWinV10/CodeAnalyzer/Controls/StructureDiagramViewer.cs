@@ -54,6 +54,7 @@ public sealed class StructureDiagramViewer : UserControl
     {
         _isAnalyzing = false;
         _buildError = false;
+        ViewFailureReporter.Clear(this);
         _zoom.Reset();
         _analysis = analysis;
         _functionRootIds = functionRootIds;
@@ -81,6 +82,7 @@ public sealed class StructureDiagramViewer : UserControl
         _zoom.Reset();
         _isAnalyzing = true;
         _buildError = false;
+        ViewFailureReporter.Clear(this);
         _analysis = null;
         _focusedTypeId = null;
         _boxes.Clear();
@@ -208,7 +210,11 @@ public sealed class StructureDiagramViewer : UserControl
 
         if (_buildError)
         {
-            DrawMessage(e.Graphics, "분석에 실패했습니다.");
+            DrawMultilineMessage(
+                e.Graphics,
+                ViewFailureReporter.FormatCanvasMessage(
+                    ViewFailureReporter.GetLastException(this),
+                    "다이어그램 구성"));
             return;
         }
 
@@ -232,9 +238,12 @@ public sealed class StructureDiagramViewer : UserControl
         {
             throw;
         }
-        catch
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
         {
-            DrawMessage(e.Graphics, "분석에 실패했습니다.");
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(_viewKind), "표시", ex);
+            DrawMultilineMessage(
+                e.Graphics,
+                ViewFailureReporter.FormatCanvasMessage(ex, "다이어그램 표시"));
         }
     }
 
@@ -422,6 +431,7 @@ public sealed class StructureDiagramViewer : UserControl
         _boxMap.Clear();
         _sequence = null;
         _buildError = false;
+        ViewFailureReporter.Clear(this);
 
         if (_analysis is null)
         {
@@ -461,7 +471,7 @@ public sealed class StructureDiagramViewer : UserControl
         {
             throw;
         }
-        catch
+        catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
         {
             _buildError = true;
             _boxes.Clear();
@@ -470,6 +480,7 @@ public sealed class StructureDiagramViewer : UserControl
             _sequence = null;
             _contentSize = new Size(400, 300);
             _zoom.ApplyContentSize(this, _contentSize);
+            ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(_viewKind), "구성", ex);
         }
 
         Invalidate();
@@ -808,7 +819,22 @@ public sealed class StructureDiagramViewer : UserControl
         }
 
         var depths = ComputeTypeDepths(_boxMap.Keys, relations);
-        ApplyBoxContentSize(UmlClassDiagramRenderer.Layout(_boxes, depths));
+
+        var clusteringEdges = inheritanceOnly
+            ? _edges
+            : _edges.Concat(
+                    structure.Relations
+                        .Where(relation => relation.Kind == StructureRelationKind.Dependency)
+                        .Select(relation => new DiagramEdge
+                        {
+                            FromId = relation.FromId,
+                            ToId = relation.ToId,
+                            Label = string.Empty,
+                            RelationKind = relation.Kind
+                        }))
+                .ToList();
+
+        ApplyBoxContentSize(UmlClassDiagramRenderer.Layout(_boxes, depths, clusteringEdges));
     }
 
     private void BuildDataFlow(CallGraphResult callGraph, string? rootNodeId)
@@ -898,8 +924,15 @@ public sealed class StructureDiagramViewer : UserControl
     {
         if (_sequence is null || _sequence.ParticipantIds.Count == 0)
         {
-            DrawMessage(graphics, "시퀀스 다이어그램을 표시할 호출 경로가 없습니다.");
+            DrawMessage(graphics, "시퀀스 다이어그램을 표시할 호출 경로가 없습니다.\n루트 메서드에서 시작 함수를 선택하세요.");
             return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_sequence.TruncationNote))
+        {
+            using var noteFont = new Font(Font.FontFamily, 8.25f, FontStyle.Italic);
+            using var noteBrush = new SolidBrush(Color.FromArgb(120, 90, 0));
+            graphics.DrawString(_sequence.TruncationNote, noteFont, noteBrush, 12, 6);
         }
 
         UmlSequenceDiagramRenderer.Draw(graphics, _sequence);
@@ -1061,10 +1094,25 @@ public sealed class StructureDiagramViewer : UserControl
 
     private void DrawMessage(Graphics graphics, string message)
     {
+        DrawMultilineMessage(graphics, message);
+    }
+
+    private void DrawMultilineMessage(Graphics graphics, string message)
+    {
         using var font = new Font(Font.FontFamily, 10f);
-        using var brush = new SolidBrush(Color.Gray);
-        var size = graphics.MeasureString(message, font);
-        graphics.DrawString(message, font, brush, Math.Max(20, (ClientSize.Width - size.Width) / 2), Math.Max(20, (ClientSize.Height - size.Height) / 2));
+        using var brush = new SolidBrush(Color.FromArgb(80, 90, 110));
+        var lines = message.Split('\n');
+        var lineHeight = font.Height + 4;
+        var totalHeight = lines.Length * lineHeight;
+        var y = Math.Max(24, (Height - totalHeight) / 2);
+
+        foreach (var line in lines)
+        {
+            var size = graphics.MeasureString(line, font);
+            var x = Math.Max(12, (Width - size.Width) / 2f);
+            graphics.DrawString(line, font, brush, x, y);
+            y += lineHeight;
+        }
     }
 
     private void ApplyBoxContentSize(Size layoutSize)

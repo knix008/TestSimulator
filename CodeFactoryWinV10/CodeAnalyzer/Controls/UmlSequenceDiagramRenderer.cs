@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -216,6 +217,8 @@ internal static class UmlSequenceDiagramRenderer
             ? participants[^1].HeaderBounds.Right + LeftMargin
             : 400;
         var diagramHeight = Math.Max(lifelineBottom + 20, 280);
+        diagramWidth = Math.Min(diagramWidth, AnalysisScaleLimits.MaxSequenceDiagramCacheDimension);
+        diagramHeight = Math.Min(diagramHeight, AnalysisScaleLimits.MaxSequenceDiagramCacheDimension);
 
         return new UmlSequenceLayout
         {

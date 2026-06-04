@@ -38,9 +38,12 @@ internal static class UmlClassDiagramRenderer
         };
     }
 
+    private const int ComponentVerticalGap = 96;
+
     public static Size Layout(
         IReadOnlyList<DiagramBoxNode> nodes,
-        IReadOnlyDictionary<string, int> depthById)
+        IReadOnlyDictionary<string, int> depthById,
+        IReadOnlyList<DiagramEdge>? relationEdges = null)
     {
         if (nodes.Count == 0)
         {
@@ -52,23 +55,62 @@ internal static class UmlClassDiagramRenderer
             MeasureNode(node);
         }
 
-        var grouped = nodes
-            .GroupBy(node => depthById.TryGetValue(node.Id, out var depth) ? depth : 0)
-            .OrderBy(group => group.Key)
-            .ToList();
+        var adjacency = ClassDiagramRelationLayout.BuildUndirectedAdjacency(
+            nodes.Select(node => node.Id),
+            relationEdges ?? []);
+        var partitioned = ClassDiagramRelationLayout.PartitionConnectedComponents(nodes, adjacency);
+        var components = new List<List<DiagramBoxNode>>(
+            partitioned.Where(component => component.Count > 1));
+        var orphans = partitioned.Where(component => component.Count == 1).SelectMany(component => component).ToList();
+        if (orphans.Count > 0)
+        {
+            components.Add(orphans);
+        }
 
         var bounds = Rectangle.Empty;
-        var y = 36;
+        var componentY = 36;
 
-        foreach (var depthGroup in grouped)
+        foreach (var component in components)
         {
-            var sorted = depthGroup.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase).ToList();
-            var isLastDepth = ReferenceEquals(depthGroup, grouped.Last().AsEnumerable());
+            var componentDepths = component.ToDictionary(
+                node => node.Id,
+                node => depthById.TryGetValue(node.Id, out var depth) ? depth : 0,
+                StringComparer.Ordinal);
+            var orderedLayers = ClassDiagramRelationLayout.OrderLayersByRelation(
+                component,
+                componentDepths,
+                adjacency);
+
+            var componentBounds = LayoutOrderedLayers(orderedLayers, componentY);
+            bounds = bounds == Rectangle.Empty ? componentBounds : Rectangle.Union(bounds, componentBounds);
+            componentY = bounds.Bottom + ComponentVerticalGap;
+        }
+
+        return new Size(Math.Max(bounds.Right + 48, 400), Math.Max(bounds.Bottom + 48, 300));
+    }
+
+    private static Rectangle LayoutOrderedLayers(
+        Dictionary<int, List<DiagramBoxNode>> orderedLayers,
+        int startY)
+    {
+        var bounds = Rectangle.Empty;
+        var y = startY;
+        var depths = orderedLayers.Keys.OrderBy(depth => depth).ToList();
+
+        for (var depthIndex = 0; depthIndex < depths.Count; depthIndex++)
+        {
+            var depth = depths[depthIndex];
+            if (!orderedLayers.TryGetValue(depth, out var sorted) || sorted.Count == 0)
+            {
+                continue;
+            }
+
+            var isLastDepth = depthIndex == depths.Count - 1;
 
             for (var rowStart = 0; rowStart < sorted.Count; rowStart += MaxNodesPerRow)
             {
                 var rowNodes = sorted.Skip(rowStart).Take(MaxNodesPerRow).ToList();
-                var rowHeight = rowNodes.Max(n => n.Bounds.Height);
+                var rowHeight = rowNodes.Max(node => node.Bounds.Height);
                 var x = 36;
 
                 foreach (var node in rowNodes)
@@ -79,11 +121,11 @@ internal static class UmlClassDiagramRenderer
                 }
 
                 var isLastSubRow = rowStart + MaxNodesPerRow >= sorted.Count;
-                y += rowHeight + (isLastSubRow ? InterDepthGap : IntraDepthGap);
+                y += rowHeight + (isLastSubRow && isLastDepth ? 0 : isLastSubRow ? InterDepthGap : IntraDepthGap);
             }
         }
 
-        return new Size(Math.Max(bounds.Right + 48, 400), Math.Max(bounds.Bottom + 48, 300));
+        return bounds;
     }
 
     public static void DrawClass(Graphics graphics, DiagramBoxNode box, bool isHighlight, bool isCurrent)
