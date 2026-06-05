@@ -45,6 +45,11 @@ public static class AnalysisReportPdfWriter
                             column.Item().Text(paragraph);
                         }
 
+                        foreach (var bullet in section.BulletItems)
+                        {
+                            column.Item().Text("• " + bullet);
+                        }
+
                         if (section.Table is { Rows.Count: > 0 } table)
                         {
                             column.Item().Element(container => WriteTable(container, table));
@@ -76,7 +81,7 @@ public static class AnalysisReportPdfWriter
 
     private static void WriteTable(IContainer container, ReportTable table)
     {
-        var riskColumnIndex = FindRiskScoreColumnIndex(table.Headers);
+        var riskColumnIndex = ReportFormatting.FindRiskColumnIndex(table.Headers);
 
         container.Table(tableDescriptor =>
         {
@@ -121,16 +126,4 @@ public static class AnalysisReportPdfWriter
     private static string ToQuestColor(System.Drawing.Color color)
         => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
-    private static int FindRiskScoreColumnIndex(IReadOnlyList<string> headers)
-    {
-        for (var index = 0; index < headers.Count; index++)
-        {
-            if (headers[index].Contains("위험", StringComparison.Ordinal))
-            {
-                return index;
-            }
-        }
-
-        return -1;
-    }
 }

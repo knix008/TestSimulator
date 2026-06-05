@@ -41,6 +41,19 @@ public static class AnalysisReportHtmlWriter
                 builder.AppendLine($"<p>{ReportFormatting.EscapeHtml(paragraph)}</p>");
             }
 
+            if (section.BulletItems.Count > 0)
+            {
+                builder.AppendLine("<ul>");
+                foreach (var bullet in section.BulletItems)
+                {
+                    builder.Append("<li>");
+                    builder.Append(ReportFormatting.EscapeHtml(bullet));
+                    builder.AppendLine("</li>");
+                }
+
+                builder.AppendLine("</ul>");
+            }
+
             if (section.Table is { Rows.Count: > 0 } table)
             {
                 WriteTable(builder, table);
@@ -69,7 +82,7 @@ public static class AnalysisReportHtmlWriter
 
         builder.AppendLine("</tr></thead><tbody>");
 
-        var riskColumnIndex = FindRiskScoreColumnIndex(table.Headers);
+        var riskColumnIndex = ReportFormatting.FindRiskColumnIndex(table.Headers);
         foreach (var row in table.Rows)
         {
             builder.AppendLine("<tr>");
@@ -97,19 +110,6 @@ public static class AnalysisReportHtmlWriter
         }
 
         builder.AppendLine("</tbody></table>");
-    }
-
-    private static int FindRiskScoreColumnIndex(IReadOnlyList<string> headers)
-    {
-        for (var index = 0; index < headers.Count; index++)
-        {
-            if (headers[index].Contains("위험", StringComparison.Ordinal))
-            {
-                return index;
-            }
-        }
-
-        return -1;
     }
 
     private static string GetStyles() => """

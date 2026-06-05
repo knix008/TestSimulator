@@ -14,6 +14,7 @@ public sealed class ReportSection
     public required string Heading { get; init; }
     public int Level { get; init; } = 2;
     public IReadOnlyList<string> Paragraphs { get; init; } = [];
+    public IReadOnlyList<string> BulletItems { get; init; } = [];
     public ReportTable? Table { get; init; }
 }
 

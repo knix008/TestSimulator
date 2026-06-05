@@ -122,6 +122,21 @@ internal static class ReportFormatting
 
 
 
+    public static int FindRiskColumnIndex(IReadOnlyList<string> headers)
+    {
+        for (var index = 0; index < headers.Count; index++)
+        {
+            var header = headers[index];
+            if (header.Contains("위험", StringComparison.Ordinal)
+                || header.Contains("상태", StringComparison.Ordinal))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
     public static string FormatFileName(string path, string rootDirectory)
 
     {

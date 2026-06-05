@@ -31,6 +31,11 @@ public static class AnalysisReportDocxWriter
                 AddParagraph(body, paragraph);
             }
 
+            foreach (var bullet in section.BulletItems)
+            {
+                AddBullet(body, bullet);
+            }
+
             if (section.Table is { Rows.Count: > 0 } table)
             {
                 AddTable(body, table);
@@ -62,6 +67,14 @@ public static class AnalysisReportDocxWriter
         body.Append(paragraph);
     }
 
+    private static void AddBullet(Body body, string text)
+    {
+        body.Append(new Paragraph(new Run(new Text("• " + text)
+        {
+            Space = SpaceProcessingModeValues.Preserve
+        })));
+    }
+
     private static void AddParagraph(Body body, string text, bool italic = false)
     {
         var runProperties = italic ? new RunProperties(new Italic()) : null;
@@ -73,7 +86,7 @@ public static class AnalysisReportDocxWriter
 
     private static void AddTable(Body body, ReportTable table)
     {
-        var riskColumnIndex = FindRiskScoreColumnIndex(table.Headers);
+        var riskColumnIndex = ReportFormatting.FindRiskColumnIndex(table.Headers);
         var wordTable = new Table();
         wordTable.AppendChild(new TableProperties(
             new TableBorders(
@@ -146,16 +159,4 @@ public static class AnalysisReportDocxWriter
         return new TableCell(properties, new Paragraph(run));
     }
 
-    private static int FindRiskScoreColumnIndex(IReadOnlyList<string> headers)
-    {
-        for (var index = 0; index < headers.Count; index++)
-        {
-            if (headers[index].Contains("위험", StringComparison.Ordinal))
-            {
-                return index;
-            }
-        }
-
-        return -1;
-    }
 }

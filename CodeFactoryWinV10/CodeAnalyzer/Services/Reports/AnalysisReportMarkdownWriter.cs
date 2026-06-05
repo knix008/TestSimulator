@@ -25,6 +25,17 @@ public static class AnalysisReportMarkdownWriter
                 builder.AppendLine();
             }
 
+            foreach (var bullet in section.BulletItems)
+            {
+                builder.Append("- ");
+                builder.AppendLine(ReportFormatting.EscapeMarkdownCell(bullet));
+            }
+
+            if (section.BulletItems.Count > 0)
+            {
+                builder.AppendLine();
+            }
+
             if (section.Table is { Rows.Count: > 0 } table)
             {
                 WriteTable(builder, table);
