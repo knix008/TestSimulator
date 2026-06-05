@@ -49,6 +49,40 @@
                         VerticalAlignment="Center" Margin="0,0,6,0"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
 
+                <!-- Calendar -->
+                <Button x:Name="CalendarBtn" Width="28" Height="22"
+                        Click="CalendarBtn_Click" ToolTip="Outlook 캘린더" Margin="0,0,4,0">
+                    <Viewbox Width="13" Height="13" Stretch="Uniform">
+                        <Canvas Width="16" Height="16">
+                            <!-- calendar body outline -->
+                            <Rectangle Canvas.Left="1" Canvas.Top="3"
+                                       Width="14" Height="12" RadiusX="1" RadiusY="1"
+                                       Stroke="{DynamicResource SubtleForegroundBrush}"
+                                       StrokeThickness="1.4" Fill="Transparent"/>
+                            <!-- header bar -->
+                            <Rectangle Canvas.Left="1" Canvas.Top="3"
+                                       Width="14" Height="4"
+                                       Fill="{DynamicResource SubtleForegroundBrush}" Opacity="0.55"
+                                       RadiusX="1" RadiusY="1"/>
+                            <!-- ring left -->
+                            <Rectangle Canvas.Left="4.5" Canvas.Top="1"
+                                       Width="1.5" Height="4" RadiusX="0.7" RadiusY="0.7"
+                                       Fill="{DynamicResource SubtleForegroundBrush}"/>
+                            <!-- ring right -->
+                            <Rectangle Canvas.Left="10" Canvas.Top="1"
+                                       Width="1.5" Height="4" RadiusX="0.7" RadiusY="0.7"
+                                       Fill="{DynamicResource SubtleForegroundBrush}"/>
+                            <!-- date dots row 1 -->
+                            <Rectangle Canvas.Left="3.5"  Canvas.Top="9"  Width="2" Height="2" Fill="{DynamicResource SubtleForegroundBrush}"/>
+                            <Rectangle Canvas.Left="7"    Canvas.Top="9"  Width="2" Height="2" Fill="{DynamicResource SubtleForegroundBrush}"/>
+                            <Rectangle Canvas.Left="10.5" Canvas.Top="9"  Width="2" Height="2" Fill="{DynamicResource SubtleForegroundBrush}"/>
+                            <!-- date dots row 2 -->
+                            <Rectangle Canvas.Left="3.5"  Canvas.Top="12" Width="2" Height="2" Fill="{DynamicResource SubtleForegroundBrush}"/>
+                            <Rectangle Canvas.Left="7"    Canvas.Top="12" Width="2" Height="2" Fill="{DynamicResource SubtleForegroundBrush}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
                 <!-- Clock mode toggle (digital ↔ analog) -->
                 <Button x:Name="ClockModeBtn" Width="28" Height="22"
                         Click="ClockModeBtn_Click" ToolTip="아날로그로 전환">

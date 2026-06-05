@@ -36,7 +36,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AlarmItem> _alarms = new();
     private readonly HashSet<Guid> _firedAlarms = new();
     private readonly ObservableCollection<TimerItem> _timers = new();
-    private readonly AlarmSoundPlayer _alarmSounds = new();
+    private readonly AlarmSoundPlayer  _alarmSounds = new();
+    private readonly StopwatchService  _stopwatchService = new();
 
     private bool _isDigital      = true;
     private bool _use24h         = false;
@@ -823,6 +824,16 @@ public partial class MainWindow : Window
         else               CloseSidePanel();
     }
 
+    private void CalendarBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_rightVisible)
+        {
+            _rightVisible = true;
+            OpenSidePanel();
+        }
+        _sidePanel?.SwitchToCalendarTab();
+    }
+
     private bool DetermineOpenRight() => DetermineOpenRightAt(Left, Width, _panelOpensRight);
 
     // preferRight: current side — only flip when that side runs out of space
@@ -849,7 +860,7 @@ public partial class MainWindow : Window
         _panelOpensRight = DetermineOpenRight();
         UpdatePanelToggleBtnSide(open: true);
 
-        _sidePanel = new SidePanelWindow(_alarms, _timers, _alarmSounds) { Owner = this };
+        _sidePanel = new SidePanelWindow(_alarms, _timers, _alarmSounds, _stopwatchService) { Owner = this };
         _sidePanel.OnThemeRequested       = name => { ApplyTheme(name); SaveSettings(); };
         _sidePanel.OnFormatChanged        = v => { _use24h = v; };
         _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; };

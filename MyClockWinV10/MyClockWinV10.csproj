@@ -29,19 +29,10 @@
     <SetupMsiPath>$(MSBuildThisFileDirectory)Setup\bin\x64\Release\MyClockWinV10-Setup.msi</SetupMsiPath>
   </PropertyGroup>
 
-  <Target Name="BuildInstallerPackage"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release' and Exists('$(SetupWixproj)')">
-    <MSBuild Projects="$(SetupWixproj)"
-             Properties="Configuration=Release;Platform=x64;BuildProjectReferences=false"
-             Targets="Build" />
-    <Copy SourceFiles="$(SetupMsiPath)"
-          DestinationFiles="$(OutputPath)MyClockWinV10-Setup.msi"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(SetupMsiPath)')" />
-    <Message Importance="high"
-             Text="MSI: $(OutputPath)MyClockWinV10-Setup.msi (also $(SetupMsiPath))"
-             Condition="Exists('$(SetupMsiPath)')" />
+  <Target Name="BuildInstallerPackage" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and Exists('$(SetupWixproj)')">
+    <MSBuild Projects="$(SetupWixproj)" Properties="Configuration=Release;Platform=x64;BuildProjectReferences=false" Targets="Build" />
+    <Copy SourceFiles="$(SetupMsiPath)" DestinationFiles="$(OutputPath)MyClockWinV10-Setup.msi" SkipUnchangedFiles="true" Condition="Exists('$(SetupMsiPath)')" />
+    <Message Importance="high" Text="MSI: $(OutputPath)MyClockWinV10-Setup.msi (also $(SetupMsiPath))" Condition="Exists('$(SetupMsiPath)')" />
   </Target>
 
 </Project>

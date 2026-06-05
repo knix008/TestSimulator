@@ -30,7 +30,10 @@ public partial class SidePanelWindow : Window
     private bool _panelOpensRight = true;
 
     private readonly ObservableCollection<TimerItem> _timers;
-    private readonly AlarmSoundPlayer _sounds;
+    private readonly AlarmSoundPlayer  _sounds;
+    private readonly StopwatchService  _stopwatch;
+    private readonly System.Windows.Threading.DispatcherTimer _swTimer = new()
+        { Interval = TimeSpan.FromMilliseconds(50) };
     private bool _suppressSoundComboChange;
 
     private readonly List<RadioButton> _digitalStyleRadios = new();
@@ -54,18 +57,162 @@ public partial class SidePanelWindow : Window
     public SidePanelWindow(
         ObservableCollection<AlarmItem> alarms,
         ObservableCollection<TimerItem> timers,
-        AlarmSoundPlayer sounds)
+        AlarmSoundPlayer sounds,
+        StopwatchService stopwatch)
     {
-        _timers = timers;
-        _sounds = sounds;
+        _timers    = timers;
+        _sounds    = sounds;
+        _stopwatch = stopwatch;
         InitializeComponent();
         AlarmList.ItemsSource  = alarms;
         TimerList.ItemsSource  = timers;
+        SwLapList.ItemsSource  = stopwatch.Laps;
         BuildColorSwatches();
         BuildClockStyleRadios();
         BuildAlarmSoundCombo();
         WorldPanel.EntriesChanged += () => OnSettingsChanged?.Invoke();
+        _swTimer.Tick += (_, _) => RefreshSwDisplay();
+        InitStopwatchUi();
     }
+
+    // ── Stopwatch ─────────────────────────────────────────────────────────
+
+    private void InitStopwatchUi()
+    {
+        RefreshSwDisplay();
+        bool running = _stopwatch.IsRunning;
+        SwStartBtn.IsEnabled = !running;
+        SwLapBtn.IsEnabled   =  running;
+        SwStopBtn.IsEnabled  =  running;
+        if (running) _swTimer.Start();
+    }
+
+    private void RefreshSwDisplay()
+    {
+        var e = _stopwatch.Elapsed;
+        SwDisplay.Text =
+            $"{(int)e.TotalHours:D2}:{e.Minutes:D2}:{e.Seconds:D2}.{e.Milliseconds / 10:D2}";
+    }
+
+    private void SwStart_Click(object sender, RoutedEventArgs e)
+    {
+        _stopwatch.Start();
+        SwStartBtn.IsEnabled = false;
+        SwLapBtn.IsEnabled   = true;
+        SwStopBtn.IsEnabled  = true;
+        _swTimer.Start();
+    }
+
+    private void SwLap_Click(object sender, RoutedEventArgs e)
+        => _stopwatch.RecordLap();
+
+    private void SwStop_Click(object sender, RoutedEventArgs e)
+    {
+        _stopwatch.Stop();
+        _swTimer.Stop();
+        RefreshSwDisplay();
+        SwStartBtn.IsEnabled = true;
+        SwLapBtn.IsEnabled   = false;
+        SwStopBtn.IsEnabled  = false;
+    }
+
+    private void SwReset_Click(object sender, RoutedEventArgs e)
+    {
+        _stopwatch.Reset();
+        _swTimer.Stop();
+        SwDisplay.Text       = "00:00:00.00";
+        SwStartBtn.IsEnabled = true;
+        SwLapBtn.IsEnabled   = false;
+        SwStopBtn.IsEnabled  = false;
+    }
+
+    // ── Outlook Calendar ──────────────────────────────────────────────────
+
+    private System.Threading.CancellationTokenSource? _calCts;
+
+    private void CalClear_Click(object sender, RoutedEventArgs e)
+    {
+        _calCts?.Cancel();
+        _calCts = null;
+        CalEventList.ItemsSource  = null;
+        CalProgressBar.Visibility = Visibility.Collapsed;
+        CalStatusText.Text        = "'불러오기' 버튼을 눌러 Outlook 일정을 가져옵니다.";
+        CalRefreshBtn.IsEnabled   = true;
+    }
+
+    private async void CalRefresh_Click(object sender, RoutedEventArgs e)
+    {
+        _calCts?.Cancel();
+        _calCts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var ct = _calCts.Token;
+
+        CalRefreshBtn.IsEnabled   = false;
+        CalEventList.ItemsSource  = null;
+        CalStatusText.Text        = "";
+        CalProgressBar.Visibility = Visibility.Visible;
+
+        void UpdateProgress(string msg) => Dispatcher.Invoke(() =>
+        {
+            CalStatusText.Text += (CalStatusText.Text.Length > 0 ? "\n" : "") + msg;
+            CalStatusText.ScrollToEnd();
+        });
+
+        List<CalendarEventItem>? events = null;
+        string? errorMsg = null;
+
+        try
+        {
+            events = await System.Threading.Tasks.Task.Run(
+                () => OutlookCalendarService.GetUpcomingEvents(31, UpdateProgress, ct), ct);
+        }
+        catch (OperationCanceledException)
+        {
+            errorMsg = "요청 시간이 초과되었습니다 (60초).";
+            CalStatusText.Text = errorMsg;
+            System.Windows.MessageBox.Show(
+                "Outlook 일정 불러오기가 60초를 초과했습니다.\n\n" +
+                "Outlook 보안 경고 창이 숨어있을 수 있습니다.\n" +
+                "작업 표시줄에서 Outlook을 확인하고 '허용' 버튼을 눌러 주세요.",
+                "시간 초과",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            errorMsg = ex.InnerException?.Message ?? ex.Message;
+            CalStatusText.Text = $"연결 실패: {errorMsg}";
+            System.Windows.MessageBox.Show(
+                $"Outlook 캘린더 연결에 실패했습니다.\n\n" +
+                $"오류 내용:\n{errorMsg}\n\n" +
+                "Outlook이 실행 중인지 확인하고 다시 시도해 주세요.",
+                "캘린더 연결 실패",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+        finally
+        {
+            CalProgressBar.Visibility = Visibility.Collapsed;
+            CalRefreshBtn.IsEnabled   = true;
+        }
+
+        if (errorMsg == null && events != null)
+        {
+            if (events.Count == 0)
+            {
+                CalStatusText.Text = "오늘부터 1개월 이내 일정이 없습니다.";
+            }
+            else
+            {
+                CalStatusText.Text       = $"총 {events.Count}개 (오늘부터 1개월)";
+                CalEventList.ItemsSource = events;
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    public void SwitchToCalendarTab()
+        => SettingsTabControl.SelectedIndex = 4;
 
     public void ApplyPanelSide(bool openRight)
     {
