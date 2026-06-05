@@ -35,6 +35,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly ObservableCollection<AlarmItem> _alarms = new();
     private readonly HashSet<Guid> _firedAlarms = new();
+    private readonly HashSet<Guid> _firedCalEvents = new();
     private readonly ObservableCollection<TimerItem> _timers = new();
     private readonly AlarmSoundPlayer  _alarmSounds = new();
     private readonly StopwatchService  _stopwatchService = new();
@@ -478,6 +479,7 @@ public partial class MainWindow : Window
 
         _sidePanel?.UpdateTimes(_worldUse24h);
         CheckAlarms(now);
+        CheckCalendarAlarms(now);
 
         if (_trayIcon != null)
             UpdateTrayIcon(now);
@@ -680,6 +682,39 @@ public partial class MainWindow : Window
             $"{alarm.Time.Hours:D2}:{alarm.Time.Minutes:D2}",
             alarm.Label,
             "알람");
+    }
+
+    private void CheckCalendarAlarms(DateTime now)
+    {
+        var events = _sidePanel?.CalEvents;
+        if (events == null || events.Count == 0) return;
+
+        foreach (var ev in events)
+        {
+            if (ev.ReminderMinutes == null) continue;
+
+            // 알람 발화 시각 = 일정 시작 - ReminderMinutes
+            var eventStart = ev.Date.Date + (ev.IsAllDay ? TimeSpan.Zero : ev.StartTime);
+            var fireAt     = eventStart.AddMinutes(-ev.ReminderMinutes.Value);
+
+            // 현재 분(초 무시)이 발화 시각의 분과 일치할 때 1번만 발화
+            var fireMinute = new DateTime(fireAt.Year, fireAt.Month, fireAt.Day,
+                                         fireAt.Hour, fireAt.Minute, 0);
+            var nowMinute  = new DateTime(now.Year, now.Month, now.Day,
+                                         now.Hour, now.Minute, 0);
+
+            if (nowMinute == fireMinute && _firedCalEvents.Add(ev.Id))
+            {
+                string timeStr = ev.IsAllDay
+                    ? ev.Date.ToString("M월 d일")
+                    : $"{ev.Date:M월 d일} {ev.StartTime:hh\\:mm}";
+                ShowAlarmNotification(timeStr, ev.Title, "일정 알림");
+            }
+            else if (nowMinute > fireMinute.AddMinutes(1))
+            {
+                _firedCalEvents.Remove(ev.Id);
+            }
+        }
     }
 
     private void ShowAlarmNotification(string time, string label, string header)

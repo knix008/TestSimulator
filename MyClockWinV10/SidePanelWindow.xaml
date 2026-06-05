@@ -411,114 +411,50 @@
 
             <!-- 캘린더 -->
             <TabItem Header="캘린더">
-                <Grid Margin="10,6,10,10">
+                <Grid Margin="8,6,8,8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Header -->
-                    <Grid Grid.Row="0" Margin="0,0,0,6">
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Outlook 캘린더" FontSize="14" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource ForegroundBrush}"/>
-                            <TextBlock x:Name="CalRangeText"
-                                       Text="오늘부터 1개월"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource SubtleForegroundBrush}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button x:Name="CalClearBtn" Content="초기화"
-                                    Height="30" Width="60"
-                                    Margin="0,0,5,0"
-                                    FontSize="12"
-                                    Click="CalClear_Click"/>
-                            <Button x:Name="CalRefreshBtn" Content="불러오기"
-                                    Height="30" Width="72"
-                                    Background="{DynamicResource AccentBrush}"
-                                    Foreground="{DynamicResource ActiveBtnFgBrush}"
-                                    FontWeight="SemiBold" FontSize="13"
-                                    Click="CalRefresh_Click"/>
-                        </StackPanel>
+                    <!-- 월 네비게이션 -->
+                    <Grid Grid.Row="0" Margin="0,0,0,4">
+                        <Button x:Name="CalPrevBtn" Content="◀"
+                                Width="30" Height="28" FontSize="11"
+                                HorizontalAlignment="Left"
+                                Click="CalPrev_Click"/>
+                        <TextBlock x:Name="CalMonthTitle"
+                                   FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ForegroundBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                        <Button x:Name="CalNextBtn" Content="▶"
+                                Width="30" Height="28" FontSize="11"
+                                HorizontalAlignment="Right"
+                                Click="CalNext_Click"/>
                     </Grid>
 
-                    <!-- Status / progress -->
-                    <StackPanel Grid.Row="1" Margin="0,0,0,8">
-                        <TextBox x:Name="CalStatusText"
-                                 Text="'불러오기' 버튼을 눌러 Outlook 일정을 가져옵니다."
-                                 FontSize="11"
-                                 FontFamily="Consolas"
-                                 Foreground="{DynamicResource SubtleForegroundBrush}"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 IsReadOnly="True"
-                                 TextWrapping="Wrap"
-                                 MaxLines="8"
-                                 MaxHeight="110"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Margin="0,0,0,6"/>
-                        <ProgressBar x:Name="CalProgressBar"
-                                     Height="3"
-                                     IsIndeterminate="True"
-                                     Visibility="Collapsed"
-                                 Foreground="{DynamicResource AccentBrush}"
-                                     Background="Transparent"
-                                     BorderThickness="0"/>
-                    </StackPanel>
+                    <!-- 요일 헤더: 일 ~ 토 -->
+                    <UniformGrid Grid.Row="1" Rows="1" Columns="7" Margin="0,0,0,2">
+                        <TextBlock Text="일" TextAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#E05555"/>
+                        <TextBlock Text="월" TextAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"/>
+                        <TextBlock Text="화" TextAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"/>
+                        <TextBlock Text="수" TextAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"/>
+                        <TextBlock Text="목" TextAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"/>
+                        <TextBlock Text="금" TextAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"/>
+                        <TextBlock Text="토" TextAlignment="Center" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#5588EE"/>
+                    </UniformGrid>
 
-                    <!-- Event list -->
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="CalEventList" HorizontalContentAlignment="Stretch">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Margin="0,2" Padding="10,8"
-                                            Background="{DynamicResource PanelBackgroundBrush}"
-                                            CornerRadius="6">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="52"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Date badge -->
-                                            <Border Grid.Column="0"
-                                                    Background="{DynamicResource AccentBrush}"
-                                                    CornerRadius="4"
-                                                    Padding="4,4"
-                                                    Margin="0,0,8,0"
-                                                    VerticalAlignment="Top">
-                                                <TextBlock Text="{Binding DateLabel}"
-                                                           FontSize="10" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource ActiveBtnFgBrush}"
-                                                           TextAlignment="Center"
-                                                           TextWrapping="Wrap"/>
-                                            </Border>
-
-                                            <!-- Event details -->
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding Title}"
-                                                           FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource ForegroundBrush}"
-                                                           TextWrapping="Wrap"/>
-                                                <TextBlock Text="{Binding TimeLabel}"
-                                                           FontSize="11" FontFamily="Consolas"
-                                                           Foreground="{DynamicResource DigitalTextBrush}"
-                                                           Margin="0,2,0,0"/>
-                                                <TextBlock Text="{Binding Location}"
-                                                           FontSize="11"
-                                                           Foreground="{DynamicResource SubtleForegroundBrush}"
-                                                           TextWrapping="Wrap"
-                                                           Margin="0,1,0,0"
-                                                           Visibility="{Binding HasLocation,
-                                                               Converter={StaticResource BoolToVisConverter}}"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
+                    <!-- 날짜 셀 (코드에서 동적 생성) -->
+                    <Grid x:Name="CalDayGrid" Grid.Row="2"/>
                 </Grid>
             </TabItem>
 

@@ -73,6 +73,7 @@ public partial class SidePanelWindow : Window
         WorldPanel.EntriesChanged += () => OnSettingsChanged?.Invoke();
         _swTimer.Tick += (_, _) => RefreshSwDisplay();
         InitStopwatchUi();
+        InitCalendar();
     }
 
     // ── Stopwatch ─────────────────────────────────────────────────────────
@@ -126,87 +127,346 @@ public partial class SidePanelWindow : Window
         SwStopBtn.IsEnabled  = false;
     }
 
-    // ── Outlook Calendar ──────────────────────────────────────────────────
+    // ── Built-in Calendar ────────────────────────────────────────────────
 
-    private System.Threading.CancellationTokenSource? _calCts;
+    private DateTime _calMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    internal List<CalendarEvent> CalEvents { get; private set; } = [];
 
-    private void CalClear_Click(object sender, RoutedEventArgs e)
+    private void InitCalendar()
     {
-        _calCts?.Cancel();
-        _calCts = null;
-        CalEventList.ItemsSource  = null;
-        CalProgressBar.Visibility = Visibility.Collapsed;
-        CalStatusText.Text        = "'불러오기' 버튼을 눌러 Outlook 일정을 가져옵니다.";
-        CalRefreshBtn.IsEnabled   = true;
+        CalEvents = CalendarEventStore.Load();
+        RebuildCalendar();
     }
 
-    private async void CalRefresh_Click(object sender, RoutedEventArgs e)
+    // ── Calendar layout constants ──────────────────────────────────────────
+    private const double CalRowHeight = 72;
+    private const double DayNumHeight = 20;
+    private const double LaneHeight   = 15;
+    private const int    MaxLanes     = 3;
+
+    internal void RebuildCalendar()
     {
-        _calCts?.Cancel();
-        _calCts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(60));
-        var ct = _calCts.Token;
+        var g = CalDayGrid;
+        g.Children.Clear();
+        g.RowDefinitions.Clear();
+        g.ColumnDefinitions.Clear();
 
-        CalRefreshBtn.IsEnabled   = false;
-        CalEventList.ItemsSource  = null;
-        CalStatusText.Text        = "";
-        CalProgressBar.Visibility = Visibility.Visible;
+        CalMonthTitle.Text = _calMonth.ToString("yyyy년 M월");
 
-        void UpdateProgress(string msg) => Dispatcher.Invoke(() =>
+        int startOffset = (int)_calMonth.DayOfWeek; // 0=Sun
+
+        for (int c = 0; c < 7; c++)
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        for (int r = 0; r < 6; r++)
         {
-            CalStatusText.Text += (CalStatusText.Text.Length > 0 ? "\n" : "") + msg;
-            CalStatusText.ScrollToEnd();
-        });
+            g.RowDefinitions.Add(new RowDefinition { Height = new GridLength(CalRowHeight) });
 
-        List<CalendarEventItem>? events = null;
-        string? errorMsg = null;
+            DateTime weekStart = _calMonth.AddDays(r * 7 - startOffset);
+            DateTime weekEnd   = weekStart.AddDays(6);
 
+            // ── Collect multi-day bars for this week ────────────────────
+            var rawBars = new List<(CalendarEvent ev, int c0, int c1)>();
+            foreach (var ev in CalEvents)
+            {
+                if (ev.Recurrence != RecurrenceType.None || !ev.IsMultiDay) continue;
+                DateTime evEnd = ev.EndDate!.Value.Date;
+                if (ev.Date.Date > weekEnd || evEnd < weekStart) continue;
+                int c0 = Math.Max(0, (int)(ev.Date.Date - weekStart).TotalDays);
+                int c1 = Math.Min(6, (int)(evEnd   - weekStart).TotalDays);
+                rawBars.Add((ev, c0, c1));
+            }
+            rawBars.Sort((a, b) =>
+            {
+                int cmp = (b.c1 - b.c0).CompareTo(a.c1 - a.c0); // longer first
+                return cmp != 0 ? cmp : a.c0.CompareTo(b.c0);
+            });
+
+            // Greedy lane assignment
+            int[] laneEnd = { -1, -1, -1 };
+            var bars = new List<(CalendarEvent ev, int c0, int c1, int lane)>();
+            foreach (var (ev, c0, c1) in rawBars)
+            {
+                int lane = -1;
+                for (int l = 0; l < MaxLanes; l++)
+                    if (laneEnd[l] < c0) { lane = l; laneEnd[l] = c1; break; }
+                if (lane >= 0) bars.Add((ev, c0, c1, lane));
+                // overflow: still accessible via context menu
+            }
+
+            // Which lanes each column already has occupied
+            var occupied = new HashSet<int>[7];
+            for (int c = 0; c < 7; c++) occupied[c] = [];
+            foreach (var (_, c0, c1, lane) in bars)
+                for (int c = c0; c <= c1; c++) occupied[c].Add(lane);
+
+            // ── Per-cell: background + day number + single-day chips ────
+            for (int c = 0; c < 7; c++)
+            {
+                DateTime date  = weekStart.AddDays(c);
+                bool valid     = date.Year == _calMonth.Year && date.Month == _calMonth.Month;
+                bool isToday   = valid && date == DateTime.Today;
+                bool isSun     = date.DayOfWeek == DayOfWeek.Sunday;
+                bool isSat     = date.DayOfWeek == DayOfWeek.Saturday;
+
+                Brush numFg = isToday ? Brushes.White
+                            : !valid  ? (Brush)FindResource("SubtleForegroundBrush")
+                            : isSun   ? new SolidColorBrush(Color.FromRgb(0xE0, 0x55, 0x55))
+                            : isSat   ? new SolidColorBrush(Color.FromRgb(0x55, 0x88, 0xEE))
+                            :           (Brush)FindResource("ForegroundBrush");
+
+                // Background cell (click + context menu)
+                var cell = new Border
+                {
+                    Background    = isToday ? (Brush)FindResource("AccentBrush") : Brushes.Transparent,
+                    Margin        = new Thickness(1),
+                    CornerRadius  = new CornerRadius(4),
+                    Cursor        = valid ? Cursors.Hand : Cursors.Arrow,
+                    ClipToBounds  = true
+                };
+                Grid.SetRow(cell, r); Grid.SetColumn(cell, c);
+                g.Children.Add(cell);
+
+                // Day number
+                var numTb = new TextBlock
+                {
+                    Text                = valid ? date.Day.ToString() : "",
+                    FontSize            = 11,
+                    FontWeight          = isToday ? FontWeights.Bold : FontWeights.Normal,
+                    Foreground          = numFg,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment   = VerticalAlignment.Top,
+                    Margin              = new Thickness(0, 2, 4, 0),
+                    IsHitTestVisible    = false
+                };
+                Grid.SetRow(numTb, r); Grid.SetColumn(numTb, c);
+                g.Children.Add(numTb);
+
+                if (!valid) continue;
+
+                var capturedDate = date;
+                var allEvts      = GetEventsForDate(date);
+                var singleEvts   = GetSingleDayEventsForDate(date);
+
+                // Double-click → add/edit
+                cell.MouseLeftButtonDown += (_, e) =>
+                {
+                    if (e.ClickCount != 2) return;
+                    var evts = GetEventsForDate(capturedDate);
+                    if (evts.Count > 0) OpenEditEventDialog(evts[0], capturedDate);
+                    else                OpenAddEventDialog(capturedDate);
+                };
+                AttachContextMenu(cell, capturedDate, allEvts);
+
+                // Single-day chips in available lanes
+                var availLanes = Enumerable.Range(0, MaxLanes)
+                                           .Where(l => !occupied[c].Contains(l))
+                                           .ToList();
+                for (int li = 0; li < Math.Min(singleEvts.Count, availLanes.Count); li++)
+                {
+                    var ev      = singleEvts[li];
+                    double top  = DayNumHeight + availLanes[li] * LaneHeight;
+                    var chip    = MakeEventChip(ev, top, true);
+                    var capEv   = ev;
+                    chip.MouseLeftButtonDown += (_, _) => OpenEditEventDialog(capEv, capturedDate);
+                    AttachEventBarContextMenu(chip, capEv, capturedDate);
+                    Grid.SetRow(chip, r); Grid.SetColumn(chip, c);
+                    g.Children.Add(chip);
+                }
+            }
+
+            // ── Multi-day spanning bars ─────────────────────────────────
+            foreach (var (ev, c0, c1, lane) in bars)
+            {
+                double top      = DayNumHeight + lane * LaneHeight;
+                bool startsHere = ev.Date.Date >= weekStart;
+                bool endsHere   = ev.EndDate!.Value.Date <= weekEnd;
+                var bar = MakeEventChip(ev, top, false,
+                    new CornerRadius(startsHere ? 3 : 0, endsHere ? 3 : 0,
+                                    endsHere   ? 3 : 0, startsHere ? 3 : 0),
+                    new Thickness(startsHere ? 2 : 0, top, endsHere ? 2 : 0, 0),
+                    showTitle: startsHere);
+
+                var capEv   = ev;
+                var capDate = weekStart.AddDays(c0);
+                bar.MouseLeftButtonDown += (_, _) => OpenEditEventDialog(capEv, capDate);
+                AttachEventBarContextMenu(bar, capEv, capDate);
+
+                Grid.SetRow(bar, r);
+                Grid.SetColumn(bar, c0);
+                Grid.SetColumnSpan(bar, c1 - c0 + 1);
+                g.Children.Add(bar);
+            }
+        }
+    }
+
+    private Border MakeEventChip(CalendarEvent ev, double topMargin, bool singleDay,
+        CornerRadius? radius = null, Thickness? margin = null, bool showTitle = true)
+    {
+        var border = new Border
+        {
+            Background        = PastelBrush(ev.Color),
+            CornerRadius      = radius ?? new CornerRadius(3),
+            Margin            = margin ?? new Thickness(1, topMargin, 1, 0),
+            Height            = LaneHeight - 2,
+            VerticalAlignment = VerticalAlignment.Top,
+            ClipToBounds      = true,
+            Cursor            = Cursors.Hand,
+            ToolTip           = $"{(ev.IsAllDay ? "종일" : ev.StartTime.ToString(@"hh\:mm"))}  {ev.Title}"
+        };
+        border.Child = new TextBlock
+        {
+            Text                = showTitle ? ev.Title : "",
+            FontSize            = 9,
+            Foreground          = Brushes.White,
+            TextTrimming        = TextTrimming.CharacterEllipsis,
+            VerticalAlignment   = VerticalAlignment.Center,
+            Margin              = new Thickness(4, 0, 2, 0)
+        };
+        return border;
+    }
+
+    private static SolidColorBrush PastelBrush(string hex)
+    {
         try
         {
-            events = await System.Threading.Tasks.Task.Run(
-                () => OutlookCalendarService.GetUpcomingEvents(31, UpdateProgress, ct), ct);
+            var c = (Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+            return new SolidColorBrush(Color.FromArgb(185, c.R, c.G, c.B));
         }
-        catch (OperationCanceledException)
-        {
-            errorMsg = "요청 시간이 초과되었습니다 (60초).";
-            CalStatusText.Text = errorMsg;
-            System.Windows.MessageBox.Show(
-                "Outlook 일정 불러오기가 60초를 초과했습니다.\n\n" +
-                "Outlook 보안 경고 창이 숨어있을 수 있습니다.\n" +
-                "작업 표시줄에서 Outlook을 확인하고 '허용' 버튼을 눌러 주세요.",
-                "시간 초과",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Warning);
-        }
-        catch (Exception ex)
-        {
-            errorMsg = ex.InnerException?.Message ?? ex.Message;
-            CalStatusText.Text = $"연결 실패: {errorMsg}";
-            System.Windows.MessageBox.Show(
-                $"Outlook 캘린더 연결에 실패했습니다.\n\n" +
-                $"오류 내용:\n{errorMsg}\n\n" +
-                "Outlook이 실행 중인지 확인하고 다시 시도해 주세요.",
-                "캘린더 연결 실패",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Error);
-        }
-        finally
-        {
-            CalProgressBar.Visibility = Visibility.Collapsed;
-            CalRefreshBtn.IsEnabled   = true;
-        }
+        catch { return new SolidColorBrush(Color.FromArgb(185, 0x4A, 0x90, 0xD9)); }
+    }
 
-        if (errorMsg == null && events != null)
+    private void AttachContextMenu(Border cell, DateTime date, List<CalendarEvent> evts)
+    {
+        var cm = new ContextMenu();
+        foreach (var ev in evts)
         {
-            if (events.Count == 0)
+            var capEv     = ev;
+            var timeLabel = ev.IsAllDay ? "종일" : ev.StartTime.ToString(@"hh\:mm");
+            var mi        = new MenuItem { Header = $"{timeLabel}  {ev.Title}" };
+            mi.Click += (_, _) => OpenEditEventDialog(capEv, date);
+            cm.Items.Add(mi);
+        }
+        if (evts.Count > 0) cm.Items.Add(new Separator());
+        var addMi = new MenuItem { Header = "일정 추가" };
+        addMi.Click += (_, _) => OpenAddEventDialog(date);
+        cm.Items.Add(addMi);
+        cell.ContextMenu = cm;
+    }
+
+    private void AttachEventBarContextMenu(Border bar, CalendarEvent ev, DateTime date)
+    {
+        var cm = new ContextMenu();
+        var editMi = new MenuItem { Header = $"편집: {ev.Title}" };
+        editMi.Click += (_, _) => OpenEditEventDialog(ev, date);
+        cm.Items.Add(editMi);
+        var delMi = new MenuItem { Header = $"삭제: {ev.Title}" };
+        delMi.Click += (_, _) =>
+        {
+            if (MessageBox.Show($"'{ev.Title}' 일정을 삭제하시겠습니까?",
+                "일정 삭제", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
-                CalStatusText.Text = "오늘부터 1개월 이내 일정이 없습니다.";
+                var found = CalEvents.FirstOrDefault(e => e.Id == ev.Id);
+                if (found != null) { CalEvents.Remove(found); CalendarEventStore.Save(CalEvents); RebuildCalendar(); }
+            }
+        };
+        cm.Items.Add(delMi);
+        bar.ContextMenu = cm;
+    }
+
+    private List<CalendarEvent> GetEventsForDate(DateTime date)
+    {
+        var result = new List<CalendarEvent>();
+        foreach (var ev in CalEvents)
+        {
+            if (ev.Date.Date > date.Date) continue;
+            if (ev.Recurrence != RecurrenceType.None)
+            {
+                bool matches = ev.Recurrence switch
+                {
+                    RecurrenceType.Daily   => true,
+                    RecurrenceType.Weekly  => ev.Date.DayOfWeek == date.DayOfWeek,
+                    RecurrenceType.Monthly => ev.Date.Day == date.Day,
+                    RecurrenceType.Yearly  => ev.Date.Month == date.Month && ev.Date.Day == date.Day,
+                    _                      => false
+                };
+                if (matches) result.Add(ev);
             }
             else
             {
-                CalStatusText.Text       = $"총 {events.Count}개 (오늘부터 1개월)";
-                CalEventList.ItemsSource = events;
+                var endDate = ev.EndDate?.Date ?? ev.Date.Date;
+                if (date.Date <= endDate) result.Add(ev);
             }
         }
+        return result;
+    }
+
+    private List<CalendarEvent> GetSingleDayEventsForDate(DateTime date)
+    {
+        var result = new List<CalendarEvent>();
+        foreach (var ev in CalEvents)
+        {
+            if (ev.Date.Date > date.Date) continue;
+            if (ev.Recurrence != RecurrenceType.None)
+            {
+                bool matches = ev.Recurrence switch
+                {
+                    RecurrenceType.Daily   => true,
+                    RecurrenceType.Weekly  => ev.Date.DayOfWeek == date.DayOfWeek,
+                    RecurrenceType.Monthly => ev.Date.Day == date.Day,
+                    RecurrenceType.Yearly  => ev.Date.Month == date.Month && ev.Date.Day == date.Day,
+                    _                      => false
+                };
+                if (matches) result.Add(ev);
+            }
+            else if (!ev.IsMultiDay && ev.Date.Date == date.Date)
+            {
+                result.Add(ev);
+            }
+        }
+        return result;
+    }
+
+    private void OpenAddEventDialog(DateTime date)
+    {
+        var dlg = new AddCalendarEventDialog(date, this);
+        if (dlg.ShowDialog() == true && dlg.Result != null)
+        {
+            CalEvents.Add(dlg.Result);
+            CalendarEventStore.Save(CalEvents);
+            RebuildCalendar();
+        }
+    }
+
+    private void OpenEditEventDialog(CalendarEvent existing, DateTime displayDate)
+    {
+        var dlg = new AddCalendarEventDialog(existing, this);
+        if (dlg.ShowDialog() != true) return;
+        if (dlg.Deleted)
+        {
+            var original = CalEvents.FirstOrDefault(e => e.Id == existing.Id);
+            if (original != null) CalEvents.Remove(original);
+        }
+        else if (dlg.Result != null)
+        {
+            int idx = CalEvents.FindIndex(e => e.Id == existing.Id);
+            if (idx >= 0) CalEvents[idx] = dlg.Result;
+            else          CalEvents.Add(dlg.Result);
+        }
+        CalendarEventStore.Save(CalEvents);
+        RebuildCalendar();
+    }
+
+    private void CalPrev_Click(object sender, RoutedEventArgs e)
+    {
+        _calMonth = _calMonth.AddMonths(-1);
+        RebuildCalendar();
+    }
+
+    private void CalNext_Click(object sender, RoutedEventArgs e)
+    {
+        _calMonth = _calMonth.AddMonths(1);
+        RebuildCalendar();
     }
 
     // ─────────────────────────────────────────────────────────────────────
