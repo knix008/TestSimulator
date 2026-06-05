@@ -5,9 +5,9 @@ namespace CodeAnalyzer.Controls;
 
 public sealed class AnalysisCompletionDialog : Form
 {
-    private readonly TextBox _detailBox;
+    private readonly TextBox _contentBox;
 
-    private AnalysisCompletionDialog(string summaryMessage, string detailText, bool hasIssues)
+    private AnalysisCompletionDialog(string displayText, bool hasIssues)
     {
         Text = "분석 완료";
         StartPosition = FormStartPosition.CenterParent;
@@ -19,30 +19,6 @@ public sealed class AnalysisCompletionDialog : Form
         ShowInTaskbar = false;
         ShowIcon = true;
         Icon = hasIssues ? SystemIcons.Warning : SystemIcons.Information;
-
-        var summaryBox = new TextBox
-        {
-            Dock = DockStyle.Top,
-            Height = 110,
-            Multiline = true,
-            ReadOnly = true,
-            BorderStyle = BorderStyle.None,
-            BackColor = SystemColors.Control,
-            TabStop = false,
-            ScrollBars = ScrollBars.Vertical,
-            Text = summaryMessage
-        };
-
-        _detailBox = new TextBox
-        {
-            Dock = DockStyle.Fill,
-            Multiline = true,
-            ScrollBars = ScrollBars.Both,
-            ReadOnly = true,
-            WordWrap = false,
-            Font = new Font("Consolas", 9f),
-            Text = detailText
-        };
 
         var buttonPanel = new FlowLayoutPanel
         {
@@ -66,13 +42,26 @@ public sealed class AnalysisCompletionDialog : Form
             AutoSize = true,
             Margin = new Padding(6)
         };
-        copyButton.Click += (_, _) => CopySummaryText(summaryMessage, detailText);
+        copyButton.Click += (_, _) => CopySummaryText(displayText);
 
         buttonPanel.Controls.Add(closeButton);
         buttonPanel.Controls.Add(copyButton);
 
-        Controls.Add(_detailBox);
-        Controls.Add(summaryBox);
+        _contentBox = new TextBox
+        {
+            Dock = DockStyle.Fill,
+            Multiline = true,
+            ScrollBars = ScrollBars.Vertical,
+            ReadOnly = true,
+            WordWrap = true,
+            BorderStyle = BorderStyle.None,
+            BackColor = SystemColors.Window,
+            Font = new Font("Segoe UI", 9.5f),
+            TabStop = false,
+            Text = displayText
+        };
+
+        Controls.Add(_contentBox);
         Controls.Add(buttonPanel);
 
         AcceptButton = closeButton;
@@ -94,21 +83,17 @@ public sealed class AnalysisCompletionDialog : Form
             elapsed,
             rootDirectory);
 
-        using var dialog = new AnalysisCompletionDialog(
-            built.SummaryMessage,
-            built.DetailText,
-            result.Issues.Count > 0);
+        using var dialog = new AnalysisCompletionDialog(built.DisplayText, result.Issues.Count > 0);
         dialog.ShowDialog(owner);
     }
 
-    private void CopySummaryText(string summaryMessage, string detailText)
+    private void CopySummaryText(string displayText)
     {
         try
         {
-            var text = $"{summaryMessage}{Environment.NewLine}{Environment.NewLine}{detailText}";
-            if (!string.IsNullOrEmpty(text))
+            if (!string.IsNullOrEmpty(displayText))
             {
-                Clipboard.SetText(text);
+                Clipboard.SetText(displayText);
             }
 
             MessageBox.Show(

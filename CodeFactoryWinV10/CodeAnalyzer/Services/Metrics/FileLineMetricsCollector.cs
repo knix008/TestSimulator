@@ -6,6 +6,7 @@ public static class FileLineMetricsCollector
 {
     public static async Task<IReadOnlyList<FileLineMetric>> CollectAsync(
         IReadOnlyList<string> sourceFiles,
+        string? projectRoot = null,
         CancellationToken cancellationToken = default)
     {
         var metrics = new List<FileLineMetric>(sourceFiles.Count);
@@ -42,7 +43,7 @@ public static class FileLineMetricsCollector
             }
         }
 
-        FileQualityScanner.ApplyTodoMetrics(metrics);
+        FileQualityScanner.ApplyFileQualityMetrics(metrics, projectRoot);
         return metrics;
     }
 }

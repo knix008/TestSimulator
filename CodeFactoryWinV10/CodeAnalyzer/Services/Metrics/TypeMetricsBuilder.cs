@@ -33,6 +33,16 @@ public static class TypeMetricsBuilder
             .GroupBy(relation => relation.FromId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
 
+        var childrenCount = structure.Relations
+            .Where(relation => relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
+            .GroupBy(relation => relation.ToId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+
+        var inheritanceParents = structure.Relations
+            .Where(relation => relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
+            .GroupBy(relation => relation.FromId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.Select(edge => edge.ToId).ToList(), StringComparer.Ordinal);
+
         var metrics = new List<TypeMetric>(structure.Types.Count);
 
         foreach (var type in structure.Types)
@@ -50,6 +60,14 @@ public static class TypeMetricsBuilder
                     || func.FullName.Contains(type.DisplayName, StringComparison.Ordinal)
                     || func.FullName.Contains(type.FullName, StringComparison.Ordinal))
                 .ToList();
+
+            var operationCount = Math.Max(type.Operations.Count, 1);
+            var matchedRatio = matched.Count / (double)operationCount;
+            var lackOfCohesion = Math.Round(Math.Clamp(1 - matchedRatio, 0, 1), 3);
+            var wmc = matched.Sum(func => func.WeightedMethodComplexity > 0
+                ? func.WeightedMethodComplexity
+                : func.CyclomaticComplexity);
+            var rfc = matched.Count + dependencyOut.GetValueOrDefault(type.Id);
 
             metrics.Add(new TypeMetric
             {
@@ -69,7 +87,12 @@ public static class TypeMetricsBuilder
                     : 100,
                 DependencyOutCount = dependencyOut.GetValueOrDefault(type.Id),
                 DependencyInCount = dependencyIn.GetValueOrDefault(type.Id),
-                InheritanceOutCount = inheritanceOut.GetValueOrDefault(type.Id)
+                InheritanceOutCount = inheritanceOut.GetValueOrDefault(type.Id),
+                LackOfCohesion = lackOfCohesion,
+                DepthOfInheritance = ComputeDepthOfInheritance(type.Id, inheritanceParents),
+                NumberOfChildren = childrenCount.GetValueOrDefault(type.Id),
+                WeightedMethodCount = wmc,
+                ResponseForClass = rfc
             });
         }
 
@@ -79,5 +102,37 @@ public static class TypeMetricsBuilder
             .ThenByDescending(metric => metric.MaxCyclomaticComplexity)
             .ThenBy(metric => metric.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+    }
+
+    private static int ComputeDepthOfInheritance(
+        string typeId,
+        IReadOnlyDictionary<string, List<string>> inheritanceParents)
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        return WalkDepth(typeId, inheritanceParents, visited);
+    }
+
+    private static int WalkDepth(
+        string typeId,
+        IReadOnlyDictionary<string, List<string>> inheritanceParents,
+        HashSet<string> visited)
+    {
+        if (!visited.Add(typeId))
+        {
+            return 0;
+        }
+
+        if (!inheritanceParents.TryGetValue(typeId, out var parents) || parents.Count == 0)
+        {
+            return 1;
+        }
+
+        var maxParent = 0;
+        foreach (var parent in parents)
+        {
+            maxParent = Math.Max(maxParent, WalkDepth(parent, inheritanceParents, visited));
+        }
+
+        return maxParent + 1;
     }
 }

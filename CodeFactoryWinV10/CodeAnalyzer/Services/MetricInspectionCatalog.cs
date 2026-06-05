@@ -38,7 +38,22 @@ public static class MetricInspectionCatalog
         new(MetricInspectionKind.GlobalVariables, "아키텍처", "전역 변수"),
         new(MetricInspectionKind.DatabaseSchema, "아키텍처", "DB 스키마"),
         new(MetricInspectionKind.DuplicateCodeGroups, "아키텍처", "중복 코드 그룹"),
-        new(MetricInspectionKind.TypeStructure, "아키텍처", "타입 구조 요약")
+        new(MetricInspectionKind.TypeStructure, "아키텍처", "타입 구조 요약"),
+
+        new(MetricInspectionKind.StatementCount, "함수·파일", "함수 문장 수"),
+        new(MetricInspectionKind.SwitchCaseCount, "함수·파일", "switch/case 수"),
+        new(MetricInspectionKind.CatchQuality, "함수·파일", "빈 catch / 광범위 catch"),
+        new(MetricInspectionKind.AsyncVoid, "함수·파일", "async void"),
+        new(MetricInspectionKind.PossiblyUnusedCode, "함수·아키텍처", "미사용 가능 코드"),
+        new(MetricInspectionKind.PublicApiDensity, "파일", "public API 수"),
+        new(MetricInspectionKind.TestCodeRatio, "파일·아키텍처", "테스트 코드 비율"),
+        new(MetricInspectionKind.PackageInstability, "아키텍처", "패키지 불안정성 (I)"),
+        new(MetricInspectionKind.LayerViolation, "아키텍처", "계층 위반"),
+        new(MetricInspectionKind.TypeCohesion, "타입", "LCOM 응집도"),
+        new(MetricInspectionKind.InheritanceDepth, "타입", "상속 깊이 (DIT) · 자식 수 (NOC)"),
+        new(MetricInspectionKind.GitHotspot, "파일·아키텍처", "Git 변경 핫스팟"),
+        new(MetricInspectionKind.SecuritySmells, "파일·아키텍처", "보안 smell"),
+        new(MetricInspectionKind.HalsteadMetrics, "함수·타입", "Halstead · WMC · RFC")
     ];
 
     public static MetricInspectionKind NormalizeScope(MetricInspectionKind scope) =>

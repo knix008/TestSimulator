@@ -15,7 +15,17 @@ public enum ArchitectureInsightKind
     DatabaseSchema,
     FileDuplicate,
     GodFile,
-    LowComment
+    LowComment,
+    PossiblyUnusedCode,
+    CatchQuality,
+    AsyncVoid,
+    TestCoverage,
+    PackageInstability,
+    LayerViolation,
+    TypeCohesion,
+    InheritanceMetrics,
+    GitHotspot,
+    SecuritySmell
 }
 
 public sealed class ArchitectureInsight

@@ -973,6 +973,26 @@ public sealed class CodeMetricsViewer : UserControl
             parts.Add($"주석↓ {summary.LowCommentFileCount}");
         }
 
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PossiblyUnusedCode))
+        {
+            parts.Add($"미사용? {summary.PossiblyUnusedCount}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TestCodeRatio))
+        {
+            parts.Add($"테스트 {summary.TestCodeLinePercent:F1}%");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SecuritySmells))
+        {
+            parts.Add($"보안 {summary.SecuritySmellFileCount}");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GitHotspot))
+        {
+            parts.Add($"핫스팟 {summary.GitHotspotFileCount}");
+        }
+
         if (functionTruncated || fileTruncated)
         {
             parts.Add("목록 상위만 표시");

@@ -36,6 +36,21 @@ public enum MetricInspectionKind : ulong
     DuplicateCodeGroups = 1UL << 25,
     TypeStructure = 1UL << 26,
 
+    StatementCount = 1UL << 27,
+    SwitchCaseCount = 1UL << 28,
+    CatchQuality = 1UL << 29,
+    AsyncVoid = 1UL << 30,
+    PossiblyUnusedCode = 1UL << 31,
+    PublicApiDensity = 1UL << 32,
+    TestCodeRatio = 1UL << 33,
+    PackageInstability = 1UL << 34,
+    LayerViolation = 1UL << 35,
+    TypeCohesion = 1UL << 36,
+    InheritanceDepth = 1UL << 37,
+    GitHotspot = 1UL << 38,
+    SecuritySmells = 1UL << 39,
+    HalsteadMetrics = 1UL << 40,
+
     All = ShowFilesTab
         | ShowFunctionsTab
         | ShowTypesTab
@@ -63,4 +78,18 @@ public enum MetricInspectionKind : ulong
         | DatabaseSchema
         | DuplicateCodeGroups
         | TypeStructure
+        | StatementCount
+        | SwitchCaseCount
+        | CatchQuality
+        | AsyncVoid
+        | PossiblyUnusedCode
+        | PublicApiDensity
+        | TestCodeRatio
+        | PackageInstability
+        | LayerViolation
+        | TypeCohesion
+        | InheritanceDepth
+        | GitHotspot
+        | SecuritySmells
+        | HalsteadMetrics
 }

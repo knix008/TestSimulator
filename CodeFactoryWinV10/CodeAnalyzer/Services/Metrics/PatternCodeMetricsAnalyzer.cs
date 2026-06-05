@@ -96,6 +96,8 @@ public sealed class PatternCodeMetricsAnalyzer : ICodeMetricsAnalyzer
             var signature = matches[i].Value;
             var parameterCount = CountParametersFromSignature(signature);
             var magic = FunctionComplexityMetrics.CountMagicNumbersFromText(body);
+            var signals = FunctionQualitySignals.FromSourceText(body);
+            var isPublic = signature.Contains("public", StringComparison.OrdinalIgnoreCase);
 
             yield return new FunctionMetric
             {
@@ -115,7 +117,15 @@ public sealed class PatternCodeMetricsAnalyzer : ICodeMetricsAnalyzer
                 MagicNumberCount = magic,
                 MaintenanceIndex = FunctionComplexityMetrics.ComputeMaintenanceIndex(
                     lineCount, cyclomatic, cognitive, parameterCount),
-                Precision = MetricsPrecision.Approximate
+                Precision = MetricsPrecision.Approximate,
+                StatementCount = signals.StatementCount,
+                SwitchCaseCount = signals.SwitchCaseCount,
+                EmptyCatchCount = signals.EmptyCatchCount,
+                BroadCatchCount = signals.BroadCatchCount,
+                IsAsyncVoid = signals.IsAsyncVoid,
+                IsPublic = isPublic,
+                HalsteadVolume = signals.HalsteadVolume,
+                WeightedMethodComplexity = signals.WeightedMethodCount
             };
         }
     }

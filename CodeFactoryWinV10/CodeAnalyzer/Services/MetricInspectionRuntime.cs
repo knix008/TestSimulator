@@ -14,13 +14,23 @@ public static class MetricInspectionRuntime
         | MetricInspectionKind.MagicNumbers
         | MetricInspectionKind.FanOut
         | MetricInspectionKind.MaintenanceIndex
-        | MetricInspectionKind.GodType;
+        | MetricInspectionKind.GodType
+        | MetricInspectionKind.StatementCount
+        | MetricInspectionKind.SwitchCaseCount
+        | MetricInspectionKind.CatchQuality
+        | MetricInspectionKind.AsyncVoid
+        | MetricInspectionKind.PossiblyUnusedCode
+        | MetricInspectionKind.HalsteadMetrics;
 
     private static readonly MetricInspectionKind FileMetricInspections =
         MetricInspectionKind.TodoDensity
         | MetricInspectionKind.GodFile
         | MetricInspectionKind.LowCommentRatio
-        | MetricInspectionKind.FileDuplicateLines;
+        | MetricInspectionKind.FileDuplicateLines
+        | MetricInspectionKind.PublicApiDensity
+        | MetricInspectionKind.TestCodeRatio
+        | MetricInspectionKind.GitHotspot
+        | MetricInspectionKind.SecuritySmells;
 
     private static readonly MetricInspectionKind CallGraphInspections =
         MetricInspectionKind.FanOut
@@ -44,7 +54,15 @@ public static class MetricInspectionRuntime
         | MetricInspectionKind.FileDuplicateLines
         | MetricInspectionKind.TypeStructure
         | MetricInspectionKind.GodFile
-        | MetricInspectionKind.LowCommentRatio;
+        | MetricInspectionKind.LowCommentRatio
+        | MetricInspectionKind.PossiblyUnusedCode
+        | MetricInspectionKind.TestCodeRatio
+        | MetricInspectionKind.PackageInstability
+        | MetricInspectionKind.LayerViolation
+        | MetricInspectionKind.GitHotspot
+        | MetricInspectionKind.SecuritySmells
+        | MetricInspectionKind.CatchQuality
+        | MetricInspectionKind.AsyncVoid;
 
     public static bool RequiresFileLineMetrics(MetricInspectionKind inspections) =>
         IsOn(inspections, MetricInspectionKind.ShowFilesTab)
@@ -63,7 +81,10 @@ public static class MetricInspectionRuntime
 
     public static bool RequiresTypeStructure(MetricInspectionKind inspections) =>
         IsOn(inspections, MetricInspectionKind.TypeStructure)
-        || IsOn(inspections, MetricInspectionKind.ShowTypesTab);
+        || IsOn(inspections, MetricInspectionKind.ShowTypesTab)
+        || IsOn(inspections, MetricInspectionKind.TypeCohesion)
+        || IsOn(inspections, MetricInspectionKind.InheritanceDepth)
+        || IsOn(inspections, MetricInspectionKind.HalsteadMetrics);
 
     public static bool RequiresDuplicateScan(MetricInspectionKind inspections) =>
         IsOn(inspections, MetricInspectionKind.DuplicateCodeGroups)
@@ -78,7 +99,10 @@ public static class MetricInspectionRuntime
     public static bool RequiresMetricsEnrichment(MetricInspectionKind inspections) =>
         RequiresFunctionMetrics(inspections)
         || IsOn(inspections, FileMetricInspections)
-        || RequiresDuplicateScan(inspections);
+        || RequiresDuplicateScan(inspections)
+        || IsOn(inspections, MetricInspectionKind.PackageInstability)
+        || IsOn(inspections, MetricInspectionKind.LayerViolation)
+        || IsOn(inspections, MetricInspectionKind.PossiblyUnusedCode);
 
     public static bool RequiresArchitectureInsights(MetricInspectionKind inspections) =>
         IsOn(inspections, ArchitectureInsightInspections);

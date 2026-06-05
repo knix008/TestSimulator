@@ -260,6 +260,9 @@ public sealed class RoslynCodeMetricsAnalyzer : ICodeMetricsAnalyzer
         var magic = _isVisualBasic
             ? FunctionComplexityMetrics.CountMagicNumbersFromText(spanNode.ToString())
             : FunctionComplexityMetrics.CountMagicNumbersFromCSharp(spanNode);
+        var signals = _isVisualBasic
+            ? FunctionQualitySignals.FromSourceText(spanNode.ToString())
+            : FunctionQualitySignals.FromCSharpMethod(spanNode, symbol);
 
         functions.Add(new FunctionMetric
         {
@@ -279,7 +282,15 @@ public sealed class RoslynCodeMetricsAnalyzer : ICodeMetricsAnalyzer
             MagicNumberCount = magic,
             MaintenanceIndex = FunctionComplexityMetrics.ComputeMaintenanceIndex(
                 lineCount, cyclomatic, cognitive, symbol.Parameters.Length),
-            Precision = MetricsPrecision.Semantic
+            Precision = MetricsPrecision.Semantic,
+            StatementCount = signals.StatementCount,
+            SwitchCaseCount = signals.SwitchCaseCount,
+            EmptyCatchCount = signals.EmptyCatchCount,
+            BroadCatchCount = signals.BroadCatchCount,
+            IsAsyncVoid = signals.IsAsyncVoid,
+            IsPublic = symbol.DeclaredAccessibility == Microsoft.CodeAnalysis.Accessibility.Public,
+            HalsteadVolume = signals.HalsteadVolume,
+            WeightedMethodComplexity = signals.WeightedMethodCount
         });
     }
 

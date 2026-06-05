@@ -11,13 +11,15 @@ public static class CodeMetricsEnricher
         CallGraphResult callGraph,
         DuplicateCodeResult duplicates,
         UserAnalysisSettings thresholds,
-        MetricInspectionKind inspections)
+        MetricInspectionKind inspections,
+        FileRelationGraphResult? fileRelations = null,
+        string? projectRoot = null)
     {
         inspections = MetricInspectionScope.Normalize(inspections);
 
         if (metrics.Functions.Count > AnalysisScaleLimits.MaxFunctionsForFullEnrichment)
         {
-            return EnrichLargeProject(metrics, callGraph, duplicates, thresholds, inspections);
+            return EnrichLargeProject(metrics, callGraph, duplicates, thresholds, inspections, fileRelations, projectRoot);
         }
 
         var functions = EnrichFunctions(metrics.Functions, callGraph, inspections);
@@ -26,7 +28,11 @@ public static class CodeMetricsEnricher
             ? DuplicateLinesByFileIndex.Build(duplicates)
             : null;
         var fileAggregates = FileMetricsAggregator.Build(files, functions, thresholds, duplicateByFile);
-        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections);
+        var packages = MetricInspectionRuntime.IsInspectionEnabled(inspections, MetricInspectionKind.PackageInstability)
+            && fileRelations is not null
+            ? PackageMetricsBuilder.Build(fileRelations, files, projectRoot)
+            : metrics.Packages;
+        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections, packages);
 
         return new CodeMetricsResult
         {
@@ -37,7 +43,8 @@ public static class CodeMetricsEnricher
             FileMap = metrics.FileMap,
             FunctionMap = functions
                 .GroupBy(func => func.Id, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal),
+            Packages = packages
         };
     }
 
@@ -46,7 +53,9 @@ public static class CodeMetricsEnricher
         CallGraphResult callGraph,
         DuplicateCodeResult duplicates,
         UserAnalysisSettings thresholds,
-        MetricInspectionKind inspections)
+        MetricInspectionKind inspections,
+        FileRelationGraphResult? fileRelations,
+        string? projectRoot)
     {
         var functions = metrics.Functions;
         var files = metrics.Files;
@@ -59,7 +68,11 @@ public static class CodeMetricsEnricher
                 MetricInspectionRuntime.RequiresDuplicateScan(inspections)
                     ? DuplicateLinesByFileIndex.Build(duplicates)
                     : null);
-        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections);
+        var packages = MetricInspectionRuntime.IsInspectionEnabled(inspections, MetricInspectionKind.PackageInstability)
+            && fileRelations is not null
+            ? PackageMetricsBuilder.Build(fileRelations, files, projectRoot)
+            : metrics.Packages;
+        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections, packages);
 
         return new CodeMetricsResult
         {
@@ -68,7 +81,8 @@ public static class CodeMetricsEnricher
             Functions = functions,
             Summary = summary,
             FileMap = metrics.FileMap,
-            FunctionMap = metrics.FunctionMap
+            FunctionMap = metrics.FunctionMap,
+            Packages = packages
         };
     }
 
@@ -78,6 +92,7 @@ public static class CodeMetricsEnricher
         MetricInspectionKind inspections)
     {
         var enrichCallGraph = MetricInspectionRuntime.RequiresCallGraphEnrichment(inspections);
+        var markUnused = MetricInspectionRuntime.IsInspectionEnabled(inspections, MetricInspectionKind.PossiblyUnusedCode);
         var result = new List<FunctionMetric>(functions.Count);
 
         foreach (var func in functions)
@@ -98,7 +113,7 @@ public static class CodeMetricsEnricher
                     func.ParameterCount)
                 : func.MaintenanceIndex;
 
-            result.Add(new FunctionMetric
+            var enriched = new FunctionMetric
             {
                 Id = func.Id,
                 LanguageId = func.LanguageId,
@@ -117,8 +132,52 @@ public static class CodeMetricsEnricher
                 FanOut = fanOut,
                 MagicNumberCount = func.MagicNumberCount,
                 MaintenanceIndex = mi,
-                Precision = func.Precision
-            });
+                Precision = func.Precision,
+                StatementCount = func.StatementCount,
+                SwitchCaseCount = func.SwitchCaseCount,
+                EmptyCatchCount = func.EmptyCatchCount,
+                BroadCatchCount = func.BroadCatchCount,
+                IsAsyncVoid = func.IsAsyncVoid,
+                IsPublic = func.IsPublic,
+                HalsteadVolume = func.HalsteadVolume,
+                WeightedMethodComplexity = func.WeightedMethodComplexity
+            };
+
+            if (markUnused)
+            {
+                enriched = new FunctionMetric
+                {
+                    Id = enriched.Id,
+                    LanguageId = enriched.LanguageId,
+                    DisplayName = enriched.DisplayName,
+                    FullName = enriched.FullName,
+                    FilePath = enriched.FilePath,
+                    StartLine = enriched.StartLine,
+                    EndLine = enriched.EndLine,
+                    LineCount = enriched.LineCount,
+                    CyclomaticComplexity = enriched.CyclomaticComplexity,
+                    CognitiveComplexity = enriched.CognitiveComplexity,
+                    MaxNestingDepth = enriched.MaxNestingDepth,
+                    ParameterCount = enriched.ParameterCount,
+                    ReturnCount = enriched.ReturnCount,
+                    FanIn = enriched.FanIn,
+                    FanOut = enriched.FanOut,
+                    MagicNumberCount = enriched.MagicNumberCount,
+                    MaintenanceIndex = enriched.MaintenanceIndex,
+                    Precision = enriched.Precision,
+                    StatementCount = enriched.StatementCount,
+                    SwitchCaseCount = enriched.SwitchCaseCount,
+                    EmptyCatchCount = enriched.EmptyCatchCount,
+                    BroadCatchCount = enriched.BroadCatchCount,
+                    IsAsyncVoid = enriched.IsAsyncVoid,
+                    IsPublic = enriched.IsPublic,
+                    IsPossiblyUnused = FunctionQualitySignals.IsPossiblyUnused(enriched),
+                    HalsteadVolume = enriched.HalsteadVolume,
+                    WeightedMethodComplexity = enriched.WeightedMethodComplexity
+                };
+            }
+
+            result.Add(enriched);
         }
 
         return result;
@@ -130,10 +189,15 @@ public static class CodeMetricsEnricher
         CallGraphResult callGraph,
         DuplicateCodeResult duplicates,
         UserAnalysisSettings thresholds,
-        MetricInspectionKind inspections)
+        MetricInspectionKind inspections,
+        IReadOnlyList<PackageMetric> packages)
     {
         var scope = inspections;
         var totalCodeLines = files.Sum(file => file.CodeLines);
+        var testCodeLines = files.Where(file => file.IsTestFile).Sum(file => file.CodeLines);
+        var testPercent = totalCodeLines > 0
+            ? Math.Round(100.0 * testCodeLines / totalCodeLines, 2)
+            : 0;
 
         var duplicateLines = 0;
         var duplicatePercent = 0.0;
@@ -193,6 +257,42 @@ public static class CodeMetricsEnricher
                 ? files.Count(file =>
                     file.CodeLines >= FileMetricsAggregator.MinCodeLinesForCommentWarning
                     && file.CommentPercentPer100Code < thresholds.WarnMinCommentPercent)
+                : 0,
+            HighStatementCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.StatementCount)
+                ? functions.Count(func => func.StatementCount >= thresholds.WarnStatementCount)
+                : 0,
+            HighSwitchCaseCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.SwitchCaseCount)
+                ? functions.Count(func => func.SwitchCaseCount >= thresholds.WarnSwitchCaseCount)
+                : 0,
+            EmptyCatchFunctionCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.CatchQuality)
+                ? functions.Count(func => func.EmptyCatchCount > 0)
+                : 0,
+            BroadCatchFunctionCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.CatchQuality)
+                ? functions.Count(func => func.BroadCatchCount > 0)
+                : 0,
+            AsyncVoidCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.AsyncVoid)
+                ? functions.Count(func => func.IsAsyncVoid)
+                : 0,
+            PossiblyUnusedCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.PossiblyUnusedCode)
+                ? functions.Count(func => func.IsPossiblyUnused)
+                : 0,
+            HighPublicApiFileCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.PublicApiDensity)
+                ? files.Count(file => file.PublicApiCount >= thresholds.WarnPublicApiCount)
+                : 0,
+            TestCodeLinePercent = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.TestCodeRatio)
+                ? testPercent
+                : 0,
+            SecuritySmellFileCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.SecuritySmells)
+                ? files.Count(file => file.SecuritySmellCount >= thresholds.WarnSecuritySmellCount)
+                : 0,
+            HighInstabilityPackageCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.PackageInstability)
+                ? packages.Count(package => package.Instability >= thresholds.WarnInstability)
+                : 0,
+            LayerViolationCount = 0,
+            LowCohesionTypeCount = 0,
+            DeepInheritanceTypeCount = 0,
+            GitHotspotFileCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.GitHotspot)
+                ? files.Count(file => file.GitChangeLineCount >= thresholds.WarnGitChangeLines)
                 : 0
         };
     }

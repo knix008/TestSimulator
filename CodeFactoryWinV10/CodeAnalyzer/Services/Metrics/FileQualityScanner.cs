@@ -9,13 +9,39 @@ internal static class FileQualityScanner
         @"\b(TODO|FIXME|HACK|XXX|UNDONE|BUG)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    public static void ApplyTodoMetrics(IList<FileLineMetric> files)
+    private static readonly Regex PublicApiRegex = new(
+        @"^\s*public\s+(?:static\s+|async\s+|virtual\s+|override\s+|partial\s+)*(?:class|interface|struct|enum|record|delegate|event|void|[\w<>,\[\].]+\s+\w+\s*\()",
+        RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.IgnoreCase);
+
+    private static readonly Regex SecuritySmellRegex = new(
+        @"(password\s*=\s*[""'][^""']+[""']|api[_-]?key\s*=\s*[""'][^""']+[""']|secret\s*=\s*[""'][^""']+[""']"
+        + @"|SELECT\s+.+\s+FROM\s+.+\s*\+|\.Result\b|\.Wait\s*\(\s*\))",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    public static void ApplyFileQualityMetrics(IList<FileLineMetric> files, string? projectRoot = null)
     {
+        IReadOnlyDictionary<string, int>? gitChanges = null;
+        if (!string.IsNullOrWhiteSpace(projectRoot))
+        {
+            gitChanges = GitHotspotAnalyzer.TryLoadChangeLinesByFile(projectRoot);
+        }
+
         for (var i = 0; i < files.Count; i++)
         {
             var file = files[i];
-            var count = CountTodoMarkers(file.FilePath);
-            var density = file.CodeLines > 0 ? Math.Round(100.0 * count / file.CodeLines, 2) : 0;
+            string text;
+            try
+            {
+                text = File.ReadAllText(file.FilePath);
+            }
+            catch
+            {
+                text = string.Empty;
+            }
+
+            var todoCount = TodoRegex.Matches(text).Count;
+            var density = file.CodeLines > 0 ? Math.Round(100.0 * todoCount / file.CodeLines, 2) : 0;
+            var gitLines = gitChanges?.GetValueOrDefault(NormalizePath(file.FilePath)) ?? 0;
 
             files[i] = new FileLineMetric
             {
@@ -26,22 +52,38 @@ internal static class FileQualityScanner
                 BlankLines = file.BlankLines,
                 CommentLines = file.CommentLines,
                 CommentPercentPer100Code = file.CommentPercentPer100Code,
-                TodoMarkerCount = count,
-                TodoDensityPer100Lines = density
+                TodoMarkerCount = todoCount,
+                TodoDensityPer100Lines = density,
+                IsTestFile = IsTestFile(file.FilePath),
+                PublicApiCount = PublicApiRegex.Matches(text).Count,
+                SecuritySmellCount = SecuritySmellRegex.Matches(text).Count,
+                GitChangeLineCount = gitLines
             };
         }
     }
 
-    private static int CountTodoMarkers(string filePath)
+    public static void ApplyTodoMetrics(IList<FileLineMetric> files) =>
+        ApplyFileQualityMetrics(files);
+
+    public static bool IsTestFile(string filePath)
     {
-        try
+        var name = Path.GetFileName(filePath);
+        var dir = Path.GetDirectoryName(filePath) ?? string.Empty;
+
+        if (name.EndsWith("Tests.cs", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith("Test.cs", StringComparison.OrdinalIgnoreCase)
+            || name.Contains(".spec.", StringComparison.OrdinalIgnoreCase)
+            || name.Contains(".test.", StringComparison.OrdinalIgnoreCase))
         {
-            var text = File.ReadAllText(filePath);
-            return TodoRegex.Matches(text).Count;
+            return true;
         }
-        catch
-        {
-            return 0;
-        }
+
+        return dir.Contains($"{Path.DirectorySeparatorChar}test{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+            || dir.Contains($"{Path.DirectorySeparatorChar}tests{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+            || dir.Contains($"{Path.DirectorySeparatorChar}__tests__{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase)
+            || dir.Contains($"{Path.DirectorySeparatorChar}spec{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase);
     }
+
+    private static string NormalizePath(string path) =>
+        Path.GetFullPath(path).Replace('\\', '/');
 }

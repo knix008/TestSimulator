@@ -36,6 +36,15 @@ public sealed class UserAnalysisSettings
             WarnGodFileCodeLines = ResolvePositiveInt(source.WarnGodFileCodeLines, defaults.WarnGodFileCodeLines, 100, 50_000),
             WarnMinCommentPercent = ResolvePositiveDouble(source.WarnMinCommentPercent, defaults.WarnMinCommentPercent, 0, 100),
             WarnGodTypeMemberCount = ResolvePositiveInt(source.WarnGodTypeMemberCount, defaults.WarnGodTypeMemberCount, 5, 500),
+            WarnStatementCount = ResolvePositiveInt(source.WarnStatementCount, defaults.WarnStatementCount, 10, 500),
+            WarnSwitchCaseCount = ResolvePositiveInt(source.WarnSwitchCaseCount, defaults.WarnSwitchCaseCount, 3, 200),
+            WarnPublicApiCount = ResolvePositiveInt(source.WarnPublicApiCount, defaults.WarnPublicApiCount, 5, 500),
+            WarnMinTestCodePercent = ResolvePositiveDouble(source.WarnMinTestCodePercent, defaults.WarnMinTestCodePercent, 0, 100),
+            WarnInstability = ResolvePositiveDouble(source.WarnInstability, defaults.WarnInstability, 0, 1),
+            WarnLackOfCohesion = ResolvePositiveDouble(source.WarnLackOfCohesion, defaults.WarnLackOfCohesion, 0, 1),
+            WarnInheritanceDepth = ResolvePositiveInt(source.WarnInheritanceDepth, defaults.WarnInheritanceDepth, 2, 20),
+            WarnGitChangeLines = ResolvePositiveInt(source.WarnGitChangeLines, defaults.WarnGitChangeLines, 50, 1_000_000),
+            WarnSecuritySmellCount = ResolvePositiveInt(source.WarnSecuritySmellCount, defaults.WarnSecuritySmellCount, 1, 100),
             EnabledInspections = MetricInspectionCatalog.NormalizeScope(
                 source.EnabledInspections == 0 ? defaults.EnabledInspections : source.EnabledInspections),
             EnabledAnalysisScope = ResolveAnalysisScopeFromInspections(source),
@@ -77,6 +86,15 @@ public sealed class UserAnalysisSettings
     public static int DefaultWarnGodFileCodeLines => _designerDefaults.WarnGodFileCodeLines;
     public static double DefaultWarnMinCommentPercent => _designerDefaults.WarnMinCommentPercent;
     public static int DefaultWarnGodTypeMemberCount => _designerDefaults.WarnGodTypeMemberCount;
+    public static int DefaultWarnStatementCount => _designerDefaults.WarnStatementCount;
+    public static int DefaultWarnSwitchCaseCount => _designerDefaults.WarnSwitchCaseCount;
+    public static int DefaultWarnPublicApiCount => _designerDefaults.WarnPublicApiCount;
+    public static double DefaultWarnMinTestCodePercent => _designerDefaults.WarnMinTestCodePercent;
+    public static double DefaultWarnInstability => _designerDefaults.WarnInstability;
+    public static double DefaultWarnLackOfCohesion => _designerDefaults.WarnLackOfCohesion;
+    public static int DefaultWarnInheritanceDepth => _designerDefaults.WarnInheritanceDepth;
+    public static int DefaultWarnGitChangeLines => _designerDefaults.WarnGitChangeLines;
+    public static int DefaultWarnSecuritySmellCount => _designerDefaults.WarnSecuritySmellCount;
 
     public string? LastRootDirectory { get; set; }
 
@@ -93,6 +111,15 @@ public sealed class UserAnalysisSettings
     public int WarnGodFileCodeLines { get; set; }
     public double WarnMinCommentPercent { get; set; }
     public int WarnGodTypeMemberCount { get; set; }
+    public int WarnStatementCount { get; set; } = 50;
+    public int WarnSwitchCaseCount { get; set; } = 10;
+    public int WarnPublicApiCount { get; set; } = 30;
+    public double WarnMinTestCodePercent { get; set; } = 10;
+    public double WarnInstability { get; set; } = 0.7;
+    public double WarnLackOfCohesion { get; set; } = 0.6;
+    public int WarnInheritanceDepth { get; set; } = 5;
+    public int WarnGitChangeLines { get; set; } = 500;
+    public int WarnSecuritySmellCount { get; set; } = 1;
 
     public int SchemaVersion { get; set; }
 
@@ -151,6 +178,15 @@ public sealed class UserAnalysisSettings
             WarnGodFileCodeLines = source.WarnGodFileCodeLines,
             WarnMinCommentPercent = source.WarnMinCommentPercent,
             WarnGodTypeMemberCount = source.WarnGodTypeMemberCount,
+            WarnStatementCount = source.WarnStatementCount,
+            WarnSwitchCaseCount = source.WarnSwitchCaseCount,
+            WarnPublicApiCount = source.WarnPublicApiCount,
+            WarnMinTestCodePercent = source.WarnMinTestCodePercent,
+            WarnInstability = source.WarnInstability,
+            WarnLackOfCohesion = source.WarnLackOfCohesion,
+            WarnInheritanceDepth = source.WarnInheritanceDepth,
+            WarnGitChangeLines = source.WarnGitChangeLines,
+            WarnSecuritySmellCount = source.WarnSecuritySmellCount,
             EnabledInspections = MetricInspectionScope.Normalize(source.EnabledInspections),
             EnabledAnalysisScope = AnalysisScopeResolver.Resolve(
                 MetricInspectionScope.Normalize(source.EnabledInspections)),
@@ -179,6 +215,15 @@ public sealed class UserAnalysisSettings
         WarnGodFileCodeLines = source.WarnGodFileCodeLines;
         WarnMinCommentPercent = source.WarnMinCommentPercent;
         WarnGodTypeMemberCount = source.WarnGodTypeMemberCount;
+        WarnStatementCount = source.WarnStatementCount;
+        WarnSwitchCaseCount = source.WarnSwitchCaseCount;
+        WarnPublicApiCount = source.WarnPublicApiCount;
+        WarnMinTestCodePercent = source.WarnMinTestCodePercent;
+        WarnInstability = source.WarnInstability;
+        WarnLackOfCohesion = source.WarnLackOfCohesion;
+        WarnInheritanceDepth = source.WarnInheritanceDepth;
+        WarnGitChangeLines = source.WarnGitChangeLines;
+        WarnSecuritySmellCount = source.WarnSecuritySmellCount;
         EnabledInspections = MetricInspectionScope.Normalize(source.EnabledInspections);
         EnabledAnalysisScope = AnalysisScopeResolver.Resolve(
             MetricInspectionScope.Normalize(source.EnabledInspections));
@@ -190,6 +235,15 @@ public sealed class UserAnalysisSettings
     private static UserAnalysisSettings CreateBuiltInDefaults() => new(initializingBuiltInDefaults: true)
     {
         EnabledInspections = MetricInspectionKind.All,
-        EnabledAnalysisScope = AnalysisScopeKind.All
+        EnabledAnalysisScope = AnalysisScopeKind.All,
+        WarnStatementCount = 50,
+        WarnSwitchCaseCount = 10,
+        WarnPublicApiCount = 30,
+        WarnMinTestCodePercent = 10,
+        WarnInstability = 0.7,
+        WarnLackOfCohesion = 0.6,
+        WarnInheritanceDepth = 5,
+        WarnGitChangeLines = 500,
+        WarnSecuritySmellCount = 1
     };
 }

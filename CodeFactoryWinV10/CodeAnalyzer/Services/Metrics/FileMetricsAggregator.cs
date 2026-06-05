@@ -40,7 +40,11 @@ public static class FileMetricsAggregator
                     CommentPercentPer100Code = file.CommentPercentPer100Code,
                     DuplicateLineCount = duplicateLineCount,
                     FunctionCount = 0,
-                    MinMaintenanceIndex = 100
+                    MinMaintenanceIndex = 100,
+                    IsTestFile = file.IsTestFile,
+                    PublicApiCount = file.PublicApiCount,
+                    SecuritySmellCount = file.SecuritySmellCount,
+                    GitChangeLineCount = file.GitChangeLineCount
                 });
                 continue;
             }
@@ -67,7 +71,16 @@ public static class FileMetricsAggregator
                 AvgMaintenanceIndex = Math.Round(fileFunctions.Average(func => func.MaintenanceIndex), 1),
                 MinMaintenanceIndex = Math.Round(fileFunctions.Min(func => func.MaintenanceIndex), 1),
                 TotalMagicNumbers = fileFunctions.Sum(func => func.MagicNumberCount),
-                WarningFunctionCount = fileFunctions.Count(func => ExceedsThreshold(func, thresholds))
+                WarningFunctionCount = fileFunctions.Count(func => ExceedsThreshold(func, thresholds)),
+                IsTestFile = file.IsTestFile,
+                PublicApiCount = file.PublicApiCount,
+                SecuritySmellCount = file.SecuritySmellCount,
+                GitChangeLineCount = file.GitChangeLineCount,
+                MaxStatementCount = fileFunctions.Max(func => func.StatementCount),
+                MaxSwitchCaseCount = fileFunctions.Max(func => func.SwitchCaseCount),
+                TotalEmptyCatchCount = fileFunctions.Sum(func => func.EmptyCatchCount),
+                TotalBroadCatchCount = fileFunctions.Sum(func => func.BroadCatchCount),
+                AsyncVoidCount = fileFunctions.Count(func => func.IsAsyncVoid)
             });
         }
 
@@ -121,6 +134,36 @@ public static class FileMetricsAggregator
 
         if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.MagicNumbers)
             && func.MagicNumberCount >= thresholds.WarnMagicNumbers)
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.StatementCount)
+            && func.StatementCount >= thresholds.WarnStatementCount)
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SwitchCaseCount)
+            && func.SwitchCaseCount >= thresholds.WarnSwitchCaseCount)
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CatchQuality)
+            && (func.EmptyCatchCount > 0 || func.BroadCatchCount > 0))
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.AsyncVoid)
+            && func.IsAsyncVoid)
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PossiblyUnusedCode)
+            && func.IsPossiblyUnused)
         {
             return true;
         }
@@ -187,6 +230,24 @@ public static class FileMetricsAggregator
 
         if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.LowCommentRatio)
             && IsLowCommentFile(file, thresholds))
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PublicApiDensity)
+            && file.PublicApiCount >= thresholds.WarnPublicApiCount)
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SecuritySmells)
+            && file.SecuritySmellCount >= thresholds.WarnSecuritySmellCount)
+        {
+            return true;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GitHotspot)
+            && file.GitChangeLineCount >= thresholds.WarnGitChangeLines)
         {
             return true;
         }
@@ -356,7 +417,38 @@ public static class FileMetricsAggregator
                 : "유지보수 지수가 낮습니다. 길이·복잡도·의존성을 줄여 가독성을 높이세요.");
         }
 
-        if (func.FanIn == 0 && func.FanOut == 0)
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.StatementCount)
+            && func.StatementCount >= t.WarnStatementCount)
+        {
+            actions.Add($"문장 수가 많습니다({func.StatementCount}). 함수 분리를 검토하세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SwitchCaseCount)
+            && func.SwitchCaseCount >= t.WarnSwitchCaseCount)
+        {
+            actions.Add($"switch/case가 많습니다({func.SwitchCaseCount}). 전략 패턴·다형성으로 분기를 줄이세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CatchQuality) && func.EmptyCatchCount > 0)
+        {
+            actions.Add("빈 catch가 있습니다. 예외를 로깅하거나 구체적으로 처리하세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CatchQuality) && func.BroadCatchCount > 0)
+        {
+            actions.Add("광범위 catch(Exception)가 있습니다. 구체 예외 타입으로 좁히세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.AsyncVoid) && func.IsAsyncVoid)
+        {
+            actions.Add("async void는 예외 전파·테스트가 어렵습니다. Task 반환으로 바꾸세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PossiblyUnusedCode) && func.IsPossiblyUnused)
+        {
+            actions.Add("미사용 가능 private 코드입니다. 제거 또는 호출 경로를 확인하세요.");
+        }
+        else if (func.FanIn == 0 && func.FanOut == 0)
         {
             actions.Add("다른 코드에서 호출되지 않습니다. 사용처 연결, 테스트 추가, 또는 미사용 코드 제거를 검토하세요.");
         }
@@ -456,6 +548,29 @@ public static class FileMetricsAggregator
                 : "TODO 밀도가 높습니다. TODO를 정리하고 우선순위에 따라 처리하세요.");
         }
 
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PublicApiDensity)
+            && file.PublicApiCount >= t.WarnPublicApiCount)
+        {
+            actions.Add($"public API가 많습니다({file.PublicApiCount}). 노출 범위를 internal로 줄이세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SecuritySmells)
+            && file.SecuritySmellCount >= t.WarnSecuritySmellCount)
+        {
+            actions.Add($"보안 smell {file.SecuritySmellCount}건. 비밀·동기 대기·SQL 연결을 점검하세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GitHotspot)
+            && file.GitChangeLineCount >= t.WarnGitChangeLines)
+        {
+            actions.Add($"최근 Git 변경이 많습니다({file.GitChangeLineCount:N0}줄). 복잡도와 함께 리팩터링 우선순위를 검토하세요.");
+        }
+
+        if (file.IsTestFile)
+        {
+            actions.Add("테스트 파일로 분류됨.");
+        }
+
         if (file.WarningFunctionCount > 0 && actions.Count == 0)
         {
             actions.Add($"경고 함수 {file.WarningFunctionCount}개가 있습니다. 목록에서 해당 함수를 열어 순차적으로 개선하세요.");
@@ -505,6 +620,24 @@ public static class FileMetricsAggregator
         if (type.DependencyOutCount >= 8)
         {
             actions.Add($"외부 타입 의존이 많습니다({type.DependencyOutCount}건). 결합도를 줄이세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TypeCohesion)
+            && type.LackOfCohesion >= t.WarnLackOfCohesion)
+        {
+            actions.Add($"응집도가 낮습니다(LCOM {type.LackOfCohesion:F2}). 책임을 분리하세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.InheritanceDepth)
+            && type.DepthOfInheritance >= t.WarnInheritanceDepth)
+        {
+            actions.Add($"상속 깊이가 깊습니다(DIT {type.DepthOfInheritance}). 합성·인터페이스를 검토하세요.");
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.HalsteadMetrics)
+            && type.WeightedMethodCount >= t.WarnCyclomaticComplexity * 3)
+        {
+            actions.Add($"WMC가 높습니다({type.WeightedMethodCount}). 메서드 복잡도를 낮추세요.");
         }
 
         if (actions.Count == 0)

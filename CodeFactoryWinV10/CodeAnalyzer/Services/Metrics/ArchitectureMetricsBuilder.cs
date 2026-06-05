@@ -108,6 +108,52 @@ public static class ArchitectureMetricsBuilder
             AddDuplicateInsights(insights, duplicates);
         }
 
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PossiblyUnusedCode))
+        {
+            AddPossiblyUnusedInsights(insights, metrics.Functions, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CatchQuality))
+        {
+            AddCatchQualityInsights(insights, metrics.Functions, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.AsyncVoid))
+        {
+            AddAsyncVoidInsights(insights, metrics.Functions, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TestCodeRatio))
+        {
+            AddTestCoverageInsights(insights, summary);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PackageInstability))
+        {
+            AddPackageInstabilityInsights(insights, metrics.Packages, thresholds, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.LayerViolation))
+        {
+            AddLayerViolationInsights(insights, fileRelations, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SecuritySmells))
+        {
+            AddSecuritySmellInsights(insights, metrics, thresholds, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GitHotspot))
+        {
+            AddGitHotspotInsights(insights, metrics, thresholds, maxPerCategory);
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TypeCohesion)
+            || MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.InheritanceDepth))
+        {
+            AddTypeQualityInsights(insights, structure, metrics.Functions, thresholds, maxPerCategory, scope);
+        }
+
         var duplicateInsights = insights
             .Where(insight => insight.Kind == ArchitectureInsightKind.DuplicateCode
                 && insight.NavigationTag is DuplicateCodeGroup)
@@ -721,6 +767,369 @@ public static class ArchitectureMetricsBuilder
         }
 
         return directoryId;
+    }
+
+    private static void AddPossiblyUnusedInsights(
+        List<ArchitectureInsight> insights,
+        IReadOnlyList<FunctionMetric> functions,
+        int maxPerCategory)
+    {
+        var unused = functions
+            .Where(func => func.IsPossiblyUnused)
+            .OrderByDescending(func => func.LineCount)
+            .ToList();
+
+        if (unused.Count == 0)
+        {
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.PossiblyUnusedCode,
+            Category = "미사용 가능",
+            Description = $"private·미호출 함수 {unused.Count:N0}개",
+            Severity = unused.Count >= 10 ? WarningLevel.Warning : WarningLevel.None
+        });
+
+        foreach (var func in unused.Take(maxPerCategory))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.PossiblyUnusedCode,
+                Category = "미사용 가능",
+                Description = $"{func.DisplayName} · {func.LineCount}줄 · {Path.GetFileName(func.FilePath)}:{func.StartLine}",
+                NavigationTag = func
+            });
+        }
+    }
+
+    private static void AddCatchQualityInsights(
+        List<ArchitectureInsight> insights,
+        IReadOnlyList<FunctionMetric> functions,
+        int maxPerCategory)
+    {
+        var targets = functions
+            .Where(func => func.EmptyCatchCount > 0 || func.BroadCatchCount > 0)
+            .OrderByDescending(func => func.EmptyCatchCount + func.BroadCatchCount)
+            .ToList();
+
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.CatchQuality,
+            Category = "catch 품질",
+            Description = $"빈/광범위 catch 함수 {targets.Count:N0}개",
+            Severity = WarningLevel.Warning
+        });
+
+        foreach (var func in targets.Take(maxPerCategory))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.CatchQuality,
+                Category = "catch 품질",
+                Description =
+                    $"{func.DisplayName} · 빈 {func.EmptyCatchCount} · 광범위 {func.BroadCatchCount} · {Path.GetFileName(func.FilePath)}:{func.StartLine}",
+                NavigationTag = func
+            });
+        }
+    }
+
+    private static void AddAsyncVoidInsights(
+        List<ArchitectureInsight> insights,
+        IReadOnlyList<FunctionMetric> functions,
+        int maxPerCategory)
+    {
+        var asyncVoid = functions.Where(func => func.IsAsyncVoid).ToList();
+        if (asyncVoid.Count == 0)
+        {
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.AsyncVoid,
+            Category = "async void",
+            Description = $"async void 함수 {asyncVoid.Count:N0}개",
+            Severity = WarningLevel.Warning
+        });
+
+        foreach (var func in asyncVoid.Take(maxPerCategory))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.AsyncVoid,
+                Category = "async void",
+                Description = $"{func.DisplayName} · {Path.GetFileName(func.FilePath)}:{func.StartLine}",
+                NavigationTag = func
+            });
+        }
+    }
+
+    private static void AddTestCoverageInsights(
+        List<ArchitectureInsight> insights,
+        CodeQualitySummary summary)
+    {
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.TestCoverage,
+            Category = "테스트 비율",
+            Description = $"테스트 코드 LOC 비율(근사): {summary.TestCodeLinePercent:F1}%",
+            Severity = summary.TestCodeLinePercent < 10 ? WarningLevel.Warning : WarningLevel.None
+        });
+    }
+
+    private static void AddPackageInstabilityInsights(
+        List<ArchitectureInsight> insights,
+        IReadOnlyList<PackageMetric> packages,
+        UserAnalysisSettings thresholds,
+        int maxPerCategory)
+    {
+        var unstable = packages
+            .Where(package => package.Instability >= thresholds.WarnInstability)
+            .OrderByDescending(package => package.Instability)
+            .ToList();
+
+        if (unstable.Count == 0)
+        {
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.PackageInstability,
+            Category = "패키지 불안정성",
+            Description = $"I ≥ {thresholds.WarnInstability:F2} 패키지 {unstable.Count:N0}개",
+            Severity = WarningLevel.Warning
+        });
+
+        foreach (var package in unstable.Take(maxPerCategory))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.PackageInstability,
+                Category = "패키지 불안정성",
+                Description =
+                    $"{package.DirectoryPath} · I={package.Instability:F2} · Ce={package.EfferentCoupling} · Ca={package.AfferentCoupling} · D={package.DistanceFromMainSequence:F2}"
+            });
+        }
+    }
+
+    private static void AddLayerViolationInsights(
+        List<ArchitectureInsight> insights,
+        FileRelationGraphResult fileRelations,
+        int maxPerCategory)
+    {
+        var violations = LayerViolationDetector.Detect(fileRelations);
+        if (violations.Count == 0)
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.LayerViolation,
+                Category = "계층 위반",
+                Description = "폴더명 휴리스틱 기준 계층 위반 없음"
+            });
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.LayerViolation,
+            Category = "계층 위반",
+            Description = $"파일 의존 계층 위반 {violations.Count:N0}건",
+            Severity = WarningLevel.Warning
+        });
+
+        foreach (var violation in violations.Take(maxPerCategory))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.LayerViolation,
+                Category = "계층 위반",
+                Description =
+                    $"{violation.Description} · {Path.GetFileName(violation.FromFile)} → {Path.GetFileName(violation.ToFile)}"
+            });
+        }
+    }
+
+    private static void AddSecuritySmellInsights(
+        List<ArchitectureInsight> insights,
+        CodeMetricsResult metrics,
+        UserAnalysisSettings thresholds,
+        int maxPerCategory)
+    {
+        var files = metrics.FileAggregates.Count > 0
+            ? metrics.FileAggregates.Where(file => file.SecuritySmellCount >= thresholds.WarnSecuritySmellCount).ToList()
+            : metrics.Files.Where(file => file.SecuritySmellCount >= thresholds.WarnSecuritySmellCount)
+                .Select(file => new FileAggregateMetric
+                {
+                    FilePath = file.FilePath,
+                    LanguageId = file.LanguageId,
+                    PhysicalLines = file.PhysicalLines,
+                    CodeLines = file.CodeLines,
+                    SecuritySmellCount = file.SecuritySmellCount
+                }).ToList();
+
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.SecuritySmell,
+            Category = "보안 smell",
+            Description = $"의심 패턴 파일 {files.Count:N0}개",
+            Severity = WarningLevel.Warning
+        });
+
+        foreach (var file in files
+                     .OrderByDescending(file => file.SecuritySmellCount)
+                     .Take(maxPerCategory))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.SecuritySmell,
+                Category = "보안 smell",
+                Description = $"{Path.GetFileName(file.FilePath)} · {file.SecuritySmellCount}건",
+                NavigationTag = file
+            });
+        }
+    }
+
+    private static void AddGitHotspotInsights(
+        List<ArchitectureInsight> insights,
+        CodeMetricsResult metrics,
+        UserAnalysisSettings thresholds,
+        int maxPerCategory)
+    {
+        var files = metrics.FileAggregates.Count > 0
+            ? metrics.FileAggregates.Where(file => file.GitChangeLineCount >= thresholds.WarnGitChangeLines).ToList()
+            : metrics.Files.Where(file => file.GitChangeLineCount >= thresholds.WarnGitChangeLines)
+                .Select(file => new FileAggregateMetric
+                {
+                    FilePath = file.FilePath,
+                    LanguageId = file.LanguageId,
+                    PhysicalLines = file.PhysicalLines,
+                    CodeLines = file.CodeLines,
+                    GitChangeLineCount = file.GitChangeLineCount,
+                    MaxCyclomaticComplexity = 0
+                }).ToList();
+
+        if (files.Count == 0)
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.GitHotspot,
+                Category = "Git 핫스팟",
+                Description = "최근 6개월 Git 변경 상한 미만 (또는 Git 저장소 없음)"
+            });
+            return;
+        }
+
+        insights.Add(new ArchitectureInsight
+        {
+            Kind = ArchitectureInsightKind.GitHotspot,
+            Category = "Git 핫스팟",
+            Description = $"변경 줄 ≥{thresholds.WarnGitChangeLines:N0} 파일 {files.Count:N0}개",
+            Severity = WarningLevel.Warning
+        });
+
+        foreach (var file in files
+                     .OrderByDescending(file => file.GitChangeLineCount)
+                     .Take(maxPerCategory))
+        {
+            insights.Add(new ArchitectureInsight
+            {
+                Kind = ArchitectureInsightKind.GitHotspot,
+                Category = "Git 핫스팟",
+                Description =
+                    $"{Path.GetFileName(file.FilePath)} · 변경 {file.GitChangeLineCount:N0}줄 · CC↑ {file.MaxCyclomaticComplexity}",
+                NavigationTag = file
+            });
+        }
+    }
+
+    private static void AddTypeQualityInsights(
+        List<ArchitectureInsight> insights,
+        ProjectStructureResult structure,
+        IReadOnlyList<FunctionMetric> functions,
+        UserAnalysisSettings thresholds,
+        int maxPerCategory,
+        MetricInspectionKind scope)
+    {
+        if (structure.Types.Count == 0)
+        {
+            return;
+        }
+
+        var typeMetrics = TypeMetricsBuilder.Build(structure, functions, thresholds);
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TypeCohesion))
+        {
+            var lowCohesion = typeMetrics
+                .Where(type => type.LackOfCohesion >= thresholds.WarnLackOfCohesion)
+                .OrderByDescending(type => type.LackOfCohesion)
+                .ToList();
+
+            if (lowCohesion.Count > 0)
+            {
+                insights.Add(new ArchitectureInsight
+                {
+                    Kind = ArchitectureInsightKind.TypeCohesion,
+                    Category = "타입 응집도",
+                    Description = $"LCOM ≥ {thresholds.WarnLackOfCohesion:F2} 타입 {lowCohesion.Count:N0}개",
+                    Severity = WarningLevel.Warning
+                });
+
+                foreach (var type in lowCohesion.Take(maxPerCategory))
+                {
+                    insights.Add(new ArchitectureInsight
+                    {
+                        Kind = ArchitectureInsightKind.TypeCohesion,
+                        Category = "타입 응집도",
+                        Description = $"{type.DisplayName} · LCOM {type.LackOfCohesion:F2} · WMC {type.WeightedMethodCount}",
+                        NavigationTag = type
+                    });
+                }
+            }
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.InheritanceDepth))
+        {
+            var deepTypes = typeMetrics
+                .Where(type => type.DepthOfInheritance >= thresholds.WarnInheritanceDepth)
+                .OrderByDescending(type => type.DepthOfInheritance)
+                .ToList();
+
+            if (deepTypes.Count > 0)
+            {
+                insights.Add(new ArchitectureInsight
+                {
+                    Kind = ArchitectureInsightKind.InheritanceMetrics,
+                    Category = "상속 구조",
+                    Description = $"DIT ≥ {thresholds.WarnInheritanceDepth} 타입 {deepTypes.Count:N0}개",
+                    Severity = WarningLevel.Warning
+                });
+
+                foreach (var type in deepTypes.Take(maxPerCategory))
+                {
+                    insights.Add(new ArchitectureInsight
+                    {
+                        Kind = ArchitectureInsightKind.InheritanceMetrics,
+                        Category = "상속 구조",
+                        Description =
+                            $"{type.DisplayName} · DIT {type.DepthOfInheritance} · NOC {type.NumberOfChildren} · RFC {type.ResponseForClass}",
+                        NavigationTag = type
+                    });
+                }
+            }
+        }
     }
 
     public static IReadOnlyList<CircularCallChain> FindCircularCallChains(CallGraphResult callGraph, int maxChains = 20)

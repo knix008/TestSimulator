@@ -206,7 +206,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
             if (runFileLineMetrics)
             {
                 tracker.Report("파일 LOC·주석 분석 중...");
-                fileLineMetrics = await FileLineMetricsCollector.CollectAsync(sourceFiles, cancellationToken).ConfigureAwait(false);
+                fileLineMetrics = await FileLineMetricsCollector.CollectAsync(sourceFiles, rootPath, cancellationToken).ConfigureAwait(false);
             }
 
             var metricFunctions = new List<FunctionMetric>();
@@ -295,7 +295,9 @@ public sealed class MultiLanguageCallGraphAnalyzer
                     merged,
                     duplicates,
                     qualitySettings,
-                    inspections);
+                    inspections,
+                    fileRelations,
+                    rootPath);
             }
             catch (OutOfMemoryException ex)
             {

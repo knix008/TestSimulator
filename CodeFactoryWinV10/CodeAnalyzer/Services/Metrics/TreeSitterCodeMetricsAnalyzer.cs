@@ -109,6 +109,7 @@ public sealed class TreeSitterCodeMetricsAnalyzer : ICodeMetricsAnalyzer
                 _config.ExtraDecisionNodeTypes);
             var bodyText = rangeNode.Text;
             var magic = FunctionComplexityMetrics.CountMagicNumbersFromText(bodyText);
+            var signals = FunctionQualitySignals.FromSyntaxTree(rangeNode);
 
             yield return new FunctionMetric
             {
@@ -128,7 +129,14 @@ public sealed class TreeSitterCodeMetricsAnalyzer : ICodeMetricsAnalyzer
                 MagicNumberCount = magic,
                 MaintenanceIndex = FunctionComplexityMetrics.ComputeMaintenanceIndex(
                     lineCount, cyclomatic, cognitive, 0),
-                Precision = MetricsPrecision.Syntax
+                Precision = MetricsPrecision.Syntax,
+                StatementCount = signals.StatementCount,
+                SwitchCaseCount = signals.SwitchCaseCount,
+                EmptyCatchCount = signals.EmptyCatchCount,
+                BroadCatchCount = signals.BroadCatchCount,
+                IsAsyncVoid = signals.IsAsyncVoid,
+                HalsteadVolume = signals.HalsteadVolume,
+                WeightedMethodComplexity = signals.WeightedMethodCount
             };
         }
     }

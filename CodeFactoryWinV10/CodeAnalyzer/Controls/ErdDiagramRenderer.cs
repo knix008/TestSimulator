@@ -132,8 +132,7 @@ internal static class ErdDiagramRenderer
         string? label,
         ConnectionLineStyle lineStyle)
     {
-        var start = GetConnectionPoint(from, to);
-        var end = GetConnectionPoint(to, from);
+        var connection = DiagramSideAnchor.GetConnectionPair(from.Bounds, to.Bounds);
 
         using var pen = new Pen(Color.FromArgb(70, 110, 160), 1.8f)
         {
@@ -141,14 +140,21 @@ internal static class ErdDiagramRenderer
             CustomEndCap = new System.Drawing.Drawing2D.AdjustableArrowCap(5, 5)
         };
 
-        DrawRoutedLine(graphics, pen, start, end, lineStyle);
+        DrawRoutedLine(
+            graphics,
+            pen,
+            connection.From,
+            connection.To,
+            connection.FromSide,
+            connection.ToSide,
+            lineStyle);
 
         if (!string.IsNullOrWhiteSpace(label))
         {
             using var font = new Font("Segoe UI", 7.5f);
             using var brush = new SolidBrush(Color.FromArgb(50, 80, 120));
-            var mx = (start.X + end.X) / 2f;
-            var my = (start.Y + end.Y) / 2f;
+            var mx = (connection.From.X + connection.To.X) / 2f;
+            var my = (connection.From.Y + connection.To.Y) / 2f;
             var sz = graphics.MeasureString(label, font);
             graphics.DrawString(label, font, brush, mx - sz.Width / 2f, my - sz.Height - 4);
         }
@@ -206,38 +212,37 @@ internal static class ErdDiagramRenderer
         node.Bounds = new Rectangle(0, 0, width, height);
     }
 
-    private static Point GetConnectionPoint(DiagramBoxNode box, DiagramBoxNode other)
-    {
-        var cx = box.Bounds.Left + box.Bounds.Width / 2;
-        var cy = box.Bounds.Top + box.Bounds.Height / 2;
-        var ox = other.Bounds.Left + other.Bounds.Width / 2;
-        var oy = other.Bounds.Top + other.Bounds.Height / 2;
-
-        if (Math.Abs(ox - cx) >= Math.Abs(oy - cy))
-        {
-            return ox >= cx
-                ? new Point(box.Bounds.Right, cy)
-                : new Point(box.Bounds.Left, cy);
-        }
-
-        return oy >= cy
-            ? new Point(cx, box.Bounds.Bottom)
-            : new Point(cx, box.Bounds.Top);
-    }
-
-    private static void DrawRoutedLine(Graphics graphics, Pen pen, Point start, Point end, ConnectionLineStyle style)
+    private static void DrawRoutedLine(
+        Graphics graphics,
+        Pen pen,
+        Point start,
+        Point end,
+        BoxSide startSide,
+        BoxSide endSide,
+        ConnectionLineStyle style)
     {
         if (style == ConnectionLineStyle.Orthogonal)
         {
-            if (Math.Abs(end.X - start.X) >= Math.Abs(end.Y - start.Y))
+            var startExitsHorizontally = startSide is BoxSide.Left or BoxSide.Right;
+            var endExitsHorizontally = endSide is BoxSide.Left or BoxSide.Right;
+
+            if (startExitsHorizontally && endExitsHorizontally)
             {
                 var midX = (start.X + end.X) / 2;
-                graphics.DrawLines(pen, new Point[] { start, new Point(midX, start.Y), new Point(midX, end.Y), end });
+                graphics.DrawLines(pen, new[] { start, new Point(midX, start.Y), new Point(midX, end.Y), end });
+            }
+            else if (!startExitsHorizontally && !endExitsHorizontally)
+            {
+                var midY = (start.Y + end.Y) / 2;
+                graphics.DrawLines(pen, new[] { start, new Point(start.X, midY), new Point(end.X, midY), end });
+            }
+            else if (startExitsHorizontally)
+            {
+                graphics.DrawLines(pen, new[] { start, new Point(end.X, start.Y), end });
             }
             else
             {
-                var midY = (start.Y + end.Y) / 2;
-                graphics.DrawLines(pen, new Point[] { start, new Point(start.X, midY), new Point(end.X, midY), end });
+                graphics.DrawLines(pen, new[] { start, new Point(start.X, end.Y), end });
             }
 
             return;

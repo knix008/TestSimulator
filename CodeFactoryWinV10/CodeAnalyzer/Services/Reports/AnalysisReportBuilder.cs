@@ -82,7 +82,18 @@ public static class AnalysisReportBuilder
             $"매직 넘버(≥{thresholds.WarnMagicNumbers}): {summary.HighMagicNumberCount:N0}함수",
             $"God file(≥{thresholds.WarnGodFileCodeLines:N0}줄): {summary.GodFileCount:N0}파일",
             $"주석 부족(<{thresholds.WarnMinCommentPercent:F0}%): {summary.LowCommentFileCount:N0}파일",
-            $"높은 TODO 밀도 파일(≥{thresholds.WarnTodoDensityPer100Lines:F1}/100줄): {summary.HighTodoDensityFileCount:N0}개"
+            $"높은 TODO 밀도 파일(≥{thresholds.WarnTodoDensityPer100Lines:F1}/100줄): {summary.HighTodoDensityFileCount:N0}개",
+            $"다문장 함수(≥{thresholds.WarnStatementCount}): {summary.HighStatementCount:N0}개",
+            $"다case switch(≥{thresholds.WarnSwitchCaseCount}): {summary.HighSwitchCaseCount:N0}개",
+            $"빈 catch 함수: {summary.EmptyCatchFunctionCount:N0}개",
+            $"광범위 catch 함수: {summary.BroadCatchFunctionCount:N0}개",
+            $"async void: {summary.AsyncVoidCount:N0}개",
+            $"미사용 가능 코드: {summary.PossiblyUnusedCount:N0}개",
+            $"public API 과다 파일(≥{thresholds.WarnPublicApiCount}): {summary.HighPublicApiFileCount:N0}개",
+            $"테스트 코드 LOC 비율(근사): {summary.TestCodeLinePercent:F1}%",
+            $"보안 smell 파일: {summary.SecuritySmellFileCount:N0}개",
+            $"불안정 패키지(I≥{thresholds.WarnInstability:F2}): {summary.HighInstabilityPackageCount:N0}개",
+            $"Git 핫스팟 파일: {summary.GitHotspotFileCount:N0}개"
         };
 
         return new ReportSection

@@ -4,7 +4,8 @@ namespace CodeAnalyzer.Services;
 
 public sealed record AnalysisCompletionSummary(
     string SummaryMessage,
-    string DetailText);
+    string DetailText,
+    string DisplayText);
 
 public static class AnalysisCompletionSummaryBuilder
 {
@@ -89,6 +90,11 @@ public static class AnalysisCompletionSummaryBuilder
             }
         }
 
-        return new AnalysisCompletionSummary(summaryMessage, builder.ToString().TrimEnd());
+        var detailText = builder.ToString().TrimEnd();
+        var displayText = string.IsNullOrWhiteSpace(detailText)
+            ? summaryMessage
+            : $"{summaryMessage}{Environment.NewLine}{Environment.NewLine}{detailText}";
+
+        return new AnalysisCompletionSummary(summaryMessage, detailText, displayText);
     }
 }
