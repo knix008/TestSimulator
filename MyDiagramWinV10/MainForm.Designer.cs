@@ -600,11 +600,13 @@ partial class MainForm
         // 
         _splitEditor.Dock = DockStyle.Fill;
         _splitEditor.FixedPanel = FixedPanel.Panel2;
+        _splitEditor.Location = new Point(0, 0);
         _splitEditor.Name = "_splitEditor";
         _splitEditor.Panel1.Controls.Add(_pnlCanvasHost);
         _splitEditor.Panel2.Controls.Add(_pnlProperties);
         _splitEditor.Panel2MinSize = 280;
-        _splitEditor.SplitterDistance = 900;
+        _splitEditor.Size = new Size(1056, 629);
+        _splitEditor.SplitterDistance = 760;
         _splitEditor.TabIndex = 0;
         // 
         // _pnlToolbox

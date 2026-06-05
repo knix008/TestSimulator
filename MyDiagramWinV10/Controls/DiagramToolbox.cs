@@ -347,8 +347,8 @@ public sealed class DiagramToolbox : UserControl
 
             _drawPreview(e.Graphics, ClientRectangle);
 
-            using var font = ModernTheme.UiFont;
             using var brush = new SolidBrush(ModernTheme.TextPrimary);
+            var font = ModernTheme.UiFont;
             var size = e.Graphics.MeasureString(Caption, font);
             e.Graphics.DrawString(
                 Caption,
