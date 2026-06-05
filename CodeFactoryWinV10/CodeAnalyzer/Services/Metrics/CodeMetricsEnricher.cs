@@ -13,13 +13,14 @@ public static class CodeMetricsEnricher
         UserAnalysisSettings thresholds,
         MetricInspectionKind inspections,
         FileRelationGraphResult? fileRelations = null,
-        string? projectRoot = null)
+        string? projectRoot = null,
+        ProjectStructureResult? structure = null)
     {
         inspections = MetricInspectionScope.Normalize(inspections);
 
         if (metrics.Functions.Count > AnalysisScaleLimits.MaxFunctionsForFullEnrichment)
         {
-            return EnrichLargeProject(metrics, callGraph, duplicates, thresholds, inspections, fileRelations, projectRoot);
+            return EnrichLargeProject(metrics, callGraph, duplicates, thresholds, inspections, fileRelations, projectRoot, structure);
         }
 
         var functions = EnrichFunctions(metrics.Functions, callGraph, inspections);
@@ -32,7 +33,7 @@ public static class CodeMetricsEnricher
             && fileRelations is not null
             ? PackageMetricsBuilder.Build(fileRelations, files, projectRoot)
             : metrics.Packages;
-        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections, packages);
+        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections, packages, fileRelations, structure);
 
         return new CodeMetricsResult
         {
@@ -55,7 +56,8 @@ public static class CodeMetricsEnricher
         UserAnalysisSettings thresholds,
         MetricInspectionKind inspections,
         FileRelationGraphResult? fileRelations,
-        string? projectRoot)
+        string? projectRoot,
+        ProjectStructureResult? structure)
     {
         var functions = metrics.Functions;
         var files = metrics.Files;
@@ -72,7 +74,7 @@ public static class CodeMetricsEnricher
             && fileRelations is not null
             ? PackageMetricsBuilder.Build(fileRelations, files, projectRoot)
             : metrics.Packages;
-        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections, packages);
+        var summary = BuildSummary(functions, files, callGraph, duplicates, thresholds, inspections, packages, fileRelations, structure);
 
         return new CodeMetricsResult
         {
@@ -190,7 +192,9 @@ public static class CodeMetricsEnricher
         DuplicateCodeResult duplicates,
         UserAnalysisSettings thresholds,
         MetricInspectionKind inspections,
-        IReadOnlyList<PackageMetric> packages)
+        IReadOnlyList<PackageMetric> packages,
+        FileRelationGraphResult? fileRelations,
+        ProjectStructureResult? structure)
     {
         var scope = inspections;
         var totalCodeLines = files.Sum(file => file.CodeLines);
@@ -288,12 +292,49 @@ public static class CodeMetricsEnricher
             HighInstabilityPackageCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.PackageInstability)
                 ? packages.Count(package => package.Instability >= thresholds.WarnInstability)
                 : 0,
-            LayerViolationCount = 0,
-            LowCohesionTypeCount = 0,
-            DeepInheritanceTypeCount = 0,
+            LayerViolationCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.LayerViolation)
+                && fileRelations is not null
+                ? LayerViolationDetector.Detect(fileRelations).Count
+                : 0,
+            LowCohesionTypeCount = ComputeLowCohesionTypeCount(scope, structure, functions, thresholds),
+            DeepInheritanceTypeCount = ComputeDeepInheritanceTypeCount(scope, structure, functions, thresholds),
             GitHotspotFileCount = MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.GitHotspot)
                 ? files.Count(file => file.GitChangeLineCount >= thresholds.WarnGitChangeLines)
                 : 0
         };
+    }
+
+    private static int ComputeLowCohesionTypeCount(
+        MetricInspectionKind scope,
+        ProjectStructureResult? structure,
+        IReadOnlyList<FunctionMetric> functions,
+        UserAnalysisSettings thresholds)
+    {
+        if (!MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.TypeCohesion)
+            || structure is null
+            || structure.Types.Count == 0)
+        {
+            return 0;
+        }
+
+        return TypeMetricsBuilder.Build(structure, functions, thresholds)
+            .Count(type => type.LackOfCohesion >= thresholds.WarnLackOfCohesion);
+    }
+
+    private static int ComputeDeepInheritanceTypeCount(
+        MetricInspectionKind scope,
+        ProjectStructureResult? structure,
+        IReadOnlyList<FunctionMetric> functions,
+        UserAnalysisSettings thresholds)
+    {
+        if (!MetricInspectionRuntime.IsInspectionEnabled(scope, MetricInspectionKind.InheritanceDepth)
+            || structure is null
+            || structure.Types.Count == 0)
+        {
+            return 0;
+        }
+
+        return TypeMetricsBuilder.Build(structure, functions, thresholds)
+            .Count(type => type.DepthOfInheritance >= thresholds.WarnInheritanceDepth);
     }
 }

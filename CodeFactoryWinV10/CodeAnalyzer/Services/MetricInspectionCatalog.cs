@@ -12,6 +12,7 @@ public static class MetricInspectionCatalog
         new(MetricInspectionKind.ShowFunctionsTab, "탭", "함수"),
         new(MetricInspectionKind.ShowTypesTab, "탭", "타입"),
         new(MetricInspectionKind.ShowArchitectureTab, "탭", "아키텍처"),
+        new(MetricInspectionKind.ShowPackagesTab, "탭", "패키지"),
 
         new(MetricInspectionKind.CyclomaticComplexity, "함수·파일·타입", "순환 복잡도 (CC)"),
         new(MetricInspectionKind.CognitiveComplexity, "함수·파일·타입", "인지 복잡도"),

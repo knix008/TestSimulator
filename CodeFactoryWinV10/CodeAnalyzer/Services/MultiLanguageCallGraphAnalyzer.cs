@@ -297,7 +297,8 @@ public sealed class MultiLanguageCallGraphAnalyzer
                     qualitySettings,
                     inspections,
                     fileRelations,
-                    rootPath);
+                    rootPath,
+                    structure);
             }
             catch (OutOfMemoryException ex)
             {

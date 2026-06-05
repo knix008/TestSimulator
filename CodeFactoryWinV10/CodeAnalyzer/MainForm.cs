@@ -24,9 +24,8 @@ public partial class MainForm : Form
     private readonly SearchResultsPopup _searchPopup;
     private readonly System.Windows.Forms.Timer _searchDebounceTimer;
     private bool _suppressRootComboChange;
-    private bool _suppressQualityThresholdEvents;
     private bool _suppressDirectoryListEvents;
-    private ToolTip? _qualityThresholdToolTip;
+    private UserAnalysisSettings _analysisSettings = UserAnalysisSettings.CreateDefaults();
     private MetricInspectionKind _enabledInspections = MetricInspectionKind.All;
     private TimeSpan? _lastCompletedAnalysisElapsed;
     private int _lastCompletedDirectoryCount;
@@ -34,12 +33,10 @@ public partial class MainForm : Form
 
     public MainForm()
     {
-        _suppressQualityThresholdEvents = true;
         InitializeComponent();
-        AttachQualityThresholdToolTips();
-        UserAnalysisSettings.RegisterDesignerDefaults(ReadQualityThresholdsFromControls());
-        _suppressQualityThresholdEvents = false;
-        _enabledInspections = MetricInspectionCatalog.NormalizeScope(_userSettings.LoadSettings().EnabledInspections);
+        _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(_userSettings.LoadSettings());
+        _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
+        UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
         _searchPopup = new SearchResultsPopup();
         _searchPopup.ResultSelected += SearchPopup_ResultSelected;
         _searchDebounceTimer = new System.Windows.Forms.Timer { Interval = 150 };
@@ -55,7 +52,6 @@ public partial class MainForm : Form
             _searchPopup.Owner = this;
             HookClickOutsideToHideSearch(this);
         };
-        FormClosed += (_, _) => _qualityThresholdToolTip?.Dispose();
         diagramViewHost.CallGraphRootChanged += OnCallGraphRootChanged;
         diagramViewHost.FileRootChanged += OnFileRootChanged;
         diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
@@ -67,26 +63,6 @@ public partial class MainForm : Form
         UpdateResultCommandsState();
         UpdateToolbarForViewKind();
         UpdateRootHistoryNavigationState();
-    }
-
-    private void AttachQualityThresholdToolTips()
-    {
-        _qualityThresholdToolTip?.Dispose();
-        _qualityThresholdToolTip = QualityThresholdToolTipHelper.AttachToGroup(
-            grpQualityThresholds,
-            (lblWarnCyclomatic, numWarnCyclomatic, QualityThresholdToolTipTexts.Cyclomatic),
-            (lblWarnCognitive, numWarnCognitive, QualityThresholdToolTipTexts.Cognitive),
-            (lblWarnNesting, numWarnNesting, QualityThresholdToolTipTexts.Nesting),
-            (lblWarnFanOut, numWarnFanOut, QualityThresholdToolTipTexts.FanOut),
-            (lblWarnMi, numWarnMi, QualityThresholdToolTipTexts.MaintenanceIndex),
-            (lblWarnTodoDensity, numWarnTodoDensity, QualityThresholdToolTipTexts.TodoDensity),
-            (lblWarnParameter, numWarnParameter, QualityThresholdToolTipTexts.ParameterCount),
-            (lblWarnReturn, numWarnReturn, QualityThresholdToolTipTexts.ReturnCount),
-            (lblWarnMagic, numWarnMagic, QualityThresholdToolTipTexts.MagicNumbers),
-            (lblWarnGodFile, numWarnGodFile, QualityThresholdToolTipTexts.GodFile),
-            (lblWarnComment, numWarnComment, QualityThresholdToolTipTexts.CommentPercent),
-            (lblWarnGodType, numWarnGodType, QualityThresholdToolTipTexts.GodType),
-            (lblMinDuplicateLines, numMinDuplicateLines, QualityThresholdToolTipTexts.MinDuplicateLines));
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -238,125 +214,32 @@ public partial class MainForm : Form
     {
         if (_userSettings.HasSettingsFile())
         {
-            ApplyQualityThresholdsToUi(_userSettings.LoadSettings());
+            _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(_userSettings.LoadSettings());
+            _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
+            UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
         }
 
-        var settings = _userSettings.LoadSettings();
-        if (string.IsNullOrWhiteSpace(settings.LastRootDirectory))
+        if (string.IsNullOrWhiteSpace(_analysisSettings.LastRootDirectory))
         {
             return;
         }
 
-        txtRootPath.Text = settings.LastRootDirectory;
-        ApplyRootDirectory(settings.LastRootDirectory, saveSettings: false);
+        txtRootPath.Text = _analysisSettings.LastRootDirectory;
+        ApplyRootDirectory(_analysisSettings.LastRootDirectory, saveSettings: false);
     }
 
-    private void ApplyQualityThresholdsToUi(UserAnalysisSettings settings)
+    private void btnAnalysisSettings_Click(object? sender, EventArgs e)
     {
-        _suppressQualityThresholdEvents = true;
-        try
-        {
-            ApplyStoredThresholdToNumeric(
-                numMinDuplicateLines,
-                settings.MinDuplicateLines,
-                UserAnalysisSettings.MinDuplicateLinesFloor,
-                (int)numMinDuplicateLines.Maximum);
-
-            ApplyStoredThresholdToNumeric(numWarnCyclomatic, settings.WarnCyclomaticComplexity);
-            ApplyStoredThresholdToNumeric(numWarnCognitive, settings.WarnCognitiveComplexity);
-            ApplyStoredThresholdToNumeric(numWarnNesting, settings.WarnMaxNestingDepth);
-            ApplyStoredThresholdToNumeric(numWarnFanOut, settings.WarnFanOut);
-            ApplyStoredThresholdToNumeric(numWarnParameter, settings.WarnParameterCount);
-            ApplyStoredThresholdToNumeric(numWarnReturn, settings.WarnReturnCount);
-            ApplyStoredThresholdToNumeric(numWarnMagic, settings.WarnMagicNumbers);
-            ApplyStoredThresholdToNumeric(
-                numWarnGodFile,
-                settings.WarnGodFileCodeLines,
-                (int)numWarnGodFile.Minimum,
-                (int)numWarnGodFile.Maximum);
-            ApplyStoredThresholdToNumeric(
-                numWarnGodType,
-                settings.WarnGodTypeMemberCount,
-                (int)numWarnGodType.Minimum,
-                (int)numWarnGodType.Maximum);
-
-            if (settings.WarnMaintenanceIndex > 0)
-            {
-                numWarnMi.Value = Math.Clamp((decimal)settings.WarnMaintenanceIndex, numWarnMi.Minimum, numWarnMi.Maximum);
-            }
-
-            if (settings.WarnTodoDensityPer100Lines > 0)
-            {
-                numWarnTodoDensity.Value = Math.Clamp(
-                    (decimal)settings.WarnTodoDensityPer100Lines,
-                    numWarnTodoDensity.Minimum,
-                    numWarnTodoDensity.Maximum);
-            }
-
-            if (settings.WarnMinCommentPercent > 0)
-            {
-                numWarnComment.Value = Math.Clamp(
-                    (decimal)settings.WarnMinCommentPercent,
-                    numWarnComment.Minimum,
-                    numWarnComment.Maximum);
-            }
-        }
-        finally
-        {
-            _suppressQualityThresholdEvents = false;
-        }
-    }
-
-    private static void ApplyStoredThresholdToNumeric(
-        NumericUpDown control,
-        int storedValue,
-        int? minOverride = null,
-        int? maxOverride = null)
-    {
-        if (storedValue <= 0)
-        {
-            return;
-        }
-
-        var min = minOverride ?? (int)control.Minimum;
-        var max = maxOverride ?? (int)control.Maximum;
-        control.Value = Math.Clamp(storedValue, min, max);
-    }
-
-    private void numMinDuplicateLines_ValueChanged(object? sender, EventArgs e)
-    {
-        if (_isAnalysisRunning || _suppressQualityThresholdEvents)
-        {
-            return;
-        }
-
-        _userSettings.SaveMinDuplicateLines((int)numMinDuplicateLines.Value);
-    }
-
-    private void QualityThreshold_ValueChanged(object? sender, EventArgs e)
-    {
-        if (_isAnalysisRunning || _suppressQualityThresholdEvents)
-        {
-            return;
-        }
-
-        _userSettings.SaveQualityThresholds(ReadQualityThresholdsFromUi());
-    }
-
-    private void btnAnalysisScope_Click(object? sender, EventArgs e)
-    {
-        using var dialog = new AnalysisScopeOptionsDialog(_enabledInspections);
-
+        using var dialog = new AnalysisSettingsDialog(_analysisSettings);
         if (dialog.ShowDialog(this) != DialogResult.OK)
         {
             return;
         }
 
-        _enabledInspections = MetricInspectionCatalog.NormalizeScope(dialog.SelectedInspectionScope);
-
-        var settings = _userSettings.LoadSettings();
-        settings.EnabledInspections = _enabledInspections;
-        _userSettings.SaveSettings(settings);
+        _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(dialog.Settings);
+        _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
+        UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
+        _userSettings.SaveQualityThresholds(BuildAnalysisSettingsForPersistence());
 
         if (_lastAnalysis is not null)
         {
@@ -364,35 +247,17 @@ public partial class MainForm : Form
         }
     }
 
-    private UserAnalysisSettings ReadQualityThresholdsFromControls()
+    private UserAnalysisSettings BuildAnalysisSettingsForPersistence()
     {
-        return new UserAnalysisSettings
-        {
-            EnabledInspections = _enabledInspections,
-            IncludedDirectoryPaths = [],
-            ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar(),
-            MinDuplicateLines = (int)numMinDuplicateLines.Value,
-        WarnCyclomaticComplexity = (int)numWarnCyclomatic.Value,
-        WarnCognitiveComplexity = (int)numWarnCognitive.Value,
-        WarnMaxNestingDepth = (int)numWarnNesting.Value,
-        WarnFanOut = (int)numWarnFanOut.Value,
-        WarnMaintenanceIndex = (double)numWarnMi.Value,
-        WarnTodoDensityPer100Lines = (double)numWarnTodoDensity.Value,
-        WarnParameterCount = (int)numWarnParameter.Value,
-        WarnReturnCount = (int)numWarnReturn.Value,
-        WarnMagicNumbers = (int)numWarnMagic.Value,
-        WarnGodFileCodeLines = (int)numWarnGodFile.Value,
-        WarnMinCommentPercent = (double)numWarnComment.Value,
-        WarnGodTypeMemberCount = (int)numWarnGodType.Value
-        };
-    }
-
-    private UserAnalysisSettings ReadQualityThresholdsFromUi()
-    {
-        var settings = ReadQualityThresholdsFromControls();
+        var settings = UserAnalysisSettings.CloneThresholds(_analysisSettings);
+        settings.EnabledInspections = _enabledInspections;
+        settings.ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar();
         settings.LastRootDirectory = _userSettings.LoadSettings().LastRootDirectory;
         return settings;
     }
+
+    private UserAnalysisSettings ReadQualityThresholdsFromControls() =>
+        UserAnalysisSettings.ResolveForAnalysis(BuildAnalysisSettingsForPersistence());
 
     private void ApplyRootDirectory(string rootPath, bool saveSettings)
     {
@@ -703,19 +568,7 @@ public partial class MainForm : Form
 
         SetAnalyzeButtonRunning();
         SetToolbarEnabled(false);
-        numMinDuplicateLines.Enabled = false;
-        numWarnCyclomatic.Enabled = false;
-        numWarnCognitive.Enabled = false;
-        numWarnNesting.Enabled = false;
-        numWarnFanOut.Enabled = false;
-        numWarnMi.Enabled = false;
-        numWarnTodoDensity.Enabled = false;
-        numWarnParameter.Enabled = false;
-        numWarnReturn.Enabled = false;
-        numWarnMagic.Enabled = false;
-        numWarnGodFile.Enabled = false;
-        numWarnComment.Enabled = false;
-        numWarnGodType.Enabled = false;
+        btnAnalysisSettings.Enabled = false;
         ResetAnalysisProgress(isActive: true);
         lblStatus.Text = "백그라운드에서 분석 중...";
         UpdateRootHistoryNavigationState();
@@ -729,19 +582,7 @@ public partial class MainForm : Form
         diagramViewHost.EndAnalysis();
         SetAnalyzeButtonIdle();
         SetToolbarEnabled(true);
-        numMinDuplicateLines.Enabled = true;
-        numWarnCyclomatic.Enabled = true;
-        numWarnCognitive.Enabled = true;
-        numWarnNesting.Enabled = true;
-        numWarnFanOut.Enabled = true;
-        numWarnMi.Enabled = true;
-        numWarnTodoDensity.Enabled = true;
-        numWarnParameter.Enabled = true;
-        numWarnReturn.Enabled = true;
-        numWarnMagic.Enabled = true;
-        numWarnGodFile.Enabled = true;
-        numWarnComment.Enabled = true;
-        numWarnGodType.Enabled = true;
+        btnAnalysisSettings.Enabled = true;
         ResetAnalysisProgress(isActive: false);
 
         if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.CodeMetrics
@@ -1651,8 +1492,9 @@ public partial class MainForm : Form
 
         if (analysis.QualityThresholds is not null)
         {
-            _enabledInspections = MetricInspectionCatalog.NormalizeScope(analysis.QualityThresholds.EnabledInspections);
-            ApplyQualityThresholdsToUi(analysis.QualityThresholds);
+            _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(analysis.QualityThresholds);
+            _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
+            UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
         }
 
         ApplyAnalysisResultsToUi(analysis);

@@ -10,6 +10,7 @@ public enum MetricInspectionKind : ulong
     ShowFunctionsTab = 1UL << 1,
     ShowTypesTab = 1UL << 2,
     ShowArchitectureTab = 1UL << 3,
+    ShowPackagesTab = 1UL << 41,
 
     CyclomaticComplexity = 1UL << 4,
     CognitiveComplexity = 1UL << 5,
@@ -55,6 +56,7 @@ public enum MetricInspectionKind : ulong
         | ShowFunctionsTab
         | ShowTypesTab
         | ShowArchitectureTab
+        | ShowPackagesTab
         | CyclomaticComplexity
         | CognitiveComplexity
         | NestingDepth

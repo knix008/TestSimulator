@@ -20,6 +20,11 @@
 *.sln.docstates
 *.rsuser
 *.wixproj.user
+*.DotSettings.user
+UpgradeLog*.XML
+UpgradeLog*.htm
+*.binlog
+msbuild.binlog
 
 # VS may auto-create .slnx; this repo uses CodeAnalyzer.sln only
 *.slnx
@@ -31,9 +36,12 @@
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# JetBrains Rider
+# JetBrains Rider / ReSharper
 .idea/
 *.sln.iml
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
 
 # NuGet
 *.nupkg
@@ -44,12 +52,16 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
-# Test / coverage
+# Test / coverage / benchmarks
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 *.trx
 *.coverage
 *.coveragexml
+*.opencover.xml
+BenchmarkDotNet.Artifacts/
+NCrunch*/
+nCrunchTemp_*/
 
 # Publish
 publish/
@@ -64,12 +76,25 @@ $RECYCLE.BIN/
 # macOS
 .DS_Store
 
-# Temporary / logs
+# Linux
+*~
+
+# Temporary / logs / backups
 *.tmp
 *.temp
 *.log
+*.bak
+*.swp
+*.orig
+*.rej
 ~$*
 
 # User-specific project files
 *.csproj.user
 *.vbproj.user
+
+# Local analysis exports (optional; uncomment if you export into the repo tree)
+# *.analysis.html
+# *.analysis.md
+# *.analysis.docx
+# *.analysis.pdf

@@ -127,6 +127,15 @@ public sealed class UserSettingsService
         settings.WarnGodFileCodeLines = thresholds.WarnGodFileCodeLines;
         settings.WarnMinCommentPercent = thresholds.WarnMinCommentPercent;
         settings.WarnGodTypeMemberCount = thresholds.WarnGodTypeMemberCount;
+        settings.WarnStatementCount = thresholds.WarnStatementCount;
+        settings.WarnSwitchCaseCount = thresholds.WarnSwitchCaseCount;
+        settings.WarnPublicApiCount = thresholds.WarnPublicApiCount;
+        settings.WarnMinTestCodePercent = thresholds.WarnMinTestCodePercent;
+        settings.WarnInstability = thresholds.WarnInstability;
+        settings.WarnLackOfCohesion = thresholds.WarnLackOfCohesion;
+        settings.WarnInheritanceDepth = thresholds.WarnInheritanceDepth;
+        settings.WarnGitChangeLines = thresholds.WarnGitChangeLines;
+        settings.WarnSecuritySmellCount = thresholds.WarnSecuritySmellCount;
         settings.EnabledInspections = MetricInspectionCatalog.NormalizeScope(thresholds.EnabledInspections);
         settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
         settings.IncludedDirectoryPaths = [];
@@ -210,6 +219,51 @@ public sealed class UserSettingsService
         if (settings.WarnGodTypeMemberCount > 0)
         {
             settings.WarnGodTypeMemberCount = Math.Clamp(settings.WarnGodTypeMemberCount, 5, 500);
+        }
+
+        if (settings.WarnStatementCount > 0)
+        {
+            settings.WarnStatementCount = Math.Clamp(settings.WarnStatementCount, 10, 500);
+        }
+
+        if (settings.WarnSwitchCaseCount > 0)
+        {
+            settings.WarnSwitchCaseCount = Math.Clamp(settings.WarnSwitchCaseCount, 3, 200);
+        }
+
+        if (settings.WarnPublicApiCount > 0)
+        {
+            settings.WarnPublicApiCount = Math.Clamp(settings.WarnPublicApiCount, 5, 500);
+        }
+
+        if (settings.WarnMinTestCodePercent > 0)
+        {
+            settings.WarnMinTestCodePercent = Math.Clamp(settings.WarnMinTestCodePercent, 0, 100);
+        }
+
+        if (settings.WarnInstability > 0)
+        {
+            settings.WarnInstability = Math.Clamp(settings.WarnInstability, 0, 1);
+        }
+
+        if (settings.WarnLackOfCohesion > 0)
+        {
+            settings.WarnLackOfCohesion = Math.Clamp(settings.WarnLackOfCohesion, 0, 1);
+        }
+
+        if (settings.WarnInheritanceDepth > 0)
+        {
+            settings.WarnInheritanceDepth = Math.Clamp(settings.WarnInheritanceDepth, 2, 20);
+        }
+
+        if (settings.WarnGitChangeLines > 0)
+        {
+            settings.WarnGitChangeLines = Math.Clamp(settings.WarnGitChangeLines, 50, 1_000_000);
+        }
+
+        if (settings.WarnSecuritySmellCount > 0)
+        {
+            settings.WarnSecuritySmellCount = Math.Clamp(settings.WarnSecuritySmellCount, 1, 100);
         }
     }
 }
