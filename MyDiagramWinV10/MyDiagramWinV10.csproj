@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MyDiagramWinV10</AssemblyName>
+    <RootNamespace>MyDiagramWinV10</RootNamespace>
+    <StartupObject>MyDiagramWinV10.Program</StartupObject>
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)installer\MyDiagramWinV10.Installer.wixproj"
+      Targets="Restore;Build"
+      Properties="Configuration=Release;Platform=x64" />
+  </Target>
+
+  <ItemGroup>
+    <Compile Update="MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="MainForm.Designer.cs">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="MainForm.resx">
+      <DependentUpon>MainForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <Compile Update="Diagram3DViewForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Diagram3DViewForm.Designer.cs">
+      <DependentUpon>Diagram3DViewForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="Diagram3DViewForm.resx">
+      <DependentUpon>Diagram3DViewForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PDFsharp" Version="6.*" />
+  </ItemGroup>
+</Project>

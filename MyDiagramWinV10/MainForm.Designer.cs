@@ -1,0 +1,1133 @@
+namespace MyDiagramWinV10;
+
+partial class MainForm
+{
+    private System.ComponentModel.IContainer components = null;
+
+    private MenuStrip _menuStrip;
+    private ToolStripMenuItem _menuFile;
+    private ToolStripMenuItem _menuNew;
+    private ToolStripMenuItem _menuTemplate;
+    private ToolStripMenuItem _menuTemplateOrgBasic;
+    private ToolStripMenuItem _menuTemplateOrgDepartment;
+    private ToolStripMenuItem _menuTemplateOrgProject;
+    private ToolStripMenuItem _menuTemplateFlowchart;
+    private ToolStripMenuItem _menuTemplateProcess;
+    private ToolStripMenuItem _menuTemplateNetwork;
+    private ToolStripMenuItem _menuOpen;
+    private ToolStripMenuItem _menuSave;
+    private ToolStripMenuItem _menuSaveAs;
+    private ToolStripMenuItem _menuExport;
+    private ToolStripMenuItem _menuExportImage;
+    private ToolStripMenuItem _menuExportSvg;
+    private ToolStripMenuItem _menuExportPdf;
+    private ToolStripMenuItem _menuExit;
+    private ToolStripMenuItem _menuEdit;
+    private ToolStripMenuItem _menuUndo;
+    private ToolStripMenuItem _menuRedo;
+    private ToolStripMenuItem _menuDelete;
+    private ToolStripMenuItem _menuView;
+    private ToolStripMenuItem _menuZoomIn;
+    private ToolStripMenuItem _menuZoomOut;
+    private ToolStripMenuItem _menuZoomReset;
+    private ToolStripMenuItem _menuView3D;
+    private ToolStrip _toolStrip;
+    private ToolStripButton _btnSelect;
+    private ToolStripButton _btnRectangle;
+    private ToolStripButton _btnRoundedRect;
+    private ToolStripButton _btnEllipse;
+    private ToolStripButton _btnDiamond;
+    private ToolStripButton _btnTriangle;
+    private ToolStripButton _btnParallelogram;
+    private ToolStripButton _btnHexagon;
+    private ToolStripSeparator _sepShapes;
+    private ToolStripButton _btnLineStraight;
+    private ToolStripButton _btnLineOrthogonal;
+    private ToolStripButton _btnLineCurved;
+    private ToolStripSeparator _sepLines;
+    private ToolStripSeparator _sepZoom;
+    private ToolStripButton _btnZoomIn;
+    private ToolStripButton _btnZoomOut;
+    private ToolStripButton _btnZoomReset;
+    private ToolStripButton _btnView3D;
+    private ToolStripLabel _lblZoom;
+    private ToolStripLabel _lblStatus;
+    private SplitContainer _splitMain;
+    private SplitContainer _splitEditor;
+    private Panel _pnlToolbox;
+    private Label _lblToolboxTitle;
+    private Panel _pnlProperties;
+    private Label _lblPropertyTitle;
+    private GroupBox _grpShape;
+    private Label _lblShapeText;
+    private TextBox _txtShapeText;
+    private Label _lblShapeWidth;
+    private NumericUpDown _numShapeWidth;
+    private Label _lblShapeHeight;
+    private NumericUpDown _numShapeHeight;
+    private Label _lblFillColor;
+    private Button _btnFillColor;
+    private Label _lblBorderColor;
+    private Button _btnBorderColor;
+    private Label _lblTextColor;
+    private Button _btnTextColor;
+    private Label _lblBorderWidth;
+    private NumericUpDown _numBorderWidth;
+    private Label _lblBorderStyle;
+    private ComboBox _cmbBorderStyle;
+    private Label _lblFont;
+    private ComboBox _cmbFont;
+    private Label _lblFontSize;
+    private NumericUpDown _numFontSize;
+    private CheckBox _chkFontBold;
+    private Button _btnSetImage;
+    private Button _btnClearImage;
+    private GroupBox _grpConnector;
+    private Label _lblLineColor;
+    private Button _btnLineColor;
+    private Label _lblLineWidth;
+    private NumericUpDown _numLineWidth;
+    private Label _lblLineStyle;
+    private ComboBox _cmbLineStyle;
+    private Label _lblConnectorKind;
+    private ComboBox _cmbConnectorKind;
+    private CheckBox _chkStartArrow;
+    private CheckBox _chkEndArrow;
+    private Label _lblConnectorLabel;
+    private TextBox _txtConnectorLabel;
+    private Panel _pnlCanvasHost;
+    private MyDiagramWinV10.Controls.DiagramCanvas _canvas;
+    private StatusStrip _statusStrip;
+    private ToolStripStatusLabel _statusLabel;
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && components != null)
+            components.Dispose();
+        base.Dispose(disposing);
+    }
+
+    private void InitializeComponent()
+    {
+        components = new System.ComponentModel.Container();
+        _menuStrip = new MenuStrip();
+        _menuFile = new ToolStripMenuItem();
+        _menuNew = new ToolStripMenuItem();
+        _menuTemplate = new ToolStripMenuItem();
+        _menuTemplateOrgBasic = new ToolStripMenuItem();
+        _menuTemplateOrgDepartment = new ToolStripMenuItem();
+        _menuTemplateOrgProject = new ToolStripMenuItem();
+        _menuTemplateFlowchart = new ToolStripMenuItem();
+        _menuTemplateProcess = new ToolStripMenuItem();
+        _menuTemplateNetwork = new ToolStripMenuItem();
+        _menuOpen = new ToolStripMenuItem();
+        _menuSave = new ToolStripMenuItem();
+        _menuSaveAs = new ToolStripMenuItem();
+        _menuExport = new ToolStripMenuItem();
+        _menuExportImage = new ToolStripMenuItem();
+        _menuExportSvg = new ToolStripMenuItem();
+        _menuExportPdf = new ToolStripMenuItem();
+        _menuExit = new ToolStripMenuItem();
+        _menuEdit = new ToolStripMenuItem();
+        _menuUndo = new ToolStripMenuItem();
+        _menuRedo = new ToolStripMenuItem();
+        _menuDelete = new ToolStripMenuItem();
+        _menuView = new ToolStripMenuItem();
+        _menuZoomIn = new ToolStripMenuItem();
+        _menuZoomOut = new ToolStripMenuItem();
+        _menuZoomReset = new ToolStripMenuItem();
+        _menuView3D = new ToolStripMenuItem();
+        _toolStrip = new ToolStrip();
+        _btnSelect = new ToolStripButton();
+        _btnRectangle = new ToolStripButton();
+        _btnRoundedRect = new ToolStripButton();
+        _btnEllipse = new ToolStripButton();
+        _btnDiamond = new ToolStripButton();
+        _btnTriangle = new ToolStripButton();
+        _btnParallelogram = new ToolStripButton();
+        _btnHexagon = new ToolStripButton();
+        _sepShapes = new ToolStripSeparator();
+        _btnLineStraight = new ToolStripButton();
+        _btnLineOrthogonal = new ToolStripButton();
+        _btnLineCurved = new ToolStripButton();
+        _sepLines = new ToolStripSeparator();
+        _sepZoom = new ToolStripSeparator();
+        _btnZoomIn = new ToolStripButton();
+        _btnZoomOut = new ToolStripButton();
+        _btnZoomReset = new ToolStripButton();
+        _btnView3D = new ToolStripButton();
+        _lblZoom = new ToolStripLabel();
+        _lblStatus = new ToolStripLabel();
+        _splitMain = new SplitContainer();
+        _splitEditor = new SplitContainer();
+        _pnlToolbox = new Panel();
+        _lblToolboxTitle = new Label();
+        _pnlProperties = new Panel();
+        _grpConnector = new GroupBox();
+        _txtConnectorLabel = new TextBox();
+        _lblConnectorLabel = new Label();
+        _chkEndArrow = new CheckBox();
+        _chkStartArrow = new CheckBox();
+        _cmbConnectorKind = new ComboBox();
+        _lblConnectorKind = new Label();
+        _cmbLineStyle = new ComboBox();
+        _lblLineStyle = new Label();
+        _numLineWidth = new NumericUpDown();
+        _lblLineWidth = new Label();
+        _btnLineColor = new Button();
+        _lblLineColor = new Label();
+        _grpShape = new GroupBox();
+        _btnClearImage = new Button();
+        _btnSetImage = new Button();
+        _chkFontBold = new CheckBox();
+        _numFontSize = new NumericUpDown();
+        _lblFontSize = new Label();
+        _cmbFont = new ComboBox();
+        _lblFont = new Label();
+        _cmbBorderStyle = new ComboBox();
+        _lblBorderStyle = new Label();
+        _numBorderWidth = new NumericUpDown();
+        _lblBorderWidth = new Label();
+        _btnTextColor = new Button();
+        _lblTextColor = new Label();
+        _btnBorderColor = new Button();
+        _lblBorderColor = new Label();
+        _btnFillColor = new Button();
+        _lblFillColor = new Label();
+        _txtShapeText = new TextBox();
+        _lblShapeText = new Label();
+        _lblShapeWidth = new Label();
+        _numShapeWidth = new NumericUpDown();
+        _lblShapeHeight = new Label();
+        _numShapeHeight = new NumericUpDown();
+        _lblPropertyTitle = new Label();
+        _pnlCanvasHost = new Panel();
+        _canvas = new MyDiagramWinV10.Controls.DiagramCanvas();
+        _statusStrip = new StatusStrip();
+        _statusLabel = new ToolStripStatusLabel();
+        _menuStrip.SuspendLayout();
+        _toolStrip.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)_splitMain).BeginInit();
+        _splitMain.Panel1.SuspendLayout();
+        _splitMain.Panel2.SuspendLayout();
+        _splitMain.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)_splitEditor).BeginInit();
+        _splitEditor.Panel1.SuspendLayout();
+        _splitEditor.Panel2.SuspendLayout();
+        _splitEditor.SuspendLayout();
+        _pnlToolbox.SuspendLayout();
+        _pnlProperties.SuspendLayout();
+        _grpConnector.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)_numLineWidth).BeginInit();
+        _grpShape.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)_numFontSize).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)_numBorderWidth).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)_numShapeWidth).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)_numShapeHeight).BeginInit();
+        _pnlCanvasHost.SuspendLayout();
+        _statusStrip.SuspendLayout();
+        SuspendLayout();
+        // 
+        // _menuStrip
+        // 
+        _menuStrip.Items.AddRange(new ToolStripItem[] { _menuFile, _menuEdit, _menuView });
+        _menuStrip.Location = new Point(0, 0);
+        _menuStrip.Name = "_menuStrip";
+        _menuStrip.Size = new Size(1280, 24);
+        _menuStrip.TabIndex = 0;
+        // 
+        // _menuFile
+        // 
+        _menuFile.DropDownItems.AddRange(new ToolStripItem[] { _menuNew, _menuTemplate, _menuOpen, _menuSave, _menuSaveAs, _menuExport, _menuExit });
+        _menuTemplate.DropDownItems.AddRange(new ToolStripItem[]
+        {
+            _menuTemplateOrgBasic, _menuTemplateOrgDepartment, _menuTemplateOrgProject,
+            _menuTemplateFlowchart, _menuTemplateProcess, _menuTemplateNetwork
+        });
+        _menuExport.DropDownItems.AddRange(new ToolStripItem[] { _menuExportImage, _menuExportSvg, _menuExportPdf });
+        _menuFile.Name = "_menuFile";
+        _menuFile.Size = new Size(57, 20);
+        _menuFile.Text = "파일(&F)";
+        // 
+        // _menuNew
+        // 
+        _menuNew.Name = "_menuNew";
+        _menuNew.ShortcutKeys = Keys.Control | Keys.N;
+        _menuNew.Size = new Size(196, 22);
+        _menuNew.Text = "새로 만들기";
+        _menuNew.Click += MenuNew_Click;
+        // 
+        // _menuTemplate
+        // 
+        _menuTemplate.Name = "_menuTemplate";
+        _menuTemplate.Size = new Size(196, 22);
+        _menuTemplate.Text = "템플릿";
+        // 
+        // _menuTemplateOrgBasic
+        // 
+        _menuTemplateOrgBasic.Name = "_menuTemplateOrgBasic";
+        _menuTemplateOrgBasic.Size = new Size(220, 22);
+        _menuTemplateOrgBasic.Text = "조직도 (기본 3단)";
+        _menuTemplateOrgBasic.Click += MenuTemplateOrgBasic_Click;
+        // 
+        // _menuTemplateOrgDepartment
+        // 
+        _menuTemplateOrgDepartment.Name = "_menuTemplateOrgDepartment";
+        _menuTemplateOrgDepartment.Size = new Size(220, 22);
+        _menuTemplateOrgDepartment.Text = "조직도 (부서형)";
+        _menuTemplateOrgDepartment.Click += MenuTemplateOrgDepartment_Click;
+        // 
+        // _menuTemplateOrgProject
+        // 
+        _menuTemplateOrgProject.Name = "_menuTemplateOrgProject";
+        _menuTemplateOrgProject.Size = new Size(220, 22);
+        _menuTemplateOrgProject.Text = "조직도 (프로젝트팀)";
+        _menuTemplateOrgProject.Click += MenuTemplateOrgProject_Click;
+        // 
+        // _menuTemplateFlowchart
+        // 
+        _menuTemplateFlowchart.Name = "_menuTemplateFlowchart";
+        _menuTemplateFlowchart.Size = new Size(220, 22);
+        _menuTemplateFlowchart.Text = "플로우차트 (기본)";
+        _menuTemplateFlowchart.Click += MenuTemplateFlowchart_Click;
+        // 
+        // _menuTemplateProcess
+        // 
+        _menuTemplateProcess.Name = "_menuTemplateProcess";
+        _menuTemplateProcess.Size = new Size(220, 22);
+        _menuTemplateProcess.Text = "순차 프로세스";
+        _menuTemplateProcess.Click += MenuTemplateProcess_Click;
+        // 
+        // _menuTemplateNetwork
+        // 
+        _menuTemplateNetwork.Name = "_menuTemplateNetwork";
+        _menuTemplateNetwork.Size = new Size(220, 22);
+        _menuTemplateNetwork.Text = "네트워크 (기본)";
+        _menuTemplateNetwork.Click += MenuTemplateNetwork_Click;
+        // 
+        // _menuOpen
+        // 
+        _menuOpen.Name = "_menuOpen";
+        _menuOpen.ShortcutKeys = Keys.Control | Keys.O;
+        _menuOpen.Size = new Size(196, 22);
+        _menuOpen.Text = "열기...";
+        _menuOpen.Click += MenuOpen_Click;
+        // 
+        // _menuSave
+        // 
+        _menuSave.Name = "_menuSave";
+        _menuSave.ShortcutKeys = Keys.Control | Keys.S;
+        _menuSave.Size = new Size(196, 22);
+        _menuSave.Text = "저장";
+        _menuSave.Click += MenuSave_Click;
+        // 
+        // _menuSaveAs
+        // 
+        _menuSaveAs.Name = "_menuSaveAs";
+        _menuSaveAs.Size = new Size(196, 22);
+        _menuSaveAs.Text = "다른 이름으로 저장...";
+        _menuSaveAs.Click += MenuSaveAs_Click;
+        // 
+        // _menuExport
+        // 
+        _menuExport.Name = "_menuExport";
+        _menuExport.Size = new Size(196, 22);
+        _menuExport.Text = "보내기";
+        // 
+        // _menuExportImage
+        // 
+        _menuExportImage.Name = "_menuExportImage";
+        _menuExportImage.Size = new Size(196, 22);
+        _menuExportImage.Text = "이미지로 보내기...";
+        _menuExportImage.Click += MenuExportImage_Click;
+        // 
+        // _menuExportSvg
+        // 
+        _menuExportSvg.Name = "_menuExportSvg";
+        _menuExportSvg.Size = new Size(196, 22);
+        _menuExportSvg.Text = "SVG로 보내기...";
+        _menuExportSvg.Click += MenuExportSvg_Click;
+        // 
+        // _menuExportPdf
+        // 
+        _menuExportPdf.Name = "_menuExportPdf";
+        _menuExportPdf.Size = new Size(196, 22);
+        _menuExportPdf.Text = "PDF로 보내기...";
+        _menuExportPdf.Click += MenuExportPdf_Click;
+        // 
+        // _menuExit
+        // 
+        _menuExit.Name = "_menuExit";
+        _menuExit.Size = new Size(196, 22);
+        _menuExit.Text = "종료";
+        _menuExit.Click += MenuExit_Click;
+        // 
+        // _menuEdit
+        // 
+        _menuEdit.DropDownItems.AddRange(new ToolStripItem[] { _menuUndo, _menuRedo, _menuDelete });
+        _menuEdit.Name = "_menuEdit";
+        _menuEdit.Size = new Size(57, 20);
+        _menuEdit.Text = "편집(&E)";
+        // 
+        // _menuUndo
+        // 
+        _menuUndo.Name = "_menuUndo";
+        _menuUndo.ShortcutKeys = Keys.Control | Keys.Z;
+        _menuUndo.Size = new Size(196, 22);
+        _menuUndo.Text = "실행 취소";
+        _menuUndo.Click += MenuUndo_Click;
+        // 
+        // _menuRedo
+        // 
+        _menuRedo.Name = "_menuRedo";
+        _menuRedo.ShortcutKeys = Keys.Control | Keys.Y;
+        _menuRedo.Size = new Size(196, 22);
+        _menuRedo.Text = "다시 실행";
+        _menuRedo.Click += MenuRedo_Click;
+        // 
+        // _menuDelete
+        // 
+        _menuDelete.Name = "_menuDelete";
+        _menuDelete.ShortcutKeys = Keys.Delete;
+        _menuDelete.Size = new Size(156, 22);
+        _menuDelete.Text = "삭제";
+        _menuDelete.Click += MenuDelete_Click;
+        // 
+        // _menuView
+        // 
+        _menuView.DropDownItems.AddRange(new ToolStripItem[] { _menuZoomIn, _menuZoomOut, _menuZoomReset, _menuView3D });
+        _menuView.Name = "_menuView";
+        _menuView.Size = new Size(59, 20);
+        _menuView.Text = "보기(&V)";
+        // 
+        // _menuZoomIn
+        // 
+        _menuZoomIn.Name = "_menuZoomIn";
+        _menuZoomIn.ShortcutKeys = Keys.Control | Keys.Add;
+        _menuZoomIn.Size = new Size(196, 22);
+        _menuZoomIn.Text = "확대";
+        _menuZoomIn.Click += MenuZoomIn_Click;
+        // 
+        // _menuZoomOut
+        // 
+        _menuZoomOut.Name = "_menuZoomOut";
+        _menuZoomOut.ShortcutKeys = Keys.Control | Keys.Subtract;
+        _menuZoomOut.Size = new Size(196, 22);
+        _menuZoomOut.Text = "축소";
+        _menuZoomOut.Click += MenuZoomOut_Click;
+        // 
+        // _menuZoomReset
+        // 
+        _menuZoomReset.Name = "_menuZoomReset";
+        _menuZoomReset.ShortcutKeys = Keys.Control | Keys.D0;
+        _menuZoomReset.Size = new Size(196, 22);
+        _menuZoomReset.Text = "100%로 재설정";
+        _menuZoomReset.Click += MenuZoomReset_Click;
+        // 
+        // _menuView3D
+        // 
+        _menuView3D.Name = "_menuView3D";
+        _menuView3D.ShortcutKeys = Keys.Control | Keys.D3;
+        _menuView3D.Size = new Size(196, 22);
+        _menuView3D.Text = "3D 보기...";
+        _menuView3D.Click += MenuView3D_Click;
+        // 
+        // _toolStrip
+        // 
+        _toolStrip.GripStyle = ToolStripGripStyle.Hidden;
+        _toolStrip.Items.AddRange(new ToolStripItem[]
+        {
+            _sepZoom, _btnZoomIn, _btnZoomOut, _btnZoomReset, _btnView3D, _lblZoom, _lblStatus
+        });
+        _toolStrip.Location = new Point(0, 24);
+        _toolStrip.Name = "_toolStrip";
+        _toolStrip.Size = new Size(1280, 25);
+        _toolStrip.TabIndex = 1;
+        // 
+        // _btnSelect
+        // 
+        _btnSelect.Checked = true;
+        _btnSelect.CheckOnClick = true;
+        _btnSelect.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnSelect.Name = "_btnSelect";
+        _btnSelect.Size = new Size(35, 22);
+        _btnSelect.Text = "선택";
+        // 
+        // _btnRectangle
+        // 
+        _btnRectangle.CheckOnClick = true;
+        _btnRectangle.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnRectangle.Name = "_btnRectangle";
+        _btnRectangle.Size = new Size(35, 22);
+        _btnRectangle.Text = "사각";
+        // 
+        // _btnRoundedRect
+        // 
+        _btnRoundedRect.CheckOnClick = true;
+        _btnRoundedRect.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnRoundedRect.Name = "_btnRoundedRect";
+        _btnRoundedRect.Size = new Size(47, 22);
+        _btnRoundedRect.Text = "둥근사각";
+        // 
+        // _btnEllipse
+        // 
+        _btnEllipse.CheckOnClick = true;
+        _btnEllipse.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnEllipse.Name = "_btnEllipse";
+        _btnEllipse.Size = new Size(35, 22);
+        _btnEllipse.Text = "타원";
+        // 
+        // _btnDiamond
+        // 
+        _btnDiamond.CheckOnClick = true;
+        _btnDiamond.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnDiamond.Name = "_btnDiamond";
+        _btnDiamond.Size = new Size(35, 22);
+        _btnDiamond.Text = "마름";
+        // 
+        // _btnTriangle
+        // 
+        _btnTriangle.CheckOnClick = true;
+        _btnTriangle.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnTriangle.Name = "_btnTriangle";
+        _btnTriangle.Size = new Size(35, 22);
+        _btnTriangle.Text = "삼각";
+        // 
+        // _btnParallelogram
+        // 
+        _btnParallelogram.CheckOnClick = true;
+        _btnParallelogram.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnParallelogram.Name = "_btnParallelogram";
+        _btnParallelogram.Size = new Size(47, 22);
+        _btnParallelogram.Text = "평행사변";
+        // 
+        // _btnHexagon
+        // 
+        _btnHexagon.CheckOnClick = true;
+        _btnHexagon.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnHexagon.Name = "_btnHexagon";
+        _btnHexagon.Size = new Size(35, 22);
+        _btnHexagon.Text = "육각";
+        // 
+        // _btnLineStraight
+        // 
+        _btnLineStraight.CheckOnClick = true;
+        _btnLineStraight.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnLineStraight.Name = "_btnLineStraight";
+        _btnLineStraight.Size = new Size(47, 22);
+        _btnLineStraight.Text = "직선연결";
+        // 
+        // _btnLineOrthogonal
+        // 
+        _btnLineOrthogonal.CheckOnClick = true;
+        _btnLineOrthogonal.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnLineOrthogonal.Name = "_btnLineOrthogonal";
+        _btnLineOrthogonal.Size = new Size(47, 22);
+        _btnLineOrthogonal.Text = "꺾은연결";
+        // 
+        // _btnLineCurved
+        // 
+        _btnLineCurved.CheckOnClick = true;
+        _btnLineCurved.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnLineCurved.Name = "_btnLineCurved";
+        _btnLineCurved.Size = new Size(47, 22);
+        _btnLineCurved.Text = "곡선연결";
+        // 
+        // _btnZoomIn
+        // 
+        _btnZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnZoomIn.Name = "_btnZoomIn";
+        _btnZoomIn.Size = new Size(35, 22);
+        _btnZoomIn.Text = "확대";
+        _btnZoomIn.Click += MenuZoomIn_Click;
+        // 
+        // _btnZoomOut
+        // 
+        _btnZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnZoomOut.Name = "_btnZoomOut";
+        _btnZoomOut.Size = new Size(35, 22);
+        _btnZoomOut.Text = "축소";
+        _btnZoomOut.Click += MenuZoomOut_Click;
+        // 
+        // _btnZoomReset
+        // 
+        _btnZoomReset.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnZoomReset.Name = "_btnZoomReset";
+        _btnZoomReset.Size = new Size(47, 22);
+        _btnZoomReset.Text = "100%";
+        _btnZoomReset.Click += MenuZoomReset_Click;
+        // 
+        // _btnView3D
+        // 
+        _btnView3D.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _btnView3D.Name = "_btnView3D";
+        _btnView3D.Size = new Size(47, 22);
+        _btnView3D.Text = "3D보기";
+        _btnView3D.Click += MenuView3D_Click;
+        // 
+        // _lblZoom
+        // 
+        _lblZoom.Name = "_lblZoom";
+        _lblZoom.Size = new Size(48, 22);
+        _lblZoom.Text = "100%";
+        // 
+        // _lblStatus
+        // 
+        _lblStatus.Name = "_lblStatus";
+        _lblStatus.Size = new Size(131, 22);
+        _lblStatus.Text = "도구: 선택 | 더블클릭: 텍스트";
+        // 
+        // _splitMain
+        // 
+        _splitMain.Dock = DockStyle.Fill;
+        _splitMain.FixedPanel = FixedPanel.Panel1;
+        _splitMain.Location = new Point(0, 49);
+        _splitMain.Name = "_splitMain";
+        // 
+        // _splitMain.Panel1
+        // 
+        _splitMain.Panel1.Controls.Add(_pnlToolbox);
+        _splitMain.Panel1MinSize = 200;
+        // 
+        // _splitMain.Panel2
+        // 
+        _splitMain.Panel2.Controls.Add(_splitEditor);
+        _splitMain.Size = new Size(1280, 629);
+        _splitMain.SplitterDistance = 220;
+        _splitMain.TabIndex = 2;
+        // 
+        // _splitEditor
+        // 
+        _splitEditor.Dock = DockStyle.Fill;
+        _splitEditor.FixedPanel = FixedPanel.Panel2;
+        _splitEditor.Name = "_splitEditor";
+        _splitEditor.Panel1.Controls.Add(_pnlCanvasHost);
+        _splitEditor.Panel2.Controls.Add(_pnlProperties);
+        _splitEditor.Panel2MinSize = 280;
+        _splitEditor.SplitterDistance = 900;
+        _splitEditor.TabIndex = 0;
+        // 
+        // _pnlToolbox
+        // 
+        _pnlToolbox.Controls.Add(_lblToolboxTitle);
+        _pnlToolbox.Dock = DockStyle.Fill;
+        _pnlToolbox.Location = new Point(0, 0);
+        _pnlToolbox.Name = "_pnlToolbox";
+        _pnlToolbox.Padding = new Padding(0, 8, 0, 0);
+        _pnlToolbox.Size = new Size(220, 629);
+        _pnlToolbox.TabIndex = 0;
+        // 
+        // _lblToolboxTitle
+        // 
+        _lblToolboxTitle.Dock = DockStyle.Top;
+        _lblToolboxTitle.Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold);
+        _lblToolboxTitle.Location = new Point(0, 8);
+        _lblToolboxTitle.Name = "_lblToolboxTitle";
+        _lblToolboxTitle.Padding = new Padding(12, 0, 0, 0);
+        _lblToolboxTitle.Size = new Size(220, 28);
+        _lblToolboxTitle.TabIndex = 0;
+        _lblToolboxTitle.Text = "도형 도구";
+        _lblToolboxTitle.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // _pnlProperties
+        // 
+        _pnlProperties.AutoScroll = true;
+        _pnlProperties.Controls.Add(_grpConnector);
+        _pnlProperties.Controls.Add(_grpShape);
+        _pnlProperties.Controls.Add(_lblPropertyTitle);
+        _pnlProperties.Dock = DockStyle.Fill;
+        _pnlProperties.Location = new Point(0, 0);
+        _pnlProperties.Name = "_pnlProperties";
+        _pnlProperties.Padding = new Padding(8);
+        _pnlProperties.Size = new Size(300, 629);
+        _pnlProperties.TabIndex = 0;
+        // 
+        // _grpConnector
+        // 
+        _grpConnector.Controls.Add(_txtConnectorLabel);
+        _grpConnector.Controls.Add(_lblConnectorLabel);
+        _grpConnector.Controls.Add(_chkEndArrow);
+        _grpConnector.Controls.Add(_chkStartArrow);
+        _grpConnector.Controls.Add(_cmbConnectorKind);
+        _grpConnector.Controls.Add(_lblConnectorKind);
+        _grpConnector.Controls.Add(_cmbLineStyle);
+        _grpConnector.Controls.Add(_lblLineStyle);
+        _grpConnector.Controls.Add(_numLineWidth);
+        _grpConnector.Controls.Add(_lblLineWidth);
+        _grpConnector.Controls.Add(_btnLineColor);
+        _grpConnector.Controls.Add(_lblLineColor);
+        _grpConnector.Dock = DockStyle.Top;
+        _grpConnector.Enabled = false;
+        _grpConnector.Location = new Point(8, 404);
+        _grpConnector.Name = "_grpConnector";
+        _grpConnector.Size = new Size(284, 260);
+        _grpConnector.TabIndex = 2;
+        _grpConnector.TabStop = false;
+        _grpConnector.Text = "연결선 속성";
+        // 
+        // _txtConnectorLabel
+        // 
+        _txtConnectorLabel.Location = new Point(88, 188);
+        _txtConnectorLabel.Name = "_txtConnectorLabel";
+        _txtConnectorLabel.Size = new Size(180, 23);
+        _txtConnectorLabel.TabIndex = 11;
+        _txtConnectorLabel.TextChanged += ConnectorPropertyChanged;
+        // 
+        // _lblConnectorLabel
+        // 
+        _lblConnectorLabel.AutoSize = true;
+        _lblConnectorLabel.Location = new Point(12, 192);
+        _lblConnectorLabel.Name = "_lblConnectorLabel";
+        _lblConnectorLabel.Size = new Size(31, 15);
+        _lblConnectorLabel.TabIndex = 10;
+        _lblConnectorLabel.Text = "라벨";
+        // 
+        // _chkEndArrow
+        // 
+        _chkEndArrow.AutoSize = true;
+        _chkEndArrow.Checked = true;
+        _chkEndArrow.CheckState = CheckState.Checked;
+        _chkEndArrow.Location = new Point(160, 156);
+        _chkEndArrow.Name = "_chkEndArrow";
+        _chkEndArrow.Size = new Size(74, 19);
+        _chkEndArrow.TabIndex = 9;
+        _chkEndArrow.Text = "끝 화살표";
+        _chkEndArrow.CheckedChanged += ConnectorPropertyChanged;
+        // 
+        // _chkStartArrow
+        // 
+        _chkStartArrow.AutoSize = true;
+        _chkStartArrow.Location = new Point(88, 156);
+        _chkStartArrow.Name = "_chkStartArrow";
+        _chkStartArrow.Size = new Size(62, 19);
+        _chkStartArrow.TabIndex = 8;
+        _chkStartArrow.Text = "시작화살";
+        _chkStartArrow.CheckedChanged += ConnectorPropertyChanged;
+        // 
+        // _cmbConnectorKind
+        // 
+        _cmbConnectorKind.DropDownStyle = ComboBoxStyle.DropDownList;
+        _cmbConnectorKind.FormattingEnabled = true;
+        _cmbConnectorKind.Items.AddRange(new object[] { "직선", "꺾은선", "곡선" });
+        _cmbConnectorKind.Location = new Point(88, 120);
+        _cmbConnectorKind.Name = "_cmbConnectorKind";
+        _cmbConnectorKind.Size = new Size(180, 23);
+        _cmbConnectorKind.TabIndex = 7;
+        _cmbConnectorKind.SelectedIndexChanged += ConnectorPropertyChanged;
+        // 
+        // _lblConnectorKind
+        // 
+        _lblConnectorKind.AutoSize = true;
+        _lblConnectorKind.Location = new Point(12, 124);
+        _lblConnectorKind.Name = "_lblConnectorKind";
+        _lblConnectorKind.Size = new Size(55, 15);
+        _lblConnectorKind.TabIndex = 6;
+        _lblConnectorKind.Text = "연결형태";
+        // 
+        // _cmbLineStyle
+        // 
+        _cmbLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
+        _cmbLineStyle.FormattingEnabled = true;
+        _cmbLineStyle.Items.AddRange(new object[] { "실선", "파선", "점선", "일점쇄선" });
+        _cmbLineStyle.Location = new Point(88, 84);
+        _cmbLineStyle.Name = "_cmbLineStyle";
+        _cmbLineStyle.Size = new Size(180, 23);
+        _cmbLineStyle.TabIndex = 5;
+        _cmbLineStyle.SelectedIndexChanged += ConnectorPropertyChanged;
+        // 
+        // _lblLineStyle
+        // 
+        _lblLineStyle.AutoSize = true;
+        _lblLineStyle.Location = new Point(12, 88);
+        _lblLineStyle.Name = "_lblLineStyle";
+        _lblLineStyle.Size = new Size(55, 15);
+        _lblLineStyle.TabIndex = 4;
+        _lblLineStyle.Text = "선 스타일";
+        // 
+        // _numLineWidth
+        // 
+        _numLineWidth.DecimalPlaces = 1;
+        _numLineWidth.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
+        _numLineWidth.Location = new Point(88, 52);
+        _numLineWidth.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
+        _numLineWidth.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
+        _numLineWidth.Name = "_numLineWidth";
+        _numLineWidth.Size = new Size(80, 23);
+        _numLineWidth.TabIndex = 3;
+        _numLineWidth.Value = new decimal(new int[] { 2, 0, 0, 0 });
+        _numLineWidth.ValueChanged += ConnectorPropertyChanged;
+        // 
+        // _lblLineWidth
+        // 
+        _lblLineWidth.AutoSize = true;
+        _lblLineWidth.Location = new Point(12, 56);
+        _lblLineWidth.Name = "_lblLineWidth";
+        _lblLineWidth.Size = new Size(43, 15);
+        _lblLineWidth.TabIndex = 2;
+        _lblLineWidth.Text = "선 두께";
+        // 
+        // _btnLineColor
+        // 
+        _btnLineColor.BackColor = Color.Black;
+        _btnLineColor.Location = new Point(88, 20);
+        _btnLineColor.Name = "_btnLineColor";
+        _btnLineColor.Size = new Size(80, 24);
+        _btnLineColor.TabIndex = 1;
+        _btnLineColor.UseVisualStyleBackColor = false;
+        _btnLineColor.Click += BtnLineColor_Click;
+        // 
+        // _lblLineColor
+        // 
+        _lblLineColor.AutoSize = true;
+        _lblLineColor.Location = new Point(12, 24);
+        _lblLineColor.Name = "_lblLineColor";
+        _lblLineColor.Size = new Size(43, 15);
+        _lblLineColor.TabIndex = 0;
+        _lblLineColor.Text = "선 색상";
+        // 
+        // _grpShape
+        // 
+        _grpShape.Controls.Add(_btnClearImage);
+        _grpShape.Controls.Add(_btnSetImage);
+        _grpShape.Controls.Add(_chkFontBold);
+        _grpShape.Controls.Add(_numFontSize);
+        _grpShape.Controls.Add(_lblFontSize);
+        _grpShape.Controls.Add(_cmbFont);
+        _grpShape.Controls.Add(_lblFont);
+        _grpShape.Controls.Add(_cmbBorderStyle);
+        _grpShape.Controls.Add(_lblBorderStyle);
+        _grpShape.Controls.Add(_numBorderWidth);
+        _grpShape.Controls.Add(_lblBorderWidth);
+        _grpShape.Controls.Add(_btnTextColor);
+        _grpShape.Controls.Add(_lblTextColor);
+        _grpShape.Controls.Add(_btnBorderColor);
+        _grpShape.Controls.Add(_lblBorderColor);
+        _grpShape.Controls.Add(_btnFillColor);
+        _grpShape.Controls.Add(_lblFillColor);
+        _grpShape.Controls.Add(_numShapeHeight);
+        _grpShape.Controls.Add(_lblShapeHeight);
+        _grpShape.Controls.Add(_numShapeWidth);
+        _grpShape.Controls.Add(_lblShapeWidth);
+        _grpShape.Controls.Add(_txtShapeText);
+        _grpShape.Controls.Add(_lblShapeText);
+        _grpShape.Dock = DockStyle.Top;
+        _grpShape.Enabled = false;
+        _grpShape.Location = new Point(8, 36);
+        _grpShape.Name = "_grpShape";
+        _grpShape.Size = new Size(284, 368);
+        _grpShape.TabIndex = 1;
+        _grpShape.TabStop = false;
+        _grpShape.Text = "도형 속성";
+        // 
+        // _btnClearImage
+        // 
+        _btnClearImage.Location = new Point(174, 328);
+        _btnClearImage.Name = "_btnClearImage";
+        _btnClearImage.Size = new Size(94, 28);
+        _btnClearImage.TabIndex = 18;
+        _btnClearImage.Text = "이미지 제거";
+        _btnClearImage.Click += BtnClearImage_Click;
+        // 
+        // _btnSetImage
+        // 
+        _btnSetImage.Location = new Point(88, 328);
+        _btnSetImage.Name = "_btnSetImage";
+        _btnSetImage.Size = new Size(80, 28);
+        _btnSetImage.TabIndex = 17;
+        _btnSetImage.Text = "이미지...";
+        _btnSetImage.Click += BtnSetImage_Click;
+        // 
+        // _chkFontBold
+        // 
+        _chkFontBold.AutoSize = true;
+        _chkFontBold.Location = new Point(174, 296);
+        _chkFontBold.Name = "_chkFontBold";
+        _chkFontBold.Size = new Size(50, 19);
+        _chkFontBold.TabIndex = 16;
+        _chkFontBold.Text = "굵게";
+        _chkFontBold.CheckedChanged += ShapePropertyChanged;
+        // 
+        // _numFontSize
+        // 
+        _numFontSize.Location = new Point(88, 294);
+        _numFontSize.Maximum = new decimal(new int[] { 72, 0, 0, 0 });
+        _numFontSize.Minimum = new decimal(new int[] { 6, 0, 0, 0 });
+        _numFontSize.Name = "_numFontSize";
+        _numFontSize.Size = new Size(80, 23);
+        _numFontSize.TabIndex = 15;
+        _numFontSize.Value = new decimal(new int[] { 10, 0, 0, 0 });
+        _numFontSize.ValueChanged += ShapePropertyChanged;
+        // 
+        // _lblFontSize
+        // 
+        _lblFontSize.AutoSize = true;
+        _lblFontSize.Location = new Point(12, 298);
+        _lblFontSize.Name = "_lblFontSize";
+        _lblFontSize.Size = new Size(59, 15);
+        _lblFontSize.TabIndex = 14;
+        _lblFontSize.Text = "글자 크기";
+        // 
+        // _cmbFont
+        // 
+        _cmbFont.FormattingEnabled = true;
+        _cmbFont.Location = new Point(88, 260);
+        _cmbFont.Name = "_cmbFont";
+        _cmbFont.Size = new Size(180, 23);
+        _cmbFont.TabIndex = 13;
+        _cmbFont.SelectedIndexChanged += ShapePropertyChanged;
+        // 
+        // _lblFont
+        // 
+        _lblFont.AutoSize = true;
+        _lblFont.Location = new Point(12, 264);
+        _lblFont.Name = "_lblFont";
+        _lblFont.Size = new Size(31, 15);
+        _lblFont.TabIndex = 12;
+        _lblFont.Text = "글꼴";
+        // 
+        // _cmbBorderStyle
+        // 
+        _cmbBorderStyle.DropDownStyle = ComboBoxStyle.DropDownList;
+        _cmbBorderStyle.FormattingEnabled = true;
+        _cmbBorderStyle.Items.AddRange(new object[] { "실선", "파선", "점선", "일점쇄선" });
+        _cmbBorderStyle.Location = new Point(88, 224);
+        _cmbBorderStyle.Name = "_cmbBorderStyle";
+        _cmbBorderStyle.Size = new Size(180, 23);
+        _cmbBorderStyle.TabIndex = 11;
+        _cmbBorderStyle.SelectedIndexChanged += ShapePropertyChanged;
+        // 
+        // _lblBorderStyle
+        // 
+        _lblBorderStyle.AutoSize = true;
+        _lblBorderStyle.Location = new Point(12, 228);
+        _lblBorderStyle.Name = "_lblBorderStyle";
+        _lblBorderStyle.Size = new Size(55, 15);
+        _lblBorderStyle.TabIndex = 10;
+        _lblBorderStyle.Text = "테두리선";
+        // 
+        // _numBorderWidth
+        // 
+        _numBorderWidth.DecimalPlaces = 1;
+        _numBorderWidth.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
+        _numBorderWidth.Location = new Point(88, 192);
+        _numBorderWidth.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
+        _numBorderWidth.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
+        _numBorderWidth.Name = "_numBorderWidth";
+        _numBorderWidth.Size = new Size(80, 23);
+        _numBorderWidth.TabIndex = 9;
+        _numBorderWidth.Value = new decimal(new int[] { 2, 0, 0, 0 });
+        _numBorderWidth.ValueChanged += ShapePropertyChanged;
+        // 
+        // _lblBorderWidth
+        // 
+        _lblBorderWidth.AutoSize = true;
+        _lblBorderWidth.Location = new Point(12, 196);
+        _lblBorderWidth.Name = "_lblBorderWidth";
+        _lblBorderWidth.Size = new Size(67, 15);
+        _lblBorderWidth.TabIndex = 8;
+        _lblBorderWidth.Text = "테두리 두께";
+        // 
+        // _btnTextColor
+        // 
+        _btnTextColor.BackColor = Color.Black;
+        _btnTextColor.Location = new Point(88, 160);
+        _btnTextColor.Name = "_btnTextColor";
+        _btnTextColor.Size = new Size(80, 24);
+        _btnTextColor.TabIndex = 7;
+        _btnTextColor.UseVisualStyleBackColor = false;
+        _btnTextColor.Click += BtnTextColor_Click;
+        // 
+        // _lblTextColor
+        // 
+        _lblTextColor.AutoSize = true;
+        _lblTextColor.Location = new Point(12, 164);
+        _lblTextColor.Name = "_lblTextColor";
+        _lblTextColor.Size = new Size(55, 15);
+        _lblTextColor.TabIndex = 6;
+        _lblTextColor.Text = "글자 색상";
+        // 
+        // _btnBorderColor
+        // 
+        _btnBorderColor.BackColor = Color.Black;
+        _btnBorderColor.Location = new Point(88, 128);
+        _btnBorderColor.Name = "_btnBorderColor";
+        _btnBorderColor.Size = new Size(80, 24);
+        _btnBorderColor.TabIndex = 5;
+        _btnBorderColor.UseVisualStyleBackColor = false;
+        _btnBorderColor.Click += BtnBorderColor_Click;
+        // 
+        // _lblBorderColor
+        // 
+        _lblBorderColor.AutoSize = true;
+        _lblBorderColor.Location = new Point(12, 132);
+        _lblBorderColor.Name = "_lblBorderColor";
+        _lblBorderColor.Size = new Size(67, 15);
+        _lblBorderColor.TabIndex = 4;
+        _lblBorderColor.Text = "테두리 색상";
+        // 
+        // _btnFillColor
+        // 
+        _btnFillColor.BackColor = Color.White;
+        _btnFillColor.Location = new Point(88, 96);
+        _btnFillColor.Name = "_btnFillColor";
+        _btnFillColor.Size = new Size(80, 24);
+        _btnFillColor.TabIndex = 3;
+        _btnFillColor.UseVisualStyleBackColor = false;
+        _btnFillColor.Click += BtnFillColor_Click;
+        // 
+        // _lblFillColor
+        // 
+        _lblFillColor.AutoSize = true;
+        _lblFillColor.Location = new Point(12, 100);
+        _lblFillColor.Name = "_lblFillColor";
+        _lblFillColor.Size = new Size(55, 15);
+        _lblFillColor.TabIndex = 2;
+        _lblFillColor.Text = "채우기색";
+        // 
+        // _numShapeHeight
+        // 
+        _numShapeHeight.Location = new Point(88, 64);
+        _numShapeHeight.Maximum = new decimal(new int[] { 4000, 0, 0, 0 });
+        _numShapeHeight.Minimum = new decimal(new int[] { 20, 0, 0, 0 });
+        _numShapeHeight.Name = "_numShapeHeight";
+        _numShapeHeight.Size = new Size(80, 23);
+        _numShapeHeight.TabIndex = 21;
+        _numShapeHeight.Value = new decimal(new int[] { 80, 0, 0, 0 });
+        _numShapeHeight.ValueChanged += ShapePropertyChanged;
+        // 
+        // _lblShapeHeight
+        // 
+        _lblShapeHeight.AutoSize = true;
+        _lblShapeHeight.Location = new Point(12, 68);
+        _lblShapeHeight.Name = "_lblShapeHeight";
+        _lblShapeHeight.Size = new Size(31, 15);
+        _lblShapeHeight.TabIndex = 20;
+        _lblShapeHeight.Text = "높이";
+        // 
+        // _numShapeWidth
+        // 
+        _numShapeWidth.Location = new Point(88, 36);
+        _numShapeWidth.Maximum = new decimal(new int[] { 4000, 0, 0, 0 });
+        _numShapeWidth.Minimum = new decimal(new int[] { 20, 0, 0, 0 });
+        _numShapeWidth.Name = "_numShapeWidth";
+        _numShapeWidth.Size = new Size(80, 23);
+        _numShapeWidth.TabIndex = 19;
+        _numShapeWidth.Value = new decimal(new int[] { 120, 0, 0, 0 });
+        _numShapeWidth.ValueChanged += ShapePropertyChanged;
+        // 
+        // _lblShapeWidth
+        // 
+        _lblShapeWidth.AutoSize = true;
+        _lblShapeWidth.Location = new Point(12, 40);
+        _lblShapeWidth.Name = "_lblShapeWidth";
+        _lblShapeWidth.Size = new Size(31, 15);
+        _lblShapeWidth.TabIndex = 18;
+        _lblShapeWidth.Text = "너비";
+        // 
+        // _txtShapeText
+        // 
+        _txtShapeText.Location = new Point(88, 8);
+        _txtShapeText.Name = "_txtShapeText";
+        _txtShapeText.Size = new Size(180, 23);
+        _txtShapeText.TabIndex = 1;
+        _txtShapeText.TextChanged += ShapePropertyChanged;
+        // 
+        // _lblShapeText
+        // 
+        _lblShapeText.AutoSize = true;
+        _lblShapeText.Location = new Point(12, 12);
+        _lblShapeText.Name = "_lblShapeText";
+        _lblShapeText.Size = new Size(31, 15);
+        _lblShapeText.TabIndex = 0;
+        _lblShapeText.Text = "텍스트";
+        // 
+        // _lblPropertyTitle
+        // 
+        _lblPropertyTitle.Dock = DockStyle.Top;
+        _lblPropertyTitle.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+        _lblPropertyTitle.Location = new Point(8, 8);
+        _lblPropertyTitle.Name = "_lblPropertyTitle";
+        _lblPropertyTitle.Size = new Size(284, 28);
+        _lblPropertyTitle.TabIndex = 0;
+        _lblPropertyTitle.Text = "속성";
+        _lblPropertyTitle.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // _pnlCanvasHost
+        // 
+        _pnlCanvasHost.Controls.Add(_canvas);
+        _pnlCanvasHost.Dock = DockStyle.Fill;
+        _pnlCanvasHost.Location = new Point(0, 0);
+        _pnlCanvasHost.Name = "_pnlCanvasHost";
+        _pnlCanvasHost.Size = new Size(976, 629);
+        _pnlCanvasHost.TabIndex = 0;
+        // 
+        // _canvas
+        // 
+        _canvas.Dock = DockStyle.Fill;
+        _canvas.Location = new Point(0, 0);
+        _canvas.Name = "_canvas";
+        _canvas.Size = new Size(976, 629);
+        _canvas.TabIndex = 0;
+        // 
+        // _statusStrip
+        // 
+        _statusStrip.Items.AddRange(new ToolStripItem[] { _statusLabel });
+        _statusStrip.Location = new Point(0, 678);
+        _statusStrip.Name = "_statusStrip";
+        _statusStrip.Size = new Size(1280, 22);
+        _statusStrip.TabIndex = 3;
+        // 
+        // _statusLabel
+        // 
+        _statusLabel.Name = "_statusLabel";
+        _statusLabel.Size = new Size(1265, 17);
+        _statusLabel.Spring = true;
+        _statusLabel.Text = "준비";
+        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // MainForm
+        // 
+        AutoScaleDimensions = new SizeF(7F, 15F);
+        AutoScaleMode = AutoScaleMode.Font;
+        KeyPreview = true;
+        ClientSize = new Size(1280, 700);
+        Controls.Add(_splitMain);
+        Controls.Add(_statusStrip);
+        Controls.Add(_toolStrip);
+        Controls.Add(_menuStrip);
+        MainMenuStrip = _menuStrip;
+        MinimumSize = new Size(960, 600);
+        Name = "MainForm";
+        StartPosition = FormStartPosition.CenterScreen;
+        Text = "MyDiagramWinV10";
+        FormClosing += MainForm_FormClosing;
+        _menuStrip.ResumeLayout(false);
+        _menuStrip.PerformLayout();
+        _toolStrip.ResumeLayout(false);
+        _toolStrip.PerformLayout();
+        _splitMain.Panel1.ResumeLayout(false);
+        _splitMain.Panel2.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)_splitMain).EndInit();
+        _splitMain.ResumeLayout(false);
+        _splitEditor.Panel1.ResumeLayout(false);
+        _splitEditor.Panel2.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)_splitEditor).EndInit();
+        _splitEditor.ResumeLayout(false);
+        _pnlToolbox.ResumeLayout(false);
+        _pnlProperties.ResumeLayout(false);
+        _grpConnector.ResumeLayout(false);
+        _grpConnector.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)_numLineWidth).EndInit();
+        _grpShape.ResumeLayout(false);
+        _grpShape.PerformLayout();
+        ((System.ComponentModel.ISupportInitialize)_numFontSize).EndInit();
+        ((System.ComponentModel.ISupportInitialize)_numBorderWidth).EndInit();
+        ((System.ComponentModel.ISupportInitialize)_numShapeWidth).EndInit();
+        ((System.ComponentModel.ISupportInitialize)_numShapeHeight).EndInit();
+        _pnlCanvasHost.ResumeLayout(false);
+        _statusStrip.ResumeLayout(false);
+        _statusStrip.PerformLayout();
+        ResumeLayout(false);
+        PerformLayout();
+    }
+}
