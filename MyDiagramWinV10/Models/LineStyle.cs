@@ -5,5 +5,9 @@ public enum LineStyle
     Solid,
     Dash,
     Dot,
-    DashDot
+    DashDot,
+    DashDotDot,
+    LongDash,
+    ShortDash,
+    Double
 }

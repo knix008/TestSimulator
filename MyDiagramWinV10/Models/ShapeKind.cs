@@ -8,5 +8,15 @@ public enum ShapeKind
     Diamond,
     Triangle,
     Parallelogram,
-    Hexagon
+    Hexagon,
+    Pentagon,
+    Star,
+    Cross,
+    Cylinder,
+    Cloud,
+    Document,
+    Database,
+    Arrow,
+    Trapezoid,
+    Chevron,
 }

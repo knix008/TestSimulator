@@ -13,12 +13,12 @@ public partial class MainForm : Form
     private string? _currentFilePath;
     private bool _isDirty;
     private bool _suppressPropertySync;
-    private DiagramToolbox? _toolbox;
 
     public MainForm()
     {
         InitializeComponent();
-        InitializeRuntime();
+        if (System.ComponentModel.LicenseManager.UsageMode != System.ComponentModel.LicenseUsageMode.Designtime)
+            InitializeRuntime();
     }
 
     private void InitializeRuntime()
@@ -33,10 +33,10 @@ public partial class MainForm : Form
         _cmbConnectorKind.SelectedIndex = 0;
 
         ApplyModernTheme();
-        InitializeToolbox();
+        _toolbox.SelectionChanged += Toolbox_SelectionChanged;
 
         _canvas.SelectionChanged += (_, _) => SyncPropertyPanel();
-        _canvas.SelectToolRequested += (_, _) => _toolbox?.SelectSelectTool();
+        _canvas.SelectToolRequested += (_, _) => SyncToolbarState();
         _canvas.ProjectChanged += (_, _) =>
         {
             _isDirty = true;
@@ -50,6 +50,37 @@ public partial class MainForm : Form
         UpdateTitle();
         UpdateZoomDisplay();
         UpdateUndoMenu();
+    }
+
+    private void BtnSelect_Click(object? sender, EventArgs e) => SetSelectTool();
+    private void BtnRectangle_Click(object? sender, EventArgs e) => SetShapeTool(ShapeKind.Rectangle);
+    private void BtnRoundedRect_Click(object? sender, EventArgs e) => SetShapeTool(ShapeKind.RoundedRectangle);
+    private void BtnEllipse_Click(object? sender, EventArgs e) => SetShapeTool(ShapeKind.Ellipse);
+    private void BtnDiamond_Click(object? sender, EventArgs e) => SetShapeTool(ShapeKind.Diamond);
+    private void BtnTriangle_Click(object? sender, EventArgs e) => SetShapeTool(ShapeKind.Triangle);
+    private void BtnParallelogram_Click(object? sender, EventArgs e) => SetShapeTool(ShapeKind.Parallelogram);
+    private void BtnHexagon_Click(object? sender, EventArgs e) => SetShapeTool(ShapeKind.Hexagon);
+    private void BtnLineStraight_Click(object? sender, EventArgs e) => SetConnectorTool(ConnectorKind.Straight);
+    private void BtnLineOrthogonal_Click(object? sender, EventArgs e) => SetConnectorTool(ConnectorKind.Orthogonal);
+    private void BtnLineCurved_Click(object? sender, EventArgs e) => SetConnectorTool(ConnectorKind.Curved);
+
+    private void SyncToolbarState()
+    {
+        var mode = _canvas.ToolMode;
+        var shapeKind = _canvas.CurrentShapeKind;
+        var connectorKind = _canvas.CurrentConnectorKind;
+
+        _btnSelect.Checked = mode == ToolMode.Select;
+        _btnRectangle.Checked = mode == ToolMode.Shape && shapeKind == ShapeKind.Rectangle;
+        _btnRoundedRect.Checked = mode == ToolMode.Shape && shapeKind == ShapeKind.RoundedRectangle;
+        _btnEllipse.Checked = mode == ToolMode.Shape && shapeKind == ShapeKind.Ellipse;
+        _btnDiamond.Checked = mode == ToolMode.Shape && shapeKind == ShapeKind.Diamond;
+        _btnTriangle.Checked = mode == ToolMode.Shape && shapeKind == ShapeKind.Triangle;
+        _btnParallelogram.Checked = mode == ToolMode.Shape && shapeKind == ShapeKind.Parallelogram;
+        _btnHexagon.Checked = mode == ToolMode.Shape && shapeKind == ShapeKind.Hexagon;
+        _btnLineStraight.Checked = mode == ToolMode.Connector && connectorKind == ConnectorKind.Straight;
+        _btnLineOrthogonal.Checked = mode == ToolMode.Connector && connectorKind == ConnectorKind.Orthogonal;
+        _btnLineCurved.Checked = mode == ToolMode.Connector && connectorKind == ConnectorKind.Curved;
     }
 
     private void ApplyModernTheme()
@@ -95,16 +126,6 @@ public partial class MainForm : Form
         ModernTheme.StyleColorSwatch(_btnBorderColor);
         ModernTheme.StyleColorSwatch(_btnTextColor);
         ModernTheme.StyleColorSwatch(_btnLineColor);
-    }
-
-    private void InitializeToolbox()
-    {
-        _toolbox = new DiagramToolbox
-        {
-            Dock = DockStyle.Fill
-        };
-        _pnlToolbox.Controls.Add(_toolbox);
-        _toolbox.SelectionChanged += Toolbox_SelectionChanged;
     }
 
     private void Toolbox_SelectionChanged(object? sender, ToolboxSelectionChangedEventArgs e)
@@ -559,9 +580,8 @@ public partial class MainForm : Form
     private void SetSelectTool(bool syncToolbox = true)
     {
         _canvas.SetToolMode(ToolMode.Select);
-        if (syncToolbox)
-            _toolbox?.SelectSelectTool();
-        _lblStatus.Text = "도구: 선택 | 도형 클릭·드래그 | 핸들로 크기 조절 | Esc: 선택";
+        _lblStatus.Text = "도구: 선택 | 도형 클릭·드래그 | 핸들로 크기 조절 | Esc: 선택 취소";
+        SyncToolbarState();
     }
 
     private void SetShapeTool(ShapeKind kind, bool syncToolbox = true)
@@ -580,9 +600,20 @@ public partial class MainForm : Form
             ShapeKind.Triangle => "삼각형",
             ShapeKind.Parallelogram => "평행사변형",
             ShapeKind.Hexagon => "육각형",
+            ShapeKind.Pentagon => "오각형",
+            ShapeKind.Star => "별",
+            ShapeKind.Cross => "십자",
+            ShapeKind.Cylinder => "원통",
+            ShapeKind.Cloud => "구름",
+            ShapeKind.Document => "문서",
+            ShapeKind.Database   => "데이터베이스",
+            ShapeKind.Arrow      => "화살표",
+            ShapeKind.Trapezoid  => "사다리꼴",
+            ShapeKind.Chevron    => "쉐브론",
             _ => "도형"
         };
-        _lblStatus.Text = $"도구: {label} | 드래그하여 생성 후 자동 선택";
+        _lblStatus.Text = $"도구: {label} | 마우스를 올려 미리보기, 드래그하여 생성";
+        SyncToolbarState();
     }
 
     private void SetConnectorTool(ConnectorKind kind, bool syncToolbox = true)
@@ -600,6 +631,7 @@ public partial class MainForm : Form
             _ => "연결선"
         };
         _lblStatus.Text = $"도구: {label} | 시작·끝 도형을 순서대로 클릭";
+        SyncToolbarState();
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -626,7 +658,11 @@ public partial class MainForm : Form
 
         if (keyData == Keys.Escape)
         {
-            SetSelectTool();
+            if (_canvas.ToolMode == ToolMode.Select &&
+                (_canvas.SelectedShape is not null || _canvas.SelectedConnector is not null))
+                _canvas.ClearSelection();
+            else
+                SetSelectTool();
             return true;
         }
 

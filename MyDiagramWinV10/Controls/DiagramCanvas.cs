@@ -37,6 +37,7 @@ public sealed class DiagramCanvas : Control
     private bool _spacePressed;
     private bool _suppressUndo;
     private bool _propertyUndoRecorded;
+    private bool _mouseOnCanvas;
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
@@ -88,8 +89,10 @@ public sealed class DiagramCanvas : Control
     public DiagramCanvas()
     {
         DoubleBuffered = true;
-        BackColor = Color.FromArgb(_project.CanvasBackColorArgb);
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+        BackColor = Color.FromArgb(_project.CanvasBackColorArgb);
+
+        if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime) return;
 
         _vScroll.Dock = DockStyle.Right;
         _vScroll.Visible = false;
@@ -280,6 +283,20 @@ public sealed class DiagramCanvas : Control
         NotifyChanged();
     }
 
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        base.OnMouseEnter(e);
+        _mouseOnCanvas = true;
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _mouseOnCanvas = false;
+        if (_toolMode == ToolMode.Shape || _toolMode == ToolMode.Connector)
+            Invalidate();
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
@@ -289,6 +306,9 @@ public sealed class DiagramCanvas : Control
 
         DrawGrid(e.Graphics);
 
+        // Build the full polyline for every connector upfront so we can compute
+        // crossings before drawing anything.
+        var connectorLines = new List<(DiagramConnector Connector, PointF[] Points)>();
         foreach (var connector in _project.Connectors)
         {
             var source = _project.Shapes.FirstOrDefault(s => s.Id == connector.SourceShapeId);
@@ -296,13 +316,51 @@ public sealed class DiagramCanvas : Control
             if (source is null || target is null)
                 continue;
 
-            DiagramRenderer.DrawConnector(e.Graphics, connector, source, target, PointF.Empty);
+            var start = DiagramRenderer.GetConnectionPoint(source, target);
+            var end = DiagramRenderer.GetConnectionPoint(target, source);
+            var pts = DiagramRenderer.BuildConnectorPoints(connector.Kind, start, end);
+            connectorLines.Add((connector, pts));
+        }
+
+        // Draw connectors with bridge (hop) arcs where later connectors cross earlier ones.
+        for (int ci = 0; ci < connectorLines.Count; ci++)
+        {
+            var (connector, pts) = connectorLines[ci];
+            var source = _project.Shapes.First(s => s.Id == connector.SourceShapeId);
+            var target = _project.Shapes.First(s => s.Id == connector.TargetShapeId);
+
+            // Collect crossing points from all earlier connectors against this one.
+            var crossings = new List<(float T, PointF Pt)>();
+            for (int oi = 0; oi < ci; oi++)
+            {
+                var (_, otherPts) = connectorLines[oi];
+                for (int si = 1; si < pts.Length; si++)
+                {
+                    for (int sj = 1; sj < otherPts.Length; sj++)
+                    {
+                        var cross = DiagramRenderer.SegmentIntersection(
+                            pts[si - 1], pts[si], otherPts[sj - 1], otherPts[sj]);
+                        if (cross is not null)
+                        {
+                            float dx = pts[si].X - pts[si - 1].X;
+                            float dy = pts[si].Y - pts[si - 1].Y;
+                            float segLen = MathF.Sqrt(dx * dx + dy * dy);
+                            float distAlongSeg = MathF.Sqrt(
+                                (cross.Value.X - pts[si - 1].X) * (cross.Value.X - pts[si - 1].X) +
+                                (cross.Value.Y - pts[si - 1].Y) * (cross.Value.Y - pts[si - 1].Y));
+                            float t = (si - 1) + (segLen > 0.001f ? distAlongSeg / segLen : 0);
+                            crossings.Add((t, cross.Value));
+                        }
+                    }
+                }
+            }
+
+            DiagramRenderer.DrawConnectorWithBridges(e.Graphics, connector, source, target, crossings);
+
             if (_selectedConnector?.Id == connector.Id)
             {
                 using var pen = new Pen(Color.DodgerBlue, 1f / _zoom) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
-                var start = DiagramRenderer.GetConnectionPoint(source, target);
-                var end = DiagramRenderer.GetConnectionPoint(target, source);
-                e.Graphics.DrawLine(pen, start, end);
+                e.Graphics.DrawLine(pen, pts[0], pts[^1]);
             }
         }
 
@@ -312,13 +370,49 @@ public sealed class DiagramCanvas : Control
         if (_isCreating && _dragShape is not null)
             DiagramRenderer.DrawShape(e.Graphics, _dragShape, PointF.Empty, selected: true);
 
-        if (_connectorSource is not null)
+        // Ghost preview: show the selected shape kind at cursor when not yet dragging
+        if (_toolMode == ToolMode.Shape && !_isCreating && _mouseOnCanvas)
         {
-            using var pen = new Pen(Color.Orange, 2f / _zoom) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
-            var center = new PointF(
-                _connectorSource.X + _connectorSource.Width / 2,
-                _connectorSource.Y + _connectorSource.Height / 2);
-            e.Graphics.DrawLine(pen, center, ScreenToCanvas(PointToClient(Cursor.Position)));
+            const float ghostW = 160f;
+            const float ghostH = 110f;
+            var ghostRect = new RectangleF(
+                _lastMouseCanvas.X - ghostW / 2,
+                _lastMouseCanvas.Y - ghostH / 2,
+                ghostW,
+                ghostH);
+            DiagramRenderer.DrawGhostShape(e.Graphics, _shapeKind, ghostRect);
+        }
+
+        if (_connectorSource is not null && _mouseOnCanvas)
+        {
+            // Highlight source shape bounding box so the user can see what they clicked
+            var srcBounds = _connectorSource.Bounds;
+            using var hlPen = new Pen(Color.FromArgb(200, 255, 120, 0), 2f / _zoom) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
+            e.Graphics.DrawRectangle(hlPen, srcBounds.X - 4, srcBounds.Y - 4, srcBounds.Width + 8, srcBounds.Height + 8);
+
+            // Use a 1×1 virtual target at the cursor to find the real start anchor
+            var virtualTarget = new DiagramShape
+            {
+                Kind = ShapeKind.Rectangle,
+                X = _lastMouseCanvas.X,
+                Y = _lastMouseCanvas.Y,
+                Width = 1,
+                Height = 1
+            };
+            var startPt = DiagramRenderer.GetConnectionPoint(_connectorSource, virtualTarget);
+            var pts = DiagramRenderer.BuildConnectorPoints(_connectorKind, startPt, _lastMouseCanvas);
+
+            using var pen = new Pen(Color.FromArgb(220, 255, 120, 0), 2.5f / _zoom) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+            if (_connectorKind == ConnectorKind.Curved && pts.Length == 4)
+                e.Graphics.DrawBezier(pen, pts[0], pts[1], pts[2], pts[3]);
+            else if (pts.Length >= 2)
+                e.Graphics.DrawLines(pen, pts);
+
+            // Dot at anchor start and at cursor
+            float dotR = 5f / _zoom;
+            using var dotBrush = new SolidBrush(Color.OrangeRed);
+            e.Graphics.FillEllipse(dotBrush, startPt.X - dotR, startPt.Y - dotR, dotR * 2, dotR * 2);
+            e.Graphics.FillEllipse(dotBrush, _lastMouseCanvas.X - dotR, _lastMouseCanvas.Y - dotR, dotR * 2, dotR * 2);
         }
     }
 
@@ -327,6 +421,12 @@ public sealed class DiagramCanvas : Control
         base.OnMouseDown(e);
         Focus();
         var canvasPoint = ScreenToCanvas(e.Location);
+
+        if (e.Button == MouseButtons.Right)
+        {
+            ShowContextMenu(e.Location, canvasPoint);
+            return;
+        }
 
         if (TryStartPan(e))
             return;
@@ -468,6 +568,7 @@ public sealed class DiagramCanvas : Control
             _dragShape.Y = y;
             _dragShape.Width = w;
             _dragShape.Height = h;
+            _lastMouseCanvas = canvasPoint;
             Invalidate();
             return;
         }
@@ -476,6 +577,7 @@ public sealed class DiagramCanvas : Control
         {
             DiagramRenderer.ApplyResize(_selectedShape, _activeHandle, canvasPoint, _dragStartCanvas);
             _dragStartCanvas = canvasPoint;
+            _lastMouseCanvas = canvasPoint;
             Invalidate();
             return;
         }
@@ -488,7 +590,14 @@ public sealed class DiagramCanvas : Control
             _selectedShape.Y += dy;
             _lastMouseCanvas = canvasPoint;
             Invalidate();
+            return;
         }
+
+        // Track position for ghost preview and connector source line
+        bool needsRedraw = _toolMode == ToolMode.Shape || _toolMode == ToolMode.Connector;
+        _lastMouseCanvas = canvasPoint;
+        if (needsRedraw)
+            Invalidate();
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -757,23 +866,36 @@ public sealed class DiagramCanvas : Control
         const int minorGrid = 20;
         const int majorGrid = 100;
         var logical = GetLogicalContentSize();
+
+        // Compute visible canvas region to skip lines entirely outside the viewport.
+        float visLeft = _hScroll.Value / _zoom;
+        float visTop = _vScroll.Value / _zoom;
+        var viewport = GetViewportSize();
+        float visRight = Math.Min(logical.Width, visLeft + viewport.Width / _zoom);
+        float visBottom = Math.Min(logical.Height, visTop + viewport.Height / _zoom);
+
+        int xMinor0 = (int)(Math.Floor(visLeft / minorGrid) * minorGrid);
+        int yMinor0 = (int)(Math.Floor(visTop / minorGrid) * minorGrid);
+        int xMajor0 = (int)(Math.Floor(visLeft / majorGrid) * majorGrid);
+        int yMajor0 = (int)(Math.Floor(visTop / majorGrid) * majorGrid);
+
         using var minorPen = new Pen(Color.FromArgb(22, 0, 0, 0), 1f / _zoom);
         using var majorPen = new Pen(Color.FromArgb(46, 0, 0, 0), 1.2f / _zoom);
         using var axisPen = new Pen(Color.FromArgb(90, 0, 120, 215), 1.5f / _zoom);
 
-        for (int x = 0; x <= logical.Width; x += minorGrid)
-            g.DrawLine(minorPen, x, 0, x, logical.Height);
-        for (int y = 0; y <= logical.Height; y += minorGrid)
-            g.DrawLine(minorPen, 0, y, logical.Width, y);
+        for (int x = xMinor0; x <= visRight; x += minorGrid)
+            g.DrawLine(minorPen, x, visTop, x, visBottom);
+        for (int y = yMinor0; y <= visBottom; y += minorGrid)
+            g.DrawLine(minorPen, visLeft, y, visRight, y);
 
-        for (int x = 0; x <= logical.Width; x += majorGrid)
-            g.DrawLine(majorPen, x, 0, x, logical.Height);
-        for (int y = 0; y <= logical.Height; y += majorGrid)
-            g.DrawLine(majorPen, 0, y, logical.Width, y);
+        for (int x = xMajor0; x <= visRight; x += majorGrid)
+            g.DrawLine(majorPen, x, visTop, x, visBottom);
+        for (int y = yMajor0; y <= visBottom; y += majorGrid)
+            g.DrawLine(majorPen, visLeft, y, visRight, y);
 
         // Highlight origin axis so users can quickly read position.
-        g.DrawLine(axisPen, 0, 0, logical.Width, 0);
-        g.DrawLine(axisPen, 0, 0, 0, logical.Height);
+        g.DrawLine(axisPen, 0, visTop, 0, visBottom);
+        g.DrawLine(axisPen, visLeft, 0, visRight, 0);
 
         // Draw coordinate labels (view only, never persisted/exported).
         var fontSize = Math.Clamp(9f / _zoom, 6f, 11f);
@@ -781,10 +903,10 @@ public sealed class DiagramCanvas : Control
         using var textBrush = new SolidBrush(Color.FromArgb(130, 0, 0, 0));
         var labelOffset = 2f / _zoom;
 
-        for (int x = majorGrid; x <= logical.Width; x += majorGrid)
-            g.DrawString(x.ToString(), font, textBrush, x + labelOffset, labelOffset);
-        for (int y = majorGrid; y <= logical.Height; y += majorGrid)
-            g.DrawString(y.ToString(), font, textBrush, labelOffset, y + labelOffset);
+        for (int x = xMajor0; x <= visRight; x += majorGrid)
+            if (x > 0) g.DrawString(x.ToString(), font, textBrush, x + labelOffset, labelOffset);
+        for (int y = yMajor0; y <= visBottom; y += majorGrid)
+            if (y > 0) g.DrawString(y.ToString(), font, textBrush, labelOffset, y + labelOffset);
     }
 
     private DiagramShape? HitTestShape(PointF point)
@@ -898,6 +1020,66 @@ public sealed class DiagramCanvas : Control
         UpdateScrollBars();
         Invalidate();
         ProjectChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ShowContextMenu(Point screenPt, PointF canvasPt)
+    {
+        var hitShape = HitTestShape(canvasPt);
+        var hitConnector = hitShape is null ? HitTestConnector(canvasPt) : null;
+
+        if (hitShape is not null) SelectedShape = hitShape;
+        else if (hitConnector is not null) SelectedConnector = hitConnector;
+
+        var menu = new ContextMenuStrip();
+
+        if (hitShape is not null)
+        {
+            menu.Items.Add("텍스트 편집", null, (_, _) =>
+            {
+                var input = PromptText("도형 텍스트 편집", hitShape.Text);
+                if (input is null) return;
+                RecordUndo(); hitShape.Text = input; NotifyChanged();
+            });
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("맨 앞으로", null, (_, _) =>
+            {
+                RecordUndo();
+                _project.Shapes.Remove(hitShape);
+                _project.Shapes.Add(hitShape);
+                NotifyChanged();
+            });
+            menu.Items.Add("맨 뒤로", null, (_, _) =>
+            {
+                RecordUndo();
+                _project.Shapes.Remove(hitShape);
+                _project.Shapes.Insert(0, hitShape);
+                NotifyChanged();
+            });
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("삭제", null, (_, _) => DeleteSelection());
+        }
+        else if (hitConnector is not null)
+        {
+            var kindMenu = new ToolStripMenuItem("연결선 종류");
+            kindMenu.DropDownItems.Add("직선",   null, (_, _) => ChangeConnectorKind(hitConnector, ConnectorKind.Straight));
+            kindMenu.DropDownItems.Add("꺾은선", null, (_, _) => ChangeConnectorKind(hitConnector, ConnectorKind.Orthogonal));
+            kindMenu.DropDownItems.Add("곡선",   null, (_, _) => ChangeConnectorKind(hitConnector, ConnectorKind.Curved));
+            menu.Items.Add(kindMenu);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("삭제", null, (_, _) => DeleteSelection());
+        }
+
+        if (menu.Items.Count > 0)
+            menu.Show(this, screenPt);
+        else
+            menu.Dispose();
+    }
+
+    private void ChangeConnectorKind(DiagramConnector connector, ConnectorKind kind)
+    {
+        RecordUndo();
+        connector.Kind = kind;
+        NotifyChanged();
     }
 
     private static string? PromptText(string title, string defaultValue)

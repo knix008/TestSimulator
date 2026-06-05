@@ -21,11 +21,14 @@ public sealed class DiagramUndoManager
     public void Push(DiagramProject current)
     {
         _undo.Push(current.Clone());
-        while (_undo.Count > MaxDepth)
+        if (_undo.Count > MaxDepth)
         {
-            var items = _undo.Reverse().Skip(1).Reverse().ToList();
+            // Keep the newest MaxDepth snapshots, discarding the oldest.
+            // Take() enumerates top→bottom; reversing gives oldest→newest order
+            // for re-pushing so the newest ends up back on top.
+            var keep = _undo.Take(MaxDepth).Reverse().ToList();
             _undo.Clear();
-            foreach (var item in items)
+            foreach (var item in keep)
                 _undo.Push(item);
         }
 
