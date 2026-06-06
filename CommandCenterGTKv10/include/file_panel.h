@@ -27,6 +27,8 @@ void file_panel_begin_rename(GtkWidget *panel);
 void file_panel_select_all(GtkWidget *panel);
 void file_panel_clipboard_copy(GtkWidget *panel);
 void file_panel_clipboard_paste(GtkWidget *panel);
+void file_panel_request_compress(GtkWidget *panel);
+void file_panel_request_extract(GtkWidget *panel, const char *archive_path);
 
 void file_panel_connect_focus(GtkWidget *panel, FilePanelVoidFn cb, gpointer data);
 void file_panel_connect_path_changed(GtkWidget *panel, FilePanelPathFn cb, gpointer data);

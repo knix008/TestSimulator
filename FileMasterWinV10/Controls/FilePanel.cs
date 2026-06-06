@@ -163,43 +163,81 @@ public partial class FilePanel : UserControl
     private ContextMenuStrip BuildContextMenu()
     {
         var cm = new ContextMenuStrip { Font = UiTheme.UiFont };
-        cm.Items.Add("열기", null, (_, _) => OpenSelected());
-        cm.Items.Add("연결 프로그램으로 열기", null, (_, _) => OpenWithDialog());
+        var I = MenuIconProvider.Get;
+        // idx 0
+        cm.Items.Add(CMI("열기",               I("folder_open"), (_, _) => OpenSelected()));
+        // idx 1
+        cm.Items.Add(CMI("연결 프로그램으로 열기", I("open_with"),  (_, _) => OpenWithDialog()));
+        // idx 2
         cm.Items.Add(new ToolStripSeparator());
-        cm.Items.Add("→ 다른 패널로 복사", null, (_, _) => CopyToOtherRequested?.Invoke(this, EventArgs.Empty));
-        cm.Items.Add("→ 다른 패널로 이동", null, (_, _) => MoveToOtherRequested?.Invoke(this, EventArgs.Empty));
+        // idx 3
+        cm.Items.Add(CMI("압축하기...",          I("zip"),         (_, _) => RequestCompress()));
+        // idx 4
+        cm.Items.Add(CMI("압축 해제...",         I("unzip"),       (_, _) => RequestExtract()));
+        // idx 5
         cm.Items.Add(new ToolStripSeparator());
-        cm.Items.Add("잘라내기", null, (_, _) => ClipboardCut());
-        cm.Items.Add("복사", null, (_, _) => ClipboardCopy());
-        cm.Items.Add("붙여넣기", null, (_, _) => ClipboardPaste());
+        // idx 6
+        cm.Items.Add(CMI("→ 다른 패널로 복사",   I("copy_right"),  (_, _) => CopyToOtherRequested?.Invoke(this, EventArgs.Empty)));
+        // idx 7
+        cm.Items.Add(CMI("→ 다른 패널로 이동",   I("move_right"),  (_, _) => MoveToOtherRequested?.Invoke(this, EventArgs.Empty)));
+        // idx 8
         cm.Items.Add(new ToolStripSeparator());
-        cm.Items.Add("이름 바꾸기", null, (_, _) => BeginRename());
-        cm.Items.Add("삭제", null, (_, _) => RequestDelete());
+        // idx 9
+        cm.Items.Add(CMI("잘라내기",             I("cut"),         (_, _) => ClipboardCut()));
+        // idx 10
+        cm.Items.Add(CMI("복사",                 I("copy"),        (_, _) => ClipboardCopy()));
+        // idx 11
+        cm.Items.Add(CMI("붙여넣기",             I("paste"),       (_, _) => ClipboardPaste()));
+        // idx 12
         cm.Items.Add(new ToolStripSeparator());
-        cm.Items.Add("새 폴더 만들기", null, (_, _) => RequestNewFolder());
-        cm.Items.Add("새 파일 만들기", null, (_, _) => RequestNewFile());
+        // idx 13
+        cm.Items.Add(CMI("이름 바꾸기",           I("rename"),      (_, _) => BeginRename()));
+        // idx 14
+        cm.Items.Add(CMI("삭제",                  I("delete"),      (_, _) => RequestDelete()));
+        // idx 15
         cm.Items.Add(new ToolStripSeparator());
-        cm.Items.Add("속성", null, (_, _) => ShowProperties());
+        // idx 16
+        cm.Items.Add(CMI("새 폴더 만들기",        I("folder_new"),  (_, _) => RequestNewFolder()));
+        // idx 17
+        cm.Items.Add(CMI("새 파일 만들기",        I("file_new"),    (_, _) => RequestNewFile()));
+        // idx 18
+        cm.Items.Add(new ToolStripSeparator());
+        // idx 19
+        cm.Items.Add(CMI("속성",                  I("properties"),  (_, _) => ShowProperties()));
         return cm;
+    }
+
+    private static ToolStripMenuItem CMI(string text, Image? icon, EventHandler handler)
+    {
+        var item = new ToolStripMenuItem(text, icon);
+        item.Click += handler;
+        return item;
     }
 
     private void OnContextMenuOpening(object? sender, CancelEventArgs e)
     {
         bool hasSelection = listView.SelectedItems.Count > 0;
-        bool singleFile = listView.SelectedItems.Count == 1
-            && listView.SelectedItems[0].Tag is FileEntry ff && !ff.IsDirectory;
+        bool singleItem = listView.SelectedItems.Count == 1 && hasSelection;
+        bool singleFile = singleItem && listView.SelectedItems[0].Tag is FileEntry ff && !ff.IsDirectory;
+        bool singleZip = singleFile
+            && listView.SelectedItems[0].Tag is FileEntry fz
+            && (fz.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase)
+                || ArchiveHelper.IsSplitArchive(fz.FullPath)   // archive.zip → .001 존재
+                || ArchiveHelper.IsSplitPart(fz.FullPath));    // archive.zip.001 직접 선택
 
         var items = _contextMenu.Items;
-        items[0].Enabled = hasSelection;
-        items[1].Enabled = singleFile;
-        items[3].Enabled = hasSelection;
-        items[4].Enabled = hasSelection;
-        items[6].Enabled = hasSelection;
-        items[7].Enabled = hasSelection;
-        items[8].Enabled = Clipboard.ContainsFileDropList();
-        items[10].Enabled = listView.SelectedItems.Count == 1 && hasSelection;
-        items[11].Enabled = hasSelection;
-        items[16].Enabled = hasSelection;
+        items[0].Enabled = hasSelection;               // 열기
+        items[1].Enabled = singleFile;                 // 연결 프로그램으로 열기
+        items[3].Enabled = hasSelection;               // 압축하기...
+        items[4].Enabled = singleZip;                  // 압축 해제...
+        items[6].Enabled = hasSelection;               // → 다른 패널로 복사
+        items[7].Enabled = hasSelection;               // → 다른 패널로 이동
+        items[9].Enabled = hasSelection;               // 잘라내기
+        items[10].Enabled = hasSelection;              // 복사
+        items[11].Enabled = Clipboard.ContainsFileDropList(); // 붙여넣기
+        items[13].Enabled = singleItem;                // 이름 바꾸기
+        items[14].Enabled = hasSelection;              // 삭제
+        items[19].Enabled = hasSelection;              // 속성
     }
 
     public void Navigate(string path)
@@ -539,10 +577,21 @@ public partial class FilePanel : UserControl
         if (listView.SelectedItems.Count == 0) return;
         var entry = (FileEntry)listView.SelectedItems[0].Tag!;
         if (entry.IsDirectory) { Navigate(entry.FullPath); return; }
+        OpenFileWithShell(entry.FullPath);
+    }
+
+    private void OpenFileWithShell(string path)
+    {
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(entry.FullPath) { UseShellExecute = true });
-            SetStatus($"열기: {entry.Name}");
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+            SetStatus($"열기: {Path.GetFileName(path)}");
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1155) // ERROR_NO_ASSOCIATION
+        {
+            // 연결된 앱이 없으면 "연결 프로그램" 대화상자를 직접 띄운다
+            OpenWithDialog(path);
         }
         catch (Exception ex)
         {
@@ -551,8 +600,40 @@ public partial class FilePanel : UserControl
         }
     }
 
-    private static void OpenWithDialog() =>
-        MessageBox.Show("이 기능은 파일을 선택한 뒤 Shift+우클릭 > 연결 프로그램으로 열기로도 사용할 수 있습니다.", "연결 프로그램", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    private void OpenWithDialog()
+    {
+        if (listView.SelectedItems.Count == 1
+            && listView.SelectedItems[0].Tag is FileEntry e && !e.IsDirectory)
+            OpenWithDialog(e.FullPath);
+    }
+
+    private void OpenWithDialog(string path)
+    {
+        try
+        {
+            // Windows 10/11 기본 "연결 프로그램" 대화상자
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo("openwith.exe", $"\"{path}\"")
+                { UseShellExecute = true });
+        }
+        catch
+        {
+            try
+            {
+                // 폴백: rundll32 방식
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(
+                        "rundll32.exe", $"shell32.dll,OpenAs_RunDLL \"{path}\"")
+                    { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"연결 프로그램 열기 실패: {ex.Message}");
+                MessageBox.Show(ex.Message, "연결 프로그램 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        SetStatus($"연결 프로그램으로 열기: {Path.GetFileName(path)}");
+    }
 
     public async void RequestDelete()
     {
@@ -607,6 +688,114 @@ public partial class FilePanel : UserControl
             SetStatus($"파일 생성 실패: {ex.Message}");
             MessageBox.Show(ex.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    // ──────────────────── 압축 / 해제 ────────────────────
+
+    public async void RequestCompress()
+    {
+        var paths = SelectedPaths;
+        if (paths.Length == 0) { SetStatus("압축할 항목을 선택하세요."); return; }
+
+        using var dlg = new CompressDialog(paths, _currentPath);
+        if (dlg.ShowDialog(this) != DialogResult.OK || dlg.Result == null) return;
+
+        var opts = dlg.Result;
+        string destDisplay = Path.GetFileName(opts.DestPath);
+        string splitInfo = opts.SplitSizeBytes > 0
+            ? $" ({FormatSize(opts.SplitSizeBytes)} 단위 분할)"
+            : "";
+
+        using var prog = new ProgressDialog($"압축 중 — {destDisplay}{splitInfo}");
+        var progress = new Progress<string>(msg =>
+        {
+            prog.UpdateDetail(msg);
+            SetStatus($"압축 중: {msg}");
+        });
+
+        prog.Show(FindForm());
+
+        try
+        {
+            await ArchiveHelper.CompressAsync(paths, opts.DestPath, opts.Level, opts.SplitSizeBytes, progress, prog.CancellationToken);
+            prog.Close();
+            Refresh();
+            SetStatus(opts.SplitSizeBytes > 0
+                ? $"분할 압축 완료: {destDisplay}.001 ~ (각 {FormatSize(opts.SplitSizeBytes)})"
+                : $"압축 완료: {destDisplay}");
+        }
+        catch (OperationCanceledException)
+        {
+            prog.Close();
+            SetStatus("압축이 취소되었습니다.");
+            // 취소된 경우 생성 중이던 파일 정리
+            try { if (File.Exists(opts.DestPath)) File.Delete(opts.DestPath); } catch { }
+        }
+        catch (Exception ex)
+        {
+            prog.Close();
+            SetStatus($"압축 실패: {ex.Message}");
+            MessageBox.Show(ex.Message, "압축 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    public async void RequestExtract()
+    {
+        if (listView.SelectedItems.Count != 1) return;
+        var entry = (FileEntry)listView.SelectedItems[0].Tag!;
+        if (entry.IsDirectory) return;
+
+        // 분할 파트를 직접 선택한 경우: 베이스(.zip) 경로 기준으로 이름 표시
+        bool isSplitPart = ArchiveHelper.IsSplitPart(entry.FullPath);
+        string basePath = isSplitPart
+            ? ArchiveHelper.GetSplitBasePath(entry.FullPath)
+            : entry.FullPath;
+        bool isSplit = isSplitPart || ArchiveHelper.IsSplitArchive(entry.FullPath);
+        string archiveName = isSplit
+            ? $"{Path.GetFileName(basePath)} (분할 아카이브)"
+            : entry.Name;
+
+        // 해제 위치 기본값: 베이스 파일명(확장자 제거) 하위 폴더
+        string defaultDest = Path.Combine(_currentPath, Path.GetFileNameWithoutExtension(basePath));
+        using var destDlg = new InputDialog("압축 해제 위치", "해제할 폴더 경로:", defaultDest);
+        if (destDlg.ShowDialog(this) != DialogResult.OK || string.IsNullOrWhiteSpace(destDlg.InputText)) return;
+
+        string destDir = destDlg.InputText;
+
+        using var prog = new ProgressDialog($"압축 해제 중 — {archiveName}");
+        var progress = new Progress<string>(msg =>
+        {
+            prog.UpdateDetail(msg);
+            SetStatus($"압축 해제 중: {msg}");
+        });
+        prog.Show(FindForm());
+
+        try
+        {
+            await ArchiveHelper.ExtractAsync(entry.FullPath, destDir, progress, prog.CancellationToken);
+            prog.Close();
+            Refresh();
+            SetStatus($"압축 해제 완료: {destDir}");
+        }
+        catch (OperationCanceledException)
+        {
+            prog.Close();
+            SetStatus("압축 해제가 취소되었습니다.");
+        }
+        catch (Exception ex)
+        {
+            prog.Close();
+            SetStatus($"압축 해제 실패: {ex.Message}");
+            MessageBox.Show(ex.Message, "압축 해제 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        if (bytes < 1024L * 1024 * 1024) return $"{bytes / (1024.0 * 1024):F1} MB";
+        return $"{bytes / (1024.0 * 1024 * 1024):F1} GB";
     }
 
     public void BeginRename()

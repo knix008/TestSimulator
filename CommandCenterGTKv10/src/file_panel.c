@@ -7,6 +7,8 @@
 #include "progress_dialog.h"
 #include "folder_tree_panel.h"
 #include "input_dialog.h"
+#include "archive_ops.h"
+#include "compress_dialog.h"
 
 #include <dirent.h>
 #include <errno.h>
@@ -46,6 +48,8 @@ typedef struct {
     GtkWidget *ctx_clip_copy;
     GtkWidget *ctx_rename;
     GtkWidget *ctx_delete;
+    GtkWidget *ctx_compress;
+    GtkWidget *ctx_extract;
     GtkWidget *ctx_properties;
 
     FilePanelVoidFn on_focus;
@@ -67,7 +71,7 @@ typedef struct {
 
 static FilePanelData *panel_data(GtkWidget *panel);
 static GPtrArray *get_selected_paths(FilePanelData *pd);
-static void open_file(const char *path);
+static void open_file(GtkWidget *panel, const char *path);
 static void load_directory(FilePanelData *pd);
 static void notify_selection(FilePanelData *pd);
 
@@ -120,7 +124,7 @@ static void activate_entry_at_iter(GtkWidget *panel, FilePanelData *pd,
         if (entry->is_directory)
             file_panel_navigate(panel, entry->full_path);
         else
-            open_file(entry->full_path);
+            open_file(panel, entry->full_path);
         return;
     }
 
@@ -146,19 +150,29 @@ static void activate_entry(GtkWidget *panel, FileEntry *entry) {
     if (entry->is_directory)
         file_panel_navigate(panel, entry->full_path);
     else
-        open_file(entry->full_path);
+        open_file(panel, entry->full_path);
 }
 
 static void update_context_menu(FilePanelData *pd) {
     GPtrArray *paths = get_selected_paths(pd);
     gboolean has_sel = paths->len > 0;
-    gboolean single = paths->len == 1;
+    gboolean single  = paths->len == 1;
+
+    /* "압축 해제": single selection that is an archive or split part */
+    gboolean can_extract = FALSE;
+    if (single) {
+        const char *p = g_ptr_array_index(paths, 0);
+        can_extract = archive_is_archive(p) || archive_is_split_part(p, NULL);
+    }
+
     gtk_widget_set_sensitive(pd->ctx_open, has_sel);
     gtk_widget_set_sensitive(pd->ctx_copy_other, has_sel);
     gtk_widget_set_sensitive(pd->ctx_move_other, has_sel);
     gtk_widget_set_sensitive(pd->ctx_clip_copy, has_sel);
     gtk_widget_set_sensitive(pd->ctx_rename, single);
     gtk_widget_set_sensitive(pd->ctx_delete, has_sel);
+    gtk_widget_set_sensitive(pd->ctx_compress, has_sel);
+    gtk_widget_set_sensitive(pd->ctx_extract, can_extract);
     gtk_widget_set_sensitive(pd->ctx_properties, single);
     g_ptr_array_free(paths, TRUE);
 }
@@ -572,7 +586,25 @@ static void on_selection_changed(GtkTreeSelection *sel, gpointer data) {
     notify_selection(pd);
 }
 
-static void open_file(const char *path) {
+static void open_file(GtkWidget *panel, const char *path) {
+    /* Archive or split-archive part → extract in the app */
+    if (archive_is_archive(path) || archive_is_split_part(path, NULL)) {
+        file_panel_request_extract(panel, path);
+        return;
+    }
+
+    /* Executable → run directly */
+    if (g_file_test(path, G_FILE_TEST_IS_EXECUTABLE)) {
+        GError *err = NULL;
+        gchar *argv[] = { (gchar *)path, NULL };
+        if (g_spawn_async(NULL, argv, NULL, G_SPAWN_DEFAULT,
+                          NULL, NULL, NULL, &err)) {
+            return;
+        }
+        g_clear_error(&err);
+    }
+
+    /* Fall back to system-registered application */
     char *uri = g_filename_to_uri(path, NULL, NULL);
     if (uri) {
         gtk_show_uri_on_window(NULL, uri, GDK_CURRENT_TIME, NULL);
@@ -793,12 +825,39 @@ static gboolean on_focus_in(GtkWidget *w, GdkEvent *event, gpointer data) {
 /* Context menu callbacks */
 static void ctx_open(GtkMenuItem *item, gpointer data) {
     (void)item;
-    GtkTreeSelection *sel = gtk_tree_view_get_selection(
-        GTK_TREE_VIEW(panel_data(GTK_WIDGET(data))->tree_view));
-    GtkTreeModel *model;
-    GtkTreeIter iter;
-    if (!selection_get_first_iter(sel, &model, &iter)) return;
-    activate_entry(GTK_WIDGET(data), store_get_entry(model, &iter));
+    GtkWidget *panel = GTK_WIDGET(data);
+    FilePanelData *pd = panel_data(panel);
+    GtkTreeSelection *sel = gtk_tree_view_get_selection(GTK_TREE_VIEW(pd->tree_view));
+    GtkTreeModel *model = GTK_TREE_MODEL(pd->store);
+    GList *rows = gtk_tree_selection_get_selected_rows(sel, &model);
+
+    GPtrArray *file_paths = g_ptr_array_new_with_free_func(g_free);
+    char *nav_path = NULL;
+
+    for (GList *l = rows; l; l = l->next) {
+        GtkTreeIter iter;
+        if (!gtk_tree_model_get_iter(model, &iter, (GtkTreePath *)l->data))
+            continue;
+        FileEntry *entry = store_get_entry(model, &iter);
+        if (!entry || strcmp(entry->name, "..") == 0)
+            continue;
+        if (entry->is_directory) {
+            if (!nav_path)
+                nav_path = g_strdup(entry->full_path);
+        } else {
+            g_ptr_array_add(file_paths, g_strdup(entry->full_path));
+        }
+    }
+    g_list_free_full(rows, (GDestroyNotify)gtk_tree_path_free);
+
+    for (guint i = 0; i < file_paths->len; i++)
+        open_file(panel, g_ptr_array_index(file_paths, i));
+    g_ptr_array_free(file_paths, TRUE);
+
+    if (nav_path) {
+        file_panel_navigate(panel, nav_path);
+        g_free(nav_path);
+    }
 }
 
 static void ctx_copy_other(GtkMenuItem *item, gpointer data) {
@@ -843,6 +902,21 @@ static void ctx_clip_paste(GtkMenuItem *item, gpointer data) {
     file_panel_clipboard_paste(GTK_WIDGET(data));
 }
 
+static void ctx_compress_cb(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    file_panel_request_compress(GTK_WIDGET(data));
+}
+
+static void ctx_extract_cb(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    FilePanelData *pd = panel_data(GTK_WIDGET(data));
+    if (!pd) return;
+    GPtrArray *paths = get_selected_paths(pd);
+    if (paths->len == 1)
+        file_panel_request_extract(GTK_WIDGET(data), g_ptr_array_index(paths, 0));
+    g_ptr_array_free(paths, TRUE);
+}
+
 static void ctx_properties(GtkMenuItem *item, gpointer data) {
     (void)item;
     FilePanelData *pd = panel_data(GTK_WIDGET(data));
@@ -884,6 +958,9 @@ static void build_context_menu(FilePanelData *pd) {
         { NULL, NULL, NULL },
         { "이름 바꾸기", G_CALLBACK(ctx_rename), &pd->ctx_rename },
         { "삭제", G_CALLBACK(ctx_delete), &pd->ctx_delete },
+        { NULL, NULL, NULL },
+        { "압축", G_CALLBACK(ctx_compress_cb), &pd->ctx_compress },
+        { "압축 해제", G_CALLBACK(ctx_extract_cb), &pd->ctx_extract },
         { NULL, NULL, NULL },
         { "새 폴더 만들기", G_CALLBACK(ctx_new_folder), NULL },
         { "새 파일 만들기", G_CALLBACK(ctx_new_file), NULL },
@@ -1325,4 +1402,148 @@ void file_panel_connect_copy_to_other(GtkWidget *panel, FilePanelVoidFn cb, gpoi
 void file_panel_connect_move_to_other(GtkWidget *panel, FilePanelVoidFn cb, gpointer data) {
     FilePanelData *pd = panel_data(panel);
     if (pd) { pd->on_move_to_other = cb; pd->callback_data = data; }
+}
+
+void file_panel_request_compress(GtkWidget *panel) {
+    FilePanelData *pd = panel_data(panel);
+    if (!pd) return;
+    GPtrArray *paths = get_selected_paths(pd);
+    if (paths->len == 0) {
+        set_status(pd, "압축할 항목이 선택되지 않았습니다.");
+        g_ptr_array_free(paths, TRUE);
+        return;
+    }
+
+    /* Suggest archive name from the first selected item */
+    const char *first = g_ptr_array_index(paths, 0);
+    char *suggested = g_path_get_basename(first);
+    /* Strip any existing archive extension */
+    for (const char * const *sfx = (const char * const []){
+             ".tar.gz",".tgz",".tar.bz2",".tbz2",".tar.xz",".txz",
+             ".tar",".zip", NULL }; *sfx; sfx++) {
+        if (g_str_has_suffix(suggested, *sfx)) {
+            suggested[strlen(suggested) - strlen(*sfx)] = '\0';
+            break;
+        }
+    }
+
+    CompressDialogResult result = { 0 };
+    gboolean ok = compress_dialog_run(panel_window(panel),
+                                      suggested, pd->current_path, &result);
+    g_free(suggested);
+
+    if (!ok) {
+        g_ptr_array_free(paths, TRUE);
+        return;
+    }
+
+    /* dest_path already contains the full path including extension */
+    const char *dest_with_ext = result.dest_path;
+    /* Strip extension to get base path for archive_create */
+    const char *ext = archive_format_ext(result.opts.format);
+    char *dest_base = g_strdup(dest_with_ext);
+    if (g_str_has_suffix(dest_base, ext))
+        dest_base[strlen(dest_base) - strlen(ext)] = '\0';
+
+    GtkWindow *win = panel_window(panel);
+    suspend_all_watches(pd);
+    ProgressDialog *prog = progress_dialog_begin(win, "압축 중");
+    GCancellable *cancel = progress_dialog_get_cancellable(prog);
+    ProgressDialogOpsCtx pctx = { prog, 0, (guint64)paths->len };
+
+    GError *err = NULL;
+    gboolean success = archive_create(
+        paths, dest_base, &result.opts,
+        progress_dialog_ops_callback, &pctx,
+        cancel, &err);
+
+    progress_dialog_end(prog);
+    resume_all_watches(pd);
+
+    if (success) {
+        file_panel_refresh(panel);
+        char *msg;
+        if (result.opts.split)
+            msg = g_strdup_printf("%u개 항목을 분할 압축했습니다.", paths->len);
+        else
+            msg = g_strdup_printf("%u개 항목을 압축했습니다.", paths->len);
+        set_status(pd, msg);
+        g_free(msg);
+    } else if (err && g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+        set_status(pd, "압축이 취소되었습니다.");
+        g_clear_error(&err);
+    } else {
+        show_error(panel, err ? err->message : "압축 실패");
+        g_clear_error(&err);
+    }
+
+    compress_dialog_result_free(&result);
+    g_free(dest_base);
+    g_ptr_array_free(paths, TRUE);
+}
+
+void file_panel_request_extract(GtkWidget *panel, const char *archive_path) {
+    FilePanelData *pd = panel_data(panel);
+    if (!pd || !archive_path) return;
+
+    /* Suggest destination folder name */
+    char *bname = g_path_get_basename(archive_path);
+    /* Strip numeric split suffix (.001 etc.) */
+    char *base_for_name = NULL;
+    if (archive_is_split_part(archive_path, &base_for_name)) {
+        g_free(bname);
+        bname = g_path_get_basename(base_for_name);
+        g_free(base_for_name);
+    }
+    /* Strip archive extension from suggestion */
+    for (const char * const *sfx = (const char * const []){
+             ".tar.gz",".tgz",".tar.bz2",".tbz2",".tar.xz",".txz",
+             ".tar",".zip", NULL }; *sfx; sfx++) {
+        if (g_str_has_suffix(bname, *sfx)) {
+            bname[strlen(bname) - strlen(*sfx)] = '\0';
+            break;
+        }
+    }
+
+    char *dest_name = NULL;
+    if (!input_dialog_run(panel_window(panel), "압축 해제",
+                          "압축을 해제할 폴더 이름:", bname, &dest_name)) {
+        g_free(bname);
+        return;
+    }
+    g_free(bname);
+
+    char *dest_dir = g_build_filename(pd->current_path, dest_name, NULL);
+    g_free(dest_name);
+
+    GtkWindow *win = panel_window(panel);
+    suspend_all_watches(pd);
+    ProgressDialog *prog = progress_dialog_begin(win, "압축 해제 중");
+    GCancellable *cancel = progress_dialog_get_cancellable(prog);
+    ProgressDialogOpsCtx pctx = { prog, 0, 0 };
+
+    GError *err = NULL;
+    gboolean success = archive_extract(
+        archive_path, dest_dir,
+        progress_dialog_ops_callback, &pctx,
+        cancel, &err);
+
+    progress_dialog_end(prog);
+    resume_all_watches(pd);
+
+    if (success) {
+        file_panel_refresh(panel);
+        char *msg = g_strdup_printf("'%s'에 압축을 해제했습니다.",
+                                    g_path_get_basename(dest_dir));
+        set_status(pd, msg);
+        g_free(msg);
+    } else if (err && g_error_matches(err, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+        set_status(pd, "압축 해제가 취소되었습니다.");
+        g_clear_error(&err);
+    } else {
+        show_error(panel, err ? err->message : "압축 해제 실패");
+        g_clear_error(&err);
+    }
+
+    g_free(dest_dir);
 }

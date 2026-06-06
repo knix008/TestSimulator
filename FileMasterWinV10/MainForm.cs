@@ -86,38 +86,50 @@ public partial class MainForm : Form
 
     private void BuildMenus()
     {
+        var I = MenuIconProvider.Get; // shortcut
+
         var fileMenu = new ToolStripMenuItem("파일(&F)");
-        fileMenu.DropDownItems.Add("새 폴더(&D)", null, (_, _) => _activePanel.RequestNewFolder());
-        fileMenu.DropDownItems.Add("새 파일(&N)", null, (_, _) => _activePanel.RequestNewFile());
+        fileMenu.DropDownItems.Add(MI("새 폴더(&D)", "folder_new", (_, _) => _activePanel.RequestNewFolder()));
+        fileMenu.DropDownItems.Add(MI("새 파일(&N)", "file_new",   (_, _) => _activePanel.RequestNewFile()));
         fileMenu.DropDownItems.Add(new ToolStripSeparator());
-        fileMenu.DropDownItems.Add("종료(&X)", null, (_, _) => Close());
+        fileMenu.DropDownItems.Add(MI("종료(&X)",    "exit",       (_, _) => Close()));
 
         var editMenu = new ToolStripMenuItem("편집(&E)");
-        editMenu.DropDownItems.Add("→ 복사 (F5)", null, (_, _) => CopyActiveToOther());
-        editMenu.DropDownItems.Add("→ 이동 (F6)", null, (_, _) => MoveActiveToOther());
+        editMenu.DropDownItems.Add(MI("→ 복사 (F5)", "copy_right",  (_, _) => CopyActiveToOther()));
+        editMenu.DropDownItems.Add(MI("→ 이동 (F6)", "move_right",  (_, _) => MoveActiveToOther()));
         editMenu.DropDownItems.Add(new ToolStripSeparator());
-        editMenu.DropDownItems.Add("이름 바꾸기 (F2)", null, (_, _) => _activePanel.BeginRename());
-        editMenu.DropDownItems.Add("삭제 (F8)", null, (_, _) => _activePanel.RequestDelete());
+        editMenu.DropDownItems.Add(MI("이름 바꾸기 (F2)", "rename", (_, _) => _activePanel.BeginRename()));
+        editMenu.DropDownItems.Add(MI("삭제 (F8)",        "delete", (_, _) => _activePanel.RequestDelete()));
         editMenu.DropDownItems.Add(new ToolStripSeparator());
-        editMenu.DropDownItems.Add("모두 선택 (Ctrl+A)", null, (_, _) => SelectAll());
+        editMenu.DropDownItems.Add(MI("모두 선택 (Ctrl+A)", "select_all", (_, _) => SelectAll()));
 
         var viewMenu = new ToolStripMenuItem("보기(&V)");
-        var previewToggle = new ToolStripMenuItem("미리보기 패널 표시") { CheckOnClick = true };
+        var previewToggle = new ToolStripMenuItem("미리보기 패널 표시", I("preview"))
+            { CheckOnClick = true };
         previewToggle.CheckedChanged += (_, _) =>
         {
             mainSplit.Panel2Collapsed = !previewToggle.Checked;
             ShowMainStatus(previewToggle.Checked ? "미리보기 패널 표시됨" : "미리보기 패널 숨김");
         };
         viewMenu.DropDownItems.Add(previewToggle);
-        viewMenu.DropDownItems.Add("새로고침 (F5)", null, (_, _) => { leftPanel.Refresh(); rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
+        viewMenu.DropDownItems.Add(MI("새로고침 (F5)", "refresh",
+            (_, _) => { leftPanel.Refresh(); rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); }));
         viewMenu.DropDownItems.Add(new ToolStripSeparator());
-        viewMenu.DropDownItems.Add("왼쪽 패널 검색", null, (_, _) => OpenSearch(leftPanel));
-        viewMenu.DropDownItems.Add("오른쪽 패널 검색", null, (_, _) => OpenSearch(rightPanel));
+        viewMenu.DropDownItems.Add(MI("왼쪽 패널 검색",  "search", (_, _) => OpenSearch(leftPanel)));
+        viewMenu.DropDownItems.Add(MI("오른쪽 패널 검색", "search", (_, _) => OpenSearch(rightPanel)));
 
-        var bookmarkMenu = new ToolStripMenuItem("즐겨찾기(&B)");
+        var bookmarkMenu = new ToolStripMenuItem("즐겨찾기(&B)", I("bookmark"));
         bookmarkMenu.DropDownOpening += (_, _) => BuildBookmarkDropDown(bookmarkMenu);
 
         menuStrip.Items.AddRange(new ToolStripItem[] { fileMenu, editMenu, viewMenu, bookmarkMenu });
+    }
+
+    // ToolStripMenuItem factory with icon
+    private static ToolStripMenuItem MI(string text, string iconKey, EventHandler handler)
+    {
+        var item = new ToolStripMenuItem(text, MenuIconProvider.Get(iconKey));
+        item.Click += handler;
+        return item;
     }
 
     private void BuildBookmarkDropDown(ToolStripMenuItem menu)
@@ -193,29 +205,35 @@ public partial class MainForm : Form
 
     private void BuildToolbar()
     {
-        AddToolBtn("새 폴더", "새 폴더 만들기", (_, _) => _activePanel.RequestNewFolder());
-        AddToolBtn("새 파일", "새 파일 만들기", (_, _) => _activePanel.RequestNewFile());
+        AddToolBtn("새 폴더",   "folder_new",  "새 폴더 만들기",                   (_, _) => _activePanel.RequestNewFolder());
+        AddToolBtn("새 파일",   "file_new",    "새 파일 만들기",                   (_, _) => _activePanel.RequestNewFile());
         toolStrip.Items.Add(new ToolStripSeparator());
-        AddToolBtn("→ 복사", "활성 패널에서 반대 패널로 복사 (F5)", (_, _) => CopyActiveToOther());
-        AddToolBtn("→ 이동", "활성 패널에서 반대 패널로 이동 (F6)", (_, _) => MoveActiveToOther());
+        AddToolBtn("→ 복사",    "copy_right",  "반대 패널로 복사 (F5)",            (_, _) => CopyActiveToOther());
+        AddToolBtn("→ 이동",    "move_right",  "반대 패널로 이동 (F6)",            (_, _) => MoveActiveToOther());
         toolStrip.Items.Add(new ToolStripSeparator());
-        AddToolBtn("이름 바꾸기", "선택 항목 이름 바꾸기 (F2)", (_, _) => _activePanel.BeginRename());
-        AddToolBtn("삭제", "선택 항목 삭제 (F8)", (_, _) => _activePanel.RequestDelete());
+        AddToolBtn("이름 바꾸기","rename",      "이름 바꾸기 (F2)",                 (_, _) => _activePanel.BeginRename());
+        AddToolBtn("삭제",      "delete",      "삭제 (F8)",                        (_, _) => _activePanel.RequestDelete());
         toolStrip.Items.Add(new ToolStripSeparator());
-        AddToolBtn("새로고침", "양쪽 패널 새로고침 (F5)", (_, _) => { leftPanel.Refresh(); rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
-        AddToolBtn("검색", "활성 패널 검색", (_, _) => OpenSearch(_activePanel));
+        AddToolBtn("새로고침",  "refresh",     "양쪽 패널 새로고침",
+            (_, _) => { leftPanel.Refresh(); rightPanel.Refresh(); ShowMainStatus("새로고침 완료"); });
+        AddToolBtn("검색",      "search",      "활성 패널 검색 (F9)",              (_, _) => OpenSearch(_activePanel));
         toolStrip.Items.Add(new ToolStripSeparator());
-        AddToolBtn("미리보기", "미리보기 패널 토글", (_, _) => mainSplit.Panel2Collapsed = !mainSplit.Panel2Collapsed);
+        AddToolBtn("미리보기",  "preview",     "미리보기 패널 토글",               (_, _) => mainSplit.Panel2Collapsed = !mainSplit.Panel2Collapsed);
     }
 
-    private void AddToolBtn(string text, string tooltip, EventHandler handler)
+    private void AddToolBtn(string text, string iconKey, string tooltip, EventHandler handler)
     {
-        var btn = new ToolStripButton(text)
+        var icon = MenuIconProvider.Get(iconKey);
+        var btn = new ToolStripButton(text, icon)
         {
             ToolTipText = tooltip,
-            DisplayStyle = ToolStripItemDisplayStyle.Text,
-            Margin = new Padding(2, 0, 2, 0),
-            Padding = new Padding(6, 2, 6, 2),
+            DisplayStyle = icon != null
+                ? ToolStripItemDisplayStyle.ImageAndText
+                : ToolStripItemDisplayStyle.Text,
+            ImageAlign = ContentAlignment.MiddleLeft,
+            TextAlign  = ContentAlignment.MiddleRight,
+            Margin  = new Padding(2, 0, 2, 0),
+            Padding = new Padding(4, 2, 6, 2),
         };
         btn.Click += handler;
         toolStrip.Items.Add(btn);

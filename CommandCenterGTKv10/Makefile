@@ -23,7 +23,7 @@ WARN    := -Wall -Wextra
 OPT     := -O2 -g
 PTHREAD := -pthread
 
-PKGS    := gtk+-3.0
+PKGS    := gtk+-3.0 libarchive
 
 # = 로 두어 install-deps 이후 재평가
 GTK_CFLAGS := $(shell pkg-config --cflags $(PKGS) 2>/dev/null)
@@ -53,12 +53,14 @@ SRCS := $(SRCDIR)/main.c \
         $(SRCDIR)/session_settings.c \
         $(SRCDIR)/input_dialog.c \
         $(SRCDIR)/progress_dialog.c \
-        $(SRCDIR)/search_dialog.c
+        $(SRCDIR)/search_dialog.c \
+        $(SRCDIR)/archive_ops.c \
+        $(SRCDIR)/compress_dialog.c
 
 OBJS := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%.o,$(SRCS))
 
 UNAME_S  := $(shell uname -s)
-APT_DEBS := build-essential pkg-config libgtk-3-dev
+APT_DEBS := build-essential pkg-config libgtk-3-dev libarchive-dev
 
 ifeq ($(UNAME_S),Linux)
   PLATFORM := linux
@@ -148,6 +150,7 @@ _deps-missing:
 	command -v pkg-config >/dev/null 2>&1 || fail=1; \
 	command -v make >/dev/null 2>&1 || fail=1; \
 	pkg-config --exists gtk+-3.0 2>/dev/null || fail=1; \
+	pkg-config --exists libarchive 2>/dev/null || fail=1; \
 	test $$fail -eq 0
 
 check-deps: _deps-report
@@ -164,7 +167,7 @@ ifeq ($(UNAME_S),Linux)
 	if command -v apt-get >/dev/null 2>&1; then \
 	    pkgs=""; \
 	    [ $$need_pm -ne 0 ] || [ $$need_cc -ne 0 ] && pkgs="$$pkgs $(APT_DEBS)"; \
-	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs libgtk-3-dev"; \
+	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs libgtk-3-dev libarchive-dev"; \
 	    pkgs=$$(echo $$pkgs | tr ' ' '\n' | sort -u | tr '\n' ' '); \
 	    if [ -n "$$(echo $$pkgs | tr -d ' ')" ]; then \
 	        echo "    apt-get install$$pkgs"; \
@@ -173,12 +176,12 @@ ifeq ($(UNAME_S),Linux)
 	elif command -v dnf >/dev/null 2>&1; then \
 	    pkgs=""; \
 	    [ $$need_pm -ne 0 ] || [ $$need_cc -ne 0 ] && pkgs="$$pkgs gcc make pkg-config"; \
-	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs gtk3-devel"; \
+	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs gtk3-devel libarchive-devel"; \
 	    if [ -n "$$pkgs" ]; then echo "    dnf install$$pkgs"; sudo dnf install -y $$pkgs; fi; \
 	elif command -v pacman >/dev/null 2>&1; then \
 	    pkgs=""; \
 	    [ $$need_pm -ne 0 ] || [ $$need_cc -ne 0 ] && pkgs="$$pkgs base-devel"; \
-	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs gtk3"; \
+	    [ $$need_gtk -ne 0 ] && pkgs="$$pkgs gtk3 libarchive"; \
 	    if [ -n "$$pkgs" ]; then echo "    pacman -S$$pkgs"; \
 	        sudo pacman -S --needed --noconfirm $$pkgs; fi; \
 	else \
@@ -188,7 +191,8 @@ else ifeq ($(UNAME_S),Darwin)
 	@command -v brew >/dev/null 2>&1 || { \
 	    echo "    [X] Homebrew 필요 — https://brew.sh"; exit 1; }; \
 	brew list pkg-config >/dev/null 2>&1 || brew install pkg-config; \
-	brew list gtk+3 >/dev/null 2>&1 || brew install gtk+3
+	brew list gtk+3 >/dev/null 2>&1 || brew install gtk+3; \
+	brew list libarchive >/dev/null 2>&1 || brew install libarchive
 else
 	@echo "    [X] install-deps: Linux / macOS 전용"
 	@exit 1
