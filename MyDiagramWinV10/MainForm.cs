@@ -3,6 +3,7 @@ using MyDiagramWinV10.App;
 using MyDiagramWinV10.Controls;
 using MyDiagramWinV10.Export;
 using MyDiagramWinV10.Models;
+using MyDiagramWinV10.Rendering;
 using MyDiagramWinV10.Serialization;
 using MyDiagramWinV10.Templates;
 using MyDiagramWinV10.Ui;
@@ -194,15 +195,15 @@ public partial class MainForm : Form
 
         foreach (var label in new[] { _lblShapeText, _lblShapeWidth, _lblShapeHeight, _lblFillColor, _lblBorderColor,
             _lblTextColor, _lblBorderWidth, _lblBorderStyle, _lblFont, _lblFontSize, _lblLineColor, _lblLineWidth,
-            _lblLineStyle, _lblConnectorKind, _lblConnectorLabel })
+            _lblLineStyle, _lblConnectorKind, _lblStartArrow, _lblEndArrow, _lblConnectorLabel })
         {
             label.Font = ModernTheme.UiFont;
             label.ForeColor = ModernTheme.TextSecondary;
         }
 
         foreach (var input in new Control[] { _txtShapeText, _txtConnectorLabel, _cmbFont, _cmbBorderStyle,
-            _cmbLineStyle, _cmbConnectorKind, _numShapeWidth, _numShapeHeight, _numBorderWidth, _numFontSize,
-            _numLineWidth, _chkFontBold, _chkStartArrow, _chkEndArrow })
+            _cmbLineStyle, _cmbConnectorKind, _cmbStartArrow, _cmbEndArrow, _numShapeWidth, _numShapeHeight,
+            _numBorderWidth, _numFontSize, _numLineWidth, _chkFontBold })
             ModernTheme.StyleInput(input);
 
         ModernTheme.StylePrimaryButton(_btnSetImage);
@@ -296,8 +297,8 @@ public partial class MainForm : Form
                 _cmbLineStyle.SelectedIndex = (int)connector.LineStyle;
                 int kindIdx = Math.Clamp((int)connector.Kind, 0, _cmbConnectorKind.Items.Count - 1);
                 _cmbConnectorKind.SelectedIndex = kindIdx;
-                _chkStartArrow.Checked = connector.HasStartArrow;
-                _chkEndArrow.Checked = connector.HasEndArrow;
+                _cmbStartArrow.SelectedIndex = (int)connector.StartArrowStyle;
+                _cmbEndArrow.SelectedIndex   = (int)connector.EndArrowStyle;
                 _txtConnectorLabel.Text = connector.Label;
                 return;
             }
@@ -347,10 +348,10 @@ public partial class MainForm : Form
             LineWidth = (float)_numLineWidth.Value,
             LineStyle = (LineStyle)_cmbLineStyle.SelectedIndex,
             Kind = (ConnectorKind)Math.Clamp(_cmbConnectorKind.SelectedIndex, 0, (int)ConnectorKind.RightAngleCurved),
-            HasStartArrow = _chkStartArrow.Checked,
-            HasEndArrow = _chkEndArrow.Checked,
-            StartArrowStyle = _chkStartArrow.Checked ? ArrowHeadStyle.Open : ArrowHeadStyle.None,
-            EndArrowStyle   = _chkEndArrow.Checked   ? ArrowHeadStyle.Open : ArrowHeadStyle.None,
+            StartArrowStyle = (ArrowHeadStyle)Math.Clamp(_cmbStartArrow.SelectedIndex, 0, (int)ArrowHeadStyle.Cross),
+            EndArrowStyle   = (ArrowHeadStyle)Math.Clamp(_cmbEndArrow.SelectedIndex,   0, (int)ArrowHeadStyle.Cross),
+            HasStartArrow = _cmbStartArrow.SelectedIndex > 0,
+            HasEndArrow   = _cmbEndArrow.SelectedIndex   > 0,
             Label = _txtConnectorLabel.Text
         };
 
@@ -390,6 +391,32 @@ public partial class MainForm : Form
 
         var text = cmb.Items[e.Index]?.ToString() ?? string.Empty;
         var textRect = new Rectangle(x2 + 4, b.Y, b.Width - (x2 - b.X) - 4, b.Height);
+        TextRenderer.DrawText(e.Graphics, text, e.Font, textRect,
+            e.ForeColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+
+        e.DrawFocusRectangle();
+    }
+
+    private void CmbArrowStyle_DrawItem(object? sender, DrawItemEventArgs e)
+    {
+        if (e.Index < 0 || sender is not ComboBox cmb) return;
+        e.DrawBackground();
+
+        var style = (ArrowHeadStyle)e.Index;
+        var b = e.Bounds;
+        int midY = b.Y + b.Height / 2;
+        int x1 = b.X + 4, x2 = b.X + 38;
+
+        using var pen = new Pen(e.ForeColor, 1.5f);
+        if (style != ArrowHeadStyle.None)
+        {
+            e.Graphics.DrawLine(pen, x1, midY, x2, midY);
+            DiagramRenderer.DrawArrowHead(e.Graphics, pen,
+                new PointF(x2 - 10, midY), new PointF(x2, midY), style);
+        }
+
+        var text = cmb.Items[e.Index]?.ToString() ?? string.Empty;
+        var textRect = new Rectangle(x2 + 4, b.Y, b.Width - (x2 - b.X) - 8, b.Height);
         TextRenderer.DrawText(e.Graphics, text, e.Font, textRect,
             e.ForeColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
 
@@ -781,12 +808,16 @@ public partial class MainForm : Form
             ShapeKind.NetworkRack       => "랙",
             ShapeKind.NetworkTablet     => "태블릿",
             ShapeKind.NetworkGateway    => "게이트웨이",
-            ShapeKind.Shape3DCube       => "정육면체",
-            ShapeKind.Shape3DBox        => "직육면체",
-            ShapeKind.Shape3DSphere     => "구",
-            ShapeKind.Shape3DPyramid    => "피라미드",
-            ShapeKind.Shape3DCone       => "원뿔",
-            ShapeKind.Shape3DCylinder   => "3D 원기둥",
+            ShapeKind.Shape3DCube            => "정육면체",
+            ShapeKind.Shape3DBox             => "직육면체",
+            ShapeKind.Shape3DSphere          => "구",
+            ShapeKind.Shape3DPyramid         => "피라미드",
+            ShapeKind.Shape3DCone            => "원뿔",
+            ShapeKind.Shape3DCylinder        => "3D 원기둥",
+            ShapeKind.Shape3DTriangularPrism => "삼각기둥",
+            ShapeKind.Shape3DCapsule         => "캡슐",
+            ShapeKind.Shape3DGem             => "보석",
+            ShapeKind.Shape3DTorus           => "토러스",
             _ => "도형"
         };
         _lblStatus.Text = $"도구: {label} | 마우스를 올려 미리보기, 드래그하여 생성";

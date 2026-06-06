@@ -47,10 +47,14 @@ public enum ShapeKind
     NetworkGateway,    // gateway / VPN device (box with bidirectional arrows)
 
     // ── 3D diagram shapes (isometric / pseudo-3D) ─────────────────────────
-    Shape3DCube,       // isometric cube
-    Shape3DBox,        // isometric rectangular prism
-    Shape3DSphere,     // shaded sphere
-    Shape3DPyramid,    // square pyramid
-    Shape3DCone,       // cone
-    Shape3DCylinder,   // isometric cylinder
+    Shape3DCube,             // isometric cube (equal sides)
+    Shape3DBox,              // isometric rectangular prism
+    Shape3DSphere,           // shaded sphere
+    Shape3DPyramid,          // square pyramid
+    Shape3DCone,             // cone
+    Shape3DCylinder,         // isometric cylinder
+    Shape3DTriangularPrism,  // triangular prism (삼각기둥)
+    Shape3DCapsule,          // capsule / stadium with dome caps (캡슐)
+    Shape3DGem,              // cut gem / diamond facets (보석)
+    Shape3DTorus,            // donut / torus (토러스)
 }

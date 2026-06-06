@@ -192,7 +192,7 @@ public static class DiagramRenderer
 
         if (from.IsCollapsed
             || from.Kind == ShapeKind.Cylinder || from.Kind == ShapeKind.Database
-            || from.Kind == ShapeKind.Delay || IsNetworkShape(from.Kind) || Is3DShape(from.Kind))
+            || from.Kind == ShapeKind.Delay || IsNetworkShape(from.Kind))
             return GetBoundsEdgePoint(offsetBounds, fromCenter, toCenter);
 
         using var path = CreateShapePath(from.Kind, offsetBounds);
@@ -204,7 +204,7 @@ public static class DiagramRenderer
     {
         var bounds = OffsetRect(shape.EffectiveBounds, offset);
         if (shape.IsCollapsed || shape.Kind == ShapeKind.Cylinder || shape.Kind == ShapeKind.Database
-            || shape.Kind == ShapeKind.Delay || IsNetworkShape(shape.Kind) || Is3DShape(shape.Kind))
+            || shape.Kind == ShapeKind.Delay || IsNetworkShape(shape.Kind))
             return GetRectEdgePointAtAngle(bounds, angleDeg);
 
         float cx = bounds.X + bounds.Width / 2;
@@ -468,19 +468,30 @@ public static class DiagramRenderer
         {
             DrawDoubleLine(g, points, connector.LineColorArgb, connector.LineWidth);
         }
-        else if (connector.Kind == ConnectorKind.Curved && points.Length == 4 && crossings.Count == 0)
-        {
-            g.DrawBezier(pen, points[0], points[1], points[2], points[3]);
-        }
         else if (connector.Kind == ConnectorKind.Curved && points.Length == 4)
         {
-            // Bezier with bridge arcs — approximate as polyline for bridge segments
-            var sortedCrossings = crossings.OrderBy(c => c.T).ToList();
-            g.DrawBezier(pen, points[0], points[1], points[2], points[3]);
+            if (crossings.Count == 0)
+            {
+                g.DrawBezier(pen, points[0], points[1], points[2], points[3]);
+            }
+            else
+            {
+                // Flatten the Bezier to a polyline with the same step count used during crossing
+                // detection so that the T values in crossings correspond to segment indices here.
+                var flatBez = FlattenBezier(points[0], points[1], points[2], points[3]);
+                var sortedCrossings = crossings.OrderBy(c => c.T).ToList();
+                DrawPolylineWithBridges(g, pen, flatBez, sortedCrossings, bridgeRadius);
+            }
         }
-        else if (connector.Kind == ConnectorKind.RightAngleCurved && crossings.Count == 0)
+        else if (connector.Kind == ConnectorKind.RightAngleCurved)
         {
-            DrawRoundedPolyline(g, pen, points);
+            if (crossings.Count == 0)
+                DrawRoundedPolyline(g, pen, points);
+            else
+            {
+                var sortedCrossings = crossings.OrderBy(c => c.T).ToList();
+                DrawPolylineWithBridges(g, pen, points, sortedCrossings, bridgeRadius);
+            }
         }
         else if (crossings.Count == 0)
         {
@@ -606,6 +617,21 @@ public static class DiagramRenderer
         }
     }
 
+    // Flatten a cubic Bezier into a dense polyline for intersection detection and bridge rendering.
+    public static PointF[] FlattenBezier(PointF p0, PointF p1, PointF p2, PointF p3, int steps = 32)
+    {
+        var pts = new PointF[steps + 1];
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = (float)i / steps;
+            float u = 1f - t;
+            pts[i] = new PointF(
+                u*u*u * p0.X + 3*u*u*t * p1.X + 3*u*t*t * p2.X + t*t*t * p3.X,
+                u*u*u * p0.Y + 3*u*u*t * p1.Y + 3*u*t*t * p2.Y + t*t*t * p3.Y);
+        }
+        return pts;
+    }
+
     public static PointF? SegmentIntersection(PointF a1, PointF a2, PointF b1, PointF b2)
     {
         float adx = a2.X - a1.X, ady = a2.Y - a1.Y;
@@ -701,7 +727,7 @@ public static class DiagramRenderer
         var bounds = shape.EffectiveBounds;
         if (shape.IsCollapsed
             || shape.Kind == ShapeKind.Cylinder || shape.Kind == ShapeKind.Database
-            || shape.Kind == ShapeKind.Delay || IsNetworkShape(shape.Kind) || Is3DShape(shape.Kind))
+            || shape.Kind == ShapeKind.Delay || IsNetworkShape(shape.Kind))
             return bounds.Contains(point);
 
         using var path = CreateShapePath(shape.Kind, bounds);
@@ -711,7 +737,7 @@ public static class DiagramRenderer
     public static float GetConnectorHitTolerance(DiagramConnector connector, float zoom)
     {
         float zoomFactor = Math.Max(zoom, 0.1f);
-        return Math.Max(18f / zoomFactor, (connector.LineWidth + 14f) / zoomFactor);
+        return Math.Max(24f / zoomFactor, (connector.LineWidth + 18f) / zoomFactor);
     }
 
     public static float GetDistanceToConnector(
@@ -1337,7 +1363,9 @@ public static class DiagramRenderer
 
     private static bool Is3DShape(ShapeKind kind)
         => kind is ShapeKind.Shape3DCube or ShapeKind.Shape3DBox or ShapeKind.Shape3DSphere
-            or ShapeKind.Shape3DPyramid or ShapeKind.Shape3DCone or ShapeKind.Shape3DCylinder;
+            or ShapeKind.Shape3DPyramid or ShapeKind.Shape3DCone or ShapeKind.Shape3DCylinder
+            or ShapeKind.Shape3DTriangularPrism or ShapeKind.Shape3DCapsule
+            or ShapeKind.Shape3DGem or ShapeKind.Shape3DTorus;
 
     private readonly record struct IsoLayout(
         float OriginX, float OriginY, float FaceW, float FaceH, float SkewX, float SkewY);
@@ -1351,6 +1379,19 @@ public static class DiagramRenderer
         float ox = rect.X + (rect.Width - faceW - skewX) / 2f;
         float oy = rect.Y + (rect.Height - faceH) / 2f + skewY;
         return new IsoLayout(ox, oy, faceW, faceH, skewX, skewY);
+    }
+
+    // Cube layout: faceW == faceH == side, computed so all three visible faces are square
+    private static IsoLayout CreateCubeIsoLayout(RectangleF rect)
+    {
+        const float kx = 0.42f;
+        const float ky = 0.28f;
+        float side = Math.Min(rect.Width / (1f + kx), rect.Height / (1f + ky));
+        float skewX = side * kx;
+        float skewY = side * ky;
+        float ox = rect.X + (rect.Width  - side - skewX) / 2f;
+        float oy = rect.Y + (rect.Height - side + skewY) / 2f;
+        return new IsoLayout(ox, oy, side, side, skewX, skewY);
     }
 
     private static Color GetBrushColor(Brush brush)
@@ -1367,6 +1408,13 @@ public static class DiagramRenderer
             Scale(color.G, factor),
             Scale(color.B, factor));
     }
+
+    private static Color BlendColor(Color a, Color b, float t)
+        => Color.FromArgb(
+            (int)(a.A + (b.A - a.A) * t),
+            (int)(a.R + (b.R - a.R) * t),
+            (int)(a.G + (b.G - a.G) * t),
+            (int)(a.B + (b.B - a.B) * t));
 
     private static void DrawIsoBoxFaces(
         Graphics g, IsoLayout iso, Brush front, Brush top, Brush right, Pen border)
@@ -1411,7 +1459,7 @@ public static class DiagramRenderer
 
     private static void DrawShape3DCube(Graphics g, Brush fill, Pen border, RectangleF rect)
     {
-        var iso = CreateIsoLayout(rect, 0.48f, 0.48f);
+        var iso = CreateCubeIsoLayout(rect);
         var baseColor = GetBrushColor(fill);
         using var topBrush = new SolidBrush(AdjustColor(baseColor, 1.14f));
         using var rightBrush = new SolidBrush(AdjustColor(baseColor, 0.78f));
@@ -1431,18 +1479,32 @@ public static class DiagramRenderer
     {
         var body = InsetRect(rect, 0.08f);
         var baseColor = GetBrushColor(fill);
-        using var shadowBrush = new SolidBrush(AdjustColor(baseColor, 0.72f));
-        using var highlightBrush = new SolidBrush(Color.FromArgb(110, 255, 255, 255));
 
-        g.FillEllipse(fill, body);
-        var shadow = new RectangleF(body.X + body.Width * 0.18f, body.Y + body.Height * 0.42f,
-            body.Width * 0.72f, body.Height * 0.52f);
-        g.FillEllipse(shadowBrush, shadow);
-        g.FillEllipse(fill, body);
+        using var ellipsePath = new System.Drawing.Drawing2D.GraphicsPath();
+        ellipsePath.AddEllipse(body);
 
-        var highlight = new RectangleF(body.X + body.Width * 0.14f, body.Y + body.Height * 0.12f,
-            body.Width * 0.34f, body.Height * 0.28f);
-        g.FillEllipse(highlightBrush, highlight);
+        using var radialBrush = new System.Drawing.Drawing2D.PathGradientBrush(ellipsePath);
+        // Light source at upper-left: bright center-ish, dark at edges
+        radialBrush.CenterPoint = new PointF(body.X + body.Width * 0.35f, body.Y + body.Height * 0.28f);
+        radialBrush.CenterColor = BlendColor(baseColor, Color.White, 0.55f);
+        radialBrush.SurroundColors = [AdjustColor(baseColor, 0.42f)];
+        radialBrush.FocusScales = new PointF(0.0f, 0.0f);
+
+        g.FillPath(radialBrush, ellipsePath);
+
+        // Specular highlight (small bright spot upper-left)
+        var highlight = new RectangleF(
+            body.X + body.Width  * 0.18f,
+            body.Y + body.Height * 0.10f,
+            body.Width  * 0.28f,
+            body.Height * 0.22f);
+        using var specPath = new System.Drawing.Drawing2D.GraphicsPath();
+        specPath.AddEllipse(highlight);
+        using var specBrush = new System.Drawing.Drawing2D.PathGradientBrush(specPath);
+        specBrush.CenterColor = Color.FromArgb(200, 255, 255, 255);
+        specBrush.SurroundColors = [Color.FromArgb(0, 255, 255, 255)];
+        g.FillPath(specBrush, specPath);
+
         g.DrawEllipse(border, body);
     }
 
@@ -1513,6 +1575,159 @@ public static class DiagramRenderer
         g.DrawEllipse(border, topEllipse);
     }
 
+    private static void DrawShape3DTriangularPrism(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        // Front triangular face (left side), right rectangular face (parallelogram)
+        float skewX = rect.Width * 0.26f;
+        float skewY = rect.Height * 0.18f;
+        float faceW = rect.Width * 0.52f;
+        float faceH = rect.Height * 0.62f;
+        float ox = rect.X + rect.Width * 0.06f;
+        float oy = rect.Y + (rect.Height - faceH) / 2f + skewY;
+
+        // Front triangle vertices
+        var frontBot1 = new PointF(ox, oy + faceH);
+        var frontBot2 = new PointF(ox + faceW, oy + faceH);
+        var frontApex = new PointF(ox + faceW / 2f, oy);
+
+        // Right face: each front vertex shifted by (skewX, -skewY)
+        var rightBot1 = new PointF(frontBot2.X + skewX, frontBot2.Y - skewY);
+        var rightApex = new PointF(frontApex.X + skewX, frontApex.Y - skewY);
+
+        var baseColor = GetBrushColor(fill);
+        using var topBrush   = new SolidBrush(AdjustColor(baseColor, 1.12f));
+        using var rightBrush = new SolidBrush(AdjustColor(baseColor, 0.76f));
+
+        // Right rectangular face (parallelogram)
+        PointF[] rightFace = [frontBot2, rightBot1, rightApex, frontApex];
+        // Top ridge face
+        PointF[] topFace = [frontApex, rightApex, new PointF(ox + skewX, oy - skewY), new PointF(ox, oy)];
+
+        g.FillPolygon(fill,       [frontBot1, frontBot2, frontApex]);
+        g.FillPolygon(rightBrush, rightFace);
+        g.FillPolygon(topBrush,   topFace);
+        g.DrawPolygon(border, [frontBot1, frontBot2, frontApex]);
+        g.DrawPolygon(border, rightFace);
+        g.DrawPolygon(border, topFace);
+    }
+
+    private static void DrawShape3DCapsule(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float cx   = rect.X + rect.Width  / 2f;
+        float cy   = rect.Y + rect.Height / 2f;
+        float rx   = rect.Width  * 0.36f;
+        float ry   = rect.Height * 0.48f;
+        float capH = rx * 0.9f; // dome height
+
+        var baseColor = GetBrushColor(fill);
+        using var sideBrush   = new SolidBrush(AdjustColor(baseColor, 0.86f));
+        using var bottomBrush = new SolidBrush(AdjustColor(baseColor, 0.72f));
+        using var topBrush    = new SolidBrush(AdjustColor(baseColor, 1.08f));
+
+        // Body rectangle between the two dome caps
+        float bodyTop    = cy - ry + capH;
+        float bodyBottom = cy + ry - capH;
+        var bodyRect = new RectangleF(cx - rx, bodyTop, rx * 2f, bodyBottom - bodyTop);
+
+        // Bottom dome ellipse
+        var botEllipse = new RectangleF(cx - rx, bodyBottom - capH, rx * 2f, capH * 2f);
+        // Top dome ellipse
+        var topEllipse = new RectangleF(cx - rx, bodyTop - capH, rx * 2f, capH * 2f);
+
+        g.FillRectangle(sideBrush, bodyRect);
+        g.FillEllipse(bottomBrush, botEllipse);
+        g.FillEllipse(topBrush,    topEllipse);
+
+        // Outline: sides + bottom arc + top arc
+        g.DrawLine(border, cx - rx, bodyTop, cx - rx, bodyBottom);
+        g.DrawLine(border, cx + rx, bodyTop, cx + rx, bodyBottom);
+        g.DrawArc(border, botEllipse, 0, 180);
+        g.DrawArc(border, topEllipse, 180, 180);
+    }
+
+    private static void DrawShape3DGem(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float cx    = rect.X + rect.Width  / 2f;
+        float topY  = rect.Y + rect.Height * 0.08f;
+        float girY  = rect.Y + rect.Height * 0.38f; // girdle (widest)
+        float botY  = rect.Bottom - rect.Height * 0.06f;
+        float lx    = rect.X + rect.Width * 0.12f;
+        float rx    = rect.Right - rect.Width * 0.12f;
+        float mlx   = rect.X + rect.Width * 0.30f;
+        float mrx   = rect.Right - rect.Width * 0.30f;
+
+        // Crown (top half) vertices: table + upper girdle
+        PointF tableL  = new(cx - rect.Width * 0.20f, topY);
+        PointF tableR  = new(cx + rect.Width * 0.20f, topY);
+        PointF girdleL = new(lx,  girY);
+        PointF girdleML= new(mlx, girY);
+        PointF girdleMR= new(mrx, girY);
+        PointF girdleR = new(rx,  girY);
+        PointF bot     = new(cx,  botY);
+
+        var baseColor = GetBrushColor(fill);
+        using var crownBrush  = new SolidBrush(AdjustColor(baseColor, 1.10f));
+        using var leftBrush   = new SolidBrush(AdjustColor(baseColor, 0.82f));
+        using var rightBrush  = new SolidBrush(AdjustColor(baseColor, 0.95f));
+        using var pavBrush    = new SolidBrush(AdjustColor(baseColor, 0.68f));
+
+        // Crown facets
+        g.FillPolygon(crownBrush, [tableL, tableR, girdleMR, girdleML]);
+        g.FillPolygon(leftBrush,  [tableL, girdleML, girdleL]);
+        g.FillPolygon(rightBrush, [tableR, girdleR,  girdleMR]);
+        // Pavilion facets
+        g.FillPolygon(leftBrush,  [girdleL, bot, girdleML]);
+        g.FillPolygon(pavBrush,   [girdleML, bot, girdleMR]);
+        g.FillPolygon(rightBrush, [girdleMR, bot, girdleR]);
+
+        // Outline
+        PointF[] outline = [tableL, tableR, girdleR, bot, girdleL];
+        g.DrawPolygon(border, outline);
+        g.DrawLine(border, tableL, girdleL);
+        g.DrawLine(border, tableR, girdleR);
+        g.DrawLine(border, tableL, girdleML);
+        g.DrawLine(border, tableR, girdleMR);
+        g.DrawLine(border, girdleML, girdleMR);
+        g.DrawLine(border, girdleML, bot);
+        g.DrawLine(border, girdleMR, bot);
+        g.DrawLine(border, girdleL,  bot);
+        g.DrawLine(border, girdleR,  bot);
+    }
+
+    private static void DrawShape3DTorus(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        var outer = InsetRect(rect, 0.04f);
+        float tubeRx = outer.Width  * 0.22f;
+        float tubeRy = outer.Height * 0.22f;
+        var inner = new RectangleF(
+            outer.X + tubeRx, outer.Y + tubeRy,
+            outer.Width - tubeRx * 2f, outer.Height - tubeRy * 2f);
+
+        var baseColor = GetBrushColor(fill);
+        using var ringBrush = new SolidBrush(AdjustColor(baseColor, 0.86f));
+
+        // Draw torus as outer ellipse filled, then inner ellipse erased via clipping
+        using var torusPath = new System.Drawing.Drawing2D.GraphicsPath();
+        torusPath.AddEllipse(outer);
+        torusPath.AddEllipse(inner);   // second sub-path creates donut hole via Alternate fill
+        torusPath.FillMode = System.Drawing.Drawing2D.FillMode.Alternate;
+
+        g.FillPath(fill, torusPath);
+
+        // Shading band — inner shadow strip to give volume
+        using var shadowBrush = new SolidBrush(Color.FromArgb(60, AdjustColor(baseColor, 0.3f)));
+        float bx = outer.X + tubeRx * 0.6f;
+        float by = outer.Y + tubeRy * 0.6f;
+        var shadowBand = new RectangleF(bx, by, outer.Width - tubeRx * 1.2f, outer.Height - tubeRy * 1.2f);
+        using var shadowPath = new System.Drawing.Drawing2D.GraphicsPath();
+        shadowPath.AddEllipse(shadowBand);
+        shadowPath.AddEllipse(inner);
+        shadowPath.FillMode = System.Drawing.Drawing2D.FillMode.Alternate;
+        g.FillPath(shadowBrush, shadowPath);
+
+        g.DrawPath(border, torusPath);
+    }
+
     private static RectangleF InsetRect(RectangleF rect, float ratio)
     {
         float padX = rect.Width * ratio;
@@ -1524,12 +1739,16 @@ public static class DiagramRenderer
     {
         switch (kind)
         {
-            case ShapeKind.Shape3DCube:     DrawShape3DCube(g, fill, border, rect);     break;
-            case ShapeKind.Shape3DBox:      DrawShape3DBox(g, fill, border, rect);      break;
-            case ShapeKind.Shape3DSphere:   DrawShape3DSphere(g, fill, border, rect);   break;
-            case ShapeKind.Shape3DPyramid:  DrawShape3DPyramid(g, fill, border, rect);  break;
-            case ShapeKind.Shape3DCone:     DrawShape3DCone(g, fill, border, rect);     break;
-            case ShapeKind.Shape3DCylinder: DrawShape3DCylinder(g, fill, border, rect); break;
+            case ShapeKind.Shape3DCube:            DrawShape3DCube(g, fill, border, rect);            break;
+            case ShapeKind.Shape3DBox:             DrawShape3DBox(g, fill, border, rect);             break;
+            case ShapeKind.Shape3DSphere:          DrawShape3DSphere(g, fill, border, rect);          break;
+            case ShapeKind.Shape3DPyramid:         DrawShape3DPyramid(g, fill, border, rect);         break;
+            case ShapeKind.Shape3DCone:            DrawShape3DCone(g, fill, border, rect);            break;
+            case ShapeKind.Shape3DCylinder:        DrawShape3DCylinder(g, fill, border, rect);        break;
+            case ShapeKind.Shape3DTriangularPrism: DrawShape3DTriangularPrism(g, fill, border, rect); break;
+            case ShapeKind.Shape3DCapsule:         DrawShape3DCapsule(g, fill, border, rect);         break;
+            case ShapeKind.Shape3DGem:             DrawShape3DGem(g, fill, border, rect);             break;
+            case ShapeKind.Shape3DTorus:           DrawShape3DTorus(g, fill, border, rect);           break;
         }
     }
 
@@ -1776,7 +1995,7 @@ public static class DiagramRenderer
                 break;
 
             case ShapeKind.Shape3DCube:
-                path.AddPolygon(GetIsoBoxOutline(CreateIsoLayout(rect, 0.48f, 0.48f)));
+                path.AddPolygon(GetIsoBoxOutline(CreateCubeIsoLayout(rect)));
                 break;
 
             case ShapeKind.Shape3DBox:
@@ -1812,6 +2031,51 @@ public static class DiagramRenderer
                     isoCylinder.FaceW + isoCylinder.SkewX, isoCylinder.FaceH + isoCylinder.SkewY * 0.35f));
                 break;
             }
+
+            case ShapeKind.Shape3DTriangularPrism:
+            {
+                float faceW = rect.Width * 0.52f;
+                float faceH = rect.Height * 0.62f;
+                float skewX = rect.Width  * 0.26f;
+                float skewY = rect.Height * 0.18f;
+                float ox = rect.X + rect.Width * 0.06f;
+                float oy = rect.Y + (rect.Height - faceH) / 2f + skewY;
+                path.AddPolygon([
+                    new PointF(ox,             oy + faceH),
+                    new PointF(ox + faceW,     oy + faceH),
+                    new PointF(ox + faceW + skewX, oy + faceH - skewY),
+                    new PointF(ox + faceW / 2f + skewX, oy - skewY),
+                    new PointF(ox + faceW / 2f, oy),
+                ]);
+                break;
+            }
+
+            case ShapeKind.Shape3DCapsule:
+            {
+                float capRx = rect.Width * 0.36f;
+                float capRy = rect.Height * 0.48f;
+                float capCx = rect.X + rect.Width / 2f;
+                float capCy = rect.Y + rect.Height / 2f;
+                float capH  = capRx * 0.9f;
+                path.AddRectangle(new RectangleF(capCx - capRx, capCy - capRy + capH, capRx * 2f, (capRy - capH) * 2f));
+                path.AddEllipse(new RectangleF(capCx - capRx, capCy + capRy - capH * 2f, capRx * 2f, capH * 2f));
+                path.AddEllipse(new RectangleF(capCx - capRx, capCy - capRy, capRx * 2f, capH * 2f));
+                break;
+            }
+
+            case ShapeKind.Shape3DGem:
+                path.AddPolygon([
+                    new PointF(rect.X + rect.Width * 0.20f, rect.Y + rect.Height * 0.08f),
+                    new PointF(rect.Right - rect.Width * 0.20f, rect.Y + rect.Height * 0.08f),
+                    new PointF(rect.Right - rect.Width * 0.12f, rect.Y + rect.Height * 0.38f),
+                    new PointF(rect.X + rect.Width / 2f, rect.Bottom - rect.Height * 0.06f),
+                    new PointF(rect.X + rect.Width * 0.12f, rect.Y + rect.Height * 0.38f),
+                ]);
+                break;
+
+            case ShapeKind.Shape3DTorus:
+                path.AddEllipse(InsetRect(rect, 0.04f));
+                break;
         }
 
         return path;
@@ -2181,7 +2445,7 @@ public static class DiagramRenderer
         return (float)Math.Sqrt(dx * dx + dy * dy);
     }
 
-    private static void DrawArrowHead(Graphics g, Pen pen, PointF from, PointF to, ArrowHeadStyle style = ArrowHeadStyle.Open)
+    internal static void DrawArrowHead(Graphics g, Pen pen, PointF from, PointF to, ArrowHeadStyle style = ArrowHeadStyle.Open)
     {
         if (style == ArrowHeadStyle.None) return;
         float angle = MathF.Atan2(to.Y - from.Y, to.X - from.X);
@@ -2240,6 +2504,53 @@ public static class DiagramRenderer
                 var ctr = new PointF(to.X - r * cos, to.Y - r * sin);
                 using var brush = new SolidBrush(pen.Color);
                 g.FillEllipse(brush, ctr.X - r, ctr.Y - r, r * 2, r * 2);
+                break;
+            }
+            case ArrowHeadStyle.OpenDiamond:
+            {
+                float half = sz * 0.45f;
+                var pts = new PointF[] {
+                    to,
+                    new(to.X - half * cos + half * (-sin), to.Y - half * sin + half * cos),
+                    new(to.X - sz * cos,                   to.Y - sz * sin),
+                    new(to.X - half * cos - half * (-sin), to.Y - half * sin - half * cos)
+                };
+                g.DrawPolygon(pen, pts);
+                break;
+            }
+            case ArrowHeadStyle.OpenCircle:
+            {
+                float r = sz * 0.38f;
+                var ctr = new PointF(to.X - r * cos, to.Y - r * sin);
+                g.DrawEllipse(pen, ctr.X - r, ctr.Y - r, r * 2, r * 2);
+                break;
+            }
+            case ArrowHeadStyle.Square:
+            {
+                float half = sz * 0.35f;
+                var pts = new PointF[] {
+                    new(to.X             + half * (-sin), to.Y             + half * cos),
+                    new(to.X             - half * (-sin), to.Y             - half * cos),
+                    new(to.X - sz * cos  - half * (-sin), to.Y - sz * sin  - half * cos),
+                    new(to.X - sz * cos  + half * (-sin), to.Y - sz * sin  + half * cos)
+                };
+                using var brush = new SolidBrush(pen.Color);
+                g.FillPolygon(brush, pts);
+                g.DrawPolygon(pen, pts);
+                break;
+            }
+            case ArrowHeadStyle.HalfOpen:
+            {
+                float a = MathF.PI / 6;
+                g.DrawLine(pen, to, new PointF(to.X - sz * MathF.Cos(angle - a), to.Y - sz * MathF.Sin(angle - a)));
+                break;
+            }
+            case ArrowHeadStyle.Cross:
+            {
+                float half = sz * 0.5f;
+                var p1 = new PointF(to.X + half * (-sin), to.Y + half * cos);
+                var p2 = new PointF(to.X - half * (-sin), to.Y - half * cos);
+                g.DrawLine(pen, p1, p2);
                 break;
             }
         }

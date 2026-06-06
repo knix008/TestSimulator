@@ -1,4 +1,4 @@
-namespace MyDiagramWinV10;
+﻿namespace MyDiagramWinV10;
 
 partial class MainForm
 {
@@ -90,8 +90,10 @@ partial class MainForm
     private ComboBox _cmbLineStyle;
     private Label _lblConnectorKind;
     private ComboBox _cmbConnectorKind;
-    private CheckBox _chkStartArrow;
-    private CheckBox _chkEndArrow;
+    private Label _lblStartArrow;
+    private ComboBox _cmbStartArrow;
+    private Label _lblEndArrow;
+    private ComboBox _cmbEndArrow;
     private Label _lblConnectorLabel;
     private TextBox _txtConnectorLabel;
     private Panel _pnlCanvasHost;
@@ -168,8 +170,10 @@ partial class MainForm
         _grpConnector = new GroupBox();
         _txtConnectorLabel = new TextBox();
         _lblConnectorLabel = new Label();
-        _chkEndArrow = new CheckBox();
-        _chkStartArrow = new CheckBox();
+        _cmbEndArrow = new ComboBox();
+        _lblEndArrow = new Label();
+        _cmbStartArrow = new ComboBox();
+        _lblStartArrow = new Label();
         _cmbConnectorKind = new ComboBox();
         _lblConnectorKind = new Label();
         _cmbLineStyle = new ComboBox();
@@ -710,8 +714,10 @@ partial class MainForm
         // 
         _grpConnector.Controls.Add(_txtConnectorLabel);
         _grpConnector.Controls.Add(_lblConnectorLabel);
-        _grpConnector.Controls.Add(_chkEndArrow);
-        _grpConnector.Controls.Add(_chkStartArrow);
+        _grpConnector.Controls.Add(_cmbEndArrow);
+        _grpConnector.Controls.Add(_lblEndArrow);
+        _grpConnector.Controls.Add(_cmbStartArrow);
+        _grpConnector.Controls.Add(_lblStartArrow);
         _grpConnector.Controls.Add(_cmbConnectorKind);
         _grpConnector.Controls.Add(_lblConnectorKind);
         _grpConnector.Controls.Add(_cmbLineStyle);
@@ -724,50 +730,74 @@ partial class MainForm
         _grpConnector.Enabled = false;
         _grpConnector.Location = new Point(8, 404);
         _grpConnector.Name = "_grpConnector";
-        _grpConnector.Size = new Size(219, 228);
+        _grpConnector.Size = new Size(219, 252);
         _grpConnector.TabIndex = 2;
         _grpConnector.TabStop = false;
         _grpConnector.Text = "연결선 속성";
-        // 
+        //
         // _txtConnectorLabel
-        // 
+        //
         _txtConnectorLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _txtConnectorLabel.Location = new Point(88, 200);
+        _txtConnectorLabel.Location = new Point(88, 214);
         _txtConnectorLabel.Name = "_txtConnectorLabel";
         _txtConnectorLabel.Size = new Size(123, 23);
-        _txtConnectorLabel.TabIndex = 11;
+        _txtConnectorLabel.TabIndex = 13;
         _txtConnectorLabel.TextChanged += ConnectorPropertyChanged;
-        // 
+        //
         // _lblConnectorLabel
-        // 
+        //
         _lblConnectorLabel.AutoSize = true;
-        _lblConnectorLabel.Location = new Point(12, 204);
+        _lblConnectorLabel.Location = new Point(12, 218);
         _lblConnectorLabel.Name = "_lblConnectorLabel";
         _lblConnectorLabel.Size = new Size(31, 15);
-        _lblConnectorLabel.TabIndex = 10;
+        _lblConnectorLabel.TabIndex = 12;
         _lblConnectorLabel.Text = "라벨";
-        // 
-        // _chkEndArrow
-        // 
-        _chkEndArrow.AutoSize = true;
-        _chkEndArrow.Checked = true;
-        _chkEndArrow.CheckState = CheckState.Checked;
-        _chkEndArrow.Location = new Point(88, 176);
-        _chkEndArrow.Name = "_chkEndArrow";
-        _chkEndArrow.Size = new Size(78, 19);
-        _chkEndArrow.TabIndex = 9;
-        _chkEndArrow.Text = "끝 화살표";
-        _chkEndArrow.CheckedChanged += ConnectorPropertyChanged;
-        // 
-        // _chkStartArrow
-        // 
-        _chkStartArrow.AutoSize = true;
-        _chkStartArrow.Location = new Point(88, 154);
-        _chkStartArrow.Name = "_chkStartArrow";
-        _chkStartArrow.Size = new Size(74, 19);
-        _chkStartArrow.TabIndex = 8;
-        _chkStartArrow.Text = "시작화살";
-        _chkStartArrow.CheckedChanged += ConnectorPropertyChanged;
+        //
+        // _cmbEndArrow
+        //
+        _cmbEndArrow.DrawMode = DrawMode.OwnerDrawFixed;
+        _cmbEndArrow.DropDownStyle = ComboBoxStyle.DropDownList;
+        _cmbEndArrow.FormattingEnabled = true;
+        _cmbEndArrow.Items.AddRange(new object[] { "없음", "열린 화살", "채운 화살", "이중 화살", "채운 마름모", "채운 원", "빈 마름모", "빈 원", "사각형", "반 화살", "가로선" });
+        _cmbEndArrow.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _cmbEndArrow.Location = new Point(88, 182);
+        _cmbEndArrow.Name = "_cmbEndArrow";
+        _cmbEndArrow.Size = new Size(123, 23);
+        _cmbEndArrow.TabIndex = 11;
+        _cmbEndArrow.DrawItem += CmbArrowStyle_DrawItem;
+        _cmbEndArrow.SelectedIndexChanged += ConnectorPropertyChanged;
+        //
+        // _lblEndArrow
+        //
+        _lblEndArrow.AutoSize = true;
+        _lblEndArrow.Location = new Point(12, 186);
+        _lblEndArrow.Name = "_lblEndArrow";
+        _lblEndArrow.Size = new Size(44, 15);
+        _lblEndArrow.TabIndex = 10;
+        _lblEndArrow.Text = "끝 화살";
+        //
+        // _cmbStartArrow
+        //
+        _cmbStartArrow.DrawMode = DrawMode.OwnerDrawFixed;
+        _cmbStartArrow.DropDownStyle = ComboBoxStyle.DropDownList;
+        _cmbStartArrow.FormattingEnabled = true;
+        _cmbStartArrow.Items.AddRange(new object[] { "없음", "열린 화살", "채운 화살", "이중 화살", "채운 마름모", "채운 원", "빈 마름모", "빈 원", "사각형", "반 화살", "가로선" });
+        _cmbStartArrow.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _cmbStartArrow.Location = new Point(88, 152);
+        _cmbStartArrow.Name = "_cmbStartArrow";
+        _cmbStartArrow.Size = new Size(123, 23);
+        _cmbStartArrow.TabIndex = 9;
+        _cmbStartArrow.DrawItem += CmbArrowStyle_DrawItem;
+        _cmbStartArrow.SelectedIndexChanged += ConnectorPropertyChanged;
+        //
+        // _lblStartArrow
+        //
+        _lblStartArrow.AutoSize = true;
+        _lblStartArrow.Location = new Point(12, 156);
+        _lblStartArrow.Name = "_lblStartArrow";
+        _lblStartArrow.Size = new Size(52, 15);
+        _lblStartArrow.TabIndex = 8;
+        _lblStartArrow.Text = "시작 화살";
         // 
         // _cmbConnectorKind
         // 
@@ -881,7 +911,7 @@ partial class MainForm
         _grpShape.Enabled = false;
         _grpShape.Location = new Point(8, 36);
         _grpShape.Name = "_grpShape";
-        _grpShape.Size = new Size(219, 368);
+        _grpShape.Size = new Size(219, 384);
         _grpShape.TabIndex = 1;
         _grpShape.TabStop = false;
         _grpShape.Text = "도형 속성";
@@ -889,7 +919,7 @@ partial class MainForm
         // _btnClearImage
         // 
         _btnClearImage.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _btnClearImage.Location = new Point(152, 328);
+        _btnClearImage.Location = new Point(152, 340);
         _btnClearImage.Name = "_btnClearImage";
         _btnClearImage.Size = new Size(59, 28);
         _btnClearImage.TabIndex = 18;
@@ -898,7 +928,7 @@ partial class MainForm
         // 
         // _btnSetImage
         // 
-        _btnSetImage.Location = new Point(88, 328);
+        _btnSetImage.Location = new Point(88, 340);
         _btnSetImage.Name = "_btnSetImage";
         _btnSetImage.Size = new Size(80, 28);
         _btnSetImage.TabIndex = 17;
@@ -908,7 +938,7 @@ partial class MainForm
         // _chkFontBold
         // 
         _chkFontBold.AutoSize = true;
-        _chkFontBold.Location = new Point(174, 296);
+        _chkFontBold.Location = new Point(174, 308);
         _chkFontBold.Name = "_chkFontBold";
         _chkFontBold.Size = new Size(50, 19);
         _chkFontBold.TabIndex = 16;
@@ -917,7 +947,7 @@ partial class MainForm
         // 
         // _numFontSize
         // 
-        _numFontSize.Location = new Point(88, 294);
+        _numFontSize.Location = new Point(88, 306);
         _numFontSize.Maximum = new decimal(new int[] { 72, 0, 0, 0 });
         _numFontSize.Minimum = new decimal(new int[] { 6, 0, 0, 0 });
         _numFontSize.Name = "_numFontSize";
@@ -929,7 +959,7 @@ partial class MainForm
         // _lblFontSize
         // 
         _lblFontSize.AutoSize = true;
-        _lblFontSize.Location = new Point(12, 298);
+        _lblFontSize.Location = new Point(12, 310);
         _lblFontSize.Name = "_lblFontSize";
         _lblFontSize.Size = new Size(59, 15);
         _lblFontSize.TabIndex = 14;
@@ -939,7 +969,7 @@ partial class MainForm
         // 
         _cmbFont.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbFont.FormattingEnabled = true;
-        _cmbFont.Location = new Point(88, 260);
+        _cmbFont.Location = new Point(88, 272);
         _cmbFont.Name = "_cmbFont";
         _cmbFont.Size = new Size(123, 23);
         _cmbFont.TabIndex = 13;
@@ -948,7 +978,7 @@ partial class MainForm
         // _lblFont
         // 
         _lblFont.AutoSize = true;
-        _lblFont.Location = new Point(12, 264);
+        _lblFont.Location = new Point(12, 276);
         _lblFont.Name = "_lblFont";
         _lblFont.Size = new Size(31, 15);
         _lblFont.TabIndex = 12;
@@ -960,7 +990,7 @@ partial class MainForm
         _cmbBorderStyle.FormattingEnabled = true;
         _cmbBorderStyle.Items.AddRange(new object[] { "실선", "파선", "점선", "일점쇄선", "일점이쇄선", "긴파선", "짧은파선", "이중선" });
         _cmbBorderStyle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _cmbBorderStyle.Location = new Point(88, 224);
+        _cmbBorderStyle.Location = new Point(88, 236);
         _cmbBorderStyle.Name = "_cmbBorderStyle";
         _cmbBorderStyle.Size = new Size(123, 23);
         _cmbBorderStyle.TabIndex = 11;
@@ -969,7 +999,7 @@ partial class MainForm
         // _lblBorderStyle
         // 
         _lblBorderStyle.AutoSize = true;
-        _lblBorderStyle.Location = new Point(12, 228);
+        _lblBorderStyle.Location = new Point(12, 240);
         _lblBorderStyle.Name = "_lblBorderStyle";
         _lblBorderStyle.Size = new Size(55, 15);
         _lblBorderStyle.TabIndex = 10;
@@ -979,7 +1009,7 @@ partial class MainForm
         // 
         _numBorderWidth.DecimalPlaces = 1;
         _numBorderWidth.Increment = new decimal(new int[] { 5, 0, 0, 65536 });
-        _numBorderWidth.Location = new Point(88, 192);
+        _numBorderWidth.Location = new Point(88, 204);
         _numBorderWidth.Maximum = new decimal(new int[] { 20, 0, 0, 0 });
         _numBorderWidth.Minimum = new decimal(new int[] { 1, 0, 0, 65536 });
         _numBorderWidth.Name = "_numBorderWidth";
@@ -991,7 +1021,7 @@ partial class MainForm
         // _lblBorderWidth
         // 
         _lblBorderWidth.AutoSize = true;
-        _lblBorderWidth.Location = new Point(12, 196);
+        _lblBorderWidth.Location = new Point(12, 208);
         _lblBorderWidth.Name = "_lblBorderWidth";
         _lblBorderWidth.Size = new Size(71, 15);
         _lblBorderWidth.TabIndex = 8;
@@ -1000,7 +1030,7 @@ partial class MainForm
         // _btnTextColor
         // 
         _btnTextColor.BackColor = Color.Black;
-        _btnTextColor.Location = new Point(88, 160);
+        _btnTextColor.Location = new Point(88, 172);
         _btnTextColor.Name = "_btnTextColor";
         _btnTextColor.Size = new Size(80, 24);
         _btnTextColor.TabIndex = 7;
@@ -1010,7 +1040,7 @@ partial class MainForm
         // _lblTextColor
         // 
         _lblTextColor.AutoSize = true;
-        _lblTextColor.Location = new Point(12, 164);
+        _lblTextColor.Location = new Point(12, 176);
         _lblTextColor.Name = "_lblTextColor";
         _lblTextColor.Size = new Size(59, 15);
         _lblTextColor.TabIndex = 6;
@@ -1019,7 +1049,7 @@ partial class MainForm
         // _btnBorderColor
         // 
         _btnBorderColor.BackColor = Color.Black;
-        _btnBorderColor.Location = new Point(88, 128);
+        _btnBorderColor.Location = new Point(88, 140);
         _btnBorderColor.Name = "_btnBorderColor";
         _btnBorderColor.Size = new Size(80, 24);
         _btnBorderColor.TabIndex = 5;
@@ -1029,7 +1059,7 @@ partial class MainForm
         // _lblBorderColor
         // 
         _lblBorderColor.AutoSize = true;
-        _lblBorderColor.Location = new Point(12, 132);
+        _lblBorderColor.Location = new Point(12, 144);
         _lblBorderColor.Name = "_lblBorderColor";
         _lblBorderColor.Size = new Size(71, 15);
         _lblBorderColor.TabIndex = 4;
@@ -1038,7 +1068,7 @@ partial class MainForm
         // _btnFillColor
         // 
         _btnFillColor.BackColor = Color.White;
-        _btnFillColor.Location = new Point(88, 96);
+        _btnFillColor.Location = new Point(88, 108);
         _btnFillColor.Name = "_btnFillColor";
         _btnFillColor.Size = new Size(80, 24);
         _btnFillColor.TabIndex = 3;
@@ -1048,7 +1078,7 @@ partial class MainForm
         // _lblFillColor
         // 
         _lblFillColor.AutoSize = true;
-        _lblFillColor.Location = new Point(12, 100);
+        _lblFillColor.Location = new Point(12, 112);
         _lblFillColor.Name = "_lblFillColor";
         _lblFillColor.Size = new Size(55, 15);
         _lblFillColor.TabIndex = 2;
@@ -1056,7 +1086,7 @@ partial class MainForm
         // 
         // _numShapeHeight
         // 
-        _numShapeHeight.Location = new Point(88, 64);
+        _numShapeHeight.Location = new Point(88, 76);
         _numShapeHeight.Maximum = new decimal(new int[] { 4000, 0, 0, 0 });
         _numShapeHeight.Minimum = new decimal(new int[] { 20, 0, 0, 0 });
         _numShapeHeight.Name = "_numShapeHeight";
@@ -1068,7 +1098,7 @@ partial class MainForm
         // _lblShapeHeight
         // 
         _lblShapeHeight.AutoSize = true;
-        _lblShapeHeight.Location = new Point(12, 68);
+        _lblShapeHeight.Location = new Point(12, 80);
         _lblShapeHeight.Name = "_lblShapeHeight";
         _lblShapeHeight.Size = new Size(31, 15);
         _lblShapeHeight.TabIndex = 20;
@@ -1076,7 +1106,7 @@ partial class MainForm
         // 
         // _numShapeWidth
         // 
-        _numShapeWidth.Location = new Point(88, 36);
+        _numShapeWidth.Location = new Point(88, 48);
         _numShapeWidth.Maximum = new decimal(new int[] { 4000, 0, 0, 0 });
         _numShapeWidth.Minimum = new decimal(new int[] { 20, 0, 0, 0 });
         _numShapeWidth.Name = "_numShapeWidth";
@@ -1088,7 +1118,7 @@ partial class MainForm
         // _lblShapeWidth
         // 
         _lblShapeWidth.AutoSize = true;
-        _lblShapeWidth.Location = new Point(12, 40);
+        _lblShapeWidth.Location = new Point(12, 52);
         _lblShapeWidth.Name = "_lblShapeWidth";
         _lblShapeWidth.Size = new Size(31, 15);
         _lblShapeWidth.TabIndex = 18;
@@ -1097,7 +1127,7 @@ partial class MainForm
         // _txtShapeText
         // 
         _txtShapeText.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _txtShapeText.Location = new Point(88, 8);
+        _txtShapeText.Location = new Point(88, 20);
         _txtShapeText.Name = "_txtShapeText";
         _txtShapeText.Size = new Size(123, 23);
         _txtShapeText.TabIndex = 1;
@@ -1106,7 +1136,7 @@ partial class MainForm
         // _lblShapeText
         // 
         _lblShapeText.AutoSize = true;
-        _lblShapeText.Location = new Point(12, 12);
+        _lblShapeText.Location = new Point(12, 24);
         _lblShapeText.Name = "_lblShapeText";
         _lblShapeText.Size = new Size(43, 15);
         _lblShapeText.TabIndex = 0;

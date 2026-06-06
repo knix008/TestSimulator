@@ -162,12 +162,16 @@ public sealed class DiagramToolbox : UserControl
         ], startCollapsed: true);
 
         AddGroup("3D 도형", [
-            (ToolboxTool.Shape, "정육면체", ShapeKind.Shape3DCube,     null),
-            (ToolboxTool.Shape, "직육면체", ShapeKind.Shape3DBox,      null),
-            (ToolboxTool.Shape, "구",       ShapeKind.Shape3DSphere,   null),
-            (ToolboxTool.Shape, "피라미드", ShapeKind.Shape3DPyramid,  null),
-            (ToolboxTool.Shape, "원뿔",     ShapeKind.Shape3DCone,     null),
-            (ToolboxTool.Shape, "원기둥",   ShapeKind.Shape3DCylinder, null),
+            (ToolboxTool.Shape, "정육면체", ShapeKind.Shape3DCube,            null),
+            (ToolboxTool.Shape, "직육면체", ShapeKind.Shape3DBox,             null),
+            (ToolboxTool.Shape, "구",       ShapeKind.Shape3DSphere,          null),
+            (ToolboxTool.Shape, "피라미드", ShapeKind.Shape3DPyramid,         null),
+            (ToolboxTool.Shape, "원뿔",     ShapeKind.Shape3DCone,            null),
+            (ToolboxTool.Shape, "원기둥",   ShapeKind.Shape3DCylinder,        null),
+            (ToolboxTool.Shape, "삼각기둥", ShapeKind.Shape3DTriangularPrism, null),
+            (ToolboxTool.Shape, "캡슐",     ShapeKind.Shape3DCapsule,         null),
+            (ToolboxTool.Shape, "보석",     ShapeKind.Shape3DGem,             null),
+            (ToolboxTool.Shape, "토러스",   ShapeKind.Shape3DTorus,           null),
         ], startCollapsed: true);
 
         AddGroup("연결선", [
@@ -215,20 +219,7 @@ public sealed class DiagramToolbox : UserControl
         if (!_initialized)
             return;
 
-        int scrollY = -AutoScrollPosition.Y;
-        int headerTop = header.Top;
-        bool wasCollapsed = !header.Collapsed;
-
-        int usableW = GetUsableWidth();
-        int oldBlock = MeasureGroupBlockHeight(header, wasCollapsed, usableW);
-        int newBlock = MeasureGroupBlockHeight(header, header.Collapsed, usableW);
-        int heightDelta = newBlock - oldBlock;
-
-        int targetScrollY = scrollY;
-        if (scrollY > headerTop)
-            targetScrollY = scrollY + heightDelta;
-
-        LayoutAll(resetScroll: false, targetScrollY: targetScrollY);
+        LayoutAll(resetScroll: true);
     }
 
     private void LayoutAll(bool resetScroll = false, int? targetScrollY = null)
@@ -239,6 +230,12 @@ public sealed class DiagramToolbox : UserControl
         int desiredScrollY = resetScroll
             ? 0
             : targetScrollY ?? -AutoScrollPosition.Y;
+
+        // Zero scroll BEFORE positioning controls: SetBounds uses screen-relative
+        // coordinates (offset by current scroll), not logical-canvas coordinates.
+        // A non-zero scroll during LayoutGroups shifts every control downward,
+        // leaving blank space after the scroll is later reset.
+        AutoScrollPosition = new Point(0, 0);
 
         SuspendLayout();
 
@@ -277,12 +274,7 @@ public sealed class DiagramToolbox : UserControl
         if (!AutoScroll)
             return;
 
-        int clamped = Math.Clamp(scrollY, 0, GetMaxScrollY());
-        SetScrollY(clamped);
-
-        // WinForms may reset scroll during layout; re-apply on the next message pump.
-        if (IsHandleCreated)
-            BeginInvoke(() => SetScrollY(Math.Clamp(scrollY, 0, GetMaxScrollY())));
+        SetScrollY(Math.Clamp(scrollY, 0, GetMaxScrollY()));
     }
 
     private int GetUsableWidth()

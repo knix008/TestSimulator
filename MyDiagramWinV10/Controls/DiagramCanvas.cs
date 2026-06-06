@@ -45,6 +45,9 @@ public sealed class DiagramCanvas : Control
     private PointF _endpointDragCurrentCanvas;
     private bool _isDraggingBend;
     private bool _isDraggingCurve;
+    private PointF _bendDragStartCanvas;
+    private bool _bendDragAxisIsHorizontal;  // true = H-first (OrthoMidX), false = V-first (OrthoMidY)
+    private bool _bendDragAxisDecided;
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
@@ -336,32 +339,46 @@ public sealed class DiagramCanvas : Control
             connectorLines.Add((connector, pts));
         }
 
-        // Draw connectors with bridge (hop) arcs where later connectors cross earlier ones.
+        // Pre-flatten Bezier connectors so intersection detection uses the actual curve,
+        // not the control polygon.  The same step count (32) is used in DrawConnectorWithBridges
+        // so that T values stay consistent between detection and rendering.
+        var flatPts = new PointF[connectorLines.Count][];
+        for (int i = 0; i < connectorLines.Count; i++)
+        {
+            var (conn, p) = connectorLines[i];
+            flatPts[i] = conn.Kind == ConnectorKind.Curved && p.Length == 4
+                ? DiagramRenderer.FlattenBezier(p[0], p[1], p[2], p[3])
+                : p;
+        }
+
+        // Draw connectors with bridge arcs where a later connector crosses an earlier one.
+        // Only the later connector (higher draw order) arcs over the earlier one.
         for (int ci = 0; ci < connectorLines.Count; ci++)
         {
             var (connector, pts) = connectorLines[ci];
             var source = _project.Shapes.First(s => s.Id == connector.SourceShapeId);
             var target = _project.Shapes.First(s => s.Id == connector.TargetShapeId);
+            var myFlat = flatPts[ci];
 
-            // Collect crossing points from all earlier connectors against this one.
+            // Collect crossings only against earlier connectors (lower draw order = below).
             var crossings = new List<(float T, PointF Pt)>();
             for (int oi = 0; oi < ci; oi++)
             {
-                var (_, otherPts) = connectorLines[oi];
-                for (int si = 1; si < pts.Length; si++)
+                var otherFlat = flatPts[oi];
+                for (int si = 1; si < myFlat.Length; si++)
                 {
-                    for (int sj = 1; sj < otherPts.Length; sj++)
+                    for (int sj = 1; sj < otherFlat.Length; sj++)
                     {
                         var cross = DiagramRenderer.SegmentIntersection(
-                            pts[si - 1], pts[si], otherPts[sj - 1], otherPts[sj]);
+                            myFlat[si - 1], myFlat[si], otherFlat[sj - 1], otherFlat[sj]);
                         if (cross is not null)
                         {
-                            float dx = pts[si].X - pts[si - 1].X;
-                            float dy = pts[si].Y - pts[si - 1].Y;
+                            float dx = myFlat[si].X - myFlat[si - 1].X;
+                            float dy = myFlat[si].Y - myFlat[si - 1].Y;
                             float segLen = MathF.Sqrt(dx * dx + dy * dy);
                             float distAlongSeg = MathF.Sqrt(
-                                (cross.Value.X - pts[si - 1].X) * (cross.Value.X - pts[si - 1].X) +
-                                (cross.Value.Y - pts[si - 1].Y) * (cross.Value.Y - pts[si - 1].Y));
+                                (cross.Value.X - myFlat[si - 1].X) * (cross.Value.X - myFlat[si - 1].X) +
+                                (cross.Value.Y - myFlat[si - 1].Y) * (cross.Value.Y - myFlat[si - 1].Y));
                             float t = (si - 1) + (segLen > 0.001f ? distAlongSeg / segLen : 0);
                             crossings.Add((t, cross.Value));
                         }
@@ -621,6 +638,13 @@ public sealed class DiagramCanvas : Control
                     {
                         RecordUndo();
                         _isDraggingBend = true;
+                        _bendDragStartCanvas = canvasPoint;
+                        _bendDragAxisDecided = false;
+                        // Seed initial axis from the connector's current routing mode so the
+                        // connector doesn't jump on the first tiny mouse movement.
+                        _bendDragAxisIsHorizontal = _selectedConnector.OrthoMidX is not null
+                            || (_selectedConnector.OrthoMidY is null
+                                && !DiagramRenderer.IsOrthogonalVerticalFirst(bSPt, bEPt, _selectedConnector));
                         Capture = true;
                         return;
                     }
@@ -712,16 +736,42 @@ public sealed class DiagramCanvas : Control
 
         if (_isDraggingBend && _selectedConnector is not null)
         {
-            var (bendStart, bendEnd) = GetConnectorEndpoints(_selectedConnector);
-            if (DiagramRenderer.IsOrthogonalVerticalFirst(bendStart, bendEnd, _selectedConnector))
+            float totalDx = Math.Abs(canvasPoint.X - _bendDragStartCanvas.X);
+            float totalDy = Math.Abs(canvasPoint.Y - _bendDragStartCanvas.Y);
+
+            if (!_bendDragAxisDecided)
             {
-                _selectedConnector.OrthoMidY = canvasPoint.Y;
-                _selectedConnector.OrthoMidX = null;
+                // Wait for a minimum movement before committing to an axis.
+                float threshold = 3f / _zoom;
+                if (totalDx >= threshold || totalDy >= threshold)
+                {
+                    _bendDragAxisIsHorizontal = totalDx >= totalDy;
+                    _bendDragAxisDecided = true;
+                }
             }
             else
             {
-                _selectedConnector.OrthoMidX = canvasPoint.X;
-                _selectedConnector.OrthoMidY = null;
+                // Allow the axis to flip when the perpendicular displacement clearly exceeds
+                // the parallel displacement (hysteresis factor 1.5 avoids rapid jitter near 45°).
+                const float hysteresis = 1.5f;
+                if (_bendDragAxisIsHorizontal && totalDy > totalDx * hysteresis)
+                    _bendDragAxisIsHorizontal = false;
+                else if (!_bendDragAxisIsHorizontal && totalDx > totalDy * hysteresis)
+                    _bendDragAxisIsHorizontal = true;
+            }
+
+            if (_bendDragAxisDecided)
+            {
+                if (_bendDragAxisIsHorizontal)
+                {
+                    _selectedConnector.OrthoMidX = canvasPoint.X;
+                    _selectedConnector.OrthoMidY = null;
+                }
+                else
+                {
+                    _selectedConnector.OrthoMidY = canvasPoint.Y;
+                    _selectedConnector.OrthoMidX = null;
+                }
             }
 
             Invalidate();
@@ -799,6 +849,7 @@ public sealed class DiagramCanvas : Control
         {
             _isDraggingBend = false;
             _isDraggingCurve = false;
+            _bendDragAxisDecided = false;
             Capture = false;
             NotifyChanged();
             return;
@@ -1187,7 +1238,7 @@ public sealed class DiagramCanvas : Control
 
             if (hitShape is not null
                 && DiagramRenderer.HitTestShape(hitShape, point)
-                && distance > 8f / _zoom)
+                && distance > 5f / _zoom)
                 continue;
 
             best = candidate;
