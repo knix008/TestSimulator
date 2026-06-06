@@ -4,5 +4,6 @@ public enum ConnectorKind
 {
     Straight,
     Orthogonal,
-    Curved
+    Curved,
+    RightAngleCurved,  // orthogonal routing with rounded corners
 }

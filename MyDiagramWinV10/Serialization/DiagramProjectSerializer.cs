@@ -6,8 +6,8 @@ namespace MyDiagramWinV10.Serialization;
 
 public static class DiagramProjectSerializer
 {
-    public const string FileExtension = ".mdgv10";
-    public const string FileFilter = "MyDiagram 프로젝트 (*.mdgv10)|*.mdgv10|모든 파일 (*.*)|*.*";
+    public const string FileExtension = ".mdg";
+    public const string FileFilter = "MyDiagram 프로젝트 (*.mdg)|*.mdg|모든 파일 (*.*)|*.*";
 
     private static readonly JsonSerializerOptions Options = new()
     {

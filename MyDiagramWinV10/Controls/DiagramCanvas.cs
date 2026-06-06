@@ -19,6 +19,7 @@ public sealed class DiagramCanvas : Control
     private ToolMode _toolMode = ToolMode.Select;
     private ShapeKind _shapeKind = ShapeKind.Rectangle;
     private ConnectorKind _connectorKind = ConnectorKind.Straight;
+    private ConnectorPreset _connectorPreset = ConnectorPreset.Default;
     private DiagramShape? _selectedShape;
     private DiagramConnector? _selectedConnector;
     private DiagramShape? _connectorSource;
@@ -38,6 +39,12 @@ public sealed class DiagramCanvas : Control
     private bool _suppressUndo;
     private bool _propertyUndoRecorded;
     private bool _mouseOnCanvas;
+
+    private enum EndpointSide { None, Source, Target }
+    private EndpointSide _draggingEndpoint = EndpointSide.None;
+    private PointF _endpointDragCurrentCanvas;
+    private bool _isDraggingBend;
+    private bool _isDraggingCurve;
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
@@ -139,6 +146,13 @@ public sealed class DiagramCanvas : Control
     public void SetShapeKind(ShapeKind kind) => _shapeKind = kind;
 
     public void SetConnectorKind(ConnectorKind kind) => _connectorKind = kind;
+
+    public void SetConnectorPreset(ConnectorPreset preset)
+    {
+        _connectorPreset = preset;
+        _connectorKind   = preset.Kind;
+        UpdateCursor();
+    }
 
     public void ZoomIn() => ZoomAt(GetViewportCenter(), 1.25f);
 
@@ -316,9 +330,9 @@ public sealed class DiagramCanvas : Control
             if (source is null || target is null)
                 continue;
 
-            var start = DiagramRenderer.GetConnectionPoint(source, target);
-            var end = DiagramRenderer.GetConnectionPoint(target, source);
-            var pts = DiagramRenderer.BuildConnectorPoints(connector.Kind, start, end);
+            var start = DiagramRenderer.GetConnectionPoint(source, target, connector.SourceAnchorAngle);
+            var end   = DiagramRenderer.GetConnectionPoint(target, source, connector.TargetAnchorAngle);
+            var pts = DiagramRenderer.BuildConnectorPoints(connector.Kind, start, end, connector);
             connectorLines.Add((connector, pts));
         }
 
@@ -383,6 +397,62 @@ public sealed class DiagramCanvas : Control
             DiagramRenderer.DrawGhostShape(e.Graphics, _shapeKind, ghostRect);
         }
 
+        // Endpoint handles for selected connector
+        if (_selectedConnector is not null)
+        {
+            var cSrc = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.SourceShapeId);
+            var cTgt = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.TargetShapeId);
+            if (cSrc is not null && cTgt is not null)
+            {
+                var (sPt, ePt) = GetConnectorEndpoints(_selectedConnector);
+                DrawConnectorHandle(e.Graphics, sPt);
+                DrawConnectorHandle(e.Graphics, ePt);
+
+                if (_draggingEndpoint != EndpointSide.None)
+                {
+                    var fixedPt = _draggingEndpoint == EndpointSide.Source ? ePt : sPt;
+                    using var previewPen = new Pen(Color.OrangeRed, 2f / _zoom)
+                        { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                    e.Graphics.DrawLine(previewPen, fixedPt, _endpointDragCurrentCanvas);
+
+                    var hoverShape = HitTestShape(_endpointDragCurrentCanvas);
+                    if (hoverShape is not null)
+                    {
+                        var hb = hoverShape.EffectiveBounds;
+                        using var hlPen = new Pen(Color.OrangeRed, 2f / _zoom);
+                        e.Graphics.DrawRectangle(hlPen, hb.X - 4, hb.Y - 4, hb.Width + 8, hb.Height + 8);
+                    }
+                }
+            }
+        }
+
+        // Bend handle for selected orthogonal connector (drag to reposition the vertical segment)
+        if (_selectedConnector is not null && !_isDraggingBend && !_isDraggingCurve &&
+            (_selectedConnector.Kind == ConnectorKind.Orthogonal ||
+             _selectedConnector.Kind == ConnectorKind.RightAngleCurved))
+        {
+            var cSrc = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.SourceShapeId);
+            var cTgt = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.TargetShapeId);
+            {
+                var (sPt, ePt) = GetConnectorEndpoints(_selectedConnector);
+                if (_selectedConnector.Kind is ConnectorKind.Orthogonal or ConnectorKind.RightAngleCurved)
+                    DrawBendHandle(e.Graphics, DiagramRenderer.GetOrthogonalBendHandle(sPt, ePt, _selectedConnector));
+            }
+        }
+
+        // Curve handle for selected curved connector (drag to change curvature)
+        if (_selectedConnector?.Kind == ConnectorKind.Curved && !_isDraggingCurve && !_isDraggingBend)
+        {
+            var cSrc = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.SourceShapeId);
+            var cTgt = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.TargetShapeId);
+            if (cSrc is not null && cTgt is not null)
+            {
+                var (sPt, ePt) = GetConnectorEndpoints(_selectedConnector);
+                var handle = GetCurveHandle(sPt, ePt, _selectedConnector);
+                DrawCurveHandle(e.Graphics, handle);
+            }
+        }
+
         if (_connectorSource is not null && _mouseOnCanvas)
         {
             // Highlight source shape bounding box so the user can see what they clicked
@@ -405,6 +475,8 @@ public sealed class DiagramCanvas : Control
             using var pen = new Pen(Color.FromArgb(220, 255, 120, 0), 2.5f / _zoom) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
             if (_connectorKind == ConnectorKind.Curved && pts.Length == 4)
                 e.Graphics.DrawBezier(pen, pts[0], pts[1], pts[2], pts[3]);
+            else if (_connectorKind == ConnectorKind.RightAngleCurved && pts.Length >= 2)
+                e.Graphics.DrawLines(pen, pts);
             else if (pts.Length >= 2)
                 e.Graphics.DrawLines(pen, pts);
 
@@ -481,10 +553,19 @@ public sealed class DiagramCanvas : Control
                 RecordUndo();
                 var connector = new DiagramConnector
                 {
-                    SourceShapeId = _connectorSource.Id,
-                    TargetShapeId = shape.Id,
-                    Kind = _connectorKind
+                    SourceShapeId  = _connectorSource.Id,
+                    TargetShapeId  = shape.Id,
+                    Kind           = _connectorPreset.Kind,
+                    LineStyle      = _connectorPreset.LineStyle,
+                    HasStartArrow  = _connectorPreset.StartArrow != ArrowHeadStyle.None,
+                    HasEndArrow    = _connectorPreset.EndArrow   != ArrowHeadStyle.None,
+                    StartArrowStyle = _connectorPreset.StartArrow,
+                    EndArrowStyle   = _connectorPreset.EndArrow,
                 };
+                var sourcePoint = DiagramRenderer.GetConnectionPoint(_connectorSource, shape);
+                var targetPoint = DiagramRenderer.GetConnectionPoint(shape, _connectorSource);
+                connector.SourceAnchorAngle = DiagramRenderer.InferAnchorAngle(_connectorSource, sourcePoint);
+                connector.TargetAnchorAngle = DiagramRenderer.InferAnchorAngle(shape, targetPoint);
                 _project.Connectors.Add(connector);
                 SelectedConnector = connector;
                 _connectorSource = null;
@@ -501,6 +582,81 @@ public sealed class DiagramCanvas : Control
 
         if (_toolMode == ToolMode.Select && e.Button == MouseButtons.Left)
         {
+            // Check connector endpoint handles first (highest priority)
+            if (_selectedConnector is not null)
+            {
+                var cSrc = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.SourceShapeId);
+                var cTgt = _project.Shapes.FirstOrDefault(s => s.Id == _selectedConnector.TargetShapeId);
+                if (cSrc is not null && cTgt is not null)
+                {
+                    float handleR = 8f / _zoom;
+                    var (sPt, ePt) = GetConnectorEndpoints(_selectedConnector);
+                    if (Distance(canvasPoint, sPt) <= handleR)
+                    {
+                        _draggingEndpoint = EndpointSide.Source;
+                        _endpointDragCurrentCanvas = canvasPoint;
+                        Capture = true;
+                        return;
+                    }
+                    if (Distance(canvasPoint, ePt) <= handleR)
+                    {
+                        _draggingEndpoint = EndpointSide.Target;
+                        _endpointDragCurrentCanvas = canvasPoint;
+                        Capture = true;
+                        return;
+                    }
+                }
+            }
+
+            // Check bend handle (orthogonal connectors)
+            if (_selectedConnector is not null &&
+                (_selectedConnector.Kind == ConnectorKind.Orthogonal ||
+                 _selectedConnector.Kind == ConnectorKind.RightAngleCurved))
+            {
+                var (bSPt, bEPt) = GetConnectorEndpoints(_selectedConnector);
+                if (bSPt != default || bEPt != default)
+                {
+                    var handle = DiagramRenderer.GetOrthogonalBendHandle(bSPt, bEPt, _selectedConnector);
+                    if (Distance(canvasPoint, handle) <= 9f / _zoom)
+                    {
+                        RecordUndo();
+                        _isDraggingBend = true;
+                        Capture = true;
+                        return;
+                    }
+                }
+            }
+
+            // Check curve handle (curved connectors)
+            if (_selectedConnector?.Kind == ConnectorKind.Curved)
+            {
+                var (cSPt, cEPt) = GetConnectorEndpoints(_selectedConnector);
+                if (cSPt != default || cEPt != default)
+                {
+                    var handle = GetCurveHandle(cSPt, cEPt, _selectedConnector);
+                    if (Distance(canvasPoint, handle) <= 9f / _zoom)
+                    {
+                        RecordUndo();
+                        _isDraggingCurve = true;
+                        Capture = true;
+                        return;
+                    }
+                }
+            }
+
+            // Check collapse button on any shape (before resize handles)
+            foreach (var sh in _project.Shapes)
+            {
+                if (DiagramRenderer.GetCollapseButtonBounds(sh).Contains(canvasPoint))
+                {
+                    RecordUndo();
+                    SelectedShape = sh;
+                    sh.IsCollapsed = !sh.IsCollapsed;
+                    NotifyChanged();
+                    return;
+                }
+            }
+
             if (_selectedShape is not null)
             {
                 _activeHandle = DiagramRenderer.HitTestResizeHandle(_selectedShape, canvasPoint, 8f / _zoom);
@@ -514,6 +670,12 @@ public sealed class DiagramCanvas : Control
                 }
             }
 
+            if (TryPickConnector(canvasPoint, out var hitConnector))
+            {
+                SelectedConnector = hitConnector;
+                return;
+            }
+
             var hitShape = HitTestShape(canvasPoint);
             if (hitShape is not null)
             {
@@ -523,13 +685,6 @@ public sealed class DiagramCanvas : Control
                 _dragStartCanvas = canvasPoint;
                 _lastMouseCanvas = canvasPoint;
                 Capture = true;
-                return;
-            }
-
-            var hitConnector = HitTestConnector(canvasPoint);
-            if (hitConnector is not null)
-            {
-                SelectedConnector = hitConnector;
                 return;
             }
 
@@ -547,6 +702,42 @@ public sealed class DiagramCanvas : Control
     {
         base.OnMouseMove(e);
         var canvasPoint = ScreenToCanvas(e.Location);
+
+        if (_draggingEndpoint != EndpointSide.None)
+        {
+            _endpointDragCurrentCanvas = canvasPoint;
+            Invalidate();
+            return;
+        }
+
+        if (_isDraggingBend && _selectedConnector is not null)
+        {
+            var (bendStart, bendEnd) = GetConnectorEndpoints(_selectedConnector);
+            if (DiagramRenderer.IsOrthogonalVerticalFirst(bendStart, bendEnd, _selectedConnector))
+            {
+                _selectedConnector.OrthoMidY = canvasPoint.Y;
+                _selectedConnector.OrthoMidX = null;
+            }
+            else
+            {
+                _selectedConnector.OrthoMidX = canvasPoint.X;
+                _selectedConnector.OrthoMidY = null;
+            }
+
+            Invalidate();
+            return;
+        }
+
+        if (_isDraggingCurve && _selectedConnector is not null)
+        {
+            var (dSPt, dEPt) = GetConnectorEndpoints(_selectedConnector);
+            float midX = (dSPt.X + dEPt.X) / 2f;
+            float midY = (dSPt.Y + dEPt.Y) / 2f;
+            _selectedConnector.CurveMidOffsetX = canvasPoint.X - midX;
+            _selectedConnector.CurveMidOffsetY = canvasPoint.Y - midY;
+            Invalidate();
+            return;
+        }
 
         if (_isPanning)
         {
@@ -603,6 +794,60 @@ public sealed class DiagramCanvas : Control
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
+
+        if (_isDraggingBend || _isDraggingCurve)
+        {
+            _isDraggingBend = false;
+            _isDraggingCurve = false;
+            Capture = false;
+            NotifyChanged();
+            return;
+        }
+
+        if (_draggingEndpoint != EndpointSide.None)
+        {
+            var canvasPoint = ScreenToCanvas(e.Location);
+            var hitShape = HitTestShape(canvasPoint);
+            if (hitShape is not null && _selectedConnector is not null)
+            {
+                var otherId = _draggingEndpoint == EndpointSide.Source
+                    ? _selectedConnector.TargetShapeId
+                    : _selectedConnector.SourceShapeId;
+
+                if (hitShape.Id != otherId)
+                {
+                    RecordUndo();
+                    var eb = hitShape.EffectiveBounds;
+                    float cx = eb.X + eb.Width / 2;
+                    float cy = eb.Y + eb.Height / 2;
+                    float angle = MathF.Atan2(canvasPoint.Y - cy, canvasPoint.X - cx) * 180f / MathF.PI;
+                    if (_draggingEndpoint == EndpointSide.Source)
+                    {
+                        _selectedConnector.SourceShapeId    = hitShape.Id;
+                        _selectedConnector.SourceAnchorAngle = angle;
+                    }
+                    else
+                    {
+                        _selectedConnector.TargetShapeId    = hitShape.Id;
+                        _selectedConnector.TargetAnchorAngle = angle;
+                    }
+                    NotifyChanged();
+                }
+            }
+            else if (_selectedConnector is not null)
+            {
+                // Dropped on empty space — clear anchor angle so auto-route resumes
+                if (_draggingEndpoint == EndpointSide.Source)
+                    _selectedConnector.SourceAnchorAngle = null;
+                else
+                    _selectedConnector.TargetAnchorAngle = null;
+            }
+
+            _draggingEndpoint = EndpointSide.None;
+            Capture = false;
+            Invalidate();
+            return;
+        }
 
         if (_isPanning)
         {
@@ -920,49 +1165,50 @@ public sealed class DiagramCanvas : Control
         return null;
     }
 
-    private DiagramConnector? HitTestConnector(PointF point)
+    private bool TryPickConnector(PointF point, out DiagramConnector connector)
     {
-        float tolerance = 6f / _zoom;
-        foreach (var connector in _project.Connectors)
+        connector = null!;
+        DiagramConnector? best = null;
+        float bestDistance = float.MaxValue;
+        var hitShape = HitTestShape(point);
+
+        for (int i = _project.Connectors.Count - 1; i >= 0; i--)
         {
-            var source = _project.Shapes.FirstOrDefault(s => s.Id == connector.SourceShapeId);
-            var target = _project.Shapes.FirstOrDefault(s => s.Id == connector.TargetShapeId);
+            var candidate = _project.Connectors[i];
+            var source = _project.Shapes.FirstOrDefault(s => s.Id == candidate.SourceShapeId);
+            var target = _project.Shapes.FirstOrDefault(s => s.Id == candidate.TargetShapeId);
             if (source is null || target is null)
                 continue;
 
-            var points = DiagramRenderer.BuildConnectorPoints(
-                connector.Kind,
-                DiagramRenderer.GetConnectionPoint(source, target),
-                DiagramRenderer.GetConnectionPoint(target, source));
+            float tolerance = DiagramRenderer.GetConnectorHitTolerance(candidate, _zoom);
+            float distance = DiagramRenderer.GetDistanceToConnector(candidate, source, target, point);
+            if (distance > tolerance || distance >= bestDistance)
+                continue;
 
-            for (int i = 1; i < points.Length; i++)
-            {
-                if (DistanceToSegment(point, points[i - 1], points[i]) <= tolerance)
-                    return connector;
-            }
+            if (hitShape is not null
+                && DiagramRenderer.HitTestShape(hitShape, point)
+                && distance > 8f / _zoom)
+                continue;
+
+            best = candidate;
+            bestDistance = distance;
         }
 
-        return null;
+        if (best is null)
+            return false;
+
+        connector = best;
+        return true;
     }
 
-    private static float DistanceToSegment(PointF p, PointF a, PointF b)
-    {
-        float dx = b.X - a.X;
-        float dy = b.Y - a.Y;
-        if (dx == 0 && dy == 0)
-            return Distance(p, a);
-
-        float t = ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / (dx * dx + dy * dy);
-        t = Math.Clamp(t, 0, 1);
-        var projection = new PointF(a.X + t * dx, a.Y + t * dy);
-        return Distance(p, projection);
-    }
+    private DiagramConnector? HitTestConnector(PointF point)
+        => TryPickConnector(point, out var connector) ? connector : null;
 
     private static float Distance(PointF a, PointF b)
     {
         float dx = a.X - b.X;
         float dy = a.Y - b.Y;
-        return (float)Math.Sqrt(dx * dx + dy * dy);
+        return MathF.Sqrt(dx * dx + dy * dy);
     }
 
     private PointF ScreenToCanvas(Point point)
@@ -1025,10 +1271,10 @@ public sealed class DiagramCanvas : Control
     private void ShowContextMenu(Point screenPt, PointF canvasPt)
     {
         var hitShape = HitTestShape(canvasPt);
-        var hitConnector = hitShape is null ? HitTestConnector(canvasPt) : null;
+        var hitConnector = HitTestConnector(canvasPt);
 
-        if (hitShape is not null) SelectedShape = hitShape;
-        else if (hitConnector is not null) SelectedConnector = hitConnector;
+        if (hitConnector is not null) SelectedConnector = hitConnector;
+        else if (hitShape is not null) SelectedShape = hitShape;
 
         var menu = new ContextMenuStrip();
 
@@ -1064,6 +1310,7 @@ public sealed class DiagramCanvas : Control
             kindMenu.DropDownItems.Add("직선",   null, (_, _) => ChangeConnectorKind(hitConnector, ConnectorKind.Straight));
             kindMenu.DropDownItems.Add("꺾은선", null, (_, _) => ChangeConnectorKind(hitConnector, ConnectorKind.Orthogonal));
             kindMenu.DropDownItems.Add("곡선",   null, (_, _) => ChangeConnectorKind(hitConnector, ConnectorKind.Curved));
+            kindMenu.DropDownItems.Add("완만한꺾", null, (_, _) => ChangeConnectorKind(hitConnector, ConnectorKind.RightAngleCurved));
             menu.Items.Add(kindMenu);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("삭제", null, (_, _) => DeleteSelection());
@@ -1080,6 +1327,57 @@ public sealed class DiagramCanvas : Control
         RecordUndo();
         connector.Kind = kind;
         NotifyChanged();
+    }
+
+    private void DrawConnectorHandle(Graphics g, PointF pt)
+    {
+        float r = 6f / _zoom;
+        using var brush = new SolidBrush(Color.White);
+        using var pen = new Pen(Color.DodgerBlue, 1.5f / _zoom);
+        g.FillEllipse(brush, pt.X - r, pt.Y - r, r * 2, r * 2);
+        g.DrawEllipse(pen, pt.X - r, pt.Y - r, r * 2, r * 2);
+    }
+
+    private void DrawBendHandle(Graphics g, PointF pt)
+    {
+        float r = 5f / _zoom;
+        PointF[] diamond =
+        [
+            new(pt.X,     pt.Y - r),
+            new(pt.X + r, pt.Y),
+            new(pt.X,     pt.Y + r),
+            new(pt.X - r, pt.Y)
+        ];
+        using var brush = new SolidBrush(Color.White);
+        using var pen   = new Pen(Color.FromArgb(40, 130, 240), 1.5f / _zoom);
+        g.FillPolygon(brush, diamond);
+        g.DrawPolygon(pen, diamond);
+    }
+
+    private void DrawCurveHandle(Graphics g, PointF pt)
+    {
+        float r = 5f / _zoom;
+        using var brush = new SolidBrush(Color.LightYellow);
+        using var pen   = new Pen(Color.DarkGoldenrod, 1.5f / _zoom);
+        g.FillRectangle(brush, pt.X - r, pt.Y - r, r * 2, r * 2);
+        g.DrawRectangle(pen, pt.X - r, pt.Y - r, r * 2, r * 2);
+    }
+
+    private (PointF Start, PointF End) GetConnectorEndpoints(DiagramConnector c)
+    {
+        var src = _project.Shapes.FirstOrDefault(s => s.Id == c.SourceShapeId);
+        var tgt = _project.Shapes.FirstOrDefault(s => s.Id == c.TargetShapeId);
+        if (src is null || tgt is null) return default;
+        return (DiagramRenderer.GetConnectionPoint(src, tgt, c.SourceAnchorAngle),
+                DiagramRenderer.GetConnectionPoint(tgt, src, c.TargetAnchorAngle));
+    }
+
+    private static PointF GetCurveHandle(PointF start, PointF end, DiagramConnector connector)
+    {
+        float midX = (start.X + end.X) / 2f;
+        float midY = (start.Y + end.Y) / 2f;
+        return new PointF(midX + (connector.CurveMidOffsetX ?? 0f),
+                          midY + (connector.CurveMidOffsetY ?? 0f));
     }
 
     private static string? PromptText(string title, string defaultValue)

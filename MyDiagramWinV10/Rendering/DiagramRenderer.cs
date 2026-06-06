@@ -9,13 +9,50 @@ public static class DiagramRenderer
 
     public static void DrawShape(Graphics g, DiagramShape shape, PointF offset, bool selected)
     {
-        var rect = OffsetRect(shape.Bounds, offset);
+        var rect = OffsetRect(shape.EffectiveBounds, offset);
         using var fillBrush = new SolidBrush(Color.FromArgb(shape.FillColorArgb));
         using var borderPen = CreatePen(shape.BorderColorArgb, shape.BorderWidth, shape.BorderStyle);
+
+        if (shape.IsCollapsed)
+        {
+            g.FillRectangle(fillBrush, rect);
+            g.DrawRectangle(borderPen, rect.X, rect.Y, rect.Width, rect.Height);
+            DrawShapeText(g, shape, rect, false);
+            if (selected)
+            {
+                DrawSelectionHandles(g, rect);
+                DrawCollapseButtonVisual(g, GetCollapseButtonBounds(shape, offset), shape.IsCollapsed, shape.BorderColorArgb);
+            }
+            else
+            {
+                DrawCollapseButtonVisual(g, GetCollapseButtonBounds(shape, offset), shape.IsCollapsed, shape.BorderColorArgb);
+            }
+            return;
+        }
 
         if (shape.Kind == ShapeKind.Cylinder)
         {
             DrawCylinder(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.Database)
+        {
+            DrawDatabase(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.Note)
+        {
+            DrawNote(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.Delay)
+        {
+            DrawDelay(g, fillBrush, borderPen, rect);
+        }
+        else if (IsNetworkShape(shape.Kind))
+        {
+            DispatchNetworkDraw(g, fillBrush, borderPen, rect, shape.Kind);
+        }
+        else if (Is3DShape(shape.Kind))
+        {
+            Dispatch3DDraw(g, fillBrush, borderPen, rect, shape.Kind);
         }
         else
         {
@@ -41,7 +78,38 @@ public static class DiagramRenderer
         DrawShapeText(g, shape, rect, image is not null);
 
         if (selected)
+        {
             DrawSelectionHandles(g, rect);
+            DrawCollapseButtonVisual(g, GetCollapseButtonBounds(shape, offset), shape.IsCollapsed, shape.BorderColorArgb);
+        }
+    }
+
+    public static RectangleF GetCollapseButtonBounds(DiagramShape shape, PointF offset = default)
+    {
+        var r = OffsetRect(shape.EffectiveBounds, offset);
+        const float Sz = 14f;
+        return new RectangleF(r.Right - Sz - 2f, r.Y + (r.Height - Sz) / 2f, Sz, Sz);
+    }
+
+    private static void DrawCollapseButtonVisual(Graphics g, RectangleF btn, bool collapsed, int borderArgb)
+    {
+        using var bg = new SolidBrush(Color.FromArgb(220, 240, 248, 255));
+        using var pen = new Pen(Color.FromArgb(100, Color.FromArgb(borderArgb)), 1.2f);
+        g.FillEllipse(bg, btn);
+        g.DrawEllipse(pen, btn);
+
+        float cx = btn.X + btn.Width / 2f;
+        float cy = btn.Y + btn.Height / 2f;
+        float s = btn.Width * 0.22f;
+        using var cp = new Pen(Color.FromArgb(90, 110, 160), 1.6f) { LineJoin = LineJoin.Round };
+        if (collapsed)
+        {
+            g.DrawLines(cp, [new PointF(cx - s, cy - s * 1.4f), new PointF(cx + s, cy), new PointF(cx - s, cy + s * 1.4f)]);
+        }
+        else
+        {
+            g.DrawLines(cp, [new PointF(cx - s * 1.4f, cy - s), new PointF(cx, cy + s), new PointF(cx + s * 1.4f, cy - s)]);
+        }
     }
 
     public static void DrawGhostShape(Graphics g, ShapeKind kind, RectangleF rect)
@@ -54,6 +122,37 @@ public static class DiagramRenderer
         {
             using var fb = new SolidBrush(Color.FromArgb(30, 37, 99, 235));
             DrawCylinder(g, fb, borderPen, rect);
+            return;
+        }
+
+        if (kind == ShapeKind.Database)
+        {
+            using var fb = new SolidBrush(Color.FromArgb(30, 37, 99, 235));
+            DrawDatabase(g, fb, borderPen, rect);
+            return;
+        }
+
+        if (kind == ShapeKind.Note)
+        {
+            DrawNote(g, fillBrush, borderPen, rect);
+            return;
+        }
+
+        if (kind == ShapeKind.Delay)
+        {
+            DrawDelay(g, fillBrush, borderPen, rect);
+            return;
+        }
+
+        if (IsNetworkShape(kind))
+        {
+            DispatchNetworkDraw(g, fillBrush, borderPen, rect, kind);
+            return;
+        }
+
+        if (Is3DShape(kind))
+        {
+            Dispatch3DDraw(g, fillBrush, borderPen, rect, kind);
             return;
         }
 
@@ -71,24 +170,74 @@ public static class DiagramRenderer
         return flat.PathPoints;
     }
 
+    public static PointF GetConnectionPoint(DiagramShape from, DiagramShape to, float? anchorAngle, PointF offset = default)
+    {
+        if (anchorAngle.HasValue)
+            return GetConnectionPointAtAngle(from, anchorAngle.Value, offset);
+        return GetConnectionPoint(from, to, offset);
+    }
+
     public static PointF GetConnectionPoint(DiagramShape from, DiagramShape to, PointF offset = default)
     {
+        var effectiveBounds = from.EffectiveBounds;
         var fromCenter = new PointF(
-            from.X + from.Width / 2 + offset.X,
-            from.Y + from.Height / 2 + offset.Y);
+            effectiveBounds.X + effectiveBounds.Width / 2 + offset.X,
+            effectiveBounds.Y + effectiveBounds.Height / 2 + offset.Y);
+        var toEB = to.EffectiveBounds;
         var toCenter = new PointF(
-            to.X + to.Width / 2 + offset.X,
-            to.Y + to.Height / 2 + offset.Y);
+            toEB.X + toEB.Width / 2 + offset.X,
+            toEB.Y + toEB.Height / 2 + offset.Y);
 
-        // Ellipse uses smooth ray intersection; all angled shapes snap to cardinal anchors.
-        if (from.Kind == ShapeKind.Ellipse)
+        var offsetBounds = OffsetRect(effectiveBounds, offset);
+
+        if (from.IsCollapsed
+            || from.Kind == ShapeKind.Cylinder || from.Kind == ShapeKind.Database
+            || from.Kind == ShapeKind.Delay || IsNetworkShape(from.Kind) || Is3DShape(from.Kind))
+            return GetBoundsEdgePoint(offsetBounds, fromCenter, toCenter);
+
+        using var path = CreateShapePath(from.Kind, offsetBounds);
+        return RayIntersectPath(path, fromCenter, toCenter)
+            ?? GetBoundsEdgePoint(offsetBounds, fromCenter, toCenter);
+    }
+
+    private static PointF GetConnectionPointAtAngle(DiagramShape shape, float angleDeg, PointF offset)
+    {
+        var bounds = OffsetRect(shape.EffectiveBounds, offset);
+        if (shape.IsCollapsed || shape.Kind == ShapeKind.Cylinder || shape.Kind == ShapeKind.Database
+            || shape.Kind == ShapeKind.Delay || IsNetworkShape(shape.Kind) || Is3DShape(shape.Kind))
+            return GetRectEdgePointAtAngle(bounds, angleDeg);
+
+        float cx = bounds.X + bounds.Width / 2;
+        float cy = bounds.Y + bounds.Height / 2;
+        float rad = angleDeg * MathF.PI / 180f;
+        var far = new PointF(cx + MathF.Cos(rad) * 10000f, cy + MathF.Sin(rad) * 10000f);
+        using var path = CreateShapePath(shape.Kind, bounds);
+        return RayIntersectPath(path, new PointF(cx, cy), far)
+            ?? GetRectEdgePointAtAngle(bounds, angleDeg);
+    }
+
+    private static PointF GetRectEdgePointAtAngle(RectangleF rect, float angleDeg)
+    {
+        float cx = rect.X + rect.Width / 2;
+        float cy = rect.Y + rect.Height / 2;
+        float rad = angleDeg * MathF.PI / 180f;
+        float dx = MathF.Cos(rad);
+        float dy = MathF.Sin(rad);
+        float t = float.MaxValue;
+        if (MathF.Abs(dx) > 0.001f)
         {
-            using var path = CreateShapePath(from.Kind, OffsetRect(from.Bounds, offset));
-            return RayIntersectPath(path, fromCenter, toCenter)
-                ?? GetBoundsEdgePoint(OffsetRect(from.Bounds, offset), fromCenter, toCenter);
+            float tx = dx > 0 ? (rect.Right  - cx) / dx : (rect.X      - cx) / dx;
+            if (tx > 0) t = MathF.Min(t, tx);
         }
-
-        return GetCardinalAnchor(from, toCenter, offset);
+        if (MathF.Abs(dy) > 0.001f)
+        {
+            float ty = dy > 0 ? (rect.Bottom - cy) / dy : (rect.Y      - cy) / dy;
+            if (ty > 0) t = MathF.Min(t, ty);
+        }
+        if (t == float.MaxValue) t = 1f;
+        return new PointF(
+            Math.Clamp(cx + dx * t, rect.X, rect.Right),
+            Math.Clamp(cy + dy * t, rect.Y, rect.Bottom));
     }
 
     private static PointF GetCardinalAnchor(DiagramShape shape, PointF target, PointF offset)
@@ -148,25 +297,149 @@ public static class DiagramRenderer
         return best;
     }
 
-    public static PointF[] BuildConnectorPoints(ConnectorKind kind, PointF start, PointF end)
+    public static float InferAnchorAngle(DiagramShape shape, PointF connectionPoint)
     {
-        return kind switch
+        float cx = shape.X + shape.Width / 2f;
+        float cy = shape.Y + shape.Height / 2f;
+        float dx = connectionPoint.X - cx;
+        float dy = connectionPoint.Y - cy;
+        if (Math.Abs(dx) < 0.001f && Math.Abs(dy) < 0.001f)
+            return 0f;
+
+        return MathF.Atan2(dy, dx) * 180f / MathF.PI;
+    }
+
+    public static bool IsOrthogonalVerticalFirst(PointF start, PointF end, DiagramConnector? connector = null)
+        => ShouldRouteVerticalFirst(start, end, connector);
+
+    public static PointF GetOrthogonalBendHandle(PointF start, PointF end, DiagramConnector connector)
+    {
+        var points = BuildConnectorPoints(connector.Kind, start, end, connector);
+        if (points.Length < 3)
+            return new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
+
+        if (ShouldRouteVerticalFirst(start, end, connector))
+            return new PointF((points[1].X + points[2].X) / 2f, points[1].Y);
+
+        return new PointF(points[1].X, (points[1].Y + points[2].Y) / 2f);
+    }
+
+    public static PointF[] BuildConnectorPoints(ConnectorKind kind, PointF start, PointF end,
+        DiagramConnector? connector = null)
+    {
+        switch (kind)
         {
-            ConnectorKind.Orthogonal =>
-            [
-                start,
-                new PointF(end.X, start.Y),
-                end
-            ],
-            ConnectorKind.Curved =>
-            [
-                start,
-                new PointF((start.X + end.X) / 2, start.Y),
-                new PointF((start.X + end.X) / 2, end.Y),
-                end
-            ],
-            _ => [start, end]
-        };
+            case ConnectorKind.Orthogonal:
+            case ConnectorKind.RightAngleCurved:
+                return BuildOrthogonalPoints(start, end, connector);
+            case ConnectorKind.Curved:
+            {
+                float straightMidX = (start.X + end.X) / 2f;
+                float straightMidY = (start.Y + end.Y) / 2f;
+                if (connector is { CurveMidOffsetX: not null } or { CurveMidOffsetY: not null })
+                {
+                    // User-adjusted curve: both control points at ctrl, which is derived from
+                    // the visual midpoint (handle) the user dragged: ctrl = midHandle * (4/3) - midStraight*(1/3)
+                    float offX = connector.CurveMidOffsetX ?? 0f;
+                    float offY = connector.CurveMidOffsetY ?? 0f;
+                    float ctrlX = straightMidX + offX * 4f / 3f;
+                    float ctrlY = straightMidY + offY * 4f / 3f;
+                    return [start, new(ctrlX, ctrlY), new(ctrlX, ctrlY), end];
+                }
+                // Default: S-curve with control points at mid-X, start/end Y
+                return [start, new(straightMidX, start.Y), new(straightMidX, end.Y), end];
+            }
+            default:
+                return [start, end];
+        }
+    }
+
+    private static PointF[] BuildOrthogonalPoints(PointF start, PointF end, DiagramConnector? connector)
+    {
+        if (ShouldRouteVerticalFirst(start, end, connector))
+        {
+            float midY = connector?.OrthoMidY ?? (start.Y + end.Y) / 2f;
+            return SimplifyOrthogonalPath([start, new(start.X, midY), new(end.X, midY), end]);
+        }
+
+        float midX = connector?.OrthoMidX ?? (start.X + end.X) / 2f;
+        return SimplifyOrthogonalPath([start, new(midX, start.Y), new(midX, end.Y), end]);
+    }
+
+    private static bool ShouldRouteVerticalFirst(PointF start, PointF end, DiagramConnector? connector)
+    {
+        if (connector?.OrthoMidY is not null)
+            return true;
+        if (connector?.OrthoMidX is not null)
+            return false;
+
+        int startAxis = GetAnchorAxis(connector?.SourceAnchorAngle);
+        int endAxis = GetAnchorAxis(connector?.TargetAnchorAngle);
+
+        if (startAxis == 2 && endAxis == 2)
+            return true;
+        if (startAxis == 1 && endAxis == 1)
+            return false;
+        if (startAxis == 2 && endAxis == 1)
+            return true;
+        if (startAxis == 1 && endAxis == 2)
+            return false;
+
+        float dx = Math.Abs(end.X - start.X);
+        float dy = Math.Abs(end.Y - start.Y);
+        return dy > dx;
+    }
+
+    private static int GetAnchorAxis(float? angleDeg)
+    {
+        if (!angleDeg.HasValue)
+            return 0;
+
+        float a = ((angleDeg.Value % 360f) + 360f) % 360f;
+        if (a <= 45f || a >= 315f || (a >= 135f && a <= 225f))
+            return 1;
+
+        return 2;
+    }
+
+    private static PointF[] SimplifyOrthogonalPath(PointF[] raw)
+    {
+        if (raw.Length == 0)
+            return [];
+
+        var simplified = new List<PointF> { raw[0] };
+        for (int i = 1; i < raw.Length; i++)
+        {
+            var point = raw[i];
+            var previous = simplified[^1];
+            if (DistanceBetween(point, previous) < 0.5f)
+                continue;
+
+            if (simplified.Count >= 2)
+            {
+                var beforePrevious = simplified[^2];
+                bool sameColumn = Math.Abs(beforePrevious.X - previous.X) < 0.5f
+                    && Math.Abs(previous.X - point.X) < 0.5f;
+                bool sameRow = Math.Abs(beforePrevious.Y - previous.Y) < 0.5f
+                    && Math.Abs(previous.Y - point.Y) < 0.5f;
+                if (sameColumn || sameRow)
+                {
+                    simplified[^1] = point;
+                    continue;
+                }
+            }
+
+            simplified.Add(point);
+        }
+
+        return simplified.Count >= 2 ? simplified.ToArray() : [raw[0], raw[^1]];
+    }
+
+    private static float DistanceBetween(PointF a, PointF b)
+    {
+        float dx = a.X - b.X;
+        float dy = a.Y - b.Y;
+        return MathF.Sqrt(dx * dx + dy * dy);
     }
 
     public static void DrawConnector(Graphics g, DiagramConnector connector, DiagramShape source, DiagramShape target, PointF offset)
@@ -182,9 +455,9 @@ public static class DiagramRenderer
         IReadOnlyList<(float T, PointF Pt)> crossings,
         PointF offset = default)
     {
-        var start = GetConnectionPoint(source, target, offset);
-        var end = GetConnectionPoint(target, source, offset);
-        var points = BuildConnectorPoints(connector.Kind, start, end);
+        var start = GetConnectionPoint(source, target, connector.SourceAnchorAngle, offset);
+        var end   = GetConnectionPoint(target, source, connector.TargetAnchorAngle, offset);
+        var points = BuildConnectorPoints(connector.Kind, start, end, connector);
 
         using var pen = CreatePen(connector.LineColorArgb, connector.LineWidth, connector.LineStyle);
         using var bgBrush = new SolidBrush(Color.White);
@@ -205,6 +478,10 @@ public static class DiagramRenderer
             var sortedCrossings = crossings.OrderBy(c => c.T).ToList();
             g.DrawBezier(pen, points[0], points[1], points[2], points[3]);
         }
+        else if (connector.Kind == ConnectorKind.RightAngleCurved && crossings.Count == 0)
+        {
+            DrawRoundedPolyline(g, pen, points);
+        }
         else if (crossings.Count == 0)
         {
             DrawPolyline(g, pen, points);
@@ -216,9 +493,9 @@ public static class DiagramRenderer
         }
 
         if (connector.HasStartArrow && points.Length >= 2)
-            DrawArrowHead(g, pen, points[1], points[0]);
+            DrawArrowHead(g, pen, points[1], points[0], connector.StartArrowStyle);
         if (connector.HasEndArrow && points.Length >= 2)
-            DrawArrowHead(g, pen, points[^2], points[^1]);
+            DrawArrowHead(g, pen, points[^2], points[^1], connector.EndArrowStyle);
 
         if (!string.IsNullOrWhiteSpace(connector.Label))
         {
@@ -228,6 +505,36 @@ public static class DiagramRenderer
             var size = g.MeasureString(connector.Label, font);
             g.DrawString(connector.Label, font, brush, mid.X - size.Width / 2, mid.Y - size.Height / 2);
         }
+    }
+
+    private static void DrawRoundedPolyline(Graphics g, Pen pen, PointF[] pts, float radius = 14f)
+    {
+        if (pts.Length < 2) return;
+        if (pts.Length == 2) { g.DrawLine(pen, pts[0], pts[1]); return; }
+
+        PointF cur = pts[0];
+        for (int i = 1; i < pts.Length - 1; i++)
+        {
+            PointF corner = pts[i];
+            PointF next   = pts[i + 1];
+
+            float d1x = corner.X - cur.X, d1y = corner.Y - cur.Y;
+            float d2x = next.X - corner.X, d2y = next.Y - corner.Y;
+            float len1 = MathF.Sqrt(d1x * d1x + d1y * d1y);
+            float len2 = MathF.Sqrt(d2x * d2x + d2y * d2y);
+            if (len1 < 0.001f || len2 < 0.001f) continue;
+            d1x /= len1; d1y /= len1;
+            d2x /= len2; d2y /= len2;
+
+            float clamp = Math.Min(radius, Math.Min(len1 / 2f, len2 / 2f));
+            var p1 = new PointF(corner.X - d1x * clamp, corner.Y - d1y * clamp);
+            var p2 = new PointF(corner.X + d2x * clamp, corner.Y + d2y * clamp);
+
+            g.DrawLine(pen, cur, p1);
+            g.DrawBezier(pen, p1, corner, corner, p2);  // cubic bezier approximating arc
+            cur = p2;
+        }
+        g.DrawLine(pen, cur, pts[^1]);
     }
 
     private static void DrawPolyline(Graphics g, Pen pen, PointF[] points)
@@ -354,6 +661,36 @@ public static class DiagramRenderer
             return;
         }
 
+        if (kind == ShapeKind.Database)
+        {
+            DrawDatabase(g, fillBrush, borderPen, rect);
+            return;
+        }
+
+        if (kind == ShapeKind.Note)
+        {
+            DrawNote(g, fillBrush, borderPen, rect);
+            return;
+        }
+
+        if (kind == ShapeKind.Delay)
+        {
+            DrawDelay(g, fillBrush, borderPen, rect);
+            return;
+        }
+
+        if (IsNetworkShape(kind))
+        {
+            DispatchNetworkDraw(g, fillBrush, borderPen, rect, kind);
+            return;
+        }
+
+        if (Is3DShape(kind))
+        {
+            Dispatch3DDraw(g, fillBrush, borderPen, rect, kind);
+            return;
+        }
+
         using var path = CreateShapePath(kind, rect);
         g.FillPath(fillBrush, path);
         g.DrawPath(borderPen, path);
@@ -361,14 +698,145 @@ public static class DiagramRenderer
 
     public static bool HitTestShape(DiagramShape shape, PointF point)
     {
-        if (shape.Kind == ShapeKind.Cylinder)
-        {
-            return shape.Bounds.Contains(point);
-        }
+        var bounds = shape.EffectiveBounds;
+        if (shape.IsCollapsed
+            || shape.Kind == ShapeKind.Cylinder || shape.Kind == ShapeKind.Database
+            || shape.Kind == ShapeKind.Delay || IsNetworkShape(shape.Kind) || Is3DShape(shape.Kind))
+            return bounds.Contains(point);
 
-        using var path = CreateShapePath(shape.Kind, shape.Bounds);
+        using var path = CreateShapePath(shape.Kind, bounds);
         return path.IsVisible(point);
     }
+
+    public static float GetConnectorHitTolerance(DiagramConnector connector, float zoom)
+    {
+        float zoomFactor = Math.Max(zoom, 0.1f);
+        return Math.Max(18f / zoomFactor, (connector.LineWidth + 14f) / zoomFactor);
+    }
+
+    public static float GetDistanceToConnector(
+        DiagramConnector connector,
+        DiagramShape source,
+        DiagramShape target,
+        PointF point)
+    {
+        var start = GetConnectionPoint(source, target, connector.SourceAnchorAngle);
+        var end = GetConnectionPoint(target, source, connector.TargetAnchorAngle);
+        var points = BuildConnectorPoints(connector.Kind, start, end, connector);
+        return GetDistanceToConnectorPath(connector.Kind, points, point);
+    }
+
+    public static bool HitTestConnector(
+        DiagramConnector connector,
+        DiagramShape source,
+        DiagramShape target,
+        PointF point,
+        float tolerance)
+        => GetDistanceToConnector(connector, source, target, point) <= tolerance;
+
+    private static float GetDistanceToConnectorPath(ConnectorKind kind, PointF[] points, PointF point)
+    {
+        if (points.Length < 2)
+            return float.MaxValue;
+
+        if (kind == ConnectorKind.Curved && points.Length == 4)
+            return DistanceToBezier(points[0], points[1], points[2], points[3], point);
+
+        if (kind == ConnectorKind.RightAngleCurved)
+            return DistanceToRoundedPolyline(points, point);
+
+        float min = float.MaxValue;
+        for (int i = 1; i < points.Length; i++)
+            min = Math.Min(min, DistanceToSegment(point, points[i - 1], points[i]));
+
+        return min;
+    }
+
+    private static float DistanceToRoundedPolyline(PointF[] pts, PointF point, float radius = 14f)
+    {
+        if (pts.Length < 2)
+            return float.MaxValue;
+        if (pts.Length == 2)
+            return DistanceToSegment(point, pts[0], pts[1]);
+
+        float min = float.MaxValue;
+        PointF cur = pts[0];
+        for (int i = 1; i < pts.Length - 1; i++)
+        {
+            PointF corner = pts[i];
+            PointF next = pts[i + 1];
+
+            float d1x = corner.X - cur.X, d1y = corner.Y - cur.Y;
+            float d2x = next.X - corner.X, d2y = next.Y - corner.Y;
+            float len1 = MathF.Sqrt(d1x * d1x + d1y * d1y);
+            float len2 = MathF.Sqrt(d2x * d2x + d2y * d2y);
+            if (len1 < 0.001f || len2 < 0.001f)
+                continue;
+
+            d1x /= len1; d1y /= len1;
+            d2x /= len2; d2y /= len2;
+
+            float clamp = Math.Min(radius, Math.Min(len1 / 2f, len2 / 2f));
+            var p1 = new PointF(corner.X - d1x * clamp, corner.Y - d1y * clamp);
+            var p2 = new PointF(corner.X + d2x * clamp, corner.Y + d2y * clamp);
+
+            min = Math.Min(min, DistanceToSegment(point, cur, p1));
+            min = Math.Min(min, DistanceToBezier(cur, p1, corner, p2, point));
+            cur = p2;
+        }
+
+        min = Math.Min(min, DistanceToSegment(point, cur, pts[^1]));
+        return min;
+    }
+
+    private static float DistanceToBezier(PointF p0, PointF p1, PointF p2, PointF p3, PointF point, int steps = 28)
+    {
+        float min = float.MaxValue;
+        PointF prev = p0;
+        for (int i = 1; i <= steps; i++)
+        {
+            float t = i / (float)steps;
+            var current = CubicBezierPoint(p0, p1, p2, p3, t);
+            min = Math.Min(min, DistanceToSegment(point, prev, current));
+            prev = current;
+        }
+
+        return min;
+    }
+
+    private static PointF CubicBezierPoint(PointF p0, PointF p1, PointF p2, PointF p3, float t)
+    {
+        float u = 1f - t;
+        float tt = t * t;
+        float uu = u * u;
+        float uuu = uu * u;
+        float ttt = tt * t;
+
+        float x = uuu * p0.X + 3f * uu * t * p1.X + 3f * u * tt * p2.X + ttt * p3.X;
+        float y = uuu * p0.Y + 3f * uu * t * p1.Y + 3f * u * tt * p2.Y + ttt * p3.Y;
+        return new PointF(x, y);
+    }
+
+    private static float DistanceToSegment(PointF point, PointF a, PointF b)
+    {
+        float dx = b.X - a.X;
+        float dy = b.Y - a.Y;
+        if (Math.Abs(dx) < 0.0001f && Math.Abs(dy) < 0.0001f)
+            return Distance(point, a);
+
+        float t = ((point.X - a.X) * dx + (point.Y - a.Y) * dy) / (dx * dx + dy * dy);
+        t = Math.Clamp(t, 0f, 1f);
+        var projection = new PointF(a.X + t * dx, a.Y + t * dy);
+        return Distance(point, projection);
+    }
+
+    private static bool IsNetworkShape(ShapeKind kind) =>
+        kind is ShapeKind.NetworkServer   or ShapeKind.NetworkRouter  or ShapeKind.NetworkSwitch
+            or ShapeKind.NetworkPC        or ShapeKind.NetworkFirewall or ShapeKind.NetworkHub
+            or ShapeKind.NetworkPrinter   or ShapeKind.NetworkWifi
+            or ShapeKind.NetworkInternet  or ShapeKind.NetworkStorage  or ShapeKind.NetworkLaptop
+            or ShapeKind.NetworkMobile    or ShapeKind.NetworkIPPhone  or ShapeKind.NetworkRack
+            or ShapeKind.NetworkTablet    or ShapeKind.NetworkGateway;
 
     public static ResizeHandle HitTestResizeHandle(DiagramShape shape, PointF point, float handleSize = 8f)
     {
@@ -497,6 +965,595 @@ public static class DiagramRenderer
         g.DrawLine(border, rect.Right, rect.Y + eh / 2, rect.Right, rect.Bottom - eh / 2);
         g.DrawArc(border, bottomEllipse, 0, 180);   // only the visible lower arc
         g.DrawEllipse(border, topEllipse);
+    }
+
+    private static void DrawDatabase(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float eh = Math.Max(6f, rect.Height * 0.18f);
+        var topEllipse    = new RectangleF(rect.X, rect.Y,           rect.Width, eh);
+        var bottomEllipse = new RectangleF(rect.X, rect.Bottom - eh, rect.Width, eh);
+
+        // Fill body
+        g.FillRectangle(fill, new RectangleF(rect.X, rect.Y + eh / 2, rect.Width, rect.Height - eh));
+        g.FillEllipse(fill, bottomEllipse);
+        g.FillEllipse(fill, topEllipse);
+
+        // Side lines and bottom arc
+        g.DrawLine(border, rect.X,     rect.Y + eh / 2, rect.X,     rect.Bottom - eh / 2);
+        g.DrawLine(border, rect.Right, rect.Y + eh / 2, rect.Right, rect.Bottom - eh / 2);
+        g.DrawArc(border, bottomEllipse, 0, 180);
+        g.DrawEllipse(border, topEllipse);
+
+        // Layer divider arcs (front-facing only, visible semicircle)
+        float bodyH = rect.Height - eh;
+        for (int i = 1; i <= 2; i++)
+        {
+            float layerY = rect.Y + eh / 2 + bodyH * i / 3f - eh / 2;
+            var layerEllipse = new RectangleF(rect.X, layerY, rect.Width, eh);
+            g.DrawArc(border, layerEllipse, 0, 180);
+        }
+    }
+
+    private static void DrawNote(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float fold = Math.Min(rect.Width * 0.22f, Math.Min(rect.Height * 0.22f, 20f));
+        PointF[] pts = [
+            new(rect.X, rect.Y),
+            new(rect.Right - fold, rect.Y),
+            new(rect.Right, rect.Y + fold),
+            new(rect.Right, rect.Bottom),
+            new(rect.X, rect.Bottom)
+        ];
+        using var path = new GraphicsPath();
+        path.AddPolygon(pts);
+        g.FillPath(fill, path);
+        g.DrawPath(border, path);
+        // Fold crease decoration
+        g.DrawLine(border, rect.Right - fold, rect.Y, rect.Right - fold, rect.Y + fold);
+        g.DrawLine(border, rect.Right - fold, rect.Y + fold, rect.Right, rect.Y + fold);
+    }
+
+    private static void DrawDelay(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float r = rect.Height / 2f;
+        float bodyW = Math.Max(0, rect.Width - r);
+        var arcRect = new RectangleF(rect.Right - r * 2, rect.Y, r * 2, rect.Height);
+
+        g.FillRectangle(fill, new RectangleF(rect.X, rect.Y, bodyW + r, rect.Height));
+        g.FillPie(fill, arcRect, -90, 180);
+
+        g.DrawLine(border, rect.X, rect.Y,      rect.Right - r, rect.Y);
+        g.DrawLine(border, rect.X, rect.Bottom, rect.Right - r, rect.Bottom);
+        g.DrawLine(border, rect.X, rect.Y, rect.X, rect.Bottom);
+        g.DrawArc(border, arcRect, -90, 180);
+    }
+
+    private static void DrawNetworkServer(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillRectangle(fill, rect);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+        int slots = 3;
+        float slotH = rect.Height / slots;
+        for (int i = 1; i < slots; i++)
+            g.DrawLine(border, rect.X, rect.Y + slotH * i, rect.Right, rect.Y + slotH * i);
+        using var ledBrush = new SolidBrush(Color.FromArgb(60, 200, 60));
+        float dotR = Math.Min(slotH * 0.2f, 3.5f);
+        float dotX = rect.Right - rect.Width * 0.1f;
+        for (int i = 0; i < slots; i++)
+            g.FillEllipse(ledBrush, dotX - dotR, rect.Y + slotH * (i + 0.5f) - dotR, dotR * 2, dotR * 2);
+    }
+
+    private static void DrawNetworkRouter(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillEllipse(fill, rect);
+        g.DrawEllipse(border, rect);
+        float cx = rect.X + rect.Width / 2f;
+        float cy = rect.Y + rect.Height / 2f;
+        float inner = Math.Min(rect.Width, rect.Height) * 0.15f;
+        float outer = Math.Min(rect.Width, rect.Height) * 0.38f;
+        DrawRouterArrow(g, border, cx, cy - inner, cx, cy - outer);
+        DrawRouterArrow(g, border, cx, cy + inner, cx, cy + outer);
+        DrawRouterArrow(g, border, cx + inner, cy, cx + outer, cy);
+        DrawRouterArrow(g, border, cx - inner, cy, cx - outer, cy);
+    }
+
+    private static void DrawRouterArrow(Graphics g, Pen pen, float x1, float y1, float x2, float y2)
+    {
+        g.DrawLine(pen, x1, y1, x2, y2);
+        float dx = x2 - x1, dy = y2 - y1;
+        float len = MathF.Sqrt(dx * dx + dy * dy);
+        if (len < 0.001f) return;
+        dx /= len; dy /= len;
+        float s = len * 0.45f;
+        float cosA = MathF.Cos(MathF.PI / 5f);
+        float sinA = MathF.Sin(MathF.PI / 5f);
+        g.DrawLine(pen, x2, y2, x2 - s * (dx * cosA - dy * sinA), y2 - s * (dy * cosA + dx * sinA));
+        g.DrawLine(pen, x2, y2, x2 - s * (dx * cosA + dy * sinA), y2 - s * (dy * cosA - dx * sinA));
+    }
+
+    private static void DrawNetworkSwitch(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillRectangle(fill, rect);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+        int portCount = Math.Max(2, Math.Min(8, (int)(rect.Width / 12f)));
+        float portH = Math.Min(rect.Height * 0.3f, 10f);
+        float portW = portH * 0.7f;
+        float gap = (rect.Width - portCount * portW) / (portCount + 1);
+        float portY = rect.Bottom - portH - rect.Height * 0.2f;
+        for (int i = 0; i < portCount; i++)
+            g.DrawRectangle(border, rect.X + gap + i * (portW + gap), portY, portW, portH);
+    }
+
+    private static void DrawNetworkPC(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float monH = rect.Height * 0.65f;
+        float monW = rect.Width * 0.85f;
+        float monX = rect.X + (rect.Width - monW) / 2f;
+        var monRect = new RectangleF(monX, rect.Y, monW, monH);
+        g.FillRectangle(fill, monRect);
+        g.DrawRectangle(border, monRect.X, monRect.Y, monRect.Width, monRect.Height);
+        float inset = monH * 0.1f;
+        using var screenFill = new SolidBrush(Color.FromArgb(120, 135, 200, 235));
+        g.FillRectangle(screenFill, monX + inset, rect.Y + inset, monW - inset * 2, monH - inset * 2);
+        float cx = rect.X + rect.Width / 2f;
+        float standH = rect.Height * 0.12f;
+        g.DrawLine(border, cx, rect.Y + monH, cx, rect.Y + monH + standH);
+        float baseW = rect.Width * 0.55f;
+        g.DrawLine(border, cx - baseW / 2f, rect.Bottom, cx + baseW / 2f, rect.Bottom);
+    }
+
+    private static void DrawNetworkFirewall(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillRectangle(fill, rect);
+        var state = g.Save();
+        g.SetClip(rect);
+        float step = Math.Min(rect.Width, rect.Height) / 5f;
+        using var hatchPen = new Pen(Color.FromArgb(70, border.Color), border.Width * 0.6f);
+        for (float d = -rect.Height; d < rect.Width; d += step)
+            g.DrawLine(hatchPen, rect.X + d, rect.Y, rect.X + d + rect.Height, rect.Bottom);
+        g.Restore(state);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    private static void DrawNetworkHub(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillEllipse(fill, rect);
+        g.DrawEllipse(border, rect);
+        float cx = rect.X + rect.Width / 2f;
+        float cy = rect.Y + rect.Height / 2f;
+        float innerR = Math.Min(rect.Width, rect.Height) * 0.12f;
+        float outerR = Math.Min(rect.Width, rect.Height) * 0.40f;
+        float dotR = Math.Min(3f, outerR * 0.15f);
+        using var dotBrush = new SolidBrush(border.Color);
+        for (int i = 0; i < 6; i++)
+        {
+            float angle = i * MathF.PI / 3f;
+            float ox = cx + outerR * MathF.Cos(angle);
+            float oy = cy + outerR * MathF.Sin(angle);
+            g.DrawLine(border, cx + innerR * MathF.Cos(angle), cy + innerR * MathF.Sin(angle), ox, oy);
+            g.FillEllipse(dotBrush, ox - dotR, oy - dotR, dotR * 2, dotR * 2);
+        }
+    }
+
+    private static void DrawNetworkPrinter(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float bodyY = rect.Y + rect.Height * 0.28f;
+        float bodyH = rect.Height * 0.72f;
+        var bodyRect = new RectangleF(rect.X, bodyY, rect.Width, bodyH);
+        g.FillRectangle(fill, bodyRect);
+        g.DrawRectangle(border, bodyRect.X, bodyRect.Y, bodyRect.Width, bodyRect.Height);
+        float paperW = rect.Width * 0.5f;
+        float paperH = rect.Height * 0.32f;
+        float paperX = rect.X + (rect.Width - paperW) / 2f;
+        using var paperFill = new SolidBrush(Color.White);
+        g.FillRectangle(paperFill, paperX, rect.Y, paperW, paperH);
+        g.DrawRectangle(border, paperX, rect.Y, paperW, paperH);
+    }
+
+    private static void DrawNetworkWifi(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float cx = rect.X + rect.Width / 2f;
+        float dotR = Math.Min(rect.Width, rect.Height) * 0.07f;
+        float baseY = rect.Bottom - dotR * 3f;
+        float available = baseY - rect.Y;
+        using var arcPen = new Pen(border.Color, border.Width * 1.1f)
+            { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        for (int i = 3; i >= 1; i--)
+        {
+            float r = available * i / 3.5f;
+            g.DrawArc(arcPen, cx - r, baseY - r, r * 2, r * 2, 210, 120);
+        }
+        using var dotBrush = new SolidBrush(border.Color);
+        g.FillEllipse(dotBrush, cx - dotR, baseY - dotR, dotR * 2, dotR * 2);
+    }
+
+    private static void DrawNetworkInternet(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillEllipse(fill, rect);
+        g.DrawEllipse(border, rect);
+        float cx = rect.X + rect.Width / 2f;
+        float cy = rect.Y + rect.Height / 2f;
+        g.DrawLine(border, cx, rect.Y, cx, rect.Bottom);
+        float r = rect.Height / 2f;
+        float[] latFracs = [0.28f, 0.50f, 0.72f];
+        foreach (float frac in latFracs)
+        {
+            float ly = rect.Y + rect.Height * frac;
+            float dy = ly - cy;
+            float xOff = MathF.Sqrt(Math.Max(0f, r * r - dy * dy)) * rect.Width / rect.Height;
+            g.DrawLine(border, cx - xOff, ly, cx + xOff, ly);
+        }
+        float ovalW = rect.Width * 0.52f;
+        g.DrawEllipse(border, cx - ovalW / 2f, rect.Y, ovalW, rect.Height);
+    }
+
+    private static void DrawNetworkStorage(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        int disks = Math.Max(2, Math.Min(5, (int)(rect.Height / 16f)));
+        float diskH = rect.Height / disks;
+        g.FillRectangle(fill, rect);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+        using var diskFill = new SolidBrush(Color.FromArgb(230, 232, 238));
+        using var ledBrush = new SolidBrush(Color.FromArgb(60, 190, 60));
+        float pad = 1.5f;
+        for (int i = 0; i < disks; i++)
+        {
+            var dr = new RectangleF(rect.X + 2f, rect.Y + i * diskH + pad, rect.Width - 4f, diskH - pad * 2);
+            g.FillRectangle(diskFill, dr);
+            g.DrawRectangle(border, dr.X, dr.Y, dr.Width, dr.Height);
+            float lr = Math.Min(diskH * 0.22f, 4f);
+            float lx = dr.Right - lr * 2.8f;
+            float ly = dr.Y + dr.Height / 2f;
+            g.FillEllipse(ledBrush, lx - lr, ly - lr, lr * 2, lr * 2);
+        }
+    }
+
+    private static void DrawNetworkLaptop(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float screenH = rect.Height * 0.60f;
+        float screenW = rect.Width * 0.86f;
+        float screenX = rect.X + (rect.Width - screenW) / 2f;
+        var screenRect = new RectangleF(screenX, rect.Y, screenW, screenH);
+        g.FillRectangle(fill, screenRect);
+        g.DrawRectangle(border, screenRect.X, screenRect.Y, screenRect.Width, screenRect.Height);
+        float inset = screenH * 0.1f;
+        using var screenFill = new SolidBrush(Color.FromArgb(120, 135, 200, 235));
+        g.FillRectangle(screenFill, screenX + inset, rect.Y + inset, screenW - inset * 2, screenH - inset * 2);
+        float baseH = rect.Height * 0.30f;
+        float baseY = rect.Bottom - baseH;
+        var baseRect = new RectangleF(rect.X, baseY, rect.Width, baseH);
+        g.FillRectangle(fill, baseRect);
+        g.DrawRectangle(border, baseRect.X, baseRect.Y, baseRect.Width, baseRect.Height);
+        using var kbFill = new SolidBrush(Color.FromArgb(195, 198, 208));
+        g.FillRectangle(kbFill, screenX + screenW * 0.08f, baseY + baseH * 0.25f, screenW * 0.84f, baseH * 0.45f);
+    }
+
+    private static void DrawNetworkMobile(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float rad = Math.Min(rect.Width, rect.Height) * 0.13f;
+        using var path = CreateRoundedRect(rect, rad);
+        g.FillPath(fill, path);
+        g.DrawPath(border, path);
+        float inset = rect.Width * 0.09f;
+        float btnH = rect.Height * 0.13f;
+        using var screenFill = new SolidBrush(Color.FromArgb(120, 135, 200, 235));
+        g.FillRectangle(screenFill,
+            rect.X + inset, rect.Y + inset,
+            rect.Width - inset * 2, rect.Height - inset * 2 - btnH);
+        float br = Math.Min(rect.Width * 0.11f, btnH * 0.42f);
+        float bcx = rect.X + rect.Width / 2f;
+        float bcy = rect.Bottom - btnH * 0.52f;
+        using var btnFill = new SolidBrush(Color.FromArgb(195, 198, 208));
+        g.FillEllipse(btnFill, bcx - br, bcy - br, br * 2, br * 2);
+        g.DrawEllipse(border, bcx - br, bcy - br, br * 2, br * 2);
+    }
+
+    private static void DrawNetworkIPPhone(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillRectangle(fill, rect);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+        float hsW = rect.Width * 0.56f;
+        float hsH = rect.Height * 0.26f;
+        float hsX = rect.X + (rect.Width - hsW) / 2f;
+        using var hsFill = new SolidBrush(Color.FromArgb(175, 178, 190));
+        using var hsBorder = new Pen(border.Color, border.Width * 0.8f);
+        using var hPath = CreateRoundedRect(new RectangleF(hsX, rect.Y + rect.Height * 0.04f, hsW, hsH), hsH * 0.44f);
+        g.FillPath(hsFill, hPath);
+        g.DrawPath(hsBorder, hPath);
+        float kTop = rect.Y + rect.Height * 0.36f;
+        float kLeft = rect.X + rect.Width * 0.14f;
+        float kW = rect.Width * 0.72f;
+        float kH = rect.Height * 0.54f;
+        int cols = 3, rows = 4;
+        float bW = kW / cols, bH = kH / rows;
+        using var keyFill = new SolidBrush(Color.FromArgb(205, 210, 220));
+        for (int row = 0; row < rows; row++)
+            for (int col = 0; col < cols; col++)
+                g.FillRectangle(keyFill, kLeft + col * bW + 1.5f, kTop + row * bH + 1.5f, bW - 3f, bH - 3f);
+    }
+
+    private static void DrawNetworkRack(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillRectangle(fill, rect);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+        float railW = Math.Min(rect.Width * 0.13f, 10f);
+        using var railFill = new SolidBrush(Color.FromArgb(175, 178, 190));
+        g.FillRectangle(railFill, rect.X, rect.Y, railW, rect.Height);
+        g.FillRectangle(railFill, rect.Right - railW, rect.Y, railW, rect.Height);
+        g.DrawLine(border, rect.X + railW, rect.Y, rect.X + railW, rect.Bottom);
+        g.DrawLine(border, rect.Right - railW, rect.Y, rect.Right - railW, rect.Bottom);
+        int slots = Math.Max(3, Math.Min(8, (int)(rect.Height / 14f)));
+        float slotH = rect.Height / (slots + 1f);
+        float slotX = rect.X + railW + 2f;
+        float slotW = rect.Width - railW * 2 - 4f;
+        using var slotFill = new SolidBrush(Color.FromArgb(205, 210, 220));
+        using var ledBrush = new SolidBrush(Color.FromArgb(60, 200, 60));
+        for (int i = 0; i < slots; i++)
+        {
+            float sy = rect.Y + slotH * (i + 0.65f) - slotH * 0.32f;
+            var sr = new RectangleF(slotX, sy, slotW, slotH * 0.65f);
+            g.FillRectangle(slotFill, sr);
+            g.DrawRectangle(border, sr.X, sr.Y, sr.Width, sr.Height);
+            float lr = Math.Min(slotH * 0.15f, 3.5f);
+            g.FillEllipse(ledBrush, sr.Right - lr * 2.8f, sy + sr.Height / 2f - lr, lr * 2, lr * 2);
+        }
+    }
+
+    private static void DrawNetworkTablet(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float rad = Math.Min(rect.Width, rect.Height) * 0.10f;
+        using var path = CreateRoundedRect(rect, rad);
+        g.FillPath(fill, path);
+        g.DrawPath(border, path);
+        float inset = rect.Height * 0.10f;
+        float btnW = Math.Max(rect.Width * 0.06f, 6f);
+        using var screenFill = new SolidBrush(Color.FromArgb(120, 135, 200, 235));
+        g.FillRectangle(screenFill,
+            rect.X + inset + btnW, rect.Y + inset,
+            rect.Width - inset * 2 - btnW * 2, rect.Height - inset * 2);
+        float br = Math.Min(rect.Height * 0.12f, btnW * 0.48f);
+        float bcx = rect.Right - inset * 0.55f - btnW * 0.1f;
+        float bcy = rect.Y + rect.Height / 2f;
+        using var btnFill = new SolidBrush(Color.FromArgb(195, 198, 208));
+        g.FillEllipse(btnFill, bcx - br, bcy - br, br * 2, br * 2);
+        g.DrawEllipse(border, bcx - br, bcy - br, br * 2, br * 2);
+    }
+
+    private static void DrawNetworkGateway(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float bodyX = rect.X + rect.Width * 0.22f;
+        float bodyW = rect.Width * 0.56f;
+        var bodyRect = new RectangleF(bodyX, rect.Y, bodyW, rect.Height);
+        g.FillRectangle(fill, bodyRect);
+        g.DrawRectangle(border, bodyRect.X, bodyRect.Y, bodyRect.Width, bodyRect.Height);
+        using var stripePen = new Pen(Color.FromArgb(50, border.Color), border.Width * 0.5f);
+        float step = bodyW / 5f;
+        for (int i = 1; i < 5; i++)
+            g.DrawLine(stripePen, bodyX + step * i, rect.Y + 2f, bodyX + step * i, rect.Bottom - 2f);
+        float cy = rect.Y + rect.Height / 2f;
+        DrawRouterArrow(g, border, bodyX, cy, rect.X + rect.Width * 0.06f, cy);
+        DrawRouterArrow(g, border, bodyX + bodyW, cy, rect.Right - rect.Width * 0.06f, cy);
+    }
+
+    private static bool Is3DShape(ShapeKind kind)
+        => kind is ShapeKind.Shape3DCube or ShapeKind.Shape3DBox or ShapeKind.Shape3DSphere
+            or ShapeKind.Shape3DPyramid or ShapeKind.Shape3DCone or ShapeKind.Shape3DCylinder;
+
+    private readonly record struct IsoLayout(
+        float OriginX, float OriginY, float FaceW, float FaceH, float SkewX, float SkewY);
+
+    private static IsoLayout CreateIsoLayout(RectangleF rect, float faceWidthRatio, float faceHeightRatio)
+    {
+        float skewX = rect.Width * 0.24f;
+        float skewY = rect.Height * 0.16f;
+        float faceW = rect.Width * faceWidthRatio;
+        float faceH = rect.Height * faceHeightRatio;
+        float ox = rect.X + (rect.Width - faceW - skewX) / 2f;
+        float oy = rect.Y + (rect.Height - faceH) / 2f + skewY;
+        return new IsoLayout(ox, oy, faceW, faceH, skewX, skewY);
+    }
+
+    private static Color GetBrushColor(Brush brush)
+        => brush is SolidBrush solid ? solid.Color : Color.Gray;
+
+    private static Color AdjustColor(Color color, float factor)
+    {
+        static int Scale(int channel, float scale)
+            => Math.Clamp((int)(channel * scale), 0, 255);
+
+        return Color.FromArgb(
+            color.A,
+            Scale(color.R, factor),
+            Scale(color.G, factor),
+            Scale(color.B, factor));
+    }
+
+    private static void DrawIsoBoxFaces(
+        Graphics g, IsoLayout iso, Brush front, Brush top, Brush right, Pen border)
+    {
+        var frontRect = new RectangleF(iso.OriginX, iso.OriginY, iso.FaceW, iso.FaceH);
+        PointF[] topFace =
+        [
+            new(iso.OriginX, iso.OriginY),
+            new(iso.OriginX + iso.SkewX, iso.OriginY - iso.SkewY),
+            new(iso.OriginX + iso.SkewX + iso.FaceW, iso.OriginY - iso.SkewY),
+            new(iso.OriginX + iso.FaceW, iso.OriginY)
+        ];
+        PointF[] rightFace =
+        [
+            new(iso.OriginX + iso.FaceW, iso.OriginY),
+            new(iso.OriginX + iso.FaceW + iso.SkewX, iso.OriginY - iso.SkewY),
+            new(iso.OriginX + iso.FaceW + iso.SkewX, iso.OriginY - iso.SkewY + iso.FaceH),
+            new(iso.OriginX + iso.FaceW, iso.OriginY + iso.FaceH)
+        ];
+
+        g.FillPolygon(top, topFace);
+        g.FillPolygon(right, rightFace);
+        g.FillRectangle(front, frontRect);
+        g.DrawPolygon(border, topFace);
+        g.DrawPolygon(border, rightFace);
+        g.DrawRectangle(border, frontRect.X, frontRect.Y, frontRect.Width, frontRect.Height);
+    }
+
+    private static PointF[] GetIsoBoxOutline(IsoLayout iso)
+    {
+        return
+        [
+            new(iso.OriginX, iso.OriginY),
+            new(iso.OriginX + iso.SkewX, iso.OriginY - iso.SkewY),
+            new(iso.OriginX + iso.SkewX + iso.FaceW, iso.OriginY - iso.SkewY),
+            new(iso.OriginX + iso.FaceW + iso.SkewX, iso.OriginY - iso.SkewY),
+            new(iso.OriginX + iso.FaceW + iso.SkewX, iso.OriginY - iso.SkewY + iso.FaceH),
+            new(iso.OriginX + iso.FaceW, iso.OriginY + iso.FaceH),
+            new(iso.OriginX, iso.OriginY + iso.FaceH)
+        ];
+    }
+
+    private static void DrawShape3DCube(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        var iso = CreateIsoLayout(rect, 0.48f, 0.48f);
+        var baseColor = GetBrushColor(fill);
+        using var topBrush = new SolidBrush(AdjustColor(baseColor, 1.14f));
+        using var rightBrush = new SolidBrush(AdjustColor(baseColor, 0.78f));
+        DrawIsoBoxFaces(g, iso, fill, topBrush, rightBrush, border);
+    }
+
+    private static void DrawShape3DBox(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        var iso = CreateIsoLayout(rect, 0.62f, 0.34f);
+        var baseColor = GetBrushColor(fill);
+        using var topBrush = new SolidBrush(AdjustColor(baseColor, 1.12f));
+        using var rightBrush = new SolidBrush(AdjustColor(baseColor, 0.76f));
+        DrawIsoBoxFaces(g, iso, fill, topBrush, rightBrush, border);
+    }
+
+    private static void DrawShape3DSphere(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        var body = InsetRect(rect, 0.08f);
+        var baseColor = GetBrushColor(fill);
+        using var shadowBrush = new SolidBrush(AdjustColor(baseColor, 0.72f));
+        using var highlightBrush = new SolidBrush(Color.FromArgb(110, 255, 255, 255));
+
+        g.FillEllipse(fill, body);
+        var shadow = new RectangleF(body.X + body.Width * 0.18f, body.Y + body.Height * 0.42f,
+            body.Width * 0.72f, body.Height * 0.52f);
+        g.FillEllipse(shadowBrush, shadow);
+        g.FillEllipse(fill, body);
+
+        var highlight = new RectangleF(body.X + body.Width * 0.14f, body.Y + body.Height * 0.12f,
+            body.Width * 0.34f, body.Height * 0.28f);
+        g.FillEllipse(highlightBrush, highlight);
+        g.DrawEllipse(border, body);
+    }
+
+    private static void DrawShape3DPyramid(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float cx = rect.X + rect.Width / 2f;
+        var apex = new PointF(cx, rect.Y + rect.Height * 0.08f);
+        PointF[] basePts =
+        [
+            new(rect.X + rect.Width * 0.18f, rect.Bottom - rect.Height * 0.08f),
+            new(rect.X + rect.Width * 0.42f, rect.Bottom - rect.Height * 0.22f),
+            new(rect.Right - rect.Width * 0.18f, rect.Bottom - rect.Height * 0.08f),
+            new(rect.Right - rect.Width * 0.42f, rect.Bottom - rect.Height * 0.22f)
+        ];
+
+        var baseColor = GetBrushColor(fill);
+        using var leftBrush = new SolidBrush(AdjustColor(baseColor, 0.8f));
+        using var rightBrush = new SolidBrush(AdjustColor(baseColor, 0.92f));
+        using var baseBrush = new SolidBrush(AdjustColor(baseColor, 0.68f));
+
+        g.FillPolygon(leftBrush, [apex, basePts[0], basePts[1]]);
+        g.FillPolygon(rightBrush, [apex, basePts[2], basePts[3]]);
+        g.FillPolygon(baseBrush, basePts);
+        g.DrawPolygon(border, [apex, basePts[0], basePts[1], apex]);
+        g.DrawPolygon(border, [apex, basePts[2], basePts[3], apex]);
+        g.DrawPolygon(border, basePts);
+    }
+
+    private static void DrawShape3DCone(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float cx = rect.X + rect.Width / 2f;
+        var apex = new PointF(cx, rect.Y + rect.Height * 0.1f);
+        float baseY = rect.Bottom - rect.Height * 0.1f;
+        float rx = rect.Width * 0.34f;
+        var baseRect = new RectangleF(cx - rx, baseY - rect.Height * 0.08f, rx * 2f, rect.Height * 0.16f);
+
+        var baseColor = GetBrushColor(fill);
+        using var sideBrush = new SolidBrush(AdjustColor(baseColor, 0.86f));
+        using var baseBrush = new SolidBrush(AdjustColor(baseColor, 0.7f));
+
+        PointF[] leftSide = [apex, new(baseRect.Left, baseRect.Top + baseRect.Height / 2f), new(cx, baseRect.Bottom)];
+        PointF[] rightSide = [apex, new(baseRect.Right, baseRect.Top + baseRect.Height / 2f), new(cx, baseRect.Bottom)];
+        g.FillPolygon(sideBrush, leftSide);
+        g.FillPolygon(sideBrush, rightSide);
+        g.FillEllipse(baseBrush, baseRect);
+        g.DrawLines(border, [apex, leftSide[1], leftSide[2], rightSide[1], apex, rightSide[1]]);
+        g.DrawArc(border, baseRect, 0, 180);
+    }
+
+    private static void DrawShape3DCylinder(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        var iso = CreateIsoLayout(rect, 0.42f, 0.5f);
+        float eh = Math.Max(6f, iso.FaceH * 0.22f);
+        var topEllipse = new RectangleF(iso.OriginX, iso.OriginY - iso.SkewY * 0.35f, iso.FaceW, eh);
+        var bottomEllipse = new RectangleF(iso.OriginX, iso.OriginY + iso.FaceH - eh * 0.55f, iso.FaceW, eh);
+        var body = new RectangleF(iso.OriginX, iso.OriginY + eh * 0.25f, iso.FaceW, iso.FaceH - eh * 0.35f);
+
+        var baseColor = GetBrushColor(fill);
+        using var sideBrush = new SolidBrush(AdjustColor(baseColor, 0.84f));
+        using var topBrush = new SolidBrush(AdjustColor(baseColor, 1.1f));
+
+        g.FillRectangle(sideBrush, body);
+        g.FillEllipse(sideBrush, bottomEllipse);
+        g.FillEllipse(topBrush, topEllipse);
+        g.DrawLine(border, body.Left, body.Top, body.Left, body.Bottom);
+        g.DrawLine(border, body.Right, body.Top, body.Right, body.Bottom);
+        g.DrawArc(border, bottomEllipse, 0, 180);
+        g.DrawEllipse(border, topEllipse);
+    }
+
+    private static RectangleF InsetRect(RectangleF rect, float ratio)
+    {
+        float padX = rect.Width * ratio;
+        float padY = rect.Height * ratio;
+        return new RectangleF(rect.X + padX, rect.Y + padY, rect.Width - padX * 2f, rect.Height - padY * 2f);
+    }
+
+    private static void Dispatch3DDraw(Graphics g, Brush fill, Pen border, RectangleF rect, ShapeKind kind)
+    {
+        switch (kind)
+        {
+            case ShapeKind.Shape3DCube:     DrawShape3DCube(g, fill, border, rect);     break;
+            case ShapeKind.Shape3DBox:      DrawShape3DBox(g, fill, border, rect);      break;
+            case ShapeKind.Shape3DSphere:   DrawShape3DSphere(g, fill, border, rect);   break;
+            case ShapeKind.Shape3DPyramid:  DrawShape3DPyramid(g, fill, border, rect);  break;
+            case ShapeKind.Shape3DCone:     DrawShape3DCone(g, fill, border, rect);     break;
+            case ShapeKind.Shape3DCylinder: DrawShape3DCylinder(g, fill, border, rect); break;
+        }
+    }
+
+    private static void DispatchNetworkDraw(Graphics g, Brush fill, Pen border, RectangleF rect, ShapeKind kind)
+    {
+        switch (kind)
+        {
+            case ShapeKind.NetworkServer:   DrawNetworkServer(g, fill, border, rect);   break;
+            case ShapeKind.NetworkRouter:   DrawNetworkRouter(g, fill, border, rect);   break;
+            case ShapeKind.NetworkSwitch:   DrawNetworkSwitch(g, fill, border, rect);   break;
+            case ShapeKind.NetworkPC:       DrawNetworkPC(g, fill, border, rect);       break;
+            case ShapeKind.NetworkFirewall: DrawNetworkFirewall(g, fill, border, rect); break;
+            case ShapeKind.NetworkHub:      DrawNetworkHub(g, fill, border, rect);      break;
+            case ShapeKind.NetworkPrinter:  DrawNetworkPrinter(g, fill, border, rect);  break;
+            case ShapeKind.NetworkWifi:     DrawNetworkWifi(g, fill, border, rect);     break;
+            case ShapeKind.NetworkInternet: DrawNetworkInternet(g, fill, border, rect); break;
+            case ShapeKind.NetworkStorage:  DrawNetworkStorage(g, fill, border, rect);  break;
+            case ShapeKind.NetworkLaptop:   DrawNetworkLaptop(g, fill, border, rect);   break;
+            case ShapeKind.NetworkMobile:   DrawNetworkMobile(g, fill, border, rect);   break;
+            case ShapeKind.NetworkIPPhone:  DrawNetworkIPPhone(g, fill, border, rect);  break;
+            case ShapeKind.NetworkRack:     DrawNetworkRack(g, fill, border, rect);     break;
+            case ShapeKind.NetworkTablet:   DrawNetworkTablet(g, fill, border, rect);   break;
+            case ShapeKind.NetworkGateway:  DrawNetworkGateway(g, fill, border, rect);  break;
+        }
     }
 
     private static void DrawShapeImage(Graphics g, DiagramShape shape, RectangleF rect, Image? image)
@@ -658,7 +1715,8 @@ public static class DiagramRenderer
                 break;
 
             case ShapeKind.Database:
-                path.AddPath(CreateDatabase(rect), false);
+                // Database is handled specially in draw methods; return bounding rect for hit test
+                path.AddRectangle(rect);
                 break;
 
             case ShapeKind.Arrow:
@@ -672,6 +1730,88 @@ public static class DiagramRenderer
             case ShapeKind.Chevron:
                 path.AddPolygon(CreateChevron(rect));
                 break;
+
+            case ShapeKind.CallOut:
+                path.AddPath(CreateCallOut(rect), false);
+                break;
+
+            case ShapeKind.Note:
+                path.AddPolygon(CreateNote(rect));
+                break;
+
+            case ShapeKind.OffPageConnector:
+                path.AddPolygon(CreateOffPageConnector(rect));
+                break;
+
+            case ShapeKind.DoubleArrow:
+                path.AddPolygon(CreateDoubleArrow(rect));
+                break;
+
+            case ShapeKind.ManualInput:
+                path.AddPolygon(CreateManualInput(rect));
+                break;
+
+            case ShapeKind.Delay:
+                // Delay uses special drawing; return bounding rect for hit test
+                path.AddRectangle(rect);
+                break;
+
+            case ShapeKind.NetworkServer:
+            case ShapeKind.NetworkRouter:
+            case ShapeKind.NetworkSwitch:
+            case ShapeKind.NetworkPC:
+            case ShapeKind.NetworkFirewall:
+            case ShapeKind.NetworkHub:
+            case ShapeKind.NetworkPrinter:
+            case ShapeKind.NetworkWifi:
+            case ShapeKind.NetworkInternet:
+            case ShapeKind.NetworkStorage:
+            case ShapeKind.NetworkLaptop:
+            case ShapeKind.NetworkMobile:
+            case ShapeKind.NetworkIPPhone:
+            case ShapeKind.NetworkRack:
+            case ShapeKind.NetworkTablet:
+            case ShapeKind.NetworkGateway:
+                path.AddRectangle(rect);
+                break;
+
+            case ShapeKind.Shape3DCube:
+                path.AddPolygon(GetIsoBoxOutline(CreateIsoLayout(rect, 0.48f, 0.48f)));
+                break;
+
+            case ShapeKind.Shape3DBox:
+                path.AddPolygon(GetIsoBoxOutline(CreateIsoLayout(rect, 0.62f, 0.34f)));
+                break;
+
+            case ShapeKind.Shape3DSphere:
+                path.AddEllipse(InsetRect(rect, 0.08f));
+                break;
+
+            case ShapeKind.Shape3DPyramid:
+                path.AddPolygon(
+                [
+                    new PointF(rect.X + rect.Width / 2f, rect.Y + rect.Height * 0.08f),
+                    new PointF(rect.X + rect.Width * 0.18f, rect.Bottom - rect.Height * 0.08f),
+                    new PointF(rect.Right - rect.Width * 0.18f, rect.Bottom - rect.Height * 0.08f)
+                ]);
+                break;
+
+            case ShapeKind.Shape3DCone:
+                path.AddPolygon(
+                [
+                    new PointF(rect.X + rect.Width / 2f, rect.Y + rect.Height * 0.1f),
+                    new PointF(rect.X + rect.Width * 0.16f, rect.Bottom - rect.Height * 0.02f),
+                    new PointF(rect.Right - rect.Width * 0.16f, rect.Bottom - rect.Height * 0.02f)
+                ]);
+                break;
+
+            case ShapeKind.Shape3DCylinder:
+            {
+                var isoCylinder = CreateIsoLayout(rect, 0.42f, 0.5f);
+                path.AddRectangle(new RectangleF(isoCylinder.OriginX, isoCylinder.OriginY - isoCylinder.SkewY * 0.35f,
+                    isoCylinder.FaceW + isoCylinder.SkewX, isoCylinder.FaceH + isoCylinder.SkewY * 0.35f));
+                break;
+            }
         }
 
         return path;
@@ -729,18 +1869,28 @@ public static class DiagramRenderer
 
     private static GraphicsPath CreateCloud(RectangleF rect)
     {
-        // Build cloud outline left→right using arcs over 4 bumps, then flat bottom arc
+        float x = rect.X, y = rect.Y, w = rect.Width, h = rect.Height;
         var path = new GraphicsPath();
-        float w = rect.Width, h = rect.Height;
-        float x = rect.X, y = rect.Y;
 
-        // Each bump: arc from 180° sweeping -180° (counterclockwise over top)
-        path.AddArc(x,             y + h * 0.38f, w * 0.30f, h * 0.42f, 180, -180); // left (small)
-        path.AddArc(x + w * 0.14f, y + h * 0.08f, w * 0.34f, h * 0.52f, 180, -180); // center-left
-        path.AddArc(x + w * 0.40f, y,             w * 0.36f, h * 0.56f, 180, -180); // center (tallest)
-        path.AddArc(x + w * 0.62f, y + h * 0.12f, w * 0.32f, h * 0.46f, 180, -180); // right
-        // Bottom flat arc (lower half of a wide ellipse, left to right)
-        path.AddArc(x + w * 0.02f, y + h * 0.55f, w * 0.96f, h * 0.45f, 0, 180);
+        // Helper to convert relative (0–1) coordinates to absolute points
+        PointF P(float fx, float fy) => new(x + w * fx, y + h * fy);
+
+        path.StartFigure();
+        // Clockwise from bottom-left: 6 bezier bumps then flat bottom line
+        // Bottom-left small bump
+        path.AddBezier(P(0.12f, 0.82f), P(0.00f, 0.82f), P(0.00f, 0.52f), P(0.18f, 0.50f));
+        // Left bump (medium)
+        path.AddBezier(P(0.18f, 0.50f), P(0.04f, 0.38f), P(0.14f, 0.14f), P(0.30f, 0.22f));
+        // Top-left bump (tallest)
+        path.AddBezier(P(0.30f, 0.22f), P(0.28f, 0.01f), P(0.56f, -0.02f), P(0.55f, 0.18f));
+        // Top-right bump
+        path.AddBezier(P(0.55f, 0.18f), P(0.56f, -0.01f), P(0.80f, 0.02f), P(0.78f, 0.22f));
+        // Right bump (medium)
+        path.AddBezier(P(0.78f, 0.22f), P(0.96f, 0.18f), P(1.00f, 0.44f), P(0.84f, 0.52f));
+        // Bottom-right small bump
+        path.AddBezier(P(0.84f, 0.52f), P(1.02f, 0.58f), P(1.02f, 0.88f), P(0.88f, 0.82f));
+        // Flat bottom
+        path.AddLine(P(0.88f, 0.82f), P(0.12f, 0.82f));
         path.CloseFigure();
         return path;
     }
@@ -765,23 +1915,6 @@ public static class DiagramRenderer
             x, y + h - wave,
             x, y + h - wave);
         path.AddLine(x, y + h - wave, x, y);
-        path.CloseFigure();
-        return path;
-    }
-
-    private static GraphicsPath CreateDatabase(RectangleF rect)
-    {
-        var path = new GraphicsPath();
-        float w = rect.Width, h = rect.Height;
-        float x = rect.X, y = rect.Y;
-        float eh = h * 0.2f;
-
-        path.AddArc(x, y, w, eh, 0, 180);
-        path.AddArc(x, y, w, eh, 180, 180);
-        path.AddLine(x, y + eh / 2, x, y + h - eh / 2);
-        path.AddArc(x, y + h - eh, w, eh, 0, 180);
-        path.AddArc(x, y + h - eh, w, eh, 180, 180);
-        path.AddLine(x + w, y + h - eh / 2, x + w, y + eh / 2);
         path.CloseFigure();
         return path;
     }
@@ -828,6 +1961,84 @@ public static class DiagramRenderer
             new PointF(rect.Right - notch,  rect.Bottom),
             new PointF(rect.X,              rect.Bottom),
             new PointF(rect.X + notch,      cy)
+        ];
+    }
+
+    private static GraphicsPath CreateCallOut(RectangleF rect)
+    {
+        var path = new GraphicsPath();
+        float tailH = Math.Min(rect.Height * 0.22f, 20f);
+        float bodyH = rect.Height - tailH;
+        float rad   = Math.Min(bodyH * 0.15f, 10f);
+        float tlX   = rect.X + rect.Width * 0.12f;
+        float trX   = rect.X + rect.Width * 0.38f;
+
+        // Rounded rect body
+        float d = rad * 2;
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Y + bodyH - d, d, d, 0, 90);
+        path.AddLine(rect.Right - rad, rect.Y + bodyH, trX, rect.Y + bodyH);
+        path.AddLine(trX, rect.Y + bodyH, tlX, rect.Bottom);  // tail tip
+        path.AddLine(tlX, rect.Bottom, rect.X + rad, rect.Y + bodyH);
+        path.AddArc(rect.X, rect.Y + bodyH - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private static PointF[] CreateNote(RectangleF rect)
+    {
+        float fold = Math.Min(rect.Width * 0.22f, Math.Min(rect.Height * 0.22f, 20f));
+        return [
+            new(rect.X, rect.Y),
+            new(rect.Right - fold, rect.Y),
+            new(rect.Right, rect.Y + fold),
+            new(rect.Right, rect.Bottom),
+            new(rect.X, rect.Bottom)
+        ];
+    }
+
+    private static PointF[] CreateOffPageConnector(RectangleF rect)
+    {
+        float cy  = rect.Y + rect.Height / 2f;
+        float tip = rect.Width * 0.22f;
+        return [
+            new(rect.X, rect.Y),
+            new(rect.Right - tip, rect.Y),
+            new(rect.Right, cy),
+            new(rect.Right - tip, rect.Bottom),
+            new(rect.X, rect.Bottom)
+        ];
+    }
+
+    private static PointF[] CreateDoubleArrow(RectangleF rect)
+    {
+        float cy     = rect.Y + rect.Height / 2f;
+        float shaftT = rect.Y + rect.Height * 0.28f;
+        float shaftB = rect.Bottom - rect.Height * 0.28f;
+        float tip    = rect.Width * 0.26f;
+        return [
+            new(rect.X, cy),
+            new(rect.X + tip, rect.Y),
+            new(rect.X + tip, shaftT),
+            new(rect.Right - tip, shaftT),
+            new(rect.Right - tip, rect.Y),
+            new(rect.Right, cy),
+            new(rect.Right - tip, rect.Bottom),
+            new(rect.Right - tip, shaftB),
+            new(rect.X + tip, shaftB),
+            new(rect.X + tip, rect.Bottom),
+        ];
+    }
+
+    private static PointF[] CreateManualInput(RectangleF rect)
+    {
+        float slant = rect.Height * 0.18f;
+        return [
+            new(rect.X,      rect.Y + slant),
+            new(rect.Right,  rect.Y),
+            new(rect.Right,  rect.Bottom),
+            new(rect.X,      rect.Bottom)
         ];
     }
 
@@ -891,6 +2102,7 @@ public static class DiagramRenderer
         PointF? best = null;
         float bestDistance = -1f;
         PointF previous = points[0];
+        int subpathStart = 0;
 
         for (int i = 1; i < points.Length; i++)
         {
@@ -912,7 +2124,21 @@ public static class DiagramRenderer
 
             previous = points[i];
             if ((types[i] & (byte)PathPointType.CloseSubpath) != 0)
-                previous = points[0];
+            {
+                // Check the closing segment from points[i] back to the subpath start
+                var closeHit = RaySegmentIntersect(origin, dirX, dirY, points[i], points[subpathStart]);
+                if (closeHit is PointF closePt)
+                {
+                    float distance = Distance(origin, closePt);
+                    if (distance > 0.5f && distance > bestDistance)
+                    {
+                        bestDistance = distance;
+                        best = closePt;
+                    }
+                }
+                subpathStart = i + 1;
+                previous = subpathStart < points.Length ? points[subpathStart] : points[0];
+            }
         }
 
         return best;
@@ -955,19 +2181,68 @@ public static class DiagramRenderer
         return (float)Math.Sqrt(dx * dx + dy * dy);
     }
 
-    private static void DrawArrowHead(Graphics g, Pen pen, PointF from, PointF to)
+    private static void DrawArrowHead(Graphics g, Pen pen, PointF from, PointF to, ArrowHeadStyle style = ArrowHeadStyle.Open)
     {
-        const float size = 10f;
-        float angle = (float)Math.Atan2(to.Y - from.Y, to.X - from.X);
-        var p1 = new PointF(
-            to.X - size * (float)Math.Cos(angle - Math.PI / 6),
-            to.Y - size * (float)Math.Sin(angle - Math.PI / 6));
-        var p2 = new PointF(
-            to.X - size * (float)Math.Cos(angle + Math.PI / 6),
-            to.Y - size * (float)Math.Sin(angle + Math.PI / 6));
+        if (style == ArrowHeadStyle.None) return;
+        float angle = MathF.Atan2(to.Y - from.Y, to.X - from.X);
+        float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
+        const float sz = 11f;
 
-        g.DrawLine(pen, to, p1);
-        g.DrawLine(pen, to, p2);
+        switch (style)
+        {
+            case ArrowHeadStyle.Open:
+            {
+                float a = MathF.PI / 6;
+                g.DrawLine(pen, to, new PointF(to.X - sz * MathF.Cos(angle - a), to.Y - sz * MathF.Sin(angle - a)));
+                g.DrawLine(pen, to, new PointF(to.X - sz * MathF.Cos(angle + a), to.Y - sz * MathF.Sin(angle + a)));
+                break;
+            }
+            case ArrowHeadStyle.Filled:
+            {
+                float a = MathF.PI / 7;
+                var pts = new PointF[] {
+                    to,
+                    new(to.X - sz * MathF.Cos(angle - a), to.Y - sz * MathF.Sin(angle - a)),
+                    new(to.X - sz * MathF.Cos(angle + a), to.Y - sz * MathF.Sin(angle + a))
+                };
+                using var brush = new SolidBrush(pen.Color);
+                g.FillPolygon(brush, pts);
+                break;
+            }
+            case ArrowHeadStyle.OpenDouble:
+            {
+                float a = MathF.PI / 6;
+                float s1 = sz, s2 = sz * 0.55f;
+                g.DrawLine(pen, to, new PointF(to.X - s1 * MathF.Cos(angle - a), to.Y - s1 * MathF.Sin(angle - a)));
+                g.DrawLine(pen, to, new PointF(to.X - s1 * MathF.Cos(angle + a), to.Y - s1 * MathF.Sin(angle + a)));
+                var mid = new PointF(to.X - s2 * cos, to.Y - s2 * sin);
+                g.DrawLine(pen, mid, new PointF(mid.X - s2 * MathF.Cos(angle - a), mid.Y - s2 * MathF.Sin(angle - a)));
+                g.DrawLine(pen, mid, new PointF(mid.X - s2 * MathF.Cos(angle + a), mid.Y - s2 * MathF.Sin(angle + a)));
+                break;
+            }
+            case ArrowHeadStyle.Diamond:
+            {
+                float half = sz * 0.45f;
+                var pts = new PointF[] {
+                    to,
+                    new(to.X - half * cos + half * (-sin), to.Y - half * sin + half * cos),
+                    new(to.X - sz * cos,                   to.Y - sz * sin),
+                    new(to.X - half * cos - half * (-sin), to.Y - half * sin - half * cos)
+                };
+                using var brush = new SolidBrush(pen.Color);
+                g.FillPolygon(brush, pts);
+                g.DrawPolygon(pen, pts);
+                break;
+            }
+            case ArrowHeadStyle.Circle:
+            {
+                float r = sz * 0.38f;
+                var ctr = new PointF(to.X - r * cos, to.Y - r * sin);
+                using var brush = new SolidBrush(pen.Color);
+                g.FillEllipse(brush, ctr.X - r, ctr.Y - r, r * 2, r * 2);
+                break;
+            }
+        }
     }
 
     private static RectangleF OffsetRect(RectangleF rect, PointF offset)

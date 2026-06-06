@@ -30,7 +30,6 @@ partial class MainForm
     private ToolStripMenuItem _menuZoomIn;
     private ToolStripMenuItem _menuZoomOut;
     private ToolStripMenuItem _menuZoomReset;
-    private ToolStripMenuItem _menuView3D;
     private ToolStrip _toolStrip;
     private ToolStripButton _btnSelect;
     private ToolStripButton _btnRectangle;
@@ -110,6 +109,7 @@ partial class MainForm
 
     private void InitializeComponent()
     {
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         _menuStrip = new MenuStrip();
         _menuFile = new ToolStripMenuItem();
         _menuNew = new ToolStripMenuItem();
@@ -136,7 +136,6 @@ partial class MainForm
         _menuZoomIn = new ToolStripMenuItem();
         _menuZoomOut = new ToolStripMenuItem();
         _menuZoomReset = new ToolStripMenuItem();
-        _menuView3D = new ToolStripMenuItem();
         _toolStrip = new ToolStrip();
         _btnSelect = new ToolStripButton();
         _sepShapes = new ToolStripSeparator();
@@ -392,7 +391,7 @@ partial class MainForm
         // 
         // _menuView
         // 
-        _menuView.DropDownItems.AddRange(new ToolStripItem[] { _menuZoomIn, _menuZoomOut, _menuZoomReset, _menuView3D });
+        _menuView.DropDownItems.AddRange(new ToolStripItem[] { _menuZoomIn, _menuZoomOut, _menuZoomReset });
         _menuView.Name = "_menuView";
         _menuView.Size = new Size(59, 20);
         _menuView.Text = "보기(&V)";
@@ -420,14 +419,6 @@ partial class MainForm
         _menuZoomReset.Size = new Size(198, 22);
         _menuZoomReset.Text = "100%로 재설정";
         _menuZoomReset.Click += MenuZoomReset_Click;
-        // 
-        // _menuView3D
-        // 
-        _menuView3D.Name = "_menuView3D";
-        _menuView3D.ShortcutKeys = Keys.Control | Keys.D3;
-        _menuView3D.Size = new Size(198, 22);
-        _menuView3D.Text = "3D 보기...";
-        _menuView3D.Click += MenuView3D_Click;
         // 
         // _toolStrip
         // 
@@ -632,8 +623,8 @@ partial class MainForm
         // 
         // _pnlToolbox
         // 
-        _pnlToolbox.Controls.Add(_lblToolboxTitle);
         _pnlToolbox.Controls.Add(_toolbox);
+        _pnlToolbox.Controls.Add(_lblToolboxTitle);
         _pnlToolbox.Dock = DockStyle.Fill;
         _pnlToolbox.Location = new Point(0, 0);
         _pnlToolbox.Name = "_pnlToolbox";
@@ -679,9 +670,9 @@ partial class MainForm
         // _splitEditor.Panel2
         // 
         _splitEditor.Panel2.Controls.Add(_pnlProperties);
-        _splitEditor.Panel2MinSize = 280;
+        _splitEditor.Panel2MinSize = 235;
         _splitEditor.Size = new Size(1079, 683);
-        _splitEditor.SplitterDistance = 783;
+        _splitEditor.SplitterDistance = 839;
         _splitEditor.TabIndex = 0;
         // 
         // _pnlCanvasHost
@@ -712,7 +703,7 @@ partial class MainForm
         _pnlProperties.Location = new Point(0, 0);
         _pnlProperties.Name = "_pnlProperties";
         _pnlProperties.Padding = new Padding(8);
-        _pnlProperties.Size = new Size(292, 683);
+        _pnlProperties.Size = new Size(235, 683);
         _pnlProperties.TabIndex = 0;
         // 
         // _grpConnector
@@ -733,23 +724,24 @@ partial class MainForm
         _grpConnector.Enabled = false;
         _grpConnector.Location = new Point(8, 404);
         _grpConnector.Name = "_grpConnector";
-        _grpConnector.Size = new Size(276, 260);
+        _grpConnector.Size = new Size(219, 228);
         _grpConnector.TabIndex = 2;
         _grpConnector.TabStop = false;
         _grpConnector.Text = "연결선 속성";
         // 
         // _txtConnectorLabel
         // 
-        _txtConnectorLabel.Location = new Point(88, 188);
+        _txtConnectorLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _txtConnectorLabel.Location = new Point(88, 200);
         _txtConnectorLabel.Name = "_txtConnectorLabel";
-        _txtConnectorLabel.Size = new Size(171, 23);
+        _txtConnectorLabel.Size = new Size(123, 23);
         _txtConnectorLabel.TabIndex = 11;
         _txtConnectorLabel.TextChanged += ConnectorPropertyChanged;
         // 
         // _lblConnectorLabel
         // 
         _lblConnectorLabel.AutoSize = true;
-        _lblConnectorLabel.Location = new Point(12, 192);
+        _lblConnectorLabel.Location = new Point(12, 204);
         _lblConnectorLabel.Name = "_lblConnectorLabel";
         _lblConnectorLabel.Size = new Size(31, 15);
         _lblConnectorLabel.TabIndex = 10;
@@ -760,7 +752,7 @@ partial class MainForm
         _chkEndArrow.AutoSize = true;
         _chkEndArrow.Checked = true;
         _chkEndArrow.CheckState = CheckState.Checked;
-        _chkEndArrow.Location = new Point(160, 156);
+        _chkEndArrow.Location = new Point(88, 176);
         _chkEndArrow.Name = "_chkEndArrow";
         _chkEndArrow.Size = new Size(78, 19);
         _chkEndArrow.TabIndex = 9;
@@ -770,7 +762,7 @@ partial class MainForm
         // _chkStartArrow
         // 
         _chkStartArrow.AutoSize = true;
-        _chkStartArrow.Location = new Point(88, 156);
+        _chkStartArrow.Location = new Point(88, 154);
         _chkStartArrow.Name = "_chkStartArrow";
         _chkStartArrow.Size = new Size(74, 19);
         _chkStartArrow.TabIndex = 8;
@@ -782,9 +774,10 @@ partial class MainForm
         _cmbConnectorKind.DropDownStyle = ComboBoxStyle.DropDownList;
         _cmbConnectorKind.FormattingEnabled = true;
         _cmbConnectorKind.Items.AddRange(new object[] { "직선", "꺾은선", "곡선" });
+        _cmbConnectorKind.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbConnectorKind.Location = new Point(88, 120);
         _cmbConnectorKind.Name = "_cmbConnectorKind";
-        _cmbConnectorKind.Size = new Size(171, 23);
+        _cmbConnectorKind.Size = new Size(123, 23);
         _cmbConnectorKind.TabIndex = 7;
         _cmbConnectorKind.SelectedIndexChanged += ConnectorPropertyChanged;
         // 
@@ -802,9 +795,10 @@ partial class MainForm
         _cmbLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
         _cmbLineStyle.FormattingEnabled = true;
         _cmbLineStyle.Items.AddRange(new object[] { "실선", "파선", "점선", "일점쇄선", "일점이쇄선", "긴파선", "짧은파선", "이중선" });
+        _cmbLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbLineStyle.Location = new Point(88, 84);
         _cmbLineStyle.Name = "_cmbLineStyle";
-        _cmbLineStyle.Size = new Size(171, 23);
+        _cmbLineStyle.Size = new Size(123, 23);
         _cmbLineStyle.TabIndex = 5;
         _cmbLineStyle.SelectedIndexChanged += ConnectorPropertyChanged;
         // 
@@ -887,18 +881,19 @@ partial class MainForm
         _grpShape.Enabled = false;
         _grpShape.Location = new Point(8, 36);
         _grpShape.Name = "_grpShape";
-        _grpShape.Size = new Size(276, 368);
+        _grpShape.Size = new Size(219, 368);
         _grpShape.TabIndex = 1;
         _grpShape.TabStop = false;
         _grpShape.Text = "도형 속성";
         // 
         // _btnClearImage
         // 
-        _btnClearImage.Location = new Point(174, 328);
+        _btnClearImage.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        _btnClearImage.Location = new Point(152, 328);
         _btnClearImage.Name = "_btnClearImage";
-        _btnClearImage.Size = new Size(94, 28);
+        _btnClearImage.Size = new Size(59, 28);
         _btnClearImage.TabIndex = 18;
-        _btnClearImage.Text = "이미지 제거";
+        _btnClearImage.Text = "제거";
         _btnClearImage.Click += BtnClearImage_Click;
         // 
         // _btnSetImage
@@ -942,10 +937,11 @@ partial class MainForm
         // 
         // _cmbFont
         // 
+        _cmbFont.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbFont.FormattingEnabled = true;
         _cmbFont.Location = new Point(88, 260);
         _cmbFont.Name = "_cmbFont";
-        _cmbFont.Size = new Size(171, 23);
+        _cmbFont.Size = new Size(123, 23);
         _cmbFont.TabIndex = 13;
         _cmbFont.SelectedIndexChanged += ShapePropertyChanged;
         // 
@@ -963,9 +959,10 @@ partial class MainForm
         _cmbBorderStyle.DropDownStyle = ComboBoxStyle.DropDownList;
         _cmbBorderStyle.FormattingEnabled = true;
         _cmbBorderStyle.Items.AddRange(new object[] { "실선", "파선", "점선", "일점쇄선", "일점이쇄선", "긴파선", "짧은파선", "이중선" });
+        _cmbBorderStyle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbBorderStyle.Location = new Point(88, 224);
         _cmbBorderStyle.Name = "_cmbBorderStyle";
-        _cmbBorderStyle.Size = new Size(168, 23);
+        _cmbBorderStyle.Size = new Size(123, 23);
         _cmbBorderStyle.TabIndex = 11;
         _cmbBorderStyle.SelectedIndexChanged += ShapePropertyChanged;
         // 
@@ -1099,9 +1096,10 @@ partial class MainForm
         // 
         // _txtShapeText
         // 
+        _txtShapeText.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _txtShapeText.Location = new Point(88, 8);
         _txtShapeText.Name = "_txtShapeText";
-        _txtShapeText.Size = new Size(180, 23);
+        _txtShapeText.Size = new Size(123, 23);
         _txtShapeText.TabIndex = 1;
         _txtShapeText.TextChanged += ShapePropertyChanged;
         // 
@@ -1120,7 +1118,7 @@ partial class MainForm
         _lblPropertyTitle.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
         _lblPropertyTitle.Location = new Point(8, 8);
         _lblPropertyTitle.Name = "_lblPropertyTitle";
-        _lblPropertyTitle.Size = new Size(276, 28);
+        _lblPropertyTitle.Size = new Size(219, 28);
         _lblPropertyTitle.TabIndex = 0;
         _lblPropertyTitle.Text = "속성";
         _lblPropertyTitle.TextAlign = ContentAlignment.MiddleLeft;
@@ -1152,6 +1150,7 @@ partial class MainForm
         Controls.Add(_menuStrip);
         KeyPreview = true;
         MainMenuStrip = _menuStrip;
+        Icon = (Icon)resources.GetObject("$this.Icon");
         MinimumSize = new Size(960, 600);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;

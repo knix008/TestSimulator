@@ -1,4 +1,5 @@
 using System.Drawing.Imaging;
+using MyDiagramWinV10.App;
 using MyDiagramWinV10.Controls;
 using MyDiagramWinV10.Export;
 using MyDiagramWinV10.Models;
@@ -11,14 +12,42 @@ namespace MyDiagramWinV10;
 public partial class MainForm : Form
 {
     private string? _currentFilePath;
+    private string? _pendingProjectPath;
     private bool _isDirty;
     private bool _suppressPropertySync;
 
-    public MainForm()
+    public MainForm(string? initialProjectPath = null)
     {
+        _pendingProjectPath = initialProjectPath;
         InitializeComponent();
         if (System.ComponentModel.LicenseManager.UsageMode != System.ComponentModel.LicenseUsageMode.Designtime)
+        {
             InitializeRuntime();
+            Shown += MainForm_Shown;
+        }
+    }
+
+    private void MainForm_Shown(object? sender, EventArgs e)
+    {
+        Shown -= MainForm_Shown;
+        if (string.IsNullOrWhiteSpace(_pendingProjectPath))
+            return;
+
+        var path = _pendingProjectPath;
+        _pendingProjectPath = null;
+        TryOpenProjectFile(path, confirmDiscard: false);
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (SingleInstanceMessenger.TryGetForwardedProjectPath(ref m, out var projectPath))
+        {
+            BeginInvoke(() => TryOpenProjectFile(projectPath!));
+            m.Result = (IntPtr)1;
+            return;
+        }
+
+        base.WndProc(ref m);
     }
 
     private void InitializeRuntime()
@@ -29,7 +58,12 @@ public partial class MainForm : Form
             _cmbFont.SelectedItem = "맑은 고딕";
 
         _cmbBorderStyle.SelectedIndex = 0;
+        _cmbLineStyle.DrawMode = DrawMode.OwnerDrawFixed;
+        _cmbLineStyle.ItemHeight = 22;
+        _cmbLineStyle.DrawItem += CmbLineStyle_DrawItem;
         _cmbLineStyle.SelectedIndex = 0;
+        _cmbConnectorKind.Items.Clear();
+        _cmbConnectorKind.Items.AddRange(["직선", "꺾은선", "곡선", "완만한꺾"]);
         _cmbConnectorKind.SelectedIndex = 0;
 
         ApplyModernTheme();
@@ -46,10 +80,61 @@ public partial class MainForm : Form
         _canvas.ZoomChanged += (_, _) => UpdateZoomDisplay();
         _canvas.UndoStateChanged += (_, _) => UpdateUndoMenu();
 
+        EnableProjectFileDrop(this);
+        EnableProjectFileDrop(_splitMain);
+        EnableProjectFileDrop(_splitEditor);
+        EnableProjectFileDrop(_pnlCanvasHost);
+        EnableProjectFileDrop(_canvas);
+
         SetSelectTool();
         UpdateTitle();
         UpdateZoomDisplay();
         UpdateUndoMenu();
+    }
+
+    private void EnableProjectFileDrop(Control control)
+    {
+        control.AllowDrop = true;
+        control.DragEnter += OnProjectFileDragEnter;
+        control.DragDrop += OnProjectFileDragDrop;
+    }
+
+    private void OnProjectFileDragEnter(object? sender, DragEventArgs e)
+    {
+        if (TryGetDroppedProjectPath(e, out _))
+            e.Effect = DragDropEffects.Copy;
+        else
+            e.Effect = DragDropEffects.None;
+    }
+
+    private void OnProjectFileDragDrop(object? sender, DragEventArgs e)
+    {
+        if (!TryGetDroppedProjectPath(e, out var path))
+            return;
+
+        Activate();
+        TryOpenProjectFile(path);
+    }
+
+    private static bool TryGetDroppedProjectPath(DragEventArgs e, out string path)
+    {
+        path = string.Empty;
+        if (e.Data is null || !e.Data.GetDataPresent(DataFormats.FileDrop))
+            return false;
+
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] files)
+            return false;
+
+        foreach (var file in files)
+        {
+            if (!Program.IsProjectFile(file))
+                continue;
+
+            path = Path.GetFullPath(file);
+            return true;
+        }
+
+        return false;
     }
 
     private void BtnSelect_Click(object? sender, EventArgs e) => SetSelectTool();
@@ -138,8 +223,8 @@ public partial class MainForm : Form
             case ToolboxTool.Shape when e.ShapeKind is not null:
                 SetShapeTool(e.ShapeKind.Value, syncToolbox: false);
                 break;
-            case ToolboxTool.Connector when e.ConnectorKind is not null:
-                SetConnectorTool(e.ConnectorKind.Value, syncToolbox: false);
+            case ToolboxTool.Connector when e.ConnectorPreset is not null:
+                SetConnectorTool(e.ConnectorPreset, syncToolbox: false);
                 break;
         }
     }
@@ -209,7 +294,8 @@ public partial class MainForm : Form
                 _btnLineColor.BackColor = Color.FromArgb(connector.LineColorArgb);
                 _numLineWidth.Value = (decimal)connector.LineWidth;
                 _cmbLineStyle.SelectedIndex = (int)connector.LineStyle;
-                _cmbConnectorKind.SelectedIndex = (int)connector.Kind;
+                int kindIdx = Math.Clamp((int)connector.Kind, 0, _cmbConnectorKind.Items.Count - 1);
+                _cmbConnectorKind.SelectedIndex = kindIdx;
                 _chkStartArrow.Checked = connector.HasStartArrow;
                 _chkEndArrow.Checked = connector.HasEndArrow;
                 _txtConnectorLabel.Text = connector.Label;
@@ -260,13 +346,54 @@ public partial class MainForm : Form
             LineColorArgb = _btnLineColor.BackColor.ToArgb(),
             LineWidth = (float)_numLineWidth.Value,
             LineStyle = (LineStyle)_cmbLineStyle.SelectedIndex,
-            Kind = (ConnectorKind)_cmbConnectorKind.SelectedIndex,
+            Kind = (ConnectorKind)Math.Clamp(_cmbConnectorKind.SelectedIndex, 0, (int)ConnectorKind.RightAngleCurved),
             HasStartArrow = _chkStartArrow.Checked,
             HasEndArrow = _chkEndArrow.Checked,
+            StartArrowStyle = _chkStartArrow.Checked ? ArrowHeadStyle.Open : ArrowHeadStyle.None,
+            EndArrowStyle   = _chkEndArrow.Checked   ? ArrowHeadStyle.Open : ArrowHeadStyle.None,
             Label = _txtConnectorLabel.Text
         };
 
         _canvas.ApplyConnectorProperties(connector);
+    }
+
+    private void CmbLineStyle_DrawItem(object? sender, DrawItemEventArgs e)
+    {
+        if (e.Index < 0 || sender is not ComboBox cmb) return;
+        e.DrawBackground();
+
+        var style = (LineStyle)e.Index;
+        var b = e.Bounds;
+        int lineY = b.Y + b.Height / 2;
+        int x1 = b.X + 3, x2 = b.X + 46;   // 43-px preview fits even in narrow combobox
+
+        if (style == LineStyle.Double)
+        {
+            using var p1 = new Pen(e.ForeColor, 1.5f);
+            e.Graphics.DrawLine(p1, x1, lineY - 2, x2, lineY - 2);
+            e.Graphics.DrawLine(p1, x1, lineY + 2, x2, lineY + 2);
+        }
+        else
+        {
+            using var pen = new Pen(e.ForeColor, 2f);
+            switch (style)
+            {
+                case LineStyle.Dash:        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash; break;
+                case LineStyle.Dot:         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot; break;
+                case LineStyle.DashDot:     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot; break;
+                case LineStyle.DashDotDot:  pen.DashStyle = System.Drawing.Drawing2D.DashStyle.DashDotDot; break;
+                case LineStyle.LongDash:    pen.DashPattern = [8f, 3f]; break;
+                case LineStyle.ShortDash:   pen.DashPattern = [3f, 3f]; break;
+            }
+            e.Graphics.DrawLine(pen, x1, lineY, x2, lineY);
+        }
+
+        var text = cmb.Items[e.Index]?.ToString() ?? string.Empty;
+        var textRect = new Rectangle(x2 + 4, b.Y, b.Width - (x2 - b.X) - 4, b.Height);
+        TextRenderer.DrawText(e.Graphics, text, e.Font, textRect,
+            e.ForeColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+
+        e.DrawFocusRectangle();
     }
 
     private void BtnFillColor_Click(object? sender, EventArgs e)
@@ -408,11 +535,33 @@ public partial class MainForm : Form
         if (dialog.ShowDialog() != DialogResult.OK)
             return;
 
+        TryOpenProjectFile(dialog.FileName, confirmDiscard: false);
+    }
+
+    private bool TryOpenProjectFile(string path, bool confirmDiscard = true)
+    {
+        path = Path.GetFullPath(path);
+        if (!Program.IsProjectFile(path))
+        {
+            MessageBox.Show(this, "MyDiagram 프로젝트 파일(.mdg)만 열 수 있습니다.", "열기 오류",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        if (confirmDiscard && !ConfirmDiscardChanges())
+            return false;
+
+        OpenProjectFile(path);
+        return true;
+    }
+
+    private void OpenProjectFile(string path)
+    {
         try
         {
-            var project = DiagramProjectSerializer.Load(dialog.FileName);
+            var project = DiagramProjectSerializer.Load(path);
             _canvas.LoadProject(project);
-            _currentFilePath = dialog.FileName;
+            _currentFilePath = path;
             _isDirty = false;
             UpdateTitle();
         }
@@ -606,33 +755,65 @@ public partial class MainForm : Form
             ShapeKind.Cylinder => "원통",
             ShapeKind.Cloud => "구름",
             ShapeKind.Document => "문서",
-            ShapeKind.Database   => "데이터베이스",
-            ShapeKind.Arrow      => "화살표",
-            ShapeKind.Trapezoid  => "사다리꼴",
-            ShapeKind.Chevron    => "쉐브론",
+            ShapeKind.Database          => "데이터베이스",
+            ShapeKind.Arrow             => "화살표",
+            ShapeKind.Trapezoid         => "사다리꼴",
+            ShapeKind.Chevron           => "쉐브론",
+            ShapeKind.CallOut           => "콜아웃",
+            ShapeKind.Note              => "메모",
+            ShapeKind.OffPageConnector  => "오프페이지 연결",
+            ShapeKind.DoubleArrow       => "양방향 화살표",
+            ShapeKind.ManualInput       => "수동 입력",
+            ShapeKind.Delay             => "지연",
+            ShapeKind.NetworkServer     => "서버",
+            ShapeKind.NetworkRouter     => "라우터",
+            ShapeKind.NetworkSwitch     => "스위치",
+            ShapeKind.NetworkPC         => "PC",
+            ShapeKind.NetworkFirewall   => "방화벽",
+            ShapeKind.NetworkHub        => "허브",
+            ShapeKind.NetworkPrinter    => "프린터",
+            ShapeKind.NetworkWifi       => "무선AP",
+            ShapeKind.NetworkInternet   => "인터넷",
+            ShapeKind.NetworkStorage    => "스토리지",
+            ShapeKind.NetworkLaptop     => "노트북",
+            ShapeKind.NetworkMobile     => "모바일",
+            ShapeKind.NetworkIPPhone    => "IP전화",
+            ShapeKind.NetworkRack       => "랙",
+            ShapeKind.NetworkTablet     => "태블릿",
+            ShapeKind.NetworkGateway    => "게이트웨이",
+            ShapeKind.Shape3DCube       => "정육면체",
+            ShapeKind.Shape3DBox        => "직육면체",
+            ShapeKind.Shape3DSphere     => "구",
+            ShapeKind.Shape3DPyramid    => "피라미드",
+            ShapeKind.Shape3DCone       => "원뿔",
+            ShapeKind.Shape3DCylinder   => "3D 원기둥",
             _ => "도형"
         };
         _lblStatus.Text = $"도구: {label} | 마우스를 올려 미리보기, 드래그하여 생성";
         SyncToolbarState();
     }
 
-    private void SetConnectorTool(ConnectorKind kind, bool syncToolbox = true)
+    private void SetConnectorTool(ConnectorPreset preset, bool syncToolbox = true)
     {
+        _canvas.SetConnectorPreset(preset);
         _canvas.SetToolMode(ToolMode.Connector);
-        _canvas.SetConnectorKind(kind);
         if (syncToolbox)
-            _toolbox?.SelectConnectorTool(kind);
+            _toolbox?.SelectConnectorTool(preset.Kind);
 
-        var label = kind switch
+        var label = preset.Kind switch
         {
-            ConnectorKind.Straight => "직선 연결",
-            ConnectorKind.Orthogonal => "꺾은선 연결",
-            ConnectorKind.Curved => "곡선 연결",
-            _ => "연결선"
+            ConnectorKind.Straight         => "직선 연결",
+            ConnectorKind.Orthogonal       => "꺾은선 연결",
+            ConnectorKind.RightAngleCurved => "완만한꺾 연결",
+            ConnectorKind.Curved           => "곡선 연결",
+            _                              => "연결선"
         };
         _lblStatus.Text = $"도구: {label} | 시작·끝 도형을 순서대로 클릭";
         SyncToolbarState();
     }
+
+    private void SetConnectorTool(ConnectorKind kind, bool syncToolbox = true)
+        => SetConnectorTool(new ConnectorPreset(kind, LineStyle.Solid, ArrowHeadStyle.None, ArrowHeadStyle.Open), syncToolbox);
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {

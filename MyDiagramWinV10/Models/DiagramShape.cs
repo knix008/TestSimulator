@@ -24,7 +24,13 @@ public sealed class DiagramShape : DiagramElement
     public float FontSize { get; set; } = 10f;
     public bool FontBold { get; set; }
 
+    // When true, the shape renders at a fixed collapsed height (title bar only)
+    public bool IsCollapsed { get; set; }
+
     public RectangleF Bounds => new(X, Y, Width, Height);
+    public RectangleF EffectiveBounds => IsCollapsed
+        ? new RectangleF(X, Y, Width, 26f)
+        : Bounds;
 
     public DiagramShape Clone()
     {
@@ -47,7 +53,8 @@ public sealed class DiagramShape : DiagramElement
             BorderStyle = BorderStyle,
             FontName = FontName,
             FontSize = FontSize,
-            FontBold = FontBold
+            FontBold = FontBold,
+            IsCollapsed = IsCollapsed,
         };
     }
 }

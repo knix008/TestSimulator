@@ -61,7 +61,7 @@ dotnet run --project .\MyDiagramWinV10.csproj -c Release
 
 ## 저장/내보내기
 
-- 프로젝트 파일: `.mdgv10` (JSON)
+- 프로젝트 파일: `.mdg` (JSON, Windows 파일 형식 미등록)
 - 내보내기: PNG/JPG/BMP 이미지, SVG, PDF
 
 ## 설치 파일(MSI)

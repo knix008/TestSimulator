@@ -9,8 +9,17 @@
     <AssemblyName>MyDiagramWinV10</AssemblyName>
     <RootNamespace>MyDiagramWinV10</RootNamespace>
     <StartupObject>MyDiagramWinV10.Program</StartupObject>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\AppIcon.ico" />
+    <Content Include="Assets\FileIcon.ico">
+      <Link>FileIcon.ico</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
   <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
     <MSBuild
