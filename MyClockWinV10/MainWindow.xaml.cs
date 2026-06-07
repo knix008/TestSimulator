@@ -72,6 +72,12 @@ public partial class MainWindow : Window
     private AppSettings _settings = new();
     private List<WorldTimeCityDto> _worldCities = [];
 
+    // Per-mode geometry — updated in real-time by SizeChanged / LocationChanged
+    private double  _digitalW = 300, _digitalH = 300;
+    private double? _digitalL,       _digitalT;
+    private double  _analogW  = 300, _analogH  = 300;
+    private double? _analogL,        _analogT;
+
     private bool _chromeVisible;
     private readonly DispatcherTimer _chromeHideTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
 
@@ -114,7 +120,8 @@ public partial class MainWindow : Window
             }
         };
         ClockSizer.SizeChanged += (_, _) => SyncOverlayLayout();
-        SizeChanged += (_, _) => SyncOverlayLayout();
+        SizeChanged     += (_, _) => TrackModeGeometry();
+        LocationChanged += (_, _) => TrackModeGeometry();
         Loaded += MainWindow_Loaded;
         OnTick(null, EventArgs.Empty);
     }
@@ -152,6 +159,12 @@ public partial class MainWindow : Window
 
         Canvas.SetLeft(ResizeGripVisual, Math.Max(0, w - 16));
         Canvas.SetTop(ResizeGripVisual, Math.Max(0, h - 16));
+    }
+
+    private void TrackModeGeometry()
+    {
+        if (_isDigital) { _digitalW = Width; _digitalH = Height; _digitalL = Left; _digitalT = Top; }
+        else            { _analogW  = Width; _analogH  = Height; _analogL  = Left; _analogT  = Top; }
     }
 
     private static void SetAmPmText(TextBlock target, string ampm)
@@ -197,6 +210,28 @@ public partial class MainWindow : Window
             var area = SystemParameters.WorkArea;
             Left = area.Right - restoreW - 12;
             Top  = area.Top + 12;
+        }
+
+        // Initialise per-mode geometry trackers from saved values.
+        // The active mode uses the just-restored window geometry as its baseline.
+        // The inactive mode uses whatever was saved for it (null position = not yet set).
+        if (s.IsDigital)
+        {
+            _digitalW = Width;  _digitalH = Height;
+            _digitalL = Left;   _digitalT = Top;
+            _analogW  = s.AnalogWindowWidth  ?? Width;
+            _analogH  = s.AnalogWindowHeight ?? Height;
+            _analogL  = s.AnalogWindowLeft;
+            _analogT  = s.AnalogWindowTop;
+        }
+        else
+        {
+            _analogW  = Width;  _analogH  = Height;
+            _analogL  = Left;   _analogT  = Top;
+            _digitalW = s.DigitalWindowWidth  ?? Width;
+            _digitalH = s.DigitalWindowHeight ?? Height;
+            _digitalL = s.DigitalWindowLeft;
+            _digitalT = s.DigitalWindowTop;
         }
 
         _isDigital    = s.IsDigital;
@@ -261,16 +296,11 @@ public partial class MainWindow : Window
         _settings.WindowTop    = Top;
         _settings.WindowWidth  = Width;
         _settings.WindowHeight = Height;
-        if (_isDigital)
-        {
-            _settings.DigitalWindowWidth  = Width;  _settings.DigitalWindowHeight = Height;
-            _settings.DigitalWindowLeft   = Left;   _settings.DigitalWindowTop    = Top;
-        }
-        else
-        {
-            _settings.AnalogWindowWidth  = Width;  _settings.AnalogWindowHeight = Height;
-            _settings.AnalogWindowLeft   = Left;   _settings.AnalogWindowTop    = Top;
-        }
+        // Always save BOTH modes so every switch or restart restores the right geometry.
+        _settings.DigitalWindowWidth  = _digitalW;  _settings.DigitalWindowHeight = _digitalH;
+        _settings.DigitalWindowLeft   = _digitalL;  _settings.DigitalWindowTop    = _digitalT;
+        _settings.AnalogWindowWidth   = _analogW;   _settings.AnalogWindowHeight  = _analogH;
+        _settings.AnalogWindowLeft    = _analogL;   _settings.AnalogWindowTop     = _analogT;
         _settings.Alarms = [.. _alarms.Select(a => new AlarmDto
         {
             Time       = $"{a.Time.Hours:D2}:{a.Time.Minutes:D2}",
@@ -574,35 +604,25 @@ public partial class MainWindow : Window
 
     private void ToggleClockMode()
     {
-        // Cache current mode's geometry before switching
-        if (_isDigital)
-        {
-            _settings.DigitalWindowWidth  = Width;  _settings.DigitalWindowHeight = Height;
-            _settings.DigitalWindowLeft   = Left;   _settings.DigitalWindowTop    = Top;
-        }
-        else
-        {
-            _settings.AnalogWindowWidth  = Width;  _settings.AnalogWindowHeight = Height;
-            _settings.AnalogWindowLeft   = Left;   _settings.AnalogWindowTop    = Top;
-        }
+        // Snapshot the OLD mode's geometry before flip (TrackModeGeometry keeps these current,
+        // but reading them here is belt-and-suspenders and costs nothing).
+        if (_isDigital) { _digitalW = Width; _digitalH = Height; _digitalL = Left; _digitalT = Top; }
+        else            { _analogW  = Width; _analogH  = Height; _analogL  = Left; _analogT  = Top; }
 
         _isDigital = !_isDigital;
 
-        // Restore the new mode's last-used geometry if available
-        if (_isDigital && _settings.DigitalWindowWidth.HasValue)
-        {
-            Width  = _settings.DigitalWindowWidth.Value;
-            Height = _settings.DigitalWindowHeight ?? Height;
-            Left   = _settings.DigitalWindowLeft   ?? Left;
-            Top    = _settings.DigitalWindowTop    ?? Top;
-        }
-        else if (!_isDigital && _settings.AnalogWindowWidth.HasValue)
-        {
-            Width  = _settings.AnalogWindowWidth.Value;
-            Height = _settings.AnalogWindowHeight ?? Height;
-            Left   = _settings.AnalogWindowLeft   ?? Left;
-            Top    = _settings.AnalogWindowTop    ?? Top;
-        }
+        // Read target geometry into locals BEFORE setting Width/Height/Left/Top.
+        // Setting Width immediately triggers SizeChanged → TrackModeGeometry, which would
+        // overwrite the new mode's stored H/L/T with the OLD mode's values — corrupting
+        // the restore.  Local vars insulate us from that race.
+        double  newW = _isDigital ? _digitalW : _analogW;
+        double  newH = _isDigital ? _digitalH : _analogH;
+        double? newL = _isDigital ? _digitalL : _analogL;
+        double? newT = _isDigital ? _digitalT : _analogT;
+
+        Width  = newW;
+        Height = newH;
+        if (newL.HasValue && newT.HasValue) { Left = newL.Value; Top = newT.Value; }
 
         DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
         AnalogClock.Visibility    = _isDigital ? Visibility.Collapsed : Visibility.Visible;
@@ -616,6 +636,7 @@ public partial class MainWindow : Window
             UpdateAnalog(DateTime.Now);
 
         ApplyClockModeLayout();
+        TrackModeGeometry();   // capture final layout-adjusted geometry for the new mode
         SaveSettings();
     }
 
