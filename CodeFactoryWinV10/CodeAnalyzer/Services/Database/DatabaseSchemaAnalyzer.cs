@@ -111,6 +111,7 @@ public sealed class DatabaseSchemaAnalyzer
                 Id = id,
                 Name = parsed.Name,
                 Schema = parsed.Schema,
+                EntityTypeName = parsed.EntityTypeName,
                 Dialect = parsed.Dialect,
                 SourceKind = string.IsNullOrWhiteSpace(parsed.FilePath) ? "inferred" : Path.GetExtension(parsed.FilePath) switch
                 {

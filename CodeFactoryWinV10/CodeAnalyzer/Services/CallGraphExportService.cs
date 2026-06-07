@@ -557,6 +557,7 @@ public static class CallGraphExportService
             Id = t.Id,
             Name = t.Name,
             Schema = string.IsNullOrWhiteSpace(t.Schema) ? null : t.Schema,
+            EntityTypeName = t.EntityTypeName ?? string.Empty,
             Dialect = Enum.TryParse<DatabaseDialect>(t.Dialect, out var dialect) ? dialect : DatabaseDialect.Unknown,
             SourceKind = t.SourceKind,
             FilePath = t.FilePath,
@@ -583,11 +584,32 @@ public static class CallGraphExportService
             Label = r.Label
         }).ToList();
 
+        var accesses = (s.Accesses ?? []).Select(a => new DatabaseTableAccess
+        {
+            TableId = a.TableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = Enum.TryParse<DatabaseTableAccessKind>(a.Kind, out var kind) ? kind : DatabaseTableAccessKind.Read,
+            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql
+        }).ToList();
+
+        var grouped = accesses
+            .GroupBy(access => access.TableId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<DatabaseTableAccess>)group.ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
         return new DatabaseSchemaResult
         {
             Tables = tables,
             Relations = relations,
-            TableMap = tables.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase)
+            Accesses = accesses,
+            TableMap = tables.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase),
+            AccessesByTableId = grouped
         };
     }
 
@@ -766,6 +788,7 @@ public static class CallGraphExportService
             Id = t.Id,
             Name = t.Name,
             Schema = t.Schema ?? string.Empty,
+            EntityTypeName = t.EntityTypeName,
             Dialect = t.Dialect.ToString(),
             SourceKind = t.SourceKind,
             FilePath = t.FilePath,
@@ -789,6 +812,17 @@ public static class CallGraphExportService
             ToColumn = r.ToColumn ?? string.Empty,
             Kind = r.Kind.ToString(),
             Label = r.Label
+        }).ToList(),
+        Accesses = schema.Accesses.Select(a => new DatabaseTableAccessRecord
+        {
+            TableId = a.TableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = a.Kind.ToString(),
+            Pattern = a.Pattern.ToString()
         }).ToList()
     };
 
@@ -931,6 +965,7 @@ public static class CallGraphExportService
     {
         public List<DatabaseTableRecord> Tables { get; set; } = [];
         public List<DatabaseRelationRecord> Relations { get; set; } = [];
+        public List<DatabaseTableAccessRecord> Accesses { get; set; } = [];
     }
 
     private sealed class QualityThresholdsRecord
@@ -1161,11 +1196,24 @@ public static class CallGraphExportService
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Schema { get; set; } = string.Empty;
+        public string EntityTypeName { get; set; } = string.Empty;
         public string Dialect { get; set; } = string.Empty;
         public string SourceKind { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
         public int LineNumber { get; set; }
         public List<DatabaseColumnRecord> Columns { get; set; } = [];
+    }
+
+    private sealed class DatabaseTableAccessRecord
+    {
+        public string TableId { get; set; } = string.Empty;
+        public string FunctionId { get; set; } = string.Empty;
+        public string FunctionDisplayName { get; set; } = string.Empty;
+        public string FunctionFullName { get; set; } = string.Empty;
+        public string FunctionFilePath { get; set; } = string.Empty;
+        public int FunctionLineNumber { get; set; }
+        public string Kind { get; set; } = string.Empty;
+        public string Pattern { get; set; } = string.Empty;
     }
 
     private sealed class DatabaseColumnRecord

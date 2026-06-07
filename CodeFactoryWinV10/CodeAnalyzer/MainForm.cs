@@ -4,6 +4,7 @@ using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 using CodeAnalyzer.Services.Metrics;
 using CodeAnalyzer.Services.GlobalVariables;
+using CodeAnalyzer.Services.Database;
 using CodeAnalyzer.Services.Reports;
 
 namespace CodeAnalyzer;
@@ -24,6 +25,9 @@ public partial class MainForm : Form
     private string _lastSearchQuery = string.Empty;
     private readonly SearchResultsPopup _searchPopup;
     private readonly System.Windows.Forms.Timer _searchDebounceTimer;
+    private readonly System.Windows.Forms.Timer _analysisElapsedTimer;
+    private readonly Stopwatch _analysisElapsedStopwatch = new();
+    private AnalysisProgressReport? _lastAnalysisProgressReport;
     private bool _suppressRootComboChange;
     private bool _suppressDiagramViewChange;
     private bool _suppressDirectoryListEvents;
@@ -51,7 +55,13 @@ public partial class MainForm : Form
             // Restore focus to search box in case the popup grabbed it
             toolStripSearchBox.Control?.Focus();
         };
-        FormClosed += (_, _) => DisposeMenuImages();
+        _analysisElapsedTimer = new System.Windows.Forms.Timer { Interval = 500 };
+        _analysisElapsedTimer.Tick += (_, _) => RefreshAnalysisElapsedStatus();
+        FormClosed += (_, _) =>
+        {
+            _analysisElapsedTimer.Stop();
+            DisposeMenuImages();
+        };
         Load += (_, _) =>
         {
             _searchPopup.Owner = this;
@@ -62,6 +72,7 @@ public partial class MainForm : Form
         diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
         diagramViewHost.MetricsNavigationRequested += OnMetricsNavigationRequested;
         diagramViewHost.GlobalVariableAccessGraphRequested += OnGlobalVariableAccessGraphRequested;
+        diagramViewHost.DatabaseTableAccessGraphRequested += OnDatabaseTableAccessGraphRequested;
         InitializeOptionControls();
         LoadLanguageList();
         RestoreUserSettings();
@@ -121,6 +132,35 @@ public partial class MainForm : Form
         lblProgressPercent.Text = $"{percent}%";
     }
 
+    private void RefreshAnalysisElapsedStatus()
+    {
+        if (!_isAnalysisRunning)
+        {
+            return;
+        }
+
+        var elapsed = _analysisElapsedStopwatch.Elapsed;
+        if (_isStoppingAnalysis)
+        {
+            lblStatus.Text = $"분석 중지 요청됨... · 경과 {AnalysisProgressFormatter.FormatDuration(elapsed)}";
+            return;
+        }
+
+        if (_lastAnalysisProgressReport is null)
+        {
+            lblStatus.Text = $"백그라운드에서 분석 중... · 경과 {AnalysisProgressFormatter.FormatDuration(elapsed)}";
+            return;
+        }
+
+        lblStatus.Text = AnalysisProgressFormatter.FormatStatus(new AnalysisProgressReport
+        {
+            Percent = _lastAnalysisProgressReport.Percent,
+            Message = _lastAnalysisProgressReport.Message,
+            Elapsed = elapsed,
+            EstimatedRemaining = _lastAnalysisProgressReport.EstimatedRemaining
+        });
+    }
+
     private void InitializeMenuIcons()
     {
         menuStrip.Renderer = new MenuStripIconRenderer();
@@ -171,7 +211,8 @@ public partial class MainForm : Form
             "코드 메트릭",
             "중복 코드",
             "전역 변수",
-            "DB ERD"
+            "DB ERD",
+            "DB 테이블 접근"
         });
         comboDiagramView.SelectedIndex = 0;
 
@@ -204,6 +245,7 @@ public partial class MainForm : Form
             8 => DiagramViewKind.DuplicateCode,
             9 => DiagramViewKind.GlobalVariables,
             10 => DiagramViewKind.DatabaseErd,
+            11 => DiagramViewKind.DatabaseTableAccess,
             _ => DiagramViewKind.CallGraph
         };
 
@@ -432,7 +474,6 @@ public partial class MainForm : Form
         var cts = _analysisCts;
 
         BeginAnalysisSession();
-        var analysisStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         var uiProgress = new Progress<AnalysisProgressReport>(report =>
         {
@@ -441,8 +482,9 @@ public partial class MainForm : Form
                 return;
             }
 
+            _lastAnalysisProgressReport = report;
             UpdateAnalysisProgress(report.Percent);
-            lblStatus.Text = AnalysisProgressFormatter.FormatStatus(report);
+            RefreshAnalysisElapsedStatus();
         });
         var progress = new ThrottledProgress<AnalysisProgressReport>(uiProgress, intervalMs: 100);
 
@@ -469,8 +511,8 @@ public partial class MainForm : Form
             }
 
             TryCompactMemoryAfterAnalysis();
-            analysisStopwatch.Stop();
-            var elapsed = analysisStopwatch.Elapsed;
+            _analysisElapsedStopwatch.Stop();
+            var elapsed = _analysisElapsedStopwatch.Elapsed;
 
             _lastAnalysis = result;
             ApplyAnalysisResultsToUi(result);
@@ -568,7 +610,7 @@ public partial class MainForm : Form
         _isStoppingAnalysis = true;
         UseWaitCursor = false;
         btnAnalyze.Enabled = false;
-        lblStatus.Text = "분석 중지 요청됨... 현재 작업 정리 후 종료합니다.";
+        RefreshAnalysisElapsedStatus();
 
         try
         {
@@ -606,12 +648,18 @@ public partial class MainForm : Form
         SetToolbarEnabled(false);
         btnAnalysisSettings.Enabled = false;
         ResetAnalysisProgress(isActive: true);
-        lblStatus.Text = "백그라운드에서 분석 중...";
+        _lastAnalysisProgressReport = null;
+        _analysisElapsedStopwatch.Restart();
+        _analysisElapsedTimer.Start();
+        RefreshAnalysisElapsedStatus();
         UpdateRootHistoryNavigationState();
     }
 
     private void EndAnalysisSession()
     {
+        _analysisElapsedTimer.Stop();
+        _analysisElapsedStopwatch.Stop();
+        _lastAnalysisProgressReport = null;
         UseWaitCursor = false;
         _isAnalysisRunning = false;
         _isStoppingAnalysis = false;
@@ -624,7 +672,8 @@ public partial class MainForm : Form
         if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.CodeMetrics
             or DiagramViewKind.DuplicateCode
             or DiagramViewKind.GlobalVariables
-            or DiagramViewKind.DatabaseErd)
+            or DiagramViewKind.DatabaseErd
+            or DiagramViewKind.DatabaseTableAccess)
         {
             try
             {
@@ -691,8 +740,9 @@ public partial class MainForm : Form
         var viewKind = GetSelectedViewKind();
         var isTabularView = viewKind is DiagramViewKind.CodeMetrics
             or DiagramViewKind.DuplicateCode
-            or DiagramViewKind.GlobalVariables;
-        var isAccessGraph = diagramViewHost.IsShowingGlobalVariableAccessGraph;
+            or DiagramViewKind.GlobalVariables
+            or DiagramViewKind.DatabaseTableAccess;
+        var isAccessGraph = diagramViewHost.IsShowingAccessGraph;
         var supportsTreeExpand = viewKind == DiagramViewKind.CallGraph || isAccessGraph;
         var supportsLineStyle = viewKind is DiagramViewKind.CallGraph
             or DiagramViewKind.ClassDiagram
@@ -1139,6 +1189,7 @@ public partial class MainForm : Form
                 DiagramViewKind.DuplicateCode => 8,
                 DiagramViewKind.GlobalVariables => 9,
                 DiagramViewKind.DatabaseErd => 10,
+                DiagramViewKind.DatabaseTableAccess => 11,
                 _ => 0
             };
 
@@ -1303,6 +1354,39 @@ public partial class MainForm : Form
             : $"전역 변수 '{variable.Name}' — 접근 함수가 없어 선언 노드만 표시했습니다.";
     }
 
+    private void OnDatabaseTableAccessGraphRequested(DatabaseTable table)
+    {
+        if (_lastAnalysis is null)
+        {
+            return;
+        }
+
+        var accesses = _lastAnalysis.DatabaseSchema.GetAccessesFor(table.Id);
+        var accessGraph = DatabaseTableAccessGraphBuilder.Build(
+            table,
+            accesses,
+            _lastAnalysis.CallGraph);
+
+        _suppressDiagramViewChange = true;
+        try
+        {
+            comboDiagramView.SelectedIndex = 0;
+            diagramViewHost.ShowDatabaseTableAccessGraph(
+                table,
+                accessGraph.Graph,
+                accessGraph.RootNodeIds);
+        }
+        finally
+        {
+            _suppressDiagramViewChange = false;
+        }
+
+        UpdateToolbarForViewKind();
+        lblStatus.Text = accesses.Count > 0
+            ? $"DB 테이블 '{table.Name}' — 접근 함수 {accesses.Count}개를 그래프로 표시했습니다."
+            : $"DB 테이블 '{table.Name}' — 접근 함수가 없어 테이블 노드만 표시했습니다.";
+    }
+
     private void OnMetricsNavigationRequested(MetricsNavigationRequest request)
     {
         if (_lastAnalysis is null)
@@ -1313,6 +1397,12 @@ public partial class MainForm : Form
         if (request.ShowGlobalVariableAccessGraph is not null)
         {
             OnGlobalVariableAccessGraphRequested(request.ShowGlobalVariableAccessGraph);
+            return;
+        }
+
+        if (request.ShowDatabaseTableAccessGraph is not null)
+        {
+            OnDatabaseTableAccessGraphRequested(request.ShowDatabaseTableAccessGraph);
             return;
         }
 

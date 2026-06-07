@@ -7,4 +7,5 @@ public sealed class MetricsNavigationRequest
     public string? FilePath { get; init; }
     public int LineNumber { get; init; } = 1;
     public GlobalVariableItem? ShowGlobalVariableAccessGraph { get; init; }
+    public DatabaseTable? ShowDatabaseTableAccessGraph { get; init; }
 }

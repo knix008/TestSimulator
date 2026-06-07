@@ -12,5 +12,6 @@ public enum DiagramViewKind
     CodeMetrics,
     DuplicateCode,
     GlobalVariables,
-    DatabaseErd
+    DatabaseErd,
+    DatabaseTableAccess
 }

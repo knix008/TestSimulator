@@ -31,6 +31,8 @@ public sealed class DatabaseTable
     public required string Id { get; init; }
     public required string Name { get; init; }
     public string? Schema { get; init; }
+    /// <summary>EF Core 등에서 매핑된 엔티티 타입 이름 (있을 경우).</summary>
+    public string EntityTypeName { get; init; } = string.Empty;
     public DatabaseDialect Dialect { get; init; }
     public string SourceKind { get; init; } = string.Empty;
     public string FilePath { get; init; } = string.Empty;
@@ -52,7 +54,40 @@ public sealed class DatabaseSchemaResult
 {
     public IReadOnlyList<DatabaseTable> Tables { get; init; } = [];
     public IReadOnlyList<DatabaseRelation> Relations { get; init; } = [];
+    public IReadOnlyList<DatabaseTableAccess> Accesses { get; init; } = [];
 
     public IReadOnlyDictionary<string, DatabaseTable> TableMap { get; init; }
         = new Dictionary<string, DatabaseTable>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyDictionary<string, IReadOnlyList<DatabaseTableAccess>> AccessesByTableId { get; init; }
+        = new Dictionary<string, IReadOnlyList<DatabaseTableAccess>>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyList<DatabaseTableAccess> GetAccessesFor(string tableId) =>
+        AccessesByTableId.TryGetValue(tableId, out var accesses) ? accesses : [];
+}
+
+public enum DatabaseTableAccessKind
+{
+    Read,
+    Write,
+    ReadWrite
+}
+
+public enum DatabaseTableAccessPattern
+{
+    Sql,
+    EntityFramework,
+    EntityType
+}
+
+public sealed class DatabaseTableAccess
+{
+    public required string TableId { get; init; }
+    public required string FunctionId { get; init; }
+    public required string FunctionDisplayName { get; init; }
+    public required string FunctionFullName { get; init; }
+    public required string FunctionFilePath { get; init; }
+    public int FunctionLineNumber { get; init; }
+    public DatabaseTableAccessKind Kind { get; init; }
+    public DatabaseTableAccessPattern Pattern { get; init; }
 }

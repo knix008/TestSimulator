@@ -17,6 +17,7 @@ internal static class DiagramViewDisplayNames
         DiagramViewKind.DuplicateCode => "중복 코드",
         DiagramViewKind.GlobalVariables => "전역 변수",
         DiagramViewKind.DatabaseErd => "DB ERD",
+        DiagramViewKind.DatabaseTableAccess => "DB 테이블 접근",
         _ => kind.ToString()
     };
 }

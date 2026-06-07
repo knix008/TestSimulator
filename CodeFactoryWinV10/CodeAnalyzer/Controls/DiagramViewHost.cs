@@ -10,6 +10,7 @@ public sealed class DiagramViewHost : UserControl
     private readonly DuplicateCodeViewer _duplicateViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly GlobalVariableViewer _globalVariableViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly ErdDiagramViewer _erdViewer = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly DatabaseTableViewer _databaseTableViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private DiagramViewKind _viewKind = DiagramViewKind.CallGraph;
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
@@ -27,10 +28,13 @@ public sealed class DiagramViewHost : UserControl
         Controls.Add(_duplicateViewer);
         Controls.Add(_globalVariableViewer);
         Controls.Add(_erdViewer);
+        Controls.Add(_databaseTableViewer);
         _metricsViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.AccessGraphRequested += variable => GlobalVariableAccessGraphRequested?.Invoke(variable);
+        _databaseTableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _databaseTableViewer.AccessGraphRequested += table => DatabaseTableAccessGraphRequested?.Invoke(table);
         _erdViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
@@ -42,8 +46,10 @@ public sealed class DiagramViewHost : UserControl
     public event Action<DirectoryRelationNode>? DirectoryRootChanged;
     public event Action<MetricsNavigationRequest>? MetricsNavigationRequested;
     public event Action<GlobalVariableItem>? GlobalVariableAccessGraphRequested;
+    public event Action<DatabaseTable>? DatabaseTableAccessGraphRequested;
 
     public bool IsShowingGlobalVariableAccessGraph => _callGraphOverride is not null;
+    public bool IsShowingAccessGraph => _callGraphOverride is not null;
 
     public DiagramViewKind ViewKind
     {
@@ -105,6 +111,24 @@ public sealed class DiagramViewHost : UserControl
         _callGraphViewer.ExpandAll();
     }
 
+    public void ShowDatabaseTableAccessGraph(
+        DatabaseTable table,
+        CallGraphResult graph,
+        IReadOnlyList<string> rootNodeIds)
+    {
+        _viewKindBeforeAccessGraph = _viewKind;
+        _callGraphOverride = graph;
+        _accessGraphRootId = table.Id;
+        _accessGraphRootIds = rootNodeIds;
+        _viewKind = DiagramViewKind.CallGraph;
+        ApplyVisibility();
+        _callGraphViewer.SetGlobalVariableAccessGraph(
+            graph,
+            rootNodeIds,
+            table.Id);
+        _callGraphViewer.ExpandAll();
+    }
+
     public void ClearGlobalVariableAccessGraph()
     {
         _callGraphOverride = null;
@@ -122,6 +146,7 @@ public sealed class DiagramViewHost : UserControl
         _duplicateViewer.BeginAnalysis();
         _globalVariableViewer.BeginAnalysis();
         _erdViewer.BeginAnalysis();
+        _databaseTableViewer.BeginAnalysis();
     }
 
     public void EndAnalysis()
@@ -132,6 +157,7 @@ public sealed class DiagramViewHost : UserControl
         _duplicateViewer.EndAnalysis();
         _globalVariableViewer.EndAnalysis();
         _erdViewer.EndAnalysis();
+        _databaseTableViewer.EndAnalysis();
     }
 
     public void ClearSearchHighlight()
@@ -235,6 +261,7 @@ public sealed class DiagramViewHost : UserControl
         _duplicateViewer.Visible = _viewKind == DiagramViewKind.DuplicateCode;
         _globalVariableViewer.Visible = _viewKind == DiagramViewKind.GlobalVariables;
         _erdViewer.Visible = _viewKind == DiagramViewKind.DatabaseErd;
+        _databaseTableViewer.Visible = _viewKind == DiagramViewKind.DatabaseTableAccess;
     }
 
     public void ExpandAll()
@@ -263,6 +290,7 @@ public sealed class DiagramViewHost : UserControl
             DiagramViewKind.CodeMetrics => null,
             DiagramViewKind.DuplicateCode => null,
             DiagramViewKind.GlobalVariables => null,
+            DiagramViewKind.DatabaseTableAccess => null,
             DiagramViewKind.DatabaseErd => _erdViewer.ExportToBitmap(),
             _ => _structureViewer.ExportToBitmap()
         };
@@ -291,6 +319,12 @@ public sealed class DiagramViewHost : UserControl
         if (_viewKind == DiagramViewKind.DatabaseErd)
         {
             _erdViewer.SetSchema(_analysis?.DatabaseSchema);
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.DatabaseTableAccess)
+        {
+            _databaseTableViewer.SetSchema(_analysis?.DatabaseSchema, ProjectRootDirectory);
             return;
         }
 

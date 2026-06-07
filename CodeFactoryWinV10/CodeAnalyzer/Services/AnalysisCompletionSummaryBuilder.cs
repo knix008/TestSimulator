@@ -83,7 +83,7 @@ public static class AnalysisCompletionSummaryBuilder
             $"  전역 변수: {result.GlobalVariables.Variables.Count:N0}개 · " +
             $"접근 관계 {result.GlobalVariables.Accesses.Count:N0}건 · " +
             $"접근 함수 {result.GlobalVariables.Accesses.Select(access => access.FunctionId).Distinct(StringComparer.Ordinal).Count():N0}개");
-        builder.AppendLine($"  DB 테이블: {result.DatabaseSchema.Tables.Count:N0}개 · 관계 {result.DatabaseSchema.Relations.Count:N0}개");
+        builder.AppendLine($"  DB 테이블: {result.DatabaseSchema.Tables.Count:N0}개 · 관계 {result.DatabaseSchema.Relations.Count:N0}개 · 접근 {result.DatabaseSchema.Accesses.Count:N0}건");
 
         if (result.Issues.Count > 0)
         {

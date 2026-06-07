@@ -270,6 +270,7 @@ internal static class SqlSchemaParser
         public DatabaseDialect Dialect { get; init; }
         public string FilePath { get; init; } = string.Empty;
         public int LineNumber { get; init; }
+        public string EntityTypeName { get; init; } = string.Empty;
         public List<ParsedColumn> Columns { get; init; } = [];
         public List<ParsedForeignKey> ForeignKeys { get; init; } = [];
     }

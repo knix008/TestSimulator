@@ -183,6 +183,7 @@ internal sealed class CSharpEfCoreSchemaExtractor
                 Key = key,
                 Schema = schema,
                 Name = tableName,
+                EntityTypeName = classSymbol.Name,
                 Dialect = DatabaseDialect.Unknown,
                 FilePath = filePath,
                 LineNumber = line,

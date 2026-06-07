@@ -335,10 +335,33 @@ public sealed class MultiLanguageCallGraphAnalyzer
             }
         }
 
+        if (AnalysisScopeResolver.RequiresDatabaseSchema(inspections)
+            && databaseSchema.Tables.Count > 0)
+        {
+            tracker.Report("DB 테이블 접근 함수 분석 중...");
+            try
+            {
+                databaseSchema = DatabaseTableAccessAnalyzer.EnrichWithAccesses(
+                    databaseSchema,
+                    mergedMetrics.Functions,
+                    merged);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RecordIssue(issues, "DB 테이블 접근", ex);
+                tracker.Report($"DB 테이블 접근 분석 오류 (접근 목록 없이 계속): {ex.Message}");
+            }
+        }
+
         tracker.ReportComplete(
             $"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개, " +
             $"파일 {fileRelations.Files.Count}개, 디렉터리 {directoryRelations.Directories.Count}개, 타입 {structure.Types.Count}개, " +
-            $"메트릭 함수 {mergedMetrics.Functions.Count}개, 중복 {duplicates.Groups.Count}건, 전역 변수 {globalVariables.Variables.Count}개, DB 테이블 {databaseSchema.Tables.Count}개");
+            $"메트릭 함수 {mergedMetrics.Functions.Count}개, 중복 {duplicates.Groups.Count}건, 전역 변수 {globalVariables.Variables.Count}개, " +
+            $"DB 테이블 {databaseSchema.Tables.Count}개 · 접근 {databaseSchema.Accesses.Count}건");
 
         return (new AnalysisResult
         {

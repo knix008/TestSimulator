@@ -14,13 +14,9 @@ public static class AnalysisProgressFormatter
         var parts = new List<string>
         {
             report.Message,
-            $"{report.Percent}%"
+            $"{report.Percent}%",
+            $"경과 {FormatDuration(report.Elapsed)}"
         };
-
-        if (report.Elapsed.TotalSeconds >= 1)
-        {
-            parts.Add($"경과 {FormatDuration(report.Elapsed)}");
-        }
 
         if (report.EstimatedRemaining is { } remaining)
         {
