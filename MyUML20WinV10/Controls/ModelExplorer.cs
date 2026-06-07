@@ -16,6 +16,8 @@ public sealed class ModelExplorer : TreeView
         ShowPlusMinus = true;
         ShowRootLines = true;
         Dock = DockStyle.Fill;
+        BackColor = Color.White;
+        BorderStyle = BorderStyle.None;
         AfterSelect += OnAfterSelect;
     }
 

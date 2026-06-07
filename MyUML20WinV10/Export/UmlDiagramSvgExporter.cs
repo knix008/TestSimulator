@@ -68,14 +68,18 @@ public static class UmlDiagramSvgExporter
         }
 
         var y = rect.Y + 8f;
-        if (!string.IsNullOrWhiteSpace(classifier.Stereotype))
+        var stereoText = !string.IsNullOrWhiteSpace(classifier.Stereotype)
+            ? $"«{EscapeXml(classifier.Stereotype)}»"
+            : classifier is UmlInterface ? "«interface»"
+            : classifier is UmlEnumeration ? "«enumeration»"
+            : null;
+        if (stereoText != null)
         {
-            AppendCenteredText(sb, $"«{EscapeXml(classifier.Stereotype)}»", rect, y, italic: true);
+            AppendCenteredText(sb, stereoText, rect, y, italic: true);
             y += 16f;
         }
 
-        var title = $"{classifier.NotationKeyword} {classifier.Name}";
-        AppendCenteredText(sb, EscapeXml(title), rect, y, italic: classifier.IsAbstract);
+        AppendCenteredText(sb, EscapeXml(classifier.Name), rect, y, italic: classifier.IsAbstract, bold: true);
         y += 16f;
         sb.AppendLine(CultureInfo.InvariantCulture,
             $"""  <line x1="{rect.Left:0.##}" y1="{y:0.##}" x2="{rect.Right:0.##}" y2="{y:0.##}" stroke="{stroke}" stroke-width="1.5" />""");
@@ -158,11 +162,12 @@ public static class UmlDiagramSvgExporter
         }
     }
 
-    private static void AppendCenteredText(StringBuilder sb, string text, RectangleF rect, float y, bool italic)
+    private static void AppendCenteredText(StringBuilder sb, string text, RectangleF rect, float y, bool italic, bool bold = false)
     {
         var style = italic ? """ font-style="italic" """ : string.Empty;
+        var weight = bold ? """ font-weight="bold" """ : string.Empty;
         sb.AppendLine(CultureInfo.InvariantCulture,
-            $"""  <text x="{rect.Left + rect.Width / 2:0.##}" y="{y + 12:0.##}" font-family="Segoe UI" font-size="12" fill="#000000" text-anchor="middle"{style}>{text}</text>""");
+            $"""  <text x="{rect.Left + rect.Width / 2:0.##}" y="{y + 12:0.##}" font-family="Segoe UI" font-size="12" fill="#000000" text-anchor="middle"{style}{weight}>{text}</text>""");
     }
 
     private static void AppendEdgeLabel(StringBuilder sb, PointF point, string text)

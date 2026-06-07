@@ -26,8 +26,34 @@ public partial class MainForm : Form
             NewProject(loadSample: false);
     }
 
+    private void MainForm_Shown(object? sender, EventArgs e) => ApplyPanelLayout();
+
+    private void ApplyPanelLayout()
+    {
+        var mainWidth = _splitMain.ClientSize.Width;
+        if (mainWidth > _splitMain.Panel1MinSize + _splitMain.Panel2MinSize + _splitMain.SplitterWidth)
+        {
+            var rightWidth = Math.Max(_splitMain.Panel2MinSize, (int)(mainWidth * 0.27));
+            _splitMain.SplitterDistance = mainWidth - rightWidth - _splitMain.SplitterWidth;
+        }
+
+        var rightHeight = _splitRight.ClientSize.Height;
+        if (rightHeight > _splitRight.Panel1MinSize + _splitRight.Panel2MinSize + _splitRight.SplitterWidth)
+        {
+            // 탐색기(위)는 전체의 45%, 속성(아래)는 나머지
+            var explorerHeight = Math.Max(_splitRight.Panel1MinSize, (int)(rightHeight * 0.45));
+            explorerHeight = Math.Min(explorerHeight, rightHeight - _splitRight.Panel2MinSize - _splitRight.SplitterWidth);
+            _splitRight.SplitterDistance = explorerHeight;
+        }
+
+        _pnlExplorer.Visible = true;
+        _modelExplorer.Visible = true;
+    }
+
     private void InitializeRuntime()
     {
+        ApplyKoreanText();
+        ApplyVisualStyles();
         _canvas.SelectionChanged += (_, _) => SyncSelection();
         _canvas.ProjectChanged += (_, _) =>
         {
@@ -37,10 +63,98 @@ public partial class MainForm : Form
         };
         _modelExplorer.ElementSelected += ModelExplorer_ElementSelected;
         _umlToolbox.SelectionChanged += (_, e) => SetTool(e.Mode, fromToolbox: true);
+        _umlToolbox.NotationDoubleClicked += UmlToolbox_NotationDoubleClicked;
         _canvas.SelectToolRequested += (_, _) => SetTool(UmlToolMode.Select);
         _canvas.ZoomChanged += (_, _) => UpdateZoomDisplay();
         SetTool(UmlToolMode.Select, fromToolbox: true);
         UpdateZoomDisplay();
+    }
+
+    private void ApplyKoreanText()
+    {
+        _menuFile.Text = "파일(&F)";
+        _menuNew.Text = "새로 만들기(&N)";
+        _menuOpen.Text = "열기(&O)...";
+        _menuSave.Text = "저장(&S)";
+        _menuSaveAs.Text = "다른 이름으로 저장(&A)...";
+        _menuSaveAs.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
+        _menuSample.Text = "샘플 불러오기";
+        _menuExport.Text = "내보내기(&E)";
+        _menuExportImage.Text = "다이어그램 이미지...";
+        _menuExportSvg.Text = "다이어그램 SVG...";
+        _menuExportPdf.Text = "다이어그램 PDF...";
+        _menuExportHtml.Text = "HTML 문서...";
+        _menuExportMarkdown.Text = "Markdown 문서...";
+        _menuExit.Text = "끝내기(&X)";
+        _menuEdit.Text = "편집(&E)";
+        _menuDelete.Text = "선택 삭제(&D)";
+        _tsNew.Text = "새 파일";
+        _tsOpen.Text = "열기";
+        _tsSave.Text = "저장";
+        _tsDelete.Text = "삭제";
+        _tsZoomReset.Text = "맞춤";
+        _tsNew.ToolTipText = "새 프로젝트 만들기 (Ctrl+N)";
+        _tsOpen.ToolTipText = "프로젝트 열기 (Ctrl+O)";
+        _tsSave.ToolTipText = "현재 프로젝트 저장 (Ctrl+S)";
+        _tsDelete.ToolTipText = "선택한 요소 삭제 (Delete)";
+        _tsZoomOut.ToolTipText = "축소 (마우스 휠 아래)";
+        _tsZoomIn.ToolTipText = "확대 (마우스 휠 위)";
+        _tsZoomReset.ToolTipText = "확대/축소 초기화";
+        _statusLabel.Text = "준비";
+        _btnAddProperty.Text = "+ 속성";
+        _btnAddOperation.Text = "+ 연산";
+        _lblToolbox.Text = "   UML 도구";
+        _lblExplorer.Text = "   문서 구조";
+        _lblProperties.Text = "   속성";
+    }
+
+    private void ApplyVisualStyles()
+    {
+        var headerFont = new Font("Segoe UI", 9F, FontStyle.Bold);
+        var headerBack = Color.FromArgb(30, 80, 180);
+
+        _lblToolbox.Font = headerFont;
+        _lblToolbox.BackColor = headerBack;
+        _lblToolbox.ForeColor = Color.White;
+        _lblToolbox.TextAlign = ContentAlignment.MiddleLeft;
+
+        _lblExplorer.Font = headerFont;
+        _lblExplorer.BackColor = headerBack;
+        _lblExplorer.ForeColor = Color.White;
+        _lblExplorer.TextAlign = ContentAlignment.MiddleLeft;
+
+        _lblProperties.Font = headerFont;
+        _lblProperties.BackColor = headerBack;
+        _lblProperties.ForeColor = Color.White;
+        _lblProperties.TextAlign = ContentAlignment.MiddleLeft;
+
+        _pnlCanvasHost.BackColor = Color.FromArgb(90, 90, 100);
+        _pnlCanvasHost.Padding = new Padding(1);
+
+        _pnlFeatureButtons.BackColor = Color.FromArgb(235, 240, 255);
+        _pnlFeatureButtons.Padding = new Padding(4, 3, 4, 3);
+
+        _btnAddProperty.Font = new Font("Segoe UI", 8.5F);
+        _btnAddOperation.Font = new Font("Segoe UI", 8.5F);
+
+        _toolStrip.Padding = new Padding(4, 1, 4, 1);
+        _tsNew.ToolTipText = "새 프로젝트 만들기 (Ctrl+N)";
+        _tsOpen.ToolTipText = "프로젝트 열기 (Ctrl+O)";
+        _tsSave.ToolTipText = "현재 프로젝트 저장 (Ctrl+S)";
+        _tsDelete.ToolTipText = "선택한 요소 삭제 (Delete)";
+        _tsZoomOut.ToolTipText = "축소 (마우스 휠 아래)";
+        _tsZoomLabel.TextAlign = ContentAlignment.MiddleCenter;
+        _tsZoomLabel.ToolTipText = "현재 확대/축소 배율";
+        _tsZoomIn.ToolTipText = "확대 (마우스 휠 위)";
+        _tsZoomReset.ToolTipText = "확대/축소 100% 초기화";
+
+        _menuSaveAs.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
+
+        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _statusZoomLabel.TextAlign = ContentAlignment.MiddleRight;
+        _statusZoomLabel.BorderSides = ToolStripStatusLabelBorderSides.Left;
+        _statusZoomLabel.BorderStyle = Border3DStyle.Etched;
+        _statusZoomLabel.ToolTipText = "현재 확대/축소 배율";
     }
 
     private void NewProject(bool loadSample)
@@ -60,7 +174,7 @@ public partial class MainForm : Form
         _modelExplorer.Bind(_project);
         UpdateTitle();
         SyncSelection();
-        _statusLabel.Text = "도구를 선택한 뒤 캔버스에서 드래그하여 UML 요소를 만드세요.";
+        _statusLabel.Text = "왼쪽 도구상자에서 도구를 선택하거나 더블클릭하여 요소를 추가하세요. 선택 모드에서 더블클릭하면 이름을 편집합니다.";
     }
 
     private void SetTool(UmlToolMode mode, bool fromToolbox = false)
@@ -72,35 +186,46 @@ public partial class MainForm : Form
 
         var hint = mode switch
         {
-            UmlToolMode.Select => "요소를 선택하고 드래그하여 이동합니다. 더블클릭으로 이름을 편집합니다. 휠=확대/축소, Space+드래그=화면 이동.",
-            UmlToolMode.Pan => "드래그하여 캔버스 화면을 이동합니다.",
-            UmlToolMode.CreateClass => "캔버스에서 드래그하여 Class를 만듭니다.",
-            UmlToolMode.CreateInterface => "캔버스에서 드래그하여 Interface를 만듭니다.",
-            UmlToolMode.CreateEnumeration => "캔버스에서 드래그하여 Enumeration을 만듭니다.",
-            UmlToolMode.CreatePackage => "캔버스에서 드래그하여 Package를 만듭니다.",
-            UmlToolMode.CreateActor => "캔버스에서 드래그하여 Actor를 만듭니다.",
-            UmlToolMode.CreateUseCase => "캔버스에서 드래그하여 Use Case를 만듭니다.",
-            UmlToolMode.CreateNote => "캔버스에서 드래그하여 Note를 만듭니다.",
-            UmlToolMode.CreateAssociation or UmlToolMode.CreateDirectedAssociation => "연관의 시작 노드를 클릭한 뒤 대상 노드를 클릭합니다.",
-            UmlToolMode.CreateAggregation => "집합(◇) 연관: 시작 노드 → 대상 노드를 클릭합니다.",
-            UmlToolMode.CreateComposition => "합성(◆) 연관: 시작 노드 → 대상 노드를 클릭합니다.",
-            UmlToolMode.CreateGeneralization => "자식 클래스를 클릭한 뒤 부모 클래스를 클릭합니다.",
-            UmlToolMode.CreateRealization => "구현 클래스를 클릭한 뒤 Interface를 클릭합니다.",
-            UmlToolMode.CreateDependency => "의존 소스를 클릭한 뒤 대상을 클릭합니다.",
-            UmlToolMode.CreateInclude => "Include: 기본 Use Case → 포함 Use Case를 클릭합니다.",
-            UmlToolMode.CreateExtend => "Extend: 확장 Use Case → 기본 Use Case를 클릭합니다.",
+            UmlToolMode.Select => "선택: 클릭=선택 · 드래그=이동 · 더블클릭=이름 편집 · 휠=확대/축소 · Space+드래그=화면 이동 · Esc=취소",
+            UmlToolMode.Pan => "이동 모드: 드래그하여 캔버스를 이동합니다. Esc로 선택 모드로 돌아갑니다.",
+            UmlToolMode.CreateClass => "Class 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateInterface => "Interface 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateEnumeration => "Enumeration 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreatePackage => "Package 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateActor => "Actor 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateUseCase => "Use Case 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateNote => "Note 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateAssociation or UmlToolMode.CreateDirectedAssociation
+                => "연관 관계: 시작 노드를 클릭한 뒤 대상 노드를 클릭합니다.",
+            UmlToolMode.CreateAggregation => "집합(◇) 관계: 시작 노드 → 대상 노드를 클릭합니다.",
+            UmlToolMode.CreateComposition => "합성(◆) 관계: 시작 노드 → 대상 노드를 클릭합니다.",
+            UmlToolMode.CreateGeneralization => "일반화: 자식 클래스 → 부모 클래스 순으로 클릭합니다.",
+            UmlToolMode.CreateRealization => "실체화: 구현 클래스 → Interface 순으로 클릭합니다.",
+            UmlToolMode.CreateDependency => "의존: 의존 원본 → 대상 순으로 클릭합니다.",
+            UmlToolMode.CreateInclude => "Include: 기본 Use Case → 포함 Use Case 순으로 클릭합니다.",
+            UmlToolMode.CreateExtend => "Extend: 확장 Use Case → 기본 Use Case 순으로 클릭합니다.",
             _ => string.Empty,
         };
-        _statusLabel.Text = $"{hint} | 확대/축소: {_canvas.Zoom * 100:0}%";
+
+        _statusLabel.Text = hint;
+        UpdateZoomLabels();
     }
 
     private void UpdateZoomDisplay() => SetTool(_currentToolMode, fromToolbox: true);
+
+    private void UpdateZoomLabels()
+    {
+        var zoomText = $"{_canvas.Zoom * 100:0}%";
+        _statusZoomLabel.Text = zoomText;
+        _tsZoomLabel.Text = zoomText;
+    }
 
     private void SyncSelection()
     {
         _suppressPropertySync = true;
         var selected = _canvas.SelectedObject;
         _propertyGrid.SelectedObject = selected;
+        _umlToolbox.SetCanvasSelection(selected);
 
         var isClassifier = selected is UmlClassifier;
         _pnlFeatureButtons.Visible = isClassifier;
@@ -110,6 +235,24 @@ public partial class MainForm : Form
             _modelExplorer.SelectElement(element.Id);
 
         _suppressPropertySync = false;
+    }
+
+    private void UmlToolbox_NotationDoubleClicked(object? sender, UmlToolboxSelectionChangedEventArgs e)
+    {
+        SetTool(e.Mode, fromToolbox: true);
+
+        if (UmlToolModeHelper.IsNodeCreateTool(e.Mode))
+        {
+            if (_canvas.TryPlaceNotation(e.Mode))
+            {
+                SetTool(UmlToolMode.Select, fromToolbox: true);
+                SyncSelection();
+            }
+            return;
+        }
+
+        if (UmlToolModeHelper.IsRelationshipTool(e.Mode))
+            _statusLabel.Text = "관계 도구: 시작 노드 클릭 → 대상 노드 클릭 순으로 연결합니다. Esc=취소";
     }
 
     private void ModelExplorer_ElementSelected(object? sender, UmlElementSelectedEventArgs e)
@@ -179,6 +322,12 @@ public partial class MainForm : Form
     }
 
     private void DeleteSelection() => _canvas.DeleteSelection();
+
+    private void MenuExit_Click(object? sender, EventArgs e) => Close();
+    private void MenuDelete_Click(object? sender, EventArgs e) => DeleteSelection();
+    private void TsZoomOut_Click(object? sender, EventArgs e) => _canvas.ZoomOut();
+    private void TsZoomIn_Click(object? sender, EventArgs e) => _canvas.ZoomIn();
+    private void TsZoomReset_Click(object? sender, EventArgs e) => _canvas.ZoomReset();
 
     private void MenuNew_Click(object? sender, EventArgs e) => NewProject(loadSample: false);
 

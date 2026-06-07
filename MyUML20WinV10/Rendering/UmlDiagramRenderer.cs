@@ -30,24 +30,28 @@ public static class UmlDiagramRenderer
 
     public static SizeF MeasureClassifier(UmlClassifier classifier, bool showCompartments, float width)
     {
-        var nameHeight = LineHeight + CompartmentPadding * 2;
+        var headerLines = HasBuiltInStereotypeLine(classifier) || !string.IsNullOrWhiteSpace(classifier.Stereotype) ? 2 : 1;
+        var nameHeight = headerLines * LineHeight + CompartmentPadding * 2;
         if (!showCompartments)
             return new SizeF(width, nameHeight + 8);
 
-        var attrLines = classifier.Properties.Count;
+        var propLines = classifier is UmlEnumeration ? 0 : classifier.Properties.Count;
         var opLines = classifier switch
         {
             UmlEnumeration en => en.Literals.Count,
             _ => classifier.Operations.Count,
         };
 
-        var attrHeight = attrLines > 0 ? attrLines * LineHeight + CompartmentPadding * 2 : CompartmentPadding * 2;
         var opHeight = opLines > 0 ? opLines * LineHeight + CompartmentPadding * 2 : CompartmentPadding * 2;
+        var propHeight = propLines > 0 ? propLines * LineHeight + CompartmentPadding * 2 : CompartmentPadding * 2;
         if (classifier is UmlEnumeration)
-            attrHeight = 0;
+            propHeight = 0;
 
-        return new SizeF(width, nameHeight + attrHeight + opHeight);
+        return new SizeF(width, nameHeight + opHeight + propHeight);
     }
+
+    private static bool HasBuiltInStereotypeLine(UmlClassifier classifier) =>
+        classifier is UmlInterface or UmlEnumeration;
 
     public static float MeasureNodeHeight(UmlProject project, UmlDiagramNode node)
     {
@@ -97,7 +101,13 @@ public static class UmlDiagramRenderer
             return;
         using var textBrush = new SolidBrush(Color.Black);
         using var font = new Font("Segoe UI", 9f);
+        using var boldFont = new Font("Segoe UI", 9f, FontStyle.Bold);
         using var italicFont = new Font("Segoe UI", 9f, FontStyle.Italic);
+        using var boldItalicFont = new Font("Segoe UI", 9f, FontStyle.Bold | FontStyle.Italic);
+
+        // White fill background (prevents see-through when nodes overlap)
+        using var bgBrush = new SolidBrush(Color.White);
+        g.FillRectangle(bgBrush, bounds.X, bounds.Y, bounds.Width, bounds.Height);
 
         if (classifier is UmlInterface)
             DrawInterfaceShape(g, bounds, bodyPen);
@@ -107,17 +117,19 @@ public static class UmlDiagramRenderer
             g.DrawRectangle(bodyPen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
 
         var y = bounds.Y + CompartmentPadding;
-        if (!string.IsNullOrWhiteSpace(classifier.Stereotype))
-        {
-            var stereo = $"«{classifier.Stereotype}»";
-            DrawCenteredText(g, stereo, italicFont, textBrush, bounds, ref y);
-        }
 
-        var keyword = classifier.NotationKeyword;
-        var title = classifier.IsAbstract && classifier is UmlClass
-            ? $"{keyword} {classifier.Name}"
-            : $"{keyword} {classifier.Name}";
-        DrawCenteredText(g, title, classifier.IsAbstract ? italicFont : font, textBrush, bounds, ref y);
+        // Stereotype line: user-defined takes priority, then built-in for interface/enumeration
+        var stereoText = !string.IsNullOrWhiteSpace(classifier.Stereotype)
+            ? $"«{classifier.Stereotype}»"
+            : classifier is UmlInterface ? "«interface»"
+            : classifier is UmlEnumeration ? "«enumeration»"
+            : null;
+        if (stereoText != null)
+            DrawCenteredText(g, stereoText, italicFont, textBrush, bounds, ref y);
+
+        // Name only (no keyword prefix); abstract = bold italic, concrete = bold
+        var nameFont = classifier.IsAbstract ? boldItalicFont : boldFont;
+        DrawCenteredText(g, classifier.Name, nameFont, textBrush, bounds, ref y);
         y += CompartmentPadding;
         g.DrawLine(bodyPen, bounds.Left, y, bounds.Right, y);
 
@@ -136,19 +148,7 @@ public static class UmlDiagramRenderer
             return;
         }
 
-        if (classifier.Properties.Count > 0)
-        {
-            y += CompartmentPadding;
-            foreach (var property in classifier.Properties)
-            {
-                g.DrawString(property.SignatureText, font, textBrush, bounds.Left + CompartmentPadding, y);
-                y += LineHeight;
-            }
-
-            y += CompartmentPadding / 2;
-            g.DrawLine(bodyPen, bounds.Left, y, bounds.Right, y);
-        }
-
+        // 연산(함수)을 먼저, 속성(변수)을 아래에 표시
         if (classifier.Operations.Count > 0)
         {
             y += CompartmentPadding;
@@ -156,6 +156,19 @@ public static class UmlDiagramRenderer
             {
                 var opFont = operation.IsAbstract ? italicFont : font;
                 g.DrawString(operation.SignatureText, opFont, textBrush, bounds.Left + CompartmentPadding, y);
+                y += LineHeight;
+            }
+
+            y += CompartmentPadding / 2;
+            g.DrawLine(bodyPen, bounds.Left, y, bounds.Right, y);
+        }
+
+        if (classifier.Properties.Count > 0)
+        {
+            y += CompartmentPadding;
+            foreach (var property in classifier.Properties)
+            {
+                g.DrawString(property.SignatureText, font, textBrush, bounds.Left + CompartmentPadding, y);
                 y += LineHeight;
             }
         }
@@ -253,8 +266,10 @@ public static class UmlDiagramRenderer
     {
         var useCase = project.FindElement(node.ModelElementId) as UmlUseCase;
         var name = useCase?.Name ?? "UseCase";
+        using var bgBrush = new SolidBrush(Color.White);
         using var brush = new SolidBrush(Color.Black);
         using var font = new Font("Segoe UI", 9f);
+        g.FillEllipse(bgBrush, bounds.X, bounds.Y, bounds.Width, bounds.Height);
         g.DrawEllipse(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
         var size = g.MeasureString(name, font);
         g.DrawString(name, font, brush, bounds.Left + (bounds.Width - size.Width) / 2f, bounds.Top + (bounds.Height - size.Height) / 2f);
@@ -487,12 +502,10 @@ public static class UmlDiagramRenderer
     private static void DrawNodeHoverOverlay(Graphics g, UmlProject project, UmlDiagramNode node)
     {
         var rect = GetNodeBounds(project, node);
-        using var fill = new SolidBrush(Color.FromArgb(36, 79, 70, 229));
-        using var pen = new Pen(Color.FromArgb(160, 79, 70, 229), 1.5f)
+        using var pen = new Pen(Color.FromArgb(180, 79, 70, 229), 2f)
         {
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
         };
-        g.FillRectangle(fill, rect.X, rect.Y, rect.Width, rect.Height);
         g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
     }
 

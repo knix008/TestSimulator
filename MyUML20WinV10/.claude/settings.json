@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\" -Recurse)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\" -Recurse -File | Where-Object { $_.Extension -in @\\('.cs', '.csproj', '.resx', '.sln'\\) } | Select-Object FullName | Sort-Object)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\" -File -Recurse | Where-Object { $_.Extension -in @\\('.cs', '.csproj', '.resx'\\) -and -not $_.FullName.Contains\\('\\\\obj\\\\'\\) -and -not $_.FullName.Contains\\('\\\\bin\\\\'\\) } | Measure-Object | Select-Object Count)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\" -Directory | Where-Object { $_.Name -notmatch '^\\(bin|obj|\\\\.git\\)' } | ForEach-Object { Get-ChildItem -Path $_.FullName -File | Where-Object { $_.Extension -eq '.cs' } | Select-Object @{Name=\"Folder\";Expression={$_.Directory.Name}}, @{Name=\"File\";Expression={$_.Name}} } | Sort-Object Folder, File)"
+    ]
+  }
+}

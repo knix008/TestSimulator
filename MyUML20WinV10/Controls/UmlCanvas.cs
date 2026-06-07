@@ -37,12 +37,16 @@ public sealed class UmlCanvas : Control
     private int _panStartHScroll;
     private int _panStartVScroll;
     private float _zoom = 1.0f;
+    private PointF _pointerCanvas;
+    private bool _pointerOnCanvas;
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
     public event EventHandler? SelectToolRequested;
     public event EventHandler? ZoomChanged;
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public UmlProject Project
     {
         get => _project;
@@ -59,12 +63,28 @@ public sealed class UmlCanvas : Control
         }
     }
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public UmlDiagram ActiveDiagram => _project.ActiveDiagram;
+
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public UmlToolMode ToolMode => _toolMode;
+
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public float Zoom => _zoom;
+
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public UmlDiagramNode? SelectedNode => _selectedNode;
+
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public UmlDiagramEdge? SelectedEdge => _selectedEdge;
 
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public object? SelectedObject
     {
         get
@@ -135,6 +155,26 @@ public sealed class UmlCanvas : Control
             Select(null, edge);
     }
 
+    public bool TryPlaceNotation(UmlToolMode mode)
+    {
+        if (!UmlToolModeHelper.IsNodeCreateTool(mode))
+            return false;
+
+        var previousMode = _toolMode;
+        _toolMode = mode;
+        var center = ScreenToCanvas(GetViewportCenter());
+        var size = GetDefaultSize(mode);
+        var rect = new RectangleF(
+            center.X - size.Width / 2f,
+            center.Y - size.Height / 2f,
+            size.Width,
+            size.Height);
+        CreateNode(rect);
+        _toolMode = previousMode;
+        NotifyChanged();
+        return true;
+    }
+
     public void DeleteSelection()
     {
         if (_selectedEdge is not null)
@@ -160,6 +200,15 @@ public sealed class UmlCanvas : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
+        if (DesignMode)
+        {
+            using var designBrush = new SolidBrush(Color.FromArgb(240, 243, 248));
+            e.Graphics.FillRectangle(designBrush, ClientRectangle);
+            using var designPen = new Pen(Color.FromArgb(180, 180, 200));
+            e.Graphics.DrawRectangle(designPen, 0, 0, Width - 1, Height - 1);
+            return;
+        }
+
         e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         e.Graphics.TranslateTransform(-_hScroll.Value, -_vScroll.Value);
         e.Graphics.ScaleTransform(_zoom, _zoom);
@@ -169,6 +218,8 @@ public sealed class UmlCanvas : Control
 
         if (_isCreating)
             DrawCreatePreview(e.Graphics);
+        else if (_pointerOnCanvas && !_isPanning && !_isDragging && UmlToolModeHelper.IsNodeCreateTool(_toolMode))
+            DrawToolPlacementPreview(e.Graphics);
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
@@ -205,6 +256,10 @@ public sealed class UmlCanvas : Control
                     _dragNode = _selectedNode;
                     _isDragging = true;
                     _modelChangedDuringDrag = false;
+                    Capture = true;
+                }
+                else if (_selectedEdge is not null)
+                {
                     Capture = true;
                 }
                 break;
@@ -301,14 +356,28 @@ public sealed class UmlCanvas : Control
             return;
         }
 
+        _pointerCanvas = canvasPoint;
+        _pointerOnCanvas = true;
         UpdateHover(canvasPoint);
+    }
+
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        base.OnMouseEnter(e);
+        _pointerOnCanvas = true;
+        Invalidate();
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
+        _pointerOnCanvas = false;
         if (_hoverNode is null && _hoverEdge is null)
+        {
+            UpdateCursor();
+            Invalidate();
             return;
+        }
 
         _hoverNode = null;
         _hoverEdge = null;
@@ -524,12 +593,37 @@ public sealed class UmlCanvas : Control
     private void DrawCreatePreview(Graphics g)
     {
         var rect = EnsureDrawableRect(NormalizeRect(_dragStartCanvas, _createPreviewEnd));
-        using var pen = new Pen(Color.FromArgb(180, 79, 70, 229), 1.5f / _zoom)
+        DrawPlacementPreview(g, rect);
+    }
+
+    private void DrawToolPlacementPreview(Graphics g)
+    {
+        var size = GetDefaultSize(_toolMode);
+        var rect = new RectangleF(
+            _pointerCanvas.X - size.Width / 2f,
+            _pointerCanvas.Y - size.Height / 2f,
+            size.Width,
+            size.Height);
+        DrawPlacementPreview(g, rect);
+    }
+
+    private void DrawPlacementPreview(Graphics g, RectangleF rect)
+    {
+        using var fill = new SolidBrush(Color.FromArgb(48, 79, 70, 229));
+        g.FillRectangle(fill, rect.X, rect.Y, rect.Width, rect.Height);
+
+        var previewRect = RectangleF.Inflate(rect, -6, -6);
+        UmlToolModeHelper.DrawPreview(
+            g,
+            _toolMode,
+            previewRect,
+            Color.FromArgb(237, 233, 254),
+            Color.FromArgb(79, 70, 229));
+
+        using var pen = new Pen(Color.FromArgb(200, 79, 70, 229), 1.5f / _zoom)
         {
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
         };
-        using var fill = new SolidBrush(Color.FromArgb(40, 79, 70, 229));
-        g.FillRectangle(fill, rect.X, rect.Y, rect.Width, rect.Height);
         g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
     }
 
@@ -930,13 +1024,8 @@ public sealed class UmlCanvas : Control
             return;
         }
 
-        Cursor = IsCreateTool(_toolMode) ? Cursors.Cross : Cursors.Default;
+        Cursor = UmlToolModeHelper.IsNodeCreateTool(_toolMode) ? Cursors.Cross : Cursors.Default;
     }
-
-    private static bool IsCreateTool(UmlToolMode mode) => mode is
-        UmlToolMode.CreateClass or UmlToolMode.CreateInterface or UmlToolMode.CreateEnumeration
-        or UmlToolMode.CreatePackage or UmlToolMode.CreateActor or UmlToolMode.CreateUseCase
-        or UmlToolMode.CreateNote;
 
     private static float DistanceToSegment(PointF p, PointF a, PointF b)
     {
