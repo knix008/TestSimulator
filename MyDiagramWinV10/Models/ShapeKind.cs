@@ -26,6 +26,38 @@ public enum ShapeKind
     ManualInput,       // slanted-top trapezoid (flowchart manual input)
     Delay,             // D-shape (rect + right semicircle)
 
+    // ── Basic shape extensions ────────────────────────────────────────────
+    Octagon,                // 팔각형
+    RightTriangle,          // 직각삼각형
+    Star4,                  // 4점별
+    Star6,                  // 6점별
+    Donut,                  // 링/도넛
+
+    // ── Flowchart additional shapes ───────────────────────────────────────
+    FlowPredefinedProcess,  // 내장 프로세스 (rect + inner side lines)
+    FlowManualOperation,    // 수동 조작 (inverted trapezoid)
+    FlowSummingJunction,    // 합산 교차점 (circle + X)
+    FlowOr,                 // 논리합 (circle + +)
+    FlowMerge,              // 병합 (inverted triangle)
+    FlowCollate,            // 조합 (bowtie / hourglass)
+    FlowSort,               // 정렬 (diamond + horizontal divider)
+    FlowDisplay,            // 표시기 (hexagonal display)
+    FlowPreparation,        // 준비 (wide hexagon / shield)
+    FlowAnnotation,         // 주석 (open bracket)
+
+    // ── Arrow shapes ──────────────────────────────────────────────────────
+    ArrowLeft,              // 왼쪽 화살표
+    ArrowUp,                // 위쪽 화살표
+    ArrowDown,              // 아래쪽 화살표
+    ArrowUpDown,            // 상하 양방향 화살표
+    ArrowQuad,              // 사방향 화살표
+    ArrowBent,              // 꺾인 화살표
+    ArrowStriped,           // 줄무늬 화살표
+
+    // ── Callout / speech bubble ───────────────────────────────────────────
+    CalloutRound,           // 둥근 말풍선
+    Explosion,              // 폭발 / 별모양
+
     // ── Network diagram shapes ────────────────────────────────────────────
     NetworkServer,     // rack server (rectangle with horizontal stripes)
     NetworkRouter,     // router (circle with 4-directional arrows)

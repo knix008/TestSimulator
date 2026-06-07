@@ -48,9 +48,6 @@ partial class MainForm
     private ToolStripButton _btnZoomIn;
     private ToolStripButton _btnZoomOut;
     private ToolStripButton _btnZoomReset;
-    private ToolStripButton _btnView3D;
-    private ToolStripLabel _lblZoom;
-    private ToolStripLabel _lblStatus;
     private SplitContainer _splitMain;
     private SplitContainer _splitEditor;
     private Panel _pnlToolbox;
@@ -156,9 +153,6 @@ partial class MainForm
         _btnZoomIn = new ToolStripButton();
         _btnZoomOut = new ToolStripButton();
         _btnZoomReset = new ToolStripButton();
-        _btnView3D = new ToolStripButton();
-        _lblZoom = new ToolStripLabel();
-        _lblStatus = new ToolStripLabel();
         _splitMain = new SplitContainer();
         _pnlToolbox = new Panel();
         _lblToolboxTitle = new Label();
@@ -427,7 +421,7 @@ partial class MainForm
         // _toolStrip
         // 
         _toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStrip.Items.AddRange(new ToolStripItem[] { _btnSelect, _sepShapes, _btnRectangle, _btnRoundedRect, _btnEllipse, _btnDiamond, _btnTriangle, _btnParallelogram, _btnHexagon, _sepLines, _btnLineStraight, _btnLineOrthogonal, _btnLineCurved, _sepZoom, _btnZoomIn, _btnZoomOut, _btnZoomReset, _btnView3D, _lblZoom, _lblStatus });
+        _toolStrip.Items.AddRange(new ToolStripItem[] { _btnSelect, _sepShapes, _btnRectangle, _btnRoundedRect, _btnEllipse, _btnDiamond, _btnTriangle, _btnParallelogram, _btnHexagon, _sepLines, _btnLineStraight, _btnLineOrthogonal, _btnLineCurved, _sepZoom, _btnZoomIn, _btnZoomOut, _btnZoomReset });
         _toolStrip.Location = new Point(0, 24);
         _toolStrip.Name = "_toolStrip";
         _toolStrip.Size = new Size(1303, 25);
@@ -584,28 +578,7 @@ partial class MainForm
         _btnZoomReset.Text = "↕100%";
         _btnZoomReset.ToolTipText = "100% 보기 (Ctrl+0)";
         _btnZoomReset.Click += MenuZoomReset_Click;
-        // 
-        // _btnView3D
-        // 
-        _btnView3D.DisplayStyle = ToolStripItemDisplayStyle.Text;
-        _btnView3D.Name = "_btnView3D";
-        _btnView3D.Size = new Size(41, 22);
-        _btnView3D.Text = "◱ 3D";
-        _btnView3D.ToolTipText = "3D 보기 (Ctrl+3)";
-        _btnView3D.Click += MenuView3D_Click;
-        // 
-        // _lblZoom
-        // 
-        _lblZoom.Name = "_lblZoom";
-        _lblZoom.Size = new Size(38, 22);
-        _lblZoom.Text = "100%";
-        // 
-        // _lblStatus
-        // 
-        _lblStatus.Name = "_lblStatus";
-        _lblStatus.Size = new Size(164, 22);
-        _lblStatus.Text = "도구: 선택 | 더블클릭: 텍스트";
-        // 
+        //
         // _splitMain
         // 
         _splitMain.Dock = DockStyle.Fill;

@@ -46,6 +46,30 @@ public static class DiagramRenderer
         {
             DrawDelay(g, fillBrush, borderPen, rect);
         }
+        else if (shape.Kind == ShapeKind.Donut)
+        {
+            DrawDonut(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.FlowPredefinedProcess)
+        {
+            DrawFlowPredefinedProcess(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.FlowSummingJunction)
+        {
+            DrawFlowSummingJunction(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.FlowOr)
+        {
+            DrawFlowOr(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.FlowSort)
+        {
+            DrawFlowSort(g, fillBrush, borderPen, rect);
+        }
+        else if (shape.Kind == ShapeKind.ArrowStriped)
+        {
+            DrawArrowStriped(g, fillBrush, borderPen, rect);
+        }
         else if (IsNetworkShape(shape.Kind))
         {
             DispatchNetworkDraw(g, fillBrush, borderPen, rect, shape.Kind);
@@ -143,6 +167,13 @@ public static class DiagramRenderer
             DrawDelay(g, fillBrush, borderPen, rect);
             return;
         }
+
+        if (kind == ShapeKind.Donut) { DrawDonut(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowPredefinedProcess) { DrawFlowPredefinedProcess(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowSummingJunction) { DrawFlowSummingJunction(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowOr) { DrawFlowOr(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowSort) { DrawFlowSort(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.ArrowStriped) { DrawArrowStriped(g, fillBrush, borderPen, rect); return; }
 
         if (IsNetworkShape(kind))
         {
@@ -704,6 +735,13 @@ public static class DiagramRenderer
             DrawDelay(g, fillBrush, borderPen, rect);
             return;
         }
+
+        if (kind == ShapeKind.Donut) { DrawDonut(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowPredefinedProcess) { DrawFlowPredefinedProcess(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowSummingJunction) { DrawFlowSummingJunction(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowOr) { DrawFlowOr(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.FlowSort) { DrawFlowSort(g, fillBrush, borderPen, rect); return; }
+        if (kind == ShapeKind.ArrowStriped) { DrawArrowStriped(g, fillBrush, borderPen, rect); return; }
 
         if (IsNetworkShape(kind))
         {
@@ -1975,6 +2013,253 @@ public static class DiagramRenderer
                 path.AddRectangle(rect);
                 break;
 
+            // ── Basic shape extensions ─────────────────────────────────────────
+            case ShapeKind.Octagon:
+            {
+                float cut = Math.Min(rect.Width, rect.Height) * 0.22f;
+                path.AddPolygon(new PointF[] {
+                    new(rect.X + cut,     rect.Y),
+                    new(rect.Right - cut, rect.Y),
+                    new(rect.Right,       rect.Y + cut),
+                    new(rect.Right,       rect.Bottom - cut),
+                    new(rect.Right - cut, rect.Bottom),
+                    new(rect.X + cut,     rect.Bottom),
+                    new(rect.X,           rect.Bottom - cut),
+                    new(rect.X,           rect.Y + cut)
+                });
+                break;
+            }
+
+            case ShapeKind.RightTriangle:
+                path.AddPolygon(new PointF[] {
+                    new(rect.X,     rect.Y),
+                    new(rect.Right, rect.Bottom),
+                    new(rect.X,     rect.Bottom)
+                });
+                break;
+
+            case ShapeKind.Star4:
+                path.AddPolygon(CreateStar(cx, cy, rx, ry, 4));
+                break;
+
+            case ShapeKind.Star6:
+                path.AddPolygon(CreateStar(cx, cy, rx, ry, 6));
+                break;
+
+            case ShapeKind.Donut:
+                path.AddEllipse(rect);  // outer ellipse for hit test
+                break;
+
+            // ── Flowchart additional shapes ────────────────────────────────────
+            case ShapeKind.FlowPredefinedProcess:
+                path.AddRectangle(rect);  // special drawing adds inner lines
+                break;
+
+            case ShapeKind.FlowManualOperation:
+            {
+                float moInset = rect.Width * 0.18f;
+                path.AddPolygon(new PointF[] {
+                    new(rect.X,               rect.Y),
+                    new(rect.Right,           rect.Y),
+                    new(rect.Right - moInset, rect.Bottom),
+                    new(rect.X + moInset,     rect.Bottom)
+                });
+                break;
+            }
+
+            case ShapeKind.FlowSummingJunction:
+                path.AddEllipse(rect);  // circle; X drawn specially
+                break;
+
+            case ShapeKind.FlowOr:
+                path.AddEllipse(rect);  // circle; + drawn specially
+                break;
+
+            case ShapeKind.FlowMerge:
+                path.AddPolygon([
+                    new PointF(rect.X,     rect.Y),
+                    new PointF(rect.Right, rect.Y),
+                    new PointF(cx,         rect.Bottom)
+                ]);
+                break;
+
+            case ShapeKind.FlowCollate:
+                // Bowtie: two triangles sharing center point
+                path.AddPolygon([new PointF(rect.X, rect.Y),    new PointF(rect.Right, rect.Y),    new PointF(cx, cy)]);
+                path.AddPolygon([new PointF(rect.X, rect.Bottom), new PointF(rect.Right, rect.Bottom), new PointF(cx, cy)]);
+                break;
+
+            case ShapeKind.FlowSort:
+                // Diamond; horizontal divider drawn specially
+                path.AddPolygon([
+                    new PointF(cx, rect.Y), new PointF(rect.Right, cy),
+                    new PointF(cx, rect.Bottom), new PointF(rect.X, cy)
+                ]);
+                break;
+
+            case ShapeKind.FlowDisplay:
+            {
+                float fdNotch   = rect.Width * 0.20f;
+                float fdRounded = rect.Width * 0.25f;
+                path.AddPolygon(new PointF[] {
+                    new(rect.X + fdNotch,       rect.Y),
+                    new(rect.Right - fdRounded, rect.Y),
+                    new(rect.Right,             cy),
+                    new(rect.Right - fdRounded, rect.Bottom),
+                    new(rect.X + fdNotch,       rect.Bottom),
+                    new(rect.X,                 cy)
+                });
+                break;
+            }
+
+            case ShapeKind.FlowPreparation:
+            {
+                float fpCut = rect.Width * 0.16f;
+                path.AddPolygon(new PointF[] {
+                    new(rect.X + fpCut,     rect.Y),
+                    new(rect.Right - fpCut, rect.Y),
+                    new(rect.Right,         cy),
+                    new(rect.Right - fpCut, rect.Bottom),
+                    new(rect.X + fpCut,     rect.Bottom),
+                    new(rect.X,             cy)
+                });
+                break;
+            }
+
+            case ShapeKind.FlowAnnotation:
+            {
+                float faArm   = rect.Width * 0.40f;
+                float faThick = Math.Max(3f, Math.Min(rect.Width, rect.Height) * 0.12f);
+                path.AddPolygon(new PointF[] {
+                    new(rect.X + faArm,   rect.Y),
+                    new(rect.X,           rect.Y),
+                    new(rect.X,           rect.Bottom),
+                    new(rect.X + faArm,   rect.Bottom),
+                    new(rect.X + faArm,   rect.Bottom - faThick),
+                    new(rect.X + faThick, rect.Bottom - faThick),
+                    new(rect.X + faThick, rect.Y + faThick),
+                    new(rect.X + faArm,   rect.Y + faThick)
+                });
+                break;
+            }
+
+            // ── Arrow shapes ───────────────────────────────────────────────────
+            case ShapeKind.ArrowLeft:
+            {
+                float alShaftT = rect.Y + rect.Height * 0.30f;
+                float alShaftB = rect.Bottom - rect.Height * 0.30f;
+                float alNotch  = rect.X + rect.Width * 0.40f;
+                path.AddPolygon(new PointF[] {
+                    new(rect.Right, alShaftT),
+                    new(alNotch,    alShaftT),
+                    new(alNotch,    rect.Y),
+                    new(rect.X,     cy),
+                    new(alNotch,    rect.Bottom),
+                    new(alNotch,    alShaftB),
+                    new(rect.Right, alShaftB)
+                });
+                break;
+            }
+
+            case ShapeKind.ArrowUp:
+            {
+                float auShaftL = rect.X + rect.Width * 0.30f;
+                float auShaftR = rect.Right - rect.Width * 0.30f;
+                float auNotch  = rect.Y + rect.Height * 0.55f;
+                path.AddPolygon(new PointF[] {
+                    new(auShaftL,   rect.Bottom),
+                    new(auShaftL,   auNotch),
+                    new(rect.X,     auNotch),
+                    new(cx,         rect.Y),
+                    new(rect.Right, auNotch),
+                    new(auShaftR,   auNotch),
+                    new(auShaftR,   rect.Bottom)
+                });
+                break;
+            }
+
+            case ShapeKind.ArrowDown:
+            {
+                float adShaftL = rect.X + rect.Width * 0.30f;
+                float adShaftR = rect.Right - rect.Width * 0.30f;
+                float adNotch  = rect.Y + rect.Height * 0.45f;
+                path.AddPolygon(new PointF[] {
+                    new(adShaftL,   rect.Y),
+                    new(adShaftL,   adNotch),
+                    new(rect.X,     adNotch),
+                    new(cx,         rect.Bottom),
+                    new(rect.Right, adNotch),
+                    new(adShaftR,   adNotch),
+                    new(adShaftR,   rect.Y)
+                });
+                break;
+            }
+
+            case ShapeKind.ArrowUpDown:
+            {
+                float audSL = rect.X + rect.Width * 0.28f;
+                float audSR = rect.Right - rect.Width * 0.28f;
+                float audNT = rect.Y + rect.Height * 0.28f;
+                float audNB = rect.Bottom - rect.Height * 0.28f;
+                path.AddPolygon(new PointF[] {
+                    new(cx,         rect.Y),
+                    new(rect.Right, audNT),
+                    new(audSR,      audNT),
+                    new(audSR,      audNB),
+                    new(rect.Right, audNB),
+                    new(cx,         rect.Bottom),
+                    new(rect.X,     audNB),
+                    new(audSL,      audNB),
+                    new(audSL,      audNT),
+                    new(rect.X,     audNT)
+                });
+                break;
+            }
+
+            case ShapeKind.ArrowQuad:
+            {
+                float aqSW = rect.Width  * 0.18f;
+                float aqSH = rect.Height * 0.18f;
+                float aqAW = rect.Width  * 0.38f;
+                float aqAH = rect.Height * 0.38f;
+                path.AddPolygon(new PointF[] {
+                    new(cx,          rect.Y),
+                    new(cx + aqSW,   cy - aqAH),
+                    new(cx + aqSW,   cy - aqSH),
+                    new(cx + aqAW,   cy - aqSH),
+                    new(rect.Right,  cy),
+                    new(cx + aqAW,   cy + aqSH),
+                    new(cx + aqSW,   cy + aqSH),
+                    new(cx + aqSW,   cy + aqAH),
+                    new(cx,          rect.Bottom),
+                    new(cx - aqSW,   cy + aqAH),
+                    new(cx - aqSW,   cy + aqSH),
+                    new(cx - aqAW,   cy + aqSH),
+                    new(rect.X,      cy),
+                    new(cx - aqAW,   cy - aqSH),
+                    new(cx - aqSW,   cy - aqSH),
+                    new(cx - aqSW,   cy - aqAH)
+                });
+                break;
+            }
+
+            case ShapeKind.ArrowBent:
+                path.AddPolygon(CreateArrowBent(rect));
+                break;
+
+            case ShapeKind.ArrowStriped:
+                path.AddPolygon(CreateArrow(rect));  // stripe drawn specially
+                break;
+
+            // ── Callout / speech bubble ────────────────────────────────────────
+            case ShapeKind.CalloutRound:
+                path.AddPath(CreateCalloutRound(rect), false);
+                break;
+
+            case ShapeKind.Explosion:
+                path.AddPolygon(CreateExplosion(cx, cy, rx, ry));
+                break;
+
             case ShapeKind.NetworkServer:
             case ShapeKind.NetworkRouter:
             case ShapeKind.NetworkSwitch:
@@ -2079,6 +2364,139 @@ public static class DiagramRenderer
         }
 
         return path;
+    }
+
+    // ── New shape draw methods ────────────────────────────────────────────────
+
+    private static void DrawDonut(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        using var path = new GraphicsPath();
+        path.AddEllipse(rect);
+        float hf = 0.40f;
+        float hw = rect.Width * hf, hh = rect.Height * hf;
+        float hx = rect.X + (rect.Width - hw) / 2f, hy = rect.Y + (rect.Height - hh) / 2f;
+        path.AddEllipse(hx, hy, hw, hh);
+        path.FillMode = FillMode.Alternate;
+        g.FillPath(fill, path);
+        g.DrawEllipse(border, rect);
+        g.DrawEllipse(border, hx, hy, hw, hh);
+    }
+
+    private static void DrawFlowPredefinedProcess(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillRectangle(fill, rect);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+        float lx = rect.X + rect.Width * 0.12f;
+        float rx2 = rect.Right - rect.Width * 0.12f;
+        g.DrawLine(border, lx, rect.Y, lx, rect.Bottom);
+        g.DrawLine(border, rx2, rect.Y, rx2, rect.Bottom);
+    }
+
+    private static void DrawFlowSummingJunction(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillEllipse(fill, rect);
+        g.DrawEllipse(border, rect);
+        float cx = rect.X + rect.Width / 2f, cy = rect.Y + rect.Height / 2f;
+        float r = Math.Min(rect.Width, rect.Height) * 0.30f;
+        g.DrawLine(border, cx - r, cy - r, cx + r, cy + r);
+        g.DrawLine(border, cx + r, cy - r, cx - r, cy + r);
+    }
+
+    private static void DrawFlowOr(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        g.FillEllipse(fill, rect);
+        g.DrawEllipse(border, rect);
+        float cx = rect.X + rect.Width / 2f, cy = rect.Y + rect.Height / 2f;
+        float rx2 = rect.Width * 0.30f, ry2 = rect.Height * 0.30f;
+        g.DrawLine(border, cx - rx2, cy, cx + rx2, cy);
+        g.DrawLine(border, cx, cy - ry2, cx, cy + ry2);
+    }
+
+    private static void DrawFlowSort(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        float cx = rect.X + rect.Width / 2f, cy = rect.Y + rect.Height / 2f;
+        using var path = new GraphicsPath();
+        path.AddPolygon([
+            new PointF(cx, rect.Y), new PointF(rect.Right, cy),
+            new PointF(cx, rect.Bottom), new PointF(rect.X, cy)
+        ]);
+        g.FillPath(fill, path);
+        g.DrawPath(border, path);
+        float lineHW = rect.Width * 0.25f;
+        g.DrawLine(border, cx - lineHW, cy, cx + lineHW, cy);
+    }
+
+    private static void DrawArrowStriped(Graphics g, Brush fill, Pen border, RectangleF rect)
+    {
+        var pts = CreateArrow(rect);
+        using var path = new GraphicsPath();
+        path.AddPolygon(pts);
+        g.FillPath(fill, path);
+        g.DrawPath(border, path);
+        float stripeX = rect.X + rect.Width * 0.20f;
+        float shaftT  = rect.Y + rect.Height * 0.30f;
+        float shaftB  = rect.Bottom - rect.Height * 0.30f;
+        g.DrawLine(border, stripeX, shaftT, stripeX, shaftB);
+    }
+
+    // ── New shape path helpers ────────────────────────────────────────────────
+
+    private static PointF[] CreateArrowBent(RectangleF rect)
+    {
+        float armCX   = rect.X + rect.Width  * 0.72f;
+        float armHW   = rect.Width  * 0.14f;
+        float headHW  = rect.Width  * 0.28f;
+        float shaftT  = rect.Y + rect.Height * 0.12f;
+        float shaftB  = rect.Y + rect.Height * 0.44f;
+        float headTop = rect.Y + rect.Height * 0.60f;
+        return [
+            new(rect.X,         shaftT),
+            new(armCX + armHW,  shaftT),
+            new(armCX + armHW,  headTop),
+            new(armCX + headHW, headTop),
+            new(armCX,          rect.Bottom),
+            new(armCX - headHW, headTop),
+            new(armCX - armHW,  headTop),
+            new(armCX - armHW,  shaftB),
+            new(rect.X,         shaftB)
+        ];
+    }
+
+    private static GraphicsPath CreateCalloutRound(RectangleF rect)
+    {
+        var path = new GraphicsPath();
+        float tailH = Math.Min(rect.Height * 0.25f, 22f);
+        float bodyH = rect.Height - tailH;
+        float rad   = Math.Min(Math.Min(rect.Width, bodyH) * 0.22f, 18f);
+        float d     = rad * 2f;
+        float tailTip = rect.X + rect.Width * 0.15f;
+        float tailL   = rect.X + rect.Width * 0.35f;
+        float tailR   = rect.X + rect.Width * 0.60f;
+        path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Y + bodyH - d, d, d, 0, 90);
+        path.AddLine(rect.Right - rad, rect.Y + bodyH, tailR, rect.Y + bodyH);
+        path.AddLine(tailR, rect.Y + bodyH, tailTip, rect.Bottom);
+        path.AddLine(tailTip, rect.Bottom, tailL, rect.Y + bodyH);
+        path.AddArc(rect.X, rect.Y + bodyH - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private static PointF[] CreateExplosion(float cx, float cy, float rx, float ry)
+    {
+        const int points = 12;
+        var pts = new PointF[points * 2];
+        float irx = rx * 0.55f, iry = ry * 0.55f;
+        float startAngle = -MathF.PI / 2;
+        for (int i = 0; i < points; i++)
+        {
+            float outer = startAngle + 2 * MathF.PI * i / points;
+            float inner = outer + MathF.PI / points;
+            pts[i * 2]     = new(cx + rx  * MathF.Cos(outer), cy + ry  * MathF.Sin(outer));
+            pts[i * 2 + 1] = new(cx + irx * MathF.Cos(inner), cy + iry * MathF.Sin(inner));
+        }
+        return pts;
     }
 
     private static PointF[] CreateRegularPolygon(float cx, float cy, float rx, float ry, int sides, float startAngle)

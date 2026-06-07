@@ -116,31 +116,71 @@ public sealed class DiagramToolbox : UserControl
         _groups.Clear();
         _allTiles.Clear();
 
-        AddGroup("도형", [
-            (ToolboxTool.Shape, "사각형",       ShapeKind.Rectangle,        null),
-            (ToolboxTool.Shape, "둥근사각",     ShapeKind.RoundedRectangle,  null),
-            (ToolboxTool.Shape, "타원",         ShapeKind.Ellipse,           null),
-            (ToolboxTool.Shape, "마름모",       ShapeKind.Diamond,           null),
-            (ToolboxTool.Shape, "삼각형",       ShapeKind.Triangle,          null),
-            (ToolboxTool.Shape, "평행사변",     ShapeKind.Parallelogram,     null),
-            (ToolboxTool.Shape, "육각형",       ShapeKind.Hexagon,           null),
-            (ToolboxTool.Shape, "오각형",       ShapeKind.Pentagon,          null),
-            (ToolboxTool.Shape, "별",           ShapeKind.Star,              null),
-            (ToolboxTool.Shape, "십자",         ShapeKind.Cross,             null),
-            (ToolboxTool.Shape, "원통",         ShapeKind.Cylinder,          null),
-            (ToolboxTool.Shape, "구름",         ShapeKind.Cloud,             null),
-            (ToolboxTool.Shape, "문서",         ShapeKind.Document,          null),
-            (ToolboxTool.Shape, "데이터베이스", ShapeKind.Database,           null),
-            (ToolboxTool.Shape, "화살표",       ShapeKind.Arrow,             null),
-            (ToolboxTool.Shape, "사다리꼴",     ShapeKind.Trapezoid,         null),
-            (ToolboxTool.Shape, "쉐브론",       ShapeKind.Chevron,           null),
-            (ToolboxTool.Shape, "콜아웃",       ShapeKind.CallOut,           null),
-            (ToolboxTool.Shape, "메모",         ShapeKind.Note,              null),
-            (ToolboxTool.Shape, "오프페이지",   ShapeKind.OffPageConnector,  null),
-            (ToolboxTool.Shape, "양화살",       ShapeKind.DoubleArrow,       null),
-            (ToolboxTool.Shape, "수동입력",     ShapeKind.ManualInput,       null),
-            (ToolboxTool.Shape, "지연",         ShapeKind.Delay,             null),
+        AddGroup("기본 도형", [
+            (ToolboxTool.Shape, "사각형",   ShapeKind.Rectangle,       null),
+            (ToolboxTool.Shape, "둥근사각", ShapeKind.RoundedRectangle, null),
+            (ToolboxTool.Shape, "타원",     ShapeKind.Ellipse,          null),
+            (ToolboxTool.Shape, "마름모",   ShapeKind.Diamond,          null),
+            (ToolboxTool.Shape, "삼각형",   ShapeKind.Triangle,         null),
+            (ToolboxTool.Shape, "직각삼각", ShapeKind.RightTriangle,    null),
+            (ToolboxTool.Shape, "평행사변", ShapeKind.Parallelogram,    null),
+            (ToolboxTool.Shape, "사다리꼴", ShapeKind.Trapezoid,        null),
+            (ToolboxTool.Shape, "육각형",   ShapeKind.Hexagon,          null),
+            (ToolboxTool.Shape, "오각형",   ShapeKind.Pentagon,         null),
+            (ToolboxTool.Shape, "팔각형",   ShapeKind.Octagon,          null),
+            (ToolboxTool.Shape, "5점별",    ShapeKind.Star,             null),
+            (ToolboxTool.Shape, "4점별",    ShapeKind.Star4,            null),
+            (ToolboxTool.Shape, "6점별",    ShapeKind.Star6,            null),
+            (ToolboxTool.Shape, "폭발",     ShapeKind.Explosion,        null),
+            (ToolboxTool.Shape, "십자",     ShapeKind.Cross,            null),
+            (ToolboxTool.Shape, "링/도넛",  ShapeKind.Donut,            null),
+            (ToolboxTool.Shape, "원통",     ShapeKind.Cylinder,         null),
+            (ToolboxTool.Shape, "쉐브론",   ShapeKind.Chevron,          null),
+            (ToolboxTool.Shape, "구름",     ShapeKind.Cloud,            null),
         ]);
+
+        AddGroup("순서도", [
+            (ToolboxTool.Shape, "프로세스",   ShapeKind.Rectangle,             null),
+            (ToolboxTool.Shape, "판단",       ShapeKind.Diamond,               null),
+            (ToolboxTool.Shape, "데이터",     ShapeKind.Parallelogram,         null),
+            (ToolboxTool.Shape, "시작/끝",    ShapeKind.RoundedRectangle,      null),
+            (ToolboxTool.Shape, "내장프로세", ShapeKind.FlowPredefinedProcess, null),
+            (ToolboxTool.Shape, "수동입력",   ShapeKind.ManualInput,           null),
+            (ToolboxTool.Shape, "수동조작",   ShapeKind.FlowManualOperation,   null),
+            (ToolboxTool.Shape, "준비",       ShapeKind.FlowPreparation,       null),
+            (ToolboxTool.Shape, "문서",       ShapeKind.Document,              null),
+            (ToolboxTool.Shape, "데이터베이스",ShapeKind.Database,             null),
+            (ToolboxTool.Shape, "오프페이지", ShapeKind.OffPageConnector,      null),
+            (ToolboxTool.Shape, "지연",       ShapeKind.Delay,                 null),
+            (ToolboxTool.Shape, "표시기",     ShapeKind.FlowDisplay,           null),
+            (ToolboxTool.Shape, "합산교차점", ShapeKind.FlowSummingJunction,   null),
+            (ToolboxTool.Shape, "논리합",     ShapeKind.FlowOr,                null),
+            (ToolboxTool.Shape, "병합",       ShapeKind.FlowMerge,             null),
+            (ToolboxTool.Shape, "추출",       ShapeKind.Triangle,              null),
+            (ToolboxTool.Shape, "조합",       ShapeKind.FlowCollate,           null),
+            (ToolboxTool.Shape, "정렬",       ShapeKind.FlowSort,              null),
+            (ToolboxTool.Shape, "주석",       ShapeKind.FlowAnnotation,        null),
+        ], startCollapsed: true);
+
+        AddGroup("화살표", [
+            (ToolboxTool.Shape, "오른쪽→",   ShapeKind.Arrow,       null),
+            (ToolboxTool.Shape, "←왼쪽",     ShapeKind.ArrowLeft,   null),
+            (ToolboxTool.Shape, "↑위쪽",     ShapeKind.ArrowUp,     null),
+            (ToolboxTool.Shape, "↓아래쪽",   ShapeKind.ArrowDown,   null),
+            (ToolboxTool.Shape, "↔양방향",   ShapeKind.DoubleArrow, null),
+            (ToolboxTool.Shape, "↕상하",     ShapeKind.ArrowUpDown, null),
+            (ToolboxTool.Shape, "✦사방향",   ShapeKind.ArrowQuad,   null),
+            (ToolboxTool.Shape, "꺾인화살",  ShapeKind.ArrowBent,   null),
+            (ToolboxTool.Shape, "줄무늬",    ShapeKind.ArrowStriped, null),
+            (ToolboxTool.Shape, "쉐브론→",   ShapeKind.Chevron,     null),
+        ], startCollapsed: true);
+
+        AddGroup("말풍선", [
+            (ToolboxTool.Shape, "각진말풍선", ShapeKind.CallOut,      null),
+            (ToolboxTool.Shape, "둥근말풍선", ShapeKind.CalloutRound, null),
+            (ToolboxTool.Shape, "구름말풍선", ShapeKind.Cloud,        null),
+            (ToolboxTool.Shape, "메모",       ShapeKind.Note,         null),
+        ], startCollapsed: true);
 
         AddGroup("네트워크", [
             (ToolboxTool.Shape, "서버",    ShapeKind.NetworkServer,   null),
@@ -219,7 +259,16 @@ public sealed class DiagramToolbox : UserControl
         if (!_initialized)
             return;
 
-        LayoutAll(resetScroll: true);
+        LayoutAll(resetScroll: false);
+
+        if (!header.Collapsed)
+        {
+            // Just expanded: scroll so the header appears near the top of the viewport
+            // header.Top is screen coord; logical Y = header.Top - AutoScrollPosition.Y
+            int logicalY = header.Top - AutoScrollPosition.Y;
+            ApplyScrollPosition(Math.Max(0, logicalY - Padding.Top));
+            Invalidate();
+        }
     }
 
     private void LayoutAll(bool resetScroll = false, int? targetScrollY = null)

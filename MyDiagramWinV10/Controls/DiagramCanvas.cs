@@ -587,6 +587,8 @@ public sealed class DiagramCanvas : Control
                 SelectedConnector = connector;
                 _connectorSource = null;
                 NotifyChanged();
+                SelectToolRequested?.Invoke(this, EventArgs.Empty);
+                SetToolMode(ToolMode.Select);
             }
             else
             {

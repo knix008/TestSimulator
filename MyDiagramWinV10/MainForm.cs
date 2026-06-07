@@ -247,7 +247,7 @@ public partial class MainForm : Form
 
     private void UpdateZoomDisplay()
     {
-        _lblZoom.Text = $"{_canvas.Zoom:P0}";
+        _btnZoomReset.Text = $"↕{_canvas.Zoom:P0}";
         UpdateTitle();
     }
 
@@ -257,11 +257,6 @@ public partial class MainForm : Form
 
     private void MenuZoomReset_Click(object? sender, EventArgs e) => _canvas.ZoomReset();
 
-    private void MenuView3D_Click(object? sender, EventArgs e)
-    {
-        using var form = new Diagram3DViewForm(_canvas.CreateProjectSnapshot());
-        form.ShowDialog(this);
-    }
 
     private void SyncPropertyPanel()
     {
@@ -756,7 +751,7 @@ public partial class MainForm : Form
     private void SetSelectTool(bool syncToolbox = true)
     {
         _canvas.SetToolMode(ToolMode.Select);
-        _lblStatus.Text = "도구: 선택 | 도형 클릭·드래그 | 핸들로 크기 조절 | Esc: 선택 취소";
+        _statusLabel.Text ="도구: 선택 | 도형 클릭·드래그 | 핸들로 크기 조절 | Esc: 선택 취소";
         SyncToolbarState();
     }
 
@@ -792,6 +787,30 @@ public partial class MainForm : Form
             ShapeKind.DoubleArrow       => "양방향 화살표",
             ShapeKind.ManualInput       => "수동 입력",
             ShapeKind.Delay             => "지연",
+            ShapeKind.Octagon                => "팔각형",
+            ShapeKind.RightTriangle          => "직각삼각형",
+            ShapeKind.Star4                  => "4점별",
+            ShapeKind.Star6                  => "6점별",
+            ShapeKind.Donut                  => "링/도넛",
+            ShapeKind.FlowPredefinedProcess  => "내장 프로세스",
+            ShapeKind.FlowManualOperation    => "수동 조작",
+            ShapeKind.FlowSummingJunction    => "합산 교차점",
+            ShapeKind.FlowOr                 => "논리합",
+            ShapeKind.FlowMerge              => "병합",
+            ShapeKind.FlowCollate            => "조합",
+            ShapeKind.FlowSort               => "정렬",
+            ShapeKind.FlowDisplay            => "표시기",
+            ShapeKind.FlowPreparation        => "준비",
+            ShapeKind.FlowAnnotation         => "주석",
+            ShapeKind.ArrowLeft              => "왼쪽 화살표",
+            ShapeKind.ArrowUp                => "위쪽 화살표",
+            ShapeKind.ArrowDown              => "아래쪽 화살표",
+            ShapeKind.ArrowUpDown            => "상하 화살표",
+            ShapeKind.ArrowQuad              => "사방향 화살표",
+            ShapeKind.ArrowBent              => "꺾인 화살표",
+            ShapeKind.ArrowStriped           => "줄무늬 화살표",
+            ShapeKind.CalloutRound           => "둥근 말풍선",
+            ShapeKind.Explosion              => "폭발",
             ShapeKind.NetworkServer     => "서버",
             ShapeKind.NetworkRouter     => "라우터",
             ShapeKind.NetworkSwitch     => "스위치",
@@ -820,7 +839,7 @@ public partial class MainForm : Form
             ShapeKind.Shape3DTorus           => "토러스",
             _ => "도형"
         };
-        _lblStatus.Text = $"도구: {label} | 마우스를 올려 미리보기, 드래그하여 생성";
+        _statusLabel.Text =$"도구: {label} | 마우스를 올려 미리보기, 드래그하여 생성";
         SyncToolbarState();
     }
 
@@ -839,7 +858,7 @@ public partial class MainForm : Form
             ConnectorKind.Curved           => "곡선 연결",
             _                              => "연결선"
         };
-        _lblStatus.Text = $"도구: {label} | 시작·끝 도형을 순서대로 클릭";
+        _statusLabel.Text =$"도구: {label} | 시작·끝 도형을 순서대로 클릭";
         SyncToolbarState();
     }
 
