@@ -81,7 +81,7 @@ public partial class MainWindow : Window
     private ContextMenu? _windowContextMenu;
 
     private const double DigitalMinWidth       = 140;
-    private const double DigitalMinHeight      = 72;
+    private const double DigitalMinHeight      = 50;
     private const double DigitalAmPmRowHeight  = 28;
     private const double AnalogMinWidth        = 150;
     private const double AnalogMinHeight       = 150;
@@ -166,20 +166,36 @@ public partial class MainWindow : Window
     {
         _settings = s;
 
-        Width  = s.WindowWidth;
-        Height = s.WindowHeight;
-
-        if (s.WindowLeft.HasValue && s.WindowTop.HasValue)
+        // Restore the correct mode's geometry, falling back to generic slot for old saves
+        double restoreW, restoreH;
+        double? restoreL, restoreT;
+        if (s.IsDigital)
         {
-            WindowStartupLocation = WindowStartupLocation.Manual;
-            Left = s.WindowLeft.Value;
-            Top  = s.WindowTop.Value;
+            restoreW = s.DigitalWindowWidth  ?? s.WindowWidth;
+            restoreH = s.DigitalWindowHeight ?? s.WindowHeight;
+            restoreL = s.DigitalWindowLeft   ?? s.WindowLeft;
+            restoreT = s.DigitalWindowTop    ?? s.WindowTop;
         }
         else
         {
-            WindowStartupLocation = WindowStartupLocation.Manual;
+            restoreW = s.AnalogWindowWidth  ?? s.WindowWidth;
+            restoreH = s.AnalogWindowHeight ?? s.WindowHeight;
+            restoreL = s.AnalogWindowLeft   ?? s.WindowLeft;
+            restoreT = s.AnalogWindowTop    ?? s.WindowTop;
+        }
+        Width  = restoreW;
+        Height = restoreH;
+
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        if (restoreL.HasValue && restoreT.HasValue)
+        {
+            Left = restoreL.Value;
+            Top  = restoreT.Value;
+        }
+        else
+        {
             var area = SystemParameters.WorkArea;
-            Left = area.Right - s.WindowWidth - 12;
+            Left = area.Right - restoreW - 12;
             Top  = area.Top + 12;
         }
 
@@ -245,6 +261,16 @@ public partial class MainWindow : Window
         _settings.WindowTop    = Top;
         _settings.WindowWidth  = Width;
         _settings.WindowHeight = Height;
+        if (_isDigital)
+        {
+            _settings.DigitalWindowWidth  = Width;  _settings.DigitalWindowHeight = Height;
+            _settings.DigitalWindowLeft   = Left;   _settings.DigitalWindowTop    = Top;
+        }
+        else
+        {
+            _settings.AnalogWindowWidth  = Width;  _settings.AnalogWindowHeight = Height;
+            _settings.AnalogWindowLeft   = Left;   _settings.AnalogWindowTop    = Top;
+        }
         _settings.Alarms = [.. _alarms.Select(a => new AlarmDto
         {
             Time       = $"{a.Time.Hours:D2}:{a.Time.Minutes:D2}",
@@ -548,7 +574,36 @@ public partial class MainWindow : Window
 
     private void ToggleClockMode()
     {
+        // Cache current mode's geometry before switching
+        if (_isDigital)
+        {
+            _settings.DigitalWindowWidth  = Width;  _settings.DigitalWindowHeight = Height;
+            _settings.DigitalWindowLeft   = Left;   _settings.DigitalWindowTop    = Top;
+        }
+        else
+        {
+            _settings.AnalogWindowWidth  = Width;  _settings.AnalogWindowHeight = Height;
+            _settings.AnalogWindowLeft   = Left;   _settings.AnalogWindowTop    = Top;
+        }
+
         _isDigital = !_isDigital;
+
+        // Restore the new mode's last-used geometry if available
+        if (_isDigital && _settings.DigitalWindowWidth.HasValue)
+        {
+            Width  = _settings.DigitalWindowWidth.Value;
+            Height = _settings.DigitalWindowHeight ?? Height;
+            Left   = _settings.DigitalWindowLeft   ?? Left;
+            Top    = _settings.DigitalWindowTop    ?? Top;
+        }
+        else if (!_isDigital && _settings.AnalogWindowWidth.HasValue)
+        {
+            Width  = _settings.AnalogWindowWidth.Value;
+            Height = _settings.AnalogWindowHeight ?? Height;
+            Left   = _settings.AnalogWindowLeft   ?? Left;
+            Top    = _settings.AnalogWindowTop    ?? Top;
+        }
+
         DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
         AnalogClock.Visibility    = _isDigital ? Visibility.Collapsed : Visibility.Visible;
         UpdateClockModeMenuItem();
@@ -561,6 +616,7 @@ public partial class MainWindow : Window
             UpdateAnalog(DateTime.Now);
 
         ApplyClockModeLayout();
+        SaveSettings();
     }
 
     private void ToggleMaximize()

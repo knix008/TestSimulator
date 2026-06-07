@@ -14,6 +14,15 @@ public class AppSettings
     public double? WindowTop { get; set; } = null;
     public double WindowWidth { get; set; } = 300;
     public double WindowHeight { get; set; } = 300;
+    // Per-mode geometry (null = not yet saved for that mode)
+    public double? DigitalWindowWidth  { get; set; } = null;
+    public double? DigitalWindowHeight { get; set; } = null;
+    public double? DigitalWindowLeft   { get; set; } = null;
+    public double? DigitalWindowTop    { get; set; } = null;
+    public double? AnalogWindowWidth   { get; set; } = null;
+    public double? AnalogWindowHeight  { get; set; } = null;
+    public double? AnalogWindowLeft    { get; set; } = null;
+    public double? AnalogWindowTop     { get; set; } = null;
     public List<AlarmDto> Alarms { get; set; } = new();
     public List<WorldTimeCityDto>? WorldCities { get; set; }
     public List<TimerDto> Timers { get; set; } = [new TimerDto()];

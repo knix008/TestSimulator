@@ -6,7 +6,7 @@
         Title="MyClock"
         Icon="AppIcon.ico"
         Height="300" Width="300"
-        MinWidth="140" MinHeight="72"
+        MinWidth="140" MinHeight="50"
         WindowStyle="None"
         AllowsTransparency="True"
         ResizeMode="CanResize"
