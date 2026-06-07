@@ -11,6 +11,7 @@ public static class AnalysisReportBuilder
     private const int MaxTypeRows = 40;
     private const int MaxPackageRows = 30;
     private const int MaxDuplicateGroups = 25;
+    private const int MaxGlobalVariableAccessRows = 300;
     private const int MaxArchitectureInsights = 40;
     private const int MaxPriorityActions = 12;
 
@@ -41,6 +42,7 @@ public static class AnalysisReportBuilder
             BuildTypeMetricsSection(analysis, root, thresholds),
             BuildPackageMetricsSection(analysis.Metrics.Packages, thresholds),
             BuildDuplicateSection(analysis.Duplicates, root),
+            BuildGlobalVariablesSection(analysis.GlobalVariables, root),
             BuildArchitectureSection(insights),
             BuildMetricGlossarySection()
         };
@@ -64,6 +66,8 @@ public static class AnalysisReportBuilder
     {
         var graph = analysis.CallGraph;
         var summary = analysis.Metrics.Summary;
+        var globals = analysis.GlobalVariables;
+        var totalAccessors = globals.Accesses.Select(access => access.FunctionId).Distinct(StringComparer.Ordinal).Count();
         var paragraphs = new List<string>
         {
             $"생성 시각: {generatedAt:yyyy-MM-dd HH:mm:ss}",
@@ -72,6 +76,7 @@ public static class AnalysisReportBuilder
             $"분석 파일: {analysis.Metrics.Files.Count:N0}개 · 메트릭 함수: {analysis.Metrics.Functions.Count:N0}개",
             $"타입: {analysis.Structure.Types.Count:N0}개 · 패키지: {analysis.Metrics.Packages.Count:N0}개",
             $"중복 코드 그룹: {analysis.Duplicates.Groups.Count:N0}건 · 순환 호출: {summary.CircularCallChainCount:N0}건",
+            $"전역 변수: {globals.Variables.Count:N0}개 · 접근 관계: {globals.Accesses.Count:N0}건 · 접근 함수: {totalAccessors:N0}개",
             "아래 섹션은 측정 수치, 결과 해석, 권장 조치를 함께 제공합니다."
         };
 
@@ -561,6 +566,136 @@ public static class AnalysisReportBuilder
         };
     }
 
+    private static ReportSection BuildGlobalVariablesSection(GlobalVariableResult globals, string root)
+    {
+        if (globals.Variables.Count == 0)
+        {
+            return new ReportSection
+            {
+                Heading = "10. 전역 변수 — 접근 함수",
+                Level = 2,
+                Paragraphs = ["분석된 전역 변수가 없습니다."]
+            };
+        }
+
+        var rows = new List<ReportTableRow>();
+        foreach (var variable in globals.Variables
+                     .OrderByDescending(variable => globals.GetAccessesFor(variable.Id).Count)
+                     .ThenBy(variable => variable.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var accesses = globals.GetAccessesFor(variable.Id);
+            if (accesses.Count == 0)
+            {
+                rows.Add(new ReportTableRow
+                {
+                    Cells =
+                    [
+                        variable.Name,
+                        FormatGlobalScope(variable.Scope),
+                        ReportFormatting.FormatFileName(variable.FilePath, root),
+                        variable.LineNumber.ToString(),
+                        "-",
+                        "-",
+                        "-",
+                        "-",
+                        "접근 함수 없음. 미사용·외부 참조·동적 접근 가능성을 확인하세요."
+                    ]
+                });
+                continue;
+            }
+
+            foreach (var access in accesses)
+            {
+                rows.Add(new ReportTableRow
+                {
+                    Cells =
+                    [
+                        variable.Name,
+                        FormatGlobalScope(variable.Scope),
+                        ReportFormatting.FormatFileName(variable.FilePath, root),
+                        variable.LineNumber.ToString(),
+                        access.FunctionDisplayName,
+                        ReportFormatting.FormatFileName(access.FunctionFilePath, root),
+                        access.FunctionLineNumber.ToString(),
+                        FormatGlobalAccessKind(access.Kind),
+                        BuildGlobalAccessAction(variable, access)
+                    ]
+                });
+
+                if (rows.Count >= MaxGlobalVariableAccessRows)
+                {
+                    break;
+                }
+            }
+
+            if (rows.Count >= MaxGlobalVariableAccessRows)
+            {
+                break;
+            }
+        }
+
+        var uniqueFunctions = globals.Accesses
+            .Select(access => access.FunctionId)
+            .Distinct(StringComparer.Ordinal)
+            .Count();
+
+        return new ReportSection
+        {
+            Heading = "10. 전역 변수 — 접근 함수",
+            Level = 2,
+            Paragraphs =
+            [
+                $"전역 변수 {globals.Variables.Count:N0}개 · 접근 관계 {globals.Accesses.Count:N0}건 · 접근 함수 {uniqueFunctions:N0}개.",
+                rows.Count >= MaxGlobalVariableAccessRows
+                    ? $"표시는 상위 {MaxGlobalVariableAccessRows}건으로 제한됩니다."
+                    : "각 행은 전역 변수와 이를 읽거나 쓰는 함수의 관계입니다.",
+                "권장: 공유 상태를 줄이고, DI·스코프 제한 객체·지역 상태로 대체하세요."
+            ],
+            Table = rows.Count > 0
+                ? new ReportTable
+                {
+                    Headers =
+                    [
+                        "변수", "범위", "선언 파일", "선언 줄",
+                        "접근 함수", "함수 파일", "함수 줄", "접근", "권장 조치"
+                    ],
+                    Rows = rows
+                }
+                : null
+        };
+    }
+
+    private static string FormatGlobalScope(GlobalVariableScope scope) => scope switch
+    {
+        GlobalVariableScope.File => "파일",
+        GlobalVariableScope.Module => "모듈",
+        GlobalVariableScope.ClassStatic => "static",
+        _ => scope.ToString()
+    };
+
+    private static string FormatGlobalAccessKind(GlobalVariableAccessKind kind) => kind switch
+    {
+        GlobalVariableAccessKind.Write => "쓰기",
+        GlobalVariableAccessKind.ReadWrite => "읽기/쓰기",
+        _ => "읽기"
+    };
+
+    private static string BuildGlobalAccessAction(GlobalVariableItem variable, GlobalVariableAccess access)
+    {
+        if (variable.IsReadOnly && access.Kind == GlobalVariableAccessKind.Read)
+        {
+            return "읽기 전용 전역입니다. 변경이 필요하면 const/readonly 정책을 검토하세요.";
+        }
+
+        return access.Kind switch
+        {
+            GlobalVariableAccessKind.Write or GlobalVariableAccessKind.ReadWrite =>
+                "쓰기 접근이 있습니다. 전역 변경은 부작용·테스트 어려움을 유발하므로 지역화·캡슐화를 검토하세요.",
+            _ =>
+                "읽기 접근입니다. 의존을 줄이려면 값 주입·컨텍스트 객체로 대체하세요."
+        };
+    }
+
     private static ReportSection BuildArchitectureSection(IReadOnlyList<ArchitectureInsight> insights)
     {
         var rows = insights
@@ -581,7 +716,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "10. 아키텍처 인사이트 — 결과·조치",
+            Heading = "11. 아키텍처 인사이트 — 결과·조치",
             Level = 2,
             Paragraphs =
             [

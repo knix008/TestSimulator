@@ -14,6 +14,11 @@ public sealed class DiagramViewHost : UserControl
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
 
+    private CallGraphResult? _callGraphOverride;
+    private string? _accessGraphRootId;
+    private IReadOnlyList<string> _accessGraphRootIds = [];
+    private DiagramViewKind _viewKindBeforeAccessGraph = DiagramViewKind.CallGraph;
+
     public DiagramViewHost()
     {
         Controls.Add(_callGraphViewer);
@@ -25,6 +30,7 @@ public sealed class DiagramViewHost : UserControl
         _metricsViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _globalVariableViewer.AccessGraphRequested += variable => GlobalVariableAccessGraphRequested?.Invoke(variable);
         _erdViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
@@ -35,6 +41,9 @@ public sealed class DiagramViewHost : UserControl
     public event Action<FileRelationNode>? FileRootChanged;
     public event Action<DirectoryRelationNode>? DirectoryRootChanged;
     public event Action<MetricsNavigationRequest>? MetricsNavigationRequested;
+    public event Action<GlobalVariableItem>? GlobalVariableAccessGraphRequested;
+
+    public bool IsShowingGlobalVariableAccessGraph => _callGraphOverride is not null;
 
     public DiagramViewKind ViewKind
     {
@@ -74,7 +83,33 @@ public sealed class DiagramViewHost : UserControl
     {
         _analysis = analysis;
         _rootNodeIds = rootNodeIds;
+        ClearGlobalVariableAccessGraph();
         RefreshActiveView();
+    }
+
+    public void ShowGlobalVariableAccessGraph(
+        GlobalVariableItem variable,
+        CallGraphResult graph,
+        IReadOnlyList<string> rootNodeIds)
+    {
+        _viewKindBeforeAccessGraph = _viewKind;
+        _callGraphOverride = graph;
+        _accessGraphRootId = variable.Id;
+        _accessGraphRootIds = rootNodeIds;
+        _viewKind = DiagramViewKind.CallGraph;
+        ApplyVisibility();
+        _callGraphViewer.SetGlobalVariableAccessGraph(
+            graph,
+            rootNodeIds,
+            variable.Id);
+        _callGraphViewer.ExpandAll();
+    }
+
+    public void ClearGlobalVariableAccessGraph()
+    {
+        _callGraphOverride = null;
+        _accessGraphRootId = null;
+        _accessGraphRootIds = [];
     }
 
     public void BeginAnalysis()
@@ -261,13 +296,19 @@ public sealed class DiagramViewHost : UserControl
 
         if (_viewKind == DiagramViewKind.CallGraph)
         {
-            if (_analysis is null)
+            if (_analysis is null && _callGraphOverride is null)
             {
                 _callGraphViewer.SetGraph(null, Array.Empty<string>());
                 return;
             }
 
-            _callGraphViewer.SetGraph(_analysis.CallGraph, _rootNodeIds);
+            var graph = _callGraphOverride ?? _analysis!.CallGraph;
+            var roots = _callGraphOverride is not null && _accessGraphRootIds is { Count: > 0 }
+                ? _accessGraphRootIds
+                : _callGraphOverride is not null && !string.IsNullOrWhiteSpace(_accessGraphRootId)
+                    ? [_accessGraphRootId!]
+                    : _rootNodeIds;
+            _callGraphViewer.SetGraph(graph, roots);
             _callGraphViewer.ExpandAll();
             return;
         }

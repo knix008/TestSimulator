@@ -46,6 +46,56 @@ internal static class CallGraphLayoutEngine
         return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
     }
 
+    public static Size LayoutHubAccess(
+        IReadOnlyList<GraphVisualNode> accessors,
+        GraphVisualNode target,
+        GraphLayoutDirection direction)
+    {
+        if (accessors.Count == 0)
+        {
+            PlaceNode(target, depth: 0, position: 24, direction);
+            return new Size(target.Bounds.Right + 40, Math.Max(target.Bounds.Bottom + 40, 300));
+        }
+
+        if (direction == GraphLayoutDirection.LeftToRight)
+        {
+            var y = 24;
+            foreach (var accessor in accessors)
+            {
+                PlaceNode(accessor, depth: 0, position: y, direction);
+                y += NodeHeight + VerticalGap;
+            }
+
+            var firstTop = accessors[0].Bounds.Top;
+            var lastBottom = accessors[^1].Bounds.Bottom;
+            var centerY = (firstTop + lastBottom) / 2 - NodeHeight / 2;
+            PlaceNode(target, depth: 1, position: centerY, direction);
+        }
+        else
+        {
+            var x = 24;
+            foreach (var accessor in accessors)
+            {
+                PlaceNode(accessor, depth: 0, position: x, direction);
+                x += NodeWidth + VerticalGap;
+            }
+
+            var firstLeft = accessors[0].Bounds.Left;
+            var lastRight = accessors[^1].Bounds.Right;
+            var centerX = (firstLeft + lastRight) / 2 - NodeWidth / 2;
+            PlaceNode(target, depth: 1, position: centerX, direction);
+        }
+
+        var bounds = Rectangle.Empty;
+        foreach (var node in accessors)
+        {
+            bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
+        }
+
+        bounds = Rectangle.Union(bounds, target.Bounds);
+        return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
+    }
+
     private static int AssignPositions(GraphVisualNode node, int depth, int startPosition, GraphLayoutDirection direction)
     {
         if (!node.IsExpanded || node.Children.Count == 0)

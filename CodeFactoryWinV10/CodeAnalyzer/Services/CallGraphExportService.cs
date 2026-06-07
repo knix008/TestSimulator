@@ -504,8 +504,45 @@ public static class CallGraphExportService
                 IsConst = v.IsConst,
                 IsReadOnly = v.IsReadOnly,
                 Declaration = v.Declaration
-            }).ToList()
+            }).ToList(),
+            Accesses = (s.Accesses ?? []).Select(a => new GlobalVariableAccess
+            {
+                GlobalVariableId = a.GlobalVariableId,
+                FunctionId = a.FunctionId,
+                FunctionDisplayName = a.FunctionDisplayName,
+                FunctionFullName = a.FunctionFullName,
+                FunctionFilePath = a.FunctionFilePath,
+                FunctionLineNumber = a.FunctionLineNumber,
+                Kind = Enum.TryParse<GlobalVariableAccessKind>(a.Kind, out var kind)
+                    ? kind
+                    : GlobalVariableAccessKind.Read
+            }).ToList(),
+            AccessesByVariableId = BuildAccessLookup(s)
         };
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<GlobalVariableAccess>> BuildAccessLookup(
+        GlobalVariablesSection section)
+    {
+        var accesses = (section.Accesses ?? []).Select(a => new GlobalVariableAccess
+        {
+            GlobalVariableId = a.GlobalVariableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = Enum.TryParse<GlobalVariableAccessKind>(a.Kind, out var kind)
+                ? kind
+                : GlobalVariableAccessKind.Read
+        }).ToList();
+
+        return accesses
+            .GroupBy(access => access.GlobalVariableId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<GlobalVariableAccess>)group.ToList(),
+                StringComparer.OrdinalIgnoreCase);
     }
 
     private static DatabaseSchemaResult BuildDatabaseSchemaResult(DatabaseSchemaSection? s)
@@ -709,6 +746,16 @@ public static class CallGraphExportService
             IsConst = v.IsConst,
             IsReadOnly = v.IsReadOnly,
             Declaration = v.Declaration
+        }).ToList(),
+        Accesses = g.Accesses.Select(a => new GlobalVariableAccessRecord
+        {
+            GlobalVariableId = a.GlobalVariableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = a.Kind.ToString()
         }).ToList()
     };
 
@@ -877,6 +924,7 @@ public static class CallGraphExportService
     private sealed class GlobalVariablesSection
     {
         public List<GlobalVariableRecord> Variables { get; set; } = [];
+        public List<GlobalVariableAccessRecord> Accesses { get; set; } = [];
     }
 
     private sealed class DatabaseSchemaSection
@@ -1095,6 +1143,17 @@ public static class CallGraphExportService
         public bool IsConst { get; set; }
         public bool IsReadOnly { get; set; }
         public string Declaration { get; set; } = string.Empty;
+    }
+
+    private sealed class GlobalVariableAccessRecord
+    {
+        public string GlobalVariableId { get; set; } = string.Empty;
+        public string FunctionId { get; set; } = string.Empty;
+        public string FunctionDisplayName { get; set; } = string.Empty;
+        public string FunctionFullName { get; set; } = string.Empty;
+        public string FunctionFilePath { get; set; } = string.Empty;
+        public int FunctionLineNumber { get; set; }
+        public string Kind { get; set; } = string.Empty;
     }
 
     private sealed class DatabaseTableRecord

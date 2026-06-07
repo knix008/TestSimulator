@@ -492,7 +492,8 @@ public static class ArchitectureMetricsBuilder
                 Kind = ArchitectureInsightKind.GlobalVariable,
                 Category = "전역 변수",
                 Description =
-                    $"{variable.Name} · {variable.Scope} · {Path.GetFileName(variable.FilePath)}:{variable.LineNumber}",
+                    $"{variable.Name} · {variable.Scope} · 접근 {globalVariables.GetAccessesFor(variable.Id).Count}함수 · " +
+                    $"{Path.GetFileName(variable.FilePath)}:{variable.LineNumber}",
                 Severity = isPublicMutable ? WarningLevel.Warning : WarningLevel.None,
                 NavigationTag = variable
             });

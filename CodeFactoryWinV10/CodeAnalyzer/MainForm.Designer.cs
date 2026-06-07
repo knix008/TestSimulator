@@ -388,7 +388,7 @@ partial class MainForm
         // 
         menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuOpen, menuSave, menuExportMetrics, menuExportReport, menuExportImage });
         menuFile.Name = "menuFile";
-        menuFile.Size = new Size(43, 23);
+        menuFile.Size = new Size(70, 23);
         menuFile.Text = "파일";
         // 
         // menuOpen

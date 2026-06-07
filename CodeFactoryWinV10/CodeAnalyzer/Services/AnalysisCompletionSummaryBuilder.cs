@@ -22,12 +22,14 @@ public static class AnalysisCompletionSummaryBuilder
             ? $"{Environment.NewLine}{Environment.NewLine}주의: {result.Issues.Count}개 단계에서 오류가 발생했습니다. 일부 결과만 포함될 수 있습니다."
             : string.Empty;
 
+        var globalAccessCount = result.GlobalVariables.Accesses.Count;
         var summaryMessage =
             $"분석이 완료되었습니다.{issueNote}{Environment.NewLine}{Environment.NewLine}" +
             $"소요 시간: {AnalysisProgressFormatter.FormatDuration(elapsed)}{Environment.NewLine}" +
             $"스캔: 폴더 {directoryCount:N0}개 · 파일 {fileCount:N0}개{Environment.NewLine}" +
             $"함수 {result.CallGraph.Nodes.Count:N0}개 · 호출 {result.CallGraph.Edges.Count:N0}개 · " +
-            $"메트릭 {metrics.Functions.Count:N0}개 · 중복 {result.Duplicates.Groups.Count:N0}건";
+            $"메트릭 {metrics.Functions.Count:N0}개 · 중복 {result.Duplicates.Groups.Count:N0}건 · " +
+            $"전역 변수 {result.GlobalVariables.Variables.Count:N0}개(접근 {globalAccessCount:N0}건)";
 
         var builder = new System.Text.StringBuilder();
         if (!string.IsNullOrWhiteSpace(rootDirectory))
@@ -77,7 +79,10 @@ public static class AnalysisCompletionSummaryBuilder
         builder.AppendLine();
         builder.AppendLine("기타");
         builder.AppendLine($"  중복 코드 그룹: {result.Duplicates.Groups.Count:N0}건 (기준 ≥{result.Duplicates.MinDuplicateLines}줄)");
-        builder.AppendLine($"  전역 변수: {result.GlobalVariables.Variables.Count:N0}개");
+        builder.AppendLine(
+            $"  전역 변수: {result.GlobalVariables.Variables.Count:N0}개 · " +
+            $"접근 관계 {result.GlobalVariables.Accesses.Count:N0}건 · " +
+            $"접근 함수 {result.GlobalVariables.Accesses.Select(access => access.FunctionId).Distinct(StringComparer.Ordinal).Count():N0}개");
         builder.AppendLine($"  DB 테이블: {result.DatabaseSchema.Tables.Count:N0}개 · 관계 {result.DatabaseSchema.Relations.Count:N0}개");
 
         if (result.Issues.Count > 0)

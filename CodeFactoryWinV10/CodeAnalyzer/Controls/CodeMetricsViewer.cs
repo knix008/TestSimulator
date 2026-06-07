@@ -831,8 +831,7 @@ public sealed class CodeMetricsViewer : UserControl
             TypeMetric type => new MetricsNavigationRequest { FilePath = type.FilePath, LineNumber = type.LineNumber },
             GlobalVariableItem variable => new MetricsNavigationRequest
             {
-                FilePath = variable.FilePath,
-                LineNumber = variable.LineNumber
+                ShowGlobalVariableAccessGraph = variable
             },
             DatabaseTable table => new MetricsNavigationRequest
             {
@@ -927,7 +926,8 @@ public sealed class CodeMetricsViewer : UserControl
     }
 
     private static bool HasNavigationTarget(MetricsNavigationRequest request) =>
-        !string.IsNullOrWhiteSpace(request.CallGraphNodeId)
+        request.ShowGlobalVariableAccessGraph is not null
+        || !string.IsNullOrWhiteSpace(request.CallGraphNodeId)
         || (!string.IsNullOrWhiteSpace(request.FilePath) && File.Exists(request.FilePath));
 
     private static MetricsNavigationRequest? BuildDuplicateNavigation(DuplicateCodeGroup group)

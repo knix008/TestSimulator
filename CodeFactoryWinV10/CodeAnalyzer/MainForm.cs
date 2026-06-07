@@ -3,6 +3,7 @@ using CodeAnalyzer.Controls;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 using CodeAnalyzer.Services.Metrics;
+using CodeAnalyzer.Services.GlobalVariables;
 using CodeAnalyzer.Services.Reports;
 
 namespace CodeAnalyzer;
@@ -24,16 +25,19 @@ public partial class MainForm : Form
     private readonly SearchResultsPopup _searchPopup;
     private readonly System.Windows.Forms.Timer _searchDebounceTimer;
     private bool _suppressRootComboChange;
+    private bool _suppressDiagramViewChange;
     private bool _suppressDirectoryListEvents;
     private UserAnalysisSettings _analysisSettings = UserAnalysisSettings.CreateDefaults();
     private MetricInspectionKind _enabledInspections = MetricInspectionKind.All;
     private TimeSpan? _lastCompletedAnalysisElapsed;
     private int _lastCompletedDirectoryCount;
     private int _lastCompletedFileCount;
+    private readonly List<Image> _menuImages = [];
 
     public MainForm()
     {
         InitializeComponent();
+        InitializeMenuIcons();
         _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(_userSettings.LoadSettings());
         _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
         UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
@@ -47,6 +51,7 @@ public partial class MainForm : Form
             // Restore focus to search box in case the popup grabbed it
             toolStripSearchBox.Control?.Focus();
         };
+        FormClosed += (_, _) => DisposeMenuImages();
         Load += (_, _) =>
         {
             _searchPopup.Owner = this;
@@ -56,6 +61,7 @@ public partial class MainForm : Form
         diagramViewHost.FileRootChanged += OnFileRootChanged;
         diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
         diagramViewHost.MetricsNavigationRequested += OnMetricsNavigationRequested;
+        diagramViewHost.GlobalVariableAccessGraphRequested += OnGlobalVariableAccessGraphRequested;
         InitializeOptionControls();
         LoadLanguageList();
         RestoreUserSettings();
@@ -113,6 +119,36 @@ public partial class MainForm : Form
         percent = Math.Clamp(percent, 0, 100);
         progressBarAnalysis.Value = percent;
         lblProgressPercent.Text = $"{percent}%";
+    }
+
+    private void InitializeMenuIcons()
+    {
+        menuStrip.Renderer = new MenuStripIconRenderer();
+        menuStrip.ImageScalingSize = new Size(16, 16);
+
+        menuFile.AutoSize = true;
+        menuFile.Image = RegisterMenuImage(MenuIconFactory.CreateFileIcon());
+        menuOpen.Image = RegisterMenuImage(MenuIconFactory.CreateOpenIcon());
+        menuSave.Image = RegisterMenuImage(MenuIconFactory.CreateSaveIcon());
+        menuExportMetrics.Image = RegisterMenuImage(MenuIconFactory.CreateExportMetricsIcon());
+        menuExportReport.Image = RegisterMenuImage(MenuIconFactory.CreateExportReportIcon());
+        menuExportImage.Image = RegisterMenuImage(MenuIconFactory.CreateExportImageIcon());
+    }
+
+    private Image RegisterMenuImage(Bitmap image)
+    {
+        _menuImages.Add(image);
+        return image;
+    }
+
+    private void DisposeMenuImages()
+    {
+        foreach (var image in _menuImages)
+        {
+            image.Dispose();
+        }
+
+        _menuImages.Clear();
     }
 
     private void InitializeOptionControls()
@@ -656,7 +692,8 @@ public partial class MainForm : Form
         var isTabularView = viewKind is DiagramViewKind.CodeMetrics
             or DiagramViewKind.DuplicateCode
             or DiagramViewKind.GlobalVariables;
-        var supportsTreeExpand = viewKind == DiagramViewKind.CallGraph;
+        var isAccessGraph = diagramViewHost.IsShowingGlobalVariableAccessGraph;
+        var supportsTreeExpand = viewKind == DiagramViewKind.CallGraph || isAccessGraph;
         var supportsLineStyle = viewKind is DiagramViewKind.CallGraph
             or DiagramViewKind.ClassDiagram
             or DiagramViewKind.SequenceDiagram
@@ -672,8 +709,8 @@ public partial class MainForm : Form
             or DiagramViewKind.DirectoryRelations;
         var needsTypeRoot = viewKind is DiagramViewKind.ClassDiagram or DiagramViewKind.Inheritance;
 
-        comboLayoutDirection.Enabled = !isTabularView;
-        comboLineStyle.Enabled = supportsLineStyle && !isTabularView;
+        comboLayoutDirection.Enabled = !isTabularView || isAccessGraph;
+        comboLineStyle.Enabled = (supportsLineStyle && !isTabularView) || isAccessGraph;
         btnExpandAll.Enabled = supportsTreeExpand;
         btnCollapseAll.Enabled = supportsTreeExpand;
         comboRootMethod.Enabled = (needsRoot || needsTypeRoot) && _lastAnalysis is not null;
@@ -834,6 +871,11 @@ public partial class MainForm : Form
 
     private void comboDiagramView_SelectedIndexChanged(object sender, EventArgs e)
     {
+        if (!_suppressDiagramViewChange)
+        {
+            diagramViewHost.ClearGlobalVariableAccessGraph();
+        }
+
         diagramViewHost.ViewKind = GetSelectedViewKind();
         UpdateToolbarForViewKind();
 
@@ -1228,10 +1270,49 @@ public partial class MainForm : Form
         LoadAnalysisResult();
     }
 
+    private void OnGlobalVariableAccessGraphRequested(GlobalVariableItem variable)
+    {
+        if (_lastAnalysis is null)
+        {
+            return;
+        }
+
+        var accesses = _lastAnalysis.GlobalVariables.GetAccessesFor(variable.Id);
+        var accessGraph = GlobalVariableAccessGraphBuilder.Build(
+            variable,
+            accesses,
+            _lastAnalysis.CallGraph);
+
+        _suppressDiagramViewChange = true;
+        try
+        {
+            comboDiagramView.SelectedIndex = 0;
+            diagramViewHost.ShowGlobalVariableAccessGraph(
+                variable,
+                accessGraph.Graph,
+                accessGraph.RootNodeIds);
+        }
+        finally
+        {
+            _suppressDiagramViewChange = false;
+        }
+
+        UpdateToolbarForViewKind();
+        lblStatus.Text = accesses.Count > 0
+            ? $"전역 변수 '{variable.Name}' — 접근 함수 {accesses.Count}개를 그래프로 표시했습니다."
+            : $"전역 변수 '{variable.Name}' — 접근 함수가 없어 선언 노드만 표시했습니다.";
+    }
+
     private void OnMetricsNavigationRequested(MetricsNavigationRequest request)
     {
         if (_lastAnalysis is null)
         {
+            return;
+        }
+
+        if (request.ShowGlobalVariableAccessGraph is not null)
+        {
+            OnGlobalVariableAccessGraphRequested(request.ShowGlobalVariableAccessGraph);
             return;
         }
 
@@ -1341,13 +1422,15 @@ public partial class MainForm : Form
 
         try
         {
-            CodeMetricsExportService.SaveToCsv(_lastAnalysis.Metrics, savePath);
+            CodeMetricsExportService.SaveToCsv(_lastAnalysis.Metrics, _lastAnalysis.GlobalVariables, savePath);
             lblStatus.Text = $"메트릭 CSV 저장됨: {savePath}";
             ShowFileSaveSuccess(
                 this,
                 "메트릭 CSV 내보내기",
                 savePath,
-                $"함수 {_lastAnalysis.Metrics.Functions.Count:N0}개, 파일 {_lastAnalysis.Metrics.Files.Count:N0}개");
+                $"함수 {_lastAnalysis.Metrics.Functions.Count:N0}개, 파일 {_lastAnalysis.Metrics.Files.Count:N0}개, " +
+                $"전역 변수 {_lastAnalysis.GlobalVariables.Variables.Count:N0}개, " +
+                $"접근 {_lastAnalysis.GlobalVariables.Accesses.Count:N0}건");
         }
         catch (Exception ex)
         {

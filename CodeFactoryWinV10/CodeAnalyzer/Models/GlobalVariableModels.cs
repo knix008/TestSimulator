@@ -1,5 +1,23 @@
 namespace CodeAnalyzer.Models;
 
+public enum GlobalVariableAccessKind
+{
+    Read,
+    Write,
+    ReadWrite
+}
+
+public sealed class GlobalVariableAccess
+{
+    public required string GlobalVariableId { get; init; }
+    public required string FunctionId { get; init; }
+    public required string FunctionDisplayName { get; init; }
+    public required string FunctionFullName { get; init; }
+    public required string FunctionFilePath { get; init; }
+    public int FunctionLineNumber { get; init; }
+    public GlobalVariableAccessKind Kind { get; init; }
+}
+
 public enum GlobalVariableScope
 {
     File,
@@ -26,4 +44,11 @@ public sealed class GlobalVariableItem
 public sealed class GlobalVariableResult
 {
     public IReadOnlyList<GlobalVariableItem> Variables { get; init; } = [];
+    public IReadOnlyList<GlobalVariableAccess> Accesses { get; init; } = [];
+
+    public IReadOnlyDictionary<string, IReadOnlyList<GlobalVariableAccess>> AccessesByVariableId { get; init; }
+        = new Dictionary<string, IReadOnlyList<GlobalVariableAccess>>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyList<GlobalVariableAccess> GetAccessesFor(string variableId) =>
+        AccessesByVariableId.TryGetValue(variableId, out var accesses) ? accesses : [];
 }

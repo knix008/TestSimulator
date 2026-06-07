@@ -313,6 +313,28 @@ public sealed class MultiLanguageCallGraphAnalyzer
             }
         }
 
+        if (AnalysisScopeResolver.RequiresGlobalVariables(inspections)
+            && globalVariables.Variables.Count > 0)
+        {
+            tracker.Report("전역 변수 접근 함수 분석 중...");
+            try
+            {
+                globalVariables = GlobalVariableAccessAnalyzer.EnrichWithAccesses(
+                    globalVariables,
+                    mergedMetrics.Functions,
+                    merged);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RecordIssue(issues, "전역 변수 접근", ex);
+                tracker.Report($"전역 변수 접근 분석 오류 (접근 목록 없이 계속): {ex.Message}");
+            }
+        }
+
         tracker.ReportComplete(
             $"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개, " +
             $"파일 {fileRelations.Files.Count}개, 디렉터리 {directoryRelations.Directories.Count}개, 타입 {structure.Types.Count}개, " +
