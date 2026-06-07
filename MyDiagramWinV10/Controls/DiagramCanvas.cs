@@ -48,6 +48,10 @@ public sealed class DiagramCanvas : Control
     private PointF _bendDragStartCanvas;
     private bool _bendDragAxisIsHorizontal;  // true = H-first (OrthoMidX), false = V-first (OrthoMidY)
     private bool _bendDragAxisDecided;
+    private bool _isRotating;
+    private PointF _rotatePivotCanvas;   // center of the shape being rotated
+    private float _rotateStartMouseAngle; // angle (deg) of mouse at drag-start
+    private float _rotateStartShapeAngle; // shape.Rotation at drag-start
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
@@ -335,7 +339,23 @@ public sealed class DiagramCanvas : Control
 
             var start = DiagramRenderer.GetConnectionPoint(source, target, connector.SourceAnchorAngle);
             var end   = DiagramRenderer.GetConnectionPoint(target, source, connector.TargetAnchorAngle);
-            var pts = DiagramRenderer.BuildConnectorPoints(connector.Kind, start, end, connector);
+
+            PointF[] pts;
+            if ((connector.Kind == ConnectorKind.Orthogonal || connector.Kind == ConnectorKind.RightAngleCurved)
+                && connector.OrthoMidX is null && connector.OrthoMidY is null)
+            {
+                // Route around intervening shapes; exclude source and target from obstacle list.
+                var obstacles = _project.Shapes
+                    .Where(s => s.Id != connector.SourceShapeId && s.Id != connector.TargetShapeId)
+                    .Select(s => s.EffectiveBounds)
+                    .ToList();
+                pts = DiagramRenderer.BuildOrthogonalPointsWithAvoidance(start, end, connector, obstacles);
+            }
+            else
+            {
+                pts = DiagramRenderer.BuildConnectorPoints(connector.Kind, start, end, connector);
+            }
+
             connectorLines.Add((connector, pts));
         }
 
@@ -351,8 +371,14 @@ public sealed class DiagramCanvas : Control
                 : p;
         }
 
-        // Draw connectors with bridge arcs where a later connector crosses an earlier one.
-        // Only the later connector (higher draw order) arcs over the earlier one.
+        // Phase 1: Draw all shapes so they form the background layer.
+        foreach (var shape in _project.Shapes)
+            DiagramRenderer.DrawShape(e.Graphics, shape, PointF.Empty, _selectedShape?.Id == shape.Id);
+
+        if (_isCreating && _dragShape is not null)
+            DiagramRenderer.DrawShape(e.Graphics, _dragShape, PointF.Empty, selected: true);
+
+        // Phase 2: Draw connector bodies on top of shapes — connectors always visible even across other shapes.
         for (int ci = 0; ci < connectorLines.Count; ci++)
         {
             var (connector, pts) = connectorLines[ci];
@@ -386,7 +412,7 @@ public sealed class DiagramCanvas : Control
                 }
             }
 
-            DiagramRenderer.DrawConnectorWithBridges(e.Graphics, connector, source, target, crossings);
+            DiagramRenderer.DrawConnectorBodyOnly(e.Graphics, connector, pts, crossings);
 
             if (_selectedConnector?.Id == connector.Id)
             {
@@ -395,11 +421,9 @@ public sealed class DiagramCanvas : Control
             }
         }
 
-        foreach (var shape in _project.Shapes)
-            DiagramRenderer.DrawShape(e.Graphics, shape, PointF.Empty, _selectedShape?.Id == shape.Id);
-
-        if (_isCreating && _dragShape is not null)
-            DiagramRenderer.DrawShape(e.Graphics, _dragShape, PointF.Empty, selected: true);
+        // Phase 3: Draw connector arrowheads and labels on top of connector bodies.
+        foreach (var (connector, pts) in connectorLines)
+            DiagramRenderer.DrawConnectorArrowheads(e.Graphics, connector, pts);
 
         // Ghost preview: show the selected shape kind at cursor when not yet dragging
         if (_toolMode == ToolMode.Shape && !_isCreating && _mouseOnCanvas)
@@ -554,7 +578,7 @@ public sealed class DiagramCanvas : Control
 
         if (_toolMode == ToolMode.Connector && e.Button == MouseButtons.Left)
         {
-            var shape = HitTestShape(canvasPoint);
+            var shape = HitTestShape(canvasPoint, outlineTolerance: true);
             if (shape is null)
                 return;
 
@@ -685,6 +709,21 @@ public sealed class DiagramCanvas : Control
 
             if (_selectedShape is not null)
             {
+                // Rotation handle takes priority over resize handles
+                if (DiagramRenderer.HitTestRotationHandle(_selectedShape, canvasPoint, 10f / _zoom))
+                {
+                    RecordUndo();
+                    var eb = _selectedShape.Bounds;
+                    _rotatePivotCanvas = new PointF(eb.X + eb.Width / 2f, eb.Y + eb.Height / 2f);
+                    _rotateStartMouseAngle = MathF.Atan2(
+                        canvasPoint.Y - _rotatePivotCanvas.Y,
+                        canvasPoint.X - _rotatePivotCanvas.X) * 180f / MathF.PI;
+                    _rotateStartShapeAngle = _selectedShape.Rotation;
+                    _isRotating = true;
+                    Capture = true;
+                    return;
+                }
+
                 _activeHandle = DiagramRenderer.HitTestResizeHandle(_selectedShape, canvasPoint, 8f / _zoom);
                 if (_activeHandle != ResizeHandle.None)
                 {
@@ -816,9 +855,21 @@ public sealed class DiagramCanvas : Control
             return;
         }
 
+        if (_isRotating && _selectedShape is not null)
+        {
+            float currentAngle = MathF.Atan2(
+                canvasPoint.Y - _rotatePivotCanvas.Y,
+                canvasPoint.X - _rotatePivotCanvas.X) * 180f / MathF.PI;
+            float delta = currentAngle - _rotateStartMouseAngle;
+            _selectedShape.Rotation = _rotateStartShapeAngle + delta;
+            Invalidate();
+            return;
+        }
+
         if (_isResizing && _selectedShape is not null)
         {
             DiagramRenderer.ApplyResize(_selectedShape, _activeHandle, canvasPoint, _dragStartCanvas);
+            ResetConnectorBends(_selectedShape.Id);
             _dragStartCanvas = canvasPoint;
             _lastMouseCanvas = canvasPoint;
             Invalidate();
@@ -832,6 +883,8 @@ public sealed class DiagramCanvas : Control
             _selectedShape.X += dx;
             _selectedShape.Y += dy;
             _lastMouseCanvas = canvasPoint;
+            // Clear stored bend points so obstacle avoidance can re-route without stale midpoints
+            ResetConnectorBends(_selectedShape.Id);
             Invalidate();
             return;
         }
@@ -860,7 +913,7 @@ public sealed class DiagramCanvas : Control
         if (_draggingEndpoint != EndpointSide.None)
         {
             var canvasPoint = ScreenToCanvas(e.Location);
-            var hitShape = HitTestShape(canvasPoint);
+            var hitShape = HitTestShape(canvasPoint, outlineTolerance: true);
             if (hitShape is not null && _selectedConnector is not null)
             {
                 var otherId = _draggingEndpoint == EndpointSide.Source
@@ -923,6 +976,14 @@ public sealed class DiagramCanvas : Control
 
             _dragShape = null;
             _isCreating = false;
+            Capture = false;
+            NotifyChanged();
+            return;
+        }
+
+        if (_isRotating)
+        {
+            _isRotating = false;
             Capture = false;
             NotifyChanged();
             return;
@@ -1207,11 +1268,23 @@ public sealed class DiagramCanvas : Control
             if (y > 0) g.DrawString(y.ToString(), font, textBrush, labelOffset, y + labelOffset);
     }
 
-    private DiagramShape? HitTestShape(PointF point)
+    private void ResetConnectorBends(Guid shapeId)
+    {
+        foreach (var c in _project.Connectors)
+        {
+            if (c.SourceShapeId == shapeId || c.TargetShapeId == shapeId)
+            {
+                c.OrthoMidX = null;
+                c.OrthoMidY = null;
+            }
+        }
+    }
+
+    private DiagramShape? HitTestShape(PointF point, bool outlineTolerance = false)
     {
         for (int i = _project.Shapes.Count - 1; i >= 0; i--)
         {
-            if (DiagramRenderer.HitTestShape(_project.Shapes[i], point))
+            if (DiagramRenderer.HitTestShape(_project.Shapes[i], point, outlineTolerance))
                 return _project.Shapes[i];
         }
 

@@ -24,6 +24,9 @@ public sealed class DiagramShape : DiagramElement
     public float FontSize { get; set; } = 10f;
     public bool FontBold { get; set; }
 
+    // 2D rotation in degrees, clockwise, around shape center
+    public float Rotation { get; set; } = 0f;
+
     // When true, the shape renders at a fixed collapsed height (title bar only)
     public bool IsCollapsed { get; set; }
 
@@ -43,6 +46,7 @@ public sealed class DiagramShape : DiagramElement
             Width = Width,
             Height = Height,
             RotYawDeg = RotYawDeg,
+            Rotation = Rotation,
             Text = Text,
             ImagePath = ImagePath,
             ImageBase64 = ImageBase64,

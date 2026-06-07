@@ -19,15 +19,21 @@ public static class DiagramRenderer
             g.DrawRectangle(borderPen, rect.X, rect.Y, rect.Width, rect.Height);
             DrawShapeText(g, shape, rect, false);
             if (selected)
-            {
                 DrawSelectionHandles(g, rect);
-                DrawCollapseButtonVisual(g, GetCollapseButtonBounds(shape, offset), shape.IsCollapsed, shape.BorderColorArgb);
-            }
-            else
-            {
-                DrawCollapseButtonVisual(g, GetCollapseButtonBounds(shape, offset), shape.IsCollapsed, shape.BorderColorArgb);
-            }
+            DrawCollapseButtonVisual(g, GetCollapseButtonBounds(shape, offset), shape.IsCollapsed, shape.BorderColorArgb);
             return;
+        }
+
+        // Apply rotation around the shape center; body + text rotate, selection handles stay axis-aligned.
+        GraphicsState? rotState = null;
+        if (shape.Rotation != 0f)
+        {
+            float cx = rect.X + rect.Width / 2f;
+            float cy = rect.Y + rect.Height / 2f;
+            rotState = g.Save();
+            g.TranslateTransform(cx, cy);
+            g.RotateTransform(shape.Rotation);
+            g.TranslateTransform(-cx, -cy);
         }
 
         if (shape.Kind == ShapeKind.Cylinder)
@@ -100,6 +106,9 @@ public static class DiagramRenderer
         var image = LoadShapeImage(shape);
         DrawShapeImage(g, shape, rect, image);
         DrawShapeText(g, shape, rect, image is not null);
+
+        if (rotState is not null)
+            g.Restore(rotState);
 
         if (selected)
         {
@@ -211,40 +220,106 @@ public static class DiagramRenderer
     public static PointF GetConnectionPoint(DiagramShape from, DiagramShape to, PointF offset = default)
     {
         var effectiveBounds = from.EffectiveBounds;
-        var fromCenter = new PointF(
-            effectiveBounds.X + effectiveBounds.Width / 2 + offset.X,
-            effectiveBounds.Y + effectiveBounds.Height / 2 + offset.Y);
         var toEB = to.EffectiveBounds;
-        var toCenter = new PointF(
-            toEB.X + toEB.Width / 2 + offset.X,
-            toEB.Y + toEB.Height / 2 + offset.Y);
-
         var offsetBounds = OffsetRect(effectiveBounds, offset);
+        var offsetToEB = OffsetRect(toEB, offset);
+        var boundsCenter = new PointF(offsetBounds.X + offsetBounds.Width / 2, offsetBounds.Y + offsetBounds.Height / 2);
 
-        if (from.IsCollapsed
-            || from.Kind == ShapeKind.Cylinder || from.Kind == ShapeKind.Database
-            || from.Kind == ShapeKind.Delay || IsNetworkShape(from.Kind))
-            return GetBoundsEdgePoint(offsetBounds, fromCenter, toCenter);
+        // Aim toward the nearest edge point (shortest-distance connection), not the raw target center.
+        var aimPoint = ComputeMinDistAimPoint(offsetBounds, offsetToEB);
+
+        if (from.IsCollapsed || IsNetworkShape(from.Kind)
+            || from.Kind == ShapeKind.FlowCollate || from.Kind == ShapeKind.FlowAnnotation)
+            return GetBoundsEdgePoint(offsetBounds, boundsCenter, aimPoint);
 
         using var path = CreateShapePath(from.Kind, offsetBounds);
-        return RayIntersectPath(path, fromCenter, toCenter)
-            ?? GetBoundsEdgePoint(offsetBounds, fromCenter, toCenter);
+        // Use path centroid as ray origin — bounding-rect center can lie exactly on the boundary
+        // (e.g. RightTriangle hypotenuse), causing RayIntersectPath to return null.
+        var origin = GetPathCentroid(path, boundsCenter);
+
+        if (from.Rotation != 0f)
+        {
+            // Rotate target to shape's local (unrotated) space, find intersection, rotate back.
+            float rad = -from.Rotation * MathF.PI / 180f;
+            float cos = MathF.Cos(rad), sin = MathF.Sin(rad);
+            float tx = aimPoint.X - boundsCenter.X, ty = aimPoint.Y - boundsCenter.Y;
+            var localTarget = new PointF(boundsCenter.X + cos * tx - sin * ty, boundsCenter.Y + sin * tx + cos * ty);
+            var localHit = RayIntersectPath(path, origin, localTarget)
+                ?? GetBoundsEdgePoint(offsetBounds, origin, localTarget);
+            float hr = from.Rotation * MathF.PI / 180f;
+            float hcos = MathF.Cos(hr), hsin = MathF.Sin(hr);
+            float lx = localHit.X - boundsCenter.X, ly = localHit.Y - boundsCenter.Y;
+            return new PointF(boundsCenter.X + hcos * lx - hsin * ly, boundsCenter.Y + hsin * lx + hcos * ly);
+        }
+
+        return RayIntersectPath(path, origin, aimPoint)
+            ?? GetBoundsEdgePoint(offsetBounds, origin, aimPoint);
+    }
+
+    // Computes the nearest bounding-rect edge point on sourceBounds toward targetBounds.
+    // Shapes with y-overlap connect at the clamped y (horizontal shortest path);
+    // shapes with x-overlap connect at the clamped x (vertical shortest path).
+    private static PointF ComputeMinDistAimPoint(RectangleF src, RectangleF tgt)
+    {
+        float scx = src.X + src.Width / 2, scy = src.Y + src.Height / 2;
+        float tcx = tgt.X + tgt.Width / 2, tcy = tgt.Y + tgt.Height / 2;
+        float dx = tcx - scx, dy = tcy - scy;
+
+        float xSep = dx > 0 ? tgt.X - src.Right : src.X - tgt.Right;
+        float ySep = dy > 0 ? tgt.Y - src.Bottom : src.Y - tgt.Bottom;
+        xSep = Math.Max(0, xSep);
+        ySep = Math.Max(0, ySep);
+
+        if (xSep > 0 && xSep >= ySep)
+        {
+            float edgeX = dx > 0 ? src.Right : src.X;
+            float edgeY = Math.Clamp(tcy, src.Top, src.Bottom);
+            return new PointF(edgeX, edgeY);
+        }
+        if (ySep > 0)
+        {
+            float edgeY = dy > 0 ? src.Bottom : src.Top;
+            float edgeX = Math.Clamp(tcx, src.Left, src.Right);
+            return new PointF(edgeX, edgeY);
+        }
+        // Overlapping: fall back to target center
+        return new PointF(tcx, tcy);
     }
 
     private static PointF GetConnectionPointAtAngle(DiagramShape shape, float angleDeg, PointF offset)
     {
         var bounds = OffsetRect(shape.EffectiveBounds, offset);
-        if (shape.IsCollapsed || shape.Kind == ShapeKind.Cylinder || shape.Kind == ShapeKind.Database
-            || shape.Kind == ShapeKind.Delay || IsNetworkShape(shape.Kind))
+        if (shape.IsCollapsed || IsNetworkShape(shape.Kind)
+            || shape.Kind == ShapeKind.FlowCollate || shape.Kind == ShapeKind.FlowAnnotation)
             return GetRectEdgePointAtAngle(bounds, angleDeg);
 
         float cx = bounds.X + bounds.Width / 2;
         float cy = bounds.Y + bounds.Height / 2;
-        float rad = angleDeg * MathF.PI / 180f;
+        float effectiveAngle = angleDeg - shape.Rotation; // compensate for shape rotation
+        float rad = effectiveAngle * MathF.PI / 180f;
         var far = new PointF(cx + MathF.Cos(rad) * 10000f, cy + MathF.Sin(rad) * 10000f);
         using var path = CreateShapePath(shape.Kind, bounds);
-        return RayIntersectPath(path, new PointF(cx, cy), far)
-            ?? GetRectEdgePointAtAngle(bounds, angleDeg);
+        var origin = GetPathCentroid(path, new PointF(cx, cy));
+        var localHit = RayIntersectPath(path, origin, far) ?? GetRectEdgePointAtAngle(bounds, effectiveAngle);
+        if (shape.Rotation == 0f) return localHit;
+        float rrad = shape.Rotation * MathF.PI / 180f;
+        float rcos = MathF.Cos(rrad), rsin = MathF.Sin(rrad);
+        float lx = localHit.X - cx, ly = localHit.Y - cy;
+        return new PointF(cx + rcos * lx - rsin * ly, cy + rsin * lx + rcos * ly);
+    }
+
+    // Returns a point strictly inside the shape path (centroid of path vertices).
+    // Falls back to provided default if the path has no points.
+    private static PointF GetPathCentroid(GraphicsPath path, PointF fallback)
+    {
+        using var flat = (GraphicsPath)path.Clone();
+        using var identity = new Matrix();
+        flat.Flatten(identity, 0.35f);
+        var pts = flat.PathPoints;
+        if (pts.Length == 0) return fallback;
+        float cx = 0, cy = 0;
+        foreach (var p in pts) { cx += p.X; cy += p.Y; }
+        return new PointF(cx / pts.Length, cy / pts.Length);
     }
 
     private static PointF GetRectEdgePointAtAngle(RectangleF rect, float angleDeg)
@@ -397,6 +472,100 @@ public static class DiagramRenderer
         return SimplifyOrthogonalPath([start, new(midX, start.Y), new(midX, end.Y), end]);
     }
 
+    // Builds an orthogonal path that routes around shape obstacles.
+    // Tries h-first and v-first; if both collide, tries 4 bypass directions around the combined obstacle bounds.
+    public static PointF[] BuildOrthogonalPointsWithAvoidance(
+        PointF start, PointF end, DiagramConnector? connector, IReadOnlyList<RectangleF> obstacles)
+    {
+        // Respect any user-set midpoint — don't auto-reroute
+        if (connector?.OrthoMidX is not null || connector?.OrthoMidY is not null)
+            return BuildOrthogonalPoints(start, end, connector);
+
+        if (obstacles.Count == 0)
+            return BuildOrthogonalPoints(start, end, connector);
+
+        float midX = (start.X + end.X) / 2f;
+        float midY = (start.Y + end.Y) / 2f;
+
+        var hFirst = SimplifyOrthogonalPath([start, new(midX, start.Y), new(midX, end.Y), end]);
+        var vFirst = SimplifyOrthogonalPath([start, new(start.X, midY), new(end.X, midY), end]);
+
+        bool hCollides = PathCollidesWithObstacles(hFirst, obstacles);
+        bool vCollides = PathCollidesWithObstacles(vFirst, obstacles);
+
+        if (!hCollides) return hFirst;
+        if (!vCollides) return vFirst;
+
+        // Both collide — build combined bounds of all colliding obstacles then try 4 bypass routes
+        const float Margin = 24f;
+        float left = float.MaxValue, top = float.MaxValue, right = float.MinValue, bottom = float.MinValue;
+        foreach (var obs in obstacles)
+        {
+            if (!PathCollidesWithObstacles(hFirst, [obs]) && !PathCollidesWithObstacles(vFirst, [obs]))
+                continue;
+            if (obs.X < left) left = obs.X;
+            if (obs.Y < top) top = obs.Y;
+            if (obs.Right > right) right = obs.Right;
+            if (obs.Bottom > bottom) bottom = obs.Bottom;
+        }
+        left   -= Margin;
+        top    -= Margin;
+        right  += Margin;
+        bottom += Margin;
+
+        PointF[][] bypasses =
+        [
+            SimplifyOrthogonalPath([start, new(start.X, top),    new(end.X, top),    end]),
+            SimplifyOrthogonalPath([start, new(start.X, bottom), new(end.X, bottom), end]),
+            SimplifyOrthogonalPath([start, new(left, start.Y),   new(left, end.Y),   end]),
+            SimplifyOrthogonalPath([start, new(right, start.Y),  new(right, end.Y),  end]),
+        ];
+
+        foreach (var bypass in bypasses)
+            if (!PathCollidesWithObstacles(bypass, obstacles))
+                return bypass;
+
+        return hFirst; // fallback — no clean route found
+    }
+
+    private static bool PathCollidesWithObstacles(PointF[] path, IReadOnlyList<RectangleF> obstacles)
+    {
+        foreach (var rect in obstacles)
+            for (int i = 1; i < path.Length; i++)
+                if (SegmentIntersectsRect(path[i - 1], path[i], rect))
+                    return true;
+        return false;
+    }
+
+    private static bool SegmentIntersectsRect(PointF p1, PointF p2, RectangleF rect)
+    {
+        const float inset = 3f;
+        float l = rect.X + inset, t = rect.Y + inset;
+        float r = rect.Right - inset, b = rect.Bottom - inset;
+        if (r <= l || b <= t) return false;
+
+        // If midpoint of segment is strictly inside, it's a clear collision
+        float mx = (p1.X + p2.X) / 2f, my = (p1.Y + p2.Y) / 2f;
+        if (mx > l && mx < r && my > t && my < b) return true;
+
+        // Check each edge of the inset rect
+        return SegmentsOverlap(p1, p2, new PointF(l, t), new PointF(r, t))
+            || SegmentsOverlap(p1, p2, new PointF(r, t), new PointF(r, b))
+            || SegmentsOverlap(p1, p2, new PointF(l, b), new PointF(r, b))
+            || SegmentsOverlap(p1, p2, new PointF(l, t), new PointF(l, b));
+    }
+
+    private static bool SegmentsOverlap(PointF a1, PointF a2, PointF b1, PointF b2)
+    {
+        float adx = a2.X - a1.X, ady = a2.Y - a1.Y;
+        float bdx = b2.X - b1.X, bdy = b2.Y - b1.Y;
+        float denom = adx * bdy - ady * bdx;
+        if (MathF.Abs(denom) < 0.0001f) return false;
+        float tVal = ((b1.X - a1.X) * bdy - (b1.Y - a1.Y) * bdx) / denom;
+        float uVal = ((b1.X - a1.X) * ady - (b1.Y - a1.Y) * adx) / denom;
+        return tVal >= 0f && tVal <= 1f && uVal >= 0f && uVal <= 1f;
+    }
+
     private static bool ShouldRouteVerticalFirst(PointF start, PointF end, DiagramConnector? connector)
     {
         if (connector?.OrthoMidY is not null)
@@ -478,13 +647,77 @@ public static class DiagramRenderer
         DrawConnectorWithBridges(g, connector, source, target, [], offset);
     }
 
+    public static void DrawConnectorArrowheads(Graphics g, DiagramConnector connector, PointF[] points)
+    {
+        if (points.Length < 2) return;
+        using var pen = CreatePen(connector.LineColorArgb, connector.LineWidth, connector.LineStyle);
+        if (connector.HasStartArrow)
+            DrawArrowHead(g, pen, points[1], points[0], connector.StartArrowStyle);
+        if (connector.HasEndArrow)
+            DrawArrowHead(g, pen, points[^2], points[^1], connector.EndArrowStyle);
+        if (!string.IsNullOrWhiteSpace(connector.Label))
+        {
+            var mid = points[points.Length / 2];
+            using var font = new Font("맑은 고딕", 9f);
+            using var brush = new SolidBrush(Color.FromArgb(connector.LineColorArgb));
+            var size = g.MeasureString(connector.Label, font);
+            g.DrawString(connector.Label, font, brush, mid.X - size.Width / 2, mid.Y - size.Height / 2);
+        }
+    }
+
+    // Draws only the connector body (no arrowheads/labels) using precomputed points.
+    public static void DrawConnectorBodyOnly(
+        Graphics g, DiagramConnector connector, PointF[] pts,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
+    {
+        if (pts.Length < 2) return;
+        using var pen = CreatePen(connector.LineColorArgb, connector.LineWidth, connector.LineStyle);
+        const float bridgeRadius = 7f;
+
+        if (connector.LineStyle == LineStyle.Double)
+        {
+            DrawDoubleLine(g, pts, connector.LineColorArgb, connector.LineWidth);
+        }
+        else if (connector.Kind == ConnectorKind.Curved && pts.Length == 4)
+        {
+            if (crossings.Count == 0)
+                g.DrawBezier(pen, pts[0], pts[1], pts[2], pts[3]);
+            else
+            {
+                var flatBez = FlattenBezier(pts[0], pts[1], pts[2], pts[3]);
+                var sortedCrossings = crossings.OrderBy(c => c.T).ToList();
+                DrawPolylineWithBridges(g, pen, flatBez, sortedCrossings, bridgeRadius);
+            }
+        }
+        else if (connector.Kind == ConnectorKind.RightAngleCurved)
+        {
+            if (crossings.Count == 0)
+                DrawRoundedPolyline(g, pen, pts);
+            else
+            {
+                var sortedCrossings = crossings.OrderBy(c => c.T).ToList();
+                DrawPolylineWithBridges(g, pen, pts, sortedCrossings, bridgeRadius);
+            }
+        }
+        else if (crossings.Count == 0)
+        {
+            DrawPolyline(g, pen, pts);
+        }
+        else
+        {
+            var sortedCrossings = crossings.OrderBy(c => c.T).ToList();
+            DrawPolylineWithBridges(g, pen, pts, sortedCrossings, bridgeRadius);
+        }
+    }
+
     public static void DrawConnectorWithBridges(
         Graphics g,
         DiagramConnector connector,
         DiagramShape source,
         DiagramShape target,
         IReadOnlyList<(float T, PointF Pt)> crossings,
-        PointF offset = default)
+        PointF offset = default,
+        bool bodyOnly = false)
     {
         var start = GetConnectionPoint(source, target, connector.SourceAnchorAngle, offset);
         var end   = GetConnectionPoint(target, source, connector.TargetAnchorAngle, offset);
@@ -534,18 +767,21 @@ public static class DiagramRenderer
             DrawPolylineWithBridges(g, pen, points, sortedCrossings, bridgeRadius);
         }
 
-        if (connector.HasStartArrow && points.Length >= 2)
-            DrawArrowHead(g, pen, points[1], points[0], connector.StartArrowStyle);
-        if (connector.HasEndArrow && points.Length >= 2)
-            DrawArrowHead(g, pen, points[^2], points[^1], connector.EndArrowStyle);
-
-        if (!string.IsNullOrWhiteSpace(connector.Label))
+        if (!bodyOnly)
         {
-            var mid = points[points.Length / 2];
-            using var font = new Font("맑은 고딕", 9f);
-            using var brush = new SolidBrush(Color.FromArgb(connector.LineColorArgb));
-            var size = g.MeasureString(connector.Label, font);
-            g.DrawString(connector.Label, font, brush, mid.X - size.Width / 2, mid.Y - size.Height / 2);
+            if (connector.HasStartArrow && points.Length >= 2)
+                DrawArrowHead(g, pen, points[1], points[0], connector.StartArrowStyle);
+            if (connector.HasEndArrow && points.Length >= 2)
+                DrawArrowHead(g, pen, points[^2], points[^1], connector.EndArrowStyle);
+
+            if (!string.IsNullOrWhiteSpace(connector.Label))
+            {
+                var mid = points[points.Length / 2];
+                using var font = new Font("맑은 고딕", 9f);
+                using var brush = new SolidBrush(Color.FromArgb(connector.LineColorArgb));
+                var size = g.MeasureString(connector.Label, font);
+                g.DrawString(connector.Label, font, brush, mid.X - size.Width / 2, mid.Y - size.Height / 2);
+            }
         }
     }
 
@@ -760,7 +996,7 @@ public static class DiagramRenderer
         g.DrawPath(borderPen, path);
     }
 
-    public static bool HitTestShape(DiagramShape shape, PointF point)
+    public static bool HitTestShape(DiagramShape shape, PointF point, bool outlineTolerance = false)
     {
         var bounds = shape.EffectiveBounds;
         if (shape.IsCollapsed
@@ -769,7 +1005,14 @@ public static class DiagramRenderer
             return bounds.Contains(point);
 
         using var path = CreateShapePath(shape.Kind, bounds);
-        return path.IsVisible(point);
+        if (path.IsVisible(point)) return true;
+        // Allow clicking slightly outside the outline (e.g. the diagonal of a RightTriangle)
+        if (outlineTolerance)
+        {
+            using var hitPen = new Pen(Color.Black, 8f);
+            return path.IsOutlineVisible(point, hitPen);
+        }
+        return false;
     }
 
     public static float GetConnectorHitTolerance(DiagramConnector connector, float zoom)
@@ -1880,6 +2123,35 @@ public static class DiagramRenderer
 
         using var selectPen = new Pen(Color.DodgerBlue, 1f) { DashStyle = DashStyle.Dot };
         g.DrawRectangle(selectPen, rect.X, rect.Y, rect.Width, rect.Height);
+
+        // Rotation handle: circle above the top-center
+        var rotCenter = GetRotationHandleCenter(rect);
+        float topCx = rect.X + rect.Width / 2f;
+        using var linePen = new Pen(Color.DodgerBlue, 1f);
+        g.DrawLine(linePen, topCx, rect.Top, rotCenter.X, rotCenter.Y + RotHandleRadius);
+        const float r = RotHandleRadius;
+        using var rotBrush = new SolidBrush(Color.FromArgb(200, 60, 160, 255));
+        using var rotPen = new Pen(Color.DodgerBlue, 1.5f);
+        g.FillEllipse(rotBrush, rotCenter.X - r, rotCenter.Y - r, r * 2, r * 2);
+        g.DrawEllipse(rotPen, rotCenter.X - r, rotCenter.Y - r, r * 2, r * 2);
+    }
+
+    private const float RotHandleRadius = 6f;
+    private const float RotHandleOffsetAbove = 22f;
+
+    public static PointF GetRotationHandleCenter(RectangleF rect)
+    {
+        float cx = rect.X + rect.Width / 2f;
+        float ty = rect.Y - RotHandleOffsetAbove;
+        return new PointF(cx, ty);
+    }
+
+    public static bool HitTestRotationHandle(DiagramShape shape, PointF point, float hitRadius)
+    {
+        var center = GetRotationHandleCenter(shape.Bounds);
+        float dx = point.X - center.X;
+        float dy = point.Y - center.Y;
+        return MathF.Sqrt(dx * dx + dy * dy) <= hitRadius;
     }
 
     public static GraphicsPath CreateShapePath(ShapeKind kind, RectangleF rect)
@@ -1959,9 +2231,16 @@ public static class DiagramRenderer
                 break;
 
             case ShapeKind.Cylinder:
-                // Cylinder is handled specially in draw methods; return bounding rect for hit test
-                path.AddRectangle(rect);
+            {
+                float eh = Math.Max(8f, rect.Height * 0.22f);
+                using var cp = new GraphicsPath();
+                cp.AddArc(rect.X, rect.Y, rect.Width, eh, 180f, -180f);             // top cap (upper arc)
+                cp.AddLine(rect.Right, rect.Y + eh / 2f, rect.Right, rect.Bottom - eh / 2f); // right side
+                cp.AddArc(rect.X, rect.Bottom - eh, rect.Width, eh, 0f, 180f);      // bottom arc
+                cp.CloseFigure();                                                     // left side
+                path.AddPath(cp, false);
                 break;
+            }
 
             case ShapeKind.Cloud:
                 path.AddPath(CreateCloud(rect), false);
@@ -1972,9 +2251,16 @@ public static class DiagramRenderer
                 break;
 
             case ShapeKind.Database:
-                // Database is handled specially in draw methods; return bounding rect for hit test
-                path.AddRectangle(rect);
+            {
+                float eh = Math.Max(6f, rect.Height * 0.18f);
+                using var dp = new GraphicsPath();
+                dp.AddArc(rect.X, rect.Y, rect.Width, eh, 180f, -180f);
+                dp.AddLine(rect.Right, rect.Y + eh / 2f, rect.Right, rect.Bottom - eh / 2f);
+                dp.AddArc(rect.X, rect.Bottom - eh, rect.Width, eh, 0f, 180f);
+                dp.CloseFigure();
+                path.AddPath(dp, false);
                 break;
+            }
 
             case ShapeKind.Arrow:
                 path.AddPolygon(CreateArrow(rect));
@@ -2009,9 +2295,17 @@ public static class DiagramRenderer
                 break;
 
             case ShapeKind.Delay:
-                // Delay uses special drawing; return bounding rect for hit test
-                path.AddRectangle(rect);
+            {
+                float r = rect.Height / 2f;
+                var arcRect = new RectangleF(rect.Right - r * 2f, rect.Y, r * 2f, rect.Height);
+                using var dlp = new GraphicsPath();
+                dlp.AddLine(rect.X, rect.Y, rect.Right - r, rect.Y);           // top
+                dlp.AddArc(arcRect, -90f, 180f);                                // right semicircle
+                dlp.AddLine(rect.Right - r, rect.Bottom, rect.X, rect.Bottom); // bottom
+                dlp.CloseFigure();                                              // left side
+                path.AddPath(dlp, false);
                 break;
+            }
 
             // ── Basic shape extensions ─────────────────────────────────────────
             case ShapeKind.Octagon:
@@ -2846,14 +3140,41 @@ public static class DiagramRenderer
     {
         float dx = target.X - origin.X;
         float dy = target.Y - origin.Y;
-        if (Math.Abs(dx) > Math.Abs(dy))
-            return dx >= 0
-                ? new PointF(rect.Right, origin.Y)
-                : new PointF(rect.Left, origin.Y);
 
-        return dy >= 0
-            ? new PointF(origin.X, rect.Bottom)
-            : new PointF(origin.X, rect.Top);
+        float tMin = float.MaxValue;
+        PointF result = new PointF(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
+
+        if (MathF.Abs(dx) > 0.001f)
+        {
+            float edgeX = dx > 0 ? rect.Right : rect.X;
+            float t = (edgeX - origin.X) / dx;
+            if (t > 0)
+            {
+                float y = origin.Y + dy * t;
+                if (y >= rect.Y && y <= rect.Bottom && t < tMin)
+                {
+                    tMin = t;
+                    result = new PointF(edgeX, Math.Clamp(y, rect.Y, rect.Bottom));
+                }
+            }
+        }
+
+        if (MathF.Abs(dy) > 0.001f)
+        {
+            float edgeY = dy > 0 ? rect.Bottom : rect.Y;
+            float t = (edgeY - origin.Y) / dy;
+            if (t > 0)
+            {
+                float x = origin.X + dx * t;
+                if (x >= rect.X && x <= rect.Right && t < tMin)
+                {
+                    tMin = t;
+                    result = new PointF(Math.Clamp(x, rect.X, rect.Right), edgeY);
+                }
+            }
+        }
+
+        return result;
     }
 
     private static float Distance(PointF a, PointF b)
