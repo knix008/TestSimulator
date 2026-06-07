@@ -310,6 +310,10 @@ public sealed class UmlCanvas : Control
                 {
                     Capture = true;
                 }
+                else
+                {
+                    StartPan(e.Location);
+                }
                 break;
 
             case UmlToolMode.CreateClass:
@@ -344,7 +348,10 @@ public sealed class UmlCanvas : Control
             case UmlToolMode.CreateInclude:
             case UmlToolMode.CreateExtend:
                 if (hitNode is null)
+                {
+                    StartPan(e.Location);
                     break;
+                }
 
                 if (_pendingSourceNode is null)
                 {
@@ -1107,6 +1114,9 @@ public sealed class UmlCanvas : Control
                 Cursor = Cursors.SizeAll;
                 return;
             }
+
+            Cursor = Cursors.Hand;
+            return;
         }
 
         if (UmlToolModeHelper.IsNodeCreateTool(_toolMode) && _hoverNode is not null)
@@ -1382,7 +1392,7 @@ public sealed class UmlCanvas : Control
     {
         var element = _project.FindElement(node.ModelElementId);
 
-        Add("이름 편집...", () =>
+        Add("이름 편집...", UmlIcons.Edit(), () =>
         {
             Select(node, null);
             if (TryEditAt(cp)) { SelectionChanged?.Invoke(this, EventArgs.Empty); NotifyChanged(); }
@@ -1390,7 +1400,7 @@ public sealed class UmlCanvas : Control
 
         if (element is UmlClassifier classifier)
         {
-            Add("스테레오타입 편집...", () =>
+            Add("스테레오타입 편집...", UmlIcons.Edit(), () =>
             {
                 var t = UmlTextPrompt.Show(PromptOwner, "스테레오타입", "스테레오타입", classifier.Stereotype ?? "");
                 if (t is null) return;
@@ -1400,7 +1410,7 @@ public sealed class UmlCanvas : Control
 
             if (classifier is UmlClass cls)
             {
-                Add(cls.IsAbstract ? "구체 클래스로 변경" : "추상 클래스로 변경", () =>
+                Add(cls.IsAbstract ? "구체 클래스로 변경" : "추상 클래스로 변경", UmlIcons.ToggleAbstract(), () =>
                 {
                     cls.IsAbstract = !cls.IsAbstract;
                     NotifyChanged();
@@ -1411,7 +1421,7 @@ public sealed class UmlCanvas : Control
 
             if (classifier is UmlEnumeration en)
             {
-                Add("리터럴 추가...", () =>
+                Add("리터럴 추가...", UmlIcons.AddItem(), () =>
                 {
                     var t = UmlTextPrompt.Show(PromptOwner, "리터럴 추가", "이름", "LITERAL");
                     if (t is null) return;
@@ -1421,14 +1431,14 @@ public sealed class UmlCanvas : Control
             }
             else
             {
-                Add("속성 추가...", () =>
+                Add("속성 추가...", UmlIcons.AddItem(), () =>
                 {
                     var t = UmlTextPrompt.Show(PromptOwner, "속성 추가", "이름", "newProperty");
                     if (t is null) return;
                     classifier.Properties.Add(new UmlProperty { Name = t.Trim() });
                     NotifyChanged();
                 });
-                Add("연산 추가...", () =>
+                Add("연산 추가...", UmlIcons.AddItem(), () =>
                 {
                     var t = UmlTextPrompt.Show(PromptOwner, "연산 추가", "이름", "newOperation");
                     if (t is null) return;
@@ -1437,7 +1447,7 @@ public sealed class UmlCanvas : Control
                 });
             }
 
-            Add(node.ShowCompartments ? "구획 숨기기" : "구획 표시", () =>
+            Add(node.ShowCompartments ? "구획 숨기기" : "구획 표시", UmlIcons.Compartments(), () =>
             {
                 node.ShowCompartments = !node.ShowCompartments;
                 NotifyChanged();
@@ -1445,11 +1455,11 @@ public sealed class UmlCanvas : Control
         }
 
         menu.Items.Add(new ToolStripSeparator());
-        Add("삭제", () => { Select(node, null); DeleteSelection(); });
+        Add("삭제", UmlIcons.Delete(), () => { Select(node, null); DeleteSelection(); });
 
-        void Add(string label, Action action)
+        void Add(string label, Bitmap image, Action action)
         {
-            var item = new ToolStripMenuItem(label);
+            var item = new ToolStripMenuItem(label) { Image = image };
             item.Click += (_, _) => action();
             menu.Items.Add(item);
         }
@@ -1459,7 +1469,7 @@ public sealed class UmlCanvas : Control
     {
         var rel = _project.FindRelationship(edge.ModelElementId);
 
-        Add("편집...", () =>
+        Add("편집...", UmlIcons.Edit(), () =>
         {
             Select(null, edge);
             if (TryEditAt(cp)) { SelectionChanged?.Invoke(this, EventArgs.Empty); NotifyChanged(); }
@@ -1467,14 +1477,14 @@ public sealed class UmlCanvas : Control
 
         if (rel is UmlAssociation assoc)
         {
-            Add("소스 다중성 편집...", () =>
+            Add("소스 다중성 편집...", UmlIcons.Multiplicity(), () =>
             {
                 var t = UmlTextPrompt.Show(PromptOwner, "다중성", "소스 다중성", assoc.SourceMultiplicity ?? "");
                 if (t is null) return;
                 assoc.SourceMultiplicity = t.Trim();
                 NotifyChanged();
             });
-            Add("대상 다중성 편집...", () =>
+            Add("대상 다중성 편집...", UmlIcons.Multiplicity(), () =>
             {
                 var t = UmlTextPrompt.Show(PromptOwner, "다중성", "대상 다중성", assoc.TargetMultiplicity ?? "");
                 if (t is null) return;
@@ -1484,11 +1494,11 @@ public sealed class UmlCanvas : Control
         }
 
         menu.Items.Add(new ToolStripSeparator());
-        Add("삭제", () => { Select(null, edge); DeleteSelection(); });
+        Add("삭제", UmlIcons.Delete(), () => { Select(null, edge); DeleteSelection(); });
 
-        void Add(string label, Action action)
+        void Add(string label, Bitmap image, Action action)
         {
-            var item = new ToolStripMenuItem(label);
+            var item = new ToolStripMenuItem(label) { Image = image };
             item.Click += (_, _) => action();
             menu.Items.Add(item);
         }
@@ -1496,9 +1506,9 @@ public sealed class UmlCanvas : Control
 
     private void BuildCanvasContextMenu(ContextMenuStrip menu, PointF cp)
     {
-        void ActivateTool(string label, UmlToolMode mode)
+        void ActivateTool(string label, Bitmap image, UmlToolMode mode)
         {
-            var item = new ToolStripMenuItem(label);
+            var item = new ToolStripMenuItem(label) { Image = image };
             item.Click += (_, _) =>
             {
                 _toolMode = mode;
@@ -1513,21 +1523,24 @@ public sealed class UmlCanvas : Control
         switch (kind)
         {
             case UmlDiagramKind.UseCaseDiagram:
-                ActivateTool("Actor 추가", UmlToolMode.CreateActor);
-                ActivateTool("Use Case 추가", UmlToolMode.CreateUseCase);
+                ActivateTool("Actor 추가", UmlIcons.NodeActor(), UmlToolMode.CreateActor);
+                ActivateTool("Use Case 추가", UmlIcons.NodeUseCase(), UmlToolMode.CreateUseCase);
+                menu.Items.Add(new ToolStripSeparator());
                 break;
 
             case UmlDiagramKind.ClassDiagram:
-            default:
-                ActivateTool("Class 추가", UmlToolMode.CreateClass);
-                ActivateTool("Interface 추가", UmlToolMode.CreateInterface);
-                ActivateTool("Enumeration 추가", UmlToolMode.CreateEnumeration);
-                ActivateTool("Package 추가", UmlToolMode.CreatePackage);
+                ActivateTool("Class 추가", UmlIcons.NodeClass(), UmlToolMode.CreateClass);
+                ActivateTool("Interface 추가", UmlIcons.NodeInterface(), UmlToolMode.CreateInterface);
+                ActivateTool("Enumeration 추가", UmlIcons.NodeEnumeration(), UmlToolMode.CreateEnumeration);
+                ActivateTool("Package 추가", UmlIcons.NodePackage(), UmlToolMode.CreatePackage);
+                menu.Items.Add(new ToolStripSeparator());
                 break;
+
+            // SequenceDiagram, StateMachineDiagram, ActivityDiagram:
+            // no diagram-specific node tools yet — only Note is available
         }
 
-        menu.Items.Add(new ToolStripSeparator());
-        ActivateTool("Note 추가", UmlToolMode.CreateNote);
+        ActivateTool("Note 추가", UmlIcons.NodeNote(), UmlToolMode.CreateNote);
     }
 
     private void NotifyChanged()

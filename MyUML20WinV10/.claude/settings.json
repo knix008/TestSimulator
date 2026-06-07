@@ -9,7 +9,9 @@
       "PowerShell(Get-ChildItem -Path \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\" -File -Recurse | Where-Object { $_.Extension -in @\\('.cs', '.csproj', '.resx'\\) -and -not $_.FullName.Contains\\('\\\\obj\\\\'\\) -and -not $_.FullName.Contains\\('\\\\bin\\\\'\\) } | Measure-Object | Select-Object Count)",
       "PowerShell(Get-ChildItem -Path \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\" -Directory | Where-Object { $_.Name -notmatch '^\\(bin|obj|\\\\.git\\)' } | ForEach-Object { Get-ChildItem -Path $_.FullName -File | Where-Object { $_.Extension -eq '.cs' } | Select-Object @{Name=\"Folder\";Expression={$_.Directory.Name}}, @{Name=\"File\";Expression={$_.Name}} } | Sort-Object Folder, File)",
       "Bash(Remove-Item -Recurse -Force \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\\\\bin\\\\DebugCheck\" -ErrorAction SilentlyContinue)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit -m 'Fix ArgumentException: remove '\\\\''using'\\\\'' from static font reference in UmlDiagramTabBar *)"
     ]
   }
 }

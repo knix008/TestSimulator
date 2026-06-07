@@ -103,8 +103,8 @@ partial class MainForm
         _umlToolbox = new MyUML20WinV10.Controls.UmlToolbox();
         _lblToolbox = new Label();
         _pnlCanvasHost = new Panel();
-        _diagramTabBar = new MyUML20WinV10.Controls.UmlDiagramTabBar();
         _canvas = new MyUML20WinV10.Controls.UmlCanvas();
+        _diagramTabBar = new MyUML20WinV10.Controls.UmlDiagramTabBar();
         _splitRight = new SplitContainer();
         _pnlExplorer = new Panel();
         _modelExplorer = new MyUML20WinV10.Controls.ModelExplorer();
@@ -130,7 +130,6 @@ partial class MainForm
         _splitWork.SuspendLayout();
         _pnlToolbox.SuspendLayout();
         _pnlCanvasHost.SuspendLayout();
-        _diagramTabBar.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)_splitRight).BeginInit();
         _splitRight.Panel1.SuspendLayout();
         _splitRight.Panel2.SuspendLayout();
@@ -396,7 +395,7 @@ partial class MainForm
         _splitWork.Panel2.Controls.Add(_pnlCanvasHost);
         _splitWork.Panel2MinSize = 200;
         _splitWork.Size = new Size(1026, 728);
-        _splitWork.SplitterDistance = 121;
+        _splitWork.SplitterDistance = 175;
         _splitWork.TabIndex = 0;
         // 
         // _pnlToolbox
@@ -406,7 +405,7 @@ partial class MainForm
         _pnlToolbox.Dock = DockStyle.Fill;
         _pnlToolbox.Location = new Point(0, 0);
         _pnlToolbox.Name = "_pnlToolbox";
-        _pnlToolbox.Size = new Size(121, 728);
+        _pnlToolbox.Size = new Size(175, 728);
         _pnlToolbox.TabIndex = 0;
         // 
         // _umlToolbox
@@ -415,9 +414,10 @@ partial class MainForm
         _umlToolbox.BackColor = Color.FromArgb(250, 251, 253);
         _umlToolbox.Dock = DockStyle.Fill;
         _umlToolbox.Location = new Point(0, 28);
+        _umlToolbox.MinimumSize = new Size(176, 0);
         _umlToolbox.Name = "_umlToolbox";
         _umlToolbox.Padding = new Padding(6, 4, 6, 10);
-        _umlToolbox.Size = new Size(121, 700);
+        _umlToolbox.Size = new Size(176, 700);
         _umlToolbox.TabIndex = 0;
         // 
         // _lblToolbox
@@ -425,36 +425,36 @@ partial class MainForm
         _lblToolbox.Dock = DockStyle.Top;
         _lblToolbox.Location = new Point(0, 0);
         _lblToolbox.Name = "_lblToolbox";
-        _lblToolbox.Size = new Size(121, 28);
+        _lblToolbox.Size = new Size(175, 28);
         _lblToolbox.TabIndex = 1;
         _lblToolbox.Text = "UML Toolbox";
-        //
+        // 
         // _pnlCanvasHost
-        //
+        // 
         _pnlCanvasHost.Controls.Add(_canvas);
         _pnlCanvasHost.Controls.Add(_diagramTabBar);
         _pnlCanvasHost.Dock = DockStyle.Fill;
         _pnlCanvasHost.Location = new Point(0, 0);
         _pnlCanvasHost.Name = "_pnlCanvasHost";
-        _pnlCanvasHost.Size = new Size(901, 728);
+        _pnlCanvasHost.Size = new Size(847, 728);
         _pnlCanvasHost.TabIndex = 0;
-        //
-        // _diagramTabBar
-        //
-        _diagramTabBar.Dock = DockStyle.Top;
-        _diagramTabBar.Location = new Point(1, 1);
-        _diagramTabBar.Name = "_diagramTabBar";
-        _diagramTabBar.Size = new Size(899, MyUML20WinV10.Controls.UmlDiagramTabBar.BarHeight);
-        _diagramTabBar.TabIndex = 1;
-        //
+        // 
         // _canvas
-        //
+        // 
         _canvas.BackColor = Color.FromArgb(245, 245, 245);
         _canvas.Dock = DockStyle.Fill;
-        _canvas.Location = new Point(0, MyUML20WinV10.Controls.UmlDiagramTabBar.BarHeight);
+        _canvas.Location = new Point(0, 34);
         _canvas.Name = "_canvas";
-        _canvas.Size = new Size(901, 694);
+        _canvas.Size = new Size(847, 694);
         _canvas.TabIndex = 0;
+        // 
+        // _diagramTabBar
+        // 
+        _diagramTabBar.Dock = DockStyle.Top;
+        _diagramTabBar.Location = new Point(0, 0);
+        _diagramTabBar.Name = "_diagramTabBar";
+        _diagramTabBar.Size = new Size(847, 34);
+        _diagramTabBar.TabIndex = 1;
         // 
         // _splitRight
         // 
@@ -621,7 +621,6 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)_splitWork).EndInit();
         _splitWork.ResumeLayout(false);
         _pnlToolbox.ResumeLayout(false);
-        _diagramTabBar.ResumeLayout(false);
         _pnlCanvasHost.ResumeLayout(false);
         _splitRight.Panel1.ResumeLayout(false);
         _splitRight.Panel2.ResumeLayout(false);

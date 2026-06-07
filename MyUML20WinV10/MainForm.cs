@@ -180,8 +180,17 @@ public partial class MainForm : Form
         _menuOpen.Image = UmlIcons.Open();
         _menuSave.Image = UmlIcons.Save();
         _menuSaveAs.Image = UmlIcons.Save();
+        _menuSample.Image = UmlIcons.Sample();
+        _menuExport.Image = UmlIcons.Export();
         _menuExportImage.Image = UmlIcons.ExportImage();
+        _menuExportSvg.Image = UmlIcons.ExportVector();
+        _menuExportPdf.Image = UmlIcons.ExportPdf();
+        _menuExportHtml.Image = UmlIcons.ExportHtml();
+        _menuExportMarkdown.Image = UmlIcons.ExportMarkdown();
+        _menuExit.Image = UmlIcons.Exit();
         _menuDelete.Image = UmlIcons.Delete();
+
+        Icon = UmlIcons.CreateAppIcon();
 
         _menuSaveAs.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
 
@@ -652,7 +661,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "보내기 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            UmlErrorDialog.Show(this, "보내기 오류", ex);
         }
     }
 
@@ -698,7 +707,7 @@ public partial class MainForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "보내기 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            UmlErrorDialog.Show(this, "문서 보내기 오류", ex);
         }
     }
 }
