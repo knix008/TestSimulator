@@ -611,14 +611,18 @@ public partial class MainWindow : Window
 
         _isDigital = !_isDigital;
 
-        // Read target geometry into locals BEFORE setting Width/Height/Left/Top.
-        // Setting Width immediately triggers SizeChanged → TrackModeGeometry, which would
-        // overwrite the new mode's stored H/L/T with the OLD mode's values — corrupting
-        // the restore.  Local vars insulate us from that race.
+        // Snapshot restore targets into locals BEFORE any side-effects.
+        // ApplyClockModeMinSize() may trigger SizeChanged → TrackModeGeometry, which would
+        // overwrite the new mode's stored geometry with the current (old-mode) window state.
+        // Using local vars means we always restore the correct saved geometry regardless.
         double  newW = _isDigital ? _digitalW : _analogW;
         double  newH = _isDigital ? _digitalH : _analogH;
         double? newL = _isDigital ? _digitalL : _analogL;
         double? newT = _isDigital ? _digitalT : _analogT;
+
+        // Apply the NEW mode's min-size constraints before restoring Width/Height so WPF
+        // does not clamp the window to the old mode's MinHeight/MinWidth.
+        ApplyClockModeMinSize();
 
         Width  = newW;
         Height = newH;
