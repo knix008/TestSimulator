@@ -78,7 +78,7 @@ public sealed class UmlDiagramTabBar : Control
             var isHovered = i == _hoveredTabIndex;
 
             var label = $"{GetKindShort(diagram.Kind)}  {diagram.Name}";
-            using var mFont = isActive ? TabFontBold : TabFont;
+            var mFont = isActive ? TabFontBold : TabFont;
             var textW = (int)g.MeasureString(label, mFont).Width + 28;
             var w = Math.Clamp(textW, TabMinW, TabMaxW);
             var bounds = new Rectangle(x, 0, w, Height);
