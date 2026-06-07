@@ -65,7 +65,10 @@ public partial class MainForm : Form
         _umlToolbox.SelectionChanged += (_, e) => SetTool(e.Mode, fromToolbox: true);
         _umlToolbox.NotationDoubleClicked += UmlToolbox_NotationDoubleClicked;
         _canvas.SelectToolRequested += (_, _) => SetTool(UmlToolMode.Select);
+        _canvas.ToolModeRequested += (_, mode) => SetTool(mode, fromToolbox: false);
         _canvas.ZoomChanged += (_, _) => UpdateZoomDisplay();
+        _diagramTabBar.DiagramSelected += DiagramTabBar_DiagramSelected;
+        _diagramTabBar.NewDiagramRequested += (_, _) => AddNewDiagram();
         SetTool(UmlToolMode.Select, fromToolbox: true);
         UpdateZoomDisplay();
     }
@@ -111,24 +114,24 @@ public partial class MainForm : Form
     private void ApplyVisualStyles()
     {
         var headerFont = new Font("Segoe UI", 9F, FontStyle.Bold);
-        var headerBack = Color.FromArgb(30, 80, 180);
+        var headerBack = Color.FromArgb(40, 44, 74);
 
         _lblToolbox.Font = headerFont;
         _lblToolbox.BackColor = headerBack;
-        _lblToolbox.ForeColor = Color.White;
+        _lblToolbox.ForeColor = Color.FromArgb(210, 215, 240);
         _lblToolbox.TextAlign = ContentAlignment.MiddleLeft;
 
         _lblExplorer.Font = headerFont;
         _lblExplorer.BackColor = headerBack;
-        _lblExplorer.ForeColor = Color.White;
+        _lblExplorer.ForeColor = Color.FromArgb(210, 215, 240);
         _lblExplorer.TextAlign = ContentAlignment.MiddleLeft;
 
         _lblProperties.Font = headerFont;
         _lblProperties.BackColor = headerBack;
-        _lblProperties.ForeColor = Color.White;
+        _lblProperties.ForeColor = Color.FromArgb(210, 215, 240);
         _lblProperties.TextAlign = ContentAlignment.MiddleLeft;
 
-        _pnlCanvasHost.BackColor = Color.FromArgb(90, 90, 100);
+        _pnlCanvasHost.BackColor = Color.FromArgb(60, 62, 88);
         _pnlCanvasHost.Padding = new Padding(1);
 
         _pnlFeatureButtons.BackColor = Color.FromArgb(235, 240, 255);
@@ -136,17 +139,49 @@ public partial class MainForm : Form
 
         _btnAddProperty.Font = new Font("Segoe UI", 8.5F);
         _btnAddOperation.Font = new Font("Segoe UI", 8.5F);
+        _btnAddProperty.FlatAppearance.BorderColor = Color.FromArgb(79, 70, 229);
+        _btnAddOperation.FlatAppearance.BorderColor = Color.FromArgb(79, 70, 229);
 
+        _toolStrip.BackColor = Color.FromArgb(245, 246, 252);
         _toolStrip.Padding = new Padding(4, 1, 4, 1);
+
+        _tsNew.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsNew.Image = UmlIcons.New();
         _tsNew.ToolTipText = "새 프로젝트 만들기 (Ctrl+N)";
+
+        _tsOpen.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsOpen.Image = UmlIcons.Open();
         _tsOpen.ToolTipText = "프로젝트 열기 (Ctrl+O)";
-        _tsSave.ToolTipText = "현재 프로젝트 저장 (Ctrl+S)";
-        _tsDelete.ToolTipText = "선택한 요소 삭제 (Delete)";
+
+        _tsSave.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsSave.Image = UmlIcons.Save();
+        _tsSave.ToolTipText = "프로젝트 저장 (Ctrl+S)";
+
+        _tsDelete.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsDelete.Image = UmlIcons.Delete();
+        _tsDelete.ToolTipText = "선택 삭제 (Delete)";
+
+        _tsZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsZoomOut.Image = UmlIcons.ZoomOut();
         _tsZoomOut.ToolTipText = "축소 (마우스 휠 아래)";
+
+        _tsZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsZoomIn.Image = UmlIcons.ZoomIn();
+        _tsZoomIn.ToolTipText = "확대 (마우스 휠 위)";
+
+        _tsZoomReset.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        _tsZoomReset.Image = UmlIcons.ZoomReset();
+        _tsZoomReset.ToolTipText = "확대/축소 100% 초기화";
+
         _tsZoomLabel.TextAlign = ContentAlignment.MiddleCenter;
         _tsZoomLabel.ToolTipText = "현재 확대/축소 배율";
-        _tsZoomIn.ToolTipText = "확대 (마우스 휠 위)";
-        _tsZoomReset.ToolTipText = "확대/축소 100% 초기화";
+
+        _menuNew.Image = UmlIcons.New();
+        _menuOpen.Image = UmlIcons.Open();
+        _menuSave.Image = UmlIcons.Save();
+        _menuSaveAs.Image = UmlIcons.Save();
+        _menuExportImage.Image = UmlIcons.ExportImage();
+        _menuDelete.Image = UmlIcons.Delete();
 
         _menuSaveAs.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
 
@@ -155,6 +190,9 @@ public partial class MainForm : Form
         _statusZoomLabel.BorderSides = ToolStripStatusLabelBorderSides.Left;
         _statusZoomLabel.BorderStyle = Border3DStyle.Etched;
         _statusZoomLabel.ToolTipText = "현재 확대/축소 배율";
+
+        _statusStrip.BackColor = Color.FromArgb(235, 238, 248);
+        _statusStrip.SizingGrip = false;
     }
 
     private void NewProject(bool loadSample)
@@ -172,10 +210,85 @@ public partial class MainForm : Form
     {
         _canvas.LoadProject(_project);
         _modelExplorer.Bind(_project);
+        _diagramTabBar.Bind(_project);
+        _umlToolbox.SetDiagramKind(_project.ActiveDiagram.Kind);
+        SetTool(UmlToolMode.Select, fromToolbox: true);
         UpdateTitle();
         SyncSelection();
         _statusLabel.Text = "왼쪽 도구상자에서 도구를 선택하거나 더블클릭하여 요소를 추가하세요. 선택 모드에서 더블클릭하면 이름을 편집합니다.";
     }
+
+    private void DiagramTabBar_DiagramSelected(object? sender, Models.UmlDiagram diagram)
+    {
+        _canvas.SetActiveDiagram(diagram);
+        _umlToolbox.SetDiagramKind(diagram.Kind);
+        _currentToolMode = UmlToolMode.Select;
+        _canvas.SetToolMode(UmlToolMode.Select);
+        SyncSelection();
+        _statusLabel.Text = $"다이어그램 전환: {diagram.Name} ({GetDiagramKindName(diagram.Kind)})";
+    }
+
+    private void AddNewDiagram()
+    {
+        using var form = new Form
+        {
+            Text = "새 다이어그램 추가",
+            Width = 340,
+            Height = 200,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            StartPosition = FormStartPosition.CenterParent,
+            MaximizeBox = false,
+            MinimizeBox = false,
+        };
+
+        var lblKind = new Label { Text = "다이어그램 종류:", Left = 16, Top = 16, Width = 140 };
+        var cmbKind = new ComboBox
+        {
+            Left = 16, Top = 36, Width = 288,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+        };
+        cmbKind.Items.AddRange(["Class Diagram", "Use Case Diagram", "Sequence Diagram", "State Machine Diagram", "Activity Diagram"]);
+        cmbKind.SelectedIndex = 0;
+
+        var lblName = new Label { Text = "이름:", Left = 16, Top = 76, Width = 140 };
+        var txtName = new TextBox { Left = 16, Top = 96, Width = 288, Text = "New Diagram" };
+
+        var btnOk = new Button { Text = "추가", DialogResult = DialogResult.OK, Left = 128, Top = 130, Width = 80 };
+        var btnCancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Left = 220, Top = 130, Width = 80 };
+        form.Controls.AddRange([lblKind, cmbKind, lblName, txtName, btnOk, btnCancel]);
+        form.AcceptButton = btnOk;
+        form.CancelButton = btnCancel;
+
+        if (form.ShowDialog(this) != DialogResult.OK) return;
+
+        var kind = (Models.UmlDiagramKind)cmbKind.SelectedIndex;
+        var name = txtName.Text.Trim();
+        if (string.IsNullOrEmpty(name))
+            name = GetDiagramKindName(kind);
+
+        var diagram = new Models.UmlDiagram { Kind = kind, Name = name };
+        _project.Diagrams.Add(diagram);
+        _project.ActiveDiagram = diagram;
+        _canvas.SetActiveDiagram(diagram);
+        _umlToolbox.SetDiagramKind(kind);
+        _currentToolMode = UmlToolMode.Select;
+        _canvas.SetToolMode(UmlToolMode.Select);
+        _diagramTabBar.Bind(_project);
+        _isDirty = true;
+        UpdateTitle();
+        SyncSelection();
+        _statusLabel.Text = $"새 다이어그램 추가됨: {diagram.Name}";
+    }
+
+    private static string GetDiagramKindName(Models.UmlDiagramKind kind) => kind switch
+    {
+        Models.UmlDiagramKind.ClassDiagram => "Class Diagram",
+        Models.UmlDiagramKind.UseCaseDiagram => "Use Case Diagram",
+        Models.UmlDiagramKind.SequenceDiagram => "Sequence Diagram",
+        Models.UmlDiagramKind.StateMachineDiagram => "State Machine Diagram",
+        Models.UmlDiagramKind.ActivityDiagram => "Activity Diagram",
+        _ => "Diagram",
+    };
 
     private void SetTool(UmlToolMode mode, bool fromToolbox = false)
     {
@@ -235,7 +348,34 @@ public partial class MainForm : Form
             _modelExplorer.SelectElement(element.Id);
 
         _suppressPropertySync = false;
+
+        _statusLabel.Text = selected switch
+        {
+            UmlClass cls => $"클래스 선택됨: {cls.Name}{(cls.IsAbstract ? " (추상)" : "")}  |  속성 {cls.Properties.Count}개, 연산 {cls.Operations.Count}개  |  Delete=삭제  F2=이름편집",
+            UmlInterface ifc => $"인터페이스 선택됨: {ifc.Name}  |  연산 {ifc.Operations.Count}개  |  Delete=삭제",
+            UmlEnumeration en => $"열거형 선택됨: {en.Name}  |  리터럴 {en.Literals.Count}개  |  Delete=삭제",
+            UmlPackage pkg => $"패키지 선택됨: {pkg.Name}  |  Delete=삭제",
+            UmlActor act => $"액터 선택됨: {act.Name}  |  Delete=삭제",
+            UmlUseCase uc => $"유스케이스 선택됨: {uc.Name}  |  Delete=삭제",
+            UmlNote note => $"노트 선택됨  |  Delete=삭제",
+            UmlRelationship rel => GetRelationshipStatusText(rel),
+            null => $"준비  |  다이어그램: {_project.ActiveDiagram.Name}  |  요소 {_project.ActiveDiagram.Nodes.Count}개, 관계 {_project.ActiveDiagram.Edges.Count}개",
+            _ => "요소 선택됨",
+        };
     }
+
+    private static string GetRelationshipStatusText(UmlRelationship rel) => rel switch
+    {
+        UmlGeneralization => $"일반화 선택됨  |  Delete=삭제",
+        UmlRealization => $"실체화 선택됨  |  Delete=삭제",
+        UmlDependency dep => $"의존 선택됨{(string.IsNullOrEmpty(dep.Stereotype) ? "" : $" «{dep.Stereotype}»")}  |  Delete=삭제",
+        UmlAssociation { Aggregation: UmlAggregationKind.Composite } => "합성 연관 선택됨  |  Delete=삭제",
+        UmlAssociation { Aggregation: UmlAggregationKind.Shared } => "집합 연관 선택됨  |  Delete=삭제",
+        UmlAssociation assoc => $"연관 선택됨{(string.IsNullOrEmpty(assoc.Name) ? "" : $": {assoc.Name}")}  |  Delete=삭제",
+        UmlInclude => "«include» 선택됨  |  Delete=삭제",
+        UmlExtend => "«extend» 선택됨  |  Delete=삭제",
+        _ => "관계 선택됨  |  Delete=삭제",
+    };
 
     private void UmlToolbox_NotationDoubleClicked(object? sender, UmlToolboxSelectionChangedEventArgs e)
     {

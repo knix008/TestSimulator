@@ -1,3 +1,5 @@
+using MyUML20WinV10.Models;
+
 namespace MyUML20WinV10.Rendering;
 
 public static class UmlNotationPreview
@@ -280,5 +282,106 @@ public static class UmlNotationPreview
             (float)(to.Y - len * Math.Sin(angle) + wing * Math.Cos(angle)));
         g.DrawLine(pen, to, p1);
         g.DrawLine(pen, to, p2);
+    }
+
+    // Draws the actual notation shape as a semi-transparent ghost at full rect size.
+    public static void DrawGhost(Graphics g, UmlToolMode mode, RectangleF rect)
+    {
+        var fill = Color.FromArgb(70, 100, 160, 240);
+        var stroke = Color.FromArgb(170, 60, 100, 230);
+
+        switch (mode)
+        {
+            case UmlToolMode.CreateClass:
+                DrawGhostBox(g, rect, fill, stroke, false, 3);
+                break;
+            case UmlToolMode.CreateInterface:
+                DrawGhostBox(g, rect, fill, stroke, true, 2);
+                break;
+            case UmlToolMode.CreateEnumeration:
+                DrawGhostBox(g, rect, fill, stroke, false, 2);
+                break;
+            case UmlToolMode.CreatePackage:
+                DrawGhostPackage(g, rect, fill, stroke);
+                break;
+            case UmlToolMode.CreateActor:
+                DrawGhostActor(g, rect, stroke);
+                break;
+            case UmlToolMode.CreateUseCase:
+                DrawGhostUseCase(g, rect, fill, stroke);
+                break;
+            case UmlToolMode.CreateNote:
+                DrawGhostNote(g, rect, fill, stroke);
+                break;
+        }
+    }
+
+    private static void DrawGhostBox(Graphics g, RectangleF rect, Color fill, Color stroke, bool roundedRight, int compartments)
+    {
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.5f);
+
+        if (roundedRight)
+        {
+            using var path = CreateInterfacePath(rect);
+            g.FillPath(fillBrush, path);
+            g.DrawPath(pen, path);
+        }
+        else
+        {
+            g.FillRectangle(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
+            g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        }
+
+        for (var i = 1; i < compartments; i++)
+        {
+            var lineY = rect.Y + rect.Height * i / (float)compartments;
+            g.DrawLine(pen, rect.Left, lineY, rect.Right, lineY);
+        }
+    }
+
+    private static void DrawGhostPackage(Graphics g, RectangleF rect, Color fill, Color stroke)
+    {
+        const float tabH = 18f;
+        var tabW = Math.Min(60f, rect.Width * 0.35f);
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.5f);
+        g.FillRectangle(fillBrush, rect.X, rect.Y + tabH, rect.Width, rect.Height - tabH);
+        g.DrawRectangle(pen, rect.X, rect.Y + tabH, rect.Width, rect.Height - tabH);
+        g.DrawRectangle(pen, rect.X, rect.Y, tabW, tabH);
+    }
+
+    private static void DrawGhostActor(Graphics g, RectangleF rect, Color stroke)
+    {
+        using var pen = new Pen(stroke, 1.5f);
+        var cx = rect.Left + rect.Width / 2f;
+        var headR = Math.Min(rect.Width * 0.14f, 20f);
+        var headY = rect.Top + headR + 4;
+        g.DrawEllipse(pen, cx - headR, headY - headR, headR * 2, headR * 2);
+        g.DrawLine(pen, cx, headY + headR, cx, rect.Bottom - 24);
+        g.DrawLine(pen, cx, headY + headR * 2.2f, rect.Left + 8, rect.Top + rect.Height * 0.55f);
+        g.DrawLine(pen, cx, headY + headR * 2.2f, rect.Right - 8, rect.Top + rect.Height * 0.55f);
+        g.DrawLine(pen, cx, rect.Bottom - 24, rect.Left + 10, rect.Bottom - 6);
+        g.DrawLine(pen, cx, rect.Bottom - 24, rect.Right - 10, rect.Bottom - 6);
+    }
+
+    private static void DrawGhostUseCase(Graphics g, RectangleF rect, Color fill, Color stroke)
+    {
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.5f);
+        g.FillEllipse(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    private static void DrawGhostNote(Graphics g, RectangleF rect, Color fill, Color stroke)
+    {
+        const float fold = 14f;
+        using var fillBrush = new SolidBrush(Color.FromArgb(fill.A, 255, 250, 190));
+        using var pen = new Pen(stroke, 1.5f);
+        g.FillRectangle(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawLine(pen, rect.Right - fold, rect.Top, rect.Right, rect.Top + fold);
+        g.DrawLine(pen, rect.Right - fold, rect.Top, rect.Right - fold, rect.Top + fold);
+        g.DrawLine(pen, rect.Right - fold, rect.Top + fold, rect.Right, rect.Top + fold);
     }
 }

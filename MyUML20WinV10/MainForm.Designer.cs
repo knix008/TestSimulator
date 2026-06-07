@@ -42,6 +42,7 @@ partial class MainForm
     private System.Windows.Forms.Label _lblToolbox;
     private Controls.UmlToolbox _umlToolbox;
     private System.Windows.Forms.Panel _pnlCanvasHost;
+    private Controls.UmlDiagramTabBar _diagramTabBar;
     private Controls.UmlCanvas _canvas;
     private System.Windows.Forms.Panel _pnlExplorer;
     private System.Windows.Forms.Label _lblExplorer;
@@ -102,6 +103,7 @@ partial class MainForm
         _umlToolbox = new MyUML20WinV10.Controls.UmlToolbox();
         _lblToolbox = new Label();
         _pnlCanvasHost = new Panel();
+        _diagramTabBar = new MyUML20WinV10.Controls.UmlDiagramTabBar();
         _canvas = new MyUML20WinV10.Controls.UmlCanvas();
         _splitRight = new SplitContainer();
         _pnlExplorer = new Panel();
@@ -128,6 +130,7 @@ partial class MainForm
         _splitWork.SuspendLayout();
         _pnlToolbox.SuspendLayout();
         _pnlCanvasHost.SuspendLayout();
+        _diagramTabBar.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)_splitRight).BeginInit();
         _splitRight.Panel1.SuspendLayout();
         _splitRight.Panel2.SuspendLayout();
@@ -425,23 +428,32 @@ partial class MainForm
         _lblToolbox.Size = new Size(121, 28);
         _lblToolbox.TabIndex = 1;
         _lblToolbox.Text = "UML Toolbox";
-        // 
+        //
         // _pnlCanvasHost
-        // 
+        //
         _pnlCanvasHost.Controls.Add(_canvas);
+        _pnlCanvasHost.Controls.Add(_diagramTabBar);
         _pnlCanvasHost.Dock = DockStyle.Fill;
         _pnlCanvasHost.Location = new Point(0, 0);
         _pnlCanvasHost.Name = "_pnlCanvasHost";
         _pnlCanvasHost.Size = new Size(901, 728);
         _pnlCanvasHost.TabIndex = 0;
-        // 
+        //
+        // _diagramTabBar
+        //
+        _diagramTabBar.Dock = DockStyle.Top;
+        _diagramTabBar.Location = new Point(1, 1);
+        _diagramTabBar.Name = "_diagramTabBar";
+        _diagramTabBar.Size = new Size(899, MyUML20WinV10.Controls.UmlDiagramTabBar.BarHeight);
+        _diagramTabBar.TabIndex = 1;
+        //
         // _canvas
-        // 
+        //
         _canvas.BackColor = Color.FromArgb(245, 245, 245);
         _canvas.Dock = DockStyle.Fill;
-        _canvas.Location = new Point(0, 0);
+        _canvas.Location = new Point(0, MyUML20WinV10.Controls.UmlDiagramTabBar.BarHeight);
         _canvas.Name = "_canvas";
-        _canvas.Size = new Size(901, 728);
+        _canvas.Size = new Size(901, 694);
         _canvas.TabIndex = 0;
         // 
         // _splitRight
@@ -609,6 +621,7 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)_splitWork).EndInit();
         _splitWork.ResumeLayout(false);
         _pnlToolbox.ResumeLayout(false);
+        _diagramTabBar.ResumeLayout(false);
         _pnlCanvasHost.ResumeLayout(false);
         _splitRight.Panel1.ResumeLayout(false);
         _splitRight.Panel2.ResumeLayout(false);

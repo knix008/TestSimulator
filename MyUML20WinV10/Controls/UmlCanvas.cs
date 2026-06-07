@@ -39,10 +39,14 @@ public sealed class UmlCanvas : Control
     private float _zoom = 1.0f;
     private PointF _pointerCanvas;
     private bool _pointerOnCanvas;
+    private bool _isResizing;
+    private int _resizeHandleIndex = -1;
+    private RectangleF _resizeBoundsAtStart;
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
     public event EventHandler? SelectToolRequested;
+    public event EventHandler<UmlToolMode>? ToolModeRequested;
     public event EventHandler? ZoomChanged;
 
     [Browsable(false)]
@@ -135,6 +139,19 @@ public sealed class UmlCanvas : Control
 
     public void LoadProject(UmlProject project) => Project = project;
 
+    public void SetActiveDiagram(UmlDiagram diagram)
+    {
+        _project.ActiveDiagram = diagram;
+        _selectedNode = null;
+        _selectedEdge = null;
+        _hoverNode = null;
+        _hoverEdge = null;
+        _pendingSourceNode = null;
+        UpdateScrollBars();
+        Invalidate();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public void ZoomIn() => ZoomAt(GetViewportCenter(), 1.25f);
 
     public void ZoomOut() => ZoomAt(GetViewportCenter(), 0.8f);
@@ -216,16 +233,35 @@ public sealed class UmlCanvas : Control
         DrawGrid(e.Graphics);
         UmlDiagramRenderer.DrawDiagram(e.Graphics, _project, ActiveDiagram, _selectedNode, _selectedEdge, _hoverNode, _hoverEdge);
 
+        if (UmlToolModeHelper.IsRelationshipTool(_toolMode) && _hoverNode is not null)
+            DrawConnectableHighlight(e.Graphics, _hoverNode);
+
+        if (_pendingSourceNode is not null && _pointerOnCanvas)
+            DrawConnectionPreview(e.Graphics);
+
         if (_isCreating)
             DrawCreatePreview(e.Graphics);
-        else if (_pointerOnCanvas && !_isPanning && !_isDragging && UmlToolModeHelper.IsNodeCreateTool(_toolMode))
+        else if (_pointerOnCanvas && !_isPanning && !_isDragging && !_isResizing && UmlToolModeHelper.IsNodeCreateTool(_toolMode))
             DrawToolPlacementPreview(e.Graphics);
+
+        if (_pointerOnCanvas && !_isPanning && (_selectedNode is not null || _selectedEdge is not null))
+            DrawSelectionInfoOverlay(e.Graphics);
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
         Focus();
+
+        if (e.Button == MouseButtons.Right)
+        {
+            var rpt = ScreenToCanvas(e.Location);
+            var rn = HitTestNode(rpt);
+            var re = rn is null ? HitTestEdge(rpt) : null;
+            if (rn is not null || re is not null)
+                Select(rn, re);
+            return;
+        }
 
         if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Middle)
             return;
@@ -250,6 +286,18 @@ public sealed class UmlCanvas : Control
         switch (_toolMode)
         {
             case UmlToolMode.Select:
+                if (_selectedNode is not null)
+                {
+                    var hi = HitTestResizeHandle(canvasPoint);
+                    if (hi >= 0)
+                    {
+                        _isResizing = true;
+                        _resizeHandleIndex = hi;
+                        _resizeBoundsAtStart = _selectedNode.Bounds;
+                        Capture = true;
+                        break;
+                    }
+                }
                 Select(hitNode, hitEdge);
                 if (_selectedNode is not null)
                 {
@@ -339,6 +387,14 @@ public sealed class UmlCanvas : Control
             return;
         }
 
+        if (_isResizing && _selectedNode is not null)
+        {
+            ApplyResize(canvasPoint);
+            UpdateScrollBars();
+            Invalidate();
+            return;
+        }
+
         if (_isDragging && _dragNode is not null)
         {
             var dx = canvasPoint.X - _dragStartCanvas.X;
@@ -405,6 +461,12 @@ public sealed class UmlCanvas : Control
     {
         base.OnMouseUp(e);
 
+        if (e.Button == MouseButtons.Right && !_isPanning && !_isDragging && !_isCreating && !_isResizing)
+        {
+            ShowContextMenu(e.Location);
+            return;
+        }
+
         if (_isPanning)
         {
             _isPanning = false;
@@ -419,6 +481,17 @@ public sealed class UmlCanvas : Control
             rect = EnsureDrawableRect(rect);
             CreateNode(rect);
             _isCreating = false;
+            Capture = false;
+            _toolMode = UmlToolMode.Select;
+            SelectToolRequested?.Invoke(this, EventArgs.Empty);
+            NotifyChanged();
+            return;
+        }
+
+        if (_isResizing)
+        {
+            _isResizing = false;
+            _resizeHandleIndex = -1;
             Capture = false;
             NotifyChanged();
             return;
@@ -499,6 +572,8 @@ public sealed class UmlCanvas : Control
         _isCreating = false;
         _isDragging = false;
         _isPanning = false;
+        _isResizing = false;
+        _resizeHandleIndex = -1;
         _dragNode = null;
         _modelChangedDuringDrag = false;
         Capture = false;
@@ -609,18 +684,9 @@ public sealed class UmlCanvas : Control
 
     private void DrawPlacementPreview(Graphics g, RectangleF rect)
     {
-        using var fill = new SolidBrush(Color.FromArgb(48, 79, 70, 229));
-        g.FillRectangle(fill, rect.X, rect.Y, rect.Width, rect.Height);
+        UmlNotationPreview.DrawGhost(g, _toolMode, rect);
 
-        var previewRect = RectangleF.Inflate(rect, -6, -6);
-        UmlToolModeHelper.DrawPreview(
-            g,
-            _toolMode,
-            previewRect,
-            Color.FromArgb(237, 233, 254),
-            Color.FromArgb(79, 70, 229));
-
-        using var pen = new Pen(Color.FromArgb(200, 79, 70, 229), 1.5f / _zoom)
+        using var pen = new Pen(Color.FromArgb(200, 79, 70, 229), 1.5f)
         {
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
         };
@@ -1012,15 +1078,46 @@ public sealed class UmlCanvas : Control
 
     private void UpdateCursor()
     {
+        if (_isResizing)
+        {
+            Cursor = GetResizeCursor(_resizeHandleIndex);
+            return;
+        }
+
         if (_isPanning || _spacePressed || _toolMode == UmlToolMode.Pan)
         {
             Cursor = Cursors.Hand;
             return;
         }
 
-        if (_toolMode == UmlToolMode.Select && (_hoverNode is not null || _hoverEdge is not null))
+        if (_toolMode == UmlToolMode.Select)
+        {
+            if (_selectedNode is not null && _pointerOnCanvas)
+            {
+                var hi = HitTestResizeHandle(_pointerCanvas);
+                if (hi >= 0)
+                {
+                    Cursor = GetResizeCursor(hi);
+                    return;
+                }
+            }
+
+            if (_hoverNode is not null || _hoverEdge is not null)
+            {
+                Cursor = Cursors.SizeAll;
+                return;
+            }
+        }
+
+        if (UmlToolModeHelper.IsNodeCreateTool(_toolMode) && _hoverNode is not null)
         {
             Cursor = Cursors.SizeAll;
+            return;
+        }
+
+        if (UmlToolModeHelper.IsRelationshipTool(_toolMode) && _hoverNode is not null)
+        {
+            Cursor = Cursors.Hand;
             return;
         }
 
@@ -1045,6 +1142,393 @@ public sealed class UmlCanvas : Control
 
     private static RectangleF NormalizeRect(PointF a, PointF b) =>
         RectangleF.FromLTRB(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y));
+
+    // ── Resize ────────────────────────────────────────────────────────────
+
+    private int HitTestResizeHandle(PointF location)
+    {
+        if (_selectedNode is null) return -1;
+        var rect = _selectedNode.Bounds;
+        const float hitSize = 12f;
+        var half = hitSize / 2f;
+        PointF[] pts =
+        [
+            new(rect.Left, rect.Top),
+            new(rect.Left + rect.Width / 2f, rect.Top),
+            new(rect.Right, rect.Top),
+            new(rect.Right, rect.Top + rect.Height / 2f),
+            new(rect.Right, rect.Bottom),
+            new(rect.Left + rect.Width / 2f, rect.Bottom),
+            new(rect.Left, rect.Bottom),
+            new(rect.Left, rect.Top + rect.Height / 2f),
+        ];
+
+        for (var i = 0; i < pts.Length; i++)
+        {
+            var hr = new RectangleF(pts[i].X - half, pts[i].Y - half, hitSize, hitSize);
+            if (hr.Contains(location))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private static Cursor GetResizeCursor(int idx) => idx switch
+    {
+        0 or 4 => Cursors.SizeNWSE,
+        2 or 6 => Cursors.SizeNESW,
+        1 or 5 => Cursors.SizeNS,
+        _ => Cursors.SizeWE,
+    };
+
+    private void ApplyResize(PointF p)
+    {
+        if (_selectedNode is null) return;
+        const float minW = 60f;
+        const float minH = 40f;
+        var o = _resizeBoundsAtStart;
+        var left = o.Left; var top = o.Top; var right = o.Right; var bottom = o.Bottom;
+
+        switch (_resizeHandleIndex)
+        {
+            case 0: left = p.X; top = p.Y; break;
+            case 1: top = p.Y; break;
+            case 2: right = p.X; top = p.Y; break;
+            case 3: right = p.X; break;
+            case 4: right = p.X; bottom = p.Y; break;
+            case 5: bottom = p.Y; break;
+            case 6: left = p.X; bottom = p.Y; break;
+            case 7: left = p.X; break;
+        }
+
+        if (right - left < minW)
+        {
+            if (_resizeHandleIndex is 0 or 6 or 7) left = right - minW;
+            else right = left + minW;
+        }
+
+        if (bottom - top < minH)
+        {
+            if (_resizeHandleIndex is 0 or 1 or 2) top = bottom - minH;
+            else bottom = top + minH;
+        }
+
+        _selectedNode.X = left;
+        _selectedNode.Y = top;
+        _selectedNode.Width = right - left;
+        _selectedNode.Height = bottom - top;
+    }
+
+    // ── Overlays ──────────────────────────────────────────────────────────
+
+    private void DrawConnectableHighlight(Graphics g, UmlDiagramNode node)
+    {
+        var b = node.Bounds;
+        var color = _pendingSourceNode is not null
+            ? Color.FromArgb(210, 20, 180, 70)
+            : Color.FromArgb(160, 0, 140, 200);
+        using var pen = new Pen(color, 2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
+        g.DrawRectangle(pen, b.X, b.Y, b.Width, b.Height);
+    }
+
+    private void DrawConnectionPreview(Graphics g)
+    {
+        if (_pendingSourceNode is null) return;
+        var src = GetNodeCenter(_pendingSourceNode);
+        var tgt = _pointerCanvas;
+
+        using var dashPen = new Pen(Color.FromArgb(180, 0, 140, 90), 1.5f)
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
+        };
+        g.DrawLine(dashPen, src, tgt);
+
+        var mid = new PointF((src.X + tgt.X) / 2f, (src.Y + tgt.Y) / 2f);
+        DrawFloatingLabel(g, $"[{GetConnectionTypeLabel(_toolMode)}]", mid, 6f, -22f);
+        DrawFloatingLabel(g, $"시작: {GetNodeName(_pendingSourceNode)}", src, 6f, -22f);
+
+        if (_hoverNode is not null && _hoverNode != _pendingSourceNode)
+            DrawFloatingLabel(g, $"종료: {GetNodeName(_hoverNode)}", tgt, 10f, 8f);
+        else
+            DrawFloatingLabel(g, "종료: ?", tgt, 10f, 8f);
+
+        var sb2 = _pendingSourceNode.Bounds;
+        using var srcPen = new Pen(Color.FromArgb(200, 0, 110, 200), 2f);
+        g.DrawRectangle(srcPen, sb2.X, sb2.Y, sb2.Width, sb2.Height);
+    }
+
+    private void DrawSelectionInfoOverlay(Graphics g)
+    {
+        if (_isDragging || _isResizing || _isCreating) return;
+
+        string? info = null;
+
+        if (_selectedNode is not null)
+        {
+            var element = _project.FindElement(_selectedNode.ModelElementId);
+            if (element is not null)
+            {
+                var typeName = element switch
+                {
+                    UmlClass cls => cls.IsAbstract ? "추상 클래스" : "클래스",
+                    UmlInterface => "인터페이스",
+                    UmlEnumeration => "열거형",
+                    UmlPackage => "패키지",
+                    UmlActor => "액터",
+                    UmlUseCase => "유스케이스",
+                    UmlNote => "노트",
+                    _ => "요소",
+                };
+                var name = (element as UmlNamedElement)?.Name ?? "";
+                info = $"{typeName}: {name}";
+            }
+        }
+        else if (_selectedEdge is not null)
+        {
+            var rel = _project.FindRelationship(_selectedEdge.ModelElementId);
+            if (rel is not null)
+            {
+                info = rel switch
+                {
+                    UmlGeneralization => "일반화",
+                    UmlRealization => "실체화",
+                    UmlDependency dep => string.IsNullOrWhiteSpace(dep.Stereotype)
+                        ? "의존" : $"의존 «{dep.Stereotype}»",
+                    UmlAssociation assoc => assoc.Aggregation switch
+                    {
+                        UmlAggregationKind.Shared => "집합 연관",
+                        UmlAggregationKind.Composite => "합성 연관",
+                        _ => "연관",
+                    },
+                    UmlInclude => "«include»",
+                    UmlExtend => "«extend»",
+                    _ => "관계",
+                };
+            }
+        }
+
+        if (info is null) return;
+        DrawCursorInfoLabel(g, info, _pointerCanvas);
+    }
+
+    private static void DrawCursorInfoLabel(Graphics g, string text, PointF pt)
+    {
+        using var font = new Font("Segoe UI", 8.5f);
+        using var back = new SolidBrush(Color.FromArgb(210, 40, 40, 55));
+        using var fore = new SolidBrush(Color.White);
+        var sz = g.MeasureString(text, font);
+        const float pad = 4f;
+        g.FillRectangle(back, pt.X + 18f - pad, pt.Y + 12f - pad, sz.Width + pad * 2, sz.Height + pad * 2);
+        g.DrawString(text, font, fore, pt.X + 18f, pt.Y + 12f);
+    }
+
+    private static void DrawFloatingLabel(Graphics g, string text, PointF anchor, float dx, float dy)
+    {
+        using var font = new Font("Segoe UI", 8f);
+        using var back = new SolidBrush(Color.FromArgb(190, 235, 250, 240));
+        using var fore = new SolidBrush(Color.FromArgb(220, 0, 90, 55));
+        var sz = g.MeasureString(text, font);
+        var x = anchor.X + dx;
+        var y = anchor.Y + dy;
+        g.FillRectangle(back, x - 2f, y - 1f, sz.Width + 4f, sz.Height + 2f);
+        g.DrawString(text, font, fore, x, y);
+    }
+
+    private PointF GetNodeCenter(UmlDiagramNode node) =>
+        new(node.Bounds.Left + node.Bounds.Width / 2f, node.Bounds.Top + node.Bounds.Height / 2f);
+
+    private string GetNodeName(UmlDiagramNode node)
+    {
+        var el = _project.FindElement(node.ModelElementId);
+        return el is UmlNamedElement named ? named.Name : "?";
+    }
+
+    private static string GetConnectionTypeLabel(UmlToolMode mode) => mode switch
+    {
+        UmlToolMode.CreateGeneralization => "일반화",
+        UmlToolMode.CreateRealization => "실체화",
+        UmlToolMode.CreateDependency => "의존",
+        UmlToolMode.CreateAssociation => "연관",
+        UmlToolMode.CreateDirectedAssociation => "방향 연관",
+        UmlToolMode.CreateAggregation => "집합",
+        UmlToolMode.CreateComposition => "합성",
+        UmlToolMode.CreateInclude => "포함",
+        UmlToolMode.CreateExtend => "확장",
+        _ => "연결",
+    };
+
+    // ── Context Menu ──────────────────────────────────────────────────────
+
+    private void ShowContextMenu(Point screenPoint)
+    {
+        var cp = ScreenToCanvas(screenPoint);
+        var hitNode = HitTestNode(cp);
+        var hitEdge = hitNode is null ? HitTestEdge(cp) : null;
+
+        var menu = new ContextMenuStrip();
+
+        if (hitNode is not null)
+            BuildNodeContextMenu(menu, hitNode, cp);
+        else if (hitEdge is not null)
+            BuildEdgeContextMenu(menu, hitEdge, cp);
+        else
+            BuildCanvasContextMenu(menu, cp);
+
+        if (menu.Items.Count > 0)
+            menu.Show(this, screenPoint);
+    }
+
+    private void BuildNodeContextMenu(ContextMenuStrip menu, UmlDiagramNode node, PointF cp)
+    {
+        var element = _project.FindElement(node.ModelElementId);
+
+        Add("이름 편집...", () =>
+        {
+            Select(node, null);
+            if (TryEditAt(cp)) { SelectionChanged?.Invoke(this, EventArgs.Empty); NotifyChanged(); }
+        });
+
+        if (element is UmlClassifier classifier)
+        {
+            Add("스테레오타입 편집...", () =>
+            {
+                var t = UmlTextPrompt.Show(PromptOwner, "스테레오타입", "스테레오타입", classifier.Stereotype ?? "");
+                if (t is null) return;
+                classifier.Stereotype = t.Trim();
+                NotifyChanged();
+            });
+
+            if (classifier is UmlClass cls)
+            {
+                Add(cls.IsAbstract ? "구체 클래스로 변경" : "추상 클래스로 변경", () =>
+                {
+                    cls.IsAbstract = !cls.IsAbstract;
+                    NotifyChanged();
+                });
+            }
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            if (classifier is UmlEnumeration en)
+            {
+                Add("리터럴 추가...", () =>
+                {
+                    var t = UmlTextPrompt.Show(PromptOwner, "리터럴 추가", "이름", "LITERAL");
+                    if (t is null) return;
+                    en.Literals.Add(t.Trim());
+                    NotifyChanged();
+                });
+            }
+            else
+            {
+                Add("속성 추가...", () =>
+                {
+                    var t = UmlTextPrompt.Show(PromptOwner, "속성 추가", "이름", "newProperty");
+                    if (t is null) return;
+                    classifier.Properties.Add(new UmlProperty { Name = t.Trim() });
+                    NotifyChanged();
+                });
+                Add("연산 추가...", () =>
+                {
+                    var t = UmlTextPrompt.Show(PromptOwner, "연산 추가", "이름", "newOperation");
+                    if (t is null) return;
+                    classifier.Operations.Add(new UmlOperation { Name = t.Trim() });
+                    NotifyChanged();
+                });
+            }
+
+            Add(node.ShowCompartments ? "구획 숨기기" : "구획 표시", () =>
+            {
+                node.ShowCompartments = !node.ShowCompartments;
+                NotifyChanged();
+            });
+        }
+
+        menu.Items.Add(new ToolStripSeparator());
+        Add("삭제", () => { Select(node, null); DeleteSelection(); });
+
+        void Add(string label, Action action)
+        {
+            var item = new ToolStripMenuItem(label);
+            item.Click += (_, _) => action();
+            menu.Items.Add(item);
+        }
+    }
+
+    private void BuildEdgeContextMenu(ContextMenuStrip menu, UmlDiagramEdge edge, PointF cp)
+    {
+        var rel = _project.FindRelationship(edge.ModelElementId);
+
+        Add("편집...", () =>
+        {
+            Select(null, edge);
+            if (TryEditAt(cp)) { SelectionChanged?.Invoke(this, EventArgs.Empty); NotifyChanged(); }
+        });
+
+        if (rel is UmlAssociation assoc)
+        {
+            Add("소스 다중성 편집...", () =>
+            {
+                var t = UmlTextPrompt.Show(PromptOwner, "다중성", "소스 다중성", assoc.SourceMultiplicity ?? "");
+                if (t is null) return;
+                assoc.SourceMultiplicity = t.Trim();
+                NotifyChanged();
+            });
+            Add("대상 다중성 편집...", () =>
+            {
+                var t = UmlTextPrompt.Show(PromptOwner, "다중성", "대상 다중성", assoc.TargetMultiplicity ?? "");
+                if (t is null) return;
+                assoc.TargetMultiplicity = t.Trim();
+                NotifyChanged();
+            });
+        }
+
+        menu.Items.Add(new ToolStripSeparator());
+        Add("삭제", () => { Select(null, edge); DeleteSelection(); });
+
+        void Add(string label, Action action)
+        {
+            var item = new ToolStripMenuItem(label);
+            item.Click += (_, _) => action();
+            menu.Items.Add(item);
+        }
+    }
+
+    private void BuildCanvasContextMenu(ContextMenuStrip menu, PointF cp)
+    {
+        void ActivateTool(string label, UmlToolMode mode)
+        {
+            var item = new ToolStripMenuItem(label);
+            item.Click += (_, _) =>
+            {
+                _toolMode = mode;
+                ToolModeRequested?.Invoke(this, mode);
+                Invalidate();
+            };
+            menu.Items.Add(item);
+        }
+
+        var kind = ActiveDiagram.Kind;
+
+        switch (kind)
+        {
+            case UmlDiagramKind.UseCaseDiagram:
+                ActivateTool("Actor 추가", UmlToolMode.CreateActor);
+                ActivateTool("Use Case 추가", UmlToolMode.CreateUseCase);
+                break;
+
+            case UmlDiagramKind.ClassDiagram:
+            default:
+                ActivateTool("Class 추가", UmlToolMode.CreateClass);
+                ActivateTool("Interface 추가", UmlToolMode.CreateInterface);
+                ActivateTool("Enumeration 추가", UmlToolMode.CreateEnumeration);
+                ActivateTool("Package 추가", UmlToolMode.CreatePackage);
+                break;
+        }
+
+        menu.Items.Add(new ToolStripSeparator());
+        ActivateTool("Note 추가", UmlToolMode.CreateNote);
+    }
 
     private void NotifyChanged()
     {

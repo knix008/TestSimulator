@@ -44,13 +44,13 @@ public sealed class UmlToolbox : UserControl
 
 
 
-    private const int TileW = 72;
+    private const int TileW = 52;
 
-    private const int TileH = 64;
+    private const int TileH = 46;
 
-    private const int TileGap = 6;
+    private const int TileGap = 4;
 
-    private const int HeaderH = 28;
+    private const int HeaderH = 24;
 
     private const int GroupGap = 8;
 
@@ -65,6 +65,8 @@ public sealed class UmlToolbox : UserControl
     private readonly List<ToolboxTile> _allTiles = [];
 
     private bool _initialized;
+
+    private UmlDiagramKind _currentKind = UmlDiagramKind.ClassDiagram;
 
 
 
@@ -85,6 +87,8 @@ public sealed class UmlToolbox : UserControl
         BackColor = SidebarBg;
 
         Padding = new Padding(6, 4, 6, 10);
+
+        MinimumSize = new Size(3 * (TileW + TileGap) - TileGap + 12, 0);
 
         Resize += (_, _) => LayoutAll();
 
@@ -152,6 +156,28 @@ public sealed class UmlToolbox : UserControl
 
 
 
+    public void SetDiagramKind(UmlDiagramKind kind)
+
+    {
+
+        _currentKind = kind;
+
+        if (!_initialized) return;
+
+        BuildGroupsForKind(kind);
+
+        LayoutAll();
+
+        var selectTile = _allTiles.FirstOrDefault(t => t.Mode == UmlToolMode.Select);
+
+        if (selectTile is not null)
+
+            SelectTile(selectTile, raiseEvent: false);
+
+    }
+
+
+
     private void EnsureInitialized()
 
     {
@@ -166,7 +192,7 @@ public sealed class UmlToolbox : UserControl
 
         Controls.Add(_selectionBanner);
 
-        BuildGroups();
+        BuildGroupsForKind(_currentKind);
 
         LayoutAll();
 
@@ -176,7 +202,7 @@ public sealed class UmlToolbox : UserControl
 
 
 
-    private void BuildGroups()
+    private void BuildGroupsForKind(UmlDiagramKind kind)
 
     {
 
@@ -208,51 +234,83 @@ public sealed class UmlToolbox : UserControl
 
 
 
-        AddGroup("분류자", [
+        switch (kind)
 
-            (UmlToolMode.CreateClass, "Class", UmlNotationPreview.DrawClass),
+        {
 
-            (UmlToolMode.CreateInterface, "Interface", UmlNotationPreview.DrawInterface),
+            case UmlDiagramKind.UseCaseDiagram:
 
-            (UmlToolMode.CreateEnumeration, "Enum", UmlNotationPreview.DrawEnumeration),
+                AddGroup("Use Case", [
 
-            (UmlToolMode.CreatePackage, "Package", UmlNotationPreview.DrawPackage),
+                    (UmlToolMode.CreateActor, "Actor", UmlNotationPreview.DrawActor),
 
-        ]);
+                    (UmlToolMode.CreateUseCase, "UseCase", UmlNotationPreview.DrawUseCase),
+
+                    (UmlToolMode.CreateInclude, "Include", UmlNotationPreview.DrawInclude),
+
+                    (UmlToolMode.CreateExtend, "Extend", UmlNotationPreview.DrawExtend),
+
+                ]);
+
+                AddGroup("관계", [
+
+                    (UmlToolMode.CreateAssociation, "Association", UmlNotationPreview.DrawAssociation),
+
+                    (UmlToolMode.CreateGeneralization, "Generalization", UmlNotationPreview.DrawGeneralization),
+
+                    (UmlToolMode.CreateDependency, "Dependency", UmlNotationPreview.DrawDependency),
+
+                ]);
+
+                break;
 
 
 
-        AddGroup("Use Case", [
+            case UmlDiagramKind.SequenceDiagram:
 
-            (UmlToolMode.CreateActor, "Actor", UmlNotationPreview.DrawActor),
+            case UmlDiagramKind.StateMachineDiagram:
 
-            (UmlToolMode.CreateUseCase, "UseCase", UmlNotationPreview.DrawUseCase),
+            case UmlDiagramKind.ActivityDiagram:
 
-            (UmlToolMode.CreateInclude, "Include", UmlNotationPreview.DrawInclude),
-
-            (UmlToolMode.CreateExtend, "Extend", UmlNotationPreview.DrawExtend),
-
-        ]);
+                break;
 
 
 
-        AddGroup("관계", [
+            default:
 
-            (UmlToolMode.CreateAssociation, "Association", UmlNotationPreview.DrawAssociation),
+                AddGroup("분류자", [
 
-            (UmlToolMode.CreateDirectedAssociation, "Directed", UmlNotationPreview.DrawDirectedAssociation),
+                    (UmlToolMode.CreateClass, "Class", UmlNotationPreview.DrawClass),
 
-            (UmlToolMode.CreateAggregation, "Aggregation", UmlNotationPreview.DrawAggregation),
+                    (UmlToolMode.CreateInterface, "Interface", UmlNotationPreview.DrawInterface),
 
-            (UmlToolMode.CreateComposition, "Composition", UmlNotationPreview.DrawComposition),
+                    (UmlToolMode.CreateEnumeration, "Enum", UmlNotationPreview.DrawEnumeration),
 
-            (UmlToolMode.CreateGeneralization, "Generalization", UmlNotationPreview.DrawGeneralization),
+                    (UmlToolMode.CreatePackage, "Package", UmlNotationPreview.DrawPackage),
 
-            (UmlToolMode.CreateRealization, "Realization", UmlNotationPreview.DrawRealization),
+                ]);
 
-            (UmlToolMode.CreateDependency, "Dependency", UmlNotationPreview.DrawDependency),
+                AddGroup("관계", [
 
-        ]);
+                    (UmlToolMode.CreateAssociation, "Association", UmlNotationPreview.DrawAssociation),
+
+                    (UmlToolMode.CreateDirectedAssociation, "Directed", UmlNotationPreview.DrawDirectedAssociation),
+
+                    (UmlToolMode.CreateAggregation, "Aggregation", UmlNotationPreview.DrawAggregation),
+
+                    (UmlToolMode.CreateComposition, "Composition", UmlNotationPreview.DrawComposition),
+
+                    (UmlToolMode.CreateGeneralization, "Generalization", UmlNotationPreview.DrawGeneralization),
+
+                    (UmlToolMode.CreateRealization, "Realization", UmlNotationPreview.DrawRealization),
+
+                    (UmlToolMode.CreateDependency, "Dependency", UmlNotationPreview.DrawDependency),
+
+                ]);
+
+                break;
+
+        }
 
 
 
@@ -336,9 +394,9 @@ public sealed class UmlToolbox : UserControl
 
 
 
-        var usableW = Math.Max(TileW + TileGap, ClientSize.Width - Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
+        var usableW = Math.Max(TileW + TileGap, ClientSize.Width - Padding.Horizontal);
 
-        var cols = Math.Max(1, (usableW + TileGap) / (TileW + TileGap));
+        var cols = Math.Max(3, (usableW + TileGap) / (TileW + TileGap));
 
         var left = Padding.Left;
 
@@ -721,6 +779,15 @@ public sealed class UmlToolbox : UserControl
             g.DrawString(Caption, Selected || MatchesCanvasSelection ? CaptionFontBold : CaptionFont, textBrush,
 
                 new RectangleF(0, Height - CaptionH, Width, CaptionH), fmt);
+
+            if (Selected)
+            {
+
+                using var selBar = new SolidBrush(UmlToolbox.Accent);
+
+                g.FillRectangle(selBar, 2, Height - 3, Width - 4, 3);
+
+            }
 
         }
 
