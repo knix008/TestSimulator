@@ -37,7 +37,12 @@ public partial class SevenSegmentDisplay : UserControl
 
     public static readonly DependencyProperty TextProperty =
         DependencyProperty.Register(nameof(Text), typeof(string), typeof(SevenSegmentDisplay),
-            new PropertyMetadata("", (d, _) => ((SevenSegmentDisplay)d).Rebuild()));
+            new PropertyMetadata("", (d, e) =>
+            {
+                var ctrl = (SevenSegmentDisplay)d;
+                ctrl.Rebuild();
+                ctrl.InvalidateMeasure();
+            }));
 
     public static readonly DependencyProperty SegColorProperty =
         DependencyProperty.Register(nameof(SegColor), typeof(Brush), typeof(SevenSegmentDisplay),

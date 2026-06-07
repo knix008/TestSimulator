@@ -20,6 +20,13 @@ namespace MyClockWinV10;
 public partial class MainWindow : Window
 {
     [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr hIcon);
+    [DllImport("dwmapi.dll")] static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref MARGINS margins);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MARGINS
+    {
+        public int cxLeftWidth, cxRightWidth, cyTopHeight, cyBottomHeight;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct WINDOWPOS
@@ -65,18 +72,92 @@ public partial class MainWindow : Window
     private AppSettings _settings = new();
     private List<WorldTimeCityDto> _worldCities = [];
 
+    private bool _chromeVisible;
+    private readonly DispatcherTimer _chromeHideTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+
+    private MenuItem? _settingsMenuItem;
+    private MenuItem? _clockModeMenuItem;
+    private MenuItem? _maximizeMenuItem;
+    private ContextMenu? _windowContextMenu;
+
+    private const double DigitalMinWidth       = 140;
+    private const double DigitalMinHeight      = 72;
+    private const double DigitalAmPmRowHeight  = 28;
+    private const double AnalogMinWidth        = 150;
+    private const double AnalogMinHeight       = 150;
+    private const double ResizeBorderHit  = 6;
+
+    private bool _isDraggingWindow;
+    private bool _awaitingSettingsCloseOrDrag;
+    private System.Windows.Point _mouseDownScreen;
+    private System.Windows.Point _dragWindowOrigin;
+
     public MainWindow()
     {
         InitializeComponent();
         var s = SettingsManager.Load();
         ApplySettingsOnStartup(s);
         InitTrayIcon();
+        InitChromeHover();
+        InitContextMenu();
         SettingsManager.EnsureStartupRegistryCommand();
 
         _timer.Tick += OnTick;
         _timer.Start();
-        DigitalPanel.SizeChanged += (_, _) => RefitCurrentDigitalText();
+        DigitalPanel.SizeChanged += (_, _) =>
+        {
+            RefitCurrentDigitalText();
+            if (UsesCanvasDigitalDisplay())
+            {
+                SevenSeg.InvalidateMeasure();
+                DotMatrixClock.InvalidateMeasure();
+            }
+        };
+        ClockSizer.SizeChanged += (_, _) => SyncOverlayLayout();
+        SizeChanged += (_, _) => SyncOverlayLayout();
+        Loaded += MainWindow_Loaded;
         OnTick(null, EventArgs.Empty);
+    }
+
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        ApplyClockModeLayout();
+        SyncOverlayLayout();
+        EnsureWindowOnScreen();
+    }
+
+    private void SyncOverlayLayout()
+    {
+        double w = ClockSizer.ActualWidth;
+        double h = ClockSizer.ActualHeight;
+        if (w <= 0 || h <= 0) return;
+
+        WindowBackgroundLayer.Width  = w;
+        WindowBackgroundLayer.Height = h;
+        Canvas.SetLeft(WindowBackgroundLayer, 0);
+        Canvas.SetTop(WindowBackgroundLayer, 0);
+
+        HeaderDateText.Width = w;
+        Canvas.SetLeft(HeaderDateText, 0);
+        Canvas.SetTop(HeaderDateText, 4);
+
+        ClockStatusText.Width = w;
+        Canvas.SetLeft(ClockStatusText, 0);
+        Canvas.SetTop(ClockStatusText, Math.Max(0, h - 20));
+
+        ResizeHoverOutline.Width  = w;
+        ResizeHoverOutline.Height = h;
+        Canvas.SetLeft(ResizeHoverOutline, 0);
+        Canvas.SetTop(ResizeHoverOutline, 0);
+
+        Canvas.SetLeft(ResizeGripVisual, Math.Max(0, w - 16));
+        Canvas.SetTop(ResizeGripVisual, Math.Max(0, h - 16));
+    }
+
+    private static void SetAmPmText(TextBlock target, string ampm)
+    {
+        target.Text = ampm;
+        target.Visibility = string.IsNullOrEmpty(ampm) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ── Settings ──────────────────────────────────────────────────────────
@@ -96,11 +177,10 @@ public partial class MainWindow : Window
         }
         else
         {
-            // First run: top-right corner of the work area
             WindowStartupLocation = WindowStartupLocation.Manual;
-            var area = System.Windows.SystemParameters.WorkArea;
+            var area = SystemParameters.WorkArea;
             Left = area.Right - s.WindowWidth - 12;
-            Top  = area.Top                   + 12;
+            Top  = area.Top + 12;
         }
 
         _isDigital    = s.IsDigital;
@@ -118,6 +198,7 @@ public partial class MainWindow : Window
         ApplyBrightness(s.Brightness / 100.0);
         ApplyDigitalStyle(_digitalStyle);
         ApplyAnalogStyle(_analogStyle);
+        ApplyClockModeMinSize();
 
         _alarmSounds.SoundId = AlarmSoundCatalog.IsValid(s.AlarmSoundId) ? s.AlarmSoundId : AlarmSoundCatalog.DefaultId;
         _alarmSounds.Volume  = Math.Clamp(s.AlarmVolume, 0, 100) / 100.0;
@@ -202,7 +283,7 @@ public partial class MainWindow : Window
         DigitalPanel.Visibility   = Visibility.Visible;
         AnalogClock.Visibility = Visibility.Collapsed;
         ClockStatusText.Text      = "";
-        SetActiveClockBtn(true);
+        UpdateClockModeMenuItem();
         ApplyDigitalStyle(_digitalStyle);
         ApplyAnalogStyle(_analogStyle);
         UpdateDigital(DateTime.Now);
@@ -234,6 +315,284 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── Hover chrome (transparent until mouse over) ───────────────────────
+
+    private void InitChromeHover()
+    {
+        _chromeHideTimer.Tick += (_, _) =>
+        {
+            _chromeHideTimer.Stop();
+            if (!ShouldKeepChromeVisible())
+                SetChromeVisible(false);
+        };
+        SetChromeVisible(false);
+    }
+
+    private void Window_MouseEnter(object sender, MouseEventArgs e) => SetChromeVisible(true);
+
+    private void Window_MouseLeave(object sender, MouseEventArgs e) => ScheduleHideChrome();
+
+    private void SidePanel_MouseEnter(object sender, MouseEventArgs e) => SetChromeVisible(true);
+
+    private void SidePanel_MouseLeave(object sender, MouseEventArgs e) => ScheduleHideChrome();
+
+    private void ScheduleHideChrome()
+    {
+        _chromeHideTimer.Stop();
+        _chromeHideTimer.Start();
+    }
+
+    private bool ShouldKeepChromeVisible()
+    {
+        if (IsMouseOver) return true;
+        if (_sidePanel is { IsVisible: true } panel && panel.IsMouseOver) return true;
+        return false;
+    }
+
+    private void SetChromeVisible(bool visible)
+    {
+        if (_chromeVisible == visible) return;
+        _chromeVisible = visible;
+
+        WindowBackgroundLayer.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        HeaderDateText.Visibility        = visible ? Visibility.Visible : Visibility.Collapsed;
+        ClockStatusText.Visibility       = visible && !string.IsNullOrEmpty(ClockStatusText.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        ResizeHoverOutline.Visibility    = visible ? Visibility.Visible : Visibility.Collapsed;
+        ResizeGripVisual.Visibility      = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void InitContextMenu()
+    {
+        _settingsMenuItem = CreateMenuItem("\uE713", "설정...", (_, _) => ToggleSettingsPanel());
+
+        var calendarItem = CreateMenuItem("\uE787", "Outlook 캘린더", (_, _) => OpenCalendar());
+
+        _clockModeMenuItem = CreateMenuItem("\uE121", (_, _) => ToggleClockMode());
+
+        var minimizeItem = CreateMenuItem("\uE921", "최소화", (_, _) => WindowState = WindowState.Minimized);
+
+        _maximizeMenuItem = CreateMenuItem("\uE922", (_, _) => ToggleMaximize());
+
+        var hideToTrayItem = CreateMenuItem("\uE74D", "트레이로 숨기기", (_, _) => MinimizeToTray());
+
+        var separator = new Separator { Style = (Style)FindResource("ClockContextMenuSeparatorStyle") };
+
+        var menu = new ContextMenu
+        {
+            Style = (Style)FindResource("ClockContextMenuStyle"),
+            Items =
+            {
+                _settingsMenuItem,
+                calendarItem,
+                _clockModeMenuItem,
+                separator,
+                minimizeItem,
+                _maximizeMenuItem,
+                hideToTrayItem
+            }
+        };
+        menu.Opened += (_, _) =>
+        {
+            UpdateSettingsMenuItem();
+            UpdateClockModeMenuItem();
+            UpdateMaximizeMenuItem();
+            SetChromeVisible(true);
+        };
+
+        var itemStyle = (Style)FindResource("ClockContextMenuItemStyle");
+        foreach (var item in menu.Items)
+        {
+            if (item is MenuItem mi)
+                mi.Style = itemStyle;
+        }
+
+        RootGrid.ContextMenu = menu;
+        _windowContextMenu = menu;
+        ContextMenu = menu;
+        UpdateSettingsMenuItem();
+        UpdateClockModeMenuItem();
+        UpdateMaximizeMenuItem();
+    }
+
+    private MenuItem CreateMenuItem(string iconGlyph, RoutedEventHandler click)
+        => CreateMenuItem(iconGlyph, "", click);
+
+    private MenuItem CreateMenuItem(string iconGlyph, string header, RoutedEventHandler click)
+    {
+        var item = new MenuItem
+        {
+            Header = CreateMenuItemHeader(iconGlyph, header),
+            Style  = (Style)FindResource("ClockContextMenuItemStyle")
+        };
+        item.Click += click;
+        return item;
+    }
+
+    private UIElement CreateMenuItemHeader(string glyph, string text)
+    {
+        var row = new Grid { Background = System.Windows.Media.Brushes.Transparent };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var icon = CreateMenuIcon(glyph);
+        Grid.SetColumn(icon, 0);
+        row.Children.Add(icon);
+
+        if (!string.IsNullOrEmpty(text))
+        {
+            var label = new TextBlock
+            {
+                Text              = text,
+                FontSize          = 14,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            label.SetResourceReference(TextBlock.ForegroundProperty, "ForegroundBrush");
+            Grid.SetColumn(label, 1);
+            row.Children.Add(label);
+        }
+
+        return row;
+    }
+
+    private UIElement CreateMenuIcon(string glyph)
+    {
+        var icon = new TextBlock
+        {
+            Text                = glyph,
+            FontFamily          = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"),
+            FontSize            = 20,
+            Width               = 28,
+            Height              = 28,
+            TextAlignment       = TextAlignment.Center,
+            VerticalAlignment   = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Background          = System.Windows.Media.Brushes.Transparent,
+            SnapsToDevicePixels = true,
+            UseLayoutRounding   = true
+        };
+        TextOptions.SetTextRenderingMode(icon, TextRenderingMode.ClearType);
+        TextOptions.SetTextFormattingMode(icon, TextFormattingMode.Display);
+        icon.SetResourceReference(TextBlock.ForegroundProperty, "ForegroundBrush");
+        return icon;
+    }
+
+    private void UpdateSettingsMenuItem()
+    {
+        if (_settingsMenuItem == null) return;
+        bool open = _rightVisible;
+        _settingsMenuItem.Header = CreateMenuItemHeader(
+            open ? "\uE711" : "\uE713",
+            open ? "설정 닫기" : "설정...");
+    }
+
+    private void UpdateClockModeMenuItem()
+    {
+        if (_clockModeMenuItem == null) return;
+        if (_isDigital)
+        {
+            _clockModeMenuItem.Header = CreateMenuItemHeader(
+                "\uE121", "아날로그 시계로 전환");
+        }
+        else
+        {
+            _clockModeMenuItem.Header = CreateMenuItemHeader(
+                "\uE8A5", "디지털 시계로 전환");
+        }
+    }
+
+    private void UpdateMaximizeMenuItem()
+    {
+        if (_maximizeMenuItem == null) return;
+        bool maximized = WindowState == WindowState.Maximized;
+        _maximizeMenuItem.Header = CreateMenuItemHeader(
+            maximized ? "\uE923" : "\uE922",
+            maximized ? "창 크기 복원" : "최대화");
+    }
+
+    private void ApplyClockModeLayout()
+    {
+        ApplyClockModeMinSize();
+        if (!_isDigital && Height < Width * 0.75)
+            Height = Math.Max(MinHeight, Width);
+        SyncOverlayLayout();
+    }
+
+    private void ApplyClockModeMinSize()
+    {
+        MinWidth  = _isDigital ? DigitalMinWidth  : AnalogMinWidth;
+        MinHeight = _isDigital ? GetDigitalMinHeight() : AnalogMinHeight;
+
+        if (Width < MinWidth)  Width  = MinWidth;
+        if (Height < MinHeight) Height = MinHeight;
+    }
+
+    private double GetDigitalMinHeight()
+    {
+        double h = DigitalMinHeight;
+        if (!_use24h && UsesCanvasDigitalDisplay())
+            h += DigitalAmPmRowHeight;
+        return h;
+    }
+
+    private void ToggleSettingsPanel()
+    {
+        if (_rightVisible) CloseSidePanel();
+        else
+        {
+            _rightVisible = true;
+            OpenSidePanel();
+        }
+    }
+
+    private void ToggleClockMode()
+    {
+        _isDigital = !_isDigital;
+        DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
+        AnalogClock.Visibility    = _isDigital ? Visibility.Collapsed : Visibility.Visible;
+        UpdateClockModeMenuItem();
+        var active = FirstActiveTimer;
+        if (active != null)
+            UpdateTimerDisplay(active);
+        else if (_isDigital)
+            UpdateDigital(DateTime.Now);
+        else
+            UpdateAnalog(DateTime.Now);
+
+        ApplyClockModeLayout();
+    }
+
+    private void ToggleMaximize()
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+        UpdateMaximizeMenuItem();
+    }
+
+    private void OpenCalendar()
+    {
+        if (!_rightVisible)
+        {
+            _rightVisible = true;
+            OpenSidePanel();
+        }
+        _sidePanel?.SwitchToCalendarTab();
+    }
+
+    private void AttachSidePanelChromeHover(SidePanelWindow panel)
+    {
+        panel.MouseEnter += SidePanel_MouseEnter;
+        panel.MouseLeave += SidePanel_MouseLeave;
+    }
+
+    private void DetachSidePanelChromeHover(SidePanelWindow panel)
+    {
+        panel.MouseEnter -= SidePanel_MouseEnter;
+        panel.MouseLeave -= SidePanel_MouseLeave;
+    }
+
     // ── Win32 position-change hook (zero-lag side-panel sync) ─────────────
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -241,6 +600,9 @@ public partial class MainWindow : Window
         base.OnSourceInitialized(e);
         var hwnd = new WindowInteropHelper(this).Handle;
         HwndSource.FromHwnd(hwnd)?.AddHook(WndProc);
+
+        var margins = new MARGINS { cxLeftWidth = -1, cxRightWidth = -1, cyTopHeight = -1, cyBottomHeight = -1 };
+        DwmExtendFrameIntoClientArea(hwnd, ref margins);
 
         var dpi = VisualTreeHelper.GetDpi(this);
         _dpiScaleX = dpi.DpiScaleX;
@@ -265,7 +627,6 @@ public partial class MainWindow : Window
             if (newRight != _panelOpensRight)
             {
                 _panelOpensRight = newRight;
-                UpdatePanelToggleBtnSide(open: _rightVisible);
                 _sidePanel?.ApplyPanelSide(_panelOpensRight);
             }
 
@@ -275,8 +636,7 @@ public partial class MainWindow : Window
                 _sidePanel.Left   = _panelOpensRight
                     ? (newLeft + newWidth)
                     : (newLeft - _sidePanel.Width);
-                _sidePanel.Top    = newTop;
-                _sidePanel.Height = newHeight;
+                ApplySidePanelPosition(newTop);
             }
         }
         return IntPtr.Zero;
@@ -331,6 +691,7 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object sender, EventArgs e)
     {
+        UpdateMaximizeMenuItem();
         if (WindowState == WindowState.Minimized && IsVisible)
             MinimizeToTray();
     }
@@ -526,12 +887,12 @@ public partial class MainWindow : Window
 
         if (UsesCanvasDigitalDisplay())
         {
-            AmPmText.Text = timer.IsPaused ? "일시정지" : "타이머";
+            SetAmPmText(AmPmText, timer.IsPaused ? "일시정지" : "타이머");
             SetCanvasDigitalTime(text);
         }
         else
         {
-            TextAmPm.Text = timer.IsPaused ? "일시정지" : "타이머";
+            SetAmPmText(TextAmPm, timer.IsPaused ? "일시정지" : "타이머");
             string display = _digitalStyle == nameof(Models.DigitalStyle.Korean)
                 ? KoreanTimeText.FormatCountdown(remaining, showSeconds: true)
                 : text;
@@ -539,6 +900,9 @@ public partial class MainWindow : Window
         }
 
         ClockStatusText.Text = "타이머";
+        if (_chromeVisible)
+            ClockStatusText.Visibility = Visibility.Visible;
+        SyncOverlayLayout();
         if (!_isDigital)
         {
             AnalogClock.DrawClock(DateTime.Now);
@@ -552,12 +916,12 @@ public partial class MainWindow : Window
 
         if (UsesCanvasDigitalDisplay())
         {
-            AmPmText.Text = ampm;
+            SetAmPmText(AmPmText, ampm);
             SetCanvasDigitalTime(FormatCanvasDigitalTime(now));
         }
         else
         {
-            TextAmPm.Text = ampm;
+            SetAmPmText(TextAmPm, ampm);
             bool showSeconds = _digitalStyle != nameof(Models.DigitalStyle.Minimal);
             string display = _digitalStyle == nameof(Models.DigitalStyle.Korean)
                 ? KoreanTimeText.FormatClock(now, _use24h, showSeconds)
@@ -566,26 +930,17 @@ public partial class MainWindow : Window
         }
 
         ClockStatusText.Text = "";
+        ClockStatusText.Visibility = Visibility.Collapsed;
     }
 
     private void ApplyDigitalTextTime(string text)
     {
         _lastDigitalText = text;
-        double maxWidth = GetDigitalTextMaxWidth();
-
-        bool alwaysFit = _digitalStyle == nameof(Models.DigitalStyle.Korean);
 
         TextTime.FontSize = _digitalTextBaseFontSize;
-        TextTime.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
-
-        if (alwaysFit || TextTime.DesiredSize.Width > maxWidth)
-            DigitalTextFitter.FitSingleLine(TextTime, text, maxWidth, _digitalTextBaseFontSize);
-        else
-        {
-            TextTime.Text          = text;
-            TextTime.TextWrapping  = TextWrapping.NoWrap;
-            TextTime.TextAlignment = TextAlignment.Center;
-        }
+        TextTime.Text          = text;
+        TextTime.TextWrapping  = TextWrapping.NoWrap;
+        TextTime.TextAlignment = TextAlignment.Center;
     }
 
     private void RefitCurrentDigitalText()
@@ -596,14 +951,6 @@ public partial class MainWindow : Window
             UpdateTimerDisplay(active);
         else if (!string.IsNullOrEmpty(_lastDigitalText))
             ApplyDigitalTextTime(_lastDigitalText);
-    }
-
-    private double GetDigitalTextMaxWidth()
-    {
-        double w = DigitalPanel.ActualWidth;
-        if (w < 40)
-            w = Math.Max(0, ActualWidth - 36);
-        return Math.Max(60, w - 8);
     }
 
     private string FormatNumericDigitalTime(DateTime now, bool showSeconds)
@@ -634,9 +981,12 @@ public partial class MainWindow : Window
     private void UpdateAnalog(DateTime now)
     {
         AnalogClock.DrawClock(now);
-        ClockStatusText.Text = _use24h
+        string status = _use24h
             ? now.ToString("HH:mm:ss")
             : now.ToString("tt hh:mm:ss");
+        ClockStatusText.Text = status;
+        ClockStatusText.Visibility = _chromeVisible ? Visibility.Visible : Visibility.Collapsed;
+        SyncOverlayLayout();
     }
 
     // ── Alarms ────────────────────────────────────────────────────────────
@@ -728,30 +1078,6 @@ public partial class MainWindow : Window
 
     // ── Clock mode ────────────────────────────────────────────────────────
 
-    private void ClockModeBtn_Click(object sender, RoutedEventArgs e)
-    {
-        _isDigital = !_isDigital;
-        DigitalPanel.Visibility   = _isDigital ? Visibility.Visible   : Visibility.Collapsed;
-        AnalogClock.Visibility = _isDigital ? Visibility.Collapsed : Visibility.Visible;
-        SetActiveClockBtn(_isDigital);
-        var active = FirstActiveTimer;
-        if (active != null)
-            UpdateTimerDisplay(active);
-        else if (_isDigital)
-            UpdateDigital(DateTime.Now);
-        else
-            UpdateAnalog(DateTime.Now);
-    }
-
-    private void SetActiveClockBtn(bool digital)
-    {
-        IconDigital.Visibility = digital ? Visibility.Visible   : Visibility.Collapsed;
-        IconAnalog.Visibility  = digital ? Visibility.Collapsed : Visibility.Visible;
-        IconHour.Visibility    = digital ? Visibility.Collapsed : Visibility.Visible;
-        IconMin.Visibility     = digital ? Visibility.Collapsed : Visibility.Visible;
-        ClockModeBtn.ToolTip   = digital ? "아날로그로 전환" : "디지털로 전환";
-    }
-
     // ── Theme & display (called from SidePanelWindow) ─────────────────────
 
     internal void ApplyTheme(string name)
@@ -762,7 +1088,6 @@ public partial class MainWindow : Window
         {
             Source = new Uri($"Themes/{name}.xaml", UriKind.Relative)
         };
-        SetActiveClockBtn(_isDigital);
         ApplyDigitColor(_digitColor);
     }
 
@@ -839,7 +1164,11 @@ public partial class MainWindow : Window
         TextTime.TextWrapping = TextWrapping.NoWrap;
         TextTime.ClearValue(FrameworkElement.MaxWidthProperty);
 
-        if (_isDigital) UpdateDigital(DateTime.Now);
+        if (_isDigital)
+        {
+            ApplyClockModeMinSize();
+            UpdateDigital(DateTime.Now);
+        }
     }
 
     internal void ApplyAnalogStyle(string style)
@@ -852,52 +1181,17 @@ public partial class MainWindow : Window
 
     // ── Side panel ────────────────────────────────────────────────────────
 
-    private void PanelToggle_Click(object sender, RoutedEventArgs e)
-    {
-        _rightVisible = !_rightVisible;
-        if (_rightVisible) OpenSidePanel();
-        else               CloseSidePanel();
-    }
-
-    private void CalendarBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (!_rightVisible)
-        {
-            _rightVisible = true;
-            OpenSidePanel();
-        }
-        _sidePanel?.SwitchToCalendarTab();
-    }
-
-    private bool DetermineOpenRight() => DetermineOpenRightAt(Left, Width, _panelOpensRight);
-
-    // preferRight: current side — only flip when that side runs out of space
-    private static bool DetermineOpenRightAt(double left, double width, bool preferRight)
-    {
-        var area = SystemParameters.WorkArea;
-        bool canRight = (left + width + 400) <= area.Right;
-        bool canLeft  = (left         - 400) >= area.Left;
-        if (preferRight) return canRight || !canLeft; // switch to left only when right is full and left is available
-        else             return !canLeft;             // switch to right only when left is full
-    }
-
-    private void UpdatePanelToggleBtnSide(bool open)
-    {
-        PanelToggleBtn.HorizontalAlignment = _panelOpensRight
-            ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-        PanelToggleBtn.Content = open
-            ? (_panelOpensRight ? "◀" : "▶")
-            : (_panelOpensRight ? "▶" : "◀");
-    }
-
     private void OpenSidePanel()
     {
         _panelOpensRight = DetermineOpenRight();
-        UpdatePanelToggleBtnSide(open: true);
 
         _sidePanel = new SidePanelWindow(_alarms, _timers, _alarmSounds, _stopwatchService) { Owner = this };
         _sidePanel.OnThemeRequested       = name => { ApplyTheme(name); SaveSettings(); };
-        _sidePanel.OnFormatChanged        = v => { _use24h = v; };
+        _sidePanel.OnFormatChanged        = v =>
+        {
+            _use24h = v;
+            ApplyClockModeMinSize();
+        };
         _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; };
         _sidePanel.OnBrightnessChanged    = ApplyBrightness;
         _sidePanel.OnDigitColorChanged    = c => { ApplyDigitColor(c); SaveSettings(); };
@@ -907,14 +1201,15 @@ public partial class MainWindow : Window
         _sidePanel.OnSettingsChanged      = SaveSettings;
         _sidePanel.WorldPanel.LoadEntries(_worldCities);
         _sidePanel.WorldPanel.EntriesChanged += OnWorldCitiesChanged;
-        _sidePanel.Closed += (_, _) =>
+        _sidePanel.Closed += (s, _) =>
         {
             if (_rightVisible)
-            {
                 _rightVisible = false;
-                UpdatePanelToggleBtnSide(open: false);
-            }
+            if (s is SidePanelWindow panel)
+                DetachSidePanelChromeHover(panel);
             _sidePanel = null;
+            UpdateSettingsMenuItem();
+            ScheduleHideChrome();
         };
 
         _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(_brightness * 100),
@@ -922,7 +1217,10 @@ public partial class MainWindow : Window
             _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100));
         PositionSidePanel();
         _sidePanel.ApplyPanelSide(_panelOpensRight);
+        AttachSidePanelChromeHover(_sidePanel);
         _sidePanel.Show();
+        UpdateSettingsMenuItem();
+        SetChromeVisible(true);
         _sidePanel.AnimateOpen(_panelOpensRight);
     }
 
@@ -944,7 +1242,6 @@ public partial class MainWindow : Window
     {
         if (_sidePanel == null) return;
         _worldCities = _sidePanel.WorldPanel.ToDtos();
-        UpdatePanelToggleBtnSide(open: false);
         var panel = _sidePanel;
         panel.AnimateClose(_panelOpensRight, () => Dispatcher.Invoke(() => panel.Close()));
     }
@@ -956,7 +1253,6 @@ public partial class MainWindow : Window
 
         _worldCities = _sidePanel.WorldPanel.ToDtos();
         _rightVisible  = false;
-        UpdatePanelToggleBtnSide(open: false);
 
         var panel = _sidePanel;
         _sidePanel  = null;
@@ -967,27 +1263,140 @@ public partial class MainWindow : Window
     private void PositionSidePanel()
     {
         if (_sidePanel == null) return;
-        _sidePanel.Top    = Top;
-        _sidePanel.Height = Height;
-        _sidePanel.Left   = _panelOpensRight ? (Left + Width) : (Left - 1);
+        ApplySidePanelPosition(Top);
+        _sidePanel.Left = _panelOpensRight ? (Left + Width) : (Left - 1);
+    }
+
+    private static double GetSidePanelHeight()
+    {
+        var area = SystemParameters.WorkArea;
+        return Math.Min(SidePanelWindow.PreferredHeight, area.Height);
+    }
+
+    private void ApplySidePanelPosition(double clockTop)
+    {
+        if (_sidePanel == null) return;
+
+        double panelH = GetSidePanelHeight();
+        var area = SystemParameters.WorkArea;
+
+        double top = clockTop;
+        if (top + panelH > area.Bottom)
+            top = Math.Max(area.Top, area.Bottom - panelH);
+
+        _sidePanel.Height = panelH;
+        _sidePanel.Top    = top;
     }
 
     // ── Window chrome ─────────────────────────────────────────────────────
 
-    private void Caption_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private bool DetermineOpenRight() => DetermineOpenRightAt(Left, Width, _panelOpensRight);
+
+    // preferRight: current side — only flip when that side runs out of space
+    private static bool DetermineOpenRightAt(double left, double width, bool preferRight)
     {
-        if (e.ButtonState == MouseButtonState.Pressed)
-            DragMove();
+        var area = SystemParameters.WorkArea;
+        bool canRight = (left + width + 400) <= area.Right;
+        bool canLeft  = (left         - 400) >= area.Left;
+        if (preferRight) return canRight || !canLeft;
+        else             return !canLeft;
     }
 
-    private void MinBtn_Click(object sender, RoutedEventArgs e)
-        => WindowState = WindowState.Minimized;
+    private bool IsInResizeBorder(System.Windows.Point p)
+    {
+        double w = ActualWidth, h = ActualHeight;
+        if (w <= 0 || h <= 0) return false;
 
-    private void MaxBtn_Click(object sender, RoutedEventArgs e)
-        => WindowState = WindowState == WindowState.Maximized
-            ? WindowState.Normal
-            : WindowState.Maximized;
+        double t = ResizeBorderHit;
+        return p.X <= t || p.Y <= t || p.X >= w - t || p.Y >= h - t;
+    }
 
-    private void CloseBtn_Click(object sender, RoutedEventArgs e)
-        => MinimizeToTray();
+    private void Window_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_windowContextMenu == null) return;
+
+        UpdateSettingsMenuItem();
+        UpdateClockModeMenuItem();
+        UpdateMaximizeMenuItem();
+
+        _windowContextMenu.PlacementTarget = this;
+        _windowContextMenu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    private void Window_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left) return;
+        if (IsInResizeBorder(e.GetPosition(this))) return;
+
+        _mouseDownScreen = PointToScreen(e.GetPosition(this));
+
+        if (_rightVisible && _sidePanel != null)
+        {
+            _awaitingSettingsCloseOrDrag = true;
+            CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
+        BeginWindowDrag();
+        e.Handled = true;
+    }
+
+    private void Window_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed) return;
+
+        var screen = PointToScreen(e.GetPosition(this));
+
+        if (_awaitingSettingsCloseOrDrag)
+        {
+            if (DragDistance(screen, _mouseDownScreen) <= 4) return;
+
+            _awaitingSettingsCloseOrDrag = false;
+            _dragWindowOrigin = new System.Windows.Point(Left, Top);
+            _mouseDownScreen  = screen;
+            _isDraggingWindow = true;
+            return;
+        }
+
+        if (!_isDraggingWindow) return;
+
+        Left = _dragWindowOrigin.X + (screen.X - _mouseDownScreen.X);
+        Top  = _dragWindowOrigin.Y + (screen.Y - _mouseDownScreen.Y);
+    }
+
+    private void Window_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left) return;
+        if (_awaitingSettingsCloseOrDrag)
+        {
+            var screen = PointToScreen(e.GetPosition(this));
+            if (DragDistance(screen, _mouseDownScreen) <= 4)
+            {
+                RequestCloseSidePanel();
+                UpdateSettingsMenuItem();
+            }
+        }
+
+        _awaitingSettingsCloseOrDrag = false;
+        _isDraggingWindow = false;
+        if (IsMouseCaptured)
+            ReleaseMouseCapture();
+
+        EnsureWindowOnScreen();
+    }
+
+    private void BeginWindowDrag()
+    {
+        _isDraggingWindow = true;
+        _dragWindowOrigin = new System.Windows.Point(Left, Top);
+        CaptureMouse();
+    }
+
+    private static double DragDistance(System.Windows.Point a, System.Windows.Point b)
+    {
+        double dx = a.X - b.X, dy = a.Y - b.Y;
+        return Math.Sqrt(dx * dx + dy * dy);
+    }
 }

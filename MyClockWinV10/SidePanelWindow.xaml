@@ -4,7 +4,7 @@
         xmlns:ctrl="clr-namespace:MyClockWinV10.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="MyClock"
-        Width="1" MinWidth="0"
+        Width="1" MinWidth="0" MinHeight="400"
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"

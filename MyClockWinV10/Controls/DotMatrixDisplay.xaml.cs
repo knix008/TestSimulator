@@ -37,7 +37,12 @@ public partial class DotMatrixDisplay : UserControl
 
     public static readonly DependencyProperty TextProperty =
         DependencyProperty.Register(nameof(Text), typeof(string), typeof(DotMatrixDisplay),
-            new PropertyMetadata("", (d, _) => ((DotMatrixDisplay)d).Rebuild()));
+            new PropertyMetadata("", (d, e) =>
+            {
+                var ctrl = (DotMatrixDisplay)d;
+                ctrl.Rebuild();
+                ctrl.InvalidateMeasure();
+            }));
 
     public static readonly DependencyProperty DotColorProperty =
         DependencyProperty.Register(nameof(DotColor), typeof(Brush), typeof(DotMatrixDisplay),

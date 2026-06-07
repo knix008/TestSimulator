@@ -25,7 +25,8 @@ public partial class SidePanelWindow : Window
     public Action<string>? OnAnalogStyleChanged;
     public Action? OnSettingsChanged;
 
-    private const double TargetWidth = 400;
+    internal const double TargetWidth = 400;
+    internal const double PreferredHeight = 560;
 
     private bool _panelOpensRight = true;
 
