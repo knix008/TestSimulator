@@ -44,7 +44,7 @@ public static class AnalysisReportExportService
         }
     }
 
-    public static string BuildDefaultFileName(AnalysisReportFormat format)
+    public static string BuildDefaultFileName(AnalysisReportFormat format, string? rootDirectory = null)
     {
         var extension = format switch
         {
@@ -55,6 +55,6 @@ public static class AnalysisReportExportService
             _ => "report"
         };
 
-        return $"CodeAnalysisReport_{DateTime.Now:yyyyMMdd_HHmmss}.{extension}";
+        return AnalysisExportFileNameBuilder.Build(rootDirectory, extension);
     }
 }

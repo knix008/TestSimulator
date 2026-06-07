@@ -1461,7 +1461,9 @@ public partial class MainForm : Form
                 "PDF (*.pdf)|*.pdf|" +
                 "모든 지원 형식|*.html;*.md;*.docx;*.pdf",
             DefaultExt = "html",
-            FileName = AnalysisReportExportService.BuildDefaultFileName(AnalysisReportFormat.Html)
+            FileName = AnalysisReportExportService.BuildDefaultFileName(
+                AnalysisReportFormat.Html,
+                txtRootPath.Text.Trim())
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -1500,7 +1502,7 @@ public partial class MainForm : Form
             Title = "코드 메트릭 CSV보내기",
             Filter = "CSV 파일 (*.csv)|*.csv|모든 파일 (*.*)|*.*",
             DefaultExt = "csv",
-            FileName = $"CodeMetrics_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+            FileName = AnalysisExportFileNameBuilder.Build(txtRootPath.Text.Trim(), "csv")
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -1555,7 +1557,7 @@ public partial class MainForm : Form
             Title = "이미지로 내보내기",
             Filter = "PNG 이미지 (*.png)|*.png",
             DefaultExt = "png",
-            FileName = $"diagram_{DateTime.Now:yyyyMMdd_HHmmss}.png"
+            FileName = AnalysisExportFileNameBuilder.Build(txtRootPath.Text.Trim(), "png")
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -1590,7 +1592,7 @@ public partial class MainForm : Form
             Title = "분석 결과 저장",
             Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
             DefaultExt = "json",
-            FileName = $"CodeAnalyzer_{DateTime.Now:yyyyMMdd_HHmmss}.json"
+            FileName = AnalysisExportFileNameBuilder.Build(txtRootPath.Text.Trim(), "json")
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
