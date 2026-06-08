@@ -18,6 +18,7 @@ public enum BugRiskCategory
     AsyncVoidMethod,        // async void — 예외 전파 불가
     MagicNumberAbuse,       // 과도한 매직 넘버 사용
     PossiblyUnusedPrivate,  // 호출 그래프에서 참조 없는 함수
+    LintViolation,          // 외부 Lint 도구 (ESLint / pylint / RuboCop 등)
 }
 
 public enum BugRiskSeverity

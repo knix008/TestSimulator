@@ -16,11 +16,28 @@ internal sealed class CSharpEfCoreSchemaExtractor
         @"\.HasOne\s*<[^>]+>\s*\(\)\s*\.WithMany\s*(?:\([^)]*\))?\s*\.HasForeignKey\s*\(\s*(?:e\s*=>\s*)?e\.(\w+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private static readonly Regex DbSetPropertyRegex = new(
+        @"DbSet\s*<\s*(\w+)\s*>\s+(\w+)\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex DbContextClassRegex = new(
+        @"\bclass\s+\w+\s*:\s*[^\{]*\bDbContext\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex TableAttributeRegex = new(
+        @"\[Table\s*\(\s*""([^""]+)""(?:\s*,\s*""([^""]+)"")?\s*\)\][\s\S]*?\bclass\s+(\w+)\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex EntityPropertyRegex = new(
+        @"\b(?:public|internal|protected)\s+[\w<>\[\]?,\s]+\s+(\w+)\s*\{\s*get",
+        RegexOptions.Compiled);
+
     public async Task<Dictionary<string, SqlSchemaParser.ParsedTable>> ExtractAsync(
         IReadOnlyList<string> sourceFiles,
         CancellationToken cancellationToken = default)
     {
         var tables = new Dictionary<string, SqlSchemaParser.ParsedTable>(StringComparer.OrdinalIgnoreCase);
+        var dbSetPropertyByEntity = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         if (sourceFiles.Count == 0)
         {
             return tables;
@@ -35,6 +52,7 @@ internal sealed class CSharpEfCoreSchemaExtractor
             try
             {
                 var text = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
+                ExtractFromTextFallback(file, text, tables, dbSetPropertyByEntity);
                 syntaxTrees.Add(CSharpSyntaxTree.ParseText(text, path: file, cancellationToken: cancellationToken));
             }
             catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
@@ -63,7 +81,7 @@ internal sealed class CSharpEfCoreSchemaExtractor
                 var model = compilation.GetSemanticModel(tree);
                 var root = await tree.GetRootAsync(cancellationToken).ConfigureAwait(false);
                 var filePath = tree.FilePath ?? string.Empty;
-                ExtractFromRoot(root, model, filePath, tables, cancellationToken);
+                ExtractFromRoot(root, model, filePath, tables, dbSetPropertyByEntity, cancellationToken);
             }
             catch (Exception ex) when (!AnalysisCancellation.IsCancellation(ex))
             {
@@ -71,7 +89,135 @@ internal sealed class CSharpEfCoreSchemaExtractor
             }
         }
 
+        AttachDbSetPropertyNames(tables, dbSetPropertyByEntity);
+        EnsureTablesForDbSetEntities(tables, dbSetPropertyByEntity);
         return tables;
+    }
+
+    private static void EnsureTablesForDbSetEntities(
+        Dictionary<string, SqlSchemaParser.ParsedTable> tables,
+        Dictionary<string, HashSet<string>> dbSetPropertyByEntity)
+    {
+        foreach (var (entityName, propertyNames) in dbSetPropertyByEntity)
+        {
+            var existing = tables.Values.FirstOrDefault(table =>
+                string.Equals(table.EntityTypeName, entityName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(table.Name, entityName, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                continue;
+            }
+
+            var key = SqlSchemaParser.BuildTableKey(null, entityName);
+            tables.TryAdd(key, new SqlSchemaParser.ParsedTable
+            {
+                Key = key,
+                Name = entityName,
+                EntityTypeName = entityName,
+                DbSetPropertyNames = propertyNames.ToList()
+            });
+        }
+    }
+
+    private static void ExtractFromTextFallback(
+        string filePath,
+        string text,
+        Dictionary<string, SqlSchemaParser.ParsedTable> tables,
+        Dictionary<string, HashSet<string>> dbSetPropertyByEntity)
+    {
+        if (!DbContextClassRegex.IsMatch(text)
+            && !text.Contains("DbSet<", StringComparison.Ordinal)
+            && !text.Contains("[Table", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        foreach (Match match in DbSetPropertyRegex.Matches(text))
+        {
+            RegisterDbSetProperty(dbSetPropertyByEntity, match.Groups[1].Value, match.Groups[2].Value);
+        }
+
+        foreach (Match match in TableAttributeRegex.Matches(text))
+        {
+            var tableName = match.Groups[1].Value;
+            var schema = match.Groups[2].Success ? match.Groups[2].Value : null;
+            var entityName = match.Groups[3].Value;
+            var key = SqlSchemaParser.BuildTableKey(schema, tableName);
+            if (tables.ContainsKey(key))
+            {
+                continue;
+            }
+
+            var classBody = match.Value;
+            var columns = new List<SqlSchemaParser.ParsedColumn>();
+            foreach (Match propertyMatch in EntityPropertyRegex.Matches(classBody))
+            {
+                var propertyName = propertyMatch.Groups[1].Value;
+                if (string.Equals(propertyName, "Id", StringComparison.OrdinalIgnoreCase)
+                    || propertyName.EndsWith("Id", StringComparison.Ordinal))
+                {
+                    columns.Add(new SqlSchemaParser.ParsedColumn
+                    {
+                        Name = propertyName,
+                        IsPrimaryKey = string.Equals(propertyName, "Id", StringComparison.OrdinalIgnoreCase)
+                    });
+                }
+                else
+                {
+                    columns.Add(new SqlSchemaParser.ParsedColumn { Name = propertyName });
+                }
+            }
+
+            tables.TryAdd(key, new SqlSchemaParser.ParsedTable
+            {
+                Key = key,
+                Schema = schema,
+                Name = tableName,
+                EntityTypeName = entityName,
+                FilePath = filePath,
+                Columns = columns
+            });
+        }
+    }
+
+    private static void RegisterDbSetProperty(
+        Dictionary<string, HashSet<string>> dbSetPropertyByEntity,
+        string entityTypeName,
+        string propertyName)
+    {
+        if (!dbSetPropertyByEntity.TryGetValue(entityTypeName, out var propertyNames))
+        {
+            propertyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            dbSetPropertyByEntity[entityTypeName] = propertyNames;
+        }
+
+        propertyNames.Add(propertyName);
+    }
+
+    private static void AttachDbSetPropertyNames(
+        Dictionary<string, SqlSchemaParser.ParsedTable> tables,
+        Dictionary<string, HashSet<string>> dbSetPropertyByEntity)
+    {
+        foreach (var table in tables.Values)
+        {
+            if (string.IsNullOrWhiteSpace(table.EntityTypeName))
+            {
+                continue;
+            }
+
+            if (!dbSetPropertyByEntity.TryGetValue(table.EntityTypeName, out var propertyNames))
+            {
+                continue;
+            }
+
+            foreach (var propertyName in propertyNames)
+            {
+                if (!table.DbSetPropertyNames.Contains(propertyName, StringComparer.OrdinalIgnoreCase))
+                {
+                    table.DbSetPropertyNames.Add(propertyName);
+                }
+            }
+        }
     }
 
     private static void ExtractFromRoot(
@@ -79,6 +225,7 @@ internal sealed class CSharpEfCoreSchemaExtractor
         SemanticModel model,
         string filePath,
         Dictionary<string, SqlSchemaParser.ParsedTable> tables,
+        Dictionary<string, HashSet<string>> dbSetPropertyByEntity,
         CancellationToken cancellationToken)
     {
         var dbSetEntityNames = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -99,7 +246,7 @@ internal sealed class CSharpEfCoreSchemaExtractor
                 foreach (var member in classSymbol.GetMembers().OfType<IPropertySymbol>())
                 {
                     if (member.Type is not INamedTypeSymbol { IsGenericType: true } named
-                        || named.OriginalDefinition.ToDisplayString() != "Microsoft.EntityFrameworkCore.DbSet<T>")
+                        || !IsDbSetPropertyType(named))
                     {
                         continue;
                     }
@@ -111,6 +258,7 @@ internal sealed class CSharpEfCoreSchemaExtractor
                     }
 
                     dbSetEntityNames[entityType.Name] = entityType.Name;
+                    RegisterDbSetProperty(dbSetPropertyByEntity, entityType.Name, member.Name);
                 }
 
                 ExtractFluentMappings(classDecl, filePath, tables);
@@ -226,7 +374,7 @@ internal sealed class CSharpEfCoreSchemaExtractor
     {
         for (var current = symbol; current is not null; current = current.BaseType)
         {
-            if (current.ToDisplayString() == "Microsoft.EntityFrameworkCore.DbContext")
+            if (string.Equals(current.Name, "DbContext", StringComparison.Ordinal))
             {
                 return true;
             }
@@ -234,6 +382,9 @@ internal sealed class CSharpEfCoreSchemaExtractor
 
         return false;
     }
+
+    private static bool IsDbSetPropertyType(INamedTypeSymbol named) =>
+        named.IsGenericType && string.Equals(named.OriginalDefinition.Name, "DbSet", StringComparison.Ordinal);
 
     private static bool LooksLikeEntity(INamedTypeSymbol symbol, Dictionary<string, string> dbSetEntities) =>
         dbSetEntities.ContainsKey(symbol.Name)

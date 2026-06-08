@@ -22,6 +22,8 @@ public sealed class BugRiskViewer : UserControl
         VirtualMode = false
     };
 
+    private readonly ListViewColumnHeaderToolTip _listHeaderToolTip;
+
     private readonly TextBox _detail = new()
     {
         Dock = DockStyle.Fill,
@@ -96,6 +98,7 @@ public sealed class BugRiskViewer : UserControl
         _list.Columns.Add("설명", 340);
         _list.Columns.Add("파일", 160);
         _list.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _listHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_list, ListViewHeaderToolTipTexts.BugRisk);
         _list.SelectedIndexChanged += (_, _) => ShowDetail();
         _list.DoubleClick += (_, _) => NavigateToSelected();
         _list.ColumnClick += OnColumnClick;
@@ -454,6 +457,7 @@ public sealed class BugRiskViewer : UserControl
         BugRiskCategory.AsyncVoidMethod => "async void",
         BugRiskCategory.MagicNumberAbuse => "매직 넘버 남용",
         BugRiskCategory.PossiblyUnusedPrivate => "미사용 함수 의심",
+        BugRiskCategory.LintViolation => "Lint 위반",
         _ => cat.ToString()
     };
 }

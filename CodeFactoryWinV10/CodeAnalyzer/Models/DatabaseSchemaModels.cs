@@ -37,6 +37,8 @@ public sealed class DatabaseTable
     public string SourceKind { get; init; } = string.Empty;
     public string FilePath { get; init; } = string.Empty;
     public int LineNumber { get; init; }
+    /// <summary>EF Core DbSet 속성명 등 코드에서 테이블을 찾을 때 쓰는 별칭.</summary>
+    public IReadOnlyList<string> AccessAliases { get; init; } = [];
     public IReadOnlyList<DatabaseColumn> Columns { get; init; } = [];
 }
 

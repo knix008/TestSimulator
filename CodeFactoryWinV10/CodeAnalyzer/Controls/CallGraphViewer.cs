@@ -573,16 +573,10 @@ public sealed class CallGraphViewer : UserControl
             return;
         }
 
-        if (TryHitNode(e.Location, out var nodeId))
+        if (TryHitNode(e.Location, out var nodeId)
+            && _graph?.NodeMap.TryGetValue(nodeId, out var node) == true)
         {
-            if (!string.IsNullOrWhiteSpace(_hubTargetNodeId))
-            {
-                ScrollToNode(nodeId);
-            }
-            else
-            {
-                SetRootNode(nodeId);
-            }
+            SourceFileOpener.TryOpen(node.FilePath, node.LineNumber);
         }
     }
 

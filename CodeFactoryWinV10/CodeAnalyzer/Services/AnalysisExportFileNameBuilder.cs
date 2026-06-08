@@ -15,6 +15,9 @@ public static class AnalysisExportFileNameBuilder
         return $"{FilePrefix}{directoryToken}_{timestamp}.{normalizedExtension}";
     }
 
+    public static string BuildProjectSaveFileName(string? rootDirectory) =>
+        $"{FilePrefix}{ExtractDirectoryToken(rootDirectory)}{ProjectFileService.FileExtension}";
+
     public static string ExtractDirectoryToken(string? rootDirectory)
     {
         if (string.IsNullOrWhiteSpace(rootDirectory))

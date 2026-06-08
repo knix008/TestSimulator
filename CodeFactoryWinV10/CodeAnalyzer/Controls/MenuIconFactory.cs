@@ -133,6 +133,43 @@ internal static class MenuIconFactory
         g.FillPolygon(hill, new[] { new Point(3, 12), new Point(8, 7), new Point(13, 12) });
     });
 
+    public static Bitmap CreateAnalysisSettingsIcon(int size = 16) => DrawSized(size, g =>
+    {
+        using var gear = new SolidBrush(Color.FromArgb(55, 90, 140));
+        using var accent = new SolidBrush(Color.FromArgb(76, 175, 80));
+        g.FillEllipse(gear, 1, 1, size - 2, size - 2);
+        g.FillRectangle(accent, size / 2 - 1, 3, 2, size - 6);
+        g.FillRectangle(accent, 3, size / 2 - 1, size - 6, 2);
+        g.FillEllipse(Brushes.White, size / 2 - 2, size / 2 - 2, 4, 4);
+    });
+
+    public static Bitmap CreateSelectAllIcon() => Draw(g =>
+    {
+        using var box = new Pen(Color.FromArgb(55, 90, 140), 1.5f);
+        g.DrawRectangle(box, 2, 2, 12, 12);
+        using var check = new Pen(Color.FromArgb(46, 125, 50), 2f);
+        g.DrawLines(check, new[] { new Point(4, 8), new Point(7, 11), new Point(12, 4) });
+    });
+
+    public static Bitmap CreateClearAllIcon() => Draw(g =>
+    {
+        using var box = new Pen(Color.FromArgb(120, 130, 145), 1.5f);
+        g.DrawRectangle(box, 2, 2, 12, 12);
+        using var cross = new Pen(Color.FromArgb(198, 40, 40), 1.8f);
+        g.DrawLine(cross, 5, 5, 11, 11);
+        g.DrawLine(cross, 11, 5, 5, 11);
+    });
+
+    private static Bitmap DrawSized(int size, Action<Graphics> draw)
+    {
+        var bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        graphics.Clear(Color.Transparent);
+        draw(graphics);
+        return bitmap;
+    }
+
     private static Bitmap Draw(Action<Graphics> draw)
     {
         var bitmap = new Bitmap(IconSize, IconSize, PixelFormat.Format32bppArgb);

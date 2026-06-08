@@ -24,6 +24,18 @@ public sealed class CodeMetricsViewer : UserControl
     private readonly ListView _packageList = CreateListView();
     private readonly ListView _architectureList = CreateListView();
 
+    private readonly TextBox _archSummaryBox = new()
+    {
+        Dock = DockStyle.Fill,
+        Multiline = true,
+        ReadOnly = true,
+        ScrollBars = ScrollBars.Vertical,
+        Font = SystemFonts.DefaultFont,
+        BackColor = Color.FromArgb(245, 247, 252),
+        BorderStyle = BorderStyle.None,
+        WordWrap = true
+    };
+
     private readonly TextBox _typeCodePreview = new()
     {
         Dock = DockStyle.Fill,
@@ -104,8 +116,37 @@ public sealed class CodeMetricsViewer : UserControl
         _tabPackages = new TabPage("패키지") { Padding = new Padding(0) };
         _tabPackages.Controls.Add(_packageList);
 
+        var archSummaryHeader = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 20,
+            Padding = new Padding(6, 2, 0, 0),
+            Text = "요약 정보",
+            ForeColor = Color.FromArgb(80, 80, 100),
+            Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold),
+            BackColor = Color.FromArgb(235, 239, 248)
+        };
+        var archSummaryPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.FromArgb(245, 247, 252),
+            Padding = new Padding(6, 4, 6, 4)
+        };
+        archSummaryPanel.Controls.Add(_archSummaryBox);
+        archSummaryPanel.Controls.Add(archSummaryHeader);
+
+        var archSplit = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            Orientation = Orientation.Horizontal,
+            SplitterDistance = 340,
+            Panel2MinSize = 60
+        };
+        archSplit.Panel1.Controls.Add(_architectureList);
+        archSplit.Panel2.Controls.Add(archSummaryPanel);
+
         _tabArchitecture = new TabPage("아키텍처") { Padding = new Padding(0) };
-        _tabArchitecture.Controls.Add(_architectureList);
+        _tabArchitecture.Controls.Add(archSplit);
 
         _tabs.TabPages.Add(_tabFiles);
         _tabs.TabPages.Add(_tabFunctions);
@@ -743,8 +784,13 @@ public sealed class CodeMetricsViewer : UserControl
         }
     }
 
+    private static bool IsArchitectureSummaryKind(ArchitectureInsightKind kind) =>
+        kind is ArchitectureInsightKind.Summary or ArchitectureInsightKind.TypeStructure;
+
     private void BuildArchitectureList()
     {
+        _archSummaryBox.Clear();
+
         if (_analysis is null)
         {
             var summary = _metrics!.Summary;
@@ -769,8 +815,15 @@ public sealed class CodeMetricsViewer : UserControl
             _analysis.GlobalVariables,
             _analysis.DatabaseSchema);
 
+        // 요약 항목 → 하단 요약 패널
+        var summaryLines = insights
+            .Where(i => IsArchitectureSummaryKind(i.Kind))
+            .Select(i => $"[{i.Category}]  {i.Description}");
+        _archSummaryBox.Text = string.Join(Environment.NewLine + Environment.NewLine, summaryLines);
+
+        // 상세 항목 → 리스트
         var index = 1;
-        foreach (var insight in insights)
+        foreach (var insight in insights.Where(i => !IsArchitectureSummaryKind(i.Kind)))
         {
             var item = new ListViewItem(index.ToString());
             item.SubItems.Add(insight.Category);
@@ -800,7 +853,6 @@ public sealed class CodeMetricsViewer : UserControl
         SetColumnWidthIfChanged(_architectureList.Columns[1], categoryWidth);
 
         var availableWidth = GetAvailableListClientWidth(_architectureList) - indexWidth - categoryWidth;
-        // 내용 열은 창(리스트) 우측 끝까지 남은 폭을 모두 사용합니다. 잘리면 행 Tooltip으로 전체 확인.
         SetColumnWidthIfChanged(
             _architectureList.Columns[2],
             Math.Max(minContentWidth, availableWidth));

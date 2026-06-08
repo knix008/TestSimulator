@@ -206,8 +206,8 @@ public partial class MainForm : Form
             "호출 그래프",
             "클래스 다이어그램",
             "시퀀스 다이어그램",
-            "데이터 흐름도",
             "상속 구조",
+            "데이터 흐름도",
             "파일 호출 관계",
             "디렉터리 호출 관계",
             "코드 메트릭",
@@ -240,8 +240,8 @@ public partial class MainForm : Form
         {
             1 => DiagramViewKind.ClassDiagram,
             2 => DiagramViewKind.SequenceDiagram,
-            3 => DiagramViewKind.DataFlow,
-            4 => DiagramViewKind.Inheritance,
+            3 => DiagramViewKind.Inheritance,
+            4 => DiagramViewKind.DataFlow,
             5 => DiagramViewKind.FileRelations,
             6 => DiagramViewKind.DirectoryRelations,
             7 => DiagramViewKind.CodeMetrics,
@@ -1187,8 +1187,8 @@ public partial class MainForm : Form
                 DiagramViewKind.CallGraph => 0,
                 DiagramViewKind.ClassDiagram => 1,
                 DiagramViewKind.SequenceDiagram => 2,
-                DiagramViewKind.DataFlow => 3,
-                DiagramViewKind.Inheritance => 4,
+                DiagramViewKind.Inheritance => 3,
+                DiagramViewKind.DataFlow => 4,
                 DiagramViewKind.FileRelations => 5,
                 DiagramViewKind.DirectoryRelations => 6,
                 DiagramViewKind.CodeMetrics => 7,
@@ -1326,9 +1326,7 @@ public partial class MainForm : Form
             Title = "프로젝트 저장",
             Filter = ProjectFileService.FileFilter,
             DefaultExt = "caproj",
-            FileName = !string.IsNullOrWhiteSpace(project.RootDirectory)
-                ? Path.GetFileName(project.RootDirectory)
-                : "project"
+            FileName = AnalysisExportFileNameBuilder.BuildProjectSaveFileName(project.RootDirectory)
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         try

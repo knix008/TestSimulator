@@ -50,6 +50,16 @@ public static class BugRiskAnalyzer
             catch { /* best effort */ }
         }
 
+        // 4. 외부 Lint 도구 (ESLint / pylint / RuboCop)
+        try
+        {
+            var ef = await ExternalLintRunner
+                .RunAsync(filesByLanguage, cancellationToken).ConfigureAwait(false);
+            all.AddRange(ef);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* best effort */ }
+
         // (카테고리, 파일, 줄) 기준 중복 제거 — 가장 높은 심각도 우선
         var deduped = all
             .GroupBy(

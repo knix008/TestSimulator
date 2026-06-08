@@ -345,7 +345,8 @@ public sealed class MultiLanguageCallGraphAnalyzer
                 databaseSchema = DatabaseTableAccessAnalyzer.EnrichWithAccesses(
                     databaseSchema,
                     mergedMetrics.Functions,
-                    merged);
+                    merged,
+                    sourceFiles);
             }
             catch (OperationCanceledException)
             {

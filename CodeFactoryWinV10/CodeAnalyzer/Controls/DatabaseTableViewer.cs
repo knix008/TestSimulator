@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -95,8 +96,10 @@ public sealed class DatabaseTableViewer : UserControl
     private DatabaseTable? _selected;
     private string? _projectRoot;
     private bool _isAnalyzing;
+    private readonly ListViewColumnHeaderToolTip _tableListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _accessorListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _columnAccessListHeaderToolTip;
 
-    public event Action<MetricsNavigationRequest>? NavigationRequested;
     public event Action<DatabaseTable>? AccessGraphRequested;
 
     public DatabaseTableViewer()
@@ -118,8 +121,9 @@ public sealed class DatabaseTableViewer : UserControl
         _tableList.Columns.Add("출처", 72);
         _tableList.Columns.Add("파일", 140);
         _tableList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _tableListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_tableList, ListViewHeaderToolTipTexts.DatabaseTable);
         _tableList.SelectedIndexChanged += (_, _) => ShowSelectedTable();
-        _tableList.DoubleClick += (_, _) => ShowAccessGraphForSelected();
+        _tableList.DoubleClick += (_, _) => OpenSelectedDeclaration();
 
         _accessorList.Columns.Add("#", 36);
         _accessorList.Columns.Add("함수", 160);
@@ -127,6 +131,7 @@ public sealed class DatabaseTableViewer : UserControl
         _accessorList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _accessorList.Columns.Add("접근", 72);
         _accessorList.Columns.Add("패턴", 72);
+        _accessorListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_accessorList, ListViewHeaderToolTipTexts.DatabaseTableAccessor);
         _accessorList.DoubleClick += (_, _) => OpenSelectedAccessor();
 
         _columnAccessList.Columns.Add("#", 36);
@@ -135,6 +140,7 @@ public sealed class DatabaseTableViewer : UserControl
         _columnAccessList.Columns.Add("접근", 72);
         _columnAccessList.Columns.Add("파일", 160);
         _columnAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _columnAccessListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_columnAccessList, ListViewHeaderToolTipTexts.DatabaseColumnAccess);
         _columnAccessList.DoubleClick += (_, _) => OpenSelectedColumnAccessor();
 
         _openFileButton.Click += (_, _) => OpenSelectedDeclaration();
@@ -227,7 +233,7 @@ public sealed class DatabaseTableViewer : UserControl
         var totalAccessors = _schema.Accesses.Select(access => access.FunctionId).Distinct(StringComparer.Ordinal).Count();
         _summaryLabel.Text =
             $"DB 테이블 {_schema.Tables.Count:N0}개 · 접근 함수 {totalAccessors:N0}개 · 접근 {_schema.Accesses.Count:N0}건 · " +
-            "테이블 더블클릭/우클릭: 접근 함수 그래프";
+            "더블클릭: 파일 열기 · 우클릭/버튼: 접근 함수 그래프";
 
         var index = 1;
         foreach (var table in _schema.Tables)
@@ -349,12 +355,7 @@ public sealed class DatabaseTableViewer : UserControl
             return;
         }
 
-        NavigationRequested?.Invoke(new MetricsNavigationRequest
-        {
-            CallGraphNodeId = ca.FunctionId,
-            FilePath = ca.FunctionFilePath,
-            LineNumber = ca.FunctionLineNumber
-        });
+        SourceFileOpener.TryOpen(ca.FunctionFilePath, ca.FunctionLineNumber);
     }
 
     private void ResetAccessTabTitles()
@@ -380,11 +381,7 @@ public sealed class DatabaseTableViewer : UserControl
             return;
         }
 
-        NavigationRequested?.Invoke(new MetricsNavigationRequest
-        {
-            FilePath = _selected.FilePath,
-            LineNumber = Math.Max(1, _selected.LineNumber)
-        });
+        SourceFileOpener.TryOpen(_selected.FilePath, Math.Max(1, _selected.LineNumber));
     }
 
     private void OpenSelectedAccessor()
@@ -395,12 +392,7 @@ public sealed class DatabaseTableViewer : UserControl
             return;
         }
 
-        NavigationRequested?.Invoke(new MetricsNavigationRequest
-        {
-            CallGraphNodeId = access.FunctionId,
-            FilePath = access.FunctionFilePath,
-            LineNumber = access.FunctionLineNumber
-        });
+        SourceFileOpener.TryOpen(access.FunctionFilePath, access.FunctionLineNumber);
     }
 
     private string BuildPreview(DatabaseTable table)

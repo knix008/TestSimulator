@@ -17,8 +17,6 @@ public sealed class ErdDiagramViewer : UserControl
     private string? _selectedTableId;
     private bool _buildError;
 
-    public event Action<MetricsNavigationRequest>? NavigationRequested;
-
     public ErdDiagramViewer()
     {
         DoubleBuffered = true;
@@ -240,14 +238,9 @@ public sealed class ErdDiagramViewer : UserControl
         _selectedTableId = hit.Id;
         Invalidate();
 
-        if (_schema?.TableMap.TryGetValue(hit.Id, out var table) == true
-            && !string.IsNullOrWhiteSpace(table.FilePath))
+        if (_schema?.TableMap.TryGetValue(hit.Id, out var table) == true)
         {
-            NavigationRequested?.Invoke(new MetricsNavigationRequest
-            {
-                FilePath = table.FilePath,
-                LineNumber = table.LineNumber
-            });
+            SourceFileOpener.TryOpen(table.FilePath, table.LineNumber);
         }
     }
 

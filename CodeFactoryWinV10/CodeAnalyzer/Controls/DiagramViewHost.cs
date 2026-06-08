@@ -35,10 +35,8 @@ public sealed class DiagramViewHost : UserControl
         _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.AccessGraphRequested += variable => GlobalVariableAccessGraphRequested?.Invoke(variable);
-        _databaseTableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _databaseTableViewer.AccessGraphRequested += table => DatabaseTableAccessGraphRequested?.Invoke(table);
         _bugRiskViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
-        _erdViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
