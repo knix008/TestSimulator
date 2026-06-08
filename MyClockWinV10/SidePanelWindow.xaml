@@ -601,15 +601,26 @@
                                    Margin="0,0,0,5"/>
                         <Border Background="{DynamicResource PanelBackgroundBrush}"
                                 CornerRadius="6" Padding="12,9" Margin="0,0,0,14">
-                            <Grid>
-                                <TextBlock Text="시작 시 자동 실행" FontSize="13"
-                                           Foreground="{DynamicResource ForegroundBrush}"
-                                           VerticalAlignment="Center"/>
-                                <CheckBox x:Name="StartupToggle"
-                                          Style="{StaticResource ToggleSwitchStyle}"
-                                          HorizontalAlignment="Right" VerticalAlignment="Center"
-                                          Checked="Startup_Changed" Unchecked="Startup_Changed"/>
-                            </Grid>
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="항상 위에 표시" FontSize="13"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="AlwaysOnTopToggle"
+                                              Style="{StaticResource ToggleSwitchStyle}"
+                                              HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              Checked="AlwaysOnTop_Changed" Unchecked="AlwaysOnTop_Changed"/>
+                                </Grid>
+                                <Grid>
+                                    <TextBlock Text="시작 시 자동 실행" FontSize="13"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="StartupToggle"
+                                              Style="{StaticResource ToggleSwitchStyle}"
+                                              HorizontalAlignment="Right" VerticalAlignment="Center"
+                                              Checked="Startup_Changed" Unchecked="Startup_Changed"/>
+                                </Grid>
+                            </StackPanel>
                         </Border>
 
                         <!-- 초기화 -->

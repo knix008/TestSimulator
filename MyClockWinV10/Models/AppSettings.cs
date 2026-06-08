@@ -2,6 +2,7 @@ namespace MyClockWinV10.Models;
 
 public class AppSettings
 {
+    public bool AlwaysOnTop { get; set; } = false;
     public bool Use24h { get; set; } = false;
     public bool WorldUse24h { get; set; } = false;
     public string Theme { get; set; } = "DarkTheme";

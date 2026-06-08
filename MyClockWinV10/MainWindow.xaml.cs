@@ -237,6 +237,7 @@ public partial class MainWindow : Window
         _isDigital    = s.IsDigital;
         _use24h       = s.Use24h;
         _worldUse24h  = s.WorldUse24h;
+        Topmost       = s.AlwaysOnTop;
         _currentTheme = s.Theme;
         _digitColor   = ParseColor(s.DigitColor);
         _digitalStyle = s.DigitalStyleName;
@@ -284,6 +285,7 @@ public partial class MainWindow : Window
 
     private void SaveSettings()
     {
+        _settings.AlwaysOnTop = Topmost;
         _settings.Use24h       = _use24h;
         _settings.WorldUse24h  = _worldUse24h;
         _settings.Theme        = _currentTheme;
@@ -331,6 +333,7 @@ public partial class MainWindow : Window
         _worldUse24h  = d.WorldUse24h;
         _currentTheme = d.Theme;
         _isDigital    = d.IsDigital;
+        Topmost       = d.AlwaysOnTop;
         _digitColor   = ParseColor(d.DigitColor);
 
         _digitalStyle = "SevenSegment";
@@ -355,7 +358,7 @@ public partial class MainWindow : Window
         _worldCities = [.. WorldTimeDefaults.Cities];
         _sidePanel?.WorldPanel.LoadEntries(_worldCities);
         _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness, _digitalStyle, _analogStyle,
-            d.AlarmSoundId, d.AlarmVolume);
+            d.AlarmSoundId, d.AlarmVolume, d.AlwaysOnTop);
         SaveSettings();
     }
 
@@ -801,8 +804,10 @@ public partial class MainWindow : Window
             EnsureWindowOnScreen();
 
             Activate();
+            bool keepTopmost = Topmost;
             Topmost = true;
-            Topmost = false;
+            if (!keepTopmost)
+                Topmost = false;
             Focus();
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
@@ -1279,6 +1284,7 @@ public partial class MainWindow : Window
         _sidePanel.OnResetRequested       = ResetToDefaults;
         _sidePanel.OnDigitalStyleChanged  = s => { ApplyDigitalStyle(s); SaveSettings(); };
         _sidePanel.OnAnalogStyleChanged   = s => { ApplyAnalogStyle(s); SaveSettings(); };
+        _sidePanel.OnAlwaysOnTopChanged   = v => { Topmost = v; SaveSettings(); };
         _sidePanel.OnSettingsChanged      = SaveSettings;
         _sidePanel.WorldPanel.LoadEntries(_worldCities);
         _sidePanel.WorldPanel.EntriesChanged += OnWorldCitiesChanged;
@@ -1295,7 +1301,8 @@ public partial class MainWindow : Window
 
         _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(_brightness * 100),
             _digitalStyle, _analogStyle,
-            _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100));
+            _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100),
+            Topmost);
         PositionSidePanel();
         _sidePanel.ApplyPanelSide(_panelOpensRight);
         AttachSidePanelChromeHover(_sidePanel);
