@@ -70,6 +70,7 @@ internal static class ListViewHeaderToolTipTexts
         "접근 코드가 있는 소스 파일 이름입니다.",
         "접근 코드가 있는 소스 줄 번호입니다.",
         "접근 종류입니다. 읽기·쓰기·읽기/쓰기 중 하나로 표시됩니다.",
+        "이 함수에서 검출된 세부 CRUD 동작입니다. C=Create(생성/INSERT), R=Read(조회/SELECT), U=Update(수정), D=Delete(삭제) 중 검출된 항목이 굵게 표시됩니다. 검출 불가 시 「-」로 표시됩니다.",
         "접근이 감지된 방식입니다. EF, 엔티티 타입 참조, SQL 문자열 등으로 구분됩니다."
     ];
 
@@ -79,8 +80,19 @@ internal static class ListViewHeaderToolTipTexts
         "접근 대상 컬럼·필드 이름입니다.",
         "해당 컬럼을 읽거나 쓴 함수·메서드 이름입니다. 더블클릭하면 정의 위치를 엽니다.",
         "컬럼 접근 종류입니다. 읽기·쓰기·읽기/쓰기 중 하나로 표시됩니다.",
+        "이 컬럼 접근에서 검출된 세부 CRUD 동작입니다. C=Create(INSERT 시 값 지정), R=Read(SELECT 대상), U=Update(SET 대상) 중 검출된 항목이 표시됩니다. 검출 불가 시 「-」로 표시됩니다.",
         "접근 코드가 있는 소스 파일 이름입니다.",
         "접근 코드가 있는 소스 줄 번호입니다."
+    ];
+
+    internal static readonly string[] DatabaseEntryAccess =
+    [
+        "선택한 테이블의 데이터 행(엔트리)에 대한 CRUD 동작 목록 순번입니다.",
+        "검출된 CRUD 동작입니다. Create=새 행 생성(INSERT/Add), Read=조회(SELECT/Find/Where), Update=수정(UPDATE/Update), Delete=삭제(DELETE/Remove) 중 하나입니다.",
+        "해당 동작을 수행하는 함수·메서드 이름입니다. 더블클릭하면 정의 위치를 엽니다.",
+        "이 동작이 감지된 방식입니다. EF, 엔티티 타입 참조, SQL 문자열 등으로 구분됩니다.",
+        "동작 코드가 있는 소스 파일 이름입니다.",
+        "동작 코드가 있는 소스 줄 번호입니다."
     ];
 
     internal static readonly string[] Security =

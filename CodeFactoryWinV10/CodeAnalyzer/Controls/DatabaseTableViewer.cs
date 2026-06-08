@@ -46,6 +46,15 @@ public sealed class DatabaseTableViewer : UserControl
         MultiSelect = false
     };
 
+    private readonly ListView _entryAccessList = new()
+    {
+        Dock = DockStyle.Fill,
+        View = View.Details,
+        FullRowSelect = true,
+        GridLines = true,
+        MultiSelect = false
+    };
+
     private readonly TabControl _accessTabControl = new()
     {
         Dock = DockStyle.Fill
@@ -73,6 +82,7 @@ public sealed class DatabaseTableViewer : UserControl
 
     private TabPage? _tableAccessTab;
     private TabPage? _columnAccessTab;
+    private TabPage? _entryAccessTab;
 
     private readonly Button _openFileButton = new()
     {
@@ -99,6 +109,7 @@ public sealed class DatabaseTableViewer : UserControl
     private readonly ListViewColumnHeaderToolTip _tableListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _accessorListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _columnAccessListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _entryAccessListHeaderToolTip;
 
     public event Action<DatabaseTable>? AccessGraphRequested;
 
@@ -130,6 +141,7 @@ public sealed class DatabaseTableViewer : UserControl
         _accessorList.Columns.Add("파일", 180);
         _accessorList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _accessorList.Columns.Add("접근", 72);
+        _accessorList.Columns.Add("CRUD", 90);
         _accessorList.Columns.Add("패턴", 72);
         _accessorListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_accessorList, ListViewHeaderToolTipTexts.DatabaseTableAccessor);
         _accessorList.DoubleClick += (_, _) => OpenSelectedAccessor();
@@ -138,10 +150,20 @@ public sealed class DatabaseTableViewer : UserControl
         _columnAccessList.Columns.Add("필드", 120);
         _columnAccessList.Columns.Add("함수", 150);
         _columnAccessList.Columns.Add("접근", 72);
+        _columnAccessList.Columns.Add("CRUD", 90);
         _columnAccessList.Columns.Add("파일", 160);
         _columnAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _columnAccessListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_columnAccessList, ListViewHeaderToolTipTexts.DatabaseColumnAccess);
         _columnAccessList.DoubleClick += (_, _) => OpenSelectedColumnAccessor();
+
+        _entryAccessList.Columns.Add("#", 36);
+        _entryAccessList.Columns.Add("작업", 80);
+        _entryAccessList.Columns.Add("함수", 160);
+        _entryAccessList.Columns.Add("패턴", 72);
+        _entryAccessList.Columns.Add("파일", 160);
+        _entryAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _entryAccessListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_entryAccessList, ListViewHeaderToolTipTexts.DatabaseEntryAccess);
+        _entryAccessList.DoubleClick += (_, _) => OpenSelectedEntryAccessor();
 
         _openFileButton.Click += (_, _) => OpenSelectedDeclaration();
         _showGraphButton.Click += (_, _) => ShowAccessGraphForSelected();
@@ -166,8 +188,12 @@ public sealed class DatabaseTableViewer : UserControl
         _columnAccessTab = new TabPage("필드 접근");
         _columnAccessTab.Controls.Add(_columnAccessList);
 
+        _entryAccessTab = new TabPage("엔트리 접근");
+        _entryAccessTab.Controls.Add(_entryAccessList);
+
         _accessTabControl.TabPages.Add(_tableAccessTab);
         _accessTabControl.TabPages.Add(_columnAccessTab);
+        _accessTabControl.TabPages.Add(_entryAccessTab);
 
         _detailSplit.Panel1.Controls.Add(previewPanel);
         _detailSplit.Panel1.Controls.Add(actionPanel);
@@ -273,6 +299,7 @@ public sealed class DatabaseTableViewer : UserControl
             _previewBox.Clear();
             _accessorList.Items.Clear();
             _columnAccessList.Items.Clear();
+            _entryAccessList.Items.Clear();
             ResetAccessTabTitles();
             return;
         }
@@ -283,6 +310,7 @@ public sealed class DatabaseTableViewer : UserControl
         _previewBox.Text = BuildPreview(table);
         RebuildAccessorList(table);
         RebuildColumnAccessList(table);
+        RebuildEntryAccessList(table);
     }
 
     private void RebuildAccessorList(DatabaseTable table)
@@ -306,6 +334,7 @@ public sealed class DatabaseTableViewer : UserControl
             item.SubItems.Add(Path.GetFileName(access.FunctionFilePath));
             item.SubItems.Add(access.FunctionLineNumber.ToString());
             item.SubItems.Add(FormatAccessKind(access.Kind));
+            item.SubItems.Add(FormatOperations(access.Operations));
             item.SubItems.Add(FormatPattern(access.Pattern));
             item.Tag = access;
             item.ToolTipText = $"{access.FunctionFullName} · {access.FunctionFilePath}:{access.FunctionLineNumber}";
@@ -336,6 +365,7 @@ public sealed class DatabaseTableViewer : UserControl
             item.SubItems.Add(ca.ColumnName);
             item.SubItems.Add(ca.FunctionDisplayName);
             item.SubItems.Add(FormatAccessKind(ca.Kind));
+            item.SubItems.Add(FormatOperations(ca.Operations));
             item.SubItems.Add(Path.GetFileName(ca.FunctionFilePath));
             item.SubItems.Add(ca.FunctionLineNumber.ToString());
             item.Tag = ca;
@@ -345,6 +375,37 @@ public sealed class DatabaseTableViewer : UserControl
         }
 
         _columnAccessList.EndUpdate();
+    }
+
+    private void RebuildEntryAccessList(DatabaseTable table)
+    {
+        _entryAccessList.BeginUpdate();
+        _entryAccessList.Items.Clear();
+
+        var entryAccesses = _schema?.GetEntryAccessesFor(table.Id) ?? [];
+        if (_entryAccessTab is not null)
+        {
+            _entryAccessTab.Text = entryAccesses.Count > 0
+                ? $"엔트리 접근 ({entryAccesses.Count}건)"
+                : "엔트리 접근";
+        }
+
+        var index = 1;
+        foreach (var entry in entryAccesses)
+        {
+            var item = new ListViewItem(index.ToString());
+            item.SubItems.Add(FormatOperation(entry.Operation));
+            item.SubItems.Add(entry.FunctionDisplayName);
+            item.SubItems.Add(FormatPattern(entry.Pattern));
+            item.SubItems.Add(Path.GetFileName(entry.FunctionFilePath));
+            item.SubItems.Add(entry.FunctionLineNumber.ToString());
+            item.Tag = entry;
+            item.ToolTipText = $"{entry.FunctionFullName} · {entry.FunctionFilePath}:{entry.FunctionLineNumber}";
+            _entryAccessList.Items.Add(item);
+            index++;
+        }
+
+        _entryAccessList.EndUpdate();
     }
 
     private void OpenSelectedColumnAccessor()
@@ -358,10 +419,22 @@ public sealed class DatabaseTableViewer : UserControl
         SourceFileOpener.TryOpen(ca.FunctionFilePath, ca.FunctionLineNumber);
     }
 
+    private void OpenSelectedEntryAccessor()
+    {
+        if (_entryAccessList.SelectedItems.Count == 0
+            || _entryAccessList.SelectedItems[0].Tag is not DatabaseEntryAccess entry)
+        {
+            return;
+        }
+
+        SourceFileOpener.TryOpen(entry.FunctionFilePath, entry.FunctionLineNumber);
+    }
+
     private void ResetAccessTabTitles()
     {
         if (_tableAccessTab is not null) _tableAccessTab.Text = "테이블 접근";
         if (_columnAccessTab is not null) _columnAccessTab.Text = "필드 접근";
+        if (_entryAccessTab is not null) _entryAccessTab.Text = "엔트리 접근";
     }
 
     private void ShowAccessGraphForSelected()
@@ -453,6 +526,30 @@ public sealed class DatabaseTableViewer : UserControl
         DatabaseTableAccessKind.Write => "쓰기",
         DatabaseTableAccessKind.ReadWrite => "읽기/쓰기",
         _ => "읽기"
+    };
+
+    private static string FormatOperations(DatabaseCrudOperation operations)
+    {
+        if (operations == DatabaseCrudOperation.None)
+        {
+            return "-";
+        }
+
+        var parts = new List<string>(4);
+        if (operations.HasFlag(DatabaseCrudOperation.Create)) parts.Add("C");
+        if (operations.HasFlag(DatabaseCrudOperation.Read)) parts.Add("R");
+        if (operations.HasFlag(DatabaseCrudOperation.Update)) parts.Add("U");
+        if (operations.HasFlag(DatabaseCrudOperation.Delete)) parts.Add("D");
+        return string.Join(" ", parts);
+    }
+
+    private static string FormatOperation(DatabaseCrudOperation operation) => operation switch
+    {
+        DatabaseCrudOperation.Create => "Create",
+        DatabaseCrudOperation.Read => "Read",
+        DatabaseCrudOperation.Update => "Update",
+        DatabaseCrudOperation.Delete => "Delete",
+        _ => "-"
     };
 
     private static string FormatPattern(DatabaseTableAccessPattern pattern) => pattern switch

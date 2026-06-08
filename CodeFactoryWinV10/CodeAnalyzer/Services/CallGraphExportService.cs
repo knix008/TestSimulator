@@ -654,7 +654,8 @@ public static class CallGraphExportService
             FunctionFilePath = a.FunctionFilePath,
             FunctionLineNumber = a.FunctionLineNumber,
             Kind = Enum.TryParse<DatabaseTableAccessKind>(a.Kind, out var kind) ? kind : DatabaseTableAccessKind.Read,
-            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql
+            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql,
+            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations) ? operations : DatabaseCrudOperation.None
         }).ToList();
 
         var grouped = accesses
@@ -1026,7 +1027,8 @@ public static class CallGraphExportService
             FunctionFilePath = a.FunctionFilePath,
             FunctionLineNumber = a.FunctionLineNumber,
             Kind = a.Kind.ToString(),
-            Pattern = a.Pattern.ToString()
+            Pattern = a.Pattern.ToString(),
+            Operations = a.Operations.ToString()
         }).ToList()
     };
 
@@ -1524,6 +1526,7 @@ public static class CallGraphExportService
         public int FunctionLineNumber { get; set; }
         public string Kind { get; set; } = string.Empty;
         public string Pattern { get; set; } = string.Empty;
+        public string Operations { get; set; } = string.Empty;
     }
 
     private sealed class DatabaseColumnRecord

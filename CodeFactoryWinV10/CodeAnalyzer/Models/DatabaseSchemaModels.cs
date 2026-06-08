@@ -58,6 +58,7 @@ public sealed class DatabaseSchemaResult
     public IReadOnlyList<DatabaseRelation> Relations { get; init; } = [];
     public IReadOnlyList<DatabaseTableAccess> Accesses { get; init; } = [];
     public IReadOnlyList<DatabaseColumnAccess> ColumnAccesses { get; init; } = [];
+    public IReadOnlyList<DatabaseEntryAccess> EntryAccesses { get; init; } = [];
 
     public IReadOnlyDictionary<string, DatabaseTable> TableMap { get; init; }
         = new Dictionary<string, DatabaseTable>(StringComparer.OrdinalIgnoreCase);
@@ -68,11 +69,17 @@ public sealed class DatabaseSchemaResult
     public IReadOnlyDictionary<string, IReadOnlyList<DatabaseColumnAccess>> ColumnAccessesByTableId { get; init; }
         = new Dictionary<string, IReadOnlyList<DatabaseColumnAccess>>(StringComparer.OrdinalIgnoreCase);
 
+    public IReadOnlyDictionary<string, IReadOnlyList<DatabaseEntryAccess>> EntryAccessesByTableId { get; init; }
+        = new Dictionary<string, IReadOnlyList<DatabaseEntryAccess>>(StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyList<DatabaseTableAccess> GetAccessesFor(string tableId) =>
         AccessesByTableId.TryGetValue(tableId, out var accesses) ? accesses : [];
 
     public IReadOnlyList<DatabaseColumnAccess> GetColumnAccessesFor(string tableId) =>
         ColumnAccessesByTableId.TryGetValue(tableId, out var accesses) ? accesses : [];
+
+    public IReadOnlyList<DatabaseEntryAccess> GetEntryAccessesFor(string tableId) =>
+        EntryAccessesByTableId.TryGetValue(tableId, out var accesses) ? accesses : [];
 }
 
 public enum DatabaseTableAccessKind
@@ -89,6 +96,21 @@ public enum DatabaseTableAccessPattern
     EntityType
 }
 
+/// <summary>CRUD(Create/Read/Update/Delete) 세부 동작. 한 접근에서 여러 동작이 함께 검출될 수 있어 플래그로 표현.</summary>
+[Flags]
+public enum DatabaseCrudOperation
+{
+    None = 0,
+    /// <summary>INSERT / CREATE TABLE / EF Add 등 새 데이터·스키마 생성.</summary>
+    Create = 1 << 0,
+    /// <summary>SELECT / FROM·JOIN / EF Find·Where·ToList 등 조회.</summary>
+    Read = 1 << 1,
+    /// <summary>UPDATE / ALTER TABLE / EF Update·ExecuteUpdate 등 변경.</summary>
+    Update = 1 << 2,
+    /// <summary>DELETE / DROP·TRUNCATE TABLE / EF Remove·ExecuteDelete 등 삭제.</summary>
+    Delete = 1 << 3
+}
+
 public sealed class DatabaseTableAccess
 {
     public required string TableId { get; init; }
@@ -99,6 +121,8 @@ public sealed class DatabaseTableAccess
     public int FunctionLineNumber { get; init; }
     public DatabaseTableAccessKind Kind { get; init; }
     public DatabaseTableAccessPattern Pattern { get; init; }
+    /// <summary>이 접근에서 검출된 세부 CRUD 동작 (검출 불가 시 None).</summary>
+    public DatabaseCrudOperation Operations { get; init; }
 }
 
 public sealed class DatabaseColumnAccess
@@ -111,5 +135,20 @@ public sealed class DatabaseColumnAccess
     public required string FunctionFilePath { get; init; }
     public int FunctionLineNumber { get; init; }
     public DatabaseTableAccessKind Kind { get; init; }
+    public DatabaseTableAccessPattern Pattern { get; init; }
+    /// <summary>이 필드 접근에서 검출된 세부 CRUD 동작 (검출 불가 시 None).</summary>
+    public DatabaseCrudOperation Operations { get; init; }
+}
+
+/// <summary>테이블의 개별 데이터 행(엔트리)에 대한 CRUD 동작 단위 기록.</summary>
+public sealed class DatabaseEntryAccess
+{
+    public required string TableId { get; init; }
+    public required string FunctionId { get; init; }
+    public required string FunctionDisplayName { get; init; }
+    public required string FunctionFullName { get; init; }
+    public required string FunctionFilePath { get; init; }
+    public int FunctionLineNumber { get; init; }
+    public DatabaseCrudOperation Operation { get; init; }
     public DatabaseTableAccessPattern Pattern { get; init; }
 }
