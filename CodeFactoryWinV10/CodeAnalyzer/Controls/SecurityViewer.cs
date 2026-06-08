@@ -4,6 +4,17 @@ namespace CodeAnalyzer.Controls;
 
 public sealed class SecurityViewer : UserControl
 {
+    /// <summary>MainForm 기본 오른쪽 패널 너비(1528 − 좌측 356 − 스플리터 6).</summary>
+    private const int DefaultListHostWidth = 1166;
+
+    private const int ColIndex = 0;
+    private const int ColSeverity = 1;
+    private const int ColRule = 2;
+    private const int ColMeaning = 3;
+    private const int ColAction = 4;
+    private const int ColFile = 5;
+    private const int ColLine = 6;
+
     private readonly SplitContainer _split = new()
     {
         Dock = DockStyle.Fill,
@@ -82,13 +93,14 @@ public sealed class SecurityViewer : UserControl
         DoubleBuffered = true;
         BackColor = Color.White;
 
+        // MainForm 기본 크기(오른쪽 ~1166px)에 맞춘 초기 폭 — 이후 AdjustColumns가 가용 너비에 맞게 재계산
         _list.Columns.Add("#", 40);
-        _list.Columns.Add("심각도", 70);
-        _list.Columns.Add("규칙", 148);
-        _list.Columns.Add("설명", 280);
-        _list.Columns.Add("대처 방안", 280);
-        _list.Columns.Add("파일", 160);
-        _list.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _list.Columns.Add("심각도", 72);
+        _list.Columns.Add("규칙", 112);
+        _list.Columns.Add("설명", 220);
+        _list.Columns.Add("대처 방안", 320);
+        _list.Columns.Add("파일", 140);
+        _list.Columns.Add("줄", 40, HorizontalAlignment.Right);
         _listHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_list, ListViewHeaderToolTipTexts.Security);
         _list.SelectedIndexChanged += (_, _) => ShowDetail();
         _list.DoubleClick += (_, _) => NavigateToSelected();
@@ -123,8 +135,9 @@ public sealed class SecurityViewer : UserControl
         Controls.Add(_langStrip);
         Controls.Add(_summary);
 
+        _split.SplitterMoved += (_, _) => AdjustColumns();
         SizeChanged += (_, _) => AdjustColumns();
-        Load += (_, _) => AdjustColumns();
+        Load += (_, _) => BeginInvoke(AdjustColumns);
     }
 
     public void SetResult(SecurityAnalysisResult? result, string? projectRoot = null)
@@ -422,7 +435,7 @@ public sealed class SecurityViewer : UserControl
             var ta = _col < a.SubItems.Count ? a.SubItems[_col].Text : string.Empty;
             var tb = _col < b.SubItems.Count ? b.SubItems[_col].Text : string.Empty;
 
-            if (_col is 0 or 6 && int.TryParse(ta, out var ia) && int.TryParse(tb, out var ib))
+            if (_col is 0 or ColLine && int.TryParse(ta, out var ia) && int.TryParse(tb, out var ib))
             {
                 return _asc ? ia.CompareTo(ib) : ib.CompareTo(ia);
             }
@@ -434,16 +447,89 @@ public sealed class SecurityViewer : UserControl
 
     private void AdjustColumns()
     {
-        if (_list.Columns.Count < 7 || _list.ClientSize.Width <= 0)
+        if (_list.Columns.Count <= ColLine)
         {
             return;
         }
 
-        const int fixedWidth = 40 + 70 + 148 + 44;
-        var remaining = Math.Max(240, _list.ClientSize.Width - fixedWidth - 12);
-        _list.Columns[3].Width = (int)(remaining * 0.50);
-        _list.Columns[4].Width = (int)(remaining * 0.50);
-        _list.Columns[5].Width = Math.Max(120, (int)(remaining * 0.35));
+        var available = GetAvailableListWidth();
+        if (available <= 0)
+        {
+            return;
+        }
+
+        const int indexW = 40;
+        const int severityW = 72;
+        const int lineW = 40;
+        const int minRuleW = 72;
+        const int minMeaningW = 96;
+        const int minActionW = 200;
+        const int minFileW = 88;
+        var ruleW = 112;
+
+        _list.Columns[ColIndex].Width = indexW;
+        _list.Columns[ColSeverity].Width = severityW;
+        _list.Columns[ColLine].Width = lineW;
+
+        var flexibleTotal = available - indexW - severityW - ruleW - lineW;
+        while (flexibleTotal < minMeaningW + minActionW + minFileW && ruleW > minRuleW)
+        {
+            ruleW -= 8;
+            flexibleTotal = available - indexW - severityW - ruleW - lineW;
+        }
+
+        _list.Columns[ColRule].Width = ruleW;
+        flexibleTotal = Math.Max(0, available - indexW - severityW - ruleW - lineW);
+
+        var meaningW = Math.Max(minMeaningW, (int)(flexibleTotal * 0.28));
+        var actionW = Math.Max(minActionW, (int)(flexibleTotal * 0.42));
+        var fileW = flexibleTotal - meaningW - actionW;
+
+        if (fileW < minFileW)
+        {
+            var deficit = minFileW - fileW;
+            fileW = minFileW;
+            actionW = Math.Max(minActionW, actionW - deficit);
+            if (meaningW + actionW + fileW > flexibleTotal)
+            {
+                meaningW = Math.Max(minMeaningW, flexibleTotal - actionW - fileW);
+            }
+        }
+
+        _list.Columns[ColMeaning].Width = meaningW;
+        _list.Columns[ColAction].Width = actionW;
+        _list.Columns[ColFile].Width = Math.Max(0, fileW);
+    }
+
+    private int GetAvailableListWidth()
+    {
+        if (_list.IsHandleCreated && _list.ClientSize.Width > 0)
+        {
+            var width = _list.ClientSize.Width - 2;
+            if (_list.Items.Count > 0 && _list.ClientSize.Height > 0)
+            {
+                var itemHeight = Math.Max(18, _list.Font.Height + 4);
+                if (_list.Items.Count * itemHeight > _list.ClientSize.Height)
+                {
+                    width -= SystemInformation.VerticalScrollBarWidth;
+                }
+            }
+
+            return Math.Max(0, width);
+        }
+
+        var hostWidth = ClientSize.Width;
+        if (hostWidth <= 0 && Parent is { } parent)
+        {
+            hostWidth = parent.ClientSize.Width;
+        }
+
+        if (hostWidth <= 0)
+        {
+            hostWidth = DefaultListHostWidth;
+        }
+
+        return Math.Max(0, hostWidth - 2);
     }
 
     private string FormatPath(string path)

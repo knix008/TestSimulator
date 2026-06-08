@@ -26,7 +26,7 @@ public static class CallGraphExportService
     private static AnalysisDocument BuildDocument(AnalysisResult analysis, string rootDirectory) =>
         new()
         {
-            Version = "3",
+            Version = "4",
             RootDirectory = rootDirectory,
             SavedAtUtc = DateTime.UtcNow,
             CallGraph = new CallGraphSection
@@ -114,6 +114,8 @@ public static class CallGraphExportService
             Duplicates = DuplicatesSectionFrom(analysis.Duplicates),
             GlobalVariables = GlobalVariablesSectionFrom(analysis.GlobalVariables),
             DatabaseSchema = DatabaseSchemaSectionFrom(analysis.DatabaseSchema),
+            BugRisk = BugRiskSectionFrom(analysis.BugRisk),
+            Security = SecuritySectionFrom(analysis.Security),
             QualityThresholds = QualityThresholdsRecordFrom(analysis.QualityThresholds)
         };
 
@@ -124,11 +126,11 @@ public static class CallGraphExportService
         using var doc = JsonDocument.Parse(json);
         var version = ReadDocumentVersion(doc.RootElement);
 
-        if (version == "3")
+        if (version is "3" or "4")
         {
             var document = JsonSerializer.Deserialize<AnalysisDocument>(json, JsonOptions)
                 ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
-            return (BuildFromV3(document), document.RootDirectory);
+            return (BuildFromDocument(document), document.RootDirectory);
         }
 
         if (version == "2")
@@ -197,7 +199,7 @@ public static class CallGraphExportService
         return false;
     }
 
-    private static AnalysisResult BuildFromV3(AnalysisDocument d)
+    private static AnalysisResult BuildFromDocument(AnalysisDocument d)
     {
         var callGraph = BuildCallGraph(d.CallGraph);
         var (fileNodes, fileEdges) = BuildFileNodes(d.FileRelations);
@@ -219,6 +221,8 @@ public static class CallGraphExportService
             Duplicates = BuildDuplicatesResult(d.Duplicates),
             GlobalVariables = BuildGlobalVariablesResult(d.GlobalVariables),
             DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
+            BugRisk = BuildBugRiskResult(d.BugRisk),
+            Security = BuildSecurityResult(d.Security),
             QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
         };
     }
@@ -245,6 +249,8 @@ public static class CallGraphExportService
             Duplicates = BuildDuplicatesResult(d.Duplicates),
             GlobalVariables = BuildGlobalVariablesResult(d.GlobalVariables),
             DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
+            BugRisk = BuildBugRiskResult(d.BugRisk),
+            Security = BuildSecurityResult(d.Security),
             QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
         };
     }
@@ -375,7 +381,12 @@ public static class CallGraphExportService
             CommentLines = f.CommentLines,
             CommentPercentPer100Code = f.CommentPercentPer100Code,
             TodoMarkerCount = f.TodoMarkerCount,
-            TodoDensityPer100Lines = f.TodoDensityPer100Lines
+            TodoDensityPer100Lines = f.TodoDensityPer100Lines,
+            IsTestFile = f.IsTestFile,
+            PublicApiCount = f.PublicApiCount,
+            SecuritySmellCount = f.SecuritySmellCount,
+            SecuritySmellSummary = f.SecuritySmellSummary,
+            GitChangeLineCount = f.GitChangeLineCount
         }).ToList();
 
         var aggregates = s.FileAggregates.Select(f => new FileAggregateMetric
@@ -400,7 +411,17 @@ public static class CallGraphExportService
             MaxReturnCount = f.MaxReturnCount,
             DuplicateLineCount = f.DuplicateLineCount,
             CommentPercentPer100Code = f.CommentPercentPer100Code,
-            WarningFunctionCount = f.WarningFunctionCount
+            WarningFunctionCount = f.WarningFunctionCount,
+            IsTestFile = f.IsTestFile,
+            PublicApiCount = f.PublicApiCount,
+            SecuritySmellCount = f.SecuritySmellCount,
+            SecuritySmellSummary = f.SecuritySmellSummary,
+            GitChangeLineCount = f.GitChangeLineCount,
+            MaxStatementCount = f.MaxStatementCount,
+            MaxSwitchCaseCount = f.MaxSwitchCaseCount,
+            TotalEmptyCatchCount = f.TotalEmptyCatchCount,
+            TotalBroadCatchCount = f.TotalBroadCatchCount,
+            AsyncVoidCount = f.AsyncVoidCount
         }).ToList();
 
         var functions = s.Functions.Select(f => new FunctionMetric
@@ -422,7 +443,26 @@ public static class CallGraphExportService
             FanOut = f.FanOut,
             MagicNumberCount = f.MagicNumberCount,
             MaintenanceIndex = f.MaintenanceIndex,
-            Precision = Enum.TryParse<MetricsPrecision>(f.Precision, out var p) ? p : MetricsPrecision.Approximate
+            Precision = Enum.TryParse<MetricsPrecision>(f.Precision, out var p) ? p : MetricsPrecision.Approximate,
+            StatementCount = f.StatementCount,
+            SwitchCaseCount = f.SwitchCaseCount,
+            EmptyCatchCount = f.EmptyCatchCount,
+            BroadCatchCount = f.BroadCatchCount,
+            IsAsyncVoid = f.IsAsyncVoid,
+            IsPublic = f.IsPublic,
+            IsPossiblyUnused = f.IsPossiblyUnused,
+            HalsteadVolume = f.HalsteadVolume,
+            WeightedMethodComplexity = f.WeightedMethodComplexity
+        }).ToList();
+
+        var packages = (s.Packages ?? []).Select(p => new PackageMetric
+        {
+            DirectoryPath = p.DirectoryPath,
+            AfferentCoupling = p.AfferentCoupling,
+            EfferentCoupling = p.EfferentCoupling,
+            Instability = p.Instability,
+            Abstractness = p.Abstractness,
+            DistanceFromMainSequence = p.DistanceFromMainSequence
         }).ToList();
 
         var summary = new CodeQualitySummary
@@ -447,7 +487,21 @@ public static class CallGraphExportService
             HighReturnCount = summaryRecord.HighReturnCount,
             HighMagicNumberCount = summaryRecord.HighMagicNumberCount,
             GodFileCount = summaryRecord.GodFileCount,
-            LowCommentFileCount = summaryRecord.LowCommentFileCount
+            LowCommentFileCount = summaryRecord.LowCommentFileCount,
+            HighStatementCount = summaryRecord.HighStatementCount,
+            HighSwitchCaseCount = summaryRecord.HighSwitchCaseCount,
+            EmptyCatchFunctionCount = summaryRecord.EmptyCatchFunctionCount,
+            BroadCatchFunctionCount = summaryRecord.BroadCatchFunctionCount,
+            AsyncVoidCount = summaryRecord.AsyncVoidCount,
+            PossiblyUnusedCount = summaryRecord.PossiblyUnusedCount,
+            HighPublicApiFileCount = summaryRecord.HighPublicApiFileCount,
+            TestCodeLinePercent = summaryRecord.TestCodeLinePercent,
+            SecuritySmellFileCount = summaryRecord.SecuritySmellFileCount,
+            HighInstabilityPackageCount = summaryRecord.HighInstabilityPackageCount,
+            LayerViolationCount = summaryRecord.LayerViolationCount,
+            LowCohesionTypeCount = summaryRecord.LowCohesionTypeCount,
+            DeepInheritanceTypeCount = summaryRecord.DeepInheritanceTypeCount,
+            GitHotspotFileCount = summaryRecord.GitHotspotFileCount
         };
 
         return new CodeMetricsResult
@@ -455,6 +509,7 @@ public static class CallGraphExportService
             Files = files,
             FileAggregates = aggregates,
             Functions = functions,
+            Packages = packages,
             Summary = summary,
             FileMap = files.ToDictionary(f => f.FilePath, StringComparer.OrdinalIgnoreCase),
             FunctionMap = functions.ToDictionary(f => f.Id, StringComparer.Ordinal)
@@ -635,6 +690,9 @@ public static class CallGraphExportService
             EnabledInspections = r.EnabledInspections == 0
                 ? MetricInspectionKind.All
                 : (MetricInspectionKind)r.EnabledInspections,
+            EnabledAnalysisScope = r.EnabledAnalysisScope == 0
+                ? AnalysisScopeKind.All
+                : (AnalysisScopeKind)r.EnabledAnalysisScope,
             IncludedDirectoryPaths = r.IncludedDirectoryPaths?.ToList() ?? [],
             ExcludedDirectoryPaths = r.ExcludedDirectoryPaths?.ToList() ?? [],
             WarnCyclomaticComplexity = r.WarnCyclomaticComplexity,
@@ -648,8 +706,69 @@ public static class CallGraphExportService
             WarnMagicNumbers = r.WarnMagicNumbers,
             WarnGodFileCodeLines = r.WarnGodFileCodeLines,
             WarnMinCommentPercent = r.WarnMinCommentPercent,
-            WarnGodTypeMemberCount = r.WarnGodTypeMemberCount
+            WarnGodTypeMemberCount = r.WarnGodTypeMemberCount,
+            WarnStatementCount = r.WarnStatementCount,
+            WarnSwitchCaseCount = r.WarnSwitchCaseCount,
+            WarnPublicApiCount = r.WarnPublicApiCount,
+            WarnMinTestCodePercent = r.WarnMinTestCodePercent,
+            WarnInstability = r.WarnInstability,
+            WarnLackOfCohesion = r.WarnLackOfCohesion,
+            WarnInheritanceDepth = r.WarnInheritanceDepth,
+            WarnGitChangeLines = r.WarnGitChangeLines,
+            WarnSecuritySmellCount = r.WarnSecuritySmellCount
         });
+    }
+
+    private static BugRiskResult BuildBugRiskResult(BugRiskSection? s)
+    {
+        if (s?.Findings is null || s.Findings.Count == 0)
+        {
+            return BugRiskResult.Empty;
+        }
+
+        var findings = s.Findings.Select(f => new BugRiskFinding
+        {
+            Category = Enum.TryParse<BugRiskCategory>(f.Category, out var category)
+                ? category
+                : BugRiskCategory.LintViolation,
+            Severity = Enum.TryParse<BugRiskSeverity>(f.Severity, out var severity)
+                ? severity
+                : BugRiskSeverity.Info,
+            Message = f.Message,
+            FilePath = f.FilePath,
+            LineNumber = f.LineNumber,
+            FunctionName = f.FunctionName,
+            Detail = f.Detail,
+            Snippet = f.Snippet,
+            LanguageId = f.LanguageId
+        });
+
+        return BugRiskResult.FromFindings(findings);
+    }
+
+    private static SecurityAnalysisResult BuildSecurityResult(SecuritySection? s)
+    {
+        if (s?.Findings is null || s.Findings.Count == 0)
+        {
+            return SecurityAnalysisResult.Empty;
+        }
+
+        var findings = s.Findings.Select(f => new SecurityFinding
+        {
+            RuleId = f.RuleId,
+            Label = f.Label,
+            Severity = Enum.TryParse<SecuritySeverity>(f.Severity, out var severity)
+                ? severity
+                : SecuritySeverity.Info,
+            FilePath = f.FilePath,
+            LanguageId = f.LanguageId,
+            LineNumber = f.LineNumber,
+            Snippet = f.Snippet,
+            Explanation = f.Explanation,
+            Remediation = f.Remediation
+        });
+
+        return SecurityAnalysisResult.FromFindings(findings);
     }
 
     // ── Section builders (model → record) ───────────────────────────────────
@@ -666,7 +785,12 @@ public static class CallGraphExportService
             CommentLines = f.CommentLines,
             CommentPercentPer100Code = f.CommentPercentPer100Code,
             TodoMarkerCount = f.TodoMarkerCount,
-            TodoDensityPer100Lines = f.TodoDensityPer100Lines
+            TodoDensityPer100Lines = f.TodoDensityPer100Lines,
+            IsTestFile = f.IsTestFile,
+            PublicApiCount = f.PublicApiCount,
+            SecuritySmellCount = f.SecuritySmellCount,
+            SecuritySmellSummary = f.SecuritySmellSummary,
+            GitChangeLineCount = f.GitChangeLineCount
         }).ToList(),
         FileAggregates = m.FileAggregates.Select(f => new FileAggregateMetricRecord
         {
@@ -690,7 +814,17 @@ public static class CallGraphExportService
             MaxReturnCount = f.MaxReturnCount,
             DuplicateLineCount = f.DuplicateLineCount,
             CommentPercentPer100Code = f.CommentPercentPer100Code,
-            WarningFunctionCount = f.WarningFunctionCount
+            WarningFunctionCount = f.WarningFunctionCount,
+            IsTestFile = f.IsTestFile,
+            PublicApiCount = f.PublicApiCount,
+            SecuritySmellCount = f.SecuritySmellCount,
+            SecuritySmellSummary = f.SecuritySmellSummary,
+            GitChangeLineCount = f.GitChangeLineCount,
+            MaxStatementCount = f.MaxStatementCount,
+            MaxSwitchCaseCount = f.MaxSwitchCaseCount,
+            TotalEmptyCatchCount = f.TotalEmptyCatchCount,
+            TotalBroadCatchCount = f.TotalBroadCatchCount,
+            AsyncVoidCount = f.AsyncVoidCount
         }).ToList(),
         Functions = m.Functions.Select(f => new FunctionMetricRecord
         {
@@ -711,7 +845,25 @@ public static class CallGraphExportService
             FanOut = f.FanOut,
             MagicNumberCount = f.MagicNumberCount,
             MaintenanceIndex = f.MaintenanceIndex,
-            Precision = f.Precision.ToString()
+            Precision = f.Precision.ToString(),
+            StatementCount = f.StatementCount,
+            SwitchCaseCount = f.SwitchCaseCount,
+            EmptyCatchCount = f.EmptyCatchCount,
+            BroadCatchCount = f.BroadCatchCount,
+            IsAsyncVoid = f.IsAsyncVoid,
+            IsPublic = f.IsPublic,
+            IsPossiblyUnused = f.IsPossiblyUnused,
+            HalsteadVolume = f.HalsteadVolume,
+            WeightedMethodComplexity = f.WeightedMethodComplexity
+        }).ToList(),
+        Packages = m.Packages.Select(p => new PackageMetricRecord
+        {
+            DirectoryPath = p.DirectoryPath,
+            AfferentCoupling = p.AfferentCoupling,
+            EfferentCoupling = p.EfferentCoupling,
+            Instability = p.Instability,
+            Abstractness = p.Abstractness,
+            DistanceFromMainSequence = p.DistanceFromMainSequence
         }).ToList(),
         Summary = new CodeQualitySummaryRecord
         {
@@ -735,8 +887,54 @@ public static class CallGraphExportService
             HighReturnCount = m.Summary.HighReturnCount,
             HighMagicNumberCount = m.Summary.HighMagicNumberCount,
             GodFileCount = m.Summary.GodFileCount,
-            LowCommentFileCount = m.Summary.LowCommentFileCount
+            LowCommentFileCount = m.Summary.LowCommentFileCount,
+            HighStatementCount = m.Summary.HighStatementCount,
+            HighSwitchCaseCount = m.Summary.HighSwitchCaseCount,
+            EmptyCatchFunctionCount = m.Summary.EmptyCatchFunctionCount,
+            BroadCatchFunctionCount = m.Summary.BroadCatchFunctionCount,
+            AsyncVoidCount = m.Summary.AsyncVoidCount,
+            PossiblyUnusedCount = m.Summary.PossiblyUnusedCount,
+            HighPublicApiFileCount = m.Summary.HighPublicApiFileCount,
+            TestCodeLinePercent = m.Summary.TestCodeLinePercent,
+            SecuritySmellFileCount = m.Summary.SecuritySmellFileCount,
+            HighInstabilityPackageCount = m.Summary.HighInstabilityPackageCount,
+            LayerViolationCount = m.Summary.LayerViolationCount,
+            LowCohesionTypeCount = m.Summary.LowCohesionTypeCount,
+            DeepInheritanceTypeCount = m.Summary.DeepInheritanceTypeCount,
+            GitHotspotFileCount = m.Summary.GitHotspotFileCount
         }
+    };
+
+    private static BugRiskSection BugRiskSectionFrom(BugRiskResult bugRisk) => new()
+    {
+        Findings = bugRisk.Findings.Select(f => new BugRiskFindingRecord
+        {
+            Category = f.Category.ToString(),
+            Severity = f.Severity.ToString(),
+            Message = f.Message,
+            FilePath = f.FilePath,
+            LineNumber = f.LineNumber,
+            FunctionName = f.FunctionName,
+            Detail = f.Detail,
+            Snippet = f.Snippet,
+            LanguageId = f.LanguageId
+        }).ToList()
+    };
+
+    private static SecuritySection SecuritySectionFrom(SecurityAnalysisResult security) => new()
+    {
+        Findings = security.Findings.Select(f => new SecurityFindingRecord
+        {
+            RuleId = f.RuleId,
+            Label = f.Label,
+            Severity = f.Severity.ToString(),
+            FilePath = f.FilePath,
+            LanguageId = f.LanguageId,
+            LineNumber = f.LineNumber,
+            Snippet = f.Snippet,
+            Explanation = f.Explanation,
+            Remediation = f.Remediation
+        }).ToList()
     };
 
     private static DuplicatesSection DuplicatesSectionFrom(DuplicateCodeResult d) => new()
@@ -847,9 +1045,19 @@ public static class CallGraphExportService
         WarnGodFileCodeLines = s.WarnGodFileCodeLines,
         WarnMinCommentPercent = s.WarnMinCommentPercent,
         WarnGodTypeMemberCount = s.WarnGodTypeMemberCount,
+        WarnStatementCount = s.WarnStatementCount,
+        WarnSwitchCaseCount = s.WarnSwitchCaseCount,
+        WarnPublicApiCount = s.WarnPublicApiCount,
+        WarnMinTestCodePercent = s.WarnMinTestCodePercent,
+        WarnInstability = s.WarnInstability,
+        WarnLackOfCohesion = s.WarnLackOfCohesion,
+        WarnInheritanceDepth = s.WarnInheritanceDepth,
+        WarnGitChangeLines = s.WarnGitChangeLines,
+        WarnSecuritySmellCount = s.WarnSecuritySmellCount,
         EnabledInspections = (ulong)s.EnabledInspections,
-        EnabledAnalysisScope = (ulong)AnalysisScopeResolver.Resolve(
-            MetricInspectionScope.Normalize(s.EnabledInspections)),
+        EnabledAnalysisScope = (ulong)(s.EnabledAnalysisScope != 0
+            ? s.EnabledAnalysisScope
+            : AnalysisScopeResolver.Resolve(MetricInspectionScope.Normalize(s.EnabledInspections))),
         IncludedDirectoryPaths = s.IncludedDirectoryPaths.ToList(),
         ExcludedDirectoryPaths = s.ExcludedDirectoryPaths.ToList()
     };
@@ -900,7 +1108,7 @@ public static class CallGraphExportService
 
     private sealed class AnalysisDocument
     {
-        public string Version { get; set; } = "3";
+        public string Version { get; set; } = "4";
         public string RootDirectory { get; set; } = string.Empty;
         public DateTime SavedAtUtc { get; set; }
         public CallGraphSection CallGraph { get; set; } = new();
@@ -911,6 +1119,8 @@ public static class CallGraphExportService
         public DuplicatesSection? Duplicates { get; set; }
         public GlobalVariablesSection? GlobalVariables { get; set; }
         public DatabaseSchemaSection? DatabaseSchema { get; set; }
+        public BugRiskSection? BugRisk { get; set; }
+        public SecuritySection? Security { get; set; }
         public QualityThresholdsRecord? QualityThresholds { get; set; }
     }
 
@@ -952,7 +1162,18 @@ public static class CallGraphExportService
         public List<FileLineMetricRecord> Files { get; set; } = [];
         public List<FileAggregateMetricRecord> FileAggregates { get; set; } = [];
         public List<FunctionMetricRecord> Functions { get; set; } = [];
+        public List<PackageMetricRecord> Packages { get; set; } = [];
         public CodeQualitySummaryRecord Summary { get; set; } = new();
+    }
+
+    private sealed class BugRiskSection
+    {
+        public List<BugRiskFindingRecord> Findings { get; set; } = [];
+    }
+
+    private sealed class SecuritySection
+    {
+        public List<SecurityFindingRecord> Findings { get; set; } = [];
     }
 
     private sealed class DuplicatesSection
@@ -989,6 +1210,15 @@ public static class CallGraphExportService
         public int WarnGodFileCodeLines { get; set; }
         public double WarnMinCommentPercent { get; set; }
         public int WarnGodTypeMemberCount { get; set; }
+        public int WarnStatementCount { get; set; }
+        public int WarnSwitchCaseCount { get; set; }
+        public int WarnPublicApiCount { get; set; }
+        public double WarnMinTestCodePercent { get; set; }
+        public double WarnInstability { get; set; }
+        public double WarnLackOfCohesion { get; set; }
+        public int WarnInheritanceDepth { get; set; }
+        public int WarnGitChangeLines { get; set; }
+        public int WarnSecuritySmellCount { get; set; }
         public ulong EnabledInspections { get; set; } = (ulong)MetricInspectionKind.All;
         public ulong EnabledAnalysisScope { get; set; } = (ulong)AnalysisScopeKind.All;
         public List<string> IncludedDirectoryPaths { get; set; } = [];
@@ -1077,6 +1307,11 @@ public static class CallGraphExportService
         public double CommentPercentPer100Code { get; set; }
         public int TodoMarkerCount { get; set; }
         public double TodoDensityPer100Lines { get; set; }
+        public bool IsTestFile { get; set; }
+        public int PublicApiCount { get; set; }
+        public int SecuritySmellCount { get; set; }
+        public string? SecuritySmellSummary { get; set; }
+        public int GitChangeLineCount { get; set; }
     }
 
     private sealed class FileAggregateMetricRecord
@@ -1102,6 +1337,16 @@ public static class CallGraphExportService
         public int DuplicateLineCount { get; set; }
         public double CommentPercentPer100Code { get; set; }
         public int WarningFunctionCount { get; set; }
+        public bool IsTestFile { get; set; }
+        public int PublicApiCount { get; set; }
+        public int SecuritySmellCount { get; set; }
+        public string? SecuritySmellSummary { get; set; }
+        public int GitChangeLineCount { get; set; }
+        public int MaxStatementCount { get; set; }
+        public int MaxSwitchCaseCount { get; set; }
+        public int TotalEmptyCatchCount { get; set; }
+        public int TotalBroadCatchCount { get; set; }
+        public int AsyncVoidCount { get; set; }
     }
 
     private sealed class FunctionMetricRecord
@@ -1124,6 +1369,25 @@ public static class CallGraphExportService
         public int MagicNumberCount { get; set; }
         public double MaintenanceIndex { get; set; }
         public string Precision { get; set; } = string.Empty;
+        public int StatementCount { get; set; }
+        public int SwitchCaseCount { get; set; }
+        public int EmptyCatchCount { get; set; }
+        public int BroadCatchCount { get; set; }
+        public bool IsAsyncVoid { get; set; }
+        public bool IsPublic { get; set; }
+        public bool IsPossiblyUnused { get; set; }
+        public int HalsteadVolume { get; set; }
+        public int WeightedMethodComplexity { get; set; }
+    }
+
+    private sealed class PackageMetricRecord
+    {
+        public string DirectoryPath { get; set; } = string.Empty;
+        public int AfferentCoupling { get; set; }
+        public int EfferentCoupling { get; set; }
+        public double Instability { get; set; }
+        public double Abstractness { get; set; }
+        public double DistanceFromMainSequence { get; set; }
     }
 
     private sealed class CodeQualitySummaryRecord
@@ -1145,6 +1409,46 @@ public static class CallGraphExportService
         public int HighMagicNumberCount { get; set; }
         public int GodFileCount { get; set; }
         public int LowCommentFileCount { get; set; }
+        public int HighStatementCount { get; set; }
+        public int HighSwitchCaseCount { get; set; }
+        public int EmptyCatchFunctionCount { get; set; }
+        public int BroadCatchFunctionCount { get; set; }
+        public int AsyncVoidCount { get; set; }
+        public int PossiblyUnusedCount { get; set; }
+        public int HighPublicApiFileCount { get; set; }
+        public double TestCodeLinePercent { get; set; }
+        public int SecuritySmellFileCount { get; set; }
+        public int HighInstabilityPackageCount { get; set; }
+        public int LayerViolationCount { get; set; }
+        public int LowCohesionTypeCount { get; set; }
+        public int DeepInheritanceTypeCount { get; set; }
+        public int GitHotspotFileCount { get; set; }
+    }
+
+    private sealed class BugRiskFindingRecord
+    {
+        public string Category { get; set; } = string.Empty;
+        public string Severity { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public int LineNumber { get; set; }
+        public string FunctionName { get; set; } = string.Empty;
+        public string Detail { get; set; } = string.Empty;
+        public string Snippet { get; set; } = string.Empty;
+        public string LanguageId { get; set; } = string.Empty;
+    }
+
+    private sealed class SecurityFindingRecord
+    {
+        public string RuleId { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string Severity { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public string LanguageId { get; set; } = string.Empty;
+        public int LineNumber { get; set; }
+        public string? Snippet { get; set; }
+        public string? Explanation { get; set; }
+        public string? Remediation { get; set; }
     }
 
     private sealed class CircularCallChainRecord

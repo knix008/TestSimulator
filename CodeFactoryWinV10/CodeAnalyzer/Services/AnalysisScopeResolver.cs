@@ -30,6 +30,9 @@ public static class AnalysisScopeResolver
     public static bool RequiresDatabaseSchema(MetricInspectionKind inspections) =>
         MetricInspectionRuntime.RequiresDatabaseSchema(inspections);
 
+    public static bool RequiresSecurityAnalysis(MetricInspectionKind inspections) =>
+        MetricInspectionScope.IsEnabled(inspections, MetricInspectionKind.SecuritySmells);
+
     public static AnalysisScopeKind Resolve(MetricInspectionKind inspections)
     {
         inspections = MetricInspectionScope.Normalize(inspections);

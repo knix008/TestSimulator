@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace CodeAnalyzer.Controls;
 
 internal static class ApplicationDialogIcons
@@ -38,6 +40,12 @@ internal static class ApplicationDialogIcons
         form.Icon = (Icon)AppIcon.Clone();
     }
 
+    public static void ApplyDialogTitleBar(Form form, Bitmap iconBitmap)
+    {
+        form.ShowIcon = true;
+        form.Icon = CreateIconFromBitmap(iconBitmap);
+    }
+
     public static Panel CreateHeaderPanel(string title, Bitmap? icon = null)
     {
         const int headerHeight = 52;
@@ -72,4 +80,21 @@ internal static class ApplicationDialogIcons
         header.Controls.Add(titleLabel);
         return header;
     }
+
+    private static Icon CreateIconFromBitmap(Bitmap bitmap)
+    {
+        var handle = bitmap.GetHicon();
+        try
+        {
+            using var temp = Icon.FromHandle(handle);
+            return (Icon)temp.Clone();
+        }
+        finally
+        {
+            DestroyIcon(handle);
+        }
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern bool DestroyIcon(IntPtr handle);
 }

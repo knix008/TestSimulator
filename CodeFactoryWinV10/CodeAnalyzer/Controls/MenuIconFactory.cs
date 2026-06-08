@@ -169,12 +169,24 @@ internal static class MenuIconFactory
 
     public static Bitmap CreateAnalysisSettingsIcon(int size = 16) => DrawSized(size, g =>
     {
-        using var gear = new SolidBrush(Color.FromArgb(55, 90, 140));
-        using var accent = new SolidBrush(Color.FromArgb(76, 175, 80));
-        g.FillEllipse(gear, 1, 1, size - 2, size - 2);
-        g.FillRectangle(accent, size / 2 - 1, 3, 2, size - 6);
-        g.FillRectangle(accent, 3, size / 2 - 1, size - 6, 2);
-        g.FillEllipse(Brushes.White, size / 2 - 2, size / 2 - 2, 4, 4);
+        var stroke = Math.Max(1.4f, size / 11f);
+        using var outline = new Pen(Color.FromArgb(55, 90, 140), stroke)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round
+        };
+        using var glass = new SolidBrush(Color.FromArgb(210, 228, 248));
+
+        var margin = size * 0.14f;
+        var lensSize = size * 0.56f;
+        g.FillEllipse(glass, margin, margin, lensSize, lensSize);
+        g.DrawEllipse(outline, margin, margin, lensSize, lensSize);
+
+        var handleStartX = margin + lensSize * 0.68f;
+        var handleStartY = margin + lensSize * 0.68f;
+        var handleEndX = size - margin * 0.45f;
+        var handleEndY = size - margin * 0.45f;
+        g.DrawLine(outline, handleStartX, handleStartY, handleEndX, handleEndY);
     });
 
     public static Bitmap CreateDatabaseSettingsIcon(int size = 16) => DrawSized(size, g =>

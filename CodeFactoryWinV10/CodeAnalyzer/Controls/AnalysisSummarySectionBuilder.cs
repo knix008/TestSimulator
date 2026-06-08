@@ -130,6 +130,7 @@ internal static class AnalysisSummarySectionBuilder
         SummaryAreaKind.Globals => MapGlobals(area),
         SummaryAreaKind.Database => MapDatabase(area),
         SummaryAreaKind.BugRisk => MapBugRisk(area),
+        SummaryAreaKind.Security => MapSecurity(area),
         SummaryAreaKind.Issues => MapIssues(area),
         _ => MapRatioPieGrid(area, area.Metrics, SumPositive(area.Metrics))
     };
@@ -310,6 +311,25 @@ internal static class AnalysisSummarySectionBuilder
         var items = new List<SummaryMiniPieItem>();
         items.AddRange(ToRatioPies(severities, totalFindings));
         items.AddRange(ToRatioPies(categories, totalCategories));
+
+        return new SummarySection
+        {
+            Title = area.Title,
+            SummaryText = area.SummaryText,
+            ChartKind = SummaryChartKind.PieGrid,
+            PieItems = items
+        };
+    }
+
+    private static SummarySection MapSecurity(AnalysisSummaryArea area)
+    {
+        var severities = area.Metrics.Take(3).ToList();
+        var rules = area.Metrics.Skip(5).Take(4).ToList();
+        var totalFindings = Math.Max(1, SumPositive(severities));
+        var totalRules = Math.Max(1, SumPositive(rules));
+        var items = new List<SummaryMiniPieItem>();
+        items.AddRange(ToRatioPies(severities, totalFindings));
+        items.AddRange(ToRatioPies(rules, totalRules));
 
         return new SummarySection
         {

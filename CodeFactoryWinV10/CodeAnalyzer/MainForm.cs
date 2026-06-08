@@ -34,6 +34,7 @@ public partial class MainForm : Form
     private bool _suppressDirectoryListEvents;
     private UserAnalysisSettings _analysisSettings = UserAnalysisSettings.CreateDefaults();
     private MetricInspectionKind _enabledInspections = MetricInspectionKind.All;
+    private IReadOnlyList<DiagramViewKind> _visibleDiagramViews = DiagramViewCatalog.ViewKinds;
     private TimeSpan? _lastCompletedAnalysisElapsed;
     private int _lastCompletedDirectoryCount;
     private int _lastCompletedFileCount;
@@ -157,8 +158,7 @@ public partial class MainForm : Form
         {
             Percent = _lastAnalysisProgressReport.Percent,
             Message = _lastAnalysisProgressReport.Message,
-            Elapsed = elapsed,
-            EstimatedRemaining = _lastAnalysisProgressReport.EstimatedRemaining
+            Elapsed = elapsed
         });
     }
 
@@ -206,8 +206,7 @@ public partial class MainForm : Form
                 BeginInvoke(PersistDirectoryExclusionsFromSidebar);
         };
 
-        comboDiagramView.Items.AddRange(DiagramViewCatalog.ComboLabels.Cast<object>().ToArray());
-        comboDiagramView.SelectedIndex = 0;
+        RefreshDiagramViewCombo(preserveSelection: false);
 
         comboLayoutDirection.Items.AddRange(new object[]
         {
@@ -225,11 +224,61 @@ public partial class MainForm : Form
         comboLineStyle.SelectedIndex = 1;
     }
 
-    private DiagramViewKind GetSelectedViewKind() =>
-        DiagramViewCatalog.GetViewKind(comboDiagramView.SelectedIndex);
+    private DiagramViewKind GetSelectedViewKind()
+    {
+        var index = comboDiagramView.SelectedIndex;
+        if (index < 0 || index >= _visibleDiagramViews.Count)
+        {
+            return DiagramViewKind.CallGraph;
+        }
 
-    private static int GetDiagramViewComboIndex(DiagramViewKind viewKind) =>
-        DiagramViewCatalog.GetComboIndex(viewKind);
+        return _visibleDiagramViews[index];
+    }
+
+    private int GetDiagramViewComboIndex(DiagramViewKind viewKind)
+    {
+        for (var i = 0; i < _visibleDiagramViews.Count; i++)
+        {
+            if (_visibleDiagramViews[i] == viewKind)
+            {
+                return i;
+            }
+        }
+
+        return 0;
+    }
+
+    private void RefreshDiagramViewCombo(bool preserveSelection = true)
+    {
+        var current = preserveSelection && comboDiagramView.SelectedIndex >= 0
+            ? GetSelectedViewKind()
+            : DiagramViewKind.CallGraph;
+
+        _visibleDiagramViews = DiagramViewCatalog.GetVisibleViewKinds(_enabledInspections);
+        var labels = _visibleDiagramViews
+            .Select(DiagramViewCatalog.GetComboLabel)
+            .Cast<object>()
+            .ToArray();
+
+        _suppressDiagramViewChange = true;
+        try
+        {
+            comboDiagramView.Items.Clear();
+            if (labels.Length > 0)
+            {
+                comboDiagramView.Items.AddRange(labels);
+                comboDiagramView.SelectedIndex = GetDiagramViewComboIndex(current);
+            }
+            else
+            {
+                comboDiagramView.SelectedIndex = -1;
+            }
+        }
+        finally
+        {
+            _suppressDiagramViewChange = false;
+        }
+    }
 
     /// <summary>찾기 결과에 맞는 다이어그램 뷰로 전환합니다.</summary>
     private void SwitchDiagramViewForSearch(DiagramViewKind viewKind)
@@ -332,6 +381,7 @@ public partial class MainForm : Form
         _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
         UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
         _userSettings.SaveQualityThresholds(BuildAnalysisSettingsForPersistence());
+        RefreshDiagramViewCombo();
 
         if (_lastAnalysis is not null)
         {
@@ -1257,7 +1307,7 @@ public partial class MainForm : Form
             }
 
             // 2) restore view kind (comboDiagramView + host)
-            comboDiagramView.SelectedIndex = DiagramViewCatalog.GetComboIndex(selection.ViewKind);
+            comboDiagramView.SelectedIndex = GetDiagramViewComboIndex(selection.ViewKind);
 
             // 3) apply root method selection (clears file/directory overrides)
             ApplyRootMethodSelection();
@@ -1455,6 +1505,7 @@ public partial class MainForm : Form
             _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(project.Settings);
             _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
             UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
+            RefreshDiagramViewCombo();
         }
 
         if (!string.IsNullOrWhiteSpace(project.RootDirectory) && Directory.Exists(project.RootDirectory))
@@ -1776,14 +1827,18 @@ public partial class MainForm : Form
             lblStatus.Text =
                 $"결과 저장 완료: 함수 {_lastAnalysis.CallGraph.Nodes.Count:N0}개, " +
                 $"메트릭 {_lastAnalysis.Metrics.Functions.Count:N0}개, " +
-                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건 · {savePath}";
+                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건, " +
+                $"버그 위험 {_lastAnalysis.BugRisk.Findings.Count:N0}건, " +
+                $"보안 {_lastAnalysis.Security.Findings.Count:N0}건 · {savePath}";
             ShowFileSaveSuccess(
                 this,
                 "분석 결과 저장",
                 savePath,
                 $"함수 {_lastAnalysis.CallGraph.Nodes.Count:N0}개, " +
                 $"메트릭 {_lastAnalysis.Metrics.Functions.Count:N0}개, " +
-                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건");
+                $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건, " +
+                $"버그 위험 {_lastAnalysis.BugRisk.Findings.Count:N0}건, " +
+                $"보안 {_lastAnalysis.Security.Findings.Count:N0}건");
         }
         catch (Exception ex)
         {
@@ -1838,6 +1893,7 @@ public partial class MainForm : Form
             _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(analysis.QualityThresholds);
             _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
             UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
+            RefreshDiagramViewCombo();
         }
 
         ApplyAnalysisResultsToUi(analysis);
@@ -1864,6 +1920,8 @@ public partial class MainForm : Form
             $"호출 {analysis.CallGraph.Edges.Count:N0}개, " +
             $"메트릭 {analysis.Metrics.Functions.Count:N0}개, " +
             $"중복 {analysis.Duplicates.Groups.Count:N0}건, " +
+            $"버그 위험 {analysis.BugRisk.Findings.Count:N0}건, " +
+            $"보안 {analysis.Security.Findings.Count:N0}건, " +
             $"파일 {analysis.FileRelations.Files.Count:N0}개, " +
             $"타입 {analysis.Structure.Types.Count:N0}개";
     }

@@ -55,6 +55,11 @@ public static class AnalysisSummarySnapshotBuilder
             areas.Add(BuildBugRisk(analysis));
         }
 
+        if (AnalysisSummaryScope.IsIncluded(SummaryAreaKind.Security, inspections))
+        {
+            areas.Add(BuildSecurity(analysis));
+        }
+
         if (AnalysisSummaryScope.IsIncluded(SummaryAreaKind.Issues, inspections) && analysis.Issues.Count > 0)
         {
             areas.Add(BuildIssues(analysis));
@@ -94,6 +99,14 @@ public static class AnalysisSummarySnapshotBuilder
             metricRows.Add(new AnalysisSummaryMetricRow { Label = "버그 위험", Value = analysis.BugRisk.Findings.Count });
             metricRows.Add(new AnalysisSummaryMetricRow { Label = "Critical 버그", Value = bugCritical });
             summaryParts.Add($"버그 위험 {analysis.BugRisk.Findings.Count:N0}건");
+        }
+
+        if (AnalysisSummaryScope.IsIncluded(SummaryAreaKind.Security, inspections))
+        {
+            var securityCritical = analysis.Security.Findings.Count(f => f.Severity == SecuritySeverity.Critical);
+            metricRows.Add(new AnalysisSummaryMetricRow { Label = "보안 검출", Value = analysis.Security.Findings.Count });
+            metricRows.Add(new AnalysisSummaryMetricRow { Label = "Critical 보안", Value = securityCritical });
+            summaryParts.Add($"보안 {analysis.Security.Findings.Count:N0}건");
         }
 
         return new AnalysisSummaryArea
@@ -184,28 +197,49 @@ public static class AnalysisSummarySnapshotBuilder
         }
 
         var summary = analysis.Metrics.Summary;
+        var inspections = analysis.QualityThresholds.EnabledInspections;
+        var includeSecurity = AnalysisSummaryScope.IsIncluded(SummaryAreaKind.Security, inspections);
+        var metrics = new List<AnalysisSummaryMetricRow>
+        {
+            new() { Label = "정상 함수", Value = none },
+            new() { Label = "경고 함수", Value = warn },
+            new() { Label = "심각 함수", Value = critical },
+            new() { Label = "고 CC", Value = summary.HighCyclomaticCount },
+            new() { Label = "고 인지 복잡도", Value = summary.HighCognitiveCount },
+            new() { Label = "깊은 중첩", Value = summary.DeepNestingCount },
+            new() { Label = "낮은 MI", Value = summary.LowMaintenanceIndexCount },
+            new() { Label = "God file", Value = summary.GodFileCount },
+            new() { Label = "TODO 과다 파일", Value = summary.HighTodoDensityFileCount },
+            new() { Label = "빈 catch", Value = summary.EmptyCatchFunctionCount },
+            new() { Label = "미사용 의심", Value = summary.PossiblyUnusedCount }
+        };
+
+        if (includeSecurity)
+        {
+            metrics.Insert(10, new AnalysisSummaryMetricRow
+            {
+                Label = "보안 smell",
+                Value = analysis.Security.Findings.Count > 0
+                    ? analysis.Security.Findings.Count
+                    : summary.SecuritySmellFileCount
+            });
+        }
+
+        var summaryText =
+            $"경고 {warn:N0} · 심각 {critical:N0} · 순환 {summary.CircularCallChainCount:N0} · " +
+            $"God file {summary.GodFileCount:N0}";
+        if (includeSecurity)
+        {
+            summaryText +=
+                $" · 보안 {analysis.Security.Findings.Count:N0}건";
+        }
+
         return new AnalysisSummaryArea
         {
             Kind = SummaryAreaKind.Quality,
             Title = "메트릭 경고",
-            SummaryText =
-                $"경고 {warn:N0} · 심각 {critical:N0} · 순환 {summary.CircularCallChainCount:N0} · " +
-                $"God file {summary.GodFileCount:N0} · 보안 smell {summary.SecuritySmellFileCount:N0}",
-            Metrics =
-            [
-                new AnalysisSummaryMetricRow { Label = "정상 함수", Value = none },
-                new AnalysisSummaryMetricRow { Label = "경고 함수", Value = warn },
-                new AnalysisSummaryMetricRow { Label = "심각 함수", Value = critical },
-                new AnalysisSummaryMetricRow { Label = "고 CC", Value = summary.HighCyclomaticCount },
-                new AnalysisSummaryMetricRow { Label = "고 인지 복잡도", Value = summary.HighCognitiveCount },
-                new AnalysisSummaryMetricRow { Label = "깊은 중첩", Value = summary.DeepNestingCount },
-                new AnalysisSummaryMetricRow { Label = "낮은 MI", Value = summary.LowMaintenanceIndexCount },
-                new AnalysisSummaryMetricRow { Label = "God file", Value = summary.GodFileCount },
-                new AnalysisSummaryMetricRow { Label = "TODO 과다 파일", Value = summary.HighTodoDensityFileCount },
-                new AnalysisSummaryMetricRow { Label = "보안 smell", Value = summary.SecuritySmellFileCount },
-                new AnalysisSummaryMetricRow { Label = "빈 catch", Value = summary.EmptyCatchFunctionCount },
-                new AnalysisSummaryMetricRow { Label = "미사용 의심", Value = summary.PossiblyUnusedCount }
-            ]
+            SummaryText = summaryText,
+            Metrics = metrics
         };
     }
 
@@ -381,6 +415,46 @@ public static class AnalysisSummarySnapshotBuilder
             Title = "DB 접근",
             SummaryText =
                 $"미참조 {orphanTables:N0} · 참조 {referencedTables:N0} · 접근 {schema.Accesses.Count:N0}건",
+            Metrics = metrics
+        };
+    }
+
+    private static AnalysisSummaryArea BuildSecurity(AnalysisResult analysis)
+    {
+        var result = analysis.Security;
+        var critical = result.Findings.Count(f => f.Severity == SecuritySeverity.Critical);
+        var warning = result.Findings.Count(f => f.Severity == SecuritySeverity.Warning);
+        var info = result.Findings.Count(f => f.Severity == SecuritySeverity.Info);
+
+        var topRules = result.Findings
+            .GroupBy(finding => finding.RuleId, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Count())
+            .Take(5)
+            .Select(group => new AnalysisSummaryMetricRow
+            {
+                Label = Truncate(group.First().Label, 36),
+                Value = group.Count(),
+                Detail = group.Key
+            })
+            .ToList();
+
+        var metrics = new List<AnalysisSummaryMetricRow>
+        {
+            new() { Label = "Critical", Value = critical },
+            new() { Label = "Warning", Value = warning },
+            new() { Label = "Info", Value = info },
+            new() { Label = "전체", Value = result.Findings.Count },
+            new() { Label = "영향 파일", Value = result.ByFile.Count }
+        };
+        metrics.AddRange(topRules);
+
+        return new AnalysisSummaryArea
+        {
+            Kind = SummaryAreaKind.Security,
+            Title = "정보 보호 · 보안",
+            SummaryText =
+                $"전체 {result.Findings.Count:N0}건 · Critical {critical:N0} · Warning {warning:N0} · Info {info:N0} · " +
+                $"영향 파일 {result.ByFile.Count:N0}개",
             Metrics = metrics
         };
     }

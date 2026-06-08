@@ -27,7 +27,8 @@ public static class AnalysisSummaryInspectionPieBuilder
         "함수·파일·타입",
         "파일",
         "타입",
-        "아키텍처"
+        "아키텍처",
+        "정보 보호 및 보안"
     ];
 
     public static IReadOnlyList<AnalysisSummaryInspectionGroup> BuildGrouped(AnalysisResult analysis)
@@ -136,7 +137,8 @@ public static class AnalysisSummaryInspectionPieBuilder
             MetricInspectionKind.TypeCohesion => summary.LowCohesionTypeCount,
             MetricInspectionKind.InheritanceDepth => summary.DeepInheritanceTypeCount,
             MetricInspectionKind.GitHotspot => summary.GitHotspotFileCount,
-            MetricInspectionKind.SecuritySmells => summary.SecuritySmellFileCount,
+            MetricInspectionKind.ShowInformationSecurityTab => analysis.Security.Findings.Count,
+            MetricInspectionKind.SecuritySmells => ResolveSecurityFindingCount(analysis, summary),
             MetricInspectionKind.HalsteadMetrics => functions.Count(func =>
                 func.HalsteadVolume > 0 || func.WeightedMethodComplexity > 0),
 
@@ -170,6 +172,16 @@ public static class AnalysisSummaryInspectionPieBuilder
         var thresholds = analysis.QualityThresholds;
         return TypeMetricsBuilder.Build(analysis.Structure, analysis.Metrics.Functions, thresholds)
             .Count(type => type.MemberCount + type.OperationCount >= thresholds.WarnGodTypeMemberCount);
+    }
+
+    private static double ResolveSecurityFindingCount(AnalysisResult analysis, CodeQualitySummary summary)
+    {
+        if (analysis.Security.Findings.Count > 0)
+        {
+            return analysis.Security.Findings.Count;
+        }
+
+        return summary.SecuritySmellFileCount;
     }
 
     private static int CountFilesWithDuplicateLines(CodeMetricsResult metrics, DuplicateCodeResult duplicates)

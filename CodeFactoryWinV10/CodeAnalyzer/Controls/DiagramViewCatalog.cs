@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -32,6 +33,24 @@ internal static class DiagramViewCatalog
     public static IReadOnlyList<string> ComboLabels { get; } =
         ComboOrder.Select(GetComboLabel).ToList();
 
+    public static bool IsViewVisible(DiagramViewKind kind, MetricInspectionKind inspections)
+    {
+        if (kind != DiagramViewKind.InformationSecurity)
+        {
+            return true;
+        }
+
+        return MetricInspectionScope.IsEnabled(
+            MetricInspectionCatalog.NormalizeScope(inspections),
+            MetricInspectionKind.ShowInformationSecurityTab);
+    }
+
+    public static IReadOnlyList<DiagramViewKind> GetVisibleViewKinds(MetricInspectionKind inspections) =>
+        ComboOrder.Where(kind => IsViewVisible(kind, inspections)).ToArray();
+
+    public static IReadOnlyList<string> GetVisibleComboLabels(MetricInspectionKind inspections) =>
+        GetVisibleViewKinds(inspections).Select(GetComboLabel).ToArray();
+
     public static DiagramViewKind GetViewKind(int comboIndex)
     {
         if (comboIndex < 0 || comboIndex >= ComboOrder.Length)
@@ -58,7 +77,7 @@ internal static class DiagramViewCatalog
     public static bool IsSummaryLast =>
         ComboOrder.Length > 0 && ComboOrder[^1] == DiagramViewKind.Summary;
 
-    private static string GetComboLabel(DiagramViewKind kind) =>
+    internal static string GetComboLabel(DiagramViewKind kind) =>
         kind == DiagramViewKind.BugRisk
             ? "버그 위험 분석(Lint)"
             : DiagramViewDisplayNames.Get(kind);

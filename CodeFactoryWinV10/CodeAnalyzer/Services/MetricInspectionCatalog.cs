@@ -53,8 +53,10 @@ public static class MetricInspectionCatalog
         new(MetricInspectionKind.TypeCohesion, "타입", "LCOM 응집도"),
         new(MetricInspectionKind.InheritanceDepth, "타입", "상속 깊이 (DIT) · 자식 수 (NOC)"),
         new(MetricInspectionKind.GitHotspot, "파일·아키텍처", "Git 변경 핫스팟"),
-        new(MetricInspectionKind.SecuritySmells, "파일·아키텍처", "보안 smell"),
-        new(MetricInspectionKind.HalsteadMetrics, "함수·타입", "Halstead · WMC · RFC")
+        new(MetricInspectionKind.HalsteadMetrics, "함수·타입", "Halstead · WMC · RFC"),
+
+        new(MetricInspectionKind.ShowInformationSecurityTab, "정보 보호 및 보안", "정보 보호 및 보안 뷰"),
+        new(MetricInspectionKind.SecuritySmells, "정보 보호 및 보안", "언어별 보안 smell 검사")
     ];
 
     private static readonly Lazy<MetricInspectionKind> AllCatalogOptionsLazy = new(BuildAllCatalogOptions);
@@ -76,6 +78,12 @@ public static class MetricInspectionCatalog
         if (scope == MetricInspectionKind.All || scope == all)
         {
             return all;
+        }
+
+        if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SecuritySmells)
+            && !MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ShowInformationSecurityTab))
+        {
+            scope |= MetricInspectionKind.ShowInformationSecurityTab;
         }
 
         return scope;

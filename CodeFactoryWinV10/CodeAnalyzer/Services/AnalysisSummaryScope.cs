@@ -13,6 +13,7 @@ public enum SummaryAreaKind
     Globals,
     Database,
     BugRisk,
+    Security,
     Issues
 }
 
@@ -34,6 +35,7 @@ internal static class AnalysisSummaryScope
             SummaryAreaKind.Globals => AnalysisScopeResolver.RequiresGlobalVariables(inspections),
             SummaryAreaKind.Database => AnalysisScopeResolver.RequiresDatabaseSchema(inspections),
             SummaryAreaKind.BugRisk => true,
+            SummaryAreaKind.Security => AnalysisScopeResolver.RequiresSecurityAnalysis(inspections),
             SummaryAreaKind.Issues => true,
             _ => false
         };
@@ -47,5 +49,6 @@ internal static class AnalysisSummaryScope
         || IsIncluded(SummaryAreaKind.Relations, inspections)
         || IsIncluded(SummaryAreaKind.Globals, inspections)
         || IsIncluded(SummaryAreaKind.Database, inspections)
-        || IsIncluded(SummaryAreaKind.BugRisk, inspections);
+        || IsIncluded(SummaryAreaKind.BugRisk, inspections)
+        || IsIncluded(SummaryAreaKind.Security, inspections);
 }

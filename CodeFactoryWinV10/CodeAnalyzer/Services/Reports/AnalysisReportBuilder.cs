@@ -13,6 +13,7 @@ public static class AnalysisReportBuilder
     private const int MaxDuplicateGroups = 25;
     private const int MaxGlobalVariableAccessRows = 300;
     private const int MaxArchitectureInsights = 40;
+    private const int MaxSecurityFindingRows = 250;
     private const int MaxPriorityActions = 12;
 
     public static AnalysisReportDocument Build(AnalysisResult analysis, string rootDirectory)
@@ -53,9 +54,16 @@ public static class AnalysisReportBuilder
             BuildPackageMetricsSection(analysis.Metrics.Packages, thresholds),
             BuildDuplicateSection(analysis.Duplicates, root),
             BuildGlobalVariablesSection(analysis.GlobalVariables, root),
-            BuildArchitectureSection(insights),
-            BuildMetricGlossarySection()
+            BuildArchitectureSection(insights)
         ]);
+
+        var securitySection = BuildSecuritySection(analysis, root);
+        if (securitySection is not null)
+        {
+            sections.Add(securitySection);
+        }
+
+        sections.Add(BuildMetricGlossarySection());
 
         return new AnalysisReportDocument
         {
@@ -89,6 +97,17 @@ public static class AnalysisReportBuilder
             $"전역 변수: {globals.Variables.Count:N0}개 · 접근 관계: {globals.Accesses.Count:N0}건 · 접근 함수: {totalAccessors:N0}개",
             "아래 섹션은 측정 수치, 결과 해석, 권장 조치를 함께 제공합니다."
         };
+
+        if (AnalysisScopeResolver.RequiresSecurityAnalysis(analysis.QualityThresholds.EnabledInspections))
+        {
+            var security = analysis.Security;
+            paragraphs.Add(
+                $"정보 보호·보안: {security.Findings.Count:N0}건 " +
+                $"(심각 {security.Findings.Count(f => f.Severity == SecuritySeverity.Critical):N0} · " +
+                $"경고 {security.Findings.Count(f => f.Severity == SecuritySeverity.Warning):N0} · " +
+                $"정보 {security.Findings.Count(f => f.Severity == SecuritySeverity.Info):N0}) · " +
+                $"영향 파일 {security.ByFile.Count:N0}개");
+        }
 
         return new ReportSection
         {
@@ -199,7 +218,9 @@ public static class AnalysisReportBuilder
                 summary.DeepInheritanceTypeCount > 0 ? WarningLevel.Warning : WarningLevel.None)
         };
 
+        var includeSecurity = AnalysisScopeResolver.RequiresSecurityAnalysis(thresholds.EnabledInspections);
         var rows = metrics
+            .Where(metric => includeSecurity || !string.Equals(metric.Key, "security", StringComparison.Ordinal))
             .Select(metric =>
             {
                 var (meaning, action) = AnalysisReportRemediationTexts.ForQualityMetric(
@@ -279,6 +300,22 @@ public static class AnalysisReportBuilder
             bullets.Add(
                 $"중복률 {analysis.Metrics.Summary.ProjectDuplicateLinePercent:F1}%: " +
                 AnalysisReportRemediationTexts.ForQualityMetric("duplicate", analysis.Metrics.Summary, thresholds).Action);
+        }
+
+        if (AnalysisScopeResolver.RequiresSecurityAnalysis(thresholds.EnabledInspections))
+        {
+            foreach (var finding in analysis.Security.Findings
+                         .Where(f => f.Severity is SecuritySeverity.Critical or SecuritySeverity.Warning)
+                         .OrderBy(f => f.Severity == SecuritySeverity.Critical ? 0 : 1)
+                         .ThenBy(f => f.FilePath, StringComparer.OrdinalIgnoreCase)
+                         .ThenBy(f => f.LineNumber)
+                         .Take(4))
+            {
+                bullets.Add(
+                    $"[{AnalysisReportRemediationTexts.FormatSecuritySeverity(finding.Severity)}] " +
+                    $"{finding.Label} ({ReportFormatting.FormatFileName(finding.FilePath, root)}:{finding.LineNumber}) — " +
+                    Truncate(finding.Remediation ?? finding.Explanation ?? finding.Label, 140));
+            }
         }
 
         if (bullets.Count == 0)
@@ -763,6 +800,69 @@ public static class AnalysisReportBuilder
         };
     }
 
+    private static ReportSection? BuildSecuritySection(AnalysisResult analysis, string root)
+    {
+        if (!AnalysisScopeResolver.RequiresSecurityAnalysis(analysis.QualityThresholds.EnabledInspections))
+        {
+            return null;
+        }
+
+        var security = analysis.Security;
+        var critical = security.Findings.Count(f => f.Severity == SecuritySeverity.Critical);
+        var warning = security.Findings.Count(f => f.Severity == SecuritySeverity.Warning);
+        var info = security.Findings.Count(f => f.Severity == SecuritySeverity.Info);
+        var total = security.Findings.Count;
+        var truncated = total > MaxSecurityFindingRows;
+
+        var rows = security.Findings
+            .Take(MaxSecurityFindingRows)
+            .Select((finding, index) => new ReportTableRow
+            {
+                Cells =
+                [
+                    (index + 1).ToString(),
+                    AnalysisReportRemediationTexts.FormatSecuritySeverity(finding.Severity),
+                    Truncate($"{finding.Label} ({finding.RuleId})", 100),
+                    Truncate(finding.Explanation ?? string.Empty, 180),
+                    ReportFormatting.FormatFileName(finding.FilePath, root),
+                    finding.LineNumber > 0 ? finding.LineNumber.ToString() : string.Empty,
+                    Truncate(finding.Remediation ?? string.Empty, 200)
+                ],
+                RiskScore = AnalysisReportRemediationTexts.RiskScoreFromSecuritySeverity(finding.Severity)
+            })
+            .ToList();
+
+        var paragraphs = new List<string>
+        {
+            "「정보 보호 및 보안」 뷰와 동일한 언어별 보안 smell 검출 결과입니다.",
+            $"전체 {total:N0}건 · 심각 {critical:N0} · 경고 {warning:N0} · 정보 {info:N0} · " +
+            $"영향 파일 {security.ByFile.Count:N0}개"
+        };
+
+        if (truncated)
+        {
+            paragraphs.Add($"상위 {MaxSecurityFindingRows:N0}건만 표시했습니다. 전체 목록은 앱의 정보 보호 및 보안 뷰를 참고하세요.");
+        }
+        else if (total == 0)
+        {
+            paragraphs.Add("현재 설정 기준으로 보안 smell이 검출되지 않았습니다.");
+        }
+
+        return new ReportSection
+        {
+            Heading = "13. 정보 보호 및 보안",
+            Level = 2,
+            Paragraphs = paragraphs,
+            Table = rows.Count > 0
+                ? new ReportTable
+                {
+                    Headers = ["#", "심각도", "규칙", "설명", "파일", "줄", "대처 방안"],
+                    Rows = rows
+                }
+                : null
+        };
+    }
+
     private static ReportSection BuildMetricGlossarySection()
     {
         return new ReportSection
@@ -782,7 +882,8 @@ public static class AnalysisReportBuilder
                 "LCOM: 응집도 부족(0~1). 높을수록 타입 분리 검토.",
                 "DIT/NOC: 상속 깊이/자식 수. 설계 복잡도·변경 영향.",
                 "Ca/Ce/I: 패키지 결합·불안정성. I가 높으면 변경 파급 위험.",
-                "Git 핫스팟: 최근 6개월 변경 줄 합. 결함·리팩터링 우선 후보."
+                "Git 핫스팟: 최근 6개월 변경 줄 합. 결함·리팩터링 우선 후보.",
+                "보안 smell: 하드코딩 비밀·SQL 인젝션·취약 API 등 언어별 정적 보안 패턴 검출."
             ]
         };
     }

@@ -20,6 +20,21 @@ internal static class AnalysisReportRemediationTexts
         _ => null
     };
 
+    public static string FormatSecuritySeverity(SecuritySeverity severity) => severity switch
+    {
+        SecuritySeverity.Critical => "심각",
+        SecuritySeverity.Warning => "경고",
+        _ => "정보"
+    };
+
+    public static double? RiskScoreFromSecuritySeverity(SecuritySeverity severity) => severity switch
+    {
+        SecuritySeverity.Critical => 95,
+        SecuritySeverity.Warning => 68,
+        SecuritySeverity.Info => 35,
+        _ => null
+    };
+
     public static (string Meaning, string Action) ForQualityMetric(
         string metricKey,
         CodeQualitySummary summary,

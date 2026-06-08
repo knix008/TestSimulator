@@ -87,6 +87,14 @@ internal static class AnalysisSummaryRadarBuilder
                 ScoreDatabase(analysis)));
         }
 
+        if (AnalysisSummaryScope.IsIncluded(SummaryAreaKind.Security, inspections))
+        {
+            axes.Add(Axis(
+                "정보 보호·보안",
+                "보안 smell·민감 정보·취약 패턴",
+                ScoreSecurity(analysis)));
+        }
+
         return axes;
     }
 
@@ -243,6 +251,15 @@ internal static class AnalysisSummaryRadarBuilder
             !schema.Accesses.Any(access => string.Equals(access.TableId, table.Id, StringComparison.Ordinal)));
         var orphanRatio = orphanTables / (float)schema.Tables.Count;
         return ClampScore(100f - orphanRatio * 100f);
+    }
+
+    private static float ScoreSecurity(AnalysisResult analysis)
+    {
+        var result = analysis.Security;
+        var critical = result.Findings.Count(f => f.Severity == SecuritySeverity.Critical);
+        var warning = result.Findings.Count(f => f.Severity == SecuritySeverity.Warning);
+        var info = result.Findings.Count(f => f.Severity == SecuritySeverity.Info);
+        return ClampScore(100f - critical * 14f - warning * 5f - info * 1.2f);
     }
 
     private static float ClampScore(float value) => Math.Clamp(value, 0f, 100f);

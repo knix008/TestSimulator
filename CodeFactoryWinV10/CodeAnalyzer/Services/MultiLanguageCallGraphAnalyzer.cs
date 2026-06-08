@@ -382,8 +382,16 @@ public sealed class MultiLanguageCallGraphAnalyzer
             tracker.Report($"버그 위험 분석 오류 (빈 결과로 계속): {ex.Message}");
         }
 
-        tracker.Report("정보 보호·보안 smell 집계 중...");
-        var security = SecurityFindingsBuilder.Build(mergedMetrics);
+        SecurityAnalysisResult security;
+        if (AnalysisScopeResolver.RequiresSecurityAnalysis(qualitySettings.EnabledInspections))
+        {
+            tracker.Report("정보 보호·보안 smell 집계 중...");
+            security = SecurityFindingsBuilder.Build(mergedMetrics);
+        }
+        else
+        {
+            security = SecurityAnalysisResult.Empty;
+        }
 
         tracker.ReportComplete(
             $"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개, " +

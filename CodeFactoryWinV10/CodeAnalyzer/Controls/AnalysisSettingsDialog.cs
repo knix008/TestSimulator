@@ -50,10 +50,11 @@ public sealed class AnalysisSettingsDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ApplicationDialogIcons.ApplyAppTitleBar(this);
+        var dialogIcon = MenuIconFactory.CreateAnalysisSettingsIcon(32);
+        ApplicationDialogIcons.ApplyDialogTitleBar(this, dialogIcon);
         Padding = new Padding(0);
 
-        var headerPanel = ApplicationDialogIcons.CreateHeaderPanel("분석 설정");
+        var headerPanel = ApplicationDialogIcons.CreateHeaderPanel("분석 설정", dialogIcon);
         var topBar = CreateTopBar();
         var hintLabel = CreateHintLabel();
         var footer = CreateFooter(out var okButton, out var cancelButton);

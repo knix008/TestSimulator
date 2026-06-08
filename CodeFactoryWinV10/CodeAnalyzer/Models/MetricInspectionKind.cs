@@ -51,6 +51,7 @@ public enum MetricInspectionKind : ulong
     GitHotspot = 1UL << 38,
     SecuritySmells = 1UL << 39,
     HalsteadMetrics = 1UL << 40,
+    ShowInformationSecurityTab = 1UL << 42,
 
     All = ShowFilesTab
         | ShowFunctionsTab
@@ -94,4 +95,5 @@ public enum MetricInspectionKind : ulong
         | GitHotspot
         | SecuritySmells
         | HalsteadMetrics
+        | ShowInformationSecurityTab
 }

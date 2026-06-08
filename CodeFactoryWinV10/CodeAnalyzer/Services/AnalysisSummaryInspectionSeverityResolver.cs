@@ -44,6 +44,7 @@ public static class AnalysisSummaryInspectionSeverityResolver
             or MetricInspectionKind.ShowTypesTab
             or MetricInspectionKind.ShowPackagesTab
             or MetricInspectionKind.ShowArchitectureTab
+            or MetricInspectionKind.ShowInformationSecurityTab
             or MetricInspectionKind.TypeStructure
             or MetricInspectionKind.GlobalVariables
             or MetricInspectionKind.DatabaseSchema
@@ -99,8 +100,9 @@ public static class AnalysisSummaryInspectionSeverityResolver
                 .Count(file => file.DuplicateLineCount >= 50),
             MetricInspectionKind.PublicApiDensity => CountFiles(metrics, thresholds)
                 .Count(file => file.PublicApiCount >= t.WarnPublicApiCount * 2),
-            MetricInspectionKind.SecuritySmells => files.Count(file =>
-                file.SecuritySmellCount >= t.WarnSecuritySmellCount * 2),
+            MetricInspectionKind.SecuritySmells => analysis.Security.Findings.Count > 0
+                ? analysis.Security.Findings.Count(f => f.Severity == SecuritySeverity.Critical)
+                : files.Count(file => file.SecuritySmellCount >= t.WarnSecuritySmellCount * 2),
             MetricInspectionKind.GitHotspot => files.Count(file =>
                 file.GitChangeLineCount >= t.WarnGitChangeLines * 2),
 
