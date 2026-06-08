@@ -1,3 +1,4 @@
+using System.Drawing.Drawing2D;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 
@@ -257,9 +258,20 @@ public sealed class StructureDiagramViewer : UserControl
     private bool IsContainerRelationView() =>
         _viewKind is DiagramViewKind.FileRelations or DiagramViewKind.DirectoryRelations;
 
+    private bool IsDataFlowView() => _viewKind == DiagramViewKind.DataFlow;
+
     private void DrawStructureDiagram(Graphics graphics)
     {
-        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+        if (IsDataFlowView())
+        {
+            var arrows = DrawDataFlowEdgeBodies(graphics);
+            DrawDataFlowBoxes(graphics);
+            DiagramConnectionDrawer.DrawArrowHeads(graphics, arrows);
+            DrawDataFlowEdgeLabels(graphics);
+            return;
+        }
 
         foreach (var edge in _edges)
         {
@@ -327,40 +339,50 @@ public sealed class StructureDiagramViewer : UserControl
             return null;
         }
 
-        foreach (var edge in _edges)
+        if (IsDataFlowView())
         {
-            if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
-            {
-                continue;
-            }
-
-            if (IsUmlClassView())
-            {
-                UmlClassDiagramRenderer.DrawRelation(g, from, to, edge, _lineStyle);
-            }
-            else if (IsContainerRelationView())
-            {
-                FileRelationDiagramRenderer.DrawFileEdge(g, from, to, edge.Label, _lineStyle, _layoutDirection);
-            }
-            else
-            {
-                DrawEdge(g, edge);
-            }
+            var arrows = DrawDataFlowEdgeBodies(g);
+            DrawDataFlowBoxes(g, includeHighlight: false);
+            DiagramConnectionDrawer.DrawArrowHeads(g, arrows);
+            DrawDataFlowEdgeLabels(g);
         }
-
-        foreach (var box in _boxes)
+        else
         {
-            if (box.IsUmlStyle)
+            foreach (var edge in _edges)
             {
-                UmlClassDiagramRenderer.DrawClass(g, box, isHighlight: false, isCurrent: false);
+                if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
+                {
+                    continue;
+                }
+
+                if (IsUmlClassView())
+                {
+                    UmlClassDiagramRenderer.DrawRelation(g, from, to, edge, _lineStyle);
+                }
+                else if (IsContainerRelationView())
+                {
+                    FileRelationDiagramRenderer.DrawFileEdge(g, from, to, edge.Label, _lineStyle, _layoutDirection);
+                }
+                else
+                {
+                    DrawEdge(g, edge);
+                }
             }
-            else if (IsContainerRelationView())
+
+            foreach (var box in _boxes)
             {
-                FileRelationDiagramRenderer.DrawFileBox(g, box, isHighlight: false, isCurrent: false);
-            }
-            else
-            {
-                DrawBox(g, box);
+                if (box.IsUmlStyle)
+                {
+                    UmlClassDiagramRenderer.DrawClass(g, box, isHighlight: false, isCurrent: false);
+                }
+                else if (IsContainerRelationView())
+                {
+                    FileRelationDiagramRenderer.DrawFileBox(g, box, isHighlight: false, isCurrent: false);
+                }
+                else
+                {
+                    DrawBox(g, box);
+                }
             }
         }
 
@@ -996,22 +1018,105 @@ public sealed class StructureDiagramViewer : UserControl
         UmlSequenceDiagramRenderer.Draw(graphics, _sequence);
     }
 
-    private void DrawBox(Graphics graphics, DiagramBoxNode box)
+    private List<DiagramEdgeArrow> DrawDataFlowEdgeBodies(Graphics graphics)
     {
-        var isCurrent = _currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
-        var isMatch = _highlightIds.Contains(box.Id);
+        var arrows = new List<DiagramEdgeArrow>(_edges.Count);
+        foreach (var edge in _edges)
+        {
+            if (!_boxMap.TryGetValue(edge.FromId, out var from) || !_boxMap.TryGetValue(edge.ToId, out var to))
+            {
+                continue;
+            }
 
-        var fill = isCurrent
+            var (color, dashStyle) = GetDataFlowEdgeStyle(edge);
+            var arrow = DiagramConnectionDrawer.DrawSideEdge(
+                graphics,
+                from,
+                to,
+                _lineStyle,
+                color,
+                width: 1.8f,
+                dashStyle,
+                _layoutDirection);
+            if (arrow is not null)
+            {
+                arrows.Add(arrow.Value);
+            }
+        }
+
+        return arrows;
+    }
+
+    private void DrawDataFlowBoxes(Graphics graphics, bool includeHighlight = true)
+    {
+        foreach (var box in _boxes)
+        {
+            if (includeHighlight)
+            {
+                DrawBox(graphics, box);
+            }
+            else
+            {
+                DrawBox(graphics, box, includeHighlight: false, isHighlight: false, isCurrent: false);
+            }
+        }
+    }
+
+    private void DrawDataFlowEdgeLabels(Graphics graphics)
+    {
+        using var font = new Font(Font.FontFamily, 7.5f);
+        foreach (var edge in _edges)
+        {
+            if (string.IsNullOrWhiteSpace(edge.Label)
+                || !_boxMap.TryGetValue(edge.FromId, out var from)
+                || !_boxMap.TryGetValue(edge.ToId, out var to))
+            {
+                continue;
+            }
+
+            var connection = DiagramSideAnchor.GetConnectionPair(from.Bounds, to.Bounds);
+            var labelX = (connection.From.X + connection.To.X) / 2f;
+            var labelY = (connection.From.Y + connection.To.Y) / 2f - 12f;
+            graphics.DrawString(edge.Label, font, Brushes.DimGray, labelX, labelY);
+        }
+    }
+
+    private static (Color Color, DashStyle DashStyle) GetDataFlowEdgeStyle(DiagramEdge edge)
+    {
+        var color = edge.RelationKind switch
+        {
+            StructureRelationKind.Inheritance => Color.FromArgb(39, 174, 96),
+            StructureRelationKind.Implementation => Color.FromArgb(142, 68, 173),
+            StructureRelationKind.Dependency => Color.FromArgb(127, 140, 141),
+            _ => Color.FromArgb(52, 96, 145)
+        };
+
+        var dashStyle = edge.RelationKind is StructureRelationKind.Implementation or StructureRelationKind.Dependency
+            ? DashStyle.Dash
+            : DashStyle.Solid;
+
+        return (color, dashStyle);
+    }
+
+    private void DrawBox(Graphics graphics, DiagramBoxNode box) =>
+        DrawBox(graphics, box, includeHighlight: true);
+
+    private void DrawBox(Graphics graphics, DiagramBoxNode box, bool includeHighlight, bool? isHighlight = null, bool? isCurrent = null)
+    {
+        var resolvedCurrent = isCurrent ?? (_currentHighlightId is not null && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal));
+        var resolvedMatch = isHighlight ?? (includeHighlight && _highlightIds.Contains(box.Id));
+
+        var fill = resolvedCurrent
             ? Color.FromArgb(255, 236, 179)
-            : isMatch
+            : resolvedMatch
                 ? Color.FromArgb(255, 249, 219)
                 : Color.FromArgb(248, 250, 255);
-        var border = isCurrent
+        var border = resolvedCurrent
             ? Color.FromArgb(230, 126, 34)
             : Color.FromArgb(74, 108, 155);
 
         using var fillBrush = new SolidBrush(fill);
-        using var borderPen = new Pen(border, isCurrent ? 2.5f : 1.6f);
+        using var borderPen = new Pen(border, resolvedCurrent ? 2.5f : 1.6f);
         using var titleFont = new Font(Font.FontFamily, 9f, FontStyle.Bold);
         using var subFont = new Font(Font.FontFamily, 7.5f);
         using var textBrush = new SolidBrush(Color.FromArgb(35, 45, 60));
