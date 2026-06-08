@@ -40,6 +40,7 @@ public sealed class DiagramViewHost : UserControl
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
+        _structureViewer.FunctionRootChanged += OnStructureFunctionRootChanged;
     }
 
     public event Action<CallGraphNode>? CallGraphRootChanged;
@@ -234,6 +235,12 @@ public sealed class DiagramViewHost : UserControl
         _rootNodeIds = [nodeId];
         RefreshActiveView();
         return true;
+    }
+
+    private void OnStructureFunctionRootChanged(CallGraphNode node)
+    {
+        _rootNodeIds = [node.Id];
+        CallGraphRootChanged?.Invoke(node);
     }
 
     private void OnCallGraphRootNodeChanged(CallGraphNode node)
