@@ -28,6 +28,7 @@ internal sealed class SummarySection
     public required string SummaryText { get; init; }
     public SummaryChartKind ChartKind { get; init; } = SummaryChartKind.None;
     public bool IsFullWidth { get; init; }
+    public int? CardHeight { get; init; }
     public IReadOnlyList<SummaryKpiItem> Kpis { get; init; } = [];
     public IReadOnlyList<SummaryChartSlice> Slices { get; init; } = [];
     public IReadOnlyList<SummaryBarItem> Bars { get; init; } = [];

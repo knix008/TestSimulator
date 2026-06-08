@@ -26,7 +26,6 @@ partial class MainForm
         checkedListDirectories = new CheckedListBox();
         lblExcludeHint = new Label();
         btnAnalysisSettings = new Button();
-        btnDatabaseSettings = new Button();
         checkedListLanguages = new CheckedListBox();
         lblLanguages = new Label();
         btnBrowseRoot = new Button();
@@ -105,7 +104,6 @@ partial class MainForm
         // 
         grpAnalysis.Controls.Add(btnAnalyze);
         grpAnalysis.Controls.Add(grpExcludeDirectories);
-        grpAnalysis.Controls.Add(btnDatabaseSettings);
         grpAnalysis.Controls.Add(btnAnalysisSettings);
         grpAnalysis.Controls.Add(checkedListLanguages);
         grpAnalysis.Controls.Add(lblLanguages);
@@ -153,14 +151,14 @@ partial class MainForm
         checkedListDirectories.IntegralHeight = false;
         checkedListDirectories.Location = new Point(8, 20);
         checkedListDirectories.Name = "checkedListDirectories";
-        checkedListDirectories.Size = new Size(308, 113);
+        checkedListDirectories.Size = new Size(308, 425);
         checkedListDirectories.TabIndex = 0;
         // 
         // lblExcludeHint
         // 
         lblExcludeHint.Dock = DockStyle.Bottom;
         lblExcludeHint.ForeColor = Color.DimGray;
-        lblExcludeHint.Location = new Point(8, 133);
+        lblExcludeHint.Location = new Point(8, 445);
         lblExcludeHint.Name = "lblExcludeHint";
         lblExcludeHint.Padding = new Padding(0, 4, 0, 0);
         lblExcludeHint.Size = new Size(308, 39);
@@ -170,24 +168,13 @@ partial class MainForm
         // btnAnalysisSettings
         // 
         btnAnalysisSettings.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        btnAnalysisSettings.Location = new Point(12, 726);
+        btnAnalysisSettings.Location = new Point(12, 764);
         btnAnalysisSettings.Name = "btnAnalysisSettings";
         btnAnalysisSettings.Size = new Size(312, 32);
         btnAnalysisSettings.TabIndex = 26;
         btnAnalysisSettings.Text = "분석 설정...";
         btnAnalysisSettings.UseVisualStyleBackColor = true;
         btnAnalysisSettings.Click += btnAnalysisSettings_Click;
-        // 
-        // btnDatabaseSettings
-        // 
-        btnDatabaseSettings.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        btnDatabaseSettings.Location = new Point(12, 764);
-        btnDatabaseSettings.Name = "btnDatabaseSettings";
-        btnDatabaseSettings.Size = new Size(312, 32);
-        btnDatabaseSettings.TabIndex = 27;
-        btnDatabaseSettings.Text = "DB 연결 설정...";
-        btnDatabaseSettings.UseVisualStyleBackColor = true;
-        btnDatabaseSettings.Click += btnDatabaseSettings_Click;
         // 
         // checkedListLanguages
         // 
@@ -244,7 +231,6 @@ partial class MainForm
         diagramViewHost.Dock = DockStyle.Fill;
         diagramViewHost.Location = new Point(0, 48);
         diagramViewHost.Name = "diagramViewHost";
-        diagramViewHost.ProjectRootDirectory = null;
         diagramViewHost.Size = new Size(1166, 812);
         diagramViewHost.TabIndex = 1;
         diagramViewHost.ViewKind = Models.DiagramViewKind.CallGraph;
@@ -273,7 +259,7 @@ partial class MainForm
         // btnResetView
         // 
         btnResetView.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnResetView.Location = new Point(1074, 10);
+        btnResetView.Location = new Point(1071, 10);
         btnResetView.Name = "btnResetView";
         btnResetView.Size = new Size(88, 27);
         btnResetView.TabIndex = 9;
@@ -408,37 +394,32 @@ partial class MainForm
         // 
         menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuProjectOpen, menuProjectSave, menuSeparator1, menuOpen, menuSave, menuSeparator2, menuExportMetrics, menuExportReport, menuExportImage });
         menuFile.Name = "menuFile";
-        menuFile.Size = new Size(70, 23);
+        menuFile.Size = new Size(43, 23);
         menuFile.Text = "파일";
-        //
+        // 
         // menuProjectOpen
-        //
+        // 
         menuProjectOpen.Name = "menuProjectOpen";
         menuProjectOpen.ShortcutKeys = Keys.Control | Keys.Shift | Keys.O;
         menuProjectOpen.Size = new Size(313, 22);
         menuProjectOpen.Text = "프로젝트 불러오기...";
         menuProjectOpen.Click += menuProjectOpen_Click;
-        //
+        // 
         // menuProjectSave
-        //
+        // 
         menuProjectSave.Name = "menuProjectSave";
         menuProjectSave.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
         menuProjectSave.Size = new Size(313, 22);
         menuProjectSave.Text = "프로젝트 저장...";
         menuProjectSave.Click += menuProjectSave_Click;
-        //
+        // 
         // menuSeparator1
-        //
+        // 
         menuSeparator1.Name = "menuSeparator1";
         menuSeparator1.Size = new Size(310, 6);
-        //
-        // menuSeparator2
-        //
-        menuSeparator2.Name = "menuSeparator2";
-        menuSeparator2.Size = new Size(310, 6);
-        //
+        // 
         // menuOpen
-        //
+        // 
         menuOpen.Name = "menuOpen";
         menuOpen.ShortcutKeys = Keys.Control | Keys.O;
         menuOpen.Size = new Size(313, 22);
@@ -452,6 +433,11 @@ partial class MainForm
         menuSave.Size = new Size(313, 22);
         menuSave.Text = "결과 저장...";
         menuSave.Click += menuSave_Click;
+        // 
+        // menuSeparator2
+        // 
+        menuSeparator2.Name = "menuSeparator2";
+        menuSeparator2.Size = new Size(310, 6);
         // 
         // menuExportMetrics
         // 
@@ -479,20 +465,20 @@ partial class MainForm
         // 
         menuSettings.DropDownItems.AddRange(new ToolStripItem[] { menuAnalysisSettings, menuDatabaseSettings });
         menuSettings.Name = "menuSettings";
-        menuSettings.Size = new Size(70, 23);
+        menuSettings.Size = new Size(43, 23);
         menuSettings.Text = "설정";
         // 
         // menuAnalysisSettings
         // 
         menuAnalysisSettings.Name = "menuAnalysisSettings";
-        menuAnalysisSettings.Size = new Size(280, 22);
+        menuAnalysisSettings.Size = new Size(155, 22);
         menuAnalysisSettings.Text = "분석 설정...";
         menuAnalysisSettings.Click += btnAnalysisSettings_Click;
         // 
         // menuDatabaseSettings
         // 
         menuDatabaseSettings.Name = "menuDatabaseSettings";
-        menuDatabaseSettings.Size = new Size(280, 22);
+        menuDatabaseSettings.Size = new Size(155, 22);
         menuDatabaseSettings.Text = "DB 연결 설정...";
         menuDatabaseSettings.Click += btnDatabaseSettings_Click;
         // 
@@ -601,7 +587,6 @@ partial class MainForm
     private GroupBox grpAnalysis;
     private GroupBox grpExcludeDirectories;
     private Button btnAnalysisSettings;
-    private Button btnDatabaseSettings;
     private Button btnAnalyze;
     private Label lblExcludeHint;
     private CheckedListBox checkedListDirectories;

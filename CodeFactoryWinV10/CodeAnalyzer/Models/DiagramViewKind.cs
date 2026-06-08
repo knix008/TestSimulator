@@ -2,7 +2,6 @@ namespace CodeAnalyzer.Models;
 
 public enum DiagramViewKind
 {
-    Summary,
     CallGraph,
     ClassDiagram,
     SequenceDiagram,
@@ -15,5 +14,8 @@ public enum DiagramViewKind
     GlobalVariables,
     DatabaseErd,
     DatabaseTableAccess,
-    BugRisk
+    BugRisk,
+    InformationSecurity,
+    /// <summary>콤보 목록 맨 마지막 (DiagramViewCatalog).</summary>
+    Summary
 }

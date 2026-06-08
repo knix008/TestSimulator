@@ -177,7 +177,7 @@ public partial class MainForm : Form
         menuExportReport.Image = RegisterMenuImage(MenuIconFactory.CreateExportReportIcon());
         menuExportImage.Image = RegisterMenuImage(MenuIconFactory.CreateExportImageIcon());
         menuSettings.AutoSize = true;
-        menuSettings.Image = RegisterMenuImage(MenuIconFactory.CreateAnalysisSettingsIcon());
+        menuSettings.Image = RegisterMenuImage(MenuIconFactory.CreateSettingsMenuIcon());
         menuAnalysisSettings.Image = RegisterMenuImage(MenuIconFactory.CreateAnalysisSettingsIcon());
         menuDatabaseSettings.Image = RegisterMenuImage(MenuIconFactory.CreateDatabaseSettingsIcon());
     }
@@ -206,23 +206,7 @@ public partial class MainForm : Form
                 BeginInvoke(PersistDirectoryExclusionsFromSidebar);
         };
 
-        comboDiagramView.Items.AddRange(new object[]
-        {
-            "호출 그래프",
-            "클래스 다이어그램",
-            "시퀀스 다이어그램",
-            "상속 구조",
-            "데이터 흐름도",
-            "파일 호출 관계",
-            "디렉터리 호출 관계",
-            "코드 메트릭",
-            "중복 코드",
-            "전역 변수",
-            "DB ERD",
-            "DB 테이블 접근",
-            "버그 위험 분석(Lint)",
-            "분석 Summary"
-        });
+        comboDiagramView.Items.AddRange(DiagramViewCatalog.ComboLabels.Cast<object>().ToArray());
         comboDiagramView.SelectedIndex = 0;
 
         comboLayoutDirection.Items.AddRange(new object[]
@@ -242,21 +226,40 @@ public partial class MainForm : Form
     }
 
     private DiagramViewKind GetSelectedViewKind() =>
-        comboDiagramView.SelectedIndex switch
+        DiagramViewCatalog.GetViewKind(comboDiagramView.SelectedIndex);
+
+    private static int GetDiagramViewComboIndex(DiagramViewKind viewKind) =>
+        DiagramViewCatalog.GetComboIndex(viewKind);
+
+    /// <summary>찾기 결과에 맞는 다이어그램 뷰로 전환합니다.</summary>
+    private void SwitchDiagramViewForSearch(DiagramViewKind viewKind)
+    {
+        var targetIndex = GetDiagramViewComboIndex(viewKind);
+        if (comboDiagramView.SelectedIndex != targetIndex)
         {
-            1 => DiagramViewKind.ClassDiagram,
-            2 => DiagramViewKind.SequenceDiagram,
-            3 => DiagramViewKind.Inheritance,
-            4 => DiagramViewKind.DataFlow,
-            5 => DiagramViewKind.FileRelations,
-            6 => DiagramViewKind.DirectoryRelations,
-            7 => DiagramViewKind.CodeMetrics,
-            8 => DiagramViewKind.DuplicateCode,
-            9 => DiagramViewKind.GlobalVariables,
-            10 => DiagramViewKind.DatabaseErd,
-            11 => DiagramViewKind.DatabaseTableAccess,
-            12 => DiagramViewKind.BugRisk,
-            13 => DiagramViewKind.Summary,
+            _suppressDiagramViewChange = true;
+            try
+            {
+                comboDiagramView.SelectedIndex = targetIndex;
+            }
+            finally
+            {
+                _suppressDiagramViewChange = false;
+            }
+        }
+        else if (diagramViewHost.ViewKind != viewKind)
+        {
+            diagramViewHost.ViewKind = viewKind;
+            UpdateToolbarForViewKind();
+        }
+    }
+
+    private static DiagramViewKind GetSearchResultViewKind(SearchResultKind kind) =>
+        kind switch
+        {
+            SearchResultKind.Type => DiagramViewKind.ClassDiagram,
+            SearchResultKind.File => DiagramViewKind.FileRelations,
+            SearchResultKind.Directory => DiagramViewKind.DirectoryRelations,
             _ => DiagramViewKind.CallGraph
         };
 
@@ -715,7 +718,6 @@ public partial class MainForm : Form
         SetAnalyzeButtonRunning();
         SetToolbarEnabled(false);
         btnAnalysisSettings.Enabled = false;
-        btnDatabaseSettings.Enabled = false;
         menuAnalysisSettings.Enabled = false;
         menuDatabaseSettings.Enabled = false;
         ResetAnalysisProgress(isActive: true);
@@ -738,7 +740,6 @@ public partial class MainForm : Form
         SetAnalyzeButtonIdle();
         SetToolbarEnabled(true);
         btnAnalysisSettings.Enabled = true;
-        btnDatabaseSettings.Enabled = true;
         menuAnalysisSettings.Enabled = true;
         menuDatabaseSettings.Enabled = true;
         ResetAnalysisProgress(isActive: false);
@@ -749,7 +750,8 @@ public partial class MainForm : Form
             or DiagramViewKind.GlobalVariables
             or DiagramViewKind.DatabaseErd
             or DiagramViewKind.DatabaseTableAccess
-            or DiagramViewKind.BugRisk)
+            or DiagramViewKind.BugRisk
+            or DiagramViewKind.InformationSecurity)
         {
             try
             {
@@ -819,7 +821,8 @@ public partial class MainForm : Form
             or DiagramViewKind.DuplicateCode
             or DiagramViewKind.GlobalVariables
             or DiagramViewKind.DatabaseTableAccess
-            or DiagramViewKind.BugRisk;
+            or DiagramViewKind.BugRisk
+            or DiagramViewKind.InformationSecurity;
         var isAccessGraph = diagramViewHost.IsShowingAccessGraph;
         var supportsTreeExpand = viewKind == DiagramViewKind.CallGraph || isAccessGraph;
         var supportsLineStyle = viewKind is DiagramViewKind.CallGraph
@@ -1064,7 +1067,7 @@ public partial class MainForm : Form
 
         if (GetSelectedViewKind() != DiagramViewKind.DirectoryRelations)
         {
-            comboDiagramView.SelectedIndex = 6;
+            comboDiagramView.SelectedIndex = GetDiagramViewComboIndex(DiagramViewKind.DirectoryRelations);
         }
 
         lblStatus.Text =
@@ -1119,7 +1122,7 @@ public partial class MainForm : Form
 
         if (GetSelectedViewKind() != DiagramViewKind.FileRelations)
         {
-            comboDiagramView.SelectedIndex = 5;
+            comboDiagramView.SelectedIndex = GetDiagramViewComboIndex(DiagramViewKind.FileRelations);
         }
 
         lblStatus.Text = $"파일 기준: {file.FullName} — 이 파일에서 호출되는 관계 표시 (파일 클릭으로 기준 변경)";
@@ -1254,24 +1257,7 @@ public partial class MainForm : Form
             }
 
             // 2) restore view kind (comboDiagramView + host)
-            comboDiagramView.SelectedIndex = selection.ViewKind switch
-            {
-                DiagramViewKind.CallGraph => 0,
-                DiagramViewKind.ClassDiagram => 1,
-                DiagramViewKind.SequenceDiagram => 2,
-                DiagramViewKind.Inheritance => 3,
-                DiagramViewKind.DataFlow => 4,
-                DiagramViewKind.FileRelations => 5,
-                DiagramViewKind.DirectoryRelations => 6,
-                DiagramViewKind.CodeMetrics => 7,
-                DiagramViewKind.DuplicateCode => 8,
-                DiagramViewKind.GlobalVariables => 9,
-                DiagramViewKind.DatabaseErd => 10,
-                DiagramViewKind.DatabaseTableAccess => 11,
-                DiagramViewKind.BugRisk => 12,
-                DiagramViewKind.Summary => 13,
-                _ => 0
-            };
+            comboDiagramView.SelectedIndex = DiagramViewCatalog.GetComboIndex(selection.ViewKind);
 
             // 3) apply root method selection (clears file/directory overrides)
             ApplyRootMethodSelection();
@@ -2070,57 +2056,46 @@ public partial class MainForm : Form
             _searchIndex = 0;
         }
 
-        if (item.Kind == SearchResultKind.Function)
+        if (_lastAnalysis is null)
         {
-            if (GetSelectedViewKind() is DiagramViewKind.ClassDiagram
-                or DiagramViewKind.Inheritance
-                or DiagramViewKind.FileRelations
-                or DiagramViewKind.DirectoryRelations)
-            {
-                comboDiagramView.SelectedIndex = 0;
-            }
-
-            SetCallGraphRootFromSearch(item.Id);
+            return;
         }
-        else if (item.Kind == SearchResultKind.Type)
+
+        var targetView = GetSearchResultViewKind(item.Kind);
+        SwitchDiagramViewForSearch(targetView);
+
+        switch (item.Kind)
         {
-            if (!IsClassStructureView())
-            {
-                comboDiagramView.SelectedIndex = 1;
-            }
+            case SearchResultKind.Function:
+                SetCallGraphRootFromSearch(item.Id);
+                break;
 
-            EnsureClassTypeComboPopulated();
-            SelectTypeInRootCombo(item.Id);
+            case SearchResultKind.Type:
+                EnsureClassTypeComboPopulated();
+                SelectTypeInRootCombo(item.Id);
+                diagramViewHost.SetAnalysis(_lastAnalysis, []);
+                diagramViewHost.FocusType(item.Id);
+                break;
 
-            diagramViewHost.ViewKind = GetSelectedViewKind();
-            diagramViewHost.SetAnalysis(_lastAnalysis, []);
-            diagramViewHost.FocusType(item.Id);
-        }
-        else if (item.Kind == SearchResultKind.File)
-        {
-            comboDiagramView.SelectedIndex = 5;
-            diagramViewHost.ViewKind = DiagramViewKind.FileRelations;
-            diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
-            diagramViewHost.TryFocusNode(item.Id);
+            case SearchResultKind.File:
+                diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
+                diagramViewHost.TryFocusNode(item.Id);
+                RecordRootSelection(
+                    viewKind: DiagramViewKind.FileRelations,
+                    rootMethod: GetCurrentRootMethodSelection(),
+                    fileIdOverride: item.Id,
+                    directoryIdOverride: null);
+                break;
 
-            RecordRootSelection(
-                viewKind: DiagramViewKind.FileRelations,
-                rootMethod: GetCurrentRootMethodSelection(),
-                fileIdOverride: item.Id,
-                directoryIdOverride: null);
-        }
-        else if (item.Kind == SearchResultKind.Directory)
-        {
-            comboDiagramView.SelectedIndex = 6;
-            diagramViewHost.ViewKind = DiagramViewKind.DirectoryRelations;
-            diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
-            diagramViewHost.TryFocusNode(item.Id);
-
-            RecordRootSelection(
-                viewKind: DiagramViewKind.DirectoryRelations,
-                rootMethod: GetCurrentRootMethodSelection(),
-                fileIdOverride: null,
-                directoryIdOverride: item.Id);
+            case SearchResultKind.Directory:
+                diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
+                diagramViewHost.TryFocusNode(item.Id);
+                RecordRootSelection(
+                    viewKind: DiagramViewKind.DirectoryRelations,
+                    rootMethod: GetCurrentRootMethodSelection(),
+                    fileIdOverride: null,
+                    directoryIdOverride: item.Id);
+                break;
         }
 
         ApplySearchHighlightToViewer();

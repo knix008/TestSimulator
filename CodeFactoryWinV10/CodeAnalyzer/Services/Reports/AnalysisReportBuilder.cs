@@ -310,22 +310,27 @@ public static class AnalysisReportBuilder
             .ThenByDescending(x => x.Func.CyclomaticComplexity)
             .ThenByDescending(x => x.Func.CognitiveComplexity)
             .Take(MaxFunctionRows)
-            .Select(x => new ReportTableRow
+            .Select(x =>
             {
-                Cells =
-                [
-                    x.Func.DisplayName,
-                    ReportFormatting.FormatFileName(x.Func.FilePath, root),
-                    x.Func.StartLine.ToString(),
-                    x.Func.CyclomaticComplexity.ToString(),
-                    x.Func.CognitiveComplexity.ToString(),
-                    x.Func.MaxNestingDepth.ToString(),
-                    x.Func.FanOut.ToString(),
-                    x.Func.MaintenanceIndex.ToString("F1"),
-                    AnalysisReportRemediationTexts.FormatStatus(x.Level),
-                    Truncate(FileMetricsAggregator.BuildFunctionDescription(x.Func, thresholds), 200)
-                ],
-                RiskScore = AnalysisReportRemediationTexts.RiskScoreFromWarning(x.Level)
+                var guidance = FileMetricsAggregator.BuildFunctionGuidance(x.Func, thresholds);
+                return new ReportTableRow
+                {
+                    Cells =
+                    [
+                        x.Func.DisplayName,
+                        ReportFormatting.FormatFileName(x.Func.FilePath, root),
+                        x.Func.StartLine.ToString(),
+                        x.Func.CyclomaticComplexity.ToString(),
+                        x.Func.CognitiveComplexity.ToString(),
+                        x.Func.MaxNestingDepth.ToString(),
+                        x.Func.FanOut.ToString(),
+                        x.Func.MaintenanceIndex.ToString("F1"),
+                        AnalysisReportRemediationTexts.FormatStatus(x.Level),
+                        Truncate(guidance.Meaning, 180),
+                        Truncate(guidance.Action, 180)
+                    ],
+                    RiskScore = AnalysisReportRemediationTexts.RiskScoreFromWarning(x.Level)
+                };
             })
             .ToList();
 
@@ -341,7 +346,7 @@ public static class AnalysisReportBuilder
             ],
             Table = new ReportTable
             {
-                Headers = ["함수", "파일", "줄", "CC", "인지", "중첩", "FanOut", "MI", "상태", "권장 조치"],
+                Headers = ["함수", "파일", "줄", "CC", "인지", "중첩", "FanOut", "MI", "상태", "설명", "대처 방안"],
                 Rows = rows
             }
         };
@@ -376,22 +381,27 @@ public static class AnalysisReportBuilder
             .ThenByDescending(x => x.File.MaxCyclomaticComplexity)
             .ThenByDescending(x => x.File.WarningFunctionCount)
             .Take(MaxFileRows)
-            .Select(x => new ReportTableRow
+            .Select(x =>
             {
-                Cells =
-                [
-                    ReportFormatting.FormatFileName(x.File.FilePath, root),
-                    x.File.CodeLines.ToString(),
-                    x.File.FunctionCount.ToString(),
-                    x.File.MaxCyclomaticComplexity.ToString(),
-                    x.File.MinMaintenanceIndex.ToString("F1"),
-                    x.File.TodoMarkerCount.ToString(),
-                    x.File.DuplicateLineCount.ToString(),
-                    x.File.GitChangeLineCount.ToString(),
-                    AnalysisReportRemediationTexts.FormatStatus(x.Level),
-                    Truncate(FileMetricsAggregator.BuildFileDescription(x.File, thresholds), 200)
-                ],
-                RiskScore = AnalysisReportRemediationTexts.RiskScoreFromWarning(x.Level)
+                var guidance = FileMetricsAggregator.BuildFileGuidance(x.File, thresholds);
+                return new ReportTableRow
+                {
+                    Cells =
+                    [
+                        ReportFormatting.FormatFileName(x.File.FilePath, root),
+                        x.File.CodeLines.ToString(),
+                        x.File.FunctionCount.ToString(),
+                        x.File.MaxCyclomaticComplexity.ToString(),
+                        x.File.MinMaintenanceIndex.ToString("F1"),
+                        x.File.TodoMarkerCount.ToString(),
+                        x.File.DuplicateLineCount.ToString(),
+                        x.File.GitChangeLineCount.ToString(),
+                        AnalysisReportRemediationTexts.FormatStatus(x.Level),
+                        Truncate(guidance.Meaning, 180),
+                        Truncate(guidance.Action, 180)
+                    ],
+                    RiskScore = AnalysisReportRemediationTexts.RiskScoreFromWarning(x.Level)
+                };
             })
             .ToList();
 
@@ -402,7 +412,7 @@ public static class AnalysisReportBuilder
             Paragraphs = [$"파일 {fileRows.Count:N0}개 중 경고 우선·복잡도 상위 {rows.Count}개."],
             Table = new ReportTable
             {
-                Headers = ["파일", "코드줄", "함수", "MaxCC", "MinMI", "TODO", "중복줄", "Git줄", "상태", "권장 조치"],
+                Headers = ["파일", "코드줄", "함수", "MaxCC", "MinMI", "TODO", "중복줄", "Git줄", "상태", "설명", "대처 방안"],
                 Rows = rows
             }
         };
@@ -434,21 +444,26 @@ public static class AnalysisReportBuilder
             .ThenByDescending(x => x.Type.LackOfCohesion)
             .ThenByDescending(x => x.Type.MemberCount + x.Type.OperationCount)
             .Take(MaxTypeRows)
-            .Select(x => new ReportTableRow
+            .Select(x =>
             {
-                Cells =
-                [
-                    x.Type.DisplayName,
-                    ReportFormatting.FormatFileName(x.Type.FilePath, root),
-                    (x.Type.MemberCount + x.Type.OperationCount).ToString(),
-                    x.Type.LackOfCohesion.ToString("F2"),
-                    x.Type.DepthOfInheritance.ToString(),
-                    x.Type.NumberOfChildren.ToString(),
-                    x.Type.MaxCyclomaticComplexity.ToString(),
-                    AnalysisReportRemediationTexts.FormatStatus(x.Level),
-                    Truncate(FileMetricsAggregator.BuildTypeDescription(x.Type, thresholds), 200)
-                ],
-                RiskScore = AnalysisReportRemediationTexts.RiskScoreFromWarning(x.Level)
+                var guidance = FileMetricsAggregator.BuildTypeGuidance(x.Type, thresholds);
+                return new ReportTableRow
+                {
+                    Cells =
+                    [
+                        x.Type.DisplayName,
+                        ReportFormatting.FormatFileName(x.Type.FilePath, root),
+                        (x.Type.MemberCount + x.Type.OperationCount).ToString(),
+                        x.Type.LackOfCohesion.ToString("F2"),
+                        x.Type.DepthOfInheritance.ToString(),
+                        x.Type.NumberOfChildren.ToString(),
+                        x.Type.MaxCyclomaticComplexity.ToString(),
+                        AnalysisReportRemediationTexts.FormatStatus(x.Level),
+                        Truncate(guidance.Meaning, 180),
+                        Truncate(guidance.Action, 180)
+                    ],
+                    RiskScore = AnalysisReportRemediationTexts.RiskScoreFromWarning(x.Level)
+                };
             })
             .ToList();
 
@@ -459,7 +474,7 @@ public static class AnalysisReportBuilder
             Paragraphs = [$"타입 {typeMetrics.Count:N0}개 중 경고 우선·LCOM 상위 {rows.Count}개."],
             Table = new ReportTable
             {
-                Headers = ["타입", "파일", "멤버+연산", "LCOM", "DIT", "NOC", "MaxCC", "상태", "권장 조치"],
+                Headers = ["타입", "파일", "멤버+연산", "LCOM", "DIT", "NOC", "MaxCC", "상태", "설명", "대처 방안"],
                 Rows = rows
             }
         };
@@ -544,6 +559,7 @@ public static class AnalysisReportBuilder
                     ? string.Join(" / ", group.SampleLines.Take(2).Select(line => Truncate(line, 60)))
                     : string.Empty;
 
+                var duplicateGuidance = DetectionGuidanceTexts.ForMetricInspection(MetricInspectionKind.DuplicateCodeGroups);
                 return new ReportTableRow
                 {
                     Cells =
@@ -552,7 +568,8 @@ public static class AnalysisReportBuilder
                         group.Fragments.Count.ToString(),
                         locations,
                         sample,
-                        "공통 함수·모듈로 추출하고, 한 곳만 수정해도 전체에 반영되게 하세요."
+                        duplicateGuidance.Meaning,
+                        duplicateGuidance.Action
                     ]
                 };
             })
@@ -571,7 +588,7 @@ public static class AnalysisReportBuilder
             Table = rows.Count > 0
                 ? new ReportTable
                 {
-                    Headers = ["줄수", "위치수", "위치", "샘플", "권장 조치"],
+                    Headers = ["줄수", "위치수", "위치", "샘플", "설명", "대처 방안"],
                     Rows = rows
                 }
                 : null
@@ -718,8 +735,9 @@ public static class AnalysisReportBuilder
                 Cells =
                 [
                     insight.Category,
-                    Truncate(insight.Description, 160),
-                    Truncate(AnalysisReportRemediationTexts.ForInsight(insight), 200),
+                    Truncate(insight.Description, 140),
+                    Truncate(AnalysisReportRemediationTexts.ForInsightMeaning(insight), 180),
+                    Truncate(AnalysisReportRemediationTexts.ForInsight(insight), 180),
                     AnalysisReportRemediationTexts.FormatStatus(insight.Severity)
                 ],
                 RiskScore = AnalysisReportRemediationTexts.RiskScoreFromWarning(insight.Severity)
@@ -738,7 +756,7 @@ public static class AnalysisReportBuilder
             Table = rows.Count > 0
                 ? new ReportTable
                 {
-                    Headers = ["유형", "결과", "권장 조치", "상태"],
+                    Headers = ["유형", "결과", "설명", "대처 방안", "상태"],
                     Rows = rows
                 }
                 : null

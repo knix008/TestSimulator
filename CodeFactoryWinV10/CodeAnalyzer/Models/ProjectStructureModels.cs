@@ -83,6 +83,7 @@ public sealed class AnalysisResult
     public GlobalVariableResult GlobalVariables { get; init; } = new();
     public DatabaseSchemaResult DatabaseSchema { get; init; } = new();
     public BugRiskResult BugRisk { get; init; } = BugRiskResult.Empty;
+    public SecurityAnalysisResult Security { get; init; } = SecurityAnalysisResult.Empty;
     public UserAnalysisSettings QualityThresholds { get; init; } = new();
     public IReadOnlyList<AnalysisIssue> Issues { get; init; } = [];
 }

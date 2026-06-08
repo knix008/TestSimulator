@@ -11,6 +11,7 @@ public sealed class SearchResultsPopup : Form
     private const int DetailPanelHeight = 108;
 
     private readonly ListBox _listBox;
+    private readonly Panel _listPanel;
     private readonly Panel _borderPanel;
     private readonly TextBox _detailBox;
     private IReadOnlyList<SearchResultItem> _results = [];
@@ -53,11 +54,17 @@ public sealed class SearchResultsPopup : Form
             ItemHeight = ItemHeight,
             Font = new Font("Segoe UI", 9f)
         };
-        _listBox.Dock = DockStyle.Fill;
         _listBox.DrawItem += ListBox_DrawItem;
         _listBox.SelectedIndexChanged += (_, _) => UpdateDetailPreview();
         _listBox.DoubleClick += (_, _) => ConfirmSelection();
         _listBox.KeyDown += ListBox_KeyDown;
+
+        _listPanel = new Panel
+        {
+            Dock = DockStyle.Top,
+            Padding = new Padding(0, 2, 0, 0)
+        };
+        _listPanel.Controls.Add(_listBox);
 
         _detailBox = new TextBox
         {
@@ -78,7 +85,7 @@ public sealed class SearchResultsPopup : Form
             BackColor = SystemColors.Window
         };
         inner.Controls.Add(_detailBox);
-        inner.Controls.Add(_listBox);
+        inner.Controls.Add(_listPanel);
         _borderPanel.Controls.Add(inner);
         Controls.Add(_borderPanel);
     }
@@ -127,10 +134,13 @@ public sealed class SearchResultsPopup : Form
 
         var width = Math.Max(anchorScreenBounds.Width, 420);
         var visibleCount = Math.Min(results.Count, MaxVisibleItems);
-        var listHeight = visibleCount * ItemHeight + 4;
-        var height = listHeight + DetailPanelHeight + 6;
+        var listHeight = visibleCount * ItemHeight + 6;
+        _listPanel.Height = listHeight;
+        var height = listHeight + DetailPanelHeight + 8;
         Location = new Point(anchorScreenBounds.Left, anchorScreenBounds.Bottom + 2);
         Size = new Size(width, height);
+
+        _listBox.TopIndex = 0;
         SelectedIndex = 0;
         UpdateDetailPreview();
 
@@ -171,10 +181,12 @@ public sealed class SearchResultsPopup : Form
         if (_listBox.SelectedItem is not SearchResultItem item)
         {
             _detailBox.Text = "항목을 선택하면 상세 정보가 표시됩니다. Enter 또는 더블클릭으로 이동합니다.";
+            TextBoxScrollHelper.ScrollToTop(_detailBox);
             return;
         }
 
         _detailBox.Text = SearchResultDetailBuilder.BuildDetailText(_analysis, item);
+        TextBoxScrollHelper.ScrollToTop(_detailBox);
     }
 
     public void ConfirmSelection()

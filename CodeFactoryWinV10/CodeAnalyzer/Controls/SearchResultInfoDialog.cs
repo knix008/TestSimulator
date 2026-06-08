@@ -82,6 +82,7 @@ public sealed class SearchResultInfoDialog : Form
 
         AcceptButton = closeButton;
         CancelButton = closeButton;
+        Shown += (_, _) => TextBoxScrollHelper.ScrollToTop(_detailBox);
     }
 
     public static void ShowForItem(IWin32Window? owner, AnalysisResult? analysis, SearchResultItem item)

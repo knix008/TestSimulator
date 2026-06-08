@@ -26,6 +26,8 @@ public sealed class FileLineMetric
     public bool IsTestFile { get; init; }
     public int PublicApiCount { get; init; }
     public int SecuritySmellCount { get; init; }
+    public IReadOnlyList<SecuritySmellHit> SecuritySmellHits { get; init; } = [];
+    public string? SecuritySmellSummary { get; init; }
     public int GitChangeLineCount { get; init; }
 }
 
@@ -56,6 +58,7 @@ public sealed class FileAggregateMetric
     public bool IsTestFile { get; init; }
     public int PublicApiCount { get; init; }
     public int SecuritySmellCount { get; init; }
+    public string? SecuritySmellSummary { get; init; }
     public int GitChangeLineCount { get; init; }
     public int MaxStatementCount { get; init; }
     public int MaxSwitchCaseCount { get; init; }

@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Services.Metrics;
 
@@ -44,6 +45,7 @@ public static class FileMetricsAggregator
                     IsTestFile = file.IsTestFile,
                     PublicApiCount = file.PublicApiCount,
                     SecuritySmellCount = file.SecuritySmellCount,
+                    SecuritySmellSummary = file.SecuritySmellSummary,
                     GitChangeLineCount = file.GitChangeLineCount
                 });
                 continue;
@@ -75,6 +77,7 @@ public static class FileMetricsAggregator
                 IsTestFile = file.IsTestFile,
                 PublicApiCount = file.PublicApiCount,
                 SecuritySmellCount = file.SecuritySmellCount,
+                SecuritySmellSummary = file.SecuritySmellSummary,
                 GitChangeLineCount = file.GitChangeLineCount,
                 MaxStatementCount = fileFunctions.Max(func => func.StatementCount),
                 MaxSwitchCaseCount = fileFunctions.Max(func => func.SwitchCaseCount),
@@ -557,7 +560,10 @@ public static class FileMetricsAggregator
         if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SecuritySmells)
             && file.SecuritySmellCount >= t.WarnSecuritySmellCount)
         {
-            actions.Add($"보안 smell {file.SecuritySmellCount}건. 비밀·동기 대기·SQL 연결을 점검하세요.");
+            var detail = string.IsNullOrWhiteSpace(file.SecuritySmellSummary)
+                ? $"보안 smell {file.SecuritySmellCount}건"
+                : $"보안 smell {file.SecuritySmellCount}건 ({file.SecuritySmellSummary})";
+            actions.Add($"{detail}. 언어별 위험 패턴을 점검하고 비밀·입력 검증·SQL 파라미터화를 적용하세요.");
         }
 
         if (MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GitHotspot)
@@ -646,5 +652,212 @@ public static class FileMetricsAggregator
         }
 
         return string.Join(" ", actions);
+    }
+
+    public static DetectionGuidance BuildFunctionGuidance(FunctionMetric func, UserAnalysisSettings t)
+    {
+        var action = BuildFunctionDescription(func, t);
+        return new DetectionGuidance(
+            DetectionGuidanceTexts.JoinGuidanceParts(CollectFunctionMeanings(func, t), "품질 기준 이내."),
+            action == "품질 기준 이내. 추가 조치 불필요." ? "추가 조치 불필요." : action);
+    }
+
+    public static DetectionGuidance BuildFileGuidance(FileAggregateMetric file, UserAnalysisSettings t)
+    {
+        var action = BuildFileDescription(file, t);
+        return new DetectionGuidance(
+            DetectionGuidanceTexts.JoinGuidanceParts(CollectFileMeanings(file, t), "품질 기준 이내."),
+            action is "품질 기준 이내. 추가 조치 불필요." or "타입 구조 기준 이내."
+                ? "추가 조치 불필요."
+                : action);
+    }
+
+    public static DetectionGuidance BuildTypeGuidance(TypeMetric type, UserAnalysisSettings t)
+    {
+        var action = BuildTypeDescription(type, t);
+        return new DetectionGuidance(
+            DetectionGuidanceTexts.JoinGuidanceParts(CollectTypeMeanings(type, t), "품질 기준 이내."),
+            action == "타입 구조 기준 이내." ? "추가 조치 불필요." : action);
+    }
+
+    public static DetectionGuidance BuildPackageGuidance(PackageMetric package, UserAnalysisSettings t)
+    {
+        var (meaning, action) = Reports.AnalysisReportRemediationTexts.ForPackage(package, t);
+        return new DetectionGuidance(meaning, action);
+    }
+
+    private static List<string> CollectFunctionMeanings(FunctionMetric func, UserAnalysisSettings t)
+    {
+        var scope = t.EnabledInspections;
+        var lines = new List<string>();
+
+        void Add(MetricInspectionKind kind, bool triggered, string context)
+        {
+            if (!triggered)
+            {
+                return;
+            }
+
+            var guidance = DetectionGuidanceTexts.ForMetricInspection(kind);
+            lines.Add(string.IsNullOrWhiteSpace(context)
+                ? guidance.Meaning
+                : $"{guidance.Meaning} ({context})");
+        }
+
+        Add(MetricInspectionKind.CyclomaticComplexity,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CyclomaticComplexity)
+            && func.CyclomaticComplexity >= t.WarnCyclomaticComplexity,
+            $"CC {func.CyclomaticComplexity}, 기준≥{t.WarnCyclomaticComplexity}");
+        Add(MetricInspectionKind.CognitiveComplexity,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CognitiveComplexity)
+            && func.CognitiveComplexity >= t.WarnCognitiveComplexity,
+            $"인지 {func.CognitiveComplexity}, 기준≥{t.WarnCognitiveComplexity}");
+        Add(MetricInspectionKind.NestingDepth,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.NestingDepth)
+            && func.MaxNestingDepth >= t.WarnMaxNestingDepth,
+            $"중첩 {func.MaxNestingDepth}, 기준≥{t.WarnMaxNestingDepth}");
+        Add(MetricInspectionKind.ParameterCount,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ParameterCount)
+            && func.ParameterCount >= t.WarnParameterCount,
+            $"매개변수 {func.ParameterCount}개, 기준≥{t.WarnParameterCount}");
+        Add(MetricInspectionKind.ReturnCount,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.ReturnCount)
+            && func.ReturnCount >= t.WarnReturnCount,
+            $"return {func.ReturnCount}개, 기준≥{t.WarnReturnCount}");
+        Add(MetricInspectionKind.MagicNumbers,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.MagicNumbers)
+            && func.MagicNumberCount >= t.WarnMagicNumbers,
+            $"매직 넘버 {func.MagicNumberCount}개, 기준≥{t.WarnMagicNumbers}");
+        Add(MetricInspectionKind.FanOut,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FanOut)
+            && func.FanOut >= t.WarnFanOut,
+            $"Fan-out {func.FanOut}, 기준≥{t.WarnFanOut}");
+        Add(MetricInspectionKind.MaintenanceIndex,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.MaintenanceIndex)
+            && func.MaintenanceIndex < t.WarnMaintenanceIndex,
+            $"MI {func.MaintenanceIndex:F0}, 기준<{t.WarnMaintenanceIndex:F0}");
+        Add(MetricInspectionKind.StatementCount,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.StatementCount)
+            && func.StatementCount >= t.WarnStatementCount,
+            $"문장 {func.StatementCount}개, 기준≥{t.WarnStatementCount}");
+        Add(MetricInspectionKind.SwitchCaseCount,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SwitchCaseCount)
+            && func.SwitchCaseCount >= t.WarnSwitchCaseCount,
+            $"case {func.SwitchCaseCount}개, 기준≥{t.WarnSwitchCaseCount}");
+        Add(MetricInspectionKind.CatchQuality, func.EmptyCatchCount > 0, $"빈 catch {func.EmptyCatchCount}개");
+        Add(MetricInspectionKind.CatchQuality, func.BroadCatchCount > 0, $"광범위 catch {func.BroadCatchCount}개");
+        Add(MetricInspectionKind.AsyncVoid, func.IsAsyncVoid, "async void");
+        Add(MetricInspectionKind.PossiblyUnusedCode, func.IsPossiblyUnused, "미사용 가능");
+        if (func.FanIn == 0 && func.FanOut == 0)
+        {
+            Add(MetricInspectionKind.IsolatedFunctions, true, "호출·피호출 0");
+        }
+
+        return lines;
+    }
+
+    private static List<string> CollectFileMeanings(FileAggregateMetric file, UserAnalysisSettings t)
+    {
+        var scope = t.EnabledInspections;
+        var lines = new List<string>();
+
+        void Add(MetricInspectionKind kind, bool triggered, string context)
+        {
+            if (!triggered)
+            {
+                return;
+            }
+
+            var guidance = DetectionGuidanceTexts.ForMetricInspection(kind);
+            lines.Add(string.IsNullOrWhiteSpace(context)
+                ? guidance.Meaning
+                : $"{guidance.Meaning} ({context})");
+        }
+
+        if (file.FunctionCount == 0)
+        {
+            if (IsGodFile(file, t))
+            {
+                Add(MetricInspectionKind.GodFile, true, $"코드 {file.CodeLines:N0}줄");
+            }
+
+            return lines;
+        }
+
+        Add(MetricInspectionKind.CyclomaticComplexity,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CyclomaticComplexity)
+            && file.MaxCyclomaticComplexity >= t.WarnCyclomaticComplexity,
+            $"최대 CC {file.MaxCyclomaticComplexity}");
+        Add(MetricInspectionKind.CognitiveComplexity,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CognitiveComplexity)
+            && file.MaxCognitiveComplexity >= t.WarnCognitiveComplexity,
+            $"최대 인지 {file.MaxCognitiveComplexity}");
+        Add(MetricInspectionKind.NestingDepth,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.NestingDepth)
+            && file.MaxNestingDepth >= t.WarnMaxNestingDepth,
+            $"최대 중첩 {file.MaxNestingDepth}");
+        Add(MetricInspectionKind.GodFile, IsGodFile(file, t), $"코드 {file.CodeLines:N0}줄");
+        Add(MetricInspectionKind.LowCommentRatio, IsLowCommentFile(file, t),
+            $"주석 {file.CommentPercentPer100Code:F1}%");
+        Add(MetricInspectionKind.FileDuplicateLines,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.FileDuplicateLines) && file.DuplicateLineCount > 0,
+            $"중복 참여 {file.DuplicateLineCount:N0}줄");
+        Add(MetricInspectionKind.SecuritySmells,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.SecuritySmells)
+            && file.SecuritySmellCount >= t.WarnSecuritySmellCount,
+            file.SecuritySmellSummary ?? $"smell {file.SecuritySmellCount}건");
+        Add(MetricInspectionKind.GitHotspot,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GitHotspot)
+            && file.GitChangeLineCount >= t.WarnGitChangeLines,
+            $"Git 변경 {file.GitChangeLineCount:N0}줄");
+        Add(MetricInspectionKind.TodoDensity,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TodoDensity)
+            && file.TodoDensityPer100Lines >= t.WarnTodoDensityPer100Lines,
+            $"TODO/100줄 {file.TodoDensityPer100Lines:F1}");
+        Add(MetricInspectionKind.PublicApiDensity,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.PublicApiDensity)
+            && file.PublicApiCount >= t.WarnPublicApiCount,
+            $"public API {file.PublicApiCount}개");
+
+        return lines;
+    }
+
+    private static List<string> CollectTypeMeanings(TypeMetric type, UserAnalysisSettings t)
+    {
+        var scope = t.EnabledInspections;
+        var lines = new List<string>();
+        var memberOps = type.MemberCount + type.OperationCount;
+
+        void Add(MetricInspectionKind kind, bool triggered, string context)
+        {
+            if (!triggered)
+            {
+                return;
+            }
+
+            var guidance = DetectionGuidanceTexts.ForMetricInspection(kind);
+            lines.Add(string.IsNullOrWhiteSpace(context)
+                ? guidance.Meaning
+                : $"{guidance.Meaning} ({context})");
+        }
+
+        Add(MetricInspectionKind.GodType,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.GodType)
+            && memberOps >= t.WarnGodTypeMemberCount,
+            $"멤버·연산 {memberOps}개");
+        Add(MetricInspectionKind.CyclomaticComplexity,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.CyclomaticComplexity)
+            && type.MaxCyclomaticComplexity >= t.WarnCyclomaticComplexity,
+            $"최대 CC {type.MaxCyclomaticComplexity}");
+        Add(MetricInspectionKind.TypeCohesion,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.TypeCohesion)
+            && type.LackOfCohesion >= t.WarnLackOfCohesion,
+            $"LCOM {type.LackOfCohesion:F2}");
+        Add(MetricInspectionKind.InheritanceDepth,
+            MetricInspectionScope.IsEnabled(scope, MetricInspectionKind.InheritanceDepth)
+            && type.DepthOfInheritance >= t.WarnInheritanceDepth,
+            $"DIT {type.DepthOfInheritance}");
+
+        return lines;
     }
 }

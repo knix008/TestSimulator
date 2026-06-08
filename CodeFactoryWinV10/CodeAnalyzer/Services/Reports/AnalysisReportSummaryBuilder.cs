@@ -1,5 +1,6 @@
 using CodeAnalyzer.Controls;
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Services.Reports;
 
@@ -7,13 +8,13 @@ internal static class AnalysisReportSummaryBuilder
 {
     public static ReportSection? BuildSection(AnalysisResult analysis)
     {
-        var snapshot = AnalysisSummarySnapshotBuilder.Build(analysis);
-        if (snapshot.Areas.Count == 0 && snapshot.RadarAxes.Count == 0)
+        var chartSections = AnalysisSummarySectionBuilder.Build(analysis);
+        if (chartSections.Count == 0)
         {
             return null;
         }
 
-        var chartSections = AnalysisSummarySectionBuilder.Build(analysis);
+        var snapshot = AnalysisSummarySnapshotBuilder.Build(analysis);
         var chartIndex = 0;
         var parts = new List<ReportSummaryPart>();
 
@@ -24,7 +25,7 @@ internal static class AnalysisReportSummaryBuilder
                 Title = chartSection.Title,
                 SummaryText = chartSection.SummaryText,
                 Chart = RenderChart(chartSection, ref chartIndex),
-                Table = ResolveTable(chartSection.Title, snapshot)
+                Table = ResolveTable(chartSection.Title, snapshot, analysis)
             });
         }
 
@@ -41,8 +42,38 @@ internal static class AnalysisReportSummaryBuilder
         };
     }
 
-    private static ReportTable? ResolveTable(string title, AnalysisSummarySnapshot snapshot)
+    private static ReportTable? ResolveTable(
+        string title,
+        AnalysisSummarySnapshot snapshot,
+        AnalysisResult analysis)
     {
+        if (title.StartsWith("분석 항목 — ", StringComparison.Ordinal))
+        {
+            var groupName = title["분석 항목 — ".Length..];
+            var slices = AnalysisSummaryInspectionPieBuilder.Build(analysis)
+                .Where(slice => string.Equals(slice.Group, groupName, StringComparison.Ordinal))
+                .ToList();
+            if (slices.Count == 0)
+            {
+                return null;
+            }
+
+            return new ReportTable
+            {
+                Headers = ["검사 항목", "측정값"],
+                Rows = slices
+                    .Select(slice => new ReportTableRow
+                    {
+                        Cells =
+                        [
+                            slice.Label,
+                            FormatInspectionValue(slice.Value)
+                        ]
+                    })
+                    .ToList()
+            };
+        }
+
         if (string.Equals(title, "품질 개선 레이더", StringComparison.Ordinal))
         {
             if (snapshot.RadarAxes.Count == 0)
@@ -80,7 +111,7 @@ internal static class AnalysisReportSummaryBuilder
         }
 
         var width = section.IsFullWidth ? 920 : 520;
-        var height = section.IsFullWidth ? 360 : 380;
+        var height = section.CardHeight ?? (section.IsFullWidth ? 360 : 380);
         var pngBytes = SummaryChartRenderer.RenderToPng(section, width, height);
         if (pngBytes is null || pngBytes.Length == 0)
         {
@@ -143,8 +174,11 @@ internal static class AnalysisReportSummaryBuilder
             return $"{metric.Value:F1}%";
         }
 
-        return Math.Abs(metric.Value - Math.Truncate(metric.Value)) < 0.001
-            ? metric.Value.ToString("N0")
-            : metric.Value.ToString("0.#");
+        return FormatInspectionValue(metric.Value);
     }
+
+    private static string FormatInspectionValue(double value) =>
+        Math.Abs(value - Math.Truncate(value)) < 0.001
+            ? value.ToString("N0")
+            : value.ToString("0.#");
 }

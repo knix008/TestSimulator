@@ -280,28 +280,51 @@ internal static class SummaryChartPainter
         Font labelFont,
         bool donut)
     {
-        var total = slices.Sum(slice => slice.Value);
-        if (total <= 0 || slices.Count == 0)
+        if (slices.Count == 0)
         {
             DrawEmptyChart(graphics, bounds, "표시할 데이터가 없습니다.");
             return;
         }
 
-        var legendWidth = Math.Min(170, bounds.Width / 2);
-        var pieSize = Math.Min(bounds.Height - 8, bounds.Width - legendWidth - 12);
+        var positiveTotal = slices.Where(slice => slice.Value > 0).Sum(slice => slice.Value);
+        const int maxRowsPerColumn = 14;
+        var columnCount = Math.Max(1, (int)Math.Ceiling(slices.Count / (double)maxRowsPerColumn));
+        var columnWidth = Math.Max(150, Math.Min(220, (bounds.Width - 220) / columnCount));
+        var legendWidth = columnCount * columnWidth + 8;
+        var pieSize = Math.Min(bounds.Height - 8, Math.Max(120, bounds.Width - legendWidth - 12));
         var pieRect = new Rectangle(bounds.Left, bounds.Top + (bounds.Height - pieSize) / 2, pieSize, pieSize);
         var legendRect = new Rectangle(pieRect.Right + 10, bounds.Top + 4, legendWidth, bounds.Height - 8);
 
-        float startAngle = -90f;
-        foreach (var slice in slices.Where(s => s.Value > 0))
+        if (positiveTotal > 0)
         {
-            var sweep = (float)(slice.Value / total * 360.0);
-            using var brush = new SolidBrush(slice.Color);
-            graphics.FillPie(brush, pieRect, startAngle, sweep);
-            startAngle += sweep;
+            float startAngle = -90f;
+            foreach (var slice in slices.Where(s => s.Value > 0))
+            {
+                var sweep = (float)(slice.Value / positiveTotal * 360.0);
+                using var brush = new SolidBrush(slice.Color);
+                graphics.FillPie(brush, pieRect, startAngle, sweep);
+                startAngle += sweep;
+            }
+        }
+        else
+        {
+            using var emptyBrush = new SolidBrush(Color.FromArgb(235, 238, 244));
+            using var emptyPen = new Pen(Color.FromArgb(210, 218, 230));
+            graphics.FillEllipse(emptyBrush, pieRect);
+            graphics.DrawEllipse(emptyPen, pieRect);
+            using var emptyFont = new Font("Segoe UI", 8.5f);
+            using var emptyBrushText = new SolidBrush(TextColor);
+            var emptyText = "검출 0";
+            var emptySize = graphics.MeasureString(emptyText, emptyFont);
+            graphics.DrawString(
+                emptyText,
+                emptyFont,
+                emptyBrushText,
+                pieRect.Left + (pieRect.Width - emptySize.Width) / 2f,
+                pieRect.Top + (pieRect.Height - emptySize.Height) / 2f);
         }
 
-        if (donut)
+        if (donut && positiveTotal > 0)
         {
             var inner = pieSize / 3;
             var innerRect = new Rectangle(
@@ -313,7 +336,7 @@ internal static class SummaryChartPainter
             graphics.FillEllipse(hole, innerRect);
             using var centerFont = new Font("Segoe UI", 10f, FontStyle.Bold);
             using var centerBrush = new SolidBrush(TitleColor);
-            var centerText = total >= 1000 ? $"{total / 1000.0:0.#}k" : total.ToString("0");
+            var centerText = positiveTotal >= 1000 ? $"{positiveTotal / 1000.0:0.#}k" : positiveTotal.ToString("0");
             var centerSize = graphics.MeasureString(centerText, centerFont);
             graphics.DrawString(
                 centerText,
@@ -324,16 +347,29 @@ internal static class SummaryChartPainter
         }
 
         using var labelBrush = new SolidBrush(TextColor);
-        var y = legendRect.Top;
-        foreach (var slice in slices.Where(s => s.Value > 0))
+        for (var column = 0; column < columnCount; column++)
         {
-            var swatch = new Rectangle(legendRect.Left, y + 3, 10, 10);
-            using var swatchBrush = new SolidBrush(slice.Color);
-            graphics.FillRectangle(swatchBrush, swatch);
-            var percent = slice.Value / total * 100.0;
-            var text = $"{slice.Label}  {slice.Value:0} ({percent:0.#}%)";
-            graphics.DrawString(text, labelFont, labelBrush, legendRect.Left + 16, y);
-            y += 18;
+            var columnLeft = legendRect.Left + column * columnWidth;
+            var y = legendRect.Top;
+            var startIndex = column * maxRowsPerColumn;
+            var endIndex = Math.Min(slices.Count, startIndex + maxRowsPerColumn);
+
+            for (var i = startIndex; i < endIndex; i++)
+            {
+                var slice = slices[i];
+                var swatch = new Rectangle(columnLeft, y + 3, 10, 10);
+                using var swatchBrush = new SolidBrush(slice.Color);
+                graphics.FillRectangle(swatchBrush, swatch);
+                var percent = positiveTotal > 0 && slice.Value > 0
+                    ? slice.Value / positiveTotal * 100.0
+                    : 0;
+                var valueText = slice.Value >= 1000 ? $"{slice.Value / 1000.0:0.#}k" : slice.Value.ToString("0.#");
+                var text = positiveTotal > 0 && slice.Value > 0
+                    ? $"{slice.Label}  {valueText} ({percent:0.#}%)"
+                    : $"{slice.Label}  {valueText}";
+                graphics.DrawString(text, labelFont, labelBrush, columnLeft + 16, y);
+                y += 18;
+            }
         }
     }
 

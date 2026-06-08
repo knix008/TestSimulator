@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Services.Reports;
 
@@ -130,61 +131,11 @@ internal static class AnalysisReportRemediationTexts
         };
     }
 
-    public static string ForInsight(ArchitectureInsight insight)
-    {
-        return insight.Kind switch
-        {
-            ArchitectureInsightKind.CircularCall =>
-                "순환을 끊기 위해 공통 인터페이스 추출, 이벤트 기반 통신, 의존성 주입으로 단방향 의존을 만드세요.",
-            ArchitectureInsightKind.FileCoupling when insight.Category == "파일 허브" =>
-                "다수 파일을 호출하는 허브 파일은 변경 영향이 큽니다. 공통 로직을 별도 모듈로 분리하고, 호출자는 좁은 API만 사용하게 하세요.",
-            ArchitectureInsightKind.FileCoupling =>
-                "고결합 파일 쌍은 공통 모듈 추출·인터페이스 분리·순환 import 제거로 결합을 낮추세요.",
-            ArchitectureInsightKind.DirectoryCoupling =>
-                "폴더 간 양방향 의존을 제거하고, 상위 모듈이 하위 구현에 직접 의존하지 않게 레이어를 정리하세요.",
-            ArchitectureInsightKind.FanOutHub =>
-                "허브 함수의 책임을 역할별 하위 서비스로 분리하고, 호출자는 파사드만 사용하게 하세요.",
-            ArchitectureInsightKind.FanInHub =>
-                "핵심 API이므로 변경 시 회귀 테스트를 강화하고, 인터페이스 안정성을 유지하세요.",
-            ArchitectureInsightKind.IsolatedFunction =>
-                "진입점·콜백·동적 호출 여부를 확인하고, 미사용이면 제거·테스트 연결을 검토하세요.",
-            ArchitectureInsightKind.DuplicateCode or ArchitectureInsightKind.FileDuplicate =>
-                "중복 블록을 공통 라이브러리·헬퍼로 추출하고, 한 곳만 수정하면 전체에 반영되게 하세요.",
-            ArchitectureInsightKind.GodFile =>
-                "파일을 기능·레이어·도메인 단위로 분할하고, public API 표면을 줄이세요.",
-            ArchitectureInsightKind.LowComment =>
-                "모듈 README·XML/주석으로 의도·사용법·제약을 문서화하세요.",
-            ArchitectureInsightKind.PossiblyUnusedCode =>
-                "리플렉션·DI·테스트에서의 사용을 확인한 뒤 dead code를 제거하세요.",
-            ArchitectureInsightKind.CatchQuality =>
-                "빈 catch 제거, 구체 예외 처리, 구조화 로깅을 적용하세요.",
-            ArchitectureInsightKind.AsyncVoid =>
-                "Task 반환 비동기 메서드로 변경하고, 호출부에서 await 하세요.",
-            ArchitectureInsightKind.TestCoverage =>
-                "핵심 비즈니스·핫스팟 파일부터 단위·통합 테스트를 추가하세요.",
-            ArchitectureInsightKind.PackageInstability =>
-                "불안정 패키지는 추상 인터페이스를 도입해 구현 세부에 대한 의존(Ce)을 줄이세요.",
-            ArchitectureInsightKind.LayerViolation =>
-                "의존 방향을 domain → application → infrastructure 순으로 재배치하고, 역참조는 인터페이스로 뒤집으세요.",
-            ArchitectureInsightKind.TypeCohesion =>
-                "필드를 공유하지 않는 메서드는 별도 타입으로 분리하세요.",
-            ArchitectureInsightKind.InheritanceMetrics =>
-                "깊은 상속은 합성으로, 자식이 많은 기반 클래스는 인터페이스·조합으로 대체하세요.",
-            ArchitectureInsightKind.GitHotspot =>
-                "변경이 잦은 파일은 리팩터링·테스트·코드 리뷰를 집중하세요.",
-            ArchitectureInsightKind.SecuritySmell =>
-                "비밀 하드코딩 제거, async 동기 대기 제거, SQL 파라미터화·ORM 사용을 검토하세요.",
-            ArchitectureInsightKind.GlobalVariable =>
-                "전역 상태를 줄이고, DI·스코프 제한 객체로 대체하세요.",
-            ArchitectureInsightKind.DatabaseSchema =>
-                "스키마 변경 시 마이그레이션·ERD 문서를 최신 상태로 유지하세요.",
-            ArchitectureInsightKind.TypeStructure =>
-                "타입·상속·의존 관계를 다이어그램으로 공유하고 과도한 결합을 줄이세요.",
-            ArchitectureInsightKind.Summary =>
-                "상단 요약 수치를 기준으로 우선 조치 로드맵을 수립하세요.",
-            _ => "설명을 참고하여 해당 영역의 구조·품질을 개선하세요."
-        };
-    }
+    public static string ForInsightMeaning(ArchitectureInsight insight) =>
+        DetectionGuidanceTexts.ForArchitectureInsight(insight).Meaning;
+
+    public static string ForInsight(ArchitectureInsight insight) =>
+        DetectionGuidanceTexts.ForArchitectureInsight(insight).Action;
 
     public static (string Meaning, string Action) ForPackage(PackageMetric package, UserAnalysisSettings thresholds)
     {

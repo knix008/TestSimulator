@@ -87,6 +87,7 @@ public sealed class StructureDiagramViewer : UserControl
 
         _focusedTypeId = typeId;
         Rebuild();
+        EnsureCurrentBoxVisible();
     }
 
     public void BeginAnalysis()
@@ -179,6 +180,34 @@ public sealed class StructureDiagramViewer : UserControl
         _currentHighlightId = currentId;
         _zoom.InvalidateCache();
         Invalidate();
+        EnsureCurrentBoxVisible();
+    }
+
+    private void EnsureCurrentBoxVisible()
+    {
+        var targetId = _currentHighlightId
+            ?? _focusedTypeId
+            ?? _fileRootOverride.FirstOrDefault()
+            ?? _directoryRootOverride.FirstOrDefault();
+        ScrollToBox(targetId);
+    }
+
+    private void ScrollToBox(string? boxId)
+    {
+        if (string.IsNullOrEmpty(boxId) || !_boxMap.TryGetValue(boxId, out var box))
+        {
+            return;
+        }
+
+        var location = box.Bounds.Location;
+        if (IsHandleCreated)
+        {
+            BeginInvoke(() => _zoom.ScrollToDocumentPoint(this, location, _contentSize));
+        }
+        else
+        {
+            _zoom.ScrollToDocumentPoint(this, location, _contentSize);
+        }
     }
 
     protected override void OnScroll(ScrollEventArgs se)
@@ -559,6 +588,7 @@ public sealed class StructureDiagramViewer : UserControl
             ViewFailureReporter.Report(this, DiagramViewDisplayNames.Get(_viewKind), "구성", ex);
         }
 
+        EnsureCurrentBoxVisible();
         Invalidate();
     }
 

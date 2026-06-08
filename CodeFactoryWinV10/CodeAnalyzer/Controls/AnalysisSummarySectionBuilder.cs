@@ -23,6 +23,10 @@ internal static class AnalysisSummarySectionBuilder
 
         var snapshot = AnalysisSummarySnapshotBuilder.Build(analysis);
         var sections = new List<SummarySection>();
+
+        var inspectionPies = MapInspectionPieGroups(analysis);
+        sections.AddRange(inspectionPies);
+
         var radarSection = MapRadar(snapshot.RadarAxes);
         if (radarSection is not null)
         {
@@ -30,6 +34,52 @@ internal static class AnalysisSummarySectionBuilder
         }
 
         sections.AddRange(snapshot.Areas.Select(MapArea));
+        return sections;
+    }
+
+    private static IReadOnlyList<SummarySection> MapInspectionPieGroups(AnalysisResult analysis)
+    {
+        var groups = AnalysisSummaryInspectionPieBuilder.BuildGrouped(analysis);
+        if (groups.Count == 0)
+        {
+            return [];
+        }
+
+        var sections = new List<SummarySection>(groups.Count);
+        foreach (var group in groups)
+        {
+            var chartSlices = group.Slices
+                .Select(slice => new SummaryChartSlice(
+                    slice.Label,
+                    slice.Value,
+                    SummarySeverityChartColors.ForSeverity(slice.Severity)))
+                .ToList();
+
+            var total = chartSlices.Sum(slice => slice.Value);
+            var itemCount = chartSlices.Count;
+            const int rowsPerColumn = 8;
+            var legendColumns = Math.Max(1, (int)Math.Ceiling(itemCount / (double)rowsPerColumn));
+            var legendRows = (int)Math.Ceiling(itemCount / (double)legendColumns);
+
+            sections.Add(new SummarySection
+            {
+                Title = $"분석 항목 — {group.Group}",
+                SummaryText =
+                    $"{group.Group} 그룹 {itemCount}개 항목. " +
+                    (total > 0
+                        ? $"측정값 합계 {total:N0} — 빨강=심각, 노랑=경고, 파랑=정보, 회색=검출 없음."
+                        : "검출값이 없어도 선택된 항목은 범례에 표시됩니다. 빨강=심각, 노랑=경고, 파랑=정보, 회색=검출 없음."),
+                ChartKind = SummaryChartKind.Pie,
+                Kpis =
+                [
+                    new SummaryKpiItem("항목", itemCount.ToString()),
+                    new SummaryKpiItem("합계", total >= 1000 ? $"{total / 1000.0:0.#}k" : total.ToString("N0"))
+                ],
+                CardHeight = Math.Max(380, 118 + 170 + legendRows * 18 + 12),
+                Slices = chartSlices
+            });
+        }
+
         return sections;
     }
 

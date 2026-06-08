@@ -102,10 +102,11 @@ public sealed class AnalysisSummaryViewer : UserControl
 
     private Panel CreateCard(SummarySection section)
     {
+        var defaultHeight = section.IsFullWidth ? FullWidthCardHeight : CardHeight;
         var card = new Panel
         {
             Width = section.IsFullWidth ? Math.Max(CardWidth, _scrollHost.ClientSize.Width - CardGap * 2) : CardWidth,
-            Height = section.IsFullWidth ? FullWidthCardHeight : CardHeight,
+            Height = section.CardHeight ?? defaultHeight,
             BackColor = Color.Transparent,
             Margin = new Padding(0, 0, CardGap, CardGap)
         };
@@ -133,12 +134,12 @@ public sealed class AnalysisSummaryViewer : UserControl
 
         foreach (Control control in _cardsPanel.Controls)
         {
-            if (control.Tag is SummarySection { IsFullWidth: true })
+            if (control.Tag is SummarySection { IsFullWidth: true } fullWidthSection)
             {
                 control.Width = availableWidth;
-                control.Height = FullWidthCardHeight;
+                control.Height = fullWidthSection.CardHeight ?? FullWidthCardHeight;
                 control.Location = new Point(CardGap, y);
-                y += FullWidthCardHeight + CardGap;
+                y += control.Height + CardGap;
                 column = 0;
                 x = CardGap;
                 maxRight = Math.Max(maxRight, CardGap + availableWidth);

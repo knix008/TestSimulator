@@ -232,11 +232,11 @@ public sealed class CodeMetricsViewer : UserControl
         _adjustingColumnLayout = true;
         try
         {
-            AdjustDescriptionColumnWidth(_functionList, 22);
-            AdjustDescriptionColumnWidth(_fileList, 23);
-            AdjustDescriptionColumnWidth(_typeList, 18);
-            AdjustDescriptionColumnWidth(_packageList, 0, 160);
-            AdjustDescriptionColumnWidth(_architectureList, 4);
+            AdjustGuidanceColumnWidths(_functionList, 22, 23);
+            AdjustGuidanceColumnWidths(_fileList, 23, 24);
+            AdjustGuidanceColumnWidths(_typeList, 18, 19);
+            AdjustGuidanceColumnWidths(_packageList, 7, 8);
+            AdjustGuidanceColumnWidths(_architectureList, 4, 5);
         }
         finally
         {
@@ -327,7 +327,8 @@ public sealed class CodeMetricsViewer : UserControl
         new() { Text = "WMC", Width = 44, TextAlign = HorizontalAlignment.Right },
         new() { Text = "정밀", Width = 56 },
         new() { Text = "상태", Width = 52 },
-        new() { Text = "설명", Width = 360 }
+        new() { Text = "설명", Width = 220 },
+        new() { Text = "대처 방안", Width = 220 }
     ];
 
     private static readonly ColumnHeader[] FileColumns =
@@ -355,7 +356,8 @@ public sealed class CodeMetricsViewer : UserControl
         new() { Text = "case↑", Width = 48, TextAlign = HorizontalAlignment.Right },
         new() { Text = "asyncΣ", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "상태", Width = 52 },
-        new() { Text = "설명", Width = 360 }
+        new() { Text = "설명", Width = 220 },
+        new() { Text = "대처 방안", Width = 220 }
     ];
 
     private static readonly ColumnHeader[] TypeColumns =
@@ -377,7 +379,8 @@ public sealed class CodeMetricsViewer : UserControl
         new() { Text = "WMC", Width = 44, TextAlign = HorizontalAlignment.Right },
         new() { Text = "RFC", Width = 44, TextAlign = HorizontalAlignment.Right },
         new() { Text = "상태", Width = 52 },
-        new() { Text = "설명", Width = 360 }
+        new() { Text = "설명", Width = 220 },
+        new() { Text = "대처 방안", Width = 220 }
     ];
 
     private static readonly ColumnHeader[] PackageColumns =
@@ -388,7 +391,9 @@ public sealed class CodeMetricsViewer : UserControl
         new() { Text = "I", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "A", Width = 52, TextAlign = HorizontalAlignment.Right },
         new() { Text = "D", Width = 52, TextAlign = HorizontalAlignment.Right },
-        new() { Text = "상태", Width = 52 }
+        new() { Text = "상태", Width = 52 },
+        new() { Text = "설명", Width = 220 },
+        new() { Text = "대처 방안", Width = 220 }
     ];
 
     private static readonly ColumnHeader[] ArchitectureColumns =
@@ -397,7 +402,8 @@ public sealed class CodeMetricsViewer : UserControl
         new() { Text = "유형", Width = 96 },
         new() { Text = "내용", Width = 280 },
         new() { Text = "상태", Width = 52 },
-        new() { Text = "설명", Width = 360 }
+        new() { Text = "설명", Width = 220 },
+        new() { Text = "대처 방안", Width = 220 }
     ];
 
     public void SetMetrics(
@@ -649,11 +655,12 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(func.WeightedMethodComplexity > 0 ? func.WeightedMethodComplexity.ToString() : "-");
             item.SubItems.Add(FormatPrecision(func.Precision));
             var level = FileMetricsAggregator.GetFunctionWarningLevel(func, _thresholds);
-            var description = FileMetricsAggregator.BuildFunctionDescription(func, _thresholds);
+            var guidance = FileMetricsAggregator.BuildFunctionGuidance(func, _thresholds);
             item.SubItems.Add(FormatWarningLevel(level));
-            item.SubItems.Add(description);
+            item.SubItems.Add(guidance.Meaning);
+            item.SubItems.Add(guidance.Action);
             item.Tag = func;
-            item.ToolTipText = description;
+            item.ToolTipText = $"{guidance.Meaning}{Environment.NewLine}{Environment.NewLine}대처: {guidance.Action}";
 
             ApplyWarningColor(item, level);
 
@@ -695,11 +702,12 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(file.MaxSwitchCaseCount.ToString());
             item.SubItems.Add(file.AsyncVoidCount.ToString());
             var level = FileMetricsAggregator.GetFileWarningLevel(file, _thresholds);
-            var description = FileMetricsAggregator.BuildFileDescription(file, _thresholds);
+            var guidance = FileMetricsAggregator.BuildFileGuidance(file, _thresholds);
             item.SubItems.Add(FormatWarningLevel(level));
-            item.SubItems.Add(description);
+            item.SubItems.Add(guidance.Meaning);
+            item.SubItems.Add(guidance.Action);
             item.Tag = file;
-            item.ToolTipText = description;
+            item.ToolTipText = $"{guidance.Meaning}{Environment.NewLine}{Environment.NewLine}대처: {guidance.Action}";
 
             ApplyWarningColor(item, level);
 
@@ -731,7 +739,7 @@ public sealed class CodeMetricsViewer : UserControl
         foreach (var type in rows)
         {
             var level = FileMetricsAggregator.GetTypeWarningLevel(type, _thresholds);
-            var description = FileMetricsAggregator.BuildTypeDescription(type, _thresholds);
+            var guidance = FileMetricsAggregator.BuildTypeGuidance(type, _thresholds);
             var item = new ListViewItem(type.Kind);
             item.SubItems.Add(type.DisplayName);
             item.SubItems.Add(Path.GetFileName(type.FilePath));
@@ -749,9 +757,10 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(type.WeightedMethodCount > 0 ? type.WeightedMethodCount.ToString() : "-");
             item.SubItems.Add(type.ResponseForClass > 0 ? type.ResponseForClass.ToString() : "-");
             item.SubItems.Add(FormatWarningLevel(level));
-            item.SubItems.Add(description);
+            item.SubItems.Add(guidance.Meaning);
+            item.SubItems.Add(guidance.Action);
             item.Tag = type;
-            item.ToolTipText = description;
+            item.ToolTipText = $"{guidance.Meaning}{Environment.NewLine}{Environment.NewLine}대처: {guidance.Action}";
             ApplyWarningColor(item, level);
             _typeList.Items.Add(item);
         }
@@ -778,10 +787,14 @@ public sealed class CodeMetricsViewer : UserControl
             item.SubItems.Add(package.Abstractness.ToString("F2"));
             item.SubItems.Add(package.DistanceFromMainSequence.ToString("F2"));
             item.SubItems.Add(FormatWarningLevel(level));
+            var guidance = FileMetricsAggregator.BuildPackageGuidance(package, _thresholds);
+            item.SubItems.Add(guidance.Meaning);
+            item.SubItems.Add(guidance.Action);
             item.Tag = package;
             item.ToolTipText =
                 $"{package.DirectoryPath} · Ca {package.AfferentCoupling} · Ce {package.EfferentCoupling} · " +
-                $"I {package.Instability:F2} · A {package.Abstractness:F2} · D {package.DistanceFromMainSequence:F2}";
+                $"I {package.Instability:F2} · A {package.Abstractness:F2} · D {package.DistanceFromMainSequence:F2}" +
+                $"{Environment.NewLine}{Environment.NewLine}{guidance.Meaning}{Environment.NewLine}대처: {guidance.Action}";
             ApplyWarningColor(item, level);
             _packageList.Items.Add(item);
         }
@@ -803,7 +816,8 @@ public sealed class CodeMetricsViewer : UserControl
                 $"중복 줄 {summary.DuplicateLineCount:N0} ({summary.ProjectDuplicateLinePercent:F1}%) · " +
                 $"순환 호출 {summary.CircularCallChainCount}건 · TODO 표식 {summary.TotalTodoMarkers}개");
             fallbackItem.SubItems.Add(FormatWarningLevel(WarningLevel.None));
-            fallbackItem.SubItems.Add("분석 결과가 없어 상세 인사이트를 표시할 수 없습니다.");
+            fallbackItem.SubItems.Add("분석 결과가 없어 상세 인사이트 설명을 표시할 수 없습니다.");
+            fallbackItem.SubItems.Add("프로젝트를 분석한 뒤 다시 확인하세요.");
             fallbackItem.ToolTipText = fallbackItem.SubItems[4].Text;
             _architectureList.Items.Add(fallbackItem);
             return;
@@ -830,14 +844,16 @@ public sealed class CodeMetricsViewer : UserControl
         var index = 1;
         foreach (var insight in insights.Where(i => !IsArchitectureSummaryInsight(i)))
         {
+            var meaning = AnalysisReportRemediationTexts.ForInsightMeaning(insight);
             var remediation = AnalysisReportRemediationTexts.ForInsight(insight);
             var item = new ListViewItem(index.ToString());
             item.SubItems.Add(insight.Category);
             item.SubItems.Add(insight.Description);
             item.SubItems.Add(FormatWarningLevel(insight.Severity));
+            item.SubItems.Add(meaning);
             item.SubItems.Add(remediation);
             item.Tag = insight.NavigationTag;
-            item.ToolTipText = remediation;
+            item.ToolTipText = $"{meaning}{Environment.NewLine}{Environment.NewLine}대처: {remediation}";
             ApplyWarningColor(item, insight.Severity);
             _architectureList.Items.Add(item);
             index++;
@@ -867,9 +883,13 @@ public sealed class CodeMetricsViewer : UserControl
         return Math.Max(0, width);
     }
 
-    private static void AdjustDescriptionColumnWidth(ListView list, int descriptionColumnIndex, int minWidth = 240)
+    private static void AdjustGuidanceColumnWidths(
+        ListView list,
+        int meaningColumnIndex,
+        int actionColumnIndex,
+        int minWidth = 160)
     {
-        if (list.Columns.Count <= descriptionColumnIndex
+        if (list.Columns.Count <= actionColumnIndex
             || list.ClientSize.Width <= 0
             || !list.IsHandleCreated)
         {
@@ -879,16 +899,17 @@ public sealed class CodeMetricsViewer : UserControl
         var fixedWidth = 0;
         for (var i = 0; i < list.Columns.Count; i++)
         {
-            if (i != descriptionColumnIndex)
+            if (i != meaningColumnIndex && i != actionColumnIndex)
             {
                 fixedWidth += list.Columns[i].Width;
             }
         }
 
-        var availableWidth = GetAvailableListClientWidth(list);
-        SetColumnWidthIfChanged(
-            list.Columns[descriptionColumnIndex],
-            Math.Max(minWidth, Math.Max(0, availableWidth - fixedWidth)));
+        var availableWidth = Math.Max(minWidth * 2, GetAvailableListClientWidth(list) - fixedWidth);
+        var meaningWidth = Math.Max(minWidth, (int)(availableWidth * 0.48));
+        var actionWidth = Math.Max(minWidth, availableWidth - meaningWidth);
+        SetColumnWidthIfChanged(list.Columns[meaningColumnIndex], meaningWidth);
+        SetColumnWidthIfChanged(list.Columns[actionColumnIndex], actionWidth);
     }
 
     private static void SetColumnWidthIfChanged(ColumnHeader column, int targetWidth)
@@ -1325,7 +1346,8 @@ public sealed class CodeMetricsViewer : UserControl
         "Weighted Method Complexity(WMC): 메서드 복잡도의 가중 합입니다.",
         "메트릭 계산 정밀도입니다. 의미(Roslyn) > 구문(Tree-sitter) > 근사(정규식/패턴) 순으로 신뢰도가 높습니다.",
         "품질 경고 수준입니다. 정상 · 경고(기준 초과) · 심각(기준 대비 매우 높음).",
-        "품질 기준 대비 권장 개선 조치입니다. 열 헤더에 마우스를 올리면 지표 설명을, 행에 마우스를 올리면 전체 설명을 볼 수 있습니다."
+        "검출된 이슈의 의미·맥락 설명입니다. 지표가 무엇을 나타내는지, 현재 값이 왜 주의 대상인지 요약합니다.",
+        "권장 대처 방안입니다. 구체적인 개선·리팩터링·보안 조치를 안내합니다."
     ];
 
     private static string[] BuildFileHeaderToolTips(UserAnalysisSettings t) =>
@@ -1348,12 +1370,13 @@ public sealed class CodeMetricsViewer : UserControl
         "중복 코드 그룹에 참여한 줄 수(파일별 합계)입니다.",
         $"public API(공개 타입·멤버) 수입니다. 현재 경고 기준: {t.WarnPublicApiCount}개 이상.",
         $"Git 변경 줄 수(핫스팟)입니다. 자주 수정되는 파일일수록 유지보수·결함 위험이 큽니다. 현재 경고 기준: {t.WarnGitChangeLines}줄 이상.",
-        $"보안 smell(하드코딩 비밀번호·위험 API 등) 개수입니다. 현재 경고 기준: {t.WarnSecuritySmellCount}개 이상.",
+        $"보안 smell(언어별 위험 패턴: 하드코딩 비밀, SQL 연결, eval 등) 개수입니다. 현재 경고 기준: {t.WarnSecuritySmellCount}개 이상.",
         "파일 내 함수들의 최대 문장 수입니다.",
         "파일 내 함수들의 최대 switch/case 수입니다.",
         "파일 내 async void 함수 개수입니다.",
         "파일 전체 품질 경고 수준입니다. 정상 · 경고 · 심각.",
-        "파일 단위 권장 개선 조치입니다. 행에 마우스를 올리면 전체 설명을 볼 수 있습니다."
+        "파일에서 검출된 이슈의 의미·맥락 설명입니다.",
+        "파일 단위 권장 대처 방안입니다."
     ];
 
     private static string[] BuildTypeHeaderToolTips(UserAnalysisSettings t) =>
@@ -1375,7 +1398,8 @@ public sealed class CodeMetricsViewer : UserControl
         "Weighted Method Count(WMC): 타입 메서드 복잡도의 가중 합입니다.",
         "Response For Class(RFC): 타입이 호출할 수 있는 메서드 수 추정치입니다.",
         "타입 품질 경고 수준입니다. 정상 · 경고 · 심각.",
-        $"{QualityThresholdToolTipTexts.GodType} 현재 경고 기준: 멤버+연산 ≥{t.WarnGodTypeMemberCount}. 행에 마우스를 올리면 상세 설명을 볼 수 있습니다."
+        "타입에서 검출된 구조·품질 이슈의 의미 설명입니다.",
+        "타입 단위 권장 대처 방안입니다."
     ];
 
     private static string[] BuildPackageHeaderToolTips(UserAnalysisSettings t) =>
@@ -1386,7 +1410,9 @@ public sealed class CodeMetricsViewer : UserControl
         $"I(Instability): Ce/(Ca+Ce). 1에 가까울수록 불안정(변경 영향 큼)합니다. 현재 경고 기준: {t.WarnInstability:F2} 이상.",
         "A(Abstractness): 추상 타입·인터페이스 비율입니다. Main Sequence 분석에 사용됩니다.",
         "D(Distance): Main Sequence(|A+I-1|)에서의 거리입니다. 0에 가까울수록 이상적인 균형입니다.",
-        "패키지 불안정성 경고 수준입니다. 정상 · 경고 · 심각."
+        "패키지 불안정성 경고 수준입니다. 정상 · 경고 · 심각.",
+        "패키지 결합·불안정 지표의 의미 설명입니다.",
+        "패키지 구조 개선을 위한 권장 대처 방안입니다."
     ];
 
     private static readonly string[] ArchitectureHeaderToolTips =
@@ -1395,7 +1421,8 @@ public sealed class CodeMetricsViewer : UserControl
         "인사이트 유형입니다. 순환 호출, 파일·디렉터리 결합, 중복 코드, 계층 위반, Git 핫스팟 등이 표시됩니다.",
         "검출된 구조적 이슈의 측정·위치 정보입니다. 더블클릭하면 관련 그래프·파일로 이동할 수 있습니다.",
         "경고 수준입니다. 정상 · 경고 · 심각.",
-        "권장 개선 조치입니다. 행에 마우스를 올리면 전체 설명을 볼 수 있습니다."
+        "인사이트 유형의 의미·위험 설명입니다.",
+        "구조·품질 개선을 위한 권장 대처 방안입니다."
     ];
 
     private sealed class ListViewSorter : IComparer

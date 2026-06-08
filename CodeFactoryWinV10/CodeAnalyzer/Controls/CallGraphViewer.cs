@@ -373,7 +373,16 @@ public sealed class CallGraphViewer : UserControl
                 continue;
             }
 
-            _zoom.ScrollToDocumentPoint(this, node.Bounds.Location, _contentSize);
+            var bounds = node.Bounds;
+            if (IsHandleCreated)
+            {
+                BeginInvoke(() => _zoom.ScrollToDocumentPoint(this, bounds.Location, _contentSize));
+            }
+            else
+            {
+                _zoom.ScrollToDocumentPoint(this, bounds.Location, _contentSize);
+            }
+
             InvalidateDiagramSurface();
             return;
         }

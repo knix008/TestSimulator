@@ -20,6 +20,7 @@ internal static class DiagramViewDisplayNames
         DiagramViewKind.DatabaseErd => "DB ERD",
         DiagramViewKind.DatabaseTableAccess => "DB 테이블 접근",
         DiagramViewKind.BugRisk => "버그 위험 분석",
+        DiagramViewKind.InformationSecurity => "정보 보호 및 보안",
         _ => kind.ToString()
     };
 }

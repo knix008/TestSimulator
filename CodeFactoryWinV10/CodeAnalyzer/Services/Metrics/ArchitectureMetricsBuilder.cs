@@ -967,7 +967,8 @@ public static class ArchitectureMetricsBuilder
                     LanguageId = file.LanguageId,
                     PhysicalLines = file.PhysicalLines,
                     CodeLines = file.CodeLines,
-                    SecuritySmellCount = file.SecuritySmellCount
+                    SecuritySmellCount = file.SecuritySmellCount,
+                    SecuritySmellSummary = file.SecuritySmellSummary
                 }).ToList();
 
         if (files.Count == 0)
@@ -988,11 +989,15 @@ public static class ArchitectureMetricsBuilder
                      .OrderByDescending(file => file.SecuritySmellCount)
                      .Take(maxPerCategory))
         {
+            var language = string.IsNullOrWhiteSpace(file.LanguageId) ? string.Empty : $" · {file.LanguageId}";
+            var summary = string.IsNullOrWhiteSpace(file.SecuritySmellSummary)
+                ? $"{file.SecuritySmellCount}건"
+                : $"{file.SecuritySmellCount}건 · {file.SecuritySmellSummary}";
             insights.Add(new ArchitectureInsight
             {
                 Kind = ArchitectureInsightKind.SecuritySmell,
                 Category = "보안 smell",
-                Description = $"{Path.GetFileName(file.FilePath)} · {file.SecuritySmellCount}건",
+                Description = $"{Path.GetFileName(file.FilePath)}{language} · {summary}",
                 NavigationTag = file
             });
         }

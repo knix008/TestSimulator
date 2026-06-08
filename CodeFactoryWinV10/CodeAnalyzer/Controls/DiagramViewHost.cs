@@ -13,6 +13,7 @@ public sealed class DiagramViewHost : UserControl
     private readonly ErdDiagramViewer _erdViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly DatabaseTableViewer _databaseTableViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly BugRiskViewer _bugRiskViewer = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly SecurityViewer _securityViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private DiagramViewKind _viewKind = DiagramViewKind.CallGraph;
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
@@ -33,12 +34,14 @@ public sealed class DiagramViewHost : UserControl
         Controls.Add(_erdViewer);
         Controls.Add(_databaseTableViewer);
         Controls.Add(_bugRiskViewer);
+        Controls.Add(_securityViewer);
         _metricsViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.AccessGraphRequested += variable => GlobalVariableAccessGraphRequested?.Invoke(variable);
         _databaseTableViewer.AccessGraphRequested += table => DatabaseTableAccessGraphRequested?.Invoke(table);
         _bugRiskViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _securityViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
@@ -154,6 +157,7 @@ public sealed class DiagramViewHost : UserControl
         _erdViewer.BeginAnalysis();
         _databaseTableViewer.BeginAnalysis();
         _bugRiskViewer.BeginAnalysis();
+        _securityViewer.BeginAnalysis();
     }
 
     public void EndAnalysis()
@@ -167,6 +171,7 @@ public sealed class DiagramViewHost : UserControl
         _erdViewer.EndAnalysis();
         _databaseTableViewer.EndAnalysis();
         _bugRiskViewer.EndAnalysis();
+        _securityViewer.EndAnalysis();
     }
 
     public void ClearSearchHighlight()
@@ -279,6 +284,7 @@ public sealed class DiagramViewHost : UserControl
         _erdViewer.Visible = _viewKind == DiagramViewKind.DatabaseErd;
         _databaseTableViewer.Visible = _viewKind == DiagramViewKind.DatabaseTableAccess;
         _bugRiskViewer.Visible = _viewKind == DiagramViewKind.BugRisk;
+        _securityViewer.Visible = _viewKind == DiagramViewKind.InformationSecurity;
     }
 
     public void ExpandAll()
@@ -309,6 +315,7 @@ public sealed class DiagramViewHost : UserControl
             DiagramViewKind.GlobalVariables => null,
             DiagramViewKind.DatabaseTableAccess => null,
             DiagramViewKind.BugRisk => null,
+            DiagramViewKind.InformationSecurity => null,
             DiagramViewKind.DatabaseErd => _erdViewer.ExportToBitmap(),
             _ => _structureViewer.ExportToBitmap()
         };
@@ -355,6 +362,12 @@ public sealed class DiagramViewHost : UserControl
         if (_viewKind == DiagramViewKind.BugRisk)
         {
             _bugRiskViewer.SetResult(_analysis?.BugRisk, ProjectRootDirectory);
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.InformationSecurity)
+        {
+            _securityViewer.SetResult(_analysis?.Security, ProjectRootDirectory);
             return;
         }
 

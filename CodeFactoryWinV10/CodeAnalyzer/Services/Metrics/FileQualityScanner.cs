@@ -13,11 +13,6 @@ internal static class FileQualityScanner
         @"^\s*public\s+(?:static\s+|async\s+|virtual\s+|override\s+|partial\s+)*(?:class|interface|struct|enum|record|delegate|event|void|[\w<>,\[\].]+\s+\w+\s*\()",
         RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.IgnoreCase);
 
-    private static readonly Regex SecuritySmellRegex = new(
-        @"(password\s*=\s*[""'][^""']+[""']|api[_-]?key\s*=\s*[""'][^""']+[""']|secret\s*=\s*[""'][^""']+[""']"
-        + @"|SELECT\s+.+\s+FROM\s+.+\s*\+|\.Result\b|\.Wait\s*\(\s*\))",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
     public static void ApplyFileQualityMetrics(IList<FileLineMetric> files, string? projectRoot = null)
     {
         IReadOnlyDictionary<string, int>? gitChanges = null;
@@ -42,6 +37,8 @@ internal static class FileQualityScanner
             var todoCount = TodoRegex.Matches(text).Count;
             var density = file.CodeLines > 0 ? Math.Round(100.0 * todoCount / file.CodeLines, 2) : 0;
             var gitLines = gitChanges?.GetValueOrDefault(NormalizePath(file.FilePath)) ?? 0;
+            var securityHits = LanguageSecuritySmellScanner.Scan(text, file.LanguageId);
+            var securitySummary = LanguageSecuritySmellScanner.FormatSummary(securityHits);
 
             files[i] = new FileLineMetric
             {
@@ -56,7 +53,9 @@ internal static class FileQualityScanner
                 TodoDensityPer100Lines = density,
                 IsTestFile = IsTestFile(file.FilePath),
                 PublicApiCount = PublicApiRegex.Matches(text).Count,
-                SecuritySmellCount = SecuritySmellRegex.Matches(text).Count,
+                SecuritySmellCount = securityHits.Count,
+                SecuritySmellHits = securityHits,
+                SecuritySmellSummary = string.IsNullOrEmpty(securitySummary) ? null : securitySummary,
                 GitChangeLineCount = gitLines
             };
         }

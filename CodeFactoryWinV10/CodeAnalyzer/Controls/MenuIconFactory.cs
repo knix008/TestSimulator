@@ -133,6 +133,40 @@ internal static class MenuIconFactory
         g.FillPolygon(hill, new[] { new Point(3, 12), new Point(8, 7), new Point(13, 12) });
     });
 
+    /// <summary>메뉴 「설정」 상위 항목 — 일반 설정(톱니) 아이콘.</summary>
+    public static Bitmap CreateSettingsMenuIcon(int size = 16) => DrawSized(size, g =>
+    {
+        var center = size / 2f;
+        var outerR = size / 2f - 1f;
+        const int toothCount = 8;
+        var toothDepth = outerR * 0.22f;
+        var innerHole = outerR * 0.38f;
+
+        using var path = new GraphicsPath();
+        var points = new PointF[toothCount * 2];
+        for (var i = 0; i < toothCount * 2; i++)
+        {
+            var angle = Math.PI * 2 * i / (toothCount * 2) - Math.PI / 2;
+            var radius = i % 2 == 0 ? outerR : outerR - toothDepth;
+            points[i] = new PointF(
+                center + (float)(radius * Math.Cos(angle)),
+                center + (float)(radius * Math.Sin(angle)));
+        }
+
+        path.AddPolygon(points);
+        using var gear = new SolidBrush(Color.FromArgb(84, 96, 118));
+        using var outline = new Pen(Color.FromArgb(62, 72, 90), 1f);
+        g.FillPath(gear, path);
+        g.DrawPath(outline, path);
+        g.FillEllipse(
+            Brushes.White,
+            center - innerHole,
+            center - innerHole,
+            innerHole * 2,
+            innerHole * 2);
+        g.DrawEllipse(outline, center - innerHole, center - innerHole, innerHole * 2, innerHole * 2);
+    });
+
     public static Bitmap CreateAnalysisSettingsIcon(int size = 16) => DrawSized(size, g =>
     {
         using var gear = new SolidBrush(Color.FromArgb(55, 90, 140));
