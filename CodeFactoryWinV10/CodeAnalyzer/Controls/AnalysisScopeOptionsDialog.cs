@@ -27,7 +27,7 @@ public sealed class AnalysisScopeOptionsDialog : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ShowIcon = false;
+        ApplicationDialogIcons.ApplyAppTitleBar(this);
 
         SelectedInspectionScope = MetricInspectionCatalog.NormalizeScope(inspectionScope);
         var normalized = SelectedInspectionScope;
@@ -72,10 +72,26 @@ public sealed class AnalysisScopeOptionsDialog : Form
             WrapContents = false
         };
 
-        var selectAllButton = new Button { Text = "검사 항목 모두 선택", AutoSize = true, Margin = new Padding(0, 0, 8, 0) };
+        var selectAllButton = new Button
+        {
+            Text = "검사 항목 모두 선택",
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Image = MenuIconFactory.CreateSelectAllIcon(),
+            ImageAlign = ContentAlignment.MiddleLeft,
+            TextImageRelation = TextImageRelation.ImageBeforeText
+        };
         selectAllButton.Click += (_, _) => SetAllChecked(true);
 
-        var clearAllButton = new Button { Text = "검사 항목 모두 해제", AutoSize = true, Margin = new Padding(0, 0, 8, 0) };
+        var clearAllButton = new Button
+        {
+            Text = "검사 항목 모두 해제",
+            AutoSize = true,
+            Margin = new Padding(0, 0, 8, 0),
+            Image = MenuIconFactory.CreateClearAllIcon(),
+            ImageAlign = ContentAlignment.MiddleLeft,
+            TextImageRelation = TextImageRelation.ImageBeforeText
+        };
         clearAllButton.Click += (_, _) => SetAllChecked(false);
 
         topPanel.Controls.Add(selectAllButton);
@@ -93,16 +109,17 @@ public sealed class AnalysisScopeOptionsDialog : Form
         var listHost = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 0, 8, 0) };
         listHost.Controls.Add(_inspectionList);
 
-        var buttonPanel = new FlowLayoutPanel
+        var headerPanel = ApplicationDialogIcons.CreateHeaderPanel("분석 포함·제외");
+
+        var buttonPanel = new Panel
         {
             Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
-            AutoSize = true,
-            Padding = new Padding(8)
+            Height = 48,
+            Padding = new Padding(12, 8, 12, 8)
         };
 
-        var okButton = new Button { Text = "확인", DialogResult = DialogResult.OK, AutoSize = true, Margin = new Padding(6) };
-        var cancelButton = new Button { Text = "취소", DialogResult = DialogResult.Cancel, AutoSize = true, Margin = new Padding(6) };
+        var okButton = new Button { Text = "확인", DialogResult = DialogResult.OK, Size = new Size(88, 30), Margin = new Padding(6, 0, 0, 0) };
+        var cancelButton = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Size = new Size(88, 30) };
         okButton.Click += (_, _) =>
         {
             if (!TryCommitSelection())
@@ -111,13 +128,28 @@ public sealed class AnalysisScopeOptionsDialog : Form
             }
         };
 
-        buttonPanel.Controls.Add(okButton);
-        buttonPanel.Controls.Add(cancelButton);
+        var buttonBar = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Anchor = AnchorStyles.None
+        };
+        buttonBar.Controls.Add(cancelButton);
+        buttonBar.Controls.Add(okButton);
+        buttonPanel.Controls.Add(buttonBar);
+        buttonPanel.Resize += (_, _) =>
+        {
+            buttonBar.Location = new Point(
+                Math.Max(0, (buttonPanel.ClientSize.Width - buttonBar.Width) / 2),
+                Math.Max(0, (buttonPanel.ClientSize.Height - buttonBar.Height) / 2));
+        };
 
         Controls.Add(listHost);
         Controls.Add(buttonPanel);
         Controls.Add(hintLabel);
         Controls.Add(topPanel);
+        Controls.Add(headerPanel);
 
         AcceptButton = okButton;
         CancelButton = cancelButton;

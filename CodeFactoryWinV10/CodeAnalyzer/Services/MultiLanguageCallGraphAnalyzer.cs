@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services.BugRisk;
 using CodeAnalyzer.Services.Duplicates;
 using CodeAnalyzer.Services.Database;
 using CodeAnalyzer.Services.GlobalVariables;
@@ -344,7 +345,8 @@ public sealed class MultiLanguageCallGraphAnalyzer
                 databaseSchema = DatabaseTableAccessAnalyzer.EnrichWithAccesses(
                     databaseSchema,
                     mergedMetrics.Functions,
-                    merged);
+                    merged,
+                    sourceFiles);
             }
             catch (OperationCanceledException)
             {
@@ -357,11 +359,33 @@ public sealed class MultiLanguageCallGraphAnalyzer
             }
         }
 
+        tracker.Report("버그 위험 패턴 분석 중...");
+        var bugRisk = BugRiskResult.Empty;
+        try
+        {
+            bugRisk = await BugRiskAnalyzer.AnalyzeAsync(
+                new AnalysisResult
+                {
+                    Metrics = mergedMetrics,
+                    CallGraph = merged,
+                    QualityThresholds = qualitySettings
+                },
+                sourceFiles,
+                filesByLanguage,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            RecordIssue(issues, "버그 위험 분석", ex);
+            tracker.Report($"버그 위험 분석 오류 (빈 결과로 계속): {ex.Message}");
+        }
+
         tracker.ReportComplete(
             $"병합 완료: 함수 {merged.Nodes.Count}개, 호출 {merged.Edges.Count}개, " +
             $"파일 {fileRelations.Files.Count}개, 디렉터리 {directoryRelations.Directories.Count}개, 타입 {structure.Types.Count}개, " +
             $"메트릭 함수 {mergedMetrics.Functions.Count}개, 중복 {duplicates.Groups.Count}건, 전역 변수 {globalVariables.Variables.Count}개, " +
-            $"DB 테이블 {databaseSchema.Tables.Count}개 · 접근 {databaseSchema.Accesses.Count}건");
+            $"DB 테이블 {databaseSchema.Tables.Count}개 · 접근 {databaseSchema.Accesses.Count}건, 버그 위험 {bugRisk.Findings.Count}건");
 
         return (new AnalysisResult
         {
@@ -373,6 +397,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
             Duplicates = duplicates,
             GlobalVariables = globalVariables,
             DatabaseSchema = databaseSchema,
+            BugRisk = bugRisk,
             QualityThresholds = qualitySettings,
             Issues = issues
         }, sourceFiles.Count, directoryCount);
@@ -560,6 +585,8 @@ public sealed class MultiLanguageCallGraphAnalyzer
         {
             steps += 1;
         }
+
+        steps += 1; // 버그 위험 분석
 
         return Math.Max(steps, 1);
     }

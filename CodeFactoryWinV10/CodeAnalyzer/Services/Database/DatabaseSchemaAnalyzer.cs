@@ -52,16 +52,24 @@ public sealed class DatabaseSchemaAnalyzer
     {
         if (sql.Columns.Count >= ef.Columns.Count)
         {
-            foreach (var fk in ef.ForeignKeys)
+        foreach (var fk in ef.ForeignKeys)
+        {
+            if (!sql.ForeignKeys.Any(f =>
+                    string.Equals(f.Column, fk.Column, StringComparison.OrdinalIgnoreCase)))
             {
-                if (!sql.ForeignKeys.Any(f =>
-                        string.Equals(f.Column, fk.Column, StringComparison.OrdinalIgnoreCase)))
-                {
-                    sql.ForeignKeys.Add(fk);
-                }
+                sql.ForeignKeys.Add(fk);
             }
+        }
 
-            return sql;
+        foreach (var alias in ef.DbSetPropertyNames)
+        {
+            if (!sql.DbSetPropertyNames.Contains(alias, StringComparer.OrdinalIgnoreCase))
+            {
+                sql.DbSetPropertyNames.Add(alias);
+            }
+        }
+
+        return sql;
         }
 
         foreach (var col in sql.Columns)
@@ -78,6 +86,14 @@ public sealed class DatabaseSchemaAnalyzer
                     string.Equals(f.Column, fk.Column, StringComparison.OrdinalIgnoreCase)))
             {
                 ef.ForeignKeys.Add(fk);
+            }
+        }
+
+        foreach (var alias in sql.DbSetPropertyNames)
+        {
+            if (!ef.DbSetPropertyNames.Contains(alias, StringComparer.OrdinalIgnoreCase))
+            {
+                ef.DbSetPropertyNames.Add(alias);
             }
         }
 
@@ -121,6 +137,7 @@ public sealed class DatabaseSchemaAnalyzer
                 },
                 FilePath = parsed.FilePath,
                 LineNumber = parsed.LineNumber,
+                AccessAliases = parsed.DbSetPropertyNames,
                 Columns = columns
             };
 

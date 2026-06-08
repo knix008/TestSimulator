@@ -10,6 +10,7 @@ public sealed class StructureDiagramViewer : UserControl
     private IReadOnlyList<string> _functionRootIds = [];
     private IReadOnlyList<string> _fileRootOverride = [];
     private IReadOnlyList<string> _directoryRootOverride = [];
+    private string? _dataFlowRootOverride;
     private GraphLayoutDirection _layoutDirection = GraphLayoutDirection.LeftToRight;
     private ConnectionLineStyle _lineStyle = ConnectionLineStyle.Orthogonal;
     private bool _isAnalyzing;
@@ -27,6 +28,7 @@ public sealed class StructureDiagramViewer : UserControl
 
     public event Action<FileRelationNode>? FileRootChanged;
     public event Action<DirectoryRelationNode>? DirectoryRootChanged;
+    public event Action<CallGraphNode>? FunctionRootChanged;
 
     public StructureDiagramViewer()
     {
@@ -61,6 +63,7 @@ public sealed class StructureDiagramViewer : UserControl
         _functionRootIds = functionRootIds;
         _fileRootOverride = [];
         _directoryRootOverride = [];
+        _dataFlowRootOverride = null;
         // _focusedTypeId is NOT reset here — BeginAnalysis and FocusType control it.
         _highlightIds.Clear();
         _currentHighlightId = null;
@@ -380,12 +383,30 @@ public sealed class StructureDiagramViewer : UserControl
         var blockSelection = _pan.End(this);
         base.OnMouseUp(e);
 
-        if (blockSelection || e.Button != MouseButtons.Left || !IsContainerRelationView() || _analysis is null)
+        if (blockSelection || e.Button != MouseButtons.Left || _analysis is null)
         {
             return;
         }
 
         if (!TryHitBox(e.Location, out var nodeId) || !_boxMap.TryGetValue(nodeId, out _))
+        {
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.DataFlow)
+        {
+            if (!_analysis.CallGraph.NodeMap.TryGetValue(nodeId, out var node))
+            {
+                return;
+            }
+
+            _dataFlowRootOverride = nodeId;
+            FunctionRootChanged?.Invoke(node);
+            Rebuild();
+            return;
+        }
+
+        if (!IsContainerRelationView())
         {
             return;
         }
@@ -493,7 +514,9 @@ public sealed class StructureDiagramViewer : UserControl
                     BuildDirectoryRelations();
                     break;
                 case DiagramViewKind.DataFlow:
-                    BuildDataFlow(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
+                    BuildDataFlow(
+                        _analysis.CallGraph,
+                        _dataFlowRootOverride ?? _functionRootIds.FirstOrDefault());
                     break;
                 case DiagramViewKind.SequenceDiagram:
                     _sequence = SequenceDiagramBuilder.Build(_analysis.CallGraph, _functionRootIds.FirstOrDefault());

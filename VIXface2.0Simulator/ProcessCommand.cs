@@ -1,5 +1,4 @@
 using System.Net.NetworkInformation;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -18,47 +17,38 @@ namespace VIXfaceSimulator
         {
             try
             {
-                _simulator.LogMessage($"AT ????? ???: {command}");
-                
+                _simulator.LogMessage($"AT command: {command}");
                 _simulator.UpdateLastCommandTime();
 
-                // ????? ?????? ???? ???? ???
                 var upperCommand = command.ToUpper().Trim();
 
-                // AT ????? ???
                 return upperCommand switch
                 {
                     "AT" => ProcessBasicAtCommand(),
                     "AT+TEST=BEGIN" => ProcessTestBeginCommand(),
                     "AT+TEST=END" => ProcessTestEndCommand(),
                     "AT+TEST=VERSION" => ProcessVersionQueryCommand(),
-                    "AT+TEST=DEFBUTTON" => ProcessDefButtonCommand(),
-                    "AT+TEST=BIST" => ProcessBistCommand(),
-                    "AT+TEST=BLE" => ProcessBleCommand(),
-                    "AT+TEST=NFC" => ProcessNfcCommand(),
-                    "AT+TEST=LFID" => ProcessLfidCommand(),
-                    "AT+TEST=AUXIN" => ProcessAuxInCommand(),
-                    "AT+TEST=SENSOR" => ProcessSensorCommand(),
-                    "AT+TEST=LOCK" => ProcessLockCommand(),
-                    "AT+TEST=BUTTON" => ProcessButtonCommand(),
-                    "AT+TEST=LED" => ProcessLedCommand(),
-                    "AT+TEST=BUZZER" => ProcessBuzzerCommand(),
-                    "AT+TEST=TAMPER" => ProcessTamperCommand(),
-                    "AT+TEST=NETWORK" => ProcessNetworkCommand(),
-                    "AT+STATUS" => ProcessStatusCommand(),
-                    "AT+SERIAL?" => ProcessSerialQueryCommand(),
                     "AT+VER?" => ProcessVersionQueryCommand(),
-                    "AT+CLEAR" => ProcessClearCommand(),
-                    "AT+REBOOT" => ProcessRebootCommand(),
+                    "AT+TEST=DEFAULT" => ProcessSimpleTestCommand("DEFAULT"),
+                    "AT+TEST=BIST" => ProcessSimpleTestCommand("BIST"),
+                    "AT+TEST=CAMERA" => ProcessSimpleTestCommand("CAMERA"),
+                    "AT+TEST=WIFI" => ProcessSimpleTestCommand("WIFI"),
+                    "AT+TEST=BLE" => ProcessSimpleTestCommand("BLE"),
+                    "AT+TEST=WIEGAND" => ProcessSimpleTestCommand("WIEGAND"),
+                    "AT+TEST=NFC" => ProcessSimpleTestCommand("NFC"),
+                    "AT+TEST=LOCK" => ProcessSimpleTestCommand("LOCK"),
+                    "AT+TEST=TAMPER" => ProcessSimpleTestCommand("TAMPER"),
+                    "AT+TEST=NETWORK" => ProcessNetworkCommand(),
+                    "AT+SERIAL?" => ProcessSerialQueryCommand(),
                     _ when upperCommand.StartsWith("AT+SERIAL=") => ProcessSerialSetCommand(command),
-                    _ when upperCommand.StartsWith("AT+") => CreateAtErrorResponse($"?? ?? ???? AT ?????: {command}"),
-                    _ => CreateAtErrorResponse("????? AT ????? ????")
+                    _ when upperCommand.StartsWith("AT+") => CreateAtErrorResponse($"Unknown AT command: {command}"),
+                    _ => CreateAtErrorResponse("Invalid AT command format")
                 };
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"AT ????? ??? ????: {ex.Message}");
-                return CreateAtErrorResponse($"AT ????? ??? ????: {ex.Message}");
+                _simulator.LogMessage($"AT command error: {ex.Message}");
+                return CreateAtErrorResponse($"AT command error: {ex.Message}");
             }
         }
 
@@ -66,7 +56,6 @@ namespace VIXfaceSimulator
         {
             try
             {
-                // JSON ??? ???
                 JsonDocument requestDoc;
                 try
                 {
@@ -77,16 +66,14 @@ namespace VIXfaceSimulator
                     return CreateTlsErrorResponse("Invalid JSON format");
                 }
 
-                // ??? ??? ???
                 if (!requestDoc.RootElement.TryGetProperty("action", out var actionElement))
                 {
                     return CreateTlsErrorResponse("Missing action field");
                 }
 
                 var action = actionElement.GetString();
-                _simulator.LogMessage($"TLS ??? ???: {action}");
+                _simulator.LogMessage($"TLS request: {action}");
 
-                // ???? ???
                 return action switch
                 {
                     "getMacAddress" => CreateTlsResponse(GetRealMacAddressInfo()),
@@ -97,7 +84,7 @@ namespace VIXfaceSimulator
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"TLS ??? ??? ????: {ex.Message}");
+                _simulator.LogMessage($"TLS request error: {ex.Message}");
                 return CreateTlsErrorResponse($"Internal error: {ex.Message}");
             }
         }
@@ -105,8 +92,7 @@ namespace VIXfaceSimulator
         private string ProcessBasicAtCommand()
         {
             _simulator.SetConnected(true);
-            
-            _simulator.LogMessage("?? AT ????? ??? - ???? ??????");
+            _simulator.LogMessage("Basic AT command - connection established");
             return "OK\r\n";
         }
 
@@ -114,587 +100,151 @@ namespace VIXfaceSimulator
         {
             if (!_simulator.IsConnected)
             {
-                _simulator.LogMessage("???? ???? ???? - ???? AT ?????? ??????? ??");
-                return "ERROR: ???? 'AT' ?????? ?????? ?????????\r\n";
+                _simulator.LogMessage("Test begin failed - connect with AT first");
+                return "ERROR: Send 'AT' command to establish connection first.\r\n";
             }
-            
+
             _simulator.SetTestModeEnabled(true);
-            _simulator.LogMessage("???? ??? ??????");
-            
+            _simulator.LogMessage("Test mode enabled");
             return "OK\r\nTEST MODE ENABLED\r\n";
         }
 
         private string ProcessTestEndCommand()
         {
             _simulator.SetTestModeEnabled(false);
-            
-            _simulator.LogMessage("???? ??? ????????");
+            _simulator.LogMessage("Test mode disabled");
             return "OK\r\nTEST MODE DISABLED\r\n";
         }
 
         private string ProcessVersionQueryCommand()
         {
+            if (!EnsureConnectedAndTestMode("Firmware version"))
+                return "FAIL\r\n";
+
             try
             {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("????? ???? ??? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("????? ???? ??? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
                 const string firmwareVersion = "VER1.0.1";
-                _simulator.LogMessage($"????? ???? ??? ????: {firmwareVersion}");
+                _simulator.LogMessage($"Firmware version: {firmwareVersion}");
                 return $"{firmwareVersion}\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"????? ???? ??? ????: {ex.Message}");
+                _simulator.LogMessage($"Firmware version error: {ex.Message}");
                 return "FAIL\r\n";
             }
-        }
-
-        private string ProcessStatusCommand()
-        {
-            // ???? ???? ???
-            if (!_simulator.IsConnected)
-            {
-                _simulator.LogMessage("???? ??? ???? - ??????? ????");
-                return "FAIL\r\n";
-            }
-
-            // ???? ??? ???
-            if (!_simulator.IsTestModeEnabled)
-            {
-                _simulator.LogMessage("???? ??? ???? - ???? ??? ???????? ????");
-                return "FAIL\r\n";
-            }
-
-            var status = new StringBuilder();
-            status.AppendLine("OK");
-            status.AppendLine($"CONNECTED: {_simulator.IsConnected}");
-            status.AppendLine($"TEST_MODE: {_simulator.IsTestModeEnabled}");
-            status.AppendLine($"SERIAL_NUMBER: {_simulator.DeviceSerialNumber}");
-            status.AppendLine($"LAST_COMMAND: {_simulator.LastCommandTime:yyyy-MM-dd HH:mm:ss}");
-            
-            return status.ToString();
         }
 
         private string ProcessSerialQueryCommand()
         {
+            if (!EnsureConnectedAndTestMode("Serial query"))
+                return "FAIL\r\n";
+
             try
             {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("?©ª??? ??? ??? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("?©ª??? ??? ??? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ?©ª??? ????? ??????? ???
                 if (string.IsNullOrWhiteSpace(_simulator.DeviceSerialNumber))
                 {
-                    _simulator.LogMessage("?©ª??? ??? ??? ???? - ?©ª??? ????? ???????? ????");
+                    _simulator.LogMessage("Serial query failed - serial number not set");
                     return "FAIL\r\n";
                 }
 
-                _simulator.LogMessage($"?©ª??? ??? ??? ????: {_simulator.DeviceSerialNumber}");
+                _simulator.LogMessage($"Serial query: {_simulator.DeviceSerialNumber}");
                 return $"{_simulator.DeviceSerialNumber}\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"?©ª??? ??? ??? ????: {ex.Message}");
+                _simulator.LogMessage($"Serial query error: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
 
         private string ProcessSerialSetCommand(string command)
         {
+            if (!EnsureConnectedAndTestMode("Serial set"))
+                return "FAIL\r\n";
+
             try
             {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("?©ª??? ??? ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
+                var serialNumberPart = command.Substring(10);
 
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("?©ª??? ??? ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // "AT+SERIAL=" ?¥ê??? ??????? ?©ª??? ??? ????
-                var serialNumberPart = command.Substring(10); // "AT+SERIAL=" ????? 10
-                
                 if (string.IsNullOrWhiteSpace(serialNumberPart))
                 {
-                    _simulator.LogMessage("?©ª??? ??? ???? ???? - ?? ?©ª??? ???");
+                    _simulator.LogMessage("Serial set failed - empty serial number");
                     return "FAIL\r\n";
                 }
 
-                // ?©ª??? ??? ???? (??????? ?????¢¬? ???, ??? 20??)
                 if (!Regex.IsMatch(serialNumberPart, @"^[A-Za-z0-9\-]{1,20}$"))
                 {
-                    _simulator.LogMessage($"?©ª??? ??? ???? ???? - ????? ????: {serialNumberPart}");
+                    _simulator.LogMessage($"Serial set failed - invalid format: {serialNumberPart}");
                     return "FAIL\r\n";
                 }
 
-                // ?©ª??? ??? ???????
                 var oldSerialNumber = _simulator.DeviceSerialNumber;
                 _simulator.SetDeviceSerialNumber(serialNumberPart);
-                
-                _simulator.LogMessage($"?©ª??? ????? ?????????: {oldSerialNumber} -> {_simulator.DeviceSerialNumber}");
+                _simulator.LogMessage($"Serial updated: {oldSerialNumber} -> {_simulator.DeviceSerialNumber}");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"?©ª??? ??? ???? ????: {ex.Message}");
+                _simulator.LogMessage($"Serial set error: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
 
-        private string ProcessClearCommand()
+        private string ProcessSimpleTestCommand(string testName)
         {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("CLEAR ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("CLEAR ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("CLEAR ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"CLEAR ???? ??? ????: {ex.Message}");
+            if (!EnsureConnectedAndTestMode(testName))
                 return "FAIL\r\n";
-            }
-        }
 
-        private string ProcessRebootCommand()
-        {
             try
             {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("REBOOT ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("REBOOT ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("REBOOT ???? ??? ???");
+                _simulator.LogMessage($"{testName} test completed");
                 return "OK\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"REBOOT ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessDefButtonCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("DEFBUTTON ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("DEFBUTTON ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("DEFBUTTON ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"DEFBUTTON ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessBistCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("BIST ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("BIST ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("BIST ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"BIST ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessBleCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("BLE ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("BLE ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("BLE ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"BLE ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessNfcCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("NFC ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("NFC ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("NFC ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"NFC ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessLfidCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("LFID ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("LFID ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("LFID ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"LFID ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessAuxInCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("AUXIN ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("AUXIN ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("AUXIN ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"AUXIN ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessSensorCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("SENSOR ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("SENSOR ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("SENSOR ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"SENSOR ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessLockCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("LOCK ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("LOCK ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("LOCK ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"LOCK ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessButtonCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("BUTTON ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("BUTTON ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("BUTTON ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"BUTTON ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessLedCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("LED ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("LED ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("LED ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"LED ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessBuzzerCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("BUZZER ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("BUZZER ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("BUZZER ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"BUZZER ???? ??? ????: {ex.Message}");
-                return "FAIL\r\n";
-            }
-        }
-
-        private string ProcessTamperCommand()
-        {
-            try
-            {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("TAMPER ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("TAMPER ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("TAMPER ???? ??? ???");
-                return "OK\r\n";
-            }
-            catch (Exception ex)
-            {
-                _simulator.LogMessage($"TAMPER ???? ??? ????: {ex.Message}");
+                _simulator.LogMessage($"{testName} test error: {ex.Message}");
                 return "FAIL\r\n";
             }
         }
 
         private string ProcessNetworkCommand()
         {
+            if (!EnsureConnectedAndTestMode("Network"))
+                return "FAIL\r\n";
+
             try
             {
-                // ???? ???? ???
-                if (!_simulator.IsConnected)
-                {
-                    _simulator.LogMessage("NETWORK ???? ???? - ??????? ????");
-                    return "FAIL\r\n";
-                }
-
-                // ???? ??? ???
-                if (!_simulator.IsTestModeEnabled)
-                {
-                    _simulator.LogMessage("NETWORK ???? ???? - ???? ??? ???????? ????");
-                    return "FAIL\r\n";
-                }
-
-                _simulator.LogMessage("NETWORK ???? ??? ??? - ?????? ???? UP");
+                _simulator.LogMessage("Network test completed - status UP");
                 return "UP\r\n";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"NETWORK ???? ??? ????: {ex.Message}");
+                _simulator.LogMessage($"Network test error: {ex.Message}");
                 return "FAIL\r\n";
             }
+        }
+
+        private bool EnsureConnectedAndTestMode(string operationName)
+        {
+            if (!_simulator.IsConnected)
+            {
+                _simulator.LogMessage($"{operationName} failed - not connected");
+                return false;
+            }
+
+            if (!_simulator.IsTestModeEnabled)
+            {
+                _simulator.LogMessage($"{operationName} failed - test mode not enabled");
+                return false;
+            }
+
+            return true;
         }
 
         private string ProcessSetSerialNumberTls(JsonDocument requestDoc)
         {
             try
             {
-                // ?©ª??? ??? ????
                 if (requestDoc.RootElement.TryGetProperty("serialNumber", out var serialElement) ||
                     requestDoc.RootElement.TryGetProperty("serial_number", out serialElement) ||
                     requestDoc.RootElement.TryGetProperty("SerialNumber", out serialElement))
@@ -705,14 +255,13 @@ namespace VIXfaceSimulator
                         return CreateTlsErrorResponse("Serial number cannot be empty");
                     }
 
-                    // ?©ª??? ??? ???? (??????? ?????¢¬? ???, ??? 20??)
                     if (!Regex.IsMatch(newSerialNumber, @"^[A-Za-z0-9\-]{1,20}$"))
                     {
                         return CreateTlsErrorResponse("Invalid serial number format");
                     }
 
                     _simulator.SetDeviceSerialNumber(newSerialNumber);
-                    _simulator.LogMessage($"?©ª??? ????? ?????????: {_simulator.DeviceSerialNumber}");
+                    _simulator.LogMessage($"Serial updated: {_simulator.DeviceSerialNumber}");
 
                     var response = new
                     {
@@ -724,14 +273,12 @@ namespace VIXfaceSimulator
 
                     return CreateTlsResponse(JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
                 }
-                else
-                {
-                    return CreateTlsErrorResponse("Serial number field not found");
-                }
+
+                return CreateTlsErrorResponse("Serial number field not found");
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"?©ª??? ??? ???? ????: {ex.Message}");
+                _simulator.LogMessage($"Serial set error: {ex.Message}");
                 return CreateTlsErrorResponse($"Serial number update error: {ex.Message}");
             }
         }
@@ -776,16 +323,13 @@ namespace VIXfaceSimulator
                     timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                 };
 
-                _simulator.LogMessage($"?©ª??? ??? ??? ???: {_simulator.DeviceSerialNumber}");
-                return JsonSerializer.Serialize(serialInfo, new JsonSerializerOptions 
-                { 
-                    WriteIndented = true 
-                });
+                _simulator.LogMessage($"Serial query complete: {_simulator.DeviceSerialNumber}");
+                return JsonSerializer.Serialize(serialInfo, new JsonSerializerOptions { WriteIndented = true });
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"?©ª??? ??? ??? ????: {ex.Message}");
-                return JsonSerializer.Serialize(new { error = $"?©ª??? ??? ??? ????: {ex.Message}" });
+                _simulator.LogMessage($"Serial query error: {ex.Message}");
+                return JsonSerializer.Serialize(new { error = $"Serial query error: {ex.Message}" });
             }
         }
 
@@ -799,17 +343,14 @@ namespace VIXfaceSimulator
                     NetworkInterfaces = GetAllNetworkInterfaces(),
                     Timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
                 };
-                
-                _simulator.LogMessage("MAC ??? ???? ???? ???");
-                return JsonSerializer.Serialize(macInfo, new JsonSerializerOptions 
-                { 
-                    WriteIndented = true 
-                });
+
+                _simulator.LogMessage("MAC address info generated");
+                return JsonSerializer.Serialize(macInfo, new JsonSerializerOptions { WriteIndented = true });
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"MAC ??? ???? ????: {ex.Message}");
-                return JsonSerializer.Serialize(new { error = $"MAC ??? ????: {ex.Message}" });
+                _simulator.LogMessage($"MAC address error: {ex.Message}");
+                return JsonSerializer.Serialize(new { error = $"MAC address error: {ex.Message}" });
             }
         }
 
@@ -817,7 +358,7 @@ namespace VIXfaceSimulator
         {
             try
             {
-                var interfaces = NetworkInterface.GetAllNetworkInterfaces()
+                return NetworkInterface.GetAllNetworkInterfaces()
                     .Where(ni => ni.OperationalStatus == OperationalStatus.Up)
                     .Select(ni => new
                     {
@@ -828,24 +369,20 @@ namespace VIXfaceSimulator
                         Status = ni.OperationalStatus.ToString()
                     })
                     .ToArray();
-
-                return interfaces;
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"?????? ????????? ???? ????: {ex.Message}");
+                _simulator.LogMessage($"Network interface error: {ex.Message}");
                 return new[] { new { error = ex.Message } };
             }
         }
-        
+
         private string GetMacAddress()
         {
             try
             {
-                var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-                foreach (var networkInterface in networkInterfaces)
+                foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
                 {
-                    // ?????? ????? ??? WiFi ????????? ???
                     if (networkInterface.OperationalStatus == OperationalStatus.Up &&
                         (networkInterface.NetworkInterfaceType == NetworkInterfaceType.Ethernet ||
                          networkInterface.NetworkInterfaceType == NetworkInterfaceType.Wireless80211))
@@ -853,11 +390,12 @@ namespace VIXfaceSimulator
                         return networkInterface.GetPhysicalAddress().ToString();
                     }
                 }
+
                 return "MAC Address not found";
             }
             catch (Exception ex)
             {
-                _simulator.LogMessage($"MAC ??? ???? ????: {ex.Message}");
+                _simulator.LogMessage($"MAC address error: {ex.Message}");
                 return "MAC Address error";
             }
         }

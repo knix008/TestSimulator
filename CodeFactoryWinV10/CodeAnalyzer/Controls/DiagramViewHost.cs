@@ -11,6 +11,7 @@ public sealed class DiagramViewHost : UserControl
     private readonly GlobalVariableViewer _globalVariableViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly ErdDiagramViewer _erdViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly DatabaseTableViewer _databaseTableViewer = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly BugRiskViewer _bugRiskViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private DiagramViewKind _viewKind = DiagramViewKind.CallGraph;
     private AnalysisResult? _analysis;
     private IReadOnlyList<string> _rootNodeIds = [];
@@ -29,16 +30,17 @@ public sealed class DiagramViewHost : UserControl
         Controls.Add(_globalVariableViewer);
         Controls.Add(_erdViewer);
         Controls.Add(_databaseTableViewer);
+        Controls.Add(_bugRiskViewer);
         _metricsViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _duplicateViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _globalVariableViewer.AccessGraphRequested += variable => GlobalVariableAccessGraphRequested?.Invoke(variable);
-        _databaseTableViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _databaseTableViewer.AccessGraphRequested += table => DatabaseTableAccessGraphRequested?.Invoke(table);
-        _erdViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _bugRiskViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
+        _structureViewer.FunctionRootChanged += OnStructureFunctionRootChanged;
     }
 
     public event Action<CallGraphNode>? CallGraphRootChanged;
@@ -147,6 +149,7 @@ public sealed class DiagramViewHost : UserControl
         _globalVariableViewer.BeginAnalysis();
         _erdViewer.BeginAnalysis();
         _databaseTableViewer.BeginAnalysis();
+        _bugRiskViewer.BeginAnalysis();
     }
 
     public void EndAnalysis()
@@ -158,6 +161,7 @@ public sealed class DiagramViewHost : UserControl
         _globalVariableViewer.EndAnalysis();
         _erdViewer.EndAnalysis();
         _databaseTableViewer.EndAnalysis();
+        _bugRiskViewer.EndAnalysis();
     }
 
     public void ClearSearchHighlight()
@@ -233,6 +237,12 @@ public sealed class DiagramViewHost : UserControl
         return true;
     }
 
+    private void OnStructureFunctionRootChanged(CallGraphNode node)
+    {
+        _rootNodeIds = [node.Id];
+        CallGraphRootChanged?.Invoke(node);
+    }
+
     private void OnCallGraphRootNodeChanged(CallGraphNode node)
     {
         _rootNodeIds = [node.Id];
@@ -262,6 +272,7 @@ public sealed class DiagramViewHost : UserControl
         _globalVariableViewer.Visible = _viewKind == DiagramViewKind.GlobalVariables;
         _erdViewer.Visible = _viewKind == DiagramViewKind.DatabaseErd;
         _databaseTableViewer.Visible = _viewKind == DiagramViewKind.DatabaseTableAccess;
+        _bugRiskViewer.Visible = _viewKind == DiagramViewKind.BugRisk;
     }
 
     public void ExpandAll()
@@ -291,6 +302,7 @@ public sealed class DiagramViewHost : UserControl
             DiagramViewKind.DuplicateCode => null,
             DiagramViewKind.GlobalVariables => null,
             DiagramViewKind.DatabaseTableAccess => null,
+            DiagramViewKind.BugRisk => null,
             DiagramViewKind.DatabaseErd => _erdViewer.ExportToBitmap(),
             _ => _structureViewer.ExportToBitmap()
         };
@@ -325,6 +337,12 @@ public sealed class DiagramViewHost : UserControl
         if (_viewKind == DiagramViewKind.DatabaseTableAccess)
         {
             _databaseTableViewer.SetSchema(_analysis?.DatabaseSchema, ProjectRootDirectory);
+            return;
+        }
+
+        if (_viewKind == DiagramViewKind.BugRisk)
+        {
+            _bugRiskViewer.SetResult(_analysis?.BugRisk, ProjectRootDirectory);
             return;
         }
 

@@ -37,6 +37,8 @@ public sealed class DatabaseTable
     public string SourceKind { get; init; } = string.Empty;
     public string FilePath { get; init; } = string.Empty;
     public int LineNumber { get; init; }
+    /// <summary>EF Core DbSet 속성명 등 코드에서 테이블을 찾을 때 쓰는 별칭.</summary>
+    public IReadOnlyList<string> AccessAliases { get; init; } = [];
     public IReadOnlyList<DatabaseColumn> Columns { get; init; } = [];
 }
 
@@ -55,6 +57,7 @@ public sealed class DatabaseSchemaResult
     public IReadOnlyList<DatabaseTable> Tables { get; init; } = [];
     public IReadOnlyList<DatabaseRelation> Relations { get; init; } = [];
     public IReadOnlyList<DatabaseTableAccess> Accesses { get; init; } = [];
+    public IReadOnlyList<DatabaseColumnAccess> ColumnAccesses { get; init; } = [];
 
     public IReadOnlyDictionary<string, DatabaseTable> TableMap { get; init; }
         = new Dictionary<string, DatabaseTable>(StringComparer.OrdinalIgnoreCase);
@@ -62,8 +65,14 @@ public sealed class DatabaseSchemaResult
     public IReadOnlyDictionary<string, IReadOnlyList<DatabaseTableAccess>> AccessesByTableId { get; init; }
         = new Dictionary<string, IReadOnlyList<DatabaseTableAccess>>(StringComparer.OrdinalIgnoreCase);
 
+    public IReadOnlyDictionary<string, IReadOnlyList<DatabaseColumnAccess>> ColumnAccessesByTableId { get; init; }
+        = new Dictionary<string, IReadOnlyList<DatabaseColumnAccess>>(StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyList<DatabaseTableAccess> GetAccessesFor(string tableId) =>
         AccessesByTableId.TryGetValue(tableId, out var accesses) ? accesses : [];
+
+    public IReadOnlyList<DatabaseColumnAccess> GetColumnAccessesFor(string tableId) =>
+        ColumnAccessesByTableId.TryGetValue(tableId, out var accesses) ? accesses : [];
 }
 
 public enum DatabaseTableAccessKind
@@ -83,6 +92,19 @@ public enum DatabaseTableAccessPattern
 public sealed class DatabaseTableAccess
 {
     public required string TableId { get; init; }
+    public required string FunctionId { get; init; }
+    public required string FunctionDisplayName { get; init; }
+    public required string FunctionFullName { get; init; }
+    public required string FunctionFilePath { get; init; }
+    public int FunctionLineNumber { get; init; }
+    public DatabaseTableAccessKind Kind { get; init; }
+    public DatabaseTableAccessPattern Pattern { get; init; }
+}
+
+public sealed class DatabaseColumnAccess
+{
+    public required string TableId { get; init; }
+    public required string ColumnName { get; init; }
     public required string FunctionId { get; init; }
     public required string FunctionDisplayName { get; init; }
     public required string FunctionFullName { get; init; }

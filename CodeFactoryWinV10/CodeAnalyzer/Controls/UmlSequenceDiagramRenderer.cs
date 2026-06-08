@@ -53,6 +53,37 @@ internal static class UmlSequenceDiagramRenderer
         return BuildLayout(sequence).DiagramSize;
     }
 
+    public static bool TryHitParticipant(
+        SequenceDiagramResult? sequence,
+        Point documentPoint,
+        out string participantId)
+    {
+        participantId = string.Empty;
+        if (sequence is null || sequence.ParticipantIds.Count == 0)
+        {
+            return false;
+        }
+
+        var layout = BuildLayout(sequence);
+        foreach (var participant in layout.Participants)
+        {
+            var lifelineHit = new Rectangle(
+                participant.LifelineX - 24,
+                participant.HeaderBounds.Top,
+                48,
+                layout.LifelineBottomY - participant.HeaderBounds.Top);
+            if (!participant.HeaderBounds.Contains(documentPoint) && !lifelineHit.Contains(documentPoint))
+            {
+                continue;
+            }
+
+            participantId = participant.Id;
+            return true;
+        }
+
+        return false;
+    }
+
     public static void Draw(Graphics graphics, SequenceDiagramResult? sequence)
     {
         if (sequence is null || sequence.ParticipantIds.Count == 0)

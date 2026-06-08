@@ -63,6 +63,8 @@ public sealed class DuplicateCodeViewer : UserControl
     private DuplicateCodeFragment? _selectedFragment;
     private string? _projectRoot;
     private bool _isAnalyzing;
+    private readonly ListViewColumnHeaderToolTip _groupListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _fragmentListHeaderToolTip;
 
     public event Action<MetricsNavigationRequest>? NavigationRequested;
 
@@ -74,12 +76,14 @@ public sealed class DuplicateCodeViewer : UserControl
         _groupList.Columns.Add("그룹", 90);
         _groupList.Columns.Add("줄 수", 52, HorizontalAlignment.Right);
         _groupList.Columns.Add("위치 수", 64, HorizontalAlignment.Right);
+        _groupListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_groupList, ListViewHeaderToolTipTexts.DuplicateCodeGroup);
         _groupList.SelectedIndexChanged += (_, _) => ShowSelectedGroup();
 
         _fragmentList.Columns.Add("파일", 220);
         _fragmentList.Columns.Add("경로", 240);
         _fragmentList.Columns.Add("언어", 72);
         _fragmentList.Columns.Add("줄", 88, HorizontalAlignment.Right);
+        _fragmentListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_fragmentList, ListViewHeaderToolTipTexts.DuplicateCodeFragment);
         _fragmentList.SelectedIndexChanged += (_, _) => ShowSelectedFragment();
         _fragmentList.DoubleClick += (_, _) => OpenSelectedFragment();
 

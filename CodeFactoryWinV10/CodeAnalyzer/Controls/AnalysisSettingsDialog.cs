@@ -3,6 +3,8 @@ using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
+
+
 /// <summary>분석 포함·제외 항목과 항목별 경고 기준을 한 곳에서 설정합니다.</summary>
 public sealed class AnalysisSettingsDialog : Form
 {
@@ -44,14 +46,14 @@ public sealed class AnalysisSettingsDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         var preferredWidth = CalculatePreferredClientWidth();
         ClientSize = new Size(preferredWidth, 580);
-        MinimumSize = new Size(CalculateMinimumClientWidth(), 400);
         FormBorderStyle = FormBorderStyle.Sizable;
-        MaximizeBox = true;
+        MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        ShowIcon = false;
+        ApplicationDialogIcons.ApplyAppTitleBar(this);
         Padding = new Padding(0);
 
+        var headerPanel = ApplicationDialogIcons.CreateHeaderPanel("분석 설정");
         var topBar = CreateTopBar();
         var hintLabel = CreateHintLabel();
         var footer = CreateFooter(out var okButton, out var cancelButton);
@@ -94,12 +96,20 @@ public sealed class AnalysisSettingsDialog : Form
         Controls.Add(footer);
         Controls.Add(hintLabel);
         Controls.Add(topBar);
+        Controls.Add(headerPanel);
 
         AcceptButton = okButton;
         CancelButton = cancelButton;
 
         _listHost.Resize += (_, _) => ScheduleGridLayout();
         _scrollHost.Resize += (_, _) => ScheduleGridLayout();
+        Load += (_, _) =>
+        {
+            // 폭을 콘텐츠 기준으로 계산된 값으로 고정
+            var fixedW = Width;
+            MinimumSize = new Size(fixedW, 400);
+            MaximumSize = new Size(fixedW, Screen.FromControl(this).WorkingArea.Height);
+        };
         Shown += (_, _) =>
         {
             ScheduleGridLayout();
@@ -132,7 +142,10 @@ public sealed class AnalysisSettingsDialog : Form
         {
             Text = "모두 선택",
             AutoSize = true,
-            Margin = new Padding(0, 0, 8, 0)
+            Margin = new Padding(0, 0, 8, 0),
+            Image = MenuIconFactory.CreateSelectAllIcon(),
+            ImageAlign = ContentAlignment.MiddleLeft,
+            TextImageRelation = TextImageRelation.ImageBeforeText
         };
         selectAllButton.Click += (_, _) => SetAllChecked(true);
 
@@ -140,7 +153,10 @@ public sealed class AnalysisSettingsDialog : Form
         {
             Text = "모두 해제",
             AutoSize = true,
-            Margin = new Padding(0, 0, 8, 0)
+            Margin = new Padding(0, 0, 8, 0),
+            Image = MenuIconFactory.CreateClearAllIcon(),
+            ImageAlign = ContentAlignment.MiddleLeft,
+            TextImageRelation = TextImageRelation.ImageBeforeText
         };
         clearAllButton.Click += (_, _) => SetAllChecked(false);
 
@@ -178,7 +194,7 @@ public sealed class AnalysisSettingsDialog : Form
             Text = "확인",
             DialogResult = DialogResult.OK,
             Size = new Size(88, 30),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right
+            Margin = new Padding(6, 0, 0, 0)
         };
         okButton.Click += (_, _) =>
         {
@@ -192,19 +208,25 @@ public sealed class AnalysisSettingsDialog : Form
         {
             Text = "취소",
             DialogResult = DialogResult.Cancel,
-            Size = new Size(88, 30),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right
+            Size = new Size(88, 30)
         };
 
-        footer.Controls.Add(cancelButton);
-        footer.Controls.Add(okButton);
+        var buttonBar = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            Anchor = AnchorStyles.None
+        };
+        buttonBar.Controls.Add(cancelButton);
+        buttonBar.Controls.Add(okButton);
+        footer.Controls.Add(buttonBar);
 
-        var confirmButton = okButton;
-        var dismissButton = cancelButton;
         footer.Resize += (_, _) =>
         {
-            confirmButton.Location = new Point(footer.ClientSize.Width - confirmButton.Width, 8);
-            dismissButton.Location = new Point(confirmButton.Left - dismissButton.Width - 8, 8);
+            buttonBar.Location = new Point(
+                Math.Max(0, (footer.ClientSize.Width - buttonBar.Width) / 2),
+                Math.Max(0, (footer.ClientSize.Height - buttonBar.Height) / 2));
         };
 
         return footer;
@@ -497,11 +519,9 @@ public sealed class AnalysisSettingsDialog : Form
     {
         var maxTextWidth = MeasureWidestLabelText();
         var gridWidth = FixedGridColumnWidth() + maxTextWidth + NameColumnPadding;
-        return gridWidth + ListHostHorizontalPadding;
+        // 스크롤바 폭 + 여유 마진을 더해 스크롤바 출현 시에도 텍스트가 잘리지 않도록 함
+        return gridWidth + ListHostHorizontalPadding + SystemInformation.VerticalScrollBarWidth + 8;
     }
-
-    private static int CalculateMinimumClientWidth() =>
-        FixedGridColumnWidth() + MinNameColumnWidth + ListHostHorizontalPadding;
 
     private static int FixedGridColumnWidth() =>
         CheckColumnWidth + ComparisonColumnWidth + ThresholdColumnWidth;

@@ -1,4 +1,5 @@
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
@@ -36,6 +37,20 @@ public sealed class DatabaseTableViewer : UserControl
         MultiSelect = false
     };
 
+    private readonly ListView _columnAccessList = new()
+    {
+        Dock = DockStyle.Fill,
+        View = View.Details,
+        FullRowSelect = true,
+        GridLines = true,
+        MultiSelect = false
+    };
+
+    private readonly TabControl _accessTabControl = new()
+    {
+        Dock = DockStyle.Fill
+    };
+
     private readonly TextBox _previewBox = new()
     {
         Dock = DockStyle.Fill,
@@ -56,14 +71,8 @@ public sealed class DatabaseTableViewer : UserControl
         AutoEllipsis = true
     };
 
-    private readonly Label _accessorHeaderLabel = new()
-    {
-        Dock = DockStyle.Top,
-        Height = 24,
-        Padding = new Padding(8, 4, 8, 0),
-        Text = "접근 함수",
-        AutoEllipsis = true
-    };
+    private TabPage? _tableAccessTab;
+    private TabPage? _columnAccessTab;
 
     private readonly Button _openFileButton = new()
     {
@@ -87,8 +96,10 @@ public sealed class DatabaseTableViewer : UserControl
     private DatabaseTable? _selected;
     private string? _projectRoot;
     private bool _isAnalyzing;
+    private readonly ListViewColumnHeaderToolTip _tableListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _accessorListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _columnAccessListHeaderToolTip;
 
-    public event Action<MetricsNavigationRequest>? NavigationRequested;
     public event Action<DatabaseTable>? AccessGraphRequested;
 
     public DatabaseTableViewer()
@@ -110,8 +121,9 @@ public sealed class DatabaseTableViewer : UserControl
         _tableList.Columns.Add("출처", 72);
         _tableList.Columns.Add("파일", 140);
         _tableList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _tableListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_tableList, ListViewHeaderToolTipTexts.DatabaseTable);
         _tableList.SelectedIndexChanged += (_, _) => ShowSelectedTable();
-        _tableList.DoubleClick += (_, _) => ShowAccessGraphForSelected();
+        _tableList.DoubleClick += (_, _) => OpenSelectedDeclaration();
 
         _accessorList.Columns.Add("#", 36);
         _accessorList.Columns.Add("함수", 160);
@@ -119,7 +131,17 @@ public sealed class DatabaseTableViewer : UserControl
         _accessorList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _accessorList.Columns.Add("접근", 72);
         _accessorList.Columns.Add("패턴", 72);
+        _accessorListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_accessorList, ListViewHeaderToolTipTexts.DatabaseTableAccessor);
         _accessorList.DoubleClick += (_, _) => OpenSelectedAccessor();
+
+        _columnAccessList.Columns.Add("#", 36);
+        _columnAccessList.Columns.Add("필드", 120);
+        _columnAccessList.Columns.Add("함수", 150);
+        _columnAccessList.Columns.Add("접근", 72);
+        _columnAccessList.Columns.Add("파일", 160);
+        _columnAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _columnAccessListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_columnAccessList, ListViewHeaderToolTipTexts.DatabaseColumnAccess);
+        _columnAccessList.DoubleClick += (_, _) => OpenSelectedColumnAccessor();
 
         _openFileButton.Click += (_, _) => OpenSelectedDeclaration();
         _showGraphButton.Click += (_, _) => ShowAccessGraphForSelected();
@@ -138,13 +160,18 @@ public sealed class DatabaseTableViewer : UserControl
         var previewPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 0, 8, 4) };
         previewPanel.Controls.Add(_previewBox);
 
-        var accessorPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 0, 8, 8) };
-        accessorPanel.Controls.Add(_accessorList);
-        accessorPanel.Controls.Add(_accessorHeaderLabel);
+        _tableAccessTab = new TabPage("테이블 접근");
+        _tableAccessTab.Controls.Add(_accessorList);
+
+        _columnAccessTab = new TabPage("필드 접근");
+        _columnAccessTab.Controls.Add(_columnAccessList);
+
+        _accessTabControl.TabPages.Add(_tableAccessTab);
+        _accessTabControl.TabPages.Add(_columnAccessTab);
 
         _detailSplit.Panel1.Controls.Add(previewPanel);
         _detailSplit.Panel1.Controls.Add(actionPanel);
-        _detailSplit.Panel2.Controls.Add(accessorPanel);
+        _detailSplit.Panel2.Controls.Add(_accessTabControl);
 
         _split.Panel1.Controls.Add(_tableList);
         _split.Panel2.Controls.Add(_detailSplit);
@@ -172,10 +199,12 @@ public sealed class DatabaseTableViewer : UserControl
         _selected = null;
         _tableList.Items.Clear();
         _accessorList.Items.Clear();
+        _columnAccessList.Items.Clear();
         _previewBox.Clear();
         _openFileButton.Enabled = false;
         _showGraphButton.Enabled = false;
         _summaryLabel.Text = "DB 테이블·접근 분석 중...";
+        ResetAccessTabTitles();
     }
 
     public void EndAnalysis() => _isAnalyzing = false;
@@ -185,10 +214,12 @@ public sealed class DatabaseTableViewer : UserControl
         _tableList.BeginUpdate();
         _tableList.Items.Clear();
         _accessorList.Items.Clear();
+        _columnAccessList.Items.Clear();
         _previewBox.Clear();
         _selected = null;
         _openFileButton.Enabled = false;
         _showGraphButton.Enabled = false;
+        ResetAccessTabTitles();
 
         if (_schema is null || _schema.Tables.Count == 0)
         {
@@ -202,7 +233,7 @@ public sealed class DatabaseTableViewer : UserControl
         var totalAccessors = _schema.Accesses.Select(access => access.FunctionId).Distinct(StringComparer.Ordinal).Count();
         _summaryLabel.Text =
             $"DB 테이블 {_schema.Tables.Count:N0}개 · 접근 함수 {totalAccessors:N0}개 · 접근 {_schema.Accesses.Count:N0}건 · " +
-            "테이블 더블클릭/우클릭: 접근 함수 그래프";
+            "더블클릭: 파일 열기 · 우클릭/버튼: 접근 함수 그래프";
 
         var index = 1;
         foreach (var table in _schema.Tables)
@@ -241,7 +272,8 @@ public sealed class DatabaseTableViewer : UserControl
             _showGraphButton.Enabled = false;
             _previewBox.Clear();
             _accessorList.Items.Clear();
-            _accessorHeaderLabel.Text = "접근 함수";
+            _columnAccessList.Items.Clear();
+            ResetAccessTabTitles();
             return;
         }
 
@@ -250,6 +282,7 @@ public sealed class DatabaseTableViewer : UserControl
         _showGraphButton.Enabled = true;
         _previewBox.Text = BuildPreview(table);
         RebuildAccessorList(table);
+        RebuildColumnAccessList(table);
     }
 
     private void RebuildAccessorList(DatabaseTable table)
@@ -258,9 +291,12 @@ public sealed class DatabaseTableViewer : UserControl
         _accessorList.Items.Clear();
 
         var accesses = _schema?.GetAccessesFor(table.Id) ?? [];
-        _accessorHeaderLabel.Text = accesses.Count > 0
-            ? $"접근 함수 ({accesses.Count}개)"
-            : "접근 함수 (없음)";
+        if (_tableAccessTab is not null)
+        {
+            _tableAccessTab.Text = accesses.Count > 0
+                ? $"테이블 접근 ({accesses.Count}개)"
+                : "테이블 접근";
+        }
 
         var index = 1;
         foreach (var access in accesses)
@@ -280,6 +316,54 @@ public sealed class DatabaseTableViewer : UserControl
         _accessorList.EndUpdate();
     }
 
+    private void RebuildColumnAccessList(DatabaseTable table)
+    {
+        _columnAccessList.BeginUpdate();
+        _columnAccessList.Items.Clear();
+
+        var colAccesses = _schema?.GetColumnAccessesFor(table.Id) ?? [];
+        if (_columnAccessTab is not null)
+        {
+            _columnAccessTab.Text = colAccesses.Count > 0
+                ? $"필드 접근 ({colAccesses.Count}건)"
+                : "필드 접근";
+        }
+
+        var index = 1;
+        foreach (var ca in colAccesses)
+        {
+            var item = new ListViewItem(index.ToString());
+            item.SubItems.Add(ca.ColumnName);
+            item.SubItems.Add(ca.FunctionDisplayName);
+            item.SubItems.Add(FormatAccessKind(ca.Kind));
+            item.SubItems.Add(Path.GetFileName(ca.FunctionFilePath));
+            item.SubItems.Add(ca.FunctionLineNumber.ToString());
+            item.Tag = ca;
+            item.ToolTipText = $"{ca.FunctionFullName} · {ca.FunctionFilePath}:{ca.FunctionLineNumber}";
+            _columnAccessList.Items.Add(item);
+            index++;
+        }
+
+        _columnAccessList.EndUpdate();
+    }
+
+    private void OpenSelectedColumnAccessor()
+    {
+        if (_columnAccessList.SelectedItems.Count == 0
+            || _columnAccessList.SelectedItems[0].Tag is not DatabaseColumnAccess ca)
+        {
+            return;
+        }
+
+        SourceFileOpener.TryOpen(ca.FunctionFilePath, ca.FunctionLineNumber);
+    }
+
+    private void ResetAccessTabTitles()
+    {
+        if (_tableAccessTab is not null) _tableAccessTab.Text = "테이블 접근";
+        if (_columnAccessTab is not null) _columnAccessTab.Text = "필드 접근";
+    }
+
     private void ShowAccessGraphForSelected()
     {
         if (_selected is null)
@@ -297,11 +381,7 @@ public sealed class DatabaseTableViewer : UserControl
             return;
         }
 
-        NavigationRequested?.Invoke(new MetricsNavigationRequest
-        {
-            FilePath = _selected.FilePath,
-            LineNumber = Math.Max(1, _selected.LineNumber)
-        });
+        SourceFileOpener.TryOpen(_selected.FilePath, Math.Max(1, _selected.LineNumber));
     }
 
     private void OpenSelectedAccessor()
@@ -312,17 +392,14 @@ public sealed class DatabaseTableViewer : UserControl
             return;
         }
 
-        NavigationRequested?.Invoke(new MetricsNavigationRequest
-        {
-            CallGraphNodeId = access.FunctionId,
-            FilePath = access.FunctionFilePath,
-            LineNumber = access.FunctionLineNumber
-        });
+        SourceFileOpener.TryOpen(access.FunctionFilePath, access.FunctionLineNumber);
     }
 
     private string BuildPreview(DatabaseTable table)
     {
         var accessorCount = _schema?.GetAccessesFor(table.Id).Count ?? 0;
+        var colAccesses = _schema?.GetColumnAccessesFor(table.Id) ?? [];
+        var distinctCols = colAccesses.Select(ca => ca.ColumnName).Distinct(StringComparer.OrdinalIgnoreCase).Count();
         var builder = new System.Text.StringBuilder();
         builder.AppendLine($"테이블: {FormatQualifiedName(table)}");
         if (!string.IsNullOrWhiteSpace(table.EntityTypeName))
@@ -331,6 +408,7 @@ public sealed class DatabaseTableViewer : UserControl
         }
 
         builder.AppendLine($"접근 함수: {accessorCount}개");
+        builder.AppendLine($"필드 접근: {colAccesses.Count}건 ({distinctCols}개 필드)");
         builder.AppendLine($"출처: {FormatSourceKind(table.SourceKind)}");
         if (!string.IsNullOrWhiteSpace(table.FilePath))
         {

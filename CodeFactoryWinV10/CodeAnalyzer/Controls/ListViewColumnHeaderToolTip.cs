@@ -333,10 +333,10 @@ internal sealed class ListViewColumnHeaderToolTip : IDisposable
 
 
         return normalized;
-
     }
 
-
+    internal static ListViewColumnHeaderToolTip Attach(ListView listView, IReadOnlyList<string> columnToolTips) =>
+        new(listView, columnToolTips);
 
     private void ClearTooltip()
 
