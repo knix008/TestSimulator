@@ -23,6 +23,7 @@ public partial class SidePanelWindow : Window
     public Action?         OnResetRequested;
     public Action<string>? OnDigitalStyleChanged;
     public Action<string>? OnAnalogStyleChanged;
+    public Action<bool>?   OnAlwaysOnTopChanged;
     public Action? OnSettingsChanged;
 
     internal const double TargetWidth = 400;
@@ -748,12 +749,15 @@ public partial class SidePanelWindow : Window
 
     public void ApplySettings(bool use24h, bool worldUse24h, int brightness,
                               string digitalStyle, string analogStyle,
-                              string alarmSoundId, int alarmVolume)
+                              string alarmSoundId, int alarmVolume,
+                              bool alwaysOnTop)
     {
         Format12h.Checked       -= Format_Checked;
         Format24h.Checked       -= Format_Checked;
         WorldFormat12h.Checked  -= WorldFormat_Checked;
         WorldFormat24h.Checked  -= WorldFormat_Checked;
+        AlwaysOnTopToggle.Checked   -= AlwaysOnTop_Changed;
+        AlwaysOnTopToggle.Unchecked -= AlwaysOnTop_Changed;
         StartupToggle.Checked   -= Startup_Changed;
         StartupToggle.Unchecked -= Startup_Changed;
         SetClockStyleHandlers(enabled: false);
@@ -761,6 +765,7 @@ public partial class SidePanelWindow : Window
         (worldUse24h ? WorldFormat24h : WorldFormat12h).IsChecked = true;
         BrightnessSlider.Value  = Math.Clamp(brightness, 0, 100);
         Dispatcher.BeginInvoke(UpdateBrightnessScaleLabels, System.Windows.Threading.DispatcherPriority.Loaded);
+        AlwaysOnTopToggle.IsChecked = alwaysOnTop;
         StartupToggle.IsChecked = IsStartupEnabled();
 
         _suppressSoundComboChange = true;
@@ -776,9 +781,14 @@ public partial class SidePanelWindow : Window
         Format24h.Checked       += Format_Checked;
         WorldFormat12h.Checked  += WorldFormat_Checked;
         WorldFormat24h.Checked  += WorldFormat_Checked;
+        AlwaysOnTopToggle.Checked   += AlwaysOnTop_Changed;
+        AlwaysOnTopToggle.Unchecked += AlwaysOnTop_Changed;
         StartupToggle.Checked   += Startup_Changed;
         StartupToggle.Unchecked += Startup_Changed;
     }
+
+    private void AlwaysOnTop_Changed(object sender, RoutedEventArgs e)
+        => OnAlwaysOnTopChanged?.Invoke(AlwaysOnTopToggle.IsChecked == true);
 
     private void Startup_Changed(object sender, RoutedEventArgs e)
         => SetStartup(StartupToggle.IsChecked == true);
