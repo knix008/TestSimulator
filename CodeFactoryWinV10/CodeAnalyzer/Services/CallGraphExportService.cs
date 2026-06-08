@@ -14,7 +14,17 @@ public static class CallGraphExportService
 
     public static void SaveToFile(AnalysisResult analysis, string rootDirectory, string filePath)
     {
-        var document = new AnalysisDocument
+        File.WriteAllText(filePath, SerializeToJson(analysis, rootDirectory));
+    }
+
+    public static string SerializeToJson(AnalysisResult analysis, string rootDirectory)
+    {
+        var document = BuildDocument(analysis, rootDirectory);
+        return JsonSerializer.Serialize(document, JsonOptions);
+    }
+
+    private static AnalysisDocument BuildDocument(AnalysisResult analysis, string rootDirectory) =>
+        new()
         {
             Version = "3",
             RootDirectory = rootDirectory,
@@ -106,10 +116,6 @@ public static class CallGraphExportService
             DatabaseSchema = DatabaseSchemaSectionFrom(analysis.DatabaseSchema),
             QualityThresholds = QualityThresholdsRecordFrom(analysis.QualityThresholds)
         };
-
-        var json = JsonSerializer.Serialize(document, JsonOptions);
-        File.WriteAllText(filePath, json);
-    }
 
     public static (AnalysisResult Analysis, string RootDirectory) LoadFromFile(string filePath)
     {

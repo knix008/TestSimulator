@@ -45,6 +45,27 @@ public static class AnalysisReportPdfWriter
                             column.Item().Text(paragraph);
                         }
 
+                        foreach (var chart in section.Charts)
+                        {
+                            column.Item().PaddingVertical(4).Image(chart.PngBytes).FitWidth();
+                        }
+
+                        foreach (var part in section.SummaryParts)
+                        {
+                            column.Item().PaddingTop(6).Text(part.Title).Bold().FontSize(11);
+                            column.Item().Text(part.SummaryText);
+
+                            if (part.Chart is not null)
+                            {
+                                column.Item().PaddingVertical(4).Image(part.Chart.PngBytes).FitWidth();
+                            }
+
+                            if (part.Table is { Rows.Count: > 0 } partTable)
+                            {
+                                column.Item().Element(container => WriteTable(container, partTable));
+                            }
+                        }
+
                         foreach (var bullet in section.BulletItems)
                         {
                             column.Item().Text("• " + bullet);

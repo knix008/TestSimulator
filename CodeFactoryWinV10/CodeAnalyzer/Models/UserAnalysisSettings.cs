@@ -46,10 +46,13 @@ public sealed class UserAnalysisSettings
             WarnGitChangeLines = ResolvePositiveInt(source.WarnGitChangeLines, defaults.WarnGitChangeLines, 50, 1_000_000),
             WarnSecuritySmellCount = ResolvePositiveInt(source.WarnSecuritySmellCount, defaults.WarnSecuritySmellCount, 1, 100),
             EnabledInspections = MetricInspectionCatalog.NormalizeScope(
-                source.EnabledInspections == 0 ? defaults.EnabledInspections : source.EnabledInspections),
+                source.EnabledInspections == 0
+                    ? MetricInspectionCatalog.AllCatalogOptions
+                    : source.EnabledInspections),
             EnabledAnalysisScope = ResolveAnalysisScopeFromInspections(source),
             IncludedDirectoryPaths = [],
-            ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths)
+            ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths),
+            DatabaseConnection = DatabaseConnectionSettings.Clone(source.DatabaseConnection)
         };
     }
 
@@ -131,6 +134,8 @@ public sealed class UserAnalysisSettings
 
     public List<string> ExcludedDirectoryPaths { get; set; } = [];
 
+    public DatabaseConnectionSettings DatabaseConnection { get; set; } = new();
+
     public UserAnalysisSettings()
     {
         CopyThresholdsFrom(_designerDefaults);
@@ -187,11 +192,12 @@ public sealed class UserAnalysisSettings
             WarnInheritanceDepth = source.WarnInheritanceDepth,
             WarnGitChangeLines = source.WarnGitChangeLines,
             WarnSecuritySmellCount = source.WarnSecuritySmellCount,
-            EnabledInspections = MetricInspectionScope.Normalize(source.EnabledInspections),
+            EnabledInspections = MetricInspectionCatalog.NormalizeScope(source.EnabledInspections),
             EnabledAnalysisScope = AnalysisScopeResolver.Resolve(
-                MetricInspectionScope.Normalize(source.EnabledInspections)),
+                MetricInspectionCatalog.NormalizeScope(source.EnabledInspections)),
             IncludedDirectoryPaths = ClonePathList(source.IncludedDirectoryPaths),
-            ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths)
+            ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths),
+            DatabaseConnection = DatabaseConnectionSettings.Clone(source.DatabaseConnection)
         };
     }
 
@@ -224,17 +230,18 @@ public sealed class UserAnalysisSettings
         WarnInheritanceDepth = source.WarnInheritanceDepth;
         WarnGitChangeLines = source.WarnGitChangeLines;
         WarnSecuritySmellCount = source.WarnSecuritySmellCount;
-        EnabledInspections = MetricInspectionScope.Normalize(source.EnabledInspections);
+        EnabledInspections = MetricInspectionCatalog.NormalizeScope(source.EnabledInspections);
         EnabledAnalysisScope = AnalysisScopeResolver.Resolve(
-            MetricInspectionScope.Normalize(source.EnabledInspections));
+            MetricInspectionCatalog.NormalizeScope(source.EnabledInspections));
         IncludedDirectoryPaths = ClonePathList(source.IncludedDirectoryPaths);
         ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths);
+        DatabaseConnection = DatabaseConnectionSettings.Clone(source.DatabaseConnection);
     }
 
     /// <summary>MainForm 생성 전 플레이스홀더. 실제 기본값은 Designer + <see cref="RegisterDesignerDefaults"/>.</summary>
     private static UserAnalysisSettings CreateBuiltInDefaults() => new(initializingBuiltInDefaults: true)
     {
-        EnabledInspections = MetricInspectionKind.All,
+        EnabledInspections = MetricInspectionCatalog.AllCatalogOptions,
         EnabledAnalysisScope = AnalysisScopeKind.All,
         WarnStatementCount = 50,
         WarnSwitchCaseCount = 10,

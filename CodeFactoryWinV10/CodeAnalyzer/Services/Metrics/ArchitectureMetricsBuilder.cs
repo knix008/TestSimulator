@@ -30,6 +30,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.Summary,
             Category = "요약",
+            IsCategorySummary = true,
             Description =
                 $"호출 그래프 {callGraph.NodeMap.Count:N0}함수 · {callGraph.Edges.Count:N0}호출 · " +
                 $"파일 연관 {fileRelations.Files.Count:N0}파일 · {fileRelations.Edges.Count:N0}연결 · " +
@@ -51,6 +52,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.TypeStructure,
                 Category = "타입 구조",
+                IsCategorySummary = true,
                 Description =
                     $"타입 {structure.Types.Count:N0}개 · 상속/구현 {inheritanceCount:N0} · 의존 {dependencyCount:N0}"
             });
@@ -194,6 +196,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.CircularCall,
                 Category = "순환 호출",
+                IsCategorySummary = true,
                 Description = "검출된 순환 호출 체인이 없습니다."
             });
         }
@@ -210,6 +213,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.FileCoupling,
                 Category = "파일 연관",
+                IsCategorySummary = true,
                 Description = "파일 간 호출 관계가 없습니다."
             });
             return;
@@ -230,6 +234,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.FileCoupling,
             Category = "파일 연관",
+            IsCategorySummary = true,
             Description =
                 $"파일 {fileRelations.Files.Count:N0}개 · 호출 연결 {fileRelations.Edges.Count:N0}건 · " +
                 $"최다 호출 {fileRelations.Edges.Max(edge => edge.CallCount):N0}회"
@@ -284,6 +289,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.DirectoryCoupling,
                 Category = "디렉터리 연관",
+                IsCategorySummary = true,
                 Description = $"디렉터리 {directoryRelations.Directories.Count:N0}개 · 디렉터리 간 호출 관계 없음"
             });
             return;
@@ -293,6 +299,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.DirectoryCoupling,
             Category = "디렉터리 연관",
+            IsCategorySummary = true,
             Description =
                 $"디렉터리 {directoryRelations.Directories.Count:N0}개 · 연결 {directoryRelations.Edges.Count:N0}건 · " +
                 $"최다 호출 {directoryRelations.Edges.Max(edge => edge.CallCount):N0}회"
@@ -344,6 +351,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.FanOutHub,
                 Category = "Fan-Out 허브",
+                IsCategorySummary = true,
                 Description = $"기준 {thresholds.WarnFanOut} 이상 {functions.Count(func => func.FanOut >= thresholds.WarnFanOut):N0}개",
                 Severity = WarningLevel.Warning
             });
@@ -384,6 +392,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.FanInHub,
                 Category = "Fan-In 허브",
+                IsCategorySummary = true,
                 Description = $"다수 호출을 받는 함수 {fanInHubs.Count:N0}개 (상위 표시)",
                 Severity = WarningLevel.None
             });
@@ -422,6 +431,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.IsolatedFunction,
             Category = "고립 함수",
+            IsCategorySummary = true,
             Description =
                 $"호출 그래프에서 In/Out 모두 0인 함수 {isolated.Count:N0}개 (미사용·진입점·분석 누락 가능)",
             Severity = isolated.Count >= 20 ? WarningLevel.Warning : WarningLevel.None
@@ -457,6 +467,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.GlobalVariable,
             Category = "전역 변수",
+            IsCategorySummary = true,
             Description =
                 $"전역 {globalVariables.Variables.Count:N0}개 · public mutable {mutablePublic:N0}개",
             Severity = mutablePublic >= 5 ? WarningLevel.Warning : WarningLevel.None
@@ -499,6 +510,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.DatabaseSchema,
             Category = "DB 스키마",
+            IsCategorySummary = true,
             Description =
                 $"테이블 {databaseSchema.Tables.Count:N0} · 관계 {databaseSchema.Relations.Count:N0} · FK 없음 {withoutFk:N0}",
             Severity = databaseSchema.Tables.Count >= 30 ? WarningLevel.Warning : WarningLevel.None
@@ -561,6 +573,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.FileDuplicate,
             Category = "파일별 중복",
+            IsCategorySummary = true,
             Description = $"중복 구간에 참여한 파일 {byFile.Count:N0}개 (상위 표시)",
             Severity = WarningLevel.Warning
         });
@@ -615,6 +628,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.GodFile,
                 Category = "God file",
+                IsCategorySummary = true,
                 Description =
                     $"코드 줄 ≥{thresholds.WarnGodFileCodeLines} 인 파일 {fileRows.Count(f => FileMetricsAggregator.IsGodFile(f, thresholds)):N0}개",
                 Severity = WarningLevel.Warning
@@ -656,6 +670,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.LowComment,
             Category = "주석 부족",
+            IsCategorySummary = true,
             Description =
                 $"주석 비율 <{thresholds.WarnMinCommentPercent:F0}% (코드 {FileMetricsAggregator.MinCodeLinesForCommentWarning}줄 이상) · {lowComment.Count:N0}파일",
             Severity = WarningLevel.None
@@ -688,6 +703,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.DuplicateCode,
             Category = "중복 코드",
+            IsCategorySummary = true,
             Description =
                 $"그룹 {duplicates.Groups.Count:N0}건 · 위치 {totalFragments:N0}곳 · 최소 {duplicates.MinDuplicateLines}줄 기준",
             Severity = WarningLevel.Warning
@@ -760,6 +776,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.PossiblyUnusedCode,
             Category = "미사용 가능",
+            IsCategorySummary = true,
             Description = $"private·미호출 함수 {unused.Count:N0}개",
             Severity = unused.Count >= 10 ? WarningLevel.Warning : WarningLevel.None
         });
@@ -795,6 +812,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.CatchQuality,
             Category = "catch 품질",
+            IsCategorySummary = true,
             Description = $"빈/광범위 catch 함수 {targets.Count:N0}개",
             Severity = WarningLevel.Warning
         });
@@ -827,6 +845,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.AsyncVoid,
             Category = "async void",
+            IsCategorySummary = true,
             Description = $"async void 함수 {asyncVoid.Count:N0}개",
             Severity = WarningLevel.Warning
         });
@@ -851,6 +870,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.TestCoverage,
             Category = "테스트 비율",
+            IsCategorySummary = true,
             Description = $"테스트 코드 LOC 비율(근사): {summary.TestCodeLinePercent:F1}%",
             Severity = summary.TestCodeLinePercent < 10 ? WarningLevel.Warning : WarningLevel.None
         });
@@ -876,6 +896,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.PackageInstability,
             Category = "패키지 불안정성",
+            IsCategorySummary = true,
             Description = $"I ≥ {thresholds.WarnInstability:F2} 패키지 {unstable.Count:N0}개",
             Severity = WarningLevel.Warning
         });
@@ -904,6 +925,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.LayerViolation,
                 Category = "계층 위반",
+                IsCategorySummary = true,
                 Description = "폴더명 휴리스틱 기준 계층 위반 없음"
             });
             return;
@@ -913,6 +935,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.LayerViolation,
             Category = "계층 위반",
+            IsCategorySummary = true,
             Description = $"파일 의존 계층 위반 {violations.Count:N0}건",
             Severity = WarningLevel.Warning
         });
@@ -956,6 +979,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.SecuritySmell,
             Category = "보안 smell",
+            IsCategorySummary = true,
             Description = $"의심 패턴 파일 {files.Count:N0}개",
             Severity = WarningLevel.Warning
         });
@@ -999,6 +1023,7 @@ public static class ArchitectureMetricsBuilder
             {
                 Kind = ArchitectureInsightKind.GitHotspot,
                 Category = "Git 핫스팟",
+                IsCategorySummary = true,
                 Description = "최근 6개월 Git 변경 상한 미만 (또는 Git 저장소 없음)"
             });
             return;
@@ -1008,6 +1033,7 @@ public static class ArchitectureMetricsBuilder
         {
             Kind = ArchitectureInsightKind.GitHotspot,
             Category = "Git 핫스팟",
+            IsCategorySummary = true,
             Description = $"변경 줄 ≥{thresholds.WarnGitChangeLines:N0} 파일 {files.Count:N0}개",
             Severity = WarningLevel.Warning
         });
@@ -1055,6 +1081,7 @@ public static class ArchitectureMetricsBuilder
                 {
                     Kind = ArchitectureInsightKind.TypeCohesion,
                     Category = "타입 응집도",
+                    IsCategorySummary = true,
                     Description = $"LCOM ≥ {thresholds.WarnLackOfCohesion:F2} 타입 {lowCohesion.Count:N0}개",
                     Severity = WarningLevel.Warning
                 });
@@ -1085,6 +1112,7 @@ public static class ArchitectureMetricsBuilder
                 {
                     Kind = ArchitectureInsightKind.InheritanceMetrics,
                     Category = "상속 구조",
+                    IsCategorySummary = true,
                     Description = $"DIT ≥ {thresholds.WarnInheritanceDepth} 타입 {deepTypes.Count:N0}개",
                     Severity = WarningLevel.Warning
                 });

@@ -6,6 +6,8 @@ public static class AnalysisReportMarkdownWriter
 {
     public static void Write(AnalysisReportDocument document, string filePath)
     {
+        ReportChartWriterHelper.WriteChartFiles(filePath, document.Sections);
+
         var builder = new StringBuilder();
         builder.AppendLine($"# {document.Title}");
         builder.AppendLine();
@@ -25,6 +27,16 @@ public static class AnalysisReportMarkdownWriter
                 builder.AppendLine();
             }
 
+            if (section.Charts.Count > 0)
+            {
+                ReportChartWriterHelper.AppendMarkdownCharts(builder, filePath, section.Charts);
+            }
+
+            if (section.SummaryParts.Count > 0)
+            {
+                ReportSectionContentWriter.AppendMarkdownSummaryParts(builder, filePath, section.SummaryParts);
+            }
+
             foreach (var bullet in section.BulletItems)
             {
                 builder.Append("- ");
@@ -38,7 +50,7 @@ public static class AnalysisReportMarkdownWriter
 
             if (section.Table is { Rows.Count: > 0 } table)
             {
-                WriteTable(builder, table);
+                ReportTableWriter.AppendMarkdownTable(builder, table);
                 builder.AppendLine();
             }
         }
@@ -51,40 +63,5 @@ public static class AnalysisReportMarkdownWriter
         }
 
         File.WriteAllText(filePath, builder.ToString(), Encoding.UTF8);
-    }
-
-    private static void WriteTable(StringBuilder builder, ReportTable table)
-    {
-        builder.Append('|');
-        foreach (var header in table.Headers)
-        {
-            builder.Append(' ');
-            builder.Append(ReportFormatting.EscapeMarkdownCell(header));
-            builder.Append(" |");
-        }
-
-        builder.AppendLine();
-
-        builder.Append("|");
-        foreach (var _ in table.Headers)
-        {
-            builder.Append(" --- |");
-        }
-
-        builder.AppendLine();
-
-        foreach (var row in table.Rows)
-        {
-            builder.Append('|');
-            for (var index = 0; index < table.Headers.Count; index++)
-            {
-                var cell = index < row.Cells.Count ? row.Cells[index] : string.Empty;
-                builder.Append(' ');
-                builder.Append(ReportFormatting.EscapeMarkdownCell(cell));
-                builder.Append(" |");
-            }
-
-            builder.AppendLine();
-        }
     }
 }

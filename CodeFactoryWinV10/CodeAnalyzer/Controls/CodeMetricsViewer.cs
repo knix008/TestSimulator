@@ -2,6 +2,7 @@ using System.Collections;
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
 using CodeAnalyzer.Services.Metrics;
+using CodeAnalyzer.Services.Reports;
 
 namespace CodeAnalyzer.Controls;
 
@@ -235,7 +236,7 @@ public sealed class CodeMetricsViewer : UserControl
             AdjustDescriptionColumnWidth(_fileList, 23);
             AdjustDescriptionColumnWidth(_typeList, 18);
             AdjustDescriptionColumnWidth(_packageList, 0, 160);
-            AdjustArchitectureContentColumnWidth();
+            AdjustDescriptionColumnWidth(_architectureList, 4);
         }
         finally
         {
@@ -394,7 +395,9 @@ public sealed class CodeMetricsViewer : UserControl
     [
         new() { Text = "#", Width = 40, TextAlign = HorizontalAlignment.Right },
         new() { Text = "유형", Width = 96 },
-        new() { Text = "내용", Width = 320 }
+        new() { Text = "내용", Width = 280 },
+        new() { Text = "상태", Width = 52 },
+        new() { Text = "설명", Width = 360 }
     ];
 
     public void SetMetrics(
@@ -784,8 +787,8 @@ public sealed class CodeMetricsViewer : UserControl
         }
     }
 
-    private static bool IsArchitectureSummaryKind(ArchitectureInsightKind kind) =>
-        kind is ArchitectureInsightKind.Summary or ArchitectureInsightKind.TypeStructure;
+    private static bool IsArchitectureSummaryInsight(ArchitectureInsight insight) =>
+        insight.IsCategorySummary;
 
     private void BuildArchitectureList()
     {
@@ -799,7 +802,9 @@ public sealed class CodeMetricsViewer : UserControl
             fallbackItem.SubItems.Add(
                 $"중복 줄 {summary.DuplicateLineCount:N0} ({summary.ProjectDuplicateLinePercent:F1}%) · " +
                 $"순환 호출 {summary.CircularCallChainCount}건 · TODO 표식 {summary.TotalTodoMarkers}개");
-            fallbackItem.ToolTipText = fallbackItem.SubItems[2].Text;
+            fallbackItem.SubItems.Add(FormatWarningLevel(WarningLevel.None));
+            fallbackItem.SubItems.Add("분석 결과가 없어 상세 인사이트를 표시할 수 없습니다.");
+            fallbackItem.ToolTipText = fallbackItem.SubItems[4].Text;
             _architectureList.Items.Add(fallbackItem);
             return;
         }
@@ -817,45 +822,26 @@ public sealed class CodeMetricsViewer : UserControl
 
         // 요약 항목 → 하단 요약 패널
         var summaryLines = insights
-            .Where(i => IsArchitectureSummaryKind(i.Kind))
+            .Where(IsArchitectureSummaryInsight)
             .Select(i => $"[{i.Category}]  {i.Description}");
         _archSummaryBox.Text = string.Join(Environment.NewLine + Environment.NewLine, summaryLines);
 
         // 상세 항목 → 리스트
         var index = 1;
-        foreach (var insight in insights.Where(i => !IsArchitectureSummaryKind(i.Kind)))
+        foreach (var insight in insights.Where(i => !IsArchitectureSummaryInsight(i)))
         {
+            var remediation = AnalysisReportRemediationTexts.ForInsight(insight);
             var item = new ListViewItem(index.ToString());
             item.SubItems.Add(insight.Category);
             item.SubItems.Add(insight.Description);
+            item.SubItems.Add(FormatWarningLevel(insight.Severity));
+            item.SubItems.Add(remediation);
             item.Tag = insight.NavigationTag;
-            item.ToolTipText = insight.Description;
+            item.ToolTipText = remediation;
             ApplyWarningColor(item, insight.Severity);
             _architectureList.Items.Add(item);
             index++;
         }
-    }
-
-    private void AdjustArchitectureContentColumnWidth()
-    {
-        if (_architectureList.Columns.Count < 3
-            || _architectureList.ClientSize.Width <= 0
-            || !_architectureList.IsHandleCreated)
-        {
-            return;
-        }
-
-        const int indexWidth = 40;
-        const int categoryWidth = 96;
-        const int minContentWidth = 120;
-
-        SetColumnWidthIfChanged(_architectureList.Columns[0], indexWidth);
-        SetColumnWidthIfChanged(_architectureList.Columns[1], categoryWidth);
-
-        var availableWidth = GetAvailableListClientWidth(_architectureList) - indexWidth - categoryWidth;
-        SetColumnWidthIfChanged(
-            _architectureList.Columns[2],
-            Math.Max(minContentWidth, availableWidth));
     }
 
     private static int GetAvailableListClientWidth(ListView list)
@@ -1407,7 +1393,9 @@ public sealed class CodeMetricsViewer : UserControl
     [
         "아키텍처 인사이트 목록 순번입니다.",
         "인사이트 유형입니다. 순환 호출, 파일·디렉터리 결합, 중복 코드, 계층 위반, Git 핫스팟 등이 표시됩니다.",
-        "발견된 구조적 이슈 설명입니다. 더블클릭하면 관련 그래프·파일로 이동할 수 있습니다. 잘린 내용은 행 툴팁으로 확인하세요."
+        "검출된 구조적 이슈의 측정·위치 정보입니다. 더블클릭하면 관련 그래프·파일로 이동할 수 있습니다.",
+        "경고 수준입니다. 정상 · 경고 · 심각.",
+        "권장 개선 조치입니다. 행에 마우스를 올리면 전체 설명을 볼 수 있습니다."
     ];
 
     private sealed class ListViewSorter : IComparer

@@ -5,7 +5,7 @@ namespace CodeAnalyzer.Services;
 
 public sealed class UserSettingsService
 {
-    private const int CurrentSchemaVersion = 1;
+    private const int CurrentSchemaVersion = 3;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     private readonly string _settingsFilePath;
@@ -43,6 +43,12 @@ public sealed class UserSettingsService
             if (settings.SchemaVersion < 1 && settings.MinDuplicateLines == 5)
             {
                 settings.MinDuplicateLines = 0;
+            }
+
+            // One-time migration: inspection catalog defaults should show every option selected.
+            if (settings.SchemaVersion < 3)
+            {
+                settings.EnabledInspections = MetricInspectionCatalog.AllCatalogOptions;
             }
 
             Normalize(settings);
@@ -140,6 +146,14 @@ public sealed class UserSettingsService
         settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
         settings.IncludedDirectoryPaths = [];
         settings.ExcludedDirectoryPaths = CloneDirectoryPaths(thresholds.ExcludedDirectoryPaths);
+        settings.DatabaseConnection = DatabaseConnectionSettings.Normalize(thresholds.DatabaseConnection);
+        SaveSettings(settings);
+    }
+
+    public void SaveDatabaseConnection(DatabaseConnectionSettings databaseConnection)
+    {
+        var settings = LoadSettings();
+        settings.DatabaseConnection = DatabaseConnectionSettings.Normalize(databaseConnection);
         SaveSettings(settings);
     }
 
@@ -152,6 +166,7 @@ public sealed class UserSettingsService
         settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
         settings.IncludedDirectoryPaths = [];
         settings.ExcludedDirectoryPaths = CloneDirectoryPaths(settings.ExcludedDirectoryPaths);
+        settings.DatabaseConnection = DatabaseConnectionSettings.Normalize(settings.DatabaseConnection);
 
         if (settings.MinDuplicateLines > 0)
         {

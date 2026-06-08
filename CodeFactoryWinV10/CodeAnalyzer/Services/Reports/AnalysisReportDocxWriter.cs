@@ -31,6 +31,24 @@ public static class AnalysisReportDocxWriter
                 AddParagraph(body, paragraph);
             }
 
+            ReportDocxChartEmbedder.AppendCharts(body, mainPart, section.Charts);
+
+            foreach (var part in section.SummaryParts)
+            {
+                AddHeading(body, part.Title, 3);
+                AddParagraph(body, part.SummaryText);
+
+                if (part.Chart is not null)
+                {
+                    ReportDocxChartEmbedder.AppendCharts(body, mainPart, [part.Chart]);
+                }
+
+                if (part.Table is { Rows.Count: > 0 } partTable)
+                {
+                    AddTable(body, partTable);
+                }
+            }
+
             foreach (var bullet in section.BulletItems)
             {
                 AddBullet(body, bullet);

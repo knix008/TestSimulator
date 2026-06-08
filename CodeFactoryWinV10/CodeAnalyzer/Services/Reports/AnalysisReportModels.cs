@@ -15,7 +15,26 @@ public sealed class ReportSection
     public int Level { get; init; } = 2;
     public IReadOnlyList<string> Paragraphs { get; init; } = [];
     public IReadOnlyList<string> BulletItems { get; init; } = [];
+    public IReadOnlyList<ReportChartImage> Charts { get; init; } = [];
+    public IReadOnlyList<ReportSummaryPart> SummaryParts { get; init; } = [];
     public ReportTable? Table { get; init; }
+}
+
+public sealed class ReportSummaryPart
+{
+    public required string Title { get; init; }
+    public required string SummaryText { get; init; }
+    public ReportChartImage? Chart { get; init; }
+    public ReportTable? Table { get; init; }
+}
+
+public sealed class ReportChartImage
+{
+    public required string FileName { get; init; }
+    public required byte[] PngBytes { get; init; }
+    public string AltText { get; init; } = string.Empty;
+    public int Width { get; init; }
+    public int Height { get; init; }
 }
 
 public sealed class ReportTable

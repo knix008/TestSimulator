@@ -5,6 +5,7 @@ using CodeAnalyzer.Services;
 using CodeAnalyzer.Services.Metrics;
 using CodeAnalyzer.Services.GlobalVariables;
 using CodeAnalyzer.Services.Database;
+using CodeAnalyzer.Services.Persistence;
 using CodeAnalyzer.Services.Reports;
 
 namespace CodeAnalyzer;
@@ -175,6 +176,10 @@ public partial class MainForm : Form
         menuExportMetrics.Image = RegisterMenuImage(MenuIconFactory.CreateExportMetricsIcon());
         menuExportReport.Image = RegisterMenuImage(MenuIconFactory.CreateExportReportIcon());
         menuExportImage.Image = RegisterMenuImage(MenuIconFactory.CreateExportImageIcon());
+        menuSettings.AutoSize = true;
+        menuSettings.Image = RegisterMenuImage(MenuIconFactory.CreateAnalysisSettingsIcon());
+        menuAnalysisSettings.Image = RegisterMenuImage(MenuIconFactory.CreateAnalysisSettingsIcon());
+        menuDatabaseSettings.Image = RegisterMenuImage(MenuIconFactory.CreateDatabaseSettingsIcon());
     }
 
     private Image RegisterMenuImage(Bitmap image)
@@ -215,7 +220,8 @@ public partial class MainForm : Form
             "전역 변수",
             "DB ERD",
             "DB 테이블 접근",
-            "버그 위험 분석(Lint)"
+            "버그 위험 분석(Lint)",
+            "분석 Summary"
         });
         comboDiagramView.SelectedIndex = 0;
 
@@ -250,6 +256,7 @@ public partial class MainForm : Form
             10 => DiagramViewKind.DatabaseErd,
             11 => DiagramViewKind.DatabaseTableAccess,
             12 => DiagramViewKind.BugRisk,
+            13 => DiagramViewKind.Summary,
             _ => DiagramViewKind.CallGraph
         };
 
@@ -326,6 +333,60 @@ public partial class MainForm : Form
         if (_lastAnalysis is not null)
         {
             diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
+        }
+    }
+
+    private void btnDatabaseSettings_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new DatabaseSettingsDialog(_analysisSettings.DatabaseConnection);
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        _analysisSettings.DatabaseConnection = DatabaseConnectionSettings.Normalize(dialog.Settings);
+        _userSettings.SaveDatabaseConnection(_analysisSettings.DatabaseConnection);
+        var settings = _userSettings.LoadSettings();
+        settings.DatabaseConnection = _analysisSettings.DatabaseConnection;
+        _userSettings.SaveSettings(settings);
+    }
+
+    private async Task TrySaveAnalysisResultToDatabaseAsync(
+        AnalysisResult result,
+        string rootPath,
+        TimeSpan elapsed,
+        int fileCount,
+        int directoryCount)
+    {
+        var dbSettings = DatabaseConnectionSettings.Normalize(_analysisSettings.DatabaseConnection);
+        if (!dbSettings.Enabled || !dbSettings.SaveOnAnalysisComplete)
+        {
+            return;
+        }
+
+        try
+        {
+            var saveResult = await AnalysisResultDatabaseWriter.SaveAsync(
+                result,
+                rootPath,
+                dbSettings,
+                elapsed,
+                fileCount,
+                directoryCount).ConfigureAwait(true);
+
+            if (saveResult.Saved)
+            {
+                lblStatus.Text = $"{lblStatus.Text} · {saveResult.Message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                this,
+                $"분석 결과 DB 저장에 실패했습니다.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
+                "DB 저장",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
     }
 
@@ -524,6 +585,9 @@ public partial class MainForm : Form
             UpdateAnalysisProgress(100);
             RememberAnalysisCompletionStats(elapsed, directoryCount, fileCount);
 
+            await TrySaveAnalysisResultToDatabaseAsync(result, rootPath, elapsed, fileCount, directoryCount)
+                .ConfigureAwait(true);
+
             AnalysisCompletionDialog.Show(
                 this,
                 result,
@@ -651,6 +715,9 @@ public partial class MainForm : Form
         SetAnalyzeButtonRunning();
         SetToolbarEnabled(false);
         btnAnalysisSettings.Enabled = false;
+        btnDatabaseSettings.Enabled = false;
+        menuAnalysisSettings.Enabled = false;
+        menuDatabaseSettings.Enabled = false;
         ResetAnalysisProgress(isActive: true);
         _lastAnalysisProgressReport = null;
         _analysisElapsedStopwatch.Restart();
@@ -671,9 +738,13 @@ public partial class MainForm : Form
         SetAnalyzeButtonIdle();
         SetToolbarEnabled(true);
         btnAnalysisSettings.Enabled = true;
+        btnDatabaseSettings.Enabled = true;
+        menuAnalysisSettings.Enabled = true;
+        menuDatabaseSettings.Enabled = true;
         ResetAnalysisProgress(isActive: false);
 
-        if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.CodeMetrics
+        if (_lastAnalysis is not null && GetSelectedViewKind() is DiagramViewKind.Summary
+            or DiagramViewKind.CodeMetrics
             or DiagramViewKind.DuplicateCode
             or DiagramViewKind.GlobalVariables
             or DiagramViewKind.DatabaseErd
@@ -743,7 +814,8 @@ public partial class MainForm : Form
         }
 
         var viewKind = GetSelectedViewKind();
-        var isTabularView = viewKind is DiagramViewKind.CodeMetrics
+        var isTabularView = viewKind is DiagramViewKind.Summary
+            or DiagramViewKind.CodeMetrics
             or DiagramViewKind.DuplicateCode
             or DiagramViewKind.GlobalVariables
             or DiagramViewKind.DatabaseTableAccess
@@ -1197,6 +1269,7 @@ public partial class MainForm : Form
                 DiagramViewKind.DatabaseErd => 10,
                 DiagramViewKind.DatabaseTableAccess => 11,
                 DiagramViewKind.BugRisk => 12,
+                DiagramViewKind.Summary => 13,
                 _ => 0
             };
 
@@ -1329,14 +1402,27 @@ public partial class MainForm : Form
             FileName = AnalysisExportFileNameBuilder.BuildProjectSaveFileName(project.RootDirectory)
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        var savePath = dialog.FileName;
         try
         {
-            project.Name = Path.GetFileNameWithoutExtension(dialog.FileName);
-            ProjectFileService.SaveToFile(project, dialog.FileName);
+            project.Name = Path.GetFileNameWithoutExtension(savePath);
+            ProjectFileService.SaveToFile(project, savePath);
+            lblStatus.Text = $"프로젝트 저장 완료: {savePath}";
+            var rootSummary = string.IsNullOrWhiteSpace(project.RootDirectory)
+                ? "(미지정)"
+                : project.RootDirectory;
+            ShowFileSaveSuccess(
+                this,
+                "프로젝트 저장",
+                savePath,
+                $"분석 루트:{Environment.NewLine}{rootSummary}{Environment.NewLine}{Environment.NewLine}" +
+                $"선택 언어 {project.EnabledLanguageIds.Count}개, " +
+                $"제외 디렉터리 {project.ExcludedDirectoryPaths.Count}개");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"프로젝트 저장 실패:\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ShowFileSaveError(this, "프로젝트 저장 오류", ex, "프로젝트 저장 중 오류가 발생했습니다.", savePath);
         }
     }
 

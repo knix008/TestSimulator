@@ -21,6 +21,7 @@ internal sealed class DiagramEdge
     public required string FromId { get; init; }
     public required string ToId { get; init; }
     public required string Label { get; init; }
+    public int? CallCount { get; init; }
     public StructureRelationKind? RelationKind { get; init; }
 }
 
@@ -29,11 +30,18 @@ internal static class DiagramBoxLayoutEngine
     private const int NodeWidth = 200;
     private const int LineHeight = 14;
     private const int HeaderHeight = 36;
-    private const int HorizontalGap = 48;
-    private const int VerticalGap = 80;
+    private const int HorizontalGap = 72;
+    private const int VerticalGap = 110;
+    private const int TreeDepthGap = 120;
+    private const int TreeSiblingGap = 36;
 
     public static int MeasureNodeHeight(DiagramBoxNode node)
     {
+        if (node.TypeKind is "file" or "directory")
+        {
+            return HeaderHeight + Math.Max(1, node.Attributes.Count) * LineHeight + 36;
+        }
+
         return HeaderHeight + Math.Max(1, node.Lines.Count) * LineHeight + 12;
     }
 
@@ -100,8 +108,8 @@ internal static class DiagramBoxLayoutEngine
 
             var height = MeasureNodeHeight(node);
             var y = 24 + nextY;
-            nextY += height + 28;
-            positions[id] = new Point(24 + depth * (NodeWidth + 80), y);
+            nextY += height + TreeSiblingGap;
+            positions[id] = new Point(24 + depth * (NodeWidth + TreeDepthGap), y);
             node.Bounds = new Rectangle(positions[id], new Size(NodeWidth, height));
 
             if (outgoing.TryGetValue(id, out var children))

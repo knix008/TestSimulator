@@ -136,6 +136,8 @@ internal static class AnalysisReportRemediationTexts
         {
             ArchitectureInsightKind.CircularCall =>
                 "순환을 끊기 위해 공통 인터페이스 추출, 이벤트 기반 통신, 의존성 주입으로 단방향 의존을 만드세요.",
+            ArchitectureInsightKind.FileCoupling when insight.Category == "파일 허브" =>
+                "다수 파일을 호출하는 허브 파일은 변경 영향이 큽니다. 공통 로직을 별도 모듈로 분리하고, 호출자는 좁은 API만 사용하게 하세요.",
             ArchitectureInsightKind.FileCoupling =>
                 "고결합 파일 쌍은 공통 모듈 추출·인터페이스 분리·순환 import 제거로 결합을 낮추세요.",
             ArchitectureInsightKind.DirectoryCoupling =>

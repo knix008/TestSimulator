@@ -6,6 +6,7 @@ internal static class DiagramViewDisplayNames
 {
     public static string Get(DiagramViewKind kind) => kind switch
     {
+        DiagramViewKind.Summary => "분석 Summary",
         DiagramViewKind.CallGraph => "호출 그래프",
         DiagramViewKind.ClassDiagram => "클래스 다이어그램",
         DiagramViewKind.SequenceDiagram => "시퀀스 다이어그램",

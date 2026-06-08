@@ -1,3 +1,5 @@
+using CodeAnalyzer.Models;
+
 namespace CodeAnalyzer.Controls;
 
 internal enum BoxSide
@@ -12,7 +14,35 @@ internal readonly record struct SideConnection(Point From, Point To, BoxSide Fro
 
 internal static class DiagramSideAnchor
 {
-    public static SideConnection GetConnectionPair(Rectangle fromBounds, Rectangle toBounds)
+    public static SideConnection GetConnectionPair(Rectangle fromBounds, Rectangle toBounds) =>
+        GetConnectionPairInternal(fromBounds, toBounds);
+
+    public static SideConnection GetLayoutConnectionPair(
+        Rectangle fromBounds,
+        Rectangle toBounds,
+        GraphLayoutDirection layoutDirection) =>
+        layoutDirection == GraphLayoutDirection.TopToBottom
+            ? new SideConnection(
+                GetMidpoint(fromBounds, BoxSide.Bottom),
+                GetMidpoint(toBounds, BoxSide.Top),
+                BoxSide.Bottom,
+                BoxSide.Top)
+            : new SideConnection(
+                GetMidpoint(fromBounds, BoxSide.Right),
+                GetMidpoint(toBounds, BoxSide.Left),
+                BoxSide.Right,
+                BoxSide.Left);
+
+    public static SideConnection Resolve(
+        Rectangle fromBounds,
+        Rectangle toBounds,
+        GraphLayoutDirection layoutDirection,
+        bool preferLayoutAnchors) =>
+        preferLayoutAnchors
+            ? GetLayoutConnectionPair(fromBounds, toBounds, layoutDirection)
+            : GetConnectionPairInternal(fromBounds, toBounds);
+
+    private static SideConnection GetConnectionPairInternal(Rectangle fromBounds, Rectangle toBounds)
     {
         var (fromSide, toSide) = ChooseSides(fromBounds, toBounds);
         return new SideConnection(
@@ -88,10 +118,10 @@ internal static class DiagramSideAnchor
     }
 
     private static int HorizontalCenter(Rectangle bounds) =>
-        bounds.Left + (bounds.Width - 1) / 2;
+        bounds.Left + bounds.Width / 2;
 
     private static int VerticalCenter(Rectangle bounds) =>
-        bounds.Top + (bounds.Height - 1) / 2;
+        bounds.Top + bounds.Height / 2;
 
     private static int RightEdge(Rectangle bounds) =>
         bounds.Left + Math.Max(0, bounds.Width - 1);

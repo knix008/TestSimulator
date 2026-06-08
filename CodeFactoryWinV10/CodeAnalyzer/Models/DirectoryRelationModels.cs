@@ -16,7 +16,7 @@ public sealed class DirectoryRelationEdge
     public required string ToDirectoryId { get; init; }
     public int CallCount { get; init; }
 
-    public string Label => CallCount > 1 ? $"호출 → ({CallCount})" : "호출 →";
+    public string Label => RelationEdgeLabels.FormatCallCount(CallCount);
 }
 
 public sealed class DirectoryRelationGraphResult

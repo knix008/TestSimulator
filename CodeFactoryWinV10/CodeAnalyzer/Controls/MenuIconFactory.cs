@@ -143,6 +143,16 @@ internal static class MenuIconFactory
         g.FillEllipse(Brushes.White, size / 2 - 2, size / 2 - 2, 4, 4);
     });
 
+    public static Bitmap CreateDatabaseSettingsIcon(int size = 16) => DrawSized(size, g =>
+    {
+        using var body = new SolidBrush(Color.FromArgb(55, 90, 140));
+        using var cap = new SolidBrush(Color.FromArgb(76, 175, 80));
+        g.FillEllipse(body, 2, 5, size - 4, 4);
+        g.FillRectangle(body, 2, 7, size - 4, size - 9);
+        g.FillEllipse(body, 2, size - 6, size - 4, 4);
+        g.FillEllipse(cap, 2, 3, size - 4, 4);
+    });
+
     public static Bitmap CreateSelectAllIcon() => Draw(g =>
     {
         using var box = new Pen(Color.FromArgb(55, 90, 140), 1.5f);

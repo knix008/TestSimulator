@@ -12,6 +12,8 @@ internal readonly record struct DiagramEdgeArrow(
 
 internal static class DiagramConnectionDrawer
 {
+    private const int OutwardStub = 22;
+
     public static Point GetSourceAnchor(DiagramBoxNode node, GraphLayoutDirection layoutDirection, bool towardChild)
     {
         var bounds = node.Bounds;
@@ -28,10 +30,32 @@ internal static class DiagramConnectionDrawer
             : new Point(bounds.Left + bounds.Width / 2, bounds.Top);
     }
 
-    public static Point GetSideAnchor(Rectangle fromBounds, Rectangle toBounds, bool fromSide)
+    public static SideConnection ResolveConnection(
+        DiagramBoxNode from,
+        DiagramBoxNode to,
+        GraphLayoutDirection layoutDirection,
+        bool preferLayoutAnchors) =>
+        DiagramSideAnchor.Resolve(from.Bounds, to.Bounds, layoutDirection, preferLayoutAnchors);
+
+    public static IReadOnlyList<Point> BuildRoutePoints(
+        SideConnection connection,
+        ConnectionLineStyle lineStyle,
+        GraphLayoutDirection layoutDirection)
     {
-        var connection = DiagramSideAnchor.GetConnectionPair(fromBounds, toBounds);
-        return fromSide ? connection.From : connection.To;
+        if (connection.From.X == connection.To.X && connection.From.Y == connection.To.Y)
+        {
+            return [connection.From];
+        }
+
+        return lineStyle switch
+        {
+            ConnectionLineStyle.Orthogonal => BuildSideAwareOrthogonalPath(
+                connection.From,
+                connection.To,
+                connection.FromSide,
+                connection.ToSide),
+            _ => [connection.From, connection.To]
+        };
     }
 
     public static DiagramEdgeArrow? DrawTreeEdge(
@@ -47,7 +71,9 @@ internal static class DiagramConnectionDrawer
         using var pen = CreateBodyPen(color, width, dashStyle);
         var start = GetSourceAnchor(from, layoutDirection, towardChild: true);
         var end = GetSourceAnchor(to, layoutDirection, towardChild: false);
-        var arrowTail = DrawRoutedBody(graphics, pen, start, end, lineStyle, layoutDirection);
+        var fromSide = layoutDirection == GraphLayoutDirection.TopToBottom ? BoxSide.Bottom : BoxSide.Right;
+        var toSide = layoutDirection == GraphLayoutDirection.TopToBottom ? BoxSide.Top : BoxSide.Left;
+        var arrowTail = DrawRoutedBody(graphics, pen, start, end, fromSide, toSide, lineStyle, layoutDirection);
         return arrowTail is null
             ? null
             : new DiagramEdgeArrow(arrowTail.Value, end, color, width, dashStyle);
@@ -61,21 +87,23 @@ internal static class DiagramConnectionDrawer
         Color color,
         float width = 1.6f,
         DashStyle dashStyle = DashStyle.Solid,
-        GraphLayoutDirection? layoutDirection = null)
+        GraphLayoutDirection layoutDirection = GraphLayoutDirection.LeftToRight,
+        bool preferLayoutAnchors = true)
     {
         using var pen = CreateBodyPen(color, width, dashStyle);
-        var start = GetSideAnchor(from.Bounds, to.Bounds, fromSide: true);
-        var end = GetSideAnchor(from.Bounds, to.Bounds, fromSide: false);
+        var connection = ResolveConnection(from, to, layoutDirection, preferLayoutAnchors);
         var arrowTail = DrawRoutedBody(
             graphics,
             pen,
-            start,
-            end,
+            connection.From,
+            connection.To,
+            connection.FromSide,
+            connection.ToSide,
             lineStyle,
-            layoutDirection ?? GraphLayoutDirection.LeftToRight);
+            layoutDirection);
         return arrowTail is null
             ? null
-            : new DiagramEdgeArrow(arrowTail.Value, end, color, width, dashStyle);
+            : new DiagramEdgeArrow(arrowTail.Value, connection.To, color, width, dashStyle);
     }
 
     public static void DrawArrowHeads(Graphics graphics, IEnumerable<DiagramEdgeArrow> arrows)
@@ -106,6 +134,8 @@ internal static class DiagramConnectionDrawer
         Pen pen,
         Point start,
         Point end,
+        BoxSide fromSide,
+        BoxSide toSide,
         ConnectionLineStyle lineStyle,
         GraphLayoutDirection layoutDirection)
     {
@@ -114,25 +144,115 @@ internal static class DiagramConnectionDrawer
             return null;
         }
 
-        var arrowTail = DiagramArrowRenderer.InsetToward(start, end, DiagramArrowRenderer.DefaultHeadLength + 2f);
-
         switch (lineStyle)
         {
             case ConnectionLineStyle.Bezier:
-                DrawBezierBody(graphics, pen, start, arrowTail);
-                break;
+            {
+                var arrowTail = DiagramArrowRenderer.InsetToward(start, end, DiagramArrowRenderer.DefaultHeadLength + 2f);
+                DrawBezierBody(graphics, pen, start, arrowTail, fromSide, toSide);
+                return arrowTail;
+            }
             case ConnectionLineStyle.Orthogonal:
-                DrawOrthogonalBody(graphics, pen, start, arrowTail, layoutDirection);
-                break;
+                return DrawOrthogonalBody(graphics, pen, start, end, fromSide, toSide);
             default:
+            {
+                var arrowTail = DiagramArrowRenderer.InsetToward(start, end, DiagramArrowRenderer.DefaultHeadLength + 2f);
                 graphics.DrawLine(pen, start, arrowTail);
-                break;
+                return arrowTail;
+            }
+        }
+    }
+
+    private static Point? DrawOrthogonalBody(
+        Graphics graphics,
+        Pen pen,
+        Point start,
+        Point end,
+        BoxSide fromSide,
+        BoxSide toSide)
+    {
+        var path = BuildSideAwareOrthogonalPath(start, end, fromSide, toSide);
+        if (path.Length < 2)
+        {
+            return null;
         }
 
+        var tip = path[^1];
+        var segmentStart = path[^2];
+        var arrowTail = DiagramArrowRenderer.InsetToward(
+            segmentStart,
+            tip,
+            DiagramArrowRenderer.DefaultHeadLength + 2f);
+
+        if (path.Length == 2)
+        {
+            graphics.DrawLine(pen, path[0], arrowTail);
+            return arrowTail;
+        }
+
+        var drawPath = new Point[path.Length];
+        for (var i = 0; i < path.Length - 1; i++)
+        {
+            drawPath[i] = path[i];
+        }
+
+        drawPath[^1] = arrowTail;
+        graphics.DrawLines(pen, drawPath);
         return arrowTail;
     }
 
-    private static void DrawBezierBody(Graphics graphics, Pen pen, Point start, Point end)
+    private static Point[] BuildSideAwareOrthogonalPath(
+        Point start,
+        Point end,
+        BoxSide fromSide,
+        BoxSide toSide)
+    {
+        var fromOuter = OffsetOutward(start, fromSide, OutwardStub);
+        var toOuter = OffsetOutward(end, toSide, OutwardStub);
+
+        if (IsHorizontalSide(fromSide) && IsHorizontalSide(toSide))
+        {
+            if (Math.Abs(fromOuter.Y - toOuter.Y) <= 1)
+            {
+                return [start, fromOuter, toOuter, end];
+            }
+
+            return [start, fromOuter, new Point(fromOuter.X, toOuter.Y), toOuter, end];
+        }
+
+        if (IsVerticalSide(fromSide) && IsVerticalSide(toSide))
+        {
+            if (Math.Abs(fromOuter.X - toOuter.X) <= 1)
+            {
+                return [start, fromOuter, toOuter, end];
+            }
+
+            return [start, fromOuter, new Point(toOuter.X, fromOuter.Y), toOuter, end];
+        }
+
+        return [start, fromOuter, new Point(toOuter.X, fromOuter.Y), toOuter, end];
+    }
+
+    private static Point OffsetOutward(Point anchor, BoxSide side, int distance) => side switch
+    {
+        BoxSide.Right => new Point(anchor.X + distance, anchor.Y),
+        BoxSide.Left => new Point(anchor.X - distance, anchor.Y),
+        BoxSide.Bottom => new Point(anchor.X, anchor.Y + distance),
+        BoxSide.Top => new Point(anchor.X, anchor.Y - distance),
+        _ => anchor
+    };
+
+    private static bool IsHorizontalSide(BoxSide side) => side is BoxSide.Left or BoxSide.Right;
+
+    private static bool IsVerticalSide(BoxSide side) => side is BoxSide.Top or BoxSide.Bottom;
+
+    private static void DrawBezierBody(
+        Graphics graphics,
+        Pen pen,
+        Point start,
+        Point end,
+        BoxSide fromSide,
+        BoxSide toSide)
     {
         var sx = (float)start.X;
         var sy = (float)start.Y;
@@ -150,12 +270,33 @@ internal static class DiagramConnectionDrawer
             return;
         }
 
-        var rawOff = Math.Max(24f, distance / 2f);
+        var rawOff = Math.Max(OutwardStub, distance / 2f);
         float c1x;
         float c1y;
         float c2x;
         float c2y;
-        if (dx >= dy)
+
+        if (IsHorizontalSide(fromSide) && IsHorizontalSide(toSide))
+        {
+            var off = Math.Clamp(rawOff, OutwardStub, Math.Max(OutwardStub, dx / 2f));
+            var fromSign = fromSide == BoxSide.Right ? 1f : -1f;
+            var toSign = toSide == BoxSide.Left ? -1f : 1f;
+            c1x = sx + fromSign * off;
+            c1y = sy;
+            c2x = ex + toSign * off;
+            c2y = ey;
+        }
+        else if (IsVerticalSide(fromSide) && IsVerticalSide(toSide))
+        {
+            var off = Math.Clamp(rawOff, OutwardStub, Math.Max(OutwardStub, dy / 2f));
+            var fromSign = fromSide == BoxSide.Bottom ? 1f : -1f;
+            var toSign = toSide == BoxSide.Top ? -1f : 1f;
+            c1x = sx;
+            c1y = sy + fromSign * off;
+            c2x = ex;
+            c2y = ey + toSign * off;
+        }
+        else if (dx >= dy)
         {
             var off = Math.Clamp(rawOff, 1f, Math.Max(1f, dx / 2f));
             var sign = signedDx >= 0f ? 1f : -1f;
@@ -210,72 +351,5 @@ internal static class DiagramConnectionDrawer
         {
             return false;
         }
-    }
-
-    private static void DrawOrthogonalBody(
-        Graphics graphics,
-        Pen pen,
-        Point start,
-        Point end,
-        GraphLayoutDirection layoutDirection)
-    {
-        if (Math.Abs(end.X - start.X) < 8 && Math.Abs(end.Y - start.Y) < 8)
-        {
-            graphics.DrawLine(pen, start, end);
-            return;
-        }
-
-        var path = BuildOrthogonalPath(start, end, layoutDirection);
-        var tip = path[^1];
-        var segmentStart = path[^2];
-        var arrowTail = DiagramArrowRenderer.InsetToward(
-            segmentStart,
-            tip,
-            DiagramArrowRenderer.DefaultHeadLength + 2f);
-
-        if (path.Length == 2)
-        {
-            graphics.DrawLine(pen, path[0], arrowTail);
-            return;
-        }
-
-        var drawPath = new Point[path.Length];
-        Array.Copy(path, drawPath, path.Length - 1);
-        drawPath[^1] = arrowTail;
-        graphics.DrawLines(pen, drawPath);
-    }
-
-    private static Point[] BuildOrthogonalPath(Point start, Point end, GraphLayoutDirection layoutDirection)
-    {
-        if (layoutDirection == GraphLayoutDirection.TopToBottom)
-        {
-            return
-            [
-                start,
-                new Point(start.X, (start.Y + end.Y) / 2),
-                new Point(end.X, (start.Y + end.Y) / 2),
-                end
-            ];
-        }
-
-        var midX = (start.X + end.X) / 2;
-        var midY = (start.Y + end.Y) / 2;
-        var dx = Math.Abs(end.X - start.X);
-        var dy = Math.Abs(end.Y - start.Y);
-        return dy >= dx
-            ?
-            [
-                start,
-                new Point(start.X, midY),
-                new Point(end.X, midY),
-                end
-            ]
-            :
-            [
-                start,
-                new Point(midX, start.Y),
-                new Point(midX, end.Y),
-                end
-            ];
     }
 }

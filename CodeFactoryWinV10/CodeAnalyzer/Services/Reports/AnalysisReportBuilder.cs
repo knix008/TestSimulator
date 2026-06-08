@@ -34,6 +34,16 @@ public static class AnalysisReportBuilder
         var sections = new List<ReportSection>
         {
             BuildOverviewSection(analysis, root, generatedAt),
+        };
+
+        var summarySection = AnalysisReportSummaryBuilder.BuildSection(analysis);
+        if (summarySection is not null)
+        {
+            sections.Add(summarySection);
+        }
+
+        sections.AddRange(
+        [
             BuildThresholdSection(thresholds),
             BuildQualityFindingsSection(analysis.Metrics.Summary, thresholds),
             BuildPriorityActionsSection(analysis, insights, root, thresholds),
@@ -45,7 +55,7 @@ public static class AnalysisReportBuilder
             BuildGlobalVariablesSection(analysis.GlobalVariables, root),
             BuildArchitectureSection(insights),
             BuildMetricGlossarySection()
-        };
+        ]);
 
         return new AnalysisReportDocument
         {
@@ -107,7 +117,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "2. 분석 설정·임계값",
+            Heading = "3. 분석 설정·임계값",
             Level = 2,
             Paragraphs =
             [
@@ -211,7 +221,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "3. 품질 요약 — 수치·의미·권장 조치",
+            Heading = "4. 품질 요약 — 수치·의미·권장 조치",
             Level = 2,
             Paragraphs =
             [
@@ -247,7 +257,9 @@ public static class AnalysisReportBuilder
         }
 
         foreach (var insight in insights
-                     .Where(i => i.Severity >= WarningLevel.Warning && i.Kind != ArchitectureInsightKind.Summary)
+                     .Where(i => i.Severity >= WarningLevel.Warning
+                         && !i.IsCategorySummary
+                         && i.Kind != ArchitectureInsightKind.Summary)
                      .Take(5))
         {
             bullets.Add(
@@ -276,7 +288,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "4. 우선 조치 로드맵",
+            Heading = "5. 우선 조치 로드맵",
             Level = 2,
             Paragraphs =
             [
@@ -319,7 +331,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "5. 함수 메트릭 — 상세·조치",
+            Heading = "6. 함수 메트릭 — 상세·조치",
             Level = 2,
             Paragraphs =
             [
@@ -385,7 +397,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "6. 파일 메트릭 — 상세·조치",
+            Heading = "7. 파일 메트릭 — 상세·조치",
             Level = 2,
             Paragraphs = [$"파일 {fileRows.Count:N0}개 중 경고 우선·복잡도 상위 {rows.Count}개."],
             Table = new ReportTable
@@ -405,7 +417,7 @@ public static class AnalysisReportBuilder
         {
             return new ReportSection
             {
-                Heading = "7. 타입 메트릭 — 상세·조치",
+                Heading = "8. 타입 메트릭 — 상세·조치",
                 Level = 2,
                 Paragraphs = ["분석된 타입이 없습니다."]
             };
@@ -442,7 +454,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "7. 타입 메트릭 — 상세·조치",
+            Heading = "8. 타입 메트릭 — 상세·조치",
             Level = 2,
             Paragraphs = [$"타입 {typeMetrics.Count:N0}개 중 경고 우선·LCOM 상위 {rows.Count}개."],
             Table = new ReportTable
@@ -461,7 +473,7 @@ public static class AnalysisReportBuilder
         {
             return new ReportSection
             {
-                Heading = "8. 패키지 메트릭 — 상세·조치",
+                Heading = "9. 패키지 메트릭 — 상세·조치",
                 Level = 2,
                 Paragraphs = ["패키지(디렉터리) 단위 메트릭이 없습니다."]
             };
@@ -498,7 +510,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "8. 패키지 메트릭 — 상세·조치",
+            Heading = "9. 패키지 메트릭 — 상세·조치",
             Level = 2,
             Paragraphs =
             [
@@ -548,7 +560,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "9. 중복 코드",
+            Heading = "10. 중복 코드",
             Level = 2,
             Paragraphs =
             [
@@ -572,7 +584,7 @@ public static class AnalysisReportBuilder
         {
             return new ReportSection
             {
-                Heading = "10. 전역 변수 — 접근 함수",
+                Heading = "11. 전역 변수 — 접근 함수",
                 Level = 2,
                 Paragraphs = ["분석된 전역 변수가 없습니다."]
             };
@@ -641,7 +653,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "10. 전역 변수 — 접근 함수",
+            Heading = "11. 전역 변수 — 접근 함수",
             Level = 2,
             Paragraphs =
             [
@@ -699,7 +711,7 @@ public static class AnalysisReportBuilder
     private static ReportSection BuildArchitectureSection(IReadOnlyList<ArchitectureInsight> insights)
     {
         var rows = insights
-            .Where(insight => insight.Kind != ArchitectureInsightKind.Summary)
+            .Where(insight => !insight.IsCategorySummary && insight.Kind != ArchitectureInsightKind.Summary)
             .Take(MaxArchitectureInsights)
             .Select(insight => new ReportTableRow
             {
@@ -716,7 +728,7 @@ public static class AnalysisReportBuilder
 
         return new ReportSection
         {
-            Heading = "11. 아키텍처 인사이트 — 결과·조치",
+            Heading = "12. 아키텍처 인사이트 — 결과·조치",
             Level = 2,
             Paragraphs =
             [

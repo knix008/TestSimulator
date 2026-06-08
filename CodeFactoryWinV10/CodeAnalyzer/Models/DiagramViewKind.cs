@@ -2,6 +2,7 @@ namespace CodeAnalyzer.Models;
 
 public enum DiagramViewKind
 {
+    Summary,
     CallGraph,
     ClassDiagram,
     SequenceDiagram,

@@ -5,6 +5,7 @@ namespace CodeAnalyzer.Controls;
 public sealed class DiagramViewHost : UserControl
 {
     private readonly CallGraphViewer _callGraphViewer = new() { Dock = DockStyle.Fill, Visible = true };
+    private readonly AnalysisSummaryViewer _summaryViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly StructureDiagramViewer _structureViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly CodeMetricsViewer _metricsViewer = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly DuplicateCodeViewer _duplicateViewer = new() { Dock = DockStyle.Fill, Visible = false };
@@ -24,6 +25,7 @@ public sealed class DiagramViewHost : UserControl
     public DiagramViewHost()
     {
         Controls.Add(_callGraphViewer);
+        Controls.Add(_summaryViewer);
         Controls.Add(_structureViewer);
         Controls.Add(_metricsViewer);
         Controls.Add(_duplicateViewer);
@@ -92,6 +94,7 @@ public sealed class DiagramViewHost : UserControl
         _analysis = analysis;
         _rootNodeIds = rootNodeIds;
         ClearGlobalVariableAccessGraph();
+        _summaryViewer.SetAnalysis(_analysis, ProjectRootDirectory);
         RefreshActiveView();
     }
 
@@ -143,6 +146,7 @@ public sealed class DiagramViewHost : UserControl
         _analysis = null;
         _rootNodeIds = [];
         _callGraphViewer.BeginAnalysis();
+        _summaryViewer.BeginAnalysis();
         _structureViewer.BeginAnalysis();
         _metricsViewer.BeginAnalysis();
         _duplicateViewer.BeginAnalysis();
@@ -155,6 +159,7 @@ public sealed class DiagramViewHost : UserControl
     public void EndAnalysis()
     {
         _callGraphViewer.EndAnalysis();
+        _summaryViewer.EndAnalysis();
         _structureViewer.EndAnalysis();
         _metricsViewer.EndAnalysis();
         _duplicateViewer.EndAnalysis();
@@ -213,7 +218,7 @@ public sealed class DiagramViewHost : UserControl
             && _analysis.FileRelations.FileMap.ContainsKey(nodeId))
         {
             _structureViewer.ViewKind = DiagramViewKind.FileRelations;
-            _structureViewer.SetAnalysis(_analysis, _rootNodeIds);
+            _structureViewer.SetAnalysis(_analysis, _rootNodeIds, ProjectRootDirectory);
             _structureViewer.FocusFile(nodeId);
             return true;
         }
@@ -222,7 +227,7 @@ public sealed class DiagramViewHost : UserControl
             && _analysis.DirectoryRelations.DirectoryMap.ContainsKey(nodeId))
         {
             _structureViewer.ViewKind = DiagramViewKind.DirectoryRelations;
-            _structureViewer.SetAnalysis(_analysis, _rootNodeIds);
+            _structureViewer.SetAnalysis(_analysis, _rootNodeIds, ProjectRootDirectory);
             _structureViewer.FocusDirectory(nodeId);
             return true;
         }
@@ -254,13 +259,14 @@ public sealed class DiagramViewHost : UserControl
             or DiagramViewKind.DirectoryRelations)
         {
             _structureViewer.ViewKind = _viewKind;
-            _structureViewer.SetAnalysis(_analysis, [node.Id]);
+            _structureViewer.SetAnalysis(_analysis, [node.Id], ProjectRootDirectory);
         }
     }
 
     private void ApplyVisibility()
     {
         _callGraphViewer.Visible = _viewKind == DiagramViewKind.CallGraph;
+        _summaryViewer.Visible = _viewKind == DiagramViewKind.Summary;
         _structureViewer.Visible = _viewKind is DiagramViewKind.ClassDiagram
             or DiagramViewKind.SequenceDiagram
             or DiagramViewKind.DataFlow
@@ -310,6 +316,12 @@ public sealed class DiagramViewHost : UserControl
 
     private void RefreshActiveView()
     {
+        if (_viewKind == DiagramViewKind.Summary)
+        {
+            _summaryViewer.SetAnalysis(_analysis, ProjectRootDirectory);
+            return;
+        }
+
         if (_viewKind == DiagramViewKind.CodeMetrics)
         {
             _metricsViewer.SetMetrics(_analysis?.Metrics, _analysis?.QualityThresholds, _analysis);
@@ -370,6 +382,6 @@ public sealed class DiagramViewHost : UserControl
             _structureViewer.ViewKind = _viewKind;
         }
 
-        _structureViewer.SetAnalysis(_analysis, _rootNodeIds);
+        _structureViewer.SetAnalysis(_analysis, _rootNodeIds, ProjectRootDirectory);
     }
 }

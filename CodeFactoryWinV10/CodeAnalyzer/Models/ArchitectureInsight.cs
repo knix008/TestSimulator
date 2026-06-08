@@ -34,5 +34,7 @@ public sealed class ArchitectureInsight
     public required string Category { get; init; }
     public required string Description { get; init; }
     public WarningLevel Severity { get; init; } = WarningLevel.None;
+    /// <summary>카테고리 집계·요약 행(아키텍처 탭 하단 「요약 정보」에 표시).</summary>
+    public bool IsCategorySummary { get; init; }
     public object? NavigationTag { get; init; }
 }

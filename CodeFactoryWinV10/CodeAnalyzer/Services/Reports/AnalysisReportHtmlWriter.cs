@@ -41,6 +41,16 @@ public static class AnalysisReportHtmlWriter
                 builder.AppendLine($"<p>{ReportFormatting.EscapeHtml(paragraph)}</p>");
             }
 
+            if (section.Charts.Count > 0)
+            {
+                ReportChartWriterHelper.AppendHtmlCharts(builder, section.Charts);
+            }
+
+            if (section.SummaryParts.Count > 0)
+            {
+                ReportSectionContentWriter.AppendHtmlSummaryParts(builder, section.SummaryParts);
+            }
+
             if (section.BulletItems.Count > 0)
             {
                 builder.AppendLine("<ul>");
@@ -56,7 +66,7 @@ public static class AnalysisReportHtmlWriter
 
             if (section.Table is { Rows.Count: > 0 } table)
             {
-                WriteTable(builder, table);
+                ReportTableWriter.AppendHtmlTable(builder, table);
             }
         }
 
@@ -69,58 +79,18 @@ public static class AnalysisReportHtmlWriter
         File.WriteAllText(filePath, builder.ToString(), Encoding.UTF8);
     }
 
-    private static void WriteTable(StringBuilder builder, ReportTable table)
-    {
-        builder.AppendLine("<table class=\"data\">");
-        builder.AppendLine("<thead><tr>");
-        foreach (var header in table.Headers)
-        {
-            builder.Append("<th>");
-            builder.Append(ReportFormatting.EscapeHtml(header));
-            builder.AppendLine("</th>");
-        }
-
-        builder.AppendLine("</tr></thead><tbody>");
-
-        var riskColumnIndex = ReportFormatting.FindRiskColumnIndex(table.Headers);
-        foreach (var row in table.Rows)
-        {
-            builder.AppendLine("<tr>");
-            for (var index = 0; index < table.Headers.Count; index++)
-            {
-                var cell = index < row.Cells.Count ? row.Cells[index] : string.Empty;
-                var isRiskCell = index == riskColumnIndex && row.RiskScore is not null;
-                if (isRiskCell)
-                {
-                    var bg = ReportFormatting.RiskBackgroundHex(row.RiskScore);
-                    var fg = ReportFormatting.RiskForegroundHex(row.RiskScore);
-                    builder.Append(
-                        $"<td style=\"background:{bg};color:{fg};font-weight:600\">");
-                }
-                else
-                {
-                    builder.Append("<td>");
-                }
-
-                builder.Append(ReportFormatting.EscapeHtml(cell));
-                builder.AppendLine("</td>");
-            }
-
-            builder.AppendLine("</tr>");
-        }
-
-        builder.AppendLine("</tbody></table>");
-    }
-
     private static string GetStyles() => """
         body { font-family: "Segoe UI", Malgun Gothic, sans-serif; margin: 2rem; color: #1e293b; line-height: 1.5; }
         h1 { border-bottom: 2px solid #334155; padding-bottom: 0.4rem; }
         h2 { margin-top: 2rem; color: #0f172a; }
+        h3 { margin-top: 1.25rem; color: #1e293b; font-size: 1.05rem; }
         .meta { color: #475569; }
         table.data { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; }
         table.data th, table.data td { border: 1px solid #cbd5e1; padding: 0.35rem 0.5rem; text-align: left; vertical-align: top; }
         table.data th { background: #f1f5f9; }
         table.data tr:nth-child(even) { background: #f8fafc; }
+        figure.report-chart { margin: 1rem 0; }
+        figure.report-chart img { max-width: 100%; height: auto; border: 1px solid #e2e8f0; border-radius: 4px; background: #eef2f8; }
         footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 0.85rem; }
         """;
 }

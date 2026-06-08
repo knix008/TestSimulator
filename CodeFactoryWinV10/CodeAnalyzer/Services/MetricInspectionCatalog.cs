@@ -57,8 +57,40 @@ public static class MetricInspectionCatalog
         new(MetricInspectionKind.HalsteadMetrics, "함수·타입", "Halstead · WMC · RFC")
     ];
 
-    public static MetricInspectionKind NormalizeScope(MetricInspectionKind scope) =>
-        MetricInspectionScope.Normalize(scope);
+    private static readonly Lazy<MetricInspectionKind> AllCatalogOptionsLazy = new(BuildAllCatalogOptions);
+
+    /// <summary>설정 UI·기본값에 사용하는 전체 검사 항목 마스크.</summary>
+    public static MetricInspectionKind AllCatalogOptions => AllCatalogOptionsLazy.Value;
+
+    public static MetricInspectionKind NormalizeScope(MetricInspectionKind scope)
+    {
+        var all = AllCatalogOptions;
+        if (scope is MetricInspectionKind.None or 0)
+        {
+            return all;
+        }
+
+        scope = MetricInspectionScope.Normalize(scope);
+
+        // enum All 상수와 카탈로그가 어긋나거나, 저장값이 All이면 UI에서 전체 선택으로 표시
+        if (scope == MetricInspectionKind.All || scope == all)
+        {
+            return all;
+        }
+
+        return scope;
+    }
+
+    private static MetricInspectionKind BuildAllCatalogOptions()
+    {
+        MetricInspectionKind mask = 0;
+        foreach (var option in Options)
+        {
+            mask |= option.Kind;
+        }
+
+        return mask;
+    }
 
     public static bool IsEnabled(MetricInspectionKind scope, MetricInspectionKind flag) =>
         MetricInspectionScope.IsEnabled(scope, flag);

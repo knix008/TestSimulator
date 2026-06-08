@@ -8,14 +8,12 @@ public static class MetricInspectionScope
             return MetricInspectionKind.All;
 
         // DuplicateCodeGroups and FileDuplicateLines both require the same expensive scan.
-        // Keep them in sync: if either is off, both are off to avoid surprising scan runs.
+        // Keep them in sync: if either is on, treat both as on for display and analysis.
         var dupBits = MetricInspectionKind.DuplicateCodeGroups | MetricInspectionKind.FileDuplicateLines;
         var dupState = scope & dupBits;
         if (dupState != 0 && dupState != dupBits)
         {
-            scope &= ~dupBits;
-            if (scope == 0)
-                return MetricInspectionKind.All;
+            scope |= dupBits;
         }
 
         return scope;

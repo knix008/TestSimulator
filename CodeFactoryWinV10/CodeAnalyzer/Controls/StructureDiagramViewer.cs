@@ -12,6 +12,7 @@ public sealed class StructureDiagramViewer : UserControl
     private IReadOnlyList<string> _fileRootOverride = [];
     private IReadOnlyList<string> _directoryRootOverride = [];
     private string? _dataFlowRootOverride;
+    private string? _projectRootDirectory;
     private GraphLayoutDirection _layoutDirection = GraphLayoutDirection.LeftToRight;
     private ConnectionLineStyle _lineStyle = ConnectionLineStyle.Orthogonal;
     private bool _isAnalyzing;
@@ -54,16 +55,22 @@ public sealed class StructureDiagramViewer : UserControl
         }
     }
 
-    public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> functionRootIds)
+    public void SetAnalysis(AnalysisResult? analysis, IReadOnlyList<string> functionRootIds, string? projectRootDirectory = null)
     {
         _isAnalyzing = false;
         _buildError = false;
         ViewFailureReporter.Clear(this);
         _zoom.Reset();
+        var preserveContainerRoots = ReferenceEquals(_analysis, analysis)
+            && _functionRootIds.SequenceEqual(functionRootIds);
         _analysis = analysis;
         _functionRootIds = functionRootIds;
-        _fileRootOverride = [];
-        _directoryRootOverride = [];
+        _projectRootDirectory = projectRootDirectory;
+        if (!preserveContainerRoots)
+        {
+            _fileRootOverride = [];
+            _directoryRootOverride = [];
+        }
         _dataFlowRootOverride = null;
         // _focusedTypeId is NOT reset here — BeginAnalysis and FocusType control it.
         _highlightIds.Clear();
@@ -260,16 +267,21 @@ public sealed class StructureDiagramViewer : UserControl
 
     private bool IsDataFlowView() => _viewKind == DiagramViewKind.DataFlow;
 
+    private bool UsesFlowStyleEdges() =>
+        _viewKind is DiagramViewKind.DataFlow
+            or DiagramViewKind.FileRelations
+            or DiagramViewKind.DirectoryRelations;
+
     private void DrawStructureDiagram(Graphics graphics)
     {
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        if (IsDataFlowView())
+        if (UsesFlowStyleEdges())
         {
-            var arrows = DrawDataFlowEdgeBodies(graphics);
-            DrawDataFlowBoxes(graphics);
+            var arrows = DrawFlowStyleEdgeBodies(graphics);
+            DrawFlowStyleBoxes(graphics);
             DiagramConnectionDrawer.DrawArrowHeads(graphics, arrows);
-            DrawDataFlowEdgeLabels(graphics);
+            DrawFlowStyleEdgeLabels(graphics);
             return;
         }
 
@@ -283,10 +295,6 @@ public sealed class StructureDiagramViewer : UserControl
             if (IsUmlClassView())
             {
                 UmlClassDiagramRenderer.DrawRelation(graphics, from, to, edge, _lineStyle);
-            }
-            else if (IsContainerRelationView())
-            {
-                FileRelationDiagramRenderer.DrawFileEdge(graphics, from, to, edge.Label, _lineStyle, _layoutDirection);
             }
             else
             {
@@ -302,10 +310,6 @@ public sealed class StructureDiagramViewer : UserControl
             if (box.IsUmlStyle)
             {
                 UmlClassDiagramRenderer.DrawClass(graphics, box, isMatch, isCurrent);
-            }
-            else if (IsContainerRelationView())
-            {
-                FileRelationDiagramRenderer.DrawFileBox(graphics, box, isMatch, isCurrent);
             }
             else
             {
@@ -339,12 +343,12 @@ public sealed class StructureDiagramViewer : UserControl
             return null;
         }
 
-        if (IsDataFlowView())
+        if (UsesFlowStyleEdges())
         {
-            var arrows = DrawDataFlowEdgeBodies(g);
-            DrawDataFlowBoxes(g, includeHighlight: false);
+            var arrows = DrawFlowStyleEdgeBodies(g);
+            DrawFlowStyleBoxes(g, includeHighlight: false);
             DiagramConnectionDrawer.DrawArrowHeads(g, arrows);
-            DrawDataFlowEdgeLabels(g);
+            DrawFlowStyleEdgeLabels(g);
         }
         else
         {
@@ -359,10 +363,6 @@ public sealed class StructureDiagramViewer : UserControl
                 {
                     UmlClassDiagramRenderer.DrawRelation(g, from, to, edge, _lineStyle);
                 }
-                else if (IsContainerRelationView())
-                {
-                    FileRelationDiagramRenderer.DrawFileEdge(g, from, to, edge.Label, _lineStyle, _layoutDirection);
-                }
                 else
                 {
                     DrawEdge(g, edge);
@@ -374,10 +374,6 @@ public sealed class StructureDiagramViewer : UserControl
                 if (box.IsUmlStyle)
                 {
                     UmlClassDiagramRenderer.DrawClass(g, box, isHighlight: false, isCurrent: false);
-                }
-                else if (IsContainerRelationView())
-                {
-                    FileRelationDiagramRenderer.DrawFileBox(g, box, isHighlight: false, isCurrent: false);
                 }
                 else
                 {
@@ -605,6 +601,7 @@ public sealed class StructureDiagramViewer : UserControl
                 FromId = edge.FromFileId,
                 ToId = edge.ToFileId,
                 Label = edge.Label,
+                CallCount = edge.CallCount,
                 RelationKind = StructureRelationKind.Dependency
             });
         }
@@ -657,6 +654,8 @@ public sealed class StructureDiagramViewer : UserControl
             return;
         }
 
+        subgraph = DirectoryCallGraphBuilder.EnrichWithAncestorDirectories(subgraph, _projectRootDirectory);
+
         foreach (var directory in subgraph.Directories)
         {
             var box = FileRelationDiagramRenderer.CreateDirectoryBox(directory);
@@ -671,14 +670,40 @@ public sealed class StructureDiagramViewer : UserControl
                 FromId = edge.FromDirectoryId,
                 ToId = edge.ToDirectoryId,
                 Label = edge.Label,
+                CallCount = edge.CallCount,
                 RelationKind = StructureRelationKind.Dependency
             });
         }
 
-        var primaryRoot = _directoryRootOverride.FirstOrDefault()
-            ?? DirectoryCallGraphBuilder.ResolveDirectoryRoots(_analysis.CallGraph, _functionRootIds).FirstOrDefault();
+        var primaryRoot = DirectoryCallGraphBuilder.ResolvePrimaryLayoutRoot(
+            subgraph,
+            _analysis.CallGraph,
+            _functionRootIds,
+            _directoryRootOverride,
+            _projectRootDirectory);
 
-        if (string.IsNullOrEmpty(primaryRoot))
+        var useProjectPathLayout = false;
+        string? projectRootDirectoryId = null;
+        if (_directoryRootOverride.Count == 0
+            && !string.IsNullOrWhiteSpace(_projectRootDirectory)
+            && DirectoryCallGraphBuilder.TryGetProjectRootDirectoryId(
+                subgraph,
+                _projectRootDirectory,
+                out var resolvedProjectRootId))
+        {
+            useProjectPathLayout = true;
+            projectRootDirectoryId = resolvedProjectRootId;
+        }
+
+        if (useProjectPathLayout)
+        {
+            var depths = DirectoryCallGraphBuilder.ComputePathLayoutDepths(
+                subgraph,
+                _projectRootDirectory!,
+                projectRootDirectoryId);
+            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths));
+        }
+        else if (string.IsNullOrEmpty(primaryRoot))
         {
             var depths = ComputeDirectoryDepths(subgraph);
             ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths));
@@ -1018,7 +1043,7 @@ public sealed class StructureDiagramViewer : UserControl
         UmlSequenceDiagramRenderer.Draw(graphics, _sequence);
     }
 
-    private List<DiagramEdgeArrow> DrawDataFlowEdgeBodies(Graphics graphics)
+    private List<DiagramEdgeArrow> DrawFlowStyleEdgeBodies(Graphics graphics)
     {
         var arrows = new List<DiagramEdgeArrow>(_edges.Count);
         foreach (var edge in _edges)
@@ -1028,7 +1053,7 @@ public sealed class StructureDiagramViewer : UserControl
                 continue;
             }
 
-            var (color, dashStyle) = GetDataFlowEdgeStyle(edge);
+            var (color, dashStyle) = GetFlowStyleEdgeStyle(edge);
             var arrow = DiagramConnectionDrawer.DrawSideEdge(
                 graphics,
                 from,
@@ -1037,7 +1062,8 @@ public sealed class StructureDiagramViewer : UserControl
                 color,
                 width: 1.8f,
                 dashStyle,
-                _layoutDirection);
+                _layoutDirection,
+                preferLayoutAnchors: true);
             if (arrow is not null)
             {
                 arrows.Add(arrow.Value);
@@ -1047,11 +1073,25 @@ public sealed class StructureDiagramViewer : UserControl
         return arrows;
     }
 
-    private void DrawDataFlowBoxes(Graphics graphics, bool includeHighlight = true)
+    private void DrawFlowStyleBoxes(Graphics graphics, bool includeHighlight = true)
     {
         foreach (var box in _boxes)
         {
-            if (includeHighlight)
+            if (IsContainerRelationView())
+            {
+                if (includeHighlight)
+                {
+                    var isCurrent = _currentHighlightId is not null
+                        && string.Equals(box.Id, _currentHighlightId, StringComparison.Ordinal);
+                    var isMatch = _highlightIds.Contains(box.Id);
+                    FileRelationDiagramRenderer.DrawFileBox(graphics, box, isMatch, isCurrent);
+                }
+                else
+                {
+                    FileRelationDiagramRenderer.DrawFileBox(graphics, box, isHighlight: false, isCurrent: false);
+                }
+            }
+            else if (includeHighlight)
             {
                 DrawBox(graphics, box);
             }
@@ -1062,27 +1102,52 @@ public sealed class StructureDiagramViewer : UserControl
         }
     }
 
-    private void DrawDataFlowEdgeLabels(Graphics graphics)
+    private void DrawFlowStyleEdgeLabels(Graphics graphics)
     {
-        using var font = new Font(Font.FontFamily, 7.5f);
+        using var font = IsContainerRelationView()
+            ? new Font("Segoe UI", 7.5f, FontStyle.Bold)
+            : new Font(Font.FontFamily, 7.5f);
+        using var brush = new SolidBrush(
+            IsContainerRelationView()
+                ? Color.FromArgb(52, 73, 94)
+                : Color.FromArgb(80, 90, 110));
+        var occupied = new List<RectangleF>();
+
         foreach (var edge in _edges)
         {
-            if (string.IsNullOrWhiteSpace(edge.Label)
+            var label = ResolveFlowEdgeLabel(edge);
+            if (string.IsNullOrWhiteSpace(label)
                 || !_boxMap.TryGetValue(edge.FromId, out var from)
                 || !_boxMap.TryGetValue(edge.ToId, out var to))
             {
                 continue;
             }
 
-            var connection = DiagramSideAnchor.GetConnectionPair(from.Bounds, to.Bounds);
-            var labelX = (connection.From.X + connection.To.X) / 2f;
-            var labelY = (connection.From.Y + connection.To.Y) / 2f - 12f;
-            graphics.DrawString(edge.Label, font, Brushes.DimGray, labelX, labelY);
+            var connection = DiagramConnectionDrawer.ResolveConnection(from, to, _layoutDirection, preferLayoutAnchors: true);
+            var route = DiagramConnectionDrawer.BuildRoutePoints(connection, _lineStyle, _layoutDirection);
+            var labelSize = DiagramEdgeLabelPlacer.MeasureLabel(graphics, label, font);
+            var position = DiagramEdgeLabelPlacer.FindPosition(route, labelSize, occupied);
+            DiagramEdgeLabelPlacer.DrawLabel(graphics, label, font, brush, position);
         }
     }
 
-    private static (Color Color, DashStyle DashStyle) GetDataFlowEdgeStyle(DiagramEdge edge)
+    private string ResolveFlowEdgeLabel(DiagramEdge edge)
     {
+        if (IsContainerRelationView() && edge.CallCount is int callCount)
+        {
+            return RelationEdgeLabels.FormatCallCount(callCount);
+        }
+
+        return edge.Label;
+    }
+
+    private (Color Color, DashStyle DashStyle) GetFlowStyleEdgeStyle(DiagramEdge edge)
+    {
+        if (IsContainerRelationView())
+        {
+            return (Color.FromArgb(52, 73, 94), DashStyle.Solid);
+        }
+
         var color = edge.RelationKind switch
         {
             StructureRelationKind.Inheritance => Color.FromArgb(39, 174, 96),

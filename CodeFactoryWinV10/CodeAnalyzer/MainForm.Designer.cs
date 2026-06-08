@@ -26,6 +26,7 @@ partial class MainForm
         checkedListDirectories = new CheckedListBox();
         lblExcludeHint = new Label();
         btnAnalysisSettings = new Button();
+        btnDatabaseSettings = new Button();
         checkedListLanguages = new CheckedListBox();
         lblLanguages = new Label();
         btnBrowseRoot = new Button();
@@ -56,6 +57,9 @@ partial class MainForm
         menuExportMetrics = new ToolStripMenuItem();
         menuExportReport = new ToolStripMenuItem();
         menuExportImage = new ToolStripMenuItem();
+        menuSettings = new ToolStripMenuItem();
+        menuAnalysisSettings = new ToolStripMenuItem();
+        menuDatabaseSettings = new ToolStripMenuItem();
         toolStripSearchLabel = new ToolStripLabel();
         toolStripSearchBox = new ToolStripTextBox();
         toolStripFindPrevious = new ToolStripButton();
@@ -101,6 +105,7 @@ partial class MainForm
         // 
         grpAnalysis.Controls.Add(btnAnalyze);
         grpAnalysis.Controls.Add(grpExcludeDirectories);
+        grpAnalysis.Controls.Add(btnDatabaseSettings);
         grpAnalysis.Controls.Add(btnAnalysisSettings);
         grpAnalysis.Controls.Add(checkedListLanguages);
         grpAnalysis.Controls.Add(lblLanguages);
@@ -165,13 +170,24 @@ partial class MainForm
         // btnAnalysisSettings
         // 
         btnAnalysisSettings.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        btnAnalysisSettings.Location = new Point(12, 764);
+        btnAnalysisSettings.Location = new Point(12, 726);
         btnAnalysisSettings.Name = "btnAnalysisSettings";
         btnAnalysisSettings.Size = new Size(312, 32);
         btnAnalysisSettings.TabIndex = 26;
         btnAnalysisSettings.Text = "분석 설정...";
         btnAnalysisSettings.UseVisualStyleBackColor = true;
         btnAnalysisSettings.Click += btnAnalysisSettings_Click;
+        // 
+        // btnDatabaseSettings
+        // 
+        btnDatabaseSettings.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        btnDatabaseSettings.Location = new Point(12, 764);
+        btnDatabaseSettings.Name = "btnDatabaseSettings";
+        btnDatabaseSettings.Size = new Size(312, 32);
+        btnDatabaseSettings.TabIndex = 27;
+        btnDatabaseSettings.Text = "DB 연결 설정...";
+        btnDatabaseSettings.UseVisualStyleBackColor = true;
+        btnDatabaseSettings.Click += btnDatabaseSettings_Click;
         // 
         // checkedListLanguages
         // 
@@ -381,7 +397,7 @@ partial class MainForm
         // 
         // menuStrip
         // 
-        menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, toolStripSearchLabel, toolStripSearchBox, toolStripFindPrevious, toolStripFindNext });
+        menuStrip.Items.AddRange(new ToolStripItem[] { menuFile, menuSettings, toolStripSearchLabel, toolStripSearchBox, toolStripFindPrevious, toolStripFindNext });
         menuStrip.Location = new Point(0, 0);
         menuStrip.Name = "menuStrip";
         menuStrip.Size = new Size(1528, 27);
@@ -458,6 +474,27 @@ partial class MainForm
         menuExportImage.Size = new Size(313, 22);
         menuExportImage.Text = "이미지로 내보내기...";
         menuExportImage.Click += menuExportImage_Click;
+        // 
+        // menuSettings
+        // 
+        menuSettings.DropDownItems.AddRange(new ToolStripItem[] { menuAnalysisSettings, menuDatabaseSettings });
+        menuSettings.Name = "menuSettings";
+        menuSettings.Size = new Size(70, 23);
+        menuSettings.Text = "설정";
+        // 
+        // menuAnalysisSettings
+        // 
+        menuAnalysisSettings.Name = "menuAnalysisSettings";
+        menuAnalysisSettings.Size = new Size(280, 22);
+        menuAnalysisSettings.Text = "분석 설정...";
+        menuAnalysisSettings.Click += btnAnalysisSettings_Click;
+        // 
+        // menuDatabaseSettings
+        // 
+        menuDatabaseSettings.Name = "menuDatabaseSettings";
+        menuDatabaseSettings.Size = new Size(280, 22);
+        menuDatabaseSettings.Text = "DB 연결 설정...";
+        menuDatabaseSettings.Click += btnDatabaseSettings_Click;
         // 
         // toolStripSearchLabel
         // 
@@ -564,6 +601,7 @@ partial class MainForm
     private GroupBox grpAnalysis;
     private GroupBox grpExcludeDirectories;
     private Button btnAnalysisSettings;
+    private Button btnDatabaseSettings;
     private Button btnAnalyze;
     private Label lblExcludeHint;
     private CheckedListBox checkedListDirectories;
@@ -588,6 +626,8 @@ partial class MainForm
     private Label lblDiagramView;
     private MenuStrip menuStrip;
     private ToolStripMenuItem menuFile;
+    private ToolStripMenuItem menuSettings;
+    private ToolStripMenuItem menuAnalysisSettings;
     private ToolStripMenuItem menuProjectOpen;
     private ToolStripMenuItem menuProjectSave;
     private ToolStripSeparator menuSeparator1;
@@ -597,6 +637,7 @@ partial class MainForm
     private ToolStripMenuItem menuExportMetrics;
     private ToolStripMenuItem menuExportReport;
     private ToolStripMenuItem menuExportImage;
+    private ToolStripMenuItem menuDatabaseSettings;
     private ToolStripLabel toolStripSearchLabel;
     private ToolStripTextBox toolStripSearchBox;
     private ToolStripButton toolStripFindPrevious;
