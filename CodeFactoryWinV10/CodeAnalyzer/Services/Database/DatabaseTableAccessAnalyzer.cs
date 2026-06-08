@@ -13,24 +13,27 @@ public static class DatabaseTableAccessAnalyzer
         @"(?i)\b(?:FROM|JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|MERGE\s+INTO)\s+(?:\[\""]?(\w+)[\""]?\.)?(?:\[\""]?(\w+)[\""]?)",
         RegexOptions.Compiled);
 
-    private static readonly Regex SqlWriteTableRegex = new(
-        @"(?i)\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE|CREATE\s+TABLE)\s+(?:\[\""]?(\w+)[\""]?\.)?(?:\[\""]?(\w+)[\""]?)",
+    // INSERT INTO / UPDATE / DELETE FROM / TRUNCATE / DROP / ALTER / CREATE TABLE / MERGE INTO — 동사를 캡처해 CRUD 동작으로 매핑
+    private static readonly Regex SqlCrudTableRegex = new(
+        @"(?i)\b(?<op>INSERT\s+INTO|MERGE\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE|CREATE\s+TABLE)\s+(?:\[\""']?(?<schema>\w+)[\""'\]]?\.)?(?:\[\""']?(?<table>\w+)[\""'\]]?)",
         RegexOptions.Compiled);
 
     private static readonly Regex EfSetGenericRegex = new(
         @"\.Set\s*<\s*(\w+)\s*>",
         RegexOptions.Compiled);
 
+    // group 1 = 메서드명(Add/Update/Remove/Entry 등), group 2 = 엔티티 타입명
     private static readonly Regex EfGenericCrudRegex = new(
-        @"\.(?:Add|AddAsync|Update|Remove|RemoveRange|Attach|Entry)\s*<\s*(\w+)\s*>",
+        @"\.(Add|AddAsync|AddRange|AddRangeAsync|Update|UpdateRange|Remove|RemoveRange|Attach|Entry)\s*<\s*(\w+)\s*>",
         RegexOptions.Compiled);
 
     private static readonly Regex EfDbSetPropertyRegex = new(
         @"(?<![\w$@#])(?:[\w$@#]*(?:Context|DbContext)\s*\.\s*(\w+)(?![\w$])",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // group 1 = DbSet 속성명, group 2 = 호출된 CRUD/조회 메서드명
     private static readonly Regex EfDbSetMemberRegex = new(
-        @"\.(\w+)\s*\.\s*(?:Add|AddAsync|Remove|RemoveRange|Update|Attach|Find|FindAsync|Where|FirstOrDefault|FirstOrDefaultAsync|SingleOrDefault|SingleOrDefaultAsync|Any|AnyAsync|Count|CountAsync|ToList|ToListAsync|Include|ExecuteDelete|ExecuteUpdate)\b",
+        @"\.(\w+)\s*\.\s*(Add|AddAsync|AddRange|AddRangeAsync|Remove|RemoveRange|Update|UpdateRange|Attach|Find|FindAsync|Where|FirstOrDefault|FirstOrDefaultAsync|First|FirstAsync|SingleOrDefault|SingleOrDefaultAsync|Single|SingleAsync|Any|AnyAsync|Count|CountAsync|ToList|ToListAsync|Include|ExecuteDelete|ExecuteDeleteAsync|ExecuteUpdate|ExecuteUpdateAsync)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex EfEntryRegex = new(
@@ -81,6 +84,8 @@ public static class DatabaseTableAccessAnalyzer
 
         var accesses = new List<DatabaseTableAccess>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var entryAccesses = new List<DatabaseEntryAccess>();
+        var entrySeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var fileCache = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var function in functions)
@@ -88,11 +93,22 @@ public static class DatabaseTableAccessAnalyzer
             var effectiveEndLine = function.EndLine > function.StartLine
                 ? function.EndLine
                 : function.StartLine + MethodScanLineWindow;
-            ScanFunctionBody(function, function.FilePath, function.StartLine, effectiveEndLine, index, callGraph, accesses, seen, fileCache, useFunctionId: true);
+            ScanFunctionBody(function, function.FilePath, function.StartLine, effectiveEndLine, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, useFunctionId: true);
         }
 
-        AppendCallGraphOnlyAccessors(callGraph, index, accesses, seen, fileCache);
-        AppendSourceFileScan(sourceFiles, index, accesses, seen, fileCache);
+        AppendCallGraphOnlyAccessors(callGraph, index, accesses, seen, entryAccesses, entrySeen, fileCache);
+        AppendSourceFileScan(sourceFiles, index, accesses, seen, entryAccesses, entrySeen, fileCache);
+
+        var groupedEntries = entryAccesses
+            .GroupBy(entry => entry.TableId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<DatabaseEntryAccess>)group
+                    .OrderBy(entry => entry.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(entry => entry.FunctionLineNumber)
+                    .ThenBy(entry => entry.Operation)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
 
         var grouped = accesses
             .GroupBy(access => access.TableId, StringComparer.OrdinalIgnoreCase)
@@ -113,7 +129,7 @@ public static class DatabaseTableAccessAnalyzer
             if (!schema.TableMap.TryGetValue(access.TableId, out var table) || table.Columns.Count == 0)
                 continue;
 
-            foreach (var (colName, kind) in DetectColumnAccesses(access.FunctionFilePath, access.FunctionLineNumber, table, fileCache))
+            foreach (var (colName, kind, operations) in DetectColumnAccesses(access.FunctionFilePath, access.FunctionLineNumber, table, fileCache))
             {
                 var key = $"{access.TableId}\0{access.FunctionId}\0{colName}";
                 if (!columnSeen.Add(key))
@@ -129,7 +145,8 @@ public static class DatabaseTableAccessAnalyzer
                     FunctionFilePath = access.FunctionFilePath,
                     FunctionLineNumber = access.FunctionLineNumber,
                     Kind = kind,
-                    Pattern = access.Pattern
+                    Pattern = access.Pattern,
+                    Operations = operations
                 });
             }
         }
@@ -152,7 +169,9 @@ public static class DatabaseTableAccessAnalyzer
             TableMap = schema.TableMap,
             AccessesByTableId = grouped,
             ColumnAccesses = columnAccesses,
-            ColumnAccessesByTableId = groupedColumns
+            ColumnAccessesByTableId = groupedColumns,
+            EntryAccesses = entryAccesses,
+            EntryAccessesByTableId = groupedEntries
         };
     }
 
@@ -230,6 +249,8 @@ public static class DatabaseTableAccessAnalyzer
         CallGraphResult callGraph,
         List<DatabaseTableAccess> accesses,
         HashSet<string> seen,
+        List<DatabaseEntryAccess> entryAccesses,
+        HashSet<string> entrySeen,
         Dictionary<string, string[]> fileCache,
         bool useFunctionId)
     {
@@ -261,25 +282,45 @@ public static class DatabaseTableAccessAnalyzer
             ? ResolveFunctionId(function, callGraph)
             : function.Id;
 
-        foreach (var (tableId, kind, pattern) in matches)
+        foreach (var (tableId, kind, pattern, operations) in matches)
         {
             var key = tableId + "\0" + functionId;
-            if (!seen.Add(key))
+            if (seen.Add(key))
             {
-                continue;
+                accesses.Add(new DatabaseTableAccess
+                {
+                    TableId = tableId,
+                    FunctionId = functionId,
+                    FunctionDisplayName = function.DisplayName,
+                    FunctionFullName = function.FullName,
+                    FunctionFilePath = function.FilePath,
+                    FunctionLineNumber = function.StartLine,
+                    Kind = kind,
+                    Pattern = pattern,
+                    Operations = operations
+                });
             }
 
-            accesses.Add(new DatabaseTableAccess
+            foreach (var operation in SplitOperations(operations))
             {
-                TableId = tableId,
-                FunctionId = functionId,
-                FunctionDisplayName = function.DisplayName,
-                FunctionFullName = function.FullName,
-                FunctionFilePath = function.FilePath,
-                FunctionLineNumber = function.StartLine,
-                Kind = kind,
-                Pattern = pattern
-            });
+                var entryKey = tableId + "\0" + functionId + "\0" + operation;
+                if (!entrySeen.Add(entryKey))
+                {
+                    continue;
+                }
+
+                entryAccesses.Add(new DatabaseEntryAccess
+                {
+                    TableId = tableId,
+                    FunctionId = functionId,
+                    FunctionDisplayName = function.DisplayName,
+                    FunctionFullName = function.FullName,
+                    FunctionFilePath = function.FilePath,
+                    FunctionLineNumber = function.StartLine,
+                    Operation = operation,
+                    Pattern = pattern
+                });
+            }
         }
     }
 
@@ -288,6 +329,8 @@ public static class DatabaseTableAccessAnalyzer
         TableReferenceIndex index,
         List<DatabaseTableAccess> accesses,
         HashSet<string> seen,
+        List<DatabaseEntryAccess> entryAccesses,
+        HashSet<string> entrySeen,
         Dictionary<string, string[]> fileCache)
     {
         foreach (var node in callGraph.Nodes)
@@ -312,6 +355,8 @@ public static class DatabaseTableAccessAnalyzer
                 callGraph,
                 accesses,
                 seen,
+                entryAccesses,
+                entrySeen,
                 fileCache,
                 useFunctionId: false);
         }
@@ -322,6 +367,8 @@ public static class DatabaseTableAccessAnalyzer
         TableReferenceIndex index,
         List<DatabaseTableAccess> accesses,
         HashSet<string> seen,
+        List<DatabaseEntryAccess> entryAccesses,
+        HashSet<string> entrySeen,
         Dictionary<string, string[]> fileCache)
     {
         if (sourceFiles is null || sourceFiles.Count == 0)
@@ -348,6 +395,8 @@ public static class DatabaseTableAccessAnalyzer
                     index,
                     accesses,
                     seen,
+                    entryAccesses,
+                    entrySeen,
                     fileCache);
                 continue;
             }
@@ -366,6 +415,8 @@ public static class DatabaseTableAccessAnalyzer
                     index,
                     accesses,
                     seen,
+                    entryAccesses,
+                    entrySeen,
                     fileCache);
             }
         }
@@ -380,6 +431,8 @@ public static class DatabaseTableAccessAnalyzer
         TableReferenceIndex index,
         List<DatabaseTableAccess> accesses,
         HashSet<string> seen,
+        List<DatabaseEntryAccess> entryAccesses,
+        HashSet<string> entrySeen,
         Dictionary<string, string[]> fileCache)
     {
         var language = LanguageRegistry.FindByExtension(Path.GetExtension(filePath));
@@ -403,6 +456,8 @@ public static class DatabaseTableAccessAnalyzer
             new CallGraphResult(),
             accesses,
             seen,
+            entryAccesses,
+            entrySeen,
             fileCache,
             useFunctionId: false);
     }
@@ -434,11 +489,11 @@ public static class DatabaseTableAccessAnalyzer
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    private static List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern)> DetectTableReferences(
+    private static List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> DetectTableReferences(
         string body,
         TableReferenceIndex index)
     {
-        var results = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern)>(StringComparer.OrdinalIgnoreCase);
+        var results = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
         var searchBodies = new List<string> { body };
         searchBodies.AddRange(ExtractSqlLiteralBodies(body));
 
@@ -446,40 +501,44 @@ public static class DatabaseTableAccessAnalyzer
         {
             foreach (Match match in SqlReadTableRegex.Matches(searchBody))
             {
-                TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value, DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql);
+                TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value, DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
             }
 
-            foreach (Match match in SqlWriteTableRegex.Matches(searchBody))
+            foreach (Match match in SqlCrudTableRegex.Matches(searchBody))
             {
-                TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value, DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql);
+                var operation = MapSqlVerbToOperation(match.Groups["op"].Value);
+                TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value, DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation);
             }
         }
 
         foreach (Match match in EfSetGenericRegex.Matches(body))
         {
-            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework);
+            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
         }
 
         foreach (Match match in EfGenericCrudRegex.Matches(body))
         {
-            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.EntityFramework);
+            var operation = MapEfMethodToOperation(match.Groups[1].Value);
+            var kind = operation == DatabaseCrudOperation.None ? DatabaseTableAccessKind.ReadWrite : DatabaseTableAccessKind.Write;
+            TryAddAlias(results, index, match.Groups[2].Value, kind, DatabaseTableAccessPattern.EntityFramework, operation);
         }
 
         foreach (Match match in EfDbSetPropertyRegex.Matches(body))
         {
-            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework);
+            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
         }
 
         foreach (Match match in EfDbSetMemberRegex.Matches(body))
         {
-            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework);
+            var operation = MapEfMethodToOperation(match.Groups[2].Value);
+            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, operation);
         }
 
         foreach (Match match in EfEntryRegex.Matches(body))
         {
             if (match.Groups[1].Success)
             {
-                TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework);
+                TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
             }
         }
 
@@ -488,20 +547,20 @@ public static class DatabaseTableAccessAnalyzer
             if (!string.IsNullOrWhiteSpace(profile.EntityTypeName)
                 && ReferencesEntityType(body, profile.EntityTypeName))
             {
-                MergeAccess(results, profile.TableId, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType);
+                MergeAccess(results, profile.TableId, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
             }
 
             foreach (var columnName in profile.ColumnNames)
             {
                 if (ReferencesColumn(body, columnName))
                 {
-                    MergeAccess(results, profile.TableId, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType);
+                    MergeAccess(results, profile.TableId, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
                 }
             }
         }
 
         return results
-            .Select(pair => (pair.Key, pair.Value.Kind, pair.Value.Pattern))
+            .Select(pair => (pair.Key, pair.Value.Kind, pair.Value.Pattern, pair.Value.Operations))
             .ToList();
     }
 
@@ -540,12 +599,13 @@ public static class DatabaseTableAccessAnalyzer
     }
 
     private static void TryAddMatch(
-        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern)> results,
+        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
         TableReferenceIndex index,
         string schemaToken,
         string tableToken,
         DatabaseTableAccessKind kind,
-        DatabaseTableAccessPattern pattern)
+        DatabaseTableAccessPattern pattern,
+        DatabaseCrudOperation operations)
     {
         var qualified = string.IsNullOrWhiteSpace(schemaToken)
             ? tableToken
@@ -554,44 +614,89 @@ public static class DatabaseTableAccessAnalyzer
         if (TryResolveTable(index, qualified, out var tableId)
             || TryResolveTable(index, tableToken, out tableId))
         {
-            MergeAccess(results, tableId, kind, pattern);
+            MergeAccess(results, tableId, kind, pattern, operations);
         }
     }
 
     private static void TryAddAlias(
-        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern)> results,
+        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
         TableReferenceIndex index,
         string alias,
         DatabaseTableAccessKind kind,
-        DatabaseTableAccessPattern pattern)
+        DatabaseTableAccessPattern pattern,
+        DatabaseCrudOperation operations)
     {
         if (!TryResolveTable(index, alias, out var tableId))
         {
             return;
         }
 
-        MergeAccess(results, tableId, kind, pattern);
+        MergeAccess(results, tableId, kind, pattern, operations);
     }
 
     private static void MergeAccess(
-        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern)> results,
+        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
         string tableId,
         DatabaseTableAccessKind kind,
-        DatabaseTableAccessPattern pattern)
+        DatabaseTableAccessPattern pattern,
+        DatabaseCrudOperation operations)
     {
         if (!results.TryGetValue(tableId, out var existing))
         {
-            results[tableId] = (kind, pattern);
+            results[tableId] = (kind, pattern, operations);
             return;
         }
 
         var mergedKind = MergeKinds(existing.Kind, kind);
         var mergedPattern = existing.Pattern == pattern ? pattern : DatabaseTableAccessPattern.Sql;
-        results[tableId] = (mergedKind, mergedPattern);
+        var mergedOperations = existing.Operations | operations;
+        results[tableId] = (mergedKind, mergedPattern, mergedOperations);
     }
 
     private static DatabaseTableAccessKind MergeKinds(DatabaseTableAccessKind left, DatabaseTableAccessKind right) =>
         left == right ? left : DatabaseTableAccessKind.ReadWrite;
+
+    /// <summary>SQL 동사(INSERT/UPDATE/DELETE/CREATE/ALTER/DROP/TRUNCATE/MERGE)를 CRUD 동작으로 매핑.</summary>
+    private static DatabaseCrudOperation MapSqlVerbToOperation(string verb)
+    {
+        var v = verb.TrimStart().ToUpperInvariant();
+        if (v.StartsWith("INSERT", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
+        if (v.StartsWith("CREATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
+        if (v.StartsWith("MERGE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create | DatabaseCrudOperation.Update;
+        if (v.StartsWith("UPDATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Update;
+        if (v.StartsWith("ALTER", StringComparison.Ordinal)) return DatabaseCrudOperation.Update;
+        if (v.StartsWith("DELETE", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
+        if (v.StartsWith("TRUNCATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
+        if (v.StartsWith("DROP", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
+        return DatabaseCrudOperation.None;
+    }
+
+    /// <summary>EF Core 메서드명(Add/Update/Remove/Find/Where 등)을 CRUD 동작으로 매핑.</summary>
+    private static DatabaseCrudOperation MapEfMethodToOperation(string method) => method.ToLowerInvariant() switch
+    {
+        "add" or "addasync" or "addrange" or "addrangeasync"
+            or "insert" or "insertasync" or "insertrange" or "insertrangeasync"
+            => DatabaseCrudOperation.Create,
+        "update" or "updaterange" or "executeupdate" or "executeupdateasync" or "attach" or "attachrange"
+            => DatabaseCrudOperation.Update,
+        "remove" or "removerange" or "executedelete" or "executedeleteasync" or "delete" or "deleterange"
+            => DatabaseCrudOperation.Delete,
+        "find" or "findasync" or "where" or "include"
+            or "firstordefault" or "firstordefaultasync" or "first" or "firstasync"
+            or "singleordefault" or "singleordefaultasync" or "single" or "singleasync"
+            or "any" or "anyasync" or "count" or "countasync" or "tolist" or "tolistasync"
+            => DatabaseCrudOperation.Read,
+        _ => DatabaseCrudOperation.None
+    };
+
+    /// <summary>플래그로 합쳐진 CRUD 동작을 개별 동작 단위로 분리 (엔트리 단위 기록용).</summary>
+    private static IEnumerable<DatabaseCrudOperation> SplitOperations(DatabaseCrudOperation operations)
+    {
+        if (operations.HasFlag(DatabaseCrudOperation.Create)) yield return DatabaseCrudOperation.Create;
+        if (operations.HasFlag(DatabaseCrudOperation.Read)) yield return DatabaseCrudOperation.Read;
+        if (operations.HasFlag(DatabaseCrudOperation.Update)) yield return DatabaseCrudOperation.Update;
+        if (operations.HasFlag(DatabaseCrudOperation.Delete)) yield return DatabaseCrudOperation.Delete;
+    }
 
     private static bool TryResolveTable(TableReferenceIndex index, string token, out string tableId)
     {
@@ -667,7 +772,7 @@ public static class DatabaseTableAccessAnalyzer
         }
     }
 
-    private static List<(string ColumnName, DatabaseTableAccessKind Kind)> DetectColumnAccesses(
+    private static List<(string ColumnName, DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)> DetectColumnAccesses(
         string filePath,
         int lineNumber,
         DatabaseTable table,
@@ -687,37 +792,42 @@ public static class DatabaseTableAccessAnalyzer
             table.Columns.Select(c => c.Name),
             StringComparer.OrdinalIgnoreCase);
 
-        var result = new Dictionary<string, DatabaseTableAccessKind>(StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
 
-        void Add(string col, DatabaseTableAccessKind kind)
+        void Add(string col, DatabaseTableAccessKind kind, DatabaseCrudOperation operation)
         {
             if (!knownColumns.Contains(col))
                 return;
             if (!result.TryGetValue(col, out var existing))
-                result[col] = kind;
-            else if (existing != kind)
-                result[col] = DatabaseTableAccessKind.ReadWrite;
+            {
+                result[col] = (kind, operation);
+            }
+            else
+            {
+                var mergedKind = existing.Kind == kind ? kind : DatabaseTableAccessKind.ReadWrite;
+                result[col] = (mergedKind, existing.Operations | operation);
+            }
         }
 
         foreach (Match m in SqlSelectColumnsRegex.Matches(body))
         {
             foreach (var col in ParseColumnTokens(m.Groups[1].Value))
-                Add(col, DatabaseTableAccessKind.Read);
+                Add(col, DatabaseTableAccessKind.Read, DatabaseCrudOperation.Read);
         }
 
         foreach (Match m in SqlInsertColumnsRegex.Matches(body))
         {
             foreach (var col in ParseColumnTokens(m.Groups[1].Value))
-                Add(col, DatabaseTableAccessKind.Write);
+                Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Create);
         }
 
         foreach (Match m in SqlUpdateSetColumnsRegex.Matches(body))
         {
             foreach (var col in ParseColumnTokens(m.Groups[1].Value, leftOfEquals: true))
-                Add(col, DatabaseTableAccessKind.Write);
+                Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Update);
         }
 
-        return result.Select(p => (p.Key, p.Value)).ToList();
+        return result.Select(p => (p.Key, p.Value.Kind, p.Value.Operations)).ToList();
     }
 
     private static IEnumerable<string> ParseColumnTokens(string clause, bool leftOfEquals = false)
