@@ -7,4 +7,5 @@ public enum UmlNodePresentation
     UseCase,
     Package,
     Note,
+    Behavior,
 }

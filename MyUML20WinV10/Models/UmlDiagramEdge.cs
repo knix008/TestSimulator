@@ -15,4 +15,8 @@ public sealed class UmlDiagramEdge
 
     [Browsable(false)]
     public Guid TargetNodeId { get; set; }
+
+    /// <summary>Sequence diagram message horizontal line Y (canvas coordinates).</summary>
+    [Browsable(false)]
+    public float SequenceY { get; set; }
 }

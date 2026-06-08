@@ -13,6 +13,10 @@ public partial class MainForm : Form
     private bool _suppressPropertySync;
     private UmlToolMode _currentToolMode = UmlToolMode.Select;
 
+    public MainForm() : this(null)
+    {
+    }
+
     public MainForm(string? initialProjectPath = null)
     {
         InitializeComponent();
@@ -26,15 +30,31 @@ public partial class MainForm : Form
             NewProject(loadSample: false);
     }
 
-    private void MainForm_Shown(object? sender, EventArgs e) => ApplyPanelLayout();
+    private void MainForm_Shown(object? sender, EventArgs e)
+    {
+        if (DesignMode)
+            return;
+
+        ApplyPanelLayout();
+    }
 
     private void ApplyPanelLayout()
     {
+        var sideWidth = UmlToolbox.PreferredWidth;
+
         var mainWidth = _splitMain.ClientSize.Width;
         if (mainWidth > _splitMain.Panel1MinSize + _splitMain.Panel2MinSize + _splitMain.SplitterWidth)
         {
-            var rightWidth = Math.Max(_splitMain.Panel2MinSize, (int)(mainWidth * 0.27));
+            var maxRight = mainWidth - _splitMain.Panel1MinSize - _splitMain.SplitterWidth;
+            var rightWidth = Math.Clamp(sideWidth, _splitMain.Panel2MinSize, maxRight);
             _splitMain.SplitterDistance = mainWidth - rightWidth - _splitMain.SplitterWidth;
+        }
+
+        var workWidth = _splitWork.ClientSize.Width;
+        if (workWidth > _splitWork.Panel1MinSize + _splitWork.Panel2MinSize + _splitWork.SplitterWidth)
+        {
+            var maxToolboxWidth = workWidth - _splitWork.Panel2MinSize - _splitWork.SplitterWidth;
+            _splitWork.SplitterDistance = Math.Clamp(sideWidth, _splitWork.Panel1MinSize, maxToolboxWidth);
         }
 
         var rightHeight = _splitRight.ClientSize.Height;
@@ -317,6 +337,24 @@ public partial class MainForm : Form
             UmlToolMode.CreateActor => "Actor 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
             UmlToolMode.CreateUseCase => "Use Case 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
             UmlToolMode.CreateNote => "Note 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateState or UmlToolMode.CreateInitialState or UmlToolMode.CreateFinalState
+                => "상태 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateAction or UmlToolMode.CreateInitialNode or UmlToolMode.CreateActivityFinalNode
+                or UmlToolMode.CreateDecision or UmlToolMode.CreateMerge or UmlToolMode.CreateFork or UmlToolMode.CreateJoin
+                => "활동 노드 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateLifeline
+                => "라이프라인: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
+            UmlToolMode.CreateMessage
+                => "동기 호출: 시작 라이프라인 → 대상 라이프라인 순으로 클릭합니다. 활성화 기둥은 자동 생성됩니다.",
+            UmlToolMode.CreateAsyncMessage
+                => "비동기 메시지: 시작 라이프라인 → 대상 라이프라인 순으로 클릭합니다.",
+            UmlToolMode.CreateReturnMessage
+                => "반환 메시지: 호출을 처리한 라이프라인 → 호출자 라이프라인 순으로 클릭합니다.",
+            UmlToolMode.CreateSelfMessage
+                => "자기 호출: 라이프라인을 한 번 클릭하면 루프 메시지가 추가됩니다.",
+            UmlToolMode.CreateTransition => "전이: 시작 상태 → 대상 상태 순으로 클릭합니다.",
+            UmlToolMode.CreateControlFlow => "제어 흐름: 시작 노드 → 대상 노드 순으로 클릭합니다.",
+            UmlToolMode.CreateObjectFlow => "객체 흐름: 시작 노드 → 대상 노드 순으로 클릭합니다.",
             UmlToolMode.CreateAssociation or UmlToolMode.CreateDirectedAssociation
                 => "연관 관계: 시작 노드를 클릭한 뒤 대상 노드를 클릭합니다.",
             UmlToolMode.CreateAggregation => "집합(◇) 관계: 시작 노드 → 대상 노드를 클릭합니다.",
@@ -367,11 +405,45 @@ public partial class MainForm : Form
             UmlActor act => $"액터 선택됨: {act.Name}  |  Delete=삭제",
             UmlUseCase uc => $"유스케이스 선택됨: {uc.Name}  |  Delete=삭제",
             UmlNote note => $"노트 선택됨  |  Delete=삭제",
+            UmlBehaviorNode behaviorNode => $"{GetBehaviorNodeStatusText(behaviorNode)}  |  Delete=삭제",
+            UmlBehaviorConnector connector => $"{GetBehaviorConnectorStatusText(connector)}  |  Delete=삭제",
             UmlRelationship rel => GetRelationshipStatusText(rel),
             null => $"준비  |  다이어그램: {_project.ActiveDiagram.Name}  |  요소 {_project.ActiveDiagram.Nodes.Count}개, 관계 {_project.ActiveDiagram.Edges.Count}개",
             _ => "요소 선택됨",
         };
     }
+
+    private static string GetBehaviorNodeStatusText(UmlBehaviorNode behaviorNode) => behaviorNode.Kind switch
+    {
+        UmlBehaviorNodeKind.State => $"상태 선택됨: {behaviorNode.Name}",
+        UmlBehaviorNodeKind.InitialState => "초기 상태 선택됨",
+        UmlBehaviorNodeKind.FinalState => "최종 상태 선택됨",
+        UmlBehaviorNodeKind.Action => $"액션 선택됨: {behaviorNode.Name}",
+        UmlBehaviorNodeKind.InitialNode => "초기 노드 선택됨",
+        UmlBehaviorNodeKind.ActivityFinalNode => "액티비티 종료 노드 선택됨",
+        UmlBehaviorNodeKind.Decision => "Decision 노드 선택됨",
+        UmlBehaviorNodeKind.Merge => "Merge 노드 선택됨",
+        UmlBehaviorNodeKind.Fork => "Fork 노드 선택됨",
+        UmlBehaviorNodeKind.Join => "Join 노드 선택됨",
+        UmlBehaviorNodeKind.Lifeline => $"Lifeline 선택됨: {behaviorNode.Name}",
+        UmlBehaviorNodeKind.Activation => "Activation 선택됨",
+        _ => "행동 표기 선택됨",
+    };
+
+    private static string GetBehaviorConnectorStatusText(UmlBehaviorConnector connector) => connector.Kind switch
+    {
+        UmlBehaviorConnectorKind.Message => connector.MessageKind switch
+        {
+            UmlMessageKind.Asynchronous => $"Async Message 선택됨: {connector.Name}",
+            UmlMessageKind.Return => $"Return Message 선택됨: {connector.Name}",
+            UmlMessageKind.SelfCall => $"Self Message 선택됨: {connector.Name}",
+            _ => $"Sync Message 선택됨: {connector.Name}",
+        },
+        UmlBehaviorConnectorKind.Transition => "Transition 선택됨",
+        UmlBehaviorConnectorKind.ControlFlow => "Control Flow 선택됨",
+        UmlBehaviorConnectorKind.ObjectFlow => "Object Flow 선택됨",
+        _ => "행동 연결 선택됨",
+    };
 
     private static string GetRelationshipStatusText(UmlRelationship rel) => rel switch
     {

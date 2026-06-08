@@ -25,6 +25,9 @@ public sealed class UmlPackage : UmlNamedElement
     public List<UmlNote> Notes { get; set; } = [];
 
     [Browsable(false)]
+    public List<UmlBehaviorNode> BehaviorNodes { get; set; } = [];
+
+    [Browsable(false)]
     public List<UmlRelationship> Relationships { get; set; } = [];
 
     public IEnumerable<UmlElement> OwnedElements =>
@@ -33,6 +36,7 @@ public sealed class UmlPackage : UmlNamedElement
             .Concat(Actors)
             .Concat(UseCases)
             .Concat(Notes)
+            .Concat(BehaviorNodes)
             .Concat(Relationships);
 
     public UmlClassifier? FindClassifier(Guid id) =>
@@ -65,6 +69,8 @@ public sealed class UmlPackage : UmlNamedElement
             if (useCase.Id == id) return useCase;
         foreach (var note in Notes)
             if (note.Id == id) return note;
+        foreach (var behaviorNode in BehaviorNodes)
+            if (behaviorNode.Id == id) return behaviorNode;
         foreach (var relationship in Relationships)
             if (relationship.Id == id) return relationship;
 
@@ -78,6 +84,8 @@ public sealed class UmlPackage : UmlNamedElement
     public void AddUseCase(UmlUseCase useCase) => UseCases.Add(useCase);
 
     public void AddNote(UmlNote note) => Notes.Add(note);
+
+    public void AddBehaviorNode(UmlBehaviorNode node) => BehaviorNodes.Add(node);
 
     public void AddNestedPackage(UmlPackage package) => NestedPackages.Add(package);
 
@@ -94,6 +102,8 @@ public sealed class UmlPackage : UmlNamedElement
         if (UseCases.RemoveAll(u => u.Id == id) > 0)
             return true;
         if (Notes.RemoveAll(n => n.Id == id) > 0)
+            return true;
+        if (BehaviorNodes.RemoveAll(n => n.Id == id) > 0)
             return true;
         if (Relationships.RemoveAll(r => r.Id == id) > 0)
             return true;

@@ -11,7 +11,21 @@
       "Bash(Remove-Item -Recurse -Force \"d:\\\\Home\\\\Projects\\\\TestSimulator\\\\MyUML20WinV10\\\\bin\\\\DebugCheck\" -ErrorAction SilentlyContinue)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git commit -m 'Fix ArgumentException: remove '\\\\''using'\\\\'' from static font reference in UmlDiagramTabBar *)"
+      "Bash(git commit -m 'Fix ArgumentException: remove '\\\\''using'\\\\'' from static font reference in UmlDiagramTabBar *)",
+      "Bash(cd \"/d/Home/Projects/TestSimulator/MyUML20WinV10\" && find . -maxdepth 2 -iname \"*.csproj\")",
+      "Read(//d/d/Home/Projects/TestSimulator/**)",
+      "Bash(ls /d/Home/Projects/TestSimulator/MyUML20WinV10/Models | head -3; pwd; ls /tmp/rttest)",
+      "Read(//tmp/**)",
+      "Bash(tasklist //FI \"IMAGENAME eq MyUML20WinV10.exe\" //FI \"PID eq 13372\")",
+      "Bash(tasklist //FI \"IMAGENAME eq devenv.exe\")",
+      "Bash(tasklist //FI \"IMAGENAME eq dotnet.exe\")",
+      "Bash(tasklist)",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId = 13932\")",
+      "Bash(cd \"/d/Home/Projects/TestSimulator/MyUML20WinV10\" && rm -rf bin/Debug/net10.0-windows obj/Debug/net10.0-windows && echo done)",
+      "Bash(dotnet msbuild *)"
+    ],
+    "additionalDirectories": [
+      "d:\\d\\Home\\Projects\\TestSimulator\\MyUML20WinV10\\bin\\Debug"
     ]
   }
 }

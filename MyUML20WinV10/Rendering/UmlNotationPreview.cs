@@ -133,6 +133,95 @@ public static class UmlNotationPreview
         g.DrawLine(pen, rect.Right - 8, rect.Top + 8, rect.Right, rect.Top + 8);
     }
 
+    public static void DrawState(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawRoundedBox(g, area, fill, stroke, 14f);
+
+    public static void DrawInitialState(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawFilledCircle(g, area, stroke, stroke);
+
+    public static void DrawFinalState(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawFinalCircle(g, area, stroke);
+
+    public static void DrawAction(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawRoundedBox(g, area, fill, stroke, 10f);
+
+    public static void DrawInitialNode(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawFilledCircle(g, area, stroke, stroke);
+
+    public static void DrawActivityFinalNode(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawFinalCircle(g, area, stroke);
+
+    public static void DrawDecision(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawDiamond(g, area, fill, stroke);
+
+    public static void DrawMerge(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawDiamond(g, area, fill, stroke);
+
+    public static void DrawFork(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawSyncBar(g, area, stroke);
+
+    public static void DrawJoin(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawSyncBar(g, area, stroke);
+
+    public static void DrawLifeline(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var header = new RectangleF(area.Left + 2, area.Top + 2, area.Width - 4, Math.Max(18f, area.Height * 0.18f));
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.5f);
+        g.FillRectangle(fillBrush, header.X, header.Y, header.Width, header.Height);
+        g.DrawRectangle(pen, header.X, header.Y, header.Width, header.Height);
+
+        var cx = area.Left + area.Width / 2f;
+        using var dashPen = new Pen(stroke, 1.2f)
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
+        };
+        g.DrawLine(dashPen, cx, header.Bottom, cx, area.Bottom - 2);
+    }
+
+    public static void DrawActivation(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var rect = FitBox(area, 0.35f);
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.4f);
+        g.FillRectangle(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    public static void DrawMessage(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawSyncMessage(g, area, fill, stroke);
+
+    public static void DrawSyncMessage(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawArrowConnector(g, area, stroke, dashed: false, openArrow: false);
+
+    public static void DrawAsyncMessage(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawArrowConnector(g, area, stroke, dashed: false, openArrow: true);
+
+    public static void DrawReturnMessage(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawArrowConnector(g, area, stroke, dashed: true, openArrow: true);
+
+    public static void DrawSelfMessage(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var cx = area.Left + area.Width * 0.28f;
+        var top = area.Top + area.Height * 0.42f;
+        var right = area.Right - 6;
+        var bottom = top + area.Height * 0.28f;
+        using var pen = new Pen(stroke, 1.8f);
+        g.DrawLine(pen, cx, top, right, top);
+        g.DrawLine(pen, right, top, right, bottom);
+        g.DrawLine(pen, right, bottom, cx, bottom);
+        DrawOpenArrow(g, pen, new PointF(cx, top), new PointF(right, top));
+    }
+
+    public static void DrawTransition(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawArrowConnector(g, area, stroke, dashed: false, openArrow: true);
+
+    public static void DrawControlFlow(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawArrowConnector(g, area, stroke, dashed: false, openArrow: true);
+
+    public static void DrawObjectFlow(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawArrowConnector(g, area, stroke, dashed: true, openArrow: true);
+
     public static void DrawDirectedAssociation(Graphics g, RectangleF area, Color fill, Color stroke)
     {
         DrawAssociation(g, area, fill, stroke);
@@ -287,8 +376,8 @@ public static class UmlNotationPreview
     // Draws the actual notation shape as a semi-transparent ghost at full rect size.
     public static void DrawGhost(Graphics g, UmlToolMode mode, RectangleF rect)
     {
-        var fill = Color.FromArgb(70, 100, 160, 240);
-        var stroke = Color.FromArgb(170, 60, 100, 230);
+        var fill = Color.FromArgb(110, 100, 160, 240);
+        var stroke = Color.FromArgb(210, 40, 80, 210);
 
         switch (mode)
         {
@@ -313,7 +402,166 @@ public static class UmlNotationPreview
             case UmlToolMode.CreateNote:
                 DrawGhostNote(g, rect, fill, stroke);
                 break;
+            case UmlToolMode.CreateState:
+            case UmlToolMode.CreateAction:
+                DrawGhostRoundedBox(g, rect, fill, stroke);
+                break;
+            case UmlToolMode.CreateInitialState:
+            case UmlToolMode.CreateInitialNode:
+                DrawGhostFilledCircle(g, rect, stroke);
+                break;
+            case UmlToolMode.CreateFinalState:
+            case UmlToolMode.CreateActivityFinalNode:
+                DrawGhostFinalCircle(g, rect, stroke);
+                break;
+            case UmlToolMode.CreateDecision:
+            case UmlToolMode.CreateMerge:
+                DrawGhostDiamond(g, rect, stroke);
+                break;
+            case UmlToolMode.CreateFork:
+            case UmlToolMode.CreateJoin:
+                DrawGhostSyncBar(g, rect, stroke);
+                break;
+            case UmlToolMode.CreateLifeline:
+                DrawGhostLifeline(g, rect, fill, stroke);
+                break;
+            case UmlToolMode.CreateActivation:
+                DrawGhostActivation(g, rect, fill, stroke);
+                break;
+            case UmlToolMode.CreateMessage:
+            case UmlToolMode.CreateAsyncMessage:
+            case UmlToolMode.CreateReturnMessage:
+            case UmlToolMode.CreateSelfMessage:
+            case UmlToolMode.CreateTransition:
+            case UmlToolMode.CreateControlFlow:
+            case UmlToolMode.CreateObjectFlow:
+                DrawGhostArrow(g, rect, stroke, mode == UmlToolMode.CreateObjectFlow || mode == UmlToolMode.CreateReturnMessage);
+                break;
         }
+    }
+
+    private static void DrawRoundedBox(Graphics g, RectangleF area, Color fill, Color stroke, float radius)
+    {
+        var rect = FitBox(area, 1.55f);
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.8f);
+        using var path = CreateRoundedPath(rect, radius);
+        g.FillPath(fillBrush, path);
+        g.DrawPath(pen, path);
+    }
+
+    private static void DrawFilledCircle(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var rect = FitBox(area, 1f);
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.8f);
+        g.FillEllipse(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    private static void DrawFinalCircle(Graphics g, RectangleF area, Color stroke)
+    {
+        var rect = FitBox(area, 1f);
+        using var pen = new Pen(stroke, 1.8f);
+        g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        g.FillEllipse(new SolidBrush(stroke), rect.X + rect.Width * 0.25f, rect.Y + rect.Height * 0.25f, rect.Width * 0.5f, rect.Height * 0.5f);
+    }
+
+    private static void DrawDiamond(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var rect = FitBox(area, 1f);
+        var cx = rect.Left + rect.Width / 2f;
+        var cy = rect.Top + rect.Height / 2f;
+        var points = new[]
+        {
+            new PointF(cx, rect.Top),
+            new PointF(rect.Right, cy),
+            new PointF(cx, rect.Bottom),
+            new PointF(rect.Left, cy),
+        };
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.8f);
+        g.FillPolygon(fillBrush, points);
+        g.DrawPolygon(pen, points);
+    }
+
+    private static void DrawSyncBar(Graphics g, RectangleF area, Color stroke)
+    {
+        var rect = FitBox(area, 3.5f);
+        using var brush = new SolidBrush(stroke);
+        g.FillRectangle(brush, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    private static void DrawArrowConnector(Graphics g, RectangleF area, Color stroke, bool dashed, bool openArrow)
+    {
+        var start = new PointF(area.Left + 6, area.Top + area.Height / 2f);
+        var end = new PointF(area.Right - 6, area.Top + area.Height / 2f);
+        using var pen = new Pen(stroke, 1.8f)
+        {
+            DashStyle = dashed ? System.Drawing.Drawing2D.DashStyle.Dash : System.Drawing.Drawing2D.DashStyle.Solid,
+        };
+        g.DrawLine(pen, start, end);
+        DrawOpenArrow(g, pen, start, end, openArrow);
+    }
+
+    private static void DrawGhostRoundedBox(Graphics g, RectangleF rect, Color fill, Color stroke)
+    {
+        using var fillBrush = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.5f);
+        using var path = CreateRoundedPath(FitBox(rect, 1.5f), 12f);
+        g.FillPath(fillBrush, path);
+        g.DrawPath(pen, path);
+    }
+
+    private static void DrawGhostFilledCircle(Graphics g, RectangleF rect, Color stroke)
+    {
+        var fitted = FitBox(rect, 1f);
+        using var brush = new SolidBrush(stroke);
+        g.FillEllipse(brush, fitted.X, fitted.Y, fitted.Width, fitted.Height);
+    }
+
+    private static void DrawGhostFinalCircle(Graphics g, RectangleF rect, Color stroke)
+    {
+        var fitted = FitBox(rect, 1f);
+        using var pen = new Pen(stroke, 1.5f);
+        g.DrawEllipse(pen, fitted.X, fitted.Y, fitted.Width, fitted.Height);
+        g.FillEllipse(new SolidBrush(stroke), fitted.X + fitted.Width * 0.25f, fitted.Y + fitted.Height * 0.25f, fitted.Width * 0.5f, fitted.Height * 0.5f);
+    }
+
+    private static void DrawGhostDiamond(Graphics g, RectangleF rect, Color stroke)
+    {
+        var fitted = FitBox(rect, 1f);
+        var cx = fitted.Left + fitted.Width / 2f;
+        var cy = fitted.Top + fitted.Height / 2f;
+        using var pen = new Pen(stroke, 1.5f);
+        g.DrawPolygon(pen, [
+            new PointF(cx, fitted.Top),
+            new PointF(fitted.Right, cy),
+            new PointF(cx, fitted.Bottom),
+            new PointF(fitted.Left, cy),
+        ]);
+    }
+
+    private static void DrawGhostSyncBar(Graphics g, RectangleF rect, Color stroke)
+    {
+        var fitted = FitBox(rect, 3.5f);
+        using var brush = new SolidBrush(stroke);
+        g.FillRectangle(brush, fitted.X, fitted.Y, fitted.Width, fitted.Height);
+    }
+
+    private static void DrawGhostLifeline(Graphics g, RectangleF rect, Color fill, Color stroke)
+    {
+        DrawLifeline(g, rect, fill, stroke);
+    }
+
+    private static void DrawGhostActivation(Graphics g, RectangleF rect, Color fill, Color stroke)
+    {
+        DrawActivation(g, rect, fill, stroke);
+    }
+
+    private static void DrawGhostArrow(Graphics g, RectangleF rect, Color stroke, bool dashed)
+    {
+        DrawArrowConnector(g, rect, stroke, dashed, openArrow: true);
     }
 
     private static void DrawGhostBox(Graphics g, RectangleF rect, Color fill, Color stroke, bool roundedRight, int compartments)
@@ -383,5 +631,42 @@ public static class UmlNotationPreview
         g.DrawLine(pen, rect.Right - fold, rect.Top, rect.Right, rect.Top + fold);
         g.DrawLine(pen, rect.Right - fold, rect.Top, rect.Right - fold, rect.Top + fold);
         g.DrawLine(pen, rect.Right - fold, rect.Top + fold, rect.Right, rect.Top + fold);
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedPath(RectangleF rect, float radius)
+    {
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        var d = radius * 2f;
+        path.AddArc(rect.Left, rect.Top, d, d, 180, 90);
+        path.AddArc(rect.Right - d, rect.Top, d, d, 270, 90);
+        path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+        path.AddArc(rect.Left, rect.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private static void DrawOpenArrow(Graphics g, Pen pen, PointF from, PointF to, bool open)
+    {
+        var angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
+        const float len = 8f;
+        const float wing = 4f;
+        var p1 = new PointF(
+            (float)(to.X - len * Math.Cos(angle) + wing * Math.Sin(angle)),
+            (float)(to.Y - len * Math.Sin(angle) - wing * Math.Cos(angle)));
+        var p2 = new PointF(
+            (float)(to.X - len * Math.Cos(angle) - wing * Math.Sin(angle)),
+            (float)(to.Y - len * Math.Sin(angle) + wing * Math.Cos(angle)));
+
+        if (open)
+        {
+            g.DrawLine(pen, to, p1);
+            g.DrawLine(pen, to, p2);
+            return;
+        }
+
+        using var brush = new SolidBrush(pen.Color);
+        g.FillPolygon(brush, [to, p1, p2]);
+        g.DrawLine(pen, to, p1);
+        g.DrawLine(pen, to, p2);
     }
 }

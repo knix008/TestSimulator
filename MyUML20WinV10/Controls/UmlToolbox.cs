@@ -45,20 +45,15 @@ public sealed class UmlToolbox : UserControl
 
 
     private const int TileW = 52;
-
     private const int TileH = 46;
-
     private const int TileGap = 4;
-
+    private const int TilesPerRow = 4;
     private const int HeaderH = 24;
-
     private const int GroupGap = 8;
 
-    private const int SelectionBannerH = 92;
-
-
-
-    private readonly SelectionBannerPanel _selectionBanner = new();
+    /// <summary>한 줄에 4개 도구가 들어가는 권장 폭(패딩 포함).</summary>
+    public static int PreferredWidth =>
+        12 + TilesPerRow * (TileW + TileGap) - TileGap;
 
     private readonly List<(SectionHeader Header, List<ToolboxTile> Tiles)> _groups = [];
 
@@ -88,7 +83,7 @@ public sealed class UmlToolbox : UserControl
 
         Padding = new Padding(6, 4, 6, 10);
 
-        MinimumSize = new Size(3 * (TileW + TileGap) - TileGap + 12, 0);
+        MinimumSize = new Size(PreferredWidth, 0);
 
         Resize += (_, _) => LayoutAll();
 
@@ -132,10 +127,6 @@ public sealed class UmlToolbox : UserControl
 
             tile.MatchesCanvasSelection = mode.HasValue && tile.Mode == mode.Value;
 
-
-
-        _selectionBanner.SetSelection(selected, mode);
-
         Invalidate();
 
     }
@@ -143,15 +134,22 @@ public sealed class UmlToolbox : UserControl
 
 
     protected override void OnPaint(PaintEventArgs e)
-
     {
-
         base.OnPaint(e);
 
-        using var pen = new Pen(BorderColor);
+        if (DesignMode)
+        {
+            e.Graphics.Clear(SidebarBg);
+            using var pen = new Pen(BorderColor);
+            e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            using var brush = new SolidBrush(TextColor);
+            using var font = new Font("Segoe UI", 8f);
+            e.Graphics.DrawString("UML Toolbox", font, brush, 8, 8);
+            return;
+        }
 
-        e.Graphics.DrawLine(pen, Width - 1, 0, Width - 1, Height);
-
+        using var borderPen = new Pen(BorderColor);
+        e.Graphics.DrawLine(borderPen, Width - 1, 0, Width - 1, Height);
     }
 
 
@@ -189,8 +187,6 @@ public sealed class UmlToolbox : UserControl
 
 
         _initialized = true;
-
-        Controls.Add(_selectionBanner);
 
         BuildGroupsForKind(_currentKind);
 
@@ -267,10 +263,73 @@ public sealed class UmlToolbox : UserControl
 
 
             case UmlDiagramKind.SequenceDiagram:
+                AddGroup("시퀀스", [
+
+                    (UmlToolMode.CreateLifeline, "Lifeline", UmlNotationPreview.DrawLifeline),
+
+                ]);
+
+                AddGroup("메시지", [
+
+                    (UmlToolMode.CreateMessage, "Sync", UmlNotationPreview.DrawSyncMessage),
+
+                    (UmlToolMode.CreateAsyncMessage, "Async", UmlNotationPreview.DrawAsyncMessage),
+
+                    (UmlToolMode.CreateReturnMessage, "Return", UmlNotationPreview.DrawReturnMessage),
+
+                    (UmlToolMode.CreateSelfMessage, "Self", UmlNotationPreview.DrawSelfMessage),
+
+                ]);
+
+                break;
 
             case UmlDiagramKind.StateMachineDiagram:
 
+                AddGroup("상태", [
+
+                    (UmlToolMode.CreateState, "State", UmlNotationPreview.DrawState),
+
+                    (UmlToolMode.CreateInitialState, "Initial", UmlNotationPreview.DrawInitialState),
+
+                    (UmlToolMode.CreateFinalState, "Final", UmlNotationPreview.DrawFinalState),
+
+                ]);
+
+                AddGroup("관계", [
+
+                    (UmlToolMode.CreateTransition, "Transition", UmlNotationPreview.DrawTransition),
+
+                ]);
+
+                break;
+
             case UmlDiagramKind.ActivityDiagram:
+
+                AddGroup("활동", [
+
+                    (UmlToolMode.CreateAction, "Action", UmlNotationPreview.DrawAction),
+
+                    (UmlToolMode.CreateInitialNode, "Initial", UmlNotationPreview.DrawInitialNode),
+
+                    (UmlToolMode.CreateActivityFinalNode, "Final", UmlNotationPreview.DrawActivityFinalNode),
+
+                    (UmlToolMode.CreateDecision, "Decision", UmlNotationPreview.DrawDecision),
+
+                    (UmlToolMode.CreateMerge, "Merge", UmlNotationPreview.DrawMerge),
+
+                    (UmlToolMode.CreateFork, "Fork", UmlNotationPreview.DrawFork),
+
+                    (UmlToolMode.CreateJoin, "Join", UmlNotationPreview.DrawJoin),
+
+                ]);
+
+                AddGroup("관계", [
+
+                    (UmlToolMode.CreateControlFlow, "Control Flow", UmlNotationPreview.DrawControlFlow),
+
+                    (UmlToolMode.CreateObjectFlow, "Object Flow", UmlNotationPreview.DrawObjectFlow),
+
+                ]);
 
                 break;
 
@@ -396,17 +455,11 @@ public sealed class UmlToolbox : UserControl
 
         var usableW = Math.Max(TileW + TileGap, ClientSize.Width - Padding.Horizontal);
 
-        var cols = Math.Max(3, (usableW + TileGap) / (TileW + TileGap));
+        var cols = Math.Max(1, (usableW + TileGap) / (TileW + TileGap));
 
         var left = Padding.Left;
 
         var top = Padding.Top;
-
-
-
-        _selectionBanner.SetBounds(left, top, usableW, SelectionBannerH);
-
-        top += SelectionBannerH + TileGap;
 
 
 
@@ -480,140 +533,6 @@ public sealed class UmlToolbox : UserControl
 
 
 
-    private sealed class SelectionBannerPanel : Control
-
-    {
-
-        private static readonly Font TitleFont = new("Segoe UI Semibold", 8f, FontStyle.Bold);
-
-        private static readonly Font NameFont = new("Segoe UI", 8.5f, FontStyle.Bold);
-
-        private static readonly Font KindFont = new("Segoe UI", 7.5f);
-
-
-
-        private object? _selection;
-
-        private UmlToolMode? _mode;
-
-
-
-        public SelectionBannerPanel()
-
-        {
-
-            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
-
-        }
-
-
-
-        public void SetSelection(object? selection, UmlToolMode? mode)
-
-        {
-
-            _selection = selection;
-
-            _mode = mode;
-
-            Invalidate();
-
-        }
-
-
-
-        protected override void OnPaint(PaintEventArgs e)
-
-        {
-
-            var g = e.Graphics;
-
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-
-
-            using var bg = new SolidBrush(Color.FromArgb(248, 250, 252));
-
-            using var border = new Pen(UmlToolbox.BorderColor);
-
-            g.FillRectangle(bg, ClientRectangle);
-
-            g.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
-
-
-
-            using var titleBrush = new SolidBrush(Color.FromArgb(55, 65, 81));
-
-            g.DrawString("캔버스 선택", TitleFont, titleBrush, 8, 6);
-
-
-
-            var previewRect = new RectangleF(8, 24, 52, 52);
-
-            if (_selection is null || !_mode.HasValue)
-
-            {
-
-                using var emptyPen = new Pen(Color.FromArgb(180, 209, 213, 219), 1f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
-
-                g.DrawRectangle(emptyPen, previewRect.X, previewRect.Y, previewRect.Width, previewRect.Height);
-
-                using var emptyBrush = new SolidBrush(Color.FromArgb(107, 114, 128));
-
-                using var fmt = new StringFormat { LineAlignment = StringAlignment.Center };
-
-                g.DrawString("선택 없음", KindFont, emptyBrush, new RectangleF(68, 24, Width - 76, Height - 28), fmt);
-
-                return;
-
-            }
-
-
-
-            using (var previewBg = new SolidBrush(Color.White))
-
-                g.FillRectangle(previewBg, previewRect);
-
-            using (var previewBorder = new Pen(UmlToolbox.MatchAccent, 1.5f))
-
-                g.DrawRectangle(previewBorder, previewRect.X, previewRect.Y, previewRect.Width, previewRect.Height);
-
-
-
-            var inner = RectangleF.Inflate(previewRect, -4, -4);
-
-            UmlToolModeHelper.DrawPreview(g, _mode.Value, inner, UmlToolbox.MatchBg, UmlToolbox.MatchAccent);
-
-
-
-            var label = _selection switch
-
-            {
-
-                UmlElement element => element.DisplayLabel,
-
-                _ => UmlToolModeHelper.GetDisplayName(_mode.Value),
-
-            };
-
-            var kind = UmlToolModeHelper.GetDisplayName(_mode.Value);
-
-
-
-            using var nameBrush = new SolidBrush(Color.FromArgb(17, 24, 39));
-
-            using var kindBrush = new SolidBrush(UmlToolbox.MatchAccent);
-
-            g.DrawString(label, NameFont, nameBrush, 68, 30);
-
-            g.DrawString(kind, KindFont, kindBrush, 68, 52);
-
-        }
-
-    }
-
-
-
     private sealed class SectionHeader : Control
 
     {
@@ -678,11 +597,27 @@ public sealed class UmlToolbox : UserControl
 
 
 
-        public bool Selected { get; set; }
+        private bool _selected;
+        private bool _hovered;
+        private bool _matchesCanvasSelection;
 
-        public bool Hovered { get; set; }
+        public bool Selected
+        {
+            get => _selected;
+            set { if (_selected != value) { _selected = value; Invalidate(); } }
+        }
 
-        public bool MatchesCanvasSelection { get; set; }
+        public bool Hovered
+        {
+            get => _hovered;
+            set { if (_hovered != value) { _hovered = value; Invalidate(); } }
+        }
+
+        public bool MatchesCanvasSelection
+        {
+            get => _matchesCanvasSelection;
+            set { if (_matchesCanvasSelection != value) { _matchesCanvasSelection = value; Invalidate(); } }
+        }
 
 
 

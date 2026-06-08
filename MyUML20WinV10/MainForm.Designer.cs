@@ -373,9 +373,9 @@ partial class MainForm
         // _splitMain.Panel2
         // 
         _splitMain.Panel2.Controls.Add(_splitRight);
-        _splitMain.Panel2MinSize = 250;
+        _splitMain.Panel2MinSize = 232;
         _splitMain.Size = new Size(1280, 728);
-        _splitMain.SplitterDistance = 1026;
+        _splitMain.SplitterDistance = 1044;
         _splitMain.TabIndex = 0;
         // 
         // _splitWork
@@ -388,14 +388,14 @@ partial class MainForm
         // _splitWork.Panel1
         // 
         _splitWork.Panel1.Controls.Add(_pnlToolbox);
-        _splitWork.Panel1MinSize = 175;
+        _splitWork.Panel1MinSize = 232;
         // 
         // _splitWork.Panel2
         // 
         _splitWork.Panel2.Controls.Add(_pnlCanvasHost);
         _splitWork.Panel2MinSize = 200;
-        _splitWork.Size = new Size(1026, 728);
-        _splitWork.SplitterDistance = 175;
+        _splitWork.Size = new Size(1044, 728);
+        _splitWork.SplitterDistance = 232;
         _splitWork.TabIndex = 0;
         // 
         // _pnlToolbox
@@ -405,7 +405,7 @@ partial class MainForm
         _pnlToolbox.Dock = DockStyle.Fill;
         _pnlToolbox.Location = new Point(0, 0);
         _pnlToolbox.Name = "_pnlToolbox";
-        _pnlToolbox.Size = new Size(175, 728);
+        _pnlToolbox.Size = new Size(232, 728);
         _pnlToolbox.TabIndex = 0;
         // 
         // _umlToolbox
@@ -414,10 +414,10 @@ partial class MainForm
         _umlToolbox.BackColor = Color.FromArgb(250, 251, 253);
         _umlToolbox.Dock = DockStyle.Fill;
         _umlToolbox.Location = new Point(0, 28);
-        _umlToolbox.MinimumSize = new Size(176, 0);
+        _umlToolbox.MinimumSize = new Size(232, 0);
         _umlToolbox.Name = "_umlToolbox";
         _umlToolbox.Padding = new Padding(6, 4, 6, 10);
-        _umlToolbox.Size = new Size(176, 700);
+        _umlToolbox.Size = new Size(232, 700);
         _umlToolbox.TabIndex = 0;
         // 
         // _lblToolbox
@@ -425,7 +425,7 @@ partial class MainForm
         _lblToolbox.Dock = DockStyle.Top;
         _lblToolbox.Location = new Point(0, 0);
         _lblToolbox.Name = "_lblToolbox";
-        _lblToolbox.Size = new Size(175, 28);
+        _lblToolbox.Size = new Size(232, 28);
         _lblToolbox.TabIndex = 1;
         _lblToolbox.Text = "UML Toolbox";
         // 
@@ -436,7 +436,7 @@ partial class MainForm
         _pnlCanvasHost.Dock = DockStyle.Fill;
         _pnlCanvasHost.Location = new Point(0, 0);
         _pnlCanvasHost.Name = "_pnlCanvasHost";
-        _pnlCanvasHost.Size = new Size(847, 728);
+        _pnlCanvasHost.Size = new Size(808, 728);
         _pnlCanvasHost.TabIndex = 0;
         // 
         // _canvas
@@ -445,7 +445,7 @@ partial class MainForm
         _canvas.Dock = DockStyle.Fill;
         _canvas.Location = new Point(0, 34);
         _canvas.Name = "_canvas";
-        _canvas.Size = new Size(847, 694);
+        _canvas.Size = new Size(808, 694);
         _canvas.TabIndex = 0;
         // 
         // _diagramTabBar
@@ -453,7 +453,7 @@ partial class MainForm
         _diagramTabBar.Dock = DockStyle.Top;
         _diagramTabBar.Location = new Point(0, 0);
         _diagramTabBar.Name = "_diagramTabBar";
-        _diagramTabBar.Size = new Size(847, 34);
+        _diagramTabBar.Size = new Size(808, 34);
         _diagramTabBar.TabIndex = 1;
         // 
         // _splitRight
@@ -472,7 +472,7 @@ partial class MainForm
         // 
         _splitRight.Panel2.Controls.Add(_pnlProperties);
         _splitRight.Panel2MinSize = 180;
-        _splitRight.Size = new Size(250, 728);
+        _splitRight.Size = new Size(232, 728);
         _splitRight.SplitterDistance = 516;
         _splitRight.TabIndex = 0;
         // 
@@ -483,7 +483,7 @@ partial class MainForm
         _pnlExplorer.Dock = DockStyle.Fill;
         _pnlExplorer.Location = new Point(0, 0);
         _pnlExplorer.Name = "_pnlExplorer";
-        _pnlExplorer.Size = new Size(250, 516);
+        _pnlExplorer.Size = new Size(232, 516);
         _pnlExplorer.TabIndex = 0;
         // 
         // _modelExplorer
@@ -494,7 +494,7 @@ partial class MainForm
         _modelExplorer.HideSelection = false;
         _modelExplorer.Location = new Point(0, 28);
         _modelExplorer.Name = "_modelExplorer";
-        _modelExplorer.Size = new Size(250, 488);
+        _modelExplorer.Size = new Size(232, 488);
         _modelExplorer.TabIndex = 0;
         // 
         // _lblExplorer
@@ -502,7 +502,7 @@ partial class MainForm
         _lblExplorer.Dock = DockStyle.Top;
         _lblExplorer.Location = new Point(0, 0);
         _lblExplorer.Name = "_lblExplorer";
-        _lblExplorer.Size = new Size(250, 28);
+        _lblExplorer.Size = new Size(232, 28);
         _lblExplorer.TabIndex = 1;
         _lblExplorer.Text = "Structure";
         // 
@@ -514,7 +514,7 @@ partial class MainForm
         _pnlProperties.Dock = DockStyle.Fill;
         _pnlProperties.Location = new Point(0, 0);
         _pnlProperties.Name = "_pnlProperties";
-        _pnlProperties.Size = new Size(250, 208);
+        _pnlProperties.Size = new Size(232, 208);
         _pnlProperties.TabIndex = 0;
         // 
         // _propertyGrid
@@ -524,7 +524,7 @@ partial class MainForm
         _propertyGrid.HelpVisible = false;
         _propertyGrid.Location = new Point(0, 62);
         _propertyGrid.Name = "_propertyGrid";
-        _propertyGrid.Size = new Size(250, 146);
+        _propertyGrid.Size = new Size(232, 146);
         _propertyGrid.TabIndex = 0;
         _propertyGrid.ToolbarVisible = false;
         _propertyGrid.PropertyValueChanged += PropertyGrid_PropertyValueChanged;
@@ -536,7 +536,7 @@ partial class MainForm
         _pnlFeatureButtons.Dock = DockStyle.Top;
         _pnlFeatureButtons.Location = new Point(0, 28);
         _pnlFeatureButtons.Name = "_pnlFeatureButtons";
-        _pnlFeatureButtons.Size = new Size(250, 34);
+        _pnlFeatureButtons.Size = new Size(232, 34);
         _pnlFeatureButtons.TabIndex = 1;
         _pnlFeatureButtons.Visible = false;
         // 
@@ -567,7 +567,7 @@ partial class MainForm
         _lblProperties.Dock = DockStyle.Top;
         _lblProperties.Location = new Point(0, 0);
         _lblProperties.Name = "_lblProperties";
-        _lblProperties.Size = new Size(250, 28);
+        _lblProperties.Size = new Size(232, 28);
         _lblProperties.TabIndex = 2;
         _lblProperties.Text = "Properties";
         // 

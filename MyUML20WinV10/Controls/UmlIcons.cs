@@ -1,8 +1,15 @@
+using MyUML20WinV10.Models;
+using MyUML20WinV10.Rendering;
+
 namespace MyUML20WinV10.Controls;
 
 internal static class UmlIcons
 {
     private const int S = 16;
+
+    public static Bitmap ForToolMode(UmlToolMode mode) => Draw(g =>
+        UmlToolModeHelper.DrawPreview(g, mode, new RectangleF(1, 1, S - 2, S - 2),
+            Color.FromArgb(237, 233, 254), Color.FromArgb(79, 70, 229)));
 
     public static Bitmap New() => Draw(g =>
     {

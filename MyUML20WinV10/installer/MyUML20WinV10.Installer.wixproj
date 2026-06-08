@@ -1,7 +1,6 @@
 <Project Sdk="WixToolset.Sdk/7.0.0">
   <PropertyGroup>
     <OutputType>Package</OutputType>
-    <Platforms>x64</Platforms>
     <OutputName>MyUML20WinV10_Setup</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <SuppressIces>ICE69</SuppressIces>
@@ -9,6 +8,7 @@
     <OutputPath>$(MSBuildThisFileDirectory)..\bin\$(Configuration)\installer\</OutputPath>
     <IntermediateOutputPath>$(MSBuildThisFileDirectory)obj\$(Configuration)\</IntermediateOutputPath>
     <AcceptEula Condition="'$(AcceptEula)' == ''">wix7</AcceptEula>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>

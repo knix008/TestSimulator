@@ -31,6 +31,10 @@ public sealed class UmlAssociation : UmlRelationship
     [DisplayName("집합 종류")]
     public UmlAggregationKind Aggregation { get; set; } = UmlAggregationKind.None;
 
+    [Category("연관")]
+    [DisplayName("방향 표시")]
+    public bool IsDirected { get; set; }
+
     public override string RelationshipKind => "Association";
 
     public override string DisplayLabel => string.IsNullOrWhiteSpace(Name) ? "Association" : Name!;

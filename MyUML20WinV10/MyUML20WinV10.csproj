@@ -12,17 +12,26 @@
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);WFO1000</NoWarn>
     <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <Platforms>AnyCPU</Platforms>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DesignTimeBuild)' == 'true'">
+    <SkipInstaller>true</SkipInstaller>
+    <DefineConstants>$(DefineConstants);DESIGNER</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <Content Include="Assets\AppIcon.ico" />
   </ItemGroup>
 
-  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true'">
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true' AND '$(MSBuildIsProjectReference)' != 'true'">
     <MSBuild
       Projects="$(MSBuildThisFileDirectory)installer\MyUML20WinV10.Installer.wixproj"
       Targets="Restore;Build"
-      Properties="Configuration=Release;Platform=x64" />
+      Properties="Configuration=Release;SkipInstaller=true" />
   </Target>
 
   <ItemGroup>
@@ -39,6 +48,9 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Update="Controls\UmlCanvas.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Controls\UmlDiagramTabBar.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Update="Controls\UmlToolbox.cs">

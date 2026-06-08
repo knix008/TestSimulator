@@ -9,6 +9,8 @@ public static class UmlDiagramLayout
     {
         foreach (var node in diagram.Nodes)
             node.Height = UmlDiagramRenderer.MeasureNodeHeight(project, node);
+
+        UmlSequenceLayout.Prepare(project, diagram);
     }
 
     public static RectangleF CalculateBounds(UmlProject project, UmlDiagram diagram)

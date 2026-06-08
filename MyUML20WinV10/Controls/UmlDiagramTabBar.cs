@@ -58,6 +58,17 @@ public sealed class UmlDiagramTabBar : Control
 
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (DesignMode)
+        {
+            e.Graphics.Clear(BarBg);
+            using var pen = new Pen(BorderColor);
+            e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            using var brush = new SolidBrush(TextInactive);
+            using var font = new Font("Segoe UI", 8f);
+            e.Graphics.DrawString("Diagram Tabs", font, brush, 8, 10);
+            return;
+        }
+
         var g = e.Graphics;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         _tabBounds.Clear();
