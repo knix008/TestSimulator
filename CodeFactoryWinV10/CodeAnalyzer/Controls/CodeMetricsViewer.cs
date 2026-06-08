@@ -24,6 +24,18 @@ public sealed class CodeMetricsViewer : UserControl
     private readonly ListView _packageList = CreateListView();
     private readonly ListView _architectureList = CreateListView();
 
+    private readonly TextBox _typeCodePreview = new()
+    {
+        Dock = DockStyle.Fill,
+        Multiline = true,
+        ReadOnly = true,
+        ScrollBars = ScrollBars.Both,
+        Font = new Font(FontFamily.GenericMonospace, 9f),
+        BackColor = Color.FromArgb(248, 248, 252),
+        BorderStyle = BorderStyle.None,
+        WordWrap = false
+    };
+
     private readonly ListViewColumnHeaderToolTip _functionHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _fileHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _typeHeaderToolTip;
@@ -77,7 +89,17 @@ public sealed class CodeMetricsViewer : UserControl
         _tabFunctions.Controls.Add(_functionList);
 
         _tabTypes = new TabPage("타입") { Padding = new Padding(0) };
-        _tabTypes.Controls.Add(_typeList);
+        var typeSplit = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            Orientation = Orientation.Horizontal,
+            SplitterDistance = 280,
+            Panel1MinSize = 80,
+            Panel2MinSize = 60
+        };
+        typeSplit.Panel1.Controls.Add(_typeList);
+        typeSplit.Panel2.Controls.Add(_typeCodePreview);
+        _tabTypes.Controls.Add(typeSplit);
 
         _tabPackages = new TabPage("패키지") { Padding = new Padding(0) };
         _tabPackages.Controls.Add(_packageList);
@@ -101,6 +123,7 @@ public sealed class CodeMetricsViewer : UserControl
         _functionList.DoubleClick += OnListDoubleClick;
         _fileList.DoubleClick += OnListDoubleClick;
         _typeList.DoubleClick += OnListDoubleClick;
+        _typeList.SelectedIndexChanged += (_, _) => ShowTypeCode();
         _packageList.DoubleClick += OnListDoubleClick;
         _architectureList.DoubleClick += OnListDoubleClick;
         _tabs.SelectedIndexChanged += (_, _) => ScheduleColumnLayoutAdjust();
@@ -190,6 +213,40 @@ public sealed class CodeMetricsViewer : UserControl
         foreach (var column in columns)
         {
             list.Columns.Add(column);
+        }
+    }
+
+    private void ShowTypeCode()
+    {
+        if (_typeList.SelectedItems.Count == 0
+            || _typeList.SelectedItems[0].Tag is not TypeMetric type
+            || string.IsNullOrWhiteSpace(type.FilePath))
+        {
+            _typeCodePreview.Clear();
+            return;
+        }
+
+        if (!File.Exists(type.FilePath))
+        {
+            _typeCodePreview.Text = $"파일을 찾을 수 없습니다:\n{type.FilePath}";
+            return;
+        }
+
+        try
+        {
+            var lines = File.ReadAllLines(type.FilePath);
+            var start = Math.Max(0, type.LineNumber - 1);
+            var end = Math.Min(lines.Length, start + 150);
+            var sb = new System.Text.StringBuilder();
+            for (var i = start; i < end; i++)
+                sb.AppendLine($"{i + 1,6}  {lines[i]}");
+            _typeCodePreview.Text = sb.ToString();
+            _typeCodePreview.SelectionStart = 0;
+            _typeCodePreview.ScrollToCaret();
+        }
+        catch (Exception ex)
+        {
+            _typeCodePreview.Text = $"코드를 불러오는 중 오류:\n{ex.Message}";
         }
     }
 

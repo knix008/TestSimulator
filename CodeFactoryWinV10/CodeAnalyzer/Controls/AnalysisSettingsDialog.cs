@@ -3,6 +3,8 @@ using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Controls;
 
+
+
 /// <summary>분석 포함·제외 항목과 항목별 경고 기준을 한 곳에서 설정합니다.</summary>
 public sealed class AnalysisSettingsDialog : Form
 {

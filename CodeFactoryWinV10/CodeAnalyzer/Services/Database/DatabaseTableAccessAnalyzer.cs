@@ -25,6 +25,21 @@ public static class DatabaseTableAccessAnalyzer
         @"(?<![\w$@#])(?:_?context|db|Db)\s*\.\s*(\w+)(?![\w$])",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // SELECT col1, col2 FROM
+    private static readonly Regex SqlSelectColumnsRegex = new(
+        @"(?i)\bSELECT\s+((?:(?!\bFROM\b).)+)\bFROM\b",
+        RegexOptions.Compiled | RegexOptions.Singleline);
+
+    // INSERT INTO table (col1, col2) VALUES
+    private static readonly Regex SqlInsertColumnsRegex = new(
+        @"(?i)\bINSERT\s+(?:INTO\s+)?(?:[`\[""']?\w+[`\]""']?\.)?[`\[""']?\w+[`\]""']?\s*\(\s*([^)]+)\)\s*(?:VALUES|SELECT)\b",
+        RegexOptions.Compiled);
+
+    // UPDATE table SET col1=..., col2=... (before WHERE or ;)
+    private static readonly Regex SqlUpdateSetColumnsRegex = new(
+        @"(?i)\bUPDATE\s+(?:[`\[""']?\w+[`\]""']?\.)?[`\[""']?\w+[`\]""']?\s+SET\s+((?:(?!\bWHERE\b)[^;])+)",
+        RegexOptions.Compiled | RegexOptions.Singleline);
+
     public static DatabaseSchemaResult EnrichWithAccesses(
         DatabaseSchemaResult schema,
         IReadOnlyList<FunctionMetric> functions,
@@ -63,13 +78,54 @@ public static class DatabaseTableAccessAnalyzer
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
+        var columnAccesses = new List<DatabaseColumnAccess>();
+        var columnSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var access in accesses)
+        {
+            if (!schema.TableMap.TryGetValue(access.TableId, out var table) || table.Columns.Count == 0)
+                continue;
+
+            foreach (var (colName, kind) in DetectColumnAccesses(access.FunctionFilePath, access.FunctionLineNumber, table, fileCache))
+            {
+                var key = $"{access.TableId}\0{access.FunctionId}\0{colName}";
+                if (!columnSeen.Add(key))
+                    continue;
+
+                columnAccesses.Add(new DatabaseColumnAccess
+                {
+                    TableId = access.TableId,
+                    ColumnName = colName,
+                    FunctionId = access.FunctionId,
+                    FunctionDisplayName = access.FunctionDisplayName,
+                    FunctionFullName = access.FunctionFullName,
+                    FunctionFilePath = access.FunctionFilePath,
+                    FunctionLineNumber = access.FunctionLineNumber,
+                    Kind = kind,
+                    Pattern = access.Pattern
+                });
+            }
+        }
+
+        var groupedColumns = columnAccesses
+            .GroupBy(ca => ca.TableId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<DatabaseColumnAccess>)g
+                    .OrderBy(ca => ca.ColumnName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(ca => ca.FunctionDisplayName, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
         return new DatabaseSchemaResult
         {
             Tables = schema.Tables,
             Relations = schema.Relations,
             Accesses = accesses,
             TableMap = schema.TableMap,
-            AccessesByTableId = grouped
+            AccessesByTableId = grouped,
+            ColumnAccesses = columnAccesses,
+            ColumnAccessesByTableId = groupedColumns
         };
     }
 
@@ -358,6 +414,86 @@ public static class DatabaseTableAccessAnalyzer
         {
             cache[filePath] = [];
             return false;
+        }
+    }
+
+    private static List<(string ColumnName, DatabaseTableAccessKind Kind)> DetectColumnAccesses(
+        string filePath,
+        int lineNumber,
+        DatabaseTable table,
+        Dictionary<string, string[]> fileCache)
+    {
+        if (!TryReadLines(filePath, fileCache, out var lines))
+            return [];
+
+        var start = Math.Max(1, lineNumber);
+        var end = Math.Min(lines.Length, start + 400);
+        if (start > end)
+            return [];
+
+        var body = string.Join('\n', lines.AsSpan(start - 1, end - start + 1).ToArray());
+
+        var knownColumns = new HashSet<string>(
+            table.Columns.Select(c => c.Name),
+            StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, DatabaseTableAccessKind>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(string col, DatabaseTableAccessKind kind)
+        {
+            if (!knownColumns.Contains(col))
+                return;
+            if (!result.TryGetValue(col, out var existing))
+                result[col] = kind;
+            else if (existing != kind)
+                result[col] = DatabaseTableAccessKind.ReadWrite;
+        }
+
+        foreach (Match m in SqlSelectColumnsRegex.Matches(body))
+        {
+            foreach (var col in ParseColumnTokens(m.Groups[1].Value))
+                Add(col, DatabaseTableAccessKind.Read);
+        }
+
+        foreach (Match m in SqlInsertColumnsRegex.Matches(body))
+        {
+            foreach (var col in ParseColumnTokens(m.Groups[1].Value))
+                Add(col, DatabaseTableAccessKind.Write);
+        }
+
+        foreach (Match m in SqlUpdateSetColumnsRegex.Matches(body))
+        {
+            foreach (var col in ParseColumnTokens(m.Groups[1].Value, leftOfEquals: true))
+                Add(col, DatabaseTableAccessKind.Write);
+        }
+
+        return result.Select(p => (p.Key, p.Value)).ToList();
+    }
+
+    private static IEnumerable<string> ParseColumnTokens(string clause, bool leftOfEquals = false)
+    {
+        foreach (var part in clause.Split(','))
+        {
+            var token = part.Trim();
+            if (string.IsNullOrEmpty(token) || token == "*")
+                continue;
+
+            if (leftOfEquals)
+            {
+                var eq = token.IndexOf('=');
+                if (eq > 0)
+                    token = token[..eq].Trim();
+            }
+
+            var dot = token.LastIndexOf('.');
+            if (dot >= 0)
+                token = token[(dot + 1)..].Trim();
+
+            token = token.Trim('`', '[', ']', '"', '\'', ' ', '\t', '\n', '\r');
+
+            var m = Regex.Match(token, @"^\w+");
+            if (m.Success && m.Value.Length >= 2)
+                yield return m.Value;
         }
     }
 }

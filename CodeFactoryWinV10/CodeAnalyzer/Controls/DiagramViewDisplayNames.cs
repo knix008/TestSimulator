@@ -18,6 +18,7 @@ internal static class DiagramViewDisplayNames
         DiagramViewKind.GlobalVariables => "전역 변수",
         DiagramViewKind.DatabaseErd => "DB ERD",
         DiagramViewKind.DatabaseTableAccess => "DB 테이블 접근",
+        DiagramViewKind.BugRisk => "버그 위험 분석",
         _ => kind.ToString()
     };
 }

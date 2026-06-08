@@ -168,6 +168,8 @@ public partial class MainForm : Form
 
         menuFile.AutoSize = true;
         menuFile.Image = RegisterMenuImage(MenuIconFactory.CreateFileIcon());
+        menuProjectOpen.Image = RegisterMenuImage(MenuIconFactory.CreateProjectOpenIcon());
+        menuProjectSave.Image = RegisterMenuImage(MenuIconFactory.CreateProjectSaveIcon());
         menuOpen.Image = RegisterMenuImage(MenuIconFactory.CreateOpenIcon());
         menuSave.Image = RegisterMenuImage(MenuIconFactory.CreateSaveIcon());
         menuExportMetrics.Image = RegisterMenuImage(MenuIconFactory.CreateExportMetricsIcon());
@@ -212,7 +214,8 @@ public partial class MainForm : Form
             "중복 코드",
             "전역 변수",
             "DB ERD",
-            "DB 테이블 접근"
+            "DB 테이블 접근",
+            "버그 위험 분석(Lint)"
         });
         comboDiagramView.SelectedIndex = 0;
 
@@ -246,6 +249,7 @@ public partial class MainForm : Form
             9 => DiagramViewKind.GlobalVariables,
             10 => DiagramViewKind.DatabaseErd,
             11 => DiagramViewKind.DatabaseTableAccess,
+            12 => DiagramViewKind.BugRisk,
             _ => DiagramViewKind.CallGraph
         };
 
@@ -673,7 +677,8 @@ public partial class MainForm : Form
             or DiagramViewKind.DuplicateCode
             or DiagramViewKind.GlobalVariables
             or DiagramViewKind.DatabaseErd
-            or DiagramViewKind.DatabaseTableAccess)
+            or DiagramViewKind.DatabaseTableAccess
+            or DiagramViewKind.BugRisk)
         {
             try
             {
@@ -741,7 +746,8 @@ public partial class MainForm : Form
         var isTabularView = viewKind is DiagramViewKind.CodeMetrics
             or DiagramViewKind.DuplicateCode
             or DiagramViewKind.GlobalVariables
-            or DiagramViewKind.DatabaseTableAccess;
+            or DiagramViewKind.DatabaseTableAccess
+            or DiagramViewKind.BugRisk;
         var isAccessGraph = diagramViewHost.IsShowingAccessGraph;
         var supportsTreeExpand = viewKind == DiagramViewKind.CallGraph || isAccessGraph;
         var supportsLineStyle = viewKind is DiagramViewKind.CallGraph
@@ -1190,6 +1196,7 @@ public partial class MainForm : Form
                 DiagramViewKind.GlobalVariables => 9,
                 DiagramViewKind.DatabaseErd => 10,
                 DiagramViewKind.DatabaseTableAccess => 11,
+                DiagramViewKind.BugRisk => 12,
                 _ => 0
             };
 
@@ -1309,6 +1316,97 @@ public partial class MainForm : Form
         {
             lblStatus.Text = "되돌릴 이전 보기가 없습니다.";
         }
+    }
+
+    private void menuProjectSave_Click(object sender, EventArgs e)
+    {
+        var project = BuildProjectFromCurrentState();
+        using var dialog = new SaveFileDialog
+        {
+            Title = "프로젝트 저장",
+            Filter = ProjectFileService.FileFilter,
+            DefaultExt = "caproj",
+            FileName = !string.IsNullOrWhiteSpace(project.RootDirectory)
+                ? Path.GetFileName(project.RootDirectory)
+                : "project"
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            project.Name = Path.GetFileNameWithoutExtension(dialog.FileName);
+            ProjectFileService.SaveToFile(project, dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"프로젝트 저장 실패:\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void menuProjectOpen_Click(object sender, EventArgs e)
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "프로젝트 불러오기",
+            Filter = ProjectFileService.FileFilter,
+            DefaultExt = "caproj"
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            var project = ProjectFileService.LoadFromFile(dialog.FileName);
+            if (project is null)
+            {
+                MessageBox.Show(this, "프로젝트 파일을 읽을 수 없습니다.", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            ApplyProject(project);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"프로젝트 불러오기 실패:\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private AnalysisProject BuildProjectFromCurrentState()
+    {
+        return new AnalysisProject
+        {
+            RootDirectory = txtRootPath.Text.Trim(),
+            EnabledLanguageIds = GetSelectedLanguageIds().ToList(),
+            ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar(),
+            Settings = BuildAnalysisSettingsForPersistence()
+        };
+    }
+
+    private void ApplyProject(AnalysisProject project)
+    {
+        if (project.Settings is not null)
+        {
+            _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(project.Settings);
+            _enabledInspections = MetricInspectionCatalog.NormalizeScope(_analysisSettings.EnabledInspections);
+            UserAnalysisSettings.RegisterDesignerDefaults(_analysisSettings);
+        }
+
+        if (!string.IsNullOrWhiteSpace(project.RootDirectory) && Directory.Exists(project.RootDirectory))
+        {
+            txtRootPath.Text = project.RootDirectory;
+            ApplyRootDirectory(project.RootDirectory, saveSettings: false);
+        }
+
+        if (project.EnabledLanguageIds.Count > 0)
+        {
+            var enabledSet = new HashSet<string>(project.EnabledLanguageIds, StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < checkedListLanguages.Items.Count; i++)
+            {
+                if (checkedListLanguages.Items[i] is ProgrammingLanguage lang)
+                    checkedListLanguages.SetItemChecked(i, enabledSet.Contains(lang.Id));
+            }
+        }
+
+        if (project.ExcludedDirectoryPaths.Count > 0)
+            ApplyDirectoryChecksToSidebar(project.ExcludedDirectoryPaths);
+
+        _userSettings.SaveQualityThresholds(BuildAnalysisSettingsForPersistence());
     }
 
     private void menuSave_Click(object sender, EventArgs e)

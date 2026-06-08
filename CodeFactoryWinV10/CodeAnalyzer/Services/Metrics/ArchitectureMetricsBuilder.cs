@@ -197,16 +197,6 @@ public static class ArchitectureMetricsBuilder
                 Description = "검출된 순환 호출 체인이 없습니다."
             });
         }
-        else if (summary.CircularCallChainCount > maxPerCategory)
-        {
-            insights.Add(new ArchitectureInsight
-            {
-                Kind = ArchitectureInsightKind.CircularCall,
-                Category = "순환 호출",
-                Description = $"외 {summary.CircularCallChainCount - maxPerCategory:N0}건 더 있음 (상위 {maxPerCategory}건만 표시)",
-                Severity = WarningLevel.Warning
-            });
-        }
     }
 
     private static void AddFileCouplingInsights(
@@ -449,15 +439,6 @@ public static class ArchitectureMetricsBuilder
             });
         }
 
-        if (isolated.Count > maxPerCategory)
-        {
-            insights.Add(new ArchitectureInsight
-            {
-                Kind = ArchitectureInsightKind.IsolatedFunction,
-                Category = "고립 함수",
-                Description = $"외 {isolated.Count - maxPerCategory:N0}개 더 있음"
-            });
-        }
     }
 
     private static void AddGlobalVariableInsights(
@@ -499,15 +480,6 @@ public static class ArchitectureMetricsBuilder
             });
         }
 
-        if (globalVariables.Variables.Count > maxPerCategory)
-        {
-            insights.Add(new ArchitectureInsight
-            {
-                Kind = ArchitectureInsightKind.GlobalVariable,
-                Category = "전역 변수",
-                Description = $"외 {globalVariables.Variables.Count - maxPerCategory:N0}개 더 있음"
-            });
-        }
     }
 
     private static void AddDatabaseSchemaInsights(
@@ -533,8 +505,7 @@ public static class ArchitectureMetricsBuilder
         });
 
         foreach (var table in databaseSchema.Tables
-                     .OrderByDescending(table => table.Columns.Count)
-                     .Take(8))
+                     .OrderByDescending(table => table.Columns.Count))
         {
             insights.Add(new ArchitectureInsight
             {

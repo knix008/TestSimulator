@@ -38,7 +38,7 @@
             LogTextBox.Multiline = true;
             LogTextBox.Name = "LogTextBox";
             LogTextBox.ScrollBars = ScrollBars.Both;
-            LogTextBox.Size = new Size(1158, 519);
+            LogTextBox.Size = new Size(1158, 719);
             LogTextBox.TabIndex = 0;
             // 
             // VIXfaceServerLabel
@@ -55,12 +55,12 @@
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             AutoSize = true;
-            ClientSize = new Size(1184, 561);
+            ClientSize = new Size(1184, 761);
             Controls.Add(VIXfaceServerLabel);
             Controls.Add(LogTextBox);
             MaximizeBox = false;
-            MaximumSize = new Size(1200, 600);
-            MinimumSize = new Size(1200, 600);
+            MaximumSize = new Size(1200, 800);
+            MinimumSize = new Size(1200, 800);
             Name = "VIXfaceSimulator";
             Text = "VIXface 2.0 Simulator";
             ResumeLayout(false);

@@ -55,6 +55,48 @@ internal static class MenuIconFactory
         g.DrawRectangle(Pens.DimGray, 3, 2, 10, 12);
     });
 
+    public static Bitmap CreateProjectOpenIcon() => Draw(g =>
+    {
+        using var folder = new SolidBrush(Color.FromArgb(46, 125, 50));
+        using var tab = new SolidBrush(Color.FromArgb(102, 187, 106));
+        g.FillRectangle(tab, 2, 4, 7, 3);
+        using var path = new GraphicsPath();
+        path.AddLines(new[]
+        {
+            new Point(2, 6),
+            new Point(14, 6),
+            new Point(14, 14),
+            new Point(2, 14)
+        });
+        path.CloseFigure();
+        g.FillPath(folder, path);
+        g.DrawPath(new Pen(Color.DarkGreen), path);
+        g.DrawLine(new Pen(Color.White, 2), 5, 10, 11, 10);
+        g.DrawLine(new Pen(Color.White, 1.5f), 8, 7, 11, 10);
+        g.DrawLine(new Pen(Color.White, 1.5f), 8, 13, 11, 10);
+    });
+
+    public static Bitmap CreateProjectSaveIcon() => Draw(g =>
+    {
+        using var folder = new SolidBrush(Color.FromArgb(21, 101, 192));
+        using var tab = new SolidBrush(Color.FromArgb(66, 165, 245));
+        g.FillRectangle(tab, 2, 4, 7, 3);
+        using var path = new GraphicsPath();
+        path.AddLines(new[]
+        {
+            new Point(2, 6),
+            new Point(14, 6),
+            new Point(14, 14),
+            new Point(2, 14)
+        });
+        path.CloseFigure();
+        g.FillPath(folder, path);
+        g.DrawPath(new Pen(Color.DarkBlue), path);
+        using var p = new Pen(Color.White, 1.5f);
+        g.DrawLine(p, 5, 11, 7, 13);
+        g.DrawLine(p, 7, 13, 12, 7);
+    });
+
     public static Bitmap CreateExportMetricsIcon() => Draw(g =>
     {
         g.DrawRectangle(Pens.ForestGreen, 2, 2, 12, 12);

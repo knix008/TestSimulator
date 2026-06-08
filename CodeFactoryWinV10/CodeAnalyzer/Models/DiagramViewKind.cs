@@ -13,5 +13,6 @@ public enum DiagramViewKind
     DuplicateCode,
     GlobalVariables,
     DatabaseErd,
-    DatabaseTableAccess
+    DatabaseTableAccess,
+    BugRisk
 }

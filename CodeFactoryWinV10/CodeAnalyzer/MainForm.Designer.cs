@@ -47,8 +47,12 @@ partial class MainForm
         lblDiagramView = new Label();
         menuStrip = new MenuStrip();
         menuFile = new ToolStripMenuItem();
+        menuProjectOpen = new ToolStripMenuItem();
+        menuProjectSave = new ToolStripMenuItem();
+        menuSeparator1 = new ToolStripSeparator();
         menuOpen = new ToolStripMenuItem();
         menuSave = new ToolStripMenuItem();
+        menuSeparator2 = new ToolStripSeparator();
         menuExportMetrics = new ToolStripMenuItem();
         menuExportReport = new ToolStripMenuItem();
         menuExportImage = new ToolStripMenuItem();
@@ -386,13 +390,39 @@ partial class MainForm
         // 
         // menuFile
         // 
-        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuOpen, menuSave, menuExportMetrics, menuExportReport, menuExportImage });
+        menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuProjectOpen, menuProjectSave, menuSeparator1, menuOpen, menuSave, menuSeparator2, menuExportMetrics, menuExportReport, menuExportImage });
         menuFile.Name = "menuFile";
         menuFile.Size = new Size(70, 23);
         menuFile.Text = "파일";
-        // 
+        //
+        // menuProjectOpen
+        //
+        menuProjectOpen.Name = "menuProjectOpen";
+        menuProjectOpen.ShortcutKeys = Keys.Control | Keys.Shift | Keys.O;
+        menuProjectOpen.Size = new Size(313, 22);
+        menuProjectOpen.Text = "프로젝트 불러오기...";
+        menuProjectOpen.Click += menuProjectOpen_Click;
+        //
+        // menuProjectSave
+        //
+        menuProjectSave.Name = "menuProjectSave";
+        menuProjectSave.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
+        menuProjectSave.Size = new Size(313, 22);
+        menuProjectSave.Text = "프로젝트 저장...";
+        menuProjectSave.Click += menuProjectSave_Click;
+        //
+        // menuSeparator1
+        //
+        menuSeparator1.Name = "menuSeparator1";
+        menuSeparator1.Size = new Size(310, 6);
+        //
+        // menuSeparator2
+        //
+        menuSeparator2.Name = "menuSeparator2";
+        menuSeparator2.Size = new Size(310, 6);
+        //
         // menuOpen
-        // 
+        //
         menuOpen.Name = "menuOpen";
         menuOpen.ShortcutKeys = Keys.Control | Keys.O;
         menuOpen.Size = new Size(313, 22);
@@ -558,6 +588,10 @@ partial class MainForm
     private Label lblDiagramView;
     private MenuStrip menuStrip;
     private ToolStripMenuItem menuFile;
+    private ToolStripMenuItem menuProjectOpen;
+    private ToolStripMenuItem menuProjectSave;
+    private ToolStripSeparator menuSeparator1;
+    private ToolStripSeparator menuSeparator2;
     private ToolStripMenuItem menuOpen;
     private ToolStripMenuItem menuSave;
     private ToolStripMenuItem menuExportMetrics;
