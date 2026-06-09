@@ -13,7 +13,7 @@ public static class DatabaseTableAccessAnalyzer
         @"(?i)\b(?:FROM|JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|MERGE\s+INTO)\s+(?:\[\""]?(\w+)[\""]?\.)?(?:\[\""]?(\w+)[\""]?)",
         RegexOptions.Compiled);
 
-    // INSERT INTO / UPDATE / DELETE FROM / TRUNCATE / DROP / ALTER / CREATE TABLE / MERGE INTO — 동사를 캡처해 CRUD 동작으로 매핑
+    // INSERT INTO / UPDATE / DELETE FROM / TRUNCATE / DROP / ALTER / CREATE TABLE / MERGE INTO
     private static readonly Regex SqlCrudTableRegex = new(
         @"(?i)\b(?<op>INSERT\s+INTO|MERGE\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE|CREATE\s+TABLE)\s+(?:\[\""']?(?<schema>\w+)[\""'\]]?\.)?(?:\[\""']?(?<table>\w+)[\""'\]]?)",
         RegexOptions.Compiled);
@@ -40,8 +40,10 @@ public static class DatabaseTableAccessAnalyzer
         @"\.Entry\s*<\s*(\w+)\s*>|\.Entry\s*\(",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // C# / Java / JS double/single-quoted strings, backtick template literals, Python triple-quoted strings
+    // Order matters: triple-quotes must come before single-quote alternatives
     private static readonly Regex SqlStringLiteralRegex = new(
-        @"(?:@?""(?:(?:\\.|[^""\\])*)""|'(?:(?:\\.|[^'\\])*)')",
+        @"(?:""""""[\s\S]*?""""""|'''[\s\S]*?'''|@?""(?:(?:\\.|[^""\\])*)""|'(?:(?:\\.|[^'\\])*)'|`(?:[^`\\]|\\.)*`)",
         RegexOptions.Compiled | RegexOptions.Singleline);
 
     private static readonly Regex CSharpMethodHeaderRegex = new(
@@ -65,22 +67,31 @@ public static class DatabaseTableAccessAnalyzer
         @"(?i)\bUPDATE\s+(?:[`\[""']?\w+[`\]""']?\.)?[`\[""']?\w+[`\]""']?\s+SET\s+((?:(?!\bWHERE\b)[^;])+)",
         RegexOptions.Compiled | RegexOptions.Singleline);
 
+    // SQL에서 테이블명으로 오해될 수 있는 예약어 목록 (자동 발견 시 제외)
+    private static readonly HashSet<string> SqlKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SET", "WHERE", "CASE", "WHEN", "THEN", "ELSE", "END", "IS", "NULL", "TRUE", "FALSE",
+        "AND", "OR", "NOT", "BETWEEN", "LIKE", "IN", "EXISTS", "ANY", "ALL", "SOME",
+        "HAVING", "ORDER", "GROUP", "LIMIT", "OFFSET", "UNION", "EXCEPT", "INTERSECT",
+        "DISTINCT", "AS", "ON", "BY", "ASC", "DESC", "VALUES", "RETURNING",
+        "SELECT", "FROM", "WHERE", "JOIN", "INNER", "OUTER", "LEFT", "RIGHT", "FULL", "CROSS",
+        "TABLE", "INDEX", "KEY", "PRIMARY", "FOREIGN", "CONSTRAINT", "UNIQUE", "DEFAULT",
+        "IDENTITY", "AUTO_INCREMENT", "SCHEMA", "DATABASE", "VIEW", "PROCEDURE",
+        "FUNCTION", "TRIGGER", "SEQUENCE", "TEMPORARY", "TEMP", "IF", "ROW", "ROWS",
+        "COLUMN", "COLUMNS", "ROLE", "USER", "GRANT", "REVOKE", "COMMIT", "ROLLBACK",
+        "TRANSACTION", "SAVEPOINT", "TOP", "FIRST", "SKIP", "FETCH", "NEXT", "ONLY",
+        "WITH", "RECURSIVE", "NOLOCK", "READPAST", "UPDLOCK", "ROWLOCK", "TABLOCK",
+        "INTO", "MERGE", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "TRUNCATE",
+    };
+
     public static DatabaseSchemaResult EnrichWithAccesses(
         DatabaseSchemaResult schema,
         IReadOnlyList<FunctionMetric> functions,
         CallGraphResult callGraph,
         IReadOnlyList<string>? sourceFiles = null)
     {
-        if (schema.Tables.Count == 0)
-        {
-            return schema;
-        }
-
+        // 사전 정의 스키마가 없어도 진행 — SQL 자동 발견으로 테이블을 찾아낼 수 있음
         var index = BuildReferenceIndex(schema.Tables);
-        if (index.Aliases.Count == 0)
-        {
-            return schema;
-        }
 
         var accesses = new List<DatabaseTableAccess>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -124,6 +135,7 @@ public static class DatabaseTableAccessAnalyzer
         var columnAccesses = new List<DatabaseColumnAccess>();
         var columnSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        // 컬럼 접근은 사전 정의 스키마가 있는 테이블에 한해 분석
         foreach (var access in accesses)
         {
             if (!schema.TableMap.TryGetValue(access.TableId, out var table) || table.Columns.Count == 0)
@@ -161,12 +173,21 @@ public static class DatabaseTableAccessAnalyzer
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
+        // SQL 분석으로 자동 발견된 테이블을 결과에 포함
+        IReadOnlyList<DatabaseTable> allTables = index.AutoDiscoveredTables.Count > 0
+            ? [.. schema.Tables, .. index.AutoDiscoveredTables]
+            : schema.Tables;
+
+        var tableMap = allTables
+            .GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
         return new DatabaseSchemaResult
         {
-            Tables = schema.Tables,
+            Tables = allTables,
             Relations = schema.Relations,
             Accesses = accesses,
-            TableMap = schema.TableMap,
+            TableMap = tableMap,
             AccessesByTableId = grouped,
             ColumnAccesses = columnAccesses,
             ColumnAccessesByTableId = groupedColumns,
@@ -181,6 +202,8 @@ public static class DatabaseTableAccessAnalyzer
         public Dictionary<string, DatabaseTableAccessPattern> AliasPatterns { get; } = new(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> DbSetPropertyNames { get; } = new(StringComparer.OrdinalIgnoreCase);
         public List<TableReferenceProfile> Profiles { get; } = [];
+        /// <summary>SQL 코드 스캔 중 자동으로 발견된 테이블 목록.</summary>
+        public List<DatabaseTable> AutoDiscoveredTables { get; } = [];
     }
 
     private sealed class TableReferenceProfile
@@ -240,6 +263,52 @@ public static class DatabaseTableAccessAnalyzer
         index.AliasPatterns.TryAdd(alias, pattern);
     }
 
+    /// <summary>SQL에서 언급된 새 테이블을 자동으로 인덱스에 등록. 키워드·단자(1글자)는 무시.</summary>
+    private static string AutoDiscoverSqlTable(
+        TableReferenceIndex index,
+        string schemaToken,
+        string tableToken)
+    {
+        if (string.IsNullOrWhiteSpace(tableToken) || tableToken.Length < 2)
+            return string.Empty;
+
+        if (SqlKeywords.Contains(tableToken))
+            return string.Empty;
+
+        // 이미 인덱스에 있으면 그 ID를 반환
+        if (index.Aliases.TryGetValue(tableToken, out var existing))
+            return existing;
+
+        var tableId = string.IsNullOrWhiteSpace(schemaToken)
+            ? tableToken.ToLowerInvariant()
+            : $"{schemaToken.ToLowerInvariant()}.{tableToken.ToLowerInvariant()}";
+
+        if (index.Aliases.TryGetValue(tableId, out existing))
+            return existing;
+
+        var newTable = new DatabaseTable
+        {
+            Id = tableId,
+            Name = tableToken,
+            Schema = string.IsNullOrWhiteSpace(schemaToken) ? null : schemaToken,
+            SourceKind = "sql-detected",
+        };
+
+        index.AutoDiscoveredTables.Add(newTable);
+        RegisterAlias(index, tableToken, tableId, DatabaseTableAccessPattern.Sql);
+        if (!string.IsNullOrWhiteSpace(schemaToken))
+            RegisterAlias(index, $"{schemaToken}.{tableToken}", tableId, DatabaseTableAccessPattern.Sql);
+
+        index.Profiles.Add(new TableReferenceProfile
+        {
+            TableId = tableId,
+            EntityTypeName = string.Empty,
+            ColumnNames = []
+        });
+
+        return tableId;
+    }
+
     private static void ScanFunctionBody(
         FunctionMetric function,
         string filePath,
@@ -272,7 +341,7 @@ public static class DatabaseTableAccessAnalyzer
             return;
         }
 
-        var matches = DetectTableReferences(body, index);
+        var matches = DetectTableReferences(body, function.LanguageId, index);
         if (matches.Count == 0)
         {
             return;
@@ -383,7 +452,10 @@ public static class DatabaseTableAccessAnalyzer
                 continue;
             }
 
-            var methodStarts = FindMethodStartLines(lines);
+            var language = LanguageRegistry.FindByExtension(Path.GetExtension(filePath));
+            var languageId = language?.Id ?? string.Empty;
+
+            var methodStarts = FindMethodStartLines(lines, languageId);
             if (methodStarts.Count == 0)
             {
                 ScanFileRange(
@@ -405,7 +477,7 @@ public static class DatabaseTableAccessAnalyzer
             {
                 var start = methodStarts[i];
                 var end = i + 1 < methodStarts.Count ? methodStarts[i + 1] - 1 : lines.Length;
-                var displayName = ExtractMethodName(lines[start - 1]) ?? $"line {start}";
+                var displayName = ExtractMethodName(lines[start - 1], languageId) ?? $"line {start}";
                 ScanFileRange(
                     filePath,
                     lines,
@@ -462,16 +534,37 @@ public static class DatabaseTableAccessAnalyzer
             useFunctionId: false);
     }
 
-    private static List<int> FindMethodStartLines(string[] lines)
+    private static List<int> FindMethodStartLines(string[] lines, string languageId = "")
     {
         var starts = new List<int>();
         var text = string.Join('\n', lines);
-        foreach (Match match in CSharpMethodHeaderRegex.Matches(text))
+
+        Regex headerRegex;
+        if (string.IsNullOrEmpty(languageId) || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase))
         {
-            if (string.IsNullOrWhiteSpace(match.Groups[1].Value))
+            headerRegex = CSharpMethodHeaderRegex;
+        }
+        else
+        {
+            headerRegex = LanguageDbAccessPatterns.GetFunctionHeaderRegex(languageId)
+                ?? CSharpMethodHeaderRegex;
+        }
+
+        foreach (Match match in headerRegex.Matches(text))
+        {
+            // 언어마다 캡처 그룹 수가 다르므로 첫 번째 비어있지 않은 그룹을 함수명으로 사용
+            var hasName = false;
+            for (var g = 1; g < match.Groups.Count; g++)
             {
-                continue;
+                if (match.Groups[g].Success && !string.IsNullOrWhiteSpace(match.Groups[g].Value))
+                {
+                    hasName = true;
+                    break;
+                }
             }
+
+            if (!hasName)
+                continue;
 
             var line = text.AsSpan(0, match.Index).Count('\n') + 1;
             if (line > 0 && (starts.Count == 0 || starts[^1] != line))
@@ -483,14 +576,35 @@ public static class DatabaseTableAccessAnalyzer
         return starts;
     }
 
-    private static string? ExtractMethodName(string headerLine)
+    private static string? ExtractMethodName(string headerLine, string languageId = "")
     {
-        var match = CSharpMethodHeaderRegex.Match(headerLine);
-        return match.Success ? match.Groups[1].Value : null;
+        Regex headerRegex;
+        if (string.IsNullOrEmpty(languageId) || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase))
+        {
+            headerRegex = CSharpMethodHeaderRegex;
+        }
+        else
+        {
+            headerRegex = LanguageDbAccessPatterns.GetFunctionHeaderRegex(languageId)
+                ?? CSharpMethodHeaderRegex;
+        }
+
+        var match = headerRegex.Match(headerLine);
+        if (!match.Success)
+            return null;
+
+        for (var g = 1; g < match.Groups.Count; g++)
+        {
+            if (match.Groups[g].Success && !string.IsNullOrWhiteSpace(match.Groups[g].Value))
+                return match.Groups[g].Value;
+        }
+
+        return null;
     }
 
     private static List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> DetectTableReferences(
         string body,
+        string languageId,
         TableReferenceIndex index)
     {
         var results = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
@@ -511,34 +625,65 @@ public static class DatabaseTableAccessAnalyzer
             }
         }
 
-        foreach (Match match in EfSetGenericRegex.Matches(body))
+        // C# / VB.NET EF Core 패턴
+        if (string.IsNullOrEmpty(languageId)
+            || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase)
+            || languageId.Equals("vbnet", StringComparison.OrdinalIgnoreCase))
         {
-            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
-        }
-
-        foreach (Match match in EfGenericCrudRegex.Matches(body))
-        {
-            var operation = MapEfMethodToOperation(match.Groups[1].Value);
-            var kind = operation == DatabaseCrudOperation.None ? DatabaseTableAccessKind.ReadWrite : DatabaseTableAccessKind.Write;
-            TryAddAlias(results, index, match.Groups[2].Value, kind, DatabaseTableAccessPattern.EntityFramework, operation);
-        }
-
-        foreach (Match match in EfDbSetPropertyRegex.Matches(body))
-        {
-            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
-        }
-
-        foreach (Match match in EfDbSetMemberRegex.Matches(body))
-        {
-            var operation = MapEfMethodToOperation(match.Groups[2].Value);
-            TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, operation);
-        }
-
-        foreach (Match match in EfEntryRegex.Matches(body))
-        {
-            if (match.Groups[1].Success)
+            foreach (Match match in EfSetGenericRegex.Matches(body))
             {
                 TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
+            }
+
+            foreach (Match match in EfGenericCrudRegex.Matches(body))
+            {
+                var operation = MapEfMethodToOperation(match.Groups[1].Value);
+                var kind = operation == DatabaseCrudOperation.None ? DatabaseTableAccessKind.ReadWrite : DatabaseTableAccessKind.Write;
+                TryAddAlias(results, index, match.Groups[2].Value, kind, DatabaseTableAccessPattern.EntityFramework, operation);
+            }
+
+            foreach (Match match in EfDbSetPropertyRegex.Matches(body))
+            {
+                TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
+            }
+
+            foreach (Match match in EfDbSetMemberRegex.Matches(body))
+            {
+                var operation = MapEfMethodToOperation(match.Groups[2].Value);
+                TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, operation);
+            }
+
+            foreach (Match match in EfEntryRegex.Matches(body))
+            {
+                if (match.Groups[1].Success)
+                {
+                    TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
+                }
+            }
+        }
+
+        // 언어별 ORM 패턴 적용
+        if (!string.IsNullOrEmpty(languageId))
+        {
+            foreach (var ormPattern in LanguageDbAccessPatterns.GetOrmPatterns(languageId))
+            {
+                foreach (Match match in ormPattern.PatternRegex.Matches(body))
+                {
+                    var entityName = ormPattern.EntityNameGroup > 0 && match.Groups[ormPattern.EntityNameGroup].Success
+                        ? match.Groups[ormPattern.EntityNameGroup].Value
+                        : string.Empty;
+
+                    var kind = ormPattern.Operation == DatabaseCrudOperation.Read
+                        ? DatabaseTableAccessKind.Read
+                        : ormPattern.Operation == DatabaseCrudOperation.None
+                            ? DatabaseTableAccessKind.ReadWrite
+                            : DatabaseTableAccessKind.Write;
+
+                    if (!string.IsNullOrEmpty(entityName))
+                    {
+                        TryAddAlias(results, index, entityName, kind, ormPattern.AccessPattern, ormPattern.Operation);
+                    }
+                }
             }
         }
 
@@ -568,7 +713,18 @@ public static class DatabaseTableAccessAnalyzer
     {
         foreach (Match match in SqlStringLiteralRegex.Matches(body))
         {
-            var literal = match.Value.Trim('"', '\'');
+            var raw = match.Value;
+            // 따옴표·백틱 제거
+            string literal;
+            if (raw.StartsWith("\"\"\"", StringComparison.Ordinal) && raw.EndsWith("\"\"\"", StringComparison.Ordinal))
+                literal = raw[3..^3];
+            else if (raw.StartsWith("'''", StringComparison.Ordinal) && raw.EndsWith("'''", StringComparison.Ordinal))
+                literal = raw[3..^3];
+            else if (raw.StartsWith('`') && raw.EndsWith('`'))
+                literal = raw[1..^1];
+            else
+                literal = raw.Trim('@', '"', '\'');
+
             if (literal.Contains("SELECT", StringComparison.OrdinalIgnoreCase)
                 || literal.Contains("INSERT", StringComparison.OrdinalIgnoreCase)
                 || literal.Contains("UPDATE", StringComparison.OrdinalIgnoreCase)
@@ -611,11 +767,16 @@ public static class DatabaseTableAccessAnalyzer
             ? tableToken
             : $"{schemaToken}.{tableToken}";
 
-        if (TryResolveTable(index, qualified, out var tableId)
-            || TryResolveTable(index, tableToken, out tableId))
+        if (!TryResolveTable(index, qualified, out var tableId)
+            && !TryResolveTable(index, tableToken, out tableId))
         {
-            MergeAccess(results, tableId, kind, pattern, operations);
+            // SQL에서 참조된 테이블을 자동 발견하여 인덱스에 등록
+            tableId = AutoDiscoverSqlTable(index, schemaToken, tableToken);
+            if (string.IsNullOrEmpty(tableId))
+                return;
         }
+
+        MergeAccess(results, tableId, kind, pattern, operations);
     }
 
     private static void TryAddAlias(

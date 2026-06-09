@@ -95,6 +95,18 @@ internal static class ListViewHeaderToolTipTexts
         "동작 코드가 있는 소스 줄 번호입니다."
     ];
 
+    /// <summary>"DB 영향 함수" 탭 — 전체 테이블 cross-table 수정 함수 목록.</summary>
+    internal static readonly string[] DatabaseImpactFunction =
+    [
+        "DB를 접근·수정하는 함수 목록의 순번입니다.",
+        "접근 대상 테이블 이름입니다. 헤더 클릭으로 테이블별로 그룹 정렬할 수 있습니다.",
+        "DB에 접근하는 함수·메서드 이름입니다. 더블클릭하면 해당 함수 정의 위치를 편집기에서 엽니다.",
+        "이 함수에서 검출된 CRUD 동작입니다. C=Create(INSERT/Add), R=Read(SELECT/Find), U=Update(UPDATE/Update), D=Delete(DELETE/Remove). 검출 불가 시 「-」. DB 스키마 변경 시 이 열로 영향 범위를 파악하세요.",
+        "접근이 감지된 방식입니다. EF=EF Core DbSet 메서드, 엔티티=엔티티 타입·컬럼 참조, SQL=SQL 문자열 분석.",
+        "접근 코드가 있는 소스 파일 전체 경로입니다.",
+        "접근 코드가 있는 소스 줄 번호입니다."
+    ];
+
     internal static readonly string[] Security =
     [
         "현재 필터·정렬 기준으로 표시되는 보안 smell 목록의 순번입니다. 열 헤더를 클릭하면 해당 열로 정렬할 수 있습니다.",

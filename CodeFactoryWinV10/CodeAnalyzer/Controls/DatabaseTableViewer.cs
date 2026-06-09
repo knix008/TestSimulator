@@ -106,10 +106,41 @@ public sealed class DatabaseTableViewer : UserControl
     private DatabaseTable? _selected;
     private string? _projectRoot;
     private bool _isAnalyzing;
+    // ── 상단 탭 (테이블별 / DB 영향 함수) ─────────────────────
+    private readonly TabControl _mainTabControl = new() { Dock = DockStyle.Fill };
+
+    // ── DB 영향 함수 탭 (전체 테이블 cross-table 뷰) ─────────────
+    private readonly ListView _impactList = new()
+    {
+        Dock = DockStyle.Fill,
+        View = View.Details,
+        FullRowSelect = true,
+        GridLines = true,
+        MultiSelect = false
+    };
+
+    private readonly CheckBox _writeOnlyFilter = new()
+    {
+        Text = "쓰기(Create/Update/Delete)만 보기",
+        AutoSize = true,
+        Checked = true
+    };
+
+    private readonly Label _impactSummaryLabel = new()
+    {
+        Dock = DockStyle.Top,
+        Height = 36,
+        Padding = new Padding(8, 6, 8, 4),
+        AutoEllipsis = true
+    };
+
     private readonly ListViewColumnHeaderToolTip _tableListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _accessorListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _columnAccessListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _entryAccessListHeaderToolTip;
+    private ListViewColumnHeaderToolTip? _impactListHeaderToolTip;
+    private int _impactSortColumn = -1;
+    private bool _impactSortAscending = true;
 
     public event Action<DatabaseTable>? AccessGraphRequested;
 
@@ -202,8 +233,43 @@ public sealed class DatabaseTableViewer : UserControl
         _split.Panel1.Controls.Add(_tableList);
         _split.Panel2.Controls.Add(_detailSplit);
 
-        Controls.Add(_split);
-        Controls.Add(_summaryLabel);
+        // ── 테이블별 탭 ──────────────────────────────────────────
+        var tableViewTab = new TabPage("테이블별 분석");
+        tableViewTab.Controls.Add(_split);
+        tableViewTab.Controls.Add(_summaryLabel);
+
+        // ── DB 영향 함수 탭 ──────────────────────────────────────
+        _impactList.Columns.Add("#", 40);
+        _impactList.Columns.Add("테이블", 120);
+        _impactList.Columns.Add("함수", 200);
+        _impactList.Columns.Add("CRUD", 90);
+        _impactList.Columns.Add("패턴", 72);
+        _impactList.Columns.Add("파일", 200);
+        _impactList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _impactListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_impactList, ListViewHeaderToolTipTexts.DatabaseImpactFunction);
+        _impactList.DoubleClick += (_, _) => OpenSelectedImpactFunction();
+        _impactList.ColumnClick += (_, e) =>
+        {
+            if (_impactSortColumn == e.Column) _impactSortAscending = !_impactSortAscending;
+            else { _impactSortColumn = e.Column; _impactSortAscending = true; }
+            _impactList.ListViewItemSorter = new ImpactListSorter(_impactSortColumn, _impactSortAscending);
+            _impactList.Sort();
+        };
+
+        var filterPanel = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(8, 6, 8, 4) };
+        _writeOnlyFilter.Location = new Point(8, 8);
+        _writeOnlyFilter.CheckedChanged += (_, _) => RebuildImpactList();
+        filterPanel.Controls.Add(_writeOnlyFilter);
+
+        var impactViewTab = new TabPage("DB 영향 함수");
+        impactViewTab.Controls.Add(_impactList);
+        impactViewTab.Controls.Add(_impactSummaryLabel);
+        impactViewTab.Controls.Add(filterPanel);
+
+        _mainTabControl.TabPages.Add(tableViewTab);
+        _mainTabControl.TabPages.Add(impactViewTab);
+
+        Controls.Add(_mainTabControl);
 
         Load += (_, _) => ApplySplitLayout();
         SizeChanged += (_, _) => ApplySplitLayout();
@@ -214,6 +280,7 @@ public sealed class DatabaseTableViewer : UserControl
         _schema = schema;
         _projectRoot = projectRoot;
         RebuildList();
+        RebuildImpactList();
     }
 
     public DatabaseTable? SelectedTable => _selected;
@@ -226,10 +293,13 @@ public sealed class DatabaseTableViewer : UserControl
         _tableList.Items.Clear();
         _accessorList.Items.Clear();
         _columnAccessList.Items.Clear();
+        _entryAccessList.Items.Clear();
+        _impactList.Items.Clear();
         _previewBox.Clear();
         _openFileButton.Enabled = false;
         _showGraphButton.Enabled = false;
         _summaryLabel.Text = "DB 테이블·접근 분석 중...";
+        _impactSummaryLabel.Text = "분석 중...";
         ResetAccessTabTitles();
     }
 
@@ -241,6 +311,8 @@ public sealed class DatabaseTableViewer : UserControl
         _tableList.Items.Clear();
         _accessorList.Items.Clear();
         _columnAccessList.Items.Clear();
+        _entryAccessList.Items.Clear();
+        _impactList.Items.Clear();
         _previewBox.Clear();
         _selected = null;
         _openFileButton.Enabled = false;
@@ -428,6 +500,79 @@ public sealed class DatabaseTableViewer : UserControl
         }
 
         SourceFileOpener.TryOpen(entry.FunctionFilePath, entry.FunctionLineNumber);
+    }
+
+    private void RebuildImpactList()
+    {
+        _impactList.BeginUpdate();
+        _impactList.Items.Clear();
+
+        if (_schema is null || _schema.Tables.Count == 0)
+        {
+            _impactSummaryLabel.Text = "분석 결과 없음";
+            _impactList.EndUpdate();
+            return;
+        }
+
+        var writeOps = DatabaseCrudOperation.Create | DatabaseCrudOperation.Update | DatabaseCrudOperation.Delete;
+        var writeOnlyMode = _writeOnlyFilter.Checked;
+        var tableMap = _schema.TableMap;
+
+        var rows = _schema.Accesses
+            .Where(a =>
+            {
+                if (writeOnlyMode)
+                {
+                    return (a.Operations & writeOps) != DatabaseCrudOperation.None
+                        || (a.Operations == DatabaseCrudOperation.None && a.Kind != DatabaseTableAccessKind.Read);
+                }
+                return true;
+            })
+            .OrderBy(a => tableMap.TryGetValue(a.TableId, out var t) ? t.Name : a.TableId, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.FunctionDisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.FunctionLineNumber)
+            .ToList();
+
+        var writeCount = _schema.Accesses.Count(a =>
+            (a.Operations & writeOps) != DatabaseCrudOperation.None
+            || (a.Operations == DatabaseCrudOperation.None && a.Kind != DatabaseTableAccessKind.Read));
+        var totalCount = _schema.Accesses.Count;
+        var distinctFiles = rows.Select(a => a.FunctionFilePath).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        var distinctFunctions = rows.Select(a => a.FunctionId).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+        _impactSummaryLabel.Text =
+            $"수정 함수 {writeCount:N0}개 / 전체 접근 {totalCount:N0}건 · " +
+            $"현재 표시 {rows.Count:N0}건 · 함수 {distinctFunctions:N0}개 · 파일 {distinctFiles:N0}개 — " +
+            "더블클릭: 함수 위치 열기";
+
+        var index = 1;
+        foreach (var access in rows)
+        {
+            var tableName = tableMap.TryGetValue(access.TableId, out var table) ? table.Name : access.TableId;
+            var item = new ListViewItem(index.ToString());
+            item.SubItems.Add(tableName);
+            item.SubItems.Add(access.FunctionDisplayName);
+            item.SubItems.Add(FormatOperations(access.Operations));
+            item.SubItems.Add(FormatPattern(access.Pattern));
+            item.SubItems.Add(access.FunctionFilePath);
+            item.SubItems.Add(access.FunctionLineNumber.ToString());
+            item.Tag = access;
+            item.ToolTipText = $"{access.FunctionFullName} · {access.FunctionFilePath}:{access.FunctionLineNumber}";
+            _impactList.Items.Add(item);
+            index++;
+        }
+
+        _impactList.EndUpdate();
+    }
+
+    private void OpenSelectedImpactFunction()
+    {
+        if (_impactList.SelectedItems.Count == 0
+            || _impactList.SelectedItems[0].Tag is not DatabaseTableAccess access)
+        {
+            return;
+        }
+
+        SourceFileOpener.TryOpen(access.FunctionFilePath, access.FunctionLineNumber);
     }
 
     private void ResetAccessTabTitles()
@@ -634,5 +779,31 @@ public sealed class DatabaseTableViewer : UserControl
         const int fixedWidth = 40 + 120 + 100 + 72 + 52 + 72 + 44;
         var fileWidth = Math.Max(100, _tableList.ClientSize.Width - fixedWidth - 8);
         _tableList.Columns[6].Width = fileWidth;
+    }
+
+    private sealed class ImpactListSorter : System.Collections.IComparer
+    {
+        private readonly int _col;
+        private readonly bool _asc;
+        public ImpactListSorter(int col, bool asc) { _col = col; _asc = asc; }
+
+        public int Compare(object? x, object? y)
+        {
+            var a = (ListViewItem?)x;
+            var b = (ListViewItem?)y;
+            if (a is null && b is null) return 0;
+            if (a is null) return _asc ? -1 : 1;
+            if (b is null) return _asc ? 1 : -1;
+
+            var ta = _col < a.SubItems.Count ? a.SubItems[_col].Text : string.Empty;
+            var tb = _col < b.SubItems.Count ? b.SubItems[_col].Text : string.Empty;
+
+            // 줄 번호(col 6) 와 # (col 0)은 정수 비교
+            if (_col is 0 or 6 && int.TryParse(ta, out var ia) && int.TryParse(tb, out var ib))
+                return _asc ? ia.CompareTo(ib) : ib.CompareTo(ia);
+
+            var cmp = string.Compare(ta, tb, StringComparison.OrdinalIgnoreCase);
+            return _asc ? cmp : -cmp;
+        }
     }
 }

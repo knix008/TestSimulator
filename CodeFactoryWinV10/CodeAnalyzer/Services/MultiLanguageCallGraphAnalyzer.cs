@@ -337,8 +337,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
             }
         }
 
-        if (AnalysisScopeResolver.RequiresDatabaseSchema(inspections)
-            && databaseSchema.Tables.Count > 0)
+        if (AnalysisScopeResolver.RequiresDatabaseSchema(inspections))
         {
             tracker.Report("DB 테이블 접근 함수 분석 중...");
             try

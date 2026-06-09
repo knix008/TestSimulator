@@ -71,7 +71,8 @@ public static class MetricInspectionRuntime
 
     public static bool RequiresFunctionMetrics(MetricInspectionKind inspections) =>
         IsOn(inspections, MetricInspectionKind.ShowFunctionsTab)
-        || IsOn(inspections, FunctionMetricInspections);
+        || IsOn(inspections, FunctionMetricInspections)
+        || IsOn(inspections, MetricInspectionKind.DatabaseSchema);  // DB 접근 함수 감지에 함수 바디 스캔 필요
 
     public static bool RequiresCallGraph(MetricInspectionKind inspections) =>
         IsOn(inspections, CallGraphInspections);
