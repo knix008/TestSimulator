@@ -285,6 +285,7 @@ partial class MainForm
         _chkNumbering.TabIndex = 3;
         _chkNumbering.Text = "제목 번호 매기기";
         _chkNumbering.UseVisualStyleBackColor = true;
+        _chkNumbering.CheckedChanged += _chkNumbering_CheckedChanged;
         // 
         // _cmbSort
         // 

@@ -21,8 +21,8 @@ public class PdfSettings
     public double  ParagraphSpacingEm  { get; set; } = 0.5;
     public double  MarginVerticalInch  { get; set; } = 0.75;
     public double  MarginHorizontalInch{ get; set; } = 1.0;
-    public bool                NumberHeadings { get; set; } = false;
-    public PageNumberPosition  PageNumbers    { get; set; } = PageNumberPosition.None;
+    public bool                NumberHeadings { get; set; } = true;
+    public PageNumberPosition  PageNumbers    { get; set; } = PageNumberPosition.BottomCenter;
 }
 
 class AppSettings

@@ -5,6 +5,7 @@ public partial class MainForm : Form
     private readonly AppSettings _settings = AppSettings.Load();
     private bool _suppressSortRefresh;
     private bool _pickingFolder;
+    private bool _syncNumbering;
 
     public MainForm()
     {
@@ -104,8 +105,34 @@ public partial class MainForm : Form
             _srcDir.Text = _settings.LastSourceDir;
         if (!string.IsNullOrEmpty(_settings.LastOutputFile))
             _txtOutput.Text = _settings.LastOutputFile;
+        ApplyNumberingFromSettings();
         if (Directory.Exists(_srcDir.Text.Trim()))
             RefreshFiles();
+    }
+
+    protected override void OnActivated(EventArgs e)
+    {
+        base.OnActivated(e);
+        var latest = AppSettings.Load();
+        if (latest.PdfSettings.NumberHeadings == _settings.PdfSettings.NumberHeadings
+            && _chkNumbering.Checked == _settings.PdfSettings.NumberHeadings)
+            return;
+        _settings.PdfSettings = latest.PdfSettings;
+        ApplyNumberingFromSettings();
+    }
+
+    private void ApplyNumberingFromSettings()
+    {
+        _syncNumbering = true;
+        try { _chkNumbering.Checked = _settings.PdfSettings.NumberHeadings; }
+        finally { _syncNumbering = false; }
+    }
+
+    private void _chkNumbering_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (_syncNumbering) return;
+        _settings.PdfSettings.NumberHeadings = _chkNumbering.Checked;
+        _settings.Save();
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
@@ -330,7 +357,7 @@ public partial class MainForm : Form
             File.WriteAllText(outPath, content, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             Log($"[완료] {files.Count}개 파일 → {outPath}");
             PersistSettings();
-            new DocumentViewForm(content, outPath, _chkNumbering.Checked).Show();
+            new DocumentViewForm(content, outPath).Show();
         }
         catch (Exception ex)
         {
@@ -350,7 +377,7 @@ public partial class MainForm : Form
         try
         {
             string content = MarkdownConverter.StripHeadingNumbers(MdMerger.Merge(files, opts));
-            new DocumentViewForm(content, mergeNumberHeadings: _chkNumbering.Checked).Show();
+            new DocumentViewForm(content).Show();
         }
         catch (Exception ex) { Log($"[오류] {ex.Message}"); }
     }
@@ -385,11 +412,11 @@ public partial class MainForm : Form
 
     private void ExportSettings_Click(object? sender, EventArgs e)
     {
-        var s = AppSettings.Load();
-        using var dlg = new PdfSettingsDialog(s.PdfSettings);
+        using var dlg = new PdfSettingsDialog(_settings.PdfSettings);
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
-        s.PdfSettings = dlg.Result;
-        s.Save();
+        _settings.PdfSettings = dlg.Result;
+        _settings.Save();
+        ApplyNumberingFromSettings();
     }
 
     private void Log(string msg)

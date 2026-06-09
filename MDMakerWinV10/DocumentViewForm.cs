@@ -16,7 +16,6 @@ public partial class DocumentViewForm : Form
     private bool _initializing;
     private bool _isExporting;
     private PdfSettings _pdfSettings = new();
-    private bool _mergeNumberHeadings;
     private List<OutlineItem> _outline = [];
     private readonly System.Windows.Forms.Timer _outlineTimer = new() { Interval = 800 };
     private CancellationTokenSource _statusCts = new();
@@ -52,21 +51,20 @@ public partial class DocumentViewForm : Form
         _miExportSettings.Image = UiTheme.MenuImage(UiIconKind.Settings);
     }
 
-    public DocumentViewForm(string content, string? filePath = null, bool mergeNumberHeadings = false) : this()
+    public DocumentViewForm(string content, string? filePath = null) : this()
     {
         if (IsDesignMode)
             return;
 
-        InitializeDocument(content, filePath, mergeNumberHeadings);
+        InitializeDocument(content, filePath);
     }
 
     private static bool IsDesignMode =>
         LicenseManager.UsageMode == LicenseUsageMode.Designtime;
 
-    private void InitializeDocument(string content, string? filePath, bool mergeNumberHeadings = false)
+    private void InitializeDocument(string content, string? filePath)
     {
         _filePath = filePath;
-        _mergeNumberHeadings = mergeNumberHeadings;
         _pdfSettings = AppSettings.Load().PdfSettings ?? new();
 
         _outlineTimer.Tick += (_, _) =>
@@ -88,25 +86,22 @@ public partial class DocumentViewForm : Form
         UpdateSaveButton();
     }
 
-    private bool ShowsHeadingNumbers() => _mergeNumberHeadings || _pdfSettings.NumberHeadings;
+    private bool ShowsHeadingNumbers() => _pdfSettings.NumberHeadings;
 
-    // MainForm 병합 옵션 + 보내기 서식을 합친 실제 렌더/보내기 설정.
-    private PdfSettings EffectiveSettings()
+    protected override void OnActivated(EventArgs e)
     {
-        if (!ShowsHeadingNumbers() || _pdfSettings.NumberHeadings)
-            return _pdfSettings;
+        base.OnActivated(e);
+        SyncNumberingFromSettings();
+    }
 
-        return new PdfSettings
-        {
-            FontFamily           = _pdfSettings.FontFamily,
-            FontSizePt           = _pdfSettings.FontSizePt,
-            LineHeight           = _pdfSettings.LineHeight,
-            ParagraphSpacingEm   = _pdfSettings.ParagraphSpacingEm,
-            MarginVerticalInch   = _pdfSettings.MarginVerticalInch,
-            MarginHorizontalInch = _pdfSettings.MarginHorizontalInch,
-            NumberHeadings       = true,
-            PageNumbers          = _pdfSettings.PageNumbers,
-        };
+    private void SyncNumberingFromSettings()
+    {
+        var stored = AppSettings.Load().PdfSettings ?? new();
+        if (stored.NumberHeadings == _pdfSettings.NumberHeadings) return;
+        _pdfSettings.NumberHeadings = stored.NumberHeadings;
+        _needsRerender = true;
+        RefreshOutline();
+        if (_tabs.SelectedIndex == 0 && _webViewReady) RenderPreview();
     }
 
     private void RefreshOutline()
@@ -202,7 +197,7 @@ public partial class DocumentViewForm : Form
         if (!_webViewReady || _webView == null || IsDisposed || _isExporting) return;
         var md = _editor.Text;
         RefreshOutline();
-        NavigateToHtml(MarkdownConverter.ToHtmlWithAnchors(md, EffectiveSettings()));
+        NavigateToHtml(MarkdownConverter.ToHtmlWithAnchors(md, _pdfSettings));
         _needsRerender = false;
     }
 
@@ -284,7 +279,7 @@ public partial class DocumentViewForm : Form
         try
         {
             var md  = _editor.Text;
-            var cfg = EffectiveSettings();
+            var cfg = _pdfSettings;
             var html = await Task.Run(() => MarkdownConverter.ToHtml(md, cfg));
             await File.WriteAllTextAsync(dlg.FileName, html, new UTF8Encoding(false));
             EndExport($"HTML 저장 완료: {Path.GetFileName(dlg.FileName)}");
@@ -308,7 +303,7 @@ public partial class DocumentViewForm : Form
         {
             var md   = _editor.Text;
             var dest = dlg.FileName;
-            var cfg  = EffectiveSettings();
+            var cfg  = _pdfSettings;
             await Task.Run(() => MarkdownConverter.ToDocx(md, dest, cfg));
             EndExport($"Word 저장 완료: {Path.GetFileName(dlg.FileName)}");
             ShowExportSuccess("Word", dlg.FileName);
@@ -332,7 +327,7 @@ public partial class DocumentViewForm : Form
         try
         {
             var md = _editor.Text;
-            var cfg = EffectiveSettings();
+            var cfg = _pdfSettings;
             var pdfHtml = await Task.Run(() => MarkdownConverter.ToHtmlForPdf(md, cfg));
 
             UpdateExportStatus("2/3  페이지 렌더링 중...");
