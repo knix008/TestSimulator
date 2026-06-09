@@ -28,7 +28,7 @@ public static class UmlProjectHtmlExporter
         sb.AppendLine($"  <title>{EscapeHtml(project.Name)}</title>");
         sb.AppendLine("  <style>");
         sb.AppendLine("    body { font-family: 'Segoe UI', sans-serif; margin: 24px; color: #111; }");
-        sb.AppendLine("    h1, h2, h3 { margin-top: 1.5em; }");
+        sb.AppendLine("    h1, h2, h3, h4 { margin-top: 1.5em; }");
         sb.AppendLine("    .diagram { margin: 24px 0; }");
         sb.AppendLine("    .diagram img, .diagram object { max-width: 100%; border: 1px solid #ddd; }");
         sb.AppendLine("    ul { line-height: 1.6; }");
@@ -39,14 +39,13 @@ public static class UmlProjectHtmlExporter
         sb.AppendLine($"  <h1>{EscapeHtml(project.Name)}</h1>");
         sb.AppendLine($"  <p class=\"meta\">UML 2.0 프로젝트 문서 · 생성 시각 {DateTime.Now:yyyy-MM-dd HH:mm}</p>");
 
-        sb.AppendLine("  <h2>모델 구조</h2>");
-        AppendPackageHtml(sb, project.RootPackage, 0);
-
-        sb.AppendLine("  <h2>다이어그램</h2>");
         foreach (var diagram in project.Diagrams)
         {
             sb.AppendLine("  <section class=\"diagram\">");
-            sb.AppendLine($"    <h3>{EscapeHtml(diagram.Name)} <span class=\"meta\">({diagram.Kind})</span></h3>");
+            sb.AppendLine($"    <h2>{EscapeHtml(UmlDiagramCatalog.GetDiagramTreeLabel(diagram))}</h2>");
+            sb.AppendLine($"    <p class=\"meta\">{EscapeHtml(diagram.Kind.ToString())} · 요소 {diagram.Nodes.Count}개 · 관계 {diagram.Edges.Count}개</p>");
+
+            AppendDiagramContentsHtml(sb, project, diagram);
 
             if (options.EmbedDiagramImages)
             {
@@ -72,54 +71,52 @@ public static class UmlProjectHtmlExporter
         File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
     }
 
-    private static void AppendPackageHtml(StringBuilder sb, UmlPackage package, int depth)
+    private static void AppendDiagramContentsHtml(StringBuilder sb, UmlProject project, UmlDiagram diagram)
     {
-        var indent = new string(' ', depth * 2);
-        sb.AppendLine($"{indent}<ul>");
-        sb.AppendLine($"{indent}  <li><strong>Package</strong> {EscapeHtml(package.Name)}</li>");
-        sb.AppendLine($"{indent}  <ul>");
-
-        foreach (var nested in package.NestedPackages)
-            AppendPackageHtml(sb, nested, depth + 2);
-
-        foreach (var classifier in package.Classifiers)
+        var elements = UmlDiagramCatalog.GetDiagramElements(project, diagram).ToList();
+        if (elements.Count > 0)
         {
-            sb.AppendLine($"{indent}    <li><strong>{EscapeHtml(classifier.NotationKeyword)}</strong> {EscapeHtml(classifier.Name)}");
-            if (!string.IsNullOrWhiteSpace(classifier.Stereotype))
-                sb.AppendLine($"{indent}      <div class=\"meta\">«{EscapeHtml(classifier.Stereotype)}»</div>");
-
-            if (classifier.Properties.Count > 0)
+            sb.AppendLine("    <h3>요소</h3>");
+            sb.AppendLine("    <ul>");
+            foreach (var (_, element) in elements)
             {
-                sb.AppendLine($"{indent}      <ul>");
-                foreach (var property in classifier.Properties)
-                    sb.AppendLine($"{indent}        <li>{EscapeHtml(property.SignatureText)}</li>");
-                sb.AppendLine($"{indent}      </ul>");
+                sb.AppendLine($"      <li>{EscapeHtml(UmlDiagramCatalog.GetElementTreeLabel(element))}");
+                if (element is UmlClassifier classifier)
+                    AppendClassifierDetailsHtml(sb, classifier, "      ");
+                sb.AppendLine("      </li>");
             }
 
-            if (classifier.Operations.Count > 0)
-            {
-                sb.AppendLine($"{indent}      <ul>");
-                foreach (var operation in classifier.Operations)
-                    sb.AppendLine($"{indent}        <li>{EscapeHtml(operation.SignatureText)}</li>");
-                sb.AppendLine($"{indent}      </ul>");
-            }
-
-            if (classifier is UmlEnumeration enumeration)
-            {
-                sb.AppendLine($"{indent}      <ul>");
-                foreach (var literal in enumeration.Literals)
-                    sb.AppendLine($"{indent}        <li>{EscapeHtml(literal)}</li>");
-                sb.AppendLine($"{indent}      </ul>");
-            }
-
-            sb.AppendLine($"{indent}    </li>");
+            sb.AppendLine("    </ul>");
         }
 
-        foreach (var relationship in package.Relationships)
-            sb.AppendLine($"{indent}    <li><strong>{EscapeHtml(relationship.RelationshipKind)}</strong> {EscapeHtml(relationship.DisplayLabel)}</li>");
+        var relationships = UmlDiagramCatalog.GetDiagramRelationships(project, diagram).ToList();
+        if (relationships.Count > 0)
+        {
+            sb.AppendLine("    <h3>관계</h3>");
+            sb.AppendLine("    <ul>");
+            foreach (var (diagramEdge, relationship) in relationships)
+                sb.AppendLine($"      <li>{EscapeHtml(UmlDiagramCatalog.GetRelationshipTreeLabel(project, diagram, diagramEdge, relationship))}</li>");
+            sb.AppendLine("    </ul>");
+        }
+    }
+
+    private static void AppendClassifierDetailsHtml(StringBuilder sb, UmlClassifier classifier, string indent)
+    {
+        if (classifier.Properties.Count == 0 && classifier.Operations.Count == 0 && classifier is not UmlEnumeration)
+            return;
+
+        sb.AppendLine($"{indent}  <ul>");
+        foreach (var property in classifier.Properties)
+            sb.AppendLine($"{indent}    <li>{EscapeHtml(property.SignatureText)}</li>");
+        foreach (var operation in classifier.Operations)
+            sb.AppendLine($"{indent}    <li>{EscapeHtml(operation.SignatureText)}</li>");
+        if (classifier is UmlEnumeration enumeration)
+        {
+            foreach (var literal in enumeration.Literals)
+                sb.AppendLine($"{indent}    <li>{EscapeHtml(literal)}</li>");
+        }
 
         sb.AppendLine($"{indent}  </ul>");
-        sb.AppendLine($"{indent}</ul>");
     }
 
     private static string EscapeHtml(string text) =>

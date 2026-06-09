@@ -17,6 +17,15 @@ public enum UmlBehaviorNodeKind
     Join,
     Lifeline,
     Activation,
+    CombinedFragment,
+}
+
+public enum UmlCombinedFragmentKind
+{
+    Loop,
+    Opt,
+    Alt,
+    Par,
 }
 
 public enum UmlBehaviorConnectorKind
@@ -40,6 +49,14 @@ public sealed class UmlBehaviorNode : UmlNamedElement
     [Category("기본")]
     [DisplayName("행동 종류")]
     public UmlBehaviorNodeKind Kind { get; set; } = UmlBehaviorNodeKind.Action;
+
+    [Category("시퀀스")]
+    [DisplayName("결합 프래그먼트")]
+    public UmlCombinedFragmentKind? CombinedFragmentKind { get; set; }
+
+    [Category("시퀀스")]
+    [DisplayName("가드/조건")]
+    public string? Guard { get; set; }
 }
 
 public sealed class UmlBehaviorConnector : UmlRelationship

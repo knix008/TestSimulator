@@ -119,22 +119,114 @@ public static class UmlSequenceLayout
         yield return (new PointF(right, bottom), new PointF(barRight, bottom));
     }
 
-    public static float SuggestNextMessageY(UmlProject project, UmlDiagram diagram, float preferredY)
-    {
-        var minY = diagram.Nodes
+    public static float GetMinimumMessageY(UmlProject project, UmlDiagram diagram) =>
+        diagram.Nodes
             .Where(n => IsLifeline(project, n))
             .Select(n => GetHeaderBottom(n.Bounds) + MessageSpacing * 0.5f)
             .DefaultIfEmpty(80f)
             .Max();
 
-        var stackedY = diagram.Edges
-            .Where(e => IsSequenceMessage(project, diagram, e))
-            .Select(e => GetMessageBottom(project, diagram, e))
-            .DefaultIfEmpty(minY - MessageSpacing)
-            .Max() + MessageSpacing;
+    /// <summary>
+    /// Resolves a message Y from the pointer/click position for preview and drag snapping.
+    /// </summary>
+    public static float ResolveMessageY(UmlProject project, UmlDiagram diagram, float preferredY, bool snapToGrid = true)
+    {
+        var minY = GetMinimumMessageY(project, diagram);
+        var y = Math.Max(minY, preferredY);
+        if (!snapToGrid)
+            return y;
 
-        return Math.Max(preferredY, Math.Max(minY, stackedY));
+        var steps = Math.Round((y - minY) / MessageSpacing);
+        return minY + (float)steps * MessageSpacing;
     }
+
+    /// <summary>
+    /// Inserts a new sequence message at the click position and reflows all messages with uniform spacing.
+    /// </summary>
+    public static void InsertMessageAndReflow(
+        UmlProject project,
+        UmlDiagram diagram,
+        UmlDiagramEdge newEdge,
+        float preferredY) =>
+        ReorderMessageAtPreferredY(project, diagram, newEdge, preferredY);
+
+    /// <summary>
+    /// Moves an existing message to a new vertical slot and reflows all messages with uniform spacing.
+    /// </summary>
+    public static void RepositionMessageAndReflow(
+        UmlProject project,
+        UmlDiagram diagram,
+        UmlDiagramEdge movedEdge,
+        float preferredY) =>
+        ReorderMessageAtPreferredY(project, diagram, movedEdge, preferredY);
+
+    private static void ReorderMessageAtPreferredY(
+        UmlProject project,
+        UmlDiagram diagram,
+        UmlDiagramEdge edge,
+        float preferredY)
+    {
+        if (diagram.Kind != UmlDiagramKind.SequenceDiagram)
+            return;
+
+        var messages = diagram.Edges
+            .Where(e => IsSequenceMessage(project, diagram, e) && e.Id != edge.Id)
+            .OrderBy(e => GetMessageY(diagram, e))
+            .ThenBy(e => e.Id)
+            .ToList();
+
+        var insertIndex = FindMessageInsertIndex(project, diagram, messages, preferredY);
+        messages.Insert(insertIndex, edge);
+        ApplyUniformMessageLayout(project, diagram, messages);
+        FitLifelinesToDiagram(project, diagram);
+    }
+
+    private static int FindMessageInsertIndex(
+        UmlProject project,
+        UmlDiagram diagram,
+        IReadOnlyList<UmlDiagramEdge> orderedMessages,
+        float preferredY)
+    {
+        if (orderedMessages.Count == 0)
+            return 0;
+
+        var firstY = GetMessageY(diagram, orderedMessages[0]);
+        if (preferredY < firstY)
+            return 0;
+
+        for (var i = 0; i < orderedMessages.Count - 1; i++)
+        {
+            var gapMid = (GetMessageBottom(project, diagram, orderedMessages[i])
+                + GetMessageY(diagram, orderedMessages[i + 1])) / 2f;
+            if (preferredY < gapMid)
+                return i + 1;
+        }
+
+        return orderedMessages.Count;
+    }
+
+    private static void ApplyUniformMessageLayout(
+        UmlProject project,
+        UmlDiagram diagram,
+        IReadOnlyList<UmlDiagramEdge> orderedMessages)
+    {
+        if (orderedMessages.Count == 0)
+            return;
+
+        var y = GetBaseMessageY(project, diagram);
+        foreach (var edge in orderedMessages)
+        {
+            edge.SequenceY = y;
+            y = GetMessageBottom(project, diagram, edge) + MessageSpacing;
+        }
+    }
+
+    private static float GetBaseMessageY(UmlProject project, UmlDiagram diagram) =>
+        diagram.Nodes
+            .Where(n => IsLifeline(project, n))
+            .Select(n => GetHeaderBottom(n.Bounds) + MessageSpacing)
+            .DefaultIfEmpty(80f)
+            .Max();
 
     public static void EnsureLifelinesFitMessage(UmlProject project, UmlDiagram diagram, UmlDiagramEdge edge)
     {
@@ -178,29 +270,45 @@ public static class UmlSequenceLayout
 
     private static void AssignMissingSequenceY(UmlDiagram diagram, UmlProject project)
     {
-        var y = diagram.Nodes
-            .Where(n => IsLifeline(project, n))
-            .Select(n => GetHeaderBottom(n.Bounds) + MessageSpacing)
-            .DefaultIfEmpty(80f)
-            .Max();
+        var missing = diagram.Edges
+            .Where(e => IsSequenceMessage(project, diagram, e) && e.SequenceY <= 0f)
+            .ToList();
 
-        foreach (var edge in diagram.Edges.Where(e => IsSequenceMessage(project, diagram, e) && e.SequenceY <= 0f))
-        {
-            edge.SequenceY = y;
-            y = GetMessageBottom(project, diagram, edge) + MessageSpacing;
-        }
+        if (missing.Count == 0)
+            return;
+
+        var ordered = diagram.Edges
+            .Where(e => IsSequenceMessage(project, diagram, e) && e.SequenceY > 0f)
+            .OrderBy(e => e.SequenceY)
+            .ThenBy(e => e.Id)
+            .ToList();
+
+        ordered.AddRange(missing);
+        ApplyUniformMessageLayout(project, diagram, ordered);
+        FitLifelinesToDiagram(project, diagram);
     }
 
-    private static void EnsureLifelinesFitDiagram(UmlProject project, UmlDiagram diagram)
+    private static void EnsureLifelinesFitDiagram(UmlProject project, UmlDiagram diagram) =>
+        FitLifelinesToDiagram(project, diagram);
+
+    private static void FitLifelinesToDiagram(UmlProject project, UmlDiagram diagram)
     {
-        var maxBottom = diagram.Edges
+        const float minBodyBelowHeader = 160f;
+        var contentBottom = diagram.Edges
             .Where(e => IsSequenceMessage(project, diagram, e))
             .Select(e => GetMessageBottom(project, diagram, e))
             .DefaultIfEmpty(0f)
             .Max();
 
-        if (maxBottom > 0f)
-            EnsureLifelinesFitMessage(project, diagram, maxBottom);
+        foreach (var node in diagram.Nodes.Where(n => IsLifeline(project, n)))
+        {
+            var headerBottom = GetHeaderBottom(node.Bounds);
+            var minHeight = headerBottom - node.Y + minBodyBelowHeader;
+            var fitHeight = contentBottom > 0f
+                ? contentBottom - node.Y + MinActivationHeight + BottomPadding
+                : minHeight;
+            node.Height = Math.Max(minHeight, fitHeight);
+        }
     }
 
     private static RectangleF GetLifelineBounds(UmlDiagram diagram, Guid nodeId)

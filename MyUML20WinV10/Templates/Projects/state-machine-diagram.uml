@@ -1,0 +1,277 @@
+{
+  "name": "State Machine Diagram Template",
+  "rootPackage": {
+    "nestedPackages": [],
+    "classifiers": [],
+    "actors": [],
+    "useCases": [],
+    "notes": [],
+    "behaviorNodes": [
+      {
+        "kind": "initialState",
+        "name": "Initial",
+        "displayLabel": "Initial",
+        "id": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb"
+      },
+      {
+        "kind": "state",
+        "name": "Pending",
+        "displayLabel": "Pending",
+        "id": "b0cb1490-1f58-4677-a174-a5d862e9bb91"
+      },
+      {
+        "kind": "state",
+        "name": "Shipped",
+        "displayLabel": "Shipped",
+        "id": "c8f2a56d-bb53-4755-8df7-0999211f65f3"
+      },
+      {
+        "kind": "finalState",
+        "name": "Final",
+        "displayLabel": "Final",
+        "id": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704"
+      }
+    ],
+    "relationships": [
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb",
+        "targetClassifierId": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
+        "name": "submit",
+        "id": "a06e9153-797b-4adb-8a4c-3b23389a6b72",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
+        "targetClassifierId": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
+        "name": "ship",
+        "id": "451eacb6-9020-44fd-ba6a-88fe5da56215",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
+        "targetClassifierId": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704",
+        "name": "deliver",
+        "id": "edba7cdb-8a64-4756-9717-2ea13957a9a9",
+        "displayLabel": "UmlBehaviorConnector"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb",
+        "displayLabel": "Initial"
+      },
+      {
+        "id": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
+        "displayLabel": "Pending"
+      },
+      {
+        "id": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
+        "displayLabel": "Shipped"
+      },
+      {
+        "id": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704",
+        "displayLabel": "Final"
+      },
+      {
+        "id": "a06e9153-797b-4adb-8a4c-3b23389a6b72",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "451eacb6-9020-44fd-ba6a-88fe5da56215",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "edba7cdb-8a64-4756-9717-2ea13957a9a9",
+        "displayLabel": "UmlBehaviorConnector"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "a714cbea-292f-4545-87cb-cace2be5c8cc"
+  },
+  "diagrams": [
+    {
+      "kind": "stateMachineDiagram",
+      "nodes": [
+        {
+          "id": "f4798b1b-4251-4752-849d-b77430294cde",
+          "modelElementId": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb",
+          "presentation": "behavior",
+          "x": 80,
+          "y": 140,
+          "width": 32,
+          "height": 32,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 140
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 32,
+              "height": 32
+            },
+            "x": 80,
+            "y": 140,
+            "width": 32,
+            "height": 32,
+            "left": 80,
+            "top": 140,
+            "right": 112,
+            "bottom": 172,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "f166ea39-a7be-46e6-a039-8dd10aa0b1fa",
+          "modelElementId": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
+          "presentation": "behavior",
+          "x": 200,
+          "y": 120,
+          "width": 140,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 200,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 140,
+              "height": 72
+            },
+            "x": 200,
+            "y": 120,
+            "width": 140,
+            "height": 72,
+            "left": 200,
+            "top": 120,
+            "right": 340,
+            "bottom": 192,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "0894bce0-67d7-4422-a136-25ed8e4174a4",
+          "modelElementId": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
+          "presentation": "behavior",
+          "x": 420,
+          "y": 120,
+          "width": 140,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 420,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 140,
+              "height": 72
+            },
+            "x": 420,
+            "y": 120,
+            "width": 140,
+            "height": 72,
+            "left": 420,
+            "top": 120,
+            "right": 560,
+            "bottom": 192,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "9a1cb330-8456-4ffa-8ed1-d046223752b8",
+          "modelElementId": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704",
+          "presentation": "behavior",
+          "x": 640,
+          "y": 140,
+          "width": 32,
+          "height": 32,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 640,
+              "y": 140
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 32,
+              "height": 32
+            },
+            "x": 640,
+            "y": 140,
+            "width": 32,
+            "height": 32,
+            "left": 640,
+            "top": 140,
+            "right": 672,
+            "bottom": 172,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "8388e700-454e-4d71-87bb-0e6353bbd7e3",
+          "modelElementId": "a06e9153-797b-4adb-8a4c-3b23389a6b72",
+          "sourceNodeId": "f4798b1b-4251-4752-849d-b77430294cde",
+          "targetNodeId": "f166ea39-a7be-46e6-a039-8dd10aa0b1fa",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null,
+          "curveMidOffsetX": null,
+          "curveMidOffsetY": null
+        },
+        {
+          "id": "6377323d-fdbe-44fc-8f28-a1587b7a3bf9",
+          "modelElementId": "451eacb6-9020-44fd-ba6a-88fe5da56215",
+          "sourceNodeId": "f166ea39-a7be-46e6-a039-8dd10aa0b1fa",
+          "targetNodeId": "0894bce0-67d7-4422-a136-25ed8e4174a4",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null,
+          "curveMidOffsetX": null,
+          "curveMidOffsetY": null
+        },
+        {
+          "id": "5ce91a08-ef51-4206-9d6b-b7b611f4d72d",
+          "modelElementId": "edba7cdb-8a64-4756-9717-2ea13957a9a9",
+          "sourceNodeId": "0894bce0-67d7-4422-a136-25ed8e4174a4",
+          "targetNodeId": "9a1cb330-8456-4ffa-8ed1-d046223752b8",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null,
+          "curveMidOffsetX": null,
+          "curveMidOffsetY": null
+        }
+      ],
+      "name": "State Machine Diagram",
+      "displayLabel": "State Machine Diagram",
+      "id": "a2ea6db6-c581-426e-be3f-5865d38f4e22"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

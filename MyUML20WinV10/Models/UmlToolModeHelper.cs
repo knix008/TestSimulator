@@ -6,16 +6,19 @@ public static class UmlToolModeHelper
     public static bool IsNodeCreateTool(UmlToolMode mode) => mode is
         UmlToolMode.CreateClass or UmlToolMode.CreateInterface or UmlToolMode.CreateEnumeration
         or UmlToolMode.CreatePackage or UmlToolMode.CreateActor or UmlToolMode.CreateUseCase
+        or UmlToolMode.CreateSystemBoundary
         or UmlToolMode.CreateNote or UmlToolMode.CreateState or UmlToolMode.CreateInitialState
         or UmlToolMode.CreateFinalState or UmlToolMode.CreateAction or UmlToolMode.CreateInitialNode
         or UmlToolMode.CreateActivityFinalNode or UmlToolMode.CreateDecision or UmlToolMode.CreateMerge
-        or UmlToolMode.CreateFork or UmlToolMode.CreateJoin or UmlToolMode.CreateLifeline;
+        or UmlToolMode.CreateFork or UmlToolMode.CreateJoin or UmlToolMode.CreateLifeline
+        or UmlToolMode.CreateLoopFragment;
 
     public static bool IsRelationshipTool(UmlToolMode mode) => mode is
         UmlToolMode.CreateAssociation or UmlToolMode.CreateDirectedAssociation
         or UmlToolMode.CreateAggregation or UmlToolMode.CreateComposition
         or UmlToolMode.CreateGeneralization or UmlToolMode.CreateRealization
         or UmlToolMode.CreateDependency or UmlToolMode.CreateInclude or UmlToolMode.CreateExtend
+        or UmlToolMode.CreateNoteLink
         or UmlToolMode.CreateMessage or UmlToolMode.CreateAsyncMessage or UmlToolMode.CreateReturnMessage
         or UmlToolMode.CreateTransition
         or UmlToolMode.CreateControlFlow or UmlToolMode.CreateObjectFlow;
@@ -32,6 +35,7 @@ public static class UmlToolModeHelper
         UmlPackage => UmlToolMode.CreatePackage,
         UmlActor => UmlToolMode.CreateActor,
         UmlUseCase => UmlToolMode.CreateUseCase,
+        UmlSystemBoundary => UmlToolMode.CreateSystemBoundary,
         UmlNote => UmlToolMode.CreateNote,
         UmlBehaviorNode behaviorNode => behaviorNode.Kind switch
         {
@@ -46,6 +50,7 @@ public static class UmlToolModeHelper
             UmlBehaviorNodeKind.Fork => UmlToolMode.CreateFork,
             UmlBehaviorNodeKind.Join => UmlToolMode.CreateJoin,
             UmlBehaviorNodeKind.Lifeline => UmlToolMode.CreateLifeline,
+            UmlBehaviorNodeKind.CombinedFragment => UmlToolMode.CreateLoopFragment,
             _ => null,
         },
         UmlAssociation { Aggregation: UmlAggregationKind.Composite } => UmlToolMode.CreateComposition,
@@ -57,6 +62,7 @@ public static class UmlToolModeHelper
         UmlDependency => UmlToolMode.CreateDependency,
         UmlInclude => UmlToolMode.CreateInclude,
         UmlExtend => UmlToolMode.CreateExtend,
+        UmlNoteLink => UmlToolMode.CreateNoteLink,
         UmlBehaviorConnector behaviorConnector => behaviorConnector.Kind switch
         {
             UmlBehaviorConnectorKind.Message => ToolFromMessageKind(behaviorConnector.MessageKind),
@@ -79,7 +85,9 @@ public static class UmlToolModeHelper
         UmlToolMode.CreatePackage => "Package",
         UmlToolMode.CreateActor => "Actor",
         UmlToolMode.CreateUseCase => "Use Case",
+        UmlToolMode.CreateSystemBoundary => "System Boundary",
         UmlToolMode.CreateNote => "Note",
+        UmlToolMode.CreateNoteLink => "Note Link",
         UmlToolMode.CreateState => "State",
         UmlToolMode.CreateInitialState => "Initial State",
         UmlToolMode.CreateFinalState => "Final State",
@@ -104,10 +112,94 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateAsyncMessage => "Async Message",
         UmlToolMode.CreateReturnMessage => "Return Message",
         UmlToolMode.CreateSelfMessage => "Self Message",
+        UmlToolMode.CreateLoopFragment => "Loop",
         UmlToolMode.CreateTransition => "Transition",
         UmlToolMode.CreateControlFlow => "Control Flow",
         UmlToolMode.CreateObjectFlow => "Object Flow",
         _ => mode.ToString(),
+    };
+
+    public static string GetToolTip(UmlToolMode mode) => mode switch
+    {
+        UmlToolMode.Select =>
+            "선택 도구: 요소를 클릭해 선택하고, 드래그로 이동합니다. 더블클릭하면 이름을 편집합니다. 마우스 휠로 확대/축소, Space+드래그로 화면 이동, Delete로 삭제, Esc로 취소합니다.",
+        UmlToolMode.Pan =>
+            "화면 이동: 캔버스를 드래그해 보이는 영역을 옮깁니다. 가운데 버튼 드래그 또는 Space+왼쪽 드래그로도 이동할 수 있습니다.",
+        UmlToolMode.CreateClass =>
+            "Class(클래스): 객체의 속성과 연산을 표현합니다. 캔버스에서 드래그해 크기를 지정하거나, 도구를 더블클릭하면 기본 크기로 배치됩니다. 선택 후 속성 패널에서 멤버를 편집합니다.",
+        UmlToolMode.CreateInterface =>
+            "Interface(인터페이스): 클래스가 구현해야 할 연산을 정의합니다. 드래그 또는 더블클릭으로 배치합니다. «interface» 스테레오타입이 자동 표시됩니다.",
+        UmlToolMode.CreateEnumeration =>
+            "Enumeration(열거형): 상수 값 집합을 정의합니다. 드래그 또는 더블클릭으로 배치하고, 속성 패널에서 리터럴을 추가합니다.",
+        UmlToolMode.CreatePackage =>
+            "Package(패키지): 관련 모델 요소를 논리적으로 그룹화합니다. 드래그 또는 더블클릭으로 배치합니다.",
+        UmlToolMode.CreateActor =>
+            "Actor(액터): Use Case 다이어그램에서 시스템 외부 사용자·장치를 나타냅니다. 드래그 또는 더블클릭으로 배치합니다.",
+        UmlToolMode.CreateUseCase =>
+            "Use Case(유스케이스): 시스템이 제공하는 기능 단위를 표현합니다. 타원형으로 드래그 또는 더블클릭하여 배치합니다.",
+        UmlToolMode.CreateSystemBoundary =>
+            "System Boundary(시스템 경계): Use Case 다이어그램에서 시스템 범위를 사각형으로 표시합니다. 드래그로 크기를 지정하고, 이름은 시스템명으로 편집합니다.",
+        UmlToolMode.CreateNote =>
+            "Note(메모): 다이어그램에 설명·주석을 추가합니다. 드래그 또는 더블클릭으로 배치하고, 더블클릭으로 내용을 편집합니다.",
+        UmlToolMode.CreateNoteLink =>
+            "Note Link(노트 연결): Note를 UML 개체에 점선으로 연결합니다. Note → 대상 순으로 클릭하거나, Note 우클릭 메뉴를 사용합니다.",
+        UmlToolMode.CreateState =>
+            "State(상태): 상태 머신에서 객체의 안정된 조건을 표현합니다. 둥근 사각형으로 드래그 또는 더블클릭하여 배치합니다.",
+        UmlToolMode.CreateInitialState =>
+            "Initial State(초기 상태): 상태 머신의 시작점입니다. 검은 원으로 표시되며, Transition으로 첫 상태에 연결합니다.",
+        UmlToolMode.CreateFinalState =>
+            "Final State(최종 상태): 상태 머신의 종료점입니다. 이중 원으로 표시됩니다.",
+        UmlToolMode.CreateAction =>
+            "Action(액션): 활동 다이어그램에서 수행할 작업 단계를 표현합니다. 둥근 사각형으로 드래그 또는 더블클릭하여 배치합니다.",
+        UmlToolMode.CreateInitialNode =>
+            "Initial Node(초기 노드): 활동의 시작점입니다. 검은 원으로 표시되며 Control Flow로 첫 액션에 연결합니다.",
+        UmlToolMode.CreateActivityFinalNode =>
+            "Activity Final(활동 종료): 활동의 끝을 나타냅니다. 이중 원으로 표시됩니다.",
+        UmlToolMode.CreateDecision =>
+            "Decision(분기): 조건에 따라 흐름이 갈라지는 지점입니다. 마름모꼴로 표시되며, 나가는 Control Flow에 조건 레이블을 붙입니다.",
+        UmlToolMode.CreateMerge =>
+            "Merge(병합): 여러 분기 흐름을 하나로 합치는 지점입니다. 마름모꼴로 표시됩니다.",
+        UmlToolMode.CreateFork =>
+            "Fork(분기 바): 활동을 병렬로 나누는 수평 검은 막대입니다. 드래그로 길이를 조절합니다.",
+        UmlToolMode.CreateJoin =>
+            "Join(동기 바): 병렬 흐름을 다시 하나로 모으는 수평 검은 막대입니다.",
+        UmlToolMode.CreateLifeline =>
+            "Lifeline(라이프라인): 시퀀스 다이어그램에서 참여자를 표현합니다. 가로 드래그로 너비를 조절하고, 높이는 기본값(240px)이 적용됩니다.",
+        UmlToolMode.CreateAssociation =>
+            "Association(연관): 두 요소 간 구조적 연결입니다. 시작 노드 → 대상 노드 순으로 클릭합니다. 다중성·역할 이름은 속성 패널에서 편집합니다.",
+        UmlToolMode.CreateDirectedAssociation =>
+            "Directed Association(방향 연관): 한쪽 방향으로만 의미 있는 연관입니다. 시작 → 대상 순으로 클릭하면 화살표가 대상 쪽에 그려집니다.",
+        UmlToolMode.CreateAggregation =>
+            "Aggregation(집합 ◇): 전체-부분 관계(공유 소유)입니다. 시작(전체) → 대상(부분) 순으로 클릭하면 대상 쪽에 빈 다이아몬드가 표시됩니다.",
+        UmlToolMode.CreateComposition =>
+            "Composition(합성 ◆): 강한 전체-부분 관리 관계입니다. 시작(전체) → 대상(부분) 순으로 클릭하면 대상 쪽에 채운 다이아몬드가 표시됩니다.",
+        UmlToolMode.CreateGeneralization =>
+            "Generalization(일반화 △): 상속 관계입니다. 자식 클래스 → 부모 클래스 순으로 클릭합니다. 부모 쪽에 빈 삼각형 화살표가 그려집니다.",
+        UmlToolMode.CreateRealization =>
+            "Realization(실체화): Interface 구현 관계입니다. 구현 클래스 → Interface 순으로 클릭합니다. 점선과 빈 삼각형 화살표로 표시됩니다.",
+        UmlToolMode.CreateDependency =>
+            "Dependency(의존): 한 요소가 다른 요소를 사용하는 약한 관계입니다. 의존 원본 → 대상 순으로 클릭합니다. 점선 화살표로 표시됩니다.",
+        UmlToolMode.CreateInclude =>
+            "Include(«include»): Use Case가 다른 Use Case의 기능을 항상 포함함을 나타냅니다. 기본 Use Case → 포함 Use Case 순으로 클릭합니다.",
+        UmlToolMode.CreateExtend =>
+            "Extend(«extend»): Use Case가 특정 조건에서 다른 Use Case를 확장함을 나타냅니다. 확장 Use Case → 기본 Use Case 순으로 클릭합니다.",
+        UmlToolMode.CreateMessage =>
+            "Sync Message(동기 호출): 호출자가 응답을 기다리는 메시지입니다. 시작 Lifeline → 대상 Lifeline 순으로 클릭합니다. 활성화 기둥이 자동 생성됩니다.",
+        UmlToolMode.CreateAsyncMessage =>
+            "Async Message(비동기): 응답을 기다리지 않는 메시지입니다. 시작 Lifeline → 대상 Lifeline 순으로 클릭합니다. 열린 화살표로 표시됩니다.",
+        UmlToolMode.CreateReturnMessage =>
+            "Return Message(반환): 처리 결과를 돌려주는 메시지입니다. 처리 Lifeline → 호출자 Lifeline 순으로 클릭합니다. 점선 화살표로 표시됩니다.",
+        UmlToolMode.CreateSelfMessage =>
+            "Self Message(자기 호출): 동일 Lifeline 내부 호출입니다. Lifeline을 한 번 클릭하면 루프 형태 메시지가 추가됩니다.",
+        UmlToolMode.CreateLoopFragment =>
+            "Loop(반복): 시퀀스 다이어그램에서 메시지 구간의 반복을 나타내는 결합 프래그먼트입니다. 드래그로 프레임 크기를 지정하고, 속성 패널에서 조건을 편집합니다.",
+        UmlToolMode.CreateTransition =>
+            "Transition(전이): 상태 간 이동을 표현합니다. 시작 상태 → 대상 상태 순으로 클릭합니다. 이벤트/조건은 속성 패널에서 편집합니다.",
+        UmlToolMode.CreateControlFlow =>
+            "Control Flow(제어 흐름): 활동 간 실행 순서를 연결합니다. 시작 노드 → 대상 노드 순으로 클릭합니다. 조건 레이블을 붙일 수 있습니다.",
+        UmlToolMode.CreateObjectFlow =>
+            "Object Flow(객체 흐름): 데이터·객체가 흐르는 경로입니다. 시작 → 대상 순으로 클릭합니다. 점선 화살표로 표시됩니다.",
+        _ => GetDisplayName(mode),
     };
 
     public static UmlMessageKind MessageKindFromTool(UmlToolMode mode) => mode switch
@@ -142,7 +234,9 @@ public static class UmlToolModeHelper
         UmlToolMode.CreatePackage => UmlNotationPreview.DrawPackage,
         UmlToolMode.CreateActor => UmlNotationPreview.DrawActor,
         UmlToolMode.CreateUseCase => UmlNotationPreview.DrawUseCase,
+        UmlToolMode.CreateSystemBoundary => UmlNotationPreview.DrawSystemBoundary,
         UmlToolMode.CreateNote => UmlNotationPreview.DrawNote,
+        UmlToolMode.CreateNoteLink => UmlNotationPreview.DrawNoteLink,
         UmlToolMode.CreateState => UmlNotationPreview.DrawState,
         UmlToolMode.CreateInitialState => UmlNotationPreview.DrawInitialState,
         UmlToolMode.CreateFinalState => UmlNotationPreview.DrawFinalState,
@@ -167,6 +261,7 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateAsyncMessage => UmlNotationPreview.DrawAsyncMessage,
         UmlToolMode.CreateReturnMessage => UmlNotationPreview.DrawReturnMessage,
         UmlToolMode.CreateSelfMessage => UmlNotationPreview.DrawSelfMessage,
+        UmlToolMode.CreateLoopFragment => UmlNotationPreview.DrawLoopFragment,
         UmlToolMode.CreateTransition => UmlNotationPreview.DrawTransition,
         UmlToolMode.CreateControlFlow => UmlNotationPreview.DrawControlFlow,
         UmlToolMode.CreateObjectFlow => UmlNotationPreview.DrawObjectFlow,
@@ -179,6 +274,7 @@ public static class UmlToolModeHelper
         UmlNodePresentation.Package => UmlToolMode.CreatePackage,
         UmlNodePresentation.Actor => UmlToolMode.CreateActor,
         UmlNodePresentation.UseCase => UmlToolMode.CreateUseCase,
+        UmlNodePresentation.SystemBoundary => UmlToolMode.CreateSystemBoundary,
         UmlNodePresentation.Note => UmlToolMode.CreateNote,
         UmlNodePresentation.Behavior => null,
         _ => null,

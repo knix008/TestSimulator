@@ -50,7 +50,7 @@ Windows **설정 → 앱 → 설치된 앱** 목록에도 프로그램 아이콘
 - Association / Generalization / Dependency 생성
 - 모델 트리와 다이어그램 동기화
 - 속성(Property) / 연산(Operation) 추가
-- `.uml20` JSON 프로젝트 저장/불러오기
+- `.umlprj` JSON 프로젝트 저장/불러오기 (템플릿은 `.uml`)
 - 샘플 모델 (`파일 → 샘플 불러오기`)
 - 다양한 문서/이미지 보내기 (`파일 → 보내기`)
 

@@ -10,7 +10,7 @@ partial class MainForm
     private System.Windows.Forms.ToolStripMenuItem _menuOpen;
     private System.Windows.Forms.ToolStripMenuItem _menuSave;
     private System.Windows.Forms.ToolStripMenuItem _menuSaveAs;
-    private System.Windows.Forms.ToolStripMenuItem _menuSample;
+    private System.Windows.Forms.ToolStripMenuItem _menuTemplates;
     private System.Windows.Forms.ToolStripMenuItem _menuExport;
     private System.Windows.Forms.ToolStripMenuItem _menuExportImage;
     private System.Windows.Forms.ToolStripMenuItem _menuExportSvg;
@@ -72,6 +72,7 @@ partial class MainForm
 
     private void InitializeComponent()
     {
+        System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         _menuStrip = new MenuStrip();
         _menuFile = new ToolStripMenuItem();
         _menuNew = new ToolStripMenuItem();
@@ -79,7 +80,7 @@ partial class MainForm
         _menuSave = new ToolStripMenuItem();
         _menuSaveAs = new ToolStripMenuItem();
         _menuSep1 = new ToolStripSeparator();
-        _menuSample = new ToolStripMenuItem();
+        _menuTemplates = new ToolStripMenuItem();
         _menuSep2 = new ToolStripSeparator();
         _menuExport = new ToolStripMenuItem();
         _menuExportImage = new ToolStripMenuItem();
@@ -92,12 +93,18 @@ partial class MainForm
         _menuExit = new ToolStripMenuItem();
         _menuEdit = new ToolStripMenuItem();
         _menuDelete = new ToolStripMenuItem();
+        _menuSepEdit = new ToolStripSeparator();
+        _menuDuplicate = new ToolStripMenuItem();
+        _menuCopyToClipboard = new ToolStripMenuItem();
         _toolStrip = new ToolStrip();
         _tsNew = new ToolStripButton();
         _tsOpen = new ToolStripButton();
         _tsSave = new ToolStripButton();
         _tsSep1 = new ToolStripSeparator();
         _tsDelete = new ToolStripButton();
+        _tsSep3 = new ToolStripSeparator();
+        _tsDuplicate = new ToolStripButton();
+        _tsCopyToClipboard = new ToolStripButton();
         _tsSep2 = new ToolStripSeparator();
         _tsZoomOut = new ToolStripButton();
         _tsZoomLabel = new ToolStripLabel();
@@ -121,12 +128,6 @@ partial class MainForm
         _btnAddOperation = new Button();
         _btnAddProperty = new Button();
         _lblProperties = new Label();
-        _tsSep3 = new ToolStripSeparator();
-        _tsDuplicate = new ToolStripButton();
-        _tsCopyToClipboard = new ToolStripButton();
-        _menuSepEdit = new ToolStripSeparator();
-        _menuDuplicate = new ToolStripMenuItem();
-        _menuCopyToClipboard = new ToolStripMenuItem();
         _statusStrip = new StatusStrip();
         _statusLabel = new ToolStripStatusLabel();
         _statusZoomLabel = new ToolStripStatusLabel();
@@ -157,12 +158,12 @@ partial class MainForm
         _menuStrip.Items.AddRange(new ToolStripItem[] { _menuFile, _menuEdit });
         _menuStrip.Location = new Point(0, 0);
         _menuStrip.Name = "_menuStrip";
-        _menuStrip.Size = new Size(1280, 24);
+        _menuStrip.Size = new Size(1600, 24);
         _menuStrip.TabIndex = 2;
         // 
         // _menuFile
         // 
-        _menuFile.DropDownItems.AddRange(new ToolStripItem[] { _menuNew, _menuOpen, _menuSave, _menuSaveAs, _menuSep1, _menuSample, _menuSep2, _menuExport, _menuSep3, _menuExit });
+        _menuFile.DropDownItems.AddRange(new ToolStripItem[] { _menuNew, _menuOpen, _menuSave, _menuSaveAs, _menuSep1, _menuTemplates, _menuSep2, _menuExport, _menuSep3, _menuExit });
         _menuFile.Name = "_menuFile";
         _menuFile.Size = new Size(51, 20);
         _menuFile.Text = "File(&F)";
@@ -203,12 +204,11 @@ partial class MainForm
         _menuSep1.Name = "_menuSep1";
         _menuSep1.Size = new Size(169, 6);
         // 
-        // _menuSample
+        // _menuTemplates
         // 
-        _menuSample.Name = "_menuSample";
-        _menuSample.Size = new Size(172, 22);
-        _menuSample.Text = "Load Sample";
-        _menuSample.Click += MenuSample_Click;
+        _menuTemplates.Name = "_menuTemplates";
+        _menuTemplates.Size = new Size(172, 22);
+        _menuTemplates.Text = "Templates";
         // 
         // _menuSep2
         // 
@@ -280,32 +280,32 @@ partial class MainForm
         _menuEdit.Name = "_menuEdit";
         _menuEdit.Size = new Size(53, 20);
         _menuEdit.Text = "Edit(&E)";
-        //
+        // 
         // _menuDelete
-        //
+        // 
         _menuDelete.Name = "_menuDelete";
         _menuDelete.ShortcutKeys = Keys.Delete;
-        _menuDelete.Size = new Size(220, 22);
+        _menuDelete.Size = new Size(263, 22);
         _menuDelete.Text = "Delete(&D)";
         _menuDelete.Click += MenuDelete_Click;
-        //
+        // 
         // _menuSepEdit
-        //
+        // 
         _menuSepEdit.Name = "_menuSepEdit";
-        _menuSepEdit.Size = new Size(217, 6);
-        //
+        _menuSepEdit.Size = new Size(260, 6);
+        // 
         // _menuDuplicate
-        //
+        // 
         _menuDuplicate.Name = "_menuDuplicate";
         _menuDuplicate.ShortcutKeys = Keys.Control | Keys.D;
-        _menuDuplicate.Size = new Size(220, 22);
+        _menuDuplicate.Size = new Size(263, 22);
         _menuDuplicate.Text = "Duplicate(&U)";
-        //
+        // 
         // _menuCopyToClipboard
-        //
+        // 
         _menuCopyToClipboard.Name = "_menuCopyToClipboard";
         _menuCopyToClipboard.ShortcutKeys = Keys.Control | Keys.Shift | Keys.C;
-        _menuCopyToClipboard.Size = new Size(220, 22);
+        _menuCopyToClipboard.Size = new Size(263, 22);
         _menuCopyToClipboard.Text = "Copy to Clipboard(&B)";
         // 
         // _toolStrip
@@ -314,7 +314,7 @@ partial class MainForm
         _toolStrip.Items.AddRange(new ToolStripItem[] { _tsNew, _tsOpen, _tsSave, _tsSep1, _tsDelete, _tsSep3, _tsDuplicate, _tsCopyToClipboard, _tsSep2, _tsZoomOut, _tsZoomLabel, _tsZoomIn, _tsZoomReset });
         _toolStrip.Location = new Point(0, 24);
         _toolStrip.Name = "_toolStrip";
-        _toolStrip.Size = new Size(1280, 26);
+        _toolStrip.Size = new Size(1600, 26);
         _toolStrip.TabIndex = 1;
         // 
         // _tsNew
@@ -353,28 +353,28 @@ partial class MainForm
         _tsDelete.Size = new Size(45, 23);
         _tsDelete.Text = "Delete";
         _tsDelete.Click += MenuDelete_Click;
-        //
+        // 
         // _tsSep3
-        //
+        // 
         _tsSep3.Name = "_tsSep3";
         _tsSep3.Size = new Size(6, 26);
-        //
+        // 
         // _tsDuplicate
-        //
+        // 
         _tsDuplicate.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsDuplicate.Name = "_tsDuplicate";
         _tsDuplicate.Size = new Size(23, 23);
         _tsDuplicate.Text = "Duplicate";
-        //
+        // 
         // _tsCopyToClipboard
-        //
+        // 
         _tsCopyToClipboard.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsCopyToClipboard.Name = "_tsCopyToClipboard";
         _tsCopyToClipboard.Size = new Size(23, 23);
         _tsCopyToClipboard.Text = "Copy to Clipboard";
-        //
+        // 
         // _tsSep2
-        //
+        // 
         _tsSep2.Name = "_tsSep2";
         _tsSep2.Size = new Size(6, 26);
         // 
@@ -424,8 +424,8 @@ partial class MainForm
         // 
         _splitMain.Panel2.Controls.Add(_splitRight);
         _splitMain.Panel2MinSize = 232;
-        _splitMain.Size = new Size(1280, 728);
-        _splitMain.SplitterDistance = 1044;
+        _splitMain.Size = new Size(1600, 888);
+        _splitMain.SplitterDistance = 1305;
         _splitMain.TabIndex = 0;
         // 
         // _splitWork
@@ -444,7 +444,7 @@ partial class MainForm
         // 
         _splitWork.Panel2.Controls.Add(_pnlCanvasHost);
         _splitWork.Panel2MinSize = 200;
-        _splitWork.Size = new Size(1044, 728);
+        _splitWork.Size = new Size(1305, 888);
         _splitWork.SplitterDistance = 232;
         _splitWork.TabIndex = 0;
         // 
@@ -455,7 +455,7 @@ partial class MainForm
         _pnlToolbox.Dock = DockStyle.Fill;
         _pnlToolbox.Location = new Point(0, 0);
         _pnlToolbox.Name = "_pnlToolbox";
-        _pnlToolbox.Size = new Size(232, 728);
+        _pnlToolbox.Size = new Size(232, 888);
         _pnlToolbox.TabIndex = 0;
         // 
         // _umlToolbox
@@ -467,7 +467,7 @@ partial class MainForm
         _umlToolbox.MinimumSize = new Size(232, 0);
         _umlToolbox.Name = "_umlToolbox";
         _umlToolbox.Padding = new Padding(6, 4, 6, 10);
-        _umlToolbox.Size = new Size(232, 700);
+        _umlToolbox.Size = new Size(232, 860);
         _umlToolbox.TabIndex = 0;
         // 
         // _lblToolbox
@@ -486,7 +486,7 @@ partial class MainForm
         _pnlCanvasHost.Dock = DockStyle.Fill;
         _pnlCanvasHost.Location = new Point(0, 0);
         _pnlCanvasHost.Name = "_pnlCanvasHost";
-        _pnlCanvasHost.Size = new Size(808, 728);
+        _pnlCanvasHost.Size = new Size(1069, 888);
         _pnlCanvasHost.TabIndex = 0;
         // 
         // _canvas
@@ -495,7 +495,7 @@ partial class MainForm
         _canvas.Dock = DockStyle.Fill;
         _canvas.Location = new Point(0, 34);
         _canvas.Name = "_canvas";
-        _canvas.Size = new Size(808, 694);
+        _canvas.Size = new Size(1069, 854);
         _canvas.TabIndex = 0;
         // 
         // _diagramTabBar
@@ -503,7 +503,7 @@ partial class MainForm
         _diagramTabBar.Dock = DockStyle.Top;
         _diagramTabBar.Location = new Point(0, 0);
         _diagramTabBar.Name = "_diagramTabBar";
-        _diagramTabBar.Size = new Size(808, 34);
+        _diagramTabBar.Size = new Size(1069, 34);
         _diagramTabBar.TabIndex = 1;
         // 
         // _splitRight
@@ -521,9 +521,9 @@ partial class MainForm
         // _splitRight.Panel2
         // 
         _splitRight.Panel2.Controls.Add(_pnlProperties);
-        _splitRight.Panel2MinSize = 180;
-        _splitRight.Size = new Size(232, 728);
-        _splitRight.SplitterDistance = 516;
+        _splitRight.Panel2MinSize = 140;
+        _splitRight.Size = new Size(291, 888);
+        _splitRight.SplitterDistance = 666;
         _splitRight.TabIndex = 0;
         // 
         // _pnlExplorer
@@ -533,7 +533,7 @@ partial class MainForm
         _pnlExplorer.Dock = DockStyle.Fill;
         _pnlExplorer.Location = new Point(0, 0);
         _pnlExplorer.Name = "_pnlExplorer";
-        _pnlExplorer.Size = new Size(232, 516);
+        _pnlExplorer.Size = new Size(291, 629);
         _pnlExplorer.TabIndex = 0;
         // 
         // _modelExplorer
@@ -544,7 +544,7 @@ partial class MainForm
         _modelExplorer.HideSelection = false;
         _modelExplorer.Location = new Point(0, 28);
         _modelExplorer.Name = "_modelExplorer";
-        _modelExplorer.Size = new Size(232, 488);
+        _modelExplorer.Size = new Size(291, 601);
         _modelExplorer.TabIndex = 0;
         // 
         // _lblExplorer
@@ -552,7 +552,7 @@ partial class MainForm
         _lblExplorer.Dock = DockStyle.Top;
         _lblExplorer.Location = new Point(0, 0);
         _lblExplorer.Name = "_lblExplorer";
-        _lblExplorer.Size = new Size(232, 28);
+        _lblExplorer.Size = new Size(291, 28);
         _lblExplorer.TabIndex = 1;
         _lblExplorer.Text = "Structure";
         // 
@@ -564,7 +564,7 @@ partial class MainForm
         _pnlProperties.Dock = DockStyle.Fill;
         _pnlProperties.Location = new Point(0, 0);
         _pnlProperties.Name = "_pnlProperties";
-        _pnlProperties.Size = new Size(232, 208);
+        _pnlProperties.Size = new Size(291, 255);
         _pnlProperties.TabIndex = 0;
         // 
         // _propertyGrid
@@ -574,7 +574,7 @@ partial class MainForm
         _propertyGrid.HelpVisible = false;
         _propertyGrid.Location = new Point(0, 62);
         _propertyGrid.Name = "_propertyGrid";
-        _propertyGrid.Size = new Size(232, 146);
+        _propertyGrid.Size = new Size(291, 193);
         _propertyGrid.TabIndex = 0;
         _propertyGrid.ToolbarVisible = false;
         _propertyGrid.PropertyValueChanged += PropertyGrid_PropertyValueChanged;
@@ -586,7 +586,7 @@ partial class MainForm
         _pnlFeatureButtons.Dock = DockStyle.Top;
         _pnlFeatureButtons.Location = new Point(0, 28);
         _pnlFeatureButtons.Name = "_pnlFeatureButtons";
-        _pnlFeatureButtons.Size = new Size(232, 34);
+        _pnlFeatureButtons.Size = new Size(291, 34);
         _pnlFeatureButtons.TabIndex = 1;
         _pnlFeatureButtons.Visible = false;
         // 
@@ -617,22 +617,22 @@ partial class MainForm
         _lblProperties.Dock = DockStyle.Top;
         _lblProperties.Location = new Point(0, 0);
         _lblProperties.Name = "_lblProperties";
-        _lblProperties.Size = new Size(232, 28);
+        _lblProperties.Size = new Size(291, 28);
         _lblProperties.TabIndex = 2;
         _lblProperties.Text = "Properties";
         // 
         // _statusStrip
         // 
         _statusStrip.Items.AddRange(new ToolStripItem[] { _statusLabel, _statusZoomLabel });
-        _statusStrip.Location = new Point(0, 778);
+        _statusStrip.Location = new Point(0, 938);
         _statusStrip.Name = "_statusStrip";
-        _statusStrip.Size = new Size(1280, 22);
+        _statusStrip.Size = new Size(1600, 22);
         _statusStrip.TabIndex = 3;
         // 
         // _statusLabel
         // 
         _statusLabel.Name = "_statusLabel";
-        _statusLabel.Size = new Size(1209, 17);
+        _statusLabel.Size = new Size(1529, 17);
         _statusLabel.Spring = true;
         _statusLabel.Text = "Ready";
         // 
@@ -652,6 +652,7 @@ partial class MainForm
         Controls.Add(_toolStrip);
         Controls.Add(_menuStrip);
         Controls.Add(_statusStrip);
+        Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = _menuStrip;
         MinimumSize = new Size(1100, 700);
         Name = "MainForm";

@@ -1,0 +1,213 @@
+{
+  "name": "Class Diagram Template",
+  "rootPackage": {
+    "nestedPackages": [],
+    "classifiers": [
+      {
+        "classifierKind": "class",
+        "notationKeyword": "class",
+        "isAbstract": false,
+        "stereotype": "",
+        "properties": [
+          {
+            "typeName": "Guid",
+            "visibility": "private",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "-id: Guid",
+            "name": "id",
+            "displayLabel": "id",
+            "id": "80e45742-1173-4467-9aa4-b163e47910fe"
+          },
+          {
+            "typeName": "string",
+            "visibility": "private",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "-name: string",
+            "name": "name",
+            "displayLabel": "name",
+            "id": "16a9cf7c-319a-489d-aa69-ee46566a03d7"
+          }
+        ],
+        "operations": [
+          {
+            "returnTypeName": "Order",
+            "visibility": "public",
+            "isStatic": false,
+            "isAbstract": false,
+            "parameters": [],
+            "parametersText": "",
+            "signatureText": "\u002BPlaceOrder(): Order",
+            "name": "PlaceOrder",
+            "displayLabel": "PlaceOrder",
+            "id": "d73bc007-1bc2-4ccb-88a0-2001f0ac5415"
+          }
+        ],
+        "name": "Customer",
+        "displayLabel": "Customer",
+        "id": "41e192f3-43e0-4a4d-be74-e9813d0081fd"
+      },
+      {
+        "classifierKind": "class",
+        "notationKeyword": "class",
+        "isAbstract": false,
+        "stereotype": "",
+        "properties": [
+          {
+            "typeName": "DateTime",
+            "visibility": "private",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "-orderDate: DateTime",
+            "name": "orderDate",
+            "displayLabel": "orderDate",
+            "id": "871abee7-d3d6-403c-93a1-f6a216cc05dd"
+          }
+        ],
+        "operations": [
+          {
+            "returnTypeName": "decimal",
+            "visibility": "public",
+            "isStatic": false,
+            "isAbstract": false,
+            "parameters": [],
+            "parametersText": "",
+            "signatureText": "\u002BTotal(): decimal",
+            "name": "Total",
+            "displayLabel": "Total",
+            "id": "4ace9f88-eea5-4cb4-ac56-2b1faebc8dc2"
+          }
+        ],
+        "name": "Order",
+        "displayLabel": "Order",
+        "id": "9a205b95-a777-4ecd-a582-6c6e894f65b9"
+      }
+    ],
+    "actors": [],
+    "useCases": [],
+    "notes": [],
+    "behaviorNodes": [],
+    "relationships": [
+      {
+        "$relationshipKind": "association",
+        "sourceEndName": "orders",
+        "targetEndName": "customer",
+        "sourceMultiplicity": "1",
+        "targetMultiplicity": "0..*",
+        "aggregation": "none",
+        "isDirected": false,
+        "relationshipKind": "Association",
+        "displayLabel": "Association",
+        "sourceClassifierId": "41e192f3-43e0-4a4d-be74-e9813d0081fd",
+        "targetClassifierId": "9a205b95-a777-4ecd-a582-6c6e894f65b9",
+        "name": null,
+        "id": "66709658-1aef-448e-968a-32a427bf6721"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "41e192f3-43e0-4a4d-be74-e9813d0081fd",
+        "displayLabel": "Customer"
+      },
+      {
+        "id": "9a205b95-a777-4ecd-a582-6c6e894f65b9",
+        "displayLabel": "Order"
+      },
+      {
+        "id": "66709658-1aef-448e-968a-32a427bf6721",
+        "displayLabel": "Association"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "1823da6f-d5eb-4522-afb4-4e7bf7473c04"
+  },
+  "diagrams": [
+    {
+      "kind": "classDiagram",
+      "nodes": [
+        {
+          "id": "2242a157-0d60-40d1-9b12-e6163ac34e4a",
+          "modelElementId": "41e192f3-43e0-4a4d-be74-e9813d0081fd",
+          "presentation": "classifier",
+          "x": 80,
+          "y": 80,
+          "width": 180,
+          "height": 140,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 80
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 180,
+              "height": 140
+            },
+            "x": 80,
+            "y": 80,
+            "width": 180,
+            "height": 140,
+            "left": 80,
+            "top": 80,
+            "right": 260,
+            "bottom": 220,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "fb04cb47-3fc8-4256-966b-4739e0011442",
+          "modelElementId": "9a205b95-a777-4ecd-a582-6c6e894f65b9",
+          "presentation": "classifier",
+          "x": 360,
+          "y": 120,
+          "width": 180,
+          "height": 120,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 360,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 180,
+              "height": 120
+            },
+            "x": 360,
+            "y": 120,
+            "width": 180,
+            "height": 120,
+            "left": 360,
+            "top": 120,
+            "right": 540,
+            "bottom": 240,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "fb6312cd-5246-4b18-96c5-d20b80f25f0f",
+          "modelElementId": "66709658-1aef-448e-968a-32a427bf6721",
+          "sourceNodeId": "2242a157-0d60-40d1-9b12-e6163ac34e4a",
+          "targetNodeId": "fb04cb47-3fc8-4256-966b-4739e0011442",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null,
+          "curveMidOffsetX": null,
+          "curveMidOffsetY": null
+        }
+      ],
+      "name": "Class Diagram",
+      "displayLabel": "Class Diagram",
+      "id": "a0e10763-bcfb-499d-a043-7e2728cd5f14"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

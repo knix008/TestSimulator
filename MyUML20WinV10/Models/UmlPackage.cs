@@ -22,6 +22,9 @@ public sealed class UmlPackage : UmlNamedElement
     public List<UmlUseCase> UseCases { get; set; } = [];
 
     [Browsable(false)]
+    public List<UmlSystemBoundary> SystemBoundaries { get; set; } = [];
+
+    [Browsable(false)]
     public List<UmlNote> Notes { get; set; } = [];
 
     [Browsable(false)]
@@ -35,6 +38,7 @@ public sealed class UmlPackage : UmlNamedElement
             .Concat(Classifiers)
             .Concat(Actors)
             .Concat(UseCases)
+            .Concat(SystemBoundaries)
             .Concat(Notes)
             .Concat(BehaviorNodes)
             .Concat(Relationships);
@@ -67,6 +71,8 @@ public sealed class UmlPackage : UmlNamedElement
             if (actor.Id == id) return actor;
         foreach (var useCase in UseCases)
             if (useCase.Id == id) return useCase;
+        foreach (var boundary in SystemBoundaries)
+            if (boundary.Id == id) return boundary;
         foreach (var note in Notes)
             if (note.Id == id) return note;
         foreach (var behaviorNode in BehaviorNodes)
@@ -82,6 +88,8 @@ public sealed class UmlPackage : UmlNamedElement
     public void AddActor(UmlActor actor) => Actors.Add(actor);
 
     public void AddUseCase(UmlUseCase useCase) => UseCases.Add(useCase);
+
+    public void AddSystemBoundary(UmlSystemBoundary boundary) => SystemBoundaries.Add(boundary);
 
     public void AddNote(UmlNote note) => Notes.Add(note);
 
@@ -100,6 +108,8 @@ public sealed class UmlPackage : UmlNamedElement
         if (Actors.RemoveAll(a => a.Id == id) > 0)
             return true;
         if (UseCases.RemoveAll(u => u.Id == id) > 0)
+            return true;
+        if (SystemBoundaries.RemoveAll(b => b.Id == id) > 0)
             return true;
         if (Notes.RemoveAll(n => n.Id == id) > 0)
             return true;

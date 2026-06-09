@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 
 namespace MyUML20WinV10.Models;
 
@@ -12,6 +13,16 @@ public sealed class UmlDiagram : UmlNamedElement
     [Category("기본")]
     [DisplayName("다이어그램 종류")]
     public UmlDiagramKind Kind { get; set; } = UmlDiagramKind.ClassDiagram;
+
+    [Category("기본")]
+    [DisplayName("노드 수")]
+    [JsonIgnore]
+    public int NodeCount => Nodes.Count;
+
+    [Category("기본")]
+    [DisplayName("연결 수")]
+    [JsonIgnore]
+    public int EdgeCount => Edges.Count;
 
     [Browsable(false)]
     public List<UmlDiagramNode> Nodes { get; set; } = [];

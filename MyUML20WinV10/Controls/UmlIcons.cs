@@ -397,14 +397,9 @@ internal static class UmlIcons
 
     public static Bitmap NodeActor() => Draw(g =>
     {
-        using var fill = new SolidBrush(Color.FromArgb(210, 228, 255));
         using var pen = new Pen(Color.FromArgb(40, 80, 180), 1.3f);
-        g.FillEllipse(fill, 5, 1, 6, 5);
-        g.DrawEllipse(pen, 5, 1, 6, 5);
-        g.DrawLine(pen, 8, 6, 8, 11);
-        g.DrawLine(pen, 3, 8, 13, 8);
-        g.DrawLine(pen, 8, 11, 4, 15);
-        g.DrawLine(pen, 8, 11, 12, 15);
+        var bounds = UmlActorGeometry.GetUniformBounds(new RectangleF(0, 0, 16, 16));
+        UmlActorGeometry.DrawStickFigure(g, pen, bounds);
     });
 
     public static Bitmap NodeUseCase() => Draw(g =>
@@ -413,6 +408,17 @@ internal static class UmlIcons
         using var pen = new Pen(Color.FromArgb(20, 100, 180), 1.3f);
         g.FillEllipse(fill, 1, 4, 14, 8);
         g.DrawEllipse(pen, 1, 4, 14, 8);
+    });
+
+    public static Bitmap NodeSystemBoundary() => Draw(g =>
+    {
+        using var fill = new SolidBrush(Color.FromArgb(230, 240, 255));
+        using var pen = new Pen(Color.FromArgb(40, 90, 170), 1.3f);
+        g.FillRectangle(fill, 1, 2, 14, 12);
+        g.DrawRectangle(pen, 1, 2, 14, 12);
+        using var font = new Font("Segoe UI", 5f, FontStyle.Bold);
+        using var brush = new SolidBrush(pen.Color);
+        g.DrawString("Sys", font, brush, 3f, 3f);
     });
 
     public static Bitmap NodeNote() => Draw(g =>

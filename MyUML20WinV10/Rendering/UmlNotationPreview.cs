@@ -72,11 +72,11 @@ public static class UmlNotationPreview
         g.DrawLine(pen, start, end);
 
         var tip = new PointF(child.Left + child.Width / 2f, child.Top);
-        var baseY = child.Top - 7;
+        var baseY = child.Top - 10;
         g.DrawPolygon(pen, [
             tip,
-            new PointF(tip.X - 6, baseY),
-            new PointF(tip.X + 6, baseY),
+            new PointF(tip.X - 4, baseY),
+            new PointF(tip.X + 4, baseY),
         ]);
     }
 
@@ -102,22 +102,13 @@ public static class UmlNotationPreview
 
     public static void DrawActor(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var cx = area.Left + area.Width / 2f;
-        var headR = Math.Min(area.Width * 0.13f, 18f);
-        var headY = area.Top + headR + 2;
+        var bounds = UmlActorGeometry.GetUniformBounds(area);
         using var pen = new Pen(stroke, 1.8f);
-        // head
-        g.DrawEllipse(pen, cx - headR, headY - headR, headR * 2, headR * 2);
-        // body
-        g.DrawLine(pen, cx, headY + headR, cx, area.Bottom - area.Height * 0.3f);
-        // arms
-        g.DrawLine(pen, cx, headY + headR * 2f, area.Left + 4, area.Top + area.Height * 0.52f);
-        g.DrawLine(pen, cx, headY + headR * 2f, area.Right - 4, area.Top + area.Height * 0.52f);
-        // legs
-        var hipsY = area.Bottom - area.Height * 0.3f;
-        g.DrawLine(pen, cx, hipsY, area.Left + 6, area.Bottom - 2);
-        g.DrawLine(pen, cx, hipsY, area.Right - 6, area.Bottom - 2);
+        UmlActorGeometry.DrawStickFigure(g, pen, bounds);
     }
+
+    public static void DrawLoopFragment(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        UmlCombinedFragmentRenderer.DrawPreview(g, area, stroke);
 
     public static void DrawUseCase(Graphics g, RectangleF area, Color fill, Color stroke)
     {
@@ -126,6 +117,24 @@ public static class UmlNotationPreview
         using var fillBrush = new SolidBrush(fill);
         g.FillEllipse(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
         g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    public static void DrawSystemBoundary(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        UmlSystemBoundaryRenderer.DrawPreview(g, area, stroke);
+
+    public static void DrawNoteLink(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var noteRect = new RectangleF(area.Left + 2f, area.Top + area.Height * 0.18f, area.Width * 0.34f, area.Height * 0.52f);
+        var targetRect = new RectangleF(area.Right - area.Width * 0.36f, area.Top + area.Height * 0.28f, area.Width * 0.3f, area.Height * 0.44f);
+        using var noteFill = new SolidBrush(Color.FromArgb(fill.A, 255, 250, 190));
+        using var targetFill = new SolidBrush(fill);
+        using var pen = new Pen(stroke, 1.6f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+        using var solidPen = new Pen(stroke, 1.6f);
+        g.FillRectangle(noteFill, noteRect.X, noteRect.Y, noteRect.Width, noteRect.Height);
+        g.DrawRectangle(solidPen, noteRect.X, noteRect.Y, noteRect.Width, noteRect.Height);
+        g.FillRectangle(targetFill, targetRect.X, targetRect.Y, targetRect.Width, targetRect.Height);
+        g.DrawRectangle(solidPen, targetRect.X, targetRect.Y, targetRect.Width, targetRect.Height);
+        g.DrawLine(pen, noteRect.Right, noteRect.Top + noteRect.Height / 2f, targetRect.Left, targetRect.Top + targetRect.Height / 2f);
     }
 
     public static void DrawNote(Graphics g, RectangleF area, Color fill, Color stroke)
@@ -172,7 +181,8 @@ public static class UmlNotationPreview
 
     public static void DrawLifeline(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var header = new RectangleF(area.Left + 2, area.Top + 2, area.Width - 4, Math.Max(18f, area.Height * 0.18f));
+        var headerHeight = UmlSequenceLayout.HeaderHeight - 4f;
+        var header = new RectangleF(area.Left + 2, area.Top + 2, area.Width - 4, headerHeight);
         using var fillBrush = new SolidBrush(fill);
         using var pen = new Pen(stroke, 1.5f);
         g.FillRectangle(fillBrush, header.X, header.Y, header.Width, header.Height);
@@ -242,7 +252,7 @@ public static class UmlNotationPreview
         DrawAssociation(g, area, fill, stroke);
         using var pen = new Pen(stroke, 1.8f);
         var end = new PointF(area.Right - area.Width * 0.36f, area.Top + area.Height * 0.52f);
-        g.DrawPolygon(pen, [end, new PointF(end.X - 8, end.Y - 5), new PointF(end.X - 14, end.Y), new PointF(end.X - 8, end.Y + 5)]);
+        g.DrawPolygon(pen, [end, new PointF(end.X - 7, end.Y - 4), new PointF(end.X - 18, end.Y), new PointF(end.X - 7, end.Y + 4)]);
     }
 
     public static void DrawComposition(Graphics g, RectangleF area, Color fill, Color stroke)
@@ -251,7 +261,7 @@ public static class UmlNotationPreview
         using var pen = new Pen(stroke, 1.8f);
         using var brush = new SolidBrush(stroke);
         var end = new PointF(area.Right - area.Width * 0.36f, area.Top + area.Height * 0.52f);
-        var pts = new[] { end, new PointF(end.X - 8, end.Y - 5), new PointF(end.X - 14, end.Y), new PointF(end.X - 8, end.Y + 5) };
+        var pts = new[] { end, new PointF(end.X - 7, end.Y - 4), new PointF(end.X - 18, end.Y), new PointF(end.X - 7, end.Y + 4) };
         g.FillPolygon(brush, pts);
         g.DrawPolygon(pen, pts);
     }
@@ -352,6 +362,16 @@ public static class UmlNotationPreview
             w, h);
     }
 
+    private static RectangleF FitSquare(RectangleF area, float fillRatio = 0.82f)
+    {
+        var size = Math.Min(area.Width, area.Height) * fillRatio;
+        return new RectangleF(
+            area.Left + (area.Width - size) / 2f,
+            area.Top + (area.Height - size) / 2f,
+            size,
+            size);
+    }
+
     private static System.Drawing.Drawing2D.GraphicsPath CreateInterfacePath(RectangleF rect)
     {
         var r = Math.Min(8f, rect.Width * 0.18f);
@@ -368,8 +388,8 @@ public static class UmlNotationPreview
     private static void DrawOpenArrow(Graphics g, Pen pen, PointF from, PointF to)
     {
         var angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
-        const float len = 7f;
-        const float wing = 3.5f;
+        const float len = 9f;
+        const float wing = 5f;
         var p1 = new PointF(
             (float)(to.X - len * Math.Cos(angle) + wing * Math.Sin(angle)),
             (float)(to.Y - len * Math.Sin(angle) - wing * Math.Cos(angle)));
@@ -406,6 +426,9 @@ public static class UmlNotationPreview
             case UmlToolMode.CreateUseCase:
                 DrawGhostUseCase(g, rect, fill, stroke);
                 break;
+            case UmlToolMode.CreateSystemBoundary:
+                DrawGhostSystemBoundary(g, rect, stroke);
+                break;
             case UmlToolMode.CreateNote:
                 DrawGhostNote(g, rect, fill, stroke);
                 break;
@@ -435,6 +458,9 @@ public static class UmlNotationPreview
             case UmlToolMode.CreateActivation:
                 DrawGhostActivation(g, rect, fill, stroke);
                 break;
+            case UmlToolMode.CreateLoopFragment:
+                DrawGhostLoopFragment(g, rect, stroke);
+                break;
             case UmlToolMode.CreateMessage:
             case UmlToolMode.CreateAsyncMessage:
             case UmlToolMode.CreateReturnMessage:
@@ -459,7 +485,7 @@ public static class UmlNotationPreview
 
     private static void DrawFilledCircle(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var rect = FitBox(area, 1f);
+        var rect = FitSquare(area);
         using var fillBrush = new SolidBrush(fill);
         using var pen = new Pen(stroke, 1.8f);
         g.FillEllipse(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
@@ -468,7 +494,7 @@ public static class UmlNotationPreview
 
     private static void DrawFinalCircle(Graphics g, RectangleF area, Color stroke)
     {
-        var rect = FitBox(area, 1f);
+        var rect = FitSquare(area);
         using var pen = new Pen(stroke, 1.8f);
         g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
         g.FillEllipse(new SolidBrush(stroke), rect.X + rect.Width * 0.25f, rect.Y + rect.Height * 0.25f, rect.Width * 0.5f, rect.Height * 0.5f);
@@ -522,14 +548,14 @@ public static class UmlNotationPreview
 
     private static void DrawGhostFilledCircle(Graphics g, RectangleF rect, Color stroke)
     {
-        var fitted = FitBox(rect, 1f);
+        var fitted = FitSquare(rect);
         using var brush = new SolidBrush(stroke);
         g.FillEllipse(brush, fitted.X, fitted.Y, fitted.Width, fitted.Height);
     }
 
     private static void DrawGhostFinalCircle(Graphics g, RectangleF rect, Color stroke)
     {
-        var fitted = FitBox(rect, 1f);
+        var fitted = FitSquare(rect);
         using var pen = new Pen(stroke, 1.5f);
         g.DrawEllipse(pen, fitted.X, fitted.Y, fitted.Width, fitted.Height);
         g.FillEllipse(new SolidBrush(stroke), fitted.X + fitted.Width * 0.25f, fitted.Y + fitted.Height * 0.25f, fitted.Width * 0.5f, fitted.Height * 0.5f);
@@ -609,16 +635,12 @@ public static class UmlNotationPreview
     private static void DrawGhostActor(Graphics g, RectangleF rect, Color stroke)
     {
         using var pen = new Pen(stroke, 1.5f);
-        var cx = rect.Left + rect.Width / 2f;
-        var headR = Math.Min(rect.Width * 0.14f, 20f);
-        var headY = rect.Top + headR + 4;
-        g.DrawEllipse(pen, cx - headR, headY - headR, headR * 2, headR * 2);
-        g.DrawLine(pen, cx, headY + headR, cx, rect.Bottom - 24);
-        g.DrawLine(pen, cx, headY + headR * 2.2f, rect.Left + 8, rect.Top + rect.Height * 0.55f);
-        g.DrawLine(pen, cx, headY + headR * 2.2f, rect.Right - 8, rect.Top + rect.Height * 0.55f);
-        g.DrawLine(pen, cx, rect.Bottom - 24, rect.Left + 10, rect.Bottom - 6);
-        g.DrawLine(pen, cx, rect.Bottom - 24, rect.Right - 10, rect.Bottom - 6);
+        var bounds = UmlActorGeometry.UniformFromDrag(rect);
+        UmlActorGeometry.DrawStickFigure(g, pen, bounds);
     }
+
+    private static void DrawGhostLoopFragment(Graphics g, RectangleF rect, Color stroke) =>
+        UmlCombinedFragmentRenderer.DrawPreview(g, rect, stroke);
 
     private static void DrawGhostUseCase(Graphics g, RectangleF rect, Color fill, Color stroke)
     {
@@ -626,6 +648,12 @@ public static class UmlNotationPreview
         using var pen = new Pen(stroke, 1.5f);
         g.FillEllipse(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
         g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    private static void DrawGhostSystemBoundary(Graphics g, RectangleF rect, Color stroke)
+    {
+        using var pen = new Pen(stroke, 1.5f);
+        UmlSystemBoundaryRenderer.Draw(g, "System", rect, pen, selected: false);
     }
 
     private static void DrawGhostNote(Graphics g, RectangleF rect, Color fill, Color stroke)
@@ -655,8 +683,8 @@ public static class UmlNotationPreview
     private static void DrawOpenArrow(Graphics g, Pen pen, PointF from, PointF to, bool open)
     {
         var angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
-        const float len = 8f;
-        const float wing = 4f;
+        const float len = 9f;
+        const float wing = 5f;
         var p1 = new PointF(
             (float)(to.X - len * Math.Cos(angle) + wing * Math.Sin(angle)),
             (float)(to.Y - len * Math.Sin(angle) - wing * Math.Cos(angle)));

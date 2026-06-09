@@ -22,6 +22,17 @@ static class Program
 
         ApplicationConfiguration.Initialize();
 
+        if (args.Any(a => string.Equals(a, "--generate-templates", StringComparison.OrdinalIgnoreCase)))
+        {
+            var explicitDir = args.Skip(1).FirstOrDefault(a => !a.StartsWith('-'));
+            var directory = explicitDir
+                ?? FindSourceTemplatesProjectsDirectory()
+                ?? MyUML20WinV10.Templates.UmlDiagramTemplateLibrary.GetTemplatesProjectsDirectory();
+            MyUML20WinV10.Templates.UmlDiagramTemplateLibrary.ExportProjectFiles(directory);
+            Console.WriteLine($"템플릿 프로젝트를 저장했습니다: {directory}");
+            return;
+        }
+
         string? initialPath = null;
         foreach (var arg in args)
         {
@@ -37,5 +48,19 @@ static class Program
         }
 
         Application.Run(new MainForm(initialPath));
+    }
+
+    static string? FindSourceTemplatesProjectsDirectory()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "MyUML20WinV10.csproj")))
+                return Path.Combine(dir.FullName, "Templates", "Projects");
+
+            dir = dir.Parent;
+        }
+
+        return null;
     }
 }

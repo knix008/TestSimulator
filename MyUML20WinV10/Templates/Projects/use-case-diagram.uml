@@ -1,0 +1,209 @@
+{
+  "name": "Use Case Diagram Template",
+  "rootPackage": {
+    "nestedPackages": [],
+    "classifiers": [],
+    "actors": [
+      {
+        "name": "Customer",
+        "displayLabel": "Customer",
+        "id": "312ec6fc-7a3f-4be3-8dd3-afffe39670e6"
+      }
+    ],
+    "useCases": [
+      {
+        "name": "Place Order",
+        "displayLabel": "Place Order",
+        "id": "e2cb5f38-0d3e-476b-afab-272bc07870bd"
+      },
+      {
+        "name": "Make Payment",
+        "displayLabel": "Make Payment",
+        "id": "5c4b7d07-b35d-40db-9d43-ae592e998068"
+      }
+    ],
+    "notes": [],
+    "behaviorNodes": [],
+    "relationships": [
+      {
+        "$relationshipKind": "association",
+        "sourceEndName": "",
+        "targetEndName": "",
+        "sourceMultiplicity": "1",
+        "targetMultiplicity": "1",
+        "aggregation": "none",
+        "isDirected": false,
+        "relationshipKind": "Association",
+        "displayLabel": "Association",
+        "sourceClassifierId": "312ec6fc-7a3f-4be3-8dd3-afffe39670e6",
+        "targetClassifierId": "e2cb5f38-0d3e-476b-afab-272bc07870bd",
+        "name": null,
+        "id": "44ec7bf2-9101-40f9-bf0d-7e4a5616ab97"
+      },
+      {
+        "$relationshipKind": "include",
+        "relationshipKind": "Include",
+        "displayLabel": "\u00ABinclude\u00BB",
+        "sourceClassifierId": "e2cb5f38-0d3e-476b-afab-272bc07870bd",
+        "targetClassifierId": "5c4b7d07-b35d-40db-9d43-ae592e998068",
+        "name": null,
+        "id": "3975389a-789a-4f53-abc7-78b0d27eedf3"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "312ec6fc-7a3f-4be3-8dd3-afffe39670e6",
+        "displayLabel": "Customer"
+      },
+      {
+        "id": "e2cb5f38-0d3e-476b-afab-272bc07870bd",
+        "displayLabel": "Place Order"
+      },
+      {
+        "id": "5c4b7d07-b35d-40db-9d43-ae592e998068",
+        "displayLabel": "Make Payment"
+      },
+      {
+        "id": "44ec7bf2-9101-40f9-bf0d-7e4a5616ab97",
+        "displayLabel": "Association"
+      },
+      {
+        "id": "3975389a-789a-4f53-abc7-78b0d27eedf3",
+        "displayLabel": "\u00ABinclude\u00BB"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "6fb531ea-0ea4-4ed5-85d0-eddc432062ba"
+  },
+  "diagrams": [
+    {
+      "kind": "useCaseDiagram",
+      "nodes": [
+        {
+          "id": "2c546e7b-8c2b-4cdb-a154-b52996107b08",
+          "modelElementId": "312ec6fc-7a3f-4be3-8dd3-afffe39670e6",
+          "presentation": "actor",
+          "x": 80,
+          "y": 120,
+          "width": 72,
+          "height": 96,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 72,
+              "height": 96
+            },
+            "x": 80,
+            "y": 120,
+            "width": 72,
+            "height": 96,
+            "left": 80,
+            "top": 120,
+            "right": 152,
+            "bottom": 216,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "9c1b21be-2686-4f8a-9d4d-8421a21b9d2a",
+          "modelElementId": "e2cb5f38-0d3e-476b-afab-272bc07870bd",
+          "presentation": "useCase",
+          "x": 280,
+          "y": 100,
+          "width": 160,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 280,
+              "y": 100
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 72
+            },
+            "x": 280,
+            "y": 100,
+            "width": 160,
+            "height": 72,
+            "left": 280,
+            "top": 100,
+            "right": 440,
+            "bottom": 172,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "5f0b38da-9f14-406e-b8e4-278069fa0bcd",
+          "modelElementId": "5c4b7d07-b35d-40db-9d43-ae592e998068",
+          "presentation": "useCase",
+          "x": 520,
+          "y": 100,
+          "width": 160,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 520,
+              "y": 100
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 72
+            },
+            "x": 520,
+            "y": 100,
+            "width": 160,
+            "height": 72,
+            "left": 520,
+            "top": 100,
+            "right": 680,
+            "bottom": 172,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "85de86f3-9266-4f3d-9277-669e7bcee9c6",
+          "modelElementId": "44ec7bf2-9101-40f9-bf0d-7e4a5616ab97",
+          "sourceNodeId": "2c546e7b-8c2b-4cdb-a154-b52996107b08",
+          "targetNodeId": "9c1b21be-2686-4f8a-9d4d-8421a21b9d2a",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null,
+          "curveMidOffsetX": null,
+          "curveMidOffsetY": null
+        },
+        {
+          "id": "02b3c9f9-8892-44fd-aec3-e8d15a1e7830",
+          "modelElementId": "3975389a-789a-4f53-abc7-78b0d27eedf3",
+          "sourceNodeId": "9c1b21be-2686-4f8a-9d4d-8421a21b9d2a",
+          "targetNodeId": "5f0b38da-9f14-406e-b8e4-278069fa0bcd",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null,
+          "curveMidOffsetX": null,
+          "curveMidOffsetY": null
+        }
+      ],
+      "name": "Use Case Diagram",
+      "displayLabel": "Use Case Diagram",
+      "id": "afedbdd4-9d7c-4b8f-ab19-179a0c03599e"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

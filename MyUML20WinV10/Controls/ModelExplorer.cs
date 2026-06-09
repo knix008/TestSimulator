@@ -2,6 +2,21 @@ using MyUML20WinV10.Models;
 
 namespace MyUML20WinV10.Controls;
 
+public sealed class ModelExplorerNodeData
+{
+    public required object Payload { get; init; }
+
+    public UmlDiagram? Diagram { get; init; }
+
+    public bool Matches(ModelExplorerNodeData? other) =>
+        other is not null
+        && ReferenceEquals(Payload, other.Payload)
+        && Diagram?.Id == other.Diagram?.Id;
+
+    public bool MatchesPayload(object? payload) =>
+        payload is not null && ReferenceEquals(Payload, payload);
+}
+
 public sealed class ModelExplorer : TreeView
 {
     private UmlProject? _project;
@@ -32,99 +47,182 @@ public sealed class ModelExplorer : TreeView
         if (_project is null)
             return;
 
+        var selectedData = SelectedNode?.Tag as ModelExplorerNodeData;
+
         _suppressSelection = true;
         Nodes.Clear();
 
-        var root = new TreeNode(_project.Name)
-        {
-            Tag = _project,
-            ImageKey = "project",
-            SelectedImageKey = "project",
-        };
-        BuildPackageNode(root, _project.RootPackage);
+        var root = CreateNode(_project.Name, new ModelExplorerNodeData { Payload = _project });
         foreach (var diagram in _project.Diagrams)
-            root.Nodes.Add(CreateDiagramNode(diagram));
+            root.Nodes.Add(BuildDiagramNode(diagram));
 
         root.Expand();
         Nodes.Add(root);
+
+        RestoreSelection(selectedData);
         _suppressSelection = false;
     }
 
-    public void SelectElement(Guid elementId)
+    private TreeNode BuildDiagramNode(UmlDiagram diagram)
     {
-        if (_project is null)
-            return;
+        var diagramNode = CreateNode(
+            UmlDiagramCatalog.GetDiagramTreeLabel(diagram),
+            new ModelExplorerNodeData { Payload = diagram, Diagram = diagram });
 
-        var node = FindNodeById(Nodes, elementId);
-        if (node is not null)
-            SelectedNode = node;
+        var elements = UmlDiagramCatalog.GetDiagramElements(_project!, diagram).ToList();
+        if (elements.Count > 0)
+        {
+            var elementsGroup = CreateNode(
+                $"요소 ({elements.Count})",
+                new ModelExplorerNodeData { Payload = diagram, Diagram = diagram });
+
+            foreach (var (_, element) in elements)
+                elementsGroup.Nodes.Add(BuildElementNode(diagram, element));
+
+            diagramNode.Nodes.Add(elementsGroup);
+        }
+
+        var relationships = UmlDiagramCatalog.GetDiagramRelationships(_project!, diagram).ToList();
+        if (relationships.Count > 0)
+        {
+            var relationsGroup = CreateNode(
+                $"관계 ({relationships.Count})",
+                new ModelExplorerNodeData { Payload = diagram, Diagram = diagram });
+
+            foreach (var (diagramEdge, relationship) in relationships)
+            {
+                relationsGroup.Nodes.Add(CreateNode(
+                    UmlDiagramCatalog.GetRelationshipTreeLabel(_project!, diagram, diagramEdge, relationship),
+                    new ModelExplorerNodeData { Payload = relationship, Diagram = diagram }));
+            }
+
+            diagramNode.Nodes.Add(relationsGroup);
+        }
+
+        if (elements.Count == 0 && relationships.Count == 0)
+            diagramNode.Nodes.Add(CreateNode("(비어 있음)", new ModelExplorerNodeData { Payload = diagram, Diagram = diagram }));
+
+        diagramNode.Expand();
+        return diagramNode;
     }
 
-    private void BuildPackageNode(TreeNode parent, UmlPackage package)
+    private TreeNode BuildElementNode(UmlDiagram diagram, UmlElement element)
     {
-        var packageNode = new TreeNode(package.Name)
+        var node = CreateNode(
+            UmlDiagramCatalog.GetElementTreeLabel(element),
+            new ModelExplorerNodeData { Payload = element, Diagram = diagram });
+
+        if (element is UmlClassifier classifier)
         {
-            Tag = package,
-        };
-        parent.Nodes.Add(packageNode);
-
-        foreach (var nested in package.NestedPackages)
-            BuildPackageNode(packageNode, nested);
-
-        foreach (var classifier in package.Classifiers)
-            packageNode.Nodes.Add(CreateClassifierNode(classifier));
-
-        foreach (var actor in package.Actors)
-            packageNode.Nodes.Add(new TreeNode($"Actor {actor.DisplayLabel}") { Tag = actor });
-
-        foreach (var useCase in package.UseCases)
-            packageNode.Nodes.Add(new TreeNode($"UseCase {useCase.DisplayLabel}") { Tag = useCase });
-
-        foreach (var note in package.Notes)
-            packageNode.Nodes.Add(new TreeNode($"Note {note.DisplayLabel}") { Tag = note });
-
-        foreach (var relationship in package.Relationships)
-            packageNode.Nodes.Add(CreateRelationshipNode(relationship));
-    }
-
-    private static TreeNode CreateClassifierNode(UmlClassifier classifier)
-    {
-        var node = new TreeNode(classifier.DisplayLabel) { Tag = classifier };
-        foreach (var property in classifier.Properties)
-            node.Nodes.Add(new TreeNode(property.SignatureText) { Tag = property });
-        foreach (var operation in classifier.Operations)
-            node.Nodes.Add(new TreeNode(operation.SignatureText) { Tag = operation });
-        if (classifier is UmlEnumeration enumeration)
-        {
-            foreach (var literal in enumeration.Literals)
-                node.Nodes.Add(new TreeNode(literal) { Tag = literal });
+            foreach (var property in classifier.Properties)
+                node.Nodes.Add(CreateNode(property.SignatureText, new ModelExplorerNodeData { Payload = property, Diagram = diagram }));
+            foreach (var operation in classifier.Operations)
+                node.Nodes.Add(CreateNode(operation.SignatureText, new ModelExplorerNodeData { Payload = operation, Diagram = diagram }));
+            if (classifier is UmlEnumeration enumeration)
+            {
+                foreach (var literal in enumeration.Literals)
+                    node.Nodes.Add(CreateNode(literal, new ModelExplorerNodeData { Payload = literal, Diagram = diagram }));
+            }
         }
 
         return node;
     }
 
-    private static TreeNode CreateRelationshipNode(UmlRelationship relationship) =>
-        new(relationship.DisplayLabel) { Tag = relationship };
+    private static TreeNode CreateNode(string text, ModelExplorerNodeData tag) =>
+        new(text) { Tag = tag };
 
-    private static TreeNode CreateDiagramNode(UmlDiagram diagram) =>
-        new($"Diagram: {diagram.Name}") { Tag = diagram };
+    private void RestoreSelection(ModelExplorerNodeData? selectedData)
+    {
+        if (selectedData is null)
+            return;
+
+        var node = FindNodeByData(Nodes, selectedData);
+        if (node is not null)
+            SelectedNode = node;
+    }
+
+    public void SelectElement(Guid elementId, Guid? diagramId = null)
+    {
+        if (_project is null)
+            return;
+
+        TreeNode? node = null;
+        if (diagramId is Guid preferredDiagramId)
+            node = FindElementInDiagram(Nodes, elementId, preferredDiagramId);
+
+        node ??= FindNodeByElementId(Nodes, elementId);
+        if (node is not null)
+            SelectedNode = node;
+    }
+
+    public void SelectDiagram(Guid diagramId)
+    {
+        var node = FindDiagramNode(Nodes, diagramId);
+        if (node is not null)
+            SelectedNode = node;
+    }
 
     private void OnAfterSelect(object? sender, TreeViewEventArgs e)
     {
-        if (_suppressSelection || e.Node?.Tag is not object tag)
+        if (_suppressSelection || e.Node?.Tag is not ModelExplorerNodeData data)
             return;
 
-        ElementSelected?.Invoke(this, new UmlElementSelectedEventArgs(tag));
+        ElementSelected?.Invoke(this, new UmlElementSelectedEventArgs(data));
     }
 
-    private static TreeNode? FindNodeById(TreeNodeCollection nodes, Guid id)
+    private static TreeNode? FindNodeByData(TreeNodeCollection nodes, ModelExplorerNodeData target)
     {
         foreach (TreeNode node in nodes)
         {
-            if (node.Tag is UmlElement element && element.Id == id)
+            if (node.Tag is ModelExplorerNodeData data && data.Matches(target))
                 return node;
 
-            var nested = FindNodeById(node.Nodes, id);
+            var nested = FindNodeByData(node.Nodes, target);
+            if (nested is not null)
+                return nested;
+        }
+
+        return null;
+    }
+
+    private static TreeNode? FindElementInDiagram(TreeNodeCollection nodes, Guid elementId, Guid diagramId)
+    {
+        foreach (TreeNode node in nodes)
+        {
+            if (node.Tag is ModelExplorerNodeData { Payload: UmlDiagram diagram } && diagram.Id == diagramId)
+                return FindNodeByElementId(node.Nodes, elementId);
+
+            var nested = FindElementInDiagram(node.Nodes, elementId, diagramId);
+            if (nested is not null)
+                return nested;
+        }
+
+        return null;
+    }
+
+    private static TreeNode? FindDiagramNode(TreeNodeCollection nodes, Guid diagramId)
+    {
+        foreach (TreeNode node in nodes)
+        {
+            if (node.Tag is ModelExplorerNodeData { Payload: UmlDiagram diagram } && diagram.Id == diagramId)
+                return node;
+
+            var nested = FindDiagramNode(node.Nodes, diagramId);
+            if (nested is not null)
+                return nested;
+        }
+
+        return null;
+    }
+
+    private static TreeNode? FindNodeByElementId(TreeNodeCollection nodes, Guid elementId)
+    {
+        foreach (TreeNode node in nodes)
+        {
+            if (node.Tag is ModelExplorerNodeData { Payload: UmlElement element } && element.Id == elementId)
+                return node;
+
+            var nested = FindNodeByElementId(node.Nodes, elementId);
             if (nested is not null)
                 return nested;
         }
@@ -135,7 +233,16 @@ public sealed class ModelExplorer : TreeView
 
 public sealed class UmlElementSelectedEventArgs : EventArgs
 {
-    public UmlElementSelectedEventArgs(object selectedObject) => SelectedObject = selectedObject;
+    public UmlElementSelectedEventArgs(ModelExplorerNodeData data)
+    {
+        NodeData = data;
+        SelectedObject = data.Payload;
+        Diagram = data.Diagram;
+    }
+
+    public ModelExplorerNodeData NodeData { get; }
 
     public object SelectedObject { get; }
+
+    public UmlDiagram? Diagram { get; }
 }

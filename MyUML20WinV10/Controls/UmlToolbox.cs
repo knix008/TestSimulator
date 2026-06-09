@@ -59,6 +59,14 @@ public sealed class UmlToolbox : UserControl
 
     private readonly List<ToolboxTile> _allTiles = [];
 
+    private readonly ToolTip _toolTip = new()
+    {
+        AutoPopDelay = 10000,
+        InitialDelay = 400,
+        ReshowDelay = 200,
+        ShowAlways = true,
+    };
+
     private bool _initialized;
 
     private UmlDiagramKind _currentKind = UmlDiagramKind.ClassDiagram;
@@ -232,6 +240,8 @@ public sealed class UmlToolbox : UserControl
 
                     (UmlToolMode.CreateUseCase, "UseCase", UmlNotationPreview.DrawUseCase),
 
+                    (UmlToolMode.CreateSystemBoundary, "Boundary", UmlNotationPreview.DrawSystemBoundary),
+
                     (UmlToolMode.CreateInclude, "Include", UmlNotationPreview.DrawInclude),
 
                     (UmlToolMode.CreateExtend, "Extend", UmlNotationPreview.DrawExtend),
@@ -256,6 +266,12 @@ public sealed class UmlToolbox : UserControl
                 AddGroup("시퀀스", [
 
                     (UmlToolMode.CreateLifeline, "Lifeline", UmlNotationPreview.DrawLifeline),
+
+                ]);
+
+                AddGroup("프래그먼트", [
+
+                    (UmlToolMode.CreateLoopFragment, "Loop", UmlNotationPreview.DrawLoopFragment),
 
                 ]);
 
@@ -367,12 +383,13 @@ public sealed class UmlToolbox : UserControl
 
             (UmlToolMode.CreateNote, "Note", UmlNotationPreview.DrawNote),
 
+            (UmlToolMode.CreateNoteLink, "NoteLink", UmlNotationPreview.DrawNoteLink),
+
         ]);
 
 
 
         ResumeLayout(false);
-
     }
 
 
@@ -410,6 +427,8 @@ public sealed class UmlToolbox : UserControl
             tile.MouseEnter += (_, _) => tile.Hovered = true;
 
             tile.MouseLeave += (_, _) => tile.Hovered = false;
+
+            _toolTip.SetToolTip(tile, UmlToolModeHelper.GetToolTip(mode));
 
             tiles.Add(tile);
 

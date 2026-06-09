@@ -24,12 +24,6 @@ public static class UmlProjectMarkdownExporter
         sb.AppendLine();
         sb.AppendLine($"> UML 2.0 프로젝트 문서 · 생성 시각 {DateTime.Now:yyyy-MM-dd HH:mm}");
         sb.AppendLine();
-        sb.AppendLine("## 모델 구조");
-        sb.AppendLine();
-        AppendPackageMarkdown(sb, project.RootPackage, 0);
-        sb.AppendLine();
-        sb.AppendLine("## 다이어그램");
-        sb.AppendLine();
 
         foreach (var diagram in project.Diagrams)
         {
@@ -38,8 +32,11 @@ public static class UmlProjectMarkdownExporter
             UmlDiagramImageExporter.Export(project, diagram, imagePath, options.DiagramImageFormat, imageOptions);
 
             var relative = Path.GetRelativePath(directory, imagePath).Replace('\\', '/');
-            sb.AppendLine($"### {diagram.Name} ({diagram.Kind})");
+            sb.AppendLine($"## {UmlDiagramCatalog.GetDiagramTreeLabel(diagram)}");
             sb.AppendLine();
+            sb.AppendLine($"*{diagram.Kind} · 요소 {diagram.Nodes.Count}개 · 관계 {diagram.Edges.Count}개*");
+            sb.AppendLine();
+            AppendDiagramContentsMarkdown(sb, project, diagram);
             sb.AppendLine($"![{diagram.Name}]({relative})");
             sb.AppendLine();
         }
@@ -47,34 +44,44 @@ public static class UmlProjectMarkdownExporter
         File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
     }
 
-    private static void AppendPackageMarkdown(StringBuilder sb, UmlPackage package, int depth)
+    private static void AppendDiagramContentsMarkdown(StringBuilder sb, UmlProject project, UmlDiagram diagram)
     {
-        var indent = new string(' ', depth * 2);
-        sb.AppendLine($"{indent}- **Package** {package.Name}");
-
-        foreach (var nested in package.NestedPackages)
-            AppendPackageMarkdown(sb, nested, depth + 1);
-
-        foreach (var classifier in package.Classifiers)
+        var elements = UmlDiagramCatalog.GetDiagramElements(project, diagram).ToList();
+        if (elements.Count > 0)
         {
-            sb.AppendLine($"{indent}  - **{classifier.NotationKeyword}** {classifier.Name}");
-            if (!string.IsNullOrWhiteSpace(classifier.Stereotype))
-                sb.AppendLine($"{indent}    - «{classifier.Stereotype}»");
-
-            foreach (var property in classifier.Properties)
-                sb.AppendLine($"{indent}    - `{property.SignatureText}`");
-
-            foreach (var operation in classifier.Operations)
-                sb.AppendLine($"{indent}    - `{operation.SignatureText}`");
-
-            if (classifier is UmlEnumeration enumeration)
+            sb.AppendLine("### 요소");
+            sb.AppendLine();
+            foreach (var (_, element) in elements)
             {
-                foreach (var literal in enumeration.Literals)
-                    sb.AppendLine($"{indent}    - `{literal}`");
+                sb.AppendLine($"- {UmlDiagramCatalog.GetElementTreeLabel(element)}");
+                if (element is UmlClassifier classifier)
+                    AppendClassifierDetailsMarkdown(sb, classifier);
             }
+
+            sb.AppendLine();
         }
 
-        foreach (var relationship in package.Relationships)
-            sb.AppendLine($"{indent}  - **{relationship.RelationshipKind}** {relationship.DisplayLabel}");
+        var relationships = UmlDiagramCatalog.GetDiagramRelationships(project, diagram).ToList();
+        if (relationships.Count > 0)
+        {
+            sb.AppendLine("### 관계");
+            sb.AppendLine();
+            foreach (var (diagramEdge, relationship) in relationships)
+                sb.AppendLine($"- {UmlDiagramCatalog.GetRelationshipTreeLabel(project, diagram, diagramEdge, relationship)}");
+            sb.AppendLine();
+        }
+    }
+
+    private static void AppendClassifierDetailsMarkdown(StringBuilder sb, UmlClassifier classifier)
+    {
+        foreach (var property in classifier.Properties)
+            sb.AppendLine($"  - `{property.SignatureText}`");
+        foreach (var operation in classifier.Operations)
+            sb.AppendLine($"  - `{operation.SignatureText}`");
+        if (classifier is UmlEnumeration enumeration)
+        {
+            foreach (var literal in enumeration.Literals)
+                sb.AppendLine($"  - `{literal}`");
+        }
     }
 }

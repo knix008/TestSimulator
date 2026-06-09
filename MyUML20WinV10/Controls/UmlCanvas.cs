@@ -29,6 +29,8 @@ public sealed class UmlCanvas : Control
     private PointF _createPreviewEnd;
     private Point _dragStartScreen;
     private bool _isDragging;
+    private bool _isDraggingMessage;
+    private float _messageYAtDragStart;
     private bool _isCreating;
     private bool _isPanning;
     private bool _spacePressed;
@@ -43,6 +45,8 @@ public sealed class UmlCanvas : Control
     private int _resizeHandleIndex = -1;
     private RectangleF _resizeBoundsAtStart;
     private float _relationshipAnchorY;
+    private bool _isDraggingBend;
+    private int _bendDragVertexIndex = -1;
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
@@ -57,13 +61,7 @@ public sealed class UmlCanvas : Control
         get => _project;
         set
         {
-            _project = value;
-            _selectedNode = null;
-            _selectedEdge = null;
-            _hoverNode = null;
-            _hoverEdge = null;
-            _pendingSourceNode = null;
-            ResetView();
+            AssignProject(value);
             ProjectChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -101,10 +99,7 @@ public sealed class UmlCanvas : Control
             }
 
             if (_selectedEdge is not null)
-            {
-                var relationship = _project.FindRelationship(_selectedEdge.ModelElementId);
-                return relationship ?? (object)_selectedEdge;
-            }
+                return _selectedEdge;
 
             return null;
         }
@@ -138,7 +133,18 @@ public sealed class UmlCanvas : Control
         UpdateCursor();
     }
 
-    public void LoadProject(UmlProject project) => Project = project;
+    public void LoadProject(UmlProject project) => AssignProject(project);
+
+    private void AssignProject(UmlProject project)
+    {
+        _project = project;
+        _selectedNode = null;
+        _selectedEdge = null;
+        _hoverNode = null;
+        _hoverEdge = null;
+        _pendingSourceNode = null;
+        ResetView();
+    }
 
     public void SetActiveDiagram(UmlDiagram diagram)
     {
@@ -219,6 +225,10 @@ public sealed class UmlCanvas : Control
                 newElement = new UmlUseCase { Name = uc.Name + " 복사" };
                 _project.RootPackage.AddUseCase((UmlUseCase)newElement);
                 break;
+            case UmlSystemBoundary boundary:
+                newElement = new UmlSystemBoundary { Name = boundary.Name + " 복사" };
+                _project.RootPackage.AddSystemBoundary((UmlSystemBoundary)newElement);
+                break;
             case UmlNote note:
                 newElement = new UmlNote { Name = note.Name, Body = note.Body };
                 _project.RootPackage.AddNote((UmlNote)newElement);
@@ -246,7 +256,10 @@ public sealed class UmlCanvas : Control
             Height = _selectedNode.Height,
             ShowCompartments = _selectedNode.ShowCompartments,
         };
-        ActiveDiagram.Nodes.Add(newNode);
+        if (UmlNodeSilhouette.IsContainerPresentation(newNode.Presentation))
+            ActiveDiagram.Nodes.Insert(0, newNode);
+        else
+            ActiveDiagram.Nodes.Add(newNode);
         Select(newNode, null);
         NotifyChanged();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
@@ -316,8 +329,7 @@ public sealed class UmlCanvas : Control
         if (e.Button == MouseButtons.Right)
         {
             var rpt = ScreenToCanvas(e.Location);
-            var rn = HitTestNode(rpt);
-            var re = rn is null ? HitTestEdge(rpt) : null;
+            HitTestDiagram(rpt, out var rn, out var re);
             if (rn is not null || re is not null)
                 Select(rn, re);
             return;
@@ -340,8 +352,7 @@ public sealed class UmlCanvas : Control
             return;
         }
 
-        var hitNode = HitTestNode(canvasPoint);
-        var hitEdge = hitNode is null ? HitTestEdge(canvasPoint) : null;
+        HitTestDiagram(canvasPoint, out var hitNode, out var hitEdge);
 
         switch (_toolMode)
         {
@@ -353,6 +364,8 @@ public sealed class UmlCanvas : Control
                     {
                         _isResizing = true;
                         _resizeHandleIndex = hi;
+                        SyncCircleNodeBounds(_selectedNode);
+                        SyncActorNodeBounds(_selectedNode);
                         _resizeBoundsAtStart = _selectedNode.Bounds;
                         Capture = true;
                         break;
@@ -366,7 +379,13 @@ public sealed class UmlCanvas : Control
                     _modelChangedDuringDrag = false;
                     Capture = true;
                 }
-                else if (_selectedEdge is not null)
+                else if (_selectedEdge is not null && TryBeginBendDrag(canvasPoint))
+                {
+                    _isDraggingBend = true;
+                    _modelChangedDuringDrag = false;
+                    Capture = true;
+                }
+                else if (_selectedEdge is not null && TryBeginSequenceMessageDrag())
                 {
                     Capture = true;
                 }
@@ -382,6 +401,7 @@ public sealed class UmlCanvas : Control
             case UmlToolMode.CreatePackage:
             case UmlToolMode.CreateActor:
             case UmlToolMode.CreateUseCase:
+            case UmlToolMode.CreateSystemBoundary:
             case UmlToolMode.CreateNote:
             case UmlToolMode.CreateState:
             case UmlToolMode.CreateInitialState:
@@ -394,6 +414,7 @@ public sealed class UmlCanvas : Control
             case UmlToolMode.CreateFork:
             case UmlToolMode.CreateJoin:
             case UmlToolMode.CreateLifeline:
+            case UmlToolMode.CreateLoopFragment:
                 if (hitNode is not null)
                 {
                     Select(hitNode, null);
@@ -433,6 +454,7 @@ public sealed class UmlCanvas : Control
             case UmlToolMode.CreateDependency:
             case UmlToolMode.CreateInclude:
             case UmlToolMode.CreateExtend:
+            case UmlToolMode.CreateNoteLink:
             case UmlToolMode.CreateMessage:
             case UmlToolMode.CreateAsyncMessage:
             case UmlToolMode.CreateReturnMessage:
@@ -456,18 +478,20 @@ public sealed class UmlCanvas : Control
                     _relationshipAnchorY = canvasPoint.Y;
                     Select(hitNode, null);
                 }
-                else if (_pendingSourceNode.Id != hitNode.Id)
-                {
-                    if (ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram
-                        && UmlToolModeHelper.IsSequenceMessageTool(_toolMode)
-                        && !UmlSequenceLayout.IsLifeline(_project, hitNode))
-                        break;
-
-                    CreateRelationship(_pendingSourceNode, hitNode);
-                    _pendingSourceNode = null;
-                }
                 else
                 {
+                    if (ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram
+                        && UmlToolModeHelper.IsSequenceMessageTool(_toolMode))
+                    {
+                        if (!UmlSequenceLayout.IsLifeline(_project, hitNode))
+                            break;
+
+                        CreateRelationship(_pendingSourceNode, hitNode, canvasPoint.Y);
+                        _pendingSourceNode = null;
+                        break;
+                    }
+
+                    CreateRelationship(_pendingSourceNode, hitNode, canvasPoint.Y);
                     _pendingSourceNode = null;
                 }
                 break;
@@ -505,6 +529,18 @@ public sealed class UmlCanvas : Control
             return;
         }
 
+        if (_isDraggingMessage && _selectedEdge is not null)
+        {
+            ApplySequenceMessageDrag(canvasPoint);
+            return;
+        }
+
+        if (_isDraggingBend && _selectedEdge is not null)
+        {
+            ApplyBendDrag(canvasPoint);
+            return;
+        }
+
         if (_isDragging && _dragNode is not null)
         {
             var dx = canvasPoint.X - _dragStartCanvas.X;
@@ -514,6 +550,7 @@ public sealed class UmlCanvas : Control
                 _dragNode.X += dx;
                 _dragNode.Y += dy;
                 _dragStartCanvas = canvasPoint;
+                RefreshDiagramEdgeRouting();
                 _modelChangedDuringDrag = true;
                 UpdateScrollBars();
                 Invalidate();
@@ -531,7 +568,7 @@ public sealed class UmlCanvas : Control
     }
 
     private bool ShouldRepaintPointerPreview() =>
-        _pointerOnCanvas && !_isPanning && !_isDragging && !_isCreating && !_isResizing &&
+        _pointerOnCanvas && !_isPanning && !_isDragging && !_isDraggingBend && !_isDraggingMessage && !_isCreating && !_isResizing &&
         (UmlToolModeHelper.IsNodeCreateTool(_toolMode) || UmlToolModeHelper.IsRelationshipTool(_toolMode));
 
     protected override void OnMouseEnter(EventArgs e)
@@ -578,7 +615,7 @@ public sealed class UmlCanvas : Control
     {
         base.OnMouseUp(e);
 
-        if (e.Button == MouseButtons.Right && !_isPanning && !_isDragging && !_isCreating && !_isResizing)
+        if (e.Button == MouseButtons.Right && !_isPanning && !_isDragging && !_isDraggingBend && !_isDraggingMessage && !_isCreating && !_isResizing)
         {
             ShowContextMenu(e.Location);
             return;
@@ -596,6 +633,10 @@ public sealed class UmlCanvas : Control
         {
             var rect = NormalizeRect(_dragStartCanvas, ScreenToCanvas(e.Location));
             rect = EnsureDrawableRect(rect);
+            if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
+                rect = UmlCircleNodeGeometry.SquareFromDrag(rect);
+            if (_toolMode == UmlToolMode.CreateActor)
+                rect = UmlActorGeometry.UniformFromDrag(rect);
             CreateNode(rect);
             _isCreating = false;
             Capture = false;
@@ -614,13 +655,45 @@ public sealed class UmlCanvas : Control
             return;
         }
 
-        if (_isDragging)
+        if (_isDraggingMessage)
         {
-            _isDragging = false;
-            _dragNode = null;
+            var draggedEdge = _selectedEdge;
+            _isDraggingMessage = false;
+            Capture = false;
+            if (_modelChangedDuringDrag && draggedEdge is not null)
+            {
+                var finalY = ScreenToCanvas(e.Location).Y;
+                UmlSequenceLayout.RepositionMessageAndReflow(_project, ActiveDiagram, draggedEdge, finalY);
+                NotifyChanged();
+            }
+
+            return;
+        }
+
+        if (_isDraggingBend)
+        {
+            _isDraggingBend = false;
+            _bendDragVertexIndex = -1;
             Capture = false;
             if (_modelChangedDuringDrag)
                 NotifyChanged();
+            return;
+        }
+
+        if (_isDragging)
+        {
+            var movedNode = _dragNode;
+            _isDragging = false;
+            _dragNode = null;
+            Capture = false;
+            if (_modelChangedDuringDrag && movedNode is not null)
+            {
+                RefreshDiagramEdgeRouting();
+                NotifyChanged();
+            }
+            else if (_modelChangedDuringDrag)
+                NotifyChanged();
+
             return;
         }
 
@@ -688,6 +761,9 @@ public sealed class UmlCanvas : Control
     {
         _isCreating = false;
         _isDragging = false;
+        _isDraggingBend = false;
+        _bendDragVertexIndex = -1;
+        _isDraggingMessage = false;
         _isPanning = false;
         _isResizing = false;
         _resizeHandleIndex = -1;
@@ -699,33 +775,36 @@ public sealed class UmlCanvas : Control
 
     private void UpdateHover(PointF canvasPoint)
     {
-        var hoverNode = HitTestNode(canvasPoint);
-        var hoverEdge = hoverNode is null ? HitTestEdge(canvasPoint) : null;
-        if (_hoverNode == hoverNode && _hoverEdge == hoverEdge)
-            return;
-
+        HitTestDiagram(canvasPoint, out var hoverNode, out var hoverEdge);
+        var hoverChanged = _hoverNode != hoverNode || _hoverEdge != hoverEdge;
         _hoverNode = hoverNode;
         _hoverEdge = hoverEdge;
-        UpdateCursor();
-        Invalidate();
+
+        if (_toolMode == UmlToolMode.Select)
+            UpdateCursor();
+
+        if (hoverChanged)
+            Invalidate();
     }
 
     private bool TryEditAt(PointF canvasPoint)
     {
-        var hitNode = HitTestNode(canvasPoint) ?? _selectedNode;
-        if (hitNode is not null)
-        {
-            Select(hitNode, null);
-            var element = _project.FindElement(hitNode.ModelElementId);
-            return element is not null && TryEditElement(element);
-        }
+        HitTestDiagram(canvasPoint, out var hitNode, out var hitEdge);
+        hitNode ??= _selectedNode;
+        hitEdge ??= _selectedEdge;
 
-        var hitEdge = HitTestEdge(canvasPoint) ?? _selectedEdge;
         if (hitEdge is not null)
         {
             Select(null, hitEdge);
             var relationship = _project.FindRelationship(hitEdge.ModelElementId);
             return relationship is not null && TryEditRelationship(relationship);
+        }
+
+        if (hitNode is not null)
+        {
+            Select(hitNode, null);
+            var element = _project.FindElement(hitNode.ModelElementId);
+            return element is not null && TryEditElement(element);
         }
 
         return false;
@@ -785,6 +864,8 @@ public sealed class UmlCanvas : Control
     private void DrawCreatePreview(Graphics g)
     {
         var rect = EnsureDrawableRect(NormalizeRect(_dragStartCanvas, _createPreviewEnd));
+        if (_toolMode == UmlToolMode.CreateLifeline)
+            rect = NormalizeLifelineCreateRect(rect);
         DrawPlacementPreview(g, rect);
     }
 
@@ -809,17 +890,19 @@ public sealed class UmlCanvas : Control
 
     private void DrawPlacementPreview(Graphics g, RectangleF rect)
     {
-        UmlNotationPreview.DrawGhost(g, _toolMode, rect);
+        if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
+            rect = UmlCircleNodeGeometry.SquareFromDrag(rect);
+        if (_toolMode == UmlToolMode.CreateActor)
+            rect = UmlActorGeometry.UniformFromDrag(rect);
 
-        using var pen = new Pen(Color.FromArgb(220, 79, 70, 229), 2f / _zoom)
-        {
-            DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
-        };
-        g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        UmlNotationPreview.DrawGhost(g, _toolMode, rect);
     }
 
     private RectangleF EnsureDrawableRect(RectangleF rect)
     {
+        if (_toolMode == UmlToolMode.CreateLifeline)
+            return NormalizeLifelineCreateRect(rect);
+
         const float minScreen = 6f;
         var screenW = Math.Abs(rect.Width) * _zoom;
         var screenH = Math.Abs(rect.Height) * _zoom;
@@ -831,10 +914,26 @@ public sealed class UmlCanvas : Control
         return new RectangleF(rect.X, rect.Y, defaults.Width, defaults.Height);
     }
 
+    private RectangleF NormalizeLifelineCreateRect(RectangleF rect)
+    {
+        var defaults = GetDefaultSize(UmlToolMode.CreateLifeline);
+        const float minWidth = 60f;
+        const float minScreen = 6f;
+
+        var width = Math.Abs(rect.Width);
+        if (width * _zoom < minScreen)
+            width = defaults.Width;
+        else
+            width = Math.Max(minWidth, width);
+
+        return new RectangleF(rect.X, rect.Y, width, defaults.Height);
+    }
+
     private static SizeF GetDefaultSize(UmlToolMode mode) => mode switch
     {
-        UmlToolMode.CreateActor => new SizeF(72, 96),
+        UmlToolMode.CreateActor => new SizeF(72, UmlActorGeometry.GetMinimumNodeHeight(72, "Actor")),
         UmlToolMode.CreateUseCase => new SizeF(140, 72),
+        UmlToolMode.CreateSystemBoundary => new SizeF(400, 280),
         UmlToolMode.CreateNote => new SizeF(120, 72),
         UmlToolMode.CreatePackage => new SizeF(200, 140),
         UmlToolMode.CreateState => new SizeF(140, 72),
@@ -848,6 +947,7 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateFork => new SizeF(160, 20),
         UmlToolMode.CreateJoin => new SizeF(160, 20),
         UmlToolMode.CreateLifeline => new SizeF(120, 240),
+        UmlToolMode.CreateLoopFragment => new SizeF(280, 160),
         UmlToolMode.CreateActivation => new SizeF(24, 60),
         UmlToolMode.CreateInterface => new SizeF(160, 100),
         UmlToolMode.CreateEnumeration => new SizeF(140, 90),
@@ -885,6 +985,11 @@ public sealed class UmlCanvas : Control
                 element = new UmlUseCase();
                 presentation = UmlNodePresentation.UseCase;
                 _project.RootPackage.AddUseCase((UmlUseCase)element);
+                break;
+            case UmlToolMode.CreateSystemBoundary:
+                element = new UmlSystemBoundary();
+                presentation = UmlNodePresentation.SystemBoundary;
+                _project.RootPackage.AddSystemBoundary((UmlSystemBoundary)element);
                 break;
             case UmlToolMode.CreateNote:
                 element = new UmlNote();
@@ -946,6 +1051,17 @@ public sealed class UmlCanvas : Control
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
+            case UmlToolMode.CreateLoopFragment:
+                element = new UmlBehaviorNode
+                {
+                    Name = "loop",
+                    Kind = UmlBehaviorNodeKind.CombinedFragment,
+                    CombinedFragmentKind = UmlCombinedFragmentKind.Loop,
+                    Guard = string.Empty,
+                };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
             case UmlToolMode.CreateActivation:
                 element = new UmlBehaviorNode { Name = "Activation", Kind = UmlBehaviorNodeKind.Activation };
                 presentation = UmlNodePresentation.Behavior;
@@ -958,13 +1074,29 @@ public sealed class UmlCanvas : Control
                 break;
         }
 
-        // Lifeline: always use fixed default width; height is max(240, drag height).
+        // Lifeline: fixed default height; width follows horizontal drag.
+        // Circle nodes (initial/final): always square.
         var nodeWidth = _toolMode == UmlToolMode.CreateLifeline
-            ? GetDefaultSize(UmlToolMode.CreateLifeline).Width
+            ? rect.Width
             : Math.Max(24, rect.Width);
         var nodeHeight = _toolMode == UmlToolMode.CreateLifeline
-            ? Math.Max(GetDefaultSize(UmlToolMode.CreateLifeline).Height, rect.Height)
+            ? GetDefaultSize(UmlToolMode.CreateLifeline).Height
             : Math.Max(24, rect.Height);
+
+        if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
+        {
+            var size = Math.Max(Math.Max(nodeWidth, nodeHeight), UmlCircleNodeGeometry.MinDiameter);
+            nodeWidth = size;
+            nodeHeight = size;
+        }
+
+        if (_toolMode == UmlToolMode.CreateActor)
+        {
+            var uniform = UmlActorGeometry.NodeBoundsFromDrag(new RectangleF(rect.X, rect.Y, nodeWidth, nodeHeight));
+            rect = uniform;
+            nodeWidth = uniform.Width;
+            nodeHeight = uniform.Height;
+        }
 
         var node = new UmlDiagramNode
         {
@@ -975,12 +1107,115 @@ public sealed class UmlCanvas : Control
             Width = nodeWidth,
             Height = nodeHeight,
         };
-        ActiveDiagram.Nodes.Add(node);
+        if (UmlNodeSilhouette.IsContainerPresentation(presentation))
+            ActiveDiagram.Nodes.Insert(0, node);
+        else
+            ActiveDiagram.Nodes.Add(node);
         Select(node, null);
     }
 
-    private void CreateRelationship(UmlDiagramNode sourceNode, UmlDiagramNode targetNode)
+    private bool TryGetBendHandleCursor(PointF canvasPoint, out Cursor cursor)
     {
+        cursor = Cursors.Default;
+        if (_selectedEdge is null)
+            return false;
+
+        var sourceNode = ActiveDiagram.FindNode(_selectedEdge.SourceNodeId);
+        var targetNode = ActiveDiagram.FindNode(_selectedEdge.TargetNodeId);
+        if (sourceNode is null || targetNode is null || UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode))
+            return false;
+
+        if (!UmlDiagramRenderer.TryGetEdgePath(_project, ActiveDiagram, _selectedEdge, out var pathPoints, out _))
+            return false;
+
+        var vertexIndex = UmlEdgeRouting.HitTestBendHandle(canvasPoint, pathPoints, _selectedEdge.RoutingKind, _zoom);
+        if (vertexIndex is null)
+            return false;
+
+        UmlEdgeRouting.GetBendHandleDragAxes(pathPoints, vertexIndex.Value, out var horizontal, out var vertical);
+        cursor = horizontal && vertical
+            ? Cursors.SizeAll
+            : horizontal
+                ? Cursors.SizeWE
+                : Cursors.SizeNS;
+        return true;
+    }
+
+    private bool TryBeginBendDrag(PointF canvasPoint)
+    {
+        if (_selectedEdge is null
+            || ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram
+            || _selectedEdge.RoutingKind != UmlEdgeRoutingKind.Bent)
+            return false;
+
+        var sourceNode = ActiveDiagram.FindNode(_selectedEdge.SourceNodeId);
+        var targetNode = ActiveDiagram.FindNode(_selectedEdge.TargetNodeId);
+        if (sourceNode is null || targetNode is null)
+            return false;
+
+        if (UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode))
+            return false;
+
+        if (!UmlDiagramRenderer.TryGetEdgePath(_project, ActiveDiagram, _selectedEdge, out var pathPoints, out _))
+            return false;
+
+        var vertexIndex = UmlEdgeRouting.HitTestBendHandle(canvasPoint, pathPoints, _selectedEdge.RoutingKind, _zoom);
+        if (vertexIndex is null)
+            return false;
+
+        _bendDragVertexIndex = vertexIndex.Value;
+        return true;
+    }
+
+    private void ApplyBendDrag(PointF canvasPoint)
+    {
+        if (_selectedEdge is null || _bendDragVertexIndex < 0)
+            return;
+
+        if (!UmlDiagramRenderer.TryGetEdgePath(_project, ActiveDiagram, _selectedEdge, out var pathPoints, out _))
+            return;
+
+        UmlEdgeRouting.SetBendVertex(_selectedEdge, _bendDragVertexIndex, canvasPoint, pathPoints);
+        _modelChangedDuringDrag = true;
+        Invalidate();
+    }
+
+    private bool TryBeginSequenceMessageDrag()
+    {
+        if (_selectedEdge is null
+            || ActiveDiagram.Kind != UmlDiagramKind.SequenceDiagram
+            || !UmlSequenceLayout.IsSequenceMessage(_project, ActiveDiagram, _selectedEdge))
+            return false;
+
+        _isDraggingMessage = true;
+        _messageYAtDragStart = UmlSequenceLayout.GetMessageY(ActiveDiagram, _selectedEdge);
+        _modelChangedDuringDrag = false;
+        return true;
+    }
+
+    private void ApplySequenceMessageDrag(PointF canvasPoint)
+    {
+        if (_selectedEdge is null)
+            return;
+
+        var preferredY = _messageYAtDragStart + (canvasPoint.Y - _dragStartCanvas.Y);
+        UmlSequenceLayout.RepositionMessageAndReflow(_project, ActiveDiagram, _selectedEdge, preferredY);
+        _modelChangedDuringDrag = true;
+        UpdateScrollBars();
+        Invalidate();
+    }
+
+    private void CreateRelationship(UmlDiagramNode sourceNode, UmlDiagramNode targetNode, float? sequenceMessageY = null)
+    {
+        if (_toolMode == UmlToolMode.CreateNoteLink)
+        {
+            if (!UmlDiagramCatalog.TryOrientNoteLink(sourceNode, targetNode, out var noteNode, out var annotatedNode))
+                return;
+
+            sourceNode = noteNode;
+            targetNode = annotatedNode;
+        }
+
         UmlRelationship relationship = _toolMode switch
         {
             UmlToolMode.CreateGeneralization => new UmlGeneralization
@@ -1004,6 +1239,11 @@ public sealed class UmlCanvas : Control
                 TargetClassifierId = targetNode.ModelElementId,
             },
             UmlToolMode.CreateExtend => new UmlExtend
+            {
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreateNoteLink => new UmlNoteLink
             {
                 SourceClassifierId = sourceNode.ModelElementId,
                 TargetClassifierId = targetNode.ModelElementId,
@@ -1066,16 +1306,19 @@ public sealed class UmlCanvas : Control
             ModelElementId = relationship.Id,
             SourceNodeId = sourceNode.Id,
             TargetNodeId = targetNode.Id,
+            RoutingKind = UmlEdgeRoutingKind.Straight,
         };
+
+        if (ActiveDiagram.Kind != UmlDiagramKind.SequenceDiagram)
+            UmlEdgeRouting.ApplyAutoRouting(_project, ActiveDiagram, edge);
+
+        ActiveDiagram.Edges.Add(edge);
 
         if (ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram && UmlToolModeHelper.IsSequenceMessageTool(_toolMode))
         {
-            var messageY = UmlSequenceLayout.SuggestNextMessageY(_project, ActiveDiagram, _relationshipAnchorY);
-            edge.SequenceY = messageY;
-            UmlSequenceLayout.EnsureLifelinesFitMessage(_project, ActiveDiagram, edge);
+            var preferredY = sequenceMessageY ?? _relationshipAnchorY;
+            UmlSequenceLayout.InsertMessageAndReflow(_project, ActiveDiagram, edge, preferredY);
         }
-
-        ActiveDiagram.Edges.Add(edge);
         Select(null, edge);
         NotifyChanged();
     }
@@ -1095,21 +1338,40 @@ public sealed class UmlCanvas : Control
             SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    private void HitTestDiagram(PointF location, out UmlDiagramNode? node, out UmlDiagramEdge? edge)
+    {
+        if (ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram)
+        {
+            edge = HitTestEdge(location);
+            node = edge is null ? HitTestNode(location) : null;
+            return;
+        }
+
+        node = HitTestNode(location);
+        edge = node is null ? HitTestEdge(location) : null;
+    }
+
     private UmlDiagramNode? HitTestNode(PointF location)
     {
         UmlDiagramLayout.Prepare(_project, ActiveDiagram);
+        UmlDiagramNode? containerCandidate = null;
+
         for (var i = ActiveDiagram.Nodes.Count - 1; i >= 0; i--)
         {
             var node = ActiveDiagram.Nodes[i];
-            var bounds = node.Bounds;
-            var minW = Math.Max(bounds.Width, MinHitSize / _zoom);
-            var minH = Math.Max(bounds.Height, MinHitSize / _zoom);
-            var hit = new RectangleF(bounds.X, bounds.Y, minW, minH);
-            if (hit.Contains(location))
-                return node;
+            if (!UmlNodeSilhouette.HitTestNode(_project, node, location, _zoom))
+                continue;
+
+            if (UmlNodeSilhouette.IsContainerPresentation(node.Presentation))
+            {
+                containerCandidate ??= node;
+                continue;
+            }
+
+            return node;
         }
 
-        return null;
+        return containerCandidate;
     }
 
     private UmlDiagramEdge? HitTestEdge(PointF location)
@@ -1136,14 +1398,10 @@ public sealed class UmlCanvas : Control
 
         foreach (var edge in ActiveDiagram.Edges)
         {
-            var source = ActiveDiagram.FindNode(edge.SourceNodeId);
-            var target = ActiveDiagram.FindNode(edge.TargetNodeId);
-            if (source is null || target is null)
+            if (!UmlDiagramRenderer.TryGetEdgePath(_project, ActiveDiagram, edge, out var pathPoints, out _))
                 continue;
 
-            var start = new PointF(source.Bounds.Left + source.Bounds.Width / 2f, source.Bounds.Top + source.Bounds.Height / 2f);
-            var end = new PointF(target.Bounds.Left + target.Bounds.Width / 2f, target.Bounds.Top + target.Bounds.Height / 2f);
-            if (DistanceToSegment(location, start, end) <= threshold)
+            if (UmlEdgeRouting.DistanceToPath(pathPoints, edge.RoutingKind, location) <= threshold)
                 return edge;
         }
 
@@ -1343,6 +1601,28 @@ public sealed class UmlCanvas : Control
 
     private void UpdateCursor()
     {
+        if (_isDraggingBend && _selectedEdge is not null)
+        {
+            if (UmlDiagramRenderer.TryGetEdgePath(_project, ActiveDiagram, _selectedEdge, out var bendPath, out _))
+            {
+                UmlEdgeRouting.GetBendHandleDragAxes(bendPath, _bendDragVertexIndex, out var horizontal, out var vertical);
+                Cursor = horizontal && vertical
+                    ? Cursors.SizeAll
+                    : horizontal
+                        ? Cursors.SizeWE
+                        : Cursors.SizeNS;
+            }
+            else
+                Cursor = Cursors.SizeAll;
+            return;
+        }
+
+        if (_isDraggingMessage)
+        {
+            Cursor = Cursors.SizeNS;
+            return;
+        }
+
         if (_isResizing)
         {
             Cursor = GetResizeCursor(_resizeHandleIndex);
@@ -1365,6 +1645,24 @@ public sealed class UmlCanvas : Control
                     Cursor = GetResizeCursor(hi);
                     return;
                 }
+            }
+
+            if (_selectedEdge is not null
+                && _pointerOnCanvas
+                && _selectedEdge.RoutingKind == UmlEdgeRoutingKind.Bent
+                && ActiveDiagram.Kind != UmlDiagramKind.SequenceDiagram
+                && TryGetBendHandleCursor(_pointerCanvas, out var bendCursor))
+            {
+                Cursor = bendCursor;
+                return;
+            }
+
+            if (_hoverEdge is not null
+                && ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram
+                && UmlSequenceLayout.IsSequenceMessage(_project, ActiveDiagram, _hoverEdge))
+            {
+                Cursor = Cursors.SizeNS;
+                return;
             }
 
             if (_hoverNode is not null || _hoverEdge is not null)
@@ -1415,30 +1713,10 @@ public sealed class UmlCanvas : Control
 
     private int HitTestResizeHandle(PointF location)
     {
-        if (_selectedNode is null) return -1;
-        var rect = _selectedNode.Bounds;
-        const float hitSize = 12f;
-        var half = hitSize / 2f;
-        PointF[] pts =
-        [
-            new(rect.Left, rect.Top),
-            new(rect.Left + rect.Width / 2f, rect.Top),
-            new(rect.Right, rect.Top),
-            new(rect.Right, rect.Top + rect.Height / 2f),
-            new(rect.Right, rect.Bottom),
-            new(rect.Left + rect.Width / 2f, rect.Bottom),
-            new(rect.Left, rect.Bottom),
-            new(rect.Left, rect.Top + rect.Height / 2f),
-        ];
+        if (_selectedNode is null)
+            return -1;
 
-        for (var i = 0; i < pts.Length; i++)
-        {
-            var hr = new RectangleF(pts[i].X - half, pts[i].Y - half, hitSize, hitSize);
-            if (hr.Contains(location))
-                return i;
-        }
-
-        return -1;
+        return UmlNodeSilhouette.HitTestResizeHandle(_project, _selectedNode, location);
     }
 
     private static Cursor GetResizeCursor(int idx) => idx switch
@@ -1452,6 +1730,19 @@ public sealed class UmlCanvas : Control
     private void ApplyResize(PointF p)
     {
         if (_selectedNode is null) return;
+
+        if (UmlCircleNodeGeometry.IsCircleNode(_project, _selectedNode))
+        {
+            ApplyCircleResize(p);
+            return;
+        }
+
+        if (UmlActorGeometry.IsActorPresentation(_selectedNode.Presentation))
+        {
+            ApplyActorResize(p);
+            return;
+        }
+
         const float minW = 60f;
         const float minH = 40f;
         var o = _resizeBoundsAtStart;
@@ -1485,23 +1776,154 @@ public sealed class UmlCanvas : Control
         _selectedNode.Y = top;
         _selectedNode.Width = right - left;
         _selectedNode.Height = bottom - top;
+        RefreshDiagramEdgeRouting();
+    }
+
+    private void RefreshDiagramEdgeRouting() =>
+        UmlEdgeRouting.RefreshAutoRouting(_project, ActiveDiagram);
+
+    private void SyncCircleNodeBounds(UmlDiagramNode node)
+    {
+        if (!UmlCircleNodeGeometry.IsCircleNode(_project, node))
+            return;
+
+        var square = UmlCircleNodeGeometry.GetCircleBounds(node.Bounds);
+        node.X = square.X;
+        node.Y = square.Y;
+        node.Width = square.Width;
+        node.Height = square.Height;
+    }
+
+    private void SyncActorNodeBounds(UmlDiagramNode node)
+    {
+        if (!UmlActorGeometry.IsActorPresentation(node.Presentation))
+            return;
+
+        var name = (_project.FindElement(node.ModelElementId) as UmlNamedElement)?.Name;
+        var normalized = UmlActorGeometry.NormalizeNodeBounds(node.Bounds, name);
+        node.X = normalized.X;
+        node.Y = normalized.Y;
+        node.Width = normalized.Width;
+        node.Height = normalized.Height;
+    }
+
+    private void ApplyActorResize(PointF p)
+    {
+        if (_selectedNode is null)
+            return;
+
+        var dragRect = GetResizeDragRect(_resizeBoundsAtStart, p, _resizeHandleIndex);
+        var name = (_project.FindElement(_selectedNode.ModelElementId) as UmlNamedElement)?.Name;
+        var uniform = UmlActorGeometry.NodeBoundsFromDrag(dragRect, name);
+        _selectedNode.X = uniform.X;
+        _selectedNode.Y = uniform.Y;
+        _selectedNode.Width = uniform.Width;
+        _selectedNode.Height = uniform.Height;
+        RefreshDiagramEdgeRouting();
+    }
+
+    private static RectangleF GetResizeDragRect(RectangleF bounds, PointF p, int handleIndex)
+    {
+        var left = bounds.Left;
+        var top = bounds.Top;
+        var right = bounds.Right;
+        var bottom = bounds.Bottom;
+
+        switch (handleIndex)
+        {
+            case 0: left = p.X; top = p.Y; break;
+            case 1: top = p.Y; break;
+            case 2: right = p.X; top = p.Y; break;
+            case 3: right = p.X; break;
+            case 4: right = p.X; bottom = p.Y; break;
+            case 5: bottom = p.Y; break;
+            case 6: left = p.X; bottom = p.Y; break;
+            case 7: left = p.X; break;
+        }
+
+        return RectangleF.FromLTRB(Math.Min(left, right), Math.Min(top, bottom), Math.Max(left, right), Math.Max(top, bottom));
+    }
+
+    private void ApplyCircleResize(PointF p)
+    {
+        if (_selectedNode is null)
+            return;
+
+        const float minSize = UmlCircleNodeGeometry.MinDiameter;
+        var o = _resizeBoundsAtStart;
+        float left;
+        float top;
+        float size;
+
+        switch (_resizeHandleIndex)
+        {
+            case 0:
+                size = Math.Max(Math.Max(o.Right - p.X, o.Bottom - p.Y), minSize);
+                left = o.Right - size;
+                top = o.Bottom - size;
+                break;
+            case 1:
+                size = Math.Max(o.Bottom - p.Y, minSize);
+                left = o.Left + (o.Width - size) / 2f;
+                top = o.Bottom - size;
+                break;
+            case 2:
+                size = Math.Max(Math.Max(p.X - o.Left, o.Bottom - p.Y), minSize);
+                left = o.Left;
+                top = o.Bottom - size;
+                break;
+            case 3:
+                size = Math.Max(p.X - o.Left, minSize);
+                left = o.Left;
+                top = o.Top + (o.Height - size) / 2f;
+                break;
+            case 4:
+                size = Math.Max(Math.Max(p.X - o.Left, p.Y - o.Top), minSize);
+                left = o.Left;
+                top = o.Top;
+                break;
+            case 5:
+                size = Math.Max(p.Y - o.Top, minSize);
+                left = o.Left + (o.Width - size) / 2f;
+                top = o.Top;
+                break;
+            case 6:
+                size = Math.Max(Math.Max(o.Right - p.X, p.Y - o.Top), minSize);
+                left = o.Right - size;
+                top = o.Top;
+                break;
+            case 7:
+                size = Math.Max(o.Right - p.X, minSize);
+                left = o.Right - size;
+                top = o.Top + (o.Height - size) / 2f;
+                break;
+            default:
+                return;
+        }
+
+        _selectedNode.X = left;
+        _selectedNode.Y = top;
+        _selectedNode.Width = size;
+        _selectedNode.Height = size;
+        RefreshDiagramEdgeRouting();
     }
 
     // ── Overlays ──────────────────────────────────────────────────────────
 
     private void DrawConnectableHighlight(Graphics g, UmlDiagramNode node)
     {
-        var b = node.Bounds;
         var color = _pendingSourceNode is not null
             ? Color.FromArgb(210, 20, 180, 70)
             : Color.FromArgb(160, 0, 140, 200);
         using var pen = new Pen(color, 2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
-        g.DrawRectangle(pen, b.X, b.Y, b.Width, b.Height);
+        UmlNodeSilhouette.DrawOutline(g, pen, _project, node);
     }
 
     private void DrawConnectionPreview(Graphics g)
     {
-        if (_pendingSourceNode is null) return;
+        var sourceNode = _pendingSourceNode;
+        if (sourceNode is null)
+            return;
 
         PointF src;
         PointF tgt;
@@ -1510,8 +1932,8 @@ public sealed class UmlCanvas : Control
         {
             if (_toolMode == UmlToolMode.CreateSelfMessage)
             {
-                var messageY = UmlSequenceLayout.SuggestNextMessageY(_project, ActiveDiagram, _pointerCanvas.Y);
-                var srcX = UmlSequenceLayout.GetLifelineCenterX(_pendingSourceNode.Bounds);
+                var messageY = UmlSequenceLayout.ResolveMessageY(_project, ActiveDiagram, _pointerCanvas.Y);
+                var srcX = UmlSequenceLayout.GetLifelineCenterX(sourceNode.Bounds);
                 var right = srcX + UmlSequenceLayout.SelfMessageLoopWidth;
                 var bottom = messageY + UmlSequenceLayout.SelfMessageLoopHeight;
                 src = new PointF(srcX, messageY);
@@ -1529,48 +1951,87 @@ public sealed class UmlCanvas : Control
                 return;
             }
 
-            var previewY = UmlSequenceLayout.SuggestNextMessageY(_project, ActiveDiagram, _pointerCanvas.Y);
-            var previewSrcX = UmlSequenceLayout.GetLifelineCenterX(_pendingSourceNode.Bounds);
-            var previewTgtX = _hoverNode is not null && _hoverNode != _pendingSourceNode
+            var previewY = UmlSequenceLayout.ResolveMessageY(_project, ActiveDiagram, _pointerCanvas.Y);
+            var previewSrcX = UmlSequenceLayout.GetLifelineCenterX(sourceNode.Bounds);
+            var previewTgtX = _hoverNode is not null && _hoverNode != sourceNode
                 ? UmlSequenceLayout.GetLifelineCenterX(_hoverNode.Bounds)
                 : _pointerCanvas.X;
             src = new PointF(previewSrcX, previewY);
             tgt = new PointF(previewTgtX, previewY);
-        }
-        else
-        {
-            src = GetNodeCenter(_pendingSourceNode);
-            tgt = _pointerCanvas;
+
+            using (var dashPen = new Pen(Color.FromArgb(200, 0, 140, 90), 2f / _zoom)
+            {
+                DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
+            })
+            {
+                g.DrawLine(dashPen, src, tgt);
+            }
+
+            DrawPreviewArrowHead(g, src, tgt);
+            DrawFloatingLabel(g, $"[{GetConnectionTypeLabel(_toolMode)}]", new PointF((src.X + tgt.X) / 2f, src.Y), 6f, -22f);
+            DrawConnectionPreviewChrome(g, sourceNode, src, tgt);
+            return;
         }
 
-        using var dashPen2 = new Pen(Color.FromArgb(200, 0, 140, 90), 2f / _zoom)
+        var targetNode = _hoverNode ?? sourceNode;
+        var targetBounds = targetNode?.Bounds
+            ?? new RectangleF(_pointerCanvas.X - 1f, _pointerCanvas.Y - 1f, 2f, 2f);
+        var previewRouting = new UmlDiagramEdge
         {
-            DashStyle = _toolMode == UmlToolMode.CreateReturnMessage
-                ? System.Drawing.Drawing2D.DashStyle.Dash
-                : System.Drawing.Drawing2D.DashStyle.Dash,
+            SourceNodeId = sourceNode.Id,
+            TargetNodeId = targetNode?.Id ?? sourceNode.Id,
         };
-        g.DrawLine(dashPen2, src, tgt);
-        DrawPreviewArrowHead(g, src, tgt);
+        if (targetNode is not null)
+            UmlEdgeRouting.ApplyAutoRouting(_project, ActiveDiagram, previewRouting);
 
-        var mid = new PointF((src.X + tgt.X) / 2f, (src.Y + tgt.Y) / 2f);
-        DrawFloatingLabel(g, $"[{GetConnectionTypeLabel(_toolMode)}]", mid, 6f, -22f);
-        DrawFloatingLabel(g, $"시작: {GetNodeName(_pendingSourceNode)}", src, 6f, -22f);
+        var previewPath = UmlDiagramRenderer.BuildPreviewPath(
+            _project,
+            previewRouting.RoutingKind,
+            sourceNode,
+            sourceNode.Bounds,
+            targetNode,
+            targetBounds,
+            previewRouting,
+            ActiveDiagram);
+        var flat = UmlEdgeRouting.FlattenForCrossingDetection(previewPath, previewRouting.RoutingKind);
+        src = flat[0];
+        tgt = flat[^1];
 
-        if (_hoverNode is not null && _hoverNode != _pendingSourceNode)
-            DrawFloatingLabel(g, $"종료: {GetNodeName(_hoverNode)}", tgt, 10f, 8f);
+        using (var dashPen = new Pen(Color.FromArgb(200, 0, 140, 90), 2f / _zoom)
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
+        })
+        {
+            if (flat.Length == 2)
+                g.DrawLine(dashPen, flat[0], flat[1]);
+            else
+                g.DrawLines(dashPen, flat);
+        }
+
+        if (_toolMode != UmlToolMode.CreateNoteLink)
+            DrawPreviewArrowHead(g, flat.Length >= 2 ? flat[^2] : src, tgt);
+        DrawFloatingLabel(g, $"[{GetConnectionTypeLabel(_toolMode)}]", UmlEdgeRouting.GetPathLabelPoint(previewPath, previewRouting.RoutingKind), 6f, -22f);
+        DrawConnectionPreviewChrome(g, sourceNode, src, tgt);
+    }
+
+    private void DrawConnectionPreviewChrome(Graphics g, UmlDiagramNode sourceNode, PointF src, PointF tgt)
+    {
+        DrawFloatingLabel(g, $"시작: {GetNodeName(sourceNode)}", src, 6f, -22f);
+
+        if (_hoverNode is not null)
+            DrawFloatingLabel(g, _hoverNode == sourceNode ? "종료: (자기 자신)" : $"종료: {GetNodeName(_hoverNode)}", tgt, 10f, 8f);
         else
             DrawFloatingLabel(g, "종료: ?", tgt, 10f, 8f);
 
-        var sb2 = _pendingSourceNode.Bounds;
         using var srcPen = new Pen(Color.FromArgb(200, 0, 110, 200), 2f);
-        g.DrawRectangle(srcPen, sb2.X, sb2.Y, sb2.Width, sb2.Height);
+        UmlNodeSilhouette.DrawOutline(g, srcPen, _project, sourceNode);
     }
 
     private static void DrawPreviewArrowHead(Graphics g, PointF from, PointF to)
     {
         var angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
-        const float len = 12f;
-        const float wing = 6f;
+        const float len = 14f;
+        const float wing = 10f;
         var p1 = new PointF(
             (float)(to.X - len * Math.Cos(angle) + wing * Math.Sin(angle)),
             (float)(to.Y - len * Math.Sin(angle) - wing * Math.Cos(angle)));
@@ -1626,6 +2087,7 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateComposition => "합성",
         UmlToolMode.CreateInclude => "포함",
         UmlToolMode.CreateExtend => "확장",
+        UmlToolMode.CreateNoteLink => "노트 연결",
         UmlToolMode.CreateMessage => "동기 메시지",
         UmlToolMode.CreateAsyncMessage => "비동기 메시지",
         UmlToolMode.CreateReturnMessage => "반환 메시지",
@@ -1641,8 +2103,7 @@ public sealed class UmlCanvas : Control
     private void ShowContextMenu(Point screenPoint)
     {
         var cp = ScreenToCanvas(screenPoint);
-        var hitNode = HitTestNode(cp);
-        var hitEdge = hitNode is null ? HitTestEdge(cp) : null;
+        HitTestDiagram(cp, out var hitNode, out var hitEdge);
 
         var menu = new ContextMenuStrip();
 
@@ -1723,6 +2184,20 @@ public sealed class UmlCanvas : Control
             });
         }
 
+        if (node.Presentation == UmlNodePresentation.Note)
+        {
+            menu.Items.Add(new ToolStripSeparator());
+            Add("개체에 연결...", UmlIcons.ForToolMode(UmlToolMode.CreateNoteLink), () =>
+            {
+                Select(node, null);
+                _pendingSourceNode = node;
+                _toolMode = UmlToolMode.CreateNoteLink;
+                ToolModeRequested?.Invoke(this, UmlToolMode.CreateNoteLink);
+                UpdateCursor();
+                Invalidate();
+            });
+        }
+
         menu.Items.Add(new ToolStripSeparator());
         Add("삭제", UmlIcons.Delete(), () => { Select(node, null); DeleteSelection(); });
 
@@ -1734,9 +2209,33 @@ public sealed class UmlCanvas : Control
         }
     }
 
+    private void SetEdgeRouting(UmlDiagramEdge edge, UmlEdgeRoutingKind kind)
+    {
+        edge.RoutingKind = kind;
+        if (kind == UmlEdgeRoutingKind.Straight)
+        {
+            edge.OrthoMidX = null;
+            edge.OrthoMidY = null;
+        }
+        else if (edge.OrthoMidX is null && edge.OrthoMidY is null)
+            UmlEdgeRouting.ApplyDefaultBendPosition(_project, ActiveDiagram, edge);
+
+        Invalidate();
+        NotifyChanged();
+    }
+
     private void BuildEdgeContextMenu(ContextMenuStrip menu, UmlDiagramEdge edge, PointF cp)
     {
         var rel = _project.FindRelationship(edge.ModelElementId);
+
+        if (ActiveDiagram.Kind != UmlDiagramKind.SequenceDiagram)
+        {
+            var routingMenu = new ToolStripMenuItem("연결 방식");
+            routingMenu.DropDownItems.Add("직선", null, (_, _) => SetEdgeRouting(edge, UmlEdgeRoutingKind.Straight));
+            routingMenu.DropDownItems.Add("꺾인선", null, (_, _) => SetEdgeRouting(edge, UmlEdgeRoutingKind.Bent));
+            menu.Items.Add(routingMenu);
+            menu.Items.Add(new ToolStripSeparator());
+        }
 
         Add("편집...", UmlIcons.Edit(), () =>
         {
@@ -1797,6 +2296,7 @@ public sealed class UmlCanvas : Control
             case UmlDiagramKind.UseCaseDiagram:
                 ActivateTool("Actor 추가", UmlIcons.NodeActor(), UmlToolMode.CreateActor);
                 ActivateTool("Use Case 추가", UmlIcons.NodeUseCase(), UmlToolMode.CreateUseCase);
+                ActivateTool("시스템 경계 추가", UmlIcons.NodeSystemBoundary(), UmlToolMode.CreateSystemBoundary);
                 menu.Items.Add(new ToolStripSeparator());
                 break;
 

@@ -1,0 +1,46 @@
+{
+  "templates": [
+    {
+      "id": "class-diagram",
+      "name": "Class Diagram",
+      "description": "Customer와 Order 클래스, 연관 관계 예제",
+      "diagramKind": "classDiagram",
+      "projectFile": "class-diagram.uml"
+    },
+    {
+      "id": "use-case-diagram",
+      "name": "Use Case Diagram",
+      "description": "Customer 액터와 Place Order, Make Payment 유스케이스 예제",
+      "diagramKind": "useCaseDiagram",
+      "projectFile": "use-case-diagram.uml"
+    },
+    {
+      "id": "sequence-diagram",
+      "name": "Sequence Diagram",
+      "description": "Customer, OrderService, PaymentGateway 간 메시지 흐름 예제",
+      "diagramKind": "sequenceDiagram",
+      "projectFile": "sequence-diagram.uml"
+    },
+    {
+      "id": "state-machine-diagram",
+      "name": "State Machine Diagram",
+      "description": "Order 상태(Placed, Paid, Shipped, Delivered) 전이 예제",
+      "diagramKind": "stateMachineDiagram",
+      "projectFile": "state-machine-diagram.uml"
+    },
+    {
+      "id": "activity-diagram",
+      "name": "Activity Diagram",
+      "description": "주문 처리 액티비티(분기, 병합, 액션) 예제",
+      "diagramKind": "activityDiagram",
+      "projectFile": "activity-diagram.uml"
+    },
+    {
+      "id": "full-sample",
+      "name": "전체 샘플",
+      "description": "지원하는 모든 다이어그램 종류를 포함한 통합 예제",
+      "diagramKind": "classDiagram",
+      "projectFile": "full-sample.uml"
+    }
+  ]
+}

@@ -1,7 +1,9 @@
 using MyUML20WinV10.Controls;
 using MyUML20WinV10.Export;
 using MyUML20WinV10.Models;
+using MyUML20WinV10.Rendering;
 using MyUML20WinV10.Serialization;
+using MyUML20WinV10.Templates;
 
 namespace MyUML20WinV10;
 
@@ -13,6 +15,7 @@ public partial class MainForm : Form
     private bool _suppressPropertySync;
     private UmlToolMode _currentToolMode = UmlToolMode.Select;
     private string _lastUsedDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    private ToolTip? _featureToolTip;
 
 
     public MainForm() : this(null)
@@ -62,8 +65,8 @@ public partial class MainForm : Form
         var rightHeight = _splitRight.ClientSize.Height;
         if (rightHeight > _splitRight.Panel1MinSize + _splitRight.Panel2MinSize + _splitRight.SplitterWidth)
         {
-            // 탐색기(위)는 전체의 45%, 속성(아래)는 나머지
-            var explorerHeight = Math.Max(_splitRight.Panel1MinSize, (int)(rightHeight * 0.45));
+            // 탐색기(위)는 전체의 75%, 속성(아래)는 나머지(약 25%)
+            var explorerHeight = Math.Max(_splitRight.Panel1MinSize, (int)(rightHeight * 0.75));
             explorerHeight = Math.Min(explorerHeight, rightHeight - _splitRight.Panel2MinSize - _splitRight.SplitterWidth);
             _splitRight.SplitterDistance = explorerHeight;
         }
@@ -75,6 +78,8 @@ public partial class MainForm : Form
     private void InitializeRuntime()
     {
         ApplyKoreanText();
+        BuildTemplateMenu();
+        ApplyMenuToolTips();
         ApplyVisualStyles();
         _canvas.SelectionChanged += (_, _) => SyncSelection();
         _canvas.ProjectChanged += (_, _) =>
@@ -103,7 +108,7 @@ public partial class MainForm : Form
         _menuSave.Text = "저장(&S)";
         _menuSaveAs.Text = "다른 이름으로 저장(&A)...";
         _menuSaveAs.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
-        _menuSample.Text = "샘플 불러오기";
+        _menuTemplates.Text = "템플릿(&T)";
         _menuExport.Text = "내보내기(&E)";
         _menuExportImage.Text = "다이어그램 이미지...";
         _menuExportSvg.Text = "다이어그램 SVG...";
@@ -120,19 +125,50 @@ public partial class MainForm : Form
         _tsSave.Text = "저장";
         _tsDelete.Text = "삭제";
         _tsZoomReset.Text = "맞춤";
-        _tsNew.ToolTipText = "새 프로젝트 만들기 (Ctrl+N)";
-        _tsOpen.ToolTipText = "프로젝트 열기 (Ctrl+O)";
-        _tsSave.ToolTipText = "현재 프로젝트 저장 (Ctrl+S)";
-        _tsDelete.ToolTipText = "선택한 요소 삭제 (Delete)";
-        _tsZoomOut.ToolTipText = "축소 (마우스 휠 아래)";
-        _tsZoomIn.ToolTipText = "확대 (마우스 휠 위)";
-        _tsZoomReset.ToolTipText = "확대/축소 초기화";
         _statusLabel.Text = "준비";
         _btnAddProperty.Text = "+ 속성";
         _btnAddOperation.Text = "+ 연산";
         _lblToolbox.Text = "   UML 도구";
         _lblExplorer.Text = "   문서 구조";
         _lblProperties.Text = "   속성";
+    }
+
+    private void ApplyMenuToolTips()
+    {
+        _menuStrip.ShowItemToolTips = true;
+        _toolStrip.ShowItemToolTips = true;
+
+        _menuNew.ToolTipText = "빈 UML 프로젝트를 새로 만듭니다. 저장되지 않은 변경 사항이 있으면 확인합니다. (Ctrl+N)";
+        _menuOpen.ToolTipText = "저장된 .umlprj 프로젝트 파일 또는 .uml 파일을 엽니다. (Ctrl+O)";
+        _menuSave.ToolTipText = "현재 프로젝트를 마지막으로 저장한 경로에 덮어씁니다. (Ctrl+S)";
+        _menuSaveAs.ToolTipText = "프로젝트를 다른 파일 이름·경로로 저장합니다. (Ctrl+Shift+S)";
+        _menuTemplates.ToolTipText = "Templates/Projects 폴더의 .uml 템플릿 파일을 불러와 새 작업을 시작합니다.";
+        _menuExport.ToolTipText = "현재 프로젝트의 다이어그램을 이미지, SVG, PDF, HTML, Markdown 형식으로 내보냅니다.";
+        _menuExportImage.ToolTipText = "활성 다이어그램을 PNG, JPEG, BMP 등 래스터 이미지 파일로 저장합니다.";
+        _menuExportSvg.ToolTipText = "활성 다이어그램을 벡터 SVG 파일로 저장합니다. 확대해도 선명합니다.";
+        _menuExportPdf.ToolTipText = "활성 다이어그램을 PDF 문서로 저장합니다.";
+        _menuExportHtml.ToolTipText = "프로젝트 전체를 HTML 문서로 내보냅니다. 브라우저에서 열 수 있습니다.";
+        _menuExportMarkdown.ToolTipText = "프로젝트 전체를 Markdown 문서로 내보냅니다.";
+        _menuExit.ToolTipText = "애플리케이션을 종료합니다. 저장하지 않은 변경 사항이 있으면 확인합니다.";
+        _menuDelete.ToolTipText = "캔버스에서 선택한 노드·관계·다이어그램 요소를 삭제합니다. (Delete)";
+        _menuDuplicate.ToolTipText = "선택한 노드를 복제해 약간 옆에 배치합니다. (Ctrl+D)";
+        _menuCopyToClipboard.ToolTipText = "활성 다이어그램을 비트맵 이미지로 클립보드에 복사합니다. (Ctrl+Shift+C)";
+
+        _tsNew.ToolTipText = _menuNew.ToolTipText;
+        _tsOpen.ToolTipText = _menuOpen.ToolTipText;
+        _tsSave.ToolTipText = _menuSave.ToolTipText;
+        _tsDelete.ToolTipText = _menuDelete.ToolTipText;
+        _tsDuplicate.ToolTipText = _menuDuplicate.ToolTipText;
+        _tsCopyToClipboard.ToolTipText = _menuCopyToClipboard.ToolTipText;
+        _tsZoomOut.ToolTipText = "캔버스를 축소합니다. 마우스 휠을 아래로 굴려도 축소됩니다.";
+        _tsZoomIn.ToolTipText = "캔버스를 확대합니다. 마우스 휠을 위로 굴려도 확대됩니다.";
+        _tsZoomReset.ToolTipText = "확대/축소를 100%로 초기화하고 다이어그램 전체가 보이도록 맞춥니다.";
+        _tsZoomLabel.ToolTipText = "현재 캔버스 확대/축소 배율(%)입니다.";
+
+        _featureToolTip?.Dispose();
+        _featureToolTip = new ToolTip { ShowAlways = true };
+        _featureToolTip.SetToolTip(_btnAddProperty, "선택한 Class/Interface에 속성(필드)을 추가합니다. 이름과 타입은 속성 패널에서 편집합니다.");
+        _featureToolTip.SetToolTip(_btnAddOperation, "선택한 Class/Interface에 연산(메서드)을 추가합니다. 반환 타입과 매개변수는 속성 패널에서 편집합니다.");
     }
 
     private void ApplyVisualStyles()
@@ -171,41 +207,31 @@ public partial class MainForm : Form
 
         _tsNew.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsNew.Image = UmlIcons.New();
-        _tsNew.ToolTipText = "새 프로젝트 만들기 (Ctrl+N)";
 
         _tsOpen.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsOpen.Image = UmlIcons.Open();
-        _tsOpen.ToolTipText = "프로젝트 열기 (Ctrl+O)";
 
         _tsSave.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsSave.Image = UmlIcons.Save();
-        _tsSave.ToolTipText = "프로젝트 저장 (Ctrl+S)";
 
         _tsDelete.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsDelete.Image = UmlIcons.Delete();
-        _tsDelete.ToolTipText = "선택 삭제 (Delete)";
 
         _tsZoomOut.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsZoomOut.Image = UmlIcons.ZoomOut();
-        _tsZoomOut.ToolTipText = "축소 (마우스 휠 아래)";
 
         _tsZoomIn.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _tsZoomIn.Image = UmlIcons.ZoomIn();
-        _tsZoomIn.ToolTipText = "확대 (마우스 휠 위)";
 
         _tsZoomReset.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
         _tsZoomReset.Image = UmlIcons.ZoomReset();
-        _tsZoomReset.ToolTipText = "확대/축소 100% 초기화";
 
         _tsZoomLabel.TextAlign = ContentAlignment.MiddleCenter;
-        _tsZoomLabel.ToolTipText = "현재 확대/축소 배율";
 
         _tsDuplicate.Image = UmlIcons.Duplicate();
-        _tsDuplicate.ToolTipText = "선택 요소 복제 (Ctrl+D)";
         _tsDuplicate.Click += (_, _) => _canvas.DuplicateSelection();
 
         _tsCopyToClipboard.Image = UmlIcons.CopyClipboard();
-        _tsCopyToClipboard.ToolTipText = "다이어그램을 이미지로 클립보드에 복사 (Ctrl+Shift+C)";
         _tsCopyToClipboard.Click += (_, _) => CopyDiagramToClipboard();
 
         _menuDuplicate.Image = UmlIcons.Duplicate();
@@ -218,7 +244,7 @@ public partial class MainForm : Form
         _menuOpen.Image = UmlIcons.Open();
         _menuSave.Image = UmlIcons.Save();
         _menuSaveAs.Image = UmlIcons.SaveAs();
-        _menuSample.Image = UmlIcons.Sample();
+        _menuTemplates.Image = UmlIcons.Sample();
         _menuExport.Image = UmlIcons.Export();
         _menuExportImage.Image = UmlIcons.ExportImage();
         _menuExportSvg.Image = UmlIcons.ExportVector();
@@ -267,10 +293,12 @@ public partial class MainForm : Form
 
     private void DiagramTabBar_DiagramSelected(object? sender, Models.UmlDiagram diagram)
     {
+        _project.ActiveDiagram = diagram;
         _canvas.SetActiveDiagram(diagram);
         _umlToolbox.SetDiagramKind(diagram.Kind);
         _currentToolMode = UmlToolMode.Select;
         _canvas.SetToolMode(UmlToolMode.Select);
+        _modelExplorer.SelectDiagram(diagram.Id);
         SyncSelection();
         _statusLabel.Text = $"다이어그램 전환: {diagram.Name} ({GetDiagramKindName(diagram.Kind)})";
     }
@@ -345,48 +373,8 @@ public partial class MainForm : Form
         if (!fromToolbox)
             _umlToolbox.SelectTool(mode);
 
-        var hint = mode switch
-        {
-            UmlToolMode.Select => "선택: 클릭=선택 · 드래그=이동 · 더블클릭=이름 편집 · 휠=확대/축소 · Space+드래그=화면 이동 · Esc=취소",
-            UmlToolMode.Pan => "이동 모드: 드래그하여 캔버스를 이동합니다. Esc로 선택 모드로 돌아갑니다.",
-            UmlToolMode.CreateClass => "Class 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateInterface => "Interface 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateEnumeration => "Enumeration 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreatePackage => "Package 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateActor => "Actor 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateUseCase => "Use Case 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateNote => "Note 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateState or UmlToolMode.CreateInitialState or UmlToolMode.CreateFinalState
-                => "상태 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateAction or UmlToolMode.CreateInitialNode or UmlToolMode.CreateActivityFinalNode
-                or UmlToolMode.CreateDecision or UmlToolMode.CreateMerge or UmlToolMode.CreateFork or UmlToolMode.CreateJoin
-                => "활동 노드 추가: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateLifeline
-                => "라이프라인: 캔버스에 클릭·드래그하거나 도구를 더블클릭하세요.",
-            UmlToolMode.CreateMessage
-                => "동기 호출: 시작 라이프라인 → 대상 라이프라인 순으로 클릭합니다. 활성화 기둥은 자동 생성됩니다.",
-            UmlToolMode.CreateAsyncMessage
-                => "비동기 메시지: 시작 라이프라인 → 대상 라이프라인 순으로 클릭합니다.",
-            UmlToolMode.CreateReturnMessage
-                => "반환 메시지: 호출을 처리한 라이프라인 → 호출자 라이프라인 순으로 클릭합니다.",
-            UmlToolMode.CreateSelfMessage
-                => "자기 호출: 라이프라인을 한 번 클릭하면 루프 메시지가 추가됩니다.",
-            UmlToolMode.CreateTransition => "전이: 시작 상태 → 대상 상태 순으로 클릭합니다.",
-            UmlToolMode.CreateControlFlow => "제어 흐름: 시작 노드 → 대상 노드 순으로 클릭합니다.",
-            UmlToolMode.CreateObjectFlow => "객체 흐름: 시작 노드 → 대상 노드 순으로 클릭합니다.",
-            UmlToolMode.CreateAssociation or UmlToolMode.CreateDirectedAssociation
-                => "연관 관계: 시작 노드를 클릭한 뒤 대상 노드를 클릭합니다.",
-            UmlToolMode.CreateAggregation => "집합(◇) 관계: 시작 노드 → 대상 노드를 클릭합니다.",
-            UmlToolMode.CreateComposition => "합성(◆) 관계: 시작 노드 → 대상 노드를 클릭합니다.",
-            UmlToolMode.CreateGeneralization => "일반화: 자식 클래스 → 부모 클래스 순으로 클릭합니다.",
-            UmlToolMode.CreateRealization => "실체화: 구현 클래스 → Interface 순으로 클릭합니다.",
-            UmlToolMode.CreateDependency => "의존: 의존 원본 → 대상 순으로 클릭합니다.",
-            UmlToolMode.CreateInclude => "Include: 기본 Use Case → 포함 Use Case 순으로 클릭합니다.",
-            UmlToolMode.CreateExtend => "Extend: 확장 Use Case → 기본 Use Case 순으로 클릭합니다.",
-            _ => string.Empty,
-        };
-
-        _statusLabel.Text = hint;
+        var hint = UmlToolModeHelper.GetToolTip(mode);
+        _statusLabel.Text = string.IsNullOrEmpty(hint) ? "준비" : hint;
         UpdateZoomLabels();
     }
 
@@ -401,36 +389,50 @@ public partial class MainForm : Form
 
     private void SyncSelection()
     {
+        if (_suppressPropertySync)
+            return;
+
         _suppressPropertySync = true;
         var selected = _canvas.SelectedObject;
+        ApplyPropertyGridSelection(selected);
+
+        if (selected is UmlElement element)
+            _modelExplorer.SelectElement(element.Id, _project.ActiveDiagram.Id);
+
+        _suppressPropertySync = false;
+
+        _statusLabel.Text = GetStatusText(selected);
+    }
+
+    private void ApplyPropertyGridSelection(object? selected)
+    {
         _propertyGrid.SelectedObject = selected;
         _umlToolbox.SetCanvasSelection(selected);
 
         var isClassifier = selected is UmlClassifier;
         _pnlFeatureButtons.Visible = isClassifier;
         _btnAddOperation.Visible = selected is not UmlEnumeration;
-
-        if (selected is UmlElement element)
-            _modelExplorer.SelectElement(element.Id);
-
-        _suppressPropertySync = false;
-
-        _statusLabel.Text = selected switch
-        {
-            UmlClass cls => $"클래스 선택됨: {cls.Name}{(cls.IsAbstract ? " (추상)" : "")}  |  속성 {cls.Properties.Count}개, 연산 {cls.Operations.Count}개  |  Delete=삭제  F2=이름편집",
-            UmlInterface ifc => $"인터페이스 선택됨: {ifc.Name}  |  연산 {ifc.Operations.Count}개  |  Delete=삭제",
-            UmlEnumeration en => $"열거형 선택됨: {en.Name}  |  리터럴 {en.Literals.Count}개  |  Delete=삭제",
-            UmlPackage pkg => $"패키지 선택됨: {pkg.Name}  |  Delete=삭제",
-            UmlActor act => $"액터 선택됨: {act.Name}  |  Delete=삭제",
-            UmlUseCase uc => $"유스케이스 선택됨: {uc.Name}  |  Delete=삭제",
-            UmlNote note => $"노트 선택됨  |  Delete=삭제",
-            UmlBehaviorNode behaviorNode => $"{GetBehaviorNodeStatusText(behaviorNode)}  |  Delete=삭제",
-            UmlBehaviorConnector connector => $"{GetBehaviorConnectorStatusText(connector)}  |  Delete=삭제",
-            UmlRelationship rel => GetRelationshipStatusText(rel),
-            null => $"준비  |  다이어그램: {_project.ActiveDiagram.Name}  |  요소 {_project.ActiveDiagram.Nodes.Count}개, 관계 {_project.ActiveDiagram.Edges.Count}개",
-            _ => "요소 선택됨",
-        };
     }
+
+    private string GetStatusText(object? selected) => selected switch
+    {
+        UmlClass cls => $"클래스 선택됨: {cls.Name}{(cls.IsAbstract ? " (추상)" : "")}  |  속성 {cls.Properties.Count}개, 연산 {cls.Operations.Count}개  |  Delete=삭제  F2=이름편집",
+        UmlInterface ifc => $"인터페이스 선택됨: {ifc.Name}  |  연산 {ifc.Operations.Count}개  |  Delete=삭제",
+        UmlEnumeration en => $"열거형 선택됨: {en.Name}  |  리터럴 {en.Literals.Count}개  |  Delete=삭제",
+        UmlPackage pkg => $"패키지 선택됨: {pkg.Name}  |  Delete=삭제",
+        UmlActor act => $"액터 선택됨: {act.Name}  |  Delete=삭제",
+        UmlUseCase uc => $"유스케이스 선택됨: {uc.Name}  |  Delete=삭제",
+        UmlSystemBoundary boundary => $"시스템 경계 선택됨: {boundary.Name}  |  Delete=삭제",
+        UmlNote note => $"노트 선택됨  |  Delete=삭제",
+        UmlBehaviorNode behaviorNode => $"{GetBehaviorNodeStatusText(behaviorNode)}  |  Delete=삭제",
+        UmlBehaviorConnector connector => $"{GetBehaviorConnectorStatusText(connector)}  |  Delete=삭제",
+        UmlRelationship rel => GetRelationshipStatusText(rel),
+        UmlDiagramEdge edge => $"연결 선택됨 ({GetEdgeRoutingLabel(edge.RoutingKind)})  |  꺾인선은 꺾임 꼭짓점 핸들을 드래그해 위치 조정  |  Delete=삭제",
+        UmlDiagram diagram => $"다이어그램 선택됨: {diagram.Name} ({GetDiagramKindName(diagram.Kind)})  |  노드 {diagram.NodeCount}개, 연결 {diagram.EdgeCount}개  |  속성 패널에서 이름·종류 편집",
+        UmlProject project => $"프로젝트 선택됨: {project.Name}  |  다이어그램 {project.Diagrams.Count}개  |  속성 패널에서 이름 편집",
+        null => $"준비  |  다이어그램: {_project.ActiveDiagram.Name}  |  요소 {_project.ActiveDiagram.Nodes.Count}개, 관계 {_project.ActiveDiagram.Edges.Count}개",
+        _ => "요소 선택됨",
+    };
 
     private static string GetBehaviorNodeStatusText(UmlBehaviorNode behaviorNode) => behaviorNode.Kind switch
     {
@@ -445,6 +447,8 @@ public partial class MainForm : Form
         UmlBehaviorNodeKind.Fork => "Fork 노드 선택됨",
         UmlBehaviorNodeKind.Join => "Join 노드 선택됨",
         UmlBehaviorNodeKind.Lifeline => $"Lifeline 선택됨: {behaviorNode.Name}",
+        UmlBehaviorNodeKind.CombinedFragment =>
+            $"Loop 프래그먼트 선택됨: {UmlCombinedFragmentRenderer.GetFragmentLabel(behaviorNode)}",
         UmlBehaviorNodeKind.Activation => "Activation 선택됨",
         _ => "행동 표기 선택됨",
     };
@@ -464,6 +468,12 @@ public partial class MainForm : Form
         _ => "행동 연결 선택됨",
     };
 
+    private static string GetEdgeRoutingLabel(UmlEdgeRoutingKind kind) => kind switch
+    {
+        UmlEdgeRoutingKind.Bent => "꺾인선",
+        _ => "직선",
+    };
+
     private static string GetRelationshipStatusText(UmlRelationship rel) => rel switch
     {
         UmlGeneralization => $"일반화 선택됨  |  Delete=삭제",
@@ -474,6 +484,7 @@ public partial class MainForm : Form
         UmlAssociation assoc => $"연관 선택됨{(string.IsNullOrEmpty(assoc.Name) ? "" : $": {assoc.Name}")}  |  Delete=삭제",
         UmlInclude => "«include» 선택됨  |  Delete=삭제",
         UmlExtend => "«extend» 선택됨  |  Delete=삭제",
+        UmlNoteLink => "노트 연결 선택됨  |  Delete=삭제",
         _ => "관계 선택됨  |  Delete=삭제",
     };
 
@@ -497,29 +508,36 @@ public partial class MainForm : Form
 
     private void ModelExplorer_ElementSelected(object? sender, UmlElementSelectedEventArgs e)
     {
-        // Selecting a diagram node in the explorer switches to that diagram's tab.
-        if (e.SelectedObject is Models.UmlDiagram selectedDiagram)
+        _suppressPropertySync = true;
+
+        if (e.SelectedObject is UmlDiagram selectedDiagram)
         {
-            _project.ActiveDiagram = selectedDiagram;
-            _canvas.SetActiveDiagram(selectedDiagram);
-            _umlToolbox.SetDiagramKind(selectedDiagram.Kind);
-            _currentToolMode = UmlToolMode.Select;
-            _canvas.SetToolMode(UmlToolMode.Select);
-            _diagramTabBar.Bind(_project);
-            SyncSelection();
-            return;
+            ActivateDiagram(selectedDiagram);
+        }
+        else if (e.Diagram is not null)
+        {
+            ActivateDiagram(e.Diagram);
+            if (e.SelectedObject is UmlElement element
+                && (e.Diagram.FindNodeByModelId(element.Id) is not null
+                    || e.Diagram.Edges.Any(edge => edge.ModelElementId == element.Id)))
+            {
+                _canvas.SelectModelElement(element.Id);
+            }
         }
 
-        _suppressPropertySync = true;
-        _propertyGrid.SelectedObject = e.SelectedObject;
-
-        if (e.SelectedObject is UmlElement element)
-            _canvas.SelectModelElement(element.Id);
-
-        var isClassifier = e.SelectedObject is UmlClassifier;
-        _pnlFeatureButtons.Visible = isClassifier;
-        _btnAddOperation.Visible = e.SelectedObject is not UmlEnumeration;
+        ApplyPropertyGridSelection(e.SelectedObject);
+        _statusLabel.Text = GetStatusText(e.SelectedObject);
         _suppressPropertySync = false;
+    }
+
+    private void ActivateDiagram(UmlDiagram diagram)
+    {
+        _project.ActiveDiagram = diagram;
+        _canvas.SetActiveDiagram(diagram);
+        _umlToolbox.SetDiagramKind(diagram.Kind);
+        _currentToolMode = UmlToolMode.Select;
+        _canvas.SetToolMode(UmlToolMode.Select);
+        _diagramTabBar.Bind(_project);
     }
 
     private void PropertyGrid_PropertyValueChanged(object? s, PropertyValueChangedEventArgs e)
@@ -530,7 +548,22 @@ public partial class MainForm : Form
         _isDirty = true;
         UpdateTitle();
         _modelExplorer.Rebuild();
+
+        if (_propertyGrid.SelectedObject is UmlDiagram diagram)
+        {
+            if (ReferenceEquals(_project.ActiveDiagram, diagram))
+                _umlToolbox.SetDiagramKind(diagram.Kind);
+
+            _diagramTabBar.Bind(_project);
+        }
+
+        if (_propertyGrid.SelectedObject is UmlProject)
+            UpdateTitle();
+
         _canvas.Invalidate();
+
+        if (_propertyGrid.SelectedObject is not null)
+            _statusLabel.Text = GetStatusText(_propertyGrid.SelectedObject);
     }
 
     private void BtnAddProperty_Click(object? sender, EventArgs e)
@@ -584,13 +617,58 @@ public partial class MainForm : Form
 
     private void MenuNew_Click(object? sender, EventArgs e) => NewProject(loadSample: false);
 
-    private void MenuSample_Click(object? sender, EventArgs e) => NewProject(loadSample: true);
+    private void BuildTemplateMenu()
+    {
+        _menuTemplates.DropDownItems.Clear();
+
+        foreach (var template in UmlDiagramTemplateLibrary.DiagramTemplates)
+        {
+            var item = new ToolStripMenuItem(template.Name)
+            {
+                Tag = template.Id,
+                ToolTipText = template.Description,
+            };
+            item.Click += (_, _) => LoadTemplate((string)item.Tag!);
+            _menuTemplates.DropDownItems.Add(item);
+        }
+
+        _menuTemplates.DropDownItems.Add(new ToolStripSeparator());
+        var fullSample = new ToolStripMenuItem(UmlDiagramTemplateLibrary.FullSampleInfo.Name)
+        {
+            Tag = UmlDiagramTemplateLibrary.FullSampleId,
+            ToolTipText = UmlDiagramTemplateLibrary.FullSampleInfo.Description,
+        };
+        fullSample.Click += (_, _) => LoadTemplate((string)fullSample.Tag!);
+        _menuTemplates.DropDownItems.Add(fullSample);
+    }
+
+    private void LoadTemplate(string templateId)
+    {
+        if (!ConfirmDiscard())
+            return;
+
+        try
+        {
+            _project = UmlDiagramTemplateLibrary.LoadTemplateProject(templateId);
+            _currentFilePath = null;
+            _isDirty = true;
+            BindProject();
+            var template = UmlDiagramTemplateLibrary.FindTemplate(templateId);
+            _statusLabel.Text = template is null
+                ? "템플릿 프로젝트를 불러왔습니다. 저장 시 다른 이름으로 저장하세요."
+                : $"템플릿 '{template.Name}' ({template.ProjectFileName})을(를) 불러왔습니다. 저장 시 다른 이름으로 저장하세요.";
+        }
+        catch (Exception ex)
+        {
+            UmlErrorDialog.Show(this, "템플릿 오류", ex);
+        }
+    }
 
     private void MenuOpen_Click(object? sender, EventArgs e)
     {
         using var dialog = new OpenFileDialog
         {
-            Filter = UmlProjectSerializer.FileFilter,
+            Filter = UmlProjectSerializer.OpenFileFilter,
             Title = "UML 프로젝트 열기",
             InitialDirectory = _lastUsedDirectory,
         };
@@ -618,10 +696,10 @@ public partial class MainForm : Form
     {
         using var dialog = new SaveFileDialog
         {
-            Filter = UmlProjectSerializer.FileFilter,
+            Filter = UmlProjectSerializer.SaveFileFilter,
             Title = "UML 프로젝트 저장",
             FileName = string.IsNullOrWhiteSpace(_project.Name) ? "Project" : _project.Name,
-            DefaultExt = UmlProjectSerializer.FileExtension.TrimStart('.'),
+            DefaultExt = UmlProjectSerializer.ProjectFileExtension.TrimStart('.'),
             InitialDirectory = _lastUsedDirectory,
         };
         if (dialog.ShowDialog(this) != DialogResult.OK)

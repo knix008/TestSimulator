@@ -27,11 +27,19 @@
     <Content Include="Assets\AppIcon.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Templates\templates.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Templates\templates.json</Link>
+    </Content>
+    <Content Include="Templates\Projects\*.uml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Templates\Projects\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
   <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true' AND '$(MSBuildIsProjectReference)' != 'true'">
-    <MSBuild
-      Projects="$(MSBuildThisFileDirectory)installer\MyUML20WinV10.Installer.wixproj"
-      Targets="Restore;Build"
-      Properties="Configuration=Release;SkipInstaller=true" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)installer\MyUML20WinV10.Installer.wixproj" Targets="Restore;Build" Properties="Configuration=Release;SkipInstaller=true" />
   </Target>
 
   <ItemGroup>
@@ -44,9 +52,7 @@
     <EmbeddedResource Update="MainForm.resx">
       <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>
-    <Compile Update="Controls\ModelExplorer.cs">
-      <SubType>Component</SubType>
-    </Compile>
+    <Compile Update="Controls\ModelExplorer.cs" />
     <Compile Update="Controls\UmlCanvas.cs">
       <SubType>Component</SubType>
     </Compile>

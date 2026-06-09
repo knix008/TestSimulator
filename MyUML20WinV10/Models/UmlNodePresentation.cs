@@ -5,6 +5,7 @@ public enum UmlNodePresentation
     Classifier,
     Actor,
     UseCase,
+    SystemBoundary,
     Package,
     Note,
     Behavior,

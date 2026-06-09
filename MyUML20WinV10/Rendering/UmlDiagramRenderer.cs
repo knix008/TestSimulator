@@ -7,6 +7,16 @@ public static class UmlDiagramRenderer
     private const float CompartmentPadding = 6f;
     private const float LineHeight = 16f;
 
+    // End markers: balanced depth and base width for readable arrowheads.
+    private const float HollowTriangleDepth = 24f;
+    private const float HollowTriangleHalfBase = 12f;
+    private const float OpenArrowLength = 12f;
+    private const float OpenArrowHalfWing = 6f;
+    private const float FilledArrowLength = 12f;
+    private const float FilledArrowHalfWing = 8f;
+    private const float DiamondDepth = 30f;
+    private const float DiamondHalfWidth = 8f;
+
     public static void DrawDiagram(
         Graphics g,
         UmlProject project,
@@ -22,21 +32,57 @@ public static class UmlDiagramRenderer
         if (diagram.Kind == UmlDiagramKind.SequenceDiagram)
         {
             UmlSequenceLayout.Prepare(project, diagram);
-            foreach (var node in diagram.Nodes)
+
+            foreach (var node in diagram.Nodes.Where(n =>
+                         n.Presentation == UmlNodePresentation.Behavior
+                         && project.FindElement(n.ModelElementId) is UmlBehaviorNode { Kind: UmlBehaviorNodeKind.CombinedFragment }))
+                DrawNode(g, project, node, node == selectedNode);
+
+            foreach (var node in diagram.Nodes.Where(n =>
+                         n.Presentation != UmlNodePresentation.Behavior
+                         || project.FindElement(n.ModelElementId) is not UmlBehaviorNode { Kind: UmlBehaviorNodeKind.CombinedFragment }))
                 DrawNode(g, project, node, node == selectedNode);
 
             DrawSequenceActivations(g, project, diagram);
 
             foreach (var edge in diagram.Edges)
-                DrawEdge(g, project, diagram, edge, edge == selectedEdge);
+                DrawEdge(g, project, diagram, edge, edge == selectedEdge, [], drawGeometry: true, drawLabels: false);
+
+            foreach (var edge in diagram.Edges)
+                DrawEdge(g, project, diagram, edge, edge == selectedEdge, [], drawGeometry: false, drawLabels: true);
         }
         else
         {
-            foreach (var edge in diagram.Edges)
-                DrawEdge(g, project, diagram, edge, edge == selectedEdge);
+            var edgeLines = BuildEdgeLines(project, diagram);
+            var crossingsMap = UmlEdgeRouting.ComputeCrossings(edgeLines);
 
-            foreach (var node in diagram.Nodes)
-                DrawNode(g, project, node, node == selectedNode);
+            foreach (var line in edgeLines)
+            {
+                crossingsMap.TryGetValue(line.Edge.Id, out var crossings);
+                DrawEdge(g, project, diagram, line.Edge, line.Edge == selectedEdge, crossings ?? [], drawGeometry: true, drawLabels: false);
+            }
+
+            if (diagram.Kind is UmlDiagramKind.UseCaseDiagram or UmlDiagramKind.ClassDiagram)
+            {
+                foreach (var node in diagram.Nodes.Where(n => UmlNodeSilhouette.IsContainerPresentation(n.Presentation)))
+                    DrawNode(g, project, node, node == selectedNode);
+                foreach (var node in diagram.Nodes.Where(n => !UmlNodeSilhouette.IsContainerPresentation(n.Presentation)))
+                    DrawNode(g, project, node, node == selectedNode);
+            }
+            else
+            {
+                foreach (var node in diagram.Nodes)
+                    DrawNode(g, project, node, node == selectedNode);
+            }
+
+            foreach (var line in edgeLines)
+            {
+                crossingsMap.TryGetValue(line.Edge.Id, out var crossings);
+                DrawEdge(g, project, diagram, line.Edge, line.Edge == selectedEdge, crossings ?? [], drawGeometry: false, drawLabels: true);
+            }
+
+            DrawInteractionOverlays(g, project, diagram, selectedNode, selectedEdge, hoverNode, hoverEdge, crossingsMap);
+            return;
         }
 
         DrawInteractionOverlays(g, project, diagram, selectedNode, selectedEdge, hoverNode, hoverEdge);
@@ -84,8 +130,9 @@ public static class UmlDiagramRenderer
         {
             return node.Presentation switch
             {
-                UmlNodePresentation.Actor => Math.Max(node.Height, 90),
+                UmlNodePresentation.Actor => MeasureActorNodeHeight(project, node),
                 UmlNodePresentation.UseCase => Math.Max(node.Height, 56),
+                UmlNodePresentation.SystemBoundary => Math.Max(node.Height, 120),
                 UmlNodePresentation.Note => Math.Max(node.Height, 60),
                 UmlNodePresentation.Package => Math.Max(node.Height, 120),
                 UmlNodePresentation.Behavior => MeasureBehaviorNode(project.FindElement(node.ModelElementId) as UmlBehaviorNode, node.Height),
@@ -119,6 +166,9 @@ public static class UmlDiagramRenderer
                 return;
             case UmlNodePresentation.UseCase:
                 DrawUseCaseNode(g, project, node, bounds, bodyPen, selected);
+                return;
+            case UmlNodePresentation.SystemBoundary:
+                DrawSystemBoundaryNode(g, project, node, bounds, bodyPen, selected);
                 return;
             case UmlNodePresentation.Package:
                 DrawPackageNode(g, project, node, bounds, bodyPen, selected);
@@ -239,8 +289,19 @@ public static class UmlDiagramRenderer
         y += LineHeight;
     }
 
-    private static void DrawEdge(Graphics g, UmlProject project, UmlDiagram diagram, UmlDiagramEdge edge, bool selected)
+    private static void DrawEdge(
+        Graphics g,
+        UmlProject project,
+        UmlDiagram diagram,
+        UmlDiagramEdge edge,
+        bool selected,
+        IReadOnlyList<(float T, PointF Pt)> crossings,
+        bool drawGeometry = true,
+        bool drawLabels = true)
     {
+        if (!drawGeometry && !drawLabels)
+            return;
+
         var sourceNode = diagram.FindNode(edge.SourceNodeId);
         var targetNode = diagram.FindNode(edge.TargetNodeId);
         if (sourceNode is null || targetNode is null)
@@ -253,59 +314,114 @@ public static class UmlDiagramRenderer
         if (diagram.Kind == UmlDiagramKind.SequenceDiagram
             && relationship is UmlBehaviorConnector { Kind: UmlBehaviorConnectorKind.Message } messageConnector)
         {
-            DrawSequenceMessage(g, project, diagram, edge, messageConnector, selected);
+            DrawSequenceMessage(g, project, diagram, edge, messageConnector, selected, drawGeometry, drawLabels);
             return;
         }
 
-        var start = GetConnectionPoint(sourceNode.Bounds, targetNode.Bounds, out var startSide);
-        var end = GetConnectionPoint(targetNode.Bounds, sourceNode.Bounds, out var endSide);
+        PointF[] pathPoints;
+        PointF start;
+        PointF end;
+        if (UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode))
+        {
+            var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, sourceNode);
+            pathPoints = UmlEdgeRouting.BuildSelfLoopPath(bounds, edge.RoutingKind);
+            start = pathPoints[0];
+            end = pathPoints[^1];
+        }
+        else
+        {
+            start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
+            end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+            pathPoints = UmlEdgeRouting.BuildPathPoints(project, diagram, edge, start, end, startSide, endSide);
+        }
 
         using var pen = new Pen(selected ? Color.DodgerBlue : Color.Black, selected ? 2f : 1.5f);
         using var font = new Font("Segoe UI", 8f);
         using var brush = new SolidBrush(Color.Black);
 
-        switch (relationship)
+        if (drawGeometry)
         {
-            case UmlGeneralization:
-                DrawGeneralization(g, pen, start, end);
-                break;
-            case UmlRealization:
-                DrawRealization(g, pen, start, end);
-                break;
-            case UmlDependency dep:
-                DrawDependency(g, pen, font, brush, start, end, dep);
-                break;
-            case UmlInclude:
-                DrawLabeledConnector(g, pen, font, brush, start, end, "«include»");
-                break;
-            case UmlExtend:
-                DrawLabeledConnector(g, pen, font, brush, start, end, "«extend»");
-                break;
-            case UmlAssociation assoc:
-                DrawAssociation(g, pen, font, brush, start, end, startSide, endSide, assoc);
-                break;
-            case UmlBehaviorConnector behaviorConnector:
-                DrawBehaviorConnector(g, behaviorConnector, font, brush, start, end, startSide, endSide, selected);
-                break;
+            switch (relationship)
+            {
+                case UmlGeneralization:
+                    DrawGeneralization(g, pen, start, end, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlRealization:
+                    DrawRealization(g, pen, start, end, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlDependency:
+                    DrawDependencyGeometry(g, pen, end, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlInclude:
+                case UmlExtend:
+                    DrawLabeledConnectorGeometry(g, pen, end, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlAssociation assoc:
+                    DrawAssociationGeometry(g, pen, end, pathPoints, edge.RoutingKind, assoc, crossings);
+                    break;
+                case UmlNoteLink:
+                    DrawNoteLink(g, pen, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlBehaviorConnector behaviorConnector:
+                    DrawBehaviorConnectorGeometry(g, behaviorConnector, pen, end, pathPoints, edge.RoutingKind, crossings);
+                    break;
+            }
         }
+
+        if (drawLabels)
+        {
+            switch (relationship)
+            {
+                case UmlDependency dep:
+                    DrawDependencyLabel(g, font, brush, pathPoints, edge.RoutingKind, dep);
+                    break;
+                case UmlInclude:
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, "«include»");
+                    break;
+                case UmlExtend:
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, "«extend»");
+                    break;
+                case UmlAssociation assoc:
+                    DrawAssociationLabels(g, font, brush, start, end, pathPoints, edge.RoutingKind, assoc);
+                    break;
+                case UmlBehaviorConnector behaviorConnector:
+                    DrawBehaviorConnectorLabel(g, behaviorConnector, font, brush, pathPoints, edge.RoutingKind);
+                    break;
+            }
+        }
+    }
+
+    private static void DrawNoteLink(
+        Graphics g,
+        Pen pen,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
+    {
+        pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+        UmlEdgeRouting.DrawRoutedPathSegment(g, pen, pathPoints, routingKind, crossings, trimFromEnd: 0f);
+    }
+
+    private static float MeasureActorNodeHeight(UmlProject project, UmlDiagramNode node)
+    {
+        var name = project.FindElement(node.ModelElementId) is UmlActor actor ? actor.Name : "Actor";
+        return Math.Max(node.Height, UmlActorGeometry.GetMinimumNodeHeight(node.Width, name));
     }
 
     private static void DrawActorNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
     {
         var actor = project.FindElement(node.ModelElementId) as UmlActor;
         var name = actor?.Name ?? "Actor";
-        var headR = bounds.Width * 0.14f;
-        var headCenter = new PointF(bounds.Left + bounds.Width / 2f, bounds.Top + headR + 4);
+        UmlActorGeometry.DrawStickFigure(g, pen, bounds);
         using var brush = new SolidBrush(Color.Black);
         using var font = new Font("Segoe UI", 8f);
-        g.DrawEllipse(pen, headCenter.X - headR, headCenter.Y - headR, headR * 2, headR * 2);
-        g.DrawLine(pen, headCenter.X, headCenter.Y + headR, headCenter.X, bounds.Bottom - 24);
-        g.DrawLine(pen, headCenter.X, headCenter.Y + headR * 2.2f, bounds.Left + 8, bounds.Top + bounds.Height * 0.55f);
-        g.DrawLine(pen, headCenter.X, headCenter.Y + headR * 2.2f, bounds.Right - 8, bounds.Top + bounds.Height * 0.55f);
-        g.DrawLine(pen, headCenter.X, bounds.Bottom - 24, bounds.Left + 10, bounds.Bottom - 6);
-        g.DrawLine(pen, headCenter.X, bounds.Bottom - 24, bounds.Right - 10, bounds.Bottom - 6);
-        var size = g.MeasureString(name, font);
-        g.DrawString(name, font, brush, bounds.Left + (bounds.Width - size.Width) / 2f, bounds.Bottom - 18);
+        using var format = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Near,
+            Trimming = StringTrimming.Word,
+        };
+        g.DrawString(name, font, brush, UmlActorGeometry.GetLabelBounds(bounds), format);
     }
 
     private static void DrawUseCaseNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
@@ -319,6 +435,12 @@ public static class UmlDiagramRenderer
         g.DrawEllipse(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
         var size = g.MeasureString(name, font);
         g.DrawString(name, font, brush, bounds.Left + (bounds.Width - size.Width) / 2f, bounds.Top + (bounds.Height - size.Height) / 2f);
+    }
+
+    private static void DrawSystemBoundaryNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
+    {
+        var boundary = project.FindElement(node.ModelElementId) as UmlSystemBoundary;
+        UmlSystemBoundaryRenderer.Draw(g, boundary?.Name, bounds, pen, selected);
     }
 
     private static void DrawPackageNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
@@ -366,22 +488,39 @@ public static class UmlDiagramRenderer
                 break;
             case UmlBehaviorNodeKind.InitialState:
             case UmlBehaviorNodeKind.InitialNode:
-                g.FillEllipse(new SolidBrush(pen.Color), bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            {
+                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+                g.FillEllipse(new SolidBrush(pen.Color), circle.X, circle.Y, circle.Width, circle.Height);
                 break;
+            }
             case UmlBehaviorNodeKind.FinalState:
             case UmlBehaviorNodeKind.ActivityFinalNode:
-                g.DrawEllipse(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                g.FillEllipse(new SolidBrush(pen.Color), bounds.X + bounds.Width * 0.25f, bounds.Y + bounds.Height * 0.25f, bounds.Width * 0.5f, bounds.Height * 0.5f);
+            {
+                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+                g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+                g.FillEllipse(
+                    new SolidBrush(pen.Color),
+                    circle.X + circle.Width * 0.25f,
+                    circle.Y + circle.Height * 0.25f,
+                    circle.Width * 0.5f,
+                    circle.Height * 0.5f);
                 break;
+            }
             case UmlBehaviorNodeKind.Decision:
             case UmlBehaviorNodeKind.Merge:
                 DrawDiamondNode(g, bounds, fillBrush, pen);
                 break;
             case UmlBehaviorNodeKind.Fork:
             case UmlBehaviorNodeKind.Join:
-                g.FillRectangle(new SolidBrush(pen.Color), bounds.X, bounds.Top + bounds.Height / 2f - 4, bounds.Width, 8);
+            {
+                var bar = UmlNodeConnectionGeometry.GetForkJoinBarBounds(bounds);
+                g.FillRectangle(new SolidBrush(pen.Color), bar.X, bar.Y, bar.Width, bar.Height);
                 break;
+            }
             case UmlBehaviorNodeKind.Activation:
+                return;
+            case UmlBehaviorNodeKind.CombinedFragment:
+                UmlCombinedFragmentRenderer.Draw(g, behaviorNode, bounds, pen, selected);
                 return;
             case UmlBehaviorNodeKind.Lifeline:
                 DrawLifelineNode(g, bounds, fillBrush, pen, label);
@@ -398,7 +537,9 @@ public static class UmlDiagramRenderer
         UmlDiagram diagram,
         UmlDiagramEdge edge,
         UmlBehaviorConnector connector,
-        bool selected)
+        bool selected,
+        bool drawGeometry,
+        bool drawLabels)
     {
         var messageKind = connector.MessageKind;
         var messageY = UmlSequenceLayout.GetMessageY(diagram, edge);
@@ -412,27 +553,28 @@ public static class UmlDiagramRenderer
 
         if (messageKind == UmlMessageKind.SelfCall || edge.SourceNodeId == edge.TargetNodeId)
         {
-            DrawSelfMessage(g, diagram, edge, messageY, pen, brush, font, connector.Name);
+            DrawSelfMessage(g, diagram, edge, messageY, pen, brush, font, connector.Name, drawGeometry, drawLabels);
             return;
         }
 
         var (start, end) = UmlSequenceLayout.GetMessageEndpoints(diagram, edge, messageY);
-        g.DrawLine(pen, start, end);
-
-        switch (messageKind)
+        if (drawGeometry)
         {
-            case UmlMessageKind.Asynchronous:
-                DrawOpenArrow(g, pen, start, end);
-                break;
-            case UmlMessageKind.Return:
-                DrawOpenArrow(g, pen, start, end);
-                break;
-            default:
-                DrawFilledArrow(g, pen, start, end);
-                break;
+            g.DrawLine(pen, start, end);
+            switch (messageKind)
+            {
+                case UmlMessageKind.Asynchronous:
+                case UmlMessageKind.Return:
+                    DrawOpenArrow(g, pen, start, end);
+                    break;
+                default:
+                    DrawFilledArrow(g, pen, start, end);
+                    break;
+            }
         }
 
-        DrawMessageLabel(g, connector.Name, start, end, font, brush);
+        if (drawLabels)
+            DrawMessageLabel(g, connector.Name, start, end, font, brush);
     }
 
     private static void DrawSelfMessage(
@@ -443,7 +585,9 @@ public static class UmlDiagramRenderer
         Pen pen,
         Brush brush,
         Font font,
-        string? name)
+        string? name,
+        bool drawGeometry,
+        bool drawLabels)
     {
         var node = diagram.FindNode(edge.SourceNodeId);
         if (node is null)
@@ -458,15 +602,18 @@ public static class UmlDiagramRenderer
         var downEnd = new PointF(right, bottom);
         var backEnd = new PointF(barRight, bottom);
 
-        g.DrawLine(pen, topStart, topEnd);
-        g.DrawLine(pen, topEnd, downEnd);
-        g.DrawLine(pen, downEnd, backEnd);
-        DrawFilledArrow(g, pen, topStart, topEnd);
+        if (drawGeometry)
+        {
+            g.DrawLine(pen, topStart, topEnd);
+            g.DrawLine(pen, topEnd, downEnd);
+            g.DrawLine(pen, downEnd, backEnd);
+            DrawFilledArrow(g, pen, topStart, topEnd);
+        }
 
-        if (!string.IsNullOrWhiteSpace(name))
+        if (drawLabels && !string.IsNullOrWhiteSpace(name))
         {
             var labelPoint = new PointF((topStart.X + topEnd.X) / 2f, topStart.Y - 14f);
-            g.DrawString(name, font, brush, labelPoint);
+            DrawEdgeLabel(g, font, brush, labelPoint, name);
         }
     }
 
@@ -476,49 +623,50 @@ public static class UmlDiagramRenderer
             return;
 
         var mid = new PointF((start.X + end.X) / 2f, start.Y - 14f);
-        g.DrawString(name, font, brush, mid);
+        DrawEdgeLabel(g, font, brush, mid, name);
     }
 
-    private static void DrawBehaviorConnector(
+    private static void DrawBehaviorConnectorGeometry(
+        Graphics g,
+        UmlBehaviorConnector connector,
+        Pen pen,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
+    {
+        switch (connector.Kind)
+        {
+            case UmlBehaviorConnectorKind.Message:
+                DrawPathEndingWithFilledArrow(g, pen, pathPoints, routingKind, crossings, end);
+                break;
+            case UmlBehaviorConnectorKind.Transition:
+            case UmlBehaviorConnectorKind.ControlFlow:
+                DrawPathEndingWithOpenArrow(g, pen, pathPoints, routingKind, crossings, end);
+                break;
+            case UmlBehaviorConnectorKind.ObjectFlow:
+                pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                DrawPathEndingWithOpenArrow(g, pen, pathPoints, routingKind, crossings, end);
+                break;
+        }
+    }
+
+    private static void DrawBehaviorConnectorLabel(
         Graphics g,
         UmlBehaviorConnector connector,
         Font font,
         Brush brush,
-        PointF start,
-        PointF end,
-        RectangleSide startSide,
-        RectangleSide endSide,
-        bool selected)
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind)
     {
-        var color = selected ? Color.DodgerBlue : Color.Black;
-        using var pen = new Pen(color, selected ? 2f : 1.5f);
-        var label = string.IsNullOrWhiteSpace(connector.Name) ? null : connector.Name;
+        if (string.IsNullOrWhiteSpace(connector.Name))
+            return;
 
-        switch (connector.Kind)
-        {
-            case UmlBehaviorConnectorKind.Message:
-                g.DrawLine(pen, start, end);
-                DrawFilledArrow(g, pen, start, end);
-                break;
-            case UmlBehaviorConnectorKind.Transition:
-            case UmlBehaviorConnectorKind.ControlFlow:
-                g.DrawLine(pen, start, end);
-                DrawOpenArrow(g, pen, start, end);
-                break;
-            case UmlBehaviorConnectorKind.ObjectFlow:
-                pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-                g.DrawLine(pen, start, end);
-                DrawOpenArrow(g, pen, start, end);
-                break;
-        }
-
-        if (label is not null)
-        {
-            var midPt = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
-            var lineAngle = MathF.Atan2(end.Y - start.Y, end.X - start.X);
-            var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
-            g.DrawString(label, font, brush, mid);
-        }
+        var midPt = UmlEdgeRouting.GetPathLabelPoint(pathPoints, routingKind);
+        var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
+        var lineAngle = MathF.Atan2(dir.Y, dir.X);
+        var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
+        DrawEdgeLabel(g, font, brush, mid, connector.Name);
     }
 
     private static float MeasureBehaviorNode(UmlBehaviorNode? behaviorNode, float currentHeight)
@@ -532,6 +680,7 @@ public static class UmlDiagramRenderer
             UmlBehaviorNodeKind.Decision or UmlBehaviorNodeKind.Merge => Math.Max(currentHeight, 48),
             UmlBehaviorNodeKind.Fork or UmlBehaviorNodeKind.Join => Math.Max(currentHeight, 18),
             UmlBehaviorNodeKind.Lifeline => Math.Max(currentHeight, 220),
+            UmlBehaviorNodeKind.CombinedFragment => Math.Max(currentHeight, 80),
             UmlBehaviorNodeKind.Activation => Math.Max(currentHeight, 48),
             _ => Math.Max(currentHeight, 60),
         };
@@ -588,17 +737,51 @@ public static class UmlDiagramRenderer
     private static void DrawFilledArrow(Graphics g, Pen pen, PointF from, PointF to)
     {
         var angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
-        const float len = 10f;
-        const float wing = 5f;
         var p1 = new PointF(
-            (float)(to.X - len * Math.Cos(angle) + wing * Math.Sin(angle)),
-            (float)(to.Y - len * Math.Sin(angle) - wing * Math.Cos(angle)));
+            (float)(to.X - FilledArrowLength * Math.Cos(angle) + FilledArrowHalfWing * Math.Sin(angle)),
+            (float)(to.Y - FilledArrowLength * Math.Sin(angle) - FilledArrowHalfWing * Math.Cos(angle)));
         var p2 = new PointF(
-            (float)(to.X - len * Math.Cos(angle) - wing * Math.Sin(angle)),
-            (float)(to.Y - len * Math.Sin(angle) + wing * Math.Cos(angle)));
+            (float)(to.X - FilledArrowLength * Math.Cos(angle) - FilledArrowHalfWing * Math.Sin(angle)),
+            (float)(to.Y - FilledArrowLength * Math.Sin(angle) + FilledArrowHalfWing * Math.Cos(angle)));
+
+        const float halo = 2f;
+        var h1 = new PointF(
+            (float)(to.X - (FilledArrowLength + halo) * Math.Cos(angle) + (FilledArrowHalfWing + halo) * Math.Sin(angle)),
+            (float)(to.Y - (FilledArrowLength + halo) * Math.Sin(angle) - (FilledArrowHalfWing + halo) * Math.Cos(angle)));
+        var h2 = new PointF(
+            (float)(to.X - (FilledArrowLength + halo) * Math.Cos(angle) - (FilledArrowHalfWing + halo) * Math.Sin(angle)),
+            (float)(to.Y - (FilledArrowLength + halo) * Math.Sin(angle) + (FilledArrowHalfWing + halo) * Math.Cos(angle)));
+
+        using var white = new SolidBrush(Color.White);
         using var brush = new SolidBrush(pen.Color);
+        g.FillPolygon(white, [to, h1, h2]);
         g.FillPolygon(brush, [to, p1, p2]);
         g.DrawPolygon(pen, [to, p1, p2]);
+    }
+
+    private static void DrawPathEndingWithOpenArrow(
+        Graphics g,
+        Pen pen,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings,
+        PointF end)
+    {
+        UmlEdgeRouting.DrawRoutedPathSegment(g, pen, pathPoints, routingKind, crossings, OpenArrowLength);
+        DrawOpenArrowAtEnd(g, pen, pathPoints, routingKind, end);
+        BridgeOpenArrowStem(g, pen, pathPoints, routingKind, end);
+    }
+
+    private static void DrawPathEndingWithFilledArrow(
+        Graphics g,
+        Pen pen,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings,
+        PointF end)
+    {
+        UmlEdgeRouting.DrawRoutedPathSegment(g, pen, pathPoints, routingKind, crossings, trimFromEnd: 0f);
+        DrawFilledArrowAtEnd(g, pen, pathPoints, routingKind, end);
     }
 
     private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedPath(RectangleF rect, float radius)
@@ -613,144 +796,285 @@ public static class UmlDiagramRenderer
         return path;
     }
 
-    private static void DrawRealization(Graphics g, Pen pen, PointF start, PointF end)
+    private static void DrawRealization(
+        Graphics g,
+        Pen pen,
+        PointF start,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
     {
         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-        const float markerDepth = 18f;
-        var shaftEnd = ShortenToward(start, end, markerDepth);
-        g.DrawLine(pen, start, shaftEnd);
-        DrawDirectedHollowTriangle(g, pen, end, start);
+        UmlEdgeRouting.DrawRoutedPathSegment(g, pen, pathPoints, routingKind, crossings, trimFromEnd: 0f);
+        DrawDirectedHollowTriangleAtEnd(g, pen, pathPoints, routingKind, end);
     }
 
-    private static void DrawLabeledConnector(Graphics g, Pen pen, Font font, Brush brush, PointF start, PointF end, string label)
+    private static void DrawLabeledConnectorGeometry(
+        Graphics g,
+        Pen pen,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
     {
         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-        g.DrawLine(pen, start, end);
-        DrawOpenArrow(g, pen, start, end);
-        var midPt = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
-        var lineAngle = MathF.Atan2(end.Y - start.Y, end.X - start.X);
+        DrawPathEndingWithOpenArrow(g, pen, pathPoints, routingKind, crossings, end);
+    }
+
+    private static void DrawConnectorLabel(
+        Graphics g,
+        Font font,
+        Brush brush,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        string label)
+    {
+        var midPt = UmlEdgeRouting.GetPathLabelPoint(pathPoints, routingKind);
+        var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
+        var lineAngle = MathF.Atan2(dir.Y, dir.X);
         var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
-        g.DrawString(label, font, brush, mid);
+        DrawEdgeLabel(g, font, brush, mid, label);
     }
 
-    private static void DrawGeneralization(Graphics g, Pen pen, PointF start, PointF end)
+    private static void DrawGeneralization(
+        Graphics g,
+        Pen pen,
+        PointF start,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
     {
-        const float markerDepth = 18f;
-        var shaftEnd = ShortenToward(start, end, markerDepth);
-        g.DrawLine(pen, start, shaftEnd);
-        DrawDirectedHollowTriangle(g, pen, end, start);
+        UmlEdgeRouting.DrawRoutedPathSegment(g, pen, pathPoints, routingKind, crossings, trimFromEnd: 0f);
+        DrawDirectedHollowTriangleAtEnd(g, pen, pathPoints, routingKind, end);
     }
 
-    private static void DrawDependency(Graphics g, Pen pen, Font font, Brush brush, PointF start, PointF end, UmlDependency dep)
+    private static void DrawDependencyGeometry(
+        Graphics g,
+        Pen pen,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
     {
         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
-        g.DrawLine(pen, start, end);
-        DrawOpenArrow(g, pen, start, end);
-
-        if (!string.IsNullOrWhiteSpace(dep.Stereotype))
-        {
-            var label = $"«{dep.Stereotype}»";
-            var midPt = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
-            var lineAngle = MathF.Atan2(end.Y - start.Y, end.X - start.X);
-            var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
-            g.DrawString(label, font, brush, mid);
-        }
+        DrawPathEndingWithOpenArrow(g, pen, pathPoints, routingKind, crossings, end);
     }
 
-    private static void DrawAssociation(Graphics g, Pen pen, Font font, Brush brush, PointF start, PointF end, RectangleSide startSide, RectangleSide endSide, UmlAssociation assoc)
+    private static void DrawDependencyLabel(
+        Graphics g,
+        Font font,
+        Brush brush,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        UmlDependency dep)
     {
-        const float diamondDepth = 22f;
+        if (string.IsNullOrWhiteSpace(dep.Stereotype))
+            return;
 
+        DrawConnectorLabel(g, font, brush, pathPoints, routingKind, $"«{dep.Stereotype}»");
+    }
+
+    private static void DrawAssociationGeometry(
+        Graphics g,
+        Pen pen,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        UmlAssociation assoc,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
+    {
         var hasDiamond = assoc.Aggregation is UmlAggregationKind.Shared or UmlAggregationKind.Composite;
         if (hasDiamond)
-        {
-            var shaftEnd = ShortenToward(start, end, diamondDepth);
-            g.DrawLine(pen, start, shaftEnd);
-        }
+            UmlEdgeRouting.DrawRoutedPathSegment(g, pen, pathPoints, routingKind, crossings, trimFromEnd: 0f);
+        else if (assoc.IsDirected)
+            DrawPathEndingWithOpenArrow(g, pen, pathPoints, routingKind, crossings, end);
         else
-        {
-            g.DrawLine(pen, start, end);
-        }
-
-        DrawMultiplicity(g, font, brush, start, end, assoc.SourceMultiplicity);
-        DrawMultiplicity(g, font, brush, end, start, assoc.TargetMultiplicity);
-
-        if (!string.IsNullOrWhiteSpace(assoc.SourceEndName))
-            DrawEndName(g, font, brush, start, end, assoc.SourceEndName);
-        if (!string.IsNullOrWhiteSpace(assoc.TargetEndName))
-            DrawEndName(g, font, brush, end, start, assoc.TargetEndName);
+            UmlEdgeRouting.DrawRoutedPath(g, pen, pathPoints, routingKind, crossings);
 
         if (assoc.Aggregation == UmlAggregationKind.Shared)
-            DrawDirectedDiamond(g, pen, end, start, filled: false);
+            DrawDirectedDiamondAtEnd(g, pen, pathPoints, routingKind, end, filled: false);
         else if (assoc.Aggregation == UmlAggregationKind.Composite)
-            DrawDirectedDiamond(g, pen, end, start, filled: true);
-        else if (assoc.IsDirected)
-            DrawOpenArrow(g, pen, start, end);
+            DrawDirectedDiamondAtEnd(g, pen, pathPoints, routingKind, end, filled: true);
     }
 
-    // Labels offset 18px inward along line + 13px perpendicular (left of direction = above for horizontal lines).
-    private static void DrawMultiplicity(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text)
+    private static void DrawAssociationLabels(
+        Graphics g,
+        Font font,
+        Brush brush,
+        PointF start,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        UmlAssociation assoc)
+    {
+        var flat = UmlEdgeRouting.FlattenForCrossingDetection(pathPoints, routingKind);
+        var startNeighbor = flat.Length >= 2 ? flat[1] : end;
+        var endNeighbor = flat.Length >= 2 ? flat[^2] : start;
+        var targetLabelInward = GetAssociationEndLabelInward(assoc);
+
+        DrawMultiplicity(g, font, brush, start, startNeighbor, assoc.SourceMultiplicity);
+        DrawMultiplicity(g, font, brush, end, endNeighbor, assoc.TargetMultiplicity, targetLabelInward);
+
+        if (!string.IsNullOrWhiteSpace(assoc.SourceEndName))
+            DrawEndName(g, font, brush, start, startNeighbor, assoc.SourceEndName);
+        if (!string.IsNullOrWhiteSpace(assoc.TargetEndName))
+            DrawEndName(g, font, brush, end, endNeighbor, assoc.TargetEndName, targetLabelInward);
+    }
+
+    private static float GetAssociationEndLabelInward(UmlAssociation assoc)
+    {
+        if (assoc.Aggregation is UmlAggregationKind.Shared or UmlAggregationKind.Composite)
+            return DiamondDepth + 8f;
+
+        return assoc.IsDirected ? 24f : 18f;
+    }
+
+    // Labels offset inward along line + 13px perpendicular (left of direction = above for horizontal lines).
+    private static void DrawMultiplicity(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text, float inwardDistance = 18f)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         var angle = MathF.Atan2(otherEnd.Y - point.Y, otherEnd.X - point.X);
-        var inward = PolarOffset(point, angle, 18f);
+        var inward = PolarOffset(point, angle, inwardDistance);
         var labelPt = PolarOffset(inward, angle + MathF.PI / 2f, 13f);
-        g.DrawString(text, font, brush, labelPt);
+        DrawEdgeLabel(g, font, brush, labelPt, text);
     }
 
     // Role names go on the opposite perpendicular side from multiplicity labels.
-    private static void DrawEndName(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text)
+    private static void DrawEndName(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text, float inwardDistance = 18f)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         var angle = MathF.Atan2(otherEnd.Y - point.Y, otherEnd.X - point.X);
-        var inward = PolarOffset(point, angle, 18f);
+        var inward = PolarOffset(point, angle, inwardDistance);
         var labelPt = PolarOffset(inward, angle - MathF.PI / 2f, 13f);
+        DrawEdgeLabel(g, font, brush, labelPt, text);
+    }
+
+    private static void DrawEdgeLabel(Graphics g, Font font, Brush brush, PointF labelPt, string text)
+    {
+        var size = g.MeasureString(text, font);
+        var rect = new RectangleF(labelPt.X - 3f, labelPt.Y - 2f, size.Width + 6f, size.Height + 4f);
+        using var background = new SolidBrush(Color.White);
+        using var border = new Pen(Color.FromArgb(220, 220, 220), 0.75f);
+        g.FillRectangle(background, rect);
+        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
         g.DrawString(text, font, brush, labelPt);
     }
 
     private static void DrawDirectedHollowTriangle(Graphics g, Pen pen, PointF tip, PointF from)
     {
-        const float depth = 18f;
-        const float halfBase = 8f;
         var angle = MathF.Atan2(tip.Y - from.Y, tip.X - from.X);
-        var baseCenter = PolarOffset(tip, angle + MathF.PI, depth);
-        var wing1 = PolarOffset(baseCenter, angle + MathF.PI / 2f, halfBase);
-        var wing2 = PolarOffset(baseCenter, angle - MathF.PI / 2f, halfBase);
+        var baseCenter = PolarOffset(tip, angle + MathF.PI, HollowTriangleDepth);
+        var wing1 = PolarOffset(baseCenter, angle + MathF.PI / 2f, HollowTriangleHalfBase);
+        var wing2 = PolarOffset(baseCenter, angle - MathF.PI / 2f, HollowTriangleHalfBase);
 
         using var outlinePen = new Pen(pen.Color, Math.Max(pen.Width, 2f));
+        using var fill = new SolidBrush(Color.White);
+        g.FillPolygon(fill, [tip, wing1, wing2]);
         g.DrawPolygon(outlinePen, [tip, wing1, wing2]);
     }
 
     private static void DrawOpenArrow(Graphics g, Pen pen, PointF from, PointF to)
     {
         var angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
-        const float len = 14f;
-        const float wing = 7f;
-        var p1 = new PointF(
-            (float)(to.X - len * Math.Cos(angle) + wing * Math.Sin(angle)),
-            (float)(to.Y - len * Math.Sin(angle) - wing * Math.Cos(angle)));
-        var p2 = new PointF(
-            (float)(to.X - len * Math.Cos(angle) - wing * Math.Sin(angle)),
-            (float)(to.Y - len * Math.Sin(angle) + wing * Math.Cos(angle)));
+        DrawOpenArrowAtAngle(g, pen, to, angle);
+    }
+
+    private static void DrawOpenArrowAtEnd(Graphics g, Pen pen, PointF[] pathPoints, UmlEdgeRoutingKind routingKind, PointF end)
+    {
+        var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
+        var angle = MathF.Atan2(dir.Y, dir.X);
+        DrawOpenArrowAtAngle(g, pen, end, angle);
+    }
+
+    private static (PointF BaseCenter, PointF Wing1, PointF Wing2) GetOpenArrowGeometry(PointF tip, double angle)
+    {
+        var cos = Math.Cos(angle);
+        var sin = Math.Sin(angle);
+        var baseCenter = new PointF(
+            (float)(tip.X - OpenArrowLength * cos),
+            (float)(tip.Y - OpenArrowLength * sin));
+        var wing1 = new PointF(
+            (float)(baseCenter.X + OpenArrowHalfWing * sin),
+            (float)(baseCenter.Y - OpenArrowHalfWing * cos));
+        var wing2 = new PointF(
+            (float)(baseCenter.X - OpenArrowHalfWing * sin),
+            (float)(baseCenter.Y + OpenArrowHalfWing * cos));
+        return (baseCenter, wing1, wing2);
+    }
+
+    private static void BridgeOpenArrowStem(
+        Graphics g,
+        Pen pen,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        PointF end)
+    {
+        var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
+        var angle = MathF.Atan2(dir.Y, dir.X);
+        var (_, wing1, wing2) = GetOpenArrowGeometry(end, angle);
+        var stemEnd = UmlEdgeRouting.ShortenPathEnd(pathPoints, routingKind, OpenArrowLength);
+        var baseCenter = new PointF((wing1.X + wing2.X) / 2f, (wing1.Y + wing2.Y) / 2f);
+        var dx = stemEnd.X - baseCenter.X;
+        var dy = stemEnd.Y - baseCenter.Y;
+        if (dx * dx + dy * dy <= 1.5f * 1.5f)
+            return;
+
+        using var bridgePen = new Pen(pen.Color, pen.Width);
+        g.DrawLine(bridgePen, stemEnd, baseCenter);
+    }
+
+    private static void DrawOpenArrowAtAngle(Graphics g, Pen pen, PointF to, double angle)
+    {
+        var (_, wing1, wing2) = GetOpenArrowGeometry(to, angle);
+
+        using var haloPen = new Pen(Color.White, Math.Max(pen.Width, 2f) + 3f)
+        {
+            StartCap = System.Drawing.Drawing2D.LineCap.Round,
+            EndCap = System.Drawing.Drawing2D.LineCap.Round,
+        };
+        g.DrawLine(haloPen, to, wing1);
+        g.DrawLine(haloPen, to, wing2);
+
         using var thickPen = new Pen(pen.Color, Math.Max(pen.Width, 2f))
         {
             StartCap = System.Drawing.Drawing2D.LineCap.Round,
             EndCap = System.Drawing.Drawing2D.LineCap.Round,
         };
-        g.DrawLine(thickPen, to, p1);
-        g.DrawLine(thickPen, to, p2);
+        g.DrawLine(thickPen, to, wing1);
+        g.DrawLine(thickPen, to, wing2);
+    }
+
+    private static void DrawFilledArrowAtEnd(Graphics g, Pen pen, PointF[] pathPoints, UmlEdgeRoutingKind routingKind, PointF end)
+    {
+        var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
+        var from = new PointF(end.X - dir.X * FilledArrowLength, end.Y - dir.Y * FilledArrowLength);
+        DrawFilledArrow(g, pen, from, end);
+    }
+
+    private static void DrawDirectedHollowTriangleAtEnd(Graphics g, Pen pen, PointF[] pathPoints, UmlEdgeRoutingKind routingKind, PointF end)
+    {
+        var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
+        var from = new PointF(end.X - dir.X * HollowTriangleDepth, end.Y - dir.Y * HollowTriangleDepth);
+        DrawDirectedHollowTriangle(g, pen, end, from);
+    }
+
+    private static void DrawDirectedDiamondAtEnd(Graphics g, Pen pen, PointF[] pathPoints, UmlEdgeRoutingKind routingKind, PointF end, bool filled)
+    {
+        var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
+        var from = new PointF(end.X - dir.X * DiamondDepth, end.Y - dir.Y * DiamondDepth);
+        DrawDirectedDiamond(g, pen, end, from, filled);
     }
 
     private static void DrawDirectedDiamond(Graphics g, Pen pen, PointF tip, PointF from, bool filled)
     {
-        const float depth = 22f;
-        const float halfWidth = 10f;
         var angle = MathF.Atan2(tip.Y - from.Y, tip.X - from.X);
         var inward = angle + MathF.PI;
-        var basePt = PolarOffset(tip, inward, depth);
-        var mid = PolarOffset(tip, inward, depth * 0.5f);
-        var wing1 = PolarOffset(mid, angle + MathF.PI / 2f, halfWidth);
-        var wing2 = PolarOffset(mid, angle - MathF.PI / 2f, halfWidth);
+        var basePt = PolarOffset(tip, inward, DiamondDepth);
+        var mid = PolarOffset(tip, inward, DiamondDepth * 0.5f);
+        var wing1 = PolarOffset(mid, angle + MathF.PI / 2f, DiamondHalfWidth);
+        var wing2 = PolarOffset(mid, angle - MathF.PI / 2f, DiamondHalfWidth);
 
         PointF[] points = [tip, wing1, basePt, wing2];
         using var outlinePen = new Pen(pen.Color, Math.Max(pen.Width, 2f));
@@ -759,11 +1083,14 @@ public static class UmlDiagramRenderer
             using var brush = new SolidBrush(Color.Black);
             g.FillPolygon(brush, points);
         }
+        else
+        {
+            using var fill = new SolidBrush(Color.White);
+            g.FillPolygon(fill, points);
+        }
 
         g.DrawPolygon(outlinePen, points);
     }
-
-    private enum RectangleSide { Top, Right, Bottom, Left }
 
     private static PointF ShortenToward(PointF from, PointF to, float distanceFromTo)
     {
@@ -787,58 +1114,6 @@ public static class UmlDiagramRenderer
         return Math.Max(80f, w + 24f);
     }
 
-    private static PointF GetConnectionPoint(RectangleF from, RectangleF to, out RectangleSide side)
-    {
-        var fromCenter = new PointF(from.Left + from.Width / 2f, from.Top + from.Height / 2f);
-        var toCenter = new PointF(to.Left + to.Width / 2f, to.Top + to.Height / 2f);
-        var dx = toCenter.X - fromCenter.X;
-        var dy = toCenter.Y - fromCenter.Y;
-
-        if (MathF.Abs(dx) < 0.001f && MathF.Abs(dy) < 0.001f)
-        {
-            side = RectangleSide.Right;
-            return new PointF(from.Right, fromCenter.Y);
-        }
-
-        var bestT = float.MaxValue;
-        var best = fromCenter;
-        var bestSide = RectangleSide.Right;
-
-        void TryHit(float t, float x, float y, RectangleSide candidate)
-        {
-            if (t <= 0.0001f || t >= bestT)
-                return;
-
-            if (x < from.Left - 0.01f || x > from.Right + 0.01f || y < from.Top - 0.01f || y > from.Bottom + 0.01f)
-                return;
-
-            bestT = t;
-            best = new PointF(x, y);
-            bestSide = candidate;
-        }
-
-        if (MathF.Abs(dx) > 0.001f)
-        {
-            var tRight = (from.Right - fromCenter.X) / dx;
-            TryHit(tRight, from.Right, fromCenter.Y + tRight * dy, RectangleSide.Right);
-
-            var tLeft = (from.Left - fromCenter.X) / dx;
-            TryHit(tLeft, from.Left, fromCenter.Y + tLeft * dy, RectangleSide.Left);
-        }
-
-        if (MathF.Abs(dy) > 0.001f)
-        {
-            var tBottom = (from.Bottom - fromCenter.Y) / dy;
-            TryHit(tBottom, fromCenter.X + tBottom * dx, from.Bottom, RectangleSide.Bottom);
-
-            var tTop = (from.Top - fromCenter.Y) / dy;
-            TryHit(tTop, fromCenter.X + tTop * dx, from.Top, RectangleSide.Top);
-        }
-
-        side = bestSide;
-        return best;
-    }
-
     private static void DrawInteractionOverlays(
         Graphics g,
         UmlProject project,
@@ -846,13 +1121,14 @@ public static class UmlDiagramRenderer
         UmlDiagramNode? selectedNode,
         UmlDiagramEdge? selectedEdge,
         UmlDiagramNode? hoverNode,
-        UmlDiagramEdge? hoverEdge)
+        UmlDiagramEdge? hoverEdge,
+        IReadOnlyDictionary<Guid, List<(float T, PointF Pt)>>? crossingsMap = null)
     {
         if (hoverEdge is not null && hoverEdge != selectedEdge)
-            DrawEdgeOverlay(g, project, diagram, hoverEdge, selected: false);
+            DrawEdgeOverlay(g, project, diagram, hoverEdge, selected: false, GetEdgeCrossings(crossingsMap, hoverEdge.Id));
 
         if (selectedEdge is not null)
-            DrawEdgeOverlay(g, project, diagram, selectedEdge, selected: true);
+            DrawEdgeOverlay(g, project, diagram, selectedEdge, selected: true, GetEdgeCrossings(crossingsMap, selectedEdge.Id));
 
         if (hoverNode is not null && hoverNode != selectedNode)
             DrawNodeHoverOverlay(g, project, hoverNode);
@@ -863,58 +1139,30 @@ public static class UmlDiagramRenderer
 
     private static void DrawNodeHoverOverlay(Graphics g, UmlProject project, UmlDiagramNode node)
     {
-        var rect = GetNodeBounds(project, node);
         using var pen = new Pen(Color.FromArgb(180, 79, 70, 229), 2f)
         {
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
         };
-        g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        UmlNodeSilhouette.DrawOutline(g, pen, project, node);
     }
 
     private static void DrawNodeSelectionOverlay(Graphics g, UmlProject project, UmlDiagramNode node)
     {
-        var rect = GetNodeBounds(project, node);
-        using var selectPen = new Pen(Color.FromArgb(220, 30, 136, 229), 1.2f)
+        using var selectPen = new Pen(Color.FromArgb(220, 30, 136, 229), 1.8f)
         {
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dot,
         };
-        g.DrawRectangle(selectPen, rect.X, rect.Y, rect.Width, rect.Height);
-        DrawSelectionHandles(g, rect);
+        UmlNodeSilhouette.DrawOutline(g, selectPen, project, node);
+        UmlNodeSilhouette.DrawResizeHandles(g, project, node);
     }
 
-    private static void DrawSelectionHandles(Graphics g, RectangleF rect)
-    {
-        const float handleSize = 7f;
-        using var brush = new SolidBrush(Color.White);
-        using var pen = new Pen(Color.FromArgb(30, 136, 229), 1.5f);
-
-        foreach (var handleRect in GetHandleRects(rect, handleSize))
-        {
-            g.FillRectangle(brush, handleRect);
-            g.DrawRectangle(pen, handleRect.X, handleRect.Y, handleRect.Width, handleRect.Height);
-        }
-    }
-
-    private static IEnumerable<RectangleF> GetHandleRects(RectangleF rect, float size)
-    {
-        var half = size / 2f;
-        var points = new[]
-        {
-            new PointF(rect.Left, rect.Top),
-            new PointF(rect.Left + rect.Width / 2f, rect.Top),
-            new PointF(rect.Right, rect.Top),
-            new PointF(rect.Right, rect.Top + rect.Height / 2f),
-            new PointF(rect.Right, rect.Bottom),
-            new PointF(rect.Left + rect.Width / 2f, rect.Bottom),
-            new PointF(rect.Left, rect.Bottom),
-            new PointF(rect.Left, rect.Top + rect.Height / 2f),
-        };
-
-        foreach (var point in points)
-            yield return new RectangleF(point.X - half, point.Y - half, size, size);
-    }
-
-    private static void DrawEdgeOverlay(Graphics g, UmlProject project, UmlDiagram diagram, UmlDiagramEdge edge, bool selected)
+    private static void DrawEdgeOverlay(
+        Graphics g,
+        UmlProject project,
+        UmlDiagram diagram,
+        UmlDiagramEdge edge,
+        bool selected,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
     {
         var sourceNode = diagram.FindNode(edge.SourceNodeId);
         var targetNode = diagram.FindNode(edge.TargetNodeId);
@@ -928,24 +1176,59 @@ public static class UmlDiagramRenderer
             && UmlSequenceLayout.IsSequenceMessage(project, diagram, edge))
         {
             foreach (var (start, end) in UmlSequenceLayout.GetMessageSegments(project, diagram, edge))
-                DrawOverlaySegment(g, start, end, color, width, selected);
+                DrawOverlaySegment(g, start, end, color, width, selected, []);
 
             return;
         }
 
-        var genericStart = GetConnectionPoint(sourceNode.Bounds, targetNode.Bounds, out _);
-        var genericEnd = GetConnectionPoint(targetNode.Bounds, sourceNode.Bounds, out _);
-        DrawOverlaySegment(g, genericStart, genericEnd, color, width, selected);
+        PointF[] pathPoints;
+        if (UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode))
+        {
+            var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, sourceNode);
+            pathPoints = UmlEdgeRouting.BuildSelfLoopPath(bounds, edge.RoutingKind);
+        }
+        else
+        {
+            var startPt = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
+            var endPt = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+            pathPoints = UmlEdgeRouting.BuildPathPoints(project, diagram, edge, startPt, endPt, startSide, endSide);
+        }
+
+        DrawOverlayPath(g, pathPoints, edge.RoutingKind, color, width, selected, crossings);
+
+        if (selected
+            && edge.RoutingKind == UmlEdgeRoutingKind.Bent
+            && !UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode)
+            && pathPoints.Length >= 3)
+        {
+            const float size = 7f;
+            using var fill = new SolidBrush(Color.White);
+            using var border = new Pen(color, 1.6f);
+            for (var i = 1; i < pathPoints.Length - 1; i++)
+            {
+                var handle = pathPoints[i];
+                var rect = new RectangleF(handle.X - size, handle.Y - size, size * 2f, size * 2f);
+                g.FillRectangle(fill, rect.X, rect.Y, rect.Width, rect.Height);
+                g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
+            }
+        }
     }
 
-    private static void DrawOverlaySegment(Graphics g, PointF start, PointF end, Color color, float width, bool selected)
+    private static void DrawOverlaySegment(
+        Graphics g,
+        PointF start,
+        PointF end,
+        Color color,
+        float width,
+        bool selected,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
     {
         using var pen = new Pen(color, width)
         {
             StartCap = System.Drawing.Drawing2D.LineCap.Round,
             EndCap = System.Drawing.Drawing2D.LineCap.Round,
         };
-        g.DrawLine(pen, start, end);
+        UmlEdgeRouting.DrawRoutedPath(g, pen, [start, end], UmlEdgeRoutingKind.Straight, crossings);
 
         if (selected)
         {
@@ -956,9 +1239,161 @@ public static class UmlDiagramRenderer
         }
     }
 
+    private static void DrawOverlayPath(
+        Graphics g,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        Color color,
+        float width,
+        bool selected,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
+    {
+        using var pen = new Pen(color, width)
+        {
+            StartCap = System.Drawing.Drawing2D.LineCap.Round,
+            EndCap = System.Drawing.Drawing2D.LineCap.Round,
+        };
+        UmlEdgeRouting.DrawRoutedPath(g, pen, pathPoints, routingKind, crossings);
+
+        if (selected)
+        {
+            var mid = UmlEdgeRouting.GetPathLabelPoint(pathPoints, routingKind);
+            const float marker = 5f;
+            using var brush = new SolidBrush(color);
+            g.FillEllipse(brush, mid.X - marker, mid.Y - marker, marker * 2, marker * 2);
+        }
+    }
+
     private static RectangleF GetNodeBounds(UmlProject project, UmlDiagramNode node)
     {
         node.Height = MeasureNodeHeight(project, node);
         return node.Bounds;
+    }
+
+    private static List<(UmlDiagramEdge Edge, PointF[] FlatPoints)> BuildEdgeLines(UmlProject project, UmlDiagram diagram)
+    {
+        var lines = new List<(UmlDiagramEdge Edge, PointF[] FlatPoints)>();
+        foreach (var edge in diagram.Edges)
+        {
+            if (!TryGetEdgePath(project, diagram, edge, out var pathPoints, out var flatPoints))
+                continue;
+
+            lines.Add((edge, flatPoints));
+        }
+
+        return lines;
+    }
+
+    private static IReadOnlyList<(float T, PointF Pt)> GetEdgeCrossings(
+        IReadOnlyDictionary<Guid, List<(float T, PointF Pt)>>? crossingsMap,
+        Guid edgeId) =>
+        crossingsMap is not null && crossingsMap.TryGetValue(edgeId, out var crossings) ? crossings : [];
+
+    public static PointF[] BuildPreviewPath(
+        UmlEdgeRoutingKind routingKind,
+        RectangleF sourceBounds,
+        RectangleF targetBounds) =>
+        BuildPreviewPath(null, routingKind, null, sourceBounds, null, targetBounds);
+
+    public static PointF[] BuildPreviewPath(
+        UmlProject? project,
+        UmlEdgeRoutingKind routingKind,
+        UmlDiagramNode? sourceNode,
+        RectangleF sourceBounds,
+        UmlDiagramNode? targetNode,
+        RectangleF targetBounds,
+        UmlDiagramEdge? routingEdge = null,
+        UmlDiagram? diagram = null)
+    {
+        UmlConnectionSide startSide;
+        UmlConnectionSide endSide;
+        PointF start;
+        PointF end;
+
+        if (project is not null && sourceNode is not null && targetNode is not null)
+        {
+            if (UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode))
+            {
+                var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, sourceNode);
+                return UmlEdgeRouting.BuildSelfLoopPath(bounds, routingKind);
+            }
+
+            start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out startSide);
+            end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out endSide);
+        }
+        else if (project is not null && sourceNode is not null)
+        {
+            var resolvedSource = UmlNodeConnectionGeometry.GetLayoutBounds(project, sourceNode);
+            start = UmlNodeConnectionGeometry.GetConnectionPointToBounds(project, sourceNode, targetBounds, resolvedSource, out startSide);
+            end = UmlNodeConnectionGeometry.GetRectConnectionPoint(targetBounds, resolvedSource, out endSide);
+        }
+        else if (project is not null && targetNode is not null)
+        {
+            var resolvedTarget = UmlNodeConnectionGeometry.GetLayoutBounds(project, targetNode);
+            start = UmlNodeConnectionGeometry.GetRectConnectionPoint(sourceBounds, resolvedTarget, out startSide);
+            end = UmlNodeConnectionGeometry.GetConnectionPointToBounds(project, targetNode, sourceBounds, resolvedTarget, out endSide);
+        }
+        else
+        {
+            start = UmlNodeConnectionGeometry.GetRectConnectionPoint(sourceBounds, targetBounds, out startSide);
+            end = UmlNodeConnectionGeometry.GetRectConnectionPoint(targetBounds, sourceBounds, out endSide);
+        }
+
+        var edge = routingEdge ?? new UmlDiagramEdge { RoutingKind = routingKind };
+        if (routingEdge is null)
+            edge.RoutingKind = routingKind;
+
+        if (project is not null && diagram is not null)
+            return UmlEdgeRouting.BuildPathPoints(project, diagram, edge, start, end, startSide, endSide);
+
+        if (edge.RoutingKind == UmlEdgeRoutingKind.Bent)
+        {
+            var midX = edge.OrthoMidX ?? (start.X + end.X) / 2f;
+            var midY = edge.OrthoMidY ?? (start.Y + end.Y) / 2f;
+            if (edge.OrthoMidY is not null)
+                return [start, new(start.X, midY), new(end.X, midY), end];
+
+            return [start, new(midX, start.Y), new(midX, end.Y), end];
+        }
+
+        return [start, end];
+    }
+
+    public static bool TryGetEdgePath(
+        UmlProject project,
+        UmlDiagram diagram,
+        UmlDiagramEdge edge,
+        out PointF[] pathPoints,
+        out PointF[] flatPoints)
+    {
+        pathPoints = [];
+        flatPoints = [];
+
+        var sourceNode = diagram.FindNode(edge.SourceNodeId);
+        var targetNode = diagram.FindNode(edge.TargetNodeId);
+        if (sourceNode is null || targetNode is null)
+            return false;
+
+        var relationship = project.FindRelationship(edge.ModelElementId);
+        if (relationship is null)
+            return false;
+
+        if (diagram.Kind == UmlDiagramKind.SequenceDiagram
+            && relationship is UmlBehaviorConnector { Kind: UmlBehaviorConnectorKind.Message })
+            return false;
+
+        if (UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode))
+        {
+            var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, sourceNode);
+            pathPoints = UmlEdgeRouting.BuildSelfLoopPath(bounds, edge.RoutingKind);
+            flatPoints = UmlEdgeRouting.FlattenForCrossingDetection(pathPoints, edge.RoutingKind);
+            return true;
+        }
+
+        var start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
+        var end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+        pathPoints = UmlEdgeRouting.BuildPathPoints(project, diagram, edge, start, end, startSide, endSide);
+        flatPoints = UmlEdgeRouting.FlattenForCrossingDetection(pathPoints, edge.RoutingKind);
+        return true;
     }
 }

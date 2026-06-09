@@ -11,6 +11,7 @@ namespace MyUML20WinV10.Models;
 [JsonDerivedType(typeof(UmlInclude), "include")]
 [JsonDerivedType(typeof(UmlExtend), "extend")]
 [JsonDerivedType(typeof(UmlBehaviorConnector), "behaviorConnector")]
+[JsonDerivedType(typeof(UmlNoteLink), "noteLink")]
 public abstract class UmlRelationship : UmlElement
 {
     [Browsable(false)]
