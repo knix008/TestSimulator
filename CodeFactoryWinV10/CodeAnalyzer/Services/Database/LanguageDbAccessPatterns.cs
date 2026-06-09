@@ -39,7 +39,7 @@ internal static class LanguageDbAccessPatterns
         RegexOptions.Compiled);
 
     private static readonly Regex JavaFunctionHeader = new(
-        @"(?m)^\s*(?:(?:public|protected|private|static|abstract|final|synchronized|native|default)\s+)+(?:[\w<>\[\]?,\s]+\s+)?(\w+)\s*\(",
+        @"(?m)^\s*(?:(?:public|protected|private|static|abstract|final|synchronized|native|default)\s+)*(?:[\w<>\[\]?,\s]+\s+)?(\w+)\s*\(",
         RegexOptions.Compiled);
 
     private static readonly Regex CppFunctionHeader = new(
@@ -184,6 +184,31 @@ internal static class LanguageDbAccessPatterns
                 RegexOptions.Compiled | RegexOptions.IgnoreCase),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.Delete
         },
+        // JDBC / Spring JdbcTemplate
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\bjdbcTemplate\s*\.\s*(?:query|queryForObject|queryForList|queryForMap|update|batchUpdate)\s*\(",
+                RegexOptions.Compiled),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\bnamedParameterJdbcTemplate\s*\.\s*(?:query|queryForObject|queryForList|update|batchUpdate)\s*\(",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\b(?:session|entityManager)\s*\.\s*create(?:SQL|Native)Query\s*\(",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\b(?:stmt|statement|ps|preparedStatement)\s*\.\s*(?:executeQuery|executeUpdate|execute)\s*\(",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
     ];
 
     // ============================================================
@@ -191,30 +216,37 @@ internal static class LanguageDbAccessPatterns
     // ============================================================
     private static readonly IReadOnlyList<OrmPattern> JavaScriptPatterns =
     [
-        // Prisma: prisma.model.findMany / findUnique / findFirst / count
+        // Prisma: prisma.model / *Client.model
         new OrmPattern {
             PatternRegex = new Regex(
-                @"\bprisma\s*\.\s*(\w+)\s*\.\s*(?:findMany|findUnique|findFirst|findUniqueOrThrow|findFirstOrThrow|count|aggregate|groupBy)\s*\(",
+                @"\b(?:prisma|\w+Client)\s*\.\s*(\w+)\s*\.\s*(?:findMany|findUnique|findFirst|findUniqueOrThrow|findFirstOrThrow|count|aggregate|groupBy)\s*\(",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.Read
         },
         new OrmPattern {
             PatternRegex = new Regex(
-                @"\bprisma\s*\.\s*(\w+)\s*\.\s*(?:create|createMany)\s*\(",
+                @"\b(?:prisma|\w+Client)\s*\.\s*(\w+)\s*\.\s*(?:create|createMany)\s*\(",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.Create
         },
         new OrmPattern {
             PatternRegex = new Regex(
-                @"\bprisma\s*\.\s*(\w+)\s*\.\s*(?:update|updateMany|upsert)\s*\(",
+                @"\b(?:prisma|\w+Client)\s*\.\s*(\w+)\s*\.\s*(?:update|updateMany|upsert)\s*\(",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.Update
         },
         new OrmPattern {
             PatternRegex = new Regex(
-                @"\bprisma\s*\.\s*(\w+)\s*\.\s*(?:delete|deleteMany)\s*\(",
+                @"\b(?:prisma|\w+Client)\s*\.\s*(\w+)\s*\.\s*(?:delete|deleteMany)\s*\(",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.Delete
+        },
+        // Node pg / mysql2: pool.query / connection.execute
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\b(?:pool|connection|conn|client|db)\s*\.\s*(?:query|execute)\s*\(",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
         },
         // Sequelize: Model.findAll / findOne / findByPk / count
         new OrmPattern {
@@ -278,9 +310,13 @@ internal static class LanguageDbAccessPatterns
                 RegexOptions.Compiled),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.Delete
         },
-        // Knex: knex('tablename')
+        // Knex: knex('tablename') / knex.table('tablename')
         new OrmPattern {
             PatternRegex = new Regex(@"\bknex\s*\(\s*['""`](\w+)['""`]", RegexOptions.Compiled),
+            EntityNameGroup = 1, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(@"\bknex\s*\.\s*table\s*\(\s*['""`](\w+)['""`]", RegexOptions.Compiled),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.None
         },
     ];

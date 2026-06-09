@@ -206,6 +206,34 @@ internal static class DatabaseCatalogAccessAnalyzer
                 catalogs, accesses, seen,
                 catalogFilePath: path);
         }
+
+        foreach (var hint in UniversalDatabasePatterns.ExtractConnectionCatalogHints(text))
+        {
+            if (hint.StartsWith("jdbc:", StringComparison.OrdinalIgnoreCase))
+            {
+                RecordCatalogAccess(
+                    hint,
+                    DatabaseDialect.Unknown,
+                    "jdbc-url",
+                    function, functionId, filePath, lineOffset,
+                    DatabaseCatalogAccessKind.Connect,
+                    DatabaseCatalogAccessPattern.ConnectionString,
+                    DatabaseCrudOperation.Read,
+                    catalogs, accesses, seen);
+            }
+            else if (hint.Equals("mongodb", StringComparison.OrdinalIgnoreCase))
+            {
+                RecordCatalogAccess(
+                    hint,
+                    DatabaseDialect.Unknown,
+                    "mongodb-uri",
+                    function, functionId, filePath, lineOffset,
+                    DatabaseCatalogAccessKind.Connect,
+                    DatabaseCatalogAccessPattern.ConnectionString,
+                    DatabaseCrudOperation.Read,
+                    catalogs, accesses, seen);
+            }
+        }
     }
 
     private static void RecordApiConnectionMatches(
@@ -218,7 +246,7 @@ internal static class DatabaseCatalogAccessAnalyzer
         List<DatabaseCatalogAccess> accesses,
         HashSet<string> seen)
     {
-        foreach (var pattern in SqlPatternHelper.ConnectionApiPatterns)
+        foreach (var pattern in UniversalDatabasePatterns.ConnectionApiPatterns)
         {
             foreach (Match match in pattern.Matches(body))
             {

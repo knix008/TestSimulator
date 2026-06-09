@@ -750,6 +750,9 @@ public static class DatabaseTableAccessAnalyzer
             }
         }
 
+        // 언어 공통: API 첫 인자 SQL, NoSQL 컬렉션, JPA @Table
+        DetectUniversalTableReferences(body, results, index);
+
         // 언어별 ORM 패턴 적용
         if (!string.IsNullOrEmpty(languageId))
         {
@@ -813,6 +816,62 @@ public static class DatabaseTableAccessAnalyzer
             || Regex.IsMatch(body, $@"(?<![\w$@#])\b{escaped}\s*=", RegexOptions.CultureInvariant);
     }
 
+    private static void DetectUniversalTableReferences(
+        string body,
+        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
+        TableReferenceIndex index)
+    {
+        foreach (Match match in UniversalDatabasePatterns.ApiSqlFirstArgRegex.Matches(body))
+        {
+            if (!SqlPatternHelper.TryUnwrapSqlLiteral(match.Groups[1].Value, out var sql))
+            {
+                continue;
+            }
+
+            MergeSqlTableMatches(SqlPatternHelper.NormalizeSqlLiteralEscapes(sql), results, index);
+        }
+
+        foreach (var pattern in UniversalDatabasePatterns.NoSqlCollectionPatterns)
+        {
+            foreach (Match match in pattern.Matches(body))
+            {
+                var name = match.Groups[1].Value;
+                if (string.IsNullOrWhiteSpace(name) || name.Length < 2)
+                {
+                    continue;
+                }
+
+                TryAddMatch(results, index, string.Empty, name,
+                    DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
+            }
+        }
+
+        foreach (Match match in UniversalDatabasePatterns.JpaTableAnnotationRegex.Matches(body))
+        {
+            TryAddMatch(results, index, string.Empty, match.Groups[1].Value,
+                DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
+        }
+    }
+
+    private static void MergeSqlTableMatches(
+        string sql,
+        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
+        TableReferenceIndex index)
+    {
+        foreach (Match match in SqlPatternHelper.SqlReadTableRegex.Matches(sql))
+        {
+            TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value,
+                DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
+        }
+
+        foreach (Match match in SqlPatternHelper.SqlCrudTableRegex.Matches(sql))
+        {
+            var operation = MapSqlVerbToOperation(match.Groups["op"].Value);
+            TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value,
+                DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation);
+        }
+    }
+
     private static void TryAddMatch(
         Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
         TableReferenceIndex index,
@@ -846,12 +905,13 @@ public static class DatabaseTableAccessAnalyzer
         DatabaseTableAccessPattern pattern,
         DatabaseCrudOperation operations)
     {
-        if (!TryResolveTable(index, alias, out var tableId))
+        foreach (var candidate in UniversalDatabasePatterns.ExpandEntityAliases(alias))
         {
-            return;
+            if (TryResolveTable(index, candidate, out var tableId))
+            {
+                MergeAccess(results, tableId, kind, pattern, operations);
+            }
         }
-
-        MergeAccess(results, tableId, kind, pattern, operations);
     }
 
     private static void MergeAccess(
