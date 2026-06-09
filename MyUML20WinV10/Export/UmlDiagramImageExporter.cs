@@ -6,7 +6,7 @@ namespace MyUML20WinV10.Export;
 
 public static class UmlDiagramImageExporter
 {
-    public const string FileFilter = "PNG 이미지 (*.png)|*.png|JPEG 이미지 (*.jpg;*.jpeg)|*.jpg;*.jpeg|BMP 이미지 (*.bmp)|*.bmp";
+    public const string FileFilter = "PNG 이미지 (*.png)|*.png|JPEG 이미지 (*.jpg;*.jpeg)|*.jpg;*.jpeg|BMP 이미지 (*.bmp)|*.bmp|TIFF 이미지 (*.tif;*.tiff)|*.tif;*.tiff|GIF 이미지 (*.gif)|*.gif";
 
     public static void Export(UmlProject project, UmlDiagram diagram, string path, UmlImageFormat format, UmlImageExportOptions options)
     {
@@ -52,6 +52,8 @@ public static class UmlDiagramImageExporter
     {
         ".jpg" or ".jpeg" => UmlImageFormat.Jpeg,
         ".bmp" => UmlImageFormat.Bmp,
+        ".tif" or ".tiff" => UmlImageFormat.Tiff,
+        ".gif" => UmlImageFormat.Gif,
         _ => UmlImageFormat.Png,
     };
 
@@ -59,6 +61,8 @@ public static class UmlDiagramImageExporter
     {
         UmlImageFormat.Jpeg => ".jpg",
         UmlImageFormat.Bmp => ".bmp",
+        UmlImageFormat.Tiff => ".tif",
+        UmlImageFormat.Gif => ".gif",
         _ => ".png",
     };
 
@@ -66,6 +70,8 @@ public static class UmlDiagramImageExporter
     {
         UmlImageFormat.Jpeg => ImageFormat.Jpeg,
         UmlImageFormat.Bmp => ImageFormat.Bmp,
+        UmlImageFormat.Tiff => ImageFormat.Tiff,
+        UmlImageFormat.Gif => ImageFormat.Gif,
         _ => ImageFormat.Png,
     };
 }

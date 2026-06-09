@@ -193,6 +193,65 @@ public sealed class UmlCanvas : Control
         return true;
     }
 
+    public void DuplicateSelection()
+    {
+        if (_selectedNode is null)
+            return;
+
+        var original = _project.FindElement(_selectedNode.ModelElementId);
+        if (original is null)
+            return;
+
+        UmlElement newElement;
+        switch (original)
+        {
+            case UmlClassifier cls:
+                newElement = cls.CloneClassifier();
+                newElement.Id = Guid.NewGuid();
+                ((UmlClassifier)newElement).Name += " 복사";
+                _project.RootPackage.AddClassifier((UmlClassifier)newElement);
+                break;
+            case UmlActor actor:
+                newElement = new UmlActor { Name = actor.Name + " 복사" };
+                _project.RootPackage.AddActor((UmlActor)newElement);
+                break;
+            case UmlUseCase uc:
+                newElement = new UmlUseCase { Name = uc.Name + " 복사" };
+                _project.RootPackage.AddUseCase((UmlUseCase)newElement);
+                break;
+            case UmlNote note:
+                newElement = new UmlNote { Name = note.Name, Body = note.Body };
+                _project.RootPackage.AddNote((UmlNote)newElement);
+                break;
+            case UmlPackage pkg:
+                newElement = new UmlPackage { Name = pkg.Name + " 복사" };
+                _project.RootPackage.AddNestedPackage((UmlPackage)newElement);
+                break;
+            case UmlBehaviorNode beh:
+                newElement = new UmlBehaviorNode { Name = beh.Name, Kind = beh.Kind };
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)newElement);
+                break;
+            default:
+                return;
+        }
+
+        const float Offset = 24f;
+        var newNode = new UmlDiagramNode
+        {
+            ModelElementId = newElement.Id,
+            Presentation = _selectedNode.Presentation,
+            X = _selectedNode.X + Offset,
+            Y = _selectedNode.Y + Offset,
+            Width = _selectedNode.Width,
+            Height = _selectedNode.Height,
+            ShowCompartments = _selectedNode.ShowCompartments,
+        };
+        ActiveDiagram.Nodes.Add(newNode);
+        Select(newNode, null);
+        NotifyChanged();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public void DeleteSelection()
     {
         if (_selectedEdge is not null)
@@ -899,14 +958,22 @@ public sealed class UmlCanvas : Control
                 break;
         }
 
+        // Lifeline: always use fixed default width; height is max(240, drag height).
+        var nodeWidth = _toolMode == UmlToolMode.CreateLifeline
+            ? GetDefaultSize(UmlToolMode.CreateLifeline).Width
+            : Math.Max(24, rect.Width);
+        var nodeHeight = _toolMode == UmlToolMode.CreateLifeline
+            ? Math.Max(GetDefaultSize(UmlToolMode.CreateLifeline).Height, rect.Height)
+            : Math.Max(24, rect.Height);
+
         var node = new UmlDiagramNode
         {
             ModelElementId = element.Id,
             Presentation = presentation,
             X = rect.X,
             Y = rect.Y,
-            Width = Math.Max(24, rect.Width),
-            Height = Math.Max(24, rect.Height),
+            Width = nodeWidth,
+            Height = nodeHeight,
         };
         ActiveDiagram.Nodes.Add(node);
         Select(node, null);
@@ -1635,16 +1702,16 @@ public sealed class UmlCanvas : Control
             {
                 Add("속성 추가...", UmlIcons.AddItem(), () =>
                 {
-                    var t = UmlTextPrompt.Show(PromptOwner, "속성 추가", "이름", "newProperty");
-                    if (t is null) return;
-                    classifier.Properties.Add(new UmlProperty { Name = t.Trim() });
+                    var (name, vis) = UmlMemberPrompt.Show(PromptOwner, "속성 추가", "newProperty", UmlVisibility.Private);
+                    if (name is null) return;
+                    classifier.Properties.Add(new UmlProperty { Name = name.Trim(), Visibility = vis });
                     NotifyChanged();
                 });
                 Add("연산 추가...", UmlIcons.AddItem(), () =>
                 {
-                    var t = UmlTextPrompt.Show(PromptOwner, "연산 추가", "이름", "newOperation");
-                    if (t is null) return;
-                    classifier.Operations.Add(new UmlOperation { Name = t.Trim() });
+                    var (name, vis) = UmlMemberPrompt.Show(PromptOwner, "연산 추가", "newOperation", UmlVisibility.Public);
+                    if (name is null) return;
+                    classifier.Operations.Add(new UmlOperation { Name = name.Trim(), Visibility = vis });
                     NotifyChanged();
                 });
             }

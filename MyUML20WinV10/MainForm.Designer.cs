@@ -53,6 +53,12 @@ partial class MainForm
     private System.Windows.Forms.Button _btnAddProperty;
     private System.Windows.Forms.Button _btnAddOperation;
     private System.Windows.Forms.PropertyGrid _propertyGrid;
+    private System.Windows.Forms.ToolStripSeparator _tsSep3;
+    private System.Windows.Forms.ToolStripButton _tsDuplicate;
+    private System.Windows.Forms.ToolStripButton _tsCopyToClipboard;
+    private System.Windows.Forms.ToolStripSeparator _menuSepEdit;
+    private System.Windows.Forms.ToolStripMenuItem _menuDuplicate;
+    private System.Windows.Forms.ToolStripMenuItem _menuCopyToClipboard;
     private System.Windows.Forms.StatusStrip _statusStrip;
     private System.Windows.Forms.ToolStripStatusLabel _statusLabel;
     private System.Windows.Forms.ToolStripStatusLabel _statusZoomLabel;
@@ -115,6 +121,12 @@ partial class MainForm
         _btnAddOperation = new Button();
         _btnAddProperty = new Button();
         _lblProperties = new Label();
+        _tsSep3 = new ToolStripSeparator();
+        _tsDuplicate = new ToolStripButton();
+        _tsCopyToClipboard = new ToolStripButton();
+        _menuSepEdit = new ToolStripSeparator();
+        _menuDuplicate = new ToolStripMenuItem();
+        _menuCopyToClipboard = new ToolStripMenuItem();
         _statusStrip = new StatusStrip();
         _statusLabel = new ToolStripStatusLabel();
         _statusZoomLabel = new ToolStripStatusLabel();
@@ -264,23 +276,42 @@ partial class MainForm
         // 
         // _menuEdit
         // 
-        _menuEdit.DropDownItems.AddRange(new ToolStripItem[] { _menuDelete });
+        _menuEdit.DropDownItems.AddRange(new ToolStripItem[] { _menuDelete, _menuSepEdit, _menuDuplicate, _menuCopyToClipboard });
         _menuEdit.Name = "_menuEdit";
         _menuEdit.Size = new Size(53, 20);
         _menuEdit.Text = "Edit(&E)";
-        // 
+        //
         // _menuDelete
-        // 
+        //
         _menuDelete.Name = "_menuDelete";
         _menuDelete.ShortcutKeys = Keys.Delete;
-        _menuDelete.Size = new Size(166, 22);
+        _menuDelete.Size = new Size(220, 22);
         _menuDelete.Text = "Delete(&D)";
         _menuDelete.Click += MenuDelete_Click;
+        //
+        // _menuSepEdit
+        //
+        _menuSepEdit.Name = "_menuSepEdit";
+        _menuSepEdit.Size = new Size(217, 6);
+        //
+        // _menuDuplicate
+        //
+        _menuDuplicate.Name = "_menuDuplicate";
+        _menuDuplicate.ShortcutKeys = Keys.Control | Keys.D;
+        _menuDuplicate.Size = new Size(220, 22);
+        _menuDuplicate.Text = "Duplicate(&U)";
+        //
+        // _menuCopyToClipboard
+        //
+        _menuCopyToClipboard.Name = "_menuCopyToClipboard";
+        _menuCopyToClipboard.ShortcutKeys = Keys.Control | Keys.Shift | Keys.C;
+        _menuCopyToClipboard.Size = new Size(220, 22);
+        _menuCopyToClipboard.Text = "Copy to Clipboard(&B)";
         // 
         // _toolStrip
         // 
         _toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStrip.Items.AddRange(new ToolStripItem[] { _tsNew, _tsOpen, _tsSave, _tsSep1, _tsDelete, _tsSep2, _tsZoomOut, _tsZoomLabel, _tsZoomIn, _tsZoomReset });
+        _toolStrip.Items.AddRange(new ToolStripItem[] { _tsNew, _tsOpen, _tsSave, _tsSep1, _tsDelete, _tsSep3, _tsDuplicate, _tsCopyToClipboard, _tsSep2, _tsZoomOut, _tsZoomLabel, _tsZoomIn, _tsZoomReset });
         _toolStrip.Location = new Point(0, 24);
         _toolStrip.Name = "_toolStrip";
         _toolStrip.Size = new Size(1280, 26);
@@ -322,9 +353,28 @@ partial class MainForm
         _tsDelete.Size = new Size(45, 23);
         _tsDelete.Text = "Delete";
         _tsDelete.Click += MenuDelete_Click;
-        // 
+        //
+        // _tsSep3
+        //
+        _tsSep3.Name = "_tsSep3";
+        _tsSep3.Size = new Size(6, 26);
+        //
+        // _tsDuplicate
+        //
+        _tsDuplicate.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsDuplicate.Name = "_tsDuplicate";
+        _tsDuplicate.Size = new Size(23, 23);
+        _tsDuplicate.Text = "Duplicate";
+        //
+        // _tsCopyToClipboard
+        //
+        _tsCopyToClipboard.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsCopyToClipboard.Name = "_tsCopyToClipboard";
+        _tsCopyToClipboard.Size = new Size(23, 23);
+        _tsCopyToClipboard.Text = "Copy to Clipboard";
+        //
         // _tsSep2
-        // 
+        //
         _tsSep2.Name = "_tsSep2";
         _tsSep2.Size = new Size(6, 26);
         // 
@@ -597,13 +647,13 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1280, 800);
+        ClientSize = new Size(1600, 960);
         Controls.Add(_splitMain);
         Controls.Add(_toolStrip);
         Controls.Add(_menuStrip);
         Controls.Add(_statusStrip);
         MainMenuStrip = _menuStrip;
-        MinimumSize = new Size(900, 600);
+        MinimumSize = new Size(1100, 700);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "MyUML20WinV10";

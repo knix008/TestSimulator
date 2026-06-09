@@ -10,8 +10,8 @@ public static class UmlSequenceLayout
     public const float BottomPadding = 48f;
     public const float SelfMessageLoopWidth = 52f;
     public const float SelfMessageLoopHeight = 36f;
-    private const float HeaderMinHeight = 18f;
-    private const float HeaderHeightRatio = 0.18f;
+    // Header box height is fixed so it doesn't balloon as the lifeline node gets taller.
+    public const float HeaderHeight = 40f;
 
     public static void Prepare(UmlProject project, UmlDiagram diagram)
     {
@@ -23,7 +23,7 @@ public static class UmlSequenceLayout
     }
 
     public static float GetHeaderBottom(RectangleF bounds) =>
-        bounds.Top + Math.Max(HeaderMinHeight, bounds.Height * HeaderHeightRatio) + 2f;
+        bounds.Top + HeaderHeight;
 
     public static float GetLifelineCenterX(RectangleF bounds) =>
         bounds.Left + bounds.Width / 2f;
@@ -68,9 +68,28 @@ public static class UmlSequenceLayout
         var target = diagram.FindNode(edge.TargetNodeId)
             ?? throw new InvalidOperationException("Message target node not found.");
 
-        return (
-            new PointF(GetLifelineCenterX(source.Bounds), messageY),
-            new PointF(GetLifelineCenterX(target.Bounds), messageY));
+        var srcCx = GetLifelineCenterX(source.Bounds);
+        var tgtCx = GetLifelineCenterX(target.Bounds);
+
+        // Connect to the surface of the activation bar, not the lifeline center line.
+        float startX, endX;
+        if (srcCx < tgtCx)
+        {
+            startX = srcCx + ActivationHalfWidth;
+            endX   = tgtCx - ActivationHalfWidth;
+        }
+        else if (srcCx > tgtCx)
+        {
+            startX = srcCx - ActivationHalfWidth;
+            endX   = tgtCx + ActivationHalfWidth;
+        }
+        else
+        {
+            startX = srcCx;
+            endX   = tgtCx;
+        }
+
+        return (new PointF(startX, messageY), new PointF(endX, messageY));
     }
 
     public static IEnumerable<(PointF Start, PointF End)> GetMessageSegments(
@@ -90,12 +109,14 @@ public static class UmlSequenceLayout
         if (node is null)
             yield break;
 
+        // Self-message loop starts from the right surface of the activation bar.
         var cx = GetLifelineCenterX(node.Bounds);
+        var barRight = cx + ActivationHalfWidth;
         var right = cx + SelfMessageLoopWidth;
         var bottom = messageY + SelfMessageLoopHeight;
-        yield return (new PointF(cx, messageY), new PointF(right, messageY));
+        yield return (new PointF(barRight, messageY), new PointF(right, messageY));
         yield return (new PointF(right, messageY), new PointF(right, bottom));
-        yield return (new PointF(right, bottom), new PointF(cx, bottom));
+        yield return (new PointF(right, bottom), new PointF(barRight, bottom));
     }
 
     public static float SuggestNextMessageY(UmlProject project, UmlDiagram diagram, float preferredY)

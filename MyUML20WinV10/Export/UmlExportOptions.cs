@@ -11,6 +11,8 @@ public enum UmlImageFormat
     Png,
     Jpeg,
     Bmp,
+    Tiff,
+    Gif,
 }
 
 public sealed class UmlImageExportOptions

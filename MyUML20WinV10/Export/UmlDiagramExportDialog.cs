@@ -68,7 +68,7 @@ public sealed class UmlDiagramExportDialog : Form
             Width = 250,
             DropDownStyle = ComboBoxStyle.DropDownList,
         };
-        _cmbImageFormat.Items.AddRange([UmlImageFormat.Png, UmlImageFormat.Jpeg, UmlImageFormat.Bmp]);
+        _cmbImageFormat.Items.AddRange([UmlImageFormat.Png, UmlImageFormat.Jpeg, UmlImageFormat.Bmp, UmlImageFormat.Tiff, UmlImageFormat.Gif]);
         _cmbImageFormat.SelectedItem = UmlImageFormat.Png;
         _cmbImageFormat.SelectedIndexChanged += (_, _) => UpdateTransparencyState();
 
@@ -146,12 +146,10 @@ public sealed class UmlDiagramExportDialog : Form
         var scope = Scope;
         var imageFormat = ImageFormat;
 
-        if (transparent && imageFormat != UmlImageFormat.Png && _kind is UmlDiagramExportKind.Image or UmlDiagramExportKind.Html or UmlDiagramExportKind.Markdown)
-        {
-            MessageBox.Show(this, "투명 배경은 PNG 형식에서만 지원됩니다.", "보내기", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            _cmbImageFormat.SelectedItem = UmlImageFormat.Png;
-            return false;
-        }
+        // 이미지 내보내기: PNG→투명, 그 외→흰색 배경 자동 적용
+        if (_kind == UmlDiagramExportKind.Image && imageFormat != UmlImageFormat.Png)
+            transparent = false;
+
 
         ImageOptions = new UmlImageExportOptions
         {
@@ -178,10 +176,29 @@ public sealed class UmlDiagramExportDialog : Form
     private void UpdateTransparencyState()
     {
         var format = ImageFormat;
-        var supportsTransparency = format == UmlImageFormat.Png || _kind == UmlDiagramExportKind.Svg || _kind == UmlDiagramExportKind.Pdf;
-        _chkTransparent.Enabled = supportsTransparency;
-        if (!supportsTransparency)
-            _chkTransparent.Checked = false;
+        var isPng = format == UmlImageFormat.Png;
+        var supportsTransparency = isPng || _kind == UmlDiagramExportKind.Svg || _kind == UmlDiagramExportKind.Pdf;
+
+        // PNG → 자동으로 투명 배경, 그 외 이미지 → 자동으로 흰색 배경
+        if (_kind == UmlDiagramExportKind.Image)
+        {
+            _chkTransparent.Checked = isPng;
+            _chkTransparent.Enabled = false; // 형식에 따라 자동 결정
+        }
+        else
+        {
+            _chkTransparent.Enabled = supportsTransparency;
+            if (!supportsTransparency)
+                _chkTransparent.Checked = false;
+        }
+
+        if (!isPng && _kind == UmlDiagramExportKind.Image)
+        {
+            _backgroundColor = Color.White;
+            _btnBackgroundColor.BackColor = Color.White;
+            _btnBackgroundColor.Text = "흰색";
+        }
+        UpdateBackgroundState();
     }
 
     private void UpdateBackgroundState()

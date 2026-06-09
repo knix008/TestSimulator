@@ -52,6 +52,27 @@ internal static class UmlIcons
         g.FillRectangle(slotFill, 9, 2, 1, 4);
     });
 
+    public static Bitmap SaveAs() => Draw(g =>
+    {
+        // 플로피 디스크(작게) + 오른쪽 하단 방향 화살표
+        using var outerFill = new SolidBrush(Color.FromArgb(79, 70, 229));
+        using var innerFill = new SolidBrush(Color.White);
+        using var diskPen = new Pen(Color.FromArgb(50, 42, 180), 1f);
+        g.FillRectangle(outerFill, 1, 1, 11, 11);
+        g.DrawRectangle(diskPen, 1, 1, 11, 11);
+        g.FillRectangle(innerFill, 2, 7, 8, 4);
+        g.DrawRectangle(diskPen, 2, 7, 8, 4);
+        g.FillRectangle(innerFill, 3, 1, 5, 3);
+        g.DrawRectangle(diskPen, 3, 1, 5, 3);
+        using var slotFill = new SolidBrush(Color.FromArgb(79, 70, 229));
+        g.FillRectangle(slotFill, 7, 1, 1, 3);
+        // 오른쪽 하단 화살표 (다른 이름으로 저장 표시)
+        using var arrowFill = new SolidBrush(Color.FromArgb(220, 60, 60));
+        g.FillPolygon(arrowFill, (Point[])[new(15, 15), new(10, 15), new(15, 10)]);
+        using var arrowPen = new Pen(Color.FromArgb(180, 30, 30), 1f);
+        g.DrawPolygon(arrowPen, (Point[])[new(15, 15), new(10, 15), new(15, 10)]);
+    });
+
     public static Bitmap Delete() => Draw(g =>
     {
         using var lidFill = new SolidBrush(Color.FromArgb(220, 50, 50));
@@ -183,6 +204,34 @@ internal static class UmlIcons
         g.FillEllipse(knobFill, 7, 8, 2, 2);
         using var arrowFill = new SolidBrush(Color.FromArgb(200, 50, 50));
         g.FillPolygon(arrowFill, (Point[])[new(15, 8), new(11, 5), new(11, 7), new(8, 7), new(8, 9), new(11, 9), new(11, 11)]);
+    });
+
+    public static Bitmap Duplicate() => Draw(g =>
+    {
+        using var fill1 = new SolidBrush(Color.FromArgb(220, 230, 255));
+        using var pen1 = new Pen(Color.FromArgb(79, 70, 229), 1.2f);
+        g.FillRectangle(fill1, 1, 4, 9, 9);
+        g.DrawRectangle(pen1, 1, 4, 9, 9);
+        using var fill2 = new SolidBrush(Color.White);
+        using var pen2 = new Pen(Color.FromArgb(79, 70, 229), 1.2f);
+        g.FillRectangle(fill2, 6, 2, 9, 9);
+        g.DrawRectangle(pen2, 6, 2, 9, 9);
+        g.DrawLine(pen2, 6, 5, 14, 5);
+    });
+
+    public static Bitmap CopyClipboard() => Draw(g =>
+    {
+        using var fill = new SolidBrush(Color.FromArgb(235, 248, 235));
+        using var pen = new Pen(Color.FromArgb(30, 140, 60), 1.2f);
+        g.FillRectangle(fill, 3, 4, 10, 11);
+        g.DrawRectangle(pen, 3, 4, 10, 11);
+        using var clipFill = new SolidBrush(Color.FromArgb(180, 220, 185));
+        g.FillRectangle(clipFill, 5, 2, 6, 4);
+        g.DrawRectangle(pen, 5, 2, 6, 4);
+        using var linePen = new Pen(Color.FromArgb(30, 140, 60), 1f);
+        g.DrawLine(linePen, 5, 8, 11, 8);
+        g.DrawLine(linePen, 5, 10, 11, 10);
+        g.DrawLine(linePen, 5, 12, 9, 12);
     });
 
     public static Bitmap Export() => Draw(g =>

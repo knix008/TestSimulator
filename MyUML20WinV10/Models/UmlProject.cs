@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 
 namespace MyUML20WinV10.Models;
 
@@ -14,20 +15,23 @@ public sealed class UmlProject
     [Browsable(false)]
     public List<UmlDiagram> Diagrams { get; set; } = [new UmlDiagram()];
 
+    // Serialized as a Guid — Diagrams list order is never reordered by activation.
+    // Old files without this field default to Guid.Empty → falls back to Diagrams[0].
+    public Guid ActiveDiagramId { get; set; }
+
+    [JsonIgnore]
     public UmlDiagram ActiveDiagram
     {
-        get => Diagrams.Count > 0 ? Diagrams[0] : throw new InvalidOperationException("다이어그램이 없습니다.");
-        set
+        get
         {
-            var index = Diagrams.FindIndex(d => d.Id == value.Id);
-            if (index < 0)
-                Diagrams.Insert(0, value);
-            else if (index != 0)
+            if (ActiveDiagramId != Guid.Empty)
             {
-                Diagrams.RemoveAt(index);
-                Diagrams.Insert(0, value);
+                var found = Diagrams.Find(d => d.Id == ActiveDiagramId);
+                if (found is not null) return found;
             }
+            return Diagrams.Count > 0 ? Diagrams[0] : throw new InvalidOperationException("다이어그램이 없습니다.");
         }
+        set => ActiveDiagramId = value.Id;
     }
 
     public UmlClassifier? FindClassifier(Guid id) => RootPackage.FindClassifier(id);

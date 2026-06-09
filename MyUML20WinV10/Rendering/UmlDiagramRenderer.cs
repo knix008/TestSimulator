@@ -103,6 +103,12 @@ public static class UmlDiagramRenderer
     public static void DrawNode(Graphics g, UmlProject project, UmlDiagramNode node, bool selected)
     {
         node.Height = MeasureNodeHeight(project, node);
+        // Auto-expand lifeline width to fit the header label text.
+        if (node.Presentation == UmlNodePresentation.Behavior
+            && project.FindElement(node.ModelElementId) is UmlBehaviorNode { Kind: UmlBehaviorNodeKind.Lifeline } ll)
+        {
+            node.Width = Math.Max(node.Width, MeasureLifelineMinWidth(g, ll.Name));
+        }
         var bounds = node.Bounds;
         using var bodyPen = new Pen(selected ? Color.DodgerBlue : Color.Black, selected ? 2f : 1.5f);
 
@@ -178,14 +184,13 @@ public static class UmlDiagramRenderer
             return;
         }
 
-        // 연산(함수)을 먼저, 속성(변수)을 아래에 표시
-        if (classifier.Operations.Count > 0)
+        // 속성(변수)을 먼저(위), 연산(함수)을 아래에 표시 — UML 표준
+        if (classifier.Properties.Count > 0)
         {
             y += CompartmentPadding;
-            foreach (var operation in classifier.Operations)
+            foreach (var property in classifier.Properties)
             {
-                var opFont = operation.IsAbstract ? italicFont : font;
-                g.DrawString(operation.SignatureText, opFont, textBrush, bounds.Left + CompartmentPadding, y);
+                g.DrawString(property.SignatureText, font, textBrush, bounds.Left + CompartmentPadding, y);
                 y += LineHeight;
             }
 
@@ -193,12 +198,13 @@ public static class UmlDiagramRenderer
             g.DrawLine(bodyPen, bounds.Left, y, bounds.Right, y);
         }
 
-        if (classifier.Properties.Count > 0)
+        if (classifier.Operations.Count > 0)
         {
             y += CompartmentPadding;
-            foreach (var property in classifier.Properties)
+            foreach (var operation in classifier.Operations)
             {
-                g.DrawString(property.SignatureText, font, textBrush, bounds.Left + CompartmentPadding, y);
+                var opFont = operation.IsAbstract ? italicFont : font;
+                g.DrawString(operation.SignatureText, opFont, textBrush, bounds.Left + CompartmentPadding, y);
                 y += LineHeight;
             }
         }
@@ -444,12 +450,13 @@ public static class UmlDiagramRenderer
             return;
 
         var cx = UmlSequenceLayout.GetLifelineCenterX(node.Bounds);
+        var barRight = cx + UmlSequenceLayout.ActivationHalfWidth;
         var right = cx + UmlSequenceLayout.SelfMessageLoopWidth;
         var bottom = messageY + UmlSequenceLayout.SelfMessageLoopHeight;
-        var topStart = new PointF(cx, messageY);
+        var topStart = new PointF(barRight, messageY);
         var topEnd = new PointF(right, messageY);
         var downEnd = new PointF(right, bottom);
-        var backEnd = new PointF(cx, bottom);
+        var backEnd = new PointF(barRight, bottom);
 
         g.DrawLine(pen, topStart, topEnd);
         g.DrawLine(pen, topEnd, downEnd);
@@ -507,7 +514,9 @@ public static class UmlDiagramRenderer
 
         if (label is not null)
         {
-            var mid = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f - 12f);
+            var midPt = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
+            var lineAngle = MathF.Atan2(end.Y - start.Y, end.X - start.X);
+            var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
             g.DrawString(label, font, brush, mid);
         }
     }
@@ -553,7 +562,8 @@ public static class UmlDiagramRenderer
 
     private static void DrawLifelineNode(Graphics g, RectangleF bounds, Brush fillBrush, Pen pen, string label)
     {
-        var headerHeight = UmlSequenceLayout.GetHeaderBottom(bounds) - bounds.Top - 2f;
+        // Header box size is fixed, independent of the lifeline node height.
+        var headerHeight = UmlSequenceLayout.HeaderHeight - 4f;
         var header = new RectangleF(bounds.Left + 2, bounds.Top + 2, bounds.Width - 4, headerHeight);
         g.FillRectangle(fillBrush, header.X, header.Y, header.Width, header.Height);
         g.DrawRectangle(pen, header.X, header.Y, header.Width, header.Height);
@@ -617,7 +627,9 @@ public static class UmlDiagramRenderer
         pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
         g.DrawLine(pen, start, end);
         DrawOpenArrow(g, pen, start, end);
-        var mid = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f - 12f);
+        var midPt = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
+        var lineAngle = MathF.Atan2(end.Y - start.Y, end.X - start.X);
+        var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
         g.DrawString(label, font, brush, mid);
     }
 
@@ -638,7 +650,9 @@ public static class UmlDiagramRenderer
         if (!string.IsNullOrWhiteSpace(dep.Stereotype))
         {
             var label = $"«{dep.Stereotype}»";
-            var mid = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f - 12f);
+            var midPt = new PointF((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
+            var lineAngle = MathF.Atan2(end.Y - start.Y, end.X - start.X);
+            var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
             g.DrawString(label, font, brush, mid);
         }
     }
@@ -658,13 +672,13 @@ public static class UmlDiagramRenderer
             g.DrawLine(pen, start, end);
         }
 
-        DrawMultiplicity(g, font, brush, start, startSide, assoc.SourceMultiplicity);
-        DrawMultiplicity(g, font, brush, end, endSide, assoc.TargetMultiplicity);
+        DrawMultiplicity(g, font, brush, start, end, assoc.SourceMultiplicity);
+        DrawMultiplicity(g, font, brush, end, start, assoc.TargetMultiplicity);
 
         if (!string.IsNullOrWhiteSpace(assoc.SourceEndName))
-            DrawEndName(g, font, brush, start, startSide, assoc.SourceEndName);
+            DrawEndName(g, font, brush, start, end, assoc.SourceEndName);
         if (!string.IsNullOrWhiteSpace(assoc.TargetEndName))
-            DrawEndName(g, font, brush, end, endSide, assoc.TargetEndName);
+            DrawEndName(g, font, brush, end, start, assoc.TargetEndName);
 
         if (assoc.Aggregation == UmlAggregationKind.Shared)
             DrawDirectedDiamond(g, pen, end, start, filled: false);
@@ -674,28 +688,24 @@ public static class UmlDiagramRenderer
             DrawOpenArrow(g, pen, start, end);
     }
 
-    private static void DrawMultiplicity(Graphics g, Font font, Brush brush, PointF point, RectangleSide side, string text)
+    // Labels offset 18px inward along line + 13px perpendicular (left of direction = above for horizontal lines).
+    private static void DrawMultiplicity(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text)
     {
-        var offset = side switch
-        {
-            RectangleSide.Top => new PointF(-8, -16),
-            RectangleSide.Bottom => new PointF(-8, 4),
-            RectangleSide.Left => new PointF(-28, -6),
-            _ => new PointF(6, -6),
-        };
-        g.DrawString(text, font, brush, point.X + offset.X, point.Y + offset.Y);
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var angle = MathF.Atan2(otherEnd.Y - point.Y, otherEnd.X - point.X);
+        var inward = PolarOffset(point, angle, 18f);
+        var labelPt = PolarOffset(inward, angle + MathF.PI / 2f, 13f);
+        g.DrawString(text, font, brush, labelPt);
     }
 
-    private static void DrawEndName(Graphics g, Font font, Brush brush, PointF point, RectangleSide side, string text)
+    // Role names go on the opposite perpendicular side from multiplicity labels.
+    private static void DrawEndName(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text)
     {
-        var offset = side switch
-        {
-            RectangleSide.Top => new PointF(4, -16),
-            RectangleSide.Bottom => new PointF(4, 4),
-            RectangleSide.Left => new PointF(-40, 4),
-            _ => new PointF(8, 4),
-        };
-        g.DrawString(text, font, brush, point.X + offset.X, point.Y + offset.Y);
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var angle = MathF.Atan2(otherEnd.Y - point.Y, otherEnd.X - point.X);
+        var inward = PolarOffset(point, angle, 18f);
+        var labelPt = PolarOffset(inward, angle - MathF.PI / 2f, 13f);
+        g.DrawString(text, font, brush, labelPt);
     }
 
     private static void DrawDirectedHollowTriangle(Graphics g, Pen pen, PointF tip, PointF from)
@@ -769,6 +779,13 @@ public static class UmlDiagramRenderer
 
     private static PointF PolarOffset(PointF origin, float angle, float distance) =>
         new(origin.X + distance * MathF.Cos(angle), origin.Y + distance * MathF.Sin(angle));
+
+    private static float MeasureLifelineMinWidth(Graphics g, string name)
+    {
+        using var font = new Font("Segoe UI", 8f);
+        var w = g.MeasureString(string.IsNullOrWhiteSpace(name) ? "Lifeline" : name, font).Width;
+        return Math.Max(80f, w + 24f);
+    }
 
     private static PointF GetConnectionPoint(RectangleF from, RectangleF to, out RectangleSide side)
     {

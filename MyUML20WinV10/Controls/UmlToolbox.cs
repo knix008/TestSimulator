@@ -44,10 +44,10 @@ public sealed class UmlToolbox : UserControl
 
 
 
-    private const int TileW = 52;
-    private const int TileH = 46;
-    private const int TileGap = 4;
-    private const int TilesPerRow = 4;
+    private const int TileW = 86;
+    private const int TileH = 76;
+    private const int TileGap = 6;
+    private const int TilesPerRow = 3;
     private const int HeaderH = 24;
     private const int GroupGap = 8;
 
@@ -166,11 +166,8 @@ public sealed class UmlToolbox : UserControl
 
         LayoutAll();
 
-        var selectTile = _allTiles.FirstOrDefault(t => t.Mode == UmlToolMode.Select);
-
-        if (selectTile is not null)
-
-            SelectTile(selectTile, raiseEvent: false);
+        if (_allTiles.Count > 0)
+            SelectTile(_allTiles[0], raiseEvent: false);
 
     }
 
@@ -220,13 +217,6 @@ public sealed class UmlToolbox : UserControl
 
 
 
-        AddGroup("기본", [
-
-            (UmlToolMode.Select, "선택", UmlNotationPreview.DrawSelect),
-
-            (UmlToolMode.Pan, "이동", UmlNotationPreview.DrawPan),
-
-        ]);
 
 
 
@@ -581,11 +571,11 @@ public sealed class UmlToolbox : UserControl
 
     {
 
-        private static readonly Font CaptionFont = new("Segoe UI", 7f);
+        private static readonly Font CaptionFont = new("Segoe UI", 9f);
 
-        private static readonly Font CaptionFontBold = new("Segoe UI", 7f, FontStyle.Bold);
+        private static readonly Font CaptionFontBold = new("Segoe UI", 9f, FontStyle.Bold);
 
-        private const int CaptionH = 16;
+        private const int CaptionH = 20;
 
 
 
@@ -653,7 +643,9 @@ public sealed class UmlToolbox : UserControl
 
             using var bgBrush = new SolidBrush(bg);
 
-            using var path = RoundedRect(ClientRectangle, 6);
+            // Inset 1px so the border draws fully inside client bounds (prevents edge clipping).
+            var inset = Rectangle.Inflate(ClientRectangle, -1, -1);
+            using var path = RoundedRect(inset, 6);
 
             g.FillPath(bgBrush, path);
 
@@ -701,7 +693,7 @@ public sealed class UmlToolbox : UserControl
 
 
 
-            var previewRect = new RectangleF(6, 4, Width - 12, Height - CaptionH - 6);
+            var previewRect = new RectangleF(7, 5, Width - 14, Height - CaptionH - 8);
 
             _draw(g, previewRect, UmlToolbox.AccentMuted, Selected ? UmlToolbox.Accent : MatchesCanvasSelection ? UmlToolbox.MatchAccent : UmlToolbox.Accent);
 

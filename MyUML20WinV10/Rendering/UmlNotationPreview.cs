@@ -103,13 +103,20 @@ public static class UmlNotationPreview
     public static void DrawActor(Graphics g, RectangleF area, Color fill, Color stroke)
     {
         var cx = area.Left + area.Width / 2f;
-        var headR = area.Width * 0.12f;
+        var headR = Math.Min(area.Width * 0.13f, 18f);
         var headY = area.Top + headR + 2;
         using var pen = new Pen(stroke, 1.8f);
+        // head
         g.DrawEllipse(pen, cx - headR, headY - headR, headR * 2, headR * 2);
-        g.DrawLine(pen, cx, headY + headR, cx, area.Bottom - 8);
-        g.DrawLine(pen, cx, headY + headR * 1.8f, area.Left + 4, area.Top + area.Height * 0.55f);
-        g.DrawLine(pen, cx, headY + headR * 1.8f, area.Right - 4, area.Top + area.Height * 0.55f);
+        // body
+        g.DrawLine(pen, cx, headY + headR, cx, area.Bottom - area.Height * 0.3f);
+        // arms
+        g.DrawLine(pen, cx, headY + headR * 2f, area.Left + 4, area.Top + area.Height * 0.52f);
+        g.DrawLine(pen, cx, headY + headR * 2f, area.Right - 4, area.Top + area.Height * 0.52f);
+        // legs
+        var hipsY = area.Bottom - area.Height * 0.3f;
+        g.DrawLine(pen, cx, hipsY, area.Left + 6, area.Bottom - 2);
+        g.DrawLine(pen, cx, hipsY, area.Right - 6, area.Bottom - 2);
     }
 
     public static void DrawUseCase(Graphics g, RectangleF area, Color fill, Color stroke)

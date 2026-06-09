@@ -12,6 +12,8 @@ public partial class MainForm : Form
     private bool _isDirty;
     private bool _suppressPropertySync;
     private UmlToolMode _currentToolMode = UmlToolMode.Select;
+    private string _lastUsedDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
 
     public MainForm() : this(null)
     {
@@ -111,6 +113,8 @@ public partial class MainForm : Form
         _menuExit.Text = "끝내기(&X)";
         _menuEdit.Text = "편집(&E)";
         _menuDelete.Text = "선택 삭제(&D)";
+        _menuDuplicate.Text = "선택 복제(&U)";
+        _menuCopyToClipboard.Text = "다이어그램 클립보드 복사(&B)";
         _tsNew.Text = "새 파일";
         _tsOpen.Text = "열기";
         _tsSave.Text = "저장";
@@ -196,10 +200,24 @@ public partial class MainForm : Form
         _tsZoomLabel.TextAlign = ContentAlignment.MiddleCenter;
         _tsZoomLabel.ToolTipText = "현재 확대/축소 배율";
 
+        _tsDuplicate.Image = UmlIcons.Duplicate();
+        _tsDuplicate.ToolTipText = "선택 요소 복제 (Ctrl+D)";
+        _tsDuplicate.Click += (_, _) => _canvas.DuplicateSelection();
+
+        _tsCopyToClipboard.Image = UmlIcons.CopyClipboard();
+        _tsCopyToClipboard.ToolTipText = "다이어그램을 이미지로 클립보드에 복사 (Ctrl+Shift+C)";
+        _tsCopyToClipboard.Click += (_, _) => CopyDiagramToClipboard();
+
+        _menuDuplicate.Image = UmlIcons.Duplicate();
+        _menuDuplicate.Click += (_, _) => _canvas.DuplicateSelection();
+
+        _menuCopyToClipboard.Image = UmlIcons.CopyClipboard();
+        _menuCopyToClipboard.Click += (_, _) => CopyDiagramToClipboard();
+
         _menuNew.Image = UmlIcons.New();
         _menuOpen.Image = UmlIcons.Open();
         _menuSave.Image = UmlIcons.Save();
-        _menuSaveAs.Image = UmlIcons.Save();
+        _menuSaveAs.Image = UmlIcons.SaveAs();
         _menuSample.Image = UmlIcons.Sample();
         _menuExport.Image = UmlIcons.Export();
         _menuExportImage.Image = UmlIcons.ExportImage();
@@ -262,28 +280,29 @@ public partial class MainForm : Form
         using var form = new Form
         {
             Text = "새 다이어그램 추가",
-            Width = 340,
-            Height = 200,
+            ClientSize = new Size(360, 190),
             FormBorderStyle = FormBorderStyle.FixedDialog,
             StartPosition = FormStartPosition.CenterParent,
             MaximizeBox = false,
             MinimizeBox = false,
         };
 
-        var lblKind = new Label { Text = "다이어그램 종류:", Left = 16, Top = 16, Width = 140 };
+        var lblKind = new Label { Text = "다이어그램 종류:", Left = 16, Top = 16, Width = 330, AutoSize = false };
         var cmbKind = new ComboBox
         {
-            Left = 16, Top = 36, Width = 288,
+            Left = 16, Top = 38, Width = 328,
             DropDownStyle = ComboBoxStyle.DropDownList,
         };
         cmbKind.Items.AddRange(["Class Diagram", "Use Case Diagram", "Sequence Diagram", "State Machine Diagram", "Activity Diagram"]);
         cmbKind.SelectedIndex = 0;
 
-        var lblName = new Label { Text = "이름:", Left = 16, Top = 76, Width = 140 };
-        var txtName = new TextBox { Left = 16, Top = 96, Width = 288, Text = "New Diagram" };
+        var lblName = new Label { Text = "이름:", Left = 16, Top = 84, Width = 330, AutoSize = false };
+        var txtName = new TextBox { Left = 16, Top = 106, Width = 328, Text = "Class Diagram" };
+        cmbKind.SelectedIndexChanged += (_, _) =>
+            txtName.Text = cmbKind.SelectedItem?.ToString() ?? "New Diagram";
 
-        var btnOk = new Button { Text = "추가", DialogResult = DialogResult.OK, Left = 128, Top = 130, Width = 80 };
-        var btnCancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Left = 220, Top = 130, Width = 80 };
+        var btnOk = new Button { Text = "추가", DialogResult = DialogResult.OK, Left = 164, Top = 148, Width = 88, Height = 30 };
+        var btnCancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Left = 260, Top = 148, Width = 88, Height = 30 };
         form.Controls.AddRange([lblKind, cmbKind, lblName, txtName, btnOk, btnCancel]);
         form.AcceptButton = btnOk;
         form.CancelButton = btnCancel;
@@ -478,6 +497,19 @@ public partial class MainForm : Form
 
     private void ModelExplorer_ElementSelected(object? sender, UmlElementSelectedEventArgs e)
     {
+        // Selecting a diagram node in the explorer switches to that diagram's tab.
+        if (e.SelectedObject is Models.UmlDiagram selectedDiagram)
+        {
+            _project.ActiveDiagram = selectedDiagram;
+            _canvas.SetActiveDiagram(selectedDiagram);
+            _umlToolbox.SetDiagramKind(selectedDiagram.Kind);
+            _currentToolMode = UmlToolMode.Select;
+            _canvas.SetToolMode(UmlToolMode.Select);
+            _diagramTabBar.Bind(_project);
+            SyncSelection();
+            return;
+        }
+
         _suppressPropertySync = true;
         _propertyGrid.SelectedObject = e.SelectedObject;
 
@@ -560,10 +592,12 @@ public partial class MainForm : Form
         {
             Filter = UmlProjectSerializer.FileFilter,
             Title = "UML 프로젝트 열기",
+            InitialDirectory = _lastUsedDirectory,
         };
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
 
+        _lastUsedDirectory = Path.GetDirectoryName(dialog.FileName) ?? _lastUsedDirectory;
         LoadProjectFile(dialog.FileName);
     }
 
@@ -588,19 +622,29 @@ public partial class MainForm : Form
             Title = "UML 프로젝트 저장",
             FileName = string.IsNullOrWhiteSpace(_project.Name) ? "Project" : _project.Name,
             DefaultExt = UmlProjectSerializer.FileExtension.TrimStart('.'),
+            InitialDirectory = _lastUsedDirectory,
         };
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
 
+        _lastUsedDirectory = Path.GetDirectoryName(dialog.FileName) ?? _lastUsedDirectory;
         SaveTo(dialog.FileName);
     }
 
     private void SaveTo(string path)
     {
-        UmlProjectSerializer.Save(_project, path);
-        _currentFilePath = path;
-        _isDirty = false;
-        UpdateTitle();
+        try
+        {
+            UmlProjectSerializer.Save(_project, path);
+            _currentFilePath = path;
+            _isDirty = false;
+            UpdateTitle();
+            _statusLabel.Text = $"저장됨: {path}";
+        }
+        catch (Exception ex)
+        {
+            UmlErrorDialog.Show(this, "저장 오류", ex);
+        }
     }
 
     private void LoadProjectFile(string path, bool confirmDiscard = true)
@@ -608,10 +652,32 @@ public partial class MainForm : Form
         if (confirmDiscard && !ConfirmDiscard())
             return;
 
-        _project = UmlProjectSerializer.Load(path);
-        _currentFilePath = path;
-        _isDirty = false;
-        BindProject();
+        try
+        {
+            _project = UmlProjectSerializer.Load(path);
+            _currentFilePath = path;
+            _isDirty = false;
+            BindProject();
+        }
+        catch (Exception ex)
+        {
+            UmlErrorDialog.Show(this, "파일 열기 오류", ex);
+        }
+    }
+
+    private void CopyDiagramToClipboard()
+    {
+        try
+        {
+            var options = new UmlImageExportOptions { TransparentBackground = false, BackgroundColor = Color.White, Padding = 20f };
+            using var bitmap = UmlDiagramImageExporter.RenderBitmap(_project, _canvas.ActiveDiagram, options, useTransparency: false);
+            Clipboard.SetImage(bitmap);
+            _statusLabel.Text = "다이어그램 이미지를 클립보드에 복사했습니다.";
+        }
+        catch (Exception ex)
+        {
+            UmlErrorDialog.Show(this, "클립보드 복사 오류", ex);
+        }
     }
 
     private bool ConfirmDiscard()
@@ -668,10 +734,12 @@ public partial class MainForm : Form
                 {
                     Description = "다이어그램 이미지를 저장할 폴더를 선택하세요.",
                     UseDescriptionForTitle = true,
+                    InitialDirectory = _lastUsedDirectory,
                 };
                 if (folderDialog.ShowDialog(this) != DialogResult.OK)
                     return;
 
+                _lastUsedDirectory = folderDialog.SelectedPath;
                 var count = kind switch
                 {
                     UmlDiagramExportKind.Image => UmlExportService.ExportDiagramImages(
@@ -682,7 +750,8 @@ public partial class MainForm : Form
                     _ => 0,
                 };
 
-                MessageBox.Show(this, $"{count}개의 다이어그램을 보냈습니다.", "보내기",
+                _statusLabel.Text = $"{count}개 다이어그램 → {folderDialog.SelectedPath}";
+                MessageBox.Show(this, $"{count}개의 다이어그램을 보냈습니다.\n{folderDialog.SelectedPath}", "보내기",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -710,10 +779,13 @@ public partial class MainForm : Form
                     UmlDiagramExportKind.Pdf => UmlDiagramPdfExporter.FileFilter,
                     _ => UmlDiagramImageExporter.FileFilter,
                 },
+                InitialDirectory = _lastUsedDirectory,
             };
 
             if (saveDialog.ShowDialog(this) != DialogResult.OK)
                 return;
+
+            _lastUsedDirectory = Path.GetDirectoryName(saveDialog.FileName) ?? _lastUsedDirectory;
 
             switch (kind)
             {
@@ -729,7 +801,8 @@ public partial class MainForm : Form
                     break;
             }
 
-            MessageBox.Show(this, "다이어그램을 보냈습니다.", "보내기", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _statusLabel.Text = $"보내기 완료: {saveDialog.FileName}";
+            MessageBox.Show(this, $"다이어그램을 보냈습니다.\n{saveDialog.FileName}", "보내기", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
@@ -763,10 +836,13 @@ public partial class MainForm : Form
             Filter = kind == UmlDiagramExportKind.Html
                 ? UmlProjectHtmlExporter.FileFilter
                 : UmlProjectMarkdownExporter.FileFilter,
+            InitialDirectory = _lastUsedDirectory,
         };
 
         if (saveDialog.ShowDialog(this) != DialogResult.OK)
             return;
+
+        _lastUsedDirectory = Path.GetDirectoryName(saveDialog.FileName) ?? _lastUsedDirectory;
 
         try
         {
@@ -775,7 +851,8 @@ public partial class MainForm : Form
             else
                 UmlProjectMarkdownExporter.Export(_project, saveDialog.FileName, optionsDialog.DocumentOptions);
 
-            MessageBox.Show(this, "문서를 보냈습니다.", "보내기", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            _statusLabel.Text = $"문서 보내기 완료: {saveDialog.FileName}";
+            MessageBox.Show(this, $"문서를 보냈습니다.\n{saveDialog.FileName}", "보내기", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
