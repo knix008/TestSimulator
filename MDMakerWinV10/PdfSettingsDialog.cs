@@ -2,7 +2,7 @@ namespace MDMakerWinV10;
 
 public sealed partial class PdfSettingsDialog : Form
 {
-    public PdfSettings Result { get; private set; } = new();
+    public PdfSettings Result { get; private set; } = PdfSettings.CreateDefault();
 
     private static readonly (string Display, string Css)[] Fonts =
     [
@@ -16,12 +16,19 @@ public sealed partial class PdfSettingsDialog : Form
         ("Georgia",            "Georgia,serif"),
     ];
 
-    public PdfSettingsDialog(PdfSettings initial)
+    public PdfSettingsDialog(PdfSettings? initial)
     {
         InitializeComponent();
         ConfigureAppearance();
         ConfigureNudRanges();
-        LoadInitial(initial);
+        LoadInitial((initial ?? PdfSettings.CreateDefault()).Clone());
+        FormClosing += OnFormClosing;
+    }
+
+    void OnFormClosing(object? sender, FormClosingEventArgs e)
+    {
+        if (DialogResult == DialogResult.OK)
+            CommitResult();
     }
 
     private void ConfigureAppearance()
@@ -53,6 +60,8 @@ public sealed partial class PdfSettingsDialog : Form
 
     private void LoadInitial(PdfSettings initial)
     {
+        initial.MigrateLegacyDefaults();
+
         _cmbFont.Items.Clear();
         int sel = 0;
         for (int i = 0; i < Fonts.Length; i++)
@@ -63,18 +72,18 @@ public sealed partial class PdfSettingsDialog : Form
         _cmbFont.SelectedIndex = sel;
 
         _nudFontSize.Value   = (decimal)initial.FontSizePt;
-        _nudLineHeight.Value = (decimal)initial.LineHeight;
-        _nudParaSpacing.Value = (decimal)initial.ParagraphSpacingEm;
-        _nudMarginV.Value    = (decimal)initial.MarginVerticalInch;
-        _nudMarginH.Value    = (decimal)initial.MarginHorizontalInch;
+        _nudLineHeight.Value = Clamp((decimal)initial.LineHeight, _nudLineHeight);
+        _nudParaSpacing.Value = Clamp((decimal)initial.ParagraphSpacingEm, _nudParaSpacing);
+        _nudMarginV.Value    = Clamp((decimal)initial.MarginVerticalInch, _nudMarginV);
+        _nudMarginH.Value    = Clamp((decimal)initial.MarginHorizontalInch, _nudMarginH);
         _chkNumberHeadings.Checked = initial.NumberHeadings;
-        _cmbPageNumbers.SelectedIndex = (int)initial.PageNumbers;
+        _cmbPageNumbers.SelectedIndex = Math.Clamp((int)initial.PageNumbers, 0, _cmbPageNumbers.Items.Count - 1);
     }
 
-    private void ApplyDefaults()
-    {
-        LoadInitial(new PdfSettings());
-    }
+    private void ApplyDefaults() => LoadInitial(PdfSettings.CreateDefault());
+
+    static decimal Clamp(decimal value, NumericUpDown nud) =>
+        Math.Max(nud.Minimum, Math.Min(nud.Maximum, value));
 
     private void CommitResult()
     {
@@ -90,5 +99,6 @@ public sealed partial class PdfSettingsDialog : Form
             NumberHeadings         = _chkNumberHeadings.Checked,
             PageNumbers            = (PageNumberPosition)Math.Max(0, _cmbPageNumbers.SelectedIndex),
         };
+        Result.MigrateLegacyDefaults();
     }
 }

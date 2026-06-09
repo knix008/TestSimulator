@@ -5,6 +5,12 @@ partial class MainForm
     private System.ComponentModel.IContainer components = null;
 
     private MenuStrip         _menuMain;
+    private ToolStripMenuItem _mnuProject;
+    private ToolStripMenuItem _miProjectNew;
+    private ToolStripMenuItem _miProjectOpen;
+    private ToolStripMenuItem _miProjectSave;
+    private ToolStripMenuItem _miProjectSaveAs;
+    private ToolStripSeparator _miProjectSep;
     private ToolStripMenuItem _mnuWork;
     private ToolStripMenuItem _miGenerate;
     private ToolStripMenuItem _miPreview;
@@ -51,6 +57,12 @@ partial class MainForm
     {
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         _menuMain = new MenuStrip();
+        _mnuProject = new ToolStripMenuItem();
+        _miProjectNew = new ToolStripMenuItem();
+        _miProjectOpen = new ToolStripMenuItem();
+        _miProjectSep = new ToolStripSeparator();
+        _miProjectSave = new ToolStripMenuItem();
+        _miProjectSaveAs = new ToolStripMenuItem();
         _mnuWork = new ToolStripMenuItem();
         _miGenerate = new ToolStripMenuItem();
         _miPreview = new ToolStripMenuItem();
@@ -99,11 +111,55 @@ partial class MainForm
         // 
         // _menuMain
         // 
-        _menuMain.Items.AddRange(new ToolStripItem[] { _mnuWork, _mnuTools });
+        _menuMain.Items.AddRange(new ToolStripItem[] { _mnuProject, _mnuWork, _mnuTools });
         _menuMain.Location = new Point(10, 0);
         _menuMain.Name = "_menuMain";
         _menuMain.Size = new Size(880, 24);
         _menuMain.TabIndex = 0;
+        // 
+        // _mnuProject
+        // 
+        _mnuProject.DropDownItems.AddRange(new ToolStripItem[] { _miProjectNew, _miProjectOpen, _miProjectSep, _miProjectSave, _miProjectSaveAs });
+        _mnuProject.Name = "_mnuProject";
+        _mnuProject.Size = new Size(82, 20);
+        _mnuProject.Text = "프로젝트(&P)";
+        // 
+        // _miProjectNew
+        // 
+        _miProjectNew.Name = "_miProjectNew";
+        _miProjectNew.ShortcutKeys = Keys.Control | Keys.N;
+        _miProjectNew.Size = new Size(277, 22);
+        _miProjectNew.Text = "새 프로젝트(&N)";
+        _miProjectNew.Click += ProjectNew_Click;
+        // 
+        // _miProjectOpen
+        // 
+        _miProjectOpen.Name = "_miProjectOpen";
+        _miProjectOpen.ShortcutKeys = Keys.Control | Keys.O;
+        _miProjectOpen.Size = new Size(277, 22);
+        _miProjectOpen.Text = "프로젝트 열기(&O)...";
+        _miProjectOpen.Click += ProjectOpen_Click;
+        // 
+        // _miProjectSep
+        // 
+        _miProjectSep.Name = "_miProjectSep";
+        _miProjectSep.Size = new Size(274, 6);
+        // 
+        // _miProjectSave
+        // 
+        _miProjectSave.Name = "_miProjectSave";
+        _miProjectSave.ShortcutKeys = Keys.Control | Keys.S;
+        _miProjectSave.Size = new Size(277, 22);
+        _miProjectSave.Text = "프로젝트 저장(&S)";
+        _miProjectSave.Click += ProjectSave_Click;
+        // 
+        // _miProjectSaveAs
+        // 
+        _miProjectSaveAs.Name = "_miProjectSaveAs";
+        _miProjectSaveAs.ShortcutKeys = Keys.Control | Keys.Shift | Keys.S;
+        _miProjectSaveAs.Size = new Size(277, 22);
+        _miProjectSaveAs.Text = "다른 이름으로 저장(&A)...";
+        _miProjectSaveAs.Click += ProjectSaveAs_Click;
         // 
         // _mnuWork
         // 
@@ -162,8 +218,8 @@ partial class MainForm
         _splitMain.Panel2.Controls.Add(_flowActions);
         _splitMain.Panel2.Controls.Add(_grpOutput);
         _splitMain.Panel2MinSize = 140;
-        _splitMain.Size = new Size(880, 686);
-        _splitMain.SplitterDistance = 480;
+        _splitMain.Size = new Size(880, 760);
+        _splitMain.SplitterDistance = 531;
         _splitMain.TabIndex = 1;
         // 
         // _grpFiles
@@ -174,9 +230,9 @@ partial class MainForm
         _grpFiles.Controls.Add(_btnUp);
         _grpFiles.Controls.Add(_btnRefresh);
         _grpFiles.Controls.Add(_lstFiles);
-        _grpFiles.Location = new Point(0, 182);
+        _grpFiles.Location = new Point(0, 199);
         _grpFiles.Name = "_grpFiles";
-        _grpFiles.Size = new Size(880, 294);
+        _grpFiles.Size = new Size(880, 328);
         _grpFiles.TabIndex = 2;
         _grpFiles.TabStop = false;
         _grpFiles.Text = "병합할 파일";
@@ -184,7 +240,7 @@ partial class MainForm
         // _lblCount
         // 
         _lblCount.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        _lblCount.Location = new Point(12, 276);
+        _lblCount.Location = new Point(12, 310);
         _lblCount.Name = "_lblCount";
         _lblCount.Size = new Size(852, 18);
         _lblCount.TabIndex = 4;
@@ -234,7 +290,7 @@ partial class MainForm
         _lstFiles.IntegralHeight = false;
         _lstFiles.Location = new Point(12, 20);
         _lstFiles.Name = "_lstFiles";
-        _lstFiles.Size = new Size(764, 250);
+        _lstFiles.Size = new Size(764, 284);
         _lstFiles.TabIndex = 0;
         _lstFiles.ItemCheck += _lstFiles_ItemCheck;
         _lstFiles.SelectedIndexChanged += _lstFiles_SelectedIndexChanged;
@@ -248,7 +304,7 @@ partial class MainForm
         _grpOptions.Controls.Add(_chkNumbering);
         _grpOptions.Controls.Add(_cmbSort);
         _grpOptions.Controls.Add(_lblSort);
-        _grpOptions.Location = new Point(0, 84);
+        _grpOptions.Location = new Point(0, 105);
         _grpOptions.Name = "_grpOptions";
         _grpOptions.Size = new Size(880, 92);
         _grpOptions.TabIndex = 1;
@@ -314,7 +370,7 @@ partial class MainForm
         _grpSource.Controls.Add(_srcDir);
         _grpSource.Controls.Add(_btnBrowseSrc);
         _grpSource.Controls.Add(_lblSrcPath);
-        _grpSource.Location = new Point(0, 0);
+        _grpSource.Location = new Point(0, 11);
         _grpSource.Name = "_grpSource";
         _grpSource.Size = new Size(880, 78);
         _grpSource.TabIndex = 0;
@@ -369,7 +425,7 @@ partial class MainForm
         _grpLog.Controls.Add(_txtLog);
         _grpLog.Location = new Point(0, 102);
         _grpLog.Name = "_grpLog";
-        _grpLog.Size = new Size(880, 100);
+        _grpLog.Size = new Size(880, 123);
         _grpLog.TabIndex = 2;
         _grpLog.TabStop = false;
         _grpLog.Text = "작업 로그";
@@ -384,7 +440,7 @@ partial class MainForm
         _txtLog.Location = new Point(6, 20);
         _txtLog.Name = "_txtLog";
         _txtLog.ReadOnly = true;
-        _txtLog.Size = new Size(866, 72);
+        _txtLog.Size = new Size(866, 112);
         _txtLog.TabIndex = 0;
         _txtLog.Text = "";
         // 
@@ -481,7 +537,7 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(900, 720);
+        ClientSize = new Size(900, 794);
         Controls.Add(_splitMain);
         Controls.Add(_menuMain);
         Font = new Font("Segoe UI", 9F);

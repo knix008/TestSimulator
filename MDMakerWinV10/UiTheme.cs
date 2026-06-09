@@ -113,10 +113,20 @@ public static class UiTheme
         btn.Padding = new Padding(2, 0, 2, 0);
     }
 
+    public const int MenuIconSize = 16;
+
     public static void StyleMenuStrip(MenuStrip menu)
     {
         menu.BackColor = SurfaceAlt;
         menu.RenderMode = ToolStripRenderMode.System;
+        menu.ImageScalingSize = new Size(MenuIconSize, MenuIconSize);
+    }
+
+    public static void StyleMenuItem(ToolStripMenuItem item, UiIconKind icon)
+    {
+        item.Image = MenuImage(icon);
+        item.ImageScaling = ToolStripItemImageScaling.None;
+        item.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
     }
 
     public static void StyleToolStrip(ToolStrip strip)

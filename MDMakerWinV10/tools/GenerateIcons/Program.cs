@@ -36,6 +36,10 @@ internal static class GenerateIcons
         Save(DrawMerge(), "merge.png", outDir);
         Save(DrawOk(), "ok.png", outDir);
         Save(DrawCancel(), "cancel.png", outDir);
+        Save(DrawProjectNew(), "project-new.png", outDir);
+        Save(DrawProjectOpen(), "project-open.png", outDir);
+        Save(DrawProjectSave(), "project-save.png", outDir);
+        Save(DrawProjectSaveAs(), "project-save-as.png", outDir);
 
         Save(ShellFile(".html"), "export-html.png", outDir);
         Save(ShellFile(".docx"), "export-word.png", outDir);
@@ -224,6 +228,50 @@ internal static class GenerateIcons
         using var pen = P(Red, 2.5f);
         g.DrawLine(pen, 11, 11, 21, 21);
         g.DrawLine(pen, 21, 11, 11, 21);
+    });
+
+    static Bitmap DrawProjectNew() => Canvas(g =>
+    {
+        g.FillRectangle(B(PageFill), 6, 5, 14, 20);
+        g.DrawRectangle(P(PageEdge, 1.2f), 6, 5, 14, 20);
+        g.DrawLine(P(PageEdge, 1f), 10, 5, 16, 11);
+        g.DrawLine(P(PageEdge, 1f), 16, 11, 16, 13);
+        using var pen = P(Green, 2.2f);
+        g.DrawLine(pen, 22, 14, 22, 26);
+        g.DrawLine(pen, 16, 20, 28, 20);
+    });
+
+    static Bitmap DrawProjectOpen() => Canvas(g =>
+    {
+        using var body = new GraphicsPath();
+        body.AddLines(new[] { new Point(2, 12), new Point(10, 12), new Point(12, 9), new Point(22, 9), new Point(22, 24), new Point(2, 24) });
+        g.FillPath(B(Gold), body);
+        g.DrawPath(P(DarkGold, 1f), body);
+        g.FillRectangle(B(PageFill), 12, 14, 14, 14);
+        g.DrawRectangle(P(PageEdge, 1f), 12, 14, 14, 14);
+        using var f = new Font("Segoe UI", 6f, FontStyle.Bold);
+        g.DrawString("MD", f, B(WinBlue), 14, 16);
+    });
+
+    static Bitmap DrawProjectSave() => Canvas(g =>
+    {
+        g.FillRectangle(B(Color.FromArgb(0, 99, 177)), 8, 4, 16, 22);
+        g.DrawRectangle(P(DarkBlue, 1f), 8, 4, 16, 22);
+        g.FillRectangle(B(Color.White), 11, 12, 10, 10);
+        g.DrawRectangle(P(DarkBlue, 0.8f), 11, 12, 10, 10);
+        using var f = new Font("Segoe UI", 6f, FontStyle.Bold);
+        g.DrawString("M", f, B(DarkBlue), 13, 13);
+    });
+
+    static Bitmap DrawProjectSaveAs() => Canvas(g =>
+    {
+        g.FillRectangle(B(PageFill), 4, 6, 13, 18);
+        g.DrawRectangle(P(PageEdge, 1.2f), 4, 6, 13, 18);
+        g.FillRectangle(B(PageFill), 10, 3, 13, 18);
+        g.DrawRectangle(P(PageEdge, 1.2f), 10, 3, 13, 18);
+        using var pen = P(WinBlue, 2f);
+        g.DrawLine(pen, 22, 18, 28, 24);
+        g.FillPolygon(B(WinBlue), new[] { new Point(24, 24), new Point(28, 24), new Point(26, 28) });
     });
 
     static Bitmap? ShellFile(string ext)

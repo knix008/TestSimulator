@@ -21,6 +21,10 @@ public enum UiIconKind
     Merge,
     Ok,
     Cancel,
+    ProjectNew,
+    ProjectOpen,
+    ProjectSave,
+    ProjectSaveAs,
 }
 
 /// <summary>
@@ -51,6 +55,10 @@ public static class UiIcons
         [UiIconKind.Merge]      = "merge.png",
         [UiIconKind.Ok]         = "ok.png",
         [UiIconKind.Cancel]     = "cancel.png",
+        [UiIconKind.ProjectNew]    = "project-new.png",
+        [UiIconKind.ProjectOpen]   = "project-open.png",
+        [UiIconKind.ProjectSave]   = "project-save.png",
+        [UiIconKind.ProjectSaveAs] = "project-save-as.png",
     };
 
     static readonly Dictionary<(UiIconKind Kind, int Size), Image> Cache = new();

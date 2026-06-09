@@ -6,6 +6,11 @@ public partial class MainForm : Form
     private bool _suppressSortRefresh;
     private bool _pickingFolder;
     private bool _syncNumbering;
+    private bool _loadingProject;
+    private bool _projectDirty;
+    private string? _projectPath;
+
+    const string AppTitle = "MD Merge v1.0";
 
     public MainForm()
     {
@@ -39,9 +44,26 @@ public partial class MainForm : Form
         UiTheme.StyleSecondaryButton(_btnExportSettings, UiIconKind.Settings);
         _btnGenerate.Margin = _btnPreview.Margin = _btnExportSettings.Margin = new Padding(0, 4, 8, 4);
 
-        _miGenerate.Image = UiTheme.MenuImage(UiIconKind.Generate);
-        _miPreview.Image  = UiTheme.MenuImage(UiIconKind.Preview);
-        _miExportSettings.Image = UiTheme.MenuImage(UiIconKind.Settings);
+        UiTheme.StyleMenuItem(_mnuProject, UiIconKind.Merge);
+        UiTheme.StyleMenuItem(_miProjectNew, UiIconKind.ProjectNew);
+        UiTheme.StyleMenuItem(_miProjectOpen, UiIconKind.ProjectOpen);
+        UiTheme.StyleMenuItem(_miProjectSave, UiIconKind.ProjectSave);
+        UiTheme.StyleMenuItem(_miProjectSaveAs, UiIconKind.ProjectSaveAs);
+
+        UiTheme.StyleMenuItem(_mnuWork, UiIconKind.Generate);
+        UiTheme.StyleMenuItem(_miGenerate, UiIconKind.Generate);
+        UiTheme.StyleMenuItem(_miPreview, UiIconKind.Preview);
+
+        UiTheme.StyleMenuItem(_mnuTools, UiIconKind.Settings);
+        UiTheme.StyleMenuItem(_miExportSettings, UiIconKind.Settings);
+
+        _srcDir.TextChanged += (_, _) => MarkProjectDirty();
+        _txtOutput.TextChanged += (_, _) => MarkProjectDirty();
+        _chkRecursive.CheckedChanged += (_, _) => MarkProjectDirty();
+        _cmbSort.SelectedIndexChanged += (_, _) => MarkProjectDirty();
+        _txtExclude.TextChanged += (_, _) => MarkProjectDirty();
+        _chkNumbering.CheckedChanged += (_, _) => MarkProjectDirty();
+        _lstFiles.ItemCheck += (_, _) => MarkProjectDirty();
     }
 
     private void LstFiles_MouseDown(object? sender, MouseEventArgs e)
@@ -101,42 +123,52 @@ public partial class MainForm : Form
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
-        if (!string.IsNullOrEmpty(_settings.LastSourceDir))
-            _srcDir.Text = _settings.LastSourceDir;
-        if (!string.IsNullOrEmpty(_settings.LastOutputFile))
-            _txtOutput.Text = _settings.LastOutputFile;
-        ApplyNumberingFromSettings();
-        if (Directory.Exists(_srcDir.Text.Trim()))
-            RefreshFiles();
+        if (!string.IsNullOrEmpty(_settings.LastProjectPath) && File.Exists(_settings.LastProjectPath))
+        {
+            TryRestoreLastProject();
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(_settings.LastSourceDir))
+                _srcDir.Text = _settings.LastSourceDir;
+            if (!string.IsNullOrEmpty(_settings.LastOutputFile))
+                _txtOutput.Text = _settings.LastOutputFile;
+            RefreshNumberingFromStore();
+            if (Directory.Exists(_srcDir.Text.Trim()))
+                RefreshFiles();
+        }
+        UpdateWindowTitle();
     }
 
     protected override void OnActivated(EventArgs e)
     {
         base.OnActivated(e);
-        var latest = AppSettings.Load();
-        if (latest.PdfSettings.NumberHeadings == _settings.PdfSettings.NumberHeadings
-            && _chkNumbering.Checked == _settings.PdfSettings.NumberHeadings)
-            return;
-        _settings.PdfSettings = latest.PdfSettings;
-        ApplyNumberingFromSettings();
+        RefreshNumberingFromStore();
     }
+
+    private void RefreshNumberingFromStore() => ApplyNumberingFromSettings();
 
     private void ApplyNumberingFromSettings()
     {
         _syncNumbering = true;
-        try { _chkNumbering.Checked = _settings.PdfSettings.NumberHeadings; }
+        try { _chkNumbering.Checked = AppSettings.GetPdfSettings().NumberHeadings; }
         finally { _syncNumbering = false; }
     }
 
     private void _chkNumbering_CheckedChanged(object? sender, EventArgs e)
     {
         if (_syncNumbering) return;
-        _settings.PdfSettings.NumberHeadings = _chkNumbering.Checked;
-        _settings.Save();
+        AppSettings.SetNumberHeadings(_chkNumbering.Checked);
+        MarkProjectDirty();
     }
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
+        if (!ConfirmDiscardProjectChanges())
+        {
+            e.Cancel = true;
+            return;
+        }
         PersistSettings();
         base.OnFormClosing(e);
     }
@@ -145,11 +177,14 @@ public partial class MainForm : Form
     {
         var src = _srcDir.Text.Trim();
         var output = _txtOutput.Text.Trim();
+        var settings = AppSettings.Load();
         if (!string.IsNullOrEmpty(src))
-            _settings.LastSourceDir = src;
+            settings.LastSourceDir = src;
         if (!string.IsNullOrEmpty(output))
-            _settings.LastOutputFile = output;
-        _settings.Save();
+            settings.LastOutputFile = output;
+        settings.Save();
+        _settings.LastSourceDir = settings.LastSourceDir;
+        _settings.LastOutputFile = settings.LastOutputFile;
     }
 
     private void _srcDir_Leave(object? sender, EventArgs e)
@@ -283,6 +318,7 @@ public partial class MainForm : Form
         _lstFiles.Items[b] = ia;
         _lstFiles.SetItemChecked(b, ca);
         _lstFiles.EndUpdate();
+        MarkProjectDirty();
     }
 
     private void RefreshFiles()
@@ -326,7 +362,7 @@ public partial class MainForm : Form
         foreach (var f in files)
         {
             bool check = previousChecked?.Contains(f) ?? true;
-            _lstFiles.Items.Add(new FileItem(f, dir), check);
+            _lstFiles.Items.Add(new FileItem(f), check);
         }
         _lstFiles.EndUpdate();
 
@@ -392,6 +428,52 @@ public partial class MainForm : Form
         return (files, opts);
     }
 
+    private string? TryGetGeneratedDocumentText()
+    {
+        try
+        {
+            var (files, opts) = GetCheckedFiles();
+            if (files.Count == 0 && _lstFiles.Items.Count > 0)
+            {
+                files = Enumerable.Range(0, _lstFiles.Items.Count)
+                    .Select(i => ((FileItem)_lstFiles.Items[i]!).FullPath)
+                    .ToList();
+            }
+            if (files.Count > 0)
+                return MarkdownConverter.StripHeadingNumbers(MdMerger.Merge(files, opts));
+
+            var outPath = _txtOutput.Text.Trim();
+            if (!string.IsNullOrEmpty(outPath) && File.Exists(outPath))
+                return File.ReadAllText(outPath, System.Text.Encoding.UTF8);
+        }
+        catch { }
+        return null;
+    }
+
+    private string SuggestProjectFileName()
+    {
+        var content = TryGetGeneratedDocumentText();
+        if (!string.IsNullOrEmpty(content))
+        {
+            var baseName = MarkdownConverter.GetDocumentExportBaseName(content);
+            if (!string.IsNullOrEmpty(baseName))
+                return baseName + MdmProject.Extension;
+        }
+
+        if (_projectPath != null)
+            return Path.GetFileName(_projectPath);
+
+        var output = _txtOutput.Text.Trim();
+        if (!string.IsNullOrEmpty(output))
+        {
+            var fromOutput = Path.GetFileNameWithoutExtension(output);
+            if (!string.IsNullOrEmpty(fromOutput))
+                return fromOutput + MdmProject.Extension;
+        }
+
+        return "project" + MdmProject.Extension;
+    }
+
     private MergeOptions BuildOptions(bool forRefresh = false)
     {
         var sortIdx = _cmbSort.SelectedIndex;
@@ -412,11 +494,302 @@ public partial class MainForm : Form
 
     private void ExportSettings_Click(object? sender, EventArgs e)
     {
-        using var dlg = new PdfSettingsDialog(_settings.PdfSettings);
+        using var dlg = new PdfSettingsDialog(AppSettings.GetPdfSettings());
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
-        _settings.PdfSettings = dlg.Result;
+        AppSettings.SavePdfSettings(dlg.Result);
+        RefreshNumberingFromStore();
+        MarkProjectDirty();
+    }
+
+    private void ProjectNew_Click(object? sender, EventArgs e)
+    {
+        if (!ConfirmDiscardProjectChanges()) return;
+        ResetToNewProject();
+        Log("[프로젝트] 새 프로젝트");
+    }
+
+    private void ProjectOpen_Click(object? sender, EventArgs e) => OpenProjectInteractive();
+
+    private void ProjectSave_Click(object? sender, EventArgs e)
+    {
+        if (string.IsNullOrEmpty(_projectPath))
+            ProjectSaveAs_Click(sender, e);
+        else
+            SaveProjectToFile(_projectPath);
+    }
+
+    private void ProjectSaveAs_Click(object? sender, EventArgs e)
+    {
+        using var dlg = new SaveFileDialog
+        {
+            Title = "프로젝트 저장",
+            Filter = MdmProject.FileFilter,
+            DefaultExt = MdmProject.Extension.TrimStart('.'),
+            FileName = SuggestProjectFileName()
+        };
+        if (!string.IsNullOrEmpty(_projectPath))
+            dlg.InitialDirectory = Path.GetDirectoryName(_projectPath);
+        else if (Directory.Exists(_srcDir.Text.Trim()))
+            dlg.InitialDirectory = _srcDir.Text.Trim();
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        SaveProjectToFile(dlg.FileName);
+    }
+
+    private void TryRestoreLastProject()
+    {
+        var path = _settings.LastProjectPath;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+        try
+        {
+            LoadProjectFromFile(path, quiet: true);
+            Log($"[프로젝트] 복구: {path}");
+        }
+        catch (Exception ex)
+        {
+            Log($"[경고] 마지막 프로젝트 복구 실패: {ex.Message}");
+        }
+    }
+
+    private void OpenProjectInteractive()
+    {
+        if (!ConfirmDiscardProjectChanges()) return;
+        using var dlg = new OpenFileDialog
+        {
+            Title = "프로젝트 열기",
+            Filter = MdmProject.FileFilter,
+            DefaultExt = MdmProject.Extension.TrimStart('.')
+        };
+        if (!string.IsNullOrEmpty(_settings.LastProjectPath))
+            dlg.InitialDirectory = Path.GetDirectoryName(_settings.LastProjectPath);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            LoadProjectFromFile(dlg.FileName);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "프로젝트 열기 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void LoadProjectFromFile(string path, bool quiet = false)
+    {
+        var project = MdmProject.Load(path);
+        ApplyProject(project);
+        _projectPath = path;
+        _projectDirty = false;
+        _settings.LastProjectPath = path;
         _settings.Save();
-        ApplyNumberingFromSettings();
+        UpdateWindowTitle();
+        if (!quiet)
+            Log($"[프로젝트] 열림: {path}");
+    }
+
+    private bool SaveProjectToFile(string path)
+    {
+        try
+        {
+            var project = CaptureProject();
+            project.Save(path);
+            _projectPath = path;
+            _projectDirty = false;
+            _settings.LastProjectPath = path;
+            _settings.LastSourceDir = project.SourceDirectory;
+            _settings.LastOutputFile = project.OutputFile;
+            PersistSettings();
+            UpdateWindowTitle();
+            Log($"[프로젝트] 저장: {path}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "프로젝트 저장 오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return false;
+        }
+    }
+
+    private MdmProject CaptureProject()
+    {
+        var sortIdx = _cmbSort.SelectedIndex;
+        if (sortIdx < 0) sortIdx = 0;
+        var source = _srcDir.Text.Trim();
+        var export = AppSettings.GetPdfSettings();
+
+        var files = string.IsNullOrEmpty(source) || !Directory.Exists(source)
+            ? Enumerable.Empty<(string FullPath, bool Checked)>()
+            : Enumerable.Range(0, _lstFiles.Items.Count)
+                .Select(i => (((FileItem)_lstFiles.Items[i]!).FullPath, _lstFiles.GetItemChecked(i)));
+
+        return MdmProject.FromUi(
+            source,
+            _txtOutput.Text.Trim(),
+            _chkRecursive.Checked,
+            (FileSortOrder)sortIdx,
+            _txtExclude.Text.Trim(),
+            export.NumberHeadings,
+            export,
+            files);
+    }
+
+    private void ApplyProject(MdmProject project)
+    {
+        _loadingProject = true;
+        try
+        {
+            project.Normalize();
+
+            _srcDir.Text = project.SourceDirectory;
+            _txtOutput.Text = project.OutputFile;
+            _chkRecursive.Checked = project.Recursive;
+            _txtExclude.Text = project.ExcludePatterns;
+
+            _suppressSortRefresh = true;
+            _cmbSort.SelectedIndex = Math.Clamp((int)project.SortOrder, 0, _cmbSort.Items.Count - 1);
+            _suppressSortRefresh = false;
+
+            var export = project.ExportSettings.Clone();
+            export.MigrateLegacyDefaults();
+            AppSettings.SavePdfSettings(export);
+            RefreshNumberingFromStore();
+
+            _settings.LastSourceDir = project.SourceDirectory;
+            _settings.LastOutputFile = project.OutputFile;
+
+            RestoreFileList(project);
+            UpdateMoveButtons();
+        }
+        finally
+        {
+            _loadingProject = false;
+        }
+    }
+
+    private void RestoreFileList(MdmProject project)
+    {
+        var dir = project.SourceDirectory.Trim();
+        if (!Directory.Exists(dir))
+        {
+            _lstFiles.Items.Clear();
+            _lblCount.Text = "0개 파일";
+            return;
+        }
+
+        var checkMap = BuildCheckMap(project, dir);
+        List<string> onDisk;
+        try { onDisk = MdMerger.GetFiles(project.ToMergeOptions(forRefresh: project.SortOrder != FileSortOrder.Custom)); }
+        catch { onDisk = []; }
+
+        var resolved = new List<(string FullPath, bool Checked)>();
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (project.SortOrder == FileSortOrder.Custom && project.Files.Count > 0)
+        {
+            foreach (var entry in project.Files)
+            {
+                if (string.IsNullOrWhiteSpace(entry.RelativePath)) continue;
+                var full = Path.GetFullPath(Path.Combine(dir, entry.RelativePath));
+                if (!File.Exists(full) || !used.Add(full)) continue;
+                resolved.Add((full, entry.Checked));
+            }
+            foreach (var f in onDisk)
+            {
+                if (!used.Contains(f))
+                    resolved.Add((f, true));
+            }
+        }
+        else
+        {
+            foreach (var f in onDisk)
+                resolved.Add((f, checkMap.TryGetValue(f, out var check) ? check : true));
+        }
+
+        _lstFiles.BeginUpdate();
+        _lstFiles.Items.Clear();
+        foreach (var (full, check) in resolved)
+            _lstFiles.Items.Add(new FileItem(full), check);
+        _lstFiles.EndUpdate();
+        _lblCount.Text = $"{resolved.Count}개 파일";
+    }
+
+    static Dictionary<string, bool> BuildCheckMap(MdmProject project, string dir)
+    {
+        var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in project.Files)
+        {
+            if (string.IsNullOrWhiteSpace(entry.RelativePath)) continue;
+            map[Path.GetFullPath(Path.Combine(dir, entry.RelativePath))] = entry.Checked;
+        }
+        return map;
+    }
+
+    private void ResetToNewProject()
+    {
+        _loadingProject = true;
+        try
+        {
+            _projectPath = null;
+            _srcDir.Clear();
+            _txtOutput.Clear();
+            _chkRecursive.Checked = true;
+            _suppressSortRefresh = true;
+            _cmbSort.SelectedIndex = 0;
+            _suppressSortRefresh = false;
+            _txtExclude.Clear();
+            _lstFiles.Items.Clear();
+            _lblCount.Text = "0개 파일";
+            AppSettings.SavePdfSettings(PdfSettings.CreateDefault());
+            RefreshNumberingFromStore();
+            UpdateMoveButtons();
+        }
+        finally
+        {
+            _loadingProject = false;
+            _projectDirty = false;
+            UpdateWindowTitle();
+        }
+    }
+
+    private bool ConfirmDiscardProjectChanges()
+    {
+        if (!_projectDirty) return true;
+        var answer = MessageBox.Show(
+            "프로젝트 변경 사항을 저장하시겠습니까?",
+            AppTitle,
+            MessageBoxButtons.YesNoCancel,
+            MessageBoxIcon.Question);
+        if (answer == DialogResult.Cancel) return false;
+        if (answer == DialogResult.Yes)
+            return string.IsNullOrEmpty(_projectPath) ? PromptSaveAs() : SaveProjectToFile(_projectPath);
+        return true;
+    }
+
+    private bool PromptSaveAs()
+    {
+        using var dlg = new SaveFileDialog
+        {
+            Title = "프로젝트 저장",
+            Filter = MdmProject.FileFilter,
+            DefaultExt = MdmProject.Extension.TrimStart('.'),
+            FileName = SuggestProjectFileName()
+        };
+        if (Directory.Exists(_srcDir.Text.Trim()))
+            dlg.InitialDirectory = _srcDir.Text.Trim();
+        if (dlg.ShowDialog(this) != DialogResult.OK) return false;
+        return SaveProjectToFile(dlg.FileName);
+    }
+
+    private void MarkProjectDirty()
+    {
+        if (_loadingProject) return;
+        if (_projectDirty) return;
+        _projectDirty = true;
+        UpdateWindowTitle();
+    }
+
+    private void UpdateWindowTitle()
+    {
+        var name = _projectPath != null ? Path.GetFileName(_projectPath) : "제목 없음";
+        Text = _projectDirty ? $"{AppTitle} - {name} *" : $"{AppTitle} - {name}";
     }
 
     private void Log(string msg)

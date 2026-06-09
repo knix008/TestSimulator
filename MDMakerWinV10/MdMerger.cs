@@ -28,12 +28,12 @@ public static class MdMerger
 
         return opts.SortOrder switch
         {
-            FileSortOrder.NameAsc    => [.. files.OrderBy(f => Path.GetRelativePath(opts.SourceDirectory, f), StringComparer.OrdinalIgnoreCase)],
-            FileSortOrder.NameDesc   => [.. files.OrderByDescending(f => Path.GetRelativePath(opts.SourceDirectory, f), StringComparer.OrdinalIgnoreCase)],
+            FileSortOrder.NameAsc    => [.. files.OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)],
+            FileSortOrder.NameDesc   => [.. files.OrderByDescending(Path.GetFileName, StringComparer.OrdinalIgnoreCase)],
             FileSortOrder.DateNewest => [.. files.OrderByDescending(File.GetLastWriteTime)],
             FileSortOrder.DateOldest => [.. files.OrderBy(File.GetLastWriteTime)],
             FileSortOrder.Custom     => files,
-            _                        => [.. files.OrderBy(f => Path.GetRelativePath(opts.SourceDirectory, f), StringComparer.OrdinalIgnoreCase)],
+            _                        => [.. files.OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)],
         };
     }
 

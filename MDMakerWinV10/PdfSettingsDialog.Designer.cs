@@ -117,6 +117,7 @@ partial class PdfSettingsDialog
         _nudFontSize.Name = "_nudFontSize";
         _nudFontSize.Size = new Size(96, 23);
         _nudFontSize.TabIndex = 3;
+        _nudFontSize.Value = new decimal(new int[] { 100, 0, 0, 65536 });
 
         _lblLineHeight.AutoSize = true;
         _lblLineHeight.Location = new Point(16, 92);
@@ -129,6 +130,7 @@ partial class PdfSettingsDialog
         _nudLineHeight.Name = "_nudLineHeight";
         _nudLineHeight.Size = new Size(96, 23);
         _nudLineHeight.TabIndex = 5;
+        _nudLineHeight.Value = new decimal(new int[] { 15, 0, 0, 65536 });
 
         _lblParaSpacing.AutoSize = true;
         _lblParaSpacing.Location = new Point(16, 124);
@@ -141,6 +143,7 @@ partial class PdfSettingsDialog
         _nudParaSpacing.Name = "_nudParaSpacing";
         _nudParaSpacing.Size = new Size(96, 23);
         _nudParaSpacing.TabIndex = 7;
+        _nudParaSpacing.Value = new decimal(new int[] { 5, 0, 0, 65536 });
 
         _lblMarginV.AutoSize = true;
         _lblMarginV.Location = new Point(16, 156);
@@ -153,6 +156,9 @@ partial class PdfSettingsDialog
         _nudMarginV.Name = "_nudMarginV";
         _nudMarginV.Size = new Size(96, 23);
         _nudMarginV.TabIndex = 9;
+        _nudMarginV.DecimalPlaces = 2;
+        _nudMarginV.Increment = new decimal(new int[] { 25, 0, 0, 131072 });
+        _nudMarginV.Value = new decimal(new int[] { 75, 0, 0, 131072 });
 
         _lblMarginH.AutoSize = true;
         _lblMarginH.Location = new Point(16, 188);
@@ -165,6 +171,9 @@ partial class PdfSettingsDialog
         _nudMarginH.Name = "_nudMarginH";
         _nudMarginH.Size = new Size(96, 23);
         _nudMarginH.TabIndex = 11;
+        _nudMarginH.DecimalPlaces = 2;
+        _nudMarginH.Increment = new decimal(new int[] { 25, 0, 0, 131072 });
+        _nudMarginH.Value = new decimal(new int[] { 100, 0, 0, 131072 });
 
         _lblNumberHeadings.AutoSize = true;
         _lblNumberHeadings.Location = new Point(16, 220);
@@ -174,6 +183,8 @@ partial class PdfSettingsDialog
         _lblNumberHeadings.Text = "제목 번호 매기기";
 
         _chkNumberHeadings.AutoSize = true;
+        _chkNumberHeadings.Checked = true;
+        _chkNumberHeadings.CheckState = CheckState.Checked;
         _chkNumberHeadings.Location = new Point(168, 219);
         _chkNumberHeadings.Name = "_chkNumberHeadings";
         _chkNumberHeadings.Size = new Size(50, 19);
@@ -197,6 +208,7 @@ partial class PdfSettingsDialog
         _cmbPageNumbers.Name = "_cmbPageNumbers";
         _cmbPageNumbers.Size = new Size(192, 23);
         _cmbPageNumbers.TabIndex = 15;
+        _cmbPageNumbers.SelectedIndex = 2;
 
         // Buttons
         _flowButtons.Controls.Add(_btnCancel);
@@ -217,7 +229,6 @@ partial class PdfSettingsDialog
         _btnOk.TabIndex = 0;
         _btnOk.Text = "확인";
         _btnOk.UseVisualStyleBackColor = true;
-        _btnOk.Click += (_, _) => CommitResult();
 
         _btnReset.Margin = new Padding(0, 0, 8, 0);
         _btnReset.Name = "_btnReset";

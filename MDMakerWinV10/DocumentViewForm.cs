@@ -15,7 +15,7 @@ public partial class DocumentViewForm : Form
     private bool _needsRerender;
     private bool _initializing;
     private bool _isExporting;
-    private PdfSettings _pdfSettings = new();
+    private string? _pdfSettingsKey;
     private List<OutlineItem> _outline = [];
     private readonly System.Windows.Forms.Timer _outlineTimer = new() { Interval = 800 };
     private CancellationTokenSource _statusCts = new();
@@ -65,7 +65,7 @@ public partial class DocumentViewForm : Form
     private void InitializeDocument(string content, string? filePath)
     {
         _filePath = filePath;
-        _pdfSettings = AppSettings.Load().PdfSettings ?? new();
+        _pdfSettingsKey = PdfSettingsKey(AppSettings.GetPdfSettings());
 
         _outlineTimer.Tick += (_, _) =>
         {
@@ -86,19 +86,28 @@ public partial class DocumentViewForm : Form
         UpdateSaveButton();
     }
 
-    private bool ShowsHeadingNumbers() => _pdfSettings.NumberHeadings;
+    private bool ShowsHeadingNumbers() => AppSettings.GetPdfSettings().NumberHeadings;
+
+    private static PdfSettings ExportSettings() => AppSettings.GetPdfSettings();
+
+    private static string PdfSettingsKey(PdfSettings s) =>
+        $"{s.FontFamily}|{s.FontSizePt:0.##}|{s.LineHeight:0.##}|{s.ParagraphSpacingEm:0.##}|" +
+        $"{s.MarginVerticalInch:0.##}|{s.MarginHorizontalInch:0.##}|{s.NumberHeadings}|{s.PageNumbers}";
 
     protected override void OnActivated(EventArgs e)
     {
         base.OnActivated(e);
-        SyncNumberingFromSettings();
+        SyncPdfSettingsFromStore();
     }
 
-    private void SyncNumberingFromSettings()
+    private void SyncPdfSettingsFromStore(bool rerender = true)
     {
-        var stored = AppSettings.Load().PdfSettings ?? new();
-        if (stored.NumberHeadings == _pdfSettings.NumberHeadings) return;
-        _pdfSettings.NumberHeadings = stored.NumberHeadings;
+        var key = PdfSettingsKey(AppSettings.GetPdfSettings());
+        if (key == _pdfSettingsKey)
+            return;
+
+        _pdfSettingsKey = key;
+        if (!rerender) return;
         _needsRerender = true;
         RefreshOutline();
         if (_tabs.SelectedIndex == 0 && _webViewReady) RenderPreview();
@@ -197,7 +206,7 @@ public partial class DocumentViewForm : Form
         if (!_webViewReady || _webView == null || IsDisposed || _isExporting) return;
         var md = _editor.Text;
         RefreshOutline();
-        NavigateToHtml(MarkdownConverter.ToHtmlWithAnchors(md, _pdfSettings));
+        NavigateToHtml(MarkdownConverter.ToHtmlWithAnchors(md, ExportSettings()));
         _needsRerender = false;
     }
 
@@ -279,7 +288,7 @@ public partial class DocumentViewForm : Form
         try
         {
             var md  = _editor.Text;
-            var cfg = _pdfSettings;
+            var cfg = ExportSettings();
             var html = await Task.Run(() => MarkdownConverter.ToHtml(md, cfg));
             await File.WriteAllTextAsync(dlg.FileName, html, new UTF8Encoding(false));
             EndExport($"HTML 저장 완료: {Path.GetFileName(dlg.FileName)}");
@@ -303,7 +312,7 @@ public partial class DocumentViewForm : Form
         {
             var md   = _editor.Text;
             var dest = dlg.FileName;
-            var cfg  = _pdfSettings;
+            var cfg  = ExportSettings();
             await Task.Run(() => MarkdownConverter.ToDocx(md, dest, cfg));
             EndExport($"Word 저장 완료: {Path.GetFileName(dlg.FileName)}");
             ShowExportSuccess("Word", dlg.FileName);
@@ -327,7 +336,7 @@ public partial class DocumentViewForm : Form
         try
         {
             var md = _editor.Text;
-            var cfg = _pdfSettings;
+            var cfg = ExportSettings();
             var pdfHtml = await Task.Run(() => MarkdownConverter.ToHtmlForPdf(md, cfg));
 
             UpdateExportStatus("2/3  페이지 렌더링 중...");
@@ -365,17 +374,17 @@ public partial class DocumentViewForm : Form
         finally
         {
             _needsRerender = true;
+            if (_tabs.SelectedIndex == 0 && _webViewReady)
+                RenderPreview();
         }
     }
 
     private void ExportSettings_Click(object? sender, EventArgs e)
     {
-        using var dlg = new PdfSettingsDialog(_pdfSettings);
+        using var dlg = new PdfSettingsDialog(AppSettings.GetPdfSettings());
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
-        _pdfSettings = dlg.Result;
-        var s = AppSettings.Load();
-        s.PdfSettings = _pdfSettings;
-        s.Save();
+        AppSettings.SavePdfSettings(dlg.Result);
+        _pdfSettingsKey = PdfSettingsKey(AppSettings.GetPdfSettings());
         _needsRerender = true;
         RefreshOutline();
         if (_tabs.SelectedIndex == 0) RenderPreview();
@@ -536,10 +545,15 @@ public partial class DocumentViewForm : Form
         _miExportPdf.Enabled = enabled;
     }
 
-    private string SuggestName(string ext) =>
-        _filePath != null
-            ? Path.GetFileNameWithoutExtension(_filePath) + ext
-            : "document" + ext;
+    private string SuggestName(string ext)
+    {
+        var baseName = MarkdownConverter.GetDocumentExportBaseName(_editor.Text);
+        if (string.IsNullOrEmpty(baseName) && _filePath != null)
+            baseName = Path.GetFileNameWithoutExtension(_filePath);
+        if (string.IsNullOrEmpty(baseName))
+            baseName = "document";
+        return baseName + ext;
+    }
 
     private async void SetStatus(string msg)
     {

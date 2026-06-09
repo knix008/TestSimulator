@@ -100,18 +100,24 @@ public static class MarkdownConverter
         return result;
     }
 
-    // Screen preview: export formatting + optional heading anchors for outline navigation.
-    public static string ToHtmlWithAnchors(string markdown, PdfSettings? settings = null)
+    static string ConvertMarkdownBody(string markdown, PdfSettings settings)
     {
-        settings ??= new PdfSettings();
         string src = settings.NumberHeadings ? StripHeadingNumbers(markdown) : markdown;
         string body = Markdig.Markdown.ToHtml(src, Pipeline);
         if (settings.NumberHeadings) body = ApplyHeadingNumbering(body);
-        int i = 0;
-        body = Regex.Replace(body, @"<(h[1-6])([ >])",
-            m => $"<{m.Groups[1].Value} id=\"h-{i++}\"{m.Groups[2].Value}");
-        return HtmlDoc(body, settings, forPrint: false);
+        return body;
     }
+
+    static string AddHeadingAnchors(string body)
+    {
+        int i = 0;
+        return Regex.Replace(body, @"<(h[1-6])([ >])",
+            m => $"<{m.Groups[1].Value} id=\"h-{i++}\"{m.Groups[2].Value}");
+    }
+
+    // Preview: identical export CSS/HTML as PDF (heading anchors for outline navigation).
+    public static string ToHtmlWithAnchors(string markdown, PdfSettings? settings = null) =>
+        ToHtmlForPdf(markdown, settings);
 
     // Prepends hierarchical numbers (1, 1.1, 1.1.1, …) to heading text for export output.
     static string ApplyHeadingNumbering(string html)
@@ -144,23 +150,51 @@ public static class MarkdownConverter
 
     public static string ToHtml(string markdown, PdfSettings? settings = null)
     {
-        settings ??= new PdfSettings();
-        string src = settings.NumberHeadings ? StripHeadingNumbers(markdown) : markdown;
-        string body = Markdig.Markdown.ToHtml(src, Pipeline);
-        if (settings.NumberHeadings) body = ApplyHeadingNumbering(body);
-        return HtmlDoc(body, settings, forPrint: false);
+        settings ??= PdfSettings.CreateDefault();
+        return HtmlDoc(ConvertMarkdownBody(markdown, settings), settings);
     }
 
     public static string ToHtmlForPdf(string markdown, PdfSettings? settings = null)
     {
-        settings ??= new PdfSettings();
-        string src = settings.NumberHeadings ? StripHeadingNumbers(markdown) : markdown;
-        string body = Markdig.Markdown.ToHtml(src, Pipeline);
-        if (settings.NumberHeadings) body = ApplyHeadingNumbering(body);
-        int i = 0;
-        body = Regex.Replace(body, @"<(h[1-6])([ >])",
-            m => $"<{m.Groups[1].Value} id=\"h-{i++}\"{m.Groups[2].Value}");
-        return HtmlDoc(body, settings, forPrint: true);
+        settings ??= PdfSettings.CreateDefault();
+        string body = AddHeadingAnchors(ConvertMarkdownBody(markdown, settings));
+        return HtmlDoc(body, settings);
+    }
+
+    // Export file name: first non-empty line of the document (heading text without # / numbers).
+    public static string GetDocumentExportBaseName(string markdown)
+    {
+        if (string.IsNullOrWhiteSpace(markdown))
+            return "";
+
+        foreach (var raw in markdown.Split('\n'))
+        {
+            var line = raw.TrimEnd('\r').Trim();
+            if (line.Length == 0)
+                continue;
+
+            var heading = Regex.Match(line, @"^#{1,6}\s+(.*)$");
+            string title = heading.Success
+                ? StripLeadingNumberPrefix(heading.Groups[1].Value.Trim())
+                : StripLeadingNumberPrefix(line);
+
+            return SanitizeFileName(title);
+        }
+        return "";
+    }
+
+    static string SanitizeFileName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "";
+
+        foreach (var c in Path.GetInvalidFileNameChars())
+            name = name.Replace(c, '_');
+
+        name = name.Trim().TrimEnd('.');
+        if (name.Length > 80)
+            name = name[..80].TrimEnd();
+        return name;
     }
 
     // Removes heading numbers after #, ##, ### … (including accumulated 1 1.2 1.2.3 prefixes).
@@ -192,7 +226,7 @@ public static class MarkdownConverter
     public static void ToDocx(string markdown, string outputPath, PdfSettings? settings = null)
     {
         const string chunkId = "chunk1";
-        settings ??= new PdfSettings();
+        settings ??= PdfSettings.CreateDefault();
         // UTF-8 BOM helps Word detect encoding correctly
         byte[] htmlBytes = Encoding.UTF8.GetPreamble()
             .Concat(Encoding.UTF8.GetBytes(ToHtml(markdown, settings))).ToArray();
@@ -270,21 +304,30 @@ public static class MarkdownConverter
         }
     }
 
-    static string HtmlDoc(string body, PdfSettings? settings = null, bool forPrint = false)
+    static string HtmlDoc(string body, PdfSettings? settings = null)
     {
-        if (settings == null)
-            return HtmlDocPreview(body);
+        settings ??= PdfSettings.CreateDefault();
 
         var ic = System.Globalization.CultureInfo.InvariantCulture;
         string ff = settings.FontFamily;
         string fs = settings.FontSizePt.ToString("0.##", ic);
         string lh = settings.LineHeight.ToString("0.##", ic);
         string ps = settings.ParagraphSpacingEm.ToString("0.##", ic);
-        string bodyLayout = forPrint
-            ? "margin:0;padding:0"
-            : "max-width:860px;margin:40px auto;padding:0 24px";
-        string headingBreak = forPrint ? "page-break-after:avoid;" : "";
-        string blockBreak   = forPrint ? "page-break-inside:avoid;" : "";
+        const double screenDpi = 96.0;
+        string padTop = ((int)Math.Round(settings.MarginVerticalInch * screenDpi)).ToString(ic);
+        string padBottom = padTop;
+        string padLeft = ((int)Math.Round(settings.MarginHorizontalInch * screenDpi)).ToString(ic);
+        string padRight = padLeft;
+        const string headingBreak = "page-break-after:avoid;";
+        const string blockBreak   = "page-break-inside:avoid;";
+        string screenPadCss = $$"""
+              @media screen{
+                body{padding:{{padTop}}px {{padRight}}px {{padBottom}}px {{padLeft}}px!important}
+              }
+              @media print{
+                body{padding:0!important}
+              }
+            """;
 
         // CSS @page margin-box page numbers (Chrome 128+ / modern WebView2)
         string pageNumSelector = settings.PageNumbers switch
@@ -307,7 +350,7 @@ public static class MarkdownConverter
             <meta name="color-scheme" content="light">
             <style>
               html{background:#fff;color:#1a1a1a;color-scheme:light}
-              body{font-family:{{ff}};font-size:{{fs}}pt;line-height:{{lh}};{{bodyLayout}};color:#1a1a1a;background:#fff}
+              body{font-family:{{ff}};font-size:{{fs}}pt;line-height:{{lh}};margin:0;padding:0;color:#1a1a1a;background:#fff}
               p{margin-top:0;margin-bottom:{{ps}}em}
               h1,h2,h3,h4,h5,h6{margin-top:1.0em;margin-bottom:.25em;color:#111;font-weight:600;{{headingBreak}}}
               h1{font-size:1.8em;border-bottom:2px solid #e0e0e0;padding-bottom:.2em}
@@ -327,6 +370,7 @@ public static class MarkdownConverter
               img{max-width:100%}
               ul,ol{padding-left:1.8em;margin:0 0 {{ps}}em}
               li{margin:.1em 0}
+            {{screenPadCss}}
             {{pageNumCss}}
             </style>
             </head><body>
@@ -334,38 +378,4 @@ public static class MarkdownConverter
             </body></html>
             """;
     }
-
-    // $$""" lets CSS use single-brace rules naturally; {{body}} is the one interpolation.
-    static string HtmlDocPreview(string body) => $$"""
-        <!DOCTYPE html>
-        <html><head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <meta name="color-scheme" content="light">
-        <style>
-          html{background:#ffffff;color:#1a1a1a;color-scheme:light}
-          body{font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;max-width:860px;margin:40px auto;padding:0 24px;line-height:1.7;color:#1a1a1a;background:#ffffff}
-          h1,h2,h3,h4,h5,h6{margin-top:1.5em;margin-bottom:.4em;color:#111;font-weight:600}
-          h1{font-size:2em;border-bottom:2px solid #e0e0e0;padding-bottom:.3em}
-          h2{font-size:1.5em;border-bottom:1px solid #e0e0e0;padding-bottom:.2em}
-          h3{font-size:1.2em}
-          code{background:#f0f0f0;padding:.15em .4em;border-radius:3px;font-family:Consolas,'Courier New',monospace;font-size:.88em}
-          pre{background:#f5f5f5;padding:1em 1.2em;border-radius:6px;overflow-x:auto;border:1px solid #e0e0e0}
-          pre code{background:none;padding:0}
-          blockquote{border-left:4px solid #ccc;margin:0 0 1em;padding:.5em 1em;color:#555;background:#fafafa}
-          table{border-collapse:collapse;width:100%;margin:1em 0}
-          th,td{border:1px solid #ddd;padding:.6em 1em;text-align:left}
-          th{background:#f0f0f0;font-weight:600}
-          tr:nth-child(even){background:#fafafa}
-          hr{border:none;border-top:2px solid #e0e0e0;margin:2em 0}
-          a{color:#0078d4;text-decoration:none}
-          a:hover{text-decoration:underline}
-          img{max-width:100%}
-          ul,ol{padding-left:2em}
-          li{margin:.2em 0}
-        </style>
-        </head><body>
-        {{body}}
-        </body></html>
-        """;
 }
