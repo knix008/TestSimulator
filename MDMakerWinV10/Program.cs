@@ -3,9 +3,10 @@ namespace MDMakerWinV10;
 static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        var startupFile = args.Length > 0 && File.Exists(args[0]) ? args[0] : null;
+        Application.Run(new MainForm(startupFile));
     }
 }

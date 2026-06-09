@@ -12,13 +12,22 @@ public partial class MainForm : Form
 
     const string AppTitle = "MD Merge v1.0";
 
-    public MainForm()
+    public MainForm(string? startupFile = null)
     {
         InitializeComponent();
         ConfigureAppearance();
         if (_cmbSort.Items.Count > 0 && _cmbSort.SelectedIndex < 0)
             _cmbSort.SelectedIndex = 0;
         UpdateMoveButtons();
+
+        if (startupFile != null)
+            Load += (_, _) => TryLoadProjectOnStartup(startupFile);
+    }
+
+    private void TryLoadProjectOnStartup(string path)
+    {
+        try { LoadProjectFromFile(path); }
+        catch (Exception ex) { Log($"[오류] 시작 파일 열기 실패: {ex.Message}"); }
     }
 
     private void ConfigureAppearance()

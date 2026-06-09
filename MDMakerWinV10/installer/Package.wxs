@@ -22,7 +22,19 @@
             Message="관리자 권한이 필요합니다. 설치 파일을 관리자 권한으로 실행해 주세요." />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="MDMakerWinV10" />
+      <Directory Id="INSTALLFOLDER" Name="MDMakerWinV10">
+        <!-- .mdm 파일 연결 -->
+        <Component Id="CmpFileAssociation" Guid="8E2F3A1C-4B7D-4E9F-A2C3-5D6E7F8A9B0C" Bitness="always64">
+          <RegistryValue Root="HKLM" Key="Software\Classes\.mdm"
+                         Type="string" Value="MDMakerWinV10.mdm" KeyPath="yes" />
+          <RegistryValue Root="HKLM" Key="Software\Classes\MDMakerWinV10.mdm"
+                         Type="string" Value="MD Maker 프로젝트" />
+          <RegistryValue Root="HKLM" Key="Software\Classes\MDMakerWinV10.mdm\DefaultIcon"
+                         Type="string" Value="[INSTALLFOLDER]assets\icons\mdm-file.ico,0" />
+          <RegistryValue Root="HKLM" Key="Software\Classes\MDMakerWinV10.mdm\shell\open\command"
+                         Type="string" Value="&quot;[INSTALLFOLDER]MDMakerWinV10.exe&quot; &quot;%1&quot;" />
+        </Component>
+      </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder">
@@ -65,6 +77,7 @@
     <Feature Id="Main" Title="MDMakerWinV10" Level="1"
              ConfigurableDirectory="INSTALLFOLDER">
       <ComponentGroupRef Id="HarvestedApp" />
+      <ComponentRef Id="CmpFileAssociation" />
       <Feature Id="DesktopShortcut" Title="바탕화면 바로가기" Level="1">
         <ComponentRef Id="CmpDesktopShortcut" />
       </Feature>
