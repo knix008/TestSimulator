@@ -1,14 +1,11 @@
 using System.Text.RegularExpressions;
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services.Database;
 
 namespace CodeAnalyzer.Services.Database.Schema;
 
 public static class SqlInCodeSchemaExtractor
 {
-    private static readonly Regex SqlStringRegex = new(
-        @"@?""(?<s>(?:\\.|[^""\\])*)""|@?'(?<s>(?:\\.|[^'\\])*)'",
-        RegexOptions.Compiled | RegexOptions.Singleline);
-
     private static readonly Regex CreateTableHintRegex = new(
         @"CREATE\s+TABLE",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -44,28 +41,20 @@ public static class SqlInCodeSchemaExtractor
                 continue;
             }
 
-            var lineOffset = 0;
-            foreach (Match match in SqlStringRegex.Matches(content))
+            foreach (Match match in SqlPatternHelper.StringLiteralRegex.Matches(content))
             {
-                var literal = Unescape(match.Groups["s"].Value);
-                if (!CreateTableHintRegex.IsMatch(literal))
+                if (!SqlPatternHelper.TryUnwrapSqlLiteral(match.Value, out var literal)
+                    || !CreateTableHintRegex.IsMatch(literal))
                 {
                     continue;
                 }
 
-                var dialect = SqlSchemaParser.DetectDialect(file, literal);
-                var before = content[..match.Index];
-                lineOffset = before.Count(ch => ch == '\n');
-                scripts.Add((file, lineOffset, literal, dialect));
+                var dialect = SqlSchemaParser.DetectDialect(file, SqlPatternHelper.NormalizeSqlLiteralEscapes(literal));
+                var lineOffset = content[..match.Index].Count(ch => ch == '\n');
+                scripts.Add((file, lineOffset, SqlPatternHelper.NormalizeSqlLiteralEscapes(literal), dialect));
             }
         }
 
         return scripts;
     }
-
-    private static string Unescape(string value) =>
-        value.Replace("\\\"", "\"", StringComparison.Ordinal)
-            .Replace("\\n", "\n", StringComparison.Ordinal)
-            .Replace("\\r", "\r", StringComparison.Ordinal)
-            .Replace("\\t", "\t", StringComparison.Ordinal);
 }

@@ -32,7 +32,6 @@ public sealed class AnalysisSettingsDialog : Form
     private readonly Panel _headerHost;
     private readonly Panel _scrollHost;
     private readonly Panel _listHost;
-    private bool _suppressDupSync;
     private bool _layoutUpdateScheduled;
 
     public UserAnalysisSettings Settings { get; private set; }
@@ -90,8 +89,6 @@ public sealed class AnalysisSettingsDialog : Form
         };
         _listHost.Controls.Add(_scrollHost);
         _listHost.Controls.Add(_headerHost);
-
-        WireDuplicateCodeSync();
 
         Controls.Add(_listHost);
         Controls.Add(footer);
@@ -190,12 +187,20 @@ public sealed class AnalysisSettingsDialog : Form
             Padding = new Padding(12, 8, 12, 8)
         };
 
+        cancelButton = new Button
+        {
+            Text = "취소",
+            DialogResult = DialogResult.Cancel,
+            Size = new Size(88, 30),
+            Margin = new Padding(0, 0, 6, 0)
+        };
+
         okButton = new Button
         {
             Text = "확인",
             DialogResult = DialogResult.OK,
             Size = new Size(88, 30),
-            Margin = new Padding(6, 0, 0, 0)
+            Margin = Padding.Empty
         };
         okButton.Click += (_, _) =>
         {
@@ -203,13 +208,6 @@ public sealed class AnalysisSettingsDialog : Form
             {
                 DialogResult = DialogResult.None;
             }
-        };
-
-        cancelButton = new Button
-        {
-            Text = "취소",
-            DialogResult = DialogResult.Cancel,
-            Size = new Size(88, 30)
         };
 
         var buttonBar = new FlowLayoutPanel
@@ -549,42 +547,6 @@ public sealed class AnalysisSettingsDialog : Form
             Size.Empty,
             TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
 
-    private void WireDuplicateCodeSync()
-    {
-        var dupGroupsIdx = FindOptionIndex(MetricInspectionKind.DuplicateCodeGroups);
-        var fileDupIdx = FindOptionIndex(MetricInspectionKind.FileDuplicateLines);
-
-        foreach (var row in _rows)
-        {
-            row.EnabledCheck.CheckedChanged += (_, _) =>
-            {
-                if (_suppressDupSync)
-                {
-                    return;
-                }
-
-                var idx = _rows.IndexOf(row);
-                if (idx != dupGroupsIdx && idx != fileDupIdx)
-                {
-                    return;
-                }
-
-                var otherIdx = idx == dupGroupsIdx ? fileDupIdx : dupGroupsIdx;
-                _suppressDupSync = true;
-                try
-                {
-                    _rows[otherIdx].EnabledCheck.Checked = row.EnabledCheck.Checked;
-                }
-                finally
-                {
-                    _suppressDupSync = false;
-                }
-            };
-        }
-    }
-
-    private int FindOptionIndex(MetricInspectionKind kind) =>
-        _rows.FindIndex(row => row.Option.Kind == kind);
 
     private void SetAllChecked(bool check)
     {

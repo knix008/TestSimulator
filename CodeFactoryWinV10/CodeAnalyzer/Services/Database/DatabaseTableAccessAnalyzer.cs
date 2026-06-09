@@ -5,19 +5,6 @@ namespace CodeAnalyzer.Services.Database;
 
 public static class DatabaseTableAccessAnalyzer
 {
-    private static readonly Regex CommentRegex = new(
-        "//.*$|/\\*.*?\\*/|#.*$",
-        RegexOptions.Compiled | RegexOptions.Multiline);
-
-    private static readonly Regex SqlReadTableRegex = new(
-        @"(?i)\b(?:FROM|JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|MERGE\s+INTO)\s+(?:\[\""]?(\w+)[\""]?\.)?(?:\[\""]?(\w+)[\""]?)",
-        RegexOptions.Compiled);
-
-    // INSERT INTO / UPDATE / DELETE FROM / TRUNCATE / DROP / ALTER / CREATE TABLE / MERGE INTO
-    private static readonly Regex SqlCrudTableRegex = new(
-        @"(?i)\b(?<op>INSERT\s+INTO|MERGE\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE|CREATE\s+TABLE)\s+(?:\[\""']?(?<schema>\w+)[\""'\]]?\.)?(?:\[\""']?(?<table>\w+)[\""'\]]?)",
-        RegexOptions.Compiled);
-
     private static readonly Regex EfSetGenericRegex = new(
         @"\.Set\s*<\s*(\w+)\s*>",
         RegexOptions.Compiled);
@@ -28,7 +15,7 @@ public static class DatabaseTableAccessAnalyzer
         RegexOptions.Compiled);
 
     private static readonly Regex EfDbSetPropertyRegex = new(
-        @"(?<![\w$@#])(?:[\w$@#]*(?:Context|DbContext)\s*\.\s*(\w+)(?![\w$])",
+        @"(?<![\w$@#])(?:[\w$@#]*(?:Context|DbContext)\s*\.\s*(\w+)(?![\w$]))",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // group 1 = DbSet 속성명, group 2 = 호출된 CRUD/조회 메서드명
@@ -40,32 +27,11 @@ public static class DatabaseTableAccessAnalyzer
         @"\.Entry\s*<\s*(\w+)\s*>|\.Entry\s*\(",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // C# / Java / JS double/single-quoted strings, backtick template literals, Python triple-quoted strings
-    // Order matters: triple-quotes must come before single-quote alternatives
-    private static readonly Regex SqlStringLiteralRegex = new(
-        @"(?:""""""[\s\S]*?""""""|'''[\s\S]*?'''|@?""(?:(?:\\.|[^""\\])*)""|'(?:(?:\\.|[^'\\])*)'|`(?:[^`\\]|\\.)*`)",
-        RegexOptions.Compiled | RegexOptions.Singleline);
-
     private static readonly Regex CSharpMethodHeaderRegex = new(
-        @"(?m)^\s*(?:\[[^\]]*\]\s*)*(?:(?:public|private|protected|internal|static|async|partial|unsafe|new|sealed|override|virtual|abstract|extern|readonly|required)\s+)+[\w<>\[\]?,\s]+\s+(\w+)\s*\(",
+        @"(?m)^\s*(?:\[[^\]]*\]\s*)*(?:(?:public|private|protected|internal|static|async|partial|unsafe|new|sealed|override|virtual|abstract|extern|readonly|required)\s+)*[\w<>\[\]?,\s]+\s+(\w+)\s*\(",
         RegexOptions.Compiled);
 
     private const int MethodScanLineWindow = 2000;
-
-    // SELECT col1, col2 FROM
-    private static readonly Regex SqlSelectColumnsRegex = new(
-        @"(?i)\bSELECT\s+((?:(?!\bFROM\b).)+)\bFROM\b",
-        RegexOptions.Compiled | RegexOptions.Singleline);
-
-    // INSERT INTO table (col1, col2) VALUES
-    private static readonly Regex SqlInsertColumnsRegex = new(
-        @"(?i)\bINSERT\s+(?:INTO\s+)?(?:[`\[""']?\w+[`\]""']?\.)?[`\[""']?\w+[`\]""']?\s*\(\s*([^)]+)\)\s*(?:VALUES|SELECT)\b",
-        RegexOptions.Compiled);
-
-    // UPDATE table SET col1=..., col2=... (before WHERE or ;)
-    private static readonly Regex SqlUpdateSetColumnsRegex = new(
-        @"(?i)\bUPDATE\s+(?:[`\[""']?\w+[`\]""']?\.)?[`\[""']?\w+[`\]""']?\s+SET\s+((?:(?!\bWHERE\b)[^;])+)",
-        RegexOptions.Compiled | RegexOptions.Singleline);
 
     // SQL에서 테이블명으로 오해될 수 있는 예약어 목록 (자동 발견 시 제외)
     private static readonly HashSet<string> SqlKeywords = new(StringComparer.OrdinalIgnoreCase)
@@ -109,6 +75,12 @@ public static class DatabaseTableAccessAnalyzer
 
         AppendCallGraphOnlyAccessors(callGraph, index, accesses, seen, entryAccesses, entrySeen, fileCache);
         AppendSourceFileScan(sourceFiles, index, accesses, seen, entryAccesses, entrySeen, fileCache);
+        AppendFileLevelSqlLiteralScan(sourceFiles, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache);
+
+        accesses = DeduplicateAccesses(accesses);
+        entryAccesses = DeduplicateEntryAccesses(entryAccesses);
+
+        var (catalogs, catalogAccesses) = DatabaseCatalogAccessAnalyzer.Analyze(functions, callGraph, sourceFiles);
 
         var groupedEntries = entryAccesses
             .GroupBy(entry => entry.TableId, StringComparer.OrdinalIgnoreCase)
@@ -132,36 +104,20 @@ public static class DatabaseTableAccessAnalyzer
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
-        var columnAccesses = new List<DatabaseColumnAccess>();
-        var columnSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<DatabaseTable> allTables = index.AutoDiscoveredTables.Count > 0
+            ? [.. schema.Tables, .. index.AutoDiscoveredTables]
+            : schema.Tables;
 
-        // 컬럼 접근은 사전 정의 스키마가 있는 테이블에 한해 분석
-        foreach (var access in accesses)
-        {
-            if (!schema.TableMap.TryGetValue(access.TableId, out var table) || table.Columns.Count == 0)
-                continue;
+        var tableMap = allTables
+            .GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-            foreach (var (colName, kind, operations) in DetectColumnAccesses(access.FunctionFilePath, access.FunctionLineNumber, table, fileCache))
-            {
-                var key = $"{access.TableId}\0{access.FunctionId}\0{colName}";
-                if (!columnSeen.Add(key))
-                    continue;
-
-                columnAccesses.Add(new DatabaseColumnAccess
-                {
-                    TableId = access.TableId,
-                    ColumnName = colName,
-                    FunctionId = access.FunctionId,
-                    FunctionDisplayName = access.FunctionDisplayName,
-                    FunctionFullName = access.FunctionFullName,
-                    FunctionFilePath = access.FunctionFilePath,
-                    FunctionLineNumber = access.FunctionLineNumber,
-                    Kind = kind,
-                    Pattern = access.Pattern,
-                    Operations = operations
-                });
-            }
-        }
+        var columnAccesses = AppendColumnAccesses(
+            sourceFiles,
+            allTables,
+            accesses,
+            callGraph,
+            fileCache);
 
         var groupedColumns = columnAccesses
             .GroupBy(ca => ca.TableId, StringComparer.OrdinalIgnoreCase)
@@ -173,17 +129,22 @@ public static class DatabaseTableAccessAnalyzer
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
-        // SQL 분석으로 자동 발견된 테이블을 결과에 포함
-        IReadOnlyList<DatabaseTable> allTables = index.AutoDiscoveredTables.Count > 0
-            ? [.. schema.Tables, .. index.AutoDiscoveredTables]
-            : schema.Tables;
-
-        var tableMap = allTables
-            .GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var groupedCatalogAccesses = catalogAccesses
+            .GroupBy(access => access.CatalogId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<DatabaseCatalogAccess>)group
+                    .OrderBy(access => access.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(access => access.FunctionLineNumber)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
 
         return new DatabaseSchemaResult
         {
+            Catalogs = catalogs,
+            CatalogMap = catalogs.ToDictionary(c => c.Id, StringComparer.OrdinalIgnoreCase),
+            CatalogAccesses = catalogAccesses,
+            CatalogAccessesByCatalogId = groupedCatalogAccesses,
             Tables = allTables,
             Relations = schema.Relations,
             Accesses = accesses,
@@ -195,6 +156,14 @@ public static class DatabaseTableAccessAnalyzer
             EntryAccessesByTableId = groupedEntries
         };
     }
+
+    internal static bool TryReadLinesForScan(
+        string filePath,
+        Dictionary<string, string[]> cache,
+        out string[] lines) => TryReadLines(filePath, cache, out lines);
+
+    internal static string ResolveFunctionIdForScan(FunctionMetric function, CallGraphResult callGraph) =>
+        ResolveFunctionId(function, callGraph);
 
     private sealed class TableReferenceIndex
     {
@@ -351,6 +320,18 @@ public static class DatabaseTableAccessAnalyzer
             ? ResolveFunctionId(function, callGraph)
             : function.Id;
 
+        RecordTableMatches(function, functionId, matches, accesses, seen, entryAccesses, entrySeen);
+    }
+
+    private static void RecordTableMatches(
+        FunctionMetric function,
+        string functionId,
+        List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> matches,
+        List<DatabaseTableAccess> accesses,
+        HashSet<string> seen,
+        List<DatabaseEntryAccess> entryAccesses,
+        HashSet<string> entrySeen)
+    {
         foreach (var (tableId, kind, pattern, operations) in matches)
         {
             var key = tableId + "\0" + functionId;
@@ -473,6 +454,22 @@ public static class DatabaseTableAccessAnalyzer
                 continue;
             }
 
+            if (methodStarts[0] > 1)
+            {
+                ScanFileRange(
+                    filePath,
+                    lines,
+                    1,
+                    methodStarts[0] - 1,
+                    "(전역)",
+                    index,
+                    accesses,
+                    seen,
+                    entryAccesses,
+                    entrySeen,
+                    fileCache);
+            }
+
             for (var i = 0; i < methodStarts.Count; i++)
             {
                 var start = methodStarts[i];
@@ -534,10 +531,101 @@ public static class DatabaseTableAccessAnalyzer
             useFunctionId: false);
     }
 
+    /// <summary>함수 경계와 무관하게 파일 전체 SQL 문자열 리터럴을 스캔 (C++ R"(...)"·연결 리터럴·전역 SQL 포함).</summary>
+    private static void AppendFileLevelSqlLiteralScan(
+        IReadOnlyList<string>? sourceFiles,
+        TableReferenceIndex index,
+        CallGraphResult callGraph,
+        List<DatabaseTableAccess> accesses,
+        HashSet<string> seen,
+        List<DatabaseEntryAccess> entryAccesses,
+        HashSet<string> entrySeen,
+        Dictionary<string, string[]> fileCache)
+    {
+        if (sourceFiles is null || sourceFiles.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var filePath in sourceFiles)
+        {
+            if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
+            {
+                continue;
+            }
+
+            var languageId = LanguageRegistry.FindByExtension(Path.GetExtension(filePath))?.Id ?? string.Empty;
+            var fullText = string.Join('\n', lines);
+            var methodStarts = FindMethodStartLines(lines, languageId);
+
+            foreach (var span in SqlPatternHelper.ExtractSqlLiteralSpans(fullText))
+            {
+                var matches = DetectTableReferences(span.Text, languageId, index);
+                if (matches.Count == 0)
+                {
+                    continue;
+                }
+
+                var owner = ResolveSqlLiteralOwner(filePath, lines, methodStarts, languageId, span.LineNumber);
+                var functionId = ResolveCallGraphFunctionId(callGraph, filePath, owner.MethodStartLine) ?? owner.FunctionId;
+                var pseudoFunction = new FunctionMetric
+                {
+                    Id = functionId,
+                    DisplayName = owner.DisplayName,
+                    FullName = $"{Path.GetFileName(filePath)}:{span.LineNumber}",
+                    FilePath = filePath,
+                    StartLine = span.LineNumber,
+                    EndLine = span.LineNumber,
+                    LanguageId = languageId
+                };
+
+                RecordTableMatches(pseudoFunction, functionId, matches, accesses, seen, entryAccesses, entrySeen);
+            }
+        }
+    }
+
+    private static (string DisplayName, string FunctionId, int MethodStartLine) ResolveSqlLiteralOwner(
+        string filePath,
+        string[] lines,
+        List<int> methodStarts,
+        string languageId,
+        int sqlLine)
+    {
+        var enclosingStart = -1;
+        for (var i = methodStarts.Count - 1; i >= 0; i--)
+        {
+            if (methodStarts[i] <= sqlLine)
+            {
+                enclosingStart = methodStarts[i];
+                break;
+            }
+        }
+
+        if (enclosingStart < 0)
+        {
+            return ("(전역)", $"file:{filePath}:{sqlLine}", sqlLine);
+        }
+
+        var displayName = ExtractMethodName(lines[enclosingStart - 1], languageId) ?? $"line {enclosingStart}";
+        return (displayName, $"file:{filePath}:{enclosingStart}", enclosingStart);
+    }
+
+    private static string? ResolveCallGraphFunctionId(CallGraphResult callGraph, string filePath, int methodStartLine)
+    {
+        if (methodStartLine <= 0)
+        {
+            return null;
+        }
+
+        return callGraph.Nodes.FirstOrDefault(node =>
+            string.Equals(node.FilePath, filePath, StringComparison.OrdinalIgnoreCase)
+            && Math.Abs(node.LineNumber - methodStartLine) <= 3)?.Id;
+    }
+
     private static List<int> FindMethodStartLines(string[] lines, string languageId = "")
     {
         var starts = new List<int>();
-        var text = string.Join('\n', lines);
+        var text = SqlPatternHelper.StripCommentsPreservingLiterals(string.Join('\n', lines));
 
         Regex headerRegex;
         if (string.IsNullOrEmpty(languageId) || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase))
@@ -609,16 +697,16 @@ public static class DatabaseTableAccessAnalyzer
     {
         var results = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
         var searchBodies = new List<string> { body };
-        searchBodies.AddRange(ExtractSqlLiteralBodies(body));
+        searchBodies.AddRange(SqlPatternHelper.ExtractSqlLiteralBodies(body));
 
         foreach (var searchBody in searchBodies)
         {
-            foreach (Match match in SqlReadTableRegex.Matches(searchBody))
+            foreach (Match match in SqlPatternHelper.SqlReadTableRegex.Matches(searchBody))
             {
                 TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value, DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
             }
 
-            foreach (Match match in SqlCrudTableRegex.Matches(searchBody))
+            foreach (Match match in SqlPatternHelper.SqlCrudTableRegex.Matches(searchBody))
             {
                 var operation = MapSqlVerbToOperation(match.Groups["op"].Value);
                 TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value, DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation);
@@ -709,35 +797,6 @@ public static class DatabaseTableAccessAnalyzer
             .ToList();
     }
 
-    private static IEnumerable<string> ExtractSqlLiteralBodies(string body)
-    {
-        foreach (Match match in SqlStringLiteralRegex.Matches(body))
-        {
-            var raw = match.Value;
-            // 따옴표·백틱 제거
-            string literal;
-            if (raw.StartsWith("\"\"\"", StringComparison.Ordinal) && raw.EndsWith("\"\"\"", StringComparison.Ordinal))
-                literal = raw[3..^3];
-            else if (raw.StartsWith("'''", StringComparison.Ordinal) && raw.EndsWith("'''", StringComparison.Ordinal))
-                literal = raw[3..^3];
-            else if (raw.StartsWith('`') && raw.EndsWith('`'))
-                literal = raw[1..^1];
-            else
-                literal = raw.Trim('@', '"', '\'');
-
-            if (literal.Contains("SELECT", StringComparison.OrdinalIgnoreCase)
-                || literal.Contains("INSERT", StringComparison.OrdinalIgnoreCase)
-                || literal.Contains("UPDATE", StringComparison.OrdinalIgnoreCase)
-                || literal.Contains("DELETE", StringComparison.OrdinalIgnoreCase)
-                || literal.Contains("FROM", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return literal.Replace("\\\"", "\"", StringComparison.Ordinal)
-                    .Replace("\\n", "\n", StringComparison.Ordinal)
-                    .Replace("\\r", "\r", StringComparison.Ordinal);
-            }
-        }
-    }
-
     private static bool ReferencesEntityType(string body, string entityTypeName)
     {
         var escaped = Regex.Escape(entityTypeName);
@@ -822,6 +881,7 @@ public static class DatabaseTableAccessAnalyzer
     {
         var v = verb.TrimStart().ToUpperInvariant();
         if (v.StartsWith("INSERT", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
+        if (v.StartsWith("REPLACE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
         if (v.StartsWith("CREATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
         if (v.StartsWith("MERGE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create | DatabaseCrudOperation.Update;
         if (v.StartsWith("UPDATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Update;
@@ -921,8 +981,7 @@ public static class DatabaseTableAccessAnalyzer
         try
         {
             var fullPath = Path.GetFullPath(filePath);
-            var content = CommentRegex.Replace(File.ReadAllText(fullPath), match => new string(' ', match.Length));
-            lines = content.Split('\n');
+            lines = File.ReadAllLines(fullPath);
             cache[filePath] = lines;
             return lines.Length > 0;
         }
@@ -933,32 +992,137 @@ public static class DatabaseTableAccessAnalyzer
         }
     }
 
-    private static List<(string ColumnName, DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)> DetectColumnAccesses(
-        string filePath,
-        int lineNumber,
-        DatabaseTable table,
+    private static List<DatabaseColumnAccess> AppendColumnAccesses(
+        IReadOnlyList<string>? sourceFiles,
+        IReadOnlyList<DatabaseTable> tables,
+        List<DatabaseTableAccess> tableAccesses,
+        CallGraphResult callGraph,
         Dictionary<string, string[]> fileCache)
     {
-        if (!TryReadLines(filePath, fileCache, out var lines))
-            return [];
+        var columnAccesses = new List<DatabaseColumnAccess>();
+        var columnSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var start = Math.Max(1, lineNumber);
-        var end = Math.Min(lines.Length, start + MethodScanLineWindow);
-        if (start > end)
-            return [];
+        if (sourceFiles is not null && sourceFiles.Count > 0)
+        {
+            foreach (var filePath in sourceFiles)
+            {
+                if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
+                {
+                    continue;
+                }
 
-        var body = string.Join('\n', lines.AsSpan(start - 1, end - start + 1).ToArray());
+                var languageId = LanguageRegistry.FindByExtension(Path.GetExtension(filePath))?.Id ?? string.Empty;
+                var fullText = string.Join('\n', lines);
+                var methodStarts = FindMethodStartLines(lines, languageId);
 
+                foreach (var span in SqlPatternHelper.ExtractSqlLiteralSpans(fullText))
+                {
+                    foreach (var table in tables)
+                    {
+                        if (!SqlPatternHelper.SqlLiteralReferencesTable(span.Text, table.Name, table.Schema))
+                        {
+                            continue;
+                        }
+
+                        var owner = ResolveSqlLiteralOwner(filePath, lines, methodStarts, languageId, span.LineNumber);
+                        var functionId = ResolveCallGraphFunctionId(callGraph, filePath, owner.MethodStartLine) ?? owner.FunctionId;
+                        var displayName = owner.DisplayName;
+                        var fullName = $"{Path.GetFileName(filePath)}:{span.LineNumber}";
+
+                        foreach (var (colName, kind, operations) in DetectColumnsInSql(span.Text, table))
+                        {
+                            var key = $"{table.Id}\0{functionId}\0{span.LineNumber}\0{colName}";
+                            if (!columnSeen.Add(key))
+                            {
+                                continue;
+                            }
+
+                            columnAccesses.Add(new DatabaseColumnAccess
+                            {
+                                TableId = table.Id,
+                                ColumnName = colName,
+                                FunctionId = functionId,
+                                FunctionDisplayName = displayName,
+                                FunctionFullName = fullName,
+                                FunctionFilePath = filePath,
+                                FunctionLineNumber = span.LineNumber,
+                                Kind = kind,
+                                Pattern = DatabaseTableAccessPattern.Sql,
+                                Operations = operations
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        foreach (var access in tableAccesses)
+        {
+            if (!tables.Any(t => string.Equals(t.Id, access.TableId, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            var table = tables.First(t => string.Equals(t.Id, access.TableId, StringComparison.OrdinalIgnoreCase));
+            foreach (var (colName, kind, operations) in DetectColumnsInEntityBody(access.FunctionFilePath, access.FunctionLineNumber, table, fileCache))
+            {
+                var key = $"{access.TableId}\0{access.FunctionId}\0{access.FunctionLineNumber}\0{colName}";
+                if (!columnSeen.Add(key))
+                {
+                    continue;
+                }
+
+                columnAccesses.Add(new DatabaseColumnAccess
+                {
+                    TableId = access.TableId,
+                    ColumnName = colName,
+                    FunctionId = access.FunctionId,
+                    FunctionDisplayName = access.FunctionDisplayName,
+                    FunctionFullName = access.FunctionFullName,
+                    FunctionFilePath = access.FunctionFilePath,
+                    FunctionLineNumber = access.FunctionLineNumber,
+                    Kind = kind,
+                    Pattern = access.Pattern,
+                    Operations = operations
+                });
+            }
+        }
+
+        return columnAccesses
+            .OrderBy(ca => ca.TableId, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(ca => ca.ColumnName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(ca => ca.FunctionLineNumber)
+            .ToList();
+    }
+
+    private static List<(string ColumnName, DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)> DetectColumnsInSql(
+        string sql,
+        DatabaseTable table)
+    {
         var knownColumns = new HashSet<string>(
             table.Columns.Select(c => c.Name),
             StringComparer.OrdinalIgnoreCase);
+        var hasSchema = knownColumns.Count > 0;
 
         var result = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
 
         void Add(string col, DatabaseTableAccessKind kind, DatabaseCrudOperation operation)
         {
-            if (!knownColumns.Contains(col))
+            if (SqlKeywords.Contains(col))
+            {
                 return;
+            }
+
+            if (hasSchema && !knownColumns.Contains(col))
+            {
+                return;
+            }
+
+            if (col.Length < 2)
+            {
+                return;
+            }
+
             if (!result.TryGetValue(col, out var existing))
             {
                 result[col] = (kind, operation);
@@ -970,26 +1134,149 @@ public static class DatabaseTableAccessAnalyzer
             }
         }
 
-        foreach (Match m in SqlSelectColumnsRegex.Matches(body))
+        foreach (Match m in SqlPatternHelper.SqlSelectColumnsRegex.Matches(sql))
         {
-            foreach (var col in ParseColumnTokens(m.Groups[1].Value))
-                Add(col, DatabaseTableAccessKind.Read, DatabaseCrudOperation.Read);
+            if (!SqlPatternHelper.SqlMentionsTable(sql, m.Index, table.Name))
+            {
+                continue;
+            }
+
+            var selectList = m.Groups[1].Value;
+            if (hasSchema && SqlPatternHelper.SelectUsesWildcard(selectList))
+            {
+                foreach (var col in knownColumns)
+                {
+                    Add(col, DatabaseTableAccessKind.Read, DatabaseCrudOperation.Read);
+                }
+            }
+            else
+            {
+                foreach (var col in ParseColumnTokens(selectList))
+                {
+                    Add(col, DatabaseTableAccessKind.Read, DatabaseCrudOperation.Read);
+                }
+            }
         }
 
-        foreach (Match m in SqlInsertColumnsRegex.Matches(body))
+        foreach (Match m in SqlPatternHelper.SqlInsertColumnsRegex.Matches(sql))
         {
+            if (!SqlPatternHelper.SqlInsertTargetsTable(m, table.Name))
+            {
+                continue;
+            }
+
             foreach (var col in ParseColumnTokens(m.Groups[1].Value))
+            {
                 Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Create);
+            }
         }
 
-        foreach (Match m in SqlUpdateSetColumnsRegex.Matches(body))
+        foreach (Match m in SqlPatternHelper.SqlUpdateSetColumnsRegex.Matches(sql))
         {
+            if (!SqlPatternHelper.SqlUpdateTargetsTable(m, table.Name))
+            {
+                continue;
+            }
+
             foreach (var col in ParseColumnTokens(m.Groups[1].Value, leftOfEquals: true))
+            {
                 Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Update);
+            }
+        }
+
+        foreach (Match m in SqlPatternHelper.SqlDeleteFromRegex.Matches(sql))
+        {
+            if (!SqlPatternHelper.SqlDeleteTargetsTable(m, table.Name))
+            {
+                continue;
+            }
+
+            foreach (var col in SqlPatternHelper.ExtractWhereColumns(m.Groups[1].Success ? m.Groups[1].Value : null))
+            {
+                Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Delete);
+            }
         }
 
         return result.Select(p => (p.Key, p.Value.Kind, p.Value.Operations)).ToList();
     }
+
+    private static List<(string ColumnName, DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)> DetectColumnsInEntityBody(
+        string filePath,
+        int lineNumber,
+        DatabaseTable table,
+        Dictionary<string, string[]> fileCache)
+    {
+        if (table.Columns.Count == 0 || !TryReadLines(filePath, fileCache, out var lines))
+        {
+            return [];
+        }
+
+        var start = Math.Max(1, lineNumber);
+        var end = Math.Min(lines.Length, start + MethodScanLineWindow);
+        var body = string.Join('\n', lines.AsSpan(start - 1, end - start + 1).ToArray());
+        var result = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var column in table.Columns)
+        {
+            if (!ReferencesColumn(body, column.Name))
+            {
+                continue;
+            }
+
+            result[column.Name] = (DatabaseTableAccessKind.ReadWrite, DatabaseCrudOperation.Read | DatabaseCrudOperation.Update);
+        }
+
+        return result.Select(p => (p.Key, p.Value.Kind, p.Value.Operations)).ToList();
+    }
+
+    private static List<DatabaseTableAccess> DeduplicateAccesses(List<DatabaseTableAccess> accesses) =>
+        accesses
+            .GroupBy(
+                access => $"{access.TableId}\0{access.FunctionFilePath}\0{access.FunctionLineNumber}",
+                StringComparer.OrdinalIgnoreCase)
+            .Select(MergeDuplicateAccesses)
+            .OrderBy(access => access.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(access => access.FunctionLineNumber)
+            .ThenBy(access => access.FunctionDisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static DatabaseTableAccess MergeDuplicateAccesses(IEnumerable<DatabaseTableAccess> group)
+    {
+        var ordered = group
+            .OrderByDescending(access => IsCallGraphFunctionId(access.FunctionId))
+            .ThenBy(access => access.FunctionId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var primary = ordered[0];
+        var mergedKind = ordered.Aggregate(primary.Kind, (kind, access) => MergeKinds(kind, access.Kind));
+        var mergedOps = ordered.Aggregate(DatabaseCrudOperation.None, (ops, access) => ops | access.Operations);
+
+        return new DatabaseTableAccess
+        {
+            TableId = primary.TableId,
+            FunctionId = primary.FunctionId,
+            FunctionDisplayName = primary.FunctionDisplayName,
+            FunctionFullName = primary.FunctionFullName,
+            FunctionFilePath = primary.FunctionFilePath,
+            FunctionLineNumber = primary.FunctionLineNumber,
+            Kind = mergedKind,
+            Pattern = ordered.All(access => access.Pattern == primary.Pattern)
+                ? primary.Pattern
+                : DatabaseTableAccessPattern.Sql,
+            Operations = mergedOps
+        };
+    }
+
+    private static List<DatabaseEntryAccess> DeduplicateEntryAccesses(List<DatabaseEntryAccess> entries) =>
+        entries
+            .GroupBy(
+                entry => $"{entry.TableId}\0{entry.FunctionFilePath}\0{entry.FunctionLineNumber}\0{entry.Operation}",
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderByDescending(entry => IsCallGraphFunctionId(entry.FunctionId)).First())
+            .ToList();
+
+    private static bool IsCallGraphFunctionId(string functionId) =>
+        !functionId.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
 
     private static IEnumerable<string> ParseColumnTokens(string clause, bool leftOfEquals = false)
     {

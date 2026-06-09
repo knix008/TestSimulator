@@ -43,7 +43,7 @@ internal static class LanguageDbAccessPatterns
         RegexOptions.Compiled);
 
     private static readonly Regex CppFunctionHeader = new(
-        @"(?m)^\s*(?:(?:virtual|static|inline|explicit|friend|extern|constexpr|override|final)\s+)*(?:[\w:<>\[\]?&*]+\s+)+(\w+)\s*\(",
+        @"(?m)^\s*(?:(?:virtual|static|inline|explicit|friend|extern|constexpr|override|final)\s+)*(?:[\w:<>\[\]?&*]+\s+)+(?:\w+::)*(\w+)\s*\(",
         RegexOptions.Compiled);
 
     // named function / class method / const fn assignment — groups 1, 2, 3

@@ -26,7 +26,6 @@ public static class MetricInspectionCatalog
         new(MetricInspectionKind.TodoDensity, "파일", "TODO 밀도"),
         new(MetricInspectionKind.GodFile, "파일", "God file (대형 파일)"),
         new(MetricInspectionKind.LowCommentRatio, "파일", "주석 비율 부족"),
-        new(MetricInspectionKind.FileDuplicateLines, "파일", "중복 코드 참여 줄"),
 
         new(MetricInspectionKind.GodType, "타입", "God type (멤버·연산 과다)"),
 

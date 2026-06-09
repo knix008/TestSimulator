@@ -7,13 +7,11 @@ public static class MetricInspectionScope
         if (scope is MetricInspectionKind.None or 0)
             return MetricInspectionKind.All;
 
-        // DuplicateCodeGroups and FileDuplicateLines both require the same expensive scan.
-        // Keep them in sync: if either is on, treat both as on for display and analysis.
-        var dupBits = MetricInspectionKind.DuplicateCodeGroups | MetricInspectionKind.FileDuplicateLines;
-        var dupState = scope & dupBits;
-        if (dupState != 0 && dupState != dupBits)
+        // FileDuplicateLines는 DuplicateCodeGroups와 같은 스캔을 사용.
+        // DuplicateCodeGroups 활성 시 자동으로 함께 켜짐 (UI에는 별도 항목 없음).
+        if ((scope & MetricInspectionKind.DuplicateCodeGroups) != 0)
         {
-            scope |= dupBits;
+            scope |= MetricInspectionKind.FileDuplicateLines;
         }
 
         return scope;

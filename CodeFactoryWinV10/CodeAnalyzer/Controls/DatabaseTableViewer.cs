@@ -106,7 +106,43 @@ public sealed class DatabaseTableViewer : UserControl
     private DatabaseTable? _selected;
     private string? _projectRoot;
     private bool _isAnalyzing;
-    // ── 상단 탭 (테이블별 / DB 영향 함수) ─────────────────────
+    // ── DB 인스턴스 탭 ─────────────────────────────────────────
+    private readonly SplitContainer _catalogSplit = new()
+    {
+        Dock = DockStyle.Fill,
+        Orientation = Orientation.Horizontal,
+        SplitterDistance = 220
+    };
+
+    private readonly ListView _catalogList = new()
+    {
+        Dock = DockStyle.Fill,
+        View = View.Details,
+        FullRowSelect = true,
+        GridLines = true,
+        MultiSelect = false
+    };
+
+    private readonly ListView _catalogAccessList = new()
+    {
+        Dock = DockStyle.Fill,
+        View = View.Details,
+        FullRowSelect = true,
+        GridLines = true,
+        MultiSelect = false
+    };
+
+    private readonly Label _catalogSummaryLabel = new()
+    {
+        Dock = DockStyle.Top,
+        Height = 44,
+        Padding = new Padding(8, 6, 8, 4),
+        AutoEllipsis = true
+    };
+
+    private DatabaseCatalog? _selectedCatalog;
+
+    // ── 상단 탭 (DB 인스턴스 / 테이블별 / DB 영향 함수) ────────
     private readonly TabControl _mainTabControl = new() { Dock = DockStyle.Fill };
 
     // ── DB 영향 함수 탭 (전체 테이블 cross-table 뷰) ─────────────
@@ -159,7 +195,8 @@ public sealed class DatabaseTableViewer : UserControl
         _tableList.Columns.Add("테이블", 120);
         _tableList.Columns.Add("엔티티", 100);
         _tableList.Columns.Add("접근 함수", 72, HorizontalAlignment.Right);
-        _tableList.Columns.Add("컬럼", 52, HorizontalAlignment.Right);
+        _tableList.Columns.Add("필드", 52, HorizontalAlignment.Right);
+        _tableList.Columns.Add("필드 접근", 72, HorizontalAlignment.Right);
         _tableList.Columns.Add("출처", 72);
         _tableList.Columns.Add("파일", 140);
         _tableList.Columns.Add("줄", 44, HorizontalAlignment.Right);
@@ -233,8 +270,32 @@ public sealed class DatabaseTableViewer : UserControl
         _split.Panel1.Controls.Add(_tableList);
         _split.Panel2.Controls.Add(_detailSplit);
 
+        _catalogList.Columns.Add("#", 40);
+        _catalogList.Columns.Add("DB", 160);
+        _catalogList.Columns.Add("접근 함수", 72, HorizontalAlignment.Right);
+        _catalogList.Columns.Add("방언", 72);
+        _catalogList.Columns.Add("출처", 100);
+        _catalogList.SelectedIndexChanged += (_, _) => ShowSelectedCatalog();
+        _catalogList.DoubleClick += (_, _) => OpenSelectedCatalogAccessor();
+
+        _catalogAccessList.Columns.Add("#", 36);
+        _catalogAccessList.Columns.Add("함수", 160);
+        _catalogAccessList.Columns.Add("유형", 72);
+        _catalogAccessList.Columns.Add("CRUD", 90);
+        _catalogAccessList.Columns.Add("패턴", 80);
+        _catalogAccessList.Columns.Add("파일", 160);
+        _catalogAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _catalogAccessList.DoubleClick += (_, _) => OpenSelectedCatalogAccessor();
+
+        _catalogSplit.Panel1.Controls.Add(_catalogList);
+        _catalogSplit.Panel2.Controls.Add(_catalogAccessList);
+
+        var catalogViewTab = new TabPage("DB 인스턴스");
+        catalogViewTab.Controls.Add(_catalogSplit);
+        catalogViewTab.Controls.Add(_catalogSummaryLabel);
+
         // ── 테이블별 탭 ──────────────────────────────────────────
-        var tableViewTab = new TabPage("테이블별 분석");
+        var tableViewTab = new TabPage("테이블·필드");
         tableViewTab.Controls.Add(_split);
         tableViewTab.Controls.Add(_summaryLabel);
 
@@ -266,6 +327,7 @@ public sealed class DatabaseTableViewer : UserControl
         impactViewTab.Controls.Add(_impactSummaryLabel);
         impactViewTab.Controls.Add(filterPanel);
 
+        _mainTabControl.TabPages.Add(catalogViewTab);
         _mainTabControl.TabPages.Add(tableViewTab);
         _mainTabControl.TabPages.Add(impactViewTab);
 
@@ -280,6 +342,7 @@ public sealed class DatabaseTableViewer : UserControl
         _schema = schema;
         _projectRoot = projectRoot;
         RebuildList();
+        RebuildCatalogList();
         RebuildImpactList();
     }
 
@@ -295,10 +358,13 @@ public sealed class DatabaseTableViewer : UserControl
         _columnAccessList.Items.Clear();
         _entryAccessList.Items.Clear();
         _impactList.Items.Clear();
+        _catalogList.Items.Clear();
+        _catalogAccessList.Items.Clear();
         _previewBox.Clear();
         _openFileButton.Enabled = false;
         _showGraphButton.Enabled = false;
         _summaryLabel.Text = "DB 테이블·접근 분석 중...";
+        _catalogSummaryLabel.Text = "DB 인스턴스 분석 중...";
         _impactSummaryLabel.Text = "분석 중...";
         ResetAccessTabTitles();
     }
@@ -313,35 +379,45 @@ public sealed class DatabaseTableViewer : UserControl
         _columnAccessList.Items.Clear();
         _entryAccessList.Items.Clear();
         _impactList.Items.Clear();
+        _catalogList.Items.Clear();
+        _catalogAccessList.Items.Clear();
         _previewBox.Clear();
         _selected = null;
+        _selectedCatalog = null;
         _openFileButton.Enabled = false;
         _showGraphButton.Enabled = false;
         ResetAccessTabTitles();
 
-        if (_schema is null || _schema.Tables.Count == 0)
+        if (_schema is null || (_schema.Tables.Count == 0 && _schema.Catalogs.Count == 0))
         {
             _summaryLabel.Text = _isAnalyzing
                 ? "DB 테이블·접근 분석 중..."
-                : "표시할 DB 테이블이 없습니다. SQL·EF Core·SQL 문자열 분석 후 결과가 여기에 표시됩니다.";
+                : "표시할 DB 분석 결과가 없습니다. SQL·EF Core·연결 문자열 분석 후 결과가 여기에 표시됩니다.";
             _tableList.EndUpdate();
             return;
         }
 
         var totalAccessors = _schema.Accesses.Select(access => access.FunctionId).Distinct(StringComparer.Ordinal).Count();
+        var totalColumnAccesses = _schema.ColumnAccesses.Count;
         _summaryLabel.Text =
-            $"DB 테이블 {_schema.Tables.Count:N0}개 · 접근 함수 {totalAccessors:N0}개 · 접근 {_schema.Accesses.Count:N0}건 · " +
+            $"테이블 {_schema.Tables.Count:N0}개 · 테이블 접근 {_schema.Accesses.Count:N0}건 · 필드 접근 {totalColumnAccesses:N0}건 · 함수 {totalAccessors:N0}개 · " +
             "더블클릭: 파일 열기 · 우클릭/버튼: 접근 함수 그래프";
 
         var index = 1;
         foreach (var table in _schema.Tables)
         {
             var accessorCount = _schema.GetAccessesFor(table.Id).Count;
+            var colAccessCount = _schema.GetColumnAccessesFor(table.Id).Count;
+            var distinctFields = _schema.GetColumnAccessesFor(table.Id)
+                .Select(ca => ca.ColumnName)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
             var item = new ListViewItem(index.ToString());
             item.SubItems.Add(table.Name);
             item.SubItems.Add(string.IsNullOrWhiteSpace(table.EntityTypeName) ? "-" : table.EntityTypeName);
             item.SubItems.Add(accessorCount.ToString());
-            item.SubItems.Add(table.Columns.Count.ToString());
+            item.SubItems.Add(table.Columns.Count > 0 ? table.Columns.Count.ToString() : distinctFields.ToString());
+            item.SubItems.Add(colAccessCount.ToString());
             item.SubItems.Add(FormatSourceKind(table.SourceKind));
             item.SubItems.Add(string.IsNullOrWhiteSpace(table.FilePath) ? "-" : Path.GetFileName(table.FilePath));
             item.SubItems.Add(table.LineNumber > 0 ? table.LineNumber.ToString() : "-");
@@ -564,6 +640,98 @@ public sealed class DatabaseTableViewer : UserControl
         _impactList.EndUpdate();
     }
 
+    private void RebuildCatalogList()
+    {
+        _catalogList.BeginUpdate();
+        _catalogList.Items.Clear();
+        _catalogAccessList.Items.Clear();
+        _selectedCatalog = null;
+
+        if (_schema is null || _schema.Catalogs.Count == 0)
+        {
+            _catalogSummaryLabel.Text = _isAnalyzing
+                ? "DB 인스턴스 분석 중..."
+                : "검출된 DB 인스턴스(연결·카탈로그)가 없습니다.";
+            _catalogList.EndUpdate();
+            return;
+        }
+
+        var totalFunctions = _schema.CatalogAccesses.Select(a => a.FunctionId).Distinct(StringComparer.Ordinal).Count();
+        _catalogSummaryLabel.Text =
+            $"DB 인스턴스 {_schema.Catalogs.Count:N0}개 · 접근 {_schema.CatalogAccesses.Count:N0}건 · 함수 {totalFunctions:N0}개";
+
+        var index = 1;
+        foreach (var catalog in _schema.Catalogs)
+        {
+            var accessorCount = _schema.GetCatalogAccessesFor(catalog.Id).Count;
+            var item = new ListViewItem(index.ToString());
+            item.SubItems.Add(catalog.Name);
+            item.SubItems.Add(accessorCount.ToString());
+            item.SubItems.Add(catalog.Dialect == DatabaseDialect.Unknown ? "-" : catalog.Dialect.ToString());
+            item.SubItems.Add(FormatCatalogSourceKind(catalog.SourceKind));
+            item.Tag = catalog;
+            _catalogList.Items.Add(item);
+            index++;
+        }
+
+        if (_catalogList.Items.Count > 0)
+        {
+            _catalogList.Items[0].Selected = true;
+        }
+
+        _catalogList.EndUpdate();
+    }
+
+    private void ShowSelectedCatalog()
+    {
+        _catalogAccessList.BeginUpdate();
+        _catalogAccessList.Items.Clear();
+
+        if (_catalogList.SelectedItems.Count == 0
+            || _catalogList.SelectedItems[0].Tag is not DatabaseCatalog catalog)
+        {
+            _selectedCatalog = null;
+            _catalogAccessList.EndUpdate();
+            return;
+        }
+
+        _selectedCatalog = catalog;
+        var accesses = _schema?.GetCatalogAccessesFor(catalog.Id) ?? [];
+        var row = 1;
+        foreach (var access in accesses)
+        {
+            var item = new ListViewItem(row.ToString());
+            item.SubItems.Add(access.FunctionDisplayName);
+            item.SubItems.Add(FormatCatalogAccessKind(access.Kind));
+            item.SubItems.Add(FormatOperations(access.Operations));
+            item.SubItems.Add(FormatCatalogPattern(access.Pattern));
+            item.SubItems.Add(Path.GetFileName(access.FunctionFilePath));
+            item.SubItems.Add(access.FunctionLineNumber.ToString());
+            item.Tag = access;
+            _catalogAccessList.Items.Add(item);
+            row++;
+        }
+
+        _catalogAccessList.EndUpdate();
+    }
+
+    private void OpenSelectedCatalogAccessor()
+    {
+        if (_catalogAccessList.SelectedItems.Count > 0
+            && _catalogAccessList.SelectedItems[0].Tag is DatabaseCatalogAccess access)
+        {
+            SourceFileOpener.TryOpen(access.FunctionFilePath, access.FunctionLineNumber);
+            return;
+        }
+
+        if (_selectedCatalog is not null
+            && !string.IsNullOrWhiteSpace(_selectedCatalog.FilePath)
+            && File.Exists(_selectedCatalog.FilePath))
+        {
+            SourceFileOpener.TryOpen(_selectedCatalog.FilePath, Math.Max(1, _selectedCatalog.LineNumber));
+        }
+    }
+
     private void OpenSelectedImpactFunction()
     {
         if (_impactList.SelectedItems.Count == 0
@@ -625,7 +793,7 @@ public sealed class DatabaseTableViewer : UserControl
             builder.AppendLine($"엔티티: {table.EntityTypeName}");
         }
 
-        builder.AppendLine($"접근 함수: {accessorCount}개");
+        builder.AppendLine($"테이블 접근: {accessorCount}개 함수");
         builder.AppendLine($"필드 접근: {colAccesses.Count}건 ({distinctCols}개 필드)");
         builder.AppendLine($"출처: {FormatSourceKind(table.SourceKind)}");
         if (!string.IsNullOrWhiteSpace(table.FilePath))
@@ -712,6 +880,32 @@ public sealed class DatabaseTableViewer : UserControl
         _ => string.IsNullOrWhiteSpace(sourceKind) ? "-" : sourceKind
     };
 
+    private static string FormatCatalogSourceKind(string sourceKind) => sourceKind switch
+    {
+        "connection-string" => "연결 문자열",
+        "sqlite-file" => "SQLite 파일",
+        "sql-create" => "CREATE DATABASE",
+        "sql-use" => "USE",
+        "sql-attach" => "ATTACH",
+        "api" => "DB API",
+        _ => string.IsNullOrWhiteSpace(sourceKind) ? "-" : sourceKind
+    };
+
+    private static string FormatCatalogAccessKind(DatabaseCatalogAccessKind kind) => kind switch
+    {
+        DatabaseCatalogAccessKind.Connect => "연결",
+        DatabaseCatalogAccessKind.Select => "선택",
+        DatabaseCatalogAccessKind.Admin => "관리",
+        _ => kind.ToString()
+    };
+
+    private static string FormatCatalogPattern(DatabaseCatalogAccessPattern pattern) => pattern switch
+    {
+        DatabaseCatalogAccessPattern.ConnectionString => "연결 문자열",
+        DatabaseCatalogAccessPattern.Api => "API",
+        _ => "SQL"
+    };
+
     private string FormatDisplayPath(string filePath)
     {
         if (string.IsNullOrWhiteSpace(_projectRoot))
@@ -771,14 +965,14 @@ public sealed class DatabaseTableViewer : UserControl
 
     private void AdjustColumnWidths()
     {
-        if (_tableList.Columns.Count < 8 || _tableList.ClientSize.Width <= 0)
+        if (_tableList.Columns.Count < 9 || _tableList.ClientSize.Width <= 0)
         {
             return;
         }
 
-        const int fixedWidth = 40 + 120 + 100 + 72 + 52 + 72 + 44;
+        const int fixedWidth = 40 + 120 + 100 + 72 + 52 + 72 + 72 + 44;
         var fileWidth = Math.Max(100, _tableList.ClientSize.Width - fixedWidth - 8);
-        _tableList.Columns[6].Width = fileWidth;
+        _tableList.Columns[7].Width = fileWidth;
     }
 
     private sealed class ImpactListSorter : System.Collections.IComparer

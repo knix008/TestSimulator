@@ -1,14 +1,11 @@
 using System.Text.RegularExpressions;
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services.Database;
 
 namespace CodeAnalyzer.Services.Database.Schema;
 
 internal static class SqlSchemaParser
 {
-    private static readonly Regex CreateTableStartRegex = new(
-        @"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:(?:[`""]?([\w]+)[`""]?\.)?[`""]?([\w]+)[`""]?)\s*\(",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
-
     private static readonly Regex ForeignKeyRegex = new(
         @"FOREIGN\s+KEY\s*\(\s*[`""]?(\w+)[`""]?\s*\)\s*REFERENCES\s+[`""]?(\w+)[`""]?\s*(?:\(\s*[`""]?(\w+)[`""]?\s*\))?",
         RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -44,7 +41,7 @@ internal static class SqlSchemaParser
 
         while (index < sql.Length)
         {
-            var match = CreateTableStartRegex.Match(sql, index);
+            var match = SqlPatternHelper.CreateTableStartRegex.Match(sql, index);
             if (!match.Success)
             {
                 break;

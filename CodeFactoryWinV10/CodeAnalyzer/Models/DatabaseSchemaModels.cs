@@ -52,16 +52,63 @@ public sealed class DatabaseRelation
     public string Label { get; init; } = string.Empty;
 }
 
+/// <summary>데이터베이스 인스턴스(카탈로그·SQLite 파일·연결 대상).</summary>
+public sealed class DatabaseCatalog
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public DatabaseDialect Dialect { get; init; }
+    /// <summary>connection-string, sqlite-file, sql-use, inferred 등.</summary>
+    public string SourceKind { get; init; } = string.Empty;
+    public string? FilePath { get; init; }
+    public int LineNumber { get; init; }
+}
+
+public enum DatabaseCatalogAccessKind
+{
+    Connect,
+    Select,
+    Admin
+}
+
+public enum DatabaseCatalogAccessPattern
+{
+    Sql,
+    ConnectionString,
+    Api
+}
+
+public sealed class DatabaseCatalogAccess
+{
+    public required string CatalogId { get; init; }
+    public required string FunctionId { get; init; }
+    public required string FunctionDisplayName { get; init; }
+    public required string FunctionFullName { get; init; }
+    public required string FunctionFilePath { get; init; }
+    public int FunctionLineNumber { get; init; }
+    public DatabaseCatalogAccessKind Kind { get; init; }
+    public DatabaseCatalogAccessPattern Pattern { get; init; }
+    public DatabaseCrudOperation Operations { get; init; }
+}
+
 public sealed class DatabaseSchemaResult
 {
+    public IReadOnlyList<DatabaseCatalog> Catalogs { get; init; } = [];
     public IReadOnlyList<DatabaseTable> Tables { get; init; } = [];
     public IReadOnlyList<DatabaseRelation> Relations { get; init; } = [];
+    public IReadOnlyList<DatabaseCatalogAccess> CatalogAccesses { get; init; } = [];
     public IReadOnlyList<DatabaseTableAccess> Accesses { get; init; } = [];
     public IReadOnlyList<DatabaseColumnAccess> ColumnAccesses { get; init; } = [];
     public IReadOnlyList<DatabaseEntryAccess> EntryAccesses { get; init; } = [];
 
+    public IReadOnlyDictionary<string, DatabaseCatalog> CatalogMap { get; init; }
+        = new Dictionary<string, DatabaseCatalog>(StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyDictionary<string, DatabaseTable> TableMap { get; init; }
         = new Dictionary<string, DatabaseTable>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyDictionary<string, IReadOnlyList<DatabaseCatalogAccess>> CatalogAccessesByCatalogId { get; init; }
+        = new Dictionary<string, IReadOnlyList<DatabaseCatalogAccess>>(StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlyDictionary<string, IReadOnlyList<DatabaseTableAccess>> AccessesByTableId { get; init; }
         = new Dictionary<string, IReadOnlyList<DatabaseTableAccess>>(StringComparer.OrdinalIgnoreCase);
@@ -71,6 +118,9 @@ public sealed class DatabaseSchemaResult
 
     public IReadOnlyDictionary<string, IReadOnlyList<DatabaseEntryAccess>> EntryAccessesByTableId { get; init; }
         = new Dictionary<string, IReadOnlyList<DatabaseEntryAccess>>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyList<DatabaseCatalogAccess> GetCatalogAccessesFor(string catalogId) =>
+        CatalogAccessesByCatalogId.TryGetValue(catalogId, out var accesses) ? accesses : [];
 
     public IReadOnlyList<DatabaseTableAccess> GetAccessesFor(string tableId) =>
         AccessesByTableId.TryGetValue(tableId, out var accesses) ? accesses : [];
