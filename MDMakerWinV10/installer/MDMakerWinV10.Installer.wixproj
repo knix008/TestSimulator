@@ -1,5 +1,6 @@
 <Project Sdk="WixToolset.Sdk/7.0.0">
   <PropertyGroup>
+    <AcceptEula>wix7</AcceptEula>
     <OutputType>Package</OutputType>
     <Platforms>x64</Platforms>
     <OutputName>MDMakerWinV10_Setup</OutputName>

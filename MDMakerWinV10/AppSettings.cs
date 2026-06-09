@@ -2,6 +2,17 @@ using System.Text.Json;
 
 namespace MDMakerWinV10;
 
+public enum PageNumberPosition
+{
+    None         = 0,
+    BottomLeft   = 1,
+    BottomCenter = 2,
+    BottomRight  = 3,
+    TopLeft      = 4,
+    TopCenter    = 5,
+    TopRight     = 6,
+}
+
 public class PdfSettings
 {
     public string  FontFamily          { get; set; } = "'Malgun Gothic','Segoe UI',Helvetica,Arial,sans-serif";
@@ -10,6 +21,8 @@ public class PdfSettings
     public double  ParagraphSpacingEm  { get; set; } = 0.5;
     public double  MarginVerticalInch  { get; set; } = 0.75;
     public double  MarginHorizontalInch{ get; set; } = 1.0;
+    public bool                NumberHeadings { get; set; } = false;
+    public PageNumberPosition  PageNumbers    { get; set; } = PageNumberPosition.None;
 }
 
 class AppSettings

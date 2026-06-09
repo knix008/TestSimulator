@@ -10,7 +10,6 @@ public class MergeOptions
     public string SourceDirectory { get; set; } = "";
     public bool Recursive { get; set; } = true;
     public FileSortOrder SortOrder { get; set; } = FileSortOrder.NameAsc;
-    public bool InsertHeader { get; set; } = true;
     public string[] ExcludePatterns { get; set; } = [];
     public string OutputFile { get; set; } = "";
 }
@@ -43,11 +42,6 @@ public static class MdMerger
         var sb = new StringBuilder();
         for (int i = 0; i < files.Count; i++)
         {
-            if (opts.InsertHeader)
-            {
-                sb.AppendLine($"## {Path.GetRelativePath(opts.SourceDirectory, files[i])}");
-                sb.AppendLine();
-            }
             sb.AppendLine(File.ReadAllText(files[i], Encoding.UTF8).TrimEnd());
             if (i < files.Count - 1)
             {

@@ -14,6 +14,18 @@ public record OutlineItem(int Level, string Text, int Line, int Index);
 
 public static class MarkdownConverter
 {
+    // One numbering token at the start of heading text: 1, 1.2, 1), 1.), (1), 1, etc.
+    static readonly Regex HeadingNumberTokenRx = new(
+        """
+        ^(?:
+            \(\s*\d+(?:\.\d+)*\s*\)
+          | \d+(?:\.\d+)*[.).,;:]+
+          | \d+(?:\.\d+)*\.
+          | \d+(?:\.\d+)*
+        )\s+
+        """,
+        RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace | RegexOptions.CultureInvariant);
+
     // 마크다운 원본에 계층적 번호를 붙여 반환 (H1, H2, H3 ...)
     public static string ApplyHeadingNumberingToMarkdown(string markdown)
     {
@@ -33,7 +45,8 @@ public static class MarkdownConverter
                 var parts = new string[level - start];
                 for (int i = start; i < level; i++) parts[i - start] = counters[i].ToString();
                 string prefix = string.Join(".", parts);
-                sb.AppendLine($"{m.Groups[1].Value} {prefix} {m.Groups[2].Value}");
+                string title = StripLeadingNumberPrefix(m.Groups[2].Value);
+                sb.AppendLine($"{m.Groups[1].Value} {prefix} {title}");
             }
             else
             {
@@ -61,27 +74,43 @@ public static class MarkdownConverter
         .UseReferralLinks("nofollow")
         .Build();
 
-    public static List<OutlineItem> GetOutline(string markdown)
+    public static List<OutlineItem> GetOutline(string markdown, bool numberHeadings = false)
     {
         var doc = Markdig.Markdown.Parse(markdown, Pipeline);
         var result = new List<OutlineItem>();
+        var counters = new int[6];
         int idx = 0;
         foreach (var block in doc)
-            if (block is HeadingBlock h)
-                result.Add(new OutlineItem(h.Level, GetHeadingText(h), h.Line, idx++));
+        {
+            if (block is not HeadingBlock h) continue;
+            string title = StripLeadingNumberPrefix(GetHeadingText(h));
+            if (numberHeadings)
+            {
+                int level = h.Level;
+                counters[level - 1]++;
+                for (int i = level; i < 6; i++) counters[i] = 0;
+                int start = 0;
+                while (start < level - 1 && counters[start] == 0) start++;
+                var parts = new string[level - start];
+                for (int i = start; i < level; i++) parts[i - start] = counters[i].ToString();
+                title = $"{string.Join(".", parts)} {title}";
+            }
+            result.Add(new OutlineItem(h.Level, title, h.Line, idx++));
+        }
         return result;
     }
 
-    // Injects sequential id="h-N" onto each heading so WebView2 can scroll to them.
-    public static string ToHtmlWithAnchors(string markdown, bool numberHeadings = false)
+    // Screen preview: export formatting + optional heading anchors for outline navigation.
+    public static string ToHtmlWithAnchors(string markdown, PdfSettings? settings = null)
     {
-        string body = Markdig.Markdown.ToHtml(markdown, Pipeline);
-        if (numberHeadings)
-            body = ApplyHeadingNumbering(body);
+        settings ??= new PdfSettings();
+        string src = settings.NumberHeadings ? StripHeadingNumbers(markdown) : markdown;
+        string body = Markdig.Markdown.ToHtml(src, Pipeline);
+        if (settings.NumberHeadings) body = ApplyHeadingNumbering(body);
         int i = 0;
         body = Regex.Replace(body, @"<(h[1-6])([ >])",
             m => $"<{m.Groups[1].Value} id=\"h-{i++}\"{m.Groups[2].Value}");
-        return HtmlDoc(body);
+        return HtmlDoc(body, settings, forPrint: false);
     }
 
     // Prepends hierarchical numbers (1, 1.1, 1.1.1, …) to heading text for export output.
@@ -107,7 +136,8 @@ public static class MarkdownConverter
                     parts[i - start] = counters[i].ToString();
                 string prefix = string.Join(".", parts);
 
-                return $"<{m.Groups[1].Value}{m.Groups[2].Value}{m.Groups[3].Value}>{prefix} {m.Groups[4].Value}</h{level}>";
+                string title = StripLeadingNumberPrefix(m.Groups[4].Value.Trim());
+                return $"<{m.Groups[1].Value}{m.Groups[2].Value}{m.Groups[3].Value}>{prefix} {title}</h{level}>";
             },
             RegexOptions.IgnoreCase);
     }
@@ -115,20 +145,48 @@ public static class MarkdownConverter
     public static string ToHtml(string markdown, PdfSettings? settings = null)
     {
         settings ??= new PdfSettings();
-        string body = ApplyHeadingNumbering(Markdig.Markdown.ToHtml(markdown, Pipeline));
+        string src = settings.NumberHeadings ? StripHeadingNumbers(markdown) : markdown;
+        string body = Markdig.Markdown.ToHtml(src, Pipeline);
+        if (settings.NumberHeadings) body = ApplyHeadingNumbering(body);
         return HtmlDoc(body, settings, forPrint: false);
     }
 
     public static string ToHtmlForPdf(string markdown, PdfSettings? settings = null)
     {
         settings ??= new PdfSettings();
-        string body = Markdig.Markdown.ToHtml(markdown, Pipeline);
-        body = ApplyHeadingNumbering(body);
+        string src = settings.NumberHeadings ? StripHeadingNumbers(markdown) : markdown;
+        string body = Markdig.Markdown.ToHtml(src, Pipeline);
+        if (settings.NumberHeadings) body = ApplyHeadingNumbering(body);
         int i = 0;
         body = Regex.Replace(body, @"<(h[1-6])([ >])",
             m => $"<{m.Groups[1].Value} id=\"h-{i++}\"{m.Groups[2].Value}");
         return HtmlDoc(body, settings, forPrint: true);
     }
+
+    // Removes heading numbers after #, ##, ### … (including accumulated 1 1.2 1.2.3 prefixes).
+    public static string StripHeadingNumbers(string markdown) =>
+        Regex.Replace(markdown, @"^(#{1,6})\s+(.*)$", m =>
+        {
+            string title = StripLeadingNumberPrefix(m.Groups[2].Value.TrimEnd('\r'));
+            return string.IsNullOrEmpty(title) ? m.Groups[1].Value : $"{m.Groups[1].Value} {title}";
+        }, RegexOptions.Multiline);
+
+    static string StripLeadingNumberPrefix(string text)
+    {
+        text = text.TrimStart();
+        int prevLen;
+        do
+        {
+            prevLen = text.Length;
+            text = HeadingNumberTokenRx.Replace(text, "");
+            text = text.TrimStart();
+        } while (text.Length < prevLen && text.Length > 0);
+        return text;
+    }
+
+    // Strips existing numbers then re-applies sequential numbering to the whole document.
+    public static string RenumberHeadings(string markdown) =>
+        ApplyHeadingNumberingToMarkdown(StripHeadingNumbers(markdown));
 
     // DOCX via AltChunk: Word opens the embedded HTML and converts it natively.
     public static void ToDocx(string markdown, string outputPath, PdfSettings? settings = null)
@@ -149,7 +207,46 @@ public static class MarkdownConverter
 
         // Id maps to r:id in OOXML — links AltChunk to the HTML relationship
         main.Document.Body!.AppendChild(new AltChunk { Id = chunkId });
+        AddDocxPageNumbers(main, settings.PageNumbers);
         main.Document.Save();
+    }
+
+    static void AddDocxPageNumbers(MainDocumentPart main, PageNumberPosition pos)
+    {
+        if (pos == PageNumberPosition.None) return;
+
+        bool isTop = pos >= PageNumberPosition.TopLeft;
+        JustificationValues align = pos switch
+        {
+            PageNumberPosition.BottomCenter or PageNumberPosition.TopCenter => JustificationValues.Center,
+            PageNumberPosition.BottomRight  or PageNumberPosition.TopRight  => JustificationValues.Right,
+            _ => JustificationValues.Left,
+        };
+
+        var para = new Paragraph();
+        para.Append(new ParagraphProperties(new Justification { Val = align }));
+        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Begin }));
+        para.Append(new Run(new FieldCode(" PAGE ")));
+        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.Separate }));
+        para.Append(new Run(new Text("1")));
+        para.Append(new Run(new FieldChar { FieldCharType = FieldCharValues.End }));
+
+        var sectPr = new SectionProperties();
+        if (isTop)
+        {
+            var part = main.AddNewPart<HeaderPart>();
+            part.Header = new Header(para);
+            part.Header.Save();
+            sectPr.Append(new HeaderReference { Type = HeaderFooterValues.Default, Id = main.GetIdOfPart(part) });
+        }
+        else
+        {
+            var part = main.AddNewPart<FooterPart>();
+            part.Footer = new Footer(para);
+            part.Footer.Save();
+            sectPr.Append(new FooterReference { Type = HeaderFooterValues.Default, Id = main.GetIdOfPart(part) });
+        }
+        main.Document!.Body!.AppendChild(sectPr);
     }
 
     private static string GetHeadingText(HeadingBlock h)
@@ -188,6 +285,20 @@ public static class MarkdownConverter
             : "max-width:860px;margin:40px auto;padding:0 24px";
         string headingBreak = forPrint ? "page-break-after:avoid;" : "";
         string blockBreak   = forPrint ? "page-break-inside:avoid;" : "";
+
+        // CSS @page margin-box page numbers (Chrome 128+ / modern WebView2)
+        string pageNumSelector = settings.PageNumbers switch
+        {
+            PageNumberPosition.BottomLeft   => "@bottom-left",
+            PageNumberPosition.BottomCenter => "@bottom-center",
+            PageNumberPosition.BottomRight  => "@bottom-right",
+            PageNumberPosition.TopLeft      => "@top-left",
+            PageNumberPosition.TopCenter    => "@top-center",
+            PageNumberPosition.TopRight     => "@top-right",
+            _                               => "",
+        };
+        string pageNumCss = pageNumSelector == "" ? ""
+            : $"\n  @page{{{pageNumSelector}{{content:counter(page);font-family:{ff};font-size:9pt;color:#555}}}}";
         return $$"""
             <!DOCTYPE html>
             <html><head>
@@ -216,6 +327,7 @@ public static class MarkdownConverter
               img{max-width:100%}
               ul,ol{padding-left:1.8em;margin:0 0 {{ps}}em}
               li{margin:.1em 0}
+            {{pageNumCss}}
             </style>
             </head><body>
             {{body}}

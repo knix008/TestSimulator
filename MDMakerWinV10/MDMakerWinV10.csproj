@@ -32,12 +32,31 @@
     <Compile Update="DocumentViewForm.Designer.cs">
       <DependentUpon>DocumentViewForm.cs</DependentUpon>
     </Compile>
+    <Compile Update="PdfSettingsDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="PdfSettingsDialog.Designer.cs">
+      <DependentUpon>PdfSettingsDialog.cs</DependentUpon>
+    </Compile>
     <EmbeddedResource Update="MainForm.resx">
       <DependentUpon>MainForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Update="DocumentViewForm.resx">
       <DependentUpon>DocumentViewForm.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Update="PdfSettingsDialog.resx">
+      <DependentUpon>PdfSettingsDialog.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="tools/**" />
+    <EmbeddedResource Remove="tools/**" />
+    <None Remove="tools/**" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="assets\icons\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" Version="0.*" />

@@ -16,6 +16,7 @@ public partial class DocumentViewForm : Form
     private bool _initializing;
     private bool _isExporting;
     private PdfSettings _pdfSettings = new();
+    private bool _mergeNumberHeadings;
     private List<OutlineItem> _outline = [];
     private readonly System.Windows.Forms.Timer _outlineTimer = new() { Interval = 800 };
     private CancellationTokenSource _statusCts = new();
@@ -27,43 +28,91 @@ public partial class DocumentViewForm : Form
     public DocumentViewForm()
     {
         InitializeComponent();
+        ConfigureAppearance();
     }
 
-    public DocumentViewForm(string content, string? filePath = null) : this()
+    private void ConfigureAppearance()
+    {
+        UiTheme.ApplyToDocumentViewForm(this);
+        UiTheme.StyleMenuStrip(_menuMain);
+        UiTheme.StyleToolStrip(_toolStrip);
+
+        UiTheme.StyleToolStripButton(_tsbSave, UiIconKind.Save);
+        UiTheme.StyleToolStripButton(_tsbExportHtml, UiIconKind.ExportHtml);
+        UiTheme.StyleToolStripButton(_tsbExportWord, UiIconKind.ExportWord);
+        UiTheme.StyleToolStripButton(_tsbExportPdf, UiIconKind.ExportPdf);
+        UiTheme.StyleToolStripButton(_tsbExportSettings, UiIconKind.Settings);
+        UiTheme.StyleToolStripButton(_tsbRenumber, UiIconKind.Renumber);
+
+        _miSave.Image = UiTheme.MenuImage(UiIconKind.Save);
+        _miExportHtml.Image = UiTheme.MenuImage(UiIconKind.ExportHtml);
+        _miExportWord.Image = UiTheme.MenuImage(UiIconKind.ExportWord);
+        _miExportPdf.Image = UiTheme.MenuImage(UiIconKind.ExportPdf);
+        _miRenumber.Image = UiTheme.MenuImage(UiIconKind.Renumber);
+        _miExportSettings.Image = UiTheme.MenuImage(UiIconKind.Settings);
+    }
+
+    public DocumentViewForm(string content, string? filePath = null, bool mergeNumberHeadings = false) : this()
     {
         if (IsDesignMode)
             return;
 
-        InitializeDocument(content, filePath);
+        InitializeDocument(content, filePath, mergeNumberHeadings);
     }
 
     private static bool IsDesignMode =>
         LicenseManager.UsageMode == LicenseUsageMode.Designtime;
 
-    private void InitializeDocument(string content, string? filePath)
+    private void InitializeDocument(string content, string? filePath, bool mergeNumberHeadings = false)
     {
         _filePath = filePath;
+        _mergeNumberHeadings = mergeNumberHeadings;
         _pdfSettings = AppSettings.Load().PdfSettings ?? new();
 
         _outlineTimer.Tick += (_, _) =>
         {
             _outlineTimer.Stop();
-            _outline = MarkdownConverter.GetOutline(_editor.Text);
-            BuildOutlineTree();
+            RefreshOutline();
         };
 
         _split.Resize += (_, _) => ApplySplitterDistance(_split.SplitterDistance);
         Shown += DocumentViewForm_Shown;
 
         _initializing = true;
-        _editor.Text = content;
+        _editor.Text = MarkdownConverter.StripHeadingNumbers(content);
         _initializing = false;
         _isDirty = false;
 
-        _outline = MarkdownConverter.GetOutline(_editor.Text);
-        BuildOutlineTree();
+        RefreshOutline();
         UpdateTitle();
         UpdateSaveButton();
+    }
+
+    private bool ShowsHeadingNumbers() => _mergeNumberHeadings || _pdfSettings.NumberHeadings;
+
+    // MainForm 병합 옵션 + 보내기 서식을 합친 실제 렌더/보내기 설정.
+    private PdfSettings EffectiveSettings()
+    {
+        if (!ShowsHeadingNumbers() || _pdfSettings.NumberHeadings)
+            return _pdfSettings;
+
+        return new PdfSettings
+        {
+            FontFamily           = _pdfSettings.FontFamily,
+            FontSizePt           = _pdfSettings.FontSizePt,
+            LineHeight           = _pdfSettings.LineHeight,
+            ParagraphSpacingEm   = _pdfSettings.ParagraphSpacingEm,
+            MarginVerticalInch   = _pdfSettings.MarginVerticalInch,
+            MarginHorizontalInch = _pdfSettings.MarginHorizontalInch,
+            NumberHeadings       = true,
+            PageNumbers          = _pdfSettings.PageNumbers,
+        };
+    }
+
+    private void RefreshOutline()
+    {
+        _outline = MarkdownConverter.GetOutline(_editor.Text, ShowsHeadingNumbers());
+        BuildOutlineTree();
     }
 
     private void EnsureWebView()
@@ -126,13 +175,13 @@ public partial class DocumentViewForm : Form
             }
             catch { /* older WebView2 runtime */ }
             _webViewReady = true;
-            _btnExportPdf.Enabled = true;
+            SetPdfExportEnabled(true);
             RenderPreview();
         }
         catch (Exception ex)
         {
             if (IsDisposed) return;
-            _btnExportPdf.Enabled = false;
+            SetPdfExportEnabled(false);
             if (_webView != null)
                 _webView.Visible = false;
 
@@ -152,9 +201,8 @@ public partial class DocumentViewForm : Form
     {
         if (!_webViewReady || _webView == null || IsDisposed || _isExporting) return;
         var md = _editor.Text;
-        _outline = MarkdownConverter.GetOutline(md);
-        BuildOutlineTree();
-        NavigateToHtml(MarkdownConverter.ToHtmlWithAnchors(md));
+        RefreshOutline();
+        NavigateToHtml(MarkdownConverter.ToHtmlWithAnchors(md, EffectiveSettings()));
         _needsRerender = false;
     }
 
@@ -236,7 +284,7 @@ public partial class DocumentViewForm : Form
         try
         {
             var md  = _editor.Text;
-            var cfg = _pdfSettings;
+            var cfg = EffectiveSettings();
             var html = await Task.Run(() => MarkdownConverter.ToHtml(md, cfg));
             await File.WriteAllTextAsync(dlg.FileName, html, new UTF8Encoding(false));
             EndExport($"HTML 저장 완료: {Path.GetFileName(dlg.FileName)}");
@@ -260,7 +308,7 @@ public partial class DocumentViewForm : Form
         {
             var md   = _editor.Text;
             var dest = dlg.FileName;
-            var cfg  = _pdfSettings;
+            var cfg  = EffectiveSettings();
             await Task.Run(() => MarkdownConverter.ToDocx(md, dest, cfg));
             EndExport($"Word 저장 완료: {Path.GetFileName(dlg.FileName)}");
             ShowExportSuccess("Word", dlg.FileName);
@@ -284,7 +332,7 @@ public partial class DocumentViewForm : Form
         try
         {
             var md = _editor.Text;
-            var cfg = _pdfSettings;
+            var cfg = EffectiveSettings();
             var pdfHtml = await Task.Run(() => MarkdownConverter.ToHtmlForPdf(md, cfg));
 
             UpdateExportStatus("2/3  페이지 렌더링 중...");
@@ -333,6 +381,18 @@ public partial class DocumentViewForm : Form
         var s = AppSettings.Load();
         s.PdfSettings = _pdfSettings;
         s.Save();
+        _needsRerender = true;
+        RefreshOutline();
+        if (_tabs.SelectedIndex == 0) RenderPreview();
+    }
+
+    private void Renumber_Click(object? sender, EventArgs e)
+    {
+        var cleaned = MarkdownConverter.StripHeadingNumbers(_editor.Text);
+        if (cleaned != _editor.Text)
+            _editor.Text = cleaned;
+        else if (_tabs.SelectedIndex == 0)
+            RenderPreview();
     }
 
     private async void OnKeyDown(object? sender, KeyEventArgs e)
@@ -416,11 +476,7 @@ public partial class DocumentViewForm : Form
         _isExporting = true;
         _outlineTimer.Stop();
         _tsspProgress.Visible = true;
-        _btnSave.Enabled = false;
-        _btnExportHtml.Enabled = false;
-        _btnExportWord.Enabled = false;
-        _btnExportPdf.Enabled = false;
-        _btnExportSettings.Enabled = false;
+        SetToolbarEnabled(false);
         if (!IsDisposed) _tsslStatus.Text = status;
     }
 
@@ -433,11 +489,8 @@ public partial class DocumentViewForm : Form
     {
         _isExporting = false;
         _tsspProgress.Visible = false;
+        SetToolbarEnabled(true);
         UpdateSaveButton();
-        _btnExportHtml.Enabled = true;
-        _btnExportWord.Enabled = true;
-        _btnExportPdf.Enabled = _webViewReady;
-        _btnExportSettings.Enabled = true;
         if (completionStatus != null) SetStatus(completionStatus);
     }
 
@@ -457,7 +510,36 @@ public partial class DocumentViewForm : Form
              + (_isDirty ? " *" : "")
              + " — MD Maker";
 
-    private void UpdateSaveButton() => _btnSave.Enabled = _isDirty;
+    private void UpdateSaveButton()
+    {
+        bool canSave = _isDirty && !_isExporting;
+        _tsbSave.Enabled = canSave;
+        _miSave.Enabled = canSave;
+    }
+
+    private void SetToolbarEnabled(bool enabled)
+    {
+        _tsbExportHtml.Enabled = enabled;
+        _tsbExportWord.Enabled = enabled;
+        _tsbExportSettings.Enabled = enabled;
+        _tsbRenumber.Enabled = enabled;
+        _miExportHtml.Enabled = enabled;
+        _miExportWord.Enabled = enabled;
+        _miExportSettings.Enabled = enabled;
+        _miRenumber.Enabled = enabled;
+        SetPdfExportEnabled(enabled && _webViewReady);
+        if (!enabled)
+        {
+            _tsbSave.Enabled = false;
+            _miSave.Enabled = false;
+        }
+    }
+
+    private void SetPdfExportEnabled(bool enabled)
+    {
+        _tsbExportPdf.Enabled = enabled;
+        _miExportPdf.Enabled = enabled;
+    }
 
     private string SuggestName(string ext) =>
         _filePath != null

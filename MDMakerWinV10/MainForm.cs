@@ -9,10 +9,38 @@ public partial class MainForm : Form
     public MainForm()
     {
         InitializeComponent();
-        // 정렬, 정렬방법, 파일명을 헤더로 삽입 그룹 초기화
+        ConfigureAppearance();
         if (_cmbSort.Items.Count > 0 && _cmbSort.SelectedIndex < 0)
             _cmbSort.SelectedIndex = 0;
         UpdateMoveButtons();
+    }
+
+    private void ConfigureAppearance()
+    {
+        UiTheme.ApplyToMainForm(this);
+        UiTheme.StyleMenuStrip(_menuMain);
+        UiTheme.StyleGroupBox(_grpSource);
+        UiTheme.StyleGroupBox(_grpOptions);
+        UiTheme.StyleGroupBox(_grpFiles);
+        UiTheme.StyleGroupBox(_grpOutput);
+        UiTheme.StyleGroupBox(_grpLog);
+
+        UiTheme.StyleSecondaryButton(_btnBrowseSrc, UiIconKind.Folder);
+        UiTheme.StyleSecondaryButton(_btnBrowseOut, UiIconKind.Folder);
+
+        UiTheme.StyleCompactButton(_btnRefresh, UiIconKind.Refresh);
+        UiTheme.StyleCompactButton(_btnUp, UiIconKind.MoveUp);
+        UiTheme.StyleCompactButton(_btnDown, UiIconKind.MoveDown);
+        UiTheme.NormalizeButtonColumn(_btnRefresh, _btnUp, _btnDown);
+
+        UiTheme.StylePrimaryButton(_btnGenerate, UiIconKind.Generate);
+        UiTheme.StyleAccentOutlineButton(_btnPreview, UiIconKind.Preview);
+        UiTheme.StyleSecondaryButton(_btnExportSettings, UiIconKind.Settings);
+        _btnGenerate.Margin = _btnPreview.Margin = _btnExportSettings.Margin = new Padding(0, 4, 8, 4);
+
+        _miGenerate.Image = UiTheme.MenuImage(UiIconKind.Generate);
+        _miPreview.Image  = UiTheme.MenuImage(UiIconKind.Preview);
+        _miExportSettings.Image = UiTheme.MenuImage(UiIconKind.Settings);
     }
 
     private void LstFiles_MouseDown(object? sender, MouseEventArgs e)
@@ -296,15 +324,13 @@ public partial class MainForm : Form
         }
         try
         {
-            string content = MdMerger.Merge(files, opts);
-            // 헤더 번호 붙이기
-            content = MarkdownConverter.ApplyHeadingNumberingToMarkdown(content);
+            string content = MarkdownConverter.StripHeadingNumbers(MdMerger.Merge(files, opts));
             var outDir = Path.GetDirectoryName(outPath);
             if (!string.IsNullOrEmpty(outDir)) Directory.CreateDirectory(outDir);
             File.WriteAllText(outPath, content, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
             Log($"[완료] {files.Count}개 파일 → {outPath}");
             PersistSettings();
-            new DocumentViewForm(content, outPath).Show();
+            new DocumentViewForm(content, outPath, _chkNumbering.Checked).Show();
         }
         catch (Exception ex)
         {
@@ -323,10 +349,8 @@ public partial class MainForm : Form
         }
         try
         {
-            string content = MdMerger.Merge(files, opts);
-            // 헤더 번호 붙이기
-            content = MarkdownConverter.ApplyHeadingNumberingToMarkdown(content);
-            new DocumentViewForm(content).Show();
+            string content = MarkdownConverter.StripHeadingNumbers(MdMerger.Merge(files, opts));
+            new DocumentViewForm(content, mergeNumberHeadings: _chkNumbering.Checked).Show();
         }
         catch (Exception ex) { Log($"[오류] {ex.Message}"); }
     }
@@ -354,10 +378,18 @@ public partial class MainForm : Form
             SourceDirectory = _srcDir.Text.Trim(),
             Recursive = _chkRecursive.Checked,
             SortOrder = (FileSortOrder)sortIdx,
-            InsertHeader = _chkHeader.Checked,
             ExcludePatterns = excludePatterns,
             OutputFile = _txtOutput.Text.Trim()
         };
+    }
+
+    private void ExportSettings_Click(object? sender, EventArgs e)
+    {
+        var s = AppSettings.Load();
+        using var dlg = new PdfSettingsDialog(s.PdfSettings);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        s.PdfSettings = dlg.Result;
+        s.Save();
     }
 
     private void Log(string msg)
