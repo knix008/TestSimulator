@@ -5,11 +5,13 @@ namespace CodeAnalyzer.Controls;
 
 public sealed class DatabaseTableViewer : UserControl
 {
+    private const int ZoneMinHeight = 100;
+
     private readonly SplitContainer _split = new()
     {
         Dock = DockStyle.Fill,
         Orientation = Orientation.Horizontal,
-        SplitterDistance = 280
+        SplitterDistance = 160
     };
 
     private readonly SplitContainer _detailSplit = new()
@@ -175,8 +177,6 @@ public sealed class DatabaseTableViewer : UserControl
     private readonly ListViewColumnHeaderToolTip _columnAccessListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _entryAccessListHeaderToolTip;
     private ListViewColumnHeaderToolTip? _impactListHeaderToolTip;
-    private int _impactSortColumn = -1;
-    private bool _impactSortAscending = true;
 
     public event Action<DatabaseTable>? AccessGraphRequested;
 
@@ -201,6 +201,7 @@ public sealed class DatabaseTableViewer : UserControl
         _tableList.Columns.Add("파일", 140);
         _tableList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _tableListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_tableList, ListViewHeaderToolTipTexts.DatabaseTable);
+        ListViewColumnSortHelper.Enable(_tableList);
         _tableList.SelectedIndexChanged += (_, _) => ShowSelectedTable();
         _tableList.DoubleClick += (_, _) => OpenSelectedDeclaration();
 
@@ -212,6 +213,7 @@ public sealed class DatabaseTableViewer : UserControl
         _accessorList.Columns.Add("CRUD", 90);
         _accessorList.Columns.Add("패턴", 72);
         _accessorListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_accessorList, ListViewHeaderToolTipTexts.DatabaseTableAccessor);
+        ListViewColumnSortHelper.Enable(_accessorList);
         _accessorList.DoubleClick += (_, _) => OpenSelectedAccessor();
 
         _columnAccessList.Columns.Add("#", 36);
@@ -222,6 +224,7 @@ public sealed class DatabaseTableViewer : UserControl
         _columnAccessList.Columns.Add("파일", 160);
         _columnAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _columnAccessListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_columnAccessList, ListViewHeaderToolTipTexts.DatabaseColumnAccess);
+        ListViewColumnSortHelper.Enable(_columnAccessList);
         _columnAccessList.DoubleClick += (_, _) => OpenSelectedColumnAccessor();
 
         _entryAccessList.Columns.Add("#", 36);
@@ -231,23 +234,33 @@ public sealed class DatabaseTableViewer : UserControl
         _entryAccessList.Columns.Add("파일", 160);
         _entryAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _entryAccessListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_entryAccessList, ListViewHeaderToolTipTexts.DatabaseEntryAccess);
+        ListViewColumnSortHelper.Enable(_entryAccessList);
         _entryAccessList.DoubleClick += (_, _) => OpenSelectedEntryAccessor();
 
         _openFileButton.Click += (_, _) => OpenSelectedDeclaration();
         _showGraphButton.Click += (_, _) => ShowAccessGraphForSelected();
 
-        var actionPanel = new Panel
+        var actionPanel = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 40,
-            Padding = new Padding(8, 6, 8, 4)
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 1,
+            Padding = new Padding(8, 6, 8, 4),
+            Margin = new Padding(0)
         };
-        _openFileButton.Location = new Point(8, 8);
-        _showGraphButton.Location = new Point(168, 8);
-        actionPanel.Controls.Add(_openFileButton);
-        actionPanel.Controls.Add(_showGraphButton);
+        actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        actionPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _openFileButton.Margin = new Padding(0, 0, 8, 0);
+        _showGraphButton.Margin = new Padding(0);
+        _openFileButton.Anchor = AnchorStyles.Left;
+        _showGraphButton.Anchor = AnchorStyles.Left;
+        actionPanel.Controls.Add(_openFileButton, 0, 0);
+        actionPanel.Controls.Add(_showGraphButton, 1, 0);
 
-        var previewPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 0, 8, 4) };
+        var previewPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 4, 8, 4) };
         previewPanel.Controls.Add(_previewBox);
 
         _tableAccessTab = new TabPage("테이블 접근");
@@ -275,6 +288,7 @@ public sealed class DatabaseTableViewer : UserControl
         _catalogList.Columns.Add("접근 함수", 72, HorizontalAlignment.Right);
         _catalogList.Columns.Add("방언", 72);
         _catalogList.Columns.Add("출처", 100);
+        ListViewColumnSortHelper.Enable(_catalogList);
         _catalogList.SelectedIndexChanged += (_, _) => ShowSelectedCatalog();
         _catalogList.DoubleClick += (_, _) => OpenSelectedCatalogAccessor();
 
@@ -285,6 +299,7 @@ public sealed class DatabaseTableViewer : UserControl
         _catalogAccessList.Columns.Add("패턴", 80);
         _catalogAccessList.Columns.Add("파일", 160);
         _catalogAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        ListViewColumnSortHelper.Enable(_catalogAccessList);
         _catalogAccessList.DoubleClick += (_, _) => OpenSelectedCatalogAccessor();
 
         _catalogSplit.Panel1.Controls.Add(_catalogList);
@@ -308,14 +323,8 @@ public sealed class DatabaseTableViewer : UserControl
         _impactList.Columns.Add("파일", 200);
         _impactList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _impactListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_impactList, ListViewHeaderToolTipTexts.DatabaseImpactFunction);
+        ListViewColumnSortHelper.Enable(_impactList);
         _impactList.DoubleClick += (_, _) => OpenSelectedImpactFunction();
-        _impactList.ColumnClick += (_, e) =>
-        {
-            if (_impactSortColumn == e.Column) _impactSortAscending = !_impactSortAscending;
-            else { _impactSortColumn = e.Column; _impactSortAscending = true; }
-            _impactList.ListViewItemSorter = new ImpactListSorter(_impactSortColumn, _impactSortAscending);
-            _impactList.Sort();
-        };
 
         var filterPanel = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(8, 6, 8, 4) };
         _writeOnlyFilter.Location = new Point(8, 8);
@@ -332,6 +341,14 @@ public sealed class DatabaseTableViewer : UserControl
         _mainTabControl.TabPages.Add(impactViewTab);
 
         Controls.Add(_mainTabControl);
+
+        _mainTabControl.SelectedIndexChanged += (_, _) =>
+        {
+            if (_mainTabControl.SelectedTab == tableViewTab)
+            {
+                ApplySplitLayout();
+            }
+        };
 
         Load += (_, _) => ApplySplitLayout();
         SizeChanged += (_, _) => ApplySplitLayout();
@@ -926,40 +943,75 @@ public sealed class DatabaseTableViewer : UserControl
 
     private void ApplySplitLayout()
     {
+        ApplyTableFieldSplitLayout();
+        ApplyCatalogSplitLayout();
+    }
+
+    /// <summary>
+    /// 테이블·필드 탭: 테이블 목록 · 미리보기·버튼 · 접근 ListView를 세 구역으로 균등(≈1/3) 배분합니다.
+    /// </summary>
+    private void ApplyTableFieldSplitLayout()
+    {
         var height = _split.Height;
-        if (height <= _split.SplitterWidth + 20)
+        var splitterTotal = _split.SplitterWidth + _detailSplit.SplitterWidth;
+        var minTotal = splitterTotal + ZoneMinHeight * 3;
+        if (height < minTotal)
         {
             return;
         }
 
-        const int listMin = 160;
-        const int detailMin = 220;
-        var maxDistance = height - detailMin - _split.SplitterWidth;
-        if (maxDistance < listMin)
+        ClearSplitMinSizes(_split);
+        ClearSplitMinSizes(_detailSplit);
+
+        var zoneHeight = (height - splitterTotal) / 3;
+        var maxZone = height - splitterTotal - ZoneMinHeight * 2;
+        zoneHeight = Math.Clamp(zoneHeight, ZoneMinHeight, maxZone);
+
+        if (Math.Abs(_split.SplitterDistance - zoneHeight) > 2)
+        {
+            _split.SplitterDistance = zoneHeight;
+        }
+
+        if (Math.Abs(_detailSplit.SplitterDistance - zoneHeight) > 2)
+        {
+            _detailSplit.SplitterDistance = zoneHeight;
+        }
+    }
+
+    private void ApplyCatalogSplitLayout()
+    {
+        var height = _catalogSplit.Height;
+        if (height <= _catalogSplit.SplitterWidth + ZoneMinHeight * 2)
         {
             return;
         }
 
-        var desired = Math.Clamp((int)(height * 0.48), listMin, Math.Min(360, maxDistance));
-        if (Math.Abs(_split.SplitterDistance - desired) > 2)
-        {
-            _split.SplitterDistance = desired;
-        }
+        ClearSplitMinSizes(_catalogSplit);
 
-        var detailHeight = _detailSplit.Height;
-        if (detailHeight > _detailSplit.SplitterWidth + 40)
+        var half = (height - _catalogSplit.SplitterWidth) / 2;
+        var desired = Math.Clamp(half, ZoneMinHeight, height - ZoneMinHeight - _catalogSplit.SplitterWidth);
+        if (Math.Abs(_catalogSplit.SplitterDistance - desired) > 2)
         {
-            var previewMin = 100;
-            var accessorMin = 120;
-            var maxDetail = detailHeight - accessorMin - _detailSplit.SplitterWidth;
-            if (maxDetail >= previewMin)
+            _catalogSplit.SplitterDistance = desired;
+        }
+    }
+
+    private static void ClearSplitMinSizes(SplitContainer split)
+    {
+        try
+        {
+            if (split.Panel1MinSize != 0)
             {
-                var previewDesired = Math.Clamp((int)(detailHeight * 0.42), previewMin, Math.Min(220, maxDetail));
-                if (Math.Abs(_detailSplit.SplitterDistance - previewDesired) > 2)
-                {
-                    _detailSplit.SplitterDistance = previewDesired;
-                }
+                split.Panel1MinSize = 0;
             }
+
+            if (split.Panel2MinSize != 0)
+            {
+                split.Panel2MinSize = 0;
+            }
+        }
+        catch (InvalidOperationException)
+        {
         }
     }
 
@@ -973,31 +1025,5 @@ public sealed class DatabaseTableViewer : UserControl
         const int fixedWidth = 40 + 120 + 100 + 72 + 52 + 72 + 72 + 44;
         var fileWidth = Math.Max(100, _tableList.ClientSize.Width - fixedWidth - 8);
         _tableList.Columns[7].Width = fileWidth;
-    }
-
-    private sealed class ImpactListSorter : System.Collections.IComparer
-    {
-        private readonly int _col;
-        private readonly bool _asc;
-        public ImpactListSorter(int col, bool asc) { _col = col; _asc = asc; }
-
-        public int Compare(object? x, object? y)
-        {
-            var a = (ListViewItem?)x;
-            var b = (ListViewItem?)y;
-            if (a is null && b is null) return 0;
-            if (a is null) return _asc ? -1 : 1;
-            if (b is null) return _asc ? 1 : -1;
-
-            var ta = _col < a.SubItems.Count ? a.SubItems[_col].Text : string.Empty;
-            var tb = _col < b.SubItems.Count ? b.SubItems[_col].Text : string.Empty;
-
-            // 줄 번호(col 6) 와 # (col 0)은 정수 비교
-            if (_col is 0 or 6 && int.TryParse(ta, out var ia) && int.TryParse(tb, out var ib))
-                return _asc ? ia.CompareTo(ib) : ib.CompareTo(ia);
-
-            var cmp = string.Compare(ta, tb, StringComparison.OrdinalIgnoreCase);
-            return _asc ? cmp : -cmp;
-        }
     }
 }

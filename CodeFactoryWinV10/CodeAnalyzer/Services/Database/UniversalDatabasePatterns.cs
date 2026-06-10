@@ -63,7 +63,7 @@ internal static class UniversalDatabasePatterns
 
     /// <summary>API 호출 첫 인자 SQL 문자열 — JDBC/ADO/PDO/Node 등 공통.</summary>
     internal static readonly Regex ApiSqlFirstArgRegex = new(
-        @"\b(?:query|execute|executeQuery|executeUpdate|executeBatch|rawQuery|prepareStatement|prepare|exec|Exec|Query|QueryRow|ExecContext|QueryContext|update|batchUpdate)\s*\(\s*(""(?:\\.|[^""\\])*""|'(?:\\.|[^'\\])*'|`(?:[^`\\]|\\.)*`|(?:[LuUu8]+)?R""(?:([A-Za-z0-9_]*))\((.*?)\)\1"")",
+        @"\b(?:query|execute|executeQuery|executeUpdate|executeBatch|rawQuery|prepareStatement|prepare|exec|Exec|Query|QueryRow|ExecContext|QueryContext|update|batchUpdate|ExecuteSqlRaw|ExecuteSqlInterpolated|FromSqlRaw|FromSqlInterpolated|ExecuteSqlAsync)\s*\(\s*(""(?:\\.|[^""\\])*""|'(?:\\.|[^'\\])*'|`(?:[^`\\]|\\.)*`|(?:\$@|@)?""(?:(?:\\.|[^""\\])*)""|(?:[LuUu8]+)?R""(?:([A-Za-z0-9_]*))\((.*?)\)\1"")",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     internal static readonly Regex[] NoSqlCollectionPatterns =

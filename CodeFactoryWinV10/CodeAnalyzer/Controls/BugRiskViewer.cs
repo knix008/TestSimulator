@@ -101,9 +101,9 @@ public sealed class BugRiskViewer : UserControl
         _list.Columns.Add("파일", 160);
         _list.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _listHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_list, ListViewHeaderToolTipTexts.BugRisk);
+        ListViewColumnSortHelper.Enable(_list);
         _list.SelectedIndexChanged += (_, _) => ShowDetail();
         _list.DoubleClick += (_, _) => NavigateToSelected();
-        _list.ColumnClick += OnColumnClick;
 
         // 카테고리/심각도 필터
         _filterCombo.Items.Add("전체");
@@ -364,48 +364,6 @@ public sealed class BugRiskViewer : UserControl
             FilePath = f.FilePath,
             LineNumber = Math.Max(1, f.LineNumber)
         });
-    }
-
-    // ── 컬럼 정렬 ──────────────────────────────────────────────────────────
-    private int _sortColumn = -1;
-    private bool _sortAscending = true;
-
-    private void OnColumnClick(object? sender, ColumnClickEventArgs e)
-    {
-        if (_sortColumn == e.Column)
-            _sortAscending = !_sortAscending;
-        else
-        {
-            _sortColumn = e.Column;
-            _sortAscending = true;
-        }
-        _list.ListViewItemSorter = new ColumnSorter(_sortColumn, _sortAscending);
-        _list.Sort();
-    }
-
-    private sealed class ColumnSorter : System.Collections.IComparer
-    {
-        private readonly int _col;
-        private readonly bool _asc;
-        public ColumnSorter(int col, bool asc) { _col = col; _asc = asc; }
-
-        public int Compare(object? x, object? y)
-        {
-            var a = (ListViewItem?)x;
-            var b = (ListViewItem?)y;
-            if (a is null && b is null) return 0;
-            if (a is null) return _asc ? -1 : 1;
-            if (b is null) return _asc ? 1 : -1;
-
-            var ta = _col < a.SubItems.Count ? a.SubItems[_col].Text : string.Empty;
-            var tb = _col < b.SubItems.Count ? b.SubItems[_col].Text : string.Empty;
-
-            if (_col is 0 or 7 && int.TryParse(ta, out var ia) && int.TryParse(tb, out var ib))
-                return _asc ? ia.CompareTo(ib) : ib.CompareTo(ia);
-
-            var cmp = string.Compare(ta, tb, StringComparison.OrdinalIgnoreCase);
-            return _asc ? cmp : -cmp;
-        }
     }
 
     // ── 유틸리티 ────────────────────────────────────────────────────────────

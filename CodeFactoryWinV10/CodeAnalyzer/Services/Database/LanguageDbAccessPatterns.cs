@@ -85,6 +85,8 @@ internal static class LanguageDbAccessPatterns
         public int EntityNameGroup { get; init; }
         public required DatabaseCrudOperation Operation { get; init; }
         public DatabaseTableAccessPattern AccessPattern { get; init; } = DatabaseTableAccessPattern.EntityType;
+        /// <summary>knex('table'), DB::table('table') 등 문자열 리터럴 테이블명.</summary>
+        public bool UsesLiteralTableName { get; init; }
     }
 
     // ============================================================
@@ -241,11 +243,15 @@ internal static class LanguageDbAccessPatterns
                 RegexOptions.Compiled | RegexOptions.IgnoreCase),
             EntityNameGroup = 1, Operation = DatabaseCrudOperation.Delete
         },
-        // Node pg / mysql2: pool.query / connection.execute
+        // Node pg / mysql2 / mariadb
         new OrmPattern {
             PatternRegex = new Regex(
                 @"\b(?:pool|connection|conn|client|db)\s*\.\s*(?:query|execute)\s*\(",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(@"\bmariadb\s*\.\s*create(?:Connection|Pool)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
             EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
         },
         // Sequelize: Model.findAll / findOne / findByPk / count
@@ -313,11 +319,11 @@ internal static class LanguageDbAccessPatterns
         // Knex: knex('tablename') / knex.table('tablename')
         new OrmPattern {
             PatternRegex = new Regex(@"\bknex\s*\(\s*['""`](\w+)['""`]", RegexOptions.Compiled),
-            EntityNameGroup = 1, Operation = DatabaseCrudOperation.None
+            EntityNameGroup = 1, Operation = DatabaseCrudOperation.None, UsesLiteralTableName = true
         },
         new OrmPattern {
             PatternRegex = new Regex(@"\bknex\s*\.\s*table\s*\(\s*['""`](\w+)['""`]", RegexOptions.Compiled),
-            EntityNameGroup = 1, Operation = DatabaseCrudOperation.None
+            EntityNameGroup = 1, Operation = DatabaseCrudOperation.None, UsesLiteralTableName = true
         },
     ];
 
@@ -426,9 +432,13 @@ internal static class LanguageDbAccessPatterns
         // DB::table('name')
         new OrmPattern {
             PatternRegex = new Regex(@"\bDB\s*::\s*table\s*\(\s*['""](\w+)['""]", RegexOptions.Compiled),
-            EntityNameGroup = 1, Operation = DatabaseCrudOperation.None
+            EntityNameGroup = 1, Operation = DatabaseCrudOperation.None, UsesLiteralTableName = true
         },
-        // PDO
+        // PDO / PostgreSQL C API
+        new OrmPattern {
+            PatternRegex = new Regex(@"\bpg_(?:query|prepare|execute|send_query|query_params)\s*\(", RegexOptions.Compiled),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
         new OrmPattern {
             PatternRegex = new Regex(@"\$\w+\s*->\s*(?:query|prepare|execute|exec)\s*\(", RegexOptions.Compiled),
             EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
@@ -569,7 +579,13 @@ internal static class LanguageDbAccessPatterns
     private static readonly IReadOnlyList<OrmPattern> CppPatterns =
     [
         new OrmPattern {
-            PatternRegex = new Regex(@"\b(?:mysql_query|mysql_real_query)\s*\(", RegexOptions.Compiled),
+            PatternRegex = new Regex(@"\b(?:mysql_query|mysql_real_query|mysql_stmt_execute)\s*\(", RegexOptions.Compiled),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\b(?:mariadb_query|mariadb_real_query|mariadb_stmt_execute)\s*\(",
+                RegexOptions.Compiled),
             EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
         },
         new OrmPattern {
@@ -580,7 +596,7 @@ internal static class LanguageDbAccessPatterns
         },
         new OrmPattern {
             PatternRegex = new Regex(
-                @"\b(?:PQexec|PQexecParams|PQexecPrepared)\s*\(",
+                @"\b(?:PQexec|PQexecParams|PQexecPrepared|PQprepare)\s*\(",
                 RegexOptions.Compiled),
             EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
         },
@@ -592,9 +608,173 @@ internal static class LanguageDbAccessPatterns
         },
     ];
 
+    // ============================================================
+    // C#: Dapper + NHibernate native SQL
+    // ============================================================
+    private static readonly IReadOnlyList<OrmPattern> CSharpPatterns =
+    [
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\.(?:Query(?:Async|First|FirstOrDefault|Single|SingleOrDefault|Multiple)?|Execute(?:Async)?|ExecuteScalar(?:Async)?)\s*\(",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\bSqlMapper\s*\.\s*(?:Query|Execute|QueryAsync|ExecuteAsync)\s*\(",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+        new OrmPattern {
+            PatternRegex = new Regex(
+                @"\b(?:session|Session)\s*\.\s*Create(?:SQL)?Query\s*\(",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            EntityNameGroup = 0, Operation = DatabaseCrudOperation.None
+        },
+    ];
+
+    private static readonly IReadOnlyList<OrmPattern> VbNetPatterns = CSharpPatterns;
+
+    // ============================================================
+    // 언어별 SQL 문자열 인자 캡처 (DB 범용 · 언어 API 특화)
+    // ============================================================
+
+    internal sealed class NativeSqlCapturePattern
+    {
+        public required Regex PatternRegex { get; init; }
+        public int SqlLiteralGroup { get; init; } = 1;
+        public bool IsTaggedTemplate { get; init; }
+    }
+
+    private const string SqlStringArg =
+        @"(?:""(?:\\.|[^""\\])*""|'(?:\\.|[^'\\])*'|@?""(?:(?:\\.|[^""\\])*)"")";
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> CSharpNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\.(?:Query(?:Async|First|FirstOrDefault|Single|SingleOrDefault|Multiple)?|Execute(?:Async)?|ExecuteScalar(?:Async)?)\s*\(\s*" + SqlStringArg,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> PythonNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\.(?:execute|executemany|executescript)\s*\(\s*(""(?:\\.|[^""\\])*""|'(?:\\.|[^'\\])*'|""""""[\s\S]*?""""""|'''[\s\S]*?''')",
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> JavaScriptNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(@"\bsql\s*`(?:\\.|[^`\\])*`", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            IsTaggedTemplate = true
+        },
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\.(?:query|execute)\s*\(\s*" + SqlStringArg,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> GoNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\.(?:Query|QueryRow|Exec|Prepare)(?:Context)?\s*\(\s*(?:`(?:\\.|[^`\\])*`|""(?:\\.|[^""\\])*"")",
+                RegexOptions.Compiled | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> JavaNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\.(?:prepareStatement|executeQuery|executeUpdate|execute)\s*\(\s*" + SqlStringArg,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> PhpNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"(?:->|\:\:)\s*(?:query|prepare|exec)\s*\(\s*" + SqlStringArg,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> RubyNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\.(?:execute|exec_query|exec_insert|exec_delete|exec_update)\s*\(\s*" + SqlStringArg,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> RustNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\bsqlx::query(?:_as|_scalar|_as_unchecked)?!\s*\(\s*(?:r#)?""(?:\\.|[^""\\])*""",
+                RegexOptions.Compiled | RegexOptions.Singleline),
+            SqlLiteralGroup = 0
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> SwiftNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\.(?:execute|run|fetch)\s*\(\s*(?:sql:\s*)?" + SqlStringArg,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly IReadOnlyList<NativeSqlCapturePattern> CppNativeSql =
+    [
+        new NativeSqlCapturePattern {
+            PatternRegex = new Regex(
+                @"\b(?:mysql_query|mysql_real_query|mysqli_query|PQexec|PQexecParams|SQLExecDirect)\s*\([^,]+,\s*" + SqlStringArg,
+                RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline),
+            SqlLiteralGroup = 1
+        },
+    ];
+
+    private static readonly Dictionary<string, IReadOnlyList<NativeSqlCapturePattern>> NativeSqlByLanguage =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["csharp"] = CSharpNativeSql,
+            ["vbnet"] = CSharpNativeSql,
+            ["python"] = PythonNativeSql,
+            ["javascript"] = JavaScriptNativeSql,
+            ["java"] = JavaNativeSql,
+            ["kotlin"] = JavaNativeSql,
+            ["go"] = GoNativeSql,
+            ["php"] = PhpNativeSql,
+            ["ruby"] = RubyNativeSql,
+            ["rust"] = RustNativeSql,
+            ["swift"] = SwiftNativeSql,
+            ["cpp"] = CppNativeSql,
+        };
+
     private static readonly Dictionary<string, IReadOnlyList<OrmPattern>> OrmPatternsByLanguage =
         new(StringComparer.OrdinalIgnoreCase)
         {
+            ["csharp"] = CSharpPatterns,
+            ["vbnet"] = VbNetPatterns,
             ["python"] = PythonPatterns,
             ["java"] = JavaPatterns,
             ["javascript"] = JavaScriptPatterns,
@@ -609,4 +789,110 @@ internal static class LanguageDbAccessPatterns
 
     internal static IReadOnlyList<OrmPattern> GetOrmPatterns(string languageId) =>
         OrmPatternsByLanguage.TryGetValue(languageId, out var list) ? list : [];
+
+    internal static bool HasDbExecutionSignal(string body, string languageId)
+    {
+        if (string.IsNullOrWhiteSpace(body) || string.IsNullOrWhiteSpace(languageId))
+        {
+            return false;
+        }
+
+        foreach (var pattern in GetNativeSqlCapturePatterns(languageId))
+        {
+            if (pattern.PatternRegex.IsMatch(body))
+            {
+                return true;
+            }
+        }
+
+        foreach (var ormPattern in GetOrmPatterns(languageId))
+        {
+            if (ormPattern.EntityNameGroup <= 0 && ormPattern.PatternRegex.IsMatch(body))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal static void ScanNativeSqlArguments(string body, string languageId, Action<string> scanSql)
+    {
+        if (string.IsNullOrWhiteSpace(body) || string.IsNullOrWhiteSpace(languageId))
+        {
+            return;
+        }
+
+        foreach (var pattern in GetNativeSqlCapturePatterns(languageId))
+        {
+            foreach (Match match in pattern.PatternRegex.Matches(body))
+            {
+                string raw;
+                if (pattern.IsTaggedTemplate)
+                {
+                    raw = match.Value;
+                    var start = raw.IndexOf('`');
+                    var end = raw.LastIndexOf('`');
+                    if (start < 0 || end <= start)
+                    {
+                        continue;
+                    }
+
+                    raw = raw[(start + 1)..end];
+                }
+                else if (pattern.SqlLiteralGroup > 0 && match.Groups[pattern.SqlLiteralGroup].Success)
+                {
+                    raw = match.Groups[pattern.SqlLiteralGroup].Value;
+                }
+                else
+                {
+                    raw = match.Value;
+                    var quote = raw.IndexOf('"');
+                    if (quote < 0)
+                    {
+                        continue;
+                    }
+
+                    var endQuote = raw.LastIndexOf('"');
+                    if (endQuote <= quote)
+                    {
+                        continue;
+                    }
+
+                    raw = raw[(quote + 1)..endQuote];
+                }
+
+                if (!SqlPatternHelper.TryUnwrapSqlLiteral(
+                        pattern.IsTaggedTemplate ? $"`{raw}`" : raw,
+                        out var sql))
+                {
+                    if (pattern.IsTaggedTemplate)
+                    {
+                        sql = raw;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+
+                var normalized = SqlPatternHelper.NormalizeSqlLiteralEscapes(sql);
+                if (SqlPatternHelper.LooksLikeSqlStatement(normalized))
+                {
+                    scanSql(normalized);
+                }
+            }
+        }
+    }
+
+    private static IEnumerable<NativeSqlCapturePattern> GetNativeSqlCapturePatterns(string languageId)
+    {
+        if (NativeSqlByLanguage.TryGetValue(languageId, out var patterns))
+        {
+            foreach (var pattern in patterns)
+            {
+                yield return pattern;
+            }
+        }
+    }
 }

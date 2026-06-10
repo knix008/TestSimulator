@@ -6,8 +6,16 @@ public sealed class AnalysisSummaryViewer : UserControl
 {
     private const int CardWidth = 500;
     private const int CardHeight = 380;
-    private const int FullWidthCardHeight = 360;
+    private const int FullWidthCardHeight = 440;
     private const int CardGap = 16;
+
+    private readonly ToolTip _toolTip = new()
+    {
+        AutoPopDelay = 12000,
+        InitialDelay = 350,
+        ReshowDelay = 120,
+        ShowAlways = true
+    };
 
     private readonly Panel _scrollHost = new()
     {
@@ -40,6 +48,8 @@ public sealed class AnalysisSummaryViewer : UserControl
     private bool _isAnalyzing;
     private IReadOnlyList<SummarySection> _sections = [];
 
+    public event Action<DiagramViewKind>? NavigationRequested;
+
     public AnalysisSummaryViewer()
     {
         DoubleBuffered = true;
@@ -47,6 +57,16 @@ public sealed class AnalysisSummaryViewer : UserControl
         Controls.Add(_scrollHost);
         Controls.Add(_header);
         _scrollHost.Resize += (_, _) => LayoutCards();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _toolTip.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 
     public void SetAnalysis(AnalysisResult? analysis, string? projectRoot)
@@ -100,18 +120,17 @@ public sealed class AnalysisSummaryViewer : UserControl
         LayoutCards();
     }
 
-    private Panel CreateCard(SummarySection section)
+    private SummaryChartCard CreateCard(SummarySection section)
     {
         var defaultHeight = section.IsFullWidth ? FullWidthCardHeight : CardHeight;
-        var card = new Panel
+        var card = new SummaryChartCard(_toolTip)
         {
             Width = section.IsFullWidth ? Math.Max(CardWidth, _scrollHost.ClientSize.Width - CardGap * 2) : CardWidth,
             Height = section.CardHeight ?? defaultHeight,
-            BackColor = Color.Transparent,
             Margin = new Padding(0, 0, CardGap, CardGap)
         };
-        card.Tag = section;
-        card.Paint += (_, e) => SummaryChartPainter.DrawCard(e.Graphics, card.ClientRectangle, section);
+        card.Bind(section);
+        card.NavigationRequested += viewKind => NavigationRequested?.Invoke(viewKind);
         return card;
     }
 

@@ -10,7 +10,7 @@ internal static class DiagramViewDisplayNames
         DiagramViewKind.CallGraph => "호출 그래프",
         DiagramViewKind.ClassDiagram => "클래스 다이어그램",
         DiagramViewKind.SequenceDiagram => "시퀀스 다이어그램",
-        DiagramViewKind.DataFlow => "데이터 흐름",
+        DiagramViewKind.DataFlow => "데이터/제어 흐름",
         DiagramViewKind.Inheritance => "상속 다이어그램",
         DiagramViewKind.FileRelations => "파일 관계",
         DiagramViewKind.DirectoryRelations => "디렉터리 관계",

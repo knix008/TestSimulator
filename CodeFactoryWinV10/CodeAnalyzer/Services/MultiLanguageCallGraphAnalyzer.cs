@@ -37,7 +37,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
 
         foreach (var file in DirectoryScanService.GetSourceFiles(
                      rootPath,
-                     qualitySettings.ExcludedDirectoryPaths,
+                     qualitySettings.IncludedDirectoryPaths,
                      extensions,
                      cancellationToken))
         {

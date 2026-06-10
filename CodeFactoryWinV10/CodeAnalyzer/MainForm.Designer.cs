@@ -20,17 +20,7 @@ partial class MainForm
     {
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
         splitContainerMain = new SplitContainer();
-        grpAnalysis = new GroupBox();
-        btnAnalyze = new Button();
-        grpExcludeDirectories = new GroupBox();
-        checkedListDirectories = new CheckedListBox();
-        lblExcludeHint = new Label();
-        btnAnalysisSettings = new Button();
-        checkedListLanguages = new CheckedListBox();
-        lblLanguages = new Label();
-        btnBrowseRoot = new Button();
-        txtRootPath = new TextBox();
-        lblRootPath = new Label();
+        analysisSetupPanel = new AnalysisSetupPanel();
         diagramViewHost = new DiagramViewHost();
         panelToolbar = new Panel();
         btnResetView = new Button();
@@ -71,8 +61,6 @@ partial class MainForm
         splitContainerMain.Panel1.SuspendLayout();
         splitContainerMain.Panel2.SuspendLayout();
         splitContainerMain.SuspendLayout();
-        grpAnalysis.SuspendLayout();
-        grpExcludeDirectories.SuspendLayout();
         panelToolbar.SuspendLayout();
         menuStrip.SuspendLayout();
         statusStrip.SuspendLayout();
@@ -86,7 +74,7 @@ partial class MainForm
         // 
         // splitContainerMain.Panel1
         // 
-        splitContainerMain.Panel1.Controls.Add(grpAnalysis);
+        splitContainerMain.Panel1.Controls.Add(analysisSetupPanel);
         splitContainerMain.Panel1.Padding = new Padding(8);
         splitContainerMain.Panel1MinSize = 320;
         // 
@@ -95,143 +83,25 @@ partial class MainForm
         splitContainerMain.Panel2.Controls.Add(diagramViewHost);
         splitContainerMain.Panel2.Controls.Add(panelToolbar);
         splitContainerMain.Panel2MinSize = 940;
-        splitContainerMain.Size = new Size(1528, 860);
+        splitContainerMain.Size = new Size(1528, 951);
         splitContainerMain.SplitterDistance = 356;
         splitContainerMain.SplitterWidth = 6;
         splitContainerMain.TabIndex = 0;
         // 
-        // grpAnalysis
+        // analysisSetupPanel
         // 
-        grpAnalysis.Controls.Add(btnAnalyze);
-        grpAnalysis.Controls.Add(grpExcludeDirectories);
-        grpAnalysis.Controls.Add(btnAnalysisSettings);
-        grpAnalysis.Controls.Add(checkedListLanguages);
-        grpAnalysis.Controls.Add(lblLanguages);
-        grpAnalysis.Controls.Add(btnBrowseRoot);
-        grpAnalysis.Controls.Add(txtRootPath);
-        grpAnalysis.Controls.Add(lblRootPath);
-        grpAnalysis.Dock = DockStyle.Fill;
-        grpAnalysis.Location = new Point(8, 8);
-        grpAnalysis.Name = "grpAnalysis";
-        grpAnalysis.Padding = new Padding(12, 8, 12, 12);
-        grpAnalysis.Size = new Size(340, 844);
-        grpAnalysis.TabIndex = 0;
-        grpAnalysis.TabStop = false;
-        grpAnalysis.Text = "코드 분석 설정";
-        // 
-        // btnAnalyze
-        // 
-        btnAnalyze.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        btnAnalyze.Location = new Point(12, 802);
-        btnAnalyze.Name = "btnAnalyze";
-        btnAnalyze.Size = new Size(312, 36);
-        btnAnalyze.TabIndex = 8;
-        btnAnalyze.Text = "분석 실행";
-        btnAnalyze.UseVisualStyleBackColor = false;
-        btnAnalyze.Click += btnAnalyze_Click;
-        // 
-        // grpExcludeDirectories
-        // 
-        grpExcludeDirectories.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        grpExcludeDirectories.Controls.Add(checkedListDirectories);
-        grpExcludeDirectories.Controls.Add(lblExcludeHint);
-        grpExcludeDirectories.Location = new Point(4, 266);
-        grpExcludeDirectories.Name = "grpExcludeDirectories";
-        grpExcludeDirectories.Padding = new Padding(8, 4, 8, 8);
-        grpExcludeDirectories.Size = new Size(324, 492);
-        grpExcludeDirectories.TabIndex = 28;
-        grpExcludeDirectories.TabStop = false;
-        grpExcludeDirectories.Text = "하위 디렉터리";
-        // 
-        // checkedListDirectories
-        // 
-        checkedListDirectories.CheckOnClick = true;
-        checkedListDirectories.Dock = DockStyle.Fill;
-        checkedListDirectories.FormattingEnabled = true;
-        checkedListDirectories.IntegralHeight = false;
-        checkedListDirectories.Location = new Point(8, 20);
-        checkedListDirectories.Name = "checkedListDirectories";
-        checkedListDirectories.Size = new Size(308, 425);
-        checkedListDirectories.TabIndex = 0;
-        // 
-        // lblExcludeHint
-        // 
-        lblExcludeHint.Dock = DockStyle.Bottom;
-        lblExcludeHint.ForeColor = Color.DimGray;
-        lblExcludeHint.Location = new Point(8, 445);
-        lblExcludeHint.Name = "lblExcludeHint";
-        lblExcludeHint.Padding = new Padding(0, 4, 0, 0);
-        lblExcludeHint.Size = new Size(308, 39);
-        lblExcludeHint.TabIndex = 1;
-        lblExcludeHint.Text = "기본은 모두 체크(전체 분석)입니다. 체크를 해제한 폴더는 분석에서 제외됩니다.";
-        // 
-        // btnAnalysisSettings
-        // 
-        btnAnalysisSettings.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        btnAnalysisSettings.Location = new Point(12, 764);
-        btnAnalysisSettings.Name = "btnAnalysisSettings";
-        btnAnalysisSettings.Size = new Size(312, 32);
-        btnAnalysisSettings.TabIndex = 26;
-        btnAnalysisSettings.Text = "분석 설정...";
-        btnAnalysisSettings.UseVisualStyleBackColor = true;
-        btnAnalysisSettings.Click += btnAnalysisSettings_Click;
-        // 
-        // checkedListLanguages
-        // 
-        checkedListLanguages.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        checkedListLanguages.CheckOnClick = true;
-        checkedListLanguages.FormattingEnabled = true;
-        checkedListLanguages.IntegralHeight = false;
-        checkedListLanguages.Location = new Point(12, 100);
-        checkedListLanguages.Name = "checkedListLanguages";
-        checkedListLanguages.Size = new Size(312, 160);
-        checkedListLanguages.TabIndex = 4;
-        // 
-        // lblLanguages
-        // 
-        lblLanguages.AutoSize = true;
-        lblLanguages.Location = new Point(12, 80);
-        lblLanguages.Name = "lblLanguages";
-        lblLanguages.Size = new Size(135, 15);
-        lblLanguages.TabIndex = 3;
-        lblLanguages.Text = "분석할 프로그래밍 언어";
-        // 
-        // btnBrowseRoot
-        // 
-        btnBrowseRoot.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnBrowseRoot.Location = new Point(250, 42);
-        btnBrowseRoot.Name = "btnBrowseRoot";
-        btnBrowseRoot.Size = new Size(74, 27);
-        btnBrowseRoot.TabIndex = 2;
-        btnBrowseRoot.Text = "찾아보기";
-        btnBrowseRoot.UseVisualStyleBackColor = true;
-        btnBrowseRoot.Click += btnBrowseRoot_Click;
-        // 
-        // txtRootPath
-        // 
-        txtRootPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        txtRootPath.Location = new Point(12, 44);
-        txtRootPath.Name = "txtRootPath";
-        txtRootPath.PlaceholderText = "C:\\Projects\\MyApp";
-        txtRootPath.Size = new Size(232, 23);
-        txtRootPath.TabIndex = 1;
-        txtRootPath.Leave += txtRootPath_Leave;
-        // 
-        // lblRootPath
-        // 
-        lblRootPath.AutoSize = true;
-        lblRootPath.Location = new Point(12, 24);
-        lblRootPath.Name = "lblRootPath";
-        lblRootPath.Size = new Size(83, 15);
-        lblRootPath.TabIndex = 0;
-        lblRootPath.Text = "루트 디렉터리";
+        analysisSetupPanel.Dock = DockStyle.Fill;
+        analysisSetupPanel.Location = new Point(8, 8);
+        analysisSetupPanel.Name = "analysisSetupPanel";
+        analysisSetupPanel.Size = new Size(340, 935);
+        analysisSetupPanel.TabIndex = 0;
         // 
         // diagramViewHost
         // 
         diagramViewHost.Dock = DockStyle.Fill;
         diagramViewHost.Location = new Point(0, 48);
         diagramViewHost.Name = "diagramViewHost";
-        diagramViewHost.Size = new Size(1166, 812);
+        diagramViewHost.Size = new Size(1166, 903);
         diagramViewHost.TabIndex = 1;
         diagramViewHost.ViewKind = Models.DiagramViewKind.CallGraph;
         // 
@@ -522,7 +392,7 @@ partial class MainForm
         // statusStrip
         // 
         statusStrip.Items.AddRange(new ToolStripItem[] { progressBarAnalysis, lblProgressPercent, lblStatus });
-        statusStrip.Location = new Point(0, 887);
+        statusStrip.Location = new Point(0, 978);
         statusStrip.Name = "statusStrip";
         statusStrip.Size = new Size(1528, 22);
         statusStrip.TabIndex = 1;
@@ -556,13 +426,13 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1528, 909);
+        ClientSize = new Size(1528, 1000);
         Controls.Add(splitContainerMain);
         Controls.Add(statusStrip);
         Controls.Add(menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = menuStrip;
-        MinimumSize = new Size(1400, 900);
+        MinimumSize = new Size(1400, 980);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "Code Analyzer - 코드 구조 분석";
@@ -570,9 +440,6 @@ partial class MainForm
         splitContainerMain.Panel2.ResumeLayout(false);
         ((System.ComponentModel.ISupportInitialize)splitContainerMain).EndInit();
         splitContainerMain.ResumeLayout(false);
-        grpAnalysis.ResumeLayout(false);
-        grpAnalysis.PerformLayout();
-        grpExcludeDirectories.ResumeLayout(false);
         panelToolbar.ResumeLayout(false);
         panelToolbar.PerformLayout();
         menuStrip.ResumeLayout(false);
@@ -584,17 +451,7 @@ partial class MainForm
     }
 
     private SplitContainer splitContainerMain;
-    private GroupBox grpAnalysis;
-    private GroupBox grpExcludeDirectories;
-    private Button btnAnalysisSettings;
-    private Button btnAnalyze;
-    private Label lblExcludeHint;
-    private CheckedListBox checkedListDirectories;
-    private CheckedListBox checkedListLanguages;
-    private Label lblLanguages;
-    private Button btnBrowseRoot;
-    private TextBox txtRootPath;
-    private Label lblRootPath;
+    private AnalysisSetupPanel analysisSetupPanel;
     private DiagramViewHost diagramViewHost;
     private Panel panelToolbar;
     private Button btnBackView;

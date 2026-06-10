@@ -126,6 +126,7 @@ internal static class AnalysisSummarySectionBuilder
                     $"선택된 {axes.Count}개 개선 목표의 건강도입니다. 평균 {average:0.#}점 (100점 만점, 낮을수록 우선 개선).",
                 ChartKind = SummaryChartKind.Radar,
                 IsFullWidth = true,
+                CardHeight = ComputeRadarCardHeight(axes.Count),
                 RadarAxes = axes
                     .Select(axis => new SummaryRadarAxisItem(axis.Label, axis.Score, axis.Detail))
                     .ToList()
@@ -139,27 +140,64 @@ internal static class AnalysisSummarySectionBuilder
                 $"선택된 {axes.Count}개 개선 목표의 건강도입니다. 평균 {average:0.#}점 (100점 만점, 낮을수록 우선 개선).",
             ChartKind = SummaryChartKind.PieGrid,
             IsFullWidth = true,
+            CardHeight = ComputeRadarPieGridCardHeight(axes.Count),
             PieItems = axes
                 .Select(axis => new SummaryMiniPieItem(axis.Label, axis.Score, 100, ScoreColor(axis.Score)))
                 .ToList()
         };
     }
 
-    private static SummarySection MapArea(AnalysisSummaryArea area) => area.Kind switch
+    /// <summary>레이더 플롯·축 라벨·범례(축당 2줄)가 잘리지 않도록 카드 높이를 계산합니다.</summary>
+    private static int ComputeRadarCardHeight(int axisCount)
     {
-        SummaryAreaKind.Overview => MapOverview(area),
-        SummaryAreaKind.CallGraph => MapCallGraph(area),
-        SummaryAreaKind.Quality => MapQuality(area),
-        SummaryAreaKind.Duplicates => MapDuplicates(area),
-        SummaryAreaKind.Structure => MapStructure(area),
-        SummaryAreaKind.Relations => MapCoupling(area),
-        SummaryAreaKind.Globals => MapGlobals(area),
-        SummaryAreaKind.Database => MapDatabase(area),
-        SummaryAreaKind.BugRisk => MapBugRisk(area),
-        SummaryAreaKind.Security => MapSecurity(area),
-        SummaryAreaKind.Issues => MapIssues(area),
-        _ => MapRatioPieGrid(area, area.Metrics, SumPositive(area.Metrics))
-    };
+        const int chromeHeight = 108;
+        const int legendRowHeight = 36;
+        const int minPlotHeight = 300;
+        var legendHeight = Math.Max(axisCount * legendRowHeight, minPlotHeight);
+        return chromeHeight + legendHeight;
+    }
+
+    private static int ComputeRadarPieGridCardHeight(int itemCount)
+    {
+        const int chromeHeight = 108;
+        var columns = Math.Max(2, itemCount);
+        var rows = (int)Math.Ceiling(itemCount / (double)columns);
+        return chromeHeight + Math.Max(180, rows * 96);
+    }
+
+    private static SummarySection MapArea(AnalysisSummaryArea area) => WithAreaKind(
+        area.Kind switch
+        {
+            SummaryAreaKind.Overview => MapOverview(area),
+            SummaryAreaKind.CallGraph => MapCallGraph(area),
+            SummaryAreaKind.Quality => MapQuality(area),
+            SummaryAreaKind.Duplicates => MapDuplicates(area),
+            SummaryAreaKind.Structure => MapStructure(area),
+            SummaryAreaKind.Relations => MapCoupling(area),
+            SummaryAreaKind.Globals => MapGlobals(area),
+            SummaryAreaKind.Database => MapDatabase(area),
+            SummaryAreaKind.BugRisk => MapBugRisk(area),
+            SummaryAreaKind.Security => MapSecurity(area),
+            SummaryAreaKind.Issues => MapIssues(area),
+            _ => MapRatioPieGrid(area, area.Metrics, SumPositive(area.Metrics))
+        },
+        area.Kind);
+
+    private static SummarySection WithAreaKind(SummarySection section, SummaryAreaKind kind) =>
+        new()
+        {
+            Title = section.Title,
+            SummaryText = section.SummaryText,
+            AreaKind = kind,
+            ChartKind = section.ChartKind,
+            IsFullWidth = section.IsFullWidth,
+            CardHeight = section.CardHeight,
+            Kpis = section.Kpis,
+            Slices = section.Slices,
+            Bars = section.Bars,
+            PieItems = section.PieItems,
+            RadarAxes = section.RadarAxes
+        };
 
     private static SummarySection MapOverview(AnalysisSummaryArea area)
     {

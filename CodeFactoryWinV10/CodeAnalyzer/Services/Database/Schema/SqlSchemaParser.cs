@@ -224,10 +224,34 @@ internal static class SqlSchemaParser
     }
 
     public static string BuildTableKey(string? schema, string tableName) =>
-        string.IsNullOrWhiteSpace(schema) ? tableName : $"{schema}.{tableName}";
+        DatabaseTableNameMatcher.NormalizeTableKey(schema, tableName);
 
     public static DatabaseDialect DetectDialect(string filePath, string content)
     {
+        if (MicrosoftRelationalDbPatterns.JdbcSqlServerRegex.IsMatch(content)
+            || MicrosoftRelationalDbPatterns.LocalDbConnectionRegex.IsMatch(content)
+            || MicrosoftRelationalDbPatterns.AzureSqlConnectionRegex.IsMatch(content)
+            || MicrosoftRelationalDbPatterns.SqlServerConnectionStringRegex.IsMatch(content)
+            || MicrosoftRelationalDbPatterns.OleDbProviderRegex.IsMatch(content)
+            || MicrosoftRelationalDbPatterns.OdbcSqlServerDriverRegex.IsMatch(content))
+        {
+            return DatabaseDialect.SqlServer;
+        }
+
+        if (OpenSourceRelationalDbPatterns.PostgresUriRegex.IsMatch(content)
+            || OpenSourceRelationalDbPatterns.JdbcPostgresRegex.IsMatch(content))
+        {
+            return DatabaseDialect.PostgreSql;
+        }
+
+        if (OpenSourceRelationalDbPatterns.MySqlMariaDbUriRegex.IsMatch(content)
+            || OpenSourceRelationalDbPatterns.JdbcMySqlMariaDbRegex.IsMatch(content))
+        {
+            return filePath.Contains("maria", StringComparison.OrdinalIgnoreCase)
+                ? DatabaseDialect.MariaDb
+                : DatabaseDialect.MySql;
+        }
+
         var upper = content.ToUpperInvariant();
         if (upper.Contains("AUTOINCREMENT", StringComparison.Ordinal)
             || upper.Contains("WITHOUT ROWID", StringComparison.Ordinal))
@@ -239,6 +263,16 @@ internal static class SqlSchemaParser
             || upper.Contains("UUID", StringComparison.Ordinal) && upper.Contains("::", StringComparison.Ordinal))
         {
             return DatabaseDialect.PostgreSql;
+        }
+
+        if (upper.Contains("NVARCHAR", StringComparison.Ordinal)
+            || upper.Contains("DATETIME2", StringComparison.Ordinal)
+            || upper.Contains("UNIQUEIDENTIFIER", StringComparison.Ordinal)
+            || upper.Contains("IDENTITY(1,1)", StringComparison.Ordinal)
+            || upper.Contains("[DBO]", StringComparison.Ordinal)
+            || upper.Contains("WITH (NOLOCK)", StringComparison.Ordinal))
+        {
+            return DatabaseDialect.SqlServer;
         }
 
         if (upper.Contains("ENGINE=INNODB", StringComparison.Ordinal)

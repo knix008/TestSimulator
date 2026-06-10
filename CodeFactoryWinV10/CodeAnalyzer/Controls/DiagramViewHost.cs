@@ -42,6 +42,7 @@ public sealed class DiagramViewHost : UserControl
         _databaseTableViewer.AccessGraphRequested += table => DatabaseTableAccessGraphRequested?.Invoke(table);
         _bugRiskViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
         _securityViewer.NavigationRequested += request => MetricsNavigationRequested?.Invoke(request);
+        _summaryViewer.NavigationRequested += viewKind => SummaryNavigationRequested?.Invoke(viewKind);
         _callGraphViewer.RootNodeChanged += OnCallGraphRootNodeChanged;
         _structureViewer.FileRootChanged += node => FileRootChanged?.Invoke(node);
         _structureViewer.DirectoryRootChanged += node => DirectoryRootChanged?.Invoke(node);
@@ -52,6 +53,7 @@ public sealed class DiagramViewHost : UserControl
     public event Action<FileRelationNode>? FileRootChanged;
     public event Action<DirectoryRelationNode>? DirectoryRootChanged;
     public event Action<MetricsNavigationRequest>? MetricsNavigationRequested;
+    public event Action<DiagramViewKind>? SummaryNavigationRequested;
     public event Action<GlobalVariableItem>? GlobalVariableAccessGraphRequested;
     public event Action<DatabaseTable>? DatabaseTableAccessGraphRequested;
 

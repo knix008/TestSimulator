@@ -4,6 +4,8 @@
 [Ll]og/
 [Ll]ogs/
 [Oo]ut/
+# Alternate MSBuild output (e.g. dotnet build -o obj/build-out)
+obj/build-out/
 
 # Installer (WiX)
 *.msi
@@ -35,6 +37,9 @@ msbuild.binlog
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# AI assistant local settings (machine-specific)
+.claude/
 
 # JetBrains Rider / ReSharper
 .idea/

@@ -50,7 +50,7 @@ public sealed class UserAnalysisSettings
                     ? MetricInspectionCatalog.AllCatalogOptions
                     : source.EnabledInspections),
             EnabledAnalysisScope = ResolveAnalysisScopeFromInspections(source),
-            IncludedDirectoryPaths = [],
+            IncludedDirectoryPaths = ClonePathList(source.IncludedDirectoryPaths),
             ExcludedDirectoryPaths = ClonePathList(source.ExcludedDirectoryPaths),
             DatabaseConnection = DatabaseConnectionSettings.Clone(source.DatabaseConnection)
         };

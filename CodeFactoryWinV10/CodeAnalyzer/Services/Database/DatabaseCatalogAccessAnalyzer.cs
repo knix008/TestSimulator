@@ -12,8 +12,7 @@ internal static class DatabaseCatalogAccessAnalyzer
 
     public static (IReadOnlyList<DatabaseCatalog> Catalogs, IReadOnlyList<DatabaseCatalogAccess> Accesses) Analyze(
         IReadOnlyList<FunctionMetric> functions,
-        CallGraphResult callGraph,
-        IReadOnlyList<string>? sourceFiles)
+        CallGraphResult callGraph)
     {
         var catalogs = new Dictionary<string, DatabaseCatalog>(StringComparer.OrdinalIgnoreCase);
         var accesses = new List<DatabaseCatalogAccess>();
@@ -22,34 +21,15 @@ internal static class DatabaseCatalogAccessAnalyzer
 
         foreach (var function in functions)
         {
+            if (!DatabaseAccessScanExclusions.ShouldScanFile(function.FilePath))
+            {
+                continue;
+            }
+
             var endLine = function.EndLine > function.StartLine
                 ? function.EndLine
                 : function.StartLine + 2000;
             ScanRange(function, function.FilePath, function.StartLine, endLine, callGraph, catalogs, accesses, seen, fileCache, useFunctionId: true);
-        }
-
-        if (sourceFiles is not null)
-        {
-            foreach (var filePath in sourceFiles)
-            {
-                if (!DatabaseTableAccessAnalyzer.TryReadLinesForScan(filePath, fileCache, out var lines) || lines.Length == 0)
-                {
-                    continue;
-                }
-
-                var pseudo = new FunctionMetric
-                {
-                    Id = $"file:{filePath}:1",
-                    DisplayName = "(파일)",
-                    FullName = $"{Path.GetFileName(filePath)}:1",
-                    FilePath = filePath,
-                    StartLine = 1,
-                    EndLine = lines.Length,
-                    LanguageId = LanguageRegistry.FindByExtension(Path.GetExtension(filePath))?.Id ?? string.Empty
-                };
-
-                ScanRange(pseudo, filePath, 1, lines.Length, callGraph, catalogs, accesses, seen, fileCache, useFunctionId: false);
-            }
         }
 
         return (catalogs.Values.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList(), accesses);
@@ -207,13 +187,88 @@ internal static class DatabaseCatalogAccessAnalyzer
                 catalogFilePath: path);
         }
 
+        foreach (Match match in MicrosoftRelationalDbPatterns.JdbcSqlServerRegex.Matches(text))
+        {
+            RecordCatalogAccess(
+                match.Value,
+                DatabaseDialect.SqlServer,
+                "sqlserver-jdbc",
+                function, functionId, filePath, lineOffset,
+                DatabaseCatalogAccessKind.Connect,
+                DatabaseCatalogAccessPattern.ConnectionString,
+                DatabaseCrudOperation.Read,
+                catalogs, accesses, seen);
+        }
+
+        foreach (Match match in MicrosoftRelationalDbPatterns.LocalDbConnectionRegex.Matches(text))
+        {
+            RecordCatalogAccess(
+                match.Value.Trim(),
+                DatabaseDialect.SqlServer,
+                "localdb",
+                function, functionId, filePath, lineOffset,
+                DatabaseCatalogAccessKind.Connect,
+                DatabaseCatalogAccessPattern.ConnectionString,
+                DatabaseCrudOperation.Read,
+                catalogs, accesses, seen);
+        }
+
+        foreach (Match match in MicrosoftRelationalDbPatterns.AzureSqlConnectionRegex.Matches(text))
+        {
+            RecordCatalogAccess(
+                match.Value.Trim(),
+                DatabaseDialect.SqlServer,
+                "azure-sql",
+                function, functionId, filePath, lineOffset,
+                DatabaseCatalogAccessKind.Connect,
+                DatabaseCatalogAccessPattern.ConnectionString,
+                DatabaseCrudOperation.Read,
+                catalogs, accesses, seen);
+        }
+
+        foreach (Match match in OpenSourceRelationalDbPatterns.PostgresUriRegex.Matches(text))
+        {
+            RecordCatalogAccess(
+                match.Value,
+                DatabaseDialect.PostgreSql,
+                "postgres-uri",
+                function, functionId, filePath, lineOffset,
+                DatabaseCatalogAccessKind.Connect,
+                DatabaseCatalogAccessPattern.ConnectionString,
+                DatabaseCrudOperation.Read,
+                catalogs, accesses, seen);
+        }
+
+        foreach (Match match in OpenSourceRelationalDbPatterns.MySqlMariaDbUriRegex.Matches(text))
+        {
+            var dialect = match.Value.Contains("mariadb", StringComparison.OrdinalIgnoreCase)
+                ? DatabaseDialect.MariaDb
+                : DatabaseDialect.MySql;
+            RecordCatalogAccess(
+                match.Value,
+                dialect,
+                "mysql-uri",
+                function, functionId, filePath, lineOffset,
+                DatabaseCatalogAccessKind.Connect,
+                DatabaseCatalogAccessPattern.ConnectionString,
+                DatabaseCrudOperation.Read,
+                catalogs, accesses, seen);
+        }
+
         foreach (var hint in UniversalDatabasePatterns.ExtractConnectionCatalogHints(text))
         {
             if (hint.StartsWith("jdbc:", StringComparison.OrdinalIgnoreCase))
             {
+                var dialect = hint.Contains("postgresql", StringComparison.OrdinalIgnoreCase)
+                    ? DatabaseDialect.PostgreSql
+                    : hint.Contains("sqlserver", StringComparison.OrdinalIgnoreCase)
+                        ? DatabaseDialect.SqlServer
+                        : hint.Contains("mysql", StringComparison.OrdinalIgnoreCase) || hint.Contains("mariadb", StringComparison.OrdinalIgnoreCase)
+                            ? hint.Contains("mariadb", StringComparison.OrdinalIgnoreCase) ? DatabaseDialect.MariaDb : DatabaseDialect.MySql
+                            : DatabaseDialect.Unknown;
                 RecordCatalogAccess(
                     hint,
-                    DatabaseDialect.Unknown,
+                    dialect,
                     "jdbc-url",
                     function, functionId, filePath, lineOffset,
                     DatabaseCatalogAccessKind.Connect,
@@ -246,6 +301,22 @@ internal static class DatabaseCatalogAccessAnalyzer
         List<DatabaseCatalogAccess> accesses,
         HashSet<string> seen)
     {
+        foreach (var pattern in MicrosoftRelationalDbPatterns.ConnectionApiPatterns)
+        {
+            foreach (Match match in pattern.Matches(body))
+            {
+                RecordMicrosoftConnectionAccess(body, match.Index, function, functionId, filePath, lineOffset, catalogs, accesses, seen);
+            }
+        }
+
+        foreach (var pattern in OpenSourceRelationalDbPatterns.ConnectionApiPatterns)
+        {
+            foreach (Match match in pattern.Matches(body))
+            {
+                RecordOpenSourceConnectionAccess(body, match.Index, function, functionId, filePath, lineOffset, catalogs, accesses, seen);
+            }
+        }
+
         foreach (var pattern in UniversalDatabasePatterns.ConnectionApiPatterns)
         {
             foreach (Match match in pattern.Matches(body))
@@ -272,6 +343,143 @@ internal static class DatabaseCatalogAccessAnalyzer
                     catalogFilePath: dialect == DatabaseDialect.Sqlite ? rawPath : null);
             }
         }
+    }
+
+    private static void RecordMicrosoftConnectionAccess(
+        string body,
+        int apiIndex,
+        FunctionMetric function,
+        string functionId,
+        string filePath,
+        int lineOffset,
+        Dictionary<string, DatabaseCatalog> catalogs,
+        List<DatabaseCatalogAccess> accesses,
+        HashSet<string> seen)
+    {
+        var window = body[apiIndex..Math.Min(body.Length, apiIndex + 512)];
+        if (!MicrosoftRelationalDbPatterns.HasSignal(window))
+        {
+            return;
+        }
+
+        var catalogName = ExtractCatalogNameFromWindow(window)
+            ?? (MicrosoftRelationalDbPatterns.AzureSqlConnectionRegex.IsMatch(window) ? "azure-sql"
+                : MicrosoftRelationalDbPatterns.LocalDbConnectionRegex.IsMatch(window) ? "localdb"
+                : MicrosoftRelationalDbPatterns.OleDbProviderRegex.IsMatch(window) ? "access-oledb"
+                : "sqlserver");
+
+        RecordCatalogAccess(
+            catalogName,
+            DatabaseDialect.SqlServer,
+            "microsoft-db-api",
+            function, functionId, filePath, lineOffset,
+            DatabaseCatalogAccessKind.Connect,
+            DatabaseCatalogAccessPattern.Api,
+            DatabaseCrudOperation.Read,
+            catalogs, accesses, seen);
+    }
+
+    private static void RecordOpenSourceConnectionAccess(
+        string body,
+        int apiIndex,
+        FunctionMetric function,
+        string functionId,
+        string filePath,
+        int lineOffset,
+        Dictionary<string, DatabaseCatalog> catalogs,
+        List<DatabaseCatalogAccess> accesses,
+        HashSet<string> seen)
+    {
+        var window = body[apiIndex..Math.Min(body.Length, apiIndex + 512)];
+        DatabaseDialect dialect;
+        string catalogName;
+        string sourceKind;
+
+        if (OpenSourceRelationalDbPatterns.PostgresUriRegex.IsMatch(window)
+            || OpenSourceRelationalDbPatterns.JdbcPostgresRegex.IsMatch(window)
+            || window.Contains("Npgsql", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("psycopg", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("PQconnect", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("pg_connect", StringComparison.OrdinalIgnoreCase))
+        {
+            dialect = DatabaseDialect.PostgreSql;
+            catalogName = ExtractCatalogNameFromWindow(window) ?? "postgresql";
+            sourceKind = "postgres-api";
+        }
+        else if (OpenSourceRelationalDbPatterns.MySqlMariaDbUriRegex.IsMatch(window)
+            || OpenSourceRelationalDbPatterns.JdbcMySqlMariaDbRegex.IsMatch(window)
+            || window.Contains("MySql", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("MariaDb", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("mysqli", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("mysql", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("pymysql", StringComparison.OrdinalIgnoreCase))
+        {
+            dialect = window.Contains("mariadb", StringComparison.OrdinalIgnoreCase)
+                || window.Contains("MariaDb", StringComparison.OrdinalIgnoreCase)
+                ? DatabaseDialect.MariaDb
+                : DatabaseDialect.MySql;
+            catalogName = ExtractCatalogNameFromWindow(window) ?? (dialect == DatabaseDialect.MariaDb ? "mariadb" : "mysql");
+            sourceKind = dialect == DatabaseDialect.MariaDb ? "mariadb-api" : "mysql-api";
+        }
+        else
+        {
+            return;
+        }
+
+        RecordCatalogAccess(
+            catalogName,
+            dialect,
+            sourceKind,
+            function, functionId, filePath, lineOffset,
+            DatabaseCatalogAccessKind.Connect,
+            DatabaseCatalogAccessPattern.Api,
+            DatabaseCrudOperation.Read,
+            catalogs, accesses, seen);
+    }
+
+    private static string? ExtractCatalogNameFromWindow(string window)
+    {
+        foreach (Match match in SqlPatternHelper.ConnectionStringCatalogRegex.Matches(window))
+        {
+            return match.Groups[1].Value.Trim();
+        }
+
+        foreach (Match match in OpenSourceRelationalDbPatterns.PostgresUriRegex.Matches(window))
+        {
+            return match.Value;
+        }
+
+        foreach (Match match in OpenSourceRelationalDbPatterns.MySqlMariaDbUriRegex.Matches(window))
+        {
+            return match.Value;
+        }
+
+        foreach (Match match in OpenSourceRelationalDbPatterns.JdbcPostgresRegex.Matches(window))
+        {
+            return match.Value;
+        }
+
+        foreach (Match match in OpenSourceRelationalDbPatterns.JdbcMySqlMariaDbRegex.Matches(window))
+        {
+            return match.Value;
+        }
+
+        foreach (Match match in MicrosoftRelationalDbPatterns.JdbcSqlServerRegex.Matches(window))
+        {
+            return match.Value;
+        }
+
+        foreach (Match match in MicrosoftRelationalDbPatterns.LocalDbConnectionRegex.Matches(window))
+        {
+            return match.Value;
+        }
+
+        foreach (Match match in MicrosoftRelationalDbPatterns.AzureSqlConnectionRegex.Matches(window))
+        {
+            return match.Value;
+        }
+
+        return null;
     }
 
     private static string? TryExtractSqlitePath(string body, int apiIndex)
@@ -310,6 +518,17 @@ internal static class DatabaseCatalogAccessAnalyzer
         }
 
         catalogName = catalogName.Trim().Trim('[', ']', '"', '\'');
+        if (catalogName.Equals("(연결)", StringComparison.OrdinalIgnoreCase)
+            || catalogName.Equals("sqlserver", StringComparison.OrdinalIgnoreCase)
+            || catalogName.Equals("postgresql", StringComparison.OrdinalIgnoreCase)
+            || catalogName.Equals("mysql", StringComparison.OrdinalIgnoreCase)
+            || catalogName.Equals("mariadb", StringComparison.OrdinalIgnoreCase)
+            || catalogName.Equals("localdb", StringComparison.OrdinalIgnoreCase)
+            || catalogName.Equals("azure-sql", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         var catalogId = BuildCatalogId(catalogName, dialect);
         if (!catalogs.ContainsKey(catalogId))
         {

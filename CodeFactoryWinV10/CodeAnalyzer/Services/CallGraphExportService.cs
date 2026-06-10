@@ -26,7 +26,7 @@ public static class CallGraphExportService
     private static AnalysisDocument BuildDocument(AnalysisResult analysis, string rootDirectory) =>
         new()
         {
-            Version = "4",
+            Version = "5",
             RootDirectory = rootDirectory,
             SavedAtUtc = DateTime.UtcNow,
             CallGraph = new CallGraphSection
@@ -116,7 +116,8 @@ public static class CallGraphExportService
             DatabaseSchema = DatabaseSchemaSectionFrom(analysis.DatabaseSchema),
             BugRisk = BugRiskSectionFrom(analysis.BugRisk),
             Security = SecuritySectionFrom(analysis.Security),
-            QualityThresholds = QualityThresholdsRecordFrom(analysis.QualityThresholds)
+            QualityThresholds = QualityThresholdsRecordFrom(analysis.QualityThresholds),
+            Issues = IssuesSectionFrom(analysis.Issues)
         };
 
     public static (AnalysisResult Analysis, string RootDirectory) LoadFromFile(string filePath)
@@ -126,7 +127,7 @@ public static class CallGraphExportService
         using var doc = JsonDocument.Parse(json);
         var version = ReadDocumentVersion(doc.RootElement);
 
-        if (version is "3" or "4")
+        if (version is "3" or "4" or "5")
         {
             var document = JsonSerializer.Deserialize<AnalysisDocument>(json, JsonOptions)
                 ?? throw new InvalidDataException("유효하지 않은 분석 결과 파일입니다.");
@@ -223,7 +224,8 @@ public static class CallGraphExportService
             DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
             BugRisk = BuildBugRiskResult(d.BugRisk),
             Security = BuildSecurityResult(d.Security),
-            QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
+            QualityThresholds = BuildQualityThresholds(d.QualityThresholds),
+            Issues = BuildIssuesResult(d.Issues)
         };
     }
 
@@ -251,7 +253,8 @@ public static class CallGraphExportService
             DatabaseSchema = BuildDatabaseSchemaResult(d.DatabaseSchema),
             BugRisk = BuildBugRiskResult(d.BugRisk),
             Security = BuildSecurityResult(d.Security),
-            QualityThresholds = BuildQualityThresholds(d.QualityThresholds)
+            QualityThresholds = BuildQualityThresholds(d.QualityThresholds),
+            Issues = BuildIssuesResult(d.Issues)
         };
     }
 
@@ -613,6 +616,18 @@ public static class CallGraphExportService
             return new DatabaseSchemaResult();
         }
 
+        var catalogs = (s.Catalogs ?? []).Select(c => new DatabaseCatalog
+        {
+            Id = c.Id,
+            Name = c.Name,
+            Dialect = Enum.TryParse<DatabaseDialect>(c.Dialect, out var catalogDialect)
+                ? catalogDialect
+                : DatabaseDialect.Unknown,
+            SourceKind = c.SourceKind,
+            FilePath = string.IsNullOrWhiteSpace(c.FilePath) ? null : c.FilePath,
+            LineNumber = c.LineNumber
+        }).ToList();
+
         var tables = s.Tables.Select(t => new DatabaseTable
         {
             Id = t.Id,
@@ -623,6 +638,7 @@ public static class CallGraphExportService
             SourceKind = t.SourceKind,
             FilePath = t.FilePath,
             LineNumber = t.LineNumber,
+            AccessAliases = (t.AccessAliases ?? []).ToList(),
             Columns = t.Columns.Select(c => new DatabaseColumn
             {
                 Name = c.Name,
@@ -658,22 +674,78 @@ public static class CallGraphExportService
             Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations) ? operations : DatabaseCrudOperation.None
         }).ToList();
 
-        var grouped = accesses
-            .GroupBy(access => access.TableId, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<DatabaseTableAccess>)group.ToList(),
-                StringComparer.OrdinalIgnoreCase);
+        var catalogAccesses = (s.CatalogAccesses ?? []).Select(a => new DatabaseCatalogAccess
+        {
+            CatalogId = a.CatalogId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = Enum.TryParse<DatabaseCatalogAccessKind>(a.Kind, out var kind)
+                ? kind
+                : DatabaseCatalogAccessKind.Connect,
+            Pattern = Enum.TryParse<DatabaseCatalogAccessPattern>(a.Pattern, out var pattern)
+                ? pattern
+                : DatabaseCatalogAccessPattern.Sql,
+            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations)
+                ? operations
+                : DatabaseCrudOperation.None
+        }).ToList();
+
+        var columnAccesses = (s.ColumnAccesses ?? []).Select(a => new DatabaseColumnAccess
+        {
+            TableId = a.TableId,
+            ColumnName = a.ColumnName,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = Enum.TryParse<DatabaseTableAccessKind>(a.Kind, out var kind) ? kind : DatabaseTableAccessKind.Read,
+            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql,
+            Operations = Enum.TryParse<DatabaseCrudOperation>(a.Operations, out var operations) ? operations : DatabaseCrudOperation.None
+        }).ToList();
+
+        var entryAccesses = (s.EntryAccesses ?? []).Select(a => new DatabaseEntryAccess
+        {
+            TableId = a.TableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Operation = Enum.TryParse<DatabaseCrudOperation>(a.Operation, out var operation) ? operation : DatabaseCrudOperation.None,
+            Pattern = Enum.TryParse<DatabaseTableAccessPattern>(a.Pattern, out var pattern) ? pattern : DatabaseTableAccessPattern.Sql
+        }).ToList();
 
         return new DatabaseSchemaResult
         {
+            Catalogs = catalogs,
             Tables = tables,
             Relations = relations,
+            CatalogAccesses = catalogAccesses,
             Accesses = accesses,
+            ColumnAccesses = columnAccesses,
+            EntryAccesses = entryAccesses,
+            CatalogMap = catalogs.ToDictionary(c => c.Id, StringComparer.OrdinalIgnoreCase),
             TableMap = tables.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase),
-            AccessesByTableId = grouped
+            CatalogAccessesByCatalogId = GroupByKey(catalogAccesses, access => access.CatalogId),
+            AccessesByTableId = GroupByKey(accesses, access => access.TableId),
+            ColumnAccessesByTableId = GroupByKey(columnAccesses, access => access.TableId),
+            EntryAccessesByTableId = GroupByKey(entryAccesses, access => access.TableId)
         };
     }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<TAccess>> GroupByKey<TAccess>(
+        IEnumerable<TAccess> accesses,
+        Func<TAccess, string> keySelector) =>
+        accesses
+            .GroupBy(keySelector, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => (IReadOnlyList<TAccess>)group.ToList(),
+                StringComparer.OrdinalIgnoreCase);
 
     private static int NormalizeMinDuplicateLines(int value) =>
         UserAnalysisSettings.NormalizeMinDuplicateLines(value);
@@ -770,6 +842,21 @@ public static class CallGraphExportService
         });
 
         return SecurityAnalysisResult.FromFindings(findings);
+    }
+
+    private static IReadOnlyList<AnalysisIssue> BuildIssuesResult(IssuesSection? s)
+    {
+        if (s?.Items is null || s.Items.Count == 0)
+        {
+            return [];
+        }
+
+        return s.Items.Select(i => new AnalysisIssue
+        {
+            Stage = i.Stage,
+            Message = i.Message,
+            Detail = i.Detail
+        }).ToList();
     }
 
     // ── Section builders (model → record) ───────────────────────────────────
@@ -938,6 +1025,16 @@ public static class CallGraphExportService
         }).ToList()
     };
 
+    private static IssuesSection IssuesSectionFrom(IReadOnlyList<AnalysisIssue> issues) => new()
+    {
+        Items = issues.Select(i => new AnalysisIssueRecord
+        {
+            Stage = i.Stage,
+            Message = i.Message,
+            Detail = i.Detail
+        }).ToList()
+    };
+
     private static DuplicatesSection DuplicatesSectionFrom(DuplicateCodeResult d) => new()
     {
         MinDuplicateLines = d.MinDuplicateLines,
@@ -988,6 +1085,15 @@ public static class CallGraphExportService
 
     private static DatabaseSchemaSection DatabaseSchemaSectionFrom(DatabaseSchemaResult schema) => new()
     {
+        Catalogs = schema.Catalogs.Select(c => new DatabaseCatalogRecord
+        {
+            Id = c.Id,
+            Name = c.Name,
+            Dialect = c.Dialect.ToString(),
+            SourceKind = c.SourceKind,
+            FilePath = c.FilePath ?? string.Empty,
+            LineNumber = c.LineNumber
+        }).ToList(),
         Tables = schema.Tables.Select(t => new DatabaseTableRecord
         {
             Id = t.Id,
@@ -998,6 +1104,7 @@ public static class CallGraphExportService
             SourceKind = t.SourceKind,
             FilePath = t.FilePath,
             LineNumber = t.LineNumber,
+            AccessAliases = t.AccessAliases.ToList(),
             Columns = t.Columns.Select(c => new DatabaseColumnRecord
             {
                 Name = c.Name,
@@ -1029,6 +1136,42 @@ public static class CallGraphExportService
             Kind = a.Kind.ToString(),
             Pattern = a.Pattern.ToString(),
             Operations = a.Operations.ToString()
+        }).ToList(),
+        CatalogAccesses = schema.CatalogAccesses.Select(a => new DatabaseCatalogAccessRecord
+        {
+            CatalogId = a.CatalogId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = a.Kind.ToString(),
+            Pattern = a.Pattern.ToString(),
+            Operations = a.Operations.ToString()
+        }).ToList(),
+        ColumnAccesses = schema.ColumnAccesses.Select(a => new DatabaseColumnAccessRecord
+        {
+            TableId = a.TableId,
+            ColumnName = a.ColumnName,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Kind = a.Kind.ToString(),
+            Pattern = a.Pattern.ToString(),
+            Operations = a.Operations.ToString()
+        }).ToList(),
+        EntryAccesses = schema.EntryAccesses.Select(a => new DatabaseEntryAccessRecord
+        {
+            TableId = a.TableId,
+            FunctionId = a.FunctionId,
+            FunctionDisplayName = a.FunctionDisplayName,
+            FunctionFullName = a.FunctionFullName,
+            FunctionFilePath = a.FunctionFilePath,
+            FunctionLineNumber = a.FunctionLineNumber,
+            Operation = a.Operation.ToString(),
+            Pattern = a.Pattern.ToString()
         }).ToList()
     };
 
@@ -1110,7 +1253,7 @@ public static class CallGraphExportService
 
     private sealed class AnalysisDocument
     {
-        public string Version { get; set; } = "4";
+        public string Version { get; set; } = "5";
         public string RootDirectory { get; set; } = string.Empty;
         public DateTime SavedAtUtc { get; set; }
         public CallGraphSection CallGraph { get; set; } = new();
@@ -1124,6 +1267,7 @@ public static class CallGraphExportService
         public BugRiskSection? BugRisk { get; set; }
         public SecuritySection? Security { get; set; }
         public QualityThresholdsRecord? QualityThresholds { get; set; }
+        public IssuesSection? Issues { get; set; }
     }
 
     private sealed class LegacyCallGraphDocument
@@ -1192,9 +1336,18 @@ public static class CallGraphExportService
 
     private sealed class DatabaseSchemaSection
     {
+        public List<DatabaseCatalogRecord> Catalogs { get; set; } = [];
         public List<DatabaseTableRecord> Tables { get; set; } = [];
         public List<DatabaseRelationRecord> Relations { get; set; } = [];
+        public List<DatabaseCatalogAccessRecord> CatalogAccesses { get; set; } = [];
         public List<DatabaseTableAccessRecord> Accesses { get; set; } = [];
+        public List<DatabaseColumnAccessRecord> ColumnAccesses { get; set; } = [];
+        public List<DatabaseEntryAccessRecord> EntryAccesses { get; set; } = [];
+    }
+
+    private sealed class IssuesSection
+    {
+        public List<AnalysisIssueRecord> Items { get; set; } = [];
     }
 
     private sealed class QualityThresholdsRecord
@@ -1513,7 +1666,18 @@ public static class CallGraphExportService
         public string SourceKind { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
         public int LineNumber { get; set; }
+        public List<string> AccessAliases { get; set; } = [];
         public List<DatabaseColumnRecord> Columns { get; set; } = [];
+    }
+
+    private sealed class DatabaseCatalogRecord
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Dialect { get; set; } = string.Empty;
+        public string SourceKind { get; set; } = string.Empty;
+        public string FilePath { get; set; } = string.Empty;
+        public int LineNumber { get; set; }
     }
 
     private sealed class DatabaseTableAccessRecord
@@ -1527,6 +1691,52 @@ public static class CallGraphExportService
         public string Kind { get; set; } = string.Empty;
         public string Pattern { get; set; } = string.Empty;
         public string Operations { get; set; } = string.Empty;
+    }
+
+    private sealed class DatabaseCatalogAccessRecord
+    {
+        public string CatalogId { get; set; } = string.Empty;
+        public string FunctionId { get; set; } = string.Empty;
+        public string FunctionDisplayName { get; set; } = string.Empty;
+        public string FunctionFullName { get; set; } = string.Empty;
+        public string FunctionFilePath { get; set; } = string.Empty;
+        public int FunctionLineNumber { get; set; }
+        public string Kind { get; set; } = string.Empty;
+        public string Pattern { get; set; } = string.Empty;
+        public string Operations { get; set; } = string.Empty;
+    }
+
+    private sealed class DatabaseColumnAccessRecord
+    {
+        public string TableId { get; set; } = string.Empty;
+        public string ColumnName { get; set; } = string.Empty;
+        public string FunctionId { get; set; } = string.Empty;
+        public string FunctionDisplayName { get; set; } = string.Empty;
+        public string FunctionFullName { get; set; } = string.Empty;
+        public string FunctionFilePath { get; set; } = string.Empty;
+        public int FunctionLineNumber { get; set; }
+        public string Kind { get; set; } = string.Empty;
+        public string Pattern { get; set; } = string.Empty;
+        public string Operations { get; set; } = string.Empty;
+    }
+
+    private sealed class DatabaseEntryAccessRecord
+    {
+        public string TableId { get; set; } = string.Empty;
+        public string FunctionId { get; set; } = string.Empty;
+        public string FunctionDisplayName { get; set; } = string.Empty;
+        public string FunctionFullName { get; set; } = string.Empty;
+        public string FunctionFilePath { get; set; } = string.Empty;
+        public int FunctionLineNumber { get; set; }
+        public string Operation { get; set; } = string.Empty;
+        public string Pattern { get; set; } = string.Empty;
+    }
+
+    private sealed class AnalysisIssueRecord
+    {
+        public string Stage { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string? Detail { get; set; }
     }
 
     private sealed class DatabaseColumnRecord

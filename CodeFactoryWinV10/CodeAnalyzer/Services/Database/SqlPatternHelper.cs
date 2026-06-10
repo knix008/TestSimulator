@@ -9,6 +9,8 @@ internal static class SqlPatternHelper
     internal const string OpenQuote = @"[\[\""'`]?";
     internal const string CloseQuote = @"[\]\""'`]?";
     internal const string Identifier = @"\w+";
+    /// <summary>MySQL 백틱·PostgreSQL 큰따옴표·T-SQL 대괄호·일반 식별자.</summary>
+    internal const string SqlIdentifierToken = @"(?:\w+|""[^""]+""|`[^`]+`|\[[^\]]+\])";
 
     // C# / Java / JS / Python / C++ raw strings
     internal static readonly Regex StringLiteralRegex = new(
@@ -20,11 +22,15 @@ internal static class SqlPatternHelper
         RegexOptions.Compiled | RegexOptions.Multiline);
 
     internal static readonly Regex SqlReadTableRegex = new(
-        $@"(?i)\b(?:FROM|JOIN|FULL\s+(?:OUTER\s+)?JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|MERGE\s+INTO)\s+(?:{OpenQuote}({Identifier}){CloseQuote}\.)?(?:{OpenQuote}({Identifier}){CloseQuote})",
+        $@"(?i)\b(?:FROM|JOIN|FULL\s+(?:OUTER\s+)?JOIN|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|CROSS\s+JOIN|MERGE\s+INTO)\s+(?:(?<schema>{SqlIdentifierToken})\s*\.\s*)?(?<table>{SqlIdentifierToken})",
         RegexOptions.Compiled);
 
     internal static readonly Regex SqlCrudTableRegex = new(
-        $@"(?i)\b(?<op>INSERT\s+(?:OR\s+(?:REPLACE|IGNORE|ROLLBACK\s+ABORT|ABORT|FAIL)\s+)?INTO|REPLACE\s+INTO|MERGE\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE|ALTER\s+TABLE|CREATE\s+TABLE(?:\s+IF\s+(?:NOT\s+)?EXISTS)?)\s+(?:{OpenQuote}(?<schema>{Identifier}){CloseQuote}\.)?(?:{OpenQuote}(?<table>{Identifier}){CloseQuote})",
+        $@"(?i)\b(?<op>INSERT\s+(?:IGNORE\s+|LOW_PRIORITY\s+|HIGH_PRIORITY\s+|DELAYED\s+|OR\s+(?:REPLACE|IGNORE|ROLLBACK\s+ABORT|ABORT|FAIL)\s+)?INTO|REPLACE\s+INTO|MERGE\s+INTO|UPDATE|DELETE\s+FROM|TRUNCATE\s+(?:TABLE\s+)?|DROP\s+TABLE|ALTER\s+TABLE|CREATE\s+TABLE(?:\s+IF\s+(?:NOT\s+)?EXISTS)?)\s+(?:(?<schema>{SqlIdentifierToken})\s*\.\s*)?(?<table>{SqlIdentifierToken})",
+        RegexOptions.Compiled);
+
+    internal static readonly Regex SqlPostgresCopyTableRegex = new(
+        $@"(?i)\bCOPY\s+(?:(?<schema>{SqlIdentifierToken})\s*\.\s*)?(?<table>{SqlIdentifierToken})\s+(?:FROM|TO)\b",
         RegexOptions.Compiled);
 
     internal static readonly Regex SqlSelectColumnsRegex = new(
@@ -170,26 +176,101 @@ internal static class SqlPatternHelper
         return false;
     }
 
-    internal static bool ContainsSqlVerb(string literal) =>
-        literal.Contains("SELECT", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("INSERT", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("UPDATE", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("DELETE", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("FROM", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("CREATE", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("REPLACE", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("MERGE", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("TRUNCATE", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("DROP", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("ALTER", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("USE ", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("ATTACH", StringComparison.OrdinalIgnoreCase)
-        || literal.Contains("DATABASE", StringComparison.OrdinalIgnoreCase);
+    internal static bool ContainsSqlVerb(string literal) => LooksLikeSqlStatement(literal);
+
+    /// <summary>일반 문자열(영문 문장 등)과 구분하기 위해 SQL 문장 구조를 요구합니다.</summary>
+    internal static bool LooksLikeSqlStatement(string literal)
+    {
+        if (string.IsNullOrWhiteSpace(literal) || literal.Length < 8)
+        {
+            return false;
+        }
+
+        return SqlSelectStatementRegex.IsMatch(literal)
+            || SqlInsertStatementRegex.IsMatch(literal)
+            || SqlUpdateStatementRegex.IsMatch(literal)
+            || SqlDeleteStatementRegex.IsMatch(literal)
+            || SqlMergeStatementRegex.IsMatch(literal)
+            || SqlTruncateStatementRegex.IsMatch(literal)
+            || SqlPostgresCopyTableRegex.IsMatch(literal)
+            || SqlCreateTableStatementRegex.IsMatch(literal)
+            || SqlDropTableStatementRegex.IsMatch(literal)
+            || SqlAlterTableStatementRegex.IsMatch(literal);
+    }
+
+    private static readonly Regex SqlSelectStatementRegex = new(
+        @"(?i)\bSELECT\b[\s\S]{0,4096}?\bFROM\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlInsertStatementRegex = new(
+        @"(?i)\bINSERT\b[\s\S]{0,256}?\bINTO\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlUpdateStatementRegex = new(
+        $@"(?i)\bUPDATE\b\s+(?:(?:{SqlIdentifierToken})\s*\.\s*)?{SqlIdentifierToken}\s+\bSET\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlDeleteStatementRegex = new(
+        @"(?i)\bDELETE\b[\s\S]{0,64}?\bFROM\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlMergeStatementRegex = new(
+        @"(?i)\bMERGE\b[\s\S]{0,64}?\bINTO\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlTruncateStatementRegex = new(
+        $@"(?i)\bTRUNCATE\b(?:\s+TABLE)?\s+(?:ONLY\s+)?(?:(?:{SqlIdentifierToken})\s*\.\s*)?{SqlIdentifierToken}\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlCreateTableStatementRegex = new(
+        @"(?i)\bCREATE\b[\s\S]{0,64}?\bTABLE\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlDropTableStatementRegex = new(
+        @"(?i)\bDROP\b[\s\S]{0,32}?\bTABLE\b",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SqlAlterTableStatementRegex = new(
+        @"(?i)\bALTER\b[\s\S]{0,32}?\bTABLE\b",
+        RegexOptions.Compiled);
+
+    internal static string NormalizeSqlIdentifierToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = token.Trim();
+        if (trimmed.Length >= 2 && trimmed[0] == '`' && trimmed[^1] == '`')
+        {
+            return trimmed[1..^1];
+        }
+
+        if (trimmed.Length >= 2 && trimmed[0] == '"' && trimmed[^1] == '"')
+        {
+            return trimmed[1..^1];
+        }
+
+        if (trimmed.Length >= 2 && trimmed[0] == '[' && trimmed[^1] == ']')
+        {
+            return trimmed[1..^1];
+        }
+
+        return trimmed;
+    }
+
+    internal static (string Schema, string Table) ReadTableTokens(Match match)
+    {
+        var schema = match.Groups["schema"].Success ? NormalizeSqlIdentifierToken(match.Groups["schema"].Value) : string.Empty;
+        var table = match.Groups["table"].Success ? NormalizeSqlIdentifierToken(match.Groups["table"].Value) : string.Empty;
+        return (schema, table);
+    }
 
     internal static bool SqlLiteralReferencesTable(string sql, string tableName, string? schema = null)
     {
         var escaped = Regex.Escape(tableName);
-        if (Regex.IsMatch(sql, $@"(?i)\b(?:FROM|INTO|JOIN|UPDATE|TABLE)\s+(?:{OpenQuote}{Identifier}{CloseQuote}\.)?{OpenQuote}{escaped}{CloseQuote}\b"))
+        if (Regex.IsMatch(sql, $@"(?i)\b(?:FROM|INTO|JOIN|UPDATE|TABLE|COPY|TRUNCATE)\s+(?:(?:{SqlIdentifierToken})\s*\.\s*)?(?:{OpenQuote})?{escaped}(?:{CloseQuote})?\b"))
         {
             return true;
         }
@@ -197,7 +278,7 @@ internal static class SqlPatternHelper
         if (!string.IsNullOrWhiteSpace(schema))
         {
             var qualified = Regex.Escape($"{schema}.{tableName}");
-            return Regex.IsMatch(sql, $@"(?i)\b(?:FROM|INTO|JOIN|UPDATE|TABLE)\s+{OpenQuote}?{qualified}{CloseQuote}?\b");
+            return Regex.IsMatch(sql, $@"(?i)\b(?:FROM|INTO|JOIN|UPDATE|TABLE|COPY|TRUNCATE)\s+{OpenQuote}?{qualified}{CloseQuote}?\b");
         }
 
         return false;

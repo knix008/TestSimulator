@@ -6,7 +6,8 @@ public enum DatabaseDialect
     MySql,
     MariaDb,
     PostgreSql,
-    Sqlite
+    Sqlite,
+    SqlServer
 }
 
 public enum DatabaseRelationKind

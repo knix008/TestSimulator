@@ -26,7 +26,7 @@ public static class DirectoryScanService
 
     public static IEnumerable<string> GetSourceFiles(
         string rootPath,
-        IEnumerable<string> excludedDirectories,
+        IEnumerable<string> includedDirectories,
         IEnumerable<string> extensions,
         CancellationToken cancellationToken = default)
     {
@@ -41,35 +41,98 @@ public static class DirectoryScanService
             yield break;
         }
 
-        var excluded = NormalizeDirectoryPaths(excludedDirectories);
+        var included = NormalizeDirectoryPaths(includedDirectories);
+        if (included.Count == 0)
+        {
+            yield break;
+        }
 
-        foreach (var file in EnumerateSourceFilesRecursive(rootPath, rootPath, excluded, extensionSet, cancellationToken))
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var relativeIncluded in included.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            yield return file;
+
+            var absolutePath = relativeIncluded == "."
+                ? rootPath
+                : Path.Combine(rootPath, relativeIncluded);
+
+            if (!Directory.Exists(absolutePath))
+            {
+                continue;
+            }
+
+            if (relativeIncluded == ".")
+            {
+                foreach (var file in EnumerateSourceFilesInDirectoryOnly(absolutePath, extensionSet, cancellationToken))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (yielded.Add(file))
+                    {
+                        yield return file;
+                    }
+                }
+
+                continue;
+            }
+
+            foreach (var file in EnumerateSourceFilesRecursive(rootPath, absolutePath, extensionSet, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (yielded.Add(file))
+                {
+                    yield return file;
+                }
+            }
         }
     }
 
     public static int CountSourceFiles(
         string rootPath,
-        IEnumerable<string> excludedDirectories,
+        IEnumerable<string> includedDirectories,
         IEnumerable<string> extensions,
         CancellationToken cancellationToken = default)
     {
-        return GetSourceFiles(rootPath, excludedDirectories, extensions, cancellationToken).Count();
+        return GetSourceFiles(rootPath, includedDirectories, extensions, cancellationToken).Count();
+    }
+
+    private static IEnumerable<string> EnumerateSourceFilesInDirectoryOnly(
+        string directory,
+        HashSet<string> extensions,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        IEnumerable<string> files;
+        try
+        {
+            files = Directory.EnumerateFiles(directory);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            yield break;
+        }
+
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (extensions.Contains(Path.GetExtension(file)))
+            {
+                yield return file;
+            }
+        }
     }
 
     private static IEnumerable<string> EnumerateSourceFilesRecursive(
         string rootPath,
         string currentDirectory,
-        HashSet<string> excluded,
         HashSet<string> extensions,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var relativeDirectory = NormalizeRelativePath(Path.GetRelativePath(rootPath, currentDirectory));
 
-        if (!IsDirectoryIncluded(relativeDirectory, excluded))
+        if (relativeDirectory != "." && ContainsExcludedSegment(relativeDirectory))
         {
             yield break;
         }
@@ -112,10 +175,10 @@ public static class DirectoryScanService
                 continue;
             }
 
-            foreach (var file in EnumerateSourceFilesRecursive(rootPath, subdirectory, excluded, extensions, cancellationToken))
+            foreach (var nestedFile in EnumerateSourceFilesRecursive(rootPath, subdirectory, extensions, cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                yield return file;
+                yield return nestedFile;
             }
         }
     }
@@ -156,48 +219,6 @@ public static class DirectoryScanService
                 yield return nested;
             }
         }
-    }
-
-    /// <summary>사용자 제외 목록과 bin/obj 등 기본 제외 세그먼트를 적용합니다.</summary>
-    private static bool IsDirectoryIncluded(string relativeDirectory, HashSet<string> excluded)
-    {
-        if (ContainsExcludedSegment(relativeDirectory))
-        {
-            return false;
-        }
-
-        relativeDirectory = NormalizeRelativePath(relativeDirectory);
-        return !IsPathExcluded(relativeDirectory, excluded);
-    }
-
-    private static bool IsPathExcluded(string relativeDirectory, HashSet<string> excluded)
-    {
-        if (excluded.Count == 0)
-        {
-            return false;
-        }
-
-        if (excluded.Contains("."))
-        {
-            return true;
-        }
-
-        foreach (var excludedPath in excluded)
-        {
-            if (relativeDirectory.Equals(excludedPath, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (relativeDirectory.StartsWith(
-                    excludedPath + Path.DirectorySeparatorChar,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool ContainsExcludedSegment(string relativePath)

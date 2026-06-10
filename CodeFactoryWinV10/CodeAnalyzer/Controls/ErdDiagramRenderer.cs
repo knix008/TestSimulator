@@ -21,6 +21,7 @@ internal static class ErdDiagramRenderer
             DatabaseDialect.MariaDb => "MariaDB",
             DatabaseDialect.PostgreSql => "PostgreSQL",
             DatabaseDialect.Sqlite => "SQLite",
+            DatabaseDialect.SqlServer => "SQL Server",
             _ => "SQL"
         };
 

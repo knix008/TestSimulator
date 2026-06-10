@@ -113,6 +113,7 @@ public sealed class GlobalVariableViewer : UserControl
         _variableList.Columns.Add("파일", 160);
         _variableList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _variableListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_variableList, ListViewHeaderToolTipTexts.GlobalVariable);
+        ListViewColumnSortHelper.Enable(_variableList);
         _variableList.SelectedIndexChanged += (_, _) => ShowSelectedVariable();
         _variableList.DoubleClick += (_, _) => ShowAccessGraphForSelected();
 
@@ -122,6 +123,7 @@ public sealed class GlobalVariableViewer : UserControl
         _accessorList.Columns.Add("줄", 44, HorizontalAlignment.Right);
         _accessorList.Columns.Add("접근", 72);
         _accessorListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_accessorList, ListViewHeaderToolTipTexts.GlobalVariableAccessor);
+        ListViewColumnSortHelper.Enable(_accessorList);
         _accessorList.DoubleClick += (_, _) => OpenSelectedAccessor();
 
         _openFileButton.Click += (_, _) => OpenSelectedDeclaration();

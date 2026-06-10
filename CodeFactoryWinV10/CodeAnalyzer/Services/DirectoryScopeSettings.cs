@@ -40,4 +40,65 @@ public static class DirectoryScopeSettings
 
         return excluded;
     }
+
+    public static List<string> CollectIncludedPaths(IReadOnlyList<string> allPaths, Func<int, bool> isChecked)
+    {
+        var included = new List<string>();
+        for (var i = 0; i < allPaths.Count; i++)
+        {
+            if (isChecked(i))
+            {
+                included.Add(allPaths[i]);
+            }
+        }
+
+        return included;
+    }
+
+    public static List<string> ResolveIncludedPathsForSidebar(
+        IReadOnlyList<string> knownPaths,
+        IReadOnlyList<string> includedPaths,
+        IReadOnlyList<string> excludedPaths)
+    {
+        if (includedPaths.Count > 0)
+        {
+            return includedPaths
+                .Select(NormalizeRelativePath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        if (excludedPaths.Count == 0)
+        {
+            return knownPaths
+                .Select(NormalizeRelativePath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        var excluded = new HashSet<string>(
+            excludedPaths.Select(NormalizeRelativePath),
+            StringComparer.OrdinalIgnoreCase);
+
+        return knownPaths
+            .Select(NormalizeRelativePath)
+            .Where(path => !excluded.Contains(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string NormalizeRelativePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || path == ".")
+        {
+            return ".";
+        }
+
+        return path
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .TrimEnd(Path.DirectorySeparatorChar);
+    }
 }

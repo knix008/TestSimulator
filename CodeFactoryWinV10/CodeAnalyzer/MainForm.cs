@@ -31,7 +31,6 @@ public partial class MainForm : Form
     private AnalysisProgressReport? _lastAnalysisProgressReport;
     private bool _suppressRootComboChange;
     private bool _suppressDiagramViewChange;
-    private bool _suppressDirectoryListEvents;
     private UserAnalysisSettings _analysisSettings = UserAnalysisSettings.CreateDefaults();
     private MetricInspectionKind _enabledInspections = MetricInspectionKind.All;
     private IReadOnlyList<DiagramViewKind> _visibleDiagramViews = DiagramViewCatalog.ViewKinds;
@@ -69,12 +68,24 @@ public partial class MainForm : Form
             _searchPopup.Owner = this;
             HookClickOutsideToHideSearch(this);
         };
+        analysisSetupPanel.AnalyzeClicked += btnAnalyze_Click;
+        analysisSetupPanel.AnalysisSettingsClicked += btnAnalysisSettings_Click;
+        analysisSetupPanel.BrowseRootClicked += btnBrowseRoot_Click;
+        analysisSetupPanel.RootPathLeave += txtRootPath_Leave;
+        analysisSetupPanel.DirectoryChecksChanged += (_, _) =>
+        {
+            if (!analysisSetupPanel.SuppressDirectoryListEvents && IsHandleCreated)
+            {
+                BeginInvoke(PersistDirectorySelectionsFromSidebar);
+            }
+        };
         diagramViewHost.CallGraphRootChanged += OnCallGraphRootChanged;
         diagramViewHost.FileRootChanged += OnFileRootChanged;
         diagramViewHost.DirectoryRootChanged += OnDirectoryRootChanged;
         diagramViewHost.MetricsNavigationRequested += OnMetricsNavigationRequested;
         diagramViewHost.GlobalVariableAccessGraphRequested += OnGlobalVariableAccessGraphRequested;
         diagramViewHost.DatabaseTableAccessGraphRequested += OnDatabaseTableAccessGraphRequested;
+        diagramViewHost.SummaryNavigationRequested += OnSummaryNavigationRequested;
         InitializeOptionControls();
         LoadLanguageList();
         RestoreUserSettings();
@@ -200,12 +211,6 @@ public partial class MainForm : Form
 
     private void InitializeOptionControls()
     {
-        checkedListDirectories.ItemCheck += (_, _) =>
-        {
-            if (!_suppressDirectoryListEvents && IsHandleCreated)
-                BeginInvoke(PersistDirectoryExclusionsFromSidebar);
-        };
-
         RefreshDiagramViewCombo(preserveSelection: false);
 
         comboLayoutDirection.Items.AddRange(new object[]
@@ -319,22 +324,22 @@ public partial class MainForm : Form
 
     private void LoadLanguageList()
     {
-        checkedListLanguages.Items.Clear();
+        analysisSetupPanel.LanguageList.Items.Clear();
 
         foreach (var language in LanguageRegistry.All)
         {
-            var index = checkedListLanguages.Items.Add(language);
-            checkedListLanguages.SetItemChecked(index, true);
+            var index = analysisSetupPanel.LanguageList.Items.Add(language);
+            analysisSetupPanel.LanguageList.SetItemChecked(index, true);
         }
     }
 
-    private void btnBrowseRoot_Click(object sender, EventArgs e)
+    private void btnBrowseRoot_Click(object? sender, EventArgs e)
     {
         using var dialog = new FolderBrowserDialog
         {
             Description = "분석할 루트 디렉터리를 선택하세요.",
             UseDescriptionForTitle = true,
-            SelectedPath = string.IsNullOrWhiteSpace(txtRootPath.Text) ? Environment.CurrentDirectory : txtRootPath.Text
+            SelectedPath = string.IsNullOrWhiteSpace(analysisSetupPanel.RootPathTextBox.Text) ? Environment.CurrentDirectory : analysisSetupPanel.RootPathTextBox.Text
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -342,13 +347,13 @@ public partial class MainForm : Form
             return;
         }
 
-        txtRootPath.Text = dialog.SelectedPath;
+        analysisSetupPanel.RootPathTextBox.Text = dialog.SelectedPath;
         ApplyRootDirectory(dialog.SelectedPath, saveSettings: true);
     }
 
-    private void txtRootPath_Leave(object sender, EventArgs e)
+    private void txtRootPath_Leave(object? sender, EventArgs e)
     {
-        ApplyRootDirectory(txtRootPath.Text.Trim(), saveSettings: true);
+        ApplyRootDirectory(analysisSetupPanel.RootPathTextBox.Text.Trim(), saveSettings: true);
     }
 
     private void RestoreUserSettings()
@@ -365,7 +370,7 @@ public partial class MainForm : Form
             return;
         }
 
-        txtRootPath.Text = _analysisSettings.LastRootDirectory;
+        analysisSetupPanel.RootPathTextBox.Text = _analysisSettings.LastRootDirectory;
         ApplyRootDirectory(_analysisSettings.LastRootDirectory, saveSettings: false);
     }
 
@@ -447,8 +452,12 @@ public partial class MainForm : Form
     {
         var settings = UserAnalysisSettings.CloneThresholds(_analysisSettings);
         settings.EnabledInspections = _enabledInspections;
-        settings.ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar();
-        settings.LastRootDirectory = _userSettings.LoadSettings().LastRootDirectory;
+        settings.IncludedDirectoryPaths = GetIncludedDirectoriesFromSidebar();
+        settings.ExcludedDirectoryPaths = [];
+        var rootPath = analysisSetupPanel.RootPathTextBox.Text.Trim();
+        settings.LastRootDirectory = Directory.Exists(rootPath)
+            ? Path.GetFullPath(rootPath)
+            : _userSettings.LoadSettings().LastRootDirectory;
         return settings;
     }
 
@@ -462,7 +471,7 @@ public partial class MainForm : Form
             return;
         }
 
-        txtRootPath.Text = rootPath;
+        analysisSetupPanel.RootPathTextBox.Text = rootPath;
         LoadDirectoryList(rootPath);
 
         if (saveSettings)
@@ -478,95 +487,164 @@ public partial class MainForm : Form
             _analysisCts.Cancel();
         }
 
-        ApplyRootDirectory(txtRootPath.Text.Trim(), saveSettings: true);
+        ApplyRootDirectory(analysisSetupPanel.RootPathTextBox.Text.Trim(), saveSettings: true);
         base.OnFormClosing(e);
     }
 
-    private void LoadDirectoryList(string rootPath)
+    private void LoadDirectoryList(string rootPath, IReadOnlyList<string>? includedPathsOverride = null)
     {
-        _suppressDirectoryListEvents = true;
+        analysisSetupPanel.SuppressDirectoryListEvents = true;
         try
         {
-            checkedListDirectories.Items.Clear();
+            analysisSetupPanel.DirectoryList.Items.Clear();
+            analysisSetupPanel.DirectoryList.Items.Add(new DirectoryListEntry("."), isChecked: true);
 
             var directories = DirectoryScanService.ScanSubdirectories(rootPath);
             foreach (var directory in directories)
             {
-                checkedListDirectories.Items.Add(directory, isChecked: true);
+                analysisSetupPanel.DirectoryList.Items.Add(new DirectoryListEntry(directory), isChecked: true);
             }
 
-            var settings = _userSettings.LoadSettings();
-            var hadLegacyIncludeList = settings.IncludedDirectoryPaths.Count > 0;
-            DirectoryScopeSettings.MigrateLegacyIncludedPaths(settings, directories);
-            if (hadLegacyIncludeList)
+            var knownPaths = GetDirectoryPathsFromSidebar();
+            IReadOnlyList<string> includedForSidebar;
+            if (includedPathsOverride is { Count: > 0 })
             {
-                _userSettings.SaveSettings(settings);
+                includedForSidebar = includedPathsOverride;
+            }
+            else
+            {
+                var settings = _userSettings.LoadSettings();
+                var hadLegacyIncludeList = settings.IncludedDirectoryPaths.Count > 0;
+                DirectoryScopeSettings.MigrateLegacyIncludedPaths(settings, knownPaths);
+                if (hadLegacyIncludeList)
+                {
+                    _userSettings.SaveSettings(settings);
+                }
+
+                includedForSidebar = DirectoryScopeSettings.ResolveIncludedPathsForSidebar(
+                    knownPaths,
+                    settings.IncludedDirectoryPaths,
+                    settings.ExcludedDirectoryPaths);
             }
 
-            ApplyDirectoryChecksToSidebar(settings.ExcludedDirectoryPaths);
+            ApplyDirectoryChecksFromIncluded(includedForSidebar);
         }
         finally
         {
-            _suppressDirectoryListEvents = false;
+            analysisSetupPanel.SuppressDirectoryListEvents = false;
         }
     }
 
-    private void ApplyDirectoryChecksToSidebar(IReadOnlyList<string> excludedPaths)
+    private void ApplyDirectoryChecksFromIncluded(IReadOnlyList<string> includedPaths)
     {
-        _suppressDirectoryListEvents = true;
+        analysisSetupPanel.SuppressDirectoryListEvents = true;
         try
         {
-            var excluded = new HashSet<string>(excludedPaths, StringComparer.OrdinalIgnoreCase);
-            for (var i = 0; i < checkedListDirectories.Items.Count; i++)
+            var included = new HashSet<string>(
+                includedPaths.Select(path => path == "." ? "." : path),
+                StringComparer.OrdinalIgnoreCase);
+
+            for (var i = 0; i < analysisSetupPanel.DirectoryList.Items.Count; i++)
             {
-                if (checkedListDirectories.Items[i] is string path)
+                if (TryGetDirectoryRelativePath(analysisSetupPanel.DirectoryList.Items[i], out var path))
                 {
-                    checkedListDirectories.SetItemChecked(i, !excluded.Contains(path));
+                    analysisSetupPanel.DirectoryList.SetItemChecked(i, included.Contains(path));
                 }
             }
         }
         finally
         {
-            _suppressDirectoryListEvents = false;
+            analysisSetupPanel.SuppressDirectoryListEvents = false;
         }
     }
 
-    private void PersistDirectoryExclusionsFromSidebar()
+    private void ApplyDirectoryChecksToSidebar(IReadOnlyList<string> excludedPaths)
     {
-        if (_suppressDirectoryListEvents || _isAnalysisRunning)
+        analysisSetupPanel.SuppressDirectoryListEvents = true;
+        try
+        {
+            var excluded = new HashSet<string>(excludedPaths, StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < analysisSetupPanel.DirectoryList.Items.Count; i++)
+            {
+                if (TryGetDirectoryRelativePath(analysisSetupPanel.DirectoryList.Items[i], out var path))
+                {
+                    analysisSetupPanel.DirectoryList.SetItemChecked(i, !excluded.Contains(path));
+                }
+            }
+        }
+        finally
+        {
+            analysisSetupPanel.SuppressDirectoryListEvents = false;
+        }
+    }
+
+    private void PersistDirectorySelectionsFromSidebar()
+    {
+        if (analysisSetupPanel.SuppressDirectoryListEvents || _isAnalysisRunning)
         {
             return;
         }
 
         var settings = _userSettings.LoadSettings();
-        settings.IncludedDirectoryPaths = [];
-        settings.ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar();
+        settings.IncludedDirectoryPaths = GetIncludedDirectoriesFromSidebar();
+        settings.ExcludedDirectoryPaths = [];
         _userSettings.SaveSettings(settings);
     }
 
-    private List<string> GetExcludedDirectoriesFromSidebar()
+    private List<string> GetDirectoryPathsFromSidebar()
     {
-        var excluded = new List<string>();
-        for (var i = 0; i < checkedListDirectories.Items.Count; i++)
+        var paths = new List<string>();
+        for (var i = 0; i < analysisSetupPanel.DirectoryList.Items.Count; i++)
         {
-            if (!checkedListDirectories.GetItemChecked(i) && checkedListDirectories.Items[i] is string path)
+            if (TryGetDirectoryRelativePath(analysisSetupPanel.DirectoryList.Items[i], out var path))
             {
-                excluded.Add(path);
+                paths.Add(path);
             }
         }
 
-        return excluded;
+        return paths;
+    }
+
+    private List<string> GetIncludedDirectoriesFromSidebar()
+    {
+        var included = new List<string>();
+        for (var i = 0; i < analysisSetupPanel.DirectoryList.Items.Count; i++)
+        {
+            if (analysisSetupPanel.DirectoryList.GetItemChecked(i)
+                && TryGetDirectoryRelativePath(analysisSetupPanel.DirectoryList.Items[i], out var path))
+            {
+                included.Add(path);
+            }
+        }
+
+        return included;
+    }
+
+    private static bool TryGetDirectoryRelativePath(object? item, out string path)
+    {
+        switch (item)
+        {
+            case DirectoryListEntry entry:
+                path = entry.RelativePath;
+                return true;
+            case string relativePath when !string.IsNullOrWhiteSpace(relativePath):
+                path = relativePath;
+                return true;
+            default:
+                path = "";
+                return false;
+        }
     }
 
     private IEnumerable<string> GetSelectedLanguageIds()
     {
-        foreach (ProgrammingLanguage language in checkedListLanguages.CheckedItems)
+        foreach (ProgrammingLanguage language in analysisSetupPanel.LanguageList.CheckedItems)
         {
             yield return language.Id;
         }
     }
 
-    private async void btnAnalyze_Click(object sender, EventArgs e)
+    private async void btnAnalyze_Click(object? sender, EventArgs e)
     {
         if (_isAnalysisRunning)
         {
@@ -574,7 +652,7 @@ public partial class MainForm : Form
             return;
         }
 
-        var rootPath = txtRootPath.Text.Trim();
+        var rootPath = analysisSetupPanel.RootPathTextBox.Text.Trim();
         if (!Directory.Exists(rootPath))
         {
             MessageBox.Show(this, "유효한 디렉터리를 선택하세요.", "분석", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -585,6 +663,13 @@ public partial class MainForm : Form
         if (enabledLanguages.Count == 0)
         {
             MessageBox.Show(this, "분석할 프로그래밍 언어를 하나 이상 선택하세요.", "분석", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var includedDirectories = GetIncludedDirectoriesFromSidebar();
+        if (includedDirectories.Count == 0)
+        {
+            MessageBox.Show(this, "분석할 하위 디렉터리를 하나 이상 선택하세요.", "분석", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
@@ -608,9 +693,11 @@ public partial class MainForm : Form
 
         try
         {
-            PersistDirectoryExclusionsFromSidebar();
+            PersistDirectorySelectionsFromSidebar();
 
             var qualityThresholds = UserAnalysisSettings.ResolveForAnalysis(ReadQualityThresholdsFromControls());
+            qualityThresholds.IncludedDirectoryPaths = includedDirectories;
+            qualityThresholds.ExcludedDirectoryPaths = [];
             qualityThresholds.LastRootDirectory = _userSettings.LoadSettings().LastRootDirectory;
             _userSettings.SaveSettings(qualityThresholds);
 
@@ -730,7 +817,7 @@ public partial class MainForm : Form
 
         _isStoppingAnalysis = true;
         UseWaitCursor = false;
-        btnAnalyze.Enabled = false;
+        analysisSetupPanel.AnalyzeButton.Enabled = false;
         RefreshAnalysisElapsedStatus();
 
         try
@@ -748,7 +835,7 @@ public partial class MainForm : Form
         // 진행 갱신/추가 입력을 최소화합니다.
         if (_isAnalysisRunning)
         {
-            btnAnalyze.Enabled = false;
+            analysisSetupPanel.AnalyzeButton.Enabled = false;
         }
 
         return Task.CompletedTask;
@@ -767,7 +854,7 @@ public partial class MainForm : Form
 
         SetAnalyzeButtonRunning();
         SetToolbarEnabled(false);
-        btnAnalysisSettings.Enabled = false;
+        analysisSetupPanel.AnalysisSettingsButton.Enabled = false;
         menuAnalysisSettings.Enabled = false;
         menuDatabaseSettings.Enabled = false;
         ResetAnalysisProgress(isActive: true);
@@ -789,7 +876,7 @@ public partial class MainForm : Form
         diagramViewHost.EndAnalysis();
         SetAnalyzeButtonIdle();
         SetToolbarEnabled(true);
-        btnAnalysisSettings.Enabled = true;
+        analysisSetupPanel.AnalysisSettingsButton.Enabled = true;
         menuAnalysisSettings.Enabled = true;
         menuDatabaseSettings.Enabled = true;
         ResetAnalysisProgress(isActive: false);
@@ -816,23 +903,9 @@ public partial class MainForm : Form
         UpdateRootHistoryNavigationState();
     }
 
-    private void SetAnalyzeButtonIdle()
-    {
-        btnAnalyze.Text = "분석 실행";
-        btnAnalyze.BackColor = Color.FromArgb(74, 108, 155);
-        btnAnalyze.ForeColor = Color.White;
-        btnAnalyze.UseVisualStyleBackColor = false;
-        btnAnalyze.Enabled = true;
-    }
+    private void SetAnalyzeButtonIdle() => analysisSetupPanel.SetAnalyzeButtonIdle();
 
-    private void SetAnalyzeButtonRunning()
-    {
-        btnAnalyze.Text = "멈춤";
-        btnAnalyze.BackColor = Color.FromArgb(192, 57, 43);
-        btnAnalyze.ForeColor = Color.White;
-        btnAnalyze.UseVisualStyleBackColor = false;
-        btnAnalyze.Enabled = true;
-    }
+    private void SetAnalyzeButtonRunning() => analysisSetupPanel.SetAnalyzeButtonRunning();
 
     private void ClearAnalysisResults()
     {
@@ -1318,7 +1391,7 @@ public partial class MainForm : Form
                 comboDiagramView.SelectedIndex = viewIndex;
             }
 
-            diagramViewHost.ProjectRootDirectory = txtRootPath.Text.Trim();
+            diagramViewHost.ProjectRootDirectory = analysisSetupPanel.RootPathTextBox.Text.Trim();
             diagramViewHost.ViewKind = selection.ViewKind;
 
             if (selection.ViewKind is DiagramViewKind.ClassDiagram or DiagramViewKind.Inheritance)
@@ -1420,7 +1493,7 @@ public partial class MainForm : Form
         try
         {
             var rootIds = ResolveRootNodeIds();
-            diagramViewHost.ProjectRootDirectory = txtRootPath.Text.Trim();
+            diagramViewHost.ProjectRootDirectory = analysisSetupPanel.RootPathTextBox.Text.Trim();
             diagramViewHost.ViewKind = GetSelectedViewKind();
             diagramViewHost.SetAnalysis(_lastAnalysis, rootIds);
             ApplySearchHighlightToViewer();
@@ -1505,7 +1578,9 @@ public partial class MainForm : Form
                 savePath,
                 $"분석 루트:{Environment.NewLine}{rootSummary}{Environment.NewLine}{Environment.NewLine}" +
                 $"선택 언어 {project.EnabledLanguageIds.Count}개, " +
-                $"제외 디렉터리 {project.ExcludedDirectoryPaths.Count}개");
+                $"선택 디렉터리 {project.IncludedDirectoryPaths.Count}개, " +
+                $"검사 항목 {CountEnabledInspections(project.Settings.EnabledInspections)}개, " +
+                $"DB 자동 저장 {(project.Settings.DatabaseConnection.Enabled ? "켜짐" : "꺼짐")}");
         }
         catch (Exception ex)
         {
@@ -1540,17 +1615,21 @@ public partial class MainForm : Form
 
     private AnalysisProject BuildProjectFromCurrentState()
     {
+        var settings = BuildAnalysisSettingsForPersistence();
         return new AnalysisProject
         {
-            RootDirectory = txtRootPath.Text.Trim(),
+            RootDirectory = analysisSetupPanel.RootPathTextBox.Text.Trim(),
             EnabledLanguageIds = GetSelectedLanguageIds().ToList(),
-            ExcludedDirectoryPaths = GetExcludedDirectoriesFromSidebar(),
-            Settings = BuildAnalysisSettingsForPersistence()
+            IncludedDirectoryPaths = settings.IncludedDirectoryPaths.ToList(),
+            ExcludedDirectoryPaths = [],
+            Settings = settings
         };
     }
 
     private void ApplyProject(AnalysisProject project)
     {
+        ProjectFileService.Normalize(project);
+
         if (project.Settings is not null)
         {
             _analysisSettings = UserAnalysisSettings.ResolveForAnalysis(project.Settings);
@@ -1559,26 +1638,43 @@ public partial class MainForm : Form
             RefreshDiagramViewCombo();
         }
 
+        var includedPaths = ProjectFileService.ResolveIncludedDirectoryPaths(project);
+
         if (!string.IsNullOrWhiteSpace(project.RootDirectory) && Directory.Exists(project.RootDirectory))
         {
-            txtRootPath.Text = project.RootDirectory;
-            ApplyRootDirectory(project.RootDirectory, saveSettings: false);
+            analysisSetupPanel.RootPathTextBox.Text = project.RootDirectory;
+            LoadDirectoryList(
+                project.RootDirectory,
+                includedPaths.Count > 0 ? includedPaths : null);
+        }
+        else if (includedPaths.Count > 0 && analysisSetupPanel.DirectoryList.Items.Count > 0)
+        {
+            ApplyDirectoryChecksFromIncluded(includedPaths);
+        }
+        else if (project.ExcludedDirectoryPaths.Count > 0)
+        {
+            ApplyDirectoryChecksToSidebar(project.ExcludedDirectoryPaths);
         }
 
         if (project.EnabledLanguageIds.Count > 0)
         {
             var enabledSet = new HashSet<string>(project.EnabledLanguageIds, StringComparer.OrdinalIgnoreCase);
-            for (var i = 0; i < checkedListLanguages.Items.Count; i++)
+            for (var i = 0; i < analysisSetupPanel.LanguageList.Items.Count; i++)
             {
-                if (checkedListLanguages.Items[i] is ProgrammingLanguage lang)
-                    checkedListLanguages.SetItemChecked(i, enabledSet.Contains(lang.Id));
+                if (analysisSetupPanel.LanguageList.Items[i] is ProgrammingLanguage lang)
+                {
+                    analysisSetupPanel.LanguageList.SetItemChecked(i, enabledSet.Contains(lang.Id));
+                }
             }
         }
 
-        if (project.ExcludedDirectoryPaths.Count > 0)
-            ApplyDirectoryChecksToSidebar(project.ExcludedDirectoryPaths);
-
         _userSettings.SaveQualityThresholds(BuildAnalysisSettingsForPersistence());
+    }
+
+    private static int CountEnabledInspections(MetricInspectionKind inspections)
+    {
+        var normalized = MetricInspectionCatalog.NormalizeScope(inspections);
+        return MetricInspectionCatalog.Options.Count(option => normalized.HasFlag(option.Kind));
     }
 
     private void menuSave_Click(object sender, EventArgs e)
@@ -1657,6 +1753,23 @@ public partial class MainForm : Form
             : $"DB 테이블 '{table.Name}' — 접근 함수가 없어 테이블 노드만 표시했습니다.";
     }
 
+    private void OnSummaryNavigationRequested(DiagramViewKind viewKind)
+    {
+        if (_lastAnalysis is null)
+        {
+            return;
+        }
+
+        if (!_visibleDiagramViews.Contains(viewKind))
+        {
+            lblStatus.Text = "선택한 뷰가 현재 분석 설정에서 사용할 수 없습니다.";
+            return;
+        }
+
+        SwitchDiagramViewForSearch(viewKind);
+        lblStatus.Text = $"Summary에서 「{DiagramViewCatalog.GetComboLabel(viewKind)}」 뷰로 이동했습니다.";
+    }
+
     private void OnMetricsNavigationRequested(MetricsNavigationRequest request)
     {
         if (_lastAnalysis is null)
@@ -1733,7 +1846,7 @@ public partial class MainForm : Form
             DefaultExt = "html",
             FileName = AnalysisReportExportService.BuildDefaultFileName(
                 AnalysisReportFormat.Html,
-                txtRootPath.Text.Trim())
+                analysisSetupPanel.RootPathTextBox.Text.Trim())
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -1747,7 +1860,7 @@ public partial class MainForm : Form
         {
             AnalysisReportExportService.Save(
                 _lastAnalysis,
-                txtRootPath.Text.Trim(),
+                analysisSetupPanel.RootPathTextBox.Text.Trim(),
                 savePath);
             lblStatus.Text = $"분석 보고서 저장됨: {savePath}";
             ShowFileSaveSuccess(this, "분석 보고서 내보내기", savePath);
@@ -1772,7 +1885,7 @@ public partial class MainForm : Form
             Title = "코드 메트릭 CSV보내기",
             Filter = "CSV 파일 (*.csv)|*.csv|모든 파일 (*.*)|*.*",
             DefaultExt = "csv",
-            FileName = AnalysisExportFileNameBuilder.Build(txtRootPath.Text.Trim(), "csv")
+            FileName = AnalysisExportFileNameBuilder.Build(analysisSetupPanel.RootPathTextBox.Text.Trim(), "csv")
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -1827,7 +1940,7 @@ public partial class MainForm : Form
             Title = "이미지로 내보내기",
             Filter = "PNG 이미지 (*.png)|*.png",
             DefaultExt = "png",
-            FileName = AnalysisExportFileNameBuilder.Build(txtRootPath.Text.Trim(), "png")
+            FileName = AnalysisExportFileNameBuilder.Build(analysisSetupPanel.RootPathTextBox.Text.Trim(), "png")
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -1862,7 +1975,7 @@ public partial class MainForm : Form
             Title = "분석 결과 저장",
             Filter = "JSON 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
             DefaultExt = "json",
-            FileName = AnalysisExportFileNameBuilder.Build(txtRootPath.Text.Trim(), "json")
+            FileName = AnalysisExportFileNameBuilder.Build(analysisSetupPanel.RootPathTextBox.Text.Trim(), "json")
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -1874,11 +1987,13 @@ public partial class MainForm : Form
 
         try
         {
-            CallGraphExportService.SaveToFile(_lastAnalysis, txtRootPath.Text.Trim(), savePath);
+            CallGraphExportService.SaveToFile(_lastAnalysis, analysisSetupPanel.RootPathTextBox.Text.Trim(), savePath);
             lblStatus.Text =
                 $"결과 저장 완료: 함수 {_lastAnalysis.CallGraph.Nodes.Count:N0}개, " +
                 $"메트릭 {_lastAnalysis.Metrics.Functions.Count:N0}개, " +
                 $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건, " +
+                $"DB 인스턴스 {_lastAnalysis.DatabaseSchema.Catalogs.Count:N0}개, " +
+                $"필드 접근 {_lastAnalysis.DatabaseSchema.ColumnAccesses.Count:N0}건, " +
                 $"버그 위험 {_lastAnalysis.BugRisk.Findings.Count:N0}건, " +
                 $"보안 {_lastAnalysis.Security.Findings.Count:N0}건 · {savePath}";
             ShowFileSaveSuccess(
@@ -1888,6 +2003,8 @@ public partial class MainForm : Form
                 $"함수 {_lastAnalysis.CallGraph.Nodes.Count:N0}개, " +
                 $"메트릭 {_lastAnalysis.Metrics.Functions.Count:N0}개, " +
                 $"중복 {_lastAnalysis.Duplicates.Groups.Count:N0}건, " +
+                $"DB 인스턴스 {_lastAnalysis.DatabaseSchema.Catalogs.Count:N0}개, " +
+                $"필드 접근 {_lastAnalysis.DatabaseSchema.ColumnAccesses.Count:N0}건, " +
                 $"버그 위험 {_lastAnalysis.BugRisk.Findings.Count:N0}건, " +
                 $"보안 {_lastAnalysis.Security.Findings.Count:N0}건");
         }
@@ -1936,7 +2053,7 @@ public partial class MainForm : Form
     {
         if (!string.IsNullOrWhiteSpace(rootDirectory))
         {
-            txtRootPath.Text = rootDirectory;
+            analysisSetupPanel.RootPathTextBox.Text = rootDirectory;
         }
 
         if (analysis.QualityThresholds is not null)
@@ -1951,7 +2068,7 @@ public partial class MainForm : Form
 
         try
         {
-            diagramViewHost.ProjectRootDirectory = txtRootPath.Text.Trim();
+            diagramViewHost.ProjectRootDirectory = analysisSetupPanel.RootPathTextBox.Text.Trim();
             diagramViewHost.ViewKind = GetSelectedViewKind();
             diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
             ApplySearchHighlightToViewer();

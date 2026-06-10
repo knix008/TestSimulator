@@ -54,6 +54,11 @@ public static class DatabaseTableAccessAnalyzer
         CallGraphResult callGraph,
         IReadOnlyList<string>? sourceFiles = null)
     {
+        if (schema.Tables.Count == 0)
+        {
+            return schema;
+        }
+
         var index = BuildReferenceIndex(schema.Tables);
         var accesses = new List<DatabaseTableAccess>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -63,6 +68,11 @@ public static class DatabaseTableAccessAnalyzer
 
         foreach (var function in functions)
         {
+            if (!DatabaseAccessScanExclusions.ShouldScanFile(function.FilePath))
+            {
+                continue;
+            }
+
             var endLine = function.EndLine > function.StartLine
                 ? function.EndLine
                 : function.StartLine + MethodScanLineWindow;
@@ -70,23 +80,16 @@ public static class DatabaseTableAccessAnalyzer
                 index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, useFunctionId: true);
         }
 
-        AppendCallGraphOnlyAccessors(callGraph, index, accesses, seen, entryAccesses, entrySeen, fileCache);
-        AppendFileLevelSqlLiteralScan(sourceFiles, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache);
-
         accesses = DeduplicateAccesses(accesses);
         entryAccesses = DeduplicateEntryAccesses(entryAccesses);
 
-        var (catalogs, catalogAccesses) = DatabaseCatalogAccessAnalyzer.Analyze(functions, callGraph, sourceFiles);
+        var (catalogs, catalogAccesses) = DatabaseCatalogAccessAnalyzer.Analyze(functions, callGraph);
 
-        IReadOnlyList<DatabaseTable> allTables = index.AutoDiscoveredTables.Count > 0
-            ? [.. schema.Tables, .. index.AutoDiscoveredTables]
-            : schema.Tables;
-
-        var tableMap = allTables
+        var tableMap = schema.Tables
             .GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var columnAccesses = BuildColumnAccesses(sourceFiles, allTables, accesses, callGraph, fileCache);
+        var columnAccesses = BuildColumnAccesses(sourceFiles, schema.Tables, accesses, callGraph, fileCache);
 
         var grouped = accesses
             .GroupBy(a => a.TableId, StringComparer.OrdinalIgnoreCase)
@@ -136,7 +139,7 @@ public static class DatabaseTableAccessAnalyzer
             CatalogMap = catalogs.ToDictionary(c => c.Id, StringComparer.OrdinalIgnoreCase),
             CatalogAccesses = catalogAccesses,
             CatalogAccessesByCatalogId = groupedCatalogAccesses,
-            Tables = allTables,
+            Tables = schema.Tables,
             Relations = schema.Relations,
             Accesses = accesses,
             TableMap = tableMap,
@@ -429,7 +432,7 @@ public static class DatabaseTableAccessAnalyzer
         // Universal patterns: API SQL first arg, NoSQL collections, JPA @Table
         DetectUniversalTableReferences(body, results, index);
 
-        // Language-specific ORM patterns
+        // Language-specific ORM patterns (스키마에 등록된 이름만)
         if (!string.IsNullOrEmpty(languageId))
         {
             foreach (var ormPattern in LanguageDbAccessPatterns.GetOrmPatterns(languageId))
@@ -447,25 +450,6 @@ public static class DatabaseTableAccessAnalyzer
                             ? DatabaseTableAccessKind.ReadWrite
                             : DatabaseTableAccessKind.Write;
                     TryAddAlias(results, index, entityName, kind, ormPattern.AccessPattern, ormPattern.Operation);
-                }
-            }
-        }
-
-        // Entity type and column name matching
-        foreach (var profile in index.Profiles)
-        {
-            if (!string.IsNullOrWhiteSpace(profile.EntityTypeName) && ReferencesEntityType(body, profile.EntityTypeName))
-            {
-                MergeAccess(results, profile.TableId,
-                    DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
-            }
-
-            foreach (var columnName in profile.ColumnNames)
-            {
-                if (ReferencesColumn(body, columnName))
-                {
-                    MergeAccess(results, profile.TableId,
-                        DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
                 }
             }
         }
@@ -503,14 +487,16 @@ public static class DatabaseTableAccessAnalyzer
                 var name = match.Groups[1].Value;
                 if (string.IsNullOrWhiteSpace(name) || name.Length < 2)
                     continue;
-                TryAddMatch(results, index, string.Empty, name,
+                if (!TryResolveTable(index, name, out var tableId))
+                    continue;
+                MergeAccess(results, tableId,
                     DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
             }
         }
 
         foreach (Match match in UniversalDatabasePatterns.JpaTableAnnotationRegex.Matches(body))
         {
-            TryAddMatch(results, index, string.Empty, match.Groups[1].Value,
+            TryAddAlias(results, index, match.Groups[1].Value,
                 DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
         }
     }
@@ -529,10 +515,9 @@ public static class DatabaseTableAccessAnalyzer
         var qualified = string.IsNullOrWhiteSpace(schemaToken) ? tableToken : $"{schemaToken}.{tableToken}";
         if (!TryResolveTable(index, qualified, out var tableId) && !TryResolveTable(index, tableToken, out tableId))
         {
-            tableId = AutoDiscoverSqlTable(index, schemaToken, tableToken);
-            if (string.IsNullOrEmpty(tableId))
-                return;
+            return;
         }
+
         MergeAccess(results, tableId, kind, pattern, operations);
     }
 

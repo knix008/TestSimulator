@@ -26,6 +26,11 @@ public static class SqlInCodeSchemaExtractor
                 continue;
             }
 
+            if (Path.GetFileName(file).Equals("DatabaseSchemaInitializer.cs", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             string content;
             try
             {

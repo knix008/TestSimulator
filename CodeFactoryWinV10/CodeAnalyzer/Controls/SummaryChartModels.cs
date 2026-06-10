@@ -1,3 +1,6 @@
+using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
+
 namespace CodeAnalyzer.Controls;
 
 internal enum SummaryChartKind
@@ -22,10 +25,16 @@ internal readonly record struct SummaryMiniPieItem(string Label, double Value, d
 
 internal readonly record struct SummaryKpiItem(string Label, string Value, string? Hint = null);
 
+internal readonly record struct SummaryChartHitRegion(
+    Rectangle Bounds,
+    string Tooltip,
+    DiagramViewKind? TargetView);
+
 internal sealed class SummarySection
 {
     public required string Title { get; init; }
     public required string SummaryText { get; init; }
+    public SummaryAreaKind? AreaKind { get; init; }
     public SummaryChartKind ChartKind { get; init; } = SummaryChartKind.None;
     public bool IsFullWidth { get; init; }
     public int? CardHeight { get; init; }
@@ -34,4 +43,7 @@ internal sealed class SummarySection
     public IReadOnlyList<SummaryBarItem> Bars { get; init; } = [];
     public IReadOnlyList<SummaryMiniPieItem> PieItems { get; init; } = [];
     public IReadOnlyList<SummaryRadarAxisItem> RadarAxes { get; init; } = [];
+
+    public DiagramViewKind? TargetViewKind =>
+        AreaKind is { } kind ? SummaryAreaNavigation.GetViewKind(kind) : null;
 }

@@ -144,7 +144,7 @@ public sealed class UserSettingsService
         settings.WarnSecuritySmellCount = thresholds.WarnSecuritySmellCount;
         settings.EnabledInspections = MetricInspectionCatalog.NormalizeScope(thresholds.EnabledInspections);
         settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
-        settings.IncludedDirectoryPaths = [];
+        settings.IncludedDirectoryPaths = CloneDirectoryPaths(thresholds.IncludedDirectoryPaths);
         settings.ExcludedDirectoryPaths = CloneDirectoryPaths(thresholds.ExcludedDirectoryPaths);
         settings.DatabaseConnection = DatabaseConnectionSettings.Normalize(thresholds.DatabaseConnection);
         SaveSettings(settings);
@@ -164,7 +164,7 @@ public sealed class UserSettingsService
     {
         settings.EnabledInspections = MetricInspectionCatalog.NormalizeScope(settings.EnabledInspections);
         settings.EnabledAnalysisScope = AnalysisScopeResolver.Resolve(settings.EnabledInspections);
-        settings.IncludedDirectoryPaths = [];
+        settings.IncludedDirectoryPaths = CloneDirectoryPaths(settings.IncludedDirectoryPaths);
         settings.ExcludedDirectoryPaths = CloneDirectoryPaths(settings.ExcludedDirectoryPaths);
         settings.DatabaseConnection = DatabaseConnectionSettings.Normalize(settings.DatabaseConnection);
 

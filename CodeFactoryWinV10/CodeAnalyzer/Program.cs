@@ -8,8 +8,18 @@ static class Program
     ///  The main entry point for the application.
     /// </summary>
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--verify-export")
+        {
+            Environment.Exit(Services.CallGraphExportRoundTripVerifier.Run() ? 0 : 1);
+        }
+
+        if (args.Length > 0 && args[0] == "--verify-project")
+        {
+            Environment.Exit(Services.ProjectFileRoundTripVerifier.Run() ? 0 : 1);
+        }
+
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += OnThreadException;
