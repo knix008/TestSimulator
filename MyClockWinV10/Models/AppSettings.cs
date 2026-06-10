@@ -8,6 +8,7 @@ public class AppSettings
     public string Theme { get; set; } = "DarkTheme";
     public int Brightness { get; set; } = 50;
     public string DigitColor { get; set; } = "#58A6FF";
+    public string AmPmColor { get; set; } = "#89B4FA";
     public bool IsDigital { get; set; } = true;
     public string DigitalStyleName { get; set; } = "SevenSegment";
     public string AnalogStyleName  { get; set; } = "Classic";
@@ -27,7 +28,7 @@ public class AppSettings
     public List<AlarmDto> Alarms { get; set; } = new();
     public List<WorldTimeCityDto>? WorldCities { get; set; }
     public List<TimerDto> Timers { get; set; } = [new TimerDto()];
-    public string AlarmSoundId { get; set; } = "Classic";
+    public string AlarmSoundId { get; set; } = "Marimba";
     public int AlarmVolume { get; set; } = 50;
 }
 

@@ -93,6 +93,15 @@ public partial class AnalogClockControl : UserControl
             case AnalogStyle.Aviator:
                 DrawAviatorFace(tickMin, tickHr, numBrush);
                 break;
+            case AnalogStyle.Nautical:
+                DrawNauticalFace(tickMin, tickHr, numBrush);
+                break;
+            case AnalogStyle.Modern:
+                DrawModernFace(tickHr, tickMin);
+                break;
+            case AnalogStyle.Steampunk:
+                DrawSteampunkFace(faceBorder, tickMin, tickHr, numBrush);
+                break;
         }
 
         double secA = now.Second               * 6      * Math.PI / 180;
@@ -326,6 +335,123 @@ public partial class AnalogClockControl : UserControl
                 ClockCanvas.Children.Add(dot);
             }
         }
+    }
+
+    private void DrawNauticalFace(Brush tickMin, Brush tickHr, Brush numBrush)
+    {
+        for (int i = 0; i < 60; i++)
+        {
+            bool isHour = i % 5 == 0;
+            double a = i * 6 * Math.PI / 180;
+            double outerR = _r - Sc(4);
+            double innerR = isHour ? _r - Sc(26) : _r - Sc(9);
+            ClockCanvas.Children.Add(new Line
+            {
+                X1 = _cx + outerR * Math.Sin(a), Y1 = _cy - outerR * Math.Cos(a),
+                X2 = _cx + innerR * Math.Sin(a), Y2 = _cy - innerR * Math.Cos(a),
+                Stroke = isHour ? tickHr : tickMin,
+                StrokeThickness = isHour ? Sc(3.5) : Sc(1),
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap   = PenLineCap.Round,
+                Opacity = isHour ? 1.0 : 0.55
+            });
+        }
+
+        foreach (int h in new[] { 12, 3, 6, 9 })
+        {
+            double a = h * 30 * Math.PI / 180;
+            double tipR = _r - Sc(8);
+            double baseR = _r - Sc(28);
+            double halfW = Sc(7);
+            double bx = _cx + baseR * Math.Sin(a);
+            double by = _cy - baseR * Math.Cos(a);
+            double tx = _cx + tipR * Math.Sin(a);
+            double ty = _cy - tipR * Math.Cos(a);
+            double px = Math.Cos(a) * halfW;
+            double py = Math.Sin(a) * halfW;
+            ClockCanvas.Children.Add(new Polygon
+            {
+                Fill = tickHr,
+                Points = new PointCollection
+                {
+                    new Point(tx, ty),
+                    new Point(bx - px, by - py),
+                    new Point(bx + px, by + py)
+                }
+            });
+        }
+
+        DrawArabicNumbers(numBrush);
+    }
+
+    private void DrawModernFace(Brush tickHr, Brush tickMin)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            bool isCardinal = i % 3 == 0;
+            double a = i * 30 * Math.PI / 180;
+            double outerR = _r - Sc(6);
+            if (isCardinal)
+            {
+                double innerR = _r - Sc(34);
+                ClockCanvas.Children.Add(new Line
+                {
+                    X1 = _cx + outerR * Math.Sin(a), Y1 = _cy - outerR * Math.Cos(a),
+                    X2 = _cx + innerR * Math.Sin(a), Y2 = _cy - innerR * Math.Cos(a),
+                    Stroke = tickHr, StrokeThickness = Sc(3),
+                    StrokeStartLineCap = PenLineCap.Flat, StrokeEndLineCap = PenLineCap.Flat
+                });
+            }
+            else
+            {
+                double pos = _r - Sc(12);
+                double dotR = Sc(2.5);
+                double cx = _cx + pos * Math.Sin(a);
+                double cy = _cy - pos * Math.Cos(a);
+                var dot = new Ellipse
+                {
+                    Width = dotR * 2, Height = dotR * 2,
+                    Fill = tickMin, Opacity = 0.7
+                };
+                Canvas.SetLeft(dot, cx - dotR);
+                Canvas.SetTop(dot,  cy - dotR);
+                ClockCanvas.Children.Add(dot);
+            }
+        }
+    }
+
+    private void DrawSteampunkFace(Brush faceBorder, Brush tickMin, Brush tickHr, Brush numBrush)
+    {
+        double innerD = (_r - Sc(22)) * 2;
+        var innerRing = new Ellipse
+        {
+            Width = innerD, Height = innerD,
+            Stroke = faceBorder, StrokeThickness = Sc(2),
+            Fill = Brushes.Transparent, Opacity = 0.55
+        };
+        Canvas.SetLeft(innerRing, _cx - innerD / 2);
+        Canvas.SetTop(innerRing,  _cy - innerD / 2);
+        ClockCanvas.Children.Add(innerRing);
+
+        for (int i = 0; i < 12; i++)
+        {
+            double a = i * 30 * Math.PI / 180;
+            double rivetR = Sc(3);
+            double pos = _r - Sc(3);
+            double cx = _cx + pos * Math.Sin(a);
+            double cy = _cy - pos * Math.Cos(a);
+            var rivet = new Ellipse
+            {
+                Width = rivetR * 2, Height = rivetR * 2,
+                Fill = tickHr, Opacity = 0.85
+            };
+            Canvas.SetLeft(rivet, cx - rivetR);
+            Canvas.SetTop(rivet,  cy - rivetR);
+            ClockCanvas.Children.Add(rivet);
+        }
+
+        DrawAllTicks(tickMin, tickHr);
+        DrawRomanNumbers(numBrush);
     }
 
     private void DrawAviatorFace(Brush tickMin, Brush tickHr, Brush numBrush)

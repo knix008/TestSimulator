@@ -51,6 +51,31 @@
             </Setter>
         </Style>
 
+        <Style x:Key="CustomColorPickerButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="SidePanelTabControlStyle" TargetType="TabControl">
             <Setter Property="Background" Value="{DynamicResource WindowBackgroundBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -506,6 +531,15 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- 오전/오후 색상 -->
+                        <TextBlock Text="오전/오후 색상" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"
+                                   Margin="0,0,0,5"/>
+                        <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                CornerRadius="6" Padding="10,10" Margin="0,0,0,14">
+                            <WrapPanel x:Name="AmPmColorSwatches"/>
+                        </Border>
+
                         <!-- 테마 -->
                         <TextBlock Text="테마" FontSize="12" FontWeight="SemiBold"
                                    Foreground="{DynamicResource SubtleForegroundBrush}"
@@ -524,7 +558,13 @@
                                 <Button Tag="RoseTheme"   Content="로즈"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
                                 <Button Tag="MonoTheme"   Content="모노"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
                                 <Button Tag="SunsetTheme" Content="선셋"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
-                                <Button Tag="MintTheme"   Content="민트"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="MintTheme"     Content="민트"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="CyberTheme"    Content="사이버"    Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="ForestTheme"   Content="포레스트"  Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="SakuraTheme"   Content="사쿠라"    Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="GoldTheme"     Content="골드"      Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="SlateTheme"    Content="슬레이트"  Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
+                                <Button Tag="LavenderTheme" Content="라벤더"    Width="78" Height="32" Margin="0,0,5,5" Click="Theme_Click"/>
                             </WrapPanel>
                         </Border>
 
@@ -592,6 +632,28 @@
                                 <RadioButton x:Name="WorldFormat24h" Content="24시간"
                                              GroupName="WFmt"
                                              Checked="WorldFormat_Checked" FontSize="13"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 화면 보호기 -->
+                        <TextBlock Text="화면 보호기" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SubtleForegroundBrush}"
+                                   Margin="0,0,0,5"/>
+                        <Border Background="{DynamicResource PanelBackgroundBrush}"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="디지털·아날로그 시계를 Windows 화면 보호기로 사용할 수 있습니다."
+                                           FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource SubtleForegroundBrush}"
+                                           Margin="0,0,0,10"/>
+                                <Button Content="화면 보호기 설정..."
+                                        Height="32" FontSize="13"
+                                        HorizontalAlignment="Left"
+                                        Click="ScreensaverConfig_Click"/>
+                                <TextBlock Text="설치: 빌드 폴더의 MyClockWinV10.scr 파일을 선택하세요."
+                                           FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource SubtleForegroundBrush}"
+                                           Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
 

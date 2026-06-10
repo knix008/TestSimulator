@@ -8,7 +8,10 @@ public enum DigitalStyle
     Retro,
     Neon,
     DotMatrix,
-    Korean
+    Korean,
+    Matrix,
+    Vintage,
+    Thin
 }
 
 public enum AnalogStyle
@@ -20,7 +23,10 @@ public enum AnalogStyle
     Railroad,
     Bauhaus,
     Dots,
-    Aviator
+    Aviator,
+    Nautical,
+    Modern,
+    Steampunk
 }
 
 public readonly record struct ClockStyleOption(string Id, string Label);
@@ -36,6 +42,9 @@ public static class ClockStyleCatalog
         new(nameof(DigitalStyle.Neon),        "네온"),
         new(nameof(DigitalStyle.DotMatrix),   "도트"),
         new(nameof(DigitalStyle.Korean),      "한글"),
+        new(nameof(DigitalStyle.Matrix),      "매트릭스"),
+        new(nameof(DigitalStyle.Vintage),     "빈티지"),
+        new(nameof(DigitalStyle.Thin),        "씬"),
     ];
 
     public static IReadOnlyList<ClockStyleOption> Analog { get; } =
@@ -48,5 +57,8 @@ public static class ClockStyleCatalog
         new(nameof(AnalogStyle.Bauhaus),  "바우하우스"),
         new(nameof(AnalogStyle.Dots),     "도트"),
         new(nameof(AnalogStyle.Aviator),  "파일럿"),
+        new(nameof(AnalogStyle.Nautical), "항해"),
+        new(nameof(AnalogStyle.Modern),   "모던"),
+        new(nameof(AnalogStyle.Steampunk),"스팀펑크"),
     ];
 }

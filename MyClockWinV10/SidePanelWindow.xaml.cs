@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MyClockWinV10.Models;
+using MyClockWinV10.Screensaver;
 using MyClockWinV10.Services;
 using static MyClockWinV10.Models.SettingsManager;
 
@@ -20,6 +21,7 @@ public partial class SidePanelWindow : Window
     public Action<bool>?   OnWorldFormatChanged;
     public Action<double>? OnBrightnessChanged;
     public Action<Color>?  OnDigitColorChanged;
+    public Action<Color>?  OnAmPmColorChanged;
     public Action?         OnResetRequested;
     public Action<string>? OnDigitalStyleChanged;
     public Action<string>? OnAnalogStyleChanged;
@@ -40,6 +42,12 @@ public partial class SidePanelWindow : Window
 
     private readonly List<RadioButton> _digitalStyleRadios = new();
     private readonly List<RadioButton> _analogStyleRadios  = new();
+    private Button? _digitCustomColorBtn;
+    private Button? _amPmCustomColorBtn;
+    private readonly List<Button> _amPmColorButtons = new();
+    private Color _currentDigitColor     = Color.FromRgb(0x58, 0xA6, 0xFF);
+    private Color _currentAmPmColor      = Color.FromRgb(0x89, 0xB4, 0xFA);
+    private Color _lastCustomAmPmColor   = Color.FromRgb(0x89, 0xB4, 0xFA);
 
     private static readonly int[] BrightnessScaleValues =
         [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
@@ -70,6 +78,7 @@ public partial class SidePanelWindow : Window
         TimerList.ItemsSource  = timers;
         SwLapList.ItemsSource  = stopwatch.Laps;
         BuildColorSwatches();
+        BuildAmPmColorSwatches();
         BuildClockStyleRadios();
         BuildAlarmSoundCombo();
         WorldPanel.EntriesChanged += () => OnSettingsChanged?.Invoke();
@@ -654,6 +663,12 @@ public partial class SidePanelWindow : Window
             OnThemeRequested?.Invoke(name);
     }
 
+    private void ScreensaverConfig_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new ScreensaverConfigWindow { Owner = this };
+        dlg.ShowDialog();
+    }
+
     private void Brightness_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (BrightnessLabel is null) return;
@@ -722,23 +737,164 @@ public partial class SidePanelWindow : Window
 
     private void BuildColorSwatches()
     {
+        BuildColorSwatchButtons(ColorSwatches, c =>
+        {
+            _currentDigitColor = c;
+            UpdateCustomColorButtonPreview(_digitCustomColorBtn, c);
+            OnDigitColorChanged?.Invoke(c);
+        });
+
+        _digitCustomColorBtn = CreateCustomColorButton(PickDigitColor);
+        ColorSwatches.Children.Add(_digitCustomColorBtn);
+        UpdateCustomColorButtonPreview(_digitCustomColorBtn, _currentDigitColor);
+    }
+
+    private void PickDigitColor()
+    {
+        if (!TryPickColor(_currentDigitColor, out var picked)) return;
+        _currentDigitColor = picked;
+        UpdateCustomColorButtonPreview(_digitCustomColorBtn, picked);
+        OnDigitColorChanged?.Invoke(picked);
+    }
+
+    private void BuildAmPmColorSwatches()
+    {
         foreach (var (label, color) in DigitColors)
         {
-            var btn = new Button
-            {
-                Width           = 66,
-                Height          = 36,
-                Content         = label,
-                FontSize        = 12,
-                Background      = new SolidColorBrush(color),
-                Foreground      = IsLight(color) ? Brushes.Black : Brushes.White,
-                BorderThickness = new Thickness(0),
-                Margin          = new Thickness(0, 0, 5, 5),
-                Cursor          = Cursors.Hand,
-                Tag             = color
-            };
-            btn.Click += (s, _) => { if (s is Button b && b.Tag is Color c) OnDigitColorChanged?.Invoke(c); };
-            ColorSwatches.Children.Add(btn);
+            var btn = CreatePresetColorButton(label, color);
+            var captured = color;
+            btn.Click += (_, _) => SelectAmPmColor(captured);
+            _amPmColorButtons.Add(btn);
+            AmPmColorSwatches.Children.Add(btn);
+        }
+
+        _amPmCustomColorBtn = CreateCustomColorButton(PickAmPmColor);
+        _amPmColorButtons.Add(_amPmCustomColorBtn);
+        AmPmColorSwatches.Children.Add(_amPmCustomColorBtn);
+        UpdateAmPmCustomButtonPreview();
+        UpdateAmPmColorSelection(_currentAmPmColor);
+    }
+
+    private void SelectAmPmColor(Color color)
+    {
+        _currentAmPmColor = color;
+        if (!IsPresetColor(color))
+            _lastCustomAmPmColor = color;
+        UpdateAmPmCustomButtonPreview();
+        UpdateAmPmColorSelection(color);
+        OnAmPmColorChanged?.Invoke(color);
+    }
+
+    private void UpdateAmPmCustomButtonPreview()
+    {
+        if (_amPmCustomColorBtn is null) return;
+        _amPmCustomColorBtn.Background = new SolidColorBrush(_lastCustomAmPmColor);
+        _amPmCustomColorBtn.Foreground = IsLight(_lastCustomAmPmColor) ? Brushes.Black : Brushes.White;
+    }
+
+    private void PickAmPmColor()
+    {
+        if (!TryPickColor(_currentAmPmColor, out var picked)) return;
+        SelectAmPmColor(picked);
+    }
+
+    private void UpdateAmPmColorSelection(Color selected)
+    {
+        foreach (var btn in _amPmColorButtons)
+        {
+            bool isSelected = btn == _amPmCustomColorBtn
+                ? !IsPresetColor(selected)
+                : btn.Tag is Color c && ColorsMatch(c, selected);
+
+            if (btn == _amPmCustomColorBtn)
+                btn.BorderThickness = new Thickness(isSelected ? 2 : 1);
+            else
+                btn.BorderThickness = new Thickness(isSelected ? 2 : 0);
+
+            if (isSelected)
+                btn.BorderBrush = Brushes.White;
+            else if (btn == _amPmCustomColorBtn)
+                btn.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+            else
+                btn.ClearValue(Border.BorderBrushProperty);
+        }
+    }
+
+    private Button CreateCustomColorButton(Action pickColor)
+    {
+        var btn = new Button
+        {
+            Width           = 72,
+            Height          = 36,
+            Content         = "사용자 정의",
+            FontSize        = 11,
+            BorderThickness = new Thickness(1),
+            Margin          = new Thickness(0, 0, 5, 5),
+            Style           = (Style)FindResource("CustomColorPickerButtonStyle")
+        };
+        btn.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+        btn.Click += (_, _) => pickColor();
+        return btn;
+    }
+
+    private static bool TryPickColor(Color current, out Color picked)
+    {
+        picked = current;
+        using var dlg = new System.Windows.Forms.ColorDialog
+        {
+            FullOpen = true,
+            Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B)
+        };
+        if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return false;
+        picked = Color.FromRgb(dlg.Color.R, dlg.Color.G, dlg.Color.B);
+        return true;
+    }
+
+    private static void UpdateCustomColorButtonPreview(Button? btn, Color color)
+    {
+        if (btn is null) return;
+
+        if (IsPresetColor(color))
+        {
+            btn.ClearValue(Control.BackgroundProperty);
+            btn.ClearValue(Control.ForegroundProperty);
+            btn.SetResourceReference(Control.BackgroundProperty, "ButtonBackgroundBrush");
+            btn.SetResourceReference(Control.ForegroundProperty, "ButtonForegroundBrush");
+        }
+        else
+        {
+            btn.Background = new SolidColorBrush(color);
+            btn.Foreground = IsLight(color) ? Brushes.Black : Brushes.White;
+        }
+    }
+
+    private static bool IsPresetColor(Color color)
+        => DigitColors.Any(p => ColorsMatch(p.Color, color));
+
+    private static bool ColorsMatch(Color a, Color b)
+        => a.R == b.R && a.G == b.G && a.B == b.B;
+
+    private static Button CreatePresetColorButton(string label, Color color) => new()
+    {
+        Width           = 66,
+        Height          = 36,
+        Content         = label,
+        FontSize        = 12,
+        Background      = new SolidColorBrush(color),
+        Foreground      = IsLight(color) ? Brushes.Black : Brushes.White,
+        BorderThickness = new Thickness(0),
+        Margin          = new Thickness(0, 0, 5, 5),
+        Cursor          = Cursors.Hand,
+        Tag             = color
+    };
+
+    private static void BuildColorSwatchButtons(WrapPanel panel, Action<Color>? onColorChanged)
+    {
+        foreach (var (label, color) in DigitColors)
+        {
+            var btn = CreatePresetColorButton(label, color);
+            btn.Click += (s, _) => { if (s is Button b && b.Tag is Color c) onColorChanged?.Invoke(c); };
+            panel.Children.Add(btn);
         }
     }
 
@@ -750,8 +906,15 @@ public partial class SidePanelWindow : Window
     public void ApplySettings(bool use24h, bool worldUse24h, int brightness,
                               string digitalStyle, string analogStyle,
                               string alarmSoundId, int alarmVolume,
-                              bool alwaysOnTop)
+                              bool alwaysOnTop, Color digitColor, Color amPmColor)
     {
+        _currentDigitColor = digitColor;
+        _currentAmPmColor  = amPmColor;
+        if (!IsPresetColor(amPmColor))
+            _lastCustomAmPmColor = amPmColor;
+        UpdateCustomColorButtonPreview(_digitCustomColorBtn, digitColor);
+        UpdateAmPmCustomButtonPreview();
+        UpdateAmPmColorSelection(amPmColor);
         Format12h.Checked       -= Format_Checked;
         Format24h.Checked       -= Format_Checked;
         WorldFormat12h.Checked  -= WorldFormat_Checked;

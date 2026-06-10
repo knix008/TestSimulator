@@ -1,0 +1,15 @@
+<Window x:Class="MyClockWinV10.Screensaver.ScreensaverPreviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:MyClockWinV10.Screensaver"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="Black"
+        AllowsTransparency="False">
+    <Grid Background="Black">
+        <local:ScreensaverClockHost x:Name="ClockHost"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"/>
+    </Grid>
+</Window>
