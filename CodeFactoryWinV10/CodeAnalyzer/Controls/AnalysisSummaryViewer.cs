@@ -136,12 +136,16 @@ public sealed class AnalysisSummaryViewer : UserControl
         {
             if (control.Tag is SummarySection { IsFullWidth: true } fullWidthSection)
             {
+                if (column > 0)
+                {
+                    y += CardHeight + CardGap;
+                    column = 0;
+                    x = CardGap;
+                }
                 control.Width = availableWidth;
                 control.Height = fullWidthSection.CardHeight ?? FullWidthCardHeight;
                 control.Location = new Point(CardGap, y);
                 y += control.Height + CardGap;
-                column = 0;
-                x = CardGap;
                 maxRight = Math.Max(maxRight, CardGap + availableWidth);
                 continue;
             }

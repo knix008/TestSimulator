@@ -741,15 +741,28 @@ public sealed class StructureDiagramViewer : UserControl
         else
         {
             var orderedOutgoing = BuildOrderedOutgoing(subgraph.Outgoing);
+
+            // After EnrichWithAncestorDirectories, ancestor nodes are added to the subgraph.
+            // Use the project root (topmost ancestor) as the BFS root so ancestors are placed
+            // left of the selected directory, producing a correct sideways-expanding tree.
+            var layoutRoot = primaryRoot;
+            if (!string.IsNullOrWhiteSpace(_projectRootDirectory)
+                && DirectoryCallGraphBuilder.TryGetProjectRootDirectoryId(
+                    subgraph, _projectRootDirectory, out var topRootId)
+                && _boxMap.ContainsKey(topRootId))
+            {
+                layoutRoot = topRootId;
+            }
+
             ApplyBoxContentSize(_layoutDirection == GraphLayoutDirection.TopToBottom
                 ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(
                     _boxes,
                     orderedOutgoing,
-                    primaryRoot)
+                    layoutRoot)
                 : DiagramBoxLayoutEngine.LayoutLeftToRightTree(
                     _boxes,
                     orderedOutgoing,
-                    primaryRoot));
+                    layoutRoot));
         }
     }
 
@@ -1141,7 +1154,9 @@ public sealed class StructureDiagramViewer : UserControl
             IsContainerRelationView()
                 ? Color.FromArgb(52, 73, 94)
                 : Color.FromArgb(80, 90, 110));
-        var occupied = new List<RectangleF>();
+
+        // Seed occupied regions with all box bounds so labels never overlap shapes.
+        var occupied = _boxes.Select(b => (RectangleF)b.Bounds).ToList();
 
         foreach (var edge in _edges)
         {

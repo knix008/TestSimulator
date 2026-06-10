@@ -220,6 +220,8 @@ public static class DirectoryCallGraphBuilder
                 projectRoot);
         }
 
+        AddParentChildEdges(directoryMap, edgeCounts, projectRoot);
+
         return RebuildGraph(directoryMap, edgeCounts);
     }
 
@@ -454,6 +456,42 @@ public static class DirectoryCallGraphBuilder
             }
 
             currentPath = FileCallGraphBuilder.NormalizePath(parentPath);
+        }
+    }
+
+    private static void AddParentChildEdges(
+        Dictionary<string, DirectoryRelationNode> directoryMap,
+        Dictionary<(string From, string To), int> edgeCounts,
+        string projectRoot)
+    {
+        foreach (var directory in directoryMap.Values.ToList())
+        {
+            var currentPath = FileCallGraphBuilder.NormalizePath(directory.DirectoryPath);
+            if (string.Equals(currentPath, projectRoot, StringComparison.OrdinalIgnoreCase)
+                || currentPath.Length <= projectRoot.Length
+                || !currentPath.StartsWith(projectRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var parentPath = Path.GetDirectoryName(currentPath);
+            if (string.IsNullOrWhiteSpace(parentPath))
+            {
+                continue;
+            }
+
+            parentPath = FileCallGraphBuilder.NormalizePath(parentPath);
+            var parentId = ToDirectoryId(parentPath);
+            if (!directoryMap.ContainsKey(parentId))
+            {
+                continue;
+            }
+
+            var key = (parentId, directory.Id);
+            if (!edgeCounts.ContainsKey(key))
+            {
+                edgeCounts[key] = 0;
+            }
         }
     }
 

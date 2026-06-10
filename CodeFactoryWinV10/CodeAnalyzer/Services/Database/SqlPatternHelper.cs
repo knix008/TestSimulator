@@ -161,7 +161,7 @@ internal static class SqlPatternHelper
             return true;
         }
 
-        if (raw.Length >= 2 && (raw[0] == '"' || raw[0] == '\''))
+        if (raw.Length >= 2 && (raw[0] == '"' || raw[0] == '\'' || raw[0] == '@'))
         {
             literal = raw.Trim('@', '"', '\'');
             return true;

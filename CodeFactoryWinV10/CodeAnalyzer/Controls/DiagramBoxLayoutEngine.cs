@@ -91,43 +91,72 @@ internal static class DiagramBoxLayoutEngine
         }
 
         var nodeMap = nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
-        var positions = new Dictionary<string, Point>(StringComparer.Ordinal);
-        var nextY = 0;
 
-        void Place(string id, int depth)
+        // BFS to compute minimum depth from root (depth → column X).
+        var depthById = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(rootId) && nodeMap.ContainsKey(rootId))
         {
-            if (!nodeMap.TryGetValue(id, out var node))
-            {
-                return;
-            }
+            var queue = new Queue<(string Id, int Depth)>();
+            depthById[rootId] = 0;
+            queue.Enqueue((rootId, 0));
 
-            if (positions.ContainsKey(id))
+            while (queue.Count > 0)
             {
-                return;
-            }
-
-            var height = MeasureNodeHeight(node);
-            var y = 24 + nextY;
-            nextY += height + TreeSiblingGap;
-            positions[id] = new Point(24 + depth * (NodeWidth + TreeDepthGap), y);
-            node.Bounds = new Rectangle(positions[id], new Size(NodeWidth, height));
-
-            if (outgoing.TryGetValue(id, out var children))
-            {
-                foreach (var child in children)
+                var (id, depth) = queue.Dequeue();
+                if (!outgoing.TryGetValue(id, out var children))
                 {
-                    Place(child, depth + 1);
+                    continue;
+                }
+
+                foreach (var childId in children)
+                {
+                    if (!nodeMap.ContainsKey(childId))
+                    {
+                        continue;
+                    }
+
+                    var nextDepth = depth + 1;
+                    if (!depthById.TryGetValue(childId, out var existing) || nextDepth < existing)
+                    {
+                        depthById[childId] = nextDepth;
+                        queue.Enqueue((childId, nextDepth));
+                    }
                 }
             }
         }
 
-        Place(rootId, 0);
-        foreach (var node in nodes.Where(node => !positions.ContainsKey(node.Id)))
+        foreach (var node in nodes)
         {
-            Place(node.Id, 0);
+            if (!depthById.ContainsKey(node.Id))
+            {
+                depthById[node.Id] = 0;
+            }
         }
 
-        var bounds = nodes.Select(node => node.Bounds).Aggregate(Rectangle.Union);
+        // Group by depth — each group is a vertical column.
+        var grouped = nodes
+            .GroupBy(node => depthById.TryGetValue(node.Id, out var d) ? d : 0)
+            .OrderBy(g => g.Key)
+            .ToList();
+
+        var bounds = Rectangle.Empty;
+        var x = 24;
+
+        foreach (var group in grouped)
+        {
+            var y = 24;
+
+            foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
+            {
+                var height = MeasureNodeHeight(node);
+                node.Bounds = new Rectangle(x, y, NodeWidth, height);
+                bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
+                y += height + HorizontalGap;
+            }
+
+            x += NodeWidth + VerticalGap;
+        }
+
         return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
     }
 

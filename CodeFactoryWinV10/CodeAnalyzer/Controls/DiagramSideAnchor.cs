@@ -123,9 +123,7 @@ internal static class DiagramSideAnchor
     private static int VerticalCenter(Rectangle bounds) =>
         bounds.Top + bounds.Height / 2;
 
-    private static int RightEdge(Rectangle bounds) =>
-        bounds.Left + Math.Max(0, bounds.Width - 1);
+    private static int RightEdge(Rectangle bounds) => bounds.Right;
 
-    private static int BottomEdge(Rectangle bounds) =>
-        bounds.Top + Math.Max(0, bounds.Height - 1);
+    private static int BottomEdge(Rectangle bounds) => bounds.Bottom;
 }

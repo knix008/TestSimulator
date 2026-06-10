@@ -10,7 +10,7 @@ public static class LanguageRegistry
         new ProgrammingLanguage { Id = "vbnet", DisplayName = "VB.NET", Extensions = [".vb"] },
         new ProgrammingLanguage { Id = "python", DisplayName = "Python", Extensions = [".py"] },
         new ProgrammingLanguage { Id = "java", DisplayName = "Java", Extensions = [".java"] },
-        new ProgrammingLanguage { Id = "cpp", DisplayName = "C / C++", Extensions = [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"] },
+        new ProgrammingLanguage { Id = "cpp", DisplayName = "C/C++", Extensions = [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"] },
         new ProgrammingLanguage { Id = "go", DisplayName = "Go", Extensions = [".go"] },
         new ProgrammingLanguage { Id = "rust", DisplayName = "Rust", Extensions = [".rs"] },
         new ProgrammingLanguage { Id = "swift", DisplayName = "Swift", Extensions = [".swift"] },

@@ -1,5 +1,6 @@
 using CodeAnalyzer.Models;
 using CodeAnalyzer.Services;
+using System.Linq;
 
 namespace CodeAnalyzer.Controls;
 
@@ -262,7 +263,7 @@ public sealed class ErdDiagramViewer : UserControl
 
         try
         {
-            foreach (var table in _schema.Tables)
+            foreach (var table in _schema.Tables.Where(t => t.SourceKind != "sql-detected"))
             {
                 var box = ErdDiagramRenderer.CreateTableBox(table);
                 _boxes.Add(box);

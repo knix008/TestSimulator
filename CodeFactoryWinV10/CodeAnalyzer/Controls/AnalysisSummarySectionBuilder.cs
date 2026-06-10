@@ -24,8 +24,9 @@ internal static class AnalysisSummarySectionBuilder
         var snapshot = AnalysisSummarySnapshotBuilder.Build(analysis);
         var sections = new List<SummarySection>();
 
-        var inspectionPies = MapInspectionPieGroups(analysis);
-        sections.AddRange(inspectionPies);
+        var sortedAreas = snapshot.Areas
+            .OrderBy(area => AreaSortOrder(area.Kind))
+            .ToList();
 
         var radarSection = MapRadar(snapshot.RadarAxes);
         if (radarSection is not null)
@@ -33,9 +34,34 @@ internal static class AnalysisSummarySectionBuilder
             sections.Add(radarSection);
         }
 
-        sections.AddRange(snapshot.Areas.Select(MapArea));
+        var overview = sortedAreas.FirstOrDefault(area => area.Kind == SummaryAreaKind.Overview);
+        if (overview is not null)
+        {
+            sections.Add(MapArea(overview));
+        }
+
+        sections.AddRange(sortedAreas
+            .Where(area => area.Kind != SummaryAreaKind.Overview)
+            .Select(MapArea));
+
         return sections;
     }
+
+    private static int AreaSortOrder(SummaryAreaKind kind) => kind switch
+    {
+        SummaryAreaKind.Overview => 0,
+        SummaryAreaKind.BugRisk => 1,
+        SummaryAreaKind.Security => 2,
+        SummaryAreaKind.Quality => 3,
+        SummaryAreaKind.CallGraph => 4,
+        SummaryAreaKind.Duplicates => 5,
+        SummaryAreaKind.Structure => 6,
+        SummaryAreaKind.Relations => 7,
+        SummaryAreaKind.Database => 8,
+        SummaryAreaKind.Globals => 9,
+        SummaryAreaKind.Issues => 10,
+        _ => 99
+    };
 
     private static IReadOnlyList<SummarySection> MapInspectionPieGroups(AnalysisResult analysis)
     {

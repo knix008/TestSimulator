@@ -5,11 +5,11 @@ namespace CodeAnalyzer.Services.Database;
 
 public static class DatabaseTableAccessAnalyzer
 {
+    // EF Core patterns
     private static readonly Regex EfSetGenericRegex = new(
         @"\.Set\s*<\s*(\w+)\s*>",
         RegexOptions.Compiled);
 
-    // group 1 = 메서드명(Add/Update/Remove/Entry 등), group 2 = 엔티티 타입명
     private static readonly Regex EfGenericCrudRegex = new(
         @"\.(Add|AddAsync|AddRange|AddRangeAsync|Update|UpdateRange|Remove|RemoveRange|Attach|Entry)\s*<\s*(\w+)\s*>",
         RegexOptions.Compiled);
@@ -18,7 +18,6 @@ public static class DatabaseTableAccessAnalyzer
         @"(?<![\w$@#])(?:[\w$@#]*(?:Context|DbContext)\s*\.\s*(\w+)(?![\w$]))",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // group 1 = DbSet 속성명, group 2 = 호출된 CRUD/조회 메서드명
     private static readonly Regex EfDbSetMemberRegex = new(
         @"\.(\w+)\s*\.\s*(Add|AddAsync|AddRange|AddRangeAsync|Remove|RemoveRange|Update|UpdateRange|Attach|Find|FindAsync|Where|FirstOrDefault|FirstOrDefaultAsync|First|FirstAsync|SingleOrDefault|SingleOrDefaultAsync|Single|SingleAsync|Any|AnyAsync|Count|CountAsync|ToList|ToListAsync|Include|ExecuteDelete|ExecuteDeleteAsync|ExecuteUpdate|ExecuteUpdateAsync)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -33,7 +32,6 @@ public static class DatabaseTableAccessAnalyzer
 
     private const int MethodScanLineWindow = 2000;
 
-    // SQL에서 테이블명으로 오해될 수 있는 예약어 목록 (자동 발견 시 제외)
     private static readonly HashSet<string> SqlKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
         "SET", "WHERE", "CASE", "WHEN", "THEN", "ELSE", "END", "IS", "NULL", "TRUE", "FALSE",
@@ -56,9 +54,7 @@ public static class DatabaseTableAccessAnalyzer
         CallGraphResult callGraph,
         IReadOnlyList<string>? sourceFiles = null)
     {
-        // 사전 정의 스키마가 없어도 진행 — SQL 자동 발견으로 테이블을 찾아낼 수 있음
         var index = BuildReferenceIndex(schema.Tables);
-
         var accesses = new List<DatabaseTableAccess>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var entryAccesses = new List<DatabaseEntryAccess>();
@@ -67,42 +63,20 @@ public static class DatabaseTableAccessAnalyzer
 
         foreach (var function in functions)
         {
-            var effectiveEndLine = function.EndLine > function.StartLine
+            var endLine = function.EndLine > function.StartLine
                 ? function.EndLine
                 : function.StartLine + MethodScanLineWindow;
-            ScanFunctionBody(function, function.FilePath, function.StartLine, effectiveEndLine, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, useFunctionId: true);
+            ScanFunctionBody(function, function.FilePath, function.StartLine, endLine,
+                index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, useFunctionId: true);
         }
 
         AppendCallGraphOnlyAccessors(callGraph, index, accesses, seen, entryAccesses, entrySeen, fileCache);
-        AppendSourceFileScan(sourceFiles, index, accesses, seen, entryAccesses, entrySeen, fileCache);
         AppendFileLevelSqlLiteralScan(sourceFiles, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache);
 
         accesses = DeduplicateAccesses(accesses);
         entryAccesses = DeduplicateEntryAccesses(entryAccesses);
 
         var (catalogs, catalogAccesses) = DatabaseCatalogAccessAnalyzer.Analyze(functions, callGraph, sourceFiles);
-
-        var groupedEntries = entryAccesses
-            .GroupBy(entry => entry.TableId, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<DatabaseEntryAccess>)group
-                    .OrderBy(entry => entry.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(entry => entry.FunctionLineNumber)
-                    .ThenBy(entry => entry.Operation)
-                    .ToList(),
-                StringComparer.OrdinalIgnoreCase);
-
-        var grouped = accesses
-            .GroupBy(access => access.TableId, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<DatabaseTableAccess>)group
-                    .OrderBy(access => access.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(access => access.FunctionLineNumber)
-                    .ThenBy(access => access.FunctionDisplayName, StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-                StringComparer.OrdinalIgnoreCase);
 
         IReadOnlyList<DatabaseTable> allTables = index.AutoDiscoveredTables.Count > 0
             ? [.. schema.Tables, .. index.AutoDiscoveredTables]
@@ -112,12 +86,18 @@ public static class DatabaseTableAccessAnalyzer
             .GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var columnAccesses = AppendColumnAccesses(
-            sourceFiles,
-            allTables,
-            accesses,
-            callGraph,
-            fileCache);
+        var columnAccesses = BuildColumnAccesses(sourceFiles, allTables, accesses, callGraph, fileCache);
+
+        var grouped = accesses
+            .GroupBy(a => a.TableId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<DatabaseTableAccess>)g
+                    .OrderBy(a => a.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(a => a.FunctionLineNumber)
+                    .ThenBy(a => a.FunctionDisplayName, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
 
         var groupedColumns = columnAccesses
             .GroupBy(ca => ca.TableId, StringComparer.OrdinalIgnoreCase)
@@ -129,13 +109,24 @@ public static class DatabaseTableAccessAnalyzer
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
-        var groupedCatalogAccesses = catalogAccesses
-            .GroupBy(access => access.CatalogId, StringComparer.OrdinalIgnoreCase)
+        var groupedEntries = entryAccesses
+            .GroupBy(e => e.TableId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
-                group => group.Key,
-                group => (IReadOnlyList<DatabaseCatalogAccess>)group
-                    .OrderBy(access => access.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
-                    .ThenBy(access => access.FunctionLineNumber)
+                g => g.Key,
+                g => (IReadOnlyList<DatabaseEntryAccess>)g
+                    .OrderBy(e => e.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(e => e.FunctionLineNumber)
+                    .ThenBy(e => e.Operation)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
+        var groupedCatalogAccesses = catalogAccesses
+            .GroupBy(a => a.CatalogId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<DatabaseCatalogAccess>)g
+                    .OrderBy(a => a.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(a => a.FunctionLineNumber)
                     .ToList(),
                 StringComparer.OrdinalIgnoreCase);
 
@@ -157,13 +148,14 @@ public static class DatabaseTableAccessAnalyzer
         };
     }
 
-    internal static bool TryReadLinesForScan(
-        string filePath,
-        Dictionary<string, string[]> cache,
-        out string[] lines) => TryReadLines(filePath, cache, out lines);
+    // Used by DatabaseCatalogAccessAnalyzer
+    internal static bool TryReadLinesForScan(string filePath, Dictionary<string, string[]> cache, out string[] lines) =>
+        TryReadLines(filePath, cache, out lines);
 
     internal static string ResolveFunctionIdForScan(FunctionMetric function, CallGraphResult callGraph) =>
         ResolveFunctionId(function, callGraph);
+
+    // --- Index ---
 
     private sealed class TableReferenceIndex
     {
@@ -171,7 +163,6 @@ public static class DatabaseTableAccessAnalyzer
         public Dictionary<string, DatabaseTableAccessPattern> AliasPatterns { get; } = new(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> DbSetPropertyNames { get; } = new(StringComparer.OrdinalIgnoreCase);
         public List<TableReferenceProfile> Profiles { get; } = [];
-        /// <summary>SQL 코드 스캔 중 자동으로 발견된 테이블 목록.</summary>
         public List<DatabaseTable> AutoDiscoveredTables { get; } = [];
     }
 
@@ -185,72 +176,54 @@ public static class DatabaseTableAccessAnalyzer
     private static TableReferenceIndex BuildReferenceIndex(IReadOnlyList<DatabaseTable> tables)
     {
         var index = new TableReferenceIndex();
-
         foreach (var table in tables)
         {
             RegisterAlias(index, table.Name, table.Id, DatabaseTableAccessPattern.Sql);
-
             if (!string.IsNullOrWhiteSpace(table.Schema))
-            {
                 RegisterAlias(index, $"{table.Schema}.{table.Name}", table.Id, DatabaseTableAccessPattern.Sql);
-            }
-
             if (!string.IsNullOrWhiteSpace(table.EntityTypeName))
-            {
                 RegisterAlias(index, table.EntityTypeName, table.Id, DatabaseTableAccessPattern.EntityType);
-            }
-
             foreach (var alias in table.AccessAliases)
             {
                 RegisterAlias(index, alias, table.Id, DatabaseTableAccessPattern.EntityFramework);
                 index.DbSetPropertyNames.Add(alias);
             }
-
             index.Profiles.Add(new TableReferenceProfile
             {
                 TableId = table.Id,
                 EntityTypeName = table.EntityTypeName,
-                ColumnNames = table.Columns.Select(column => column.Name).Where(name => name.Length >= 2).ToList()
+                ColumnNames = table.Columns.Select(c => c.Name).Where(n => n.Length >= 2).ToList()
             });
         }
-
         return index;
     }
 
-    private static void RegisterAlias(
-        TableReferenceIndex index,
-        string alias,
-        string tableId,
-        DatabaseTableAccessPattern pattern)
+    private static void RegisterAlias(TableReferenceIndex index, string alias, string tableId, DatabaseTableAccessPattern pattern)
     {
         if (string.IsNullOrWhiteSpace(alias))
-        {
             return;
-        }
-
         index.Aliases.TryAdd(alias, tableId);
         index.AliasPatterns.TryAdd(alias, pattern);
     }
 
-    /// <summary>SQL에서 언급된 새 테이블을 자동으로 인덱스에 등록. 키워드·단자(1글자)는 무시.</summary>
-    private static string AutoDiscoverSqlTable(
-        TableReferenceIndex index,
-        string schemaToken,
-        string tableToken)
+    /// <summary>
+    /// Registers a SQL-mentioned table that has no schema definition.
+    /// Uses the same "table:{name}" prefix as schema-extracted tables for ID consistency.
+    /// </summary>
+    private static string AutoDiscoverSqlTable(TableReferenceIndex index, string schemaToken, string tableToken)
     {
         if (string.IsNullOrWhiteSpace(tableToken) || tableToken.Length < 2)
             return string.Empty;
-
         if (SqlKeywords.Contains(tableToken))
             return string.Empty;
 
-        // 이미 인덱스에 있으면 그 ID를 반환
         if (index.Aliases.TryGetValue(tableToken, out var existing))
             return existing;
 
-        var tableId = string.IsNullOrWhiteSpace(schemaToken)
+        var name = string.IsNullOrWhiteSpace(schemaToken)
             ? tableToken.ToLowerInvariant()
             : $"{schemaToken.ToLowerInvariant()}.{tableToken.ToLowerInvariant()}";
+        var tableId = $"table:{name}";
 
         if (index.Aliases.TryGetValue(tableId, out existing))
             return existing;
@@ -262,21 +235,20 @@ public static class DatabaseTableAccessAnalyzer
             Schema = string.IsNullOrWhiteSpace(schemaToken) ? null : schemaToken,
             SourceKind = "sql-detected",
         };
-
         index.AutoDiscoveredTables.Add(newTable);
         RegisterAlias(index, tableToken, tableId, DatabaseTableAccessPattern.Sql);
         if (!string.IsNullOrWhiteSpace(schemaToken))
             RegisterAlias(index, $"{schemaToken}.{tableToken}", tableId, DatabaseTableAccessPattern.Sql);
-
         index.Profiles.Add(new TableReferenceProfile
         {
             TableId = tableId,
             EntityTypeName = string.Empty,
             ColumnNames = []
         });
-
         return tableId;
     }
+
+    // --- Scanning ---
 
     private static void ScanFunctionBody(
         FunctionMetric function,
@@ -293,85 +265,26 @@ public static class DatabaseTableAccessAnalyzer
         bool useFunctionId)
     {
         if (!TryReadLines(filePath, fileCache, out var lines))
-        {
             return;
-        }
 
         var start = Math.Max(1, startLine);
         var end = Math.Min(lines.Length, Math.Max(endLine, startLine));
         if (start > end)
-        {
             return;
-        }
 
         var body = string.Join('\n', lines.AsSpan(start - 1, end - start + 1).ToArray());
         if (string.IsNullOrWhiteSpace(body))
-        {
             return;
-        }
 
         var matches = DetectTableReferences(body, function.LanguageId, index);
         if (matches.Count == 0)
-        {
             return;
-        }
 
         var functionId = useFunctionId
             ? ResolveFunctionId(function, callGraph)
             : function.Id;
 
         RecordTableMatches(function, functionId, matches, accesses, seen, entryAccesses, entrySeen);
-    }
-
-    private static void RecordTableMatches(
-        FunctionMetric function,
-        string functionId,
-        List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> matches,
-        List<DatabaseTableAccess> accesses,
-        HashSet<string> seen,
-        List<DatabaseEntryAccess> entryAccesses,
-        HashSet<string> entrySeen)
-    {
-        foreach (var (tableId, kind, pattern, operations) in matches)
-        {
-            var key = tableId + "\0" + functionId;
-            if (seen.Add(key))
-            {
-                accesses.Add(new DatabaseTableAccess
-                {
-                    TableId = tableId,
-                    FunctionId = functionId,
-                    FunctionDisplayName = function.DisplayName,
-                    FunctionFullName = function.FullName,
-                    FunctionFilePath = function.FilePath,
-                    FunctionLineNumber = function.StartLine,
-                    Kind = kind,
-                    Pattern = pattern,
-                    Operations = operations
-                });
-            }
-
-            foreach (var operation in SplitOperations(operations))
-            {
-                var entryKey = tableId + "\0" + functionId + "\0" + operation;
-                if (!entrySeen.Add(entryKey))
-                {
-                    continue;
-                }
-
-                entryAccesses.Add(new DatabaseEntryAccess
-                {
-                    TableId = tableId,
-                    FunctionId = functionId,
-                    FunctionDisplayName = function.DisplayName,
-                    FunctionFullName = function.FullName,
-                    FunctionFilePath = function.FilePath,
-                    FunctionLineNumber = function.StartLine,
-                    Operation = operation,
-                    Pattern = pattern
-                });
-            }
-        }
     }
 
     private static void AppendCallGraphOnlyAccessors(
@@ -385,7 +298,7 @@ public static class DatabaseTableAccessAnalyzer
     {
         foreach (var node in callGraph.Nodes)
         {
-            var pseudoFunction = new FunctionMetric
+            var pseudo = new FunctionMetric
             {
                 Id = node.Id,
                 DisplayName = node.DisplayName,
@@ -395,143 +308,11 @@ public static class DatabaseTableAccessAnalyzer
                 EndLine = node.LineNumber + MethodScanLineWindow,
                 LanguageId = ResolveLanguageId(node.Id) ?? string.Empty
             };
-
-            ScanFunctionBody(
-                pseudoFunction,
-                node.FilePath,
-                node.LineNumber,
-                node.LineNumber + MethodScanLineWindow,
-                index,
-                callGraph,
-                accesses,
-                seen,
-                entryAccesses,
-                entrySeen,
-                fileCache,
-                useFunctionId: false);
+            ScanFunctionBody(pseudo, node.FilePath, node.LineNumber, node.LineNumber + MethodScanLineWindow,
+                index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, useFunctionId: false);
         }
     }
 
-    private static void AppendSourceFileScan(
-        IReadOnlyList<string>? sourceFiles,
-        TableReferenceIndex index,
-        List<DatabaseTableAccess> accesses,
-        HashSet<string> seen,
-        List<DatabaseEntryAccess> entryAccesses,
-        HashSet<string> entrySeen,
-        Dictionary<string, string[]> fileCache)
-    {
-        if (sourceFiles is null || sourceFiles.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var filePath in sourceFiles)
-        {
-            if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
-            {
-                continue;
-            }
-
-            var language = LanguageRegistry.FindByExtension(Path.GetExtension(filePath));
-            var languageId = language?.Id ?? string.Empty;
-
-            var methodStarts = FindMethodStartLines(lines, languageId);
-            if (methodStarts.Count == 0)
-            {
-                ScanFileRange(
-                    filePath,
-                    lines,
-                    1,
-                    lines.Length,
-                    "(파일)",
-                    index,
-                    accesses,
-                    seen,
-                    entryAccesses,
-                    entrySeen,
-                    fileCache);
-                continue;
-            }
-
-            if (methodStarts[0] > 1)
-            {
-                ScanFileRange(
-                    filePath,
-                    lines,
-                    1,
-                    methodStarts[0] - 1,
-                    "(전역)",
-                    index,
-                    accesses,
-                    seen,
-                    entryAccesses,
-                    entrySeen,
-                    fileCache);
-            }
-
-            for (var i = 0; i < methodStarts.Count; i++)
-            {
-                var start = methodStarts[i];
-                var end = i + 1 < methodStarts.Count ? methodStarts[i + 1] - 1 : lines.Length;
-                var displayName = ExtractMethodName(lines[start - 1], languageId) ?? $"line {start}";
-                ScanFileRange(
-                    filePath,
-                    lines,
-                    start,
-                    end,
-                    displayName,
-                    index,
-                    accesses,
-                    seen,
-                    entryAccesses,
-                    entrySeen,
-                    fileCache);
-            }
-        }
-    }
-
-    private static void ScanFileRange(
-        string filePath,
-        string[] lines,
-        int startLine,
-        int endLine,
-        string displayName,
-        TableReferenceIndex index,
-        List<DatabaseTableAccess> accesses,
-        HashSet<string> seen,
-        List<DatabaseEntryAccess> entryAccesses,
-        HashSet<string> entrySeen,
-        Dictionary<string, string[]> fileCache)
-    {
-        var language = LanguageRegistry.FindByExtension(Path.GetExtension(filePath));
-        var pseudoFunction = new FunctionMetric
-        {
-            Id = $"file:{filePath}:{startLine}",
-            DisplayName = displayName,
-            FullName = $"{Path.GetFileName(filePath)}:{startLine}",
-            FilePath = filePath,
-            StartLine = startLine,
-            EndLine = endLine,
-            LanguageId = language?.Id ?? string.Empty
-        };
-
-        ScanFunctionBody(
-            pseudoFunction,
-            filePath,
-            startLine,
-            endLine,
-            index,
-            new CallGraphResult(),
-            accesses,
-            seen,
-            entryAccesses,
-            entrySeen,
-            fileCache,
-            useFunctionId: false);
-    }
-
-    /// <summary>함수 경계와 무관하게 파일 전체 SQL 문자열 리터럴을 스캔 (C++ R"(...)"·연결 리터럴·전역 SQL 포함).</summary>
     private static void AppendFileLevelSqlLiteralScan(
         IReadOnlyList<string>? sourceFiles,
         TableReferenceIndex index,
@@ -543,16 +324,12 @@ public static class DatabaseTableAccessAnalyzer
         Dictionary<string, string[]> fileCache)
     {
         if (sourceFiles is null || sourceFiles.Count == 0)
-        {
             return;
-        }
 
         foreach (var filePath in sourceFiles)
         {
             if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
-            {
                 continue;
-            }
 
             var languageId = LanguageRegistry.FindByExtension(Path.GetExtension(filePath))?.Id ?? string.Empty;
             var fullText = string.Join('\n', lines);
@@ -562,13 +339,11 @@ public static class DatabaseTableAccessAnalyzer
             {
                 var matches = DetectTableReferences(span.Text, languageId, index);
                 if (matches.Count == 0)
-                {
                     continue;
-                }
 
                 var owner = ResolveSqlLiteralOwner(filePath, lines, methodStarts, languageId, span.LineNumber);
                 var functionId = ResolveCallGraphFunctionId(callGraph, filePath, owner.MethodStartLine) ?? owner.FunctionId;
-                var pseudoFunction = new FunctionMetric
+                var pseudo = new FunctionMetric
                 {
                     Id = functionId,
                     DisplayName = owner.DisplayName,
@@ -578,117 +353,12 @@ public static class DatabaseTableAccessAnalyzer
                     EndLine = span.LineNumber,
                     LanguageId = languageId
                 };
-
-                RecordTableMatches(pseudoFunction, functionId, matches, accesses, seen, entryAccesses, entrySeen);
+                RecordTableMatches(pseudo, functionId, matches, accesses, seen, entryAccesses, entrySeen);
             }
         }
     }
 
-    private static (string DisplayName, string FunctionId, int MethodStartLine) ResolveSqlLiteralOwner(
-        string filePath,
-        string[] lines,
-        List<int> methodStarts,
-        string languageId,
-        int sqlLine)
-    {
-        var enclosingStart = -1;
-        for (var i = methodStarts.Count - 1; i >= 0; i--)
-        {
-            if (methodStarts[i] <= sqlLine)
-            {
-                enclosingStart = methodStarts[i];
-                break;
-            }
-        }
-
-        if (enclosingStart < 0)
-        {
-            return ("(전역)", $"file:{filePath}:{sqlLine}", sqlLine);
-        }
-
-        var displayName = ExtractMethodName(lines[enclosingStart - 1], languageId) ?? $"line {enclosingStart}";
-        return (displayName, $"file:{filePath}:{enclosingStart}", enclosingStart);
-    }
-
-    private static string? ResolveCallGraphFunctionId(CallGraphResult callGraph, string filePath, int methodStartLine)
-    {
-        if (methodStartLine <= 0)
-        {
-            return null;
-        }
-
-        return callGraph.Nodes.FirstOrDefault(node =>
-            string.Equals(node.FilePath, filePath, StringComparison.OrdinalIgnoreCase)
-            && Math.Abs(node.LineNumber - methodStartLine) <= 3)?.Id;
-    }
-
-    private static List<int> FindMethodStartLines(string[] lines, string languageId = "")
-    {
-        var starts = new List<int>();
-        var text = SqlPatternHelper.StripCommentsPreservingLiterals(string.Join('\n', lines));
-
-        Regex headerRegex;
-        if (string.IsNullOrEmpty(languageId) || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase))
-        {
-            headerRegex = CSharpMethodHeaderRegex;
-        }
-        else
-        {
-            headerRegex = LanguageDbAccessPatterns.GetFunctionHeaderRegex(languageId)
-                ?? CSharpMethodHeaderRegex;
-        }
-
-        foreach (Match match in headerRegex.Matches(text))
-        {
-            // 언어마다 캡처 그룹 수가 다르므로 첫 번째 비어있지 않은 그룹을 함수명으로 사용
-            var hasName = false;
-            for (var g = 1; g < match.Groups.Count; g++)
-            {
-                if (match.Groups[g].Success && !string.IsNullOrWhiteSpace(match.Groups[g].Value))
-                {
-                    hasName = true;
-                    break;
-                }
-            }
-
-            if (!hasName)
-                continue;
-
-            var line = text.AsSpan(0, match.Index).Count('\n') + 1;
-            if (line > 0 && (starts.Count == 0 || starts[^1] != line))
-            {
-                starts.Add(line);
-            }
-        }
-
-        return starts;
-    }
-
-    private static string? ExtractMethodName(string headerLine, string languageId = "")
-    {
-        Regex headerRegex;
-        if (string.IsNullOrEmpty(languageId) || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase))
-        {
-            headerRegex = CSharpMethodHeaderRegex;
-        }
-        else
-        {
-            headerRegex = LanguageDbAccessPatterns.GetFunctionHeaderRegex(languageId)
-                ?? CSharpMethodHeaderRegex;
-        }
-
-        var match = headerRegex.Match(headerLine);
-        if (!match.Success)
-            return null;
-
-        for (var g = 1; g < match.Groups.Count; g++)
-        {
-            if (match.Groups[g].Success && !string.IsNullOrWhiteSpace(match.Groups[g].Value))
-                return match.Groups[g].Value;
-        }
-
-        return null;
-    }
+    // --- Detection ---
 
     private static List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> DetectTableReferences(
         string body,
@@ -703,24 +373,27 @@ public static class DatabaseTableAccessAnalyzer
         {
             foreach (Match match in SqlPatternHelper.SqlReadTableRegex.Matches(searchBody))
             {
-                TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value, DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
+                TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value,
+                    DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
             }
 
             foreach (Match match in SqlPatternHelper.SqlCrudTableRegex.Matches(searchBody))
             {
                 var operation = MapSqlVerbToOperation(match.Groups["op"].Value);
-                TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value, DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation);
+                TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value,
+                    DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation);
             }
         }
 
-        // C# / VB.NET EF Core 패턴
+        // EF Core (C# / VB.NET)
         if (string.IsNullOrEmpty(languageId)
             || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase)
             || languageId.Equals("vbnet", StringComparison.OrdinalIgnoreCase))
         {
             foreach (Match match in EfSetGenericRegex.Matches(body))
             {
-                TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
+                TryAddAlias(results, index, match.Groups[1].Value,
+                    DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
             }
 
             foreach (Match match in EfGenericCrudRegex.Matches(body))
@@ -732,28 +405,31 @@ public static class DatabaseTableAccessAnalyzer
 
             foreach (Match match in EfDbSetPropertyRegex.Matches(body))
             {
-                TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
+                TryAddAlias(results, index, match.Groups[1].Value,
+                    DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
             }
 
             foreach (Match match in EfDbSetMemberRegex.Matches(body))
             {
                 var operation = MapEfMethodToOperation(match.Groups[2].Value);
-                TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, operation);
+                TryAddAlias(results, index, match.Groups[1].Value,
+                    DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, operation);
             }
 
             foreach (Match match in EfEntryRegex.Matches(body))
             {
                 if (match.Groups[1].Success)
                 {
-                    TryAddAlias(results, index, match.Groups[1].Value, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
+                    TryAddAlias(results, index, match.Groups[1].Value,
+                        DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityFramework, DatabaseCrudOperation.None);
                 }
             }
         }
 
-        // 언어 공통: API 첫 인자 SQL, NoSQL 컬렉션, JPA @Table
+        // Universal patterns: API SQL first arg, NoSQL collections, JPA @Table
         DetectUniversalTableReferences(body, results, index);
 
-        // 언어별 ORM 패턴 적용
+        // Language-specific ORM patterns
         if (!string.IsNullOrEmpty(languageId))
         {
             foreach (var ormPattern in LanguageDbAccessPatterns.GetOrmPatterns(languageId))
@@ -763,57 +439,38 @@ public static class DatabaseTableAccessAnalyzer
                     var entityName = ormPattern.EntityNameGroup > 0 && match.Groups[ormPattern.EntityNameGroup].Success
                         ? match.Groups[ormPattern.EntityNameGroup].Value
                         : string.Empty;
-
+                    if (string.IsNullOrEmpty(entityName))
+                        continue;
                     var kind = ormPattern.Operation == DatabaseCrudOperation.Read
                         ? DatabaseTableAccessKind.Read
                         : ormPattern.Operation == DatabaseCrudOperation.None
                             ? DatabaseTableAccessKind.ReadWrite
                             : DatabaseTableAccessKind.Write;
-
-                    if (!string.IsNullOrEmpty(entityName))
-                    {
-                        TryAddAlias(results, index, entityName, kind, ormPattern.AccessPattern, ormPattern.Operation);
-                    }
+                    TryAddAlias(results, index, entityName, kind, ormPattern.AccessPattern, ormPattern.Operation);
                 }
             }
         }
 
+        // Entity type and column name matching
         foreach (var profile in index.Profiles)
         {
-            if (!string.IsNullOrWhiteSpace(profile.EntityTypeName)
-                && ReferencesEntityType(body, profile.EntityTypeName))
+            if (!string.IsNullOrWhiteSpace(profile.EntityTypeName) && ReferencesEntityType(body, profile.EntityTypeName))
             {
-                MergeAccess(results, profile.TableId, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
+                MergeAccess(results, profile.TableId,
+                    DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
             }
 
             foreach (var columnName in profile.ColumnNames)
             {
                 if (ReferencesColumn(body, columnName))
                 {
-                    MergeAccess(results, profile.TableId, DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
+                    MergeAccess(results, profile.TableId,
+                        DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
                 }
             }
         }
 
-        return results
-            .Select(pair => (pair.Key, pair.Value.Kind, pair.Value.Pattern, pair.Value.Operations))
-            .ToList();
-    }
-
-    private static bool ReferencesEntityType(string body, string entityTypeName)
-    {
-        var escaped = Regex.Escape(entityTypeName);
-        return Regex.IsMatch(
-            body,
-            $@"(?<![\w$@#])(?:new\s+{escaped}\b|<\s*{escaped}\s*[>,\)]|:\s*{escaped}\b|\(\s*{escaped}\s+\w+\b|\b{escaped}\s+\w+\s*[=;,)])",
-            RegexOptions.CultureInvariant);
-    }
-
-    private static bool ReferencesColumn(string body, string columnName)
-    {
-        var escaped = Regex.Escape(columnName);
-        return Regex.IsMatch(body, $@"(?<![\w$@#])\.{escaped}\b", RegexOptions.CultureInvariant)
-            || Regex.IsMatch(body, $@"(?<![\w$@#])\b{escaped}\s*=", RegexOptions.CultureInvariant);
+        return results.Select(p => (p.Key, p.Value.Kind, p.Value.Pattern, p.Value.Operations)).ToList();
     }
 
     private static void DetectUniversalTableReferences(
@@ -824,11 +481,19 @@ public static class DatabaseTableAccessAnalyzer
         foreach (Match match in UniversalDatabasePatterns.ApiSqlFirstArgRegex.Matches(body))
         {
             if (!SqlPatternHelper.TryUnwrapSqlLiteral(match.Groups[1].Value, out var sql))
-            {
                 continue;
+            var normalized = SqlPatternHelper.NormalizeSqlLiteralEscapes(sql);
+            foreach (Match m in SqlPatternHelper.SqlReadTableRegex.Matches(normalized))
+            {
+                TryAddMatch(results, index, m.Groups[1].Value, m.Groups[2].Value,
+                    DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
             }
-
-            MergeSqlTableMatches(SqlPatternHelper.NormalizeSqlLiteralEscapes(sql), results, index);
+            foreach (Match m in SqlPatternHelper.SqlCrudTableRegex.Matches(normalized))
+            {
+                var op = MapSqlVerbToOperation(m.Groups["op"].Value);
+                TryAddMatch(results, index, m.Groups["schema"].Value, m.Groups["table"].Value,
+                    DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, op);
+            }
         }
 
         foreach (var pattern in UniversalDatabasePatterns.NoSqlCollectionPatterns)
@@ -837,10 +502,7 @@ public static class DatabaseTableAccessAnalyzer
             {
                 var name = match.Groups[1].Value;
                 if (string.IsNullOrWhiteSpace(name) || name.Length < 2)
-                {
                     continue;
-                }
-
                 TryAddMatch(results, index, string.Empty, name,
                     DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
             }
@@ -853,24 +515,7 @@ public static class DatabaseTableAccessAnalyzer
         }
     }
 
-    private static void MergeSqlTableMatches(
-        string sql,
-        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
-        TableReferenceIndex index)
-    {
-        foreach (Match match in SqlPatternHelper.SqlReadTableRegex.Matches(sql))
-        {
-            TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value,
-                DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
-        }
-
-        foreach (Match match in SqlPatternHelper.SqlCrudTableRegex.Matches(sql))
-        {
-            var operation = MapSqlVerbToOperation(match.Groups["op"].Value);
-            TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value,
-                DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation);
-        }
-    }
+    // --- Match helpers ---
 
     private static void TryAddMatch(
         Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
@@ -881,19 +526,13 @@ public static class DatabaseTableAccessAnalyzer
         DatabaseTableAccessPattern pattern,
         DatabaseCrudOperation operations)
     {
-        var qualified = string.IsNullOrWhiteSpace(schemaToken)
-            ? tableToken
-            : $"{schemaToken}.{tableToken}";
-
-        if (!TryResolveTable(index, qualified, out var tableId)
-            && !TryResolveTable(index, tableToken, out tableId))
+        var qualified = string.IsNullOrWhiteSpace(schemaToken) ? tableToken : $"{schemaToken}.{tableToken}";
+        if (!TryResolveTable(index, qualified, out var tableId) && !TryResolveTable(index, tableToken, out tableId))
         {
-            // SQL에서 참조된 테이블을 자동 발견하여 인덱스에 등록
             tableId = AutoDiscoverSqlTable(index, schemaToken, tableToken);
             if (string.IsNullOrEmpty(tableId))
                 return;
         }
-
         MergeAccess(results, tableId, kind, pattern, operations);
     }
 
@@ -908,9 +547,7 @@ public static class DatabaseTableAccessAnalyzer
         foreach (var candidate in UniversalDatabasePatterns.ExpandEntityAliases(alias))
         {
             if (TryResolveTable(index, candidate, out var tableId))
-            {
                 MergeAccess(results, tableId, kind, pattern, operations);
-            }
         }
     }
 
@@ -926,133 +563,59 @@ public static class DatabaseTableAccessAnalyzer
             results[tableId] = (kind, pattern, operations);
             return;
         }
-
-        var mergedKind = MergeKinds(existing.Kind, kind);
-        var mergedPattern = existing.Pattern == pattern ? pattern : DatabaseTableAccessPattern.Sql;
-        var mergedOperations = existing.Operations | operations;
-        results[tableId] = (mergedKind, mergedPattern, mergedOperations);
+        results[tableId] = (MergeKinds(existing.Kind, kind), existing.Pattern == pattern ? pattern : DatabaseTableAccessPattern.Sql, existing.Operations | operations);
     }
 
-    private static DatabaseTableAccessKind MergeKinds(DatabaseTableAccessKind left, DatabaseTableAccessKind right) =>
-        left == right ? left : DatabaseTableAccessKind.ReadWrite;
-
-    /// <summary>SQL 동사(INSERT/UPDATE/DELETE/CREATE/ALTER/DROP/TRUNCATE/MERGE)를 CRUD 동작으로 매핑.</summary>
-    private static DatabaseCrudOperation MapSqlVerbToOperation(string verb)
+    private static void RecordTableMatches(
+        FunctionMetric function,
+        string functionId,
+        List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> matches,
+        List<DatabaseTableAccess> accesses,
+        HashSet<string> seen,
+        List<DatabaseEntryAccess> entryAccesses,
+        HashSet<string> entrySeen)
     {
-        var v = verb.TrimStart().ToUpperInvariant();
-        if (v.StartsWith("INSERT", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
-        if (v.StartsWith("REPLACE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
-        if (v.StartsWith("CREATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
-        if (v.StartsWith("MERGE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create | DatabaseCrudOperation.Update;
-        if (v.StartsWith("UPDATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Update;
-        if (v.StartsWith("ALTER", StringComparison.Ordinal)) return DatabaseCrudOperation.Update;
-        if (v.StartsWith("DELETE", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
-        if (v.StartsWith("TRUNCATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
-        if (v.StartsWith("DROP", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
-        return DatabaseCrudOperation.None;
-    }
-
-    /// <summary>EF Core 메서드명(Add/Update/Remove/Find/Where 등)을 CRUD 동작으로 매핑.</summary>
-    private static DatabaseCrudOperation MapEfMethodToOperation(string method) => method.ToLowerInvariant() switch
-    {
-        "add" or "addasync" or "addrange" or "addrangeasync"
-            or "insert" or "insertasync" or "insertrange" or "insertrangeasync"
-            => DatabaseCrudOperation.Create,
-        "update" or "updaterange" or "executeupdate" or "executeupdateasync" or "attach" or "attachrange"
-            => DatabaseCrudOperation.Update,
-        "remove" or "removerange" or "executedelete" or "executedeleteasync" or "delete" or "deleterange"
-            => DatabaseCrudOperation.Delete,
-        "find" or "findasync" or "where" or "include"
-            or "firstordefault" or "firstordefaultasync" or "first" or "firstasync"
-            or "singleordefault" or "singleordefaultasync" or "single" or "singleasync"
-            or "any" or "anyasync" or "count" or "countasync" or "tolist" or "tolistasync"
-            => DatabaseCrudOperation.Read,
-        _ => DatabaseCrudOperation.None
-    };
-
-    /// <summary>플래그로 합쳐진 CRUD 동작을 개별 동작 단위로 분리 (엔트리 단위 기록용).</summary>
-    private static IEnumerable<DatabaseCrudOperation> SplitOperations(DatabaseCrudOperation operations)
-    {
-        if (operations.HasFlag(DatabaseCrudOperation.Create)) yield return DatabaseCrudOperation.Create;
-        if (operations.HasFlag(DatabaseCrudOperation.Read)) yield return DatabaseCrudOperation.Read;
-        if (operations.HasFlag(DatabaseCrudOperation.Update)) yield return DatabaseCrudOperation.Update;
-        if (operations.HasFlag(DatabaseCrudOperation.Delete)) yield return DatabaseCrudOperation.Delete;
-    }
-
-    private static bool TryResolveTable(TableReferenceIndex index, string token, out string tableId)
-    {
-        tableId = string.Empty;
-        if (string.IsNullOrWhiteSpace(token))
+        foreach (var (tableId, kind, pattern, operations) in matches)
         {
-            return false;
-        }
+            if (seen.Add(tableId + "\0" + functionId))
+            {
+                accesses.Add(new DatabaseTableAccess
+                {
+                    TableId = tableId,
+                    FunctionId = functionId,
+                    FunctionDisplayName = function.DisplayName,
+                    FunctionFullName = function.FullName,
+                    FunctionFilePath = function.FilePath,
+                    FunctionLineNumber = function.StartLine,
+                    Kind = kind,
+                    Pattern = pattern,
+                    Operations = operations
+                });
+            }
 
-        if (index.Aliases.TryGetValue(token.Trim(), out var resolved))
-        {
-            tableId = resolved;
-            return true;
-        }
-
-        return false;
-    }
-
-    private static string ResolveFunctionId(FunctionMetric function, CallGraphResult callGraph)
-    {
-        var match = callGraph.Nodes.FirstOrDefault(node =>
-            string.Equals(node.FilePath, function.FilePath, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(node.DisplayName, function.DisplayName, StringComparison.Ordinal)
-            && Math.Abs(node.LineNumber - function.StartLine) <= 3);
-
-        return match?.Id ?? function.Id;
-    }
-
-    private static string? ResolveLanguageId(string nodeId)
-    {
-        var colon = nodeId.IndexOf(':');
-        return colon > 0 ? nodeId[..colon] : null;
-    }
-
-    private static bool TryReadLines(
-        string filePath,
-        Dictionary<string, string[]> cache,
-        out string[] lines)
-    {
-        lines = [];
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            return false;
-        }
-
-        try
-        {
-            filePath = Path.GetFullPath(filePath);
-        }
-        catch
-        {
-            return false;
-        }
-
-        if (cache.TryGetValue(filePath, out var cached))
-        {
-            lines = cached;
-            return lines.Length > 0;
-        }
-
-        try
-        {
-            var fullPath = Path.GetFullPath(filePath);
-            lines = File.ReadAllLines(fullPath);
-            cache[filePath] = lines;
-            return lines.Length > 0;
-        }
-        catch
-        {
-            cache[filePath] = [];
-            return false;
+            foreach (var op in SplitOperations(operations))
+            {
+                if (entrySeen.Add(tableId + "\0" + functionId + "\0" + op))
+                {
+                    entryAccesses.Add(new DatabaseEntryAccess
+                    {
+                        TableId = tableId,
+                        FunctionId = functionId,
+                        FunctionDisplayName = function.DisplayName,
+                        FunctionFullName = function.FullName,
+                        FunctionFilePath = function.FilePath,
+                        FunctionLineNumber = function.StartLine,
+                        Operation = op,
+                        Pattern = pattern
+                    });
+                }
+            }
         }
     }
 
-    private static List<DatabaseColumnAccess> AppendColumnAccesses(
+    // --- Column access detection ---
+
+    private static List<DatabaseColumnAccess> BuildColumnAccesses(
         IReadOnlyList<string>? sourceFiles,
         IReadOnlyList<DatabaseTable> tables,
         List<DatabaseTableAccess> tableAccesses,
@@ -1062,14 +625,12 @@ public static class DatabaseTableAccessAnalyzer
         var columnAccesses = new List<DatabaseColumnAccess>();
         var columnSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (sourceFiles is not null && sourceFiles.Count > 0)
+        if (sourceFiles is { Count: > 0 })
         {
             foreach (var filePath in sourceFiles)
             {
                 if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
-                {
                     continue;
-                }
 
                 var languageId = LanguageRegistry.FindByExtension(Path.GetExtension(filePath))?.Id ?? string.Empty;
                 var fullText = string.Join('\n', lines);
@@ -1080,30 +641,24 @@ public static class DatabaseTableAccessAnalyzer
                     foreach (var table in tables)
                     {
                         if (!SqlPatternHelper.SqlLiteralReferencesTable(span.Text, table.Name, table.Schema))
-                        {
                             continue;
-                        }
 
                         var owner = ResolveSqlLiteralOwner(filePath, lines, methodStarts, languageId, span.LineNumber);
                         var functionId = ResolveCallGraphFunctionId(callGraph, filePath, owner.MethodStartLine) ?? owner.FunctionId;
-                        var displayName = owner.DisplayName;
-                        var fullName = $"{Path.GetFileName(filePath)}:{span.LineNumber}";
 
                         foreach (var (colName, kind, operations) in DetectColumnsInSql(span.Text, table))
                         {
                             var key = $"{table.Id}\0{functionId}\0{span.LineNumber}\0{colName}";
                             if (!columnSeen.Add(key))
-                            {
                                 continue;
-                            }
 
                             columnAccesses.Add(new DatabaseColumnAccess
                             {
                                 TableId = table.Id,
                                 ColumnName = colName,
                                 FunctionId = functionId,
-                                FunctionDisplayName = displayName,
-                                FunctionFullName = fullName,
+                                FunctionDisplayName = owner.DisplayName,
+                                FunctionFullName = $"{Path.GetFileName(filePath)}:{span.LineNumber}",
                                 FunctionFilePath = filePath,
                                 FunctionLineNumber = span.LineNumber,
                                 Kind = kind,
@@ -1116,21 +671,17 @@ public static class DatabaseTableAccessAnalyzer
             }
         }
 
+        var tableById = tables.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase);
         foreach (var access in tableAccesses)
         {
-            if (!tables.Any(t => string.Equals(t.Id, access.TableId, StringComparison.OrdinalIgnoreCase)))
-            {
+            if (!tableById.TryGetValue(access.TableId, out var table) || table.Columns.Count == 0)
                 continue;
-            }
 
-            var table = tables.First(t => string.Equals(t.Id, access.TableId, StringComparison.OrdinalIgnoreCase));
             foreach (var (colName, kind, operations) in DetectColumnsInEntityBody(access.FunctionFilePath, access.FunctionLineNumber, table, fileCache))
             {
                 var key = $"{access.TableId}\0{access.FunctionId}\0{access.FunctionLineNumber}\0{colName}";
                 if (!columnSeen.Add(key))
-                {
                     continue;
-                }
 
                 columnAccesses.Add(new DatabaseColumnAccess
                 {
@@ -1159,102 +710,61 @@ public static class DatabaseTableAccessAnalyzer
         string sql,
         DatabaseTable table)
     {
-        var knownColumns = new HashSet<string>(
-            table.Columns.Select(c => c.Name),
-            StringComparer.OrdinalIgnoreCase);
+        var knownColumns = new HashSet<string>(table.Columns.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
         var hasSchema = knownColumns.Count > 0;
-
         var result = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
 
-        void Add(string col, DatabaseTableAccessKind kind, DatabaseCrudOperation operation)
+        void Add(string col, DatabaseTableAccessKind kind, DatabaseCrudOperation op)
         {
-            if (SqlKeywords.Contains(col))
-            {
+            if (SqlKeywords.Contains(col) || col.Length < 2)
                 return;
-            }
-
             if (hasSchema && !knownColumns.Contains(col))
-            {
                 return;
-            }
-
-            if (col.Length < 2)
-            {
-                return;
-            }
-
             if (!result.TryGetValue(col, out var existing))
-            {
-                result[col] = (kind, operation);
-            }
+                result[col] = (kind, op);
             else
-            {
-                var mergedKind = existing.Kind == kind ? kind : DatabaseTableAccessKind.ReadWrite;
-                result[col] = (mergedKind, existing.Operations | operation);
-            }
+                result[col] = (existing.Kind == kind ? kind : DatabaseTableAccessKind.ReadWrite, existing.Operations | op);
         }
 
         foreach (Match m in SqlPatternHelper.SqlSelectColumnsRegex.Matches(sql))
         {
             if (!SqlPatternHelper.SqlMentionsTable(sql, m.Index, table.Name))
-            {
                 continue;
-            }
-
             var selectList = m.Groups[1].Value;
             if (hasSchema && SqlPatternHelper.SelectUsesWildcard(selectList))
             {
                 foreach (var col in knownColumns)
-                {
                     Add(col, DatabaseTableAccessKind.Read, DatabaseCrudOperation.Read);
-                }
             }
             else
             {
                 foreach (var col in ParseColumnTokens(selectList))
-                {
                     Add(col, DatabaseTableAccessKind.Read, DatabaseCrudOperation.Read);
-                }
             }
         }
 
         foreach (Match m in SqlPatternHelper.SqlInsertColumnsRegex.Matches(sql))
         {
             if (!SqlPatternHelper.SqlInsertTargetsTable(m, table.Name))
-            {
                 continue;
-            }
-
             foreach (var col in ParseColumnTokens(m.Groups[1].Value))
-            {
                 Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Create);
-            }
         }
 
         foreach (Match m in SqlPatternHelper.SqlUpdateSetColumnsRegex.Matches(sql))
         {
             if (!SqlPatternHelper.SqlUpdateTargetsTable(m, table.Name))
-            {
                 continue;
-            }
-
             foreach (var col in ParseColumnTokens(m.Groups[1].Value, leftOfEquals: true))
-            {
                 Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Update);
-            }
         }
 
         foreach (Match m in SqlPatternHelper.SqlDeleteFromRegex.Matches(sql))
         {
             if (!SqlPatternHelper.SqlDeleteTargetsTable(m, table.Name))
-            {
                 continue;
-            }
-
             foreach (var col in SqlPatternHelper.ExtractWhereColumns(m.Groups[1].Success ? m.Groups[1].Value : null))
-            {
                 Add(col, DatabaseTableAccessKind.Write, DatabaseCrudOperation.Delete);
-            }
         }
 
         return result.Select(p => (p.Key, p.Value.Kind, p.Value.Operations)).ToList();
@@ -1267,9 +777,7 @@ public static class DatabaseTableAccessAnalyzer
         Dictionary<string, string[]> fileCache)
     {
         if (table.Columns.Count == 0 || !TryReadLines(filePath, fileCache, out var lines))
-        {
             return [];
-        }
 
         var start = Math.Max(1, lineNumber);
         var end = Math.Min(lines.Length, start + MethodScanLineWindow);
@@ -1279,38 +787,31 @@ public static class DatabaseTableAccessAnalyzer
         foreach (var column in table.Columns)
         {
             if (!ReferencesColumn(body, column.Name))
-            {
                 continue;
-            }
-
             result[column.Name] = (DatabaseTableAccessKind.ReadWrite, DatabaseCrudOperation.Read | DatabaseCrudOperation.Update);
         }
 
         return result.Select(p => (p.Key, p.Value.Kind, p.Value.Operations)).ToList();
     }
 
+    // --- Deduplication ---
+
     private static List<DatabaseTableAccess> DeduplicateAccesses(List<DatabaseTableAccess> accesses) =>
         accesses
-            .GroupBy(
-                access => $"{access.TableId}\0{access.FunctionFilePath}\0{access.FunctionLineNumber}",
-                StringComparer.OrdinalIgnoreCase)
+            .GroupBy(a => $"{a.TableId}\0{a.FunctionFilePath}\0{a.FunctionLineNumber}", StringComparer.OrdinalIgnoreCase)
             .Select(MergeDuplicateAccesses)
-            .OrderBy(access => access.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(access => access.FunctionLineNumber)
-            .ThenBy(access => access.FunctionDisplayName, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(a => a.FunctionFilePath, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.FunctionLineNumber)
+            .ThenBy(a => a.FunctionDisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
     private static DatabaseTableAccess MergeDuplicateAccesses(IEnumerable<DatabaseTableAccess> group)
     {
         var ordered = group
-            .OrderByDescending(access => IsCallGraphFunctionId(access.FunctionId))
-            .ThenBy(access => access.FunctionId, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(a => IsCallGraphFunctionId(a.FunctionId))
+            .ThenBy(a => a.FunctionId, StringComparer.OrdinalIgnoreCase)
             .ToList();
-
         var primary = ordered[0];
-        var mergedKind = ordered.Aggregate(primary.Kind, (kind, access) => MergeKinds(kind, access.Kind));
-        var mergedOps = ordered.Aggregate(DatabaseCrudOperation.None, (ops, access) => ops | access.Operations);
-
         return new DatabaseTableAccess
         {
             TableId = primary.TableId,
@@ -1319,24 +820,206 @@ public static class DatabaseTableAccessAnalyzer
             FunctionFullName = primary.FunctionFullName,
             FunctionFilePath = primary.FunctionFilePath,
             FunctionLineNumber = primary.FunctionLineNumber,
-            Kind = mergedKind,
-            Pattern = ordered.All(access => access.Pattern == primary.Pattern)
-                ? primary.Pattern
-                : DatabaseTableAccessPattern.Sql,
-            Operations = mergedOps
+            Kind = ordered.Aggregate(primary.Kind, (kind, a) => MergeKinds(kind, a.Kind)),
+            Pattern = ordered.All(a => a.Pattern == primary.Pattern) ? primary.Pattern : DatabaseTableAccessPattern.Sql,
+            Operations = ordered.Aggregate(DatabaseCrudOperation.None, (ops, a) => ops | a.Operations)
         };
     }
 
     private static List<DatabaseEntryAccess> DeduplicateEntryAccesses(List<DatabaseEntryAccess> entries) =>
         entries
-            .GroupBy(
-                entry => $"{entry.TableId}\0{entry.FunctionFilePath}\0{entry.FunctionLineNumber}\0{entry.Operation}",
-                StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.OrderByDescending(entry => IsCallGraphFunctionId(entry.FunctionId)).First())
+            .GroupBy(e => $"{e.TableId}\0{e.FunctionFilePath}\0{e.FunctionLineNumber}\0{e.Operation}", StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(e => IsCallGraphFunctionId(e.FunctionId)).First())
             .ToList();
+
+    // --- Utility ---
 
     private static bool IsCallGraphFunctionId(string functionId) =>
         !functionId.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryResolveTable(TableReferenceIndex index, string token, out string tableId)
+    {
+        tableId = string.Empty;
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
+        return index.Aliases.TryGetValue(token.Trim(), out tableId!);
+    }
+
+    private static string ResolveFunctionId(FunctionMetric function, CallGraphResult callGraph)
+    {
+        var match = callGraph.Nodes.FirstOrDefault(node =>
+            string.Equals(node.FilePath, function.FilePath, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(node.DisplayName, function.DisplayName, StringComparison.Ordinal)
+            && Math.Abs(node.LineNumber - function.StartLine) <= 3);
+        return match?.Id ?? function.Id;
+    }
+
+    private static string? ResolveLanguageId(string nodeId)
+    {
+        var colon = nodeId.IndexOf(':');
+        return colon > 0 ? nodeId[..colon] : null;
+    }
+
+    private static bool TryReadLines(string filePath, Dictionary<string, string[]> cache, out string[] lines)
+    {
+        lines = [];
+        if (string.IsNullOrWhiteSpace(filePath))
+            return false;
+        try { filePath = Path.GetFullPath(filePath); }
+        catch { return false; }
+        if (cache.TryGetValue(filePath, out var cached))
+        {
+            lines = cached;
+            return lines.Length > 0;
+        }
+        try
+        {
+            lines = File.ReadAllLines(filePath);
+            cache[filePath] = lines;
+            return lines.Length > 0;
+        }
+        catch
+        {
+            cache[filePath] = [];
+            return false;
+        }
+    }
+
+    private static bool ReferencesEntityType(string body, string entityTypeName)
+    {
+        var escaped = Regex.Escape(entityTypeName);
+        return Regex.IsMatch(
+            body,
+            $@"(?<![\w$@#])(?:new\s+{escaped}\b|<\s*{escaped}\s*[>,\)]|:\s*{escaped}\b|\(\s*{escaped}\s+\w+\b|\b{escaped}\s+\w+\s*[=;,)])",
+            RegexOptions.CultureInvariant);
+    }
+
+    private static bool ReferencesColumn(string body, string columnName)
+    {
+        var escaped = Regex.Escape(columnName);
+        return Regex.IsMatch(body, $@"(?<![\w$@#])\.{escaped}\b", RegexOptions.CultureInvariant)
+            || Regex.IsMatch(body, $@"(?<![\w$@#])\b{escaped}\s*=", RegexOptions.CultureInvariant);
+    }
+
+    private static DatabaseTableAccessKind MergeKinds(DatabaseTableAccessKind left, DatabaseTableAccessKind right) =>
+        left == right ? left : DatabaseTableAccessKind.ReadWrite;
+
+    private static DatabaseCrudOperation MapSqlVerbToOperation(string verb)
+    {
+        var v = verb.TrimStart().ToUpperInvariant();
+        if (v.StartsWith("INSERT", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
+        if (v.StartsWith("REPLACE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
+        if (v.StartsWith("CREATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create;
+        if (v.StartsWith("MERGE", StringComparison.Ordinal)) return DatabaseCrudOperation.Create | DatabaseCrudOperation.Update;
+        if (v.StartsWith("UPDATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Update;
+        if (v.StartsWith("ALTER", StringComparison.Ordinal)) return DatabaseCrudOperation.Update;
+        if (v.StartsWith("DELETE", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
+        if (v.StartsWith("TRUNCATE", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
+        if (v.StartsWith("DROP", StringComparison.Ordinal)) return DatabaseCrudOperation.Delete;
+        return DatabaseCrudOperation.None;
+    }
+
+    private static DatabaseCrudOperation MapEfMethodToOperation(string method) => method.ToLowerInvariant() switch
+    {
+        "add" or "addasync" or "addrange" or "addrangeasync"
+            or "insert" or "insertasync" or "insertrange" or "insertrangeasync"
+            => DatabaseCrudOperation.Create,
+        "update" or "updaterange" or "executeupdate" or "executeupdateasync" or "attach" or "attachrange"
+            => DatabaseCrudOperation.Update,
+        "remove" or "removerange" or "executedelete" or "executedeleteasync" or "delete" or "deleterange"
+            => DatabaseCrudOperation.Delete,
+        "find" or "findasync" or "where" or "include"
+            or "firstordefault" or "firstordefaultasync" or "first" or "firstasync"
+            or "singleordefault" or "singleordefaultasync" or "single" or "singleasync"
+            or "any" or "anyasync" or "count" or "countasync" or "tolist" or "tolistasync"
+            => DatabaseCrudOperation.Read,
+        _ => DatabaseCrudOperation.None
+    };
+
+    private static IEnumerable<DatabaseCrudOperation> SplitOperations(DatabaseCrudOperation operations)
+    {
+        if (operations.HasFlag(DatabaseCrudOperation.Create)) yield return DatabaseCrudOperation.Create;
+        if (operations.HasFlag(DatabaseCrudOperation.Read)) yield return DatabaseCrudOperation.Read;
+        if (operations.HasFlag(DatabaseCrudOperation.Update)) yield return DatabaseCrudOperation.Update;
+        if (operations.HasFlag(DatabaseCrudOperation.Delete)) yield return DatabaseCrudOperation.Delete;
+    }
+
+    private static List<int> FindMethodStartLines(string[] lines, string languageId = "")
+    {
+        var starts = new List<int>();
+        var text = SqlPatternHelper.StripCommentsPreservingLiterals(string.Join('\n', lines));
+        var headerRegex = string.IsNullOrEmpty(languageId) || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase)
+            ? CSharpMethodHeaderRegex
+            : LanguageDbAccessPatterns.GetFunctionHeaderRegex(languageId) ?? CSharpMethodHeaderRegex;
+
+        foreach (Match match in headerRegex.Matches(text))
+        {
+            var hasName = false;
+            for (var g = 1; g < match.Groups.Count; g++)
+            {
+                if (match.Groups[g].Success && !string.IsNullOrWhiteSpace(match.Groups[g].Value))
+                {
+                    hasName = true;
+                    break;
+                }
+            }
+            if (!hasName)
+                continue;
+
+            var line = text.AsSpan(0, match.Index).Count('\n') + 1;
+            if (line > 0 && (starts.Count == 0 || starts[^1] != line))
+                starts.Add(line);
+        }
+        return starts;
+    }
+
+    private static string? ExtractMethodName(string headerLine, string languageId = "")
+    {
+        var headerRegex = string.IsNullOrEmpty(languageId) || languageId.Equals("csharp", StringComparison.OrdinalIgnoreCase)
+            ? CSharpMethodHeaderRegex
+            : LanguageDbAccessPatterns.GetFunctionHeaderRegex(languageId) ?? CSharpMethodHeaderRegex;
+        var match = headerRegex.Match(headerLine);
+        if (!match.Success)
+            return null;
+        for (var g = 1; g < match.Groups.Count; g++)
+        {
+            if (match.Groups[g].Success && !string.IsNullOrWhiteSpace(match.Groups[g].Value))
+                return match.Groups[g].Value;
+        }
+        return null;
+    }
+
+    private static (string DisplayName, string FunctionId, int MethodStartLine) ResolveSqlLiteralOwner(
+        string filePath,
+        string[] lines,
+        List<int> methodStarts,
+        string languageId,
+        int sqlLine)
+    {
+        var enclosingStart = -1;
+        for (var i = methodStarts.Count - 1; i >= 0; i--)
+        {
+            if (methodStarts[i] <= sqlLine)
+            {
+                enclosingStart = methodStarts[i];
+                break;
+            }
+        }
+        if (enclosingStart < 0)
+            return ("(전역)", $"file:{filePath}:{sqlLine}", sqlLine);
+
+        var displayName = ExtractMethodName(lines[enclosingStart - 1], languageId) ?? $"line {enclosingStart}";
+        return (displayName, $"file:{filePath}:{enclosingStart}", enclosingStart);
+    }
+
+    private static string? ResolveCallGraphFunctionId(CallGraphResult callGraph, string filePath, int methodStartLine)
+    {
+        if (methodStartLine <= 0)
+            return null;
+        return callGraph.Nodes.FirstOrDefault(node =>
+            string.Equals(node.FilePath, filePath, StringComparison.OrdinalIgnoreCase)
+            && Math.Abs(node.LineNumber - methodStartLine) <= 3)?.Id;
+    }
 
     private static IEnumerable<string> ParseColumnTokens(string clause, bool leftOfEquals = false)
     {
@@ -1345,20 +1028,16 @@ public static class DatabaseTableAccessAnalyzer
             var token = part.Trim();
             if (string.IsNullOrEmpty(token) || token == "*")
                 continue;
-
             if (leftOfEquals)
             {
                 var eq = token.IndexOf('=');
                 if (eq > 0)
                     token = token[..eq].Trim();
             }
-
             var dot = token.LastIndexOf('.');
             if (dot >= 0)
                 token = token[(dot + 1)..].Trim();
-
             token = token.Trim('`', '[', ']', '"', '\'', ' ', '\t', '\n', '\r');
-
             var m = Regex.Match(token, @"^\w+");
             if (m.Success && m.Value.Length >= 2)
                 yield return m.Value;
