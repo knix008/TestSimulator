@@ -47,7 +47,8 @@ internal static class DiagramBoxLayoutEngine
 
     public static Size LayoutLayered(
         IReadOnlyList<DiagramBoxNode> nodes,
-        IReadOnlyDictionary<string, int> depthById)
+        IReadOnlyDictionary<string, int> depthById,
+        GraphLayoutDirection layoutDirection = GraphLayoutDirection.TopToBottom)
     {
         if (nodes.Count == 0)
         {
@@ -59,25 +60,48 @@ internal static class DiagramBoxLayoutEngine
             .OrderBy(group => group.Key)
             .ToList();
 
-        var bounds = Rectangle.Empty;
-        var y = 24;
+        if (layoutDirection == GraphLayoutDirection.LeftToRight)
+        {
+            var bounds = Rectangle.Empty;
+            var x = 24;
+
+            foreach (var group in grouped)
+            {
+                var y = 24;
+
+                foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
+                {
+                    var height = MeasureNodeHeight(node);
+                    node.Bounds = new Rectangle(x, y, NodeWidth, height);
+                    bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
+                    y += height + HorizontalGap;
+                }
+
+                x += NodeWidth + VerticalGap;
+            }
+
+            return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
+        }
+
+        var topDownBounds = Rectangle.Empty;
+        var topDownY = 24;
 
         foreach (var group in grouped)
         {
             var rowHeight = group.Max(MeasureNodeHeight);
-            var x = 24;
+            var topDownX = 24;
             foreach (var node in group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase))
             {
                 var height = MeasureNodeHeight(node);
-                node.Bounds = new Rectangle(x, y, NodeWidth, height);
-                bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
-                x += NodeWidth + HorizontalGap;
+                node.Bounds = new Rectangle(topDownX, topDownY, NodeWidth, height);
+                topDownBounds = topDownBounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(topDownBounds, node.Bounds);
+                topDownX += NodeWidth + HorizontalGap;
             }
 
-            y += rowHeight + VerticalGap;
+            topDownY += rowHeight + VerticalGap;
         }
 
-        return new Size(Math.Max(bounds.Right + 40, 400), Math.Max(bounds.Bottom + 40, 300));
+        return new Size(Math.Max(topDownBounds.Right + 40, 400), Math.Max(topDownBounds.Bottom + 40, 300));
     }
 
     public static Size LayoutLeftToRightTree(

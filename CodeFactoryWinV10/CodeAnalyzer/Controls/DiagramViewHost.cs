@@ -237,6 +237,15 @@ public sealed class DiagramViewHost : UserControl
             return true;
         }
 
+        if (_viewKind == DiagramViewKind.DataFlow
+            && _analysis.CallGraph.NodeMap.ContainsKey(nodeId))
+        {
+            _structureViewer.ViewKind = DiagramViewKind.DataFlow;
+            _structureViewer.SetAnalysis(_analysis, [nodeId], ProjectRootDirectory);
+            _structureViewer.FocusDataFlowNode(nodeId);
+            return true;
+        }
+
         if (!_analysis.CallGraph.NodeMap.ContainsKey(nodeId))
         {
             return false;
@@ -245,6 +254,11 @@ public sealed class DiagramViewHost : UserControl
         _rootNodeIds = [nodeId];
         RefreshActiveView();
         return true;
+    }
+
+    public void ClearStructureContainerFocus()
+    {
+        _structureViewer.ClearContainerFocus();
     }
 
     private void OnStructureFunctionRootChanged(CallGraphNode node)

@@ -1127,7 +1127,8 @@ public partial class MainForm : Form
             viewKind: DiagramViewKind.DirectoryRelations,
             rootMethod: GetCurrentRootMethodSelection(),
             fileIdOverride: null,
-            directoryIdOverride: directory.Id);
+            directoryIdOverride: directory.Id,
+            focusedGraphNodeId: null);
     }
 
     private void OnCallGraphRootChanged(CallGraphNode node)
@@ -1155,7 +1156,8 @@ public partial class MainForm : Form
                 viewKind: GetSelectedViewKind(),
                 rootMethod: GetCurrentRootMethodSelection(),
                 fileIdOverride: null,
-                directoryIdOverride: null);
+                directoryIdOverride: null,
+                focusedGraphNodeId: node.Id);
         }
         finally
         {
@@ -1181,7 +1183,8 @@ public partial class MainForm : Form
             viewKind: DiagramViewKind.FileRelations,
             rootMethod: GetCurrentRootMethodSelection(),
             fileIdOverride: file.Id,
-            directoryIdOverride: null);
+            directoryIdOverride: null,
+            focusedGraphNodeId: null);
     }
 
     private readonly record struct RootMethodSelection(bool IsAutoEntryPoints, string? NodeId);
@@ -1190,7 +1193,8 @@ public partial class MainForm : Form
         DiagramViewKind ViewKind,
         RootMethodSelection RootMethod,
         string? FileIdOverride,
-        string? DirectoryIdOverride);
+        string? DirectoryIdOverride,
+        string? FocusedGraphNodeId);
 
     private RootMethodSelection GetCurrentRootMethodSelection()
     {
@@ -1214,21 +1218,23 @@ public partial class MainForm : Form
             viewKind: GetSelectedViewKind(),
             rootMethod: GetCurrentRootMethodSelection(),
             fileIdOverride: null,
-            directoryIdOverride: null);
+            directoryIdOverride: null,
+            focusedGraphNodeId: null);
     }
 
     private void RecordRootSelection(
         DiagramViewKind viewKind,
         RootMethodSelection rootMethod,
         string? fileIdOverride,
-        string? directoryIdOverride)
+        string? directoryIdOverride,
+        string? focusedGraphNodeId)
     {
         if (_suppressRootHistory || _lastAnalysis is null)
         {
             return;
         }
 
-        var selection = new RootSelection(viewKind, rootMethod, fileIdOverride, directoryIdOverride);
+        var selection = new RootSelection(viewKind, rootMethod, fileIdOverride, directoryIdOverride, focusedGraphNodeId);
 
         if (_rootHistoryIndex >= 0
             && _rootHistoryIndex < _rootHistory.Count
@@ -1286,10 +1292,10 @@ public partial class MainForm : Form
 
         _suppressRootHistory = true;
         _suppressRootComboChange = true;
+        _suppressDiagramViewChange = true;
 
         try
         {
-            // 1) restore root method (comboRootMethod)
             if (selection.RootMethod.IsAutoEntryPoints)
             {
                 comboRootMethod.SelectedItem = RootMethodItem.AutoEntryPoints;
@@ -1306,29 +1312,74 @@ public partial class MainForm : Form
                 }
             }
 
-            // 2) restore view kind (comboDiagramView + host)
-            comboDiagramView.SelectedIndex = GetDiagramViewComboIndex(selection.ViewKind);
-
-            // 3) apply root method selection (clears file/directory overrides)
-            ApplyRootMethodSelection();
-
-            // 4) re-apply overrides if needed
-            if (selection.ViewKind == DiagramViewKind.FileRelations && !string.IsNullOrWhiteSpace(selection.FileIdOverride))
+            var viewIndex = GetDiagramViewComboIndex(selection.ViewKind);
+            if (comboDiagramView.SelectedIndex != viewIndex)
             {
-                diagramViewHost.TryFocusNode(selection.FileIdOverride);
-            }
-            else if (selection.ViewKind == DiagramViewKind.DirectoryRelations && !string.IsNullOrWhiteSpace(selection.DirectoryIdOverride))
-            {
-                diagramViewHost.TryFocusNode(selection.DirectoryIdOverride);
+                comboDiagramView.SelectedIndex = viewIndex;
             }
 
+            diagramViewHost.ProjectRootDirectory = txtRootPath.Text.Trim();
+            diagramViewHost.ViewKind = selection.ViewKind;
+
+            if (selection.ViewKind is DiagramViewKind.ClassDiagram or DiagramViewKind.Inheritance)
+            {
+                ApplyRootTypeSelection();
+            }
+            else
+            {
+                diagramViewHost.SetAnalysis(_lastAnalysis, ResolveRootNodeIds());
+                ApplyStructureNavigationFocus(selection);
+            }
+
+            ApplySearchHighlightToViewer();
+            UpdateToolbarForViewKind();
             lblStatus.Text = "이전 보기로 되돌렸습니다.";
         }
         finally
         {
             _suppressRootComboChange = false;
+            _suppressDiagramViewChange = false;
             _suppressRootHistory = false;
             UpdateRootHistoryNavigationState();
+        }
+    }
+
+    private void ApplyStructureNavigationFocus(RootSelection selection)
+    {
+        switch (selection.ViewKind)
+        {
+            case DiagramViewKind.FileRelations:
+                if (!string.IsNullOrWhiteSpace(selection.FileIdOverride))
+                {
+                    diagramViewHost.TryFocusNode(selection.FileIdOverride);
+                }
+                else
+                {
+                    diagramViewHost.ClearStructureContainerFocus();
+                }
+
+                break;
+
+            case DiagramViewKind.DirectoryRelations:
+                if (!string.IsNullOrWhiteSpace(selection.DirectoryIdOverride))
+                {
+                    diagramViewHost.TryFocusNode(selection.DirectoryIdOverride);
+                }
+                else
+                {
+                    diagramViewHost.ClearStructureContainerFocus();
+                }
+
+                break;
+
+            case DiagramViewKind.DataFlow:
+            case DiagramViewKind.CallGraph:
+                if (!string.IsNullOrWhiteSpace(selection.FocusedGraphNodeId))
+                {
+                    diagramViewHost.TryFocusNode(selection.FocusedGraphNodeId);
+                }
+
+                break;
         }
     }
 
@@ -2142,7 +2193,8 @@ public partial class MainForm : Form
                     viewKind: DiagramViewKind.FileRelations,
                     rootMethod: GetCurrentRootMethodSelection(),
                     fileIdOverride: item.Id,
-                    directoryIdOverride: null);
+                    directoryIdOverride: null,
+                    focusedGraphNodeId: null);
                 break;
 
             case SearchResultKind.Directory:
@@ -2152,7 +2204,8 @@ public partial class MainForm : Form
                     viewKind: DiagramViewKind.DirectoryRelations,
                     rootMethod: GetCurrentRootMethodSelection(),
                     fileIdOverride: null,
-                    directoryIdOverride: item.Id);
+                    directoryIdOverride: item.Id,
+                    focusedGraphNodeId: null);
                 break;
         }
 

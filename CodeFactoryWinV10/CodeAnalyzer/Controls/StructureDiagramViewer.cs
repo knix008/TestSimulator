@@ -138,6 +138,24 @@ public sealed class StructureDiagramViewer : UserControl
         Rebuild();
     }
 
+    public void ClearContainerFocus()
+    {
+        if (_fileRootOverride.Count == 0 && _directoryRootOverride.Count == 0)
+        {
+            return;
+        }
+
+        _fileRootOverride = [];
+        _directoryRootOverride = [];
+        Rebuild();
+    }
+
+    public void FocusDataFlowNode(string nodeId)
+    {
+        _dataFlowRootOverride = nodeId;
+        Rebuild();
+    }
+
     public GraphLayoutDirection LayoutDirection
     {
         get => _layoutDirection;
@@ -642,7 +660,7 @@ public sealed class StructureDiagramViewer : UserControl
         if (string.IsNullOrEmpty(primaryRoot))
         {
             var depths = ComputeFileDepths(subgraph);
-            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths));
+            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths, _layoutDirection));
         }
         else
         {
@@ -731,12 +749,12 @@ public sealed class StructureDiagramViewer : UserControl
                 subgraph,
                 _projectRootDirectory!,
                 projectRootDirectoryId);
-            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths));
+            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths, _layoutDirection));
         }
         else if (string.IsNullOrEmpty(primaryRoot))
         {
             var depths = ComputeDirectoryDepths(subgraph);
-            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths));
+            ApplyBoxContentSize(DiagramBoxLayoutEngine.LayoutLayered(_boxes, depths, _layoutDirection));
         }
         else
         {
@@ -1013,7 +1031,10 @@ public sealed class StructureDiagramViewer : UserControl
 
         var root = rootNodeId ?? flow.Nodes.FirstOrDefault()?.Id ?? string.Empty;
         ApplyBoxContentSize(string.IsNullOrEmpty(root)
-            ? DiagramBoxLayoutEngine.LayoutLayered(_boxes, _boxes.ToDictionary(box => box.Id, _ => 0))
+            ? DiagramBoxLayoutEngine.LayoutLayered(
+                _boxes,
+                _boxes.ToDictionary(box => box.Id, _ => 0),
+                _layoutDirection)
             : _layoutDirection == GraphLayoutDirection.TopToBottom
                 ? DiagramBoxLayoutEngine.LayoutTopToBottomTree(_boxes, flow.Outgoing, root)
                 : DiagramBoxLayoutEngine.LayoutLeftToRightTree(_boxes, flow.Outgoing, root));
