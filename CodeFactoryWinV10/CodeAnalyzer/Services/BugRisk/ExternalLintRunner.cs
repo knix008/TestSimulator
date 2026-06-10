@@ -63,7 +63,7 @@ public static class ExternalLintRunner
         }
     }
 
-    // ── ESLint (JavaScript / TypeScript) ───────────────────────────────────────
+    // ── ESLint (JavaScript/TypeScript) ───────────────────────────────────────
 
     private static async Task<IReadOnlyList<BugRiskFinding>> RunEsLintBatchAsync(
         List<string> files, CancellationToken ct)

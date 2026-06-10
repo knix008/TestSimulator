@@ -176,6 +176,8 @@ public sealed class DatabaseTableViewer : UserControl
     private readonly ListViewColumnHeaderToolTip _accessorListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _columnAccessListHeaderToolTip;
     private readonly ListViewColumnHeaderToolTip _entryAccessListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _catalogListHeaderToolTip;
+    private readonly ListViewColumnHeaderToolTip _catalogAccessListHeaderToolTip;
     private ListViewColumnHeaderToolTip? _impactListHeaderToolTip;
 
     public event Action<DatabaseTable>? AccessGraphRequested;
@@ -288,6 +290,7 @@ public sealed class DatabaseTableViewer : UserControl
         _catalogList.Columns.Add("접근 함수", 72, HorizontalAlignment.Right);
         _catalogList.Columns.Add("방언", 72);
         _catalogList.Columns.Add("출처", 100);
+        _catalogListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_catalogList, ListViewHeaderToolTipTexts.DatabaseCatalog);
         ListViewColumnSortHelper.Enable(_catalogList);
         _catalogList.SelectedIndexChanged += (_, _) => ShowSelectedCatalog();
         _catalogList.DoubleClick += (_, _) => OpenSelectedCatalogAccessor();
@@ -299,6 +302,7 @@ public sealed class DatabaseTableViewer : UserControl
         _catalogAccessList.Columns.Add("패턴", 80);
         _catalogAccessList.Columns.Add("파일", 160);
         _catalogAccessList.Columns.Add("줄", 44, HorizontalAlignment.Right);
+        _catalogAccessListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_catalogAccessList, ListViewHeaderToolTipTexts.DatabaseCatalogAccess);
         ListViewColumnSortHelper.Enable(_catalogAccessList);
         _catalogAccessList.DoubleClick += (_, _) => OpenSelectedCatalogAccessor();
 
@@ -892,6 +896,9 @@ public sealed class DatabaseTableViewer : UserControl
     private static string FormatSourceKind(string sourceKind) => sourceKind switch
     {
         "ef-core" => "EF Core",
+        "jpa" => "JPA",
+        "prisma" => "Prisma",
+        "orm-decorator" => "TypeORM/Sequelize",
         "sql-script" => "SQL",
         "sql-in-code" => "SQL 코드",
         _ => string.IsNullOrWhiteSpace(sourceKind) ? "-" : sourceKind

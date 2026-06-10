@@ -87,6 +87,17 @@ public static class DirectoryScanService
         }
     }
 
+    private static readonly HashSet<string> SchemaArtifactExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".sql", ".mysql", ".pgsql", ".psql", ".sqlite", ".ddl", ".prisma"
+    };
+
+    public static IEnumerable<string> GetSchemaArtifactFiles(
+        string rootPath,
+        IEnumerable<string> includedDirectories,
+        CancellationToken cancellationToken = default) =>
+        GetSourceFiles(rootPath, includedDirectories, SchemaArtifactExtensions, cancellationToken);
+
     public static int CountSourceFiles(
         string rootPath,
         IEnumerable<string> includedDirectories,

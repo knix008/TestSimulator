@@ -80,16 +80,20 @@ public static class DatabaseTableAccessAnalyzer
                 index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, useFunctionId: true);
         }
 
+        AppendJvmJsFileLevelSqlLiteralScan(sourceFiles, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache);
+
         accesses = DeduplicateAccesses(accesses);
         entryAccesses = DeduplicateEntryAccesses(entryAccesses);
 
         var (catalogs, catalogAccesses) = DatabaseCatalogAccessAnalyzer.Analyze(functions, callGraph);
 
-        var tableMap = schema.Tables
+        var mergedTables = MergeJvmJsDiscoveredTables(schema.Tables, index.AutoDiscoveredTables);
+
+        var tableMap = mergedTables
             .GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var columnAccesses = BuildColumnAccesses(sourceFiles, schema.Tables, accesses, callGraph, fileCache);
+        var columnAccesses = BuildColumnAccesses(sourceFiles, mergedTables, accesses, callGraph, fileCache);
 
         var grouped = accesses
             .GroupBy(a => a.TableId, StringComparer.OrdinalIgnoreCase)
@@ -139,7 +143,7 @@ public static class DatabaseTableAccessAnalyzer
             CatalogMap = catalogs.ToDictionary(c => c.Id, StringComparer.OrdinalIgnoreCase),
             CatalogAccesses = catalogAccesses,
             CatalogAccessesByCatalogId = groupedCatalogAccesses,
-            Tables = schema.Tables,
+            Tables = mergedTables,
             Relations = schema.Relations,
             Accesses = accesses,
             TableMap = tableMap,
@@ -251,6 +255,24 @@ public static class DatabaseTableAccessAnalyzer
         return tableId;
     }
 
+    private static List<DatabaseTable> MergeJvmJsDiscoveredTables(
+        IReadOnlyList<DatabaseTable> schemaTables,
+        IReadOnlyList<DatabaseTable> discoveredTables)
+    {
+        if (discoveredTables.Count == 0)
+        {
+            return schemaTables.ToList();
+        }
+
+        var merged = schemaTables.ToDictionary(t => t.Id, StringComparer.OrdinalIgnoreCase);
+        foreach (var table in discoveredTables)
+        {
+            merged.TryAdd(table.Id, table);
+        }
+
+        return merged.Values.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     // --- Scanning ---
 
     private static void ScanFunctionBody(
@@ -316,7 +338,7 @@ public static class DatabaseTableAccessAnalyzer
         }
     }
 
-    private static void AppendFileLevelSqlLiteralScan(
+    private static void AppendJvmJsFileLevelSqlLiteralScan(
         IReadOnlyList<string>? sourceFiles,
         TableReferenceIndex index,
         CallGraphResult callGraph,
@@ -331,6 +353,11 @@ public static class DatabaseTableAccessAnalyzer
 
         foreach (var filePath in sourceFiles)
         {
+            if (!JvmJsDbAnalysisScope.IsTargetFile(filePath))
+            {
+                continue;
+            }
+
             if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
                 continue;
 
@@ -374,18 +401,15 @@ public static class DatabaseTableAccessAnalyzer
 
         foreach (var searchBody in searchBodies)
         {
-            foreach (Match match in SqlPatternHelper.SqlReadTableRegex.Matches(searchBody))
-            {
-                TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value,
-                    DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
-            }
+            ScanSqlTextForTableReferences(searchBody, results, index, languageId);
+        }
 
-            foreach (Match match in SqlPatternHelper.SqlCrudTableRegex.Matches(searchBody))
-            {
-                var operation = MapSqlVerbToOperation(match.Groups["op"].Value);
-                TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value,
-                    DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation);
-            }
+        if (JvmJsDbAnalysisScope.IsTargetLanguage(languageId))
+        {
+            RelationalDbAccessPatterns.ScanAllNativeSqlArguments(
+                body,
+                languageId,
+                sql => ScanSqlTextForTableReferences(sql, results, index, languageId));
         }
 
         // EF Core (C# / VB.NET)
@@ -430,7 +454,7 @@ public static class DatabaseTableAccessAnalyzer
         }
 
         // Universal patterns: API SQL first arg, NoSQL collections, JPA @Table
-        DetectUniversalTableReferences(body, results, index);
+        DetectUniversalTableReferences(body, results, index, languageId);
 
         // Language-specific ORM patterns (스키마에 등록된 이름만)
         if (!string.IsNullOrEmpty(languageId))
@@ -443,13 +467,23 @@ public static class DatabaseTableAccessAnalyzer
                         ? match.Groups[ormPattern.EntityNameGroup].Value
                         : string.Empty;
                     if (string.IsNullOrEmpty(entityName))
+                    {
                         continue;
+                    }
+
                     var kind = ormPattern.Operation == DatabaseCrudOperation.Read
                         ? DatabaseTableAccessKind.Read
                         : ormPattern.Operation == DatabaseCrudOperation.None
                             ? DatabaseTableAccessKind.ReadWrite
                             : DatabaseTableAccessKind.Write;
-                    TryAddAlias(results, index, entityName, kind, ormPattern.AccessPattern, ormPattern.Operation);
+
+                    if (ormPattern.UsesLiteralTableName)
+                    {
+                        TryAddMatch(results, index, string.Empty, entityName, kind, DatabaseTableAccessPattern.Sql, ormPattern.Operation, languageId);
+                        continue;
+                    }
+
+                    TryAddAlias(results, index, entityName, kind, ormPattern.AccessPattern, ormPattern.Operation, languageId);
                 }
             }
         }
@@ -457,27 +491,38 @@ public static class DatabaseTableAccessAnalyzer
         return results.Select(p => (p.Key, p.Value.Kind, p.Value.Pattern, p.Value.Operations)).ToList();
     }
 
+    private static void ScanSqlTextForTableReferences(
+        string sql,
+        Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
+        TableReferenceIndex index,
+        string languageId)
+    {
+        foreach (Match match in SqlPatternHelper.SqlReadTableRegex.Matches(sql))
+        {
+            TryAddMatch(results, index, match.Groups[1].Value, match.Groups[2].Value,
+                DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read, languageId);
+        }
+
+        foreach (Match match in SqlPatternHelper.SqlCrudTableRegex.Matches(sql))
+        {
+            var operation = MapSqlVerbToOperation(match.Groups["op"].Value);
+            TryAddMatch(results, index, match.Groups["schema"].Value, match.Groups["table"].Value,
+                DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, operation, languageId);
+        }
+    }
+
     private static void DetectUniversalTableReferences(
         string body,
         Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
-        TableReferenceIndex index)
+        TableReferenceIndex index,
+        string languageId)
     {
         foreach (Match match in UniversalDatabasePatterns.ApiSqlFirstArgRegex.Matches(body))
         {
             if (!SqlPatternHelper.TryUnwrapSqlLiteral(match.Groups[1].Value, out var sql))
                 continue;
             var normalized = SqlPatternHelper.NormalizeSqlLiteralEscapes(sql);
-            foreach (Match m in SqlPatternHelper.SqlReadTableRegex.Matches(normalized))
-            {
-                TryAddMatch(results, index, m.Groups[1].Value, m.Groups[2].Value,
-                    DatabaseTableAccessKind.Read, DatabaseTableAccessPattern.Sql, DatabaseCrudOperation.Read);
-            }
-            foreach (Match m in SqlPatternHelper.SqlCrudTableRegex.Matches(normalized))
-            {
-                var op = MapSqlVerbToOperation(m.Groups["op"].Value);
-                TryAddMatch(results, index, m.Groups["schema"].Value, m.Groups["table"].Value,
-                    DatabaseTableAccessKind.Write, DatabaseTableAccessPattern.Sql, op);
-            }
+            ScanSqlTextForTableReferences(normalized, results, index, languageId);
         }
 
         foreach (var pattern in UniversalDatabasePatterns.NoSqlCollectionPatterns)
@@ -497,7 +542,7 @@ public static class DatabaseTableAccessAnalyzer
         foreach (Match match in UniversalDatabasePatterns.JpaTableAnnotationRegex.Matches(body))
         {
             TryAddAlias(results, index, match.Groups[1].Value,
-                DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None);
+                DatabaseTableAccessKind.ReadWrite, DatabaseTableAccessPattern.EntityType, DatabaseCrudOperation.None, languageId);
         }
     }
 
@@ -510,12 +555,22 @@ public static class DatabaseTableAccessAnalyzer
         string tableToken,
         DatabaseTableAccessKind kind,
         DatabaseTableAccessPattern pattern,
-        DatabaseCrudOperation operations)
+        DatabaseCrudOperation operations,
+        string languageId = "")
     {
         var qualified = string.IsNullOrWhiteSpace(schemaToken) ? tableToken : $"{schemaToken}.{tableToken}";
         if (!TryResolveTable(index, qualified, out var tableId) && !TryResolveTable(index, tableToken, out tableId))
         {
-            return;
+            if (!JvmJsDbAnalysisScope.IsTargetLanguage(languageId))
+            {
+                return;
+            }
+
+            tableId = AutoDiscoverSqlTable(index, schemaToken, tableToken);
+            if (string.IsNullOrEmpty(tableId))
+            {
+                return;
+            }
         }
 
         MergeAccess(results, tableId, kind, pattern, operations);
@@ -527,12 +582,26 @@ public static class DatabaseTableAccessAnalyzer
         string alias,
         DatabaseTableAccessKind kind,
         DatabaseTableAccessPattern pattern,
-        DatabaseCrudOperation operations)
+        DatabaseCrudOperation operations,
+        string languageId = "")
     {
         foreach (var candidate in UniversalDatabasePatterns.ExpandEntityAliases(alias))
         {
-            if (TryResolveTable(index, candidate, out var tableId))
-                MergeAccess(results, tableId, kind, pattern, operations);
+            if (!TryResolveTable(index, candidate, out var tableId))
+            {
+                if (!JvmJsDbAnalysisScope.IsTargetLanguage(languageId))
+                {
+                    continue;
+                }
+
+                tableId = AutoDiscoverSqlTable(index, string.Empty, candidate);
+                if (string.IsNullOrEmpty(tableId))
+                {
+                    continue;
+                }
+            }
+
+            MergeAccess(results, tableId, kind, pattern, operations);
         }
     }
 

@@ -1,7 +1,7 @@
 namespace CodeAnalyzer.Services;
 
 /// <summary>
-/// JavaScript / TypeScript call graph analyzer using Tree-sitter.
+/// JavaScript/TypeScript call graph analyzer using Tree-sitter.
 /// Uses the TypeScript grammar for .ts/.tsx files and JavaScript grammar for .js/.jsx/.mjs/.cjs.
 /// Handles: function declarations, arrow functions, class methods, async variants.
 /// </summary>

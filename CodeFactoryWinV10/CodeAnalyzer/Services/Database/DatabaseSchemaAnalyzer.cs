@@ -11,11 +11,13 @@ public sealed class DatabaseSchemaAnalyzer
         IReadOnlyList<string> sourceFiles,
         Dictionary<string, List<string>> filesByLanguage,
         HashSet<string> enabledLanguageIds,
+        IReadOnlyList<string>? schemaArtifactFiles = null,
         CancellationToken cancellationToken = default)
     {
         var parsedTables = new Dictionary<string, SqlSchemaParser.ParsedTable>(StringComparer.OrdinalIgnoreCase);
 
-        var sqlScripts = SqlFileSchemaExtractor.CollectScripts(sourceFiles, cancellationToken);
+        var schemaFiles = MergeSchemaFileLists(sourceFiles, schemaArtifactFiles);
+        var sqlScripts = SqlFileSchemaExtractor.CollectScripts(schemaFiles, cancellationToken);
         sqlScripts = sqlScripts
             .Concat(SqlInCodeSchemaExtractor.ExtractFromSourceFiles(sourceFiles, cancellationToken))
             .ToList();
@@ -43,7 +45,64 @@ public sealed class DatabaseSchemaAnalyzer
             }
         }
 
+        if (TryGetLanguageFiles(filesByLanguage, enabledLanguageIds, out var jvmFiles, "java", "kotlin"))
+        {
+            JpaAnnotationSchemaExtractor.Extract(jvmFiles, parsedTables, cancellationToken);
+        }
+
+        if (TryGetLanguageFiles(filesByLanguage, enabledLanguageIds, out var jsFiles, "javascript"))
+        {
+            DecoratedOrmSchemaExtractor.Extract(jsFiles, parsedTables, cancellationToken);
+        }
+
+        var prismaFiles = schemaFiles
+            .Where(f => f.EndsWith(".prisma", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (prismaFiles.Count > 0)
+        {
+            PrismaSchemaExtractor.Extract(prismaFiles, parsedTables, cancellationToken);
+        }
+
         return BuildResult(parsedTables);
+    }
+
+    private static List<string> MergeSchemaFileLists(
+        IReadOnlyList<string> sourceFiles,
+        IReadOnlyList<string>? schemaArtifactFiles)
+    {
+        if (schemaArtifactFiles is null || schemaArtifactFiles.Count == 0)
+        {
+            return sourceFiles.ToList();
+        }
+
+        return sourceFiles
+            .Concat(schemaArtifactFiles)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static bool TryGetLanguageFiles(
+        Dictionary<string, List<string>> filesByLanguage,
+        HashSet<string> enabledLanguageIds,
+        out List<string> files,
+        params string[] languageIds)
+    {
+        files = [];
+        foreach (var languageId in languageIds)
+        {
+            if (!enabledLanguageIds.Contains(languageId))
+            {
+                continue;
+            }
+
+            if (filesByLanguage.TryGetValue(languageId, out var languageFiles) && languageFiles.Count > 0)
+            {
+                files.AddRange(languageFiles);
+            }
+        }
+
+        return files.Count > 0;
     }
 
     private static SqlSchemaParser.ParsedTable MergeTables(
@@ -122,6 +181,13 @@ public sealed class DatabaseSchemaAnalyzer
                 ReferencedColumn = col.ReferencedColumn
             }).ToList();
 
+            var accessAliases = new List<string>(parsed.DbSetPropertyNames);
+            if (!string.IsNullOrWhiteSpace(parsed.EntityTypeName))
+            {
+                accessAliases.Add(parsed.EntityTypeName);
+                accessAliases.Add(parsed.EntityTypeName.ToLowerInvariant());
+            }
+
             var table = new DatabaseTable
             {
                 Id = id,
@@ -131,13 +197,16 @@ public sealed class DatabaseSchemaAnalyzer
                 Dialect = parsed.Dialect,
                 SourceKind = string.IsNullOrWhiteSpace(parsed.FilePath) ? "inferred" : Path.GetExtension(parsed.FilePath) switch
                 {
-                    ".sql" or ".mysql" or ".pgsql" => "sql-script",
+                    ".sql" or ".mysql" or ".pgsql" or ".ddl" => "sql-script",
+                    ".prisma" => "prisma",
                     ".cs" => "ef-core",
+                    ".java" or ".kt" => "jpa",
+                    ".js" or ".ts" or ".jsx" or ".tsx" => "orm-decorator",
                     _ => "sql-in-code"
                 },
                 FilePath = parsed.FilePath,
                 LineNumber = parsed.LineNumber,
-                AccessAliases = parsed.DbSetPropertyNames,
+                AccessAliases = accessAliases.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                 Columns = columns
             };
 

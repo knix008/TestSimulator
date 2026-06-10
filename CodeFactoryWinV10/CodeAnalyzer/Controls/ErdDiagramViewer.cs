@@ -138,8 +138,8 @@ public sealed class ErdDiagramViewer : UserControl
             DrawCenteredMessage(
                 e.Graphics,
                 _schema is null
-                    ? "분석 후 DB ERD가 표시됩니다.\n(.sql, EF Core, SQL 문자열 지원)"
-                    : "추출된 테이블이 없습니다.\nCREATE TABLE·EF DbContext·마이그레이션 SQL을 확인하세요.");
+                    ? "분석 후 DB ERD가 표시됩니다.\n(Java JPA · JS/TS Prisma/TypeORM · .sql)"
+                    : "추출된 테이블이 없습니다.\nJPA @Entity · Prisma model · TypeORM · CREATE TABLE SQL을 확인하세요.");
             return;
         }
 

@@ -95,6 +95,26 @@ internal static class ListViewHeaderToolTipTexts
         "동작 코드가 있는 소스 줄 번호입니다."
     ];
 
+    internal static readonly string[] DatabaseCatalog =
+    [
+        "분석된 DB 인스턴스(카탈로그·연결·SQLite 파일) 목록의 순번입니다.",
+        "식별된 DB 인스턴스 이름입니다. 연결 문자열의 Database·SQLite 파일명·ATTACH 별칭 등에서 추출됩니다.",
+        "이 DB 인스턴스에 연결·관리(SELECT/CREATE/DROP)하는 함수·메서드 수입니다.",
+        "감지된 DB 방언입니다. MySQL, MariaDB, PostgreSQL, SQLite, SQL Server 등으로 표시됩니다.",
+        "인스턴스가 식별된 방식입니다. 연결 API, 연결 문자열, SQL(USE/CREATE DATABASE) 등으로 구분됩니다."
+    ];
+
+    internal static readonly string[] DatabaseCatalogAccess =
+    [
+        "선택한 DB 인스턴스에 대한 접근 목록 순번입니다.",
+        "DB 인스턴스를 연결·관리하는 함수·메서드 이름입니다. 더블클릭하면 해당 함수 정의 위치를 엽니다.",
+        "접근 유형입니다. 연결(Connect), 선택(Select/USE), 관리(Admin/CREATE·DROP DATABASE) 중 하나입니다.",
+        "이 함수에서 검출된 세부 CRUD 동작입니다. C=Create, R=Read, D=Delete 중 검출된 항목이 표시됩니다.",
+        "접근이 감지된 방식입니다. API 호출, 연결 문자열, SQL 문자열 등으로 구분됩니다.",
+        "접근 코드가 있는 소스 파일 이름입니다.",
+        "접근 코드가 있는 소스 줄 번호입니다."
+    ];
+
     /// <summary>"DB 영향 함수" 탭 — 전체 테이블 cross-table 수정 함수 목록.</summary>
     internal static readonly string[] DatabaseImpactFunction =
     [

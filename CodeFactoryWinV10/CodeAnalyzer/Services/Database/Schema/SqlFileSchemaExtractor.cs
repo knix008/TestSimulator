@@ -6,7 +6,7 @@ public static class SqlFileSchemaExtractor
 {
     private static readonly HashSet<string> SqlExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".sql", ".mysql", ".pgsql", ".psql", ".sqlite", ".ddl"
+        ".sql", ".mysql", ".pgsql", ".psql", ".sqlite", ".ddl", ".prisma"
     };
 
     public static IReadOnlyList<(string FilePath, int LineOffset, string Sql, DatabaseDialect Dialect)> CollectScripts(

@@ -214,7 +214,7 @@ internal static class LanguageDbAccessPatterns
     ];
 
     // ============================================================
-    // JavaScript / TypeScript: Prisma + Sequelize + TypeORM + Mongoose
+    // JavaScript/TypeScript: Prisma + Sequelize + TypeORM + Mongoose
     // ============================================================
     private static readonly IReadOnlyList<OrmPattern> JavaScriptPatterns =
     [
@@ -778,7 +778,7 @@ internal static class LanguageDbAccessPatterns
             ["python"] = PythonPatterns,
             ["java"] = JavaPatterns,
             ["javascript"] = JavaScriptPatterns,
-            ["kotlin"] = KotlinPatterns,
+            ["kotlin"] = [.. KotlinPatterns, .. JavaPatterns],
             ["ruby"] = RubyPatterns,
             ["go"] = GoPatterns,
             ["php"] = PhpPatterns,

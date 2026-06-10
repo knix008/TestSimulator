@@ -131,7 +131,7 @@ Visual Studio: `CodeAnalyzer.sln` → 시작 프로젝트 **CodeAnalyzer** → *
 | Go | `.go` | Tree-sitter / 패턴 |
 | Rust | `.rs` | Tree-sitter / 패턴 |
 | Swift | `.swift` | Tree-sitter / 패턴 |
-| JavaScript / TypeScript | `.js`, `.ts`, `.jsx`, `.tsx` … | Tree-sitter / 패턴 |
+| JavaScript/TypeScript | `.js`, `.ts`, `.jsx`, `.tsx` … | Tree-sitter / 패턴 |
 | Ruby | `.rb` | Tree-sitter / 패턴 |
 | PHP | `.php` | Tree-sitter / 패턴 |
 

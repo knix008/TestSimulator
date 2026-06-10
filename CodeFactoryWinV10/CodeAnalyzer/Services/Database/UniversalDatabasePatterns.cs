@@ -5,14 +5,20 @@ namespace CodeAnalyzer.Services.Database;
 /// <summary>언어에 무관하게 적용되는 DB 연결·URI·엔티티 별칭 패턴.</summary>
 internal static class UniversalDatabasePatterns
 {
-    /// <summary>DB 연결/오픈 API — 모든 언어 파일에 공통 적용.</summary>
+    /// <summary>C/C++ 네이티브 DB 연결 API만 (다른 언어 패턴과 분리해 오검출 방지).</summary>
+    internal static readonly Regex[] CppConnectionApiPatterns =
+    [
+        new(@"\bsqlite3_open(?:_v2)?\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\b(?:mysql_connect|mysql_real_connect|mysql_init)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\b(?:mariadb_connect|mariadb_real_connect)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\bPQconnect(?:db|dbParams)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\bPQsetdb(?:Login)?\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\b(?:SQLConnect|SQLDriverConnect)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+    ];
+
+    /// <summary>DB 연결/오픈 API — C/C++를 제외한 언어에 적용.</summary>
     internal static readonly Regex[] ConnectionApiPatterns =
     [
-        // C / C++
-        new(@"\bsqlite3_open(?:_v2)?\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
-        new(@"\b(?:mysql_connect|mysql_real_connect)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
-        new(@"\bPQconnect(?:db|dbParams)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
-        new(@"\b(?:SQLConnect|SQLDriverConnect)\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         // C# / VB.NET
         new(@"\bnew\s+SqlConnection\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         new(@"\bSqlConnection\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
@@ -27,7 +33,7 @@ internal static class UniversalDatabasePatterns
         new(@"\bJdbcTemplate\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         new(@"\bNamedParameterJdbcTemplate\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         new(@"\bEntityManagerFactory\s*\.", RegexOptions.Compiled | RegexOptions.IgnoreCase),
-        // JavaScript / TypeScript
+        // JavaScript/TypeScript
         new(@"\bmysql\s*\.\s*createConnection\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         new(@"\bmysql2\s*\.\s*createConnection\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
         new(@"\bcreatePool\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),

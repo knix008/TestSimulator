@@ -43,7 +43,7 @@ internal static class LanguageSecuritySmellCatalog
             @"subprocess\.(?:call|run|Popen)\s*\([^)]*shell\s*=\s*True", Lang("python")),
         Rule("os-system", "os.system", @"os\.system\s*\(", Lang("python")),
 
-        // JavaScript / TypeScript
+        // JavaScript/TypeScript
         Rule("inner-html", "innerHTML 할당", @"\.innerHTML\s*=", Lang("javascript")),
         Rule("dangerous-html", "dangerouslySetInnerHTML", @"dangerouslySetInnerHTML", Lang("javascript")),
         Rule("js-eval", "eval()", @"\beval\s*\(", Lang("javascript")),

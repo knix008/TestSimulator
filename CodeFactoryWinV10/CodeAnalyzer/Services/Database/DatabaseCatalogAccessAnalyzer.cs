@@ -64,18 +64,26 @@ internal static class DatabaseCatalogAccessAnalyzer
             ? DatabaseTableAccessAnalyzer.ResolveFunctionIdForScan(function, callGraph)
             : function.Id;
 
-        foreach (var searchBody in EnumerateSearchBodies(body))
+        var cppStrict = IsCppLanguage(function.LanguageId);
+        foreach (var searchBody in EnumerateSearchBodies(body, cppStrict))
         {
             RecordSqlCatalogMatches(searchBody, function, functionId, filePath, start, catalogs, accesses, seen);
-            RecordConnectionStringMatches(searchBody, function, functionId, filePath, start, catalogs, accesses, seen);
+            RecordConnectionStringMatches(searchBody, function, functionId, filePath, start, catalogs, accesses, seen, cppStrict);
         }
 
-        RecordApiConnectionMatches(body, function, functionId, filePath, start, catalogs, accesses, seen);
+        RecordApiConnectionMatches(body, function, functionId, filePath, start, catalogs, accesses, seen, function.LanguageId);
     }
 
-    private static IEnumerable<string> EnumerateSearchBodies(string body)
+    private static bool IsCppLanguage(string languageId) =>
+        languageId.Equals("cpp", StringComparison.OrdinalIgnoreCase);
+
+    private static IEnumerable<string> EnumerateSearchBodies(string body, bool cppStrict)
     {
-        yield return body;
+        if (!cppStrict)
+        {
+            yield return body;
+        }
+
         foreach (var literal in SqlPatternHelper.ExtractSqlLiteralBodies(body))
         {
             yield return literal;
@@ -157,8 +165,14 @@ internal static class DatabaseCatalogAccessAnalyzer
         int lineOffset,
         Dictionary<string, DatabaseCatalog> catalogs,
         List<DatabaseCatalogAccess> accesses,
-        HashSet<string> seen)
+        HashSet<string> seen,
+        bool cppStrict = false)
     {
+        if (cppStrict && !LooksLikeConnectionCatalogText(text))
+        {
+            return;
+        }
+
         foreach (Match match in SqlPatternHelper.ConnectionStringCatalogRegex.Matches(text))
         {
             RecordCatalogAccess(
@@ -299,8 +313,22 @@ internal static class DatabaseCatalogAccessAnalyzer
         int lineOffset,
         Dictionary<string, DatabaseCatalog> catalogs,
         List<DatabaseCatalogAccess> accesses,
-        HashSet<string> seen)
+        HashSet<string> seen,
+        string languageId)
     {
+        if (IsCppLanguage(languageId))
+        {
+            foreach (var pattern in UniversalDatabasePatterns.CppConnectionApiPatterns)
+            {
+                foreach (Match match in pattern.Matches(body))
+                {
+                    RecordCppApiConnectionAccess(body, match.Index, function, functionId, filePath, lineOffset, catalogs, accesses, seen);
+                }
+            }
+
+            return;
+        }
+
         foreach (var pattern in MicrosoftRelationalDbPatterns.ConnectionApiPatterns)
         {
             foreach (Match match in pattern.Matches(body))
@@ -343,6 +371,128 @@ internal static class DatabaseCatalogAccessAnalyzer
                     catalogFilePath: dialect == DatabaseDialect.Sqlite ? rawPath : null);
             }
         }
+    }
+
+    private static void RecordCppApiConnectionAccess(
+        string body,
+        int apiIndex,
+        FunctionMetric function,
+        string functionId,
+        string filePath,
+        int lineOffset,
+        Dictionary<string, DatabaseCatalog> catalogs,
+        List<DatabaseCatalogAccess> accesses,
+        HashSet<string> seen)
+    {
+        var window = body[apiIndex..Math.Min(body.Length, apiIndex + 512)];
+
+        if (TryExtractSqlitePath(body, apiIndex) is { } sqlitePath && IsLikelySqlitePath(sqlitePath))
+        {
+            RecordCatalogAccess(
+                Path.GetFileName(sqlitePath.Trim().Trim('\"', '\'')),
+                DatabaseDialect.Sqlite,
+                "api",
+                function, functionId, filePath, lineOffset,
+                DatabaseCatalogAccessKind.Connect,
+                DatabaseCatalogAccessPattern.Api,
+                DatabaseCrudOperation.Read,
+                catalogs, accesses, seen,
+                catalogFilePath: sqlitePath.Trim().Trim('\"', '\''));
+            return;
+        }
+
+        var catalogName = ExtractCatalogNameFromWindow(window);
+        if (string.IsNullOrWhiteSpace(catalogName))
+        {
+            return;
+        }
+
+        DatabaseDialect dialect;
+        string sourceKind;
+        if (OpenSourceRelationalDbPatterns.PostgresUriRegex.IsMatch(window)
+            || OpenSourceRelationalDbPatterns.JdbcPostgresRegex.IsMatch(window)
+            || window.Contains("PQconnect", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("PQsetdb", StringComparison.OrdinalIgnoreCase))
+        {
+            dialect = DatabaseDialect.PostgreSql;
+            sourceKind = "postgres-api";
+        }
+        else if (OpenSourceRelationalDbPatterns.MySqlMariaDbUriRegex.IsMatch(window)
+            || OpenSourceRelationalDbPatterns.JdbcMySqlMariaDbRegex.IsMatch(window)
+            || window.Contains("mariadb_", StringComparison.OrdinalIgnoreCase))
+        {
+            dialect = DatabaseDialect.MariaDb;
+            sourceKind = "mariadb-api";
+        }
+        else if (window.Contains("mysql_", StringComparison.OrdinalIgnoreCase))
+        {
+            dialect = DatabaseDialect.MySql;
+            sourceKind = "mysql-api";
+        }
+        else if (window.Contains("SQLConnect", StringComparison.OrdinalIgnoreCase)
+            || window.Contains("SQLDriverConnect", StringComparison.OrdinalIgnoreCase))
+        {
+            dialect = DatabaseDialect.Unknown;
+            sourceKind = "odbc-api";
+        }
+        else
+        {
+            return;
+        }
+
+        RecordCatalogAccess(
+            catalogName,
+            dialect,
+            sourceKind,
+            function, functionId, filePath, lineOffset,
+            DatabaseCatalogAccessKind.Connect,
+            DatabaseCatalogAccessPattern.Api,
+            DatabaseCrudOperation.Read,
+            catalogs, accesses, seen);
+    }
+
+    private static bool LooksLikeConnectionCatalogText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        if (OpenSourceRelationalDbPatterns.PostgresUriRegex.IsMatch(text)
+            || OpenSourceRelationalDbPatterns.MySqlMariaDbUriRegex.IsMatch(text)
+            || MicrosoftRelationalDbPatterns.JdbcSqlServerRegex.IsMatch(text)
+            || MicrosoftRelationalDbPatterns.LocalDbConnectionRegex.IsMatch(text)
+            || MicrosoftRelationalDbPatterns.AzureSqlConnectionRegex.IsMatch(text)
+            || SqlPatternHelper.SqliteDataSourceRegex.IsMatch(text))
+        {
+            return true;
+        }
+
+        if (!SqlPatternHelper.ConnectionStringCatalogRegex.IsMatch(text))
+        {
+            return false;
+        }
+
+        return text.Contains(';', StringComparison.Ordinal)
+            || text.Contains("://", StringComparison.Ordinal);
+    }
+
+    private static bool IsLikelySqlitePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        path = path.Trim().Trim('\"', '\'');
+        if (path.Equals(":memory:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return path.EndsWith(".db", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".sqlite3", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void RecordMicrosoftConnectionAccess(

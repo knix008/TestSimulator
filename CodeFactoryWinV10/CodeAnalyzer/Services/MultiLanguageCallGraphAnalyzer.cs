@@ -57,6 +57,10 @@ public sealed class MultiLanguageCallGraphAnalyzer
 
         sourceFiles.Sort(StringComparer.OrdinalIgnoreCase);
 
+        var schemaArtifactFiles = DirectoryScanService
+            .GetSchemaArtifactFiles(rootPath, qualitySettings.IncludedDirectoryPaths, cancellationToken)
+            .ToList();
+
         var directoryCount = sourceFiles
             .Select(path => Path.GetDirectoryName(path) ?? rootPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -179,6 +183,7 @@ public sealed class MultiLanguageCallGraphAnalyzer
                     sourceFiles,
                     filesByLanguage,
                     languageIds,
+                    schemaArtifactFiles,
                     cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
