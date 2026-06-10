@@ -307,7 +307,8 @@ public static class UmlSequenceLayout
             var fitHeight = contentBottom > 0f
                 ? contentBottom - node.Y + MinActivationHeight + BottomPadding
                 : minHeight;
-            node.Height = Math.Max(minHeight, fitHeight);
+            // Never shrink a lifeline below what the user manually set.
+            node.Height = Math.Max(node.Height, Math.Max(minHeight, fitHeight));
         }
     }
 
@@ -343,7 +344,6 @@ public static class UmlSequenceLayout
             if (evt.TargetId == lifelineNodeId && evt.Kind is UmlMessageKind.Synchronous or UmlMessageKind.Asynchronous)
             {
                 var end = FindMatchingReturnY(project, diagram, lifelineNodeId, evt.SourceId, evt.Y)
-                    ?? FindNextLifelineEventY(events, lifelineNodeId, evt.Y)
                     ?? evt.Y + MinActivationHeight;
                 intervals.Add((evt.Y, Math.Max(end, evt.Y + MinActivationHeight)));
             }
@@ -351,7 +351,6 @@ public static class UmlSequenceLayout
             if (evt.SourceId == lifelineNodeId && evt.Kind is UmlMessageKind.Synchronous or UmlMessageKind.Asynchronous)
             {
                 var end = FindMatchingReturnY(project, diagram, evt.TargetId, lifelineNodeId, evt.Y)
-                    ?? FindNextLifelineEventY(events, lifelineNodeId, evt.Y)
                     ?? evt.Y + MinActivationHeight;
                 intervals.Add((evt.Y, Math.Max(end, evt.Y + MinActivationHeight)));
             }

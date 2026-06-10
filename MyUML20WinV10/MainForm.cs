@@ -65,8 +65,8 @@ public partial class MainForm : Form
         var rightHeight = _splitRight.ClientSize.Height;
         if (rightHeight > _splitRight.Panel1MinSize + _splitRight.Panel2MinSize + _splitRight.SplitterWidth)
         {
-            // 탐색기(위)는 전체의 75%, 속성(아래)는 나머지(약 25%)
-            var explorerHeight = Math.Max(_splitRight.Panel1MinSize, (int)(rightHeight * 0.75));
+            // 탐색기(위)와 속성(아래)을 50:50으로 분할
+            var explorerHeight = Math.Max(_splitRight.Panel1MinSize, (int)(rightHeight * 0.5));
             explorerHeight = Math.Min(explorerHeight, rightHeight - _splitRight.Panel2MinSize - _splitRight.SplitterWidth);
             _splitRight.SplitterDistance = explorerHeight;
         }
@@ -164,6 +164,8 @@ public partial class MainForm : Form
         _tsZoomIn.ToolTipText = "캔버스를 확대합니다. 마우스 휠을 위로 굴려도 확대됩니다.";
         _tsZoomReset.ToolTipText = "확대/축소를 100%로 초기화하고 다이어그램 전체가 보이도록 맞춥니다.";
         _tsZoomLabel.ToolTipText = "현재 캔버스 확대/축소 배율(%)입니다.";
+        _tsAutoLayout.ToolTipText = "현재 다이어그램의 노드를 자동으로 정렬합니다. (Ctrl+Shift+L)";
+        _menuAutoLayout.ToolTipText = _tsAutoLayout.ToolTipText;
 
         _featureToolTip?.Dispose();
         _featureToolTip = new ToolTip { ShowAlways = true };
@@ -233,6 +235,11 @@ public partial class MainForm : Form
 
         _tsCopyToClipboard.Image = UmlIcons.CopyClipboard();
         _tsCopyToClipboard.Click += (_, _) => CopyDiagramToClipboard();
+
+        _tsAutoLayout.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsAutoLayout.Image = UmlIcons.AutoLayout();
+
+        _menuAutoLayout.Image = UmlIcons.AutoLayout();
 
         _menuDuplicate.Image = UmlIcons.Duplicate();
         _menuDuplicate.Click += (_, _) => _canvas.DuplicateSelection();
@@ -609,6 +616,16 @@ public partial class MainForm : Form
 
     private void DeleteSelection() => _canvas.DeleteSelection();
 
+    private void MenuAutoLayout_Click(object? sender, EventArgs e)
+    {
+        var diagram = _canvas.ActiveDiagram;
+        if (diagram is null) return;
+        UmlAutoLayout.Apply(_project, diagram);
+        _canvas.RefreshLayout();
+        _isDirty = true;
+        _statusLabel.Text = "다이어그램이 자동 정렬되었습니다.";
+    }
+
     private void MenuExit_Click(object? sender, EventArgs e) => Close();
     private void MenuDelete_Click(object? sender, EventArgs e) => DeleteSelection();
     private void TsZoomOut_Click(object? sender, EventArgs e) => _canvas.ZoomOut();
@@ -644,24 +661,41 @@ public partial class MainForm : Form
 
     private void LoadTemplate(string templateId)
     {
-        if (!ConfirmDiscard())
-            return;
-
         try
         {
-            _project = UmlDiagramTemplateLibrary.LoadTemplateProject(templateId);
-            _currentFilePath = null;
+            var templateProject = UmlDiagramTemplateLibrary.LoadTemplateProject(templateId);
+            MergeTemplateIntoProject(templateProject);
             _isDirty = true;
+
+            // Activate the first diagram from the template.
+            if (templateProject.Diagrams.Count > 0)
+                _project.ActiveDiagram = templateProject.Diagrams[0];
+
             BindProject();
             var template = UmlDiagramTemplateLibrary.FindTemplate(templateId);
             _statusLabel.Text = template is null
-                ? "템플릿 프로젝트를 불러왔습니다. 저장 시 다른 이름으로 저장하세요."
-                : $"템플릿 '{template.Name}' ({template.ProjectFileName})을(를) 불러왔습니다. 저장 시 다른 이름으로 저장하세요.";
+                ? "템플릿 다이어그램을 현재 프로젝트에 추가했습니다."
+                : $"템플릿 '{template.Name}'을(를) 현재 프로젝트에 추가했습니다.";
         }
         catch (Exception ex)
         {
             UmlErrorDialog.Show(this, "템플릿 오류", ex);
         }
+    }
+
+    private void MergeTemplateIntoProject(UmlProject source)
+    {
+        var src = source.RootPackage;
+        var dst = _project.RootPackage;
+        dst.Classifiers.AddRange(src.Classifiers);
+        dst.Actors.AddRange(src.Actors);
+        dst.UseCases.AddRange(src.UseCases);
+        dst.SystemBoundaries.AddRange(src.SystemBoundaries);
+        dst.Notes.AddRange(src.Notes);
+        dst.BehaviorNodes.AddRange(src.BehaviorNodes);
+        dst.Relationships.AddRange(src.Relationships);
+        dst.NestedPackages.AddRange(src.NestedPackages);
+        _project.Diagrams.AddRange(source.Diagrams);
     }
 
     private void MenuOpen_Click(object? sender, EventArgs e)

@@ -62,6 +62,10 @@ partial class MainForm
     private System.Windows.Forms.StatusStrip _statusStrip;
     private System.Windows.Forms.ToolStripStatusLabel _statusLabel;
     private System.Windows.Forms.ToolStripStatusLabel _statusZoomLabel;
+    private System.Windows.Forms.ToolStripMenuItem _menuView;
+    private System.Windows.Forms.ToolStripMenuItem _menuAutoLayout;
+    private System.Windows.Forms.ToolStripSeparator _tsSep4;
+    private System.Windows.Forms.ToolStripButton _tsAutoLayout;
 
     protected override void Dispose(bool disposing)
     {
@@ -96,6 +100,8 @@ partial class MainForm
         _menuSepEdit = new ToolStripSeparator();
         _menuDuplicate = new ToolStripMenuItem();
         _menuCopyToClipboard = new ToolStripMenuItem();
+        _menuView = new ToolStripMenuItem();
+        _menuAutoLayout = new ToolStripMenuItem();
         _toolStrip = new ToolStrip();
         _tsNew = new ToolStripButton();
         _tsOpen = new ToolStripButton();
@@ -105,6 +111,8 @@ partial class MainForm
         _tsSep3 = new ToolStripSeparator();
         _tsDuplicate = new ToolStripButton();
         _tsCopyToClipboard = new ToolStripButton();
+        _tsSep4 = new ToolStripSeparator();
+        _tsAutoLayout = new ToolStripButton();
         _tsSep2 = new ToolStripSeparator();
         _tsZoomOut = new ToolStripButton();
         _tsZoomLabel = new ToolStripLabel();
@@ -155,7 +163,7 @@ partial class MainForm
         // 
         // _menuStrip
         // 
-        _menuStrip.Items.AddRange(new ToolStripItem[] { _menuFile, _menuEdit });
+        _menuStrip.Items.AddRange(new ToolStripItem[] { _menuFile, _menuEdit, _menuView });
         _menuStrip.Location = new Point(0, 0);
         _menuStrip.Name = "_menuStrip";
         _menuStrip.Size = new Size(1600, 24);
@@ -307,11 +315,26 @@ partial class MainForm
         _menuCopyToClipboard.ShortcutKeys = Keys.Control | Keys.Shift | Keys.C;
         _menuCopyToClipboard.Size = new Size(263, 22);
         _menuCopyToClipboard.Text = "Copy to Clipboard(&B)";
-        // 
+        //
+        // _menuView
+        //
+        _menuView.DropDownItems.AddRange(new ToolStripItem[] { _menuAutoLayout });
+        _menuView.Name = "_menuView";
+        _menuView.Size = new Size(57, 20);
+        _menuView.Text = "View(&V)";
+        //
+        // _menuAutoLayout
+        //
+        _menuAutoLayout.Name = "_menuAutoLayout";
+        _menuAutoLayout.ShortcutKeys = Keys.Control | Keys.Shift | Keys.L;
+        _menuAutoLayout.Size = new Size(220, 22);
+        _menuAutoLayout.Text = "Auto Layout(&L)";
+        _menuAutoLayout.Click += MenuAutoLayout_Click;
+        //
         // _toolStrip
-        // 
+        //
         _toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStrip.Items.AddRange(new ToolStripItem[] { _tsNew, _tsOpen, _tsSave, _tsSep1, _tsDelete, _tsSep3, _tsDuplicate, _tsCopyToClipboard, _tsSep2, _tsZoomOut, _tsZoomLabel, _tsZoomIn, _tsZoomReset });
+        _toolStrip.Items.AddRange(new ToolStripItem[] { _tsNew, _tsOpen, _tsSave, _tsSep1, _tsDelete, _tsSep3, _tsDuplicate, _tsCopyToClipboard, _tsSep4, _tsAutoLayout, _tsSep2, _tsZoomOut, _tsZoomLabel, _tsZoomIn, _tsZoomReset });
         _toolStrip.Location = new Point(0, 24);
         _toolStrip.Name = "_toolStrip";
         _toolStrip.Size = new Size(1600, 26);
@@ -372,9 +395,22 @@ partial class MainForm
         _tsCopyToClipboard.Name = "_tsCopyToClipboard";
         _tsCopyToClipboard.Size = new Size(23, 23);
         _tsCopyToClipboard.Text = "Copy to Clipboard";
-        // 
+        //
+        // _tsSep4
+        //
+        _tsSep4.Name = "_tsSep4";
+        _tsSep4.Size = new Size(6, 26);
+        //
+        // _tsAutoLayout
+        //
+        _tsAutoLayout.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tsAutoLayout.Name = "_tsAutoLayout";
+        _tsAutoLayout.Size = new Size(23, 23);
+        _tsAutoLayout.Text = "Auto Layout";
+        _tsAutoLayout.Click += MenuAutoLayout_Click;
+        //
         // _tsSep2
-        // 
+        //
         _tsSep2.Name = "_tsSep2";
         _tsSep2.Size = new Size(6, 26);
         // 

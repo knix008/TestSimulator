@@ -232,116 +232,7 @@ public sealed class UmlToolbox : UserControl
 
         {
 
-            case UmlDiagramKind.UseCaseDiagram:
-
-                AddGroup("Use Case", [
-
-                    (UmlToolMode.CreateActor, "Actor", UmlNotationPreview.DrawActor),
-
-                    (UmlToolMode.CreateUseCase, "UseCase", UmlNotationPreview.DrawUseCase),
-
-                    (UmlToolMode.CreateSystemBoundary, "Boundary", UmlNotationPreview.DrawSystemBoundary),
-
-                    (UmlToolMode.CreateInclude, "Include", UmlNotationPreview.DrawInclude),
-
-                    (UmlToolMode.CreateExtend, "Extend", UmlNotationPreview.DrawExtend),
-
-                ]);
-
-                AddGroup("관계", [
-
-                    (UmlToolMode.CreateAssociation, "Association", UmlNotationPreview.DrawAssociation),
-
-                    (UmlToolMode.CreateGeneralization, "Generalization", UmlNotationPreview.DrawGeneralization),
-
-                    (UmlToolMode.CreateDependency, "Dependency", UmlNotationPreview.DrawDependency),
-
-                ]);
-
-                break;
-
-
-
-            case UmlDiagramKind.SequenceDiagram:
-                AddGroup("시퀀스", [
-
-                    (UmlToolMode.CreateLifeline, "Lifeline", UmlNotationPreview.DrawLifeline),
-
-                ]);
-
-                AddGroup("프래그먼트", [
-
-                    (UmlToolMode.CreateLoopFragment, "Loop", UmlNotationPreview.DrawLoopFragment),
-
-                ]);
-
-                AddGroup("메시지", [
-
-                    (UmlToolMode.CreateMessage, "Sync", UmlNotationPreview.DrawSyncMessage),
-
-                    (UmlToolMode.CreateAsyncMessage, "Async", UmlNotationPreview.DrawAsyncMessage),
-
-                    (UmlToolMode.CreateReturnMessage, "Return", UmlNotationPreview.DrawReturnMessage),
-
-                    (UmlToolMode.CreateSelfMessage, "Self", UmlNotationPreview.DrawSelfMessage),
-
-                ]);
-
-                break;
-
-            case UmlDiagramKind.StateMachineDiagram:
-
-                AddGroup("상태", [
-
-                    (UmlToolMode.CreateState, "State", UmlNotationPreview.DrawState),
-
-                    (UmlToolMode.CreateInitialState, "Initial", UmlNotationPreview.DrawInitialState),
-
-                    (UmlToolMode.CreateFinalState, "Final", UmlNotationPreview.DrawFinalState),
-
-                ]);
-
-                AddGroup("관계", [
-
-                    (UmlToolMode.CreateTransition, "Transition", UmlNotationPreview.DrawTransition),
-
-                ]);
-
-                break;
-
-            case UmlDiagramKind.ActivityDiagram:
-
-                AddGroup("활동", [
-
-                    (UmlToolMode.CreateAction, "Action", UmlNotationPreview.DrawAction),
-
-                    (UmlToolMode.CreateInitialNode, "Initial", UmlNotationPreview.DrawInitialNode),
-
-                    (UmlToolMode.CreateActivityFinalNode, "Final", UmlNotationPreview.DrawActivityFinalNode),
-
-                    (UmlToolMode.CreateDecision, "Decision", UmlNotationPreview.DrawDecision),
-
-                    (UmlToolMode.CreateMerge, "Merge", UmlNotationPreview.DrawMerge),
-
-                    (UmlToolMode.CreateFork, "Fork", UmlNotationPreview.DrawFork),
-
-                    (UmlToolMode.CreateJoin, "Join", UmlNotationPreview.DrawJoin),
-
-                ]);
-
-                AddGroup("관계", [
-
-                    (UmlToolMode.CreateControlFlow, "Control Flow", UmlNotationPreview.DrawControlFlow),
-
-                    (UmlToolMode.CreateObjectFlow, "Object Flow", UmlNotationPreview.DrawObjectFlow),
-
-                ]);
-
-                break;
-
-
-
-            default:
+            case UmlDiagramKind.ClassDiagram:
 
                 AddGroup("분류자", [
 
@@ -374,6 +265,145 @@ public sealed class UmlToolbox : UserControl
                 ]);
 
                 break;
+
+            case UmlDiagramKind.UseCaseDiagram:
+
+                AddGroup("요소", [
+
+                    (UmlToolMode.CreateActor, "Actor", UmlNotationPreview.DrawActor),
+
+                    (UmlToolMode.CreateUseCase, "Use Case", UmlNotationPreview.DrawUseCase),
+
+                    (UmlToolMode.CreateSystemBoundary, "Boundary", UmlNotationPreview.DrawSystemBoundary),
+
+                    (UmlToolMode.CreatePackage, "Package", UmlNotationPreview.DrawPackage),
+
+                ]);
+
+                AddGroup("관계", [
+
+                    (UmlToolMode.CreateAssociation, "Association", UmlNotationPreview.DrawAssociation),
+
+                    (UmlToolMode.CreateGeneralization, "Generalization", UmlNotationPreview.DrawGeneralization),
+
+                    (UmlToolMode.CreateInclude, "Include", UmlNotationPreview.DrawInclude),
+
+                    (UmlToolMode.CreateExtend, "Extend", UmlNotationPreview.DrawExtend),
+
+                    (UmlToolMode.CreateDependency, "Dependency", UmlNotationPreview.DrawDependency),
+
+                ]);
+
+                break;
+
+
+
+            case UmlDiagramKind.SequenceDiagram:
+                AddGroup("시퀀스", [
+
+                    (UmlToolMode.CreateLifeline, "Lifeline", UmlNotationPreview.DrawLifeline),
+
+                ]);
+
+                AddGroup("프래그먼트", [
+
+                    (UmlToolMode.CreateLoopFragment, "Loop", UmlNotationPreview.DrawLoopFragment),
+
+                    (UmlToolMode.CreateAltFragment, "Alt", UmlNotationPreview.DrawAltFragment),
+
+                    (UmlToolMode.CreateOptFragment, "Opt", UmlNotationPreview.DrawOptFragment),
+
+                    (UmlToolMode.CreateParFragment, "Par", UmlNotationPreview.DrawParFragment),
+
+                ]);
+
+                AddGroup("메시지", [
+
+                    (UmlToolMode.CreateMessage, "Sync", UmlNotationPreview.DrawSyncMessage),
+
+                    (UmlToolMode.CreateAsyncMessage, "Async", UmlNotationPreview.DrawAsyncMessage),
+
+                    (UmlToolMode.CreateReturnMessage, "Return", UmlNotationPreview.DrawReturnMessage),
+
+                    (UmlToolMode.CreateSelfMessage, "Self", UmlNotationPreview.DrawSelfMessage),
+
+                    (UmlToolMode.CreateCreateMessage, "Create", UmlNotationPreview.DrawCreateMessage),
+
+                    (UmlToolMode.CreateDestroyMessage, "Destroy", UmlNotationPreview.DrawDestroyMessage),
+
+                ]);
+
+                break;
+
+            case UmlDiagramKind.StateMachineDiagram:
+
+                AddGroup("상태", [
+
+                    (UmlToolMode.CreateState, "State", UmlNotationPreview.DrawState),
+
+                    (UmlToolMode.CreateInitialState, "Initial", UmlNotationPreview.DrawInitialState),
+
+                    (UmlToolMode.CreateFinalState, "Final", UmlNotationPreview.DrawFinalState),
+
+                ]);
+
+                AddGroup("의사상태", [
+
+                    (UmlToolMode.CreateChoice, "Choice", UmlNotationPreview.DrawChoice),
+
+                    (UmlToolMode.CreateJunction, "Junction", UmlNotationPreview.DrawJunction),
+
+                    (UmlToolMode.CreateShallowHistory, "Shallow H", UmlNotationPreview.DrawShallowHistory),
+
+                    (UmlToolMode.CreateDeepHistory, "Deep H", UmlNotationPreview.DrawDeepHistory),
+
+                ]);
+
+                AddGroup("관계", [
+
+                    (UmlToolMode.CreateTransition, "Transition", UmlNotationPreview.DrawTransition),
+
+                ]);
+
+                break;
+
+            case UmlDiagramKind.ActivityDiagram:
+
+                AddGroup("활동", [
+
+                    (UmlToolMode.CreateAction, "Action", UmlNotationPreview.DrawAction),
+
+                    (UmlToolMode.CreateInitialNode, "Initial", UmlNotationPreview.DrawInitialNode),
+
+                    (UmlToolMode.CreateActivityFinalNode, "Act.Final", UmlNotationPreview.DrawActivityFinalNode),
+
+                    (UmlToolMode.CreateFlowFinalNode, "FlowFinal", UmlNotationPreview.DrawFlowFinalNode),
+
+                    (UmlToolMode.CreateDecision, "Decision", UmlNotationPreview.DrawDecision),
+
+                    (UmlToolMode.CreateMerge, "Merge", UmlNotationPreview.DrawMerge),
+
+                    (UmlToolMode.CreateFork, "Fork", UmlNotationPreview.DrawFork),
+
+                    (UmlToolMode.CreateJoin, "Join", UmlNotationPreview.DrawJoin),
+
+                ]);
+
+                AddGroup("관계", [
+
+                    (UmlToolMode.CreateControlFlow, "Control Flow", UmlNotationPreview.DrawControlFlow),
+
+                    (UmlToolMode.CreateObjectFlow, "Object Flow", UmlNotationPreview.DrawObjectFlow),
+
+                ]);
+
+                break;
+
+
+
+            default:
+                // Fallback — shows basic class diagram tools so the toolbox is never empty.
+                goto case UmlDiagramKind.ClassDiagram;
 
         }
 
@@ -464,7 +494,7 @@ public sealed class UmlToolbox : UserControl
 
         var usableW = Math.Max(TileW + TileGap, ClientSize.Width - Padding.Horizontal);
 
-        var cols = Math.Max(1, (usableW + TileGap) / (TileW + TileGap));
+        var cols = Math.Min(TilesPerRow, Math.Max(1, (usableW + TileGap) / (TileW + TileGap)));
 
         var left = Padding.Left;
 

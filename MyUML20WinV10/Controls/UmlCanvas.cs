@@ -99,7 +99,10 @@ public sealed class UmlCanvas : Control
             }
 
             if (_selectedEdge is not null)
-                return _selectedEdge;
+            {
+                var relationship = _project.FindRelationship(_selectedEdge.ModelElementId);
+                return relationship ?? (object)_selectedEdge;
+            }
 
             return null;
         }
@@ -265,6 +268,12 @@ public sealed class UmlCanvas : Control
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public void RefreshLayout()
+    {
+        UpdateScrollBars();
+        Invalidate();
+    }
+
     public void DeleteSelection()
     {
         if (_selectedEdge is not null)
@@ -409,12 +418,20 @@ public sealed class UmlCanvas : Control
             case UmlToolMode.CreateAction:
             case UmlToolMode.CreateInitialNode:
             case UmlToolMode.CreateActivityFinalNode:
+            case UmlToolMode.CreateFlowFinalNode:
             case UmlToolMode.CreateDecision:
             case UmlToolMode.CreateMerge:
             case UmlToolMode.CreateFork:
             case UmlToolMode.CreateJoin:
+            case UmlToolMode.CreateChoice:
+            case UmlToolMode.CreateJunction:
+            case UmlToolMode.CreateShallowHistory:
+            case UmlToolMode.CreateDeepHistory:
             case UmlToolMode.CreateLifeline:
             case UmlToolMode.CreateLoopFragment:
+            case UmlToolMode.CreateAltFragment:
+            case UmlToolMode.CreateOptFragment:
+            case UmlToolMode.CreateParFragment:
                 if (hitNode is not null)
                 {
                     Select(hitNode, null);
@@ -458,6 +475,8 @@ public sealed class UmlCanvas : Control
             case UmlToolMode.CreateMessage:
             case UmlToolMode.CreateAsyncMessage:
             case UmlToolMode.CreateReturnMessage:
+            case UmlToolMode.CreateCreateMessage:
+            case UmlToolMode.CreateDestroyMessage:
             case UmlToolMode.CreateTransition:
             case UmlToolMode.CreateControlFlow:
             case UmlToolMode.CreateObjectFlow:
@@ -476,7 +495,9 @@ public sealed class UmlCanvas : Control
 
                     _pendingSourceNode = hitNode;
                     _relationshipAnchorY = canvasPoint.Y;
-                    Select(hitNode, null);
+                    // Clear selection so the source node shows only the preview chrome
+                    // (blue outline), not the full "selected" appearance with resize handles.
+                    Select(null, null);
                 }
                 else
                 {
@@ -640,8 +661,6 @@ public sealed class UmlCanvas : Control
             CreateNode(rect);
             _isCreating = false;
             Capture = false;
-            _toolMode = UmlToolMode.Select;
-            SelectToolRequested?.Invoke(this, EventArgs.Empty);
             NotifyChanged();
             return;
         }
@@ -662,7 +681,8 @@ public sealed class UmlCanvas : Control
             Capture = false;
             if (_modelChangedDuringDrag && draggedEdge is not null)
             {
-                var finalY = ScreenToCanvas(e.Location).Y;
+                var finalDy = ScreenToCanvas(e.Location).Y - _dragStartCanvas.Y;
+                var finalY = _messageYAtDragStart + finalDy;
                 UmlSequenceLayout.RepositionMessageAndReflow(_project, ActiveDiagram, draggedEdge, finalY);
                 NotifyChanged();
             }
@@ -942,12 +962,20 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateAction => new SizeF(140, 60),
         UmlToolMode.CreateInitialNode => new SizeF(32, 32),
         UmlToolMode.CreateActivityFinalNode => new SizeF(32, 32),
+        UmlToolMode.CreateFlowFinalNode => new SizeF(32, 32),
         UmlToolMode.CreateDecision => new SizeF(72, 72),
         UmlToolMode.CreateMerge => new SizeF(72, 72),
+        UmlToolMode.CreateChoice => new SizeF(72, 72),
+        UmlToolMode.CreateJunction => new SizeF(32, 32),
+        UmlToolMode.CreateShallowHistory => new SizeF(36, 36),
+        UmlToolMode.CreateDeepHistory => new SizeF(36, 36),
         UmlToolMode.CreateFork => new SizeF(160, 20),
         UmlToolMode.CreateJoin => new SizeF(160, 20),
         UmlToolMode.CreateLifeline => new SizeF(120, 240),
         UmlToolMode.CreateLoopFragment => new SizeF(280, 160),
+        UmlToolMode.CreateAltFragment => new SizeF(280, 160),
+        UmlToolMode.CreateOptFragment => new SizeF(280, 160),
+        UmlToolMode.CreateParFragment => new SizeF(280, 160),
         UmlToolMode.CreateActivation => new SizeF(24, 60),
         UmlToolMode.CreateInterface => new SizeF(160, 100),
         UmlToolMode.CreateEnumeration => new SizeF(140, 90),
@@ -1026,6 +1054,11 @@ public sealed class UmlCanvas : Control
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
+            case UmlToolMode.CreateFlowFinalNode:
+                element = new UmlBehaviorNode { Name = "FlowFinal", Kind = UmlBehaviorNodeKind.FlowFinalNode };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
             case UmlToolMode.CreateDecision:
                 element = new UmlBehaviorNode { Name = "Decision", Kind = UmlBehaviorNodeKind.Decision };
                 presentation = UmlNodePresentation.Behavior;
@@ -1046,8 +1079,43 @@ public sealed class UmlCanvas : Control
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
+            case UmlToolMode.CreateChoice:
+                element = new UmlBehaviorNode { Name = "Choice", Kind = UmlBehaviorNodeKind.Choice };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateJunction:
+                element = new UmlBehaviorNode { Name = "Junction", Kind = UmlBehaviorNodeKind.Junction };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateShallowHistory:
+                element = new UmlBehaviorNode { Name = "H", Kind = UmlBehaviorNodeKind.ShallowHistory };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateDeepHistory:
+                element = new UmlBehaviorNode { Name = "H*", Kind = UmlBehaviorNodeKind.DeepHistory };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
             case UmlToolMode.CreateLifeline:
                 element = new UmlBehaviorNode { Name = "Lifeline", Kind = UmlBehaviorNodeKind.Lifeline };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateAltFragment:
+                element = new UmlBehaviorNode { Name = "alt", Kind = UmlBehaviorNodeKind.CombinedFragment, CombinedFragmentKind = UmlCombinedFragmentKind.Alt, Guard = string.Empty };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateOptFragment:
+                element = new UmlBehaviorNode { Name = "opt", Kind = UmlBehaviorNodeKind.CombinedFragment, CombinedFragmentKind = UmlCombinedFragmentKind.Opt, Guard = string.Empty };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateParFragment:
+                element = new UmlBehaviorNode { Name = "par", Kind = UmlBehaviorNodeKind.CombinedFragment, CombinedFragmentKind = UmlCombinedFragmentKind.Par, Guard = string.Empty };
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
@@ -1198,7 +1266,12 @@ public sealed class UmlCanvas : Control
         if (_selectedEdge is null)
             return;
 
-        var preferredY = _messageYAtDragStart + (canvasPoint.Y - _dragStartCanvas.Y);
+        // Ignore micro-movements to avoid snapping all messages on a plain click.
+        var dy = canvasPoint.Y - _dragStartCanvas.Y;
+        if (Math.Abs(dy) < 4f / _zoom)
+            return;
+
+        var preferredY = _messageYAtDragStart + dy;
         UmlSequenceLayout.RepositionMessageAndReflow(_project, ActiveDiagram, _selectedEdge, preferredY);
         _modelChangedDuringDrag = true;
         UpdateScrollBars();
@@ -1248,7 +1321,8 @@ public sealed class UmlCanvas : Control
                 SourceClassifierId = sourceNode.ModelElementId,
                 TargetClassifierId = targetNode.ModelElementId,
             },
-            UmlToolMode.CreateMessage or UmlToolMode.CreateAsyncMessage or UmlToolMode.CreateReturnMessage or UmlToolMode.CreateSelfMessage
+            UmlToolMode.CreateMessage or UmlToolMode.CreateAsyncMessage or UmlToolMode.CreateReturnMessage
+                or UmlToolMode.CreateSelfMessage or UmlToolMode.CreateCreateMessage or UmlToolMode.CreateDestroyMessage
                 => new UmlBehaviorConnector
                 {
                     Kind = UmlBehaviorConnectorKind.Message,
@@ -2073,6 +2147,8 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateAsyncMessage => "signal()",
         UmlToolMode.CreateReturnMessage => "return",
         UmlToolMode.CreateSelfMessage => "selfCall()",
+        UmlToolMode.CreateCreateMessage => "create",
+        UmlToolMode.CreateDestroyMessage => "destroy",
         _ => "call()",
     };
 

@@ -506,10 +506,37 @@ public static class UmlDiagramRenderer
                     circle.Height * 0.5f);
                 break;
             }
+            case UmlBehaviorNodeKind.FlowFinalNode:
+            {
+                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+                g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+                var inset = circle.Width * 0.26f;
+                g.DrawLine(pen, circle.X + inset, circle.Y + inset, circle.Right - inset, circle.Bottom - inset);
+                g.DrawLine(pen, circle.Right - inset, circle.Y + inset, circle.X + inset, circle.Bottom - inset);
+                break;
+            }
             case UmlBehaviorNodeKind.Decision:
             case UmlBehaviorNodeKind.Merge:
+            case UmlBehaviorNodeKind.Choice:
                 DrawDiamondNode(g, bounds, fillBrush, pen);
                 break;
+            case UmlBehaviorNodeKind.Junction:
+            {
+                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+                g.FillEllipse(new SolidBrush(pen.Color), circle.X, circle.Y, circle.Width, circle.Height);
+                break;
+            }
+            case UmlBehaviorNodeKind.ShallowHistory:
+            case UmlBehaviorNodeKind.DeepHistory:
+            {
+                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+                g.FillEllipse(fillBrush, circle.X, circle.Y, circle.Width, circle.Height);
+                g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+                var historyLabel = behaviorNode.Kind == UmlBehaviorNodeKind.DeepHistory ? "H*" : "H";
+                using var histFont = new Font("Segoe UI", Math.Max(5f, circle.Width * 0.36f), FontStyle.Bold);
+                DrawCenteredLabel(g, historyLabel, histFont, new SolidBrush(pen.Color), circle);
+                break;
+            }
             case UmlBehaviorNodeKind.Fork:
             case UmlBehaviorNodeKind.Join:
             {
@@ -548,7 +575,7 @@ public static class UmlDiagramRenderer
         using var font = new Font("Segoe UI", 8f);
         using var brush = new SolidBrush(color);
 
-        if (messageKind == UmlMessageKind.Return)
+        if (messageKind is UmlMessageKind.Return or UmlMessageKind.Create)
             pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
 
         if (messageKind == UmlMessageKind.SelfCall || edge.SourceNodeId == edge.TargetNodeId)
@@ -567,6 +594,16 @@ public static class UmlDiagramRenderer
                 case UmlMessageKind.Return:
                     DrawOpenArrow(g, pen, start, end);
                     break;
+                case UmlMessageKind.Destroy:
+                    DrawFilledArrow(g, pen, start, end);
+                    // Draw X at the target end to indicate lifeline termination
+                    var xSize = 8f;
+                    using (var xPen = new Pen(color, 2f))
+                    {
+                        g.DrawLine(xPen, end.X - xSize, end.Y - xSize, end.X + xSize, end.Y + xSize);
+                        g.DrawLine(xPen, end.X + xSize, end.Y - xSize, end.X - xSize, end.Y + xSize);
+                    }
+                    break;
                 default:
                     DrawFilledArrow(g, pen, start, end);
                     break;
@@ -574,7 +611,12 @@ public static class UmlDiagramRenderer
         }
 
         if (drawLabels)
-            DrawMessageLabel(g, connector.Name, start, end, font, brush);
+        {
+            var displayName = messageKind == UmlMessageKind.Create && string.IsNullOrWhiteSpace(connector.Name)
+                ? "«create»"
+                : connector.Name;
+            DrawMessageLabel(g, displayName, start, end, font, brush);
+        }
     }
 
     private static void DrawSelfMessage(
@@ -659,14 +701,44 @@ public static class UmlDiagramRenderer
         PointF[] pathPoints,
         UmlEdgeRoutingKind routingKind)
     {
-        if (string.IsNullOrWhiteSpace(connector.Name))
+        var label = BuildBehaviorConnectorDisplayLabel(connector);
+        if (string.IsNullOrWhiteSpace(label))
             return;
 
         var midPt = UmlEdgeRouting.GetPathLabelPoint(pathPoints, routingKind);
         var dir = UmlEdgeRouting.GetPathEndDirection(pathPoints, routingKind);
         var lineAngle = MathF.Atan2(dir.Y, dir.X);
         var mid = PolarOffset(midPt, lineAngle + MathF.PI / 2f, 14f);
-        DrawEdgeLabel(g, font, brush, mid, connector.Name);
+        DrawEdgeLabel(g, font, brush, mid, label);
+    }
+
+    private static string BuildBehaviorConnectorDisplayLabel(UmlBehaviorConnector connector)
+    {
+        if (connector.Kind is UmlBehaviorConnectorKind.Transition)
+        {
+            var sb = new System.Text.StringBuilder();
+            if (!string.IsNullOrWhiteSpace(connector.Trigger))
+                sb.Append(connector.Trigger.Trim());
+            if (!string.IsNullOrWhiteSpace(connector.Guard))
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                sb.Append('[').Append(connector.Guard.Trim()).Append(']');
+            }
+            if (!string.IsNullOrWhiteSpace(connector.Effect))
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                sb.Append("/ ").Append(connector.Effect.Trim());
+            }
+            return sb.Length > 0 ? sb.ToString() : connector.Name ?? string.Empty;
+        }
+
+        if (connector.Kind is UmlBehaviorConnectorKind.ControlFlow or UmlBehaviorConnectorKind.ObjectFlow)
+        {
+            if (!string.IsNullOrWhiteSpace(connector.Guard))
+                return '[' + connector.Guard.Trim() + ']';
+        }
+
+        return connector.Name ?? string.Empty;
     }
 
     private static float MeasureBehaviorNode(UmlBehaviorNode? behaviorNode, float currentHeight)
@@ -676,8 +748,11 @@ public static class UmlDiagramRenderer
 
         return behaviorNode.Kind switch
         {
-            UmlBehaviorNodeKind.InitialState or UmlBehaviorNodeKind.FinalState or UmlBehaviorNodeKind.InitialNode or UmlBehaviorNodeKind.ActivityFinalNode => Math.Max(currentHeight, 32),
-            UmlBehaviorNodeKind.Decision or UmlBehaviorNodeKind.Merge => Math.Max(currentHeight, 48),
+            UmlBehaviorNodeKind.InitialState or UmlBehaviorNodeKind.FinalState
+                or UmlBehaviorNodeKind.InitialNode or UmlBehaviorNodeKind.ActivityFinalNode
+                or UmlBehaviorNodeKind.FlowFinalNode or UmlBehaviorNodeKind.Junction
+                or UmlBehaviorNodeKind.ShallowHistory or UmlBehaviorNodeKind.DeepHistory => Math.Max(currentHeight, 32),
+            UmlBehaviorNodeKind.Decision or UmlBehaviorNodeKind.Merge or UmlBehaviorNodeKind.Choice => Math.Max(currentHeight, 48),
             UmlBehaviorNodeKind.Fork or UmlBehaviorNodeKind.Join => Math.Max(currentHeight, 18),
             UmlBehaviorNodeKind.Lifeline => Math.Max(currentHeight, 220),
             UmlBehaviorNodeKind.CombinedFragment => Math.Max(currentHeight, 80),
@@ -926,13 +1001,13 @@ public static class UmlDiagramRenderer
     private static float GetAssociationEndLabelInward(UmlAssociation assoc)
     {
         if (assoc.Aggregation is UmlAggregationKind.Shared or UmlAggregationKind.Composite)
-            return DiamondDepth + 8f;
+            return DiamondDepth + 14f;
 
-        return assoc.IsDirected ? 24f : 18f;
+        return assoc.IsDirected ? 32f : 28f;
     }
 
-    // Labels offset inward along line + 13px perpendicular (left of direction = above for horizontal lines).
-    private static void DrawMultiplicity(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text, float inwardDistance = 18f)
+    // Labels offset inward along line + 14px perpendicular (left of direction = above for horizontal lines).
+    private static void DrawMultiplicity(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text, float inwardDistance = 28f)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         var angle = MathF.Atan2(otherEnd.Y - point.Y, otherEnd.X - point.X);
@@ -942,7 +1017,7 @@ public static class UmlDiagramRenderer
     }
 
     // Role names go on the opposite perpendicular side from multiplicity labels.
-    private static void DrawEndName(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text, float inwardDistance = 18f)
+    private static void DrawEndName(Graphics g, Font font, Brush brush, PointF point, PointF otherEnd, string text, float inwardDistance = 28f)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         var angle = MathF.Atan2(otherEnd.Y - point.Y, otherEnd.X - point.X);
@@ -954,12 +1029,15 @@ public static class UmlDiagramRenderer
     private static void DrawEdgeLabel(Graphics g, Font font, Brush brush, PointF labelPt, string text)
     {
         var size = g.MeasureString(text, font);
-        var rect = new RectangleF(labelPt.X - 3f, labelPt.Y - 2f, size.Width + 6f, size.Height + 4f);
+        // Center the label box on labelPt for balanced placement relative to the computed offset point.
+        var textX = labelPt.X - size.Width / 2f;
+        var textY = labelPt.Y - size.Height / 2f;
+        var rect = new RectangleF(textX - 3f, textY - 2f, size.Width + 6f, size.Height + 4f);
         using var background = new SolidBrush(Color.White);
-        using var border = new Pen(Color.FromArgb(220, 220, 220), 0.75f);
+        using var border = new Pen(Color.FromArgb(200, 200, 200), 0.75f);
         g.FillRectangle(background, rect);
         g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
-        g.DrawString(text, font, brush, labelPt);
+        g.DrawString(text, font, brush, textX, textY);
     }
 
     private static void DrawDirectedHollowTriangle(Graphics g, Pen pen, PointF tip, PointF from)

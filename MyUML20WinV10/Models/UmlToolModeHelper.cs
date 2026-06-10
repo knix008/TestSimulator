@@ -9,9 +9,14 @@ public static class UmlToolModeHelper
         or UmlToolMode.CreateSystemBoundary
         or UmlToolMode.CreateNote or UmlToolMode.CreateState or UmlToolMode.CreateInitialState
         or UmlToolMode.CreateFinalState or UmlToolMode.CreateAction or UmlToolMode.CreateInitialNode
-        or UmlToolMode.CreateActivityFinalNode or UmlToolMode.CreateDecision or UmlToolMode.CreateMerge
-        or UmlToolMode.CreateFork or UmlToolMode.CreateJoin or UmlToolMode.CreateLifeline
-        or UmlToolMode.CreateLoopFragment;
+        or UmlToolMode.CreateActivityFinalNode or UmlToolMode.CreateFlowFinalNode
+        or UmlToolMode.CreateDecision or UmlToolMode.CreateMerge
+        or UmlToolMode.CreateFork or UmlToolMode.CreateJoin
+        or UmlToolMode.CreateChoice or UmlToolMode.CreateJunction
+        or UmlToolMode.CreateShallowHistory or UmlToolMode.CreateDeepHistory
+        or UmlToolMode.CreateLifeline
+        or UmlToolMode.CreateLoopFragment or UmlToolMode.CreateAltFragment
+        or UmlToolMode.CreateOptFragment or UmlToolMode.CreateParFragment;
 
     public static bool IsRelationshipTool(UmlToolMode mode) => mode is
         UmlToolMode.CreateAssociation or UmlToolMode.CreateDirectedAssociation
@@ -20,12 +25,14 @@ public static class UmlToolModeHelper
         or UmlToolMode.CreateDependency or UmlToolMode.CreateInclude or UmlToolMode.CreateExtend
         or UmlToolMode.CreateNoteLink
         or UmlToolMode.CreateMessage or UmlToolMode.CreateAsyncMessage or UmlToolMode.CreateReturnMessage
+        or UmlToolMode.CreateCreateMessage or UmlToolMode.CreateDestroyMessage
         or UmlToolMode.CreateTransition
         or UmlToolMode.CreateControlFlow or UmlToolMode.CreateObjectFlow;
 
     public static bool IsSequenceMessageTool(UmlToolMode mode) => mode is
         UmlToolMode.CreateMessage or UmlToolMode.CreateAsyncMessage
-        or UmlToolMode.CreateReturnMessage or UmlToolMode.CreateSelfMessage;
+        or UmlToolMode.CreateReturnMessage or UmlToolMode.CreateSelfMessage
+        or UmlToolMode.CreateCreateMessage or UmlToolMode.CreateDestroyMessage;
 
     public static UmlToolMode? FromSelectedObject(object? selected) => selected switch
     {
@@ -45,12 +52,22 @@ public static class UmlToolModeHelper
             UmlBehaviorNodeKind.Action => UmlToolMode.CreateAction,
             UmlBehaviorNodeKind.InitialNode => UmlToolMode.CreateInitialNode,
             UmlBehaviorNodeKind.ActivityFinalNode => UmlToolMode.CreateActivityFinalNode,
+            UmlBehaviorNodeKind.FlowFinalNode => UmlToolMode.CreateFlowFinalNode,
             UmlBehaviorNodeKind.Decision => UmlToolMode.CreateDecision,
             UmlBehaviorNodeKind.Merge => UmlToolMode.CreateMerge,
             UmlBehaviorNodeKind.Fork => UmlToolMode.CreateFork,
             UmlBehaviorNodeKind.Join => UmlToolMode.CreateJoin,
+            UmlBehaviorNodeKind.Choice => UmlToolMode.CreateChoice,
+            UmlBehaviorNodeKind.Junction => UmlToolMode.CreateJunction,
+            UmlBehaviorNodeKind.ShallowHistory => UmlToolMode.CreateShallowHistory,
+            UmlBehaviorNodeKind.DeepHistory => UmlToolMode.CreateDeepHistory,
             UmlBehaviorNodeKind.Lifeline => UmlToolMode.CreateLifeline,
-            UmlBehaviorNodeKind.CombinedFragment => UmlToolMode.CreateLoopFragment,
+            UmlBehaviorNodeKind.CombinedFragment => behaviorNode.CombinedFragmentKind switch {
+                UmlCombinedFragmentKind.Alt => UmlToolMode.CreateAltFragment,
+                UmlCombinedFragmentKind.Opt => UmlToolMode.CreateOptFragment,
+                UmlCombinedFragmentKind.Par => UmlToolMode.CreateParFragment,
+                _ => UmlToolMode.CreateLoopFragment,
+            },
             _ => null,
         },
         UmlAssociation { Aggregation: UmlAggregationKind.Composite } => UmlToolMode.CreateComposition,
@@ -94,10 +111,15 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateAction => "Action",
         UmlToolMode.CreateInitialNode => "Initial Node",
         UmlToolMode.CreateActivityFinalNode => "Activity Final",
+        UmlToolMode.CreateFlowFinalNode => "Flow Final",
         UmlToolMode.CreateDecision => "Decision",
         UmlToolMode.CreateMerge => "Merge",
         UmlToolMode.CreateFork => "Fork",
         UmlToolMode.CreateJoin => "Join",
+        UmlToolMode.CreateChoice => "Choice",
+        UmlToolMode.CreateJunction => "Junction",
+        UmlToolMode.CreateShallowHistory => "Shallow H",
+        UmlToolMode.CreateDeepHistory => "Deep H",
         UmlToolMode.CreateLifeline => "Lifeline",
         UmlToolMode.CreateAssociation => "Association",
         UmlToolMode.CreateDirectedAssociation => "Directed Association",
@@ -112,7 +134,12 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateAsyncMessage => "Async Message",
         UmlToolMode.CreateReturnMessage => "Return Message",
         UmlToolMode.CreateSelfMessage => "Self Message",
+        UmlToolMode.CreateCreateMessage => "Create",
+        UmlToolMode.CreateDestroyMessage => "Destroy",
         UmlToolMode.CreateLoopFragment => "Loop",
+        UmlToolMode.CreateAltFragment => "Alt",
+        UmlToolMode.CreateOptFragment => "Opt",
+        UmlToolMode.CreateParFragment => "Par",
         UmlToolMode.CreateTransition => "Transition",
         UmlToolMode.CreateControlFlow => "Control Flow",
         UmlToolMode.CreateObjectFlow => "Object Flow",
@@ -155,6 +182,8 @@ public static class UmlToolModeHelper
             "Initial Node(초기 노드): 활동의 시작점입니다. 검은 원으로 표시되며 Control Flow로 첫 액션에 연결합니다.",
         UmlToolMode.CreateActivityFinalNode =>
             "Activity Final(활동 종료): 활동의 끝을 나타냅니다. 이중 원으로 표시됩니다.",
+        UmlToolMode.CreateFlowFinalNode =>
+            "Flow Final(흐름 종료): 특정 흐름만 종료하며 전체 활동은 계속됩니다. 원 안에 X로 표시됩니다.",
         UmlToolMode.CreateDecision =>
             "Decision(분기): 조건에 따라 흐름이 갈라지는 지점입니다. 마름모꼴로 표시되며, 나가는 Control Flow에 조건 레이블을 붙입니다.",
         UmlToolMode.CreateMerge =>
@@ -163,6 +192,14 @@ public static class UmlToolModeHelper
             "Fork(분기 바): 활동을 병렬로 나누는 수평 검은 막대입니다. 드래그로 길이를 조절합니다.",
         UmlToolMode.CreateJoin =>
             "Join(동기 바): 병렬 흐름을 다시 하나로 모으는 수평 검은 막대입니다.",
+        UmlToolMode.CreateChoice =>
+            "Choice(선택): 상태 머신에서 조건 분기점입니다. 실행 시간에 조건을 평가합니다. 마름모꼴로 표시됩니다.",
+        UmlToolMode.CreateJunction =>
+            "Junction(접합): 상태 머신에서 여러 전이를 합치거나 나누는 정적 분기점입니다. 검은 원으로 표시됩니다.",
+        UmlToolMode.CreateShallowHistory =>
+            "Shallow History(얕은 이력): 복합 상태를 다시 진입할 때 마지막 활성 하위 상태로 복원합니다. H를 포함한 원으로 표시됩니다.",
+        UmlToolMode.CreateDeepHistory =>
+            "Deep History(깊은 이력): 중첩된 모든 하위 상태의 이력을 기억하여 복원합니다. H*를 포함한 원으로 표시됩니다.",
         UmlToolMode.CreateLifeline =>
             "Lifeline(라이프라인): 시퀀스 다이어그램에서 참여자를 표현합니다. 가로 드래그로 너비를 조절하고, 높이는 기본값(240px)이 적용됩니다.",
         UmlToolMode.CreateAssociation =>
@@ -191,8 +228,18 @@ public static class UmlToolModeHelper
             "Return Message(반환): 처리 결과를 돌려주는 메시지입니다. 처리 Lifeline → 호출자 Lifeline 순으로 클릭합니다. 점선 화살표로 표시됩니다.",
         UmlToolMode.CreateSelfMessage =>
             "Self Message(자기 호출): 동일 Lifeline 내부 호출입니다. Lifeline을 한 번 클릭하면 루프 형태 메시지가 추가됩니다.",
+        UmlToolMode.CreateCreateMessage =>
+            "Create(생성): 대상 Lifeline을 동적으로 생성하는 메시지입니다. 점선 화살표로 표시되며 «create» 스테레오타입이 붙습니다.",
+        UmlToolMode.CreateDestroyMessage =>
+            "Destroy(소멸): 대상 Lifeline을 종료시키는 메시지입니다. 화살표로 표시되며 대상에 X 표시가 추가됩니다.",
         UmlToolMode.CreateLoopFragment =>
             "Loop(반복): 시퀀스 다이어그램에서 메시지 구간의 반복을 나타내는 결합 프래그먼트입니다. 드래그로 프레임 크기를 지정하고, 속성 패널에서 조건을 편집합니다.",
+        UmlToolMode.CreateAltFragment =>
+            "Alt(대안): 조건에 따라 다른 경로를 선택하는 결합 프래그먼트입니다. 점선으로 구분된 두 개 이상의 피연산자로 구성됩니다.",
+        UmlToolMode.CreateOptFragment =>
+            "Opt(선택적): 조건이 참일 때만 실행되는 선택적 결합 프래그먼트입니다.",
+        UmlToolMode.CreateParFragment =>
+            "Par(병렬): 두 개 이상의 피연산자를 동시에 실행하는 병렬 결합 프래그먼트입니다.",
         UmlToolMode.CreateTransition =>
             "Transition(전이): 상태 간 이동을 표현합니다. 시작 상태 → 대상 상태 순으로 클릭합니다. 이벤트/조건은 속성 패널에서 편집합니다.",
         UmlToolMode.CreateControlFlow =>
@@ -207,6 +254,8 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateAsyncMessage => UmlMessageKind.Asynchronous,
         UmlToolMode.CreateReturnMessage => UmlMessageKind.Return,
         UmlToolMode.CreateSelfMessage => UmlMessageKind.SelfCall,
+        UmlToolMode.CreateCreateMessage => UmlMessageKind.Create,
+        UmlToolMode.CreateDestroyMessage => UmlMessageKind.Destroy,
         _ => UmlMessageKind.Synchronous,
     };
 
@@ -215,6 +264,8 @@ public static class UmlToolModeHelper
         UmlMessageKind.Asynchronous => UmlToolMode.CreateAsyncMessage,
         UmlMessageKind.Return => UmlToolMode.CreateReturnMessage,
         UmlMessageKind.SelfCall => UmlToolMode.CreateSelfMessage,
+        UmlMessageKind.Create => UmlToolMode.CreateCreateMessage,
+        UmlMessageKind.Destroy => UmlToolMode.CreateDestroyMessage,
         _ => UmlToolMode.CreateMessage,
     };
 
@@ -243,10 +294,15 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateAction => UmlNotationPreview.DrawAction,
         UmlToolMode.CreateInitialNode => UmlNotationPreview.DrawInitialNode,
         UmlToolMode.CreateActivityFinalNode => UmlNotationPreview.DrawActivityFinalNode,
+        UmlToolMode.CreateFlowFinalNode => UmlNotationPreview.DrawFlowFinalNode,
         UmlToolMode.CreateDecision => UmlNotationPreview.DrawDecision,
         UmlToolMode.CreateMerge => UmlNotationPreview.DrawMerge,
         UmlToolMode.CreateFork => UmlNotationPreview.DrawFork,
         UmlToolMode.CreateJoin => UmlNotationPreview.DrawJoin,
+        UmlToolMode.CreateChoice => UmlNotationPreview.DrawChoice,
+        UmlToolMode.CreateJunction => UmlNotationPreview.DrawJunction,
+        UmlToolMode.CreateShallowHistory => UmlNotationPreview.DrawShallowHistory,
+        UmlToolMode.CreateDeepHistory => UmlNotationPreview.DrawDeepHistory,
         UmlToolMode.CreateLifeline => UmlNotationPreview.DrawLifeline,
         UmlToolMode.CreateAssociation => UmlNotationPreview.DrawAssociation,
         UmlToolMode.CreateDirectedAssociation => UmlNotationPreview.DrawDirectedAssociation,
@@ -261,7 +317,12 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateAsyncMessage => UmlNotationPreview.DrawAsyncMessage,
         UmlToolMode.CreateReturnMessage => UmlNotationPreview.DrawReturnMessage,
         UmlToolMode.CreateSelfMessage => UmlNotationPreview.DrawSelfMessage,
+        UmlToolMode.CreateCreateMessage => UmlNotationPreview.DrawCreateMessage,
+        UmlToolMode.CreateDestroyMessage => UmlNotationPreview.DrawDestroyMessage,
         UmlToolMode.CreateLoopFragment => UmlNotationPreview.DrawLoopFragment,
+        UmlToolMode.CreateAltFragment => UmlNotationPreview.DrawAltFragment,
+        UmlToolMode.CreateOptFragment => UmlNotationPreview.DrawOptFragment,
+        UmlToolMode.CreateParFragment => UmlNotationPreview.DrawParFragment,
         UmlToolMode.CreateTransition => UmlNotationPreview.DrawTransition,
         UmlToolMode.CreateControlFlow => UmlNotationPreview.DrawControlFlow,
         UmlToolMode.CreateObjectFlow => UmlNotationPreview.DrawObjectFlow,

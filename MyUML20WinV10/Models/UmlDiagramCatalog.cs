@@ -71,6 +71,11 @@ public static class UmlDiagramCatalog
         UmlBehaviorNodeKind.Merge => $"Merge {behavior.Name}",
         UmlBehaviorNodeKind.Fork => "Fork",
         UmlBehaviorNodeKind.Join => "Join",
+        UmlBehaviorNodeKind.FlowFinalNode => "Flow Final",
+        UmlBehaviorNodeKind.Choice => $"Choice {behavior.Name}",
+        UmlBehaviorNodeKind.Junction => "Junction",
+        UmlBehaviorNodeKind.ShallowHistory => "Shallow History",
+        UmlBehaviorNodeKind.DeepHistory => "Deep History",
         UmlBehaviorNodeKind.Lifeline => $"Lifeline {behavior.Name}",
         UmlBehaviorNodeKind.Activation => "Activation",
         UmlBehaviorNodeKind.CombinedFragment =>

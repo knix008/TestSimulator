@@ -11,10 +11,15 @@ public enum UmlBehaviorNodeKind
     Action,
     InitialNode,
     ActivityFinalNode,
+    FlowFinalNode,
     Decision,
     Merge,
     Fork,
     Join,
+    Choice,
+    Junction,
+    ShallowHistory,
+    DeepHistory,
     Lifeline,
     Activation,
     CombinedFragment,
@@ -42,6 +47,8 @@ public enum UmlMessageKind
     Asynchronous,
     Return,
     SelfCall,
+    Create,
+    Destroy,
 }
 
 public sealed class UmlBehaviorNode : UmlNamedElement
@@ -68,6 +75,18 @@ public sealed class UmlBehaviorConnector : UmlRelationship
     [Category("시퀀스")]
     [DisplayName("메시지 종류")]
     public UmlMessageKind MessageKind { get; set; } = UmlMessageKind.Synchronous;
+
+    [Category("전이")]
+    [DisplayName("트리거")]
+    public string Trigger { get; set; } = string.Empty;
+
+    [Category("전이")]
+    [DisplayName("가드 조건")]
+    public string Guard { get; set; } = string.Empty;
+
+    [Category("전이")]
+    [DisplayName("효과")]
+    public string Effect { get; set; } = string.Empty;
 
     public override string RelationshipKind => Kind switch
     {

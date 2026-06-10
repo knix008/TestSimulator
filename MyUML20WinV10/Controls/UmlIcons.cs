@@ -246,6 +246,24 @@ internal static class UmlIcons
         g.DrawLine(arrowPen, 8, 1, 8, 5);
     });
 
+    public static Bitmap AutoLayout() => Draw(g =>
+    {
+        using var pen = new Pen(Color.FromArgb(60, 120, 200), 1.3f);
+        using var fill = new SolidBrush(Color.FromArgb(210, 225, 255));
+        // Top box
+        g.FillRectangle(fill, 5, 1, 14, 6);
+        g.DrawRectangle(pen, 5, 1, 14, 6);
+        // Bottom-left box
+        g.FillRectangle(fill, 1, 14, 10, 6);
+        g.DrawRectangle(pen, 1, 14, 10, 6);
+        // Bottom-right box
+        g.FillRectangle(fill, 14, 14, 10, 6);
+        g.DrawRectangle(pen, 14, 14, 10, 6);
+        // Lines
+        g.DrawLine(pen, 12, 7, 6, 14);
+        g.DrawLine(pen, 12, 7, 19, 14);
+    });
+
     public static Icon CreateAppIcon()
     {
         using var bmp = new Bitmap(32, 32, System.Drawing.Imaging.PixelFormat.Format32bppArgb);

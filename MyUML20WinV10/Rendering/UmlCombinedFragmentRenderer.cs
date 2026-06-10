@@ -41,15 +41,23 @@ public static class UmlCombinedFragmentRenderer
         g.DrawString(label, font, textBrush, bounds.Left + 7f, bounds.Top + (tabHeight - labelSize.Height) / 2f);
     }
 
-    public static void DrawPreview(Graphics g, RectangleF area, Color stroke)
+    public static void DrawPreview(Graphics g, RectangleF area, Color stroke, string? label = null)
     {
         var bounds = FitPreviewBounds(area);
         using var pen = new Pen(stroke, 1.6f);
+        var kind = label switch
+        {
+            "alt" => UmlCombinedFragmentKind.Alt,
+            "opt" => UmlCombinedFragmentKind.Opt,
+            "par" => UmlCombinedFragmentKind.Par,
+            _ => UmlCombinedFragmentKind.Loop,
+        };
+        var guard = label is "alt" ? "[cond]" : label is "loop" or null ? "i < n" : string.Empty;
         Draw(g, new UmlBehaviorNode
         {
             Kind = UmlBehaviorNodeKind.CombinedFragment,
-            CombinedFragmentKind = UmlCombinedFragmentKind.Loop,
-            Guard = "i < n",
+            CombinedFragmentKind = kind,
+            Guard = guard,
         }, bounds, pen, selected: false);
     }
 

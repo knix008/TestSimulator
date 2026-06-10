@@ -48,36 +48,22 @@ public static class UmlNotationPreview
 
     public static void DrawAssociation(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var left = new RectangleF(area.Left + 2, area.Top + area.Height * 0.2f, area.Width * 0.34f, area.Height * 0.55f);
-        var right = new RectangleF(area.Right - area.Width * 0.36f, area.Top + area.Height * 0.25f, area.Width * 0.34f, area.Height * 0.55f);
-        DrawMiniBox(g, left, fill, stroke);
-        DrawMiniBox(g, right, fill, stroke);
-
+        float y = area.Top + area.Height * 0.5f;
         using var pen = new Pen(stroke, 1.8f);
-        var start = new PointF(left.Right, left.Top + left.Height / 2f);
-        var end = new PointF(right.Left, right.Top + right.Height / 2f);
-        g.DrawLine(pen, start, end);
+        g.DrawLine(pen, area.Left + 6f, y, area.Right - 6f, y);
     }
 
     public static void DrawGeneralization(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var parent = new RectangleF(area.Left + area.Width * 0.22f, area.Top + 4, area.Width * 0.56f, area.Height * 0.34f);
-        var child = new RectangleF(area.Left + area.Width * 0.22f, area.Bottom - area.Height * 0.36f, area.Width * 0.56f, area.Height * 0.34f);
-        DrawMiniBox(g, parent, fill, stroke);
-        DrawMiniBox(g, child, fill, stroke);
-
+        const float tw = 13f, th = 11f;
+        float y = area.Top + area.Height * 0.5f;
+        float x1 = area.Left + 6f;
+        float triTip = area.Right - 6f;
+        float triBase = triTip - tw;
         using var pen = new Pen(stroke, 1.8f);
-        var start = new PointF(parent.Left + parent.Width / 2f, parent.Bottom);
-        var end = new PointF(child.Left + child.Width / 2f, child.Top - 8);
-        g.DrawLine(pen, start, end);
-
-        var tip = new PointF(child.Left + child.Width / 2f, child.Top);
-        var baseY = child.Top - 10;
-        g.DrawPolygon(pen, [
-            tip,
-            new PointF(tip.X - 4, baseY),
-            new PointF(tip.X + 4, baseY),
-        ]);
+        g.DrawLine(pen, x1, y, triBase, y);
+        // Hollow closed triangle — no fill so tile background shows through
+        g.DrawPolygon(pen, [new PointF(triTip, y), new PointF(triBase, y - th / 2f), new PointF(triBase, y + th / 2f)]);
     }
 
     public static void DrawPan(Graphics g, RectangleF area, Color fill, Color stroke)
@@ -107,8 +93,59 @@ public static class UmlNotationPreview
         UmlActorGeometry.DrawStickFigure(g, pen, bounds);
     }
 
+    public static void DrawFlowFinalNode(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var rect = FitSquare(area);
+        using var pen = new Pen(stroke, 1.8f);
+        g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        var inset = rect.Width * 0.26f;
+        g.DrawLine(pen, rect.X + inset, rect.Y + inset, rect.Right - inset, rect.Bottom - inset);
+        g.DrawLine(pen, rect.Right - inset, rect.Y + inset, rect.X + inset, rect.Bottom - inset);
+    }
+
+    public static void DrawChoice(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawDiamond(g, area, fill, stroke);
+
+    public static void DrawJunction(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawFilledCircle(g, area, stroke, stroke);
+
+    public static void DrawShallowHistory(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var rect = FitSquare(area);
+        using var pen = new Pen(stroke, 1.8f);
+        using var fillBrush = new SolidBrush(fill);
+        g.FillEllipse(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        using var brush = new SolidBrush(stroke);
+        using var font = new Font("Segoe UI", Math.Max(5f, rect.Height * 0.36f), FontStyle.Bold);
+        var size = g.MeasureString("H", font);
+        g.DrawString("H", font, brush, rect.Left + (rect.Width - size.Width) / 2f, rect.Top + (rect.Height - size.Height) / 2f);
+    }
+
+    public static void DrawDeepHistory(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        var rect = FitSquare(area);
+        using var pen = new Pen(stroke, 1.8f);
+        using var fillBrush = new SolidBrush(fill);
+        g.FillEllipse(fillBrush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+        using var brush = new SolidBrush(stroke);
+        using var font = new Font("Segoe UI", Math.Max(4f, rect.Height * 0.28f), FontStyle.Bold);
+        var size = g.MeasureString("H*", font);
+        g.DrawString("H*", font, brush, rect.Left + (rect.Width - size.Width) / 2f, rect.Top + (rect.Height - size.Height) / 2f);
+    }
+
     public static void DrawLoopFragment(Graphics g, RectangleF area, Color fill, Color stroke) =>
         UmlCombinedFragmentRenderer.DrawPreview(g, area, stroke);
+
+    public static void DrawAltFragment(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        UmlCombinedFragmentRenderer.DrawPreview(g, area, stroke, "alt");
+
+    public static void DrawOptFragment(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        UmlCombinedFragmentRenderer.DrawPreview(g, area, stroke, "opt");
+
+    public static void DrawParFragment(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        UmlCombinedFragmentRenderer.DrawPreview(g, area, stroke, "par");
 
     public static void DrawUseCase(Graphics g, RectangleF area, Color fill, Color stroke)
     {
@@ -217,6 +254,19 @@ public static class UmlNotationPreview
     public static void DrawReturnMessage(Graphics g, RectangleF area, Color fill, Color stroke) =>
         DrawArrowConnector(g, area, stroke, dashed: true, openArrow: true);
 
+    public static void DrawCreateMessage(Graphics g, RectangleF area, Color fill, Color stroke) =>
+        DrawArrowConnector(g, area, stroke, dashed: true, openArrow: false);
+
+    public static void DrawDestroyMessage(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        DrawArrowConnector(g, area, stroke, dashed: false, openArrow: false);
+        var cx = area.Right - 10f;
+        var cy = area.Top + area.Height / 2f;
+        using var pen = new Pen(stroke, 1.8f);
+        g.DrawLine(pen, cx - 6, cy - 6, cx + 6, cy + 6);
+        g.DrawLine(pen, cx + 6, cy - 6, cx - 6, cy + 6);
+    }
+
     public static void DrawSelfMessage(Graphics g, RectangleF area, Color fill, Color stroke)
     {
         var cx = area.Left + area.Width * 0.28f;
@@ -241,38 +291,61 @@ public static class UmlNotationPreview
 
     public static void DrawDirectedAssociation(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        DrawAssociation(g, area, fill, stroke);
+        float y = area.Top + area.Height * 0.5f;
+        float x1 = area.Left + 6f, x2 = area.Right - 6f;
         using var pen = new Pen(stroke, 1.8f);
-        var end = new PointF(area.Right - area.Width * 0.36f, area.Top + area.Height * 0.52f);
-        DrawOpenArrow(g, pen, new PointF(end.X - 20, end.Y), end);
+        g.DrawLine(pen, x1, y, x2, y);
+        DrawOpenArrow(g, pen, new PointF(x1, y), new PointF(x2, y));
     }
 
     public static void DrawAggregation(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        DrawAssociation(g, area, fill, stroke);
+        const float dw = 17f, dh = 9f;
+        float y = area.Top + area.Height * 0.5f;
+        float tipX = area.Left + 6f;
+        float x2 = area.Right - 6f;
         using var pen = new Pen(stroke, 1.8f);
-        var end = new PointF(area.Right - area.Width * 0.36f, area.Top + area.Height * 0.52f);
-        g.DrawPolygon(pen, [end, new PointF(end.X - 7, end.Y - 4), new PointF(end.X - 18, end.Y), new PointF(end.X - 7, end.Y + 4)]);
+        // Hollow diamond at source (left) end
+        g.DrawPolygon(pen, [
+            new PointF(tipX,        y),
+            new PointF(tipX + dw / 2f, y - dh / 2f),
+            new PointF(tipX + dw,   y),
+            new PointF(tipX + dw / 2f, y + dh / 2f),
+        ]);
+        g.DrawLine(pen, tipX + dw, y, x2, y);
     }
 
     public static void DrawComposition(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        DrawAssociation(g, area, fill, stroke);
+        const float dw = 17f, dh = 9f;
+        float y = area.Top + area.Height * 0.5f;
+        float tipX = area.Left + 6f;
+        float x2 = area.Right - 6f;
         using var pen = new Pen(stroke, 1.8f);
         using var brush = new SolidBrush(stroke);
-        var end = new PointF(area.Right - area.Width * 0.36f, area.Top + area.Height * 0.52f);
-        var pts = new[] { end, new PointF(end.X - 7, end.Y - 4), new PointF(end.X - 18, end.Y), new PointF(end.X - 7, end.Y + 4) };
-        g.FillPolygon(brush, pts);
-        g.DrawPolygon(pen, pts);
+        PointF[] diamond = [
+            new PointF(tipX,        y),
+            new PointF(tipX + dw / 2f, y - dh / 2f),
+            new PointF(tipX + dw,   y),
+            new PointF(tipX + dw / 2f, y + dh / 2f),
+        ];
+        g.FillPolygon(brush, diamond);
+        g.DrawPolygon(pen, diamond);
+        g.DrawLine(pen, tipX + dw, y, x2, y);
     }
 
     public static void DrawRealization(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        DrawGeneralization(g, area, fill, stroke);
-        using var pen = new Pen(stroke, 1.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
-        var child = new RectangleF(area.Left + area.Width * 0.22f, area.Bottom - area.Height * 0.36f, area.Width * 0.56f, area.Height * 0.34f);
-        var parent = new RectangleF(area.Left + area.Width * 0.22f, area.Top + 4, area.Width * 0.56f, area.Height * 0.34f);
-        g.DrawLine(pen, new PointF(parent.Left + parent.Width / 2f, parent.Bottom), new PointF(child.Left + child.Width / 2f, child.Top - 8));
+        const float tw = 13f, th = 11f;
+        float y = area.Top + area.Height * 0.5f;
+        float x1 = area.Left + 6f;
+        float triTip = area.Right - 6f;
+        float triBase = triTip - tw;
+        using var dashedPen = new Pen(stroke, 1.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+        using var solidPen = new Pen(stroke, 1.8f);
+        g.DrawLine(dashedPen, x1, y, triBase, y);
+        // Hollow closed triangle — solid outline even on dashed line
+        g.DrawPolygon(solidPen, [new PointF(triTip, y), new PointF(triBase, y - th / 2f), new PointF(triBase, y + th / 2f)]);
     }
 
     public static void DrawInclude(Graphics g, RectangleF area, Color fill, Color stroke) =>
@@ -283,32 +356,24 @@ public static class UmlNotationPreview
 
     private static void DrawLabeledEdge(Graphics g, RectangleF area, Color stroke, string label)
     {
-        var left = new RectangleF(area.Left + 6, area.Top + area.Height * 0.35f, area.Width * 0.28f, area.Height * 0.3f);
-        var right = new RectangleF(area.Right - area.Width * 0.34f, area.Top + area.Height * 0.35f, area.Width * 0.28f, area.Height * 0.3f);
+        float y = area.Top + area.Height * 0.65f;
+        float x1 = area.Left + 6f, x2 = area.Right - 6f;
         using var pen = new Pen(stroke, 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
-        g.DrawEllipse(pen, left.X, left.Y, left.Width, left.Height);
-        g.DrawEllipse(pen, right.X, right.Y, right.Width, right.Height);
-        var start = new PointF(left.Right, left.Top + left.Height / 2f);
-        var end = new PointF(right.Left, right.Top + right.Height / 2f);
-        g.DrawLine(pen, start, end);
-        DrawOpenArrow(g, pen, start, end);
-        using var font = new Font("Segoe UI", 6f);
+        g.DrawLine(pen, x1, y, x2, y);
+        DrawOpenArrow(g, pen, new PointF(x1, y), new PointF(x2, y));
+        using var font = new Font("Segoe UI", 6.5f);
         using var brush = new SolidBrush(stroke);
-        g.DrawString(label, font, brush, (start.X + end.X) / 2f - 8, (start.Y + end.Y) / 2f - 10);
+        using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Far };
+        g.DrawString(label, font, brush, new RectangleF(x1, area.Top + 2f, x2 - x1, y - area.Top - 4f), fmt);
     }
 
     public static void DrawDependency(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var left = new RectangleF(area.Left + 4, area.Top + area.Height * 0.28f, area.Width * 0.34f, area.Height * 0.44f);
-        var right = new RectangleF(area.Right - area.Width * 0.38f, area.Top + area.Height * 0.28f, area.Width * 0.34f, area.Height * 0.44f);
-        DrawMiniBox(g, left, fill, stroke);
-        DrawMiniBox(g, right, fill, stroke);
-
+        float y = area.Top + area.Height * 0.5f;
+        float x1 = area.Left + 6f, x2 = area.Right - 6f;
         using var pen = new Pen(stroke, 1.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
-        var start = new PointF(left.Right, left.Top + left.Height / 2f);
-        var end = new PointF(right.Left, right.Top + right.Height / 2f);
-        g.DrawLine(pen, start, end);
-        DrawOpenArrow(g, pen, start, end);
+        g.DrawLine(pen, x1, y, x2, y);
+        DrawOpenArrow(g, pen, new PointF(x1, y), new PointF(x2, y));
     }
 
     private static void DrawClassifierBox(Graphics g, RectangleF area, Color fill, Color stroke, bool roundedRight, int compartments)
@@ -444,9 +509,18 @@ public static class UmlNotationPreview
             case UmlToolMode.CreateActivityFinalNode:
                 DrawGhostFinalCircle(g, rect, stroke);
                 break;
+            case UmlToolMode.CreateFlowFinalNode:
+                DrawFlowFinalNode(g, rect, fill, stroke);
+                break;
             case UmlToolMode.CreateDecision:
             case UmlToolMode.CreateMerge:
+            case UmlToolMode.CreateChoice:
                 DrawGhostDiamond(g, rect, stroke);
+                break;
+            case UmlToolMode.CreateJunction:
+            case UmlToolMode.CreateShallowHistory:
+            case UmlToolMode.CreateDeepHistory:
+                DrawGhostFilledCircle(g, rect, stroke);
                 break;
             case UmlToolMode.CreateFork:
             case UmlToolMode.CreateJoin:
@@ -459,16 +533,21 @@ public static class UmlNotationPreview
                 DrawGhostActivation(g, rect, fill, stroke);
                 break;
             case UmlToolMode.CreateLoopFragment:
+            case UmlToolMode.CreateAltFragment:
+            case UmlToolMode.CreateOptFragment:
+            case UmlToolMode.CreateParFragment:
                 DrawGhostLoopFragment(g, rect, stroke);
                 break;
             case UmlToolMode.CreateMessage:
             case UmlToolMode.CreateAsyncMessage:
             case UmlToolMode.CreateReturnMessage:
             case UmlToolMode.CreateSelfMessage:
+            case UmlToolMode.CreateCreateMessage:
+            case UmlToolMode.CreateDestroyMessage:
             case UmlToolMode.CreateTransition:
             case UmlToolMode.CreateControlFlow:
             case UmlToolMode.CreateObjectFlow:
-                DrawGhostArrow(g, rect, stroke, mode == UmlToolMode.CreateObjectFlow || mode == UmlToolMode.CreateReturnMessage);
+                DrawGhostArrow(g, rect, stroke, mode == UmlToolMode.CreateObjectFlow || mode == UmlToolMode.CreateReturnMessage || mode == UmlToolMode.CreateCreateMessage);
                 break;
         }
     }
