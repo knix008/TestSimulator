@@ -1,0 +1,9 @@
+/* Amber theme — warm orange/gold */
+@define-color bg_color       #1a1200;
+@define-color fg_color       #fff8e1;
+@define-color accent_color   #ffb300;
+@define-color clock_face     #201500;
+@define-color clock_border   #5c3d00;
+@define-color clock_text     #ffe082;
+@define-color panel_bg       #231700;
+@define-color panel_border   #4e3400;

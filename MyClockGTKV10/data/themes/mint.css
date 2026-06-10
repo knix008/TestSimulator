@@ -1,0 +1,9 @@
+/* Mint theme — cool teal/seafoam */
+@define-color bg_color       #081a15;
+@define-color fg_color       #e0f2f1;
+@define-color accent_color   #00897b;
+@define-color clock_face     #0a2018;
+@define-color clock_border   #00574b;
+@define-color clock_text     #80cbc4;
+@define-color panel_bg       #0b2219;
+@define-color panel_border   #004d42;

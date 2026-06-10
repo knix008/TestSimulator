@@ -1,0 +1,9 @@
+/* Rose theme — soft pink */
+@define-color bg_color       #1a0d12;
+@define-color fg_color       #fce4ec;
+@define-color accent_color   #e91e63;
+@define-color clock_face     #200f18;
+@define-color clock_border   #621030;
+@define-color clock_text     #f48fb1;
+@define-color panel_bg       #220f1a;
+@define-color panel_border   #540e28;

@@ -1,0 +1,9 @@
+/* Sunset theme — warm coral/orange */
+@define-color bg_color       #1a0f08;
+@define-color fg_color       #fff3e0;
+@define-color accent_color   #ff6f00;
+@define-color clock_face     #241208;
+@define-color clock_border   #6d3000;
+@define-color clock_text     #ffcc80;
+@define-color panel_bg       #201208;
+@define-color panel_border   #5e2900;

@@ -1,0 +1,9 @@
+/* Emerald theme — forest green */
+@define-color bg_color       #0a1a0d;
+@define-color fg_color       #c8e6c9;
+@define-color accent_color   #43a047;
+@define-color clock_face     #0c2010;
+@define-color clock_border   #1b5e20;
+@define-color clock_text     #a5d6a7;
+@define-color panel_bg       #0e2212;
+@define-color panel_border   #194d1e;
