@@ -33,4 +33,25 @@ public static class AnalysisScaleLimits
 
     /// <summary>이 수 이상이면 Fan-in/out 복제 없이 경량 메트릭 집계.</summary>
     public const int MaxFunctionsForFullEnrichment = 80_000;
+
+    /// <summary>정규식·SQL 리터럴 스캔 대상 최대 파일 크기(바이트). 초과 시 해당 파일은 건너뜁니다.</summary>
+    public const long MaxSourceFileBytesForHeavyRegexScan = 512 * 1024;
+
+    /// <summary>Tree-sitter 파싱 대상 최대 파일 크기(바이트). 초과 시 건너뜁니다.</summary>
+    public const long MaxSourceFileBytesForTreeSitter = 2 * 1024 * 1024;
+
+    /// <summary>ESLint/pylint 등 외부 Lint에 넘길 최대 파일 수.</summary>
+    public const int MaxFilesForExternalLint = 120;
+
+    /// <summary>외부 Lint 전체 최대 실행 시간(밀리초).</summary>
+    public const int MaxExternalLintWallClockMs = 120_000;
+
+    /// <summary>무거운 정규식 단일 매칭 최대 시간(밀리초).</summary>
+    public const int RegexMatchTimeoutMs = 2_000;
+
+    /// <summary>함수 본문 DB 접근 스캔 최대 문자 수. 초과분은 잘라냅니다.</summary>
+    public const int MaxDbAccessFunctionBodyChars = 64 * 1024;
+
+    /// <summary>DB 컬럼(SQL 리터럴) 분석 대상 최대 파일 수.</summary>
+    public const int MaxFilesForDbColumnAccessScan = 400;
 }

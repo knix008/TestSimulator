@@ -53,6 +53,12 @@ public sealed class TreeSitterCodeMetricsAnalyzer : ICodeMetricsAnalyzer
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                if (!SourceFileScanGuards.IsWithinTreeSitterBudget(file))
+                {
+                    progress?.Report($"{label} 건너뜀(대용량): {Path.GetFileName(file)}");
+                    continue;
+                }
+
                 try
                 {
                     var source = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);

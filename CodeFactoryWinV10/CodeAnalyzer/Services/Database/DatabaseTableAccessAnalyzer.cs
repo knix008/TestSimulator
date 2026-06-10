@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Services.Database;
 
@@ -52,7 +53,8 @@ public static class DatabaseTableAccessAnalyzer
         DatabaseSchemaResult schema,
         IReadOnlyList<FunctionMetric> functions,
         CallGraphResult callGraph,
-        IReadOnlyList<string>? sourceFiles = null)
+        IReadOnlyList<string>? sourceFiles = null,
+        CancellationToken cancellationToken = default)
     {
         if (schema.Tables.Count == 0)
         {
@@ -68,7 +70,9 @@ public static class DatabaseTableAccessAnalyzer
 
         foreach (var function in functions)
         {
-            if (!DatabaseAccessScanExclusions.ShouldScanFile(function.FilePath))
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!ShouldScanFunctionForDbAccess(function))
             {
                 continue;
             }
@@ -80,12 +84,12 @@ public static class DatabaseTableAccessAnalyzer
                 index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, useFunctionId: true);
         }
 
-        AppendJvmJsFileLevelSqlLiteralScan(sourceFiles, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache);
+        AppendJvmJsFileLevelSqlLiteralScan(sourceFiles, index, callGraph, accesses, seen, entryAccesses, entrySeen, fileCache, cancellationToken);
 
         accesses = DeduplicateAccesses(accesses);
         entryAccesses = DeduplicateEntryAccesses(entryAccesses);
 
-        var (catalogs, catalogAccesses) = DatabaseCatalogAccessAnalyzer.Analyze(functions, callGraph);
+        var (catalogs, catalogAccesses) = DatabaseCatalogAccessAnalyzer.Analyze(functions, callGraph, cancellationToken);
 
         var mergedTables = MergeJvmJsDiscoveredTables(schema.Tables, index.AutoDiscoveredTables);
 
@@ -93,7 +97,7 @@ public static class DatabaseTableAccessAnalyzer
             .GroupBy(t => t.Id, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
-        var columnAccesses = BuildColumnAccesses(sourceFiles, mergedTables, accesses, callGraph, fileCache);
+        var columnAccesses = BuildColumnAccesses(sourceFiles, mergedTables, accesses, callGraph, fileCache, cancellationToken);
 
         var grouped = accesses
             .GroupBy(a => a.TableId, StringComparer.OrdinalIgnoreCase)
@@ -301,7 +305,18 @@ public static class DatabaseTableAccessAnalyzer
         if (string.IsNullOrWhiteSpace(body))
             return;
 
-        var matches = DetectTableReferences(body, function.LanguageId, index);
+        if (body.Length > AnalysisScaleLimits.MaxDbAccessFunctionBodyChars)
+        {
+            body = body[..AnalysisScaleLimits.MaxDbAccessFunctionBodyChars];
+        }
+
+        if (!DbAccessBodyPrefilter.MayContainDbAccess(body, function.LanguageId))
+        {
+            return;
+        }
+
+        var jvmJsOrmOnly = JvmJsDbAnalysisScope.IsTargetLanguage(function.LanguageId);
+        var matches = DetectTableReferences(body, function.LanguageId, index, jvmJsOrmOnly);
         if (matches.Count == 0)
             return;
 
@@ -346,31 +361,42 @@ public static class DatabaseTableAccessAnalyzer
         HashSet<string> seen,
         List<DatabaseEntryAccess> entryAccesses,
         HashSet<string> entrySeen,
-        Dictionary<string, string[]> fileCache)
+        Dictionary<string, string[]> fileCache,
+        CancellationToken cancellationToken = default)
     {
         if (sourceFiles is null || sourceFiles.Count == 0)
             return;
 
         foreach (var filePath in sourceFiles)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (!JvmJsDbAnalysisScope.IsTargetFile(filePath))
             {
                 continue;
             }
 
-            if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
+            if (!SourceFileScanGuards.IsWithinHeavyRegexScanBudget(filePath)
+                || !TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
                 continue;
 
             var languageId = LanguageRegistry.FindByExtension(Path.GetExtension(filePath))?.Id ?? string.Empty;
             var fullText = string.Join('\n', lines);
-            var methodStarts = FindMethodStartLines(lines, languageId);
+            var spans = SqlPatternHelper.ExtractSqlLiteralSpans(fullText).ToList();
+            if (spans.Count == 0)
+            {
+                continue;
+            }
 
-            foreach (var span in SqlPatternHelper.ExtractSqlLiteralSpans(fullText))
+            List<int>? methodStarts = null;
+
+            foreach (var span in spans)
             {
                 var matches = DetectTableReferences(span.Text, languageId, index);
                 if (matches.Count == 0)
                     continue;
 
+                methodStarts ??= FindMethodStartLines(lines, languageId);
                 var owner = ResolveSqlLiteralOwner(filePath, lines, methodStarts, languageId, span.LineNumber);
                 var functionId = ResolveCallGraphFunctionId(callGraph, filePath, owner.MethodStartLine) ?? owner.FunctionId;
                 var pseudo = new FunctionMetric
@@ -388,28 +414,51 @@ public static class DatabaseTableAccessAnalyzer
         }
     }
 
+    private static bool ShouldScanFunctionForDbAccess(FunctionMetric function)
+    {
+        if (!DatabaseAccessScanExclusions.ShouldScanFile(function.FilePath))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(function.LanguageId))
+        {
+            return false;
+        }
+
+        return LanguageDbAccessPatterns.GetOrmPatterns(function.LanguageId).Count > 0
+            || JvmJsDbAnalysisScope.IsTargetLanguage(function.LanguageId)
+            || function.LanguageId.Equals("csharp", StringComparison.OrdinalIgnoreCase)
+            || function.LanguageId.Equals("vbnet", StringComparison.OrdinalIgnoreCase);
+    }
+
     // --- Detection ---
 
     private static List<(string TableId, DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> DetectTableReferences(
         string body,
         string languageId,
-        TableReferenceIndex index)
+        TableReferenceIndex index,
+        bool jvmJsOrmOnly = false)
     {
         var results = new Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)>(StringComparer.OrdinalIgnoreCase);
-        var searchBodies = new List<string> { body };
-        searchBodies.AddRange(SqlPatternHelper.ExtractSqlLiteralBodies(body));
 
-        foreach (var searchBody in searchBodies)
+        if (!jvmJsOrmOnly)
         {
-            ScanSqlTextForTableReferences(searchBody, results, index, languageId);
-        }
+            var searchBodies = new List<string> { body };
+            searchBodies.AddRange(SqlPatternHelper.ExtractSqlLiteralBodies(body));
 
-        if (JvmJsDbAnalysisScope.IsTargetLanguage(languageId))
-        {
-            RelationalDbAccessPatterns.ScanAllNativeSqlArguments(
-                body,
-                languageId,
-                sql => ScanSqlTextForTableReferences(sql, results, index, languageId));
+            foreach (var searchBody in searchBodies)
+            {
+                ScanSqlTextForTableReferences(searchBody, results, index, languageId);
+            }
+
+            if (JvmJsDbAnalysisScope.IsTargetLanguage(languageId))
+            {
+                RelationalDbAccessPatterns.ScanAllNativeSqlArguments(
+                    body,
+                    languageId,
+                    sql => ScanSqlTextForTableReferences(sql, results, index, languageId));
+            }
         }
 
         // EF Core (C# / VB.NET)
@@ -454,7 +503,7 @@ public static class DatabaseTableAccessAnalyzer
         }
 
         // Universal patterns: API SQL first arg, NoSQL collections, JPA @Table
-        DetectUniversalTableReferences(body, results, index, languageId);
+        DetectUniversalTableReferences(body, results, index, languageId, skipApiSqlScan: jvmJsOrmOnly);
 
         // Language-specific ORM patterns (스키마에 등록된 이름만)
         if (!string.IsNullOrEmpty(languageId))
@@ -515,14 +564,18 @@ public static class DatabaseTableAccessAnalyzer
         string body,
         Dictionary<string, (DatabaseTableAccessKind Kind, DatabaseTableAccessPattern Pattern, DatabaseCrudOperation Operations)> results,
         TableReferenceIndex index,
-        string languageId)
+        string languageId,
+        bool skipApiSqlScan = false)
     {
-        foreach (Match match in UniversalDatabasePatterns.ApiSqlFirstArgRegex.Matches(body))
+        if (!skipApiSqlScan)
         {
-            if (!SqlPatternHelper.TryUnwrapSqlLiteral(match.Groups[1].Value, out var sql))
-                continue;
-            var normalized = SqlPatternHelper.NormalizeSqlLiteralEscapes(sql);
-            ScanSqlTextForTableReferences(normalized, results, index, languageId);
+            foreach (var match in SqlPatternHelper.SafeMatches(UniversalDatabasePatterns.ApiSqlFirstArgRegex, body))
+            {
+                if (!SqlPatternHelper.TryUnwrapSqlLiteral(match.Groups[1].Value, out var sql))
+                    continue;
+                var normalized = SqlPatternHelper.NormalizeSqlLiteralEscapes(sql);
+                ScanSqlTextForTableReferences(normalized, results, index, languageId);
+            }
         }
 
         foreach (var pattern in UniversalDatabasePatterns.NoSqlCollectionPatterns)
@@ -669,34 +722,89 @@ public static class DatabaseTableAccessAnalyzer
 
     // --- Column access detection ---
 
+    private static List<DatabaseTable> FilterTablesReferencedInSql(string sql, IReadOnlyList<DatabaseTable> tables)
+    {
+        var matches = new List<DatabaseTable>();
+        foreach (var table in tables)
+        {
+            if (table.Name.Length > sql.Length)
+            {
+                continue;
+            }
+
+            if (!sql.Contains(table.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!SqlPatternHelper.SqlLiteralReferencesTable(sql, table.Name, table.Schema))
+            {
+                continue;
+            }
+
+            matches.Add(table);
+        }
+
+        return matches;
+    }
+
     private static List<DatabaseColumnAccess> BuildColumnAccesses(
         IReadOnlyList<string>? sourceFiles,
         IReadOnlyList<DatabaseTable> tables,
         List<DatabaseTableAccess> tableAccesses,
         CallGraphResult callGraph,
-        Dictionary<string, string[]> fileCache)
+        Dictionary<string, string[]> fileCache,
+        CancellationToken cancellationToken = default)
     {
         var columnAccesses = new List<DatabaseColumnAccess>();
         var columnSeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         if (sourceFiles is { Count: > 0 })
         {
+            var scanFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var access in tableAccesses)
+            {
+                if (!string.IsNullOrWhiteSpace(access.FunctionFilePath))
+                {
+                    scanFiles.Add(access.FunctionFilePath);
+                }
+            }
+
             foreach (var filePath in sourceFiles)
             {
-                if (!TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
+                if (JvmJsDbAnalysisScope.IsTargetFile(filePath))
+                {
+                    scanFiles.Add(filePath);
+                }
+            }
+
+            var filesToScan = scanFiles
+                .Take(AnalysisScaleLimits.MaxFilesForDbColumnAccessScan)
+                .ToList();
+
+            foreach (var filePath in filesToScan)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!SourceFileScanGuards.IsWithinHeavyRegexScanBudget(filePath)
+                    || !TryReadLines(filePath, fileCache, out var lines) || lines.Length == 0)
                     continue;
 
                 var languageId = LanguageRegistry.FindByExtension(Path.GetExtension(filePath))?.Id ?? string.Empty;
                 var fullText = string.Join('\n', lines);
-                var methodStarts = FindMethodStartLines(lines, languageId);
-
-                foreach (var span in SqlPatternHelper.ExtractSqlLiteralSpans(fullText))
+                var spans = SqlPatternHelper.ExtractSqlLiteralSpans(fullText).ToList();
+                if (spans.Count == 0)
                 {
-                    foreach (var table in tables)
-                    {
-                        if (!SqlPatternHelper.SqlLiteralReferencesTable(span.Text, table.Name, table.Schema))
-                            continue;
+                    continue;
+                }
 
+                List<int>? methodStarts = null;
+
+                foreach (var span in spans)
+                {
+                    foreach (var table in FilterTablesReferencedInSql(span.Text, tables))
+                    {
+                        methodStarts ??= FindMethodStartLines(lines, languageId);
                         var owner = ResolveSqlLiteralOwner(filePath, lines, methodStarts, languageId, span.LineNumber);
                         var functionId = ResolveCallGraphFunctionId(callGraph, filePath, owner.MethodStartLine) ?? owner.FunctionId;
 
@@ -921,6 +1029,11 @@ public static class DatabaseTableAccessAnalyzer
             return false;
         try { filePath = Path.GetFullPath(filePath); }
         catch { return false; }
+        if (!SourceFileScanGuards.IsWithinHeavyRegexScanBudget(filePath))
+        {
+            cache[filePath] = [];
+            return false;
+        }
         if (cache.TryGetValue(filePath, out var cached))
         {
             lines = cached;

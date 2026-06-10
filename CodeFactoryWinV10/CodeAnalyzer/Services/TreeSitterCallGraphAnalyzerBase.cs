@@ -54,6 +54,13 @@ public abstract class TreeSitterCallGraphAnalyzerBase : ICallGraphAnalyzer
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                if (!SourceFileScanGuards.IsWithinTreeSitterBudget(file))
+                {
+                    parsedFiles.Add(new ParsedFile(file, [], []));
+                    progress?.Report($"{DisplayPrefix.Trim('[', ']')} 건너뜀(대용량): {Path.GetFileName(file)}");
+                    continue;
+                }
+
                 try
                 {
                     var source = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);

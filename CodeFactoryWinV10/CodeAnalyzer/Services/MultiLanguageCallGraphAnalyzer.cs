@@ -351,7 +351,8 @@ public sealed class MultiLanguageCallGraphAnalyzer
                     databaseSchema,
                     mergedMetrics.Functions,
                     merged,
-                    sourceFiles);
+                    sourceFiles,
+                    cancellationToken);
             }
             catch (OperationCanceledException)
             {

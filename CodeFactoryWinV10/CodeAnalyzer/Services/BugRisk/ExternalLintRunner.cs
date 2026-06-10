@@ -21,23 +21,41 @@ public static class ExternalLintRunner
     {
         var bag = new ConcurrentBag<BugRiskFinding>();
         var tasks = new List<Task>();
+        using var wallClock = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        wallClock.CancelAfter(AnalysisScaleLimits.MaxExternalLintWallClockMs);
 
         var jsFiles = Get(filesByLanguage, "javascript");
         var tsFiles = Get(filesByLanguage, "typescript");
-        var jsts = jsFiles.Concat(tsFiles).ToList();
+        var jsts = LimitExternalLintFiles(jsFiles.Concat(tsFiles));
         if (jsts.Count > 0)
-            tasks.Add(BatchRunAsync(jsts, RunEsLintBatchAsync, bag, ct));
+            tasks.Add(BatchRunAsync(jsts, RunEsLintBatchAsync, bag, wallClock.Token));
 
-        var py = Get(filesByLanguage, "python");
+        var py = LimitExternalLintFiles(Get(filesByLanguage, "python"));
         if (py.Count > 0)
-            tasks.Add(BatchRunAsync(py, RunPylintBatchAsync, bag, ct));
+            tasks.Add(BatchRunAsync(py, RunPylintBatchAsync, bag, wallClock.Token));
 
-        var rb = Get(filesByLanguage, "ruby");
+        var rb = LimitExternalLintFiles(Get(filesByLanguage, "ruby"));
         if (rb.Count > 0)
-            tasks.Add(BatchRunAsync(rb, RunRubocopBatchAsync, bag, ct));
+            tasks.Add(BatchRunAsync(rb, RunRubocopBatchAsync, bag, wallClock.Token));
 
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        try
+        {
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // 외부 Lint 전체 시간 상한 도달 — 수집된 결과만 반환
+        }
+
         return bag.ToList();
+    }
+
+    private static List<string> LimitExternalLintFiles(IEnumerable<string> files)
+    {
+        return files
+            .Where(SourceFileScanGuards.IsWithinHeavyRegexScanBudget)
+            .Take(AnalysisScaleLimits.MaxFilesForExternalLint)
+            .ToList();
     }
 
     private static List<string> Get(Dictionary<string, List<string>> d, string key)

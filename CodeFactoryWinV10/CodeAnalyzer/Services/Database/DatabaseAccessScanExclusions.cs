@@ -17,6 +17,7 @@ internal static class DatabaseAccessScanExclusions
         "RelationalDbAccessPatterns.cs",
         "LanguageDbAccessPatterns.cs",
         "JvmJsDbAnalysisScope.cs",
+        "DbAccessBodyPrefilter.cs",
         "SqlInCodeSchemaExtractor.cs",
         "DatabaseSchemaInitializer.cs",
     };

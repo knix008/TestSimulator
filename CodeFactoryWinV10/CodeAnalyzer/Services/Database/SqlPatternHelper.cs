@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Services.Database;
 
@@ -12,10 +13,14 @@ internal static class SqlPatternHelper
     /// <summary>MySQL 백틱·PostgreSQL 큰따옴표·T-SQL 대괄호·일반 식별자.</summary>
     internal const string SqlIdentifierToken = @"(?:\w+|""[^""]+""|`[^`]+`|\[[^\]]+\])";
 
+    private static readonly TimeSpan RegexMatchTimeout =
+        TimeSpan.FromMilliseconds(AnalysisScaleLimits.RegexMatchTimeoutMs);
+
     // C# / Java / JS / Python / C++ raw strings
     internal static readonly Regex StringLiteralRegex = new(
         $@"(?:""""""[\s\S]*?""""""|'''[\s\S]*?'''|(?:[LuUu8]+)?R""(?:([A-Za-z0-9_]*))\((.*?)\)\1""|@?""(?:(?:\\.|[^""\\])*)""|'(?:(?:\\.|[^'\\])*)'|`(?:[^`\\]|\\.)*`)",
-        RegexOptions.Compiled | RegexOptions.Singleline);
+        RegexOptions.Compiled | RegexOptions.Singleline,
+        RegexMatchTimeout);
 
     private static readonly Regex CommentRegex = new(
         "//.*$|/\\*.*?\\*/|#.*$",
@@ -103,7 +108,7 @@ internal static class SqlPatternHelper
 
     internal static IEnumerable<SqlLiteralSpan> ExtractSqlLiteralSpans(string body, int lineOffset = 0)
     {
-        foreach (Match match in StringLiteralRegex.Matches(body))
+        foreach (var match in SafeMatches(StringLiteralRegex, body))
         {
             if (!TryUnwrapSqlLiteral(match.Value, out var literal) || !ContainsSqlVerb(literal))
             {
@@ -115,6 +120,23 @@ internal static class SqlPatternHelper
         }
     }
 
+    internal static IEnumerable<Match> SafeMatches(Regex regex, string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return [];
+        }
+
+        try
+        {
+            return regex.Matches(text).Cast<Match>().ToList();
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return [];
+        }
+    }
+
     internal static string MaskStringLiterals(string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -123,7 +145,7 @@ internal static class SqlPatternHelper
         }
 
         var chars = text.ToCharArray();
-        foreach (Match match in StringLiteralRegex.Matches(text))
+        foreach (var match in SafeMatches(StringLiteralRegex, text))
         {
             for (var i = match.Index; i < match.Index + match.Length; i++)
             {

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using CodeAnalyzer.Models;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Services.Database;
 
@@ -12,7 +13,8 @@ internal static class DatabaseCatalogAccessAnalyzer
 
     public static (IReadOnlyList<DatabaseCatalog> Catalogs, IReadOnlyList<DatabaseCatalogAccess> Accesses) Analyze(
         IReadOnlyList<FunctionMetric> functions,
-        CallGraphResult callGraph)
+        CallGraphResult callGraph,
+        CancellationToken cancellationToken = default)
     {
         var catalogs = new Dictionary<string, DatabaseCatalog>(StringComparer.OrdinalIgnoreCase);
         var accesses = new List<DatabaseCatalogAccess>();
@@ -21,6 +23,8 @@ internal static class DatabaseCatalogAccessAnalyzer
 
         foreach (var function in functions)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (!DatabaseAccessScanExclusions.ShouldScanFile(function.FilePath))
             {
                 continue;
@@ -60,6 +64,16 @@ internal static class DatabaseCatalogAccessAnalyzer
         }
 
         var body = string.Join('\n', lines.AsSpan(start - 1, end - start + 1).ToArray());
+        if (body.Length > AnalysisScaleLimits.MaxDbAccessFunctionBodyChars)
+        {
+            body = body[..AnalysisScaleLimits.MaxDbAccessFunctionBodyChars];
+        }
+
+        if (!DbAccessBodyPrefilter.MayContainCatalogAccess(body, function.LanguageId))
+        {
+            return;
+        }
+
         var functionId = useFunctionId
             ? DatabaseTableAccessAnalyzer.ResolveFunctionIdForScan(function, callGraph)
             : function.Id;

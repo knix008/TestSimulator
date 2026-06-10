@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using CodeAnalyzer.Services;
 
 namespace CodeAnalyzer.Services.Database;
 
@@ -67,10 +68,14 @@ internal static class UniversalDatabasePatterns
         new(@"\bSqliteConnection\s*\:\:\s*open\s*\(", RegexOptions.Compiled | RegexOptions.IgnoreCase),
     ];
 
+    private static readonly TimeSpan RegexMatchTimeout =
+        TimeSpan.FromMilliseconds(AnalysisScaleLimits.RegexMatchTimeoutMs);
+
     /// <summary>API 호출 첫 인자 SQL 문자열 — JDBC/ADO/PDO/Node 등 공통.</summary>
     internal static readonly Regex ApiSqlFirstArgRegex = new(
         @"\b(?:query|execute|executeQuery|executeUpdate|executeBatch|rawQuery|prepareStatement|prepare|exec|Exec|Query|QueryRow|ExecContext|QueryContext|update|batchUpdate|ExecuteSqlRaw|ExecuteSqlInterpolated|FromSqlRaw|FromSqlInterpolated|ExecuteSqlAsync)\s*\(\s*(""(?:\\.|[^""\\])*""|'(?:\\.|[^'\\])*'|`(?:[^`\\]|\\.)*`|(?:\$@|@)?""(?:(?:\\.|[^""\\])*)""|(?:[LuUu8]+)?R""(?:([A-Za-z0-9_]*))\((.*?)\)\1"")",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline,
+        RegexMatchTimeout);
 
     internal static readonly Regex[] NoSqlCollectionPatterns =
     [
