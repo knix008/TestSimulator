@@ -1,0 +1,9 @@
+/* Mono theme — pure grayscale */
+@define-color bg_color       #111111;
+@define-color fg_color       #cccccc;
+@define-color accent_color   #888888;
+@define-color clock_face     #181818;
+@define-color clock_border   #555555;
+@define-color clock_text     #bbbbbb;
+@define-color panel_bg       #161616;
+@define-color panel_border   #333333;

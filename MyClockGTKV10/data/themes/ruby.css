@@ -1,0 +1,9 @@
+/* Ruby theme — deep red/crimson */
+@define-color bg_color       #1a0a0a;
+@define-color fg_color       #ffcdd2;
+@define-color accent_color   #e53935;
+@define-color clock_face     #200c0c;
+@define-color clock_border   #5c1a1a;
+@define-color clock_text     #ef9a9a;
+@define-color panel_bg       #220e0e;
+@define-color panel_border   #4a1515;

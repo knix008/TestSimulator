@@ -29,6 +29,13 @@
     <SetupMsiPath>$(MSBuildThisFileDirectory)Setup\bin\x64\Release\MyClockWinV10-Setup.msi</SetupMsiPath>
   </PropertyGroup>
 
+  <Target Name="CopyScreensaver" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).exe"
+          DestinationFiles="$(TargetDir)$(AssemblyName).scr"
+          SkipUnchangedFiles="true" />
+    <Message Importance="high" Text="Screensaver: $(TargetDir)$(AssemblyName).scr" />
+  </Target>
+
   <Target Name="BuildInstallerPackage" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and Exists('$(SetupWixproj)')">
     <MSBuild Projects="$(SetupWixproj)" Properties="Configuration=Release;Platform=x64;BuildProjectReferences=false" Targets="Build" />
     <Copy SourceFiles="$(SetupMsiPath)" DestinationFiles="$(OutputPath)MyClockWinV10-Setup.msi" SkipUnchangedFiles="true" Condition="Exists('$(SetupMsiPath)')" />

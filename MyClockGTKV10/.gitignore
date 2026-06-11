@@ -1,0 +1,33 @@
+# Meson build directories
+build/
+builddir/
+_build/
+
+# Meson introspection / wrap cache
+.mesonpy/
+subprojects/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiled objects
+*.o
+*.a
+*.so
+*.la
+
+# Generated binary
+myclock
+
+# Coverage / profiling
+*.gcda
+*.gcno
+*.gcov
+
+# Logs
+*.log

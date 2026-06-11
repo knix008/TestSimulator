@@ -1,0 +1,9 @@
+/* Midnight theme — deep navy/black */
+@define-color bg_color       #0a0e1a;
+@define-color fg_color       #c8d8ff;
+@define-color accent_color   #7986cb;
+@define-color clock_face     #0d1220;
+@define-color clock_border   #2a3560;
+@define-color clock_text     #aab6e8;
+@define-color panel_bg       #0f1525;
+@define-color panel_border   #1e2a50;

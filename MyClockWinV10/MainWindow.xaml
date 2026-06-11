@@ -43,7 +43,6 @@
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" x:Name="AmPmText"
                            FontSize="22" FontWeight="Bold"
-                           Foreground="{DynamicResource AccentBrush}"
                            HorizontalAlignment="Center"
                            Margin="0,0,0,2"/>
                 <ctrl:SevenSegmentDisplay Grid.Row="1" x:Name="SevenSeg"
@@ -64,7 +63,6 @@
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock x:Name="TextAmPm" HorizontalAlignment="Center"
                                    FontSize="20" FontWeight="Bold"
-                                   Foreground="{DynamicResource AccentBrush}"
                                    Margin="0,0,0,2"/>
                         <TextBlock x:Name="TextTime" HorizontalAlignment="Center"
                                    FontSize="60" FontWeight="Bold" FontFamily="Consolas"

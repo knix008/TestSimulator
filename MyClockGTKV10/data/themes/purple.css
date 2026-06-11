@@ -1,0 +1,9 @@
+/* Purple theme — deep violet */
+@define-color bg_color       #130a1e;
+@define-color fg_color       #e1bee7;
+@define-color accent_color   #9c27b0;
+@define-color clock_face     #180c25;
+@define-color clock_border   #4a1460;
+@define-color clock_text     #ce93d8;
+@define-color panel_bg       #1a0d28;
+@define-color panel_border   #3d1156;

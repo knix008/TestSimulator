@@ -1,0 +1,9 @@
+/* Ocean theme — deep blue/teal */
+@define-color bg_color       #0d2137;
+@define-color fg_color       #b2ebf2;
+@define-color accent_color   #00bcd4;
+@define-color clock_face     #0e2540;
+@define-color clock_border   #1a4a6e;
+@define-color clock_text     #80deea;
+@define-color panel_bg       #112845;
+@define-color panel_border   #1a4060;

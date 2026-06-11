@@ -1,0 +1,9 @@
+/* Dark theme */
+@define-color bg_color       #1e1e1e;
+@define-color fg_color       #e8e8e8;
+@define-color accent_color   #4fc3f7;
+@define-color clock_face     #242424;
+@define-color clock_border   #444444;
+@define-color clock_text     #dddddd;
+@define-color panel_bg       #252525;
+@define-color panel_border   #3a3a3a;

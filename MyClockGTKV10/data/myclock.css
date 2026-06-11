@@ -1,0 +1,204 @@
+/* ── MyClock base stylesheet ─────────────────────────────────────────────
+   Theme files define the @define-color variables consumed here.
+   Color variables:
+     @bg_color       window/drawing background
+     @fg_color       general foreground text
+     @accent_color   highlight, buttons, selected items
+     @clock_face     analog clock face fill
+     @clock_border   analog clock outer ring
+     @clock_text     numbers and tick marks on clock
+     @panel_bg       side-panel background
+     @panel_border   side-panel border
+─────────────────────────────────────────────────────────────────────── */
+
+/* ── Main clock window ── */
+window.myclock-main {
+    background-color: @bg_color;
+    border-radius: 12px;
+}
+
+/* Frameless windows don't draw a shadow by default; add one via CSS */
+window.myclock-main decoration {
+    box-shadow: 0 4px 24px alpha(black, 0.5);
+    border-radius: 12px;
+}
+
+/* ── Digital time display ── */
+
+.time-text {
+    color: @fg_color;
+    font-size: 48px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.time-text.neon {
+    color: @accent_color;
+    text-shadow: 0 0 8px @accent_color, 0 0 24px @accent_color;
+}
+
+.time-text.matrix {
+    color: #00ff41;
+    font-family: "Courier New", monospace;
+    text-shadow: 0 0 6px #00ff41;
+}
+
+.time-text.retro {
+    color: @accent_color;
+    font-family: "VT323", monospace;
+    letter-spacing: 4px;
+}
+
+.time-text.vintage {
+    color: #d4a574;
+    font-family: "Playfair Display", serif;
+}
+
+.time-text.korean {
+    color: @fg_color;
+    font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 32px;
+}
+
+.ampm-label {
+    color: alpha(@fg_color, 0.7);
+    font-size: 18px;
+    font-weight: 600;
+    margin-start: 6px;
+}
+
+/* ── Header / date area ── */
+
+.header-date {
+    color: alpha(@fg_color, 0.8);
+    font-size: 13px;
+}
+
+.status-label {
+    color: alpha(@fg_color, 0.6);
+    font-size: 11px;
+}
+
+/* ── Chrome overlay (shown on hover) ── */
+
+.chrome-box {
+    background: linear-gradient(
+        to bottom,
+        alpha(black, 0.45),
+        alpha(black, 0.0)
+    );
+    border-radius: 12px 12px 0 0;
+    padding: 6px 10px;
+}
+
+.chrome-button {
+    background: none;
+    border: none;
+    color: white;
+    padding: 2px 4px;
+    border-radius: 4px;
+    min-height: 0;
+    min-width: 0;
+}
+
+.chrome-button:hover {
+    background-color: alpha(white, 0.2);
+}
+
+/* ── Side panel ── */
+
+window.myclock-panel {
+    background-color: @panel_bg;
+}
+
+window.myclock-panel notebook tab {
+    padding: 6px 12px;
+    color: @fg_color;
+}
+
+window.myclock-panel notebook tab:checked {
+    color: @accent_color;
+    border-bottom: 2px solid @accent_color;
+}
+
+/* ── World time rows ── */
+
+.world-time-row {
+    padding: 4px 0;
+    border-bottom: 1px solid alpha(@panel_border, 0.3);
+}
+
+.world-time-city {
+    font-size: 14px;
+    font-weight: 600;
+    color: @fg_color;
+}
+
+.world-time-region {
+    font-size: 11px;
+    color: alpha(@fg_color, 0.6);
+}
+
+.world-time-clock {
+    color: @fg_color;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* ── Alarm rows ── */
+
+.alarm-time {
+    font-size: 22px;
+    font-weight: bold;
+    color: @fg_color;
+    font-variant-numeric: tabular-nums;
+    min-width: 72px;
+}
+
+.alarm-repeat {
+    font-size: 11px;
+    color: alpha(@fg_color, 0.6);
+}
+
+/* ── Timer / Stopwatch display ── */
+
+.timer-display {
+    font-size: 40px;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    color: @fg_color;
+    letter-spacing: 1px;
+    padding: 16px;
+}
+
+/* ── Notification window ── */
+
+window.alarm-notification {
+    background-color: @panel_bg;
+    border-radius: 12px;
+}
+
+window.alarm-notification decoration {
+    box-shadow: 0 8px 32px alpha(black, 0.6);
+    border-radius: 12px;
+}
+
+/* ── General widget tweaks ── */
+
+button.suggested-action {
+    background-color: @accent_color;
+    color: white;
+}
+
+button.suggested-action:hover {
+    background-color: lighter(@accent_color);
+}
+
+scale trough {
+    background-color: alpha(@panel_border, 0.4);
+    border-radius: 4px;
+}
+
+scale trough highlight {
+    background-color: @accent_color;
+}

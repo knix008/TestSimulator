@@ -57,6 +57,7 @@ public partial class MainWindow : Window
     private string _analogStyle  = "Classic";
 
     private SidePanelWindow? _sidePanel;
+    private int _sidePanelCloseGeneration;
     private double _dpiScaleX = 1.0, _dpiScaleY = 1.0;
 
     private System.Windows.Forms.NotifyIcon? _trayIcon;
@@ -65,6 +66,8 @@ public partial class MainWindow : Window
 
     private System.Windows.Media.Color _digitColor =
         System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
+    private System.Windows.Media.Color _amPmColor =
+        System.Windows.Media.Color.FromRgb(0x89, 0xB4, 0xFA);
     private double _brightness = 1.0;
     private double _digitalTextBaseFontSize = 60;
     private string _lastDigitalText = "";
@@ -240,6 +243,7 @@ public partial class MainWindow : Window
         Topmost       = s.AlwaysOnTop;
         _currentTheme = s.Theme;
         _digitColor   = ParseColor(s.DigitColor);
+        _amPmColor    = ParseAmPmColor(s.AmPmColor);
         _digitalStyle = s.DigitalStyleName;
         _analogStyle  = s.AnalogStyleName;
 
@@ -248,6 +252,7 @@ public partial class MainWindow : Window
 
         ApplyTheme(s.Theme);
         ApplyBrightness(s.Brightness / 100.0);
+        ApplyAmPmColor(_amPmColor);
         ApplyDigitalStyle(_digitalStyle);
         ApplyAnalogStyle(_analogStyle);
         ApplyClockModeMinSize();
@@ -291,6 +296,7 @@ public partial class MainWindow : Window
         _settings.Theme        = _currentTheme;
         _settings.Brightness   = (int)Math.Round(_brightness * 100);
         _settings.DigitColor   = $"#{_digitColor.R:X2}{_digitColor.G:X2}{_digitColor.B:X2}";
+        _settings.AmPmColor    = $"#{_amPmColor.R:X2}{_amPmColor.G:X2}{_amPmColor.B:X2}";
         _settings.IsDigital        = _isDigital;
         _settings.DigitalStyleName = _digitalStyle;
         _settings.AnalogStyleName  = _analogStyle;
@@ -335,6 +341,7 @@ public partial class MainWindow : Window
         _isDigital    = d.IsDigital;
         Topmost       = d.AlwaysOnTop;
         _digitColor   = ParseColor(d.DigitColor);
+        _amPmColor    = ParseAmPmColor(d.AmPmColor);
 
         _digitalStyle = "SevenSegment";
         _analogStyle  = "Classic";
@@ -349,6 +356,7 @@ public partial class MainWindow : Window
 
         ApplyTheme(d.Theme);
         ApplyBrightness(d.Brightness / 100.0);
+        ApplyAmPmColor(_amPmColor);
         _alarmSounds.SoundId = d.AlarmSoundId;
         _alarmSounds.Volume  = d.AlarmVolume / 100.0;
         foreach (var t in _timers) t.Service.Stop();
@@ -358,7 +366,7 @@ public partial class MainWindow : Window
         _worldCities = [.. WorldTimeDefaults.Cities];
         _sidePanel?.WorldPanel.LoadEntries(_worldCities);
         _sidePanel?.ApplySettings(d.Use24h, d.WorldUse24h, d.Brightness, _digitalStyle, _analogStyle,
-            d.AlarmSoundId, d.AlarmVolume, d.AlwaysOnTop);
+            d.AlarmSoundId, d.AlarmVolume, d.AlwaysOnTop, _digitColor, _amPmColor);
         SaveSettings();
     }
 
@@ -371,6 +379,18 @@ public partial class MainWindow : Window
         catch
         {
             return System.Windows.Media.Color.FromRgb(0x58, 0xA6, 0xFF);
+        }
+    }
+
+    private static System.Windows.Media.Color ParseAmPmColor(string hex)
+    {
+        try
+        {
+            return (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+        }
+        catch
+        {
+            return System.Windows.Media.Color.FromRgb(0x89, 0xB4, 0xFA);
         }
     }
 
@@ -597,7 +617,8 @@ public partial class MainWindow : Window
 
     private void ToggleSettingsPanel()
     {
-        if (_rightVisible) CloseSidePanel();
+        if (_rightVisible || _sidePanel != null)
+            RequestCloseSidePanel();
         else
         {
             _rightVisible = true;
@@ -1188,6 +1209,25 @@ public partial class MainWindow : Window
             glow.Color = c;
     }
 
+    internal void ApplyAmPmColor(System.Windows.Media.Color c)
+    {
+        _amPmColor = c;
+        var brush = new SolidColorBrush(c);
+        brush.Freeze();
+        AmPmText.Foreground = brush;
+        TextAmPm.Foreground = brush;
+    }
+
+    private void RefreshDigitalAmPmDisplay()
+    {
+        if (!_isDigital) return;
+        var active = FirstActiveTimer;
+        if (active != null)
+            UpdateTimerDisplay(active);
+        else
+            UpdateDigital(DateTime.Now);
+    }
+
     internal void ApplyBrightness(double v)
     {
         _brightness = Math.Clamp(v, 0, 1);
@@ -1239,6 +1279,28 @@ public partial class MainWindow : Window
                     TextTime.FontWeight = FontWeights.SemiBold;
                     _digitalTextBaseFontSize = 36;
                     break;
+                case nameof(Models.DigitalStyle.Matrix):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
+                    TextTime.FontWeight = FontWeights.Bold;
+                    _digitalTextBaseFontSize = 58;
+                    TextTime.Effect = new DropShadowEffect
+                    {
+                        Color       = _digitColor,
+                        BlurRadius  = 10,
+                        ShadowDepth = 0,
+                        Opacity     = 0.65
+                    };
+                    break;
+                case nameof(Models.DigitalStyle.Vintage):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Georgia");
+                    TextTime.FontWeight = FontWeights.Normal;
+                    _digitalTextBaseFontSize = 54;
+                    break;
+                case nameof(Models.DigitalStyle.Thin):
+                    TextTime.FontFamily = new System.Windows.Media.FontFamily("Segoe UI");
+                    TextTime.FontWeight = FontWeights.Thin;
+                    _digitalTextBaseFontSize = 76;
+                    break;
                 default: // LcdText
                     TextTime.FontFamily = new System.Windows.Media.FontFamily("Consolas");
                     TextTime.FontWeight = FontWeights.Bold;
@@ -1269,6 +1331,9 @@ public partial class MainWindow : Window
 
     private void OpenSidePanel()
     {
+        if (_sidePanel != null)
+            CloseSidePanelImmediate();
+
         _panelOpensRight = DetermineOpenRight();
 
         _sidePanel = new SidePanelWindow(_alarms, _timers, _alarmSounds, _stopwatchService) { Owner = this };
@@ -1277,10 +1342,17 @@ public partial class MainWindow : Window
         {
             _use24h = v;
             ApplyClockModeMinSize();
+            RefreshDigitalAmPmDisplay();
         };
         _sidePanel.OnWorldFormatChanged   = v => { _worldUse24h = v; };
         _sidePanel.OnBrightnessChanged    = ApplyBrightness;
         _sidePanel.OnDigitColorChanged    = c => { ApplyDigitColor(c); SaveSettings(); };
+        _sidePanel.OnAmPmColorChanged     = c =>
+        {
+            ApplyAmPmColor(c);
+            RefreshDigitalAmPmDisplay();
+            SaveSettings();
+        };
         _sidePanel.OnResetRequested       = ResetToDefaults;
         _sidePanel.OnDigitalStyleChanged  = s => { ApplyDigitalStyle(s); SaveSettings(); };
         _sidePanel.OnAnalogStyleChanged   = s => { ApplyAnalogStyle(s); SaveSettings(); };
@@ -1290,11 +1362,16 @@ public partial class MainWindow : Window
         _sidePanel.WorldPanel.EntriesChanged += OnWorldCitiesChanged;
         _sidePanel.Closed += (s, _) =>
         {
-            if (_rightVisible)
-                _rightVisible = false;
-            if (s is SidePanelWindow panel)
-                DetachSidePanelChromeHover(panel);
-            _sidePanel = null;
+            if (s is not SidePanelWindow panel) return;
+            if (_sidePanel != null && !ReferenceEquals(panel, _sidePanel)) return;
+
+            panel.WorldPanel.EntriesChanged -= OnWorldCitiesChanged;
+            DetachSidePanelChromeHover(panel);
+
+            if (ReferenceEquals(panel, _sidePanel))
+                _sidePanel = null;
+
+            _rightVisible = false;
             UpdateSettingsMenuItem();
             ScheduleHideChrome();
         };
@@ -1302,7 +1379,7 @@ public partial class MainWindow : Window
         _sidePanel.ApplySettings(_use24h, _worldUse24h, (int)Math.Round(_brightness * 100),
             _digitalStyle, _analogStyle,
             _alarmSounds.SoundId, (int)Math.Round(_alarmSounds.Volume * 100),
-            Topmost);
+            Topmost, _digitColor, _amPmColor);
         PositionSidePanel();
         _sidePanel.ApplyPanelSide(_panelOpensRight);
         AttachSidePanelChromeHover(_sidePanel);
@@ -1314,8 +1391,9 @@ public partial class MainWindow : Window
 
     internal void RequestCloseSidePanel()
     {
-        if (!_rightVisible) return;
+        if (_sidePanel == null) return;
         _rightVisible = false;
+        UpdateSettingsMenuItem();
         CloseSidePanel();
     }
 
@@ -1329,9 +1407,28 @@ public partial class MainWindow : Window
     private void CloseSidePanel()
     {
         if (_sidePanel == null) return;
-        _worldCities = _sidePanel.WorldPanel.ToDtos();
+
+        _rightVisible = false;
+        UpdateSettingsMenuItem();
+
         var panel = _sidePanel;
-        panel.AnimateClose(_panelOpensRight, () => Dispatcher.Invoke(() => panel.Close()));
+        var gen   = ++_sidePanelCloseGeneration;
+
+        _worldCities = panel.WorldPanel.ToDtos();
+        SaveSettings();
+
+        panel.AnimateClose(_panelOpensRight, () =>
+        {
+            if (gen != _sidePanelCloseGeneration) return;
+            if (_sidePanel != null && !ReferenceEquals(panel, _sidePanel)) return;
+
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (!panel.IsLoaded) return;
+                try { panel.Close(); }
+                catch { /* already closed */ }
+            });
+        });
     }
 
     /// <summary>Close settings panel without animation (tray hide/restore).</summary>
@@ -1339,13 +1436,27 @@ public partial class MainWindow : Window
     {
         if (_sidePanel == null) return;
 
-        _worldCities = _sidePanel.WorldPanel.ToDtos();
-        _rightVisible  = false;
+        _sidePanelCloseGeneration++;
+        _rightVisible = false;
+        UpdateSettingsMenuItem();
 
         var panel = _sidePanel;
-        _sidePanel  = null;
-        panel.Hide();
-        panel.Close();
+        _sidePanel = null;
+
+        _worldCities = panel.WorldPanel.ToDtos();
+        SaveSettings();
+
+        panel.WorldPanel.EntriesChanged -= OnWorldCitiesChanged;
+        DetachSidePanelChromeHover(panel);
+        panel.BeginAnimation(WidthProperty, null);
+        panel.BeginAnimation(LeftProperty, null);
+
+        try
+        {
+            panel.Hide();
+            panel.Close();
+        }
+        catch { /* already closed */ }
     }
 
     private void PositionSidePanel()
@@ -1419,7 +1530,7 @@ public partial class MainWindow : Window
 
         _mouseDownScreen = PointToScreen(e.GetPosition(this));
 
-        if (_rightVisible && _sidePanel != null)
+        if (_sidePanel != null)
         {
             _awaitingSettingsCloseOrDrag = true;
             CaptureMouse();

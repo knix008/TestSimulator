@@ -45,10 +45,6 @@ internal static class GenerateIcons
         Save(ShellFile(".docx"), "export-word.png", outDir);
         Save(ShellFile(".pdf"), "export-pdf.png", outDir);
 
-        // .mdm 프로젝트 파일 아이콘 (PNG + ICO)
-        Save(DrawMdmFile(Size), "mdm-file.png", outDir);
-        SaveIco(s => DrawMdmFile(s), "mdm-file.ico", outDir);
-
         Console.WriteLine($"Generated icons in {outDir}");
     }
 
@@ -277,100 +273,6 @@ internal static class GenerateIcons
         g.DrawLine(pen, 22, 18, 28, 24);
         g.FillPolygon(B(WinBlue), new[] { new Point(24, 24), new Point(28, 24), new Point(26, 28) });
     });
-
-    // .mdm 프로젝트 파일 아이콘: 파란 문서 위에 MD 배지
-    static Bitmap DrawMdmFile(int size) => Canvas(size, g =>
-    {
-        float s = size / 32f;
-        // 문서 몸체
-        float l = 5 * s, t = 2 * s, w = 18 * s, h = 26 * s;
-        float fold = 5 * s;
-        using var body = new GraphicsPath();
-        body.AddLines(new PointF[] {
-            new(l,          t + fold),
-            new(l + fold,   t),
-            new(l + w,      t),
-            new(l + w,      t + h),
-            new(l,          t + h),
-        });
-        body.CloseFigure();
-        g.FillPath(B(Color.FromArgb(225, 235, 252)), body);
-        g.DrawPath(P(Color.FromArgb(90, 110, 170), 1.2f * s), body);
-        // 접힌 귀퉁이
-        using var corner = new GraphicsPath();
-        corner.AddLines(new PointF[] {
-            new(l,        t + fold),
-            new(l + fold, t + fold),
-            new(l + fold, t),
-        });
-        g.FillPath(B(Color.FromArgb(170, 195, 235)), corner);
-        g.DrawPath(P(Color.FromArgb(90, 110, 170), 1f * s), corner);
-        // 텍스트 줄 (3개)
-        using var lp = P(Color.FromArgb(160, 170, 200), 1.2f * s);
-        for (int i = 0; i < 3; i++)
-            g.DrawLine(lp, (l + fold + 1.5f * s), (t + fold + 3 * s + i * 4 * s),
-                           (l + w - 2 * s), (t + fold + 3 * s + i * 4 * s));
-        // 오른쪽 하단 파란 배지
-        float bx = l + w - 9 * s, by = t + h - 9 * s;
-        g.FillEllipse(B(WinBlue), bx, by, 11 * s, 11 * s);
-        using var f = new Font("Segoe UI", 5.5f * s, FontStyle.Bold, GraphicsUnit.Pixel);
-        var text = "MD";
-        var sz = g.MeasureString(text, f);
-        g.DrawString(text, f, B(Color.White), bx + (11 * s - sz.Width) / 2, by + (11 * s - sz.Height) / 2);
-    });
-
-    // 여러 크기(16, 32, 48, 256)의 PNG를 하나의 ICO 파일로 패키징
-    static void SaveIco(Func<int, Bitmap> draw, string name, string dir)
-    {
-        int[] sizes = [16, 32, 48, 256];
-        var pngs = new byte[sizes.Length][];
-        for (int i = 0; i < sizes.Length; i++)
-        {
-            using var bmp = draw(sizes[i]);
-            using var ms = new MemoryStream();
-            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            pngs[i] = ms.ToArray();
-        }
-
-        using var fs = File.Create(Path.Combine(dir, name));
-        using var bw = new BinaryWriter(fs);
-        // ICONDIR
-        bw.Write((short)0);              // reserved
-        bw.Write((short)1);              // type: 1=icon
-        bw.Write((short)sizes.Length);   // count
-        // ICONDIRENTRY
-        int dataOffset = 6 + sizes.Length * 16;
-        for (int i = 0; i < sizes.Length; i++)
-        {
-            int dim = sizes[i] == 256 ? 0 : sizes[i];
-            bw.Write((byte)dim);   // width  (0 → 256)
-            bw.Write((byte)dim);   // height (0 → 256)
-            bw.Write((byte)0);     // colorCount
-            bw.Write((byte)0);     // reserved
-            bw.Write((short)1);    // planes
-            bw.Write((short)32);   // bitCount
-            bw.Write(pngs[i].Length);
-            bw.Write(dataOffset);
-            dataOffset += pngs[i].Length;
-        }
-        foreach (var png in pngs)
-            bw.Write(png);
-
-        Console.WriteLine($"  {name}");
-    }
-
-    // 크기를 매개변수로 받는 Canvas 오버로드
-    static Bitmap Canvas(int size, Action<Graphics> draw)
-    {
-        var bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-        g.Clear(Color.Transparent);
-        draw(g);
-        return bmp;
-    }
 
     static Bitmap? ShellFile(string ext)
     {
