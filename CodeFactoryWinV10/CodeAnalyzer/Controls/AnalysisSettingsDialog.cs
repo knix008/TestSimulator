@@ -169,8 +169,8 @@ public sealed class AnalysisSettingsDialog : Form
         {
             Dock = DockStyle.Top,
             AutoSize = false,
-            Height = 52,
-            Padding = new Padding(16, 0, 16, 8),
+            Height = 72,
+            Padding = new Padding(16, 8, 16, 8),
             ForeColor = Color.DimGray,
             Text =
                 "체크된 항목만 분석·표시·경고에 사용됩니다. 기준이 있는 항목은 오른쪽에서 임계값을 설정하세요.\r\n" +
@@ -183,8 +183,8 @@ public sealed class AnalysisSettingsDialog : Form
         var footer = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 48,
-            Padding = new Padding(12, 8, 12, 8)
+            Height = 72,
+            Padding = new Padding(12, 8, 12, 12)
         };
 
         cancelButton = new Button
@@ -225,7 +225,7 @@ public sealed class AnalysisSettingsDialog : Form
         {
             buttonBar.Location = new Point(
                 Math.Max(0, (footer.ClientSize.Width - buttonBar.Width) / 2),
-                Math.Max(0, (footer.ClientSize.Height - buttonBar.Height) / 2));
+                Math.Max(0, footer.ClientSize.Height - buttonBar.Height - 10));
         };
 
         return footer;

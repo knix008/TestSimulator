@@ -42,7 +42,7 @@ internal static class ErdDiagramRenderer
         };
     }
 
-    public static Size Layout(IReadOnlyList<DiagramBoxNode> nodes, IReadOnlyList<DatabaseRelation> relations)
+    public static Size Layout(IReadOnlyList<DiagramBoxNode> nodes, IReadOnlyList<DatabaseRelation> relations, int availableWidth = 0)
     {
         if (nodes.Count == 0)
         {
@@ -66,17 +66,26 @@ internal static class ErdDiagramRenderer
         foreach (var group in grouped)
         {
             var row = group.OrderBy(n => n.Title, StringComparer.OrdinalIgnoreCase).ToList();
-            var rowHeight = row.Max(n => n.Bounds.Height);
             var x = 32;
+            var lineMaxHeight = 0;
 
             foreach (var node in row)
             {
+                // Wrap to next line when node would exceed available width (but always place at least one per line)
+                if (availableWidth > 0 && x > 32 && x + node.Bounds.Width > availableWidth - 32)
+                {
+                    y += lineMaxHeight + VerticalGap;
+                    x = 32;
+                    lineMaxHeight = 0;
+                }
+
                 node.Bounds = new Rectangle(x, y, node.Bounds.Width, node.Bounds.Height);
                 bounds = bounds == Rectangle.Empty ? node.Bounds : Rectangle.Union(bounds, node.Bounds);
+                lineMaxHeight = Math.Max(lineMaxHeight, node.Bounds.Height);
                 x += node.Bounds.Width + HorizontalGap;
             }
 
-            y += rowHeight + VerticalGap;
+            y += lineMaxHeight + VerticalGap;
         }
 
         return new Size(Math.Max(bounds.Right + 48, 480), Math.Max(bounds.Bottom + 48, 320));
@@ -114,7 +123,8 @@ internal static class ErdDiagramRenderer
         graphics.DrawRectangle(borderPen, bounds);
 
         graphics.DrawString(box.Title, titleFont, titleBrush, bounds.Left + HorizontalPadding, bounds.Top + 6);
-        graphics.DrawString(box.Subtitle, subFont, Brushes.DimGray, bounds.Right - 52, bounds.Top + 9);
+        var subSize = graphics.MeasureString(box.Subtitle, subFont);
+        graphics.DrawString(box.Subtitle, subFont, Brushes.DimGray, bounds.Right - subSize.Width - HorizontalPadding, bounds.Top + 9);
 
         graphics.DrawLine(separatorPen, bounds.Left, bounds.Top + HeaderHeight, bounds.Right, bounds.Top + HeaderHeight);
 
@@ -205,10 +215,20 @@ internal static class ErdDiagramRenderer
 
     private static void MeasureNode(DiagramBoxNode node)
     {
-        var maxChars = Math.Max(
-            node.Title.Length,
-            node.Lines.Count > 0 ? node.Lines.Max(line => line.Length) : 0);
-        var width = Math.Clamp(maxChars * 7 + HorizontalPadding * 2, MinWidth, MaxWidth);
+        using var titleFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        using var subFont = new Font("Segoe UI", 7.5f);
+        using var colFont = new Font("Consolas", 8.25f);
+        const TextFormatFlags flags = TextFormatFlags.NoPadding;
+
+        var titleW = TextRenderer.MeasureText(node.Title, titleFont, Size.Empty, flags).Width;
+        var subW = TextRenderer.MeasureText(node.Subtitle, subFont, Size.Empty, flags).Width;
+        var headerWidth = HorizontalPadding + titleW + 8 + subW + HorizontalPadding;
+
+        var maxColW = node.Lines.Count > 0
+            ? node.Lines.Max(l => TextRenderer.MeasureText(l, colFont, Size.Empty, flags).Width)
+            : 0;
+
+        var width = Math.Clamp(Math.Max(headerWidth, HorizontalPadding + maxColW + HorizontalPadding), MinWidth, MaxWidth);
         var height = HeaderHeight + SeparatorHeight + 8 + Math.Max(1, node.Lines.Count) * LineHeight + 8;
         node.Bounds = new Rectangle(0, 0, width, height);
     }

@@ -17,6 +17,7 @@ public sealed class ErdDiagramViewer : UserControl
     private readonly DiagramScrollPan _pan = new();
     private string? _selectedTableId;
     private bool _buildError;
+    private int _lastLayoutWidth;
 
     public ErdDiagramViewer()
     {
@@ -112,7 +113,22 @@ public sealed class ErdDiagramViewer : UserControl
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        RelayoutIfNeeded();
+    }
+
+    private void RelayoutIfNeeded()
+    {
+        var w = ClientSize.Width;
+        if (_boxes.Count == 0 || w == _lastLayoutWidth)
+        {
+            _zoom.ApplyContentSize(this, _contentSize);
+            return;
+        }
+
+        _lastLayoutWidth = w;
+        _contentSize = ErdDiagramRenderer.Layout(_boxes, _relations, w);
         _zoom.ApplyContentSize(this, _contentSize);
+        Invalidate();
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -271,7 +287,8 @@ public sealed class ErdDiagramViewer : UserControl
             }
 
             _relations.AddRange(_schema.Relations);
-            _contentSize = ErdDiagramRenderer.Layout(_boxes, _relations);
+            _lastLayoutWidth = ClientSize.Width;
+            _contentSize = ErdDiagramRenderer.Layout(_boxes, _relations, _lastLayoutWidth);
             _zoom.ApplyContentSize(this, _contentSize);
         }
         catch (OperationCanceledException)
