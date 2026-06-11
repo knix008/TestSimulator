@@ -6,6 +6,7 @@ namespace MyClockWinV10;
 public partial class AlarmNotificationWindow : Window
 {
     private readonly Action? _onDismiss;
+    private bool _dismissed;
 
     public AlarmNotificationWindow(string time, string label, string header = "알람", Action? onDismiss = null)
     {
@@ -14,13 +15,33 @@ public partial class AlarmNotificationWindow : Window
         AlarmHeaderText.Text = header;
         AlarmTimeText.Text   = time;
         AlarmLabelText.Text  = string.IsNullOrWhiteSpace(label) ? header : label;
+
+        Loaded += (_, _) => PlaceBottomRight();
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+    private void PlaceBottomRight()
+    {
+        var area = SystemParameters.WorkArea;
+        const double margin = 16;
+        Left = area.Right - ActualWidth - margin;
+        Top  = area.Bottom - ActualHeight - margin;
+    }
+
+    private void Confirm_Click(object sender, RoutedEventArgs e)
+        => Dismiss();
+
+    private void Dismiss()
+    {
+        if (_dismissed) return;
+        _dismissed = true;
+        _onDismiss?.Invoke();
+        Close();
+    }
 
     protected override void OnClosed(EventArgs e)
     {
-        _onDismiss?.Invoke();
+        if (!_dismissed)
+            _onDismiss?.Invoke();
         base.OnClosed(e);
     }
 }

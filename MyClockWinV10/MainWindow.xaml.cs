@@ -1174,13 +1174,28 @@ public partial class MainWindow : Window
         }
     }
 
+    private AlarmNotificationWindow? _activeAlarmNotification;
+
     private void ShowAlarmNotification(string time, string label, string header)
     {
-        _alarmSounds.PlayAlarm(loop: true);
-        var win = new AlarmNotificationWindow(time, label, header, () => _alarmSounds.Stop())
-        { Owner = this };
-        win.Closed += (_, _) => _alarmSounds.Stop();
-        win.Show();
+        Dispatcher.Invoke(() =>
+        {
+            _activeAlarmNotification?.Close();
+            _activeAlarmNotification = null;
+
+            _alarmSounds.PlayAlarm(loop: true);
+
+            var win = new AlarmNotificationWindow(time, label, header, () =>
+            {
+                _alarmSounds.Stop();
+                _activeAlarmNotification = null;
+            });
+
+            _activeAlarmNotification = win;
+            win.Closed += (_, _) => _alarmSounds.Stop();
+            win.Show();
+            win.Activate();
+        });
     }
 
     // ── Clock mode ────────────────────────────────────────────────────────
