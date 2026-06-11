@@ -49,6 +49,18 @@ public sealed class UmlCanvas : Control
     private int _bendDragVertexIndex = -1;
     private bool _paintErrorPending;
 
+    // Multi-selection state
+    private readonly HashSet<UmlDiagramNode> _multiNodes = [];
+    private readonly HashSet<UmlDiagramEdge> _multiEdges = [];
+    private bool _isRubberBanding;
+    private PointF _rubberBandStart;
+    private PointF _rubberBandEnd;
+
+    // Clipboard: stores diagram node IDs + source project for cross-diagram paste
+    private static List<Guid>? _clipboardNodeIds;
+    private static UmlProject? _clipboardProject;
+    private static UmlDiagramKind _clipboardSourceKind;
+
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
     public event EventHandler? SelectToolRequested;
@@ -322,6 +334,16 @@ public sealed class UmlCanvas : Control
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    private void DuplicateSelectionAt(float x, float y)
+    {
+        DuplicateSelection();
+        if (_selectedNode is not null)
+        {
+            _selectedNode.X = x;
+            _selectedNode.Y = y;
+        }
+    }
+
     public void RefreshLayout()
     {
         UpdateScrollBars();
@@ -336,6 +358,21 @@ public sealed class UmlCanvas : Control
 
     public void DeleteSelection()
     {
+        if (HasMultiSelection)
+        {
+            foreach (var node in _multiNodes.ToList())
+            {
+                var modelId = node.ModelElementId;
+                ActiveDiagram.Nodes.Remove(node);
+                ActiveDiagram.Edges.RemoveAll(e => e.SourceNodeId == node.Id || e.TargetNodeId == node.Id);
+                _project.RemoveElement(modelId);
+            }
+            _multiNodes.Clear();
+            _multiEdges.Clear();
+            NotifyChanged();
+            return;
+        }
+
         if (_selectedEdge is not null)
         {
             _project.RemoveElement(_selectedEdge.ModelElementId);
@@ -355,6 +392,69 @@ public sealed class UmlCanvas : Control
             NotifyChanged();
         }
     }
+
+    public void CopySelectionToClipboard()
+    {
+        var nodesToCopy = HasMultiSelection
+            ? _multiNodes.ToList()
+            : _selectedNode is not null ? [_selectedNode] : [];
+
+        if (nodesToCopy.Count == 0) return;
+        _clipboardNodeIds = nodesToCopy.Select(n => n.Id).ToList();
+        _clipboardProject = _project;
+        _clipboardSourceKind = ActiveDiagram.Kind;
+    }
+
+    public void PasteFromClipboard()
+    {
+        if (_clipboardNodeIds is null || _clipboardNodeIds.Count == 0) return;
+        if (_clipboardSourceKind != ActiveDiagram.Kind) return;
+
+        // Find source diagram to locate nodes
+        UmlDiagram? sourceDiagram = null;
+        foreach (var diagram in _clipboardProject!.Diagrams)
+        {
+            if (diagram.Nodes.Any(n => _clipboardNodeIds.Contains(n.Id)))
+            {
+                sourceDiagram = diagram;
+                break;
+            }
+        }
+        if (sourceDiagram is null) return;
+
+        const float Offset = 24f;
+        var pastedNodes = new List<UmlDiagramNode>();
+        var idMap = new Dictionary<Guid, Guid>();
+
+        foreach (var nodeId in _clipboardNodeIds)
+        {
+            var srcNode = sourceDiagram.Nodes.Find(n => n.Id == nodeId);
+            if (srcNode is null) continue;
+            var prevSelected = _selectedNode;
+            Select(srcNode, null);
+            DuplicateSelectionAt(srcNode.X + Offset, srcNode.Y + Offset);
+            // The new node is now _selectedNode
+            if (_selectedNode is not null && _selectedNode.Id != srcNode.Id)
+            {
+                idMap[nodeId] = _selectedNode.Id;
+                pastedNodes.Add(_selectedNode);
+            }
+            Select(prevSelected, null);
+        }
+
+        // Multi-select the pasted nodes
+        _multiNodes.Clear();
+        foreach (var n in pastedNodes)
+            _multiNodes.Add(n);
+        _selectedNode = null;
+        _selectedEdge = null;
+
+        NotifyChanged();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+        Invalidate();
+    }
+
+    public bool CanPaste => _clipboardNodeIds is { Count: > 0 } && _clipboardSourceKind == ActiveDiagram.Kind;
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -376,6 +476,12 @@ public sealed class UmlCanvas : Control
         {
             DrawGrid(e.Graphics);
             UmlDiagramRenderer.DrawDiagram(e.Graphics, _project, ActiveDiagram, _selectedNode, _selectedEdge, _hoverNode, _hoverEdge);
+
+            if (HasMultiSelection)
+                DrawMultiSelectionOverlay(e.Graphics);
+
+            if (_isRubberBanding)
+                DrawRubberBand(e.Graphics);
 
             if (UmlToolModeHelper.IsRelationshipTool(_toolMode) && _hoverNode is not null)
                 DrawConnectableHighlight(e.Graphics, _hoverNode);
@@ -439,9 +545,33 @@ public sealed class UmlCanvas : Control
 
         HitTestDiagram(canvasPoint, out var hitNode, out var hitEdge);
 
+        var isCtrl = (ModifierKeys & Keys.Control) != 0;
+        var isShift = (ModifierKeys & Keys.Shift) != 0;
+
         switch (_toolMode)
         {
             case UmlToolMode.Select:
+                // Ctrl+Click or Shift+Click → toggle/add multi-selection
+                if ((isCtrl || isShift) && hitNode is not null)
+                {
+                    if (isCtrl)
+                        ToggleMultiSelection(hitNode);
+                    else
+                        AddToMultiSelection(hitNode);
+                    Capture = true;
+                    break;
+                }
+
+                // Clicking on a multi-selected node → start moving group
+                if (hitNode is not null && HasMultiSelection && _multiNodes.Contains(hitNode))
+                {
+                    _dragNode = hitNode;
+                    _isDragging = true;
+                    _modelChangedDuringDrag = false;
+                    Capture = true;
+                    break;
+                }
+
                 if (_selectedNode is not null && ReferenceEquals(hitNode, _selectedNode))
                 {
                     var hi = HitTestResizeHandle(canvasPoint);
@@ -472,6 +602,14 @@ public sealed class UmlCanvas : Control
                 }
                 else if (_selectedEdge is not null && TryBeginSequenceMessageDrag())
                 {
+                    Capture = true;
+                }
+                else if (hitNode is null && hitEdge is null)
+                {
+                    // Start rubber-band selection on empty canvas
+                    _isRubberBanding = true;
+                    _rubberBandStart = canvasPoint;
+                    _rubberBandEnd = canvasPoint;
                     Capture = true;
                 }
                 else
@@ -674,14 +812,33 @@ public sealed class UmlCanvas : Control
             return;
         }
 
+        if (_isRubberBanding)
+        {
+            _rubberBandEnd = canvasPoint;
+            Invalidate();
+            return;
+        }
+
         if (_isDragging && _dragNode is not null)
         {
             var dx = canvasPoint.X - _dragStartCanvas.X;
             var dy = canvasPoint.Y - _dragStartCanvas.Y;
             if (Math.Abs(dx) > 0.01f || Math.Abs(dy) > 0.01f)
             {
-                _dragNode.X += dx;
-                _dragNode.Y += dy;
+                if (HasMultiSelection)
+                {
+                    // Move all multi-selected nodes together
+                    foreach (var n in _multiNodes)
+                    {
+                        n.X += dx;
+                        n.Y += dy;
+                    }
+                }
+                else
+                {
+                    _dragNode.X += dx;
+                    _dragNode.Y += dy;
+                }
                 _dragStartCanvas = canvasPoint;
                 RefreshDiagramEdgeRouting();
                 _modelChangedDuringDrag = true;
@@ -760,9 +917,16 @@ public sealed class UmlCanvas : Control
         base.OnMouseUp(e);
         try
         {
-        if (e.Button == MouseButtons.Right && !_isPanning && !_isDragging && !_isDraggingBend && !_isDraggingMessage && !_isCreating && !_isResizing)
+        if (e.Button == MouseButtons.Right && !_isPanning && !_isDragging && !_isDraggingBend && !_isDraggingMessage && !_isCreating && !_isResizing && !_isRubberBanding)
         {
             ShowContextMenu(e.Location);
+            return;
+        }
+
+        if (_isRubberBanding)
+        {
+            FinishRubberBand();
+            Capture = false;
             return;
         }
 
@@ -800,17 +964,10 @@ public sealed class UmlCanvas : Control
 
         if (_isDraggingMessage)
         {
-            var draggedEdge = _selectedEdge;
             _isDraggingMessage = false;
             Capture = false;
-            if (_modelChangedDuringDrag && draggedEdge is not null)
-            {
-                var finalDy = ScreenToCanvas(e.Location).Y - _dragStartCanvas.Y;
-                var finalY = _messageYAtDragStart + finalDy;
-                UmlSequenceLayout.RepositionMessageAndReflow(_project, ActiveDiagram, draggedEdge, finalY);
+            if (_modelChangedDuringDrag)
                 NotifyChanged();
-            }
-
             return;
         }
 
@@ -888,6 +1045,15 @@ public sealed class UmlCanvas : Control
         if (e.KeyCode == Keys.Delete)
             DeleteSelection();
 
+        if (e.Control && e.KeyCode == Keys.C)
+            CopySelectionToClipboard();
+
+        if (e.Control && e.KeyCode == Keys.V)
+            PasteFromClipboard();
+
+        if (e.Control && e.KeyCode == Keys.A)
+            SelectAll();
+
         if (e.KeyCode == Keys.Escape)
         {
             _pendingSourceNode = null;
@@ -921,6 +1087,58 @@ public sealed class UmlCanvas : Control
         g.DrawString("자세한 내용은 오류 창을 확인하세요.", font, textBrush, rect.X + 8, rect.Y + 26);
     }
 
+    private void SelectAll()
+    {
+        _selectedNode = null;
+        _selectedEdge = null;
+        _multiNodes.Clear();
+        _multiEdges.Clear();
+        foreach (var n in ActiveDiagram.Nodes)
+            _multiNodes.Add(n);
+        Invalidate();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void SaveSelectionAsImage()
+    {
+        var nodesToExport = HasMultiSelection ? _multiNodes.ToList()
+            : _selectedNode is not null ? [_selectedNode] : [];
+        if (nodesToExport.Count == 0) return;
+
+        var bounds = nodesToExport.Select(n => n.Bounds)
+            .Aggregate((a, b) => RectangleF.Union(a, b));
+        bounds.Inflate(20f, 20f);
+
+        using var sfd = new SaveFileDialog
+        {
+            Title = "선택 영역을 이미지로 저장",
+            Filter = "PNG 이미지|*.png|JPEG 이미지|*.jpg;*.jpeg|BMP 이미지|*.bmp",
+            DefaultExt = "png",
+            FileName = "selection",
+        };
+        if (sfd.ShowDialog(FindForm()) != DialogResult.OK) return;
+
+        var scale = 2f;
+        var bmpW = (int)Math.Max(1, bounds.Width * scale);
+        var bmpH = (int)Math.Max(1, bounds.Height * scale);
+        using var bmp = new Bitmap(bmpW, bmpH, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        g.Clear(Color.White);
+        g.TranslateTransform(-bounds.X * scale, -bounds.Y * scale);
+        g.ScaleTransform(scale, scale);
+        UmlDiagramRenderer.DrawDiagram(g, _project, ActiveDiagram, null, null, null, null);
+
+        var ext = Path.GetExtension(sfd.FileName).ToLowerInvariant();
+        var format = ext switch
+        {
+            ".jpg" or ".jpeg" => System.Drawing.Imaging.ImageFormat.Jpeg,
+            ".bmp" => System.Drawing.Imaging.ImageFormat.Bmp,
+            _ => System.Drawing.Imaging.ImageFormat.Png,
+        };
+        bmp.Save(sfd.FileName, format);
+    }
+
     private void CancelInteraction()
     {
         _isCreating = false;
@@ -931,6 +1149,7 @@ public sealed class UmlCanvas : Control
         _isPanning = false;
         _isResizing = false;
         _resizeHandleIndex = -1;
+        _isRubberBanding = false;
         _dragNode = null;
         _modelChangedDuringDrag = false;
         Capture = false;
@@ -1025,6 +1244,47 @@ public sealed class UmlCanvas : Control
         return true;
     }
 
+    private void DrawRubberBand(Graphics g)
+    {
+        var rect = NormalizeRect(_rubberBandStart, _rubberBandEnd);
+        using var fillBrush = new SolidBrush(Color.FromArgb(40, 79, 130, 230));
+        using var borderPen = new Pen(Color.FromArgb(160, 79, 130, 230), 1f / _zoom)
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
+        };
+        g.FillRectangle(fillBrush, rect);
+        g.DrawRectangle(borderPen, rect.X, rect.Y, rect.Width, rect.Height);
+    }
+
+    private void DrawMultiSelectionOverlay(Graphics g)
+    {
+        using var handleBrush = new SolidBrush(Color.FromArgb(30, 136, 229));
+        using var borderPen = new Pen(Color.FromArgb(30, 136, 229), 1.5f / _zoom)
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dot,
+        };
+        foreach (var node in _multiNodes)
+        {
+            var r = node.Bounds;
+            g.DrawRectangle(borderPen, r.X, r.Y, r.Width, r.Height);
+            const float hSz = 6f;
+            var hw = hSz / _zoom;
+            var hw2 = hw / 2f;
+            PointF[] corners = [
+                new(r.Left,            r.Top),
+                new(r.Right,           r.Top),
+                new(r.Left,            r.Bottom),
+                new(r.Right,           r.Bottom),
+                new(r.Left + r.Width / 2f, r.Top),
+                new(r.Left + r.Width / 2f, r.Bottom),
+                new(r.Left,            r.Top + r.Height / 2f),
+                new(r.Right,           r.Top + r.Height / 2f),
+            ];
+            foreach (var pt in corners)
+                g.FillRectangle(handleBrush, pt.X - hw2, pt.Y - hw2, hw, hw);
+        }
+    }
+
     private void DrawCreatePreview(Graphics g)
     {
         var rect = EnsureDrawableRect(NormalizeRect(_dragStartCanvas, _createPreviewEnd));
@@ -1038,11 +1298,17 @@ public sealed class UmlCanvas : Control
     private void DrawToolPlacementPreview(Graphics g)
     {
         var size = GetDefaultSize(_toolMode);
+        // Scale down oversized shapes for the hover ghost so they don't obscure the canvas.
+        const float MaxGhostW = 180f;
+        const float MaxGhostH = 140f;
+        var scale = Math.Min(1f, Math.Min(MaxGhostW / size.Width, MaxGhostH / size.Height));
+        var ghostW = size.Width * scale;
+        var ghostH = size.Height * scale;
         var rect = new RectangleF(
-            _pointerCanvas.X - size.Width / 2f,
-            _pointerCanvas.Y - size.Height / 2f,
-            size.Width,
-            size.Height);
+            _pointerCanvas.X - ghostW / 2f,
+            _pointerCanvas.Y - ghostH / 2f,
+            ghostW,
+            ghostH);
         DrawPlacementPreview(g, rect);
     }
 
@@ -1721,16 +1987,61 @@ public sealed class UmlCanvas : Control
         if (_selectedEdge is null)
             return;
 
-        // Ignore micro-movements to avoid snapping all messages on a plain click.
         var dy = canvasPoint.Y - _dragStartCanvas.Y;
         if (Math.Abs(dy) < 4f / _zoom)
             return;
 
         var preferredY = _messageYAtDragStart + dy;
-        UmlSequenceLayout.RepositionMessageAndReflow(_project, ActiveDiagram, _selectedEdge, preferredY);
+        var minY = UmlSequenceLayout.GetMinimumMessageY(_project, ActiveDiagram);
+        var newY = Math.Max(minY, preferredY);
+        var currentY = _selectedEdge.SequenceY > 0f ? _selectedEdge.SequenceY : _messageYAtDragStart;
+
+        // When crossing another message, swap positions (reorder within life span).
+        // When not crossing, move freely.
+        if (!TrySwapWithCrossedMessage(currentY, newY))
+            _selectedEdge.SequenceY = newY;
+
+        UmlSequenceLayout.EnsureLifelinesFitMessage(_project, ActiveDiagram, _selectedEdge);
         _modelChangedDuringDrag = true;
         UpdateScrollBars();
         Invalidate();
+    }
+
+    private bool TrySwapWithCrossedMessage(float currentY, float newY)
+    {
+        if (_selectedEdge is null || ActiveDiagram.Kind != UmlDiagramKind.SequenceDiagram)
+            return false;
+
+        var movingDown = newY > currentY;
+        UmlDiagramEdge? target = null;
+        float targetY = 0f;
+
+        foreach (var edge in ActiveDiagram.Edges)
+        {
+            if (edge.Id == _selectedEdge.Id
+                || !UmlSequenceLayout.IsSequenceMessage(_project, ActiveDiagram, edge))
+                continue;
+
+            var y = UmlSequenceLayout.GetMessageY(ActiveDiagram, edge);
+            if (movingDown && y > currentY && y <= newY && (target is null || y < targetY))
+            {
+                target = edge;
+                targetY = y;
+            }
+            else if (!movingDown && y < currentY && y >= newY && (target is null || y > targetY))
+            {
+                target = edge;
+                targetY = y;
+            }
+        }
+
+        if (target is null)
+            return false;
+
+        // Swap: put the crossed message at the dragged message's old Y, dragged at new Y.
+        target.SequenceY = currentY;
+        _selectedEdge.SequenceY = newY;
+        return true;
     }
 
     private void CreateRelationship(UmlDiagramNode sourceNode, UmlDiagramNode targetNode, float? sequenceMessageY = null)
@@ -1927,7 +2238,9 @@ public sealed class UmlCanvas : Control
 
     private void Select(UmlDiagramNode? node, UmlDiagramEdge? edge)
     {
-        var changed = _selectedNode != node || _selectedEdge != edge;
+        var changed = _selectedNode != node || _selectedEdge != edge || _multiNodes.Count > 0 || _multiEdges.Count > 0;
+        _multiNodes.Clear();
+        _multiEdges.Clear();
         _selectedNode = node;
         _selectedEdge = edge;
         if (node is not null)
@@ -1939,6 +2252,64 @@ public sealed class UmlCanvas : Control
         if (changed)
             SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    private void AddToMultiSelection(UmlDiagramNode node)
+    {
+        _selectedNode = null;
+        _selectedEdge = null;
+        _multiNodes.Add(node);
+        Invalidate();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ToggleMultiSelection(UmlDiagramNode node)
+    {
+        _selectedNode = null;
+        _selectedEdge = null;
+        if (!_multiNodes.Remove(node))
+            _multiNodes.Add(node);
+        Invalidate();
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void FinishRubberBand()
+    {
+        if (!_isRubberBanding) return;
+        _isRubberBanding = false;
+        var rect = NormalizeRect(_rubberBandStart, _rubberBandEnd);
+        _multiNodes.Clear();
+        _multiEdges.Clear();
+        foreach (var node in ActiveDiagram.Nodes)
+        {
+            if (rect.Contains(node.Bounds))
+                _multiNodes.Add(node);
+        }
+        var nodeIdSet = new HashSet<Guid>(_multiNodes.Select(n => n.Id));
+        foreach (var edge in ActiveDiagram.Edges)
+        {
+            if (nodeIdSet.Contains(edge.SourceNodeId) && nodeIdSet.Contains(edge.TargetNodeId))
+                _multiEdges.Add(edge);
+        }
+        if (_multiNodes.Count == 1)
+        {
+            var single = _multiNodes.First();
+            _multiNodes.Clear();
+            Select(single, null);
+        }
+        else if (_multiNodes.Count == 0)
+        {
+            Select(null, null);
+        }
+        else
+        {
+            _selectedNode = null;
+            _selectedEdge = null;
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+        }
+        Invalidate();
+    }
+
+    private bool HasMultiSelection => _multiNodes.Count > 0;
 
     private void HitTestDiagram(PointF location, out UmlDiagramNode? node, out UmlDiagramEdge? edge)
     {
@@ -1964,7 +2335,8 @@ public sealed class UmlCanvas : Control
             if (!UmlNodeSilhouette.HitTestNode(_project, node, location, _zoom))
                 continue;
 
-            if (UmlNodeSilhouette.IsContainerPresentation(node.Presentation))
+            if (UmlNodeSilhouette.IsContainerPresentation(node.Presentation)
+                || UmlNodeSilhouette.IsFragmentContainerNode(_project, node))
             {
                 containerCandidate ??= node;
                 continue;
@@ -2726,15 +3098,50 @@ public sealed class UmlCanvas : Control
 
         var menu = new ContextMenuStrip();
 
-        if (hitNode is not null)
+        // Multi-selection context menu takes priority
+        if (HasMultiSelection && (hitNode is null || _multiNodes.Contains(hitNode)))
+        {
+            BuildMultiSelectionContextMenu(menu);
+        }
+        else if (hitNode is not null)
+        {
             BuildNodeContextMenu(menu, hitNode, cp);
+        }
         else if (hitEdge is not null)
+        {
             BuildEdgeContextMenu(menu, hitEdge, cp);
+        }
         else
+        {
             BuildCanvasContextMenu(menu, cp);
+        }
 
         if (menu.Items.Count > 0)
             menu.Show(this, screenPoint);
+    }
+
+    private void BuildMultiSelectionContextMenu(ContextMenuStrip menu)
+    {
+        Add($"선택한 {_multiNodes.Count}개 복사", UmlIcons.Duplicate(), () =>
+        {
+            CopySelectionToClipboard();
+        });
+        Add($"선택한 {_multiNodes.Count}개 삭제", UmlIcons.Delete(), () =>
+        {
+            DeleteSelection();
+        });
+        menu.Items.Add(new ToolStripSeparator());
+        Add("선택 영역을 이미지로 저장...", UmlIcons.ExportImage(), () =>
+        {
+            SaveSelectionAsImage();
+        });
+
+        void Add(string label, Bitmap image, Action action)
+        {
+            var item = new ToolStripMenuItem(label) { Image = image };
+            item.Click += (_, _) => action();
+            menu.Items.Add(item);
+        }
     }
 
     private void BuildNodeContextMenu(ContextMenuStrip menu, UmlDiagramNode node, PointF cp)
@@ -2818,7 +3225,10 @@ public sealed class UmlCanvas : Control
         }
 
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripSeparator());
+        Add("복사", UmlIcons.Duplicate(), () => { Select(node, null); CopySelectionToClipboard(); });
         Add("삭제", UmlIcons.Delete(), () => { Select(node, null); DeleteSelection(); });
+        Add("이미지로 저장...", UmlIcons.ExportImage(), () => { Select(node, null); SaveSelectionAsImage(); });
 
         void Add(string label, Bitmap image, Action action)
         {
@@ -3010,6 +3420,14 @@ public sealed class UmlCanvas : Control
         }
 
         ActivateTool("Note 추가", UmlIcons.NodeNote(), UmlToolMode.CreateNote);
+
+        if (CanPaste)
+        {
+            menu.Items.Add(new ToolStripSeparator());
+            var pasteItem = new ToolStripMenuItem("붙여넣기") { Image = UmlIcons.Duplicate() };
+            pasteItem.Click += (_, _) => PasteFromClipboard();
+            menu.Items.Add(pasteItem);
+        }
     }
 
     private void NotifyChanged()

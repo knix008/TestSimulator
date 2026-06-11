@@ -56,6 +56,7 @@ public static class UmlActivityRegionRenderer
         var tabHeight = Math.Max(TabHeight, bounds.Height * 0.12f);
         var tabWidth = Math.Min(bounds.Width - 8f, bounds.Width * 0.4f);
         DrawFrame(g, bounds, pen, tabHeight, tabWidth, dashed: !expansion);
+        if (UmlDiagramStyle.SilhouetteMode) return;
         using var font = new Font("Segoe UI", 6.5f, FontStyle.Bold);
         using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
         g.DrawString(expansion ? "iterative" : "interruptible", font, brush, bounds.Left + 6f, bounds.Top + 3f);

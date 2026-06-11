@@ -307,6 +307,20 @@ internal static class UmlIcons
         return Icon.FromHandle(handle);
     }
 
+    public static Bitmap Theme() => Draw(g =>
+    {
+        // Simple color-palette icon: four colored circles
+        g.FillEllipse(new SolidBrush(Color.FromArgb(220, 60, 60)),   2,  2, 6, 6);
+        g.FillEllipse(new SolidBrush(Color.FromArgb(60, 160, 80)),   9,  2, 6, 6);
+        g.FillEllipse(new SolidBrush(Color.FromArgb(50, 100, 220)),  2,  9, 6, 6);
+        g.FillEllipse(new SolidBrush(Color.FromArgb(170, 100, 220)), 9,  9, 6, 6);
+        using var pen = new Pen(Color.FromArgb(80, 80, 80), 0.8f);
+        g.DrawEllipse(pen, 2, 2, 6, 6);
+        g.DrawEllipse(pen, 9, 2, 6, 6);
+        g.DrawEllipse(pen, 2, 9, 6, 6);
+        g.DrawEllipse(pen, 9, 9, 6, 6);
+    });
+
     public static Bitmap Edit() => Draw(g =>
     {
         using var bodyFill = new SolidBrush(Color.FromArgb(255, 230, 100));

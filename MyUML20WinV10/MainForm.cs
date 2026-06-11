@@ -275,7 +275,8 @@ public partial class MainForm : Form
         _statusStrip.SizingGrip = false;
 
         _tsTheme.Text = "테마";
-        _tsTheme.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _tsTheme.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        _tsTheme.Image = UmlIcons.Theme();
         _tsTheme.ToolTipText = "다이어그램 및 도구상자의 색상 테마를 선택합니다.";
         foreach (UmlThemeKind theme in Enum.GetValues<UmlThemeKind>())
         {

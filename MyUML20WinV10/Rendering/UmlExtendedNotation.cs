@@ -144,14 +144,24 @@ public static class UmlExtendedNotation
 
     private static void DrawSemiOval(Graphics g, RectangleF bounds, Pen pen, string label, Font font, Brush brush)
     {
-        var arc = new RectangleF(bounds.X, bounds.Y, bounds.Width, bounds.Height * 2f);
         using var path = new GraphicsPath();
-        path.AddArc(arc.X, arc.Y, arc.Width, arc.Height, 0, 180);
-        path.AddLine(bounds.Right, bounds.Top + bounds.Height / 2f, bounds.Left, bounds.Top + bounds.Height / 2f);
-        path.CloseFigure();
+        if (bounds.Width <= bounds.Height)
+        {
+            path.AddEllipse(bounds);
+        }
+        else
+        {
+            var r = bounds.Height / 2f;
+            path.AddArc(bounds.Right - bounds.Height, bounds.Top, bounds.Height, bounds.Height, -90f, 180f);
+            path.AddLine(bounds.Right - r, bounds.Bottom, bounds.Left + r, bounds.Bottom);
+            path.AddArc(bounds.Left, bounds.Top, bounds.Height, bounds.Height, 90f, 180f);
+            path.CloseFigure();
+        }
         UmlDiagramStyle.FillGradientPath(g, path, bounds);
         g.DrawPath(pen, path);
-        g.DrawString(label, font, brush, bounds.Left + 4f, bounds.Top + 2f);
+        var r2 = bounds.Height / 2f;
+        var textRect = new RectangleF(bounds.Left + r2, bounds.Top + 2f, Math.Max(1f, bounds.Width - bounds.Height), bounds.Height - 4f);
+        g.DrawString(label, font, brush, textRect);
     }
 
     private static void DrawZigzag(Graphics g, RectangleF bounds, Pen pen)

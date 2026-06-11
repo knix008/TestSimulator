@@ -834,6 +834,7 @@ public static class UmlNotationPreview
     private static void DrawLabeledFragmentPreview(Graphics g, RectangleF area, string label)
     {
         UmlCombinedFragmentRenderer.DrawPreview(g, area, UmlDiagramStyle.BorderColor);
+        if (UmlDiagramStyle.SilhouetteMode) return;
         using var font = new Font("Segoe UI", 6.5f, FontStyle.Bold);
         using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
         g.DrawString(label, font, brush, area.Left + 6f, area.Top + 4f);
@@ -954,34 +955,76 @@ public static class UmlNotationPreview
     {
         var rect = FitBox(area, 1.12f);
         using var pen = CreatePreviewBorderPen(1.8f);
-        UmlComponentNotation.DrawComponentPreview(g, rect, pen);
+        // Draw box outline
+        UmlDiagramStyle.DrawStyledRectangle(g, rect, pen);
+        // Component glyph (small rectangles with notches) — outline only in silhouette mode
+        DrawComponentGlyphSilhouette(g, rect, pen);
+    }
+
+    private static void DrawComponentGlyphSilhouette(Graphics g, RectangleF bounds, Pen pen)
+    {
+        var margin = 3f;
+        var barW = Math.Clamp(bounds.Width * 0.10f, 4f, 8f);
+        var barH = Math.Clamp(bounds.Height * 0.32f, 10f, 20f);
+        var barX = bounds.Right - margin - barW;
+        var barY = bounds.Y + margin;
+        var tabH = Math.Max(3f, barH * 0.26f);
+        var gap = Math.Max(1f, barH * 0.08f);
+        var topTabW = barW * 1.6f;
+        var bottomTabW = barW * 1.4f;
+        g.DrawRectangle(pen, barX, barY, barW, barH);
+        g.DrawRectangle(pen, barX - topTabW, barY, topTabW, tabH);
+        g.DrawRectangle(pen, barX - bottomTabW, barY + tabH + gap, bottomTabW, tabH);
     }
 
     public static void DrawProvidedInterface(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var rect = FitBox(area, 1.35f);
+        // Lollipop: short stem + circle (○──) centered in tile
+        var cy = area.Top + area.Height / 2f;
+        var r = Math.Min(area.Height * 0.30f, 11f);
+        var circCx = area.Left + area.Width * 0.68f;
+        var stemStart = area.Left + area.Width * 0.18f;
         using var pen = CreatePreviewBorderPen(1.8f);
-        UmlComponentNotation.DrawProvidedInterface(g, rect, "I", pen);
+        g.DrawLine(pen, stemStart, cy, circCx - r, cy);
+        if (!UmlDiagramStyle.SilhouetteMode)
+        {
+            using var fb = new SolidBrush(fill);
+            g.FillEllipse(fb, circCx - r, cy - r, r * 2f, r * 2f);
+        }
+        g.DrawEllipse(pen, circCx - r, cy - r, r * 2f, r * 2f);
     }
 
     public static void DrawRequiredInterface(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var rect = FitBox(area, 1.35f);
+        // Socket: half-circle arc (⊃) on right + stem
+        var cy = area.Top + area.Height / 2f;
+        var r = Math.Min(area.Height * 0.30f, 11f);
+        var arcCx = area.Left + area.Width * 0.68f;
+        var stemEnd = area.Left + area.Width * 0.18f;
         using var pen = CreatePreviewBorderPen(1.8f);
-        UmlComponentNotation.DrawRequiredInterface(g, rect, "I", pen);
+        g.DrawLine(pen, stemEnd, cy, arcCx - r * 0.15f, cy);
+        g.DrawArc(pen, arcCx - r, cy - r, r * 2f, r * 2f, -90f, 180f);
     }
 
     public static void DrawAssembly(Graphics g, RectangleF area, Color fill, Color stroke)
     {
+        // Socket on left ⊃ + line + lollipop on right ○
         float y = area.Top + area.Height * 0.5f;
         using var pen = CreatePreviewEdgePen(width: 1.8f);
-        var x1 = area.Left + 6f;
-        var x2 = area.Right - 14f;
-        g.DrawLine(pen, x1, y, x2, y);
-        g.DrawArc(pen, x1 - 5f, y - 5f, 10f, 10f, -90f, 180f);
-        using var fillBrush = new SolidBrush(Color.White);
-        g.FillEllipse(fillBrush, x2 - 4f, y - 4f, 8f, 8f);
-        g.DrawEllipse(pen, x2 - 4f, y - 4f, 8f, 8f);
+        var sockR = 5f;
+        var ballR = 4f;
+        var x1 = area.Left + 8f;
+        var x2 = area.Right - 10f;
+        g.DrawLine(pen, x1 + sockR * 0.15f, y, x2 - ballR, y);
+        // Socket (left)
+        g.DrawArc(pen, x1 - sockR, y - sockR, sockR * 2f, sockR * 2f, -90f, 180f);
+        // Ball/lollipop (right)
+        if (!UmlDiagramStyle.SilhouetteMode)
+        {
+            using var fb = new SolidBrush(fill);
+            g.FillEllipse(fb, x2 - ballR, y - ballR, ballR * 2f, ballR * 2f);
+        }
+        g.DrawEllipse(pen, x2 - ballR, y - ballR, ballR * 2f, ballR * 2f);
     }
 
     private static void DrawOpenArrow(Graphics g, Pen pen, PointF from, PointF to, bool open)
@@ -1031,6 +1074,7 @@ public static class UmlNotationPreview
     private static void DrawLabeledFragment(Graphics g, RectangleF area, Color stroke, string label)
     {
         UmlCombinedFragmentRenderer.DrawPreview(g, area, stroke);
+        if (UmlDiagramStyle.SilhouetteMode) return;
         using var font = new Font("Segoe UI", 7f, FontStyle.Bold);
         using var brush = new SolidBrush(stroke);
         g.DrawString(label, font, brush, area.Left + 6f, area.Top + 2f);
@@ -1053,8 +1097,27 @@ public static class UmlNotationPreview
 
     public static void DrawStateInvariant(Graphics g, RectangleF area, Color fill, Color stroke)
     {
+        var bounds = FitBox(area, 1f);
+        using var path = new System.Drawing.Drawing2D.GraphicsPath();
+        if (bounds.Width <= bounds.Height)
+        {
+            path.AddEllipse(bounds);
+        }
+        else
+        {
+            var r = bounds.Height / 2f;
+            path.AddArc(bounds.Right - bounds.Height, bounds.Top, bounds.Height, bounds.Height, -90f, 180f);
+            path.AddLine(bounds.Right - r, bounds.Bottom, bounds.Left + r, bounds.Bottom);
+            path.AddArc(bounds.Left, bounds.Top, bounds.Height, bounds.Height, 90f, 180f);
+            path.CloseFigure();
+        }
+        if (!UmlDiagramStyle.SilhouetteMode)
+        {
+            using var fillBrush = new SolidBrush(fill);
+            g.FillPath(fillBrush, path);
+        }
         using var pen = new Pen(stroke, 1.4f);
-        g.DrawArc(pen, area.X, area.Y, area.Width, area.Height * 1.6f, 0, 180);
+        g.DrawPath(pen, path);
     }
 
     public static void DrawContinuation(Graphics g, RectangleF area, Color fill, Color stroke) =>
@@ -1084,11 +1147,37 @@ public static class UmlNotationPreview
     public static void DrawDataStore(Graphics g, RectangleF area, Color fill, Color stroke) =>
         DrawObjectNode(g, area, fill, stroke);
 
-    public static void DrawInputPin(Graphics g, RectangleF area, Color fill, Color stroke) =>
-        DrawPort(g, area, fill, stroke);
+    public static void DrawInputPin(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        // Input pin: arrow pointing INTO a small box  →□
+        var boxSize = Math.Min(area.Width * 0.28f, area.Height * 0.55f);
+        var cy = area.Top + area.Height / 2f;
+        var boxRight = area.Left + area.Width * 0.68f;
+        var boxLeft = boxRight - boxSize;
+        var boxTop = cy - boxSize / 2f;
+        using var pen = CreatePreviewBorderPen(1.6f);
+        using var brush = CreatePreviewFillBrush();
+        g.FillRectangle(brush, boxLeft, boxTop, boxSize, boxSize);
+        g.DrawRectangle(pen, boxLeft, boxTop, boxSize, boxSize);
+        g.DrawLine(pen, area.Left + 4f, cy, boxLeft, cy);
+        DrawOpenArrow(g, pen, new PointF(area.Left + 4f, cy), new PointF(boxLeft, cy));
+    }
 
-    public static void DrawOutputPin(Graphics g, RectangleF area, Color fill, Color stroke) =>
-        DrawInputPin(g, area, fill, stroke);
+    public static void DrawOutputPin(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        // Output pin: small box with arrow pointing OUT  □→
+        var boxSize = Math.Min(area.Width * 0.28f, area.Height * 0.55f);
+        var cy = area.Top + area.Height / 2f;
+        var boxLeft = area.Left + area.Width * 0.32f;
+        var boxRight = boxLeft + boxSize;
+        var boxTop = cy - boxSize / 2f;
+        using var pen = CreatePreviewBorderPen(1.6f);
+        using var brush = CreatePreviewFillBrush();
+        g.FillRectangle(brush, boxLeft, boxTop, boxSize, boxSize);
+        g.DrawRectangle(pen, boxLeft, boxTop, boxSize, boxSize);
+        g.DrawLine(pen, boxRight, cy, area.Right - 4f, cy);
+        DrawOpenArrow(g, pen, new PointF(boxRight, cy), new PointF(area.Right - 4f, cy));
+    }
 
     public static void DrawExceptionHandler(Graphics g, RectangleF area, Color fill, Color stroke)
     {

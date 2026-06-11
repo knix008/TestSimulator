@@ -23,6 +23,7 @@ public sealed class UmlProject
         UmlDiagramKind.SequenceDiagram,
         UmlDiagramKind.ActivityDiagram,
         UmlDiagramKind.StateMachineDiagram,
+        UmlDiagramKind.ComponentDiagram,
     ];
 
     public static List<UmlDiagram> CreateDefaultDiagrams() =>

@@ -72,6 +72,13 @@ public static class UmlNodeSilhouette
         };
     }
 
+    public static bool IsFragmentContainerNode(UmlProject project, UmlDiagramNode node) =>
+        node.Presentation == UmlNodePresentation.Behavior
+        && project.FindElement(node.ModelElementId) is UmlBehaviorNode
+            { Kind: UmlBehaviorNodeKind.CombinedFragment
+                or UmlBehaviorNodeKind.ExpansionRegion
+                or UmlBehaviorNodeKind.InterruptibleRegion };
+
     private static bool HitTestCombinedFragment(RectangleF bounds, PointF location, float borderThreshold)
     {
         var tabHeight = UmlCombinedFragmentRenderer.TabHeight;
@@ -80,7 +87,7 @@ public static class UmlNodeSilhouette
             return true;
 
         var body = new RectangleF(bounds.X, bounds.Y + tabHeight, bounds.Width, Math.Max(1f, bounds.Height - tabHeight));
-        return HitTestBorder(body, location, borderThreshold);
+        return body.Contains(location);
     }
 
     private static bool HitTestLifeline(RectangleF bounds, PointF location)
@@ -295,9 +302,15 @@ public static class UmlNodeSilhouette
 
     private static void AddSemiOvalPath(GraphicsPath path, RectangleF bounds)
     {
-        var arc = new RectangleF(bounds.X, bounds.Y, bounds.Width, bounds.Height * 2f);
-        path.AddArc(arc.X, arc.Y, arc.Width, arc.Height, 0, 180);
-        path.AddLine(bounds.Right, bounds.Top + bounds.Height / 2f, bounds.Left, bounds.Top + bounds.Height / 2f);
+        // Stadium/pill shape: flat top, flat bottom, semicircular left and right ends.
+        if (bounds.Width <= bounds.Height)
+        {
+            path.AddEllipse(bounds);
+            return;
+        }
+        path.AddArc(bounds.Right - bounds.Height, bounds.Top, bounds.Height, bounds.Height, -90f, 180f);
+        path.AddLine(bounds.Right - bounds.Height / 2f, bounds.Bottom, bounds.Left + bounds.Height / 2f, bounds.Bottom);
+        path.AddArc(bounds.Left, bounds.Top, bounds.Height, bounds.Height, 90f, 180f);
         path.CloseFigure();
     }
 

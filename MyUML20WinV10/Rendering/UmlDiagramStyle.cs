@@ -2,24 +2,29 @@ using System.Drawing.Drawing2D;
 
 namespace MyUML20WinV10.Rendering;
 
-public enum UmlThemeKind { Default, Blue, Green, Purple, Dark }
+public enum UmlThemeKind { Default, Blue, Green, Purple, Warm, Teal, Sunset, Ocean, Rose }
 
 public static class UmlDiagramStyle
 {
     public static UmlThemeKind CurrentTheme { get; set; } = UmlThemeKind.Default;
 
+    // When true, DrawStyled* / Fill* methods skip fills and shadows (toolbox silhouette mode).
+    public static bool SilhouetteMode { get; set; } = false;
+
     public static readonly SizeF ShadowOffset = new(3f, 3f);
 
-    public static Color ShadowColor => CurrentTheme == UmlThemeKind.Dark
-        ? Color.FromArgb(70, 0, 0, 0)
-        : Color.FromArgb(42, 0, 0, 0);
+    public static Color ShadowColor => Color.FromArgb(42, 0, 0, 0);
 
     public static Color BorderColor => CurrentTheme switch
     {
         UmlThemeKind.Blue   => Color.FromArgb(30, 64, 175),
         UmlThemeKind.Green  => Color.FromArgb(22, 101, 52),
         UmlThemeKind.Purple => Color.FromArgb(126, 34, 206),
-        UmlThemeKind.Dark   => Color.FromArgb(136, 136, 153),
+        UmlThemeKind.Warm   => Color.FromArgb(180, 83, 9),
+        UmlThemeKind.Teal   => Color.FromArgb(15, 118, 110),
+        UmlThemeKind.Sunset => Color.FromArgb(185, 50, 30),
+        UmlThemeKind.Ocean  => Color.FromArgb(7, 89, 133),
+        UmlThemeKind.Rose   => Color.FromArgb(159, 18, 57),
         _                   => Color.FromArgb(72, 72, 72),
     };
 
@@ -30,7 +35,11 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => Color.FromArgb(238, 244, 255),
         UmlThemeKind.Green  => Color.FromArgb(240, 253, 244),
         UmlThemeKind.Purple => Color.FromArgb(250, 245, 255),
-        UmlThemeKind.Dark   => Color.FromArgb(58, 58, 74),
+        UmlThemeKind.Warm   => Color.FromArgb(255, 247, 237),
+        UmlThemeKind.Teal   => Color.FromArgb(240, 253, 250),
+        UmlThemeKind.Sunset => Color.FromArgb(255, 247, 237),
+        UmlThemeKind.Ocean  => Color.FromArgb(240, 249, 255),
+        UmlThemeKind.Rose   => Color.FromArgb(255, 241, 245),
         _                   => Color.FromArgb(255, 252, 248, 238),
     };
 
@@ -39,7 +48,11 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => Color.FromArgb(200, 220, 255),
         UmlThemeKind.Green  => Color.FromArgb(187, 247, 208),
         UmlThemeKind.Purple => Color.FromArgb(233, 213, 255),
-        UmlThemeKind.Dark   => Color.FromArgb(37, 37, 53),
+        UmlThemeKind.Warm   => Color.FromArgb(254, 215, 170),
+        UmlThemeKind.Teal   => Color.FromArgb(153, 246, 228),
+        UmlThemeKind.Sunset => Color.FromArgb(253, 186, 116),
+        UmlThemeKind.Ocean  => Color.FromArgb(186, 230, 253),
+        UmlThemeKind.Rose   => Color.FromArgb(251, 207, 232),
         _                   => Color.FromArgb(232, 220, 198),
     };
 
@@ -48,7 +61,11 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => Color.FromArgb(26, 32, 64),
         UmlThemeKind.Green  => Color.FromArgb(20, 83, 45),
         UmlThemeKind.Purple => Color.FromArgb(59, 7, 100),
-        UmlThemeKind.Dark   => Color.FromArgb(232, 232, 240),
+        UmlThemeKind.Warm   => Color.FromArgb(120, 53, 15),
+        UmlThemeKind.Teal   => Color.FromArgb(19, 78, 74),
+        UmlThemeKind.Sunset => Color.FromArgb(124, 45, 18),
+        UmlThemeKind.Ocean  => Color.FromArgb(7, 89, 133),
+        UmlThemeKind.Rose   => Color.FromArgb(136, 19, 55),
         _                   => Color.FromArgb(32, 32, 32),
     };
 
@@ -57,7 +74,11 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => Color.FromArgb(239, 246, 255),
         UmlThemeKind.Green  => Color.FromArgb(236, 253, 245),
         UmlThemeKind.Purple => Color.FromArgb(253, 244, 255),
-        UmlThemeKind.Dark   => Color.FromArgb(55, 55, 42),
+        UmlThemeKind.Warm   => Color.FromArgb(255, 251, 235),
+        UmlThemeKind.Teal   => Color.FromArgb(236, 253, 245),
+        UmlThemeKind.Sunset => Color.FromArgb(255, 247, 237),
+        UmlThemeKind.Ocean  => Color.FromArgb(240, 249, 255),
+        UmlThemeKind.Rose   => Color.FromArgb(255, 241, 245),
         _                   => Color.FromArgb(255, 255, 252, 220),
     };
 
@@ -66,7 +87,11 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => Color.FromArgb(191, 219, 254),
         UmlThemeKind.Green  => Color.FromArgb(167, 243, 208),
         UmlThemeKind.Purple => Color.FromArgb(245, 208, 254),
-        UmlThemeKind.Dark   => Color.FromArgb(37, 37, 30),
+        UmlThemeKind.Warm   => Color.FromArgb(253, 230, 138),
+        UmlThemeKind.Teal   => Color.FromArgb(167, 243, 208),
+        UmlThemeKind.Sunset => Color.FromArgb(253, 186, 116),
+        UmlThemeKind.Ocean  => Color.FromArgb(186, 230, 253),
+        UmlThemeKind.Rose   => Color.FromArgb(251, 207, 232),
         _                   => Color.FromArgb(255, 238, 170),
     };
 
@@ -75,24 +100,28 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => Color.FromArgb(240, 244, 255),
         UmlThemeKind.Green  => Color.FromArgb(240, 255, 244),
         UmlThemeKind.Purple => Color.FromArgb(250, 245, 255),
-        UmlThemeKind.Dark   => Color.FromArgb(30, 30, 46),
+        UmlThemeKind.Warm   => Color.FromArgb(255, 248, 240),
+        UmlThemeKind.Teal   => Color.FromArgb(240, 253, 250),
+        UmlThemeKind.Sunset => Color.FromArgb(255, 246, 236),
+        UmlThemeKind.Ocean  => Color.FromArgb(236, 248, 255),
+        UmlThemeKind.Rose   => Color.FromArgb(255, 240, 245),
         _                   => Color.FromArgb(245, 245, 245),
     };
 
-    public static Color GridMinorColor => CurrentTheme == UmlThemeKind.Dark
-        ? Color.FromArgb(28, 255, 255, 255)
-        : Color.FromArgb(22, 0, 0, 0);
+    public static Color GridMinorColor => Color.FromArgb(22, 0, 0, 0);
 
-    public static Color GridMajorColor => CurrentTheme == UmlThemeKind.Dark
-        ? Color.FromArgb(56, 255, 255, 255)
-        : Color.FromArgb(46, 0, 0, 0);
+    public static Color GridMajorColor => Color.FromArgb(46, 0, 0, 0);
 
     public static Color PreviewFillColor => CurrentTheme switch
     {
         UmlThemeKind.Blue   => Color.FromArgb(219, 234, 254),
         UmlThemeKind.Green  => Color.FromArgb(209, 250, 229),
         UmlThemeKind.Purple => Color.FromArgb(243, 232, 255),
-        UmlThemeKind.Dark   => Color.FromArgb(58, 58, 92),
+        UmlThemeKind.Warm   => Color.FromArgb(254, 235, 200),
+        UmlThemeKind.Teal   => Color.FromArgb(204, 251, 241),
+        UmlThemeKind.Sunset => Color.FromArgb(254, 215, 170),
+        UmlThemeKind.Ocean  => Color.FromArgb(186, 230, 253),
+        UmlThemeKind.Rose   => Color.FromArgb(251, 207, 232),
         _                   => Color.FromArgb(237, 233, 254),
     };
 
@@ -101,7 +130,11 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => Color.FromArgb(29, 78, 216),
         UmlThemeKind.Green  => Color.FromArgb(5, 150, 105),
         UmlThemeKind.Purple => Color.FromArgb(147, 51, 234),
-        UmlThemeKind.Dark   => Color.FromArgb(128, 128, 204),
+        UmlThemeKind.Warm   => Color.FromArgb(194, 65, 12),
+        UmlThemeKind.Teal   => Color.FromArgb(13, 148, 136),
+        UmlThemeKind.Sunset => Color.FromArgb(185, 50, 30),
+        UmlThemeKind.Ocean  => Color.FromArgb(7, 89, 133),
+        UmlThemeKind.Rose   => Color.FromArgb(159, 18, 57),
         _                   => Color.FromArgb(79, 70, 229),
     };
 
@@ -110,7 +143,11 @@ public static class UmlDiagramStyle
         UmlThemeKind.Blue   => "블루",
         UmlThemeKind.Green  => "그린",
         UmlThemeKind.Purple => "퍼플",
-        UmlThemeKind.Dark   => "다크",
+        UmlThemeKind.Warm   => "웜",
+        UmlThemeKind.Teal   => "틸",
+        UmlThemeKind.Sunset => "선셋",
+        UmlThemeKind.Ocean  => "오션",
+        UmlThemeKind.Rose   => "로즈",
         _                   => "기본",
     };
 
@@ -134,6 +171,7 @@ public static class UmlDiagramStyle
 
     public static void DrawShadow(Graphics g, RectangleF bounds)
     {
+        if (SilhouetteMode) return;
         var shadow = Offset(bounds, ShadowOffset);
         using var brush = new SolidBrush(ShadowColor);
         g.FillRectangle(brush, shadow.X, shadow.Y, shadow.Width, shadow.Height);
@@ -141,6 +179,7 @@ public static class UmlDiagramStyle
 
     public static void DrawShadowPath(Graphics g, GraphicsPath path)
     {
+        if (SilhouetteMode) return;
         using var matrix = new Matrix();
         matrix.Translate(ShadowOffset.Width, ShadowOffset.Height);
         using var shadowPath = (GraphicsPath)path.Clone();
@@ -151,6 +190,7 @@ public static class UmlDiagramStyle
 
     public static void FillGradientRectangle(Graphics g, RectangleF bounds, Color? top = null, Color? bottom = null)
     {
+        if (SilhouetteMode) return;
         if (bounds.Width <= 0f || bounds.Height <= 0f)
             return;
 
@@ -160,6 +200,7 @@ public static class UmlDiagramStyle
 
     public static void FillGradientPath(Graphics g, GraphicsPath path, RectangleF bounds, Color? top = null, Color? bottom = null)
     {
+        if (SilhouetteMode) return;
         using var brush = CreateVerticalGradientBrush(bounds, top, bottom);
         g.FillPath(brush, path);
     }
@@ -181,11 +222,14 @@ public static class UmlDiagramStyle
 
     public static void DrawStyledEllipse(Graphics g, RectangleF bounds, Pen pen, Color? top = null, Color? bottom = null)
     {
-        var shadow = Offset(bounds, ShadowOffset);
-        using var shadowBrush = new SolidBrush(ShadowColor);
-        g.FillEllipse(shadowBrush, shadow.X, shadow.Y, shadow.Width, shadow.Height);
-        using var brush = CreateVerticalGradientBrush(bounds, top, bottom);
-        g.FillEllipse(brush, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        if (!SilhouetteMode)
+        {
+            var shadow = Offset(bounds, ShadowOffset);
+            using var shadowBrush = new SolidBrush(ShadowColor);
+            g.FillEllipse(shadowBrush, shadow.X, shadow.Y, shadow.Width, shadow.Height);
+            using var brush = CreateVerticalGradientBrush(bounds, top, bottom);
+            g.FillEllipse(brush, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        }
         g.DrawEllipse(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
     }
 

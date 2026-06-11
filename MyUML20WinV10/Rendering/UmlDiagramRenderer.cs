@@ -174,7 +174,8 @@ public static class UmlDiagramRenderer
         switch (node.Presentation)
         {
             case UmlNodePresentation.Actor:
-                DrawActorNode(g, project, node, bounds, bodyPen, selected);
+                using (var actorPen = UmlDiagramStyle.CreateBorderPen(selected, 2.0f))
+                    DrawActorNode(g, project, node, bounds, actorPen, selected);
                 return;
             case UmlNodePresentation.UseCase:
                 DrawUseCaseNode(g, project, node, bounds, bodyPen, selected);

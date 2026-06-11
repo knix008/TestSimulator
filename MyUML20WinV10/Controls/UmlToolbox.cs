@@ -921,7 +921,15 @@ public sealed class UmlToolbox : UserControl
 
             var previewRect = new RectangleF(7, 5, Width - 14, Height - CaptionH - 8);
 
-            _draw(g, previewRect, UmlDiagramStyle.PreviewFillColor, Selected ? UmlDiagramStyle.PreviewStrokeColor : MatchesCanvasSelection ? UmlToolbox.MatchAccent : UmlDiagramStyle.PreviewStrokeColor);
+            UmlDiagramStyle.SilhouetteMode = true;
+            try
+            {
+                _draw(g, previewRect, UmlDiagramStyle.PreviewFillColor, Selected ? UmlDiagramStyle.PreviewStrokeColor : MatchesCanvasSelection ? UmlToolbox.MatchAccent : UmlDiagramStyle.PreviewStrokeColor);
+            }
+            finally
+            {
+                UmlDiagramStyle.SilhouetteMode = false;
+            }
 
 
 
