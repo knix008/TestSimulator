@@ -1887,6 +1887,21 @@ public sealed class UmlCanvas : Control
             nodeHeight = uniform.Height;
         }
 
+        // Port/Provided/Required: 가장 가까운 컴포넌트 경계에 스냅합니다.
+        if (presentation is UmlNodePresentation.Port
+                         or UmlNodePresentation.ProvidedInterface
+                         or UmlNodePresentation.RequiredInterface)
+        {
+            var snapped = TrySnapToComponentEdge(
+                new RectangleF(rect.X, rect.Y, nodeWidth, nodeHeight), presentation);
+            if (snapped.HasValue)
+            {
+                rect = snapped.Value;
+                nodeWidth = rect.Width;
+                nodeHeight = rect.Height;
+            }
+        }
+
         var node = new UmlDiagramNode
         {
             ModelElementId = element.Id,
@@ -1904,6 +1919,88 @@ public sealed class UmlCanvas : Control
         SyncCircleNodeBounds(node);
         Select(node, null);
         ReturnToSelectTool();
+    }
+
+    /// <summary>
+    /// Port/ProvidedInterface/RequiredInterface를 드롭 위치 근처의 컴포넌트 경계에 스냅합니다.
+    /// 컴포넌트가 없으면 null을 반환합니다.
+    /// </summary>
+    private RectangleF? TrySnapToComponentEdge(RectangleF nodeRect, UmlNodePresentation presentation)
+    {
+        const float snapDistance = 80f;
+        var dropCenter = new PointF(nodeRect.X + nodeRect.Width / 2f, nodeRect.Y + nodeRect.Height / 2f);
+
+        UmlDiagramNode? bestComp = null;
+        float bestDist = float.MaxValue;
+
+        foreach (var n in ActiveDiagram.Nodes)
+        {
+            if (_project.FindElement(n.ModelElementId) is not UmlComponent)
+                continue;
+
+            var expanded = new RectangleF(
+                n.X - snapDistance, n.Y - snapDistance,
+                n.Width + snapDistance * 2, n.Height + snapDistance * 2);
+
+            if (!expanded.Contains(dropCenter))
+                continue;
+
+            // 드롭 중심에서 컴포넌트 경계까지 최단 거리
+            var clampedX = Math.Clamp(dropCenter.X, n.X, n.X + n.Width);
+            var clampedY = Math.Clamp(dropCenter.Y, n.Y, n.Y + n.Height);
+            var dx = dropCenter.X - clampedX;
+            var dy = dropCenter.Y - clampedY;
+            var dist = MathF.Sqrt(dx * dx + dy * dy);
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                bestComp = n;
+            }
+        }
+
+        if (bestComp is null)
+            return null;
+
+        // 가장 가까운 엣지를 찾습니다 (Left/Right/Top/Bottom).
+        var comp = bestComp;
+        var dLeft  = MathF.Abs(dropCenter.X - comp.X);
+        var dRight = MathF.Abs(dropCenter.X - (comp.X + comp.Width));
+        var dTop   = MathF.Abs(dropCenter.Y - comp.Y);
+        var dBot   = MathF.Abs(dropCenter.Y - (comp.Y + comp.Height));
+        var minD   = MathF.Min(MathF.Min(dLeft, dRight), MathF.Min(dTop, dBot));
+
+        float ex, ey;         // 엣지 위의 스냅 기준점
+        bool horizontal;      // true = 좌/우 엣지 (인터페이스가 수평으로 뻗음)
+
+        if (minD == dRight)   { ex = comp.X + comp.Width; ey = Math.Clamp(dropCenter.Y, comp.Y, comp.Y + comp.Height); horizontal = true; }
+        else if (minD == dLeft)  { ex = comp.X;              ey = Math.Clamp(dropCenter.Y, comp.Y, comp.Y + comp.Height); horizontal = true; }
+        else if (minD == dTop)   { ex = Math.Clamp(dropCenter.X, comp.X, comp.X + comp.Width); ey = comp.Y;              horizontal = false; }
+        else                     { ex = Math.Clamp(dropCenter.X, comp.X, comp.X + comp.Width); ey = comp.Y + comp.Height; horizontal = false; }
+
+        // 포트: 엣지 위에 정중앙 배치 (경계에 반반 걸침)
+        if (presentation == UmlNodePresentation.Port)
+        {
+            var half = nodeRect.Width / 2f;
+            return new RectangleF(ex - half, ey - half, nodeRect.Width, nodeRect.Height);
+        }
+
+        // ProvidedInterface / RequiredInterface: 엣지에서 바깥으로 배치
+        var w = nodeRect.Width;
+        var h = nodeRect.Height;
+
+        if (horizontal)
+        {
+            // 좌/우 엣지: 인터페이스를 수평으로 컴포넌트 바깥에 배치
+            var x = (minD == dRight) ? ex : ex - w;
+            return new RectangleF(x, ey - h / 2f, w, h);
+        }
+        else
+        {
+            // 상/하 엣지: 폭·높이 교환해서 수직으로 배치
+            var x = ex - h / 2f;
+            var y = (minD == dTop) ? ey - w : ey;
+            return new RectangleF(x, y, h, w);
+        }
     }
 
     private bool TryGetBendHandleCursor(PointF canvasPoint, out Cursor cursor)
@@ -2693,7 +2790,7 @@ public sealed class UmlCanvas : Control
         if (_selectedNode is null)
             return -1;
 
-        return UmlNodeSilhouette.HitTestResizeHandle(_project, _selectedNode, location);
+        return UmlNodeSilhouette.HitTestResizeHandle(_project, _selectedNode, location, _zoom);
     }
 
     private static Cursor GetResizeCursor(int idx) => idx switch

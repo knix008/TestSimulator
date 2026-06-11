@@ -31,9 +31,10 @@ public static class UmlNodeSilhouette
         return handles;
     }
 
-    public static int HitTestResizeHandle(UmlProject project, UmlDiagramNode node, PointF location)
+    public static int HitTestResizeHandle(UmlProject project, UmlDiagramNode node, PointF location, float zoom = 1f)
     {
-        var hitRadius = ResizeHandleHitRadius;
+        // 줌에 무관하게 항상 화면에서 8px로 느껴지도록 캔버스 단위 반경을 역산합니다.
+        var hitRadius = ResizeHandleHitRadius / Math.Max(0.1f, zoom);
         foreach (var (index, point) in GetResizeHandles(project, node))
         {
             var dx = location.X - point.X;
