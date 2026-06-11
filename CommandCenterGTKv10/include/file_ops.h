@@ -39,6 +39,11 @@ gboolean file_ops_delete_files(GPtrArray *paths,
                                gpointer user_data,
                                GCancellable *cancellable,
                                GError **error);
+gboolean file_ops_trash_files(GPtrArray *paths,
+                              FileOpsProgressFn progress,
+                              gpointer user_data,
+                              GCancellable *cancellable,
+                              GError **error);
 
 typedef struct SearchContext SearchContext;
 

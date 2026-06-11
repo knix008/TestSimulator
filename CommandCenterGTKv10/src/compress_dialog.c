@@ -98,7 +98,7 @@ gboolean compress_dialog_run(GtkWindow *parent, const char *default_name,
 
     w.split_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     w.size_entry = gtk_entry_new();
-    gtk_entry_set_text(GTK_ENTRY(w.size_entry), "100");
+    gtk_entry_set_text(GTK_ENTRY(w.size_entry), "10");
     gtk_entry_set_width_chars(GTK_ENTRY(w.size_entry), 8);
     gtk_entry_set_activates_default(GTK_ENTRY(w.size_entry), TRUE);
     gtk_box_pack_start(GTK_BOX(w.split_box), w.size_entry, FALSE, FALSE, 0);
@@ -124,7 +124,27 @@ gboolean compress_dialog_run(GtkWindow *parent, const char *default_name,
             int fmt_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(w.format_combo));
             if (fmt_idx < 0) fmt_idx = 0;
             ArchiveFormat fmt = (ArchiveFormat)fmt_idx;
-            const char   *ext = archive_format_ext(fmt);
+            out_result->opts.format = fmt;
+            out_result->opts.split  = gtk_toggle_button_get_active(
+                GTK_TOGGLE_BUTTON(w.split_check));
+
+            if (out_result->opts.split) {
+                const char *sz_str = gtk_entry_get_text(GTK_ENTRY(w.size_entry));
+                guint64 sz = (guint64)g_ascii_strtoull(sz_str, NULL, 10);
+                if (sz == 0) sz = 10;
+                int unit = gtk_combo_box_get_active(GTK_COMBO_BOX(w.unit_combo));
+                static const guint64 mult[] = {
+                    1024ULL,
+                    1024ULL * 1024,
+                    1024ULL * 1024 * 1024
+                };
+                int u = (unit >= 0 && unit < 3) ? unit : 1;
+                out_result->opts.split_size = sz * mult[u];
+            } else {
+                out_result->opts.split_size = 0;
+            }
+
+            const char *ext = archive_format_ext_for(&out_result->opts);
 
             /* Build base name without extension */
             char *base = g_strdup(name);
@@ -137,26 +157,6 @@ gboolean compress_dialog_run(GtkWindow *parent, const char *default_name,
 
             out_result->dest_path = g_strdup_printf("%s%s", base_path, ext);
             g_free(base_path);
-
-            out_result->opts.format = fmt;
-            out_result->opts.split  = gtk_toggle_button_get_active(
-                GTK_TOGGLE_BUTTON(w.split_check));
-
-            if (out_result->opts.split) {
-                const char *sz_str = gtk_entry_get_text(GTK_ENTRY(w.size_entry));
-                guint64 sz = (guint64)g_ascii_strtoull(sz_str, NULL, 10);
-                if (sz == 0) sz = 100;
-                int unit = gtk_combo_box_get_active(GTK_COMBO_BOX(w.unit_combo));
-                static const guint64 mult[] = {
-                    1024ULL,
-                    1024ULL * 1024,
-                    1024ULL * 1024 * 1024
-                };
-                int u = (unit >= 0 && unit < 3) ? unit : 1;
-                out_result->opts.split_size = sz * mult[u];
-            } else {
-                out_result->opts.split_size = 0;
-            }
 
             confirmed = TRUE;
         }

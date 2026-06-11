@@ -1,8 +1,19 @@
+# Build output
 build/
-CommandCenterGTKv10
-*.o
-*.swp
-*.user
-*.DS_Store
-
 commandcenter
+
+# Object / libraries
+*.o
+*.a
+
+# Editor / backup
+*.swp
+*~
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Legacy binary name
+CommandCenterGTKv10

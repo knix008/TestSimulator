@@ -19,10 +19,12 @@ void file_panel_suspend_watch(GtkWidget *panel);
 void file_panel_resume_watch(GtkWidget *panel);
 GPtrArray *file_panel_get_selected_paths(GtkWidget *panel);
 void file_panel_set_status(GtkWidget *panel, const char *message);
+void file_panel_set_active(GtkWidget *panel, gboolean active);
 
 void file_panel_request_new_folder(GtkWidget *panel);
 void file_panel_request_new_file(GtkWidget *panel);
 void file_panel_request_delete(GtkWidget *panel);
+void file_panel_request_trash(GtkWidget *panel);
 void file_panel_begin_rename(GtkWidget *panel);
 void file_panel_select_all(GtkWidget *panel);
 void file_panel_clipboard_copy(GtkWidget *panel);

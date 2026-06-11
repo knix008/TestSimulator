@@ -4,12 +4,12 @@
 
 #include "about_dialog.h"
 #include "app_icon.h"
-#include "bookmark_manager.h"
+#include "archive_ops.h"
 #include "file_ops.h"
 #include "file_ops_conflict.h"
 #include "progress_dialog.h"
+#include "ui_menu.h"
 #include "file_panel.h"
-#include "preview_panel.h"
 #include "search_dialog.h"
 #include "session_settings.h"
 
@@ -18,13 +18,12 @@ struct MainWindow {
     GtkWidget *status_label;
     GtkWidget *left_panel;
     GtkWidget *right_panel;
-    GtkWidget *preview_panel;
     GtkWidget *lr_paned;
-    GtkWidget *main_paned;
     GtkWidget *active_panel;
     int lr_paned_last_width;
-    BookmarkManager *bookmarks;
     SessionSettings *session;
+    GtkWidget *archive_compress_item;
+    GtkWidget *archive_extract_item;
 };
 
 static void show_error(MainWindow *win, const char *msg) {
@@ -305,10 +304,41 @@ static void on_right_move(GtkWidget *panel, gpointer data) {
     move_between_panels(win, win->right_panel, win->left_panel);
 }
 
+static void update_archive_menu_state(MainWindow *win) {
+    if (!win->archive_compress_item || !win->archive_extract_item || !win->active_panel)
+        return;
+
+    GPtrArray *paths = file_panel_get_selected_paths(win->active_panel);
+    gboolean has_sel = paths->len > 0;
+    gboolean can_extract = FALSE;
+    if (paths->len == 1) {
+        const char *p = g_ptr_array_index(paths, 0);
+        can_extract = archive_is_archive(p) || archive_split_detect(p, NULL);
+    }
+    g_ptr_array_free(paths, TRUE);
+
+    gtk_widget_set_sensitive(win->archive_compress_item, has_sel);
+    gtk_widget_set_sensitive(win->archive_extract_item, can_extract);
+}
+
+static void update_active_panel(MainWindow *win, GtkWidget *panel) {
+    win->active_panel = panel;
+    file_panel_set_active(win->left_panel, panel == win->left_panel);
+    file_panel_set_active(win->right_panel, panel == win->right_panel);
+    update_archive_menu_state(win);
+}
+
+static void on_panel_selection_changed(GtkWidget *panel, GPtrArray *paths,
+                                       gpointer data) {
+    (void)panel;
+    (void)paths;
+    update_archive_menu_state(data);
+}
+
 static void on_left_focus(GtkWidget *panel, gpointer data) {
     (void)panel;
     MainWindow *win = data;
-    win->active_panel = win->left_panel;
+    update_active_panel(win, win->left_panel);
     char *msg = g_strdup_printf("왼쪽 패널 활성  |  %s",
                                 file_panel_get_current_path(win->left_panel));
     main_window_show_status(win, msg);
@@ -318,23 +348,11 @@ static void on_left_focus(GtkWidget *panel, gpointer data) {
 static void on_right_focus(GtkWidget *panel, gpointer data) {
     (void)panel;
     MainWindow *win = data;
-    win->active_panel = win->right_panel;
+    update_active_panel(win, win->right_panel);
     char *msg = g_strdup_printf("오른쪽 패널 활성  |  %s",
                                 file_panel_get_current_path(win->right_panel));
     main_window_show_status(win, msg);
     g_free(msg);
-}
-
-static void on_selection_changed(GtkWidget *panel, GPtrArray *paths, gpointer data) {
-    (void)panel;
-    MainWindow *win = data;
-    if (paths->len == 1) {
-        const char *path = g_ptr_array_index(paths, 0);
-        if (g_file_test(path, G_FILE_TEST_IS_REGULAR))
-            preview_panel_show_file(win->preview_panel, path);
-    } else if (paths->len == 0) {
-        preview_panel_clear(win->preview_panel);
-    }
 }
 
 static void on_search_file_selected(const char *path, gpointer data) {
@@ -355,19 +373,6 @@ static void on_search_clicked(GtkMenuItem *item, gpointer data) {
                       on_search_file_selected, win);
 }
 
-static void on_toggle_preview(GtkCheckMenuItem *item, gpointer data) {
-    MainWindow *win = data;
-    if (gtk_check_menu_item_get_active(item)) {
-        gtk_widget_show(win->preview_panel);
-        gtk_paned_set_position(GTK_PANED(win->main_paned), 500);
-    } else {
-        gtk_widget_hide(win->preview_panel);
-    }
-    main_window_show_status(win,
-        gtk_check_menu_item_get_active(item)
-            ? "미리보기 패널 표시됨" : "미리보기 패널 숨김");
-}
-
 static void on_refresh_all(GtkMenuItem *item, gpointer data) {
     (void)item;
     MainWindow *win = data;
@@ -376,59 +381,18 @@ static void on_refresh_all(GtkMenuItem *item, gpointer data) {
     main_window_show_status(win, "새로고침 완료");
 }
 
-static void on_bookmark_add(GtkMenuItem *item, gpointer data) {
-    (void)item;
-    MainWindow *win = data;
-    gboolean left = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(item), "side")) == 0;
-    GtkWidget *panel = left ? win->left_panel : win->right_panel;
-    const char *path = file_panel_get_current_path(panel);
-    const char *name = g_path_get_basename(path);
-    if (!name || !*name) name = path;
-    if (bookmark_manager_add(win->bookmarks, path, name)) {
-        char *msg = g_strdup_printf("'%s' 즐겨찾기에 추가됨", name);
-        main_window_show_status(win, msg);
-        g_free(msg);
-    } else {
-        main_window_show_status(win, "이미 즐겨찾기에 있습니다.");
-    }
-}
-
-static void on_bookmark_navigate(GtkMenuItem *item, gpointer data) {
-    MainWindow *win = data;
-    const char *path = g_object_get_data(G_OBJECT(item), "bm-path");
-    if (path && g_file_test(path, G_FILE_TEST_IS_DIR))
-        file_panel_navigate(win->active_panel, path);
-    else {
-        char *msg = g_strdup_printf("경로를 찾을 수 없습니다: %s", path ? path : "");
-        main_window_show_status(win, msg);
-        g_free(msg);
-    }
-}
-
 static void on_show_about(GtkMenuItem *item, gpointer data) {
     (void)item;
     MainWindow *win = data;
     about_dialog_show(GTK_WINDOW(win->window));
 }
 
-static void on_bookmark_menu_show(GtkWidget *item, gpointer data) {
-    (void)item;
-    MainWindow *win = data;
-    GtkWidget *menu = g_object_get_data(G_OBJECT(item), "bookmark-submenu");
-    if (!menu) return;
-
-    GList *children = gtk_container_get_children(GTK_CONTAINER(menu));
-    for (GList *l = children; l; l = l->next) gtk_widget_destroy(GTK_WIDGET(l->data));
-    g_list_free(children);
-
-    GPtrArray *bms = bookmark_manager_get_all(win->bookmarks);
-    for (guint i = 0; i < bms->len; i++) {
-        BookmarkEntry *bm = g_ptr_array_index(bms, i);
-        GtkWidget *mi = gtk_menu_item_new_with_label(bm->name);
-        g_object_set_data(G_OBJECT(mi), "bm-path", (gpointer)bm->path);
-        g_signal_connect(mi, "activate", G_CALLBACK(on_bookmark_navigate), win);
-        gtk_menu_shell_append(GTK_MENU_SHELL(menu), mi);
-    }
+static gboolean on_info_menu_press(GtkWidget *widget, GdkEventButton *event,
+                                   gpointer data) {
+    if (event->type != GDK_BUTTON_PRESS || event->button != 1)
+        return FALSE;
+    on_show_about(GTK_MENU_ITEM(widget), data);
+    return TRUE;
 }
 
 static gboolean center_lr_paned_idle(gpointer data) {
@@ -514,6 +478,26 @@ static void on_delete_menu(GtkMenuItem *item, gpointer data) {
     file_panel_request_delete(win->active_panel);
 }
 
+static void on_archive_compress(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    MainWindow *win = data;
+    file_panel_request_compress(win->active_panel);
+}
+
+static void on_archive_extract(GtkMenuItem *item, gpointer data) {
+    (void)item;
+    MainWindow *win = data;
+    GPtrArray *paths = file_panel_get_selected_paths(win->active_panel);
+    if (paths->len == 1)
+        file_panel_request_extract(win->active_panel, g_ptr_array_index(paths, 0));
+    g_ptr_array_free(paths, TRUE);
+}
+
+static void on_archive_menu_show(GtkWidget *widget, gpointer data) {
+    (void)widget;
+    update_archive_menu_state(data);
+}
+
 static gboolean on_key_press(GtkWidget *w, GdkEventKey *event, gpointer data) {
     (void)w;
     MainWindow *win = data;
@@ -546,7 +530,6 @@ MainWindow *main_window_new(GtkApplication *app) {
     file_ops_conflict_bind_main_thread();
 
     MainWindow *win = g_new0(MainWindow, 1);
-    win->bookmarks = bookmark_manager_new();
     win->session = session_settings_new();
     session_settings_load(win->session);
 
@@ -562,23 +545,23 @@ MainWindow *main_window_new(GtkApplication *app) {
     GtkWidget *menubar = gtk_menu_bar_new();
 
     GtkWidget *file_menu = gtk_menu_new();
-    GtkWidget *file_item = gtk_menu_item_new_with_mnemonic("파일(_F)");
+    GtkWidget *file_item = ui_menu_item_new_mnemonic("파일(_F)", "folder", "gtk-directory");
     gtk_menu_item_set_submenu(GTK_MENU_ITEM(file_item), file_menu);
-    GtkWidget *new_folder = gtk_menu_item_new_with_label("새 폴더");
-    GtkWidget *new_file = gtk_menu_item_new_with_label("새 파일");
-    GtkWidget *quit = gtk_menu_item_new_with_label("종료");
+    GtkWidget *new_folder = ui_menu_item_new("새 폴더", "folder-new", "gtk-directory");
+    GtkWidget *new_file = ui_menu_item_new("새 파일", "document-new", "gtk-new");
+    GtkWidget *quit = ui_menu_item_new("종료", "application-exit", "gtk-quit");
     gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), new_folder);
     gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), new_file);
     gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), gtk_separator_menu_item_new());
     gtk_menu_shell_append(GTK_MENU_SHELL(file_menu), quit);
 
     GtkWidget *edit_menu = gtk_menu_new();
-    GtkWidget *edit_item = gtk_menu_item_new_with_mnemonic("편집(_E)");
+    GtkWidget *edit_item = ui_menu_item_new_mnemonic("편집(_E)", "gtk-edit", "gtk-edit");
     gtk_menu_item_set_submenu(GTK_MENU_ITEM(edit_item), edit_menu);
-    GtkWidget *copy_item = gtk_menu_item_new_with_label("→ 복사 (F5)");
-    GtkWidget *move_item = gtk_menu_item_new_with_label("→ 이동 (F6)");
-    GtkWidget *rename_item = gtk_menu_item_new_with_label("이름 바꾸기 (F2)");
-    GtkWidget *delete_item = gtk_menu_item_new_with_label("삭제 (F8)");
+    GtkWidget *copy_item = ui_menu_item_new("→ 복사 (F5)", "edit-copy", "gtk-copy");
+    GtkWidget *move_item = ui_menu_item_new("→ 이동 (F6)", "go-next", "gtk-go-forward");
+    GtkWidget *rename_item = ui_menu_item_new("이름 바꾸기 (F2)", "gtk-edit", "gtk-edit");
+    GtkWidget *delete_item = ui_menu_item_new("삭제 (F8)", "edit-delete", "gtk-delete");
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), copy_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), move_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), gtk_separator_menu_item_new());
@@ -586,40 +569,43 @@ MainWindow *main_window_new(GtkApplication *app) {
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), delete_item);
 
     GtkWidget *view_menu = gtk_menu_new();
-    GtkWidget *view_item = gtk_menu_item_new_with_mnemonic("보기(_V)");
+    GtkWidget *view_item = ui_menu_item_new_mnemonic("보기(_V)", "view-grid", "gtk-select-all");
     gtk_menu_item_set_submenu(GTK_MENU_ITEM(view_item), view_menu);
-    GtkWidget *preview_check = gtk_check_menu_item_new_with_label("미리보기 패널 표시");
-    GtkWidget *refresh_item = gtk_menu_item_new_with_label("새로고침");
-    GtkWidget *search_item = gtk_menu_item_new_with_label("검색 (F9)");
-    gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), preview_check);
+    GtkWidget *refresh_item = ui_menu_item_new("새로고침", "view-refresh", "gtk-refresh");
+    GtkWidget *search_item = ui_menu_item_new("검색 (F9)", "system-search", "gtk-find");
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), refresh_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), search_item);
 
-    GtkWidget *bm_menu = gtk_menu_new();
-    GtkWidget *bm_item = gtk_menu_item_new_with_mnemonic("즐겨찾기(_B)");
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(bm_item), bm_menu);
-    GtkWidget *bm_add_left = gtk_menu_item_new_with_label("현재 폴더 추가 (왼쪽)");
-    GtkWidget *bm_add_right = gtk_menu_item_new_with_label("현재 폴더 추가 (오른쪽)");
-    GtkWidget *bm_list_menu = gtk_menu_new();
-    GtkWidget *bm_list_item = gtk_menu_item_new_with_label("즐겨찾기 목록");
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(bm_list_item), bm_list_menu);
-    gtk_menu_shell_append(GTK_MENU_SHELL(bm_menu), bm_add_left);
-    gtk_menu_shell_append(GTK_MENU_SHELL(bm_menu), bm_add_right);
-    gtk_menu_shell_append(GTK_MENU_SHELL(bm_menu), gtk_separator_menu_item_new());
-    gtk_menu_shell_append(GTK_MENU_SHELL(bm_menu), bm_list_item);
+    GtkWidget *archive_menu = gtk_menu_new();
+    GtkWidget *archive_item = ui_menu_item_new_mnemonic(
+        "압축(_C)", "package-x-generic", "gtk-add");
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(archive_item), archive_menu);
+    win->archive_compress_item = ui_menu_item_new(
+        "압축", "package-x-generic", "gtk-add");
+    win->archive_extract_item = ui_menu_item_new(
+        "압축 해제", "folder-download", "gtk-open");
+    gtk_menu_shell_append(GTK_MENU_SHELL(archive_menu), win->archive_compress_item);
+    gtk_menu_shell_append(GTK_MENU_SHELL(archive_menu), win->archive_extract_item);
+    gtk_widget_set_sensitive(win->archive_compress_item, FALSE);
+    gtk_widget_set_sensitive(win->archive_extract_item, FALSE);
 
-    GtkWidget *info_menu = gtk_menu_new();
-    GtkWidget *info_item = gtk_menu_item_new_with_mnemonic("Info(_I)");
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(info_item), info_menu);
-    GtkWidget *about_item = gtk_menu_item_new_with_label("프로그램 정보");
-    gtk_menu_shell_append(GTK_MENU_SHELL(info_menu), about_item);
+    GtkWidget *info_item = ui_menu_item_new_mnemonic(
+        "정보(_I)", "help-about", "gtk-about");
+    gtk_menu_item_set_reserve_indicator(GTK_MENU_ITEM(info_item), FALSE);
 
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), file_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), edit_item);
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), view_item);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menubar), bm_item);
-    gtk_menu_shell_append(GTK_MENU_SHELL(menubar), info_item);
-    gtk_box_pack_start(GTK_BOX(vbox), menubar, FALSE, FALSE, 0);
+    gtk_menu_shell_append(GTK_MENU_SHELL(menubar), archive_item);
+
+    GtkWidget *menubar_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_box_pack_start(GTK_BOX(menubar_box), menubar, TRUE, TRUE, 0);
+
+    GtkWidget *menubar_right = gtk_menu_bar_new();
+    gtk_menu_shell_append(GTK_MENU_SHELL(menubar_right), info_item);
+    gtk_box_pack_end(GTK_BOX(menubar_box), menubar_right, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(vbox), menubar_box, FALSE, FALSE, 0);
 
     GtkWidget *toolbar = gtk_toolbar_new();
     GtkToolbar *tb = GTK_TOOLBAR(toolbar);
@@ -640,7 +626,6 @@ MainWindow *main_window_new(GtkApplication *app) {
                        G_CALLBACK(on_search_clicked), win);
     gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 0);
 
-    win->main_paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
     win->lr_paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
     win->lr_paned_last_width = -1;
     style_lr_paned(win->lr_paned);
@@ -649,18 +634,13 @@ MainWindow *main_window_new(GtkApplication *app) {
 
     win->left_panel = file_panel_new(FILE_PANEL_LEFT, win);
     win->right_panel = file_panel_new(FILE_PANEL_RIGHT, win);
-    win->active_panel = win->left_panel;
+    update_active_panel(win, win->left_panel);
 
     gtk_paned_add1(GTK_PANED(win->lr_paned), win->left_panel);
     gtk_paned_add2(GTK_PANED(win->lr_paned), win->right_panel);
     gtk_paned_set_position(GTK_PANED(win->lr_paned), 640);
 
-    win->preview_panel = preview_panel_new();
-    gtk_widget_hide(win->preview_panel);
-
-    gtk_paned_add1(GTK_PANED(win->main_paned), win->lr_paned);
-    gtk_paned_add2(GTK_PANED(win->main_paned), win->preview_panel);
-    gtk_box_pack_start(GTK_BOX(vbox), win->main_paned, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(vbox), win->lr_paned, TRUE, TRUE, 0);
 
     GtkWidget *status_bar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
     win->status_label = gtk_label_new(APP_DISPLAY_NAME " 준비 완료");
@@ -676,12 +656,14 @@ MainWindow *main_window_new(GtkApplication *app) {
 
     file_panel_connect_focus(win->left_panel, on_left_focus, win);
     file_panel_connect_focus(win->right_panel, on_right_focus, win);
-    file_panel_connect_selection_changed(win->left_panel, on_selection_changed, win);
-    file_panel_connect_selection_changed(win->right_panel, on_selection_changed, win);
     file_panel_connect_copy_to_other(win->left_panel, on_left_copy, win);
     file_panel_connect_move_to_other(win->left_panel, on_left_move, win);
     file_panel_connect_copy_to_other(win->right_panel, on_right_copy, win);
     file_panel_connect_move_to_other(win->right_panel, on_right_move, win);
+    file_panel_connect_selection_changed(win->left_panel,
+                                         on_panel_selection_changed, win);
+    file_panel_connect_selection_changed(win->right_panel,
+                                         on_panel_selection_changed, win);
 
     g_signal_connect(new_folder, "activate", G_CALLBACK(on_new_folder_menu), win);
     g_signal_connect(new_file, "activate", G_CALLBACK(on_new_file_menu), win);
@@ -690,24 +672,21 @@ MainWindow *main_window_new(GtkApplication *app) {
     g_signal_connect(move_item, "activate", G_CALLBACK(on_move_active), win);
     g_signal_connect(rename_item, "activate", G_CALLBACK(on_rename_menu), win);
     g_signal_connect(delete_item, "activate", G_CALLBACK(on_delete_menu), win);
-    g_signal_connect(GTK_CHECK_MENU_ITEM(preview_check), "activate",
-                     G_CALLBACK(on_toggle_preview), win);
     g_signal_connect(refresh_item, "activate", G_CALLBACK(on_refresh_all), win);
     g_signal_connect(search_item, "activate", G_CALLBACK(on_search_clicked), win);
-    g_signal_connect(about_item, "activate", G_CALLBACK(on_show_about), win);
-
-    g_object_set_data(G_OBJECT(bm_add_left), "side", GINT_TO_POINTER(0));
-    g_object_set_data(G_OBJECT(bm_add_right), "side", GINT_TO_POINTER(1));
-    g_signal_connect(bm_add_left, "activate", G_CALLBACK(on_bookmark_add), win);
-    g_signal_connect(bm_add_right, "activate", G_CALLBACK(on_bookmark_add), win);
-    g_object_set_data(G_OBJECT(bm_list_item), "bookmark-submenu", bm_list_menu);
-    g_signal_connect(bm_item, "select", G_CALLBACK(on_bookmark_menu_show), win);
+    g_signal_connect(win->archive_compress_item, "activate",
+                     G_CALLBACK(on_archive_compress), win);
+    g_signal_connect(win->archive_extract_item, "activate",
+                     G_CALLBACK(on_archive_extract), win);
+    g_signal_connect(archive_menu, "show", G_CALLBACK(on_archive_menu_show), win);
+    g_signal_connect(info_item, "activate", G_CALLBACK(on_show_about), win);
+    g_signal_connect(info_item, "button-press-event",
+                     G_CALLBACK(on_info_menu_press), win);
 
     g_signal_connect(win->window, "delete-event", G_CALLBACK(on_window_delete), win);
     g_signal_connect(win->window, "key-press-event", G_CALLBACK(on_key_press), win);
 
     gtk_widget_show_all(win->window);
-    gtk_widget_hide(win->preview_panel);
     g_idle_add(startup_load_panels_idle, win);
     return win;
 }

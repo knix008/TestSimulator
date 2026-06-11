@@ -188,3 +188,70 @@ void progress_dialog_ops_report(ProgressDialogOpsCtx *ctx, const char *path) {
 void progress_dialog_ops_callback(const char *path, gpointer user_data) {
     progress_dialog_ops_report((ProgressDialogOpsCtx *)user_data, path);
 }
+
+static gboolean progress_dialog_thread_idle(gpointer user_data) {
+    ProgressDialogThreadCtx *ctx = user_data;
+    gchar *detail = NULL;
+
+    g_mutex_lock(&ctx->lock);
+    ctx->idle_id = 0;
+    detail = g_steal_pointer(&ctx->pending_path);
+    g_mutex_unlock(&ctx->lock);
+
+    if (detail) {
+        progress_dialog_ops_report(&ctx->ops, detail);
+        g_free(detail);
+    }
+    return G_SOURCE_REMOVE;
+}
+
+void progress_dialog_thread_ctx_init(ProgressDialogThreadCtx *ctx,
+                                     ProgressDialog *dlg, guint64 total) {
+    ctx->ops.dlg = dlg;
+    ctx->ops.current = 0;
+    ctx->ops.total = total;
+    ctx->pending_path = NULL;
+    ctx->idle_id = 0;
+    g_mutex_init(&ctx->lock);
+}
+
+void progress_dialog_thread_ctx_flush(ProgressDialogThreadCtx *ctx) {
+    guint idle_id = 0;
+    gchar *detail = NULL;
+
+    g_mutex_lock(&ctx->lock);
+    idle_id = ctx->idle_id;
+    ctx->idle_id = 0;
+    detail = g_steal_pointer(&ctx->pending_path);
+    g_mutex_unlock(&ctx->lock);
+
+    if (idle_id)
+        g_source_remove(idle_id);
+
+    if (detail) {
+        progress_dialog_ops_report(&ctx->ops, detail);
+        g_free(detail);
+    }
+}
+
+void progress_dialog_thread_ctx_fini(ProgressDialogThreadCtx *ctx) {
+    progress_dialog_thread_ctx_flush(ctx);
+    g_mutex_clear(&ctx->lock);
+}
+
+void progress_dialog_thread_report(ProgressDialogThreadCtx *ctx,
+                                   const char *path) {
+    if (!ctx)
+        return;
+
+    g_mutex_lock(&ctx->lock);
+    g_free(ctx->pending_path);
+    ctx->pending_path = g_strdup(path);
+    if (!ctx->idle_id)
+        ctx->idle_id = g_idle_add(progress_dialog_thread_idle, ctx);
+    g_mutex_unlock(&ctx->lock);
+}
+
+void progress_dialog_thread_callback(const char *path, gpointer user_data) {
+    progress_dialog_thread_report((ProgressDialogThreadCtx *)user_data, path);
+}

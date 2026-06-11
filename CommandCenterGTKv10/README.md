@@ -1,32 +1,46 @@
-# CommandCenterGTKv10 (FileMaster)
+# Command Center V1.0 (CommandCenterGTKv10)
 
 FileMasterWinV10를 참고하여 GTK3로 작성한 Linux / macOS용 듀얼 패널 파일 관리자입니다.
 
 ## 특징
 
-- 좌/우 듀얼 패널 파일 브라우저
+- 좌/우 듀얼 패널 파일 브라우저 (활성 패널 테두리 표시)
 - 패널 간 복사(F5) / 이동(F6)
-- 폴더 트리 드롭다운, 빠른 경로(홈, /, /tmp, 마운트)
-- 파일 미리보기 (이미지, 텍스트, 메타정보)
-- 즐겨찾기 (JSON 저장)
+- 폴더 트리, 경로 빵부스러기(breadcrumb), 홈 버튼
+- 빠른 경로(홈, /, /tmp, 마운트)
+- 압축 / 압축 해제 (`.tar.gz`, `.tar.bz2`, `.zip`)
+- 분할 압축 (기본 10MB, ZIP은 `.zip` + `.z01`… 형식)
 - 세션 복원 (마지막 경로, 분할 위치)
 - 재귀 파일 검색 (F9)
-- 새 폴더/파일, 이름 바꾸기(F2), 삭제(F8)
+- 새 폴더/파일, 이름 바꾸기(F2), 삭제(F8), 휴지통으로 이동
 - 클립보드 복사/붙여넣기 (URI 목록)
+- 파일 더블클릭 시 기본 앱 실행 (분할 압축은 압축 해제)
+- 메뉴·컨텍스트 메뉴 아이콘
 - 한국어 UI
+
+## 메뉴바
+
+| 메뉴 | 항목 |
+|------|------|
+| **파일** | 새 폴더, 새 파일, 종료 |
+| **편집** | 복사, 이동, 이름 바꾸기, 삭제 |
+| **보기** | 새로고침, 검색 |
+| **압축** | 압축, 압축 해제 (활성 패널 선택에 따라 활성/비활성) |
+| **정보** | 프로그램 정보 |
 
 ## 의존성
 
 ### Linux
 
 - GTK 3.x (`libgtk-3-dev`)
+- libarchive (`libarchive-dev`)
 - pkg-config, GCC
 - GLib/GIO (GTK와 함께 설치)
 
 ### macOS
 
 - [Homebrew](https://brew.sh)
-- `gtk+3`, `pkg-config` (`make install-deps` 또는 `brew install gtk+3`)
+- `gtk+3`, `libarchive`, `pkg-config` (`make install-deps` 또는 `brew install gtk+3 libarchive`)
 
 ## 빌드
 
@@ -91,7 +105,7 @@ make install DESTDIR=/tmp/stage PREFIX=/usr
 ## macOS 빌드·설치
 
 ```sh
-# Homebrew + GTK3
+# Homebrew + GTK3 + libarchive
 make install-deps
 make
 ./commandcenter
@@ -105,12 +119,27 @@ macOS에서는 Linux용 `.desktop` 메뉴 항목을 설치하지 않습니다. �
 
 GTK3(Homebrew) 최초 실행 시 테마/폰트 경고가 나올 수 있습니다. `brew install gtk+3` 후 터미널에서 실행하는 것을 권장합니다.
 
+## 분할 압축
+
+| 형식 | 파일 이름 예 |
+|------|----------------|
+| ZIP | `이름.zip`, `이름.z01`, `이름.z02`, … |
+| tar.gz | `이름.tgz`, `이름.tgz.001`, `이름.tgz.002`, … |
+| tar.bz2 | `이름.tbz2`, `이름.tbz2.001`, … |
+
+분할 압축 파일을 더블클릭하거나 **압축 → 압축 해제**를 선택하면 조각을 자동으로 합쳐 해제합니다.
+
+외부 프로그램에서 열려면 조각을 합친 뒤 사용하세요:
+
+```sh
+cat 이름.zip 이름.z01 이름.z02 > 이름-full.zip
+```
+
 ## 설정 파일
 
 `~/.config/CommandCenterGTKv10/`
 
 - `session.json` — 좌/우 패널 경로, 분할 위치
-- `bookmarks.json` — 즐겨찾기 목록
 
 ## 단축키
 

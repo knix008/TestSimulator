@@ -5,9 +5,9 @@
 #include <gio/gio.h>
 
 typedef enum {
-    ARCHIVE_FORMAT_TAR_GZ,
-    ARCHIVE_FORMAT_TAR_BZ2,
-    ARCHIVE_FORMAT_ZIP,
+    CC_ARCHIVE_FMT_TAR_GZ,
+    CC_ARCHIVE_FMT_TAR_BZ2,
+    CC_ARCHIVE_FMT_ZIP,
 } ArchiveFormat;
 
 typedef struct {
@@ -19,8 +19,11 @@ typedef struct {
 typedef void (*ArchiveProgressFn)(const char *filename, gpointer user_data);
 
 const char *archive_format_ext(ArchiveFormat fmt);
+const char *archive_format_ext_split(ArchiveFormat fmt);
+const char *archive_format_ext_for(const ArchiveCreateOpts *opts);
 gboolean    archive_is_archive(const char *path);
 gboolean    archive_is_split_part(const char *path, char **base_out);
+gboolean    archive_split_detect(const char *path, char **base_out);
 
 gboolean archive_create(GPtrArray         *src_paths,
                         const char        *dest_base,

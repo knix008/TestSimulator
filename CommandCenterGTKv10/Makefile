@@ -44,15 +44,14 @@ SRCS := $(SRCDIR)/main.c \
         $(SRCDIR)/main_window.c \
         $(SRCDIR)/file_panel.c \
         $(SRCDIR)/folder_tree_panel.c \
-        $(SRCDIR)/preview_panel.c \
         $(SRCDIR)/file_entry.c \
         $(SRCDIR)/file_ops.c \
         $(SRCDIR)/file_ops_conflict.c \
         $(SRCDIR)/json_util.c \
-        $(SRCDIR)/bookmark_manager.c \
         $(SRCDIR)/session_settings.c \
         $(SRCDIR)/input_dialog.c \
         $(SRCDIR)/progress_dialog.c \
+        $(SRCDIR)/ui_menu.c \
         $(SRCDIR)/search_dialog.c \
         $(SRCDIR)/archive_ops.c \
         $(SRCDIR)/compress_dialog.c

@@ -460,6 +460,26 @@ gboolean file_ops_delete_files(GPtrArray *paths,
     return TRUE;
 }
 
+gboolean file_ops_trash_files(GPtrArray *paths,
+                              FileOpsProgressFn progress_fn,
+                              gpointer progress_data,
+                              GCancellable *cancellable,
+                              GError **error) {
+    FileOpsProgressCtx progress = { progress_fn, progress_data, cancellable };
+    for (guint i = 0; i < paths->len; i++) {
+        if (ops_cancelled(&progress, error))
+            return FALSE;
+        const char *path = g_ptr_array_index(paths, i);
+        report_progress(&progress, path);
+        GFile *file = g_file_new_for_path(path);
+        gboolean ok = g_file_trash(file, cancellable, error);
+        g_object_unref(file);
+        if (!ok)
+            return FALSE;
+    }
+    return TRUE;
+}
+
 static gboolean str_contains_ci(const char *haystack, const char *needle) {
     if (!needle || !*needle)
         return TRUE;
