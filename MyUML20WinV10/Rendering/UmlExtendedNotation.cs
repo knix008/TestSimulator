@@ -104,12 +104,22 @@ public static class UmlExtendedNotation
 
     public static void DrawTableIconLines(Graphics g, RectangleF bounds, Pen pen)
     {
-        var y = bounds.Top + 36f;
-        for (var i = 0; i < 3; i++)
+        // Header separator at ~30% height, then 2 more rows spaced proportionally
+        var headerH = bounds.Height * 0.30f;
+        var headerY = bounds.Top + headerH;
+        var rowH = (bounds.Height - headerH) / 3f;
+        var padX = bounds.Width * 0.06f;
+
+        g.DrawLine(pen, bounds.Left + padX, headerY, bounds.Right - padX, headerY);
+        for (var i = 1; i <= 2; i++)
         {
-            g.DrawLine(pen, bounds.Left + 8f, y, bounds.Right - 8f, y);
-            y += 14f;
+            var y = headerY + rowH * i;
+            g.DrawLine(pen, bounds.Left + padX, y, bounds.Right - padX, y);
         }
+
+        // Column divider
+        var colX = bounds.Left + bounds.Width * 0.45f;
+        g.DrawLine(pen, colX, headerY, colX, bounds.Bottom - padX);
     }
 
     public static void DrawClassNestingGeometry(

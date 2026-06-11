@@ -360,6 +360,13 @@ public sealed class UmlCanvas : Control
     {
         if (HasMultiSelection)
         {
+            // Delete explicitly selected edges first
+            foreach (var edge in _multiEdges.ToList())
+            {
+                _project.RemoveElement(edge.ModelElementId);
+                ActiveDiagram.Edges.Remove(edge);
+            }
+            // Delete selected nodes and their connected edges
             foreach (var node in _multiNodes.ToList())
             {
                 var modelId = node.ModelElementId;
@@ -3098,8 +3105,10 @@ public sealed class UmlCanvas : Control
 
         var menu = new ContextMenuStrip();
 
-        // Multi-selection context menu takes priority
-        if (HasMultiSelection && (hitNode is null || _multiNodes.Contains(hitNode)))
+        // Multi-selection context menu takes priority when clicking on any selected element or empty space
+        var hitIsInMultiSelection = (hitNode is not null && _multiNodes.Contains(hitNode))
+                                  || (hitEdge is not null && _multiEdges.Contains(hitEdge));
+        if (HasMultiSelection && (hitIsInMultiSelection || (hitNode is null && hitEdge is null)))
         {
             BuildMultiSelectionContextMenu(menu);
         }
@@ -3122,11 +3131,20 @@ public sealed class UmlCanvas : Control
 
     private void BuildMultiSelectionContextMenu(ContextMenuStrip menu)
     {
-        Add($"선택한 {_multiNodes.Count}개 복사", UmlIcons.Duplicate(), () =>
+        var totalCount = _multiNodes.Count + _multiEdges.Count;
+        var label = _multiEdges.Count > 0
+            ? $"선택한 도형 {_multiNodes.Count}개, 선 {_multiEdges.Count}개"
+            : $"선택한 도형 {_multiNodes.Count}개";
+
+        var header = new ToolStripMenuItem(label) { Enabled = false };
+        menu.Items.Add(header);
+        menu.Items.Add(new ToolStripSeparator());
+
+        Add($"전체 선택 항목 복사 ({totalCount}개)", UmlIcons.Duplicate(), () =>
         {
             CopySelectionToClipboard();
         });
-        Add($"선택한 {_multiNodes.Count}개 삭제", UmlIcons.Delete(), () =>
+        Add($"전체 선택 항목 삭제 ({totalCount}개)", UmlIcons.Delete(), () =>
         {
             DeleteSelection();
         });
@@ -3135,10 +3153,17 @@ public sealed class UmlCanvas : Control
         {
             SaveSelectionAsImage();
         });
-
-        void Add(string label, Bitmap image, Action action)
+        menu.Items.Add(new ToolStripSeparator());
+        Add("선택 해제", null!, () =>
         {
-            var item = new ToolStripMenuItem(label) { Image = image };
+            _multiNodes.Clear();
+            _multiEdges.Clear();
+            Invalidate();
+        });
+
+        void Add(string itemLabel, Bitmap? image, Action action)
+        {
+            var item = new ToolStripMenuItem(itemLabel) { Image = image };
             item.Click += (_, _) => action();
             menu.Items.Add(item);
         }

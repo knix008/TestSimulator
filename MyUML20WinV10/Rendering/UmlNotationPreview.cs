@@ -1060,10 +1060,43 @@ public static class UmlNotationPreview
 
     public static void DrawTable(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        DrawClass(g, area, fill, stroke);
-        using var pen = new Pen(stroke, 1.2f);
-        UmlExtendedNotation.DrawTableIconLines(g, FitSquare(area), pen);
+        var r = Shrink(area, 6f, 4f);
+        using var pen = CreatePreviewBorderPen(1.4f);
+        using var fillBrush = CreatePreviewFillBrush();
+
+        if (!UmlDiagramStyle.SilhouetteMode)
+        {
+            g.FillRectangle(fillBrush, r);
+        }
+        g.DrawRectangle(pen, r.X, r.Y, r.Width, r.Height);
+
+        // Header row separator (30% down)
+        var headerH = r.Height * 0.30f;
+        var headerY = r.Top + headerH;
+        g.DrawLine(pen, r.Left, headerY, r.Right, headerY);
+
+        // Fill header darker if not silhouette
+        if (!UmlDiagramStyle.SilhouetteMode)
+        {
+            using var headerBrush = new SolidBrush(Color.FromArgb(40, stroke));
+            g.FillRectangle(headerBrush, r.Left + 0.5f, r.Top + 0.5f, r.Width - 1f, headerH - 0.5f);
+        }
+
+        // 2 data row dividers
+        var rowH = (r.Height - headerH) / 3f;
+        for (var i = 1; i <= 2; i++)
+        {
+            var rowY = headerY + rowH * i;
+            g.DrawLine(pen, r.Left, rowY, r.Right, rowY);
+        }
+
+        // 1 column divider
+        var colX = r.Left + r.Width * 0.45f;
+        g.DrawLine(pen, colX, headerY, colX, r.Bottom);
     }
+
+    private static RectangleF Shrink(RectangleF r, float dx, float dy) =>
+        new(r.X + dx, r.Y + dy, r.Width - dx * 2f, r.Height - dy * 2f);
 
     public static void DrawTrace(Graphics g, RectangleF area, Color fill, Color stroke) =>
         DrawDependency(g, area, fill, stroke);

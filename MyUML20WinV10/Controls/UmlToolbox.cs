@@ -242,6 +242,8 @@ public sealed class UmlToolbox : UserControl
 
                     (UmlToolMode.CreateEnumeration, "Enum", UmlNotationPreview.DrawEnumeration),
 
+                    (UmlToolMode.CreateTable, "Table", UmlNotationPreview.DrawTable),
+
                     (UmlToolMode.CreatePackage, "Package", UmlNotationPreview.DrawPackage),
 
                 ]);
@@ -267,8 +269,6 @@ public sealed class UmlToolbox : UserControl
                     (UmlToolMode.CreateNaryAssociationHub, "N-ary Hub", UmlNotationPreview.DrawNaryAssociationHub),
 
                     (UmlToolMode.CreateClassNesting, "Nesting", UmlNotationPreview.DrawClassNesting),
-
-                    (UmlToolMode.CreateTable, "Table", UmlNotationPreview.DrawTable),
 
                     (UmlToolMode.CreateTrace, "Trace", UmlNotationPreview.DrawTrace),
 
