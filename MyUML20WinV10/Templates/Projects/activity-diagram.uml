@@ -1,203 +1,323 @@
 {
   "name": "Activity Diagram Template",
   "rootPackage": {
+    "stereotype": "",
     "nestedPackages": [],
     "classifiers": [],
     "actors": [],
     "useCases": [],
+    "systemBoundaries": [],
     "notes": [],
     "behaviorNodes": [
       {
         "kind": "initialNode",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Initial",
         "displayLabel": "Initial",
-        "id": "a7e29f9b-9f81-40d2-a19d-eed63af435a3"
+        "id": "95b59c23-c314-4b90-af8c-d9b9115e199c"
       },
       {
         "kind": "action",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Receive Order",
         "displayLabel": "Receive Order",
-        "id": "7b35c5af-644d-4423-9b98-5069343cf9d6"
+        "id": "a2bce0c2-11cc-4cea-bbf5-df4a0f43d9ef"
       },
       {
         "kind": "decision",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "In Stock?",
         "displayLabel": "In Stock?",
-        "id": "2ab25ab0-2961-44a2-9cd2-db97d4a75f24"
+        "id": "1c74e0aa-aa8a-4557-a4a5-92fd3a89e580"
       },
       {
         "kind": "action",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Ship Order",
         "displayLabel": "Ship Order",
-        "id": "c5a75ec4-0e06-4b83-bd9d-311ec1a20689"
+        "id": "e6b87081-9b41-43ef-838c-1bd3a683a3a8"
       },
       {
         "kind": "action",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Back Order",
         "displayLabel": "Back Order",
-        "id": "0dfa61a9-449a-475e-9d3f-d9534380c400"
+        "id": "5eeec0e3-8ad3-41ed-abb1-829f065accad"
       },
       {
         "kind": "merge",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Merge",
         "displayLabel": "Merge",
-        "id": "3afc4fc4-99c3-42ee-9270-83b7977b4267"
+        "id": "13934efd-be61-4d7e-8001-5196c6a7be08"
       },
       {
         "kind": "activityFinalNode",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Final",
         "displayLabel": "Final",
-        "id": "fe1c02b9-db69-4a60-9c60-f618bfdc90e1"
+        "id": "6fda0cc8-842a-4d6c-8373-1d78af82b4ec"
       }
     ],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
     "relationships": [
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "controlFlow",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "a7e29f9b-9f81-40d2-a19d-eed63af435a3",
-        "targetClassifierId": "7b35c5af-644d-4423-9b98-5069343cf9d6",
+        "sourceClassifierId": "95b59c23-c314-4b90-af8c-d9b9115e199c",
+        "targetClassifierId": "a2bce0c2-11cc-4cea-bbf5-df4a0f43d9ef",
         "name": "",
-        "id": "a832a1e5-5627-4a4d-8665-64fca4aedbfb",
+        "id": "7e9d46a3-1e25-41ee-99a0-6c35c9821a0f",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "controlFlow",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "7b35c5af-644d-4423-9b98-5069343cf9d6",
-        "targetClassifierId": "2ab25ab0-2961-44a2-9cd2-db97d4a75f24",
+        "sourceClassifierId": "a2bce0c2-11cc-4cea-bbf5-df4a0f43d9ef",
+        "targetClassifierId": "1c74e0aa-aa8a-4557-a4a5-92fd3a89e580",
         "name": "",
-        "id": "23f4195c-4bb8-4ff3-8b13-7085a37a6ebd",
+        "id": "2e903df9-6fd4-4fb1-b3be-9081da159b43",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "controlFlow",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "2ab25ab0-2961-44a2-9cd2-db97d4a75f24",
-        "targetClassifierId": "c5a75ec4-0e06-4b83-bd9d-311ec1a20689",
+        "sourceClassifierId": "1c74e0aa-aa8a-4557-a4a5-92fd3a89e580",
+        "targetClassifierId": "e6b87081-9b41-43ef-838c-1bd3a683a3a8",
         "name": "yes",
-        "id": "6bb16eb7-975e-41e9-b66f-ec2fbdc5f4a4",
+        "id": "d2cdd710-4cd7-4751-be2a-16bac6d83c9e",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "controlFlow",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "2ab25ab0-2961-44a2-9cd2-db97d4a75f24",
-        "targetClassifierId": "0dfa61a9-449a-475e-9d3f-d9534380c400",
+        "sourceClassifierId": "1c74e0aa-aa8a-4557-a4a5-92fd3a89e580",
+        "targetClassifierId": "5eeec0e3-8ad3-41ed-abb1-829f065accad",
         "name": "no",
-        "id": "82103f3b-0341-4e0d-b87e-ad66472b084f",
+        "id": "a613a0d0-93b4-4482-ad82-144167ec5a02",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "controlFlow",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "c5a75ec4-0e06-4b83-bd9d-311ec1a20689",
-        "targetClassifierId": "3afc4fc4-99c3-42ee-9270-83b7977b4267",
+        "sourceClassifierId": "e6b87081-9b41-43ef-838c-1bd3a683a3a8",
+        "targetClassifierId": "13934efd-be61-4d7e-8001-5196c6a7be08",
         "name": "",
-        "id": "dc6a0446-33bb-4039-89ef-b91893ad0f59",
+        "id": "92d3ea16-4da2-4475-afe1-d20af22420c0",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "controlFlow",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "0dfa61a9-449a-475e-9d3f-d9534380c400",
-        "targetClassifierId": "3afc4fc4-99c3-42ee-9270-83b7977b4267",
+        "sourceClassifierId": "5eeec0e3-8ad3-41ed-abb1-829f065accad",
+        "targetClassifierId": "13934efd-be61-4d7e-8001-5196c6a7be08",
         "name": "",
-        "id": "35d8fa0b-9181-4d6c-9b56-6490776b0347",
+        "id": "2889a49b-819e-4f58-9674-70b7107235b7",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "controlFlow",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "3afc4fc4-99c3-42ee-9270-83b7977b4267",
-        "targetClassifierId": "fe1c02b9-db69-4a60-9c60-f618bfdc90e1",
+        "sourceClassifierId": "13934efd-be61-4d7e-8001-5196c6a7be08",
+        "targetClassifierId": "6fda0cc8-842a-4d6c-8373-1d78af82b4ec",
         "name": "",
-        "id": "5688bffd-1297-41c4-9aaa-68c26a5e9f07",
+        "id": "11255a9e-2449-4666-b3c0-fef1df32f5ec",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "a7e29f9b-9f81-40d2-a19d-eed63af435a3",
+        "id": "95b59c23-c314-4b90-af8c-d9b9115e199c",
         "displayLabel": "Initial"
       },
       {
-        "id": "7b35c5af-644d-4423-9b98-5069343cf9d6",
+        "id": "a2bce0c2-11cc-4cea-bbf5-df4a0f43d9ef",
         "displayLabel": "Receive Order"
       },
       {
-        "id": "2ab25ab0-2961-44a2-9cd2-db97d4a75f24",
+        "id": "1c74e0aa-aa8a-4557-a4a5-92fd3a89e580",
         "displayLabel": "In Stock?"
       },
       {
-        "id": "c5a75ec4-0e06-4b83-bd9d-311ec1a20689",
+        "id": "e6b87081-9b41-43ef-838c-1bd3a683a3a8",
         "displayLabel": "Ship Order"
       },
       {
-        "id": "0dfa61a9-449a-475e-9d3f-d9534380c400",
+        "id": "5eeec0e3-8ad3-41ed-abb1-829f065accad",
         "displayLabel": "Back Order"
       },
       {
-        "id": "3afc4fc4-99c3-42ee-9270-83b7977b4267",
+        "id": "13934efd-be61-4d7e-8001-5196c6a7be08",
         "displayLabel": "Merge"
       },
       {
-        "id": "fe1c02b9-db69-4a60-9c60-f618bfdc90e1",
+        "id": "6fda0cc8-842a-4d6c-8373-1d78af82b4ec",
         "displayLabel": "Final"
       },
       {
-        "id": "a832a1e5-5627-4a4d-8665-64fca4aedbfb",
+        "id": "7e9d46a3-1e25-41ee-99a0-6c35c9821a0f",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "23f4195c-4bb8-4ff3-8b13-7085a37a6ebd",
+        "id": "2e903df9-6fd4-4fb1-b3be-9081da159b43",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "6bb16eb7-975e-41e9-b66f-ec2fbdc5f4a4",
+        "id": "d2cdd710-4cd7-4751-be2a-16bac6d83c9e",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "82103f3b-0341-4e0d-b87e-ad66472b084f",
+        "id": "a613a0d0-93b4-4482-ad82-144167ec5a02",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "dc6a0446-33bb-4039-89ef-b91893ad0f59",
+        "id": "92d3ea16-4da2-4475-afe1-d20af22420c0",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "35d8fa0b-9181-4d6c-9b56-6490776b0347",
+        "id": "2889a49b-819e-4f58-9674-70b7107235b7",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "5688bffd-1297-41c4-9aaa-68c26a5e9f07",
+        "id": "11255a9e-2449-4666-b3c0-fef1df32f5ec",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "ed220e8e-02e1-4f63-b4c2-cc6a343758ff"
+    "id": "2c079cce-c831-4c22-8928-baed3c0daae0"
   },
   "diagrams": [
     {
       "kind": "activityDiagram",
       "nodes": [
         {
-          "id": "2919e674-65bc-4549-97d4-c7bd4dc74b04",
-          "modelElementId": "a7e29f9b-9f81-40d2-a19d-eed63af435a3",
+          "id": "5f2b50ee-c4d4-411e-aedb-0d1bb5f621bb",
+          "modelElementId": "95b59c23-c314-4b90-af8c-d9b9115e199c",
           "presentation": "behavior",
           "x": 80,
           "y": 220,
@@ -227,8 +347,8 @@
           }
         },
         {
-          "id": "f8fdd7a4-2efe-4530-9287-d9a8ee302d55",
-          "modelElementId": "7b35c5af-644d-4423-9b98-5069343cf9d6",
+          "id": "1ea2c1d2-01a2-4070-906f-d007c3289cdd",
+          "modelElementId": "a2bce0c2-11cc-4cea-bbf5-df4a0f43d9ef",
           "presentation": "behavior",
           "x": 200,
           "y": 200,
@@ -258,8 +378,8 @@
           }
         },
         {
-          "id": "89a3b744-d26a-4e00-91cb-ea47d03340d5",
-          "modelElementId": "2ab25ab0-2961-44a2-9cd2-db97d4a75f24",
+          "id": "c329e2b1-dbaa-47af-bb24-21cd60135fbd",
+          "modelElementId": "1c74e0aa-aa8a-4557-a4a5-92fd3a89e580",
           "presentation": "behavior",
           "x": 420,
           "y": 198,
@@ -289,8 +409,8 @@
           }
         },
         {
-          "id": "8e7c9076-fa2d-46d2-aead-0dbf505c9e53",
-          "modelElementId": "c5a75ec4-0e06-4b83-bd9d-311ec1a20689",
+          "id": "58a98361-9f67-4771-953a-d8c043e41fbc",
+          "modelElementId": "e6b87081-9b41-43ef-838c-1bd3a683a3a8",
           "presentation": "behavior",
           "x": 580,
           "y": 100,
@@ -320,8 +440,8 @@
           }
         },
         {
-          "id": "785263cd-a15a-4512-9d81-8768df24a283",
-          "modelElementId": "0dfa61a9-449a-475e-9d3f-d9534380c400",
+          "id": "968fae64-b830-4493-bc32-cfdba3ba85cb",
+          "modelElementId": "5eeec0e3-8ad3-41ed-abb1-829f065accad",
           "presentation": "behavior",
           "x": 580,
           "y": 320,
@@ -351,8 +471,8 @@
           }
         },
         {
-          "id": "b0bba689-c0c0-40b2-80bc-89f62c4f9de3",
-          "modelElementId": "3afc4fc4-99c3-42ee-9270-83b7977b4267",
+          "id": "6bf52cbe-6957-4ca7-bb51-6c26052a2d46",
+          "modelElementId": "13934efd-be61-4d7e-8001-5196c6a7be08",
           "presentation": "behavior",
           "x": 800,
           "y": 198,
@@ -382,8 +502,8 @@
           }
         },
         {
-          "id": "f51aed6c-8143-4947-b9a5-0d9713cac52f",
-          "modelElementId": "fe1c02b9-db69-4a60-9c60-f618bfdc90e1",
+          "id": "00c2a3b8-bf32-4e70-9184-cb9efd8b511e",
+          "modelElementId": "6fda0cc8-842a-4d6c-8373-1d78af82b4ec",
           "presentation": "behavior",
           "x": 940,
           "y": 220,
@@ -415,93 +535,79 @@
       ],
       "edges": [
         {
-          "id": "152456b1-7358-4da4-9344-e0ab15356328",
-          "modelElementId": "a832a1e5-5627-4a4d-8665-64fca4aedbfb",
-          "sourceNodeId": "2919e674-65bc-4549-97d4-c7bd4dc74b04",
-          "targetNodeId": "f8fdd7a4-2efe-4530-9287-d9a8ee302d55",
+          "id": "a9e004c6-0d43-4745-9f0f-ecff47a84883",
+          "modelElementId": "7e9d46a3-1e25-41ee-99a0-6c35c9821a0f",
+          "sourceNodeId": "5f2b50ee-c4d4-411e-aedb-0d1bb5f621bb",
+          "targetNodeId": "1ea2c1d2-01a2-4070-906f-d007c3289cdd",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "c545af77-5da6-4a04-8c42-b04ca77994c1",
-          "modelElementId": "23f4195c-4bb8-4ff3-8b13-7085a37a6ebd",
-          "sourceNodeId": "f8fdd7a4-2efe-4530-9287-d9a8ee302d55",
-          "targetNodeId": "89a3b744-d26a-4e00-91cb-ea47d03340d5",
+          "id": "b5d8d0b0-083e-4dcf-99de-e209167ae4c4",
+          "modelElementId": "2e903df9-6fd4-4fb1-b3be-9081da159b43",
+          "sourceNodeId": "1ea2c1d2-01a2-4070-906f-d007c3289cdd",
+          "targetNodeId": "c329e2b1-dbaa-47af-bb24-21cd60135fbd",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "bc908c3b-5b35-43c1-be39-252b30fa681f",
-          "modelElementId": "6bb16eb7-975e-41e9-b66f-ec2fbdc5f4a4",
-          "sourceNodeId": "89a3b744-d26a-4e00-91cb-ea47d03340d5",
-          "targetNodeId": "8e7c9076-fa2d-46d2-aead-0dbf505c9e53",
+          "id": "17abfb22-1335-44f6-bfd1-87ae5eaf2ee2",
+          "modelElementId": "d2cdd710-4cd7-4751-be2a-16bac6d83c9e",
+          "sourceNodeId": "c329e2b1-dbaa-47af-bb24-21cd60135fbd",
+          "targetNodeId": "58a98361-9f67-4771-953a-d8c043e41fbc",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "3706f4d4-000b-4109-9bd0-9fd168ead141",
-          "modelElementId": "82103f3b-0341-4e0d-b87e-ad66472b084f",
-          "sourceNodeId": "89a3b744-d26a-4e00-91cb-ea47d03340d5",
-          "targetNodeId": "785263cd-a15a-4512-9d81-8768df24a283",
+          "id": "1bf0ae39-4cad-461d-b176-90e71d1804b5",
+          "modelElementId": "a613a0d0-93b4-4482-ad82-144167ec5a02",
+          "sourceNodeId": "c329e2b1-dbaa-47af-bb24-21cd60135fbd",
+          "targetNodeId": "968fae64-b830-4493-bc32-cfdba3ba85cb",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "62c337b0-17b2-41d9-a443-27e8c7a880b3",
-          "modelElementId": "dc6a0446-33bb-4039-89ef-b91893ad0f59",
-          "sourceNodeId": "8e7c9076-fa2d-46d2-aead-0dbf505c9e53",
-          "targetNodeId": "b0bba689-c0c0-40b2-80bc-89f62c4f9de3",
+          "id": "e879ec96-2922-4168-9a43-c0054d940f40",
+          "modelElementId": "92d3ea16-4da2-4475-afe1-d20af22420c0",
+          "sourceNodeId": "58a98361-9f67-4771-953a-d8c043e41fbc",
+          "targetNodeId": "6bf52cbe-6957-4ca7-bb51-6c26052a2d46",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "2024557f-dac7-42ea-bec9-7c38d43f28ea",
-          "modelElementId": "35d8fa0b-9181-4d6c-9b56-6490776b0347",
-          "sourceNodeId": "785263cd-a15a-4512-9d81-8768df24a283",
-          "targetNodeId": "b0bba689-c0c0-40b2-80bc-89f62c4f9de3",
+          "id": "6bc98267-8343-47f4-b62e-cab213fdb2bf",
+          "modelElementId": "2889a49b-819e-4f58-9674-70b7107235b7",
+          "sourceNodeId": "968fae64-b830-4493-bc32-cfdba3ba85cb",
+          "targetNodeId": "6bf52cbe-6957-4ca7-bb51-6c26052a2d46",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "04b69253-ead9-4264-99c8-7cc394a90f5b",
-          "modelElementId": "5688bffd-1297-41c4-9aaa-68c26a5e9f07",
-          "sourceNodeId": "b0bba689-c0c0-40b2-80bc-89f62c4f9de3",
-          "targetNodeId": "f51aed6c-8143-4947-b9a5-0d9713cac52f",
+          "id": "88e05d16-f105-4c2b-b91c-897294b9fc42",
+          "modelElementId": "11255a9e-2449-4666-b3c0-fef1df32f5ec",
+          "sourceNodeId": "6bf52cbe-6957-4ca7-bb51-6c26052a2d46",
+          "targetNodeId": "00c2a3b8-bf32-4e70-9184-cb9efd8b511e",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         }
       ],
       "name": "Activity Diagram",
       "displayLabel": "Activity Diagram",
-      "id": "2530d096-d9ef-430f-8097-061ecabd0abc"
+      "id": "df86f085-45ad-40c3-bcd7-5ce0445bd948"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

@@ -36,13 +36,14 @@ public static class UmlDiagramRenderer
             foreach (var node in diagram.Nodes.Where(n =>
                          n.Presentation == UmlNodePresentation.Behavior
                          && project.FindElement(n.ModelElementId) is UmlBehaviorNode { Kind: UmlBehaviorNodeKind.CombinedFragment }))
-                DrawNode(g, project, node, node == selectedNode);
+                DrawNode(g, project, node, node == selectedNode, diagram);
 
             foreach (var node in diagram.Nodes.Where(n =>
                          n.Presentation != UmlNodePresentation.Behavior
                          || project.FindElement(n.ModelElementId) is not UmlBehaviorNode { Kind: UmlBehaviorNodeKind.CombinedFragment }))
-                DrawNode(g, project, node, node == selectedNode);
+                DrawNode(g, project, node, node == selectedNode, diagram);
 
+            DrawLifelineDecompositionLinks(g, project, diagram);
             DrawSequenceActivations(g, project, diagram);
 
             foreach (var edge in diagram.Edges)
@@ -55,25 +56,22 @@ public static class UmlDiagramRenderer
         {
             var edgeLines = BuildEdgeLines(project, diagram);
             var crossingsMap = UmlEdgeRouting.ComputeCrossings(edgeLines);
+            var packageOverlayLines = edgeLines
+                .Where(line => EdgeConnectsToPackageInterior(project, diagram, line.Edge))
+                .ToList();
+            var underlayLines = edgeLines
+                .Where(line => !EdgeConnectsToPackageInterior(project, diagram, line.Edge))
+                .ToList();
 
-            foreach (var line in edgeLines)
-            {
-                crossingsMap.TryGetValue(line.Edge.Id, out var crossings);
-                DrawEdge(g, project, diagram, line.Edge, line.Edge == selectedEdge, crossings ?? [], drawGeometry: true, drawLabels: false);
-            }
+            DrawEdgeGeometry(g, project, diagram, underlayLines, selectedEdge, crossingsMap);
 
-            if (diagram.Kind is UmlDiagramKind.UseCaseDiagram or UmlDiagramKind.ClassDiagram)
-            {
-                foreach (var node in diagram.Nodes.Where(n => UmlNodeSilhouette.IsContainerPresentation(n.Presentation)))
-                    DrawNode(g, project, node, node == selectedNode);
-                foreach (var node in diagram.Nodes.Where(n => !UmlNodeSilhouette.IsContainerPresentation(n.Presentation)))
-                    DrawNode(g, project, node, node == selectedNode);
-            }
-            else
-            {
-                foreach (var node in diagram.Nodes)
-                    DrawNode(g, project, node, node == selectedNode);
-            }
+            foreach (var node in diagram.Nodes.Where(n => UmlNodeSilhouette.IsContainerPresentation(n.Presentation)))
+                DrawNode(g, project, node, node == selectedNode, diagram);
+
+            DrawEdgeGeometry(g, project, diagram, packageOverlayLines, selectedEdge, crossingsMap);
+
+            foreach (var node in diagram.Nodes.Where(n => !UmlNodeSilhouette.IsContainerPresentation(n.Presentation)))
+                DrawNode(g, project, node, node == selectedNode, diagram);
 
             foreach (var line in edgeLines)
             {
@@ -134,7 +132,21 @@ public static class UmlDiagramRenderer
                 UmlNodePresentation.UseCase => Math.Max(node.Height, 56),
                 UmlNodePresentation.SystemBoundary => Math.Max(node.Height, 120),
                 UmlNodePresentation.Note => Math.Max(node.Height, 60),
-                UmlNodePresentation.Package => Math.Max(node.Height, 120),
+                UmlNodePresentation.Package => UmlPackageNotation.MeasureHeight(
+                    project.FindElement(node.ModelElementId) as UmlPackage,
+                    node.ShowCompartments,
+                    node.Width,
+                    node.Height),
+                UmlNodePresentation.Component => Math.Max(node.Height, 72),
+                UmlNodePresentation.ProvidedInterface or UmlNodePresentation.RequiredInterface =>
+                    Math.Max(node.Height, UmlComponentNotation.MinInterfaceHeight),
+                UmlNodePresentation.Port => Math.Max(node.Height, 16),
+                UmlNodePresentation.ObjectInstance =>
+                    UmlObjectNotation.MeasureHeight(
+                        (project.FindElement(node.ModelElementId) as UmlObjectInstance)?.Name ?? "obj",
+                        (project.FindElement(node.ModelElementId) as UmlObjectInstance)?.TypeName ?? "Class",
+                        node.Width),
+                UmlNodePresentation.DeploymentHost or UmlNodePresentation.Artifact => Math.Max(node.Height, 56),
                 UmlNodePresentation.Behavior => MeasureBehaviorNode(project.FindElement(node.ModelElementId) as UmlBehaviorNode, node.Height),
                 _ => node.Height,
             };
@@ -147,7 +159,7 @@ public static class UmlDiagramRenderer
         return MeasureClassifier(classifier, node.ShowCompartments, node.Width).Height;
     }
 
-    public static void DrawNode(Graphics g, UmlProject project, UmlDiagramNode node, bool selected)
+    public static void DrawNode(Graphics g, UmlProject project, UmlDiagramNode node, bool selected, UmlDiagram? diagram = null)
     {
         node.Height = MeasureNodeHeight(project, node);
         // Auto-expand lifeline width to fit the header label text.
@@ -157,7 +169,7 @@ public static class UmlDiagramRenderer
             node.Width = Math.Max(node.Width, MeasureLifelineMinWidth(g, ll.Name));
         }
         var bounds = node.Bounds;
-        using var bodyPen = new Pen(selected ? Color.DodgerBlue : Color.Black, selected ? 2f : 1.5f);
+        using var bodyPen = UmlDiagramStyle.CreateBorderPen(selected);
 
         switch (node.Presentation)
         {
@@ -171,7 +183,7 @@ public static class UmlDiagramRenderer
                 DrawSystemBoundaryNode(g, project, node, bounds, bodyPen, selected);
                 return;
             case UmlNodePresentation.Package:
-                DrawPackageNode(g, project, node, bounds, bodyPen, selected);
+                DrawPackageNode(g, project, diagram, node, bounds, bodyPen, selected);
                 return;
             case UmlNodePresentation.Note:
                 DrawNoteNode(g, project, node, bounds, bodyPen, selected);
@@ -180,27 +192,52 @@ public static class UmlDiagramRenderer
                 if (project.FindElement(node.ModelElementId) is UmlBehaviorNode behaviorNode)
                     DrawBehaviorNode(g, behaviorNode, bounds, bodyPen, selected);
                 return;
+            case UmlNodePresentation.Component:
+                if (project.FindElement(node.ModelElementId) is UmlComponent component)
+                    UmlComponentNotation.DrawComponent(g, bounds, component, bodyPen);
+                return;
+            case UmlNodePresentation.ProvidedInterface:
+                if (project.FindElement(node.ModelElementId) is UmlComponentInterface provided)
+                    UmlComponentNotation.DrawProvidedInterface(g, bounds, provided.Name, bodyPen);
+                return;
+            case UmlNodePresentation.RequiredInterface:
+                if (project.FindElement(node.ModelElementId) is UmlComponentInterface required)
+                    UmlComponentNotation.DrawRequiredInterface(g, bounds, required.Name, bodyPen);
+                return;
+            case UmlNodePresentation.Port:
+                if (project.FindElement(node.ModelElementId) is UmlComponentPort port)
+                    DrawPortNode(g, bounds, port, bodyPen);
+                return;
+            case UmlNodePresentation.ObjectInstance:
+                if (project.FindElement(node.ModelElementId) is UmlObjectInstance objectInstance)
+                    UmlObjectNotation.Draw(g, bounds, objectInstance, bodyPen);
+                return;
+            case UmlNodePresentation.DeploymentHost:
+                if (project.FindElement(node.ModelElementId) is UmlDeploymentHost host)
+                    UmlDeploymentNotation.DrawHost(g, bounds, host, bodyPen);
+                return;
+            case UmlNodePresentation.Artifact:
+                if (project.FindElement(node.ModelElementId) is UmlArtifact artifact)
+                    UmlDeploymentNotation.DrawArtifact(g, bounds, artifact, bodyPen);
+                return;
         }
 
         var classifier = project.FindClassifier(node.ModelElementId);
         if (classifier is null)
             return;
-        using var textBrush = new SolidBrush(Color.Black);
+        using var textBrush = new SolidBrush(UmlDiagramStyle.TextColor);
         using var font = new Font("Segoe UI", 9f);
         using var boldFont = new Font("Segoe UI", 9f, FontStyle.Bold);
         using var italicFont = new Font("Segoe UI", 9f, FontStyle.Italic);
         using var boldItalicFont = new Font("Segoe UI", 9f, FontStyle.Bold | FontStyle.Italic);
 
-        // White fill background (prevents see-through when nodes overlap)
-        using var bgBrush = new SolidBrush(Color.White);
-        g.FillRectangle(bgBrush, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        if (classifier is UmlInterface circleInterface && circleInterface.UseCircleNotation)
+        {
+            DrawInterfaceCircleNode(g, circleInterface, bounds, bodyPen, textBrush, italicFont);
+            return;
+        }
 
-        if (classifier is UmlInterface)
-            DrawInterfaceShape(g, bounds, bodyPen);
-        else if (classifier is UmlEnumeration)
-            DrawEnumerationShape(g, bounds, bodyPen);
-        else
-            g.DrawRectangle(bodyPen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        DrawClassifierBackground(g, bounds, classifier, bodyPen);
 
         var y = bounds.Y + CompartmentPadding;
 
@@ -258,27 +295,40 @@ public static class UmlDiagramRenderer
                 y += LineHeight;
             }
         }
+
+        if (string.Equals(classifier.Stereotype, "table", StringComparison.OrdinalIgnoreCase))
+            UmlExtendedNotation.DrawTableIconLines(g, bounds, bodyPen);
     }
 
-    private static void DrawInterfaceShape(Graphics g, RectangleF bounds, Pen pen)
+    private static void DrawClassifierBackground(Graphics g, RectangleF bounds, UmlClassifier classifier, Pen pen)
+    {
+        if (classifier is UmlInterface)
+        {
+            using var path = CreateInterfacePath(bounds);
+            UmlDiagramStyle.DrawShadowPath(g, path);
+            UmlDiagramStyle.FillGradientPath(g, path, bounds);
+            g.DrawPath(pen, path);
+            return;
+        }
+
+        UmlDiagramStyle.DrawStyledRectangle(g, bounds, pen);
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath CreateInterfacePath(RectangleF bounds)
     {
         var r = 8f;
         var left = bounds.Left;
         var top = bounds.Top;
         var right = bounds.Right;
         var bottom = bounds.Bottom;
-        using var path = new System.Drawing.Drawing2D.GraphicsPath();
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
         path.AddArc(right - r * 2, top, r * 2, r * 2, 270, 90);
         path.AddArc(right - r * 2, bottom - r * 2, r * 2, r * 2, 0, 90);
         path.AddLine(right - r, bottom, left, bottom);
         path.AddLine(left, bottom, left, top);
         path.AddLine(left, top, right - r, top);
-        g.DrawPath(pen, path);
-    }
-
-    private static void DrawEnumerationShape(Graphics g, RectangleF bounds, Pen pen)
-    {
-        g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        path.CloseFigure();
+        return path;
     }
 
     private static void DrawCenteredText(Graphics g, string text, Font font, Brush brush, RectangleF bounds, ref float y)
@@ -335,9 +385,9 @@ public static class UmlDiagramRenderer
             pathPoints = UmlEdgeRouting.BuildPathPoints(project, diagram, edge, start, end, startSide, endSide);
         }
 
-        using var pen = new Pen(selected ? Color.DodgerBlue : Color.Black, selected ? 2f : 1.5f);
+        using var pen = UmlDiagramStyle.CreateEdgePen(selected);
         using var font = new Font("Segoe UI", 8f);
-        using var brush = new SolidBrush(Color.Black);
+        using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
 
         if (drawGeometry)
         {
@@ -352,6 +402,10 @@ public static class UmlDiagramRenderer
                 case UmlDependency:
                     DrawDependencyGeometry(g, pen, end, pathPoints, edge.RoutingKind, crossings);
                     break;
+                case UmlAssembly assembly:
+                    UmlComponentNotation.DrawAssemblyConnector(g, pen, start, end, pathPoints, edge.RoutingKind, crossings,
+                        sourceNode, targetNode, assembly);
+                    break;
                 case UmlInclude:
                 case UmlExtend:
                     DrawLabeledConnectorGeometry(g, pen, end, pathPoints, edge.RoutingKind, crossings);
@@ -361,6 +415,22 @@ public static class UmlDiagramRenderer
                     break;
                 case UmlNoteLink:
                     DrawNoteLink(g, pen, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlPackageRelationship packageRel:
+                    UmlPackageDiagramNotation.DrawPackageRelationshipGeometry(
+                        g, pen, start, end, pathPoints, edge.RoutingKind, packageRel, crossings);
+                    break;
+                case UmlAssociationClass:
+                    DrawAssociationClassGeometry(g, pen, start, end, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlDeploymentLink:
+                    UmlDeploymentNotation.DrawDeploymentLinkGeometry(g, pen, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlDeploymentPath:
+                    UmlDeploymentNotation.DrawDeploymentPathGeometry(g, pen, pathPoints, edge.RoutingKind, crossings);
+                    break;
+                case UmlClassNesting:
+                    UmlExtendedNotation.DrawClassNestingGeometry(g, pen, pathPoints, edge.RoutingKind, end, crossings);
                     break;
                 case UmlBehaviorConnector behaviorConnector:
                     DrawBehaviorConnectorGeometry(g, behaviorConnector, pen, end, pathPoints, edge.RoutingKind, crossings);
@@ -378,8 +448,11 @@ public static class UmlDiagramRenderer
                 case UmlInclude:
                     DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, "«include»");
                     break;
-                case UmlExtend:
-                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, "«extend»");
+                case UmlExtend extend:
+                    if (!string.IsNullOrWhiteSpace(extend.ExtensionPoint))
+                        DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, $"«extend» EP: {extend.ExtensionPoint}");
+                    else
+                        DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, "«extend»");
                     break;
                 case UmlAssociation assoc:
                     DrawAssociationLabels(g, font, brush, start, end, pathPoints, edge.RoutingKind, assoc);
@@ -387,8 +460,43 @@ public static class UmlDiagramRenderer
                 case UmlBehaviorConnector behaviorConnector:
                     DrawBehaviorConnectorLabel(g, behaviorConnector, font, brush, pathPoints, edge.RoutingKind);
                     break;
+                case UmlAssembly assembly when !string.IsNullOrWhiteSpace(assembly.InterfaceName):
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, assembly.InterfaceName!);
+                    break;
+                case UmlPackageRelationship packageRel:
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, packageRel.DisplayLabel);
+                    break;
+                case UmlAssociationClass assocClass:
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, assocClass.ClassName);
+                    break;
+                case UmlDeploymentLink deploymentLink:
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, deploymentLink.DisplayLabel);
+                    break;
+                case UmlDeploymentPath deploymentPath:
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, deploymentPath.DisplayLabel);
+                    break;
+                case UmlClassNesting:
+                    DrawConnectorLabel(g, font, brush, pathPoints, edge.RoutingKind, "«nested»");
+                    break;
             }
         }
+    }
+
+    private static void DrawAssociationClassGeometry(
+        Graphics g,
+        Pen pen,
+        PointF start,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
+    {
+        pen = new Pen(pen.Color, pen.Width);
+        UmlEdgeRouting.DrawRoutedPathSegment(g, pen, pathPoints, routingKind, crossings, trimFromEnd: 0f);
+        var mid = UmlEdgeRouting.GetPathLabelPoint(pathPoints, routingKind);
+        var box = new RectangleF(mid.X - 36f, mid.Y - 14f, 72f, 28f);
+        UmlDiagramStyle.DrawStyledRectangle(g, box, pen);
+        pen.Dispose();
     }
 
     private static void DrawNoteLink(
@@ -412,29 +520,46 @@ public static class UmlDiagramRenderer
     {
         var actor = project.FindElement(node.ModelElementId) as UmlActor;
         var name = actor?.Name ?? "Actor";
-        UmlActorGeometry.DrawStickFigure(g, pen, bounds);
-        using var brush = new SolidBrush(Color.Black);
+        using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
         using var font = new Font("Segoe UI", 8f);
-        using var format = new StringFormat
+        using var italicFont = new Font("Segoe UI", 8f, FontStyle.Italic);
+
+        if (actor?.UseRectangleNotation == true)
+        {
+            var figure = new RectangleF(bounds.Left, bounds.Top, bounds.Width, bounds.Height - 20f);
+            UmlDiagramStyle.DrawStyledRectangle(g, figure, pen);
+            g.DrawString("«actor»", italicFont, brush, figure.Left + 6f, figure.Top + 4f);
+            using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            g.DrawString(name, font, brush, figure, format);
+            return;
+        }
+
+        UmlActorGeometry.DrawStickFigure(g, pen, bounds);
+        using var labelFormat = new StringFormat
         {
             Alignment = StringAlignment.Center,
             LineAlignment = StringAlignment.Near,
             Trimming = StringTrimming.Word,
         };
-        g.DrawString(name, font, brush, UmlActorGeometry.GetLabelBounds(bounds), format);
+        g.DrawString(name, font, brush, UmlActorGeometry.GetLabelBounds(bounds), labelFormat);
     }
 
     private static void DrawUseCaseNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
     {
         var useCase = project.FindElement(node.ModelElementId) as UmlUseCase;
         var name = useCase?.Name ?? "UseCase";
-        using var bgBrush = new SolidBrush(Color.White);
-        using var brush = new SolidBrush(Color.Black);
+        using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
         using var font = new Font("Segoe UI", 9f);
-        g.FillEllipse(bgBrush, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-        g.DrawEllipse(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        using var smallFont = new Font("Segoe UI", 7.5f);
+        UmlDiagramStyle.DrawStyledEllipse(g, bounds, pen);
         var size = g.MeasureString(name, font);
-        g.DrawString(name, font, brush, bounds.Left + (bounds.Width - size.Width) / 2f, bounds.Top + (bounds.Height - size.Height) / 2f);
+        var y = bounds.Top + (bounds.Height - size.Height) / 2f;
+        g.DrawString(name, font, brush, bounds.Left + (bounds.Width - size.Width) / 2f, y);
+        if (useCase?.ExtensionPoints is { Count: > 0 } points)
+        {
+            var ep = string.Join(", ", points);
+            g.DrawString($"EP: {ep}", smallFont, brush, bounds.Left + 6f, bounds.Bottom - 16f);
+        }
     }
 
     private static void DrawSystemBoundaryNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
@@ -443,29 +568,69 @@ public static class UmlDiagramRenderer
         UmlSystemBoundaryRenderer.Draw(g, boundary?.Name, bounds, pen, selected);
     }
 
-    private static void DrawPackageNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
+    private static void DrawPackageNode(Graphics g, UmlProject project, UmlDiagram? diagram, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
     {
         var package = project.FindElement(node.ModelElementId) as UmlPackage;
-        var name = package?.Name ?? "Package";
-        var tabW = Math.Min(60, bounds.Width * 0.35f);
-        var tabH = 18f;
-        using var brush = new SolidBrush(Color.Black);
-        using var font = new Font("Segoe UI", 9f, FontStyle.Bold);
-        g.DrawRectangle(pen, bounds.X, bounds.Y + tabH, bounds.Width, bounds.Height - tabH);
-        g.DrawRectangle(pen, bounds.X, bounds.Y, tabW, tabH);
-        g.DrawString(name, font, brush, bounds.X + 6, bounds.Y + 2);
+        var nestingFrom = diagram is not null
+            ? UmlPackageDiagramNotation.GetNestingParentLabel(project, diagram, node)
+            : null;
+        UmlPackageNotation.DrawPackage(g, bounds, pen, package, node.ShowCompartments, nestingFromLabel: nestingFrom);
+    }
+
+    private static void DrawPortNode(Graphics g, RectangleF bounds, UmlComponentPort port, Pen pen)
+    {
+        var center = new PointF(bounds.Left + bounds.Width / 2f, bounds.Top + bounds.Height / 2f);
+        UmlComponentNotation.DrawPort(g, center, pen);
+        if (!string.IsNullOrWhiteSpace(port.InterfaceName))
+            UmlComponentNotation.DrawPortInterface(g, center, pen, port.InterfaceKind, port.InterfaceName);
+        if (!string.IsNullOrWhiteSpace(port.Name))
+        {
+            using var font = new Font("Segoe UI", 7.5f);
+            using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
+            g.DrawString(port.Name, font, brush, bounds.Right + 2f, bounds.Top);
+        }
+    }
+
+    private static void DrawInterfaceCircleNode(Graphics g, UmlInterface iface, RectangleF bounds, Pen pen, Brush textBrush, Font italicFont)
+    {
+        var diameter = Math.Min(bounds.Width, bounds.Height * 0.55f);
+        var circle = new RectangleF(
+            bounds.Left + (bounds.Width - diameter) / 2f,
+            bounds.Top + 4f,
+            diameter,
+            diameter);
+        UmlDiagramStyle.DrawStyledEllipse(g, circle, pen);
+        using var nameFont = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+        var nameSize = g.MeasureString(iface.Name, nameFont);
+        g.DrawString(iface.Name, nameFont, textBrush,
+            bounds.Left + (bounds.Width - nameSize.Width) / 2f,
+            circle.Bottom + 4f);
+        g.DrawString("«interface»", italicFont, textBrush,
+            bounds.Left + (bounds.Width - g.MeasureString("«interface»", italicFont).Width) / 2f,
+            bounds.Top + 2f);
+    }
+
+    private static void DrawSwimlaneNode(Graphics g, RectangleF bounds, string label, Pen pen, Brush textBrush, Font font)
+    {
+        var headerHeight = Math.Min(28f, bounds.Height * 0.12f);
+        var header = new RectangleF(bounds.X, bounds.Y, bounds.Width, headerHeight);
+        var body = new RectangleF(bounds.X, bounds.Y + headerHeight, bounds.Width, Math.Max(1f, bounds.Height - headerHeight));
+        UmlDiagramStyle.FillGradientRectangle(g, header);
+        UmlDiagramStyle.FillGradientRectangle(g, body, Color.FromArgb(255, 248, 250, 255), Color.FromArgb(255, 236, 240, 252));
+        g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        g.DrawLine(pen, bounds.Left, header.Bottom, bounds.Right, header.Bottom);
+        using var headerFont = new Font(font.FontFamily, font.Size, FontStyle.Bold);
+        DrawCenteredLabel(g, label, headerFont, textBrush, header);
     }
 
     private static void DrawNoteNode(Graphics g, UmlProject project, UmlDiagramNode node, RectangleF bounds, Pen pen, bool selected)
     {
         var note = project.FindElement(node.ModelElementId) as UmlNote;
         var text = note?.Body ?? note?.Name ?? "Note";
-        using var fill = new SolidBrush(Color.FromArgb(255, 255, 244, 180));
-        using var brush = new SolidBrush(Color.Black);
+        using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
         using var font = new Font("Segoe UI", 8f);
         var fold = 14f;
-        g.FillRectangle(fill, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-        g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        UmlDiagramStyle.DrawStyledRectangle(g, bounds, pen, UmlDiagramStyle.NoteGradientTop, UmlDiagramStyle.NoteGradientBottom);
         g.DrawLine(pen, bounds.Right - fold, bounds.Top, bounds.Right, bounds.Top + fold);
         g.DrawLine(pen, bounds.Right - fold, bounds.Top, bounds.Right - fold, bounds.Top + fold);
         g.DrawLine(pen, bounds.Right - fold, bounds.Top + fold, bounds.Right, bounds.Top + fold);
@@ -474,17 +639,23 @@ public static class UmlDiagramRenderer
 
     private static void DrawBehaviorNode(Graphics g, UmlBehaviorNode behaviorNode, RectangleF bounds, Pen pen, bool selected)
     {
+        if (UmlExtendedNotation.IsExtendedBehaviorKind(behaviorNode.Kind))
+        {
+            UmlExtendedNotation.DrawExtendedBehaviorNode(g, behaviorNode, bounds, pen, selected);
+            return;
+        }
+
         var label = string.IsNullOrWhiteSpace(behaviorNode.Name) ? behaviorNode.Kind.ToString() : behaviorNode.Name;
-        using var fillBrush = new SolidBrush(Color.White);
-        using var textBrush = new SolidBrush(Color.Black);
+        using var textBrush = new SolidBrush(UmlDiagramStyle.TextColor);
         using var font = new Font("Segoe UI", 8.5f);
 
         switch (behaviorNode.Kind)
         {
             case UmlBehaviorNodeKind.State:
             case UmlBehaviorNodeKind.Action:
-                DrawRoundedRect(g, bounds, fillBrush, pen, 12f);
+                UmlDiagramStyle.DrawStyledRoundedRect(g, bounds, pen, 12f);
                 DrawCenteredLabel(g, label, font, textBrush, bounds);
+                UmlExtendedNotation.DrawActionLocalConstraints(g, behaviorNode, bounds);
                 break;
             case UmlBehaviorNodeKind.InitialState:
             case UmlBehaviorNodeKind.InitialNode:
@@ -507,18 +678,23 @@ public static class UmlDiagramRenderer
                 break;
             }
             case UmlBehaviorNodeKind.FlowFinalNode:
-            {
-                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
-                g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
-                var inset = circle.Width * 0.26f;
-                g.DrawLine(pen, circle.X + inset, circle.Y + inset, circle.Right - inset, circle.Bottom - inset);
-                g.DrawLine(pen, circle.Right - inset, circle.Y + inset, circle.X + inset, circle.Bottom - inset);
+                UmlCircleNodeGeometry.DrawFlowFinalStyle(g, bounds, pen);
                 break;
-            }
             case UmlBehaviorNodeKind.Decision:
+                DrawStyledDiamondNode(g, bounds, pen);
+                {
+                    var size = Math.Min(bounds.Width, bounds.Height);
+                    var cx = bounds.Left + bounds.Width / 2f;
+                    var cy = bounds.Top + bounds.Height / 2f;
+                    using var qFont = new Font("Segoe UI", Math.Max(6f, size * 0.28f), FontStyle.Bold);
+                    using var qBrush = new SolidBrush(pen.Color);
+                    var qSize = g.MeasureString("?", qFont);
+                    g.DrawString("?", qFont, qBrush, cx - qSize.Width / 2f, cy - qSize.Height / 2f);
+                }
+                break;
             case UmlBehaviorNodeKind.Merge:
             case UmlBehaviorNodeKind.Choice:
-                DrawDiamondNode(g, bounds, fillBrush, pen);
+                DrawStyledDiamondNode(g, bounds, pen);
                 break;
             case UmlBehaviorNodeKind.Junction:
             {
@@ -530,8 +706,7 @@ public static class UmlDiagramRenderer
             case UmlBehaviorNodeKind.DeepHistory:
             {
                 var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
-                g.FillEllipse(fillBrush, circle.X, circle.Y, circle.Width, circle.Height);
-                g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+                UmlDiagramStyle.DrawStyledEllipse(g, circle, pen);
                 var historyLabel = behaviorNode.Kind == UmlBehaviorNodeKind.DeepHistory ? "H*" : "H";
                 using var histFont = new Font("Segoe UI", Math.Max(5f, circle.Width * 0.36f), FontStyle.Bold);
                 DrawCenteredLabel(g, historyLabel, histFont, new SolidBrush(pen.Color), circle);
@@ -549,13 +724,49 @@ public static class UmlDiagramRenderer
             case UmlBehaviorNodeKind.CombinedFragment:
                 UmlCombinedFragmentRenderer.Draw(g, behaviorNode, bounds, pen, selected);
                 return;
+            case UmlBehaviorNodeKind.ObjectNode:
+                UmlDiagramStyle.DrawStyledRectangle(g, bounds, pen);
+                DrawCenteredLabel(g, label, font, textBrush, bounds);
+                return;
+            case UmlBehaviorNodeKind.Swimlane:
+                DrawSwimlaneNode(g, bounds, label, pen, textBrush, font);
+                return;
             case UmlBehaviorNodeKind.Lifeline:
-                DrawLifelineNode(g, bounds, fillBrush, pen, label);
+                DrawLifelineNode(g, bounds, pen, behaviorNode, label);
+                return;
+            case UmlBehaviorNodeKind.SequenceEndpoint:
+                DrawSequenceEndpointNode(g, bounds, pen, label);
+                return;
+            case UmlBehaviorNodeKind.Gate:
+                DrawGateNode(g, bounds, pen, label);
+                return;
+            case UmlBehaviorNodeKind.ExpansionRegion:
+                UmlActivityRegionRenderer.DrawExpansionRegion(g, behaviorNode, bounds, pen, selected);
+                return;
+            case UmlBehaviorNodeKind.InterruptibleRegion:
+                UmlActivityRegionRenderer.DrawInterruptibleRegion(g, behaviorNode, bounds, pen, selected);
                 return;
         }
 
-        if (behaviorNode.Kind is UmlBehaviorNodeKind.State or UmlBehaviorNodeKind.Action)
-            DrawCenteredLabel(g, label, font, textBrush, bounds);
+    }
+
+    private static void DrawSequenceEndpointNode(Graphics g, RectangleF bounds, Pen pen, string label)
+    {
+        var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+        UmlDiagramStyle.DrawStyledEllipse(g, circle, pen);
+        using var font = new Font("Segoe UI", 7.5f);
+        using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
+        DrawCenteredLabel(g, label, font, brush, circle);
+    }
+
+    private static void DrawGateNode(Graphics g, RectangleF bounds, Pen pen, string label)
+    {
+        var inset = Math.Min(bounds.Width, bounds.Height) * 0.2f;
+        var inner = new RectangleF(bounds.X + inset, bounds.Y + inset, bounds.Width - inset * 2f, bounds.Height - inset * 2f);
+        UmlDiagramStyle.DrawStyledRectangle(g, inner, pen);
+        using var font = new Font("Segoe UI", 7.5f, FontStyle.Italic);
+        using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
+        DrawCenteredLabel(g, label, font, brush, bounds);
     }
 
     private static void DrawSequenceMessage(
@@ -578,6 +789,12 @@ public static class UmlDiagramRenderer
         if (messageKind is UmlMessageKind.Return or UmlMessageKind.Create)
             pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
 
+        if (messageKind is UmlMessageKind.Lost or UmlMessageKind.Found)
+        {
+            DrawLostFoundMessage(g, project, diagram, edge, connector, messageKind, messageY, pen, font, brush, drawGeometry, drawLabels);
+            return;
+        }
+
         if (messageKind == UmlMessageKind.SelfCall || edge.SourceNodeId == edge.TargetNodeId)
         {
             DrawSelfMessage(g, diagram, edge, messageY, pen, brush, font, connector.Name, drawGeometry, drawLabels);
@@ -585,9 +802,20 @@ public static class UmlDiagramRenderer
         }
 
         var (start, end) = UmlSequenceLayout.GetMessageEndpoints(diagram, edge, messageY);
+        var durationSlope = GetDurationSlopePixels(connector);
+        var hasDuration = durationSlope > 0f;
+        if (hasDuration && drawGeometry)
+        {
+            var slopeEnd = new PointF(end.X, end.Y + durationSlope);
+            g.DrawLine(pen, start, slopeEnd);
+            DrawDurationTicks(g, pen, start, slopeEnd);
+            end = slopeEnd;
+        }
+
         if (drawGeometry)
         {
-            g.DrawLine(pen, start, end);
+            if (!hasDuration)
+                g.DrawLine(pen, start, end);
             switch (messageKind)
             {
                 case UmlMessageKind.Asynchronous:
@@ -616,7 +844,144 @@ public static class UmlDiagramRenderer
                 ? "«create»"
                 : connector.Name;
             DrawMessageLabel(g, displayName, start, end, font, brush);
+            var durationLabel = FormatDurationConstraint(connector);
+            if (!string.IsNullOrWhiteSpace(durationLabel))
+            {
+                var constraintPoint = new PointF((start.X + end.X) / 2f + 8f, (start.Y + end.Y) / 2f);
+                DrawEdgeLabel(g, font, brush, constraintPoint, $"{{{durationLabel}}}");
+            }
         }
+    }
+
+    private static float GetDurationSlopePixels(UmlBehaviorConnector connector)
+    {
+        if (!string.IsNullOrWhiteSpace(connector.DurationMin) || !string.IsNullOrWhiteSpace(connector.DurationMax))
+        {
+            var min = TryParseDurationValue(connector.DurationMin);
+            var max = TryParseDurationValue(connector.DurationMax) ?? min;
+            if (min.HasValue || max.HasValue)
+            {
+                var span = Math.Abs((max ?? min ?? 0d) - (min ?? max ?? 0d));
+                return 14f + (float)Math.Min(span * 6d, 48d);
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(connector.DurationConstraint) ? 0f : 18f;
+    }
+
+    private static double? TryParseDurationValue(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var trimmed = text.Trim();
+        return double.TryParse(trimmed, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+    }
+
+    private static string? FormatDurationConstraint(UmlBehaviorConnector connector)
+    {
+        if (!string.IsNullOrWhiteSpace(connector.DurationMin) || !string.IsNullOrWhiteSpace(connector.DurationMax))
+        {
+            var min = connector.DurationMin?.Trim();
+            var max = connector.DurationMax?.Trim();
+            if (!string.IsNullOrWhiteSpace(min) && !string.IsNullOrWhiteSpace(max))
+                return $"{min}..{max}";
+            return min ?? max;
+        }
+
+        return connector.DurationConstraint?.Trim();
+    }
+
+    private static void DrawDurationTicks(Graphics g, Pen pen, PointF start, PointF end)
+    {
+        const float tickHalf = 5f;
+        g.DrawLine(pen, start.X - tickHalf, start.Y, start.X + tickHalf, start.Y);
+        g.DrawLine(pen, end.X - tickHalf, end.Y, end.X + tickHalf, end.Y);
+    }
+
+    private static void DrawLifelineDecompositionLinks(Graphics g, UmlProject project, UmlDiagram diagram)
+    {
+        var children = diagram.Nodes
+            .Select(n => (Node: n, Behavior: project.FindElement(n.ModelElementId) as UmlBehaviorNode))
+            .Where(t => t.Behavior is { Kind: UmlBehaviorNodeKind.Lifeline, ParentLifelineId: not null })
+            .ToList();
+        if (children.Count == 0)
+            return;
+
+        using var pen = new Pen(UmlDiagramStyle.BorderColor, UmlDiagramStyle.BorderWidthNormal);
+        var grouped = children.GroupBy(t => t.Behavior!.ParentLifelineId!.Value);
+
+        foreach (var group in grouped)
+        {
+            var parentNode = diagram.Nodes.FirstOrDefault(n => n.ModelElementId == group.Key);
+            if (parentNode is null)
+                continue;
+
+            var parentCx = UmlSequenceLayout.GetLifelineCenterX(parentNode.Bounds);
+            var parentHeaderBottom = parentNode.Bounds.Top + UmlSequenceLayout.HeaderHeight;
+
+            var childCenters = group
+                .Select(t => UmlSequenceLayout.GetLifelineCenterX(t.Node.Bounds))
+                .OrderBy(x => x)
+                .ToList();
+            if (childCenters.Count == 0)
+                continue;
+
+            var forkY = parentHeaderBottom + 6f;
+            g.DrawLine(pen, parentCx, parentHeaderBottom, parentCx, forkY);
+            g.DrawLine(pen, childCenters[0], forkY, childCenters[^1], forkY);
+
+            foreach (var (childNode, _) in group)
+            {
+                var childCx = UmlSequenceLayout.GetLifelineCenterX(childNode.Bounds);
+                var childHeaderTop = childNode.Bounds.Top + 2f;
+                g.DrawLine(pen, childCx, forkY, childCx, childHeaderTop);
+            }
+        }
+    }
+
+    private static void DrawLostFoundMessage(
+        Graphics g,
+        UmlProject project,
+        UmlDiagram diagram,
+        UmlDiagramEdge edge,
+        UmlBehaviorConnector connector,
+        UmlMessageKind messageKind,
+        float messageY,
+        Pen pen,
+        Font font,
+        Brush brush,
+        bool drawGeometry,
+        bool drawLabels)
+    {
+        var lifelineNode = diagram.FindNode(messageKind == UmlMessageKind.Lost ? edge.SourceNodeId : edge.TargetNodeId);
+        var endpointNode = diagram.FindNode(messageKind == UmlMessageKind.Lost ? edge.TargetNodeId : edge.SourceNodeId);
+        if (lifelineNode is null || endpointNode is null)
+            return;
+
+        var lifelineX = UmlSequenceLayout.GetLifelineCenterX(lifelineNode.Bounds);
+        var endpointBounds = endpointNode.Bounds;
+        var endpointCenter = new PointF(endpointBounds.Left + endpointBounds.Width / 2f, endpointBounds.Top + endpointBounds.Height / 2f);
+        var start = messageKind == UmlMessageKind.Lost
+            ? new PointF(lifelineX, messageY)
+            : endpointCenter;
+        var end = messageKind == UmlMessageKind.Lost
+            ? endpointCenter
+            : new PointF(lifelineX, messageY);
+
+        if (drawGeometry)
+        {
+            g.DrawLine(pen, start, end);
+            var circle = UmlCircleNodeGeometry.GetCircleBounds(endpointBounds);
+            g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+            DrawFilledArrow(g, pen, start, end);
+        }
+
+        if (drawLabels && !string.IsNullOrWhiteSpace(connector.Name))
+            DrawMessageLabel(g, connector.Name, start, end, font, brush);
     }
 
     private static void DrawSelfMessage(
@@ -738,6 +1103,12 @@ public static class UmlDiagramRenderer
                 return '[' + connector.Guard.Trim() + ']';
         }
 
+        if (connector.Kind == UmlBehaviorConnectorKind.Message && connector.CommunicationSequenceNumber > 0)
+        {
+            var name = connector.Name ?? "message";
+            return $"{connector.CommunicationSequenceNumber}: {name}";
+        }
+
         return connector.Name ?? string.Empty;
     }
 
@@ -756,7 +1127,19 @@ public static class UmlDiagramRenderer
             UmlBehaviorNodeKind.Fork or UmlBehaviorNodeKind.Join => Math.Max(currentHeight, 18),
             UmlBehaviorNodeKind.Lifeline => Math.Max(currentHeight, 220),
             UmlBehaviorNodeKind.CombinedFragment => Math.Max(currentHeight, 80),
+            UmlBehaviorNodeKind.ObjectNode => Math.Max(currentHeight, 48),
+            UmlBehaviorNodeKind.Swimlane => Math.Max(currentHeight, 180),
             UmlBehaviorNodeKind.Activation => Math.Max(currentHeight, 48),
+            UmlBehaviorNodeKind.SequenceEndpoint or UmlBehaviorNodeKind.Gate => Math.Max(currentHeight, 28),
+            UmlBehaviorNodeKind.ExpansionRegion or UmlBehaviorNodeKind.InterruptibleRegion => Math.Max(currentHeight, 100),
+            UmlBehaviorNodeKind.NaryAssociationHub => Math.Max(currentHeight, 40),
+            UmlBehaviorNodeKind.StateInvariant or UmlBehaviorNodeKind.Continuation => Math.Max(currentHeight, 24),
+            UmlBehaviorNodeKind.EntryPoint or UmlBehaviorNodeKind.ExitPoint or UmlBehaviorNodeKind.TerminateState => Math.Max(currentHeight, 24),
+            UmlBehaviorNodeKind.CompositeState or UmlBehaviorNodeKind.OrthogonalRegion
+                or UmlBehaviorNodeKind.SubmachineState or UmlBehaviorNodeKind.ActivityContainer => Math.Max(currentHeight, 100),
+            UmlBehaviorNodeKind.TimingLifeline => Math.Max(currentHeight, 80),
+            UmlBehaviorNodeKind.TimingState => Math.Max(currentHeight, 28),
+            UmlBehaviorNodeKind.InputPin or UmlBehaviorNodeKind.OutputPin => Math.Max(currentHeight, 14),
             _ => Math.Max(currentHeight, 60),
         };
     }
@@ -768,30 +1151,55 @@ public static class UmlDiagramRenderer
         g.DrawPath(pen, path);
     }
 
-    private static void DrawDiamondNode(Graphics g, RectangleF bounds, Brush fillBrush, Pen pen)
+    private static void DrawStyledDiamondNode(Graphics g, RectangleF bounds, Pen pen)
     {
-        var cx = bounds.Left + bounds.Width / 2f;
-        var cy = bounds.Top + bounds.Height / 2f;
+        var size = Math.Min(bounds.Width, bounds.Height);
+        var sq = new RectangleF(
+            bounds.Left + (bounds.Width - size) / 2f,
+            bounds.Top + (bounds.Height - size) / 2f,
+            size, size);
+        var cx = sq.Left + size / 2f;
+        var cy = sq.Top + size / 2f;
         PointF[] points =
         [
-            new PointF(cx, bounds.Top),
-            new PointF(bounds.Right, cy),
-            new PointF(cx, bounds.Bottom),
-            new PointF(bounds.Left, cy),
+            new PointF(cx, sq.Top),
+            new PointF(sq.Right, cy),
+            new PointF(cx, sq.Bottom),
+            new PointF(sq.Left, cy),
         ];
 
-        g.FillPolygon(fillBrush, points);
+        using var path = new System.Drawing.Drawing2D.GraphicsPath();
+        path.AddPolygon(points);
+        UmlDiagramStyle.DrawShadowPath(g, path);
+        UmlDiagramStyle.FillGradientPath(g, path, sq);
         g.DrawPolygon(pen, points);
     }
 
-    private static void DrawLifelineNode(Graphics g, RectangleF bounds, Brush fillBrush, Pen pen, string label)
+    private static void DrawLifelineNode(Graphics g, RectangleF bounds, Pen pen, UmlBehaviorNode behaviorNode, string label)
     {
         // Header box size is fixed, independent of the lifeline node height.
         var headerHeight = UmlSequenceLayout.HeaderHeight - 4f;
         var header = new RectangleF(bounds.Left + 2, bounds.Top + 2, bounds.Width - 4, headerHeight);
-        g.FillRectangle(fillBrush, header.X, header.Y, header.Width, header.Height);
+        UmlDiagramStyle.FillGradientRectangle(g, header);
         g.DrawRectangle(pen, header.X, header.Y, header.Width, header.Height);
-        DrawCenteredLabel(g, label, new Font("Segoe UI", 8f), new SolidBrush(Color.Black), header);
+
+        var displayLabel = behaviorNode.ParentLifelineId.HasValue
+            ? FormatDecomposedLifelineLabel(behaviorNode, label)
+            : label;
+
+        if (behaviorNode.LifelineKind == UmlLifelineKind.Actor)
+        {
+            var mini = new RectangleF(header.Left + 4f, header.Top + 2f, header.Width - 8f, header.Height - 4f);
+            UmlActorGeometry.DrawStickFigure(g, pen, mini);
+        }
+        else
+        {
+            using var labelBrush = new SolidBrush(UmlDiagramStyle.TextColor);
+            using var font = behaviorNode.ParentLifelineId.HasValue
+                ? new Font("Segoe UI", 7.5f)
+                : new Font("Segoe UI", 8f);
+            DrawCenteredLabel(g, displayLabel, font, labelBrush, header);
+        }
 
         using var dashPen = new Pen(pen.Color, 1.2f)
         {
@@ -799,6 +1207,16 @@ public static class UmlDiagramRenderer
         };
         var cx = bounds.Left + bounds.Width / 2f;
         g.DrawLine(dashPen, cx, header.Bottom, cx, bounds.Bottom - 2);
+    }
+
+    private static string FormatDecomposedLifelineLabel(UmlBehaviorNode behaviorNode, string fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(behaviorNode.DecompositionRole))
+            return behaviorNode.DecompositionRole.StartsWith(':')
+                ? behaviorNode.DecompositionRole
+                : $":{behaviorNode.DecompositionRole}";
+
+        return string.IsNullOrWhiteSpace(fallback) ? ":part" : $":{fallback}";
     }
 
     private static void DrawCenteredLabel(Graphics g, string label, Font font, Brush brush, RectangleF bounds)
@@ -1029,14 +1447,8 @@ public static class UmlDiagramRenderer
     private static void DrawEdgeLabel(Graphics g, Font font, Brush brush, PointF labelPt, string text)
     {
         var size = g.MeasureString(text, font);
-        // Center the label box on labelPt for balanced placement relative to the computed offset point.
         var textX = labelPt.X - size.Width / 2f;
         var textY = labelPt.Y - size.Height / 2f;
-        var rect = new RectangleF(textX - 3f, textY - 2f, size.Width + 6f, size.Height + 4f);
-        using var background = new SolidBrush(Color.White);
-        using var border = new Pen(Color.FromArgb(200, 200, 200), 0.75f);
-        g.FillRectangle(background, rect);
-        g.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
         g.DrawString(text, font, brush, textX, textY);
     }
 
@@ -1346,6 +1758,52 @@ public static class UmlDiagramRenderer
     {
         node.Height = MeasureNodeHeight(project, node);
         return node.Bounds;
+    }
+
+    private static void DrawEdgeGeometry(
+        Graphics g,
+        UmlProject project,
+        UmlDiagram diagram,
+        IReadOnlyList<(UmlDiagramEdge Edge, PointF[] FlatPoints)> lines,
+        UmlDiagramEdge? selectedEdge,
+        IReadOnlyDictionary<Guid, List<(float T, PointF Pt)>> crossingsMap)
+    {
+        foreach (var line in lines)
+        {
+            crossingsMap.TryGetValue(line.Edge.Id, out var crossings);
+            DrawEdge(g, project, diagram, line.Edge, line.Edge == selectedEdge, crossings ?? [], drawGeometry: true, drawLabels: false);
+        }
+    }
+
+    private static bool EdgeConnectsToPackageInterior(UmlProject project, UmlDiagram diagram, UmlDiagramEdge edge)
+    {
+        var source = diagram.FindNode(edge.SourceNodeId);
+        var target = diagram.FindNode(edge.TargetNodeId);
+        if (source is null || target is null)
+            return false;
+
+        return IsNodeInsidePackageBody(project, diagram, source)
+            || IsNodeInsidePackageBody(project, diagram, target);
+    }
+
+    private static bool IsNodeInsidePackageBody(UmlProject project, UmlDiagram diagram, UmlDiagramNode node)
+    {
+        if (node.Presentation == UmlNodePresentation.Package)
+            return false;
+
+        var nodeBounds = GetNodeBounds(project, node);
+        var anchor = new PointF(
+            nodeBounds.Left + nodeBounds.Width / 2f,
+            nodeBounds.Top + nodeBounds.Height / 2f);
+
+        foreach (var packageNode in diagram.Nodes.Where(n => n.Presentation == UmlNodePresentation.Package))
+        {
+            var body = UmlPackageNotation.GetBodyBounds(GetNodeBounds(project, packageNode));
+            if (body.Contains(anchor))
+                return true;
+        }
+
+        return false;
     }
 
     private static List<(UmlDiagramEdge Edge, PointF[] FlatPoints)> BuildEdgeLines(UmlProject project, UmlDiagram diagram)

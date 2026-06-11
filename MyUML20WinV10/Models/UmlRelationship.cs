@@ -12,6 +12,12 @@ namespace MyUML20WinV10.Models;
 [JsonDerivedType(typeof(UmlExtend), "extend")]
 [JsonDerivedType(typeof(UmlBehaviorConnector), "behaviorConnector")]
 [JsonDerivedType(typeof(UmlNoteLink), "noteLink")]
+[JsonDerivedType(typeof(UmlAssembly), "assembly")]
+[JsonDerivedType(typeof(UmlPackageRelationship), "packageRelationship")]
+[JsonDerivedType(typeof(UmlAssociationClass), "associationClass")]
+[JsonDerivedType(typeof(UmlDeploymentLink), "deploymentLink")]
+[JsonDerivedType(typeof(UmlDeploymentPath), "deploymentPath")]
+[JsonDerivedType(typeof(UmlClassNesting), "classNesting")]
 public abstract class UmlRelationship : UmlElement
 {
     [Browsable(false)]

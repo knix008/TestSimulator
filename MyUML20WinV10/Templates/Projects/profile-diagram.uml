@@ -1,0 +1,213 @@
+{
+  "name": "Profile Diagram Template",
+  "rootPackage": {
+    "stereotype": "",
+    "nestedPackages": [
+      {
+        "stereotype": "profile",
+        "nestedPackages": [],
+        "classifiers": [],
+        "actors": [],
+        "useCases": [],
+        "systemBoundaries": [],
+        "notes": [],
+        "behaviorNodes": [],
+        "components": [],
+        "componentInterfaces": [],
+        "componentPorts": [],
+        "objectInstances": [],
+        "deploymentHosts": [],
+        "artifacts": [],
+        "relationships": [],
+        "ownedElements": [],
+        "name": "ECommerceProfile",
+        "displayLabel": "ECommerceProfile",
+        "id": "46641f00-9d6a-46ec-a64f-d34f2d683b9d"
+      }
+    ],
+    "classifiers": [
+      {
+        "classifierKind": "class",
+        "notationKeyword": "class",
+        "isAbstract": false,
+        "stereotype": "metaclass",
+        "properties": [],
+        "operations": [],
+        "name": "Product",
+        "displayLabel": "Product",
+        "id": "e130a718-017d-4c5f-a77b-6fd855ea2ec4"
+      },
+      {
+        "classifierKind": "class",
+        "notationKeyword": "class",
+        "isAbstract": false,
+        "stereotype": "stereotype",
+        "properties": [],
+        "operations": [],
+        "name": "Sellable",
+        "displayLabel": "Sellable",
+        "id": "c81f9e10-124b-440c-be6e-d354ef07afda"
+      }
+    ],
+    "actors": [],
+    "useCases": [],
+    "systemBoundaries": [],
+    "notes": [],
+    "behaviorNodes": [],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
+    "relationships": [
+      {
+        "$relationshipKind": "dependency",
+        "stereotype": "apply",
+        "relationshipKind": "Dependency",
+        "displayLabel": "\u00ABapply\u00BB",
+        "sourceClassifierId": "c81f9e10-124b-440c-be6e-d354ef07afda",
+        "targetClassifierId": "e130a718-017d-4c5f-a77b-6fd855ea2ec4",
+        "name": null,
+        "id": "8eef224a-55d2-4d1a-b8fb-7920675651f8"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "46641f00-9d6a-46ec-a64f-d34f2d683b9d",
+        "displayLabel": "ECommerceProfile"
+      },
+      {
+        "id": "e130a718-017d-4c5f-a77b-6fd855ea2ec4",
+        "displayLabel": "Product"
+      },
+      {
+        "id": "c81f9e10-124b-440c-be6e-d354ef07afda",
+        "displayLabel": "Sellable"
+      },
+      {
+        "id": "8eef224a-55d2-4d1a-b8fb-7920675651f8",
+        "displayLabel": "\u00ABapply\u00BB"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "787ce5b0-fa5e-4205-8841-ba25813f410c"
+  },
+  "diagrams": [
+    {
+      "kind": "profileDiagram",
+      "nodes": [
+        {
+          "id": "d46e7a0f-0c3a-4d84-9fc7-8ad6d73b3ba3",
+          "modelElementId": "46641f00-9d6a-46ec-a64f-d34f2d683b9d",
+          "presentation": "package",
+          "x": 40,
+          "y": 60,
+          "width": 200,
+          "height": 140,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 40,
+              "y": 60
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 200,
+              "height": 140
+            },
+            "x": 40,
+            "y": 60,
+            "width": 200,
+            "height": 140,
+            "left": 40,
+            "top": 60,
+            "right": 240,
+            "bottom": 200,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "bdda0113-cd7b-48d7-ab5c-b2f50a12c8f3",
+          "modelElementId": "e130a718-017d-4c5f-a77b-6fd855ea2ec4",
+          "presentation": "classifier",
+          "x": 300,
+          "y": 80,
+          "width": 160,
+          "height": 100,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 300,
+              "y": 80
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 100
+            },
+            "x": 300,
+            "y": 80,
+            "width": 160,
+            "height": 100,
+            "left": 300,
+            "top": 80,
+            "right": 460,
+            "bottom": 180,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "10db2db5-fe27-475c-a9d9-f9aa4b3fd31e",
+          "modelElementId": "c81f9e10-124b-440c-be6e-d354ef07afda",
+          "presentation": "classifier",
+          "x": 300,
+          "y": 240,
+          "width": 160,
+          "height": 100,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 300,
+              "y": 240
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 100
+            },
+            "x": 300,
+            "y": 240,
+            "width": 160,
+            "height": 100,
+            "left": 300,
+            "top": 240,
+            "right": 460,
+            "bottom": 340,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "eb1f6206-fb0e-49e1-b774-ffd4b03b73f6",
+          "modelElementId": "8eef224a-55d2-4d1a-b8fb-7920675651f8",
+          "sourceNodeId": "10db2db5-fe27-475c-a9d9-f9aa4b3fd31e",
+          "targetNodeId": "bdda0113-cd7b-48d7-ab5c-b2f50a12c8f3",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        }
+      ],
+      "name": "Profile Diagram",
+      "displayLabel": "Profile Diagram",
+      "id": "de923ef5-0ea6-40dd-94a4-fb2c0e623a7a"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

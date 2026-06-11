@@ -21,7 +21,51 @@ public static class UmlAutoLayout
             return;
         }
 
+        if (diagram.Kind == UmlDiagramKind.PackageDiagram)
+        {
+            ApplyPackageDiagram(project, diagram);
+            return;
+        }
+
         ApplyHierarchicalLayout(nodes, diagram.Edges.ToList());
+    }
+
+    public static void ApplyPackageDiagram(UmlProject project, UmlDiagram diagram)
+    {
+        var packages = diagram.Nodes
+            .Where(n => n.Presentation == UmlNodePresentation.Package)
+            .ToList();
+        if (packages.Count == 0)
+            return;
+
+        const float gapX = 40f;
+        const float gapY = 40f;
+        const int cols = 3;
+        var col = 0;
+        var row = 0;
+        var rowHeight = 0f;
+        var x = StartX;
+        var y = StartY;
+
+        foreach (var node in packages)
+        {
+            node.X = x;
+            node.Y = y;
+            rowHeight = Math.Max(rowHeight, node.Height);
+            col++;
+            if (col >= cols)
+            {
+                col = 0;
+                row++;
+                x = StartX;
+                y += rowHeight + gapY;
+                rowHeight = 0f;
+            }
+            else
+            {
+                x += node.Width + gapX;
+            }
+        }
     }
 
     private static void ApplySequenceLayout(UmlProject project, UmlDiagram diagram, List<UmlDiagramNode> nodes)

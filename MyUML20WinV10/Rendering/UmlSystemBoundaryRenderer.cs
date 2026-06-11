@@ -8,13 +8,13 @@ public static class UmlSystemBoundaryRenderer
 
     public static void Draw(Graphics g, string? name, RectangleF bounds, Pen pen, bool selected)
     {
-        using var fill = new SolidBrush(Color.FromArgb(selected ? 18 : 8, 120, 170, 230));
-        g.FillRectangle(fill, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-        g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        var top = Color.FromArgb(selected ? 255 : 255, 248, 252, 255);
+        var bottom = Color.FromArgb(selected ? 255 : 255, 228, 238, 252);
+        UmlDiagramStyle.DrawStyledRectangle(g, bounds, pen, top, bottom);
 
         var label = string.IsNullOrWhiteSpace(name) ? "System" : name;
         using var font = new Font("Segoe UI", 9f, FontStyle.Bold);
-        using var brush = new SolidBrush(pen.Color);
+        using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
         g.DrawString(label, font, brush, bounds.Left + LabelPadding, bounds.Top + LabelPadding);
     }
 

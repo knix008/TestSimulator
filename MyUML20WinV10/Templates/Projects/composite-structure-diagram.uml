@@ -1,0 +1,179 @@
+{
+  "name": "Composite Structure Diagram Template",
+  "rootPackage": {
+    "stereotype": "",
+    "nestedPackages": [],
+    "classifiers": [
+      {
+        "classifierKind": "class",
+        "notationKeyword": "class",
+        "isAbstract": false,
+        "stereotype": "",
+        "properties": [
+          {
+            "typeName": "Controller",
+            "visibility": "private",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "-controller: Controller",
+            "name": "controller",
+            "displayLabel": "controller",
+            "id": "e2300652-db77-4d47-b006-fccd53fcb489"
+          },
+          {
+            "typeName": "Repository",
+            "visibility": "private",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "-repository: Repository",
+            "name": "repository",
+            "displayLabel": "repository",
+            "id": "89b910e6-de4d-4ad0-8798-76749505accb"
+          }
+        ],
+        "operations": [],
+        "name": "OrderProcessor",
+        "displayLabel": "OrderProcessor",
+        "id": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331"
+      }
+    ],
+    "actors": [],
+    "useCases": [],
+    "systemBoundaries": [],
+    "notes": [],
+    "behaviorNodes": [],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [
+      {
+        "interfaceKind": "provided",
+        "interfaceName": "IOrderAPI",
+        "name": "api",
+        "displayLabel": "api",
+        "id": "6ca69f43-6a87-4018-bdc5-2b48eb031667"
+      }
+    ],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
+    "relationships": [
+      {
+        "$relationshipKind": "association",
+        "sourceEndName": "",
+        "targetEndName": "",
+        "sourceMultiplicity": "1",
+        "targetMultiplicity": "1",
+        "aggregation": "none",
+        "isDirected": false,
+        "relationshipKind": "Association",
+        "displayLabel": "connector",
+        "sourceClassifierId": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
+        "targetClassifierId": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
+        "name": "connector",
+        "id": "961efe7c-3d81-4b1e-8d3c-45c1d6d379e2"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
+        "displayLabel": "OrderProcessor"
+      },
+      {
+        "id": "6ca69f43-6a87-4018-bdc5-2b48eb031667",
+        "displayLabel": "api"
+      },
+      {
+        "id": "961efe7c-3d81-4b1e-8d3c-45c1d6d379e2",
+        "displayLabel": "connector"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "044a453f-0887-4c66-8e36-a0f564fa8fe1"
+  },
+  "diagrams": [
+    {
+      "kind": "compositeStructureDiagram",
+      "nodes": [
+        {
+          "id": "e5e8ee5d-8966-43f5-be17-1ed26cb145a1",
+          "modelElementId": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
+          "presentation": "classifier",
+          "x": 80,
+          "y": 60,
+          "width": 320,
+          "height": 200,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 60
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 320,
+              "height": 200
+            },
+            "x": 80,
+            "y": 60,
+            "width": 320,
+            "height": 200,
+            "left": 80,
+            "top": 60,
+            "right": 400,
+            "bottom": 260,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "3c263269-cdd3-414d-b851-824bd5611a12",
+          "modelElementId": "6ca69f43-6a87-4018-bdc5-2b48eb031667",
+          "presentation": "port",
+          "x": 360,
+          "y": 100,
+          "width": 20,
+          "height": 20,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 360,
+              "y": 100
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 20,
+              "height": 20
+            },
+            "x": 360,
+            "y": 100,
+            "width": 20,
+            "height": 20,
+            "left": 360,
+            "top": 100,
+            "right": 380,
+            "bottom": 120,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e250c828-0662-4b89-8447-544108acbdd8",
+          "modelElementId": "961efe7c-3d81-4b1e-8d3c-45c1d6d379e2",
+          "sourceNodeId": "e5e8ee5d-8966-43f5-be17-1ed26cb145a1",
+          "targetNodeId": "e5e8ee5d-8966-43f5-be17-1ed26cb145a1",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        }
+      ],
+      "name": "Composite Structure Diagram",
+      "displayLabel": "Composite Structure Diagram",
+      "id": "683cefa5-e39f-42a0-8123-f46dd4d22834"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

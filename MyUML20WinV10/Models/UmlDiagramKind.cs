@@ -7,4 +7,13 @@ public enum UmlDiagramKind
     SequenceDiagram,
     StateMachineDiagram,
     ActivityDiagram,
+    ComponentDiagram,
+    PackageDiagram,
+    ObjectDiagram,
+    CommunicationDiagram,
+    DeploymentDiagram,
+    ProfileDiagram,
+    TimingDiagram,
+    CompositeStructureDiagram,
+    InteractionOverviewDiagram,
 }

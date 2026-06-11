@@ -1,6 +1,7 @@
 {
   "name": "Class Diagram Template",
   "rootPackage": {
+    "stereotype": "",
     "nestedPackages": [],
     "classifiers": [
       {
@@ -17,7 +18,7 @@
             "signatureText": "-id: Guid",
             "name": "id",
             "displayLabel": "id",
-            "id": "80e45742-1173-4467-9aa4-b163e47910fe"
+            "id": "19d14dab-49a3-49c9-bdb9-2f9c05b20b35"
           },
           {
             "typeName": "string",
@@ -27,7 +28,7 @@
             "signatureText": "-name: string",
             "name": "name",
             "displayLabel": "name",
-            "id": "16a9cf7c-319a-489d-aa69-ee46566a03d7"
+            "id": "4e8443cd-3860-433d-862b-e4eae91d69ac"
           }
         ],
         "operations": [
@@ -41,12 +42,12 @@
             "signatureText": "\u002BPlaceOrder(): Order",
             "name": "PlaceOrder",
             "displayLabel": "PlaceOrder",
-            "id": "d73bc007-1bc2-4ccb-88a0-2001f0ac5415"
+            "id": "34f29818-3e40-401a-a0b7-fd6ac100d43b"
           }
         ],
         "name": "Customer",
         "displayLabel": "Customer",
-        "id": "41e192f3-43e0-4a4d-be74-e9813d0081fd"
+        "id": "b5afc34f-453a-4846-9267-f8d972a62dc2"
       },
       {
         "classifierKind": "class",
@@ -62,7 +63,7 @@
             "signatureText": "-orderDate: DateTime",
             "name": "orderDate",
             "displayLabel": "orderDate",
-            "id": "871abee7-d3d6-403c-93a1-f6a216cc05dd"
+            "id": "320ee640-e243-4b77-a04e-43408566463f"
           }
         ],
         "operations": [
@@ -76,18 +77,25 @@
             "signatureText": "\u002BTotal(): decimal",
             "name": "Total",
             "displayLabel": "Total",
-            "id": "4ace9f88-eea5-4cb4-ac56-2b1faebc8dc2"
+            "id": "5db5c8f6-4a27-4c8a-a4af-2a3f2c25986e"
           }
         ],
         "name": "Order",
         "displayLabel": "Order",
-        "id": "9a205b95-a777-4ecd-a582-6c6e894f65b9"
+        "id": "d6a78c43-ecee-49eb-8895-b12c6d468800"
       }
     ],
     "actors": [],
     "useCases": [],
+    "systemBoundaries": [],
     "notes": [],
     "behaviorNodes": [],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
     "relationships": [
       {
         "$relationshipKind": "association",
@@ -99,37 +107,37 @@
         "isDirected": false,
         "relationshipKind": "Association",
         "displayLabel": "Association",
-        "sourceClassifierId": "41e192f3-43e0-4a4d-be74-e9813d0081fd",
-        "targetClassifierId": "9a205b95-a777-4ecd-a582-6c6e894f65b9",
+        "sourceClassifierId": "b5afc34f-453a-4846-9267-f8d972a62dc2",
+        "targetClassifierId": "d6a78c43-ecee-49eb-8895-b12c6d468800",
         "name": null,
-        "id": "66709658-1aef-448e-968a-32a427bf6721"
+        "id": "4f50ff93-bc2a-46a3-81b4-d989cf59fdc5"
       }
     ],
     "ownedElements": [
       {
-        "id": "41e192f3-43e0-4a4d-be74-e9813d0081fd",
+        "id": "b5afc34f-453a-4846-9267-f8d972a62dc2",
         "displayLabel": "Customer"
       },
       {
-        "id": "9a205b95-a777-4ecd-a582-6c6e894f65b9",
+        "id": "d6a78c43-ecee-49eb-8895-b12c6d468800",
         "displayLabel": "Order"
       },
       {
-        "id": "66709658-1aef-448e-968a-32a427bf6721",
+        "id": "4f50ff93-bc2a-46a3-81b4-d989cf59fdc5",
         "displayLabel": "Association"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "1823da6f-d5eb-4522-afb4-4e7bf7473c04"
+    "id": "05c5dc4b-3c26-49d2-904d-6eabea684f79"
   },
   "diagrams": [
     {
       "kind": "classDiagram",
       "nodes": [
         {
-          "id": "2242a157-0d60-40d1-9b12-e6163ac34e4a",
-          "modelElementId": "41e192f3-43e0-4a4d-be74-e9813d0081fd",
+          "id": "7c37b53d-67ae-45af-9a7b-cef4bf6e78e0",
+          "modelElementId": "b5afc34f-453a-4846-9267-f8d972a62dc2",
           "presentation": "classifier",
           "x": 80,
           "y": 80,
@@ -159,8 +167,8 @@
           }
         },
         {
-          "id": "fb04cb47-3fc8-4256-966b-4739e0011442",
-          "modelElementId": "9a205b95-a777-4ecd-a582-6c6e894f65b9",
+          "id": "ad8802a7-0aaf-4f55-8c31-61d5a2795be8",
+          "modelElementId": "d6a78c43-ecee-49eb-8895-b12c6d468800",
           "presentation": "classifier",
           "x": 360,
           "y": 120,
@@ -192,21 +200,19 @@
       ],
       "edges": [
         {
-          "id": "fb6312cd-5246-4b18-96c5-d20b80f25f0f",
-          "modelElementId": "66709658-1aef-448e-968a-32a427bf6721",
-          "sourceNodeId": "2242a157-0d60-40d1-9b12-e6163ac34e4a",
-          "targetNodeId": "fb04cb47-3fc8-4256-966b-4739e0011442",
+          "id": "2dcb2c6b-6026-4f81-9b4f-aa576dab5037",
+          "modelElementId": "4f50ff93-bc2a-46a3-81b4-d989cf59fdc5",
+          "sourceNodeId": "7c37b53d-67ae-45af-9a7b-cef4bf6e78e0",
+          "targetNodeId": "ad8802a7-0aaf-4f55-8c31-61d5a2795be8",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         }
       ],
       "name": "Class Diagram",
       "displayLabel": "Class Diagram",
-      "id": "a0e10763-bcfb-499d-a043-7e2728cd5f14"
+      "id": "d82a91cf-3930-467a-9b63-b267aa196e1f"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

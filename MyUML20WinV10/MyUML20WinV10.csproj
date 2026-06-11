@@ -24,6 +24,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="MyUML20WinV10.Tests\**" />
+    <Content Remove="MyUML20WinV10.Tests\**" />
+    <EmbeddedResource Remove="MyUML20WinV10.Tests\**" />
+    <None Remove="MyUML20WinV10.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Assets\AppIcon.ico" />
   </ItemGroup>
 

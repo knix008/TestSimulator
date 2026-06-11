@@ -1,0 +1,418 @@
+{
+  "name": "Interaction Overview Diagram Template",
+  "rootPackage": {
+    "stereotype": "",
+    "nestedPackages": [],
+    "classifiers": [],
+    "actors": [],
+    "useCases": [],
+    "systemBoundaries": [],
+    "notes": [],
+    "behaviorNodes": [
+      {
+        "kind": "initialNode",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Initial",
+        "displayLabel": "Initial",
+        "id": "3e03b44a-65f9-4bc3-ade1-f3c6f38d3b23"
+      },
+      {
+        "kind": "interactionUse",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": "Sequence Diagram",
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Place Order",
+        "displayLabel": "Place Order",
+        "id": "49243a21-1fbe-4b74-b861-ced7b9d743b5"
+      },
+      {
+        "kind": "decision",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "paid?",
+        "displayLabel": "paid?",
+        "id": "2f24aed6-c881-4fcd-96ed-0b36557af3d1"
+      },
+      {
+        "kind": "interactionUse",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": "Payment Flow",
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Payment",
+        "displayLabel": "Payment",
+        "id": "4eecdfc9-6a0b-4c84-99ba-46e7491c144e"
+      },
+      {
+        "kind": "activityFinalNode",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Final",
+        "displayLabel": "Final",
+        "id": "feb47ed7-6205-4ce0-8945-738a8d409f0b"
+      }
+    ],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
+    "relationships": [
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "controlFlow",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "ControlFlow",
+        "sourceClassifierId": "3e03b44a-65f9-4bc3-ade1-f3c6f38d3b23",
+        "targetClassifierId": "49243a21-1fbe-4b74-b861-ced7b9d743b5",
+        "name": null,
+        "id": "362d4f11-fb21-478d-8607-ab3002b69d0c",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "controlFlow",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "ControlFlow",
+        "sourceClassifierId": "49243a21-1fbe-4b74-b861-ced7b9d743b5",
+        "targetClassifierId": "2f24aed6-c881-4fcd-96ed-0b36557af3d1",
+        "name": null,
+        "id": "f1359a99-3054-4a20-8e56-176f45c5b26a",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "controlFlow",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "[ok]",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "ControlFlow",
+        "sourceClassifierId": "2f24aed6-c881-4fcd-96ed-0b36557af3d1",
+        "targetClassifierId": "4eecdfc9-6a0b-4c84-99ba-46e7491c144e",
+        "name": null,
+        "id": "7137a9bc-2b15-458b-ad14-19ef81fbb47a",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "controlFlow",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "ControlFlow",
+        "sourceClassifierId": "4eecdfc9-6a0b-4c84-99ba-46e7491c144e",
+        "targetClassifierId": "feb47ed7-6205-4ce0-8945-738a8d409f0b",
+        "name": null,
+        "id": "1fb09299-87cd-4369-b6cd-3bebaed04bff",
+        "displayLabel": "UmlBehaviorConnector"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "3e03b44a-65f9-4bc3-ade1-f3c6f38d3b23",
+        "displayLabel": "Initial"
+      },
+      {
+        "id": "49243a21-1fbe-4b74-b861-ced7b9d743b5",
+        "displayLabel": "Place Order"
+      },
+      {
+        "id": "2f24aed6-c881-4fcd-96ed-0b36557af3d1",
+        "displayLabel": "paid?"
+      },
+      {
+        "id": "4eecdfc9-6a0b-4c84-99ba-46e7491c144e",
+        "displayLabel": "Payment"
+      },
+      {
+        "id": "feb47ed7-6205-4ce0-8945-738a8d409f0b",
+        "displayLabel": "Final"
+      },
+      {
+        "id": "362d4f11-fb21-478d-8607-ab3002b69d0c",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "f1359a99-3054-4a20-8e56-176f45c5b26a",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "7137a9bc-2b15-458b-ad14-19ef81fbb47a",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "1fb09299-87cd-4369-b6cd-3bebaed04bff",
+        "displayLabel": "UmlBehaviorConnector"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "9aa2f5ee-4a59-43d1-ab90-f17688a42c8d"
+  },
+  "diagrams": [
+    {
+      "kind": "interactionOverviewDiagram",
+      "nodes": [
+        {
+          "id": "ffca6baf-c380-47e6-8aeb-15e3d70042e1",
+          "modelElementId": "3e03b44a-65f9-4bc3-ade1-f3c6f38d3b23",
+          "presentation": "behavior",
+          "x": 80,
+          "y": 120,
+          "width": 32,
+          "height": 32,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 32,
+              "height": 32
+            },
+            "x": 80,
+            "y": 120,
+            "width": 32,
+            "height": 32,
+            "left": 80,
+            "top": 120,
+            "right": 112,
+            "bottom": 152,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "b607db15-7c22-47f4-9880-453f5c0e4e80",
+          "modelElementId": "49243a21-1fbe-4b74-b861-ced7b9d743b5",
+          "presentation": "behavior",
+          "x": 160,
+          "y": 100,
+          "width": 140,
+          "height": 60,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 160,
+              "y": 100
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 140,
+              "height": 60
+            },
+            "x": 160,
+            "y": 100,
+            "width": 140,
+            "height": 60,
+            "left": 160,
+            "top": 100,
+            "right": 300,
+            "bottom": 160,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "c12a4ee3-69cc-4311-9fc0-449c108e9e25",
+          "modelElementId": "2f24aed6-c881-4fcd-96ed-0b36557af3d1",
+          "presentation": "behavior",
+          "x": 340,
+          "y": 100,
+          "width": 72,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 340,
+              "y": 100
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 72,
+              "height": 72
+            },
+            "x": 340,
+            "y": 100,
+            "width": 72,
+            "height": 72,
+            "left": 340,
+            "top": 100,
+            "right": 412,
+            "bottom": 172,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "34a07c27-69d8-4afe-9610-319ea1996cea",
+          "modelElementId": "4eecdfc9-6a0b-4c84-99ba-46e7491c144e",
+          "presentation": "behavior",
+          "x": 460,
+          "y": 100,
+          "width": 140,
+          "height": 60,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 460,
+              "y": 100
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 140,
+              "height": 60
+            },
+            "x": 460,
+            "y": 100,
+            "width": 140,
+            "height": 60,
+            "left": 460,
+            "top": 100,
+            "right": 600,
+            "bottom": 160,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "b9fe3f00-39dd-4f0b-a8c7-17292b346994",
+          "modelElementId": "feb47ed7-6205-4ce0-8945-738a8d409f0b",
+          "presentation": "behavior",
+          "x": 640,
+          "y": 110,
+          "width": 32,
+          "height": 32,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 640,
+              "y": 110
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 32,
+              "height": 32
+            },
+            "x": 640,
+            "y": 110,
+            "width": 32,
+            "height": 32,
+            "left": 640,
+            "top": 110,
+            "right": 672,
+            "bottom": 142,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "1bafd4c5-1a8f-460e-a4b3-e176759d435e",
+          "modelElementId": "362d4f11-fb21-478d-8607-ab3002b69d0c",
+          "sourceNodeId": "ffca6baf-c380-47e6-8aeb-15e3d70042e1",
+          "targetNodeId": "b607db15-7c22-47f4-9880-453f5c0e4e80",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "1c112e50-47e0-406c-b3a3-f44cc45adbb2",
+          "modelElementId": "f1359a99-3054-4a20-8e56-176f45c5b26a",
+          "sourceNodeId": "b607db15-7c22-47f4-9880-453f5c0e4e80",
+          "targetNodeId": "c12a4ee3-69cc-4311-9fc0-449c108e9e25",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "c57b4381-45c7-4967-8761-e3790c69a232",
+          "modelElementId": "7137a9bc-2b15-458b-ad14-19ef81fbb47a",
+          "sourceNodeId": "c12a4ee3-69cc-4311-9fc0-449c108e9e25",
+          "targetNodeId": "34a07c27-69d8-4afe-9610-319ea1996cea",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "a3fb8b8c-37cb-4dc8-a402-e1e7bb724e46",
+          "modelElementId": "1fb09299-87cd-4369-b6cd-3bebaed04bff",
+          "sourceNodeId": "34a07c27-69d8-4afe-9610-319ea1996cea",
+          "targetNodeId": "b9fe3f00-39dd-4f0b-a8c7-17292b346994",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        }
+      ],
+      "name": "Interaction Overview Diagram",
+      "displayLabel": "Interaction Overview Diagram",
+      "id": "e6eee509-7225-46ec-8b6e-752a9cacb052"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

@@ -47,6 +47,7 @@ public sealed class UmlCanvas : Control
     private float _relationshipAnchorY;
     private bool _isDraggingBend;
     private int _bendDragVertexIndex = -1;
+    private bool _paintErrorPending;
 
     public event EventHandler? SelectionChanged;
     public event EventHandler? ProjectChanged;
@@ -112,7 +113,7 @@ public sealed class UmlCanvas : Control
     {
         DoubleBuffered = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        BackColor = Color.FromArgb(245, 245, 245);
+        BackColor = UmlDiagramStyle.CanvasBackground;
         TabStop = true;
 
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
@@ -187,7 +188,6 @@ public sealed class UmlCanvas : Control
         if (!UmlToolModeHelper.IsNodeCreateTool(mode))
             return false;
 
-        var previousMode = _toolMode;
         _toolMode = mode;
         var center = ScreenToCanvas(GetViewportCenter());
         var size = GetDefaultSize(mode);
@@ -197,7 +197,6 @@ public sealed class UmlCanvas : Control
             size.Width,
             size.Height);
         CreateNode(rect);
-        _toolMode = previousMode;
         NotifyChanged();
         return true;
     }
@@ -221,11 +220,18 @@ public sealed class UmlCanvas : Control
                 _project.RootPackage.AddClassifier((UmlClassifier)newElement);
                 break;
             case UmlActor actor:
-                newElement = new UmlActor { Name = actor.Name + " 복사" };
+                newElement = new UmlActor { Name = actor.Name + " 복사", UseRectangleNotation = actor.UseRectangleNotation };
                 _project.RootPackage.AddActor((UmlActor)newElement);
                 break;
             case UmlUseCase uc:
-                newElement = new UmlUseCase { Name = uc.Name + " 복사" };
+                newElement = new UmlUseCase
+                {
+                    Name = uc.Name + " 복사",
+                    ExtensionPoints = [.. uc.ExtensionPoints],
+                    Requirements = uc.Requirements,
+                    Constraints = uc.Constraints,
+                    Scenario = uc.Scenario,
+                };
                 _project.RootPackage.AddUseCase((UmlUseCase)newElement);
                 break;
             case UmlSystemBoundary boundary:
@@ -237,12 +243,60 @@ public sealed class UmlCanvas : Control
                 _project.RootPackage.AddNote((UmlNote)newElement);
                 break;
             case UmlPackage pkg:
-                newElement = new UmlPackage { Name = pkg.Name + " 복사" };
+                newElement = new UmlPackage { Name = pkg.Name + " 복사", Stereotype = pkg.Stereotype };
                 _project.RootPackage.AddNestedPackage((UmlPackage)newElement);
                 break;
             case UmlBehaviorNode beh:
-                newElement = new UmlBehaviorNode { Name = beh.Name, Kind = beh.Kind };
+                newElement = new UmlBehaviorNode
+                {
+                    Name = beh.Name + " 복사",
+                    Kind = beh.Kind,
+                    CombinedFragmentKind = beh.CombinedFragmentKind,
+                    Guard = beh.Guard,
+                    ReferencedDiagramName = beh.ReferencedDiagramName,
+                    ExpansionKind = beh.ExpansionKind,
+                    LifelineKind = beh.LifelineKind,
+                    LocalPrecondition = beh.LocalPrecondition,
+                    LocalPostcondition = beh.LocalPostcondition,
+                };
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)newElement);
+                break;
+            case UmlComponentPort port:
+                newElement = new UmlComponentPort
+                {
+                    Name = port.Name + " 복사",
+                    InterfaceKind = port.InterfaceKind,
+                    InterfaceName = port.InterfaceName,
+                };
+                _project.RootPackage.AddComponentPort((UmlComponentPort)newElement);
+                break;
+            case UmlComponent component:
+                newElement = new UmlComponent { Name = component.Name + " 복사" };
+                _project.RootPackage.AddComponent((UmlComponent)newElement);
+                break;
+            case UmlComponentInterface iface:
+                newElement = new UmlComponentInterface
+                {
+                    Name = iface.Name + " 복사",
+                    InterfaceKind = iface.InterfaceKind,
+                };
+                _project.RootPackage.AddComponentInterface((UmlComponentInterface)newElement);
+                break;
+            case UmlObjectInstance objectInstance:
+                newElement = new UmlObjectInstance
+                {
+                    Name = objectInstance.Name + " 복사",
+                    TypeName = objectInstance.TypeName,
+                };
+                _project.RootPackage.AddObjectInstance((UmlObjectInstance)newElement);
+                break;
+            case UmlDeploymentHost deploymentHost:
+                newElement = new UmlDeploymentHost { Name = deploymentHost.Name + " 복사" };
+                _project.RootPackage.AddDeploymentHost((UmlDeploymentHost)newElement);
+                break;
+            case UmlArtifact artifact:
+                newElement = new UmlArtifact { Name = artifact.Name + " 복사", IsInstance = artifact.IsInstance };
+                _project.RootPackage.AddArtifact((UmlArtifact)newElement);
                 break;
             default:
                 return;
@@ -271,6 +325,12 @@ public sealed class UmlCanvas : Control
     public void RefreshLayout()
     {
         UpdateScrollBars();
+        Invalidate();
+    }
+
+    public void ApplyTheme()
+    {
+        BackColor = UmlDiagramStyle.CanvasBackground;
         Invalidate();
     }
 
@@ -312,29 +372,45 @@ public sealed class UmlCanvas : Control
         e.Graphics.TranslateTransform(-_hScroll.Value, -_vScroll.Value);
         e.Graphics.ScaleTransform(_zoom, _zoom);
 
-        DrawGrid(e.Graphics);
-        UmlDiagramRenderer.DrawDiagram(e.Graphics, _project, ActiveDiagram, _selectedNode, _selectedEdge, _hoverNode, _hoverEdge);
+        try
+        {
+            DrawGrid(e.Graphics);
+            UmlDiagramRenderer.DrawDiagram(e.Graphics, _project, ActiveDiagram, _selectedNode, _selectedEdge, _hoverNode, _hoverEdge);
 
-        if (UmlToolModeHelper.IsRelationshipTool(_toolMode) && _hoverNode is not null)
-            DrawConnectableHighlight(e.Graphics, _hoverNode);
+            if (UmlToolModeHelper.IsRelationshipTool(_toolMode) && _hoverNode is not null)
+                DrawConnectableHighlight(e.Graphics, _hoverNode);
 
-        if (_pendingSourceNode is not null && _pointerOnCanvas)
-            DrawConnectionPreview(e.Graphics);
+            if (_pendingSourceNode is not null && _pointerOnCanvas)
+                DrawConnectionPreview(e.Graphics);
 
-        if (_isCreating)
-            DrawCreatePreview(e.Graphics);
-        else if (_pointerOnCanvas && !_isPanning && !_isDragging && !_isResizing && UmlToolModeHelper.IsNodeCreateTool(_toolMode))
-            DrawToolPlacementPreview(e.Graphics);
-        else if (_pointerOnCanvas && !_isPanning && !_isDragging && !_isCreating && !_isResizing && UmlToolModeHelper.IsRelationshipTool(_toolMode) && _pendingSourceNode is null)
-            DrawRelationshipSilhouette(e.Graphics);
-
+            if (_isCreating)
+                DrawCreatePreview(e.Graphics);
+            else if (_pointerOnCanvas && !_isPanning && !_isDragging && !_isResizing && UmlToolModeHelper.IsNodeCreateTool(_toolMode))
+                DrawToolPlacementPreview(e.Graphics);
+            else if (_pointerOnCanvas && !_isPanning && !_isDragging && !_isCreating && !_isResizing && UmlToolModeHelper.IsRelationshipTool(_toolMode) && _pendingSourceNode is null)
+                DrawRelationshipSilhouette(e.Graphics);
+        }
+        catch (Exception ex)
+        {
+            DrawPaintErrorBanner(e.Graphics, ex.Message);
+            if (!_paintErrorPending)
+            {
+                _paintErrorPending = true;
+                BeginInvoke(() =>
+                {
+                    _paintErrorPending = false;
+                    UmlErrorDialog.Show(FindForm()!, "다이어그램 렌더링 오류", ex);
+                });
+            }
+        }
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
         Focus();
-
+        try
+        {
         if (e.Button == MouseButtons.Right)
         {
             var rpt = ScreenToCanvas(e.Location);
@@ -366,7 +442,7 @@ public sealed class UmlCanvas : Control
         switch (_toolMode)
         {
             case UmlToolMode.Select:
-                if (_selectedNode is not null)
+                if (_selectedNode is not null && ReferenceEquals(hitNode, _selectedNode))
                 {
                     var hi = HitTestResizeHandle(canvasPoint);
                     if (hi >= 0)
@@ -404,49 +480,6 @@ public sealed class UmlCanvas : Control
                 }
                 break;
 
-            case UmlToolMode.CreateClass:
-            case UmlToolMode.CreateInterface:
-            case UmlToolMode.CreateEnumeration:
-            case UmlToolMode.CreatePackage:
-            case UmlToolMode.CreateActor:
-            case UmlToolMode.CreateUseCase:
-            case UmlToolMode.CreateSystemBoundary:
-            case UmlToolMode.CreateNote:
-            case UmlToolMode.CreateState:
-            case UmlToolMode.CreateInitialState:
-            case UmlToolMode.CreateFinalState:
-            case UmlToolMode.CreateAction:
-            case UmlToolMode.CreateInitialNode:
-            case UmlToolMode.CreateActivityFinalNode:
-            case UmlToolMode.CreateFlowFinalNode:
-            case UmlToolMode.CreateDecision:
-            case UmlToolMode.CreateMerge:
-            case UmlToolMode.CreateFork:
-            case UmlToolMode.CreateJoin:
-            case UmlToolMode.CreateChoice:
-            case UmlToolMode.CreateJunction:
-            case UmlToolMode.CreateShallowHistory:
-            case UmlToolMode.CreateDeepHistory:
-            case UmlToolMode.CreateLifeline:
-            case UmlToolMode.CreateLoopFragment:
-            case UmlToolMode.CreateAltFragment:
-            case UmlToolMode.CreateOptFragment:
-            case UmlToolMode.CreateParFragment:
-                if (hitNode is not null)
-                {
-                    Select(hitNode, null);
-                    _dragNode = hitNode;
-                    _isDragging = true;
-                    _modelChangedDuringDrag = false;
-                    Capture = true;
-                    break;
-                }
-
-                _isCreating = true;
-                Capture = true;
-                Invalidate();
-                break;
-
             case UmlToolMode.CreateSelfMessage:
                 if (hitNode is null)
                 {
@@ -480,6 +513,16 @@ public sealed class UmlCanvas : Control
             case UmlToolMode.CreateTransition:
             case UmlToolMode.CreateControlFlow:
             case UmlToolMode.CreateObjectFlow:
+            case UmlToolMode.CreateAssembly:
+            case UmlToolMode.CreatePackageMerge:
+            case UmlToolMode.CreatePackageImport:
+            case UmlToolMode.CreatePackageNesting:
+            case UmlToolMode.CreateAssociationClass:
+            case UmlToolMode.CreateClassNesting:
+            case UmlToolMode.CreateDeployment:
+            case UmlToolMode.CreateDeploymentPath:
+            case UmlToolMode.CreateTrace:
+            case UmlToolMode.CreateApplyDependency:
                 if (hitNode is null)
                 {
                     StartPan(e.Location);
@@ -491,6 +534,19 @@ public sealed class UmlCanvas : Control
                     if (ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram
                         && UmlToolModeHelper.IsSequenceMessageTool(_toolMode)
                         && !UmlSequenceLayout.IsLifeline(_project, hitNode))
+                        break;
+
+                    if (ActiveDiagram.Kind == UmlDiagramKind.CommunicationDiagram
+                        && UmlToolModeHelper.IsSequenceMessageTool(_toolMode)
+                        && hitNode.Presentation != UmlNodePresentation.ObjectInstance)
+                        break;
+
+                    if (_toolMode == UmlToolMode.CreateDeployment
+                        && hitNode.Presentation != UmlNodePresentation.Artifact)
+                        break;
+
+                    if (_toolMode == UmlToolMode.CreateDeploymentPath
+                        && hitNode.Presentation != UmlNodePresentation.DeploymentHost)
                         break;
 
                     _pendingSourceNode = hitNode;
@@ -512,17 +568,73 @@ public sealed class UmlCanvas : Control
                         break;
                     }
 
+                    if (ActiveDiagram.Kind == UmlDiagramKind.CommunicationDiagram
+                        && UmlToolModeHelper.IsSequenceMessageTool(_toolMode))
+                    {
+                        if (hitNode.Presentation != UmlNodePresentation.ObjectInstance)
+                            break;
+
+                        CreateRelationship(_pendingSourceNode, hitNode, canvasPoint.Y);
+                        _pendingSourceNode = null;
+                        break;
+                    }
+
+                    if (_toolMode == UmlToolMode.CreateDeployment
+                        && hitNode.Presentation != UmlNodePresentation.DeploymentHost)
+                        break;
+
                     CreateRelationship(_pendingSourceNode, hitNode, canvasPoint.Y);
                     _pendingSourceNode = null;
                 }
                 break;
+
+            default:
+                if (UmlToolModeHelper.IsNodeCreateTool(_toolMode))
+                    BeginNodeCreateInteraction(hitNode);
+                break;
         }
+        }
+        catch (Exception ex)
+        {
+            CancelInteraction();
+            UmlErrorDialog.Show(FindForm()!, "캔버스 오류", ex);
+        }
+    }
+
+    private void BeginNodeCreateInteraction(UmlDiagramNode? hitNode)
+    {
+        if (hitNode is not null)
+        {
+            ReturnToSelectTool();
+            Select(hitNode, null);
+            _dragNode = hitNode;
+            _isDragging = true;
+            _modelChangedDuringDrag = false;
+            Capture = true;
+            return;
+        }
+
+        _isCreating = true;
+        Capture = true;
+        Invalidate();
+    }
+
+    private void ReturnToSelectTool()
+    {
+        if (_toolMode == UmlToolMode.Select)
+            return;
+
+        _toolMode = UmlToolMode.Select;
+        _pendingSourceNode = null;
+        UpdateCursor();
+        SelectToolRequested?.Invoke(this, EventArgs.Empty);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-
+        try
+        {
         if (_isPanning)
         {
             var dx = _panStartScreen.X - e.X;
@@ -586,6 +698,11 @@ public sealed class UmlCanvas : Control
 
         if (ShouldRepaintPointerPreview())
             Invalidate();
+        }
+        catch (Exception ex)
+        {
+            UmlErrorDialog.Show(FindForm()!, "캔버스 오류", ex);
+        }
     }
 
     private bool ShouldRepaintPointerPreview() =>
@@ -621,21 +738,28 @@ public sealed class UmlCanvas : Control
         base.OnMouseDoubleClick(e);
         if (e.Button != MouseButtons.Left)
             return;
+        try
+        {
+            CancelInteraction();
 
-        CancelInteraction();
+            var canvasPoint = ScreenToCanvas(e.Location);
+            if (!TryEditAt(canvasPoint))
+                return;
 
-        var canvasPoint = ScreenToCanvas(e.Location);
-        if (!TryEditAt(canvasPoint))
-            return;
-
-        SelectionChanged?.Invoke(this, EventArgs.Empty);
-        NotifyChanged();
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
+            NotifyChanged();
+        }
+        catch (Exception ex)
+        {
+            UmlErrorDialog.Show(FindForm()!, "캔버스 오류", ex);
+        }
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-
+        try
+        {
         if (e.Button == MouseButtons.Right && !_isPanning && !_isDragging && !_isDraggingBend && !_isDraggingMessage && !_isCreating && !_isResizing)
         {
             ShowContextMenu(e.Location);
@@ -654,7 +778,7 @@ public sealed class UmlCanvas : Control
         {
             var rect = NormalizeRect(_dragStartCanvas, ScreenToCanvas(e.Location));
             rect = EnsureDrawableRect(rect);
-            if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
+            if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode) || UmlCircleNodeGeometry.IsDiamondCreateTool(_toolMode))
                 rect = UmlCircleNodeGeometry.SquareFromDrag(rect);
             if (_toolMode == UmlToolMode.CreateActor)
                 rect = UmlActorGeometry.UniformFromDrag(rect);
@@ -718,6 +842,12 @@ public sealed class UmlCanvas : Control
         }
 
         Capture = false;
+        }
+        catch (Exception ex)
+        {
+            CancelInteraction();
+            UmlErrorDialog.Show(FindForm()!, "캔버스 오류", ex);
+        }
     }
 
     protected override void OnMouseWheel(MouseEventArgs e)
@@ -775,6 +905,20 @@ public sealed class UmlCanvas : Control
             _spacePressed = false;
             UpdateCursor();
         }
+    }
+
+    private void DrawPaintErrorBanner(Graphics g, string message)
+    {
+        g.ResetTransform();
+        using var bgBrush = new SolidBrush(Color.FromArgb(230, 255, 235, 235));
+        using var borderPen = new Pen(Color.FromArgb(200, 180, 0, 0), 1.5f);
+        using var textBrush = new SolidBrush(Color.FromArgb(210, 150, 0, 0));
+        using var font = new Font("Segoe UI", 9f);
+        var rect = new RectangleF(8, 8, ClientSize.Width - 16, 44);
+        g.FillRectangle(bgBrush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawRectangle(borderPen, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawString($"⚠ 렌더링 오류: {message}", font, textBrush, rect.X + 8, rect.Y + 6);
+        g.DrawString("자세한 내용은 오류 창을 확인하세요.", font, textBrush, rect.X + 8, rect.Y + 26);
     }
 
     private void CancelInteraction()
@@ -884,8 +1028,10 @@ public sealed class UmlCanvas : Control
     private void DrawCreatePreview(Graphics g)
     {
         var rect = EnsureDrawableRect(NormalizeRect(_dragStartCanvas, _createPreviewEnd));
-        if (_toolMode == UmlToolMode.CreateLifeline)
+        if (UmlToolModeHelper.IsLifelineCreateTool(_toolMode))
             rect = NormalizeLifelineCreateRect(rect);
+        else if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
+            rect = NormalizeCircleCreateRect(rect);
         DrawPlacementPreview(g, rect);
     }
 
@@ -920,8 +1066,11 @@ public sealed class UmlCanvas : Control
 
     private RectangleF EnsureDrawableRect(RectangleF rect)
     {
-        if (_toolMode == UmlToolMode.CreateLifeline)
+        if (UmlToolModeHelper.IsLifelineCreateTool(_toolMode))
             return NormalizeLifelineCreateRect(rect);
+
+        if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
+            return NormalizeCircleCreateRect(rect);
 
         const float minScreen = 6f;
         var screenW = Math.Abs(rect.Width) * _zoom;
@@ -934,9 +1083,12 @@ public sealed class UmlCanvas : Control
         return new RectangleF(rect.X, rect.Y, defaults.Width, defaults.Height);
     }
 
+    private RectangleF NormalizeCircleCreateRect(RectangleF rect) =>
+        UmlCircleNodeGeometry.NormalizeCreateRect(rect, GetDefaultSize(_toolMode), _zoom);
+
     private RectangleF NormalizeLifelineCreateRect(RectangleF rect)
     {
-        var defaults = GetDefaultSize(UmlToolMode.CreateLifeline);
+        var defaults = GetDefaultSize(_toolMode);
         const float minWidth = 60f;
         const float minScreen = 6f;
 
@@ -976,11 +1128,56 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateAltFragment => new SizeF(280, 160),
         UmlToolMode.CreateOptFragment => new SizeF(280, 160),
         UmlToolMode.CreateParFragment => new SizeF(280, 160),
+        UmlToolMode.CreateBreakFragment => new SizeF(280, 160),
+        UmlToolMode.CreateRefFragment => new SizeF(280, 160),
+        UmlToolMode.CreateInteractionOccurrence => new SizeF(280, 160),
+        UmlToolMode.CreateDecomposedLifeline => new SizeF(100, 240),
         UmlToolMode.CreateActivation => new SizeF(24, 60),
+        UmlToolMode.CreatePort => new SizeF(20, 20),
+        UmlToolMode.CreateSwimlane => new SizeF(200, 360),
+        UmlToolMode.CreateObjectNode => new SizeF(100, 48),
+        UmlToolMode.CreateComponent => new SizeF(180, 100),
+        UmlToolMode.CreateProvidedInterface => new SizeF(88, UmlComponentNotation.MinInterfaceHeight),
+        UmlToolMode.CreateRequiredInterface => new SizeF(88, UmlComponentNotation.MinInterfaceHeight),
         UmlToolMode.CreateInterface => new SizeF(160, 100),
         UmlToolMode.CreateEnumeration => new SizeF(140, 90),
+        UmlToolMode.CreateObjectInstance => new SizeF(120, 48),
+        UmlToolMode.CreateDeploymentHost => new SizeF(140, 80),
+        UmlToolMode.CreateArtifact => new SizeF(120, 72),
+        UmlToolMode.CreateSequenceEndpoint => new SizeF(28, 28),
+        UmlToolMode.CreateGate => new SizeF(36, 36),
+        UmlToolMode.CreateExpansionRegion => new SizeF(240, 160),
+        UmlToolMode.CreateInterruptibleRegion => new SizeF(240, 160),
+        UmlToolMode.CreateNaryAssociationHub => new SizeF(48, 48),
+        UmlToolMode.CreateTable => new SizeF(160, 120),
+        UmlToolMode.CreateSeqFragment or UmlToolMode.CreateStrictFragment or UmlToolMode.CreateNegFragment
+            or UmlToolMode.CreateCriticalFragment or UmlToolMode.CreateIgnoreFragment or UmlToolMode.CreateConsiderFragment
+            or UmlToolMode.CreateAssertFragment => new SizeF(280, 160),
+        UmlToolMode.CreateStateInvariant or UmlToolMode.CreateContinuation => new SizeF(100, 28),
+        UmlToolMode.CreateCompositeState or UmlToolMode.CreateOrthogonalRegion or UmlToolMode.CreateSubmachineState
+            or UmlToolMode.CreateActivityContainer => new SizeF(180, 120),
+        UmlToolMode.CreateEntryPoint or UmlToolMode.CreateExitPoint or UmlToolMode.CreateTerminateState => new SizeF(24, 24),
+        UmlToolMode.CreateDataStore => new SizeF(120, 56),
+        UmlToolMode.CreateInputPin or UmlToolMode.CreateOutputPin => new SizeF(14, 14),
+        UmlToolMode.CreateExceptionHandler => new SizeF(80, 40),
+        UmlToolMode.CreateProfilePackage => new SizeF(200, 140),
+        UmlToolMode.CreateMetaclass => new SizeF(160, 100),
+        UmlToolMode.CreateTimingLifeline => new SizeF(400, 100),
+        UmlToolMode.CreateTimingState => new SizeF(120, 32),
+        UmlToolMode.CreateInteractionUse => new SizeF(140, 60),
         _ => new SizeF(160, 120),
     };
+
+    private Guid? ResolveSelectedParentLifelineId()
+    {
+        if (_selectedNode is null)
+            return null;
+
+        if (_project.FindElement(_selectedNode.ModelElementId) is UmlBehaviorNode { Kind: UmlBehaviorNodeKind.Lifeline } lifeline)
+            return lifeline.Id;
+
+        return null;
+    }
 
     private void CreateNode(RectangleF rect)
     {
@@ -989,6 +1186,11 @@ public sealed class UmlCanvas : Control
 
         switch (_toolMode)
         {
+            case UmlToolMode.CreateClass:
+                element = new UmlClass();
+                presentation = UmlNodePresentation.Classifier;
+                _project.RootPackage.AddClassifier((UmlClass)element);
+                break;
             case UmlToolMode.CreateInterface:
                 element = new UmlInterface();
                 presentation = UmlNodePresentation.Classifier;
@@ -1104,6 +1306,20 @@ public sealed class UmlCanvas : Control
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
+            case UmlToolMode.CreateDecomposedLifeline:
+            {
+                var parentId = ResolveSelectedParentLifelineId();
+                element = new UmlBehaviorNode
+                {
+                    Name = "part",
+                    Kind = UmlBehaviorNodeKind.Lifeline,
+                    ParentLifelineId = parentId,
+                    DecompositionRole = ":part",
+                };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            }
             case UmlToolMode.CreateAltFragment:
                 element = new UmlBehaviorNode { Name = "alt", Kind = UmlBehaviorNodeKind.CombinedFragment, CombinedFragmentKind = UmlCombinedFragmentKind.Alt, Guard = string.Empty };
                 presentation = UmlNodePresentation.Behavior;
@@ -1130,12 +1346,248 @@ public sealed class UmlCanvas : Control
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
+            case UmlToolMode.CreateBreakFragment:
+                element = new UmlBehaviorNode
+                {
+                    Name = "break",
+                    Kind = UmlBehaviorNodeKind.CombinedFragment,
+                    CombinedFragmentKind = UmlCombinedFragmentKind.Break,
+                    Guard = string.Empty,
+                };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateRefFragment:
+                element = new UmlBehaviorNode
+                {
+                    Name = "ref",
+                    Kind = UmlBehaviorNodeKind.CombinedFragment,
+                    CombinedFragmentKind = UmlCombinedFragmentKind.Ref,
+                    ReferencedDiagramName = "Diagram",
+                };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateInteractionOccurrence:
+                element = new UmlBehaviorNode
+                {
+                    Name = "sd",
+                    Kind = UmlBehaviorNodeKind.CombinedFragment,
+                    CombinedFragmentKind = UmlCombinedFragmentKind.InteractionOccurrence,
+                    ReferencedDiagramName = "Sequence Diagram",
+                };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
             case UmlToolMode.CreateActivation:
                 element = new UmlBehaviorNode { Name = "Activation", Kind = UmlBehaviorNodeKind.Activation };
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
+            case UmlToolMode.CreateSwimlane:
+                element = new UmlBehaviorNode { Name = "Swimlane", Kind = UmlBehaviorNodeKind.Swimlane };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateObjectNode:
+                element = new UmlBehaviorNode { Name = "Object", Kind = UmlBehaviorNodeKind.ObjectNode };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreatePort:
+                element = new UmlComponentPort();
+                presentation = UmlNodePresentation.Port;
+                _project.RootPackage.AddComponentPort((UmlComponentPort)element);
+                break;
+            case UmlToolMode.CreateComponent:
+                element = new UmlComponent();
+                presentation = UmlNodePresentation.Component;
+                _project.RootPackage.AddComponent((UmlComponent)element);
+                break;
+            case UmlToolMode.CreateProvidedInterface:
+                element = new UmlComponentInterface
+                {
+                    Name = "IProvided",
+                    InterfaceKind = UmlComponentInterfaceKind.Provided,
+                };
+                presentation = UmlNodePresentation.ProvidedInterface;
+                _project.RootPackage.AddComponentInterface((UmlComponentInterface)element);
+                break;
+            case UmlToolMode.CreateRequiredInterface:
+                element = new UmlComponentInterface
+                {
+                    Name = "IRequired",
+                    InterfaceKind = UmlComponentInterfaceKind.Required,
+                };
+                presentation = UmlNodePresentation.RequiredInterface;
+                _project.RootPackage.AddComponentInterface((UmlComponentInterface)element);
+                break;
+            case UmlToolMode.CreateObjectInstance:
+                element = new UmlObjectInstance();
+                presentation = UmlNodePresentation.ObjectInstance;
+                _project.RootPackage.AddObjectInstance((UmlObjectInstance)element);
+                break;
+            case UmlToolMode.CreateDeploymentHost:
+                element = new UmlDeploymentHost();
+                presentation = UmlNodePresentation.DeploymentHost;
+                _project.RootPackage.AddDeploymentHost((UmlDeploymentHost)element);
+                break;
+            case UmlToolMode.CreateArtifact:
+                element = new UmlArtifact();
+                presentation = UmlNodePresentation.Artifact;
+                _project.RootPackage.AddArtifact((UmlArtifact)element);
+                break;
+            case UmlToolMode.CreateSequenceEndpoint:
+                element = new UmlBehaviorNode { Name = "endpoint", Kind = UmlBehaviorNodeKind.SequenceEndpoint };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateGate:
+                element = new UmlBehaviorNode { Name = "gate", Kind = UmlBehaviorNodeKind.Gate };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateExpansionRegion:
+                element = new UmlBehaviorNode
+                {
+                    Name = "region",
+                    Kind = UmlBehaviorNodeKind.ExpansionRegion,
+                    ExpansionKind = UmlExpansionRegionKind.Iterative,
+                };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateInterruptibleRegion:
+                element = new UmlBehaviorNode { Name = "interruptible", Kind = UmlBehaviorNodeKind.InterruptibleRegion };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateTable:
+                element = new UmlClass { Name = "Table", Stereotype = "table" };
+                presentation = UmlNodePresentation.Classifier;
+                _project.RootPackage.AddClassifier((UmlClass)element);
+                break;
+            case UmlToolMode.CreateProfilePackage:
+                element = new UmlPackage { Name = "Profile", Stereotype = "profile" };
+                presentation = UmlNodePresentation.Package;
+                _project.RootPackage.AddNestedPackage((UmlPackage)element);
+                break;
+            case UmlToolMode.CreateMetaclass:
+                element = new UmlClass { Name = "Metaclass", Stereotype = "metaclass" };
+                presentation = UmlNodePresentation.Classifier;
+                _project.RootPackage.AddClassifier((UmlClass)element);
+                break;
+            case UmlToolMode.CreateNaryAssociationHub:
+                element = new UmlBehaviorNode { Name = "hub", Kind = UmlBehaviorNodeKind.NaryAssociationHub };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateCompositeState:
+                element = new UmlBehaviorNode { Name = "Composite", Kind = UmlBehaviorNodeKind.CompositeState };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateOrthogonalRegion:
+                element = new UmlBehaviorNode { Name = "Region", Kind = UmlBehaviorNodeKind.OrthogonalRegion };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateEntryPoint:
+                element = new UmlBehaviorNode { Name = "entry", Kind = UmlBehaviorNodeKind.EntryPoint };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateExitPoint:
+                element = new UmlBehaviorNode { Name = "exit", Kind = UmlBehaviorNodeKind.ExitPoint };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateTerminateState:
+                element = new UmlBehaviorNode { Name = "terminate", Kind = UmlBehaviorNodeKind.TerminateState };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateSubmachineState:
+                element = new UmlBehaviorNode { Name = "Submachine", Kind = UmlBehaviorNodeKind.SubmachineState };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateActivityContainer:
+                element = new UmlBehaviorNode { Name = "Activity", Kind = UmlBehaviorNodeKind.ActivityContainer };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateDataStore:
+                element = new UmlBehaviorNode { Name = "store", Kind = UmlBehaviorNodeKind.DataStore };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateInputPin:
+                element = new UmlBehaviorNode { Name = "in", Kind = UmlBehaviorNodeKind.InputPin };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateOutputPin:
+                element = new UmlBehaviorNode { Name = "out", Kind = UmlBehaviorNodeKind.OutputPin };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateExceptionHandler:
+                element = new UmlBehaviorNode { Name = "handler", Kind = UmlBehaviorNodeKind.ExceptionHandler };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateStateInvariant:
+                element = new UmlBehaviorNode { Name = "{inv}", Kind = UmlBehaviorNodeKind.StateInvariant };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateContinuation:
+                element = new UmlBehaviorNode { Name = "continuation", Kind = UmlBehaviorNodeKind.Continuation };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateTimingLifeline:
+                element = new UmlBehaviorNode { Name = "Lifeline", Kind = UmlBehaviorNodeKind.TimingLifeline };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateTimingState:
+                element = new UmlBehaviorNode { Name = "State", Kind = UmlBehaviorNodeKind.TimingState };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
+            case UmlToolMode.CreateInteractionUse:
+                element = new UmlBehaviorNode
+                {
+                    Name = "interaction",
+                    Kind = UmlBehaviorNodeKind.InteractionUse,
+                    ReferencedDiagramName = "Sequence Diagram",
+                };
+                presentation = UmlNodePresentation.Behavior;
+                _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                break;
             default:
+                if (UmlToolModeHelper.TryCreateCombinedFragment(_toolMode, out var fragment))
+                {
+                    element = fragment;
+                    presentation = UmlNodePresentation.Behavior;
+                    _project.RootPackage.AddBehaviorNode(fragment);
+                    break;
+                }
+
+                if (UmlToolModeHelper.IsNodeCreateTool(_toolMode))
+                {
+                    element = new UmlBehaviorNode
+                    {
+                        Name = UmlToolModeHelper.GetDisplayName(_toolMode),
+                        Kind = UmlBehaviorNodeKind.State,
+                    };
+                    presentation = UmlNodePresentation.Behavior;
+                    _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
+                    break;
+                }
+
                 element = new UmlClass();
                 presentation = UmlNodePresentation.Classifier;
                 _project.RootPackage.AddClassifier((UmlClass)element);
@@ -1144,11 +1596,11 @@ public sealed class UmlCanvas : Control
 
         // Lifeline: fixed default height; width follows horizontal drag.
         // Circle nodes (initial/final): always square.
-        var nodeWidth = _toolMode == UmlToolMode.CreateLifeline
+        var nodeWidth = UmlToolModeHelper.IsLifelineCreateTool(_toolMode)
             ? rect.Width
             : Math.Max(24, rect.Width);
-        var nodeHeight = _toolMode == UmlToolMode.CreateLifeline
-            ? GetDefaultSize(UmlToolMode.CreateLifeline).Height
+        var nodeHeight = UmlToolModeHelper.IsLifelineCreateTool(_toolMode)
+            ? GetDefaultSize(_toolMode).Height
             : Math.Max(24, rect.Height);
 
         if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
@@ -1179,7 +1631,10 @@ public sealed class UmlCanvas : Control
             ActiveDiagram.Nodes.Insert(0, node);
         else
             ActiveDiagram.Nodes.Add(node);
+
+        SyncCircleNodeBounds(node);
         Select(node, null);
+        ReturnToSelectTool();
     }
 
     private bool TryGetBendHandleCursor(PointF canvasPoint, out Cursor cursor)
@@ -1306,6 +1761,11 @@ public sealed class UmlCanvas : Control
                 SourceClassifierId = sourceNode.ModelElementId,
                 TargetClassifierId = targetNode.ModelElementId,
             },
+            UmlToolMode.CreateAssembly => new UmlAssembly
+            {
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
             UmlToolMode.CreateInclude => new UmlInclude
             {
                 SourceClassifierId = sourceNode.ModelElementId,
@@ -1349,6 +1809,56 @@ public sealed class UmlCanvas : Control
                 SourceClassifierId = sourceNode.ModelElementId,
                 TargetClassifierId = targetNode.ModelElementId,
             },
+            UmlToolMode.CreatePackageMerge => new UmlPackageRelationship
+            {
+                PackageKind = UmlPackageRelationshipKind.Merge,
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreatePackageImport => new UmlPackageRelationship
+            {
+                PackageKind = UmlPackageRelationshipKind.Import,
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreatePackageNesting => new UmlPackageRelationship
+            {
+                PackageKind = UmlPackageRelationshipKind.Nesting,
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreateAssociationClass => new UmlAssociationClass
+            {
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreateDeployment => new UmlDeploymentLink
+            {
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreateDeploymentPath => new UmlDeploymentPath
+            {
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreateClassNesting => new UmlClassNesting
+            {
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreateTrace => new UmlDependency
+            {
+                Stereotype = "trace",
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
+            UmlToolMode.CreateApplyDependency => new UmlDependency
+            {
+                Stereotype = "apply",
+                SourceClassifierId = sourceNode.ModelElementId,
+                TargetClassifierId = targetNode.ModelElementId,
+            },
             UmlToolMode.CreateAggregation => new UmlAssociation
             {
                 SourceClassifierId = sourceNode.ModelElementId,
@@ -1374,7 +1884,25 @@ public sealed class UmlCanvas : Control
             },
         };
 
+        if (relationship is UmlBehaviorConnector communicationMessage
+            && ActiveDiagram.Kind == UmlDiagramKind.CommunicationDiagram
+            && UmlToolModeHelper.IsSequenceMessageTool(_toolMode))
+        {
+            communicationMessage.CommunicationSequenceNumber = GetNextCommunicationSequenceNumber();
+            if (string.IsNullOrWhiteSpace(communicationMessage.Name))
+                communicationMessage.Name = "message";
+        }
+
         _project.RootPackage.AddRelationship(relationship);
+
+        if (relationship is UmlPackageRelationship { PackageKind: UmlPackageRelationshipKind.Nesting } nestingRel)
+        {
+            var child = _project.FindElement(nestingRel.SourceClassifierId) as UmlPackage;
+            var parent = _project.FindElement(nestingRel.TargetClassifierId) as UmlPackage;
+            if (child is not null && parent is not null)
+                UmlPackageNestingHelper.SyncNestedPackage(_project.RootPackage, parent, child);
+        }
+
         var edge = new UmlDiagramEdge
         {
             ModelElementId = relationship.Id,
@@ -1656,8 +2184,8 @@ public sealed class UmlCanvas : Control
         var xMajor0 = (int)(Math.Floor(visLeft / majorGrid) * majorGrid);
         var yMajor0 = (int)(Math.Floor(visTop / majorGrid) * majorGrid);
 
-        using var minorPen = new Pen(Color.FromArgb(22, 0, 0, 0), 1f / _zoom);
-        using var majorPen = new Pen(Color.FromArgb(46, 0, 0, 0), 1.2f / _zoom);
+        using var minorPen = new Pen(UmlDiagramStyle.GridMinorColor, 1f / _zoom);
+        using var majorPen = new Pen(UmlDiagramStyle.GridMajorColor, 1.2f / _zoom);
 
         for (var x = xMinor0; x <= visRight; x += minorGrid)
             g.DrawLine(minorPen, x, visTop, x, visBottom);
@@ -1805,7 +2333,7 @@ public sealed class UmlCanvas : Control
     {
         if (_selectedNode is null) return;
 
-        if (UmlCircleNodeGeometry.IsCircleNode(_project, _selectedNode))
+        if (UmlCircleNodeGeometry.IsCircleNode(_project, _selectedNode) || UmlCircleNodeGeometry.IsDiamondNode(_project, _selectedNode))
         {
             ApplyCircleResize(p);
             return;
@@ -1858,7 +2386,7 @@ public sealed class UmlCanvas : Control
 
     private void SyncCircleNodeBounds(UmlDiagramNode node)
     {
-        if (!UmlCircleNodeGeometry.IsCircleNode(_project, node))
+        if (!UmlCircleNodeGeometry.IsCircleNode(_project, node) && !UmlCircleNodeGeometry.IsDiamondNode(_project, node))
             return;
 
         var square = UmlCircleNodeGeometry.GetCircleBounds(node.Bounds);
@@ -2142,6 +2670,18 @@ public sealed class UmlCanvas : Control
         return el is UmlNamedElement named ? named.Name : "?";
     }
 
+    private int GetNextCommunicationSequenceNumber()
+    {
+        var max = ActiveDiagram.Edges
+            .Select(e => _project.FindRelationship(e.ModelElementId))
+            .OfType<UmlBehaviorConnector>()
+            .Where(c => c.Kind == UmlBehaviorConnectorKind.Message)
+            .Select(c => c.CommunicationSequenceNumber)
+            .DefaultIfEmpty(0)
+            .Max();
+        return max + 1;
+    }
+
     private static string GetDefaultSequenceMessageName(UmlToolMode mode) => mode switch
     {
         UmlToolMode.CreateAsyncMessage => "signal()",
@@ -2157,6 +2697,7 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateGeneralization => "일반화",
         UmlToolMode.CreateRealization => "실체화",
         UmlToolMode.CreateDependency => "의존",
+        UmlToolMode.CreateAssembly => "조립",
         UmlToolMode.CreateAssociation => "연관",
         UmlToolMode.CreateDirectedAssociation => "방향 연관",
         UmlToolMode.CreateAggregation => "집합",
@@ -2171,6 +2712,8 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateTransition => "전이",
         UmlToolMode.CreateControlFlow => "제어 흐름",
         UmlToolMode.CreateObjectFlow => "객체 흐름",
+        UmlToolMode.CreateDeployment => "배치",
+        UmlToolMode.CreateDeploymentPath => "통신 경로",
         _ => "연결",
     };
 
@@ -2319,6 +2862,32 @@ public sealed class UmlCanvas : Control
             if (TryEditAt(cp)) { SelectionChanged?.Invoke(this, EventArgs.Empty); NotifyChanged(); }
         });
 
+        if (rel is UmlBehaviorConnector { Kind: UmlBehaviorConnectorKind.Message } message
+            && ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram)
+        {
+            Add("지속 최소 편집...", UmlIcons.Edit(), () =>
+            {
+                var t = UmlTextPrompt.Show(PromptOwner, "Duration", "지속 최소", message.DurationMin ?? "");
+                if (t is null) return;
+                message.DurationMin = string.IsNullOrWhiteSpace(t) ? null : t.Trim();
+                NotifyChanged();
+            });
+            Add("지속 최대 편집...", UmlIcons.Edit(), () =>
+            {
+                var t = UmlTextPrompt.Show(PromptOwner, "Duration", "지속 최대", message.DurationMax ?? "");
+                if (t is null) return;
+                message.DurationMax = string.IsNullOrWhiteSpace(t) ? null : t.Trim();
+                NotifyChanged();
+            });
+            Add("지속 제약 편집...", UmlIcons.Edit(), () =>
+            {
+                var t = UmlTextPrompt.Show(PromptOwner, "Duration", "지속 제약 (레거시)", message.DurationConstraint ?? "");
+                if (t is null) return;
+                message.DurationConstraint = string.IsNullOrWhiteSpace(t) ? null : t.Trim();
+                NotifyChanged();
+            });
+        }
+
         if (rel is UmlAssociation assoc)
         {
             Add("소스 다중성 편집...", UmlIcons.Multiplicity(), () =>
@@ -2406,6 +2975,36 @@ public sealed class UmlCanvas : Control
                 ActivateNotation(UmlToolMode.CreateMerge);
                 ActivateNotation(UmlToolMode.CreateFork);
                 ActivateNotation(UmlToolMode.CreateJoin);
+                menu.Items.Add(new ToolStripSeparator());
+                break;
+
+            case UmlDiagramKind.ComponentDiagram:
+                ActivateNotation(UmlToolMode.CreateComponent);
+                ActivateNotation(UmlToolMode.CreateProvidedInterface);
+                ActivateNotation(UmlToolMode.CreateRequiredInterface);
+                ActivateNotation(UmlToolMode.CreateAssembly);
+                menu.Items.Add(new ToolStripSeparator());
+                break;
+
+            case UmlDiagramKind.ObjectDiagram:
+                ActivateNotation(UmlToolMode.CreateObjectInstance);
+                ActivateNotation(UmlToolMode.CreateAssociation);
+                ActivateNotation(UmlToolMode.CreateDependency);
+                menu.Items.Add(new ToolStripSeparator());
+                break;
+
+            case UmlDiagramKind.CommunicationDiagram:
+                ActivateNotation(UmlToolMode.CreateObjectInstance);
+                ActivateNotation(UmlToolMode.CreateMessage);
+                ActivateNotation(UmlToolMode.CreateAssociation);
+                menu.Items.Add(new ToolStripSeparator());
+                break;
+
+            case UmlDiagramKind.DeploymentDiagram:
+                ActivateNotation(UmlToolMode.CreateDeploymentHost);
+                ActivateNotation(UmlToolMode.CreateArtifact);
+                ActivateNotation(UmlToolMode.CreateDeployment);
+                ActivateNotation(UmlToolMode.CreateDeploymentPath);
                 menu.Items.Add(new ToolStripSeparator());
                 break;
         }

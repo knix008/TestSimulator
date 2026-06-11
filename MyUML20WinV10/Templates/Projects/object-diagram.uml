@@ -1,0 +1,151 @@
+{
+  "name": "Object Diagram Template",
+  "rootPackage": {
+    "stereotype": "",
+    "nestedPackages": [],
+    "classifiers": [],
+    "actors": [],
+    "useCases": [],
+    "systemBoundaries": [],
+    "notes": [],
+    "behaviorNodes": [],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [
+      {
+        "typeName": "Order",
+        "name": "order1",
+        "displayLabel": "order1",
+        "id": "2c00eb64-f167-47a7-b64e-73624009c043"
+      },
+      {
+        "typeName": "Customer",
+        "name": "cust1",
+        "displayLabel": "cust1",
+        "id": "d65ced4d-8b69-46b5-bdf3-301c212227fa"
+      }
+    ],
+    "deploymentHosts": [],
+    "artifacts": [],
+    "relationships": [
+      {
+        "$relationshipKind": "association",
+        "sourceEndName": "",
+        "targetEndName": "",
+        "sourceMultiplicity": "1",
+        "targetMultiplicity": "1",
+        "aggregation": "none",
+        "isDirected": false,
+        "relationshipKind": "Association",
+        "displayLabel": "places",
+        "sourceClassifierId": "d65ced4d-8b69-46b5-bdf3-301c212227fa",
+        "targetClassifierId": "2c00eb64-f167-47a7-b64e-73624009c043",
+        "name": "places",
+        "id": "6a8ea871-2f6e-4b08-8bce-a845c373b358"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "2c00eb64-f167-47a7-b64e-73624009c043",
+        "displayLabel": "order1"
+      },
+      {
+        "id": "d65ced4d-8b69-46b5-bdf3-301c212227fa",
+        "displayLabel": "cust1"
+      },
+      {
+        "id": "6a8ea871-2f6e-4b08-8bce-a845c373b358",
+        "displayLabel": "places"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "2390e1c6-6a91-4305-925c-464551d9134a"
+  },
+  "diagrams": [
+    {
+      "kind": "objectDiagram",
+      "nodes": [
+        {
+          "id": "cc1b62ab-c0e2-4157-91aa-8d9f9fc579b5",
+          "modelElementId": "d65ced4d-8b69-46b5-bdf3-301c212227fa",
+          "presentation": "objectInstance",
+          "x": 80,
+          "y": 120,
+          "width": 120,
+          "height": 48,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 120,
+              "height": 48
+            },
+            "x": 80,
+            "y": 120,
+            "width": 120,
+            "height": 48,
+            "left": 80,
+            "top": 120,
+            "right": 200,
+            "bottom": 168,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "f3d4ff87-aa31-4d6e-818b-879ad0581420",
+          "modelElementId": "2c00eb64-f167-47a7-b64e-73624009c043",
+          "presentation": "objectInstance",
+          "x": 280,
+          "y": 120,
+          "width": 120,
+          "height": 48,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 280,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 120,
+              "height": 48
+            },
+            "x": 280,
+            "y": 120,
+            "width": 120,
+            "height": 48,
+            "left": 280,
+            "top": 120,
+            "right": 400,
+            "bottom": 168,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "b0e7076c-99c0-4845-bee0-417bc11e90c6",
+          "modelElementId": "6a8ea871-2f6e-4b08-8bce-a845c373b358",
+          "sourceNodeId": "cc1b62ab-c0e2-4157-91aa-8d9f9fc579b5",
+          "targetNodeId": "f3d4ff87-aa31-4d6e-818b-879ad0581420",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        }
+      ],
+      "name": "Object Diagram",
+      "displayLabel": "Object Diagram",
+      "id": "b86344f9-b250-44de-b4e7-bbfde1027007"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

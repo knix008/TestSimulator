@@ -8,7 +8,6 @@ public static class UmlNodeSilhouette
     public const float ResizeHandleRadius = 4.5f;
     public const float ResizeHandleHitRadius = 8f;
 
-    private const float PackageTabHeight = 18f;
     private const float RoundedNodeRadius = 12f;
     private const float InterfaceCornerRadius = 8f;
 
@@ -61,6 +60,10 @@ public static class UmlNodeSilhouette
         if (UmlCombinedFragmentRenderer.IsCombinedFragment(project, node))
             return HitTestCombinedFragment(bounds, location, borderThreshold);
 
+        if (node.Presentation == UmlNodePresentation.Behavior
+            && project.FindElement(node.ModelElementId) is UmlBehaviorNode { Kind: UmlBehaviorNodeKind.ExpansionRegion or UmlBehaviorNodeKind.InterruptibleRegion })
+            return HitTestCombinedFragment(bounds, location, borderThreshold);
+
         return node.Presentation switch
         {
             UmlNodePresentation.Package => HitTestPackage(bounds, location, borderThreshold),
@@ -108,18 +111,21 @@ public static class UmlNodeSilhouette
 
         using var path = BuildSilhouettePath(project, node, bounds);
         using var pen = new Pen(Color.Black, Math.Max(6f, MinHitSize) / zoom);
-        return path.IsVisible(location) || path.IsOutlineVisible(location, pen);
+
+        if (path.IsVisible(location) || path.IsOutlineVisible(location, pen))
+            return true;
+
+        // Fallback: path.IsVisible can be unreliable without a Graphics context in GDI+.
+        // If the point is inside the original shape bounds, accept it as a hit for filled shapes.
+        return bounds.Contains(location);
     }
 
     private static bool HitTestPackage(RectangleF bounds, PointF location, float borderThreshold)
     {
-        var tabW = Math.Min(60f, bounds.Width * 0.35f);
-        var tab = new RectangleF(bounds.X, bounds.Y, tabW, PackageTabHeight);
-        if (tab.Contains(location))
+        if (UmlPackageNotation.GetTabBounds(bounds).Contains(location))
             return true;
 
-        var body = new RectangleF(bounds.X, bounds.Y + PackageTabHeight, bounds.Width, Math.Max(1f, bounds.Height - PackageTabHeight));
-        return HitTestBorder(body, location, borderThreshold);
+        return HitTestBorder(UmlPackageNotation.GetBodyBounds(bounds), location, borderThreshold);
     }
 
     private static bool HitTestBorder(RectangleF bounds, PointF location, float borderThreshold)
@@ -152,153 +158,180 @@ public static class UmlNodeSilhouette
     {
         var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, node);
 
-        switch (node.Presentation)
+        if (node.Presentation == UmlNodePresentation.Classifier
+            && project.FindClassifier(node.ModelElementId) is UmlInterface { UseCircleNotation: true })
         {
-            case UmlNodePresentation.Classifier:
-                DrawClassifierOutline(g, pen, project, node, bounds);
-                break;
-            case UmlNodePresentation.Actor:
-                DrawActorOutline(g, pen, bounds);
-                break;
-            case UmlNodePresentation.UseCase:
-                g.DrawEllipse(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                break;
-            case UmlNodePresentation.SystemBoundary:
-                g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                break;
-            case UmlNodePresentation.Package:
-                DrawPackageOutline(g, pen, bounds);
-                break;
-            case UmlNodePresentation.Note:
-                DrawNoteOutline(g, pen, bounds);
-                break;
-            case UmlNodePresentation.Behavior:
-                DrawBehaviorOutline(g, pen, project, node, bounds);
-                break;
-        }
-    }
-
-    private static void DrawClassifierOutline(Graphics g, Pen pen, UmlProject project, UmlDiagramNode node, RectangleF bounds)
-    {
-        var classifier = project.FindClassifier(node.ModelElementId);
-        if (classifier is UmlInterface)
-        {
-            DrawInterfaceOutline(g, pen, bounds);
+            var circle = UmlCircleNodeGeometry.GetInterfaceCircleBounds(bounds);
+            g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
             return;
         }
 
-        g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        if (node.Presentation == UmlNodePresentation.UseCase)
+        {
+            g.DrawEllipse(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            return;
+        }
+
+        if (node.Presentation == UmlNodePresentation.Actor)
+        {
+            DrawActorOutline(g, pen, bounds);
+            return;
+        }
+
+        if (node.Presentation == UmlNodePresentation.Behavior
+            && project.FindElement(node.ModelElementId) is UmlBehaviorNode behaviorNode)
+        {
+            switch (behaviorNode.Kind)
+            {
+                case UmlBehaviorNodeKind.InitialState:
+                case UmlBehaviorNodeKind.InitialNode:
+                case UmlBehaviorNodeKind.Junction:
+                    DrawCircleOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.ShallowHistory:
+                case UmlBehaviorNodeKind.DeepHistory:
+                    DrawCircleOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.FinalState:
+                case UmlBehaviorNodeKind.ActivityFinalNode:
+                    DrawFinalStateOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.FlowFinalNode:
+                    DrawFlowFinalOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.EntryPoint:
+                case UmlBehaviorNodeKind.ExitPoint:
+                    DrawCircleOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.TerminateState:
+                    DrawTerminateOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.CombinedFragment:
+                {
+                    var tabHeight = UmlCombinedFragmentRenderer.TabHeight;
+                    var tabWidth = UmlCombinedFragmentRenderer.EstimateTabWidth(bounds);
+                    UmlCombinedFragmentRenderer.DrawFrameOutline(g, pen, bounds, tabHeight, tabWidth);
+                    return;
+                }
+                case UmlBehaviorNodeKind.Lifeline:
+                    DrawLifelineOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.CompositeState:
+                    DrawCompositeStateOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.OrthogonalRegion:
+                    DrawOrthogonalRegionOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.SubmachineState:
+                    DrawSubmachineStateOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.StateInvariant:
+                case UmlBehaviorNodeKind.Continuation:
+                    DrawSemiOvalOutline(g, pen, bounds);
+                    return;
+                case UmlBehaviorNodeKind.ActivityContainer:
+                    DrawRoundedStateOutline(g, pen, bounds, 18f);
+                    return;
+                case UmlBehaviorNodeKind.SequenceEndpoint:
+                {
+                    var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+                    g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+                    return;
+                }
+                case UmlBehaviorNodeKind.ExpansionRegion:
+                case UmlBehaviorNodeKind.InterruptibleRegion:
+                {
+                    var tabHeight = UmlActivityRegionRenderer.TabHeight;
+                    var tabWidth = Math.Min(bounds.Width - 8f, bounds.Width * 0.34f);
+                    using var framePath = new GraphicsPath();
+                    UmlActivityRegionRenderer.AppendFramePath(framePath, bounds, tabHeight, tabWidth);
+                    g.DrawPath(pen, framePath);
+                    return;
+                }
+            }
+        }
+
+        if (node.Presentation is UmlNodePresentation.ProvidedInterface or UmlNodePresentation.RequiredInterface)
+        {
+            UmlComponentNotation.DrawInterfaceSelectionOutline(g, pen, node.Presentation, bounds);
+            return;
+        }
+
+        using var path = BuildSilhouettePath(project, node, bounds);
+        if (path.PointCount > 0)
+            g.DrawPath(pen, path);
     }
 
-    private static void DrawInterfaceOutline(Graphics g, Pen pen, RectangleF bounds)
+    private static void DrawRoundedStateOutline(Graphics g, Pen pen, RectangleF bounds, float radius)
     {
-        var r = InterfaceCornerRadius;
-        var left = bounds.Left;
-        var top = bounds.Top;
-        var right = bounds.Right;
-        var bottom = bounds.Bottom;
-        using var path = new GraphicsPath();
-        path.AddArc(right - r * 2f, top, r * 2f, r * 2f, 270, 90);
-        path.AddArc(right - r * 2f, bottom - r * 2f, r * 2f, r * 2f, 0, 90);
-        path.AddLine(right - r, bottom, left, bottom);
-        path.AddLine(left, bottom, left, top);
-        path.AddLine(left, top, right - r, top);
+        using var path = CreateRoundedRectanglePath(bounds, radius);
         g.DrawPath(pen, path);
+    }
+
+    private static void DrawCompositeStateOutline(Graphics g, Pen pen, RectangleF bounds)
+    {
+        DrawRoundedStateOutline(g, pen, bounds, UmlStateNotation.CornerRadius);
+        using var innerPen = new Pen(pen.Color, pen.Width) { DashStyle = DashStyle.Dash };
+        var inset = new RectangleF(bounds.X + 8f, bounds.Y + 20f, Math.Max(12f, bounds.Width - 16f), Math.Max(12f, bounds.Height - 28f));
+        g.DrawRectangle(innerPen, inset.X, inset.Y, inset.Width, inset.Height);
+    }
+
+    private static void DrawOrthogonalRegionOutline(Graphics g, Pen pen, RectangleF bounds)
+    {
+        DrawRoundedStateOutline(g, pen, bounds, UmlStateNotation.CornerRadius);
+        var dividerX = bounds.Left + bounds.Width / 2f;
+        g.DrawLine(pen, dividerX, bounds.Top + 18f, dividerX, bounds.Bottom - 5f);
+    }
+
+    private static void DrawSubmachineStateOutline(Graphics g, Pen pen, RectangleF bounds) =>
+        DrawRoundedStateOutline(g, pen, bounds, UmlStateNotation.CornerRadius);
+
+    private static void DrawSemiOvalOutline(Graphics g, Pen pen, RectangleF bounds)
+    {
+        using var path = new GraphicsPath();
+        AddSemiOvalPath(path, bounds);
+        g.DrawPath(pen, path);
+    }
+
+    private static void AddSemiOvalPath(GraphicsPath path, RectangleF bounds)
+    {
+        var arc = new RectangleF(bounds.X, bounds.Y, bounds.Width, bounds.Height * 2f);
+        path.AddArc(arc.X, arc.Y, arc.Width, arc.Height, 0, 180);
+        path.AddLine(bounds.Right, bounds.Top + bounds.Height / 2f, bounds.Left, bounds.Top + bounds.Height / 2f);
+        path.CloseFigure();
+    }
+
+    private static void DrawCircleOutline(Graphics g, Pen pen, RectangleF bounds)
+    {
+        var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+        g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+    }
+
+    private static void DrawFlowFinalOutline(Graphics g, Pen pen, RectangleF bounds)
+    {
+        var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+        g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+        UmlCircleNodeGeometry.DrawCross(g, circle, pen);
+    }
+
+    private static void DrawTerminateOutline(Graphics g, Pen pen, RectangleF bounds) =>
+        DrawFlowFinalOutline(g, pen, bounds);
+
+    private static void DrawFinalStateOutline(Graphics g, Pen pen, RectangleF bounds)
+    {
+        var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+        g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
+        g.DrawEllipse(
+            pen,
+            circle.X + circle.Width * 0.25f,
+            circle.Y + circle.Height * 0.25f,
+            circle.Width * 0.5f,
+            circle.Height * 0.5f);
     }
 
     private static void DrawActorOutline(Graphics g, Pen pen, RectangleF bounds)
     {
         UmlActorGeometry.DrawStickFigure(g, pen, bounds);
-    }
-
-    private static void DrawPackageOutline(Graphics g, Pen pen, RectangleF bounds)
-    {
-        var tabW = Math.Min(60f, bounds.Width * 0.35f);
-        g.DrawRectangle(pen, bounds.X, bounds.Y + PackageTabHeight, bounds.Width, Math.Max(1f, bounds.Height - PackageTabHeight));
-        g.DrawRectangle(pen, bounds.X, bounds.Y, tabW, PackageTabHeight);
-    }
-
-    private static void DrawNoteOutline(Graphics g, Pen pen, RectangleF bounds)
-    {
-        const float fold = 12f;
-        g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-        g.DrawLine(pen, bounds.Right - fold, bounds.Top, bounds.Right, bounds.Top + fold);
-        g.DrawLine(pen, bounds.Right - fold, bounds.Top, bounds.Right - fold, bounds.Top + fold);
-        g.DrawLine(pen, bounds.Right - fold, bounds.Top + fold, bounds.Right, bounds.Top + fold);
-    }
-
-    private static void DrawBehaviorOutline(
-        Graphics g,
-        Pen pen,
-        UmlProject project,
-        UmlDiagramNode node,
-        RectangleF bounds)
-    {
-        if (project.FindElement(node.ModelElementId) is not UmlBehaviorNode behaviorNode)
-        {
-            g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-            return;
-        }
-
-        switch (behaviorNode.Kind)
-        {
-            case UmlBehaviorNodeKind.State:
-            case UmlBehaviorNodeKind.Action:
-                using (var path = CreateRoundedRectanglePath(bounds, RoundedNodeRadius))
-                    g.DrawPath(pen, path);
-                break;
-
-            case UmlBehaviorNodeKind.InitialState:
-            case UmlBehaviorNodeKind.InitialNode:
-            {
-                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
-                g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
-                break;
-            }
-
-            case UmlBehaviorNodeKind.FinalState:
-            case UmlBehaviorNodeKind.ActivityFinalNode:
-            {
-                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
-                g.DrawEllipse(pen, circle.X, circle.Y, circle.Width, circle.Height);
-                g.DrawEllipse(
-                    pen,
-                    circle.X + circle.Width * 0.25f,
-                    circle.Y + circle.Height * 0.25f,
-                    circle.Width * 0.5f,
-                    circle.Height * 0.5f);
-                break;
-            }
-
-            case UmlBehaviorNodeKind.Decision:
-            case UmlBehaviorNodeKind.Merge:
-                DrawDiamondOutline(g, pen, bounds);
-                break;
-
-            case UmlBehaviorNodeKind.Fork:
-            case UmlBehaviorNodeKind.Join:
-                {
-                    var bar = UmlNodeConnectionGeometry.GetForkJoinBarBounds(bounds);
-                    g.DrawRectangle(pen, bar.X, bar.Y, bar.Width, bar.Height);
-                    break;
-                }
-
-            case UmlBehaviorNodeKind.CombinedFragment:
-                g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                break;
-
-            case UmlBehaviorNodeKind.Lifeline:
-                DrawLifelineOutline(g, pen, bounds);
-                break;
-
-            case UmlBehaviorNodeKind.Activation:
-                g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                break;
-
-            default:
-                g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
-                break;
-        }
     }
 
     private static void DrawLifelineOutline(Graphics g, Pen pen, RectangleF bounds)
@@ -313,20 +346,6 @@ public static class UmlNodeSilhouette
         };
         var cx = bounds.Left + bounds.Width / 2f;
         g.DrawLine(dashPen, cx, header.Bottom, cx, bounds.Bottom - 2f);
-    }
-
-    private static void DrawDiamondOutline(Graphics g, Pen pen, RectangleF bounds)
-    {
-        var cx = bounds.Left + bounds.Width / 2f;
-        var cy = bounds.Top + bounds.Height / 2f;
-        g.DrawPolygon(
-            pen,
-            [
-                new PointF(cx, bounds.Top),
-                new PointF(bounds.Right, cy),
-                new PointF(cx, bounds.Bottom),
-                new PointF(bounds.Left, cy),
-            ]);
     }
 
     private static GraphicsPath CreateRoundedRectanglePath(RectangleF bounds, float radius)
@@ -372,6 +391,25 @@ public static class UmlNodeSilhouette
             case UmlNodePresentation.Behavior:
                 AddBehaviorPath(path, project, node, bounds);
                 break;
+            case UmlNodePresentation.Component:
+                path.AddRectangle(bounds);
+                break;
+            case UmlNodePresentation.ProvidedInterface:
+            case UmlNodePresentation.RequiredInterface:
+                UmlComponentNotation.AddInterfacePath(path, node.Presentation, bounds);
+                break;
+            case UmlNodePresentation.Port:
+                path.AddRectangle(bounds);
+                break;
+            case UmlNodePresentation.ObjectInstance:
+                UmlObjectNotation.AddSilhouettePath(path, bounds);
+                break;
+            case UmlNodePresentation.DeploymentHost:
+                UmlDeploymentNotation.AddHostSilhouettePath(path, bounds);
+                break;
+            case UmlNodePresentation.Artifact:
+                UmlDeploymentNotation.AddArtifactSilhouettePath(path, bounds);
+                break;
         }
 
         return path;
@@ -380,6 +418,18 @@ public static class UmlNodeSilhouette
     private static void AddClassifierPath(GraphicsPath path, UmlProject project, UmlDiagramNode node, RectangleF bounds)
     {
         var classifier = project.FindClassifier(node.ModelElementId);
+        if (classifier is UmlInterface iface && iface.UseCircleNotation)
+        {
+            var diameter = Math.Min(bounds.Width, bounds.Height * 0.55f);
+            var circle = new RectangleF(
+                bounds.Left + (bounds.Width - diameter) / 2f,
+                bounds.Top + 4f,
+                diameter,
+                diameter);
+            path.AddEllipse(circle);
+            return;
+        }
+
         if (classifier is UmlInterface)
         {
             path.AddPath(CreateInterfacePath(bounds), false);
@@ -411,9 +461,8 @@ public static class UmlNodeSilhouette
 
     private static void AddPackagePath(GraphicsPath path, RectangleF bounds)
     {
-        var tabW = Math.Min(60f, bounds.Width * 0.35f);
-        path.AddRectangle(new RectangleF(bounds.X, bounds.Y + PackageTabHeight, bounds.Width, Math.Max(1f, bounds.Height - PackageTabHeight)));
-        path.AddRectangle(new RectangleF(bounds.X, bounds.Y, tabW, PackageTabHeight));
+        using var silhouette = UmlPackageNotation.CreateSilhouettePath(bounds);
+        path.AddPath(silhouette, connect: false);
     }
 
     private static void AddBehaviorPath(GraphicsPath path, UmlProject project, UmlDiagramNode node, RectangleF bounds)
@@ -428,7 +477,23 @@ public static class UmlNodeSilhouette
         {
             case UmlBehaviorNodeKind.State:
             case UmlBehaviorNodeKind.Action:
-                path.AddPath(CreateRoundedRectanglePath(bounds, RoundedNodeRadius), false);
+                UmlStateNotation.AddRoundedStatePath(path, bounds, RoundedNodeRadius);
+                break;
+            case UmlBehaviorNodeKind.StateInvariant:
+            case UmlBehaviorNodeKind.Continuation:
+                AddSemiOvalPath(path, bounds);
+                break;
+            case UmlBehaviorNodeKind.CompositeState:
+                UmlStateNotation.AddCompositeStatePath(path, bounds);
+                break;
+            case UmlBehaviorNodeKind.OrthogonalRegion:
+                UmlStateNotation.AddOrthogonalRegionPath(path, bounds);
+                break;
+            case UmlBehaviorNodeKind.SubmachineState:
+                UmlStateNotation.AddSubmachineStatePath(path, bounds);
+                break;
+            case UmlBehaviorNodeKind.ActivityContainer:
+                UmlStateNotation.AddRoundedStatePath(path, bounds, 18f);
                 break;
             case UmlBehaviorNodeKind.InitialState:
             case UmlBehaviorNodeKind.InitialNode:
@@ -438,21 +503,50 @@ public static class UmlNodeSilhouette
                 break;
             case UmlBehaviorNodeKind.Decision:
             case UmlBehaviorNodeKind.Merge:
+            case UmlBehaviorNodeKind.Choice:
+            case UmlBehaviorNodeKind.NaryAssociationHub:
                 AddDiamondPath(path, bounds);
+                break;
+            case UmlBehaviorNodeKind.FlowFinalNode:
+            case UmlBehaviorNodeKind.Junction:
+            case UmlBehaviorNodeKind.ShallowHistory:
+            case UmlBehaviorNodeKind.DeepHistory:
+            case UmlBehaviorNodeKind.EntryPoint:
+            case UmlBehaviorNodeKind.ExitPoint:
+            case UmlBehaviorNodeKind.TerminateState:
+                path.AddEllipse(UmlCircleNodeGeometry.GetCircleBounds(bounds));
                 break;
             case UmlBehaviorNodeKind.Fork:
             case UmlBehaviorNodeKind.Join:
                 path.AddRectangle(UmlNodeConnectionGeometry.GetForkJoinBarBounds(bounds));
                 break;
             case UmlBehaviorNodeKind.CombinedFragment:
-                path.AddRectangle(bounds);
+            {
+                var tabHeight = UmlCombinedFragmentRenderer.TabHeight;
+                var tabWidth = UmlCombinedFragmentRenderer.EstimateTabWidth(bounds);
+                UmlCombinedFragmentRenderer.AppendFramePath(path, bounds, tabHeight, tabWidth);
                 break;
+            }
             case UmlBehaviorNodeKind.Lifeline:
                 {
                     var headerHeight = UmlSequenceLayout.HeaderHeight - 4f;
                     path.AddRectangle(new RectangleF(bounds.Left + 2f, bounds.Top + 2f, bounds.Width - 4f, headerHeight));
                     break;
                 }
+            case UmlBehaviorNodeKind.SequenceEndpoint:
+                path.AddEllipse(UmlCircleNodeGeometry.GetCircleBounds(bounds));
+                break;
+            case UmlBehaviorNodeKind.Gate:
+                path.AddRectangle(bounds);
+                break;
+            case UmlBehaviorNodeKind.ExpansionRegion:
+            case UmlBehaviorNodeKind.InterruptibleRegion:
+            {
+                var tabHeight = UmlActivityRegionRenderer.TabHeight;
+                var tabWidth = Math.Min(bounds.Width - 8f, bounds.Width * 0.34f);
+                UmlActivityRegionRenderer.AppendFramePath(path, bounds, tabHeight, tabWidth);
+                break;
+            }
             default:
                 path.AddRectangle(bounds);
                 break;
@@ -475,9 +569,13 @@ public static class UmlNodeSilhouette
     private static bool IsHandleEnabled(UmlProject project, UmlDiagramNode node, int handleIndex)
     {
         if (node.Presentation == UmlNodePresentation.Behavior
-            && project.FindElement(node.ModelElementId) is UmlBehaviorNode { Kind: UmlBehaviorNodeKind.Fork or UmlBehaviorNodeKind.Join })
+            && project.FindElement(node.ModelElementId) is UmlBehaviorNode behaviorNode)
         {
-            return handleIndex is 1 or 3 or 5 or 7;
+            if (behaviorNode.Kind is UmlBehaviorNodeKind.Fork or UmlBehaviorNodeKind.Join)
+                return handleIndex is 1 or 3 or 5 or 7;
+
+            if (UmlCircleNodeGeometry.UsesFixedCircleSize(behaviorNode.Kind))
+                return false;
         }
 
         return true;

@@ -66,6 +66,8 @@ partial class MainForm
     private System.Windows.Forms.ToolStripMenuItem _menuAutoLayout;
     private System.Windows.Forms.ToolStripSeparator _tsSep4;
     private System.Windows.Forms.ToolStripButton _tsAutoLayout;
+    private System.Windows.Forms.ToolStripSeparator _tsSep5;
+    private System.Windows.Forms.ToolStripDropDownButton _tsTheme;
 
     protected override void Dispose(bool disposing)
     {
@@ -113,6 +115,8 @@ partial class MainForm
         _tsCopyToClipboard = new ToolStripButton();
         _tsSep4 = new ToolStripSeparator();
         _tsAutoLayout = new ToolStripButton();
+        _tsSep5 = new ToolStripSeparator();
+        _tsTheme = new ToolStripDropDownButton();
         _tsSep2 = new ToolStripSeparator();
         _tsZoomOut = new ToolStripButton();
         _tsZoomLabel = new ToolStripLabel();
@@ -334,7 +338,7 @@ partial class MainForm
         // _toolStrip
         //
         _toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStrip.Items.AddRange(new ToolStripItem[] { _tsNew, _tsOpen, _tsSave, _tsSep1, _tsDelete, _tsSep3, _tsDuplicate, _tsCopyToClipboard, _tsSep4, _tsAutoLayout, _tsSep2, _tsZoomOut, _tsZoomLabel, _tsZoomIn, _tsZoomReset });
+        _toolStrip.Items.AddRange(new ToolStripItem[] { _tsNew, _tsOpen, _tsSave, _tsSep1, _tsDelete, _tsSep3, _tsDuplicate, _tsCopyToClipboard, _tsSep4, _tsAutoLayout, _tsSep5, _tsTheme, _tsSep2, _tsZoomOut, _tsZoomLabel, _tsZoomIn, _tsZoomReset });
         _toolStrip.Location = new Point(0, 24);
         _toolStrip.Name = "_toolStrip";
         _toolStrip.Size = new Size(1600, 26);

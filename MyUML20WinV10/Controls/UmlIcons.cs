@@ -405,18 +405,14 @@ internal static class UmlIcons
 
     public static Bitmap NodePackage() => Draw(g =>
     {
-        using var fill = new SolidBrush(Color.FromArgb(255, 244, 200));
-        using var pen = new Pen(Color.FromArgb(140, 100, 20), 1.2f);
-        g.FillRectangle(fill, 1, 4, 5, 3);
-        g.DrawPolygon(pen, (Point[])[new(1, 4), new(6, 4), new(6, 7), new(1, 7)]);
-        g.FillRectangle(fill, 1, 6, 14, 9);
-        g.DrawRectangle(pen, 1, 6, 14, 9);
+        using var pen = UmlDiagramStyle.CreateBorderPen(selected: false, width: 1.2f);
+        UmlPackageNotation.DrawPackagePreview(g, new RectangleF(1, 1, 14, 14), pen);
     });
 
     public static Bitmap NodeActor() => Draw(g =>
     {
         using var pen = new Pen(Color.FromArgb(40, 80, 180), 1.3f);
-        var bounds = UmlActorGeometry.GetUniformBounds(new RectangleF(0, 0, 16, 16));
+        var bounds = UmlActorGeometry.GetPreviewBounds(new RectangleF(0, 0, 16, 16), padding: 1f);
         UmlActorGeometry.DrawStickFigure(g, pen, bounds);
     });
 

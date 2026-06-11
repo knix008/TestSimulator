@@ -1,113 +1,178 @@
 {
   "name": "State Machine Diagram Template",
   "rootPackage": {
+    "stereotype": "",
     "nestedPackages": [],
     "classifiers": [],
     "actors": [],
     "useCases": [],
+    "systemBoundaries": [],
     "notes": [],
     "behaviorNodes": [
       {
         "kind": "initialState",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Initial",
         "displayLabel": "Initial",
-        "id": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb"
+        "id": "1de56044-553f-47d1-aefd-84e3e912f695"
       },
       {
         "kind": "state",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Pending",
         "displayLabel": "Pending",
-        "id": "b0cb1490-1f58-4677-a174-a5d862e9bb91"
+        "id": "d79c48c5-f230-4e31-80dc-dda91e112722"
       },
       {
         "kind": "state",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Shipped",
         "displayLabel": "Shipped",
-        "id": "c8f2a56d-bb53-4755-8df7-0999211f65f3"
+        "id": "5146ce53-0348-415f-87a0-14a1a3d6b016"
       },
       {
         "kind": "finalState",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "Final",
         "displayLabel": "Final",
-        "id": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704"
+        "id": "546faf4f-4d83-48df-8afb-e8e98c7383f7"
       }
     ],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
     "relationships": [
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "transition",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "Transition",
-        "sourceClassifierId": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb",
-        "targetClassifierId": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
+        "sourceClassifierId": "1de56044-553f-47d1-aefd-84e3e912f695",
+        "targetClassifierId": "d79c48c5-f230-4e31-80dc-dda91e112722",
         "name": "submit",
-        "id": "a06e9153-797b-4adb-8a4c-3b23389a6b72",
+        "id": "53aeb17a-224d-48eb-bc90-dcc004093fbd",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "transition",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "Transition",
-        "sourceClassifierId": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
-        "targetClassifierId": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
+        "sourceClassifierId": "d79c48c5-f230-4e31-80dc-dda91e112722",
+        "targetClassifierId": "5146ce53-0348-415f-87a0-14a1a3d6b016",
         "name": "ship",
-        "id": "451eacb6-9020-44fd-ba6a-88fe5da56215",
+        "id": "8a15df89-c16f-4420-89f0-5d7ddf1f2d75",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "transition",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "Transition",
-        "sourceClassifierId": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
-        "targetClassifierId": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704",
+        "sourceClassifierId": "5146ce53-0348-415f-87a0-14a1a3d6b016",
+        "targetClassifierId": "546faf4f-4d83-48df-8afb-e8e98c7383f7",
         "name": "deliver",
-        "id": "edba7cdb-8a64-4756-9717-2ea13957a9a9",
+        "id": "123e5dfb-5bd2-4659-8ff5-d3ed37e89029",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb",
+        "id": "1de56044-553f-47d1-aefd-84e3e912f695",
         "displayLabel": "Initial"
       },
       {
-        "id": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
+        "id": "d79c48c5-f230-4e31-80dc-dda91e112722",
         "displayLabel": "Pending"
       },
       {
-        "id": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
+        "id": "5146ce53-0348-415f-87a0-14a1a3d6b016",
         "displayLabel": "Shipped"
       },
       {
-        "id": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704",
+        "id": "546faf4f-4d83-48df-8afb-e8e98c7383f7",
         "displayLabel": "Final"
       },
       {
-        "id": "a06e9153-797b-4adb-8a4c-3b23389a6b72",
+        "id": "53aeb17a-224d-48eb-bc90-dcc004093fbd",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "451eacb6-9020-44fd-ba6a-88fe5da56215",
+        "id": "8a15df89-c16f-4420-89f0-5d7ddf1f2d75",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "edba7cdb-8a64-4756-9717-2ea13957a9a9",
+        "id": "123e5dfb-5bd2-4659-8ff5-d3ed37e89029",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "a714cbea-292f-4545-87cb-cace2be5c8cc"
+    "id": "9bc126a1-b6d1-48dd-8ac5-c108816283a6"
   },
   "diagrams": [
     {
       "kind": "stateMachineDiagram",
       "nodes": [
         {
-          "id": "f4798b1b-4251-4752-849d-b77430294cde",
-          "modelElementId": "6cb257d7-92a3-43e5-a3fc-0954e46d63fb",
+          "id": "991d2715-01a8-4a7c-b210-64078be9e9d1",
+          "modelElementId": "1de56044-553f-47d1-aefd-84e3e912f695",
           "presentation": "behavior",
           "x": 80,
           "y": 140,
@@ -137,8 +202,8 @@
           }
         },
         {
-          "id": "f166ea39-a7be-46e6-a039-8dd10aa0b1fa",
-          "modelElementId": "b0cb1490-1f58-4677-a174-a5d862e9bb91",
+          "id": "49a0fae5-b92a-4d89-af95-74ade58e670e",
+          "modelElementId": "d79c48c5-f230-4e31-80dc-dda91e112722",
           "presentation": "behavior",
           "x": 200,
           "y": 120,
@@ -168,8 +233,8 @@
           }
         },
         {
-          "id": "0894bce0-67d7-4422-a136-25ed8e4174a4",
-          "modelElementId": "c8f2a56d-bb53-4755-8df7-0999211f65f3",
+          "id": "dd9339bb-1df3-468b-a5f8-b8d58b65ab5f",
+          "modelElementId": "5146ce53-0348-415f-87a0-14a1a3d6b016",
           "presentation": "behavior",
           "x": 420,
           "y": 120,
@@ -199,8 +264,8 @@
           }
         },
         {
-          "id": "9a1cb330-8456-4ffa-8ed1-d046223752b8",
-          "modelElementId": "35bb37e2-1a6e-4c01-a1fc-ec48e1ff0704",
+          "id": "b6cbdee5-9d9c-45d1-8c04-fe75dbe750d4",
+          "modelElementId": "546faf4f-4d83-48df-8afb-e8e98c7383f7",
           "presentation": "behavior",
           "x": 640,
           "y": 140,
@@ -232,45 +297,39 @@
       ],
       "edges": [
         {
-          "id": "8388e700-454e-4d71-87bb-0e6353bbd7e3",
-          "modelElementId": "a06e9153-797b-4adb-8a4c-3b23389a6b72",
-          "sourceNodeId": "f4798b1b-4251-4752-849d-b77430294cde",
-          "targetNodeId": "f166ea39-a7be-46e6-a039-8dd10aa0b1fa",
+          "id": "2c9da711-5596-4721-85b2-0c8a0f32aaed",
+          "modelElementId": "53aeb17a-224d-48eb-bc90-dcc004093fbd",
+          "sourceNodeId": "991d2715-01a8-4a7c-b210-64078be9e9d1",
+          "targetNodeId": "49a0fae5-b92a-4d89-af95-74ade58e670e",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "6377323d-fdbe-44fc-8f28-a1587b7a3bf9",
-          "modelElementId": "451eacb6-9020-44fd-ba6a-88fe5da56215",
-          "sourceNodeId": "f166ea39-a7be-46e6-a039-8dd10aa0b1fa",
-          "targetNodeId": "0894bce0-67d7-4422-a136-25ed8e4174a4",
+          "id": "66c2fb29-b001-4f27-a83c-aecdac203023",
+          "modelElementId": "8a15df89-c16f-4420-89f0-5d7ddf1f2d75",
+          "sourceNodeId": "49a0fae5-b92a-4d89-af95-74ade58e670e",
+          "targetNodeId": "dd9339bb-1df3-468b-a5f8-b8d58b65ab5f",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "5ce91a08-ef51-4206-9d6b-b7b611f4d72d",
-          "modelElementId": "edba7cdb-8a64-4756-9717-2ea13957a9a9",
-          "sourceNodeId": "0894bce0-67d7-4422-a136-25ed8e4174a4",
-          "targetNodeId": "9a1cb330-8456-4ffa-8ed1-d046223752b8",
+          "id": "db6637b6-fb5a-4446-aa49-f915c61a053c",
+          "modelElementId": "123e5dfb-5bd2-4659-8ff5-d3ed37e89029",
+          "sourceNodeId": "dd9339bb-1df3-468b-a5f8-b8d58b65ab5f",
+          "targetNodeId": "b6cbdee5-9d9c-45d1-8c04-fe75dbe750d4",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         }
       ],
       "name": "State Machine Diagram",
       "displayLabel": "State Machine Diagram",
-      "id": "a2ea6db6-c581-426e-be3f-5865d38f4e22"
+      "id": "d032c8a3-25e7-41a8-8529-c5a5ff6b182f"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

@@ -74,6 +74,24 @@ public static class UmlActorGeometry
 
     public static RectangleF GetUniformBounds(RectangleF bounds) => GetFigureBounds(bounds);
 
+    /// <summary>Scales the full stick figure to fit inside a preview tile (toolbox, tree icon).</summary>
+    public static RectangleF GetPreviewBounds(RectangleF area, float padding = 2f)
+    {
+        var inner = new RectangleF(
+            area.Left + padding,
+            area.Top + padding,
+            Math.Max(1f, area.Width - padding * 2f),
+            Math.Max(1f, area.Height - padding * 2f));
+        var scale = Math.Min(inner.Width / ReferenceWidth, inner.Height / ReferenceHeight);
+        var width = ReferenceWidth * scale;
+        var height = ReferenceHeight * scale;
+        return new RectangleF(
+            inner.Left + (inner.Width - width) / 2f,
+            inner.Top + (inner.Height - height) / 2f,
+            width,
+            height);
+    }
+
     public static RectangleF UniformFromDrag(RectangleF dragRect) =>
         NodeBoundsFromDrag(dragRect);
 

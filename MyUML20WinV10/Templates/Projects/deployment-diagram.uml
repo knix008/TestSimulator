@@ -1,0 +1,274 @@
+{
+  "name": "Deployment Diagram Template",
+  "rootPackage": {
+    "stereotype": "",
+    "nestedPackages": [],
+    "classifiers": [],
+    "actors": [],
+    "useCases": [],
+    "systemBoundaries": [],
+    "notes": [],
+    "behaviorNodes": [],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [
+      {
+        "name": "App Server",
+        "displayLabel": "App Server",
+        "id": "58a5642d-6151-4f4d-a8cc-c23b923aafa1"
+      },
+      {
+        "name": "DB Server",
+        "displayLabel": "DB Server",
+        "id": "cd64f7bd-0937-4aba-99bf-441515b5440d"
+      }
+    ],
+    "artifacts": [
+      {
+        "isInstance": false,
+        "name": "shop.war",
+        "displayLabel": "shop.war",
+        "id": "756b6fa3-75ab-44bb-9a71-6f7c3a6754ca"
+      },
+      {
+        "isInstance": false,
+        "name": "shopdb.jar",
+        "displayLabel": "shopdb.jar",
+        "id": "9d848efd-f6cd-41c8-8ed2-819018bffdd2"
+      }
+    ],
+    "relationships": [
+      {
+        "$relationshipKind": "deploymentLink",
+        "relationshipKind": "Deployment",
+        "displayLabel": "\u00ABdeploy\u00BB",
+        "sourceClassifierId": "756b6fa3-75ab-44bb-9a71-6f7c3a6754ca",
+        "targetClassifierId": "58a5642d-6151-4f4d-a8cc-c23b923aafa1",
+        "name": null,
+        "id": "1300098b-5c51-45a0-850d-43b25966b683"
+      },
+      {
+        "$relationshipKind": "deploymentLink",
+        "relationshipKind": "Deployment",
+        "displayLabel": "\u00ABdeploy\u00BB",
+        "sourceClassifierId": "9d848efd-f6cd-41c8-8ed2-819018bffdd2",
+        "targetClassifierId": "cd64f7bd-0937-4aba-99bf-441515b5440d",
+        "name": null,
+        "id": "1bd9d863-223a-420b-90bd-af35d8bc6333"
+      },
+      {
+        "$relationshipKind": "deploymentPath",
+        "stereotype": "",
+        "bandwidth": "",
+        "relationshipKind": "DeploymentPath",
+        "displayLabel": "JDBC",
+        "sourceClassifierId": "58a5642d-6151-4f4d-a8cc-c23b923aafa1",
+        "targetClassifierId": "cd64f7bd-0937-4aba-99bf-441515b5440d",
+        "name": "JDBC",
+        "id": "ff558593-1a89-4f24-89c5-6cb8a34b7290"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "58a5642d-6151-4f4d-a8cc-c23b923aafa1",
+        "displayLabel": "App Server"
+      },
+      {
+        "id": "cd64f7bd-0937-4aba-99bf-441515b5440d",
+        "displayLabel": "DB Server"
+      },
+      {
+        "id": "756b6fa3-75ab-44bb-9a71-6f7c3a6754ca",
+        "displayLabel": "shop.war"
+      },
+      {
+        "id": "9d848efd-f6cd-41c8-8ed2-819018bffdd2",
+        "displayLabel": "shopdb.jar"
+      },
+      {
+        "id": "1300098b-5c51-45a0-850d-43b25966b683",
+        "displayLabel": "\u00ABdeploy\u00BB"
+      },
+      {
+        "id": "1bd9d863-223a-420b-90bd-af35d8bc6333",
+        "displayLabel": "\u00ABdeploy\u00BB"
+      },
+      {
+        "id": "ff558593-1a89-4f24-89c5-6cb8a34b7290",
+        "displayLabel": "JDBC"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "d47c2fce-6612-4222-b414-196e0be1ff2e"
+  },
+  "diagrams": [
+    {
+      "kind": "deploymentDiagram",
+      "nodes": [
+        {
+          "id": "8710f3f7-89eb-408c-865c-cff72c93dbe4",
+          "modelElementId": "58a5642d-6151-4f4d-a8cc-c23b923aafa1",
+          "presentation": "deploymentHost",
+          "x": 80,
+          "y": 120,
+          "width": 160,
+          "height": 90,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 90
+            },
+            "x": 80,
+            "y": 120,
+            "width": 160,
+            "height": 90,
+            "left": 80,
+            "top": 120,
+            "right": 240,
+            "bottom": 210,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "2bb61a45-ad64-4ec2-8abe-b01d819ea298",
+          "modelElementId": "cd64f7bd-0937-4aba-99bf-441515b5440d",
+          "presentation": "deploymentHost",
+          "x": 320,
+          "y": 120,
+          "width": 160,
+          "height": 90,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 320,
+              "y": 120
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 90
+            },
+            "x": 320,
+            "y": 120,
+            "width": 160,
+            "height": 90,
+            "left": 320,
+            "top": 120,
+            "right": 480,
+            "bottom": 210,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "5ea6c39e-1778-4e48-bd38-165861b8cfa4",
+          "modelElementId": "756b6fa3-75ab-44bb-9a71-6f7c3a6754ca",
+          "presentation": "artifact",
+          "x": 100,
+          "y": 260,
+          "width": 120,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 100,
+              "y": 260
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 120,
+              "height": 72
+            },
+            "x": 100,
+            "y": 260,
+            "width": 120,
+            "height": 72,
+            "left": 100,
+            "top": 260,
+            "right": 220,
+            "bottom": 332,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "23c8c058-f80f-4665-92f2-bcb785604559",
+          "modelElementId": "9d848efd-f6cd-41c8-8ed2-819018bffdd2",
+          "presentation": "artifact",
+          "x": 340,
+          "y": 260,
+          "width": 120,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 340,
+              "y": 260
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 120,
+              "height": 72
+            },
+            "x": 340,
+            "y": 260,
+            "width": 120,
+            "height": 72,
+            "left": 340,
+            "top": 260,
+            "right": 460,
+            "bottom": 332,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "9fe84e67-d3ef-423f-9c9f-108a2ebe7057",
+          "modelElementId": "1300098b-5c51-45a0-850d-43b25966b683",
+          "sourceNodeId": "5ea6c39e-1778-4e48-bd38-165861b8cfa4",
+          "targetNodeId": "8710f3f7-89eb-408c-865c-cff72c93dbe4",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "9c833fbc-59a3-4f31-8483-220bf450ab6d",
+          "modelElementId": "1bd9d863-223a-420b-90bd-af35d8bc6333",
+          "sourceNodeId": "23c8c058-f80f-4665-92f2-bcb785604559",
+          "targetNodeId": "2bb61a45-ad64-4ec2-8abe-b01d819ea298",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "b9d21068-2e97-478d-b0f0-0b3f9e8c6079",
+          "modelElementId": "ff558593-1a89-4f24-89c5-6cb8a34b7290",
+          "sourceNodeId": "8710f3f7-89eb-408c-865c-cff72c93dbe4",
+          "targetNodeId": "2bb61a45-ad64-4ec2-8abe-b01d819ea298",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        }
+      ],
+      "name": "Deployment Diagram",
+      "displayLabel": "Deployment Diagram",
+      "id": "a0ef6d40-5a94-4308-a96c-906162a5358d"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

@@ -9,4 +9,11 @@ public enum UmlNodePresentation
     Package,
     Note,
     Behavior,
+    Component,
+    ProvidedInterface,
+    RequiredInterface,
+    Port,
+    ObjectInstance,
+    DeploymentHost,
+    Artifact,
 }

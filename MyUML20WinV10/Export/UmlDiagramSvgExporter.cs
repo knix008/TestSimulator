@@ -48,13 +48,19 @@ public static class UmlDiagramSvgExporter
 
     private static void AppendNodeSvg(StringBuilder sb, UmlProject project, UmlDiagramNode node, PointF offset)
     {
-        var classifier = project.FindClassifier(node.ModelElementId);
-        if (classifier is null)
-            return;
-
         var rect = OffsetRect(node.Bounds, offset);
         var stroke = "#000000";
         var fill = "#FFFFFF";
+
+        var classifier = project.FindClassifier(node.ModelElementId);
+        if (classifier is null)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"""  <rect x="{rect.X:0.##}" y="{rect.Y:0.##}" width="{rect.Width:0.##}" height="{rect.Height:0.##}" fill="{fill}" stroke="{stroke}" stroke-width="1.5" rx="4" />""");
+            if (project.FindElement(node.ModelElementId) is UmlNamedElement named)
+                AppendCenteredText(sb, EscapeXml(named.Name), rect, rect.Y + 8f, italic: false);
+            return;
+        }
 
         if (classifier is UmlInterface)
         {

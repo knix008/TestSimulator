@@ -1,0 +1,154 @@
+{
+  "name": "Communication Diagram Template",
+  "rootPackage": {
+    "stereotype": "",
+    "nestedPackages": [],
+    "classifiers": [],
+    "actors": [],
+    "useCases": [],
+    "systemBoundaries": [],
+    "notes": [],
+    "behaviorNodes": [],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [
+      {
+        "typeName": "Controller",
+        "name": ":Controller",
+        "displayLabel": ":Controller",
+        "id": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd"
+      },
+      {
+        "typeName": "OrderService",
+        "name": ":OrderService",
+        "displayLabel": ":OrderService",
+        "id": "93866221-fa69-4c23-965d-e9db068da59e"
+      }
+    ],
+    "deploymentHosts": [],
+    "artifacts": [],
+    "relationships": [
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "message",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 1,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Synchronous",
+        "sourceClassifierId": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd",
+        "targetClassifierId": "93866221-fa69-4c23-965d-e9db068da59e",
+        "name": "submit()",
+        "id": "ab024442-7e59-4e02-9547-487eb482792f",
+        "displayLabel": "UmlBehaviorConnector"
+      }
+    ],
+    "ownedElements": [
+      {
+        "id": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd",
+        "displayLabel": ":Controller"
+      },
+      {
+        "id": "93866221-fa69-4c23-965d-e9db068da59e",
+        "displayLabel": ":OrderService"
+      },
+      {
+        "id": "ab024442-7e59-4e02-9547-487eb482792f",
+        "displayLabel": "UmlBehaviorConnector"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "909c60ef-9f21-48fa-92ad-2d608b2fa5a3"
+  },
+  "diagrams": [
+    {
+      "kind": "communicationDiagram",
+      "nodes": [
+        {
+          "id": "5822a435-e5ca-405f-9091-8745c9c99941",
+          "modelElementId": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd",
+          "presentation": "objectInstance",
+          "x": 80,
+          "y": 140,
+          "width": 140,
+          "height": 48,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 140
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 140,
+              "height": 48
+            },
+            "x": 80,
+            "y": 140,
+            "width": 140,
+            "height": 48,
+            "left": 80,
+            "top": 140,
+            "right": 220,
+            "bottom": 188,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "e055755d-ad53-4d9b-be84-68ad06d7cc80",
+          "modelElementId": "93866221-fa69-4c23-965d-e9db068da59e",
+          "presentation": "objectInstance",
+          "x": 300,
+          "y": 140,
+          "width": 160,
+          "height": 48,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 300,
+              "y": 140
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 48
+            },
+            "x": 300,
+            "y": 140,
+            "width": 160,
+            "height": 48,
+            "left": 300,
+            "top": 140,
+            "right": 460,
+            "bottom": 188,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "0961d23c-5ac0-407f-b7aa-0a0b0860f04c",
+          "modelElementId": "ab024442-7e59-4e02-9547-487eb482792f",
+          "sourceNodeId": "5822a435-e5ca-405f-9091-8745c9c99941",
+          "targetNodeId": "e055755d-ad53-4d9b-be84-68ad06d7cc80",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        }
+      ],
+      "name": "Communication Diagram",
+      "displayLabel": "Communication Diagram",
+      "id": "53487465-1dfd-4451-8a13-dbe937987477"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

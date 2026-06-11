@@ -6,7 +6,6 @@ namespace MyUML20WinV10.Rendering;
 public static class UmlNodeConnectionGeometry
 {
     public const float ForkJoinBarThickness = 8f;
-    private const float PackageTabHeight = 18f;
     private const float RoundedNodeRadius = 12f;
 
     public static PointF GetConnectionPoint(
@@ -17,15 +16,16 @@ public static class UmlNodeConnectionGeometry
     {
         var fromBounds = GetLayoutBounds(project, fromNode);
         var toBounds = GetLayoutBounds(project, toNode);
-        var aimPoint = ComputeMinDistAimPoint(fromBounds, toBounds);
+        var aimPoint = ComputeShapeAimPoint(project, fromNode, toNode, fromBounds, toBounds);
 
-        using var path = BuildConnectionPath(project, fromNode, fromBounds);
-        var origin = GetPathCentroid(path, GetShapeCenter(fromBounds));
-        var hit = RayIntersectPath(path, origin, aimPoint)
-            ?? GetBoundsEdgePoint(fromBounds, origin, aimPoint);
+        if (fromNode.Presentation is UmlNodePresentation.ProvidedInterface or UmlNodePresentation.RequiredInterface)
+        {
+            var interfacePoint = UmlComponentNotation.GetConnectionPoint(fromNode, fromBounds, aimPoint);
+            side = ClassifyConnectionSide(interfacePoint, fromBounds);
+            return interfacePoint;
+        }
 
-        side = ClassifyConnectionSide(hit, fromBounds);
-        return hit;
+        return ResolveShapeConnectionPoint(project, fromNode, fromBounds, aimPoint, out side);
     }
 
     public static PointF GetConnectionPointToBounds(
@@ -42,24 +42,80 @@ public static class UmlNodeConnectionGeometry
         RectangleF fromBounds,
         out UmlConnectionSide side)
     {
-        var aimPoint = ComputeMinDistAimPoint(fromBounds, targetBounds);
+        var aimPoint = ComputeShapeAimPoint(project, fromNode, fromBounds, targetBounds);
 
-        using var path = BuildConnectionPath(project, fromNode, fromBounds);
-        var origin = GetPathCentroid(path, GetShapeCenter(fromBounds));
-        var hit = RayIntersectPath(path, origin, aimPoint)
-            ?? GetBoundsEdgePoint(fromBounds, origin, aimPoint);
-
-        side = ClassifyConnectionSide(hit, fromBounds);
-        return hit;
+        return ResolveShapeConnectionPoint(project, fromNode, fromBounds, aimPoint, out side);
     }
 
     public static RectangleF GetLayoutBounds(UmlProject project, UmlDiagramNode node)
     {
         node.Height = UmlDiagramRenderer.MeasureNodeHeight(project, node);
-        var bounds = node.Bounds;
-        return UmlCircleNodeGeometry.IsCircleNode(project, node)
-            ? UmlCircleNodeGeometry.GetCircleBounds(bounds)
-            : bounds;
+        return UmlCircleNodeGeometry.TryGetCircularBounds(project, node, out var circularBounds)
+            ? circularBounds
+            : node.Bounds;
+    }
+
+    private static PointF ResolveShapeConnectionPoint(
+        UmlProject project,
+        UmlDiagramNode fromNode,
+        RectangleF fromBounds,
+        PointF aimPoint,
+        out UmlConnectionSide side)
+    {
+        using var path = BuildConnectionPath(project, fromNode, fromBounds);
+        var origin = UmlCircleNodeGeometry.TryGetCircularBounds(project, fromNode, out var circularBounds)
+            ? UmlCircleNodeGeometry.GetEllipseCenter(circularBounds)
+            : GetPathCentroid(path, GetShapeCenter(fromBounds));
+
+        var hit = RayIntersectPath(path, origin, aimPoint);
+        if (hit is null && UmlCircleNodeGeometry.TryGetCircularBounds(project, fromNode, out circularBounds))
+            hit = UmlCircleNodeGeometry.GetEllipseBoundaryPoint(circularBounds, origin, aimPoint);
+        hit ??= GetBoundsEdgePoint(fromBounds, origin, aimPoint);
+
+        side = ClassifyConnectionSide(hit.Value, fromBounds);
+        return hit.Value;
+    }
+
+    private static PointF ComputeShapeAimPoint(
+        UmlProject project,
+        UmlDiagramNode fromNode,
+        UmlDiagramNode toNode,
+        RectangleF fromBounds,
+        RectangleF toBounds)
+    {
+        var fromOrigin = GetShapeOrigin(project, fromNode, fromBounds);
+        return ComputeTargetAimPoint(project, toNode, toBounds, fromOrigin);
+    }
+
+    private static PointF ComputeShapeAimPoint(
+        UmlProject project,
+        UmlDiagramNode fromNode,
+        RectangleF fromBounds,
+        RectangleF targetBounds)
+    {
+        var fromOrigin = GetShapeOrigin(project, fromNode, fromBounds);
+        return GetBoundsEdgePoint(targetBounds, GetShapeCenter(targetBounds), fromOrigin);
+    }
+
+    private static PointF GetShapeOrigin(UmlProject project, UmlDiagramNode node, RectangleF layoutBounds) =>
+        UmlCircleNodeGeometry.TryGetCircularBounds(project, node, out var circular)
+            ? UmlCircleNodeGeometry.GetEllipseCenter(circular)
+            : GetShapeCenter(layoutBounds);
+
+    private static PointF ComputeTargetAimPoint(
+        UmlProject project,
+        UmlDiagramNode targetNode,
+        RectangleF targetBounds,
+        PointF fromPoint)
+    {
+        if (UmlCircleNodeGeometry.TryGetCircularBounds(project, targetNode, out var circular))
+        {
+            var center = UmlCircleNodeGeometry.GetEllipseCenter(circular);
+            return UmlCircleNodeGeometry.GetEllipseBoundaryPoint(circular, center, fromPoint);
+        }
+
+        var targetCenter = GetShapeCenter(targetBounds);
+        return GetBoundsEdgePoint(targetBounds, targetCenter, fromPoint);
     }
 
     public static RectangleF GetForkJoinBarBounds(RectangleF bounds) =>
@@ -72,8 +128,19 @@ public static class UmlNodeConnectionGeometry
         switch (node.Presentation)
         {
             case UmlNodePresentation.Classifier:
+                AddClassifierConnectionPath(project, node, bounds, path);
+                break;
             case UmlNodePresentation.Note:
+            case UmlNodePresentation.Component:
+            case UmlNodePresentation.ObjectInstance:
+            case UmlNodePresentation.DeploymentHost:
+            case UmlNodePresentation.Artifact:
                 path.AddRectangle(bounds);
+                break;
+
+            case UmlNodePresentation.ProvidedInterface:
+            case UmlNodePresentation.RequiredInterface:
+                UmlComponentNotation.AddInterfacePath(path, node.Presentation, bounds);
                 break;
 
             case UmlNodePresentation.Actor:
@@ -119,6 +186,22 @@ public static class UmlNodeConnectionGeometry
                 AddRoundedRectangle(path, bounds, RoundedNodeRadius);
                 break;
 
+            case UmlBehaviorNodeKind.CompositeState:
+                UmlStateNotation.AddCompositeStatePath(path, bounds);
+                break;
+
+            case UmlBehaviorNodeKind.OrthogonalRegion:
+                UmlStateNotation.AddOrthogonalRegionPath(path, bounds);
+                break;
+
+            case UmlBehaviorNodeKind.SubmachineState:
+                UmlStateNotation.AddSubmachineStatePath(path, bounds);
+                break;
+
+            case UmlBehaviorNodeKind.ActivityContainer:
+                UmlStateNotation.AddRoundedStatePath(path, bounds, 18f);
+                break;
+
             case UmlBehaviorNodeKind.InitialState:
             case UmlBehaviorNodeKind.InitialNode:
             case UmlBehaviorNodeKind.FinalState:
@@ -128,7 +211,19 @@ public static class UmlNodeConnectionGeometry
 
             case UmlBehaviorNodeKind.Decision:
             case UmlBehaviorNodeKind.Merge:
+            case UmlBehaviorNodeKind.Choice:
+            case UmlBehaviorNodeKind.NaryAssociationHub:
                 AddDiamond(path, bounds);
+                break;
+
+            case UmlBehaviorNodeKind.FlowFinalNode:
+            case UmlBehaviorNodeKind.Junction:
+            case UmlBehaviorNodeKind.ShallowHistory:
+            case UmlBehaviorNodeKind.DeepHistory:
+            case UmlBehaviorNodeKind.EntryPoint:
+            case UmlBehaviorNodeKind.ExitPoint:
+            case UmlBehaviorNodeKind.TerminateState:
+                path.AddEllipse(UmlCircleNodeGeometry.GetCircleBounds(bounds));
                 break;
 
             case UmlBehaviorNodeKind.Fork:
@@ -144,28 +239,61 @@ public static class UmlNodeConnectionGeometry
                 path.AddRectangle(new RectangleF(bounds.X, bounds.Y, bounds.Width, UmlSequenceLayout.HeaderHeight));
                 break;
 
+            case UmlBehaviorNodeKind.SequenceEndpoint:
+                path.AddEllipse(UmlCircleNodeGeometry.GetCircleBounds(bounds));
+                break;
+
+            case UmlBehaviorNodeKind.ExpansionRegion:
+            case UmlBehaviorNodeKind.InterruptibleRegion:
+            {
+                var tabHeight = UmlActivityRegionRenderer.TabHeight;
+                var tabWidth = Math.Min(bounds.Width - 8f, bounds.Width * 0.34f);
+                UmlActivityRegionRenderer.AppendFramePath(path, bounds, tabHeight, tabWidth);
+                break;
+            }
+
             default:
                 path.AddRectangle(bounds);
                 break;
         }
     }
 
+    private static void AddClassifierConnectionPath(
+        UmlProject project,
+        UmlDiagramNode node,
+        RectangleF bounds,
+        GraphicsPath path)
+    {
+        if (project.FindClassifier(node.ModelElementId) is UmlInterface { UseCircleNotation: true })
+        {
+            path.AddEllipse(UmlCircleNodeGeometry.GetInterfaceCircleBounds(bounds));
+            return;
+        }
+
+        path.AddRectangle(bounds);
+    }
+
     private static void AddActorBodyEllipse(GraphicsPath path, RectangleF bounds) =>
         UmlActorGeometry.AddStickFigurePath(path, bounds);
 
     private static RectangleF GetPackageBodyBounds(RectangleF bounds) =>
-        new(bounds.X, bounds.Y + PackageTabHeight, bounds.Width, Math.Max(1f, bounds.Height - PackageTabHeight));
+        UmlPackageNotation.GetBodyBounds(bounds);
 
     private static void AddDiamond(GraphicsPath path, RectangleF bounds)
     {
-        var cx = bounds.Left + bounds.Width / 2f;
-        var cy = bounds.Top + bounds.Height / 2f;
+        var size = Math.Min(bounds.Width, bounds.Height);
+        var sq = new RectangleF(
+            bounds.Left + (bounds.Width - size) / 2f,
+            bounds.Top + (bounds.Height - size) / 2f,
+            size, size);
+        var cx = sq.Left + size / 2f;
+        var cy = sq.Top + size / 2f;
         path.AddPolygon(
         [
-            new PointF(cx, bounds.Top),
-            new PointF(bounds.Right, cy),
-            new PointF(cx, bounds.Bottom),
-            new PointF(bounds.Left, cy),
+            new PointF(cx, sq.Top),
+            new PointF(sq.Right, cy),
+            new PointF(cx, sq.Bottom),
+            new PointF(sq.Left, cy),
         ]);
     }
 

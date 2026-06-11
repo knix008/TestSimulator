@@ -36,6 +36,69 @@
       "projectFile": "activity-diagram.uml"
     },
     {
+      "id": "component-diagram",
+      "name": "Component Diagram",
+      "description": "WebUI, OrderAPI, Database 컴포넌트와 인터페이스 조립 예제",
+      "diagramKind": "componentDiagram",
+      "projectFile": "component-diagram.uml"
+    },
+    {
+      "id": "package-diagram",
+      "name": "Package Diagram",
+      "description": "GenApply, Controller 패키지와 merge/import/nesting 관계 예제",
+      "diagramKind": "packageDiagram",
+      "projectFile": "package-diagram.uml"
+    },
+    {
+      "id": "object-diagram",
+      "name": "Object Diagram",
+      "description": "Customer와 Order 객체 인스턴스, 연관 관계 예제",
+      "diagramKind": "objectDiagram",
+      "projectFile": "object-diagram.uml"
+    },
+    {
+      "id": "communication-diagram",
+      "name": "Communication Diagram",
+      "description": "Controller와 OrderService 간 번호 메시지 예제",
+      "diagramKind": "communicationDiagram",
+      "projectFile": "communication-diagram.uml"
+    },
+    {
+      "id": "deployment-diagram",
+      "name": "Deployment Diagram",
+      "description": "App/DB 서버, artifact 배치 및 통신 경로 예제",
+      "diagramKind": "deploymentDiagram",
+      "projectFile": "deployment-diagram.uml"
+    },
+    {
+      "id": "profile-diagram",
+      "name": "Profile Diagram",
+      "description": "프로파일 패키지, 메타클래스, apply 의존 예제",
+      "diagramKind": "profileDiagram",
+      "projectFile": "profile-diagram.uml"
+    },
+    {
+      "id": "timing-diagram",
+      "name": "Timing Diagram",
+      "description": "라이프라인과 상태 구간 타이밍 예제",
+      "diagramKind": "timingDiagram",
+      "projectFile": "timing-diagram.uml"
+    },
+    {
+      "id": "composite-structure-diagram",
+      "name": "Composite Structure Diagram",
+      "description": "분류자 프레임, Part, Port, Connector 예제",
+      "diagramKind": "compositeStructureDiagram",
+      "projectFile": "composite-structure-diagram.uml"
+    },
+    {
+      "id": "interaction-overview-diagram",
+      "name": "Interaction Overview Diagram",
+      "description": "InteractionUse와 분기 흐름 예제",
+      "diagramKind": "interactionOverviewDiagram",
+      "projectFile": "interaction-overview-diagram.uml"
+    },
+    {
       "id": "full-sample",
       "name": "전체 샘플",
       "description": "지원하는 모든 다이어그램 종류를 포함한 통합 예제",

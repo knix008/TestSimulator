@@ -1,133 +1,273 @@
 {
   "name": "Sequence Diagram Template",
   "rootPackage": {
+    "stereotype": "",
     "nestedPackages": [],
     "classifiers": [],
     "actors": [],
     "useCases": [],
+    "systemBoundaries": [],
     "notes": [],
     "behaviorNodes": [
       {
         "kind": "lifeline",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "customer",
         "displayLabel": "customer",
-        "id": "c21bf33d-b77a-4dd2-a88a-a293c6665967"
+        "id": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30"
       },
       {
         "kind": "lifeline",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
         "name": "orderService",
         "displayLabel": "orderService",
-        "id": "b3105b55-f4bc-4c7f-9826-5a9b44aa5c01"
+        "id": "671cb4a9-e8e2-4932-b428-72e96bb10c48"
+      },
+      {
+        "kind": "lifeline",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
+        "decompositionRole": ":inventory",
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "inventory",
+        "displayLabel": "inventory",
+        "id": "8484b124-aa83-46b1-b515-0f6ec001b4f6"
+      },
+      {
+        "kind": "combinedFragment",
+        "combinedFragmentKind": "interactionOccurrence",
+        "guard": null,
+        "referencedDiagramName": "Checkout Flow",
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "sd",
+        "displayLabel": "sd",
+        "id": "31faf744-cf89-463b-879c-b6e43b3a1585"
       }
     ],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
     "relationships": [
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "message",
         "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": "2",
+        "durationMax": "5",
         "relationshipKind": "Synchronous",
-        "sourceClassifierId": "c21bf33d-b77a-4dd2-a88a-a293c6665967",
-        "targetClassifierId": "b3105b55-f4bc-4c7f-9826-5a9b44aa5c01",
+        "sourceClassifierId": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
+        "targetClassifierId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
         "name": "placeOrder()",
-        "id": "93606122-66f3-452d-a76f-e219799a8c90",
+        "id": "ed4af33d-d2a4-4157-b9b9-71c7bd1a6aba",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
         "$relationshipKind": "behaviorConnector",
         "kind": "message",
         "messageKind": "return",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "Return",
-        "sourceClassifierId": "b3105b55-f4bc-4c7f-9826-5a9b44aa5c01",
-        "targetClassifierId": "c21bf33d-b77a-4dd2-a88a-a293c6665967",
+        "sourceClassifierId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
+        "targetClassifierId": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
         "name": "orderId",
-        "id": "181079ac-33dd-49f4-bed7-c8ed39954cf2",
+        "id": "7aa5b867-321c-44ca-9400-b41bcb6eff10",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "c21bf33d-b77a-4dd2-a88a-a293c6665967",
+        "id": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
         "displayLabel": "customer"
       },
       {
-        "id": "b3105b55-f4bc-4c7f-9826-5a9b44aa5c01",
+        "id": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
         "displayLabel": "orderService"
       },
       {
-        "id": "93606122-66f3-452d-a76f-e219799a8c90",
+        "id": "8484b124-aa83-46b1-b515-0f6ec001b4f6",
+        "displayLabel": "inventory"
+      },
+      {
+        "id": "31faf744-cf89-463b-879c-b6e43b3a1585",
+        "displayLabel": "sd"
+      },
+      {
+        "id": "ed4af33d-d2a4-4157-b9b9-71c7bd1a6aba",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "181079ac-33dd-49f4-bed7-c8ed39954cf2",
+        "id": "7aa5b867-321c-44ca-9400-b41bcb6eff10",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "51ff6ccf-7d44-4dfb-bd12-97ad636dc7cf"
+    "id": "1ad1e3af-ff69-4651-84fe-018cab981fa9"
   },
   "diagrams": [
     {
       "kind": "sequenceDiagram",
       "nodes": [
         {
-          "id": "0c35172d-2943-408f-a50a-b12884524428",
-          "modelElementId": "c21bf33d-b77a-4dd2-a88a-a293c6665967",
+          "id": "333b37d2-dc2e-4d27-acdc-86f98d90b2ac",
+          "modelElementId": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
           "presentation": "behavior",
-          "x": 100,
+          "x": 80,
           "y": 60,
           "width": 120,
-          "height": 280,
+          "height": 300,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 100,
+              "x": 80,
               "y": 60
             },
             "size": {
               "isEmpty": false,
               "width": 120,
-              "height": 280
+              "height": 300
             },
-            "x": 100,
+            "x": 80,
             "y": 60,
             "width": 120,
-            "height": 280,
-            "left": 100,
+            "height": 300,
+            "left": 80,
             "top": 60,
-            "right": 220,
-            "bottom": 340,
+            "right": 200,
+            "bottom": 360,
             "isEmpty": false
           }
         },
         {
-          "id": "dba8697a-8acf-41c0-8e68-6f4933db40e9",
-          "modelElementId": "b3105b55-f4bc-4c7f-9826-5a9b44aa5c01",
+          "id": "280a08b7-eb4c-4af4-920a-95f87b2cb5c8",
+          "modelElementId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
           "presentation": "behavior",
-          "x": 360,
+          "x": 280,
           "y": 60,
           "width": 120,
-          "height": 280,
+          "height": 300,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 360,
+              "x": 280,
               "y": 60
             },
             "size": {
               "isEmpty": false,
               "width": 120,
-              "height": 280
+              "height": 300
             },
-            "x": 360,
+            "x": 280,
             "y": 60,
             "width": 120,
-            "height": 280,
-            "left": 360,
+            "height": 300,
+            "left": 280,
             "top": 60,
-            "right": 480,
+            "right": 400,
+            "bottom": 360,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "91a15fc0-2891-40f4-b356-f25cf552120b",
+          "modelElementId": "8484b124-aa83-46b1-b515-0f6ec001b4f6",
+          "presentation": "behavior",
+          "x": 500,
+          "y": 90,
+          "width": 96,
+          "height": 270,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 500,
+              "y": 90
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 96,
+              "height": 270
+            },
+            "x": 500,
+            "y": 90,
+            "width": 96,
+            "height": 270,
+            "left": 500,
+            "top": 90,
+            "right": 596,
+            "bottom": 360,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "a676311b-efb3-40d9-8a0b-d3c005d140a2",
+          "modelElementId": "31faf744-cf89-463b-879c-b6e43b3a1585",
+          "presentation": "behavior",
+          "x": 60,
+          "y": 220,
+          "width": 300,
+          "height": 120,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 60,
+              "y": 220
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 300,
+              "height": 120
+            },
+            "x": 60,
+            "y": 220,
+            "width": 300,
+            "height": 120,
+            "left": 60,
+            "top": 220,
+            "right": 360,
             "bottom": 340,
             "isEmpty": false
           }
@@ -135,33 +275,29 @@
       ],
       "edges": [
         {
-          "id": "d478baa3-ab39-4004-89c1-48bfa2430c13",
-          "modelElementId": "93606122-66f3-452d-a76f-e219799a8c90",
-          "sourceNodeId": "0c35172d-2943-408f-a50a-b12884524428",
-          "targetNodeId": "dba8697a-8acf-41c0-8e68-6f4933db40e9",
+          "id": "428d1757-f2b5-494a-b07b-996f67b3e0c3",
+          "modelElementId": "ed4af33d-d2a4-4157-b9b9-71c7bd1a6aba",
+          "sourceNodeId": "333b37d2-dc2e-4d27-acdc-86f98d90b2ac",
+          "targetNodeId": "280a08b7-eb4c-4af4-920a-95f87b2cb5c8",
           "sequenceY": 132,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         },
         {
-          "id": "55961f73-2893-48ba-9df6-4063705056fe",
-          "modelElementId": "181079ac-33dd-49f4-bed7-c8ed39954cf2",
-          "sourceNodeId": "dba8697a-8acf-41c0-8e68-6f4933db40e9",
-          "targetNodeId": "0c35172d-2943-408f-a50a-b12884524428",
-          "sequenceY": 180,
+          "id": "a2b33c31-24e8-4682-a388-c685ce9e69cf",
+          "modelElementId": "7aa5b867-321c-44ca-9400-b41bcb6eff10",
+          "sourceNodeId": "280a08b7-eb4c-4af4-920a-95f87b2cb5c8",
+          "targetNodeId": "333b37d2-dc2e-4d27-acdc-86f98d90b2ac",
+          "sequenceY": 200,
           "routingKind": "straight",
           "orthoMidX": null,
-          "orthoMidY": null,
-          "curveMidOffsetX": null,
-          "curveMidOffsetY": null
+          "orthoMidY": null
         }
       ],
       "name": "Sequence Diagram",
       "displayLabel": "Sequence Diagram",
-      "id": "0cbfbe5d-2a16-4afc-b1e0-44ec94df87cc"
+      "id": "c5df0a34-f59c-4f8c-9114-ea93fba1860f"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

@@ -14,7 +14,25 @@ public sealed class UmlProject
     public UmlPackage RootPackage { get; set; } = new();
 
     [Browsable(false)]
-    public List<UmlDiagram> Diagrams { get; set; } = [new UmlDiagram()];
+    public List<UmlDiagram> Diagrams { get; set; } = CreateDefaultDiagrams();
+
+    public static readonly UmlDiagramKind[] BasicDiagramKinds =
+    [
+        UmlDiagramKind.UseCaseDiagram,
+        UmlDiagramKind.ClassDiagram,
+        UmlDiagramKind.SequenceDiagram,
+        UmlDiagramKind.ActivityDiagram,
+        UmlDiagramKind.StateMachineDiagram,
+    ];
+
+    public static List<UmlDiagram> CreateDefaultDiagrams() =>
+        BasicDiagramKinds
+            .Select(kind => new UmlDiagram
+            {
+                Kind = kind,
+                Name = UmlDiagramCatalog.GetDiagramKindDisplayName(kind),
+            })
+            .ToList();
 
     // Serialized as a Guid — Diagrams list order is never reordered by activation.
     // Old files without this field default to Guid.Empty → falls back to Diagrams[0].

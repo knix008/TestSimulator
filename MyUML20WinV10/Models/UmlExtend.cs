@@ -11,4 +11,8 @@ public sealed class UmlExtend : UmlRelationship
     [Category("기본")]
     [DisplayName("확장 조건")]
     public string Condition { get; set; } = string.Empty;
+
+    [Category("기본")]
+    [DisplayName("확장 포인트")]
+    public string ExtensionPoint { get; set; } = string.Empty;
 }

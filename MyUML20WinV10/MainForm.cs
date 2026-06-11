@@ -273,6 +273,34 @@ public partial class MainForm : Form
 
         _statusStrip.BackColor = Color.FromArgb(235, 238, 248);
         _statusStrip.SizingGrip = false;
+
+        _tsTheme.Text = "테마";
+        _tsTheme.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        _tsTheme.ToolTipText = "다이어그램 및 도구상자의 색상 테마를 선택합니다.";
+        foreach (UmlThemeKind theme in Enum.GetValues<UmlThemeKind>())
+        {
+            var captured = theme;
+            var item = new ToolStripMenuItem(UmlDiagramStyle.GetThemeDisplayName(captured));
+            item.Click += (_, _) =>
+            {
+                UmlDiagramStyle.CurrentTheme = captured;
+                _canvas.ApplyTheme();
+                _umlToolbox.Invalidate(true);
+                UpdateThemeMenuChecks();
+            };
+            _tsTheme.DropDownItems.Add(item);
+        }
+        UpdateThemeMenuChecks();
+    }
+
+    private void UpdateThemeMenuChecks()
+    {
+        for (int i = 0; i < _tsTheme.DropDownItems.Count; i++)
+        {
+            if (_tsTheme.DropDownItems[i] is ToolStripMenuItem mi)
+                mi.Checked = (UmlThemeKind)i == UmlDiagramStyle.CurrentTheme;
+        }
+        _tsTheme.Text = $"테마: {UmlDiagramStyle.GetThemeDisplayName(UmlDiagramStyle.CurrentTheme)}";
     }
 
     private void NewProject(bool loadSample)
@@ -328,13 +356,15 @@ public partial class MainForm : Form
             Left = 16, Top = 38, Width = 328,
             DropDownStyle = ComboBoxStyle.DropDownList,
         };
-        cmbKind.Items.AddRange(["Class Diagram", "Use Case Diagram", "Sequence Diagram", "State Machine Diagram", "Activity Diagram"]);
+        foreach (var diagramKind in Enum.GetValues<Models.UmlDiagramKind>())
+            cmbKind.Items.Add(UmlDiagramCatalog.GetDiagramKindDisplayName(diagramKind));
         cmbKind.SelectedIndex = 0;
 
         var lblName = new Label { Text = "이름:", Left = 16, Top = 84, Width = 330, AutoSize = false };
-        var txtName = new TextBox { Left = 16, Top = 106, Width = 328, Text = "Class Diagram" };
+        var txtName = new TextBox { Left = 16, Top = 106, Width = 328, Text = UmlDiagramCatalog.GetDiagramKindDisplayName(Models.UmlDiagramKind.ClassDiagram) };
         cmbKind.SelectedIndexChanged += (_, _) =>
-            txtName.Text = cmbKind.SelectedItem?.ToString() ?? "New Diagram";
+            txtName.Text = cmbKind.SelectedItem?.ToString()
+                ?? UmlDiagramCatalog.GetDiagramKindDisplayName(Models.UmlDiagramKind.ClassDiagram);
 
         var btnOk = new Button { Text = "추가", DialogResult = DialogResult.OK, Left = 164, Top = 148, Width = 88, Height = 30 };
         var btnCancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Left = 260, Top = 148, Width = 88, Height = 30 };
@@ -363,15 +393,8 @@ public partial class MainForm : Form
         _statusLabel.Text = $"새 다이어그램 추가됨: {diagram.Name}";
     }
 
-    private static string GetDiagramKindName(Models.UmlDiagramKind kind) => kind switch
-    {
-        Models.UmlDiagramKind.ClassDiagram => "Class Diagram",
-        Models.UmlDiagramKind.UseCaseDiagram => "Use Case Diagram",
-        Models.UmlDiagramKind.SequenceDiagram => "Sequence Diagram",
-        Models.UmlDiagramKind.StateMachineDiagram => "State Machine Diagram",
-        Models.UmlDiagramKind.ActivityDiagram => "Activity Diagram",
-        _ => "Diagram",
-    };
+    private static string GetDiagramKindName(Models.UmlDiagramKind kind) =>
+        UmlDiagramCatalog.GetDiagramKindDisplayName(kind);
 
     private void SetTool(UmlToolMode mode, bool fromToolbox = false)
     {
@@ -431,6 +454,8 @@ public partial class MainForm : Form
         UmlUseCase uc => $"유스케이스 선택됨: {uc.Name}  |  Delete=삭제",
         UmlSystemBoundary boundary => $"시스템 경계 선택됨: {boundary.Name}  |  Delete=삭제",
         UmlNote note => $"노트 선택됨  |  Delete=삭제",
+        UmlComponent component => $"컴포넌트 선택됨: {component.Name}  |  Delete=삭제  F2=이름편집",
+        UmlComponentInterface iface => $"{(iface.InterfaceKind == UmlComponentInterfaceKind.Provided ? "제공" : "요구")} 인터페이스 선택됨: {iface.Name}  |  Delete=삭제  F2=이름편집",
         UmlBehaviorNode behaviorNode => $"{GetBehaviorNodeStatusText(behaviorNode)}  |  Delete=삭제",
         UmlBehaviorConnector connector => $"{GetBehaviorConnectorStatusText(connector)}  |  Delete=삭제",
         UmlRelationship rel => GetRelationshipStatusText(rel),
@@ -615,6 +640,17 @@ public partial class MainForm : Form
     }
 
     private void DeleteSelection() => _canvas.DeleteSelection();
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Delete && _canvas.SelectedObject is not null)
+        {
+            DeleteSelection();
+            return true;
+        }
+
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
 
     private void MenuAutoLayout_Click(object? sender, EventArgs e)
     {

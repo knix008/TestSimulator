@@ -124,6 +124,15 @@ public static class UmlDiagramTemplateLibrary
             SequenceDiagramTemplate.Id => SequenceDiagramTemplate.BuildProject(),
             StateMachineDiagramTemplate.Id => StateMachineDiagramTemplate.BuildProject(),
             ActivityDiagramTemplate.Id => ActivityDiagramTemplate.BuildProject(),
+            ComponentDiagramTemplate.Id => ComponentDiagramTemplate.BuildProject(),
+            PackageDiagramTemplate.Id => PackageDiagramTemplate.BuildProject(),
+            ObjectDiagramTemplate.Id => ObjectDiagramTemplate.BuildProject(),
+            CommunicationDiagramTemplate.Id => CommunicationDiagramTemplate.BuildProject(),
+            DeploymentDiagramTemplate.Id => DeploymentDiagramTemplate.BuildProject(),
+            ProfileDiagramTemplate.Id => ProfileDiagramTemplate.BuildProject(),
+            TimingDiagramTemplate.Id => TimingDiagramTemplate.BuildProject(),
+            CompositeStructureDiagramTemplate.Id => CompositeStructureDiagramTemplate.BuildProject(),
+            InteractionOverviewDiagramTemplate.Id => InteractionOverviewDiagramTemplate.BuildProject(),
             _ => throw new ArgumentException($"알 수 없는 템플릿: {templateId}", nameof(templateId)),
         };
     }
@@ -140,6 +149,15 @@ public static class UmlDiagramTemplateLibrary
             SequenceDiagramTemplate.Build(project),
             StateMachineDiagramTemplate.Build(project),
             ActivityDiagramTemplate.Build(project),
+            ComponentDiagramTemplate.Build(project),
+            PackageDiagramTemplate.Build(project),
+            ObjectDiagramTemplate.Build(project),
+            CommunicationDiagramTemplate.Build(project),
+            DeploymentDiagramTemplate.Build(project),
+            ProfileDiagramTemplate.Build(project),
+            TimingDiagramTemplate.Build(project),
+            CompositeStructureDiagramTemplate.Build(project),
+            InteractionOverviewDiagramTemplate.Build(project),
         ]);
 
         return project;

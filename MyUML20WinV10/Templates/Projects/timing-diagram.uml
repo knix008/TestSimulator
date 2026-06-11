@@ -1,0 +1,188 @@
+{
+  "name": "Timing Diagram Template",
+  "rootPackage": {
+    "stereotype": "",
+    "nestedPackages": [],
+    "classifiers": [],
+    "actors": [],
+    "useCases": [],
+    "systemBoundaries": [],
+    "notes": [],
+    "behaviorNodes": [
+      {
+        "kind": "timingLifeline",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Controller",
+        "displayLabel": "Controller",
+        "id": "5d29963b-8145-4f02-9ad4-946aa7c440e0"
+      },
+      {
+        "kind": "timingState",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Idle",
+        "displayLabel": "Idle",
+        "id": "2a633a39-1786-495a-b6b5-3ec944380c18"
+      },
+      {
+        "kind": "timingState",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Active",
+        "displayLabel": "Active",
+        "id": "a09e05ad-7262-40d0-95b4-44aa72e04ce0"
+      }
+    ],
+    "components": [],
+    "componentInterfaces": [],
+    "componentPorts": [],
+    "objectInstances": [],
+    "deploymentHosts": [],
+    "artifacts": [],
+    "relationships": [],
+    "ownedElements": [
+      {
+        "id": "5d29963b-8145-4f02-9ad4-946aa7c440e0",
+        "displayLabel": "Controller"
+      },
+      {
+        "id": "2a633a39-1786-495a-b6b5-3ec944380c18",
+        "displayLabel": "Idle"
+      },
+      {
+        "id": "a09e05ad-7262-40d0-95b4-44aa72e04ce0",
+        "displayLabel": "Active"
+      }
+    ],
+    "name": "Model",
+    "displayLabel": "Model",
+    "id": "d1c9a7f9-88f3-4a97-96af-4ebf114fbee4"
+  },
+  "diagrams": [
+    {
+      "kind": "timingDiagram",
+      "nodes": [
+        {
+          "id": "4c958339-6da3-4259-83ec-a72b69f47151",
+          "modelElementId": "5d29963b-8145-4f02-9ad4-946aa7c440e0",
+          "presentation": "behavior",
+          "x": 60,
+          "y": 80,
+          "width": 480,
+          "height": 120,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 60,
+              "y": 80
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 480,
+              "height": 120
+            },
+            "x": 60,
+            "y": 80,
+            "width": 480,
+            "height": 120,
+            "left": 60,
+            "top": 80,
+            "right": 540,
+            "bottom": 200,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "a338461a-e9e5-49fc-8d41-a3069fc10f86",
+          "modelElementId": "2a633a39-1786-495a-b6b5-3ec944380c18",
+          "presentation": "behavior",
+          "x": 80,
+          "y": 130,
+          "width": 140,
+          "height": 36,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 80,
+              "y": 130
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 140,
+              "height": 36
+            },
+            "x": 80,
+            "y": 130,
+            "width": 140,
+            "height": 36,
+            "left": 80,
+            "top": 130,
+            "right": 220,
+            "bottom": 166,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "448806b4-04d5-40ca-9f6b-50ccdbaba29e",
+          "modelElementId": "a09e05ad-7262-40d0-95b4-44aa72e04ce0",
+          "presentation": "behavior",
+          "x": 240,
+          "y": 130,
+          "width": 180,
+          "height": 36,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 240,
+              "y": 130
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 180,
+              "height": 36
+            },
+            "x": 240,
+            "y": 130,
+            "width": 180,
+            "height": 36,
+            "left": 240,
+            "top": 130,
+            "right": 420,
+            "bottom": 166,
+            "isEmpty": false
+          }
+        }
+      ],
+      "edges": [],
+      "name": "Timing Diagram",
+      "displayLabel": "Timing Diagram",
+      "id": "139be74a-4500-4983-91d5-33e7d41ff792"
+    }
+  ],
+  "activeDiagramId": "00000000-0000-0000-0000-000000000000"
+}

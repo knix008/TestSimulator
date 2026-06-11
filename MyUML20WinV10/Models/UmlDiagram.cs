@@ -7,7 +7,7 @@ public sealed class UmlDiagram : UmlNamedElement
 {
     public UmlDiagram()
     {
-        Name = "Class Diagram";
+        Name = UmlDiagramCatalog.GetDiagramKindDisplayName(UmlDiagramKind.ClassDiagram);
     }
 
     [Category("기본")]

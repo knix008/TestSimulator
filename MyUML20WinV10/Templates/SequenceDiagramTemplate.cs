@@ -12,8 +12,24 @@ public static class SequenceDiagramTemplate
 
         var customerLifeline = new UmlBehaviorNode { Name = "customer", Kind = UmlBehaviorNodeKind.Lifeline };
         var orderServiceLifeline = new UmlBehaviorNode { Name = "orderService", Kind = UmlBehaviorNodeKind.Lifeline };
+        var inventoryPart = new UmlBehaviorNode
+        {
+            Name = "inventory",
+            Kind = UmlBehaviorNodeKind.Lifeline,
+            ParentLifelineId = orderServiceLifeline.Id,
+            DecompositionRole = ":inventory",
+        };
+        var interactionOccurrence = new UmlBehaviorNode
+        {
+            Name = "sd",
+            Kind = UmlBehaviorNodeKind.CombinedFragment,
+            CombinedFragmentKind = UmlCombinedFragmentKind.InteractionOccurrence,
+            ReferencedDiagramName = "Checkout Flow",
+        };
         project.RootPackage.AddBehaviorNode(customerLifeline);
         project.RootPackage.AddBehaviorNode(orderServiceLifeline);
+        project.RootPackage.AddBehaviorNode(inventoryPart);
+        project.RootPackage.AddBehaviorNode(interactionOccurrence);
 
         var callMessage = new UmlBehaviorConnector
         {
@@ -22,6 +38,8 @@ public static class SequenceDiagramTemplate
             MessageKind = UmlMessageKind.Synchronous,
             SourceClassifierId = customerLifeline.Id,
             TargetClassifierId = orderServiceLifeline.Id,
+            DurationMin = "2",
+            DurationMax = "5",
         };
         var returnMessage = new UmlBehaviorConnector
         {
@@ -34,10 +52,12 @@ public static class SequenceDiagramTemplate
         project.RootPackage.AddRelationship(callMessage);
         project.RootPackage.AddRelationship(returnMessage);
 
-        var customerNode = UmlTemplateBuilder.AddNode(diagram, customerLifeline.Id, UmlNodePresentation.Behavior, 100, 60, 120, 280);
-        var orderServiceNode = UmlTemplateBuilder.AddNode(diagram, orderServiceLifeline.Id, UmlNodePresentation.Behavior, 360, 60, 120, 280);
+        var customerNode = UmlTemplateBuilder.AddNode(diagram, customerLifeline.Id, UmlNodePresentation.Behavior, 80, 60, 120, 300);
+        var orderServiceNode = UmlTemplateBuilder.AddNode(diagram, orderServiceLifeline.Id, UmlNodePresentation.Behavior, 280, 60, 120, 300);
+        var inventoryNode = UmlTemplateBuilder.AddNode(diagram, inventoryPart.Id, UmlNodePresentation.Behavior, 500, 90, 96, 270);
+        UmlTemplateBuilder.AddNode(diagram, interactionOccurrence.Id, UmlNodePresentation.Behavior, 60, 220, 300, 120);
         UmlTemplateBuilder.AddSequenceEdge(diagram, callMessage.Id, customerNode, orderServiceNode, 132f);
-        UmlTemplateBuilder.AddSequenceEdge(diagram, returnMessage.Id, orderServiceNode, customerNode, 180f);
+        UmlTemplateBuilder.AddSequenceEdge(diagram, returnMessage.Id, orderServiceNode, customerNode, 200f);
 
         return diagram;
     }

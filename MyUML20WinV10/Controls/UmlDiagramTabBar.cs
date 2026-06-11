@@ -88,7 +88,7 @@ public sealed class UmlDiagramTabBar : Control
             var isActive = diagram.Id == _activeDiagramId;
             var isHovered = i == _hoveredTabIndex;
 
-            var label = $"{GetKindShort(diagram.Kind)}  {diagram.Name}";
+            var label = diagram.Name;
             var mFont = isActive ? TabFontBold : TabFont;
             var textW = (int)g.MeasureString(label, mFont).Width + 28;
             var w = Math.Clamp(textW, TabMinW, TabMaxW);
@@ -198,13 +198,4 @@ public sealed class UmlDiagramTabBar : Control
         Invalidate();
     }
 
-    private static string GetKindShort(UmlDiagramKind kind) => kind switch
-    {
-        UmlDiagramKind.ClassDiagram => "CD",
-        UmlDiagramKind.UseCaseDiagram => "UC",
-        UmlDiagramKind.SequenceDiagram => "SD",
-        UmlDiagramKind.StateMachineDiagram => "SM",
-        UmlDiagramKind.ActivityDiagram => "AD",
-        _ => "??",
-    };
 }
