@@ -32,7 +32,7 @@ internal static class ViewFailureReporter
         }
 
         var title = $"{viewDisplayName} 오류";
-        var summary = FormatDialogSummary(viewDisplayName, phase, ex);
+        var summary = string.Empty;
 
         void ShowDialog()
         {
@@ -69,16 +69,11 @@ internal static class ViewFailureReporter
             ? state.LastException
             : null;
 
-    public static string FormatDialogSummary(string viewDisplayName, string phase, Exception ex) =>
-        $"{viewDisplayName}을(를) {phase}하는 중 오류가 발생했습니다.{Environment.NewLine}{Environment.NewLine}" +
-        $"원인: {ex.Message}{Environment.NewLine}{Environment.NewLine}" +
-        "아래 상세 영역 또는 「오류 내용 복사」로 전체 스택·내부 예외를 복사할 수 있습니다.";
-
     public static string FormatCanvasMessage(Exception? ex, string phaseVerb)
     {
         if (ex is null)
         {
-            return $"{phaseVerb}에 실패했습니다.{Environment.NewLine}오류 창에서 자세한 내용을 확인·복사할 수 있습니다.";
+            return $"{phaseVerb}에 실패했습니다.";
         }
 
         var message = ex.Message;
@@ -89,8 +84,7 @@ internal static class ViewFailureReporter
 
         return
             $"{phaseVerb}에 실패했습니다.{Environment.NewLine}{Environment.NewLine}" +
-            $"원인: {message}{Environment.NewLine}{Environment.NewLine}" +
-            "「오류 내용 복사」로 전체 내용을 복사할 수 있습니다.";
+            $"원인: {message}";
     }
 
     private static string BuildSignature(Exception ex) =>

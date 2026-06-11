@@ -94,6 +94,20 @@ public partial class MainForm : Form
         UpdateResultCommandsState();
         UpdateToolbarForViewKind();
         UpdateRootHistoryNavigationState();
+        LayoutRootPathControls();
+    }
+
+    private const int RootPathControlGap = 8;
+
+    private void panelRootPath_Resize(object? sender, EventArgs e) => LayoutRootPathControls();
+
+    private void LayoutRootPathControls()
+    {
+        var textWidth = btnBrowseRoot.Left - txtRootPath.Left - RootPathControlGap;
+        if (textWidth >= 0)
+        {
+            txtRootPath.Width = textWidth;
+        }
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)

@@ -5,9 +5,9 @@ namespace CodeAnalyzer.Controls;
 
 public sealed class DetailedErrorDialog : Form
 {
-    private readonly TextBox _detailBox;
+    private readonly TextBox _contentBox;
 
-    private DetailedErrorDialog(string title, string summaryMessage, string detailText)
+    private DetailedErrorDialog(string title, string contentText)
     {
         Text = title;
         StartPosition = FormStartPosition.CenterParent;
@@ -20,20 +20,7 @@ public sealed class DetailedErrorDialog : Form
         ShowIcon = true;
         Icon = SystemIcons.Error;
 
-        var summaryBox = new TextBox
-        {
-            Dock = DockStyle.Top,
-            Height = 88,
-            Multiline = true,
-            ReadOnly = true,
-            BorderStyle = BorderStyle.None,
-            BackColor = SystemColors.Control,
-            TabStop = false,
-            ScrollBars = ScrollBars.Vertical,
-            Text = summaryMessage
-        };
-
-        _detailBox = new TextBox
+        _contentBox = new TextBox
         {
             Dock = DockStyle.Fill,
             Multiline = true,
@@ -41,16 +28,24 @@ public sealed class DetailedErrorDialog : Form
             ReadOnly = true,
             WordWrap = false,
             Font = new Font("Consolas", 9f),
-            Text = detailText
+            Text = contentText
         };
 
         var buttonPanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Bottom,
-            FlowDirection = FlowDirection.RightToLeft,
+            FlowDirection = FlowDirection.LeftToRight,
             AutoSize = true,
             Padding = new Padding(8)
         };
+
+        var copyButton = new Button
+        {
+            Text = "오류 내용 복사",
+            AutoSize = true,
+            Margin = new Padding(6)
+        };
+        copyButton.Click += (_, _) => CopyContentText();
 
         var closeButton = new Button
         {
@@ -60,20 +55,11 @@ public sealed class DetailedErrorDialog : Form
             Margin = new Padding(6)
         };
 
-        var copyButton = new Button
-        {
-            Text = "오류 내용 복사",
-            AutoSize = true,
-            Margin = new Padding(6)
-        };
-        copyButton.Click += (_, _) => CopyDetailText();
-
-        buttonPanel.Controls.Add(closeButton);
         buttonPanel.Controls.Add(copyButton);
+        buttonPanel.Controls.Add(closeButton);
 
-        Controls.Add(_detailBox);
-        Controls.Add(summaryBox);
         Controls.Add(buttonPanel);
+        Controls.Add(_contentBox);
 
         AcceptButton = closeButton;
         CancelButton = closeButton;
@@ -94,7 +80,7 @@ public sealed class DetailedErrorDialog : Form
         string summaryMessage,
         string detailText)
     {
-        using var dialog = new DetailedErrorDialog(title, summaryMessage, detailText);
+        using var dialog = new DetailedErrorDialog(title, BuildDisplayText(summaryMessage, detailText));
         dialog.ShowDialog(owner);
     }
 
@@ -112,13 +98,31 @@ public sealed class DetailedErrorDialog : Form
         Show(owner, title, summaryMessage, ExceptionDetailFormatter.FormatIssues(issues));
     }
 
-    private void CopyDetailText()
+    private static string BuildDisplayText(string summaryMessage, string detailText)
+    {
+        if (string.IsNullOrWhiteSpace(summaryMessage) || IsRedundantSummary(summaryMessage))
+        {
+            return detailText;
+        }
+
+        return $"{summaryMessage.TrimEnd()}{Environment.NewLine}{Environment.NewLine}{detailText}";
+    }
+
+    private static bool IsRedundantSummary(string summaryMessage)
+    {
+        return summaryMessage.Contains("아래 상세 내용을 확인", StringComparison.Ordinal)
+            || summaryMessage.Contains("아래 상세 영역", StringComparison.Ordinal)
+            || summaryMessage.Contains("전체 스택·내부 예외를 복사", StringComparison.Ordinal)
+            || summaryMessage.Contains("「오류 내용 복사」로 전체", StringComparison.Ordinal);
+    }
+
+    private void CopyContentText()
     {
         try
         {
-            if (!string.IsNullOrEmpty(_detailBox.Text))
+            if (!string.IsNullOrEmpty(_contentBox.Text))
             {
-                Clipboard.SetText(_detailBox.Text);
+                Clipboard.SetText(_contentBox.Text);
             }
 
             MessageBox.Show(

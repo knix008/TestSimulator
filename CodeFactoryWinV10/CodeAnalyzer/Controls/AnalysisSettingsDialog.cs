@@ -44,7 +44,7 @@ public sealed class AnalysisSettingsDialog : Form
         Text = "분석 설정";
         StartPosition = FormStartPosition.CenterParent;
         var preferredWidth = CalculatePreferredClientWidth();
-        ClientSize = new Size(preferredWidth, 580);
+        ClientSize = new Size(preferredWidth, 660);
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = false;
         MinimizeBox = false;
@@ -85,7 +85,7 @@ public sealed class AnalysisSettingsDialog : Form
         _listHost = new Panel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(10, 0, 10, 0)
+            Padding = new Padding(10, 0, 10, 8)
         };
         _listHost.Controls.Add(_scrollHost);
         _listHost.Controls.Add(_headerHost);
@@ -105,7 +105,7 @@ public sealed class AnalysisSettingsDialog : Form
         {
             // 폭을 콘텐츠 기준으로 계산된 값으로 고정
             var fixedW = Width;
-            MinimumSize = new Size(fixedW, 400);
+            MinimumSize = new Size(fixedW, 480);
             MaximumSize = new Size(fixedW, Screen.FromControl(this).WorkingArea.Height);
         };
         Shown += (_, _) =>
@@ -180,11 +180,14 @@ public sealed class AnalysisSettingsDialog : Form
 
     private Panel CreateFooter(out Button okButton, out Button cancelButton)
     {
+        const int footerTopGap = 18;
+        const int buttonRowHeight = 34;
+
         var footer = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 72,
-            Padding = new Padding(12, 8, 12, 12)
+            Height = footerTopGap + buttonRowHeight + 12,
+            Padding = new Padding(12, footerTopGap, 12, 12)
         };
 
         cancelButton = new Button
@@ -215,18 +218,28 @@ public sealed class AnalysisSettingsDialog : Form
             AutoSize = true,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Anchor = AnchorStyles.None
+            Anchor = AnchorStyles.Bottom
         };
         buttonBar.Controls.Add(cancelButton);
         buttonBar.Controls.Add(okButton);
-        footer.Controls.Add(buttonBar);
 
-        footer.Resize += (_, _) =>
+        var buttonRow = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = buttonRowHeight
+        };
+        buttonRow.Controls.Add(buttonBar);
+        footer.Controls.Add(buttonRow);
+
+        void CenterButtons()
         {
             buttonBar.Location = new Point(
-                Math.Max(0, (footer.ClientSize.Width - buttonBar.Width) / 2),
-                Math.Max(0, footer.ClientSize.Height - buttonBar.Height - 10));
-        };
+                Math.Max(0, (buttonRow.ClientSize.Width - buttonBar.Width) / 2),
+                Math.Max(0, (buttonRow.ClientSize.Height - buttonBar.Height) / 2));
+        }
+
+        buttonRow.Resize += (_, _) => CenterButtons();
+        buttonRow.HandleCreated += (_, _) => CenterButtons();
 
         return footer;
     }

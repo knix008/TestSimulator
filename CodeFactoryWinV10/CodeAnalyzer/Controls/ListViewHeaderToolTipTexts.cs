@@ -100,7 +100,7 @@ internal static class ListViewHeaderToolTipTexts
         "분석된 DB 인스턴스(카탈로그·연결·SQLite 파일) 목록의 순번입니다.",
         "식별된 DB 인스턴스 이름입니다. 연결 문자열의 Database·SQLite 파일명·ATTACH 별칭 등에서 추출됩니다.",
         "이 DB 인스턴스에 연결·관리(SELECT/CREATE/DROP)하는 함수·메서드 수입니다.",
-        "감지된 DB 방언입니다. MySQL, MariaDB, PostgreSQL, SQLite, SQL Server 등으로 표시됩니다.",
+        "감지된 DB 종류입니다. MySQL, MariaDB, PostgreSQL, SQLite, SQL Server 등으로 표시됩니다.",
         "인스턴스가 식별된 방식입니다. 연결 API, 연결 문자열, SQL(USE/CREATE DATABASE) 등으로 구분됩니다."
     ];
 

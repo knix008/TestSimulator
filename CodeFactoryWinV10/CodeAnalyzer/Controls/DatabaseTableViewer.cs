@@ -288,7 +288,7 @@ public sealed class DatabaseTableViewer : UserControl
         _catalogList.Columns.Add("#", 40);
         _catalogList.Columns.Add("DB", 160);
         _catalogList.Columns.Add("접근 함수", 72, HorizontalAlignment.Right);
-        _catalogList.Columns.Add("방언", 72);
+        _catalogList.Columns.Add("DB 종류", 80);
         _catalogList.Columns.Add("출처", 100);
         _catalogListHeaderToolTip = ListViewColumnHeaderToolTip.Attach(_catalogList, ListViewHeaderToolTipTexts.DatabaseCatalog);
         ListViewColumnSortHelper.Enable(_catalogList);
