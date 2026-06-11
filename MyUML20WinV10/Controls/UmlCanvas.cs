@@ -1422,7 +1422,7 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateExpansionRegion => new SizeF(240, 160),
         UmlToolMode.CreateInterruptibleRegion => new SizeF(240, 160),
         UmlToolMode.CreateNaryAssociationHub => new SizeF(48, 48),
-        UmlToolMode.CreateTable => new SizeF(160, 120),
+
         UmlToolMode.CreateSeqFragment or UmlToolMode.CreateStrictFragment or UmlToolMode.CreateNegFragment
             or UmlToolMode.CreateCriticalFragment or UmlToolMode.CreateIgnoreFragment or UmlToolMode.CreateConsiderFragment
             or UmlToolMode.CreateAssertFragment => new SizeF(280, 160),
@@ -1735,11 +1735,7 @@ public sealed class UmlCanvas : Control
                 presentation = UmlNodePresentation.Behavior;
                 _project.RootPackage.AddBehaviorNode((UmlBehaviorNode)element);
                 break;
-            case UmlToolMode.CreateTable:
-                element = new UmlClass { Name = "Table", Stereotype = "table" };
-                presentation = UmlNodePresentation.Classifier;
-                _project.RootPackage.AddClassifier((UmlClass)element);
-                break;
+
             case UmlToolMode.CreateProfilePackage:
                 element = new UmlPackage { Name = "Profile", Stereotype = "profile" };
                 presentation = UmlNodePresentation.Package;

@@ -297,8 +297,7 @@ public static class UmlDiagramRenderer
             }
         }
 
-        if (string.Equals(classifier.Stereotype, "table", StringComparison.OrdinalIgnoreCase))
-            UmlExtendedNotation.DrawTableIconLines(g, bounds, bodyPen);
+
     }
 
     private static void DrawClassifierBackground(Graphics g, RectangleF bounds, UmlClassifier classifier, Pen pen)
@@ -701,6 +700,15 @@ public static class UmlDiagramRenderer
             {
                 var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
                 g.FillEllipse(new SolidBrush(pen.Color), circle.X, circle.Y, circle.Width, circle.Height);
+                // Junction은 Initial과 같은 채운 원이지만 이름 레이블로 구별합니다.
+                if (!string.IsNullOrWhiteSpace(behaviorNode.Name))
+                {
+                    using var labelFont = new Font("Segoe UI", 7.5f);
+                    var labelSize = g.MeasureString(behaviorNode.Name, labelFont);
+                    g.DrawString(behaviorNode.Name, labelFont, textBrush,
+                        circle.X + (circle.Width - labelSize.Width) / 2f,
+                        circle.Bottom + 2f);
+                }
                 break;
             }
             case UmlBehaviorNodeKind.ShallowHistory:

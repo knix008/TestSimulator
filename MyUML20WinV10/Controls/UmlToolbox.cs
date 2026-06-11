@@ -242,7 +242,7 @@ public sealed class UmlToolbox : UserControl
 
                     (UmlToolMode.CreateEnumeration, "Enum", UmlNotationPreview.DrawEnumeration),
 
-                    (UmlToolMode.CreateTable, "Table", UmlNotationPreview.DrawTable),
+
 
                     (UmlToolMode.CreatePackage, "Package", UmlNotationPreview.DrawPackage),
 

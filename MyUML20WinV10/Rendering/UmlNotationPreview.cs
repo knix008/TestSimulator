@@ -97,8 +97,15 @@ public static class UmlNotationPreview
     public static void DrawChoice(Graphics g, RectangleF area, Color fill, Color stroke) =>
         DrawStyledDiamond(g, area);
 
-    public static void DrawJunction(Graphics g, RectangleF area, Color fill, Color stroke) =>
-        DrawPreviewFilledCircle(g, area);
+    public static void DrawJunction(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        // Junction: 채운 원 + 테두리 링 — InitialState(테두리 없는 채운 원)와 구분
+        var rect = FitSquare(area);
+        using var brush = CreatePreviewFillBrush();
+        using var pen = CreatePreviewBorderPen(1.8f);
+        g.FillEllipse(brush, rect.X, rect.Y, rect.Width, rect.Height);
+        g.DrawEllipse(pen, rect.X, rect.Y, rect.Width, rect.Height);
+    }
 
     public static void DrawShallowHistory(Graphics g, RectangleF area, Color fill, Color stroke) =>
         DrawPreviewHistoryCircle(g, area, deep: false);
@@ -780,8 +787,10 @@ public static class UmlNotationPreview
                 UmlStateNotation.DrawSubmachineGhost(g, rect, fill, stroke);
                 break;
             case UmlToolMode.CreateEntryPoint:
+                DrawEntryPoint(g, rect, fill, stroke);
+                break;
             case UmlToolMode.CreateExitPoint:
-                DrawGhostFilledCircle(g, FitSquare(rect), stroke);
+                DrawExitPoint(g, rect, fill, stroke);
                 break;
             case UmlToolMode.CreateTerminateState:
             case UmlToolMode.CreateFlowFinalNode:
@@ -800,9 +809,7 @@ public static class UmlNotationPreview
             case UmlToolMode.CreateNaryAssociationHub:
                 DrawNaryAssociationHub(g, rect, fill, stroke);
                 break;
-            case UmlToolMode.CreateTable:
-                DrawTable(g, rect, fill, stroke);
-                break;
+
             case UmlToolMode.CreateProfilePackage:
                 DrawProfilePackage(g, rect, fill, stroke);
                 break;
@@ -1058,42 +1065,6 @@ public static class UmlNotationPreview
     public static void DrawClassNesting(Graphics g, RectangleF area, Color fill, Color stroke) =>
         DrawPackageNesting(g, area, fill, stroke);
 
-    public static void DrawTable(Graphics g, RectangleF area, Color fill, Color stroke)
-    {
-        var r = Shrink(area, 6f, 4f);
-        using var pen = CreatePreviewBorderPen(1.4f);
-        using var fillBrush = CreatePreviewFillBrush();
-
-        if (!UmlDiagramStyle.SilhouetteMode)
-        {
-            g.FillRectangle(fillBrush, r);
-        }
-        g.DrawRectangle(pen, r.X, r.Y, r.Width, r.Height);
-
-        // Header row separator (30% down)
-        var headerH = r.Height * 0.30f;
-        var headerY = r.Top + headerH;
-        g.DrawLine(pen, r.Left, headerY, r.Right, headerY);
-
-        // Fill header darker if not silhouette
-        if (!UmlDiagramStyle.SilhouetteMode)
-        {
-            using var headerBrush = new SolidBrush(Color.FromArgb(40, stroke));
-            g.FillRectangle(headerBrush, r.Left + 0.5f, r.Top + 0.5f, r.Width - 1f, headerH - 0.5f);
-        }
-
-        // 2 data row dividers
-        var rowH = (r.Height - headerH) / 3f;
-        for (var i = 1; i <= 2; i++)
-        {
-            var rowY = headerY + rowH * i;
-            g.DrawLine(pen, r.Left, rowY, r.Right, rowY);
-        }
-
-        // 1 column divider
-        var colX = r.Left + r.Width * 0.45f;
-        g.DrawLine(pen, colX, headerY, colX, r.Bottom);
-    }
 
     private static RectangleF Shrink(RectangleF r, float dx, float dy) =>
         new(r.X + dx, r.Y + dy, r.Width - dx * 2f, r.Height - dy * 2f);
@@ -1162,11 +1133,24 @@ public static class UmlNotationPreview
     public static void DrawOrthogonalRegion(Graphics g, RectangleF area, Color fill, Color stroke) =>
         UmlStateNotation.DrawOrthogonalPreview(g, area, stroke);
 
-    public static void DrawEntryPoint(Graphics g, RectangleF area, Color fill, Color stroke) =>
-        DrawGhostFilledCircle(g, FitSquare(area), stroke);
+    public static void DrawEntryPoint(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        // EntryPoint: 빈 원 (UML 2.5)
+        var rect = FitSquare(area);
+        using var pen = CreatePreviewBorderPen(1.8f);
+        UmlDiagramStyle.DrawStyledEllipse(g, rect, pen);
+    }
 
-    public static void DrawExitPoint(Graphics g, RectangleF area, Color fill, Color stroke) =>
-        DrawEntryPoint(g, area, fill, stroke);
+    public static void DrawExitPoint(Graphics g, RectangleF area, Color fill, Color stroke)
+    {
+        // ExitPoint: 빈 원 + X (UML 2.5)
+        var rect = FitSquare(area);
+        using var pen = CreatePreviewBorderPen(1.8f);
+        UmlDiagramStyle.DrawStyledEllipse(g, rect, pen);
+        var inset = rect.Width * 0.28f;
+        g.DrawLine(pen, rect.X + inset, rect.Y + inset, rect.Right - inset, rect.Bottom - inset);
+        g.DrawLine(pen, rect.Right - inset, rect.Y + inset, rect.X + inset, rect.Bottom - inset);
+    }
 
     public static void DrawTerminateState(Graphics g, RectangleF area, Color fill, Color stroke) =>
         UmlCircleNodeGeometry.DrawFlowFinalPreview(g, area, stroke);

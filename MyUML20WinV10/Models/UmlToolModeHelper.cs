@@ -25,7 +25,7 @@ public static class UmlToolModeHelper
         or UmlToolMode.CreateArtifact or UmlToolMode.CreateSequenceEndpoint
         or UmlToolMode.CreateGate or UmlToolMode.CreateExpansionRegion
         or UmlToolMode.CreateInterruptibleRegion
-        or UmlToolMode.CreateNaryAssociationHub or UmlToolMode.CreateTable
+        or UmlToolMode.CreateNaryAssociationHub
         or UmlToolMode.CreateSeqFragment or UmlToolMode.CreateStrictFragment or UmlToolMode.CreateNegFragment
         or UmlToolMode.CreateCriticalFragment or UmlToolMode.CreateIgnoreFragment or UmlToolMode.CreateConsiderFragment
         or UmlToolMode.CreateAssertFragment or UmlToolMode.CreateStateInvariant or UmlToolMode.CreateContinuation
@@ -63,7 +63,7 @@ public static class UmlToolModeHelper
 
     public static UmlToolMode? FromSelectedObject(object? selected) => selected switch
     {
-        UmlClass { Stereotype: "table" } => UmlToolMode.CreateTable,
+
         UmlClass { Stereotype: "metaclass" } => UmlToolMode.CreateMetaclass,
         UmlClass => UmlToolMode.CreateClass,
         UmlInterface => UmlToolMode.CreateInterface,
@@ -253,7 +253,7 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateInterruptibleRegion => "Interruptible",
         UmlToolMode.CreateNaryAssociationHub => "N-ary Hub",
         UmlToolMode.CreateClassNesting => "Nesting",
-        UmlToolMode.CreateTable => "Table",
+
         UmlToolMode.CreateTrace => "Trace",
         UmlToolMode.CreateSeqFragment => "Seq",
         UmlToolMode.CreateStrictFragment => "Strict",
@@ -541,7 +541,7 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateInterruptibleRegion => UmlNotationPreview.DrawInterruptibleRegion,
         UmlToolMode.CreateNaryAssociationHub => UmlNotationPreview.DrawNaryAssociationHub,
         UmlToolMode.CreateClassNesting => UmlNotationPreview.DrawClassNesting,
-        UmlToolMode.CreateTable => UmlNotationPreview.DrawTable,
+
         UmlToolMode.CreateTrace => UmlNotationPreview.DrawTrace,
         UmlToolMode.CreateSeqFragment => UmlNotationPreview.DrawSeqFragment,
         UmlToolMode.CreateStrictFragment => UmlNotationPreview.DrawStrictFragment,

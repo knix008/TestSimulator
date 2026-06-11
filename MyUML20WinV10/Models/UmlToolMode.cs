@@ -76,7 +76,7 @@ public enum UmlToolMode
     CreateInterruptibleRegion,
     CreateNaryAssociationHub,
     CreateClassNesting,
-    CreateTable,
+
     CreateTrace,
     CreateSeqFragment,
     CreateStrictFragment,

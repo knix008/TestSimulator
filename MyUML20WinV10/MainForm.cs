@@ -55,11 +55,13 @@ public partial class MainForm : Form
             _splitMain.SplitterDistance = mainWidth - rightWidth - _splitMain.SplitterWidth;
         }
 
+        _splitWork.Panel1MinSize = sideWidth;
+
         var workWidth = _splitWork.ClientSize.Width;
-        if (workWidth > _splitWork.Panel1MinSize + _splitWork.Panel2MinSize + _splitWork.SplitterWidth)
+        if (workWidth > sideWidth + _splitWork.Panel2MinSize + _splitWork.SplitterWidth)
         {
             var maxToolboxWidth = workWidth - _splitWork.Panel2MinSize - _splitWork.SplitterWidth;
-            _splitWork.SplitterDistance = Math.Clamp(sideWidth, _splitWork.Panel1MinSize, maxToolboxWidth);
+            _splitWork.SplitterDistance = Math.Clamp(sideWidth, sideWidth, maxToolboxWidth);
         }
 
         var rightHeight = _splitRight.ClientSize.Height;

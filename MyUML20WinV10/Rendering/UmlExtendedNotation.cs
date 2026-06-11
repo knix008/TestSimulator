@@ -27,10 +27,19 @@ public static class UmlExtendedNotation
                 UmlStateNotation.DrawOrthogonalRegion(g, bounds, pen, label);
                 break;
             case UmlBehaviorNodeKind.EntryPoint:
-            case UmlBehaviorNodeKind.ExitPoint:
             {
                 var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
                 UmlDiagramStyle.DrawStyledEllipse(g, circle, pen);
+                break;
+            }
+            case UmlBehaviorNodeKind.ExitPoint:
+            {
+                // ExitPoint: 빈 원 + X (UML 2.5 표준)
+                var circle = UmlCircleNodeGeometry.GetCircleBounds(bounds);
+                UmlDiagramStyle.DrawStyledEllipse(g, circle, pen);
+                var inset = circle.Width * 0.28f;
+                g.DrawLine(pen, circle.X + inset, circle.Y + inset, circle.Right - inset, circle.Bottom - inset);
+                g.DrawLine(pen, circle.Right - inset, circle.Y + inset, circle.X + inset, circle.Bottom - inset);
                 break;
             }
             case UmlBehaviorNodeKind.TerminateState:
@@ -102,25 +111,6 @@ public static class UmlExtendedNotation
         or UmlBehaviorNodeKind.InputPin or UmlBehaviorNodeKind.OutputPin or UmlBehaviorNodeKind.ExceptionHandler
         or UmlBehaviorNodeKind.TimingLifeline or UmlBehaviorNodeKind.TimingState or UmlBehaviorNodeKind.InteractionUse;
 
-    public static void DrawTableIconLines(Graphics g, RectangleF bounds, Pen pen)
-    {
-        // Header separator at ~30% height, then 2 more rows spaced proportionally
-        var headerH = bounds.Height * 0.30f;
-        var headerY = bounds.Top + headerH;
-        var rowH = (bounds.Height - headerH) / 3f;
-        var padX = bounds.Width * 0.06f;
-
-        g.DrawLine(pen, bounds.Left + padX, headerY, bounds.Right - padX, headerY);
-        for (var i = 1; i <= 2; i++)
-        {
-            var y = headerY + rowH * i;
-            g.DrawLine(pen, bounds.Left + padX, y, bounds.Right - padX, y);
-        }
-
-        // Column divider
-        var colX = bounds.Left + bounds.Width * 0.45f;
-        g.DrawLine(pen, colX, headerY, colX, bounds.Bottom - padX);
-    }
 
     public static void DrawClassNestingGeometry(
         Graphics g,
