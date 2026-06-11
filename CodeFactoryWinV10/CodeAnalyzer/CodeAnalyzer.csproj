@@ -62,8 +62,13 @@
           AfterTargets="CopyTreeSitterNativeDlls"
           Condition="'$(Configuration)' == 'Release' and '$(BuildingMsiPackage)' != 'true' and Exists('$(SetupProjectPath)')">
     <MSBuild Projects="$(SetupProjectPath)"
+             Targets="Restore"
+             Properties="Configuration=Release;BuildingMsiPackage=true"
+             BuildInParallel="false" />
+    <MSBuild Projects="$(SetupProjectPath)"
              Targets="Build"
-             Properties="Configuration=$(Configuration);Platform=Any CPU" />
+             Properties="Configuration=Release;BuildingMsiPackage=true"
+             BuildInParallel="false" />
     <Error Condition="!Exists('$(MsiOutputPath)')"
            Text="MSI was not created at $(MsiOutputPath). See CodeAnalyzer.Setup build output for errors." />
     <Message Importance="high" Text="MSI ready: $(MsiOutputPath)" />

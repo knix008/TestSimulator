@@ -25,8 +25,8 @@ C# WinForms 기반 **다언어 코드 분석 도구**입니다. 지정한 디렉
 ### 분석 범위
 
 - 루트 디렉터리 선택 후 하위 디렉터리 자동 수집
-- `bin`, `obj`, `.git` 등 기본 제외 디렉터리 자동 체크
-- 사용자가 체크한 디렉터리는 분석에서 제외
+- **체크한 하위 디렉터리만** 분석 (최소 1개 선택 필요)
+- `bin`, `obj`, `.git` 등은 기본적으로 체크 해제
 - **12종 프로그래밍 언어** 선택 분석
 
 ### 시각화·탐색
@@ -36,7 +36,7 @@ C# WinForms 기반 **다언어 코드 분석 도구**입니다. 지정한 디렉
 - **파일·디렉터리 관계** 그래프
 - **전역 변수** 목록·접근 함수·**접근 그래프**(함수 → 단일 전역 변수)
 - **DB ERD** — 스키마·테이블·관계 다이어그램
-- **DB 테이블 접근** — 테이블·필드별 SQL/ORM 접근 함수, CRUD, **접근 함수 그래프**
+- **DB 테이블 접근** — 테이블·필드별 SQL/ORM 접근 함수, CRUD, **접근 함수 그래프**, **DB 인스턴스** 탭
 - **버그 위험 분석(Lint)** — 미사용 코드, 복잡·중첩, 예외 무음, 리소스 누수 등
 - **정보 보호 및 보안** — 언어별 보안 smell 규칙 결과
 - **분석 Summary** — 검사 범위별 요약 대시보드
@@ -51,11 +51,13 @@ C# WinForms 기반 **다언어 코드 분석 도구**입니다. 지정한 디렉
 | **MySQL / MariaDB** | `mysql`, `mysqli`, JDBC, `UseMySql`, C API 등 |
 | **PostgreSQL** | `Npgsql`, `psycopg`, JDBC, libpq 등 |
 | **SQL Server / LocalDB / Azure SQL** | `SqlConnection`, `UseSqlServer`, Dapper, ADO.NET, EF `ExecuteSqlRaw`, JDBC, ODBC 등 |
+| **SQLite** | 파일 경로·`ATTACH`·연결 문자열 등 |
 
 - **12개 프로그래밍 언어**별 native SQL 캡처·ORM 패턴 (`LanguageDbAccessPatterns`)
+- Java/Kotlin·JavaScript/TypeScript: JPA, Prisma, TypeORM 등 ORM·스키마 파일 자동 탐색
+- C/C++: DB API 호출이 명확한 경우에만 카탈로그·테이블 접근 집계 (일반 식별자 오탐 완화)
 - 스키마 파일·마이그레이션·엔티티에서 **테이블·컬럼** 등록 후 코드 접근과 매칭
 - SQL은 `SELECT … FROM` 등 **구조적 문장**만 인정해 일반 식별자 오탐을 줄임
-- DB API 신호가 있는 함수에서만 조건부 테이블 자동 등록 (모호한 이름 제외)
 
 ### 코드 품질·메트릭
 
@@ -64,11 +66,13 @@ C# WinForms 기반 **다언어 코드 분석 도구**입니다. 지정한 디렉
 - Git 변경 핫스팟, 보안 smell, 계층 위반, 순환 호출, 중복 코드 등 **아키텍처 인사이트**
 - 임계값 초과 **경고·심각** 강조, 열 헤더 툴팁
 
-### 분석 설정
+### 분석·프로젝트 설정
 
-**분석 설정...**에서 검사 항목 포함·제외, 항목별 **품질 임계값**, **중복 코드 최소 줄 수**(기본 10)를 관리합니다.  
-**DB 스키마** 검사를 끄면 ERD·테이블 접근 분석이 생략됩니다.  
-설정: `%LocalAppData%\CodeAnalyzer\settings.json`
+- **분석 항목 설정...**: 검사 항목 포함·제외, 항목별 **품질 임계값**, **중복 코드 최소 줄 수**(기본 10)
+- **DB 스키마** 검사를 끄면 ERD·테이블 접근·DB 인스턴스 분석이 생략됩니다.
+- **설정 → DB 연결 설정...**: MariaDB/MySQL/PostgreSQL에 분석 결과 저장(선택)
+- 사용자 설정: `%LocalAppData%\CodeAnalyzer\settings.json`
+- **프로젝트 파일** (`.caproj`): 루트 경로, 언어, 포함 디렉터리, 분석 설정을 함께 저장·불러오기
 
 ### 보고서·보내기
 
@@ -97,8 +101,10 @@ CodeFactoryWinV10/
 │       ├── Database/             # 스키마·테이블 접근·ERD·다언어 DB 패턴
 │       ├── BugRisk/
 │       ├── Duplicates/
+│       ├── Persistence/          # DB 연결·결과 저장
 │       └── Reports/
 └── CodeAnalyzer.Setup/           # WiX MSI
+    └── bin/Release/CodeAnalyzer.Setup.msi
 ```
 
 ## 실행
@@ -113,10 +119,10 @@ Visual Studio: `CodeAnalyzer.sln` → 시작 프로젝트 **CodeAnalyzer** → *
 
 ## 빠른 사용 흐름
 
-1. 루트 디렉터리·언어 선택 → **분석 실행**
+1. 루트 디렉터리·언어·분석할 하위 폴더 선택 → **분석 실행**
 2. **뷰**에서 호출 그래프·코드 메트릭·DB 테이블 접근·버그 위험 등 전환
 3. **Ctrl+F** 검색, 더블클릭으로 탐색
-4. **파일** 메뉴에서 JSON 저장·보고서·CSV·이미지 보내기
+4. **파일** 메뉴에서 프로젝트·JSON 저장·보고서·CSV·이미지 보내기
 
 ## 지원 프로그래밍 언어
 
@@ -137,11 +143,26 @@ Visual Studio: `CodeAnalyzer.sln` → 시작 프로젝트 **CodeAnalyzer** → *
 
 ## MSI 설치 파일
 
+Release 구성에서 MSI가 자동 생성됩니다. Debug에서는 MSI가 만들어지지 않습니다.
+
 ```powershell
+# 솔루션 또는 앱 프로젝트 Release 빌드
 dotnet build .\CodeAnalyzer.sln -c Release
+# 또는
+dotnet build .\CodeAnalyzer\CodeAnalyzer.csproj -c Release
 ```
 
-Release 구성에서 `CodeAnalyzer.Setup.msi`가 생성됩니다. Debug에서는 MSI가 만들어지지 않습니다.
+**출력 경로**
+
+```
+CodeAnalyzer.Setup\bin\Release\CodeAnalyzer.Setup.msi
+```
+
+빌드 성공 시 출력 창에 `MSI ready:` 메시지가 표시됩니다. Visual Studio에서는 **Release | Any CPU**로 **CodeAnalyzer** 프로젝트를 Rebuild하면 됩니다.
+
+WiX Setup 프로젝트(`CodeAnalyzer.Setup`)는 솔루션에 포함되어 있으나, MSI 생성은 **CodeAnalyzer Release 빌드 후속 단계**에서 수행됩니다. Setup 프로젝트만 단독 빌드해도 동일한 MSI가 생성됩니다.
+
+자세한 내용: [CodeAnalyzer.Setup/README.md](CodeAnalyzer.Setup/README.md)
 
 ## 기술 스택
 
@@ -151,6 +172,7 @@ Release 구성에서 `CodeAnalyzer.Setup.msi`가 생성됩니다. Debug에서는
 - [WiX Toolset v5](https://docs.firegiant.com/wix/)
 - [QuestPDF](https://www.questpdf.com/) (PDF 보고서)
 - [DocumentFormat.OpenXml](https://www.nuget.org/packages/DocumentFormat.OpenXml) (Word 보고서)
+- [MySqlConnector](https://www.nuget.org/packages/MySqlConnector), [Npgsql](https://www.nuget.org/packages/Npgsql) (선택적 DB 저장)
 
 ## 정밀도·한계
 

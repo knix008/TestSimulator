@@ -4,8 +4,13 @@
 [Ll]og/
 [Ll]ogs/
 [Oo]ut/
-# Alternate MSBuild output (e.g. dotnet build -o obj/build-out)
+
+# Alternate MSBuild output (e.g. dotnet build -o obj/build-verify)
 obj/build-out/
+obj/build-verify/
+
+# VS / MSBuild may emit Platform-specific folders (e.g. bin\Any CPU\Release\)
+**/[Aa]ny [Cc][Pp][Uu]/
 
 # Installer (WiX)
 *.msi
@@ -103,3 +108,4 @@ $RECYCLE.BIN/
 # *.analysis.md
 # *.analysis.docx
 # *.analysis.pdf
+# *.caproj

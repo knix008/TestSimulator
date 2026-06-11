@@ -11,16 +11,13 @@
     <SuppressIces>ICE60</SuppressIces>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <NuGetPackageRoot Condition="'$(NuGetPackageRoot)' == ''">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
+    <_UiWixExtDll>$(NuGetPackageRoot)wixtoolset.ui.wixext\5.0.2\wixext5\WixToolset.UI.wixext.dll</_UiWixExtDll>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" GeneratePathProperty="true" />
-  </ItemGroup>
-
-  <!-- VS/중첩 MSBuild 시 WIX0200 방지 -->
-  <PropertyGroup>
-    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(PkgWixToolset_UI_wixext)' != ''">$(PkgWixToolset_UI_wixext)\wixext5\WixToolset.UI.wixext.dll</_UiWixExtDll>
-    <_UiWixExtDll Condition="'$(_UiWixExtDll)' == '' and '$(NuGetPackageRoot)' != ''">$(NuGetPackageRoot)wixtoolset.ui.wixext\5.0.2\wixext5\WixToolset.UI.wixext.dll</_UiWixExtDll>
-  </PropertyGroup>
-  <ItemGroup>
     <WixExtension Include="$(_UiWixExtDll)" Condition="Exists('$(_UiWixExtDll)')" />
   </ItemGroup>
 
