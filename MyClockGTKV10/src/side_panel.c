@@ -1,4 +1,5 @@
 #include <gtk/gtk.h>
+#include <pango/pangocairo.h>
 #include <string.h>
 #include <stdio.h>
 #include "side_panel.h"
@@ -16,6 +17,8 @@
 static void rebuild_alarm_list(AppState *state);
 static void update_calendar_marks(AppState *state);
 static void update_calendar_alarm_list(AppState *state);
+static void rebuild_custom_cal_days(AppState *state);
+static void on_cal_add_event(GtkButton *btn, gpointer data);
 
 /* ── Panel-lifetime widget references (cleared on panel destroy) ─────────
    Single side panel is open at most once; statics are safe here.       */
@@ -27,8 +30,20 @@ static GtkWidget *s_sw_display;
 static GtkWidget *s_sw_lap_list;
 static GtkWidget *s_sw_start_btn;
 static GtkWidget *s_world_panel;
-static GtkWidget *s_calendar;
 static GtkWidget *s_cal_alarm_list;
+
+/* ── Custom mini-calendar state ─────────────────────────────────────────── */
+#define CAL_ROWS 6
+#define CAL_COLS 7
+
+static int        s_cal_year    = 0;
+static int        s_cal_month   = 0;   /* 1-12 */
+static int        s_cal_sel_day = 0;
+static GtkWidget *s_cal_grid    = NULL;
+static GtkWidget *s_cal_hdr_lbl = NULL;
+static GtkWidget *s_cal_day_btns[CAL_ROWS][CAL_COLS];
+static int        s_cal_day_nums[CAL_ROWS][CAL_COLS];
+static GtkWidget *s_cal_evt_rows[CAL_ROWS];  /* event bar rows between weeks */
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /*  Alarm tab                                                               */
@@ -452,25 +467,331 @@ static gboolean event_covers_day(const CalendarEvent *e, int y, int mo, int d)
            compare_date(y, mo, d, e->end_year, e->end_month, e->end_day) <= 0;
 }
 
-static void update_calendar_marks(AppState *state)
+/* ── Dot draw callback for event color indicators ───────────────────────── */
+typedef struct { double r, g, b; } DotRgb;
+
+static void draw_event_dot(GtkDrawingArea *da, cairo_t *cr, int w, int h, gpointer data)
 {
-    if (!s_calendar) return;
-    gtk_calendar_clear_marks(GTK_CALENDAR(s_calendar));
+    (void)da;
+    DotRgb *c = (DotRgb *)data;
+    double cx = w / 2.0, cy = h / 2.0, rad = (MIN(w, h) / 2.0) - 1.0;
+    if (rad < 1.0) rad = 1.0;
+    cairo_arc(cr, cx, cy, rad, 0, 2 * G_PI);
+    cairo_set_source_rgb(cr, c->r, c->g, c->b);
+    cairo_fill(cr);
+}
 
-    GDateTime *sel = gtk_calendar_get_date(GTK_CALENDAR(s_calendar));
-    int year  = g_date_time_get_year(sel);
-    int month = g_date_time_get_month(sel);
-    g_date_time_unref(sel);
+/* ── Week event bar data and draw callback ──────────────────────────────── */
 
-    /* Mark days in current month that are covered by any event */
-    for (int d = 1; d <= 31; d++) {
-        for (int i = 0; i < state->settings.event_count; i++) {
-            if (event_covers_day(&state->settings.events[i], year, month, d)) {
-                gtk_calendar_mark_day(GTK_CALENDAR(s_calendar), (guint)d);
-                break;
+#define MAX_WEEK_EVENTS 8
+
+typedef struct {
+    char     title[64];
+    double   r, g, b;
+    int      col_start;
+    int      col_end;
+    gboolean left_open;   /* event continues from the previous week */
+    gboolean right_open;  /* event continues into the next week */
+} WeekEvent;
+
+typedef struct {
+    WeekEvent bars[MAX_WEEK_EVENTS];
+    int       count;
+} WeekEvents;
+
+static void draw_week_events_func(GtkDrawingArea *da, cairo_t *cr,
+                                   int w, int h, gpointer data)
+{
+    (void)da; (void)h;
+    WeekEvents *we = (WeekEvents *)data;
+    if (!we || we->count == 0) return;
+
+    double cell_w  = (double)w / 7.0;
+    double bar_h   = 14.0;
+    double bar_gap = 2.0;
+    double pad_top = 2.0;
+    double corner  = bar_h / 3.0;
+
+    for (int i = 0; i < we->count; i++) {
+        WeekEvent *e = &we->bars[i];
+
+        double x1 = e->col_start * cell_w + (e->left_open  ? 0.0 : 1.5);
+        double x2 = (e->col_end + 1) * cell_w - (e->right_open ? 0.0 : 1.5);
+        double y  = pad_top + i * (bar_h + bar_gap);
+        double bw = x2 - x1;
+        if (bw <= 0) continue;
+
+        cairo_set_source_rgb(cr, e->r, e->g, e->b);
+
+        /* Rounded left/right caps where event starts/ends; square where it continues */
+        double rl = e->left_open  ? 0.0 : corner;
+        double rr = e->right_open ? 0.0 : corner;
+
+        cairo_new_sub_path(cr);
+        if (rl > 0.0)
+            cairo_arc(cr, x1 + rl, y + rl, rl, G_PI, 3.0 * G_PI / 2.0);
+        else
+            cairo_move_to(cr, x1, y);
+        if (rr > 0.0)
+            cairo_arc(cr, x2 - rr, y + rr, rr, -G_PI / 2.0, 0.0);
+        else
+            cairo_line_to(cr, x2, y);
+        if (rr > 0.0)
+            cairo_arc(cr, x2 - rr, y + bar_h - rr, rr, 0.0, G_PI / 2.0);
+        else
+            cairo_line_to(cr, x2, y + bar_h);
+        if (rl > 0.0)
+            cairo_arc(cr, x1 + rl, y + bar_h - rl, rl, G_PI / 2.0, G_PI);
+        else
+            cairo_line_to(cr, x1, y + bar_h);
+        cairo_close_path(cr);
+        cairo_fill(cr);
+
+        /* Title text via Pango (handles Korean and all Unicode) */
+        {
+            PangoLayout *layout = pango_cairo_create_layout(cr);
+            PangoFontDescription *fdesc =
+                pango_font_description_from_string("Sans 10");
+            pango_layout_set_font_description(layout, fdesc);
+            pango_font_description_free(fdesc);
+            pango_layout_set_text(layout, e->title, -1);
+            pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
+            pango_layout_set_width(layout,
+                                   (int)((bw - 6.0) * PANGO_SCALE));
+
+            int tw, th;
+            pango_layout_get_pixel_size(layout, &tw, &th);
+
+            cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.95);
+            cairo_move_to(cr, x1 + 4.0, y + (bar_h - th) / 2.0);
+            pango_cairo_show_layout(cr, layout);
+            g_object_unref(layout);
+        }
+    }
+}
+
+/* ── Custom calendar day callbacks ──────────────────────────────────────── */
+
+static void on_cal_day_btn_clicked(GtkButton *btn, gpointer data)
+{
+    AppState *state = (AppState *)data;
+    int d = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(btn), "cal-day"));
+    if (d < 1 || d > 31) return;
+
+    for (int r = 0; r < CAL_ROWS; r++)
+        for (int c = 0; c < CAL_COLS; c++)
+            if (s_cal_day_btns[r][c] && s_cal_day_nums[r][c] == s_cal_sel_day)
+                gtk_widget_remove_css_class(s_cal_day_btns[r][c], "selected");
+
+    s_cal_sel_day = d;
+    gtk_widget_add_css_class(GTK_WIDGET(btn), "selected");
+    update_calendar_alarm_list(state);
+}
+
+static void on_cal_day_gesture(GtkGestureClick *gc, int n_press,
+                               double x, double y, gpointer data)
+{
+    (void)x; (void)y;
+    if (n_press < 2) return;
+    AppState *state = (AppState *)data;
+    GtkWidget *btn = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(gc));
+    int d = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(btn), "cal-day"));
+    if (d > 0) s_cal_sel_day = d;
+    on_cal_add_event(NULL, state);
+}
+
+static void on_cal_prev_month(GtkButton *btn, gpointer data)
+{
+    (void)btn;
+    AppState *state = (AppState *)data;
+    if (--s_cal_month < 1) { s_cal_month = 12; s_cal_year--; }
+    s_cal_sel_day = 1;
+    rebuild_custom_cal_days(state);
+    update_calendar_alarm_list(state);
+}
+
+static void on_cal_next_month(GtkButton *btn, gpointer data)
+{
+    (void)btn;
+    AppState *state = (AppState *)data;
+    if (++s_cal_month > 12) { s_cal_month = 1; s_cal_year++; }
+    s_cal_sel_day = 1;
+    rebuild_custom_cal_days(state);
+    update_calendar_alarm_list(state);
+}
+
+/* Rebuild day cells for the current s_cal_year / s_cal_month */
+static void rebuild_custom_cal_days(AppState *state)
+{
+    if (!s_cal_grid || !s_cal_hdr_lbl) return;
+
+    char hdr[40];
+    snprintf(hdr, sizeof(hdr), "%d년 %d월", s_cal_year, s_cal_month);
+    gtk_label_set_text(GTK_LABEL(s_cal_hdr_lbl), hdr);
+
+    /* Remove existing day buttons (odd grid rows 1,3,5,...) and event rows */
+    for (int wk = 0; wk < CAL_ROWS; wk++)
+        for (int c = 0; c < CAL_COLS; c++) {
+            GtkWidget *cell = gtk_grid_get_child_at(GTK_GRID(s_cal_grid), c, 2 * wk + 1);
+            if (cell) gtk_grid_remove(GTK_GRID(s_cal_grid), cell);
+        }
+    for (int wk = 0; wk < CAL_ROWS; wk++) {
+        if (s_cal_evt_rows[wk]) {
+            gtk_grid_remove(GTK_GRID(s_cal_grid), s_cal_evt_rows[wk]);
+            s_cal_evt_rows[wk] = NULL;
+        }
+    }
+    memset(s_cal_day_btns, 0, sizeof(s_cal_day_btns));
+    memset(s_cal_day_nums, 0, sizeof(s_cal_day_nums));
+
+    /* Today */
+    GDateTime *now_dt = g_date_time_new_now_local();
+    int td = g_date_time_get_day_of_month(now_dt);
+    int tm = g_date_time_get_month(now_dt);
+    int ty = g_date_time_get_year(now_dt);
+    g_date_time_unref(now_dt);
+
+    /* First weekday: ISO 1=Mon..7=Sun → col Sun=0, Mon=1..Sat=6 */
+    GDateTime *first_dt = g_date_time_new_local(s_cal_year, s_cal_month, 1, 0, 0, 0);
+    int dow = g_date_time_get_day_of_week(first_dt);
+    g_date_time_unref(first_dt);
+    int start_col = dow % 7;
+
+    /* Last day of month */
+    int nm = (s_cal_month == 12) ? 1 : s_cal_month + 1;
+    int ny = (s_cal_month == 12) ? s_cal_year + 1 : s_cal_year;
+    GDateTime *fn = g_date_time_new_local(ny, nm, 1, 0, 0, 0);
+    GDateTime *ld = g_date_time_add_days(fn, -1);
+    int days = g_date_time_get_day_of_month(ld);
+    g_date_time_unref(ld);
+    g_date_time_unref(fn);
+
+    /* Per-week info: first/last calendar day and first column within each week row */
+    int week_first_day[CAL_ROWS];
+    int week_last_day[CAL_ROWS];
+    int week_first_col[CAL_ROWS];
+    week_first_day[0] = 1;
+    week_first_col[0] = start_col;
+    week_last_day[0]  = 0;
+
+    /* Place day buttons.  Button rows are at odd grid rows 1, 3, 5, … */
+    int week = 0, col = start_col;
+    for (int d = 1; d <= days; d++) {
+        int grid_btn_row = 2 * week + 1;
+
+        GtkWidget *ovl = gtk_overlay_new();
+        gtk_widget_set_hexpand(ovl, TRUE);
+
+        char dlbl[12];
+        snprintf(dlbl, sizeof(dlbl), "%d", d);
+        GtkWidget *btn = gtk_button_new_with_label(dlbl);
+        gtk_widget_add_css_class(btn, "cal-day-btn");
+        gtk_widget_set_hexpand(btn, TRUE);
+
+        /* Weekend: col 0 = Sunday, col 6 = Saturday */
+        if (col == 0 || col == 6)
+            gtk_widget_add_css_class(btn, "weekend");
+        if (d == s_cal_sel_day)
+            gtk_widget_add_css_class(btn, "selected");
+        if (d == td && s_cal_month == tm && s_cal_year == ty)
+            gtk_widget_add_css_class(btn, "today");
+
+        g_object_set_data(G_OBJECT(btn), "cal-day", GINT_TO_POINTER(d));
+        g_signal_connect(btn, "clicked", G_CALLBACK(on_cal_day_btn_clicked), state);
+
+        GtkGesture *gc = gtk_gesture_click_new();
+        gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(gc), 1);
+        g_signal_connect(gc, "pressed", G_CALLBACK(on_cal_day_gesture), state);
+        gtk_widget_add_controller(btn, GTK_EVENT_CONTROLLER(gc));
+
+        gtk_overlay_set_child(GTK_OVERLAY(ovl), btn);
+
+        s_cal_day_btns[week][col] = btn;
+        s_cal_day_nums[week][col] = d;
+        week_last_day[week] = d;
+
+        gtk_grid_attach(GTK_GRID(s_cal_grid), ovl, col, grid_btn_row, 1, 1);
+
+        if (++col == CAL_COLS) {
+            col = 0;
+            week++;
+            if (week < CAL_ROWS) {
+                week_first_day[week] = d + 1;
+                week_first_col[week] = 0;
+                week_last_day[week]  = 0;
             }
         }
     }
+    int num_weeks = week + 1;
+
+    /* Create event bar rows (even grid rows 2, 4, 6, …) */
+    for (int wk = 0; wk < num_weeks; wk++) {
+        WeekEvents *we = g_new0(WeekEvents, 1);
+
+        int wfd = week_first_day[wk];
+        int wld = week_last_day[wk];
+        int wfc = week_first_col[wk];
+
+        for (int i = 0; i < state->settings.event_count && we->count < MAX_WEEK_EVENTS; i++) {
+            CalendarEvent *e = &state->settings.events[i];
+
+            /* Effective event start/end within the current month.
+               0 = started before this month, days+1 = ends after this month. */
+            int esd, eed;
+            if (compare_date(e->start_year, e->start_month, e->start_day,
+                             s_cal_year, s_cal_month, 1) < 0) {
+                esd = 0;
+            } else if (e->start_year == s_cal_year && e->start_month == s_cal_month) {
+                esd = e->start_day;
+            } else {
+                continue;  /* starts after current month */
+            }
+
+            if (compare_date(e->end_year, e->end_month, e->end_day,
+                             s_cal_year, s_cal_month, days) > 0) {
+                eed = days + 1;
+            } else if (e->end_year == s_cal_year && e->end_month == s_cal_month) {
+                eed = e->end_day;
+            } else {
+                continue;  /* ends before current month */
+            }
+
+            int eff_start = (esd < wfd) ? wfd : esd;
+            int eff_end   = (eed > wld) ? wld : eed;
+            if (eff_start > eff_end) continue;
+
+            WeekEvent *we_evt = &we->bars[we->count++];
+
+            const char *cs = e->color[0] ? e->color : "#4285F4";
+            unsigned int ri = 0x42, gi = 0x85, bi = 0xF4;
+            if (cs[0] == '#' && strlen(cs) >= 7)
+                sscanf(cs + 1, "%02x%02x%02x", &ri, &gi, &bi);
+            we_evt->r = ri / 255.0;
+            we_evt->g = gi / 255.0;
+            we_evt->b = bi / 255.0;
+
+            we_evt->col_start  = wfc + (eff_start - wfd);
+            we_evt->col_end    = wfc + (eff_end   - wfd);
+            we_evt->left_open  = (esd < wfd);
+            we_evt->right_open = (eed > wld);
+
+            g_strlcpy(we_evt->title, e->title, sizeof(we_evt->title));
+        }
+
+        int evt_h = (we->count > 0) ? (we->count * 16 + 4) : 6;
+        GtkWidget *evt_da = gtk_drawing_area_new();
+        gtk_widget_set_size_request(evt_da, -1, evt_h);
+        gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(evt_da),
+                                       (GtkDrawingAreaDrawFunc)draw_week_events_func,
+                                       we, g_free);
+        gtk_grid_attach(GTK_GRID(s_cal_grid), evt_da, 0, 2 * wk + 2, CAL_COLS, 1);
+        s_cal_evt_rows[wk] = evt_da;
+    }
+}
+
+static void update_calendar_marks(AppState *state)
+{
+    rebuild_custom_cal_days(state);
 }
 
 typedef struct {
@@ -514,12 +835,10 @@ static void update_calendar_alarm_list(AppState *state)
     while ((child = gtk_widget_get_first_child(s_cal_alarm_list)))
         gtk_list_box_remove(GTK_LIST_BOX(s_cal_alarm_list), child);
 
-    if (!s_calendar) return;
-    GDateTime *sel = gtk_calendar_get_date(GTK_CALENDAR(s_calendar));
-    int year  = g_date_time_get_year(sel);
-    int month = g_date_time_get_month(sel);
-    int day   = g_date_time_get_day_of_month(sel);
-    g_date_time_unref(sel);
+    int year  = s_cal_year;
+    int month = s_cal_month;
+    int day   = s_cal_sel_day;
+    if (year == 0 || month == 0 || day == 0) return;
 
     gboolean found = FALSE;
     for (int i = 0; i < state->settings.event_count; i++) {
@@ -531,6 +850,21 @@ static void update_calendar_alarm_list(AppState *state)
         gtk_widget_set_margin_end(row_box, 6);
         gtk_widget_set_margin_top(row_box, 3);
         gtk_widget_set_margin_bottom(row_box, 3);
+
+        /* Color dot */
+        const char *color_str = e->color[0] ? e->color : "#4285F4";
+        unsigned int ri = 0x42, gi = 0x85, bi = 0xF4;
+        if (color_str[0] == '#' && strlen(color_str) >= 7)
+            sscanf(color_str + 1, "%02x%02x%02x", &ri, &gi, &bi);
+        DotRgb *dc = g_new(DotRgb, 1);
+        dc->r = ri / 255.0; dc->g = gi / 255.0; dc->b = bi / 255.0;
+        GtkWidget *dot = gtk_drawing_area_new();
+        gtk_widget_set_size_request(dot, 10, 10);
+        gtk_widget_set_valign(dot, GTK_ALIGN_CENTER);
+        gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(dot),
+                                       (GtkDrawingAreaDrawFunc)draw_event_dot,
+                                       dc, g_free);
+        gtk_box_append(GTK_BOX(row_box), dot);
 
         /* Time or all-day */
         char tbuf[24];
@@ -586,14 +920,6 @@ static void update_calendar_alarm_list(AppState *state)
     }
 }
 
-static void on_calendar_day_selected(GtkCalendar *cal, gpointer data)
-{
-    (void)cal;
-    AppState *state = (AppState *)data;
-    update_calendar_marks(state);
-    update_calendar_alarm_list(state);
-}
-
 static void on_cal_add_event(GtkButton *btn, gpointer data)
 {
     (void)btn;
@@ -606,32 +932,18 @@ static void on_cal_add_event(GtkButton *btn, gpointer data)
     g_strlcpy(ev.id, uuid, sizeof(ev.id));
     g_free(uuid);
 
-    /* Pre-fill with the selected date */
-    if (s_calendar) {
-        GDateTime *sel = gtk_calendar_get_date(GTK_CALENDAR(s_calendar));
-        ev.start_year   = ev.end_year   = g_date_time_get_year(sel);
-        ev.start_month  = ev.end_month  = g_date_time_get_month(sel);
-        ev.start_day    = ev.end_day    = g_date_time_get_day_of_month(sel);
-        ev.start_hour   = 9;
-        ev.end_hour     = 10;
-        g_date_time_unref(sel);
-    }
+    ev.start_year  = ev.end_year  = s_cal_year;
+    ev.start_month = ev.end_month = s_cal_month;
+    ev.start_day   = ev.end_day   = s_cal_sel_day;
+    ev.start_hour  = 9;
+    ev.end_hour    = 10;
 
     if (calendar_event_dialog_run(GTK_WINDOW(state->side_panel), &ev, NULL)) {
         state->settings.events[state->settings.event_count++] = ev;
         settings_save(&state->settings);
-        update_calendar_marks(state);
+        rebuild_custom_cal_days(state);
         update_calendar_alarm_list(state);
     }
-}
-
-/* Double-click on calendar → add event for that day */
-static void on_cal_double_click(GtkGestureClick *gesture, int n_press,
-                                double x, double y, gpointer data)
-{
-    (void)gesture; (void)x; (void)y;
-    if (n_press < 2) return;
-    on_cal_add_event(NULL, data);
 }
 
 static GtkWidget *build_calendar_tab(AppState *state)
@@ -642,28 +954,59 @@ static GtkWidget *build_calendar_tab(AppState *state)
     gtk_widget_set_margin_top(vbox, 8);
     gtk_widget_set_margin_bottom(vbox, 4);
 
-    s_calendar = gtk_calendar_new();
-    g_signal_connect(s_calendar, "day-selected",
-                     G_CALLBACK(on_calendar_day_selected), state);
+    /* Init with today's date */
+    GDateTime *now = g_date_time_new_now_local();
+    s_cal_year    = g_date_time_get_year(now);
+    s_cal_month   = g_date_time_get_month(now);
+    s_cal_sel_day = g_date_time_get_day_of_month(now);
+    g_date_time_unref(now);
+    memset(s_cal_day_btns, 0, sizeof(s_cal_day_btns));
+    memset(s_cal_day_nums, 0, sizeof(s_cal_day_nums));
+    memset(s_cal_evt_rows, 0, sizeof(s_cal_evt_rows));
 
-    /* Double-click to add event */
-    GtkGesture *dbl = gtk_gesture_click_new();
-    gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(dbl), 1);
-    g_signal_connect(dbl, "pressed", G_CALLBACK(on_cal_double_click), state);
-    gtk_widget_add_controller(s_calendar, GTK_EVENT_CONTROLLER(dbl));
+    /* Navigation row */
+    GtkWidget *nav_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    GtkWidget *prev_btn = gtk_button_new_from_icon_name("go-previous-symbolic");
+    gtk_widget_add_css_class(prev_btn, "flat");
+    g_signal_connect(prev_btn, "clicked", G_CALLBACK(on_cal_prev_month), state);
+    gtk_box_append(GTK_BOX(nav_row), prev_btn);
 
-    gtk_box_append(GTK_BOX(vbox), s_calendar);
+    s_cal_hdr_lbl = gtk_label_new("");
+    gtk_widget_set_hexpand(s_cal_hdr_lbl, TRUE);
+    gtk_label_set_xalign(GTK_LABEL(s_cal_hdr_lbl), 0.5f);
+    gtk_box_append(GTK_BOX(nav_row), s_cal_hdr_lbl);
+
+    GtkWidget *next_btn = gtk_button_new_from_icon_name("go-next-symbolic");
+    gtk_widget_add_css_class(next_btn, "flat");
+    g_signal_connect(next_btn, "clicked", G_CALLBACK(on_cal_next_month), state);
+    gtk_box_append(GTK_BOX(nav_row), next_btn);
+    gtk_box_append(GTK_BOX(vbox), nav_row);
+
+    /* Calendar grid */
+    s_cal_grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(s_cal_grid), 2);
+    gtk_grid_set_row_spacing(GTK_GRID(s_cal_grid), 1);
+    gtk_grid_set_column_homogeneous(GTK_GRID(s_cal_grid), TRUE);
+
+    /* Day-of-week header (row 0): Sun…Sat */
+    static const char *dow_names[7] = { "일","월","화","수","목","금","토" };
+    for (int c = 0; c < 7; c++) {
+        GtkWidget *lbl = gtk_label_new(dow_names[c]);
+        gtk_widget_add_css_class(lbl, "cal-day-header");
+        gtk_widget_set_hexpand(lbl, TRUE);
+        gtk_grid_attach(GTK_GRID(s_cal_grid), lbl, c, 0, 1, 1);
+    }
+
+    gtk_box_append(GTK_BOX(vbox), s_cal_grid);
 
     /* Add button row */
     GtkWidget *btn_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
     gtk_widget_set_margin_top(btn_row, 2);
-
     GtkWidget *hint_lbl = gtk_label_new("더블클릭으로 일정 추가");
     gtk_widget_add_css_class(hint_lbl, "dim-label");
     gtk_widget_set_hexpand(hint_lbl, TRUE);
     gtk_widget_set_halign(hint_lbl, GTK_ALIGN_START);
     gtk_box_append(GTK_BOX(btn_row), hint_lbl);
-
     GtkWidget *add_btn = gtk_button_new_from_icon_name("list-add-symbolic");
     gtk_widget_set_tooltip_text(add_btn, "일정 추가");
     g_signal_connect(add_btn, "clicked", G_CALLBACK(on_cal_add_event), state);
@@ -683,7 +1026,7 @@ static GtkWidget *build_calendar_tab(AppState *state)
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroll), s_cal_alarm_list);
     gtk_box_append(GTK_BOX(vbox), scroll);
 
-    update_calendar_marks(state);
+    rebuild_custom_cal_days(state);
     update_calendar_alarm_list(state);
     return vbox;
 }
@@ -720,16 +1063,6 @@ static void on_settings_reset(GtkButton *btn, gpointer data)
     main_window_apply_analog_style(state);
     main_window_apply_brightness(state);
     main_window_apply_digit_color(state);
-    settings_save(&state->settings);
-}
-
-static void on_aot_toggled(GtkSwitch *sw, GParamSpec *ps, gpointer data)
-{
-    (void)ps;
-    AppState *state = (AppState *)data;
-    state->settings.always_on_top = gtk_switch_get_active(sw);
-    window_set_keep_above(GTK_WINDOW(state->main_window),
-                          state->settings.always_on_top);
     settings_save(&state->settings);
 }
 
@@ -931,11 +1264,6 @@ static GtkWidget *build_settings_tab(AppState *state)
     /* ── 시스템 ── */
     gtk_box_append(GTK_BOX(box), make_section_label("시스템"));
 
-    GtkWidget *aot_sw = gtk_switch_new();
-    gtk_switch_set_active(GTK_SWITCH(aot_sw), state->settings.always_on_top);
-    g_signal_connect(aot_sw, "notify::active", G_CALLBACK(on_aot_toggled), state);
-    gtk_box_append(GTK_BOX(box), make_settings_row("항상 위에 표시", aot_sw));
-
     GtkWidget *auto_sw = gtk_switch_new();
     gtk_switch_set_active(GTK_SWITCH(auto_sw), settings_autostart_get());
     g_signal_connect(auto_sw, "notify::active", G_CALLBACK(on_autostart_toggled), state);
@@ -972,9 +1300,13 @@ static void on_panel_destroy(GtkWidget *win, gpointer data)
     s_sw_display      = NULL;
     s_sw_lap_list     = NULL;
     s_sw_start_btn    = NULL;
-    s_world_panel     = NULL;
-    s_calendar        = NULL;
-    s_cal_alarm_list  = NULL;
+    s_world_panel    = NULL;
+    s_cal_grid       = NULL;
+    s_cal_hdr_lbl    = NULL;
+    s_cal_alarm_list = NULL;
+    memset(s_cal_day_btns, 0, sizeof(s_cal_day_btns));
+    memset(s_cal_day_nums, 0, sizeof(s_cal_day_nums));
+    memset(s_cal_evt_rows, 0, sizeof(s_cal_evt_rows));
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -1007,9 +1339,13 @@ GtkWidget *side_panel_new(AppState *state)
     s_sw_display    = NULL;
     s_sw_lap_list   = NULL;
     s_sw_start_btn  = NULL;
-    s_world_panel   = NULL;
-    s_calendar      = NULL;
+    s_world_panel    = NULL;
+    s_cal_grid       = NULL;
+    s_cal_hdr_lbl    = NULL;
     s_cal_alarm_list = NULL;
+    memset(s_cal_day_btns, 0, sizeof(s_cal_day_btns));
+    memset(s_cal_day_nums, 0, sizeof(s_cal_day_nums));
+    memset(s_cal_evt_rows, 0, sizeof(s_cal_evt_rows));
 
     GtkWidget *win = gtk_window_new();
     state->side_panel = win;

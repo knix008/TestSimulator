@@ -251,6 +251,7 @@ void settings_load(AppSettings *s)
             e->is_all_day  = jobj_bool(eo, "is_all_day", FALSE);
             g_strlcpy(e->location, jobj_str(eo, "location", ""), sizeof(e->location));
             g_strlcpy(e->memo,     jobj_str(eo, "memo",     ""), sizeof(e->memo));
+            g_strlcpy(e->color,    jobj_str(eo, "color",    ""), sizeof(e->color));
             s->event_count++;
         }
     }
@@ -368,6 +369,7 @@ void settings_save(const AppSettings *s)
         json_builder_set_member_name(b, "is_all_day");  json_builder_add_boolean_value(b, e->is_all_day);
         json_builder_set_member_name(b, "location");    json_builder_add_string_value(b, e->location);
         json_builder_set_member_name(b, "memo");        json_builder_add_string_value(b, e->memo);
+        json_builder_set_member_name(b, "color");       json_builder_add_string_value(b, e->color);
         json_builder_end_object(b);
     }
     json_builder_end_array(b);

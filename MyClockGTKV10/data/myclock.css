@@ -76,7 +76,9 @@ window.myclock-main decoration {
 
 .header-date {
     color: alpha(@fg_color, 0.8);
-    font-size: 13px;
+    font-size: 11px;
+    padding: 0;
+    margin: 0;
 }
 
 .status-label {
@@ -231,4 +233,66 @@ scale trough highlight {
 scale marks label {
     font-size: 10px;
     color: alpha(@fg_color, 0.7);
+}
+
+/* ── Custom mini-calendar ── */
+
+.cal-day-header {
+    font-size: 11px;
+    color: alpha(@fg_color, 0.5);
+    padding: 3px 0;
+}
+
+.cal-day-btn {
+    min-height: 30px;
+    min-width: 30px;
+    padding: 2px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    color: @fg_color;
+}
+
+.cal-day-btn:hover {
+    background-color: alpha(@fg_color, 0.12);
+}
+
+.cal-day-btn.today {
+    font-weight: bold;
+    color: @accent_color;
+}
+
+.cal-day-btn.selected {
+    background-color: @accent_color;
+    color: white;
+    border-radius: 4px;
+}
+
+.cal-day-btn.today.selected {
+    color: white;
+}
+
+.cal-day-btn.weekend {
+    color: #e53935;
+}
+
+.cal-day-btn.today.weekend {
+    color: #e53935;
+}
+
+.cal-day-btn.selected.weekend {
+    color: white;
+}
+
+.cal-badge {
+    background-color: #ea4335;
+    color: white;
+    font-size: 8px;
+    font-weight: bold;
+    border-radius: 8px;
+    min-width: 14px;
+    min-height: 14px;
+    padding: 1px 3px;
+    margin: 2px;
 }
