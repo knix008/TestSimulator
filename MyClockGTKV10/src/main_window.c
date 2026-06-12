@@ -75,6 +75,25 @@ static void     show_alarm_notification(AppState *state,
                                         const char *time_str,
                                         const char *label,
                                         const char *header);
+static void     save_current_geometry(AppState *state);
+
+#ifdef GDK_WINDOWING_X11
+typedef struct { GtkWidget *window; int tx, ty, tw, th; } RestoreGeom;
+static gboolean deferred_restore(gpointer data)
+{
+    RestoreGeom *rg = data;
+    GdkDisplay *display = gdk_display_get_default();
+    GdkSurface *surface = gtk_native_get_surface(GTK_NATIVE(rg->window));
+    if (GDK_IS_X11_DISPLAY(display) && surface) {
+        Display *xdpy = gdk_x11_display_get_xdisplay(display);
+        Window xwin = gdk_x11_surface_get_xid(surface);
+        XMoveResizeWindow(xdpy, xwin, rg->tx, rg->ty, rg->tw, rg->th);
+        XFlush(xdpy);
+    }
+    g_free(rg);
+    return G_SOURCE_REMOVE;
+}
+#endif
 
 /* ── Theme / color helpers ──────────────────────────────────────────────── */
 
@@ -240,18 +259,8 @@ void main_window_apply_analog_style(AppState *state)
 
 void main_window_toggle_clock_mode(AppState *state)
 {
-    /* Save current window size for the mode we are leaving */
-    int cw = gtk_widget_get_width(state->main_window);
-    int ch = gtk_widget_get_height(state->main_window);
-    if (cw >= 100 && ch >= 50) {
-        if (state->settings.is_digital) {
-            state->settings.digital_w = cw;
-            state->settings.digital_h = ch;
-        } else {
-            state->settings.analog_w = cw;
-            state->settings.analog_h = ch;
-        }
-    }
+    /* Save current window geometry for the mode we are leaving */
+    save_current_geometry(state);
 
     state->settings.is_digital = !state->settings.is_digital;
 
@@ -266,8 +275,13 @@ void main_window_toggle_clock_mode(AppState *state)
                    ? state->settings.digital_w : state->settings.analog_w);
     int nh = (int)(state->settings.is_digital
                    ? state->settings.digital_h : state->settings.analog_h);
-    if (nw < 140) nw = 300;
-    if (nh < 116) nh = 140;
+    if (state->settings.is_digital) {
+        if (nw < 140) nw = 300;
+        if (nh < 60)  nh = 90;
+    } else {
+        if (nw < 140) nw = 300;
+        if (nh < 140) nh = 160;
+    }
 
 #ifdef GDK_WINDOWING_X11
     {
@@ -276,7 +290,17 @@ void main_window_toggle_clock_mode(AppState *state)
         if (GDK_IS_X11_DISPLAY(display) && surface) {
             Display *xdpy = gdk_x11_display_get_xdisplay(display);
             Window   xwin  = gdk_x11_surface_get_xid(surface);
-            XResizeWindow(xdpy, xwin, nw, nh);
+            gboolean pos_saved = state->settings.is_digital
+                                 ? state->settings.digital_pos_saved
+                                 : state->settings.analog_pos_saved;
+            int tx = (int)(state->settings.is_digital
+                           ? state->settings.digital_x : state->settings.analog_x);
+            int ty = (int)(state->settings.is_digital
+                           ? state->settings.digital_y : state->settings.analog_y);
+            if (pos_saved)
+                XMoveResizeWindow(xdpy, xwin, tx, ty, nw, nh);
+            else
+                XResizeWindow(xdpy, xwin, nw, nh);
         }
     }
 #endif
@@ -663,7 +687,7 @@ static void analog_draw_func(GtkDrawingArea *area, cairo_t *cr,
     }
 
     analog_clock_draw(cr, width, height, now, state->settings.analog_style,
-                      &colors, state->is_hovered, ampm);
+                      &colors, TRUE, ampm);
     g_date_time_unref(now);
 }
 
@@ -733,6 +757,7 @@ static void on_hover_enter(GtkEventControllerMotion *ctrl,
     (void)ctrl; (void)x; (void)y;
     AppState *state = (AppState *)data;
     state->is_hovered = TRUE;
+    state->manual_resizing = FALSE;  /* clear any lingering Wayland resize state */
     gtk_widget_set_opacity(state->main_window, 1.0);
     if (state->chrome_box)
         gtk_widget_set_visible(state->chrome_box, TRUE);
@@ -865,17 +890,61 @@ static void on_motion(GtkEventControllerMotion *ctrl,
     }
 }
 
-/* ── Window size save on close ──────────────────────────────────────────── */
+/* ── Geometry save helper ───────────────────────────────────────────────── */
 
-static gboolean on_close_request(GtkWindow *win, gpointer data)
+/* Snapshot current window size + X11 position into the appropriate mode slot. */
+static void save_current_geometry(AppState *state)
 {
-    (void)win;
-    AppState *state = (AppState *)data;
+#ifdef GDK_WINDOWING_X11
+    {
+        GdkDisplay *display = gdk_display_get_default();
+        GdkSurface *surface = gtk_native_get_surface(GTK_NATIVE(state->main_window));
+        if (GDK_IS_X11_DISPLAY(display) && surface) {
+            Display *xdpy = gdk_x11_display_get_xdisplay(display);
+            Window   xwin  = gdk_x11_surface_get_xid(surface);
+
+            /* Use XGetGeometry for the accurate server-side size.
+               gtk_widget_get_width lags behind until ConfigureNotify is
+               processed; XGetGeometry is a synchronous round-trip that
+               reads the X server's current state directly. */
+            Window root_g;
+            int gx, gy;
+            unsigned gw, gh, gborder, gdepth;
+            if (XGetGeometry(xdpy, xwin, &root_g,
+                             &gx, &gy, &gw, &gh, &gborder, &gdepth)) {
+                int cw = (int)gw, ch = (int)gh;
+                if (cw >= 60 && ch >= 40) {
+                    if (state->settings.is_digital) {
+                        state->settings.digital_w = cw;
+                        state->settings.digital_h = ch;
+                    } else {
+                        state->settings.analog_w = cw;
+                        state->settings.analog_h = ch;
+                    }
+                }
+            }
+
+            Window child;
+            int px = 0, py = 0;
+            XTranslateCoordinates(xdpy, xwin, DefaultRootWindow(xdpy),
+                                  0, 0, &px, &py, &child);
+            if (state->settings.is_digital) {
+                state->settings.digital_x = px;
+                state->settings.digital_y = py;
+                state->settings.digital_pos_saved = TRUE;
+            } else {
+                state->settings.analog_x = px;
+                state->settings.analog_y = py;
+                state->settings.analog_pos_saved = TRUE;
+            }
+            return;
+        }
+    }
+#endif
+    /* Non-X11 fallback */
     int cw = gtk_widget_get_width(state->main_window);
     int ch = gtk_widget_get_height(state->main_window);
-
-    /* Save size */
-    if (cw >= 100 && ch >= 50) {
+    if (cw >= 60 && ch >= 40) {
         if (state->settings.is_digital) {
             state->settings.digital_w = cw;
             state->settings.digital_h = ch;
@@ -884,35 +953,15 @@ static gboolean on_close_request(GtkWindow *win, gpointer data)
             state->settings.analog_h = ch;
         }
     }
+}
 
-    /* Save position via X11 (works on X11/XWayland; no-op on pure Wayland) */
-#ifdef GDK_WINDOWING_X11
-    {
-        GdkDisplay *display = gdk_display_get_default();
-        GdkSurface *surface = gtk_native_get_surface(GTK_NATIVE(state->main_window));
-        if (GDK_IS_X11_DISPLAY(display) && surface) {
-            Display *xdpy = gdk_x11_display_get_xdisplay(display);
-            Window xwin = gdk_x11_surface_get_xid(surface);
-            Window child;
-            int px = 0, py = 0;
-            XTranslateCoordinates(xdpy, xwin,
-                                  DefaultRootWindow(xdpy),
-                                  0, 0, &px, &py, &child);
-            if (px > 0 || py > 0) {
-                if (state->settings.is_digital) {
-                    state->settings.digital_x = px;
-                    state->settings.digital_y = py;
-                    state->settings.digital_pos_saved = TRUE;
-                } else {
-                    state->settings.analog_x = px;
-                    state->settings.analog_y = py;
-                    state->settings.analog_pos_saved = TRUE;
-                }
-            }
-        }
-    }
-#endif
+/* ── Window size save on close ──────────────────────────────────────────── */
 
+static gboolean on_close_request(GtkWindow *win, gpointer data)
+{
+    (void)win;
+    AppState *state = (AppState *)data;
+    save_current_geometry(state);
     settings_save(&state->settings);
     return FALSE;
 }
@@ -931,20 +980,11 @@ static void on_ctx_toggle_mode(GSimpleAction *a, GVariant *p, gpointer data)
     main_window_toggle_clock_mode((AppState *)data);
 }
 
-static void on_ctx_always_on_top(GSimpleAction *a, GVariant *p, gpointer data)
-{
-    (void)a; (void)p;
-    AppState *state = (AppState *)data;
-    state->settings.always_on_top = !state->settings.always_on_top;
-    window_set_keep_above(GTK_WINDOW(state->main_window),
-                          state->settings.always_on_top);
-    settings_save(&state->settings);
-}
-
 static void on_ctx_quit(GSimpleAction *a, GVariant *p, gpointer data)
 {
     (void)a; (void)p;
     AppState *state = (AppState *)data;
+    save_current_geometry(state);
     settings_save(&state->settings);
     g_application_quit(G_APPLICATION(state->app));
 }
@@ -954,39 +994,52 @@ static void on_ctx_quit(GSimpleAction *a, GVariant *p, gpointer data)
 static void on_window_map(GtkWidget *widget, gpointer data)
 {
     AppState *state = (AppState *)data;
+
     gboolean pos_saved = state->settings.is_digital
                          ? state->settings.digital_pos_saved
                          : state->settings.analog_pos_saved;
-    if (!pos_saved) return;
 
+    int tw = (int)(state->settings.is_digital
+                   ? state->settings.digital_w : state->settings.analog_w);
+    int th = (int)(state->settings.is_digital
+                   ? state->settings.digital_h : state->settings.analog_h);
     int tx = (int)(state->settings.is_digital
                    ? state->settings.digital_x : state->settings.analog_x);
     int ty = (int)(state->settings.is_digital
                    ? state->settings.digital_y : state->settings.analog_y);
 
+    /* Clamp to minimum dimensions */
+    if (state->settings.is_digital) {
+        if (tw < 140) tw = 300;
+        if (th < 60)  th = 90;
+    } else {
+        if (tw < 140) tw = 300;
+        if (th < 140) th = 160;
+    }
+
     GdkSurface *surface = gtk_native_get_surface(GTK_NATIVE(widget));
     if (!surface) return;
 
-    /* Move via X11 if available; silently ignored on Wayland */
 #ifdef GDK_WINDOWING_X11
     GdkDisplay *display = gdk_display_get_default();
     if (GDK_IS_X11_DISPLAY(display)) {
         Display *xdpy = gdk_x11_display_get_xdisplay(display);
         Window xwin = gdk_x11_surface_get_xid(surface);
-        XMoveWindow(xdpy, xwin, tx, ty);
+        /* Apply size immediately */
+        XResizeWindow(xdpy, xwin, tw, th);
+        XFlush(xdpy);
+        if (pos_saved) {
+            /* Defer position: WM does initial placement asynchronously after
+               map; we must wait for it to finish before overriding. */
+            RestoreGeom *rg = g_new(RestoreGeom, 1);
+            rg->window = state->main_window;
+            rg->tx = tx; rg->ty = ty; rg->tw = tw; rg->th = th;
+            g_timeout_add(150, deferred_restore, rg);
+        }
     }
 #else
-    (void)tx; (void)ty;
+    (void)tw; (void)th; (void)tx; (void)ty; (void)pos_saved;
 #endif
-}
-
-/* ── Always-on-top helper ───────────────────────────────────────────────── */
-
-void window_set_keep_above(GtkWindow *win, gboolean keep)
-{
-    /* GTK4 removed gtk_window_set_keep_above; setting is persisted but
-       not applied at the window-manager level on this toolkit version. */
-    (void)win; (void)keep;
 }
 
 /* ── Right-click context menu ───────────────────────────────────────────── */
@@ -1012,10 +1065,6 @@ static void on_right_click(GtkGestureClick *gesture, int n_press,
                   state->settings.is_digital ? "아날로그 전환" : "디지털 전환",
                   "win.toggle_mode");
 
-    g_menu_append(menu,
-                  state->settings.always_on_top ? "항상 위 해제" : "항상 위",
-                  "win.always_on_top");
-
     g_menu_append(menu, "종료", "win.quit");
 
     GtkWidget *popover = gtk_popover_menu_new_from_model(G_MENU_MODEL(menu));
@@ -1039,15 +1088,53 @@ static void on_left_release(GtkGestureClick *gesture, int n_press,
 {
     (void)gesture; (void)n_press;
     AppState *state = (AppState *)data;
+    gboolean was_resizing = state->manual_resizing;
     state->manual_resizing = FALSE;
 
-    /* If the pointer is outside the window, clear hover state that was
-       frozen by the manual_resizing guard in on_hover_leave. */
-    int ww = gtk_widget_get_width(state->main_window);
-    int wh = gtk_widget_get_height(state->main_window);
-    if (x < 0 || y < 0 || (int)x >= ww || (int)y >= wh) {
-        state->is_hovered      = FALSE;
-        state->is_resize_hint  = FALSE;
+    if (was_resizing) {
+        save_current_geometry(state);
+        settings_save(&state->settings);
+        /* Always clear the resize hint when a resize ends */
+        state->is_resize_hint = FALSE;
+        if (state->resize_overlay)
+            gtk_widget_queue_draw(state->resize_overlay);
+    }
+
+    /* After a resize, on_hover_leave was frozen by manual_resizing.
+       Use X11 XQueryPointer for the accurate post-resize cursor position —
+       gtk_widget_get_width lags behind the new window dimensions. */
+    gboolean outside = FALSE;
+
+#ifdef GDK_WINDOWING_X11
+    if (was_resizing) {
+        GdkDisplay *display = gdk_display_get_default();
+        GdkSurface *surf = gtk_native_get_surface(GTK_NATIVE(state->main_window));
+        if (GDK_IS_X11_DISPLAY(display) && surf) {
+            Display *xdpy = gdk_x11_display_get_xdisplay(display);
+            Window   xwin = gdk_x11_surface_get_xid(surf);
+            Window d1, d2;
+            int wx, wy, rx, ry;
+            unsigned int mask;
+            if (XQueryPointer(xdpy, xwin, &d1, &d2, &rx, &ry, &wx, &wy, &mask)) {
+                Window rg; int gx, gy; unsigned gw, gh, gb, gd;
+                if (XGetGeometry(xdpy, xwin, &rg, &gx, &gy, &gw, &gh, &gb, &gd))
+                    outside = (wx < 0 || wy < 0 || wx >= (int)gw || wy >= (int)gh);
+                else
+                    outside = TRUE;
+            }
+        }
+    }
+#endif
+
+    if (!outside) {
+        int ww = gtk_widget_get_width(state->main_window);
+        int wh = gtk_widget_get_height(state->main_window);
+        outside = (x < 0 || y < 0 || (int)x >= ww || (int)y >= wh);
+    }
+
+    if (outside) {
+        state->is_hovered     = FALSE;
+        state->is_resize_hint = FALSE;
         gtk_widget_set_opacity(state->main_window, 0.0);
         if (state->chrome_box)
             gtk_widget_set_visible(state->chrome_box, FALSE);
@@ -1073,6 +1160,8 @@ static void on_left_press(GtkGestureClick *gesture, int n_press,
     /* Edge zone → custom X11 resize for real-time feedback */
     int edge = hit_edge(state, x, y);
     if (edge >= 0) {
+        /* Keep clock visible during resize; on_hover_leave checks this flag */
+        state->manual_resizing = TRUE;
 #ifdef GDK_WINDOWING_X11
         GdkDisplay *display = gdk_display_get_default();
         if (GDK_IS_X11_DISPLAY(display)) {
@@ -1090,7 +1179,6 @@ static void on_left_press(GtkGestureClick *gesture, int n_press,
             XTranslateCoordinates(xdpy, xwin, DefaultRootWindow(xdpy),
                                   0, 0, &win_x, &win_y, &child);
 
-            state->manual_resizing    = TRUE;
             state->resize_edge_type   = edge;
             state->resize_start_abs_x = abs_x;
             state->resize_start_abs_y = abs_y;
@@ -1140,12 +1228,12 @@ GtkWidget *main_window_new(AppState *state)
                ? state->settings.digital_h
                : state->settings.analog_h;
     if (w < 140) w = 300;
-    /* min height = ampm(~24) + clock(60) + date(~24) + margins */
-    if (h < 116) h = 140;
+    if (state->settings.is_digital) {
+        if (h < 60) h = 90;
+    } else {
+        if (h < 140) h = 160;
+    }
     gtk_window_set_default_size(GTK_WINDOW(win), (int)w, (int)h);
-
-    if (state->settings.always_on_top)
-        window_set_keep_above(GTK_WINDOW(win), TRUE);
 
     /* GActions for context menu */
     GSimpleAction *act_settings = g_simple_action_new("settings", NULL);
@@ -1155,10 +1243,6 @@ GtkWidget *main_window_new(AppState *state)
     GSimpleAction *act_toggle = g_simple_action_new("toggle_mode", NULL);
     g_signal_connect(act_toggle, "activate", G_CALLBACK(on_ctx_toggle_mode), state);
     g_action_map_add_action(G_ACTION_MAP(win), G_ACTION(act_toggle));
-
-    GSimpleAction *act_aot = g_simple_action_new("always_on_top", NULL);
-    g_signal_connect(act_aot, "activate", G_CALLBACK(on_ctx_always_on_top), state);
-    g_action_map_add_action(G_ACTION_MAP(win), G_ACTION(act_aot));
 
     GSimpleAction *act_quit = g_simple_action_new("quit", NULL);
     g_signal_connect(act_quit, "activate", G_CALLBACK(on_ctx_quit), state);
@@ -1183,17 +1267,17 @@ GtkWidget *main_window_new(AppState *state)
     gtk_widget_set_valign(digital_box, GTK_ALIGN_FILL);
     gtk_widget_add_css_class(digital_box, "digital-page");
 
-    /* Date label at top */
+    /* Date label at top — zero margins so window can shrink further */
     GtkWidget *date_dig = gtk_label_new("");
     gtk_widget_add_css_class(date_dig, "header-date");
     gtk_widget_set_halign(date_dig, GTK_ALIGN_CENTER);
-    gtk_widget_set_margin_top(date_dig, 4);
-    gtk_widget_set_margin_bottom(date_dig, 2);
+    gtk_widget_set_margin_top(date_dig, 1);
+    gtk_widget_set_margin_bottom(date_dig, 0);
     state->date_label_digital = date_dig;
     gtk_box_append(GTK_BOX(digital_box), date_dig);
 
     /* Clock row: AM/PM inline (left) + clock display areas */
-    GtkWidget *clock_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    GtkWidget *clock_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
     gtk_widget_set_hexpand(clock_row, TRUE);
     gtk_widget_set_vexpand(clock_row, TRUE);
     gtk_box_append(GTK_BOX(digital_box), clock_row);
@@ -1213,7 +1297,7 @@ GtkWidget *main_window_new(AppState *state)
     GtkWidget *seg_area = gtk_drawing_area_new();
     gtk_widget_set_hexpand(seg_area, TRUE);
     gtk_widget_set_vexpand(seg_area, TRUE);
-    gtk_widget_set_size_request(seg_area, -1, 60);
+    gtk_widget_set_size_request(seg_area, -1, 36);
     gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(seg_area),
                                    seg_draw_func, state, NULL);
     g_object_set_data(G_OBJECT(seg_area), "text", g_strdup("00:00:00"));
@@ -1224,7 +1308,7 @@ GtkWidget *main_window_new(AppState *state)
     GtkWidget *dot_area = gtk_drawing_area_new();
     gtk_widget_set_hexpand(dot_area, TRUE);
     gtk_widget_set_vexpand(dot_area, TRUE);
-    gtk_widget_set_size_request(dot_area, -1, 60);
+    gtk_widget_set_size_request(dot_area, -1, 36);
     gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(dot_area),
                                    dot_draw_func, state, NULL);
     g_object_set_data(G_OBJECT(dot_area), "text", g_strdup("00:00:00"));
@@ -1237,7 +1321,7 @@ GtkWidget *main_window_new(AppState *state)
     gtk_widget_set_vexpand(text_label, TRUE);
     gtk_widget_set_halign(text_label, GTK_ALIGN_CENTER);
     gtk_widget_set_valign(text_label, GTK_ALIGN_CENTER);
-    gtk_widget_set_size_request(text_label, -1, 60);
+    gtk_widget_set_size_request(text_label, -1, 36);
     gtk_widget_add_css_class(text_label, "time-text");
     state->text_time_label = text_label;
     gtk_box_append(GTK_BOX(clock_row), text_label);
@@ -1289,6 +1373,7 @@ GtkWidget *main_window_new(AppState *state)
 
     gtk_overlay_add_overlay(GTK_OVERLAY(overlay), chrome);
     gtk_widget_set_can_target(chrome, FALSE);
+    gtk_widget_set_visible(chrome, FALSE);   /* hidden until hover */
     state->chrome_box = chrome;
 
     /* ── Resize silhouette overlay ── */

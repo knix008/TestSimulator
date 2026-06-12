@@ -87,6 +87,7 @@ typedef struct {
     bool  is_all_day;
     char  location[128];
     char  memo[512];
+    char  color[8];   /* "#rrggbb" CSS hex; empty = default accent */
 } CalendarEvent;
 
 typedef struct {

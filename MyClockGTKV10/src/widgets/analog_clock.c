@@ -384,13 +384,14 @@ static void draw_date_window(cairo_t *cr, double cx, double cy, double r,
     char buf[4];
     snprintf(buf, sizeof(buf), "%d", day);
 
+    /* Date box: centred between center and 6 o'clock (3/4 way to 6) */
     double box_w  = sc(38, scale);
     double box_h  = sc(24, scale);
     double corner = sc(3,  scale);
     double bx     = cx - box_w / 2.0;
-    double by     = cy - r * 0.75 - box_h / 2.0;
+    double by     = cy + r * 0.52 - box_h / 2.0;
 
-    /* Draw AM/PM label above the date box (if provided) */
+    /* AM/PM label: between 12 and center (1/3 way from 12) */
     if (ampm_text && ampm_text[0]) {
         PangoLayout *apl = pango_cairo_create_layout(cr);
         PangoFontDescription *apd = pango_font_description_new();
@@ -402,9 +403,10 @@ static void draw_date_window(cairo_t *cr, double cx, double cy, double r,
         pango_layout_set_text(apl, ampm_text, -1);
         int atw, ath;
         pango_layout_get_pixel_size(apl, &atw, &ath);
+        double ampm_y = cy - r * 0.52 - ath / 2.0;
         cairo_save(cr);
         cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.9);
-        cairo_move_to(cr, cx - atw / 2.0, by - ath - sc(3, scale));
+        cairo_move_to(cr, cx - atw / 2.0, ampm_y);
         pango_cairo_show_layout(cr, apl);
         cairo_restore(cr);
         pango_font_description_free(apd);
@@ -413,6 +415,7 @@ static void draw_date_window(cairo_t *cr, double cx, double cy, double r,
 
     /* Background: white */
     cairo_save(cr);
+    cairo_new_path(cr);   /* clear path left by AM/PM pango rendering */
     cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     cairo_arc(cr, bx + corner,         by + corner,         corner, M_PI,         3*M_PI/2);
     cairo_arc(cr, bx + box_w - corner, by + corner,         corner, 3*M_PI/2,     2*M_PI);
