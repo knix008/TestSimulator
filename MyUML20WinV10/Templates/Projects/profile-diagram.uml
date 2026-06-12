@@ -22,7 +22,7 @@
         "ownedElements": [],
         "name": "ECommerceProfile",
         "displayLabel": "ECommerceProfile",
-        "id": "46641f00-9d6a-46ec-a64f-d34f2d683b9d"
+        "id": "3e104885-7c8b-4575-8368-7dde9cae1cde"
       }
     ],
     "classifiers": [
@@ -35,7 +35,7 @@
         "operations": [],
         "name": "Product",
         "displayLabel": "Product",
-        "id": "e130a718-017d-4c5f-a77b-6fd855ea2ec4"
+        "id": "3b179f69-dccc-456d-9a96-b7a5e907c0b9"
       },
       {
         "classifierKind": "class",
@@ -46,7 +46,7 @@
         "operations": [],
         "name": "Sellable",
         "displayLabel": "Sellable",
-        "id": "c81f9e10-124b-440c-be6e-d354ef07afda"
+        "id": "b9223d86-e2d1-4997-bc66-c8c25eaff550"
       }
     ],
     "actors": [],
@@ -66,41 +66,41 @@
         "stereotype": "apply",
         "relationshipKind": "Dependency",
         "displayLabel": "\u00ABapply\u00BB",
-        "sourceClassifierId": "c81f9e10-124b-440c-be6e-d354ef07afda",
-        "targetClassifierId": "e130a718-017d-4c5f-a77b-6fd855ea2ec4",
+        "sourceClassifierId": "b9223d86-e2d1-4997-bc66-c8c25eaff550",
+        "targetClassifierId": "3b179f69-dccc-456d-9a96-b7a5e907c0b9",
         "name": null,
-        "id": "8eef224a-55d2-4d1a-b8fb-7920675651f8"
+        "id": "9e5fd11f-3177-4430-aa07-47f9f9200e2b"
       }
     ],
     "ownedElements": [
       {
-        "id": "46641f00-9d6a-46ec-a64f-d34f2d683b9d",
+        "id": "3e104885-7c8b-4575-8368-7dde9cae1cde",
         "displayLabel": "ECommerceProfile"
       },
       {
-        "id": "e130a718-017d-4c5f-a77b-6fd855ea2ec4",
+        "id": "3b179f69-dccc-456d-9a96-b7a5e907c0b9",
         "displayLabel": "Product"
       },
       {
-        "id": "c81f9e10-124b-440c-be6e-d354ef07afda",
+        "id": "b9223d86-e2d1-4997-bc66-c8c25eaff550",
         "displayLabel": "Sellable"
       },
       {
-        "id": "8eef224a-55d2-4d1a-b8fb-7920675651f8",
+        "id": "9e5fd11f-3177-4430-aa07-47f9f9200e2b",
         "displayLabel": "\u00ABapply\u00BB"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "787ce5b0-fa5e-4205-8841-ba25813f410c"
+    "id": "f231d479-d0e1-4590-8597-65497955313f"
   },
   "diagrams": [
     {
       "kind": "profileDiagram",
       "nodes": [
         {
-          "id": "d46e7a0f-0c3a-4d84-9fc7-8ad6d73b3ba3",
-          "modelElementId": "46641f00-9d6a-46ec-a64f-d34f2d683b9d",
+          "id": "a2e70688-5082-4554-870a-961d3097f5fd",
+          "modelElementId": "3e104885-7c8b-4575-8368-7dde9cae1cde",
           "presentation": "package",
           "x": 40,
           "y": 60,
@@ -130,8 +130,8 @@
           }
         },
         {
-          "id": "bdda0113-cd7b-48d7-ab5c-b2f50a12c8f3",
-          "modelElementId": "e130a718-017d-4c5f-a77b-6fd855ea2ec4",
+          "id": "33b351c7-3eec-4c13-9f08-9f7e1cd26d7e",
+          "modelElementId": "3b179f69-dccc-456d-9a96-b7a5e907c0b9",
           "presentation": "classifier",
           "x": 300,
           "y": 80,
@@ -161,8 +161,8 @@
           }
         },
         {
-          "id": "10db2db5-fe27-475c-a9d9-f9aa4b3fd31e",
-          "modelElementId": "c81f9e10-124b-440c-be6e-d354ef07afda",
+          "id": "480d522b-e493-4439-9ce3-33f89233e1a7",
+          "modelElementId": "b9223d86-e2d1-4997-bc66-c8c25eaff550",
           "presentation": "classifier",
           "x": 300,
           "y": 240,
@@ -194,10 +194,10 @@
       ],
       "edges": [
         {
-          "id": "eb1f6206-fb0e-49e1-b774-ffd4b03b73f6",
-          "modelElementId": "8eef224a-55d2-4d1a-b8fb-7920675651f8",
-          "sourceNodeId": "10db2db5-fe27-475c-a9d9-f9aa4b3fd31e",
-          "targetNodeId": "bdda0113-cd7b-48d7-ab5c-b2f50a12c8f3",
+          "id": "1cb530f1-af41-40a5-b3a9-e375a0f20e96",
+          "modelElementId": "9e5fd11f-3177-4430-aa07-47f9f9200e2b",
+          "sourceNodeId": "480d522b-e493-4439-9ce3-33f89233e1a7",
+          "targetNodeId": "33b351c7-3eec-4c13-9f08-9f7e1cd26d7e",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -206,7 +206,7 @@
       ],
       "name": "Profile Diagram",
       "displayLabel": "Profile Diagram",
-      "id": "de923ef5-0ea6-40dd-94a4-fb2c0e623a7a"
+      "id": "26a8e87d-c774-471a-bbdd-528de7f19243"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

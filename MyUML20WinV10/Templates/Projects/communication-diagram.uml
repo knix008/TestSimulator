@@ -17,13 +17,13 @@
         "typeName": "Controller",
         "name": ":Controller",
         "displayLabel": ":Controller",
-        "id": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd"
+        "id": "036f5125-94e5-4596-8cb7-8417afa5a867"
       },
       {
         "typeName": "OrderService",
         "name": ":OrderService",
         "displayLabel": ":OrderService",
-        "id": "93866221-fa69-4c23-965d-e9db068da59e"
+        "id": "f3930167-dfd2-44c8-93c6-16f72ead7c11"
       }
     ],
     "deploymentHosts": [],
@@ -41,38 +41,38 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Synchronous",
-        "sourceClassifierId": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd",
-        "targetClassifierId": "93866221-fa69-4c23-965d-e9db068da59e",
+        "sourceClassifierId": "036f5125-94e5-4596-8cb7-8417afa5a867",
+        "targetClassifierId": "f3930167-dfd2-44c8-93c6-16f72ead7c11",
         "name": "submit()",
-        "id": "ab024442-7e59-4e02-9547-487eb482792f",
+        "id": "e3165c0b-2f77-4fc5-a38e-5f16e4c26418",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd",
+        "id": "036f5125-94e5-4596-8cb7-8417afa5a867",
         "displayLabel": ":Controller"
       },
       {
-        "id": "93866221-fa69-4c23-965d-e9db068da59e",
+        "id": "f3930167-dfd2-44c8-93c6-16f72ead7c11",
         "displayLabel": ":OrderService"
       },
       {
-        "id": "ab024442-7e59-4e02-9547-487eb482792f",
+        "id": "e3165c0b-2f77-4fc5-a38e-5f16e4c26418",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "909c60ef-9f21-48fa-92ad-2d608b2fa5a3"
+    "id": "0710e271-f21c-4602-85e0-b1635c3a30a3"
   },
   "diagrams": [
     {
       "kind": "communicationDiagram",
       "nodes": [
         {
-          "id": "5822a435-e5ca-405f-9091-8745c9c99941",
-          "modelElementId": "4d6e42b1-4519-48b6-b2b4-9efe3208c7cd",
+          "id": "88618870-f6bb-4b52-a9e6-c156c0e4072a",
+          "modelElementId": "036f5125-94e5-4596-8cb7-8417afa5a867",
           "presentation": "objectInstance",
           "x": 80,
           "y": 140,
@@ -102,8 +102,8 @@
           }
         },
         {
-          "id": "e055755d-ad53-4d9b-be84-68ad06d7cc80",
-          "modelElementId": "93866221-fa69-4c23-965d-e9db068da59e",
+          "id": "6fd08a0c-bf02-4d6d-8a3e-8478bb783209",
+          "modelElementId": "f3930167-dfd2-44c8-93c6-16f72ead7c11",
           "presentation": "objectInstance",
           "x": 300,
           "y": 140,
@@ -135,10 +135,10 @@
       ],
       "edges": [
         {
-          "id": "0961d23c-5ac0-407f-b7aa-0a0b0860f04c",
-          "modelElementId": "ab024442-7e59-4e02-9547-487eb482792f",
-          "sourceNodeId": "5822a435-e5ca-405f-9091-8745c9c99941",
-          "targetNodeId": "e055755d-ad53-4d9b-be84-68ad06d7cc80",
+          "id": "747764ff-9181-4d95-a806-ad4aefc79207",
+          "modelElementId": "e3165c0b-2f77-4fc5-a38e-5f16e4c26418",
+          "sourceNodeId": "88618870-f6bb-4b52-a9e6-c156c0e4072a",
+          "targetNodeId": "6fd08a0c-bf02-4d6d-8a3e-8478bb783209",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -147,7 +147,7 @@
       ],
       "name": "Communication Diagram",
       "displayLabel": "Communication Diagram",
-      "id": "53487465-1dfd-4451-8a13-dbe937987477"
+      "id": "0b8a5ce6-70ff-4491-9c60-33b7d1660d43"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

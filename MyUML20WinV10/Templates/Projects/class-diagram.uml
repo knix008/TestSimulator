@@ -6,8 +6,8 @@
     "classifiers": [
       {
         "classifierKind": "class",
-        "notationKeyword": "class",
-        "isAbstract": false,
+        "notationKeyword": "abstract class",
+        "isAbstract": true,
         "stereotype": "",
         "properties": [
           {
@@ -18,17 +18,62 @@
             "signatureText": "-id: Guid",
             "name": "id",
             "displayLabel": "id",
-            "id": "19d14dab-49a3-49c9-bdb9-2f9c05b20b35"
+            "id": "fb482c3e-dbfc-4245-8f82-799f7587a38e"
           },
+          {
+            "typeName": "string",
+            "visibility": "protected",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "#name: string",
+            "name": "name",
+            "displayLabel": "name",
+            "id": "35054ca2-4d7b-4a45-870a-80421f3f09e6"
+          }
+        ],
+        "operations": [
+          {
+            "returnTypeName": "string",
+            "visibility": "public",
+            "isStatic": false,
+            "isAbstract": true,
+            "parameters": [],
+            "parametersText": "",
+            "signatureText": "\u002B{abstract} GetFullName(): string",
+            "name": "GetFullName",
+            "displayLabel": "GetFullName",
+            "id": "7142e31f-abfa-48a7-8410-be22819f20b1"
+          }
+        ],
+        "name": "Person",
+        "displayLabel": "Person",
+        "id": "29c1c939-a93d-4274-897e-28f333eeb643"
+      },
+      {
+        "classifierKind": "class",
+        "notationKeyword": "class",
+        "isAbstract": false,
+        "stereotype": "",
+        "properties": [
           {
             "typeName": "string",
             "visibility": "private",
             "isStatic": false,
             "isReadOnly": false,
-            "signatureText": "-name: string",
-            "name": "name",
-            "displayLabel": "name",
-            "id": "4e8443cd-3860-433d-862b-e4eae91d69ac"
+            "signatureText": "-email: string",
+            "name": "email",
+            "displayLabel": "email",
+            "id": "8f7ccdf3-23e9-47a2-b78c-5e18b308f070"
+          },
+          {
+            "typeName": "CustomerTier",
+            "visibility": "private",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "-tier: CustomerTier",
+            "name": "tier",
+            "displayLabel": "tier",
+            "id": "ce5b1f7b-cb02-4791-b03f-982a4dfde211"
           }
         ],
         "operations": [
@@ -42,12 +87,24 @@
             "signatureText": "\u002BPlaceOrder(): Order",
             "name": "PlaceOrder",
             "displayLabel": "PlaceOrder",
-            "id": "34f29818-3e40-401a-a0b7-fd6ac100d43b"
+            "id": "651acff3-6a51-45c4-93ed-bc70d2b4409e"
+          },
+          {
+            "returnTypeName": "string",
+            "visibility": "public",
+            "isStatic": false,
+            "isAbstract": false,
+            "parameters": [],
+            "parametersText": "",
+            "signatureText": "\u002BGetFullName(): string",
+            "name": "GetFullName",
+            "displayLabel": "GetFullName",
+            "id": "a77aa925-96fb-4b5c-9c31-aaf50197079a"
           }
         ],
         "name": "Customer",
         "displayLabel": "Customer",
-        "id": "b5afc34f-453a-4846-9267-f8d972a62dc2"
+        "id": "7ed57808-b6f4-4314-877e-ebdd01d2326a"
       },
       {
         "classifierKind": "class",
@@ -63,7 +120,17 @@
             "signatureText": "-orderDate: DateTime",
             "name": "orderDate",
             "displayLabel": "orderDate",
-            "id": "320ee640-e243-4b77-a04e-43408566463f"
+            "id": "b95c2c00-5821-46fd-9ca8-44113b246c73"
+          },
+          {
+            "typeName": "OrderStatus",
+            "visibility": "private",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "-status: OrderStatus",
+            "name": "status",
+            "displayLabel": "status",
+            "id": "3b615258-1f4b-416d-8baa-709acc233909"
           }
         ],
         "operations": [
@@ -77,12 +144,134 @@
             "signatureText": "\u002BTotal(): decimal",
             "name": "Total",
             "displayLabel": "Total",
-            "id": "5db5c8f6-4a27-4c8a-a4af-2a3f2c25986e"
+            "id": "804791b4-5b6b-4d83-a3f1-2aa27f9ccc3d"
+          },
+          {
+            "returnTypeName": "void",
+            "visibility": "public",
+            "isStatic": false,
+            "isAbstract": false,
+            "parameters": [],
+            "parametersText": "",
+            "signatureText": "\u002BCancel(): void",
+            "name": "Cancel",
+            "displayLabel": "Cancel",
+            "id": "41bd01bd-6c16-4d9b-836f-08c456720695"
           }
         ],
         "name": "Order",
         "displayLabel": "Order",
-        "id": "d6a78c43-ecee-49eb-8895-b12c6d468800"
+        "id": "d42b0da5-ff65-4b7d-a6f6-e328ea5e1779"
+      },
+      {
+        "classifierKind": "interface",
+        "notationKeyword": "interface",
+        "useCircleNotation": false,
+        "isAbstract": false,
+        "stereotype": "",
+        "properties": [],
+        "operations": [
+          {
+            "returnTypeName": "void",
+            "visibility": "public",
+            "isStatic": false,
+            "isAbstract": false,
+            "parameters": [],
+            "parametersText": "",
+            "signatureText": "\u002BShip(): void",
+            "name": "Ship",
+            "displayLabel": "Ship",
+            "id": "89dd7e50-cc02-46bf-8cfd-bafa8a6e179d"
+          },
+          {
+            "returnTypeName": "string",
+            "visibility": "public",
+            "isStatic": false,
+            "isAbstract": false,
+            "parameters": [],
+            "parametersText": "",
+            "signatureText": "\u002BTrack(): string",
+            "name": "Track",
+            "displayLabel": "Track",
+            "id": "37daa123-cffb-4d90-8cef-9628c5ce2fff"
+          }
+        ],
+        "name": "IShippable",
+        "displayLabel": "IShippable",
+        "id": "5edf6100-f13b-4c90-be53-c9fea40db701"
+      },
+      {
+        "classifierKind": "enumeration",
+        "literalsText": "Value1, Value2, Pending, Paid, Shipped, Delivered, Cancelled",
+        "literals": [
+          "Value1",
+          "Value2",
+          "Pending",
+          "Paid",
+          "Shipped",
+          "Delivered",
+          "Cancelled"
+        ],
+        "notationKeyword": "enumeration",
+        "isAbstract": false,
+        "stereotype": "",
+        "properties": [],
+        "operations": [],
+        "name": "OrderStatus",
+        "displayLabel": "OrderStatus",
+        "id": "7917a94e-66ec-496d-81ac-3202d54a50dc"
+      },
+      {
+        "classifierKind": "class",
+        "notationKeyword": "class",
+        "isAbstract": false,
+        "stereotype": "table",
+        "properties": [
+          {
+            "typeName": "INT PK",
+            "visibility": "public",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "\u002Bid: INT PK",
+            "name": "id",
+            "displayLabel": "id",
+            "id": "2913be9a-ae06-4b6b-bb00-38181c57a0fc"
+          },
+          {
+            "typeName": "INT FK",
+            "visibility": "public",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "\u002Bcustomer_id: INT FK",
+            "name": "customer_id",
+            "displayLabel": "customer_id",
+            "id": "bbea5ad4-7cc2-40c1-a313-b835ea0da56b"
+          },
+          {
+            "typeName": "DATETIME",
+            "visibility": "public",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "\u002Border_date: DATETIME",
+            "name": "order_date",
+            "displayLabel": "order_date",
+            "id": "f2dcd56d-cfdd-41bc-baec-9c506a33bd52"
+          },
+          {
+            "typeName": "DECIMAL",
+            "visibility": "public",
+            "isStatic": false,
+            "isReadOnly": false,
+            "signatureText": "\u002Btotal: DECIMAL",
+            "name": "total",
+            "displayLabel": "total",
+            "id": "f20cce7d-1666-4cae-bb15-1c58b472ffa0"
+          }
+        ],
+        "operations": [],
+        "name": "orders",
+        "displayLabel": "orders",
+        "id": "b8144732-efcb-47e8-b737-69af859b5ff9"
       }
     ],
     "actors": [],
@@ -98,112 +287,298 @@
     "artifacts": [],
     "relationships": [
       {
+        "$relationshipKind": "generalization",
+        "relationshipKind": "Generalization",
+        "displayLabel": "Generalization",
+        "sourceClassifierId": "7ed57808-b6f4-4314-877e-ebdd01d2326a",
+        "targetClassifierId": "29c1c939-a93d-4274-897e-28f333eeb643",
+        "name": null,
+        "id": "ad2b7081-f7e7-46d1-b60f-22c73d63865a"
+      },
+      {
         "$relationshipKind": "association",
         "sourceEndName": "orders",
         "targetEndName": "customer",
-        "sourceMultiplicity": "1",
-        "targetMultiplicity": "0..*",
+        "sourceMultiplicity": "0..*",
+        "targetMultiplicity": "1",
         "aggregation": "none",
         "isDirected": false,
         "relationshipKind": "Association",
         "displayLabel": "Association",
-        "sourceClassifierId": "b5afc34f-453a-4846-9267-f8d972a62dc2",
-        "targetClassifierId": "d6a78c43-ecee-49eb-8895-b12c6d468800",
+        "sourceClassifierId": "7ed57808-b6f4-4314-877e-ebdd01d2326a",
+        "targetClassifierId": "d42b0da5-ff65-4b7d-a6f6-e328ea5e1779",
         "name": null,
-        "id": "4f50ff93-bc2a-46a3-81b4-d989cf59fdc5"
+        "id": "8981ac4b-f680-4b64-a2b5-07633cc60072"
+      },
+      {
+        "$relationshipKind": "realization",
+        "relationshipKind": "Realization",
+        "displayLabel": "Realization",
+        "sourceClassifierId": "d42b0da5-ff65-4b7d-a6f6-e328ea5e1779",
+        "targetClassifierId": "5edf6100-f13b-4c90-be53-c9fea40db701",
+        "name": null,
+        "id": "a8eedb05-35fd-42d6-b629-96e830876d82"
       }
     ],
     "ownedElements": [
       {
-        "id": "b5afc34f-453a-4846-9267-f8d972a62dc2",
+        "id": "29c1c939-a93d-4274-897e-28f333eeb643",
+        "displayLabel": "Person"
+      },
+      {
+        "id": "7ed57808-b6f4-4314-877e-ebdd01d2326a",
         "displayLabel": "Customer"
       },
       {
-        "id": "d6a78c43-ecee-49eb-8895-b12c6d468800",
+        "id": "d42b0da5-ff65-4b7d-a6f6-e328ea5e1779",
         "displayLabel": "Order"
       },
       {
-        "id": "4f50ff93-bc2a-46a3-81b4-d989cf59fdc5",
+        "id": "5edf6100-f13b-4c90-be53-c9fea40db701",
+        "displayLabel": "IShippable"
+      },
+      {
+        "id": "7917a94e-66ec-496d-81ac-3202d54a50dc",
+        "displayLabel": "OrderStatus"
+      },
+      {
+        "id": "b8144732-efcb-47e8-b737-69af859b5ff9",
+        "displayLabel": "orders"
+      },
+      {
+        "id": "ad2b7081-f7e7-46d1-b60f-22c73d63865a",
+        "displayLabel": "Generalization"
+      },
+      {
+        "id": "8981ac4b-f680-4b64-a2b5-07633cc60072",
         "displayLabel": "Association"
+      },
+      {
+        "id": "a8eedb05-35fd-42d6-b629-96e830876d82",
+        "displayLabel": "Realization"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "05c5dc4b-3c26-49d2-904d-6eabea684f79"
+    "id": "e2b6c84b-c296-44b1-9ec8-4fc5de3a86c2"
   },
   "diagrams": [
     {
       "kind": "classDiagram",
       "nodes": [
         {
-          "id": "7c37b53d-67ae-45af-9a7b-cef4bf6e78e0",
-          "modelElementId": "b5afc34f-453a-4846-9267-f8d972a62dc2",
+          "id": "3f4bb48b-9061-4b2f-bdda-38b38031fa10",
+          "modelElementId": "29c1c939-a93d-4274-897e-28f333eeb643",
           "presentation": "classifier",
-          "x": 80,
-          "y": 80,
+          "x": 60,
+          "y": 40,
+          "width": 160,
+          "height": 120,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 60,
+              "y": 40
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 120
+            },
+            "x": 60,
+            "y": 40,
+            "width": 160,
+            "height": 120,
+            "left": 60,
+            "top": 40,
+            "right": 220,
+            "bottom": 160,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "869f89b9-9c9c-4ac1-9c4c-43e168501d8a",
+          "modelElementId": "7ed57808-b6f4-4314-877e-ebdd01d2326a",
+          "presentation": "classifier",
+          "x": 280,
+          "y": 40,
           "width": 180,
           "height": 140,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 80,
-              "y": 80
+              "x": 280,
+              "y": 40
             },
             "size": {
               "isEmpty": false,
               "width": 180,
               "height": 140
             },
-            "x": 80,
-            "y": 80,
+            "x": 280,
+            "y": 40,
             "width": 180,
             "height": 140,
-            "left": 80,
-            "top": 80,
-            "right": 260,
-            "bottom": 220,
+            "left": 280,
+            "top": 40,
+            "right": 460,
+            "bottom": 180,
             "isEmpty": false
           }
         },
         {
-          "id": "ad8802a7-0aaf-4f55-8c31-61d5a2795be8",
-          "modelElementId": "d6a78c43-ecee-49eb-8895-b12c6d468800",
+          "id": "e2590ce5-f15b-491c-90cd-8d13de7baa7d",
+          "modelElementId": "d42b0da5-ff65-4b7d-a6f6-e328ea5e1779",
           "presentation": "classifier",
-          "x": 360,
-          "y": 120,
+          "x": 520,
+          "y": 40,
           "width": 180,
-          "height": 120,
+          "height": 140,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 360,
-              "y": 120
+              "x": 520,
+              "y": 40
             },
             "size": {
               "isEmpty": false,
               "width": 180,
-              "height": 120
+              "height": 140
             },
-            "x": 360,
-            "y": 120,
+            "x": 520,
+            "y": 40,
             "width": 180,
-            "height": 120,
-            "left": 360,
-            "top": 120,
-            "right": 540,
-            "bottom": 240,
+            "height": 140,
+            "left": 520,
+            "top": 40,
+            "right": 700,
+            "bottom": 180,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "743496a4-e220-4ad8-85ba-4471c3fbb48f",
+          "modelElementId": "5edf6100-f13b-4c90-be53-c9fea40db701",
+          "presentation": "classifier",
+          "x": 520,
+          "y": 250,
+          "width": 180,
+          "height": 100,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 520,
+              "y": 250
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 180,
+              "height": 100
+            },
+            "x": 520,
+            "y": 250,
+            "width": 180,
+            "height": 100,
+            "left": 520,
+            "top": 250,
+            "right": 700,
+            "bottom": 350,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "ef2ba68c-087a-4a29-95d3-dc3b834e14c8",
+          "modelElementId": "7917a94e-66ec-496d-81ac-3202d54a50dc",
+          "presentation": "classifier",
+          "x": 60,
+          "y": 260,
+          "width": 160,
+          "height": 140,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 60,
+              "y": 260
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 140
+            },
+            "x": 60,
+            "y": 260,
+            "width": 160,
+            "height": 140,
+            "left": 60,
+            "top": 260,
+            "right": 220,
+            "bottom": 400,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "fc3f5466-de05-47f9-b621-23ce28ba3376",
+          "modelElementId": "b8144732-efcb-47e8-b737-69af859b5ff9",
+          "presentation": "classifier",
+          "x": 280,
+          "y": 260,
+          "width": 200,
+          "height": 150,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 280,
+              "y": 260
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 200,
+              "height": 150
+            },
+            "x": 280,
+            "y": 260,
+            "width": 200,
+            "height": 150,
+            "left": 280,
+            "top": 260,
+            "right": 480,
+            "bottom": 410,
             "isEmpty": false
           }
         }
       ],
       "edges": [
         {
-          "id": "2dcb2c6b-6026-4f81-9b4f-aa576dab5037",
-          "modelElementId": "4f50ff93-bc2a-46a3-81b4-d989cf59fdc5",
-          "sourceNodeId": "7c37b53d-67ae-45af-9a7b-cef4bf6e78e0",
-          "targetNodeId": "ad8802a7-0aaf-4f55-8c31-61d5a2795be8",
+          "id": "f6eb18dd-9cd7-450c-bc12-a526d3f69d3a",
+          "modelElementId": "ad2b7081-f7e7-46d1-b60f-22c73d63865a",
+          "sourceNodeId": "869f89b9-9c9c-4ac1-9c4c-43e168501d8a",
+          "targetNodeId": "3f4bb48b-9061-4b2f-bdda-38b38031fa10",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "d17ce36f-3bdb-442a-a736-7e7a4f828111",
+          "modelElementId": "8981ac4b-f680-4b64-a2b5-07633cc60072",
+          "sourceNodeId": "869f89b9-9c9c-4ac1-9c4c-43e168501d8a",
+          "targetNodeId": "e2590ce5-f15b-491c-90cd-8d13de7baa7d",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "adbeea0a-95d1-4610-85c3-62251f344739",
+          "modelElementId": "a8eedb05-35fd-42d6-b629-96e830876d82",
+          "sourceNodeId": "e2590ce5-f15b-491c-90cd-8d13de7baa7d",
+          "targetNodeId": "743496a4-e220-4ad8-85ba-4471c3fbb48f",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -212,7 +587,7 @@
       ],
       "name": "Class Diagram",
       "displayLabel": "Class Diagram",
-      "id": "d82a91cf-3930-467a-9b63-b267aa196e1f"
+      "id": "aaa24e1e-555e-47c6-b19b-676f5c300d47"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

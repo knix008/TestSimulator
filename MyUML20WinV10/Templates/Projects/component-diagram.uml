@@ -11,48 +11,60 @@
     "behaviorNodes": [],
     "components": [
       {
-        "fillColor": "#FFFFD0D8",
-        "name": "ShoppingCart",
-        "displayLabel": "ShoppingCart",
-        "id": "16a762ba-0242-4f85-9277-1e01b56aa71a"
+        "fillColor": "#FFF8FCFF",
+        "name": "WebUI",
+        "displayLabel": "WebUI",
+        "id": "0fe7a9aa-1d06-4073-a34f-331ebfa7208f"
       },
       {
-        "fillColor": "#FFD8F0D0",
-        "name": "BackOrder",
-        "displayLabel": "BackOrder",
-        "id": "8fae68b8-91a0-48b5-bfdf-ce9424b41414"
+        "fillColor": "#FFF8FCFF",
+        "name": "OrderAPI",
+        "displayLabel": "OrderAPI",
+        "id": "0a4654af-939c-48a0-9240-0e5e39db276a"
       },
       {
-        "fillColor": "#FFFFF0A0",
-        "name": "Order",
-        "displayLabel": "Order",
-        "id": "117d51ae-fe9b-43af-af1f-5806a641a1fd"
+        "fillColor": "#FFF8FCFF",
+        "name": "PaymentService",
+        "displayLabel": "PaymentService",
+        "id": "a980f250-33c1-420d-ae23-a84608e1b54a"
       },
       {
-        "fillColor": "#FFD0E8FF",
-        "name": "Product",
-        "displayLabel": "Product",
-        "id": "dd3f4d6e-ac4c-4cee-b5ac-f6d888a3f441"
+        "fillColor": "#FFF8FCFF",
+        "name": "InventoryService",
+        "displayLabel": "InventoryService",
+        "id": "9ca4ea5b-3ec2-4d57-9c7a-5e2f0f3ca208"
       },
       {
-        "fillColor": "#FFE8D8F8",
-        "name": "Customer",
-        "displayLabel": "Customer",
-        "id": "38c48ecc-ff77-4e14-9757-96b4385da336"
-      },
-      {
-        "fillColor": "#FFFFE0C8",
-        "name": "Organization",
-        "displayLabel": "Organization",
-        "id": "c085c839-5f53-44ab-853c-4539d4ac1694"
+        "fillColor": "#FFF8FCFF",
+        "name": "Database",
+        "displayLabel": "Database",
+        "id": "dd96b6ef-f899-4d92-a0fd-908b7223a0bc"
       }
     ],
     "componentInterfaces": [
       {
         "interfaceKind": "provided",
-        "name": "Person",
-        "displayLabel": "Person",
-        "id": "f3b81427-78d3-4269-a2fc-d9ae0fcd562c"
+        "name": "IOrderService",
+        "displayLabel": "IOrderService",
+        "id": "5da24743-f15f-443a-a60f-e68102c70c24"
+      },
+      {
+        "interfaceKind": "provided",
+        "name": "IPayment",
+        "displayLabel": "IPayment",
+        "id": "599ec132-ee90-4d55-b868-8915b73464af"
+      },
+      {
+        "interfaceKind": "provided",
+        "name": "IInventory",
+        "displayLabel": "IInventory",
+        "id": "bb596c36-a19b-417a-9cc1-a2f09fdca322"
+      },
+      {
+        "interfaceKind": "provided",
+        "name": "IDataStore",
+        "displayLabel": "IDataStore",
+        "id": "986c4450-09d0-443f-bebb-c9bf04120be6"
       }
     ],
     "componentPorts": [],
@@ -62,136 +74,174 @@
     "relationships": [
       {
         "$relationshipKind": "assembly",
-        "interfaceName": "OrderEntry",
+        "interfaceName": "IOrderService",
         "sourceIsRequirer": true,
         "relationshipKind": "Assembly",
-        "displayLabel": "OrderEntry",
-        "sourceClassifierId": "117d51ae-fe9b-43af-af1f-5806a641a1fd",
-        "targetClassifierId": "16a762ba-0242-4f85-9277-1e01b56aa71a",
+        "displayLabel": "IOrderService",
+        "sourceClassifierId": "0fe7a9aa-1d06-4073-a34f-331ebfa7208f",
+        "targetClassifierId": "5da24743-f15f-443a-a60f-e68102c70c24",
         "name": null,
-        "id": "bec55314-632d-4662-9c6a-51e66a7ba937"
+        "id": "75319ec3-7292-4263-a660-1c41c68dd779"
       },
       {
         "$relationshipKind": "assembly",
-        "interfaceName": "OrderableItem",
+        "interfaceName": "IOrderService",
+        "sourceIsRequirer": false,
+        "relationshipKind": "Assembly",
+        "displayLabel": "IOrderService",
+        "sourceClassifierId": "0a4654af-939c-48a0-9240-0e5e39db276a",
+        "targetClassifierId": "5da24743-f15f-443a-a60f-e68102c70c24",
+        "name": null,
+        "id": "87fde5a8-53ee-4064-87c5-150dc9bb9db0"
+      },
+      {
+        "$relationshipKind": "assembly",
+        "interfaceName": "IPayment",
         "sourceIsRequirer": true,
         "relationshipKind": "Assembly",
-        "displayLabel": "OrderableItem",
-        "sourceClassifierId": "117d51ae-fe9b-43af-af1f-5806a641a1fd",
-        "targetClassifierId": "dd3f4d6e-ac4c-4cee-b5ac-f6d888a3f441",
+        "displayLabel": "IPayment",
+        "sourceClassifierId": "0a4654af-939c-48a0-9240-0e5e39db276a",
+        "targetClassifierId": "599ec132-ee90-4d55-b868-8915b73464af",
         "name": null,
-        "id": "5f8ae17b-df3d-4ea5-a226-53a7cd4203b0"
+        "id": "97642264-627d-41e7-8077-23a091a433ce"
       },
       {
         "$relationshipKind": "assembly",
-        "interfaceName": "Person",
+        "interfaceName": "IPayment",
+        "sourceIsRequirer": false,
+        "relationshipKind": "Assembly",
+        "displayLabel": "IPayment",
+        "sourceClassifierId": "a980f250-33c1-420d-ae23-a84608e1b54a",
+        "targetClassifierId": "599ec132-ee90-4d55-b868-8915b73464af",
+        "name": null,
+        "id": "c11f9cab-3f0d-4153-aa19-569540e1d966"
+      },
+      {
+        "$relationshipKind": "assembly",
+        "interfaceName": "IInventory",
         "sourceIsRequirer": true,
         "relationshipKind": "Assembly",
-        "displayLabel": "Person",
-        "sourceClassifierId": "117d51ae-fe9b-43af-af1f-5806a641a1fd",
-        "targetClassifierId": "f3b81427-78d3-4269-a2fc-d9ae0fcd562c",
+        "displayLabel": "IInventory",
+        "sourceClassifierId": "0a4654af-939c-48a0-9240-0e5e39db276a",
+        "targetClassifierId": "bb596c36-a19b-417a-9cc1-a2f09fdca322",
         "name": null,
-        "id": "481ea1d2-bc9c-410a-92a8-3ce6dfe78c14"
+        "id": "e4adf6fc-4497-491f-bef3-dd2e9e5ac5c5"
       },
       {
         "$relationshipKind": "assembly",
-        "interfaceName": "Person",
+        "interfaceName": "IInventory",
         "sourceIsRequirer": false,
         "relationshipKind": "Assembly",
-        "displayLabel": "Person",
-        "sourceClassifierId": "38c48ecc-ff77-4e14-9757-96b4385da336",
-        "targetClassifierId": "f3b81427-78d3-4269-a2fc-d9ae0fcd562c",
+        "displayLabel": "IInventory",
+        "sourceClassifierId": "9ca4ea5b-3ec2-4d57-9c7a-5e2f0f3ca208",
+        "targetClassifierId": "bb596c36-a19b-417a-9cc1-a2f09fdca322",
         "name": null,
-        "id": "97aeba38-4312-4db3-98d7-68cdf3aa84a7"
+        "id": "a6b3ddd8-61ad-43c9-9c3d-6feae22e45d8"
       },
       {
         "$relationshipKind": "assembly",
-        "interfaceName": "Person",
-        "sourceIsRequirer": false,
+        "interfaceName": "IDataStore",
+        "sourceIsRequirer": true,
         "relationshipKind": "Assembly",
-        "displayLabel": "Person",
-        "sourceClassifierId": "c085c839-5f53-44ab-853c-4539d4ac1694",
-        "targetClassifierId": "f3b81427-78d3-4269-a2fc-d9ae0fcd562c",
+        "displayLabel": "IDataStore",
+        "sourceClassifierId": "0a4654af-939c-48a0-9240-0e5e39db276a",
+        "targetClassifierId": "986c4450-09d0-443f-bebb-c9bf04120be6",
         "name": null,
-        "id": "863253d2-cb0d-4abd-90bd-dfeffbd8f0b4"
+        "id": "e0379097-d32a-42d9-813a-88197e6c363b"
       },
       {
         "$relationshipKind": "assembly",
-        "interfaceName": "Person",
+        "interfaceName": "IDataStore",
         "sourceIsRequirer": false,
         "relationshipKind": "Assembly",
-        "displayLabel": "Person",
-        "sourceClassifierId": "8fae68b8-91a0-48b5-bfdf-ce9424b41414",
-        "targetClassifierId": "f3b81427-78d3-4269-a2fc-d9ae0fcd562c",
+        "displayLabel": "IDataStore",
+        "sourceClassifierId": "dd96b6ef-f899-4d92-a0fd-908b7223a0bc",
+        "targetClassifierId": "986c4450-09d0-443f-bebb-c9bf04120be6",
         "name": null,
-        "id": "2ffd2571-57f6-4490-bfc4-43523f08f3a9"
+        "id": "56c54158-cec7-4b4c-9f50-c0af44d0e100"
       }
     ],
     "ownedElements": [
       {
-        "id": "16a762ba-0242-4f85-9277-1e01b56aa71a",
-        "displayLabel": "ShoppingCart"
+        "id": "0fe7a9aa-1d06-4073-a34f-331ebfa7208f",
+        "displayLabel": "WebUI"
       },
       {
-        "id": "8fae68b8-91a0-48b5-bfdf-ce9424b41414",
-        "displayLabel": "BackOrder"
+        "id": "0a4654af-939c-48a0-9240-0e5e39db276a",
+        "displayLabel": "OrderAPI"
       },
       {
-        "id": "117d51ae-fe9b-43af-af1f-5806a641a1fd",
-        "displayLabel": "Order"
+        "id": "a980f250-33c1-420d-ae23-a84608e1b54a",
+        "displayLabel": "PaymentService"
       },
       {
-        "id": "dd3f4d6e-ac4c-4cee-b5ac-f6d888a3f441",
-        "displayLabel": "Product"
+        "id": "9ca4ea5b-3ec2-4d57-9c7a-5e2f0f3ca208",
+        "displayLabel": "InventoryService"
       },
       {
-        "id": "38c48ecc-ff77-4e14-9757-96b4385da336",
-        "displayLabel": "Customer"
+        "id": "dd96b6ef-f899-4d92-a0fd-908b7223a0bc",
+        "displayLabel": "Database"
       },
       {
-        "id": "c085c839-5f53-44ab-853c-4539d4ac1694",
-        "displayLabel": "Organization"
+        "id": "5da24743-f15f-443a-a60f-e68102c70c24",
+        "displayLabel": "IOrderService"
       },
       {
-        "id": "f3b81427-78d3-4269-a2fc-d9ae0fcd562c",
-        "displayLabel": "Person"
+        "id": "599ec132-ee90-4d55-b868-8915b73464af",
+        "displayLabel": "IPayment"
       },
       {
-        "id": "bec55314-632d-4662-9c6a-51e66a7ba937",
-        "displayLabel": "OrderEntry"
+        "id": "bb596c36-a19b-417a-9cc1-a2f09fdca322",
+        "displayLabel": "IInventory"
       },
       {
-        "id": "5f8ae17b-df3d-4ea5-a226-53a7cd4203b0",
-        "displayLabel": "OrderableItem"
+        "id": "986c4450-09d0-443f-bebb-c9bf04120be6",
+        "displayLabel": "IDataStore"
       },
       {
-        "id": "481ea1d2-bc9c-410a-92a8-3ce6dfe78c14",
-        "displayLabel": "Person"
+        "id": "75319ec3-7292-4263-a660-1c41c68dd779",
+        "displayLabel": "IOrderService"
       },
       {
-        "id": "97aeba38-4312-4db3-98d7-68cdf3aa84a7",
-        "displayLabel": "Person"
+        "id": "87fde5a8-53ee-4064-87c5-150dc9bb9db0",
+        "displayLabel": "IOrderService"
       },
       {
-        "id": "863253d2-cb0d-4abd-90bd-dfeffbd8f0b4",
-        "displayLabel": "Person"
+        "id": "97642264-627d-41e7-8077-23a091a433ce",
+        "displayLabel": "IPayment"
       },
       {
-        "id": "2ffd2571-57f6-4490-bfc4-43523f08f3a9",
-        "displayLabel": "Person"
+        "id": "c11f9cab-3f0d-4153-aa19-569540e1d966",
+        "displayLabel": "IPayment"
+      },
+      {
+        "id": "e4adf6fc-4497-491f-bef3-dd2e9e5ac5c5",
+        "displayLabel": "IInventory"
+      },
+      {
+        "id": "a6b3ddd8-61ad-43c9-9c3d-6feae22e45d8",
+        "displayLabel": "IInventory"
+      },
+      {
+        "id": "e0379097-d32a-42d9-813a-88197e6c363b",
+        "displayLabel": "IDataStore"
+      },
+      {
+        "id": "56c54158-cec7-4b4c-9f50-c0af44d0e100",
+        "displayLabel": "IDataStore"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "bd9e56d0-2d19-48d5-bbb6-34882afed869"
+    "id": "26b4f456-ac54-49cf-ab1d-faa14c9dce02"
   },
   "diagrams": [
     {
       "kind": "componentDiagram",
       "nodes": [
         {
-          "id": "5d4e30c3-6604-4140-a043-8e22d425b507",
-          "modelElementId": "16a762ba-0242-4f85-9277-1e01b56aa71a",
+          "id": "f22d7491-c5e0-4a62-8709-cd41031b335e",
+          "modelElementId": "0fe7a9aa-1d06-4073-a34f-331ebfa7208f",
           "presentation": "component",
           "x": 40,
           "y": 160,
@@ -221,103 +271,41 @@
           }
         },
         {
-          "id": "d4b6c969-1071-4daa-ab8d-c7b65aec8dbb",
-          "modelElementId": "8fae68b8-91a0-48b5-bfdf-ce9424b41414",
+          "id": "8f8318d3-71d7-47ca-b177-4006212b9213",
+          "modelElementId": "0a4654af-939c-48a0-9240-0e5e39db276a",
           "presentation": "component",
-          "x": 270,
-          "y": 30,
-          "width": 160,
-          "height": 90,
+          "x": 290,
+          "y": 140,
+          "width": 180,
+          "height": 130,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 270,
-              "y": 30
+              "x": 290,
+              "y": 140
             },
             "size": {
               "isEmpty": false,
-              "width": 160,
-              "height": 90
+              "width": 180,
+              "height": 130
             },
-            "x": 270,
-            "y": 30,
-            "width": 160,
-            "height": 90,
-            "left": 270,
-            "top": 30,
-            "right": 430,
-            "bottom": 120,
-            "isEmpty": false
-          }
-        },
-        {
-          "id": "bf4512b9-0f20-492b-9315-0c4f6aee5869",
-          "modelElementId": "117d51ae-fe9b-43af-af1f-5806a641a1fd",
-          "presentation": "component",
-          "x": 250,
-          "y": 150,
-          "width": 200,
-          "height": 120,
-          "showCompartments": true,
-          "bounds": {
-            "location": {
-              "isEmpty": false,
-              "x": 250,
-              "y": 150
-            },
-            "size": {
-              "isEmpty": false,
-              "width": 200,
-              "height": 120
-            },
-            "x": 250,
-            "y": 150,
-            "width": 200,
-            "height": 120,
-            "left": 250,
-            "top": 150,
-            "right": 450,
+            "x": 290,
+            "y": 140,
+            "width": 180,
+            "height": 130,
+            "left": 290,
+            "top": 140,
+            "right": 470,
             "bottom": 270,
             "isEmpty": false
           }
         },
         {
-          "id": "e8e38d2b-00d0-4bfd-aa95-6d404e856d6c",
-          "modelElementId": "dd3f4d6e-ac4c-4cee-b5ac-f6d888a3f441",
+          "id": "dfcb1a1e-b4c2-48e1-92a5-6d420d6e32fb",
+          "modelElementId": "a980f250-33c1-420d-ae23-a84608e1b54a",
           "presentation": "component",
-          "x": 270,
-          "y": 320,
-          "width": 160,
-          "height": 90,
-          "showCompartments": true,
-          "bounds": {
-            "location": {
-              "isEmpty": false,
-              "x": 270,
-              "y": 320
-            },
-            "size": {
-              "isEmpty": false,
-              "width": 160,
-              "height": 90
-            },
-            "x": 270,
-            "y": 320,
-            "width": 160,
-            "height": 90,
-            "left": 270,
-            "top": 320,
-            "right": 430,
-            "bottom": 410,
-            "isEmpty": false
-          }
-        },
-        {
-          "id": "bed733a8-9943-410f-acb9-5e4f85908c1f",
-          "modelElementId": "38c48ecc-ff77-4e14-9757-96b4385da336",
-          "presentation": "component",
-          "x": 500,
+          "x": 600,
           "y": 40,
           "width": 160,
           "height": 90,
@@ -325,7 +313,7 @@
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 500,
+              "x": 600,
               "y": 40
             },
             "size": {
@@ -333,136 +321,280 @@
               "width": 160,
               "height": 90
             },
-            "x": 500,
+            "x": 600,
             "y": 40,
             "width": 160,
             "height": 90,
-            "left": 500,
+            "left": 600,
             "top": 40,
-            "right": 660,
+            "right": 760,
             "bottom": 130,
             "isEmpty": false
           }
         },
         {
-          "id": "b544de46-7812-4b0f-8b65-6fdc501f0f90",
-          "modelElementId": "c085c839-5f53-44ab-853c-4539d4ac1694",
+          "id": "06b78d3f-2f5c-4b20-a696-9c7b616f2c01",
+          "modelElementId": "9ca4ea5b-3ec2-4d57-9c7a-5e2f0f3ca208",
           "presentation": "component",
-          "x": 500,
-          "y": 330,
+          "x": 600,
+          "y": 180,
           "width": 160,
           "height": 90,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 500,
-              "y": 330
+              "x": 600,
+              "y": 180
             },
             "size": {
               "isEmpty": false,
               "width": 160,
               "height": 90
             },
-            "x": 500,
-            "y": 330,
+            "x": 600,
+            "y": 180,
             "width": 160,
             "height": 90,
-            "left": 500,
-            "top": 330,
-            "right": 660,
-            "bottom": 420,
+            "left": 600,
+            "top": 180,
+            "right": 760,
+            "bottom": 270,
             "isEmpty": false
           }
         },
         {
-          "id": "453a0e2d-6b8f-4a05-9c6c-bf8bfe13e165",
-          "modelElementId": "f3b81427-78d3-4269-a2fc-d9ae0fcd562c",
+          "id": "160ff3aa-2e54-4768-acd2-ac5bbb57d349",
+          "modelElementId": "dd96b6ef-f899-4d92-a0fd-908b7223a0bc",
+          "presentation": "component",
+          "x": 600,
+          "y": 310,
+          "width": 160,
+          "height": 90,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 600,
+              "y": 310
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 90
+            },
+            "x": 600,
+            "y": 310,
+            "width": 160,
+            "height": 90,
+            "left": 600,
+            "top": 310,
+            "right": 760,
+            "bottom": 400,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "bca08418-6dae-4529-8b83-3ad9b792f828",
+          "modelElementId": "5da24743-f15f-443a-a60f-e68102c70c24",
           "presentation": "providedInterface",
-          "x": 540,
-          "y": 175,
-          "width": 70,
+          "x": 245,
+          "y": 190,
+          "width": 72,
           "height": 28,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 540,
-              "y": 175
+              "x": 245,
+              "y": 190
             },
             "size": {
               "isEmpty": false,
-              "width": 70,
+              "width": 72,
               "height": 28
             },
-            "x": 540,
-            "y": 175,
-            "width": 70,
+            "x": 245,
+            "y": 190,
+            "width": 72,
             "height": 28,
-            "left": 540,
-            "top": 175,
-            "right": 610,
-            "bottom": 203,
+            "left": 245,
+            "top": 190,
+            "right": 317,
+            "bottom": 218,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "9f86b34f-c71c-49e2-a9ed-4e054d3e858c",
+          "modelElementId": "599ec132-ee90-4d55-b868-8915b73464af",
+          "presentation": "providedInterface",
+          "x": 560,
+          "y": 72,
+          "width": 72,
+          "height": 28,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 560,
+              "y": 72
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 72,
+              "height": 28
+            },
+            "x": 560,
+            "y": 72,
+            "width": 72,
+            "height": 28,
+            "left": 560,
+            "top": 72,
+            "right": 632,
+            "bottom": 100,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "bf45b6d5-8c41-420e-8fc7-86e6190090cc",
+          "modelElementId": "bb596c36-a19b-417a-9cc1-a2f09fdca322",
+          "presentation": "providedInterface",
+          "x": 560,
+          "y": 210,
+          "width": 72,
+          "height": 28,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 560,
+              "y": 210
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 72,
+              "height": 28
+            },
+            "x": 560,
+            "y": 210,
+            "width": 72,
+            "height": 28,
+            "left": 560,
+            "top": 210,
+            "right": 632,
+            "bottom": 238,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "19a81c63-5541-408f-938f-c8d45398a915",
+          "modelElementId": "986c4450-09d0-443f-bebb-c9bf04120be6",
+          "presentation": "providedInterface",
+          "x": 560,
+          "y": 340,
+          "width": 72,
+          "height": 28,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 560,
+              "y": 340
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 72,
+              "height": 28
+            },
+            "x": 560,
+            "y": 340,
+            "width": 72,
+            "height": 28,
+            "left": 560,
+            "top": 340,
+            "right": 632,
+            "bottom": 368,
             "isEmpty": false
           }
         }
       ],
       "edges": [
         {
-          "id": "c0bad53e-c036-46e0-8411-b8e75949bb71",
-          "modelElementId": "bec55314-632d-4662-9c6a-51e66a7ba937",
-          "sourceNodeId": "bf4512b9-0f20-492b-9315-0c4f6aee5869",
-          "targetNodeId": "5d4e30c3-6604-4140-a043-8e22d425b507",
+          "id": "2cabc66e-1078-43d8-8c7f-00f2c509d2e3",
+          "modelElementId": "75319ec3-7292-4263-a660-1c41c68dd779",
+          "sourceNodeId": "f22d7491-c5e0-4a62-8709-cd41031b335e",
+          "targetNodeId": "bca08418-6dae-4529-8b83-3ad9b792f828",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "633bfee9-b46f-4c3d-8a9a-17fbadbd3137",
-          "modelElementId": "5f8ae17b-df3d-4ea5-a226-53a7cd4203b0",
-          "sourceNodeId": "bf4512b9-0f20-492b-9315-0c4f6aee5869",
-          "targetNodeId": "e8e38d2b-00d0-4bfd-aa95-6d404e856d6c",
+          "id": "b637f788-dc66-4fce-920a-c80bdfaa74b1",
+          "modelElementId": "87fde5a8-53ee-4064-87c5-150dc9bb9db0",
+          "sourceNodeId": "8f8318d3-71d7-47ca-b177-4006212b9213",
+          "targetNodeId": "bca08418-6dae-4529-8b83-3ad9b792f828",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "8293e8d6-06fb-46a7-8e31-29d6e36fa67b",
-          "modelElementId": "481ea1d2-bc9c-410a-92a8-3ce6dfe78c14",
-          "sourceNodeId": "bf4512b9-0f20-492b-9315-0c4f6aee5869",
-          "targetNodeId": "453a0e2d-6b8f-4a05-9c6c-bf8bfe13e165",
+          "id": "eab909e4-dd07-45fe-a653-c637c220f007",
+          "modelElementId": "97642264-627d-41e7-8077-23a091a433ce",
+          "sourceNodeId": "8f8318d3-71d7-47ca-b177-4006212b9213",
+          "targetNodeId": "9f86b34f-c71c-49e2-a9ed-4e054d3e858c",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "c80a7659-9af1-4801-86e9-7a8f8cf3029a",
-          "modelElementId": "97aeba38-4312-4db3-98d7-68cdf3aa84a7",
-          "sourceNodeId": "bed733a8-9943-410f-acb9-5e4f85908c1f",
-          "targetNodeId": "453a0e2d-6b8f-4a05-9c6c-bf8bfe13e165",
+          "id": "37b42dc7-0556-4226-908b-3111365d8c46",
+          "modelElementId": "c11f9cab-3f0d-4153-aa19-569540e1d966",
+          "sourceNodeId": "dfcb1a1e-b4c2-48e1-92a5-6d420d6e32fb",
+          "targetNodeId": "9f86b34f-c71c-49e2-a9ed-4e054d3e858c",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "c5f9d8b5-f8a8-4ae6-83bf-0eb03361baa3",
-          "modelElementId": "863253d2-cb0d-4abd-90bd-dfeffbd8f0b4",
-          "sourceNodeId": "b544de46-7812-4b0f-8b65-6fdc501f0f90",
-          "targetNodeId": "453a0e2d-6b8f-4a05-9c6c-bf8bfe13e165",
+          "id": "fea42698-06a6-44b6-b1fb-d3fad017af09",
+          "modelElementId": "e4adf6fc-4497-491f-bef3-dd2e9e5ac5c5",
+          "sourceNodeId": "8f8318d3-71d7-47ca-b177-4006212b9213",
+          "targetNodeId": "bf45b6d5-8c41-420e-8fc7-86e6190090cc",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "47d05982-001e-4f5d-a177-c231dd29b8fd",
-          "modelElementId": "2ffd2571-57f6-4490-bfc4-43523f08f3a9",
-          "sourceNodeId": "d4b6c969-1071-4daa-ab8d-c7b65aec8dbb",
-          "targetNodeId": "453a0e2d-6b8f-4a05-9c6c-bf8bfe13e165",
+          "id": "dd0e2c15-9755-462c-ab52-004aeee3b9c3",
+          "modelElementId": "a6b3ddd8-61ad-43c9-9c3d-6feae22e45d8",
+          "sourceNodeId": "06b78d3f-2f5c-4b20-a696-9c7b616f2c01",
+          "targetNodeId": "bf45b6d5-8c41-420e-8fc7-86e6190090cc",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "f508548d-1da1-42b2-bb87-ab28cb8a0f65",
+          "modelElementId": "e0379097-d32a-42d9-813a-88197e6c363b",
+          "sourceNodeId": "8f8318d3-71d7-47ca-b177-4006212b9213",
+          "targetNodeId": "19a81c63-5541-408f-938f-c8d45398a915",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "70a767d7-b5df-4da9-b454-698a923df4d7",
+          "modelElementId": "56c54158-cec7-4b4c-9f50-c0af44d0e100",
+          "sourceNodeId": "160ff3aa-2e54-4768-acd2-ac5bbb57d349",
+          "targetNodeId": "19a81c63-5541-408f-938f-c8d45398a915",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -471,7 +603,7 @@
       ],
       "name": "Component Diagram",
       "displayLabel": "Component Diagram",
-      "id": "9b76d244-a8e0-4278-998c-0fad50be2aa8"
+      "id": "3550044a-b57f-41c3-914b-2ccfb15c773a"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

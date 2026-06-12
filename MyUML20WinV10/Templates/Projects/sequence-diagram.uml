@@ -22,7 +22,7 @@
         "localPostcondition": null,
         "name": "customer",
         "displayLabel": "customer",
-        "id": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30"
+        "id": "ec9e51c8-f231-4ba3-9e5a-a244fd430f54"
       },
       {
         "kind": "lifeline",
@@ -37,7 +37,7 @@
         "localPostcondition": null,
         "name": "orderService",
         "displayLabel": "orderService",
-        "id": "671cb4a9-e8e2-4932-b428-72e96bb10c48"
+        "id": "a92842eb-ee91-4cc7-9a57-d6337c296903"
       },
       {
         "kind": "lifeline",
@@ -46,28 +46,43 @@
         "referencedDiagramName": null,
         "expansionKind": null,
         "lifelineKind": null,
-        "parentLifelineId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
-        "decompositionRole": ":inventory",
+        "parentLifelineId": null,
+        "decompositionRole": null,
         "localPrecondition": null,
         "localPostcondition": null,
-        "name": "inventory",
-        "displayLabel": "inventory",
-        "id": "8484b124-aa83-46b1-b515-0f6ec001b4f6"
+        "name": "paymentGateway",
+        "displayLabel": "paymentGateway",
+        "id": "4a38a33b-5465-49ec-8433-d55a6f518712"
       },
       {
         "kind": "combinedFragment",
-        "combinedFragmentKind": "interactionOccurrence",
+        "combinedFragmentKind": "loop",
         "guard": null,
-        "referencedDiagramName": "Checkout Flow",
+        "referencedDiagramName": null,
         "expansionKind": null,
         "lifelineKind": null,
         "parentLifelineId": null,
         "decompositionRole": null,
         "localPrecondition": null,
         "localPostcondition": null,
-        "name": "sd",
-        "displayLabel": "sd",
-        "id": "31faf744-cf89-463b-879c-b6e43b3a1585"
+        "name": "loop",
+        "displayLabel": "loop",
+        "id": "06e99ee3-2e91-41d5-824a-331a62e87b74"
+      },
+      {
+        "kind": "combinedFragment",
+        "combinedFragmentKind": "alt",
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "alt",
+        "displayLabel": "alt",
+        "id": "a2b0ddc8-ec30-44de-abee-39d7feb36144"
       }
     ],
     "components": [],
@@ -86,13 +101,49 @@
         "effect": "",
         "communicationSequenceNumber": 0,
         "durationConstraint": null,
-        "durationMin": "2",
-        "durationMax": "5",
+        "durationMin": null,
+        "durationMax": null,
         "relationshipKind": "Synchronous",
-        "sourceClassifierId": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
-        "targetClassifierId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
-        "name": "placeOrder()",
-        "id": "ed4af33d-d2a4-4157-b9b9-71c7bd1a6aba",
+        "sourceClassifierId": "ec9e51c8-f231-4ba3-9e5a-a244fd430f54",
+        "targetClassifierId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+        "name": "placeOrder(items)",
+        "id": "6ea159c7-aa69-46f1-9a14-101202bbddcb",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "message",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Synchronous",
+        "sourceClassifierId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+        "targetClassifierId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+        "name": "validateItem(item)",
+        "id": "129e28b1-96b5-4ce8-aa83-590abbb023ad",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "message",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Synchronous",
+        "sourceClassifierId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+        "targetClassifierId": "4a38a33b-5465-49ec-8433-d55a6f518712",
+        "name": "charge(amount)",
+        "id": "1761d740-6ae1-4474-804f-b4ba6ba3314a",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -107,189 +158,316 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Return",
-        "sourceClassifierId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
-        "targetClassifierId": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
+        "sourceClassifierId": "4a38a33b-5465-49ec-8433-d55a6f518712",
+        "targetClassifierId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+        "name": "paymentOk",
+        "id": "2ce48004-5447-4d11-a115-7705a66c7eed",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "message",
+        "messageKind": "return",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Return",
+        "sourceClassifierId": "4a38a33b-5465-49ec-8433-d55a6f518712",
+        "targetClassifierId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+        "name": "declined",
+        "id": "d1e7281d-9154-4737-8bf1-59aae19eba7c",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "message",
+        "messageKind": "return",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Return",
+        "sourceClassifierId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+        "targetClassifierId": "ec9e51c8-f231-4ba3-9e5a-a244fd430f54",
         "name": "orderId",
-        "id": "7aa5b867-321c-44ca-9400-b41bcb6eff10",
+        "id": "ae9d5e79-dda6-4e72-b012-8a314dbb17f6",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
+        "id": "ec9e51c8-f231-4ba3-9e5a-a244fd430f54",
         "displayLabel": "customer"
       },
       {
-        "id": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
+        "id": "a92842eb-ee91-4cc7-9a57-d6337c296903",
         "displayLabel": "orderService"
       },
       {
-        "id": "8484b124-aa83-46b1-b515-0f6ec001b4f6",
-        "displayLabel": "inventory"
+        "id": "4a38a33b-5465-49ec-8433-d55a6f518712",
+        "displayLabel": "paymentGateway"
       },
       {
-        "id": "31faf744-cf89-463b-879c-b6e43b3a1585",
-        "displayLabel": "sd"
+        "id": "06e99ee3-2e91-41d5-824a-331a62e87b74",
+        "displayLabel": "loop"
       },
       {
-        "id": "ed4af33d-d2a4-4157-b9b9-71c7bd1a6aba",
+        "id": "a2b0ddc8-ec30-44de-abee-39d7feb36144",
+        "displayLabel": "alt"
+      },
+      {
+        "id": "6ea159c7-aa69-46f1-9a14-101202bbddcb",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "7aa5b867-321c-44ca-9400-b41bcb6eff10",
+        "id": "129e28b1-96b5-4ce8-aa83-590abbb023ad",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "1761d740-6ae1-4474-804f-b4ba6ba3314a",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "2ce48004-5447-4d11-a115-7705a66c7eed",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "d1e7281d-9154-4737-8bf1-59aae19eba7c",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "ae9d5e79-dda6-4e72-b012-8a314dbb17f6",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "1ad1e3af-ff69-4651-84fe-018cab981fa9"
+    "id": "b1becabe-da31-48ca-b85e-0b578d0f8f63"
   },
   "diagrams": [
     {
       "kind": "sequenceDiagram",
       "nodes": [
         {
-          "id": "333b37d2-dc2e-4d27-acdc-86f98d90b2ac",
-          "modelElementId": "10d984cd-78f7-4cc3-8ad6-fd01e3e4da30",
-          "presentation": "behavior",
-          "x": 80,
-          "y": 60,
-          "width": 120,
-          "height": 300,
-          "showCompartments": true,
-          "bounds": {
-            "location": {
-              "isEmpty": false,
-              "x": 80,
-              "y": 60
-            },
-            "size": {
-              "isEmpty": false,
-              "width": 120,
-              "height": 300
-            },
-            "x": 80,
-            "y": 60,
-            "width": 120,
-            "height": 300,
-            "left": 80,
-            "top": 60,
-            "right": 200,
-            "bottom": 360,
-            "isEmpty": false
-          }
-        },
-        {
-          "id": "280a08b7-eb4c-4af4-920a-95f87b2cb5c8",
-          "modelElementId": "671cb4a9-e8e2-4932-b428-72e96bb10c48",
-          "presentation": "behavior",
-          "x": 280,
-          "y": 60,
-          "width": 120,
-          "height": 300,
-          "showCompartments": true,
-          "bounds": {
-            "location": {
-              "isEmpty": false,
-              "x": 280,
-              "y": 60
-            },
-            "size": {
-              "isEmpty": false,
-              "width": 120,
-              "height": 300
-            },
-            "x": 280,
-            "y": 60,
-            "width": 120,
-            "height": 300,
-            "left": 280,
-            "top": 60,
-            "right": 400,
-            "bottom": 360,
-            "isEmpty": false
-          }
-        },
-        {
-          "id": "91a15fc0-2891-40f4-b356-f25cf552120b",
-          "modelElementId": "8484b124-aa83-46b1-b515-0f6ec001b4f6",
-          "presentation": "behavior",
-          "x": 500,
-          "y": 90,
-          "width": 96,
-          "height": 270,
-          "showCompartments": true,
-          "bounds": {
-            "location": {
-              "isEmpty": false,
-              "x": 500,
-              "y": 90
-            },
-            "size": {
-              "isEmpty": false,
-              "width": 96,
-              "height": 270
-            },
-            "x": 500,
-            "y": 90,
-            "width": 96,
-            "height": 270,
-            "left": 500,
-            "top": 90,
-            "right": 596,
-            "bottom": 360,
-            "isEmpty": false
-          }
-        },
-        {
-          "id": "a676311b-efb3-40d9-8a0b-d3c005d140a2",
-          "modelElementId": "31faf744-cf89-463b-879c-b6e43b3a1585",
+          "id": "69a45262-2756-4c84-86f9-30db256f99da",
+          "modelElementId": "ec9e51c8-f231-4ba3-9e5a-a244fd430f54",
           "presentation": "behavior",
           "x": 60,
-          "y": 220,
-          "width": 300,
-          "height": 120,
+          "y": 50,
+          "width": 120,
+          "height": 440,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
               "x": 60,
-              "y": 220
+              "y": 50
             },
             "size": {
               "isEmpty": false,
-              "width": 300,
-              "height": 120
+              "width": 120,
+              "height": 440
             },
             "x": 60,
-            "y": 220,
-            "width": 300,
-            "height": 120,
+            "y": 50,
+            "width": 120,
+            "height": 440,
             "left": 60,
-            "top": 220,
-            "right": 360,
-            "bottom": 340,
+            "top": 50,
+            "right": 180,
+            "bottom": 490,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "modelElementId": "a92842eb-ee91-4cc7-9a57-d6337c296903",
+          "presentation": "behavior",
+          "x": 280,
+          "y": 50,
+          "width": 120,
+          "height": 440,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 280,
+              "y": 50
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 120,
+              "height": 440
+            },
+            "x": 280,
+            "y": 50,
+            "width": 120,
+            "height": 440,
+            "left": 280,
+            "top": 50,
+            "right": 400,
+            "bottom": 490,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "23dabc9d-e650-4340-8ad4-9efa497e1b55",
+          "modelElementId": "4a38a33b-5465-49ec-8433-d55a6f518712",
+          "presentation": "behavior",
+          "x": 500,
+          "y": 50,
+          "width": 120,
+          "height": 440,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 500,
+              "y": 50
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 120,
+              "height": 440
+            },
+            "x": 500,
+            "y": 50,
+            "width": 120,
+            "height": 440,
+            "left": 500,
+            "top": 50,
+            "right": 620,
+            "bottom": 490,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "c74871ce-2a86-45e7-89b2-f0b9a4c81b8a",
+          "modelElementId": "06e99ee3-2e91-41d5-824a-331a62e87b74",
+          "presentation": "behavior",
+          "x": 220,
+          "y": 170,
+          "width": 200,
+          "height": 90,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 220,
+              "y": 170
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 200,
+              "height": 90
+            },
+            "x": 220,
+            "y": 170,
+            "width": 200,
+            "height": 90,
+            "left": 220,
+            "top": 170,
+            "right": 420,
+            "bottom": 260,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "02061b7d-a59f-4f62-b810-4ce25b903bfe",
+          "modelElementId": "a2b0ddc8-ec30-44de-abee-39d7feb36144",
+          "presentation": "behavior",
+          "x": 220,
+          "y": 310,
+          "width": 460,
+          "height": 120,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 220,
+              "y": 310
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 460,
+              "height": 120
+            },
+            "x": 220,
+            "y": 310,
+            "width": 460,
+            "height": 120,
+            "left": 220,
+            "top": 310,
+            "right": 680,
+            "bottom": 430,
             "isEmpty": false
           }
         }
       ],
       "edges": [
         {
-          "id": "428d1757-f2b5-494a-b07b-996f67b3e0c3",
-          "modelElementId": "ed4af33d-d2a4-4157-b9b9-71c7bd1a6aba",
-          "sourceNodeId": "333b37d2-dc2e-4d27-acdc-86f98d90b2ac",
-          "targetNodeId": "280a08b7-eb4c-4af4-920a-95f87b2cb5c8",
-          "sequenceY": 132,
+          "id": "c648b450-cc00-4a7f-8b5c-20e9d62fce27",
+          "modelElementId": "6ea159c7-aa69-46f1-9a14-101202bbddcb",
+          "sourceNodeId": "69a45262-2756-4c84-86f9-30db256f99da",
+          "targetNodeId": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "sequenceY": 140,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "a2b33c31-24e8-4682-a388-c685ce9e69cf",
-          "modelElementId": "7aa5b867-321c-44ca-9400-b41bcb6eff10",
-          "sourceNodeId": "280a08b7-eb4c-4af4-920a-95f87b2cb5c8",
-          "targetNodeId": "333b37d2-dc2e-4d27-acdc-86f98d90b2ac",
-          "sequenceY": 200,
+          "id": "7f377752-a41d-428c-bab9-6d19e6607e21",
+          "modelElementId": "129e28b1-96b5-4ce8-aa83-590abbb023ad",
+          "sourceNodeId": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "targetNodeId": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "sequenceY": 210,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "c57219b2-f2e9-4ce5-b829-00880614a545",
+          "modelElementId": "1761d740-6ae1-4474-804f-b4ba6ba3314a",
+          "sourceNodeId": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "targetNodeId": "23dabc9d-e650-4340-8ad4-9efa497e1b55",
+          "sequenceY": 330,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "fc2d5d62-6aea-42a0-ac89-8aa212753de8",
+          "modelElementId": "2ce48004-5447-4d11-a115-7705a66c7eed",
+          "sourceNodeId": "23dabc9d-e650-4340-8ad4-9efa497e1b55",
+          "targetNodeId": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "sequenceY": 365,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "3df6a20e-bf3f-445d-9a1b-2794c0146b9e",
+          "modelElementId": "d1e7281d-9154-4737-8bf1-59aae19eba7c",
+          "sourceNodeId": "23dabc9d-e650-4340-8ad4-9efa497e1b55",
+          "targetNodeId": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "sequenceY": 405,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "492bd9b6-bcab-4579-bd4f-d84a6179483f",
+          "modelElementId": "ae9d5e79-dda6-4e72-b012-8a314dbb17f6",
+          "sourceNodeId": "3e567a2e-c518-4f92-9468-96bc685a78d5",
+          "targetNodeId": "69a45262-2756-4c84-86f9-30db256f99da",
+          "sequenceY": 450,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
@@ -297,7 +475,7 @@
       ],
       "name": "Sequence Diagram",
       "displayLabel": "Sequence Diagram",
-      "id": "c5df0a34-f59c-4f8c-9114-ea93fba1860f"
+      "id": "13469618-e9c3-46d8-9eec-622d0de12ad3"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

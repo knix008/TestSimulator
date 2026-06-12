@@ -9,7 +9,7 @@
         "useRectangleNotation": false,
         "name": "Customer",
         "displayLabel": "Customer",
-        "id": "d0aacdfb-5629-4b0e-9ade-b5b0e3cbe800"
+        "id": "323a367f-dc55-4aa2-9e0e-ef4db061dfdc"
       }
     ],
     "useCases": [
@@ -20,7 +20,7 @@
         "scenario": "",
         "name": "Place Order",
         "displayLabel": "Place Order",
-        "id": "c2681ab3-e479-4e83-b24d-4c8d7810233f"
+        "id": "670eb312-c8ee-4bbf-a940-3dcb24e869c0"
       },
       {
         "extensionPoints": [],
@@ -29,14 +29,14 @@
         "scenario": "",
         "name": "Make Payment",
         "displayLabel": "Make Payment",
-        "id": "d07d620d-8a41-4e6c-88d8-8d22b0d07f61"
+        "id": "47fb14c7-8618-4a35-bff6-ef1f20beb0d1"
       }
     ],
     "systemBoundaries": [
       {
         "name": "Order System",
         "displayLabel": "Order System",
-        "id": "73c0bb1e-071e-4399-a8c5-001987963011"
+        "id": "5b170741-ad77-40bd-9969-6fc7443272bf"
       }
     ],
     "notes": [],
@@ -58,58 +58,58 @@
         "isDirected": false,
         "relationshipKind": "Association",
         "displayLabel": "Association",
-        "sourceClassifierId": "d0aacdfb-5629-4b0e-9ade-b5b0e3cbe800",
-        "targetClassifierId": "c2681ab3-e479-4e83-b24d-4c8d7810233f",
+        "sourceClassifierId": "323a367f-dc55-4aa2-9e0e-ef4db061dfdc",
+        "targetClassifierId": "670eb312-c8ee-4bbf-a940-3dcb24e869c0",
         "name": null,
-        "id": "6c66ba28-298b-4f53-9034-5d5a18a1c08c"
+        "id": "558b0c2a-f2d8-470c-badb-716ae8a117bb"
       },
       {
         "$relationshipKind": "include",
         "relationshipKind": "Include",
         "displayLabel": "\u00ABinclude\u00BB",
-        "sourceClassifierId": "c2681ab3-e479-4e83-b24d-4c8d7810233f",
-        "targetClassifierId": "d07d620d-8a41-4e6c-88d8-8d22b0d07f61",
+        "sourceClassifierId": "670eb312-c8ee-4bbf-a940-3dcb24e869c0",
+        "targetClassifierId": "47fb14c7-8618-4a35-bff6-ef1f20beb0d1",
         "name": null,
-        "id": "e3d7bd1b-97ed-4722-91fe-01db27fcc1d7"
+        "id": "20198486-045f-4f9c-ba90-cf0059c1279f"
       }
     ],
     "ownedElements": [
       {
-        "id": "d0aacdfb-5629-4b0e-9ade-b5b0e3cbe800",
+        "id": "323a367f-dc55-4aa2-9e0e-ef4db061dfdc",
         "displayLabel": "Customer"
       },
       {
-        "id": "c2681ab3-e479-4e83-b24d-4c8d7810233f",
+        "id": "670eb312-c8ee-4bbf-a940-3dcb24e869c0",
         "displayLabel": "Place Order"
       },
       {
-        "id": "d07d620d-8a41-4e6c-88d8-8d22b0d07f61",
+        "id": "47fb14c7-8618-4a35-bff6-ef1f20beb0d1",
         "displayLabel": "Make Payment"
       },
       {
-        "id": "73c0bb1e-071e-4399-a8c5-001987963011",
+        "id": "5b170741-ad77-40bd-9969-6fc7443272bf",
         "displayLabel": "Order System"
       },
       {
-        "id": "6c66ba28-298b-4f53-9034-5d5a18a1c08c",
+        "id": "558b0c2a-f2d8-470c-badb-716ae8a117bb",
         "displayLabel": "Association"
       },
       {
-        "id": "e3d7bd1b-97ed-4722-91fe-01db27fcc1d7",
+        "id": "20198486-045f-4f9c-ba90-cf0059c1279f",
         "displayLabel": "\u00ABinclude\u00BB"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "a5a2ac14-1c2b-4281-a7c8-ced8339bddc4"
+    "id": "5eb96cdb-a62e-4857-be7c-00cddee324a2"
   },
   "diagrams": [
     {
       "kind": "useCaseDiagram",
       "nodes": [
         {
-          "id": "85a13cbe-88e6-449a-abd7-3d484f0a404c",
-          "modelElementId": "73c0bb1e-071e-4399-a8c5-001987963011",
+          "id": "045a5f3f-350b-4c2b-87d1-3aeb69a0b58a",
+          "modelElementId": "5b170741-ad77-40bd-9969-6fc7443272bf",
           "presentation": "systemBoundary",
           "x": 220,
           "y": 60,
@@ -139,8 +139,8 @@
           }
         },
         {
-          "id": "6c091468-353d-4f11-82b7-80c58c43d0ed",
-          "modelElementId": "d0aacdfb-5629-4b0e-9ade-b5b0e3cbe800",
+          "id": "c0138ed8-ba24-4740-a373-b4fedc300c9f",
+          "modelElementId": "323a367f-dc55-4aa2-9e0e-ef4db061dfdc",
           "presentation": "actor",
           "x": 80,
           "y": 120,
@@ -170,8 +170,8 @@
           }
         },
         {
-          "id": "2b76e4eb-4a4f-495b-b52a-c853f0c1bca9",
-          "modelElementId": "c2681ab3-e479-4e83-b24d-4c8d7810233f",
+          "id": "65a64fbc-3db0-480d-a5c1-4a277e7ba5ac",
+          "modelElementId": "670eb312-c8ee-4bbf-a940-3dcb24e869c0",
           "presentation": "useCase",
           "x": 280,
           "y": 100,
@@ -201,8 +201,8 @@
           }
         },
         {
-          "id": "f64f6ed1-be6f-4363-841c-3b85f58479ed",
-          "modelElementId": "d07d620d-8a41-4e6c-88d8-8d22b0d07f61",
+          "id": "dc19a4c1-8760-4cdf-ae96-a5ecd1553423",
+          "modelElementId": "47fb14c7-8618-4a35-bff6-ef1f20beb0d1",
           "presentation": "useCase",
           "x": 520,
           "y": 100,
@@ -234,20 +234,20 @@
       ],
       "edges": [
         {
-          "id": "437a97c3-dc0a-48da-9b2a-f1aed3b35715",
-          "modelElementId": "6c66ba28-298b-4f53-9034-5d5a18a1c08c",
-          "sourceNodeId": "6c091468-353d-4f11-82b7-80c58c43d0ed",
-          "targetNodeId": "2b76e4eb-4a4f-495b-b52a-c853f0c1bca9",
+          "id": "9417e6ff-0ac5-40d8-a5c7-a1e4b38ac79f",
+          "modelElementId": "558b0c2a-f2d8-470c-badb-716ae8a117bb",
+          "sourceNodeId": "c0138ed8-ba24-4740-a373-b4fedc300c9f",
+          "targetNodeId": "65a64fbc-3db0-480d-a5c1-4a277e7ba5ac",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "cacb463f-ce53-4520-867a-b92df097f0bf",
-          "modelElementId": "e3d7bd1b-97ed-4722-91fe-01db27fcc1d7",
-          "sourceNodeId": "2b76e4eb-4a4f-495b-b52a-c853f0c1bca9",
-          "targetNodeId": "f64f6ed1-be6f-4363-841c-3b85f58479ed",
+          "id": "5ba07223-c5db-4b43-b1b0-674bacc2cd38",
+          "modelElementId": "20198486-045f-4f9c-ba90-cf0059c1279f",
+          "sourceNodeId": "65a64fbc-3db0-480d-a5c1-4a277e7ba5ac",
+          "targetNodeId": "dc19a4c1-8760-4cdf-ae96-a5ecd1553423",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -256,7 +256,7 @@
       ],
       "name": "Use Case Diagram",
       "displayLabel": "Use Case Diagram",
-      "id": "19c9039b-bc34-468f-a6b5-1d20baa620d7"
+      "id": "ace73888-5f78-4e1b-812f-e3ac3d98109a"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

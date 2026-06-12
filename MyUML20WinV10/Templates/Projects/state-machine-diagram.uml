@@ -22,7 +22,7 @@
         "localPostcondition": null,
         "name": "Initial",
         "displayLabel": "Initial",
-        "id": "1de56044-553f-47d1-aefd-84e3e912f695"
+        "id": "705a6e69-ddf4-4364-bdef-f8530b9f4fe2"
       },
       {
         "kind": "state",
@@ -37,7 +37,22 @@
         "localPostcondition": null,
         "name": "Pending",
         "displayLabel": "Pending",
-        "id": "d79c48c5-f230-4e31-80dc-dda91e112722"
+        "id": "35ce45e9-b87e-4a19-acb2-61f757bba3aa"
+      },
+      {
+        "kind": "state",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Paid",
+        "displayLabel": "Paid",
+        "id": "a24c82e7-584e-42e9-953d-fb99b2113127"
       },
       {
         "kind": "state",
@@ -52,7 +67,37 @@
         "localPostcondition": null,
         "name": "Shipped",
         "displayLabel": "Shipped",
-        "id": "5146ce53-0348-415f-87a0-14a1a3d6b016"
+        "id": "8fe7ba24-61cb-40a5-ac51-df121e7221c3"
+      },
+      {
+        "kind": "state",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Delivered",
+        "displayLabel": "Delivered",
+        "id": "cc4112ac-b55f-414b-b83d-cb0a8e9d6132"
+      },
+      {
+        "kind": "state",
+        "combinedFragmentKind": null,
+        "guard": null,
+        "referencedDiagramName": null,
+        "expansionKind": null,
+        "lifelineKind": null,
+        "parentLifelineId": null,
+        "decompositionRole": null,
+        "localPrecondition": null,
+        "localPostcondition": null,
+        "name": "Cancelled",
+        "displayLabel": "Cancelled",
+        "id": "e92db713-eca0-4f2b-afa7-17f9e56c4c78"
       },
       {
         "kind": "finalState",
@@ -67,7 +112,7 @@
         "localPostcondition": null,
         "name": "Final",
         "displayLabel": "Final",
-        "id": "546faf4f-4d83-48df-8afb-e8e98c7383f7"
+        "id": "32fe79b8-2ddf-45f9-b93a-42098a419199"
       }
     ],
     "components": [],
@@ -89,10 +134,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Transition",
-        "sourceClassifierId": "1de56044-553f-47d1-aefd-84e3e912f695",
-        "targetClassifierId": "d79c48c5-f230-4e31-80dc-dda91e112722",
+        "sourceClassifierId": "705a6e69-ddf4-4364-bdef-f8530b9f4fe2",
+        "targetClassifierId": "35ce45e9-b87e-4a19-acb2-61f757bba3aa",
         "name": "submit",
-        "id": "53aeb17a-224d-48eb-bc90-dcc004093fbd",
+        "id": "8d627c3c-5930-4ee5-ade9-b93245819fd5",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -107,10 +152,28 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Transition",
-        "sourceClassifierId": "d79c48c5-f230-4e31-80dc-dda91e112722",
-        "targetClassifierId": "5146ce53-0348-415f-87a0-14a1a3d6b016",
+        "sourceClassifierId": "35ce45e9-b87e-4a19-acb2-61f757bba3aa",
+        "targetClassifierId": "a24c82e7-584e-42e9-953d-fb99b2113127",
+        "name": "pay",
+        "id": "c51f8216-c71d-448d-8669-2021073f6e24",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "a24c82e7-584e-42e9-953d-fb99b2113127",
+        "targetClassifierId": "8fe7ba24-61cb-40a5-ac51-df121e7221c3",
         "name": "ship",
-        "id": "8a15df89-c16f-4420-89f0-5d7ddf1f2d75",
+        "id": "477eb675-b661-4e93-86ee-e396a9ee2bf9",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -125,202 +188,449 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Transition",
-        "sourceClassifierId": "5146ce53-0348-415f-87a0-14a1a3d6b016",
-        "targetClassifierId": "546faf4f-4d83-48df-8afb-e8e98c7383f7",
+        "sourceClassifierId": "8fe7ba24-61cb-40a5-ac51-df121e7221c3",
+        "targetClassifierId": "cc4112ac-b55f-414b-b83d-cb0a8e9d6132",
         "name": "deliver",
-        "id": "123e5dfb-5bd2-4659-8ff5-d3ed37e89029",
+        "id": "4975a56c-95bc-4c18-a623-fee85fcd0f1a",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "35ce45e9-b87e-4a19-acb2-61f757bba3aa",
+        "targetClassifierId": "e92db713-eca0-4f2b-afa7-17f9e56c4c78",
+        "name": "cancel",
+        "id": "5682e14b-461b-4361-ae26-916e5a708a9d",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "a24c82e7-584e-42e9-953d-fb99b2113127",
+        "targetClassifierId": "e92db713-eca0-4f2b-afa7-17f9e56c4c78",
+        "name": "cancel",
+        "id": "742f4253-5647-4eba-b80b-4ecb28f18cdd",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "cc4112ac-b55f-414b-b83d-cb0a8e9d6132",
+        "targetClassifierId": "32fe79b8-2ddf-45f9-b93a-42098a419199",
+        "name": "close",
+        "id": "8cefbc4e-093f-4bec-ac03-4d1ed4dfa789",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "$relationshipKind": "behaviorConnector",
+        "kind": "transition",
+        "messageKind": "synchronous",
+        "trigger": "",
+        "guard": "",
+        "effect": "",
+        "communicationSequenceNumber": 0,
+        "durationConstraint": null,
+        "durationMin": null,
+        "durationMax": null,
+        "relationshipKind": "Transition",
+        "sourceClassifierId": "e92db713-eca0-4f2b-afa7-17f9e56c4c78",
+        "targetClassifierId": "32fe79b8-2ddf-45f9-b93a-42098a419199",
+        "name": "close",
+        "id": "da979b29-fd8c-42d3-b909-05db75fed1b7",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "1de56044-553f-47d1-aefd-84e3e912f695",
+        "id": "705a6e69-ddf4-4364-bdef-f8530b9f4fe2",
         "displayLabel": "Initial"
       },
       {
-        "id": "d79c48c5-f230-4e31-80dc-dda91e112722",
+        "id": "35ce45e9-b87e-4a19-acb2-61f757bba3aa",
         "displayLabel": "Pending"
       },
       {
-        "id": "5146ce53-0348-415f-87a0-14a1a3d6b016",
+        "id": "a24c82e7-584e-42e9-953d-fb99b2113127",
+        "displayLabel": "Paid"
+      },
+      {
+        "id": "8fe7ba24-61cb-40a5-ac51-df121e7221c3",
         "displayLabel": "Shipped"
       },
       {
-        "id": "546faf4f-4d83-48df-8afb-e8e98c7383f7",
+        "id": "cc4112ac-b55f-414b-b83d-cb0a8e9d6132",
+        "displayLabel": "Delivered"
+      },
+      {
+        "id": "e92db713-eca0-4f2b-afa7-17f9e56c4c78",
+        "displayLabel": "Cancelled"
+      },
+      {
+        "id": "32fe79b8-2ddf-45f9-b93a-42098a419199",
         "displayLabel": "Final"
       },
       {
-        "id": "53aeb17a-224d-48eb-bc90-dcc004093fbd",
+        "id": "8d627c3c-5930-4ee5-ade9-b93245819fd5",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "8a15df89-c16f-4420-89f0-5d7ddf1f2d75",
+        "id": "c51f8216-c71d-448d-8669-2021073f6e24",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "123e5dfb-5bd2-4659-8ff5-d3ed37e89029",
+        "id": "477eb675-b661-4e93-86ee-e396a9ee2bf9",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "4975a56c-95bc-4c18-a623-fee85fcd0f1a",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "5682e14b-461b-4361-ae26-916e5a708a9d",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "742f4253-5647-4eba-b80b-4ecb28f18cdd",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "8cefbc4e-093f-4bec-ac03-4d1ed4dfa789",
+        "displayLabel": "UmlBehaviorConnector"
+      },
+      {
+        "id": "da979b29-fd8c-42d3-b909-05db75fed1b7",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "9bc126a1-b6d1-48dd-8ac5-c108816283a6"
+    "id": "f98ca49f-72b6-4341-aafe-4b1faaa981c6"
   },
   "diagrams": [
     {
       "kind": "stateMachineDiagram",
       "nodes": [
         {
-          "id": "991d2715-01a8-4a7c-b210-64078be9e9d1",
-          "modelElementId": "1de56044-553f-47d1-aefd-84e3e912f695",
+          "id": "88d5bc4d-9b60-4152-9817-033ef7d32bdd",
+          "modelElementId": "705a6e69-ddf4-4364-bdef-f8530b9f4fe2",
           "presentation": "behavior",
-          "x": 80,
-          "y": 140,
+          "x": 40,
+          "y": 200,
           "width": 32,
           "height": 32,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 80,
-              "y": 140
+              "x": 40,
+              "y": 200
             },
             "size": {
               "isEmpty": false,
               "width": 32,
               "height": 32
             },
-            "x": 80,
-            "y": 140,
+            "x": 40,
+            "y": 200,
             "width": 32,
             "height": 32,
-            "left": 80,
-            "top": 140,
-            "right": 112,
-            "bottom": 172,
+            "left": 40,
+            "top": 200,
+            "right": 72,
+            "bottom": 232,
             "isEmpty": false
           }
         },
         {
-          "id": "49a0fae5-b92a-4d89-af95-74ade58e670e",
-          "modelElementId": "d79c48c5-f230-4e31-80dc-dda91e112722",
+          "id": "471ddb7b-2476-4ce2-9613-28e289e5e18a",
+          "modelElementId": "35ce45e9-b87e-4a19-acb2-61f757bba3aa",
           "presentation": "behavior",
-          "x": 200,
-          "y": 120,
-          "width": 140,
+          "x": 130,
+          "y": 180,
+          "width": 130,
           "height": 72,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 200,
-              "y": 120
+              "x": 130,
+              "y": 180
             },
             "size": {
               "isEmpty": false,
-              "width": 140,
+              "width": 130,
               "height": 72
             },
-            "x": 200,
-            "y": 120,
-            "width": 140,
+            "x": 130,
+            "y": 180,
+            "width": 130,
             "height": 72,
-            "left": 200,
-            "top": 120,
-            "right": 340,
-            "bottom": 192,
+            "left": 130,
+            "top": 180,
+            "right": 260,
+            "bottom": 252,
             "isEmpty": false
           }
         },
         {
-          "id": "dd9339bb-1df3-468b-a5f8-b8d58b65ab5f",
-          "modelElementId": "5146ce53-0348-415f-87a0-14a1a3d6b016",
+          "id": "d8beab95-ae61-498c-9495-9bae714fc220",
+          "modelElementId": "a24c82e7-584e-42e9-953d-fb99b2113127",
           "presentation": "behavior",
-          "x": 420,
-          "y": 120,
-          "width": 140,
+          "x": 320,
+          "y": 180,
+          "width": 130,
           "height": 72,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 420,
-              "y": 120
+              "x": 320,
+              "y": 180
             },
             "size": {
               "isEmpty": false,
-              "width": 140,
+              "width": 130,
               "height": 72
             },
-            "x": 420,
-            "y": 120,
-            "width": 140,
+            "x": 320,
+            "y": 180,
+            "width": 130,
             "height": 72,
-            "left": 420,
-            "top": 120,
-            "right": 560,
-            "bottom": 192,
+            "left": 320,
+            "top": 180,
+            "right": 450,
+            "bottom": 252,
             "isEmpty": false
           }
         },
         {
-          "id": "b6cbdee5-9d9c-45d1-8c04-fe75dbe750d4",
-          "modelElementId": "546faf4f-4d83-48df-8afb-e8e98c7383f7",
+          "id": "51881dd5-50e6-47d9-8eb8-8eed017bfbe0",
+          "modelElementId": "8fe7ba24-61cb-40a5-ac51-df121e7221c3",
           "presentation": "behavior",
-          "x": 640,
-          "y": 140,
+          "x": 510,
+          "y": 180,
+          "width": 130,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 510,
+              "y": 180
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 130,
+              "height": 72
+            },
+            "x": 510,
+            "y": 180,
+            "width": 130,
+            "height": 72,
+            "left": 510,
+            "top": 180,
+            "right": 640,
+            "bottom": 252,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "8a582801-2788-4662-a8ef-9f33c5c9f229",
+          "modelElementId": "cc4112ac-b55f-414b-b83d-cb0a8e9d6132",
+          "presentation": "behavior",
+          "x": 700,
+          "y": 180,
+          "width": 130,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 700,
+              "y": 180
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 130,
+              "height": 72
+            },
+            "x": 700,
+            "y": 180,
+            "width": 130,
+            "height": 72,
+            "left": 700,
+            "top": 180,
+            "right": 830,
+            "bottom": 252,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "deda6843-9a27-4b07-ad3c-320f64d0af41",
+          "modelElementId": "e92db713-eca0-4f2b-afa7-17f9e56c4c78",
+          "presentation": "behavior",
+          "x": 310,
+          "y": 320,
+          "width": 160,
+          "height": 72,
+          "showCompartments": true,
+          "bounds": {
+            "location": {
+              "isEmpty": false,
+              "x": 310,
+              "y": 320
+            },
+            "size": {
+              "isEmpty": false,
+              "width": 160,
+              "height": 72
+            },
+            "x": 310,
+            "y": 320,
+            "width": 160,
+            "height": 72,
+            "left": 310,
+            "top": 320,
+            "right": 470,
+            "bottom": 392,
+            "isEmpty": false
+          }
+        },
+        {
+          "id": "56888260-be53-4b55-89bb-51560c19009f",
+          "modelElementId": "32fe79b8-2ddf-45f9-b93a-42098a419199",
+          "presentation": "behavior",
+          "x": 880,
+          "y": 200,
           "width": 32,
           "height": 32,
           "showCompartments": true,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 640,
-              "y": 140
+              "x": 880,
+              "y": 200
             },
             "size": {
               "isEmpty": false,
               "width": 32,
               "height": 32
             },
-            "x": 640,
-            "y": 140,
+            "x": 880,
+            "y": 200,
             "width": 32,
             "height": 32,
-            "left": 640,
-            "top": 140,
-            "right": 672,
-            "bottom": 172,
+            "left": 880,
+            "top": 200,
+            "right": 912,
+            "bottom": 232,
             "isEmpty": false
           }
         }
       ],
       "edges": [
         {
-          "id": "2c9da711-5596-4721-85b2-0c8a0f32aaed",
-          "modelElementId": "53aeb17a-224d-48eb-bc90-dcc004093fbd",
-          "sourceNodeId": "991d2715-01a8-4a7c-b210-64078be9e9d1",
-          "targetNodeId": "49a0fae5-b92a-4d89-af95-74ade58e670e",
+          "id": "aa855aac-dcf2-4816-9f0f-e7c6a1eaf5d5",
+          "modelElementId": "8d627c3c-5930-4ee5-ade9-b93245819fd5",
+          "sourceNodeId": "88d5bc4d-9b60-4152-9817-033ef7d32bdd",
+          "targetNodeId": "471ddb7b-2476-4ce2-9613-28e289e5e18a",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "66c2fb29-b001-4f27-a83c-aecdac203023",
-          "modelElementId": "8a15df89-c16f-4420-89f0-5d7ddf1f2d75",
-          "sourceNodeId": "49a0fae5-b92a-4d89-af95-74ade58e670e",
-          "targetNodeId": "dd9339bb-1df3-468b-a5f8-b8d58b65ab5f",
+          "id": "8e06b19c-dbe1-4aa5-9232-7a1f845fe95d",
+          "modelElementId": "c51f8216-c71d-448d-8669-2021073f6e24",
+          "sourceNodeId": "471ddb7b-2476-4ce2-9613-28e289e5e18a",
+          "targetNodeId": "d8beab95-ae61-498c-9495-9bae714fc220",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "db6637b6-fb5a-4446-aa49-f915c61a053c",
-          "modelElementId": "123e5dfb-5bd2-4659-8ff5-d3ed37e89029",
-          "sourceNodeId": "dd9339bb-1df3-468b-a5f8-b8d58b65ab5f",
-          "targetNodeId": "b6cbdee5-9d9c-45d1-8c04-fe75dbe750d4",
+          "id": "e1317366-ec84-4afe-9b2a-051d24b194ec",
+          "modelElementId": "477eb675-b661-4e93-86ee-e396a9ee2bf9",
+          "sourceNodeId": "d8beab95-ae61-498c-9495-9bae714fc220",
+          "targetNodeId": "51881dd5-50e6-47d9-8eb8-8eed017bfbe0",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "071e489d-01d9-4a03-97eb-0ccac8538be2",
+          "modelElementId": "4975a56c-95bc-4c18-a623-fee85fcd0f1a",
+          "sourceNodeId": "51881dd5-50e6-47d9-8eb8-8eed017bfbe0",
+          "targetNodeId": "8a582801-2788-4662-a8ef-9f33c5c9f229",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "239cff25-3e37-4f18-b920-6da0a50c318d",
+          "modelElementId": "5682e14b-461b-4361-ae26-916e5a708a9d",
+          "sourceNodeId": "471ddb7b-2476-4ce2-9613-28e289e5e18a",
+          "targetNodeId": "deda6843-9a27-4b07-ad3c-320f64d0af41",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "6b6a3e18-c3e5-4046-923f-f4a319118543",
+          "modelElementId": "742f4253-5647-4eba-b80b-4ecb28f18cdd",
+          "sourceNodeId": "d8beab95-ae61-498c-9495-9bae714fc220",
+          "targetNodeId": "deda6843-9a27-4b07-ad3c-320f64d0af41",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "968e9d84-fa13-47ac-87b8-9be1a2a7f2de",
+          "modelElementId": "8cefbc4e-093f-4bec-ac03-4d1ed4dfa789",
+          "sourceNodeId": "8a582801-2788-4662-a8ef-9f33c5c9f229",
+          "targetNodeId": "56888260-be53-4b55-89bb-51560c19009f",
+          "sequenceY": 0,
+          "routingKind": "straight",
+          "orthoMidX": null,
+          "orthoMidY": null
+        },
+        {
+          "id": "2ed7ddba-fc86-4879-a50a-8409891cff3c",
+          "modelElementId": "da979b29-fd8c-42d3-b909-05db75fed1b7",
+          "sourceNodeId": "deda6843-9a27-4b07-ad3c-320f64d0af41",
+          "targetNodeId": "56888260-be53-4b55-89bb-51560c19009f",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -329,7 +639,7 @@
       ],
       "name": "State Machine Diagram",
       "displayLabel": "State Machine Diagram",
-      "id": "d032c8a3-25e7-41a8-8529-c5a5ff6b182f"
+      "id": "fdb05398-b06d-441c-abe6-908f3c498287"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

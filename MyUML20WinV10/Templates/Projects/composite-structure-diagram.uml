@@ -18,7 +18,7 @@
             "signatureText": "-controller: Controller",
             "name": "controller",
             "displayLabel": "controller",
-            "id": "e2300652-db77-4d47-b006-fccd53fcb489"
+            "id": "6313f546-2c8d-4fe9-9b46-d5687ee303ff"
           },
           {
             "typeName": "Repository",
@@ -28,13 +28,13 @@
             "signatureText": "-repository: Repository",
             "name": "repository",
             "displayLabel": "repository",
-            "id": "89b910e6-de4d-4ad0-8798-76749505accb"
+            "id": "612f758e-4a9e-46a5-8e1f-7367abcf2dee"
           }
         ],
         "operations": [],
         "name": "OrderProcessor",
         "displayLabel": "OrderProcessor",
-        "id": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331"
+        "id": "0461283f-cccf-4d56-81b3-72f2caccb29b"
       }
     ],
     "actors": [],
@@ -50,7 +50,7 @@
         "interfaceName": "IOrderAPI",
         "name": "api",
         "displayLabel": "api",
-        "id": "6ca69f43-6a87-4018-bdc5-2b48eb031667"
+        "id": "1218c469-0052-402d-86eb-61102d12c78a"
       }
     ],
     "objectInstances": [],
@@ -67,37 +67,37 @@
         "isDirected": false,
         "relationshipKind": "Association",
         "displayLabel": "connector",
-        "sourceClassifierId": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
-        "targetClassifierId": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
+        "sourceClassifierId": "0461283f-cccf-4d56-81b3-72f2caccb29b",
+        "targetClassifierId": "0461283f-cccf-4d56-81b3-72f2caccb29b",
         "name": "connector",
-        "id": "961efe7c-3d81-4b1e-8d3c-45c1d6d379e2"
+        "id": "205636fc-f89b-4578-b29e-29520082ae7a"
       }
     ],
     "ownedElements": [
       {
-        "id": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
+        "id": "0461283f-cccf-4d56-81b3-72f2caccb29b",
         "displayLabel": "OrderProcessor"
       },
       {
-        "id": "6ca69f43-6a87-4018-bdc5-2b48eb031667",
+        "id": "1218c469-0052-402d-86eb-61102d12c78a",
         "displayLabel": "api"
       },
       {
-        "id": "961efe7c-3d81-4b1e-8d3c-45c1d6d379e2",
+        "id": "205636fc-f89b-4578-b29e-29520082ae7a",
         "displayLabel": "connector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "044a453f-0887-4c66-8e36-a0f564fa8fe1"
+    "id": "9583fba3-97dd-4a9c-ba4e-954b39cada16"
   },
   "diagrams": [
     {
       "kind": "compositeStructureDiagram",
       "nodes": [
         {
-          "id": "e5e8ee5d-8966-43f5-be17-1ed26cb145a1",
-          "modelElementId": "58ca1bd3-a4a4-415d-ad82-6d1d7d1ad331",
+          "id": "1693458d-b779-4327-90a9-3abb4b63ac84",
+          "modelElementId": "0461283f-cccf-4d56-81b3-72f2caccb29b",
           "presentation": "classifier",
           "x": 80,
           "y": 60,
@@ -127,8 +127,8 @@
           }
         },
         {
-          "id": "3c263269-cdd3-414d-b851-824bd5611a12",
-          "modelElementId": "6ca69f43-6a87-4018-bdc5-2b48eb031667",
+          "id": "40ffe5a7-c2b8-405f-8d15-65232789b37c",
+          "modelElementId": "1218c469-0052-402d-86eb-61102d12c78a",
           "presentation": "port",
           "x": 360,
           "y": 100,
@@ -160,10 +160,10 @@
       ],
       "edges": [
         {
-          "id": "e250c828-0662-4b89-8447-544108acbdd8",
-          "modelElementId": "961efe7c-3d81-4b1e-8d3c-45c1d6d379e2",
-          "sourceNodeId": "e5e8ee5d-8966-43f5-be17-1ed26cb145a1",
-          "targetNodeId": "e5e8ee5d-8966-43f5-be17-1ed26cb145a1",
+          "id": "2b963862-3911-47c9-91ec-7e73eba958cb",
+          "modelElementId": "205636fc-f89b-4578-b29e-29520082ae7a",
+          "sourceNodeId": "1693458d-b779-4327-90a9-3abb4b63ac84",
+          "targetNodeId": "1693458d-b779-4327-90a9-3abb4b63ac84",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -172,7 +172,7 @@
       ],
       "name": "Composite Structure Diagram",
       "displayLabel": "Composite Structure Diagram",
-      "id": "683cefa5-e39f-42a0-8123-f46dd4d22834"
+      "id": "6d09ce98-0856-4dbd-beb9-103e057292eb"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"
