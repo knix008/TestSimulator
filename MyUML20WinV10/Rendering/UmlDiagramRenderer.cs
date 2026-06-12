@@ -137,10 +137,10 @@ public static class UmlDiagramRenderer
                     node.ShowCompartments,
                     node.Width,
                     node.Height),
-                UmlNodePresentation.Component => Math.Max(node.Height, 72),
+                UmlNodePresentation.Component => Math.Max(node.Height, UmlComponentNotation.MinComponentHeight),
                 UmlNodePresentation.ProvidedInterface or UmlNodePresentation.RequiredInterface =>
                     Math.Max(node.Height, UmlComponentNotation.MinInterfaceHeight),
-                UmlNodePresentation.Port => Math.Max(node.Height, 16),
+                UmlNodePresentation.Port => Math.Max(node.Height, UmlComponentNotation.MinPortSize),
                 UmlNodePresentation.ObjectInstance =>
                     UmlObjectNotation.MeasureHeight(
                         (project.FindElement(node.ModelElementId) as UmlObjectInstance)?.Name ?? "obj",
@@ -199,15 +199,23 @@ public static class UmlDiagramRenderer
                 return;
             case UmlNodePresentation.ProvidedInterface:
                 if (project.FindElement(node.ModelElementId) is UmlComponentInterface provided)
-                    UmlComponentNotation.DrawProvidedInterface(g, bounds, provided.Name, bodyPen);
+                {
+                    var providedLayout = UmlComponentInterfaceGeometry.Resolve(project, diagram, node);
+                    var hideProvidedOutward = UmlComponentInterfaceLink.HasOutwardAssemblyLink(project, diagram, node);
+                    UmlComponentNotation.DrawProvidedInterface(g, providedLayout, provided.Name, bodyPen, hideProvidedOutward);
+                }
                 return;
             case UmlNodePresentation.RequiredInterface:
                 if (project.FindElement(node.ModelElementId) is UmlComponentInterface required)
-                    UmlComponentNotation.DrawRequiredInterface(g, bounds, required.Name, bodyPen);
+                {
+                    var requiredLayout = UmlComponentInterfaceGeometry.Resolve(project, diagram, node);
+                    var hideRequiredOutward = UmlComponentInterfaceLink.HasOutwardAssemblyLink(project, diagram, node);
+                    UmlComponentNotation.DrawRequiredInterface(g, requiredLayout, required.Name, bodyPen, hideOutwardSymbol: hideRequiredOutward);
+                }
                 return;
             case UmlNodePresentation.Port:
                 if (project.FindElement(node.ModelElementId) is UmlComponentPort port)
-                    DrawPortNode(g, bounds, port, bodyPen);
+                    DrawPortNode(g, diagram, node, bounds, port, bodyPen);
                 return;
             case UmlNodePresentation.ObjectInstance:
                 if (project.FindElement(node.ModelElementId) is UmlObjectInstance objectInstance)
@@ -380,8 +388,11 @@ public static class UmlDiagramRenderer
         }
         else
         {
-            start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
-            end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+            var interfaceDependency = UmlComponentInterfaceLink.IsInterfaceDependency(project, edge, sourceNode, targetNode);
+            start = UmlNodeConnectionGeometry.GetConnectionPoint(
+                project, sourceNode, targetNode, out var startSide, diagram, interfaceDependency);
+            end = UmlNodeConnectionGeometry.GetConnectionPoint(
+                project, targetNode, sourceNode, out var endSide, diagram, interfaceDependency);
             pathPoints = UmlEdgeRouting.BuildPathPoints(project, diagram, edge, start, end, startSide, endSide);
         }
 
@@ -400,7 +411,10 @@ public static class UmlDiagramRenderer
                     DrawRealization(g, pen, start, end, pathPoints, edge.RoutingKind, crossings);
                     break;
                 case UmlDependency:
-                    DrawDependencyGeometry(g, pen, end, pathPoints, edge.RoutingKind, crossings);
+                    if (UmlComponentInterfaceLink.IsInterfaceLink(sourceNode, targetNode))
+                        DrawInterfaceDependencyGeometry(g, pen, end, pathPoints, edge.RoutingKind, crossings);
+                    else
+                        DrawDependencyGeometry(g, pen, end, pathPoints, edge.RoutingKind, crossings);
                     break;
                 case UmlAssembly assembly:
                     UmlComponentNotation.DrawAssemblyConnector(g, pen, start, end, pathPoints, edge.RoutingKind, crossings,
@@ -577,17 +591,22 @@ public static class UmlDiagramRenderer
         UmlPackageNotation.DrawPackage(g, bounds, pen, package, node.ShowCompartments, nestingFromLabel: nestingFrom);
     }
 
-    private static void DrawPortNode(Graphics g, RectangleF bounds, UmlComponentPort port, Pen pen)
+    private static void DrawPortNode(Graphics g, UmlDiagram diagram, UmlDiagramNode node, RectangleF bounds, UmlComponentPort port, Pen pen)
     {
-        var center = new PointF(bounds.Left + bounds.Width / 2f, bounds.Top + bounds.Height / 2f);
-        UmlComponentNotation.DrawPort(g, center, pen);
+        UmlComponentNotation.DrawPort(g, bounds, pen);
         if (!string.IsNullOrWhiteSpace(port.InterfaceName))
-            UmlComponentNotation.DrawPortInterface(g, center, pen, port.InterfaceKind, port.InterfaceName);
+        {
+            var center = new PointF(bounds.Left + bounds.Width / 2f, bounds.Top + bounds.Height / 2f);
+            UmlComponentNotation.DrawPortInterface(
+                g, center, pen, port.InterfaceKind, port.InterfaceName,
+                UmlComponentNotation.GetPortHalfExtent(bounds));
+        }
         if (!string.IsNullOrWhiteSpace(port.Name))
         {
             using var font = new Font("Segoe UI", 7.5f);
             using var brush = new SolidBrush(UmlDiagramStyle.TextColor);
-            g.DrawString(port.Name, font, brush, bounds.Right + 2f, bounds.Top);
+            var labelPos = UmlComponentNotation.GetPortNameLabelPosition(g, font, port.Name, diagram, node, bounds);
+            g.DrawString(port.Name, font, brush, labelPos.X, labelPos.Y);
         }
     }
 
@@ -1364,6 +1383,23 @@ public static class UmlDiagramRenderer
         DrawPathEndingWithOpenArrow(g, pen, pathPoints, routingKind, crossings, end);
     }
 
+    private static void DrawInterfaceDependencyGeometry(
+        Graphics g,
+        Pen pen,
+        PointF end,
+        PointF[] pathPoints,
+        UmlEdgeRoutingKind routingKind,
+        IReadOnlyList<(float T, PointF Pt)> crossings)
+    {
+        using var dashed = new Pen(pen.Color, pen.Width)
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
+        };
+        UmlEdgeRouting.DrawRoutedPathSegment(
+            g, dashed, pathPoints, routingKind, crossings, UmlComponentNotation.InterfaceCircleRadius + 1f);
+        DrawOpenArrowAtEnd(g, dashed, pathPoints, routingKind, end);
+    }
+
     private static void DrawDependencyLabel(
         Graphics g,
         Font font,
@@ -1630,29 +1666,29 @@ public static class UmlDiagramRenderer
             DrawEdgeOverlay(g, project, diagram, selectedEdge, selected: true, GetEdgeCrossings(crossingsMap, selectedEdge.Id));
 
         if (hoverNode is not null && hoverNode != selectedNode)
-            DrawNodeHoverOverlay(g, project, hoverNode);
+            DrawNodeHoverOverlay(g, project, diagram, hoverNode);
 
         if (selectedNode is not null)
-            DrawNodeSelectionOverlay(g, project, selectedNode);
+            DrawNodeSelectionOverlay(g, project, diagram, selectedNode);
     }
 
-    private static void DrawNodeHoverOverlay(Graphics g, UmlProject project, UmlDiagramNode node)
+    private static void DrawNodeHoverOverlay(Graphics g, UmlProject project, UmlDiagram diagram, UmlDiagramNode node)
     {
         using var pen = new Pen(Color.FromArgb(180, 79, 70, 229), 2f)
         {
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dash,
         };
-        UmlNodeSilhouette.DrawOutline(g, pen, project, node);
+        UmlNodeSilhouette.DrawOutline(g, pen, project, node, diagram);
     }
 
-    private static void DrawNodeSelectionOverlay(Graphics g, UmlProject project, UmlDiagramNode node)
+    private static void DrawNodeSelectionOverlay(Graphics g, UmlProject project, UmlDiagram diagram, UmlDiagramNode node)
     {
         using var selectPen = new Pen(Color.FromArgb(220, 30, 136, 229), 1.8f)
         {
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dot,
         };
-        UmlNodeSilhouette.DrawOutline(g, selectPen, project, node);
-        UmlNodeSilhouette.DrawResizeHandles(g, project, node);
+        UmlNodeSilhouette.DrawOutline(g, selectPen, project, node, diagram);
+        UmlNodeSilhouette.DrawResizeHandles(g, project, node, diagram);
     }
 
     private static void DrawEdgeOverlay(
@@ -1688,8 +1724,11 @@ public static class UmlDiagramRenderer
         }
         else
         {
-            var startPt = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
-            var endPt = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+            var interfaceDependency = UmlComponentInterfaceLink.IsInterfaceDependency(project, edge, sourceNode, targetNode);
+            var startPt = UmlNodeConnectionGeometry.GetConnectionPoint(
+                project, sourceNode, targetNode, out var startSide, diagram, interfaceDependency);
+            var endPt = UmlNodeConnectionGeometry.GetConnectionPoint(
+                project, targetNode, sourceNode, out var endSide, diagram, interfaceDependency);
             pathPoints = UmlEdgeRouting.BuildPathPoints(project, diagram, edge, startPt, endPt, startSide, endSide);
         }
 
@@ -1700,7 +1739,7 @@ public static class UmlDiagramRenderer
             && !UmlEdgeRouting.IsSelfRelationship(sourceNode, targetNode)
             && pathPoints.Length >= 3)
         {
-            const float size = 7f;
+            const float size = 10f;
             using var fill = new SolidBrush(Color.White);
             using var border = new Pen(color, 1.6f);
             for (var i = 1; i < pathPoints.Length - 1; i++)
@@ -1848,7 +1887,8 @@ public static class UmlDiagramRenderer
         UmlDiagramNode? targetNode,
         RectangleF targetBounds,
         UmlDiagramEdge? routingEdge = null,
-        UmlDiagram? diagram = null)
+        UmlDiagram? diagram = null,
+        bool useInterfaceDependencyAnchor = false)
     {
         UmlConnectionSide startSide;
         UmlConnectionSide endSide;
@@ -1863,8 +1903,10 @@ public static class UmlDiagramRenderer
                 return UmlEdgeRouting.BuildSelfLoopPath(bounds, routingKind);
             }
 
-            start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out startSide);
-            end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out endSide);
+            start = UmlNodeConnectionGeometry.GetConnectionPoint(
+                project, sourceNode, targetNode, out startSide, diagram, useInterfaceDependencyAnchor);
+            end = UmlNodeConnectionGeometry.GetConnectionPoint(
+                project, targetNode, sourceNode, out endSide, diagram, useInterfaceDependencyAnchor);
         }
         else if (project is not null && sourceNode is not null)
         {
@@ -1935,8 +1977,11 @@ public static class UmlDiagramRenderer
             return true;
         }
 
-        var start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
-        var end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+        var interfaceDependency = UmlComponentInterfaceLink.IsInterfaceDependency(project, edge, sourceNode, targetNode);
+        var start = UmlNodeConnectionGeometry.GetConnectionPoint(
+            project, sourceNode, targetNode, out var startSide, diagram, interfaceDependency);
+        var end = UmlNodeConnectionGeometry.GetConnectionPoint(
+            project, targetNode, sourceNode, out var endSide, diagram, interfaceDependency);
         pathPoints = UmlEdgeRouting.BuildPathPoints(project, diagram, edge, start, end, startSide, endSide);
         flatPoints = UmlEdgeRouting.FlattenForCrossingDetection(pathPoints, edge.RoutingKind);
         return true;

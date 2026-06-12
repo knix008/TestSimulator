@@ -1,143 +1,186 @@
 using MyUML20WinV10.Models;
+using MyUML20WinV10.Rendering;
 
 namespace MyUML20WinV10.Templates;
 
+/// <summary>
+/// draw.io UML 컴포넌트 다이어그램 가이드 스타일 예제 —
+/// 패키지 그룹, «component»/포트, Required(소켓)→Provided(로리팝) 조립.
+/// </summary>
 public static class ComponentDiagramTemplate
 {
     public const string Id = "component-diagram";
+
+    private const float InterfaceW = 88f;
+    private const float InterfaceH = UmlComponentNotation.MinInterfaceHeight;
+    private const float PortSize = UmlComponentNotation.DefaultPortNodeSize;
+    private const float CompactComponentW = 220f;
+    private const float CompactComponentH = 110f;
+    private const float MainComponentW = UmlComponentNotation.DefaultComponentWidth;
+    private const float MainComponentH = UmlComponentNotation.DefaultComponentHeight;
 
     public static UmlDiagram Build(UmlProject project)
     {
         var diagram = new UmlDiagram { Name = "Component Diagram", Kind = UmlDiagramKind.ComponentDiagram };
 
-        // Components
-        var webUI     = new UmlComponent { Name = "WebUI" };
-        var orderApi  = new UmlComponent { Name = "OrderAPI" };
-        var payment   = new UmlComponent { Name = "PaymentService" };
-        var inventory = new UmlComponent { Name = "InventoryService" };
-        var database  = new UmlComponent { Name = "Database" };
+        var systemPkg = new UmlPackage { Name = "E-Commerce System" };
 
-        // Interfaces
-        var iOrderApi = new UmlComponentInterface
+        var webClient = new UmlComponent { Name = "WebClient", FillColor = "#FFF8FCFF" };
+        var orderService = new UmlComponent { Name = "OrderService", FillColor = "#FFF8FCFF" };
+        var paymentGateway = new UmlComponent { Name = "PaymentGateway", FillColor = "#FFF8FCFF" };
+        var dataStore = new UmlComponent { Name = "DataStore", FillColor = "#FFF8FCFF" };
+
+        var reqOrder = new UmlComponentInterface
+        {
+            Name = "IOrderService",
+            InterfaceKind = UmlComponentInterfaceKind.Required,
+        };
+        var provOrder = new UmlComponentInterface
         {
             Name = "IOrderService",
             InterfaceKind = UmlComponentInterfaceKind.Provided,
         };
-        var iPayment = new UmlComponentInterface
+        var reqPayment = new UmlComponentInterface
+        {
+            Name = "IPayment",
+            InterfaceKind = UmlComponentInterfaceKind.Required,
+        };
+        var provPayment = new UmlComponentInterface
         {
             Name = "IPayment",
             InterfaceKind = UmlComponentInterfaceKind.Provided,
         };
-        var iInventory = new UmlComponentInterface
+        var reqData = new UmlComponentInterface
         {
-            Name = "IInventory",
+            Name = "IDataAccess",
+            InterfaceKind = UmlComponentInterfaceKind.Required,
+        };
+        var provData = new UmlComponentInterface
+        {
+            Name = "IDataAccess",
             InterfaceKind = UmlComponentInterfaceKind.Provided,
         };
-        var iDataStore = new UmlComponentInterface
+
+        var paymentPort = new UmlComponentPort
         {
-            Name = "IDataStore",
+            Name = "payment",
+            InterfaceName = "IPayment",
             InterfaceKind = UmlComponentInterfaceKind.Provided,
         };
 
-        project.RootPackage.AddComponent(webUI);
-        project.RootPackage.AddComponent(orderApi);
-        project.RootPackage.AddComponent(payment);
-        project.RootPackage.AddComponent(inventory);
-        project.RootPackage.AddComponent(database);
-        project.RootPackage.AddComponentInterface(iOrderApi);
-        project.RootPackage.AddComponentInterface(iPayment);
-        project.RootPackage.AddComponentInterface(iInventory);
-        project.RootPackage.AddComponentInterface(iDataStore);
-
-        // Assembly connectors
-        var webToOrder = new UmlAssembly
+        var note = new UmlNote
         {
-            SourceClassifierId = webUI.Id,
-            TargetClassifierId = iOrderApi.Id,
-            InterfaceName = "IOrderService",
-            SourceIsRequirer = true,
-        };
-        var orderProvides = new UmlAssembly
-        {
-            SourceClassifierId = orderApi.Id,
-            TargetClassifierId = iOrderApi.Id,
-            InterfaceName = "IOrderService",
-            SourceIsRequirer = false,
-        };
-        var orderToPayment = new UmlAssembly
-        {
-            SourceClassifierId = orderApi.Id,
-            TargetClassifierId = iPayment.Id,
-            InterfaceName = "IPayment",
-            SourceIsRequirer = true,
-        };
-        var paymentProvides = new UmlAssembly
-        {
-            SourceClassifierId = payment.Id,
-            TargetClassifierId = iPayment.Id,
-            InterfaceName = "IPayment",
-            SourceIsRequirer = false,
-        };
-        var orderToInventory = new UmlAssembly
-        {
-            SourceClassifierId = orderApi.Id,
-            TargetClassifierId = iInventory.Id,
-            InterfaceName = "IInventory",
-            SourceIsRequirer = true,
-        };
-        var inventoryProvides = new UmlAssembly
-        {
-            SourceClassifierId = inventory.Id,
-            TargetClassifierId = iInventory.Id,
-            InterfaceName = "IInventory",
-            SourceIsRequirer = false,
-        };
-        var dbAssembly = new UmlAssembly
-        {
-            SourceClassifierId = orderApi.Id,
-            TargetClassifierId = iDataStore.Id,
-            InterfaceName = "IDataStore",
-            SourceIsRequirer = true,
-        };
-        var dbProvides = new UmlAssembly
-        {
-            SourceClassifierId = database.Id,
-            TargetClassifierId = iDataStore.Id,
-            InterfaceName = "IDataStore",
-            SourceIsRequirer = false,
+            Name = "«database» DataStore\r\nAssembly = Required → Provided\r\nPort = 경계 연결 터널",
         };
 
-        project.RootPackage.AddRelationship(webToOrder);
-        project.RootPackage.AddRelationship(orderProvides);
-        project.RootPackage.AddRelationship(orderToPayment);
-        project.RootPackage.AddRelationship(paymentProvides);
-        project.RootPackage.AddRelationship(orderToInventory);
-        project.RootPackage.AddRelationship(inventoryProvides);
-        project.RootPackage.AddRelationship(dbAssembly);
-        project.RootPackage.AddRelationship(dbProvides);
+        project.RootPackage.AddNestedPackage(systemPkg);
+        project.RootPackage.AddComponent(webClient);
+        project.RootPackage.AddComponent(orderService);
+        project.RootPackage.AddComponent(paymentGateway);
+        project.RootPackage.AddComponent(dataStore);
+        project.RootPackage.AddComponentInterface(reqOrder);
+        project.RootPackage.AddComponentInterface(provOrder);
+        project.RootPackage.AddComponentInterface(reqPayment);
+        project.RootPackage.AddComponentInterface(provPayment);
+        project.RootPackage.AddComponentInterface(reqData);
+        project.RootPackage.AddComponentInterface(provData);
+        project.RootPackage.AddComponentPort(paymentPort);
+        project.RootPackage.AddNote(note);
 
-        // Layout — WebUI on left, OrderAPI in center, services on right, DB at bottom
-        var webNode       = UmlTemplateBuilder.AddNode(diagram, webUI.Id,     UmlNodePresentation.Component,        40,  160, 160, 100);
-        var orderNode     = UmlTemplateBuilder.AddNode(diagram, orderApi.Id,  UmlNodePresentation.Component,        290, 140, 180, 130);
-        var paymentNode   = UmlTemplateBuilder.AddNode(diagram, payment.Id,   UmlNodePresentation.Component,        600, 40,  160, 90);
-        var inventoryNode = UmlTemplateBuilder.AddNode(diagram, inventory.Id, UmlNodePresentation.Component,        600, 180, 160, 90);
-        var dbNode        = UmlTemplateBuilder.AddNode(diagram, database.Id,  UmlNodePresentation.Component,        600, 310, 160, 90);
+        var asmWebOrder = MakeAssembly(reqOrder, provOrder);
+        var asmOrderPayment = MakeAssembly(reqPayment, provPayment);
+        var asmOrderData = MakeAssembly(reqData, provData);
+        project.RootPackage.AddRelationship(asmWebOrder);
+        project.RootPackage.AddRelationship(asmOrderPayment);
+        project.RootPackage.AddRelationship(asmOrderData);
 
-        var iOrderNode    = UmlTemplateBuilder.AddNode(diagram, iOrderApi.Id,  UmlNodePresentation.ProvidedInterface, 245, 190, 72, 28);
-        var iPayNode      = UmlTemplateBuilder.AddNode(diagram, iPayment.Id,   UmlNodePresentation.ProvidedInterface, 560, 72,  72, 28);
-        var iInvNode      = UmlTemplateBuilder.AddNode(diagram, iInventory.Id, UmlNodePresentation.ProvidedInterface, 560, 210, 72, 28);
-        var iDbNode       = UmlTemplateBuilder.AddNode(diagram, iDataStore.Id, UmlNodePresentation.ProvidedInterface, 560, 340, 72, 28);
+        // 패키지를 먼저 추가해 뒤에 깔리도록 합니다 (draw.io: Send to back).
+        UmlTemplateBuilder.AddNode(diagram, systemPkg.Id, UmlNodePresentation.Package, 24, 24, 880, 500);
 
-        UmlTemplateBuilder.AddEdge(diagram, webToOrder.Id,      webNode,       iOrderNode);
-        UmlTemplateBuilder.AddEdge(diagram, orderProvides.Id,   orderNode,     iOrderNode);
-        UmlTemplateBuilder.AddEdge(diagram, orderToPayment.Id,  orderNode,     iPayNode);
-        UmlTemplateBuilder.AddEdge(diagram, paymentProvides.Id, paymentNode,   iPayNode);
-        UmlTemplateBuilder.AddEdge(diagram, orderToInventory.Id,orderNode,     iInvNode);
-        UmlTemplateBuilder.AddEdge(diagram, inventoryProvides.Id,inventoryNode,iInvNode);
-        UmlTemplateBuilder.AddEdge(diagram, dbAssembly.Id,      orderNode,     iDbNode);
-        UmlTemplateBuilder.AddEdge(diagram, dbProvides.Id,      dbNode,        iDbNode);
+        var webNode = UmlTemplateBuilder.AddNode(
+            diagram, webClient.Id, UmlNodePresentation.Component, 56, 112, CompactComponentW, CompactComponentH);
+        var orderNode = UmlTemplateBuilder.AddNode(
+            diagram, orderService.Id, UmlNodePresentation.Component, 248, 72, MainComponentW, MainComponentH);
+        var payNode = UmlTemplateBuilder.AddNode(
+            diagram, paymentGateway.Id, UmlNodePresentation.Component, 560, 56, CompactComponentW, CompactComponentH);
+        var dbNode = UmlTemplateBuilder.AddNode(
+            diagram, dataStore.Id, UmlNodePresentation.Component, 560, 300, CompactComponentW, CompactComponentH);
+
+        var reqOrderNode = AddAttachedInterface(
+            diagram, reqOrder.Id, UmlNodePresentation.RequiredInterface,
+            webNode, UmlComponentAttachmentEdge.Right, 0.48f);
+        var provOrderNode = AddAttachedInterface(
+            diagram, provOrder.Id, UmlNodePresentation.ProvidedInterface,
+            orderNode, UmlComponentAttachmentEdge.Left, 0.42f);
+        var reqPayNode = AddAttachedInterface(
+            diagram, reqPayment.Id, UmlNodePresentation.RequiredInterface,
+            orderNode, UmlComponentAttachmentEdge.Right, 0.38f);
+        var provPayNode = AddAttachedInterface(
+            diagram, provPayment.Id, UmlNodePresentation.ProvidedInterface,
+            payNode, UmlComponentAttachmentEdge.Left, 0.5f);
+        var reqDataNode = AddAttachedInterface(
+            diagram, reqData.Id, UmlNodePresentation.RequiredInterface,
+            orderNode, UmlComponentAttachmentEdge.Bottom, 0.58f);
+        var provDataNode = AddAttachedInterface(
+            diagram, provData.Id, UmlNodePresentation.ProvidedInterface,
+            dbNode, UmlComponentAttachmentEdge.Top, 0.5f);
+
+        AddAttachedPort(diagram, paymentPort.Id, orderNode, UmlComponentAttachmentEdge.Top, 0.68f);
+
+        UmlTemplateBuilder.AddNode(diagram, note.Id, UmlNodePresentation.Note, 56, 328, 196, 88);
+
+        UmlTemplateBuilder.AddEdge(diagram, asmWebOrder.Id, reqOrderNode, provOrderNode);
+        UmlTemplateBuilder.AddEdge(diagram, asmOrderPayment.Id, reqPayNode, provPayNode);
+        UmlTemplateBuilder.AddEdge(diagram, asmOrderData.Id, reqDataNode, provDataNode);
 
         return diagram;
+    }
+
+    private static UmlAssembly MakeAssembly(UmlComponentInterface required, UmlComponentInterface provided) =>
+        new()
+        {
+            SourceClassifierId = required.Id,
+            TargetClassifierId = provided.Id,
+            InterfaceName = provided.Name,
+            SourceIsRequirer = true,
+        };
+
+    private static UmlDiagramNode AddAttachedInterface(
+        UmlDiagram diagram,
+        Guid modelElementId,
+        UmlNodePresentation presentation,
+        UmlDiagramNode component,
+        UmlComponentAttachmentEdge edge,
+        float t)
+    {
+        var node = UmlTemplateBuilder.AddNode(diagram, modelElementId, presentation, 0, 0, InterfaceW, InterfaceH);
+        AttachToComponent(diagram, node, component, edge, t);
+        return node;
+    }
+
+    private static UmlDiagramNode AddAttachedPort(
+        UmlDiagram diagram,
+        Guid modelElementId,
+        UmlDiagramNode component,
+        UmlComponentAttachmentEdge edge,
+        float t)
+    {
+        var node = UmlTemplateBuilder.AddNode(diagram, modelElementId, UmlNodePresentation.Port, 0, 0, PortSize, PortSize);
+        AttachToComponent(diagram, node, component, edge, t);
+        return node;
+    }
+
+    private static void AttachToComponent(
+        UmlDiagram diagram,
+        UmlDiagramNode attachable,
+        UmlDiagramNode component,
+        UmlComponentAttachmentEdge edge,
+        float t)
+    {
+        attachable.AttachedComponentNodeId = component.Id;
+        attachable.AttachmentEdge = edge;
+        attachable.AttachmentT = t;
+        UmlComponentAttachment.ApplyPosition(diagram, attachable);
     }
 
     public static UmlProject BuildProject()

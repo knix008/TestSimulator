@@ -12,7 +12,9 @@ public static class UmlNodeConnectionGeometry
         UmlProject project,
         UmlDiagramNode fromNode,
         UmlDiagramNode toNode,
-        out UmlConnectionSide side)
+        out UmlConnectionSide side,
+        UmlDiagram? diagram = null,
+        bool useInterfaceDependencyAnchor = false)
     {
         var fromBounds = GetLayoutBounds(project, fromNode);
         var toBounds = GetLayoutBounds(project, toNode);
@@ -20,7 +22,10 @@ public static class UmlNodeConnectionGeometry
 
         if (fromNode.Presentation is UmlNodePresentation.ProvidedInterface or UmlNodePresentation.RequiredInterface)
         {
-            var interfacePoint = UmlComponentNotation.GetConnectionPoint(fromNode, fromBounds, aimPoint);
+            var layout = UmlComponentInterfaceGeometry.Resolve(project, diagram, fromNode);
+            var interfacePoint = useInterfaceDependencyAnchor
+                ? UmlComponentNotation.GetInterfaceDependencyConnectionPoint(layout)
+                : UmlComponentNotation.GetConnectionPoint(fromNode, layout, aimPoint);
             side = ClassifyConnectionSide(interfacePoint, fromBounds);
             return interfacePoint;
         }

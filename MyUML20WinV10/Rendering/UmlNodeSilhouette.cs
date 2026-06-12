@@ -5,22 +5,51 @@ namespace MyUML20WinV10.Rendering;
 
 public static class UmlNodeSilhouette
 {
-    public const float ResizeHandleRadius = 4.5f;
-    public const float ResizeHandleHitRadius = 8f;
+    public const float ResizeHandleRadius = 7.5f;
+    public const float ResizeHandleHitRadius = 18f;
+    public const float ComponentResizeHandleRadius = 11f;
+    public const float ComponentResizeHandleHitRadius = 26f;
+    public const float MinScreenHitRadius = 28f;
 
     private const float RoundedNodeRadius = 12f;
     private const float InterfaceCornerRadius = 8f;
 
-    public static IReadOnlyList<(int Index, PointF Point)> GetResizeHandles(UmlProject project, UmlDiagramNode node)
+    public static IReadOnlyList<(int Index, PointF Point)> GetResizeHandles(
+        UmlProject project,
+        UmlDiagramNode node,
+        UmlDiagram? diagram = null)
     {
-        var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, node);
-        var center = GetShapeCenter(bounds);
-        using var path = BuildSilhouettePath(project, node, bounds);
+        if (UmlComponentInterfaceGeometry.IsLinePresentation(node.Presentation))
+            return UmlComponentInterfaceGeometry.GetEndpointHandles(project, diagram, node);
 
+        var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, node);
+        return UsesRectResizeHandles(node.Presentation)
+            ? GetRectResizeHandles(project, node, bounds)
+            : GetPathResizeHandles(project, node, bounds);
+    }
+
+    private static List<(int Index, PointF Point)> GetRectResizeHandles(UmlProject project, UmlDiagramNode node, RectangleF bounds)
+    {
         var handles = new List<(int Index, PointF Point)>(8);
         for (var i = 0; i < 8; i++)
         {
-            if (!IsHandleEnabled(project, node, i))
+            if (!IsHandleEnabled(project, node, i, bounds))
+                continue;
+
+            handles.Add((i, GetRectHandlePoint(bounds, i)));
+        }
+
+        return handles;
+    }
+
+    private static List<(int Index, PointF Point)> GetPathResizeHandles(UmlProject project, UmlDiagramNode node, RectangleF bounds)
+    {
+        var center = GetShapeCenter(bounds);
+        using var path = BuildSilhouettePath(project, node, bounds);
+        var handles = new List<(int Index, PointF Point)>(8);
+        for (var i = 0; i < 8; i++)
+        {
+            if (!IsHandleEnabled(project, node, i, bounds))
                 continue;
 
             var angle = HandleIndexToAngle(i);
@@ -31,11 +60,20 @@ public static class UmlNodeSilhouette
         return handles;
     }
 
-    public static int HitTestResizeHandle(UmlProject project, UmlDiagramNode node, PointF location, float zoom = 1f)
+    public static int HitTestResizeHandle(
+        UmlProject project,
+        UmlDiagramNode node,
+        PointF location,
+        float zoom = 1f,
+        UmlDiagram? diagram = null)
     {
-        // 줌에 무관하게 항상 화면에서 8px로 느껴지도록 캔버스 단위 반경을 역산합니다.
-        var hitRadius = ResizeHandleHitRadius / Math.Max(0.1f, zoom);
-        foreach (var (index, point) in GetResizeHandles(project, node))
+        if (UmlComponentInterfaceGeometry.IsLinePresentation(node.Presentation))
+            return UmlComponentInterfaceGeometry.HitTestEndpointHandle(project, diagram, node, location, zoom);
+
+        // 줌에 무관하게 화면 픽셀 기준으로 일정한 클릭 영역을 유지합니다.
+        var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, node);
+        var hitRadius = GetHandleHitRadius(node, bounds, zoom);
+        foreach (var (index, point) in GetResizeHandles(project, node, diagram))
         {
             var dx = location.X - point.X;
             var dy = location.Y - point.Y;
@@ -49,10 +87,18 @@ public static class UmlNodeSilhouette
     public static bool IsContainerPresentation(UmlNodePresentation presentation) =>
         presentation is UmlNodePresentation.Package or UmlNodePresentation.SystemBoundary;
 
-    public static bool HitTestNode(UmlProject project, UmlDiagramNode node, PointF location, float zoom)
+    public static bool HitTestNode(
+        UmlProject project,
+        UmlDiagramNode node,
+        PointF location,
+        float zoom,
+        UmlDiagram? diagram = null)
     {
+        if (UmlComponentInterfaceGeometry.IsLinePresentation(node.Presentation))
+            return UmlComponentInterfaceGeometry.HitTestLine(project, diagram, node, location, zoom);
+
         var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, node);
-        var borderThreshold = Math.Max(6f, MinHitSize) / zoom;
+        var borderThreshold = Math.Max(10f, MinHitSize) / zoom;
 
         if (node.Presentation == UmlNodePresentation.Behavior
             && project.FindElement(node.ModelElementId) is UmlBehaviorNode { Kind: UmlBehaviorNodeKind.Lifeline })
@@ -69,6 +115,8 @@ public static class UmlNodeSilhouette
         {
             UmlNodePresentation.Package => HitTestPackage(bounds, location, borderThreshold),
             UmlNodePresentation.SystemBoundary => HitTestBorder(bounds, location, borderThreshold),
+            UmlNodePresentation.Port
+                or UmlNodePresentation.Component => HitTestExpandedBounds(bounds, location, zoom),
             _ => HitTestFilledShape(project, node, bounds, location, zoom),
         };
     }
@@ -102,7 +150,7 @@ public static class UmlNodeSilhouette
         return body.Contains(location);
     }
 
-    public const float MinHitSize = 8f;
+    public const float MinHitSize = 14f;
 
     private static bool HitTestFilledShape(
         UmlProject project,
@@ -118,7 +166,7 @@ public static class UmlNodeSilhouette
             return false;
 
         using var path = BuildSilhouettePath(project, node, bounds);
-        using var pen = new Pen(Color.Black, Math.Max(6f, MinHitSize) / zoom);
+        using var pen = new Pen(Color.Black, Math.Max(10f, MinHitSize) / zoom);
 
         if (path.IsVisible(location) || path.IsOutlineVisible(location, pen))
             return true;
@@ -149,21 +197,51 @@ public static class UmlNodeSilhouette
         return minDist <= borderThreshold;
     }
 
-    public static void DrawResizeHandles(Graphics g, UmlProject project, UmlDiagramNode node)
+    public static void DrawResizeHandles(Graphics g, UmlProject project, UmlDiagramNode node, UmlDiagram? diagram = null)
     {
         using var fill = new SolidBrush(Color.White);
-        using var pen = new Pen(Color.FromArgb(30, 136, 229), 1.5f);
+        var isComponentSurface = UsesRectResizeHandles(node.Presentation);
+        using var pen = new Pen(Color.FromArgb(30, 136, 229), isComponentSurface ? 2f : 1.5f);
 
-        foreach (var (_, point) in GetResizeHandles(project, node))
+        foreach (var (_, point) in GetResizeHandles(project, node, diagram))
         {
-            var r = ResizeHandleRadius;
+            var r = GetHandleDrawRadius(node);
             g.FillEllipse(fill, point.X - r, point.Y - r, r * 2f, r * 2f);
             g.DrawEllipse(pen, point.X - r, point.Y - r, r * 2f, r * 2f);
         }
     }
 
-    public static void DrawOutline(Graphics g, Pen pen, UmlProject project, UmlDiagramNode node)
+    private static float GetHandleDrawRadius(UmlDiagramNode node) =>
+        UsesRectResizeHandles(node.Presentation)
+        || UmlComponentInterfaceGeometry.IsLinePresentation(node.Presentation)
+            ? ComponentResizeHandleRadius
+            : ResizeHandleRadius;
+
+    private static float GetHandleHitRadius(UmlDiagramNode node, RectangleF bounds, float zoom)
     {
+        var baseRadius = UsesRectResizeHandles(node.Presentation)
+            ? ComponentResizeHandleHitRadius
+            : ResizeHandleHitRadius;
+        var hitRadius = baseRadius / Math.Max(0.1f, zoom);
+        if (UsesRectResizeHandles(node.Presentation))
+            hitRadius = Math.Max(hitRadius, MinScreenHitRadius / Math.Max(0.1f, zoom));
+        if (UsesRectResizeHandles(node.Presentation) && Math.Min(bounds.Width, bounds.Height) < 48f)
+            hitRadius = Math.Max(hitRadius, (MinScreenHitRadius + 6f) / Math.Max(0.1f, zoom));
+        else if (Math.Min(bounds.Width, bounds.Height) < 36f)
+            hitRadius = Math.Max(hitRadius, (MinScreenHitRadius - 6f) / Math.Max(0.1f, zoom));
+
+        return hitRadius;
+    }
+
+    public static void DrawOutline(Graphics g, Pen pen, UmlProject project, UmlDiagramNode node, UmlDiagram? diagram = null)
+    {
+        if (UmlComponentInterfaceGeometry.IsLinePresentation(node.Presentation))
+        {
+            var layout = UmlComponentInterfaceGeometry.Resolve(project, diagram, node);
+            UmlComponentNotation.DrawInterfaceLineOutline(g, pen, layout, node.Presentation);
+            return;
+        }
+
         var bounds = UmlNodeConnectionGeometry.GetLayoutBounds(project, node);
 
         if (node.Presentation == UmlNodePresentation.Classifier
@@ -259,9 +337,9 @@ public static class UmlNodeSilhouette
             }
         }
 
-        if (node.Presentation is UmlNodePresentation.ProvidedInterface or UmlNodePresentation.RequiredInterface)
+        if (node.Presentation is UmlNodePresentation.Port or UmlNodePresentation.Component)
         {
-            UmlComponentNotation.DrawInterfaceSelectionOutline(g, pen, node.Presentation, bounds);
+            g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
             return;
         }
 
@@ -580,7 +658,20 @@ public static class UmlNodeSilhouette
         ]);
     }
 
-    private static bool IsHandleEnabled(UmlProject project, UmlDiagramNode node, int handleIndex)
+    private static bool UsesRectResizeHandles(UmlNodePresentation presentation) =>
+        presentation is UmlNodePresentation.Component or UmlNodePresentation.Port;
+
+    private static bool HitTestExpandedBounds(RectangleF bounds, PointF location, float zoom)
+    {
+        var minW = Math.Max(bounds.Width, MinHitSize / zoom);
+        var minH = Math.Max(bounds.Height, MinHitSize / zoom);
+        var cx = bounds.X + bounds.Width / 2f;
+        var cy = bounds.Y + bounds.Height / 2f;
+        var hit = new RectangleF(cx - minW / 2f, cy - minH / 2f, minW, minH);
+        return hit.Contains(location);
+    }
+
+    private static bool IsHandleEnabled(UmlProject project, UmlDiagramNode node, int handleIndex, RectangleF bounds)
     {
         if (node.Presentation == UmlNodePresentation.Behavior
             && project.FindElement(node.ModelElementId) is UmlBehaviorNode behaviorNode)
@@ -591,6 +682,11 @@ public static class UmlNodeSilhouette
             if (UmlCircleNodeGeometry.UsesFixedCircleSize(behaviorNode.Kind))
                 return false;
         }
+
+        if (UsesRectResizeHandles(node.Presentation)
+            && Math.Min(bounds.Width, bounds.Height) < 40f
+            && handleIndex is 1 or 3 or 5 or 7)
+            return false;
 
         return true;
     }

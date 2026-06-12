@@ -86,8 +86,11 @@ public static class UmlEdgeRouting
             return;
         }
 
-        var start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
-        var end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+        var interfaceDependency = UmlComponentInterfaceLink.IsInterfaceDependency(project, edge, sourceNode, targetNode);
+        var start = UmlNodeConnectionGeometry.GetConnectionPoint(
+            project, sourceNode, targetNode, out var startSide, diagram, interfaceDependency);
+        var end = UmlNodeConnectionGeometry.GetConnectionPoint(
+            project, targetNode, sourceNode, out var endSide, diagram, interfaceDependency);
 
         if (!EdgePathNeedsBendRouting(project, diagram, edge, start, end, startSide, endSide))
         {
@@ -323,8 +326,11 @@ public static class UmlEdgeRouting
         if (sourceNode is null || targetNode is null || IsSelfRelationship(sourceNode, targetNode))
             return;
 
-        var start = UmlNodeConnectionGeometry.GetConnectionPoint(project, sourceNode, targetNode, out var startSide);
-        var end = UmlNodeConnectionGeometry.GetConnectionPoint(project, targetNode, sourceNode, out var endSide);
+        var interfaceDependency = UmlComponentInterfaceLink.IsInterfaceDependency(project, edge, sourceNode, targetNode);
+        var start = UmlNodeConnectionGeometry.GetConnectionPoint(
+            project, sourceNode, targetNode, out var startSide, diagram, interfaceDependency);
+        var end = UmlNodeConnectionGeometry.GetConnectionPoint(
+            project, targetNode, sourceNode, out var endSide, diagram, interfaceDependency);
         ApplyDefaultBendPosition(edge, start, end, startSide, endSide);
     }
 
@@ -333,12 +339,12 @@ public static class UmlEdgeRouting
         PointF[] pathPoints,
         UmlEdgeRoutingKind routingKind,
         float zoom,
-        float hitSize = 8f)
+        float hitSize = 14f)
     {
         if (routingKind != UmlEdgeRoutingKind.Bent || pathPoints.Length < 3)
             return null;
 
-        var threshold = Math.Max(hitSize / Math.Max(zoom, 0.25f), 6f);
+        var threshold = Math.Max(hitSize / Math.Max(zoom, 0.25f), 10f);
         var thresholdSq = threshold * threshold;
         int? bestIndex = null;
         var bestDistSq = float.MaxValue;
@@ -519,22 +525,56 @@ public static class UmlEdgeRouting
         PointF[] points,
         UmlEdgeRoutingKind routingKind,
         IReadOnlyList<(float T, PointF Pt)> crossings,
-        float trimFromEnd)
+        float trimFromEnd,
+        float trimFromStart = 0f)
     {
-        if (points.Length < 2 || trimFromEnd <= 0.01f)
+        if (points.Length < 2)
+            return;
+
+        if (trimFromEnd <= 0.01f && trimFromStart <= 0.01f)
         {
             DrawRoutedPath(g, pen, points, routingKind, crossings);
             return;
         }
 
-        var fullFlat = FlattenForCrossingDetection(points, routingKind);
-        var segmentEnd = PointAtDistanceFromEnd(fullFlat, trimFromEnd);
-        var clipped = TrimFlatPath(fullFlat, segmentEnd);
+        var clipped = FlattenForCrossingDetection(points, routingKind);
+        if (trimFromEnd > 0.01f)
+        {
+            var segmentEnd = PointAtDistanceFromEnd(clipped, trimFromEnd);
+            clipped = TrimFlatPath(clipped, segmentEnd);
+        }
+
+        if (trimFromStart > 0.01f)
+        {
+            var segmentStart = PointAtDistanceFromStart(clipped, trimFromStart);
+            clipped = TrimFlatPathFromStart(clipped, segmentStart);
+        }
+
+        if (clipped.Length < 2)
+            return;
+
         var clippedCrossings = FilterCrossingsWithinFlatLength(clipped, crossings);
         if (clippedCrossings.Count == 0)
             DrawPolyline(g, pen, clipped);
         else
             DrawPolylineWithBridges(g, pen, clipped, clippedCrossings, BridgeRadius);
+    }
+
+    public static PointF GetPathStartDirection(PointF[] points, UmlEdgeRoutingKind routingKind)
+    {
+        var flat = FlattenForCrossingDetection(points, routingKind);
+        if (flat.Length < 2)
+            return new PointF(1f, 0f);
+
+        var start = flat[0];
+        var next = flat[1];
+        var dx = next.X - start.X;
+        var dy = next.Y - start.Y;
+        var len = MathF.Sqrt(dx * dx + dy * dy);
+        if (len < 0.001f)
+            return new PointF(1f, 0f);
+
+        return new PointF(dx / len, dy / len);
     }
 
     public static PointF GetPathEndDirection(PointF[] points, UmlEdgeRoutingKind routingKind)
@@ -936,6 +976,56 @@ public static class UmlEdgeRouting
         }
 
         return flat[0];
+    }
+
+    private static PointF PointAtDistanceFromStart(PointF[] flat, float distanceFromStart)
+    {
+        var remaining = distanceFromStart;
+        for (var i = 1; i < flat.Length; i++)
+        {
+            var segLen = DistanceBetween(flat[i - 1], flat[i]);
+            if (segLen >= remaining)
+                return ShortenToward(flat[i], flat[i - 1], remaining);
+
+            remaining -= segLen;
+        }
+
+        return flat[^1];
+    }
+
+    private static PointF[] TrimFlatPathFromStart(PointF[] flat, PointF segmentStart)
+    {
+        const float eps = 0.75f;
+        if (flat.Length < 2)
+            return flat;
+
+        if (DistanceBetween(flat[0], segmentStart) < eps)
+        {
+            var copy = (PointF[])flat.Clone();
+            copy[0] = segmentStart;
+            return copy;
+        }
+
+        for (var i = 0; i < flat.Length - 1; i++)
+        {
+            var segStart = flat[i];
+            var segEnd = flat[i + 1];
+            var segLen = DistanceBetween(segStart, segEnd);
+            if (segLen < eps)
+                continue;
+
+            var dStart = DistanceBetween(segmentStart, segStart);
+            var dEnd = DistanceBetween(segmentStart, segEnd);
+            if (MathF.Abs(dStart + dEnd - segLen) < 1.5f)
+            {
+                var trimmed = new List<PointF> { segmentStart };
+                for (var j = i + 1; j < flat.Length; j++)
+                    trimmed.Add(flat[j]);
+                return trimmed.ToArray();
+            }
+        }
+
+        return [segmentStart, flat[^1]];
     }
 
     private static PointF[] TrimFlatPath(PointF[] flat, PointF segmentEnd)

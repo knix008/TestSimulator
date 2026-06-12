@@ -1,4 +1,5 @@
 using MyUML20WinV10.Models;
+using MyUML20WinV10.Rendering;
 
 namespace MyUML20WinV10.Templates;
 
@@ -29,7 +30,8 @@ public static class CompositeStructureDiagramTemplate
 
         var frameNode = UmlTemplateBuilder.AddNode(diagram, frame.Id, UmlNodePresentation.Classifier, 80, 60, 320, 200);
         frameNode.ShowCompartments = true;
-        var portNode = UmlTemplateBuilder.AddNode(diagram, port.Id, UmlNodePresentation.Port, 360, 100, 20, 20);
+        var portSize = UmlComponentNotation.DefaultPortNodeSize;
+        var portNode = UmlTemplateBuilder.AddNode(diagram, port.Id, UmlNodePresentation.Port, 352, 96, portSize, portSize);
 
         UmlTemplateBuilder.AddEdge(diagram, connector.Id, frameNode, frameNode);
         return diagram;

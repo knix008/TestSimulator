@@ -174,9 +174,9 @@ public static class UmlNotationPreview
 
     public static void DrawPort(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var center = new PointF(area.Left + area.Width / 2f, area.Top + area.Height / 2f);
-        using var pen = CreatePreviewBorderPen(1.8f);
-        UmlComponentNotation.DrawPort(g, center, pen);
+        var rect = FitSquare(area, 0.30f);
+        using var pen = CreatePreviewBorderPen(1.6f);
+        UmlComponentNotation.DrawPort(g, rect, pen);
     }
 
     public static void DrawSwimlane(Graphics g, RectangleF area, Color fill, Color stroke)
@@ -940,7 +940,7 @@ public static class UmlNotationPreview
     private static void DrawGhostComponent(Graphics g, RectangleF rect, Color fill, Color stroke)
     {
         using var pen = CreatePreviewBorderPen(1.5f);
-        UmlComponentNotation.DrawComponentPreview(g, rect, pen);
+        UmlComponentNotation.DrawComponentPlacementGhost(g, rect, pen);
     }
 
     private static void DrawGhostProvidedInterface(Graphics g, RectangleF rect, Color fill, Color stroke)
@@ -960,71 +960,40 @@ public static class UmlNotationPreview
 
     public static void DrawComponent(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        var rect = FitBox(area, 1.12f);
+        var rect = UmlComponentNotation.FitComponentPreviewRect(area);
         using var pen = CreatePreviewBorderPen(1.8f);
-        // Draw box outline
-        UmlDiagramStyle.DrawStyledRectangle(g, rect, pen);
-        // Component glyph (small rectangles with notches) — outline only in silhouette mode
-        DrawComponentGlyphSilhouette(g, rect, pen);
-    }
-
-    private static void DrawComponentGlyphSilhouette(Graphics g, RectangleF bounds, Pen pen)
-    {
-        var margin = 3f;
-        var barW = Math.Clamp(bounds.Width * 0.10f, 4f, 8f);
-        var barH = Math.Clamp(bounds.Height * 0.32f, 10f, 20f);
-        var barX = bounds.Right - margin - barW;
-        var barY = bounds.Y + margin;
-        var tabH = Math.Max(3f, barH * 0.26f);
-        var gap = Math.Max(1f, barH * 0.08f);
-        var topTabW = barW * 1.6f;
-        var bottomTabW = barW * 1.4f;
-        g.DrawRectangle(pen, barX, barY, barW, barH);
-        g.DrawRectangle(pen, barX - topTabW, barY, topTabW, tabH);
-        g.DrawRectangle(pen, barX - bottomTabW, barY + tabH + gap, bottomTabW, tabH);
+        UmlComponentNotation.DrawComponentToolboxIcon(g, rect, pen);
     }
 
     public static void DrawProvidedInterface(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        // Lollipop: short stem + circle (○──) centered in tile
-        var cy = area.Top + area.Height / 2f;
-        var r = Math.Min(area.Height * 0.30f, 11f);
-        var circCx = area.Left + area.Width * 0.68f;
-        var stemStart = area.Left + area.Width * 0.18f;
+        var rect = FitBox(area, 0.88f);
         using var pen = CreatePreviewBorderPen(1.8f);
-        g.DrawLine(pen, stemStart, cy, circCx - r, cy);
-        if (!UmlDiagramStyle.SilhouetteMode)
-        {
-            using var fb = new SolidBrush(fill);
-            g.FillEllipse(fb, circCx - r, cy - r, r * 2f, r * 2f);
-        }
-        g.DrawEllipse(pen, circCx - r, cy - r, r * 2f, r * 2f);
+        UmlComponentNotation.DrawProvidedInterface(g, rect, "IAPI", pen);
     }
 
     public static void DrawRequiredInterface(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        // Socket: half-circle arc (⊃) on right + stem
-        var cy = area.Top + area.Height / 2f;
-        var r = Math.Min(area.Height * 0.30f, 11f);
-        var arcCx = area.Left + area.Width * 0.68f;
-        var stemEnd = area.Left + area.Width * 0.18f;
+        var rect = FitBox(area, 0.88f);
         using var pen = CreatePreviewBorderPen(1.8f);
-        g.DrawLine(pen, stemEnd, cy, arcCx - r * 0.15f, cy);
-        g.DrawArc(pen, arcCx - r, cy - r, r * 2f, r * 2f, -90f, 180f);
+        UmlComponentNotation.DrawRequiredInterfaceSymbol(g, rect, pen);
     }
 
     public static void DrawAssembly(Graphics g, RectangleF area, Color fill, Color stroke)
     {
-        // Socket on left ⊃ + line + lollipop on right ○
+        // [port]—line—⊃ socket at line end + lollipop ○
         float y = area.Top + area.Height * 0.5f;
         using var pen = CreatePreviewEdgePen(width: 1.8f);
         var sockR = 5f;
         var ballR = 4f;
-        var x1 = area.Left + 8f;
+        var portHalf = 3f;
+        var xPort = area.Left + 8f;
+        var xSocket = xPort + portHalf + 14f;
         var x2 = area.Right - 10f;
-        g.DrawLine(pen, x1 + sockR * 0.15f, y, x2 - ballR, y);
-        // Socket (left)
-        g.DrawArc(pen, x1 - sockR, y - sockR, sockR * 2f, sockR * 2f, -90f, 180f);
+        g.DrawRectangle(pen, xPort - portHalf, y - portHalf, portHalf * 2f, portHalf * 2f);
+        g.DrawLine(pen, xPort + portHalf, y, xSocket - sockR, y);
+        g.DrawArc(pen, xSocket - sockR, y - sockR, sockR * 2f, sockR * 2f, -90f, 180f);
+        g.DrawLine(pen, xSocket + sockR, y, x2 - ballR, y);
         // Ball/lollipop (right)
         if (!UmlDiagramStyle.SilhouetteMode)
         {

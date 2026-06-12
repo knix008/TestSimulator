@@ -357,7 +357,7 @@ public static class UmlToolModeHelper
         UmlToolMode.CreateRealization =>
             "Realization(실체화): Interface 구현 관계입니다. 구현 클래스 → Interface 순으로 클릭합니다. 점선과 빈 삼각형 화살표로 표시됩니다.",
         UmlToolMode.CreateDependency =>
-            "Dependency(의존): 한 요소가 다른 요소를 사용하는 약한 관계입니다. 의존 원본 → 대상 순으로 클릭합니다. 점선 화살표로 표시됩니다.",
+            "Dependency(의존): 컴포넌트 다이어그램에서는 Required(소켓) → Provided(로리팝) 순으로 연결합니다. 점선 화살표로 표시됩니다. 다른 다이어그램에서는 일반 의존 관계로 사용합니다.",
         UmlToolMode.CreateInclude =>
             "Include(«include»): Use Case가 다른 Use Case의 기능을 항상 포함함을 나타냅니다. 기본 Use Case → 포함 Use Case 순으로 클릭합니다.",
         UmlToolMode.CreateExtend =>

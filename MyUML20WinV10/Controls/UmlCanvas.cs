@@ -12,7 +12,7 @@ public sealed class UmlCanvas : Control
     private const int MinContentWidth = 2400;
     private const int MinContentHeight = 1800;
     private const int ContentPadding = 200;
-    private const float MinHitSize = 8f;
+    private const float MinHitSize = UmlNodeSilhouette.MinHitSize;
 
     private readonly VScrollBar _vScroll = new();
     private readonly HScrollBar _hScroll = new();
@@ -202,13 +202,29 @@ public sealed class UmlCanvas : Control
 
         _toolMode = mode;
         var center = ScreenToCanvas(GetViewportCenter());
-        var size = GetDefaultSize(mode);
-        var rect = new RectangleF(
-            center.X - size.Width / 2f,
-            center.Y - size.Height / 2f,
-            size.Width,
-            size.Height);
-        CreateNode(rect);
+        if (mode is UmlToolMode.CreateProvidedInterface or UmlToolMode.CreateRequiredInterface)
+        {
+            CreateInterfaceNode(center, center);
+        }
+        else if (mode == UmlToolMode.CreateComponent)
+        {
+            var rect = UmlComponentNotation.ResolveComponentCreateRect(
+                new RectangleF(center.X, center.Y, 0f, 0f),
+                _zoom,
+                center);
+            CreateNode(rect);
+        }
+        else
+        {
+            var size = GetDefaultSize(mode);
+            var rect = new RectangleF(
+                center.X - size.Width / 2f,
+                center.Y - size.Height / 2f,
+                size.Width,
+                size.Height);
+            CreateNode(rect);
+        }
+
         NotifyChanged();
         return true;
     }
@@ -324,7 +340,15 @@ public sealed class UmlCanvas : Control
             Width = _selectedNode.Width,
             Height = _selectedNode.Height,
             ShowCompartments = _selectedNode.ShowCompartments,
+            AttachedComponentNodeId = _selectedNode.AttachedComponentNodeId,
+            AttachmentEdge = _selectedNode.AttachmentEdge,
+            AttachmentT = Math.Min(0.95f, _selectedNode.AttachmentT + 0.04f),
+            InterfaceOutwardX = _selectedNode.InterfaceOutwardX is float ox ? ox + Offset : null,
+            InterfaceOutwardY = _selectedNode.InterfaceOutwardY is float oy ? oy + Offset : null,
         };
+        if (UmlComponentInterfaceGeometry.IsLinePresentation(newNode.Presentation))
+            UmlComponentInterfaceGeometry.ApplyAttachedPort(ActiveDiagram, newNode);
+
         if (UmlNodeSilhouette.IsContainerPresentation(newNode.Presentation))
             ActiveDiagram.Nodes.Insert(0, newNode);
         else
@@ -490,7 +514,8 @@ public sealed class UmlCanvas : Control
             if (_isRubberBanding)
                 DrawRubberBand(e.Graphics);
 
-            if (UmlToolModeHelper.IsRelationshipTool(_toolMode) && _hoverNode is not null)
+            if (UmlToolModeHelper.IsRelationshipTool(_toolMode) && _hoverNode is not null
+                && IsValidComponentInterfaceLinkHover(_hoverNode))
                 DrawConnectableHighlight(e.Graphics, _hoverNode);
 
             if (_pendingSourceNode is not null && _pointerOnCanvas)
@@ -558,6 +583,27 @@ public sealed class UmlCanvas : Control
         switch (_toolMode)
         {
             case UmlToolMode.Select:
+                // 리사이즈/끝점 핸들 — 커서 아래 노드(미선택 포함)와 선택 노드 모두 검사합니다.
+                {
+                    var resizeTarget = hitNode ?? _selectedNode;
+                    if (resizeTarget is not null)
+                    {
+                        var resizeHandle = UmlNodeSilhouette.HitTestResizeHandle(
+                            _project, resizeTarget, canvasPoint, _zoom, ActiveDiagram);
+                        if (resizeHandle >= 0)
+                        {
+                            Select(resizeTarget, null);
+                            _isResizing = true;
+                            _resizeHandleIndex = resizeHandle;
+                            SyncCircleNodeBounds(_selectedNode);
+                            SyncActorNodeBounds(_selectedNode);
+                            _resizeBoundsAtStart = _selectedNode!.Bounds;
+                            Capture = true;
+                            break;
+                        }
+                    }
+                }
+
                 // Ctrl+Click or Shift+Click → toggle/add multi-selection
                 if ((isCtrl || isShift) && hitNode is not null)
                 {
@@ -579,20 +625,6 @@ public sealed class UmlCanvas : Control
                     break;
                 }
 
-                if (_selectedNode is not null && ReferenceEquals(hitNode, _selectedNode))
-                {
-                    var hi = HitTestResizeHandle(canvasPoint);
-                    if (hi >= 0)
-                    {
-                        _isResizing = true;
-                        _resizeHandleIndex = hi;
-                        SyncCircleNodeBounds(_selectedNode);
-                        SyncActorNodeBounds(_selectedNode);
-                        _resizeBoundsAtStart = _selectedNode.Bounds;
-                        Capture = true;
-                        break;
-                    }
-                }
                 Select(hitNode, hitEdge);
                 if (_selectedNode is not null)
                 {
@@ -694,6 +726,10 @@ public sealed class UmlCanvas : Control
                         && hitNode.Presentation != UmlNodePresentation.DeploymentHost)
                         break;
 
+                    if (UmlComponentInterfaceLink.AppliesTo(ActiveDiagram.Kind, _toolMode)
+                        && !UmlComponentInterfaceLink.CanSelectSource(hitNode))
+                        break;
+
                     _pendingSourceNode = hitNode;
                     _relationshipAnchorY = canvasPoint.Y;
                     // Clear selection so the source node shows only the preview chrome
@@ -726,6 +762,10 @@ public sealed class UmlCanvas : Control
 
                     if (_toolMode == UmlToolMode.CreateDeployment
                         && hitNode.Presentation != UmlNodePresentation.DeploymentHost)
+                        break;
+
+                    if (UmlComponentInterfaceLink.AppliesTo(ActiveDiagram.Kind, _toolMode)
+                        && !UmlComponentInterfaceLink.CanSelectTarget(_pendingSourceNode, hitNode))
                         break;
 
                     CreateRelationship(_pendingSourceNode, hitNode, canvasPoint.Y);
@@ -834,17 +874,33 @@ public sealed class UmlCanvas : Control
             {
                 if (HasMultiSelection)
                 {
-                    // Move all multi-selected nodes together
                     foreach (var n in _multiNodes)
                     {
-                        n.X += dx;
-                        n.Y += dy;
+                        if (UmlComponentAttachment.IsAttached(n))
+                            SlideAttachedNode(n, canvasPoint, dx, dy);
+                        else
+                        {
+                            n.X += dx;
+                            n.Y += dy;
+                            if (UmlComponentAttachment.IsComponent(_project, n))
+                                SyncComponentAttachments(n);
+                            else if (UmlComponentAttachment.IsAttachable(n.Presentation))
+                                UmlComponentAttachment.RefreshAttachmentFromBounds(_project, ActiveDiagram, n);
+                        }
                     }
+                }
+                else if (UmlComponentAttachment.IsAttached(_dragNode))
+                {
+                    SlideAttachedNode(_dragNode, canvasPoint, dx, dy);
                 }
                 else
                 {
                     _dragNode.X += dx;
                     _dragNode.Y += dy;
+                    if (UmlComponentAttachment.IsComponent(_project, _dragNode))
+                        SyncComponentAttachments(_dragNode);
+                    else if (UmlComponentAttachment.IsAttachable(_dragNode.Presentation))
+                        UmlComponentAttachment.RefreshAttachmentFromBounds(_project, ActiveDiagram, _dragNode);
                 }
                 _dragStartCanvas = canvasPoint;
                 RefreshDiagramEdgeRouting();
@@ -947,13 +1003,29 @@ public sealed class UmlCanvas : Control
 
         if (_isCreating)
         {
-            var rect = NormalizeRect(_dragStartCanvas, ScreenToCanvas(e.Location));
-            rect = EnsureDrawableRect(rect);
-            if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode) || UmlCircleNodeGeometry.IsDiamondCreateTool(_toolMode))
-                rect = UmlCircleNodeGeometry.SquareFromDrag(rect);
-            if (_toolMode == UmlToolMode.CreateActor)
-                rect = UmlActorGeometry.UniformFromDrag(rect);
-            CreateNode(rect);
+            if (_toolMode is UmlToolMode.CreateProvidedInterface or UmlToolMode.CreateRequiredInterface)
+            {
+                CreateInterfaceNode(_dragStartCanvas, _createPreviewEnd);
+            }
+            else if (_toolMode == UmlToolMode.CreateComponent)
+            {
+                var rect = UmlComponentNotation.ResolveComponentCreateRect(
+                    NormalizeRect(_dragStartCanvas, ScreenToCanvas(e.Location)),
+                    _zoom,
+                    _dragStartCanvas);
+                CreateNode(rect);
+            }
+            else
+            {
+                var rect = NormalizeRect(_dragStartCanvas, ScreenToCanvas(e.Location));
+                rect = EnsureDrawableRect(rect);
+                if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode) || UmlCircleNodeGeometry.IsDiamondCreateTool(_toolMode))
+                    rect = UmlCircleNodeGeometry.SquareFromDrag(rect);
+                if (_toolMode == UmlToolMode.CreateActor)
+                    rect = UmlActorGeometry.UniformFromDrag(rect);
+                CreateNode(rect);
+            }
+
             _isCreating = false;
             Capture = false;
             NotifyChanged();
@@ -965,6 +1037,15 @@ public sealed class UmlCanvas : Control
             _isResizing = false;
             _resizeHandleIndex = -1;
             Capture = false;
+            if (_selectedNode is not null)
+            {
+                if (UmlComponentAttachment.IsComponent(_project, _selectedNode))
+                    SyncComponentAttachments(_selectedNode);
+                else if (UmlComponentAttachment.IsAttached(_selectedNode))
+                    UmlComponentAttachment.SyncAttachedPosition(ActiveDiagram, _selectedNode);
+                else if (UmlComponentAttachment.IsAttachable(_selectedNode.Presentation))
+                    UmlComponentAttachment.RefreshAttachmentFromBounds(_project, ActiveDiagram, _selectedNode);
+            }
             NotifyChanged();
             return;
         }
@@ -996,6 +1077,25 @@ public sealed class UmlCanvas : Control
             Capture = false;
             if (_modelChangedDuringDrag && movedNode is not null)
             {
+                if (HasMultiSelection)
+                {
+                    var releasePoint = ScreenToCanvas(e.Location);
+                    foreach (var n in _multiNodes)
+                    {
+                        if (UmlComponentAttachment.IsAttached(n)
+                            && !UmlComponentInterfaceGeometry.IsLinePresentation(n.Presentation))
+                            UmlComponentAttachment.TrySlideAlongAttachedEdge(ActiveDiagram, n, releasePoint);
+                        else if (UmlComponentAttachment.IsAttachable(n.Presentation)
+                            && !UmlComponentInterfaceGeometry.IsLinePresentation(n.Presentation))
+                            UmlComponentAttachment.RefreshAttachmentFromBounds(_project, ActiveDiagram, n);
+                    }
+                }
+                else if (UmlComponentAttachment.IsAttached(movedNode)
+                    && !UmlComponentInterfaceGeometry.IsLinePresentation(movedNode.Presentation))
+                    UmlComponentAttachment.TrySlideAlongAttachedEdge(ActiveDiagram, movedNode, ScreenToCanvas(e.Location));
+                else if (UmlComponentAttachment.IsAttachable(movedNode.Presentation))
+                    UmlComponentAttachment.RefreshAttachmentFromBounds(_project, ActiveDiagram, movedNode);
+
                 RefreshDiagramEdgeRouting();
                 NotifyChanged();
             }
@@ -1274,7 +1374,7 @@ public sealed class UmlCanvas : Control
         {
             var r = node.Bounds;
             g.DrawRectangle(borderPen, r.X, r.Y, r.Width, r.Height);
-            const float hSz = 6f;
+            const float hSz = 9f;
             var hw = hSz / _zoom;
             var hw2 = hw / 2f;
             PointF[] corners = [
@@ -1294,7 +1394,22 @@ public sealed class UmlCanvas : Control
 
     private void DrawCreatePreview(Graphics g)
     {
-        var rect = EnsureDrawableRect(NormalizeRect(_dragStartCanvas, _createPreviewEnd));
+        if (_toolMode is UmlToolMode.CreateProvidedInterface or UmlToolMode.CreateRequiredInterface)
+        {
+            DrawInterfaceCreatePreview(g, _dragStartCanvas, _createPreviewEnd);
+            return;
+        }
+
+        var dragRect = NormalizeRect(_dragStartCanvas, _createPreviewEnd);
+        if (_toolMode == UmlToolMode.CreateComponent)
+        {
+            DrawPlacementPreview(
+                g,
+                UmlComponentNotation.ResolveComponentCreateRect(dragRect, _zoom, _dragStartCanvas));
+            return;
+        }
+
+        var rect = EnsureDrawableRect(dragRect);
         if (UmlToolModeHelper.IsLifelineCreateTool(_toolMode))
             rect = NormalizeLifelineCreateRect(rect);
         else if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
@@ -1302,8 +1417,37 @@ public sealed class UmlCanvas : Control
         DrawPlacementPreview(g, rect);
     }
 
+    private void DrawInterfaceCreatePreview(Graphics g, PointF portHint, PointF dragEnd)
+    {
+        var presentation = _toolMode == UmlToolMode.CreateRequiredInterface
+            ? UmlNodePresentation.RequiredInterface
+            : UmlNodePresentation.ProvidedInterface;
+        const float minDragScreen = 6f;
+        var minDrag = minDragScreen / Math.Max(0.1f, _zoom);
+        if (!UmlComponentInterfaceGeometry.TryBuildLayoutFromHints(
+                _project, ActiveDiagram, presentation, portHint, dragEnd, minDrag, out var layout))
+            return;
+
+        using var pen = new Pen(Color.FromArgb(180, 40, 80, 210), 1.8f / Math.Max(0.1f, _zoom));
+        if (presentation == UmlNodePresentation.RequiredInterface)
+            UmlComponentNotation.DrawRequiredInterface(g, layout, "I", pen);
+        else
+            UmlComponentNotation.DrawProvidedInterface(g, layout, "I", pen);
+    }
+
     private void DrawToolPlacementPreview(Graphics g)
     {
+        if (_toolMode == UmlToolMode.CreateComponent)
+        {
+            DrawPlacementPreview(
+                g,
+                UmlComponentNotation.ResolveComponentCreateRect(
+                    new RectangleF(_pointerCanvas.X, _pointerCanvas.Y, 0f, 0f),
+                    _zoom,
+                    _pointerCanvas));
+            return;
+        }
+
         var size = GetDefaultSize(_toolMode);
         // Scale down oversized shapes for the hover ghost so they don't obscure the canvas.
         const float MaxGhostW = 180f;
@@ -1344,6 +1488,9 @@ public sealed class UmlCanvas : Control
 
         if (UmlCircleNodeGeometry.IsCircleCreateTool(_toolMode))
             return NormalizeCircleCreateRect(rect);
+
+        if (_toolMode == UmlToolMode.CreateComponent)
+            return UmlComponentNotation.ResolveComponentCreateRect(rect, _zoom, _dragStartCanvas);
 
         const float minScreen = 6f;
         var screenW = Math.Abs(rect.Width) * _zoom;
@@ -1406,10 +1553,12 @@ public sealed class UmlCanvas : Control
         UmlToolMode.CreateInteractionOccurrence => new SizeF(280, 160),
         UmlToolMode.CreateDecomposedLifeline => new SizeF(100, 240),
         UmlToolMode.CreateActivation => new SizeF(24, 60),
-        UmlToolMode.CreatePort => new SizeF(20, 20),
+        UmlToolMode.CreatePort => new SizeF(UmlComponentNotation.DefaultPortNodeSize, UmlComponentNotation.DefaultPortNodeSize),
         UmlToolMode.CreateSwimlane => new SizeF(200, 360),
         UmlToolMode.CreateObjectNode => new SizeF(100, 48),
-        UmlToolMode.CreateComponent => new SizeF(180, 100),
+        UmlToolMode.CreateComponent => new SizeF(
+            UmlComponentNotation.PlacementComponentWidth,
+            UmlComponentNotation.PlacementComponentHeight),
         UmlToolMode.CreateProvidedInterface => new SizeF(88, UmlComponentNotation.MinInterfaceHeight),
         UmlToolMode.CreateRequiredInterface => new SizeF(88, UmlComponentNotation.MinInterfaceHeight),
         UmlToolMode.CreateInterface => new SizeF(160, 100),
@@ -1450,6 +1599,51 @@ public sealed class UmlCanvas : Control
             return lifeline.Id;
 
         return null;
+    }
+
+    private void CreateInterfaceNode(PointF portHint, PointF dragEnd)
+    {
+        UmlElement element;
+        UmlNodePresentation presentation;
+        if (_toolMode == UmlToolMode.CreateRequiredInterface)
+        {
+            element = new UmlComponentInterface
+            {
+                Name = "IRequired",
+                InterfaceKind = UmlComponentInterfaceKind.Required,
+            };
+            presentation = UmlNodePresentation.RequiredInterface;
+            _project.RootPackage.AddComponentInterface((UmlComponentInterface)element);
+        }
+        else
+        {
+            element = new UmlComponentInterface
+            {
+                Name = "IProvided",
+                InterfaceKind = UmlComponentInterfaceKind.Provided,
+            };
+            presentation = UmlNodePresentation.ProvidedInterface;
+            _project.RootPackage.AddComponentInterface((UmlComponentInterface)element);
+        }
+
+        const float minDragScreen = 6f;
+        var minDrag = minDragScreen / Math.Max(0.1f, _zoom);
+        var node = new UmlDiagramNode
+        {
+            ModelElementId = element.Id,
+            Presentation = presentation,
+        };
+
+        if (!UmlComponentInterfaceGeometry.TryInitializeAttached(
+                _project, ActiveDiagram, node, portHint, dragEnd, minDrag))
+        {
+            _project.RemoveElement(element.Id);
+            return;
+        }
+
+        ActiveDiagram.Nodes.Add(node);
+        Select(node, null);
+        ReturnToSelectTool();
     }
 
     private void CreateNode(RectangleF rect)
@@ -1887,22 +2081,41 @@ public sealed class UmlCanvas : Control
             nodeHeight = uniform.Height;
         }
 
-        // Port/Provided/Required: 가장 가까운 컴포넌트 경계에 스냅합니다.
-        if (presentation is UmlNodePresentation.Port
-                         or UmlNodePresentation.ProvidedInterface
-                         or UmlNodePresentation.RequiredInterface)
+        // Port: 클릭 위치를 기준으로 근처 컴포넌트에 자동 부착 (컴포넌트 없으면 생성 취소)
+        if (presentation == UmlNodePresentation.Port)
         {
-            var snapped = TrySnapToComponentEdge(
-                new RectangleF(rect.X, rect.Y, nodeWidth, nodeHeight), presentation);
-            if (snapped.HasValue)
+            var probe = new UmlDiagramNode
             {
-                rect = snapped.Value;
-                nodeWidth = rect.Width;
-                nodeHeight = rect.Height;
+                Presentation = presentation,
+                Width = nodeWidth,
+                Height = nodeHeight,
+            };
+            if (!UmlComponentAttachment.TryAttach(_project, ActiveDiagram, probe, _dragStartCanvas))
+            {
+                _project.RemoveElement(element.Id);
+                return;
             }
+
+            var portNode = new UmlDiagramNode
+            {
+                ModelElementId = element.Id,
+                Presentation = presentation,
+                X = probe.X,
+                Y = probe.Y,
+                Width = nodeWidth,
+                Height = nodeHeight,
+                AttachedComponentNodeId = probe.AttachedComponentNodeId,
+                AttachmentEdge = probe.AttachmentEdge,
+                AttachmentT = probe.AttachmentT,
+            };
+            ActiveDiagram.Nodes.Add(portNode);
+            SyncCircleNodeBounds(portNode);
+            Select(portNode, null);
+            ReturnToSelectTool();
+            return;
         }
 
-        var node = new UmlDiagramNode
+        var freeNode = new UmlDiagramNode
         {
             ModelElementId = element.Id,
             Presentation = presentation,
@@ -1912,96 +2125,17 @@ public sealed class UmlCanvas : Control
             Height = nodeHeight,
         };
         if (UmlNodeSilhouette.IsContainerPresentation(presentation))
-            ActiveDiagram.Nodes.Insert(0, node);
+            ActiveDiagram.Nodes.Insert(0, freeNode);
         else
-            ActiveDiagram.Nodes.Add(node);
+            ActiveDiagram.Nodes.Add(freeNode);
 
-        SyncCircleNodeBounds(node);
-        Select(node, null);
+        SyncCircleNodeBounds(freeNode);
+        Select(freeNode, null);
         ReturnToSelectTool();
     }
 
-    /// <summary>
-    /// Port/ProvidedInterface/RequiredInterface를 드롭 위치 근처의 컴포넌트 경계에 스냅합니다.
-    /// 컴포넌트가 없으면 null을 반환합니다.
-    /// </summary>
-    private RectangleF? TrySnapToComponentEdge(RectangleF nodeRect, UmlNodePresentation presentation)
-    {
-        const float snapDistance = 80f;
-        var dropCenter = new PointF(nodeRect.X + nodeRect.Width / 2f, nodeRect.Y + nodeRect.Height / 2f);
-
-        UmlDiagramNode? bestComp = null;
-        float bestDist = float.MaxValue;
-
-        foreach (var n in ActiveDiagram.Nodes)
-        {
-            if (_project.FindElement(n.ModelElementId) is not UmlComponent)
-                continue;
-
-            var expanded = new RectangleF(
-                n.X - snapDistance, n.Y - snapDistance,
-                n.Width + snapDistance * 2, n.Height + snapDistance * 2);
-
-            if (!expanded.Contains(dropCenter))
-                continue;
-
-            // 드롭 중심에서 컴포넌트 경계까지 최단 거리
-            var clampedX = Math.Clamp(dropCenter.X, n.X, n.X + n.Width);
-            var clampedY = Math.Clamp(dropCenter.Y, n.Y, n.Y + n.Height);
-            var dx = dropCenter.X - clampedX;
-            var dy = dropCenter.Y - clampedY;
-            var dist = MathF.Sqrt(dx * dx + dy * dy);
-            if (dist < bestDist)
-            {
-                bestDist = dist;
-                bestComp = n;
-            }
-        }
-
-        if (bestComp is null)
-            return null;
-
-        // 가장 가까운 엣지를 찾습니다 (Left/Right/Top/Bottom).
-        var comp = bestComp;
-        var dLeft  = MathF.Abs(dropCenter.X - comp.X);
-        var dRight = MathF.Abs(dropCenter.X - (comp.X + comp.Width));
-        var dTop   = MathF.Abs(dropCenter.Y - comp.Y);
-        var dBot   = MathF.Abs(dropCenter.Y - (comp.Y + comp.Height));
-        var minD   = MathF.Min(MathF.Min(dLeft, dRight), MathF.Min(dTop, dBot));
-
-        float ex, ey;         // 엣지 위의 스냅 기준점
-        bool horizontal;      // true = 좌/우 엣지 (인터페이스가 수평으로 뻗음)
-
-        if (minD == dRight)   { ex = comp.X + comp.Width; ey = Math.Clamp(dropCenter.Y, comp.Y, comp.Y + comp.Height); horizontal = true; }
-        else if (minD == dLeft)  { ex = comp.X;              ey = Math.Clamp(dropCenter.Y, comp.Y, comp.Y + comp.Height); horizontal = true; }
-        else if (minD == dTop)   { ex = Math.Clamp(dropCenter.X, comp.X, comp.X + comp.Width); ey = comp.Y;              horizontal = false; }
-        else                     { ex = Math.Clamp(dropCenter.X, comp.X, comp.X + comp.Width); ey = comp.Y + comp.Height; horizontal = false; }
-
-        // 포트: 엣지 위에 정중앙 배치 (경계에 반반 걸침)
-        if (presentation == UmlNodePresentation.Port)
-        {
-            var half = nodeRect.Width / 2f;
-            return new RectangleF(ex - half, ey - half, nodeRect.Width, nodeRect.Height);
-        }
-
-        // ProvidedInterface / RequiredInterface: 엣지에서 바깥으로 배치
-        var w = nodeRect.Width;
-        var h = nodeRect.Height;
-
-        if (horizontal)
-        {
-            // 좌/우 엣지: 인터페이스를 수평으로 컴포넌트 바깥에 배치
-            var x = (minD == dRight) ? ex : ex - w;
-            return new RectangleF(x, ey - h / 2f, w, h);
-        }
-        else
-        {
-            // 상/하 엣지: 폭·높이 교환해서 수직으로 배치
-            var x = ex - h / 2f;
-            var y = (minD == dTop) ? ey - w : ey;
-            return new RectangleF(x, y, h, w);
-        }
-    }
+    private void SyncComponentAttachments(UmlDiagramNode componentNode) =>
+        UmlComponentAttachment.SyncAttachedNodes(ActiveDiagram, componentNode.Id);
 
     private bool TryGetBendHandleCursor(PointF canvasPoint, out Cursor cursor)
     {
@@ -2305,6 +2439,7 @@ public sealed class UmlCanvas : Control
         }
 
         _project.RootPackage.AddRelationship(relationship);
+        UmlComponentInterfaceLink.ApplyRelationshipMetadata(_project, relationship, sourceNode, targetNode);
 
         if (relationship is UmlPackageRelationship { PackageKind: UmlPackageRelationshipKind.Nesting } nestingRel)
         {
@@ -2432,7 +2567,7 @@ public sealed class UmlCanvas : Control
         for (var i = ActiveDiagram.Nodes.Count - 1; i >= 0; i--)
         {
             var node = ActiveDiagram.Nodes[i];
-            if (!UmlNodeSilhouette.HitTestNode(_project, node, location, _zoom))
+            if (!UmlNodeSilhouette.HitTestNode(_project, node, location, _zoom, ActiveDiagram))
                 continue;
 
             if (UmlNodeSilhouette.IsContainerPresentation(node.Presentation)
@@ -2451,7 +2586,7 @@ public sealed class UmlCanvas : Control
     private UmlDiagramEdge? HitTestEdge(PointF location)
     {
         UmlDiagramLayout.Prepare(_project, ActiveDiagram);
-        var threshold = Math.Max(6f, MinHitSize) / _zoom;
+        var threshold = Math.Max(10f, MinHitSize) / _zoom;
 
         if (ActiveDiagram.Kind == UmlDiagramKind.SequenceDiagram)
         {
@@ -2739,6 +2874,17 @@ public sealed class UmlCanvas : Control
                 return;
             }
 
+            if (_hoverNode is not null && _pointerOnCanvas)
+            {
+                var hoverHandle = UmlNodeSilhouette.HitTestResizeHandle(
+                    _project, _hoverNode, _pointerCanvas, _zoom, ActiveDiagram);
+                if (hoverHandle >= 0)
+                {
+                    Cursor = GetResizeCursor(hoverHandle);
+                    return;
+                }
+            }
+
             if (_hoverNode is not null || _hoverEdge is not null)
             {
                 Cursor = Cursors.SizeAll;
@@ -2790,20 +2936,37 @@ public sealed class UmlCanvas : Control
         if (_selectedNode is null)
             return -1;
 
-        return UmlNodeSilhouette.HitTestResizeHandle(_project, _selectedNode, location, _zoom);
+        return UmlNodeSilhouette.HitTestResizeHandle(_project, _selectedNode, location, _zoom, ActiveDiagram);
     }
 
-    private static Cursor GetResizeCursor(int idx) => idx switch
+    private Cursor GetResizeCursor(int idx)
     {
-        0 or 4 => Cursors.SizeNWSE,
-        2 or 6 => Cursors.SizeNESW,
-        1 or 5 => Cursors.SizeNS,
-        _ => Cursors.SizeWE,
-    };
+        if (_selectedNode is not null
+            && UmlComponentInterfaceGeometry.IsLinePresentation(_selectedNode.Presentation))
+            return Cursors.SizeAll;
+
+        return idx switch
+        {
+            0 or 4 => Cursors.SizeNWSE,
+            2 or 6 => Cursors.SizeNESW,
+            1 or 5 => Cursors.SizeNS,
+            _ => Cursors.SizeWE,
+        };
+    }
 
     private void ApplyResize(PointF p)
     {
         if (_selectedNode is null) return;
+
+        if (_selectedNode.Presentation == UmlNodePresentation.Port)
+        {
+            ApplyPortResize(p);
+            if (UmlComponentAttachment.IsAttached(_selectedNode))
+                UmlComponentAttachment.SyncAttachedPosition(ActiveDiagram, _selectedNode);
+            else
+                UmlComponentAttachment.RefreshAttachmentFromBounds(_project, ActiveDiagram, _selectedNode);
+            return;
+        }
 
         if (UmlCircleNodeGeometry.IsCircleNode(_project, _selectedNode) || UmlCircleNodeGeometry.IsDiamondNode(_project, _selectedNode))
         {
@@ -2817,8 +2980,15 @@ public sealed class UmlCanvas : Control
             return;
         }
 
-        const float minW = 60f;
-        const float minH = 40f;
+        var isInterface = UmlComponentInterfaceGeometry.IsLinePresentation(_selectedNode.Presentation);
+        if (isInterface)
+        {
+            ApplyInterfaceEndpointDrag(p);
+            return;
+        }
+
+        var minW = 60f;
+        var minH = 40f;
         var o = _resizeBoundsAtStart;
         var left = o.Left; var top = o.Top; var right = o.Right; var bottom = o.Bottom;
 
@@ -2834,6 +3004,12 @@ public sealed class UmlCanvas : Control
             case 7: left = p.X; break;
         }
 
+        if (_selectedNode.Presentation == UmlNodePresentation.Component)
+        {
+            minW = UmlComponentNotation.MinComponentWidth;
+            minH = UmlComponentNotation.MinComponentHeight;
+        }
+
         if (right - left < minW)
         {
             if (_resizeHandleIndex is 0 or 6 or 7) left = right - minW;
@@ -2846,10 +3022,56 @@ public sealed class UmlCanvas : Control
             else bottom = top + minH;
         }
 
+        if (_selectedNode.Presentation == UmlNodePresentation.Component)
+        {
+            var componentMinW = (bottom - top) * UmlComponentNotation.ComponentBoundsWidthHeightRatio;
+            if (right - left < componentMinW)
+            {
+                if (_resizeHandleIndex is 0 or 6 or 7) left = right - componentMinW;
+                else right = left + componentMinW;
+            }
+        }
+
         _selectedNode.X = left;
         _selectedNode.Y = top;
         _selectedNode.Width = right - left;
         _selectedNode.Height = bottom - top;
+        if (UmlComponentAttachment.IsComponent(_project, _selectedNode))
+            SyncComponentAttachments(_selectedNode);
+        RefreshDiagramEdgeRouting();
+    }
+
+    private void SlideAttachedNode(UmlDiagramNode node, PointF pointer, float dx, float dy)
+    {
+        if (UmlComponentInterfaceGeometry.IsLinePresentation(node.Presentation))
+        {
+            if (node.InterfaceOutwardX is float ox && node.InterfaceOutwardY is float oy)
+            {
+                node.InterfaceOutwardX = ox + dx;
+                node.InterfaceOutwardY = oy + dy;
+                UmlComponentInterfaceGeometry.ApplyAttachedPort(ActiveDiagram, node);
+            }
+            return;
+        }
+
+        UmlComponentAttachment.TrySlideAlongAttachedEdge(ActiveDiagram, node, pointer);
+    }
+
+    private void ApplyInterfaceEndpointDrag(PointF p)
+    {
+        if (_selectedNode is null)
+            return;
+
+        if (_resizeHandleIndex == UmlComponentInterfaceGeometry.PortEndpointHandle)
+        {
+            if (UmlComponentAttachment.IsAttached(_selectedNode))
+                UmlComponentAttachment.TrySlideAlongAttachedEdge(ActiveDiagram, _selectedNode, p);
+        }
+        else if (_resizeHandleIndex == UmlComponentInterfaceGeometry.OutwardEndpointHandle)
+        {
+            UmlComponentInterfaceGeometry.SetOutwardEndpoint(ActiveDiagram, _selectedNode, p);
+        }
+
         RefreshDiagramEdgeRouting();
     }
 
@@ -2918,6 +3140,70 @@ public sealed class UmlCanvas : Control
         return RectangleF.FromLTRB(Math.Min(left, right), Math.Min(top, bottom), Math.Max(left, right), Math.Max(top, bottom));
     }
 
+    private void ApplyPortResize(PointF p)
+    {
+        if (_selectedNode is null)
+            return;
+
+        const float minSize = UmlComponentNotation.MinPortSize;
+        var o = _resizeBoundsAtStart;
+        float left;
+        float top;
+        float size;
+
+        switch (_resizeHandleIndex)
+        {
+            case 0:
+                size = Math.Max(Math.Max(o.Right - p.X, o.Bottom - p.Y), minSize);
+                left = o.Right - size;
+                top = o.Bottom - size;
+                break;
+            case 1:
+                size = Math.Max(o.Bottom - p.Y, minSize);
+                left = o.Left + (o.Width - size) / 2f;
+                top = o.Bottom - size;
+                break;
+            case 2:
+                size = Math.Max(Math.Max(p.X - o.Left, o.Bottom - p.Y), minSize);
+                left = o.Left;
+                top = o.Bottom - size;
+                break;
+            case 3:
+                size = Math.Max(p.X - o.Left, minSize);
+                left = o.Left;
+                top = o.Top + (o.Height - size) / 2f;
+                break;
+            case 4:
+                size = Math.Max(Math.Max(p.X - o.Left, p.Y - o.Top), minSize);
+                left = o.Left;
+                top = o.Top;
+                break;
+            case 5:
+                size = Math.Max(p.Y - o.Top, minSize);
+                left = o.Left + (o.Width - size) / 2f;
+                top = o.Top;
+                break;
+            case 6:
+                size = Math.Max(Math.Max(o.Right - p.X, p.Y - o.Top), minSize);
+                left = o.Right - size;
+                top = o.Top;
+                break;
+            case 7:
+                size = Math.Max(o.Right - p.X, minSize);
+                left = o.Right - size;
+                top = o.Top + (o.Height - size) / 2f;
+                break;
+            default:
+                return;
+        }
+
+        _selectedNode.X = left;
+        _selectedNode.Y = top;
+        _selectedNode.Width = size;
+        _selectedNode.Height = size;
+        RefreshDiagramEdgeRouting();
+    }
+
     private void ApplyCircleResize(PointF p)
     {
         if (_selectedNode is null)
@@ -2983,6 +3269,16 @@ public sealed class UmlCanvas : Control
     }
 
     // ── Overlays ──────────────────────────────────────────────────────────
+
+    private bool IsValidComponentInterfaceLinkHover(UmlDiagramNode node)
+    {
+        if (!UmlComponentInterfaceLink.AppliesTo(ActiveDiagram.Kind, _toolMode))
+            return true;
+
+        return _pendingSourceNode is null
+            ? UmlComponentInterfaceLink.CanSelectSource(node)
+            : UmlComponentInterfaceLink.CanSelectTarget(_pendingSourceNode, node);
+    }
 
     private void DrawConnectableHighlight(Graphics g, UmlDiagramNode node)
     {
@@ -3058,6 +3354,9 @@ public sealed class UmlCanvas : Control
         if (targetNode is not null)
             UmlEdgeRouting.ApplyAutoRouting(_project, ActiveDiagram, previewRouting);
 
+        var interfaceDependency = _toolMode == UmlToolMode.CreateDependency
+            && targetNode is not null
+            && UmlComponentInterfaceLink.IsInterfaceLink(sourceNode, targetNode);
         var previewPath = UmlDiagramRenderer.BuildPreviewPath(
             _project,
             previewRouting.RoutingKind,
@@ -3066,7 +3365,8 @@ public sealed class UmlCanvas : Control
             targetNode,
             targetBounds,
             previewRouting,
-            ActiveDiagram);
+            ActiveDiagram,
+            interfaceDependency);
         var flat = UmlEdgeRouting.FlattenForCrossingDetection(previewPath, previewRouting.RoutingKind);
         src = flat[0];
         tgt = flat[^1];
