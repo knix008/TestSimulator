@@ -50,6 +50,8 @@ public static class EditorToolIcons
     public static Bitmap Delete { get; } = CreateDelete();
     public static Bitmap Apply { get; } = CreateApply();
     public static Bitmap Copy { get; } = CreateCopy();
+    public static Bitmap Undo { get; } = CreateUndo();
+    public static Bitmap Redo { get; } = CreateRedo();
     public static Bitmap File { get; } = CreateFile();
     public static Bitmap Edit { get; } = CreateEdit();
     public static Bitmap View { get; } = CreateView();
@@ -528,6 +530,30 @@ public static class EditorToolIcons
 
         var front = new RectangleF(5f, 8f, 9f, 12f);
         DrawDocument(g, front);
+    });
+
+    private static Bitmap CreateUndo() => CreateIcon(g =>
+    {
+        using var pen = InkPen(1.75f);
+        g.DrawArc(pen, 6f, 7f, 10f, 10f, 0f, -180f);
+        g.DrawLine(pen, 16f, 12f, 16f, 16f);
+        using var fill = new SolidBrush(IconInk);
+        var arrow = new[] { new PointF(3f, 9f), new PointF(6f, 13f), new PointF(9f, 9f) };
+        g.FillPolygon(fill, arrow);
+        using var arrowPen = InkPen(1f);
+        g.DrawPolygon(arrowPen, arrow);
+    });
+
+    private static Bitmap CreateRedo() => CreateIcon(g =>
+    {
+        using var pen = InkPen(1.75f);
+        g.DrawArc(pen, 8f, 7f, 10f, 10f, 180f, 180f);
+        g.DrawLine(pen, 8f, 12f, 8f, 16f);
+        using var fill = new SolidBrush(IconInk);
+        var arrow = new[] { new PointF(15f, 9f), new PointF(18f, 13f), new PointF(21f, 9f) };
+        g.FillPolygon(fill, arrow);
+        using var arrowPen = InkPen(1f);
+        g.DrawPolygon(arrowPen, arrow);
     });
 
     private static Bitmap CreateFile() => CreateIcon(g =>

@@ -80,6 +80,10 @@ public partial class MainForm : Form
             SyncSvgSourceFromCanvas();
             UpdateStatus();
         };
+        _canvas.HistoryChanged += (_, _) =>
+        {
+            UpdateUndoRedoState();
+        };
         _canvas.SelectionChanged += (_, _) =>
         {
             SyncPropertyPanel();
@@ -100,6 +104,15 @@ public partial class MainForm : Form
         UpdateTitle();
         UpdateStatus();
         UpdateZoomDisplay();
+        UpdateUndoRedoState();
+    }
+
+    private void UpdateUndoRedoState()
+    {
+        _menuUndo.Enabled = _canvas.CanUndo;
+        _tbUndo.Enabled = _canvas.CanUndo;
+        _menuRedo.Enabled = _canvas.CanRedo;
+        _tbRedo.Enabled = _canvas.CanRedo;
     }
 
     private void ConfigureToolboxLayout()
@@ -156,7 +169,7 @@ public partial class MainForm : Form
         _numCornerRadius.Maximum = 1000m;
         _numCornerRadius.Minimum = 0m;
         _numCornerRadius.Name = "_numCornerRadius";
-        _numCornerRadius.Size = new Size(Math.Max(1, _pnlToolOptions.ClientSize.Width - 25), 23);
+        _numCornerRadius.Size = new Size(221, 23);
         _numCornerRadius.TabIndex = 27;
         _numCornerRadius.Value = (decimal)_canvas.DefaultCornerRadius;
 
@@ -278,6 +291,9 @@ public partial class MainForm : Form
         SetMenuIcon(_menuApplySource, EditorToolIcons.Apply);
         SetMenuIcon(_menuCopySource, EditorToolIcons.Copy);
 
+        SetMenuIcon(_menuUndo, EditorToolIcons.Undo);
+        SetMenuIcon(_menuRedo, EditorToolIcons.Redo);
+
         SetMenuIcon(_menuToolSelect, EditorToolIcons.Select);
         SetMenuIcon(_menuToolRectangle, EditorToolIcons.Rectangle);
         SetMenuIcon(_menuToolSquare, EditorToolIcons.Square);
@@ -307,6 +323,8 @@ public partial class MainForm : Form
         _tbDelete.Image = EditorToolIcons.Delete;
         _tbApplySource.Image = EditorToolIcons.Apply;
         _tbCopySource.Image = EditorToolIcons.Copy;
+        _tbUndo.Image = EditorToolIcons.Undo;
+        _tbRedo.Image = EditorToolIcons.Redo;
 
         ConfigureSourceButton(_btnApplySource);
         ConfigureSourceButton(_btnCopySource);
@@ -344,6 +362,8 @@ public partial class MainForm : Form
         _menuDelete.ToolTipText = "선택한 도형·선·텍스트를 삭제합니다. (Delete)";
         _menuApplySource.ToolTipText = "오른쪽 SVG 소스 편집 내용을 캔버스에 적용합니다.";
         _menuCopySource.ToolTipText = "SVG 소스 전체를 클립보드에 복사합니다.";
+        _menuUndo.ToolTipText = "실행 취소 (Ctrl+Z)";
+        _menuRedo.ToolTipText = "다시 실행 (Ctrl+Y)";
 
         _menuTools.ToolTipText = "캔버스에 그릴 도형·선·텍스트 도구";
 
@@ -364,6 +384,9 @@ public partial class MainForm : Form
         _tbZoomReset.ToolTipText = _menuZoomReset.ToolTipText;
         _tbApplySource.ToolTipText = _menuApplySource.ToolTipText;
         _tbCopySource.ToolTipText = _menuCopySource.ToolTipText;
+        _tbUndo.ToolTipText = _menuUndo.ToolTipText;
+        _tbRedo.ToolTipText = _menuRedo.ToolTipText;
+        _tbZoomLabel.ToolTipText = "현재 화면 배율";
 
         WireDrawingToolTooltips();
     }
@@ -489,28 +512,28 @@ public partial class MainForm : Form
         _cmbFillPattern.Items.Clear();
         _cmbFillPattern.Items.AddRange(
         [
-            new Option<FillPattern>("단색", FillPattern.Solid),
-            new Option<FillPattern>("가로 줄", FillPattern.Horizontal),
-            new Option<FillPattern>("세로 줄", FillPattern.Vertical),
-            new Option<FillPattern>("대각선 ↘", FillPattern.ForwardDiagonal),
-            new Option<FillPattern>("대각선 ↙", FillPattern.BackwardDiagonal),
-            new Option<FillPattern>("격자", FillPattern.Cross),
-            new Option<FillPattern>("X", FillPattern.DiagonalCross),
-            new Option<FillPattern>("점", FillPattern.Dots)
+            new ComboOption<FillPattern>("단색", FillPattern.Solid),
+            new ComboOption<FillPattern>("가로 줄", FillPattern.Horizontal),
+            new ComboOption<FillPattern>("세로 줄", FillPattern.Vertical),
+            new ComboOption<FillPattern>("대각선 ↘", FillPattern.ForwardDiagonal),
+            new ComboOption<FillPattern>("대각선 ↙", FillPattern.BackwardDiagonal),
+            new ComboOption<FillPattern>("격자", FillPattern.Cross),
+            new ComboOption<FillPattern>("X", FillPattern.DiagonalCross),
+            new ComboOption<FillPattern>("점", FillPattern.Dots)
         ]);
 
         _cmbLineStyle.Items.Clear();
         _cmbLineStyle.Items.AddRange(
         [
-            new Option<StrokeLineStyle>("실선", StrokeLineStyle.Solid),
-            new Option<StrokeLineStyle>("파선", StrokeLineStyle.Dash),
-            new Option<StrokeLineStyle>("점선", StrokeLineStyle.Dot),
-            new Option<StrokeLineStyle>("파선-점", StrokeLineStyle.DashDot),
-            new Option<StrokeLineStyle>("긴 파선", StrokeLineStyle.LongDash),
-            new Option<StrokeLineStyle>("짧은 파선", StrokeLineStyle.ShortDash)
+            new ComboOption<StrokeLineStyle>("실선", StrokeLineStyle.Solid),
+            new ComboOption<StrokeLineStyle>("파선", StrokeLineStyle.Dash),
+            new ComboOption<StrokeLineStyle>("점선", StrokeLineStyle.Dot),
+            new ComboOption<StrokeLineStyle>("파선-점", StrokeLineStyle.DashDot),
+            new ComboOption<StrokeLineStyle>("긴 파선", StrokeLineStyle.LongDash),
+            new ComboOption<StrokeLineStyle>("짧은 파선", StrokeLineStyle.ShortDash)
         ]);
 
-        var markerOptions = new Option<LineMarkerStyle>[]
+        var markerOptions = new ComboOption<LineMarkerStyle>[]
         {
             new("없음", LineMarkerStyle.None),
             new("열린 화살표", LineMarkerStyle.ArrowOpen),
@@ -528,6 +551,10 @@ public partial class MainForm : Form
             _cmbStartMarker.Items.Add(option);
             _cmbEndMarker.Items.Add(option);
         }
+
+        StrokeComboRenderer.AttachLineStyle(_cmbLineStyle);
+        StrokeComboRenderer.AttachMarker(_cmbStartMarker);
+        StrokeComboRenderer.AttachMarker(_cmbEndMarker);
     }
     private void SyncPropertyPanel()
     {
@@ -692,6 +719,42 @@ public partial class MainForm : Form
 
         if (_canvas.SelectedElement is SvgElement selected)
         {
+            var changed = false;
+            if (selected.Kind == SvgElementKind.Image)
+            {
+                if (Math.Abs(selected.FillOpacity - fillOpacity) > 0.001f) changed = true;
+            }
+            else if (selected.Kind == SvgElementKind.Text)
+            {
+                if (!string.Equals(selected.FontName, fontName, StringComparison.Ordinal) ||
+                    Math.Abs(selected.FontSize - fontSize) > 0.001f ||
+                    selected.FontBold != fontBold ||
+                    selected.FontItalic != fontItalic ||
+                    selected.FontUnderline != fontUnderline ||
+                    selected.FontStrikeout != fontStrikeout ||
+                    Math.Abs(selected.FillOpacity - fillOpacity) > 0.001f)
+                    changed = true;
+            }
+            else if (selected.Kind != SvgElementKind.Line)
+            {
+                if (selected.FillPattern != fillPattern || Math.Abs(selected.FillOpacity - fillOpacity) > 0.001f ||
+                    (selected.Kind == SvgElementKind.RoundedRectangle && Math.Abs(selected.CornerRadius - cornerRadius) > 0.001f))
+                    changed = true;
+            }
+
+            if (selected.Kind != SvgElementKind.Text)
+            {
+                if (Math.Abs(selected.StrokeOpacity - strokeOpacity) > 0.001f ||
+                    Math.Abs(selected.StrokeWidth - strokeWidth) > 0.001f ||
+                    selected.StrokeLineStyle != lineStyle ||
+                    selected.StartMarker != startMarker ||
+                    selected.EndMarker != endMarker)
+                    changed = true;
+            }
+
+            if (changed)
+                _canvas.SaveHistoryState();
+
             if (selected.Kind == SvgElementKind.Image)
             {
                 selected.FillOpacity = fillOpacity;
@@ -782,7 +845,7 @@ public partial class MainForm : Form
 
     private static void SelectOption<T>(ComboBox comboBox, T value) where T : struct, Enum
     {
-        foreach (Option<T> item in comboBox.Items)
+        foreach (ComboOption<T> item in comboBox.Items)
         {
             if (EqualityComparer<T>.Default.Equals(item.Value, value))
             {
@@ -797,14 +860,9 @@ public partial class MainForm : Form
 
     private static T GetSelectedValue<T>(ComboBox comboBox, T fallback) where T : struct, Enum
     {
-        if (comboBox.SelectedItem is Option<T> option)
+        if (comboBox.SelectedItem is ComboOption<T> option)
             return option.Value;
         return fallback;
-    }
-
-    private sealed record Option<T>(string Label, T Value) where T : struct, Enum
-    {
-        public override string ToString() => Label;
     }
 
     private void ApplyModernTheme()
@@ -1293,6 +1351,10 @@ public partial class MainForm : Form
         Close();
     }
 
+    private void MenuUndo_Click(object? sender, EventArgs e) => _canvas.Undo();
+
+    private void MenuRedo_Click(object? sender, EventArgs e) => _canvas.Redo();
+
     private void MenuDelete_Click(object? sender, EventArgs e) => _canvas.DeleteSelected();
 
     private void BtnCopySource_Click(object? sender, EventArgs e)
@@ -1313,7 +1375,7 @@ public partial class MainForm : Form
             var document = SvgDocumentSerializer.Load(tempPath);
             File.Delete(tempPath);
 
-            _canvas.LoadDocument(document);
+            _canvas.LoadDocument(document, clearHistory: false);
             _isDirty = true;
             UpdateTitle();
             UpdateStatus();
@@ -1339,6 +1401,10 @@ public partial class MainForm : Form
 
         if (_canvas.SelectedElement is SvgElement selected && selected.Kind != SvgElementKind.Line)
         {
+            if (selected.FillColor != dialog.Color)
+            {
+                _canvas.SaveHistoryState();
+            }
             selected.FillColor = dialog.Color;
             _btnFillColor.BackColor = dialog.Color;
             _canvas.NotifyDocumentChanged();
@@ -1366,6 +1432,10 @@ public partial class MainForm : Form
 
         if (_canvas.SelectedElement is SvgElement selected)
         {
+            if (selected.StrokeColor != dialog.Color)
+            {
+                _canvas.SaveHistoryState();
+            }
             selected.StrokeColor = dialog.Color;
             _btnStrokeColor.BackColor = dialog.Color;
             _canvas.NotifyDocumentChanged();
@@ -1432,6 +1502,18 @@ public partial class MainForm : Form
         if (keyData == (Keys.Control | Keys.N))
         {
             MenuNew_Click(this, EventArgs.Empty);
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.Z))
+        {
+            MenuUndo_Click(this, EventArgs.Empty);
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.Y) || keyData == (Keys.Control | Keys.Shift | Keys.Z))
+        {
+            MenuRedo_Click(this, EventArgs.Empty);
             return true;
         }
 

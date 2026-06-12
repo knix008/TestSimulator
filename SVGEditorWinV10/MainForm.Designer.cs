@@ -36,6 +36,9 @@ partial class MainForm
     private ToolStripMenuItem _menuToolCurve;
     private ToolStripMenuItem _menuToolText;
     private ToolStripMenuItem _menuToolImage;
+    private ToolStripMenuItem _menuUndo;
+    private ToolStripMenuItem _menuRedo;
+    private ToolStripSeparator _menuSepEdit0;
     private ToolStripSeparator _menuSepEdit1;
     private ToolStripMenuItem _menuApplySource;
     private ToolStripMenuItem _menuCopySource;
@@ -48,6 +51,9 @@ partial class MainForm
     private ToolStripButton _tbExportImage;
     private ToolStripSeparator _tbSepFile1;
     private ToolStripButton _tbDelete;
+    private ToolStripButton _tbUndo;
+    private ToolStripButton _tbRedo;
+    private ToolStripSeparator _tbSepEdit0;
     private ToolStripSeparator _tbSepEdit1;
     private ToolStripButton _tbZoomIn;
     private ToolStripButton _tbZoomOut;
@@ -145,6 +151,9 @@ partial class MainForm
         _menuExit = new ToolStripMenuItem();
         _menuEdit = new ToolStripMenuItem();
         _menuDelete = new ToolStripMenuItem();
+        _menuUndo = new ToolStripMenuItem();
+        _menuRedo = new ToolStripMenuItem();
+        _menuSepEdit0 = new ToolStripSeparator();
         _menuSepEdit1 = new ToolStripSeparator();
         _menuApplySource = new ToolStripMenuItem();
         _menuCopySource = new ToolStripMenuItem();
@@ -177,6 +186,9 @@ partial class MainForm
         _tbExportImage = new ToolStripButton();
         _tbSepFile1 = new ToolStripSeparator();
         _tbDelete = new ToolStripButton();
+        _tbUndo = new ToolStripButton();
+        _tbRedo = new ToolStripButton();
+        _tbSepEdit0 = new ToolStripSeparator();
         _tbSepEdit1 = new ToolStripSeparator();
         _tbZoomIn = new ToolStripButton();
         _tbZoomOut = new ToolStripButton();
@@ -355,10 +367,31 @@ partial class MainForm
         // 
         // _menuEdit
         // 
-        _menuEdit.DropDownItems.AddRange(new ToolStripItem[] { _menuDelete, _menuSepEdit1, _menuApplySource, _menuCopySource });
+        _menuEdit.DropDownItems.AddRange(new ToolStripItem[] { _menuUndo, _menuRedo, _menuSepEdit0, _menuDelete, _menuSepEdit1, _menuApplySource, _menuCopySource });
         _menuEdit.Name = "_menuEdit";
         _menuEdit.Size = new Size(57, 20);
         _menuEdit.Text = "편집(&E)";
+        // 
+        // _menuUndo
+        // 
+        _menuUndo.Name = "_menuUndo";
+        _menuUndo.ShortcutKeys = Keys.Control | Keys.Z;
+        _menuUndo.Size = new Size(198, 22);
+        _menuUndo.Text = "실행 취소";
+        _menuUndo.Click += MenuUndo_Click;
+        // 
+        // _menuRedo
+        // 
+        _menuRedo.Name = "_menuRedo";
+        _menuRedo.ShortcutKeys = Keys.Control | Keys.Y;
+        _menuRedo.Size = new Size(198, 22);
+        _menuRedo.Text = "다시 실행";
+        _menuRedo.Click += MenuRedo_Click;
+        // 
+        // _menuSepEdit0
+        // 
+        _menuSepEdit0.Name = "_menuSepEdit0";
+        _menuSepEdit0.Size = new Size(195, 6);
         // 
         // _menuDelete
         // 
@@ -518,7 +551,7 @@ partial class MainForm
         // _toolStripMain
         // 
         _toolStripMain.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStripMain.Items.AddRange(new ToolStripItem[] { _tbNew, _tbOpen, _tbSave, _tbSaveAs, _tbCanvasSize, _tbExportImage, _tbSepFile1, _tbDelete, _tbSepEdit1, _tbZoomIn, _tbZoomOut, _tbZoomReset, _tbZoomLabel, _tbSepView1, _tbApplySource, _tbCopySource });
+        _toolStripMain.Items.AddRange(new ToolStripItem[] { _tbNew, _tbOpen, _tbSave, _tbSaveAs, _tbCanvasSize, _tbExportImage, _tbSepFile1, _tbUndo, _tbRedo, _tbSepEdit0, _tbDelete, _tbSepEdit1, _tbZoomIn, _tbZoomOut, _tbZoomReset, _tbZoomLabel, _tbSepView1, _tbApplySource, _tbCopySource });
         _toolStripMain.Location = new Point(0, 24);
         _toolStripMain.Name = "_toolStripMain";
         _toolStripMain.Padding = new Padding(6, 2, 6, 2);
@@ -592,6 +625,29 @@ partial class MainForm
         _tbDelete.Size = new Size(23, 20);
         _tbDelete.Text = "삭제";
         _tbDelete.Click += MenuDelete_Click;
+        // 
+        // _tbUndo
+        // 
+        _tbUndo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tbUndo.ImageScaling = ToolStripItemImageScaling.None;
+        _tbUndo.Name = "_tbUndo";
+        _tbUndo.Size = new Size(23, 20);
+        _tbUndo.Text = "실행 취소";
+        _tbUndo.Click += MenuUndo_Click;
+        // 
+        // _tbRedo
+        // 
+        _tbRedo.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tbRedo.ImageScaling = ToolStripItemImageScaling.None;
+        _tbRedo.Name = "_tbRedo";
+        _tbRedo.Size = new Size(23, 20);
+        _tbRedo.Text = "다시 실행";
+        _tbRedo.Click += MenuRedo_Click;
+        // 
+        // _tbSepEdit0
+        // 
+        _tbSepEdit0.Name = "_tbSepEdit0";
+        _tbSepEdit0.Size = new Size(6, 23);
         // 
         // _tbSepEdit1
         // 
