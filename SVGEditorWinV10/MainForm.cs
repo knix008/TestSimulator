@@ -98,6 +98,7 @@ public partial class MainForm : Form
         WirePropertyPanel();
         SetActiveTool(EditorTool.Select);
         _canvas.NewDocument();
+        _isDirty = false;
         InitializePropertyOptions();
         SyncPropertyPanel();
         SyncSvgSourceFromCanvas();
@@ -1157,8 +1158,8 @@ public partial class MainForm : Form
             return;
 
         _currentFilePath = null;
-        _isDirty = false;
         _canvas.NewDocument();
+        _isDirty = false;
         UpdateTitle();
     }
 
