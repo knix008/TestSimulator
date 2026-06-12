@@ -38,6 +38,7 @@ public static class ModernTheme
         strip.Renderer = new ToolStripProfessionalRenderer(new ModernColorTable());
         strip.Padding = new Padding(4, 4, 4, 4);
         strip.GripStyle = ToolStripGripStyle.Hidden;
+        strip.ShowItemToolTips = true;
     }
 
     public static void StyleStatusStrip(StatusStrip strip)

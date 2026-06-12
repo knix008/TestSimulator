@@ -35,7 +35,8 @@ public enum EditorTool
     Star,
     Line,
     Text,
-    Image
+    Image,
+    Pen
 }
 
 public sealed class SvgDocument

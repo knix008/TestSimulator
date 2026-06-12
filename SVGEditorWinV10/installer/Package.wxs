@@ -1,0 +1,95 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="SVG Editor"
+           Manufacturer="TestSimulator"
+           Version="1.0.0.0"
+           UpgradeCode="D4E8F2A1-6B3C-4D5E-9F0A-1B2C3D4E5F60"
+           Scope="perMachine"
+           InstallerVersion="500"
+           Codepage="65001">
+    <MajorUpgrade DowngradeErrorMessage="SVG Editor의 더 새로운 버전이 이미 설치되어 있습니다." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="assets\License.rtf" />
+
+    <Icon Id="AppIcon.ico" SourceFile="assets\AppIcon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
+    <Launch Condition="Privileged"
+            Message="관리자 권한이 필요합니다. 설치 파일을 관리자 권한으로 실행해 주세요." />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="SVGEditorWinV10" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="CmpDesktopShortcut" Guid="*" Bitness="always64">
+        <Shortcut Id="ShcDesktop"
+                  Name="SVG Editor"
+                  Description="SVG 벡터 그래픽 편집기"
+                  Target="[INSTALLFOLDER]SVGEditorWinV10.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico"
+                  IconIndex="0" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TestSimulator\SVGEditorWinV10\Setup"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="SVG Editor">
+        <Component Id="CmpStartMenuShortcut" Guid="*" Bitness="always64">
+          <Shortcut Id="ShcStartMenu"
+                    Name="SVG Editor"
+                    Description="SVG 벡터 그래픽 편집기"
+                    Target="[INSTALLFOLDER]SVGEditorWinV10.exe"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="AppIcon.ico"
+                    IconIndex="0" />
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+          <RegistryValue Root="HKCU"
+                         Key="Software\TestSimulator\SVGEditorWinV10\Setup"
+                         Name="StartMenuShortcut"
+                         Type="integer"
+                         Value="1"
+                         KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="ProductFeature"
+             Title="SVG Editor"
+             Description="SVG 벡터 그래픽 편집기"
+             Display="expand"
+             Level="1">
+      <ComponentGroupRef Id="HarvestedApp" />
+      <Feature Id="DesktopShortcutFeature"
+               Title="바탕 화면 바로 가기"
+               Description="바탕 화면에 프로그램 아이콘 바로 가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="CmpDesktopShortcut" />
+      </Feature>
+      <Feature Id="StartMenuShortcutFeature"
+               Title="시작 메뉴 바로 가기"
+               Description="시작 메뉴에 프로그램 아이콘 바로 가기를 만듭니다."
+               Level="1">
+        <ComponentRef Id="CmpStartMenuShortcut" />
+      </Feature>
+    </Feature>
+
+    <ui:WixUI Id="WixUI_Mondo" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="HarvestedApp" Directory="INSTALLFOLDER">
+      <Files Include="$(var.SVGEditorWinV10.TargetDir)**">
+        <Exclude Files="*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

@@ -10,7 +10,18 @@
     <RootNamespace>SVGEditorWinV10</RootNamespace>
     <StartupObject>SVGEditorWinV10.Program</StartupObject>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DesignTimeBuild)' == 'true'">
+    <SkipInstaller>true</SkipInstaller>
+  </PropertyGroup>
+
+  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' AND '$(SkipInstaller)' != 'true' AND '$(DesignTimeBuild)' != 'true' AND '$(MSBuildIsProjectReference)' != 'true'">
+    <Message Text="MSI 설치 패키지 빌드 중..." Importance="high" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)installer\SVGEditorWinV10.Installer.wixproj" Targets="Restore;Build" Properties="Configuration=Release;SkipInstaller=true" />
+    <Message Text="MSI 생성 완료: bin\Release\installer\SVGEditorWinV10_Setup.msi" Importance="high" />
+  </Target>
 
   <ItemGroup>
     <Content Include="Assets\AppIcon.ico">

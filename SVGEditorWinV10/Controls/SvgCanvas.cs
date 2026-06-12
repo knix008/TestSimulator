@@ -6,7 +6,7 @@ using SVGEditorWinV10.Ui;
 
 namespace SVGEditorWinV10.Controls;
 
-public sealed class SvgCanvas : Control
+public sealed partial class SvgCanvas : Control
 {
     private const float MinElementSize = 4f;
     private const float MinZoom = 0.25f;
@@ -52,6 +52,11 @@ public sealed class SvgCanvas : Control
     private string? _pendingImageSourcePath;
     private SizeF _pendingImagePixelSize;
     private Point? _lastMouseScreenLocation;
+    private readonly SvgPenToolSession _penSession = new();
+    private PointF _penPreviewPoint;
+    private bool _isEditingPath;
+    private PathEditHandle? _activePathHandle;
+    private string _pathEditStartData = string.Empty;
 
     public event EventHandler? DocumentChanged;
     public event EventHandler? SelectionChanged;
@@ -73,6 +78,7 @@ public sealed class SvgCanvas : Control
         public RectangleF Bounds { get; init; }
         public PointF Start { get; init; }
         public PointF End { get; init; }
+        public string PathData { get; init; } = string.Empty;
     }
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -265,7 +271,13 @@ public sealed class SvgCanvas : Control
 
     public void SetTool(EditorTool tool)
     {
+        if (_tool == EditorTool.Pen && tool != EditorTool.Pen)
+            _penSession.Reset();
+
         _tool = tool;
+        if (tool == EditorTool.Pen)
+            _penSession.Reset();
+
         if (_tool != EditorTool.Image)
             ClearPendingImage();
         if (_tool != EditorTool.Select)
@@ -445,6 +457,8 @@ public sealed class SvgCanvas : Control
 
         if (_isCreating)
             DrawPreview(e.Graphics);
+        else if (_tool == EditorTool.Pen && _penSession.HasPreview)
+            DrawPenPreview(e.Graphics);
         else if (HasPendingImagePreview())
             DrawPendingImagePreview(e.Graphics);
 
@@ -466,8 +480,20 @@ public sealed class SvgCanvas : Control
 
         var canvasPoint = ToCanvasPoint(e.Location);
 
+        if (e.Button == MouseButtons.Left && TryBeginPathEdit(canvasPoint))
+            return;
+
         if (e.Button == MouseButtons.Left && TryBeginResize(canvasPoint))
             return;
+
+        if (_tool == EditorTool.Pen)
+        {
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            HandlePenMouseDown(canvasPoint, e.Clicks);
+            return;
+        }
 
         if (_tool != EditorTool.Select)
         {
@@ -542,7 +568,7 @@ public sealed class SvgCanvas : Control
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime || e.Button != MouseButtons.Left)
             return;
 
-        if (_tool is not (EditorTool.Select or EditorTool.Text))
+        if (_tool is not (EditorTool.Select or EditorTool.Text or EditorTool.Pen))
             return;
 
         var hit = HitTest(ToCanvasPoint(e.Location));
@@ -560,6 +586,8 @@ public sealed class SvgCanvas : Control
             return;
 
         UpdateCursorFromLastMousePosition();
+        if (_tool == EditorTool.Pen && _penSession.IsActive)
+            Invalidate();
         if (HasPendingImagePreview())
             Invalidate();
     }
@@ -582,6 +610,24 @@ public sealed class SvgCanvas : Control
 
         _lastMouseScreenLocation = e.Location;
         var point = ToCanvasPoint(e.Location);
+
+        if (_isEditingPath)
+        {
+            UpdatePathEdit(EditorCanvasGrid.SnapPoint(point));
+            Invalidate();
+            UpdateCursor(point);
+            return;
+        }
+
+        if (_tool == EditorTool.Pen)
+        {
+            _penPreviewPoint = EditorCanvasGrid.SnapPoint(point);
+            if (Capture)
+                _penSession.UpdateDrag(_penPreviewPoint);
+            Invalidate();
+            UpdateCursor(point);
+            return;
+        }
 
         if (_isMoving)
         {
@@ -631,6 +677,31 @@ public sealed class SvgCanvas : Control
             return;
 
         var canvasPoint = ToCanvasPoint(e.Location);
+
+        if (_isEditingPath)
+        {
+            Capture = false;
+            _isEditingPath = false;
+            _activePathHandle = null;
+            _pathEditStartData = string.Empty;
+            if (_primarySelected is not null)
+                SnapPathElement(_primarySelected);
+            DocumentChanged?.Invoke(this, EventArgs.Empty);
+            UpdateCursor(canvasPoint);
+            return;
+        }
+
+        if (_tool == EditorTool.Pen && Capture)
+        {
+            _penPreviewPoint = EditorCanvasGrid.SnapPoint(canvasPoint);
+            _penSession.UpdateDrag(_penPreviewPoint);
+            _penSession.CommitPoint();
+            Capture = false;
+            Invalidate();
+            UpdateCursor(canvasPoint);
+            return;
+        }
+
         Capture = false;
 
         if (_isMoving)
@@ -748,6 +819,26 @@ public sealed class SvgCanvas : Control
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+
+        if (_tool == EditorTool.Pen)
+        {
+            if (e.KeyCode == Keys.Enter && _penSession.IsActive)
+            {
+                FinishPenPath(closed: false);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.KeyCode == Keys.Escape)
+            {
+                _penSession.Reset();
+                Capture = false;
+                Invalidate();
+                e.Handled = true;
+                return;
+            }
+        }
+
         if (_tool != EditorTool.Select)
             return;
 
@@ -775,7 +866,8 @@ public sealed class SvgCanvas : Control
                 Id = e.Id,
                 Bounds = e.Bounds,
                 Start = e.Start,
-                End = e.End
+                End = e.End,
+                PathData = e.Kind == SvgElementKind.Path ? e.PathData : string.Empty
             })
             .ToList();
 
@@ -824,7 +916,7 @@ public sealed class SvgCanvas : Control
         if (_primarySelected.Kind == SvgElementKind.Path && !string.IsNullOrEmpty(_resizeStartPathData))
         {
             using var matrix = CreateBoundsTransform(_resizeStartBounds, bounds);
-            _primarySelected.PathData = SvgPathParser.TransformPathData(_resizeStartPathData, matrix);
+            _primarySelected.PathData = SvgPathCommands.Transform(_resizeStartPathData, matrix);
             _primarySelected.Bounds = SvgPathParser.GetBounds(_primarySelected.PathData);
         }
         else
@@ -849,7 +941,7 @@ public sealed class SvgCanvas : Control
     }
 
     private static bool SupportsResizeHandles(SvgElement element) =>
-        element.Kind != SvgElementKind.Line;
+        element.Kind is not (SvgElementKind.Line or SvgElementKind.Path);
 
     private static System.Drawing.Drawing2D.Matrix CreateBoundsTransform(RectangleF from, RectangleF to)
     {
@@ -918,6 +1010,11 @@ public sealed class SvgCanvas : Control
             {
                 element.Start = new PointF(snapshot.Start.X + delta.X, snapshot.Start.Y + delta.Y);
                 element.End = new PointF(snapshot.End.X + delta.X, snapshot.End.Y + delta.Y);
+            }
+            else if (element.Kind == SvgElementKind.Path && !string.IsNullOrEmpty(snapshot.PathData))
+            {
+                element.PathData = SvgPathCommands.Translate(snapshot.PathData, delta);
+                element.Bounds = SvgPathParser.GetBounds(element.PathData);
             }
             else
             {
@@ -1221,6 +1318,16 @@ public sealed class SvgCanvas : Control
         graphics.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
 
         if (_tool == EditorTool.Select
+            && element.Kind == SvgElementKind.Path
+            && !string.IsNullOrWhiteSpace(element.PathData)
+            && _selectedIds.Count == 1
+            && element.Id == _primarySelected?.Id)
+        {
+            SvgPathEditHandles.Draw(graphics, element.PathData, HandleSize);
+            return;
+        }
+
+        if (_tool == EditorTool.Select
             && SupportsResizeHandles(element)
             && _selectedIds.Count == 1
             && element.Id == _primarySelected?.Id)
@@ -1229,7 +1336,7 @@ public sealed class SvgCanvas : Control
         }
     }
 
-    private void DrawPageBorder(Graphics g)
+    private void DrawPageBorder(Graphics graphics)
     {
         var w = _document.Width;
         var h = _document.Height;
@@ -1242,7 +1349,7 @@ public sealed class SvgCanvas : Control
             Alignment = System.Drawing.Drawing2D.PenAlignment.Inset
         };
 
-        g.DrawRectangle(pagePen, 0, 0, w, h);
+        graphics.DrawRectangle(pagePen, 0, 0, w, h);
     }
 
     private void ZoomAt(Point screenPoint, float factor)
@@ -1366,6 +1473,12 @@ public sealed class SvgCanvas : Control
 
     private void UpdateCursor(PointF? canvasPoint = null)
     {
+        if (_isEditingPath)
+        {
+            Cursor = Cursors.Cross;
+            return;
+        }
+
         if (_tool != EditorTool.Select)
         {
             Cursor = Cursors.Cross;
@@ -1392,6 +1505,16 @@ public sealed class SvgCanvas : Control
 
         if (canvasPoint is PointF point)
         {
+            if (_tool == EditorTool.Select
+                && _primarySelected?.Kind == SvgElementKind.Path
+                && _selectedIds.Count == 1
+                && !string.IsNullOrWhiteSpace(_primarySelected.PathData)
+                && SvgPathEditHandles.HitTest(_primarySelected.PathData, point, HandleSize) is not null)
+            {
+                Cursor = Cursors.Cross;
+                return;
+            }
+
             var handle = GetResizeHandleAt(point);
             if (handle != ResizeHandle.None)
             {

@@ -22,8 +22,34 @@ public static class SvgPathRenderer
             return element.Bounds.Contains(point);
 
         using var path = CreatePath(element);
+        if (element.FillOpacity > 0.001f && path.IsVisible(point))
+            return true;
+
         using var pen = new Pen(Color.Black, Math.Max(6f, element.StrokeWidth + 4f));
         return path.IsOutlineVisible(point, pen);
+    }
+
+    public static void DrawPreview(
+        Graphics graphics,
+        SvgElement element,
+        bool showClosedFill = false)
+    {
+        if (string.IsNullOrWhiteSpace(element.PathData))
+            return;
+
+        using var path = CreatePath(element);
+        if (showClosedFill && element.FillOpacity > 0.001f)
+        {
+            using var fillBrush = SvgFillRenderer.CreatePreviewBrush(element.FillColor, element.FillPattern, element.FillOpacity);
+            graphics.FillPath(fillBrush, path);
+        }
+
+        using var strokePen = SvgStrokeRenderer.CreatePen(
+            SvgColorHelper.WithOpacity(element.StrokeColorArgb, element.StrokeOpacity),
+            element.StrokeWidth,
+            element.StrokeLineStyle);
+        strokePen.DashStyle = DashStyle.Dash;
+        graphics.DrawPath(strokePen, path);
     }
 
     public static void Draw(Graphics graphics, SvgElement element)

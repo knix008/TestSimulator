@@ -29,7 +29,6 @@ public partial class MainForm : Form
         ApplyModernTheme();
         ApplyApplicationIcon();
         SetupToolIcons();
-        SetupMenuToolTips();
 
         _canvas.DocumentChanged += (_, _) =>
         {
@@ -50,6 +49,7 @@ public partial class MainForm : Form
 
         WireToolButtons();
         WireMenuTools();
+        SetupMenuToolTips();
         WirePropertyPanel();
         SetActiveTool(EditorTool.Select);
         _canvas.NewDocument();
@@ -121,6 +121,7 @@ public partial class MainForm : Form
         _btnParallelogram.Image = EditorToolIcons.Parallelogram;
         _btnStar.Image = EditorToolIcons.Star;
         _btnLine.Image = EditorToolIcons.Line;
+        _btnPen.Image = EditorToolIcons.Pen;
         _btnText.Image = EditorToolIcons.Text;
         _btnImage.Image = EditorToolIcons.Image;
 
@@ -156,6 +157,7 @@ public partial class MainForm : Form
         SetMenuIcon(_menuToolParallelogram, EditorToolIcons.Parallelogram);
         SetMenuIcon(_menuToolStar, EditorToolIcons.Star);
         SetMenuIcon(_menuToolLine, EditorToolIcons.Line);
+        SetMenuIcon(_menuToolPen, EditorToolIcons.Pen);
         SetMenuIcon(_menuToolText, EditorToolIcons.Text);
         SetMenuIcon(_menuToolImage, EditorToolIcons.Image);
 
@@ -211,18 +213,6 @@ public partial class MainForm : Form
         _menuCopySource.ToolTipText = "SVG 소스 전체를 클립보드에 복사합니다.";
 
         _menuTools.ToolTipText = "캔버스에 그릴 도형·선·텍스트 도구";
-        _menuToolSelect.ToolTipText = "도형을 선택하고 이동합니다. (Esc)";
-        _menuToolRectangle.ToolTipText = "사각형을 그립니다.";
-        _menuToolRoundedRect.ToolTipText = "모서리가 둥근 사각형을 그립니다.";
-        _menuToolEllipse.ToolTipText = "타원을 그립니다.";
-        _menuToolTriangle.ToolTipText = "삼각형을 그립니다.";
-        _menuToolDiamond.ToolTipText = "마름모를 그립니다.";
-        _menuToolHexagon.ToolTipText = "육각형을 그립니다.";
-        _menuToolParallelogram.ToolTipText = "평행사변형을 그립니다.";
-        _menuToolStar.ToolTipText = "별 모양을 그립니다.";
-        _menuToolLine.ToolTipText = "직선을 그립니다.";
-        _menuToolText.ToolTipText = "텍스트를 배치합니다.";
-        _menuToolImage.ToolTipText = "외부 이미지(PNG, GIF, JPEG, WebP, AVIF, SVG)를 불러와 배치합니다.";
 
         _menuView.ToolTipText = "캔버스 확대·축소 및 배율 초기화";
         _menuZoomIn.ToolTipText = "캔버스를 확대합니다. (Ctrl++)";
@@ -242,19 +232,38 @@ public partial class MainForm : Form
         _tbApplySource.ToolTipText = _menuApplySource.ToolTipText;
         _tbCopySource.ToolTipText = _menuCopySource.ToolTipText;
 
-        _btnSelect.ToolTipText = _menuToolSelect.ToolTipText;
-        _btnRectangle.ToolTipText = _menuToolRectangle.ToolTipText;
-        _btnRoundedRect.ToolTipText = _menuToolRoundedRect.ToolTipText;
-        _btnEllipse.ToolTipText = _menuToolEllipse.ToolTipText;
-        _btnTriangle.ToolTipText = _menuToolTriangle.ToolTipText;
-        _btnDiamond.ToolTipText = _menuToolDiamond.ToolTipText;
-        _btnHexagon.ToolTipText = _menuToolHexagon.ToolTipText;
-        _btnParallelogram.ToolTipText = _menuToolParallelogram.ToolTipText;
-        _btnStar.ToolTipText = _menuToolStar.ToolTipText;
-        _btnLine.ToolTipText = _menuToolLine.ToolTipText;
-        _btnText.ToolTipText = _menuToolText.ToolTipText;
-        _btnImage.ToolTipText = _menuToolImage.ToolTipText;
+        WireDrawingToolTooltips();
     }
+
+    private void WireDrawingToolTooltips()
+    {
+        foreach (var (button, tool) in _toolBindings)
+        {
+            button.AutoToolTip = true;
+            button.ToolTipText = DescribeToolTooltip(tool);
+        }
+
+        foreach (var (menu, tool) in _menuToolBindings)
+            menu.ToolTipText = DescribeToolTooltip(tool);
+    }
+
+    private static string DescribeToolTooltip(EditorTool tool) => tool switch
+    {
+        EditorTool.Select => "선택 — 도형·선·경로를 선택하고 이동합니다. (Esc)",
+        EditorTool.Rectangle => "사각형 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.RoundedRectangle => "둥근 사각형 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Ellipse => "타원 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Triangle => "삼각형 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Diamond => "마름모 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Hexagon => "육각형 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Parallelogram => "평행사변형 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Star => "별 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Line => "선 — 시작점에서 끝점까지 드래그하여 그립니다.",
+        EditorTool.Pen => "펜 — 클릭으로 꼭짓점을 추가하고, 드래그하면 곡선으로 연결합니다. 첫 점을 다시 클릭하면 닫고, Enter/더블클릭으로 완료합니다.",
+        EditorTool.Text => "텍스트 — 배치할 영역을 드래그하거나 클릭하여 넣습니다.",
+        EditorTool.Image => "이미지 — PNG, GIF, JPEG, WebP, AVIF, SVG 파일을 불러와 배치합니다.",
+        _ => "도구"
+    };
 
     private static void ConfigureSourceButton(Button button)
     {
@@ -279,6 +288,7 @@ public partial class MainForm : Form
             (_btnParallelogram, EditorTool.Parallelogram),
             (_btnStar, EditorTool.Star),
             (_btnLine, EditorTool.Line),
+            (_btnPen, EditorTool.Pen),
             (_btnText, EditorTool.Text),
             (_btnImage, EditorTool.Image)
         ];
@@ -304,6 +314,7 @@ public partial class MainForm : Form
             (_menuToolParallelogram, EditorTool.Parallelogram),
             (_menuToolStar, EditorTool.Star),
             (_menuToolLine, EditorTool.Line),
+            (_menuToolPen, EditorTool.Pen),
             (_menuToolText, EditorTool.Text),
             (_menuToolImage, EditorTool.Image)
         ];
@@ -505,6 +516,7 @@ public partial class MainForm : Form
         EditorTool.Parallelogram => "평행사변형",
         EditorTool.Star => "별",
         EditorTool.Line => "선",
+        EditorTool.Pen => "펜",
         EditorTool.Text => "텍스트",
         EditorTool.Image => "이미지",
         _ => "도구"

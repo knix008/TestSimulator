@@ -11,7 +11,11 @@ public static class SvgShapeRenderer
         kind is not SvgElementKind.Line and not SvgElementKind.Text and not SvgElementKind.Image and not SvgElementKind.Path;
 
     public static bool UsesBounds(EditorTool tool) =>
-        tool is not EditorTool.Select and not EditorTool.Line and not EditorTool.Text and not EditorTool.Image;
+        tool is not EditorTool.Select
+            and not EditorTool.Line
+            and not EditorTool.Text
+            and not EditorTool.Image
+            and not EditorTool.Pen;
 
     public static SvgElementKind ToolToKind(EditorTool tool) => tool switch
     {

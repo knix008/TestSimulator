@@ -32,6 +32,7 @@ public static class EditorToolIcons
     public static Bitmap Parallelogram { get; } = CreateParallelogram();
     public static Bitmap Star { get; } = CreateStar();
     public static Bitmap Line { get; } = CreateLine();
+    public static Bitmap Pen { get; } = CreatePen();
     public static Bitmap Text { get; } = CreateText();
     public static Bitmap Image { get; } = CreateImage();
     public static Bitmap ZoomIn { get; } = CreateZoomIn();
@@ -287,6 +288,16 @@ public static class EditorToolIcons
         using var cap = new SolidBrush(ModernTheme.Accent);
         g.FillEllipse(cap, 4.5f, 16.5f, 3f, 3f);
         g.FillEllipse(cap, 16.5f, 4.5f, 3f, 3f);
+    });
+
+    private static Bitmap CreatePen() => CreateIcon(g =>
+    {
+        using var curvePen = InkPen(1.5f);
+        g.DrawBezier(curvePen, 4f, 17f, 8f, 4f, 16f, 20f, 20f, 8f);
+        using var pen = InkPen(1.35f);
+        g.DrawLine(pen, 14f, 14f, 20f, 20f);
+        using var nib = new SolidBrush(IconInk);
+        g.FillPolygon(nib, new[] { new PointF(20f, 20f), new PointF(17f, 17f), new PointF(19f, 15f) });
     });
 
     private static Bitmap CreateText() => CreateIcon(g =>

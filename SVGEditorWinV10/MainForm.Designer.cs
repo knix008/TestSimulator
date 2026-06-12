@@ -31,6 +31,7 @@ partial class MainForm
     private ToolStripMenuItem _menuToolParallelogram;
     private ToolStripMenuItem _menuToolStar;
     private ToolStripMenuItem _menuToolLine;
+    private ToolStripMenuItem _menuToolPen;
     private ToolStripMenuItem _menuToolText;
     private ToolStripMenuItem _menuToolImage;
     private ToolStripSeparator _menuSepEdit1;
@@ -69,6 +70,7 @@ partial class MainForm
     private ToolStripButton _btnParallelogram;
     private ToolStripButton _btnStar;
     private ToolStripButton _btnLine;
+    private ToolStripButton _btnPen;
     private ToolStripButton _btnText;
     private ToolStripButton _btnImage;
     private Panel _pnlToolOptions;
@@ -151,6 +153,7 @@ partial class MainForm
         _menuToolParallelogram = new ToolStripMenuItem();
         _menuToolStar = new ToolStripMenuItem();
         _menuToolLine = new ToolStripMenuItem();
+        _menuToolPen = new ToolStripMenuItem();
         _menuToolText = new ToolStripMenuItem();
         _menuToolImage = new ToolStripMenuItem();
         _menuView = new ToolStripMenuItem();
@@ -218,6 +221,7 @@ partial class MainForm
         _btnParallelogram = new ToolStripButton();
         _btnStar = new ToolStripButton();
         _btnLine = new ToolStripButton();
+        _btnPen = new ToolStripButton();
         _btnText = new ToolStripButton();
         _btnImage = new ToolStripButton();
         _lblToolboxTitle = new Label();
@@ -371,7 +375,7 @@ partial class MainForm
         // 
         // _menuTools
         // 
-        _menuTools.DropDownItems.AddRange(new ToolStripItem[] { _menuToolSelect, _menuToolRectangle, _menuToolRoundedRect, _menuToolEllipse, _menuToolTriangle, _menuToolDiamond, _menuToolHexagon, _menuToolParallelogram, _menuToolStar, _menuToolLine, _menuToolText, _menuToolImage });
+        _menuTools.DropDownItems.AddRange(new ToolStripItem[] { _menuToolSelect, _menuToolRectangle, _menuToolRoundedRect, _menuToolEllipse, _menuToolTriangle, _menuToolDiamond, _menuToolHexagon, _menuToolParallelogram, _menuToolStar, _menuToolLine, _menuToolPen, _menuToolText, _menuToolImage });
         _menuTools.Name = "_menuTools";
         _menuTools.Size = new Size(57, 20);
         _menuTools.Text = "도구(&T)";
@@ -435,6 +439,12 @@ partial class MainForm
         _menuToolLine.Name = "_menuToolLine";
         _menuToolLine.Size = new Size(138, 22);
         _menuToolLine.Text = "선";
+        // 
+        // _menuToolPen
+        // 
+        _menuToolPen.Name = "_menuToolPen";
+        _menuToolPen.Size = new Size(138, 22);
+        _menuToolPen.Text = "펜 (폴리곤/곡선)";
         // 
         // _menuToolText
         // 
@@ -971,110 +981,120 @@ partial class MainForm
         // 
         // _toolStripTools
         // 
+        _toolStripTools.AutoSize = true;
+        _toolStripTools.Dock = DockStyle.Top;
         _toolStripTools.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStripTools.Items.AddRange(new ToolStripItem[] { _btnSelect, _btnRectangle, _btnRoundedRect, _btnEllipse, _btnTriangle, _btnDiamond, _btnHexagon, _btnParallelogram, _btnStar, _btnLine, _btnText, _btnImage });
+        _toolStripTools.Items.AddRange(new ToolStripItem[] { _btnSelect, _btnRectangle, _btnRoundedRect, _btnEllipse, _btnTriangle, _btnDiamond, _btnHexagon, _btnParallelogram, _btnStar, _btnLine, _btnPen, _btnText, _btnImage });
         _toolStripTools.LayoutStyle = ToolStripLayoutStyle.Flow;
         _toolStripTools.Location = new Point(0, 36);
         _toolStripTools.Name = "_toolStripTools";
         _toolStripTools.Padding = new Padding(8, 6, 8, 6);
-        _toolStripTools.Size = new Size(195, 26);
+        _toolStripTools.ShowItemToolTips = true;
         _toolStripTools.TabIndex = 1;
         // 
         // _btnSelect
         // 
+        _btnSelect.AutoSize = false;
         _btnSelect.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnSelect.ImageScaling = ToolStripItemImageScaling.None;
         _btnSelect.Name = "_btnSelect";
-        _btnSelect.Size = new Size(23, 4);
-        _btnSelect.ToolTipText = "선택";
+        _btnSelect.Size = new Size(28, 28);
         // 
         // _btnRectangle
         // 
+        _btnRectangle.AutoSize = false;
         _btnRectangle.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnRectangle.ImageScaling = ToolStripItemImageScaling.None;
         _btnRectangle.Name = "_btnRectangle";
-        _btnRectangle.Size = new Size(23, 4);
-        _btnRectangle.ToolTipText = "사각형";
+        _btnRectangle.Size = new Size(28, 28);
         // 
         // _btnRoundedRect
         // 
+        _btnRoundedRect.AutoSize = false;
         _btnRoundedRect.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnRoundedRect.ImageScaling = ToolStripItemImageScaling.None;
         _btnRoundedRect.Name = "_btnRoundedRect";
-        _btnRoundedRect.Size = new Size(23, 4);
-        _btnRoundedRect.ToolTipText = "둥근 사각형";
+        _btnRoundedRect.Size = new Size(28, 28);
         // 
         // _btnEllipse
         // 
+        _btnEllipse.AutoSize = false;
         _btnEllipse.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnEllipse.ImageScaling = ToolStripItemImageScaling.None;
         _btnEllipse.Name = "_btnEllipse";
-        _btnEllipse.Size = new Size(23, 4);
-        _btnEllipse.ToolTipText = "타원";
+        _btnEllipse.Size = new Size(28, 28);
         // 
         // _btnTriangle
         // 
+        _btnTriangle.AutoSize = false;
         _btnTriangle.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnTriangle.ImageScaling = ToolStripItemImageScaling.None;
         _btnTriangle.Name = "_btnTriangle";
-        _btnTriangle.Size = new Size(23, 4);
-        _btnTriangle.ToolTipText = "삼각형";
+        _btnTriangle.Size = new Size(28, 28);
         // 
         // _btnDiamond
         // 
+        _btnDiamond.AutoSize = false;
         _btnDiamond.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnDiamond.ImageScaling = ToolStripItemImageScaling.None;
         _btnDiamond.Name = "_btnDiamond";
-        _btnDiamond.Size = new Size(23, 4);
-        _btnDiamond.ToolTipText = "마름모";
+        _btnDiamond.Size = new Size(28, 28);
         // 
         // _btnHexagon
         // 
+        _btnHexagon.AutoSize = false;
         _btnHexagon.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnHexagon.ImageScaling = ToolStripItemImageScaling.None;
         _btnHexagon.Name = "_btnHexagon";
-        _btnHexagon.Size = new Size(23, 4);
-        _btnHexagon.ToolTipText = "육각형";
+        _btnHexagon.Size = new Size(28, 28);
         // 
         // _btnParallelogram
         // 
+        _btnParallelogram.AutoSize = false;
         _btnParallelogram.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnParallelogram.ImageScaling = ToolStripItemImageScaling.None;
         _btnParallelogram.Name = "_btnParallelogram";
-        _btnParallelogram.Size = new Size(23, 4);
-        _btnParallelogram.ToolTipText = "평행사변형";
+        _btnParallelogram.Size = new Size(28, 28);
         // 
         // _btnStar
         // 
+        _btnStar.AutoSize = false;
         _btnStar.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnStar.ImageScaling = ToolStripItemImageScaling.None;
         _btnStar.Name = "_btnStar";
-        _btnStar.Size = new Size(23, 4);
-        _btnStar.ToolTipText = "별";
+        _btnStar.Size = new Size(28, 28);
         // 
         // _btnLine
         // 
+        _btnLine.AutoSize = false;
         _btnLine.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnLine.ImageScaling = ToolStripItemImageScaling.None;
         _btnLine.Name = "_btnLine";
-        _btnLine.Size = new Size(23, 4);
-        _btnLine.ToolTipText = "선";
+        _btnLine.Size = new Size(28, 28);
+        // 
+        // _btnPen
+        // 
+        _btnPen.AutoSize = false;
+        _btnPen.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _btnPen.ImageScaling = ToolStripItemImageScaling.None;
+        _btnPen.Name = "_btnPen";
+        _btnPen.Size = new Size(28, 28);
         // 
         // _btnText
         // 
+        _btnText.AutoSize = false;
         _btnText.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnText.ImageScaling = ToolStripItemImageScaling.None;
         _btnText.Name = "_btnText";
-        _btnText.Size = new Size(23, 4);
-        _btnText.ToolTipText = "텍스트";
+        _btnText.Size = new Size(28, 28);
         // 
         // _btnImage
         // 
+        _btnImage.AutoSize = false;
         _btnImage.DisplayStyle = ToolStripItemDisplayStyle.Image;
         _btnImage.ImageScaling = ToolStripItemImageScaling.None;
         _btnImage.Name = "_btnImage";
-        _btnImage.Size = new Size(23, 4);
-        _btnImage.ToolTipText = "이미지";
+        _btnImage.Size = new Size(28, 28);
         // 
         // _lblToolboxTitle
         // 

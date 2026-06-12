@@ -223,7 +223,7 @@ internal static partial class SvgPathParser
         return sb.ToString();
     }
 
-    private static List<object> Tokenize(string pathData)
+    internal static List<object> Tokenize(string pathData)
     {
         var tokens = new List<object>();
         foreach (Match match in TokenRegex().Matches(pathData))
