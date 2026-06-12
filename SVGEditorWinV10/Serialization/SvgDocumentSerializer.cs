@@ -17,7 +17,7 @@ public static class SvgDocumentSerializer
         var background = ColorToHex(Color.FromArgb(document.BackgroundColorArgb));
 
         sb.AppendLine(CultureInfo.InvariantCulture,
-            $"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{document.Width:0.##}" height="{document.Height:0.##}" viewBox="0 0 {document.Width:0.##} {document.Height:0.##}">""");
+            $"""<svg xmlns="http://www.w3.org/2000/svg" width="{document.Width:0.##}" height="{document.Height:0.##}" viewBox="0 0 {document.Width:0.##} {document.Height:0.##}">""");
         sb.AppendLine(CultureInfo.InvariantCulture,
             $"""  <rect x="0" y="0" width="{document.Width:0.##}" height="{document.Height:0.##}" fill="{background}" />""");
 
@@ -193,7 +193,10 @@ public static class SvgDocumentSerializer
             {
                 Kind = SvgElementKind.Path,
                 PathData = pathData,
-                Bounds = bounds
+                Bounds = bounds,
+                NativePathKind = name.Equals("polygon", StringComparison.OrdinalIgnoreCase)
+                    ? SvgNativePathKind.Polygon
+                    : SvgNativePathKind.Polyline
             }, node);
         }
 
@@ -229,7 +232,7 @@ public static class SvgDocumentSerializer
             var cy = ParseLength(SvgStyleHelper.GetAttribute(node, "cy"), 0f);
             var r = ParseLength(SvgStyleHelper.GetAttribute(node, "r"), 0f);
             var bounds = TransformBounds(context.Transform, new RectangleF(cx - r, cy - r, r * 2f, r * 2f));
-            return ApplyStyles(new SvgElement { Kind = SvgElementKind.Ellipse, Bounds = bounds }, node);
+            return ApplyStyles(new SvgElement { Kind = SvgElementKind.Circle, Bounds = bounds }, node);
         }
 
         if (name.Equals("line", StringComparison.OrdinalIgnoreCase))
@@ -319,7 +322,10 @@ public static class SvgDocumentSerializer
         var strokeValue = SvgStyleHelper.GetAttribute(node, "stroke");
 
         if (IsExplicitPaintNone(fillValue))
+        {
+            element.FillPattern = FillPattern.None;
             element.FillOpacity = 0f;
+        }
         else
         {
             element.FillColor = ParseFillColor(node);

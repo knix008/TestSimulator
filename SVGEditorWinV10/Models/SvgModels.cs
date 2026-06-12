@@ -1,9 +1,17 @@
 namespace SVGEditorWinV10.Models;
 
+public enum SvgNativePathKind
+{
+    Path,
+    Polygon,
+    Polyline
+}
+
 public enum SvgElementKind
 {
     Rectangle,
     RoundedRectangle,
+    Circle,
     Ellipse,
     Triangle,
     Diamond,
@@ -28,6 +36,7 @@ public enum EditorTool
     Rectangle,
     Square,
     RoundedRectangle,
+    Circle,
     Ellipse,
     Triangle,
     Diamond,
@@ -38,7 +47,9 @@ public enum EditorTool
     Text,
     Image,
     Polygon,
-    Curve
+    Polyline,
+    Curve,
+    Path
 }
 
 public sealed class SvgDocument
@@ -90,6 +101,7 @@ public sealed class SvgElement
     public string? ImageSourcePath { get; set; }
     public string PathData { get; set; } = string.Empty;
     public SvgFillRule FillRule { get; set; } = SvgFillRule.NonZero;
+    public SvgNativePathKind NativePathKind { get; set; } = SvgNativePathKind.Path;
 
     public bool IsText => Kind == SvgElementKind.Text;
     public bool IsImage => Kind == SvgElementKind.Image;
@@ -137,7 +149,8 @@ public sealed class SvgElement
             ImageDataUri = ImageDataUri,
             ImageSourcePath = ImageSourcePath,
             PathData = PathData,
-            FillRule = FillRule
+            FillRule = FillRule,
+            NativePathKind = NativePathKind
         };
     }
 

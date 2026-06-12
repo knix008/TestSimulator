@@ -1,13 +1,15 @@
+using SVGEditorWinV10.Models;
 using SVGEditorWinV10.Serialization;
 
 namespace SVGEditorWinV10.Rendering;
 
 public static class SvgPathEditHandles
 {
-    public static PathEditHandle? HitTest(string pathData, PointF point, float handleSize)
+    public static PathEditHandle? HitTest(string pathData, PointF point, float handleSize, SvgNativePathKind nativePathKind = SvgNativePathKind.Path)
     {
+        var allowCurveControls = SvgPathCommands.AllowsCurveEditing(nativePathKind);
         var half = handleSize;
-        foreach (var handle in SvgPathCommands.GetEditHandles(pathData))
+        foreach (var handle in SvgPathCommands.GetEditHandles(pathData, allowCurveControls))
         {
             var rect = new RectangleF(handle.Point.X - half, handle.Point.Y - half, half * 2, half * 2);
             if (rect.Contains(point))
@@ -17,8 +19,10 @@ public static class SvgPathEditHandles
         return null;
     }
 
-    public static void Draw(Graphics graphics, string pathData, float handleSize)
+    public static void Draw(Graphics graphics, string pathData, float handleSize, SvgNativePathKind nativePathKind = SvgNativePathKind.Path)
     {
+        var allowCurveControls = SvgPathCommands.AllowsCurveEditing(nativePathKind);
+
         using var anchorFill = new SolidBrush(Color.White);
         using var controlFill = new SolidBrush(Color.FromArgb(255, 250, 230));
         using var anchorBorder = new Pen(Color.FromArgb(37, 99, 235), 1f);
@@ -28,28 +32,31 @@ public static class SvgPathEditHandles
             DashStyle = System.Drawing.Drawing2D.DashStyle.Dot
         };
 
-        var segments = SvgPathCommands.Parse(pathData);
-        for (var i = 0; i < segments.Count; i++)
+        if (allowCurveControls)
         {
-            var segment = segments[i];
-            if (segment.Kind is SvgPathSegmentKind.Line or SvgPathSegmentKind.Quadratic)
+            var segments = SvgPathCommands.Parse(pathData);
+            for (var i = 0; i < segments.Count; i++)
             {
-                var start = SvgPathCommands.GetSegmentStart(segments, i);
-                var control = segment.Kind == SvgPathSegmentKind.Line
-                    ? SvgPathCommands.GetDefaultCurveControl(segments, i)
-                    : SvgPathCommands.GetQuadraticMidpoint(start, segment.Control1, segment.End);
-                graphics.DrawLine(guidePen, start.X, start.Y, control.X, control.Y);
-                graphics.DrawLine(guidePen, control.X, control.Y, segment.End.X, segment.End.Y);
-            }
-            else if (segment.Kind == SvgPathSegmentKind.Cubic)
-            {
-                var start = SvgPathCommands.GetSegmentStart(segments, i);
-                graphics.DrawLine(guidePen, start.X, start.Y, segment.Control1.X, segment.Control1.Y);
-                graphics.DrawLine(guidePen, segment.End.X, segment.End.Y, segment.Control2.X, segment.Control2.Y);
+                var segment = segments[i];
+                if (segment.Kind is SvgPathSegmentKind.Line or SvgPathSegmentKind.Quadratic)
+                {
+                    var start = SvgPathCommands.GetSegmentStart(segments, i);
+                    var control = segment.Kind == SvgPathSegmentKind.Line
+                        ? SvgPathCommands.GetDefaultCurveControl(segments, i)
+                        : SvgPathCommands.GetQuadraticMidpoint(start, segment.Control1, segment.End);
+                    graphics.DrawLine(guidePen, start.X, start.Y, control.X, control.Y);
+                    graphics.DrawLine(guidePen, control.X, control.Y, segment.End.X, segment.End.Y);
+                }
+                else if (segment.Kind == SvgPathSegmentKind.Cubic)
+                {
+                    var start = SvgPathCommands.GetSegmentStart(segments, i);
+                    graphics.DrawLine(guidePen, start.X, start.Y, segment.Control1.X, segment.Control1.Y);
+                    graphics.DrawLine(guidePen, segment.End.X, segment.End.Y, segment.Control2.X, segment.Control2.Y);
+                }
             }
         }
 
-        foreach (var handle in SvgPathCommands.GetEditHandles(pathData))
+        foreach (var handle in SvgPathCommands.GetEditHandles(pathData, allowCurveControls))
         {
             var half = handleSize;
             var rect = new RectangleF(handle.Point.X - half, handle.Point.Y - half, half * 2, half * 2);

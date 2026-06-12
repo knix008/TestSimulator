@@ -101,7 +101,7 @@ public static class SvgImageRenderer
         var escapedHref = EscapeXml(element.ImageDataUri);
 
         sb.AppendLine(CultureInfo.InvariantCulture,
-            $"""  <image x="{bounds.X:0.##}" y="{bounds.Y:0.##}" width="{bounds.Width:0.##}" height="{bounds.Height:0.##}" href="{escapedHref}" xlink:href="{escapedHref}" preserveAspectRatio="none"{opacity}{dataOpacity}{sourcePath} data-kind="Image" />""");
+            $"""  <image x="{bounds.X:0.##}" y="{bounds.Y:0.##}" width="{bounds.Width:0.##}" height="{bounds.Height:0.##}" href="{escapedHref}" preserveAspectRatio="none"{opacity}{dataOpacity}{sourcePath} />""");
     }
 
     private static void DrawPlaceholder(Graphics graphics, RectangleF bounds)

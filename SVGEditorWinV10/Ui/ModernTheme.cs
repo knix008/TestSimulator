@@ -108,6 +108,15 @@ public static class ModernTheme
         btn.ForeColor = isActive ? Accent : TextPrimary;
     }
 
+    public static void StyleTabControl(TabControl tabs)
+    {
+        tabs.Font = UiFontSmall;
+        tabs.Padding = new Point(8, 4);
+        tabs.SizeMode = TabSizeMode.Fixed;
+        tabs.ItemSize = new Size(72, 24);
+        tabs.BackColor = SidebarBackground;
+    }
+
     public static Font ResolveMonoFont()
     {
         var preferred = new[] { "Cascadia Mono", "Consolas", "Courier New" };

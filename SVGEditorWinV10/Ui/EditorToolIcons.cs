@@ -26,6 +26,7 @@ public static class EditorToolIcons
     public static Bitmap Rectangle { get; } = CreateRectangle();
     public static Bitmap Square { get; } = CreateSquare();
     public static Bitmap RoundedRectangle { get; } = CreateRoundedRectangle();
+    public static Bitmap Circle { get; } = CreateCircle();
     public static Bitmap Ellipse { get; } = CreateEllipse();
     public static Bitmap Triangle { get; } = CreateTriangle();
     public static Bitmap Diamond { get; } = CreateDiamond();
@@ -34,7 +35,9 @@ public static class EditorToolIcons
     public static Bitmap Star { get; } = CreateStar();
     public static Bitmap Line { get; } = CreateLine();
     public static Bitmap Polygon { get; } = CreatePolygon();
+    public static Bitmap Polyline { get; } = CreatePolyline();
     public static Bitmap Curve { get; } = CreateCurve();
+    public static Bitmap Path { get; } = CreateAdjustablePath();
     public static Bitmap Text { get; } = CreateText();
     public static Bitmap Image { get; } = CreateImage();
     public static Bitmap ZoomIn { get; } = CreateZoomIn();
@@ -303,6 +306,28 @@ public static class EditorToolIcons
         g.FillEllipse(cap, 16.5f, 4.5f, 3f, 3f);
     });
 
+    private static Bitmap CreateCircle() => CreateIcon(g =>
+    {
+        using var pen = InkPen(1.5f);
+        g.DrawEllipse(pen, ShapeBounds);
+    });
+
+    private static Bitmap CreatePolyline() => CreateIcon(g =>
+    {
+        var points = new[]
+        {
+            new PointF(4f, 18f),
+            new PointF(9f, 8f),
+            new PointF(15f, 14f),
+            new PointF(20f, 6f)
+        };
+        using var pen = InkPen(1.5f);
+        g.DrawLines(pen, points);
+        using var accent = new SolidBrush(ModernTheme.Accent);
+        g.FillEllipse(accent, 3f, 16.5f, 3f, 3f);
+        g.FillEllipse(accent, 19f, 4.5f, 3f, 3f);
+    });
+
     private static Bitmap CreatePolygon() => CreateIcon(g =>
     {
         var points = new[]
@@ -327,6 +352,25 @@ public static class EditorToolIcons
         g.DrawLine(pen, 14f, 14f, 20f, 20f);
         using var nib = new SolidBrush(IconInk);
         g.FillPolygon(nib, new[] { new PointF(20f, 20f), new PointF(17f, 17f), new PointF(19f, 15f) });
+    });
+
+    private static Bitmap CreateAdjustablePath() => CreateIcon(g =>
+    {
+        using var linePen = InkPen(1.5f);
+        g.DrawLine(linePen, 4f, 18f, 12f, 8f);
+        g.DrawLine(linePen, 12f, 8f, 20f, 16f);
+        using var guidePen = new Pen(Color.FromArgb(180, 234, 88, 12), 1f)
+        {
+            DashStyle = DashStyle.Dot
+        };
+        g.DrawLine(guidePen, 4f, 18f, 8f, 13f);
+        g.DrawLine(guidePen, 8f, 13f, 12f, 8f);
+        using var accent = new SolidBrush(Color.FromArgb(234, 88, 12));
+        g.FillEllipse(accent, 6.5f, 11.5f, 4f, 4f);
+        using var anchor = new SolidBrush(ModernTheme.Accent);
+        g.FillEllipse(anchor, 2.5f, 16.5f, 3f, 3f);
+        g.FillEllipse(anchor, 10.5f, 6.5f, 3f, 3f);
+        g.FillEllipse(anchor, 18.5f, 14.5f, 3f, 3f);
     });
 
     private static Bitmap CreateText() => CreateIcon(g =>

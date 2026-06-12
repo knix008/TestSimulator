@@ -258,6 +258,7 @@ public partial class MainForm : Form
         _btnRectangle.Image = EditorToolIcons.Rectangle;
         _btnSquare.Image = EditorToolIcons.Square;
         _btnRoundedRect.Image = EditorToolIcons.RoundedRectangle;
+        _btnCircle.Image = EditorToolIcons.Circle;
         _btnEllipse.Image = EditorToolIcons.Ellipse;
         _btnTriangle.Image = EditorToolIcons.Triangle;
         _btnDiamond.Image = EditorToolIcons.Diamond;
@@ -265,8 +266,10 @@ public partial class MainForm : Form
         _btnParallelogram.Image = EditorToolIcons.Parallelogram;
         _btnStar.Image = EditorToolIcons.Star;
         _btnLine.Image = EditorToolIcons.Line;
+        _btnPolyline.Image = EditorToolIcons.Polyline;
         _btnPolygon.Image = EditorToolIcons.Polygon;
         _btnCurve.Image = EditorToolIcons.Curve;
+        _btnPath.Image = EditorToolIcons.Path;
         _btnText.Image = EditorToolIcons.Text;
         _btnImage.Image = EditorToolIcons.Image;
 
@@ -299,6 +302,7 @@ public partial class MainForm : Form
         SetMenuIcon(_menuToolRectangle, EditorToolIcons.Rectangle);
         SetMenuIcon(_menuToolSquare, EditorToolIcons.Square);
         SetMenuIcon(_menuToolRoundedRect, EditorToolIcons.RoundedRectangle);
+        SetMenuIcon(_menuToolCircle, EditorToolIcons.Circle);
         SetMenuIcon(_menuToolEllipse, EditorToolIcons.Ellipse);
         SetMenuIcon(_menuToolTriangle, EditorToolIcons.Triangle);
         SetMenuIcon(_menuToolDiamond, EditorToolIcons.Diamond);
@@ -306,8 +310,10 @@ public partial class MainForm : Form
         SetMenuIcon(_menuToolParallelogram, EditorToolIcons.Parallelogram);
         SetMenuIcon(_menuToolStar, EditorToolIcons.Star);
         SetMenuIcon(_menuToolLine, EditorToolIcons.Line);
+        SetMenuIcon(_menuToolPolyline, EditorToolIcons.Polyline);
         SetMenuIcon(_menuToolPolygon, EditorToolIcons.Polygon);
         SetMenuIcon(_menuToolCurve, EditorToolIcons.Curve);
+        SetMenuIcon(_menuToolPath, EditorToolIcons.Path);
         SetMenuIcon(_menuToolText, EditorToolIcons.Text);
         SetMenuIcon(_menuToolImage, EditorToolIcons.Image);
 
@@ -410,15 +416,18 @@ public partial class MainForm : Form
         EditorTool.Rectangle => "사각형 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Square => "정사각형 — 캔버스에서 드래그하여 그립니다. 가로·세로 길이가 같은 정사각형을 그립니다.",
         EditorTool.RoundedRectangle => "둥근 사각형 — 캔버스에서 드래그하여 그립니다.",
-        EditorTool.Ellipse => "타원 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Circle => "원 (<circle>) — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Ellipse => "타원 (<ellipse>) — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Triangle => "삼각형 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Diamond => "마름모 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Hexagon => "육각형 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Parallelogram => "평행사변형 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Star => "별 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Line => "선 — 시작점에서 끝점까지 드래그하여 그립니다.",
-        EditorTool.Polygon => "폴리곤 — 클릭으로 꼭짓점을 추가해 직선으로 연결합니다. 첫 점을 다시 클릭하면 닫고, Enter/더블클릭으로 완료합니다.",
-        EditorTool.Curve => "곡선 — 클릭 후 드래그하여 곡선 조절점을 설정합니다. 드래그 없이 클릭하면 직선으로 연결됩니다. 첫 점을 다시 클릭하면 닫고, Enter/더블클릭으로 완료합니다.",
+        EditorTool.Polygon => "폴리곤 (<polygon>) — 클릭으로 꼭짓점을 추가해 직선으로 연결합니다. 첫 점을 다시 클릭하면 닫고, Enter/더블클릭으로 완료합니다.",
+        EditorTool.Polyline => "폴리라인 (<polyline>) — 클릭으로 꼭짓점을 추가해 열린 직선 경로를 그립니다. Enter/더블클릭으로 완료합니다.",
+        EditorTool.Curve => "곡선 도형 (<path>) — 클릭 후 드래그하면 곡선, 짧게 클릭하면 직선입니다. 시작점을 클릭하면 닫힙니다. Enter/더블클릭으로 완료합니다.",
+        EditorTool.Path => "곡률 경로 (<path>) — 클릭으로 직선 꼭짓점을 추가합니다. 세그먼트 중간의 주황 조절점을 드래그해 곡률을 줍니다. Enter/더블클릭으로 완료합니다.",
         EditorTool.Text => "텍스트 — 배치할 영역을 드래그하거나 클릭하여 넣습니다.",
         EditorTool.Image => "이미지 — PNG, GIF, JPEG, WebP, AVIF, SVG 파일을 불러와 배치합니다.",
         _ => "도구"
@@ -441,6 +450,7 @@ public partial class MainForm : Form
             (_btnRectangle, EditorTool.Rectangle),
             (_btnSquare, EditorTool.Square),
             (_btnRoundedRect, EditorTool.RoundedRectangle),
+            (_btnCircle, EditorTool.Circle),
             (_btnEllipse, EditorTool.Ellipse),
             (_btnTriangle, EditorTool.Triangle),
             (_btnDiamond, EditorTool.Diamond),
@@ -448,8 +458,10 @@ public partial class MainForm : Form
             (_btnParallelogram, EditorTool.Parallelogram),
             (_btnStar, EditorTool.Star),
             (_btnLine, EditorTool.Line),
+            (_btnPolyline, EditorTool.Polyline),
             (_btnPolygon, EditorTool.Polygon),
             (_btnCurve, EditorTool.Curve),
+            (_btnPath, EditorTool.Path),
             (_btnText, EditorTool.Text),
             (_btnImage, EditorTool.Image)
         ];
@@ -469,6 +481,7 @@ public partial class MainForm : Form
             (_menuToolRectangle, EditorTool.Rectangle),
             (_menuToolSquare, EditorTool.Square),
             (_menuToolRoundedRect, EditorTool.RoundedRectangle),
+            (_menuToolCircle, EditorTool.Circle),
             (_menuToolEllipse, EditorTool.Ellipse),
             (_menuToolTriangle, EditorTool.Triangle),
             (_menuToolDiamond, EditorTool.Diamond),
@@ -476,8 +489,10 @@ public partial class MainForm : Form
             (_menuToolParallelogram, EditorTool.Parallelogram),
             (_menuToolStar, EditorTool.Star),
             (_menuToolLine, EditorTool.Line),
+            (_menuToolPolyline, EditorTool.Polyline),
             (_menuToolPolygon, EditorTool.Polygon),
             (_menuToolCurve, EditorTool.Curve),
+            (_menuToolPath, EditorTool.Path),
             (_menuToolText, EditorTool.Text),
             (_menuToolImage, EditorTool.Image)
         ];
@@ -513,6 +528,7 @@ public partial class MainForm : Form
         _cmbFillPattern.Items.Clear();
         _cmbFillPattern.Items.AddRange(
         [
+            new ComboOption<FillPattern>("채우기 없음", FillPattern.None),
             new ComboOption<FillPattern>("단색", FillPattern.Solid),
             new ComboOption<FillPattern>("가로 줄", FillPattern.Horizontal),
             new ComboOption<FillPattern>("세로 줄", FillPattern.Vertical),
@@ -569,7 +585,7 @@ public partial class MainForm : Form
         {
             _btnFillColor.BackColor = selected!.FillColor;
             _btnStrokeColor.BackColor = selected.StrokeColor;
-            SelectOption(_cmbFillPattern, selected.FillPattern);
+            SelectOption(_cmbFillPattern, ResolveFillPatternForUi(selected.FillPattern, selected.FillOpacity));
             _numFillOpacity.Value = ToOpacityPercent(selected.FillOpacity);
             _numStrokeOpacity.Value = ToOpacityPercent(selected.StrokeOpacity);
             _numStrokeWidth.Value = ClampDecimal(selected.StrokeWidth, _numStrokeWidth.Minimum, _numStrokeWidth.Maximum);
@@ -590,7 +606,7 @@ public partial class MainForm : Form
                 ? _canvas.DefaultTextColor
                 : _canvas.DefaultFill;
             _btnStrokeColor.BackColor = _canvas.DefaultStroke;
-            SelectOption(_cmbFillPattern, _canvas.DefaultFillPattern);
+            SelectOption(_cmbFillPattern, ResolveFillPatternForUi(_canvas.DefaultFillPattern, _canvas.DefaultFillOpacity));
             _numFillOpacity.Value = ToOpacityPercent(_canvas.DefaultFillOpacity);
             _numStrokeOpacity.Value = ToOpacityPercent(_canvas.DefaultStrokeOpacity);
             _numStrokeWidth.Value = ClampDecimal(_canvas.DefaultStrokeWidth, _numStrokeWidth.Minimum, _numStrokeWidth.Maximum);
@@ -622,6 +638,7 @@ public partial class MainForm : Form
         var isShapeContext = hasSelection
             ? selected!.Kind is not (SvgElementKind.Line or SvgElementKind.Text or SvgElementKind.Image)
             : _activeTool is not (EditorTool.Select or EditorTool.Line or EditorTool.Text or EditorTool.Image);
+        var noFill = isShapeContext && GetSelectedFillPattern() == FillPattern.None;
 
         _lblFillColor.Text = isTextContext ? "글자 색" : "채우기 색";
         _lblFillOpacity.Text = isImageContext
@@ -632,8 +649,8 @@ public partial class MainForm : Form
         _btnFillColor.Enabled = canEdit && !isLineContext && !isImageContext;
         _lblFillPattern.Enabled = canEdit && isShapeContext;
         _cmbFillPattern.Enabled = canEdit && isShapeContext;
-        _lblFillOpacity.Enabled = canEdit && !isLineContext;
-        _numFillOpacity.Enabled = canEdit && !isLineContext;
+        _lblFillOpacity.Enabled = canEdit && !isLineContext && !noFill;
+        _numFillOpacity.Enabled = canEdit && !isLineContext && !noFill;
         _lblStrokeColor.Enabled = canEdit && !isTextContext && !isImageContext;
         _btnStrokeColor.Enabled = canEdit && !isTextContext && !isImageContext;
         _lblStrokeOpacity.Enabled = canEdit && !isTextContext && !isImageContext;
@@ -665,6 +682,7 @@ public partial class MainForm : Form
     {
         SvgElementKind.Rectangle => "사각형",
         SvgElementKind.RoundedRectangle => "둥근 사각형",
+        SvgElementKind.Circle => "원",
         SvgElementKind.Ellipse => "타원",
         SvgElementKind.Triangle => "삼각형",
         SvgElementKind.Diamond => "마름모",
@@ -684,6 +702,7 @@ public partial class MainForm : Form
         EditorTool.Rectangle => "사각형",
         EditorTool.Square => "정사각형",
         EditorTool.RoundedRectangle => "둥근 사각형",
+        EditorTool.Circle => "원",
         EditorTool.Ellipse => "타원",
         EditorTool.Triangle => "삼각형",
         EditorTool.Diamond => "마름모",
@@ -692,7 +711,9 @@ public partial class MainForm : Form
         EditorTool.Star => "별",
         EditorTool.Line => "선",
         EditorTool.Polygon => "폴리곤",
-        EditorTool.Curve => "곡선",
+        EditorTool.Polyline => "폴리라인",
+        EditorTool.Curve => "곡선 도형",
+        EditorTool.Path => "곡률 경로",
         EditorTool.Text => "텍스트",
         EditorTool.Image => "이미지",
         _ => "도구"
@@ -706,6 +727,7 @@ public partial class MainForm : Form
         var lineStyle = GetSelectedValue(_cmbLineStyle, StrokeLineStyle.Solid);
         var fillPattern = GetSelectedValue(_cmbFillPattern, FillPattern.Solid);
         var fillOpacity = FromOpacityPercent(_numFillOpacity.Value);
+        NormalizeFillSettings(ref fillPattern, ref fillOpacity);
         var strokeOpacity = FromOpacityPercent(_numStrokeOpacity.Value);
         var fontName = _cmbFontName.SelectedItem?.ToString() ?? SvgTextRenderer.DefaultFontName;
         var fontSize = (float)_numFontSize.Value;
@@ -864,6 +886,36 @@ public partial class MainForm : Form
         if (comboBox.SelectedItem is ComboOption<T> option)
             return option.Value;
         return fallback;
+    }
+
+    private FillPattern GetSelectedFillPattern() =>
+        GetSelectedValue(_cmbFillPattern, FillPattern.Solid);
+
+    private static FillPattern ResolveFillPatternForUi(FillPattern pattern, float fillOpacity) =>
+        pattern == FillPattern.None || fillOpacity <= 0.001f ? FillPattern.None : pattern;
+
+    private void NormalizeFillSettings(ref FillPattern pattern, ref float fillOpacity)
+    {
+        if (pattern == FillPattern.None)
+        {
+            fillOpacity = 0f;
+            return;
+        }
+
+        if (fillOpacity > 0.001f)
+            return;
+
+        var hadNoFill = _canvas.SelectedElement is { } selected
+            ? ResolveFillPatternForUi(selected.FillPattern, selected.FillOpacity) == FillPattern.None
+            : ResolveFillPatternForUi(_canvas.DefaultFillPattern, _canvas.DefaultFillOpacity) == FillPattern.None;
+
+        if (hadNoFill)
+            fillOpacity = 1f;
+        else
+        {
+            pattern = FillPattern.None;
+            fillOpacity = 0f;
+        }
     }
 
     private void ApplyModernTheme()
@@ -1111,7 +1163,7 @@ public partial class MainForm : Form
             }
             else
             {
-                if (element.FillOpacity <= 0.01f)
+                if (element.FillPattern == FillPattern.None || element.FillOpacity <= 0.01f)
                     parts.Add("채우기 없음");
                 else
                     parts.Add($"채우기 {element.FillOpacity * 100:0}%");

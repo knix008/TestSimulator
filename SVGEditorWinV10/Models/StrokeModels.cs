@@ -23,6 +23,7 @@ public enum LineMarkerStyle
 
 public enum FillPattern
 {
+    None,
     Solid,
     Horizontal,
     Vertical,

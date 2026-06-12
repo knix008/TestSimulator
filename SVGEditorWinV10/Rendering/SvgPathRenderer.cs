@@ -22,7 +22,7 @@ public static class SvgPathRenderer
             return element.Bounds.Contains(point);
 
         using var path = CreatePath(element);
-        if (element.FillOpacity > 0.001f && path.IsVisible(point))
+        if (SvgFillRenderer.HasFill(element) && path.IsVisible(point))
             return true;
 
         using var pen = new Pen(Color.Black, Math.Max(6f, element.StrokeWidth + 4f));
@@ -38,7 +38,7 @@ public static class SvgPathRenderer
             return;
 
         using var path = CreatePath(element);
-        if (showClosedFill && element.FillOpacity > 0.001f)
+        if (showClosedFill && SvgFillRenderer.HasFill(element))
         {
             using var fillBrush = SvgFillRenderer.CreatePreviewBrush(element.FillColor, element.FillPattern, element.FillOpacity);
             graphics.FillPath(fillBrush, path);
@@ -58,10 +58,12 @@ public static class SvgPathRenderer
             return;
 
         using var strokePen = SvgStrokeRenderer.CreatePen(element);
-        using var fillBrush = SvgFillRenderer.CreateBrush(element);
         using var path = CreatePath(element);
-        if (element.FillOpacity > 0.001f)
+        if (SvgFillRenderer.HasFill(element))
+        {
+            using var fillBrush = SvgFillRenderer.CreateBrush(element);
             graphics.FillPath(fillBrush, path);
+        }
         graphics.DrawPath(strokePen, path);
     }
 
@@ -84,10 +86,29 @@ public static class SvgPathRenderer
         var fillRuleAttr = element.FillRule == SvgFillRule.EvenOdd
             ? """ fill-rule="evenodd" """
             : string.Empty;
+        if (element.NativePathKind != SvgNativePathKind.Path
+            && SvgPathCommands.TryExtractLinePointPath(element.PathData, out var points, out var closed))
+        {
+            var pointList = string.Join(" ", points.Select(p => $"{p.X:0.##},{p.Y:0.##}"));
+            if (element.NativePathKind == SvgNativePathKind.Polygon || closed)
+            {
+                sb.AppendLine(CultureInfo.InvariantCulture,
+                    $"""  <polygon points="{pointList}" {fillAttrs}{strokeAttrs}{fillRuleAttr}{dataStyle} />""");
+                return;
+            }
+
+            if (element.NativePathKind == SvgNativePathKind.Polyline)
+            {
+                sb.AppendLine(CultureInfo.InvariantCulture,
+                    $"""  <polyline points="{pointList}" {fillAttrs}{strokeAttrs}{dataStyle} />""");
+                return;
+            }
+        }
+
         var escaped = EscapeXml(element.PathData);
 
         sb.AppendLine(CultureInfo.InvariantCulture,
-            $"""  <path d="{escaped}" {fillAttrs}{strokeAttrs}{fillRuleAttr}{dataStyle} data-kind="Path" />""");
+            $"""  <path d="{escaped}" {fillAttrs}{strokeAttrs}{fillRuleAttr}{dataStyle} />""");
     }
 
     private static string EscapeXml(string value) =>

@@ -1,20 +1,26 @@
 using SVGEditorWinV10.Models;
 using SVGEditorWinV10.Serialization;
+using SVGEditorWinV10.Ui;
 
 namespace SVGEditorWinV10.Controls;
 
 internal enum PathDrawMode
 {
     Polygon,
-    Curve
+    Polyline,
+    Curve,
+    AdjustablePath
 }
 
 internal sealed class SvgPenToolSession
 {
     private const float CloseTolerance = 10f;
+    private const float CurveDragThreshold = 4f;
 
     private readonly List<SvgPathSegment> _segments = [];
     private PointF _clickDown;
+    private PointF _dragCurrent;
+    private PointF _dragPeak;
     private bool _isDragging;
     private bool _isEditingHandle;
     private int _editingSegmentIndex = -1;
@@ -38,15 +44,40 @@ internal sealed class SvgPenToolSession
     public bool IsNearFirstPoint(PointF point, float tolerance = CloseTolerance) =>
         IsActive && Distance(_segments[0].End, point) <= tolerance;
 
+    public bool CanClosePath() => _segments.Count >= 2;
+
+    public static float GetCloseTolerance(float zoom) =>
+        Math.Max(CloseTolerance / Math.Max(zoom, 0.1f), EditorCanvasGrid.MinorGrid * 0.75f);
+
+    public bool ShouldClosePolygonAt(PointF canvasPoint, PointF snappedPoint, float tolerance) =>
+        Mode == PathDrawMode.Polygon
+        && CanClosePath()
+        && (IsNearFirstPoint(snappedPoint, tolerance) || IsNearFirstPoint(canvasPoint, tolerance));
+
+    public bool ShouldCloseCurveAt(PointF canvasPoint, PointF snappedPoint, float tolerance) =>
+        Mode == PathDrawMode.Curve
+        && CanClosePath()
+        && (IsNearFirstPoint(snappedPoint, tolerance) || IsNearFirstPoint(canvasPoint, tolerance));
+
     public void BeginDrag(PointF point)
     {
         _clickDown = point;
+        _dragCurrent = point;
+        _dragPeak = point;
         _isDragging = true;
     }
 
     public void UpdateDrag(PointF point)
     {
-        _ = point;
+        if (!_isDragging)
+            return;
+
+        if (Mode == PathDrawMode.Curve)
+        {
+            _dragCurrent = point;
+            if (Distance(_dragPeak, _clickDown) < Distance(point, _clickDown))
+                _dragPeak = point;
+        }
     }
 
     public void CommitPoint()
@@ -56,17 +87,54 @@ internal sealed class SvgPenToolSession
 
         _isDragging = false;
 
+        if (Mode == PathDrawMode.Curve)
+            CommitCurvePoint();
+        else
+            CommitStraightPoint(_clickDown);
+    }
+
+    private void CommitStraightPoint(PointF end)
+    {
         if (!IsActive)
         {
-            _segments.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Move, End = _clickDown });
+            _segments.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Move, End = end });
             return;
         }
 
         _segments.Add(new SvgPathSegment
         {
             Kind = SvgPathSegmentKind.Line,
-            End = _clickDown
+            End = end
         });
+    }
+
+    private void CommitCurvePoint()
+    {
+        var end = _dragCurrent;
+
+        if (!IsActive)
+        {
+            _segments.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Move, End = end });
+            return;
+        }
+
+        if (Distance(_clickDown, _dragPeak) >= CurveDragThreshold)
+        {
+            _segments.Add(new SvgPathSegment
+            {
+                Kind = SvgPathSegmentKind.Quadratic,
+                Control1 = _dragPeak,
+                End = end
+            });
+        }
+        else
+        {
+            _segments.Add(new SvgPathSegment
+            {
+                Kind = SvgPathSegmentKind.Line,
+                End = end
+            });
+        }
     }
 
     public void ClosePath()
@@ -82,44 +150,6 @@ internal sealed class SvgPenToolSession
         _segments.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Close, End = first });
     }
 
-    public string GetCommittedPathData() =>
-        IsActive ? SvgPathCommands.ToPathData(_segments) : string.Empty;
-
-    public string GetPendingPathData(PointF cursor, float closeTolerance = CloseTolerance)
-    {
-        if (_isDragging)
-        {
-            if (!IsActive)
-                return string.Empty;
-
-            var pending = new List<SvgPathSegment> { CreateMoveFromLastPoint() };
-            AppendPendingSegment(pending, _clickDown);
-
-            if (IsNearFirstPoint(_clickDown, closeTolerance) && _segments.Count >= 2)
-                pending.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Close, End = _segments[0].End });
-
-            return SvgPathCommands.ToPathData(pending);
-        }
-
-        if (IsActive && !_isDragging && !_isEditingHandle && _segments[^1].Kind != SvgPathSegmentKind.Close)
-        {
-            var pending = new List<SvgPathSegment> { CreateMoveFromLastPoint() };
-            AppendRubberBandSegment(pending, cursor);
-
-            if (IsNearFirstPoint(cursor, closeTolerance) && _segments.Count >= 2)
-                pending.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Close, End = _segments[0].End });
-
-            return SvgPathCommands.ToPathData(pending);
-        }
-
-        return string.Empty;
-    }
-
-    private SvgPathSegment CreateMoveFromLastPoint()
-    {
-        return new SvgPathSegment { Kind = SvgPathSegmentKind.Move, End = GetLastAnchorPoint() };
-    }
-
     public string GetDrawingPathData(PointF cursor, float closeTolerance = CloseTolerance)
     {
         if (!ShouldDrawInProgress)
@@ -133,16 +163,19 @@ internal sealed class SvgPenToolSession
             Control2 = segment.Control2
         }).ToList();
 
-        if (_isDragging && IsActive)
+        if (_isDragging)
         {
-            AppendPendingSegment(drawing, _clickDown);
+            if (Mode == PathDrawMode.Curve)
+                AppendCurveDragPreview(drawing);
+            else if (IsActive)
+                drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Line, End = _clickDown });
 
-            if (IsNearFirstPoint(_clickDown, closeTolerance) && drawing.Count >= 3)
+            if (IsNearFirstPoint(Mode == PathDrawMode.Curve ? _dragCurrent : _clickDown, closeTolerance) && drawing.Count >= 3)
                 drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Close, End = drawing[0].End });
         }
         else if (IsActive && drawing.Count > 0 && drawing[^1].Kind != SvgPathSegmentKind.Close)
         {
-            AppendRubberBandSegment(drawing, cursor);
+            drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Line, End = cursor });
 
             if (IsNearFirstPoint(cursor, closeTolerance) && drawing.Count >= 3)
                 drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Close, End = drawing[0].End });
@@ -151,25 +184,42 @@ internal sealed class SvgPenToolSession
         return SvgPathCommands.ToPathData(drawing);
     }
 
-    public bool PreviewWouldClose(PointF cursor, float closeTolerance)
+    private void AppendCurveDragPreview(List<SvgPathSegment> drawing)
     {
-        if (!IsActive || _isDragging)
-            return false;
+        if (!IsActive)
+        {
+            if (Distance(_clickDown, _dragCurrent) < 0.5f)
+                return;
 
-        return IsNearFirstPoint(cursor, closeTolerance) && _segments.Count >= 2;
+            drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Move, End = _clickDown });
+        }
+
+        if (Distance(_clickDown, _dragPeak) >= CurveDragThreshold)
+        {
+            drawing.Add(new SvgPathSegment
+            {
+                Kind = SvgPathSegmentKind.Quadratic,
+                Control1 = _dragPeak,
+                End = _dragCurrent
+            });
+        }
+        else if (IsActive || Distance(_clickDown, _dragCurrent) >= 0.5f)
+        {
+            drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Line, End = _dragCurrent });
+        }
     }
 
-    public PointF? GetCurveDragGuides(out PointF control, out PointF end)
+    public bool PreviewWouldClose(PointF cursor, float closeTolerance)
     {
-        control = default;
-        end = default;
+        if (!IsActive || _isDragging || Mode is PathDrawMode.Polyline or PathDrawMode.AdjustablePath)
+            return false;
 
-        return null;
+        return CanClosePath() && IsNearFirstPoint(cursor, closeTolerance);
     }
 
     public IReadOnlyList<(int SegmentIndex, PointF Start, PointF Control, PointF End)> GetCommittedSegmentHandles()
     {
-        if (!IsActive || Mode != PathDrawMode.Curve)
+        if (!IsActive || Mode != PathDrawMode.AdjustablePath)
             return [];
 
         var result = new List<(int, PointF, PointF, PointF)>();
@@ -267,35 +317,31 @@ internal sealed class SvgPenToolSession
         if (bounds.Width < 1f && bounds.Height < 1f)
             return null;
 
+        var nativePathKind = Mode switch
+        {
+            PathDrawMode.Polygon => SvgNativePathKind.Polygon,
+            PathDrawMode.Polyline => SvgNativePathKind.Polyline,
+            PathDrawMode.AdjustablePath or PathDrawMode.Curve => SvgNativePathKind.Path,
+            _ => SvgNativePathKind.Path
+        };
+
         Reset();
         return new SvgElement
         {
             Kind = SvgElementKind.Path,
             PathData = pathData,
             Bounds = bounds,
+            NativePathKind = nativePathKind,
             FillColor = fillColor,
             FillPattern = fillPattern,
-            FillOpacity = closed ? fillOpacity : 0f,
+            FillOpacity = closed && Mode != PathDrawMode.Polyline ? fillOpacity : 0f,
             StrokeColor = strokeColor,
             StrokeOpacity = strokeOpacity,
             StrokeWidth = strokeWidth,
             StrokeLineStyle = strokeLineStyle,
-            FillRule = closed ? SvgFillRule.NonZero : SvgFillRule.NonZero
+            FillRule = SvgFillRule.NonZero
         };
     }
-
-    private void AppendPendingSegment(List<SvgPathSegment> drawing, PointF end)
-    {
-        drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Line, End = end });
-    }
-
-    private void AppendRubberBandSegment(List<SvgPathSegment> drawing, PointF end)
-    {
-        drawing.Add(new SvgPathSegment { Kind = SvgPathSegmentKind.Line, End = end });
-    }
-
-    private static PointF GetSegmentMidpoint(PointF start, PointF end) =>
-        new((start.X + end.X) / 2f, (start.Y + end.Y) / 2f);
 
     private static float Distance(PointF a, PointF b)
     {

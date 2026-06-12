@@ -16,13 +16,16 @@ public static class SvgShapeRenderer
             and not EditorTool.Text
             and not EditorTool.Image
             and not EditorTool.Polygon
-            and not EditorTool.Curve;
+            and not EditorTool.Polyline
+            and not EditorTool.Curve
+            and not EditorTool.Path;
 
     public static SvgElementKind ToolToKind(EditorTool tool) => tool switch
     {
         EditorTool.Rectangle => SvgElementKind.Rectangle,
         EditorTool.Square => SvgElementKind.Rectangle,
         EditorTool.RoundedRectangle => SvgElementKind.RoundedRectangle,
+        EditorTool.Circle => SvgElementKind.Circle,
         EditorTool.Ellipse => SvgElementKind.Ellipse,
         EditorTool.Triangle => SvgElementKind.Triangle,
         EditorTool.Diamond => SvgElementKind.Diamond,
@@ -84,9 +87,12 @@ public static class SvgShapeRenderer
         }
 
         using var strokePen = SvgStrokeRenderer.CreatePen(element);
-        using var fillBrush = SvgFillRenderer.CreateBrush(element);
         using var path = CreatePath(element);
-        graphics.FillPath(fillBrush, path);
+        if (SvgFillRenderer.HasFill(element))
+        {
+            using var fillBrush = SvgFillRenderer.CreateBrush(element);
+            graphics.FillPath(fillBrush, path);
+        }
         graphics.DrawPath(strokePen, path);
     }
 
@@ -108,18 +114,22 @@ public static class SvgShapeRenderer
             strokeWidth,
             lineStyle);
         pen.DashStyle = DashStyle.Dash;
-        using var brush = SvgFillRenderer.CreatePreviewBrush(fill, fillPattern, fillOpacity);
         var preview = new SvgElement
         {
             Kind = kind,
             Bounds = bounds,
             CornerRadius = kind == SvgElementKind.RoundedRectangle ? Math.Max(0f, cornerRadius) : 0f,
             StrokeLineStyle = lineStyle,
-            FillPattern = fillPattern
+            FillPattern = fillPattern,
+            FillOpacity = fillOpacity
         };
 
         using var path = CreatePath(preview);
-        graphics.FillPath(brush, path);
+        if (SvgFillRenderer.HasFill(preview))
+        {
+            using var brush = SvgFillRenderer.CreatePreviewBrush(fill, fillPattern, fillOpacity);
+            graphics.FillPath(brush, path);
+        }
         graphics.DrawPath(pen, path);
     }
 
@@ -164,6 +174,7 @@ public static class SvgShapeRenderer
             case SvgElementKind.RoundedRectangle:
                 path.Dispose();
                 return CreateRoundedRect(rect, Math.Max(0f, element.CornerRadius));
+            case SvgElementKind.Circle:
             case SvgElementKind.Ellipse:
                 path.AddEllipse(rect);
                 break;
@@ -244,6 +255,15 @@ public static class SvgShapeRenderer
                 var radius = Math.Max(0f, element.CornerRadius);
                 sb.AppendLine(CultureInfo.InvariantCulture,
                     $"""  <rect x="{element.Bounds.X:0.##}" y="{element.Bounds.Y:0.##}" width="{element.Bounds.Width:0.##}" height="{element.Bounds.Height:0.##}" rx="{radius:0.##}" ry="{radius:0.##}" {fillAttrs}{strokeAttrs}{dataStyle} data-kind="RoundedRectangle" />""");
+                break;
+            }
+            case SvgElementKind.Circle:
+            {
+                var cx = element.Bounds.X + element.Bounds.Width / 2f;
+                var cy = element.Bounds.Y + element.Bounds.Height / 2f;
+                var radius = Math.Min(element.Bounds.Width, element.Bounds.Height) / 2f;
+                sb.AppendLine(CultureInfo.InvariantCulture,
+                    $"""  <circle cx="{cx:0.##}" cy="{cy:0.##}" r="{radius:0.##}" {fillAttrs}{strokeAttrs}{dataStyle} />""");
                 break;
             }
             case SvgElementKind.Ellipse:

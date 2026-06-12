@@ -615,7 +615,13 @@ public sealed partial class SvgCanvas : Control
 
         if (isPathTool)
         {
-            _penSession.Mode = tool == EditorTool.Polygon ? PathDrawMode.Polygon : PathDrawMode.Curve;
+            _penSession.Mode = tool switch
+            {
+                EditorTool.Polygon => PathDrawMode.Polygon,
+                EditorTool.Polyline => PathDrawMode.Polyline,
+                EditorTool.Path => PathDrawMode.AdjustablePath,
+                _ => PathDrawMode.Curve
+            };
             if (!wasPathTool)
             {
                 _penSession.Reset();
@@ -667,6 +673,80 @@ public sealed partial class SvgCanvas : Control
         DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    public void BringSelectionToFront()
+    {
+        var selected = GetSelectedElementsInDocumentOrder();
+        if (selected.Count == 0)
+            return;
+
+        SaveHistoryState();
+        _document.Elements.RemoveAll(e => _selectedIds.Contains(e.Id));
+        _document.Elements.AddRange(selected);
+        NotifyOrderChanged();
+    }
+
+    public void SendSelectionToBack()
+    {
+        var selected = GetSelectedElementsInDocumentOrder();
+        if (selected.Count == 0)
+            return;
+
+        SaveHistoryState();
+        _document.Elements.RemoveAll(e => _selectedIds.Contains(e.Id));
+        _document.Elements.InsertRange(0, selected);
+        NotifyOrderChanged();
+    }
+
+    public bool CanBringSelectionForward() =>
+        FindSelectionOrderIndex(i => i < _document.Elements.Count - 1
+            && !_selectedIds.Contains(_document.Elements[i + 1].Id));
+
+    public bool CanSendSelectionBackward() =>
+        FindSelectionOrderIndex(i => i > 0
+            && !_selectedIds.Contains(_document.Elements[i - 1].Id));
+
+    public void BringSelectionForward()
+    {
+        if (!CanBringSelectionForward())
+            return;
+
+        SaveHistoryState();
+        for (var i = _document.Elements.Count - 2; i >= 0; i--)
+        {
+            if (!_selectedIds.Contains(_document.Elements[i].Id))
+                continue;
+
+            if (_selectedIds.Contains(_document.Elements[i + 1].Id))
+                continue;
+
+            (_document.Elements[i], _document.Elements[i + 1]) =
+                (_document.Elements[i + 1], _document.Elements[i]);
+        }
+
+        NotifyOrderChanged();
+    }
+
+    public void SendSelectionBackward()
+    {
+        if (!CanSendSelectionBackward())
+            return;
+
+        SaveHistoryState();
+        for (var i = 1; i < _document.Elements.Count; i++)
+        {
+            if (!_selectedIds.Contains(_document.Elements[i].Id))
+                continue;
+
+            if (_selectedIds.Contains(_document.Elements[i - 1].Id))
+                continue;
+
+            (_document.Elements[i], _document.Elements[i - 1]) =
+                (_document.Elements[i - 1], _document.Elements[i]);
+        }
+
+        NotifyOrderChanged();
+    }
+
     public void SelectAll()
     {
         if (_document.Elements.Count == 0)
@@ -682,6 +762,26 @@ public sealed partial class SvgCanvas : Control
 
     private List<SvgElement> GetSelectedElements() =>
         _document.Elements.Where(e => _selectedIds.Contains(e.Id)).ToList();
+
+    private List<SvgElement> GetSelectedElementsInDocumentOrder() =>
+        _document.Elements.Where(e => _selectedIds.Contains(e.Id)).ToList();
+
+    private bool FindSelectionOrderIndex(Func<int, bool> predicate)
+    {
+        for (var i = 0; i < _document.Elements.Count; i++)
+        {
+            if (_selectedIds.Contains(_document.Elements[i].Id) && predicate(i))
+                return true;
+        }
+
+        return false;
+    }
+
+    private void NotifyOrderChanged()
+    {
+        Invalidate();
+        DocumentChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     private bool IsSelected(SvgElement element) => _selectedIds.Contains(element.Id);
 
@@ -937,7 +1037,7 @@ public sealed partial class SvgCanvas : Control
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime || e.Button != MouseButtons.Left)
             return;
 
-        if (_tool is not (EditorTool.Select or EditorTool.Text or EditorTool.Polygon or EditorTool.Curve))
+        if (_tool is not (EditorTool.Select or EditorTool.Text or EditorTool.Polygon or EditorTool.Polyline or EditorTool.Curve or EditorTool.Path))
             return;
 
         var hit = HitTest(ToCanvasPoint(e.Location));
@@ -991,7 +1091,7 @@ public sealed partial class SvgCanvas : Control
 
         if (IsPathDrawingTool(_tool) && (_penSession.IsActive || Capture))
         {
-            _penPreviewPoint = EditorCanvasGrid.SnapPoint(point);
+            _penPreviewPoint = GetPathDragPoint(point);
             if (Capture)
             {
                 if (_penSession.IsEditingHandle)
@@ -1102,7 +1202,7 @@ public sealed partial class SvgCanvas : Control
 
         if (IsPathDrawingTool(_tool) && Capture)
         {
-            _penPreviewPoint = EditorCanvasGrid.SnapPoint(canvasPoint);
+            _penPreviewPoint = GetPathDragPoint(canvasPoint);
             if (_penSession.IsEditingHandle)
             {
                 _penSession.UpdateHandleDrag(canvasPoint);
@@ -1110,7 +1210,15 @@ public sealed partial class SvgCanvas : Control
             }
             else
             {
-                _penSession.UpdateDrag(GetPathDragPoint(canvasPoint));
+                var releasePoint = GetPathDragPoint(canvasPoint);
+                _penSession.UpdateDrag(releasePoint);
+
+                if (TryFinishClosedPolygon(canvasPoint, releasePoint))
+                {
+                    UpdateCursor(canvasPoint);
+                    return;
+                }
+
                 _penSession.CommitPoint();
                 if (_closePathAfterPenDrag)
                 {
@@ -1392,7 +1500,11 @@ public sealed partial class SvgCanvas : Control
             || !SupportsResizeHandles(_primarySelected))
             return false;
 
-        var handle = SvgResizeHandles.HitTest(_primarySelected.GetBounds(), canvasPoint, HandleSize, _primarySelected.IsSquare);
+        var handle = SvgResizeHandles.HitTest(
+            _primarySelected.GetBounds(),
+            canvasPoint,
+            HandleSize,
+            _primarySelected.IsSquare || _primarySelected.Kind == SvgElementKind.Circle);
         if (handle == ResizeHandle.None)
             return false;
 
@@ -1498,10 +1610,11 @@ public sealed partial class SvgCanvas : Control
         if (_primarySelected is null || !SupportsResizeHandles(_primarySelected))
             return;
 
-        var bounds = _primarySelected.IsSquare
+        var keepSquare = _primarySelected.IsSquare || _primarySelected.Kind == SvgElementKind.Circle;
+        var bounds = keepSquare
             ? ResizeSquare(_resizeStartBounds, _activeResizeHandle, point)
             : _primarySelected.Bounds;
-        if (!_primarySelected.IsSquare)
+        if (!keepSquare)
             SvgResizeHandles.ApplyResize(ref bounds, _activeResizeHandle, point, _resizeDragPrevious);
 
         if (_primarySelected.Kind == SvgElementKind.Path && !string.IsNullOrEmpty(_resizeStartPathData))
@@ -1599,7 +1712,7 @@ public sealed partial class SvgCanvas : Control
         if (bottom - top < SvgResizeHandles.MinBoundsSize)
             bottom = top + SvgResizeHandles.MinBoundsSize;
 
-        if (element.IsSquare)
+        if (element.IsSquare || element.Kind == SvgElementKind.Circle)
         {
             var side = Math.Max(right - left, bottom - top);
             side = Math.Max(side, SvgResizeHandles.MinBoundsSize);
@@ -1711,10 +1824,28 @@ public sealed partial class SvgCanvas : Control
             Font = ModernTheme.UiFont
         };
 
+        var hasSelection = _selectedIds.Count > 0;
+
         var deleteItem = new ToolStripMenuItem("삭제", null, (_, _) => DeleteSelected())
         {
-            Enabled = _selectedIds.Count > 0,
+            Enabled = hasSelection,
             ShortcutKeyDisplayString = "Del"
+        };
+        var bringToFrontItem = new ToolStripMenuItem("가장 앞으로 가져오기", null, (_, _) => BringSelectionToFront())
+        {
+            Enabled = hasSelection && CanBringSelectionForward()
+        };
+        var bringForwardItem = new ToolStripMenuItem("앞으로 가져오기", null, (_, _) => BringSelectionForward())
+        {
+            Enabled = hasSelection && CanBringSelectionForward()
+        };
+        var sendBackwardItem = new ToolStripMenuItem("뒤로 보내기", null, (_, _) => SendSelectionBackward())
+        {
+            Enabled = hasSelection && CanSendSelectionBackward()
+        };
+        var sendToBackItem = new ToolStripMenuItem("가장 뒤로 보내기", null, (_, _) => SendSelectionToBack())
+        {
+            Enabled = hasSelection && CanSendSelectionBackward()
         };
         var selectAllItem = new ToolStripMenuItem("전체 선택", null, (_, _) => SelectAll())
         {
@@ -1722,10 +1853,15 @@ public sealed partial class SvgCanvas : Control
         };
         var clearItem = new ToolStripMenuItem("선택 해제", null, (_, _) => ClearSelection())
         {
-            Enabled = _selectedIds.Count > 0
+            Enabled = hasSelection
         };
 
         menu.Items.Add(deleteItem);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(bringToFrontItem);
+        menu.Items.Add(bringForwardItem);
+        menu.Items.Add(sendBackwardItem);
+        menu.Items.Add(sendToBackItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(selectAllItem);
         menu.Items.Add(clearItem);
@@ -1815,7 +1951,7 @@ public sealed partial class SvgCanvas : Control
         if (!SvgShapeRenderer.UsesBounds(_tool))
             return null;
 
-        var bounds = _tool == EditorTool.Square
+        var bounds = _tool is EditorTool.Square or EditorTool.Circle
             ? NormalizeSquare(start, end)
             : NormalizeRect(start, end);
         if (bounds.Width < MinElementSize || bounds.Height < MinElementSize)
@@ -2008,7 +2144,7 @@ public sealed partial class SvgCanvas : Control
         if (bounds.Width < 1f || bounds.Height < 1f)
             return;
 
-        if (_tool == EditorTool.Square)
+        if (_tool is EditorTool.Square or EditorTool.Circle)
             bounds = NormalizeSquare(_dragStart, _dragCurrent);
 
         SvgShapeRenderer.DrawPreview(
@@ -2046,7 +2182,7 @@ public sealed partial class SvgCanvas : Control
             && _selectedIds.Count == 1
             && element.Id == _primarySelected?.Id)
         {
-            SvgPathEditHandles.Draw(graphics, element.PathData, HandleSize);
+            SvgPathEditHandles.Draw(graphics, element.PathData, HandleSize, element.NativePathKind);
             return;
         }
 
@@ -2055,7 +2191,7 @@ public sealed partial class SvgCanvas : Control
             && _selectedIds.Count == 1
             && element.Id == _primarySelected?.Id)
         {
-            SvgResizeHandles.Draw(graphics, bounds, HandleSize, element.IsSquare);
+            SvgResizeHandles.Draw(graphics, bounds, HandleSize, element.IsSquare || element.Kind == SvgElementKind.Circle);
             if (element.Kind == SvgElementKind.RoundedRectangle)
                 DrawCornerRadiusHandle(graphics, element);
         }
@@ -2302,7 +2438,7 @@ public sealed partial class SvgCanvas : Control
                 && _primarySelected?.Kind == SvgElementKind.Path
                 && _selectedIds.Count == 1
                 && !string.IsNullOrWhiteSpace(_primarySelected.PathData)
-                && SvgPathEditHandles.HitTest(_primarySelected.PathData, point, HandleSize) is not null)
+                && SvgPathEditHandles.HitTest(_primarySelected.PathData, point, HandleSize, _primarySelected.NativePathKind) is not null)
             {
                 Cursor = Cursors.Cross;
                 return;
@@ -2348,7 +2484,11 @@ public sealed partial class SvgCanvas : Control
             || !SupportsResizeHandles(_primarySelected))
             return ResizeHandle.None;
 
-        return SvgResizeHandles.HitTest(_primarySelected.GetBounds(), canvasPoint, HandleSize, _primarySelected.IsSquare);
+        return SvgResizeHandles.HitTest(
+            _primarySelected.GetBounds(),
+            canvasPoint,
+            HandleSize,
+            _primarySelected.IsSquare || _primarySelected.Kind == SvgElementKind.Circle);
     }
 
     private bool IsCornerRadiusHandleAt(PointF canvasPoint) =>

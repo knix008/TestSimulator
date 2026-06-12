@@ -25,6 +25,7 @@ partial class MainForm
     private ToolStripMenuItem _menuToolRectangle;
     private ToolStripMenuItem _menuToolSquare;
     private ToolStripMenuItem _menuToolRoundedRect;
+    private ToolStripMenuItem _menuToolCircle;
     private ToolStripMenuItem _menuToolEllipse;
     private ToolStripMenuItem _menuToolTriangle;
     private ToolStripMenuItem _menuToolDiamond;
@@ -32,8 +33,10 @@ partial class MainForm
     private ToolStripMenuItem _menuToolParallelogram;
     private ToolStripMenuItem _menuToolStar;
     private ToolStripMenuItem _menuToolLine;
+    private ToolStripMenuItem _menuToolPolyline;
     private ToolStripMenuItem _menuToolPolygon;
     private ToolStripMenuItem _menuToolCurve;
+    private ToolStripMenuItem _menuToolPath;
     private ToolStripMenuItem _menuToolText;
     private ToolStripMenuItem _menuToolImage;
     private ToolStripMenuItem _menuUndo;
@@ -74,6 +77,7 @@ partial class MainForm
     private ToolStripButton _btnRectangle;
     private ToolStripButton _btnSquare;
     private ToolStripButton _btnRoundedRect;
+    private ToolStripButton _btnCircle;
     private ToolStripButton _btnEllipse;
     private ToolStripButton _btnTriangle;
     private ToolStripButton _btnDiamond;
@@ -81,8 +85,10 @@ partial class MainForm
     private ToolStripButton _btnParallelogram;
     private ToolStripButton _btnStar;
     private ToolStripButton _btnLine;
+    private ToolStripButton _btnPolyline;
     private ToolStripButton _btnPolygon;
     private ToolStripButton _btnCurve;
+    private ToolStripButton _btnPath;
     private ToolStripButton _btnText;
     private ToolStripButton _btnImage;
     private Panel _pnlToolOptions;
@@ -162,6 +168,7 @@ partial class MainForm
         _menuToolRectangle = new ToolStripMenuItem();
         _menuToolSquare = new ToolStripMenuItem();
         _menuToolRoundedRect = new ToolStripMenuItem();
+        _menuToolCircle = new ToolStripMenuItem();
         _menuToolEllipse = new ToolStripMenuItem();
         _menuToolTriangle = new ToolStripMenuItem();
         _menuToolDiamond = new ToolStripMenuItem();
@@ -169,8 +176,10 @@ partial class MainForm
         _menuToolParallelogram = new ToolStripMenuItem();
         _menuToolStar = new ToolStripMenuItem();
         _menuToolLine = new ToolStripMenuItem();
+        _menuToolPolyline = new ToolStripMenuItem();
         _menuToolPolygon = new ToolStripMenuItem();
         _menuToolCurve = new ToolStripMenuItem();
+        _menuToolPath = new ToolStripMenuItem();
         _menuToolText = new ToolStripMenuItem();
         _menuToolImage = new ToolStripMenuItem();
         _menuView = new ToolStripMenuItem();
@@ -238,6 +247,7 @@ partial class MainForm
         _btnRectangle = new ToolStripButton();
         _btnSquare = new ToolStripButton();
         _btnRoundedRect = new ToolStripButton();
+        _btnCircle = new ToolStripButton();
         _btnEllipse = new ToolStripButton();
         _btnTriangle = new ToolStripButton();
         _btnDiamond = new ToolStripButton();
@@ -245,8 +255,10 @@ partial class MainForm
         _btnParallelogram = new ToolStripButton();
         _btnStar = new ToolStripButton();
         _btnLine = new ToolStripButton();
+        _btnPolyline = new ToolStripButton();
         _btnPolygon = new ToolStripButton();
         _btnCurve = new ToolStripButton();
+        _btnPath = new ToolStripButton();
         _btnText = new ToolStripButton();
         _btnImage = new ToolStripButton();
         _splitEditor = new SplitContainer();
@@ -422,7 +434,7 @@ partial class MainForm
         // 
         // _menuTools
         // 
-        _menuTools.DropDownItems.AddRange(new ToolStripItem[] { _menuToolSelect, _menuToolRectangle, _menuToolSquare, _menuToolRoundedRect, _menuToolEllipse, _menuToolTriangle, _menuToolDiamond, _menuToolHexagon, _menuToolParallelogram, _menuToolStar, _menuToolLine, _menuToolPolygon, _menuToolCurve, _menuToolText, _menuToolImage });
+        _menuTools.DropDownItems.AddRange(new ToolStripItem[] { _menuToolSelect, _menuToolRectangle, _menuToolSquare, _menuToolRoundedRect, _menuToolCircle, _menuToolEllipse, _menuToolTriangle, _menuToolDiamond, _menuToolHexagon, _menuToolParallelogram, _menuToolStar, _menuToolLine, _menuToolPolyline, _menuToolPolygon, _menuToolCurve, _menuToolPath, _menuToolText, _menuToolImage });
         _menuTools.Name = "_menuTools";
         _menuTools.Size = new Size(57, 20);
         _menuTools.Text = "도구(&T)";
@@ -450,6 +462,12 @@ partial class MainForm
         _menuToolRoundedRect.Name = "_menuToolRoundedRect";
         _menuToolRoundedRect.Size = new Size(138, 22);
         _menuToolRoundedRect.Text = "둥근 사각형";
+        // 
+        // _menuToolCircle
+        // 
+        _menuToolCircle.Name = "_menuToolCircle";
+        _menuToolCircle.Size = new Size(138, 22);
+        _menuToolCircle.Text = "원";
         // 
         // _menuToolEllipse
         // 
@@ -493,6 +511,12 @@ partial class MainForm
         _menuToolLine.Size = new Size(138, 22);
         _menuToolLine.Text = "선";
         // 
+        // _menuToolPolyline
+        // 
+        _menuToolPolyline.Name = "_menuToolPolyline";
+        _menuToolPolyline.Size = new Size(138, 22);
+        _menuToolPolyline.Text = "폴리라인";
+        // 
         // _menuToolPolygon
         // 
         _menuToolPolygon.Name = "_menuToolPolygon";
@@ -503,7 +527,13 @@ partial class MainForm
         // 
         _menuToolCurve.Name = "_menuToolCurve";
         _menuToolCurve.Size = new Size(138, 22);
-        _menuToolCurve.Text = "곡선";
+        _menuToolCurve.Text = "곡선 도형";
+        // 
+        // _menuToolPath
+        // 
+        _menuToolPath.Name = "_menuToolPath";
+        _menuToolPath.Size = new Size(138, 22);
+        _menuToolPath.Text = "곡률 경로";
         // 
         // _menuToolText
         // 
@@ -1096,7 +1126,7 @@ partial class MainForm
         // _toolStripTools
         // 
         _toolStripTools.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStripTools.Items.AddRange(new ToolStripItem[] { _btnSelect, _btnRectangle, _btnSquare, _btnRoundedRect, _btnEllipse, _btnTriangle, _btnDiamond, _btnHexagon, _btnParallelogram, _btnStar, _btnLine, _btnPolygon, _btnCurve, _btnText, _btnImage });
+        _toolStripTools.Items.AddRange(new ToolStripItem[] { _btnSelect, _btnRectangle, _btnSquare, _btnRoundedRect, _btnCircle, _btnEllipse, _btnTriangle, _btnDiamond, _btnHexagon, _btnParallelogram, _btnStar, _btnLine, _btnPolyline, _btnPolygon, _btnCurve, _btnPath, _btnText, _btnImage });
         _toolStripTools.LayoutStyle = ToolStripLayoutStyle.Flow;
         _toolStripTools.Location = new Point(0, 0);
         _toolStripTools.Name = "_toolStripTools";
@@ -1135,6 +1165,14 @@ partial class MainForm
         _btnRoundedRect.ImageScaling = ToolStripItemImageScaling.None;
         _btnRoundedRect.Name = "_btnRoundedRect";
         _btnRoundedRect.Size = new Size(28, 28);
+        // 
+        // _btnCircle
+        // 
+        _btnCircle.AutoSize = false;
+        _btnCircle.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _btnCircle.ImageScaling = ToolStripItemImageScaling.None;
+        _btnCircle.Name = "_btnCircle";
+        _btnCircle.Size = new Size(28, 28);
         // 
         // _btnEllipse
         // 
@@ -1192,6 +1230,14 @@ partial class MainForm
         _btnLine.Name = "_btnLine";
         _btnLine.Size = new Size(28, 28);
         // 
+        // _btnPolyline
+        // 
+        _btnPolyline.AutoSize = false;
+        _btnPolyline.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _btnPolyline.ImageScaling = ToolStripItemImageScaling.None;
+        _btnPolyline.Name = "_btnPolyline";
+        _btnPolyline.Size = new Size(28, 28);
+        // 
         // _btnPolygon
         // 
         _btnPolygon.AutoSize = false;
@@ -1207,6 +1253,14 @@ partial class MainForm
         _btnCurve.ImageScaling = ToolStripItemImageScaling.None;
         _btnCurve.Name = "_btnCurve";
         _btnCurve.Size = new Size(28, 28);
+        // 
+        // _btnPath
+        // 
+        _btnPath.AutoSize = false;
+        _btnPath.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _btnPath.ImageScaling = ToolStripItemImageScaling.None;
+        _btnPath.Name = "_btnPath";
+        _btnPath.Size = new Size(28, 28);
         // 
         // _btnText
         // 

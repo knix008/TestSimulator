@@ -7,8 +7,16 @@ namespace SVGEditorWinV10.Rendering;
 
 public static class SvgFillRenderer
 {
+    public static bool HasFill(SvgElement element) =>
+        element.Kind != SvgElementKind.Line
+        && element.FillPattern != FillPattern.None
+        && element.FillOpacity > 0.001f;
+
     public static Brush CreateBrush(SvgElement element)
     {
+        if (!HasFill(element))
+            return new SolidBrush(Color.Transparent);
+
         var fillColor = SvgColorHelper.WithOpacity(element.FillColorArgb, element.FillOpacity);
         if (element.FillPattern == FillPattern.Solid)
             return new SolidBrush(fillColor);
@@ -18,6 +26,9 @@ public static class SvgFillRenderer
 
     public static Brush CreatePreviewBrush(Color fillColor, FillPattern pattern, float fillOpacity)
     {
+        if (pattern == FillPattern.None || fillOpacity <= 0.001f)
+            return new SolidBrush(Color.Transparent);
+
         var previewColor = SvgColorHelper.WithOpacity(fillColor.ToArgb(), fillOpacity * 0.35f);
         if (pattern == FillPattern.Solid)
             return new SolidBrush(previewColor);
@@ -29,6 +40,9 @@ public static class SvgFillRenderer
     {
         if (element.Kind == SvgElementKind.Line)
             return string.Empty;
+
+        if (!HasFill(element))
+            return """fill="none" """;
 
         if (element.FillPattern == FillPattern.Solid)
         {
@@ -50,7 +64,7 @@ public static class SvgFillRenderer
     public static void AppendPatternDefinitions(StringBuilder sb, IEnumerable<SvgElement> elements)
     {
         var needed = elements
-            .Where(e => e.Kind != SvgElementKind.Line && e.FillPattern != FillPattern.Solid)
+            .Where(e => e.Kind != SvgElementKind.Line && e.FillPattern is not (FillPattern.None or FillPattern.Solid))
             .Select(e => (e.FillPattern, e.FillColorArgb))
             .Distinct()
             .OrderBy(x => x.FillPattern)
@@ -115,6 +129,7 @@ public static class SvgFillRenderer
 
     private static HatchStyle ToHatchStyle(FillPattern pattern) => pattern switch
     {
+        FillPattern.None => HatchStyle.Horizontal,
         FillPattern.Horizontal => HatchStyle.Horizontal,
         FillPattern.Vertical => HatchStyle.Vertical,
         FillPattern.ForwardDiagonal => HatchStyle.ForwardDiagonal,

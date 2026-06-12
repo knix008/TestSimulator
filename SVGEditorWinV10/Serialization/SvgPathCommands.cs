@@ -1,6 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Text;
+using SVGEditorWinV10.Models;
 
 namespace SVGEditorWinV10.Serialization;
 
@@ -281,7 +282,45 @@ public static class SvgPathCommands
     public static bool HasCurves(string pathData) =>
         Parse(pathData).Any(static s => s.Kind is SvgPathSegmentKind.Quadratic or SvgPathSegmentKind.Cubic);
 
-    public static IReadOnlyList<PathEditHandle> GetEditHandles(string pathData)
+    public static bool TryExtractLinePointPath(string pathData, out PointF[] points, out bool closed)
+    {
+        points = [];
+        closed = false;
+        if (string.IsNullOrWhiteSpace(pathData))
+            return false;
+
+        var segments = Parse(pathData);
+        if (segments.Count == 0)
+            return false;
+
+        var extracted = new List<PointF>();
+        foreach (var segment in segments)
+        {
+            switch (segment.Kind)
+            {
+                case SvgPathSegmentKind.Move:
+                case SvgPathSegmentKind.Line:
+                    extracted.Add(segment.End);
+                    break;
+                case SvgPathSegmentKind.Close:
+                    closed = true;
+                    break;
+                default:
+                    return false;
+            }
+        }
+
+        if (extracted.Count < 2)
+            return false;
+
+        points = extracted.ToArray();
+        return true;
+    }
+
+    public static bool AllowsCurveEditing(SvgNativePathKind nativePathKind) =>
+        nativePathKind == SvgNativePathKind.Path;
+
+    public static IReadOnlyList<PathEditHandle> GetEditHandles(string pathData, bool allowCurveControls = true)
     {
         var segments = Parse(pathData);
         var handles = new List<PathEditHandle>();
@@ -292,6 +331,9 @@ public static class SvgPathCommands
                 continue;
 
             handles.Add(new PathEditHandle(i, PathEditHandleRole.Anchor, segment.End));
+            if (!allowCurveControls)
+                continue;
+
             if (segment.Kind == SvgPathSegmentKind.Line)
                 handles.Add(new PathEditHandle(i, PathEditHandleRole.Control1, GetDefaultCurveControl(segments, i)));
             if (segment.Kind == SvgPathSegmentKind.Quadratic)
@@ -309,7 +351,7 @@ public static class SvgPathCommands
         return handles;
     }
 
-    public static string UpdateHandle(string pathData, PathEditHandle handle, PointF newPoint)
+    public static string UpdateHandle(string pathData, PathEditHandle handle, PointF newPoint, bool allowCurveControls = true)
     {
         var segments = Parse(pathData);
         if (handle.SegmentIndex < 0 || handle.SegmentIndex >= segments.Count)
@@ -322,6 +364,9 @@ public static class SvgPathCommands
                 MoveAnchor(segments, handle.SegmentIndex, newPoint);
                 break;
             case PathEditHandleRole.Control1:
+                if (!allowCurveControls)
+                    break;
+
                 if (segment.Kind == SvgPathSegmentKind.Line)
                 {
                     var start = GetSegmentStart(segments, handle.SegmentIndex);
@@ -344,7 +389,8 @@ public static class SvgPathCommands
 
                 break;
             case PathEditHandleRole.Control2:
-                segment.Control2 = newPoint;
+                if (allowCurveControls)
+                    segment.Control2 = newPoint;
                 break;
         }
 
