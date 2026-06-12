@@ -23,6 +23,7 @@ partial class MainForm
     private ToolStripMenuItem _menuTools;
     private ToolStripMenuItem _menuToolSelect;
     private ToolStripMenuItem _menuToolRectangle;
+    private ToolStripMenuItem _menuToolSquare;
     private ToolStripMenuItem _menuToolRoundedRect;
     private ToolStripMenuItem _menuToolEllipse;
     private ToolStripMenuItem _menuToolTriangle;
@@ -31,7 +32,8 @@ partial class MainForm
     private ToolStripMenuItem _menuToolParallelogram;
     private ToolStripMenuItem _menuToolStar;
     private ToolStripMenuItem _menuToolLine;
-    private ToolStripMenuItem _menuToolPen;
+    private ToolStripMenuItem _menuToolPolygon;
+    private ToolStripMenuItem _menuToolCurve;
     private ToolStripMenuItem _menuToolText;
     private ToolStripMenuItem _menuToolImage;
     private ToolStripSeparator _menuSepEdit1;
@@ -57,11 +59,14 @@ partial class MainForm
     private SplitContainer _splitMain;
     private SplitContainer _splitEditor;
     private Panel _pnlToolbox;
+    private FlowLayoutPanel _pnlToolboxTop;
+    private Panel _pnlToolGridHost;
     private Panel _pnlToolboxSectionDivider;
     private Label _lblToolboxTitle;
     private ToolStrip _toolStripTools;
     private ToolStripButton _btnSelect;
     private ToolStripButton _btnRectangle;
+    private ToolStripButton _btnSquare;
     private ToolStripButton _btnRoundedRect;
     private ToolStripButton _btnEllipse;
     private ToolStripButton _btnTriangle;
@@ -70,7 +75,8 @@ partial class MainForm
     private ToolStripButton _btnParallelogram;
     private ToolStripButton _btnStar;
     private ToolStripButton _btnLine;
-    private ToolStripButton _btnPen;
+    private ToolStripButton _btnPolygon;
+    private ToolStripButton _btnCurve;
     private ToolStripButton _btnText;
     private ToolStripButton _btnImage;
     private Panel _pnlToolOptions;
@@ -92,14 +98,14 @@ partial class MainForm
     private ComboBox _cmbStartMarker;
     private Label _lblEndMarker;
     private ComboBox _cmbEndMarker;
-    private Label _lblTextContent;
-    private TextBox _txtTextContent;
     private Label _lblFontName;
     private ComboBox _cmbFontName;
     private Label _lblFontSize;
     private NumericUpDown _numFontSize;
     private CheckBox _chkFontBold;
     private CheckBox _chkFontItalic;
+    private CheckBox _chkFontUnderline;
+    private CheckBox _chkFontStrikeout;
     private Panel _pnlCanvasHost;
     private Controls.SvgCanvas _canvas;
     private Panel _pnlSource;
@@ -145,6 +151,7 @@ partial class MainForm
         _menuTools = new ToolStripMenuItem();
         _menuToolSelect = new ToolStripMenuItem();
         _menuToolRectangle = new ToolStripMenuItem();
+        _menuToolSquare = new ToolStripMenuItem();
         _menuToolRoundedRect = new ToolStripMenuItem();
         _menuToolEllipse = new ToolStripMenuItem();
         _menuToolTriangle = new ToolStripMenuItem();
@@ -153,7 +160,8 @@ partial class MainForm
         _menuToolParallelogram = new ToolStripMenuItem();
         _menuToolStar = new ToolStripMenuItem();
         _menuToolLine = new ToolStripMenuItem();
-        _menuToolPen = new ToolStripMenuItem();
+        _menuToolPolygon = new ToolStripMenuItem();
+        _menuToolCurve = new ToolStripMenuItem();
         _menuToolText = new ToolStripMenuItem();
         _menuToolImage = new ToolStripMenuItem();
         _menuView = new ToolStripMenuItem();
@@ -179,17 +187,16 @@ partial class MainForm
         _tbCopySource = new ToolStripButton();
         _splitMain = new SplitContainer();
         _pnlToolbox = new Panel();
-        _pnlToolboxSectionDivider = new Panel();
         _pnlProperties = new Panel();
         _pnlToolOptions = new Panel();
         _chkFontItalic = new CheckBox();
+        _chkFontUnderline = new CheckBox();
+        _chkFontStrikeout = new CheckBox();
         _chkFontBold = new CheckBox();
         _numFontSize = new NumericUpDown();
         _lblFontSize = new Label();
         _cmbFontName = new ComboBox();
         _lblFontName = new Label();
-        _txtTextContent = new TextBox();
-        _lblTextContent = new Label();
         _cmbEndMarker = new ComboBox();
         _lblEndMarker = new Label();
         _cmbStartMarker = new ComboBox();
@@ -210,9 +217,14 @@ partial class MainForm
         _lblFillColor = new Label();
         _pnlPropertiesHeader = new Panel();
         _lblPropertiesTitle = new Label();
+        _pnlToolboxSectionDivider = new Panel();
+        _pnlToolboxTop = new FlowLayoutPanel();
+        _lblToolboxTitle = new Label();
+        _pnlToolGridHost = new Panel();
         _toolStripTools = new ToolStrip();
         _btnSelect = new ToolStripButton();
         _btnRectangle = new ToolStripButton();
+        _btnSquare = new ToolStripButton();
         _btnRoundedRect = new ToolStripButton();
         _btnEllipse = new ToolStripButton();
         _btnTriangle = new ToolStripButton();
@@ -221,10 +233,10 @@ partial class MainForm
         _btnParallelogram = new ToolStripButton();
         _btnStar = new ToolStripButton();
         _btnLine = new ToolStripButton();
-        _btnPen = new ToolStripButton();
+        _btnPolygon = new ToolStripButton();
+        _btnCurve = new ToolStripButton();
         _btnText = new ToolStripButton();
         _btnImage = new ToolStripButton();
-        _lblToolboxTitle = new Label();
         _splitEditor = new SplitContainer();
         _pnlCanvasHost = new Panel();
         _canvas = new SVGEditorWinV10.Controls.SvgCanvas();
@@ -232,10 +244,10 @@ partial class MainForm
         _pnlSourceEditor = new Panel();
         _txtSvgSource = new RichTextBox();
         _pnlSourceHeader = new Panel();
+        _lblSourceTitle = new Label();
         _pnlSourceButtons = new Panel();
         _btnCopySource = new Button();
         _btnApplySource = new Button();
-        _lblSourceTitle = new Label();
         _statusStrip = new StatusStrip();
         _statusLabel = new ToolStripStatusLabel();
         _statusZoomLabel = new ToolStripStatusLabel();
@@ -253,6 +265,8 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)_numStrokeWidth).BeginInit();
         ((System.ComponentModel.ISupportInitialize)_numFillOpacity).BeginInit();
         _pnlPropertiesHeader.SuspendLayout();
+        _pnlToolboxTop.SuspendLayout();
+        _pnlToolGridHost.SuspendLayout();
         _toolStripTools.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)_splitEditor).BeginInit();
         _splitEditor.Panel1.SuspendLayout();
@@ -375,7 +389,7 @@ partial class MainForm
         // 
         // _menuTools
         // 
-        _menuTools.DropDownItems.AddRange(new ToolStripItem[] { _menuToolSelect, _menuToolRectangle, _menuToolRoundedRect, _menuToolEllipse, _menuToolTriangle, _menuToolDiamond, _menuToolHexagon, _menuToolParallelogram, _menuToolStar, _menuToolLine, _menuToolPen, _menuToolText, _menuToolImage });
+        _menuTools.DropDownItems.AddRange(new ToolStripItem[] { _menuToolSelect, _menuToolRectangle, _menuToolSquare, _menuToolRoundedRect, _menuToolEllipse, _menuToolTriangle, _menuToolDiamond, _menuToolHexagon, _menuToolParallelogram, _menuToolStar, _menuToolLine, _menuToolPolygon, _menuToolCurve, _menuToolText, _menuToolImage });
         _menuTools.Name = "_menuTools";
         _menuTools.Size = new Size(57, 20);
         _menuTools.Text = "도구(&T)";
@@ -391,6 +405,12 @@ partial class MainForm
         _menuToolRectangle.Name = "_menuToolRectangle";
         _menuToolRectangle.Size = new Size(138, 22);
         _menuToolRectangle.Text = "사각형";
+        // 
+        // _menuToolSquare
+        // 
+        _menuToolSquare.Name = "_menuToolSquare";
+        _menuToolSquare.Size = new Size(138, 22);
+        _menuToolSquare.Text = "정사각형";
         // 
         // _menuToolRoundedRect
         // 
@@ -440,11 +460,17 @@ partial class MainForm
         _menuToolLine.Size = new Size(138, 22);
         _menuToolLine.Text = "선";
         // 
-        // _menuToolPen
+        // _menuToolPolygon
         // 
-        _menuToolPen.Name = "_menuToolPen";
-        _menuToolPen.Size = new Size(138, 22);
-        _menuToolPen.Text = "펜 (폴리곤/곡선)";
+        _menuToolPolygon.Name = "_menuToolPolygon";
+        _menuToolPolygon.Size = new Size(138, 22);
+        _menuToolPolygon.Text = "폴리곤";
+        // 
+        // _menuToolCurve
+        // 
+        _menuToolCurve.Name = "_menuToolCurve";
+        _menuToolCurve.Size = new Size(138, 22);
+        _menuToolCurve.Text = "곡선";
         // 
         // _menuToolText
         // 
@@ -606,7 +632,6 @@ partial class MainForm
         _tbZoomLabel.Name = "_tbZoomLabel";
         _tbZoomLabel.Size = new Size(44, 20);
         _tbZoomLabel.Text = "100%";
-        _tbZoomLabel.TextAlign = ContentAlignment.MiddleCenter;
         // 
         // _tbSepView1
         // 
@@ -641,58 +666,49 @@ partial class MainForm
         // _splitMain.Panel1
         // 
         _splitMain.Panel1.Controls.Add(_pnlToolbox);
-        _splitMain.Panel1MinSize = 180;
+        _splitMain.Panel1MinSize = 220;
         // 
         // _splitMain.Panel2
         // 
         _splitMain.Panel2.Controls.Add(_splitEditor);
-        _splitMain.Size = new Size(1280, 649);
-        _splitMain.SplitterDistance = 196;
+        _splitMain.Size = new Size(1280, 827);
+        _splitMain.SplitterDistance = 280;
         _splitMain.TabIndex = 1;
         // 
         // _pnlToolbox
         // 
         _pnlToolbox.Controls.Add(_pnlProperties);
         _pnlToolbox.Controls.Add(_pnlToolboxSectionDivider);
-        _pnlToolbox.Controls.Add(_toolStripTools);
-        _pnlToolbox.Controls.Add(_lblToolboxTitle);
+        _pnlToolbox.Controls.Add(_pnlToolboxTop);
         _pnlToolbox.Dock = DockStyle.Fill;
         _pnlToolbox.Location = new Point(0, 0);
         _pnlToolbox.Name = "_pnlToolbox";
         _pnlToolbox.Padding = new Padding(0, 0, 1, 0);
-        _pnlToolbox.Size = new Size(196, 649);
+        _pnlToolbox.Size = new Size(280, 827);
         _pnlToolbox.TabIndex = 0;
-        // 
-        // _pnlToolboxSectionDivider
-        // 
-        _pnlToolboxSectionDivider.Dock = DockStyle.Top;
-        _pnlToolboxSectionDivider.Location = new Point(0, 62);
-        _pnlToolboxSectionDivider.Name = "_pnlToolboxSectionDivider";
-        _pnlToolboxSectionDivider.Size = new Size(195, 1);
-        _pnlToolboxSectionDivider.TabIndex = 3;
         // 
         // _pnlProperties
         // 
         _pnlProperties.Controls.Add(_pnlToolOptions);
         _pnlProperties.Controls.Add(_pnlPropertiesHeader);
         _pnlProperties.Dock = DockStyle.Fill;
-        _pnlProperties.Location = new Point(0, 63);
+        _pnlProperties.Location = new Point(0, 101);
         _pnlProperties.Name = "_pnlProperties";
         _pnlProperties.Padding = new Padding(8, 0, 8, 8);
-        _pnlProperties.Size = new Size(195, 587);
+        _pnlProperties.Size = new Size(279, 726);
         _pnlProperties.TabIndex = 2;
         // 
         // _pnlToolOptions
         // 
         _pnlToolOptions.AutoScroll = true;
         _pnlToolOptions.Controls.Add(_chkFontItalic);
+        _pnlToolOptions.Controls.Add(_chkFontUnderline);
+        _pnlToolOptions.Controls.Add(_chkFontStrikeout);
         _pnlToolOptions.Controls.Add(_chkFontBold);
         _pnlToolOptions.Controls.Add(_numFontSize);
         _pnlToolOptions.Controls.Add(_lblFontSize);
         _pnlToolOptions.Controls.Add(_cmbFontName);
         _pnlToolOptions.Controls.Add(_lblFontName);
-        _pnlToolOptions.Controls.Add(_txtTextContent);
-        _pnlToolOptions.Controls.Add(_lblTextContent);
         _pnlToolOptions.Controls.Add(_cmbEndMarker);
         _pnlToolOptions.Controls.Add(_lblEndMarker);
         _pnlToolOptions.Controls.Add(_cmbStartMarker);
@@ -712,26 +728,46 @@ partial class MainForm
         _pnlToolOptions.Controls.Add(_btnFillColor);
         _pnlToolOptions.Controls.Add(_lblFillColor);
         _pnlToolOptions.Dock = DockStyle.Fill;
-        _pnlToolOptions.Location = new Point(8, 52);
+        _pnlToolOptions.Location = new Point(8, 28);
         _pnlToolOptions.Name = "_pnlToolOptions";
         _pnlToolOptions.Padding = new Padding(0, 8, 0, 0);
-        _pnlToolOptions.Size = new Size(179, 527);
+        _pnlToolOptions.Size = new Size(263, 690);
         _pnlToolOptions.TabIndex = 1;
         // 
         // _chkFontItalic
         // 
         _chkFontItalic.AutoSize = true;
-        _chkFontItalic.Location = new Point(88, 630);
+        _chkFontItalic.Location = new Point(88, 260);
         _chkFontItalic.Name = "_chkFontItalic";
         _chkFontItalic.Size = new Size(62, 19);
         _chkFontItalic.TabIndex = 25;
         _chkFontItalic.Text = "기울임";
         _chkFontItalic.UseVisualStyleBackColor = true;
         // 
+        // _chkFontUnderline
+        // 
+        _chkFontUnderline.AutoSize = true;
+        _chkFontUnderline.Location = new Point(12, 285);
+        _chkFontUnderline.Name = "_chkFontUnderline";
+        _chkFontUnderline.Size = new Size(50, 19);
+        _chkFontUnderline.TabIndex = 26;
+        _chkFontUnderline.Text = "밑줄";
+        _chkFontUnderline.UseVisualStyleBackColor = true;
+        // 
+        // _chkFontStrikeout
+        // 
+        _chkFontStrikeout.AutoSize = true;
+        _chkFontStrikeout.Location = new Point(88, 285);
+        _chkFontStrikeout.Name = "_chkFontStrikeout";
+        _chkFontStrikeout.Size = new Size(62, 19);
+        _chkFontStrikeout.TabIndex = 27;
+        _chkFontStrikeout.Text = "취소선";
+        _chkFontStrikeout.UseVisualStyleBackColor = true;
+        // 
         // _chkFontBold
         // 
         _chkFontBold.AutoSize = true;
-        _chkFontBold.Location = new Point(12, 630);
+        _chkFontBold.Location = new Point(12, 260);
         _chkFontBold.Name = "_chkFontBold";
         _chkFontBold.Size = new Size(50, 19);
         _chkFontBold.TabIndex = 24;
@@ -741,18 +777,18 @@ partial class MainForm
         // _numFontSize
         // 
         _numFontSize.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _numFontSize.Location = new Point(12, 598);
+        _numFontSize.Location = new Point(12, 230);
         _numFontSize.Maximum = new decimal(new int[] { 200, 0, 0, 0 });
         _numFontSize.Minimum = new decimal(new int[] { 6, 0, 0, 0 });
         _numFontSize.Name = "_numFontSize";
-        _numFontSize.Size = new Size(154, 23);
+        _numFontSize.Size = new Size(221, 23);
         _numFontSize.TabIndex = 23;
         _numFontSize.Value = new decimal(new int[] { 16, 0, 0, 0 });
         // 
         // _lblFontSize
         // 
         _lblFontSize.AutoSize = true;
-        _lblFontSize.Location = new Point(12, 580);
+        _lblFontSize.Location = new Point(12, 212);
         _lblFontSize.Name = "_lblFontSize";
         _lblFontSize.Size = new Size(59, 15);
         _lblFontSize.TabIndex = 22;
@@ -762,52 +798,32 @@ partial class MainForm
         // 
         _cmbFontName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbFontName.DropDownStyle = ComboBoxStyle.DropDownList;
-        _cmbFontName.Location = new Point(12, 550);
+        _cmbFontName.Location = new Point(12, 180);
         _cmbFontName.Name = "_cmbFontName";
-        _cmbFontName.Size = new Size(154, 23);
+        _cmbFontName.Size = new Size(221, 23);
         _cmbFontName.TabIndex = 21;
         // 
         // _lblFontName
         // 
         _lblFontName.AutoSize = true;
-        _lblFontName.Location = new Point(12, 532);
+        _lblFontName.Location = new Point(12, 162);
         _lblFontName.Name = "_lblFontName";
         _lblFontName.Size = new Size(31, 15);
         _lblFontName.TabIndex = 20;
         _lblFontName.Text = "폰트";
-        // 
-        // _txtTextContent
-        // 
-        _txtTextContent.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _txtTextContent.Location = new Point(12, 480);
-        _txtTextContent.Multiline = true;
-        _txtTextContent.Name = "_txtTextContent";
-        _txtTextContent.ScrollBars = ScrollBars.Vertical;
-        _txtTextContent.Size = new Size(154, 64);
-        _txtTextContent.TabIndex = 19;
-        // 
-        // _lblTextContent
-        // 
-        _lblTextContent.AutoSize = true;
-        _lblTextContent.Location = new Point(12, 462);
-        _lblTextContent.Name = "_lblTextContent";
-        _lblTextContent.Size = new Size(43, 15);
-        _lblTextContent.TabIndex = 18;
-        _lblTextContent.Text = "텍스트";
-        // 
         // _cmbEndMarker
         // 
         _cmbEndMarker.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbEndMarker.DropDownStyle = ComboBoxStyle.DropDownList;
-        _cmbEndMarker.Location = new Point(12, 432);
+        _cmbEndMarker.Location = new Point(12, 584);
         _cmbEndMarker.Name = "_cmbEndMarker";
-        _cmbEndMarker.Size = new Size(154, 23);
+        _cmbEndMarker.Size = new Size(221, 23);
         _cmbEndMarker.TabIndex = 17;
         // 
         // _lblEndMarker
         // 
         _lblEndMarker.AutoSize = true;
-        _lblEndMarker.Location = new Point(12, 414);
+        _lblEndMarker.Location = new Point(12, 566);
         _lblEndMarker.Name = "_lblEndMarker";
         _lblEndMarker.Size = new Size(31, 15);
         _lblEndMarker.TabIndex = 16;
@@ -817,15 +833,15 @@ partial class MainForm
         // 
         _cmbStartMarker.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbStartMarker.DropDownStyle = ComboBoxStyle.DropDownList;
-        _cmbStartMarker.Location = new Point(12, 382);
+        _cmbStartMarker.Location = new Point(12, 534);
         _cmbStartMarker.Name = "_cmbStartMarker";
-        _cmbStartMarker.Size = new Size(154, 23);
+        _cmbStartMarker.Size = new Size(221, 23);
         _cmbStartMarker.TabIndex = 15;
         // 
         // _lblStartMarker
         // 
         _lblStartMarker.AutoSize = true;
-        _lblStartMarker.Location = new Point(12, 364);
+        _lblStartMarker.Location = new Point(12, 516);
         _lblStartMarker.Name = "_lblStartMarker";
         _lblStartMarker.Size = new Size(43, 15);
         _lblStartMarker.TabIndex = 14;
@@ -835,15 +851,15 @@ partial class MainForm
         // 
         _cmbLineStyle.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _cmbLineStyle.DropDownStyle = ComboBoxStyle.DropDownList;
-        _cmbLineStyle.Location = new Point(12, 332);
+        _cmbLineStyle.Location = new Point(12, 484);
         _cmbLineStyle.Name = "_cmbLineStyle";
-        _cmbLineStyle.Size = new Size(154, 23);
+        _cmbLineStyle.Size = new Size(221, 23);
         _cmbLineStyle.TabIndex = 13;
         // 
         // _lblLineStyle
         // 
         _lblLineStyle.AutoSize = true;
-        _lblLineStyle.Location = new Point(12, 314);
+        _lblLineStyle.Location = new Point(12, 466);
         _lblLineStyle.Name = "_lblLineStyle";
         _lblLineStyle.Size = new Size(47, 15);
         _lblLineStyle.TabIndex = 12;
@@ -852,16 +868,16 @@ partial class MainForm
         // _numStrokeOpacity
         // 
         _numStrokeOpacity.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _numStrokeOpacity.Location = new Point(12, 234);
+        _numStrokeOpacity.Location = new Point(12, 386);
         _numStrokeOpacity.Name = "_numStrokeOpacity";
-        _numStrokeOpacity.Size = new Size(154, 23);
+        _numStrokeOpacity.Size = new Size(221, 23);
         _numStrokeOpacity.TabIndex = 9;
         _numStrokeOpacity.Value = new decimal(new int[] { 100, 0, 0, 0 });
         // 
         // _lblStrokeOpacity
         // 
         _lblStrokeOpacity.AutoSize = true;
-        _lblStrokeOpacity.Location = new Point(12, 216);
+        _lblStrokeOpacity.Location = new Point(12, 368);
         _lblStrokeOpacity.Name = "_lblStrokeOpacity";
         _lblStrokeOpacity.Size = new Size(93, 15);
         _lblStrokeOpacity.TabIndex = 8;
@@ -870,18 +886,18 @@ partial class MainForm
         // _numStrokeWidth
         // 
         _numStrokeWidth.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _numStrokeWidth.Location = new Point(12, 282);
+        _numStrokeWidth.Location = new Point(12, 434);
         _numStrokeWidth.Maximum = new decimal(new int[] { 48, 0, 0, 0 });
         _numStrokeWidth.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
         _numStrokeWidth.Name = "_numStrokeWidth";
-        _numStrokeWidth.Size = new Size(154, 23);
+        _numStrokeWidth.Size = new Size(221, 23);
         _numStrokeWidth.TabIndex = 11;
         _numStrokeWidth.Value = new decimal(new int[] { 2, 0, 0, 0 });
         // 
         // _lblStrokeWidth
         // 
         _lblStrokeWidth.AutoSize = true;
-        _lblStrokeWidth.Location = new Point(12, 264);
+        _lblStrokeWidth.Location = new Point(12, 416);
         _lblStrokeWidth.Name = "_lblStrokeWidth";
         _lblStrokeWidth.Size = new Size(47, 15);
         _lblStrokeWidth.TabIndex = 10;
@@ -890,16 +906,16 @@ partial class MainForm
         // _btnStrokeColor
         // 
         _btnStrokeColor.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        _btnStrokeColor.Location = new Point(12, 180);
+        _btnStrokeColor.Location = new Point(12, 332);
         _btnStrokeColor.Name = "_btnStrokeColor";
-        _btnStrokeColor.Size = new Size(154, 28);
+        _btnStrokeColor.Size = new Size(221, 28);
         _btnStrokeColor.TabIndex = 7;
         _btnStrokeColor.UseVisualStyleBackColor = false;
         // 
         // _lblStrokeColor
         // 
         _lblStrokeColor.AutoSize = true;
-        _lblStrokeColor.Location = new Point(12, 162);
+        _lblStrokeColor.Location = new Point(12, 314);
         _lblStrokeColor.Name = "_lblStrokeColor";
         _lblStrokeColor.Size = new Size(35, 15);
         _lblStrokeColor.TabIndex = 6;
@@ -910,7 +926,7 @@ partial class MainForm
         _numFillOpacity.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _numFillOpacity.Location = new Point(12, 132);
         _numFillOpacity.Name = "_numFillOpacity";
-        _numFillOpacity.Size = new Size(154, 23);
+        _numFillOpacity.Size = new Size(221, 23);
         _numFillOpacity.TabIndex = 5;
         _numFillOpacity.Value = new decimal(new int[] { 100, 0, 0, 0 });
         // 
@@ -929,7 +945,7 @@ partial class MainForm
         _cmbFillPattern.DropDownStyle = ComboBoxStyle.DropDownList;
         _cmbFillPattern.Location = new Point(12, 84);
         _cmbFillPattern.Name = "_cmbFillPattern";
-        _cmbFillPattern.Size = new Size(154, 23);
+        _cmbFillPattern.Size = new Size(221, 23);
         _cmbFillPattern.TabIndex = 3;
         // 
         // _lblFillPattern
@@ -946,7 +962,7 @@ partial class MainForm
         _btnFillColor.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         _btnFillColor.Location = new Point(12, 30);
         _btnFillColor.Name = "_btnFillColor";
-        _btnFillColor.Size = new Size(154, 28);
+        _btnFillColor.Size = new Size(221, 28);
         _btnFillColor.TabIndex = 1;
         _btnFillColor.UseVisualStyleBackColor = false;
         // 
@@ -965,7 +981,7 @@ partial class MainForm
         _pnlPropertiesHeader.Dock = DockStyle.Top;
         _pnlPropertiesHeader.Location = new Point(8, 0);
         _pnlPropertiesHeader.Name = "_pnlPropertiesHeader";
-        _pnlPropertiesHeader.Size = new Size(179, 28);
+        _pnlPropertiesHeader.Size = new Size(263, 28);
         _pnlPropertiesHeader.TabIndex = 0;
         // 
         // _lblPropertiesTitle
@@ -974,23 +990,63 @@ partial class MainForm
         _lblPropertiesTitle.Location = new Point(0, 0);
         _lblPropertiesTitle.Name = "_lblPropertiesTitle";
         _lblPropertiesTitle.Padding = new Padding(0, 4, 0, 0);
-        _lblPropertiesTitle.Size = new Size(179, 28);
+        _lblPropertiesTitle.Size = new Size(263, 28);
         _lblPropertiesTitle.TabIndex = 0;
         _lblPropertiesTitle.Text = "속성";
         _lblPropertiesTitle.TextAlign = ContentAlignment.MiddleLeft;
         // 
+        // _pnlToolboxSectionDivider
+        // 
+        _pnlToolboxSectionDivider.Dock = DockStyle.Top;
+        _pnlToolboxSectionDivider.Location = new Point(0, 100);
+        _pnlToolboxSectionDivider.Name = "_pnlToolboxSectionDivider";
+        _pnlToolboxSectionDivider.Size = new Size(279, 1);
+        _pnlToolboxSectionDivider.TabIndex = 3;
+        // 
+        // _pnlToolboxTop
+        // 
+        _pnlToolboxTop.AutoSize = true;
+        _pnlToolboxTop.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        _pnlToolboxTop.Controls.Add(_lblToolboxTitle);
+        _pnlToolboxTop.Controls.Add(_pnlToolGridHost);
+        _pnlToolboxTop.Dock = DockStyle.Top;
+        _pnlToolboxTop.FlowDirection = FlowDirection.TopDown;
+        _pnlToolboxTop.Location = new Point(0, 0);
+        _pnlToolboxTop.Margin = new Padding(0);
+        _pnlToolboxTop.Name = "_pnlToolboxTop";
+        _pnlToolboxTop.Size = new Size(279, 100);
+        _pnlToolboxTop.TabIndex = 4;
+        _pnlToolboxTop.WrapContents = false;
+        // 
+        // _lblToolboxTitle
+        // 
+        _lblToolboxTitle.Location = new Point(0, 0);
+        _lblToolboxTitle.Margin = new Padding(0);
+        _lblToolboxTitle.Name = "_lblToolboxTitle";
+        _lblToolboxTitle.Size = new Size(279, 36);
+        _lblToolboxTitle.TabIndex = 0;
+        _lblToolboxTitle.Text = "도구";
+        _lblToolboxTitle.TextAlign = ContentAlignment.MiddleLeft;
+        // 
+        // _pnlToolGridHost
+        // 
+        _pnlToolGridHost.Controls.Add(_toolStripTools);
+        _pnlToolGridHost.Location = new Point(0, 36);
+        _pnlToolGridHost.Margin = new Padding(0);
+        _pnlToolGridHost.Name = "_pnlToolGridHost";
+        _pnlToolGridHost.Size = new Size(263, 64);
+        _pnlToolGridHost.TabIndex = 1;
+        // 
         // _toolStripTools
         // 
-        _toolStripTools.AutoSize = true;
-        _toolStripTools.Dock = DockStyle.Top;
         _toolStripTools.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStripTools.Items.AddRange(new ToolStripItem[] { _btnSelect, _btnRectangle, _btnRoundedRect, _btnEllipse, _btnTriangle, _btnDiamond, _btnHexagon, _btnParallelogram, _btnStar, _btnLine, _btnPen, _btnText, _btnImage });
+        _toolStripTools.Items.AddRange(new ToolStripItem[] { _btnSelect, _btnRectangle, _btnSquare, _btnRoundedRect, _btnEllipse, _btnTriangle, _btnDiamond, _btnHexagon, _btnParallelogram, _btnStar, _btnLine, _btnPolygon, _btnCurve, _btnText, _btnImage });
         _toolStripTools.LayoutStyle = ToolStripLayoutStyle.Flow;
-        _toolStripTools.Location = new Point(0, 36);
+        _toolStripTools.Location = new Point(0, 0);
         _toolStripTools.Name = "_toolStripTools";
         _toolStripTools.Padding = new Padding(8, 6, 8, 6);
-        _toolStripTools.ShowItemToolTips = true;
-        _toolStripTools.TabIndex = 1;
+        _toolStripTools.Size = new Size(263, 74);
+        _toolStripTools.TabIndex = 0;
         // 
         // _btnSelect
         // 
@@ -1007,6 +1063,14 @@ partial class MainForm
         _btnRectangle.ImageScaling = ToolStripItemImageScaling.None;
         _btnRectangle.Name = "_btnRectangle";
         _btnRectangle.Size = new Size(28, 28);
+        // 
+        // _btnSquare
+        // 
+        _btnSquare.AutoSize = false;
+        _btnSquare.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _btnSquare.ImageScaling = ToolStripItemImageScaling.None;
+        _btnSquare.Name = "_btnSquare";
+        _btnSquare.Size = new Size(28, 28);
         // 
         // _btnRoundedRect
         // 
@@ -1072,13 +1136,21 @@ partial class MainForm
         _btnLine.Name = "_btnLine";
         _btnLine.Size = new Size(28, 28);
         // 
-        // _btnPen
+        // _btnPolygon
         // 
-        _btnPen.AutoSize = false;
-        _btnPen.DisplayStyle = ToolStripItemDisplayStyle.Image;
-        _btnPen.ImageScaling = ToolStripItemImageScaling.None;
-        _btnPen.Name = "_btnPen";
-        _btnPen.Size = new Size(28, 28);
+        _btnPolygon.AutoSize = false;
+        _btnPolygon.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _btnPolygon.ImageScaling = ToolStripItemImageScaling.None;
+        _btnPolygon.Name = "_btnPolygon";
+        _btnPolygon.Size = new Size(28, 28);
+        // 
+        // _btnCurve
+        // 
+        _btnCurve.AutoSize = false;
+        _btnCurve.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _btnCurve.ImageScaling = ToolStripItemImageScaling.None;
+        _btnCurve.Name = "_btnCurve";
+        _btnCurve.Size = new Size(28, 28);
         // 
         // _btnText
         // 
@@ -1096,16 +1168,6 @@ partial class MainForm
         _btnImage.Name = "_btnImage";
         _btnImage.Size = new Size(28, 28);
         // 
-        // _lblToolboxTitle
-        // 
-        _lblToolboxTitle.Dock = DockStyle.Top;
-        _lblToolboxTitle.Location = new Point(0, 0);
-        _lblToolboxTitle.Name = "_lblToolboxTitle";
-        _lblToolboxTitle.Size = new Size(195, 36);
-        _lblToolboxTitle.TabIndex = 0;
-        _lblToolboxTitle.Text = "도구";
-        _lblToolboxTitle.TextAlign = ContentAlignment.MiddleLeft;
-        // 
         // _splitEditor
         // 
         _splitEditor.Dock = DockStyle.Fill;
@@ -1121,8 +1183,8 @@ partial class MainForm
         // 
         _splitEditor.Panel2.Controls.Add(_pnlSource);
         _splitEditor.Panel2MinSize = 260;
-        _splitEditor.Size = new Size(1080, 649);
-        _splitEditor.SplitterDistance = 760;
+        _splitEditor.Size = new Size(996, 827);
+        _splitEditor.SplitterDistance = 676;
         _splitEditor.TabIndex = 0;
         // 
         // _pnlCanvasHost
@@ -1132,7 +1194,7 @@ partial class MainForm
         _pnlCanvasHost.Location = new Point(0, 0);
         _pnlCanvasHost.Name = "_pnlCanvasHost";
         _pnlCanvasHost.Padding = new Padding(6);
-        _pnlCanvasHost.Size = new Size(760, 649);
+        _pnlCanvasHost.Size = new Size(676, 827);
         _pnlCanvasHost.TabIndex = 0;
         // 
         // _canvas
@@ -1141,7 +1203,7 @@ partial class MainForm
         _canvas.Dock = DockStyle.Fill;
         _canvas.Location = new Point(6, 6);
         _canvas.Name = "_canvas";
-        _canvas.Size = new Size(748, 637);
+        _canvas.Size = new Size(664, 815);
         _canvas.TabIndex = 0;
         // 
         // _pnlSource
@@ -1152,17 +1214,17 @@ partial class MainForm
         _pnlSource.Location = new Point(0, 0);
         _pnlSource.Name = "_pnlSource";
         _pnlSource.Padding = new Padding(12);
-        _pnlSource.Size = new Size(316, 649);
+        _pnlSource.Size = new Size(316, 827);
         _pnlSource.TabIndex = 0;
         // 
         // _pnlSourceEditor
         // 
         _pnlSourceEditor.Controls.Add(_txtSvgSource);
         _pnlSourceEditor.Dock = DockStyle.Fill;
-        _pnlSourceEditor.Location = new Point(12, 52);
+        _pnlSourceEditor.Location = new Point(12, 48);
         _pnlSourceEditor.Name = "_pnlSourceEditor";
         _pnlSourceEditor.Padding = new Padding(1);
-        _pnlSourceEditor.Size = new Size(292, 585);
+        _pnlSourceEditor.Size = new Size(292, 767);
         _pnlSourceEditor.TabIndex = 1;
         // 
         // _txtSvgSource
@@ -1172,7 +1234,7 @@ partial class MainForm
         _txtSvgSource.Dock = DockStyle.Fill;
         _txtSvgSource.Location = new Point(1, 1);
         _txtSvgSource.Name = "_txtSvgSource";
-        _txtSvgSource.Size = new Size(290, 583);
+        _txtSvgSource.Size = new Size(290, 765);
         _txtSvgSource.TabIndex = 0;
         _txtSvgSource.Text = "";
         _txtSvgSource.WordWrap = false;
@@ -1187,6 +1249,17 @@ partial class MainForm
         _pnlSourceHeader.Padding = new Padding(0, 4, 0, 4);
         _pnlSourceHeader.Size = new Size(292, 36);
         _pnlSourceHeader.TabIndex = 0;
+        // 
+        // _lblSourceTitle
+        // 
+        _lblSourceTitle.Dock = DockStyle.Fill;
+        _lblSourceTitle.Location = new Point(0, 4);
+        _lblSourceTitle.Name = "_lblSourceTitle";
+        _lblSourceTitle.Padding = new Padding(0, 0, 8, 0);
+        _lblSourceTitle.Size = new Size(184, 28);
+        _lblSourceTitle.TabIndex = 0;
+        _lblSourceTitle.Text = "SVG 소스";
+        _lblSourceTitle.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // _pnlSourceButtons
         // 
@@ -1218,21 +1291,10 @@ partial class MainForm
         _btnApplySource.UseVisualStyleBackColor = false;
         _btnApplySource.Click += BtnApplySource_Click;
         // 
-        // _lblSourceTitle
-        // 
-        _lblSourceTitle.Dock = DockStyle.Fill;
-        _lblSourceTitle.Location = new Point(0, 4);
-        _lblSourceTitle.Name = "_lblSourceTitle";
-        _lblSourceTitle.Padding = new Padding(0, 0, 8, 0);
-        _lblSourceTitle.Size = new Size(184, 28);
-        _lblSourceTitle.TabIndex = 0;
-        _lblSourceTitle.Text = "SVG 소스";
-        _lblSourceTitle.TextAlign = ContentAlignment.MiddleLeft;
-        // 
         // _statusStrip
         // 
         _statusStrip.Items.AddRange(new ToolStripItem[] { _statusLabel, _statusZoomLabel });
-        _statusStrip.Location = new Point(0, 700);
+        _statusStrip.Location = new Point(0, 878);
         _statusStrip.Name = "_statusStrip";
         _statusStrip.Size = new Size(1280, 22);
         _statusStrip.TabIndex = 2;
@@ -1263,7 +1325,7 @@ partial class MainForm
         Controls.Add(_menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = _menuStrip;
-        MinimumSize = new Size(960, 900);
+        MinimumSize = new Size(960, 640);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "SVG Editor";
@@ -1285,6 +1347,9 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)_numStrokeWidth).EndInit();
         ((System.ComponentModel.ISupportInitialize)_numFillOpacity).EndInit();
         _pnlPropertiesHeader.ResumeLayout(false);
+        _pnlToolboxTop.ResumeLayout(false);
+        _pnlToolGridHost.ResumeLayout(false);
+        _pnlToolGridHost.PerformLayout();
         _toolStripTools.ResumeLayout(false);
         _toolStripTools.PerformLayout();
         _splitEditor.Panel1.ResumeLayout(false);

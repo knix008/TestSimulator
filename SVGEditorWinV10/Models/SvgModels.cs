@@ -26,6 +26,7 @@ public enum EditorTool
 {
     Select,
     Rectangle,
+    Square,
     RoundedRectangle,
     Ellipse,
     Triangle,
@@ -36,7 +37,8 @@ public enum EditorTool
     Line,
     Text,
     Image,
-    Pen
+    Polygon,
+    Curve
 }
 
 public sealed class SvgDocument
@@ -65,6 +67,7 @@ public sealed class SvgElement
     public RectangleF Bounds { get; set; }
     public PointF Start { get; set; }
     public PointF End { get; set; }
+    public bool IsSquare { get; set; }
     public float CornerRadius { get; set; }
     public int FillColorArgb { get; set; } = Color.FromArgb(219, 234, 254).ToArgb();
     public FillPattern FillPattern { get; set; } = FillPattern.Solid;
@@ -80,6 +83,8 @@ public sealed class SvgElement
     public float FontSize { get; set; } = 16f;
     public bool FontBold { get; set; }
     public bool FontItalic { get; set; }
+    public bool FontUnderline { get; set; }
+    public bool FontStrikeout { get; set; }
     public bool TextBoundsManuallySized { get; set; }
     public string? ImageDataUri { get; set; }
     public string? ImageSourcePath { get; set; }
@@ -110,6 +115,7 @@ public sealed class SvgElement
             Bounds = Bounds,
             Start = Start,
             End = End,
+            IsSquare = IsSquare,
             CornerRadius = CornerRadius,
             FillColorArgb = FillColorArgb,
             FillPattern = FillPattern,
@@ -125,6 +131,8 @@ public sealed class SvgElement
             FontSize = FontSize,
             FontBold = FontBold,
             FontItalic = FontItalic,
+            FontUnderline = FontUnderline,
+            FontStrikeout = FontStrikeout,
             TextBoundsManuallySized = TextBoundsManuallySized,
             ImageDataUri = ImageDataUri,
             ImageSourcePath = ImageSourcePath,

@@ -7,10 +7,31 @@ namespace SVGEditorWinV10.Controls;
 
 public sealed partial class SvgCanvas
 {
+    private static bool IsPathDrawingTool(EditorTool tool) =>
+        tool is EditorTool.Polygon or EditorTool.Curve;
+
+    private PointF GetPathDragPoint(PointF canvasPoint) =>
+        _penSession.Mode == PathDrawMode.Curve
+            ? canvasPoint
+            : EditorCanvasGrid.SnapPoint(canvasPoint);
+
     private void HandlePenMouseDown(PointF canvasPoint, int clickCount)
     {
         Focus();
         var point = EditorCanvasGrid.SnapPoint(canvasPoint);
+
+        // Check if clicking on an existing committed curve control handle
+        if (_penSession.IsActive && _penSession.Mode == PathDrawMode.Curve)
+        {
+            var hitIdx = _penSession.HitTestCommittedHandle(canvasPoint, HandleSize * 1.5f);
+            if (hitIdx >= 0)
+            {
+                _penSession.BeginHandleDrag(hitIdx);
+                Capture = true;
+                Invalidate();
+                return;
+            }
+        }
 
         if (clickCount >= 2 && _penSession.IsActive)
         {
@@ -24,6 +45,7 @@ public sealed partial class SvgCanvas
             return;
         }
 
+        _closePathAfterPenDrag = false;
         _penPreviewPoint = point;
         _penSession.BeginDrag(point);
         Capture = true;
@@ -42,6 +64,7 @@ public sealed partial class SvgCanvas
             _defaultStrokeOpacity,
             _defaultStrokeWidth,
             _defaultStrokeLineStyle);
+        _closePathAfterPenDrag = false;
         if (created is null)
             return;
 
@@ -55,25 +78,66 @@ public sealed partial class SvgCanvas
     private void DrawPenPreview(Graphics graphics)
     {
         var closeTolerance = 10f / _zoom;
-        var pathData = _penSession.GetPreviewPathData(_penPreviewPoint, closeTolerance);
-        if (string.IsNullOrWhiteSpace(pathData))
+        var committedData = _penSession.GetCommittedPathData();
+        if (!string.IsNullOrWhiteSpace(committedData))
+        {
+            var committed = CreatePenPathElement(committedData, fillOpacity: 0f);
+            SvgPathRenderer.Draw(graphics, committed);
+        }
+
+        if (_penSession.Mode == PathDrawMode.Curve && _penSession.IsActive)
+            DrawCurveDragGuides(graphics);
+
+        var pendingData = _penSession.GetPendingPathData(_penPreviewPoint, closeTolerance);
+        if (string.IsNullOrWhiteSpace(pendingData))
             return;
 
         var wouldClose = _penSession.PreviewWouldClose(_penPreviewPoint, closeTolerance);
-        var preview = new SvgElement
+        var pending = CreatePenPathElement(pendingData, wouldClose ? _defaultFillOpacity : 0f);
+        SvgPathRenderer.DrawPreview(graphics, pending, showClosedFill: wouldClose);
+    }
+
+    private void DrawCurveDragGuides(Graphics graphics)
+    {
+        DrawCommittedSegmentHandles(graphics);
+    }
+
+    private void DrawCommittedSegmentHandles(Graphics graphics)
+    {
+        var handles = _penSession.GetCommittedSegmentHandles();
+        if (handles.Count == 0)
+            return;
+
+        var handleSize = HandleSize / _zoom;
+        using var guidePen = new Pen(Color.FromArgb(120, 234, 88, 12), 1f / _zoom)
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dot
+        };
+        using var controlFill = new SolidBrush(Color.FromArgb(200, 254, 243, 229));
+        using var controlBorder = new Pen(Color.FromArgb(234, 88, 12), 1f / _zoom);
+
+        foreach (var (_, segStart, control, segEnd) in handles)
+        {
+            graphics.DrawLine(guidePen, segStart.X, segStart.Y, control.X, control.Y);
+            graphics.DrawLine(guidePen, control.X, control.Y, segEnd.X, segEnd.Y);
+            graphics.FillEllipse(controlFill, control.X - handleSize / 2f, control.Y - handleSize / 2f, handleSize, handleSize);
+            graphics.DrawEllipse(controlBorder, control.X - handleSize / 2f, control.Y - handleSize / 2f, handleSize, handleSize);
+        }
+    }
+
+    private SvgElement CreatePenPathElement(string pathData, float fillOpacity) =>
+        new SvgElement
         {
             Kind = SvgElementKind.Path,
             PathData = pathData,
             FillColor = _defaultFill,
             FillPattern = _defaultFillPattern,
-            FillOpacity = wouldClose ? _defaultFillOpacity : 0f,
+            FillOpacity = fillOpacity,
             StrokeColor = _defaultStroke,
             StrokeOpacity = _defaultStrokeOpacity,
             StrokeWidth = _defaultStrokeWidth,
             StrokeLineStyle = _defaultStrokeLineStyle
         };
-        SvgPathRenderer.DrawPreview(graphics, preview, showClosedFill: wouldClose);
-    }
 
     private bool TryBeginPathEdit(PointF canvasPoint)
     {

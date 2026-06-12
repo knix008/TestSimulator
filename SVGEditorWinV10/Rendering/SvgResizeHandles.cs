@@ -36,9 +36,15 @@ public static class SvgResizeHandles
     }
 
     public static ResizeHandle HitTest(RectangleF bounds, PointF point, float handleSize)
+        => HitTest(bounds, point, handleSize, cornersOnly: false);
+
+    public static ResizeHandle HitTest(RectangleF bounds, PointF point, float handleSize, bool cornersOnly)
     {
         foreach (var (handle, rect) in GetHandleRects(bounds, handleSize))
         {
+            if (cornersOnly && !IsCornerHandle(handle))
+                continue;
+
             if (rect.Contains(point))
                 return handle;
         }
@@ -90,16 +96,28 @@ public static class SvgResizeHandles
     }
 
     public static void Draw(Graphics graphics, RectangleF bounds, float handleSize)
+        => Draw(graphics, bounds, handleSize, cornersOnly: false);
+
+    public static void Draw(Graphics graphics, RectangleF bounds, float handleSize, bool cornersOnly)
     {
         using var fill = new SolidBrush(Color.White);
         using var border = new Pen(Color.FromArgb(37, 99, 235), 1f);
 
-        foreach (var (_, rect) in GetHandleRects(bounds, handleSize))
+        foreach (var (handle, rect) in GetHandleRects(bounds, handleSize))
         {
+            if (cornersOnly && !IsCornerHandle(handle))
+                continue;
+
             graphics.FillRectangle(fill, rect.X, rect.Y, rect.Width, rect.Height);
             graphics.DrawRectangle(border, rect.X, rect.Y, rect.Width, rect.Height);
         }
     }
+
+    public static bool IsCornerHandle(ResizeHandle handle) =>
+        handle is ResizeHandle.TopLeft
+            or ResizeHandle.TopRight
+            or ResizeHandle.BottomRight
+            or ResizeHandle.BottomLeft;
 
     private static RectangleF ResizeFromTopLeft(RectangleF bounds, float dx, float dy)
     {

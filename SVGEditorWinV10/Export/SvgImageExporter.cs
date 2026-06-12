@@ -31,7 +31,7 @@ public static class SvgImageExporter
 
     public static void Export(SvgDocument document, string path, ImageExportFormat format, float scale = 1f)
     {
-        using var bitmap = RenderDocument(document, scale);
+        using var bitmap = RenderExportDocument(document, format == ImageExportFormat.Png, scale);
         SaveBitmap(bitmap, path, format);
     }
 
@@ -53,6 +53,65 @@ public static class SvgImageExporter
             SvgShapeRenderer.Draw(graphics, element);
 
         return bitmap;
+    }
+
+    private static Bitmap RenderExportDocument(SvgDocument document, bool transparentBackground, float scale)
+    {
+        var contentBounds = GetContentBounds(document);
+        var width = Math.Max(1, (int)Math.Ceiling(contentBounds.Width * scale));
+        var height = Math.Max(1, (int)Math.Ceiling(contentBounds.Height * scale));
+        var bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+        graphics.Clear(transparentBackground
+            ? System.Drawing.Color.Transparent
+            : System.Drawing.Color.FromArgb(document.BackgroundColorArgb));
+
+        graphics.TranslateTransform(-contentBounds.X, -contentBounds.Y);
+        if (Math.Abs(scale - 1f) > 0.001f)
+            graphics.ScaleTransform(scale, scale);
+
+        foreach (var element in document.Elements)
+            SvgShapeRenderer.Draw(graphics, element);
+
+        return bitmap;
+    }
+
+    private static System.Drawing.RectangleF GetContentBounds(SvgDocument document)
+    {
+        if (document.Elements.Count == 0)
+            return new System.Drawing.RectangleF(0f, 0f, 1f, 1f);
+
+        System.Drawing.RectangleF? result = null;
+        foreach (var element in document.Elements)
+        {
+            var bounds = GetExportBounds(element);
+            if (bounds.Width <= 0f || bounds.Height <= 0f)
+                continue;
+
+            result = result is System.Drawing.RectangleF current
+                ? System.Drawing.RectangleF.Union(current, bounds)
+                : bounds;
+        }
+
+        return result ?? new System.Drawing.RectangleF(0f, 0f, 1f, 1f);
+    }
+
+    private static System.Drawing.RectangleF GetExportBounds(SvgElement element)
+    {
+        var bounds = element.GetBounds();
+        if (element.Kind is not SvgElementKind.Line
+            and not SvgElementKind.Text
+            and not SvgElementKind.Image
+            && element.StrokeOpacity > 0.01f
+            && element.StrokeWidth > 0f)
+        {
+            bounds.Inflate(element.StrokeWidth / 2f, element.StrokeWidth / 2f);
+        }
+
+        return bounds;
     }
 
     private static void SaveBitmap(Bitmap bitmap, string path, ImageExportFormat format)

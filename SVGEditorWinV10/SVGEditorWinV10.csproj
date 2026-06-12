@@ -10,6 +10,7 @@
     <RootNamespace>SVGEditorWinV10</RootNamespace>
     <StartupObject>SVGEditorWinV10.Program</StartupObject>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
 

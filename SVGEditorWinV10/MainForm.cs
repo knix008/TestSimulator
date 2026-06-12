@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Threading;
 using SVGEditorWinV10.Controls;
 using SVGEditorWinV10.Export;
 using SVGEditorWinV10.Models;
@@ -16,17 +17,59 @@ public partial class MainForm : Form
     private (ToolStripButton Button, EditorTool Tool)[] _toolBindings = [];
     private (ToolStripMenuItem Menu, EditorTool Tool)[] _menuToolBindings = [];
     private bool _suppressPropertySync;
+    private int _fileOperationInProgress;
+    private readonly Label _lblCornerRadius = new();
+    private readonly NumericUpDown _numCornerRadius = new();
 
     public MainForm()
     {
         InitializeComponent();
-        if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+
+        if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+            return;
+
+        try
+        {
             InitializeRuntime();
+        }
+        catch (Exception ex)
+        {
+            EditorErrorDialog.Show(this, "시작 오류", ex);
+            Close();
+        }
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        BeginInvoke(ApplyMinimumClientSizeSafe);
+    }
+
+    private void ApplyMinimumClientSizeSafe()
+    {
+        if (IsDisposed || !IsHandleCreated)
+            return;
+
+        try
+        {
+            ApplyMinimumClientSize();
+        }
+        catch (Exception ex)
+        {
+            EditorErrorDialog.Show(this, "창 크기 조정 오류", ex);
+        }
     }
 
     private void InitializeRuntime()
     {
+        ConfigureCornerRadiusProperty();
         ApplyModernTheme();
+        ConfigureToolboxLayout();
         ApplyApplicationIcon();
         SetupToolIcons();
 
@@ -41,10 +84,8 @@ public partial class MainForm : Form
         {
             SyncPropertyPanel();
             UpdateStatus();
-            FocusTextEditorIfNeeded();
         };
         _canvas.ElementCreated += (_, _) => SetActiveTool(EditorTool.Select);
-        _canvas.TextEditRequested += (_, _) => FocusTextEditorIfNeeded(selectAll: true);
         _canvas.ZoomChanged += (_, _) => UpdateZoomDisplay();
 
         WireToolButtons();
@@ -61,30 +102,81 @@ public partial class MainForm : Form
         UpdateZoomDisplay();
     }
 
-    protected override void OnShown(EventArgs e)
+    private void ConfigureToolboxLayout()
     {
-        base.OnShown(e);
-        ApplyMinimumClientSize();
+        _pnlToolboxTop.AutoSize = false;
+        _pnlToolboxTop.Padding = new Padding(
+            _pnlProperties.Padding.Left,
+            0,
+            _pnlProperties.Padding.Right,
+            0);
+        _toolStripTools.AutoSize = true;
+        _pnlToolbox.Resize += (_, _) => SyncToolboxSectionWidth();
+        _pnlProperties.Resize += (_, _) => SyncToolboxSectionWidth();
+        SyncToolboxSectionWidth();
+    }
+
+    private void SyncToolboxSectionWidth()
+    {
+        var sectionWidth = Math.Max(1, _pnlProperties.ClientSize.Width - _pnlProperties.Padding.Horizontal);
+        _lblToolboxTitle.Width = sectionWidth;
+        _toolStripTools.MaximumSize = new Size(sectionWidth, 0);
+        _toolStripTools.MinimumSize = new Size(sectionWidth, 0);
+        _pnlToolGridHost.SuspendLayout();
+        _pnlToolGridHost.Size = new Size(sectionWidth, _toolStripTools.PreferredSize.Height);
+        _pnlToolGridHost.ResumeLayout(true);
+        _pnlToolboxTop.Height = _lblToolboxTitle.Height + _pnlToolGridHost.Height;
+    }
+
+    private void ConfigureCornerRadiusProperty()
+    {
+        if (_pnlToolOptions.Controls.Contains(_numCornerRadius))
+            return;
+
+        const int insertTop = 314;
+        const int verticalShift = 50;
+
+        foreach (Control control in _pnlToolOptions.Controls)
+        {
+            if (control.Top >= insertTop)
+                control.Top += verticalShift;
+        }
+
+        _lblCornerRadius.AutoSize = true;
+        _lblCornerRadius.Location = new Point(12, insertTop);
+        _lblCornerRadius.Name = "_lblCornerRadius";
+        _lblCornerRadius.Size = new Size(70, 15);
+        _lblCornerRadius.TabIndex = 26;
+        _lblCornerRadius.Text = "모서리 반경";
+
+        _numCornerRadius.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        _numCornerRadius.DecimalPlaces = 1;
+        _numCornerRadius.Increment = 1m;
+        _numCornerRadius.Location = new Point(12, insertTop + 18);
+        _numCornerRadius.Maximum = 1000m;
+        _numCornerRadius.Minimum = 0m;
+        _numCornerRadius.Name = "_numCornerRadius";
+        _numCornerRadius.Size = new Size(Math.Max(1, _pnlToolOptions.ClientSize.Width - 25), 23);
+        _numCornerRadius.TabIndex = 27;
+        _numCornerRadius.Value = (decimal)_canvas.DefaultCornerRadius;
+
+        _pnlToolOptions.Controls.Add(_lblCornerRadius);
+        _pnlToolOptions.Controls.Add(_numCornerRadius);
+        _numCornerRadius.ValueChanged += (_, _) => ApplyPropertyChanges();
     }
 
     private void ApplyMinimumClientSize()
     {
         PerformLayout();
 
-        var propertyContentHeight = _pnlToolOptions.Controls.Cast<Control>()
-            .Where(static control => control.Visible)
-            .Select(static control => control.Bottom)
-            .DefaultIfEmpty(0)
-            .Max();
-
+        const int minPropertyPanelHeight = 280;
         var leftPanelHeight =
-            _lblToolboxTitle.Height
-            + _toolStripTools.Height
+            _pnlToolboxTop.Height
             + _pnlToolboxSectionDivider.Height
             + _pnlPropertiesHeader.Height
             + _pnlProperties.Padding.Vertical
             + _pnlToolOptions.Padding.Vertical
-            + propertyContentHeight
+            + minPropertyPanelHeight
             + 8;
 
         var requiredClientHeight =
@@ -93,11 +185,48 @@ public partial class MainForm : Form
             + leftPanelHeight
             + _statusStrip.Height;
 
-        var minClientSize = new Size(960, requiredClientHeight);
+        var minClientWidth = 960;
+        var minClientHeight = Math.Max(640, requiredClientHeight);
+
+        var workingArea = Screen.FromControl(this).WorkingArea;
+        var chromeHeight = Height - ClientSize.Height;
+        var chromeWidth = Width - ClientSize.Width;
+        var maxClientHeight = Math.Max(480, workingArea.Height - chromeHeight);
+        var maxClientWidth = Math.Max(800, workingArea.Width - chromeWidth);
+
+        minClientWidth = Math.Min(minClientWidth, maxClientWidth);
+        minClientHeight = Math.Min(minClientHeight, maxClientHeight);
+
+        var minClientSize = new Size(minClientWidth, minClientHeight);
         MinimumSize = SizeFromClientSize(minClientSize);
 
-        if (ClientSize.Height < requiredClientHeight)
-            ClientSize = new Size(Math.Max(ClientSize.Width, minClientSize.Width), requiredClientHeight);
+        var targetWidth = Math.Clamp(Math.Max(ClientSize.Width, minClientWidth), minClientWidth, maxClientWidth);
+        var targetHeight = Math.Clamp(Math.Max(ClientSize.Height, minClientHeight), minClientHeight, maxClientHeight);
+        ClientSize = new Size(targetWidth, targetHeight);
+
+        EnsureFormVisibleOnScreen(workingArea);
+    }
+
+    private void EnsureFormVisibleOnScreen(Rectangle workingArea)
+    {
+        if (WindowState != FormWindowState.Normal)
+            return;
+
+        var visibleOnAnyScreen = Screen.AllScreens
+            .Any(screen => screen.WorkingArea.IntersectsWith(Bounds));
+
+        if (!visibleOnAnyScreen)
+        {
+            CenterToScreen();
+            return;
+        }
+
+        if (workingArea.IntersectsWith(Bounds))
+            return;
+
+        Location = new Point(
+            workingArea.Left + Math.Max(0, (workingArea.Width - Width) / 2),
+            workingArea.Top + Math.Max(0, (workingArea.Height - Height) / 2));
     }
 
     private void ApplyApplicationIcon()
@@ -113,6 +242,7 @@ public partial class MainForm : Form
     {
         _btnSelect.Image = EditorToolIcons.Select;
         _btnRectangle.Image = EditorToolIcons.Rectangle;
+        _btnSquare.Image = EditorToolIcons.Square;
         _btnRoundedRect.Image = EditorToolIcons.RoundedRectangle;
         _btnEllipse.Image = EditorToolIcons.Ellipse;
         _btnTriangle.Image = EditorToolIcons.Triangle;
@@ -121,7 +251,8 @@ public partial class MainForm : Form
         _btnParallelogram.Image = EditorToolIcons.Parallelogram;
         _btnStar.Image = EditorToolIcons.Star;
         _btnLine.Image = EditorToolIcons.Line;
-        _btnPen.Image = EditorToolIcons.Pen;
+        _btnPolygon.Image = EditorToolIcons.Polygon;
+        _btnCurve.Image = EditorToolIcons.Curve;
         _btnText.Image = EditorToolIcons.Text;
         _btnImage.Image = EditorToolIcons.Image;
 
@@ -149,6 +280,7 @@ public partial class MainForm : Form
 
         SetMenuIcon(_menuToolSelect, EditorToolIcons.Select);
         SetMenuIcon(_menuToolRectangle, EditorToolIcons.Rectangle);
+        SetMenuIcon(_menuToolSquare, EditorToolIcons.Square);
         SetMenuIcon(_menuToolRoundedRect, EditorToolIcons.RoundedRectangle);
         SetMenuIcon(_menuToolEllipse, EditorToolIcons.Ellipse);
         SetMenuIcon(_menuToolTriangle, EditorToolIcons.Triangle);
@@ -157,7 +289,8 @@ public partial class MainForm : Form
         SetMenuIcon(_menuToolParallelogram, EditorToolIcons.Parallelogram);
         SetMenuIcon(_menuToolStar, EditorToolIcons.Star);
         SetMenuIcon(_menuToolLine, EditorToolIcons.Line);
-        SetMenuIcon(_menuToolPen, EditorToolIcons.Pen);
+        SetMenuIcon(_menuToolPolygon, EditorToolIcons.Polygon);
+        SetMenuIcon(_menuToolCurve, EditorToolIcons.Curve);
         SetMenuIcon(_menuToolText, EditorToolIcons.Text);
         SetMenuIcon(_menuToolImage, EditorToolIcons.Image);
 
@@ -251,6 +384,7 @@ public partial class MainForm : Form
     {
         EditorTool.Select => "선택 — 도형·선·경로를 선택하고 이동합니다. (Esc)",
         EditorTool.Rectangle => "사각형 — 캔버스에서 드래그하여 그립니다.",
+        EditorTool.Square => "정사각형 — 캔버스에서 드래그하여 그립니다. 가로·세로 길이가 같은 정사각형을 그립니다.",
         EditorTool.RoundedRectangle => "둥근 사각형 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Ellipse => "타원 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Triangle => "삼각형 — 캔버스에서 드래그하여 그립니다.",
@@ -259,7 +393,8 @@ public partial class MainForm : Form
         EditorTool.Parallelogram => "평행사변형 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Star => "별 — 캔버스에서 드래그하여 그립니다.",
         EditorTool.Line => "선 — 시작점에서 끝점까지 드래그하여 그립니다.",
-        EditorTool.Pen => "펜 — 클릭으로 꼭짓점을 추가하고, 드래그하면 곡선으로 연결합니다. 첫 점을 다시 클릭하면 닫고, Enter/더블클릭으로 완료합니다.",
+        EditorTool.Polygon => "폴리곤 — 클릭으로 꼭짓점을 추가해 직선으로 연결합니다. 첫 점을 다시 클릭하면 닫고, Enter/더블클릭으로 완료합니다.",
+        EditorTool.Curve => "곡선 — 클릭 후 드래그하여 곡선 조절점을 설정합니다. 드래그 없이 클릭하면 직선으로 연결됩니다. 첫 점을 다시 클릭하면 닫고, Enter/더블클릭으로 완료합니다.",
         EditorTool.Text => "텍스트 — 배치할 영역을 드래그하거나 클릭하여 넣습니다.",
         EditorTool.Image => "이미지 — PNG, GIF, JPEG, WebP, AVIF, SVG 파일을 불러와 배치합니다.",
         _ => "도구"
@@ -280,6 +415,7 @@ public partial class MainForm : Form
         [
             (_btnSelect, EditorTool.Select),
             (_btnRectangle, EditorTool.Rectangle),
+            (_btnSquare, EditorTool.Square),
             (_btnRoundedRect, EditorTool.RoundedRectangle),
             (_btnEllipse, EditorTool.Ellipse),
             (_btnTriangle, EditorTool.Triangle),
@@ -288,7 +424,8 @@ public partial class MainForm : Form
             (_btnParallelogram, EditorTool.Parallelogram),
             (_btnStar, EditorTool.Star),
             (_btnLine, EditorTool.Line),
-            (_btnPen, EditorTool.Pen),
+            (_btnPolygon, EditorTool.Polygon),
+            (_btnCurve, EditorTool.Curve),
             (_btnText, EditorTool.Text),
             (_btnImage, EditorTool.Image)
         ];
@@ -306,6 +443,7 @@ public partial class MainForm : Form
         [
             (_menuToolSelect, EditorTool.Select),
             (_menuToolRectangle, EditorTool.Rectangle),
+            (_menuToolSquare, EditorTool.Square),
             (_menuToolRoundedRect, EditorTool.RoundedRectangle),
             (_menuToolEllipse, EditorTool.Ellipse),
             (_menuToolTriangle, EditorTool.Triangle),
@@ -314,7 +452,8 @@ public partial class MainForm : Form
             (_menuToolParallelogram, EditorTool.Parallelogram),
             (_menuToolStar, EditorTool.Star),
             (_menuToolLine, EditorTool.Line),
-            (_menuToolPen, EditorTool.Pen),
+            (_menuToolPolygon, EditorTool.Polygon),
+            (_menuToolCurve, EditorTool.Curve),
             (_menuToolText, EditorTool.Text),
             (_menuToolImage, EditorTool.Image)
         ];
@@ -328,11 +467,12 @@ public partial class MainForm : Form
         _numStrokeWidth.ValueChanged += (_, _) => ApplyPropertyChanges();
         _numFillOpacity.ValueChanged += (_, _) => ApplyPropertyChanges();
         _numStrokeOpacity.ValueChanged += (_, _) => ApplyPropertyChanges();
-        _txtTextContent.TextChanged += (_, _) => ApplyPropertyChanges();
         _cmbFontName.SelectedIndexChanged += (_, _) => ApplyPropertyChanges();
         _numFontSize.ValueChanged += (_, _) => ApplyPropertyChanges();
         _chkFontBold.CheckedChanged += (_, _) => ApplyPropertyChanges();
         _chkFontItalic.CheckedChanged += (_, _) => ApplyPropertyChanges();
+        _chkFontUnderline.CheckedChanged += (_, _) => ApplyPropertyChanges();
+        _chkFontStrikeout.CheckedChanged += (_, _) => ApplyPropertyChanges();
         _cmbFillPattern.SelectedIndexChanged += (_, _) => ApplyPropertyChanges();
         _cmbLineStyle.SelectedIndexChanged += (_, _) => ApplyPropertyChanges();
         _cmbStartMarker.SelectedIndexChanged += (_, _) => ApplyPropertyChanges();
@@ -405,14 +545,16 @@ public partial class MainForm : Form
             _numFillOpacity.Value = ToOpacityPercent(selected.FillOpacity);
             _numStrokeOpacity.Value = ToOpacityPercent(selected.StrokeOpacity);
             _numStrokeWidth.Value = ClampDecimal(selected.StrokeWidth, _numStrokeWidth.Minimum, _numStrokeWidth.Maximum);
+            _numCornerRadius.Value = ClampDecimal(selected.CornerRadius, _numCornerRadius.Minimum, _numCornerRadius.Maximum);
             SelectOption(_cmbLineStyle, selected.StrokeLineStyle);
             SelectOption(_cmbStartMarker, selected.StartMarker);
             SelectOption(_cmbEndMarker, selected.EndMarker);
-            _txtTextContent.Text = selected.TextContent;
             SelectFontName(_cmbFontName, selected.FontName);
             _numFontSize.Value = ClampDecimal(selected.FontSize, _numFontSize.Minimum, _numFontSize.Maximum);
             _chkFontBold.Checked = selected.FontBold;
             _chkFontItalic.Checked = selected.FontItalic;
+            _chkFontUnderline.Checked = selected.FontUnderline;
+            _chkFontStrikeout.Checked = selected.FontStrikeout;
         }
         else
         {
@@ -424,14 +566,16 @@ public partial class MainForm : Form
             _numFillOpacity.Value = ToOpacityPercent(_canvas.DefaultFillOpacity);
             _numStrokeOpacity.Value = ToOpacityPercent(_canvas.DefaultStrokeOpacity);
             _numStrokeWidth.Value = ClampDecimal(_canvas.DefaultStrokeWidth, _numStrokeWidth.Minimum, _numStrokeWidth.Maximum);
+            _numCornerRadius.Value = ClampDecimal(_canvas.DefaultCornerRadius, _numCornerRadius.Minimum, _numCornerRadius.Maximum);
             SelectOption(_cmbLineStyle, _canvas.DefaultStrokeLineStyle);
             SelectOption(_cmbStartMarker, _canvas.DefaultStartMarker);
             SelectOption(_cmbEndMarker, _canvas.DefaultEndMarker);
-            _txtTextContent.Text = _canvas.DefaultText;
             SelectFontName(_cmbFontName, _canvas.DefaultFontName);
             _numFontSize.Value = ClampDecimal(_canvas.DefaultFontSize, _numFontSize.Minimum, _numFontSize.Maximum);
             _chkFontBold.Checked = _canvas.DefaultFontBold;
             _chkFontItalic.Checked = _canvas.DefaultFontItalic;
+            _chkFontUnderline.Checked = _canvas.DefaultFontUnderline;
+            _chkFontStrikeout.Checked = _canvas.DefaultFontStrikeout;
         }
 
         var canEdit = hasSelection || _activeTool != EditorTool.Select;
@@ -444,6 +588,9 @@ public partial class MainForm : Form
         var isLineContext = hasSelection
             ? selected!.Kind == SvgElementKind.Line
             : _activeTool == EditorTool.Line;
+        var isRoundedRectContext = hasSelection
+            ? selected!.Kind == SvgElementKind.RoundedRectangle
+            : _activeTool == EditorTool.RoundedRectangle;
         var isShapeContext = hasSelection
             ? selected!.Kind is not (SvgElementKind.Line or SvgElementKind.Text or SvgElementKind.Image)
             : _activeTool is not (EditorTool.Select or EditorTool.Line or EditorTool.Text or EditorTool.Image);
@@ -465,6 +612,8 @@ public partial class MainForm : Form
         _numStrokeOpacity.Enabled = canEdit && !isTextContext && !isImageContext;
         _lblStrokeWidth.Enabled = canEdit && !isTextContext && !isImageContext;
         _numStrokeWidth.Enabled = canEdit && !isTextContext && !isImageContext;
+        _lblCornerRadius.Enabled = canEdit && isRoundedRectContext;
+        _numCornerRadius.Enabled = canEdit && isRoundedRectContext;
         _lblLineStyle.Enabled = canEdit && isLineContext;
         _cmbLineStyle.Enabled = canEdit && isLineContext;
         _lblStartMarker.Enabled = canEdit && isLineContext;
@@ -472,17 +621,14 @@ public partial class MainForm : Form
         _lblEndMarker.Enabled = canEdit && isLineContext;
         _cmbEndMarker.Enabled = canEdit && isLineContext;
 
-        _lblTextContent.Enabled = canEdit;
-        _txtTextContent.Enabled = canEdit;
-        _txtTextContent.ReadOnly = !canEdit || !isTextContext;
-        _txtTextContent.TabStop = canEdit && isTextContext;
-        _txtTextContent.BackColor = canEdit && isTextContext ? ModernTheme.PanelBackground : SystemColors.Control;
         _lblFontName.Enabled = canEdit && isTextContext;
         _cmbFontName.Enabled = canEdit && isTextContext;
         _lblFontSize.Enabled = canEdit && isTextContext;
         _numFontSize.Enabled = canEdit && isTextContext;
         _chkFontBold.Enabled = canEdit && isTextContext;
         _chkFontItalic.Enabled = canEdit && isTextContext;
+        _chkFontUnderline.Enabled = canEdit && isTextContext;
+        _chkFontStrikeout.Enabled = canEdit && isTextContext;
 
         _suppressPropertySync = false;
     }
@@ -508,6 +654,7 @@ public partial class MainForm : Form
     {
         EditorTool.Select => "선택",
         EditorTool.Rectangle => "사각형",
+        EditorTool.Square => "정사각형",
         EditorTool.RoundedRectangle => "둥근 사각형",
         EditorTool.Ellipse => "타원",
         EditorTool.Triangle => "삼각형",
@@ -516,7 +663,8 @@ public partial class MainForm : Form
         EditorTool.Parallelogram => "평행사변형",
         EditorTool.Star => "별",
         EditorTool.Line => "선",
-        EditorTool.Pen => "펜",
+        EditorTool.Polygon => "폴리곤",
+        EditorTool.Curve => "곡선",
         EditorTool.Text => "텍스트",
         EditorTool.Image => "이미지",
         _ => "도구"
@@ -531,14 +679,16 @@ public partial class MainForm : Form
         var fillPattern = GetSelectedValue(_cmbFillPattern, FillPattern.Solid);
         var fillOpacity = FromOpacityPercent(_numFillOpacity.Value);
         var strokeOpacity = FromOpacityPercent(_numStrokeOpacity.Value);
-        var textContent = _txtTextContent.Text;
         var fontName = _cmbFontName.SelectedItem?.ToString() ?? SvgTextRenderer.DefaultFontName;
         var fontSize = (float)_numFontSize.Value;
         var fontBold = _chkFontBold.Checked;
         var fontItalic = _chkFontItalic.Checked;
+        var fontUnderline = _chkFontUnderline.Checked;
+        var fontStrikeout = _chkFontStrikeout.Checked;
         var startMarker = GetSelectedValue(_cmbStartMarker, LineMarkerStyle.None);
         var endMarker = GetSelectedValue(_cmbEndMarker, LineMarkerStyle.None);
         var strokeWidth = (float)_numStrokeWidth.Value;
+        var cornerRadius = (float)_numCornerRadius.Value;
 
         if (_canvas.SelectedElement is SvgElement selected)
         {
@@ -551,27 +701,30 @@ public partial class MainForm : Form
 
             if (selected.Kind == SvgElementKind.Text)
             {
-                var normalizedText = string.IsNullOrEmpty(textContent) ? SvgTextRenderer.DefaultText : textContent;
-                var textChanged = !string.Equals(selected.TextContent, normalizedText, StringComparison.Ordinal);
                 var fontChanged = !string.Equals(selected.FontName, fontName, StringComparison.Ordinal)
                     || Math.Abs(selected.FontSize - fontSize) > 0.001f
                     || selected.FontBold != fontBold
-                    || selected.FontItalic != fontItalic;
+                    || selected.FontItalic != fontItalic
+                    || selected.FontUnderline != fontUnderline
+                    || selected.FontStrikeout != fontStrikeout;
 
-                selected.TextContent = normalizedText;
                 selected.FontName = fontName;
                 selected.FontSize = fontSize;
                 selected.FontBold = fontBold;
                 selected.FontItalic = fontItalic;
+                selected.FontUnderline = fontUnderline;
+                selected.FontStrikeout = fontStrikeout;
                 selected.FillOpacity = fillOpacity;
 
-                if (!selected.TextBoundsManuallySized && (textChanged || fontChanged))
+                if (!selected.TextBoundsManuallySized && fontChanged)
                     SvgTextRenderer.UpdateTextBounds(selected);
             }
             else if (selected.Kind != SvgElementKind.Line)
             {
                 selected.FillPattern = fillPattern;
                 selected.FillOpacity = fillOpacity;
+                if (selected.Kind == SvgElementKind.RoundedRectangle)
+                    selected.CornerRadius = cornerRadius;
             }
 
             if (selected.Kind != SvgElementKind.Text)
@@ -588,17 +741,19 @@ public partial class MainForm : Form
         }
 
         _canvas.DefaultStrokeWidth = strokeWidth;
+        _canvas.DefaultCornerRadius = cornerRadius;
         _canvas.DefaultFillPattern = fillPattern;
         _canvas.DefaultFillOpacity = fillOpacity;
         _canvas.DefaultStrokeOpacity = strokeOpacity;
         _canvas.DefaultStrokeLineStyle = lineStyle;
         _canvas.DefaultStartMarker = startMarker;
         _canvas.DefaultEndMarker = endMarker;
-        _canvas.DefaultText = string.IsNullOrEmpty(textContent) ? SvgTextRenderer.DefaultText : textContent;
         _canvas.DefaultFontName = fontName;
         _canvas.DefaultFontSize = fontSize;
         _canvas.DefaultFontBold = fontBold;
         _canvas.DefaultFontItalic = fontItalic;
+        _canvas.DefaultFontUnderline = fontUnderline;
+        _canvas.DefaultFontStrikeout = fontStrikeout;
         _canvas.Invalidate();
     }
 
@@ -669,6 +824,8 @@ public partial class MainForm : Form
         var sectionHeader = ModernTheme.SectionHeaderBackground;
 
         _pnlToolbox.BackColor = sidebarContent;
+        _pnlToolboxTop.BackColor = sidebarContent;
+        _pnlToolGridHost.BackColor = sidebarContent;
         _pnlToolboxSectionDivider.BackColor = ModernTheme.Border;
         _pnlProperties.BackColor = sidebarContent;
         _pnlPropertiesHeader.BackColor = sectionHeader;
@@ -679,20 +836,20 @@ public partial class MainForm : Form
         ModernTheme.StyleCaptionLabel(_lblFillPattern, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblFillOpacity, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblStrokeColor, sidebarContent);
-        ModernTheme.StyleCaptionLabel(_lblTextContent, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblFontName, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblFontSize, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblStrokeOpacity, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblStrokeWidth, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblCornerRadius, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblLineStyle, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblStartMarker, sidebarContent);
         ModernTheme.StyleCaptionLabel(_lblEndMarker, sidebarContent);
         ModernTheme.StyleColorSwatch(_btnFillColor);
         ModernTheme.StyleColorSwatch(_btnStrokeColor);
         ModernTheme.StyleInput(_numStrokeWidth);
+        ModernTheme.StyleInput(_numCornerRadius);
         ModernTheme.StyleInput(_numFillOpacity);
         ModernTheme.StyleInput(_numStrokeOpacity);
-        ModernTheme.StyleInput(_txtTextContent);
         ModernTheme.StyleInput(_cmbFontName);
         ModernTheme.StyleInput(_numFontSize);
         _chkFontBold.Font = ModernTheme.UiFontSmall;
@@ -701,6 +858,12 @@ public partial class MainForm : Form
         _chkFontItalic.Font = ModernTheme.UiFontSmall;
         _chkFontItalic.ForeColor = ModernTheme.TextPrimary;
         _chkFontItalic.BackColor = sidebarContent;
+        _chkFontUnderline.Font = ModernTheme.UiFontSmall;
+        _chkFontUnderline.ForeColor = ModernTheme.TextPrimary;
+        _chkFontUnderline.BackColor = sidebarContent;
+        _chkFontStrikeout.Font = ModernTheme.UiFontSmall;
+        _chkFontStrikeout.ForeColor = ModernTheme.TextPrimary;
+        _chkFontStrikeout.BackColor = sidebarContent;
         ModernTheme.StyleInput(_cmbFillPattern);
         ModernTheme.StyleInput(_cmbLineStyle);
         ModernTheme.StyleInput(_cmbStartMarker);
@@ -901,19 +1064,6 @@ public partial class MainForm : Form
         return string.Join(" · ", parts);
     }
 
-    private void FocusTextEditorIfNeeded(bool selectAll = false)
-    {
-        if (_canvas.SelectedElement?.Kind != SvgElementKind.Text)
-            return;
-
-        if (_txtTextContent.ReadOnly || !_txtTextContent.Enabled)
-            return;
-
-        _txtTextContent.Focus();
-        if (selectAll)
-            _txtTextContent.SelectAll();
-    }
-
     private bool IsTextInputControlFocused() =>
         ActiveControl is TextBox or RichTextBox or ComboBox or NumericUpDown;
 
@@ -982,7 +1132,7 @@ public partial class MainForm : Form
         }
     }
 
-    private void MenuSave_Click(object? sender, EventArgs e)
+    private async void MenuSave_Click(object? sender, EventArgs e)
     {
         if (string.IsNullOrWhiteSpace(_currentFilePath))
         {
@@ -990,10 +1140,10 @@ public partial class MainForm : Form
             return;
         }
 
-        SaveToPath(_currentFilePath);
+        await SaveToPathAsync(_currentFilePath);
     }
 
-    private void MenuSaveAs_Click(object? sender, EventArgs e)
+    private async void MenuSaveAs_Click(object? sender, EventArgs e)
     {
         using var dialog = new SaveFileDialog
         {
@@ -1004,7 +1154,7 @@ public partial class MainForm : Form
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
 
-        SaveToPath(dialog.FileName);
+        await SaveToPathAsync(dialog.FileName);
     }
 
     private void MenuCanvasSize_Click(object? sender, EventArgs e)
@@ -1016,7 +1166,7 @@ public partial class MainForm : Form
         _canvas.SetDocumentSize(result.Width, result.Height);
     }
 
-    private void MenuExportImage_Click(object? sender, EventArgs e)
+    private async void MenuExportImage_Click(object? sender, EventArgs e)
     {
         var defaultName = string.IsNullOrWhiteSpace(_currentFilePath)
             ? "drawing.png"
@@ -1025,36 +1175,117 @@ public partial class MainForm : Form
         using var dialog = new SaveFileDialog
         {
             Filter = SvgImageExporter.FileFilter,
-            Title = "이미지로보내기",
+            Title = "이미지로 내보내기",
             FileName = defaultName
         };
         if (dialog.ShowDialog(this) != DialogResult.OK)
             return;
 
+        var exportPath = Path.GetFullPath(dialog.FileName);
+        var format = SvgImageExporter.GetFormatFromExtension(exportPath);
+        var document = _canvas.Document.Clone();
+
+        if (!TryBeginFileOperation("이미지 내보내는 중..."))
+            return;
+
+        Exception? error = null;
         try
         {
-            var format = SvgImageExporter.GetFormatFromExtension(dialog.FileName);
-            SvgImageExporter.Export(_canvas.Document, dialog.FileName, format);
+            await Task.Run(() => SvgImageExporter.Export(document, exportPath, format)).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            EditorErrorDialog.Show(this, "보내기 실패", ex);
+            error = ex;
+        }
+        finally
+        {
+            EndFileOperation();
+        }
+
+        if (error is null)
+        {
+            EditorOperationResultDialog.ShowSuccess(
+                this,
+                "내보내기 완료",
+                "이미지 내보내기가 완료되었습니다.",
+                exportPath);
+        }
+        else
+        {
+            EditorOperationResultDialog.ShowFailure(
+                this,
+                "내보내기 실패",
+                "이미지를 내보내지 못했습니다.",
+                exportPath,
+                error);
         }
     }
 
-    private void SaveToPath(string path)
+    private async Task SaveToPathAsync(string path)
     {
+        var fullPath = Path.GetFullPath(path);
+        var document = _canvas.Document.Clone();
+
+        if (!TryBeginFileOperation("저장 중..."))
+            return;
+
+        Exception? error = null;
         try
         {
-            SvgDocumentSerializer.Save(_canvas.Document, path);
-            _currentFilePath = path;
-            _isDirty = false;
-            UpdateTitle();
+            await Task.Run(() => SvgDocumentSerializer.Save(document, fullPath)).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
-            EditorErrorDialog.Show(this, "저장 실패", ex);
+            error = ex;
         }
+        finally
+        {
+            EndFileOperation();
+        }
+
+        if (error is null)
+        {
+            _currentFilePath = fullPath;
+            _isDirty = false;
+            UpdateTitle();
+            EditorOperationResultDialog.ShowSuccess(
+                this,
+                "저장 완료",
+                "문서가 저장되었습니다.",
+                fullPath);
+        }
+        else
+        {
+            EditorOperationResultDialog.ShowFailure(
+                this,
+                "저장 실패",
+                "문서를 저장하지 못했습니다.",
+                fullPath,
+                error);
+        }
+    }
+
+    private bool TryBeginFileOperation(string statusMessage)
+    {
+        if (Interlocked.CompareExchange(ref _fileOperationInProgress, 1, 0) != 0)
+        {
+            _statusLabel.Text = "다른 파일 작업이 진행 중입니다...";
+            return false;
+        }
+
+        UseWaitCursor = true;
+        Cursor = Cursors.WaitCursor;
+        _statusLabel.Text = statusMessage;
+        _statusStrip.Refresh();
+        return true;
+    }
+
+    private void EndFileOperation()
+    {
+        Interlocked.Exchange(ref _fileOperationInProgress, 0);
+        UseWaitCursor = false;
+        Cursor = Cursors.Default;
+        UpdateStatus();
     }
 
     private void MenuExit_Click(object? sender, EventArgs e)

@@ -15,11 +15,13 @@ public static class SvgShapeRenderer
             and not EditorTool.Line
             and not EditorTool.Text
             and not EditorTool.Image
-            and not EditorTool.Pen;
+            and not EditorTool.Polygon
+            and not EditorTool.Curve;
 
     public static SvgElementKind ToolToKind(EditorTool tool) => tool switch
     {
         EditorTool.Rectangle => SvgElementKind.Rectangle,
+        EditorTool.Square => SvgElementKind.Rectangle,
         EditorTool.RoundedRectangle => SvgElementKind.RoundedRectangle,
         EditorTool.Ellipse => SvgElementKind.Ellipse,
         EditorTool.Triangle => SvgElementKind.Triangle,
@@ -98,7 +100,8 @@ public static class SvgShapeRenderer
         Color stroke,
         float strokeOpacity,
         float strokeWidth,
-        StrokeLineStyle lineStyle)
+        StrokeLineStyle lineStyle,
+        float cornerRadius = 0f)
     {
         using var pen = SvgStrokeRenderer.CreatePen(
             SvgColorHelper.WithOpacity(stroke.ToArgb(), strokeOpacity),
@@ -110,7 +113,7 @@ public static class SvgShapeRenderer
         {
             Kind = kind,
             Bounds = bounds,
-            CornerRadius = kind == SvgElementKind.RoundedRectangle ? DefaultCornerRadius(bounds) : 0f,
+            CornerRadius = kind == SvgElementKind.RoundedRectangle ? Math.Max(0f, cornerRadius) : 0f,
             StrokeLineStyle = lineStyle,
             FillPattern = fillPattern
         };
@@ -145,6 +148,9 @@ public static class SvgShapeRenderer
     {
         var path = new GraphicsPath();
         var rect = element.Bounds;
+        if (UsesBounds(element.Kind) && (rect.Width <= 0f || rect.Height <= 0f))
+            return path;
+
         var cx = rect.X + rect.Width / 2f;
         var cy = rect.Y + rect.Height / 2f;
         var rx = rect.Width / 2f;
@@ -156,10 +162,8 @@ public static class SvgShapeRenderer
                 path.AddRectangle(rect);
                 break;
             case SvgElementKind.RoundedRectangle:
-                path.AddPath(CreateRoundedRect(rect, element.CornerRadius > 0f
-                    ? element.CornerRadius
-                    : DefaultCornerRadius(rect)), false);
-                break;
+                path.Dispose();
+                return CreateRoundedRect(rect, Math.Max(0f, element.CornerRadius));
             case SvgElementKind.Ellipse:
                 path.AddEllipse(rect);
                 break;
@@ -230,13 +234,14 @@ public static class SvgShapeRenderer
         {
             case SvgElementKind.Rectangle:
             {
+                var dataKind = element.IsSquare ? """ data-kind="Square" """ : string.Empty;
                 sb.AppendLine(CultureInfo.InvariantCulture,
-                    $"""  <rect x="{element.Bounds.X:0.##}" y="{element.Bounds.Y:0.##}" width="{element.Bounds.Width:0.##}" height="{element.Bounds.Height:0.##}" {fillAttrs}{strokeAttrs}{dataStyle} />""");
+                    $"""  <rect x="{element.Bounds.X:0.##}" y="{element.Bounds.Y:0.##}" width="{element.Bounds.Width:0.##}" height="{element.Bounds.Height:0.##}" {fillAttrs}{strokeAttrs}{dataStyle}{dataKind} />""");
                 break;
             }
             case SvgElementKind.RoundedRectangle:
             {
-                var radius = element.CornerRadius > 0f ? element.CornerRadius : DefaultCornerRadius(element.Bounds);
+                var radius = Math.Max(0f, element.CornerRadius);
                 sb.AppendLine(CultureInfo.InvariantCulture,
                     $"""  <rect x="{element.Bounds.X:0.##}" y="{element.Bounds.Y:0.##}" width="{element.Bounds.Width:0.##}" height="{element.Bounds.Height:0.##}" rx="{radius:0.##}" ry="{radius:0.##}" {fillAttrs}{strokeAttrs}{dataStyle} data-kind="RoundedRectangle" />""");
                 break;
@@ -287,13 +292,20 @@ public static class SvgShapeRenderer
     private static GraphicsPath CreateRoundedRect(RectangleF rect, float radius)
     {
         var path = new GraphicsPath();
+        if (rect.Width <= 0f || rect.Height <= 0f || radius <= 0f)
+        {
+            if (rect.Width > 0f && rect.Height > 0f)
+                path.AddRectangle(rect);
+            return path;
+        }
+
+        radius = Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2f);
         if (radius <= 0f)
         {
             path.AddRectangle(rect);
             return path;
         }
 
-        radius = Math.Min(radius, Math.Min(rect.Width, rect.Height) / 2f);
         var diameter = radius * 2f;
         var arc = new RectangleF(rect.Location, new SizeF(diameter, diameter));
         path.AddArc(arc, 180, 90);

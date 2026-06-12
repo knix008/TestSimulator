@@ -24,6 +24,7 @@ public static class EditorToolIcons
 
     public static Bitmap Select { get; } = CreateSelect();
     public static Bitmap Rectangle { get; } = CreateRectangle();
+    public static Bitmap Square { get; } = CreateSquare();
     public static Bitmap RoundedRectangle { get; } = CreateRoundedRectangle();
     public static Bitmap Ellipse { get; } = CreateEllipse();
     public static Bitmap Triangle { get; } = CreateTriangle();
@@ -32,7 +33,8 @@ public static class EditorToolIcons
     public static Bitmap Parallelogram { get; } = CreateParallelogram();
     public static Bitmap Star { get; } = CreateStar();
     public static Bitmap Line { get; } = CreateLine();
-    public static Bitmap Pen { get; } = CreatePen();
+    public static Bitmap Polygon { get; } = CreatePolygon();
+    public static Bitmap Curve { get; } = CreateCurve();
     public static Bitmap Text { get; } = CreateText();
     public static Bitmap Image { get; } = CreateImage();
     public static Bitmap ZoomIn { get; } = CreateZoomIn();
@@ -191,6 +193,15 @@ public static class EditorToolIcons
 
     private static Bitmap CreateRectangle() => CreateIcon(g =>
     {
+        var rect = new RectangleF(4f, 9f, 16f, 8f);
+        using var fill = new SolidBrush(Color.FromArgb(232, 241, 255));
+        g.FillRectangle(fill, rect);
+        using var pen = InkPen();
+        g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+    });
+
+    private static Bitmap CreateSquare() => CreateIcon(g =>
+    {
         using var fill = new SolidBrush(Color.FromArgb(232, 241, 255));
         g.FillRectangle(fill, ShapeBounds);
         using var pen = InkPen();
@@ -290,7 +301,23 @@ public static class EditorToolIcons
         g.FillEllipse(cap, 16.5f, 4.5f, 3f, 3f);
     });
 
-    private static Bitmap CreatePen() => CreateIcon(g =>
+    private static Bitmap CreatePolygon() => CreateIcon(g =>
+    {
+        var points = new[]
+        {
+            new PointF(5f, 18f),
+            new PointF(10f, 6f),
+            new PointF(18f, 8f),
+            new PointF(20f, 16f)
+        };
+        using var pen = InkPen(1.5f);
+        g.DrawLines(pen, points);
+        using var accent = new SolidBrush(ModernTheme.Accent);
+        g.FillEllipse(accent, 4f, 16.5f, 3f, 3f);
+        g.FillEllipse(accent, 9f, 4.5f, 3f, 3f);
+    });
+
+    private static Bitmap CreateCurve() => CreateIcon(g =>
     {
         using var curvePen = InkPen(1.5f);
         g.DrawBezier(curvePen, 4f, 17f, 8f, 4f, 16f, 20f, 20f, 8f);

@@ -32,11 +32,14 @@ public static class SvgPathEditHandles
         for (var i = 0; i < segments.Count; i++)
         {
             var segment = segments[i];
-            if (segment.Kind == SvgPathSegmentKind.Quadratic)
+            if (segment.Kind is SvgPathSegmentKind.Line or SvgPathSegmentKind.Quadratic)
             {
                 var start = SvgPathCommands.GetSegmentStart(segments, i);
-                graphics.DrawLine(guidePen, start.X, start.Y, segment.Control1.X, segment.Control1.Y);
-                graphics.DrawLine(guidePen, segment.Control1.X, segment.Control1.Y, segment.End.X, segment.End.Y);
+                var control = segment.Kind == SvgPathSegmentKind.Line
+                    ? SvgPathCommands.GetDefaultCurveControl(segments, i)
+                    : SvgPathCommands.GetQuadraticMidpoint(start, segment.Control1, segment.End);
+                graphics.DrawLine(guidePen, start.X, start.Y, control.X, control.Y);
+                graphics.DrawLine(guidePen, control.X, control.Y, segment.End.X, segment.End.Y);
             }
             else if (segment.Kind == SvgPathSegmentKind.Cubic)
             {

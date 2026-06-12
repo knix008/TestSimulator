@@ -12,6 +12,9 @@ public static class EditorErrorDialog
     public static void Show(IWin32Window? owner, string title, string summary, string detail)
     {
         using var form = CreateForm(title, summary, detail);
+        if (owner is null)
+            form.StartPosition = FormStartPosition.CenterScreen;
+
         form.ShowDialog(owner);
     }
 
@@ -24,7 +27,7 @@ public static class EditorErrorDialog
         while (current is not null)
         {
             if (depth > 0)
-                builder.AppendLine().AppendLine($"── 내부 예외 #{depth} ──").AppendLine();
+                builder.AppendLine().AppendLine($"-- 내부 예외 #{depth} --").AppendLine();
 
             builder.AppendLine($"[{current.GetType().FullName}]");
             builder.AppendLine(current.Message);
@@ -87,7 +90,7 @@ public static class EditorErrorDialog
             Size = new Size(616, 308),
             Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
             Multiline = true,
-            ReadOnly = false,
+            ReadOnly = true,
             ScrollBars = ScrollBars.Both,
             WordWrap = false,
             HideSelection = false,
@@ -103,7 +106,7 @@ public static class EditorErrorDialog
         var copyButton = new Button
         {
             Text = "오류 내용 복사",
-            Size = new Size(108, 30),
+            Size = new Size(120, 30),
             Anchor = AnchorStyles.Bottom | AnchorStyles.Right
         };
         ModernTheme.StyleSecondaryButton(copyButton);
@@ -151,7 +154,11 @@ public static class EditorErrorDialog
         form.Controls.AddRange([iconBox, summaryLabel, detailBox, copyButton, closeButton]);
         form.AcceptButton = closeButton;
         form.CancelButton = closeButton;
-        form.Shown += (_, _) => detailBox.Focus();
+        form.Shown += (_, _) =>
+        {
+            detailBox.Focus();
+            detailBox.Select(0, 0);
+        };
 
         return form;
     }

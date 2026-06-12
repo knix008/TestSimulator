@@ -165,6 +165,7 @@ public static class SvgDocumentSerializer
             {
                 Kind = kind,
                 Bounds = bounds,
+                IsSquare = IsSquareRect(node),
                 CornerRadius = rx
             }, node);
         }
@@ -282,8 +283,11 @@ public static class SvgDocumentSerializer
                 SvgStyleHelper.GetAttribute(node, "font-size"),
                 SvgStyleHelper.GetAttribute(node, "font-weight"),
                 SvgStyleHelper.GetAttribute(node, "font-style"),
+                SvgStyleHelper.GetAttribute(node, "text-decoration"),
                 node.Attribute("data-font-bold")?.Value,
                 node.Attribute("data-font-italic")?.Value,
+                node.Attribute("data-font-underline")?.Value,
+                node.Attribute("data-font-strikeout")?.Value,
                 SvgStyleHelper.GetAttribute(node, "x"),
                 SvgStyleHelper.GetAttribute(node, "y"),
                 node.Attribute("data-bounds-width")?.Value,
@@ -612,6 +616,12 @@ public static class SvgDocumentSerializer
             return null;
 
         return Enum.TryParse(value, ignoreCase: true, out SvgElementKind kind) ? kind : null;
+    }
+
+    private static bool IsSquareRect(XElement node)
+    {
+        var value = node.Attribute("data-kind")?.Value;
+        return string.Equals(value, "Square", StringComparison.OrdinalIgnoreCase);
     }
 
     private static PointF[] ParsePoints(string? value)

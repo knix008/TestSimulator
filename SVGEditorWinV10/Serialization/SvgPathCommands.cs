@@ -292,8 +292,13 @@ public static class SvgPathCommands
                 continue;
 
             handles.Add(new PathEditHandle(i, PathEditHandleRole.Anchor, segment.End));
+            if (segment.Kind == SvgPathSegmentKind.Line)
+                handles.Add(new PathEditHandle(i, PathEditHandleRole.Control1, GetDefaultCurveControl(segments, i)));
             if (segment.Kind == SvgPathSegmentKind.Quadratic)
-                handles.Add(new PathEditHandle(i, PathEditHandleRole.Control1, segment.Control1));
+            {
+                var start = GetSegmentStart(segments, i);
+                handles.Add(new PathEditHandle(i, PathEditHandleRole.Control1, GetQuadraticMidpoint(start, segment.Control1, segment.End)));
+            }
             if (segment.Kind == SvgPathSegmentKind.Cubic)
             {
                 handles.Add(new PathEditHandle(i, PathEditHandleRole.Control1, segment.Control1));
@@ -317,7 +322,26 @@ public static class SvgPathCommands
                 MoveAnchor(segments, handle.SegmentIndex, newPoint);
                 break;
             case PathEditHandleRole.Control1:
-                segment.Control1 = newPoint;
+                if (segment.Kind == SvgPathSegmentKind.Line)
+                {
+                    var start = GetSegmentStart(segments, handle.SegmentIndex);
+                    segments[handle.SegmentIndex] = new SvgPathSegment
+                    {
+                        Kind = SvgPathSegmentKind.Quadratic,
+                        End = segment.End,
+                        Control1 = GetQuadraticControlFromMidpoint(start, newPoint, segment.End)
+                    };
+                }
+                else if (segment.Kind == SvgPathSegmentKind.Quadratic)
+                {
+                    var start = GetSegmentStart(segments, handle.SegmentIndex);
+                    segment.Control1 = GetQuadraticControlFromMidpoint(start, newPoint, segment.End);
+                }
+                else
+                {
+                    segment.Control1 = newPoint;
+                }
+
                 break;
             case PathEditHandleRole.Control2:
                 segment.Control2 = newPoint;
@@ -326,6 +350,23 @@ public static class SvgPathCommands
 
         return ToPathData(segments);
     }
+
+    public static PointF GetDefaultCurveControl(IReadOnlyList<SvgPathSegment> segments, int segmentIndex)
+    {
+        var segment = segments[segmentIndex];
+        var start = GetSegmentStart(segments, segmentIndex);
+        return new PointF((start.X + segment.End.X) / 2f, (start.Y + segment.End.Y) / 2f);
+    }
+
+    public static PointF GetQuadraticMidpoint(PointF start, PointF control, PointF end) =>
+        new(
+            start.X * 0.25f + control.X * 0.5f + end.X * 0.25f,
+            start.Y * 0.25f + control.Y * 0.5f + end.Y * 0.25f);
+
+    public static PointF GetQuadraticControlFromMidpoint(PointF start, PointF midpoint, PointF end) =>
+        new(
+            midpoint.X * 2f - (start.X + end.X) * 0.5f,
+            midpoint.Y * 2f - (start.Y + end.Y) * 0.5f);
 
     public static PointF GetSegmentStart(IReadOnlyList<SvgPathSegment> segments, int segmentIndex)
     {
@@ -377,8 +418,29 @@ public static class SvgPathCommands
 
         var close = segments.FirstOrDefault(static s => s.Kind == SvgPathSegmentKind.Close);
         if (close is not null && segmentIndex == 0)
+        {
+            var closeIndex = segments.IndexOf(close);
+            if (closeIndex > 0)
+            {
+                var closingSegment = segments[closeIndex - 1];
+                if (closingSegment.Kind is SvgPathSegmentKind.Line or SvgPathSegmentKind.Quadratic or SvgPathSegmentKind.Cubic
+                    && PointsEqual(closingSegment.End, oldPoint))
+                {
+                    closingSegment.End = newPoint;
+                    if (closingSegment.Kind == SvgPathSegmentKind.Quadratic)
+                        closingSegment.Control1 = new PointF(closingSegment.Control1.X + delta.X, closingSegment.Control1.Y + delta.Y);
+                    else if (closingSegment.Kind == SvgPathSegmentKind.Cubic)
+                        closingSegment.Control2 = new PointF(closingSegment.Control2.X + delta.X, closingSegment.Control2.Y + delta.Y);
+                }
+            }
+
             close.End = newPoint;
+        }
     }
+
+    private static bool PointsEqual(PointF left, PointF right) =>
+        Math.Abs(left.X - right.X) < 0.001f
+        && Math.Abs(left.Y - right.Y) < 0.001f;
 
     private static PointF TransformPoint(PointF point, PointF delta) =>
         new(point.X + delta.X, point.Y + delta.Y);
