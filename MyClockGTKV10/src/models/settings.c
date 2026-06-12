@@ -1,5 +1,6 @@
 #include <json-glib/json-glib.h>
 #include <glib.h>
+#include <glib/gstdio.h>
 #include <string.h>
 #include "settings.h"
 
@@ -20,6 +21,13 @@ static const WorldTimeCityDto DEFAULT_CITIES[] = {
 #define DEFAULT_CITY_COUNT ((int)(sizeof(DEFAULT_CITIES)/sizeof(DEFAULT_CITIES[0])))
 
 /* ── Defaults ───────────────────────────────────────────────────────────── */
+
+void settings_reset_world_cities(AppSettings *s)
+{
+    s->world_city_count = DEFAULT_CITY_COUNT;
+    for (int i = 0; i < DEFAULT_CITY_COUNT; i++)
+        s->world_cities[i] = DEFAULT_CITIES[i];
+}
 
 void settings_defaults(AppSettings *s)
 {
@@ -175,6 +183,9 @@ void settings_load(AppSettings *s)
             g_strlcpy(a->id, id, sizeof(a->id));
             a->hour       = jobj_int(ao, "hour",   0);
             a->minute     = jobj_int(ao, "minute", 0);
+            a->year       = jobj_int(ao, "year",   0);
+            a->month      = jobj_int(ao, "month",  0);
+            a->day        = jobj_int(ao, "day",    0);
             const char *lbl = jobj_str(ao, "label", "");
             g_strlcpy(a->label, lbl, sizeof(a->label));
             a->is_enabled = jobj_bool(ao, "is_enabled", TRUE);
@@ -213,6 +224,34 @@ void settings_load(AppSettings *s)
             t->minutes = jobj_int(to, "minutes", 5);
             t->seconds = jobj_int(to, "seconds", 0);
             g_strlcpy(t->label, jobj_str(to, "label", ""), sizeof(t->label));
+        }
+    }
+
+    /* Calendar events */
+    if (json_object_has_member(obj, "events")) {
+        JsonArray *arr = json_object_get_array_member(obj, "events");
+        int n = (int)json_array_get_length(arr);
+        if (n > MAX_CAL_EVENTS) n = MAX_CAL_EVENTS;
+        s->event_count = 0;
+        for (int i = 0; i < n; i++) {
+            JsonObject *eo = json_array_get_object_element(arr, i);
+            CalendarEvent *e = &s->events[s->event_count];
+            g_strlcpy(e->id,       jobj_str(eo, "id",    ""), sizeof(e->id));
+            g_strlcpy(e->title,    jobj_str(eo, "title", ""), sizeof(e->title));
+            e->start_year  = jobj_int(eo, "start_year",  2024);
+            e->start_month = jobj_int(eo, "start_month", 1);
+            e->start_day   = jobj_int(eo, "start_day",   1);
+            e->start_hour  = jobj_int(eo, "start_hour",  9);
+            e->start_minute= jobj_int(eo, "start_min",   0);
+            e->end_year    = jobj_int(eo, "end_year",    2024);
+            e->end_month   = jobj_int(eo, "end_month",   1);
+            e->end_day     = jobj_int(eo, "end_day",     1);
+            e->end_hour    = jobj_int(eo, "end_hour",    10);
+            e->end_minute  = jobj_int(eo, "end_min",     0);
+            e->is_all_day  = jobj_bool(eo, "is_all_day", FALSE);
+            g_strlcpy(e->location, jobj_str(eo, "location", ""), sizeof(e->location));
+            g_strlcpy(e->memo,     jobj_str(eo, "memo",     ""), sizeof(e->memo));
+            s->event_count++;
         }
     }
 
@@ -270,6 +309,9 @@ void settings_save(const AppSettings *s)
         json_builder_set_member_name(b, "id");          json_builder_add_string_value(b, a->id);
         json_builder_set_member_name(b, "hour");        json_builder_add_int_value(b, a->hour);
         json_builder_set_member_name(b, "minute");      json_builder_add_int_value(b, a->minute);
+        json_builder_set_member_name(b, "year");        json_builder_add_int_value(b, a->year);
+        json_builder_set_member_name(b, "month");       json_builder_add_int_value(b, a->month);
+        json_builder_set_member_name(b, "day");         json_builder_add_int_value(b, a->day);
         json_builder_set_member_name(b, "label");       json_builder_add_string_value(b, a->label);
         json_builder_set_member_name(b, "is_enabled");  json_builder_add_boolean_value(b, a->is_enabled);
         json_builder_set_member_name(b, "is_repeat");   json_builder_add_boolean_value(b, a->is_repeat);
@@ -301,6 +343,31 @@ void settings_save(const AppSettings *s)
         json_builder_set_member_name(b, "minutes"); json_builder_add_int_value(b, t->minutes);
         json_builder_set_member_name(b, "seconds"); json_builder_add_int_value(b, t->seconds);
         json_builder_set_member_name(b, "label");   json_builder_add_string_value(b, t->label);
+        json_builder_end_object(b);
+    }
+    json_builder_end_array(b);
+
+    /* Calendar events */
+    json_builder_set_member_name(b, "events");
+    json_builder_begin_array(b);
+    for (int i = 0; i < s->event_count; i++) {
+        const CalendarEvent *e = &s->events[i];
+        json_builder_begin_object(b);
+        json_builder_set_member_name(b, "id");          json_builder_add_string_value(b, e->id);
+        json_builder_set_member_name(b, "title");       json_builder_add_string_value(b, e->title);
+        json_builder_set_member_name(b, "start_year");  json_builder_add_int_value(b, e->start_year);
+        json_builder_set_member_name(b, "start_month"); json_builder_add_int_value(b, e->start_month);
+        json_builder_set_member_name(b, "start_day");   json_builder_add_int_value(b, e->start_day);
+        json_builder_set_member_name(b, "start_hour");  json_builder_add_int_value(b, e->start_hour);
+        json_builder_set_member_name(b, "start_min");   json_builder_add_int_value(b, e->start_minute);
+        json_builder_set_member_name(b, "end_year");    json_builder_add_int_value(b, e->end_year);
+        json_builder_set_member_name(b, "end_month");   json_builder_add_int_value(b, e->end_month);
+        json_builder_set_member_name(b, "end_day");     json_builder_add_int_value(b, e->end_day);
+        json_builder_set_member_name(b, "end_hour");    json_builder_add_int_value(b, e->end_hour);
+        json_builder_set_member_name(b, "end_min");     json_builder_add_int_value(b, e->end_minute);
+        json_builder_set_member_name(b, "is_all_day");  json_builder_add_boolean_value(b, e->is_all_day);
+        json_builder_set_member_name(b, "location");    json_builder_add_string_value(b, e->location);
+        json_builder_set_member_name(b, "memo");        json_builder_add_string_value(b, e->memo);
         json_builder_end_object(b);
     }
     json_builder_end_array(b);
@@ -359,7 +426,7 @@ void settings_autostart_set(gboolean enable)
         g_file_set_contents(path, contents, -1, NULL);
         g_free(contents);
     } else {
-        g_remove(path);
+        g_unlink(path);
     }
 
     g_free(path);

@@ -2,6 +2,7 @@
 #include "app_state.h"
 
 void     settings_defaults(AppSettings *s);
+void     settings_reset_world_cities(AppSettings *s);
 void     settings_load(AppSettings *s);
 void     settings_save(const AppSettings *s);
 gboolean settings_autostart_get(void);

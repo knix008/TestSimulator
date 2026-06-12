@@ -11,3 +11,4 @@ void       main_window_apply_analog_style(AppState *state);
 void       main_window_toggle_clock_mode(AppState *state);
 void       main_window_update_clock(AppState *state);
 void       main_window_toggle_side_panel(AppState *state);
+void       window_set_keep_above(GtkWindow *win, gboolean keep);

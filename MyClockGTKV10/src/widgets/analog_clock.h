@@ -17,7 +17,10 @@ typedef struct {
 
 void clock_colors_from_state(const AppState *state, ClockColors *out);
 
-/* Main draw entry – call from draw_func callback */
+/* Main draw entry – call from draw_func callback.
+ * ampm_text: if non-NULL and non-empty, displayed above the date window inside the face. */
 void analog_clock_draw(cairo_t *cr, double width, double height,
                        GDateTime *now, AnalogStyle style,
-                       const ClockColors *colors);
+                       const ClockColors *colors,
+                       gboolean show_border,
+                       const char *ampm_text);

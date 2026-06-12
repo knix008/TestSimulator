@@ -189,8 +189,7 @@ static void draw_railroad_markers(cairo_t *cr, double cx, double cy, double r,
             cairo_set_line_width(cr, sc(5, scale));
             cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
             cairo_move_to(cr, cx + outer_r * sin(a), cy - outer_r * cos(a));
-            cairo_line_to(cr, cx + (r - sc(28,scale)) * sin(a),
-                              cy - (r - sc(28,scale)) * cos(a));
+            cairo_line_to(cr, cx + inner_r * sin(a), cy - inner_r * cos(a));
             cairo_stroke(cr);
         } else {
             double inner_r = r - sc(10, scale);
@@ -202,7 +201,6 @@ static void draw_railroad_markers(cairo_t *cr, double cx, double cy, double r,
             cairo_stroke(cr);
         }
     }
-    (void)inner_r;
 }
 
 static void draw_bauhaus_markers(cairo_t *cr, double cx, double cy, double r,
@@ -375,11 +373,92 @@ static void draw_aviator_face(cairo_t *cr, double cx, double cy, double r,
     }
 }
 
+/* ── Date + AM/PM complication (upper area inside clock face) ───────────── */
+
+static void draw_date_window(cairo_t *cr, double cx, double cy, double r,
+                             double scale, GDateTime *now, const ClockColors *c,
+                             const char *ampm_text)
+{
+    (void)c;
+    int day = g_date_time_get_day_of_month(now);
+    char buf[4];
+    snprintf(buf, sizeof(buf), "%d", day);
+
+    double box_w  = sc(38, scale);
+    double box_h  = sc(24, scale);
+    double corner = sc(3,  scale);
+    double bx     = cx - box_w / 2.0;
+    double by     = cy - r * 0.75 - box_h / 2.0;
+
+    /* Draw AM/PM label above the date box (if provided) */
+    if (ampm_text && ampm_text[0]) {
+        PangoLayout *apl = pango_cairo_create_layout(cr);
+        PangoFontDescription *apd = pango_font_description_new();
+        pango_font_description_set_family(apd, "sans");
+        double ap_size = fmax(7.0, sc(11, scale));
+        pango_font_description_set_size(apd, (gint)(ap_size * PANGO_SCALE));
+        pango_font_description_set_weight(apd, PANGO_WEIGHT_SEMIBOLD);
+        pango_layout_set_font_description(apl, apd);
+        pango_layout_set_text(apl, ampm_text, -1);
+        int atw, ath;
+        pango_layout_get_pixel_size(apl, &atw, &ath);
+        cairo_save(cr);
+        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.9);
+        cairo_move_to(cr, cx - atw / 2.0, by - ath - sc(3, scale));
+        pango_cairo_show_layout(cr, apl);
+        cairo_restore(cr);
+        pango_font_description_free(apd);
+        g_object_unref(apl);
+    }
+
+    /* Background: white */
+    cairo_save(cr);
+    cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
+    cairo_arc(cr, bx + corner,         by + corner,         corner, M_PI,         3*M_PI/2);
+    cairo_arc(cr, bx + box_w - corner, by + corner,         corner, 3*M_PI/2,     2*M_PI);
+    cairo_arc(cr, bx + box_w - corner, by + box_h - corner, corner, 0,            M_PI/2);
+    cairo_arc(cr, bx + corner,         by + box_h - corner, corner, M_PI/2,       M_PI);
+    cairo_close_path(cr);
+    cairo_fill(cr);
+
+    /* Border */
+    cairo_set_source_rgba(cr, 0.25, 0.25, 0.25, 0.85);
+    cairo_set_line_width(cr, sc(1.2, scale));
+    cairo_arc(cr, bx + corner,         by + corner,         corner, M_PI,         3*M_PI/2);
+    cairo_arc(cr, bx + box_w - corner, by + corner,         corner, 3*M_PI/2,     2*M_PI);
+    cairo_arc(cr, bx + box_w - corner, by + box_h - corner, corner, 0,            M_PI/2);
+    cairo_arc(cr, bx + corner,         by + box_h - corner, corner, M_PI/2,       M_PI);
+    cairo_close_path(cr);
+    cairo_stroke(cr);
+
+    /* Day number */
+    PangoLayout *layout = pango_cairo_create_layout(cr);
+    PangoFontDescription *desc = pango_font_description_new();
+    pango_font_description_set_family(desc, "sans");
+    double font_size = fmax(8.0, sc(13, scale));
+    pango_font_description_set_size(desc, (gint)(font_size * PANGO_SCALE));
+    pango_font_description_set_weight(desc, PANGO_WEIGHT_BOLD);
+    pango_layout_set_font_description(layout, desc);
+    pango_layout_set_text(layout, buf, -1);
+
+    int tw, th;
+    pango_layout_get_pixel_size(layout, &tw, &th);
+
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    cairo_move_to(cr, cx - tw / 2.0, by + (box_h - th) / 2.0);
+    pango_cairo_show_layout(cr, layout);
+
+    pango_font_description_free(desc);
+    g_object_unref(layout);
+    cairo_restore(cr);
+}
+
 /* ── Main draw function ─────────────────────────────────────────────────── */
 
 void analog_clock_draw(cairo_t *cr, double width, double height,
                        GDateTime *now, AnalogStyle style,
-                       const ClockColors *c)
+                       const ClockColors *c, gboolean show_border,
+                       const char *ampm_text)
 {
     double size  = fmin(width, height);
     double scale = size / DESIGN_SIZE;
@@ -387,23 +466,25 @@ void analog_clock_draw(cairo_t *cr, double width, double height,
     double cy    = height / 2.0;
     double r     = size  / 2.0 - sc(12, scale);
 
-    /* Outer glow */
-    double glow_pad = sc(8, scale);
-    cairo_set_source_rgba(cr, c->border_r, c->border_g, c->border_b, 0.3);
-    cairo_set_line_width(cr, sc(1, scale));
-    cairo_arc(cr, cx, cy, r + glow_pad, 0, 2 * M_PI);
-    cairo_stroke(cr);
-
-    /* Face fill */
+    /* Face fill — clips the opaque circle; area outside is transparent */
     cairo_set_source_rgb(cr, c->face_r, c->face_g, c->face_b);
     cairo_arc(cr, cx, cy, r, 0, 2 * M_PI);
     cairo_fill(cr);
 
-    /* Face border */
-    cairo_set_source_rgb(cr, c->border_r, c->border_g, c->border_b);
-    cairo_set_line_width(cr, sc(5, scale));
-    cairo_arc(cr, cx, cy, r, 0, 2 * M_PI);
-    cairo_stroke(cr);
+    if (show_border) {
+        /* Outer glow */
+        double glow_pad = sc(8, scale);
+        cairo_set_source_rgba(cr, c->border_r, c->border_g, c->border_b, 0.3);
+        cairo_set_line_width(cr, sc(1, scale));
+        cairo_arc(cr, cx, cy, r + glow_pad, 0, 2 * M_PI);
+        cairo_stroke(cr);
+
+        /* Face border */
+        cairo_set_source_rgb(cr, c->border_r, c->border_g, c->border_b);
+        cairo_set_line_width(cr, sc(5, scale));
+        cairo_arc(cr, cx, cy, r, 0, 2 * M_PI);
+        cairo_stroke(cr);
+    }
 
     /* Style-specific markers */
     switch (style) {
@@ -447,6 +528,9 @@ void analog_clock_draw(cairo_t *cr, double width, double height,
         draw_arabic_numbers(cr, cx, cy, r, scale, c);
         break;
     }
+
+    /* Date window with AM/PM (drawn before hands) */
+    draw_date_window(cr, cx, cy, r, scale, now, c, ampm_text);
 
     /* Calculate hand angles */
     int hour = g_date_time_get_hour(now)   % 12;

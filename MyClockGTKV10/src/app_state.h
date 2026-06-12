@@ -6,6 +6,7 @@
 #define MAX_WORLD_CITIES  20
 #define MAX_TIMERS         5
 #define MAX_LAP_TIMES    100
+#define MAX_CAL_EVENTS   256
 
 /* ── Enumerations ───────────────────────────────────────────────────────── */
 
@@ -66,11 +67,27 @@ typedef struct {
     char  id[37];
     int   hour;
     int   minute;
+    /* Calendar alarm: year > 0 means one-shot date+time alarm */
+    int   year;         /* 0 = time-only (recurring); >0 = specific date */
+    int   month;        /* 1-12, used when year > 0 */
+    int   day;          /* 1-31, used when year > 0 */
     char  label[128];
     bool  is_enabled;
     bool  is_repeat;
     int   repeat_days;  /* bitmask: bit0=Sun, bit1=Mon…bit6=Sat */
 } AlarmItem;
+
+typedef struct {
+    char  id[37];
+    char  title[128];
+    int   start_year, start_month, start_day;
+    int   start_hour, start_minute;
+    int   end_year, end_month, end_day;
+    int   end_hour, end_minute;
+    bool  is_all_day;
+    char  location[128];
+    char  memo[512];
+} CalendarEvent;
 
 typedef struct {
     char  city[64];
@@ -148,6 +165,10 @@ typedef struct {
 
     /* Sound */
     int  alarm_volume;  /* 0-100 */
+
+    /* Calendar events */
+    CalendarEvent events[MAX_CAL_EVENTS];
+    int           event_count;
 } AppSettings;
 
 /* ── Forward declarations ───────────────────────────────────────────────── */
@@ -177,6 +198,9 @@ struct AppState {
     GtkWidget *ampm_label_seg;    /* AM/PM label for seg/dot modes */
     GtkWidget *ampm_label_text;   /* AM/PM label for text modes */
     GtkWidget *analog_area;
+    GtkWidget *ampm_label_analog;  /* AM/PM at top of analog page */
+    GtkWidget *date_label_digital; /* date at bottom of digital page */
+    GtkWidget *date_label_analog;  /* date at bottom of analog page */
     GtkWidget *header_label;
     GtkWidget *status_label;
     GtkWidget *chrome_box;        /* revealed on hover */
@@ -189,6 +213,7 @@ struct AppState {
     /* CSS theming */
     GtkCssProvider *theme_provider;
     GtkCssProvider *color_provider;
+    GtkCssProvider *font_provider;
 
     /* GLib timer source */
     guint tick_source;
@@ -207,6 +232,25 @@ struct AppState {
 
     /* Side panel state */
     bool   side_open;
+
+    /* Hover state (used to show/hide clock border) */
+    bool   is_hovered;
+
+    /* Resize hint state: TRUE when mouse is over a resize edge */
+    bool   is_resize_hint;
+
+    /* Overlay drawing area for resize silhouette */
+    GtkWidget *resize_overlay;
+
+    /* Custom resize state (X11 only) */
+    bool  manual_resizing;
+    int   resize_edge_type;
+    int   resize_start_abs_x;
+    int   resize_start_abs_y;
+    int   resize_start_win_x;
+    int   resize_start_win_y;
+    int   resize_start_win_w;
+    int   resize_start_win_h;
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
