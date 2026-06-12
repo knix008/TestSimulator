@@ -1,7 +1,9 @@
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Text;
 using SVGEditorWinV10.Models;
+using SVGEditorWinV10.Ui;
 
 namespace SVGEditorWinV10.Rendering;
 
@@ -44,22 +46,41 @@ public static class SvgImageRenderer
         graphics.DrawImage(bitmap, dest, 0, 0, bitmap.Width, bitmap.Height, GraphicsUnit.Pixel, attributes);
     }
 
-    public static void DrawPreview(Graphics graphics, RectangleF bounds, string? dataUri, float opacity)
+    public static void DrawPreview(Graphics graphics, RectangleF bounds, string? dataUri, float opacity) =>
+        DrawSilhouettePreview(graphics, bounds, dataUri, opacity);
+
+    public static void DrawSilhouettePreview(Graphics graphics, RectangleF bounds, string? dataUri, float opacity)
     {
-        if (string.IsNullOrWhiteSpace(dataUri))
-        {
-            DrawPlaceholder(graphics, bounds);
+        if (bounds.Width <= 0f && bounds.Height <= 0f)
             return;
+
+        var drawBounds = bounds;
+        if (drawBounds.Width <= 0f)
+            drawBounds.Width = 1f;
+        if (drawBounds.Height <= 0f)
+            drawBounds.Height = 1f;
+
+        var bitmap = SvgImageAssetService.TryCreateBitmap(dataUri);
+        if (bitmap is not null)
+        {
+            var previewOpacity = Math.Clamp(opacity * 0.55f, 0.15f, 0.85f);
+            var colorMatrix = new ColorMatrix { Matrix33 = previewOpacity };
+            using var attributes = new ImageAttributes();
+            attributes.SetColorMatrix(colorMatrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+            var dest = Rectangle.Round(drawBounds);
+            graphics.DrawImage(bitmap, dest, 0, 0, bitmap.Width, bitmap.Height, GraphicsUnit.Pixel, attributes);
+        }
+        else
+        {
+            using var fill = new SolidBrush(Color.FromArgb(36, 107, 114, 128));
+            graphics.FillRectangle(fill, drawBounds);
         }
 
-        var preview = new SvgElement
+        using var pen = new Pen(Color.FromArgb(140, ModernTheme.Accent), 1f)
         {
-            Kind = SvgElementKind.Image,
-            Bounds = bounds,
-            ImageDataUri = dataUri,
-            FillOpacity = opacity
+            DashStyle = DashStyle.Dash
         };
-        Draw(graphics, preview);
+        graphics.DrawRectangle(pen, drawBounds.X, drawBounds.Y, drawBounds.Width, drawBounds.Height);
     }
 
     public static void AppendSvg(StringBuilder sb, SvgElement element)

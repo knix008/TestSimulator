@@ -1,45 +1,42 @@
+using System.Drawing.Drawing2D;
+
 namespace SVGEditorWinV10.Ui;
 
-
-
 public static class EditorToolIcons
-
 {
-
     private const int Size = 24;
+    private const float Stroke = 1.35f;
+    private static readonly RectangleF ShapeBounds = new(6f, 6f, 12f, 12f);
 
-
+    private static readonly Color IconInk = Color.FromArgb(32, 32, 32);
+    private static readonly Color IconMuted = Color.FromArgb(120, 120, 120);
+    private static readonly Color PaperFill = Color.FromArgb(255, 255, 255);
+    private static readonly Color FolderFill = Color.FromArgb(255, 196, 61);
+    private static readonly Color FolderTabFill = Color.FromArgb(255, 224, 130);
+    private static readonly Color DiskBody = Color.FromArgb(58, 142, 219);
+    private static readonly Color DiskShade = Color.FromArgb(36, 108, 181);
+    private static readonly Color DiskLabel = Color.FromArgb(196, 224, 255);
+    private static readonly Color TrashBody = Color.FromArgb(108, 108, 108);
+    private static readonly Color TrashLid = Color.FromArgb(140, 140, 140);
+    private static readonly Color CheckGreen = Color.FromArgb(16, 124, 65);
+    private static readonly Color SkyFill = Color.FromArgb(186, 220, 255);
+    private static readonly Color HillFill = Color.FromArgb(88, 166, 92);
 
     public static Bitmap Select { get; } = CreateSelect();
-
     public static Bitmap Rectangle { get; } = CreateRectangle();
-
     public static Bitmap RoundedRectangle { get; } = CreateRoundedRectangle();
-
     public static Bitmap Ellipse { get; } = CreateEllipse();
-
     public static Bitmap Triangle { get; } = CreateTriangle();
-
     public static Bitmap Diamond { get; } = CreateDiamond();
-
     public static Bitmap Hexagon { get; } = CreateHexagon();
-
     public static Bitmap Parallelogram { get; } = CreateParallelogram();
-
     public static Bitmap Star { get; } = CreateStar();
-
     public static Bitmap Line { get; } = CreateLine();
-
     public static Bitmap Text { get; } = CreateText();
-
     public static Bitmap Image { get; } = CreateImage();
-
     public static Bitmap ZoomIn { get; } = CreateZoomIn();
-
     public static Bitmap ZoomOut { get; } = CreateZoomOut();
-
     public static Bitmap ZoomReset { get; } = CreateZoomReset();
-
     public static Bitmap NewDocument { get; } = CreateNewDocument();
     public static Bitmap Open { get; } = CreateOpen();
     public static Bitmap Save { get; } = CreateSave();
@@ -55,857 +52,492 @@ public static class EditorToolIcons
     public static Bitmap View { get; } = CreateView();
     public static Bitmap Tools { get; } = CreateTools();
 
-    public static Bitmap ToMenuSize(Bitmap source) => new(source, 16, 16);
+    public const int MenuIconSize = 16;
 
-
-
-    private static Bitmap CreateSelect()
-
+    public static Bitmap ToMenuSize(Bitmap source)
     {
-
-        var bmp = new Bitmap(Size, Size);
-
+        var bmp = new Bitmap(MenuIconSize, MenuIconSize);
         using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-
-
-        using var stroke = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawLine(stroke, 4, 18, 10, 12);
-
-        g.DrawLine(stroke, 10, 12, 14, 16);
-
-        g.DrawLine(stroke, 14, 16, 20, 6);
-
-        g.DrawLine(stroke, 10, 12, 7, 9);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateRectangle()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            g.FillRectangle(AccentMutedBrush(), 5, 6, 14, 12);
-
-            g.DrawRectangle(AccentPen(), 5, 6, 14, 12);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateRoundedRectangle()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            using var path = CreateRoundedRectPath(new RectangleF(5, 6, 14, 12), 3f);
-
-            g.FillPath(AccentMutedBrush(), path);
-
-            g.DrawPath(AccentPen(), path);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateEllipse()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            g.FillEllipse(AccentMutedBrush(), 5, 6, 14, 12);
-
-            g.DrawEllipse(AccentPen(), 5, 6, 14, 12);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateTriangle()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            var points = new[] { new PointF(12, 5), new PointF(19, 19), new PointF(5, 19) };
-
-            g.FillPolygon(AccentMutedBrush(), points);
-
-            g.DrawPolygon(AccentPen(), points);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateDiamond()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            var points = new[] { new PointF(12, 5), new PointF(19, 12), new PointF(12, 19), new PointF(5, 12) };
-
-            g.FillPolygon(AccentMutedBrush(), points);
-
-            g.DrawPolygon(AccentPen(), points);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateHexagon()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            var points = new[]
-
-            {
-
-                new PointF(8, 6), new PointF(16, 6), new PointF(20, 12),
-
-                new PointF(16, 18), new PointF(8, 18), new PointF(4, 12)
-
-            };
-
-            g.FillPolygon(AccentMutedBrush(), points);
-
-            g.DrawPolygon(AccentPen(), points);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateParallelogram()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            var points = new[] { new PointF(8, 6), new PointF(19, 6), new PointF(16, 18), new PointF(5, 18) };
-
-            g.FillPolygon(AccentMutedBrush(), points);
-
-            g.DrawPolygon(AccentPen(), points);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateStar()
-
-    {
-
-        return CreateFilledShape(g =>
-
-        {
-
-            var points = new[]
-
-            {
-
-                new PointF(12, 4), new PointF(14.2f, 10.5f), new PointF(21, 10.5f),
-
-                new PointF(15.6f, 14.5f), new PointF(17.8f, 21), new PointF(12, 17),
-
-                new PointF(6.2f, 21), new PointF(8.4f, 14.5f), new PointF(3, 10.5f), new PointF(9.8f, 10.5f)
-
-            };
-
-            g.FillPolygon(AccentMutedBrush(), points);
-
-            g.DrawPolygon(AccentPen(), points);
-
-        });
-
-    }
-
-
-
-    private static Bitmap CreateLine()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-
-
-        using var stroke = new Pen(ModernTheme.Accent, 2f)
-
-        {
-
-            StartCap = System.Drawing.Drawing2D.LineCap.Round,
-
-            EndCap = System.Drawing.Drawing2D.LineCap.Round
-
-        };
-
-        g.DrawLine(stroke, 5, 18, 19, 6);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateText()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-
-        g.Clear(Color.Transparent);
-
-
-
-        using var font = new Font("Segoe UI Semibold", 14f, FontStyle.Bold, GraphicsUnit.Pixel);
-
-        using var brush = new SolidBrush(ModernTheme.Accent);
-
-        g.DrawString("T", font, brush, 6f, 3f);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateImage()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-
-
-        using var frame = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawRectangle(frame, 4, 6, 16, 12);
-
-
-
-        using var hill = new SolidBrush(Color.FromArgb(90, ModernTheme.Accent));
-
-        var hillPoints = new[]
-
-        {
-
-            new PointF(5, 16),
-
-            new PointF(10, 11),
-
-            new PointF(15, 15),
-
-            new PointF(19, 12),
-
-            new PointF(19, 18),
-
-            new PointF(5, 18)
-
-        };
-
-        g.FillPolygon(hill, hillPoints);
-
-
-
-        using var sun = new SolidBrush(ModernTheme.Accent);
-
-        g.FillEllipse(sun, 14, 8, 4, 4);
-
-
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateZoomIn()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-
-
-        using var glass = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        using var handle = new Pen(ModernTheme.TextPrimary, 1.8f);
-
-        g.DrawEllipse(glass, 4, 4, 12, 12);
-
-        g.DrawLine(handle, 14, 14, 20, 20);
-
-        using var plus = new Pen(ModernTheme.Accent, 1.8f);
-
-        g.DrawLine(plus, 10, 7, 10, 13);
-
-        g.DrawLine(plus, 7, 10, 13, 10);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateZoomOut()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-
-
-        using var glass = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        using var handle = new Pen(ModernTheme.TextPrimary, 1.8f);
-
-        g.DrawEllipse(glass, 4, 4, 12, 12);
-
-        g.DrawLine(handle, 14, 14, 20, 20);
-
-        using var minus = new Pen(ModernTheme.Accent, 1.8f);
-
-        g.DrawLine(minus, 7, 10, 13, 10);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateZoomReset()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-
-
-        using var stroke = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawRectangle(stroke, 5, 7, 14, 10);
-
-        using var accent = new Pen(ModernTheme.Accent, 1.6f);
-
-        g.DrawLine(accent, 8, 19, 16, 19);
-
-        g.DrawLine(accent, 12, 17, 12, 19);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateNewDocument()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var page = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawRectangle(page, 6, 5, 12, 14);
-
-        using var accent = new Pen(ModernTheme.Accent, 1.8f);
-
-        g.DrawLine(accent, 12, 10, 12, 15);
-
-        g.DrawLine(accent, 9.5f, 12.5f, 14.5f, 12.5f);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateOpen()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var folder = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawLine(folder, 5, 10, 5, 18);
-
-        g.DrawLine(folder, 5, 18, 19, 18);
-
-        g.DrawLine(folder, 19, 18, 19, 12);
-
-        g.DrawLine(folder, 19, 12, 11, 12);
-
-        g.DrawLine(folder, 11, 12, 9, 10);
-
-        g.DrawLine(folder, 9, 10, 5, 10);
-
-        using var accent = AccentPen();
-
-        g.DrawLine(accent, 10, 15, 14, 15);
-
-        g.DrawLine(accent, 12, 13, 12, 17);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateSave()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var body = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawRectangle(body, 6, 5, 12, 14);
-
-        g.DrawRectangle(body, 8, 5, 8, 4);
-
-        g.FillRectangle(AccentMutedBrush(), 8, 11, 8, 6);
-
-        g.DrawRectangle(body, 8, 11, 8, 6);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateSaveAs()
-
-    {
-
-        var bmp = CreateSave();
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        using var accent = AccentPen();
-
-        g.DrawLine(accent, 15, 16, 20, 11);
-
-        g.DrawLine(accent, 17, 11, 20, 11);
-
-        g.DrawLine(accent, 20, 11, 20, 14);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateCanvasSize()
-    {
-        var bmp = new Bitmap(Size, Size);
-        using var g = Graphics.FromImage(bmp);
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        g.Clear(Color.Transparent);
-
-        using var frame = new Pen(ModernTheme.TextPrimary, 1.6f);
-        g.DrawRectangle(frame, 5, 7, 14, 12);
-
-        using var accent = AccentPen();
-        g.DrawLine(accent, 3, 13, 5, 13);
-        g.DrawLine(accent, 19, 13, 21, 13);
-        g.DrawLine(accent, 12, 4, 12, 7);
-        g.DrawLine(accent, 12, 19, 12, 22);
-        g.DrawLine(accent, 1, 13, 3, 11);
-        g.DrawLine(accent, 1, 13, 3, 15);
-        g.DrawLine(accent, 21, 13, 23, 11);
-        g.DrawLine(accent, 21, 13, 23, 15);
-        g.DrawLine(accent, 12, 4, 10, 6);
-        g.DrawLine(accent, 12, 4, 14, 6);
-        g.DrawLine(accent, 12, 22, 10, 20);
-        g.DrawLine(accent, 12, 22, 14, 20);
-
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        g.DrawImage(source, new Rectangle(0, 0, MenuIconSize, MenuIconSize));
         return bmp;
     }
 
-    private static Bitmap CreateExportImage()
-
+    private static Bitmap CreateIcon(Action<Graphics> draw)
     {
-
         var bmp = new Bitmap(Size, Size);
-
         using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
         g.Clear(Color.Transparent);
-
-        using var page = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawRectangle(page, 5, 7, 11, 13);
-
-        using var accent = AccentPen();
-
-        g.DrawLine(accent, 16, 12, 21, 7);
-
-        g.DrawLine(accent, 21, 7, 21, 12);
-
-        g.DrawLine(accent, 16, 12, 21, 7);
-
-        g.DrawLine(accent, 13, 18, 19, 18);
-
-        g.DrawLine(accent, 15, 16, 17, 16);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateExit()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var frame = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawRectangle(frame, 5, 6, 14, 12);
-
-        using var accent = AccentPen();
-
-        g.DrawLine(accent, 11, 10, 17, 16);
-
-        g.DrawLine(accent, 17, 10, 11, 16);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateDelete()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var stroke = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawLine(stroke, 8, 7, 16, 7);
-
-        g.DrawLine(stroke, 10, 7, 10.5f, 19);
-
-        g.DrawLine(stroke, 13.5f, 7, 14, 19);
-
-        g.DrawLine(stroke, 9, 19, 15, 19);
-
-        g.DrawRectangle(stroke, 9, 9, 6, 2);
-
-        using var accent = AccentPen();
-
-        g.DrawLine(accent, 11, 11, 11, 17);
-
-        g.DrawLine(accent, 13, 11, 13, 17);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateApply()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var accent = AccentPen();
-
-        g.DrawLines(accent, [new PointF(6, 12), new PointF(10, 16), new PointF(18, 8)]);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateCopy()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var back = new Pen(ModernTheme.TextSecondary, 1.5f);
-
-        g.DrawRectangle(back, 8, 6, 10, 12);
-
-        using var front = AccentPen();
-
-        g.DrawRectangle(front, 5, 9, 10, 12);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateFile() => CreateSave();
-
-
-
-    private static Bitmap CreateEdit()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var accent = AccentPen();
-
-        g.DrawLines(accent, [new PointF(16, 6), new PointF(8, 18), new PointF(6, 18), new PointF(6, 16), new PointF(14, 4), new PointF(18, 4), new PointF(18, 8)]);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateView()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var outline = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawEllipse(outline, 5, 8, 14, 8);
-
-        g.FillEllipse(AccentMutedBrush(), 10, 11, 4, 4);
-
-        g.DrawEllipse(AccentPen(), 10, 11, 4, 4);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateTools()
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
-        using var stroke = new Pen(ModernTheme.TextPrimary, 1.6f);
-
-        g.DrawLine(stroke, 8, 6, 16, 18);
-
-        g.DrawEllipse(stroke, 6, 14, 5, 5);
-
-        g.DrawRectangle(stroke, 14, 5, 5, 5);
-
-        using var accent = AccentPen();
-
-        g.DrawLine(accent, 10, 10, 13, 14);
-
-        return bmp;
-
-    }
-
-
-
-    private static Bitmap CreateFilledShape(Action<Graphics> draw)
-
-    {
-
-        var bmp = new Bitmap(Size, Size);
-
-        using var g = Graphics.FromImage(bmp);
-
-        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-        g.Clear(Color.Transparent);
-
         draw(g);
-
         return bmp;
-
     }
 
-
-
-    private static SolidBrush AccentMutedBrush() => new(ModernTheme.AccentMuted);
-
-
-
-    private static Pen AccentPen() => new(ModernTheme.Accent, 1.6f);
-
-
-
-    private static System.Drawing.Drawing2D.GraphicsPath CreateRoundedRectPath(RectangleF rect, float radius)
-
+    private static Pen InkPen(float width = Stroke) => new(IconInk, width)
     {
+        LineJoin = LineJoin.Round,
+        StartCap = LineCap.Round,
+        EndCap = LineCap.Round
+    };
 
-        var path = new System.Drawing.Drawing2D.GraphicsPath();
+    private static Pen AccentPen(float width = Stroke) => new(ModernTheme.Accent, width)
+    {
+        LineJoin = LineJoin.Round,
+        StartCap = LineCap.Round,
+        EndCap = LineCap.Round
+    };
 
+    private static Pen MutedPen() => new(IconMuted, Stroke)
+    {
+        LineJoin = LineJoin.Round,
+        StartCap = LineCap.Round,
+        EndCap = LineCap.Round
+    };
+
+    private static GraphicsPath CreateRoundedRectPath(RectangleF rect, float radius)
+    {
+        var path = new GraphicsPath();
         var diameter = radius * 2f;
-
         var arc = new RectangleF(rect.Location, new SizeF(diameter, diameter));
-
         path.AddArc(arc, 180, 90);
-
         arc.X = rect.Right - diameter;
-
         path.AddArc(arc, 270, 90);
-
         arc.Y = rect.Bottom - diameter;
-
         path.AddArc(arc, 0, 90);
-
         arc.X = rect.X;
-
         path.AddArc(arc, 90, 90);
-
         path.CloseFigure();
-
         return path;
-
     }
 
+    private static void DrawDocument(Graphics g, RectangleF rect, bool foldedCorner = false)
+    {
+        using var fill = new SolidBrush(PaperFill);
+        g.FillRectangle(fill, rect);
+        using var pen = InkPen();
+        g.DrawRectangle(pen, rect.X, rect.Y, rect.Width, rect.Height);
+
+        if (!foldedCorner)
+            return;
+
+        var fold = new[]
+        {
+            new PointF(rect.Right - 4f, rect.Y),
+            new PointF(rect.Right, rect.Y + 4f),
+            new PointF(rect.Right - 4f, rect.Y + 4f)
+        };
+        using var foldBrush = new SolidBrush(Color.FromArgb(232, 232, 232));
+        g.FillPolygon(foldBrush, fold);
+        g.DrawPolygon(pen, fold);
+    }
+
+    private static void DrawFloppy(Graphics g, RectangleF body)
+    {
+        using var bodyBrush = new SolidBrush(DiskBody);
+        g.FillRectangle(bodyBrush, body);
+        using var shadeBrush = new SolidBrush(DiskShade);
+        g.FillRectangle(shadeBrush, body.X, body.Y, body.Width, 3.5f);
+
+        var label = new RectangleF(body.X + 2f, body.Y + 4.5f, body.Width - 4f, 5f);
+        using var labelBrush = new SolidBrush(DiskLabel);
+        g.FillRectangle(labelBrush, label);
+
+        var slot = new RectangleF(body.X + 4f, body.Bottom - 6f, body.Width - 8f, 4f);
+        using var slotBrush = new SolidBrush(DiskShade);
+        g.FillRectangle(slotBrush, slot);
+
+        using var pen = InkPen(1.1f);
+        g.DrawRectangle(pen, body.X, body.Y, body.Width, body.Height);
+        g.DrawRectangle(pen, label.X, label.Y, label.Width, label.Height);
+        g.DrawRectangle(pen, slot.X, slot.Y, slot.Width, slot.Height);
+    }
+
+    private static void DrawMagnifier(Graphics g, RectangleF lens, PointF handleEnd)
+    {
+        using var pen = InkPen();
+        g.DrawEllipse(pen, lens);
+        g.DrawLine(pen, lens.Right - 1.5f, lens.Bottom - 1.5f, handleEnd.X, handleEnd.Y);
+    }
+
+    private static void DrawShapeOutline(Graphics g, PointF[] points)
+    {
+        using var fill = new SolidBrush(Color.FromArgb(232, 241, 255));
+        g.FillPolygon(fill, points);
+        using var pen = InkPen();
+        g.DrawPolygon(pen, points);
+    }
+
+    private static Bitmap CreateSelect() => CreateIcon(g =>
+    {
+        var pointer = new[]
+        {
+            new PointF(4.5f, 3f),
+            new PointF(4.5f, 17.5f),
+            new PointF(9f, 13f),
+            new PointF(11.5f, 19.5f),
+            new PointF(13.5f, 18.5f),
+            new PointF(10.5f, 12f),
+            new PointF(17.5f, 12f)
+        };
+        using var fill = new SolidBrush(PaperFill);
+        g.FillPolygon(fill, pointer);
+        using var pen = InkPen();
+        g.DrawPolygon(pen, pointer);
+    });
+
+    private static Bitmap CreateRectangle() => CreateIcon(g =>
+    {
+        using var fill = new SolidBrush(Color.FromArgb(232, 241, 255));
+        g.FillRectangle(fill, ShapeBounds);
+        using var pen = InkPen();
+        g.DrawRectangle(pen, ShapeBounds.X, ShapeBounds.Y, ShapeBounds.Width, ShapeBounds.Height);
+    });
+
+    private static Bitmap CreateRoundedRectangle() => CreateIcon(g =>
+    {
+        using var path = CreateRoundedRectPath(ShapeBounds, 2.5f);
+        using var fill = new SolidBrush(Color.FromArgb(232, 241, 255));
+        g.FillPath(fill, path);
+        using var pen = InkPen();
+        g.DrawPath(pen, path);
+    });
+
+    private static Bitmap CreateEllipse() => CreateIcon(g =>
+    {
+        using var fill = new SolidBrush(Color.FromArgb(232, 241, 255));
+        g.FillEllipse(fill, ShapeBounds);
+        using var pen = InkPen();
+        g.DrawEllipse(pen, ShapeBounds);
+    });
+
+    private static Bitmap CreateTriangle() => CreateIcon(g =>
+    {
+        var points = new[]
+        {
+            new PointF(12f, 6f),
+            new PointF(18f, 18f),
+            new PointF(6f, 18f)
+        };
+        DrawShapeOutline(g, points);
+    });
+
+    private static Bitmap CreateDiamond() => CreateIcon(g =>
+    {
+        var points = new[]
+        {
+            new PointF(12f, 6f),
+            new PointF(18f, 12f),
+            new PointF(12f, 18f),
+            new PointF(6f, 12f)
+        };
+        DrawShapeOutline(g, points);
+    });
+
+    private static Bitmap CreateHexagon() => CreateIcon(g =>
+    {
+        var points = new[]
+        {
+            new PointF(9f, 6f),
+            new PointF(15f, 6f),
+            new PointF(18f, 12f),
+            new PointF(15f, 18f),
+            new PointF(9f, 18f),
+            new PointF(6f, 12f)
+        };
+        DrawShapeOutline(g, points);
+    });
+
+    private static Bitmap CreateParallelogram() => CreateIcon(g =>
+    {
+        var points = new[]
+        {
+            new PointF(8f, 6f),
+            new PointF(18f, 6f),
+            new PointF(16f, 18f),
+            new PointF(6f, 18f)
+        };
+        DrawShapeOutline(g, points);
+    });
+
+    private static Bitmap CreateStar() => CreateIcon(g =>
+    {
+        var points = new[]
+        {
+            new PointF(12f, 5f),
+            new PointF(14f, 10.5f),
+            new PointF(19.5f, 10.5f),
+            new PointF(15f, 14f),
+            new PointF(16.5f, 19f),
+            new PointF(12f, 16f),
+            new PointF(7.5f, 19f),
+            new PointF(9f, 14f),
+            new PointF(4.5f, 10.5f),
+            new PointF(10f, 10.5f)
+        };
+        DrawShapeOutline(g, points);
+    });
+
+    private static Bitmap CreateLine() => CreateIcon(g =>
+    {
+        using var pen = InkPen(1.75f);
+        g.DrawLine(pen, 6f, 18f, 18f, 6f);
+        using var cap = new SolidBrush(ModernTheme.Accent);
+        g.FillEllipse(cap, 4.5f, 16.5f, 3f, 3f);
+        g.FillEllipse(cap, 16.5f, 4.5f, 3f, 3f);
+    });
+
+    private static Bitmap CreateText() => CreateIcon(g =>
+    {
+        using var font = new Font("Times New Roman", 13f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var brush = new SolidBrush(IconInk);
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        g.DrawString("A", font, brush, 6.5f, 3.5f);
+        using var pen = AccentPen();
+        g.DrawLine(pen, 17f, 6f, 17f, 18f);
+    });
+
+    private static Bitmap CreateImage() => CreateIcon(g =>
+    {
+        var frame = new RectangleF(5f, 6f, 14f, 12f);
+        using var frameFill = new SolidBrush(PaperFill);
+        g.FillRectangle(frameFill, frame);
+        using var pen = InkPen();
+        g.DrawRectangle(pen, frame.X, frame.Y, frame.Width, frame.Height);
+
+        using var sky = new SolidBrush(SkyFill);
+        g.FillRectangle(sky, frame.X + 1f, frame.Y + 1f, frame.Width - 2f, 5.5f);
+        using var hill = new SolidBrush(HillFill);
+        var hillPath = new GraphicsPath();
+        hillPath.AddLines([
+            new PointF(frame.X + 1f, frame.Bottom - 1f),
+            new PointF(frame.X + 6f, frame.Y + 9f),
+            new PointF(frame.X + 10f, frame.Y + 11f),
+            new PointF(frame.Right - 1f, frame.Y + 8f),
+            new PointF(frame.Right - 1f, frame.Bottom - 1f)
+        ]);
+        hillPath.CloseFigure();
+        g.FillPath(hill, hillPath);
+        using var sun = new SolidBrush(Color.FromArgb(255, 204, 64));
+        g.FillEllipse(sun, frame.Right - 6f, frame.Y + 2.5f, 3f, 3f);
+    });
+
+    private static Bitmap CreateZoomIn() => CreateIcon(g =>
+    {
+        DrawMagnifier(g, new RectangleF(4.5f, 4.5f, 10.5f, 10.5f), new PointF(19f, 19f));
+        using var accent = AccentPen();
+        g.DrawLine(accent, 9.75f, 7.5f, 9.75f, 12f);
+        g.DrawLine(accent, 7.5f, 9.75f, 12f, 9.75f);
+    });
+
+    private static Bitmap CreateZoomOut() => CreateIcon(g =>
+    {
+        DrawMagnifier(g, new RectangleF(4.5f, 4.5f, 10.5f, 10.5f), new PointF(19f, 19f));
+        using var accent = AccentPen();
+        g.DrawLine(accent, 7.5f, 9.75f, 12f, 9.75f);
+    });
+
+    private static Bitmap CreateZoomReset() => CreateIcon(g =>
+    {
+        using var pen = InkPen();
+        g.DrawRectangle(pen, 6f, 6f, 12f, 9f);
+        using var accent = AccentPen(1.75f);
+        g.DrawLine(accent, 9f, 18f, 15f, 18f);
+        g.DrawLine(accent, 12f, 16f, 12f, 18f);
+    });
+
+    private static Bitmap CreateNewDocument() => CreateIcon(g =>
+    {
+        DrawDocument(g, new RectangleF(7f, 4f, 10f, 15f), foldedCorner: true);
+        using var accent = AccentPen(1.75f);
+        g.DrawLine(accent, 10.5f, 10.5f, 13.5f, 10.5f);
+        g.DrawLine(accent, 12f, 9f, 12f, 12f);
+    });
+
+    private static Bitmap CreateOpen() => CreateIcon(g =>
+    {
+        var tab = new RectangleF(6f, 7f, 8f, 3f);
+        using (var tabBrush = new SolidBrush(FolderTabFill))
+            g.FillRectangle(tabBrush, tab);
+
+        var folder = new GraphicsPath();
+        folder.AddLines([
+            new PointF(5f, 9f),
+            new PointF(19f, 9f),
+            new PointF(19f, 18f),
+            new PointF(5f, 18f),
+            new PointF(5f, 9f)
+        ]);
+        using (var folderBrush = new SolidBrush(FolderFill))
+            g.FillPath(folderBrush, folder);
+
+        var page = new RectangleF(9f, 11f, 6f, 7f);
+        DrawDocument(g, page);
+
+        using var pen = InkPen(1.1f);
+        g.DrawRectangle(pen, tab.X, tab.Y, tab.Width, tab.Height);
+        g.DrawPath(pen, folder);
+    });
+
+    private static Bitmap CreateSave() => CreateIcon(g =>
+    {
+        DrawFloppy(g, new RectangleF(7f, 5f, 10f, 14f));
+    });
+
+    private static Bitmap CreateSaveAs() => CreateIcon(g =>
+    {
+        DrawFloppy(g, new RectangleF(5f, 5f, 10f, 14f));
+        DrawDocument(g, new RectangleF(11f, 8f, 8f, 11f), foldedCorner: true);
+        using var accent = AccentPen();
+        g.DrawLine(accent, 13.5f, 12.5f, 16.5f, 12.5f);
+        g.DrawLine(accent, 15f, 11f, 15f, 14f);
+    });
+
+    private static Bitmap CreateCanvasSize() => CreateIcon(g =>
+    {
+        DrawDocument(g, new RectangleF(7f, 7f, 10f, 11f));
+        using var accent = AccentPen();
+        g.DrawLine(accent, 4f, 12.5f, 7f, 12.5f);
+        g.DrawLine(accent, 17f, 12.5f, 20f, 12.5f);
+        g.DrawLine(accent, 12f, 4f, 12f, 7f);
+        g.DrawLine(accent, 12f, 18f, 12f, 21f);
+        g.DrawLine(accent, 4f, 12.5f, 5.5f, 11f);
+        g.DrawLine(accent, 4f, 12.5f, 5.5f, 14f);
+        g.DrawLine(accent, 20f, 12.5f, 18.5f, 11f);
+        g.DrawLine(accent, 20f, 12.5f, 18.5f, 14f);
+        g.DrawLine(accent, 12f, 4f, 10.5f, 5.5f);
+        g.DrawLine(accent, 12f, 4f, 13.5f, 5.5f);
+        g.DrawLine(accent, 12f, 21f, 10.5f, 19.5f);
+        g.DrawLine(accent, 12f, 21f, 13.5f, 19.5f);
+    });
+
+    private static Bitmap CreateExportImage() => CreateIcon(g =>
+    {
+        var frame = new RectangleF(4f, 7f, 10f, 11f);
+        using var frameFill = new SolidBrush(PaperFill);
+        g.FillRectangle(frameFill, frame);
+        using var sky = new SolidBrush(SkyFill);
+        g.FillRectangle(sky, frame.X + 1f, frame.Y + 1f, frame.Width - 2f, 4f);
+        using var hill = new SolidBrush(HillFill);
+        g.FillRectangle(hill, frame.X + 1f, frame.Y + 5f, frame.Width - 2f, frame.Height - 6f);
+        using var pen = InkPen();
+        g.DrawRectangle(pen, frame.X, frame.Y, frame.Width, frame.Height);
+
+        using var accent = AccentPen(1.75f);
+        g.DrawLine(accent, 15f, 12f, 20f, 12f);
+        g.DrawLine(accent, 18f, 10f, 20f, 12f);
+        g.DrawLine(accent, 18f, 14f, 20f, 12f);
+    });
+
+    private static Bitmap CreateExit() => CreateIcon(g =>
+    {
+        var window = new RectangleF(5f, 6f, 11f, 12f);
+        using var fill = new SolidBrush(PaperFill);
+        g.FillRectangle(fill, window);
+        using var pen = InkPen();
+        g.DrawRectangle(pen, window.X, window.Y, window.Width, window.Height);
+        g.DrawLine(pen, window.X, window.Y + 4f, window.Right, window.Y + 4f);
+
+        using var accent = new Pen(Color.FromArgb(196, 43, 43), 1.75f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round
+        };
+        g.DrawLine(accent, window.Right - 1f, window.Y + 1.5f, window.Right + 5f, window.Y + 7.5f);
+        g.DrawLine(accent, window.Right + 5f, window.Y + 1.5f, window.Right - 1f, window.Y + 7.5f);
+        g.DrawLine(accent, window.Right + 1f, window.Y + 4.5f, window.Right + 6f, window.Y + 4.5f);
+    });
+
+    private static Bitmap CreateDelete() => CreateIcon(g =>
+    {
+        var lid = new RectangleF(8f, 7f, 8f, 2.5f);
+        using var lidBrush = new SolidBrush(TrashLid);
+        g.FillRectangle(lidBrush, lid);
+        g.DrawLine(InkPen(1.1f), 10f, 7f, 14f, 7f);
+
+        var body = new RectangleF(7.5f, 9f, 9f, 10f);
+        using var bodyBrush = new SolidBrush(TrashBody);
+        g.FillRectangle(bodyBrush, body);
+        using var pen = InkPen(1.1f);
+        g.DrawRectangle(pen, body.X, body.Y, body.Width, body.Height);
+        g.DrawLine(pen, 9.5f, 11f, 9.5f, 16.5f);
+        g.DrawLine(pen, 12f, 11f, 12f, 16.5f);
+        g.DrawLine(pen, 14.5f, 11f, 14.5f, 16.5f);
+    });
+
+    private static Bitmap CreateApply() => CreateIcon(g =>
+    {
+        using var circle = new SolidBrush(CheckGreen);
+        g.FillEllipse(circle, 5f, 5f, 14f, 14f);
+        using var pen = new Pen(Color.White, 2f)
+        {
+            StartCap = LineCap.Round,
+            EndCap = LineCap.Round,
+            LineJoin = LineJoin.Round
+        };
+        g.DrawLines(pen, [new PointF(8f, 12f), new PointF(11f, 15f), new PointF(16.5f, 9f)]);
+    });
+
+    private static Bitmap CreateCopy() => CreateIcon(g =>
+    {
+        var back = new RectangleF(10f, 5f, 9f, 12f);
+        using var backFill = new SolidBrush(Color.FromArgb(224, 224, 224));
+        g.FillRectangle(backFill, back);
+        using var backPen = MutedPen();
+        g.DrawRectangle(backPen, back.X, back.Y, back.Width, back.Height);
+
+        var front = new RectangleF(5f, 8f, 9f, 12f);
+        DrawDocument(g, front);
+    });
+
+    private static Bitmap CreateFile() => CreateIcon(g =>
+    {
+        DrawDocument(g, new RectangleF(7f, 4f, 10f, 16f), foldedCorner: true);
+        using var pen = AccentPen();
+        g.DrawLine(pen, 9.5f, 11f, 14.5f, 11f);
+        g.DrawLine(pen, 9.5f, 14f, 14.5f, 14f);
+    });
+
+    private static Bitmap CreateEdit() => CreateIcon(g =>
+    {
+        DrawDocument(g, new RectangleF(5f, 6f, 11f, 13f));
+        using var pen = InkPen();
+        var pencil = new[]
+        {
+            new PointF(16f, 5f),
+            new PointF(18f, 7f),
+            new PointF(9f, 16f),
+            new PointF(7f, 16f),
+            new PointF(7f, 14f),
+            new PointF(16f, 5f)
+        };
+        using var pencilFill = new SolidBrush(Color.FromArgb(255, 204, 64));
+        g.FillPolygon(pencilFill, pencil);
+        g.DrawPolygon(pen, pencil);
+        using var tip = new SolidBrush(IconInk);
+        g.FillEllipse(tip, 15.5f, 4.5f, 2f, 2f);
+    });
+
+    private static Bitmap CreateView() => CreateIcon(g =>
+    {
+        using var pen = InkPen();
+        g.DrawEllipse(pen, 4f, 9f, 16f, 7f);
+        using var iris = new SolidBrush(IconInk);
+        g.FillEllipse(iris, 10f, 11.5f, 4f, 4f);
+        using var highlight = new SolidBrush(Color.White);
+        g.FillEllipse(highlight, 11f, 12.5f, 1.2f, 1.2f);
+    });
+
+    private static Bitmap CreateTools() => CreateIcon(g =>
+    {
+        using var pen = InkPen(1.5f);
+        g.DrawArc(pen, 5f, 5f, 9f, 9f, 130f, 220f);
+        g.DrawLine(pen, 12f, 12.5f, 18.5f, 19f);
+        using var head = new SolidBrush(IconMuted);
+        g.FillEllipse(head, 16.5f, 16.5f, 4.5f, 4.5f);
+        using var headPen = InkPen(1.1f);
+        g.DrawEllipse(headPen, 16.5f, 16.5f, 4.5f, 4.5f);
+    });
 }
-
-

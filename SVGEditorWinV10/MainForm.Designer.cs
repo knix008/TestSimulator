@@ -49,12 +49,14 @@ partial class MainForm
     private ToolStripButton _tbZoomIn;
     private ToolStripButton _tbZoomOut;
     private ToolStripButton _tbZoomReset;
+    private ToolStripLabel _tbZoomLabel;
     private ToolStripSeparator _tbSepView1;
     private ToolStripButton _tbApplySource;
     private ToolStripButton _tbCopySource;
     private SplitContainer _splitMain;
     private SplitContainer _splitEditor;
     private Panel _pnlToolbox;
+    private Panel _pnlToolboxSectionDivider;
     private Label _lblToolboxTitle;
     private ToolStrip _toolStripTools;
     private ToolStripButton _btnSelect;
@@ -97,14 +99,10 @@ partial class MainForm
     private CheckBox _chkFontBold;
     private CheckBox _chkFontItalic;
     private Panel _pnlCanvasHost;
-    private Panel _pnlCanvasToolbar;
-    private Label _lblZoom;
-    private Button _btnZoomReset;
-    private Button _btnZoomOut;
-    private Button _btnZoomIn;
     private Controls.SvgCanvas _canvas;
     private Panel _pnlSource;
     private Panel _pnlSourceHeader;
+    private Panel _pnlSourceButtons;
     private Label _lblSourceTitle;
     private Button _btnApplySource;
     private Button _btnCopySource;
@@ -113,7 +111,6 @@ partial class MainForm
     private Panel _pnlProperties;
     private Panel _pnlPropertiesHeader;
     private Label _lblPropertiesTitle;
-    private Label _lblPropertyStatus;
     private StatusStrip _statusStrip;
     private ToolStripStatusLabel _statusLabel;
     private ToolStripStatusLabel _statusZoomLabel;
@@ -173,11 +170,13 @@ partial class MainForm
         _tbZoomIn = new ToolStripButton();
         _tbZoomOut = new ToolStripButton();
         _tbZoomReset = new ToolStripButton();
+        _tbZoomLabel = new ToolStripLabel();
         _tbSepView1 = new ToolStripSeparator();
         _tbApplySource = new ToolStripButton();
         _tbCopySource = new ToolStripButton();
         _splitMain = new SplitContainer();
         _pnlToolbox = new Panel();
+        _pnlToolboxSectionDivider = new Panel();
         _pnlProperties = new Panel();
         _pnlToolOptions = new Panel();
         _chkFontItalic = new CheckBox();
@@ -207,7 +206,6 @@ partial class MainForm
         _btnFillColor = new Button();
         _lblFillColor = new Label();
         _pnlPropertiesHeader = new Panel();
-        _lblPropertyStatus = new Label();
         _lblPropertiesTitle = new Label();
         _toolStripTools = new ToolStrip();
         _btnSelect = new ToolStripButton();
@@ -226,15 +224,11 @@ partial class MainForm
         _splitEditor = new SplitContainer();
         _pnlCanvasHost = new Panel();
         _canvas = new SVGEditorWinV10.Controls.SvgCanvas();
-        _pnlCanvasToolbar = new Panel();
-        _lblZoom = new Label();
-        _btnZoomReset = new Button();
-        _btnZoomOut = new Button();
-        _btnZoomIn = new Button();
         _pnlSource = new Panel();
         _pnlSourceEditor = new Panel();
         _txtSvgSource = new RichTextBox();
         _pnlSourceHeader = new Panel();
+        _pnlSourceButtons = new Panel();
         _btnCopySource = new Button();
         _btnApplySource = new Button();
         _lblSourceTitle = new Label();
@@ -261,10 +255,10 @@ partial class MainForm
         _splitEditor.Panel2.SuspendLayout();
         _splitEditor.SuspendLayout();
         _pnlCanvasHost.SuspendLayout();
-        _pnlCanvasToolbar.SuspendLayout();
         _pnlSource.SuspendLayout();
         _pnlSourceEditor.SuspendLayout();
         _pnlSourceHeader.SuspendLayout();
+        _pnlSourceButtons.SuspendLayout();
         _statusStrip.SuspendLayout();
         SuspendLayout();
         // 
@@ -488,7 +482,7 @@ partial class MainForm
         // _toolStripMain
         // 
         _toolStripMain.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStripMain.Items.AddRange(new ToolStripItem[] { _tbNew, _tbOpen, _tbSave, _tbSaveAs, _tbCanvasSize, _tbExportImage, _tbSepFile1, _tbDelete, _tbSepEdit1, _tbZoomIn, _tbZoomOut, _tbZoomReset, _tbSepView1, _tbApplySource, _tbCopySource });
+        _toolStripMain.Items.AddRange(new ToolStripItem[] { _tbNew, _tbOpen, _tbSave, _tbSaveAs, _tbCanvasSize, _tbExportImage, _tbSepFile1, _tbDelete, _tbSepEdit1, _tbZoomIn, _tbZoomOut, _tbZoomReset, _tbZoomLabel, _tbSepView1, _tbApplySource, _tbCopySource });
         _toolStripMain.Location = new Point(0, 24);
         _toolStripMain.Name = "_toolStripMain";
         _toolStripMain.Padding = new Padding(6, 2, 6, 2);
@@ -595,6 +589,15 @@ partial class MainForm
         _tbZoomReset.Text = "100%로 재설정";
         _tbZoomReset.Click += MenuZoomReset_Click;
         // 
+        // _tbZoomLabel
+        // 
+        _tbZoomLabel.AutoSize = false;
+        _tbZoomLabel.Margin = new Padding(4, 0, 0, 0);
+        _tbZoomLabel.Name = "_tbZoomLabel";
+        _tbZoomLabel.Size = new Size(44, 20);
+        _tbZoomLabel.Text = "100%";
+        _tbZoomLabel.TextAlign = ContentAlignment.MiddleCenter;
+        // 
         // _tbSepView1
         // 
         _tbSepView1.Name = "_tbSepView1";
@@ -640,6 +643,7 @@ partial class MainForm
         // _pnlToolbox
         // 
         _pnlToolbox.Controls.Add(_pnlProperties);
+        _pnlToolbox.Controls.Add(_pnlToolboxSectionDivider);
         _pnlToolbox.Controls.Add(_toolStripTools);
         _pnlToolbox.Controls.Add(_lblToolboxTitle);
         _pnlToolbox.Dock = DockStyle.Fill;
@@ -649,12 +653,20 @@ partial class MainForm
         _pnlToolbox.Size = new Size(196, 649);
         _pnlToolbox.TabIndex = 0;
         // 
+        // _pnlToolboxSectionDivider
+        // 
+        _pnlToolboxSectionDivider.Dock = DockStyle.Top;
+        _pnlToolboxSectionDivider.Location = new Point(0, 62);
+        _pnlToolboxSectionDivider.Name = "_pnlToolboxSectionDivider";
+        _pnlToolboxSectionDivider.Size = new Size(195, 1);
+        _pnlToolboxSectionDivider.TabIndex = 3;
+        // 
         // _pnlProperties
         // 
         _pnlProperties.Controls.Add(_pnlToolOptions);
         _pnlProperties.Controls.Add(_pnlPropertiesHeader);
         _pnlProperties.Dock = DockStyle.Fill;
-        _pnlProperties.Location = new Point(0, 62);
+        _pnlProperties.Location = new Point(0, 63);
         _pnlProperties.Name = "_pnlProperties";
         _pnlProperties.Padding = new Padding(8, 0, 8, 8);
         _pnlProperties.Size = new Size(195, 587);
@@ -939,24 +951,12 @@ partial class MainForm
         // 
         // _pnlPropertiesHeader
         // 
-        _pnlPropertiesHeader.Controls.Add(_lblPropertyStatus);
         _pnlPropertiesHeader.Controls.Add(_lblPropertiesTitle);
         _pnlPropertiesHeader.Dock = DockStyle.Top;
         _pnlPropertiesHeader.Location = new Point(8, 0);
         _pnlPropertiesHeader.Name = "_pnlPropertiesHeader";
-        _pnlPropertiesHeader.Size = new Size(179, 52);
+        _pnlPropertiesHeader.Size = new Size(179, 28);
         _pnlPropertiesHeader.TabIndex = 0;
-        // 
-        // _lblPropertyStatus
-        // 
-        _lblPropertyStatus.Dock = DockStyle.Top;
-        _lblPropertyStatus.Location = new Point(0, 28);
-        _lblPropertyStatus.Name = "_lblPropertyStatus";
-        _lblPropertyStatus.Padding = new Padding(0, 0, 0, 4);
-        _lblPropertyStatus.Size = new Size(179, 24);
-        _lblPropertyStatus.TabIndex = 1;
-        _lblPropertyStatus.Text = "요소를 선택하세요";
-        _lblPropertyStatus.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // _lblPropertiesTitle
         // 
@@ -1108,7 +1108,6 @@ partial class MainForm
         // _pnlCanvasHost
         // 
         _pnlCanvasHost.Controls.Add(_canvas);
-        _pnlCanvasHost.Controls.Add(_pnlCanvasToolbar);
         _pnlCanvasHost.Dock = DockStyle.Fill;
         _pnlCanvasHost.Location = new Point(0, 0);
         _pnlCanvasHost.Name = "_pnlCanvasHost";
@@ -1120,59 +1119,10 @@ partial class MainForm
         // 
         _canvas.BackColor = Color.FromArgb(210, 215, 222);
         _canvas.Dock = DockStyle.Fill;
-        _canvas.Location = new Point(6, 42);
+        _canvas.Location = new Point(6, 6);
         _canvas.Name = "_canvas";
-        _canvas.Size = new Size(748, 601);
+        _canvas.Size = new Size(748, 637);
         _canvas.TabIndex = 0;
-        // 
-        // _pnlCanvasToolbar
-        // 
-        _pnlCanvasToolbar.Controls.Add(_lblZoom);
-        _pnlCanvasToolbar.Controls.Add(_btnZoomReset);
-        _pnlCanvasToolbar.Controls.Add(_btnZoomOut);
-        _pnlCanvasToolbar.Controls.Add(_btnZoomIn);
-        _pnlCanvasToolbar.Dock = DockStyle.Top;
-        _pnlCanvasToolbar.Location = new Point(6, 6);
-        _pnlCanvasToolbar.Name = "_pnlCanvasToolbar";
-        _pnlCanvasToolbar.Size = new Size(748, 36);
-        _pnlCanvasToolbar.TabIndex = 1;
-        // 
-        // _lblZoom
-        // 
-        _lblZoom.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _lblZoom.Location = new Point(688, 4);
-        _lblZoom.Name = "_lblZoom";
-        _lblZoom.Size = new Size(56, 28);
-        _lblZoom.TabIndex = 3;
-        _lblZoom.Text = "100%";
-        _lblZoom.TextAlign = ContentAlignment.MiddleRight;
-        // 
-        // _btnZoomReset
-        // 
-        _btnZoomReset.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _btnZoomReset.Location = new Point(652, 4);
-        _btnZoomReset.Name = "_btnZoomReset";
-        _btnZoomReset.Size = new Size(32, 28);
-        _btnZoomReset.TabIndex = 2;
-        _btnZoomReset.UseVisualStyleBackColor = true;
-        // 
-        // _btnZoomOut
-        // 
-        _btnZoomOut.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _btnZoomOut.Location = new Point(616, 4);
-        _btnZoomOut.Name = "_btnZoomOut";
-        _btnZoomOut.Size = new Size(32, 28);
-        _btnZoomOut.TabIndex = 1;
-        _btnZoomOut.UseVisualStyleBackColor = true;
-        // 
-        // _btnZoomIn
-        // 
-        _btnZoomIn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _btnZoomIn.Location = new Point(580, 4);
-        _btnZoomIn.Name = "_btnZoomIn";
-        _btnZoomIn.Size = new Size(32, 28);
-        _btnZoomIn.TabIndex = 0;
-        _btnZoomIn.UseVisualStyleBackColor = true;
         // 
         // _pnlSource
         // 
@@ -1209,44 +1159,52 @@ partial class MainForm
         // 
         // _pnlSourceHeader
         // 
-        _pnlSourceHeader.Controls.Add(_btnCopySource);
-        _pnlSourceHeader.Controls.Add(_btnApplySource);
         _pnlSourceHeader.Controls.Add(_lblSourceTitle);
+        _pnlSourceHeader.Controls.Add(_pnlSourceButtons);
         _pnlSourceHeader.Dock = DockStyle.Top;
         _pnlSourceHeader.Location = new Point(12, 12);
         _pnlSourceHeader.Name = "_pnlSourceHeader";
-        _pnlSourceHeader.Size = new Size(292, 40);
+        _pnlSourceHeader.Padding = new Padding(0, 4, 0, 4);
+        _pnlSourceHeader.Size = new Size(292, 36);
         _pnlSourceHeader.TabIndex = 0;
+        // 
+        // _pnlSourceButtons
+        // 
+        _pnlSourceButtons.Controls.Add(_btnCopySource);
+        _pnlSourceButtons.Controls.Add(_btnApplySource);
+        _pnlSourceButtons.Dock = DockStyle.Right;
+        _pnlSourceButtons.Location = new Point(184, 4);
+        _pnlSourceButtons.Name = "_pnlSourceButtons";
+        _pnlSourceButtons.Size = new Size(108, 28);
+        _pnlSourceButtons.TabIndex = 1;
         // 
         // _btnCopySource
         // 
-        _btnCopySource.Dock = DockStyle.Right;
-        _btnCopySource.Location = new Point(132, 0);
+        _btnCopySource.Location = new Point(0, 2);
         _btnCopySource.Name = "_btnCopySource";
-        _btnCopySource.Size = new Size(80, 40);
-        _btnCopySource.TabIndex = 2;
+        _btnCopySource.Size = new Size(50, 24);
+        _btnCopySource.TabIndex = 0;
         _btnCopySource.Text = "복사";
-        _btnCopySource.UseVisualStyleBackColor = true;
+        _btnCopySource.UseVisualStyleBackColor = false;
         _btnCopySource.Click += BtnCopySource_Click;
         // 
         // _btnApplySource
         // 
-        _btnApplySource.Dock = DockStyle.Right;
-        _btnApplySource.Location = new Point(212, 0);
+        _btnApplySource.Location = new Point(54, 2);
         _btnApplySource.Name = "_btnApplySource";
-        _btnApplySource.Size = new Size(80, 40);
+        _btnApplySource.Size = new Size(50, 24);
         _btnApplySource.TabIndex = 1;
         _btnApplySource.Text = "적용";
-        _btnApplySource.UseVisualStyleBackColor = true;
+        _btnApplySource.UseVisualStyleBackColor = false;
         _btnApplySource.Click += BtnApplySource_Click;
         // 
         // _lblSourceTitle
         // 
         _lblSourceTitle.Dock = DockStyle.Fill;
-        _lblSourceTitle.Location = new Point(0, 0);
+        _lblSourceTitle.Location = new Point(0, 4);
         _lblSourceTitle.Name = "_lblSourceTitle";
         _lblSourceTitle.Padding = new Padding(0, 0, 8, 0);
-        _lblSourceTitle.Size = new Size(292, 40);
+        _lblSourceTitle.Size = new Size(184, 28);
         _lblSourceTitle.TabIndex = 0;
         _lblSourceTitle.Text = "SVG 소스";
         _lblSourceTitle.TextAlign = ContentAlignment.MiddleLeft;
@@ -1265,25 +1223,27 @@ partial class MainForm
         _statusLabel.Size = new Size(1227, 17);
         _statusLabel.Spring = true;
         _statusLabel.Text = "Ready";
+        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
         // 
         // _statusZoomLabel
         // 
         _statusZoomLabel.Name = "_statusZoomLabel";
         _statusZoomLabel.Size = new Size(38, 17);
         _statusZoomLabel.Text = "100%";
+        _statusZoomLabel.TextAlign = ContentAlignment.MiddleRight;
         // 
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(1280, 722);
+        ClientSize = new Size(1280, 900);
         Controls.Add(_splitMain);
         Controls.Add(_statusStrip);
         Controls.Add(_toolStripMain);
         Controls.Add(_menuStrip);
         Icon = (Icon)resources.GetObject("$this.Icon");
         MainMenuStrip = _menuStrip;
-        MinimumSize = new Size(960, 640);
+        MinimumSize = new Size(960, 900);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         Text = "SVG Editor";
@@ -1312,10 +1272,10 @@ partial class MainForm
         ((System.ComponentModel.ISupportInitialize)_splitEditor).EndInit();
         _splitEditor.ResumeLayout(false);
         _pnlCanvasHost.ResumeLayout(false);
-        _pnlCanvasToolbar.ResumeLayout(false);
         _pnlSource.ResumeLayout(false);
         _pnlSourceEditor.ResumeLayout(false);
         _pnlSourceHeader.ResumeLayout(false);
+        _pnlSourceButtons.ResumeLayout(false);
         _statusStrip.ResumeLayout(false);
         _statusStrip.PerformLayout();
         ResumeLayout(false);

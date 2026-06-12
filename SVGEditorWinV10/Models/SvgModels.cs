@@ -12,7 +12,14 @@ public enum SvgElementKind
     Star,
     Line,
     Text,
-    Image
+    Image,
+    Path
+}
+
+public enum SvgFillRule
+{
+    NonZero,
+    EvenOdd
 }
 
 public enum EditorTool
@@ -34,7 +41,7 @@ public enum EditorTool
 public sealed class SvgDocument
 {
     public float Width { get; set; } = 800f;
-    public float Height { get; set; } = 600f;
+    public float Height { get; set; } = 800f;
     public int BackgroundColorArgb { get; set; } = Color.White.ToArgb();
     public List<SvgElement> Elements { get; set; } = [];
 
@@ -75,6 +82,8 @@ public sealed class SvgElement
     public bool TextBoundsManuallySized { get; set; }
     public string? ImageDataUri { get; set; }
     public string? ImageSourcePath { get; set; }
+    public string PathData { get; set; } = string.Empty;
+    public SvgFillRule FillRule { get; set; } = SvgFillRule.NonZero;
 
     public bool IsText => Kind == SvgElementKind.Text;
     public bool IsImage => Kind == SvgElementKind.Image;
@@ -117,12 +126,19 @@ public sealed class SvgElement
             FontItalic = FontItalic,
             TextBoundsManuallySized = TextBoundsManuallySized,
             ImageDataUri = ImageDataUri,
-            ImageSourcePath = ImageSourcePath
+            ImageSourcePath = ImageSourcePath,
+            PathData = PathData,
+            FillRule = FillRule
         };
     }
 
     public RectangleF GetBounds()
     {
+        if (Kind == SvgElementKind.Path)
+            return Bounds.Width > 0f && Bounds.Height > 0f
+                ? Bounds
+                : Rendering.SvgPathRenderer.GetBounds(this);
+
         if (Kind == SvgElementKind.Line)
         {
             var markerPadding = Math.Max(MarkerPadding(StartMarker), MarkerPadding(EndMarker));

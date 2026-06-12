@@ -44,13 +44,13 @@ public partial class MainForm : Form
             UpdateStatus();
             FocusTextEditorIfNeeded();
         };
+        _canvas.ElementCreated += (_, _) => SetActiveTool(EditorTool.Select);
         _canvas.TextEditRequested += (_, _) => FocusTextEditorIfNeeded(selectAll: true);
         _canvas.ZoomChanged += (_, _) => UpdateZoomDisplay();
 
         WireToolButtons();
         WireMenuTools();
         WirePropertyPanel();
-        WireZoomButtons();
         SetActiveTool(EditorTool.Select);
         _canvas.NewDocument();
         InitializePropertyOptions();
@@ -59,6 +59,45 @@ public partial class MainForm : Form
         UpdateTitle();
         UpdateStatus();
         UpdateZoomDisplay();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        ApplyMinimumClientSize();
+    }
+
+    private void ApplyMinimumClientSize()
+    {
+        PerformLayout();
+
+        var propertyContentHeight = _pnlToolOptions.Controls.Cast<Control>()
+            .Where(static control => control.Visible)
+            .Select(static control => control.Bottom)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        var leftPanelHeight =
+            _lblToolboxTitle.Height
+            + _toolStripTools.Height
+            + _pnlToolboxSectionDivider.Height
+            + _pnlPropertiesHeader.Height
+            + _pnlProperties.Padding.Vertical
+            + _pnlToolOptions.Padding.Vertical
+            + propertyContentHeight
+            + 8;
+
+        var requiredClientHeight =
+            _menuStrip.Height
+            + _toolStripMain.Height
+            + leftPanelHeight
+            + _statusStrip.Height;
+
+        var minClientSize = new Size(960, requiredClientHeight);
+        MinimumSize = SizeFromClientSize(minClientSize);
+
+        if (ClientSize.Height < requiredClientHeight)
+            ClientSize = new Size(Math.Max(ClientSize.Width, minClientSize.Width), requiredClientHeight);
     }
 
     private void ApplyApplicationIcon()
@@ -85,48 +124,44 @@ public partial class MainForm : Form
         _btnText.Image = EditorToolIcons.Text;
         _btnImage.Image = EditorToolIcons.Image;
 
-        _btnZoomIn.Image = EditorToolIcons.ZoomIn;
-        _btnZoomOut.Image = EditorToolIcons.ZoomOut;
-        _btnZoomReset.Image = EditorToolIcons.ZoomReset;
-
         SetupCommandIcons();
     }
 
     private void SetupCommandIcons()
     {
-        _menuFile.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.File);
-        _menuEdit.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Edit);
-        _menuTools.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Tools);
-        _menuView.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.View);
+        SetMenuIcon(_menuFile, EditorToolIcons.File);
+        SetMenuIcon(_menuEdit, EditorToolIcons.Edit);
+        SetMenuIcon(_menuTools, EditorToolIcons.Tools);
+        SetMenuIcon(_menuView, EditorToolIcons.View);
 
-        _menuNew.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.NewDocument);
-        _menuOpen.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Open);
-        _menuSave.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Save);
-        _menuSaveAs.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.SaveAs);
-        _menuCanvasSize.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.CanvasSize);
-        _menuExportImage.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.ExportImage);
-        _menuExit.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Exit);
+        SetMenuIcon(_menuNew, EditorToolIcons.NewDocument);
+        SetMenuIcon(_menuOpen, EditorToolIcons.Open);
+        SetMenuIcon(_menuSave, EditorToolIcons.Save);
+        SetMenuIcon(_menuSaveAs, EditorToolIcons.SaveAs);
+        SetMenuIcon(_menuCanvasSize, EditorToolIcons.CanvasSize);
+        SetMenuIcon(_menuExportImage, EditorToolIcons.ExportImage);
+        SetMenuIcon(_menuExit, EditorToolIcons.Exit);
 
-        _menuDelete.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Delete);
-        _menuApplySource.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Apply);
-        _menuCopySource.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Copy);
+        SetMenuIcon(_menuDelete, EditorToolIcons.Delete);
+        SetMenuIcon(_menuApplySource, EditorToolIcons.Apply);
+        SetMenuIcon(_menuCopySource, EditorToolIcons.Copy);
 
-        _menuZoomIn.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.ZoomIn);
-        _menuZoomOut.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.ZoomOut);
-        _menuZoomReset.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.ZoomReset);
+        SetMenuIcon(_menuToolSelect, EditorToolIcons.Select);
+        SetMenuIcon(_menuToolRectangle, EditorToolIcons.Rectangle);
+        SetMenuIcon(_menuToolRoundedRect, EditorToolIcons.RoundedRectangle);
+        SetMenuIcon(_menuToolEllipse, EditorToolIcons.Ellipse);
+        SetMenuIcon(_menuToolTriangle, EditorToolIcons.Triangle);
+        SetMenuIcon(_menuToolDiamond, EditorToolIcons.Diamond);
+        SetMenuIcon(_menuToolHexagon, EditorToolIcons.Hexagon);
+        SetMenuIcon(_menuToolParallelogram, EditorToolIcons.Parallelogram);
+        SetMenuIcon(_menuToolStar, EditorToolIcons.Star);
+        SetMenuIcon(_menuToolLine, EditorToolIcons.Line);
+        SetMenuIcon(_menuToolText, EditorToolIcons.Text);
+        SetMenuIcon(_menuToolImage, EditorToolIcons.Image);
 
-        _menuToolSelect.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Select);
-        _menuToolRectangle.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Rectangle);
-        _menuToolRoundedRect.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.RoundedRectangle);
-        _menuToolEllipse.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Ellipse);
-        _menuToolTriangle.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Triangle);
-        _menuToolDiamond.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Diamond);
-        _menuToolHexagon.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Hexagon);
-        _menuToolParallelogram.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Parallelogram);
-        _menuToolStar.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Star);
-        _menuToolLine.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Line);
-        _menuToolText.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Text);
-        _menuToolImage.Image = EditorToolIcons.ToMenuSize(EditorToolIcons.Image);
+        AssignSharedCommandIcon(_tbZoomIn, _menuZoomIn, EditorToolIcons.ZoomIn);
+        AssignSharedCommandIcon(_tbZoomOut, _menuZoomOut, EditorToolIcons.ZoomOut);
+        AssignSharedCommandIcon(_tbZoomReset, _menuZoomReset, EditorToolIcons.ZoomReset);
 
         _tbNew.Image = EditorToolIcons.NewDocument;
         _tbOpen.Image = EditorToolIcons.Open;
@@ -135,14 +170,24 @@ public partial class MainForm : Form
         _tbCanvasSize.Image = EditorToolIcons.CanvasSize;
         _tbExportImage.Image = EditorToolIcons.ExportImage;
         _tbDelete.Image = EditorToolIcons.Delete;
-        _tbZoomIn.Image = EditorToolIcons.ZoomIn;
-        _tbZoomOut.Image = EditorToolIcons.ZoomOut;
-        _tbZoomReset.Image = EditorToolIcons.ZoomReset;
         _tbApplySource.Image = EditorToolIcons.Apply;
         _tbCopySource.Image = EditorToolIcons.Copy;
 
-        ConfigureSourceButton(_btnApplySource, EditorToolIcons.Apply);
-        ConfigureSourceButton(_btnCopySource, EditorToolIcons.Copy);
+        ConfigureSourceButton(_btnApplySource);
+        ConfigureSourceButton(_btnCopySource);
+    }
+
+    private static void SetMenuIcon(ToolStripMenuItem menuItem, Bitmap source)
+    {
+        menuItem.Image = EditorToolIcons.ToMenuSize(source);
+        menuItem.ImageScaling = ToolStripItemImageScaling.None;
+    }
+
+    private static void AssignSharedCommandIcon(ToolStripButton toolbarButton, ToolStripMenuItem menuItem, Bitmap source)
+    {
+        toolbarButton.Image = source;
+        toolbarButton.ImageScaling = ToolStripItemImageScaling.None;
+        SetMenuIcon(menuItem, source);
     }
 
     private void SetupMenuToolTips()
@@ -153,7 +198,7 @@ public partial class MainForm : Form
 
         _menuFile.ToolTipText = "문서 만들기, 열기, 저장, 이미지보내기 및 종료";
         _menuNew.ToolTipText = "빈 SVG 문서를 새로 만듭니다. (Ctrl+N)";
-        _menuOpen.ToolTipText = "SVG 파일을 엽니다. (Ctrl+O)";
+        _menuOpen.ToolTipText = "SVG 파일을 엽니다. 외부 SVG의 그룹, 경로, 도형도 불러올 수 있습니다. (Ctrl+O)";
         _menuSave.ToolTipText = "현재 문서를 저장합니다. 경로가 없으면 다른 이름으로 저장합니다. (Ctrl+S)";
         _menuSaveAs.ToolTipText = "현재 문서를 다른 파일 이름으로 저장합니다.";
         _menuCanvasSize.ToolTipText = "SVG 문서(캔버스)의 가로·세로 크기를 설정합니다. 기존 그림은 원래 위치에 유지됩니다.";
@@ -177,7 +222,7 @@ public partial class MainForm : Form
         _menuToolStar.ToolTipText = "별 모양을 그립니다.";
         _menuToolLine.ToolTipText = "직선을 그립니다.";
         _menuToolText.ToolTipText = "텍스트를 배치합니다.";
-        _menuToolImage.ToolTipText = "외부 이미지(PNG, GIF, JPEG, WebP, AVIF)를 불러와 배치합니다.";
+        _menuToolImage.ToolTipText = "외부 이미지(PNG, GIF, JPEG, WebP, AVIF, SVG)를 불러와 배치합니다.";
 
         _menuView.ToolTipText = "캔버스 확대·축소 및 배율 초기화";
         _menuZoomIn.ToolTipText = "캔버스를 확대합니다. (Ctrl++)";
@@ -211,19 +256,13 @@ public partial class MainForm : Form
         _btnImage.ToolTipText = _menuToolImage.ToolTipText;
     }
 
-    private static void ConfigureSourceButton(Button button, Bitmap icon)
+    private static void ConfigureSourceButton(Button button)
     {
-        button.Image = icon;
-        button.ImageAlign = ContentAlignment.MiddleLeft;
-        button.TextImageRelation = TextImageRelation.ImageBeforeText;
-        button.Padding = new Padding(6, 0, 6, 0);
-    }
-
-    private void WireZoomButtons()
-    {
-        _btnZoomIn.Click += (_, _) => _canvas.ZoomIn();
-        _btnZoomOut.Click += (_, _) => _canvas.ZoomOut();
-        _btnZoomReset.Click += (_, _) => _canvas.ZoomReset();
+        button.Image = null;
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Padding = Padding.Empty;
+        button.Size = new Size(50, 24);
+        button.Font = ModernTheme.UiFontSmall;
     }
 
     private void WireToolButtons()
@@ -384,21 +423,6 @@ public partial class MainForm : Form
             _chkFontItalic.Checked = _canvas.DefaultFontItalic;
         }
 
-        if (hasSelection)
-        {
-            _lblPropertyStatus.Text = selectionCount > 1
-                ? $"{DescribeElement(selected!)} · {_canvas.SelectionCount}개 선택"
-                : $"{DescribeElement(selected!)} 선택됨";
-        }
-        else if (_activeTool != EditorTool.Select)
-        {
-            _lblPropertyStatus.Text = $"{DescribeTool(_activeTool)} 기본값";
-        }
-        else
-        {
-            _lblPropertyStatus.Text = "요소를 선택하세요";
-        }
-
         var canEdit = hasSelection || _activeTool != EditorTool.Select;
         var isTextContext = hasSelection
             ? selected!.Kind == SvgElementKind.Text
@@ -465,11 +489,13 @@ public partial class MainForm : Form
         SvgElementKind.Line => "선",
         SvgElementKind.Text => "텍스트",
         SvgElementKind.Image => "이미지",
+        SvgElementKind.Path => "경로",
         _ => "요소"
     };
 
     private static string DescribeTool(EditorTool tool) => tool switch
     {
+        EditorTool.Select => "선택",
         EditorTool.Rectangle => "사각형",
         EditorTool.RoundedRectangle => "둥근 사각형",
         EditorTool.Ellipse => "타원",
@@ -620,28 +646,35 @@ public partial class MainForm : Form
         BackColor = ModernTheme.AppBackground;
         ModernTheme.StyleMenuStrip(_menuStrip);
         ModernTheme.StyleToolStrip(_toolStripMain);
-        ModernTheme.StyleToolStrip(_toolStripTools);
+        _tbZoomLabel.Font = ModernTheme.UiFontSmall;
+        _tbZoomLabel.ForeColor = ModernTheme.TextSecondary;
+        ModernTheme.StyleToolStrip(_toolStripTools, ModernTheme.SidebarContentBackground);
         ModernTheme.StyleStatusStrip(_statusStrip);
+        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _statusZoomLabel.TextAlign = ContentAlignment.MiddleRight;
 
-        _pnlToolbox.BackColor = ModernTheme.SidebarBackground;
-        _pnlProperties.BackColor = ModernTheme.PanelBackground;
-        _pnlPropertiesHeader.BackColor = ModernTheme.PanelBackground;
-        _pnlToolOptions.BackColor = ModernTheme.SidebarBackground;
-        ModernTheme.StyleSectionLabel(_lblToolboxTitle);
-        ModernTheme.StyleSectionLabel(_lblPropertiesTitle);
-        ModernTheme.StyleCaptionLabel(_lblPropertyStatus);
-        ModernTheme.StyleCaptionLabel(_lblFillColor);
-        ModernTheme.StyleCaptionLabel(_lblFillPattern);
-        ModernTheme.StyleCaptionLabel(_lblFillOpacity);
-        ModernTheme.StyleCaptionLabel(_lblStrokeColor);
-        ModernTheme.StyleCaptionLabel(_lblTextContent);
-        ModernTheme.StyleCaptionLabel(_lblFontName);
-        ModernTheme.StyleCaptionLabel(_lblFontSize);
-        ModernTheme.StyleCaptionLabel(_lblStrokeOpacity);
-        ModernTheme.StyleCaptionLabel(_lblStrokeWidth);
-        ModernTheme.StyleCaptionLabel(_lblLineStyle);
-        ModernTheme.StyleCaptionLabel(_lblStartMarker);
-        ModernTheme.StyleCaptionLabel(_lblEndMarker);
+        var sidebarContent = ModernTheme.SidebarContentBackground;
+        var sectionHeader = ModernTheme.SectionHeaderBackground;
+
+        _pnlToolbox.BackColor = sidebarContent;
+        _pnlToolboxSectionDivider.BackColor = ModernTheme.Border;
+        _pnlProperties.BackColor = sidebarContent;
+        _pnlPropertiesHeader.BackColor = sectionHeader;
+        _pnlToolOptions.BackColor = sidebarContent;
+        ModernTheme.StyleSectionLabel(_lblToolboxTitle, sectionHeader);
+        ModernTheme.StyleSectionLabel(_lblPropertiesTitle, sectionHeader);
+        ModernTheme.StyleCaptionLabel(_lblFillColor, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblFillPattern, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblFillOpacity, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblStrokeColor, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblTextContent, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblFontName, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblFontSize, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblStrokeOpacity, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblStrokeWidth, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblLineStyle, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblStartMarker, sidebarContent);
+        ModernTheme.StyleCaptionLabel(_lblEndMarker, sidebarContent);
         ModernTheme.StyleColorSwatch(_btnFillColor);
         ModernTheme.StyleColorSwatch(_btnStrokeColor);
         ModernTheme.StyleInput(_numStrokeWidth);
@@ -652,30 +685,27 @@ public partial class MainForm : Form
         ModernTheme.StyleInput(_numFontSize);
         _chkFontBold.Font = ModernTheme.UiFontSmall;
         _chkFontBold.ForeColor = ModernTheme.TextPrimary;
-        _chkFontBold.BackColor = ModernTheme.PanelBackground;
+        _chkFontBold.BackColor = sidebarContent;
         _chkFontItalic.Font = ModernTheme.UiFontSmall;
         _chkFontItalic.ForeColor = ModernTheme.TextPrimary;
-        _chkFontItalic.BackColor = ModernTheme.PanelBackground;
+        _chkFontItalic.BackColor = sidebarContent;
         ModernTheme.StyleInput(_cmbFillPattern);
         ModernTheme.StyleInput(_cmbLineStyle);
         ModernTheme.StyleInput(_cmbStartMarker);
         ModernTheme.StyleInput(_cmbEndMarker);
 
         _pnlCanvasHost.BackColor = ModernTheme.CanvasChrome;
-        _pnlCanvasToolbar.BackColor = ModernTheme.PanelBackground;
-        _lblZoom.Font = ModernTheme.UiFontSmall;
-        _lblZoom.ForeColor = ModernTheme.TextSecondary;
-        _lblZoom.BackColor = ModernTheme.PanelBackground;
-        StyleIconButton(_btnZoomIn);
-        StyleIconButton(_btnZoomOut);
-        StyleIconButton(_btnZoomReset);
         _canvas.BackColor = Color.White;
 
         _pnlSource.BackColor = ModernTheme.PanelBackground;
         _pnlSourceHeader.BackColor = ModernTheme.PanelBackground;
-        ModernTheme.StyleSectionLabel(_lblSourceTitle);
-        ModernTheme.StylePrimaryButton(_btnApplySource);
-        ModernTheme.StyleSecondaryButton(_btnCopySource);
+        _pnlSourceButtons.BackColor = ModernTheme.PanelBackground;
+        ModernTheme.StyleSectionLabel(_lblSourceTitle, ModernTheme.PanelBackground);
+        _lblSourceTitle.Padding = new Padding(0, 0, 8, 0);
+        _lblSourceTitle.TextAlign = ContentAlignment.MiddleLeft;
+        StyleSourceActionButton(_btnApplySource, primary: true);
+        StyleSourceActionButton(_btnCopySource, primary: false);
+        _pnlSourceButtons.BringToFront();
 
         _pnlSourceEditor.BackColor = ModernTheme.Border;
         _txtSvgSource.Font = ModernTheme.ResolveMonoFont();
@@ -686,15 +716,32 @@ public partial class MainForm : Form
         _btnStrokeColor.BackColor = _canvas.DefaultStroke;
     }
 
-    private static void StyleIconButton(Button button)
+    private static void StyleSourceActionButton(Button button, bool primary)
     {
         button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderColor = ModernTheme.Border;
-        button.FlatAppearance.BorderSize = 1;
-        button.BackColor = ModernTheme.PanelBackground;
+        button.UseVisualStyleBackColor = false;
+        button.Font = ModernTheme.UiFontSmall;
+        button.Size = new Size(50, 24);
         button.Cursor = Cursors.Hand;
-        button.FlatAppearance.MouseOverBackColor = ModernTheme.ToolHover;
-        button.ImageAlign = ContentAlignment.MiddleCenter;
+        button.Image = null;
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Padding = Padding.Empty;
+
+        if (primary)
+        {
+            button.FlatAppearance.BorderSize = 0;
+            button.BackColor = ModernTheme.Accent;
+            button.ForeColor = Color.White;
+            button.FlatAppearance.MouseOverBackColor = ModernTheme.AccentHover;
+        }
+        else
+        {
+            button.FlatAppearance.BorderColor = ModernTheme.Border;
+            button.FlatAppearance.BorderSize = 1;
+            button.BackColor = ModernTheme.PanelBackground;
+            button.ForeColor = ModernTheme.TextPrimary;
+            button.FlatAppearance.MouseOverBackColor = ModernTheme.ToolHover;
+        }
     }
 
     private void SetActiveTool(EditorTool tool)
@@ -706,6 +753,7 @@ public partial class MainForm : Form
                 return;
 
             _canvas.SetPendingImage(imported.DataUri, imported.SourcePath, imported.PixelSize);
+            _canvas.Focus();
         }
 
         _activeTool = tool;
@@ -768,25 +816,77 @@ public partial class MainForm : Form
     {
         var count = _canvas.Document.Elements.Count;
         var selectionCount = _canvas.SelectionCount;
-        var toolName = _activeTool switch
+        var toolPart = $"도구: {DescribeTool(_activeTool)}";
+        var selectionPart = BuildSelectionStatusPart(selectionCount);
+        var docPart = $"요소 {count}개 · 캔버스 {_canvas.Document.Width:0}×{_canvas.Document.Height:0}";
+        _statusLabel.Text = $"{toolPart}  |  {selectionPart}  |  {docPart}";
+    }
+
+    private string BuildSelectionStatusPart(int selectionCount)
+    {
+        if (selectionCount > 1)
         {
-            EditorTool.Select => "선택",
-            EditorTool.Rectangle => "사각형",
-            EditorTool.RoundedRectangle => "둥근 사각형",
-            EditorTool.Ellipse => "타원",
-            EditorTool.Triangle => "삼각형",
-            EditorTool.Diamond => "마름모",
-            EditorTool.Hexagon => "육각형",
-            EditorTool.Parallelogram => "평행사변형",
-            EditorTool.Star => "별",
-            EditorTool.Line => "선",
-            EditorTool.Text => "텍스트",
-            EditorTool.Image => "이미지",
-            _ => "도구"
-        };
-        _statusLabel.Text = selectionCount > 1
-            ? $"도구: {toolName}  |  선택: {selectionCount}개  |  요소: {count}개  |  캔버스: {_canvas.Document.Width:0} x {_canvas.Document.Height:0}"
-            : $"도구: {toolName}  |  요소: {count}개  |  캔버스: {_canvas.Document.Width:0} x {_canvas.Document.Height:0}";
+            var kinds = _canvas.SelectedElements
+                .Select(DescribeElement)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var kindSummary = kinds.Length > 0 ? string.Join(", ", kinds) : "요소";
+            return $"선택: {selectionCount}개 ({kindSummary})";
+        }
+
+        if (selectionCount == 1 && _canvas.SelectedElement is { } element)
+            return BuildSingleSelectionStatus(element);
+
+        if (_activeTool != EditorTool.Select)
+            return $"{DescribeTool(_activeTool)} 기본값";
+
+        return "선택된 요소 없음";
+    }
+
+    private static string BuildSingleSelectionStatus(SvgElement element)
+    {
+        var parts = new List<string> { DescribeElement(element) };
+
+        if (element.Kind == SvgElementKind.Line)
+        {
+            parts.Add($"({element.Start.X:0}, {element.Start.Y:0})→({element.End.X:0}, {element.End.Y:0})");
+            if (element.StrokeOpacity > 0.01f)
+                parts.Add($"선 {element.StrokeWidth:0.#}px");
+        }
+        else
+        {
+            var bounds = element.GetBounds();
+            parts.Add($"위치 {bounds.X:0},{bounds.Y:0}");
+            parts.Add($"크기 {bounds.Width:0}×{bounds.Height:0}");
+
+            if (element.Kind == SvgElementKind.Text)
+            {
+                var preview = element.TextContent.Replace('\n', ' ');
+                if (preview.Length > 24)
+                    preview = preview[..24] + "…";
+                parts.Add($"\"{preview}\"");
+                parts.Add($"{element.FontName} {element.FontSize:0}pt");
+                if (element.FillOpacity <= 0.99f)
+                    parts.Add($"불투명도 {element.FillOpacity * 100:0}%");
+            }
+            else if (element.Kind == SvgElementKind.Image)
+            {
+                if (!string.IsNullOrWhiteSpace(element.ImageSourcePath))
+                    parts.Add(Path.GetFileName(element.ImageSourcePath));
+                parts.Add($"불투명도 {element.FillOpacity * 100:0}%");
+            }
+            else
+            {
+                if (element.FillOpacity <= 0.01f)
+                    parts.Add("채우기 없음");
+                else
+                    parts.Add($"채우기 {element.FillOpacity * 100:0}%");
+                if (element.StrokeOpacity > 0.01f)
+                    parts.Add($"선 {element.StrokeWidth:0.#}px");
+            }
+        }
+
+        return string.Join(" · ", parts);
     }
 
     private void FocusTextEditorIfNeeded(bool selectAll = false)
@@ -809,7 +909,7 @@ public partial class MainForm : Form
     {
         var percent = (int)Math.Round(_canvas.Zoom * 100);
         var text = $"{percent}%";
-        _lblZoom.Text = text;
+        _tbZoomLabel.Text = text;
         _statusZoomLabel.Text = text;
     }
 

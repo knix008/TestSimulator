@@ -46,6 +46,15 @@ public static class SvgResizeHandles
         return ResizeHandle.None;
     }
 
+    public static Cursor GetCursor(ResizeHandle handle) => handle switch
+    {
+        ResizeHandle.TopLeft or ResizeHandle.BottomRight => Cursors.SizeNWSE,
+        ResizeHandle.TopRight or ResizeHandle.BottomLeft => Cursors.SizeNESW,
+        ResizeHandle.Top or ResizeHandle.Bottom => Cursors.SizeNS,
+        ResizeHandle.Left or ResizeHandle.Right => Cursors.SizeWE,
+        _ => Cursors.Default
+    };
+
     public static void ApplyResize(ref RectangleF bounds, ResizeHandle handle, PointF currentPoint, PointF previousPoint)
     {
         var dx = currentPoint.X - previousPoint.X;

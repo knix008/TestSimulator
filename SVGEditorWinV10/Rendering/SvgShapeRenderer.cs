@@ -8,7 +8,7 @@ namespace SVGEditorWinV10.Rendering;
 public static class SvgShapeRenderer
 {
     public static bool UsesBounds(SvgElementKind kind) =>
-        kind is not SvgElementKind.Line and not SvgElementKind.Text and not SvgElementKind.Image;
+        kind is not SvgElementKind.Line and not SvgElementKind.Text and not SvgElementKind.Image and not SvgElementKind.Path;
 
     public static bool UsesBounds(EditorTool tool) =>
         tool is not EditorTool.Select and not EditorTool.Line and not EditorTool.Text and not EditorTool.Image;
@@ -44,6 +44,9 @@ public static class SvgShapeRenderer
         if (element.Kind == SvgElementKind.Image)
             return SvgImageRenderer.HitTest(element, point);
 
+        if (element.Kind == SvgElementKind.Path)
+            return SvgPathRenderer.HitTest(element, point);
+
         using var path = CreatePath(element);
         return path.IsVisible(point);
     }
@@ -65,6 +68,12 @@ public static class SvgShapeRenderer
         if (element.Kind == SvgElementKind.Image)
         {
             SvgImageRenderer.Draw(graphics, element);
+            return;
+        }
+
+        if (element.Kind == SvgElementKind.Path)
+        {
+            SvgPathRenderer.Draw(graphics, element);
             return;
         }
 
@@ -253,6 +262,9 @@ public static class SvgShapeRenderer
                 break;
             case SvgElementKind.Image:
                 SvgImageRenderer.AppendSvg(sb, element);
+                break;
+            case SvgElementKind.Path:
+                SvgPathRenderer.AppendSvg(sb, element);
                 break;
             default:
                 AppendPolygon(sb, element, strokeAttrs, dataStyle);

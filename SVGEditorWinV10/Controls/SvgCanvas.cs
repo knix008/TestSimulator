@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using SVGEditorWinV10.Models;
 using SVGEditorWinV10.Rendering;
+using SVGEditorWinV10.Serialization;
 using SVGEditorWinV10.Ui;
 
 namespace SVGEditorWinV10.Controls;
@@ -28,6 +29,7 @@ public sealed class SvgCanvas : Control
     private PointF _resizeDragPrevious;
     private RectangleF _resizeStartBounds;
     private float _resizeStartCornerRadius;
+    private string _resizeStartPathData = string.Empty;
     private PointF _moveOffset;
     private List<ElementPose>? _moveSnapshots;
     private float _zoom = 1.0f;
@@ -49,10 +51,12 @@ public sealed class SvgCanvas : Control
     private string? _pendingImageDataUri;
     private string? _pendingImageSourcePath;
     private SizeF _pendingImagePixelSize;
+    private Point? _lastMouseScreenLocation;
 
     public event EventHandler? DocumentChanged;
     public event EventHandler? SelectionChanged;
     public event EventHandler? ZoomChanged;
+    public event EventHandler? ElementCreated;
 
     public event EventHandler? TextEditRequested;
 
@@ -217,7 +221,7 @@ public sealed class SvgCanvas : Control
         Controls.Add(_hScroll);
     }
 
-    public void NewDocument(float width = 800f, float height = 600f)
+    public void NewDocument(float width = 800f, float height = 800f)
     {
         _document.Width = width;
         _document.Height = height;
@@ -248,6 +252,8 @@ public sealed class SvgCanvas : Control
         _pendingImageDataUri = dataUri;
         _pendingImageSourcePath = sourcePath;
         _pendingImagePixelSize = pixelSize;
+        SvgImageAssetService.TryCreateBitmap(dataUri);
+        Invalidate();
     }
 
     public void ClearPendingImage()
@@ -264,7 +270,7 @@ public sealed class SvgCanvas : Control
             ClearPendingImage();
         if (_tool != EditorTool.Select)
             ClearSelection();
-        UpdateCursor();
+        UpdateCursorFromLastMousePosition();
     }
 
     public void SetDocumentSize(float width, float height)
@@ -278,6 +284,15 @@ public sealed class SvgCanvas : Control
         _document.Height = height;
         UpdateScrollBars();
         Invalidate();
+        DocumentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void FitDocumentToViewport()
+    {
+        var viewport = GetMaximumViewportSize();
+        _document.Width = Math.Max(1f, viewport.Width / _zoom);
+        _document.Height = Math.Max(1f, viewport.Height / _zoom);
+        ResetView();
         DocumentChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -369,6 +384,7 @@ public sealed class SvgCanvas : Control
     {
         Invalidate();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
+        UpdateCursorFromLastMousePosition();
     }
 
     public void ZoomIn() => ZoomAt(GetViewportCenter(), 1.25f);
@@ -429,6 +445,8 @@ public sealed class SvgCanvas : Control
 
         if (_isCreating)
             DrawPreview(e.Graphics);
+        else if (HasPendingImagePreview())
+            DrawPendingImagePreview(e.Graphics);
 
         if (_isMarqueeSelecting)
             DrawMarquee(e.Graphics);
@@ -446,6 +464,11 @@ public sealed class SvgCanvas : Control
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
             return;
 
+        var canvasPoint = ToCanvasPoint(e.Location);
+
+        if (e.Button == MouseButtons.Left && TryBeginResize(canvasPoint))
+            return;
+
         if (_tool != EditorTool.Select)
         {
             if (e.Button != MouseButtons.Left)
@@ -456,15 +479,12 @@ public sealed class SvgCanvas : Control
 
             Focus();
             _isCreating = true;
-            var point = ToCanvasPoint(e.Location);
-            _dragStart = EditorCanvasGrid.SnapPoint(point);
+            _dragStart = EditorCanvasGrid.SnapPoint(canvasPoint);
             _dragCurrent = _dragStart;
             Capture = true;
             Invalidate();
             return;
         }
-
-        var canvasPoint = ToCanvasPoint(e.Location);
 
         if (e.Button == MouseButtons.Right)
         {
@@ -480,24 +500,6 @@ public sealed class SvgCanvas : Control
             return;
 
         Focus();
-
-        if (_primarySelected is not null
-            && _selectedIds.Count == 1
-            && SupportsResizeHandles(_primarySelected))
-        {
-            var handle = SvgResizeHandles.HitTest(_primarySelected.Bounds, canvasPoint, 8f / _zoom);
-            if (handle != ResizeHandle.None)
-            {
-                _isResizing = true;
-                _activeResizeHandle = handle;
-                _resizeDragPrevious = canvasPoint;
-                _resizeStartBounds = _primarySelected.Bounds;
-                _resizeStartCornerRadius = _primarySelected.CornerRadius;
-                Capture = true;
-                Invalidate();
-                return;
-            }
-        }
 
         var hitElement = HitTest(canvasPoint);
 
@@ -516,7 +518,10 @@ public sealed class SvgCanvas : Control
                 SetSingleSelection(hitElement);
 
             if (IsSelected(hitElement))
+            {
                 BeginMove(canvasPoint, hitElement);
+                UpdateCursor(canvasPoint);
+            }
 
             return;
         }
@@ -548,25 +553,49 @@ public sealed class SvgCanvas : Control
         TextEditRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    protected override void OnMouseEnter(EventArgs e)
+    {
+        base.OnMouseEnter(e);
+        if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+            return;
+
+        UpdateCursorFromLastMousePosition();
+        if (HasPendingImagePreview())
+            Invalidate();
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+            return;
+
+        _lastMouseScreenLocation = null;
+        Cursor = Cursors.Default;
+    }
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
             return;
 
+        _lastMouseScreenLocation = e.Location;
         var point = ToCanvasPoint(e.Location);
 
         if (_isMoving)
         {
             MoveSelection(EditorCanvasGrid.SnapPoint(point));
             Invalidate();
+            UpdateCursor(point);
             return;
         }
 
         if (_isResizing)
         {
-            ResizeSelection(EditorCanvasGrid.SnapPoint(point));
+            ResizeSelection(point);
             Invalidate();
+            UpdateCursor(point);
             return;
         }
 
@@ -574,14 +603,22 @@ public sealed class SvgCanvas : Control
         {
             _dragCurrent = point;
             Invalidate();
+            UpdateCursor(point);
             return;
         }
 
-        if (!_isCreating)
+        if (_isCreating)
+        {
+            _dragCurrent = EditorCanvasGrid.SnapPoint(point);
+            Invalidate();
+            UpdateCursor(point);
             return;
+        }
 
-        _dragCurrent = EditorCanvasGrid.SnapPoint(point);
-        Invalidate();
+        if (HasPendingImagePreview())
+            Invalidate();
+
+        UpdateCursor(point);
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -593,6 +630,7 @@ public sealed class SvgCanvas : Control
         if (e.Button != MouseButtons.Left)
             return;
 
+        var canvasPoint = ToCanvasPoint(e.Location);
         Capture = false;
 
         if (_isMoving)
@@ -600,19 +638,24 @@ public sealed class SvgCanvas : Control
             _isMoving = false;
             _moveSnapshots = null;
             DocumentChanged?.Invoke(this, EventArgs.Empty);
+            UpdateCursor(canvasPoint);
             return;
         }
 
         if (_isResizing)
         {
-            if (_primarySelected?.Kind == SvgElementKind.Text)
-                _primarySelected.TextBoundsManuallySized = true;
-            else if (_primarySelected?.Kind == SvgElementKind.Image)
-                _primarySelected.TextBoundsManuallySized = true;
+            if (_primarySelected is not null)
+            {
+                if (_primarySelected.Kind is SvgElementKind.Text or SvgElementKind.Image)
+                    _primarySelected.TextBoundsManuallySized = true;
+
+                SnapElementBoundsToGrid(_primarySelected);
+            }
 
             _isResizing = false;
             _activeResizeHandle = ResizeHandle.None;
             DocumentChanged?.Invoke(this, EventArgs.Empty);
+            UpdateCursor(canvasPoint);
             return;
         }
 
@@ -639,23 +682,29 @@ public sealed class SvgCanvas : Control
             }
 
             Invalidate();
+            UpdateCursor(canvasPoint);
             return;
         }
 
         if (!_isCreating)
+        {
+            UpdateCursor(canvasPoint);
             return;
+        }
 
         _isCreating = false;
-        var point = EditorCanvasGrid.SnapPoint(ToCanvasPoint(e.Location));
+        var point = EditorCanvasGrid.SnapPoint(canvasPoint);
         var created = CreateElement(_dragStart, point);
         if (created is not null)
         {
             _document.Elements.Add(created);
             SetSingleSelection(created);
+            ElementCreated?.Invoke(this, EventArgs.Empty);
             DocumentChanged?.Invoke(this, EventArgs.Empty);
         }
 
         Invalidate();
+        UpdateCursor(canvasPoint);
     }
 
     protected override void OnMouseWheel(MouseEventArgs e)
@@ -736,6 +785,34 @@ public sealed class SvgCanvas : Control
             _moveOffset = new PointF(point.X - anchor.Bounds.X, point.Y - anchor.Bounds.Y);
     }
 
+    private bool TryBeginResize(PointF canvasPoint)
+    {
+        if (_primarySelected is null
+            || _selectedIds.Count != 1
+            || !SupportsResizeHandles(_primarySelected))
+            return false;
+
+        var handle = SvgResizeHandles.HitTest(_primarySelected.GetBounds(), canvasPoint, HandleSize);
+        if (handle == ResizeHandle.None)
+            return false;
+
+        Focus();
+        _isResizing = true;
+        _activeResizeHandle = handle;
+        _resizeDragPrevious = canvasPoint;
+        _resizeStartBounds = _primarySelected.Bounds;
+        _resizeStartCornerRadius = _primarySelected.CornerRadius;
+        _resizeStartPathData = _primarySelected.Kind == SvgElementKind.Path
+            ? _primarySelected.PathData
+            : string.Empty;
+        Capture = true;
+        Invalidate();
+        UpdateCursor(canvasPoint);
+        return true;
+    }
+
+    private float HandleSize => 8f / _zoom;
+
     private void ResizeSelection(PointF point)
     {
         if (_primarySelected is null || !SupportsResizeHandles(_primarySelected))
@@ -743,7 +820,17 @@ public sealed class SvgCanvas : Control
 
         var bounds = _primarySelected.Bounds;
         SvgResizeHandles.ApplyResize(ref bounds, _activeResizeHandle, point, _resizeDragPrevious);
-        _primarySelected.Bounds = bounds;
+
+        if (_primarySelected.Kind == SvgElementKind.Path && !string.IsNullOrEmpty(_resizeStartPathData))
+        {
+            using var matrix = CreateBoundsTransform(_resizeStartBounds, bounds);
+            _primarySelected.PathData = SvgPathParser.TransformPathData(_resizeStartPathData, matrix);
+            _primarySelected.Bounds = SvgPathParser.GetBounds(_primarySelected.PathData);
+        }
+        else
+        {
+            _primarySelected.Bounds = bounds;
+        }
 
         if (_primarySelected.Kind == SvgElementKind.RoundedRectangle)
         {
@@ -763,6 +850,37 @@ public sealed class SvgCanvas : Control
 
     private static bool SupportsResizeHandles(SvgElement element) =>
         element.Kind != SvgElementKind.Line;
+
+    private static System.Drawing.Drawing2D.Matrix CreateBoundsTransform(RectangleF from, RectangleF to)
+    {
+        var matrix = new System.Drawing.Drawing2D.Matrix();
+        if (from.Width <= 0f || from.Height <= 0f)
+            return matrix;
+
+        matrix.Translate(-from.X, -from.Y);
+        matrix.Scale(to.Width / from.Width, to.Height / from.Height);
+        matrix.Translate(to.X, to.Y);
+        return matrix;
+    }
+
+    private static void SnapElementBoundsToGrid(SvgElement element)
+    {
+        if (element.Kind == SvgElementKind.Line)
+            return;
+
+        var bounds = element.Bounds;
+        var left = EditorCanvasGrid.Snap(bounds.Left);
+        var top = EditorCanvasGrid.Snap(bounds.Top);
+        var right = EditorCanvasGrid.Snap(bounds.Right);
+        var bottom = EditorCanvasGrid.Snap(bounds.Bottom);
+
+        if (right - left < SvgResizeHandles.MinBoundsSize)
+            right = left + SvgResizeHandles.MinBoundsSize;
+        if (bottom - top < SvgResizeHandles.MinBoundsSize)
+            bottom = top + SvgResizeHandles.MinBoundsSize;
+
+        element.Bounds = RectangleF.FromLTRB(left, top, right, bottom);
+    }
 
     private void MoveSelection(PointF point)
     {
@@ -911,7 +1029,11 @@ public sealed class SvgCanvas : Control
 
             var imageBounds = NormalizeRect(start, end);
             if (imageBounds.Width < MinElementSize && imageBounds.Height < MinElementSize)
-                imageBounds = SvgImageAssetService.CreateDefaultBounds(start, _pendingImagePixelSize);
+                imageBounds = SvgImageAssetService.CreateDefaultBounds(
+                    start,
+                    _pendingImagePixelSize,
+                    new SizeF(_document.Width, _document.Height),
+                    centerOnLocation: true);
             else
             {
                 imageBounds = new RectangleF(
@@ -999,6 +1121,33 @@ public sealed class SvgCanvas : Control
         return MathF.Sqrt(dx * dx + dy * dy);
     }
 
+    private bool HasPendingImagePreview() =>
+        _tool == EditorTool.Image && !string.IsNullOrEmpty(_pendingImageDataUri);
+
+    private PointF GetPendingImageAnchorPoint()
+    {
+        if (_lastMouseScreenLocation is Point screenPoint && ClientRectangle.Contains(screenPoint))
+            return ToCanvasPoint(screenPoint);
+
+        var viewport = GetViewportSize();
+        return new PointF(
+            (_hScroll.Value + viewport.Width / 2f) / _zoom,
+            (_vScroll.Value + viewport.Height / 2f) / _zoom);
+    }
+
+    private RectangleF GetPendingImagePreviewBounds(PointF anchor) =>
+        SvgImageAssetService.CreateDefaultBounds(
+            anchor,
+            _pendingImagePixelSize,
+            new SizeF(_document.Width, _document.Height),
+            centerOnLocation: true);
+
+    private void DrawPendingImagePreview(Graphics graphics)
+    {
+        var bounds = GetPendingImagePreviewBounds(GetPendingImageAnchorPoint());
+        SvgImageRenderer.DrawSilhouettePreview(graphics, bounds, _pendingImageDataUri, _defaultFillOpacity);
+    }
+
     private void DrawPreview(Graphics graphics)
     {
         if (_tool == EditorTool.Line)
@@ -1042,9 +1191,9 @@ public sealed class SvgCanvas : Control
         {
             var imageBounds = NormalizeRect(_dragStart, _dragCurrent);
             if (imageBounds.Width < MinElementSize && imageBounds.Height < MinElementSize)
-                imageBounds = SvgImageAssetService.CreateDefaultBounds(_dragStart, _pendingImagePixelSize);
+                imageBounds = GetPendingImagePreviewBounds(_dragStart);
 
-            SvgImageRenderer.DrawPreview(graphics, imageBounds, _pendingImageDataUri, _defaultFillOpacity);
+            SvgImageRenderer.DrawSilhouettePreview(graphics, imageBounds, _pendingImageDataUri, _defaultFillOpacity);
             return;
         }
 
@@ -1071,11 +1220,12 @@ public sealed class SvgCanvas : Control
         using var pen = new Pen(Color.FromArgb(37, 99, 235), 1f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
         graphics.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
 
-        if (SupportsResizeHandles(element)
+        if (_tool == EditorTool.Select
+            && SupportsResizeHandles(element)
             && _selectedIds.Count == 1
             && element.Id == _primarySelected?.Id)
         {
-            SvgResizeHandles.Draw(graphics, bounds, 6f / _zoom);
+            SvgResizeHandles.Draw(graphics, bounds, HandleSize);
         }
     }
 
@@ -1147,6 +1297,9 @@ public sealed class SvgCanvas : Control
             (int)Math.Ceiling(logical.Height * _zoom));
     }
 
+    private Size GetMaximumViewportSize() =>
+        new(Math.Max(1, ClientSize.Width), Math.Max(1, ClientSize.Height));
+
     private Size GetViewportSize()
     {
         var width = ClientSize.Width;
@@ -1203,9 +1356,68 @@ public sealed class SvgCanvas : Control
         return Math.Clamp(value, scrollBar.Minimum, max);
     }
 
-    private void UpdateCursor()
+    private void UpdateCursorFromLastMousePosition()
     {
-        Cursor = _tool is EditorTool.Select ? Cursors.SizeAll : Cursors.Cross;
+        if (_lastMouseScreenLocation is Point screenPoint && ClientRectangle.Contains(screenPoint))
+            UpdateCursor(ToCanvasPoint(screenPoint));
+        else
+            UpdateCursor();
+    }
+
+    private void UpdateCursor(PointF? canvasPoint = null)
+    {
+        if (_tool != EditorTool.Select)
+        {
+            Cursor = Cursors.Cross;
+            return;
+        }
+
+        if (_isResizing && _activeResizeHandle != ResizeHandle.None)
+        {
+            Cursor = SvgResizeHandles.GetCursor(_activeResizeHandle);
+            return;
+        }
+
+        if (_isMoving)
+        {
+            Cursor = Cursors.SizeAll;
+            return;
+        }
+
+        if (_isMarqueeSelecting)
+        {
+            Cursor = Cursors.Default;
+            return;
+        }
+
+        if (canvasPoint is PointF point)
+        {
+            var handle = GetResizeHandleAt(point);
+            if (handle != ResizeHandle.None)
+            {
+                Cursor = SvgResizeHandles.GetCursor(handle);
+                return;
+            }
+
+            var hit = HitTest(point);
+            if (hit is not null)
+            {
+                Cursor = IsSelected(hit) ? Cursors.SizeAll : Cursors.Hand;
+                return;
+            }
+        }
+
+        Cursor = Cursors.Default;
+    }
+
+    private ResizeHandle GetResizeHandleAt(PointF canvasPoint)
+    {
+        if (_primarySelected is null
+            || _selectedIds.Count != 1
+            || !SupportsResizeHandles(_primarySelected))
+            return ResizeHandle.None;
+
+        return SvgResizeHandles.HitTest(_primarySelected.GetBounds(), canvasPoint, HandleSize);
     }
 
     private SvgElement CreateDefaultTextTemplate() =>

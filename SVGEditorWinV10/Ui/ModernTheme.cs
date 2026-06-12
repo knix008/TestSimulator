@@ -13,6 +13,8 @@ public static class ModernTheme
     public static readonly Color TextPrimary = Color.FromArgb(17, 24, 39);
     public static readonly Color TextSecondary = Color.FromArgb(107, 114, 128);
     public static readonly Color ToolHover = Color.FromArgb(243, 244, 246);
+    public static readonly Color SidebarContentBackground = Color.FromArgb(250, 251, 253);
+    public static readonly Color SectionHeaderBackground = Color.FromArgb(237, 240, 245);
 
     public static readonly Font UiFont = new("Segoe UI", 9F);
     public static readonly Font UiFontSmall = new("Segoe UI", 8.5F);
@@ -28,9 +30,9 @@ public static class ModernTheme
         menu.Renderer = new ToolStripProfessionalRenderer(new ModernColorTable());
     }
 
-    public static void StyleToolStrip(ToolStrip strip)
+    public static void StyleToolStrip(ToolStrip strip, Color? background = null)
     {
-        strip.BackColor = SidebarBackground;
+        strip.BackColor = background ?? SidebarBackground;
         strip.ForeColor = TextPrimary;
         strip.Font = UiFont;
         strip.Renderer = new ToolStripProfessionalRenderer(new ModernColorTable());
@@ -77,19 +79,19 @@ public static class ModernTheme
         button.Cursor = Cursors.Hand;
     }
 
-    public static void StyleSectionLabel(Label label)
+    public static void StyleSectionLabel(Label label, Color? background = null)
     {
         label.Font = TitleFont;
         label.ForeColor = TextPrimary;
-        label.BackColor = SidebarBackground;
+        label.BackColor = background ?? SidebarBackground;
         label.Padding = new Padding(12, 0, 0, 0);
     }
 
-    public static void StyleCaptionLabel(Label label)
+    public static void StyleCaptionLabel(Label label, Color? background = null)
     {
         label.Font = UiFontSmall;
         label.ForeColor = TextSecondary;
-        label.BackColor = SidebarBackground;
+        label.BackColor = background ?? SidebarBackground;
     }
 
     public static void StyleInput(Control control)

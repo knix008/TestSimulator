@@ -1,16 +1,21 @@
+using System.Drawing.Imaging;
 using SixLabors.ImageSharp.Formats.Png;
+using SVGEditorWinV10.Export;
+using SVGEditorWinV10.Serialization;
 
 namespace SVGEditorWinV10.Rendering;
 
 public static class SvgImageAssetService
 {
     public const string ImportFileFilter =
-        "이미지 파일 (*.png;*.gif;*.jpg;*.jpeg;*.webp;*.avif)|*.png;*.gif;*.jpg;*.jpeg;*.webp;*.avif|" +
-        "PNG (*.png)|*.png|GIF (*.gif)|*.gif|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|WebP (*.webp)|*.webp|AVIF (*.avif)|*.avif";
+        "이미지 파일 (*.png;*.gif;*.jpg;*.jpeg;*.webp;*.avif;*.svg)|*.png;*.gif;*.jpg;*.jpeg;*.webp;*.avif;*.svg|" +
+        "PNG (*.png)|*.png|GIF (*.gif)|*.gif|JPEG (*.jpg;*.jpeg)|*.jpg;*.jpeg|WebP (*.webp)|*.webp|AVIF (*.avif)|*.avif|SVG (*.svg)|*.svg";
+
+    private const float MaxSvgRasterDimension = 2048f;
 
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".png", ".gif", ".jpg", ".jpeg", ".webp", ".avif"
+        ".png", ".gif", ".jpg", ".jpeg", ".webp", ".avif", ".svg"
     };
 
     private static readonly Dictionary<string, Bitmap> BitmapCache = new(StringComparer.Ordinal);
@@ -27,6 +32,9 @@ public static class SvgImageAssetService
 
         if (!IsSupportedPath(path))
             throw new NotSupportedException($"지원하지 않는 이미지 형식입니다: {Path.GetExtension(path)}");
+
+        if (Path.GetExtension(path).Equals(".svg", StringComparison.OrdinalIgnoreCase))
+            return LoadSvgAsRasterImage(path);
 
         var bytes = File.ReadAllBytes(path);
         var mimeType = GetMimeType(path);
@@ -89,15 +97,43 @@ public static class SvgImageAssetService
 
     public static void ClearCache() => BitmapCache.Clear();
 
-    public static RectangleF CreateDefaultBounds(PointF location, SizeF pixelSize, float maxDimension = 320f)
+    public static RectangleF CreateDefaultBounds(
+        PointF location,
+        SizeF pixelSize,
+        SizeF? canvasSize = null,
+        bool centerOnLocation = false)
     {
+        const float MinLongSide = 96f;
+        const float MaxCanvasFraction = 0.5f;
+        const float TargetCanvasFraction = 0.4f;
+        const float MaxUpscale = 4f;
+
         var width = pixelSize.Width;
         var height = pixelSize.Height;
         if (width <= 0f || height <= 0f)
-            return new RectangleF(location.X, location.Y, 128f, 128f);
+        {
+            width = 128f;
+            height = 128f;
+        }
 
-        var scale = Math.Min(1f, maxDimension / Math.Max(width, height));
-        return new RectangleF(location.X, location.Y, width * scale, height * scale);
+        var canvas = canvasSize ?? new SizeF(800f, 800f);
+        var canvasMin = Math.Max(1f, Math.Min(canvas.Width, canvas.Height));
+        var targetLongSide = Math.Clamp(
+            canvasMin * TargetCanvasFraction,
+            MinLongSide,
+            canvasMin * MaxCanvasFraction);
+
+        var longSide = Math.Max(width, height);
+        var scale = targetLongSide / longSide;
+        scale = Math.Clamp(scale, MinLongSide / Math.Min(width, height), MaxUpscale);
+        scale = Math.Min(scale, (canvasMin * MaxCanvasFraction) / longSide);
+
+        var displayWidth = width * scale;
+        var displayHeight = height * scale;
+
+        var x = centerOnLocation ? location.X - displayWidth / 2f : location.X;
+        var y = centerOnLocation ? location.Y - displayHeight / 2f : location.Y;
+        return new RectangleF(x, y, displayWidth, displayHeight);
     }
 
     private static SizeF MeasurePixelSize(byte[] bytes)
@@ -170,6 +206,23 @@ public static class SvgImageAssetService
             ".jpg" or ".jpeg" => "image/jpeg",
             ".webp" => "image/webp",
             ".avif" => "image/avif",
+            ".svg" => "image/svg+xml",
             _ => "application/octet-stream"
         };
+
+    private static ImportedImage LoadSvgAsRasterImage(string path)
+    {
+        var document = SvgDocumentSerializer.Load(path);
+        var scale = 1f;
+        var maxDim = Math.Max(document.Width, document.Height);
+        if (maxDim > MaxSvgRasterDimension)
+            scale = MaxSvgRasterDimension / maxDim;
+
+        using var bitmap = SvgImageExporter.RenderDocument(document, scale);
+        using var output = new MemoryStream();
+        bitmap.Save(output, ImageFormat.Png);
+        var bytes = output.ToArray();
+        var dataUri = $"data:image/png;base64,{Convert.ToBase64String(bytes)}";
+        return new ImportedImage(dataUri, path, new SizeF(bitmap.Width, bitmap.Height));
+    }
 }
