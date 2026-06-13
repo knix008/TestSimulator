@@ -1,0 +1,90 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="MyProject"
+           Manufacturer="MyProject"
+           Version="1.0.0.0"
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\Assets\MyProject.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <Feature Id="ProductFeature" Title="MyProject" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcutDesktop" />
+      <ComponentRef Id="ApplicationShortcutStartMenu" />
+    </Feature>
+
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="MyProject">
+        <Directory Id="TemplateDir" Name="Template" />
+        <Directory Id="AssetsDir" Name="Assets" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="MyProject" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component>
+        <File Id="MyProjectExe" Source="MyProject.exe" KeyPath="yes" />
+      </Component>
+
+      <Component Directory="TemplateDir">
+        <File Source="Template\Template Project.myprj" KeyPath="yes" />
+      </Component>
+
+      <Component Directory="AssetsDir">
+        <File Source="Assets\MyProject.ico" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="ApplicationShortcutDesktop" Directory="DesktopFolder" Guid="B1C2D3E4-F5A6-4789-BCDE-F12345678901">
+      <Shortcut Id="DesktopShortcut"
+                Name="MyProject"
+                Description="MyProject Project Manager"
+                Target="[INSTALLFOLDER]MyProject.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\MyProject"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="ApplicationShortcutStartMenu" Directory="ApplicationProgramsFolder" Guid="C2D3E4F5-A6B7-4890-CDEF-123456789012">
+      <Shortcut Id="StartMenuShortcut"
+                Name="MyProject"
+                Description="MyProject Project Manager"
+                Target="[INSTALLFOLDER]MyProject.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RemoveFolder Id="ApplicationProgramsFolderRemove" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\MyProject"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+
+</Wix>

@@ -1,0 +1,19 @@
+﻿<Project Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <OutputName>MyProject_Setup</OutputName>
+    <UpgradeCode>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</UpgradeCode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MyProject.csproj" Publish="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <BindPath Include="$(MSBuildThisFileDirectory)obj\$(Configuration)\publish\MyProject" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="4.0.5" />
+  </ItemGroup>
+</Project>
