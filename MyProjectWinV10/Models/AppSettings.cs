@@ -17,6 +17,10 @@ namespace MyProject.Models
 
         public static string LastDirectory { get; private set; } = GetDefaultDirectory();
         public static DependencyType DefaultDependencyType { get; private set; } = DependencyType.FS;
+        public static int[] TaskGridColumnWidths { get; private set; } = DefaultTaskGridColumnWidths();
+
+        private static int[] DefaultTaskGridColumnWidths() =>
+            new[] { 32, 200, 58, 34, 30, 88, 120 };
 
         public static void Load()
         {
@@ -35,6 +39,9 @@ namespace MyProject.Models
 
                 if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
                     DefaultDependencyType = depType;
+
+                if (data.TaskGridColumnWidths is { Length: 7 })
+                    TaskGridColumnWidths = SanitizeColumnWidths(data.TaskGridColumnWidths);
             }
             catch (Exception ex)
             {
@@ -55,7 +62,8 @@ namespace MyProject.Models
                 var data = new SettingsData
                 {
                     LastDirectory = LastDirectory,
-                    DefaultDependencyType = DefaultDependencyType.ToString()
+                    DefaultDependencyType = DefaultDependencyType.ToString(),
+                    TaskGridColumnWidths = TaskGridColumnWidths
                 };
                 var json = JsonSerializer.Serialize(data, JsonOptions);
                 File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
@@ -82,6 +90,43 @@ namespace MyProject.Models
             Save();
         }
 
+        public static void RememberTaskGridColumnWidths(int[] widths)
+        {
+            var sanitized = SanitizeColumnWidths(widths);
+            if (sanitized.SequenceEqual(TaskGridColumnWidths))
+                return;
+
+            TaskGridColumnWidths = sanitized;
+            Save();
+        }
+
+        private static int[] SanitizeColumnWidths(int[] widths)
+        {
+            var defaults = DefaultTaskGridColumnWidths();
+            var result = new int[defaults.Length];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = Math.Clamp(widths[i], GetMinColumnWidth(i), 800);
+            return result;
+        }
+
+        private static int GetMinColumnWidth(int columnIndex) => columnIndex switch
+        {
+            0 => 28,
+            1 => 80,
+            2 => 52,
+            3 => 30,
+            4 => 28,
+            5 => 48,
+            6 => 48,
+            _ => 24
+        };
+
+        public static int[] GetMinColumnWidths()
+        {
+            var defaults = DefaultTaskGridColumnWidths();
+            return Enumerable.Range(0, defaults.Length).Select(GetMinColumnWidth).ToArray();
+        }
+
         public static void RememberDependencyType(DependencyType type)
         {
             if (DefaultDependencyType == type)
@@ -106,6 +151,7 @@ namespace MyProject.Models
         {
             public string LastDirectory { get; set; } = "";
             public string DefaultDependencyType { get; set; } = "FS";
+            public int[]? TaskGridColumnWidths { get; set; }
         }
     }
 }

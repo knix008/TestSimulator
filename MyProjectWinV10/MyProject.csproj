@@ -15,6 +15,7 @@
     <Product>MyProject Project Manager</Product>
     <Copyright>Copyright © 2026</Copyright>
     <ApplicationIcon>Assets\MyProject.ico</ApplicationIcon>
+    <UseAppHost>true</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>

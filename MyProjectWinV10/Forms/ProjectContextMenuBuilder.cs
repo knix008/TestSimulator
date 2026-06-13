@@ -16,6 +16,7 @@ namespace MyProject.Forms
         public required Action ZoomIn { get; init; }
         public required Action ZoomOut { get; init; }
         public required Action GoToToday { get; init; }
+        public Action? RenameProject { get; init; }
 
         public ContextMenuStrip Build(ContextMenuTarget target, int taskId, ProjectModel? model)
         {
@@ -32,6 +33,9 @@ namespace MyProject.Forms
                     break;
                 case ContextMenuTarget.TaskGridEmpty:
                     BuildTaskGridEmptyMenu(menu);
+                    break;
+                case ContextMenuTarget.TaskGridProjectHeader:
+                    BuildTaskGridProjectHeaderMenu(menu);
                     break;
                 case ContextMenuTarget.TaskGridHeader:
                     BuildTaskGridHeaderMenu(menu);
@@ -80,6 +84,16 @@ namespace MyProject.Forms
             menu.Items.Add(new ToolStripSeparator());
             AddItem(menu, "Zoom In", AppIcons.ZoomIn, ZoomIn);
             AddItem(menu, "Zoom Out", AppIcons.ZoomOut, ZoomOut);
+            AddItem(menu, "Go to Today", AppIcons.Today, GoToToday);
+        }
+
+        private void BuildTaskGridProjectHeaderMenu(ContextMenuStrip menu)
+        {
+            if (RenameProject != null)
+                AddItem(menu, "Rename Project...", AppIcons.Properties, RenameProject);
+            menu.Items.Add(new ToolStripSeparator());
+            AddItem(menu, "Add Task", AppIcons.AddTask, AddTask);
+            menu.Items.Add(new ToolStripSeparator());
             AddItem(menu, "Go to Today", AppIcons.Today, GoToToday);
         }
 

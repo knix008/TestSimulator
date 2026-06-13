@@ -71,13 +71,15 @@
         // Sizes
         public static int RowHeight { get; } = 28;
         public static int TimescaleHeaderHeight { get; } = 54;   // top + middle + bottom
+        public static int TaskGridProjectRowHeight { get; } = 22;
+        public static int TaskGridColumnHeaderHeight { get; } = 32;
         public static int TimescaleTopHeight { get; } = 22;      // Month/Year row
         public static int TimescaleMiddleHeight { get; } = 16;   // Day number row
         public static int TimescaleBottomHeight { get; } = 16;   // Weekday row
         public static int TaskBarHeight { get; } = 16;
         public static int MilestoneSize { get; } = 14;
         public static int ToolbarHeight { get; } = 40;
-        public static int TaskGridWidth { get; } = 500;
+        public static int TaskGridWidth { get; } = 560;
         public static int SplitterWidth { get; } = 4;
 
         // Day pixel width at default zoom

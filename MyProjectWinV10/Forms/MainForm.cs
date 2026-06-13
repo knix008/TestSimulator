@@ -195,6 +195,14 @@ namespace MyProject.Forms
 
         private void OnFormClosing(object? sender, FormClosingEventArgs e)
         {
+            if (ExceptionHandler.IsDebugSession)
+            {
+                taskGridControl.CancelInteraction();
+                ExceptionHandler.NotifyShutdown();
+                SaveAppSettingsQuietly();
+                return;
+            }
+
             SaveAppSettingsQuietly();
 
             if (!ShouldAllowImmediateClose(e) && _model.IsModified && !ConfirmProceedWithoutSaving())
@@ -203,6 +211,7 @@ namespace MyProject.Forms
                 return;
             }
 
+            taskGridControl.CancelInteraction();
             ExceptionHandler.NotifyShutdown();
         }
 
@@ -212,6 +221,9 @@ namespace MyProject.Forms
 
             if (_titleBarModel != null)
                 _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
+
+            if (ExceptionHandler.IsDebugSession)
+                Environment.Exit(0);
         }
 
         private void DetachFromModel()
@@ -222,7 +234,7 @@ namespace MyProject.Forms
 
         private static bool ShouldAllowImmediateClose(FormClosingEventArgs e)
         {
-            if (Debugger.IsAttached)
+            if (ExceptionHandler.IsDebugSession || Debugger.IsAttached)
                 return true;
 
             return e.CloseReason is CloseReason.WindowsShutDown
@@ -257,7 +269,8 @@ namespace MyProject.Forms
                 ToggleExpandTask = id => SafeRun("Expand Error", "Could not expand or collapse subtasks.", () => ToggleExpandTask(id)),
                 ZoomIn = () => SafeRun("View Error", "Could not zoom in.", () => ganttChartControl.ZoomIn()),
                 ZoomOut = () => SafeRun("View Error", "Could not zoom out.", () => ganttChartControl.ZoomOut()),
-                GoToToday = () => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday())
+                GoToToday = () => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday()),
+                RenameProject = () => SafeRun("Rename Error", "Could not rename the project.", () => taskGridControl.StartProjectNameEdit())
             };
 
         private void OnContextMenuRequested(object? sender, ContextMenuRequestEventArgs e)

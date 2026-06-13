@@ -9,7 +9,7 @@ namespace MyProject.Forms
 
         public static void Show(IWin32Window? owner, string title, string summary, Exception exception)
         {
-            if (ExceptionHandler.IsShuttingDown)
+            if (ExceptionHandler.IsShuttingDown || ExceptionHandler.IsDebugSession)
                 return;
 
             owner = ResolveOwner(owner);
@@ -19,7 +19,7 @@ namespace MyProject.Forms
 
         public static void Show(IWin32Window? owner, string title, string summary, string details)
         {
-            if (ExceptionHandler.IsShuttingDown)
+            if (ExceptionHandler.IsShuttingDown || ExceptionHandler.IsDebugSession)
                 return;
 
             owner = ResolveOwner(owner);
@@ -29,7 +29,7 @@ namespace MyProject.Forms
 
         public static void Show(IWin32Window? owner, string title, string summary, string message, string details)
         {
-            if (ExceptionHandler.IsShuttingDown)
+            if (ExceptionHandler.IsShuttingDown || ExceptionHandler.IsDebugSession)
                 return;
 
             owner = ResolveOwner(owner);

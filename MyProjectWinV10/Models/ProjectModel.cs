@@ -11,6 +11,21 @@ namespace MyProject.Models
         private bool _isUpdatingHierarchy;
 
         public string ProjectName { get; set; } = "New Project";
+
+        public void SetProjectName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return;
+
+            name = name.Trim();
+            if (ProjectName == name)
+                return;
+
+            ProjectName = name;
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         public DateTime ProjectStart { get; set; } = DateTime.Today;
         public string FilePath { get; set; } = "";
         public bool IsModified { get; set; } = false;

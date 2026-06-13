@@ -478,7 +478,7 @@ namespace MyProject.Forms
             splitContainer.Panel2.Controls.Add(ganttChartControl);
             splitContainer.Panel2MinSize = 300;
             splitContainer.Size = new Size(1280, 634);
-            splitContainer.SplitterDistance = 500;
+            splitContainer.SplitterDistance = 560;
             splitContainer.TabIndex = 2;
             // 
             // taskGridControl
@@ -486,7 +486,7 @@ namespace MyProject.Forms
             taskGridControl.Dock = DockStyle.Fill;
             taskGridControl.Location = new Point(0, 0);
             taskGridControl.Name = "taskGridControl";
-            taskGridControl.Size = new Size(500, 634);
+            taskGridControl.Size = new Size(560, 634);
             taskGridControl.TabIndex = 0;
             // 
             // ganttChartControl

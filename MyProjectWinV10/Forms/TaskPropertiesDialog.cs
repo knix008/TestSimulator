@@ -21,6 +21,7 @@ namespace MyProject.Forms
         // Colors
         private Panel _scheduleColorPreview = null!;
         private Panel _progressColorPreview = null!;
+        private Panel _colorBarPreview = null!;
         private Color _scheduleColor = Color.Empty;
         private Color _progressColor = Color.Empty;
 
@@ -160,39 +161,46 @@ namespace MyProject.Forms
             layout.Controls.Add(MakeLabel("Schedule bar color:"), 0, 0);
             _scheduleColorPreview = CreateColorPreviewPanel();
             layout.Controls.Add(MakeCenteredHost(_scheduleColorPreview), 1, 0);
-            layout.Controls.Add(MakeColorBtnPanel(() => _scheduleColor, c => _scheduleColor = c, _scheduleColorPreview), 2, 0);
+            layout.Controls.Add(MakeColorBtnPanel(() => _scheduleColor, c => _scheduleColor = c, _scheduleColorPreview, RefreshColorBarPreview), 2, 0);
 
             layout.Controls.Add(MakeLabel("Progress bar color:"), 0, 1);
             _progressColorPreview = CreateColorPreviewPanel();
             layout.Controls.Add(MakeCenteredHost(_progressColorPreview), 1, 1);
-            layout.Controls.Add(MakeColorBtnPanel(() => _progressColor, c => _progressColor = c, _progressColorPreview), 2, 1);
+            layout.Controls.Add(MakeColorBtnPanel(() => _progressColor, c => _progressColor = c, _progressColorPreview, RefreshColorBarPreview), 2, 1);
 
             layout.Controls.Add(MakeLabel("Preview:"), 0, 2);
-            var previewPanel = new Panel { Dock = DockStyle.Fill, Height = 30 };
-            previewPanel.Paint += (s, e) =>
-            {
-                var g = e.Graphics;
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                var rc = new Rectangle(0, (previewPanel.Height - 22) / 2, previewPanel.Width, 22);
-                var bc = _scheduleColor == Color.Empty ? AppTheme.TaskBarNormal : _scheduleColor;
-                var pc = _progressColor == Color.Empty ? AppTheme.TaskBarProgress : _progressColor;
-                using var bb = new SolidBrush(bc);
-                g.FillRectangle(bb, rc);
-                int pw = (int)(rc.Width * (_nudProgress?.Value ?? 0) / 100m);
-                if (pw > 0)
-                {
-                    using var pb = new SolidBrush(pc);
-                    g.FillRectangle(pb, new Rectangle(rc.X, rc.Y, pw, rc.Height));
-                }
-                g.DrawRectangle(Pens.Gray, rc);
-            };
-            layout.SetColumnSpan(previewPanel, 2);
-            layout.Controls.Add(previewPanel, 1, 2);
-            if (_nudProgress != null) _nudProgress.ValueChanged += (s, e) => previewPanel.Invalidate();
+            _colorBarPreview = new Panel { Dock = DockStyle.Fill, Height = 30 };
+            _colorBarPreview.Paint += PaintColorBarPreview;
+            layout.SetColumnSpan(_colorBarPreview, 2);
+            layout.Controls.Add(_colorBarPreview, 1, 2);
+            if (_nudProgress != null) _nudProgress.ValueChanged += (s, e) => RefreshColorBarPreview();
 
             page.Controls.Add(layout);
             return page;
         }
+
+        private void PaintColorBarPreview(object? sender, PaintEventArgs e)
+        {
+            var previewPanel = _colorBarPreview;
+            if (previewPanel == null) return;
+
+            var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var rc = new Rectangle(0, (previewPanel.Height - 22) / 2, previewPanel.Width, 22);
+            var bc = _scheduleColor == Color.Empty ? AppTheme.TaskBarNormal : _scheduleColor;
+            var pc = _progressColor == Color.Empty ? AppTheme.TaskBarProgress : _progressColor;
+            using var bb = new SolidBrush(bc);
+            g.FillRectangle(bb, rc);
+            int pw = (int)(rc.Width * (_nudProgress?.Value ?? 0) / 100m);
+            if (pw > 0)
+            {
+                using var pb = new SolidBrush(pc);
+                g.FillRectangle(pb, new Rectangle(rc.X, rc.Y, pw, rc.Height));
+            }
+            g.DrawRectangle(Pens.Gray, rc);
+        }
+
+        private void RefreshColorBarPreview() => _colorBarPreview?.Invalidate();
 
         private static Panel CreateColorPreviewPanel() =>
             new Panel { Width = 36, Height = 22, BorderStyle = BorderStyle.FixedSingle };
@@ -215,7 +223,7 @@ namespace MyProject.Forms
             return host;
         }
 
-        private Panel MakeColorBtnPanel(Func<Color> getColor, Action<Color> setColor, Panel preview)
+        private Panel MakeColorBtnPanel(Func<Color> getColor, Action<Color> setColor, Panel preview, Action? onChanged = null)
         {
             var panel = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
             var btnChoose = new Button { Text = "Choose...", Width = 75, Height = 28, FlatStyle = FlatStyle.Flat };
@@ -244,12 +252,14 @@ namespace MyProject.Forms
                 {
                     setColor(dlg.Color);
                     preview.BackColor = dlg.Color;
+                    onChanged?.Invoke();
                 }
             };
             btnDefault.Click += (s, e) =>
             {
                 setColor(Color.Empty);
                 preview.BackColor = Color.LightGray;
+                onChanged?.Invoke();
             };
             return panel;
         }

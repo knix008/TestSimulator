@@ -8,6 +8,14 @@ namespace MyProject.Forms
         private static readonly object ShowLock = new();
         private static int _activeDialogs;
         private static volatile bool _isShuttingDown;
+        private static bool _debugSession;
+
+        public static bool IsDebugSession => _debugSession;
+
+        public static void MarkDebugSession()
+        {
+            _debugSession = Debugger.IsAttached;
+        }
 
         public static void NotifyShutdown()
         {
@@ -20,9 +28,15 @@ namespace MyProject.Forms
 
         public static void Register()
         {
-            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            MarkDebugSession();
+
             Application.ThreadException += OnThreadException;
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => NotifyShutdown();
+
+            // CatchException prevents Visual Studio from detaching cleanly during debug stop.
+            if (!_debugSession)
+                Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         }
 
         public static void Run(IWin32Window? owner, string title, string summary, Action action)
@@ -31,7 +45,7 @@ namespace MyProject.Forms
             {
                 action();
             }
-            catch (Exception ex) when (ShowError(owner, title, summary, ex))
+            catch (Exception ex) when (HandleCaughtException(owner, title, summary, ex))
             {
             }
         }
@@ -42,21 +56,41 @@ namespace MyProject.Forms
             {
                 return func();
             }
-            catch (Exception ex) when (ShowError(owner, title, summary, ex))
+            catch (Exception ex) when (HandleCaughtException(owner, title, summary, ex))
             {
                 return default;
             }
         }
 
+        private static bool HandleCaughtException(IWin32Window? owner, string title, string summary, Exception exception)
+        {
+            if (ShouldAvoidModalUi())
+            {
+                LogAsync(exception, $"{title}: {summary} (no modal UI)");
+                return true;
+            }
+
+            return ShowError(owner, title, summary, exception);
+        }
+
         [DebuggerHidden]
         public static void Show(IWin32Window? owner, string title, string summary, Exception exception)
         {
+            if (ShouldAvoidModalUi())
+            {
+                LogAsync(exception, $"{title}: {summary} (no modal UI)");
+                return;
+            }
+
             ShowError(owner, title, summary, exception);
         }
 
         [DebuggerHidden]
         public static void ShowInfo(IWin32Window? owner, string title, string summary, string details)
         {
+            if (ShouldAvoidModalUi())
+                return;
+
             QueueOnUiThread(owner, () => ShowInfoCore(owner, title, summary, details));
         }
 
@@ -67,15 +101,9 @@ namespace MyProject.Forms
                 if (_isShuttingDown)
                     return;
 
-                if (ShouldSuppressDisplay(e.Exception))
+                if (ShouldAvoidModalUi() || ShouldSuppressDisplay(e.Exception))
                 {
                     LogAsync(e.Exception, "Suppressed UI exception");
-                    return;
-                }
-
-                if (Debugger.IsAttached)
-                {
-                    LogAsync(e.Exception, "Suppressed UI exception (debugger attached)");
                     return;
                 }
 
@@ -101,15 +129,9 @@ namespace MyProject.Forms
             try
             {
                 if (e.ExceptionObject is not Exception ex) return;
-                if (_isShuttingDown || ShouldSuppressDisplay(ex))
+                if (ShouldAvoidModalUi() || ShouldSuppressDisplay(ex))
                 {
                     LogAsync(ex, "Suppressed fatal exception");
-                    return;
-                }
-
-                if (Debugger.IsAttached)
-                {
-                    LogAsync(ex, "Suppressed fatal exception (debugger attached)");
                     return;
                 }
 
@@ -130,9 +152,9 @@ namespace MyProject.Forms
 
         private static bool ShowError(IWin32Window? owner, string title, string summary, Exception exception)
         {
-            if (_isShuttingDown)
+            if (ShouldAvoidModalUi())
             {
-                LogAsync(exception, $"{title}: {summary} (shutdown)");
+                LogAsync(exception, $"{title}: {summary} (no modal UI)");
                 return true;
             }
 
@@ -146,11 +168,14 @@ namespace MyProject.Forms
             return true;
         }
 
+        private static bool ShouldAvoidModalUi() =>
+            _isShuttingDown || _debugSession || Debugger.IsAttached;
+
         private static void QueueShow(IWin32Window? owner, string title, string summary, Exception exception)
         {
-            if (_isShuttingDown || IsOwnerUnavailable(owner))
+            if (ShouldAvoidModalUi() || IsOwnerUnavailable(owner))
             {
-                LogAsync(exception, $"{title}: {summary} (shutdown)");
+                LogAsync(exception, $"{title}: {summary} (no modal UI)");
                 return;
             }
 
@@ -163,7 +188,7 @@ namespace MyProject.Forms
 
         private static void ShowErrorCore(IWin32Window? owner, string title, string summary, string message, string details)
         {
-            if (_isShuttingDown || IsOwnerUnavailable(owner))
+            if (ShouldAvoidModalUi() || IsOwnerUnavailable(owner))
                 return;
 
             if (!TryEnterDialog()) return;
@@ -195,7 +220,7 @@ namespace MyProject.Forms
 
         private static void ShowInfoCore(IWin32Window? owner, string title, string summary, string details)
         {
-            if (_isShuttingDown || IsOwnerUnavailable(owner))
+            if (ShouldAvoidModalUi() || IsOwnerUnavailable(owner))
                 return;
 
             if (!TryEnterDialog()) return;
@@ -248,7 +273,7 @@ namespace MyProject.Forms
 
         private static void QueueOnUiThread(IWin32Window? owner, Action action)
         {
-            if (_isShuttingDown)
+            if (ShouldAvoidModalUi())
                 return;
 
             Control? host = owner as Control;
@@ -317,6 +342,9 @@ namespace MyProject.Forms
 
         private static void LogAsync(Exception exception, string context)
         {
+            if (_isShuttingDown)
+                return;
+
             try
             {
                 var copy = ErrorDialog.FormatException(exception);

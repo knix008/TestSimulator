@@ -2,6 +2,7 @@ namespace MyProject.Forms
 {
     public enum ContextMenuTarget
     {
+        TaskGridProjectHeader,
         TaskGridHeader,
         TaskGridEmpty,
         TaskGridTask,
