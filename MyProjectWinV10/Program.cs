@@ -28,17 +28,8 @@ static class Program
         ApplicationConfiguration.Initialize();
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        Application.ApplicationExit += (_, _) => ExceptionHandler.NotifyShutdown();
         ExceptionHandler.Register();
-
-        try
-        {
-            AppSettings.Load();
-            Application.Run(new MainForm());
-        }
-        catch (Exception ex)
-        {
-            ExceptionHandler.Show(null, "Startup Error", "Could not start the application.", ex);
-        }
+        AppSettings.Load();
+        Application.Run(new MainForm());
     }
 }

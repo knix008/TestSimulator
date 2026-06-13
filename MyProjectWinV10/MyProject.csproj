@@ -28,6 +28,43 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DesignTimeBuild)' == 'true'">
+    <SkipInstaller>true</SkipInstaller>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SetupProjectPath>$(MSBuildThisFileDirectory)Installer\MyProject.Installer.wixproj</SetupProjectPath>
+    <MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\Release\MyProject_Setup.msi</MsiOutputPath>
+  </PropertyGroup>
+
+  <Target Name="RemindMsiRequiresRelease"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' != 'Release' and '$(BuildingMsiPackage)' != 'true' and '$(SkipInstaller)' != 'true'">
+    <Message Importance="high" Text="MSI is not built in $(Configuration) configuration. Switch to Release | Any CPU and rebuild to create MyProject_Setup.msi." />
+  </Target>
+
+  <Target Name="BuildInstallerMsi"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release' and '$(BuildingMsiPackage)' != 'true' and '$(SkipInstaller)' != 'true' and '$(DesignTimeBuild)' != 'true' and '$(MSBuildIsProjectReference)' != 'true' and Exists('$(SetupProjectPath)')">
+    <MSBuild Projects="$(SetupProjectPath)"
+             Targets="Restore"
+             Properties="Configuration=Release;BuildingMsiPackage=true"
+             BuildInParallel="false" />
+    <MSBuild Projects="$(SetupProjectPath)"
+             Targets="Build"
+             Properties="Configuration=Release;BuildingMsiPackage=true"
+             BuildInParallel="false" />
+    <Error Condition="!Exists('$(MsiOutputPath)')"
+           Text="MSI was not created at $(MsiOutputPath). See MyProject.Installer build output for errors." />
+    <Copy SourceFiles="$(MsiOutputPath)"
+          DestinationFiles="$(OutputPath)MyProject_Setup.msi"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(MsiOutputPath)')" />
+    <Message Importance="high" Text="MSI ready: $(MsiOutputPath)" />
+    <Message Importance="high" Text="MSI copy: $(OutputPath)MyProject_Setup.msi" Condition="Exists('$(OutputPath)MyProject_Setup.msi')" />
+  </Target>
+
   <ItemGroup>
     <Content Include="Template\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

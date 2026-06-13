@@ -85,11 +85,25 @@ dotnet run --project MyProject.csproj --no-build -- --generate-icon
 
 ## MSI 설치 파일
 
+**Release** 구성에서 MSI가 자동 생성됩니다. Debug에서는 MSI가 만들어지지 않습니다.
+
+Visual Studio에서 **Release | Any CPU**로 **MyProject** 프로젝트를 Rebuild하면 됩니다.  
+빌드 출력에 `MSI ready:` 메시지가 표시됩니다.
+
+```bash
+dotnet build MyProject.csproj -c Release
+```
+
+또는 WiX 설치 프로젝트만 직접 빌드:
+
 ```bash
 dotnet build Installer/MyProject.Installer.wixproj -c Release
 ```
 
-생성 위치: `Installer/bin/Release/MyProject_Setup.msi`
+생성 위치:
+
+- `Installer/bin/Release/MyProject_Setup.msi`
+- `bin/Release/net8.0-windows/win-x64/MyProject_Setup.msi` (앱 빌드 시 복사본)
 
 설치 시 바탕 화면·시작 메뉴 바로 가기, 템플릿 프로젝트, 앱 아이콘이 포함됩니다.
 

@@ -27,6 +27,7 @@ namespace MyProject.Models
         }
 
         public DateTime ProjectStart { get; set; } = DateTime.Today;
+        public ProjectViewSettings ViewSettings { get; set; } = ProjectViewSettings.CreateDefault();
         public string FilePath { get; set; } = "";
         public bool IsModified { get; set; } = false;
 
@@ -241,8 +242,12 @@ namespace MyProject.Models
         public bool AddDependency(int predecessorId, int successorId, DependencyType type = DependencyType.FS)
         {
             if (predecessorId == successorId) return false;
-            if (_dependencies.Any(d => d.PredecessorId == predecessorId && d.SuccessorId == successorId)) return false;
             if (WouldCreateCycle(predecessorId, successorId)) return false;
+
+            var existing = _dependencies.FirstOrDefault(d =>
+                d.PredecessorId == predecessorId && d.SuccessorId == successorId);
+            if (existing != null)
+                return SetDependencyType(predecessorId, successorId, type);
 
             _dependencies.Add(new TaskDependency
             {
@@ -255,6 +260,21 @@ namespace MyProject.Models
             ModelChanged?.Invoke(this, EventArgs.Empty);
             return true;
         }
+
+        public bool SetDependencyType(int predecessorId, int successorId, DependencyType type)
+        {
+            var dep = _dependencies.FirstOrDefault(d =>
+                d.PredecessorId == predecessorId && d.SuccessorId == successorId);
+            if (dep == null) return false;
+            if (dep.Type == type) return true;
+
+            dep.Type = type;
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
+        public void NotifyViewsChanged() => ModelChanged?.Invoke(this, EventArgs.Empty);
 
         public void RemoveDependency(int predecessorId, int successorId)
         {
@@ -669,7 +689,8 @@ namespace MyProject.Models
 
             if (e.PropertyName is nameof(ProjectTask.StartDate) or nameof(ProjectTask.DurationDays)
                 or nameof(ProjectTask.Progress) or nameof(ProjectTask.IndentLevel)
-                or nameof(ProjectTask.TaskType))
+                or nameof(ProjectTask.TaskType) or nameof(ProjectTask.BarColor)
+                or nameof(ProjectTask.ProgressColor) or nameof(ProjectTask.IsCritical))
             {
                 UpdateHierarchy();
             }

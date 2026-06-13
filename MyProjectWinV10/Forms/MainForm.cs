@@ -11,25 +11,22 @@ namespace MyProject.Forms
         private int _lastSelectedId = -1;
         private int _linkSourceId = -1;  // for dependency link tool
         private ProjectContextMenuBuilder? _contextMenuBuilder;
+        private bool _isApplyingViewSettings;
 
         public MainForm()
         {
-            try
-            {
-                InitializeComponent();
-                PostInitializeComponent();
-                ApplyRenderers();
-                SetupEventHandlers();
-                LoadNewProject();
-            }
-            catch (Exception ex)
-            {
-                ExceptionHandler.Show(null, "Initialization Error", "Could not initialize the main window.", ex);
-            }
+            InitializeComponent();
+            PostInitializeComponent();
+            ApplyRenderers();
+            SetupEventHandlers();
+            LoadNewProject();
         }
 
-        private void SafeRun(string title, string summary, Action action) =>
-            ExceptionHandler.Run(this, title, summary, action);
+        private void SafeRun(string title, string summary, Action action)
+        {
+            try { action(); }
+            catch (Exception ex) { ErrorDialog.Show(this, title, ex); }
+        }
 
         private void PostInitializeComponent()
         {
@@ -144,8 +141,8 @@ namespace MyProject.Forms
             menuTaskProps.Click  += (s, e) => SafeRun("Task Properties Error", "Could not open task properties.", () => OpenTaskProperties(_lastSelectedId));
 
             // View menu
-            menuZoomIn.Click  += (s, e) => SafeRun("View Error", "Could not zoom in.", () => ganttChartControl.ZoomIn());
-            menuZoomOut.Click += (s, e) => SafeRun("View Error", "Could not zoom out.", () => ganttChartControl.ZoomOut());
+            menuZoomIn.Click  += (s, e) => SafeRun("View Error", "Could not zoom in.", OnZoomIn);
+            menuZoomOut.Click += (s, e) => SafeRun("View Error", "Could not zoom out.", OnZoomOut);
             menuToday.Click   += (s, e) => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday());
 
             // Report menu
@@ -165,10 +162,9 @@ namespace MyProject.Forms
             btnLink.Click       += (s, e) => SafeRun("Link Error", "Could not link tasks.", OnLinkTasks);
             dependencyTypeSelector.SelectedType = AppSettings.DefaultDependencyType;
             dependencyTypeSelector.SelectedTypeChanged += (_, _) =>
-                SafeRun("Settings Error", "Could not save dependency line type.", () =>
-                    AppSettings.RememberDependencyType(dependencyTypeSelector.SelectedType));
-            btnZoomIn.Click     += (s, e) => SafeRun("View Error", "Could not zoom in.", () => ganttChartControl.ZoomIn());
-            btnZoomOut.Click    += (s, e) => SafeRun("View Error", "Could not zoom out.", () => ganttChartControl.ZoomOut());
+                SafeRun("Settings Error", "Could not apply dependency line type.", OnDependencyTypeChanged);
+            btnZoomIn.Click     += (s, e) => SafeRun("View Error", "Could not zoom in.", OnZoomIn);
+            btnZoomOut.Click    += (s, e) => SafeRun("View Error", "Could not zoom out.", OnZoomOut);
             btnToday.Click      += (s, e) => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday());
             btnReport.Click     += (s, e) => SafeRun("Export Error", "Could not export the Excel report.", OnExportExcel);
             btnPrint.Click      += (s, e) => SafeRun("Print Error", "Could not print the schedule.", OnPrint);
@@ -189,21 +185,23 @@ namespace MyProject.Forms
             taskGridControl.ContextMenuRequested += OnContextMenuRequested;
             ganttChartControl.ContextMenuRequested += OnContextMenuRequested;
 
+            ganttChartControl.ViewZoomChanged += (_, _) =>
+                SafeRun("Settings Error", "Could not update zoom level.", MarkViewSettingsModified);
+            taskGridControl.ColumnWidthsChanged += (_, _) =>
+                SafeRun("Settings Error", "Could not update column widths.", MarkViewSettingsModified);
+            splitContainer.SplitterMoved += (_, _) =>
+            {
+                if (_isApplyingViewSettings) return;
+                SafeRun("Settings Error", "Could not update panel layout.", MarkViewSettingsModified);
+            };
+
             FormClosing += OnFormClosing;
             FormClosed += OnFormClosed;
         }
 
         private void OnFormClosing(object? sender, FormClosingEventArgs e)
         {
-            if (ExceptionHandler.IsDebugSession)
-            {
-                taskGridControl.CancelInteraction();
-                ExceptionHandler.NotifyShutdown();
-                SaveAppSettingsQuietly();
-                return;
-            }
-
-            SaveAppSettingsQuietly();
+            taskGridControl.CancelInteraction();
 
             if (!ShouldAllowImmediateClose(e) && _model.IsModified && !ConfirmProceedWithoutSaving())
             {
@@ -211,8 +209,7 @@ namespace MyProject.Forms
                 return;
             }
 
-            taskGridControl.CancelInteraction();
-            ExceptionHandler.NotifyShutdown();
+            SaveAppSettingsQuietly();
         }
 
         private void OnFormClosed(object? sender, FormClosedEventArgs e)
@@ -221,9 +218,6 @@ namespace MyProject.Forms
 
             if (_titleBarModel != null)
                 _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
-
-            if (ExceptionHandler.IsDebugSession)
-                Environment.Exit(0);
         }
 
         private void DetachFromModel()
@@ -234,7 +228,7 @@ namespace MyProject.Forms
 
         private static bool ShouldAllowImmediateClose(FormClosingEventArgs e)
         {
-            if (ExceptionHandler.IsDebugSession || Debugger.IsAttached)
+            if (Debugger.IsAttached)
                 return true;
 
             return e.CloseReason is CloseReason.WindowsShutDown
@@ -267,8 +261,8 @@ namespace MyProject.Forms
                 OutdentTask = id => SafeRun("Outdent Error", "Could not outdent the task.", () => OutdentTaskById(id)),
                 LinkFromTask = id => SafeRun("Link Error", "Could not start linking tasks.", () => LinkFromTask(id)),
                 ToggleExpandTask = id => SafeRun("Expand Error", "Could not expand or collapse subtasks.", () => ToggleExpandTask(id)),
-                ZoomIn = () => SafeRun("View Error", "Could not zoom in.", () => ganttChartControl.ZoomIn()),
-                ZoomOut = () => SafeRun("View Error", "Could not zoom out.", () => ganttChartControl.ZoomOut()),
+                ZoomIn = () => SafeRun("View Error", "Could not zoom in.", OnZoomIn),
+                ZoomOut = () => SafeRun("View Error", "Could not zoom out.", OnZoomOut),
                 GoToToday = () => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday()),
                 RenameProject = () => SafeRun("Rename Error", "Could not rename the project.", () => taskGridControl.StartProjectNameEdit())
             };
@@ -285,7 +279,7 @@ namespace MyProject.Forms
             }
             catch (Exception ex)
             {
-                ExceptionHandler.Show(this, "Menu Error", "Could not show the context menu.", ex);
+                ErrorDialog.Show(this, "Menu Error", ex);
             }
         }
 
@@ -336,7 +330,11 @@ namespace MyProject.Forms
 
         private void LoadNewProject()
         {
-            _model = new ProjectModel { ProjectName = "New Project" };
+            _model = new ProjectModel
+            {
+                ProjectName = "New Project",
+                ViewSettings = ProjectViewSettings.CreateDefault()
+            };
             ApplyModel();
         }
 
@@ -351,6 +349,7 @@ namespace MyProject.Forms
 
             taskGridControl.SetModel(_model);
             ganttChartControl.SetModel(_model);
+            ApplyViewSettingsFromModel();
 
             _lastSelectedId = -1;
             CancelLink();
@@ -359,6 +358,64 @@ namespace MyProject.Forms
 
             UpdateTitleBar();
             UpdateStatus(-1);
+        }
+
+        private void CaptureViewSettingsToModel()
+        {
+            _model.ViewSettings = new ProjectViewSettings
+            {
+                TaskGridColumnWidths = taskGridControl.GetColumnWidths(),
+                DefaultDependencyType = dependencyTypeSelector.SelectedType,
+                DayWidth = ganttChartControl.Viewport.DayWidth,
+                SplitterDistance = splitContainer.SplitterDistance
+            };
+        }
+
+        private void ApplyViewSettingsFromModel()
+        {
+            _isApplyingViewSettings = true;
+            try
+            {
+                var settings = _model.ViewSettings;
+                taskGridControl.ApplyColumnWidths(settings.TaskGridColumnWidths);
+                dependencyTypeSelector.SelectedType = settings.DefaultDependencyType;
+                ganttChartControl.ApplyDayWidth(settings.DayWidth);
+
+                int maxDistance = Math.Max(
+                    splitContainer.Panel1MinSize,
+                    splitContainer.Width - splitContainer.Panel2MinSize - splitContainer.SplitterWidth);
+                if (maxDistance >= splitContainer.Panel1MinSize)
+                {
+                    splitContainer.SplitterDistance = Math.Clamp(
+                        settings.SplitterDistance,
+                        splitContainer.Panel1MinSize,
+                        maxDistance);
+                }
+            }
+            finally
+            {
+                _isApplyingViewSettings = false;
+            }
+        }
+
+        private void MarkViewSettingsModified()
+        {
+            if (_isApplyingViewSettings)
+                return;
+
+            CaptureViewSettingsToModel();
+            _model.IsModified = true;
+            UpdateTitleBar();
+        }
+
+        private void OnZoomIn()
+        {
+            ganttChartControl.ZoomIn();
+        }
+
+        private void OnZoomOut()
+        {
+            ganttChartControl.ZoomOut();
         }
 
         private void OnModelChangedForTitleBar(object? sender, EventArgs e) => UpdateTitleBar();
@@ -397,7 +454,11 @@ namespace MyProject.Forms
         private void OnNew()
         {
             if (!ConfirmProceedWithoutSaving()) return;
-            _model = new ProjectModel { ProjectName = "New Project" };
+            _model = new ProjectModel
+            {
+                ProjectName = "New Project",
+                ViewSettings = ProjectViewSettings.CreateDefault()
+            };
             ApplyModel();
         }
 
@@ -427,7 +488,7 @@ namespace MyProject.Forms
             }
             catch (Exception ex)
             {
-                ExceptionHandler.Show(this, "Open Error", "Could not open project.", ex);
+                ErrorDialog.Show(this, "Open Error", ex);
             }
         }
 
@@ -474,6 +535,7 @@ namespace MyProject.Forms
 
             try
             {
+                CaptureViewSettingsToModel();
                 ProjectFile.Save(_model, path);
                 _model.FilePath = path;
                 _model.IsModified = false;
@@ -491,7 +553,7 @@ namespace MyProject.Forms
             }
             catch (Exception ex)
             {
-                ExceptionHandler.Show(this, "Save Error", "Could not save project.", ex);
+                ErrorDialog.Show(this, "Save Error", ex);
             }
         }
 
@@ -628,14 +690,16 @@ namespace MyProject.Forms
             string succName = succ?.Name ?? succId.ToString();
             string lineType = DependencyTypeInfo.GetDisplayName(dependencyTypeSelector.SelectedType);
 
-            ExceptionHandler.ShowInfo(this, "Link Error", "Could not create the dependency.",
+            MessageBox.Show(
+                $"Could not create the dependency.\n\n" +
                 $"Predecessor: {predName} (ID {_linkSourceId})\n" +
                 $"Successor: {succName} (ID {succId})\n" +
                 $"Line type: {lineType}\n\n" +
                 "Possible reasons:\n" +
                 "- The same dependency already exists.\n" +
                 "- Linking these tasks would create a circular dependency.\n" +
-                "- One of the selected tasks is no longer available.");
+                "- One of the selected tasks is no longer available.",
+                "Link Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
             statusLabel.Text = "Dependency was not created.";
         }
@@ -644,6 +708,54 @@ namespace MyProject.Forms
         {
             _linkSourceId = -1;
             btnLink.Checked = false;
+        }
+
+        private void OnDependencyTypeChanged()
+        {
+            if (_isApplyingViewSettings)
+                return;
+
+            AppSettings.RememberDependencyType(dependencyTypeSelector.SelectedType);
+            _model.ViewSettings.DefaultDependencyType = dependencyTypeSelector.SelectedType;
+
+            if (ApplyDependencyTypeToSelectedTask())
+                statusLabel.Text = $"Dependency line type set to {DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}.";
+            else
+            {
+                _model.IsModified = true;
+                UpdateTitleBar();
+                if (_linkSourceId >= 0)
+                {
+                    var src = _model.GetTask(_linkSourceId);
+                    statusLabel.Text = $"Link source: [{src?.Name}] — select successor and click Link again ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+                }
+            }
+
+            ganttChartControl.Invalidate();
+            taskGridControl.Invalidate();
+        }
+
+        private bool ApplyDependencyTypeToSelectedTask()
+        {
+            if (_lastSelectedId < 0) return false;
+
+            var type = dependencyTypeSelector.SelectedType;
+
+            if (_linkSourceId >= 0 && _linkSourceId != _lastSelectedId)
+            {
+                if (_model.SetDependencyType(_linkSourceId, _lastSelectedId, type))
+                    return true;
+            }
+
+            var incoming = _model.Dependencies.Where(d => d.SuccessorId == _lastSelectedId).ToList();
+            if (incoming.Count == 1)
+                return _model.SetDependencyType(incoming[0].PredecessorId, _lastSelectedId, type);
+
+            var outgoing = _model.Dependencies.Where(d => d.PredecessorId == _lastSelectedId).ToList();
+            if (outgoing.Count == 1)
+                return _model.SetDependencyType(_lastSelectedId, outgoing[0].SuccessorId, type);
+
+            return false;
         }
 
         private void OpenTaskProperties(int taskId)
@@ -655,6 +767,7 @@ namespace MyProject.Forms
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
                 _model.IsModified = true;
+                _model.NotifyViewsChanged();
                 ganttChartControl.Invalidate();
                 taskGridControl.Invalidate();
                 UpdateTitleBar();
@@ -699,13 +812,13 @@ namespace MyProject.Forms
                         }
                         catch (Exception ex)
                         {
-                            ExceptionHandler.Show(this, "Open File Error", "Could not open the exported file.", ex);
+                            ErrorDialog.Show(this, "Open File Error", ex);
                         }
                     });
             }
             catch (Exception ex)
             {
-                ExceptionHandler.Show(this, "Export Error", "Could not export the Excel report.", ex);
+                ErrorDialog.Show(this, "Export Error", ex);
             }
         }
 
@@ -745,13 +858,13 @@ namespace MyProject.Forms
                         }
                         catch (Exception ex)
                         {
-                            ExceptionHandler.Show(this, "Open File Error", "Could not open the exported file.", ex);
+                            ErrorDialog.Show(this, "Open File Error", ex);
                         }
                     });
             }
             catch (Exception ex)
             {
-                ExceptionHandler.Show(this, "Export Error", "Could not export the Markdown report.", ex);
+                ErrorDialog.Show(this, "Export Error", ex);
             }
         }
 
@@ -783,7 +896,7 @@ namespace MyProject.Forms
             }
             catch (Exception ex)
             {
-                ExceptionHandler.Show(this, "Print Error", "Could not print the schedule.", ex);
+                ErrorDialog.Show(this, "Print Error", ex);
             }
         }
 
@@ -795,7 +908,7 @@ namespace MyProject.Forms
             }
             catch (Exception ex)
             {
-                ExceptionHandler.Show(this, "Print Error", "Could not render the print page.", ex);
+                ErrorDialog.Show(this, "Print Error", ex);
                 e.Cancel = true;
             }
         }

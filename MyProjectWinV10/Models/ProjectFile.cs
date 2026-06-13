@@ -89,8 +89,38 @@ namespace MyProject.Models
                     TaskId = a.TaskId,
                     ResourceName = a.ResourceName,
                     AllocationPercent = a.AllocationPercent
-                }).ToList()
+                }).ToList(),
+                Settings = ToSettingsData(model.ViewSettings)
             };
+        }
+
+        private static SettingsData ToSettingsData(ProjectViewSettings settings) => new()
+        {
+            TaskGridColumnWidths = settings.TaskGridColumnWidths,
+            DefaultDependencyType = settings.DefaultDependencyType.ToString(),
+            DayWidth = settings.DayWidth,
+            SplitterDistance = settings.SplitterDistance
+        };
+
+        private static ProjectViewSettings FromSettingsData(SettingsData? data)
+        {
+            if (data == null)
+                return ProjectViewSettings.CreateDefault();
+
+            var settings = ProjectViewSettings.CreateDefault();
+            if (data.TaskGridColumnWidths is { Length: 7 })
+                settings.TaskGridColumnWidths = ProjectViewSettings.SanitizeColumnWidths(data.TaskGridColumnWidths);
+
+            if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
+                settings.DefaultDependencyType = depType;
+
+            if (data.DayWidth is >= 4 and <= 120)
+                settings.DayWidth = data.DayWidth;
+
+            if (data.SplitterDistance is >= 200 and <= 2000)
+                settings.SplitterDistance = data.SplitterDistance;
+
+            return settings;
         }
 
         private static ProjectModel FromData(ProjectFileData data, string path)
@@ -99,6 +129,7 @@ namespace MyProject.Models
             {
                 ProjectName = data.ProjectName,
                 ProjectStart = data.ProjectStart,
+                ViewSettings = FromSettingsData(data.Settings),
                 FilePath = path,
                 IsModified = false
             };
@@ -119,6 +150,15 @@ namespace MyProject.Models
             public List<TaskData> Tasks { get; set; } = new();
             public List<DependencyData> Dependencies { get; set; } = new();
             public List<AssignmentData> Assignments { get; set; } = new();
+            public SettingsData? Settings { get; set; }
+        }
+
+        private sealed class SettingsData
+        {
+            public int[]? TaskGridColumnWidths { get; set; }
+            public string DefaultDependencyType { get; set; } = "FS";
+            public int DayWidth { get; set; } = 22;
+            public int SplitterDistance { get; set; } = 560;
         }
 
         internal sealed class TaskData

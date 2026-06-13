@@ -62,6 +62,12 @@ namespace MyProject.Rendering
             ViewStartDate = date.AddDays(-days);
         }
 
+        public void ApplyDayWidth(int dayWidth)
+        {
+            DayWidth = dayWidth;
+            UpdateZoomLevel();
+        }
+
         public void ScrollToDate(DateTime date)
         {
             ViewStartDate = date.AddDays(-3);

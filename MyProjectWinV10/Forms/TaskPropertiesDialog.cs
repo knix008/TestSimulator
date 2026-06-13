@@ -314,10 +314,9 @@ namespace MyProject.Forms
                 string? val = e.FormattedValue?.ToString();
                 if (!string.IsNullOrEmpty(val) && (!double.TryParse(val, out double d) || d < 0 || d > 100))
                 {
-                    ErrorDialog.Show(this,
-                        "Invalid Input",
-                        "Allocation percent must be a number between 0 and 100.",
-                        $"Entered value: {val}");
+                    MessageBox.Show(
+                        $"Allocation percent must be a number between 0 and 100.\nEntered value: {val}",
+                        "Invalid Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     e.Cancel = true;
                 }
             };
@@ -399,16 +398,16 @@ namespace MyProject.Forms
                 total += pct;
                 if (total > 100)
                 {
-                    ErrorDialog.Show(this,
-                        "Allocation Warning",
-                        "Total resource allocation exceeds 100%.",
-                        $"Current total: {total:0}%\nRemaining assignments were not saved.");
+                    MessageBox.Show(
+                        $"Total resource allocation exceeds 100%.\nCurrent total: {total:0}%\nRemaining assignments were not saved.",
+                        "Allocation Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     break;
                 }
                 _model.AddAssignment(_task.Id, name, pct);
             }
 
             _task.AssignedTo = _model.GetTaskAssigneeDisplay(_task.Id);
+            _model.NotifyViewsChanged();
         }
 
         private double GetGridTotal()

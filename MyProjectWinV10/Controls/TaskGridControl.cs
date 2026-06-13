@@ -42,9 +42,21 @@ namespace MyProject.Controls
         public event EventHandler<int>? TaskSelected;
         public event EventHandler<int>? TaskDoubleClicked;
         public event EventHandler? ScrollChanged;
+        public event EventHandler? ColumnWidthsChanged;
         public event EventHandler<ContextMenuRequestEventArgs>? ContextMenuRequested;
 
         public int ScrollOffsetY => _scrollY;
+
+        public int[] GetColumnWidths() => (int[])_colWidths.Clone();
+
+        public void ApplyColumnWidths(int[] widths)
+        {
+            var sanitized = ProjectViewSettings.SanitizeColumnWidths(widths);
+            for (int i = 0; i < _colWidths.Length; i++)
+                _colWidths[i] = sanitized[i];
+            UpdateHScrollbar();
+            Invalidate();
+        }
 
         public TaskGridControl()
         {
@@ -152,8 +164,7 @@ namespace MyProject.Controls
             }
             catch (Exception ex)
             {
-                if (!ExceptionHandler.IsShuttingDown)
-                    ExceptionHandler.Show(FindForm(), "Draw Error", "Could not draw the task grid.", ex);
+                ErrorDialog.Show(FindForm(), "Draw Error", ex);
             }
         }
 
@@ -339,20 +350,28 @@ namespace MyProject.Controls
                 var tasks = _model.Tasks.ToList();
                 int midY = rowY + AppTheme.RowHeight / 2;
                 int level = task.IndentLevel;
-                int x = treeLeft + (level - 1) * TreeIndent + 7;
-                bool siblingBelow = HasSiblingBelow(tasks, taskIndex);
 
                 using var linePen = new Pen(AppTheme.GridLineColor);
+
+                // For each ancestor level, draw a full vertical continuation line
+                // if that ancestor still has siblings below the current task.
+                for (int ancestorLevel = 1; ancestorLevel < level; ancestorLevel++)
+                {
+                    if (HasSiblingBelowAtLevel(tasks, taskIndex, ancestorLevel))
+                    {
+                        int ax = treeLeft + (ancestorLevel - 1) * TreeIndent + 7;
+                        g.DrawLine(linePen, ax, rowY, ax, rowY + AppTheme.RowHeight);
+                    }
+                }
+
+                // Draw the connector for this task's own level.
+                int x = treeLeft + (level - 1) * TreeIndent + 7;
+                bool siblingBelow = HasSiblingBelow(tasks, taskIndex);
                 if (siblingBelow)
-                {
                     g.DrawLine(linePen, x, rowY, x, rowY + AppTheme.RowHeight);
-                    g.DrawLine(linePen, x, midY, x + 8, midY);
-                }
                 else
-                {
                     g.DrawLine(linePen, x, rowY, x, midY);
-                    g.DrawLine(linePen, x, midY, x + 8, midY);
-                }
+                g.DrawLine(linePen, x, midY, x + 8, midY);
             }
 
             int contentX = treeLeft + task.IndentLevel * TreeIndent;
@@ -371,13 +390,19 @@ namespace MyProject.Controls
             int level = tasks[taskIndex].IndentLevel;
             for (int i = taskIndex + 1; i < tasks.Count; i++)
             {
-                if (tasks[i].IndentLevel < level)
-                    return false;
-
-                if (tasks[i].IndentLevel == level)
-                    return true;
+                if (tasks[i].IndentLevel < level) return false;
+                if (tasks[i].IndentLevel == level) return true;
             }
+            return false;
+        }
 
+        private static bool HasSiblingBelowAtLevel(List<ProjectTask> tasks, int taskIndex, int level)
+        {
+            for (int i = taskIndex + 1; i < tasks.Count; i++)
+            {
+                if (tasks[i].IndentLevel < level) return false;
+                if (tasks[i].IndentLevel == level) return true;
+            }
             return false;
         }
 
@@ -750,6 +775,7 @@ namespace MyProject.Controls
             _resizeColumnIndex = -1;
             Capture = false;
             AppSettings.RememberTaskGridColumnWidths(_colWidths);
+            ColumnWidthsChanged?.Invoke(this, EventArgs.Empty);
             Invalidate();
         }
 

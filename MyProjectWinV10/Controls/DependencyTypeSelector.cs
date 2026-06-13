@@ -100,8 +100,7 @@ namespace MyProject.Controls
             }
             catch (Exception ex)
             {
-                if (!ExceptionHandler.IsShuttingDown)
-                    ExceptionHandler.Show(FindForm(), "Draw Error", "Could not draw dependency line preview.", ex);
+                ErrorDialog.Show(FindForm(), "Draw Error", ex);
             }
         }
 

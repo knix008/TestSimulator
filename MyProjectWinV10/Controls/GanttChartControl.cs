@@ -41,6 +41,7 @@ namespace MyProject.Controls
         public event EventHandler? ModelChanged;
         public event EventHandler<int>? ScrollYChanged;
         public event EventHandler<ContextMenuRequestEventArgs>? ContextMenuRequested;
+        public event EventHandler? ViewZoomChanged;
 
         public GanttViewport Viewport => _viewport;
         public int SelectedTaskId => _selectedTaskId;
@@ -145,9 +146,29 @@ namespace MyProject.Controls
             Invalidate();
         }
 
-        public void ZoomIn() { _viewport.ZoomIn(); UpdateScrollbars(); Invalidate(); }
-        public void ZoomOut() { _viewport.ZoomOut(); UpdateScrollbars(); Invalidate(); }
+        public void ZoomIn()
+        {
+            _viewport.ZoomIn();
+            UpdateScrollbars();
+            Invalidate();
+            ViewZoomChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void ZoomOut()
+        {
+            _viewport.ZoomOut();
+            UpdateScrollbars();
+            Invalidate();
+            ViewZoomChanged?.Invoke(this, EventArgs.Empty);
+        }
         public void GoToToday() { _viewport.ScrollToDate(DateTime.Today); Invalidate(); }
+
+        public void ApplyDayWidth(int dayWidth)
+        {
+            _viewport.ApplyDayWidth(dayWidth);
+            UpdateScrollbars();
+            Invalidate();
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -175,8 +196,7 @@ namespace MyProject.Controls
             }
             catch (Exception ex)
             {
-                if (!ExceptionHandler.IsShuttingDown)
-                    ExceptionHandler.Show(FindForm(), "Draw Error", "Could not draw the Gantt chart.", ex);
+                ErrorDialog.Show(FindForm(), "Draw Error", ex);
             }
         }
 

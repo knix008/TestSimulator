@@ -16,4 +16,8 @@
     <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
     <PackageReference Include="WixToolset.Util.wixext" Version="4.0.5" />
   </ItemGroup>
+
+  <Target Name="ReportMsiOutput" AfterTargets="Build">
+    <Message Importance="high" Text="MSI created: $(TargetPath)" Condition="Exists('$(TargetPath)')" />
+  </Target>
 </Project>

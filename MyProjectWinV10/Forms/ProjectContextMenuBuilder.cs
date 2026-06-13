@@ -158,27 +158,15 @@ namespace MyProject.Forms
 
         private static void RunMenuAction(ContextMenuStrip menu, Action action)
         {
-            if (ExceptionHandler.IsShuttingDown)
-                return;
-
-            Control? host = menu.SourceControl ?? menu.Tag as Control;
-
-            if (host != null && !host.IsDisposed && host.IsHandleCreated)
+            try
             {
-                try
-                {
-                    host.BeginInvoke(action);
-                    return;
-                }
-                catch (ObjectDisposedException)
-                {
-                }
-                catch (InvalidOperationException)
-                {
-                }
+                action();
             }
-
-            action();
+            catch (Exception ex)
+            {
+                var host = menu.SourceControl ?? menu.Tag as Control;
+                ErrorDialog.Show(host?.FindForm(), "Menu Action Error", ex);
+            }
         }
     }
 }

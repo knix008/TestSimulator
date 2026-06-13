@@ -41,7 +41,9 @@ namespace MyProject.Rendering
             Color barColor = task.BarColor != Color.Empty ? task.BarColor
                            : task.IsCritical ? AppTheme.TaskBarCritical
                            : AppTheme.TaskBarNormal;
-            Color progressColor = task.IsCritical ? AppTheme.TaskBarCriticalProgress : AppTheme.TaskBarProgress;
+            Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor
+                                : task.IsCritical ? AppTheme.TaskBarCriticalProgress
+                                : AppTheme.TaskBarProgress;
 
             // Drop shadow
             using var shadowBrush = new SolidBrush(Color.FromArgb(30, 0, 0, 0));
@@ -119,13 +121,14 @@ namespace MyProject.Rendering
                 new(x, barY + barH / 2)
             };
 
-            using var brush = new SolidBrush(isSelected ? AppTheme.AccentDark : AppTheme.TaskBarSummary);
+            using var brush = new SolidBrush(GetSummaryBarColor(task, isSelected));
             g.FillPolygon(brush, pts);
 
             if (task.Progress > 0)
             {
                 int progressWidth = (int)(width * task.Progress / 100.0);
-                using var progressBrush = new SolidBrush(Color.FromArgb(180, AppTheme.AccentLight));
+                Color progressColor = task.ProgressColor != Color.Empty ? task.ProgressColor : AppTheme.AccentLight;
+                using var progressBrush = new SolidBrush(Color.FromArgb(180, progressColor));
                 g.FillRectangle(progressBrush, x, barY + 2, progressWidth, barH - 4);
             }
 
@@ -150,12 +153,11 @@ namespace MyProject.Rendering
             var shadowDiamond = diamond.Select(p => new Point(p.X + 1, p.Y + 2)).ToArray();
             g.FillPolygon(shadowBrush, shadowDiamond);
 
-            using var brush = new SolidBrush(isSelected ? AppTheme.AccentDark
-                                             : isHovered ? LightenColor(AppTheme.TaskBarMilestone, 20)
-                                             : AppTheme.TaskBarMilestone);
+            using var brush = new SolidBrush(GetMilestoneColor(task, isSelected, isHovered));
             g.FillPolygon(brush, diamond);
 
-            using var pen = new Pen(DarkenColor(AppTheme.TaskBarMilestone, 40), isSelected ? 2f : 1f);
+            Color borderBase = task.BarColor != Color.Empty ? task.BarColor : AppTheme.TaskBarMilestone;
+            using var pen = new Pen(DarkenColor(borderBase, 40), isSelected ? 2f : 1f);
             g.DrawPolygon(pen, diamond);
 
             if (isSelected)
@@ -175,6 +177,20 @@ namespace MyProject.Rendering
             using var brush = new SolidBrush(AppTheme.TextSecondary);
             var sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
             g.DrawString(assigneeText, AppTheme.FontSmall, brush, textRect, sf);
+        }
+
+        private static Color GetSummaryBarColor(ProjectTask task, bool isSelected)
+        {
+            if (isSelected) return AppTheme.AccentDark;
+            if (task.BarColor != Color.Empty) return task.BarColor;
+            return AppTheme.TaskBarSummary;
+        }
+
+        private static Color GetMilestoneColor(ProjectTask task, bool isSelected, bool isHovered)
+        {
+            if (isSelected) return AppTheme.AccentDark;
+            Color baseColor = task.BarColor != Color.Empty ? task.BarColor : AppTheme.TaskBarMilestone;
+            return isHovered ? LightenColor(baseColor, 20) : baseColor;
         }
 
         public Rectangle GetTaskBarRect(ProjectTask task, int rowY)
