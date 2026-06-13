@@ -655,17 +655,7 @@ static void dot_draw_func(GtkDrawingArea *area, cairo_t *cr,
 static void resize_overlay_draw_func(GtkDrawingArea *area, cairo_t *cr,
                                      int width, int height, gpointer data)
 {
-    AppState *state = (AppState *)data;
-    (void)area;
-    if (!state->is_resize_hint) return;
-
-    /* Dashed semi-transparent border around the window edge */
-    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.25);
-    cairo_set_line_width(cr, 2.0);
-    double dashes[] = { 6.0, 4.0 };
-    cairo_set_dash(cr, dashes, 2, 0.0);
-    cairo_rectangle(cr, 1, 1, width - 2, height - 2);
-    cairo_stroke(cr);
+    (void)area; (void)cr; (void)width; (void)height; (void)data;
 }
 
 /* ── Analog clock draw callback ─────────────────────────────────────────── */
@@ -757,7 +747,13 @@ static void on_hover_enter(GtkEventControllerMotion *ctrl,
     (void)ctrl; (void)x; (void)y;
     AppState *state = (AppState *)data;
     state->is_hovered = TRUE;
-    state->manual_resizing = FALSE;  /* clear any lingering Wayland resize state */
+    /* Clear lingering Wayland resize state; on X11 on_left_release handles this */
+#ifdef GDK_WINDOWING_X11
+    if (!GDK_IS_X11_DISPLAY(gdk_display_get_default()))
+        state->manual_resizing = FALSE;
+#else
+    state->manual_resizing = FALSE;
+#endif
     gtk_widget_set_opacity(state->main_window, 1.0);
     if (state->chrome_box)
         gtk_widget_set_visible(state->chrome_box, TRUE);
@@ -771,14 +767,11 @@ static void on_hover_leave(GtkEventControllerMotion *ctrl, gpointer data)
     AppState *state = (AppState *)data;
     if (state->manual_resizing) return;
     state->is_hovered = FALSE;
-    state->is_resize_hint = FALSE;
     gtk_widget_set_opacity(state->main_window, 0.0);
     if (state->chrome_box)
         gtk_widget_set_visible(state->chrome_box, FALSE);
     if (state->analog_area)
         gtk_widget_queue_draw(state->analog_area);
-    if (state->resize_overlay)
-        gtk_widget_queue_draw(state->resize_overlay);
 }
 
 static void on_motion(GtkEventControllerMotion *ctrl,
@@ -881,13 +874,6 @@ static void on_motion(GtkEventControllerMotion *ctrl,
         cname = "grab";
     }
     gtk_widget_set_cursor_from_name(state->main_window, cname);
-
-    /* Show/hide resize silhouette */
-    if ((gboolean)state->is_resize_hint != on_edge) {
-        state->is_resize_hint = on_edge;
-        if (state->resize_overlay)
-            gtk_widget_queue_draw(state->resize_overlay);
-    }
 }
 
 /* ── Geometry save helper ───────────────────────────────────────────────── */
@@ -1094,10 +1080,6 @@ static void on_left_release(GtkGestureClick *gesture, int n_press,
     if (was_resizing) {
         save_current_geometry(state);
         settings_save(&state->settings);
-        /* Always clear the resize hint when a resize ends */
-        state->is_resize_hint = FALSE;
-        if (state->resize_overlay)
-            gtk_widget_queue_draw(state->resize_overlay);
     }
 
     /* After a resize, on_hover_leave was frozen by manual_resizing.
@@ -1133,15 +1115,12 @@ static void on_left_release(GtkGestureClick *gesture, int n_press,
     }
 
     if (outside) {
-        state->is_hovered     = FALSE;
-        state->is_resize_hint = FALSE;
+        state->is_hovered = FALSE;
         gtk_widget_set_opacity(state->main_window, 0.0);
         if (state->chrome_box)
             gtk_widget_set_visible(state->chrome_box, FALSE);
         if (state->analog_area)
             gtk_widget_queue_draw(state->analog_area);
-        if (state->resize_overlay)
-            gtk_widget_queue_draw(state->resize_overlay);
     }
 }
 

@@ -278,12 +278,11 @@ gboolean calendar_event_dialog_run(GtkWindow    *parent,
         if (!gdk_rgba_parse(&rgba, init_color))
             gdk_rgba_parse(&rgba, "#4285F4");
 
-        GtkColorDialog *cdlg = gtk_color_dialog_new();
-        gtk_color_dialog_set_title(cdlg, "일정 색상 선택");
-        gtk_color_dialog_set_with_alpha(cdlg, FALSE);
-        ui.color_btn = gtk_color_dialog_button_new(cdlg);
-        g_object_unref(cdlg);
-        gtk_color_dialog_button_set_rgba(GTK_COLOR_DIALOG_BUTTON(ui.color_btn), &rgba);
+        G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+        ui.color_btn = gtk_color_button_new_with_rgba(&rgba);
+        gtk_color_button_set_title(GTK_COLOR_BUTTON(ui.color_btn), "일정 색상 선택");
+        gtk_color_chooser_set_use_alpha(GTK_COLOR_CHOOSER(ui.color_btn), FALSE);
+        G_GNUC_END_IGNORE_DEPRECATIONS
         gtk_box_append(GTK_BOX(row), ui.color_btn);
         gtk_box_append(GTK_BOX(vbox), row);
     }
@@ -437,14 +436,23 @@ gboolean calendar_event_dialog_run(GtkWindow    *parent,
         g_free(memo);
 
         /* Collect color from color button */
-        const GdkRGBA *cp = gtk_color_dialog_button_get_rgba(
-                                GTK_COLOR_DIALOG_BUTTON(ui.color_btn));
-        GdkRGBA rgba = cp ? *cp : (GdkRGBA){ 0.259, 0.522, 0.957, 1.0 };
+        GdkRGBA rgba = { 0.259, 0.522, 0.957, 1.0 };
+        G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+        gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(ui.color_btn), &rgba);
+        G_GNUC_END_IGNORE_DEPRECATIONS
         snprintf(event->color, sizeof(event->color), "#%02x%02x%02x",
                  (int)(rgba.red   * 255.0 + 0.5),
                  (int)(rgba.green * 255.0 + 0.5),
                  (int)(rgba.blue  * 255.0 + 0.5));
     }
+
+    /* Unparent date-picker popovers before window destruction.
+       gtk_widget_set_parent attaches them as children of their button;
+       GTK warns if a button is finalized while it still has children. */
+    if (ui.dp_start.popover)
+        gtk_widget_unparent(ui.dp_start.popover);
+    if (ui.dp_end.popover)
+        gtk_widget_unparent(ui.dp_end.popover);
 
     /* Now safe to destroy */
     gtk_window_destroy(GTK_WINDOW(win));

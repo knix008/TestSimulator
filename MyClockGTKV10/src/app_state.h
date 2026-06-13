@@ -237,9 +237,6 @@ struct AppState {
     /* Hover state (used to show/hide clock border) */
     bool   is_hovered;
 
-    /* Resize hint state: TRUE when mouse is over a resize edge */
-    bool   is_resize_hint;
-
     /* Overlay drawing area for resize silhouette */
     GtkWidget *resize_overlay;
 
