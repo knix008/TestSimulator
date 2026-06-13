@@ -22,6 +22,12 @@
     <PackageReference Include="ClosedXML" Version="0.104.2" />
   </ItemGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <!-- Prevents DotNetDeltaApplier.dll from loading its named pipe to VS,
+         which can block VS UI thread cleanup when the debugged process exits. -->
+    <HotReloadEnabled>false</HotReloadEnabled>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
