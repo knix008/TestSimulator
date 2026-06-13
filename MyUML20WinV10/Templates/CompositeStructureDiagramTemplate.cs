@@ -30,8 +30,18 @@ public static class CompositeStructureDiagramTemplate
 
         var frameNode = UmlTemplateBuilder.AddNode(diagram, frame.Id, UmlNodePresentation.Classifier, 80, 60, 320, 200);
         frameNode.ShowCompartments = true;
+
         var portSize = UmlComponentNotation.DefaultPortNodeSize;
-        var portNode = UmlTemplateBuilder.AddNode(diagram, port.Id, UmlNodePresentation.Port, 352, 96, portSize, portSize);
+        var frameBounds = frameNode.Bounds;
+        var portAnchor = new PointF(frameBounds.Right, frameBounds.Top + frameBounds.Height * 0.42f);
+        UmlTemplateBuilder.AddNode(
+            diagram,
+            port.Id,
+            UmlNodePresentation.Port,
+            portAnchor.X,
+            portAnchor.Y - portSize / 2f,
+            portSize,
+            portSize);
 
         UmlTemplateBuilder.AddEdge(diagram, connector.Id, frameNode, frameNode);
         return diagram;

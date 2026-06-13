@@ -17,12 +17,12 @@
       {
         "name": "App Server",
         "displayLabel": "App Server",
-        "id": "1120fe00-07f4-4759-ae65-1e018b46027f"
+        "id": "1a2d1323-aa7d-422f-a374-3d8bedeb0cc8"
       },
       {
         "name": "DB Server",
         "displayLabel": "DB Server",
-        "id": "1f748810-fa46-4867-949f-1dbe19984a68"
+        "id": "2c168cc4-952a-49b1-bc21-f894487b9c30"
       }
     ],
     "artifacts": [
@@ -30,13 +30,13 @@
         "isInstance": false,
         "name": "shop.war",
         "displayLabel": "shop.war",
-        "id": "de185d9d-6fa2-4ec8-91cd-15a6dc5e9e97"
+        "id": "bc89419c-3ee7-457a-9be8-3ecae34ca2fc"
       },
       {
         "isInstance": false,
         "name": "shopdb.jar",
         "displayLabel": "shopdb.jar",
-        "id": "1b0e3e4e-4263-4b71-8b42-aae2b439b9a2"
+        "id": "6a093f0f-6bb6-4015-9d66-fe39defdee80"
       }
     ],
     "relationships": [
@@ -44,19 +44,19 @@
         "$relationshipKind": "deploymentLink",
         "relationshipKind": "Deployment",
         "displayLabel": "\u00ABdeploy\u00BB",
-        "sourceClassifierId": "de185d9d-6fa2-4ec8-91cd-15a6dc5e9e97",
-        "targetClassifierId": "1120fe00-07f4-4759-ae65-1e018b46027f",
+        "sourceClassifierId": "bc89419c-3ee7-457a-9be8-3ecae34ca2fc",
+        "targetClassifierId": "1a2d1323-aa7d-422f-a374-3d8bedeb0cc8",
         "name": null,
-        "id": "6b4852c2-56c3-4ec1-aa70-d348693a307a"
+        "id": "115cbc25-7c37-4fb9-9392-8f2dc09285c7"
       },
       {
         "$relationshipKind": "deploymentLink",
         "relationshipKind": "Deployment",
         "displayLabel": "\u00ABdeploy\u00BB",
-        "sourceClassifierId": "1b0e3e4e-4263-4b71-8b42-aae2b439b9a2",
-        "targetClassifierId": "1f748810-fa46-4867-949f-1dbe19984a68",
+        "sourceClassifierId": "6a093f0f-6bb6-4015-9d66-fe39defdee80",
+        "targetClassifierId": "2c168cc4-952a-49b1-bc21-f894487b9c30",
         "name": null,
-        "id": "f2ef6c36-7fcf-463a-8c6c-66d3607463ea"
+        "id": "6d74e123-dd40-44f8-8a4a-f640a3bb1022"
       },
       {
         "$relationshipKind": "deploymentPath",
@@ -64,53 +64,53 @@
         "bandwidth": "",
         "relationshipKind": "DeploymentPath",
         "displayLabel": "JDBC",
-        "sourceClassifierId": "1120fe00-07f4-4759-ae65-1e018b46027f",
-        "targetClassifierId": "1f748810-fa46-4867-949f-1dbe19984a68",
+        "sourceClassifierId": "1a2d1323-aa7d-422f-a374-3d8bedeb0cc8",
+        "targetClassifierId": "2c168cc4-952a-49b1-bc21-f894487b9c30",
         "name": "JDBC",
-        "id": "35310721-8c0c-4485-b041-45a925633648"
+        "id": "040a22b3-fd1b-49e1-894d-5db16228c439"
       }
     ],
     "ownedElements": [
       {
-        "id": "1120fe00-07f4-4759-ae65-1e018b46027f",
+        "id": "1a2d1323-aa7d-422f-a374-3d8bedeb0cc8",
         "displayLabel": "App Server"
       },
       {
-        "id": "1f748810-fa46-4867-949f-1dbe19984a68",
+        "id": "2c168cc4-952a-49b1-bc21-f894487b9c30",
         "displayLabel": "DB Server"
       },
       {
-        "id": "de185d9d-6fa2-4ec8-91cd-15a6dc5e9e97",
+        "id": "bc89419c-3ee7-457a-9be8-3ecae34ca2fc",
         "displayLabel": "shop.war"
       },
       {
-        "id": "1b0e3e4e-4263-4b71-8b42-aae2b439b9a2",
+        "id": "6a093f0f-6bb6-4015-9d66-fe39defdee80",
         "displayLabel": "shopdb.jar"
       },
       {
-        "id": "6b4852c2-56c3-4ec1-aa70-d348693a307a",
+        "id": "115cbc25-7c37-4fb9-9392-8f2dc09285c7",
         "displayLabel": "\u00ABdeploy\u00BB"
       },
       {
-        "id": "f2ef6c36-7fcf-463a-8c6c-66d3607463ea",
+        "id": "6d74e123-dd40-44f8-8a4a-f640a3bb1022",
         "displayLabel": "\u00ABdeploy\u00BB"
       },
       {
-        "id": "35310721-8c0c-4485-b041-45a925633648",
+        "id": "040a22b3-fd1b-49e1-894d-5db16228c439",
         "displayLabel": "JDBC"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "11b3158c-a3d6-469d-b492-95edeff98635"
+    "id": "b597a632-e6e2-4be7-8f3f-987529227fa4"
   },
   "diagrams": [
     {
       "kind": "deploymentDiagram",
       "nodes": [
         {
-          "id": "4a6b06dd-9d3f-4848-b87e-f3db5ad0ddf7",
-          "modelElementId": "1120fe00-07f4-4759-ae65-1e018b46027f",
+          "id": "1533a27e-9d01-46c9-9009-ce775aa96ead",
+          "modelElementId": "1a2d1323-aa7d-422f-a374-3d8bedeb0cc8",
           "presentation": "deploymentHost",
           "x": 80,
           "y": 120,
@@ -145,8 +145,8 @@
           }
         },
         {
-          "id": "28b7d562-86a6-493e-befc-02dfb0a18a0c",
-          "modelElementId": "1f748810-fa46-4867-949f-1dbe19984a68",
+          "id": "ee88c327-0137-4c13-98d5-07b39ddfc484",
+          "modelElementId": "2c168cc4-952a-49b1-bc21-f894487b9c30",
           "presentation": "deploymentHost",
           "x": 320,
           "y": 120,
@@ -181,8 +181,8 @@
           }
         },
         {
-          "id": "a9cdc393-528b-4776-9ac8-1b5ec2f9caab",
-          "modelElementId": "de185d9d-6fa2-4ec8-91cd-15a6dc5e9e97",
+          "id": "1b1935bc-7eca-4ccb-aa35-7951c28f1f0c",
+          "modelElementId": "bc89419c-3ee7-457a-9be8-3ecae34ca2fc",
           "presentation": "artifact",
           "x": 100,
           "y": 260,
@@ -217,8 +217,8 @@
           }
         },
         {
-          "id": "7f5c1064-10b6-4d33-8ec4-027bb51088a3",
-          "modelElementId": "1b0e3e4e-4263-4b71-8b42-aae2b439b9a2",
+          "id": "bfcc9225-bde5-47ac-99c6-d6208724d92a",
+          "modelElementId": "6a093f0f-6bb6-4015-9d66-fe39defdee80",
           "presentation": "artifact",
           "x": 340,
           "y": 260,
@@ -255,30 +255,30 @@
       ],
       "edges": [
         {
-          "id": "32623b4d-433a-437f-a933-12f460218e5c",
-          "modelElementId": "6b4852c2-56c3-4ec1-aa70-d348693a307a",
-          "sourceNodeId": "a9cdc393-528b-4776-9ac8-1b5ec2f9caab",
-          "targetNodeId": "4a6b06dd-9d3f-4848-b87e-f3db5ad0ddf7",
+          "id": "7e6f61b7-9439-47aa-b5d1-06c01ac953a0",
+          "modelElementId": "115cbc25-7c37-4fb9-9392-8f2dc09285c7",
+          "sourceNodeId": "1b1935bc-7eca-4ccb-aa35-7951c28f1f0c",
+          "targetNodeId": "1533a27e-9d01-46c9-9009-ce775aa96ead",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "5f405892-5a45-474c-a6ce-cce64be40fb3",
-          "modelElementId": "f2ef6c36-7fcf-463a-8c6c-66d3607463ea",
-          "sourceNodeId": "7f5c1064-10b6-4d33-8ec4-027bb51088a3",
-          "targetNodeId": "28b7d562-86a6-493e-befc-02dfb0a18a0c",
+          "id": "ef56f780-6234-4b0d-bc88-829f4d335351",
+          "modelElementId": "6d74e123-dd40-44f8-8a4a-f640a3bb1022",
+          "sourceNodeId": "bfcc9225-bde5-47ac-99c6-d6208724d92a",
+          "targetNodeId": "ee88c327-0137-4c13-98d5-07b39ddfc484",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "26ed2e9f-8fc5-42b9-a970-20ec89d96adf",
-          "modelElementId": "35310721-8c0c-4485-b041-45a925633648",
-          "sourceNodeId": "4a6b06dd-9d3f-4848-b87e-f3db5ad0ddf7",
-          "targetNodeId": "28b7d562-86a6-493e-befc-02dfb0a18a0c",
+          "id": "f6c3685f-34ee-44a1-b662-1830c50b3b09",
+          "modelElementId": "040a22b3-fd1b-49e1-894d-5db16228c439",
+          "sourceNodeId": "1533a27e-9d01-46c9-9009-ce775aa96ead",
+          "targetNodeId": "ee88c327-0137-4c13-98d5-07b39ddfc484",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -287,7 +287,7 @@
       ],
       "name": "Deployment Diagram",
       "displayLabel": "Deployment Diagram",
-      "id": "f2ea9767-d123-4945-995d-c2c0ea7cf79d"
+      "id": "df632d9b-2a72-4ac2-a415-c564a778ddcc"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

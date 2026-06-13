@@ -11,14 +11,6 @@ public static class ComponentDiagramTemplate
 {
     public const string Id = "component-diagram";
 
-    private const float InterfaceW = 88f;
-    private const float InterfaceH = UmlComponentNotation.MinInterfaceHeight;
-    private const float PortSize = UmlComponentNotation.DefaultPortNodeSize;
-    private const float CompactComponentW = 220f;
-    private const float CompactComponentH = 110f;
-    private const float MainComponentW = UmlComponentNotation.DefaultComponentWidth;
-    private const float MainComponentH = UmlComponentNotation.DefaultComponentHeight;
-
     public static UmlDiagram Build(UmlProject project)
     {
         var diagram = new UmlDiagram { Name = "Component Diagram", Kind = UmlDiagramKind.ComponentDiagram };
@@ -94,40 +86,44 @@ public static class ComponentDiagramTemplate
         project.RootPackage.AddRelationship(asmOrderPayment);
         project.RootPackage.AddRelationship(asmOrderData);
 
+        var compactW = UmlComponentNotation.PlacementComponentWidth;
+        var compactH = UmlComponentNotation.PlacementComponentHeight;
+
         // 패키지를 먼저 추가해 뒤에 깔리도록 합니다 (draw.io: Send to back).
-        UmlTemplateBuilder.AddNode(diagram, systemPkg.Id, UmlNodePresentation.Package, 24, 24, 880, 500);
+        UmlTemplateBuilder.AddNode(diagram, systemPkg.Id, UmlNodePresentation.Package, 24, 24, 860, 480);
 
         var webNode = UmlTemplateBuilder.AddNode(
-            diagram, webClient.Id, UmlNodePresentation.Component, 56, 112, CompactComponentW, CompactComponentH);
+            diagram, webClient.Id, UmlNodePresentation.Component, 56, 116, compactW, compactH);
         var orderNode = UmlTemplateBuilder.AddNode(
-            diagram, orderService.Id, UmlNodePresentation.Component, 248, 72, MainComponentW, MainComponentH);
+            diagram, orderService.Id, UmlNodePresentation.Component, 280, 72,
+            UmlComponentNotation.DefaultComponentWidth, UmlComponentNotation.DefaultComponentHeight);
         var payNode = UmlTemplateBuilder.AddNode(
-            diagram, paymentGateway.Id, UmlNodePresentation.Component, 560, 56, CompactComponentW, CompactComponentH);
+            diagram, paymentGateway.Id, UmlNodePresentation.Component, 580, 56, compactW, compactH);
         var dbNode = UmlTemplateBuilder.AddNode(
-            diagram, dataStore.Id, UmlNodePresentation.Component, 560, 300, CompactComponentW, CompactComponentH);
+            diagram, dataStore.Id, UmlNodePresentation.Component, 580, 300, compactW, compactH);
 
-        var reqOrderNode = AddAttachedInterface(
+        var reqOrderNode = UmlTemplateBuilder.AttachInterface(
             diagram, reqOrder.Id, UmlNodePresentation.RequiredInterface,
             webNode, UmlComponentAttachmentEdge.Right, 0.48f);
-        var provOrderNode = AddAttachedInterface(
+        var provOrderNode = UmlTemplateBuilder.AttachInterface(
             diagram, provOrder.Id, UmlNodePresentation.ProvidedInterface,
             orderNode, UmlComponentAttachmentEdge.Left, 0.42f);
-        var reqPayNode = AddAttachedInterface(
+        var reqPayNode = UmlTemplateBuilder.AttachInterface(
             diagram, reqPayment.Id, UmlNodePresentation.RequiredInterface,
             orderNode, UmlComponentAttachmentEdge.Right, 0.38f);
-        var provPayNode = AddAttachedInterface(
+        var provPayNode = UmlTemplateBuilder.AttachInterface(
             diagram, provPayment.Id, UmlNodePresentation.ProvidedInterface,
             payNode, UmlComponentAttachmentEdge.Left, 0.5f);
-        var reqDataNode = AddAttachedInterface(
+        var reqDataNode = UmlTemplateBuilder.AttachInterface(
             diagram, reqData.Id, UmlNodePresentation.RequiredInterface,
             orderNode, UmlComponentAttachmentEdge.Bottom, 0.58f);
-        var provDataNode = AddAttachedInterface(
+        var provDataNode = UmlTemplateBuilder.AttachInterface(
             diagram, provData.Id, UmlNodePresentation.ProvidedInterface,
             dbNode, UmlComponentAttachmentEdge.Top, 0.5f);
 
-        AddAttachedPort(diagram, paymentPort.Id, orderNode, UmlComponentAttachmentEdge.Top, 0.68f);
+        UmlTemplateBuilder.AttachPort(diagram, paymentPort.Id, orderNode, UmlComponentAttachmentEdge.Top, 0.68f);
 
-        UmlTemplateBuilder.AddNode(diagram, note.Id, UmlNodePresentation.Note, 56, 328, 196, 88);
+        UmlTemplateBuilder.AddNode(diagram, note.Id, UmlNodePresentation.Note, 56, 320, 196, 88);
 
         UmlTemplateBuilder.AddEdge(diagram, asmWebOrder.Id, reqOrderNode, provOrderNode);
         UmlTemplateBuilder.AddEdge(diagram, asmOrderPayment.Id, reqPayNode, provPayNode);
@@ -144,44 +140,6 @@ public static class ComponentDiagramTemplate
             InterfaceName = provided.Name,
             SourceIsRequirer = true,
         };
-
-    private static UmlDiagramNode AddAttachedInterface(
-        UmlDiagram diagram,
-        Guid modelElementId,
-        UmlNodePresentation presentation,
-        UmlDiagramNode component,
-        UmlComponentAttachmentEdge edge,
-        float t)
-    {
-        var node = UmlTemplateBuilder.AddNode(diagram, modelElementId, presentation, 0, 0, InterfaceW, InterfaceH);
-        AttachToComponent(diagram, node, component, edge, t);
-        return node;
-    }
-
-    private static UmlDiagramNode AddAttachedPort(
-        UmlDiagram diagram,
-        Guid modelElementId,
-        UmlDiagramNode component,
-        UmlComponentAttachmentEdge edge,
-        float t)
-    {
-        var node = UmlTemplateBuilder.AddNode(diagram, modelElementId, UmlNodePresentation.Port, 0, 0, PortSize, PortSize);
-        AttachToComponent(diagram, node, component, edge, t);
-        return node;
-    }
-
-    private static void AttachToComponent(
-        UmlDiagram diagram,
-        UmlDiagramNode attachable,
-        UmlDiagramNode component,
-        UmlComponentAttachmentEdge edge,
-        float t)
-    {
-        attachable.AttachedComponentNodeId = component.Id;
-        attachable.AttachmentEdge = edge;
-        attachable.AttachmentT = t;
-        UmlComponentAttachment.ApplyPosition(diagram, attachable);
-    }
 
     public static UmlProject BuildProject()
     {

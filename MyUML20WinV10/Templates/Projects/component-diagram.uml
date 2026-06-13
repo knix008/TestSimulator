@@ -22,7 +22,7 @@
         "ownedElements": [],
         "name": "E-Commerce System",
         "displayLabel": "E-Commerce System",
-        "id": "f82878d6-3f58-4cbd-91e1-af59be43cbde"
+        "id": "5cf3349b-4d36-43f5-8f14-6de9c34a9d7c"
       }
     ],
     "classifiers": [],
@@ -34,7 +34,7 @@
         "body": "Note text",
         "name": "\u00ABdatabase\u00BB DataStore\r\nAssembly = Required \u2192 Provided\r\nPort = \uACBD\uACC4 \uC5F0\uACB0 \uD130\uB110",
         "displayLabel": "\u00ABdatabase\u00BB DataStore\r\nAssembly = Required \u2192 Provided\r\nPort = \uACBD\uACC4 \uC5F0\uACB0 \uD130\uB110",
-        "id": "6f635c0b-4e10-4bd4-a4f7-bb965b581d00"
+        "id": "534e2967-5bda-4016-a8b3-e313a41ee6f8"
       }
     ],
     "behaviorNodes": [],
@@ -43,25 +43,25 @@
         "fillColor": "#FFF8FCFF",
         "name": "WebClient",
         "displayLabel": "WebClient",
-        "id": "4a6ed5e0-1c4f-4c06-ae8c-a30ec6ff3e47"
+        "id": "6b3d04d9-e1ed-4cdf-b390-4f9f4533eaff"
       },
       {
         "fillColor": "#FFF8FCFF",
         "name": "OrderService",
         "displayLabel": "OrderService",
-        "id": "32f2c115-7d08-4334-a0df-5cf30c06eff9"
+        "id": "e5cfff94-bfeb-4e51-973f-cc236a020ad7"
       },
       {
         "fillColor": "#FFF8FCFF",
         "name": "PaymentGateway",
         "displayLabel": "PaymentGateway",
-        "id": "d6d0b385-cfb5-4441-af0d-c45c2af2480e"
+        "id": "775c17e2-28e5-48aa-bd72-cdf5e607583a"
       },
       {
         "fillColor": "#FFF8FCFF",
         "name": "DataStore",
         "displayLabel": "DataStore",
-        "id": "51f90243-0322-4c37-95b3-d8a842d4c73e"
+        "id": "6fe2ef37-dd46-4989-a07c-f487610d8e4f"
       }
     ],
     "componentInterfaces": [
@@ -69,37 +69,37 @@
         "interfaceKind": "required",
         "name": "IOrderService",
         "displayLabel": "IOrderService",
-        "id": "2b826203-807f-492f-bc4d-642becbd7347"
+        "id": "4da0a50f-1649-454f-92a4-aa277939276a"
       },
       {
         "interfaceKind": "provided",
         "name": "IOrderService",
         "displayLabel": "IOrderService",
-        "id": "b13878ad-4961-48e0-814c-ed74fa3dd9e5"
+        "id": "1ee4ddff-9843-4347-9935-b933b4cb8095"
       },
       {
         "interfaceKind": "required",
         "name": "IPayment",
         "displayLabel": "IPayment",
-        "id": "6c38b7ed-3d98-4fd7-81f0-02131c36bf53"
+        "id": "48bda0dc-f00b-4785-a7f4-42f6a039fca3"
       },
       {
         "interfaceKind": "provided",
         "name": "IPayment",
         "displayLabel": "IPayment",
-        "id": "dee625c9-d54e-4b78-8609-4bd008b79f89"
+        "id": "e02cce31-b5b3-46b3-b36d-4b59fea25c4a"
       },
       {
         "interfaceKind": "required",
         "name": "IDataAccess",
         "displayLabel": "IDataAccess",
-        "id": "877295de-df8e-4524-973c-a7cd5bbbce6a"
+        "id": "f8013e95-83a8-4da3-8f77-6baf42eaa03e"
       },
       {
         "interfaceKind": "provided",
         "name": "IDataAccess",
         "displayLabel": "IDataAccess",
-        "id": "2aaa2191-5ec6-48df-8968-e63454a9d584"
+        "id": "29af5be7-e66c-4873-9986-0a6deb7cc730"
       }
     ],
     "componentPorts": [
@@ -108,7 +108,7 @@
         "interfaceName": "IPayment",
         "name": "payment",
         "displayLabel": "payment",
-        "id": "4dd14e8e-517e-4938-b16f-8b04c21f9104"
+        "id": "f1cd7a67-ba3f-4d38-af18-382e3bba9359"
       }
     ],
     "objectInstances": [],
@@ -121,10 +121,10 @@
         "sourceIsRequirer": true,
         "relationshipKind": "Assembly",
         "displayLabel": "IOrderService",
-        "sourceClassifierId": "2b826203-807f-492f-bc4d-642becbd7347",
-        "targetClassifierId": "b13878ad-4961-48e0-814c-ed74fa3dd9e5",
+        "sourceClassifierId": "4da0a50f-1649-454f-92a4-aa277939276a",
+        "targetClassifierId": "1ee4ddff-9843-4347-9935-b933b4cb8095",
         "name": null,
-        "id": "069a66fb-831d-4c1b-b291-daec89378683"
+        "id": "3491e365-8ae6-45d2-932b-c6ee4cc453f4"
       },
       {
         "$relationshipKind": "assembly",
@@ -132,10 +132,10 @@
         "sourceIsRequirer": true,
         "relationshipKind": "Assembly",
         "displayLabel": "IPayment",
-        "sourceClassifierId": "6c38b7ed-3d98-4fd7-81f0-02131c36bf53",
-        "targetClassifierId": "dee625c9-d54e-4b78-8609-4bd008b79f89",
+        "sourceClassifierId": "48bda0dc-f00b-4785-a7f4-42f6a039fca3",
+        "targetClassifierId": "e02cce31-b5b3-46b3-b36d-4b59fea25c4a",
         "name": null,
-        "id": "c6025a5a-7af2-4b6c-b67a-2aae6b719754"
+        "id": "068a6d38-fb2c-4dc6-b1a3-efbc063185bb"
       },
       {
         "$relationshipKind": "assembly",
@@ -143,94 +143,94 @@
         "sourceIsRequirer": true,
         "relationshipKind": "Assembly",
         "displayLabel": "IDataAccess",
-        "sourceClassifierId": "877295de-df8e-4524-973c-a7cd5bbbce6a",
-        "targetClassifierId": "2aaa2191-5ec6-48df-8968-e63454a9d584",
+        "sourceClassifierId": "f8013e95-83a8-4da3-8f77-6baf42eaa03e",
+        "targetClassifierId": "29af5be7-e66c-4873-9986-0a6deb7cc730",
         "name": null,
-        "id": "d3e781e9-8694-4268-8c61-2964bb803556"
+        "id": "c4a88ffe-cebb-4425-9bcb-ad4124a15140"
       }
     ],
     "ownedElements": [
       {
-        "id": "f82878d6-3f58-4cbd-91e1-af59be43cbde",
+        "id": "5cf3349b-4d36-43f5-8f14-6de9c34a9d7c",
         "displayLabel": "E-Commerce System"
       },
       {
-        "id": "6f635c0b-4e10-4bd4-a4f7-bb965b581d00",
+        "id": "534e2967-5bda-4016-a8b3-e313a41ee6f8",
         "displayLabel": "\u00ABdatabase\u00BB DataStore\r\nAssembly = Required \u2192 Provided\r\nPort = \uACBD\uACC4 \uC5F0\uACB0 \uD130\uB110"
       },
       {
-        "id": "4a6ed5e0-1c4f-4c06-ae8c-a30ec6ff3e47",
+        "id": "6b3d04d9-e1ed-4cdf-b390-4f9f4533eaff",
         "displayLabel": "WebClient"
       },
       {
-        "id": "32f2c115-7d08-4334-a0df-5cf30c06eff9",
+        "id": "e5cfff94-bfeb-4e51-973f-cc236a020ad7",
         "displayLabel": "OrderService"
       },
       {
-        "id": "d6d0b385-cfb5-4441-af0d-c45c2af2480e",
+        "id": "775c17e2-28e5-48aa-bd72-cdf5e607583a",
         "displayLabel": "PaymentGateway"
       },
       {
-        "id": "51f90243-0322-4c37-95b3-d8a842d4c73e",
+        "id": "6fe2ef37-dd46-4989-a07c-f487610d8e4f",
         "displayLabel": "DataStore"
       },
       {
-        "id": "2b826203-807f-492f-bc4d-642becbd7347",
+        "id": "4da0a50f-1649-454f-92a4-aa277939276a",
         "displayLabel": "IOrderService"
       },
       {
-        "id": "b13878ad-4961-48e0-814c-ed74fa3dd9e5",
+        "id": "1ee4ddff-9843-4347-9935-b933b4cb8095",
         "displayLabel": "IOrderService"
       },
       {
-        "id": "6c38b7ed-3d98-4fd7-81f0-02131c36bf53",
+        "id": "48bda0dc-f00b-4785-a7f4-42f6a039fca3",
         "displayLabel": "IPayment"
       },
       {
-        "id": "dee625c9-d54e-4b78-8609-4bd008b79f89",
+        "id": "e02cce31-b5b3-46b3-b36d-4b59fea25c4a",
         "displayLabel": "IPayment"
       },
       {
-        "id": "877295de-df8e-4524-973c-a7cd5bbbce6a",
+        "id": "f8013e95-83a8-4da3-8f77-6baf42eaa03e",
         "displayLabel": "IDataAccess"
       },
       {
-        "id": "2aaa2191-5ec6-48df-8968-e63454a9d584",
+        "id": "29af5be7-e66c-4873-9986-0a6deb7cc730",
         "displayLabel": "IDataAccess"
       },
       {
-        "id": "4dd14e8e-517e-4938-b16f-8b04c21f9104",
+        "id": "f1cd7a67-ba3f-4d38-af18-382e3bba9359",
         "displayLabel": "payment"
       },
       {
-        "id": "069a66fb-831d-4c1b-b291-daec89378683",
+        "id": "3491e365-8ae6-45d2-932b-c6ee4cc453f4",
         "displayLabel": "IOrderService"
       },
       {
-        "id": "c6025a5a-7af2-4b6c-b67a-2aae6b719754",
+        "id": "068a6d38-fb2c-4dc6-b1a3-efbc063185bb",
         "displayLabel": "IPayment"
       },
       {
-        "id": "d3e781e9-8694-4268-8c61-2964bb803556",
+        "id": "c4a88ffe-cebb-4425-9bcb-ad4124a15140",
         "displayLabel": "IDataAccess"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "ce6c0547-c793-4cbd-a374-8f10821c5a47"
+    "id": "aaf00654-6044-49f2-87c9-4222f0dc10f4"
   },
   "diagrams": [
     {
       "kind": "componentDiagram",
       "nodes": [
         {
-          "id": "71fe7ded-e449-46c9-8886-66f345478335",
-          "modelElementId": "f82878d6-3f58-4cbd-91e1-af59be43cbde",
+          "id": "5f1e6b96-0ee5-4d59-978e-d470c28ee64d",
+          "modelElementId": "5cf3349b-4d36-43f5-8f14-6de9c34a9d7c",
           "presentation": "package",
           "x": 24,
           "y": 24,
-          "width": 880,
-          "height": 500,
+          "width": 860,
+          "height": 480,
           "showCompartments": true,
           "attachedComponentNodeId": null,
           "attachmentEdge": "none",
@@ -245,28 +245,28 @@
             },
             "size": {
               "isEmpty": false,
-              "width": 880,
-              "height": 500
+              "width": 860,
+              "height": 480
             },
             "x": 24,
             "y": 24,
-            "width": 880,
-            "height": 500,
+            "width": 860,
+            "height": 480,
             "left": 24,
             "top": 24,
-            "right": 904,
-            "bottom": 524,
+            "right": 884,
+            "bottom": 504,
             "isEmpty": false
           }
         },
         {
-          "id": "099a26dd-81d6-41be-987d-5946b6cac5e7",
-          "modelElementId": "4a6ed5e0-1c4f-4c06-ae8c-a30ec6ff3e47",
+          "id": "09304bbf-f8e9-4c2d-a308-8565e3ac74e2",
+          "modelElementId": "6b3d04d9-e1ed-4cdf-b390-4f9f4533eaff",
           "presentation": "component",
           "x": 56,
-          "y": 112,
-          "width": 220,
-          "height": 110,
+          "y": 116,
+          "width": 200,
+          "height": 100,
           "showCompartments": true,
           "attachedComponentNodeId": null,
           "attachmentEdge": "none",
@@ -277,29 +277,29 @@
             "location": {
               "isEmpty": false,
               "x": 56,
-              "y": 112
+              "y": 116
             },
             "size": {
               "isEmpty": false,
-              "width": 220,
-              "height": 110
+              "width": 200,
+              "height": 100
             },
             "x": 56,
-            "y": 112,
-            "width": 220,
-            "height": 110,
+            "y": 116,
+            "width": 200,
+            "height": 100,
             "left": 56,
-            "top": 112,
-            "right": 276,
-            "bottom": 222,
+            "top": 116,
+            "right": 256,
+            "bottom": 216,
             "isEmpty": false
           }
         },
         {
-          "id": "2c015d89-ea80-4e6d-be35-7f0f97b23f5b",
-          "modelElementId": "32f2c115-7d08-4334-a0df-5cf30c06eff9",
+          "id": "6ed6c666-4504-460f-835d-2b30f9f8d92f",
+          "modelElementId": "e5cfff94-bfeb-4e51-973f-cc236a020ad7",
           "presentation": "component",
-          "x": 248,
+          "x": 280,
           "y": 72,
           "width": 260,
           "height": 150,
@@ -312,7 +312,7 @@
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 248,
+              "x": 280,
               "y": 72
             },
             "size": {
@@ -320,25 +320,25 @@
               "width": 260,
               "height": 150
             },
-            "x": 248,
+            "x": 280,
             "y": 72,
             "width": 260,
             "height": 150,
-            "left": 248,
+            "left": 280,
             "top": 72,
-            "right": 508,
+            "right": 540,
             "bottom": 222,
             "isEmpty": false
           }
         },
         {
-          "id": "03e2b834-ceac-46ed-ba7b-04d6256519e6",
-          "modelElementId": "d6d0b385-cfb5-4441-af0d-c45c2af2480e",
+          "id": "cd0d96b3-83b6-4c24-b940-6d001490579d",
+          "modelElementId": "775c17e2-28e5-48aa-bd72-cdf5e607583a",
           "presentation": "component",
-          "x": 560,
+          "x": 580,
           "y": 56,
-          "width": 220,
-          "height": 110,
+          "width": 200,
+          "height": 100,
           "showCompartments": true,
           "attachedComponentNodeId": null,
           "attachmentEdge": "none",
@@ -348,33 +348,33 @@
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 560,
+              "x": 580,
               "y": 56
             },
             "size": {
               "isEmpty": false,
-              "width": 220,
-              "height": 110
+              "width": 200,
+              "height": 100
             },
-            "x": 560,
+            "x": 580,
             "y": 56,
-            "width": 220,
-            "height": 110,
-            "left": 560,
+            "width": 200,
+            "height": 100,
+            "left": 580,
             "top": 56,
             "right": 780,
-            "bottom": 166,
+            "bottom": 156,
             "isEmpty": false
           }
         },
         {
-          "id": "aba743a5-e1e9-4668-ad6b-f542398b6390",
-          "modelElementId": "51f90243-0322-4c37-95b3-d8a842d4c73e",
+          "id": "7fac425d-c121-46f2-bffa-9c2db0a68666",
+          "modelElementId": "6fe2ef37-dd46-4989-a07c-f487610d8e4f",
           "presentation": "component",
-          "x": 560,
+          "x": 580,
           "y": 300,
-          "width": 220,
-          "height": 110,
+          "width": 200,
+          "height": 100,
           "showCompartments": true,
           "attachedComponentNodeId": null,
           "attachmentEdge": "none",
@@ -384,79 +384,79 @@
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 560,
+              "x": 580,
               "y": 300
             },
             "size": {
               "isEmpty": false,
-              "width": 220,
-              "height": 110
+              "width": 200,
+              "height": 100
             },
-            "x": 560,
+            "x": 580,
             "y": 300,
-            "width": 220,
-            "height": 110,
-            "left": 560,
+            "width": 200,
+            "height": 100,
+            "left": 580,
             "top": 300,
             "right": 780,
-            "bottom": 410,
+            "bottom": 400,
             "isEmpty": false
           }
         },
         {
-          "id": "f6045b3e-d055-43ff-b580-6561b01843d3",
-          "modelElementId": "2b826203-807f-492f-bc4d-642becbd7347",
+          "id": "b54175c5-e2bb-4c0d-91d2-5a12ca73a604",
+          "modelElementId": "4da0a50f-1649-454f-92a4-aa277939276a",
           "presentation": "requiredInterface",
-          "x": 251,
-          "y": 145.8,
+          "x": 231,
+          "y": 145,
           "width": 72,
           "height": 45,
           "showCompartments": true,
-          "attachedComponentNodeId": "099a26dd-81d6-41be-987d-5946b6cac5e7",
+          "attachedComponentNodeId": "09304bbf-f8e9-4c2d-a308-8565e3ac74e2",
           "attachmentEdge": "right",
           "attachmentT": 0.48,
-          "interfaceOutwardX": 290,
-          "interfaceOutwardY": 164.8,
+          "interfaceOutwardX": 270,
+          "interfaceOutwardY": 164,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 251,
-              "y": 145.8
+              "x": 231,
+              "y": 145
             },
             "size": {
               "isEmpty": false,
               "width": 72,
               "height": 45
             },
-            "x": 251,
-            "y": 145.8,
+            "x": 231,
+            "y": 145,
             "width": 72,
             "height": 45,
-            "left": 251,
-            "top": 145.8,
-            "right": 323,
-            "bottom": 190.8,
+            "left": 231,
+            "top": 145,
+            "right": 303,
+            "bottom": 190,
             "isEmpty": false
           }
         },
         {
-          "id": "aaf41c14-6561-4e5b-8f6a-984e572e81ee",
-          "modelElementId": "b13878ad-4961-48e0-814c-ed74fa3dd9e5",
+          "id": "2ee8d9b3-110f-4469-bbbe-7897292f406c",
+          "modelElementId": "1ee4ddff-9843-4347-9935-b933b4cb8095",
           "presentation": "providedInterface",
-          "x": 213,
+          "x": 245,
           "y": 109,
           "width": 72,
           "height": 45,
           "showCompartments": true,
-          "attachedComponentNodeId": "2c015d89-ea80-4e6d-be35-7f0f97b23f5b",
+          "attachedComponentNodeId": "6ed6c666-4504-460f-835d-2b30f9f8d92f",
           "attachmentEdge": "left",
           "attachmentT": 0.42,
-          "interfaceOutwardX": 234,
+          "interfaceOutwardX": 266,
           "interfaceOutwardY": 135,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 213,
+              "x": 245,
               "y": 109
             },
             "size": {
@@ -464,35 +464,35 @@
               "width": 72,
               "height": 45
             },
-            "x": 213,
+            "x": 245,
             "y": 109,
             "width": 72,
             "height": 45,
-            "left": 213,
+            "left": 245,
             "top": 109,
-            "right": 285,
+            "right": 317,
             "bottom": 154,
             "isEmpty": false
           }
         },
         {
-          "id": "6cb79da0-bcd7-4452-bc8d-3ff5467659ec",
-          "modelElementId": "6c38b7ed-3d98-4fd7-81f0-02131c36bf53",
+          "id": "aae70619-df44-4f0d-9937-6bacac680d03",
+          "modelElementId": "48bda0dc-f00b-4785-a7f4-42f6a039fca3",
           "presentation": "requiredInterface",
-          "x": 483,
+          "x": 515,
           "y": 110,
           "width": 72,
           "height": 45,
           "showCompartments": true,
-          "attachedComponentNodeId": "2c015d89-ea80-4e6d-be35-7f0f97b23f5b",
+          "attachedComponentNodeId": "6ed6c666-4504-460f-835d-2b30f9f8d92f",
           "attachmentEdge": "right",
           "attachmentT": 0.38,
-          "interfaceOutwardX": 522,
+          "interfaceOutwardX": 554,
           "interfaceOutwardY": 129,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 483,
+              "x": 515,
               "y": 110
             },
             "size": {
@@ -500,71 +500,71 @@
               "width": 72,
               "height": 45
             },
-            "x": 483,
+            "x": 515,
             "y": 110,
             "width": 72,
             "height": 45,
-            "left": 483,
+            "left": 515,
             "top": 110,
-            "right": 555,
+            "right": 587,
             "bottom": 155,
             "isEmpty": false
           }
         },
         {
-          "id": "0e678e01-226d-474c-9156-446d9a601fe0",
-          "modelElementId": "dee625c9-d54e-4b78-8609-4bd008b79f89",
+          "id": "84bd61b3-1b57-4f04-a148-58067587c30a",
+          "modelElementId": "e02cce31-b5b3-46b3-b36d-4b59fea25c4a",
           "presentation": "providedInterface",
-          "x": 525,
-          "y": 85,
+          "x": 545,
+          "y": 80,
           "width": 72,
           "height": 45,
           "showCompartments": true,
-          "attachedComponentNodeId": "03e2b834-ceac-46ed-ba7b-04d6256519e6",
+          "attachedComponentNodeId": "cd0d96b3-83b6-4c24-b940-6d001490579d",
           "attachmentEdge": "left",
           "attachmentT": 0.5,
-          "interfaceOutwardX": 546,
-          "interfaceOutwardY": 111,
+          "interfaceOutwardX": 566,
+          "interfaceOutwardY": 106,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 525,
-              "y": 85
+              "x": 545,
+              "y": 80
             },
             "size": {
               "isEmpty": false,
               "width": 72,
               "height": 45
             },
-            "x": 525,
-            "y": 85,
+            "x": 545,
+            "y": 80,
             "width": 72,
             "height": 45,
-            "left": 525,
-            "top": 85,
-            "right": 597,
-            "bottom": 130,
+            "left": 545,
+            "top": 80,
+            "right": 617,
+            "bottom": 125,
             "isEmpty": false
           }
         },
         {
-          "id": "b273915d-7a4a-49a5-96d4-6bea8d00e22b",
-          "modelElementId": "877295de-df8e-4524-973c-a7cd5bbbce6a",
+          "id": "f09cc793-0bb4-4f6e-b2d5-575080798185",
+          "modelElementId": "f8013e95-83a8-4da3-8f77-6baf42eaa03e",
           "presentation": "requiredInterface",
-          "x": 352.8,
+          "x": 384.8,
           "y": 203,
           "width": 72,
           "height": 52,
           "showCompartments": true,
-          "attachedComponentNodeId": "2c015d89-ea80-4e6d-be35-7f0f97b23f5b",
+          "attachedComponentNodeId": "6ed6c666-4504-460f-835d-2b30f9f8d92f",
           "attachmentEdge": "bottom",
           "attachmentT": 0.58,
-          "interfaceOutwardX": 398.8,
+          "interfaceOutwardX": 430.8,
           "interfaceOutwardY": 236,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 352.8,
+              "x": 384.8,
               "y": 203
             },
             "size": {
@@ -572,35 +572,35 @@
               "width": 72,
               "height": 52
             },
-            "x": 352.8,
+            "x": 384.8,
             "y": 203,
             "width": 72,
             "height": 52,
-            "left": 352.8,
+            "left": 384.8,
             "top": 203,
-            "right": 424.8,
+            "right": 456.8,
             "bottom": 255,
             "isEmpty": false
           }
         },
         {
-          "id": "0c6df243-a4dd-4aad-bb1b-f081b7764dec",
-          "modelElementId": "2aaa2191-5ec6-48df-8968-e63454a9d584",
+          "id": "951d1276-ac62-4b8a-aa51-6927f404d29d",
+          "modelElementId": "29af5be7-e66c-4873-9986-0a6deb7cc730",
           "presentation": "providedInterface",
-          "x": 651,
+          "x": 661,
           "y": 267,
           "width": 72,
           "height": 52,
           "showCompartments": true,
-          "attachedComponentNodeId": "aba743a5-e1e9-4668-ad6b-f542398b6390",
+          "attachedComponentNodeId": "7fac425d-c121-46f2-bffa-9c2db0a68666",
           "attachmentEdge": "top",
           "attachmentT": 0.5,
-          "interfaceOutwardX": 670,
+          "interfaceOutwardX": 680,
           "interfaceOutwardY": 286,
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 651,
+              "x": 661,
               "y": 267
             },
             "size": {
@@ -608,27 +608,27 @@
               "width": 72,
               "height": 52
             },
-            "x": 651,
+            "x": 661,
             "y": 267,
             "width": 72,
             "height": 52,
-            "left": 651,
+            "left": 661,
             "top": 267,
-            "right": 723,
+            "right": 733,
             "bottom": 319,
             "isEmpty": false
           }
         },
         {
-          "id": "9830fa03-fd27-4a36-83e4-e02118ba1b97",
-          "modelElementId": "4dd14e8e-517e-4938-b16f-8b04c21f9104",
+          "id": "0a35504e-2f2a-4a37-8282-1bb8f2a2e946",
+          "modelElementId": "f1cd7a67-ba3f-4d38-af18-382e3bba9359",
           "presentation": "port",
-          "x": 410.8,
+          "x": 442.8,
           "y": 58,
           "width": 28,
           "height": 28,
           "showCompartments": true,
-          "attachedComponentNodeId": "2c015d89-ea80-4e6d-be35-7f0f97b23f5b",
+          "attachedComponentNodeId": "6ed6c666-4504-460f-835d-2b30f9f8d92f",
           "attachmentEdge": "top",
           "attachmentT": 0.68,
           "interfaceOutwardX": null,
@@ -636,7 +636,7 @@
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 410.8,
+              "x": 442.8,
               "y": 58
             },
             "size": {
@@ -644,23 +644,23 @@
               "width": 28,
               "height": 28
             },
-            "x": 410.8,
+            "x": 442.8,
             "y": 58,
             "width": 28,
             "height": 28,
-            "left": 410.8,
+            "left": 442.8,
             "top": 58,
-            "right": 438.8,
+            "right": 470.8,
             "bottom": 86,
             "isEmpty": false
           }
         },
         {
-          "id": "577276c3-fe99-40f2-a8c9-33de7349c330",
-          "modelElementId": "6f635c0b-4e10-4bd4-a4f7-bb965b581d00",
+          "id": "3bee83ef-f3aa-46f7-b5c4-d3be924297e6",
+          "modelElementId": "534e2967-5bda-4016-a8b3-e313a41ee6f8",
           "presentation": "note",
           "x": 56,
-          "y": 328,
+          "y": 320,
           "width": 196,
           "height": 88,
           "showCompartments": true,
@@ -673,7 +673,7 @@
             "location": {
               "isEmpty": false,
               "x": 56,
-              "y": 328
+              "y": 320
             },
             "size": {
               "isEmpty": false,
@@ -681,43 +681,43 @@
               "height": 88
             },
             "x": 56,
-            "y": 328,
+            "y": 320,
             "width": 196,
             "height": 88,
             "left": 56,
-            "top": 328,
+            "top": 320,
             "right": 252,
-            "bottom": 416,
+            "bottom": 408,
             "isEmpty": false
           }
         }
       ],
       "edges": [
         {
-          "id": "0efd0dce-00c9-42aa-9c2c-6cfd69282cf1",
-          "modelElementId": "069a66fb-831d-4c1b-b291-daec89378683",
-          "sourceNodeId": "f6045b3e-d055-43ff-b580-6561b01843d3",
-          "targetNodeId": "aaf41c14-6561-4e5b-8f6a-984e572e81ee",
+          "id": "39759f6d-131c-45be-8a31-9aca87b9fc70",
+          "modelElementId": "3491e365-8ae6-45d2-932b-c6ee4cc453f4",
+          "sourceNodeId": "b54175c5-e2bb-4c0d-91d2-5a12ca73a604",
+          "targetNodeId": "2ee8d9b3-110f-4469-bbbe-7897292f406c",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "a35b6f8d-c8a3-492f-8593-086ba2ed8600",
-          "modelElementId": "c6025a5a-7af2-4b6c-b67a-2aae6b719754",
-          "sourceNodeId": "6cb79da0-bcd7-4452-bc8d-3ff5467659ec",
-          "targetNodeId": "0e678e01-226d-474c-9156-446d9a601fe0",
+          "id": "2fc0e1c5-80b3-4f6b-8dca-119b1b9434bf",
+          "modelElementId": "068a6d38-fb2c-4dc6-b1a3-efbc063185bb",
+          "sourceNodeId": "aae70619-df44-4f0d-9937-6bacac680d03",
+          "targetNodeId": "84bd61b3-1b57-4f04-a148-58067587c30a",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "ba283f71-a309-44c5-a97c-3b8b37354157",
-          "modelElementId": "d3e781e9-8694-4268-8c61-2964bb803556",
-          "sourceNodeId": "b273915d-7a4a-49a5-96d4-6bea8d00e22b",
-          "targetNodeId": "0c6df243-a4dd-4aad-bb1b-f081b7764dec",
+          "id": "afb6af62-254f-4737-9ef7-5c5d64951853",
+          "modelElementId": "c4a88ffe-cebb-4425-9bcb-ad4124a15140",
+          "sourceNodeId": "f09cc793-0bb4-4f6e-b2d5-575080798185",
+          "targetNodeId": "951d1276-ac62-4b8a-aa51-6927f404d29d",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -726,7 +726,7 @@
       ],
       "name": "Component Diagram",
       "displayLabel": "Component Diagram",
-      "id": "d9544dc4-b7fd-4648-923b-8cc8894cb947"
+      "id": "c6b7bc52-48ee-48a3-91cb-ccdea9ddabcb"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

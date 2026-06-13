@@ -22,7 +22,7 @@
         "localPostcondition": null,
         "name": "Initial",
         "displayLabel": "Initial",
-        "id": "007c1977-540f-4d21-829d-0c76c4a27ff2"
+        "id": "e4a7bd00-5062-4b73-a207-6bc9eec47d6d"
       },
       {
         "kind": "interactionUse",
@@ -37,7 +37,7 @@
         "localPostcondition": null,
         "name": "Place Order",
         "displayLabel": "Place Order",
-        "id": "af6a96c5-1895-4c12-b2d4-de0923bab3e9"
+        "id": "b90e2466-41d4-4823-a74a-ffc9ea1f25ea"
       },
       {
         "kind": "decision",
@@ -52,7 +52,7 @@
         "localPostcondition": null,
         "name": "paid?",
         "displayLabel": "paid?",
-        "id": "af547a9b-c1b9-4dc8-a35c-b5c44f6a2057"
+        "id": "9f5e2992-8f42-4709-be8f-9ea72bc460b9"
       },
       {
         "kind": "interactionUse",
@@ -67,7 +67,7 @@
         "localPostcondition": null,
         "name": "Payment",
         "displayLabel": "Payment",
-        "id": "c18ed7cb-d9a5-4bbb-a017-e5dc42c1df67"
+        "id": "b6c9371f-0e8b-4545-9e25-f1d76e66ff09"
       },
       {
         "kind": "activityFinalNode",
@@ -82,7 +82,7 @@
         "localPostcondition": null,
         "name": "Final",
         "displayLabel": "Final",
-        "id": "4baae09b-dd1a-4f3f-a758-b3500e4f2245"
+        "id": "4051001e-9e34-45bd-8487-6ca6e0ead241"
       }
     ],
     "components": [],
@@ -104,10 +104,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "007c1977-540f-4d21-829d-0c76c4a27ff2",
-        "targetClassifierId": "af6a96c5-1895-4c12-b2d4-de0923bab3e9",
+        "sourceClassifierId": "e4a7bd00-5062-4b73-a207-6bc9eec47d6d",
+        "targetClassifierId": "b90e2466-41d4-4823-a74a-ffc9ea1f25ea",
         "name": null,
-        "id": "0526dc7e-82b0-4e21-99c0-f5aadf6986e7",
+        "id": "bad4a5dc-dd18-4f27-ae01-ce02622cac9d",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -122,10 +122,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "af6a96c5-1895-4c12-b2d4-de0923bab3e9",
-        "targetClassifierId": "af547a9b-c1b9-4dc8-a35c-b5c44f6a2057",
+        "sourceClassifierId": "b90e2466-41d4-4823-a74a-ffc9ea1f25ea",
+        "targetClassifierId": "9f5e2992-8f42-4709-be8f-9ea72bc460b9",
         "name": null,
-        "id": "4555a3cf-7fd7-46ae-80fc-99328b8b7067",
+        "id": "31ac513c-2e19-4419-9d04-64745b84a1a7",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -140,10 +140,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "af547a9b-c1b9-4dc8-a35c-b5c44f6a2057",
-        "targetClassifierId": "c18ed7cb-d9a5-4bbb-a017-e5dc42c1df67",
+        "sourceClassifierId": "9f5e2992-8f42-4709-be8f-9ea72bc460b9",
+        "targetClassifierId": "b6c9371f-0e8b-4545-9e25-f1d76e66ff09",
         "name": null,
-        "id": "c965f4a8-e432-410a-aa5f-1dcdac19eb68",
+        "id": "64f88fa8-f108-47f0-a54e-fabaa112d892",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -158,62 +158,62 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "ControlFlow",
-        "sourceClassifierId": "c18ed7cb-d9a5-4bbb-a017-e5dc42c1df67",
-        "targetClassifierId": "4baae09b-dd1a-4f3f-a758-b3500e4f2245",
+        "sourceClassifierId": "b6c9371f-0e8b-4545-9e25-f1d76e66ff09",
+        "targetClassifierId": "4051001e-9e34-45bd-8487-6ca6e0ead241",
         "name": null,
-        "id": "7854db63-9f31-4e18-bc8b-b601aed3c45f",
+        "id": "c20b2032-21f8-4897-9b78-2d61ce04846e",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "007c1977-540f-4d21-829d-0c76c4a27ff2",
+        "id": "e4a7bd00-5062-4b73-a207-6bc9eec47d6d",
         "displayLabel": "Initial"
       },
       {
-        "id": "af6a96c5-1895-4c12-b2d4-de0923bab3e9",
+        "id": "b90e2466-41d4-4823-a74a-ffc9ea1f25ea",
         "displayLabel": "Place Order"
       },
       {
-        "id": "af547a9b-c1b9-4dc8-a35c-b5c44f6a2057",
+        "id": "9f5e2992-8f42-4709-be8f-9ea72bc460b9",
         "displayLabel": "paid?"
       },
       {
-        "id": "c18ed7cb-d9a5-4bbb-a017-e5dc42c1df67",
+        "id": "b6c9371f-0e8b-4545-9e25-f1d76e66ff09",
         "displayLabel": "Payment"
       },
       {
-        "id": "4baae09b-dd1a-4f3f-a758-b3500e4f2245",
+        "id": "4051001e-9e34-45bd-8487-6ca6e0ead241",
         "displayLabel": "Final"
       },
       {
-        "id": "0526dc7e-82b0-4e21-99c0-f5aadf6986e7",
+        "id": "bad4a5dc-dd18-4f27-ae01-ce02622cac9d",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "4555a3cf-7fd7-46ae-80fc-99328b8b7067",
+        "id": "31ac513c-2e19-4419-9d04-64745b84a1a7",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "c965f4a8-e432-410a-aa5f-1dcdac19eb68",
+        "id": "64f88fa8-f108-47f0-a54e-fabaa112d892",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "7854db63-9f31-4e18-bc8b-b601aed3c45f",
+        "id": "c20b2032-21f8-4897-9b78-2d61ce04846e",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "6a661baa-91f8-44bb-95e7-d95c9a7734dc"
+    "id": "460f9e85-f5f6-4bf6-b1dd-e91cfacdf7bc"
   },
   "diagrams": [
     {
       "kind": "interactionOverviewDiagram",
       "nodes": [
         {
-          "id": "0067c50c-1325-497a-ab15-2721626f53d5",
-          "modelElementId": "007c1977-540f-4d21-829d-0c76c4a27ff2",
+          "id": "d667597f-b266-41c1-9ccf-4c6cf8dece3d",
+          "modelElementId": "e4a7bd00-5062-4b73-a207-6bc9eec47d6d",
           "presentation": "behavior",
           "x": 80,
           "y": 120,
@@ -248,8 +248,8 @@
           }
         },
         {
-          "id": "81efa72d-ef62-4f3b-988a-c8f915319752",
-          "modelElementId": "af6a96c5-1895-4c12-b2d4-de0923bab3e9",
+          "id": "4704470f-9565-456b-98fc-839c1154ae4b",
+          "modelElementId": "b90e2466-41d4-4823-a74a-ffc9ea1f25ea",
           "presentation": "behavior",
           "x": 160,
           "y": 100,
@@ -284,8 +284,8 @@
           }
         },
         {
-          "id": "0e9c96fa-fe51-4427-a965-34a8c68523ac",
-          "modelElementId": "af547a9b-c1b9-4dc8-a35c-b5c44f6a2057",
+          "id": "5bd4a97e-9746-497e-bc11-89e9a793fa02",
+          "modelElementId": "9f5e2992-8f42-4709-be8f-9ea72bc460b9",
           "presentation": "behavior",
           "x": 340,
           "y": 100,
@@ -320,8 +320,8 @@
           }
         },
         {
-          "id": "745c7ed2-23cd-4def-a302-ee7f95aa9bb6",
-          "modelElementId": "c18ed7cb-d9a5-4bbb-a017-e5dc42c1df67",
+          "id": "435ddcb8-5a64-4ea6-82bf-466d85ca518e",
+          "modelElementId": "b6c9371f-0e8b-4545-9e25-f1d76e66ff09",
           "presentation": "behavior",
           "x": 460,
           "y": 100,
@@ -356,8 +356,8 @@
           }
         },
         {
-          "id": "c7e7f618-0aa5-4992-ac4b-e3b418df262b",
-          "modelElementId": "4baae09b-dd1a-4f3f-a758-b3500e4f2245",
+          "id": "7ad9b4af-bcca-4e89-af81-3ac0f79d264b",
+          "modelElementId": "4051001e-9e34-45bd-8487-6ca6e0ead241",
           "presentation": "behavior",
           "x": 640,
           "y": 110,
@@ -394,40 +394,40 @@
       ],
       "edges": [
         {
-          "id": "357617d7-1d31-4d26-8c89-764e0af57317",
-          "modelElementId": "0526dc7e-82b0-4e21-99c0-f5aadf6986e7",
-          "sourceNodeId": "0067c50c-1325-497a-ab15-2721626f53d5",
-          "targetNodeId": "81efa72d-ef62-4f3b-988a-c8f915319752",
+          "id": "f4b87aef-073c-4fb4-9f4a-4c80f10c658d",
+          "modelElementId": "bad4a5dc-dd18-4f27-ae01-ce02622cac9d",
+          "sourceNodeId": "d667597f-b266-41c1-9ccf-4c6cf8dece3d",
+          "targetNodeId": "4704470f-9565-456b-98fc-839c1154ae4b",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "1cb868ac-8a02-4a7a-8406-8a8485b0f7ed",
-          "modelElementId": "4555a3cf-7fd7-46ae-80fc-99328b8b7067",
-          "sourceNodeId": "81efa72d-ef62-4f3b-988a-c8f915319752",
-          "targetNodeId": "0e9c96fa-fe51-4427-a965-34a8c68523ac",
+          "id": "f8a298c7-c05c-4ab8-bab7-f67d8399be6f",
+          "modelElementId": "31ac513c-2e19-4419-9d04-64745b84a1a7",
+          "sourceNodeId": "4704470f-9565-456b-98fc-839c1154ae4b",
+          "targetNodeId": "5bd4a97e-9746-497e-bc11-89e9a793fa02",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "bb161e70-e2d4-4c8b-9914-7681814d7a3b",
-          "modelElementId": "c965f4a8-e432-410a-aa5f-1dcdac19eb68",
-          "sourceNodeId": "0e9c96fa-fe51-4427-a965-34a8c68523ac",
-          "targetNodeId": "745c7ed2-23cd-4def-a302-ee7f95aa9bb6",
+          "id": "bce4c767-2b72-485e-b5bc-c5004fb8a127",
+          "modelElementId": "64f88fa8-f108-47f0-a54e-fabaa112d892",
+          "sourceNodeId": "5bd4a97e-9746-497e-bc11-89e9a793fa02",
+          "targetNodeId": "435ddcb8-5a64-4ea6-82bf-466d85ca518e",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "2272cc83-fde1-42ec-896d-6f89ce06ccf0",
-          "modelElementId": "7854db63-9f31-4e18-bc8b-b601aed3c45f",
-          "sourceNodeId": "745c7ed2-23cd-4def-a302-ee7f95aa9bb6",
-          "targetNodeId": "c7e7f618-0aa5-4992-ac4b-e3b418df262b",
+          "id": "917b516d-5e21-4060-a3e8-721a8d1e7fcc",
+          "modelElementId": "c20b2032-21f8-4897-9b78-2d61ce04846e",
+          "sourceNodeId": "435ddcb8-5a64-4ea6-82bf-466d85ca518e",
+          "targetNodeId": "7ad9b4af-bcca-4e89-af81-3ac0f79d264b",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -436,7 +436,7 @@
       ],
       "name": "Interaction Overview Diagram",
       "displayLabel": "Interaction Overview Diagram",
-      "id": "bc6c473d-4bad-4762-ac79-8d64d879d959"
+      "id": "83827df5-b225-4362-8b43-b8e43ad3e478"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

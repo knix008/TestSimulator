@@ -18,7 +18,7 @@
             "signatureText": "-controller: Controller",
             "name": "controller",
             "displayLabel": "controller",
-            "id": "2b0b9ef2-f6e8-4fcf-9be3-fa7b20d0f096"
+            "id": "939756e5-7eee-4b77-a615-027958891098"
           },
           {
             "typeName": "Repository",
@@ -28,13 +28,13 @@
             "signatureText": "-repository: Repository",
             "name": "repository",
             "displayLabel": "repository",
-            "id": "b1895767-c513-4fb6-8ee6-33074341fcd1"
+            "id": "78f7fbf6-e545-40f8-94a1-b2e13adcb833"
           }
         ],
         "operations": [],
         "name": "OrderProcessor",
         "displayLabel": "OrderProcessor",
-        "id": "9cde4ff0-9749-492a-912a-430c605311d3"
+        "id": "359d9b0e-488e-43cf-836b-1fc0af70e31b"
       }
     ],
     "actors": [],
@@ -50,7 +50,7 @@
         "interfaceName": "IOrderAPI",
         "name": "api",
         "displayLabel": "api",
-        "id": "d739609e-859d-4602-90e6-0551d8be0bac"
+        "id": "394edf84-3242-4ea6-aaf6-3a1eb46581b3"
       }
     ],
     "objectInstances": [],
@@ -67,37 +67,37 @@
         "isDirected": false,
         "relationshipKind": "Association",
         "displayLabel": "connector",
-        "sourceClassifierId": "9cde4ff0-9749-492a-912a-430c605311d3",
-        "targetClassifierId": "9cde4ff0-9749-492a-912a-430c605311d3",
+        "sourceClassifierId": "359d9b0e-488e-43cf-836b-1fc0af70e31b",
+        "targetClassifierId": "359d9b0e-488e-43cf-836b-1fc0af70e31b",
         "name": "connector",
-        "id": "3e3b67b1-19fd-43f6-8cbf-73dc6219ae5a"
+        "id": "5b96ff00-cae6-40c8-8fb7-7df05ea21641"
       }
     ],
     "ownedElements": [
       {
-        "id": "9cde4ff0-9749-492a-912a-430c605311d3",
+        "id": "359d9b0e-488e-43cf-836b-1fc0af70e31b",
         "displayLabel": "OrderProcessor"
       },
       {
-        "id": "d739609e-859d-4602-90e6-0551d8be0bac",
+        "id": "394edf84-3242-4ea6-aaf6-3a1eb46581b3",
         "displayLabel": "api"
       },
       {
-        "id": "3e3b67b1-19fd-43f6-8cbf-73dc6219ae5a",
+        "id": "5b96ff00-cae6-40c8-8fb7-7df05ea21641",
         "displayLabel": "connector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "0242dbe3-5887-4cec-a8a5-de96eb75c7d0"
+    "id": "02ece0ec-c334-42a0-a73a-4fbd1b2764e1"
   },
   "diagrams": [
     {
       "kind": "compositeStructureDiagram",
       "nodes": [
         {
-          "id": "c805f86a-cbaa-46a9-b159-37d495221fff",
-          "modelElementId": "9cde4ff0-9749-492a-912a-430c605311d3",
+          "id": "94058c80-0197-47cf-b6b9-223ee01bdb6f",
+          "modelElementId": "359d9b0e-488e-43cf-836b-1fc0af70e31b",
           "presentation": "classifier",
           "x": 80,
           "y": 60,
@@ -132,11 +132,11 @@
           }
         },
         {
-          "id": "4a2909d5-39d6-4bd0-9fb4-f84512a3f391",
-          "modelElementId": "d739609e-859d-4602-90e6-0551d8be0bac",
+          "id": "50906786-e9dc-4c7e-bd59-14e4be69b474",
+          "modelElementId": "394edf84-3242-4ea6-aaf6-3a1eb46581b3",
           "presentation": "port",
-          "x": 352,
-          "y": 96,
+          "x": 400,
+          "y": 130,
           "width": 28,
           "height": 28,
           "showCompartments": true,
@@ -148,32 +148,32 @@
           "bounds": {
             "location": {
               "isEmpty": false,
-              "x": 352,
-              "y": 96
+              "x": 400,
+              "y": 130
             },
             "size": {
               "isEmpty": false,
               "width": 28,
               "height": 28
             },
-            "x": 352,
-            "y": 96,
+            "x": 400,
+            "y": 130,
             "width": 28,
             "height": 28,
-            "left": 352,
-            "top": 96,
-            "right": 380,
-            "bottom": 124,
+            "left": 400,
+            "top": 130,
+            "right": 428,
+            "bottom": 158,
             "isEmpty": false
           }
         }
       ],
       "edges": [
         {
-          "id": "31e70923-58e3-4006-8870-e31f5e23a42a",
-          "modelElementId": "3e3b67b1-19fd-43f6-8cbf-73dc6219ae5a",
-          "sourceNodeId": "c805f86a-cbaa-46a9-b159-37d495221fff",
-          "targetNodeId": "c805f86a-cbaa-46a9-b159-37d495221fff",
+          "id": "8677c379-8763-45d4-affb-f83ca74390ac",
+          "modelElementId": "5b96ff00-cae6-40c8-8fb7-7df05ea21641",
+          "sourceNodeId": "94058c80-0197-47cf-b6b9-223ee01bdb6f",
+          "targetNodeId": "94058c80-0197-47cf-b6b9-223ee01bdb6f",
           "sequenceY": 0,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -182,7 +182,7 @@
       ],
       "name": "Composite Structure Diagram",
       "displayLabel": "Composite Structure Diagram",
-      "id": "a7319dd8-cec8-4fb8-8750-4851632e4cc8"
+      "id": "d65c411b-b8a6-49d9-ab40-da726e283e93"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

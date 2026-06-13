@@ -22,7 +22,7 @@
         "localPostcondition": null,
         "name": "customer",
         "displayLabel": "customer",
-        "id": "9642c677-0874-4780-80c0-778de131ba38"
+        "id": "5e0c033c-e6d8-45c0-872d-dae484f85438"
       },
       {
         "kind": "lifeline",
@@ -37,7 +37,7 @@
         "localPostcondition": null,
         "name": "orderService",
         "displayLabel": "orderService",
-        "id": "26728d14-6fe7-4c30-b93a-448e3e412c00"
+        "id": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237"
       },
       {
         "kind": "lifeline",
@@ -52,7 +52,7 @@
         "localPostcondition": null,
         "name": "paymentGateway",
         "displayLabel": "paymentGateway",
-        "id": "f48da055-e1be-4868-8c46-535fe3beddc3"
+        "id": "3a79177c-da64-4107-8472-e4ecf66df8f5"
       },
       {
         "kind": "combinedFragment",
@@ -67,7 +67,7 @@
         "localPostcondition": null,
         "name": "loop",
         "displayLabel": "loop",
-        "id": "c3107d8f-9946-4fbc-abf7-65671aa8250e"
+        "id": "3b320953-7e10-4247-83e2-4d63b3e3c5c8"
       },
       {
         "kind": "combinedFragment",
@@ -82,7 +82,7 @@
         "localPostcondition": null,
         "name": "alt",
         "displayLabel": "alt",
-        "id": "a9c06da2-87ed-4f01-bae6-7063364fda5e"
+        "id": "6ac84e4b-a8f0-4364-ba06-28f951b1030b"
       }
     ],
     "components": [],
@@ -104,10 +104,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Synchronous",
-        "sourceClassifierId": "9642c677-0874-4780-80c0-778de131ba38",
-        "targetClassifierId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
+        "sourceClassifierId": "5e0c033c-e6d8-45c0-872d-dae484f85438",
+        "targetClassifierId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
         "name": "placeOrder(items)",
-        "id": "64eb78be-533b-4741-8d05-8436098761b4",
+        "id": "8dae8e89-a26e-4c1a-b2df-d4f5739ed089",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -122,10 +122,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Synchronous",
-        "sourceClassifierId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
-        "targetClassifierId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
+        "sourceClassifierId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
+        "targetClassifierId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
         "name": "validateItem(item)",
-        "id": "d8b4d409-0b46-4e39-97f9-e82d22b5b4fa",
+        "id": "22a128d0-a2a9-431c-8407-f6cd661284f1",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -140,10 +140,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Synchronous",
-        "sourceClassifierId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
-        "targetClassifierId": "f48da055-e1be-4868-8c46-535fe3beddc3",
+        "sourceClassifierId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
+        "targetClassifierId": "3a79177c-da64-4107-8472-e4ecf66df8f5",
         "name": "charge(amount)",
-        "id": "80b122b6-ed6a-4cd2-b0e2-88eb973921b4",
+        "id": "73ec7f27-377c-425d-adbe-0968ab5f4bd8",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -158,10 +158,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Return",
-        "sourceClassifierId": "f48da055-e1be-4868-8c46-535fe3beddc3",
-        "targetClassifierId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
+        "sourceClassifierId": "3a79177c-da64-4107-8472-e4ecf66df8f5",
+        "targetClassifierId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
         "name": "paymentOk",
-        "id": "89b8976b-a2b4-4862-ae62-6a7f02d23fac",
+        "id": "84ef0dac-4e83-4d7f-8a20-e6789bff1c10",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -176,10 +176,10 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Return",
-        "sourceClassifierId": "f48da055-e1be-4868-8c46-535fe3beddc3",
-        "targetClassifierId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
+        "sourceClassifierId": "3a79177c-da64-4107-8472-e4ecf66df8f5",
+        "targetClassifierId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
         "name": "declined",
-        "id": "2d05b6c3-bd37-402a-975b-66371ebdd07b",
+        "id": "3b74fc66-65c5-46cd-b99e-d27ea11d98e9",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
@@ -194,70 +194,70 @@
         "durationMin": null,
         "durationMax": null,
         "relationshipKind": "Return",
-        "sourceClassifierId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
-        "targetClassifierId": "9642c677-0874-4780-80c0-778de131ba38",
+        "sourceClassifierId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
+        "targetClassifierId": "5e0c033c-e6d8-45c0-872d-dae484f85438",
         "name": "orderId",
-        "id": "c1f2fddd-d515-4c3f-bf15-04b6c03a7787",
+        "id": "86833b84-6d87-47a8-aaae-e4b6d4d2440e",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "ownedElements": [
       {
-        "id": "9642c677-0874-4780-80c0-778de131ba38",
+        "id": "5e0c033c-e6d8-45c0-872d-dae484f85438",
         "displayLabel": "customer"
       },
       {
-        "id": "26728d14-6fe7-4c30-b93a-448e3e412c00",
+        "id": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
         "displayLabel": "orderService"
       },
       {
-        "id": "f48da055-e1be-4868-8c46-535fe3beddc3",
+        "id": "3a79177c-da64-4107-8472-e4ecf66df8f5",
         "displayLabel": "paymentGateway"
       },
       {
-        "id": "c3107d8f-9946-4fbc-abf7-65671aa8250e",
+        "id": "3b320953-7e10-4247-83e2-4d63b3e3c5c8",
         "displayLabel": "loop"
       },
       {
-        "id": "a9c06da2-87ed-4f01-bae6-7063364fda5e",
+        "id": "6ac84e4b-a8f0-4364-ba06-28f951b1030b",
         "displayLabel": "alt"
       },
       {
-        "id": "64eb78be-533b-4741-8d05-8436098761b4",
+        "id": "8dae8e89-a26e-4c1a-b2df-d4f5739ed089",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "d8b4d409-0b46-4e39-97f9-e82d22b5b4fa",
+        "id": "22a128d0-a2a9-431c-8407-f6cd661284f1",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "80b122b6-ed6a-4cd2-b0e2-88eb973921b4",
+        "id": "73ec7f27-377c-425d-adbe-0968ab5f4bd8",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "89b8976b-a2b4-4862-ae62-6a7f02d23fac",
+        "id": "84ef0dac-4e83-4d7f-8a20-e6789bff1c10",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "2d05b6c3-bd37-402a-975b-66371ebdd07b",
+        "id": "3b74fc66-65c5-46cd-b99e-d27ea11d98e9",
         "displayLabel": "UmlBehaviorConnector"
       },
       {
-        "id": "c1f2fddd-d515-4c3f-bf15-04b6c03a7787",
+        "id": "86833b84-6d87-47a8-aaae-e4b6d4d2440e",
         "displayLabel": "UmlBehaviorConnector"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "d56b2505-b280-4619-ae41-65860b007909"
+    "id": "930418f0-9202-4e4b-a77f-0c2004c13b12"
   },
   "diagrams": [
     {
       "kind": "sequenceDiagram",
       "nodes": [
         {
-          "id": "f82d92c4-4886-4f8b-9f49-9802a1a78abd",
-          "modelElementId": "9642c677-0874-4780-80c0-778de131ba38",
+          "id": "50ab12fb-d7f3-49d8-aa41-f21b045756ed",
+          "modelElementId": "5e0c033c-e6d8-45c0-872d-dae484f85438",
           "presentation": "behavior",
           "x": 60,
           "y": 50,
@@ -292,8 +292,8 @@
           }
         },
         {
-          "id": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
-          "modelElementId": "26728d14-6fe7-4c30-b93a-448e3e412c00",
+          "id": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
+          "modelElementId": "28aaf58e-1672-4cc9-9dfc-c932f8d6a237",
           "presentation": "behavior",
           "x": 280,
           "y": 50,
@@ -328,8 +328,8 @@
           }
         },
         {
-          "id": "ab8a84f3-accf-412d-ba36-72f3ac531f14",
-          "modelElementId": "f48da055-e1be-4868-8c46-535fe3beddc3",
+          "id": "898d5c34-c7ac-4bd1-9d89-040888872b61",
+          "modelElementId": "3a79177c-da64-4107-8472-e4ecf66df8f5",
           "presentation": "behavior",
           "x": 500,
           "y": 50,
@@ -364,8 +364,8 @@
           }
         },
         {
-          "id": "24ca3303-e9a7-4295-b977-265985ed050f",
-          "modelElementId": "c3107d8f-9946-4fbc-abf7-65671aa8250e",
+          "id": "a41093e7-64c3-44bb-a792-3931f3463d42",
+          "modelElementId": "3b320953-7e10-4247-83e2-4d63b3e3c5c8",
           "presentation": "behavior",
           "x": 220,
           "y": 170,
@@ -400,8 +400,8 @@
           }
         },
         {
-          "id": "23249a31-b703-4b77-bed0-f210ba8a9668",
-          "modelElementId": "a9c06da2-87ed-4f01-bae6-7063364fda5e",
+          "id": "55821633-43c5-4599-b788-05e420e8455d",
+          "modelElementId": "6ac84e4b-a8f0-4364-ba06-28f951b1030b",
           "presentation": "behavior",
           "x": 220,
           "y": 310,
@@ -438,60 +438,60 @@
       ],
       "edges": [
         {
-          "id": "e329b327-6596-4095-87bc-90d35632dfc9",
-          "modelElementId": "64eb78be-533b-4741-8d05-8436098761b4",
-          "sourceNodeId": "f82d92c4-4886-4f8b-9f49-9802a1a78abd",
-          "targetNodeId": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
+          "id": "371268ea-ac4c-42d2-b224-73ba3e580dd0",
+          "modelElementId": "8dae8e89-a26e-4c1a-b2df-d4f5739ed089",
+          "sourceNodeId": "50ab12fb-d7f3-49d8-aa41-f21b045756ed",
+          "targetNodeId": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
           "sequenceY": 140,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "830b4248-bd8b-47ca-be51-f785d421f6b9",
-          "modelElementId": "d8b4d409-0b46-4e39-97f9-e82d22b5b4fa",
-          "sourceNodeId": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
-          "targetNodeId": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
+          "id": "5dc9b846-25b7-4ad0-887b-8319231ea2a7",
+          "modelElementId": "22a128d0-a2a9-431c-8407-f6cd661284f1",
+          "sourceNodeId": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
+          "targetNodeId": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
           "sequenceY": 210,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "a16e5ba5-85b3-40a9-b5ea-0f5cbd96ad3f",
-          "modelElementId": "80b122b6-ed6a-4cd2-b0e2-88eb973921b4",
-          "sourceNodeId": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
-          "targetNodeId": "ab8a84f3-accf-412d-ba36-72f3ac531f14",
+          "id": "c10250ac-6f72-4648-a94f-998b8340851a",
+          "modelElementId": "73ec7f27-377c-425d-adbe-0968ab5f4bd8",
+          "sourceNodeId": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
+          "targetNodeId": "898d5c34-c7ac-4bd1-9d89-040888872b61",
           "sequenceY": 330,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "85e41529-2aef-4836-b821-f2a29729b485",
-          "modelElementId": "89b8976b-a2b4-4862-ae62-6a7f02d23fac",
-          "sourceNodeId": "ab8a84f3-accf-412d-ba36-72f3ac531f14",
-          "targetNodeId": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
+          "id": "8467184a-24b8-4307-a49f-ea9e5a80e0f2",
+          "modelElementId": "84ef0dac-4e83-4d7f-8a20-e6789bff1c10",
+          "sourceNodeId": "898d5c34-c7ac-4bd1-9d89-040888872b61",
+          "targetNodeId": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
           "sequenceY": 365,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "a6a36f9d-9050-418b-8b92-ed7337cf7bda",
-          "modelElementId": "2d05b6c3-bd37-402a-975b-66371ebdd07b",
-          "sourceNodeId": "ab8a84f3-accf-412d-ba36-72f3ac531f14",
-          "targetNodeId": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
+          "id": "cb7e482c-9f13-4c85-b6b5-3ed45ff659fd",
+          "modelElementId": "3b74fc66-65c5-46cd-b99e-d27ea11d98e9",
+          "sourceNodeId": "898d5c34-c7ac-4bd1-9d89-040888872b61",
+          "targetNodeId": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
           "sequenceY": 405,
           "routingKind": "straight",
           "orthoMidX": null,
           "orthoMidY": null
         },
         {
-          "id": "83aa8d9d-a860-4e5c-809a-7c24c7390df2",
-          "modelElementId": "c1f2fddd-d515-4c3f-bf15-04b6c03a7787",
-          "sourceNodeId": "5541290c-cbbc-4f11-9e17-516cd8aae8f9",
-          "targetNodeId": "f82d92c4-4886-4f8b-9f49-9802a1a78abd",
+          "id": "02ec9b04-fc57-4a9f-b9c8-eb8c9056dcb6",
+          "modelElementId": "86833b84-6d87-47a8-aaae-e4b6d4d2440e",
+          "sourceNodeId": "184b24e3-6abf-496a-b040-a4dd8639ebcf",
+          "targetNodeId": "50ab12fb-d7f3-49d8-aa41-f21b045756ed",
           "sequenceY": 450,
           "routingKind": "straight",
           "orthoMidX": null,
@@ -500,7 +500,7 @@
       ],
       "name": "Sequence Diagram",
       "displayLabel": "Sequence Diagram",
-      "id": "ff6451d0-ffe8-41cb-87d8-367051894e16"
+      "id": "5ac54cce-4307-4155-8b01-0cbf87c59ef5"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"

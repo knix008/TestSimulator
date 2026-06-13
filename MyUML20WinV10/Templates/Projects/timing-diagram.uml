@@ -22,7 +22,7 @@
         "localPostcondition": null,
         "name": "Controller",
         "displayLabel": "Controller",
-        "id": "d720ce77-a8a4-4267-8472-703a27d38315"
+        "id": "95d63457-97f1-423c-a06e-47269fe4a25a"
       },
       {
         "kind": "timingState",
@@ -37,7 +37,7 @@
         "localPostcondition": null,
         "name": "Idle",
         "displayLabel": "Idle",
-        "id": "d86cd10d-2722-4230-83e6-5d218fce7aa6"
+        "id": "6cdf8b21-57a4-444b-b656-b455172b3cff"
       },
       {
         "kind": "timingState",
@@ -52,7 +52,7 @@
         "localPostcondition": null,
         "name": "Active",
         "displayLabel": "Active",
-        "id": "8100754e-c332-4ec3-937d-1afaaed310ba"
+        "id": "e6fe1042-a115-46a9-9fbd-e6af82541b14"
       }
     ],
     "components": [],
@@ -64,29 +64,29 @@
     "relationships": [],
     "ownedElements": [
       {
-        "id": "d720ce77-a8a4-4267-8472-703a27d38315",
+        "id": "95d63457-97f1-423c-a06e-47269fe4a25a",
         "displayLabel": "Controller"
       },
       {
-        "id": "d86cd10d-2722-4230-83e6-5d218fce7aa6",
+        "id": "6cdf8b21-57a4-444b-b656-b455172b3cff",
         "displayLabel": "Idle"
       },
       {
-        "id": "8100754e-c332-4ec3-937d-1afaaed310ba",
+        "id": "e6fe1042-a115-46a9-9fbd-e6af82541b14",
         "displayLabel": "Active"
       }
     ],
     "name": "Model",
     "displayLabel": "Model",
-    "id": "5a33dc35-cf38-4cc6-bbef-5fdb4156ff43"
+    "id": "f63cfd1a-4e29-4e7a-97cf-e4a1a77982be"
   },
   "diagrams": [
     {
       "kind": "timingDiagram",
       "nodes": [
         {
-          "id": "d72ff163-b7fb-492c-a6ca-cc381039034e",
-          "modelElementId": "d720ce77-a8a4-4267-8472-703a27d38315",
+          "id": "c40b6b5c-b97a-4e5d-ad02-af48bef974c0",
+          "modelElementId": "95d63457-97f1-423c-a06e-47269fe4a25a",
           "presentation": "behavior",
           "x": 60,
           "y": 80,
@@ -121,8 +121,8 @@
           }
         },
         {
-          "id": "90d762eb-042a-477f-947c-a96432887e53",
-          "modelElementId": "d86cd10d-2722-4230-83e6-5d218fce7aa6",
+          "id": "5f8a1b52-5fa2-4885-afb2-d2b7875f6421",
+          "modelElementId": "6cdf8b21-57a4-444b-b656-b455172b3cff",
           "presentation": "behavior",
           "x": 80,
           "y": 130,
@@ -157,8 +157,8 @@
           }
         },
         {
-          "id": "75ee4180-abc4-45dd-8639-857b8dd19f3f",
-          "modelElementId": "8100754e-c332-4ec3-937d-1afaaed310ba",
+          "id": "08f79638-4321-4999-bee2-3e84f5461c60",
+          "modelElementId": "e6fe1042-a115-46a9-9fbd-e6af82541b14",
           "presentation": "behavior",
           "x": 240,
           "y": 130,
@@ -196,7 +196,7 @@
       "edges": [],
       "name": "Timing Diagram",
       "displayLabel": "Timing Diagram",
-      "id": "49478e31-39ee-4c05-8fc0-788cb41f4d64"
+      "id": "921a3ec1-52c1-4860-b89e-938f3845b81f"
     }
   ],
   "activeDiagramId": "00000000-0000-0000-0000-000000000000"
