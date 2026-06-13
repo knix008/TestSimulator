@@ -13,7 +13,7 @@ Windows용 Gantt 차트 프로젝트 관리 애플리케이션입니다. 태스�
 
 ### Visual Studio
 
-1. `MyProject.slnx` 열기
+1. `MyProject.sln` 열기
 2. `MyProject` 프로젝트를 시작 프로젝트로 설정
 3. 실행 (F5)
 
@@ -58,7 +58,7 @@ dotnet run --project MyProject.csproj --no-build -- --generate-icon
 
 - 연결선 종류: **FS**, **FF**, **SS**, **SF**
 - 툴바에서 종류 이름과 **선 형태 미리보기**를 함께 선택
-- Link 버튼: 선행 태스크 선택 → 후행 태스크 선택 → 연결 생성
+- Link 버튼: 선행 태스크 선택 → **Link** → 후행 태스크 선택 (자동 연결)
 
 ### 보고 /보내기
 
@@ -79,31 +79,25 @@ dotnet run --project MyProject.csproj --no-build -- --generate-icon
 | 태스크 추가 | Insert 또는 툴바 **Add Task** |
 | 하위 태스크 추가 | 우클릭 **Add Subtask** |
 | 들여쓰기 / 내어쓰기 | Alt+Right / Alt+Left 또는 툴바 버튼 |
-| 태스크 연결 | Link 클릭 → 선행 선택 → 후행 선택 → Link 다시 클릭 |
+| 태스크 연결 | 선행 태스크 선택 → **Link** → 후행 태스크 선택 (자동 연결) |
 | 접기 / 펼치기 | 트리 화살표 클릭 또는 우클릭 메뉴 |
 | 속성 편집 | 태스크 더블클릭 |
 
 ## MSI 설치 파일
 
-**Release** 구성에서 MSI가 자동 생성됩니다. Debug에서는 MSI가 만들어지지 않습니다.
-
-Visual Studio에서 **Release | Any CPU**로 **MyProject** 프로젝트를 Rebuild하면 됩니다.  
-빌드 출력에 `MSI ready:` 메시지가 표시됩니다.
+Visual Studio에서 **Release | Any CPU**로 빌드하면 MSI가 자동으로 생성됩니다.  
+Debug 빌드에서는 MSI를 만들지 않습니다.
 
 ```bash
 dotnet build MyProject.csproj -c Release
 ```
 
-또는 WiX 설치 프로젝트만 직접 빌드:
+MSI를 건너뛰려면 `-p:BuildMsi=false`를 지정하세요.
 
-```bash
-dotnet build Installer/MyProject.Installer.wixproj -c Release
-```
+빌드 출력에 `MSI ready:` 메시지가 표시됩니다.
 
-생성 위치:
-
-- `Installer/bin/Release/MyProject_Setup.msi`
-- `bin/Release/net8.0-windows/win-x64/MyProject_Setup.msi` (앱 빌드 시 복사본)
+- MSI 경로: `Installer/bin/Release/MyProject_Setup.msi`
+- 복사본: `bin/Release/net8.0-windows/win-x64/MyProject_Setup.msi`
 
 설치 시 바탕 화면·시작 메뉴 바로 가기, 템플릿 프로젝트, 앱 아이콘이 포함됩니다.
 

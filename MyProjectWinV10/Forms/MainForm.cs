@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using MyProject.Models;
+﻿using MyProject.Models;
 using MyProject.Theme;
 
 namespace MyProject.Forms
@@ -10,6 +9,8 @@ namespace MyProject.Forms
         private ProjectModel? _titleBarModel;
         private int _lastSelectedId = -1;
         private int _linkSourceId = -1;  // for dependency link tool
+        private bool _awaitingLinkPredecessor;
+        private int _linkHoverTargetId = -1;
         private ProjectContextMenuBuilder? _contextMenuBuilder;
         private bool _isApplyingViewSettings;
 
@@ -22,12 +23,6 @@ namespace MyProject.Forms
             LoadNewProject();
         }
 
-        private void SafeRun(string title, string summary, Action action)
-        {
-            try { action(); }
-            catch (Exception ex) { ErrorDialog.Show(this, title, ex); }
-        }
-
         private void PostInitializeComponent()
         {
             mainMenuStrip.ImageScalingSize = new Size(16, 16);
@@ -36,20 +31,28 @@ namespace MyProject.Forms
             btnNew.Image        = AppIcons.New;
             btnOpen.Image       = AppIcons.Open;
             btnSave.Image       = AppIcons.Save;
+            btnSaveAs.Image     = AppIcons.SaveAs;
             btnAddTask.Image    = AppIcons.AddTask;
+            btnAddSubtask.Image = AppIcons.AddSubtask;
             btnDeleteTask.Image = AppIcons.Delete;
+            btnTaskProps.Image  = AppIcons.Properties;
             btnIndent.Image     = AppIcons.Indent;
             btnOutdent.Image    = AppIcons.Outdent;
+            btnExpandCollapse.Image = AppIcons.ExpandCollapse;
             btnLink.Image       = AppIcons.Link;
+            btnLink.CheckOnClick = true;
+            menuLink.CheckOnClick = true;
             btnZoomIn.Image     = AppIcons.ZoomIn;
             btnZoomOut.Image    = AppIcons.ZoomOut;
             btnToday.Image      = AppIcons.Today;
             btnReport.Image     = AppIcons.Excel;
+            btnExportMd.Image   = AppIcons.Markdown;
+            btnExportPdf.Image  = AppIcons.Pdf;
             btnPrint.Image      = AppIcons.Print;
 
             // Top-level menu icons
             menuFile.Image   = AppIcons.File;
-            menuEdit.Image   = AppIcons.Edit;
+            menuTask.Image   = AppIcons.Edit;
             menuView.Image   = AppIcons.View;
             menuReport.Image = AppIcons.Report;
 
@@ -60,12 +63,16 @@ namespace MyProject.Forms
             menuSaveAs.Image = AppIcons.SaveAs;
             menuExit.Image   = AppIcons.Exit;
 
-            // Edit menu
-            menuAddTask.Image    = AppIcons.AddTask;
-            menuDeleteTask.Image = AppIcons.Delete;
-            menuIndent.Image     = AppIcons.Indent;
-            menuOutdent.Image    = AppIcons.Outdent;
-            menuTaskProps.Image  = AppIcons.Properties;
+            // Task menu
+            menuAddTask.Image       = AppIcons.AddTask;
+            menuAddSubtask.Image    = AppIcons.Indent;
+            menuDeleteTask.Image    = AppIcons.Delete;
+            menuIndent.Image        = AppIcons.Indent;
+            menuOutdent.Image       = AppIcons.Outdent;
+            menuLink.Image          = AppIcons.Link;
+            menuDepType.Image       = AppIcons.Link;
+            menuTaskProps.Image     = AppIcons.Properties;
+            menuExpandCollapse.Image = AppIcons.View;
 
             // View menu
             menuZoomIn.Image  = AppIcons.ZoomIn;
@@ -85,16 +92,22 @@ namespace MyProject.Forms
             btnNew.ToolTipText        = "New Project (Ctrl+N)";
             btnOpen.ToolTipText       = "Open Project (Ctrl+O)";
             btnSave.ToolTipText       = "Save Project (Ctrl+S)";
+            btnSaveAs.ToolTipText     = "Save Project As...";
             btnAddTask.ToolTipText    = "Add Task (Insert)";
+            btnAddSubtask.ToolTipText = "Add Subtask (Ctrl+Shift+Insert)";
             btnDeleteTask.ToolTipText = "Delete Selected Task (Delete)";
+            btnTaskProps.ToolTipText  = "Task Properties (F2)";
             btnIndent.ToolTipText     = "Indent Task (Alt+Right)";
             btnOutdent.ToolTipText    = "Outdent Task (Alt+Left)";
-            btnLink.ToolTipText       = "Link Tasks — click source, then click Link again on successor";
+            btnExpandCollapse.ToolTipText = "Expand or collapse subtasks";
+            btnLink.ToolTipText       = "Link Tasks — click, select predecessor, then successor (preview line shown)";
             dependencyTypeHost.ToolTipText = "Select dependency line type (shown with preview)";
             btnZoomIn.ToolTipText     = "Zoom In (Ctrl++)";
             btnZoomOut.ToolTipText    = "Zoom Out (Ctrl+-)";
             btnToday.ToolTipText      = "Scroll to Today (Ctrl+T)";
             btnReport.ToolTipText     = "Export schedule and progress to Excel";
+            btnExportMd.ToolTipText   = "Export progress report as Markdown";
+            btnExportPdf.ToolTipText  = "Export schedule as PDF";
             btnPrint.ToolTipText      = "Print Schedule (Ctrl+P)";
 
             menuNew.ToolTipText       = "Create a new empty project";
@@ -126,91 +139,115 @@ namespace MyProject.Forms
         {
             _contextMenuBuilder = CreateContextMenuBuilder();
 
-            // File menu
-            menuNew.Click        += (s, e) => SafeRun("New Project Error", "Could not create a new project.", OnNew);
-            menuOpen.Click       += (s, e) => SafeRun("Open Error", "Could not open the project.", OnOpen);
-            menuSave.Click       += (s, e) => SafeRun("Save Error", "Could not save the project.", OnSave);
-            menuSaveAs.Click     += (s, e) => SafeRun("Save Error", "Could not save the project.", OnSaveAs);
-            menuExit.Click       += (s, e) => Close();
+            menuNew.Click        += (_, _) => OnNew();
+            menuOpen.Click       += (_, _) => OnOpen();
+            menuSave.Click       += (_, _) => OnSave();
+            menuSaveAs.Click     += (_, _) => OnSaveAs();
+            menuExit.Click       += (_, _) => Close();
 
-            // Edit menu
-            menuAddTask.Click    += (s, e) => SafeRun("Add Task Error", "Could not add a task.", OnAddTask);
-            menuDeleteTask.Click += (s, e) => SafeRun("Delete Task Error", "Could not delete the task.", OnDeleteTask);
-            menuIndent.Click     += (s, e) => SafeRun("Indent Error", "Could not indent the task.", OnIndent);
-            menuOutdent.Click    += (s, e) => SafeRun("Outdent Error", "Could not outdent the task.", OnOutdent);
-            menuTaskProps.Click  += (s, e) => SafeRun("Task Properties Error", "Could not open task properties.", () => OpenTaskProperties(_lastSelectedId));
+            menuAddTask.Click    += (_, _) => OnAddTask();
+            menuAddSubtask.Click += (_, _) => OnAddSubtask(_lastSelectedId);
+            menuDeleteTask.Click += (_, _) => OnDeleteTask();
+            menuIndent.Click     += (_, _) => OnIndent();
+            menuOutdent.Click    += (_, _) => OnOutdent();
+            menuLink.Click       += (_, _) => OnLinkTasks();
+            menuDepFS.Click      += (_, _) => SelectDependencyType(DependencyType.FS);
+            menuDepFF.Click      += (_, _) => SelectDependencyType(DependencyType.FF);
+            menuDepSS.Click      += (_, _) => SelectDependencyType(DependencyType.SS);
+            menuDepSF.Click      += (_, _) => SelectDependencyType(DependencyType.SF);
+            menuTaskProps.Click  += (_, _) => OpenTaskProperties(_lastSelectedId);
+            menuExpandCollapse.Click += (_, _) => OnToggleExpandSelectedTask();
+            menuTask.DropDownOpening += (_, _) => UpdateTaskToolState();
 
-            // View menu
-            menuZoomIn.Click  += (s, e) => SafeRun("View Error", "Could not zoom in.", OnZoomIn);
-            menuZoomOut.Click += (s, e) => SafeRun("View Error", "Could not zoom out.", OnZoomOut);
-            menuToday.Click   += (s, e) => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday());
+            menuZoomIn.Click  += (_, _) => OnZoomIn();
+            menuZoomOut.Click += (_, _) => OnZoomOut();
+            menuToday.Click   += (_, _) => ganttChartControl.GoToToday();
 
-            // Report menu
-            menuExportExcel.Click += (s, e) => SafeRun("Export Error", "Could not export the Excel report.", OnExportExcel);
-            menuExportMd.Click  += (s, e) => SafeRun("Export Error", "Could not export the Markdown report.", OnExportMarkdown);
-            menuExportPdf.Click += (s, e) => OnExportPdf();
-            menuPrint.Click     += (s, e) => SafeRun("Print Error", "Could not print the schedule.", OnPrint);
+            menuExportExcel.Click += (_, _) => OnExportExcel();
+            menuExportMd.Click  += (_, _) => OnExportMarkdown();
+            menuExportPdf.Click += (_, _) => OnExportPdf();
+            menuPrint.Click     += (_, _) => OnPrint();
 
-            // Toolbar buttons
-            btnNew.Click        += (s, e) => SafeRun("New Project Error", "Could not create a new project.", OnNew);
-            btnOpen.Click       += (s, e) => SafeRun("Open Error", "Could not open the project.", OnOpen);
-            btnSave.Click       += (s, e) => SafeRun("Save Error", "Could not save the project.", OnSave);
-            btnAddTask.Click    += (s, e) => SafeRun("Add Task Error", "Could not add a task.", OnAddTask);
-            btnDeleteTask.Click += (s, e) => SafeRun("Delete Task Error", "Could not delete the task.", OnDeleteTask);
-            btnIndent.Click     += (s, e) => SafeRun("Indent Error", "Could not indent the task.", OnIndent);
-            btnOutdent.Click    += (s, e) => SafeRun("Outdent Error", "Could not outdent the task.", OnOutdent);
-            btnLink.Click       += (s, e) => SafeRun("Link Error", "Could not link tasks.", OnLinkTasks);
+            btnNew.Click        += (_, _) => OnNew();
+            btnOpen.Click       += (_, _) => OnOpen();
+            btnSave.Click       += (_, _) => OnSave();
+            btnSaveAs.Click     += (_, _) => OnSaveAs();
+            btnAddTask.Click    += (_, _) => OnAddTask();
+            btnAddSubtask.Click += (_, _) => OnAddSubtask(_lastSelectedId);
+            btnDeleteTask.Click += (_, _) => OnDeleteTask();
+            btnTaskProps.Click  += (_, _) => OpenTaskProperties(_lastSelectedId);
+            btnIndent.Click     += (_, _) => OnIndent();
+            btnOutdent.Click    += (_, _) => OnOutdent();
+            btnExpandCollapse.Click += (_, _) => OnToggleExpandSelectedTask();
+            btnLink.Click       += (_, _) => OnLinkTasks();
             dependencyTypeSelector.SelectedType = AppSettings.DefaultDependencyType;
-            dependencyTypeSelector.SelectedTypeChanged += (_, _) =>
-                SafeRun("Settings Error", "Could not apply dependency line type.", OnDependencyTypeChanged);
-            btnZoomIn.Click     += (s, e) => SafeRun("View Error", "Could not zoom in.", OnZoomIn);
-            btnZoomOut.Click    += (s, e) => SafeRun("View Error", "Could not zoom out.", OnZoomOut);
-            btnToday.Click      += (s, e) => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday());
-            btnReport.Click     += (s, e) => SafeRun("Export Error", "Could not export the Excel report.", OnExportExcel);
-            btnPrint.Click      += (s, e) => SafeRun("Print Error", "Could not print the schedule.", OnPrint);
+            dependencyTypeSelector.SelectedTypeChanged += (_, _) => OnDependencyTypeChanged();
+            btnZoomIn.Click     += (_, _) => OnZoomIn();
+            btnZoomOut.Click    += (_, _) => OnZoomOut();
+            btnToday.Click      += (_, _) => ganttChartControl.GoToToday();
+            btnReport.Click     += (_, _) => OnExportExcel();
+            btnExportMd.Click   += (_, _) => OnExportMarkdown();
+            btnExportPdf.Click  += (_, _) => OnExportPdf();
+            btnPrint.Click      += (_, _) => OnPrint();
 
-            // Inter-control sync
-            taskGridControl.TaskSelected     += (s, id) => SafeRun("Selection Error", "Could not update task selection.", () => OnTaskSelected(s, id));
-            taskGridControl.TaskDoubleClicked += (s, id) => SafeRun("Task Properties Error", "Could not open task properties.", () => OpenTaskProperties(id));
-            taskGridControl.ScrollChanged    += (s, e) =>
-                SafeRun("View Error", "Could not synchronize scrolling.", () =>
-                    ganttChartControl.SyncScrollY(taskGridControl.ScrollOffsetY));
+            taskGridControl.TaskSelected     += OnTaskSelected;
+            taskGridControl.TaskHovered      += OnTaskHovered;
+            taskGridControl.TaskDoubleClicked += (_, id) => OpenTaskProperties(id);
+            taskGridControl.ScrollChanged    += (_, _) =>
+                ganttChartControl.SyncScrollY(taskGridControl.ScrollOffsetY);
 
-            ganttChartControl.TaskSelected      += (s, id) => SafeRun("Selection Error", "Could not update task selection.", () => OnTaskSelected(s, id));
-            ganttChartControl.TaskDoubleClicked += (s, id) => SafeRun("Task Properties Error", "Could not open task properties.", () => OpenTaskProperties(id));
-            ganttChartControl.ScrollYChanged    += (s, scrollY) =>
-                SafeRun("View Error", "Could not synchronize scrolling.", () =>
-                    taskGridControl.SyncScroll(scrollY));
+            ganttChartControl.TaskSelected      += OnTaskSelected;
+            ganttChartControl.TaskHovered       += OnTaskHovered;
+            ganttChartControl.TaskDoubleClicked += (_, id) => OpenTaskProperties(id);
+            ganttChartControl.ScrollYChanged    += (_, scrollY) =>
+                taskGridControl.SyncScroll(scrollY);
 
             taskGridControl.ContextMenuRequested += OnContextMenuRequested;
             ganttChartControl.ContextMenuRequested += OnContextMenuRequested;
 
-            ganttChartControl.ViewZoomChanged += (_, _) =>
-                SafeRun("Settings Error", "Could not update zoom level.", MarkViewSettingsModified);
-            taskGridControl.ColumnWidthsChanged += (_, _) =>
-                SafeRun("Settings Error", "Could not update column widths.", MarkViewSettingsModified);
+            ganttChartControl.ViewZoomChanged += (_, _) => MarkViewSettingsModified();
+            taskGridControl.ColumnWidthsChanged += (_, _) => MarkViewSettingsModified();
             splitContainer.SplitterMoved += (_, _) =>
             {
                 if (_isApplyingViewSettings) return;
-                SafeRun("Settings Error", "Could not update panel layout.", MarkViewSettingsModified);
+                MarkViewSettingsModified();
             };
 
             FormClosing += OnFormClosing;
             FormClosed += OnFormClosed;
+
+            KeyPreview = true;
+            KeyDown += (_, e) =>
+            {
+                if (e.KeyCode != Keys.Escape || !IsLinkModeActive)
+                    return;
+
+                CancelLink();
+                statusLabel.Text = "Link cancelled.";
+                e.Handled = true;
+            };
         }
+
+        private bool IsLinkModeActive => _awaitingLinkPredecessor || _linkSourceId >= 0;
 
         private void OnFormClosing(object? sender, FormClosingEventArgs e)
         {
             taskGridControl.CancelInteraction();
 
-            if (!ShouldAllowImmediateClose(e) && _model.IsModified && !ConfirmProceedWithoutSaving())
+            if (!ShouldCloseWithoutSavePrompt() && _model.IsModified && !ConfirmProceedWithoutSaving())
             {
                 e.Cancel = true;
                 return;
             }
 
-            SaveAppSettingsQuietly();
+            AppShutdown.BeginShutdown();
+
+            try { AppSettings.Save(); }
+            catch { /* ignore settings write errors during shutdown */ }
         }
+
+        private static bool ShouldCloseWithoutSavePrompt() =>
+            AppShutdown.LaunchedUnderDebugger;
 
         private void OnFormClosed(object? sender, FormClosedEventArgs e)
         {
@@ -218,6 +255,8 @@ namespace MyProject.Forms
 
             if (_titleBarModel != null)
                 _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
+
+            AppShutdown.ExitProcessIfDebugSession();
         }
 
         private void DetachFromModel()
@@ -226,61 +265,30 @@ namespace MyProject.Forms
             ganttChartControl.DetachModel();
         }
 
-        private static bool ShouldAllowImmediateClose(FormClosingEventArgs e)
-        {
-            if (Debugger.IsAttached)
-                return true;
-
-            return e.CloseReason is CloseReason.WindowsShutDown
-                or CloseReason.TaskManagerClosing
-                or CloseReason.ApplicationExitCall
-                or CloseReason.MdiFormClosing
-                or CloseReason.FormOwnerClosing;
-        }
-
-        private static void SaveAppSettingsQuietly()
-        {
-            try
-            {
-                AppSettings.Save();
-            }
-            catch
-            {
-                // Ignore settings errors during shutdown.
-            }
-        }
-
         private ProjectContextMenuBuilder CreateContextMenuBuilder() =>
             new()
             {
-                AddTask = () => SafeRun("Add Task Error", "Could not add a task.", OnAddTask),
-                AddSubtask = id => SafeRun("Add Subtask Error", "Could not add a subtask.", () => OnAddSubtask(id)),
-                OpenTaskProperties = id => SafeRun("Task Properties Error", "Could not open task properties.", () => OpenTaskProperties(id)),
-                DeleteTask = id => SafeRun("Delete Task Error", "Could not delete the task.", () => DeleteTaskById(id)),
-                IndentTask = id => SafeRun("Indent Error", "Could not indent the task.", () => IndentTaskById(id)),
-                OutdentTask = id => SafeRun("Outdent Error", "Could not outdent the task.", () => OutdentTaskById(id)),
-                LinkFromTask = id => SafeRun("Link Error", "Could not start linking tasks.", () => LinkFromTask(id)),
-                ToggleExpandTask = id => SafeRun("Expand Error", "Could not expand or collapse subtasks.", () => ToggleExpandTask(id)),
-                ZoomIn = () => SafeRun("View Error", "Could not zoom in.", OnZoomIn),
-                ZoomOut = () => SafeRun("View Error", "Could not zoom out.", OnZoomOut),
-                GoToToday = () => SafeRun("View Error", "Could not go to today.", () => ganttChartControl.GoToToday()),
-                RenameProject = () => SafeRun("Rename Error", "Could not rename the project.", () => taskGridControl.StartProjectNameEdit())
+                AddTask = OnAddTask,
+                AddSubtask = id => OnAddSubtask(id),
+                OpenTaskProperties = id => OpenTaskProperties(id),
+                DeleteTask = id => DeleteTaskById(id),
+                IndentTask = id => IndentTaskById(id),
+                OutdentTask = id => OutdentTaskById(id),
+                LinkFromTask = id => LinkFromTask(id),
+                ToggleExpandTask = id => ToggleExpandTask(id),
+                ZoomIn = OnZoomIn,
+                ZoomOut = OnZoomOut,
+                GoToToday = () => ganttChartControl.GoToToday(),
+                RenameProject = () => taskGridControl.StartProjectNameEdit()
             };
 
         private void OnContextMenuRequested(object? sender, ContextMenuRequestEventArgs e)
         {
             if (sender is not Control control) return;
 
-            try
-            {
-                var menu = _contextMenuBuilder!.Build(e.Target, e.TaskId, _model);
-                menu.Tag = control;
-                menu.Show(control, e.Location);
-            }
-            catch (Exception ex)
-            {
-                ErrorDialog.Show(this, "Menu Error", ex);
-            }
+            var menu = _contextMenuBuilder!.Build(e.Target, e.TaskId, _model);
+            menu.Tag = control;
+            menu.Show(control, e.Location);
         }
 
         private void DeleteTaskById(int taskId)
@@ -304,11 +312,16 @@ namespace MyProject.Forms
         private void LinkFromTask(int taskId)
         {
             if (taskId < 0) return;
-            SelectTask(taskId);
+
+            _awaitingLinkPredecessor = false;
             _linkSourceId = taskId;
             btnLink.Checked = true;
+            menuLink.Checked = true;
+            SelectTask(taskId);
+            UpdateLinkPreview();
+
             var src = _model.GetTask(taskId);
-            statusLabel.Text = $"Link source: [{src?.Name}] — select successor and click Link again ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+            statusLabel.Text = $"Link source: [{src?.Name}] — select successor task ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
         }
 
         private void ToggleExpandTask(int taskId)
@@ -316,6 +329,7 @@ namespace MyProject.Forms
             _model.ToggleExpanded(taskId);
             taskGridControl.Invalidate();
             ganttChartControl.Invalidate();
+            UpdateTaskToolState();
         }
 
         private void SelectTask(int taskId)
@@ -324,6 +338,7 @@ namespace MyProject.Forms
             taskGridControl.SetSelectedTask(taskId);
             ganttChartControl.SetSelectedTask(taskId);
             UpdateStatus(taskId);
+            UpdateTaskToolState();
         }
 
         // ── Model loading ────────────────────────────────────────────────────
@@ -358,6 +373,7 @@ namespace MyProject.Forms
 
             UpdateTitleBar();
             UpdateStatus(-1);
+            UpdateTaskToolState();
         }
 
         private void CaptureViewSettingsToModel()
@@ -425,9 +441,63 @@ namespace MyProject.Forms
         private void OnTaskSelected(object? sender, int taskId)
         {
             _lastSelectedId = taskId;
-            if (sender != taskGridControl)  taskGridControl.SetSelectedTask(taskId);
+            if (sender != taskGridControl) taskGridControl.SetSelectedTask(taskId);
             if (sender != ganttChartControl) ganttChartControl.SetSelectedTask(taskId);
             UpdateStatus(taskId);
+            UpdateTaskToolState();
+
+            if (_awaitingLinkPredecessor && taskId >= 0)
+            {
+                _awaitingLinkPredecessor = false;
+                _linkSourceId = taskId;
+                var src = _model.GetTask(taskId);
+                statusLabel.Text = $"Link source: [{src?.Name}] — select successor task ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+                btnLink.Checked = true;
+                menuLink.Checked = true;
+                _linkHoverTargetId = -1;
+                UpdateLinkPreview();
+                return;
+            }
+
+            if (_linkSourceId >= 0 && taskId >= 0 && taskId != _linkSourceId)
+                TryCreateDependency(_linkSourceId, taskId);
+        }
+
+        private void OnTaskHovered(object? sender, int taskId)
+        {
+            if (_linkSourceId < 0)
+                return;
+
+            if (taskId == _linkSourceId)
+                taskId = -1;
+
+            if (_linkHoverTargetId == taskId)
+                return;
+
+            _linkHoverTargetId = taskId;
+            UpdateLinkPreview();
+        }
+
+        private void UpdateLinkPreview()
+        {
+            if (_linkSourceId >= 0)
+            {
+                ganttChartControl.SetLinkPreview(
+                    true,
+                    _linkSourceId,
+                    _linkHoverTargetId,
+                    dependencyTypeSelector.SelectedType);
+                return;
+            }
+
+            if (_awaitingLinkPredecessor)
+            {
+                ganttChartControl.SetLinkPreview(true, -1, -1, dependencyTypeSelector.SelectedType);
+                return;
+            }
+
+            _linkHoverTargetId = -1;
+            ganttChartControl.ClearLinkPreview();
         }
 
         // ── UI updates ───────────────────────────────────────────────────────
@@ -488,7 +558,7 @@ namespace MyProject.Forms
             }
             catch (Exception ex)
             {
-                ErrorDialog.Show(this, "Open Error", ex);
+                ErrorDialog.Show(this, "Open Error", "Could not open the project file.", ex);
             }
         }
 
@@ -553,7 +623,7 @@ namespace MyProject.Forms
             }
             catch (Exception ex)
             {
-                ErrorDialog.Show(this, "Save Error", ex);
+                ErrorDialog.Show(this, "Save Error", "Could not save the project file.", ex);
             }
         }
 
@@ -591,6 +661,7 @@ namespace MyProject.Forms
                 return true;
 
             var result = MessageBox.Show(
+                this,
                 "Save changes to the current project?",
                 "Unsaved Changes",
                 MessageBoxButtons.YesNoCancel,
@@ -641,6 +712,7 @@ namespace MyProject.Forms
                 ganttChartControl.SetSelectedTask(-1);
                 taskGridControl.SetSelectedTask(-1);
                 UpdateStatus(-1);
+                UpdateTaskToolState();
             }
         }
 
@@ -654,60 +726,138 @@ namespace MyProject.Forms
             if (_lastSelectedId >= 0) _model.OutdentTask(_lastSelectedId);
         }
 
+        private void OnToggleExpandSelectedTask()
+        {
+            if (_lastSelectedId >= 0)
+                ToggleExpandTask(_lastSelectedId);
+        }
+
+        private void SelectDependencyType(DependencyType type)
+        {
+            dependencyTypeSelector.SelectedType = type;
+        }
+
+        private void UpdateTaskToolState()
+        {
+            bool hasSelection = _lastSelectedId >= 0;
+            var task = hasSelection ? _model.GetTask(_lastSelectedId) : null;
+            bool hasChildren = hasSelection && _model.HasChildren(_lastSelectedId);
+
+            menuAddSubtask.Enabled = hasSelection;
+            menuDeleteTask.Enabled = hasSelection;
+            menuIndent.Enabled = hasSelection;
+            menuOutdent.Enabled = hasSelection;
+            menuTaskProps.Enabled = hasSelection;
+            menuLink.Enabled = true;
+            menuLink.Checked = IsLinkModeActive;
+            menuExpandCollapse.Enabled = hasChildren;
+
+            btnAddSubtask.Enabled = hasSelection;
+            btnDeleteTask.Enabled = hasSelection;
+            btnTaskProps.Enabled = hasSelection;
+            btnIndent.Enabled = hasSelection;
+            btnOutdent.Enabled = hasSelection;
+            btnExpandCollapse.Enabled = hasChildren;
+            btnLink.Checked = IsLinkModeActive;
+
+            string expandText = hasChildren && task != null && task.IsExpanded
+                ? "Collapse Subtasks"
+                : "Expand Subtasks";
+
+            menuExpandCollapse.Text = expandText;
+            btnExpandCollapse.Text = expandText;
+            btnExpandCollapse.ToolTipText = hasChildren
+                ? expandText
+                : "Expand or collapse subtasks (select a summary task)";
+
+            UpdateDependencyTypeMenuChecks();
+        }
+
+        private void UpdateDependencyTypeMenuChecks()
+        {
+            var selected = dependencyTypeSelector.SelectedType;
+            menuDepFS.Checked = selected == DependencyType.FS;
+            menuDepFF.Checked = selected == DependencyType.FF;
+            menuDepSS.Checked = selected == DependencyType.SS;
+            menuDepSF.Checked = selected == DependencyType.SF;
+        }
+
         private void OnLinkTasks()
         {
-            if (_lastSelectedId < 0)
-            {
-                statusLabel.Text = "Select predecessor task first, then click Link.";
-                return;
-            }
-            if (_linkSourceId < 0)
-            {
-                _linkSourceId = _lastSelectedId;
-                var src = _model.GetTask(_linkSourceId);
-                statusLabel.Text = $"Link source: [{src?.Name}] — select successor and click Link again ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
-                btnLink.Checked = true;
-                return;
-            }
-
-            int succId = _lastSelectedId;
-            if (succId == _linkSourceId)
+            if (_awaitingLinkPredecessor || _linkSourceId >= 0)
             {
                 CancelLink();
-                return;
-            }
-            bool ok = _model.AddDependency(_linkSourceId, succId, dependencyTypeSelector.SelectedType);
-            CancelLink();
-            if (ok)
-            {
-                statusLabel.Text = $"Dependency created ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+                statusLabel.Text = "Link cancelled.";
                 return;
             }
 
-            var pred = _model.GetTask(_linkSourceId);
+            if (_lastSelectedId < 0)
+            {
+                _awaitingLinkPredecessor = true;
+                btnLink.Checked = true;
+                menuLink.Checked = true;
+                UpdateLinkPreview();
+                statusLabel.Text = $"Select predecessor task, then select successor ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+                return;
+            }
+
+            _linkSourceId = _lastSelectedId;
+            btnLink.Checked = true;
+            menuLink.Checked = true;
+            _linkHoverTargetId = -1;
+            UpdateLinkPreview();
+            var src = _model.GetTask(_linkSourceId);
+            statusLabel.Text = $"Link source: [{src?.Name}] — select successor task ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+        }
+
+        private bool TryCreateDependency(int predId, int succId)
+        {
+            if (predId == succId)
+                return false;
+
+            if (_model.AddDependency(predId, succId, dependencyTypeSelector.SelectedType))
+            {
+                CancelLink();
+                statusLabel.Text = $"Dependency created ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+                ganttChartControl.Invalidate();
+                taskGridControl.Invalidate();
+                return true;
+            }
+
+            ShowLinkError(predId, succId);
+            return false;
+        }
+
+        private void ShowLinkError(int predId, int succId)
+        {
+            var pred = _model.GetTask(predId);
             var succ = _model.GetTask(succId);
-            string predName = pred?.Name ?? _linkSourceId.ToString();
+            string predName = pred?.Name ?? predId.ToString();
             string succName = succ?.Name ?? succId.ToString();
             string lineType = DependencyTypeInfo.GetDisplayName(dependencyTypeSelector.SelectedType);
 
-            MessageBox.Show(
-                $"Could not create the dependency.\n\n" +
-                $"Predecessor: {predName} (ID {_linkSourceId})\n" +
+            string details =
+                $"Predecessor: {predName} (ID {predId})\n" +
                 $"Successor: {succName} (ID {succId})\n" +
                 $"Line type: {lineType}\n\n" +
                 "Possible reasons:\n" +
                 "- The same dependency already exists.\n" +
                 "- Linking these tasks would create a circular dependency.\n" +
-                "- One of the selected tasks is no longer available.",
-                "Link Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                "- One of the selected tasks is no longer available.";
 
-            statusLabel.Text = "Dependency was not created.";
+            ErrorDialog.Show(this, "Link Error", "Could not create the dependency.", details);
+
+            statusLabel.Text = "Dependency was not created. Select another successor or cancel Link.";
         }
 
         private void CancelLink()
         {
             _linkSourceId = -1;
+            _awaitingLinkPredecessor = false;
+            _linkHoverTargetId = -1;
             btnLink.Checked = false;
+            menuLink.Checked = false;
+            ganttChartControl.ClearLinkPreview();
         }
 
         private void OnDependencyTypeChanged()
@@ -727,10 +877,12 @@ namespace MyProject.Forms
                 if (_linkSourceId >= 0)
                 {
                     var src = _model.GetTask(_linkSourceId);
-                    statusLabel.Text = $"Link source: [{src?.Name}] — select successor and click Link again ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
+                    statusLabel.Text = $"Link source: [{src?.Name}] — select successor task ({DependencyTypeInfo.GetShortName(dependencyTypeSelector.SelectedType)}).";
                 }
             }
 
+            UpdateLinkPreview();
+            UpdateDependencyTypeMenuChecks();
             ganttChartControl.Invalidate();
             taskGridControl.Invalidate();
         }
@@ -801,24 +953,14 @@ namespace MyProject.Forms
                     "The Excel report was exported successfully.",
                     exportPath,
                     "Open File",
-                    () =>
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
                     {
-                        try
-                        {
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
-                            {
-                                UseShellExecute = true
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            ErrorDialog.Show(this, "Open File Error", ex);
-                        }
-                    });
+                        UseShellExecute = true
+                    }));
             }
             catch (Exception ex)
             {
-                ErrorDialog.Show(this, "Export Error", ex);
+                ErrorDialog.Show(this, "Export Error", "Could not export the Excel report.", ex);
             }
         }
 
@@ -847,24 +989,14 @@ namespace MyProject.Forms
                     "The Markdown report was exported successfully.",
                     exportPath,
                     "Open File",
-                    () =>
+                    () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
                     {
-                        try
-                        {
-                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exportPath)
-                            {
-                                UseShellExecute = true
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            ErrorDialog.Show(this, "Open File Error", ex);
-                        }
-                    });
+                        UseShellExecute = true
+                    }));
             }
             catch (Exception ex)
             {
-                ErrorDialog.Show(this, "Export Error", ex);
+                ErrorDialog.Show(this, "Export Error", "Could not export the Markdown report.", ex);
             }
         }
 
@@ -878,13 +1010,13 @@ namespace MyProject.Forms
 
         private void OnPrint()
         {
-            try
+            using var pd = new PrintDialog();
+            using var doc = new System.Drawing.Printing.PrintDocument();
+            doc.PrintPage += GanttPrintPage;
+            pd.Document = doc;
+            if (pd.ShowDialog(this) == DialogResult.OK)
             {
-                using var pd = new PrintDialog();
-                using var doc = new System.Drawing.Printing.PrintDocument();
-                doc.PrintPage += GanttPrintPage;
-                pd.Document = doc;
-                if (pd.ShowDialog(this) == DialogResult.OK)
+                try
                 {
                     doc.Print();
                     CompletionDialog.Show(
@@ -893,25 +1025,15 @@ namespace MyProject.Forms
                         "The schedule was sent to the printer.",
                         $"Printer: {doc.PrinterSettings.PrinterName}");
                 }
-            }
-            catch (Exception ex)
-            {
-                ErrorDialog.Show(this, "Print Error", ex);
+                catch (Exception ex)
+                {
+                    ErrorDialog.Show(this, "Print Error", "Could not print the schedule.", ex);
+                }
             }
         }
 
-        private void GanttPrintPage(object sender, System.Drawing.Printing.PrintPageEventArgs e)
-        {
-            try
-            {
-                RenderPrintPage(e);
-            }
-            catch (Exception ex)
-            {
-                ErrorDialog.Show(this, "Print Error", ex);
-                e.Cancel = true;
-            }
-        }
+        private void GanttPrintPage(object sender, System.Drawing.Printing.PrintPageEventArgs e) =>
+            RenderPrintPage(e);
 
         private void RenderPrintPage(System.Drawing.Printing.PrintPageEventArgs e)
         {

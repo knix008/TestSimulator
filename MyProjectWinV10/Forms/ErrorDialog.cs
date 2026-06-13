@@ -1,19 +1,43 @@
+using MyProject.Theme;
 using System.Text;
 
 namespace MyProject.Forms
 {
     public sealed class ErrorDialog : Form
     {
+        private readonly TextBox _detailsBox;
+        private readonly string _copyText;
+
         public static void Show(IWin32Window? owner, string title, Exception ex)
         {
-            var text = FormatException(ex);
-            using var dlg = new ErrorDialog(title, ex.Message, text);
-            dlg.ShowDialog(owner);
+            if (AppShutdown.ShouldSuppressModalUi)
+                return;
+
+            Show(owner, title, ex.Message, FormatException(ex));
+        }
+
+        public static void Show(IWin32Window? owner, string title, string summary, Exception ex)
+        {
+            if (AppShutdown.ShouldSuppressModalUi)
+                return;
+
+            Show(owner, title, summary, FormatException(ex));
         }
 
         public static void Show(IWin32Window? owner, string title, string message)
         {
-            using var dlg = new ErrorDialog(title, message, message);
+            if (AppShutdown.ShouldSuppressModalUi)
+                return;
+
+            Show(owner, title, message, message);
+        }
+
+        public static void Show(IWin32Window? owner, string title, string summary, string details)
+        {
+            if (AppShutdown.ShouldSuppressModalUi)
+                return;
+
+            using var dlg = new ErrorDialog(title, summary, details);
             dlg.ShowDialog(owner);
         }
 
@@ -24,7 +48,7 @@ namespace MyProject.Forms
             for (var e = ex; e != null; e = e.InnerException, depth++)
             {
                 if (depth > 0)
-                    sb.AppendLine().AppendLine("─── Inner Exception ───").AppendLine();
+                    sb.AppendLine().AppendLine("--- Inner Exception ---").AppendLine();
                 sb.AppendLine($"Type:    {e.GetType().FullName}");
                 sb.AppendLine($"Message: {e.Message}");
                 if (!string.IsNullOrWhiteSpace(e.StackTrace))
@@ -39,26 +63,32 @@ namespace MyProject.Forms
 
         private ErrorDialog(string title, string summary, string details)
         {
+            _copyText = BuildCopyText(title, summary, details);
+
             Text = title;
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new Size(520, 360);
-            Size = new Size(660, 480);
+            Size = new Size(680, 480);
             ShowInTaskbar = false;
             MaximizeBox = false;
             MinimizeBox = false;
-            Font = new Font("Segoe UI", 9f);
+            RightToLeft = RightToLeft.No;
+            RightToLeftLayout = false;
+            Font = AppTheme.FontNormal;
+            BackColor = AppTheme.SurfaceColor;
 
             var summaryLabel = new Label
             {
                 Text = summary,
                 Dock = DockStyle.Top,
                 AutoSize = false,
-                Height = 44,
-                Padding = new Padding(12, 10, 12, 4),
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+                Height = 52,
+                Padding = new Padding(12, 12, 12, 4),
+                ForeColor = AppTheme.TextPrimary,
+                BackColor = AppTheme.SurfaceColor
             };
 
-            var detailsBox = new TextBox
+            _detailsBox = new TextBox
             {
                 Multiline = true,
                 ReadOnly = true,
@@ -67,45 +97,38 @@ namespace MyProject.Forms
                 Dock = DockStyle.Fill,
                 Font = new Font("Consolas", 9f),
                 BackColor = Color.White,
-                ForeColor = Color.FromArgb(30, 30, 30),
-                BorderStyle = BorderStyle.None,
-                Text = details
+                ForeColor = Color.Black,
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = details,
+                ShortcutsEnabled = true,
+                HideSelection = false
             };
 
             var btnClose = new Button
             {
                 Text = "Close",
-                Width = 88,
-                Height = 28,
-                DialogResult = DialogResult.Cancel,
-                FlatStyle = FlatStyle.Flat
+                AutoSize = true,
+                MinimumSize = new Size(88, 30),
+                DialogResult = DialogResult.Cancel
             };
 
             var btnCopy = new Button
             {
                 Text = "Copy",
-                Width = 88,
-                Height = 28,
-                FlatStyle = FlatStyle.Flat
+                AutoSize = true,
+                MinimumSize = new Size(88, 30),
+                Margin = new Padding(0, 0, 8, 0)
             };
-            btnCopy.Click += (_, _) =>
-            {
-                try
-                {
-                    if (!string.IsNullOrEmpty(detailsBox.Text))
-                        Clipboard.SetText(detailsBox.Text);
-                    btnCopy.Text = "Copied";
-                }
-                catch { /* clipboard can fail on some systems */ }
-            };
+            btnCopy.Click += (_, _) => CopyToClipboard(btnCopy);
 
             var buttonPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 46,
+                Height = 48,
                 FlowDirection = FlowDirection.RightToLeft,
-                Padding = new Padding(8, 8, 8, 8),
-                BackColor = Color.FromArgb(240, 240, 240)
+                WrapContents = false,
+                Padding = new Padding(12, 8, 12, 8),
+                BackColor = AppTheme.SurfaceColor
             };
             buttonPanel.Controls.Add(btnClose);
             buttonPanel.Controls.Add(btnCopy);
@@ -113,9 +136,10 @@ namespace MyProject.Forms
             var contentPanel = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(8, 0, 8, 0)
+                Padding = new Padding(12, 0, 12, 0),
+                BackColor = AppTheme.SurfaceColor
             };
-            contentPanel.Controls.Add(detailsBox);
+            contentPanel.Controls.Add(_detailsBox);
 
             Controls.Add(contentPanel);
             Controls.Add(summaryLabel);
@@ -123,6 +147,43 @@ namespace MyProject.Forms
 
             AcceptButton = btnClose;
             CancelButton = btnClose;
+        }
+
+        private void CopyToClipboard(Button copyButton)
+        {
+            _detailsBox.SelectAll();
+            Clipboard.SetText(_copyText);
+            _detailsBox.SelectionLength = 0;
+
+            copyButton.Text = "Copied";
+            var timer = new System.Windows.Forms.Timer { Interval = 1500 };
+            timer.Tick += (_, _) =>
+            {
+                copyButton.Text = "Copy";
+                timer.Stop();
+                timer.Dispose();
+            };
+            timer.Start();
+        }
+
+        private static string BuildCopyText(string title, string summary, string details)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine(title);
+            sb.AppendLine();
+
+            if (!string.IsNullOrWhiteSpace(summary))
+            {
+                sb.AppendLine(summary);
+                sb.AppendLine();
+            }
+
+            if (!string.Equals(summary?.Trim(), details?.Trim(), StringComparison.Ordinal))
+                sb.Append(details);
+            else if (string.IsNullOrWhiteSpace(summary))
+                sb.Append(details);
+
+            return sb.ToString().TrimEnd();
         }
     }
 }

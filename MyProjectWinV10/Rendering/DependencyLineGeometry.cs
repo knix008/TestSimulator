@@ -34,6 +34,23 @@ namespace MyProject.Rendering
             }
         }
 
+        public static void DrawSilhouettePath(Graphics g, Color color, IReadOnlyList<Point> pts, int arrowSize = 6)
+        {
+            if (pts.Count < 2) return;
+
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(color, 2f)
+            {
+                DashStyle = DashStyle.Dash,
+                DashPattern = new[] { 6f, 4f }
+            };
+            g.DrawLines(pen, pts.ToArray());
+
+            var last = pts[^1];
+            var prev = pts[^2];
+            DrawArrowHead(g, color, prev, last, arrowSize);
+        }
+
         public static void DrawPreview(Graphics g, Rectangle bounds, DependencyType type, Color? lineColor = null)
         {
             if (bounds.Width < 8 || bounds.Height < 8) return;

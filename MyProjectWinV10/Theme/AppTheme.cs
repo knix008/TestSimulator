@@ -53,6 +53,7 @@
         // Dependency arrows
         public static Color DependencyLine { get; } = Color.FromArgb(120, 130, 150);
         public static Color DependencyLineCritical { get; } = Color.FromArgb(217, 48, 37);
+        public static Color DependencyLinePreview { get; } = Color.FromArgb(190, 26, 115, 232);
 
         // Border
         public static Color BorderColor { get; } = Color.FromArgb(218, 220, 224);

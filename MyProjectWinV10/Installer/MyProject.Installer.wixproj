@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MyProject.csproj" Publish="true" />
+    <ProjectReference Include="..\MyProject.csproj" Publish="true" AdditionalProperties="BuildingMsiPackage=true" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,4 +20,7 @@
   <Target Name="ReportMsiOutput" AfterTargets="Build">
     <Message Importance="high" Text="MSI created: $(TargetPath)" Condition="Exists('$(TargetPath)')" />
   </Target>
+
+  <!-- Visual Studio 17.13+ design-time build compatibility -->
+  <Target Name="CollectSuggestedVisualStudioComponentIds" />
 </Project>

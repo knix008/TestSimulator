@@ -1,7 +1,6 @@
 using MyProject.Models;
 using MyProject.Rendering;
 using MyProject.Theme;
-using MyProject.Forms;
 
 namespace MyProject.Controls
 {
@@ -92,17 +91,7 @@ namespace MyProject.Controls
             DependencyLineGeometry.DrawPreview(g, previewRect, _selectedType);
         }
 
-        private void OnDrawItem(object? sender, DrawItemEventArgs e)
-        {
-            try
-            {
-                DrawComboItem(e);
-            }
-            catch (Exception ex)
-            {
-                ErrorDialog.Show(FindForm(), "Draw Error", ex);
-            }
-        }
+        private void OnDrawItem(object? sender, DrawItemEventArgs e) => DrawComboItem(e);
 
         private void DrawComboItem(DrawItemEventArgs e)
         {

@@ -1,7 +1,7 @@
-﻿using MyProject.Models;
+﻿using MyProject.Forms;
+using MyProject.Models;
 using MyProject.Rendering;
 using MyProject.Theme;
-using MyProject.Forms;
 using System.Drawing.Drawing2D;
 
 namespace MyProject.Controls
@@ -16,6 +16,7 @@ namespace MyProject.Controls
         private TextBox? _inlineEditor;
         private TextBox? _projectNameEditor;
         private bool _editingProjectName;
+        private bool _isCommittingEdit;
         private VScrollBar _scrollBar;
         private HScrollBar _hScrollBar;
 
@@ -40,6 +41,7 @@ namespace MyProject.Controls
         private bool _isResizingColumn;
 
         public event EventHandler<int>? TaskSelected;
+        public event EventHandler<int>? TaskHovered;
         public event EventHandler<int>? TaskDoubleClicked;
         public event EventHandler? ScrollChanged;
         public event EventHandler? ColumnWidthsChanged;
@@ -90,6 +92,8 @@ namespace MyProject.Controls
             MouseUp += OnMouseUp;
             MouseWheel += OnMouseWheel;
             MouseDoubleClick += OnMouseDoubleClick;
+            MouseEnter += OnMouseEnter;
+            MouseLeave += (_, _) => NotifyTaskHovered(-1);
             Resize += (_, _) => { UpdateScrollbar(); UpdateHScrollbar(); };
         }
 
@@ -151,21 +155,14 @@ namespace MyProject.Controls
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            try
-            {
-                var g = e.Graphics;
-                g.SetClip(new Rectangle(0, 0, ClientGridWidth, ClientGridHeight));
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            var g = e.Graphics;
+            g.SetClip(new Rectangle(0, 0, ClientGridWidth, ClientGridHeight));
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-                DrawHeader(g);
-                DrawRows(g);
-                DrawBorder(g);
-            }
-            catch (Exception ex)
-            {
-                ErrorDialog.Show(FindForm(), "Draw Error", ex);
-            }
+            DrawHeader(g);
+            DrawRows(g);
+            DrawBorder(g);
         }
 
         private void DrawHeader(Graphics g)
@@ -661,35 +658,53 @@ namespace MyProject.Controls
 
         private void CommitEdit()
         {
-            CommitProjectNameEdit();
+            if (_isCommittingEdit)
+                return;
 
-            if (_inlineEditor != null && _editingTaskId >= 0)
+            _isCommittingEdit = true;
+            try
             {
-                var task = _model?.GetTask(_editingTaskId);
-                if (task != null && !string.IsNullOrWhiteSpace(_inlineEditor.Text))
-                    task.Name = _inlineEditor.Text.Trim();
+                CommitProjectNameEdit();
+
+                var editor = _inlineEditor;
+                int taskId = _editingTaskId;
+                CancelTaskNameEdit();
+
+                if (editor != null && taskId >= 0)
+                {
+                    var task = _model?.GetTask(taskId);
+                    if (task != null && !string.IsNullOrWhiteSpace(editor.Text))
+                        task.Name = editor.Text.Trim();
+                }
             }
-            CancelTaskNameEdit();
+            finally
+            {
+                _isCommittingEdit = false;
+            }
         }
 
         private void CommitProjectNameEdit()
         {
-            if (_projectNameEditor == null || !_editingProjectName || _model == null)
+            var editor = _projectNameEditor;
+            if (editor == null || !_editingProjectName || _model == null)
                 return;
 
-            _model.SetProjectName(_projectNameEditor.Text);
+            var name = editor.Text;
             CancelProjectNameEdit();
+            _model.SetProjectName(name);
         }
 
         private void CancelProjectNameEdit()
         {
-            if (_projectNameEditor != null)
-            {
-                Controls.Remove(_projectNameEditor);
-                _projectNameEditor.Dispose();
-                _projectNameEditor = null;
-            }
+            var editor = _projectNameEditor;
+            _projectNameEditor = null;
             _editingProjectName = false;
+
+            if (editor == null)
+                return;
+
+            Controls.Remove(editor);
+            editor.Dispose();
             Invalidate();
         }
 
@@ -701,13 +716,15 @@ namespace MyProject.Controls
 
         private void CancelTaskNameEdit()
         {
-            if (_inlineEditor != null)
-            {
-                Controls.Remove(_inlineEditor);
-                _inlineEditor.Dispose();
-                _inlineEditor = null;
-            }
+            var editor = _inlineEditor;
+            _inlineEditor = null;
             _editingTaskId = -1;
+
+            if (editor == null)
+                return;
+
+            Controls.Remove(editor);
+            editor.Dispose();
             Invalidate();
         }
 
@@ -748,10 +765,21 @@ namespace MyProject.Controls
             var task = HitTestTask(e.Location);
             int newHovered = task?.Id ?? -1;
             if (newHovered != _hoveredTaskId) { _hoveredTaskId = newHovered; Invalidate(); }
+            NotifyTaskHovered(newHovered);
         }
+
+        private void OnMouseEnter(object? sender, EventArgs e)
+        {
+            var pt = PointToClient(Cursor.Position);
+            NotifyTaskHovered(HitTestTask(pt)?.Id ?? -1);
+        }
+
+        private void NotifyTaskHovered(int taskId) => TaskHovered?.Invoke(this, taskId);
 
         public void CancelInteraction()
         {
+            CancelEdit();
+
             if (!_isResizingColumn)
                 return;
 

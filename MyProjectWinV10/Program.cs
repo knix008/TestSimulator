@@ -1,4 +1,5 @@
-﻿using MyProject.Forms;
+﻿using System.Diagnostics;
+using MyProject.Forms;
 using MyProject.Models;
 using MyProject.Theme;
 
@@ -25,10 +26,13 @@ static class Program
             return;
         }
 
+        AppShutdown.Initialize(Debugger.IsAttached);
+
         ApplicationConfiguration.Initialize();
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        ExceptionHandler.Register();
+        AppShutdown.RegisterExceptionHandlers();
+
         AppSettings.Load();
         Application.Run(new MainForm());
     }

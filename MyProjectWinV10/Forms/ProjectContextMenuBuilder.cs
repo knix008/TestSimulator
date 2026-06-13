@@ -156,17 +156,6 @@ namespace MyProject.Forms
             menu.Items.Add(item);
         }
 
-        private static void RunMenuAction(ContextMenuStrip menu, Action action)
-        {
-            try
-            {
-                action();
-            }
-            catch (Exception ex)
-            {
-                var host = menu.SourceControl ?? menu.Tag as Control;
-                ErrorDialog.Show(host?.FindForm(), "Menu Action Error", ex);
-            }
-        }
+        private static void RunMenuAction(ContextMenuStrip menu, Action action) => action();
     }
 }

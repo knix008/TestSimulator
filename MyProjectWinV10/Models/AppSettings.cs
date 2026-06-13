@@ -24,54 +24,38 @@ namespace MyProject.Models
 
         public static void Load()
         {
-            try
-            {
-                if (!File.Exists(SettingsPath))
-                    return;
+            if (!File.Exists(SettingsPath))
+                return;
 
-                var json = File.ReadAllText(SettingsPath, System.Text.Encoding.UTF8);
-                var data = JsonSerializer.Deserialize<SettingsData>(json, JsonOptions);
-                if (data == null || string.IsNullOrWhiteSpace(data.LastDirectory))
-                    return;
+            var json = File.ReadAllText(SettingsPath, System.Text.Encoding.UTF8);
+            var data = JsonSerializer.Deserialize<SettingsData>(json, JsonOptions);
+            if (data == null || string.IsNullOrWhiteSpace(data.LastDirectory))
+                return;
 
-                if (Directory.Exists(data.LastDirectory))
-                    LastDirectory = data.LastDirectory;
+            if (Directory.Exists(data.LastDirectory))
+                LastDirectory = data.LastDirectory;
 
-                if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
-                    DefaultDependencyType = depType;
+            if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
+                DefaultDependencyType = depType;
 
-                if (data.TaskGridColumnWidths is { Length: 7 })
-                    TaskGridColumnWidths = SanitizeColumnWidths(data.TaskGridColumnWidths);
-            }
-            catch (Exception ex)
-            {
-                LastDirectory = GetDefaultDirectory();
-                if (File.Exists(SettingsPath))
-                    throw new InvalidDataException($"Could not read settings file: {SettingsPath}", ex);
-            }
+            if (data.TaskGridColumnWidths is { Length: 7 })
+                TaskGridColumnWidths = SanitizeColumnWidths(data.TaskGridColumnWidths);
         }
 
         public static void Save()
         {
-            try
-            {
-                var directory = Path.GetDirectoryName(SettingsPath);
-                if (!string.IsNullOrEmpty(directory))
-                    Directory.CreateDirectory(directory);
+            var directory = Path.GetDirectoryName(SettingsPath);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
 
-                var data = new SettingsData
-                {
-                    LastDirectory = LastDirectory,
-                    DefaultDependencyType = DefaultDependencyType.ToString(),
-                    TaskGridColumnWidths = TaskGridColumnWidths
-                };
-                var json = JsonSerializer.Serialize(data, JsonOptions);
-                File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
-            }
-            catch (Exception ex)
+            var data = new SettingsData
             {
-                throw new IOException($"Could not write settings file: {SettingsPath}", ex);
-            }
+                LastDirectory = LastDirectory,
+                DefaultDependencyType = DefaultDependencyType.ToString(),
+                TaskGridColumnWidths = TaskGridColumnWidths
+            };
+            var json = JsonSerializer.Serialize(data, JsonOptions);
+            File.WriteAllText(SettingsPath, json, System.Text.Encoding.UTF8);
         }
 
         public static void RememberFromPath(string? filePath)

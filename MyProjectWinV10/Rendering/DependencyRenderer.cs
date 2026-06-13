@@ -32,6 +32,29 @@ namespace MyProject.Rendering
             }
         }
 
+        public void DrawPreview(Graphics g, DependencyType type, ProjectTask pred, ProjectTask succ, int predRowY, int succRowY)
+        {
+            int predCenterY = predRowY + AppTheme.RowHeight / 2;
+            int succCenterY = succRowY + AppTheme.RowHeight / 2;
+
+            int fromX = type switch
+            {
+                DependencyType.SS or DependencyType.SF => _viewport.DateToX(pred.StartDate),
+                _ => _viewport.DateToX(pred.EndDate.AddDays(1))
+            };
+            int fromY = predCenterY;
+
+            int toX = type switch
+            {
+                DependencyType.FF or DependencyType.SF => _viewport.DateToX(succ.EndDate.AddDays(1)),
+                _ => _viewport.DateToX(succ.StartDate)
+            };
+            int toY = succCenterY;
+
+            var pts = DependencyLineGeometry.BuildPath(type, fromX, fromY, toX, toY);
+            DependencyLineGeometry.DrawSilhouettePath(g, AppTheme.DependencyLinePreview, pts);
+        }
+
         private void DrawArrow(Graphics g, TaskDependency dep, ProjectTask pred, ProjectTask succ, int predRowY, int succRowY)
         {
             Color lineColor = (pred.IsCritical && succ.IsCritical)

@@ -68,6 +68,28 @@ namespace MyProject.Theme
             g.DrawLine(p, 3, 10, 17, 10);
         });
 
+        public static Bitmap AddSubtask => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            using var ap = new Pen(Color.White, 2f);
+            g.DrawLine(p, 6, 5, 17, 5);
+            g.DrawLine(p, 9, 9, 17, 9);
+            g.DrawLine(p, 9, 13, 17, 13);
+            g.DrawLine(ap, 3, 9, 7, 9);
+            g.DrawLine(ap, 5, 7, 5, 11);
+        });
+
+        public static Bitmap ExpandCollapse => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            using var ap = new Pen(Color.White, 2f);
+            g.DrawLine(p, 8, 5, 17, 5);
+            g.DrawLine(p, 8, 10, 17, 10);
+            g.DrawLine(p, 8, 15, 17, 15);
+            g.DrawLine(ap, 3, 7, 6, 10);
+            g.DrawLine(ap, 3, 13, 6, 10);
+        });
+
         public static Bitmap Delete => Make(g =>
         {
             using var p = new Pen(Color.White, 1.5f);

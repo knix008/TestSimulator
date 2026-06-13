@@ -16,27 +16,32 @@
     <Copyright>Copyright © 2026</Copyright>
     <ApplicationIcon>Assets\MyProject.ico</ApplicationIcon>
     <UseAppHost>true</UseAppHost>
+    <StartupObject>MyProject.Program</StartupObject>
+    <Platforms>AnyCPU</Platforms>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
   </ItemGroup>
 
+  <!-- Debug: no apphost + no hot reload helps Visual Studio detach cleanly. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <!-- Prevents DotNetDeltaApplier.dll from loading its named pipe to VS,
-         which can block VS UI thread cleanup when the debugged process exits. -->
+    <UseAppHost>false</UseAppHost>
     <HotReloadEnabled>false</HotReloadEnabled>
+    <DebugType>portable</DebugType>
   </PropertyGroup>
 
+  <!-- Release: MSI is built by default (opt out with -p:BuildMsi=false). -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <BuildMsi Condition="'$(BuildMsi)' == ''">true</BuildMsi>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release' and '$(BuildMsi)' == 'true'">
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(DesignTimeBuild)' == 'true'">
-    <SkipInstaller>true</SkipInstaller>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -44,23 +49,12 @@
     <MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\Release\MyProject_Setup.msi</MsiOutputPath>
   </PropertyGroup>
 
-  <Target Name="RemindMsiRequiresRelease"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' != 'Release' and '$(BuildingMsiPackage)' != 'true' and '$(SkipInstaller)' != 'true'">
-    <Message Importance="high" Text="MSI is not built in $(Configuration) configuration. Switch to Release | Any CPU and rebuild to create MyProject_Setup.msi." />
-  </Target>
-
   <Target Name="BuildInstallerMsi"
           AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Release' and '$(BuildingMsiPackage)' != 'true' and '$(SkipInstaller)' != 'true' and '$(DesignTimeBuild)' != 'true' and '$(MSBuildIsProjectReference)' != 'true' and Exists('$(SetupProjectPath)')">
-    <MSBuild Projects="$(SetupProjectPath)"
-             Targets="Restore"
-             Properties="Configuration=Release;BuildingMsiPackage=true"
-             BuildInParallel="false" />
-    <MSBuild Projects="$(SetupProjectPath)"
-             Targets="Build"
-             Properties="Configuration=Release;BuildingMsiPackage=true"
-             BuildInParallel="false" />
+          Condition="'$(Configuration)' == 'Release' and '$(BuildMsi)' == 'true' and '$(BuildingMsiPackage)' != 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(SetupProjectPath)')">
+    <Message Importance="high" Text="Building MSI installer..." />
+    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -v minimal"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
     <Error Condition="!Exists('$(MsiOutputPath)')"
            Text="MSI was not created at $(MsiOutputPath). See MyProject.Installer build output for errors." />
     <Copy SourceFiles="$(MsiOutputPath)"
@@ -68,17 +62,18 @@
           SkipUnchangedFiles="true"
           Condition="Exists('$(MsiOutputPath)')" />
     <Message Importance="high" Text="MSI ready: $(MsiOutputPath)" />
-    <Message Importance="high" Text="MSI copy: $(OutputPath)MyProject_Setup.msi" Condition="Exists('$(OutputPath)MyProject_Setup.msi')" />
   </Target>
 
   <ItemGroup>
     <Content Include="Template\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
     <Content Include="Assets\MyProject.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
   </ItemGroup>
 

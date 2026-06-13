@@ -6,6 +6,9 @@ namespace MyProject.Forms
     {
         public static void Show(IWin32Window? owner, string title, string summary, string? details = null)
         {
+            if (AppShutdown.ShouldSuppressModalUi)
+                return;
+
             using var dialog = new CompletionDialog(title, summary, details);
             dialog.ShowDialog(owner);
         }
@@ -18,6 +21,9 @@ namespace MyProject.Forms
             string actionText,
             Action action)
         {
+            if (AppShutdown.ShouldSuppressModalUi)
+                return;
+
             using var dialog = new CompletionDialog(title, summary, details, actionText, action);
             dialog.ShowDialog(owner);
         }

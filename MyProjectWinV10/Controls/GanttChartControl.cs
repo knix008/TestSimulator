@@ -1,7 +1,7 @@
-﻿using MyProject.Models;
+﻿using MyProject.Forms;
+using MyProject.Models;
 using MyProject.Rendering;
 using MyProject.Theme;
-using MyProject.Forms;
 using System.Drawing.Drawing2D;
 
 namespace MyProject.Controls
@@ -17,6 +17,12 @@ namespace MyProject.Controls
         private int _selectedTaskId = -1;
         private int _hoveredTaskId = -1;
         private int _scrollY = 0;
+
+        // Link preview (silhouette line while choosing successor)
+        private bool _linkModeActive;
+        private int _linkSourceId = -1;
+        private int _linkTargetId = -1;
+        private DependencyType _linkPreviewType = DependencyType.FS;
 
         // Drag state
         private bool _isDragging = false;
@@ -37,6 +43,7 @@ namespace MyProject.Controls
         private HScrollBar _hScrollBar;
 
         public event EventHandler<int>? TaskSelected;
+        public event EventHandler<int>? TaskHovered;
         public event EventHandler<int>? TaskDoubleClicked;
         public event EventHandler? ModelChanged;
         public event EventHandler<int>? ScrollYChanged;
@@ -83,6 +90,8 @@ namespace MyProject.Controls
             MouseUp += OnMouseUp;
             MouseWheel += OnMouseWheel;
             MouseDoubleClick += OnMouseDoubleClick;
+            MouseEnter += OnMouseEnter;
+            MouseLeave += (_, _) => NotifyTaskHovered(-1);
             Resize += (s, e) => UpdateScrollbars();
         }
 
@@ -119,6 +128,24 @@ namespace MyProject.Controls
             _selectedTaskId = taskId;
             Invalidate();
         }
+
+        public void SetLinkPreview(bool active, int sourceId, int targetId, DependencyType type)
+        {
+            bool changed = _linkModeActive != active
+                || _linkSourceId != sourceId
+                || _linkTargetId != targetId
+                || _linkPreviewType != type;
+
+            _linkModeActive = active;
+            _linkSourceId = sourceId;
+            _linkTargetId = targetId;
+            _linkPreviewType = type;
+
+            if (changed)
+                Invalidate();
+        }
+
+        public void ClearLinkPreview() => SetLinkPreview(false, -1, -1, DependencyType.FS);
 
         public void ScrollToTask(int taskId)
         {
@@ -172,32 +199,25 @@ namespace MyProject.Controls
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            try
-            {
-                var g = e.Graphics;
-                g.SmoothingMode = SmoothingMode.AntiAlias;
-                g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-                var chartArea = GetChartArea();
-                _viewport.ChartLeft = chartArea.Left;
-                _viewport.ChartWidth = chartArea.Width;
+            var chartArea = GetChartArea();
+            _viewport.ChartLeft = chartArea.Left;
+            _viewport.ChartWidth = chartArea.Width;
 
-                DrawBackground(g, chartArea);
-                _timeScaleRenderer?.DrawWeekendShading(g, chartArea);
-                _timeScaleRenderer?.DrawVerticalGridLines(g, chartArea);
-                DrawHorizontalGridLines(g, chartArea);
-                DrawRows(g, chartArea);
-                _timeScaleRenderer?.DrawTodayLine(g, chartArea);
+            DrawBackground(g, chartArea);
+            _timeScaleRenderer?.DrawWeekendShading(g, chartArea);
+            _timeScaleRenderer?.DrawVerticalGridLines(g, chartArea);
+            DrawHorizontalGridLines(g, chartArea);
+            DrawRows(g, chartArea);
+            _timeScaleRenderer?.DrawTodayLine(g, chartArea);
 
-                var headerRect = new Rectangle(chartArea.Left, 0, chartArea.Width, AppTheme.TimescaleHeaderHeight);
-                _timeScaleRenderer?.Draw(g, headerRect);
+            var headerRect = new Rectangle(chartArea.Left, 0, chartArea.Width, AppTheme.TimescaleHeaderHeight);
+            _timeScaleRenderer?.Draw(g, headerRect);
 
-                DrawBorders(g);
-            }
-            catch (Exception ex)
-            {
-                ErrorDialog.Show(FindForm(), "Draw Error", ex);
-            }
+            DrawBorders(g);
         }
 
         private void DrawBackground(Graphics g, Rectangle chartArea)
@@ -262,6 +282,19 @@ namespace MyProject.Controls
             g.SetClip(chartArea);
             _depRenderer.DrawDependencies(g, _model.Dependencies, visibleTasks, id => rowYByTaskId.GetValueOrDefault(id, -999));
 
+            if (_linkModeActive
+                && _linkSourceId >= 0
+                && _linkTargetId >= 0
+                && _linkSourceId != _linkTargetId
+                && rowYByTaskId.TryGetValue(_linkSourceId, out int srcRowY)
+                && rowYByTaskId.TryGetValue(_linkTargetId, out int tgtRowY))
+            {
+                var pred = visibleTasks.FirstOrDefault(t => t.Id == _linkSourceId);
+                var succ = visibleTasks.FirstOrDefault(t => t.Id == _linkTargetId);
+                if (pred != null && succ != null)
+                    _depRenderer.DrawPreview(g, _linkPreviewType, pred, succ, srcRowY, tgtRowY);
+            }
+
             // Task bars
             foreach (var task in visibleTasks)
             {
@@ -270,7 +303,15 @@ namespace MyProject.Controls
                 if (rowY > Height) break;
 
                 string assignee = _model.GetTaskAssigneeDisplay(task.Id);
+                bool isLinkSource = _linkModeActive && task.Id == _linkSourceId;
                 _taskBarRenderer.DrawTaskBar(g, task, rowY, task.Id == _selectedTaskId, task.Id == _hoveredTaskId, assignee);
+
+                if (isLinkSource)
+                {
+                    var barRect = _taskBarRenderer.GetTaskBarRect(task, rowY);
+                    using var outlinePen = new Pen(AppTheme.Accent, 2f);
+                    g.DrawRectangle(outlinePen, barRect.X, barRect.Y, barRect.Width - 1, barRect.Height - 1);
+                }
             }
             g.Clip = clip;
         }
@@ -337,6 +378,12 @@ namespace MyProject.Controls
 
             _selectedTaskId = task.Id;
             TaskSelected?.Invoke(this, task.Id);
+
+            if (_linkModeActive)
+            {
+                Invalidate();
+                return;
+            }
 
             if (e.Button == MouseButtons.Left)
             {
@@ -459,8 +506,15 @@ namespace MyProject.Controls
                 _hoveredTaskId = newHovered;
                 Invalidate();
             }
+            NotifyTaskHovered(newHovered);
 
             // Cursor update
+            if (_linkModeActive)
+            {
+                Cursor = hoveredTask != null ? Cursors.Hand : Cursors.Cross;
+                return;
+            }
+
             if (hoveredTask != null && hoveredTask.TaskType != TaskType.Milestone)
             {
                 int rowY = GetTaskRowY(hoveredTask);
@@ -517,6 +571,17 @@ namespace MyProject.Controls
                 _scrollY = newVal;
                 Invalidate();
             }
+        }
+
+        private void OnMouseEnter(object? sender, EventArgs e)
+        {
+            var pt = PointToClient(Cursor.Position);
+            NotifyTaskHovered(HitTestTask(pt)?.Id ?? -1);
+        }
+
+        private void NotifyTaskHovered(int taskId)
+        {
+            TaskHovered?.Invoke(this, taskId);
         }
 
         private ProjectTask? HitTestTask(Point pt)
