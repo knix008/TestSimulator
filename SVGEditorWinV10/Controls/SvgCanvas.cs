@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using SVGEditorWinV10.Export;
 using SVGEditorWinV10.Models;
 using SVGEditorWinV10.Rendering;
 using SVGEditorWinV10.Serialization;
@@ -9,6 +10,7 @@ namespace SVGEditorWinV10.Controls;
 public sealed partial class SvgCanvas : Control
 {
     private const float MinElementSize = 4f;
+    private const float MoveDragThreshold = 4f;
     private const float MinZoom = 0.25f;
     private const float MaxZoom = 4.0f;
 
@@ -27,6 +29,9 @@ public sealed partial class SvgCanvas : Control
     private int _panStartScrollY;
     private bool _isCreating;
     private bool _isMoving;
+    private bool _movePending;
+    private PointF _movePendingPoint;
+    private SvgElement? _movePendingAnchor;
     private bool _isResizing;
     private bool _isAdjustingCornerRadius;
     private bool _isMarqueeSelecting;
@@ -36,10 +41,12 @@ public sealed partial class SvgCanvas : Control
     private ResizeHandle _activeResizeHandle = ResizeHandle.None;
     private PointF _resizeDragPrevious;
     private RectangleF _resizeStartBounds;
+    private RectangleF _resizeWorkingBounds;
     private float _resizeStartCornerRadius;
     private string _resizeStartPathData = string.Empty;
     private PointF _moveOffset;
     private List<ElementPose>? _moveSnapshots;
+    private List<ElementPose>? _resizeSnapshots;
     private float _zoom = 1.0f;
     private Color _defaultFill = Color.FromArgb(219, 234, 254);
     private FillPattern _defaultFillPattern = FillPattern.Solid;
@@ -123,6 +130,7 @@ public sealed partial class SvgCanvas : Control
     }
 
     public event EventHandler? TextEditRequested;
+    public event EventHandler<SelectionExportKind>? SelectionExportRequested;
 
     public SvgDocument Document => _document;
     public EditorTool CurrentTool => _tool;
@@ -138,6 +146,7 @@ public sealed partial class SvgCanvas : Control
         public PointF Start { get; init; }
         public PointF End { get; init; }
         public string PathData { get; init; } = string.Empty;
+        public float CornerRadius { get; init; }
     }
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -487,7 +496,10 @@ public sealed partial class SvgCanvas : Control
         }
         _isCreating = false;
         _isMoving = false;
+        _movePending = false;
+        _movePendingAnchor = null;
         _moveSnapshots = null;
+        _resizeSnapshots = null;
         _isResizing = false;
         _activeResizeHandle = ResizeHandle.None;
         _isAdjustingCornerRadius = false;
@@ -559,6 +571,52 @@ public sealed partial class SvgCanvas : Control
             ClearHistory();
 
         DocumentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public int AppendDocument(SvgDocument imported)
+    {
+        if (imported.Elements.Count == 0)
+            return 0;
+
+        SaveHistoryState();
+
+        var appended = new List<SvgElement>(imported.Elements.Count);
+        foreach (var element in imported.Elements)
+        {
+            var clone = element.Clone();
+            clone.Id = Guid.NewGuid();
+            _document.Elements.Add(clone);
+            appended.Add(clone);
+        }
+
+        ExpandCanvasForElements(appended);
+        SetSelection(appended, appended[^1]);
+        Invalidate();
+        DocumentChanged?.Invoke(this, EventArgs.Empty);
+        return appended.Count;
+    }
+
+    private void ExpandCanvasForElements(IReadOnlyList<SvgElement> elements)
+    {
+        const float padding = 20f;
+        var newWidth = _document.Width;
+        var newHeight = _document.Height;
+
+        foreach (var element in elements)
+        {
+            var bounds = element.GetBounds();
+            if (bounds.Right + padding > newWidth)
+                newWidth = MathF.Ceiling(bounds.Right + padding);
+            if (bounds.Bottom + padding > newHeight)
+                newHeight = MathF.Ceiling(bounds.Bottom + padding);
+        }
+
+        if (newWidth <= _document.Width && newHeight <= _document.Height)
+            return;
+
+        _document.Width = Math.Max(_document.Width, newWidth);
+        _document.Height = Math.Max(_document.Height, newHeight);
+        UpdateScrollBars();
     }
 
     public void SetPendingImage(string dataUri, string sourcePath, SizeF pixelSize)
@@ -760,6 +818,37 @@ public sealed partial class SvgCanvas : Control
 
     public void SelectElement(SvgElement? element) => SetSingleSelection(element);
 
+    public SvgDocument? CreateSelectionExportDocument(bool transparentBackground)
+    {
+        var selected = GetSelectedElementsInDocumentOrder();
+        if (selected.Count == 0)
+            return null;
+
+        var bounds = GetSelectionUnionBounds();
+        if (bounds.Width <= 0f && bounds.Height <= 0f)
+            bounds = new RectangleF(bounds.X, bounds.Y, 1f, 1f);
+
+        var offset = new PointF(-bounds.X, -bounds.Y);
+        var document = new SvgDocument
+        {
+            Width = Math.Max(1f, bounds.Width),
+            Height = Math.Max(1f, bounds.Height),
+            BackgroundColorArgb = transparentBackground
+                ? Color.Transparent.ToArgb()
+                : _document.BackgroundColorArgb
+        };
+
+        foreach (var element in selected)
+        {
+            var clone = element.Clone();
+            clone.Id = Guid.NewGuid();
+            TranslateElement(clone, offset);
+            document.Elements.Add(clone);
+        }
+
+        return document;
+    }
+
     private List<SvgElement> GetSelectedElements() =>
         _document.Elements.Where(e => _selectedIds.Contains(e.Id)).ToList();
 
@@ -923,6 +1012,9 @@ public sealed partial class SvgCanvas : Control
         {
             foreach (var element in GetSelectedElements())
                 DrawSelectionOutline(e.Graphics, element);
+
+            if (_tool == EditorTool.Select && _selectedIds.Count > 1)
+                DrawGroupSelectionHandles(e.Graphics);
         }
     }
 
@@ -982,10 +1074,16 @@ public sealed partial class SvgCanvas : Control
             return;
         }
 
-        if (e.Button != MouseButtons.Left)
+        if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Middle)
             return;
 
         Focus();
+
+        if (e.Button == MouseButtons.Middle || IsSpacePanGesture(e))
+        {
+            BeginPan(e.Location);
+            return;
+        }
 
         var hitElement = HitTest(canvasPoint);
 
@@ -1004,31 +1102,20 @@ public sealed partial class SvgCanvas : Control
                 SetSingleSelection(hitElement);
 
             if (IsSelected(hitElement))
-            {
-                BeginMove(canvasPoint, hitElement);
-                UpdateCursor(canvasPoint);
-            }
+                BeginPendingMove(canvasPoint, hitElement);
 
+            UpdateCursor(canvasPoint);
             return;
         }
 
-        var useMarqueeSelection = (ModifierKeys & Keys.Control) == Keys.Control
-            || (ModifierKeys & Keys.Shift) == Keys.Shift;
-
-        if (!useMarqueeSelection)
+        if ((ModifierKeys & Keys.Shift) != Keys.Shift)
             ClearSelection();
 
-        if (useMarqueeSelection)
-        {
-            _isMarqueeSelecting = true;
-            _dragStart = canvasPoint;
-            _dragCurrent = canvasPoint;
-            Capture = true;
-            Invalidate();
-            return;
-        }
-
-        BeginPan(e.Location);
+        _isMarqueeSelecting = true;
+        _dragStart = canvasPoint;
+        _dragCurrent = canvasPoint;
+        Capture = true;
+        Invalidate();
     }
 
     protected override void OnMouseDoubleClick(MouseEventArgs e)
@@ -1104,6 +1191,20 @@ public sealed partial class SvgCanvas : Control
             return;
         }
 
+        if (_movePending && _movePendingAnchor is not null)
+        {
+            if (Distance(_movePendingPoint, point) >= MoveDragThreshold / _zoom)
+            {
+                _movePending = false;
+                BeginMove(_movePendingPoint, _movePendingAnchor);
+                MoveSelection(EditorCanvasGrid.SnapPoint(point));
+            }
+
+            Invalidate();
+            UpdateCursor(point);
+            return;
+        }
+
         if (_isMoving)
         {
             MoveSelection(EditorCanvasGrid.SnapPoint(point));
@@ -1172,6 +1273,15 @@ public sealed partial class SvgCanvas : Control
         if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
             return;
 
+        if (e.Button == MouseButtons.Middle && _isPanning)
+        {
+            PanTo(e.Location);
+            _isPanning = false;
+            Capture = false;
+            UpdateCursor(ToCanvasPoint(e.Location));
+            return;
+        }
+
         if (e.Button != MouseButtons.Left)
             return;
 
@@ -1236,6 +1346,14 @@ public sealed partial class SvgCanvas : Control
 
         Capture = false;
 
+        if (_movePending)
+        {
+            _movePending = false;
+            _movePendingAnchor = null;
+            UpdateCursor(canvasPoint);
+            return;
+        }
+
         if (_isMoving)
         {
             _isMoving = false;
@@ -1252,12 +1370,27 @@ public sealed partial class SvgCanvas : Control
 
         if (_isResizing)
         {
-            if (_primarySelected is not null)
+            if (_selectedIds.Count > 1)
+            {
+                foreach (var element in GetSelectedElements())
+                {
+                    if (element.Kind is SvgElementKind.Text or SvgElementKind.Image)
+                        element.TextBoundsManuallySized = true;
+
+                    SnapElementAfterResize(element);
+                }
+
+                if (HasResizedSelection())
+                    CommitActionState();
+                else
+                    CancelActionState();
+            }
+            else if (_primarySelected is not null)
             {
                 if (_primarySelected.Kind is SvgElementKind.Text or SvgElementKind.Image)
                     _primarySelected.TextBoundsManuallySized = true;
 
-                SnapElementBoundsToGrid(_primarySelected);
+                SnapElementAfterResize(_primarySelected);
 
                 if (_primarySelected.Bounds != _resizeStartBounds ||
                     (_primarySelected.Kind == SvgElementKind.Path && _primarySelected.PathData != _resizeStartPathData))
@@ -1272,6 +1405,7 @@ public sealed partial class SvgCanvas : Control
 
             _isResizing = false;
             _activeResizeHandle = ResizeHandle.None;
+            _resizeSnapshots = null;
             RecalcCanvasBounds();
             DocumentChanged?.Invoke(this, EventArgs.Empty);
             UpdateCursor(canvasPoint);
@@ -1325,7 +1459,7 @@ public sealed partial class SvgCanvas : Control
             if (rect.Width >= MinElementSize || rect.Height >= MinElementSize)
             {
                 var hits = _document.Elements.Where(e => IntersectsSelection(rect, e)).ToList();
-                if ((ModifierKeys & Keys.Control) == Keys.Control)
+                if ((ModifierKeys & Keys.Shift) == Keys.Shift)
                 {
                     foreach (var element in hits)
                         AddToSelection(element);
@@ -1334,7 +1468,7 @@ public sealed partial class SvgCanvas : Control
                 {
                     SetSelection(hits, hits[^1]);
                 }
-                else if ((ModifierKeys & Keys.Control) != Keys.Control && (ModifierKeys & Keys.Shift) != Keys.Shift)
+                else
                 {
                     ClearSelection();
                 }
@@ -1448,6 +1582,17 @@ public sealed partial class SvgCanvas : Control
         }
     }
 
+    private static bool IsSpacePanGesture(MouseEventArgs e) =>
+        e.Button == MouseButtons.Left && (Control.ModifierKeys & Keys.Space) == Keys.Space;
+
+    private void BeginPendingMove(PointF point, SvgElement anchor)
+    {
+        _movePending = true;
+        _movePendingPoint = point;
+        _movePendingAnchor = anchor;
+        Capture = true;
+    }
+
     private void BeginMove(PointF point, SvgElement anchor)
     {
         SavePreActionState();
@@ -1495,16 +1640,29 @@ public sealed partial class SvgCanvas : Control
 
     private bool TryBeginResize(PointF canvasPoint)
     {
-        if (_primarySelected is null
-            || _selectedIds.Count != 1
-            || !SupportsResizeHandles(_primarySelected))
+        if (_primarySelected is null || _selectedIds.Count == 0)
             return false;
 
-        var handle = SvgResizeHandles.HitTest(
-            _primarySelected.GetBounds(),
-            canvasPoint,
-            HandleSize,
-            _primarySelected.IsSquare || _primarySelected.Kind == SvgElementKind.Circle);
+        RectangleF resizeBounds;
+        var cornersOnly = false;
+
+        if (_selectedIds.Count == 1)
+        {
+            if (!SupportsResizeHandles(_primarySelected))
+                return false;
+
+            resizeBounds = _primarySelected.GetBounds();
+            cornersOnly = _primarySelected.IsSquare || _primarySelected.Kind == SvgElementKind.Circle;
+        }
+        else
+        {
+            resizeBounds = GetSelectionUnionBounds();
+            if (resizeBounds.Width < SvgResizeHandles.MinBoundsSize
+                && resizeBounds.Height < SvgResizeHandles.MinBoundsSize)
+                return false;
+        }
+
+        var handle = SvgResizeHandles.HitTest(resizeBounds, canvasPoint, HandleSize, cornersOnly);
         if (handle == ResizeHandle.None)
             return false;
 
@@ -1513,9 +1671,11 @@ public sealed partial class SvgCanvas : Control
         _isResizing = true;
         _activeResizeHandle = handle;
         _resizeDragPrevious = canvasPoint;
-        _resizeStartBounds = _primarySelected.Bounds;
+        _resizeStartBounds = resizeBounds;
+        _resizeWorkingBounds = resizeBounds;
+        _resizeSnapshots = CreateResizeSnapshots();
         _resizeStartCornerRadius = _primarySelected.CornerRadius;
-        _resizeStartPathData = _primarySelected.Kind == SvgElementKind.Path
+        _resizeStartPathData = _selectedIds.Count == 1 && _primarySelected.Kind == SvgElementKind.Path
             ? _primarySelected.PathData
             : string.Empty;
         Capture = true;
@@ -1607,45 +1767,202 @@ public sealed partial class SvgCanvas : Control
 
     private void ResizeSelection(PointF point)
     {
+        if (_selectedIds.Count > 1)
+        {
+            SvgResizeHandles.ApplyResize(ref _resizeWorkingBounds, _activeResizeHandle, point, _resizeDragPrevious);
+            ApplyGroupResizeTransform(_resizeStartBounds, _resizeWorkingBounds);
+            _resizeDragPrevious = point;
+            return;
+        }
+
         if (_primarySelected is null || !SupportsResizeHandles(_primarySelected))
             return;
 
-        var keepSquare = _primarySelected.IsSquare || _primarySelected.Kind == SvgElementKind.Circle;
-        var bounds = keepSquare
-            ? ResizeSquare(_resizeStartBounds, _activeResizeHandle, point)
-            : _primarySelected.Bounds;
-        if (!keepSquare)
+        if (_primarySelected.Kind == SvgElementKind.Path)
+        {
+            var bounds = _resizeWorkingBounds;
             SvgResizeHandles.ApplyResize(ref bounds, _activeResizeHandle, point, _resizeDragPrevious);
+            _resizeWorkingBounds = bounds;
 
-        if (_primarySelected.Kind == SvgElementKind.Path && !string.IsNullOrEmpty(_resizeStartPathData))
-        {
-            using var matrix = CreateBoundsTransform(_resizeStartBounds, bounds);
-            _primarySelected.PathData = SvgPathCommands.Transform(_resizeStartPathData, matrix);
-            _primarySelected.Bounds = SvgPathParser.GetBounds(_primarySelected.PathData);
+            if (!string.IsNullOrEmpty(_resizeStartPathData))
+            {
+                using var matrix = CreateBoundsTransform(_resizeStartBounds, bounds);
+                _primarySelected.PathData = SvgPathCommands.Transform(_resizeStartPathData, matrix);
+                _primarySelected.Bounds = SvgPathParser.GetBounds(_primarySelected.PathData);
+            }
+
+            _resizeDragPrevious = point;
+            return;
         }
-        else
-        {
-            _primarySelected.Bounds = bounds;
-        }
+
+        var keepSquare = _primarySelected.IsSquare || _primarySelected.Kind == SvgElementKind.Circle;
+        var shapeBounds = keepSquare
+            ? ResizeSquare(_resizeStartBounds, _activeResizeHandle, point)
+            : _resizeWorkingBounds;
+        if (!keepSquare)
+            SvgResizeHandles.ApplyResize(ref shapeBounds, _activeResizeHandle, point, _resizeDragPrevious);
+
+        _resizeWorkingBounds = shapeBounds;
+        _primarySelected.Bounds = shapeBounds;
 
         if (_primarySelected.Kind == SvgElementKind.RoundedRectangle)
         {
-            var scaleX = bounds.Width / Math.Max(_resizeStartBounds.Width, 1f);
-            var scaleY = bounds.Height / Math.Max(_resizeStartBounds.Height, 1f);
+            var scaleX = shapeBounds.Width / Math.Max(_resizeStartBounds.Width, 1f);
+            var scaleY = shapeBounds.Height / Math.Max(_resizeStartBounds.Height, 1f);
             var scale = Math.Min(scaleX, scaleY);
             var baseRadius = _resizeStartCornerRadius > 0f
                 ? _resizeStartCornerRadius
                 : SvgShapeRenderer.DefaultCornerRadius(_resizeStartBounds);
             _primarySelected.CornerRadius = Math.Min(
                 baseRadius * scale,
-                Math.Min(bounds.Width, bounds.Height) / 2f);
+                Math.Min(shapeBounds.Width, shapeBounds.Height) / 2f);
         }
 
         _resizeDragPrevious = point;
     }
 
     private static bool SupportsResizeHandles(SvgElement element) =>
-        element.Kind is not (SvgElementKind.Line or SvgElementKind.Path);
+        element.Kind != SvgElementKind.Line;
+
+    private RectangleF GetSelectionUnionBounds()
+    {
+        var selected = GetSelectedElements();
+        if (selected.Count == 0)
+            return RectangleF.Empty;
+
+        var bounds = selected[0].GetBounds();
+        for (var i = 1; i < selected.Count; i++)
+            bounds = RectangleF.Union(bounds, selected[i].GetBounds());
+
+        return bounds;
+    }
+
+    private List<ElementPose> CreateResizeSnapshots() =>
+        GetSelectedElements()
+            .Select(e => new ElementPose
+            {
+                Id = e.Id,
+                Bounds = e.Bounds,
+                Start = e.Start,
+                End = e.End,
+                PathData = e.Kind == SvgElementKind.Path ? e.PathData : string.Empty,
+                CornerRadius = e.CornerRadius
+            })
+            .ToList();
+
+    private void ApplyGroupResizeTransform(RectangleF fromBounds, RectangleF toBounds)
+    {
+        if (_resizeSnapshots is null || fromBounds.Width <= 0f || fromBounds.Height <= 0f)
+            return;
+
+        using var matrix = CreateBoundsTransform(fromBounds, toBounds);
+        foreach (var snapshot in _resizeSnapshots)
+        {
+            var element = _document.Elements.FirstOrDefault(e => e.Id == snapshot.Id);
+            if (element is null)
+                continue;
+
+            if (element.Kind == SvgElementKind.Line)
+            {
+                element.Start = TransformPointInBounds(snapshot.Start, fromBounds, toBounds);
+                element.End = TransformPointInBounds(snapshot.End, fromBounds, toBounds);
+                continue;
+            }
+
+            if (element.Kind == SvgElementKind.Path && !string.IsNullOrEmpty(snapshot.PathData))
+            {
+                element.PathData = SvgPathCommands.Transform(snapshot.PathData, matrix);
+                element.Bounds = SvgPathParser.GetBounds(element.PathData);
+                continue;
+            }
+
+            element.Bounds = TransformRectangleInBounds(snapshot.Bounds, fromBounds, toBounds);
+
+            if (element.IsSquare || element.Kind == SvgElementKind.Circle)
+            {
+                var side = Math.Max(element.Bounds.Width, element.Bounds.Height);
+                element.Bounds = new RectangleF(element.Bounds.X, element.Bounds.Y, side, side);
+            }
+
+            if (element.Kind == SvgElementKind.RoundedRectangle)
+            {
+                var scaleX = toBounds.Width / fromBounds.Width;
+                var scaleY = toBounds.Height / fromBounds.Height;
+                var scale = Math.Min(scaleX, scaleY);
+                var baseRadius = snapshot.CornerRadius > 0f
+                    ? snapshot.CornerRadius
+                    : SvgShapeRenderer.DefaultCornerRadius(snapshot.Bounds);
+                element.CornerRadius = Math.Min(
+                    baseRadius * scale,
+                    Math.Min(element.Bounds.Width, element.Bounds.Height) / 2f);
+            }
+        }
+    }
+
+    private static PointF TransformPointInBounds(PointF point, RectangleF fromBounds, RectangleF toBounds) =>
+        new(
+            toBounds.X + (point.X - fromBounds.X) / fromBounds.Width * toBounds.Width,
+            toBounds.Y + (point.Y - fromBounds.Y) / fromBounds.Height * toBounds.Height);
+
+    private static RectangleF TransformRectangleInBounds(RectangleF rect, RectangleF fromBounds, RectangleF toBounds)
+    {
+        var topLeft = TransformPointInBounds(new PointF(rect.Left, rect.Top), fromBounds, toBounds);
+        var bottomRight = TransformPointInBounds(new PointF(rect.Right, rect.Bottom), fromBounds, toBounds);
+        return RectangleF.FromLTRB(
+            Math.Min(topLeft.X, bottomRight.X),
+            Math.Min(topLeft.Y, bottomRight.Y),
+            Math.Max(topLeft.X, bottomRight.X),
+            Math.Max(topLeft.Y, bottomRight.Y));
+    }
+
+    private bool HasResizedSelection()
+    {
+        if (_resizeSnapshots is null)
+            return false;
+
+        foreach (var snapshot in _resizeSnapshots)
+        {
+            var element = _document.Elements.FirstOrDefault(e => e.Id == snapshot.Id);
+            if (element is null)
+                continue;
+
+            if (element.Kind == SvgElementKind.Line)
+            {
+                if (element.Start != snapshot.Start || element.End != snapshot.End)
+                    return true;
+            }
+            else if (element.Kind == SvgElementKind.Path)
+            {
+                if (element.PathData != snapshot.PathData)
+                    return true;
+            }
+            else
+            {
+                if (element.Bounds != snapshot.Bounds)
+                    return true;
+
+                if (element.Kind == SvgElementKind.RoundedRectangle
+                    && Math.Abs(element.CornerRadius - snapshot.CornerRadius) > 0.001f)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void DrawGroupSelectionHandles(Graphics graphics)
+    {
+        var bounds = GetSelectionUnionBounds();
+        if (bounds.Width <= 0f && bounds.Height <= 0f)
+            return;
+
+        using var groupPen = new Pen(Color.FromArgb(37, 99, 235), Math.Max(1f / _zoom, 1f))
+        {
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dot
+        };
+        graphics.DrawRectangle(groupPen, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        SvgResizeHandles.Draw(graphics, bounds, HandleSize);
+    }
 
     private static RectangleF ResizeSquare(RectangleF startBounds, ResizeHandle handle, PointF point)
     {
@@ -1694,6 +2011,20 @@ public sealed partial class SvgCanvas : Control
         matrix.Scale(to.Width / from.Width, to.Height / from.Height);
         matrix.Translate(to.X, to.Y);
         return matrix;
+    }
+
+    private static void SnapElementAfterResize(SvgElement element)
+    {
+        if (element.Kind == SvgElementKind.Line)
+            return;
+
+        if (element.Kind == SvgElementKind.Path)
+        {
+            SnapPathElement(element);
+            return;
+        }
+
+        SnapElementBoundsToGrid(element);
     }
 
     private static void SnapElementBoundsToGrid(SvgElement element)
@@ -1776,6 +2107,29 @@ public sealed partial class SvgCanvas : Control
         }
     }
 
+    private static void TranslateElement(SvgElement element, PointF delta)
+    {
+        if (element.Kind == SvgElementKind.Line)
+        {
+            element.Start = new PointF(element.Start.X + delta.X, element.Start.Y + delta.Y);
+            element.End = new PointF(element.End.X + delta.X, element.End.Y + delta.Y);
+            return;
+        }
+
+        if (element.Kind == SvgElementKind.Path && !string.IsNullOrEmpty(element.PathData))
+        {
+            element.PathData = SvgPathCommands.Translate(element.PathData, delta);
+            element.Bounds = SvgPathParser.GetBounds(element.PathData);
+            return;
+        }
+
+        element.Bounds = new RectangleF(
+            element.Bounds.X + delta.X,
+            element.Bounds.Y + delta.Y,
+            element.Bounds.Width,
+            element.Bounds.Height);
+    }
+
     private bool HasMovedSelection()
     {
         if (_moveSnapshots is null) return false;
@@ -1847,6 +2201,16 @@ public sealed partial class SvgCanvas : Control
         {
             Enabled = hasSelection && CanSendSelectionBackward()
         };
+        var exportSvgItem = new ToolStripMenuItem("선택 항목 SVG로 내보내기...", null, (_, _) =>
+            SelectionExportRequested?.Invoke(this, SelectionExportKind.Svg))
+        {
+            Enabled = hasSelection
+        };
+        var exportImageItem = new ToolStripMenuItem("선택 항목 이미지로 내보내기...", null, (_, _) =>
+            SelectionExportRequested?.Invoke(this, SelectionExportKind.Image))
+        {
+            Enabled = hasSelection
+        };
         var selectAllItem = new ToolStripMenuItem("전체 선택", null, (_, _) => SelectAll())
         {
             ShortcutKeyDisplayString = "Ctrl+A"
@@ -1862,6 +2226,9 @@ public sealed partial class SvgCanvas : Control
         menu.Items.Add(bringForwardItem);
         menu.Items.Add(sendBackwardItem);
         menu.Items.Add(sendToBackItem);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(exportSvgItem);
+        menu.Items.Add(exportImageItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(selectAllItem);
         menu.Items.Add(clearItem);
@@ -2183,6 +2550,7 @@ public sealed partial class SvgCanvas : Control
             && element.Id == _primarySelected?.Id)
         {
             SvgPathEditHandles.Draw(graphics, element.PathData, HandleSize, element.NativePathKind);
+            SvgResizeHandles.Draw(graphics, bounds, HandleSize);
             return;
         }
 
@@ -2408,6 +2776,12 @@ public sealed partial class SvgCanvas : Control
             return;
         }
 
+        if (_movePending)
+        {
+            Cursor = Cursors.SizeAll;
+            return;
+        }
+
         if (_isMoving)
         {
             Cursor = Cursors.SizeAll;
@@ -2479,9 +2853,18 @@ public sealed partial class SvgCanvas : Control
 
     private ResizeHandle GetResizeHandleAt(PointF canvasPoint)
     {
-        if (_primarySelected is null
-            || _selectedIds.Count != 1
-            || !SupportsResizeHandles(_primarySelected))
+        if (_primarySelected is null || _selectedIds.Count == 0)
+            return ResizeHandle.None;
+
+        if (_selectedIds.Count > 1)
+        {
+            return SvgResizeHandles.HitTest(
+                GetSelectionUnionBounds(),
+                canvasPoint,
+                HandleSize);
+        }
+
+        if (!SupportsResizeHandles(_primarySelected))
             return ResizeHandle.None;
 
         return SvgResizeHandles.HitTest(

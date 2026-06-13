@@ -45,6 +45,7 @@ public static class EditorToolIcons
     public static Bitmap ZoomReset { get; } = CreateZoomReset();
     public static Bitmap NewDocument { get; } = CreateNewDocument();
     public static Bitmap Open { get; } = CreateOpen();
+    public static Bitmap ImportSvg { get; } = CreateImportSvg();
     public static Bitmap Save { get; } = CreateSave();
     public static Bitmap SaveAs { get; } = CreateSaveAs();
     public static Bitmap ExportImage { get; } = CreateExportImage();
@@ -463,6 +464,25 @@ public static class EditorToolIcons
         using var pen = InkPen(1.1f);
         g.DrawRectangle(pen, tab.X, tab.Y, tab.Width, tab.Height);
         g.DrawPath(pen, folder);
+    });
+
+    private static Bitmap CreateImportSvg() => CreateIcon(g =>
+    {
+        DrawDocument(g, new RectangleF(4f, 9f, 9f, 11f));
+        using (var shapePen = InkPen(1.1f))
+        {
+            g.DrawRectangle(shapePen, 6f, 12.5f, 2.5f, 2f);
+            g.DrawEllipse(shapePen, 6f, 15.5f, 2.5f, 2.5f);
+        }
+
+        DrawDocument(g, new RectangleF(12f, 5f, 8f, 10f), foldedCorner: true);
+
+        using var accent = AccentPen(1.5f);
+        g.DrawLine(accent, 13f, 9.5f, 10f, 12.5f);
+        g.DrawLine(accent, 10f, 12.5f, 11.2f, 11.8f);
+        g.DrawLine(accent, 10f, 12.5f, 10.8f, 13.5f);
+        g.DrawLine(accent, 14f, 6.5f, 17f, 6.5f);
+        g.DrawLine(accent, 15.5f, 5f, 15.5f, 8f);
     });
 
     private static Bitmap CreateSave() => CreateIcon(g =>

@@ -91,6 +91,7 @@ public partial class MainForm : Form
         };
         _canvas.ElementCreated += (_, _) => SetActiveTool(EditorTool.Select);
         _canvas.ZoomChanged += (_, _) => UpdateZoomDisplay();
+        _canvas.SelectionExportRequested += Canvas_SelectionExportRequested;
 
         WireToolButtons();
         WireMenuTools();
@@ -285,6 +286,7 @@ public partial class MainForm : Form
 
         SetMenuIcon(_menuNew, EditorToolIcons.NewDocument);
         SetMenuIcon(_menuOpen, EditorToolIcons.Open);
+        SetMenuIcon(_menuImportSvg, EditorToolIcons.ImportSvg);
         SetMenuIcon(_menuSave, EditorToolIcons.Save);
         SetMenuIcon(_menuSaveAs, EditorToolIcons.SaveAs);
         SetMenuIcon(_menuCanvasSize, EditorToolIcons.CanvasSize);
@@ -323,6 +325,7 @@ public partial class MainForm : Form
 
         _tbNew.Image = EditorToolIcons.NewDocument;
         _tbOpen.Image = EditorToolIcons.Open;
+        _tbImportSvg.Image = EditorToolIcons.ImportSvg;
         _tbSave.Image = EditorToolIcons.Save;
         _tbSaveAs.Image = EditorToolIcons.SaveAs;
         _tbCanvasSize.Image = EditorToolIcons.CanvasSize;
@@ -358,7 +361,8 @@ public partial class MainForm : Form
 
         _menuFile.ToolTipText = "문서 만들기, 열기, 저장, 이미지보내기 및 종료";
         _menuNew.ToolTipText = "빈 SVG 문서를 새로 만듭니다. (Ctrl+N)";
-        _menuOpen.ToolTipText = "SVG 파일을 엽니다. 외부 SVG의 그룹, 경로, 도형도 불러올 수 있습니다. (Ctrl+O)";
+        _menuOpen.ToolTipText = "SVG 파일을 열어 현재 문서를 대체합니다. (Ctrl+O)";
+        _menuImportSvg.ToolTipText = "다른 SVG 파일의 도형을 현재 문서에 추가합니다. (Ctrl+Shift+O)";
         _menuSave.ToolTipText = "현재 문서를 저장합니다. 경로가 없으면 다른 이름으로 저장합니다. (Ctrl+S)";
         _menuSaveAs.ToolTipText = "현재 문서를 다른 파일 이름으로 저장합니다.";
         _menuCanvasSize.ToolTipText = "SVG 문서(캔버스)의 가로·세로 크기를 설정합니다. 기존 그림은 원래 위치에 유지됩니다.";
@@ -381,6 +385,7 @@ public partial class MainForm : Form
 
         _tbNew.ToolTipText = _menuNew.ToolTipText;
         _tbOpen.ToolTipText = _menuOpen.ToolTipText;
+        _tbImportSvg.ToolTipText = _menuImportSvg.ToolTipText;
         _tbSave.ToolTipText = _menuSave.ToolTipText;
         _tbSaveAs.ToolTipText = _menuSaveAs.ToolTipText;
         _tbCanvasSize.ToolTipText = _menuCanvasSize.ToolTipText;
@@ -1243,6 +1248,40 @@ public partial class MainForm : Form
         }
     }
 
+    private void MenuImportSvg_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Filter = SvgDocumentSerializer.FileFilter,
+            Title = "SVG 추가"
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            var document = SvgDocumentSerializer.Load(dialog.FileName);
+            var count = _canvas.AppendDocument(document);
+            if (count == 0)
+            {
+                MessageBox.Show(
+                    "선택한 SVG 파일에 추가할 도형이 없습니다.",
+                    "SVG 추가",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            SyncSvgSourceFromCanvas();
+            UpdateStatus();
+            _statusLabel.Text = $"SVG {count}개 항목을 추가했습니다. ({Path.GetFileName(dialog.FileName)})";
+        }
+        catch (Exception ex)
+        {
+            EditorErrorDialog.Show(this, "SVG 추가 실패", ex);
+        }
+    }
+
     private async void MenuSave_Click(object? sender, EventArgs e)
     {
         if (string.IsNullOrWhiteSpace(_currentFilePath))
@@ -1275,6 +1314,103 @@ public partial class MainForm : Form
             return;
 
         _canvas.SetDocumentSize(result.Width, result.Height);
+    }
+
+    private void Canvas_SelectionExportRequested(object? sender, SelectionExportKind kind)
+    {
+        if (kind == SelectionExportKind.Svg)
+            ExportSelectionAsSvg();
+        else
+            ExportSelectionAsImage();
+    }
+
+    private void ExportSelectionAsSvg()
+    {
+        var document = _canvas.CreateSelectionExportDocument(transparentBackground: false);
+        if (document is null || document.Elements.Count == 0)
+            return;
+
+        using var dialog = new SaveFileDialog
+        {
+            Filter = SvgDocumentSerializer.FileFilter,
+            Title = "선택 항목 SVG 내보내기",
+            FileName = "selection.svg"
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        try
+        {
+            SvgDocumentSerializer.Save(document, dialog.FileName);
+            EditorOperationResultDialog.ShowSuccess(
+                this,
+                "내보내기 완료",
+                "선택 항목 SVG 내보내기가 완료되었습니다.",
+                dialog.FileName);
+        }
+        catch (Exception ex)
+        {
+            EditorOperationResultDialog.ShowFailure(
+                this,
+                "내보내기 실패",
+                "선택 항목 SVG 내보내기에 실패했습니다.",
+                dialog.FileName,
+                ex);
+        }
+    }
+
+    private async void ExportSelectionAsImage()
+    {
+        var document = _canvas.CreateSelectionExportDocument(transparentBackground: true);
+        if (document is null || document.Elements.Count == 0)
+            return;
+
+        using var dialog = new SaveFileDialog
+        {
+            Filter = SvgImageExporter.FileFilter,
+            Title = "선택 항목 이미지 내보내기",
+            FileName = "selection.png"
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+            return;
+
+        var exportPath = Path.GetFullPath(dialog.FileName);
+        var format = SvgImageExporter.GetFormatFromExtension(exportPath);
+
+        if (!TryBeginFileOperation("선택 항목 내보내는 중..."))
+            return;
+
+        Exception? error = null;
+        try
+        {
+            await Task.Run(() => SvgImageExporter.Export(document, exportPath, format)).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            error = ex;
+        }
+        finally
+        {
+            EndFileOperation();
+        }
+
+        if (error is null)
+        {
+            EditorOperationResultDialog.ShowSuccess(
+                this,
+                "내보내기 완료",
+                "선택 항목 이미지 내보내기가 완료되었습니다.",
+                exportPath);
+        }
+        else
+        {
+            EditorOperationResultDialog.ShowFailure(
+                this,
+                "내보내기 실패",
+                "선택 항목 이미지 내보내기에 실패했습니다.",
+                exportPath,
+                error);
+        }
     }
 
     private async void MenuExportImage_Click(object? sender, EventArgs e)
@@ -1520,6 +1656,9 @@ public partial class MainForm : Form
                 case Keys.Control | Keys.O:
                     MenuOpen_Click(this, EventArgs.Empty);
                     return true;
+                case Keys.Control | Keys.Shift | Keys.O:
+                    MenuImportSvg_Click(this, EventArgs.Empty);
+                    return true;
                 case Keys.Control | Keys.N:
                     MenuNew_Click(this, EventArgs.Empty);
                     return true;
@@ -1549,6 +1688,12 @@ public partial class MainForm : Form
         if (keyData == (Keys.Control | Keys.O))
         {
             MenuOpen_Click(this, EventArgs.Empty);
+            return true;
+        }
+
+        if (keyData == (Keys.Control | Keys.Shift | Keys.O))
+        {
+            MenuImportSvg_Click(this, EventArgs.Empty);
             return true;
         }
 

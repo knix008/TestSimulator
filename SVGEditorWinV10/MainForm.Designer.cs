@@ -8,6 +8,7 @@ partial class MainForm
     private ToolStripMenuItem _menuFile;
     private ToolStripMenuItem _menuNew;
     private ToolStripMenuItem _menuOpen;
+    private ToolStripMenuItem _menuImportSvg;
     private ToolStripMenuItem _menuSave;
     private ToolStripMenuItem _menuSaveAs;
     private ToolStripMenuItem _menuCanvasSize;
@@ -48,6 +49,7 @@ partial class MainForm
     private ToolStrip _toolStripMain;
     private ToolStripButton _tbNew;
     private ToolStripButton _tbOpen;
+    private ToolStripButton _tbImportSvg;
     private ToolStripButton _tbSave;
     private ToolStripButton _tbSaveAs;
     private ToolStripButton _tbCanvasSize;
@@ -149,6 +151,7 @@ partial class MainForm
         _menuFile = new ToolStripMenuItem();
         _menuNew = new ToolStripMenuItem();
         _menuOpen = new ToolStripMenuItem();
+        _menuImportSvg = new ToolStripMenuItem();
         _menuSave = new ToolStripMenuItem();
         _menuSaveAs = new ToolStripMenuItem();
         _menuCanvasSize = new ToolStripMenuItem();
@@ -189,6 +192,7 @@ partial class MainForm
         _toolStripMain = new ToolStrip();
         _tbNew = new ToolStripButton();
         _tbOpen = new ToolStripButton();
+        _tbImportSvg = new ToolStripButton();
         _tbSave = new ToolStripButton();
         _tbSaveAs = new ToolStripButton();
         _tbCanvasSize = new ToolStripButton();
@@ -315,7 +319,7 @@ partial class MainForm
         // 
         // _menuFile
         // 
-        _menuFile.DropDownItems.AddRange(new ToolStripItem[] { _menuNew, _menuOpen, _menuSave, _menuSaveAs, _menuCanvasSize, _menuSepFileExport, _menuExportImage, _menuExit });
+        _menuFile.DropDownItems.AddRange(new ToolStripItem[] { _menuNew, _menuOpen, _menuImportSvg, _menuSave, _menuSaveAs, _menuCanvasSize, _menuSepFileExport, _menuExportImage, _menuExit });
         _menuFile.Name = "_menuFile";
         _menuFile.Size = new Size(57, 20);
         _menuFile.Text = "파일(&F)";
@@ -335,6 +339,14 @@ partial class MainForm
         _menuOpen.Size = new Size(187, 22);
         _menuOpen.Text = "열기...";
         _menuOpen.Click += MenuOpen_Click;
+        // 
+        // _menuImportSvg
+        // 
+        _menuImportSvg.Name = "_menuImportSvg";
+        _menuImportSvg.ShortcutKeys = Keys.Control | Keys.Shift | Keys.O;
+        _menuImportSvg.Size = new Size(187, 22);
+        _menuImportSvg.Text = "SVG 추가...";
+        _menuImportSvg.Click += MenuImportSvg_Click;
         // 
         // _menuSave
         // 
@@ -581,7 +593,7 @@ partial class MainForm
         // _toolStripMain
         // 
         _toolStripMain.GripStyle = ToolStripGripStyle.Hidden;
-        _toolStripMain.Items.AddRange(new ToolStripItem[] { _tbNew, _tbOpen, _tbSave, _tbSaveAs, _tbCanvasSize, _tbExportImage, _tbSepFile1, _tbUndo, _tbRedo, _tbSepEdit0, _tbDelete, _tbSepEdit1, _tbZoomIn, _tbZoomOut, _tbZoomReset, _tbZoomLabel, _tbSepView1, _tbApplySource, _tbCopySource });
+        _toolStripMain.Items.AddRange(new ToolStripItem[] { _tbNew, _tbOpen, _tbImportSvg, _tbSave, _tbSaveAs, _tbCanvasSize, _tbExportImage, _tbSepFile1, _tbUndo, _tbRedo, _tbSepEdit0, _tbDelete, _tbSepEdit1, _tbZoomIn, _tbZoomOut, _tbZoomReset, _tbZoomLabel, _tbSepView1, _tbApplySource, _tbCopySource });
         _toolStripMain.Location = new Point(0, 24);
         _toolStripMain.Name = "_toolStripMain";
         _toolStripMain.Padding = new Padding(6, 2, 6, 2);
@@ -605,6 +617,15 @@ partial class MainForm
         _tbOpen.Size = new Size(23, 20);
         _tbOpen.Text = "열기";
         _tbOpen.Click += MenuOpen_Click;
+        // 
+        // _tbImportSvg
+        // 
+        _tbImportSvg.DisplayStyle = ToolStripItemDisplayStyle.Image;
+        _tbImportSvg.ImageScaling = ToolStripItemImageScaling.None;
+        _tbImportSvg.Name = "_tbImportSvg";
+        _tbImportSvg.Size = new Size(23, 20);
+        _tbImportSvg.Text = "SVG 추가";
+        _tbImportSvg.Click += MenuImportSvg_Click;
         // 
         // _tbSave
         // 
