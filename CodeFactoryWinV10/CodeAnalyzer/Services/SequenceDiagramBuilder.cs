@@ -4,86 +4,48 @@ namespace CodeAnalyzer.Services;
 
 public static class SequenceDiagramBuilder
 {
-    public static SequenceDiagramResult Build(CallGraphResult callGraph, string? rootNodeId)
+    public static SequenceDiagramResult Build(CallGraphResult callGraph, string? rootNodeId) =>
+        Build(callGraph, string.IsNullOrWhiteSpace(rootNodeId) ? [] : [rootNodeId]);
+
+    public static SequenceDiagramResult Build(CallGraphResult callGraph, IReadOnlyList<string> rootNodeIds)
     {
-        if (string.IsNullOrWhiteSpace(rootNodeId) || !callGraph.NodeMap.TryGetValue(rootNodeId, out _))
+        var roots = rootNodeIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Where(id => callGraph.NodeMap.ContainsKey(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (roots.Count == 0)
         {
             return new SequenceDiagramResult();
         }
 
         var messages = new List<SequenceMessage>();
-        var visitedCalls = new HashSet<(string Caller, string Callee)>();
-        var participantOrder = new List<string> { rootNodeId };
-        var participantSet = new HashSet<string>(StringComparer.Ordinal) { rootNodeId };
+        var participantOrder = new List<string>();
+        var participantSet = new HashSet<string>(StringComparer.Ordinal);
         var truncatedMessages = false;
         var truncatedParticipants = false;
         var order = 0;
 
-        var stack = new Stack<(string CallerId, int Depth)>();
-        stack.Push((rootNodeId, 0));
-
-        while (stack.Count > 0)
+        foreach (var rootId in roots)
         {
-            var (callerId, depth) = stack.Pop();
-
-            if (depth >= AnalysisScaleLimits.MaxCallGraphVisualDepth)
-            {
-                truncatedMessages = true;
-                continue;
-            }
-
-            if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
-            {
-                truncatedMessages = true;
-                break;
-            }
-
-            if (!callGraph.Outgoing.TryGetValue(callerId, out var callees) || callees.Count == 0)
+            if (!TryAddParticipant(rootId, participantOrder, participantSet, ref truncatedParticipants))
             {
                 continue;
             }
 
-            for (var index = callees.Count - 1; index >= 0; index--)
-            {
-                if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
-                {
-                    truncatedMessages = true;
-                    break;
-                }
-
-                var calleeId = callees[index];
-                if (!callGraph.NodeMap.TryGetValue(calleeId, out var callee))
-                {
-                    continue;
-                }
-
-                if (!visitedCalls.Add((callerId, calleeId)))
-                {
-                    continue;
-                }
-
-                if (!participantSet.Contains(calleeId))
-                {
-                    if (participantSet.Count >= AnalysisScaleLimits.MaxSequenceDiagramParticipants)
-                    {
-                        truncatedParticipants = true;
-                        continue;
-                    }
-
-                    participantSet.Add(calleeId);
-                    participantOrder.Add(calleeId);
-                }
-
-                messages.Add(new SequenceMessage
-                {
-                    FromId = callerId,
-                    ToId = calleeId,
-                    Label = FormatMessageLabel(callee.DisplayName),
-                    Order = order++
-                });
-
-                stack.Push((calleeId, depth + 1));
-            }
+            var visitedOnPath = new HashSet<string>(StringComparer.Ordinal) { rootId };
+            Traverse(
+                callGraph,
+                rootId,
+                depth: 0,
+                visitedOnPath,
+                messages,
+                participantOrder,
+                participantSet,
+                ref order,
+                ref truncatedMessages,
+                ref truncatedParticipants);
         }
 
         var map = participantOrder
@@ -107,7 +69,7 @@ public static class SequenceDiagramBuilder
 
             note =
                 string.Join(" · ", parts) +
-                " — 루트 메서드를 더 좁게 선택하면 전체 흐름을 볼 수 있습니다.";
+                " — 시작 함수를 하나로 좁히면 전체 흐름을 볼 수 있습니다.";
         }
 
         return new SequenceDiagramResult
@@ -120,13 +82,111 @@ public static class SequenceDiagramBuilder
         };
     }
 
-    private static string FormatMessageLabel(string displayName)
+    private static void Traverse(
+        CallGraphResult callGraph,
+        string callerId,
+        int depth,
+        HashSet<string> visitedOnPath,
+        List<SequenceMessage> messages,
+        List<string> participantOrder,
+        HashSet<string> participantSet,
+        ref int order,
+        ref bool truncatedMessages,
+        ref bool truncatedParticipants)
     {
-        if (displayName.EndsWith(')'))
+        if (depth >= AnalysisScaleLimits.MaxCallGraphVisualDepth)
         {
-            return displayName;
+            truncatedMessages = true;
+            return;
         }
 
-        return displayName + "()";
+        if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
+        {
+            truncatedMessages = true;
+            return;
+        }
+
+        if (!callGraph.Outgoing.TryGetValue(callerId, out var callees) || callees.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var calleeId in callees)
+        {
+            if (messages.Count >= AnalysisScaleLimits.MaxSequenceDiagramMessages)
+            {
+                truncatedMessages = true;
+                return;
+            }
+
+            if (!callGraph.NodeMap.TryGetValue(calleeId, out var callee))
+            {
+                continue;
+            }
+
+            if (!TryAddParticipant(calleeId, participantOrder, participantSet, ref truncatedParticipants))
+            {
+                continue;
+            }
+
+            var isCycle = visitedOnPath.Contains(calleeId);
+            messages.Add(new SequenceMessage
+            {
+                FromId = callerId,
+                ToId = calleeId,
+                Label = FormatMessageLabel(callee.DisplayName, isCycle),
+                Order = order++
+            });
+
+            if (isCycle)
+            {
+                continue;
+            }
+
+            visitedOnPath.Add(calleeId);
+            Traverse(
+                callGraph,
+                calleeId,
+                depth + 1,
+                visitedOnPath,
+                messages,
+                participantOrder,
+                participantSet,
+                ref order,
+                ref truncatedMessages,
+                ref truncatedParticipants);
+            visitedOnPath.Remove(calleeId);
+        }
+    }
+
+    private static bool TryAddParticipant(
+        string participantId,
+        List<string> participantOrder,
+        HashSet<string> participantSet,
+        ref bool truncatedParticipants)
+    {
+        if (participantSet.Contains(participantId))
+        {
+            return true;
+        }
+
+        if (participantSet.Count >= AnalysisScaleLimits.MaxSequenceDiagramParticipants)
+        {
+            truncatedParticipants = true;
+            return false;
+        }
+
+        participantSet.Add(participantId);
+        participantOrder.Add(participantId);
+        return true;
+    }
+
+    private static string FormatMessageLabel(string displayName, bool isCycle)
+    {
+        var label = displayName.EndsWith(")", StringComparison.Ordinal)
+            ? displayName
+            : displayName + "()";
+
+        return isCycle ? label + " ↺" : label;
     }
 }

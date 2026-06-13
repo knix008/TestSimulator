@@ -66,15 +66,22 @@ public sealed class ProjectStructureAnalyzer
     {
         foreach (var type in newTypes)
         {
-            types.TryAdd(type.Id, type);
+            if (types.TryGetValue(type.Id, out var existing))
+            {
+                types[type.Id] = StructureTypeNodeMerger.Merge(existing, type);
+            }
+            else
+            {
+                types[type.Id] = type;
+            }
         }
 
-        var existing = new HashSet<(string From, string To, StructureRelationKind Kind)>(
+        var existingEdges = new HashSet<(string From, string To, StructureRelationKind Kind)>(
             relations.Select(edge => (edge.FromId, edge.ToId, edge.Kind)));
 
         foreach (var relation in newRelations)
         {
-            if (existing.Add((relation.FromId, relation.ToId, relation.Kind)))
+            if (existingEdges.Add((relation.FromId, relation.ToId, relation.Kind)))
             {
                 relations.Add(relation);
             }
@@ -98,16 +105,17 @@ public sealed class ProjectStructureAnalyzer
                 continue;
             }
 
-            var typeId = $"dep-type:{typeName}";
-            types.TryAdd(typeId, new StructureTypeNode
+            var languageId = StructureTypeIdResolver.GetLanguageIdFromCallGraphNodeId(node.Id);
+            var typeId = languageId is not null
+                ? StructureTypeIdResolver.FindByDisplayName(types.Values, languageId, typeName)
+                  ?? StructureTypeIdResolver.FindByDisplayNameAny(types.Values, typeName)
+                : StructureTypeIdResolver.FindByDisplayNameAny(types.Values, typeName);
+
+            if (typeId is null)
             {
-                Id = typeId,
-                DisplayName = typeName,
-                FullName = typeName,
-                FilePath = node.FilePath,
-                LineNumber = node.LineNumber,
-                Kind = "class"
-            });
+                continue;
+            }
+
             methodToType[node.Id] = typeId;
         }
 

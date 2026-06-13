@@ -183,6 +183,14 @@ public sealed class CSharpStructureExtractor
     private static void EnsurePlaceholderType(INamedTypeSymbol symbol, Dictionary<string, StructureTypeNode> types)
     {
         var id = GetTypeId(symbol);
+        if (types.ContainsKey(id))
+        {
+            return;
+        }
+
+        var (attributes, operations) = UmlMemberExtractor.FromSymbol(symbol);
+        var members = attributes.Concat(operations).Take(8).ToList();
+
         types.TryAdd(id, new StructureTypeNode
         {
             Id = id,
@@ -196,7 +204,11 @@ public sealed class CSharpStructureExtractor
                 TypeKind.Struct => "struct",
                 TypeKind.Enum => "enum",
                 _ => "class"
-            }
+            },
+            Members = members,
+            Attributes = attributes,
+            Operations = operations,
+            IsAbstract = symbol.IsAbstract
         });
     }
 

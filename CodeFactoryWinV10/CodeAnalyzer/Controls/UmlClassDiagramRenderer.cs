@@ -1,3 +1,4 @@
+using System.Drawing.Text;
 using CodeAnalyzer.Models;
 
 namespace CodeAnalyzer.Controls;
@@ -5,7 +6,6 @@ namespace CodeAnalyzer.Controls;
 internal static class UmlClassDiagramRenderer
 {
     private const int MinWidth = 180;
-    private const int MaxWidth = 360;
     private const int HorizontalPadding = 12;
     private const int NameHeight = 30;
     private const int StereotypeHeight = 16;
@@ -14,8 +14,9 @@ internal static class UmlClassDiagramRenderer
     private const int HorizontalGap = 80;
     private const int InterDepthGap = 160;
     private const int IntraDepthGap = 80;
-    private const int MaxDisplayedMembers = 8;
+    private const int MaxDisplayedMembers = 12;
     private const int MaxNodesPerRow = 5;
+    private const int TextMeasurePadding = 4;
 
     public static DiagramBoxNode CreateBox(StructureTypeNode type)
     {
@@ -166,67 +167,74 @@ internal static class UmlClassDiagramRenderer
         graphics.FillRectangle(bodyBrush, bodyRect);
         graphics.DrawRectangle(borderPen, bounds);
 
-        var nameFontStyle = box.TypeKind == "interface"
-            ? FontStyle.Italic
-            : box.IsAbstract
-                ? FontStyle.Bold | FontStyle.Italic
-                : FontStyle.Bold;
-
-        using var nameFont = new Font("Segoe UI", 9.5f, nameFontStyle);
+        using var nameFont = CreateNameFont(box);
         using var memberFont = new Font("Segoe UI", 8.25f);
         using var stereotypeFont = new Font("Segoe UI", 7.5f, FontStyle.Italic);
         using var moreFont = new Font("Segoe UI", 7.5f, FontStyle.Italic);
 
+        var contentWidth = Math.Max(1, bounds.Width - HorizontalPadding * 2);
+        var textClip = new Rectangle(
+            bounds.Left + 1,
+            bounds.Top + headerHeight + 1,
+            bounds.Width - 2,
+            bounds.Height - headerHeight - 2);
+
         var y = bounds.Top;
 
-        // Stereotype row
         if (stereotype is not null)
         {
-            var sz = graphics.MeasureString(stereotype, stereotypeFont);
+            var stereotypeText = FitText(graphics, stereotype, stereotypeFont, bounds.Width - 8);
+            var sz = MeasureText(graphics, stereotypeText, stereotypeFont);
             graphics.DrawString(
-                stereotype, stereotypeFont, stereotypeBrush,
+                stereotypeText, stereotypeFont, stereotypeBrush,
                 bounds.Left + (bounds.Width - sz.Width) / 2f, y + 3);
             y += StereotypeHeight;
         }
 
-        // Class name
-        var titleSz = graphics.MeasureString(box.Title, nameFont);
+        var titleText = FitText(graphics, box.Title, nameFont, bounds.Width - 8);
+        var titleSz = MeasureText(graphics, titleText, nameFont);
         graphics.DrawString(
-            box.Title, nameFont, nameBrush,
+            titleText, nameFont, nameBrush,
             bounds.Left + (bounds.Width - titleSz.Width) / 2f, y + 5);
-        y += NameHeight;
 
-        // Separator between header and body
-        graphics.DrawLine(separatorPen, bounds.Left + 1, y, bounds.Right - 1, y);
-        y += SeparatorHeight + 5;
+        graphics.DrawLine(separatorPen, bounds.Left + 1, bounds.Top + headerHeight - 1, bounds.Right - 1, bounds.Top + headerHeight - 1);
+
+        var bodyClipState = graphics.Save();
+        graphics.SetClip(textClip);
+        y = bounds.Top + headerHeight + 5;
 
         // --- Attributes ---
+        var showAttributeSection = box.TypeKind is not "interface";
         var attrSlice = box.Attributes.Take(MaxDisplayedMembers).ToList();
-        if (attrSlice.Count > 0)
+        if (showAttributeSection)
         {
             foreach (var line in attrSlice)
             {
-                graphics.DrawString(TruncateLine(line), memberFont, memberBrush, bounds.Left + HorizontalPadding, y);
+                DrawMemberLine(graphics, line, memberFont, memberBrush, bounds.Left + HorizontalPadding, y, contentWidth);
                 y += LineHeight;
             }
 
             if (box.Attributes.Count > MaxDisplayedMembers)
             {
-                graphics.DrawString(
-                    $"  ⋯ +{box.Attributes.Count - MaxDisplayedMembers}",
-                    moreFont, Brushes.DimGray, bounds.Left + HorizontalPadding, y);
+                var moreText = $"  ⋯ +{box.Attributes.Count - MaxDisplayedMembers}";
+                DrawMemberLine(graphics, moreText, moreFont, Brushes.DimGray, bounds.Left + HorizontalPadding, y, contentWidth);
+                y += LineHeight;
+            }
+            else if (attrSlice.Count == 0 && box.TypeKind is not "enum")
+            {
+                DrawMemberLine(graphics, "—", memberFont, Brushes.LightGray, bounds.Left + HorizontalPadding, y, contentWidth);
                 y += LineHeight;
             }
         }
-        else if (box.TypeKind is not "interface" and not "enum")
-        {
-            y += LineHeight; // empty placeholder so the section is visible
-        }
 
         // --- Operations ---
-        if (box.Operations.Count > 0 || box.TypeKind == "interface")
+        var showOperationSection = box.TypeKind is "class" or "struct" or "interface";
+        if (showOperationSection)
         {
+            var separatorState = graphics.Save();
+            graphics.ResetClip();
             graphics.DrawLine(separatorPen, bounds.Left + 1, y, bounds.Right - 1, y);
+            graphics.Restore(separatorState);
             y += SeparatorHeight + 5;
 
             var opsSlice = box.Operations.Take(MaxDisplayedMembers).ToList();
@@ -234,22 +242,23 @@ internal static class UmlClassDiagramRenderer
             {
                 foreach (var line in opsSlice)
                 {
-                    graphics.DrawString(TruncateLine(line), memberFont, memberBrush, bounds.Left + HorizontalPadding, y);
+                    DrawMemberLine(graphics, line, memberFont, memberBrush, bounds.Left + HorizontalPadding, y, contentWidth);
                     y += LineHeight;
                 }
 
                 if (box.Operations.Count > MaxDisplayedMembers)
                 {
-                    graphics.DrawString(
-                        $"  ⋯ +{box.Operations.Count - MaxDisplayedMembers}",
-                        moreFont, Brushes.DimGray, bounds.Left + HorizontalPadding, y);
+                    var moreText = $"  ⋯ +{box.Operations.Count - MaxDisplayedMembers}";
+                    DrawMemberLine(graphics, moreText, moreFont, Brushes.DimGray, bounds.Left + HorizontalPadding, y, contentWidth);
                 }
             }
             else
             {
-                y += LineHeight; // empty placeholder for interface with no operations yet
+                DrawMemberLine(graphics, "—", memberFont, Brushes.LightGray, bounds.Left + HorizontalPadding, y, contentWidth);
             }
         }
+
+        graphics.Restore(bodyClipState);
     }
 
     public static void DrawRelation(
@@ -299,37 +308,78 @@ internal static class UmlClassDiagramRenderer
 
     private static void MeasureNode(DiagramBoxNode node)
     {
+        using var measureBitmap = new Bitmap(1, 1);
+        using var graphics = Graphics.FromImage(measureBitmap);
+        graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+
         var stereotype = GetStereotype(node.TypeKind);
         var attrSlice = node.Attributes.Take(MaxDisplayedMembers).ToList();
         var hasAttrMore = node.Attributes.Count > MaxDisplayedMembers;
         var opsSlice = node.Operations.Take(MaxDisplayedMembers).ToList();
         var hasOpsMore = node.Operations.Count > MaxDisplayedMembers;
 
-        // Width: based on longest text
-        var allLines = new List<string> { node.Title };
-        if (stereotype is not null) allLines.Add(stereotype);
-        allLines.AddRange(attrSlice);
-        allLines.AddRange(opsSlice);
-        var maxChars = allLines.Max(l => l.Length);
-        var width = Math.Clamp(maxChars * 7 + HorizontalPadding * 2, MinWidth, MaxWidth);
+        using var nameFont = CreateNameFont(node);
+        using var memberFont = new Font("Segoe UI", 8.25f);
+        using var stereotypeFont = new Font("Segoe UI", 7.5f, FontStyle.Italic);
+        using var moreFont = new Font("Segoe UI", 7.5f, FontStyle.Italic);
 
-        // Height
+        var maxTextWidth = MeasureText(graphics, node.Title, nameFont).Width;
+        if (stereotype is not null)
+        {
+            maxTextWidth = Math.Max(maxTextWidth, MeasureText(graphics, stereotype, stereotypeFont).Width);
+        }
+
+        foreach (var line in attrSlice)
+        {
+            maxTextWidth = Math.Max(maxTextWidth, MeasureText(graphics, line, memberFont).Width);
+        }
+
+        if (hasAttrMore)
+        {
+            var moreText = $"  ⋯ +{node.Attributes.Count - MaxDisplayedMembers}";
+            maxTextWidth = Math.Max(maxTextWidth, MeasureText(graphics, moreText, moreFont).Width);
+        }
+
+        foreach (var line in opsSlice)
+        {
+            maxTextWidth = Math.Max(maxTextWidth, MeasureText(graphics, line, memberFont).Width);
+        }
+
+        if (hasOpsMore)
+        {
+            var moreText = $"  ⋯ +{node.Operations.Count - MaxDisplayedMembers}";
+            maxTextWidth = Math.Max(maxTextWidth, MeasureText(graphics, moreText, moreFont).Width);
+        }
+
+        var width = Math.Max(MinWidth, (int)Math.Ceiling(maxTextWidth) + HorizontalPadding * 2 + TextMeasurePadding);
+
         var height = 8;
-        if (stereotype is not null) height += StereotypeHeight;
+        if (stereotype is not null)
+        {
+            height += StereotypeHeight;
+        }
+
         height += NameHeight + SeparatorHeight + 5;
 
-        // Attributes section
-        var attrRows = attrSlice.Count > 0 ? attrSlice.Count : (node.TypeKind is "interface" or "enum" ? 0 : 1);
-        height += attrRows * LineHeight;
-        if (hasAttrMore) height += LineHeight;
+        if (node.TypeKind is not "interface")
+        {
+            var attrRows = Math.Max(attrSlice.Count, node.TypeKind is "enum" ? 0 : 1);
+            height += attrRows * LineHeight;
+            if (hasAttrMore)
+            {
+                height += LineHeight;
+            }
+        }
 
-        // Operations section
-        if (node.Operations.Count > 0 || node.TypeKind == "interface")
+        if (node.TypeKind is "class" or "struct" or "interface")
         {
             height += SeparatorHeight + 5;
-            var opsRows = opsSlice.Count > 0 ? opsSlice.Count : 1; // at least 1 placeholder
+            var opsRows = Math.Max(opsSlice.Count, 1);
             height += opsRows * LineHeight;
-            if (hasOpsMore) height += LineHeight;
+            if (hasOpsMore)
+            {
+                height += LineHeight;
+            }
         }
 
         height += 8;
@@ -502,6 +552,58 @@ internal static class UmlClassDiagramRenderer
     // Helpers
     // -------------------------------------------------------------------------
 
+    private static Font CreateNameFont(DiagramBoxNode box)
+    {
+        var style = box.TypeKind == "interface"
+            ? FontStyle.Italic
+            : box.IsAbstract
+                ? FontStyle.Bold | FontStyle.Italic
+                : FontStyle.Bold;
+
+        return new Font("Segoe UI", 9.5f, style);
+    }
+
+    private static void DrawMemberLine(
+        Graphics graphics,
+        string text,
+        Font font,
+        Brush brush,
+        float x,
+        float y,
+        int maxWidth)
+    {
+        var fitted = FitText(graphics, text, font, maxWidth);
+        graphics.DrawString(fitted, font, brush, x, y);
+    }
+
+    private static SizeF MeasureText(Graphics graphics, string text, Font font) =>
+        graphics.MeasureString(text, font, int.MaxValue, StringFormat.GenericTypographic);
+
+    private static string FitText(Graphics graphics, string text, Font font, int maxWidth)
+    {
+        if (string.IsNullOrEmpty(text) || maxWidth <= 0)
+        {
+            return string.Empty;
+        }
+
+        if (MeasureText(graphics, text, font).Width <= maxWidth)
+        {
+            return text;
+        }
+
+        const string ellipsis = "…";
+        for (var length = text.Length - 1; length > 0; length--)
+        {
+            var candidate = text[..length] + ellipsis;
+            if (MeasureText(graphics, candidate, font).Width <= maxWidth)
+            {
+                return candidate;
+            }
+        }
+
+        return ellipsis;
+    }
+
     private static Color GetHeaderColor(string typeKind, bool isAbstract) => typeKind switch
     {
         "interface" => Color.FromArgb(218, 202, 248),
@@ -518,7 +620,4 @@ internal static class UmlClassDiagramRenderer
         "struct"    => "«struct»",
         _ => null
     };
-
-    private static string TruncateLine(string line) =>
-        line.Length > 44 ? line[..41] + "…" : line;
 }

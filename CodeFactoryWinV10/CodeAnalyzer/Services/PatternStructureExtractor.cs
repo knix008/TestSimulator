@@ -35,7 +35,36 @@ public sealed class PatternStructureExtractor
             ExtractFile(languageId, displayPrefix, file, content, types, relations, cancellationToken);
         }
 
+        RelinkPlaceholderRelations(types, relations);
+
         return (types.Values.ToList(), relations);
+    }
+
+    private static void RelinkPlaceholderRelations(
+        Dictionary<string, StructureTypeNode> types,
+        List<StructureRelationEdge> relations)
+    {
+        for (var index = 0; index < relations.Count; index++)
+        {
+            var relation = relations[index];
+            if (!StructureTypeIdResolver.IsShortPlaceholderId(relation.ToId, out var languageId, out var displayName))
+            {
+                continue;
+            }
+
+            var resolvedId = StructureTypeIdResolver.FindByDisplayName(types.Values, languageId, displayName);
+            if (resolvedId is null || string.Equals(resolvedId, relation.ToId, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            relations[index] = new StructureRelationEdge
+            {
+                FromId = relation.FromId,
+                ToId = resolvedId,
+                Kind = relation.Kind
+            };
+        }
     }
 
     private static void ExtractFile(
@@ -77,6 +106,13 @@ public sealed class PatternStructureExtractor
                 }
 
                 var id = $"{languageId}-type:{filePath}::{typeName}";
+                var (attributes, operations) = PatternStructureMemberExtractor.Extract(
+                    languageId,
+                    lines,
+                    lineIndex,
+                    typeName);
+                var members = attributes.Concat(operations).Take(8).ToList();
+
                 types.TryAdd(id, new StructureTypeNode
                 {
                     Id = id,
@@ -84,32 +120,31 @@ public sealed class PatternStructureExtractor
                     FullName = $"{displayPrefix} {Path.GetFileName(filePath)}::{typeName}",
                     FilePath = filePath,
                     LineNumber = lineIndex + 1,
-                    Kind = pattern.Kind
+                    Kind = pattern.Kind,
+                    Members = members,
+                    Attributes = attributes,
+                    Operations = operations
                 });
 
-                foreach (var baseName in pattern.ExtractBases(match))
+                foreach (var (baseName, relationKind) in pattern.ExtractBaseRelations(match))
                 {
                     if (string.IsNullOrWhiteSpace(baseName))
                     {
                         continue;
                     }
 
-                    var baseId = $"{languageId}-type:{baseName}";
-                    types.TryAdd(baseId, new StructureTypeNode
-                    {
-                        Id = baseId,
-                        DisplayName = baseName,
-                        FullName = $"{displayPrefix} {baseName}",
-                        FilePath = string.Empty,
-                        LineNumber = 0,
-                        Kind = pattern.BaseKind
-                    });
+                    var baseId = StructureTypeIdResolver.ResolveOrCreatePlaceholder(
+                        languageId,
+                        displayPrefix,
+                        baseName,
+                        pattern.BaseKind,
+                        types);
 
                     relations.Add(new StructureRelationEdge
                     {
                         FromId = id,
                         ToId = baseId,
-                        Kind = pattern.RelationKind
+                        Kind = relationKind
                     });
                 }
             }
@@ -177,7 +212,7 @@ public sealed class PatternStructureExtractor
         public StructureRelationKind RelationKind { get; } = relationKind;
         public string BaseKind { get; } = baseKind;
 
-        public IEnumerable<string> ExtractBases(Match match)
+        public IEnumerable<(string Name, StructureRelationKind Kind)> ExtractBaseRelations(Match match)
         {
             if (match.Groups["base"].Success)
             {
@@ -188,7 +223,7 @@ public sealed class PatternStructureExtractor
                     name = name.Trim().TrimEnd('{');
                     if (name is not ("object" or "Object"))
                     {
-                        yield return name;
+                        yield return (name, RelationKind);
                     }
                 }
             }
@@ -197,7 +232,7 @@ public sealed class PatternStructureExtractor
             {
                 foreach (var part in match.Groups["iface"].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
-                    yield return part;
+                    yield return (part, StructureRelationKind.Implementation);
                 }
             }
         }

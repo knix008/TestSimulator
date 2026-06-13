@@ -1095,6 +1095,7 @@ public partial class MainForm : Form
     {
         comboRootMethod.Items.Clear();
         comboRootMethod.Items.Add(RootMethodItem.AutoEntryPoints);
+        comboRootMethod.Items.Add(RootMethodItem.ComprehensiveRoots);
 
         var entryPointIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entryPoint in CallGraphEntryPointResolver.FindEntryPoints(result))
@@ -1325,7 +1326,7 @@ public partial class MainForm : Form
             focusedGraphNodeId: null);
     }
 
-    private readonly record struct RootMethodSelection(bool IsAutoEntryPoints, string? NodeId);
+    private readonly record struct RootMethodSelection(RootMethodPresetKind PresetKind, string? NodeId);
 
     private readonly record struct RootSelection(
         DiagramViewKind ViewKind,
@@ -1338,11 +1339,11 @@ public partial class MainForm : Form
     {
         if (comboRootMethod.SelectedItem is RootMethodItem item)
         {
-            return new RootMethodSelection(item.IsAutoEntryPoints, item.Node?.Id);
+            return new RootMethodSelection(item.PresetKind, item.Node?.Id);
         }
 
         // Fallback: should not happen after analysis, but keep it safe.
-        return new RootMethodSelection(true, null);
+        return new RootMethodSelection(RootMethodPresetKind.ConventionEntryPoints, null);
     }
 
     private void RecordCurrentRootSelectionBaseline()
@@ -1434,9 +1435,13 @@ public partial class MainForm : Form
 
         try
         {
-            if (selection.RootMethod.IsAutoEntryPoints)
+            if (selection.RootMethod.PresetKind == RootMethodPresetKind.ConventionEntryPoints)
             {
                 comboRootMethod.SelectedItem = RootMethodItem.AutoEntryPoints;
+            }
+            else if (selection.RootMethod.PresetKind == RootMethodPresetKind.ComprehensiveRoots)
+            {
+                comboRootMethod.SelectedItem = RootMethodItem.ComprehensiveRoots;
             }
             else if (!string.IsNullOrWhiteSpace(selection.RootMethod.NodeId))
             {
@@ -1533,12 +1538,24 @@ public partial class MainForm : Form
             return [];
         }
 
-        if (item.IsAutoEntryPoints)
+        if (item.PresetKind == RootMethodPresetKind.ConventionEntryPoints)
         {
             var entryPoints = CallGraphEntryPointResolver.FindEntryPoints(_lastAnalysis.CallGraph);
             if (entryPoints.Count > 0)
             {
                 return entryPoints.Select(node => node.Id).ToList();
+            }
+
+            var fallback = CallGraphEntryPointResolver.FindFallbackRoot(_lastAnalysis.CallGraph);
+            return fallback is null ? [] : [fallback.Id];
+        }
+
+        if (item.PresetKind == RootMethodPresetKind.ComprehensiveRoots)
+        {
+            var roots = CallGraphEntryPointResolver.FindComprehensiveRoots(_lastAnalysis.CallGraph);
+            if (roots.Count > 0)
+            {
+                return roots.Select(node => node.Id).ToList();
             }
 
             var fallback = CallGraphEntryPointResolver.FindFallbackRoot(_lastAnalysis.CallGraph);
@@ -2674,17 +2691,36 @@ public partial class MainForm : Form
         DetailedErrorDialog.Show(owner, title, ex, message);
     }
 
+    private enum RootMethodPresetKind
+    {
+        ConventionEntryPoints,
+        ComprehensiveRoots,
+        Manual
+    }
+
     private sealed class RootMethodItem
     {
-        public static RootMethodItem AutoEntryPoints { get; } = new() { IsAutoEntryPoints = true };
+        public static RootMethodItem AutoEntryPoints { get; } = new()
+        {
+            PresetKind = RootMethodPresetKind.ConventionEntryPoints
+        };
 
-        public bool IsAutoEntryPoints { get; init; }
+        public static RootMethodItem ComprehensiveRoots { get; } = new()
+        {
+            PresetKind = RootMethodPresetKind.ComprehensiveRoots
+        };
+
+        public RootMethodPresetKind PresetKind { get; init; } = RootMethodPresetKind.Manual;
         public CallGraphNode? Node { get; init; }
 
         public static RootMethodItem FromNode(CallGraphNode node) => new() { Node = node };
 
-        public override string ToString() =>
-            IsAutoEntryPoints ? "[자동] 언어별 진입점" : Node!.FullName;
+        public override string ToString() => PresetKind switch
+        {
+            RootMethodPresetKind.ConventionEntryPoints => "[자동] 언어별 진입점",
+            RootMethodPresetKind.ComprehensiveRoots => "[전체] 언어별 호출 시작점",
+            _ => Node!.FullName
+        };
     }
 
     private sealed class RootTypeItem

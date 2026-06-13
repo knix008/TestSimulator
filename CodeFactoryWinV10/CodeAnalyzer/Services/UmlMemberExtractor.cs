@@ -41,6 +41,11 @@ public static class UmlMemberExtractor
 
     private static string FormatField(IFieldSymbol field)
     {
+        if (field.ContainingType?.TypeKind == TypeKind.Enum)
+        {
+            return $"+ {field.Name}";
+        }
+
         var modifiers = new List<string>();
         if (field.IsStatic)
         {

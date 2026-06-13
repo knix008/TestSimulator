@@ -584,7 +584,7 @@ public sealed class StructureDiagramViewer : UserControl
                         _dataFlowRootOverride ?? _functionRootIds.FirstOrDefault());
                     break;
                 case DiagramViewKind.SequenceDiagram:
-                    _sequence = SequenceDiagramBuilder.Build(_analysis.CallGraph, _functionRootIds.FirstOrDefault());
+                    _sequence = SequenceDiagramBuilder.Build(_analysis.CallGraph, _functionRootIds);
                     ApplySequenceContentSize(_sequence);
                     Invalidate();
                     return;
@@ -911,10 +911,8 @@ public sealed class StructureDiagramViewer : UserControl
 
     private void BuildClassDiagram(ProjectStructureResult structure, bool inheritanceOnly)
     {
-        var allRelations = structure.Relations
-            .Where(relation => inheritanceOnly
-                ? relation.Kind == StructureRelationKind.Inheritance
-                : relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
+        var hierarchyRelations = structure.Relations
+            .Where(relation => relation.Kind is StructureRelationKind.Inheritance or StructureRelationKind.Implementation)
             .ToList();
 
         List<StructureRelationEdge> relations;
@@ -922,7 +920,6 @@ public sealed class StructureDiagramViewer : UserControl
 
         if (_focusedTypeId is not null && structure.TypeMap.ContainsKey(_focusedTypeId))
         {
-            // Show focused type and its 1-hop neighbors via any relation.
             typeIds.Add(_focusedTypeId);
             foreach (var relation in structure.Relations)
             {
@@ -933,13 +930,13 @@ public sealed class StructureDiagramViewer : UserControl
                 }
             }
 
-            relations = allRelations
-                .Where(r => typeIds.Contains(r.FromId) && typeIds.Contains(r.ToId))
+            relations = hierarchyRelations
+                .Where(relation => typeIds.Contains(relation.FromId) && typeIds.Contains(relation.ToId))
                 .ToList();
         }
         else
         {
-            relations = allRelations;
+            relations = hierarchyRelations;
 
             foreach (var relation in relations)
             {
@@ -951,10 +948,17 @@ public sealed class StructureDiagramViewer : UserControl
             {
                 foreach (var type in structure.Types)
                 {
+                    if (!IsDisplayableStructureType(type.Id))
+                    {
+                        continue;
+                    }
+
                     typeIds.Add(type.Id);
                 }
             }
         }
+
+        typeIds.RemoveWhere(id => !IsDisplayableStructureType(id));
 
         foreach (var typeId in typeIds)
         {
@@ -1002,6 +1006,9 @@ public sealed class StructureDiagramViewer : UserControl
 
         ApplyBoxContentSize(UmlClassDiagramRenderer.Layout(_boxes, depths, clusteringEdges));
     }
+
+    private static bool IsDisplayableStructureType(string typeId) =>
+        !StructureTypeIdResolver.IsSyntheticCallDependencyType(typeId);
 
     private void BuildDataFlow(CallGraphResult callGraph, string? rootNodeId)
     {
