@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>Image2TextWin</AssemblyName>
+    <RootNamespace>Image2TextWin</RootNamespace>
+    <ApplicationIcon>AppIcon.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Company>Image2TextWin</Company>
+    <Product>Image to ASCII Art</Product>
+    <Description>이미지를 ASCII 아트로 변환하는 프로그램</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.2" />
+    <PackageReference Include="PdfSharp" Version="6.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="AppIcon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
