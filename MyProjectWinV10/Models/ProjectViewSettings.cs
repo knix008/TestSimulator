@@ -6,6 +6,8 @@ namespace MyProject.Models
     {
         public int[] TaskGridColumnWidths { get; set; } = DefaultTaskGridColumnWidths();
         public DependencyType DefaultDependencyType { get; set; } = DependencyType.FS;
+        public DependencyLineEnd DefaultDependencyStartLineEnd { get; set; } = DependencyLineEnd.None;
+        public DependencyLineEnd DefaultDependencyEndLineEnd { get; set; } = DependencyLineEnd.Arrow;
         public int DayWidth { get; set; } = AppTheme.DefaultDayWidth;
         public int SplitterDistance { get; set; } = 560;
         public int PropertiesPanelWidth { get; set; } = 300;
@@ -31,6 +33,8 @@ namespace MyProject.Models
         {
             TaskGridColumnWidths = (int[])TaskGridColumnWidths.Clone(),
             DefaultDependencyType = DefaultDependencyType,
+            DefaultDependencyStartLineEnd = DefaultDependencyStartLineEnd,
+            DefaultDependencyEndLineEnd = DefaultDependencyEndLineEnd,
             DayWidth = DayWidth,
             SplitterDistance = SplitterDistance,
             PropertiesPanelWidth = PropertiesPanelWidth,
@@ -48,15 +52,19 @@ namespace MyProject.Models
                 return false;
 
             return a.DefaultDependencyType == b.DefaultDependencyType
+                && a.DefaultDependencyStartLineEnd == b.DefaultDependencyStartLineEnd
+                && a.DefaultDependencyEndLineEnd == b.DefaultDependencyEndLineEnd
                 && a.DayWidth == b.DayWidth
-                && a.SplitterDistance == b.SplitterDistance
-                && a.PropertiesPanelWidth == b.PropertiesPanelWidth
+                && LayoutDistanceEqual(a.SplitterDistance, b.SplitterDistance)
+                && LayoutDistanceEqual(a.PropertiesPanelWidth, b.PropertiesPanelWidth)
                 && a.PropertiesPanelVisible == b.PropertiesPanelVisible
                 && a.ShowCriticalPath == b.ShowCriticalPath
                 && a.NotesPanelHeight == b.NotesPanelHeight
                 && a.NotesPanelVisible == b.NotesPanelVisible
                 && a.TaskGridColumnWidths.AsSpan().SequenceEqual(b.TaskGridColumnWidths);
         }
+
+        private static bool LayoutDistanceEqual(int a, int b) => Math.Abs(a - b) <= 4;
 
         public static int[] DefaultTaskGridColumnWidths() =>
             new[] { 32, 200, 58, 34, 30, 88, 120 };

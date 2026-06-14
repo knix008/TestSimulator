@@ -14,6 +14,8 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripSeparator menuSep1;
         private System.Windows.Forms.ToolStripMenuItem menuSave;
         private System.Windows.Forms.ToolStripMenuItem menuSaveAs;
+        private System.Windows.Forms.ToolStripSeparator menuSepExportMs;
+        private System.Windows.Forms.ToolStripMenuItem menuExportMsProject;
         private System.Windows.Forms.ToolStripSeparator menuSep2;
         private System.Windows.Forms.ToolStripMenuItem menuExit;
         private System.Windows.Forms.ToolStripMenuItem menuTask;
@@ -109,6 +111,8 @@ namespace MyProject.Forms
             menuSep1 = new ToolStripSeparator();
             menuSave = new ToolStripMenuItem();
             menuSaveAs = new ToolStripMenuItem();
+            menuSepExportMs = new ToolStripSeparator();
+            menuExportMsProject = new ToolStripMenuItem();
             menuSep2 = new ToolStripSeparator();
             menuExit = new ToolStripMenuItem();
             menuTask = new ToolStripMenuItem();
@@ -206,7 +210,7 @@ namespace MyProject.Forms
             // 
             // menuFile
             // 
-            menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuSep1, menuSave, menuSaveAs, menuSep2, menuExit });
+            menuFile.DropDownItems.AddRange(new ToolStripItem[] { menuNew, menuOpen, menuSep1, menuSave, menuSaveAs, menuSepExportMs, menuExportMsProject, menuSep2, menuExit });
             menuFile.ForeColor = Color.White;
             menuFile.Name = "menuFile";
             menuFile.Size = new Size(37, 20);
@@ -243,6 +247,17 @@ namespace MyProject.Forms
             menuSaveAs.Name = "menuSaveAs";
             menuSaveAs.Size = new Size(181, 22);
             menuSaveAs.Text = "Save &As...";
+            // 
+            // menuSepExportMs
+            // 
+            menuSepExportMs.Name = "menuSepExportMs";
+            menuSepExportMs.Size = new Size(178, 6);
+            // 
+            // menuExportMsProject
+            // 
+            menuExportMsProject.Name = "menuExportMsProject";
+            menuExportMsProject.Size = new Size(181, 22);
+            menuExportMsProject.Text = "Export to Microsoft Project...";
             // 
             // menuSep2
             // 

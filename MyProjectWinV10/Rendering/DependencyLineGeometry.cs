@@ -18,20 +18,53 @@ namespace MyProject.Rendering
             };
         }
 
-        public static void DrawPath(Graphics g, Color color, IReadOnlyList<Point> pts, int arrowSize = 6, bool endArrow = true)
+        public static void DrawPath(
+            Graphics g,
+            Color color,
+            IReadOnlyList<Point> pts,
+            int arrowSize = 6,
+            DependencyLineEnd startLineEnd = DependencyLineEnd.None,
+            DependencyLineEnd endLineEnd = DependencyLineEnd.Arrow,
+            float lineWidth = 1.5f)
         {
             if (pts.Count < 2) return;
 
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            using var pen = new Pen(color, 1.5f) { EndCap = LineCap.NoAnchor };
+            using var pen = new Pen(color, lineWidth) { EndCap = LineCap.NoAnchor };
             g.DrawLines(pen, pts.ToArray());
 
-            if (endArrow)
-            {
-                var last = pts[^1];
-                var prev = pts[^2];
-                DrawArrowHead(g, color, prev, last, arrowSize);
-            }
+            if (startLineEnd != DependencyLineEnd.None)
+                DrawLineEnd(g, color, pts[1], pts[0], startLineEnd, arrowSize);
+
+            if (endLineEnd != DependencyLineEnd.None)
+                DrawLineEnd(g, color, pts[^2], pts[^1], endLineEnd, arrowSize);
+        }
+
+        public static void DrawLineEndPreview(
+            Graphics g,
+            Rectangle bounds,
+            DependencyLineEnd style,
+            bool atLineStart = false,
+            Color? lineColor = null)
+        {
+            if (bounds.Width < 8 || bounds.Height < 8 || style == DependencyLineEnd.None)
+                return;
+
+            lineColor ??= AppTheme.DependencyLine;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            int y = bounds.Y + bounds.Height / 2;
+            int pad = 6;
+            var from = new Point(bounds.Left + pad, y);
+            var to = new Point(bounds.Right - pad, y);
+
+            using var pen = new Pen(lineColor.Value, 2f);
+            g.DrawLine(pen, from, to);
+
+            if (atLineStart)
+                DrawLineEnd(g, lineColor.Value, to, from, style, 7);
+            else
+                DrawLineEnd(g, lineColor.Value, from, to, style, 7);
         }
 
         public static void DrawSilhouettePath(Graphics g, Color color, IReadOnlyList<Point> pts, int arrowSize = 6)
@@ -49,6 +82,51 @@ namespace MyProject.Rendering
             var last = pts[^1];
             var prev = pts[^2];
             DrawArrowHead(g, color, prev, last, arrowSize);
+        }
+
+        private static void DrawOpenArrowHead(Graphics g, Color color, Point from, Point to, int size)
+        {
+            double angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
+            double a1 = angle + Math.PI * 0.8;
+            double a2 = angle - Math.PI * 0.8;
+
+            var tip1 = new Point(
+                (int)(to.X + size * Math.Cos(a1)),
+                (int)(to.Y + size * Math.Sin(a1)));
+            var tip2 = new Point(
+                (int)(to.X + size * Math.Cos(a2)),
+                (int)(to.Y + size * Math.Sin(a2)));
+
+            using var pen = new Pen(color, 2f);
+            g.DrawLine(pen, tip1, to);
+            g.DrawLine(pen, to, tip2);
+        }
+
+        private static void DrawDotEnd(Graphics g, Color color, Point at, int size)
+        {
+            int r = Math.Max(2, size / 2);
+            var rect = new Rectangle(at.X - r, at.Y - r, r * 2, r * 2);
+            using var brush = new SolidBrush(color);
+            g.FillEllipse(brush, rect);
+        }
+
+        private static void DrawSquareEnd(Graphics g, Color color, Point from, Point to, int size)
+        {
+            double angle = Math.Atan2(to.Y - from.Y, to.X - from.X);
+            int half = Math.Max(2, size / 2);
+            float cos = (float)Math.Cos(angle);
+            float sin = (float)Math.Sin(angle);
+
+            var corners = new Point[]
+            {
+                new((int)(to.X - half * cos + half * sin), (int)(to.Y - half * sin - half * cos)),
+                new((int)(to.X + half * cos + half * sin), (int)(to.Y + half * sin - half * cos)),
+                new((int)(to.X + half * cos - half * sin), (int)(to.Y + half * sin + half * cos)),
+                new((int)(to.X - half * cos - half * sin), (int)(to.Y - half * sin + half * cos))
+            };
+
+            using var brush = new SolidBrush(color);
+            g.FillPolygon(brush, corners);
         }
 
         public static void DrawPreview(Graphics g, Rectangle bounds, DependencyType type, Color? lineColor = null)
@@ -100,7 +178,26 @@ namespace MyProject.Rendering
             int toY = succBar.Top + succBar.Height / 2;
 
             var pts = BuildPath(type, fromX, fromY, toX, toY);
-            DrawPath(g, lineColor.Value, pts, arrowSize: 5);
+            DrawPath(g, lineColor.Value, pts, arrowSize: 5, endLineEnd: DependencyLineEnd.Arrow);
+        }
+
+        public static void DrawLineEnd(Graphics g, Color color, Point from, Point to, DependencyLineEnd style, int size)
+        {
+            switch (style)
+            {
+                case DependencyLineEnd.Arrow:
+                    DrawArrowHead(g, color, from, to, size);
+                    break;
+                case DependencyLineEnd.OpenArrow:
+                    DrawOpenArrowHead(g, color, from, to, size);
+                    break;
+                case DependencyLineEnd.Dot:
+                    DrawDotEnd(g, color, to, size);
+                    break;
+                case DependencyLineEnd.Square:
+                    DrawSquareEnd(g, color, from, to, size);
+                    break;
+            }
         }
 
         private static List<Point> BuildFSPath(int fromX, int fromY, int toX, int toY)

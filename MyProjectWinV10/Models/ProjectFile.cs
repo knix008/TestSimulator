@@ -82,7 +82,9 @@ namespace MyProject.Models
                     PredecessorId = d.PredecessorId,
                     SuccessorId = d.SuccessorId,
                     Type = d.Type.ToString(),
-                    LagDays = d.LagDays
+                    LagDays = d.LagDays,
+                    StartLineEnd = d.StartLineEnd.ToString(),
+                    EndLineEnd = d.EndLineEnd.ToString()
                 }).ToList(),
                 Assignments = model.Assignments.Select(a => new AssignmentData
                 {
@@ -109,6 +111,8 @@ namespace MyProject.Models
         {
             TaskGridColumnWidths = settings.TaskGridColumnWidths,
             DefaultDependencyType = settings.DefaultDependencyType.ToString(),
+            DefaultDependencyStartLineEnd = settings.DefaultDependencyStartLineEnd.ToString(),
+            DefaultDependencyEndLineEnd = settings.DefaultDependencyEndLineEnd.ToString(),
             DayWidth = settings.DayWidth,
             SplitterDistance = settings.SplitterDistance,
             PropertiesPanelWidth = settings.PropertiesPanelWidth,
@@ -129,6 +133,11 @@ namespace MyProject.Models
 
             if (Enum.TryParse<DependencyType>(data.DefaultDependencyType, out var depType))
                 settings.DefaultDependencyType = depType;
+
+            settings.DefaultDependencyStartLineEnd =
+                DependencyLineEndInfo.Parse(data.DefaultDependencyStartLineEnd, DependencyLineEnd.None);
+            settings.DefaultDependencyEndLineEnd =
+                DependencyLineEndInfo.Parse(data.DefaultDependencyEndLineEnd, DependencyLineEnd.Arrow);
 
             if (data.DayWidth is >= 4 and <= 120)
                 settings.DayWidth = data.DayWidth;
@@ -188,6 +197,8 @@ namespace MyProject.Models
         {
             public int[]? TaskGridColumnWidths { get; set; }
             public string DefaultDependencyType { get; set; } = "FS";
+            public string? DefaultDependencyStartLineEnd { get; set; }
+            public string? DefaultDependencyEndLineEnd { get; set; }
             public int DayWidth { get; set; } = 22;
             public int SplitterDistance { get; set; } = 560;
             public int PropertiesPanelWidth { get; set; } = 300;
@@ -223,6 +234,8 @@ namespace MyProject.Models
             public int SuccessorId { get; set; }
             public string Type { get; set; } = "FS";
             public int LagDays { get; set; }
+            public string? StartLineEnd { get; set; }
+            public string? EndLineEnd { get; set; }
         }
 
         internal sealed class AssignmentData

@@ -3,39 +3,28 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>MyProject</AssemblyName>
     <RootNamespace>MyProject</RootNamespace>
+    <AssemblyName>MyProject</AssemblyName>
+    <StartupObject>MyProject.Program</StartupObject>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\MyProject.ico</ApplicationIcon>
+    <UseAppHost>true</UseAppHost>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <Company>MyProject</Company>
     <Product>MyProject Project Manager</Product>
     <Copyright>Copyright © 2026</Copyright>
-    <ApplicationIcon>Assets\MyProject.ico</ApplicationIcon>
-    <UseAppHost>true</UseAppHost>
-    <StartupObject>MyProject.Program</StartupObject>
-    <Platforms>AnyCPU</Platforms>
-    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="ClosedXML" Version="0.104.2" />
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
-    <PackageReference Include="QuestPDF" Version="2024.12.3" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
-  </ItemGroup>
-
-  <!-- Debug: no apphost + no hot reload helps Visual Studio detach cleanly. -->
+  <!-- WinForms: avoid hot reload and keep a native exe for reliable VS debug stop. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <UseAppHost>false</UseAppHost>
     <HotReloadEnabled>false</HotReloadEnabled>
     <DebugType>portable</DebugType>
   </PropertyGroup>
 
-  <!-- Release: MSI is built by default (opt out with -p:BuildMsi=false). -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <BuildMsi Condition="'$(BuildMsi)' == ''">true</BuildMsi>
   </PropertyGroup>
@@ -47,30 +36,50 @@
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <SetupProjectPath>$(MSBuildThisFileDirectory)Installer\MyProject.Installer.wixproj</SetupProjectPath>
-    <MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\Release\MyProject_Setup.msi</MsiOutputPath>
-  </PropertyGroup>
-
-  <Target Name="BuildInstallerMsi" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(BuildMsi)' == 'true' and '$(BuildingMsiPackage)' != 'true' and '$(DesignTimeBuild)' != 'true' and Exists('$(SetupProjectPath)')">
-    <Message Importance="high" Text="Building MSI installer..." />
-    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -v minimal" WorkingDirectory="$(MSBuildProjectDirectory)" />
-    <Error Condition="!Exists('$(MsiOutputPath)')" Text="MSI was not created at $(MsiOutputPath). See MyProject.Installer build output for errors." />
-    <Copy SourceFiles="$(MsiOutputPath)" DestinationFiles="$(OutputPath)MyProject_Setup.msi" SkipUnchangedFiles="true" Condition="Exists('$(MsiOutputPath)')" />
-    <Message Importance="high" Text="MSI ready: $(MsiOutputPath)" />
-  </Target>
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.104.2" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
+    <PackageReference Include="MPXJ.Net" Version="16.4.0" />
+    <PackageReference Include="QuestPDF" Version="2024.12.3" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+  </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Template\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
-    </Content>
     <Content Include="Assets\MyProject.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <Content Include="Template\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
   </ItemGroup>
+
+  <PropertyGroup>
+    <SetupProjectPath>$(MSBuildThisFileDirectory)Installer\MyProject.Installer.wixproj</SetupProjectPath>
+    <MsiOutputPath>$(MSBuildThisFileDirectory)Installer\bin\Release\MyProject_Setup.msi</MsiOutputPath>
+  </PropertyGroup>
+
+  <Target Name="BuildInstallerMsi"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Release'
+                     and '$(BuildMsi)' == 'true'
+                     and '$(BuildingMsiPackage)' != 'true'
+                     and '$(DesignTimeBuild)' != 'true'
+                     and Exists('$(SetupProjectPath)')">
+    <Message Importance="high" Text="Building MSI installer..." />
+    <Exec Command="dotnet build &quot;$(SetupProjectPath)&quot; -c Release -p:BuildingMsiPackage=true -v minimal"
+          WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Error Condition="!Exists('$(MsiOutputPath)')"
+           Text="MSI was not created at $(MsiOutputPath). See MyProject.Installer build output for errors." />
+    <Copy SourceFiles="$(MsiOutputPath)"
+          DestinationFiles="$(OutputPath)MyProject_Setup.msi"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(MsiOutputPath)')" />
+    <Message Importance="high" Text="MSI ready: $(MsiOutputPath)" />
+  </Target>
 
 </Project>

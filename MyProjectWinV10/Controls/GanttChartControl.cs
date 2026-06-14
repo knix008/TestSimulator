@@ -23,6 +23,8 @@ namespace MyProject.Controls
         private Point _dragNoteStartMouse;
         private DateTime _dragNoteStartAnchorDate;
         private int _dragNoteStartContentY;
+        private DateTime _dragNotePreviewAnchorDate;
+        private int _dragNotePreviewContentY;
 
         private RichTextBox? _noteInlineEditor;
         private int _editingNoteId = -1;
@@ -233,6 +235,20 @@ namespace MyProject.Controls
             _model = null;
         }
 
+        public void PrepareForShutdown()
+        {
+            EndInlineNoteEdit(false);
+
+            _isDraggingNote = false;
+            _isDragging = false;
+            _isResizingRight = false;
+            _isResizingLeft = false;
+            _isPanning = false;
+            _dragNoteId = -1;
+            _dragTaskId = -1;
+            Capture = false;
+        }
+
         public void SetModel(ProjectModel model)
         {
             if (_model != null) _model.ModelChanged -= OnModelChanged;
@@ -410,6 +426,12 @@ namespace MyProject.Controls
             _paintExportMode = false;
             _paintTransparentBackground = false;
 
+            if (DesignTime.IsActive && _model == null)
+            {
+                e.Graphics.Clear(BackColor);
+                return;
+            }
+
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
@@ -518,6 +540,13 @@ namespace MyProject.Controls
                 ShowCriticalPath,
                 dep => _model.IsDependencyOnCriticalPath(dep));
 
+            if (ShowCriticalPath)
+                _depRenderer.DrawCriticalPathChain(
+                    g,
+                    _model.CriticalPathLinks,
+                    visibleTasks,
+                    id => rowYByTaskId.GetValueOrDefault(id, -999));
+
             if (linkModeActive
                 && _linkSourceId >= 0
                 && rowYByTaskId.TryGetValue(_linkSourceId, out int srcRowY))
@@ -580,6 +609,9 @@ namespace MyProject.Controls
 
             foreach (var note in _model.Notes.OrderBy(n => n.Id))
             {
+                if (_isDraggingNote && note.Id == _dragNoteId)
+                    continue;
+
                 var noteRect = _noteRenderer.GetNoteRect(note, _scrollY);
                 if (noteRect.Bottom < AppTheme.TimescaleHeaderHeight || noteRect.Top > _paintClipBottom)
                     continue;
@@ -600,6 +632,31 @@ namespace MyProject.Controls
                     continue;
 
                 _noteRenderer.DrawNote(g, note, noteRect, note.Id == selectedNoteId);
+            }
+
+            if (_isDraggingNote && _dragNoteId >= 0 && _model != null)
+            {
+                var previewRect = new Rectangle(
+                    _viewport.DateToX(_dragNotePreviewAnchorDate),
+                    _dragNotePreviewContentY - _scrollY,
+                    NoteRenderer.NoteWidth,
+                    NoteRenderer.NoteHeight);
+
+                if (previewRect.Bottom >= AppTheme.TimescaleHeaderHeight && previewRect.Top <= _paintClipBottom)
+                {
+                    var draggedNote = _model.GetNote(_dragNoteId);
+                    if (draggedNote?.TaskId >= 0 && rowYByTaskId.TryGetValue(draggedNote.TaskId, out int rowY))
+                    {
+                        var task = visibleTasks.FirstOrDefault(t => t.Id == draggedNote.TaskId);
+                        if (task != null)
+                        {
+                            var barRect = _taskBarRenderer.GetTaskBarRect(task, rowY);
+                            _noteRenderer.DrawConnectorSilhouette(g, barRect, previewRect);
+                        }
+                    }
+
+                    _noteRenderer.DrawNoteSilhouette(g, previewRect);
+                }
             }
         }
 
@@ -700,6 +757,8 @@ namespace MyProject.Controls
                     _dragNoteStartMouse = e.Location;
                     _dragNoteStartAnchorDate = hitNote.AnchorDate;
                     _dragNoteStartContentY = hitNote.ContentY;
+                    _dragNotePreviewAnchorDate = hitNote.AnchorDate;
+                    _dragNotePreviewContentY = hitNote.ContentY;
                     Cursor = Cursors.SizeAll;
                 }
 
@@ -888,16 +947,11 @@ namespace MyProject.Controls
 
             if (_isDraggingNote)
             {
-                var note = _model.GetNote(_dragNoteId);
-                if (note != null)
-                {
-                    int deltaPx = e.X - _dragNoteStartMouse.X;
-                    int deltaDays = (int)Math.Round((double)deltaPx / _viewport.DayWidth);
-                    int newContentY = _dragNoteStartContentY + (e.Y - _dragNoteStartMouse.Y);
-                    var newDate = _dragNoteStartAnchorDate.AddDays(deltaDays);
-                    _model.SetNotePosition(note.Id, newDate, newContentY);
-                    Invalidate();
-                }
+                int deltaPx = e.X - _dragNoteStartMouse.X;
+                int deltaDays = (int)Math.Round((double)deltaPx / _viewport.DayWidth);
+                _dragNotePreviewContentY = _dragNoteStartContentY + (e.Y - _dragNoteStartMouse.Y);
+                _dragNotePreviewAnchorDate = _dragNoteStartAnchorDate.AddDays(deltaDays);
+                Invalidate();
                 return;
             }
 
@@ -953,6 +1007,9 @@ namespace MyProject.Controls
                 }
                 ModelChanged?.Invoke(this, EventArgs.Empty);
             }
+
+            if (_isDraggingNote && _dragNoteId >= 0 && _model != null)
+                _model.SetNotePosition(_dragNoteId, _dragNotePreviewAnchorDate, _dragNotePreviewContentY);
 
             _isDragging = false;
             _isResizingRight = false;

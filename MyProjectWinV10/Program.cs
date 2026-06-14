@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using MyProject.Forms;
 using MyProject.Models;
 using MyProject.Theme;
@@ -10,6 +11,7 @@ static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         if (args.Contains("--generate-template"))
         {
             var templateDir = Path.Combine(Directory.GetCurrentDirectory(), "Template");
@@ -35,5 +37,6 @@ static class Program
 
         AppSettings.Load();
         Application.Run(new MainForm());
+        AppShutdown.ExitProcessIfDebugSession();
     }
 }

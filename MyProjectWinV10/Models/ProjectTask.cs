@@ -11,6 +11,10 @@ namespace MyProject.Models
         public int SuccessorId { get; set; }
         public DependencyType Type { get; set; } = DependencyType.FS;
         public int LagDays { get; set; } = 0;
+        /// <summary>Decoration at the predecessor (line start) connection point.</summary>
+        public DependencyLineEnd StartLineEnd { get; set; } = DependencyLineEnd.None;
+        /// <summary>Decoration at the successor (line end) connection point.</summary>
+        public DependencyLineEnd EndLineEnd { get; set; } = DependencyLineEnd.Arrow;
     }
 
     public class ProjectTask : INotifyPropertyChanged

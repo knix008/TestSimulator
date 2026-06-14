@@ -1,20 +1,20 @@
 ﻿{
   "version": 1,
   "projectName": "Template Project",
-  "projectStart": "2026-06-13T00:00:00+09:00",
+  "projectStart": "2026-06-14T00:00:00+09:00",
   "tasks": [
     {
       "id": 1,
       "parentId": -1,
       "name": "Project Planning",
-      "startDate": "2026-06-13T00:00:00+09:00",
+      "startDate": "2026-06-14T00:00:00+09:00",
       "durationDays": 10,
       "progress": 80,
       "taskType": "Summary",
       "indentLevel": 0,
       "isExpanded": true,
       "assignedTo": "",
-      "notes": "",
+      "notes": "This template shows tasks, dependencies, and notes on the Gantt chart. Select a note to edit it in the properties panel.",
       "autoSchedule": true,
       "deliverable": "",
       "isCritical": false
@@ -23,7 +23,7 @@
       "id": 2,
       "parentId": 1,
       "name": "Requirements Analysis",
-      "startDate": "2026-06-13T00:00:00+09:00",
+      "startDate": "2026-06-14T00:00:00+09:00",
       "durationDays": 5,
       "progress": 100,
       "taskType": "Normal",
@@ -39,7 +39,7 @@
       "id": 3,
       "parentId": 1,
       "name": "System Design",
-      "startDate": "2026-06-18T00:00:00+09:00",
+      "startDate": "2026-06-19T00:00:00+09:00",
       "durationDays": 5,
       "progress": 60,
       "taskType": "Normal",
@@ -55,7 +55,7 @@
       "id": 4,
       "parentId": -1,
       "name": "Development",
-      "startDate": "2026-06-23T00:00:00+09:00",
+      "startDate": "2026-06-24T00:00:00+09:00",
       "durationDays": 15,
       "progress": 41.48148148148148,
       "taskType": "Summary",
@@ -71,7 +71,7 @@
       "id": 5,
       "parentId": 4,
       "name": "Frontend Implementation",
-      "startDate": "2026-06-23T00:00:00+09:00",
+      "startDate": "2026-06-24T00:00:00+09:00",
       "durationDays": 12,
       "progress": 60,
       "taskType": "Summary",
@@ -87,7 +87,7 @@
       "id": 6,
       "parentId": 5,
       "name": "UI Design",
-      "startDate": "2026-06-23T00:00:00+09:00",
+      "startDate": "2026-06-24T00:00:00+09:00",
       "durationDays": 4,
       "progress": 100,
       "taskType": "Normal",
@@ -103,7 +103,7 @@
       "id": 7,
       "parentId": 5,
       "name": "UI Development",
-      "startDate": "2026-06-27T00:00:00+09:00",
+      "startDate": "2026-06-28T00:00:00+09:00",
       "durationDays": 8,
       "progress": 40,
       "taskType": "Normal",
@@ -119,7 +119,7 @@
       "id": 8,
       "parentId": 4,
       "name": "Backend Implementation",
-      "startDate": "2026-06-23T00:00:00+09:00",
+      "startDate": "2026-06-24T00:00:00+09:00",
       "durationDays": 15,
       "progress": 26.666666666666668,
       "taskType": "Summary",
@@ -135,7 +135,7 @@
       "id": 9,
       "parentId": 8,
       "name": "API Design",
-      "startDate": "2026-06-23T00:00:00+09:00",
+      "startDate": "2026-06-24T00:00:00+09:00",
       "durationDays": 5,
       "progress": 80,
       "taskType": "Normal",
@@ -151,7 +151,7 @@
       "id": 10,
       "parentId": 8,
       "name": "API Implementation",
-      "startDate": "2026-06-28T00:00:00+09:00",
+      "startDate": "2026-06-29T00:00:00+09:00",
       "durationDays": 10,
       "progress": 0,
       "taskType": "Summary",
@@ -167,7 +167,7 @@
       "id": 11,
       "parentId": 10,
       "name": "Authentication Module",
-      "startDate": "2026-06-28T00:00:00+09:00",
+      "startDate": "2026-06-29T00:00:00+09:00",
       "durationDays": 4,
       "progress": 0,
       "taskType": "Normal",
@@ -183,7 +183,7 @@
       "id": 12,
       "parentId": 10,
       "name": "Data Access Layer",
-      "startDate": "2026-07-02T00:00:00+09:00",
+      "startDate": "2026-07-03T00:00:00+09:00",
       "durationDays": 6,
       "progress": 0,
       "taskType": "Normal",
@@ -199,7 +199,7 @@
       "id": 13,
       "parentId": -1,
       "name": "Integration \u0026 Testing",
-      "startDate": "2026-07-13T00:00:00+09:00",
+      "startDate": "2026-07-14T00:00:00+09:00",
       "durationDays": 8,
       "progress": 0,
       "taskType": "Normal",
@@ -209,13 +209,13 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     },
     {
       "id": 14,
       "parentId": -1,
       "name": "Release",
-      "startDate": "2026-07-21T00:00:00+09:00",
+      "startDate": "2026-07-22T00:00:00+09:00",
       "durationDays": 5,
       "progress": 0,
       "taskType": "Milestone",
@@ -225,7 +225,7 @@
       "notes": "",
       "autoSchedule": true,
       "deliverable": "",
-      "isCritical": false
+      "isCritical": true
     }
   ],
   "dependencies": [
@@ -233,44 +233,91 @@
       "predecessorId": 2,
       "successorId": 3,
       "type": "FS",
-      "lagDays": 0
+      "lagDays": 0,
+      "startLineEnd": "None",
+      "endLineEnd": "Arrow"
     },
     {
       "predecessorId": 1,
       "successorId": 4,
       "type": "FS",
-      "lagDays": 0
+      "lagDays": 0,
+      "startLineEnd": "None",
+      "endLineEnd": "Arrow"
     },
     {
       "predecessorId": 6,
       "successorId": 7,
       "type": "FS",
-      "lagDays": 0
+      "lagDays": 0,
+      "startLineEnd": "None",
+      "endLineEnd": "Arrow"
     },
     {
       "predecessorId": 9,
       "successorId": 10,
       "type": "FS",
-      "lagDays": 0
+      "lagDays": 0,
+      "startLineEnd": "None",
+      "endLineEnd": "Arrow"
     },
     {
       "predecessorId": 11,
       "successorId": 12,
       "type": "FS",
-      "lagDays": 0
+      "lagDays": 0,
+      "startLineEnd": "None",
+      "endLineEnd": "Arrow"
     },
     {
       "predecessorId": 4,
       "successorId": 13,
       "type": "FS",
-      "lagDays": 0
+      "lagDays": 0,
+      "startLineEnd": "None",
+      "endLineEnd": "Arrow"
     },
     {
       "predecessorId": 13,
       "successorId": 14,
       "type": "FS",
-      "lagDays": 0
+      "lagDays": 0,
+      "startLineEnd": "None",
+      "endLineEnd": "Arrow"
     }
   ],
-  "assignments": []
+  "assignments": [],
+  "notes": [
+    {
+      "id": 1,
+      "title": "Getting started",
+      "body": "This template shows tasks, dependencies, and notes on the Gantt chart. Select a note to edit it in the properties panel.",
+      "bodyRtf": "",
+      "taskId": 1,
+      "offsetDays": 0,
+      "anchorDate": "2026-06-15T00:00:00+09:00",
+      "contentY": 168
+    }
+  ],
+  "settings": {
+    "taskGridColumnWidths": [
+      32,
+      200,
+      58,
+      34,
+      30,
+      88,
+      120
+    ],
+    "defaultDependencyType": "FS",
+    "defaultDependencyStartLineEnd": "None",
+    "defaultDependencyEndLineEnd": "Arrow",
+    "dayWidth": 22,
+    "splitterDistance": 390,
+    "propertiesPanelWidth": 300,
+    "propertiesPanelVisible": false,
+    "showCriticalPath": true,
+    "notesPanelHeight": 140,
+    "notesPanelVisible": true
+  }
 }

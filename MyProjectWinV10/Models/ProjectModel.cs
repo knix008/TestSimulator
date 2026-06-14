@@ -18,6 +18,7 @@ namespace MyProject.Models
         private bool _suppressModificationTracking;
         private HashSet<int> _criticalTaskIds = new();
         private HashSet<(int PredecessorId, int SuccessorId)> _criticalDependencies = new();
+        private List<TaskDependency> _criticalPathLinks = new();
 
         public string ProjectName { get; set; } = "New Project";
 
@@ -229,10 +230,43 @@ namespace MyProject.Models
         }
 
         public bool IsDependencyOnCriticalPath(int predecessorId, int successorId) =>
-            _criticalDependencies.Contains((predecessorId, successorId));
+            _criticalDependencies.Contains((predecessorId, successorId))
+            || _criticalPathLinks.Any(d => d.PredecessorId == predecessorId && d.SuccessorId == successorId);
 
-        public bool IsDependencyOnCriticalPath(TaskDependency dependency) =>
-            IsDependencyOnCriticalPath(dependency.PredecessorId, dependency.SuccessorId);
+        public bool IsDependencyOnCriticalPath(TaskDependency dependency)
+        {
+            if (IsDependencyOnCriticalPath(dependency.PredecessorId, dependency.SuccessorId))
+                return true;
+
+            foreach (var link in _criticalPathLinks)
+            {
+                if (IsTaskInSubtree(link.PredecessorId, dependency.PredecessorId)
+                    && IsTaskInSubtree(link.SuccessorId, dependency.SuccessorId))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public IReadOnlyList<TaskDependency> CriticalPathLinks => _criticalPathLinks;
+
+        private bool IsTaskInSubtree(int taskId, int ancestorId)
+        {
+            if (taskId == ancestorId)
+                return true;
+
+            var task = GetTask(taskId);
+            while (task != null)
+            {
+                if (task.Id == ancestorId)
+                    return true;
+                if (task.ParentId < 0)
+                    break;
+                task = GetTask(task.ParentId);
+            }
+
+            return false;
+        }
 
         public bool SetDependencyLag(int predecessorId, int successorId, int lagDays)
         {
@@ -246,6 +280,23 @@ namespace MyProject.Models
 
             dep.LagDays = lagDays;
             ApplyDependencyScheduling(predecessorId);
+            IsModified = true;
+            ModelChanged?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+
+        public bool SetDependencyLineEnds(int predecessorId, int successorId, DependencyLineEnd startLineEnd, DependencyLineEnd endLineEnd)
+        {
+            var dep = _dependencies.FirstOrDefault(d =>
+                d.PredecessorId == predecessorId && d.SuccessorId == successorId);
+            if (dep == null)
+                return false;
+
+            if (dep.StartLineEnd == startLineEnd && dep.EndLineEnd == endLineEnd)
+                return true;
+
+            dep.StartLineEnd = startLineEnd;
+            dep.EndLineEnd = endLineEnd;
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
             return true;
@@ -555,7 +606,9 @@ namespace MyProject.Models
             {
                 PredecessorId = predecessorId,
                 SuccessorId = successorId,
-                Type = type
+                Type = type,
+                StartLineEnd = ViewSettings.DefaultDependencyStartLineEnd,
+                EndLineEnd = ViewSettings.DefaultDependencyEndLineEnd
             });
 
             ApplyDependencyScheduling(predecessorId);
@@ -685,14 +738,14 @@ namespace MyProject.Models
         private void UpdateCriticalPath()
         {
             var result = CriticalPathCalculator.Compute(_tasks, _dependencies, ProjectStart);
-            _criticalTaskIds = result.CriticalTaskIds;
+            _criticalTaskIds = result.CriticalChainTaskIds;
             _criticalDependencies = result.CriticalDependencies;
+            _criticalPathLinks = result.CriticalLinks;
 
             foreach (var task in _tasks)
             {
                 if (task.TaskType == TaskType.Summary)
-                    task.IsCritical = GetAllDescendants(task.Id)
-                        .Any(c => c.TaskType != TaskType.Summary && _criticalTaskIds.Contains(c.Id));
+                    task.IsCritical = false;
                 else
                     task.IsCritical = _criticalTaskIds.Contains(task.Id);
             }
@@ -861,6 +914,7 @@ namespace MyProject.Models
             _nextId = 1;
             _criticalTaskIds.Clear();
             _criticalDependencies.Clear();
+            _criticalPathLinks.Clear();
             IsModified = false;
             ModelChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -914,7 +968,9 @@ namespace MyProject.Models
                     PredecessorId = dep.PredecessorId,
                     SuccessorId = dep.SuccessorId,
                     Type = Enum.TryParse<DependencyType>(dep.Type, out var dt) ? dt : DependencyType.FS,
-                    LagDays = dep.LagDays
+                    LagDays = dep.LagDays,
+                    StartLineEnd = DependencyLineEndInfo.Parse(dep.StartLineEnd, DependencyLineEnd.None),
+                    EndLineEnd = DependencyLineEndInfo.Parse(dep.EndLineEnd, DependencyLineEnd.Arrow)
                 });
             }
 
@@ -1041,6 +1097,14 @@ namespace MyProject.Models
             model.AddDependency(t7.Id, t8.Id);
 
             model.UpdateHierarchy();
+
+            model.AddNoteAt(
+                -1,
+                DateTime.Today,
+                AppTheme.TimescaleHeaderHeight + 8,
+                "Getting started",
+                "This template shows tasks, dependencies, and notes on the Gantt chart. Select a note to edit it in the properties panel.");
+
             model.IsModified = false;
             return model;
         }
@@ -1069,6 +1133,9 @@ namespace MyProject.Models
             if (_isUpdatingHierarchy || _suppressModificationTracking)
                 return;
 
+            if (e.PropertyName is nameof(ProjectTask.IsCritical) or nameof(ProjectTask.IsVisible))
+                return;
+
             IsModified = true;
             ModelChanged?.Invoke(this, EventArgs.Empty);
 
@@ -1081,7 +1148,7 @@ namespace MyProject.Models
             }
             else if (e.PropertyName is nameof(ProjectTask.Progress) or nameof(ProjectTask.IndentLevel)
                 or nameof(ProjectTask.TaskType) or nameof(ProjectTask.BarColor)
-                or nameof(ProjectTask.ProgressColor) or nameof(ProjectTask.IsCritical))
+                or nameof(ProjectTask.ProgressColor))
             {
                 UpdateHierarchy();
             }

@@ -77,7 +77,9 @@ namespace MyProject.Controls
 
         public TaskGridControl()
         {
-            _colWidths = (int[])AppSettings.TaskGridColumnWidths.Clone();
+            _colWidths = DesignTime.IsActive
+                ? (int[])ProjectViewSettings.DefaultTaskGridColumnWidths().Clone()
+                : (int[])AppSettings.TaskGridColumnWidths.Clone();
             _minColWidths = AppSettings.GetMinColumnWidths();
 
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint |
@@ -170,6 +172,12 @@ namespace MyProject.Controls
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            if (DesignTime.IsActive && _model == null)
+            {
+                e.Graphics.Clear(BackColor);
+                return;
+            }
+
             var g = e.Graphics;
             g.SetClip(new Rectangle(0, 0, ClientGridWidth, ClientGridHeight));
             g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -384,13 +392,10 @@ namespace MyProject.Controls
         private void DrawListedCell(Graphics g, Rectangle cellRect, IReadOnlyList<string> lines, Brush textBrush, Font baseFont)
         {
             const int maxLines = 4;
-            int lineCount = Math.Max(1, Math.Min(lines.Count, maxLines));
-            DrawVerticalListGlyphs(g, cellRect, lines.Count == 0 ? 1 : lineCount);
-
             if (lines.Count == 0)
                 return;
 
-            int textX = cellRect.Left + 14;
+            int textX = cellRect.Left + 2;
             int textW = Math.Max(0, cellRect.Right - textX - 2);
             var sf = new StringFormat
             {
@@ -422,30 +427,6 @@ namespace MyProject.Controls
             {
                 var moreRect = new Rectangle(textX, cellRect.Bottom - lineH, textW, lineH);
                 g.DrawString("…", smallFont, textBrush, moreRect, sf);
-            }
-        }
-
-        private static void DrawVerticalListGlyphs(Graphics g, Rectangle cellRect, int lineCount)
-        {
-            lineCount = Math.Max(1, lineCount);
-            using var pen = new Pen(AppTheme.GridLineColor);
-            int x = cellRect.Left + 6;
-
-            if (lineCount == 1)
-            {
-                int midY = cellRect.Top + cellRect.Height / 2;
-                g.DrawLine(pen, x, cellRect.Top + 4, x, cellRect.Bottom - 4);
-                g.DrawLine(pen, x, midY, x + 7, midY);
-                return;
-            }
-
-            int lineH = cellRect.Height / lineCount;
-            for (int i = 0; i < lineCount; i++)
-            {
-                int midY = cellRect.Top + i * lineH + lineH / 2;
-                int segmentBottom = i == lineCount - 1 ? midY : cellRect.Top + (i + 1) * lineH;
-                g.DrawLine(pen, x, cellRect.Top + i * lineH + 2, x, segmentBottom);
-                g.DrawLine(pen, x, midY, x + 7, midY);
             }
         }
 
@@ -778,8 +759,8 @@ namespace MyProject.Controls
             {
                 Text = text,
                 Font = column == ColName ? AppTheme.FontTaskName : AppTheme.FontSmall,
-                BorderStyle = BorderStyle.FixedSingle,
-                BackColor = Color.White,
+                BorderStyle = multiline ? BorderStyle.None : BorderStyle.FixedSingle,
+                BackColor = multiline ? AppTheme.RowSelectedColor : Color.White,
                 ForeColor = AppTheme.TextPrimary,
                 Location = new Point(editorX, rowY + 3),
                 Width = editorWidth,

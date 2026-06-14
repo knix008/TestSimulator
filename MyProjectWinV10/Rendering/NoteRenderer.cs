@@ -45,6 +45,26 @@ namespace MyProject.Rendering
                 DrawNoteText(g, note, bounds, fold, isSelected);
         }
 
+        /// <summary>Dashed ghost while dragging a note to a new position.</summary>
+        public void DrawNoteSilhouette(Graphics g, Rectangle rect)
+        {
+            var bounds = new RectangleF(rect.X, rect.Y, rect.Width, rect.Height);
+            float fold = GetFoldSize(bounds.Width);
+
+            using var fillBrush = new SolidBrush(Color.FromArgb(36, GradientTop));
+            g.FillRectangle(fillBrush, bounds);
+
+            using var pen = new Pen(AppTheme.DependencyLinePreview, 1.5f)
+            {
+                DashStyle = DashStyle.Dash,
+                DashPattern = new[] { 5f, 4f }
+            };
+            g.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width - 1f, bounds.Height - 1f);
+            g.DrawLine(pen, bounds.Right - fold, bounds.Top, bounds.Right, bounds.Top + fold);
+            g.DrawLine(pen, bounds.Right - fold, bounds.Top, bounds.Right - fold, bounds.Top + fold);
+            g.DrawLine(pen, bounds.Right - fold, bounds.Top + fold, bounds.Right, bounds.Top + fold);
+        }
+
         public void DrawConnector(Graphics g, Rectangle taskBarRect, Rectangle noteRect)
         {
             if (taskBarRect.Width <= 0 || taskBarRect.Height <= 0
@@ -58,6 +78,24 @@ namespace MyProject.Rendering
             {
                 DashStyle = DashStyle.Dash,
                 DashPattern = new float[] { 4f, 3f }
+            };
+
+            g.DrawLine(pen, from, to);
+        }
+
+        public void DrawConnectorSilhouette(Graphics g, Rectangle taskBarRect, Rectangle noteRect)
+        {
+            if (taskBarRect.Width <= 0 || taskBarRect.Height <= 0
+                || noteRect.Width <= 0 || noteRect.Height <= 0)
+                return;
+
+            var from = GetRectEdgePoint(taskBarRect, GetRectCenter(noteRect));
+            var to = GetRectEdgePoint(noteRect, GetRectCenter(taskBarRect));
+
+            using var pen = new Pen(AppTheme.DependencyLinePreview, 1.25f)
+            {
+                DashStyle = DashStyle.Dash,
+                DashPattern = new[] { 5f, 4f }
             };
 
             g.DrawLine(pen, from, to);

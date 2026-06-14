@@ -9,8 +9,16 @@ namespace MyProject.Models
     {
         public sealed class Result
         {
+            /// <summary>Schedulable tasks with zero total float (LS &lt;= ES).</summary>
             public HashSet<int> CriticalTaskIds { get; } = new();
+
+            /// <summary>Tasks that participate in at least one driving critical dependency link.</summary>
+            public HashSet<int> CriticalChainTaskIds { get; } = new();
+
             public HashSet<(int PredecessorId, int SuccessorId)> CriticalDependencies { get; } = new();
+
+            /// <summary>Expanded schedulable-task links that form the driving critical path chain.</summary>
+            public List<TaskDependency> CriticalLinks { get; } = new();
         }
 
         public static Result Compute(
@@ -29,10 +37,6 @@ namespace MyProject.Models
 
             var schedulableIds = schedulable.Select(t => t.Id).ToHashSet();
             var effectiveDeps = ExpandDependencies(allTasks, dependencies, taskById, schedulableIds);
-            if (effectiveDeps.Count == 0 && schedulable.Count > 1)
-            {
-                // Single chain or isolated tasks still get float from backward pass.
-            }
 
             var projectStartDate = projectStart.Date;
 
@@ -49,6 +53,7 @@ namespace MyProject.Models
 
             var es = schedulable.ToDictionary(t => t.Id, EarlyStart);
             var ef = schedulable.ToDictionary(t => t.Id, EarlyFinish);
+            var taskBySchedId = schedulable.ToDictionary(t => t.Id);
 
             int projectFinish = ef.Values.DefaultIfEmpty(0).Max();
             var lf = new Dictionary<int, int>();
@@ -56,8 +61,7 @@ namespace MyProject.Models
 
             foreach (var task in schedulable)
             {
-                bool hasSuccessor = effectiveDeps.Any(d => d.PredecessorId == task.Id);
-                lf[task.Id] = hasSuccessor ? projectFinish : ef[task.Id];
+                lf[task.Id] = projectFinish;
                 int dur = Duration(task);
                 ls[task.Id] = task.TaskType == TaskType.Milestone
                     ? lf[task.Id]
@@ -116,7 +120,24 @@ namespace MyProject.Models
                     continue;
 
                 if (IsDrivingDependency(dep, es, ef))
+                {
                     result.CriticalDependencies.Add((dep.PredecessorId, dep.SuccessorId));
+                    result.CriticalLinks.Add(new TaskDependency
+                    {
+                        PredecessorId = dep.PredecessorId,
+                        SuccessorId = dep.SuccessorId,
+                        Type = dep.Type,
+                        LagDays = dep.LagDays,
+                        StartLineEnd = dep.StartLineEnd,
+                        EndLineEnd = dep.EndLineEnd
+                    });
+                }
+            }
+
+            foreach (var link in result.CriticalLinks)
+            {
+                result.CriticalChainTaskIds.Add(link.PredecessorId);
+                result.CriticalChainTaskIds.Add(link.SuccessorId);
             }
 
             return result;
@@ -136,8 +157,8 @@ namespace MyProject.Models
                 if (!taskById.ContainsKey(dep.PredecessorId) || !taskById.ContainsKey(dep.SuccessorId))
                     continue;
 
-                int? finishDriver = ResolveFinishDriver(dep.PredecessorId, allTasks, taskById, schedulableIds);
-                if (finishDriver == null)
+                var finishDrivers = ResolveFinishDrivers(dep.PredecessorId, allTasks, taskById, schedulableIds);
+                if (finishDrivers.Count == 0)
                     continue;
 
                 var startDrivers = ResolveStartDrivers(
@@ -147,8 +168,12 @@ namespace MyProject.Models
                     schedulableIds,
                     dependencies);
 
+                if (startDrivers.Count == 0)
+                    continue;
+
+                foreach (int finishDriver in finishDrivers)
                 foreach (int startDriver in startDrivers)
-                    AddEffectiveDependency(expanded, seen, finishDriver.Value, startDriver, dep);
+                    AddEffectiveDependency(expanded, seen, finishDriver, startDriver, dep);
             }
 
             return expanded;
@@ -170,12 +195,14 @@ namespace MyProject.Models
                 PredecessorId = predecessorId,
                 SuccessorId = successorId,
                 Type = template.Type,
-                LagDays = template.LagDays
+                LagDays = template.LagDays,
+                StartLineEnd = template.StartLineEnd,
+                EndLineEnd = template.EndLineEnd
             });
         }
 
-        /// <summary>Leaf (or milestone) task whose finish drives the predecessor side.</summary>
-        private static int? ResolveFinishDriver(
+        /// <summary>Leaf tasks whose finish drives the predecessor side (latest end in subtree).</summary>
+        private static List<int> ResolveFinishDrivers(
             int taskId,
             IReadOnlyList<ProjectTask> allTasks,
             Dictionary<int, ProjectTask> taskById,
@@ -183,17 +210,17 @@ namespace MyProject.Models
         {
             var task = taskById[taskId];
             if (task.TaskType != TaskType.Summary)
-                return schedulableIds.Contains(taskId) ? taskId : null;
+                return schedulableIds.Contains(taskId) ? new List<int> { taskId } : new List<int>();
 
             var leaves = GetLeafSchedulableTasks(taskId, allTasks, schedulableIds);
             if (leaves.Count == 0)
-                return null;
+                return new List<int>();
 
+            DateTime maxEnd = leaves.Max(t => t.EndDate);
             return leaves
-                .OrderByDescending(t => t.EndDate)
-                .ThenByDescending(t => t.Id)
-                .First()
-                .Id;
+                .Where(t => t.EndDate == maxEnd)
+                .Select(t => t.Id)
+                .ToList();
         }
 
         /// <summary>Leaf tasks whose start is constrained by the dependency on the successor side.</summary>
@@ -285,11 +312,14 @@ namespace MyProject.Models
             Dictionary<int, int> es,
             Dictionary<int, int> ef)
         {
+            if (!es.ContainsKey(dep.PredecessorId) || !es.ContainsKey(dep.SuccessorId))
+                return false;
+
+            int lag = dep.LagDays;
             int predEs = es[dep.PredecessorId];
             int predEf = ef[dep.PredecessorId];
             int succEs = es[dep.SuccessorId];
             int succEf = ef[dep.SuccessorId];
-            int lag = dep.LagDays;
 
             return dep.Type switch
             {

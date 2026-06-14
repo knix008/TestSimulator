@@ -24,6 +24,9 @@ namespace MyProject.Models
 
         public static void Load()
         {
+            if (DesignTime.IsActive)
+                return;
+
             if (!File.Exists(SettingsPath))
                 return;
 
@@ -44,6 +47,9 @@ namespace MyProject.Models
 
         public static void Save()
         {
+            if (DesignTime.IsActive)
+                return;
+
             var directory = Path.GetDirectoryName(SettingsPath);
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);

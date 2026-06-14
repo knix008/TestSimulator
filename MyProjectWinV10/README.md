@@ -1,6 +1,6 @@
 # MyProject
 
-Windows용 Gantt 차트 프로젝트 관리 애플리케이션입니다. 태스크 일정, 의존 관계, 리소스 배정, 진행률, 차트 노트를 한 화면에서 관리하고 다양한 형식으로 보낼 수 있습니다.
+Windows용 Gantt 차트 프로젝트 관리 애플리케이션입니다. 태스크 일정, 의존 관계, 리소스 배정, 진행률, 차트 노트를 한 화면에서 관리하고, Microsoft Project 파일과 연동하며 다양한 형식으로 보낼 수 있습니다.
 
 **사용자 가이드**: 상세 사용법은 [UsersGuide.md](UsersGuide.md)를 참고하세요.
 
@@ -18,6 +18,8 @@ Windows용 Gantt 차트 프로젝트 관리 애플리케이션입니다. 태스�
 1. `MyProject.sln` 열기
 2. `MyProject` 프로젝트를 시작 프로젝트로 설정
 3. 실행 (F5)
+
+> MPXJ.Net 패키지를 처음 빌드할 때 IKVM이 Java 라이브러리를 변환하므로 시간이 더 걸릴 수 있습니다. 이후 빌드는 캐시를 재사용합니다.
 
 ### dotnet CLI
 
@@ -41,28 +43,50 @@ dotnet run --project MyProject.csproj --no-build -- --generate-icon
 
 | 영역 | 설명 |
 |------|------|
-| **좌측** | 태스크 그리드 (ID, 이름, 시작일, 기간, 진행률 등) |
+| **좌측** | 태스크 그리드 (ID, 이름, 시작일, 기간, 진행률, 리소스, 산출물) |
 | **가운데** | Gantt 차트 (타임라인, 태스크 바, 의존 관계, 노트) |
 | **우측** | 속성 패널 (선택한 태스크·노트의 속성 편집) |
 
-좌측 그리드와 Gantt 차트 사이, Gantt와 속성 패널 사이의 분할선을 드래그하여 너비를 조절할 수 있습니다. 속성 패널은 툴바 또는 **View → Properties Panel**로 표시/숨김할 수 있습니다.
+좌측 그리드와 Gantt 차트 사이, Gantt와 속성 패널 사이의 분할선을 드래그하여 너비를 조절할 수 있습니다. 속성 패널은 툴바·**View → Properties Panel** 또는 패널 내 **» / «** 버튼으로 접거나 펼칠 수 있습니다.
 
 ## 주요 기능
 
 ### 프로젝트 파일
 
-- 확장자: `.myprj` (JSON 형식, UTF-8)
-- 저장/열기, 변경 사항 추적, 마지막 사용 폴더 기억
-- 뷰 설정(열 너비, 줌, 분할선, 속성 패널 상태)을 프로젝트에 함께 저장
+| 형식 | 확장자 | 설명 |
+|------|--------|------|
+| **MyProject** | `.myprj` | JSON 형식(UTF-8), 기본 저장 형식 |
+| **Microsoft Project** | `.mpp`, `.mpt`, `.xml`, `.mpx` | **File → Open**으로 가져오기 |
+
+- 저장/열기, 변경 사항 추적(제목 표시줄 `*`), 마지막 사용 폴더 기억
+- 실제 편집이 없으면 종료·새 프로젝트 시 저장 확인을 하지 않습니다
+- 뷰 설정(열 너비, 줌, 분할선, 속성 패널, 크리티컬 패스 표시)을 프로젝트에 함께 저장
 - 앱 전역 설정: `%LocalAppData%\MyProject\settings.json`
+
+### Microsoft Project 연동
+
+- **열기**: `.mpp`, `.mpt`, MS Project XML(`.xml`), MPX(`.mpx`) 및 `.myprj`
+- **보내기**: **File → Export to Microsoft Project...** → XML(MSPDI) 또는 MPX
+- MS Project에서 XML 파일은 **파일 → 열기**로 직접 불러올 수 있습니다
+- `.mpp` **쓰기**는 지원하지 않습니다 (읽기 및 XML/MPX보내기)
 
 ### 태스크
 
 - 하위 태스크 **무제한 깊이** 중첩 (트리뷰, 접기/펼치기)
 - 유형: 일반(Normal), 마일스톤(Milestone), 요약(Summary)
-- 요약 태스크는 하위 일정 자동 롤업
-- 자동 일정(Auto Schedule), 크리티컬 패스 표시
+- 요약 태스크는 하위 일정·진행률 자동 롤업
+- 자동 일정(Auto Schedule)
+- **진행률 100%** 태스크는 그리드에서 **취소선** 표시
+- 리소스·산출물 열 **더블클릭**으로 그리드에서 직접 편집
 - 태스크 바·진행률 색상, 산출물(Deliverable), 메모
+
+### 크리티컬 패스
+
+- CPM(여유 시간 분석)으로 프로젝트 시작부터 완료까지 **반드시 지켜야 하는 태스크**를 계산
+- 요약 태스크 간 의존 관계는 하위 리프 태스크로 펼쳐 분석
+- **툴바 Critical Path** 또는 **View → Show Critical Path**로 표시 토글 (기본: 숨김)
+- 표시 시: 그리드·Gantt 태스크 **빨간 강조**, Gantt에서 **굵은 빨간 의존선**으로 경로 연결
+- 일정·의존 관계 변경 시 자동 재계산
 
 ### 의존 관계
 
@@ -80,6 +104,7 @@ dotnet run --project MyProject.csproj --no-build -- --generate-icon
 
 - 태스크: 이름, 유형, 일정, 진행률, 리소스, 의존 관계, 색상 등
 - 노트: 제목, 본문(RTF), 연결 태스크, 기준 날짜
+- 패널 헤더 **»** 로 접기, 좁은 스트립의 **«** 로 다시 펼치기
 
 ### 보고 / 보내기
 
@@ -91,6 +116,7 @@ dotnet run --project MyProject.csproj --no-build -- --generate-icon
 | **PDF** | 일정·리소스·노트·크리티컬 패스 보고 |
 | **Markdown** | 진행률·일정 요약 보고 |
 | **Gantt 이미지** | PNG, JPEG, GIF, WebP (PNG/WebP 투명 배경 지원) |
+| **Microsoft Project** | XML(MSPDI), MPX |
 | **인쇄** | Gantt 차트 인쇄 |
 
 ## 기본 단축키
@@ -137,8 +163,8 @@ MyProjectWinV10/
 ├── Controls/            # 태스크 그리드, Gantt, 속성 패널, 노트 편집기
 ├── Forms/               # 메인 폼, 대화상자
 ├── Installer/           # WiX MSI 패키지
-├── Models/              # 데이터 모델, 저장, 보고서 생성
-├── Rendering/           # Gantt·노트 렌더링
+├── Models/              # 데이터 모델, 저장, MS Project 연동, 보고서, CPM
+├── Rendering/           # Gantt·노트·의존선 렌더링
 ├── Template/            # 기본 템플릿 프로젝트
 ├── Theme/               # UI 테마, 아이콘
 ├── README.md
@@ -151,8 +177,10 @@ MyProjectWinV10/
 |--------|------|
 | ClosedXML | Excel 보내기 |
 | DocumentFormat.OpenXml | Word 보내기 |
+| MPXJ.Net | Microsoft Project 파일 읽기·XML/MPX 쓰기 |
 | QuestPDF | PDF 보내기 |
 | SixLabors.ImageSharp 3.1.11+ | WebP 등 Gantt 이미지 인코딩 |
+| System.Text.Encoding.CodePages | MPXJ 레거시 인코딩 지원 |
 
 ## 라이선스
 

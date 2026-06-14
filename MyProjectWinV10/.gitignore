@@ -27,9 +27,10 @@ Installer/obj/
 # NuGet
 packages/
 *.nupkg
-**/[Nn]uget.config
 project.lock.json
 artifacts/
+# Repo nuget.config is tracked; ignore only user overrides elsewhere.
+**/NuGet.Config.user
 
 # Rider / VS Code
 .idea/
@@ -53,12 +54,21 @@ artifacts/
 *.nuget.dgspec.json
 project.assets.json
 
+# MPXJ.Net / IKVM (first-build Java translation cache)
+*.maven.cache
+**/MyProject.maven.cache
+**/MyProject.csproj.IkvmReferenceItemPrepare.cache
+
 # Logs and temp
 *.log
 *.tmp
 *.temp
 *.bak
 *.cache
+
+# Local scratch / export output (optional working files)
+scratch/
+export/
 
 # Secrets (never commit)
 *.pfx

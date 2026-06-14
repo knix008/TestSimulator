@@ -34,7 +34,33 @@ namespace MyProject.Rendering
                 int succRowY = rowMap[succ.Id];
                 bool isCritical = showCriticalPath && isCriticalDependency?.Invoke(dep) == true;
 
-                DrawArrow(g, dep, pred, succ, predRowY, succRowY, isCritical);
+                DrawArrow(g, dep, pred, succ, predRowY, succRowY, isCritical, 1.5f);
+            }
+        }
+
+        /// <summary>Draws expanded critical-path links on top of normal dependencies.</summary>
+        public void DrawCriticalPathChain(
+            Graphics g,
+            IReadOnlyList<TaskDependency> criticalLinks,
+            IEnumerable<ProjectTask> visibleTasks,
+            Func<int, int> getRowY)
+        {
+            if (criticalLinks.Count == 0)
+                return;
+
+            var taskList = visibleTasks.ToList();
+            var taskMap = taskList.ToDictionary(t => t.Id);
+            var rowMap = taskList.ToDictionary(t => t.Id, t => getRowY(t.Id));
+
+            foreach (var dep in criticalLinks)
+            {
+                if (!taskMap.TryGetValue(dep.PredecessorId, out var pred)) continue;
+                if (!taskMap.TryGetValue(dep.SuccessorId, out var succ)) continue;
+                if (!pred.IsVisible || !succ.IsVisible) continue;
+
+                int predRowY = rowMap[pred.Id];
+                int succRowY = rowMap[succ.Id];
+                DrawArrow(g, dep, pred, succ, predRowY, succRowY, true, 3f);
             }
         }
 
@@ -94,7 +120,8 @@ namespace MyProject.Rendering
             ProjectTask succ,
             int predRowY,
             int succRowY,
-            bool isCritical)
+            bool isCritical,
+            float lineWidth)
         {
             Color lineColor = isCritical
                 ? AppTheme.DependencyLineCritical
@@ -102,7 +129,10 @@ namespace MyProject.Rendering
 
             GetConnectionPoints(dep.Type, pred, succ, predRowY, succRowY, out int fromX, out int fromY, out int toX, out int toY);
             var pts = DependencyLineGeometry.BuildPath(dep.Type, fromX, fromY, toX, toY);
-            DependencyLineGeometry.DrawPath(g, lineColor, pts);
+            int arrowSize = isCritical ? 8 : 6;
+            DependencyLineGeometry.DrawPath(
+                g, lineColor, pts, arrowSize,
+                dep.StartLineEnd, dep.EndLineEnd, lineWidth);
         }
     }
 }

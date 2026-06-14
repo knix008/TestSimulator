@@ -1,4 +1,5 @@
-﻿using MyProject.Models;
+﻿using System.Diagnostics;
+using MyProject.Models;
 using MyProject.Theme;
 
 namespace MyProject.Forms
@@ -15,6 +16,7 @@ namespace MyProject.Forms
         private bool _isApplyingViewSettings;
         private int _propertiesPanelExpandedWidth = 300;
         private bool _isPropertiesPanelExpanded = true;
+        private bool _trackViewSettingsChanges;
 
         private const int CollapsedPropertiesPanelWidth = 32;
         private const int ExpandedPropertiesPanelMinWidth = 220;
@@ -22,6 +24,10 @@ namespace MyProject.Forms
         public MainForm()
         {
             InitializeComponent();
+
+            if (DesignTime.IsActive)
+                return;
+
             PostInitializeComponent();
             ApplyRenderers();
             SetupEventHandlers();
@@ -131,8 +137,9 @@ namespace MyProject.Forms
             btnPrint.ToolTipText      = "Print Schedule (Ctrl+P)";
 
             menuNew.ToolTipText       = "Create a new empty project";
-            menuOpen.ToolTipText      = "Open an existing project file";
+            menuOpen.ToolTipText      = "Open a MyProject or Microsoft Project file";
             menuSave.ToolTipText      = "Save the current project";
+            menuExportMsProject.ToolTipText = "Export schedule for Microsoft Project (XML or MPX)";
             menuZoomIn.ToolTipText    = "Increase day column width";
             menuZoomOut.ToolTipText   = "Decrease day column width";
             menuToday.ToolTipText     = "Scroll the chart to today";
@@ -168,6 +175,7 @@ namespace MyProject.Forms
             menuOpen.Click       += (_, _) => OnOpen();
             menuSave.Click       += (_, _) => OnSave();
             menuSaveAs.Click     += (_, _) => OnSaveAs();
+            menuExportMsProject.Click += (_, _) => OnExportMsProject();
             menuExit.Click       += (_, _) => Close();
 
             menuAddTask.Click    += (_, _) => OnAddTask();
@@ -260,6 +268,10 @@ namespace MyProject.Forms
 
             FormClosing += OnFormClosing;
             FormClosed += OnFormClosed;
+            Shown += (_, _) =>
+            {
+                BeginInvoke(SyncViewSettingsAfterInitialLayout);
+            };
 
             KeyPreview = true;
             KeyDown += (_, e) =>
@@ -294,30 +306,35 @@ namespace MyProject.Forms
 
         private void OnFormClosing(object? sender, FormClosingEventArgs e)
         {
+            ganttChartControl.PrepareForShutdown();
             taskGridControl.CancelInteraction();
 
-            if (!ShouldCloseWithoutSavePrompt() && _model.IsModified && !ConfirmProceedWithoutSaving())
+            if (!ShouldCloseWithoutSavePrompt() && NeedsSavePrompt() && !ConfirmProceedWithoutSaving())
             {
                 e.Cancel = true;
                 return;
             }
 
             AppShutdown.BeginShutdown();
-
-            try { AppSettings.Save(); }
-            catch { /* ignore settings write errors during shutdown */ }
-        }
-
-        private static bool ShouldCloseWithoutSavePrompt() =>
-            AppShutdown.LaunchedUnderDebugger;
-
-        private void OnFormClosed(object? sender, FormClosedEventArgs e)
-        {
             DetachFromModel();
 
             if (_titleBarModel != null)
                 _titleBarModel.ModelChanged -= OnModelChangedForTitleBar;
 
+            try { AppSettings.Save(); }
+            catch { /* ignore settings write errors during shutdown */ }
+
+            if (AppShutdown.IsDebugSession)
+                AppShutdown.ForceExitIfDebugSession();
+        }
+
+        private static bool ShouldCloseWithoutSavePrompt() =>
+            AppShutdown.IsDebugSession;
+
+        private bool NeedsSavePrompt() => _model.IsModified;
+
+        private void OnFormClosed(object? sender, FormClosedEventArgs e)
+        {
             AppShutdown.ExitProcessIfDebugSession();
         }
 
@@ -431,7 +448,6 @@ namespace MyProject.Forms
             taskGridControl.SetModel(_model);
             ganttChartControl.SetModel(_model);
             selectionPropertiesControl.SetModel(_model);
-            ApplyViewSettingsFromModel();
 
             _lastSelectedId = -1;
             CancelLink();
@@ -439,9 +455,38 @@ namespace MyProject.Forms
             ganttChartControl.SetSelectedTask(-1);
             selectionPropertiesControl.SetSelection(-1, -1);
 
+            _trackViewSettingsChanges = false;
+            _isApplyingViewSettings = true;
+            try
+            {
+                ApplyViewSettingsFromModel();
+            }
+            finally
+            {
+                _isApplyingViewSettings = false;
+            }
+
+            _model.IsModified = false;
             UpdateTitleBar();
             UpdateStatus(-1);
             UpdateTaskToolState();
+        }
+
+        private void SyncViewSettingsAfterInitialLayout()
+        {
+            _isApplyingViewSettings = true;
+            try
+            {
+                _model.ViewSettings = BuildViewSettingsFromUi();
+            }
+            finally
+            {
+                _isApplyingViewSettings = false;
+            }
+
+            _model.IsModified = false;
+            _trackViewSettingsChanges = true;
+            UpdateTitleBar();
         }
 
         private void CaptureViewSettingsToModel()
@@ -663,7 +708,7 @@ namespace MyProject.Forms
 
         private void MarkViewSettingsModified()
         {
-            if (_isApplyingViewSettings)
+            if (!_trackViewSettingsChanges || _isApplyingViewSettings)
                 return;
 
             var captured = BuildViewSettingsFromUi();
@@ -871,8 +916,8 @@ namespace MyProject.Forms
             if (!ConfirmProceedWithoutSaving()) return;
             using var dlg = new OpenFileDialog
             {
-                Filter = ProjectFile.FileFilter,
-                Title = "Open MyProject Project"
+                Filter = MsProjectInterop.ImportFileFilter,
+                Title = "Open Project"
             };
             AppSettings.ApplyTo(dlg);
             if (dlg.ShowDialog(this) == DialogResult.OK)
@@ -886,13 +931,64 @@ namespace MyProject.Forms
         {
             try
             {
-                _model = ProjectFile.Load(path);
+                _model = MsProjectInterop.Load(path);
                 ApplyModel();
-                statusLabel.Text = $"Opened: {path}";
+                statusLabel.Text = MsProjectInterop.CanImport(path) && !path.EndsWith($".{ProjectFile.Extension}", StringComparison.OrdinalIgnoreCase)
+                    ? $"Imported from Microsoft Project: {path}"
+                    : $"Opened: {path}";
             }
             catch (Exception ex)
             {
                 ErrorDialog.Show(this, "Open Error", "Could not open the project file.", ex);
+            }
+        }
+
+        private void OnExportMsProject()
+        {
+            using var dlg = new SaveFileDialog
+            {
+                Filter = $"{MsProjectInterop.ExportXmlFilter}|{MsProjectInterop.ExportMpxFilter}",
+                DefaultExt = "xml",
+                FileName = _model.ProjectName,
+                Title = "Export to Microsoft Project"
+            };
+            AppSettings.ApplyTo(dlg);
+            if (dlg.ShowDialog(this) != DialogResult.OK)
+                return;
+
+            var ext = Path.GetExtension(dlg.FileName);
+            var format = ext.Equals(".mpx", StringComparison.OrdinalIgnoreCase)
+                ? MsProjectExportFormat.Mpx
+                : MsProjectExportFormat.Xml;
+
+            try
+            {
+                MsProjectInterop.Export(_model, dlg.FileName, format);
+                AppSettings.RememberFromPath(dlg.FileName);
+                statusLabel.Text = $"Exported to Microsoft Project: {dlg.FileName}";
+                CompletionDialog.Show(
+                    this,
+                    "Export Complete",
+                    "The project was exported for Microsoft Project.",
+                    dlg.FileName,
+                    "Open File",
+                    () => OpenExportedFile(dlg.FileName));
+            }
+            catch (Exception ex)
+            {
+                ErrorDialog.Show(this, "Export Error", "Could not export to Microsoft Project format.", ex);
+            }
+        }
+
+        private static void OpenExportedFile(string path)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            }
+            catch
+            {
+                // ignore shell launch errors
             }
         }
 

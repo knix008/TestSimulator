@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- MPXJ.Net / IKVM: avoid audit noise; NU1605 handled via compatible package versions. -->
+    <NuGetAudit>false</NuGetAudit>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1605</WarningsNotAsErrors>
+  </PropertyGroup>
+</Project>

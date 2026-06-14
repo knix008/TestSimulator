@@ -39,6 +39,8 @@ namespace MyProject.Controls
     private DataGridView _resourceGrid = null!;
     private Label _resourceTotalLabel = null!;
     private DataGridView _dependencyGrid = null!;
+    private DependencyLineEndSelector _dependencyStartLineEnd = null!;
+    private DependencyLineEndSelector _dependencyEndLineEnd = null!;
 
     public event EventHandler? CollapseRequested;
     public event EventHandler? ExpandRequested;
@@ -416,9 +418,29 @@ namespace MyProject.Controls
       };
       _dependencyGrid.Columns.Add(typeCol);
       _dependencyGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LagDays", HeaderText = "Lag", FillWeight = 22 });
+      _dependencyGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "PredecessorId", Visible = false });
+      _dependencyGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SuccessorId", Visible = false });
       _dependencyGrid.CellEndEdit += (_, _) => ApplyDependencyGrid();
       _dependencyGrid.UserDeletedRow += (_, _) => ApplyDependencyGrid();
       _dependencyGrid.UserDeletingRow += OnDependencyRowDeleting;
+      _dependencyGrid.SelectionChanged += (_, _) => LoadSelectedDependencyLineEnds();
+
+      _dependencyStartLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = true, Dock = DockStyle.Fill };
+      _dependencyEndLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = false, Dock = DockStyle.Fill };
+      _dependencyStartLineEnd.SelectedLineEndChanged += (_, _) => ApplySelectedDependencyLineEnds();
+      _dependencyEndLineEnd.SelectedLineEndChanged += (_, _) => ApplySelectedDependencyLineEnds();
+
+      var lineEndLayout = new TableLayoutPanel
+      {
+        Dock = DockStyle.Top,
+        AutoSize = true,
+        ColumnCount = 2,
+        Padding = new Padding(0, 4, 0, 0)
+      };
+      lineEndLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
+      lineEndLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+      AddRow(lineEndLayout, "Line start", _dependencyStartLineEnd, 32);
+      AddRow(lineEndLayout, "Line end", _dependencyEndLineEnd, 32);
 
       var depGroup = new GroupBox
       {
@@ -428,6 +450,7 @@ namespace MyProject.Controls
         Padding = new Padding(8, 20, 8, 4),
         Width = 232
       };
+      depGroup.Controls.Add(lineEndLayout);
       depGroup.Controls.Add(_dependencyGrid);
 
       group.Controls.Add(depGroup);
@@ -579,14 +602,84 @@ namespace MyProject.Controls
         if (dep.SuccessorId == taskId)
         {
           var pred = _model.GetTask(dep.PredecessorId);
-          _dependencyGrid.Rows.Add("Pre", pred?.Name ?? dep.PredecessorId.ToString(), dep.Type.ToString(), dep.LagDays);
+          _dependencyGrid.Rows.Add(
+            "Pre",
+            pred?.Name ?? dep.PredecessorId.ToString(),
+            dep.Type.ToString(),
+            dep.LagDays,
+            dep.PredecessorId,
+            dep.SuccessorId);
         }
         else if (dep.PredecessorId == taskId)
         {
           var succ = _model.GetTask(dep.SuccessorId);
-          _dependencyGrid.Rows.Add("Succ", succ?.Name ?? dep.SuccessorId.ToString(), dep.Type.ToString(), dep.LagDays);
+          _dependencyGrid.Rows.Add(
+            "Succ",
+            succ?.Name ?? dep.SuccessorId.ToString(),
+            dep.Type.ToString(),
+            dep.LagDays,
+            dep.PredecessorId,
+            dep.SuccessorId);
         }
       }
+
+      if (_dependencyGrid.Rows.Count > 0)
+        _dependencyGrid.Rows[0].Selected = true;
+
+      LoadSelectedDependencyLineEnds();
+    }
+
+    private void LoadSelectedDependencyLineEnds()
+    {
+      if (_suppressChanges || _model == null)
+        return;
+
+      int predId = -1;
+      int succId = -1;
+      bool hasSelection = _dependencyGrid.SelectedRows.Count > 0
+        && !_dependencyGrid.SelectedRows[0].IsNewRow
+        && TryGetDependencyIds(_dependencyGrid.SelectedRows[0], out predId, out succId);
+
+      _dependencyStartLineEnd.Enabled = hasSelection;
+      _dependencyEndLineEnd.Enabled = hasSelection;
+
+      if (!hasSelection)
+        return;
+
+      var dep = _model.Dependencies.FirstOrDefault(d =>
+        d.PredecessorId == predId && d.SuccessorId == succId);
+      if (dep == null)
+        return;
+
+      _suppressChanges = true;
+      try
+      {
+        _dependencyStartLineEnd.SelectedLineEnd = dep.StartLineEnd;
+        _dependencyEndLineEnd.SelectedLineEnd = dep.EndLineEnd;
+      }
+      finally { _suppressChanges = false; }
+    }
+
+    private void ApplySelectedDependencyLineEnds()
+    {
+      if (_suppressChanges || _model == null || _taskId < 0)
+        return;
+
+      if (_dependencyGrid.SelectedRows.Count == 0
+        || _dependencyGrid.SelectedRows[0].IsNewRow
+        || !TryGetDependencyIds(_dependencyGrid.SelectedRows[0], out int predId, out int succId))
+        return;
+
+      _applyingToModel = true;
+      try
+      {
+        _model.SetDependencyLineEnds(
+          predId,
+          succId,
+          _dependencyStartLineEnd.SelectedLineEnd,
+          _dependencyEndLineEnd.SelectedLineEnd);
+      }
+      finally { _applyingToModel = false; }
     }
 
     private void UpdateResourceTotal()
@@ -855,6 +948,13 @@ namespace MyProject.Controls
       if (_model == null)
         return false;
 
+      if (int.TryParse(row.Cells["PredecessorId"].Value?.ToString(), out predId)
+        && int.TryParse(row.Cells["SuccessorId"].Value?.ToString(), out succId)
+        && predId >= 0 && succId >= 0)
+        return true;
+
+      predId = -1;
+      succId = -1;
       string role = row.Cells["Role"].Value?.ToString() ?? "";
       string taskName = row.Cells["TaskName"].Value?.ToString() ?? "";
 

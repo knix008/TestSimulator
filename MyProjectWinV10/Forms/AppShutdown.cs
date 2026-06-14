@@ -10,18 +10,20 @@ namespace MyProject.Forms
         public static bool LaunchedUnderDebugger { get; private set; }
         public static bool IsShuttingDown { get; private set; }
 
+        public static bool IsDebugSession => LaunchedUnderDebugger || Debugger.IsAttached;
+
         public static bool ShouldSuppressModalUi => IsShuttingDown;
 
         public static void Initialize(bool launchedUnderDebugger)
         {
             LaunchedUnderDebugger = launchedUnderDebugger;
-            Application.ApplicationExit += (_, _) => BeginShutdown();
-            AppDomain.CurrentDomain.ProcessExit += (_, _) => BeginShutdown();
+            Application.ApplicationExit += (_, _) => OnExitSignal();
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => OnExitSignal();
         }
 
         public static void RegisterExceptionHandlers()
         {
-            if (LaunchedUnderDebugger)
+            if (IsDebugSession)
                 return;
 
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
@@ -40,6 +42,12 @@ namespace MyProject.Forms
 
             Application.ThreadException += _threadExceptionHandler;
             AppDomain.CurrentDomain.UnhandledException += _unhandledExceptionHandler;
+        }
+
+        private static void OnExitSignal()
+        {
+            BeginShutdown();
+            ForceExitIfDebugSession();
         }
 
         public static void BeginShutdown()
@@ -66,12 +74,17 @@ namespace MyProject.Forms
             }
         }
 
-        public static void ExitProcessIfDebugSession()
+        public static void ForceExitIfDebugSession()
         {
-            if (!LaunchedUnderDebugger)
+            if (!IsDebugSession)
                 return;
 
             Environment.Exit(0);
+        }
+
+        public static void ExitProcessIfDebugSession()
+        {
+            ForceExitIfDebugSession();
         }
     }
 }
