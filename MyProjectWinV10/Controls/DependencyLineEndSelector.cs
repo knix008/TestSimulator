@@ -8,7 +8,7 @@ namespace MyProject.Controls
     {
         private readonly ComboBox _combo;
         private DependencyLineEnd _selectedStyle = DependencyLineEnd.Arrow;
-        private const int ItemHeight = 34;
+        private const int ItemHeight = 28;
         private const int PreviewWidth = 72;
 
         public bool PreviewAtLineStart { get; set; } = false;
@@ -21,8 +21,6 @@ namespace MyProject.Controls
                 if (_selectedStyle == value) return;
                 _selectedStyle = value;
                 SyncComboSelection();
-                Invalidate();
-                SelectedLineEndChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -31,7 +29,8 @@ namespace MyProject.Controls
         public DependencyLineEndSelector()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            Size = new Size(260, 28);
+            MinimumSize = new Size(80, 28);
+            Height = 28;
             BackColor = Color.White;
 
             _combo = new ComboBox
@@ -42,7 +41,8 @@ namespace MyProject.Controls
                 ItemHeight = ItemHeight,
                 IntegralHeight = false,
                 Font = AppTheme.FontNormal,
-                BackColor = Color.White
+                BackColor = Color.White,
+                Margin = Padding.Empty
             };
 
             foreach (var style in DependencyLineEndInfo.AllStyles)
@@ -51,9 +51,17 @@ namespace MyProject.Controls
             _combo.SelectedIndex = 0;
             _combo.DrawItem += OnDrawItem;
             _combo.SelectedIndexChanged += OnComboSelectionChanged;
-            _combo.DropDownClosed += (_, _) => Invalidate();
 
             Controls.Add(_combo);
+            Resize += (_, _) => UpdateDropDownWidth(Width);
+        }
+
+        public void UpdateDropDownWidth(int valueColumnWidth)
+        {
+            if (valueColumnWidth <= 0)
+                return;
+
+            _combo.DropDownWidth = valueColumnWidth;
         }
 
         private void OnComboSelectionChanged(object? sender, EventArgs e)
@@ -62,7 +70,6 @@ namespace MyProject.Controls
                 return;
 
             _selectedStyle = style;
-            Invalidate();
             SelectedLineEndChanged?.Invoke(this, EventArgs.Empty);
         }
 
@@ -79,20 +86,6 @@ namespace MyProject.Controls
             }
         }
 
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
-
-            if (_combo.DroppedDown) return;
-
-            var g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-            int previewLeft = Width - PreviewWidth - 22;
-            var previewRect = new Rectangle(previewLeft, 4, PreviewWidth, Height - 8);
-            DependencyLineGeometry.DrawLineEndPreview(g, previewRect, _selectedStyle, PreviewAtLineStart);
-        }
-
         private void OnDrawItem(object? sender, DrawItemEventArgs e) => DrawComboItem(e);
 
         private void DrawComboItem(DrawItemEventArgs e)
@@ -101,8 +94,20 @@ namespace MyProject.Controls
 
             var style = (DependencyLineEnd)_combo.Items[e.Index]!;
             bool selected = (e.State & DrawItemState.Selected) != 0;
+            bool isEditState = (e.State & DrawItemState.ComboBoxEdit) != 0;
 
             e.DrawBackground();
+
+            using var textBrush = new SolidBrush(AppTheme.TextPrimary);
+            var sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
+            var font = e.Font ?? Font;
+
+            if (isEditState)
+            {
+                var textRect = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 8, e.Bounds.Height);
+                e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRect, sf);
+                return;
+            }
 
             if (selected)
             {
@@ -111,14 +116,11 @@ namespace MyProject.Controls
             }
 
             int previewLeft = e.Bounds.Right - PreviewWidth - 8;
-            var previewRect = new Rectangle(previewLeft, e.Bounds.Y + 6, PreviewWidth, e.Bounds.Height - 12);
+            var previewRect = new Rectangle(previewLeft, e.Bounds.Y + 3, PreviewWidth, e.Bounds.Height - 6);
             DependencyLineGeometry.DrawLineEndPreview(e.Graphics, previewRect, style, PreviewAtLineStart);
 
-            using var textBrush = new SolidBrush(AppTheme.TextPrimary);
-            var textRect = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, previewLeft - e.Bounds.X - 12, e.Bounds.Height);
-            var sf = new StringFormat { LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
-            var font = e.Font ?? Font;
-            e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRect, sf);
+            var textRectOpen = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, previewLeft - e.Bounds.X - 12, e.Bounds.Height);
+            e.Graphics.DrawString(DependencyLineEndInfo.GetDisplayName(style), font, textBrush, textRectOpen, sf);
 
             using var linePen = new Pen(AppTheme.GridLineColor);
             e.Graphics.DrawLine(linePen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);

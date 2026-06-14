@@ -145,6 +145,15 @@ namespace MyProject.Theme
             g.DrawLine(p, 5, 9, 9, 9);
         });
 
+        public static Bitmap ZoomDefault => Make(g =>
+        {
+            using var p = new Pen(Color.White, 1.5f);
+            g.DrawEllipse(p, 2, 2, 11, 11);
+            g.DrawLine(p, 11, 11, 17, 17);
+            g.DrawLine(p, 5, 7, 9, 7);
+            g.DrawLine(p, 5, 10, 9, 10);
+        });
+
         public static Bitmap Today => Make(g =>
         {
             using var p = new Pen(Color.White, 1.5f);

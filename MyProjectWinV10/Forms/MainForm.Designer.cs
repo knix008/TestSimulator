@@ -78,6 +78,7 @@ namespace MyProject.Forms
         private System.Windows.Forms.ToolStripSeparator tsSep2;
         private System.Windows.Forms.ToolStripButton btnZoomIn;
         private System.Windows.Forms.ToolStripButton btnZoomOut;
+        private System.Windows.Forms.ToolStripButton btnZoomDefault;
         private System.Windows.Forms.ToolStripButton btnToday;
         private System.Windows.Forms.ToolStripButton btnPropertiesPanel;
         private System.Windows.Forms.ToolStripSeparator tsSep3;
@@ -179,6 +180,7 @@ namespace MyProject.Forms
             tsSep2 = new ToolStripSeparator();
             btnZoomIn = new ToolStripButton();
             btnZoomOut = new ToolStripButton();
+            btnZoomDefault = new ToolStripButton();
             btnToday = new ToolStripButton();
             btnPropertiesPanel = new ToolStripButton();
             tsSep3 = new ToolStripSeparator();
@@ -516,7 +518,7 @@ namespace MyProject.Forms
             mainToolStrip.Font = new Font("Segoe UI", 9F);
             mainToolStrip.GripStyle = ToolStripGripStyle.Hidden;
             mainToolStrip.ImageScalingSize = new Size(20, 20);
-            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnDeleteTask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint });
+            mainToolStrip.Items.AddRange(new ToolStripItem[] { btnNew, btnOpen, btnSave, btnSaveAs, tsSepUndo, btnUndo, btnRedo, tsSep1, btnAddTask, btnAddSubtask, btnDeleteTask, btnTaskProps, btnNotes, btnIndent, btnOutdent, btnExpandCollapse, btnCriticalPath, btnLink, dependencyTypeHost, tsSep2, btnZoomIn, btnZoomOut, btnZoomDefault, btnToday, btnPropertiesPanel, tsSep3, btnReport, btnExportMd, btnExportPdf, btnExportGanttImage, btnPrint });
             mainToolStrip.Location = new Point(0, 24);
             mainToolStrip.Name = "mainToolStrip";
             mainToolStrip.Padding = new Padding(4, 0, 0, 0);
@@ -699,6 +701,14 @@ namespace MyProject.Forms
             btnZoomOut.Size = new Size(23, 37);
             btnZoomOut.Text = "Zoom Out";
             // 
+            // btnZoomDefault
+            // 
+            btnZoomDefault.DisplayStyle = ToolStripItemDisplayStyle.Image;
+            btnZoomDefault.ForeColor = Color.White;
+            btnZoomDefault.Name = "btnZoomDefault";
+            btnZoomDefault.Size = new Size(23, 37);
+            btnZoomDefault.Text = "Zoom Default";
+            // 
             // btnToday
             // 
             btnToday.DisplayStyle = ToolStripItemDisplayStyle.Image;
@@ -798,9 +808,9 @@ namespace MyProject.Forms
             // 
             ganttSplitContainer.Panel2.BackColor = Color.FromArgb(244, 245, 247);
             ganttSplitContainer.Panel2.Controls.Add(selectionPropertiesControl);
-            ganttSplitContainer.Panel2MinSize = 220;
+            ganttSplitContainer.Panel2MinSize = 280;
             ganttSplitContainer.Size = new Size(896, 634);
-            ganttSplitContainer.SplitterDistance = 596;
+            ganttSplitContainer.SplitterDistance = 556;
             ganttSplitContainer.TabIndex = 0;
             // 
             // selectionPropertiesControl
@@ -808,7 +818,7 @@ namespace MyProject.Forms
             selectionPropertiesControl.Dock = DockStyle.Fill;
             selectionPropertiesControl.Location = new Point(0, 0);
             selectionPropertiesControl.Name = "selectionPropertiesControl";
-            selectionPropertiesControl.Size = new Size(300, 634);
+            selectionPropertiesControl.Size = new Size(340, 634);
             selectionPropertiesControl.TabIndex = 0;
             // 
             // taskGridControl

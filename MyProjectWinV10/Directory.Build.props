@@ -1,7 +1,10 @@
 <Project>
   <PropertyGroup>
-    <!-- MPXJ.Net / IKVM: avoid audit noise; NU1605 handled via compatible package versions. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <NuGetAudit>false</NuGetAudit>
-    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1605</WarningsNotAsErrors>
+    <!-- MPXJ.Net / IKVM: non-actionable Java translation warnings on first publish. -->
+    <NoWarn>$(NoWarn);IKVM0100;IKVM0101;NU1605</NoWarn>
+    <!-- App still running during rebuild: avoid failing the build on file-copy retries. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3026;MSB3027</MSBuildWarningsAsMessages>
   </PropertyGroup>
 </Project>

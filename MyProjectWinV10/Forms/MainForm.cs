@@ -15,12 +15,12 @@ namespace MyProject.Forms
         private int _linkHoverTargetId = -1;
         private ProjectContextMenuBuilder? _contextMenuBuilder;
         private bool _isApplyingViewSettings;
-        private int _propertiesPanelExpandedWidth = 300;
+        private int _propertiesPanelExpandedWidth = 340;
         private bool _isPropertiesPanelExpanded = true;
         private bool _trackViewSettingsChanges;
 
         private const int CollapsedPropertiesPanelWidth = 32;
-        private const int ExpandedPropertiesPanelMinWidth = 220;
+        private const int ExpandedPropertiesPanelMinWidth = 280;
 
         public MainForm()
         {
@@ -60,6 +60,7 @@ namespace MyProject.Forms
             btnNotes.CheckOnClick = true;
             btnZoomIn.Image     = AppIcons.ZoomIn;
             btnZoomOut.Image    = AppIcons.ZoomOut;
+            btnZoomDefault.Image = AppIcons.ZoomDefault;
             btnToday.Image      = AppIcons.Today;
             btnPropertiesPanel.Image = AppIcons.PropertiesPanel;
             btnReport.Image     = AppIcons.Excel;
@@ -136,6 +137,7 @@ namespace MyProject.Forms
             dependencyTypeHost.ToolTipText = "Select dependency line type (shown with preview)";
             btnZoomIn.ToolTipText     = "Zoom In (Ctrl++)";
             btnZoomOut.ToolTipText    = "Zoom Out (Ctrl+-)";
+            btnZoomDefault.ToolTipText = "Reset zoom to default";
             btnToday.ToolTipText      = "Scroll to Today (Ctrl+T)";
             btnPropertiesPanel.ToolTipText = "Show or hide the properties panel";
             btnReport.ToolTipText     = "Export schedule and progress to Excel";
@@ -163,6 +165,10 @@ namespace MyProject.Forms
 
             // Update status bar date
             lblDateToday.Text = "Today: " + DateTime.Today.ToString("yyyy-MM-dd");
+
+            // Keep the task grid panel fixed in width so that maximizing the window
+            // gives more space to the Gantt chart rather than widening the grid.
+            splitContainer.FixedPanel = FixedPanel.Panel1;
         }
 
         // ── Renderers ────────────────────────────────────────────────────────
@@ -237,6 +243,7 @@ namespace MyProject.Forms
             dependencyTypeSelector.SelectedTypeChanged += (_, _) => OnDependencyTypeChanged();
             btnZoomIn.Click     += (_, _) => OnZoomIn();
             btnZoomOut.Click    += (_, _) => OnZoomOut();
+            btnZoomDefault.Click += (_, _) => OnZoomDefault();
             btnToday.Click      += (_, _) => ganttChartControl.GoToToday();
             btnPropertiesPanel.Click += (_, _) => OnPropertiesPanelToolbarClick();
             btnReport.Click     += (_, _) => OnExportExcel();
@@ -706,8 +713,9 @@ namespace MyProject.Forms
                     splitContainer.Width - splitContainer.Panel2MinSize - splitContainer.SplitterWidth);
                 if (maxDistance >= splitContainer.Panel1MinSize)
                 {
+                    int naturalGridWidth = taskGridControl.GetColumnWidths().Sum();
                     splitContainer.SplitterDistance = Math.Clamp(
-                        settings.SplitterDistance,
+                        Math.Min(settings.SplitterDistance, naturalGridWidth),
                         splitContainer.Panel1MinSize,
                         maxDistance);
                 }
@@ -762,9 +770,9 @@ namespace MyProject.Forms
             if (ProjectViewSettings.Equals(_model.ViewSettings, captured))
                 return;
 
+            // Update view settings in the model so they're included in the next explicit save,
+            // but do NOT set IsModified — view-layout changes alone don't warrant a save prompt.
             _model.ViewSettings = captured;
-            _model.IsModified = true;
-            UpdateTitleBar();
         }
 
         private void DeleteNoteById(int noteId)
@@ -809,6 +817,11 @@ namespace MyProject.Forms
         private void OnZoomOut()
         {
             ganttChartControl.ZoomOut();
+        }
+
+        private void OnZoomDefault()
+        {
+            ganttChartControl.ResetZoom();
         }
 
         private void OnModelChangedForTitleBar(object? sender, EventArgs e) => UpdateTitleBar();
@@ -1388,8 +1401,6 @@ namespace MyProject.Forms
                 statusLabel.Text = $"Dependency line type set to {DependencyTypeInfo.GetShortName(type)}.";
             else if (prefChanged)
             {
-                _model.IsModified = true;
-                UpdateTitleBar();
                 if (_linkSourceId >= 0)
                 {
                     var src = _model.GetTask(_linkSourceId);

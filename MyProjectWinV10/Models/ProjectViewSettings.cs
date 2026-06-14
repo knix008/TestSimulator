@@ -10,7 +10,7 @@ namespace MyProject.Models
         public DependencyLineEnd DefaultDependencyEndLineEnd { get; set; } = DependencyLineEnd.Arrow;
         public int DayWidth { get; set; } = AppTheme.DefaultDayWidth;
         public int SplitterDistance { get; set; } = 560;
-        public int PropertiesPanelWidth { get; set; } = 300;
+        public int PropertiesPanelWidth { get; set; } = 340;
         public bool PropertiesPanelVisible { get; set; } = true;
         public bool ShowCriticalPath { get; set; } = false;
         public int NotesPanelHeight { get; set; } = 140;
@@ -22,7 +22,7 @@ namespace MyProject.Models
             DefaultDependencyType = AppSettings.DefaultDependencyType,
             DayWidth = AppTheme.DefaultDayWidth,
             SplitterDistance = 560,
-            PropertiesPanelWidth = 300,
+            PropertiesPanelWidth = 340,
             PropertiesPanelVisible = true,
             ShowCriticalPath = false,
             NotesPanelHeight = 140,

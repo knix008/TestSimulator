@@ -342,6 +342,15 @@ namespace MyProject.Controls
             Invalidate();
             ViewZoomChanged?.Invoke(this, EventArgs.Empty);
         }
+
+        public void ResetZoom()
+        {
+            _viewport.ResetZoom();
+            UpdateScrollbars();
+            Invalidate();
+            ViewZoomChanged?.Invoke(this, EventArgs.Empty);
+        }
+
         public void GoToToday() { _viewport.ScrollToDate(DateTime.Today); Invalidate(); }
 
         public void ApplyDayWidth(int dayWidth)

@@ -68,6 +68,12 @@ namespace MyProject.Rendering
             UpdateZoomLevel();
         }
 
+        public void ResetZoom()
+        {
+            DayWidth = AppTheme.DefaultDayWidth;
+            UpdateZoomLevel();
+        }
+
         public void ScrollToDate(DateTime date)
         {
             ViewStartDate = date.AddDays(-3);

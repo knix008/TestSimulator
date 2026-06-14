@@ -17,8 +17,9 @@ namespace MyProject.Controls
     private readonly Panel _collapsedStrip;
     private readonly Button _btnExpand;
     private readonly Label _emptyLabel;
+    private readonly Panel _scrollPanel;
     private readonly Panel _contentPanel;
-    private readonly GroupBox _noteGroup;
+    private GroupBox _noteGroup = null!;
     private TextBox _noteTitle = null!;
     private RichNoteEditorControl _noteEditor = null!;
     private ComboBox _noteLinkedTask = null!;
@@ -37,13 +38,24 @@ namespace MyProject.Controls
     private Panel _taskBarColorPreview = null!;
     private Panel _taskProgressColorPreview = null!;
     private Panel _taskBandColorPreview = null!;
-    private Button _btnBandColor = null!;
     private Button _btnBandColorDefault = null!;
     private DataGridView _resourceGrid = null!;
     private Label _resourceTotalLabel = null!;
     private DataGridView _dependencyGrid = null!;
     private DependencyLineEndSelector _dependencyStartLineEnd = null!;
     private DependencyLineEndSelector _dependencyEndLineEnd = null!;
+
+    private TableLayoutPanel _noteFieldsLayout = null!;
+    private TableLayoutPanel _taskMainLayout = null!;
+
+    private const int MinContentWidth = 300;
+    private const int RowSpacing = 4;
+    private const int LabelRowHeight = 18;
+    private const int StandardRowHeight = 28;
+    private const int CheckRowHeight = 26;
+    private const int MultilineRowHeight = 56;
+    private const int SectionGapHeight = 10;
+    private const int BottomPaddingHeight = 8;
 
     public event EventHandler? CollapseRequested;
     public event EventHandler? ExpandRequested;
@@ -100,7 +112,7 @@ namespace MyProject.Controls
         Padding = new Padding(0, 8, 0, 0)
       };
 
-      var scroll = new Panel
+      _scrollPanel = new Panel
       {
         Dock = DockStyle.Fill,
         AutoScroll = true,
@@ -112,7 +124,7 @@ namespace MyProject.Controls
         Dock = DockStyle.Top,
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
-        Width = 260
+        MinimumSize = new Size(MinContentWidth, 0)
       };
 
       _noteGroup = BuildNoteGroup();
@@ -120,14 +132,16 @@ namespace MyProject.Controls
 
       _contentPanel.Controls.Add(_taskGroup);
       _contentPanel.Controls.Add(_noteGroup);
-      scroll.Controls.Add(_contentPanel);
+      _scrollPanel.Controls.Add(_contentPanel);
+      _scrollPanel.Resize += (_, _) => SyncContentWidth();
+      Resize += (_, _) => SyncContentWidth();
 
       _mainContent = new Panel
       {
         Dock = DockStyle.Fill,
         Padding = new Padding(8, 0, 8, 8)
       };
-      _mainContent.Controls.Add(scroll);
+      _mainContent.Controls.Add(_scrollPanel);
       _mainContent.Controls.Add(_emptyLabel);
       _mainContent.Controls.Add(headerBar);
 
@@ -168,6 +182,250 @@ namespace MyProject.Controls
       Controls.Add(_mainContent);
 
       ShowEmptyState();
+      SyncContentWidth();
+    }
+
+    private void SyncContentWidth()
+    {
+      if (_scrollPanel.ClientSize.Width <= 0)
+        return;
+
+      int scrollBar = _scrollPanel.VerticalScroll.Visible ? SystemInformation.VerticalScrollBarWidth : 0;
+      int width = Math.Max(MinContentWidth, _scrollPanel.ClientSize.Width - scrollBar);
+      int innerWidth = width;
+
+      _contentPanel.Width = width;
+      _taskGroup.Width = width;
+      _noteGroup.Width = width;
+
+      ApplyFieldLayoutWidth(_noteFieldsLayout, innerWidth);
+      ApplyFieldLayoutWidth(_taskMainLayout, innerWidth);
+
+      int gridWidth = Math.Max(240, innerWidth);
+      if (_resourceGrid.Parent != null)
+        _resourceGrid.Width = gridWidth;
+      if (_dependencyGrid.Parent != null)
+        _dependencyGrid.Width = gridWidth;
+      _noteEditor.Width = gridWidth;
+
+      int valueColumnWidth = Math.Max(160, innerWidth);
+      _dependencyStartLineEnd?.UpdateDropDownWidth(valueColumnWidth);
+      _dependencyEndLineEnd?.UpdateDropDownWidth(valueColumnWidth);
+    }
+
+    private static TableLayoutPanel CreateFieldsLayout()
+    {
+      var layout = new TableLayoutPanel
+      {
+        Dock = DockStyle.Top,
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        ColumnCount = 1,
+        Margin = Padding.Empty,
+        Padding = Padding.Empty,
+        GrowStyle = TableLayoutPanelGrowStyle.FixedSize
+      };
+      layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+      return layout;
+    }
+
+    private static void ApplyFieldLayoutWidth(TableLayoutPanel? layout, int width)
+    {
+      if (layout == null)
+        return;
+
+      layout.Width = width;
+      layout.MinimumSize = new Size(width, 0);
+      layout.MaximumSize = new Size(width, int.MaxValue);
+    }
+
+    private static Label CreateLeftLabel(string text) =>
+      new()
+      {
+        Text = text,
+        Dock = DockStyle.Fill,
+        TextAlign = ContentAlignment.MiddleLeft,
+        ForeColor = AppTheme.TextSecondary,
+        Font = AppTheme.FontSmall,
+        Margin = Padding.Empty,
+        Padding = Padding.Empty
+      };
+
+    private static void AddLabelRow(TableLayoutPanel layout, string label)
+    {
+      int row = AddLayoutRow(layout, LabelRowHeight);
+      layout.Controls.Add(CreateLeftLabel(label), 0, row);
+    }
+
+    private static void AddControlRow(TableLayoutPanel layout, Control control, int height)
+    {
+      int row = AddLayoutRow(layout, height + RowSpacing);
+
+      if (control is CheckBox)
+      {
+        var host = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 2) };
+        control.Dock = DockStyle.Left;
+        control.Margin = Padding.Empty;
+        host.Controls.Add(control);
+        layout.Controls.Add(host, 0, row);
+        return;
+      }
+
+      control.Dock = DockStyle.Fill;
+      control.Margin = new Padding(0, 0, 0, 2);
+      layout.Controls.Add(control, 0, row);
+    }
+
+    private static void AddLabeledField(TableLayoutPanel layout, string label, Control control, int controlHeight)
+    {
+      if (!string.IsNullOrWhiteSpace(label))
+        AddLabelRow(layout, label);
+
+      AddControlRow(layout, control, controlHeight);
+    }
+
+    private const int ColorRowLabelWidth = 72;
+    private const int ColorSwatchWidth = 64;
+    private const int ColorRowItemHeight = 24;
+    private const int ColorRowButtonWidth = 64;
+    private const int ColorRowGap = 8;
+
+    private static Panel CreateColorSwatch()
+    {
+      return new Panel
+      {
+        BorderStyle = BorderStyle.FixedSingle,
+        Size = new Size(ColorSwatchWidth, ColorRowItemHeight),
+        Cursor = Cursors.Hand,
+        Margin = Padding.Empty
+      };
+    }
+
+    private static void ConfigureColorActionButton(Button button)
+    {
+      button.AutoSize = false;
+      button.Size = new Size(ColorRowButtonWidth, ColorRowItemHeight);
+      button.MinimumSize = button.Size;
+      button.MaximumSize = button.Size;
+      button.Margin = Padding.Empty;
+      button.Padding = Padding.Empty;
+      button.FlatStyle = FlatStyle.Flat;
+      button.TextAlign = ContentAlignment.MiddleCenter;
+      button.UseVisualStyleBackColor = true;
+    }
+
+    private static Panel CreateColorActionsPanel(Panel preview, params Button[] extraButtons)
+    {
+      int width = ColorSwatchWidth;
+      if (extraButtons.Length > 0)
+        width += ColorRowGap + (ColorRowButtonWidth * extraButtons.Length) + (ColorRowGap * (extraButtons.Length - 1));
+
+      var host = new Panel
+      {
+        Size = new Size(width, ColorRowItemHeight),
+        MinimumSize = new Size(width, ColorRowItemHeight),
+        MaximumSize = new Size(width, ColorRowItemHeight),
+        Margin = Padding.Empty,
+        Padding = Padding.Empty
+      };
+
+      preview.Location = new Point(0, 0);
+      preview.Size = new Size(ColorSwatchWidth, ColorRowItemHeight);
+      preview.Anchor = AnchorStyles.None;
+      host.Controls.Add(preview);
+
+      int x = ColorSwatchWidth + ColorRowGap;
+      foreach (var button in extraButtons)
+      {
+        ConfigureColorActionButton(button);
+        button.Location = new Point(x, 0);
+        button.Anchor = AnchorStyles.None;
+        host.Controls.Add(button);
+        x += ColorRowButtonWidth + ColorRowGap;
+      }
+
+      return host;
+    }
+
+    private static void AddInlineColorRow(TableLayoutPanel layout, string label, Panel preview, params Button[] extraButtons)
+    {
+      int row = AddLayoutRow(layout, StandardRowHeight + RowSpacing);
+
+      var rowLayout = new TableLayoutPanel
+      {
+        Dock = DockStyle.Fill,
+        ColumnCount = 2,
+        RowCount = 1,
+        Margin = new Padding(0, 0, 0, 2),
+        Padding = Padding.Empty,
+        GrowStyle = TableLayoutPanelGrowStyle.FixedSize
+      };
+      rowLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, ColorRowLabelWidth));
+      rowLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+      rowLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+      var lbl = CreateLeftLabel(label);
+      lbl.Dock = DockStyle.Fill;
+      lbl.TextAlign = ContentAlignment.MiddleLeft;
+      lbl.Margin = Padding.Empty;
+
+      var actions = CreateColorActionsPanel(preview, extraButtons);
+      var actionsHost = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty, Padding = Padding.Empty };
+      actions.Anchor = AnchorStyles.Left;
+      actionsHost.Controls.Add(actions);
+
+      void AlignActions()
+      {
+        actions.Top = Math.Max(0, (actionsHost.ClientSize.Height - ColorRowItemHeight) / 2);
+        actions.Left = 0;
+      }
+
+      actionsHost.HandleCreated += (_, _) => AlignActions();
+      actionsHost.Resize += (_, _) => AlignActions();
+
+      rowLayout.Controls.Add(lbl, 0, 0);
+      rowLayout.Controls.Add(actionsHost, 1, 0);
+      layout.Controls.Add(rowLayout, 0, row);
+    }
+
+    private static int AddLayoutRow(TableLayoutPanel layout, int height)
+    {
+      int row = layout.RowCount;
+      layout.RowCount++;
+      layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+      return row;
+    }
+
+    private static void AddSpacerRow(TableLayoutPanel layout, int height)
+    {
+      int row = AddLayoutRow(layout, height);
+      var spacer = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+      layout.Controls.Add(spacer, 0, row);
+    }
+
+    private static void AddSectionHeaderRow(TableLayoutPanel layout, string title)
+    {
+      int row = AddLayoutRow(layout, 22);
+      var label = new Label
+      {
+        Text = title,
+        Dock = DockStyle.Fill,
+        Font = AppTheme.FontBold,
+        ForeColor = AppTheme.TextPrimary,
+        TextAlign = ContentAlignment.MiddleLeft,
+        Margin = new Padding(0, 4, 0, 2)
+      };
+      layout.Controls.Add(label, 0, row);
+    }
+
+    private static void AddFullWidthRow(TableLayoutPanel layout, Control control, int height)
+    {
+      int row = AddLayoutRow(layout, height);
+      control.Dock = DockStyle.Fill;
+      control.Margin = new Padding(0, 2, 0, 2);
+      var host = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+      host.Controls.Add(control);
+      layout.Controls.Add(host, 0, row);
     }
 
     public void SetCollapsed(bool collapsed)
@@ -209,49 +467,34 @@ namespace MyProject.Controls
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
         Padding = new Padding(8, 20, 8, 8),
-        Margin = new Padding(0, 0, 0, 8),
-        Width = 252
+        Margin = new Padding(0, 0, 0, 8)
       };
 
-      var layout = new TableLayoutPanel
-      {
-        Dock = DockStyle.Top,
-        AutoSize = true,
-        ColumnCount = 2,
-        RowCount = 3,
-        Width = 232
-      };
-      layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
-      layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-      for (int i = 0; i < 3; i++)
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
+      var layout = _noteFieldsLayout = CreateFieldsLayout();
 
-      _noteTitle = new TextBox { Dock = DockStyle.Fill };
+      _noteTitle = new TextBox();
       _noteTitle.Leave += (_, _) => ApplyNoteTitle();
 
       _noteEditor = new RichNoteEditorControl
       {
         Dock = DockStyle.Top,
         Height = 150,
-        Margin = new Padding(0, 6, 0, 0)
+        Margin = new Padding(0, 6, 0, 8)
       };
       _noteEditor.ContentChanged += (_, _) => ApplyNoteContent();
 
-      _noteLinkedTask = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+      _noteLinkedTask = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
       _noteLinkedTask.SelectedIndexChanged += (_, _) => ApplyNoteLink();
 
-      _noteAnchorDate = new DateTimePicker { Dock = DockStyle.Fill, Format = DateTimePickerFormat.Short };
+      _noteAnchorDate = new DateTimePicker { Format = DateTimePickerFormat.Short };
       _noteAnchorDate.ValueChanged += (_, _) => ApplyNoteAnchorDate();
 
-      layout.Controls.Add(MakeFieldLabel("Title:"), 0, 0);
-      layout.Controls.Add(_noteTitle, 1, 0);
-      layout.Controls.Add(MakeFieldLabel("Linked:"), 0, 1);
-      layout.Controls.Add(_noteLinkedTask, 1, 1);
-      layout.Controls.Add(MakeFieldLabel("Anchor:"), 0, 2);
-      layout.Controls.Add(_noteAnchorDate, 1, 2);
+      AddLabeledField(layout, "Title:", _noteTitle, StandardRowHeight);
+      AddLabeledField(layout, "Linked:", _noteLinkedTask, StandardRowHeight);
+      AddLabeledField(layout, "Anchor:", _noteAnchorDate, StandardRowHeight);
 
-      group.Controls.Add(_noteEditor);
       group.Controls.Add(layout);
+      group.Controls.Add(_noteEditor);
       return group;
     }
 
@@ -264,46 +507,37 @@ namespace MyProject.Controls
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
         Padding = new Padding(8, 20, 8, 8),
-        Width = 252
+        Margin = new Padding(0, 0, 0, 8)
       };
 
-      var layout = new TableLayoutPanel
-      {
-        Dock = DockStyle.Top,
-        AutoSize = true,
-        ColumnCount = 2,
-        Width = 232
-      };
-      layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
-      layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+      var layout = _taskMainLayout = CreateFieldsLayout();
 
-      _taskName = new TextBox { Dock = DockStyle.Fill };
+      _taskName = new TextBox();
       _taskName.Leave += (_, _) => ApplyTaskName();
 
-      _taskType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+      _taskType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
       _taskType.Items.AddRange(new object[] { "Normal", "Summary", "Milestone" });
       _taskType.SelectedIndexChanged += (_, _) => ApplyTaskType();
 
-      _taskStart = new DateTimePicker { Dock = DockStyle.Fill, Format = DateTimePickerFormat.Short };
+      _taskStart = new DateTimePicker { Format = DateTimePickerFormat.Short };
       _taskStart.ValueChanged += (_, _) => ApplyTaskStart();
 
-      _taskDuration = new NumericUpDown { Dock = DockStyle.Fill, Minimum = 1, Maximum = 3650 };
+      _taskDuration = new NumericUpDown { Minimum = 1, Maximum = 3650 };
       _taskDuration.ValueChanged += (_, _) => ApplyTaskDuration();
 
       _taskEndLabel = new Label
       {
-        Dock = DockStyle.Fill,
         TextAlign = ContentAlignment.MiddleLeft,
-        ForeColor = AppTheme.TextSecondary
+        ForeColor = AppTheme.TextSecondary,
+        Height = 23
       };
 
-      _taskProgress = new NumericUpDown { Dock = DockStyle.Fill, Minimum = 0, Maximum = 100 };
+      _taskProgress = new NumericUpDown { Minimum = 0, Maximum = 100 };
       _taskProgress.ValueChanged += (_, _) => ApplyTaskProgress();
 
       _taskAutoSchedule = new CheckBox
       {
         Text = "Auto-schedule dependents",
-        Dock = DockStyle.Fill,
         AutoSize = true
       };
       _taskAutoSchedule.CheckedChanged += (_, _) => ApplyTaskAutoSchedule();
@@ -311,14 +545,12 @@ namespace MyProject.Controls
       _taskCritical = new CheckBox
       {
         Text = "On critical path (computed)",
-        Dock = DockStyle.Fill,
         AutoSize = true,
         Enabled = false
       };
 
       _taskDeliverable = new TextBox
       {
-        Dock = DockStyle.Fill,
         Multiline = true,
         ScrollBars = ScrollBars.Vertical,
         Height = 52
@@ -327,90 +559,75 @@ namespace MyProject.Controls
 
       _taskNotes = new TextBox
       {
-        Dock = DockStyle.Fill,
         Multiline = true,
         ScrollBars = ScrollBars.Vertical,
         Height = 52
       };
       _taskNotes.Leave += (_, _) => ApplyTaskNotes();
 
-      _taskBarColorPreview = new Panel { Width = 28, Height = 22, BorderStyle = BorderStyle.FixedSingle };
-      var btnBarColor = new Button { Text = "Bar", Width = 56, Height = 24 };
-      btnBarColor.Click += (_, _) => PickTaskColor(true);
+      _taskBarColorPreview = CreateColorSwatch();
+      _taskBarColorPreview.Click += (_, _) => PickTaskColor(true);
 
-      _taskProgressColorPreview = new Panel { Width = 28, Height = 22, BorderStyle = BorderStyle.FixedSingle };
-      var btnProgressColor = new Button { Text = "Progress", Width = 56, Height = 24 };
-      btnProgressColor.Click += (_, _) => PickTaskColor(false);
+      _taskProgressColorPreview = CreateColorSwatch();
+      _taskProgressColorPreview.Click += (_, _) => PickTaskColor(false);
 
-      var barColorPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-      barColorPanel.Controls.Add(_taskBarColorPreview);
-      barColorPanel.Controls.Add(btnBarColor);
-      barColorPanel.Controls.Add(_taskProgressColorPreview);
-      barColorPanel.Controls.Add(btnProgressColor);
-
-      _taskBandColorPreview = new Panel { Width = 28, Height = 22, BorderStyle = BorderStyle.FixedSingle };
-      _btnBandColor = new Button { Text = "Choose", Width = 60, Height = 24, FlatStyle = FlatStyle.Flat };
-      _btnBandColor.Click += (_, _) => PickBandColor();
-      _btnBandColorDefault = new Button { Text = "Default", Width = 56, Height = 24, FlatStyle = FlatStyle.Flat };
+      _taskBandColorPreview = CreateColorSwatch();
+      _taskBandColorPreview.Click += (_, _) => PickBandColor();
+      _btnBandColorDefault = new Button { Text = "Default" };
       _btnBandColorDefault.Click += (_, _) => ResetBandColor();
-      var bandColorPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
-      bandColorPanel.Controls.AddRange(new Control[] { _taskBandColorPreview, _btnBandColor, _btnBandColorDefault });
 
-      AddRow(layout, "Name:", _taskName);
-      AddRow(layout, "Type:", _taskType);
-      AddRow(layout, "Start:", _taskStart);
-      AddRow(layout, "Days:", _taskDuration);
-      AddRow(layout, "End:", _taskEndLabel);
-      AddRow(layout, "Progress:", _taskProgress);
-      AddRow(layout, "", _taskAutoSchedule);
-      AddRow(layout, "", _taskCritical);
-      AddRow(layout, "Deliver:", _taskDeliverable, 56);
-      AddRow(layout, "Notes:", _taskNotes, 56);
-      AddRow(layout, "Colors:", barColorPanel);
-      AddRow(layout, "Row color:", bandColorPanel);
+      AddLabeledField(layout, "Name:", _taskName, StandardRowHeight);
+      AddLabeledField(layout, "Type:", _taskType, StandardRowHeight);
+      AddLabeledField(layout, "Start:", _taskStart, StandardRowHeight);
+      AddLabeledField(layout, "Days:", _taskDuration, StandardRowHeight);
+      AddLabeledField(layout, "End:", _taskEndLabel, StandardRowHeight);
+      AddLabeledField(layout, "Progress:", _taskProgress, StandardRowHeight);
+      AddControlRow(layout, _taskAutoSchedule, CheckRowHeight);
+      AddControlRow(layout, _taskCritical, CheckRowHeight);
+      AddLabeledField(layout, "Deliver:", _taskDeliverable, MultilineRowHeight);
+      AddLabeledField(layout, "Notes:", _taskNotes, MultilineRowHeight);
+      AddInlineColorRow(layout, "Bar color:", _taskBarColorPreview);
+      AddInlineColorRow(layout, "Prog color:", _taskProgressColorPreview);
+      AddInlineColorRow(layout, "Row color:", _taskBandColorPreview, _btnBandColorDefault);
+
+      AddSpacerRow(layout, SectionGapHeight);
+      AddSectionHeaderRow(layout, "Resources");
 
       _resourceGrid = new DataGridView
       {
-        Height = 88,
-        Dock = DockStyle.Top,
+        Height = 62,
         AllowUserToAddRows = true,
         AllowUserToDeleteRows = true,
         RowHeadersVisible = false,
+        ColumnHeadersHeight = 22,
         AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
         BackgroundColor = Color.White,
         BorderStyle = BorderStyle.FixedSingle,
         SelectionMode = DataGridViewSelectionMode.FullRowSelect
       };
+      _resourceGrid.RowTemplate.Height = 19;
       _resourceGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ResourceName", HeaderText = "Resource", FillWeight = 60 });
       _resourceGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "AllocationPercent", HeaderText = "%", FillWeight = 40 });
       _resourceGrid.CellEndEdit += (_, _) => ApplyResourceGrid();
       _resourceGrid.UserDeletedRow += (_, _) => ApplyResourceGrid();
+      AddFullWidthRow(layout, _resourceGrid, 62);
 
       _resourceTotalLabel = new Label
       {
-        Dock = DockStyle.Top,
-        Height = 20,
-        TextAlign = ContentAlignment.MiddleRight,
+        Height = 18,
+        TextAlign = ContentAlignment.MiddleLeft,
         ForeColor = AppTheme.TextSecondary,
         Font = AppTheme.FontSmall,
         Text = "Total: 0%"
       };
+      AddFullWidthRow(layout, _resourceTotalLabel, 18);
 
-      var resourceGroup = new GroupBox
-      {
-        Text = "Resources",
-        Dock = DockStyle.Top,
-        AutoSize = true,
-        Padding = new Padding(8, 20, 8, 4),
-        Width = 232
-      };
-      resourceGroup.Controls.Add(_resourceGrid);
-      resourceGroup.Controls.Add(_resourceTotalLabel);
+      AddSpacerRow(layout, SectionGapHeight);
+      AddSectionHeaderRow(layout, "Dependencies");
 
       _dependencyGrid = new DataGridView
       {
         Height = 100,
-        Dock = DockStyle.Top,
         AllowUserToAddRows = false,
         AllowUserToDeleteRows = true,
         RowHeadersVisible = false,
@@ -436,59 +653,20 @@ namespace MyProject.Controls
       _dependencyGrid.UserDeletedRow += (_, _) => ApplyDependencyGrid();
       _dependencyGrid.UserDeletingRow += OnDependencyRowDeleting;
       _dependencyGrid.SelectionChanged += (_, _) => LoadSelectedDependencyLineEnds();
+      AddFullWidthRow(layout, _dependencyGrid, 100);
 
-      _dependencyStartLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = true, Dock = DockStyle.Fill };
-      _dependencyEndLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = false, Dock = DockStyle.Fill };
+      _dependencyStartLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = true };
+      _dependencyEndLineEnd = new DependencyLineEndSelector { PreviewAtLineStart = false };
       _dependencyStartLineEnd.SelectedLineEndChanged += (_, _) => ApplySelectedDependencyLineEnds();
       _dependencyEndLineEnd.SelectedLineEndChanged += (_, _) => ApplySelectedDependencyLineEnds();
 
-      var lineEndLayout = new TableLayoutPanel
-      {
-        Dock = DockStyle.Top,
-        AutoSize = true,
-        ColumnCount = 2,
-        Padding = new Padding(0, 4, 0, 0)
-      };
-      lineEndLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
-      lineEndLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-      AddRow(lineEndLayout, "Line start", _dependencyStartLineEnd, 32);
-      AddRow(lineEndLayout, "Line end", _dependencyEndLineEnd, 32);
+      AddLabeledField(layout, "Line start:", _dependencyStartLineEnd, StandardRowHeight);
+      AddLabeledField(layout, "Line end:", _dependencyEndLineEnd, StandardRowHeight);
+      AddSpacerRow(layout, BottomPaddingHeight);
 
-      var depGroup = new GroupBox
-      {
-        Text = "Dependencies",
-        Dock = DockStyle.Top,
-        AutoSize = true,
-        Padding = new Padding(8, 20, 8, 4),
-        Width = 232
-      };
-      depGroup.Controls.Add(lineEndLayout);
-      depGroup.Controls.Add(_dependencyGrid);
-
-      group.Controls.Add(depGroup);
-      group.Controls.Add(resourceGroup);
       group.Controls.Add(layout);
       return group;
     }
-
-    private static void AddRow(TableLayoutPanel layout, string label, Control control, int height = 30)
-    {
-      int row = layout.RowCount;
-      layout.RowCount++;
-      layout.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
-      layout.Controls.Add(MakeFieldLabel(label), 0, row);
-      layout.Controls.Add(control, 1, row);
-    }
-
-    private static Label MakeFieldLabel(string text) =>
-      new()
-      {
-        Text = text,
-        Dock = DockStyle.Fill,
-        TextAlign = ContentAlignment.MiddleRight,
-        ForeColor = AppTheme.TextSecondary,
-        Font = AppTheme.FontSmall
-      };
 
     private void ShowEmptyState()
     {
@@ -516,6 +694,7 @@ namespace MyProject.Controls
 
       _emptyLabel.Visible = false;
       _contentPanel.Visible = true;
+      SyncContentWidth();
 
       _suppressChanges = true;
       try
@@ -556,7 +735,8 @@ namespace MyProject.Controls
           _taskBarColorPreview.BackColor = task.BarColor == Color.Empty ? Color.LightGray : task.BarColor;
           _taskProgressColorPreview.BackColor = task.ProgressColor == Color.Empty ? Color.LightGray : task.ProgressColor;
           bool isRootTask = task.ParentId == -1;
-          _btnBandColor.Enabled = isRootTask;
+          _taskBandColorPreview.Enabled = isRootTask;
+          _taskBandColorPreview.Cursor = isRootTask ? Cursors.Hand : Cursors.Default;
           _btnBandColorDefault.Enabled = isRootTask;
           var bandColor = _model!.GetTaskBandColor(task.Id);
           _taskBandColorPreview.BackColor = bandColor.IsEmpty ? Color.LightGray : bandColor;
