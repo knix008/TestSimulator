@@ -211,7 +211,7 @@ namespace MyProject.Controls
             {
                 _viewport.ViewStartDate = _model != null
                     ? _model.ProjectStart.AddDays((double)_hScrollBar.Value / _viewport.DayWidth)
-                    : DateTime.Today.AddDays(-3);
+                    : DateTime.Today.AddDays(-1);
                 Invalidate();
             };
 
@@ -255,7 +255,7 @@ namespace MyProject.Controls
             _model = model;
             _model.ModelChanged += OnModelChanged;
 
-            _viewport.ViewStartDate = model.ProjectStart.AddDays(-3);
+            _viewport.ViewStartDate = model.ProjectStart.AddDays(-1);
             _timeScaleRenderer = new TimeScaleRenderer(_viewport);
             _taskBarRenderer = new TaskBarRenderer(_viewport);
             _depRenderer = new DependencyRenderer(_viewport, _taskBarRenderer);
@@ -345,7 +345,9 @@ namespace MyProject.Controls
 
         public void ResetZoom()
         {
+            var center = _viewport.XToDate(_viewport.ChartLeft + _viewport.ChartWidth / 2);
             _viewport.ResetZoom();
+            _viewport.CenterOnDate(center);
             UpdateScrollbars();
             Invalidate();
             ViewZoomChanged?.Invoke(this, EventArgs.Empty);
@@ -410,7 +412,7 @@ namespace MyProject.Controls
 
         private (int width, int height, DateTime chartStart) CalculateExportDimensions()
         {
-            DateTime chartStart = _model!.ProjectStart.Date.AddDays(-3);
+            DateTime chartStart = _model!.ProjectStart.Date.AddDays(-1);
             DateTime chartEnd = _model.GetProjectEnd().Date.AddDays(7);
             if (chartEnd < chartStart)
                 chartEnd = chartStart.AddDays(30);

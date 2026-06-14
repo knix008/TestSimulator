@@ -295,8 +295,8 @@
       "bodyRtf": "",
       "taskId": 1,
       "offsetDays": 0,
-      "anchorDate": "2026-06-15T00:00:00+09:00",
-      "contentY": 168
+      "anchorDate": "2026-06-29T00:00:00+09:00",
+      "contentY": 72
     }
   ],
   "settings": {
@@ -312,10 +312,10 @@
     "defaultDependencyType": "FS",
     "defaultDependencyStartLineEnd": "None",
     "defaultDependencyEndLineEnd": "Arrow",
-    "dayWidth": 22,
-    "splitterDistance": 585,
+    "dayWidth": 16,
+    "splitterDistance": 482,
     "propertiesPanelWidth": 300,
-    "propertiesPanelVisible": true,
+    "propertiesPanelVisible": false,
     "showCriticalPath": true,
     "notesPanelHeight": 140,
     "notesPanelVisible": true

@@ -4,8 +4,10 @@ namespace MyProject.Rendering
 {
     public class GanttViewport
     {
+        private const double ZoomLeftPaddingDays = 1;
+
         private int _dayWidth = AppTheme.DefaultDayWidth;
-        private DateTime _viewStartDate = DateTime.Today.AddDays(-3);
+        private DateTime _viewStartDate = DateTime.Today.AddDays(-ZoomLeftPaddingDays);
 
         public int ChartLeft { get; set; } = 0;
         public int ChartWidth { get; set; } = 800;
@@ -59,7 +61,7 @@ namespace MyProject.Rendering
         public void CenterOnDate(DateTime date)
         {
             double days = (double)ChartWidth / 2 / DayWidth;
-            ViewStartDate = date.AddDays(-days);
+            ViewStartDate = date.AddDays(-days - ZoomLeftPaddingDays);
         }
 
         public void ApplyDayWidth(int dayWidth)
@@ -76,7 +78,7 @@ namespace MyProject.Rendering
 
         public void ScrollToDate(DateTime date)
         {
-            ViewStartDate = date.AddDays(-3);
+            ViewStartDate = date.AddDays(-ZoomLeftPaddingDays);
         }
 
         private void UpdateZoomLevel()
