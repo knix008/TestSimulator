@@ -626,6 +626,7 @@ partial class Image2TextForm
         richTextBoxOutput.Name = "richTextBoxOutput";
         richTextBoxOutput.ReadOnly = true;
         richTextBoxOutput.ScrollBars = RichTextBoxScrollBars.None;
+        richTextBoxOutput.ShowSelectionMargin = false;
         richTextBoxOutput.Size = new Size(100, 96);
         richTextBoxOutput.TabIndex = 0;
         richTextBoxOutput.Text = "";
@@ -1021,12 +1022,12 @@ partial class Image2TextForm
         numAspectRatio.DecimalPlaces = 2;
         numAspectRatio.Increment = new decimal(new int[] { 1, 0, 0, 131072 });
         numAspectRatio.Location = new Point(84, 100);
-        numAspectRatio.Maximum = new decimal(new int[] { 100, 0, 0, 131072 });
+        numAspectRatio.Maximum = new decimal(new int[] { 250, 0, 0, 131072 });
         numAspectRatio.Minimum = new decimal(new int[] { 10, 0, 0, 131072 });
         numAspectRatio.Name = "numAspectRatio";
         numAspectRatio.Size = new Size(110, 23);
         numAspectRatio.TabIndex = 6;
-        toolTip.SetToolTip(numAspectRatio, "글자 종횡비 보정값 (0.10 ~ 1.00, 기본값: 0.45)\n값이 작을수록 세로가 더 압축됩니다\n폰트마다 최적값이 다를 수 있습니다");
+        toolTip.SetToolTip(numAspectRatio, "글자 종횡비 보정값 (0.10 ~ 2.50, 기본값: 0.45)\n값이 작을수록 세로가 더 압축됩니다\n블록 문자 모드에서는 전각 폰트에 맞게 최대 2.50까지 자동 계산됩니다");
         numAspectRatio.Value = new decimal(new int[] { 45, 0, 0, 131072 });
         //
         // chkKeepAspectRatio
@@ -1098,23 +1099,23 @@ partial class Image2TextForm
         // 
         // rbCharStandard
         // 
-        rbCharStandard.Checked = true;
         rbCharStandard.Location = new Point(10, 52);
         rbCharStandard.Name = "rbCharStandard";
         rbCharStandard.Size = new Size(348, 20);
         rbCharStandard.TabIndex = 1;
         rbCharStandard.TabStop = true;
         rbCharStandard.Text = "표준 10단계: @#S%?*+;:,.";
-        toolTip.SetToolTip(rbCharStandard, "10가지 문자를 사용한 표준 변환 (기본값)\n일반 이미지에 적합합니다");
+        toolTip.SetToolTip(rbCharStandard, "10가지 문자를 사용한 표준 변환\n일반 이미지에 적합합니다");
         // 
         // rbCharSimple
         // 
+        rbCharSimple.Checked = true;
         rbCharSimple.Location = new Point(10, 80);
         rbCharSimple.Name = "rbCharSimple";
         rbCharSimple.Size = new Size(348, 20);
         rbCharSimple.TabIndex = 2;
         rbCharSimple.Text = "단순 5단계: @#*. ";
-        toolTip.SetToolTip(rbCharSimple, "5가지 문자를 사용한 단순 변환\n로고나 단순한 그래픽에 적합합니다");
+        toolTip.SetToolTip(rbCharSimple, "5가지 문자를 사용한 단순 변환 (기본값)\n로고나 단순한 그래픽에 적합합니다");
         // 
         // rbCharBlock
         // 

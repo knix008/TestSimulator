@@ -18,7 +18,7 @@ public class AppSettings
     public bool KeepAspectRatio { get; set; } = false;
     public bool AutoWidth { get; set; } = true;
     public int OutputScale { get; set; } = 50;
-    public string CharSet { get; set; } = "Standard";
+    public string CharSet { get; set; } = "Simple";
     public string CustomChars { get; set; } = "@#*+:. ";
     public string FontName { get; set; } = "Consolas";
     public float FontSize { get; set; } = 4.0f;
@@ -65,8 +65,16 @@ public class AppSettings
                 s.Brightness = 50;
             s.SettingsVersion = 2;
         }
+
+        s.CharSet = NormalizeCharSet(s.CharSet);
         return s;
     }
+
+    private static string NormalizeCharSet(string? charSet) => charSet switch
+    {
+        "Detailed" or "Standard" or "Simple" or "Block" or "Custom" => charSet,
+        _ => "Simple"
+    };
 
     public void Save()
     {
@@ -122,7 +130,7 @@ public class AppSettings
         KeepAspectRatio  = preset.KeepAspectRatio;
         AutoWidth        = preset.AutoWidth;
         OutputScale      = preset.OutputScale;
-        CharSet          = preset.CharSet;
+        CharSet          = NormalizeCharSet(preset.CharSet);
         CustomChars      = preset.CustomChars;
         FontName         = preset.FontName;
         FontSize         = preset.FontSize;
@@ -143,7 +151,7 @@ public class ConversionPreset
     public bool KeepAspectRatio { get; set; } = false;
     public bool AutoWidth { get; set; } = true;
     public int OutputScale { get; set; } = 50;
-    public string CharSet { get; set; } = "Standard";
+    public string CharSet { get; set; } = "Simple";
     public string CustomChars { get; set; } = "@#*+:. ";
     public string FontName { get; set; } = "Consolas";
     public float FontSize { get; set; } = 4.0f;

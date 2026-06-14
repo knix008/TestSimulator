@@ -39,6 +39,31 @@ public partial class Image2TextForm : Form
         LoadAppIcon();
         InitializeIcons();
         SetupCanvasDrag();
+        SetupCharSetHandlers();
+    }
+
+    private void SetupCharSetHandlers()
+    {
+        rbCharDetailed.CheckedChanged += CharSet_CheckedChanged;
+        rbCharStandard.CheckedChanged += CharSet_CheckedChanged;
+        rbCharSimple.CheckedChanged += CharSet_CheckedChanged;
+        rbCharBlock.CheckedChanged += CharSet_CheckedChanged;
+        rbCharCustom.CheckedChanged += CharSet_CheckedChanged;
+        chkColorOutput.CheckedChanged += ColorOutput_CheckedChanged;
+    }
+
+    private void ColorOutput_CheckedChanged(object? sender, EventArgs e)
+    {
+        RefreshAutoAspectRatio();
+    }
+
+    private void CharSet_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (sender is not RadioButton rb || !rb.Checked) return;
+        UpdateAspectRatioLimits();
+        RefreshAutoAspectRatio();
+        if (richTextBoxOutput.TextLength > 0)
+            CenterRichTextBox();
     }
 
     // ─── 아이콘 초기화 ────────────────────────────────────────────────────
@@ -230,11 +255,7 @@ public partial class Image2TextForm : Form
             }
         }
         cmbFontName.EndUpdate();
-
-        int idx = cmbFontName.Items.IndexOf(_settings.FontName);
-        cmbFontName.SelectedIndex = idx >= 0 ? idx : 0;
-        if (cmbFontName.SelectedItem is string sel)
-            _currentFontName = sel;
+        SelectFontComboBox();
     }
 
     // ─── 설정 적용/저장 ───────────────────────────────────────────────────
@@ -245,29 +266,28 @@ public partial class Image2TextForm : Form
         numHeight.Value = Math.Clamp(_settings.OutputHeight, (int)numHeight.Minimum, (int)numHeight.Maximum);
         chkAutoHeight.Checked = _settings.AutoHeight;
         numHeight.Enabled = !_settings.AutoHeight;
-        numAspectRatio.Value = (decimal)Math.Clamp(_settings.AspectRatio, 0.10f, 1.00f);
         chkKeepAspectRatio.Checked = _settings.KeepAspectRatio;
         numAspectRatio.Enabled = !_settings.KeepAspectRatio;
-        chkAutoWidth.Checked = _settings.AutoWidth;
-        numOutputScale.Value = Math.Clamp(_settings.OutputScale, (int)numOutputScale.Minimum, (int)numOutputScale.Maximum);
-        numWidth.Enabled = !_settings.AutoWidth;
 
-        switch (_settings.CharSet)
-        {
-            case "Detailed": rbCharDetailed.Checked = true; break;
-            case "Block":    rbCharBlock.Checked = true; break;
-            case "Simple":   rbCharSimple.Checked = true; break;
-            case "Custom":
-                rbCharCustom.Checked = true;
-                txtCustomChars.Text = _settings.CustomChars;
-                break;
-            default: rbCharStandard.Checked = true; break;
-        }
+        ApplyCharSetFromSettings(_settings.CharSet);
+        txtCustomChars.Text = _settings.CustomChars;
+        txtCustomChars.Enabled = rbCharCustom.Checked;
 
         _currentFontSize = _settings.FontSize;
         numFontSize.Value = (decimal)Math.Clamp(_settings.FontSize,
             (double)numFontSize.Minimum, (double)numFontSize.Maximum);
         _currentFontName = _settings.FontName;
+        SelectFontComboBox();
+
+        UpdateOutputFont();
+        UpdateAspectRatioLimits();
+        if (!_settings.KeepAspectRatio)
+            numAspectRatio.Value = (decimal)Math.Clamp((double)_settings.AspectRatio,
+                (double)numAspectRatio.Minimum, (double)numAspectRatio.Maximum);
+
+        chkAutoWidth.Checked = _settings.AutoWidth;
+        numOutputScale.Value = Math.Clamp(_settings.OutputScale, (int)numOutputScale.Minimum, (int)numOutputScale.Maximum);
+        numWidth.Enabled = !_settings.AutoWidth;
 
         chkColorOutput.Checked = _settings.ColorOutput;
         chkInvert.Checked = _settings.InvertBrightness;
@@ -281,7 +301,40 @@ public partial class Image2TextForm : Form
         trkBrightness.Value = brightness;
         numBrightnessValue.Value = brightness;
 
-        UpdateOutputFont();
+        _charSetCycleIndex = Array.IndexOf(CharSetCycle, GetSelectedCharSet());
+        if (_charSetCycleIndex < 0) _charSetCycleIndex = 0;
+
+        if (chkKeepAspectRatio.Checked)
+            RefreshAutoAspectRatio();
+    }
+
+    private void ApplyCharSetFromSettings(string charSet)
+    {
+        switch (charSet)
+        {
+            case "Detailed": rbCharDetailed.Checked = true; break;
+            case "Standard": rbCharStandard.Checked = true; break;
+            case "Block":    rbCharBlock.Checked = true; break;
+            case "Simple":   rbCharSimple.Checked = true; break;
+            case "Custom":   rbCharCustom.Checked = true; break;
+            default:         rbCharSimple.Checked = true; break;
+        }
+    }
+
+    private void SelectFontComboBox()
+    {
+        if (cmbFontName.Items.Count == 0) return;
+
+        int idx = cmbFontName.Items.IndexOf(_settings.FontName);
+        if (idx >= 0)
+        {
+            cmbFontName.SelectedIndex = idx;
+            _currentFontName = _settings.FontName;
+        }
+        else if (cmbFontName.SelectedItem is string sel)
+        {
+            _currentFontName = sel;
+        }
     }
 
     private void ApplyDefaultSettings()
@@ -291,6 +344,7 @@ public partial class Image2TextForm : Form
         _settings.OutputHeight = def.OutputHeight;
         _settings.AutoHeight = def.AutoHeight;
         _settings.AspectRatio = def.AspectRatio;
+        _settings.KeepAspectRatio = def.KeepAspectRatio;
         _settings.AutoWidth = def.AutoWidth;
         _settings.OutputScale = def.OutputScale;
         _settings.CharSet = def.CharSet;
@@ -337,7 +391,7 @@ public partial class Image2TextForm : Form
         if (rbCharSimple.Checked) return "Simple";
         if (rbCharBlock.Checked) return "Block";
         if (rbCharCustom.Checked) return "Custom";
-        return "Standard";
+        return "Simple";
     }
 
     private void UpdateSplitterLayout()
@@ -458,6 +512,10 @@ public partial class Image2TextForm : Form
             return;
         }
 
+        UpdateAspectRatioLimits();
+        if (chkKeepAspectRatio.Checked)
+            RefreshAutoAspectRatio();
+
         var options = BuildOptions();
         SetControlsEnabled(false);
         btnConvertMain.BackColor = BtnConvertBusy;
@@ -537,7 +595,7 @@ public partial class Image2TextForm : Form
             return;
         }
 
-        string charSet = "Standard";
+        string charSet = "Simple";
         if (sender == menuConvertRedrawDetailed) charSet = "Detailed";
         else if (sender == menuConvertRedrawStandard) charSet = "Standard";
         else if (sender == menuConvertRedrawSimple) charSet = "Simple";
@@ -554,14 +612,8 @@ public partial class Image2TextForm : Form
 
     private void ApplyCharSetToUI(string charSet)
     {
-        switch (charSet)
-        {
-            case "Detailed": rbCharDetailed.Checked = true; break;
-            case "Block":    rbCharBlock.Checked = true; break;
-            case "Simple":   rbCharSimple.Checked = true; break;
-            case "Custom":   rbCharCustom.Checked = true; break;
-            default:         rbCharStandard.Checked = true; break;
-        }
+        ApplyCharSetFromSettings(charSet);
+        RefreshAutoAspectRatio();
     }
 
     private static string GetCharSetDisplayName(string key) => key switch
@@ -626,12 +678,7 @@ public partial class Image2TextForm : Form
         for (int i = 0; i < lines.Length; i++)
             lines[i] = lines[i].TrimEnd('\r');
 
-        int maxCols = lines.Length > 0 ? lines.Max(l => l.Length) : 0;
-        int rows = lines.Length;
-
-        var (charW, charH) = MeasureCharSize();
-        int textW = (int)(charW * maxCols) + 8;
-        int textH = (int)(charH * rows) + 4;
+        var (textW, textH) = MeasureOutputBounds(lines);
 
         richTextBoxOutput.Size = new Size(textW, textH);
 
@@ -679,27 +726,240 @@ public partial class Image2TextForm : Form
         }
     }
 
+    private static readonly Size TextMeasureArea = new(int.MaxValue / 4, int.MaxValue / 4);
+    private const TextFormatFlags TextMeasureFlags =
+        TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine;
+    private const int BlockMeasureCount = 10;
+
+    private static double GetAspectRatioMax(string charSet) => charSet == "Block" ? 2.50 : 1.00;
+
+    private void UpdateAspectRatioLimits()
+    {
+        decimal max = (decimal)GetAspectRatioMax(GetSelectedCharSet());
+        numAspectRatio.Maximum = max;
+        if (numAspectRatio.Value > max)
+            numAspectRatio.Value = max;
+    }
+
+    private (float cellW, float cellH) MeasureCellSize()
+    {
+        var font = richTextBoxOutput.Font;
+        var sz = TextRenderer.MeasureText("W", font, TextMeasureArea, TextMeasureFlags);
+        float cellW = Math.Max(1f, sz.Width);
+        float cellH = Math.Max(1f, sz.Height);
+        return (cellW, cellH);
+    }
+
+    private float GetBlockCharAdvance()
+    {
+        var (cellW, _) = MeasureCellSize();
+        string sample = new string('█', BlockMeasureCount);
+        var sz = TextRenderer.MeasureText(sample, richTextBoxOutput.Font, TextMeasureArea, TextMeasureFlags);
+        return Math.Max(cellW, sz.Width / (float)BlockMeasureCount);
+    }
+
+    private float GetCharAdvanceWidth()
+    {
+        return GetSelectedCharSet() == "Block" ? GetBlockCharAdvance() : MeasureCellSize().cellW;
+    }
+
     private (float charW, float charH) MeasureCharSize()
     {
-        using var g = richTextBoxOutput.CreateGraphics();
-        var sz = g.MeasureString(new string('W', 10), richTextBoxOutput.Font,
-            int.MaxValue, StringFormat.GenericTypographic);
-        float charW = Math.Max(1f, sz.Width / 10f);
-        float charH = Math.Max(1f, sz.Height);
-        return (charW, charH);
+        return MeasureRichTextAspectMetrics(chkColorOutput.Checked);
+    }
+
+    private char GetAspectSampleChar() => GetSelectedCharSet() switch
+    {
+        "Block" => '█',
+        _ => 'W'
+    };
+
+    private void PopulateAspectSampleText(char sampleChar, int charsPerLine, bool colorOutput)
+    {
+        richTextBoxOutput.Clear();
+        if (colorOutput)
+        {
+            AppendAspectSampleLine(sampleChar, charsPerLine, 0);
+            richTextBoxOutput.SelectionColor = Color.White;
+            richTextBoxOutput.AppendText("\n");
+            AppendAspectSampleLine(sampleChar, charsPerLine, charsPerLine);
+        }
+        else
+        {
+            string line = new string(sampleChar, charsPerLine);
+            richTextBoxOutput.ForeColor = Color.White;
+            richTextBoxOutput.Text = line + "\n" + line;
+        }
+    }
+
+    private void AppendAspectSampleLine(char ch, int count, int colorSeed)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            richTextBoxOutput.SelectionStart = richTextBoxOutput.TextLength;
+            richTextBoxOutput.SelectionLength = 0;
+            richTextBoxOutput.SelectionColor = ((colorSeed + i) % 2 == 0)
+                ? Color.White
+                : Color.FromArgb(180, 180, 180);
+            richTextBoxOutput.AppendText(ch.ToString());
+        }
+    }
+
+    private (float advanceW, float lineH) MeasureRichTextAspectMetrics(bool colorOutput)
+    {
+        var (cellW, cellH) = MeasureCellSize();
+        char sampleChar = GetAspectSampleChar();
+        const int charsPerLine = 10;
+
+        string savedText = richTextBoxOutput.Text;
+        var savedSize = richTextBoxOutput.Size;
+        Color savedFg = richTextBoxOutput.ForeColor;
+
+        try
+        {
+            richTextBoxOutput.Size = new Size(32767, 256);
+            PopulateAspectSampleText(sampleChar, charsPerLine, colorOutput);
+
+            float fallbackAdvance = sampleChar == '█' ? GetBlockCharAdvance() : cellW;
+            float advance = MeasureAdvanceFromRichText(charsPerLine, fallbackAdvance);
+            float lineH = MeasureLineHeightFromRichText(charsPerLine + 1, cellH);
+            return (advance, lineH);
+        }
+        finally
+        {
+            richTextBoxOutput.Text = savedText;
+            richTextBoxOutput.ForeColor = savedFg;
+            richTextBoxOutput.Size = savedSize;
+        }
+    }
+
+    private float MeasureAdvanceFromRichText(int charCount, float fallback)
+    {
+        Point p0 = richTextBoxOutput.GetPositionFromCharIndex(0);
+        Point p1 = richTextBoxOutput.GetPositionFromCharIndex(1);
+        if (p0.X >= 0 && p1.X > p0.X)
+            return p1.X - p0.X;
+
+        float sum = 0;
+        int count = 0;
+        for (int i = 0; i < charCount - 1; i++)
+        {
+            Point a = richTextBoxOutput.GetPositionFromCharIndex(i);
+            Point b = richTextBoxOutput.GetPositionFromCharIndex(i + 1);
+            if (a.X >= 0 && b.X > a.X)
+            {
+                sum += b.X - a.X;
+                count++;
+            }
+        }
+
+        return count > 0 ? sum / count : fallback;
+    }
+
+    private float MeasureLineHeightFromRichText(int secondLineStart, float fallback)
+    {
+        Point p0 = richTextBoxOutput.GetPositionFromCharIndex(0);
+        Point p1 = richTextBoxOutput.GetPositionFromCharIndex(secondLineStart);
+        if (p0.Y >= 0 && p1.Y > p0.Y)
+            return p1.Y - p0.Y;
+        return fallback;
+    }
+
+    private (int textW, int textH) MeasureOutputBounds(string[] lines)
+    {
+        var (cellW, cellH) = MeasureCellSize();
+        int textH = (int)Math.Ceiling(cellH * Math.Max(1, lines.Length)) + 4;
+
+        int layoutW = MeasureRichTextBoxLayoutWidth(lines, textH);
+        int rendererW = MeasureLinesWidthWithTextRenderer(lines);
+
+        int textW = Math.Max(layoutW, rendererW);
+
+        if (GetSelectedCharSet() == "Block")
+        {
+            int maxCols = lines.Length > 0 ? lines.Max(l => l.Length) : 0;
+            if (maxCols > 0)
+            {
+                int colsW = (int)Math.Ceiling(GetBlockCharAdvance() * maxCols);
+                textW = Math.Max(textW, colsW);
+            }
+            textW += (int)Math.Ceiling(cellW) + 4;
+        }
+        else
+        {
+            textW += 8;
+        }
+
+        return (textW, textH);
+    }
+
+    private int MeasureLinesWidthWithTextRenderer(string[] lines)
+    {
+        var font = richTextBoxOutput.Font;
+        int maxW = 0;
+        foreach (var line in lines)
+        {
+            if (line.Length == 0) continue;
+            var sz = TextRenderer.MeasureText(line, font, TextMeasureArea, TextMeasureFlags);
+            maxW = Math.Max(maxW, sz.Width);
+        }
+        return maxW;
+    }
+
+    private int MeasureRichTextBoxLayoutWidth(string[] lines, int tempHeight)
+    {
+        if (richTextBoxOutput.TextLength == 0 || lines.Length == 0)
+            return 0;
+
+        richTextBoxOutput.Size = new Size(32767, Math.Max(tempHeight, richTextBoxOutput.Height));
+
+        string text = richTextBoxOutput.Text;
+        float advance = GetCharAdvanceWidth();
+        int maxRight = 0;
+        int textIndex = 0;
+
+        for (int row = 0; row < lines.Length; row++)
+        {
+            string line = lines[row];
+            if (line.Length > 0 && textIndex < text.Length)
+            {
+                int lastIdx = Math.Min(textIndex + line.Length - 1, text.Length - 1);
+                Point lastPos = richTextBoxOutput.GetPositionFromCharIndex(lastIdx);
+                if (lastPos.X >= 0)
+                {
+                    int right = lastPos.X + (int)Math.Ceiling(advance);
+                    if (lastIdx + 1 < text.Length && text[lastIdx + 1] is not '\n' and not '\r')
+                    {
+                        Point nextPos = richTextBoxOutput.GetPositionFromCharIndex(lastIdx + 1);
+                        if (nextPos.Y == lastPos.Y && nextPos.X > lastPos.X)
+                            right = nextPos.X;
+                    }
+                    maxRight = Math.Max(maxRight, right);
+                }
+            }
+
+            textIndex += line.Length;
+            while (textIndex < text.Length && text[textIndex] == '\r')
+                textIndex++;
+            if (textIndex < text.Length && text[textIndex] == '\n')
+                textIndex++;
+        }
+
+        return maxRight;
     }
 
     private double ComputeAspectRatio()
     {
         var (charW, charH) = MeasureCharSize();
-        return Math.Clamp((double)(charW / charH), 0.10, 1.00);
+        return Math.Clamp(charW / charH, 0.10, GetAspectRatioMax(GetSelectedCharSet()));
     }
 
     private int ComputeAutoWidth()
     {
         if (_sourceBitmap == null) return (int)numWidth.Value;
-        var (charW, _) = MeasureCharSize();
-        int w = (int)(_sourceBitmap.Width * (float)numOutputScale.Value / 100.0f / charW);
+        // 변환 열 수는 모노스페이스 셀 기준(문자 1개 = 샘플 1열). 블록 글리프 폭으로 나누면 열이 줄어듦.
+        var (cellW, _) = MeasureCellSize();
+        int w = (int)(_sourceBitmap.Width * (float)numOutputScale.Value / 100.0f / cellW);
         return Math.Clamp(w, (int)numWidth.Minimum, (int)numWidth.Maximum);
     }
 
@@ -863,6 +1123,8 @@ public partial class Image2TextForm : Form
             _settings.LoadPreset(openPresetDialog.FileName);
             ApplySettings();
             PopulateMonospaceFonts();
+            if (richTextBoxOutput.TextLength > 0)
+                CenterRichTextBox();
             SetStatus($"프리셋 불러오기 완료: {Path.GetFileName(openPresetDialog.FileName)}");
         }
         catch (Exception ex)
@@ -998,6 +1260,7 @@ public partial class Image2TextForm : Form
     private void chkKeepAspectRatio_CheckedChanged(object? sender, EventArgs e)
     {
         numAspectRatio.Enabled = !chkKeepAspectRatio.Checked;
+        UpdateAspectRatioLimits();
         if (chkKeepAspectRatio.Checked)
             RefreshAutoAspectRatio();
     }
@@ -1005,6 +1268,7 @@ public partial class Image2TextForm : Form
     private void RefreshAutoAspectRatio()
     {
         if (!chkKeepAspectRatio.Checked) return;
+        UpdateAspectRatioLimits();
         double ar = ComputeAspectRatio();
         numAspectRatio.Value = (decimal)Math.Round(ar, 2);
     }

@@ -9,7 +9,7 @@ public class ConversionOptions
     public int Height { get; set; } = 60;
     public bool AutoHeight { get; set; } = true;
     public double AspectRatio { get; set; } = 0.45;
-    public string CharSet { get; set; } = "Standard";
+    public string CharSet { get; set; } = "Simple";
     public string CustomChars { get; set; } = "@#*+:. ";
     public bool Invert { get; set; } = false;
     public bool EdgeDetect { get; set; } = false;
@@ -152,15 +152,39 @@ public static class AsciiArtConverter
             .ToArray();
         if (lines.Length == 0) return new Bitmap(1, 1);
 
-        using var tmp = new Bitmap(1, 1);
-        using var gtmp = Graphics.FromImage(tmp);
-        var lineSize = gtmp.MeasureString("W", font);
-        float charW = lineSize.Width;
-        float charH = lineSize.Height;
+        var measureArea = new Size(int.MaxValue / 4, int.MaxValue / 4);
+        const TextFormatFlags flags =
+            TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine;
 
-        int maxCols = lines.Max(l => l.Length);
-        int imgW = (int)(charW * maxCols) + 4;
-        int imgH = (int)(charH * lines.Length) + 4;
+        var cellSz = TextRenderer.MeasureText("W", font, measureArea, flags);
+        float cellH = Math.Max(1f, cellSz.Height);
+
+        int maxW = 0;
+        foreach (var line in lines)
+        {
+            if (line.Length == 0) continue;
+            var sz = TextRenderer.MeasureText(line, font, measureArea, flags);
+            maxW = Math.Max(maxW, sz.Width);
+        }
+        if (maxW == 0)
+            maxW = Math.Max(1, cellSz.Width);
+
+        bool hasBlockChars = lines.Any(l => l.Any(c => c is '█' or '▓' or '▒' or '░'));
+        if (hasBlockChars)
+        {
+            int maxCols = lines.Max(l => l.Length);
+            if (maxCols > 0)
+            {
+                var blockSample = new string('█', 10);
+                var blockSz = TextRenderer.MeasureText(blockSample, font, measureArea, flags);
+                float blockAdvance = Math.Max(cellSz.Width, blockSz.Width / 10f);
+                maxW = Math.Max(maxW, (int)Math.Ceiling(blockAdvance * maxCols));
+            }
+            maxW += (int)Math.Ceiling((float)cellSz.Width) + 4;
+        }
+
+        int imgW = maxW + 4;
+        int imgH = (int)Math.Ceiling(cellH * lines.Length) + 4;
 
         var bmp = new Bitmap(imgW, imgH);
         using var g = Graphics.FromImage(bmp);
@@ -168,19 +192,19 @@ public static class AsciiArtConverter
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
 
         using var brush = new SolidBrush(foreColor);
-        using var sf = new StringFormat(StringFormat.GenericTypographic)
+        using var drawSf = new StringFormat(StringFormat.GenericTypographic)
         {
             Alignment = StringAlignment.Center,
             LineAlignment = StringAlignment.Near,
             FormatFlags = StringFormatFlags.MeasureTrailingSpaces
         };
 
-        float startY = (imgH - charH * lines.Length) / 2f;
+        float startY = (imgH - cellH * lines.Length) / 2f;
         for (int i = 0; i < lines.Length; i++)
         {
             if (lines[i].Length == 0) continue;
-            var rect = new RectangleF(0, startY + i * charH, imgW, charH);
-            g.DrawString(lines[i], font, brush, rect, sf);
+            var rect = new RectangleF(0, startY + i * cellH, imgW, cellH);
+            g.DrawString(lines[i], font, brush, rect, drawSf);
         }
 
         return bmp;
